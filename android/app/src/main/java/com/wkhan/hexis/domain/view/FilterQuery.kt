@@ -1,0 +1,75 @@
+package com.wkhan.hexis.domain.view
+
+import com.wkhan.hexis.data.entity.TaskEntity
+import com.wkhan.hexis.domain.priority.PriorityLevel
+import kotlinx.serialization.Serializable
+import com.wkhan.hexis.util.AppJson
+import java.time.Instant
+import java.time.ZoneId
+
+/**
+ * A saved-filter query. Each non-empty criterion group is one condition; groups are combined with
+ * AND when [matchAll] is true, otherwise OR. Within a group the test is "task matches any listed
+ * value". Serialized into [com.wkhan.hexis.data.entity.FilterEntity.queryJson].
+ */
+@Serializable
+data class FilterQuery(
+    val matchAll: Boolean = true,
+    val listIds: Set<String> = emptySet(),
+    val folderIds: Set<String> = emptySet(), // task's effective folder (direct, or via its list) is one of these
+    val tagIds: Set<String> = emptySet(),
+    val contextIds: Set<String> = emptySet(),
+    val levels: Set<String> = emptySet(),     // PriorityLevel names: HIGH/MEDIUM/LOW/NONE
+    val flaggedOnly: Boolean = false,         // task carries any flag
+    val starredOnly: Boolean = false,         // task is starred (focus now)
+    val flagIds: Set<String> = emptySet(),    // task carries one of these specific flags
+    val dueWithinDays: Int? = null,           // null = ignore; N = due within N days (0 = today or overdue)
+    val maxDurationMin: Int? = null,          // null = ignore; N = task estimate fits within N minutes
+    val recurring: Boolean? = null,           // null = ignore; true = only recurring; false = only one-off
+    val recurFreqs: Set<String> = emptySet(), // Freq names (DAILY/WEEKDAYS/WEEKLY/MONTHLY/YEARLY) to match
+    val includeCompleted: Boolean = false,
+    val includeChildren: Boolean = false,     // also include the subtasks of any matched task
+) {
+    fun isEmpty(): Boolean =
+        listIds.isEmpty() && folderIds.isEmpty() && tagIds.isEmpty() && contextIds.isEmpty() && levels.isEmpty() &&
+            !flaggedOnly && !starredOnly && flagIds.isEmpty() && dueWithinDays == null && maxDurationMin == null &&
+            recurring == null && recurFreqs.isEmpty()
+}
+
+object Filters {
+    private val json = AppJson
+    fun encode(q: FilterQuery): String = json.encodeToString(FilterQuery.serializer(), q)
+    fun parse(s: String?): FilterQuery = if (s.isNullOrBlank()) FilterQuery() else runCatching { json.decodeFromString(FilterQuery.serializer(), s) }.getOrDefault(FilterQuery())
+
+    fun matches(q: FilterQuery, task: TaskEntity, taskTagIds: Set<String>, taskCtxIds: Set<String>, now: Long, zone: ZoneId, taskFolderId: String? = null): Boolean {
+        if (task.trashed) return false
+        if (!q.includeCompleted && (task.completed || task.abandoned)) return false
+        val checks = ArrayList<Boolean>(8)
+        if (q.listIds.isNotEmpty()) checks += task.listId in q.listIds
+        if (q.folderIds.isNotEmpty()) checks += taskFolderId != null && taskFolderId in q.folderIds
+        if (q.tagIds.isNotEmpty()) checks += taskTagIds.any { it in q.tagIds }
+        if (q.contextIds.isNotEmpty()) checks += taskCtxIds.any { it in q.contextIds }
+        if (q.levels.isNotEmpty()) checks += PriorityLevel.from(task.importance, task.urgency).name in q.levels
+        if (q.flaggedOnly) checks += task.flagId != null
+        if (q.starredOnly) checks += task.star
+        if (q.flagIds.isNotEmpty()) checks += task.flagId in q.flagIds
+        q.dueWithinDays?.let { days ->
+            val due = task.dueDate
+            checks += due != null && run {
+                val d = Instant.ofEpochMilli(due).atZone(zone).toLocalDate()
+                val today = Instant.ofEpochMilli(now).atZone(zone).toLocalDate()
+                !d.isAfter(today.plusDays(days.toLong()))
+            }
+        }
+        // "Time available": the task's estimate (default 15 min) fits the window.
+        q.maxDurationMin?.let { cap -> checks += (task.estimateMin ?: 15) <= cap }
+        // Recurrence: is-recurring gate, plus optional frequency match on the task's own rule.
+        q.recurring?.let { want -> checks += (!task.rrule.isNullOrBlank()) == want }
+        if (q.recurFreqs.isNotEmpty()) {
+            val fr = com.wkhan.hexis.domain.recurrence.Recurrence.parse(task.rrule)?.freq?.name
+            checks += fr != null && fr in q.recurFreqs
+        }
+        if (checks.isEmpty()) return true
+        return if (q.matchAll) checks.all { it } else checks.any { it }
+    }
+}

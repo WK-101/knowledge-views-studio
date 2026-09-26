@@ -5,7 +5,7 @@ TickTick-grade UI, plus habit-building, time-tracking, a dedicated calendar, and
 Native **Kotlin + Jetpack Compose (Material 3)**, **Room/SQLite encrypted with SQLCipher**, **no account,
 no network permission**, everything free, lossless JSON export/import.
 
-- **Package:** `com.wkhan.kairo` (the code namespace stays `com.todocompanion.app`, so class names, the
+- **Package:** `com.wkhan.hexis` (the code namespace stays `com.wkhan.hexis`, so class names, the
   `R` class and `FileProvider` authorities are unchanged).
 - **Security & privacy threat model:** [`docs/SECURITY.md`](docs/SECURITY.md)
 - **Accessibility & contrast audit:** [`docs/ACCESSIBILITY.md`](docs/ACCESSIBILITY.md)
@@ -87,7 +87,7 @@ verified on device), F-Droid/fastlane store metadata committed under `fastlane/m
 published to a store — that is a deliberate, separate step, not a build gap.
 
 ## App identity
-- **applicationId:** `com.wkhan.kairo` (stable, so updates install in place).
+- **applicationId:** `com.wkhan.hexis` (stable, so updates install in place).
 - **minSdk 26** (Android 8.0), **targetSdk 35**, **compileSdk 35** (Android 15).
 
 ## Toolchain

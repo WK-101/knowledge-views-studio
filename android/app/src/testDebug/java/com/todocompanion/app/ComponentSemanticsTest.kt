@@ -1,4 +1,4 @@
-package com.todocompanion.app
+package com.wkhan.hexis
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.graphics.Color
@@ -12,10 +12,10 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import com.todocompanion.app.ui.components.ColorPickerButton
-import com.todocompanion.app.ui.components.EmptyState
-import com.todocompanion.app.ui.components.SmallCheck
-import com.todocompanion.app.ui.components.TipBanner
+import com.wkhan.hexis.ui.components.ColorPickerButton
+import com.wkhan.hexis.ui.components.EmptyState
+import com.wkhan.hexis.ui.components.SmallCheck
+import com.wkhan.hexis.ui.components.TipBanner
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test

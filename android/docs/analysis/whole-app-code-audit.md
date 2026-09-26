@@ -1,4 +1,4 @@
-# Kairo — Whole-App Code Audit & Improvement Plan
+# Hexis — Whole-App Code Audit & Improvement Plan
 
 _Comprehensive engineering audit across code quality, maintainability, scalability, data
 storage, performance, UI reuse and cross-module consistency, with a phased plan to reach
@@ -89,7 +89,7 @@ release manifest re-checked: still **no** INTERNET/NETWORK/LOCATION/MEDIA/STORAG
 | Architecture | 8.2 | **8.6 ↑** | shared `FeatureViewModel` base (39 L) invoked by all 5 collaborators; `TasksViewModel` view-state carve behind shims; render pipeline kept as a documented boundary. |
 | Data | 8.0 | **8.5 ↑** | 82 contiguous documented migrations v5→v87, `exportSchema=true`, destructive fallback **downgrade-only**; backup round-trip now exhaustive over the relational model (flags/tags/contexts/deps + all 50 entities). |
 | Maintainability | 6.5 | **7.2 ↑** | read-models single-sourced (edit-one-place); `DayReviewScreen` 3247→1937 + 4 focused siblings; one canonical `formatMinutes` (`util/Format.kt:12-19`) for 10 sites. |
-| UI | 7.0 | **7.8 ↑** | `KairoTopBar` across 20 files; `KairoShapes` single-sources Pill/Card radii; dark/AMOLED-aware `LocalKairoColors` on chips + swipe (`TaskRow.kt:64-78`, `Common.kt` 0 hex literals). |
+| UI | 7.0 | **7.8 ↑** | `HexisTopBar` across 20 files; `HexisShapes` single-sources Pill/Card radii; dark/AMOLED-aware `LocalHexisColors` on chips + swipe (`TaskRow.kt:64-78`, `Common.kt` 0 hex literals). |
 | Testing | 7.0 | **7.8 ↑** | 3 real non-stub JVM tests added (feature-VM characterization, exhaustive backup round-trip, headless migration-chain guard) atop 573 `@Test`. |
 | Cross-module | 6.5 | **7.0 ↑** | one shared cross-cutting base abstraction; collaborators well-scoped (caveat: bidirectional AppVM↔collaborator refs — bounded, intentional). |
 | Accessibility | (folded 7.0) | **6.5 (broken out)** | `Role.Button`/`onClickLabel` on nav+task rows via `clickableRow` (`ClickableRow.kt:16-20`); 48dp touch targets; checkbox role/state semantics. |
@@ -97,9 +97,9 @@ release manifest re-checked: still **no** INTERNET/NETWORK/LOCATION/MEDIA/STORAG
 
 ### The 20 fixes — all confirmed PRESENT
 
-- **Tier 1 (quick wins):** #1 `shareIn` hot repo flows · #2 one `formatMinutes` (10 callers) · #3 dead code deleted (`AppViewModel.search`, `keepTan`; 0 `@Suppress("unused")` remain) · #4 migration comments corrected (header now "82 migrations v5→v87") · #5 `KairoTopBar` migration (20 files) · #6 48dp tap targets · #7 shared `ProgressCard` (share-image renderer, reused 8+ sites) · #11 pre-grouped habit checkins.
-- **Tier 2 (high-leverage):** #8 `lifecycle-runtime-compose` dep · #9 gated `settings` KeyStore-decrypt + disk-write · #10 7 `Eagerly`→`WhileSubscribed` with `*Now()` imperative reads · #12 dark-aware chip/swipe colors (`LightKairoColors`/`DarkKairoColors`) · #13 `FeatureViewModelCharacterizationTest` (5 real tests, workspace-scope + non-leak) · #14 exhaustive `BackupRoundTripTest`.
-- **Tier 3 (structural):** #15 `TasksViewModel` extraction · #16 shared `FeatureViewModel` base (4 duplicated infra copies → 1) · #17 `DayReviewScreen` split (3247→1937 + 4 siblings) · #18 `Role.Button`/`clickableRow` on core rows · #19 `KairoShapes`/`NotesTokens` single-sourced radii · #20 `MigrationChainGuardTest` headless guard + documented no-unused-index decision.
+- **Tier 1 (quick wins):** #1 `shareIn` hot repo flows · #2 one `formatMinutes` (10 callers) · #3 dead code deleted (`AppViewModel.search`, `keepTan`; 0 `@Suppress("unused")` remain) · #4 migration comments corrected (header now "82 migrations v5→v87") · #5 `HexisTopBar` migration (20 files) · #6 48dp tap targets · #7 shared `ProgressCard` (share-image renderer, reused 8+ sites) · #11 pre-grouped habit checkins.
+- **Tier 2 (high-leverage):** #8 `lifecycle-runtime-compose` dep · #9 gated `settings` KeyStore-decrypt + disk-write · #10 7 `Eagerly`→`WhileSubscribed` with `*Now()` imperative reads · #12 dark-aware chip/swipe colors (`LightHexisColors`/`DarkHexisColors`) · #13 `FeatureViewModelCharacterizationTest` (5 real tests, workspace-scope + non-leak) · #14 exhaustive `BackupRoundTripTest`.
+- **Tier 3 (structural):** #15 `TasksViewModel` extraction · #16 shared `FeatureViewModel` base (4 duplicated infra copies → 1) · #17 `DayReviewScreen` split (3247→1937 + 4 siblings) · #18 `Role.Button`/`clickableRow` on core rows · #19 `HexisShapes`/`NotesTokens` single-sourced radii · #20 `MigrationChainGuardTest` headless guard + documented no-unused-index decision.
 
 ### The three named ceilings to 9.5 (honest — not reached)
 
@@ -142,7 +142,7 @@ move **down** to honest numbers and two move **up** (the code is better than ass
 | **Overall** | **≈8.0** | **≈7.5** | the gap to 9.5 is concentrated in Maintainability / Cross-module / Testing / UI, not diffuse. |
 
 **Prioritized plan (impact ÷ effort).**
-- *Tier 1 — quick wins:* `shareIn` the hot repo flows (`allTasks` first); one `formatMinutes()` for the 6 copies + 33 raw idioms; delete dead `AppViewModel.search` + `keepTan`; fix the stale migration-count comments; migrate the 29 hand-rolled `TopAppBar(52.dp)` → `KairoTopBar`; fix the sub-48dp tap targets; route the 3 share flows through `ProgressCard`.
+- *Tier 1 — quick wins:* `shareIn` the hot repo flows (`allTasks` first); one `formatMinutes()` for the 6 copies + 33 raw idioms; delete dead `AppViewModel.search` + `keepTan`; fix the stale migration-count comments; migrate the 29 hand-rolled `TopAppBar(52.dp)` → `HexisTopBar`; fix the sub-48dp tap targets; route the 3 share flows through `ProgressCard`.
 - *Tier 2 — high-leverage:* adopt `collectAsStateWithLifecycle` (436 sites); gate the per-emit `settings` KeyStore-decrypt + disk-write; move the 7 `Eagerly` flows to `WhileSubscribed`; pre-group checkins for the habits list (O(H×C)→O(C)); dark-aware `captureChipColor` + collapse drifting color maps; characterization tests for the 5 feature VMs; make `BackupRoundTripTest` table-exhaustive.
 - *Tier 3 — structural:* extract a `TasksViewModel`; lift the copy-pasted VM infra into a shared base; split `DayReviewScreen`; `Role.Button` on ~200 clickable rows via one helper; adopt (or retire) the spacing/shape tokens; headless v5–v58 migration schema check + index `time_entries.workspaceId`/`events.calendarId`; (ceiling) decompose `AppRepository`.
 
@@ -963,8 +963,8 @@ rather than a half-finished refactor.
 > | Per-habit / DayReview / Tasks-strip memo | P4/P6 (High) | ✅ Done | keyed `remember` on real inputs |
 > | `nudge_events` index + migration v82→v83 | D5 (High) | ✅ Done | schema 83.json exported & verified |
 > | `HabitDao.getById` (drop whole-table scans) | D6 (Medium) | ✅ Done | 5 hot paths |
-> | `KairoScreenScaffold` + 10 screens migrated | U1 (High) | ✅ Done | Scaffold+TopAppBar duplication removed from 10 |
-> | `Spacing` tokens + `KairoTopBar` | U3 (High, partial) | ◑ Partial | tokens exist; adoption ongoing |
+> | `HexisScreenScaffold` + 10 screens migrated | U1 (High) | ✅ Done | Scaffold+TopAppBar duplication removed from 10 |
+> | `Spacing` tokens + `HexisTopBar` | U3 (High, partial) | ◑ Partial | tokens exist; adoption ongoing |
 > | Constructor-inject repo into VM | A2 (Critical) | ✅ Done | `internal (app, repo)` ctor; VM now unit-testable |
 > | gzip encrypted backup/sync (TCENC4) | D4 / #525 (High) | ✅ Done | CryptoGzip 3/3; backward-compatible |
 >
@@ -1003,7 +1003,7 @@ rather than a half-finished refactor.
 >
 > _The full original audit and phased plan follow unchanged below._
 
-**Date:** 2026-09-20 · **Scope:** `android/app/src/main/java/com/todocompanion/app/`
+**Date:** 2026-09-20 · **Scope:** `android/app/src/main/java/com/wkhan/hexis/`
 · **Method:** static read-only audit of the whole source tree (287 Kotlin files, ~81,745
 LOC) across five parallel dimensions, cross-referenced.
 
@@ -1011,7 +1011,7 @@ LOC) across five parallel dimensions, cross-referenced.
 
 ## 1. Executive summary
 
-Kairo is a large, genuinely feature-complete offline productivity suite with real
+Hexis is a large, genuinely feature-complete offline productivity suite with real
 engineering investment behind it — an exported Room schema with an instrumented migration
 test, KeyStore-wrapped SQLCipher encryption, R8 shrinking, a lint gate, a UI-coherence
 ratchet, 72 JVM/Robolectric tests, and a well-factored `domain/` layer of small pure-logic
@@ -1169,18 +1169,18 @@ and **0** `derivedStateOf` in total._
 
 _A real, good shared library exists (`components/` — `AppCard`, `AppTextField`,
 `EmptyState`, `ConfirmDialog`, `AppColorPicker`, `OptionChips`, `PrioritySheet`,
-`KairoColors`). Adoption is strong in places (0 raw Material `Card(`; `EmptyState` ×23;
+`HexisColors`). Adoption is strong in places (0 raw Material `Card(`; `EmptyState` ×23;
 `OptionChips` ~290×) but collapses at three seams._
 
 | # | Sev | Finding | Evidence |
 |---|---|---|---|
-| U1 | High | No shared screen scaffold / top bar — the header block is copy-pasted across ~26 screens | `Scaffold(` 56× / 26 files; `TopAppBar(` 37× / 26 files; `expandedHeight = 52.dp` repeated 36×; the exact `navigationIcon = { IconButton(onClick=onBack){ Icon(ArrowBack,"Back") } }` byte-identical in 24 places. `LifeSystemsScreens.kt:124` already has a private `LSScaffold` that proves the abstraction — trapped in one file. **Promote to `KairoScreenScaffold`.** |
-| U2 | High | Dialogs hand-rolled 143× vs 16× via shared `ConfirmDialog` | Raw `AlertDialog(` 143× / 34 files; `ConfirmDialog(` 16× / 10. Textbook dup: `TaskDetailScreen.kt:856` re-implements `ConfirmDialog(destructive=true)` by hand-tinting the error button. Route simple yes/no through `ConfirmDialog`; add a `KairoDialog` scaffold for field-bearing ones. |
+| U1 | High | No shared screen scaffold / top bar — the header block is copy-pasted across ~26 screens | `Scaffold(` 56× / 26 files; `TopAppBar(` 37× / 26 files; `expandedHeight = 52.dp` repeated 36×; the exact `navigationIcon = { IconButton(onClick=onBack){ Icon(ArrowBack,"Back") } }` byte-identical in 24 places. `LifeSystemsScreens.kt:124` already has a private `LSScaffold` that proves the abstraction — trapped in one file. **Promote to `HexisScreenScaffold`.** |
+| U2 | High | Dialogs hand-rolled 143× vs 16× via shared `ConfirmDialog` | Raw `AlertDialog(` 143× / 34 files; `ConfirmDialog(` 16× / 10. Textbook dup: `TaskDetailScreen.kt:856` re-implements `ConfirmDialog(destructive=true)` by hand-tinting the error button. Route simple yes/no through `ConfirmDialog`; add a `HexisDialog` scaffold for field-bearing ones. |
 | U3 | High | Shape token scale exists but is used **0×**; no spacing scale at all | `Theme.kt:81` defines `AppShapes` — `MaterialTheme.shapes` referenced **0 times**. Instead **439 inline `RoundedCornerShape(n.dp)`** across ~22 distinct radii; `AppCard` itself hardcodes `RoundedCornerShape(16.dp)`. **4,944 raw `.dp`** literals, no `Spacing`/`Dimens` object; `padding(16.dp)` (the de-facto gutter) undeclared. `NotesTokens.kt` even re-solves this locally, duplicating `AppShapes`. |
 | U4 | High | 30+ oversized screen composables | `SettingsScreen` body 1,664 · `AppRoot` 1,316 · `TaskDetailScreen` 1,125 · `DayReviewScreen` 1,043 · `NoteEditorScreen` 1,018. These monoliths are *why* the chrome/dialog/shape duplication proliferates — each re-inlines its own. |
 | U5 | Medium | Stat/tile pattern reimplemented 5× | Canonical `StatTile`/`MetricTile` are `internal` to `ReviewComponents.kt`; `DoneScreen.Stat`, `NotesWave2Ui.LedgerStat`, two near-identical `StatRow`s (differ only 2.dp vs 3.dp). Promote + delete clones. |
 | U6 | Medium | Date-picker fragmentation | `Pickers.kt` already has 4 overlapping date entry points; `NoteEditorBody.kt:975` hand-rolls a 5th with raw `DatePickerDialog`. |
-| U7 | Medium | 63 `Color(0x…)` literals in 11 screens despite `KairoColors` | e.g. `QuickAddHighlight.kt:20-35` fixes NLP highlight colors as light-mode hexes that don't adapt to dark/AMOLED. Map onto `LocalKairoColors`. |
+| U7 | Medium | 63 `Color(0x…)` literals in 11 screens despite `HexisColors` | e.g. `QuickAddHighlight.kt:20-35` fixes NLP highlight colors as light-mode hexes that don't adapt to dark/AMOLED. Map onto `LocalHexisColors`. |
 
 > The UI-coherence ratchet (`build.gradle.kts`) already tracks these bypasses — the
 > committed baseline is `roundedCornerShape=380`, `colorLiteral=63`, `fontSizeLiteral=27`.
@@ -1243,9 +1243,9 @@ These are user-visible bugs, not code smells.
 8. **Add `nudge_events(habitId, epochDay)` index** (D5) and **`HabitDao.getById`** to stop `getAll().firstOrNull{}` on hot paths (D6).
 
 ### Phase 2 — UI consistency foundation (unblocks decomposition)
-9. **Extract `KairoScreenScaffold` + `KairoTopBar`** (promote `LSScaffold`) and migrate the 26 screens (U1) — removes the single most-copied block.
+9. **Extract `HexisScreenScaffold` + `HexisTopBar`** (promote `LSScaffold`) and migrate the 26 screens (U1) — removes the single most-copied block.
 10. **Introduce `Spacing` tokens + adopt `MaterialTheme.shapes`**, delete `NotesTokens`, point `AppCard` at `shapes.medium` (U3); lower the coherence-ratchet baseline as counts drop.
-11. **Route simple dialogs through `ConfirmDialog`; add a `KairoDialog` scaffold** (U2). Promote `StatTile`/`StatRow` (U5), consolidate date pickers (U6), migrate stray hex to `KairoColors` (U7).
+11. **Route simple dialogs through `ConfirmDialog`; add a `HexisDialog` scaffold** (U2). Promote `StatTile`/`StatRow` (U5), consolidate date pickers (U6), migrate stray hex to `HexisColors` (U7).
 
 ### Phase 3 — Architecture decomposition (the structural bet)
 12. **Constructor-inject the repository + controllers into the VM** via a `ViewModelProvider.Factory` (A2). *Prerequisite for everything else* — immediately unlocks VM unit tests.
@@ -1291,7 +1291,7 @@ Phase 5  ███ scale & polish  (ongoing)
 | Memoize Calendar per-day maps (P2/P3) | S | Fixes the worst per-frame cost in the app |
 | SCORE-sort `explain`→`score` (P7) | S | Thousands fewer `String.format`/pipeline run |
 | Fix editor back-button semantics (X1) | S | Ends silent data loss in 5 of 7 editors |
-| Promote `KairoScreenScaffold` (U1) | S–M | One edit changes app chrome instead of 26 |
+| Promote `HexisScreenScaffold` (U1) | S–M | One edit changes app chrome instead of 26 |
 
 ---
 
@@ -1317,7 +1317,7 @@ These are the parts that are already excellent; preserve their invariants:
 
 ## 8. Bottom line
 
-Kairo is a secure, permission-free, feature-rich app with a healthy pure-logic core and
+Hexis is a secure, permission-free, feature-rich app with a healthy pure-logic core and
 excellent data-at-rest engineering. It is **not yet** top-of-the-line on *engineering*
 because three structural facts — a god-ViewModel, a main-thread whole-table reactive
 pipeline, and per-domain pattern divergence — cap testability, scale and consistency. The

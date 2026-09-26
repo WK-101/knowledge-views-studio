@@ -1,6 +1,6 @@
-# Kairo — Hidden-volume (plausible-deniability) vault: design & why it isn't shipped yet
+# Hexis — Hidden-volume (plausible-deniability) vault: design & why it isn't shipped yet
 
-Kairo's Vault encrypts individual notes with a passphrase-derived AES-GCM envelope
+Hexis's Vault encrypts individual notes with a passphrase-derived AES-GCM envelope
 (`PortableCrypto` / `NoteVault`). This document specifies what a *deniable* vault —
 one that survives coercion ("unlock it or else") — would require, and states plainly
 why shipping a partial version would be **worse than shipping nothing**.
@@ -21,7 +21,7 @@ The tempting shortcut — "a second 'duress' passphrase that decrypts to decoys"
 the only test that matters, because **the real data's existence must be unprovable**:
 
 - A vaulted note today is a visible row whose body is a recognizable `PortableCrypto`
-  envelope (`{"magic":"kairo-encrypted-backup",...}`). Anyone imaging the DB or a
+  envelope (`{"magic":"hexis-encrypted-backup",...}`). Anyone imaging the DB or a
   backup can *count the encrypted notes*. A duress passphrase that opens only some of
   them advertises that the others exist — so the coercer simply says "now the real
   one." Deniability that can be disproven is a trap: it invites escalation and the user
@@ -87,7 +87,7 @@ ship on PBKDF2. (The envelope/marker seam from R2-B is where it plugs in.)
    subtle break here doesn't degrade gracefully, it gets a user hurt. This is the one
    place "ship a partial version" is actively dangerous.
 3. **The honest limit already documented** (see `docs/SECURITY.md` / the re-audit) is
-   the correct interim posture: Kairo defends the lost/stolen device (T3) well and
+   the correct interim posture: Hexis defends the lost/stolen device (T3) well and
    states plainly that it does not defend coerced disclosure (T5). Saying so is safer
    than a deniability feature a coercer can disprove.
 
@@ -96,6 +96,6 @@ ship on PBKDF2. (The envelope/marker seam from R2-B is where it plugs in.)
 - Prototype the container format and an adversarial "existence test" harness (given the
   container + outer passphrase, prove you cannot detect the hidden volume) **before** any
   UI. The test harness is the deliverable that earns the feature the right to exist.
-- Keep it entirely offline and permission-free, consistent with the rest of Kairo.
+- Keep it entirely offline and permission-free, consistent with the rest of Hexis.
 
 _This document is intent and rationale; it ships no code and changes no behavior._

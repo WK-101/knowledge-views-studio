@@ -1,0 +1,187 @@
+package com.wkhan.hexis.domain.view
+
+import com.wkhan.hexis.data.entity.TaskEntity
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
+
+/** Which smart list, list, tag or context is being viewed. */
+sealed interface ViewRef {
+    data class Smart(val kind: SmartKind) : ViewRef
+    data class ListView(val listId: String) : ViewRef
+    data class FolderView(val folderId: String) : ViewRef
+    data class TagView(val tagId: String) : ViewRef
+    data class ContextView(val contextId: String) : ViewRef
+    data class FilterView(val filterId: String) : ViewRef
+}
+
+enum class SmartKind(val title: String) {
+    INBOX("Inbox"),
+    TODAY("Today"),
+    TOMORROW("Tomorrow"),
+    NEXT7("Next 7 Days"),
+    DO_NEXT("Do Next"),
+    SCHEDULED("Scheduled"),
+    FLAGGED("Flagged"),
+    GOALS("Goals"),
+    WAITING("Waiting On"),
+    NEEDS_ATTENTION("Needs Attention"),
+    SOMEDAY("Someday"),
+    ALL("All"),
+    COMPLETED("Completed"),
+    WONT_DO("Won't Do"),
+    TRASH("Trash"),
+}
+
+enum class GroupMode { NONE, DATE, PRIORITY, CONTEXT, FLAG }
+enum class SortMode { MANUAL, PRIORITY, DUE, TITLE, FLAG, COMPLETED, SCORE }
+
+enum class Bucket(val label: String) {
+    OVERDUE("Overdue"), TODAY("Today"), TOMORROW("Tomorrow"),
+    WEEK("Next 7 days"), LATER("Later"), NODATE("No date")
+}
+
+/** R28 #2 — date buckets for FINISHED work: a completed task belongs to when it was DONE, not when it was
+ *  due (which is always in the past, so date-grouping used to dump everything into "Overdue"). */
+enum class DoneBucket(val label: String) {
+    TODAY("Today"), YESTERDAY("Yesterday"), WEEK("Earlier this week"),
+    MONTH("Earlier this month"), EARLIER("Earlier")
+}
+
+@androidx.compose.runtime.Immutable
+data class TaskGroup(val key: String, val title: String, val tasks: List<TaskEntity>)
+
+object TaskViews {
+
+    /** A task counts as neglected after this long with no edits (and no date). */
+    private const val STALE_MS = 21L * 86_400_000L
+
+    // [dayStartMin] shifts the day boundary later than midnight ("day starts at" setting): a moment
+    // is mapped to the day it belongs to *after* subtracting the rollover, so e.g. with a 3am start,
+    // 1am Tue still counts as Monday.
+    private fun localDate(millis: Long, zone: ZoneId, dayStartMin: Int = 0): LocalDate =
+        Instant.ofEpochMilli(millis - dayStartMin * 60_000L).atZone(zone).toLocalDate()
+
+    fun bucketOf(task: TaskEntity, now: Long, zone: ZoneId = ZoneId.systemDefault(), dayStartMin: Int = 0): Bucket {
+        val due = task.dueDate ?: return Bucket.NODATE
+        val today = localDate(now, zone, dayStartMin)
+        val d = localDate(due, zone, dayStartMin)
+        return when {
+            d.isBefore(today) -> Bucket.OVERDUE
+            d == today -> Bucket.TODAY
+            d == today.plusDays(1) -> Bucket.TOMORROW
+            d.isBefore(today.plusDays(8)) -> Bucket.WEEK
+            else -> Bucket.LATER
+        }
+    }
+
+    /** Which completion bucket a finished task falls into, by its [TaskEntity.completedAt]. */
+    fun doneBucketOf(task: TaskEntity, now: Long, zone: ZoneId = ZoneId.systemDefault(), dayStartMin: Int = 0): DoneBucket {
+        val at = task.completedAt ?: return DoneBucket.EARLIER
+        val today = localDate(now, zone, dayStartMin)
+        val d = localDate(at, zone, dayStartMin)
+        return when {
+            d == today -> DoneBucket.TODAY
+            d == today.minusDays(1) -> DoneBucket.YESTERDAY
+            !d.isBefore(today.minusDays(6)) -> DoneBucket.WEEK
+            d.year == today.year && d.month == today.month -> DoneBucket.MONTH
+            else -> DoneBucket.EARLIER
+        }
+    }
+
+    /** Non-trashed, non-completed, non-abandoned "open" tasks. Someday/Maybe items are parked, so they
+     *  are NOT "open" — they stay out of every active view and surface only in the Someday list. */
+    private fun isOpen(t: TaskEntity) = !t.trashed && !t.completed && !t.abandoned && !t.someday
+
+    /**
+     * Filter tasks for a smart-list view. Tag/context/list views are resolved in the
+     * caller (they need cross-ref data); this handles the smart lists + a plain list.
+     */
+    fun filterSmart(all: List<TaskEntity>, kind: SmartKind, now: Long, zone: ZoneId = ZoneId.systemDefault(), dayStartMin: Int = 0): List<TaskEntity> {
+        val today = localDate(now, zone, dayStartMin)
+        return when (kind) {
+            SmartKind.INBOX -> all.filter { isOpen(it) && it.listId == "inbox" }
+            // Today = due today or overdue, PLUS anything planned to start today (Things-style "start
+            // date"). Without the start clause a "starts today, no due date" task landed in no date list
+            // at all on its day. A future start date is still excluded (a deadline due today always wins,
+            // but a task deferred to next week doesn't clutter Today).
+            SmartKind.TODAY -> all.filter { isOpen(it) &&
+                ((it.dueDate != null && !localDate(it.dueDate!!, zone, dayStartMin).isAfter(today)) ||
+                 (it.startDate != null && localDate(it.startDate!!, zone, dayStartMin) == today)) }
+            SmartKind.TOMORROW -> all.filter { isOpen(it) && it.dueDate != null && localDate(it.dueDate!!, zone, dayStartMin) == today.plusDays(1) }
+            SmartKind.NEXT7 -> all.filter { isOpen(it) && it.dueDate != null && !localDate(it.dueDate!!, zone, dayStartMin).isAfter(today.plusDays(7)) }
+            SmartKind.SCHEDULED -> all.filter { isOpen(it) && it.dueDate != null }
+            SmartKind.FLAGGED -> all.filter { isOpen(it) && it.flagId != null }
+            SmartKind.GOALS -> all.filter { isOpen(it) && it.isGoal }
+            // WAITING is dependency-aware, so the real list is computed in the ViewModel; here we
+            // return an empty base to keep filterSmart pure on tasks.
+            SmartKind.WAITING -> emptyList()
+            SmartKind.NEEDS_ATTENTION -> {
+                // The silent backlog: open, undated, leaf tasks untouched for a while. Container
+                // parents are represented by their children, so they're excluded.
+                val parents = all.asSequence().filter { !it.trashed }.mapNotNull { it.parentId }.toSet()
+                all.filter { isOpen(it) && !it.isNote && it.dueDate == null && it.id !in parents && (now - it.updatedAt) >= STALE_MS }
+            }
+            // GTD Someday/Maybe — parked, uncommitted work; the only view that surfaces it.
+            SmartKind.SOMEDAY -> all.filter { !it.trashed && !it.completed && !it.abandoned && it.someday }
+            SmartKind.ALL -> all.filter { isOpen(it) }
+            SmartKind.DO_NEXT -> all.filter { isOpen(it) }   // ranking applied separately by the engine
+            SmartKind.COMPLETED -> all.filter { it.completed && !it.trashed }
+            SmartKind.WONT_DO -> all.filter { it.abandoned && !it.trashed }
+            SmartKind.TRASH -> all.filter { it.trashed }
+        }
+    }
+
+    fun group(tasks: List<TaskEntity>, mode: GroupMode, now: Long, zone: ZoneId = ZoneId.systemDefault(), dayStartMin: Int = 0, byCompletion: Boolean = false): List<TaskGroup> {
+        return when (mode) {
+            GroupMode.NONE -> listOf(TaskGroup("all", "", tasks))
+            // R28 #2 — in the Completed view, "group by date" means group by when each task was FINISHED.
+            GroupMode.DATE -> if (byCompletion) DoneBucket.entries.mapNotNull { b ->
+                val items = tasks.filter { doneBucketOf(it, now, zone, dayStartMin) == b }
+                if (items.isEmpty()) null else TaskGroup("done_${b.name}", b.label, items)
+            } else Bucket.entries.mapNotNull { b ->
+                val items = tasks.filter { bucketOf(it, now, zone, dayStartMin) == b }
+                if (items.isEmpty()) null else TaskGroup(b.name, b.label, items)
+            }
+            GroupMode.PRIORITY -> {
+                val labels = listOf("High" to 5, "Medium" to 4, "Low" to 3, "None" to 0)
+                labels.mapNotNull { (label, min) ->
+                    val items = tasks.filter { levelBucket(it) == label }
+                    if (items.isEmpty()) null else TaskGroup(label, label, items)
+                }
+            }
+            // Context + flag grouping need entity data, so they're handled in the ViewModel; no-op here.
+            GroupMode.CONTEXT -> listOf(TaskGroup("all", "", tasks))
+            GroupMode.FLAG -> listOf(TaskGroup("all", "", tasks))
+        }
+    }
+
+    private fun levelBucket(t: TaskEntity): String {
+        val m = maxOf(t.importance, t.urgency)
+        return when {
+            m >= 5 -> "High"; m >= 4 -> "Medium"; m >= 3 -> "Low"; else -> "None"
+        }
+    }
+
+    fun sort(tasks: List<TaskEntity>, mode: SortMode, flagRank: Map<String, Int> = emptyMap(), scoreRank: Map<String, Int> = emptyMap()): List<TaskEntity> {
+        // A stable tiebreaker (createdAt, id) keeps order fixed when an unrelated field
+        // (star, flag, updatedAt) changes — otherwise rows visually swap on toggle.
+        val tie = compareBy<TaskEntity>({ it.createdAt }, { it.id })
+        val cmp = when (mode) {
+            SortMode.MANUAL -> compareBy<TaskEntity> { it.sortOrder }
+            SortMode.PRIORITY -> compareByDescending<TaskEntity> { maxOf(it.importance, it.urgency) }
+            SortMode.DUE -> compareBy(nullsLast()) { it: TaskEntity -> it.dueDate }
+            SortMode.TITLE -> compareBy<TaskEntity> { it.title.lowercase() }
+            // Flagged tasks first in flag order; unflagged (rank = MAX) sink to the bottom.
+            SortMode.FLAG -> compareBy<TaskEntity> { it.flagId?.let { id -> flagRank[id] } ?: Int.MAX_VALUE }
+            // R28 #2 — most-recently finished first (for the Completed list / the record).
+            SortMode.COMPLETED -> compareByDescending<TaskEntity> { it.completedAt ?: 0L }
+            // Wave D — the explainable Do-Next "why-now" score as a general list sort (rank 0 = highest
+            // score first; the caller supplies the precomputed rank map).
+            SortMode.SCORE -> compareBy<TaskEntity> { scoreRank[it.id] ?: Int.MAX_VALUE }
+        }
+        // Pinned tasks always float to the top.
+        val pin = compareByDescending<TaskEntity> { it.pinned }
+        return tasks.sortedWith(pin.then(cmp).then(tie))
+    }
+}

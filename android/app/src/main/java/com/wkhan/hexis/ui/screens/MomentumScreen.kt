@@ -1,0 +1,851 @@
+package com.wkhan.hexis.ui.screens
+import com.wkhan.hexis.ui.components.EmptyState
+
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.material3.Surface
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Save
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import com.wkhan.hexis.domain.WeeklyDigest
+import com.wkhan.hexis.domain.nlp.SmartCapture
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import com.wkhan.hexis.domain.habit.HabitInsights
+import com.wkhan.hexis.domain.habit.HabitStats
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.tween
+import com.wkhan.hexis.ui.AppViewModel
+import com.wkhan.hexis.ui.components.AppCard
+import com.wkhan.hexis.ui.components.HexisTopBar
+import com.wkhan.hexis.ui.components.ExpandableSection
+import com.wkhan.hexis.ui.components.StatTile
+import com.wkhan.hexis.ui.components.TipBanner
+import java.time.LocalDate
+import java.time.ZoneId
+
+/**
+ * Q1 — the unified "Momentum" dashboard: the one screen that reads across BOTH halves of the store —
+ * habit strength, task reliability, and focus — into a single daily momentum, with the cross-module
+ * correlations (Q6) that only a unified habit+task app can compute. Entirely on-device.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun MomentumScreen(vm: AppViewModel, onBack: () -> Unit, onOpenGoals: () -> Unit = {}) {
+    BackHandler(onBack = onBack)
+    val habits by vm.habits.collectAsStateWithLifecycle()
+    val checkins by vm.habitCheckins.collectAsStateWithLifecycle()
+    val tasks by vm.tasks.collectAsStateWithLifecycle()
+    val reliability by vm.taskReliability.collectAsStateWithLifecycle()
+    val settings by vm.settings.collectAsStateWithLifecycle()
+    val timeEntries by vm.timeVm.timeEntries.collectAsStateWithLifecycle()
+    val legacyFocus by vm.focusSessions.collectAsStateWithLifecycle()
+    // Track 1.1 — the felt state over the trailing week, for the "How your week felt" readout and the
+    // burnout card's felt line. Reads day logs the same way the Day Review does.
+    val dayLogs by vm.dayLogs.collectAsStateWithLifecycle()
+    // Focus is derived from the one timeline (kind="focus" intervals), so momentum reads the same source
+    // as the time reports — never a divergent second statistic.
+    val focus = remember(timeEntries, legacyFocus) { vm.focusViews() }
+    val habitsOn = com.wkhan.hexis.domain.Modules.isEnabled(settings, com.wkhan.hexis.domain.Modules.HABITS)
+    val tasksOn = com.wkhan.hexis.domain.Modules.isEnabled(settings, com.wkhan.hexis.domain.Modules.TASKS)
+    val timeOn = com.wkhan.hexis.domain.Modules.isEnabled(settings, com.wkhan.hexis.domain.Modules.TIME)
+    val zone = ZoneId.systemDefault()
+    val today = LocalDate.now().toEpochDay()
+
+    val shareCtx = androidx.compose.ui.platform.LocalContext.current
+    var showCapture by remember { mutableStateOf(false) }
+    if (showCapture) SmartCaptureDialog(vm) { showCapture = false }
+    Scaffold(topBar = {
+        HexisTopBar(title = "Momentum", onBack = onBack, actions = {
+            // R3: one capture box that sorts itself into a habit or a task.
+            IconButton(onClick = { showCapture = true }) {
+                Icon(Icons.Filled.Add, "Capture a habit or task")
+            }
+            // R1: share the unified momentum snapshot as an on-device PNG. Offline by construction.
+            IconButton(onClick = { vm.shareMomentum { loc -> if (loc != null) android.widget.Toast.makeText(shareCtx, "Saved a copy to $loc", android.widget.Toast.LENGTH_SHORT).show() } }) {
+                Icon(Icons.Filled.Share, "Share momentum")
+            }
+        })
+    }) { padding ->
+        // Habit strength (avg over active habits — BUILD and QUIT alike; a quit habit's strength is its
+        // clean-streak resilience, which is real momentum). Paused habits are on vacation, so they don't
+        // drag the average. I5: gated to null when the Habits module is off.
+        val activeHabits = habits.filter { !it.archived }
+        val habitStrengthRaw = remember(habits, checkins, today, settings) {
+            val vals = activeHabits.filter { !it.paused }.map { h -> vm.strengthOf(h) }   // Z8: honours the graded-strength opt-in
+            if (vals.isEmpty()) null else vals.average().toInt()
+        }
+        val habitStrength = if (habitsOn) habitStrengthRaw else null
+        // Quit/bad habits are habits too — surface them explicitly so they're never invisible here. The tile
+        // shows how many are clean today and the best current days-free streak across them.
+        val quitHabits = activeHabits.filter { !it.paused && it.habitType == "break" }
+        val quitCleanToday = quitHabits.count { h ->
+            val c = checkins.firstOrNull { it.habitId == h.id && it.epochDay == today }
+            com.wkhan.hexis.domain.habit.HabitStats.isWinDay(h, today, c)
+        }
+        val quitBestStreak = quitHabits.maxOfOrNull { h ->
+            val relapseDays = checkins.filter { it.habitId == h.id && com.wkhan.hexis.domain.habit.HabitStats.isRelapse(h, it.count) }.map { it.epochDay }.toSet()
+            com.wkhan.hexis.domain.habit.HabitStats.currentStreak(h, emptySet(), emptySet(), relapseDays, today)
+        } ?: 0
+        // Task reliability (avg over recurring tasks that have a score).
+        val taskRel = if (tasksOn) reliability.values.map { it.score }.let { if (it.isEmpty()) null else it.average().toInt() } else null
+        // Focus minutes this week.
+        val weekDays = (0 until 7).map { today - it }.toSet()
+        val focusWeek = focus.filter { it.epochDay in weekDays }.sumOf { it.minutes }
+        // Time tracked today (I5: informational; shown as a tile when the Time module is on).
+        val nowMs = System.currentTimeMillis()
+        val dayStart = LocalDate.now(zone).atStartOfDay(zone).toInstant().toEpochMilli()
+        val dayEnd = LocalDate.now(zone).plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
+        val timeTodayMin = if (timeOn) com.wkhan.hexis.domain.TimeTracking.totalMinutes(timeEntries, dayStart, dayEnd, nowMs) else 0
+        val tasksDoneWeek = tasks.count { t -> t.completedAt?.let { java.time.Instant.ofEpochMilli(it).atZone(zone).toLocalDate().toEpochDay() in weekDays } == true }
+
+        // One blended momentum score from whatever signals exist (weights renormalise).
+        val momentum = remember(habitStrength, taskRel, focusWeek) {
+            val parts = buildList {
+                habitStrength?.let { add(it.toDouble() to 0.5) }
+                taskRel?.let { add(it.toDouble() to 0.35) }
+                add((focusWeek.coerceAtMost(300) / 300.0 * 100) to 0.15)
+            }
+            val wsum = parts.sumOf { it.second }
+            if (wsum == 0.0) 0 else (parts.sumOf { it.first * it.second } / wsum).toInt()
+        }
+
+        val correlations = remember(habits, checkins, tasks, today) {
+            HabitInsights.compute(habits, checkins, tasks, today, max = 8)
+                .filter { it.emoji in setOf("🔗", "⚡", "🗝️", "📉") }
+        }
+
+        // I5: when only one module is enabled, "momentum" relabels to that module's own summary rather
+        // than a degenerate one-input score.
+        val enabledMods = com.wkhan.hexis.domain.Modules.enabled(settings)
+        val ringTitle = if (enabledMods.size == 1) when (enabledMods[0]) {
+            com.wkhan.hexis.domain.Modules.HABITS -> "Your habits"
+            com.wkhan.hexis.domain.Modules.TIME -> "Your time"
+            com.wkhan.hexis.domain.Modules.NOTES -> "Your notes"
+            else -> "Your tasks"
+        } else "Today's momentum"
+
+        val nothing = (!habitsOn || activeHabits.isEmpty()) && (!tasksOn || reliability.isEmpty()) && (!timeOn || timeEntries.isEmpty())
+        if (nothing) {
+            Box(Modifier.padding(padding).fillMaxSize(), contentAlignment = Alignment.Center) {
+                EmptyState(
+                    emoji = "⚡",
+                    title = "Your day starts here",
+                    body = "Start a habit, check off a task, or run a timer — your momentum fills in here.",
+                )
+            }
+            return@Scaffold
+        }
+
+        Column(
+            Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState()).padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            // Z5 — capture this month's meta-metric snapshot the first time the dashboard opens each month.
+            androidx.compose.runtime.LaunchedEffect(Unit) { vm.recordMonthlySnapshotIfNeeded() }
+
+            // PC6 — reminder-reliability heads-up: warn once if the OS is set to throttle our alarms.
+            val rHealth = remember(settings) { vm.reminderHealth() }
+            if (!rHealth.ok && !vm.isTipDismissed("reminderhealth")) TipBanner(
+                text = "Reminders may fire late — ${rHealth.issues.firstOrNull() ?: ""} Fix it in Settings ▸ Reminders.",
+                onDismiss = { vm.dismissTip("reminderhealth") },
+            )
+            // PC4 — discoverability: surface the omnibox capture power, once.
+            if (!vm.isTipDismissed("tip_capture")) TipBanner(
+                text = "Tip: in ＋ Capture, type “track deep work” to start a timer, or “read every night” to make a habit.",
+                onDismiss = { vm.dismissTip("tip_capture") },
+            )
+            // Ω3 — adaptive module hints: notice when a disabled module would help, and offer it once.
+            val moduleHints = remember(settings, tasks, habits) { vm.moduleHints() }
+            moduleHints.forEach { h ->
+                if (!vm.isTipDismissed(h.key)) TipBanner(
+                    text = h.text,
+                    onDismiss = { vm.dismissTip(h.key) },
+                    actionLabel = h.actionLabel,
+                    onAction = { vm.setModuleEnabled(h.enableModule, true); vm.dismissTip(h.key) },
+                )
+            }
+
+            // W2 — Right Now: the single next best action, with one tap to act.
+            val rn = remember(tasks, habits, checkins, timeEntries) { vm.rightNow() }
+            if (rn != null) Surface(
+                Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = .55f),
+            ) {
+                Row(Modifier.padding(18.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Right now", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(rn.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(rn.subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Spacer(Modifier.width(10.dp))
+                    FilledTonalButton(onClick = {
+                        when (rn.kind) {
+                            "task" -> rn.taskId?.let { id -> tasks.firstOrNull { it.id == id }?.let { vm.startTimeTrackingForTask(it) } }
+                            "habit" -> rn.habitId?.let { id -> habits.firstOrNull { it.id == id }?.let { h -> vm.cycleHabit(h, java.time.LocalDate.now(java.time.ZoneId.systemDefault()).toEpochDay(), 0) } }
+                        }
+                    }) { Text(rn.actionLabel) }
+                }
+            }
+
+            // W3 — Plan my day: auto-block estimated tasks + turn on track prompts (plan → do → measure).
+            if (tasksOn && timeOn) AppCard {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Plan my day", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                        Text("Time-block today's tasks by your rhythm, and I'll ask to track each block.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    FilledTonalButton(onClick = {
+                        vm.planMyDay { n -> android.widget.Toast.makeText(shareCtx, if (n > 0) "Blocked $n task${if (n == 1) "" else "s"} — track prompts on" else "Nothing to schedule", android.widget.Toast.LENGTH_SHORT).show() }
+                    }) { Text("Plan") }
+                }
+            }
+
+            // The momentum ring.
+            AppCard {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    // R4: announce the score to screen readers (the ring itself is a bare Canvas).
+                    Box(Modifier.size(88.dp).semantics { contentDescription = "Momentum $momentum out of 100" }, contentAlignment = Alignment.Center) {
+                        // The unfilled ring track — a theme token (read here, outside the Canvas draw scope).
+                        val trackColor = MaterialTheme.colorScheme.surfaceVariant
+                        androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
+                            val stroke = 11.dp.toPx()
+                            drawArc(trackColor, -90f, 360f, false, style = androidx.compose.ui.graphics.drawscope.Stroke(stroke, cap = androidx.compose.ui.graphics.StrokeCap.Round))
+                        }
+                        val accent = MaterialTheme.colorScheme.primary
+                        // PC1: the ring fills with a gentle sweep on open — snapped instantly when Reduce motion is on.
+                        val ringFrac by animateFloatAsState(
+                            targetValue = momentum / 100f,
+                            animationSpec = if (settings.reduceMotion) snap() else tween(700),
+                            label = "ring",
+                        )
+                        androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
+                            val stroke = 11.dp.toPx()
+                            drawArc(accent, -90f, ringFrac * 360f, false, style = androidx.compose.ui.graphics.drawscope.Stroke(stroke, cap = androidx.compose.ui.graphics.StrokeCap.Round))
+                        }
+                        Text("$momentum", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                    }
+                    Column {
+                        Text(ringTitle, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                        Text(when {
+                            momentum >= 75 -> "Strong — you're carrying real consistency across the board."
+                            momentum >= 45 -> "Steady — a few nudges away from a great week."
+                            else -> "Rebuilding — small wins today move this fast."
+                        }, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+
+            // Track 1.1 — "How your week felt": the felt lane sitting right beside the output ring, so the
+            // dashboard shows not just how much you did but how the doing actually felt.
+            val feltWeek = remember(dayLogs, today) { vm.feltSummary(today - 6, today) }
+            if (feltWeek.hasData) AppCard {
+                Text("How your week felt", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(8.dp))
+                FeltReadout(feltWeek)
+            }
+
+            // The inputs — a disabled module's tile is dropped so the row only shows what's live.
+            fun fmtMin(m: Int) = com.wkhan.hexis.util.formatMinutes(m)
+            val weekStartMs = LocalDate.now(zone).minusDays(6).atStartOfDay(zone).toInstant().toEpochMilli()
+            val timeWeekMin = if (timeOn) com.wkhan.hexis.domain.TimeTracking.totalMinutes(timeEntries, weekStartMs, dayEnd, nowMs) else 0
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                if (habitsOn) StatTile(value = habitStrength?.let { "$it" } ?: "—", label = "Habit strength", modifier = Modifier.weight(1f))
+                if (tasksOn) StatTile(value = taskRel?.let { "$it%" } ?: "—", label = "Task reliability", modifier = Modifier.weight(1f))
+                StatTile(value = "${focusWeek}m", label = "Focus (7d)", modifier = Modifier.weight(1f))
+                if (timeOn) StatTile(value = fmtMin(timeTodayMin), label = "Time today", modifier = Modifier.weight(1f))
+            }
+            if (timeOn) Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                StatTile(value = fmtMin(timeWeekMin), label = "Time (7d)", modifier = Modifier.weight(1f))
+                Spacer(Modifier.weight(2f))
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                StatTile(value = "${activeHabits.size}", label = "Habits", modifier = Modifier.weight(1f))
+                StatTile(value = "${reliability.size}", label = "Tracked tasks", modifier = Modifier.weight(1f))
+                StatTile(value = "$tasksDoneWeek", label = "Done (7d)", modifier = Modifier.weight(1f))
+            }
+            // Quit/bad habits get their own tiles so they're visibly tracked, not folded silently into the
+            // strength average: how many stayed clean today, and the best current days-free run.
+            if (habitsOn && quitHabits.isNotEmpty()) Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                StatTile(value = "$quitCleanToday/${quitHabits.size}", label = "Quit clean today", modifier = Modifier.weight(1f))
+                StatTile(value = "$quitBestStreak", label = "Best days free", modifier = Modifier.weight(1f))
+                Spacer(Modifier.weight(1f))
+            }
+
+            // ── Tier X · the reasoning layer ─────────────────────────────────────────────────────────
+
+            // X1 — Unified Goals: one objective across a task list + a habit + a time budget, one health bar.
+            // The full editor lives in the dedicated Goals surface; Momentum shows a read-only summary and
+            // opens that one surface, rather than duplicating a second, weaker goals editor here.
+            val goals = remember(settings) { vm.goals() }
+            AppCard {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Goals", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                        Text("One objective across tasks, a habit and a time budget.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    TextButton(onClick = onOpenGoals) { Text(if (goals.isEmpty()) "Add" else "Manage") }
+                }
+                goals.forEach { g ->
+                    val gh = remember(g, tasks, habits, checkins, timeEntries) { vm.goalHealth(g) }
+                    Column(Modifier.fillMaxWidth().padding(top = 10.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("${g.emoji} ${g.name}", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text("${(gh.overall * 100).toInt()}%", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                            // CU5: share a read-only progress card to an accountability partner — no account, no server.
+                            IconButton(onClick = { vm.shareGoalSnapshot(g) }, modifier = Modifier.size(30.dp)) {
+                                Icon(Icons.Filled.Share, "Share progress", Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                        Spacer(Modifier.height(4.dp))
+                        Box(Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)).background(MaterialTheme.colorScheme.surfaceVariant)) {
+                            Box(Modifier.fillMaxWidth(gh.overall.toFloat().coerceIn(0f, 1f)).fillMaxHeight().background(MaterialTheme.colorScheme.primary))
+                        }
+                        Spacer(Modifier.height(4.dp))
+                        val bits = buildList {
+                            if (g.hasTasks) add("✓ ${gh.taskDone}/${gh.taskTotal}")
+                            if (g.hasHabit) add("↻ ${gh.habitStrength}% · ${gh.habitStreak}d")
+                            if (g.hasBudget) add("⏱ ${fmtMin(gh.minutesTracked)}/${fmtMin(gh.budgetMin)}")
+                            gh.daysLeft?.let { add(if (it >= 0) "⌛ ${it}d left" else "⌛ overdue") }
+                        }
+                        if (bits.isNotEmpty()) Text(bits.joinToString("    "), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        // Y1 — self-coaching: the goal proposes its own next move (and a session to start).
+                        val coach = remember(g, gh) { vm.goalCoaching(g) }
+                        if (coach != null) Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text("🧭 ${coach.text}", Modifier.weight(1f), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                            coach.startActivityId?.let { act -> TextButton(onClick = { vm.startActivityTimer(act) }) { Text("Start") } }
+                        }
+                    }
+                }
+                // Y8 — contention: goals competing for the same tracked hours.
+                val contention = remember(goals) { vm.goalContention() }
+                contention.forEach { c ->
+                    Text("⚠︎ $c", Modifier.padding(top = 8.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
+                }
+            }
+
+            // Y6 — anti-burnout radar (Z2: dismissible). A caring, early signal you can silence.
+            val burnout = remember(timeEntries, habits, checkins, settings) { if (vm.isInsightSuppressed("burnout")) null else vm.burnoutSignal() }
+            if (burnout != null) Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.errorContainer.copy(alpha = .55f)) {
+                Column(Modifier.padding(16.dp)) {
+                    Text("A gentle heads-up", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onErrorContainer)
+                    Spacer(Modifier.height(4.dp))
+                    Text(burnout, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onErrorContainer)
+                    // Track 1.1 — cite the felt side when output is up but the days haven't felt good (the real divergence).
+                    if (feltWeek.ratedDays > 0 && feltWeek.avgRating <= 3.2) {
+                        Spacer(Modifier.height(6.dp))
+                        val emo = if (feltWeek.dominantEmotion.isNotBlank()) ", most often feeling ${feltWeek.dominantEmotion.lowercase(java.util.Locale.getDefault())}" else ""
+                        Text("And it hasn't only been busy — your days have averaged ${String.format(java.util.Locale.US, "%.1f", feltWeek.avgRating)}★$emo. High output with a low rating is exactly the divergence worth heeding.",
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onErrorContainer)
+                    }
+                    Row(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text("Snooze a week", Modifier.clickable { vm.snoozeInsight("burnout") }, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onErrorContainer)
+                        Text("Dismiss", Modifier.clickable { vm.dismissInsight("burnout") }, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onErrorContainer)
+                    }
+                }
+            }
+
+            // Y3 — what-if capacity: does new work fit your real hours before you commit?
+            if (tasksOn) {
+                var extraH by remember { mutableIntStateOf(0) }
+                val snap = remember(tasks, settings) { vm.capacitySnapshot(14) }
+                AppCard {
+                    Text("What if I take this on?", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                    Text("Next 2 weeks: ${fmtMin(snap.committedMin)} committed of ${fmtMin(snap.capacityMin)}${if (snap.tracked) " (your tracked capacity)" else ""} — ${fmtMin(snap.freeMin)} free.",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.height(8.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Add", style = MaterialTheme.typography.bodyMedium)
+                        com.wkhan.hexis.ui.components.Stepper(extraH, { extraH = it }, min = 0, max = 80, step = 2, display = { "${it}h" })
+                    }
+                    if (extraH > 0) {
+                        val addMin = extraH * 60
+                        val over = (addMin - snap.freeMin).coerceAtLeast(0)
+                        Text(
+                            if (over == 0) "✓ Fits — you'd still have ${fmtMin(snap.freeMin - addMin)} free."
+                            else "✗ ${fmtMin(over)} over your real capacity — something already committed would slip.",
+                            style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium,
+                            color = if (over == 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                        )
+                    }
+                }
+            }
+
+            // Y4 — your ideal day: a scaffold from your peak window + each habit's real rhythm.
+            val ideal = remember(timeEntries, habits, checkins) { vm.idealDay() }
+            if (ideal.size >= 2) AppCard {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Your ideal day", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                        Text("Shaped from your own patterns — peak focus and habit rhythm.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    if (tasksOn && timeOn) TextButton(onClick = { vm.planMyDay { n -> android.widget.Toast.makeText(shareCtx, if (n > 0) "Blocked $n task${if (n == 1) "" else "s"}" else "Nothing to schedule", android.widget.Toast.LENGTH_SHORT).show() } }) { Text("Use it") }
+                }
+                Spacer(Modifier.height(6.dp))
+                ideal.take(6).forEach { b ->
+                    Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(HabitStats.minuteLabel(b.minute), Modifier.width(72.dp), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                        Text(b.label, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                }
+            }
+
+            // X5 — end-of-day forecast: at your real pace, how many of today's tasks actually land.
+            if (tasksOn) {
+                val fc = remember(tasks, timeEntries, settings) { vm.dayForecast() }
+                if (fc != null) AppCard {
+                    Text("Will today's tasks land?", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        if (fc.willSlip == 0) "At your real pace, all ${fc.willFinish} remaining task${if (fc.willFinish == 1) "" else "s"} fit the time left today."
+                        else "At your real pace, ${fc.willFinish} of ${fc.total} remaining tasks fit — ${fc.willSlip} likely slip${if (fc.willSlip == 1) "s" else ""}.",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Text("Needs ~${fmtMin(fc.neededMin)}${if (fc.calibrated) " at your real pace" else ""}, ${fmtMin(fc.availMin)} left in your day.",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (fc.slipTitles.isNotEmpty()) {
+                        Spacer(Modifier.height(6.dp))
+                        fc.slipTitles.take(3).forEach { Text("• $it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                    }
+                    if (settings.honestCapacity) vm.trackedCapacityHours()?.let { h ->
+                        Spacer(Modifier.height(6.dp))
+                        Text("Capacity from your tracked focus: ~${h}h/day.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                    }
+                }
+            }
+
+            // X8 — day replay: planned blocks with no tracked time, one tap to backfill from the plan.
+            if (timeOn && tasksOn) {
+                val replay = remember(tasks, timeEntries) { vm.dayReplay() }
+                if (replay.isNotEmpty()) AppCard {
+                    Text("Account for today", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                    Text("Planned blocks with no tracked time yet — log them in one tap.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.height(6.dp))
+                    replay.take(4).forEach { b ->
+                        Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text(b.title, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text("${HabitStats.minuteLabel(b.startMin)} · ${fmtMin(b.durMin)}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            TextButton(onClick = { vm.backfillBlock(b) }) { Text("Log") }
+                        }
+                    }
+                }
+            }
+
+            // X7 — insights feed, now Tier-Z trustworthy: Z1 "why?", Z2 dismiss/snooze, Z3 confidence.
+            val insights = remember(tasks, habits, checkins, timeEntries, settings) { vm.insightsFeed() }
+            if (insights.isNotEmpty()) AppCard {
+                Text("What your data noticed", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(2.dp))
+                insights.forEach { ins ->
+                    var showWhy by remember(ins.key) { mutableStateOf(false) }
+                    Column(Modifier.fillMaxWidth().padding(top = 8.dp)) {
+                        Row(verticalAlignment = Alignment.Top) {
+                            Text("✨"); Spacer(Modifier.width(8.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(ins.text, style = MaterialTheme.typography.bodyMedium)
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    ins.confidence?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = if (it.startsWith("High")) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant) }
+                                    if (ins.why != null) {
+                                        if (ins.confidence != null) Text(" · ", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text(if (showWhy) "hide" else "why?", Modifier.clickable { showWhy = !showWhy }, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                                    }
+                                    Text(" · ", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text("snooze", Modifier.clickable { vm.snoozeInsight(ins.key) }, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(" · ", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text("never", Modifier.clickable { vm.dismissInsight(ins.key) }, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                                if (showWhy && ins.why != null) Text(ins.why!!, Modifier.padding(top = 2.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
+                }
+            }
+
+            // R2 / T6 — the weekly "state of you" digest: this week vs last, across every live signal. Track 1 —
+            // the digest is now DERIVED from two ReviewRollups (this week + the week before it), the same
+            // aggregation the recap and the Day-review roll-up read, so all three surfaces report identical
+            // numbers. Time entries are gated by the Time module exactly as before, so the Time tile only appears
+            // when that module is on and has tracked minutes.
+            val digest = remember(habits, checkins, tasks, focus, momentum, timeEntries, timeOn, today) {
+                val te = if (timeOn) timeEntries else emptyList()
+                val cur = com.wkhan.hexis.domain.ReviewRollup.compute(
+                    today - 6, today, emptyList(), emptyList(), habits, checkins, te, emptyList(), zone, nowMs,
+                    tasks = tasks, focusSessions = focus,
+                )
+                val prev = com.wkhan.hexis.domain.ReviewRollup.compute(
+                    today - 13, today - 7, emptyList(), emptyList(), habits, checkins, te, emptyList(), zone, nowMs,
+                    tasks = tasks, focusSessions = focus,
+                )
+                WeeklyDigest.fromRollups(cur, prev, habits, checkins, tasks, focus, momentum, today)
+            }
+            AppCard {
+                Text("Your week", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(4.dp))
+                Text(digest.headline, style = MaterialTheme.typography.bodyMedium)
+                Spacer(Modifier.height(10.dp))
+                val digestUp = MaterialTheme.colorScheme.primary
+                val digestDown = MaterialTheme.colorScheme.error
+                val digestFlat = MaterialTheme.colorScheme.onSurfaceVariant
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    digest.metrics.forEach { m ->
+                        val arrow = when { m.delta > 0 -> "▲ ${m.delta}${m.deltaUnit}"; m.delta < 0 -> "▼ ${-m.delta}${m.deltaUnit}"; else -> "— same" }
+                        StatTile(
+                            value = m.value,
+                            label = m.label,
+                            modifier = Modifier.weight(1f),
+                            sub = arrow + if (m.delta != 0) " vs last wk" else "",
+                            subColor = when { m.delta > 0 -> digestUp; m.delta < 0 -> digestDown; else -> digestFlat },
+                        )
+                    }
+                }
+                if (digest.bestHabit != null || digest.slippingHabit != null) {
+                    Spacer(Modifier.height(10.dp))
+                    digest.bestHabit?.let { Text("🏆 Strongest: $it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                    digest.slippingHabit?.let { Text("🌱 Room to grow: $it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                }
+                Spacer(Modifier.height(8.dp))
+                Text(digest.takeaway, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.primary)
+            }
+
+            // U10 — your data is safe: last-backup age + one-tap export, so the local-only trade never bites.
+            AppCard {
+                Text("Your data is safe", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(4.dp))
+                // The most recent time data left the app — an automatic/manual backup OR a folder sync.
+                // (Auto-backup stamps lastBackupAt; folder sync stamps lastSyncAt.)
+                val lastBk = maxOf(settings.lastBackupAt, settings.lastSyncAt)
+                val ageTxt = if (lastBk <= 0L) "No backup yet." else {
+                    val days = ((nowMs - lastBk) / 86_400_000L).toInt()
+                    when { days <= 0 -> "Last backup today."; days == 1 -> "Last backup yesterday."; else -> "Last backup $days days ago." }
+                }
+                val stale = lastBk <= 0L || (nowMs - lastBk) > 7L * 86_400_000L
+                Text(ageTxt + if (stale) "  Everything lives only on this device — export a copy." else "  You're covered.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (stale) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(8.dp))
+                FilledTonalButton(onClick = {
+                    vm.exportToDownloads("json") { loc -> android.widget.Toast.makeText(shareCtx, if (loc != null) "Backup saved to $loc" else "Couldn't save backup", android.widget.Toast.LENGTH_SHORT).show() }
+                }) { Icon(Icons.Filled.Save, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Back up now") }
+            }
+
+            // V7 — Reality Replay: a shareable recap across all three modules, rendered on-device.
+            AppCard {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Your week in review", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                        Text("A shareable recap — tracked time, tasks, habits, momentum.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    FilledTonalButton(onClick = { vm.shareRecap { } }) { Icon(Icons.Filled.Share, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Share") }
+                }
+            }
+
+            // V12 — the rewards wallet: points earned by doing the work, spent on self-chosen treats.
+            val rewardsList = com.wkhan.hexis.domain.Rewards.parse(settings.rewardsJson)
+            if (rewardsList.isNotEmpty()) AppCard {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Rewards", Modifier.weight(1f), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                    Text("⭐ ${settings.pointsBalance} pts", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
+                }
+                Spacer(Modifier.height(6.dp))
+                rewardsList.forEach { r ->
+                    Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("${r.emoji} ${r.name}", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        TextButton(enabled = settings.pointsBalance >= r.cost, onClick = { vm.redeemReward(r) }) { Text("Redeem · ${r.cost}") }
+                    }
+                }
+            }
+
+            // PC-D — Progressive disclosure: the retrospective analytics below fold away by default so the
+            // screen opens as a scannable summary. Header + one-line summary stay visible; nothing primary or
+            // actionable lives inside — those cards stay above, always visible.
+            ExpandableSection("Deeper insights", summary = "Correlations, plans vs actual, trends & log") {
+
+            // Q6 / U7 — the cross-module correlations, the one thing only a unified store computes.
+            val timeLinks = remember(habits, checkins, timeEntries) { if (timeOn && habitsOn) vm.momentumLinks() else emptyList() }
+            AppCard {
+                Text("What moves what", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(4.dp))
+                if (correlations.isEmpty() && timeLinks.isEmpty()) Text("Keep logging habits, completing tasks and tracking time — the links between them appear here as the data builds.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                else {
+                    correlations.forEach { ins ->
+                        Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.Top) {
+                            Text(ins.emoji); Spacer(Modifier.width(8.dp))
+                            Text(ins.text, style = MaterialTheme.typography.bodyMedium)
+                        }
+                    }
+                    timeLinks.forEach { t ->
+                        Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.Top) {
+                            Text("⏱"); Spacer(Modifier.width(8.dp))
+                            Text(t, style = MaterialTheme.typography.bodyMedium)
+                        }
+                    }
+                }
+            }
+
+            // U6 — plan vs actual (this week) + the estimate-calibration factor. The moat as a number.
+            if (timeOn && tasksOn) {
+                val pa = remember(tasks, timeEntries) { vm.planVsActualWeek() }
+                if (pa.items.isNotEmpty()) AppCard {
+                    Text("Planned vs actual", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(4.dp))
+                    Text("This week you planned ${fmtMin(pa.plannedMin)} and tracked ${fmtMin(pa.actualMin)} across ${pa.items.size} task${if (pa.items.size == 1) "" else "s"}.",
+                        style = MaterialTheme.typography.bodyMedium)
+                    pa.calibration?.let { cal ->
+                        Spacer(Modifier.height(6.dp))
+                        // Track 1.4 — verdict from the one shared Calibration engine (the unified VERDICT_TOLERANCE),
+                        // replacing the ad-hoc ±10% thresholds so all three surfaces agree on over / under / on-point.
+                        val pct = com.wkhan.hexis.domain.Calibration.percentOff(cal)
+                        val phrase = when (com.wkhan.hexis.domain.Calibration.classify(cal, com.wkhan.hexis.domain.Calibration.VERDICT_TOLERANCE)) {
+                            com.wkhan.hexis.domain.Calibration.Verdict.OVER -> "You run about $pct% over your estimates — the app will pad future ones."
+                            com.wkhan.hexis.domain.Calibration.Verdict.UNDER -> "You finish about ${-pct}% under your estimates."
+                            com.wkhan.hexis.domain.Calibration.Verdict.ON_POINT -> "Your estimates are well-calibrated."
+                        }
+                        Text("⚖️ $phrase", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    pa.items.sortedByDescending { it.actualMin }.take(4).forEach { it2 ->
+                        val over = it2.actualMin > it2.plannedMin
+                        Row(Modifier.fillMaxWidth().padding(top = 4.dp)) {
+                            Text(it2.label.take(24), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text("${fmtMin(it2.actualMin)} / ${fmtMin(it2.plannedMin)}", style = MaterialTheme.typography.labelMedium,
+                                color = if (over) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+            }
+
+            // V6 — cross-type tag report: hours + tasks + habit-days grouped by one tag. The zero-permission
+            // answer to WHPH's app-usage dashboard, made possible by unified tags across all three modules.
+            val tagReport = remember(timeEntries, tasks, habits, checkins) { vm.crossTypeTagReport(7) }
+            if (tagReport.isNotEmpty()) AppCard {
+                Text("Where your week went — by tag", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                Text("Last 7 days across time, tasks and habits.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(6.dp))
+                tagReport.take(6).forEach { t ->
+                    Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("#${t.tag}", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        val parts = buildList {
+                            if (t.minutes > 0) add("${t.minutes / 60}h ${t.minutes % 60}m")
+                            if (t.tasksDone > 0) add("${t.tasksDone} task${if (t.tasksDone == 1) "" else "s"}")
+                            if (t.habitDays > 0) add("${t.habitDays} habit day${if (t.habitDays == 1) "" else "s"}")
+                        }
+                        Text(parts.joinToString(" · "), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+
+            // W4 — Balance: where the week actually went, by life area (cross-type tags). A wellbeing lens.
+            val balance = remember(timeEntries, tasks, habits, checkins) { vm.balanceBreakdown(7) }
+            if (balance.size >= 2) AppCard {
+                Text("Your balance this week", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                Text("Across tracked time, tasks and habits — by tag.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(8.dp))
+                // A single proportional bar split by area — a validated categorical palette (no semantic
+                // hues; the old "error" red misread a neutral life-balance slice as "bad").
+                val areaHues = com.wkhan.hexis.ui.theme.LocalHexisColors.current.chart
+                Row(Modifier.fillMaxWidth().height(16.dp).clip(RoundedCornerShape(8.dp))) {
+                    balance.take(6).forEachIndexed { i, sl ->
+                        Box(Modifier.weight(sl.share.toFloat().coerceAtLeast(0.02f)).fillMaxHeight().background(areaHues[i % areaHues.size]))
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                balance.take(5).forEach { sl ->
+                    Row(Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
+                        Text("#${sl.area}", Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text("${(sl.share * 100).toInt()}%", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+
+            // W7 — the self-writing weekly note, drafted from unified data; share or copy it. Named "Weekly
+            // note" so nothing outside the actual Weekly Review flow reuses the "weekly review" label.
+            var reviewText by remember { mutableStateOf<String?>(null) }
+            AppCard {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Weekly note", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                        Text("Drafted from your week across all three modules.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    TextButton(onClick = { reviewText = if (reviewText == null) vm.weeklyReviewText() else null }) { Text(if (reviewText == null) "Write it" else "Hide") }
+                }
+                reviewText?.let { txt ->
+                    Spacer(Modifier.height(8.dp))
+                    Text(txt, style = MaterialTheme.typography.bodyMedium)
+                    Spacer(Modifier.height(6.dp))
+                    TextButton(onClick = {
+                        val cm = shareCtx.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as? android.content.ClipboardManager
+                        val clip = android.content.ClipData.newPlainText("Weekly note", txt)
+                        // SEC — mark personal reflection text sensitive so Android 13+ keeps it out of the
+                        // clipboard preview toast and clipboard history.
+                        if (android.os.Build.VERSION.SDK_INT >= 33) clip.description.extras =
+                            android.os.PersistableBundle().apply { putBoolean("android.content.extra.IS_SENSITIVE", true) }
+                        cm?.setPrimaryClip(clip)
+                        android.widget.Toast.makeText(shareCtx, "Copied", android.widget.Toast.LENGTH_SHORT).show()
+                    }) { Text("Copy") }
+                }
+            }
+
+            // Z5 — you over time: the trend of the cross-type meta-metrics across months.
+            val snaps = remember(settings) { vm.metricSnapshots() }
+            if (snaps.size >= 2) AppCard {
+                Text("You over time", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                Text("A monthly snapshot of the numbers only this app computes.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(8.dp))
+                @Composable fun trendRow(label: String, pick: (com.wkhan.hexis.domain.MetricSnapshot) -> Int?, fmt: (Int) -> String) {
+                    val pts = snaps.mapNotNull { s -> pick(s)?.let { s.yearMonth to it } }
+                    if (pts.size < 2) return
+                    val first = pts.first().second; val last = pts.last().second
+                    Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
+                        Text("${fmt(first)} → ${fmt(last)}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                    }
+                }
+                trendRow("Estimate calibration", { it.calibrationPct }, { "${if (it > 0) "+" else ""}$it%" })
+                trendRow("Real capacity", { it.capacityH }, { "${it}h/day" })
+                trendRow("Keystone lift", { it.keystoneLiftPct }, { "+$it%" })
+            }
+
+            // Z6 — what the assistant did: a plain, reversible log of actions taken on your behalf.
+            val log = remember(settings) { vm.assistantLog() }
+            if (log.isNotEmpty()) AppCard {
+                Text("What the assistant did", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                Text("Everything it does for you — visible, and reversible.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(6.dp))
+                log.take(5).forEach { a ->
+                    Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(if (a.undone) "↩ ${a.description}" else a.description, Modifier.weight(1f),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (a.undone) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
+                            maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        if (a.reversible) TextButton(onClick = { vm.undoAction(a) }) { Text("Undo") }
+                    }
+                }
+            }
+            } // end ExpandableSection("Deeper insights")
+
+            // R5 — the "how it all fits" guide, in one plain paragraph, so the numbers above are legible.
+            AppCard {
+                Text("How this fits together", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    "Three modules share one store — Tasks, Habits and Time — and any can be your primary or switched " +
+                        "off in Settings ▸ Modules (nothing is deleted). Habits build strength, recurring tasks build " +
+                        "reliability, Focus and the Time tracker share one timeline, and a task or habit can be timed so " +
+                        "its minutes flow back in. Momentum blends whatever's on; with one module it becomes that module's " +
+                        "own summary. “Your week” compares the last 7 days to the 7 before, and ＋ Capture files a line as a " +
+                        "habit or a task automatically — never into a module you turned off.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Spacer(Modifier.height(30.dp))
+        }
+    }
+}
+
+// MTile is gone — Momentum's input tiles and weekly-digest tiles now use the shared StatTile
+// from ui/components/ReviewComponents.kt.
+
+
+/**
+ * R3 — the unified capture box. One line in; a live guess ("→ Habit"/"→ Task") the user can flip with a
+ * tap; then it's parsed by the matching quick-add parser and created. Fully offline.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SmartCaptureDialog(vm: AppViewModel, onDismiss: () -> Unit) {
+    var text by remember { mutableStateOf("") }
+    var override by remember { mutableStateOf<SmartCapture.Kind?>(null) }
+    val guess = remember(text) { SmartCapture.classify(text) }
+    val kind = override ?: guess.kind
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Capture anything") },
+        text = {
+            Column {
+                com.wkhan.hexis.ui.components.AppTextField(
+                    value = text, onValueChange = { text = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = { Text("“read 20 pages every night”, “email Sam tomorrow 9am #t20 !!”, or “track deep work”") },
+                    singleLine = false, minLines = 2,
+                )
+                Spacer(Modifier.height(10.dp))
+                com.wkhan.hexis.ui.components.OptionChips(listOf(SmartCapture.Kind.TASK, SmartCapture.Kind.HABIT), kind, { override = it }, spacing = 8) {
+                    if (it == SmartCapture.Kind.TASK) "✓ Task" else "↻ Habit"
+                }
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    if (text.isBlank()) "I'll sort it into the right place — tap a chip to override."
+                    else if (override == null) "Auto: ${guess.reason}" else "You chose ${if (kind == SmartCapture.Kind.HABIT) "Habit" else "Task"}",
+                    style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = text.isNotBlank(),
+                onClick = {
+                    // W1 omnibox: with no override, route to timer/habit/task; a chip forces task/habit.
+                    if (override == null) {
+                        vm.omniCapture(text) { what ->
+                            val msg = when (what) { "timer" -> "Started tracking"; "habit" -> "Added as a habit"; else -> "Added as a task" }
+                            android.widget.Toast.makeText(ctx, msg, android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                    } else vm.smartCapture(text, override) { k ->
+                        val what = if (k == SmartCapture.Kind.HABIT) "habit" else "task"
+                        android.widget.Toast.makeText(ctx, "Added as a $what", android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                    onDismiss()
+                },
+            ) { Text("Add") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
+}

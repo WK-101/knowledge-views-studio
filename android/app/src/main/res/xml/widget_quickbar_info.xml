@@ -13,5 +13,5 @@
     android:previewLayout="@layout/widget_quickbar"
     android:resizeMode="horizontal|vertical"
     android:widgetCategory="home_screen"
-    android:configure="com.todocompanion.app.widget.WidgetConfigActivity"
+    android:configure="com.wkhan.hexis.widget.WidgetConfigActivity"
     android:widgetFeatures="reconfigurable|configuration_optional" />

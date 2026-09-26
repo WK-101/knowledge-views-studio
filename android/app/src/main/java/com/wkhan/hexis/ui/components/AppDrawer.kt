@@ -1,0 +1,992 @@
+package com.wkhan.hexis.ui.components
+
+import android.widget.Toast
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AddTask
+import androidx.compose.material.icons.filled.AllInbox
+import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.NotificationImportant
+import androidx.compose.material.icons.filled.HourglassEmpty
+import androidx.compose.material.icons.filled.AttachFile
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.GridView
+import androidx.compose.material.icons.filled.Insights
+import androidx.compose.material.icons.filled.LocalFireDepartment
+import androidx.compose.material.icons.filled.Timer
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Cake
+import androidx.compose.material.icons.filled.Timelapse
+import androidx.compose.material.icons.filled.ViewTimeline
+import androidx.compose.material.icons.filled.Cancel
+import androidx.compose.material.icons.filled.Cloud
+import androidx.compose.material.icons.filled.Unarchive
+import androidx.compose.material.icons.filled.DeleteForever
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material.icons.automirrored.filled.DriveFileMove
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.EventAvailable
+import androidx.compose.material.icons.filled.EmojiEvents
+import androidx.compose.material.icons.filled.EventRepeat
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.PushPin
+import androidx.compose.material.icons.filled.Inbox
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.automirrored.filled.Label
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.filled.ChecklistRtl
+import androidx.compose.material.icons.filled.FilterList
+import androidx.compose.material.icons.filled.Place
+import androidx.compose.material.icons.filled.PlayCircleOutline
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Today
+import androidx.compose.material.icons.filled.WbSunny
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalDrawerSheet
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.zIndex
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.wkhan.hexis.data.entity.FolderEntity
+import com.wkhan.hexis.data.entity.ListEntity
+import com.wkhan.hexis.domain.SmartVis
+import com.wkhan.hexis.domain.view.SmartKind
+import com.wkhan.hexis.domain.view.ViewRef
+import com.wkhan.hexis.ui.AppViewModel
+import kotlin.math.roundToInt
+
+private fun smartIcon(k: SmartKind): ImageVector = when (k) {
+    SmartKind.INBOX -> Icons.Filled.Inbox
+    SmartKind.TODAY -> Icons.Filled.Today
+    SmartKind.TOMORROW -> Icons.AutoMirrored.Filled.KeyboardArrowRight
+    SmartKind.NEXT7 -> Icons.Filled.CalendarMonth
+    SmartKind.DO_NEXT -> Icons.Filled.Bolt
+    SmartKind.SCHEDULED -> Icons.Filled.EventAvailable
+    SmartKind.FLAGGED -> Icons.Filled.Star
+    SmartKind.GOALS -> Icons.Filled.EmojiEvents
+    SmartKind.WAITING -> Icons.Filled.HourglassEmpty
+    SmartKind.NEEDS_ATTENTION -> Icons.Filled.NotificationImportant
+    SmartKind.SOMEDAY -> Icons.Filled.Cloud
+    SmartKind.ALL -> Icons.Filled.AllInbox
+    SmartKind.COMPLETED -> Icons.Filled.CheckCircle
+    SmartKind.WONT_DO -> Icons.Filled.Cancel
+    SmartKind.TRASH -> Icons.Filled.DeleteOutline
+}
+
+@Composable
+fun AppDrawer(
+    vm: AppViewModel,
+    onSelect: (ViewRef) -> Unit,
+    onSearch: () -> Unit,
+    onNewList: (String?) -> Unit,
+    onNewFolder: (String?) -> Unit,
+    onNewTaskInFolder: (String) -> Unit,
+    onManageList: (ListEntity) -> Unit,
+    onManageFolder: (FolderEntity) -> Unit,
+    onMoveList: (ListEntity) -> Unit,
+    onMoveFolder: (FolderEntity) -> Unit,
+    onNewTag: (String?) -> Unit,
+    onManageTag: (com.wkhan.hexis.data.entity.TagEntity) -> Unit,
+    onMoveTag: (com.wkhan.hexis.data.entity.TagEntity) -> Unit,
+    onNewContext: (String?) -> Unit,
+    onManageContext: (com.wkhan.hexis.data.entity.ContextEntity) -> Unit,
+    onMoveContext: (com.wkhan.hexis.data.entity.ContextEntity) -> Unit,
+    onNewWorkspace: () -> Unit,
+    onManageWorkspace: (com.wkhan.hexis.data.entity.WorkspaceEntity) -> Unit,
+    onEditFilter: (com.wkhan.hexis.data.entity.FilterEntity?) -> Unit,
+    onOpenStats: () -> Unit,
+    onOpenReview: () -> Unit,
+    onOpenSettings: () -> Unit,
+    onOpenTab: (String) -> Unit = {},
+    onOpenTemplates: () -> Unit = {},
+    onOpenAttachments: () -> Unit = {},
+    onOpenCountdowns: () -> Unit = {},
+    onOpenDone: () -> Unit = {},
+    onOpenMomentum: () -> Unit = {},
+    onOpenTime: () -> Unit = {},
+    onOpenRecap: () -> Unit = {},
+    onOpenAnnual: () -> Unit = {},
+    onOpenDayReview: () -> Unit = {},
+    onOpenWeeklyReview: () -> Unit = {},
+    onOpenRoutines: () -> Unit = {},
+    onOpenGoals: () -> Unit = {},
+) {
+    val folders by vm.folders.collectAsStateWithLifecycle()
+    val lists by vm.lists.collectAsStateWithLifecycle()
+    val tags by vm.tags.collectAsStateWithLifecycle()
+    val contexts by vm.contexts.collectAsStateWithLifecycle()
+    val counts by vm.smartCounts.collectAsStateWithLifecycle()
+    val current by vm.currentView.collectAsStateWithLifecycle()
+    val settings by vm.settings.collectAsStateWithLifecycle()
+
+    val workspaces by vm.workspaces.collectAsStateWithLifecycle()
+    val activeWsId = settings.activeWorkspaceId
+    val activeWs = workspaces.firstOrNull { it.id == activeWsId } ?: workspaces.firstOrNull()
+
+    ModalDrawerSheet {
+        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(bottom = 16.dp)) {
+            var wsMenu by remember { mutableStateOf(false) }
+            Box {
+                // The sheet already applies the status-bar inset; keep only a small top padding so this
+                // header row lines up with the app's top bar instead of floating below a big empty gap.
+                Row(Modifier.fillMaxWidth().padding(start = 14.dp, top = 6.dp, end = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    // Workspace switcher (tap the name area) …
+                    Row(
+                        Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).clickable { wsMenu = true }.padding(start = 6.dp, top = 6.dp, bottom = 6.dp, end = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Box(Modifier.size(38.dp).clip(RoundedCornerShape(11.dp)).background(MaterialTheme.colorScheme.primary), contentAlignment = Alignment.Center) {
+                            // Hexis brand mark, tinted to the tile so it follows the selected theme.
+                            HexisMark(Modifier.size(24.dp), stroke = MaterialTheme.colorScheme.onPrimary, core = MaterialTheme.colorScheme.onPrimary)
+                        }
+                        Spacer(Modifier.width(11.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(activeWs?.name ?: "Hexis", fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text("Workspace · offline · free", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Icon(Icons.Filled.KeyboardArrowDown, "Workspaces", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    // … Settings lives here, always reachable at the top rather than buried at the bottom.
+                    IconButton(onClick = onOpenSettings) {
+                        Icon(Icons.Filled.Settings, "Settings", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+                DropdownMenu(expanded = wsMenu, onDismissRequest = { wsMenu = false }) {
+                    Text("WORKSPACES", Modifier.padding(14.dp, 8.dp, 14.dp, 4.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    workspaces.forEach { w ->
+                        DropdownMenuItem(
+                            text = { Text(w.name) },
+                            leadingIcon = { if (w.id == activeWsId) Icon(Icons.Filled.CheckCircle, null, modifier = Modifier.size(18.dp)) else Spacer(Modifier.width(18.dp)) },
+                            trailingIcon = { Icon(Icons.Filled.MoreVert, "Manage", modifier = Modifier.size(18.dp).clickable { wsMenu = false; onManageWorkspace(w) }) },
+                            onClick = { vm.switchWorkspace(w.id); wsMenu = false },
+                        )
+                    }
+                    androidx.compose.material3.HorizontalDivider()
+                    DropdownMenuItem(text = { Text("New workspace") }, leadingIcon = { Icon(Icons.Filled.Add, null, modifier = Modifier.size(18.dp)) }, onClick = { wsMenu = false; onNewWorkspace() })
+                }
+            }
+
+            // Fold state persists in settings so it survives an app restart.
+            val collapsedKeys = settings.sidebarCollapsed
+            val hidden = settings.sidebarHidden
+            fun open(k: String) = k !in collapsedKeys
+            fun toggle(k: String) { vm.toggleSidebarSection(k) }
+            // Expand state for nested lists (default expanded).
+            val listExpand = remember { mutableStateMapOf<String, Boolean>() }
+
+            if ("fav" !in hidden) PinnedFavourites(settings.pinnedRefs, lists, folders, tags, contexts, vm, current, onSelect,
+                onOpenRef = { ref ->
+                    when {
+                        ref.startsWith("view:") -> onOpenTab(ref.removePrefix("view:"))
+                        ref == "more:momentum" -> onOpenMomentum()
+                        ref == "more:time" -> onOpenTime()
+                        ref == "more:templates" -> onOpenTemplates()
+                        ref == "more:countdowns" -> onOpenCountdowns()
+                        ref == "more:attachments" -> onOpenAttachments()
+                        ref == "more:done" -> onOpenDone()
+                        ref == "more:statistics" -> onOpenStats()
+                        ref == "more:review" -> onOpenReview()
+                        ref == "more:weeklyreview" -> onOpenWeeklyReview()
+                        ref == "more:recap" -> onOpenRecap()
+                        ref == "more:annual" -> onOpenAnnual()
+                        ref == "more:dayreview" -> onOpenDayReview()
+                        ref == "more:routines" -> onOpenRoutines()
+                        ref == "more:goals" -> onOpenGoals()
+                    }
+                },
+                open = open("fav"), onToggle = { toggle("fav") })
+
+            if ("smart" !in hidden) {
+            SectionHeader("Smart lists", open = open("smart"), onToggle = { toggle("smart") })
+            if (open("smart")) {
+                val defaultSmart = listOf(
+                    SmartKind.INBOX, SmartKind.TODAY, SmartKind.TOMORROW, SmartKind.NEXT7, SmartKind.DO_NEXT,
+                    SmartKind.SCHEDULED, SmartKind.FLAGGED, SmartKind.GOALS, SmartKind.WAITING, SmartKind.NEEDS_ATTENTION, SmartKind.SOMEDAY, SmartKind.ALL, SmartKind.COMPLETED, SmartKind.WONT_DO, SmartKind.TRASH,
+                )
+                // Apply the user's saved drag order, appending any not-yet-ordered kinds.
+                val savedSmart = settings.smartOrder.mapNotNull { runCatching { SmartKind.valueOf(it) }.getOrNull() }
+                val orderedSmart = (savedSmart + defaultSmart).distinct().filter { it in defaultSmart }
+                val visibleSmart = orderedSmart.filter { k ->
+                    // Everything shows by default; users prune what they don't want via each row's
+                    // visibility control. (Waiting-On and Needs-Attention used to hide when empty,
+                    // which made them undiscoverable — now they're visible like the rest.)
+                    when (settings.smartListVis[k] ?: SmartVis.SHOW) {
+                        SmartVis.SHOW -> true
+                        SmartVis.HIDE -> (current as? ViewRef.Smart)?.kind == k   // keep visible if it's the active view
+                        SmartVis.AUTO -> (counts[k] ?: 0) > 0 || (current as? ViewRef.Smart)?.kind == k
+                    }
+                }
+                DragReorderColumn(visibleSmart, id = { it.name }, onReorder = { vm.setSmartOrder(it) }) { k ->
+                    SmartRow(k, count = counts[k]?.takeIf { it > 0 },
+                        selected = (current as? ViewRef.Smart)?.kind == k, vm = vm,
+                        onClick = { onSelect(ViewRef.Smart(k)) })
+                }
+            }
+            }
+
+            if ("lists" !in hidden) {
+            SectionHeader("Folders & lists", open = open("lists"), onToggle = { toggle("lists") }, onAdd = { onNewList(null) })
+            if (open("lists")) {
+                folders.filter { it.parentId == null && !it.archived && !it.trashed }.sortedBy { it.sortOrder }.forEach { f ->
+                    FolderNode(f, 0, folders, lists, listExpand, current, vm, onSelect, onNewList, onNewFolder, onNewTaskInFolder, onManageList, onManageFolder, onMoveList, onMoveFolder)
+                }
+                ReorderableListGroup(lists.filter { it.folderId == null && it.parentListId == null && it.id != ListEntity.INBOX_ID && !it.archived && !it.trashed }.sortedBy { it.sortOrder },
+                    lists, listExpand, 0, current, vm, onSelect, onManageList, onMoveList)
+            }
+            }
+
+            // R52 — Archived: stowed folders & lists. Tap to open and browse their (hidden) contents; the
+            // ⤺ button restores. Hidden when nothing is archived. (Trashed containers appear under Trash.)
+            val archivedFolders = folders.filter { it.archived && !it.trashed }
+            val archivedLists = lists.filter { it.archived && !it.trashed }
+            if (archivedFolders.isNotEmpty() || archivedLists.isNotEmpty()) {
+                SectionHeader("Archived", open = open("archived"), onToggle = { toggle("archived") })
+                if (open("archived")) {
+                    archivedFolders.sortedBy { it.name }.forEach { f ->
+                        Row(Modifier.fillMaxWidth().clickableRow(onClickLabel = "Open folder") { onSelect(ViewRef.FolderView(f.id)) }.padding(start = 26.dp, end = 8.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text((f.icon ?: "📁") + "  " + f.name, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            IconButton(onClick = { vm.setFolderArchived(f, false) }, modifier = Modifier.size(30.dp)) { Icon(Icons.Filled.Unarchive, "Restore", modifier = Modifier.size(18.dp)) }
+                        }
+                    }
+                    archivedLists.sortedBy { it.name }.forEach { l ->
+                        Row(Modifier.fillMaxWidth().clickableRow(onClickLabel = "Open list") { onSelect(ViewRef.ListView(l.id)) }.padding(start = 26.dp, end = 8.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text((l.emoji ?: "🗒️") + "  " + l.name, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            IconButton(onClick = { vm.setListArchived(l, false) }, modifier = Modifier.size(30.dp)) { Icon(Icons.Filled.Unarchive, "Restore", modifier = Modifier.size(18.dp)) }
+                        }
+                    }
+                }
+            }
+
+            // Trashed lists & folders: deleted containers (recoverable). Tap to browse, ⤺ restores, 🗑 erases.
+            val trashedFolders = folders.filter { it.trashed }
+            val trashedLists = lists.filter { it.trashed }
+            var purgeFolder by remember { mutableStateOf<FolderEntity?>(null) }
+            var purgeList by remember { mutableStateOf<ListEntity?>(null) }
+            if (trashedFolders.isNotEmpty() || trashedLists.isNotEmpty()) {
+                SectionHeader("Trash — lists & folders", open = open("trashedContainers"), onToggle = { toggle("trashedContainers") })
+                if (open("trashedContainers")) {
+                    trashedFolders.sortedBy { it.name }.forEach { f ->
+                        Row(Modifier.fillMaxWidth().clickableRow(onClickLabel = "Open folder") { onSelect(ViewRef.FolderView(f.id)) }.padding(start = 26.dp, end = 8.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text((f.icon ?: "📁") + "  " + f.name, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            IconButton(onClick = { vm.restoreTrashedFolder(f) }, modifier = Modifier.size(30.dp)) { Icon(Icons.Filled.Unarchive, "Restore", modifier = Modifier.size(18.dp)) }
+                            IconButton(onClick = { purgeFolder = f }, modifier = Modifier.size(30.dp)) { Icon(Icons.Filled.DeleteForever, "Delete forever", modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.error) }
+                        }
+                    }
+                    trashedLists.sortedBy { it.name }.forEach { l ->
+                        Row(Modifier.fillMaxWidth().clickableRow(onClickLabel = "Open list") { onSelect(ViewRef.ListView(l.id)) }.padding(start = 26.dp, end = 8.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text((l.emoji ?: "🗒️") + "  " + l.name, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            IconButton(onClick = { vm.restoreTrashedList(l) }, modifier = Modifier.size(30.dp)) { Icon(Icons.Filled.Unarchive, "Restore", modifier = Modifier.size(18.dp)) }
+                            IconButton(onClick = { purgeList = l }, modifier = Modifier.size(30.dp)) { Icon(Icons.Filled.DeleteForever, "Delete forever", modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.error) }
+                        }
+                    }
+                }
+            }
+            purgeFolder?.let { f ->
+                com.wkhan.hexis.ui.components.ConfirmDialog(
+                    title = "Delete “${f.name}” forever?",
+                    body = "This permanently erases the folder and every list and task inside it. This can't be undone.",
+                    confirmLabel = "Delete forever",
+                    onConfirm = { vm.deleteFolderForever(f.id); purgeFolder = null },
+                    onDismiss = { purgeFolder = null })
+            }
+            purgeList?.let { l ->
+                com.wkhan.hexis.ui.components.ConfirmDialog(
+                    title = "Delete “${l.name}” forever?",
+                    body = "This permanently erases the list and every task inside it. This can't be undone.",
+                    confirmLabel = "Delete forever",
+                    onConfirm = { vm.deleteListForever(l.id); purgeList = null },
+                    onDismiss = { purgeList = null })
+            }
+
+            if ("tags" !in hidden) {
+            SectionHeader("Tags", open = open("tags"), onToggle = { toggle("tags") }, onAdd = { onNewTag(null) })
+            if (open("tags")) DragReorderColumn(
+                // Show real roots (parentId == null) AND orphans whose parent isn't in the visible set,
+                // so a child is never lost just because its parent tag is filtered out (e.g. stranded in
+                // another workspace after a migration) — the whole branch would otherwise vanish.
+                run { val ids = tags.mapTo(HashSet()) { it.id }; tags.filter { it.parentId == null || it.parentId !in ids } }
+                    .sortedWith(compareBy({ it.sortOrder }, { it.name })),
+                id = { it.id }, onReorder = { vm.setTagOrder(it) },
+            ) { t -> TagNode(t, 0, tags, current, vm, onSelect, onNewTag, onManageTag, onMoveTag) }
+            }
+
+            val filters by vm.filters.collectAsStateWithLifecycle()
+            // Always render the header when the section isn't hidden — previously an empty AND collapsed
+            // Filters section vanished entirely, so it couldn't be re-opened or added to (R21 #228 bug).
+            if ("filters" !in hidden) {
+                SectionHeader("Filters", open = open("filters"), onToggle = { toggle("filters") }, onAdd = { onEditFilter(null) })
+                val filterCounts by vm.entryCounts.collectAsStateWithLifecycle()
+                if (open("filters") && filters.isEmpty()) {
+                    Text("No filters yet — tap + to build one.", Modifier.padding(start = 34.dp, end = 12.dp, top = 2.dp, bottom = 6.dp),
+                        style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                if (open("filters")) DragReorderColumn(filters.sortedBy { it.sortOrder }, id = { it.id }, onReorder = { vm.setFilterOrder(it) }) { f ->
+                    var menu by remember(f.id) { mutableStateOf(false) }
+                    val selected = (current as? ViewRef.FilterView)?.filterId == f.id
+                    val fCount = filterCounts.filters[f.id]?.takeIf { it > 0 }
+                    Row(
+                        Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 1.dp).clip(RoundedCornerShape(10.dp))
+                            .background(if (selected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent)
+                            .clickableRow(onClickLabel = "Open filter") { onSelect(ViewRef.FilterView(f.id)) }.padding(start = 12.dp, top = 9.dp, bottom = 9.dp, end = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(Icons.Filled.FilterList, null, tint = f.colorArgb?.let { Color(it) } ?: MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(11.dp))
+                        Text(f.name, Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal)
+                        if (fCount != null) Text(fCount.toString(), Modifier.padding(end = 4.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Box {
+                            Icon(Icons.Filled.MoreVert, "Filter menu", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp).clickable { menu = true })
+                            DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                                val pinRef = "filter:${f.id}"
+                                MenuItem(if (vm.isPinned(pinRef)) Icons.Filled.PushPin else Icons.Filled.PushPin, if (vm.isPinned(pinRef)) "Unpin from top" else "Pin to top") { vm.togglePinnedRef(pinRef); menu = false }
+                                MenuItem(Icons.Filled.Edit, "Edit filter") { onEditFilter(f); menu = false }
+                            }
+                        }
+                    }
+                }
+            }
+
+            if ("contexts" !in hidden) {
+            SectionHeader("Contexts", open = open("contexts"), onToggle = { toggle("contexts") }, onAdd = { onNewContext(null) })
+            if (open("contexts")) DragReorderColumn(
+                contexts.filter { it.parentId == null }.sortedWith(compareBy({ it.sortOrder }, { it.name })),
+                id = { it.id }, onReorder = { vm.setContextOrder(it) },
+            ) { c -> ContextNode(c, 0, contexts, current, vm, onSelect, onNewContext, onManageContext, onMoveContext) }
+            }
+
+            if ("views" !in hidden) {
+                data class VItem(val key: String, val label: String, val icon: ImageVector, val tab: String)
+                val defaultViews = listOf(
+                    VItem("view_calendar", "Calendar", Icons.Filled.CalendarMonth, "CALENDAR"),
+                    VItem("view_timeline", "Timeline", Icons.Filled.ViewTimeline, "TIMELINE"),
+                    VItem("view_matrix", "Matrix", Icons.Filled.GridView, "MATRIX"),
+                    VItem("view_habits", "Habits", Icons.Filled.LocalFireDepartment, "HABITS"),
+                    VItem("view_time", "Time", Icons.Filled.Schedule, "TIME"),
+                    VItem("view_focus", "Focus", Icons.Filled.Timer, "FOCUS"),
+                )
+                // "Views" is the drawer's access point for destinations that AREN'T already one tap away
+                // on the bottom bar — otherwise it just duplicates the nav bar. A tab shows here only if
+                // the user hid it from the bottom bar; Focus is never a bottom-bar destination (it folds
+                // into the Time hub) so it always belongs here.
+                val primaryHomeTabName = when (com.wkhan.hexis.domain.Modules.primary(settings)) {
+                    com.wkhan.hexis.domain.Modules.HABITS -> "HABITS"
+                    com.wkhan.hexis.domain.Modules.TIME -> "TIME"
+                    com.wkhan.hexis.domain.Modules.NOTES -> "NOTES"
+                    else -> "TASKS"
+                }
+                fun onBottomBar(t: String) = t != "FOCUS" && (t == primaryHomeTabName || t !in settings.bottomTabsHidden)
+                val orderedViews = (settings.viewsOrder + defaultViews.map { it.key }).distinct()
+                    .mapNotNull { key -> defaultViews.firstOrNull { it.key == key } }
+                    .filter { it.key !in hidden }
+                    // T0: hide a view whose module is switched off.
+                    .filter { v -> com.wkhan.hexis.domain.Modules.moduleOfTab(v.tab)?.let { com.wkhan.hexis.domain.Modules.isEnabled(settings, it) } ?: true }
+                    // De-dup: drop views already reachable on the bottom bar.
+                    .filter { v -> !onBottomBar(v.tab) }
+                if (orderedViews.isNotEmpty()) {
+                    SectionHeader("Views", open = open("views"), onToggle = { toggle("views") })
+                    if (open("views")) {
+                        DragReorderColumn(orderedViews, id = { it.key }, onReorder = { vm.setViewsOrder(it) }) { v ->
+                            // E4: long-press any view to pin it to Favourites (token "view:TAB").
+                            DrawerRow(v.icon, v.label, pinned = vm.isPinned("view:${v.tab}"),
+                                onLongClick = { vm.togglePinnedRef("view:${v.tab}") }, onClick = { onOpenTab(v.tab) })
+                        }
+                    }
+                }
+            }
+
+            if ("more" !in hidden) {
+            SectionHeader("More", open = open("more"), onToggle = { toggle("more") })
+            if (open("more")) {
+                // E4: long-press any "More" item to pin it to Favourites (token "more:key").
+                // Utility rows stay at the top of More, untouched. Below them the seven review/analytics
+                // surfaces are grouped by JOB into three homes: Review (reflective input — you write),
+                // Insights (analytics — you read) and Record (artifacts — you keep / share). Each header
+                // only shows when at least one of its rows is visible, so a fully-hidden group leaves no
+                // orphan label (mirrors the old "Insights" sub-label guard).
+                if ("routines" !in hidden) DrawerRow(Icons.Filled.PlayCircleOutline, "Routines", pinned = vm.isPinned("more:routines"), onLongClick = { vm.togglePinnedRef("more:routines") }, onClick = onOpenRoutines)
+                if ("goals" !in hidden) DrawerRow(Icons.Filled.EmojiEvents, "Goals", pinned = vm.isPinned("more:goals"), onLongClick = { vm.togglePinnedRef("more:goals") }, onClick = onOpenGoals)
+                if ("templates" !in hidden) DrawerRow(Icons.Filled.ContentCopy, "Templates", pinned = vm.isPinned("more:templates"), onLongClick = { vm.togglePinnedRef("more:templates") }, onClick = onOpenTemplates)
+                if ("countdowns" !in hidden) DrawerRow(Icons.Filled.Cake, "Occasions", pinned = vm.isPinned("more:countdowns"), onLongClick = { vm.togglePinnedRef("more:countdowns") }, onClick = onOpenCountdowns)
+                if ("attachments" !in hidden) DrawerRow(Icons.Filled.AttachFile, "Attachments", pinned = vm.isPinned("more:attachments"), onLongClick = { vm.togglePinnedRef("more:attachments") }, onClick = onOpenAttachments)
+
+                // REVIEW — reflective input you write. Day review is new here; it reuses the same open
+                // path the FAB / command palette use (onOpenDayReview → showDayReview = today).
+                if (("dayreview" !in hidden) || ("review" !in hidden)) SubLabel("Review")
+                if ("dayreview" !in hidden) DrawerRow(Icons.Filled.WbSunny, "Day review", pinned = vm.isPinned("more:dayreview"), onLongClick = { vm.togglePinnedRef("more:dayreview") }, onClick = onOpenDayReview)
+                // The guided reflective weekly ritual (distinct from the GTD "Weekly cleanup" below) —
+                // surfaced here so it is discoverable from the drawer, not only from Day review ▸ Week.
+                if ("review" !in hidden) DrawerRow(Icons.Filled.EventRepeat, "Weekly review", pinned = vm.isPinned("more:weeklyreview"), onLongClick = { vm.togglePinnedRef("more:weeklyreview") }, onClick = onOpenWeeklyReview)
+                if ("review" !in hidden) DrawerRow(Icons.Filled.ChecklistRtl, "Weekly cleanup", pinned = vm.isPinned("more:review"), onLongClick = { vm.togglePinnedRef("more:review") }, onClick = onOpenReview)
+
+                // INSIGHTS — analytics you read.
+                if (("momentum" !in hidden) || ("statistics" !in hidden)) SubLabel("Insights")
+                if ("momentum" !in hidden) DrawerRow(Icons.Filled.Insights, "Momentum", pinned = vm.isPinned("more:momentum"), onLongClick = { vm.togglePinnedRef("more:momentum") }, onClick = onOpenMomentum)
+                if ("statistics" !in hidden) DrawerRow(Icons.Filled.BarChart, "Statistics", pinned = vm.isPinned("more:statistics"), onLongClick = { vm.togglePinnedRef("more:statistics") }, onClick = onOpenStats)
+
+                // RECORD — artifacts you keep / share.
+                if (("done" !in hidden) || ("recap" !in hidden) || ("annual" !in hidden)) SubLabel("Record")
+                if ("done" !in hidden) DrawerRow(Icons.Filled.EmojiEvents, "The Record", pinned = vm.isPinned("more:done"), onLongClick = { vm.togglePinnedRef("more:done") }, onClick = onOpenDone)
+                if ("recap" !in hidden) DrawerRow(Icons.Filled.AutoAwesome, "Recap", pinned = vm.isPinned("more:recap"), onLongClick = { vm.togglePinnedRef("more:recap") }, onClick = onOpenRecap)
+                if ("annual" !in hidden) DrawerRow(Icons.Filled.EmojiEvents, "Year in review", pinned = vm.isPinned("more:annual"), onLongClick = { vm.togglePinnedRef("more:annual") }, onClick = onOpenAnnual)
+            }
+            }
+
+            // R31 #2 — a quiet signature at the foot of the drawer.
+            AppSignature()
+        }
+    }
+}
+
+/** A tasteful maker's mark shown at the bottom of the sidebar and Settings. Centred, low-emphasis,
+ *  with a hairline above so it reads as a footer rather than another row. */
+@Composable
+fun AppSignature(modifier: Modifier = Modifier) {
+    Column(modifier.fillMaxWidth().padding(top = 14.dp, bottom = 6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        androidx.compose.material3.HorizontalDivider(Modifier.padding(horizontal = 40.dp).padding(bottom = 10.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .6f))
+        Text(
+            "Created by W A Khan",
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.Medium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            letterSpacing = 0.6.sp,
+        )
+        Text(
+            "Crafted with care · fully offline",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .7f),
+            modifier = Modifier.padding(top = 2.dp),
+        )
+    }
+}
+
+@Composable
+private fun FolderNode(
+    folder: FolderEntity, depth: Int, folders: List<FolderEntity>, lists: List<ListEntity>, listExpand: MutableMap<String, Boolean>, current: ViewRef, vm: AppViewModel,
+    onSelect: (ViewRef) -> Unit, onNewList: (String?) -> Unit, onNewFolder: (String?) -> Unit, onNewTaskInFolder: (String) -> Unit,
+    onManageList: (ListEntity) -> Unit, onManageFolder: (FolderEntity) -> Unit, onMoveList: (ListEntity) -> Unit, onMoveFolder: (FolderEntity) -> Unit,
+) {
+    var menu by remember { mutableStateOf(false) }
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val selected = (current as? ViewRef.FolderView)?.folderId == folder.id
+    val pinRef = "folder:${folder.id}"
+    val entryCounts by vm.entryCounts.collectAsStateWithLifecycle()
+    val entryCount = entryCounts.folders[folder.id]?.takeIf { it > 0 }
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 1.dp).clip(RoundedCornerShape(10.dp))
+            .background(if (selected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent)
+            .padding(start = (10 + depth * 16).dp, top = 9.dp, bottom = 9.dp, end = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        // Chevron toggles collapse; the rest of the row opens the folder (all its tasks).
+        Icon(if (folder.collapsed) Icons.AutoMirrored.Filled.KeyboardArrowRight else Icons.Filled.KeyboardArrowDown, if (folder.collapsed) "Expand" else "Collapse",
+            tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp).clip(CircleShape).clickable { vm.toggleFolder(folder) })
+        Spacer(Modifier.width(3.dp))
+        if (folder.icon != null) Text(folder.icon!!, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.size(20.dp).wrapContentSize(Alignment.Center))
+        // R59 (Wave 1) — tint the default folder glyph with the folder's colour when one is set.
+        else Icon(Icons.Filled.Folder, null, tint = folder.colorArgb?.let { Color(it) } ?: MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(19.dp))
+        Spacer(Modifier.width(10.dp))
+        Text(folder.name, Modifier.weight(1f).clip(RoundedCornerShape(6.dp)).clickable { onSelect(ViewRef.FolderView(folder.id)) },
+            maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium,
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal)
+        if (entryCount != null) Text(entryCount.toString(), Modifier.padding(end = 4.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Box {
+            Icon(Icons.Filled.MoreVert, "Folder menu", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp).clickable { menu = true })
+            DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                MenuItem(if (vm.isPinned(pinRef)) Icons.Filled.PushPin else Icons.Filled.PushPin, if (vm.isPinned(pinRef)) "Unpin from top" else "Pin to top") { vm.togglePinnedRef(pinRef); menu = false }
+                MenuItem(Icons.Filled.AddTask, "New task here") { onNewTaskInFolder(folder.id); menu = false }
+                MenuItem(Icons.Filled.Add, "New list here") { onNewList(folder.id); menu = false }
+                MenuItem(Icons.Filled.Folder, "New folder here") { onNewFolder(folder.id); menu = false }
+                MenuItem(Icons.Filled.KeyboardArrowUp, "Move up") { vm.moveFolderOrder(folder, -1); menu = false }
+                MenuItem(Icons.Filled.KeyboardArrowDown, "Move down") { vm.moveFolderOrder(folder, +1); menu = false }
+                MenuItem(Icons.AutoMirrored.Filled.DriveFileMove, "Move to…") { onMoveFolder(folder); menu = false }
+                MenuItem(Icons.AutoMirrored.Filled.FormatListBulleted, "Convert to list") {
+                    if (!vm.convertFolderToList(folder)) Toast.makeText(ctx, "Empty the folder first", Toast.LENGTH_SHORT).show()
+                    menu = false
+                }
+                MenuItem(Icons.Filled.Edit, "Rename / icon / delete") { onManageFolder(folder); menu = false }
+            }
+        }
+    }
+    if (!folder.collapsed) {
+        folders.filter { it.parentId == folder.id && !it.archived && !it.trashed }.sortedBy { it.sortOrder }.forEach { child ->
+            FolderNode(child, depth + 1, folders, lists, listExpand, current, vm, onSelect, onNewList, onNewFolder, onNewTaskInFolder, onManageList, onManageFolder, onMoveList, onMoveFolder)
+        }
+        ReorderableListGroup(lists.filter { it.folderId == folder.id && it.parentListId == null && !it.archived && !it.trashed }.sortedBy { it.sortOrder },
+            lists, listExpand, depth + 1, current, vm, onSelect, onManageList, onMoveList)
+    }
+}
+
+@Composable
+private fun ReorderableListGroup(
+    siblings: List<ListEntity>, allLists: List<ListEntity>, expand: MutableMap<String, Boolean>,
+    depth: Int, current: ViewRef, vm: AppViewModel,
+    onSelect: (ViewRef) -> Unit, onManageList: (ListEntity) -> Unit, onMoveList: (ListEntity) -> Unit,
+) {
+    var dragId by remember { mutableStateOf<String?>(null) }
+    var items by remember { mutableStateOf(siblings) }
+    // Resync from upstream (rename, colour, add/remove, reorder) except mid-drag.
+    androidx.compose.runtime.LaunchedEffect(siblings) { if (dragId == null) items = siblings }
+    var delta by remember { mutableFloatStateOf(0f) }
+    var rowH by remember { mutableFloatStateOf(0f) }
+    Column {
+        items.forEach { l ->
+            key(l.id) {
+                val children = allLists.filter { it.parentListId == l.id && !it.archived && !it.trashed }.sortedBy { it.sortOrder }
+                val expanded = expand[l.id] != false
+                val dragging = l.id == dragId
+                Column {
+                    // Only the row itself carries the drag gesture + height measurement, so nested
+                    // children rendered below don't distort the sibling reorder math.
+                    Box(
+                        Modifier
+                            .onSizeChanged { if (rowH == 0f) rowH = it.height.toFloat() }
+                            .zIndex(if (dragging) 1f else 0f)
+                            .graphicsLayer { translationY = if (dragging) delta else 0f }
+                            .pointerInput(l.id) {
+                                detectDragGesturesAfterLongPress(
+                                    onDragStart = { dragId = l.id; delta = 0f },
+                                    onDragEnd = { if (dragId != null) vm.setListOrder(items.map { it.id }); dragId = null; delta = 0f },
+                                    onDragCancel = { dragId = null; delta = 0f },
+                                    onDrag = { ch, d ->
+                                        ch.consume(); delta += d.y
+                                        val from = items.indexOfFirst { it.id == dragId }
+                                        if (from >= 0 && rowH > 0f) {
+                                            val target = (from + (delta / rowH).roundToInt()).coerceIn(0, items.size - 1)
+                                            if (target != from) { items = items.toMutableList().also { it.add(target, it.removeAt(from)) }; delta -= (target - from) * rowH }
+                                        }
+                                    },
+                                )
+                            },
+                    ) { ListRow(l, depth, children.isNotEmpty(), expanded, { expand[l.id] = !expanded }, current, vm, onSelect, onManageList, onMoveList) }
+                    if (children.isNotEmpty() && expanded) {
+                        ReorderableListGroup(children, allLists, expand, depth + 1, current, vm, onSelect, onManageList, onMoveList)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ListRow(
+    list: ListEntity, depth: Int, hasChildren: Boolean, expanded: Boolean, onToggleExpand: () -> Unit,
+    current: ViewRef, vm: AppViewModel, onSelect: (ViewRef) -> Unit, onManageList: (ListEntity) -> Unit, onMoveList: (ListEntity) -> Unit,
+) {
+    var menu by remember { mutableStateOf(false) }
+    val selected = (current as? ViewRef.ListView)?.listId == list.id
+    val entryCounts by vm.entryCounts.collectAsStateWithLifecycle()
+    val entryCount = entryCounts.lists[list.id]?.takeIf { it > 0 }
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 1.dp).clip(RoundedCornerShape(10.dp))
+            .background(if (selected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent)
+            .clickable { onSelect(ViewRef.ListView(list.id)) }
+            .padding(start = (10 + depth * 16).dp, top = 9.dp, bottom = 9.dp, end = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (hasChildren) {
+            Icon(
+                if (expanded) Icons.Filled.KeyboardArrowDown else Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                if (expanded) "Collapse" else "Expand",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(18.dp).clip(CircleShape).clickable { onToggleExpand() },
+            )
+            Spacer(Modifier.width(3.dp))
+        } else {
+            Spacer(Modifier.width(21.dp))
+        }
+        Box(Modifier.size(11.dp).clip(RoundedCornerShape(3.dp)).background(list.colorArgb?.let { Color(it) } ?: MaterialTheme.colorScheme.outline))
+        Spacer(Modifier.width(11.dp))
+        Text(list.name, Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium,
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal)
+        if (entryCount != null) Text(entryCount.toString(), Modifier.padding(end = 4.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Box {
+            Icon(Icons.Filled.MoreVert, "List menu", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp).clickable { menu = true })
+            DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                val pinRef = "list:${list.id}"
+                MenuItem(if (vm.isPinned(pinRef)) Icons.Filled.PushPin else Icons.Filled.PushPin, if (vm.isPinned(pinRef)) "Unpin from top" else "Pin to top") { vm.togglePinnedRef(pinRef); menu = false }
+                MenuItem(Icons.Filled.Add, "New sub-list here") { vm.createSubList(list); menu = false }
+                MenuItem(Icons.Filled.KeyboardArrowUp, "Move up") { vm.moveListOrder(list, -1); menu = false }
+                MenuItem(Icons.Filled.KeyboardArrowDown, "Move down") { vm.moveListOrder(list, +1); menu = false }
+                MenuItem(Icons.AutoMirrored.Filled.KeyboardArrowRight, "Nest under list above") { vm.indentList(list); menu = false }
+                if (list.parentListId != null) MenuItem(Icons.AutoMirrored.Filled.KeyboardArrowLeft, "Un-nest") { vm.outdentList(list); menu = false }
+                MenuItem(Icons.AutoMirrored.Filled.DriveFileMove, "Move to folder…") { onMoveList(list); menu = false }
+                MenuItem(Icons.Filled.Folder, "Convert to folder") { vm.convertListToFolder(list); menu = false }
+                MenuItem(Icons.Filled.Edit, "Rename / colour / delete") { onManageList(list); menu = false }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TagNode(
+    tag: com.wkhan.hexis.data.entity.TagEntity, depth: Int, allTags: List<com.wkhan.hexis.data.entity.TagEntity>, current: ViewRef, vm: AppViewModel,
+    onSelect: (ViewRef) -> Unit, onNewTag: (String?) -> Unit, onManageTag: (com.wkhan.hexis.data.entity.TagEntity) -> Unit, onMoveTag: (com.wkhan.hexis.data.entity.TagEntity) -> Unit,
+) {
+    var menu by remember { mutableStateOf(false) }
+    val selected = (current as? ViewRef.TagView)?.tagId == tag.id
+    val children = allTags.filter { it.parentId == tag.id }.sortedWith(compareBy({ it.sortOrder }, { it.name }))
+    val entryCounts by vm.entryCounts.collectAsStateWithLifecycle()
+    val entryCount = entryCounts.tags[tag.id]?.takeIf { it > 0 }
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 1.dp).clip(RoundedCornerShape(10.dp))
+            .background(if (selected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent)
+            .clickable { onSelect(ViewRef.TagView(tag.id)) }
+            .padding(start = (12 + depth * 16).dp, top = 9.dp, bottom = 9.dp, end = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(Icons.AutoMirrored.Filled.Label, null, tint = tag.colorArgb?.let { Color(it) } ?: MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(11.dp))
+        Text("#" + tag.name, Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium,
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal)
+        if (entryCount != null) Text(entryCount.toString(), Modifier.padding(end = 4.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Box {
+            Icon(Icons.Filled.MoreVert, "Tag menu", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp).clickable { menu = true })
+            DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                val pinRef = "tag:${tag.id}"
+                MenuItem(if (vm.isPinned(pinRef)) Icons.Filled.PushPin else Icons.Filled.PushPin, if (vm.isPinned(pinRef)) "Unpin from top" else "Pin to top") { vm.togglePinnedRef(pinRef); menu = false }
+                MenuItem(Icons.Filled.Add, "New sub-tag") { onNewTag(tag.id); menu = false }
+                MenuItem(Icons.AutoMirrored.Filled.DriveFileMove, "Move to…") { onMoveTag(tag); menu = false }
+                MenuItem(Icons.Filled.Edit, "Rename / colour / delete") { onManageTag(tag); menu = false }
+            }
+        }
+    }
+    children.forEach { TagNode(it, depth + 1, allTags, current, vm, onSelect, onNewTag, onManageTag, onMoveTag) }
+}
+
+/** MLO-style favourites pinned to the top as big tiles, 1–4 per row (dynamically sharing the
+ *  width). Tap opens; long-press reveals an unpin badge so the control never steals row space. */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+@Composable
+private fun PinnedFavourites(
+    refs: List<String>,
+    lists: List<ListEntity>, folders: List<FolderEntity>,
+    tags: List<com.wkhan.hexis.data.entity.TagEntity>, contexts: List<com.wkhan.hexis.data.entity.ContextEntity>,
+    vm: AppViewModel, current: ViewRef, onSelect: (ViewRef) -> Unit,
+    onOpenRef: (String) -> Unit = {},
+    open: Boolean = true, onToggle: (() -> Unit)? = null,
+) {
+    val filters by vm.filters.collectAsStateWithLifecycle()
+    val counts by vm.smartCounts.collectAsStateWithLifecycle()
+    val settings by vm.settings.collectAsStateWithLifecycle()
+    // E4: view:/more: pins open a tab or screen; they aren't a ViewRef, so they carry an action.
+    // E5: a smart pin set to "Show if not empty" (AUTO) drops out when its count is 0 (unless active),
+    // mirroring the Smart-lists section so a pinned tile can't linger empty.
+    data class Pin(val icon: ImageVector, val emoji: String?, val label: String, val color: Color?, val ref: String, val selected: Boolean, val onOpen: () -> Unit)
+    fun viewMeta(tab: String): Pair<ImageVector, String>? = when (tab) {
+        "CALENDAR" -> Icons.Filled.CalendarMonth to "Calendar"; "TIMELINE" -> Icons.Filled.ViewTimeline to "Timeline"
+        "MATRIX" -> Icons.Filled.GridView to "Matrix"; "HABITS" -> Icons.Filled.LocalFireDepartment to "Habits"
+        "FOCUS" -> Icons.Filled.Timer to "Focus"; else -> null
+    }
+    fun moreMeta(key: String): Pair<ImageVector, String>? = when (key) {
+        "momentum" -> Icons.Filled.Insights to "Momentum"
+        "time" -> Icons.Filled.Timer to "Time"
+        "routines" -> Icons.Filled.PlayCircleOutline to "Routines"
+        "goals" -> Icons.Filled.EmojiEvents to "Goals"
+        "templates" -> Icons.Filled.ContentCopy to "Templates"; "countdowns" -> Icons.Filled.Cake to "Occasions"
+        "attachments" -> Icons.Filled.AttachFile to "Attachments"; "statistics" -> Icons.Filled.BarChart to "Statistics"
+        "review" -> Icons.Filled.ChecklistRtl to "Weekly cleanup"
+        "weeklyreview" -> Icons.Filled.EventRepeat to "Weekly review"
+        "dayreview" -> Icons.Filled.WbSunny to "Day review"
+        "recap" -> Icons.Filled.AutoAwesome to "Recap"; "annual" -> Icons.Filled.EmojiEvents to "Year in review"; else -> null
+    }
+    val resolved = refs.mapNotNull { ref ->
+        val id = ref.substringAfter(':')
+        when (ref.substringBefore(':')) {
+            "smart" -> runCatching { SmartKind.valueOf(id) }.getOrNull()?.let { k ->
+                val active = (current as? ViewRef.Smart)?.kind == k
+                val hideEmpty = (settings.smartListVis[k] ?: SmartVis.SHOW) == SmartVis.AUTO && (counts[k] ?: 0) == 0 && !active
+                if (hideEmpty) null else Pin(smartIcon(k), null, com.wkhan.hexis.domain.smartTitle(settings, k), null, ref, active) { onSelect(ViewRef.Smart(k)) }
+            }
+            "list" -> lists.firstOrNull { it.id == id }?.let { Pin(Icons.AutoMirrored.Filled.FormatListBulleted, it.emoji, it.name, it.colorArgb?.let(::Color), ref, current == ViewRef.ListView(id)) { onSelect(ViewRef.ListView(id)) } }
+            "folder" -> folders.firstOrNull { it.id == id }?.let { Pin(Icons.Filled.Folder, it.icon, it.name, null, ref, current == ViewRef.FolderView(id)) { onSelect(ViewRef.FolderView(id)) } }
+            "tag" -> tags.firstOrNull { it.id == id }?.let { Pin(Icons.AutoMirrored.Filled.Label, null, "#" + it.name, it.colorArgb?.let(::Color), ref, current == ViewRef.TagView(id)) { onSelect(ViewRef.TagView(id)) } }
+            "context" -> contexts.firstOrNull { it.id == id }?.let { Pin(Icons.Filled.Place, null, "@" + it.name, it.colorArgb?.let(::Color), ref, current == ViewRef.ContextView(id)) { onSelect(ViewRef.ContextView(id)) } }
+            "filter" -> filters.firstOrNull { it.id == id }?.let { Pin(Icons.Filled.FilterList, null, it.name, it.colorArgb?.let(::Color), ref, current == ViewRef.FilterView(id)) { onSelect(ViewRef.FilterView(id)) } }
+            "view" -> viewMeta(id)?.let { (ic, lbl) -> Pin(ic, null, lbl, null, ref, false) { onOpenRef(ref) } }
+            "more" -> moreMeta(id)?.let { (ic, lbl) -> Pin(ic, null, lbl, null, ref, false) { onOpenRef(ref) } }
+            else -> null
+        }
+    }
+    if (resolved.isEmpty()) return
+    var unpinTarget by remember { mutableStateOf<String?>(null) }
+    SectionHeader("Favourites", open = open, onToggle = onToggle)
+    if (!open) return
+    Column(Modifier.padding(horizontal = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        resolved.chunked(4).forEach { rowItems ->
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                rowItems.forEach { p ->
+                    val selected = p.selected
+                    val accent = p.color ?: MaterialTheme.colorScheme.primary
+                    Box(Modifier.weight(1f)) {
+                        Column(
+                            Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp))
+                                .background(if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .5f))
+                                .combinedClickable(
+                                    onClick = { if (unpinTarget != null) unpinTarget = null else p.onOpen() },
+                                    onLongClick = { unpinTarget = if (unpinTarget == p.ref) null else p.ref },
+                                )
+                                .padding(vertical = 12.dp, horizontal = 6.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            Box(Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(accent.copy(alpha = .16f)), contentAlignment = Alignment.Center) {
+                                if (p.emoji != null) Text(p.emoji, style = MaterialTheme.typography.titleLarge)
+                                else Icon(p.icon, null, tint = accent, modifier = Modifier.size(24.dp))
+                            }
+                            Text(p.label, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center, lineHeight = 15.sp,
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium)
+                        }
+                        if (unpinTarget == p.ref) {
+                            Box(
+                                Modifier.align(Alignment.TopEnd).padding(3.dp).size(22.dp).clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.error).clickable { vm.togglePinnedRef(p.ref); unpinTarget = null },
+                                contentAlignment = Alignment.Center,
+                            ) { Icon(Icons.Filled.Close, "Unpin", tint = MaterialTheme.colorScheme.onError, modifier = Modifier.size(14.dp)) }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Generic long-press drag-to-reorder Column for a flat list of drawer rows. Mirrors the list
+ * reorder gesture: long-press a row, drag vertically, drop; the new order is reported by id.
+ * Resyncs from upstream whenever [items] changes, except mid-drag.
+ */
+@Composable
+private fun <T> DragReorderColumn(items: List<T>, id: (T) -> String, onReorder: (List<String>) -> Unit, row: @Composable (T) -> Unit) {
+    var dragId by remember { mutableStateOf<String?>(null) }
+    var order by remember { mutableStateOf(items) }
+    var delta by remember { mutableFloatStateOf(0f) }
+    var rowH by remember { mutableFloatStateOf(0f) }
+    androidx.compose.runtime.LaunchedEffect(items) { if (dragId == null) order = items }
+    Column {
+        order.forEach { item ->
+            key(id(item)) {
+                val dragging = id(item) == dragId
+                // A Column (not a Box) so an item that renders a whole subtree — e.g. a parent tag/context and
+                // its nested children (TagNode/ContextNode recurse) — stacks its rows vertically instead of
+                // overlapping them on top of each other (R21 #228: parent hidden, sub-tags overlapping).
+                Column(
+                    Modifier
+                        .onSizeChanged { if (rowH == 0f && it.height > 0) rowH = it.height.toFloat() }
+                        .zIndex(if (dragging) 1f else 0f)
+                        .graphicsLayer { translationY = if (dragging) delta else 0f }
+                        .pointerInput(id(item)) {
+                            detectDragGesturesAfterLongPress(
+                                onDragStart = { dragId = id(item); delta = 0f },
+                                onDragEnd = { if (dragId != null) onReorder(order.map { id(it) }); dragId = null; delta = 0f },
+                                onDragCancel = { dragId = null; delta = 0f },
+                                onDrag = { ch, d ->
+                                    ch.consume(); delta += d.y
+                                    val from = order.indexOfFirst { id(it) == dragId }
+                                    if (from >= 0 && rowH > 0f) {
+                                        val target = (from + (delta / rowH).roundToInt()).coerceIn(0, order.size - 1)
+                                        if (target != from) { order = order.toMutableList().also { it.add(target, it.removeAt(from)) }; delta -= (target - from) * rowH }
+                                    }
+                                },
+                            )
+                        },
+                ) { row(item) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MenuItem(icon: ImageVector, label: String, onClick: () -> Unit) {
+    DropdownMenuItem(text = { Text(label) }, leadingIcon = { Icon(icon, null, modifier = Modifier.size(20.dp)) }, onClick = onClick)
+}
+
+/** A quiet indented caption that groups a couple of related rows inside a section (e.g. "Insights"). */
+@Composable
+private fun SubLabel(text: String) {
+    Text(text.uppercase(), style = MaterialTheme.typography.labelSmall, letterSpacing = 0.8.sp,
+        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .8f), fontWeight = FontWeight.SemiBold,
+        modifier = Modifier.padding(start = 22.dp, top = 10.dp, bottom = 2.dp))
+}
+
+@Composable
+private fun SectionHeader(text: String, open: Boolean = true, onToggle: (() -> Unit)? = null, onAdd: (() -> Unit)? = null) {
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).let { if (onToggle != null) it.clickable { onToggle() } else it }
+            .padding(start = 14.dp, end = 12.dp, top = 14.dp, bottom = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (onToggle != null) {
+            Icon(if (open) Icons.Filled.KeyboardArrowDown else Icons.AutoMirrored.Filled.KeyboardArrowRight, null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
+            Spacer(Modifier.width(4.dp))
+        }
+        Text(text.uppercase(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
+        if (onAdd != null) {
+            Spacer(Modifier.weight(1f))
+            Icon(Icons.Filled.Add, "Add", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp).clickable { onAdd() })
+        }
+    }
+}
+
+@Composable
+private fun ContextNode(
+    ctx: com.wkhan.hexis.data.entity.ContextEntity, depth: Int, all: List<com.wkhan.hexis.data.entity.ContextEntity>, current: ViewRef, vm: AppViewModel,
+    onSelect: (ViewRef) -> Unit, onNew: (String?) -> Unit, onManage: (com.wkhan.hexis.data.entity.ContextEntity) -> Unit, onMove: (com.wkhan.hexis.data.entity.ContextEntity) -> Unit,
+) {
+    var menu by remember { mutableStateOf(false) }
+    val selected = (current as? ViewRef.ContextView)?.contextId == ctx.id
+    val children = all.filter { it.parentId == ctx.id }.sortedWith(compareBy({ it.name }))
+    val entryCounts by vm.entryCounts.collectAsStateWithLifecycle()
+    val entryCount = entryCounts.contexts[ctx.id]?.takeIf { it > 0 }
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 1.dp).clip(RoundedCornerShape(10.dp))
+            .background(if (selected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent)
+            .clickable { onSelect(ViewRef.ContextView(ctx.id)) }
+            .padding(start = (12 + depth * 16).dp, top = 9.dp, bottom = 9.dp, end = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(Icons.Filled.Place, null, tint = ctx.colorArgb?.let { Color(it) } ?: MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(11.dp))
+        Text("@" + ctx.name, Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium,
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal)
+        if (entryCount != null) Text(entryCount.toString(), Modifier.padding(end = 4.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Box {
+            Icon(Icons.Filled.MoreVert, "Context menu", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp).clickable { menu = true })
+            DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                val pinRef = "context:${ctx.id}"
+                MenuItem(if (vm.isPinned(pinRef)) Icons.Filled.PushPin else Icons.Filled.PushPin, if (vm.isPinned(pinRef)) "Unpin from top" else "Pin to top") { vm.togglePinnedRef(pinRef); menu = false }
+                MenuItem(Icons.Filled.Add, "New sub-context") { onNew(ctx.id); menu = false }
+                MenuItem(Icons.AutoMirrored.Filled.DriveFileMove, "Move to…") { onMove(ctx); menu = false }
+                MenuItem(Icons.Filled.Edit, "Edit · availability & open-hours") { onManage(ctx); menu = false }
+            }
+        }
+    }
+    children.forEach { ContextNode(it, depth + 1, all, current, vm, onSelect, onNew, onManage, onMove) }
+}
+
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+/** A smart-list row: icon · title · count · a ⋮ menu to pin/unpin to Favourites. Long-press
+ *  (from the enclosing DragReorderColumn) reorders it. */
+@Composable
+private fun SmartRow(kind: SmartKind, count: Int?, selected: Boolean, vm: AppViewModel, onClick: () -> Unit) {
+    var menu by remember { mutableStateOf(false) }
+    var renaming by remember { mutableStateOf(false) }
+    val pinRef = "smart:${kind.name}"
+    val settings by vm.settings.collectAsStateWithLifecycle()
+    val title = com.wkhan.hexis.domain.smartTitle(settings, kind)
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 1.dp).clip(RoundedCornerShape(10.dp))
+            .background(if (selected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent)
+            .clickable { onClick() }.padding(start = 12.dp, top = 9.dp, bottom = 9.dp, end = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(smartIcon(kind), null, tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
+        Spacer(Modifier.width(12.dp))
+        Text(title, Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium,
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal)
+        if (count != null) Text(count.toString(), Modifier.padding(end = 4.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Box {
+            Icon(Icons.Filled.MoreVert, "Smart list menu", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp).clickable { menu = true })
+            DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                MenuItem(Icons.Filled.PushPin, if (vm.isPinned(pinRef)) "Remove from Favourites" else "Add to Favourites") { vm.togglePinnedRef(pinRef); menu = false }
+                MenuItem(Icons.Filled.Edit, "Rename…") { renaming = true; menu = false }
+            }
+        }
+    }
+    if (renaming) {
+        val custom = settings.smartListNames[kind.name].orEmpty()
+        var text by remember(kind) { mutableStateOf(custom) }
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { renaming = false },
+            confirmButton = { androidx.compose.material3.TextButton(onClick = { vm.setSmartListName(kind.name, text.trim().takeIf { it.isNotBlank() }); renaming = false }) { Text("Save") } },
+            dismissButton = {
+                Row {
+                    // "Reset" clears the custom name so the built-in title (kind.title) is used again.
+                    if (custom.isNotBlank()) androidx.compose.material3.TextButton(onClick = { vm.setSmartListName(kind.name, null); renaming = false }) { Text("Reset") }
+                    androidx.compose.material3.TextButton(onClick = { renaming = false }) { Text("Cancel") }
+                }
+            },
+            title = { Text("Rename “${kind.title}”") },
+            text = {
+                AppTextField(value = text, onValueChange = { text = it }, singleLine = true,
+                    placeholder = { Text(kind.title) }, label = { Text("Display name") })
+            },
+        )
+    }
+}
+
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+@Composable
+private fun DrawerRow(icon: ImageVector, label: String, count: Int? = null, selected: Boolean = false, muted: Boolean = false, pinned: Boolean = false, onLongClick: (() -> Unit)? = null, onClick: () -> Unit = {}) {
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 1.dp).clip(RoundedCornerShape(10.dp))
+            .background(if (selected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent)
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
+            .padding(start = 12.dp, top = 9.dp, bottom = 9.dp, end = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(icon, null, tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
+        Spacer(Modifier.width(12.dp))
+        Text(label, Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium,
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+            color = if (muted) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface)
+        // E4: a small filled pin marks a favourited row; long-press toggles it.
+        if (pinned) Icon(Icons.Filled.PushPin, "Pinned", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(15.dp))
+        if (count != null) { if (pinned) Spacer(Modifier.width(6.dp)); Text(count.toString(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+    }
+}

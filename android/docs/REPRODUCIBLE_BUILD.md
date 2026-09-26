@@ -1,6 +1,6 @@
-# Kairo — Reproducible build & APK verification
+# Hexis — Reproducible build & APK verification
 
-Kairo is a privacy-first, fully-offline app, so "is the APK I installed actually built from this source?"
+Hexis is a privacy-first, fully-offline app, so "is the APK I installed actually built from this source?"
 is a question the project should let anyone answer for themselves. This document describes how the release
 APK is produced and how to verify a build hash.
 

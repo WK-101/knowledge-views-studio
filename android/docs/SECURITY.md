@@ -1,6 +1,6 @@
-# Kairo — Security & Privacy Threat Model
+# Hexis — Security & Privacy Threat Model
 
-Kairo (`com.wkhan.kairo`) is a fully-offline personal task/habit/time manager. Its defining property is
+Hexis (`com.wkhan.hexis`) is a fully-offline personal task/habit/time manager. Its defining property is
 that **it has no way to talk to a network** — the design goal is that your data physically cannot leave
 the device except through a file *you* explicitly export and hand to another app. This document is the
 threat model behind that claim: what is protected, how, and what is explicitly out of scope.
@@ -55,7 +55,7 @@ the same invariant on every release.
   guidance; legacy 120k files still decrypt and are upgraded transparently). A manual JSON export is
   encrypted by default whenever a passphrase is set. The "Sealed Courier" transfer format carries only the
   metadata needed to merge and uses post-quantum-oriented crypto for the sealed payload.
-- **Notifications** redact their content on the lock screen by default (a neutral "Kairo · reminder"
+- **Notifications** redact their content on the lock screen by default (a neutral "Hexis · reminder"
   placeholder); the "hide on lock screen" setting escalates to showing nothing at all.
 - **Crash log.** A crash writes a local `last_crash.txt` for the user to inspect or attach — it is never
   transmitted.

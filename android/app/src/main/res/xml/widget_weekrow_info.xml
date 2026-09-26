@@ -13,6 +13,6 @@
     android:previewLayout="@layout/widget_weekrow"
     android:resizeMode="horizontal|vertical"
     android:widgetCategory="home_screen"
-    android:configure="com.todocompanion.app.widget.WidgetConfigActivity"
+    android:configure="com.wkhan.hexis.widget.WidgetConfigActivity"
     android:widgetFeatures="reconfigurable|configuration_optional"
     android:description="@string/widget_weekrow_desc" />

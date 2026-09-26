@@ -103,14 +103,14 @@
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="todocompanion" android:host="today" />
-                <data android:scheme="todocompanion" android:host="donext" />
-                <data android:scheme="todocompanion" android:host="focus" />
-                <data android:scheme="todocompanion" android:host="closeday" />
+                <data android:scheme="hexis" android:host="today" />
+                <data android:scheme="hexis" android:host="donext" />
+                <data android:scheme="hexis" android:host="focus" />
+                <data android:scheme="hexis" android:host="closeday" />
                 <!-- Periodic Notes: a new note, today's daily note, and the Journal hub. -->
-                <data android:scheme="todocompanion" android:host="note" />
-                <data android:scheme="todocompanion" android:host="daily" />
-                <data android:scheme="todocompanion" android:host="journal" />
+                <data android:scheme="hexis" android:host="note" />
+                <data android:scheme="hexis" android:host="daily" />
+                <data android:scheme="hexis" android:host="journal" />
             </intent-filter>
             <!-- H1: capture from the system share sheet — any app can share text into a new task. -->
             <intent-filter>
@@ -126,7 +126,7 @@
             </intent-filter>
             <!--
               E9 — the robust import path for de-Googled phones: let the user's OWN file manager hand
-              the backup to us via "Open with → Kairo". The resulting content:// URI carries a
+              the backup to us via "Open with → Hexis". The resulting content:// URI carries a
               temporary read grant, so NO storage permission or system document picker is involved — the
               one channel that survives a stripped-down AOSP ROM. Still fully offline.
             -->
@@ -165,7 +165,7 @@
                 <data android:pathPattern=".*\\.todobackup" />
                 <data android:pathPattern=".*\\.zip" />
             </intent-filter>
-            <!-- Share a backup INTO the app: "Share → Kairo". Non-text SEND only (text/plain stays quick-add). -->
+            <!-- Share a backup INTO the app: "Share → Hexis". Non-text SEND only (text/plain stays quick-add). -->
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -174,22 +174,22 @@
                 <data android:mimeType="application/zip" />
                 <data android:mimeType="application/*" />
             </intent-filter>
-            <!-- U13: an NFC tag or QR encoding todocompanion://track?activity=<id> starts a timer. Offline; no permission. -->
+            <!-- U13: an NFC tag or QR encoding hexis://track?activity=<id> starts a timer. Offline; no permission. -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="todocompanion" android:host="track" />
-                <data android:scheme="todocompanion" android:host="routine" />
+                <data android:scheme="hexis" android:host="track" />
+                <data android:scheme="hexis" android:host="routine" />
                 <!-- R59: permission-free place reminders — an NFC tag / QR encoding
-                     todocompanion://arrive?place=<name> fires the reminders armed for that place. -->
-                <data android:scheme="todocompanion" android:host="arrive" />
+                     hexis://arrive?place=<name> fires the reminders armed for that place. -->
+                <data android:scheme="hexis" android:host="arrive" />
             </intent-filter>
         </activity>
 
-        <!-- Wave 2 · Share-to-Kairo (notes): a distinct share target that drops any shared/selected text
+        <!-- Wave 2 · Share-to-Hexis (notes): a distinct share target that drops any shared/selected text
              straight into a new note. Text SEND on MainActivity captures a TASK; this captures a NOTE, so
-             the share sheet and the text-selection menu both offer "Kairo note". No window, no permission;
+             the share sheet and the text-selection menu both offer "Hexis note". No window, no permission;
              a tiny transparent activity that writes to Room and finishes. -->
         <activity
             android:name=".share.ShareToNoteActivity"
@@ -267,7 +267,7 @@
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="todocompanion" android:host="add" />
+                <data android:scheme="hexis" android:host="add" />
             </intent-filter>
         </activity>
 
@@ -546,9 +546,9 @@
              a mere knowledge of the public action string can't drive the tracker. -->
         <receiver android:name=".reminders.TimeIntentReceiver" android:exported="true">
             <intent-filter>
-                <action android:name="com.todocompanion.app.api.START_ACTIVITY" />
-                <action android:name="com.todocompanion.app.api.STOP_ACTIVITY" />
-                <action android:name="com.todocompanion.app.api.STOP_ALL" />
+                <action android:name="com.wkhan.hexis.api.START_ACTIVITY" />
+                <action android:name="com.wkhan.hexis.api.STOP_ACTIVITY" />
+                <action android:name="com.wkhan.hexis.api.STOP_ALL" />
             </intent-filter>
         </receiver>
 

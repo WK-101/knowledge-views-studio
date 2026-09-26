@@ -1,4 +1,4 @@
-package com.todocompanion.app
+package com.wkhan.hexis
 
 import androidx.compose.foundation.layout.Row
 import androidx.compose.material3.MaterialTheme
@@ -11,9 +11,9 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performClick
-import com.todocompanion.app.domain.priority.PriorityLevel
-import com.todocompanion.app.ui.components.FlagStar
-import com.todocompanion.app.ui.components.PriorityCheckbox
+import com.wkhan.hexis.domain.priority.PriorityLevel
+import com.wkhan.hexis.ui.components.FlagStar
+import com.wkhan.hexis.ui.components.PriorityCheckbox
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test

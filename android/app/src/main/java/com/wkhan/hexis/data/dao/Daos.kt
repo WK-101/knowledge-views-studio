@@ -1,0 +1,1050 @@
+package com.wkhan.hexis.data.dao
+
+import androidx.room.Dao
+import androidx.room.Delete
+import androidx.room.Insert
+import androidx.room.OnConflictStrategy
+import androidx.room.Query
+import androidx.room.Upsert
+import com.wkhan.hexis.data.entity.ChecklistItemEntity
+import com.wkhan.hexis.data.entity.ContextEntity
+import com.wkhan.hexis.data.entity.DependencyEntity
+import com.wkhan.hexis.data.entity.FolderEntity
+import com.wkhan.hexis.data.entity.ListEntity
+import com.wkhan.hexis.data.entity.ReminderEntity
+import com.wkhan.hexis.data.entity.SettingEntity
+import com.wkhan.hexis.data.entity.TagEntity
+import com.wkhan.hexis.data.entity.TaskContextCrossRef
+import com.wkhan.hexis.data.entity.TaskEntity
+import com.wkhan.hexis.data.entity.TaskTagCrossRef
+import com.wkhan.hexis.data.entity.FilterEntity
+import com.wkhan.hexis.data.entity.HabitEntity
+import com.wkhan.hexis.data.entity.HabitCheckinEntity
+import com.wkhan.hexis.data.entity.FocusSessionEntity
+import com.wkhan.hexis.data.entity.FlagEntity
+import com.wkhan.hexis.data.entity.TemplateEntity
+import com.wkhan.hexis.data.entity.WorkspaceEntity
+import com.wkhan.hexis.data.entity.AttachmentEntity
+import com.wkhan.hexis.data.entity.AttachmentMeta
+import com.wkhan.hexis.data.entity.NoteEntity
+import com.wkhan.hexis.data.entity.NotebookEntity
+import com.wkhan.hexis.data.entity.NoteTagCrossRef
+import com.wkhan.hexis.data.entity.NoteContextCrossRef
+import com.wkhan.hexis.data.entity.NoteRevisionEntity
+import com.wkhan.hexis.data.entity.NoteLinkEntity
+import com.wkhan.hexis.data.entity.SmartViewEntity
+import kotlinx.coroutines.flow.Flow
+
+@Dao
+interface TaskDao {
+    @Query("SELECT * FROM tasks ORDER BY sortOrder ASC")
+    fun observeAll(): Flow<List<TaskEntity>>
+
+    // W2 (scale) — the active-workspace task set, filtered IN SQL against the restored workspaceId/folderId
+    // indices, replacing the VM's whole-table load + in-memory scopedBy/wsTasks filter. Mirrors the old
+    // wsTasks rule EXACTLY (proven by TaskScopeQueryTest): it's an if/else, not an OR, and the else branch is
+    // guarded by `listId <> :inboxId`. That guard matters — the Inbox LIST row itself lives in `lists` with
+    // workspaceId "default", so without it an Inbox task captured in a non-default workspace would leak into
+    // the default workspace via the list-membership branch. Rule: a shared-Inbox task belongs to the
+    // workspace it was captured in ([workspaceId]); every other task belongs via its list's / folder's workspace.
+    @Query(
+        "SELECT * FROM tasks WHERE (listId = :inboxId AND workspaceId = :ws) " +
+            "OR (listId <> :inboxId AND (" +
+            "listId IN (SELECT id FROM lists WHERE workspaceId = :ws) " +
+            "OR (folderId IS NOT NULL AND folderId IN (SELECT id FROM folders WHERE workspaceId = :ws))" +
+            ")) " +
+            "ORDER BY sortOrder ASC",
+    )
+    fun observeWorkspaceScoped(ws: String, inboxId: String): Flow<List<TaskEntity>>
+
+    @Query("SELECT * FROM tasks")
+    suspend fun getAll(): List<TaskEntity>
+
+    @Query("SELECT * FROM tasks WHERE id = :id")
+    suspend fun getById(id: String): TaskEntity?
+
+    @Query("SELECT * FROM tasks WHERE id = :id")
+    fun observeById(id: String): Flow<TaskEntity?>
+
+    @Query("SELECT * FROM tasks WHERE parentId = :parentId ORDER BY sortOrder ASC")
+    suspend fun childrenOf(parentId: String): List<TaskEntity>
+
+    @Query("SELECT * FROM tasks WHERE listId = :listId AND parentId IS :parentId ORDER BY sortOrder ASC")
+    suspend fun childrenIn(listId: String, parentId: String?): List<TaskEntity>
+
+    @Query("SELECT COALESCE(MAX(sortOrder), 0.0) FROM tasks WHERE listId = :listId AND parentId IS :parentId")
+    suspend fun maxSortOrder(listId: String, parentId: String?): Double
+
+    @Upsert
+    suspend fun upsert(task: TaskEntity)
+
+    @Upsert
+    suspend fun upsertAll(tasks: List<TaskEntity>)
+
+    @Query("DELETE FROM tasks WHERE id = :id")
+    suspend fun deleteById(id: String)
+
+    @Query("DELETE FROM tasks")
+    suspend fun clear()
+}
+
+@Dao
+interface FocusDao {
+    @Query("SELECT * FROM focus_sessions ORDER BY startMillis DESC")
+    fun observeAll(): Flow<List<FocusSessionEntity>>
+    @Query("SELECT * FROM focus_sessions") suspend fun getAll(): List<FocusSessionEntity>
+    @Upsert suspend fun upsert(s: FocusSessionEntity)
+    @Upsert suspend fun upsertAll(s: List<FocusSessionEntity>)
+    @Query("DELETE FROM focus_sessions") suspend fun clear()
+}
+
+@Dao
+interface HabitDao {
+    @Query("SELECT * FROM habits ORDER BY sortOrder")
+    fun observeAll(): Flow<List<HabitEntity>>
+    @Query("SELECT * FROM habits")
+    suspend fun getAll(): List<HabitEntity>
+    // D6 — fetch one habit by id (served from the PK index) instead of the repo loading and deserializing
+    // the whole ~90-column habits table just to find one row on every single-habit mutation.
+    @Query("SELECT * FROM habits WHERE id = :id") suspend fun getById(id: String): HabitEntity?
+    @Upsert suspend fun upsert(h: HabitEntity)
+    @Upsert suspend fun upsertAll(h: List<HabitEntity>)
+    @Query("DELETE FROM habits WHERE id = :id") suspend fun deleteById(id: String)
+    @Query("DELETE FROM habits") suspend fun clear()
+
+    @Query("SELECT * FROM habit_checkins")
+    fun observeCheckins(): Flow<List<HabitCheckinEntity>>
+    @Query("SELECT * FROM habit_checkins") suspend fun getCheckins(): List<HabitCheckinEntity>
+    @Query("SELECT * FROM habit_checkins WHERE habitId = :habitId AND epochDay = :day LIMIT 1")
+    suspend fun getCheckin(habitId: String, day: Long): HabitCheckinEntity?
+    @Upsert suspend fun upsertCheckin(c: HabitCheckinEntity)
+    @Upsert suspend fun upsertCheckins(c: List<HabitCheckinEntity>)
+    @Query("DELETE FROM habit_checkins WHERE habitId = :habitId AND epochDay = :day") suspend fun deleteCheckin(habitId: String, day: Long)
+    @Query("DELETE FROM habit_checkins WHERE habitId = :habitId") suspend fun clearHabit(habitId: String)
+    @Query("DELETE FROM habit_checkins") suspend fun clearCheckins()
+}
+
+@Dao
+interface FlagDao {
+    @Query("SELECT * FROM flags ORDER BY sortOrder")
+    fun observeAll(): Flow<List<FlagEntity>>
+
+    @Query("SELECT * FROM flags")
+    suspend fun getAll(): List<FlagEntity>
+
+    @Query("SELECT COALESCE(MAX(sortOrder), 0.0) FROM flags")
+    suspend fun maxSortOrder(): Double
+
+    @Upsert
+    suspend fun upsert(f: FlagEntity)
+
+    @Upsert
+    suspend fun upsertAll(f: List<FlagEntity>)
+
+    @Query("DELETE FROM flags WHERE id = :id")
+    suspend fun deleteById(id: String)
+
+    @Query("DELETE FROM flags")
+    suspend fun clear()
+}
+
+@Dao
+interface TemplateDao {
+    @Query("SELECT * FROM templates ORDER BY name")
+    fun observeAll(): Flow<List<TemplateEntity>>
+
+    @Query("SELECT * FROM templates")
+    suspend fun getAll(): List<TemplateEntity>
+
+    @Query("SELECT * FROM templates WHERE id = :id")
+    suspend fun getById(id: String): TemplateEntity?
+
+    @Upsert
+    suspend fun upsert(t: TemplateEntity)
+
+    @Upsert
+    suspend fun upsertAll(t: List<TemplateEntity>)
+
+    @Query("DELETE FROM templates WHERE id = :id")
+    suspend fun deleteById(id: String)
+
+    @Query("DELETE FROM templates")
+    suspend fun clear()
+}
+
+@Dao
+interface CountdownDao {
+    @Query("SELECT * FROM countdowns ORDER BY targetMillis")
+    fun observeAll(): Flow<List<com.wkhan.hexis.data.entity.CountdownEntity>>
+
+    @Query("SELECT * FROM countdowns")
+    suspend fun getAll(): List<com.wkhan.hexis.data.entity.CountdownEntity>
+
+    @Upsert
+    suspend fun upsert(c: com.wkhan.hexis.data.entity.CountdownEntity)
+
+    @Upsert
+    suspend fun upsertAll(c: List<com.wkhan.hexis.data.entity.CountdownEntity>)
+
+    @Query("DELETE FROM countdowns WHERE id = :id")
+    suspend fun deleteById(id: String)
+
+    @Query("DELETE FROM countdowns")
+    suspend fun clear()
+}
+
+@Dao
+interface CravingDao {
+    @Query("SELECT * FROM craving_events ORDER BY atMillis DESC")
+    fun observeAll(): Flow<List<com.wkhan.hexis.data.entity.CravingEventEntity>>
+
+    @Query("SELECT * FROM craving_events")
+    suspend fun getAll(): List<com.wkhan.hexis.data.entity.CravingEventEntity>
+
+    @Upsert
+    suspend fun upsert(c: com.wkhan.hexis.data.entity.CravingEventEntity)
+
+    @Upsert
+    suspend fun upsertAll(c: List<com.wkhan.hexis.data.entity.CravingEventEntity>)
+
+    @Query("DELETE FROM craving_events WHERE id = :id")
+    suspend fun deleteById(id: String)
+
+    @Query("DELETE FROM craving_events")
+    suspend fun clear()
+}
+
+// R34 — the LIFE-SYSTEMS layer's tables. Same shape as the other lightweight DAOs.
+@Dao
+interface CoreValueDao {
+    @Query("SELECT * FROM core_values ORDER BY orderIndex, createdAt")
+    fun observeAll(): Flow<List<com.wkhan.hexis.data.entity.CoreValueEntity>>
+    @Query("SELECT * FROM core_values") suspend fun getAll(): List<com.wkhan.hexis.data.entity.CoreValueEntity>
+    @Upsert suspend fun upsert(v: com.wkhan.hexis.data.entity.CoreValueEntity)
+    @Upsert suspend fun upsertAll(v: List<com.wkhan.hexis.data.entity.CoreValueEntity>)
+    @Query("DELETE FROM core_values WHERE id = :id") suspend fun deleteById(id: String)
+    @Query("DELETE FROM core_values") suspend fun clear()
+}
+
+@Dao
+interface WitnessDao {
+    @Query("SELECT * FROM witness_events ORDER BY atMillis DESC")
+    fun observeAll(): Flow<List<com.wkhan.hexis.data.entity.WitnessEventEntity>>
+    @Query("SELECT * FROM witness_events") suspend fun getAll(): List<com.wkhan.hexis.data.entity.WitnessEventEntity>
+    @Upsert suspend fun upsert(w: com.wkhan.hexis.data.entity.WitnessEventEntity)
+    @Upsert suspend fun upsertAll(w: List<com.wkhan.hexis.data.entity.WitnessEventEntity>)
+    @Query("DELETE FROM witness_events WHERE id = :id") suspend fun deleteById(id: String)
+    @Query("DELETE FROM witness_events") suspend fun clear()
+}
+
+@Dao
+interface ScorecardDao {
+    @Query("SELECT * FROM scorecard_items ORDER BY orderIndex, createdAt")
+    fun observeAll(): Flow<List<com.wkhan.hexis.data.entity.ScorecardItemEntity>>
+    @Query("SELECT * FROM scorecard_items") suspend fun getAll(): List<com.wkhan.hexis.data.entity.ScorecardItemEntity>
+    @Upsert suspend fun upsert(s: com.wkhan.hexis.data.entity.ScorecardItemEntity)
+    @Upsert suspend fun upsertAll(s: List<com.wkhan.hexis.data.entity.ScorecardItemEntity>)
+    @Query("DELETE FROM scorecard_items WHERE id = :id") suspend fun deleteById(id: String)
+    @Query("DELETE FROM scorecard_items") suspend fun clear()
+}
+
+@Dao
+interface BuddyDao {
+    @Query("SELECT * FROM buddy_snapshots ORDER BY importedAtMillis DESC")
+    fun observeAll(): Flow<List<com.wkhan.hexis.data.entity.BuddySnapshotEntity>>
+    @Query("SELECT * FROM buddy_snapshots") suspend fun getAll(): List<com.wkhan.hexis.data.entity.BuddySnapshotEntity>
+    @Upsert suspend fun upsert(b: com.wkhan.hexis.data.entity.BuddySnapshotEntity)
+    @Upsert suspend fun upsertAll(b: List<com.wkhan.hexis.data.entity.BuddySnapshotEntity>)
+    @Query("DELETE FROM buddy_snapshots WHERE id = :id") suspend fun deleteById(id: String)
+    @Query("DELETE FROM buddy_snapshots") suspend fun clear()
+}
+
+@Dao
+interface IntegrityReviewDao {
+    @Query("SELECT * FROM integrity_reviews ORDER BY createdAt DESC")
+    fun observeAll(): Flow<List<com.wkhan.hexis.data.entity.IntegrityReviewEntity>>
+    @Query("SELECT * FROM integrity_reviews") suspend fun getAll(): List<com.wkhan.hexis.data.entity.IntegrityReviewEntity>
+    @Upsert suspend fun upsert(r: com.wkhan.hexis.data.entity.IntegrityReviewEntity)
+    @Upsert suspend fun upsertAll(r: List<com.wkhan.hexis.data.entity.IntegrityReviewEntity>)
+    @Query("DELETE FROM integrity_reviews WHERE id = :id") suspend fun deleteById(id: String)
+    @Query("DELETE FROM integrity_reviews") suspend fun clear()
+}
+
+// R35 — the THIRD-WAVE layer's tables.
+@Dao
+interface ExperimentDao {
+    @Query("SELECT * FROM experiments ORDER BY createdAt DESC")
+    fun observeAll(): Flow<List<com.wkhan.hexis.data.entity.ExperimentEntity>>
+    @Query("SELECT * FROM experiments") suspend fun getAll(): List<com.wkhan.hexis.data.entity.ExperimentEntity>
+    @Upsert suspend fun upsert(e: com.wkhan.hexis.data.entity.ExperimentEntity)
+    @Upsert suspend fun upsertAll(e: List<com.wkhan.hexis.data.entity.ExperimentEntity>)
+    @Query("DELETE FROM experiments WHERE id = :id") suspend fun deleteById(id: String)
+    @Query("DELETE FROM experiments") suspend fun clear()
+}
+
+@Dao
+interface ActivationDao {
+    @Query("SELECT * FROM activation_items ORDER BY plannedDay, createdAt")
+    fun observeAll(): Flow<List<com.wkhan.hexis.data.entity.ActivationItemEntity>>
+    @Query("SELECT * FROM activation_items") suspend fun getAll(): List<com.wkhan.hexis.data.entity.ActivationItemEntity>
+    @Upsert suspend fun upsert(a: com.wkhan.hexis.data.entity.ActivationItemEntity)
+    @Upsert suspend fun upsertAll(a: List<com.wkhan.hexis.data.entity.ActivationItemEntity>)
+    @Query("DELETE FROM activation_items WHERE id = :id") suspend fun deleteById(id: String)
+    @Query("DELETE FROM activation_items") suspend fun clear()
+}
+
+@Dao
+interface DayLogDao {
+    @Query("SELECT * FROM day_logs ORDER BY epochDay DESC")
+    fun observeAll(): Flow<List<com.wkhan.hexis.data.entity.DayLogEntity>>
+    @Query("SELECT * FROM day_logs") suspend fun getAll(): List<com.wkhan.hexis.data.entity.DayLogEntity>
+    @Query("SELECT * FROM day_logs WHERE epochDay = :day AND workspaceId = :ws LIMIT 1") suspend fun forDay(day: Long, ws: String): com.wkhan.hexis.data.entity.DayLogEntity?
+    @Upsert suspend fun upsert(d: com.wkhan.hexis.data.entity.DayLogEntity)
+    @Upsert suspend fun upsertAll(d: List<com.wkhan.hexis.data.entity.DayLogEntity>)
+    @Query("DELETE FROM day_logs") suspend fun clear()
+}
+
+// W3 (cross-module unification) — Goals & their review log promoted out of the settings-JSON blob into
+// their own tables (see GoalEntities.kt). observeByWorkspace lets the goal list filter IN SQL against the
+// workspaceId index, the same index-backed pattern W2 established for notes and tasks.
+@Dao
+interface GoalDao {
+    @Query("SELECT * FROM goals") fun observeAll(): Flow<List<com.wkhan.hexis.data.entity.GoalEntity>>
+    @Query("SELECT * FROM goals") suspend fun getAll(): List<com.wkhan.hexis.data.entity.GoalEntity>
+    @Query("SELECT * FROM goals WHERE workspaceId = :ws") fun observeByWorkspace(ws: String): Flow<List<com.wkhan.hexis.data.entity.GoalEntity>>
+    @Upsert suspend fun upsert(g: com.wkhan.hexis.data.entity.GoalEntity)
+    @Upsert suspend fun upsertAll(g: List<com.wkhan.hexis.data.entity.GoalEntity>)
+    @Query("DELETE FROM goals WHERE id = :id") suspend fun deleteById(id: String)
+    @Query("DELETE FROM goals") suspend fun clear()
+
+    @Query("SELECT * FROM goal_reviews") fun observeReviews(): Flow<List<com.wkhan.hexis.data.entity.GoalReviewEntity>>
+    @Query("SELECT * FROM goal_reviews") suspend fun getAllReviews(): List<com.wkhan.hexis.data.entity.GoalReviewEntity>
+    @Upsert suspend fun upsertReview(r: com.wkhan.hexis.data.entity.GoalReviewEntity)
+    @Upsert suspend fun upsertReviews(r: List<com.wkhan.hexis.data.entity.GoalReviewEntity>)
+    @Query("DELETE FROM goal_reviews") suspend fun clearReviews()
+}
+
+// W3 (cross-module unification) — Routines (press-play rituals) + their run history promoted out of the
+// settings-JSON blobs into their own tables (see RoutineEntities.kt). observeByWorkspace filters IN SQL against
+// the workspaceId index, the same index-backed pattern W2 established for notes and tasks.
+@Dao
+interface RoutineDao {
+    @Query("SELECT * FROM routines") fun observeAll(): Flow<List<com.wkhan.hexis.data.entity.RoutineEntity>>
+    @Query("SELECT * FROM routines") suspend fun getAll(): List<com.wkhan.hexis.data.entity.RoutineEntity>
+    @Query("SELECT * FROM routines WHERE workspaceId = :ws") fun observeByWorkspace(ws: String): Flow<List<com.wkhan.hexis.data.entity.RoutineEntity>>
+    @Upsert suspend fun upsert(r: com.wkhan.hexis.data.entity.RoutineEntity)
+    @Upsert suspend fun upsertAll(r: List<com.wkhan.hexis.data.entity.RoutineEntity>)
+    @Query("DELETE FROM routines WHERE id = :id") suspend fun deleteById(id: String)
+    @Query("DELETE FROM routines") suspend fun clear()
+
+    @Query("SELECT * FROM routine_runs ORDER BY startedAtMillis ASC") fun observeRuns(): Flow<List<com.wkhan.hexis.data.entity.RoutineRunEntity>>
+    @Query("SELECT * FROM routine_runs ORDER BY startedAtMillis ASC") suspend fun getAllRuns(): List<com.wkhan.hexis.data.entity.RoutineRunEntity>
+    @Upsert suspend fun upsertRuns(r: List<com.wkhan.hexis.data.entity.RoutineRunEntity>)
+    /** Keep only the newest [keep] runs (matches the old JSON 400-cap + the backup transport cap). */
+    @Query("DELETE FROM routine_runs WHERE rowId NOT IN (SELECT rowId FROM routine_runs ORDER BY rowId DESC LIMIT :keep)")
+    suspend fun trimRunsTo(keep: Int)
+    @Query("DELETE FROM routine_runs") suspend fun clearRuns()
+}
+
+// R36 — the FOURTH-WAVE layer's tables.
+@Dao
+interface EscrowDao {
+    @Query("SELECT * FROM escrows ORDER BY createdAt DESC")
+    fun observeAll(): Flow<List<com.wkhan.hexis.data.entity.EscrowEntity>>
+    @Query("SELECT * FROM escrows") suspend fun getAll(): List<com.wkhan.hexis.data.entity.EscrowEntity>
+    @Upsert suspend fun upsert(e: com.wkhan.hexis.data.entity.EscrowEntity)
+    @Upsert suspend fun upsertAll(e: List<com.wkhan.hexis.data.entity.EscrowEntity>)
+    @Query("DELETE FROM escrows WHERE id = :id") suspend fun deleteById(id: String)
+    @Query("DELETE FROM escrows") suspend fun clear()
+}
+
+@Dao
+interface NudgeEventDao {
+    @Query("SELECT * FROM nudge_events ORDER BY epochDay DESC")
+    fun observeAll(): Flow<List<com.wkhan.hexis.data.entity.NudgeEventEntity>>
+    @Query("SELECT * FROM nudge_events") suspend fun getAll(): List<com.wkhan.hexis.data.entity.NudgeEventEntity>
+    @Query("SELECT * FROM nudge_events WHERE habitId = :habitId AND epochDay = :day LIMIT 1")
+    suspend fun forHabitDay(habitId: String, day: Long): com.wkhan.hexis.data.entity.NudgeEventEntity?
+    @Query("SELECT * FROM nudge_events WHERE acted = 0 AND epochDay >= :sinceDay")
+    suspend fun openSince(sinceDay: Long): List<com.wkhan.hexis.data.entity.NudgeEventEntity>
+    @Upsert suspend fun upsert(e: com.wkhan.hexis.data.entity.NudgeEventEntity)
+    @Upsert suspend fun upsertAll(e: List<com.wkhan.hexis.data.entity.NudgeEventEntity>)
+    @Query("DELETE FROM nudge_events") suspend fun clear()
+}
+
+// R38 — the dedicated-calendar layer.
+@Dao
+interface EventCalendarDao {
+    @Query("SELECT * FROM event_calendars ORDER BY orderIndex ASC, createdAt ASC")
+    fun observeAll(): Flow<List<com.wkhan.hexis.data.entity.EventCalendarEntity>>
+    @Query("SELECT * FROM event_calendars") suspend fun getAll(): List<com.wkhan.hexis.data.entity.EventCalendarEntity>
+    @Upsert suspend fun upsert(c: com.wkhan.hexis.data.entity.EventCalendarEntity)
+    @Upsert suspend fun upsertAll(c: List<com.wkhan.hexis.data.entity.EventCalendarEntity>)
+    @Query("DELETE FROM event_calendars WHERE id = :id") suspend fun deleteById(id: String)
+    @Query("DELETE FROM event_calendars") suspend fun clear()
+}
+
+@Dao
+interface EventDao {
+    @Query("SELECT * FROM events ORDER BY startMillis ASC")
+    fun observeAll(): Flow<List<com.wkhan.hexis.data.entity.EventEntity>>
+    @Query("SELECT * FROM events") suspend fun getAll(): List<com.wkhan.hexis.data.entity.EventEntity>
+    @Query("SELECT * FROM events WHERE id = :id") suspend fun getById(id: String): com.wkhan.hexis.data.entity.EventEntity?
+    @Upsert suspend fun upsert(e: com.wkhan.hexis.data.entity.EventEntity)
+    @Upsert suspend fun upsertAll(e: List<com.wkhan.hexis.data.entity.EventEntity>)
+    @Query("DELETE FROM events WHERE id = :id") suspend fun deleteById(id: String)
+    @Query("DELETE FROM events WHERE recurrenceParentId = :parentId") suspend fun deleteOverridesOf(parentId: String)
+    @Query("DELETE FROM events") suspend fun clear()
+}
+
+@Dao
+interface SealedNoteDao {
+    @Query("SELECT * FROM sealed_notes ORDER BY revealEpochDay")
+    fun observeAll(): Flow<List<com.wkhan.hexis.data.entity.SealedNoteEntity>>
+
+    @Query("SELECT * FROM sealed_notes")
+    suspend fun getAll(): List<com.wkhan.hexis.data.entity.SealedNoteEntity>
+
+    @Upsert
+    suspend fun upsert(n: com.wkhan.hexis.data.entity.SealedNoteEntity)
+
+    @Upsert
+    suspend fun upsertAll(n: List<com.wkhan.hexis.data.entity.SealedNoteEntity>)
+
+    @Query("DELETE FROM sealed_notes WHERE id = :id")
+    suspend fun deleteById(id: String)
+
+    @Query("DELETE FROM sealed_notes")
+    suspend fun clear()
+}
+
+@Dao
+interface ActivityDao {
+    @Query("SELECT * FROM task_activity WHERE taskId = :taskId ORDER BY at DESC")
+    fun observeForTask(taskId: String): Flow<List<com.wkhan.hexis.data.entity.ActivityEntity>>
+
+    @Query("SELECT * FROM task_activity")
+    suspend fun getAll(): List<com.wkhan.hexis.data.entity.ActivityEntity>
+
+    // P1: observe the whole activity trail so a reliability score can react to new completions.
+    @Query("SELECT * FROM task_activity")
+    fun observeAll(): Flow<List<com.wkhan.hexis.data.entity.ActivityEntity>>
+
+    @Insert
+    suspend fun insert(a: com.wkhan.hexis.data.entity.ActivityEntity)
+
+    @Insert
+    suspend fun insertAll(a: List<com.wkhan.hexis.data.entity.ActivityEntity>)
+
+    @Query("DELETE FROM task_activity WHERE id = :id")
+    suspend fun deleteById(id: String)
+
+    @Query("DELETE FROM task_activity WHERE taskId = :taskId")
+    suspend fun clearForTask(taskId: String)
+
+    @Query("DELETE FROM task_activity")
+    suspend fun clear()
+}
+
+@Dao
+interface TaskRevisionDao {
+    @Query("SELECT * FROM task_revisions WHERE taskId = :taskId ORDER BY at DESC")
+    fun observeForTask(taskId: String): Flow<List<com.wkhan.hexis.data.entity.TaskRevisionEntity>>
+
+    @Query("SELECT * FROM task_revisions WHERE id = :id")
+    suspend fun byId(id: String): com.wkhan.hexis.data.entity.TaskRevisionEntity?
+
+    @Query("SELECT at FROM task_revisions WHERE taskId = :taskId ORDER BY at DESC LIMIT 1")
+    suspend fun lastAt(taskId: String): Long?
+
+    @Insert
+    suspend fun insert(r: com.wkhan.hexis.data.entity.TaskRevisionEntity)
+
+    // Keep only the newest [keep] revisions for a task; older ones fall off.
+    @Query("DELETE FROM task_revisions WHERE taskId = :taskId AND id NOT IN (SELECT id FROM task_revisions WHERE taskId = :taskId ORDER BY at DESC LIMIT :keep)")
+    suspend fun trim(taskId: String, keep: Int)
+
+    @Query("DELETE FROM task_revisions WHERE taskId = :taskId")
+    suspend fun clearForTask(taskId: String)
+
+    @Query("DELETE FROM task_revisions")
+    suspend fun clear()
+
+    // R37 — full backup coverage: dump / restore the whole time-travel history.
+    @Query("SELECT * FROM task_revisions")
+    suspend fun getAll(): List<com.wkhan.hexis.data.entity.TaskRevisionEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertAll(r: List<com.wkhan.hexis.data.entity.TaskRevisionEntity>)
+}
+
+@Dao
+interface FilterDao {
+    @Query("SELECT * FROM filters ORDER BY sortOrder")
+    fun observeAll(): Flow<List<FilterEntity>>
+
+    @Query("SELECT * FROM filters")
+    suspend fun getAll(): List<FilterEntity>
+
+    @Upsert
+    suspend fun upsert(f: FilterEntity)
+
+    @Upsert
+    suspend fun upsertAll(f: List<FilterEntity>)
+
+    @Query("DELETE FROM filters WHERE id = :id")
+    suspend fun deleteById(id: String)
+
+    @Query("DELETE FROM filters")
+    suspend fun clear()
+}
+
+@Dao
+interface WorkspaceDao {
+    @Query("SELECT * FROM workspaces ORDER BY sortOrder")
+    fun observeAll(): Flow<List<WorkspaceEntity>>
+
+    @Query("SELECT * FROM workspaces")
+    suspend fun getAll(): List<WorkspaceEntity>
+
+    @Upsert
+    suspend fun upsert(w: WorkspaceEntity)
+
+    @Upsert
+    suspend fun upsertAll(w: List<WorkspaceEntity>)
+
+    @Query("DELETE FROM workspaces WHERE id = :id")
+    suspend fun deleteById(id: String)
+
+    @Query("DELETE FROM workspaces")
+    suspend fun clear()
+}
+
+@Dao
+interface FolderDao {
+    @Query("SELECT * FROM folders ORDER BY sortOrder")
+    fun observeAll(): Flow<List<FolderEntity>>
+
+    @Query("SELECT * FROM folders")
+    suspend fun getAll(): List<FolderEntity>
+
+    @Query("SELECT * FROM folders WHERE id = :id")
+    suspend fun getById(id: String): FolderEntity?
+
+    @Upsert
+    suspend fun upsert(folder: FolderEntity)
+
+    @Upsert
+    suspend fun upsertAll(folders: List<FolderEntity>)
+
+    @Query("DELETE FROM folders WHERE id = :id")
+    suspend fun deleteById(id: String)
+
+    @Query("DELETE FROM folders")
+    suspend fun clear()
+}
+
+@Dao
+interface ListDao {
+    @Query("SELECT * FROM lists ORDER BY sortOrder")
+    fun observeAll(): Flow<List<ListEntity>>
+
+    @Query("SELECT * FROM lists")
+    suspend fun getAll(): List<ListEntity>
+
+    @Query("SELECT * FROM lists WHERE id = :id")
+    suspend fun getById(id: String): ListEntity?
+
+    @Query("SELECT COALESCE(MAX(sortOrder), 0.0) FROM lists")
+    suspend fun maxSortOrder(): Double
+
+    @Upsert
+    suspend fun upsert(list: ListEntity)
+
+    @Upsert
+    suspend fun upsertAll(lists: List<ListEntity>)
+
+    @Query("DELETE FROM lists WHERE id = :id")
+    suspend fun deleteById(id: String)
+
+    @Query("DELETE FROM lists")
+    suspend fun clear()
+}
+
+@Dao
+interface ChecklistDao {
+    @Query("SELECT * FROM checklist_items ORDER BY sortOrder")
+    fun observeAll(): Flow<List<ChecklistItemEntity>>
+
+    @Query("SELECT * FROM checklist_items")
+    suspend fun getAll(): List<ChecklistItemEntity>
+
+    @Query("SELECT * FROM checklist_items WHERE taskId = :taskId ORDER BY sortOrder")
+    suspend fun forTask(taskId: String): List<ChecklistItemEntity>
+
+    @Query("SELECT COALESCE(MAX(sortOrder), 0.0) FROM checklist_items WHERE taskId = :taskId")
+    suspend fun maxSortOrder(taskId: String): Double
+
+    @Upsert
+    suspend fun upsert(item: ChecklistItemEntity)
+
+    @Upsert
+    suspend fun upsertAll(items: List<ChecklistItemEntity>)
+
+    @Query("DELETE FROM checklist_items WHERE id = :id")
+    suspend fun deleteById(id: String)
+
+    @Query("DELETE FROM checklist_items WHERE taskId = :taskId")
+    suspend fun deleteForTask(taskId: String)
+
+    @Query("DELETE FROM checklist_items")
+    suspend fun clear()
+}
+
+@Dao
+interface TagDao {
+    @Query("SELECT * FROM tags ORDER BY name")
+    fun observeAll(): Flow<List<TagEntity>>
+
+    @Query("SELECT * FROM tags")
+    suspend fun getAll(): List<TagEntity>
+
+    @Upsert
+    suspend fun upsert(tag: TagEntity)
+
+    @Query("DELETE FROM tags WHERE id = :id")
+    suspend fun deleteById(id: String)
+
+    @Query("SELECT * FROM task_tags")
+    fun observeCrossRefs(): Flow<List<TaskTagCrossRef>>
+
+    @Query("SELECT * FROM task_tags")
+    suspend fun getCrossRefs(): List<TaskTagCrossRef>
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun link(ref: TaskTagCrossRef)
+
+    @Delete
+    suspend fun unlink(ref: TaskTagCrossRef)
+
+    @Query("DELETE FROM task_tags WHERE taskId = :taskId")
+    suspend fun unlinkAllForTask(taskId: String)
+
+    @Upsert
+    suspend fun upsertAll(tags: List<TagEntity>)
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun linkAll(refs: List<TaskTagCrossRef>)
+
+    @Query("DELETE FROM tags")
+    suspend fun clear()
+
+    @Query("DELETE FROM task_tags")
+    suspend fun clearCrossRefs()
+}
+
+@Dao
+interface ContextDao {
+    @Query("SELECT * FROM contexts ORDER BY name")
+    fun observeAll(): Flow<List<ContextEntity>>
+
+    @Query("SELECT * FROM contexts")
+    suspend fun getAll(): List<ContextEntity>
+
+    @Upsert
+    suspend fun upsert(context: ContextEntity)
+
+    @Query("DELETE FROM contexts WHERE id = :id")
+    suspend fun deleteById(id: String)
+
+    @Query("SELECT * FROM task_contexts")
+    fun observeCrossRefs(): Flow<List<TaskContextCrossRef>>
+
+    @Query("SELECT * FROM task_contexts")
+    suspend fun getCrossRefs(): List<TaskContextCrossRef>
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun link(ref: TaskContextCrossRef)
+
+    @Delete
+    suspend fun unlink(ref: TaskContextCrossRef)
+
+    @Query("DELETE FROM task_contexts WHERE taskId = :taskId")
+    suspend fun unlinkAllForTask(taskId: String)
+
+    @Upsert
+    suspend fun upsertAll(contexts: List<ContextEntity>)
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun linkAll(refs: List<TaskContextCrossRef>)
+
+    @Query("DELETE FROM contexts")
+    suspend fun clear()
+
+    @Query("DELETE FROM task_contexts")
+    suspend fun clearCrossRefs()
+}
+
+@Dao
+interface ReminderDao {
+    @Query("SELECT * FROM reminders")
+    fun observeAll(): Flow<List<ReminderEntity>>
+
+    @Query("SELECT * FROM reminders")
+    suspend fun getAll(): List<ReminderEntity>
+
+    @Query("SELECT * FROM reminders WHERE taskId = :taskId")
+    suspend fun forTask(taskId: String): List<ReminderEntity>
+
+    @Upsert
+    suspend fun upsert(reminder: ReminderEntity)
+
+    @Upsert
+    suspend fun upsertAll(reminders: List<ReminderEntity>)
+
+    @Query("DELETE FROM reminders WHERE id = :id")
+    suspend fun deleteById(id: String)
+
+    @Query("DELETE FROM reminders WHERE taskId = :taskId")
+    suspend fun deleteForTask(taskId: String)
+
+    @Query("DELETE FROM reminders")
+    suspend fun clear()
+}
+
+@Dao
+interface DependencyDao {
+    @Query("SELECT * FROM dependencies")
+    fun observeAll(): Flow<List<DependencyEntity>>
+
+    @Query("SELECT * FROM dependencies")
+    suspend fun getAll(): List<DependencyEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun add(dep: DependencyEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun addAll(deps: List<DependencyEntity>)
+
+    @Delete
+    suspend fun remove(dep: DependencyEntity)
+
+    @Query("DELETE FROM dependencies WHERE taskId = :taskId OR dependsOnTaskId = :taskId")
+    suspend fun removeAllInvolving(taskId: String)
+
+    @Query("DELETE FROM dependencies")
+    suspend fun clear()
+}
+
+@Dao
+interface SettingDao {
+    @Query("SELECT * FROM settings")
+    fun observeAll(): Flow<List<SettingEntity>>
+
+    @Query("SELECT value FROM settings WHERE key = :key")
+    suspend fun get(key: String): String?
+
+    @Query("SELECT * FROM settings")
+    suspend fun getAll(): List<SettingEntity>
+
+    @Upsert
+    suspend fun put(setting: SettingEntity)
+
+    @Upsert
+    suspend fun putAll(settings: List<SettingEntity>)
+
+    @Query("DELETE FROM settings WHERE key = :key")
+    suspend fun delete(key: String)
+
+    @Query("DELETE FROM settings")
+    suspend fun clear()
+}
+
+@Dao
+interface AttachmentDao {
+    /** Metadata only (no Base64 bytes) so the observed flow stays cheap. */
+    @Query("SELECT id, taskId, fileName, mime, sizeBytes, isImage, addedAt, noteId FROM attachments WHERE taskId = :taskId ORDER BY addedAt")
+    fun observeMetaForTask(taskId: String): Flow<List<AttachmentMeta>>
+
+    /** Metadata for every attachment (no bytes) — powers the Attachments hub. */
+    @Query("SELECT id, taskId, fileName, mime, sizeBytes, isImage, addedAt, noteId FROM attachments ORDER BY addedAt DESC")
+    fun observeAllMeta(): Flow<List<AttachmentMeta>>
+
+    @Query("SELECT contentBase64 FROM attachments WHERE id = :id")
+    suspend fun contentOf(id: String): String?
+
+    @Query("SELECT filePath FROM attachments WHERE id = :id")
+    suspend fun filePathOf(id: String): String?
+
+    @Query("SELECT * FROM attachments")
+    suspend fun getAll(): List<AttachmentEntity>
+
+    @Query("SELECT COUNT(*) FROM attachments WHERE taskId = :taskId")
+    fun observeCountForTask(taskId: String): Flow<Int>
+
+    @Upsert
+    suspend fun upsert(a: AttachmentEntity)
+
+    @Upsert
+    suspend fun upsertAll(items: List<AttachmentEntity>)
+
+    @Query("DELETE FROM attachments WHERE id = :id")
+    suspend fun deleteById(id: String)
+
+    @Query("DELETE FROM attachments WHERE taskId = :taskId")
+    suspend fun deleteForTask(taskId: String)
+
+    /** Metadata for a note's attachments (v66 — the hub is shared with notes). */
+    @Query("SELECT id, taskId, fileName, mime, sizeBytes, isImage, addedAt, noteId FROM attachments WHERE noteId = :noteId ORDER BY addedAt")
+    fun observeMetaForNote(noteId: String): Flow<List<AttachmentMeta>>
+
+    @Query("DELETE FROM attachments WHERE noteId = :noteId")
+    suspend fun deleteForNote(noteId: String)
+
+    @Query("DELETE FROM attachments")
+    suspend fun clear()
+}
+
+// Tier S — time tracking: named activities + recorded intervals. One running entry at a time.
+@Dao
+interface TimeTrackingDao {
+    @Query("SELECT * FROM time_activities ORDER BY sortOrder ASC, createdAt ASC")
+    fun observeActivities(): Flow<List<com.wkhan.hexis.data.entity.TimeActivityEntity>>
+    @Query("SELECT * FROM time_activities") suspend fun getActivities(): List<com.wkhan.hexis.data.entity.TimeActivityEntity>
+    @Upsert suspend fun upsertActivity(a: com.wkhan.hexis.data.entity.TimeActivityEntity)
+    @Upsert suspend fun upsertActivities(a: List<com.wkhan.hexis.data.entity.TimeActivityEntity>)
+    @Query("DELETE FROM time_activities WHERE id = :id") suspend fun deleteActivity(id: String)
+    @Query("DELETE FROM time_activities") suspend fun clearActivities()
+
+    @Query("SELECT * FROM time_entries ORDER BY startMillis DESC")
+    fun observeEntries(): Flow<List<com.wkhan.hexis.data.entity.TimeEntryEntity>>
+    @Query("SELECT * FROM time_entries WHERE endMillis IS NULL LIMIT 1")
+    suspend fun runningEntry(): com.wkhan.hexis.data.entity.TimeEntryEntity?
+    @Query("SELECT * FROM time_entries") suspend fun getEntries(): List<com.wkhan.hexis.data.entity.TimeEntryEntity>
+    @Upsert suspend fun upsertEntry(e: com.wkhan.hexis.data.entity.TimeEntryEntity)
+    @Upsert suspend fun upsertEntries(e: List<com.wkhan.hexis.data.entity.TimeEntryEntity>)
+    @Query("DELETE FROM time_entries WHERE id = :id") suspend fun deleteEntry(id: String)
+    @Query("DELETE FROM time_entries WHERE activityId = :activityId") suspend fun deleteEntriesForActivity(activityId: String)
+    @Query("DELETE FROM time_entries WHERE endMillis IS NULL") suspend fun clearRunning()
+    @Query("DELETE FROM time_entries") suspend fun clearEntries()
+}
+
+// ── Notes module (v66) ───────────────────────────────────────────────────────────────────────────
+@Dao
+interface NoteDao {
+    @Query("SELECT * FROM notes ORDER BY sortOrder")
+    fun observeAll(): Flow<List<NoteEntity>>
+
+    // W2 (scale) — workspace + trashed filtered IN SQL, backed by index_notes_workspaceId_trashed, so the
+    // live-notes and Trash lists no longer load the whole notes table and filter in memory in the ViewModel.
+    // Behaviour is identical to `observeAll().filter { it.workspaceId == ws && it.trashed == trashed }`
+    // (proven by NoteScopeQueryTest); the win is that SQLite does the filter against an index.
+    @Query("SELECT * FROM notes WHERE workspaceId = :ws AND trashed = :trashed ORDER BY sortOrder")
+    fun observeByWorkspace(ws: String, trashed: Boolean): Flow<List<NoteEntity>>
+
+    @Query("SELECT * FROM notes")
+    suspend fun getAll(): List<NoteEntity>
+
+    @Query("SELECT * FROM notes WHERE id = :id")
+    suspend fun getById(id: String): NoteEntity?
+
+    @Query("SELECT COALESCE(MAX(sortOrder), 0.0) FROM notes")
+    suspend fun maxSortOrder(): Double
+
+    // Wave F/H — set/clear a note's reminder without touching updatedAt (a reminder is metadata, not an
+    // edit) or re-running FTS/link materialization.
+    @Query("UPDATE notes SET reminderAt = :atMillis WHERE id = :id")
+    suspend fun setReminderAt(id: String, atMillis: Long?)
+
+    @Query("UPDATE notes SET reminderAt = :at, reminderRrule = :rrule, reminderExtra = :extra, reminderKeep = :keep WHERE id = :id")
+    suspend fun setReminderAll(id: String, at: Long?, rrule: String?, extra: String, keep: Boolean)
+
+    @Query("UPDATE notes SET reminderAt = :at, reminderRrule = :rrule WHERE id = :id")
+    suspend fun setReminderPrimary(id: String, at: Long?, rrule: String?)
+
+    @Query("UPDATE notes SET reminderExtra = :extra WHERE id = :id")
+    suspend fun setReminderExtra(id: String, extra: String)
+
+    @Query("UPDATE notes SET reminderAt = NULL, reminderRrule = NULL, reminderExtra = '', reminderKeep = 0 WHERE id = :id")
+    suspend fun clearReminderAll(id: String)
+
+    // Wave J (M8) — seal/unseal a note to the future (metadata-only).
+    @Query("UPDATE notes SET sealedUntil = :until WHERE id = :id")
+    suspend fun setSealedUntil(id: String, until: Long?)
+
+    // Wave I — child-row text mirrored into the FTS index so a search finds a note by its tag or
+    // attachment names, not just its title/body.
+    @Query("SELECT t.name FROM tags t INNER JOIN note_tags nt ON nt.tagId = t.id WHERE nt.noteId = :noteId")
+    suspend fun tagNamesForNote(noteId: String): List<String>
+
+    @Query("SELECT fileName FROM attachments WHERE noteId = :noteId")
+    suspend fun attachmentNamesForNote(noteId: String): List<String>
+
+    // L2 — context names for a note, mirrored into the FTS index so a picker-assigned @context is
+    // searchable too (an inline @context is already searchable because it lives in the body text).
+    @Query("SELECT c.name FROM contexts c INNER JOIN note_contexts nc ON nc.contextId = c.id WHERE nc.noteId = :noteId")
+    suspend fun contextNamesForNote(noteId: String): List<String>
+
+    // Wave L — full attachment rows for a note, so the rich renderer can resolve inline images to files.
+    @Query("SELECT * FROM attachments WHERE noteId = :noteId")
+    suspend fun attachmentsForNote(noteId: String): List<com.wkhan.hexis.data.entity.AttachmentEntity>
+
+    @Upsert
+    suspend fun upsert(note: NoteEntity)
+
+    @Upsert
+    suspend fun upsertAll(notes: List<NoteEntity>)
+
+    @Query("DELETE FROM notes WHERE id = :id")
+    suspend fun deleteById(id: String)
+
+    @Query("DELETE FROM notes")
+    suspend fun clear()
+
+    // Note ↔ Tag
+    @Query("SELECT * FROM note_tags")
+    suspend fun getTagCrossRefs(): List<NoteTagCrossRef>
+
+    /** Observe the note↔tag links so the editor's tag chips update the instant a tag is toggled. */
+    @Query("SELECT * FROM note_tags")
+    fun observeTagCrossRefs(): kotlinx.coroutines.flow.Flow<List<NoteTagCrossRef>>
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun linkTag(ref: NoteTagCrossRef)
+
+    @Delete
+    suspend fun unlinkTag(ref: NoteTagCrossRef)
+
+    @Query("DELETE FROM note_tags WHERE noteId = :noteId")
+    suspend fun unlinkAllTagsForNote(noteId: String)
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun linkTags(refs: List<NoteTagCrossRef>)
+
+    @Query("DELETE FROM note_tags")
+    suspend fun clearTagCrossRefs()
+
+    // Note ↔ Context
+    @Query("SELECT * FROM note_contexts")
+    suspend fun getContextCrossRefs(): List<NoteContextCrossRef>
+
+    /** Observe note↔context links so the editor reflects a context toggle immediately (mirrors tags). */
+    @Query("SELECT * FROM note_contexts")
+    fun observeContextCrossRefs(): kotlinx.coroutines.flow.Flow<List<NoteContextCrossRef>>
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun linkContext(ref: NoteContextCrossRef)
+
+    @Delete
+    suspend fun unlinkContext(ref: NoteContextCrossRef)
+
+    @Query("DELETE FROM note_contexts WHERE noteId = :noteId")
+    suspend fun unlinkAllContextsForNote(noteId: String)
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun linkContexts(refs: List<NoteContextCrossRef>)
+
+    @Query("DELETE FROM note_contexts")
+    suspend fun clearContextCrossRefs()
+}
+
+@Dao
+interface NotebookDao {
+    @Query("SELECT * FROM notebooks ORDER BY sortOrder")
+    fun observeAll(): Flow<List<NotebookEntity>>
+
+    @Query("SELECT * FROM notebooks")
+    suspend fun getAll(): List<NotebookEntity>
+
+    @Query("SELECT * FROM notebooks WHERE id = :id")
+    suspend fun getById(id: String): NotebookEntity?
+
+    @Query("SELECT COALESCE(MAX(sortOrder), 0.0) FROM notebooks")
+    suspend fun maxSortOrder(): Double
+
+    @Upsert
+    suspend fun upsert(notebook: NotebookEntity)
+
+    @Upsert
+    suspend fun upsertAll(notebooks: List<NotebookEntity>)
+
+    @Query("DELETE FROM notebooks WHERE id = :id")
+    suspend fun deleteById(id: String)
+
+    @Query("DELETE FROM notebooks")
+    suspend fun clear()
+}
+
+@Dao
+interface NoteRevisionDao {
+    @Query("SELECT * FROM note_revisions WHERE noteId = :noteId ORDER BY createdAt DESC")
+    fun observeForNote(noteId: String): Flow<List<NoteRevisionEntity>>
+
+    @Query("SELECT * FROM note_revisions WHERE noteId = :noteId ORDER BY createdAt DESC LIMIT 1")
+    suspend fun latestForNote(noteId: String): NoteRevisionEntity?
+
+    @Query("SELECT * FROM note_revisions")
+    suspend fun getAll(): List<NoteRevisionEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insert(revision: NoteRevisionEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(revisions: List<NoteRevisionEntity>)
+
+    /** Keep only the newest [keep] snapshots for a note; drop the rest so storage stays bounded. */
+    @Query("DELETE FROM note_revisions WHERE noteId = :noteId AND id NOT IN (SELECT id FROM note_revisions WHERE noteId = :noteId ORDER BY createdAt DESC LIMIT :keep)")
+    suspend fun pruneForNote(noteId: String, keep: Int)
+
+    @Query("DELETE FROM note_revisions WHERE noteId = :noteId")
+    suspend fun clearForNote(noteId: String)
+
+    @Query("DELETE FROM note_revisions")
+    suspend fun clear()
+}
+
+@Dao
+interface NoteLinkDao {
+    @Query("SELECT * FROM note_links WHERE noteId = :noteId")
+    fun observeForNote(noteId: String): Flow<List<NoteLinkEntity>>
+
+    @Query("SELECT * FROM note_links")
+    suspend fun getAll(): List<NoteLinkEntity>
+
+    /** Note ids whose body links to a given entity — powers "Notes about this" backlink panels. */
+    @Query("SELECT noteId FROM note_links WHERE targetType = :type AND targetId = :id")
+    suspend fun notesLinkingTo(type: String, id: String): List<String>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(links: List<NoteLinkEntity>)
+
+    @Query("DELETE FROM note_links WHERE noteId = :noteId")
+    suspend fun clearForNote(noteId: String)
+
+    @Query("DELETE FROM note_links")
+    suspend fun clear()
+}
+
+@Dao
+interface SmartViewDao {
+    @Query("SELECT * FROM smart_views ORDER BY sortOrder")
+    fun observeAll(): Flow<List<SmartViewEntity>>
+
+    @Query("SELECT * FROM smart_views")
+    suspend fun getAll(): List<SmartViewEntity>
+
+    @Query("SELECT COALESCE(MAX(sortOrder), 0.0) FROM smart_views")
+    suspend fun maxSortOrder(): Double
+
+    @Upsert
+    suspend fun upsert(view: SmartViewEntity)
+
+    @Upsert
+    suspend fun upsertAll(views: List<SmartViewEntity>)
+
+    @Query("DELETE FROM smart_views WHERE id = :id")
+    suspend fun deleteById(id: String)
+
+    @Query("DELETE FROM smart_views")
+    suspend fun clear()
+}

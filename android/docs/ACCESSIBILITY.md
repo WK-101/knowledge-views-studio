@@ -1,6 +1,6 @@
-# Kairo — Accessibility
+# Hexis — Accessibility
 
-Kairo targets WCAG 2.1 AA for the properties that can be verified without a device, and is built so a
+Hexis targets WCAG 2.1 AA for the properties that can be verified without a device, and is built so a
 screen-reader user can operate every interactive control. This documents the coverage, the contrast
 audit, and what still needs a physical device to certify.
 

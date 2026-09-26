@@ -5,7 +5,7 @@
     android:viewportHeight="108">
     <!-- Hexis — "Four into one": four chevrons (tasks · habits · time · notes) converging on a single
          gold centre. A compass of the four modules, all pointing to one bearing — the next right thing.
-         108-unit design space; the in-app KairoMark canvas mirrors these exact coordinates. -->
+         108-unit design space; the in-app HexisMark canvas mirrors these exact coordinates. -->
 
     <!-- Gold halo behind the core (the moment everything gathers to). -->
     <path android:pathData="M42,54 a12,12 0 1,0 24,0 a12,12 0 1,0 -24,0 z"

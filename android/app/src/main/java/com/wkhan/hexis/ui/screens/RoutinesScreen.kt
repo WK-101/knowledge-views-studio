@@ -1,0 +1,902 @@
+package com.wkhan.hexis.ui.screens
+
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.QueryStats
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.wkhan.hexis.domain.Routine
+import com.wkhan.hexis.domain.RoutineCatalog
+import com.wkhan.hexis.domain.RoutineRun
+import com.wkhan.hexis.domain.RoutineStep
+import com.wkhan.hexis.domain.Routines
+import com.wkhan.hexis.domain.StepKind
+import com.wkhan.hexis.ui.AppViewModel
+import com.wkhan.hexis.ui.components.AppCard
+import com.wkhan.hexis.ui.components.AppTextField
+import com.wkhan.hexis.ui.components.ConfirmDialog
+import com.wkhan.hexis.ui.components.appCardColor
+import com.wkhan.hexis.ui.components.DoneTick
+import com.wkhan.hexis.ui.components.EmojiGridPicker
+import com.wkhan.hexis.ui.components.HexisTopBar
+import com.wkhan.hexis.ui.components.MiniCheck
+import com.wkhan.hexis.ui.components.OptionChips
+import com.wkhan.hexis.ui.components.Stepper
+import java.time.LocalDate
+import java.util.UUID
+
+/** Round timed seconds up to whole minutes for a friendly "12 min" label. */
+private fun minLabel(sec: Int): String = "${(sec + 59) / 60} min"
+
+private fun blankRoutine() = Routine(id = UUID.randomUUID().toString(), name = "", createdAt = System.currentTimeMillis())
+
+/** Two-letter label for an ISO weekday (1=Mon … 7=Sun) used by the routine cadence day-picker. */
+private fun dayShort(iso: Int): String = when (iso) { 1 -> "Mo"; 2 -> "Tu"; 3 -> "We"; 4 -> "Th"; 5 -> "Fr"; 6 -> "Sa"; 7 -> "Su"; else -> "" }
+
+private fun templateToRoutine(t: RoutineCatalog.Template): Routine = Routine(
+    id = UUID.randomUUID().toString(),
+    name = t.name,
+    emoji = t.emoji,
+    steps = t.steps.map { it.copy(id = UUID.randomUUID().toString()) },
+    createdAt = System.currentTimeMillis(),
+)
+
+/**
+ * Routines — the list of the user's named, press-play rituals, the catalog of starters, the editor, and the
+ * runner. Fully offline; routines & run history round-trip in the settings JSON backup (no new Room entity).
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun RoutinesScreen(vm: AppViewModel, onBack: () -> Unit) {
+    BackHandler(onBack = onBack)
+    val settings by vm.settings.collectAsStateWithLifecycle()
+    // W3 — routines/runs come from their Room-backed flows now (add/edit/delete reflect immediately).
+    val routines = vm.routinesState.collectAsStateWithLifecycle().value
+    val runs = vm.routineRunsState.collectAsStateWithLifecycle().value
+    val dayLogs by vm.dayLogs.collectAsStateWithLifecycle()
+    val today = vm.today()
+    val onThisDay = remember(routines, runs, today) {
+        com.wkhan.hexis.domain.RoutineInsights.onThisDay(routines, runs, today, vm.zoneId)
+    }
+    val capacity = remember(routines, runs, today) {
+        com.wkhan.hexis.domain.RoutineInsights.capacity(routines, runs, today)
+    }
+
+    var running by remember { mutableStateOf<Routine?>(null) }
+    var editing by remember { mutableStateOf<Routine?>(null) }
+    var insightsFor by remember { mutableStateOf<Routine?>(null) }
+    var browseCatalog by remember { mutableStateOf(false) }
+
+    // A reminder tap deep-links here asking to run a specific routine — start its runner once, then clear.
+    val pendingRun by vm.pendingRoutineRun.collectAsStateWithLifecycle()
+    LaunchedEffect(pendingRun, routines) {
+        val id = pendingRun ?: return@LaunchedEffect
+        val r = routines.firstOrNull { it.id == id }
+        if (r != null && r.isRunnable) running = r
+        vm.pendingRoutineRun.value = null
+    }
+
+    Scaffold(topBar = {
+        HexisTopBar(title = "Routines", onBack = onBack, actions = { IconButton(onClick = { editing = blankRoutine() }) { Icon(Icons.Filled.Add, "New routine") } })
+    }) { pad ->
+        LazyColumn(Modifier.padding(pad).fillMaxSize(), contentPadding = androidx.compose.foundation.layout.PaddingValues(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            item {
+                Text("A named, ordered ritual you press play on — a morning primer, an evening shutdown, a deep-work start. Each step guides you; finishing ticks the linked habits and tasks.",
+                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 2.dp))
+            }
+            if (onThisDay.isNotEmpty()) item {
+                Surface(shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = .5f), modifier = Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(14.dp)) {
+                        Text("📅 On this day", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        onThisDay.take(3).forEach { o ->
+                            Text("${o.emoji} ${o.yearsAgo} year${if (o.yearsAgo == 1) "" else "s"} ago you ran “${o.routineName}”.",
+                                style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 3.dp))
+                        }
+                    }
+                }
+            }
+            if (capacity.hasLoad) item { RoutineCapacityCard(capacity) }
+            item {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(onClick = { editing = blankRoutine() }, modifier = Modifier.weight(1f)) { Text("＋ New routine") }
+                    FilledTonalButton(onClick = { browseCatalog = true }, modifier = Modifier.weight(1f)) { Text("Browse starters") }
+                }
+            }
+            if (routines.isEmpty()) item {
+                com.wkhan.hexis.ui.components.EmptyState(
+                    emoji = "▶️",
+                    title = "No routines yet",
+                    body = "Add one from the starter catalog — a morning primer, an evening shutdown, a focus sprint — or build your own from scratch.",
+                    actionLabel = "Browse starter routines",
+                    onAction = { browseCatalog = true },
+                )
+            }
+            items(routines.size) { i ->
+                val r = routines[i]
+                AppCard(modifier = Modifier.clickable { editing = r }) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(r.emoji, fontSize = 26.sp, modifier = Modifier.padding(end = 12.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(r.name.ifBlank { "Untitled routine" }, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            val stepsLabel = "${r.steps.size} step${if (r.steps.size == 1) "" else "s"}"
+                            val timeLabel = if (r.plannedSec > 0) " · ${minLabel(r.plannedSec)}" else ""
+                            Text(stepsLabel + timeLabel, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        if (runs.any { it.routineId == r.id }) {
+                            IconButton(onClick = { insightsFor = r }) { Icon(Icons.Filled.QueryStats, "Routine insights", tint = MaterialTheme.colorScheme.outline) }
+                        }
+                        if (r.isRunnable) {
+                            FilledTonalButton(onClick = { running = r }) {
+                                Icon(Icons.Filled.PlayArrow, null, Modifier.size(18.dp))
+                                Spacer(Modifier.width(4.dp))
+                                Text("Run")
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    running?.let { r -> RoutineRunner(vm, r, onExit = { running = null }) }
+    editing?.let { r ->
+        val existing = routines.any { it.id == r.id }
+        RoutineEditor(vm, r, existing,
+            onDismiss = { editing = null },
+            onSave = { vm.upsertRoutine(it); editing = null },
+            onDelete = { vm.deleteRoutine(r.id); editing = null })
+    }
+    if (browseCatalog) CatalogDialog(onDismiss = { browseCatalog = false }, onAdd = { vm.upsertRoutine(templateToRoutine(it)); browseCatalog = false })
+    insightsFor?.let { r -> RoutineInsightsDialog(r, runs, dayLogs, today, vm.zoneId, onDismiss = { insightsFor = null }) }
+}
+
+/** Ritual load — the capacity read only a whole-set view can give: how much time a full day of your
+ *  scheduled rituals asks of you, the weekly total that implies, and how much you actually ran this week.
+ *  Grounds "how many rituals is too many?" in real minutes rather than a vibe. */
+@Composable
+private fun RoutineCapacityCard(cap: com.wkhan.hexis.domain.RoutineInsights.Capacity) {
+    fun hm(min: Int): String = when {
+        min <= 0 -> "0m"
+        min < 60 -> "${min}m"
+        min % 60 == 0 -> "${min / 60}h"
+        else -> "${min / 60}h ${min % 60}m"
+    }
+    Surface(shape = RoundedCornerShape(14.dp), color = appCardColor(), modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(14.dp)) {
+            Text("⏳ RITUAL LOAD", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant, letterSpacing = 0.8.sp)
+            Spacer(Modifier.height(6.dp))
+            Row(verticalAlignment = Alignment.Bottom) {
+                Text(hm(cap.weeklyPlannedMin), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                Text(" a week planned", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 3.dp))
+            }
+            Text(
+                "${cap.scheduledCount} scheduled ritual${if (cap.scheduledCount == 1) "" else "s"} · ${cap.perWeekPlannedRuns} run${if (cap.perWeekPlannedRuns == 1) "" else "s"}/week · ${hm(cap.last7ActualMin)} run in the last 7 days",
+                style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 2.dp),
+            )
+        }
+    }
+}
+
+/** Per-routine analytics (adherence, best time, drop-off step, keystone) + a "this year" summary.
+ *  All derived on-device from the run history + felt-state — nothing a single-purpose runner can show. */
+@Composable
+private fun RoutineInsightsDialog(
+    r: Routine,
+    runs: List<RoutineRun>,
+    dayLogs: List<com.wkhan.hexis.data.entity.DayLogEntity>,
+    today: Long,
+    zone: java.time.ZoneId,
+    onDismiss: () -> Unit,
+) {
+    val stat = remember(r, runs, dayLogs, today) { com.wkhan.hexis.domain.RoutineInsights.forRoutine(r, runs, dayLogs, today, zone) }
+    // Only this routine's runs — otherwise the per-routine "This year" would sum across every routine.
+    val year = remember(runs, r) { com.wkhan.hexis.domain.RoutineInsights.yearSummary(listOf(r), runs.filter { it.routineId == r.id }, LocalDate.ofEpochDay(today).year) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Done") } },
+        title = { Text("${r.emoji} ${r.name}") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                InsightRow("Kept", "${stat.adherencePct}% · ${stat.runs30} of the last ${stat.window} days" + (if (stat.currentStreak > 1) " · ${stat.currentStreak}-day streak" else ""))
+                if (stat.bestStreak > 1) InsightRow("Best streak", "${stat.bestStreak} days")
+                stat.bestHour?.let { InsightRow("Usual time", "%02d:00".format(it)) }
+                stat.dropOffStepTitle?.let { InsightRow("Drop-off step", it, hint = "the step you skip most") }
+                if (stat.keystoneMetric.isNotBlank() && kotlin.math.abs(stat.keystoneDelta) >= 0.2) {
+                    val sign = if (stat.keystoneDelta > 0) "+" else ""
+                    InsightRow("Keystone", "On days you run this, your ${stat.keystoneMetric} is $sign${oneDp(stat.keystoneDelta)}",
+                        hint = "vs days you don't", accent = true)
+                }
+                if (year.totalRuns > 0) {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .4f))
+                    InsightRow("This year", "${year.totalRuns} runs · ${year.totalMinutes / 60}h ${year.totalMinutes % 60}m" + (if (year.bestStreak > 1) " · best ${year.bestStreak}-day streak" else ""))
+                }
+                if (stat.totalRuns < 4) Text("More insight arrives as you run this a few more times.",
+                    style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+            }
+        },
+    )
+}
+
+@Composable
+private fun InsightRow(label: String, value: String, hint: String? = null, accent: Boolean = false) {
+    Column {
+        Text(label.uppercase(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline, letterSpacing = 0.8.sp)
+        Text(value, style = MaterialTheme.typography.bodyMedium, fontWeight = if (accent) FontWeight.SemiBold else FontWeight.Normal,
+            color = if (accent) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
+        hint?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline) }
+    }
+}
+
+private fun oneDp(v: Double): String = "%.1f".format(v)
+
+// ── The runner ──────────────────────────────────────────────────────────────────────────────────────
+@Composable
+private fun RoutineRunner(vm: AppViewModel, routine: Routine, onExit: () -> Unit) {
+    val haptic = LocalHapticFeedback.current
+    val today = vm.today()
+
+    // Felt-state gating (moat #6): on a low-energy day, default to the 2-minute Lite version — never-miss-
+    // twice becomes a kind recovery, not a shame event. The user can still flip it back to the full run.
+    val todayEnergy = vm.dayLogs.collectAsStateWithLifecycle().value.firstOrNull { it.epochDay == today }?.energy ?: 0
+    val autoLite = todayEnergy in 1..2
+    var lite by remember { mutableStateOf(autoLite) }
+    val steps = remember(lite, routine) { if (lite) Routines.lite(routine).steps else routine.steps }
+
+    var started by remember { mutableStateOf(false) }
+    var finished by remember { mutableStateOf(false) }
+    var idx by remember { mutableIntStateOf(0) }
+    var secsLeft by remember { mutableIntStateOf(0) }
+    var paused by remember { mutableStateOf(false) }
+    var startedAt by remember { mutableLongStateOf(0L) }
+    var stepEndMillis by remember { mutableLongStateOf(0L) }   // wall-clock end of the current timed step (0 = untimed/paused)
+    val completed = remember { mutableStateListOf<String>() }
+    val skipped = remember { mutableStateListOf<String>() }
+
+    // Persist the in-progress run so a background/kill mid-routine doesn't lose it (durability, moat).
+    fun persist() {
+        if (!started || finished) return
+        vm.saveActiveRoutineRun(com.wkhan.hexis.domain.ActiveRoutineRun(
+            routineId = routine.id, lite = lite, idx = idx, startedAtMillis = startedAt,
+            stepEndMillis = if (paused) 0L else stepEndMillis, remainingSec = if (paused) secsLeft else 0,
+            paused = paused, completedStepIds = completed.toList(), skippedStepIds = skipped.toList()))
+    }
+
+    // Restore a persisted run for THIS routine once, on entry — resuming the timer from the stored end time.
+    var restored by remember { mutableStateOf(false) }
+    LaunchedEffect(routine.id) {
+        if (restored) return@LaunchedEffect
+        restored = true
+        val a = vm.activeRoutineRun()?.takeIf { it.routineId == routine.id } ?: return@LaunchedEffect
+        lite = a.lite
+        val restSteps = if (a.lite) Routines.lite(routine).steps else routine.steps
+        if (a.idx !in restSteps.indices) { vm.clearActiveRoutineRun(); return@LaunchedEffect }
+        completed.clear(); completed.addAll(a.completedStepIds)
+        skipped.clear(); skipped.addAll(a.skippedStepIds)
+        idx = a.idx; startedAt = a.startedAtMillis; paused = a.paused
+        val dur = restSteps[a.idx].durationSec
+        when {
+            dur == null -> { secsLeft = 0; stepEndMillis = 0L }
+            a.paused -> { secsLeft = a.remainingSec.coerceAtLeast(0); stepEndMillis = 0L }
+            else -> { stepEndMillis = a.stepEndMillis; secsLeft = (((a.stepEndMillis - System.currentTimeMillis()) + 999) / 1000).toInt().coerceAtLeast(0) }
+        }
+        started = true
+    }
+
+    fun advance(complete: Boolean) {
+        val step = steps.getOrNull(idx) ?: return
+        if (complete) { if (step.id !in completed) completed.add(step.id) } else { if (step.id !in skipped) skipped.add(step.id) }
+        if (idx < steps.lastIndex) {
+            idx += 1; paused = false
+            val d = steps[idx].durationSec
+            secsLeft = d ?: 0
+            stepEndMillis = if (d != null) System.currentTimeMillis() + d * 1000L else 0L
+            persist()
+        } else { finished = true; vm.clearActiveRoutineRun() }
+    }
+
+    // Entering a step whose startActivityId is set starts the time-tracker for it.
+    LaunchedEffect(idx, started) {
+        if (started && !finished) steps.getOrNull(idx)?.startActivityId?.takeIf { it.isNotBlank() }?.let { vm.timeVm.startTimeTracking(it) }
+    }
+    // Wall-clock countdown for a timed step; auto-advances at the stored end time (survives doze/background,
+    // resumes correctly after a kill). Untimed steps just wait for a Done tap.
+    LaunchedEffect(idx, started, paused, stepEndMillis) {
+        if (!started || finished || paused) return@LaunchedEffect
+        if ((steps.getOrNull(idx)?.durationSec) == null || stepEndMillis <= 0L) return@LaunchedEffect
+        while (System.currentTimeMillis() < stepEndMillis) {
+            kotlinx.coroutines.delay(250)
+            if (paused) return@LaunchedEffect
+            secsLeft = (((stepEndMillis - System.currentTimeMillis()) + 999) / 1000).toInt().coerceAtLeast(0)
+        }
+        secsLeft = 0
+        advance(complete = true)
+    }
+    // Wall-clock elapsed capped to a sane ceiling: because a run can now be resumed hours after a kill,
+    // the raw (now − startedAt) span would log those idle hours. Bound it to the planned time plus an hour
+    // of grace (covers untimed steps + overrun) so a paused/resumed run never inflates the yearly total.
+    fun elapsedSec(): Int {
+        val plannedSec = steps.sumOf { it.durationSec ?: 0 }
+        val raw = ((System.currentTimeMillis() - startedAt) / 1000).toInt().coerceAtLeast(0)
+        return raw.coerceAtMost(plannedSec + 3600)
+    }
+    // On finish: a haptic flourish, tick linked habits/tasks and log the run.
+    LaunchedEffect(finished) {
+        if (finished) {
+            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            vm.logRoutineRun(RoutineRun(routine.id, today, startedAt, completed.toList(), skipped.toList(), elapsedSec(), lite, finished = true))
+        }
+    }
+
+    // Back / close while a run is in progress logs a partial run (was a silent discard) and clears the resume.
+    fun exitRun() {
+        if (started && !finished) {
+            vm.logRoutineRun(RoutineRun(routine.id, today, startedAt, completed.toList(), skipped.toList(), elapsedSec(), lite, finished = false))
+            vm.clearActiveRoutineRun()
+        }
+        onExit()
+    }
+
+    BackHandler(onBack = { exitRun() })
+    Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
+        Column(Modifier.fillMaxSize().systemBarsPadding()) {
+            // Slim top bar with a back / close.
+            Row(Modifier.fillMaxWidth().padding(start = 4.dp, top = 4.dp, end = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = { exitRun() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Close") }
+                Text(routine.emoji + "  " + routine.name.ifBlank { "Routine" }, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            when {
+                finished -> FinishContent(completed.size, skipped.size, lite, onDone = onExit)
+                !started -> PreStart(routine, steps, lite, autoSuggested = autoLite, onToggleLite = { lite = it }, onStart = {
+                    started = true; startedAt = System.currentTimeMillis(); idx = 0; paused = false; completed.clear(); skipped.clear()
+                    val d0 = steps.getOrNull(0)?.durationSec
+                    secsLeft = d0 ?: 0
+                    stepEndMillis = if (d0 != null) System.currentTimeMillis() + d0 * 1000L else 0L
+                    // Start the routine's own activity only when step 0 doesn't already carry one (avoids a
+                    // double time-tracker start).
+                    if (steps.getOrNull(0)?.startActivityId.isNullOrBlank() && routine.activityId.isNotBlank()) vm.runRoutine(routine)
+                    persist()
+                })
+                else -> steps.getOrNull(idx)?.let { step ->
+                    Running(
+                        step = step, idx = idx, total = steps.size, secsLeft = secsLeft, paused = paused,
+                        onPauseResume = {
+                            if (paused) { stepEndMillis = System.currentTimeMillis() + secsLeft * 1000L; paused = false }
+                            else { paused = true; stepEndMillis = 0L }   // freeze: secsLeft holds the remainder
+                            persist()
+                        },
+                        onSkip = { advance(complete = false) },
+                        onAddMinute = { secsLeft += 60; if (!paused && step.durationSec != null) stepEndMillis += 60_000L; persist() },
+                        onDone = { advance(complete = true) },
+                        onEnd = { exitRun() },
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun androidx.compose.foundation.layout.ColumnScope.PreStart(
+    routine: Routine, steps: List<RoutineStep>, lite: Boolean, autoSuggested: Boolean = false, onToggleLite: (Boolean) -> Unit, onStart: () -> Unit,
+) {
+    Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 22.dp)) {
+        Spacer(Modifier.height(16.dp))
+        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(routine.emoji, fontSize = 52.sp)
+                Spacer(Modifier.height(6.dp))
+                Text(routine.name.ifBlank { "Routine" }, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+                val planned = steps.sumOf { it.durationSec ?: 0 }
+                Text("${steps.size} step${if (steps.size == 1) "" else "s"}" + if (planned > 0) " · ${minLabel(planned)}" else "",
+                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        if (routine.note.isNotBlank()) {
+            Spacer(Modifier.height(12.dp))
+            Text(routine.note, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Spacer(Modifier.height(16.dp))
+        steps.forEachIndexed { i, s ->
+            Row(Modifier.fillMaxWidth().padding(vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("${i + 1}", Modifier.width(24.dp), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (s.emoji.isNotBlank()) { Text(s.emoji, fontSize = 18.sp); Spacer(Modifier.width(8.dp)) }
+                Text(s.title.ifBlank { "Step ${i + 1}" }, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(if (s.durationSec != null) minLabel(s.durationSec!!) else "check-off", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        Spacer(Modifier.height(12.dp))
+        Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .4f)).padding(horizontal = 14.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Lite (low-energy)", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                Text("Keep only the essentials and cap timers at 2 minutes — never miss twice, kindly.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Switch(checked = lite, onCheckedChange = onToggleLite)
+        }
+        if (autoSuggested && lite) {
+            Spacer(Modifier.height(6.dp))
+            Text("Suggested — your energy read low today.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+        }
+        Spacer(Modifier.height(16.dp))
+    }
+    Button(onClick = onStart, enabled = steps.isNotEmpty(), modifier = Modifier.fillMaxWidth().padding(horizontal = 22.dp, vertical = 14.dp)) {
+        Icon(Icons.Filled.PlayArrow, null, Modifier.size(20.dp)); Spacer(Modifier.width(6.dp)); Text("Start")
+    }
+}
+
+@Composable
+private fun androidx.compose.foundation.layout.ColumnScope.Running(
+    step: RoutineStep, idx: Int, total: Int, secsLeft: Int, paused: Boolean,
+    onPauseResume: () -> Unit, onSkip: () -> Unit, onAddMinute: () -> Unit, onDone: () -> Unit, onEnd: () -> Unit,
+) {
+    val timed = step.durationSec != null
+    val accent = MaterialTheme.colorScheme.primary
+    // Progress: one segment per step, filled through the current step.
+    Row(Modifier.fillMaxWidth().padding(horizontal = 22.dp, vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+        (0 until total).forEach { i ->
+            Box(Modifier.weight(1f).height(4.dp).clip(RoundedCornerShape(2.dp))
+                .background(if (i <= idx) accent else MaterialTheme.colorScheme.surfaceVariant))
+        }
+    }
+    Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 22.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Spacer(Modifier.height(8.dp))
+        Text("Step ${idx + 1} of $total", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.height(18.dp))
+        Box(Modifier.size(150.dp).clip(CircleShape).background(accent.copy(alpha = .14f)), contentAlignment = Alignment.Center) {
+            Text(step.emoji.ifBlank { if (timed) "⏱️" else "✓" }, fontSize = 60.sp)
+        }
+        Spacer(Modifier.height(18.dp))
+        Text(step.title.ifBlank { "Step ${idx + 1}" }, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center)
+        if (step.note.isNotBlank()) {
+            Spacer(Modifier.height(6.dp))
+            Text(step.note, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+        }
+        Spacer(Modifier.height(16.dp))
+        if (timed) {
+            Text("${secsLeft / 60}:${(secsLeft % 60).toString().padStart(2, '0')}", style = MaterialTheme.typography.displayMedium, fontWeight = FontWeight.Bold, color = if (paused) MaterialTheme.colorScheme.onSurfaceVariant else accent)
+            if (paused) Text("Paused", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        } else {
+            Text("Tap Done when you've finished.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Spacer(Modifier.height(16.dp))
+    }
+    // Pinned control bar — clears the nav bar via the parent's systemBarsPadding.
+    Column(Modifier.fillMaxWidth().padding(horizontal = 22.dp, vertical = 12.dp)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (timed) {
+                OutlinedButton(onClick = onPauseResume, modifier = Modifier.weight(1f)) { Text(if (paused) "Resume" else "Pause") }
+                OutlinedButton(onClick = onAddMinute, modifier = Modifier.weight(1f)) { Text("+1 min") }
+            }
+            OutlinedButton(onClick = onSkip, modifier = Modifier.weight(1f)) { Text("Skip") }
+        }
+        Spacer(Modifier.height(8.dp))
+        Button(onClick = onDone, modifier = Modifier.fillMaxWidth()) {
+            MiniCheck(); Spacer(Modifier.width(8.dp)); Text(if (idx == total - 1) "Done · Finish" else "Done · Next")
+        }
+        TextButton(onClick = onEnd, modifier = Modifier.align(Alignment.CenterHorizontally)) { Text("End", color = MaterialTheme.colorScheme.error) }
+    }
+}
+
+@Composable
+private fun androidx.compose.foundation.layout.ColumnScope.FinishContent(done: Int, skipped: Int, lite: Boolean, onDone: () -> Unit) {
+    Column(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 22.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+        Text("🎉", fontSize = 72.sp)
+        Spacer(Modifier.height(12.dp))
+        DoneTick()
+        Spacer(Modifier.height(14.dp))
+        Text("Routine complete", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(6.dp))
+        val tail = if (skipped > 0) " · $skipped skipped" else ""
+        Text(
+            (if (lite) "A lite run still counts. " else "") + "$done step${if (done == 1) "" else "s"} done$tail. That's a vote for who you're becoming.",
+            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center,
+        )
+    }
+    Button(onClick = onDone, modifier = Modifier.fillMaxWidth().padding(horizontal = 22.dp, vertical = 16.dp)) { Text("Done") }
+}
+
+// ── The editor ──────────────────────────────────────────────────────────────────────────────────────
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun RoutineEditor(
+    vm: AppViewModel, routine: Routine, existing: Boolean,
+    onDismiss: () -> Unit, onSave: (Routine) -> Unit, onDelete: () -> Unit,
+) {
+    val habits by vm.habits.collectAsStateWithLifecycle()
+    val checkins by vm.habitCheckins.collectAsStateWithLifecycle()
+    val tasks by vm.tasks.collectAsStateWithLifecycle()
+    val activities by vm.timeVm.timeActivities.collectAsStateWithLifecycle()
+    val openTasks = remember(tasks) { tasks.filter { !it.completed && !it.trashed && !it.isNote } }
+    val liveActivities = remember(activities) { activities.filter { !it.archived } }
+    val chainToday = vm.today()
+    var confirmBuildChain by remember { mutableStateOf(false) }
+
+    var name by remember { mutableStateOf(routine.name) }
+    var emoji by remember { mutableStateOf(routine.emoji) }
+    var note by remember { mutableStateOf(routine.note) }
+    var reminderOn by remember { mutableStateOf(routine.whenReminderMin != null) }
+    var reminderHour by remember { mutableIntStateOf((routine.whenReminderMin ?: 7 * 60) / 60) }
+    var days by remember { mutableStateOf(routine.days) }   // ISO weekdays; empty = every day
+    var activityId by remember { mutableStateOf(routine.activityId) }
+    var habitCategory by remember { mutableStateOf(routine.habitCategory) }
+    val steps = remember { mutableStateListOf<RoutineStep>().apply { addAll(routine.steps) } }
+    // Discard-guard: snapshot the user-editable fields (all inputs read by onSave) once at open, to detect unsaved edits on back.
+    val initial = remember { listOf(name, emoji, note, reminderOn, reminderHour, days, activityId, habitCategory, steps.toList()) }
+
+    var pickRoutineEmoji by remember { mutableStateOf(false) }
+    var pickStepEmoji by remember { mutableStateOf<Int?>(null) }
+    var confirmDelete by remember { mutableStateOf(false) }
+    var confirmDiscard by remember { mutableStateOf(false) }
+    val dirty = listOf(name, emoji, note, reminderOn, reminderHour, days, activityId, habitCategory, steps.toList()) != initial
+    fun requestDismiss() { if (dirty) confirmDiscard = true else onDismiss() }
+    BackHandler(onBack = { requestDismiss() })
+
+    val totalMin = steps.sumOf { it.durationSec ?: 0 } / 60
+
+    Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
+        Column(Modifier.fillMaxSize().systemBarsPadding()) {
+            TopAppBar(expandedHeight = 52.dp,
+                navigationIcon = { IconButton(onClick = { requestDismiss() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
+                title = { Text(if (existing) "Edit routine" else "New routine", maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                actions = {
+                    AssistChip(onClick = {}, label = { Text("Total $totalMin min") }, modifier = Modifier.padding(end = 8.dp))
+                    if (existing) IconButton(onClick = { confirmDelete = true }) { Icon(Icons.Filled.Delete, "Delete", tint = MaterialTheme.colorScheme.error) }
+                })
+            Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Spacer(Modifier.height(2.dp))
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Box(Modifier.size(52.dp).clip(RoundedCornerShape(14.dp)).background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .5f)).clickable { pickRoutineEmoji = true }, contentAlignment = Alignment.Center) {
+                        Text(emoji.ifBlank { "🔗" }, fontSize = 26.sp)
+                    }
+                    AppTextField(name, { name = it }, label = { Text("Routine name") }, singleLine = true, modifier = Modifier.weight(1f))
+                }
+                AppTextField(note, { note = it }, label = { Text("Note (optional)") }, modifier = Modifier.fillMaxWidth())
+
+                AppCard {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text("Reminder", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                            Text(
+                                if (!reminderOn) "Off"
+                                else if (days.isEmpty()) "Every day"
+                                else days.sorted().joinToString(" · ") { dayShort(it) },
+                                style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        if (reminderOn) com.wkhan.hexis.ui.components.TimeChip(reminderHour * 60, onPick = { m -> reminderHour = ((m + 30) / 60).coerceIn(0, 23) })
+                        Switch(checked = reminderOn, onCheckedChange = { reminderOn = it })
+                    }
+                    // Schedule is independent of the reminder toggle: a routine can have a day cadence (which
+                    // drives adherence, streaks and the Today "Rituals" strip) without a reminder — and when the
+                    // reminder is on, it fires only on these days.
+                    Spacer(Modifier.height(10.dp))
+                    Text("Scheduled days (none = every day)", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.height(6.dp))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        (1..7).forEach { d ->
+                            val on = d in days
+                            Surface(
+                                Modifier.weight(1f).clip(RoundedCornerShape(8.dp)).clickable { days = if (on) days - d else (days + d).sorted() },
+                                shape = RoundedCornerShape(8.dp),
+                                color = if (on) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .5f),
+                            ) {
+                                Text(dayShort(d), Modifier.fillMaxWidth().padding(vertical = 8.dp), textAlign = TextAlign.Center,
+                                    style = MaterialTheme.typography.labelMedium, maxLines = 1,
+                                    color = if (on) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
+                }
+
+                AppCard {
+                    Text("On start (optional)", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.height(6.dp))
+                    DropdownPicker(
+                        label = "Start tracking activity",
+                        currentLabel = liveActivities.firstOrNull { it.id == activityId }?.let { (it.emoji?.plus(" ") ?: "") + it.name },
+                        options = liveActivities, optionLabel = { (it.emoji?.plus(" ") ?: "") + it.name },
+                        onPick = { activityId = it?.id ?: "" },
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    AppTextField(habitCategory, { habitCategory = it }, label = { Text("Surface habit group") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                }
+
+                HorizontalDivider()
+                Text("STEPS", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+                steps.forEachIndexed { i, s ->
+                    StepEditorCard(
+                        step = s, index = i, count = steps.size,
+                        habits = habits, tasks = openTasks, activities = liveActivities,
+                        onChange = { steps[i] = it },
+                        onPickEmoji = { pickStepEmoji = i },
+                        onMoveUp = { if (i > 0) { val tmp = steps[i - 1]; steps[i - 1] = steps[i]; steps[i] = tmp } },
+                        onMoveDown = { if (i < steps.lastIndex) { val tmp = steps[i + 1]; steps[i + 1] = steps[i]; steps[i] = tmp } },
+                        onDelete = { steps.removeAt(i) },
+                    )
+                }
+                FilledTonalButton(onClick = {
+                    steps.add(RoutineStep(id = UUID.randomUUID().toString(), title = "", durationSec = 300, kind = StepKind.TIMER))
+                }, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Filled.Add, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Add step") }
+
+                // G2 — reframe this ritual as a habit chain: each step becomes an anchored habit (habit
+                // stacking), so the steps earn their own streaks and the whole chain has a live adherence.
+                val chainRoutine = remember(name, emoji, note, days, steps.toList()) {
+                    routine.copy(name = name.trim(), emoji = emoji.ifBlank { "🔗" }, note = note.trim(),
+                        days = days.filter { it in 1..7 }.distinct().sorted(), steps = steps.toList())
+                }
+                val chainHabits = remember(chainRoutine, habits) { com.wkhan.hexis.domain.RoutineChain.habitsFor(chainRoutine, habits) }
+                val uncreated = remember(chainRoutine, habits) { com.wkhan.hexis.domain.RoutineChain.uncreatedSteps(chainRoutine, habits) }
+                if (steps.any { it.title.isNotBlank() }) {
+                    HorizontalDivider()
+                    AppCard {
+                        Text("🔗 HABIT CHAIN", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("Turn each step into an anchored habit — “after the last, this one” — so every step keeps its own streak and the chain earns a whole-chain adherence.",
+                            style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 2.dp))
+                        if (chainHabits.isNotEmpty()) {
+                            val stat = remember(chainHabits, checkins, chainToday) { com.wkhan.hexis.domain.RoutineChain.chainStat(chainHabits, checkins, chainToday) }
+                            Spacer(Modifier.height(8.dp))
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Column(Modifier.weight(1f)) {
+                                    Text("${stat.size} habit${if (stat.size == 1) "" else "s"} in the chain", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                                    Text("${stat.adherencePct}% kept (30d)" + (if (stat.streak > 0) " · ${stat.streak}-day whole-chain streak" else ""),
+                                        style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
+                            Spacer(Modifier.height(8.dp))
+                            ChainWeekRow(stat.weekdayRates)
+                            Spacer(Modifier.height(6.dp))
+                            Text(chainHabits.joinToString("  →  ") { (it.emoji?.plus(" ") ?: "") + it.name }, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Spacer(Modifier.height(10.dp))
+                        if (uncreated > 0) {
+                            FilledTonalButton(onClick = { confirmBuildChain = true }, modifier = Modifier.fillMaxWidth()) {
+                                Icon(Icons.Filled.Add, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp))
+                                Text(if (chainHabits.isEmpty()) "Build habit chain ($uncreated habit${if (uncreated == 1) "" else "s"})" else "Add $uncreated more to the chain")
+                            }
+                        } else {
+                            Text("✓ Every step is a habit — the chain is built.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                        }
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+            }
+            Button(onClick = {
+                onSave(routine.copy(
+                    name = name.trim(),
+                    emoji = emoji.ifBlank { "🔗" },
+                    note = note.trim(),
+                    whenReminderMin = if (reminderOn) reminderHour.coerceIn(0, 23) * 60 else null,
+                    days = days.filter { it in 1..7 }.distinct().sorted(),
+                    activityId = activityId,
+                    habitCategory = habitCategory.trim(),
+                    steps = steps.toList(),
+                ))
+            }, enabled = name.isNotBlank(), modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) { Text("Save routine") }
+        }
+    }
+
+    if (pickRoutineEmoji) AlertDialog(onDismissRequest = { pickRoutineEmoji = false },
+        title = { Text("Pick an emoji") },
+        text = { EmojiGridPicker(current = emoji.ifBlank { null }, onPick = { emoji = it ?: ""; pickRoutineEmoji = false }) },
+        confirmButton = { TextButton(onClick = { pickRoutineEmoji = false }) { Text("Close") } })
+    pickStepEmoji?.let { i ->
+        AlertDialog(onDismissRequest = { pickStepEmoji = null },
+            title = { Text("Pick an emoji") },
+            text = { EmojiGridPicker(current = steps[i].emoji.ifBlank { null }, onPick = { steps[i] = steps[i].copy(emoji = it ?: ""); pickStepEmoji = null }) },
+            confirmButton = { TextButton(onClick = { pickStepEmoji = null }) { Text("Close") } })
+    }
+    if (confirmDelete) ConfirmDialog(
+        title = "Delete routine?",
+        body = "“${routine.name}” and its run history stay, but the routine itself is removed. This can't be undone.",
+        confirmLabel = "Delete",
+        onConfirm = { confirmDelete = false; onDelete() },
+        onDismiss = { confirmDelete = false })
+    if (confirmDiscard) ConfirmDialog(
+        title = "Discard changes?",
+        body = "Your unsaved edits will be lost.",
+        confirmLabel = "Discard",
+        dismissLabel = "Keep editing",
+        destructive = true,
+        onConfirm = { confirmDiscard = false; onDismiss() },
+        onDismiss = { confirmDiscard = false })
+    if (confirmBuildChain) {
+        val cr = routine.copy(name = name.trim(), emoji = emoji.ifBlank { "🔗" }, note = note.trim(),
+            days = days.filter { it in 1..7 }.distinct().sorted(), steps = steps.toList())
+        val n = com.wkhan.hexis.domain.RoutineChain.uncreatedSteps(cr, habits)
+        ConfirmDialog(
+            title = "Build habit chain?",
+            body = "Creates $n new habit${if (n == 1) "" else "s"}, each anchored to the one before it and scheduled on this routine's days, then links your steps to them. Steps already linked to a habit are reused, not duplicated. Tap Save routine afterwards to keep the links.",
+            confirmLabel = "Build",
+            onConfirm = {
+                confirmBuildChain = false
+                val res = com.wkhan.hexis.domain.RoutineChain.build(cr, habits)
+                if (res.newHabits.isNotEmpty()) vm.addHabits(res.newHabits)
+                // Persist the step→habit links into local state (ids align 1:1) so Save writes them through.
+                if (res.routine.steps.size == steps.size) for (i in steps.indices) steps[i] = res.routine.steps[i]
+            },
+            onDismiss = { confirmBuildChain = false })
+    }
+}
+
+/** G2 — a compact Mon..Sun bar row for whole-chain weekday adherence (mirrors the habit detail weekday
+ *  chart, kept local to Routines). Each bar's height is that weekday's average kept-rate across the chain. */
+@Composable
+private fun ChainWeekRow(rates: FloatArray) {
+    val letters = listOf("M", "T", "W", "T", "F", "S", "S")
+    val best = rates.maxOrNull()?.takeIf { it > 0f }
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        (0..6).forEach { i ->
+            val r = rates.getOrElse(i) { 0f }.coerceIn(0f, 1f)
+            val isBest = best != null && r >= best - 0.0001f && r > 0f
+            Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                Box(Modifier.fillMaxWidth().height(34.dp), contentAlignment = Alignment.BottomCenter) {
+                    Box(Modifier.fillMaxWidth().fillMaxHeight(fraction = (0.12f + 0.88f * r)).clip(RoundedCornerShape(4.dp))
+                        .background(if (isBest) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary.copy(alpha = .35f)))
+                }
+                Spacer(Modifier.height(3.dp))
+                Text(letters[i], style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    }
+}
+
+@Composable
+private fun StepEditorCard(
+    step: RoutineStep, index: Int, count: Int,
+    habits: List<com.wkhan.hexis.data.entity.HabitEntity>,
+    tasks: List<com.wkhan.hexis.data.entity.TaskEntity>,
+    activities: List<com.wkhan.hexis.data.entity.TimeActivityEntity>,
+    onChange: (RoutineStep) -> Unit, onPickEmoji: () -> Unit,
+    onMoveUp: () -> Unit, onMoveDown: () -> Unit, onDelete: () -> Unit,
+) {
+    AppCard {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Box(Modifier.size(44.dp).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .5f)).clickable { onPickEmoji() }, contentAlignment = Alignment.Center) {
+                Text(step.emoji.ifBlank { "＋" }, fontSize = 20.sp)
+            }
+            AppTextField(step.title, { onChange(step.copy(title = it)) }, label = { Text("Step ${index + 1}") }, singleLine = true, modifier = Modifier.weight(1f))
+            IconButton(onClick = onMoveUp, enabled = index > 0) { Icon(Icons.Filled.KeyboardArrowUp, "Move up") }
+            IconButton(onClick = onMoveDown, enabled = index < count - 1) { Icon(Icons.Filled.KeyboardArrowDown, "Move down") }
+            IconButton(onClick = onDelete) { Icon(Icons.Filled.Delete, "Delete step", tint = MaterialTheme.colorScheme.onSurfaceVariant) }
+        }
+        Spacer(Modifier.height(8.dp))
+        OptionChips(listOf(StepKind.TIMER, StepKind.CHECKOFF), step.kind, { k ->
+            onChange(step.copy(kind = k, durationSec = if (k == StepKind.TIMER) (step.durationSec ?: 300) else null))
+        }, label = { if (it == StepKind.TIMER) "Timer" else "Check-off" })
+        if (step.kind == StepKind.TIMER) {
+            Spacer(Modifier.height(8.dp))
+            Stepper(
+                value = ((step.durationSec ?: 300) / 60).coerceAtLeast(1),
+                onChange = { onChange(step.copy(durationSec = it.coerceAtLeast(1) * 60)) },
+                min = 1, max = 240, step = 1, label = "Minutes", display = { "$it min" },
+            )
+        }
+        Spacer(Modifier.height(8.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Essential — kept on a lite day", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+            Switch(checked = step.essential, onCheckedChange = { onChange(step.copy(essential = it)) })
+        }
+        Spacer(Modifier.height(4.dp))
+        DropdownPicker("Tick this habit on finish", habits.firstOrNull { it.id == step.linkedHabitId }?.let { (it.emoji?.plus(" ") ?: "") + it.name },
+            habits, { (it.emoji?.plus(" ") ?: "") + it.name }) { onChange(step.copy(linkedHabitId = it?.id)) }
+        Spacer(Modifier.height(6.dp))
+        DropdownPicker("Complete this task on finish", tasks.firstOrNull { it.id == step.linkedTaskId }?.title,
+            tasks, { it.title }) { onChange(step.copy(linkedTaskId = it?.id)) }
+        Spacer(Modifier.height(6.dp))
+        DropdownPicker("Start tracking on this step", activities.firstOrNull { it.id == step.startActivityId }?.let { (it.emoji?.plus(" ") ?: "") + it.name },
+            activities, { (it.emoji?.plus(" ") ?: "") + it.name }) { onChange(step.copy(startActivityId = it?.id)) }
+        Spacer(Modifier.height(8.dp))
+        AppTextField(step.note, { onChange(step.copy(note = it)) }, label = { Text("Cue / note (optional)") }, modifier = Modifier.fillMaxWidth())
+    }
+}
+
+/** A compact "pick one (or none)" dropdown used for linked habit / task / activity selectors. */
+@Composable
+private fun <T> DropdownPicker(label: String, currentLabel: String?, options: List<T>, optionLabel: (T) -> String, onPick: (T?) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    Column {
+        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Box {
+            OutlinedButton(onClick = { open = true }) {
+                Text(currentLabel ?: "None", maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                Icon(Icons.Filled.ArrowDropDown, null)
+            }
+            DropdownMenu(expanded = open, onDismissRequest = { open = false }, modifier = Modifier.heightIn(max = 320.dp)) {
+                DropdownMenuItem(text = { Text("None") }, onClick = { onPick(null); open = false })
+                options.forEach { o ->
+                    DropdownMenuItem(text = { Text(optionLabel(o), maxLines = 1, overflow = TextOverflow.Ellipsis) }, onClick = { onPick(o); open = false })
+                }
+            }
+        }
+    }
+}
+
+// ── The starter catalog ──────────────────────────────────────────────────────────────────────────────
+@Composable
+private fun CatalogDialog(onDismiss: () -> Unit, onAdd: (RoutineCatalog.Template) -> Unit) {
+    AlertDialog(onDismissRequest = onDismiss,
+        title = { Text("Starter routines") },
+        text = {
+            Column(Modifier.fillMaxWidth().heightIn(max = 460.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                RoutineCatalog.templates.forEach { t ->
+                    Surface(shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .45f), modifier = Modifier.fillMaxWidth().clickable { onAdd(t) }) {
+                        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text(t.emoji, fontSize = 24.sp, modifier = Modifier.padding(end = 12.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(t.name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                                Text(t.blurb, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                val planned = t.steps.sumOf { it.durationSec ?: 0 }
+                                Text("${t.steps.size} steps" + if (planned > 0) " · ${minLabel(planned)}" else "", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            Icon(Icons.Filled.Add, "Add", tint = MaterialTheme.colorScheme.primary)
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } })
+}

@@ -1,0 +1,1237 @@
+package com.wkhan.hexis.data
+
+import android.content.Context
+import androidx.room.Database
+import androidx.room.Room
+import androidx.room.RoomDatabase
+import com.wkhan.hexis.data.dao.ChecklistDao
+import com.wkhan.hexis.data.dao.ContextDao
+import com.wkhan.hexis.data.dao.DependencyDao
+import com.wkhan.hexis.data.dao.FilterDao
+import com.wkhan.hexis.data.dao.HabitDao
+import com.wkhan.hexis.data.dao.FocusDao
+import com.wkhan.hexis.data.dao.FlagDao
+import com.wkhan.hexis.data.dao.TemplateDao
+import com.wkhan.hexis.data.dao.FolderDao
+import com.wkhan.hexis.data.dao.ListDao
+import com.wkhan.hexis.data.dao.WorkspaceDao
+import com.wkhan.hexis.data.dao.ReminderDao
+import com.wkhan.hexis.data.dao.SettingDao
+import com.wkhan.hexis.data.dao.TagDao
+import com.wkhan.hexis.data.dao.TaskDao
+import com.wkhan.hexis.data.dao.AttachmentDao
+import com.wkhan.hexis.data.entity.ChecklistItemEntity
+import com.wkhan.hexis.data.entity.ContextEntity
+import com.wkhan.hexis.data.entity.DependencyEntity
+import com.wkhan.hexis.data.entity.FolderEntity
+import com.wkhan.hexis.data.entity.ListEntity
+import com.wkhan.hexis.data.entity.ReminderEntity
+import com.wkhan.hexis.data.entity.SettingEntity
+import com.wkhan.hexis.data.entity.TagEntity
+import com.wkhan.hexis.data.entity.TaskContextCrossRef
+import com.wkhan.hexis.data.entity.TaskEntity
+import com.wkhan.hexis.data.entity.FilterEntity
+import com.wkhan.hexis.data.entity.HabitEntity
+import com.wkhan.hexis.data.entity.HabitCheckinEntity
+import com.wkhan.hexis.data.entity.FocusSessionEntity
+import com.wkhan.hexis.data.entity.FlagEntity
+import com.wkhan.hexis.data.entity.TemplateEntity
+import com.wkhan.hexis.data.entity.TaskTagCrossRef
+import com.wkhan.hexis.data.entity.WorkspaceEntity
+import com.wkhan.hexis.data.entity.AttachmentEntity
+import com.wkhan.hexis.data.entity.toEntity
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
+
+@Database(
+    entities = [
+        WorkspaceEntity::class,
+        FilterEntity::class,
+        HabitEntity::class,
+        HabitCheckinEntity::class,
+        FocusSessionEntity::class,
+        FolderEntity::class,
+        ListEntity::class,
+        TaskEntity::class,
+        ChecklistItemEntity::class,
+        TagEntity::class,
+        TaskTagCrossRef::class,
+        ContextEntity::class,
+        TaskContextCrossRef::class,
+        ReminderEntity::class,
+        DependencyEntity::class,
+        SettingEntity::class,
+        AttachmentEntity::class,
+        FlagEntity::class,
+        TemplateEntity::class,
+        com.wkhan.hexis.data.entity.CountdownEntity::class,
+        com.wkhan.hexis.data.entity.ActivityEntity::class,
+        com.wkhan.hexis.data.entity.TaskRevisionEntity::class,
+        com.wkhan.hexis.data.entity.TimeActivityEntity::class,
+        com.wkhan.hexis.data.entity.TimeEntryEntity::class,
+        com.wkhan.hexis.data.entity.SealedNoteEntity::class,
+        com.wkhan.hexis.data.entity.CravingEventEntity::class,
+        com.wkhan.hexis.data.entity.CoreValueEntity::class,
+        com.wkhan.hexis.data.entity.WitnessEventEntity::class,
+        com.wkhan.hexis.data.entity.ScorecardItemEntity::class,
+        com.wkhan.hexis.data.entity.BuddySnapshotEntity::class,
+        com.wkhan.hexis.data.entity.IntegrityReviewEntity::class,
+        com.wkhan.hexis.data.entity.ExperimentEntity::class,
+        com.wkhan.hexis.data.entity.ActivationItemEntity::class,
+        com.wkhan.hexis.data.entity.DayLogEntity::class,
+        com.wkhan.hexis.data.entity.EscrowEntity::class,
+        com.wkhan.hexis.data.entity.NudgeEventEntity::class,
+        com.wkhan.hexis.data.entity.EventCalendarEntity::class,
+        com.wkhan.hexis.data.entity.EventEntity::class,
+        com.wkhan.hexis.data.entity.NoteEntity::class,
+        com.wkhan.hexis.data.entity.NotebookEntity::class,
+        com.wkhan.hexis.data.entity.NoteTagCrossRef::class,
+        com.wkhan.hexis.data.entity.NoteContextCrossRef::class,
+        com.wkhan.hexis.data.entity.NoteRevisionEntity::class,
+        com.wkhan.hexis.data.entity.NoteLinkEntity::class,
+        com.wkhan.hexis.data.entity.SmartViewEntity::class,
+        com.wkhan.hexis.data.entity.NoteCardEntity::class,
+        com.wkhan.hexis.data.entity.GoalEntity::class,
+        com.wkhan.hexis.data.entity.GoalReviewEntity::class,
+        com.wkhan.hexis.data.entity.RoutineEntity::class,
+        com.wkhan.hexis.data.entity.RoutineRunEntity::class,
+    ],
+    version = 87,
+    // R73 — export the schema JSON (to app/schemas/) on every build. With 82 hand-written migrations (v5→v87)
+    // this is the safety net: it lets an instrumented MigrationTest replay the whole chain in CI and
+    // fail the build the moment a migration drifts from the entity definitions. Turned on from v59;
+    // each future version's schema is committed alongside its migration.
+    exportSchema = true,
+)
+abstract class AppDatabase : RoomDatabase() {
+    abstract fun taskDao(): TaskDao
+    abstract fun workspaceDao(): WorkspaceDao
+    abstract fun filterDao(): FilterDao
+    abstract fun habitDao(): HabitDao
+    abstract fun focusDao(): FocusDao
+    abstract fun folderDao(): FolderDao
+    abstract fun listDao(): ListDao
+    abstract fun checklistDao(): ChecklistDao
+    abstract fun tagDao(): TagDao
+    abstract fun contextDao(): ContextDao
+    abstract fun reminderDao(): ReminderDao
+    abstract fun dependencyDao(): DependencyDao
+    abstract fun settingDao(): SettingDao
+    abstract fun attachmentDao(): AttachmentDao
+    abstract fun flagDao(): FlagDao
+    abstract fun templateDao(): TemplateDao
+    abstract fun countdownDao(): com.wkhan.hexis.data.dao.CountdownDao
+    abstract fun activityDao(): com.wkhan.hexis.data.dao.ActivityDao
+    abstract fun revisionDao(): com.wkhan.hexis.data.dao.TaskRevisionDao
+    abstract fun timeTrackingDao(): com.wkhan.hexis.data.dao.TimeTrackingDao
+    abstract fun sealedNoteDao(): com.wkhan.hexis.data.dao.SealedNoteDao
+    abstract fun cravingDao(): com.wkhan.hexis.data.dao.CravingDao
+    abstract fun coreValueDao(): com.wkhan.hexis.data.dao.CoreValueDao
+    abstract fun witnessDao(): com.wkhan.hexis.data.dao.WitnessDao
+    abstract fun scorecardDao(): com.wkhan.hexis.data.dao.ScorecardDao
+    abstract fun buddyDao(): com.wkhan.hexis.data.dao.BuddyDao
+    abstract fun integrityReviewDao(): com.wkhan.hexis.data.dao.IntegrityReviewDao
+    abstract fun experimentDao(): com.wkhan.hexis.data.dao.ExperimentDao
+    abstract fun activationDao(): com.wkhan.hexis.data.dao.ActivationDao
+    abstract fun dayLogDao(): com.wkhan.hexis.data.dao.DayLogDao
+    abstract fun escrowDao(): com.wkhan.hexis.data.dao.EscrowDao
+    abstract fun nudgeEventDao(): com.wkhan.hexis.data.dao.NudgeEventDao
+    abstract fun eventCalendarDao(): com.wkhan.hexis.data.dao.EventCalendarDao
+    abstract fun eventDao(): com.wkhan.hexis.data.dao.EventDao
+    abstract fun noteDao(): com.wkhan.hexis.data.dao.NoteDao
+    abstract fun notebookDao(): com.wkhan.hexis.data.dao.NotebookDao
+    abstract fun noteRevisionDao(): com.wkhan.hexis.data.dao.NoteRevisionDao
+    abstract fun noteLinkDao(): com.wkhan.hexis.data.dao.NoteLinkDao
+    abstract fun smartViewDao(): com.wkhan.hexis.data.dao.SmartViewDao
+    abstract fun noteCardDao(): com.wkhan.hexis.data.dao.NoteCardDao
+    abstract fun goalDao(): com.wkhan.hexis.data.dao.GoalDao
+    abstract fun routineDao(): com.wkhan.hexis.data.dao.RoutineDao
+
+    companion object {
+        @Volatile
+        private var INSTANCE: AppDatabase? = null
+
+        /** v5→v6 adds the saved-filters table without wiping existing data. */
+        private val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `filters` (" +
+                        "`id` TEXT NOT NULL, `name` TEXT NOT NULL, `sortOrder` REAL NOT NULL, " +
+                        "`workspaceId` TEXT NOT NULL, `queryJson` TEXT NOT NULL, `colorArgb` INTEGER, " +
+                        "PRIMARY KEY(`id`))",
+                )
+            }
+        }
+
+        /** v6→v7 adds the habit + check-in tables without wiping existing data. */
+        private val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `habits` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, " +
+                        "`emoji` TEXT, `colorArgb` INTEGER, `targetPerDay` INTEGER NOT NULL, `sortOrder` REAL NOT NULL, " +
+                        "`archived` INTEGER NOT NULL, `workspaceId` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+                )
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `habit_checkins` (`habitId` TEXT NOT NULL, `epochDay` INTEGER NOT NULL, " +
+                        "`count` INTEGER NOT NULL, PRIMARY KEY(`habitId`, `epochDay`))",
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_habit_checkins_habitId` ON `habit_checkins` (`habitId`)")
+            }
+        }
+
+        /** v7→v8 adds the focus-sessions table without wiping existing data. */
+        private val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `focus_sessions` (`id` TEXT NOT NULL, `epochDay` INTEGER NOT NULL, " +
+                        "`startMillis` INTEGER NOT NULL, `minutes` INTEGER NOT NULL, `kind` TEXT NOT NULL, PRIMARY KEY(`id`))",
+                )
+            }
+        }
+
+        /** v8→v9 adds task `pinned` + `isNote` columns without wiping data. */
+        private val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `tasks` ADD COLUMN `pinned` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `tasks` ADD COLUMN `isNote` INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
+        /** v9→v10 adds the attachments table without wiping existing data. */
+        private val MIGRATION_9_10 = object : Migration(9, 10) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `attachments` (`id` TEXT NOT NULL, `taskId` TEXT NOT NULL, " +
+                        "`fileName` TEXT NOT NULL, `mime` TEXT NOT NULL, `sizeBytes` INTEGER NOT NULL, " +
+                        "`isImage` INTEGER NOT NULL, `addedAt` INTEGER NOT NULL, `contentBase64` TEXT NOT NULL, " +
+                        "PRIMARY KEY(`id`))",
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_attachments_taskId` ON `attachments` (`taskId`)")
+            }
+        }
+
+        /** v10→v11 adds list nesting (lists.parentListId) without wiping existing data. */
+        private val MIGRATION_10_11 = object : Migration(10, 11) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `lists` ADD COLUMN `parentListId` TEXT")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_lists_parentListId` ON `lists` (`parentListId`)")
+            }
+        }
+
+        /** v11→v12 adds tasks.reviewedAt (GTD per-item review) without wiping data. */
+        private val MIGRATION_11_12 = object : Migration(11, 12) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `tasks` ADD COLUMN `reviewedAt` INTEGER")
+            }
+        }
+
+        /** v12→v13 adds dependencies.delayDays (delayed activation) without wiping data. */
+        private val MIGRATION_12_13 = object : Migration(12, 13) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `dependencies` ADD COLUMN `delayDays` INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
+        /**
+         * v13→v14 introduces named/ordered flags. Creates the `flags` table + `tasks.flagId`,
+         * seeds the five default flags (whose colours match the old single-colour flag palette),
+         * then back-fills each task's flagId from its legacy flagColorArgb so nothing is lost.
+         * A `flagsSeeded` setting marks the defaults as planted so the app won't re-seed them
+         * (e.g. after the user deletes all flags).
+         */
+        private val MIGRATION_13_14 = object : Migration(13, 14) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `flags` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, " +
+                        "`colorArgb` INTEGER NOT NULL, `icon` TEXT NOT NULL, `sortOrder` REAL NOT NULL, " +
+                        "`createdAt` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+                )
+                db.execSQL("ALTER TABLE `tasks` ADD COLUMN `flagId` TEXT")
+                val defaults = listOf(
+                    Triple("flag-red", "Red", 0xFFE5484DL),
+                    Triple("flag-amber", "Amber", 0xFFF59E0BL),
+                    Triple("flag-teal", "Teal", 0xFF12A594L),
+                    Triple("flag-blue", "Blue", 0xFF3E7BFAL),
+                    Triple("flag-purple", "Purple", 0xFF8B5CF6L),
+                )
+                defaults.forEachIndexed { i, (id, name, color) ->
+                    db.execSQL(
+                        "INSERT OR IGNORE INTO `flags` (`id`,`name`,`colorArgb`,`icon`,`sortOrder`,`createdAt`) " +
+                            "VALUES (?, ?, ?, 'flag', ?, 0)",
+                        arrayOf<Any>(id, name, color, (i + 1).toDouble()),
+                    )
+                    db.execSQL("UPDATE `tasks` SET `flagId` = ? WHERE `flagColorArgb` = ?", arrayOf<Any>(id, color))
+                }
+                db.execSQL("INSERT OR REPLACE INTO `settings` (`key`,`value`) VALUES ('flagsSeeded','true')")
+            }
+        }
+
+        /** v14→v15 adds the reusable task-templates table without wiping existing data. */
+        private val MIGRATION_14_15 = object : Migration(14, 15) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `templates` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, " +
+                        "`payloadJson` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+                )
+            }
+        }
+
+        /** v15→v16 adds lists.backgroundBase64 (optional per-list background image). */
+        private val MIGRATION_15_16 = object : Migration(15, 16) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `lists` ADD COLUMN `backgroundBase64` TEXT")
+            }
+        }
+
+        /** v16→v17 adds focus_sessions.taskId (link a focus session to a task). */
+        private val MIGRATION_16_17 = object : Migration(16, 17) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `focus_sessions` ADD COLUMN `taskId` TEXT")
+            }
+        }
+
+        /** v17→v18 adds tasks.progressPct (manual completion percentage) without wiping data. */
+        private val MIGRATION_17_18 = object : Migration(17, 18) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `tasks` ADD COLUMN `progressPct` INTEGER")
+            }
+        }
+        private val MIGRATION_18_19 = object : Migration(18, 19) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `contexts` ADD COLUMN `sortOrder` REAL NOT NULL DEFAULT 0")
+            }
+        }
+        private val MIGRATION_19_20 = object : Migration(19, 20) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `habits` ADD COLUMN `unit` TEXT")
+                db.execSQL("ALTER TABLE `habits` ADD COLUMN `scheduleDays` TEXT NOT NULL DEFAULT ''")
+            }
+        }
+        private val MIGRATION_20_21 = object : Migration(20, 21) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE TABLE IF NOT EXISTS `countdowns` (`id` TEXT NOT NULL, `title` TEXT NOT NULL, `targetMillis` INTEGER NOT NULL, `emoji` TEXT, `colorArgb` INTEGER, `pinned` INTEGER NOT NULL DEFAULT 0, `sortOrder` REAL NOT NULL DEFAULT 0, `createdAt` INTEGER NOT NULL, PRIMARY KEY(`id`))")
+            }
+        }
+        private val MIGRATION_21_22 = object : Migration(21, 22) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `habits` ADD COLUMN `reminderTimes` TEXT NOT NULL DEFAULT ''")
+            }
+        }
+        private val MIGRATION_22_23 = object : Migration(22, 23) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `tasks` ADD COLUMN `folderId` TEXT")
+            }
+        }
+        private val MIGRATION_23_24 = object : Migration(23, 24) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE TABLE IF NOT EXISTS `task_activity` (`id` TEXT NOT NULL, `taskId` TEXT NOT NULL, `type` TEXT NOT NULL, `at` INTEGER NOT NULL, `detail` TEXT, PRIMARY KEY(`id`))")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_task_activity_taskId` ON `task_activity` (`taskId`)")
+            }
+        }
+        private val MIGRATION_24_25 = object : Migration(24, 25) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `tasks` ADD COLUMN `deadlineDate` INTEGER")
+                db.execSQL("ALTER TABLE `tasks` ADD COLUMN `energy` INTEGER")
+                db.execSQL("ALTER TABLE `reminders` ADD COLUMN `latitude` REAL")
+                db.execSQL("ALTER TABLE `reminders` ADD COLUMN `longitude` REAL")
+                db.execSQL("ALTER TABLE `reminders` ADD COLUMN `radiusM` REAL")
+                db.execSQL("ALTER TABLE `reminders` ADD COLUMN `placeName` TEXT")
+                db.execSQL("ALTER TABLE `reminders` ADD COLUMN `onEnter` INTEGER NOT NULL DEFAULT 1")
+                db.execSQL("ALTER TABLE `reminders` ADD COLUMN `escalate` INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
+        private val MIGRATION_25_26 = object : Migration(25, 26) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `attachments` ADD COLUMN `filePath` TEXT")
+            }
+        }
+
+        private val MIGRATION_26_27 = object : Migration(26, 27) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE TABLE IF NOT EXISTS `task_revisions` (`id` TEXT NOT NULL, `taskId` TEXT NOT NULL, `at` INTEGER NOT NULL, `snapshotJson` TEXT NOT NULL, `label` TEXT NOT NULL, PRIMARY KEY(`id`))")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_task_revisions_taskId` ON `task_revisions` (`taskId`)")
+            }
+        }
+
+        // Tier I: widen the habit model to specialist depth (type, comparison, flexible frequency,
+        // increment, extra goal, start date, description, pause, money, category) + skip check-ins.
+        private val MIGRATION_27_28 = object : Migration(27, 28) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `habits` ADD COLUMN `habitType` TEXT NOT NULL DEFAULT 'build'")
+                db.execSQL("ALTER TABLE `habits` ADD COLUMN `targetComparison` TEXT NOT NULL DEFAULT 'atleast'")
+                db.execSQL("ALTER TABLE `habits` ADD COLUMN `freqType` TEXT NOT NULL DEFAULT 'weekly'")
+                db.execSQL("ALTER TABLE `habits` ADD COLUMN `freqParam` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `habits` ADD COLUMN `clickIncrement` INTEGER NOT NULL DEFAULT 1")
+                db.execSQL("ALTER TABLE `habits` ADD COLUMN `extraTarget` INTEGER")
+                db.execSQL("ALTER TABLE `habits` ADD COLUMN `startDate` INTEGER")
+                db.execSQL("ALTER TABLE `habits` ADD COLUMN `description` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `habits` ADD COLUMN `paused` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `habits` ADD COLUMN `moneyPerUnit` REAL")
+                db.execSQL("ALTER TABLE `habits` ADD COLUMN `category` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `habit_checkins` ADD COLUMN `status` TEXT NOT NULL DEFAULT 'done'")
+                db.execSQL("ALTER TABLE `habit_checkins` ADD COLUMN `reason` TEXT NOT NULL DEFAULT ''")
+            }
+        }
+
+        // Tier K: identity, habit-stacking anchor, streak freezes, self-reward, place geofence, day photo.
+        private val MIGRATION_28_29 = object : Migration(28, 29) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `habits` ADD COLUMN `identity` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `habits` ADD COLUMN `anchorHabitId` TEXT")
+                db.execSQL("ALTER TABLE `habits` ADD COLUMN `freezeTokens` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `habits` ADD COLUMN `rewardText` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `habits` ADD COLUMN `rewardAtStreak` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `habits` ADD COLUMN `latitude` REAL")
+                db.execSQL("ALTER TABLE `habits` ADD COLUMN `longitude` REAL")
+                db.execSQL("ALTER TABLE `habits` ADD COLUMN `geofenceRadius` REAL")
+                db.execSQL("ALTER TABLE `habits` ADD COLUMN `placeLabel` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `habit_checkins` ADD COLUMN `photoUri` TEXT")
+            }
+        }
+
+        // Batch D: free-text description on lists and folders.
+        private val MIGRATION_29_30 = object : Migration(29, 30) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `lists` ADD COLUMN `description` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `folders` ADD COLUMN `description` TEXT NOT NULL DEFAULT ''")
+            }
+        }
+
+        // Tier O2: minute-of-day a check-in was marked done, for real "you usually do this at…" timing.
+        private val MIGRATION_30_31 = object : Migration(30, 31) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `habit_checkins` ADD COLUMN `doneAtMinute` INTEGER")
+            }
+        }
+
+        // Tier Q2: goal/project "why" (identity) + reward text, mirroring the habit vocabulary.
+        private val MIGRATION_31_32 = object : Migration(31, 32) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `tasks` ADD COLUMN `whyText` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `tasks` ADD COLUMN `rewardText` TEXT NOT NULL DEFAULT ''")
+            }
+        }
+
+        // Tier S: time tracking — activities + recorded intervals. Two fresh tables (no defaults, to
+        // match Room's generated schema exactly).
+        private val MIGRATION_32_33 = object : Migration(32, 33) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE TABLE IF NOT EXISTS `time_activities` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `emoji` TEXT, `colorArgb` INTEGER, `archived` INTEGER NOT NULL, `sortOrder` REAL NOT NULL, `createdAt` INTEGER NOT NULL, PRIMARY KEY(`id`))")
+                db.execSQL("CREATE TABLE IF NOT EXISTS `time_entries` (`id` TEXT NOT NULL, `activityId` TEXT NOT NULL, `startMillis` INTEGER NOT NULL, `endMillis` INTEGER, `note` TEXT NOT NULL, `taskId` TEXT, `habitId` TEXT, `createdAt` INTEGER NOT NULL, PRIMARY KEY(`id`))")
+            }
+        }
+
+        // Tier T: the modular fusion links + time goals + interval origin. All additive columns with
+        // defaults that match the entities' Kotlin defaults.
+        private val MIGRATION_33_34 = object : Migration(33, 34) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `time_entries` ADD COLUMN `kind` TEXT NOT NULL DEFAULT 'manual'")
+                db.execSQL("ALTER TABLE `time_activities` ADD COLUMN `goalMinutesPerDay` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `time_activities` ADD COLUMN `goalDays` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `tasks` ADD COLUMN `defaultActivityId` TEXT")
+                db.execSQL("ALTER TABLE `habits` ADD COLUMN `timeActivityId` TEXT")
+            }
+        }
+
+        // Tier U11: free-form tags on a tracked interval (for per-tag reporting). One additive column.
+        private val MIGRATION_34_35 = object : Migration(34, 35) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `time_entries` ADD COLUMN `tags` TEXT NOT NULL DEFAULT ''")
+            }
+        }
+
+        // Tier V: link-completion mode + encouragements on habits, and a per-day journal note.
+        private val MIGRATION_35_36 = object : Migration(35, 36) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `habits` ADD COLUMN `linkMode` TEXT NOT NULL DEFAULT 'minutes'")
+                db.execSQL("ALTER TABLE `habits` ADD COLUMN `encouragements` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `habit_checkins` ADD COLUMN `note` TEXT NOT NULL DEFAULT ''")
+            }
+        }
+
+        // Plan C: hot-path indices on time_entries (day/week/month window scans + per-activity history).
+        // Purely additive — index names must match Room's generated `index_<table>_<col>` exactly.
+        private val MIGRATION_36_37 = object : Migration(36, 37) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_time_entries_startMillis` ON `time_entries` (`startMillis`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_time_entries_activityId` ON `time_entries` (`activityId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_time_entries_taskId` ON `time_entries` (`taskId`)")
+            }
+        }
+
+        // R24: scope tags & contexts to a workspace (like lists/folders/filters/habits). Additive —
+        // legacy rows fall into the 'default' workspace, matching the app's default active workspace.
+        private val MIGRATION_37_38 = object : Migration(37, 38) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `tags` ADD COLUMN `workspaceId` TEXT NOT NULL DEFAULT 'default'")
+                db.execSQL("ALTER TABLE `contexts` ADD COLUMN `workspaceId` TEXT NOT NULL DEFAULT 'default'")
+            }
+        }
+
+        // R27 The Done Record: additive completion metadata on tasks (outcome/impact, win flag, learned
+        // note, praise quote, day mood). All nullable/defaulted, so existing rows keep working; every
+        // field lands in the lossless JSON backup. No new tables, no new permissions, 0 network.
+        private val MIGRATION_38_39 = object : Migration(38, 39) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `tasks` ADD COLUMN `outcomeNote` TEXT")
+                db.execSQL("ALTER TABLE `tasks` ADD COLUMN `winFlag` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `tasks` ADD COLUMN `learnedNote` TEXT")
+                db.execSQL("ALTER TABLE `tasks` ADD COLUMN `praiseQuote` TEXT")
+                db.execSQL("ALTER TABLE `tasks` ADD COLUMN `mood` INTEGER")
+            }
+        }
+
+        // R28 #3: per-task workspace ownership for the Trash (workspaces are independent except the Inbox).
+        // Backfill from the task's list, then its folder, so existing trashed tasks land in the right
+        // workspace's Trash; Inbox tasks (no workspaced list/folder) keep the 'default' workspace.
+        private val MIGRATION_39_40 = object : Migration(39, 40) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `tasks` ADD COLUMN `workspaceId` TEXT NOT NULL DEFAULT 'default'")
+                db.execSQL("UPDATE `tasks` SET `workspaceId` = (SELECT `workspaceId` FROM `lists` WHERE `lists`.`id` = `tasks`.`listId`) WHERE `listId` IN (SELECT `id` FROM `lists`)")
+                db.execSQL("UPDATE `tasks` SET `workspaceId` = (SELECT `workspaceId` FROM `folders` WHERE `folders`.`id` = `tasks`.`folderId`) WHERE `folderId` IS NOT NULL AND `folderId` IN (SELECT `id` FROM `folders`)")
+            }
+        }
+
+        // R32 — sealed "letter to your future self" table (Living Record #7). Additive, no data touched.
+        private val MIGRATION_40_41 = object : Migration(40, 41) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE TABLE IF NOT EXISTS `sealed_notes` (`id` TEXT NOT NULL, `createdEpochDay` INTEGER NOT NULL, `revealEpochDay` INTEGER NOT NULL, `title` TEXT NOT NULL, `body` TEXT NOT NULL, `anchorHash` TEXT NOT NULL, `sealedCount` INTEGER NOT NULL, `acknowledged` INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(`id`))")
+            }
+        }
+
+        // R33 — the habit BUILDER layer: additive habit columns + a craving/urge log table. No data touched.
+        private val MIGRATION_41_42 = object : Migration(41, 42) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `habits` ADD COLUMN `cueTime` INTEGER")
+                db.execSQL("ALTER TABLE `habits` ADD COLUMN `cueContext` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `habits` ADD COLUMN `rampFinalTarget` INTEGER")
+                db.execSQL("ALTER TABLE `habits` ADD COLUMN `rampAddPerStep` INTEGER NOT NULL DEFAULT 1")
+                db.execSQL("ALTER TABLE `habits` ADD COLUMN `rampStepDays` INTEGER NOT NULL DEFAULT 7")
+                db.execSQL("ALTER TABLE `habits` ADD COLUMN `rampLastStepDay` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `habits` ADD COLUMN `quitSinceMillis` INTEGER")
+                db.execSQL("ALTER TABLE `habits` ADD COLUMN `minutesPerUnit` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `habits` ADD COLUMN `lastPledgeDay` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `habits` ADD COLUMN `replacementHabitId` TEXT")
+                db.execSQL("ALTER TABLE `habits` ADD COLUMN `journeyKey` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("CREATE TABLE IF NOT EXISTS `craving_events` (`id` TEXT NOT NULL, `habitId` TEXT NOT NULL, `atMillis` INTEGER NOT NULL, `epochDay` INTEGER NOT NULL, `minuteOfDay` INTEGER NOT NULL, `intensity` INTEGER NOT NULL, `trigger` TEXT NOT NULL DEFAULT '', `surfed` INTEGER NOT NULL DEFAULT 1, `note` TEXT NOT NULL DEFAULT '', PRIMARY KEY(`id`))")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_craving_events_habitId` ON `craving_events` (`habitId`)")
+            }
+        }
+
+        // R34 — the LIFE-SYSTEMS layer: additive habit/check-in/craving columns + five small new tables
+        // (values, witness log, scorecard, buddy digests, integrity reviews). No existing data touched.
+        private val MIGRATION_42_43 = object : Migration(42, 43) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `habits` ADD COLUMN `woopOutcome` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `habits` ADD COLUMN `woopObstacle` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `habits` ADD COLUMN `woopCoping` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `habits` ADD COLUMN `valueId` TEXT")
+                db.execSQL("ALTER TABLE `habits` ADD COLUMN `competingResponse` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `habits` ADD COLUMN `contractText` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `habits` ADD COLUMN `refereeName` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `habits` ADD COLUMN `forfeitText` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `habits` ADD COLUMN `forfeitLevel` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `habits` ADD COLUMN `pendingEaseMillis` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `habits` ADD COLUMN `pendingEaseTarget` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `habit_checkins` ADD COLUMN `ctxEnergy` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `habit_checkins` ADD COLUMN `ctxMood` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `habit_checkins` ADD COLUMN `ctxPlace` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `craving_events` ADD COLUMN `halt` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `craving_events` ADD COLUMN `durationSec` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("CREATE TABLE IF NOT EXISTS `core_values` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `emoji` TEXT, `colorArgb` INTEGER, `statement` TEXT NOT NULL DEFAULT '', `orderIndex` INTEGER NOT NULL DEFAULT 0, `createdAt` INTEGER NOT NULL, PRIMARY KEY(`id`))")
+                db.execSQL("CREATE TABLE IF NOT EXISTS `witness_events` (`id` TEXT NOT NULL, `habitId` TEXT NOT NULL, `refereeName` TEXT NOT NULL, `milestoneLabel` TEXT NOT NULL, `atMillis` INTEGER NOT NULL, `note` TEXT NOT NULL DEFAULT '', PRIMARY KEY(`id`))")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_witness_events_habitId` ON `witness_events` (`habitId`)")
+                db.execSQL("CREATE TABLE IF NOT EXISTS `scorecard_items` (`id` TEXT NOT NULL, `text` TEXT NOT NULL, `sign` INTEGER NOT NULL DEFAULT 0, `orderIndex` INTEGER NOT NULL DEFAULT 0, `createdAt` INTEGER NOT NULL, PRIMARY KEY(`id`))")
+                db.execSQL("CREATE TABLE IF NOT EXISTS `buddy_snapshots` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `importedAtMillis` INTEGER NOT NULL, `payloadJson` TEXT NOT NULL, PRIMARY KEY(`id`))")
+                db.execSQL("CREATE TABLE IF NOT EXISTS `integrity_reviews` (`id` TEXT NOT NULL, `kind` TEXT NOT NULL, `periodKey` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `note` TEXT NOT NULL DEFAULT '', `statsJson` TEXT NOT NULL DEFAULT '', PRIMARY KEY(`id`))")
+            }
+        }
+
+        // R35 — the THIRD-WAVE layer: additive habit columns + three small tables (experiments,
+        // behavioral-activation items, daily bookend logs). No existing data touched.
+        private val MIGRATION_43_44 = object : Migration(43, 44) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `habits` ADD COLUMN `frictionSteps` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `habits` ADD COLUMN `cueToDisrupt` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `habits` ADD COLUMN `cueDisruptionPlan` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `habits` ADD COLUMN `futureScene` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `habits` ADD COLUMN `graduated` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("CREATE TABLE IF NOT EXISTS `experiments` (`id` TEXT NOT NULL, `habitId` TEXT NOT NULL, `outcome` TEXT NOT NULL, `startDay` INTEGER NOT NULL, `blockLenDays` INTEGER NOT NULL DEFAULT 3, `blocks` INTEGER NOT NULL DEFAULT 4, `active` INTEGER NOT NULL DEFAULT 1, `note` TEXT NOT NULL DEFAULT '', `createdAt` INTEGER NOT NULL, PRIMARY KEY(`id`))")
+                db.execSQL("CREATE TABLE IF NOT EXISTS `activation_items` (`id` TEXT NOT NULL, `text` TEXT NOT NULL, `valueId` TEXT, `plannedDay` INTEGER NOT NULL, `done` INTEGER NOT NULL DEFAULT 0, `pleasure` INTEGER NOT NULL DEFAULT 0, `mastery` INTEGER NOT NULL DEFAULT 0, `createdAt` INTEGER NOT NULL, PRIMARY KEY(`id`))")
+                db.execSQL("CREATE TABLE IF NOT EXISTS `day_logs` (`epochDay` INTEGER NOT NULL, `amIntention` TEXT NOT NULL DEFAULT '', `pmReflection` TEXT NOT NULL DEFAULT '', `amMood` INTEGER NOT NULL DEFAULT 0, `pmMood` INTEGER NOT NULL DEFAULT 0, `updatedAt` INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(`epochDay`))")
+            }
+        }
+
+        // R36 — the FOURTH-WAVE layer: two small tables (self-escrows, nudge-MRT events). No data touched.
+        private val MIGRATION_44_45 = object : Migration(44, 45) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE TABLE IF NOT EXISTS `escrows` (`id` TEXT NOT NULL, `habitId` TEXT, `description` TEXT NOT NULL, `kind` TEXT NOT NULL, `milestoneKind` TEXT NOT NULL, `milestoneValue` INTEGER NOT NULL, `released` INTEGER NOT NULL DEFAULT 0, `redeemed` INTEGER NOT NULL DEFAULT 0, `createdAt` INTEGER NOT NULL, PRIMARY KEY(`id`))")
+                db.execSQL("CREATE TABLE IF NOT EXISTS `nudge_events` (`id` TEXT NOT NULL, `habitId` TEXT NOT NULL, `variant` INTEGER NOT NULL, `epochDay` INTEGER NOT NULL, `acted` INTEGER NOT NULL DEFAULT 0, `createdAt` INTEGER NOT NULL, PRIMARY KEY(`id`))")
+            }
+        }
+
+        // R37 — habit-science ports to tasks: task↔value link, deferral-chain counter, escrow-on-a-task,
+        // and the nudge MRT extended to task reminders. All additive columns with safe defaults.
+        private val MIGRATION_45_46 = object : Migration(45, 46) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `tasks` ADD COLUMN `valueId` TEXT")
+                db.execSQL("ALTER TABLE `tasks` ADD COLUMN `deferCount` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `tasks` ADD COLUMN `lastDeferDay` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `escrows` ADD COLUMN `taskId` TEXT")
+                db.execSQL("ALTER TABLE `nudge_events` ADD COLUMN `targetKind` TEXT NOT NULL DEFAULT 'habit'")
+            }
+        }
+
+        // R38 — the DEDICATED-CALENDAR layer: local colour-coded calendars + first-class events. New tables.
+        private val MIGRATION_46_47 = object : Migration(46, 47) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE TABLE IF NOT EXISTS `event_calendars` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `colorArgb` INTEGER NOT NULL, `visible` INTEGER NOT NULL DEFAULT 1, `orderIndex` INTEGER NOT NULL DEFAULT 0, `isDefault` INTEGER NOT NULL DEFAULT 0, `workspaceId` TEXT NOT NULL DEFAULT 'default', `createdAt` INTEGER NOT NULL, PRIMARY KEY(`id`))")
+                db.execSQL("CREATE TABLE IF NOT EXISTS `events` (`id` TEXT NOT NULL, `calendarId` TEXT NOT NULL, `title` TEXT NOT NULL, `location` TEXT NOT NULL DEFAULT '', `notes` TEXT NOT NULL DEFAULT '', `url` TEXT NOT NULL DEFAULT '', `startMillis` INTEGER NOT NULL, `endMillis` INTEGER NOT NULL, `allDay` INTEGER NOT NULL DEFAULT 0, `floating` INTEGER NOT NULL DEFAULT 0, `timezone` TEXT NOT NULL DEFAULT '', `colorArgb` INTEGER, `rrule` TEXT NOT NULL DEFAULT '', `exDates` TEXT NOT NULL DEFAULT '', `recurrenceParentId` TEXT, `recurrenceDate` INTEGER NOT NULL DEFAULT 0, `alertsMinutes` TEXT NOT NULL DEFAULT '', `busy` INTEGER NOT NULL DEFAULT 1, `linkedTaskId` TEXT, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, PRIMARY KEY(`id`))")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_events_calendarId` ON `events` (`calendarId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_events_startMillis` ON `events` (`startMillis`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_events_recurrenceParentId` ON `events` (`recurrenceParentId`)")
+            }
+        }
+
+        // R43 — "Occasions": life-events fields on the countdowns table. Additive; old rows become plain
+        // COUNTDOWNs with year known and no prep task, so nothing changes for them.
+        private val MIGRATION_47_48 = object : Migration(47, 48) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `countdowns` ADD COLUMN `eventType` TEXT NOT NULL DEFAULT 'COUNTDOWN'")
+                db.execSQL("ALTER TABLE `countdowns` ADD COLUMN `yearly` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `countdowns` ADD COLUMN `yearKnown` INTEGER NOT NULL DEFAULT 1")
+                db.execSQL("ALTER TABLE `countdowns` ADD COLUMN `personName` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `countdowns` ADD COLUMN `notes` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `countdowns` ADD COLUMN `prepLeadDays` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `countdowns` ADD COLUMN `prepTaskId` TEXT")
+            }
+        }
+
+        // R45 — "beyond countdowns": count-up, per-occasion unit, category/archive/favorite, photo face,
+        // biometric lock. Additive; old occasions keep their behaviour.
+        private val MIGRATION_48_49 = object : Migration(48, 49) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `countdowns` ADD COLUMN `countUp` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `countdowns` ADD COLUMN `unit` TEXT NOT NULL DEFAULT 'days'")
+                db.execSQL("ALTER TABLE `countdowns` ADD COLUMN `category` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `countdowns` ADD COLUMN `archived` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `countdowns` ADD COLUMN `favorite` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `countdowns` ADD COLUMN `photoBase64` TEXT")
+                db.execSQL("ALTER TABLE `countdowns` ADD COLUMN `locked` INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
+        // R46 — relationship + intelligence: keep-in-touch cadence, logged moments (JSON on the row, so it
+        // rides the existing countdowns backup/sync), and an alternate recurrence calendar. Additive.
+        private val MIGRATION_49_50 = object : Migration(49, 50) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `countdowns` ADD COLUMN `keepInTouchDays` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `countdowns` ADD COLUMN `momentsJson` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `countdowns` ADD COLUMN `recurCalendar` TEXT NOT NULL DEFAULT 'gregorian'")
+            }
+        }
+
+        // R47 — "next frontier": countdown chains + letters to the future. Additive.
+        private val MIGRATION_50_51 = object : Migration(50, 51) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `countdowns` ADD COLUMN `chainNextId` TEXT")
+                db.execSQL("ALTER TABLE `countdowns` ADD COLUMN `sealedLetter` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `countdowns` ADD COLUMN `sealedUntil` INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
+        // R52 — GTD Someday (tasks), archive folders, calendar invitations (events), and scale indices on
+        // the tasks table. All additive; index names match Room's generated `index_<table>_<column>`.
+        private val MIGRATION_51_52 = object : Migration(51, 52) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `tasks` ADD COLUMN `someday` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `folders` ADD COLUMN `archived` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `events` ADD COLUMN `organizer` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `events` ADD COLUMN `attendees` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `events` ADD COLUMN `rsvp` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_tasks_folderId` ON `tasks` (`folderId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_tasks_workspaceId` ON `tasks` (`workspaceId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_tasks_completed` ON `tasks` (`completed`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_tasks_trashed` ON `tasks` (`trashed`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_tasks_someday` ON `tasks` (`someday`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_tasks_dueDate` ON `tasks` (`dueDate`)")
+            }
+        }
+
+        // R53 — invite lifecycle: an iCalendar UID (stable across updates) + revision number, so a
+        // re-imported invite updates in place and METHOD:CANCEL can find its event.
+        private val MIGRATION_52_53 = object : Migration(52, 53) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `events` ADD COLUMN `uid` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `events` ADD COLUMN `sequence` INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
+        // R55 — a general free-form notes field on habits (like a task's note).
+        private val MIGRATION_53_54 = object : Migration(53, 54) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `habits` ADD COLUMN `notes` TEXT NOT NULL DEFAULT ''")
+            }
+        }
+        // R57 (Wave B · index audit) — composite indices for the hottest WHERE combinations, so the DB-side
+        // aggregates and workspace-scoped reads stay fast as the store grows. Purely additive.
+        private val MIGRATION_54_55 = object : Migration(54, 55) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_tasks_workspaceId_trashed` ON `tasks` (`workspaceId`, `trashed`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_tasks_completed_trashed` ON `tasks` (`completed`, `trashed`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_events_calendarId_startMillis` ON `events` (`calendarId`, `startMillis`)")
+            }
+        }
+        // R59 (Wave 1 · colour parity) — an optional per-folder colour, so folders can be tinted like lists.
+        // Purely additive; nullable so existing folders keep their default (icon-only) look.
+        private val MIGRATION_55_56 = object : Migration(55, 56) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `folders` ADD COLUMN `colorArgb` INTEGER")
+            }
+        }
+        // R59 (Wave 2 · expert reminders) — recurring-reminder-with-count on a task reminder. Additive.
+        private val MIGRATION_56_57 = object : Migration(56, 57) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `reminders` ADD COLUMN `repeatEveryMin` INTEGER")
+                db.execSQL("ALTER TABLE `reminders` ADD COLUMN `repeatCount` INTEGER")
+            }
+        }
+        // R62 — complete workspace isolation. Every remaining top-level feature (occasions, time tracking,
+        // flags, templates, focus, sealed notes, and the life-systems cluster) gains a `workspaceId`.
+        // Purely additive: each ALTER adds the column with DEFAULT 'default', so every existing row is
+        // backfilled to the default workspace (WorkspaceEntity.DEFAULT_ID) — no data is moved or lost.
+        private val MIGRATION_57_58 = object : Migration(57, 58) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                val tables = listOf(
+                    "countdowns", "time_activities", "time_entries", "flags", "templates",
+                    "focus_sessions", "sealed_notes", "core_values", "scorecard_items",
+                    "buddy_snapshots", "integrity_reviews", "activation_items", "escrows",
+                    "witness_events", "experiments", "craving_events", "nudge_events",
+                )
+                tables.forEach { t ->
+                    db.execSQL("ALTER TABLE `$t` ADD COLUMN `workspaceId` TEXT NOT NULL DEFAULT 'default'")
+                }
+            }
+        }
+        // R62 — day logs go per-workspace. epochDay was the whole primary key, so this recreates the table
+        // with a composite (epochDay, workspaceId) key. Every existing row is copied forward into the default
+        // workspace, then the old table is dropped — a table recreate, but strictly lossless (all rows kept).
+        private val MIGRATION_58_59 = object : Migration(58, 59) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `day_logs_new` (`epochDay` INTEGER NOT NULL, " +
+                        "`amIntention` TEXT NOT NULL, `pmReflection` TEXT NOT NULL, `amMood` INTEGER NOT NULL, " +
+                        "`pmMood` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `workspaceId` TEXT NOT NULL, " +
+                        "PRIMARY KEY(`epochDay`, `workspaceId`))",
+                )
+                db.execSQL(
+                    "INSERT INTO `day_logs_new` (`epochDay`, `amIntention`, `pmReflection`, `amMood`, `pmMood`, `updatedAt`, `workspaceId`) " +
+                        "SELECT `epochDay`, `amIntention`, `pmReflection`, `amMood`, `pmMood`, `updatedAt`, 'default' FROM `day_logs`",
+                )
+                db.execSQL("DROP TABLE `day_logs`")
+                db.execSQL("ALTER TABLE `day_logs_new` RENAME TO `day_logs`")
+            }
+        }
+
+        // R106 — richer daily-review reflection fields on day_logs.
+        private val MIGRATION_59_60 = object : Migration(59, 60) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `day_logs` ADD COLUMN `dayRating` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `day_logs` ADD COLUMN `energy` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `day_logs` ADD COLUMN `highlight` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `day_logs` ADD COLUMN `gratitude` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `day_logs` ADD COLUMN `lesson` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `day_logs` ADD COLUMN `tomorrowFocus` TEXT NOT NULL DEFAULT ''")
+            }
+        }
+
+        // Phase B — reflection-depth fields on day_logs (three good things, morning-intention outcome,
+        // and the answer to the day's rotating prompt). Purely additive, all with safe defaults.
+        private val MIGRATION_60_61 = object : Migration(60, 61) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `day_logs` ADD COLUMN `good1` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `day_logs` ADD COLUMN `good2` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `day_logs` ADD COLUMN `good3` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `day_logs` ADD COLUMN `intentionOutcome` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `day_logs` ADD COLUMN `promptAnswer` TEXT NOT NULL DEFAULT ''")
+            }
+        }
+
+        // Phase C — self-scored Daily Questions: a per-day scores map (questionId -> 1..5) on day_logs.
+        // The question list itself is a key/value setting (no schema change). Purely additive, safe default.
+        private val MIGRATION_61_62 = object : Migration(61, 62) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `day_logs` ADD COLUMN `dailyScoresJson` TEXT NOT NULL DEFAULT ''")
+            }
+        }
+
+        // Phase E — the day's alignment blob on day_logs: the ids of goals advanced + top values honored
+        // today, stored as one JSON string. The goals/values themselves are unchanged. Purely additive,
+        // safe default.
+        private val MIGRATION_62_63 = object : Migration(62, 63) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `day_logs` ADD COLUMN `alignmentJson` TEXT NOT NULL DEFAULT ''")
+            }
+        }
+
+        // Wave 1 — a precise emotion word alongside the 5-face mood (affect-labeling / How-We-Feel). One
+        // optional column on day_logs, holding a chosen word from a curated set. Purely additive, safe default.
+        private val MIGRATION_63_64 = object : Migration(63, 64) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `day_logs` ADD COLUMN `emotionLabel` TEXT NOT NULL DEFAULT ''")
+            }
+        }
+
+        // Wave 2 — tomorrow's WOOP if-then: two optional columns on day_logs — the obstacle you expect
+        // (`tomorrowObstacle`) and the implementation-intention plan (`tomorrowPlan`), sitting beside the
+        // existing `tomorrowFocus`. Purely additive, safe defaults. Feature 7 (WOOP/MCII).
+        private val MIGRATION_64_65 = object : Migration(64, 65) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `day_logs` ADD COLUMN `tomorrowObstacle` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `day_logs` ADD COLUMN `tomorrowPlan` TEXT NOT NULL DEFAULT ''")
+            }
+        }
+
+        // Notes module (Phase 0) — a first-class NoteEntity plus an optional dedicated notebook tree, and
+        // note↔tag / note↔context join tables. Attachments gain a nullable `noteId` so the one hub table is
+        // shared with notes. Purely additive: four fresh tables (no column DEFAULTs, to match Room's
+        // generated schema exactly, as with the time-tracking tables) + one nullable ALTER. No data touched.
+        private val MIGRATION_65_66 = object : Migration(65, 66) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `notes` (`id` TEXT NOT NULL, `title` TEXT NOT NULL, " +
+                        "`body` TEXT NOT NULL, `notebookId` TEXT, `folderId` TEXT, `colorArgb` INTEGER, " +
+                        "`pinned` INTEGER NOT NULL, `coverEmoji` TEXT, `kind` TEXT NOT NULL, `dayEpoch` INTEGER, " +
+                        "`linkedTaskId` TEXT, `linkedEventId` TEXT, `sortOrder` REAL NOT NULL, " +
+                        "`archived` INTEGER NOT NULL, `trashed` INTEGER NOT NULL, `createdAt` INTEGER NOT NULL, " +
+                        "`updatedAt` INTEGER NOT NULL, `workspaceId` TEXT NOT NULL, PRIMARY KEY(`id`))",
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_notes_notebookId` ON `notes` (`notebookId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_notes_folderId` ON `notes` (`folderId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_notes_workspaceId` ON `notes` (`workspaceId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_notes_linkedTaskId` ON `notes` (`linkedTaskId`)")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `notebooks` (`id` TEXT NOT NULL, `parentId` TEXT, " +
+                        "`name` TEXT NOT NULL, `icon` TEXT, `colorArgb` INTEGER, `sortOrder` REAL NOT NULL, " +
+                        "`collapsed` INTEGER NOT NULL, `archived` INTEGER NOT NULL, `workspaceId` TEXT NOT NULL, " +
+                        "`createdAt` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_notebooks_parentId` ON `notebooks` (`parentId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_notebooks_workspaceId` ON `notebooks` (`workspaceId`)")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `note_tags` (`noteId` TEXT NOT NULL, `tagId` TEXT NOT NULL, " +
+                        "PRIMARY KEY(`noteId`, `tagId`))",
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_note_tags_tagId` ON `note_tags` (`tagId`)")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `note_contexts` (`noteId` TEXT NOT NULL, `contextId` TEXT NOT NULL, " +
+                        "PRIMARY KEY(`noteId`, `contextId`))",
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_note_contexts_contextId` ON `note_contexts` (`contextId`)")
+                db.execSQL("ALTER TABLE `attachments` ADD COLUMN `noteId` TEXT")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_attachments_noteId` ON `attachments` (`noteId`)")
+            }
+        }
+
+        // Wave B — Notes: favourite/read-only flags + trash bookkeeping (deletedAt/deletedBy for the
+        // auto-empty sweep), and the local note-version-history table. NOT NULL columns added via ALTER
+        // carry a SQL DEFAULT (SQLite requires it); the fresh CREATE TABLE for note_revisions omits
+        // defaults to match Room's generated schema exactly (same convention as the v66 tables).
+        private val MIGRATION_66_67 = object : Migration(66, 67) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `notes` ADD COLUMN `favorite` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `notes` ADD COLUMN `readonly` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `notes` ADD COLUMN `deletedAt` INTEGER")
+                db.execSQL("ALTER TABLE `notes` ADD COLUMN `deletedBy` TEXT")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `note_revisions` (`id` TEXT NOT NULL, `noteId` TEXT NOT NULL, " +
+                        "`createdAt` INTEGER NOT NULL, `title` TEXT NOT NULL, `body` TEXT NOT NULL, " +
+                        "`charDelta` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_note_revisions_noteId` ON `note_revisions` (`noteId`)")
+            }
+        }
+
+        // Wave C — the note→entity link edge (cross-module [[wiki-links]]), materialized on save.
+        private val MIGRATION_67_68 = object : Migration(67, 68) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `note_links` (`noteId` TEXT NOT NULL, `targetTitle` TEXT NOT NULL, " +
+                        "`targetType` TEXT NOT NULL, `targetId` TEXT NOT NULL, PRIMARY KEY(`noteId`, `targetTitle`))",
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_note_links_targetType_targetId` ON `note_links` (`targetType`, `targetId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_note_links_noteId` ON `note_links` (`noteId`)")
+            }
+        }
+
+        // Wave D — Smart Views (saved predicate filters over notes).
+        private val MIGRATION_68_69 = object : Migration(68, 69) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `smart_views` (`id` TEXT NOT NULL, `title` TEXT NOT NULL, " +
+                        "`icon` TEXT, `predicateJson` TEXT NOT NULL, `sortOrder` REAL NOT NULL, " +
+                        "`workspaceId` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_smart_views_workspaceId` ON `smart_views` (`workspaceId`)")
+            }
+        }
+
+        // Wave F — an optional local reminder time on a note.
+        private val MIGRATION_69_70 = object : Migration(69, 70) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `notes` ADD COLUMN `reminderAt` INTEGER")
+            }
+        }
+
+        // Wave H — recurring/multiple/keep-until-opened note reminders.
+        private val MIGRATION_70_71 = object : Migration(70, 71) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `notes` ADD COLUMN `reminderRrule` TEXT")
+                db.execSQL("ALTER TABLE `notes` ADD COLUMN `reminderExtra` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `notes` ADD COLUMN `reminderKeep` INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
+        // Wave J (M8) — seal a note to the future.
+        private val MIGRATION_71_72 = object : Migration(71, 72) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `notes` ADD COLUMN `sealedUntil` INTEGER")
+            }
+        }
+        private val MIGRATION_72_73 = object : Migration(72, 73) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // Index the columns notes are ordered by (sortOrder, updatedAt). Names must match Room's
+                // generated `index_<table>_<column>` or the schema-validation check fails on next open.
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_notes_sortOrder` ON `notes` (`sortOrder`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_notes_updatedAt` ON `notes` (`updatedAt`)")
+            }
+        }
+        private val MIGRATION_73_74 = object : Migration(73, 74) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // P7 — materialized derived render data (NoteDerived). `preview` is left empty here so the
+                // card computes a clean plain-prose snippet once for legacy rows (and stores it on next
+                // save); `hasOpen` is backfilled from the body so the hasOpenItems predicate is correct now.
+                db.execSQL("ALTER TABLE `notes` ADD COLUMN `preview` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `notes` ADD COLUMN `hasOpen` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("UPDATE `notes` SET `hasOpen` = 1 WHERE `body` LIKE '%- [ ]%' OR `body` LIKE '%* [ ]%' OR `body` LIKE '%+ [ ]%'")
+            }
+        }
+
+        // L6 — time can now be attributed directly to a note (Work-on-this-note). Nullable, no backfill.
+        private val MIGRATION_74_75 = object : Migration(74, 75) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `time_entries` ADD COLUMN `noteId` TEXT")
+            }
+        }
+
+        // L11 — Vault: a note whose body is a passphrase-encrypted envelope at rest.
+        private val MIGRATION_75_76 = object : Migration(75, 76) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `notes` ADD COLUMN `vault` INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
+        // Wave 2 — cross-module note extensions: Evergreen review cadence, Habit Practice Journal link,
+        // Writing-sprint word goal, and the Privacy Governance Dial (per-note no-backup/no-export/no-index
+        // + per-notebook auto-vault). All additive NOT-NULL-DEFAULT columns (the proven pattern).
+        private val MIGRATION_76_77 = object : Migration(76, 77) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `notes` ADD COLUMN `reviewEvery` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `notes` ADD COLUMN `lastReviewedAt` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `notes` ADD COLUMN `linkedHabitId` TEXT")
+                db.execSQL("ALTER TABLE `notes` ADD COLUMN `wordGoal` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `notes` ADD COLUMN `noBackup` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `notes` ADD COLUMN `noExport` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `notes` ADD COLUMN `noIndex` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `notebooks` ADD COLUMN `autoVault` INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
+        // Wave 3 — Notes ⇄ Goals evidence link + the Active-Recall card store. `notes.linkedGoalId` mirrors
+        // linkedHabitId; `note_cards` persists SM-2 schedules across body re-parses (content is re-derived
+        // from the note, the schedule is not).
+        private val MIGRATION_77_78 = object : Migration(77, 78) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `notes` ADD COLUMN `linkedGoalId` TEXT")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `note_cards` (`id` TEXT NOT NULL, `noteId` TEXT NOT NULL, " +
+                        "`front` TEXT NOT NULL, `back` TEXT NOT NULL, `cardKind` TEXT NOT NULL, " +
+                        "`easiness` REAL NOT NULL, `intervalDays` INTEGER NOT NULL, `reps` INTEGER NOT NULL, " +
+                        "`lapses` INTEGER NOT NULL, `dueAt` INTEGER NOT NULL, `lastGradedAt` INTEGER NOT NULL, " +
+                        "`createdAt` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_note_cards_noteId` ON `note_cards` (`noteId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_note_cards_dueAt` ON `note_cards` (`dueAt`)")
+            }
+        }
+
+        // Habits Trash — soft-delete columns mirroring tasks (trashed + trashedAt), so a deleted habit is
+        // recoverable and never silently lost. Additive, defaults keep every existing habit live.
+        private val MIGRATION_78_79 = object : Migration(78, 79) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `habits` ADD COLUMN `trashed` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `habits` ADD COLUMN `trashedAt` INTEGER")
+            }
+        }
+
+        // Soft-delete for containers: deleting a list/folder now moves it to Trash (recoverable) rather
+        // than erasing it (and its tasks). Mirrors the habits trashed/trashedAt columns above.
+        private val MIGRATION_79_80 = object : Migration(79, 80) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `lists` ADD COLUMN `trashed` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `lists` ADD COLUMN `trashedAt` INTEGER")
+                db.execSQL("ALTER TABLE `folders` ADD COLUMN `trashed` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `folders` ADD COLUMN `trashedAt` INTEGER")
+            }
+        }
+
+        // GTD "Waiting For": a task can now be delegated to / awaiting an external party. waitingForWho names
+        // them, delegatedOn ages it. Additive columns; existing rows default to "not delegated".
+        private val MIGRATION_80_81 = object : Migration(80, 81) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `tasks` ADD COLUMN `waitingForWho` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `tasks` ADD COLUMN `delegatedOn` INTEGER")
+            }
+        }
+        // R108 audit B8 — index cleanup. Drop the indices no query ever used (the DAO loads whole tables
+        // and filters in memory) to shrink the DB and speed up writes, and add the missing `sortOrder`
+        // index the main task list orders by. Index names MUST equal Room's generated
+        // `index_<table>_<cols>` so the schema-validation check on next open passes. These names were
+        // copied verbatim from the v81 exported schema (dropped) / match the entity annotations (added).
+        private val MIGRATION_81_82 = object : Migration(81, 82) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("DROP INDEX IF EXISTS `index_tasks_folderId`")
+                db.execSQL("DROP INDEX IF EXISTS `index_tasks_workspaceId`")
+                db.execSQL("DROP INDEX IF EXISTS `index_tasks_completed`")
+                db.execSQL("DROP INDEX IF EXISTS `index_tasks_someday`")
+                db.execSQL("DROP INDEX IF EXISTS `index_tasks_dueDate`")
+                db.execSQL("DROP INDEX IF EXISTS `index_tasks_workspaceId_trashed`")
+                db.execSQL("DROP INDEX IF EXISTS `index_events_calendarId`")
+                db.execSQL("DROP INDEX IF EXISTS `index_events_calendarId_startMillis`")
+                db.execSQL("DROP INDEX IF EXISTS `index_time_entries_taskId`")
+                db.execSQL("DROP INDEX IF EXISTS `index_notes_updatedAt`")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_tasks_sortOrder` ON `tasks` (`sortOrder`)")
+            }
+        }
+        // D5 — nudge_events had NO indices but two filtered DAO queries (per-day dedupe + reconcile sweep),
+        // both full scans on a table that grows one row per (target, day). Add the covering indices. Names
+        // must equal Room's generated `index_<table>_<cols>` so the schema-validation check on next open passes.
+        private val MIGRATION_82_83 = object : Migration(82, 83) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_nudge_events_habitId_epochDay` ON `nudge_events` (`habitId`, `epochDay`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_nudge_events_epochDay` ON `nudge_events` (`epochDay`)")
+            }
+        }
+        // W2 (scale) — the live-notes list and the Trash now filter workspace+trashed IN SQL
+        // (NoteDao.observeByWorkspace), so promote the plain `workspaceId` note index to the covering
+        // composite `(workspaceId, trashed)`. Drop the old single index, add the composite. Index names
+        // MUST equal Room's generated `index_<table>_<cols>` so the schema-validation check on next open
+        // passes — `index_notes_workspaceId` is the exact name the v66 entity generated (and matches the
+        // name style the v82 migration dropped by).
+        private val MIGRATION_83_84 = object : Migration(83, 84) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("DROP INDEX IF EXISTS `index_notes_workspaceId`")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_notes_workspaceId_trashed` ON `notes` (`workspaceId`, `trashed`)")
+            }
+        }
+        // W2 (scale) — restore the tasks(workspaceId) and tasks(folderId) indices (dropped in v82) now that
+        // TaskDao.observeWorkspaceScoped filters the active-workspace task set IN SQL against them. Names must
+        // equal Room's generated `index_<table>_<cols>` — the exact names v82 dropped by — so the on-open
+        // schema check passes.
+        private val MIGRATION_84_85 = object : Migration(84, 85) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_tasks_workspaceId` ON `tasks` (`workspaceId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_tasks_folderId` ON `tasks` (`folderId`)")
+            }
+        }
+        // W3 (cross-module unification) — promote Goals & their review log out of the settings-JSON blobs
+        // (`goals` / `goal_reviews` k/v rows) into their own Room tables. Increment 1 is ADDITIVE: create the
+        // tables and COPY the parsed JSON into rows, but leave the JSON in place as the source of truth the app
+        // still reads/writes. So this migration cannot change any behaviour; it only stands the tables up and
+        // proves — via the device Diag `[goals]` probe on the user's real data — that the copy is exact before
+        // Increment 2 flips the read/write path. The CREATE statements match Room's generated 86.json exactly so
+        // the on-open schema check passes.
+        private val MIGRATION_85_86 = object : Migration(85, 86) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `goals` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, " +
+                        "`emoji` TEXT NOT NULL, `listId` TEXT NOT NULL, `habitId` TEXT NOT NULL, " +
+                        "`activityId` TEXT NOT NULL, `budgetMinutes` INTEGER NOT NULL, `targetEpochDay` INTEGER NOT NULL, " +
+                        "`note` TEXT NOT NULL, `area` TEXT NOT NULL, `identity` TEXT NOT NULL, " +
+                        "`milestonesJson` TEXT NOT NULL, `keyResultsJson` TEXT NOT NULL, " +
+                        "`cycleStartEpochDay` INTEGER NOT NULL, `cycleWeeks` INTEGER NOT NULL, " +
+                        "`reviewCadenceDays` INTEGER NOT NULL, `archived` INTEGER NOT NULL, `workspaceId` TEXT NOT NULL, " +
+                        "PRIMARY KEY(`id`))",
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_goals_workspaceId` ON `goals` (`workspaceId`)")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `goal_reviews` (`id` TEXT NOT NULL, `goalId` TEXT NOT NULL, " +
+                        "`epochDay` INTEGER NOT NULL, `executionPct` INTEGER NOT NULL, `commitmentsKept` INTEGER NOT NULL, " +
+                        "`commitmentsTotal` INTEGER NOT NULL, `note` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, " +
+                        "PRIMARY KEY(`id`))",
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_goal_reviews_goalId` ON `goal_reviews` (`goalId`)")
+                // Copy the existing settings-JSON (the pre-flip source of truth) into rows. Read the k/v rows,
+                // parse with the same domain codec, insert. Idempotent (INSERT OR REPLACE on the PK).
+                var goalsJson = ""; var reviewsJson = ""
+                runCatching {
+                    db.query("SELECT `key`, `value` FROM `settings` WHERE `key` IN ('goals','goal_reviews')").use { c ->
+                        val ki = c.getColumnIndexOrThrow("key"); val vi = c.getColumnIndexOrThrow("value")
+                        while (c.moveToNext()) {
+                            when (c.getString(ki)) {
+                                "goals" -> goalsJson = c.getString(vi) ?: ""
+                                "goal_reviews" -> reviewsJson = c.getString(vi) ?: ""
+                            }
+                        }
+                    }
+                }
+                var goalRows = 0
+                com.wkhan.hexis.domain.Goals.parse(goalsJson).forEach { g ->
+                    val e = g.toEntity()
+                    db.execSQL(
+                        "INSERT OR REPLACE INTO `goals` VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                        arrayOf<Any?>(
+                            e.id, e.name, e.emoji, e.listId, e.habitId, e.activityId, e.budgetMinutes,
+                            e.targetEpochDay, e.note, e.area, e.identity, e.milestonesJson, e.keyResultsJson,
+                            e.cycleStartEpochDay, e.cycleWeeks, e.reviewCadenceDays, if (e.archived) 1 else 0, e.workspaceId,
+                        ),
+                    )
+                    goalRows++
+                }
+                var reviewRows = 0
+                com.wkhan.hexis.domain.GoalReviews.parse(reviewsJson).forEach { r ->
+                    val e = r.toEntity()
+                    db.execSQL(
+                        "INSERT OR REPLACE INTO `goal_reviews` VALUES (?,?,?,?,?,?,?,?)",
+                        arrayOf<Any?>(
+                            e.id, e.goalId, e.epochDay, e.executionPct, e.commitmentsKept,
+                            e.commitmentsTotal, e.note, e.createdAt,
+                        ),
+                    )
+                    reviewRows++
+                }
+            }
+        }
+        // W3 (cross-module unification) — promote Routines & their run history out of the settings-JSON blobs
+        // (`routines` / `routine_runs` k/v rows) into their own Room tables (the transient in-progress
+        // `active_routine_run` stays in settings). Increment 1 is ADDITIVE, exactly like the goals promotion:
+        // create the tables and COPY the parsed JSON into rows, but leave the JSON as the source of truth the app
+        // still reads/writes — so no behaviour changes and the copy is proven on-device before Increment 2 flips
+        // the read/write path (and the alarm scheduler). CREATE statements match Room's generated 87.json.
+        private val MIGRATION_86_87 = object : Migration(86, 87) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `routines` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, " +
+                        "`emoji` TEXT NOT NULL, `activityId` TEXT NOT NULL, `habitCategory` TEXT NOT NULL, " +
+                        "`note` TEXT NOT NULL, `stepsJson` TEXT NOT NULL, `whenReminderMin` INTEGER, " +
+                        "`daysJson` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `workspaceId` TEXT NOT NULL, " +
+                        "PRIMARY KEY(`id`))",
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_routines_workspaceId` ON `routines` (`workspaceId`)")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `routine_runs` (`rowId` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`routineId` TEXT NOT NULL, `epochDay` INTEGER NOT NULL, `startedAtMillis` INTEGER NOT NULL, " +
+                        "`completedStepIdsJson` TEXT NOT NULL, `skippedStepIdsJson` TEXT NOT NULL, " +
+                        "`totalSec` INTEGER NOT NULL, `lite` INTEGER NOT NULL, `finished` INTEGER NOT NULL)",
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_routine_runs_routineId` ON `routine_runs` (`routineId`)")
+                var routinesJson = ""; var runsJson = ""
+                runCatching {
+                    db.query("SELECT `key`, `value` FROM `settings` WHERE `key` IN ('routines','routine_runs')").use { c ->
+                        val ki = c.getColumnIndexOrThrow("key"); val vi = c.getColumnIndexOrThrow("value")
+                        while (c.moveToNext()) {
+                            when (c.getString(ki)) {
+                                "routines" -> routinesJson = c.getString(vi) ?: ""
+                                "routine_runs" -> runsJson = c.getString(vi) ?: ""
+                            }
+                        }
+                    }
+                }
+                var routineRows = 0
+                com.wkhan.hexis.domain.Routines.parse(routinesJson).forEach { r ->
+                    val e = r.toEntity()
+                    db.execSQL(
+                        "INSERT OR REPLACE INTO `routines` VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                        arrayOf<Any?>(
+                            e.id, e.name, e.emoji, e.activityId, e.habitCategory, e.note, e.stepsJson,
+                            e.whenReminderMin, e.daysJson, e.createdAt, e.workspaceId,
+                        ),
+                    )
+                    routineRows++
+                }
+                var runRows = 0
+                com.wkhan.hexis.domain.RoutineRuns.parse(runsJson).forEach { run ->
+                    val e = run.toEntity()
+                    db.execSQL(
+                        "INSERT INTO `routine_runs` (`routineId`,`epochDay`,`startedAtMillis`,`completedStepIdsJson`,`skippedStepIdsJson`,`totalSec`,`lite`,`finished`) VALUES (?,?,?,?,?,?,?,?)",
+                        arrayOf<Any?>(
+                            e.routineId, e.epochDay, e.startedAtMillis, e.completedStepIdsJson,
+                            e.skippedStepIdsJson, e.totalSec, if (e.lite) 1 else 0, if (e.finished) 1 else 0,
+                        ),
+                    )
+                    runRows++
+                }
+            }
+        }
+
+        /**
+         * The complete, ordered v5→v87 migration chain. Exposed (and used by the builder below) so an
+         * instrumented [androidTest] MigrationTest can replay it against a real SQLite DB and assert the
+         * result matches the exported schema — turning a silent migration bug into a failing build.
+         */
+        val ALL_MIGRATIONS: Array<Migration> = arrayOf(
+            MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11,
+            MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17,
+            MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23,
+            MIGRATION_23_24, MIGRATION_24_25, MIGRATION_25_26, MIGRATION_26_27, MIGRATION_27_28, MIGRATION_28_29,
+            MIGRATION_29_30, MIGRATION_30_31, MIGRATION_31_32, MIGRATION_32_33, MIGRATION_33_34, MIGRATION_34_35,
+            MIGRATION_35_36, MIGRATION_36_37, MIGRATION_37_38, MIGRATION_38_39, MIGRATION_39_40, MIGRATION_40_41,
+            MIGRATION_41_42, MIGRATION_42_43, MIGRATION_43_44, MIGRATION_44_45, MIGRATION_45_46, MIGRATION_46_47,
+            MIGRATION_47_48, MIGRATION_48_49, MIGRATION_49_50, MIGRATION_50_51, MIGRATION_51_52, MIGRATION_52_53,
+            MIGRATION_53_54, MIGRATION_54_55, MIGRATION_55_56, MIGRATION_56_57, MIGRATION_57_58, MIGRATION_58_59,
+            MIGRATION_59_60, MIGRATION_60_61, MIGRATION_61_62, MIGRATION_62_63, MIGRATION_63_64,
+            MIGRATION_64_65, MIGRATION_65_66, MIGRATION_66_67, MIGRATION_67_68, MIGRATION_68_69, MIGRATION_69_70,
+            MIGRATION_70_71, MIGRATION_71_72, MIGRATION_72_73, MIGRATION_73_74, MIGRATION_74_75, MIGRATION_75_76,
+            MIGRATION_76_77, MIGRATION_77_78, MIGRATION_78_79, MIGRATION_79_80, MIGRATION_80_81,
+            MIGRATION_81_82, MIGRATION_82_83, MIGRATION_83_84, MIGRATION_84_85, MIGRATION_85_86,
+            MIGRATION_86_87,
+        )
+
+        fun get(context: Context): AppDatabase =
+            INSTANCE ?: synchronized(this) {
+                INSTANCE ?: run {
+                    // Plan A: bring the DB file to the user's chosen at-rest state (plaintext ↔ SQLCipher)
+                    // BEFORE Room opens it, then hand Room the matching open-helper factory. Reconcile is
+                    // a guarded, verified, rollback-safe migration; a no-op in the common case.
+                    val app = context.applicationContext
+                    com.wkhan.hexis.data.security.SecureDb.init(app)
+                    com.wkhan.hexis.data.security.SecureDb.reconcile(app)
+                    val factory = runCatching { com.wkhan.hexis.data.security.SecureDb.openFactory(app) }.getOrNull()
+                    Room.databaseBuilder(app, AppDatabase::class.java, "hexis.db")
+                        .apply { if (factory != null) openHelperFactory(factory) }
+                        // R52 — scale foundations for a DB used over years/decades. WAL gives one writer +
+                        // many concurrent readers; on each open we ask SQLite to refresh its query-planner
+                        // stats (PRAGMA optimize) so it keeps choosing the R52 indices as the tables grow.
+                        .setJournalMode(RoomDatabase.JournalMode.WRITE_AHEAD_LOGGING)
+                        .addCallback(object : RoomDatabase.Callback() {
+                            override fun onOpen(db: SupportSQLiteDatabase) {
+                                super.onOpen(db)
+                                runCatching { db.execSQL("PRAGMA synchronous=NORMAL") }
+                                runCatching { db.execSQL("PRAGMA optimize") }
+                            }
+                        })
+                        .addMigrations(*ALL_MIGRATIONS)
+                        // R68 — data-safety: NEVER silently wipe a real user's database on a forward upgrade.
+                        // The full v5→v87 migration chain above is exhaustive, so a normal upgrade never needs
+                        // a fallback. We keep destructive fallback ONLY for a DOWNGRADE (installing an older
+                        // build over a newer schema) — the one case a migration genuinely can't exist for.
+                        // A missing FORWARD migration now fails loudly in testing instead of erasing years of
+                        // tasks, habits and history in the field.
+                        .fallbackToDestructiveMigrationOnDowngrade()
+                        .build()
+                        .also { INSTANCE = it }
+                }
+            }
+    }
+}

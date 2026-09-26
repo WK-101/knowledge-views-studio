@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Kairo brand ground: deep indigo (matches the adaptive-icon gradient start + the splash). -->
+    <!-- Hexis brand ground: deep indigo (matches the adaptive-icon gradient start + the splash). -->
     <color name="ic_launcher_background">#2B2050</color>
 
     <!-- ============================================================================
@@ -17,7 +17,7 @@
     <color name="w_text_secondary">#5B5870</color>
     <color name="w_text_tertiary">#8A8798</color>
     <color name="w_on_accent">#FFFFFF</color>          <!-- text/icon on a filled accent (never flips) -->
-    <color name="w_accent">#5B57D9</color>             <!-- filled accent (add pill, progress) — KairoColors brand -->
+    <color name="w_accent">#5B57D9</color>             <!-- filled accent (add pill, progress) — HexisColors brand -->
     <color name="w_accent_text">#5B57D9</color>        <!-- accent-coloured text on the card -->
     <color name="w_teal">#12A594</color>               <!-- time / habit brand teal -->
     <color name="w_danger">#E5484D</color>             <!-- overdue / over-capacity -->

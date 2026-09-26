@@ -1,0 +1,529 @@
+package com.wkhan.hexis.reminders
+
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import com.wkhan.hexis.App
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import java.time.Instant
+import java.time.ZoneId
+
+/** Handles reminder fire / snooze / done and the daily summary. */
+class ReminderReceiver : BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: Intent) {
+        val app = context.applicationContext as? App
+        val taskId = intent.getStringExtra(AlarmScheduler.EXTRA_TASK_ID)
+        val title = intent.getStringExtra(AlarmScheduler.EXTRA_TITLE) ?: "Task reminder"
+        val reminderId = intent.getStringExtra(AlarmScheduler.EXTRA_REMINDER_ID) ?: (taskId ?: "")
+        val annoying = intent.getBooleanExtra(AlarmScheduler.EXTRA_ANNOYING, false)
+        val escalate = intent.getBooleanExtra(AlarmScheduler.EXTRA_ESCALATE, false)
+        val step = intent.getIntExtra(AlarmScheduler.EXTRA_STEP, 0)
+        val repeatEvery = intent.getIntExtra(AlarmScheduler.EXTRA_REPEAT_EVERY, -1).takeIf { it > 0 }
+        val repeatCount = intent.getIntExtra(AlarmScheduler.EXTRA_REPEAT_COUNT, -1).takeIf { it > 0 }
+
+        when (intent.action) {
+            AlarmScheduler.ACTION_FIRE -> {
+                if (app == null || taskId == null) return
+                val pending = goAsync()
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        val task = app.repository.getTask(taskId)
+                        // W8 / R107: suppress reminders for a task whose list — or the folder that list/task
+                        // lives in — the user has muted.
+                        val muteSnap = app.repository.settingsSnapshot()
+                        val listFolderId = task?.listId?.let { app.repository.getList(it)?.folderId }
+                        val listMuted = (task?.listId != null && muteSnap.mutedLists.contains(task.listId)) ||
+                            (task?.folderId != null && muteSnap.mutedFolders.contains(task.folderId)) ||
+                            (listFolderId != null && muteSnap.mutedFolders.contains(listFolderId))
+                        // R59 (Wave 2) — quiet hours: hold this reminder and re-arm it for when quiet hours end.
+                        val deferUntil = if (task != null && !task.completed && !task.trashed && !task.abandoned && !listMuted)
+                            AlarmScheduler.quietDeferUntil(System.currentTimeMillis()) else null
+                        if (deferUntil != null) {
+                            val delay = ((deferUntil - System.currentTimeMillis()) / 60_000L).coerceAtLeast(1)
+                            AlarmScheduler.scheduleFireIn(context, taskId, title, reminderId, annoying, delay, escalate, step, repeatEvery, repeatCount)
+                            return@launch
+                        }
+                        if (task != null && !task.completed && !task.trashed && !task.abandoned && !listMuted) {
+                            // R37 · Port 4 — reminder-wording MRT: on the first (non-escalation) fire, micro-
+                            // randomise the motivational line and log the impression so the Nudge Lab can read
+                            // out which wording actually gets a task done. Escalation keeps its own insistent text.
+                            var subText: String? = null
+                            if (!escalate && step == 0) {
+                                val today = java.time.LocalDate.now().toEpochDay()
+                                if (app.repository.nudgeForHabitDay(taskId, today) == null) {
+                                    val variant = com.wkhan.hexis.domain.habit.FourthWave.pickVariant(taskId.hashCode().toLong() + today)
+                                    subText = com.wkhan.hexis.domain.habit.FourthWave.NUDGE_VARIANTS[variant]
+                                    app.repository.upsertNudgeEvent(com.wkhan.hexis.data.entity.NudgeEventEntity(
+                                        id = java.util.UUID.randomUUID().toString(), habitId = taskId, variant = variant,
+                                        epochDay = today, targetKind = "task", createdAt = System.currentTimeMillis()))
+                                }
+                            }
+                            Notifications.show(context, taskId, title, reminderId, annoying || escalate, escalate, step, subText)
+                            when {
+                                // Escalation ramps up: re-fire faster each round (5,5,4,3,2 min floor),
+                                // and the notification itself grows more insistent (see Notifications.show).
+                                escalate -> AlarmScheduler.scheduleFireIn(
+                                    context, taskId, title, reminderId, annoying = true,
+                                    delayMin = (6 - step).coerceIn(2, 5).toLong(), escalate = true, step = step + 1)
+                                // R59 (Wave 2) — recurring reminder with a count: re-fire every N min, up to the count.
+                                repeatCount != null && repeatCount >= 2 && repeatEvery != null && step + 1 < repeatCount ->
+                                    AlarmScheduler.scheduleFireIn(context, taskId, title, reminderId, annoying, repeatEvery.toLong(),
+                                        step = step + 1, repeatEvery = repeatEvery, repeatCount = repeatCount)
+                                annoying -> AlarmScheduler.scheduleFireIn(context, taskId, title, reminderId, true, 15)
+                            }
+                        }
+                    } finally { pending.finish() }
+                }
+            }
+
+            AlarmScheduler.ACTION_SNOOZE -> {
+                if (taskId != null) {
+                    Notifications.cancel(context, taskId)
+                    AlarmScheduler.scheduleFireIn(context, taskId, title, reminderId, annoying, Notifications.snoozeMinutes.toLong())
+                }
+            }
+
+            AlarmScheduler.ACTION_DONE -> {
+                if (app == null || taskId == null) return
+                Notifications.cancel(context, taskId)
+                val pending = goAsync()
+                CoroutineScope(Dispatchers.IO).launch {
+                    try { app.repository.setCompletedById(taskId, true) } finally { pending.finish() }
+                }
+            }
+
+            AlarmScheduler.ACTION_SUMMARY -> {
+                if (app == null) return
+                val pending = goAsync()
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        val zone = ZoneId.systemDefault()
+                        val today = Instant.now().atZone(zone).toLocalDate()
+                        val tasksOnce = app.repository.wsTasksOnce()   // R62 — digest follows the active workspace
+                        val count = tasksOnce.count {
+                            !it.completed && !it.trashed && !it.abandoned && it.dueDate != null &&
+                                !Instant.ofEpochMilli(it.dueDate!!).atZone(zone).toLocalDate().isAfter(today)
+                        }
+                        // N1: the daily coach brief — keystone + at-risk streak — in the morning notification.
+                        val brief = runCatching {
+                            com.wkhan.hexis.domain.habit.HabitInsights.dailyBrief(
+                                app.repository.wsHabitsOnce(), app.repository.getHabitCheckinsOnce(), tasksOnce, today.toEpochDay(), zone
+                            )?.let { b -> (listOf(b.headline) + b.moves.take(1).map { "${it.emoji} ${it.text}" }).joinToString(" · ") }
+                        }.getOrNull()
+                        // O1: find the top still-due build habit so the brief can be checked off in place.
+                        val topHabit = runCatching {
+                            val hs = com.wkhan.hexis.domain.habit.HabitStats
+                            val checkins = app.repository.getHabitCheckinsOnce()
+                            val epoch = today.toEpochDay()
+                            app.repository.wsHabitsOnce().filter { !it.archived && !it.paused && it.habitType != "break" }.firstOrNull { h ->
+                                val hc = checkins.filter { it.habitId == h.id }
+                                val doneDays = hc.filter { it.status == "done" && hs.meetsGoal(h, it.count) }.map { it.epochDay }.toSet()
+                                hs.dueToday(h, epoch, doneDays, hc.firstOrNull { it.epochDay == epoch }?.count ?: 0)
+                            }
+                        }.getOrNull()
+                        Notifications.showSummary(context, count, brief, topHabit?.id, topHabit?.name)
+                        val s = app.repository.settingsSnapshot()
+                        if (s.dailySummaryEnabled) AlarmScheduler.scheduleDailySummary(context, s.dailySummaryHour, s.dailySummaryMinute)
+                    } finally { pending.finish() }
+                }
+            }
+
+            AlarmScheduler.ACTION_EVENING -> {
+                if (app == null) return
+                val pending = goAsync()
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        val zone = ZoneId.systemDefault()
+                        val today = Instant.now().atZone(zone).toLocalDate()
+                        // Phase F — smart nudge: skip entirely when today is already reviewed/closed, so a
+                        // done day gets no needless ping. (The re-arm below still fires for tomorrow.)
+                        val todayLog = app.repository.dayLogFor(today.toEpochDay())
+                        val alreadyClosed = todayLog != null && com.wkhan.hexis.domain.ReviewCadence.isReviewed(todayLog)
+                        if (!alreadyClosed) {
+                            // Count today's open tasks left unfinished — the reason to sit down and plan tomorrow.
+                            val leftover = app.repository.wsTasksOnce().count {
+                                !it.completed && !it.trashed && !it.abandoned && it.dueDate != null &&
+                                    !Instant.ofEpochMilli(it.dueDate!!).atZone(zone).toLocalDate().isAfter(today)
+                            }
+                            Notifications.showEvening(context, leftover)
+                        }
+                        // Re-arm for the next day, honouring the fixed-or-adaptive time setting.
+                        AlarmScheduler.scheduleEveningReviewSmart(context, app.repository)
+                    } finally { pending.finish() }
+                }
+            }
+
+            AlarmScheduler.ACTION_MORNING -> {
+                if (app == null) return
+                val pending = goAsync()
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        val zone = ZoneId.systemDefault()
+                        val today = Instant.now().atZone(zone).toLocalDate()
+                        val endToday = today.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
+                        val open = app.repository.wsTasksOnce().filter { !it.completed && !it.trashed && !it.abandoned && !it.isNote }
+                        val dueToday = open.filter { it.dueDate != null && it.dueDate!! < endToday }
+                        // The single most pressing task: highest importance+urgency, then earliest due.
+                        val top = dueToday.minWithOrNull(
+                            compareByDescending<com.wkhan.hexis.data.entity.TaskEntity> { it.importance + it.urgency }.thenBy { it.dueDate ?: Long.MAX_VALUE }
+                        )
+                        val line = when {
+                            dueToday.isEmpty() -> "Nothing due today — a clear run. Open the app for your next best move."
+                            top != null -> "${dueToday.size} due today. Start with: ${top.title}."
+                            else -> "${dueToday.size} due today."
+                        }
+                        Notifications.showMorningBrief(context, line)
+                        val s = app.repository.settingsSnapshot()
+                        if (s.morningBriefEnabled) AlarmScheduler.scheduleMorningBrief(context, s.morningBriefHour)
+                    } finally { pending.finish() }
+                }
+            }
+
+            AlarmScheduler.ACTION_OCCASION_NUDGE -> {
+                if (app == null) return
+                val pending = goAsync()
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        val s = app.repository.settingsSnapshot()
+                        if (s.occasionNudge) {
+                            val today = java.time.LocalDate.now()
+                            Notifications.showOccasionNudge(context,
+                                com.wkhan.hexis.domain.Almanac.reflection(today),
+                                com.wkhan.hexis.domain.Almanac.onThisDay(today))
+                            AlarmScheduler.scheduleOccasionNudge(context, s.occasionNudgeHour)
+                        }
+                    } finally { pending.finish() }
+                }
+            }
+
+            AlarmScheduler.ACTION_GOAL_REVIEW -> {
+                if (app == null) return
+                val pending = goAsync()
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        val s = app.repository.settingsSnapshot()
+                        if (s.goalReviewReminder) {
+                            val today = java.time.LocalDate.now().toEpochDay()
+                            val goals = app.repository.wsGoalsOnce().filter { !it.archived }
+                            // Fire only on the days a review is actually due: the whole-portfolio cadence (weekly),
+                            // or any single goal past its own cadence. A quiet week stays silent.
+                            if (goals.isNotEmpty()) {
+                                val reviews = app.repository.goalReviewsOnce()
+                                val portfolioDue = com.wkhan.hexis.domain.GoalScore.reviewDue(reviews, 7, today, "")
+                                val dueGoals = goals.filter {
+                                    com.wkhan.hexis.domain.GoalScore.reviewDue(reviews, it.reviewCadenceDays, today, it.id)
+                                }
+                                if (portfolioDue || dueGoals.isNotEmpty()) {
+                                    val chain = com.wkhan.hexis.domain.GoalScore.integrityChain(reviews, 7, today, "")
+                                    val title = if (portfolioDue) "Your weekly goal review is due" else "A goal is ready for review"
+                                    val text = buildString {
+                                        when {
+                                            dueGoals.size == 1 -> append("“${dueGoals.first().name}” is past its review cadence. ")
+                                            dueGoals.size > 1 -> append("${dueGoals.size} goals are past their review cadence. ")
+                                            else -> append("Sit with your ${goals.size} goal${if (goals.size == 1) "" else "s"} and score the week. ")
+                                        }
+                                        if (chain > 0) append("Keep your $chain-review chain going.")
+                                        else append("Score how you executed and set the next commitments.")
+                                    }
+                                    Notifications.showGoalReview(context, title, text)
+                                }
+                            }
+                            AlarmScheduler.scheduleGoalReview(context, s.goalReviewHour)
+                        }
+                    } finally { pending.finish() }
+                }
+            }
+
+            AlarmScheduler.ACTION_AUTO_BACKUP -> {
+                if (app == null) return
+                val pending = goAsync()
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        val s = app.repository.settingsSnapshot()
+                        val folder = s.autoBackupFolder.ifBlank { s.syncFolder }
+                        if (s.autoBackupEnabled && folder.isNotBlank()) {
+                            val stamp = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss"))
+                            val ok = com.wkhan.hexis.data.sync.SyncEngine.backup(context, app.repository, folder, "todo-backup-$stamp.json", s.syncPassphrase)
+                            // Stamp the last-backup time (Momentum's data-safety card reads it) and re-arm the
+                            // next run honouring the chosen interval; on failure keep the old stamp but still re-arm.
+                            val stampedAt = if (ok) System.currentTimeMillis() else s.lastBackupAt
+                            if (ok) app.repository.saveSettings(app.repository.settingsSnapshot().copy(lastBackupAt = stampedAt))
+                            AlarmScheduler.scheduleAutoBackup(context, s.autoBackupHour, s.autoBackupIntervalDays, stampedAt, s.autoBackupDow, s.autoBackupDom)
+                        }
+                    } finally { pending.finish() }
+                }
+            }
+
+            AlarmScheduler.ACTION_TRACK_PROMPT -> {
+                if (app == null || taskId == null) return
+                val pending = goAsync()
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        val s = app.repository.settingsSnapshot()
+                        if (!s.autoTrackPrompt) return@launch
+                        val task = app.repository.getTask(taskId)
+                        if (task != null && !task.completed && !task.trashed && !task.abandoned) {
+                            // Skip if something is already being tracked against this task.
+                            val already = app.repository.runningTimeEntries().any { it.taskId == taskId }
+                            if (!already) {
+                                val acts = app.repository.getTimeActivitiesOnce()
+                                val actId = task.defaultActivityId?.takeIf { id -> acts.any { it.id == id && !it.archived } }
+                                    ?: app.repository.ensureTaskActivity()
+                                Notifications.showTrackPrompt(context, taskId, task.title, actId)
+                            }
+                        }
+                    } finally { pending.finish() }
+                }
+            }
+
+            AlarmScheduler.ACTION_FOCUS_DONE -> { FocusDnd.exit(context); Notifications.showFocusDone(context) }
+
+            AlarmScheduler.ACTION_HABIT -> {
+                if (app == null) return
+                val habitId = intent.getStringExtra(AlarmScheduler.EXTRA_HABIT_ID) ?: return
+                val name = intent.getStringExtra(AlarmScheduler.EXTRA_HABIT_NAME) ?: "your habit"
+                val min = intent.getStringExtra(AlarmScheduler.EXTRA_HABIT_MIN)?.toIntOrNull() ?: return
+                // This firing is the smart-reminder follow-up, not the daily alarm — don't re-arm or re-escalate.
+                val escalate = intent.getBooleanExtra(AlarmScheduler.EXTRA_ESCALATE, false)
+                val pending = goAsync()
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        val zone = ZoneId.systemDefault()
+                        val todayEpoch = java.time.LocalDate.now(zone).toEpochDay()
+                        val h = app.repository.getHabitsOnce().firstOrNull { it.id == habitId }
+                        // Self-heal: only fire + reschedule while the time is still configured.
+                        val settings = app.repository.settingsSnapshot()
+                        val muted = settings.mutedHabits.contains(habitId)   // W8
+                        val stillWanted = h != null && !h.archived && !muted &&
+                            h.reminderTimes.split(",").mapNotNull { it.trim().toIntOrNull() }.contains(min)
+                        if (stillWanted && !h!!.paused) {
+                            val stats = com.wkhan.hexis.domain.habit.HabitStats
+                            val scheduledToday = stats.isExpectedDay(h, todayEpoch) ||
+                                h.freqType == stats.FREQ_TIMES_WEEK || h.freqType == stats.FREQ_TIMES_MONTH
+                            val checkins = app.repository.getHabitCheckinsOnce()
+                            val doneDays = checkins.filter { it.habitId == habitId && it.status == "done" && stats.meetsGoal(h, it.count) }.map { it.epochDay }.toSet()
+                            val todayCount = checkins.firstOrNull { it.habitId == habitId && it.epochDay == todayEpoch }?.count ?: 0
+                            val stillDue = stats.dueToday(h, todayEpoch, doneDays, todayCount)
+                            val quietOk = AlarmScheduler.quietDeferUntil(System.currentTimeMillis()) == null
+                            // R59 (Wave 2) — honour quiet hours: skip the nudge when we're in the quiet window
+                            // (the habit re-arms for its next day regardless).
+                            if (scheduledToday && stillDue && quietOk)
+                                Notifications.showHabit(context, habitId, name, min, why = h.description)
+                            if (!escalate) {
+                                AlarmScheduler.rescheduleHabit(context, habitId, name, min)
+                                // Habits Tier 2 — smart reminders: one gentle follow-up if this due habit's
+                                // nudge lands and it's still not done (skipped when muted/quiet/not due).
+                                if (settings.habitSmartReminders && scheduledToday && stillDue && quietOk)
+                                    AlarmScheduler.scheduleHabitFollowup(context, habitId, name, min, 45)
+                            }
+                        }
+                    } finally { pending.finish() }
+                }
+            }
+
+            AlarmScheduler.ACTION_HABIT_DONE -> {
+                if (app == null) return
+                val habitId = intent.getStringExtra(AlarmScheduler.EXTRA_HABIT_ID) ?: return
+                androidx.core.app.NotificationManagerCompat.from(context).cancel(("habit:$habitId").hashCode())
+                val pending = goAsync()
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        val todayEpoch = java.time.LocalDate.now(ZoneId.systemDefault()).toEpochDay()
+                        val h = app.repository.getHabitsOnce().firstOrNull { it.id == habitId }
+                        if (h != null) app.repository.setCheckinValue(habitId, todayEpoch, h.targetPerDay.coerceAtLeast(1))
+                        com.wkhan.hexis.widget.HabitsWidget.refresh(context)
+                        com.wkhan.hexis.widget.HabitZeroWidget.refresh(context)
+                    } finally { pending.finish() }
+                }
+            }
+
+            AlarmScheduler.ACTION_EVENT_ALERT -> {
+                if (app == null) return
+                val eventId = intent.getStringExtra(AlarmScheduler.EXTRA_EVENT_ID) ?: return
+                val evTitle = intent.getStringExtra(AlarmScheduler.EXTRA_EVENT_TITLE) ?: "Event"
+                val loc = intent.getStringExtra(AlarmScheduler.EXTRA_EVENT_LOC) ?: ""
+                val start = intent.getStringExtra(AlarmScheduler.EXTRA_EVENT_START)?.toLongOrNull() ?: 0L
+                val min = intent.getStringExtra(AlarmScheduler.EXTRA_EVENT_MIN)?.toIntOrNull() ?: 0
+                val pending = goAsync()
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        val e = app.repository.eventById(eventId) ?: return@launch
+                        Notifications.showEventAlert(context, eventId, evTitle, loc, start, min)
+                        // Repeating event: once the closest lead alert has fired, arm the following occurrence.
+                        if (e.rrule.isNotBlank()) {
+                            val closest = e.alertsMinutes.split(",").mapNotNull { it.trim().toIntOrNull() }.minOrNull()
+                            if (closest != null && min == closest) AlarmScheduler.scheduleEventAlerts(context, e, fromMillis = start)
+                        }
+                    } finally { pending.finish() }
+                }
+            }
+
+            AlarmScheduler.ACTION_SEALED_LETTER -> {
+                if (app == null) return
+                val id = intent.getStringExtra(AlarmScheduler.EXTRA_SEALED_ID) ?: return
+                val pending = goAsync()
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        val note = app.repository.sealedNoteById(id) ?: return@launch
+                        // Skip if it's been opened already, or already notified once (fire-once via DataStore).
+                        if (note.acknowledged) return@launch
+                        if (app.repository.sealedLetterNotifiedIds().contains(id)) return@launch
+                        val today = java.time.LocalDate.now(ZoneId.systemDefault()).toEpochDay()
+                        // Fired early (clock skew / reschedule): re-arm for the real reveal day and bail.
+                        if (today < note.revealEpochDay) {
+                            AlarmScheduler.scheduleSealedLetter(context, note.id, note.title, note.createdEpochDay, note.revealEpochDay)
+                            return@launch
+                        }
+                        // R59 (Wave 2) — honour quiet hours: hold the reveal ping until quiet hours end.
+                        val deferUntil = AlarmScheduler.quietDeferUntil(System.currentTimeMillis())
+                        if (deferUntil != null) {
+                            val delay = ((deferUntil - System.currentTimeMillis()) / 60_000L).coerceAtLeast(1)
+                            AlarmScheduler.scheduleSealedLetterIn(context, note.id, note.title, note.createdEpochDay, delay)
+                            return@launch
+                        }
+                        Notifications.showSealedLetter(context, note.id, note.title, note.createdEpochDay)
+                        app.repository.markSealedLetterNotified(id)
+                    } finally { pending.finish() }
+                }
+            }
+
+            AlarmScheduler.ACTION_HABIT_SNOOZE -> {
+                val habitId = intent.getStringExtra(AlarmScheduler.EXTRA_HABIT_ID) ?: return
+                val name = intent.getStringExtra(AlarmScheduler.EXTRA_HABIT_NAME) ?: "your habit"
+                val min = intent.getStringExtra(AlarmScheduler.EXTRA_HABIT_MIN)?.toIntOrNull() ?: 0
+                androidx.core.app.NotificationManagerCompat.from(context).cancel(("habit:$habitId").hashCode())
+                AlarmScheduler.snoozeHabit(context, habitId, name, min, Notifications.snoozeMinutes)
+            }
+
+            AlarmScheduler.ACTION_ROUTINE -> {
+                if (app == null) return
+                val routineId = intent.getStringExtra(AlarmScheduler.EXTRA_ROUTINE_ID) ?: return
+                val name = intent.getStringExtra(AlarmScheduler.EXTRA_ROUTINE_NAME) ?: "your routine"
+                val min = intent.getStringExtra(AlarmScheduler.EXTRA_ROUTINE_MIN)?.toIntOrNull() ?: return
+                val pending = goAsync()
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        // Self-heal: only fire + re-arm while a routine with this id still asks for this minute.
+                        val routines = app.repository.routinesOnce()   // W3 — routines are Room-backed now
+                        val r = routines.firstOrNull { it.id == routineId }
+                        if (r != null && r.whenReminderMin == min && r.steps.isNotEmpty()) {
+                            // Cadence gate: the alarm re-arms daily, but only notify on the ritual's scheduled
+                            // weekdays (empty days = every day) so a Mon/Wed/Fri routine isn't nudged Tue/Thu.
+                            val todayEpoch = java.time.LocalDate.now().toEpochDay()
+                            if (r.scheduledOn(todayEpoch) && AlarmScheduler.quietDeferUntil(System.currentTimeMillis()) == null)
+                                Notifications.showRoutine(context, routineId, name)
+                            AlarmScheduler.rescheduleRoutine(context, routineId, name, min)
+                        }
+                    } finally { pending.finish() }
+                }
+            }
+
+            AlarmScheduler.ACTION_NOTE_REMINDER -> {
+                if (app == null) return
+                val noteId = intent.getStringExtra(AlarmScheduler.EXTRA_NOTE_ID) ?: return
+                val noteTitle = intent.getStringExtra(AlarmScheduler.EXTRA_NOTE_TITLE) ?: "Note"
+                val fireAt = intent.getStringExtra(AlarmScheduler.EXTRA_NOTE_FIRE_AT)?.toLongOrNull()
+                val isPrimary = intent.getBooleanExtra(AlarmScheduler.EXTRA_NOTE_PRIMARY, true)
+                val slot = intent.getIntExtra(AlarmScheduler.EXTRA_NOTE_SLOT, 0)
+                val pending = goAsync()
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        val note = app.repository.getNote(noteId) ?: return@launch
+                        if (note.trashed) return@launch
+                        val title = note.title.ifBlank { noteTitle }
+                        // R59 — quiet hours: hold this ping until they end, re-arming the SAME slot.
+                        val deferUntil = AlarmScheduler.quietDeferUntil(System.currentTimeMillis())
+                        if (deferUntil != null) {
+                            AlarmScheduler.rearmNoteSlot(context, noteId, title, deferUntil, slot, isPrimary)
+                            return@launch
+                        }
+                        Notifications.showNote(context, noteId, title, note.reminderKeep)
+                        val zone = ZoneId.systemDefault()
+                        if (isPrimary) {
+                            val rule = note.reminderRrule
+                            val basis = fireAt ?: note.reminderAt ?: System.currentTimeMillis()
+                            when {
+                                // Recurring: roll the primary forward (Recurrence.advance decrements COUNT / honours UNTIL).
+                                !rule.isNullOrBlank() -> {
+                                    val (nextAt, nextRule) = com.wkhan.hexis.domain.recurrence.Recurrence.advance(rule, basis, zone)
+                                    if (nextAt != null) {
+                                        app.repository.setNoteReminderPrimary(noteId, nextAt, nextRule)
+                                        AlarmScheduler.scheduleNoteReminder(context, noteId, title, nextAt)
+                                    } else app.repository.setNoteReminderPrimary(noteId, null, null)
+                                }
+                                // Keep reminding until opened/cleared: re-arm a while out.
+                                note.reminderKeep -> {
+                                    val nextAt = System.currentTimeMillis() + Notifications.snoozeMinutes.coerceAtLeast(30).toLong() * 60_000L
+                                    app.repository.setNoteReminderPrimary(noteId, nextAt, null)
+                                    AlarmScheduler.scheduleNoteReminder(context, noteId, title, nextAt)
+                                }
+                                // One-shot: clear the primary.
+                                else -> app.repository.setNoteReminderPrimary(noteId, null, null)
+                            }
+                        } else if (fireAt != null) {
+                            // An extra one-shot fired — drop it from the CSV so it neither re-fires nor lingers.
+                            val remaining = AlarmScheduler.parseExtraReminders(note.reminderExtra).filter { it != fireAt }
+                            app.repository.setNoteReminderExtra(noteId, remaining.joinToString(","))
+                        }
+                    } finally { pending.finish() }
+                }
+            }
+
+            AlarmScheduler.ACTION_NOTE_SNOOZE -> {
+                if (app == null) return
+                val noteId = intent.getStringExtra(AlarmScheduler.EXTRA_NOTE_ID) ?: return
+                val title = intent.getStringExtra(AlarmScheduler.EXTRA_NOTE_TITLE) ?: "Note"
+                Notifications.cancelNote(context, noteId)
+                val pending = goAsync()
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        val at = System.currentTimeMillis() + Notifications.snoozeMinutes.toLong() * 60_000L
+                        app.repository.setNoteReminderPrimary(noteId, at, app.repository.getNote(noteId)?.reminderRrule)
+                        AlarmScheduler.scheduleNoteReminder(context, noteId, title, at)
+                    } finally { pending.finish() }
+                }
+            }
+
+            AlarmScheduler.ACTION_NOTE_DONE -> {
+                if (app == null) return
+                val noteId = intent.getStringExtra(AlarmScheduler.EXTRA_NOTE_ID) ?: return
+                Notifications.cancelNote(context, noteId)
+                AlarmScheduler.cancelNoteReminder(context, noteId)
+                val pending = goAsync()
+                CoroutineScope(Dispatchers.IO).launch {
+                    try { app.repository.clearNoteReminder(noteId) } finally { pending.finish() }
+                }
+            }
+        }
+    }
+}
+
+/** Re-schedules reminders and the daily summary after a device reboot. */
+class BootReceiver : BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: Intent) {
+        if (intent.action != Intent.ACTION_BOOT_COMPLETED) return
+        val app = context.applicationContext as? App ?: return
+        val pending = goAsync()
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                AlarmScheduler.rescheduleAll(context, app.repository)
+                AlarmScheduler.scheduleHabitReminders(context, app.repository)
+                AlarmScheduler.scheduleRoutineReminders(context, app.repository)
+                val s = app.repository.settingsSnapshot()
+                if (s.dailySummaryEnabled) AlarmScheduler.scheduleDailySummary(context, s.dailySummaryHour, s.dailySummaryMinute)
+                if (s.eveningReviewEnabled) AlarmScheduler.scheduleEveningReviewSmart(context, app.repository)
+                if (s.morningBriefEnabled) AlarmScheduler.scheduleMorningBrief(context, s.morningBriefHour)
+                if (s.occasionNudge) AlarmScheduler.scheduleOccasionNudge(context, s.occasionNudgeHour)
+                if (s.goalReviewReminder) AlarmScheduler.scheduleGoalReview(context, s.goalReviewHour)
+                if (s.autoBackupEnabled && s.autoBackupFolder.isNotBlank()) AlarmScheduler.scheduleAutoBackup(context, s.autoBackupHour, s.autoBackupIntervalDays, s.lastBackupAt, s.autoBackupDow, s.autoBackupDom)
+                if (s.autoTrackPrompt) AlarmScheduler.scheduleTrackPrompts(context, app.repository)
+                AlarmScheduler.rescheduleEventAlerts(context, app.repository)
+                AlarmScheduler.rescheduleSealedLetters(context, app.repository)   // Track 3.4
+                AlarmScheduler.rescheduleAllNoteReminders(context, app.repository)   // Wave F
+                com.wkhan.hexis.widget.Widgets.scheduleMidnight(context)
+            } finally { pending.finish() }
+        }
+    }
+}

@@ -8,9 +8,9 @@
         android:shortcutLongLabel="@string/sc_quick_add_long">
         <intent
             android:action="android.intent.action.VIEW"
-            android:targetPackage="com.wkhan.kairo"
-            android:targetClass="com.todocompanion.app.widget.QuickCaptureActivity"
-            android:data="todocompanion://add" />
+            android:targetPackage="com.wkhan.hexis"
+            android:targetClass="com.wkhan.hexis.widget.QuickCaptureActivity"
+            android:data="hexis://add" />
     </shortcut>
     <shortcut
         android:shortcutId="open_today"
@@ -20,9 +20,9 @@
         android:shortcutLongLabel="@string/sc_today_long">
         <intent
             android:action="android.intent.action.VIEW"
-            android:targetPackage="com.wkhan.kairo"
-            android:targetClass="com.todocompanion.app.MainActivity"
-            android:data="todocompanion://today" />
+            android:targetPackage="com.wkhan.hexis"
+            android:targetClass="com.wkhan.hexis.MainActivity"
+            android:data="hexis://today" />
     </shortcut>
     <shortcut
         android:shortcutId="open_donext"
@@ -32,9 +32,9 @@
         android:shortcutLongLabel="@string/sc_donext_long">
         <intent
             android:action="android.intent.action.VIEW"
-            android:targetPackage="com.wkhan.kairo"
-            android:targetClass="com.todocompanion.app.MainActivity"
-            android:data="todocompanion://donext" />
+            android:targetPackage="com.wkhan.hexis"
+            android:targetClass="com.wkhan.hexis.MainActivity"
+            android:data="hexis://donext" />
     </shortcut>
     <shortcut
         android:shortcutId="open_focus"
@@ -44,9 +44,9 @@
         android:shortcutLongLabel="@string/sc_focus_long">
         <intent
             android:action="android.intent.action.VIEW"
-            android:targetPackage="com.wkhan.kairo"
-            android:targetClass="com.todocompanion.app.MainActivity"
-            android:data="todocompanion://focus" />
+            android:targetPackage="com.wkhan.hexis"
+            android:targetClass="com.wkhan.hexis.MainActivity"
+            android:data="hexis://focus" />
     </shortcut>
     <!-- Periodic Notes — a new blank note, and today's daily note. -->
     <shortcut
@@ -57,9 +57,9 @@
         android:shortcutLongLabel="@string/sc_new_note_long">
         <intent
             android:action="android.intent.action.VIEW"
-            android:targetPackage="com.wkhan.kairo"
-            android:targetClass="com.todocompanion.app.MainActivity"
-            android:data="todocompanion://note" />
+            android:targetPackage="com.wkhan.hexis"
+            android:targetClass="com.wkhan.hexis.MainActivity"
+            android:data="hexis://note" />
     </shortcut>
     <shortcut
         android:shortcutId="daily_note"
@@ -69,9 +69,9 @@
         android:shortcutLongLabel="@string/sc_daily_note_long">
         <intent
             android:action="android.intent.action.VIEW"
-            android:targetPackage="com.wkhan.kairo"
-            android:targetClass="com.todocompanion.app.MainActivity"
-            android:data="todocompanion://daily" />
+            android:targetPackage="com.wkhan.hexis"
+            android:targetClass="com.wkhan.hexis.MainActivity"
+            android:data="hexis://daily" />
     </shortcut>
     <!-- Phase F — jump straight into today's "Close the day" flow. -->
     <shortcut
@@ -82,8 +82,8 @@
         android:shortcutLongLabel="@string/sc_close_day_long">
         <intent
             android:action="android.intent.action.VIEW"
-            android:targetPackage="com.wkhan.kairo"
-            android:targetClass="com.todocompanion.app.MainActivity"
-            android:data="todocompanion://closeday" />
+            android:targetPackage="com.wkhan.hexis"
+            android:targetClass="com.wkhan.hexis.MainActivity"
+            android:data="hexis://closeday" />
     </shortcut>
 </shortcuts>

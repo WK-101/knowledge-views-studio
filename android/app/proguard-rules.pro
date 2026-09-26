@@ -1,5 +1,5 @@
 # ============================================================================
-# Kairo — R8 keep rules (R85).
+# Hexis — R8 keep rules (R85).
 #
 # Release builds now run R8 with CODE + RESOURCE shrinking (isMinifyEnabled +
 # isShrinkResources), which strips unused classes/methods and unused resources.
@@ -50,8 +50,8 @@
     kotlinx.serialization.KSerializer serializer(...);
 }
 # Belt-and-braces: keep every generated serializer under the app package.
--keep,includedescriptorclasses class com.todocompanion.app.**$$serializer { *; }
--keepclassmembers class com.todocompanion.app.** {
+-keep,includedescriptorclasses class com.wkhan.hexis.**$$serializer { *; }
+-keepclassmembers class com.wkhan.hexis.** {
     *** Companion;
 }
 
@@ -83,7 +83,7 @@
 # proguard-android-optimize.txt already keeps values()/valueOf(String); this
 # makes the intent explicit for the app's serialized enums.
 # ----------------------------------------------------------------------------
--keepclassmembers enum com.todocompanion.app.** {
+-keepclassmembers enum com.wkhan.hexis.** {
     public static **[] values();
     public static ** valueOf(java.lang.String);
 }

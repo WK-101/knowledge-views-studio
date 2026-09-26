@@ -23,7 +23,7 @@ fun signingValue(propKey: String, envKey: String): String? =
 val runNumber = System.getenv("GITHUB_RUN_NUMBER")
 
 android {
-    namespace = "com.todocompanion.app"
+    namespace = "com.wkhan.hexis"
     // R103 — compileSdk/targetSdk 35 (Android 15). Enabled once edge-to-edge was verified on a real
     // Android 15 device (R102 insets diagnostic: status-bar top inset correctly reported, content clear)
     // and the toolchain was moved to AGP 8.7.x (official API-35 support, no suppressUnsupportedCompileSdk
@@ -31,10 +31,10 @@ android {
     compileSdk = 35
 
     defaultConfig {
-        // R69 — the installed package id now carries the Kairo brand. (The code `namespace` stays
-        // com.todocompanion.app so the R class / imports / class names are untouched; FileProvider
-        // authorities are all built from the runtime packageName, so they follow this automatically.)
-        applicationId = "com.wkhan.kairo"
+        // The app is fully rebranded to Hexis: the code namespace and the installed applicationId are
+        // now both com.wkhan.hexis (no Kairo / todocompanion identifiers remain). FileProvider
+        // authorities are built from the runtime packageName, so they follow this automatically.
+        applicationId = "com.wkhan.hexis"
         minSdk = 26
         targetSdk = 35
         versionCode = runNumber?.toIntOrNull() ?: 1
@@ -219,7 +219,7 @@ dependencies {
 // design-token *bypasses* in feature screens — hard-coded corner radii, raw colour literals and
 // font-size literals — and fails the build (and CI, via `check`) if any count GROWS beyond the
 // committed baseline. It never forces existing, intentional code to change; it only stops NEW
-// drift, nudging new UI to reach for AppShapes / LocalKairoColors / the type scale (or to update
+// drift, nudging new UI to reach for AppShapes / LocalHexisColors / the type scale (or to update
 // config/ui-coherence-baseline.properties consciously, with a reason). Shared component + theme
 // files, where these tokens are legitimately DEFINED, are out of scope — only ui/screens is measured.
 val uiCoherencePatterns = mapOf(
@@ -228,7 +228,7 @@ val uiCoherencePatterns = mapOf(
     "fontSizeLiteral" to Regex("""fontSize\s*="""),
 )
 val uiCoherenceBaselineFile = file("config/ui-coherence-baseline.properties")
-val uiCoherenceScanDir = file("src/main/java/com/todocompanion/app/ui/screens")
+val uiCoherenceScanDir = file("src/main/java/com/wkhan/hexis/ui/screens")
 
 fun scanUiCoherenceCounts(): Map<String, Int> {
     val counts = uiCoherencePatterns.keys.associateWith { 0 }.toMutableMap()

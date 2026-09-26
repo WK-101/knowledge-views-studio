@@ -1,0 +1,140 @@
+package com.wkhan.hexis.widget
+
+import android.content.Context
+import android.content.res.Configuration
+import android.widget.RemoteViews
+import com.wkhan.hexis.R
+
+/**
+ * R104 — the one place a widget's visual style is resolved. Static widget layouts pull their
+ * colours straight from `@color/w_*` resources (which the system swaps light/dark for the "auto"
+ * theme); this class is the programmatic twin for the pieces that can't use resources: collection
+ * factory rows, a per-widget *forced* light/dark theme, per-widget opacity, and font scaling.
+ *
+ * The two palettes below are byte-for-byte the same as res/values/colors.xml (light) and
+ * res/values-night/colors.xml (dark), so a widget looks identical whether it was coloured by a
+ * resource or by this helper. Entirely offline — reads only WidgetPrefs + the system uiMode.
+ */
+data class WidgetStyle(
+    val dark: Boolean,
+    val surface: Int,
+    val surfaceVariant: Int,
+    val chip: Int,
+    val textPrimary: Int,
+    val textSecondary: Int,
+    val textTertiary: Int,
+    val onAccent: Int,
+    val accent: Int,
+    val accentText: Int,
+    val teal: Int,
+    val danger: Int,
+    val warning: Int,
+    val info: Int,
+    val success: Int,
+    val divider: Int,
+    val stroke: Int,
+    /** 0..100 — card opacity (100 = as designed). Applied to [surface] alpha. */
+    val opacity: Int,
+    /** Text-size multiplier: 0.85 compact … 1.15 large. */
+    val fontScale: Float,
+    val compact: Boolean,
+) {
+    /** [surface] with the per-widget opacity folded into its alpha channel. */
+    val surfaceWithOpacity: Int
+        get() {
+            val baseAlpha = (surface ushr 24) and 0xFF
+            val a = (baseAlpha * opacity / 100).coerceIn(0, 255)
+            return (a shl 24) or (surface and 0x00FFFFFF)
+        }
+
+    /** Scale a base sp value by the font preference, rounded to a sensible float. */
+    fun sp(base: Float): Float = (base * fontScale)
+
+    companion object {
+        /**
+         * Override the card background only when the widget's theme is *forced*. For "auto" we leave
+         * the layout's adaptive `@drawable/widget_bg` (which the system swaps light/dark). A forced
+         * choice needs a non-adaptive drawable so it doesn't follow the system.
+         */
+        fun applyCardBackground(views: RemoteViews, rootId: Int, ctx: Context, widgetId: Int) {
+            // Always set explicitly (auto → the adaptive drawable) so this is idempotent when one RemoteViews
+            // instance is reused across several widget ids with different themes.
+            val res = when (WidgetPrefs.theme(ctx, widgetId)) {
+                "light" -> R.drawable.widget_bg_light
+                "dark" -> R.drawable.widget_bg_dark
+                else -> R.drawable.widget_bg
+            }
+            views.setInt(rootId, "setBackgroundResource", res)
+        }
+
+        /**
+         * Apply theme + opacity to a list widget's card ImageView layer: pick the light/dark/auto
+         * card shape and fade it to the per-widget opacity (imageAlpha multiplies the shape's own
+         * alpha, so 100 = as designed, 0 = fully transparent).
+         */
+        fun applyListCard(views: RemoteViews, cardId: Int, ctx: Context, widgetId: Int) {
+            val res = when (WidgetPrefs.theme(ctx, widgetId)) {
+                "light" -> R.drawable.widget_bg_light
+                "dark" -> R.drawable.widget_bg_dark
+                else -> R.drawable.widget_bg
+            }
+            views.setImageViewResource(cardId, res)
+            val alpha = (WidgetPrefs.opacity(ctx, widgetId) * 255 / 100).coerceIn(0, 255)
+            views.setInt(cardId, "setImageAlpha", alpha)
+        }
+
+        /** Resolve the style for a placed widget (id ≥ 0) or a neutral default (id < 0). */
+        fun resolve(ctx: Context, widgetId: Int = -1): WidgetStyle {
+            val themePref = if (widgetId >= 0) WidgetPrefs.theme(ctx, widgetId) else "auto"
+            val sysDark = (ctx.resources.configuration.uiMode and
+                Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+            val dark = when (themePref) {
+                "light" -> false
+                "dark" -> true
+                else -> sysDark
+            }
+            val opacity = if (widgetId >= 0) WidgetPrefs.opacity(ctx, widgetId) else 100
+            val fontScale = if (widgetId >= 0) WidgetPrefs.fontScale(ctx, widgetId) else 1f
+            val compact = if (widgetId >= 0) WidgetPrefs.compact(ctx, widgetId) else false
+            return if (dark) WidgetStyle(
+                dark = true,
+                surface = 0xF01A1B26.toInt(),
+                surfaceVariant = 0xFF24273A.toInt(),
+                chip = 0x2AFFFFFF,
+                textPrimary = 0xFFFFFFFF.toInt(),
+                textSecondary = 0xFFB9B4D0.toInt(),
+                textTertiary = 0xFF8A8699.toInt(),
+                onAccent = 0xFFFFFFFF.toInt(),
+                accent = 0xFF8C86FF.toInt(),
+                accentText = 0xFF8C86FF.toInt(),
+                teal = 0xFF4FD1C5.toInt(),
+                danger = 0xFFEB6B6B.toInt(),
+                warning = 0xFFE0A63F.toInt(),
+                info = 0xFF6E9BFF.toInt(),
+                success = 0xFF4FC38A.toInt(),
+                divider = 0x22FFFFFF,
+                stroke = 0x22FFFFFF,
+                opacity = opacity, fontScale = fontScale, compact = compact,
+            ) else WidgetStyle(
+                dark = false,
+                surface = 0xF7FBFAFF.toInt(),
+                surfaceVariant = 0xFFEFEBF7.toInt(),
+                chip = 0x14000000,
+                textPrimary = 0xFF1A1B26.toInt(),
+                textSecondary = 0xFF5B5870.toInt(),
+                textTertiary = 0xFF8A8798.toInt(),
+                onAccent = 0xFFFFFFFF.toInt(),
+                accent = 0xFF5B57D9.toInt(),
+                accentText = 0xFF5B57D9.toInt(),
+                teal = 0xFF12A594.toInt(),
+                danger = 0xFFE5484D.toInt(),
+                warning = 0xFFEA9A16.toInt(),
+                info = 0xFF3E7BFA.toInt(),
+                success = 0xFF1E9E64.toInt(),
+                divider = 0x14000000,
+                stroke = 0x14000000,
+                opacity = opacity, fontScale = fontScale, compact = compact,
+            )
+        }
+    }
+}

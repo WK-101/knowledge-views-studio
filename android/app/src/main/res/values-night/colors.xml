@@ -12,7 +12,7 @@
     <color name="w_text_secondary">#B9B4D0</color>
     <color name="w_text_tertiary">#8A8699</color>
     <color name="w_on_accent">#FFFFFF</color>          <!-- text/icon on a filled accent (never flips) -->
-    <color name="w_accent">#8C86FF</color>             <!-- filled accent (add pill, progress) — KairoColors brand-dark -->
+    <color name="w_accent">#8C86FF</color>             <!-- filled accent (add pill, progress) — HexisColors brand-dark -->
     <color name="w_accent_text">#8C86FF</color>        <!-- accent-coloured text on the card -->
     <color name="w_teal">#4FD1C5</color>               <!-- time / habit brand teal -->
     <color name="w_danger">#EB6B6B</color>             <!-- overdue / over-capacity -->
