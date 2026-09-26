@@ -19,7 +19,10 @@ import com.wkhan.hexis.util.PortableCrypto
  * verifier need be stored at all.
  */
 object NoteVault {
-    private const val TOKEN = "KAIRO-VAULT-OK-v1"
+    private const val TOKEN = "HEXIS-VAULT-OK-v1"
+    // Pre-rebrand verifier token — still accepted on [verify] so a vault set up under an older build (and
+    // carried in via a portable backup) keeps unlocking. New verifiers are always written with [TOKEN].
+    private const val LEGACY_TOKEN = "KAIRO-VAULT-OK-v1"
 
     /** True if [body] is an encrypted vault envelope (vs. plaintext). */
     fun isLocked(body: String): Boolean = PortableCrypto.isEnvelope(body)
@@ -35,8 +38,11 @@ object NoteVault {
     fun makeCheck(pass: CharArray): String = PortableCrypto.encrypt(TOKEN, pass)
 
     /** True if [pass] is the passphrase the vault was set up with (decrypts the verifier to the token). */
-    fun verify(check: String, pass: CharArray): Boolean =
-        check.isNotBlank() && PortableCrypto.decrypt(check, pass) == TOKEN
+    fun verify(check: String, pass: CharArray): Boolean {
+        if (check.isBlank()) return false
+        val decoded = PortableCrypto.decrypt(check, pass) ?: return false
+        return decoded == TOKEN || decoded == LEGACY_TOKEN
+    }
 
     /** SEC (R2-B/M2) — validate [pass] against a REAL vaulted note ([sampleEnvelope]) instead of a stored
      *  known-plaintext token: the GCM tag authenticates, so a correct passphrase decrypts and a wrong one

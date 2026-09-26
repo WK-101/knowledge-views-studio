@@ -135,6 +135,7 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
     // R107 — tap-to-choose pickers replacing sprawling chip rows / +− steppers.
     var showThemePack by remember { mutableStateOf(false) }
     var showBg by remember { mutableStateOf(false) }
+    var showIcon by remember { mutableStateOf(false) }
     var showWeekStart by remember { mutableStateOf(false) }
     var showSecondaryZone by remember { mutableStateOf(false) }
     var showSnoozeCustom by remember { mutableStateOf(false) }
@@ -453,6 +454,9 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                 preview = { THEME_PACKS.firstOrNull { it.id == s.themePack }?.let { ThemePackSwatch(it, 22.dp) } })
             NavRow("App background", APP_BACKGROUNDS.firstOrNull { it.first == s.appBackground }?.second ?: "None",
                 { showBg = true }, preview = { BackgroundSwatch(s.appBackground, 22.dp) })
+            NavRow("App icon", com.wkhan.hexis.ui.components.AppIconVariants.byId(s.iconVariant).label,
+                { showIcon = true }, subtitle = "Recolour the home-screen icon",
+                preview = { IconVariantSwatch(com.wkhan.hexis.ui.components.AppIconVariants.byId(s.iconVariant), 22.dp) })
 
             Spacer(Modifier.height(12.dp)); Sub("Task density")
             SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
@@ -1675,6 +1679,13 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
         leading = { key -> BackgroundSwatch(key) }, onDismiss = { showBg = false }) { key ->
         vm.saveSettings(s.copy(appBackground = key)); showBg = false
     }
+    if (showIcon) {
+        val iconCtx = androidx.compose.ui.platform.LocalContext.current
+        IconPickerDialog(current = s.iconVariant, onDismiss = { showIcon = false }) { id ->
+            com.wkhan.hexis.ui.components.AppIconVariants.apply(iconCtx, id)
+            vm.saveSettings(s.copy(iconVariant = id)); showIcon = false
+        }
+    }
     if (showWeekStart) ChoicePickerDialog("Week starts on", WEEK_STARTS, s.weekStart, onDismiss = { showWeekStart = false }) { v ->
         vm.saveSettings(s.copy(weekStart = v)); showWeekStart = false
     }
@@ -2133,6 +2144,70 @@ private fun ThemePackSwatch(pack: ThemePack, size: androidx.compose.ui.unit.Dp =
     ) {
         Box(Modifier.size(size * 0.53f).clip(CircleShape).background(accent))
     }
+}
+
+/** A rounded-square preview of a launcher icon variant: the coloured ground + the four-into-one mark. */
+@Composable
+private fun IconVariantSwatch(
+    v: com.wkhan.hexis.ui.components.IconVariant,
+    size: androidx.compose.ui.unit.Dp = 44.dp,
+    selected: Boolean = false,
+) {
+    val shape = RoundedCornerShape(size * 0.24f)
+    Box(
+        Modifier.size(size).clip(shape)
+            .background(androidx.compose.ui.graphics.Brush.linearGradient(listOf(Color(v.bgStart), Color(v.bgEnd))))
+            .border(
+                if (selected) 2.dp else 1.dp,
+                if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
+                shape,
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        com.wkhan.hexis.ui.components.HexisMark(
+            Modifier.size(size * 0.64f), stroke = Color(v.stroke), core = Color(v.core),
+        )
+    }
+}
+
+/** The launcher-icon colour picker: a grid of on-brand variants + a note about the launcher refresh. */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+private fun IconPickerDialog(current: String, onDismiss: () -> Unit, onPick: (String) -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Done") } },
+        title = { Text("App icon") },
+        text = {
+            Column {
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    com.wkhan.hexis.ui.components.AppIconVariants.ALL.forEach { v ->
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.clip(RoundedCornerShape(12.dp)).clickable { onPick(v.id) }.padding(4.dp),
+                        ) {
+                            IconVariantSwatch(v, 46.dp, selected = v.id == current)
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                v.label, style = MaterialTheme.typography.labelSmall,
+                                color = if (v.id == current) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    "Recolours the home-screen icon. Your launcher may take a moment to update, and a few " +
+                        "launchers briefly re-arrange the icon.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        },
+    )
 }
 
 /** R107 — a small section heading that groups the collapsible category cards, so the screen reads as a few

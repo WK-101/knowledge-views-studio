@@ -1,0 +1,27 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Hexis "Four into one" foreground for the LIGHT launcher variant: the compass drawn in deep
+         indigo on a pale ground, keeping the gold core. Mirrors ic_launcher_foreground's geometry
+         exactly; only the chevron colour changes (light-on-dark → dark-on-light). -->
+
+    <!-- Gold halo behind the core. -->
+    <path android:pathData="M42,54 a12,12 0 1,0 24,0 a12,12 0 1,0 -24,0 z"
+        android:fillColor="#F5B01E" android:fillAlpha="0.22" />
+
+    <!-- Four chevrons in deep indigo, each leaning inward. -->
+    <path android:pathData="M41,26 L54,39 L67,26" android:strokeColor="#3C2668"
+        android:strokeWidth="7.5" android:strokeLineCap="round" android:strokeLineJoin="round" />
+    <path android:pathData="M82,41 L69,54 L82,67" android:strokeColor="#3C2668"
+        android:strokeWidth="7.5" android:strokeLineCap="round" android:strokeLineJoin="round" />
+    <path android:pathData="M41,82 L54,69 L67,82" android:strokeColor="#3C2668"
+        android:strokeWidth="7.5" android:strokeLineCap="round" android:strokeLineJoin="round" />
+    <path android:pathData="M26,41 L39,54 L26,67" android:strokeColor="#3C2668"
+        android:strokeWidth="7.5" android:strokeLineCap="round" android:strokeLineJoin="round" />
+
+    <!-- The gold core. -->
+    <path android:pathData="M47.5,54 a6.5,6.5 0 1,0 13,0 a6.5,6.5 0 1,0 -13,0 z"
+        android:fillColor="#F5B01E" />
+</vector>

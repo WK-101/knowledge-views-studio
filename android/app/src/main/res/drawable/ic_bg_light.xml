@@ -1,0 +1,19 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Hexis launcher variant · Light — a pale lavender ground for light home screens
+         (paired with the indigo-stroked foreground ic_fg_light). -->
+    <path android:pathData="M0,0 h108 v108 h-108 z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="6" android:startY="0"
+                android:endX="102" android:endY="108"
+                android:startColor="#ECE7F6"
+                android:endColor="#DCD4EE" />
+        </aapt:attr>
+    </path>
+</vector>

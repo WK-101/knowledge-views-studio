@@ -126,6 +126,9 @@ data class AppSettings(
     val calendarShowCompleted: Boolean = false,
     // A subtle whole-app background tint: none | warm | cool | mint | dusk | rose.
     val appBackground: String = "none",
+    // Launcher (home-screen) icon colour variant — one of AppIconVariants.ALL ids ("indigo" default).
+    // The active variant is really the enabled <activity-alias>; this mirrors the choice for the UI.
+    val iconVariant: String = "indigo",
     // Planning: hours you can realistically commit per day (workload forecast + auto-schedule).
     // R107 — capacity is now stored in MINUTES so it can be any hour+minute (e.g. 6h 30m). The legacy
     // dailyCapacityHours/capacityByDay fields are kept for back-compat reads; capacityMinutesFor() is the
@@ -586,6 +589,7 @@ data class AppSettings(
         Keys.HABIT_CAL_BLOCKS to habitCalendarBlocks.toString(),
         Keys.CAL_SHOW_COMPLETED to calendarShowCompleted.toString(),
         Keys.APP_BG to appBackground,
+        Keys.ICON_VARIANT to iconVariant,
         Keys.CAPACITY to dailyCapacityHours.toString(),
         Keys.CAPACITY_DAYS to capacityByDay.joinToString(","),
         Keys.CAPACITY_MIN to dailyCapacityMin.toString(),
@@ -809,6 +813,7 @@ data class AppSettings(
         const val CAL_SHOW_COMPLETED = "cal_show_completed"
         const val SUMMARY_ON = "summary_on"
         const val APP_BG = "app_bg"
+        const val ICON_VARIANT = "icon_variant"
         const val CAPACITY = "daily_capacity_h"
         const val CAPACITY_DAYS = "capacity_by_day"
         const val CAPACITY_MIN = "daily_capacity_min"
@@ -1111,6 +1116,7 @@ data class AppSettings(
             integritySeal = m[Keys.INTEGRITY_SEAL]?.takeIf { it.isNotBlank() },
             dailySummaryEnabled = m[Keys.SUMMARY_ON]?.toBooleanStrictOrNull() ?: false,
             appBackground = m[Keys.APP_BG] ?: "none",
+            iconVariant = m[Keys.ICON_VARIANT] ?: "indigo",
             dailyCapacityHours = m[Keys.CAPACITY]?.toIntOrNull()?.coerceIn(1, 16) ?: 8,
             capacityByDay = (m[Keys.CAPACITY_DAYS] ?: "").split(",").mapNotNull { it.trim().toIntOrNull() }.takeIf { it.size == 7 } ?: emptyList(),
             dailyCapacityMin = m[Keys.CAPACITY_MIN]?.toIntOrNull()?.coerceIn(30, 24 * 60)

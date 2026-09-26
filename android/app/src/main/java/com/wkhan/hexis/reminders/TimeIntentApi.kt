@@ -63,7 +63,13 @@ class TimeIntentReceiver : BroadcastReceiver() {
                 // automation (which they pasted the token into) can drive the tracker, not any app that
                 // knows the public action string. A blank stored token means the receiver stays closed.
                 val token = intent.getStringExtra(TimeIntentApi.EXTRA_TOKEN).orEmpty()
-                if (s.automationToken.isBlank() || token != s.automationToken) return@launch
+                // Constant-time compare (MessageDigest.isEqual) so a normal String `!=`'s early-exit can't
+                // leak the per-install token one byte at a time via response timing. A blank stored token
+                // keeps the receiver closed.
+                if (s.automationToken.isBlank() || !java.security.MessageDigest.isEqual(
+                        token.toByteArray(Charsets.UTF_8), s.automationToken.toByteArray(Charsets.UTF_8),
+                    )
+                ) return@launch
                 val targetPkg = s.automationTargetPackage
                 when (intent.action) {
                     TimeIntentApi.ACTION_START -> {
