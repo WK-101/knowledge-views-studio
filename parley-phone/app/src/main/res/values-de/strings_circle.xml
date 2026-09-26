@@ -127,4 +127,9 @@
         <item quantity="one">Auch %d Tag vorher</item>
         <item quantity="other">Auch %d Tage vorher</item>
     </plurals>
+    <!-- Restore summary: Circle members, interactions or yearly flags whose person wasn't found. -->
+    <plurals name="circle_restore_unmatched">
+        <item quantity="one">%d Kreis-Eintrag passte zu keinem Kontakt auf diesem Telefon und wurde übersprungen</item>
+        <item quantity="other">%d Kreis-Einträge passten zu keinem Kontakt auf diesem Telefon und wurden übersprungen</item>
+    </plurals>
 </resources>

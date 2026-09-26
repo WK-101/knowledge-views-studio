@@ -27,6 +27,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
+import androidx.room.withTransaction
 import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONArray
 import org.json.JSONObject
@@ -46,8 +47,22 @@ class CircleRepository(
     val interactions: InteractionStore,
     private val index: () -> StateFlow<CallLogIndex?>,
     private val contactsFlow: () -> StateFlow<List<app.parley.common.ContactSummary>?>,
+    /** The contact list read now (not the possibly stale [contactsFlow] snapshot); null when unavailable. */
+    private val freshContacts: suspend () -> List<app.parley.common.ContactSummary>? = { null },
+    /** Read-modify-write of contact_meta rows runs in one transaction here, so no newer edit is overwritten. */
+    private val db: androidx.room.RoomDatabase? = null,
 ) {
     private val prefs = context.applicationContext.getSharedPreferences(FILE, Context.MODE_PRIVATE)
+
+    private suspend fun <T> tx(block: suspend () -> T): T = db?.withTransaction(block) ?: block()
+
+    /** Changes [lookupKey]'s contact_meta row as it is now (created when missing), atomically. */
+    private suspend fun editMeta(lookupKey: String, create: Boolean, transform: (ContactMetaEntity) -> ContactMetaEntity?) = withContext(Dispatchers.IO) {
+        tx {
+            val m = meta.meta(lookupKey) ?: if (create) ContactMetaEntity(lookupKey) else null
+            m?.let(transform)?.let { if (it != m) meta.setMeta(it) }
+        }
+    }
 
     private val _config = MutableStateFlow(CircleConfig.decode(prefs.getString(K_CONFIG, null)))
     val config: StateFlow<CircleConfig> = _config.asStateFlow()
@@ -77,32 +92,52 @@ class CircleRepository(
 
     /** Adds [lookupKey] to the Circle (or changes its rhythm). [natural]: learn the gap from history. */
     suspend fun setRhythm(lookupKey: String, contactId: Long?, everyDays: Int?, natural: Boolean = false) = withContext(Dispatchers.IO) {
-        val m = meta.meta(lookupKey) ?: ContactMetaEntity(lookupKey)
-        val old = KeepRhythm.decode(m.rhythm)
-        val rhythm = when {
-            everyDays == null -> KeepRhythm()
-            natural -> NaturalRhythm.relearn(old.copy(mode = app.parley.common.circle.RhythmMode.NATURAL, learnedAt = null, snoozedUntil = null), contactTimes(lookupKey), System.currentTimeMillis(), ZoneId.systemDefault())
-            else -> KeepRhythm()
+        // History first (it may wait for the call-log index), then the row as it is now.
+        val times = if (everyDays != null && natural) contactTimes(lookupKey) else emptyList()
+        editMeta(lookupKey, create = true) { m ->
+            val old = KeepRhythm.decode(m.rhythm)
+            val rhythm = when {
+                everyDays == null -> KeepRhythm()
+                natural -> NaturalRhythm.relearn(old.copy(mode = app.parley.common.circle.RhythmMode.NATURAL, learnedAt = null, snoozedUntil = null), times, System.currentTimeMillis(), ZoneId.systemDefault())
+                else -> KeepRhythm()
+            }
+            m.copy(contactId = contactId ?: m.contactId, reachOutDays = everyDays, lastNudgedAt = null, rhythm = rhythm.encode())
         }
-        meta.setMeta(m.copy(contactId = contactId ?: m.contactId, reachOutDays = everyDays, lastNudgedAt = null, rhythm = rhythm.encode()))
+    }
+
+    /**
+     * Undo of "remove from Circle": puts back the membership of [before] (rhythm, gap, last reminder) on the row as it
+     * is now, so a note edited meanwhile stays.
+     */
+    suspend fun restoreMembership(before: ContactMetaEntity) {
+        editMeta(before.lookupKey, create = true) { m -> m.copy(contactId = m.contactId ?: before.contactId, reachOutDays = before.reachOutDays, lastNudgedAt = before.lastNudgedAt, rhythm = before.rhythm) }
     }
 
     /** R4 "Not now": the next reminder about [lookupKey] waits one more full gap. */
-    suspend fun snooze(lookupKey: String, now: Long = System.currentTimeMillis()) = withContext(Dispatchers.IO) {
-        val m = meta.meta(lookupKey) ?: return@withContext
-        val r = KeepRhythm.decode(m.rhythm)
-        val days = r.days(m.reachOutDays ?: return@withContext)
-        meta.setMeta(m.copy(rhythm = r.copy(snoozedUntil = CirclePlanner.snooze(now, days)).encode()))
+    suspend fun snooze(lookupKey: String, now: Long = System.currentTimeMillis()) {
+        editMeta(lookupKey, create = false) { m ->
+            val r = KeepRhythm.decode(m.rhythm)
+            val days = r.days(m.reachOutDays ?: return@editMeta null)
+            m.copy(rhythm = r.copy(snoozedUntil = CirclePlanner.snooze(now, days)).encode())
+        }
     }
 
     /** Monthly re-learning of natural rhythms (R4); returns the members, updated. */
     suspend fun relearnDue(now: Long = System.currentTimeMillis()): List<Member> = withContext(Dispatchers.IO) {
         members().map { mem ->
             if (!mem.rhythm.needsRelearn(now)) return@map mem
-            val next = NaturalRhythm.relearn(mem.rhythm, contactTimes(mem.lookupKey), now, ZoneId.systemDefault())
-            val row = mem.meta.copy(rhythm = next.encode())
-            meta.setMeta(row)
-            Member(row, next)
+            val times = contactTimes(mem.lookupKey)
+            // Relearn on the row as it is now (the history read may have waited for the index): only the rhythm
+            // changes, so a note edit, a snooze or a re-key made meanwhile isn't overwritten.
+            tx {
+                val row = meta.meta(mem.lookupKey)?.takeIf { it.reachOutDays != null } ?: return@tx mem
+                val current = KeepRhythm.decode(row.rhythm)
+                if (!current.needsRelearn(now)) return@tx Member(row, current)
+                val next = NaturalRhythm.relearn(current, times, now, ZoneId.systemDefault())
+                val updated = row.copy(rhythm = next.encode())
+                meta.setMeta(updated)
+                Member(updated, next)
+            }
         }
     }
 
@@ -145,8 +180,13 @@ class CircleRepository(
 
     // --- R3: "Log this?" ---
 
-    /** A launch Parley just made for a Circle contact. [autoLogged]: "Always" already recorded it (offer Undo). */
-    data class LogPrompt(val lookupKey: String, val contactId: Long?, val name: String, val channel: InteractionChannel, val time: Long, val dedupeKey: String, val autoLogged: Boolean)
+    /**
+     * A launch Parley just made for a Circle contact. [loggedId]: "Always" already recorded it as this row (offer
+     * Undo of exactly that row).
+     */
+    data class LogPrompt(val lookupKey: String, val contactId: Long?, val name: String, val channel: InteractionChannel, val time: Long, val dedupeKey: String, val loggedId: Long? = null) {
+        val autoLogged: Boolean get() = loggedId != null
+    }
 
     private val _prompt = MutableStateFlow<LogPrompt?>(null)
 
@@ -166,15 +206,18 @@ class CircleRepository(
         val mode = _config.value.logMode(channel)
         if (mode == LogMode.NEVER) return
         val key = Interactions.promptKey(channel, lookupKey, now)
-        val auto = mode == LogMode.ALWAYS && runCatching { interactions.log(lookupKey, contactId, channel.type, channel, now, null, key) }.getOrNull() != null
-        if (mode == LogMode.ALWAYS && !auto) return
-        _prompt.value = LogPrompt(lookupKey, contactId, name, channel, now, key, auto)
+        val logged = if (mode == LogMode.ALWAYS) runCatching { interactions.log(lookupKey, contactId, channel.type, channel, now, null, key) }.getOrNull() else null
+        if (mode == LogMode.ALWAYS && logged == null) return
+        _prompt.value = LogPrompt(lookupKey, contactId, name, channel, now, key, logged)
     }
 
-    /** "Log" on the question: records it (a second tap in the same 10 minutes records nothing new). */
-    suspend fun accept(p: LogPrompt): Boolean {
+    /**
+     * "Log" on the question: records it and returns the new row's id, or null when nothing new was recorded (a second
+     * tap in the same 10 minutes), so Undo is only offered for, and only removes, the entry this tap added.
+     */
+    suspend fun accept(p: LogPrompt): Long? {
         clearPrompt(p)
-        return runCatching { interactions.log(p.lookupKey, p.contactId, p.channel.type, p.channel, p.time, null, p.dedupeKey) != null }.getOrDefault(false)
+        return runCatching { interactions.log(p.lookupKey, p.contactId, p.channel.type, p.channel, p.time, null, p.dedupeKey) }.getOrNull()
     }
 
     // --- R4/R5 bookkeeping for the reminders worker ---
@@ -219,24 +262,32 @@ class CircleRepository(
 
     /** R9: ticks a promise off (or back on) by rewriting its line in the note it lives in. */
     suspend fun setPromiseDone(lookupKey: String, note: PersonNote, line: Int, done: Boolean): Boolean = withContext(Dispatchers.IO) {
-        val next = Promises.setDone(note.text, line, done)
-        if (next == note.text) return@withContext false
+        // [note] is what was shown; the note may have been edited since: re-read it and change only that promise's
+        // box in the current text (in one transaction, so nothing written meanwhile is reverted).
         runCatching {
-            when (note.source) {
-                NoteSource.CALL -> meta.setCallNoteText(note.id, next)
-                NoteSource.LOGGED -> interactions.setNote(note.id, next)
-                NoteSource.PINNED -> meta.meta(lookupKey)?.let { meta.setMeta(it.copy(pinnedNote = next)) }
+            tx {
+                val current = when (note.source) {
+                    NoteSource.CALL -> meta.callNote(note.id)?.text
+                    NoteSource.LOGGED -> interactions.noteOf(note.id)
+                    NoteSource.PINNED -> meta.meta(lookupKey)?.pinnedNote
+                } ?: return@tx false
+                val next = Promises.setDoneFresh(current, note.text, line, done)
+                if (next == current) return@tx false
+                when (note.source) {
+                    NoteSource.CALL -> meta.setCallNoteText(note.id, next)
+                    NoteSource.LOGGED -> interactions.setNote(note.id, next)
+                    NoteSource.PINNED -> meta.meta(lookupKey)?.let { meta.setMeta(it.copy(pinnedNote = next)) }
+                }
+                true
             }
-            true
         }.getOrDefault(false)
     }
 
     // --- R10: life events remembered yearly ---
 
-    suspend fun setYearly(lookupKey: String, contactId: Long?, key: String, on: Boolean) = withContext(Dispatchers.IO) {
-        if (lookupKey.isEmpty()) return@withContext
-        val m = meta.meta(lookupKey) ?: ContactMetaEntity(lookupKey)
-        meta.setMeta(m.copy(contactId = contactId ?: m.contactId, yearlyEvents = YearlyEvents.toggle(m.yearlyEvents, key, on)))
+    suspend fun setYearly(lookupKey: String, contactId: Long?, key: String, on: Boolean) {
+        if (lookupKey.isEmpty()) return
+        editMeta(lookupKey, create = true) { m -> m.copy(contactId = contactId ?: m.contactId, yearlyEvents = YearlyEvents.toggle(m.yearlyEvents, key, on)) }
     }
 
     /** Lookup key -> flagged event keys. */
@@ -248,7 +299,7 @@ class CircleRepository(
 
     /**
      * Every contact entry since [since] as [PeopleInsights.Touch]es keyed by lookup key: calls with contacts from
-     * the call log (private contacts' calls aren't there, and their interactions were moved into the vault) and
+     * the call log (private contacts' calls aren't there, and their interactions travel sealed in the vault entry) and
      * logged interactions ("Mark as wished" entries as [PeopleInsights.TouchKind.WISHED]).
      */
     suspend fun touches(since: Long, idx: CallLogIndex? = index().value): List<PeopleInsights.Touch> {
@@ -265,53 +316,63 @@ class CircleRepository(
     // --- Backup (inside the encrypted backup's settings section) ---
 
     val backupExtras: BackupExtras = object : BackupExtras {
+        /** Contacts read fresh (a restore has just inserted some), else the snapshot. */
+        private suspend fun contactsNow(): List<app.parley.common.ContactSummary> =
+            runCatching { freshContacts() }.getOrNull() ?: withTimeoutOrNull(30_000) { contactsFlow().filterNotNull().first() }.orEmpty()
+
         override suspend fun export(): Map<String, String> {
             val out = LinkedHashMap<String, String>()
             out[X_CONFIG] = CircleConfig.encode(_config.value)
-            val contacts = withTimeoutOrNull(30_000) { contactsFlow().filterNotNull().first() }.orEmpty().associateBy { it.lookupKey }
-            fun person(key: String): JSONObject? {
-                val c = contacts[key] ?: return null
-                return JSONObject().put("k", key).put("n", c.displayName).put("p", JSONArray(c.phones.map { PhoneNumbers.matchKey(it.number) }.filter { it.length >= 7 }.distinct()))
+            val contacts = contactsNow().associateBy { it.lookupKey }
+            // Entries whose key isn't a current contact (not re-keyed yet, or the list couldn't be read) still go in,
+            // with the key alone: a restore matches what it can and reports the rest.
+            fun person(key: String): JSONObject {
+                val o = JSONObject().put("k", key)
+                val c = contacts[key] ?: return o
+                return o.put("n", c.displayName).put("p", JSONArray(c.phones.map { PhoneNumbers.matchKey(it.number) }.filter { it.length >= 7 }.distinct()))
             }
             val members = JSONArray()
-            members().forEach { m ->
-                val p = person(m.lookupKey) ?: return@forEach
-                members.put(p.put("d", m.meta.reachOutDays).put("r", m.meta.rhythm ?: JSONObject.NULL))
-            }
+            members().forEach { m -> members.put(person(m.lookupKey).put("d", m.meta.reachOutDays).put("r", m.meta.rhythm ?: JSONObject.NULL)) }
             out[X_MEMBERS] = members.toString()
             val items = JSONArray()
             for (i in interactions.all()) {
-                val p = person(i.lookupKey) ?: continue
-                items.put(p.put("t", i.type.name).put("c", i.channel?.name ?: JSONObject.NULL).put("at", i.time).put("note", i.note ?: JSONObject.NULL).put("u", i.dedupeKey))
+                items.put(person(i.lookupKey).put("t", i.type.name).put("c", i.channel?.name ?: JSONObject.NULL).put("at", i.time).put("note", i.note ?: JSONObject.NULL).put("u", i.dedupeKey))
             }
             out[X_INTERACTIONS] = items.toString()
             // R10: life events remembered yearly.
             val yearly = JSONArray()
-            yearlyFlags().forEach { (key, flags) -> person(key)?.let { yearly.put(it.put("y", JSONArray(flags.toList()))) } }
+            yearlyFlags().forEach { (key, flags) -> yearly.put(person(key).put("y", JSONArray(flags.toList()))) }
             out[X_YEARLY] = yearly.toString()
             return out
         }
 
         override suspend fun import(values: Map<String, String>) {
+            importCounting(values)
+        }
+
+        override suspend fun importCounting(values: Map<String, String>): Int {
             values[X_CONFIG]?.let { v -> updateConfig { CircleConfig.decode(v) } }
-            val contacts = withTimeoutOrNull(30_000) { contactsFlow().filterNotNull().first() }.orEmpty()
+            if (values.keys.none { it == X_MEMBERS || it == X_INTERACTIONS || it == X_YEARLY }) return 0
+            val contacts = contactsNow()
             val byKey = contacts.associateBy { it.lookupKey }
+            var unmatched = 0
             // Lookup keys differ on another phone: fall back to a shared number, then to the same name.
             fun resolve(o: JSONObject): app.parley.common.ContactSummary? {
                 byKey[o.optString("k")]?.let { return it }
                 val phones = o.optJSONArray("p")?.let { a -> (0 until a.length()).map { a.getString(it) } }.orEmpty().toSet()
                 val name = o.optString("n")
-                return contacts.firstOrNull { c -> phones.isNotEmpty() && c.phones.any { PhoneNumbers.matchKey(it.number) in phones } }
-                    ?: contacts.filter { it.displayName == name && name.isNotBlank() }.singleOrNull()
+                return (
+                    contacts.firstOrNull { c -> phones.isNotEmpty() && c.phones.any { PhoneNumbers.matchKey(it.number) in phones } }
+                        ?: contacts.filter { it.displayName == name && name.isNotBlank() }.singleOrNull()
+                    ).also { if (it == null) unmatched++ }
             }
             values[X_MEMBERS]?.let { json ->
                 val a = runCatching { JSONArray(json) }.getOrNull() ?: return@let
                 for (i in 0 until a.length()) {
                     val o = a.optJSONObject(i) ?: continue
                     val c = resolve(o) ?: continue
-                    withContext(Dispatchers.IO) {
-                        val m = meta.meta(c.lookupKey) ?: ContactMetaEntity(c.lookupKey)
-                        if (m.reachOutDays == null) meta.setMeta(m.copy(contactId = c.id, reachOutDays = o.optInt("d", 30), rhythm = o.optString("r").takeIf { o.has("r") && !o.isNull("r") }))
+                    editMeta(c.lookupKey, create = true) { m ->
+                        if (m.reachOutDays != null) null else m.copy(contactId = c.id, reachOutDays = o.optInt("d", 30), rhythm = o.optString("r").takeIf { o.has("r") && !o.isNull("r") })
                     }
                 }
             }
@@ -333,12 +394,10 @@ class CircleRepository(
                     val o = a.optJSONObject(i) ?: continue
                     val c = resolve(o) ?: continue
                     val flags = o.optJSONArray("y")?.let { f -> (0 until f.length()).map { f.getString(it) } }.orEmpty()
-                    withContext(Dispatchers.IO) {
-                        val m = meta.meta(c.lookupKey) ?: ContactMetaEntity(c.lookupKey)
-                        meta.setMeta(m.copy(contactId = c.id, yearlyEvents = YearlyEvents.merge(m.yearlyEvents, YearlyEvents.encode(flags.toSet()))))
-                    }
+                    editMeta(c.lookupKey, create = true) { m -> m.copy(contactId = c.id, yearlyEvents = YearlyEvents.merge(m.yearlyEvents, YearlyEvents.encode(flags.toSet()))) }
                 }
             }
+            return unmatched
         }
     }
 

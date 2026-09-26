@@ -443,7 +443,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         if (d.lookupKey.isNotEmpty()) {
             c.journal.forget(d.lookupKey)
             c.timeMachine.purge(d.lookupKey)
-            // Nothing about the person stays outside the vault: notes, links, call background.
+            // Nothing about the person stays outside the vault: notes, links, call background, interactions (moveIn
+            // carried those, sealed, into the entry; they come back on "Move out").
             runCatching { c.contactKeys.forget(d.lookupKey) }
         }
         // With "Private call history" on, their ring facts go too (the calls themselves move into the vault).

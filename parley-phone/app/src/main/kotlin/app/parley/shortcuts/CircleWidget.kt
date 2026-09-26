@@ -39,7 +39,8 @@ import java.time.LocalDate
  * from the Circle digest, each with a Call button (through the shortcut trampoline, so the pocket guard applies).
  *
  * - With the app lock on, it shows only counts, never names, while the device is locked; names come back once the
- *   phone is unlocked (USER_PRESENT while Parley runs, else the next refresh).
+ *   phone is unlocked: USER_PRESENT while Parley runs, when Parley is opened ([refreshIfShownLocked]), or with a tap
+ *   on the counts (a broadcast to this provider, which works after the process has died too).
  * - Private (vault) contacts are never in it: only system contacts are read.
  * - The app refreshes it when the Circle, interactions, the call history or the lock setting change, and daily from
  *   the reminders worker. Resizable: smaller sizes show fewer rows.
@@ -48,6 +49,11 @@ class CircleWidget : AppWidgetProvider() {
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) = refreshAsync(context)
 
     override fun onAppWidgetOptionsChanged(context: Context, manager: AppWidgetManager, id: Int, options: Bundle) = refreshAsync(context)
+
+    override fun onReceive(context: Context, intent: Intent) {
+        // R7: "tap to show names" on the locked rendering (drawn again with names only if the phone is unlocked now).
+        if (intent.action == ACTION_REVEAL) refreshAsync(context) else super.onReceive(context, intent)
+    }
 
     private fun refreshAsync(context: Context) {
         val pending = goAsync()
@@ -74,6 +80,17 @@ class CircleWidget : AppWidgetProvider() {
         private fun ids(context: Context): IntArray =
             runCatching { AppWidgetManager.getInstance(context).getAppWidgetIds(ComponentName(context, CircleWidget::class.java)) }.getOrDefault(IntArray(0))
 
+        private const val ACTION_REVEAL = "app.parley.action.CIRCLE_WIDGET_REVEAL"
+
+        /** Whether the last drawing was the locked (counts only) one; null: unknown (e.g. a new process). */
+        @Volatile
+        private var shownLocked: Boolean? = null
+
+        /** Parley came to the front (so the phone is unlocked): brings names back if the widget still hides them. */
+        suspend fun refreshIfShownLocked(context: Context) {
+            if (shownLocked != false) refresh(context)
+        }
+
         /** Re-draws every Circle widget (no-op without any). */
         suspend fun refresh(context: Context) {
             val ctx = context.applicationContext
@@ -84,6 +101,7 @@ class CircleWidget : AppWidgetProvider() {
             val locked = c.settings.current().appLock && ctx.getSystemService(KeyguardManager::class.java)?.isDeviceLocked != false
             val manager = AppWidgetManager.getInstance(ctx)
             ids.forEach { id -> runCatching { manager.updateAppWidget(id, views(ctx, id, manager, content, locked)) } }
+            shownLocked = locked
         }
 
         private suspend fun load(ctx: Context, c: DataContainer): Content {
@@ -156,8 +174,16 @@ class CircleWidget : AppWidgetProvider() {
                     res.getQuantityString(R.plurals.c2_widget_count_people, content.people.size, content.people.size),
                     res.getQuantityString(R.plurals.c2_widget_count_dates, content.dates.size, content.dates.size),
                 ).joinToString("\n")
-                v.setTextViewText(R.id.circle_message, text)
+                v.setTextViewText(R.id.circle_message, text + "\n" + res.getString(R.string.c2_widget_tap_reveal))
                 v.setViewVisibility(R.id.circle_message, View.VISIBLE)
+                // A tap re-draws the widget (names return when the phone is unlocked); opening Parley does too.
+                val reveal = PendingIntent.getBroadcast(
+                    ctx, 7500 + id,
+                    Intent(ctx, CircleWidget::class.java).setAction(ACTION_REVEAL),
+                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+                )
+                v.setOnClickPendingIntent(R.id.circle_root, reveal)
+                v.setOnClickPendingIntent(R.id.circle_message, reveal)
                 return v
             }
             if (content.people.isEmpty() && content.dates.isEmpty()) {

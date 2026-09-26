@@ -106,4 +106,8 @@
         <item quantity="one">%1$d दिन में</item>
         <item quantity="other">%1$d दिन में</item>
     </plurals>
+    <!-- R7: under the widget's counts while the phone is locked. -->
+    <string name="c2_widget_tap_reveal">नाम दिखाने के लिए टैप करें</string>
+    <!-- R6 year in review: a name and how many times (a number). -->
+    <string name="c2_review_person_count">%1$s (%2$s)</string>
 </resources>

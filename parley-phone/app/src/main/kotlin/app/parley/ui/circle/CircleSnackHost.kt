@@ -73,13 +73,15 @@ fun CircleSnackHost(vm: AppViewModel, snackbar: SnackbarHostState) {
             val text = res.getString(if (video) R.string.circle_logged_video else R.string.circle_logged_message, p.name)
             val r = snackbar.showSnackbar(text, actionLabel = res.getString(R.string.dc_undo), duration = SnackbarDuration.Long)
             vm.c.circle.clearPrompt(p)
-            if (r == SnackbarResult.ActionPerformed) vm.c.circle.interactions.deleteByDedupe(p.dedupeKey)
+            val id = p.loggedId
+            if (r == SnackbarResult.ActionPerformed && id != null) vm.c.circle.interactions.delete(id)
         } else {
             val text = res.getString(if (video) R.string.circle_log_question_video else R.string.circle_log_question_message, p.name)
             val r = snackbar.showSnackbar(text, actionLabel = res.getString(R.string.circle_log), withDismissAction = true, duration = SnackbarDuration.Long)
             if (r == SnackbarResult.ActionPerformed) {
-                vm.c.circle.accept(p)
-                CircleSnacks.show(CircleSnack(res.getString(R.string.circle_logged, p.name)) { vm.c.circle.interactions.deleteByDedupe(p.dedupeKey) })
+                // Undo only for an entry this tap added (a second "Log" in the same 10 minutes adds none), and only it.
+                val id = vm.c.circle.accept(p)
+                CircleSnacks.show(CircleSnack(res.getString(R.string.circle_logged, p.name), if (id != null) ({ vm.c.circle.interactions.delete(id) }) else null))
             } else {
                 vm.c.circle.clearPrompt(p)
             }

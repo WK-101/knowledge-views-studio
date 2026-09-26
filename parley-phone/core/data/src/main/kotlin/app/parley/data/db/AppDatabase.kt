@@ -176,6 +176,9 @@ data class InteractionEntity(
 /** R6: when and how you were in touch, without opening any note. */
 data class InteractionTouchRow(val lookupKey: String, val time: Long, val dedupeKey: String)
 
+/** A stored interaction key and its last known contact id. */
+data class InteractionKeyRow(val lookupKey: String, val contactId: Long?)
+
 /** Newest interaction per contact, for the Circle list. */
 data class LastInteractionRow(val lookupKey: String, val time: Long, val type: String)
 
@@ -274,6 +277,10 @@ interface MetaDao {
     @Query("DELETE FROM contact_meta WHERE lookupKey = :key")
     suspend fun deleteMeta(key: String)
 
+    /** R4: targeted writes, so a row read a while ago never overwrites newer edits (pinned note, a re-key). */
+    @Query("UPDATE contact_meta SET lastNudgedAt = :at WHERE lookupKey = :key")
+    suspend fun setLastNudgedAt(key: String, at: Long?)
+
     @Insert
     suspend fun addCallNote(n: CallNoteEntity): Long
 
@@ -291,6 +298,9 @@ interface MetaDao {
     suspend fun callNotesNow(keys: List<String>): List<CallNoteEntity>
 
     /** R9: a promise ticked off rewrites its line. */
+    @Query("SELECT * FROM call_notes WHERE id = :id")
+    suspend fun callNote(id: Long): CallNoteEntity?
+
     @Query("UPDATE call_notes SET text = :text WHERE id = :id")
     suspend fun setCallNoteText(id: Long, text: String)
 }
@@ -342,8 +352,9 @@ interface InteractionDao {
     @Query("DELETE FROM interactions WHERE dedupeKey = :key")
     suspend fun deleteByDedupe(key: String)
 
-    @Query("SELECT DISTINCT lookupKey FROM interactions")
-    suspend fun keys(): List<String>
+    /** Each stored key with the newest contact id recorded for it (so [app.parley.data.people.ContactKeys] can follow ids). */
+    @Query("SELECT lookupKey, MAX(contactId) AS contactId FROM interactions GROUP BY lookupKey")
+    suspend fun keys(): List<InteractionKeyRow>
 
     @Query("UPDATE interactions SET lookupKey = :to, contactId = COALESCE(:toId, contactId) WHERE lookupKey = :from")
     suspend fun rekey(from: String, to: String, toId: Long?)

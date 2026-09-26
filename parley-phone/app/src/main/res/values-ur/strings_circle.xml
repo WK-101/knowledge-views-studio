@@ -127,4 +127,9 @@
         <item quantity="one">%d دن پہلے بھی</item>
         <item quantity="other">%d دن پہلے بھی</item>
     </plurals>
+    <!-- Restore summary: Circle members, interactions or yearly flags whose person wasn't found. -->
+    <plurals name="circle_restore_unmatched">
+        <item quantity="one">حلقے کا %d اندراج اس فون کے کسی رابطے سے میل نہیں کھایا، اس لیے چھوڑ دیا گیا</item>
+        <item quantity="other">حلقے کے %d اندراجات اس فون کے کسی رابطے سے میل نہیں کھائے، اس لیے چھوڑ دیے گئے</item>
+    </plurals>
 </resources>

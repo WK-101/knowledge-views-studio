@@ -124,6 +124,12 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope) {
         reload.value++
     }
 
+    /**
+     * Reads the contact list now, straight from the provider (the [contacts] snapshot only catches up after an
+     * asynchronous reload), e.g. right after a restore inserted contacts.
+     */
+    suspend fun loadNow(): List<ContactSummary> = withContext(Dispatchers.IO) { loadAll() }
+
     private fun loadAll(): List<ContactSummary> {
         if (!Permissions.has(context, android.Manifest.permission.READ_CONTACTS)) return emptyList()
         val phones = HashMap<Long, MutableList<PhoneEntry>>()
@@ -183,6 +189,27 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope) {
             blank.forEach { i -> out[i] = out[i].let { s -> (names[s.id] ?: ContactText.NO_NAME).let { n -> s.copy(displayName = n, displayNameAlt = n) } } }
         }
         return out
+    }
+
+    /**
+     * The given name ("first name" in western order) of each of [contactIds] that has one, from its structured name
+     * (the super-primary name first). For short mentions that shouldn't guess by splitting the display name.
+     */
+    suspend fun givenNames(contactIds: Collection<Long>): Map<Long, String> = withContext(Dispatchers.IO) {
+        val out = HashMap<Long, String>()
+        for (chunk in contactIds.distinct().chunked(500)) {
+            cr.safeQuery(
+                Data.CONTENT_URI, arrayOf(Data.CONTACT_ID, StructuredName.GIVEN_NAME),
+                "${Data.MIMETYPE} = ? AND ${Data.CONTACT_ID} IN (${chunk.joinToString(",")})", arrayOf(StructuredName.CONTENT_ITEM_TYPE),
+                sort = "${Data.IS_SUPER_PRIMARY} DESC",
+            )?.use { c ->
+                while (c.moveToNext()) {
+                    val given = c.getString(1)?.trim()?.takeIf { it.isNotEmpty() } ?: continue
+                    out.putIfAbsent(c.getLong(0), given)
+                }
+            }
+        }
+        out
     }
 
     /** Names for contacts Android shows without a display name, from their address, website, note… */

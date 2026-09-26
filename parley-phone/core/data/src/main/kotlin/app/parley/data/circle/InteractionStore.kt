@@ -101,6 +101,9 @@ class InteractionStore(private val dao: InteractionDao) {
         dao.update(e.copy(noteBlob = seal(note)))
     }
 
+    /** The current (opened) note of entry [id], or null. */
+    suspend fun noteOf(id: Long): String? = withContext(Dispatchers.IO) { dao.get(id)?.let { open(it.noteBlob) } }
+
     /** R6: (lookup key, time, dedupe key) of every interaction since [since]; notes stay sealed. */
     suspend fun touchesSince(since: Long): List<app.parley.data.db.InteractionTouchRow> = withContext(Dispatchers.IO) { dao.touchesSince(since) }
 
@@ -125,5 +128,6 @@ class InteractionStore(private val dao: InteractionDao) {
 
     internal suspend fun forget(key: String) = dao.deleteFor(key)
 
-    internal suspend fun keys(): List<String> = dao.keys()
+    /** Stored keys with their last known contact id. */
+    internal suspend fun keys(): List<Pair<String, Long?>> = dao.keys().map { it.lookupKey to it.contactId }
 }

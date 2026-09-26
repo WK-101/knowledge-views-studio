@@ -116,4 +116,8 @@
         <item quantity="many">Dans %1$d jours</item>
         <item quantity="other">Dans %1$d jours</item>
     </plurals>
+    <!-- R7: under the widget's counts while the phone is locked. -->
+    <string name="c2_widget_tap_reveal">Touchez pour afficher les noms</string>
+    <!-- R6 year in review: a name and how many times (a number). -->
+    <string name="c2_review_person_count">%1$s (%2$s)</string>
 </resources>
