@@ -53,7 +53,13 @@ fun WhatsNewCard(vm: AppViewModel, open: (String) -> Unit, modifier: Modifier = 
     // A fresh install has nothing "new": remember this version quietly.
     LaunchedEffect(decision) { if (decision == WhatsNew.Decision.MARK_SEEN) vm.c.ux.setWhatsNewSeen(version) }
     if (decision != WhatsNew.Decision.SHOW) return
-    fun seen() = vm.c.ux.setWhatsNewSeen(version)
+    // S1/S2 (v3.3): the combine options are offered once, here, and only switched on from Settings (never automatically).
+    val settings by vm.settings.collectAsStateWithLifecycle()
+    val offerLayout = app.parley.common.ux.Tips.LAYOUT_OFFER !in ux.seenTips && !settings.surfaces.merged
+    fun seen() {
+        vm.c.ux.setWhatsNewSeen(version)
+        if (offerLayout) vm.c.ux.dismissTip(app.parley.common.ux.Tips.LAYOUT_OFFER)
+    }
     Card(
         modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer),
@@ -65,6 +71,10 @@ fun WhatsNewCard(vm: AppViewModel, open: (String) -> Unit, modifier: Modifier = 
                 Text(stringResource(R.string.ux_whats_new_title, BuildConfigInfo.versionName(context)), style = MaterialTheme.typography.titleSmall)
             }
             Text(stringResource(R.string.ux_whats_new_body), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(end = 8.dp))
+            if (offerLayout) {
+                Text(stringResource(R.string.surf_whats_new_layout), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 4.dp, end = 8.dp))
+                TextButton({ seen(); open(Routes.settingsPage(SettingsCategory.APPEARANCE, "calls_layout")) }) { Text(stringResource(R.string.surf_whats_new_layout_action)) }
+            }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                 TextButton({ seen(); open(Routes.settingsPage(SettingsCategory.APPEARANCE, "nav_tabs")) }) { Text(stringResource(R.string.ux_whats_new_try)) }
                 TextButton(::seen) { Text(stringResource(R.string.ux_tip_got_it)) }

@@ -52,6 +52,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.R
 import app.parley.common.ContactSummary
+import app.parley.common.homeLayout
 import app.parley.data.GroupInfo
 import app.parley.ui.Avatar
 import app.parley.ui.shared
@@ -72,7 +73,7 @@ fun sectionOf(name: String): String {
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun ContactsTab(vm: AppViewModel, open: (String) -> Unit) {
+fun ContactsTab(vm: AppViewModel, open: (String) -> Unit, onReorderFavorites: () -> Unit = {}) {
     val list by vm.people.filtered.collectAsStateWithLifecycle()
     val query by vm.contactQuery.collectAsStateWithLifecycle()
     val selection by vm.selection.collectAsStateWithLifecycle()
@@ -134,9 +135,14 @@ fun ContactsTab(vm: AppViewModel, open: (String) -> Unit) {
     // Build (index of first item for each section) for the fast-scroll rail.
     // I2: "My card" leads the list when nothing is being searched or filtered.
     val showMe = query.isBlank() && filter.isEmpty && selection.isEmpty()
-    val sections = remember(contacts, showMe) {
+    // S2 (v3.3): the favourites (and the Circle, when it moved with them) under "My card", while not searching.
+    val layout = settings.homeLayout
+    val showFavorites = showMe && layout.favoritesInContacts
+    val showCircle = showFavorites && layout.circleHost == app.parley.common.StartTab.CONTACTS
+    val leading = listOf(showMe, showFavorites, showCircle).count { it }
+    val sections = remember(contacts, leading) {
         val map = LinkedHashMap<String, Int>()
-        var idx = if (showMe) 2 else 1 // item 0 is the group chips row, then "My card"
+        var idx = 1 + leading // item 0 is the group chips row, then "My card", the favourites and the Circle
         contacts.forEachIndexed { i, c ->
             val s = sectionOf(c.displayName)
             if (s !in map) {
@@ -152,6 +158,8 @@ fun ContactsTab(vm: AppViewModel, open: (String) -> Unit) {
         LazyColumn(state = state, modifier = Modifier.fillMaxSize()) {
             item(key = "groups") { chips() }
             if (showMe) item(key = "me") { app.parley.ui.people.MeCardRow(vm, open) }
+            if (showFavorites) item(key = "favorites") { ContactsFavorites(vm, open, onReorder = onReorderFavorites) }
+            if (showCircle) item(key = "circle") { app.parley.ui.circle.CircleFavoritesSection(vm, open, "") }
             if (contacts.isEmpty()) {
                 item(key = "empty") {
                     EmptyState(

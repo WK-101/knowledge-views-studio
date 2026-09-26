@@ -53,7 +53,12 @@ import app.parley.ui.home.label
  * actions on each row. The last visible tab can't be switched off.
  */
 @Composable
-fun NavTabsEditor(tabs: NavTabs, onChange: (NavTabs) -> Unit) {
+fun NavTabsEditor(
+    tabs: NavTabs,
+    /** S1/S2 (v3.3): tabs a combined surface shows instead of the bar (Keypad → Recents, Favorites → Contacts). */
+    inside: Map<StartTab, StartTab> = emptyMap(),
+    onChange: (NavTabs) -> Unit,
+) {
     // Local order while dragging, written back when the finger lifts.
     var order by remember { mutableStateOf(tabs.order) }
     var dragging by remember { mutableStateOf<StartTab?>(null) }
@@ -129,6 +134,9 @@ fun NavTabsEditor(tabs: NavTabs, onChange: (NavTabs) -> Unit) {
                     Spacer(Modifier.width(16.dp))
                     Column(Modifier.weight(1f)) {
                         Text(t.label, style = MaterialTheme.typography.bodyLarge)
+                        inside[t]?.let { host ->
+                            if (shown) Text(stringResource(R.string.surf_tab_inside, host.label), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
                         if (shown && !tabs.canHide(t)) {
                             Text(stringResource(R.string.set_tab_one_stays), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }

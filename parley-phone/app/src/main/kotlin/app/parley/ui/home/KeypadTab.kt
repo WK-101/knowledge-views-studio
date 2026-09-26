@@ -17,6 +17,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.res.stringResource
 import app.parley.R
 import app.parley.ui.Bidi
@@ -162,7 +166,7 @@ private val CALL_ROW_HEIGHT = 64.dp
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
-fun KeypadTab(vm: AppViewModel, open: (String) -> Unit, searchQuery: String? = null) {
+fun KeypadTab(vm: AppViewModel, open: (String) -> Unit, searchQuery: String? = null, dock: KeypadDock? = null) {
     // Search from the header: contacts by name or number, in place of the keypad until the search closes.
     if (searchQuery != null) {
         KeypadContactSearch(vm, searchQuery, open)
@@ -210,7 +214,11 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit, searchQuery: String? = n
 
     fun insert(text: String) = field.insertAtCursor(text)
 
+    // S1: typing on a hardware keypad while the docked keypad is folded unfolds it (the number shows there).
+    fun unfold() { dock?.let { if (!it.expanded) it.onExpandedChange(true) } }
+
     fun press(c: Char) {
+        unfold()
         insert(c.toString())
         if (settings.dialpadHaptics) haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
         if (toneAllowed()) dtmfTone[c]?.let { tone?.startTone(it, KEY_TONE_MS) }
@@ -294,7 +302,7 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit, searchQuery: String? = n
         return when {
             digit != null || ch == '*' || ch == '#' || ch == '+' -> { if (down) press(digit ?: ch); true }
             // QWERTY: letters search names as text; space separates words.
-            qwerty && (ch.isLetter() || (ch == ' ' && isTextSearch())) -> { if (down) insert(ch.toString()); true }
+            qwerty && (ch.isLetter() || (ch == ' ' && isTextSearch())) -> { if (down) { unfold(); insert(ch.toString()) }; true }
             else -> false
         }
     }
@@ -306,10 +314,29 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit, searchQuery: String? = n
     val typedNumber = input.trim()
     val showNumberActions = typedNumber.isNotEmpty() && !isTextSearch() && !PhoneNumbers.isServiceCode(typedNumber)
 
-    Column(Modifier.fillMaxSize().focusRequester(rootFocus).onPreviewKeyEvent(::onKey).focusable()) {
-        // Results
-        Box(Modifier.weight(1f).fillMaxWidth()) {
-            if (input.isEmpty()) {
+    // S1: docked at the foot of Recents, the panel folds away (scrolling the list, a swipe down on its handle) and a
+    // keypad button brings it back; the panel's height still never changes while typing (C1).
+    val panelShown = dock?.expanded ?: true
+    val latestDock by androidx.compose.runtime.rememberUpdatedState(dock)
+    val foldOnScroll = remember {
+        object : androidx.compose.ui.input.nestedscroll.NestedScrollConnection {
+            override fun onPreScroll(available: androidx.compose.ui.geometry.Offset, source: androidx.compose.ui.input.nestedscroll.NestedScrollSource): androidx.compose.ui.geometry.Offset {
+                val d = latestDock
+                if (d != null && d.expanded && source == androidx.compose.ui.input.nestedscroll.NestedScrollSource.UserInput && kotlin.math.abs(available.y) > 4f) d.onExpandedChange(false)
+                return androidx.compose.ui.geometry.Offset.Zero
+            }
+        }
+    }
+
+    val resultsArea: @Composable (Modifier) -> Unit = { areaModifier ->
+        Box(if (dock != null) areaModifier.nestedScroll(foldOnScroll) else areaModifier) {
+            if (input.isEmpty() && dock != null) {
+                // S1: nothing typed: the recent calls, as on the Recents tab.
+                Column(Modifier.fillMaxSize()) {
+                    app.parley.ui.common.CoachMark(app.parley.common.ux.Tips.DOCKED_KEYPAD, stringResource(R.string.surf_tip_docked_keypad), enabled = panelShown)
+                    Box(Modifier.weight(1f)) { dock.idle() }
+                }
+            } else if (input.isEmpty()) {
                 Column(Modifier.align(Alignment.Center).padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
                         stringResource(if (qwerty) R.string.keypad_hint_qwerty else R.string.keypad_hint_t9),
@@ -374,9 +401,21 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit, searchQuery: String? = n
                 }
             }
         }
+    }
 
-        Surface(color = MaterialTheme.colorScheme.surfaceContainer, shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)) {
-            Column(Modifier.fillMaxWidth().padding(bottom = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+    val hideKeypadLabel = stringResource(R.string.keypad_hide)
+    val panel: @Composable (Modifier) -> Unit = { panelModifier ->
+        Surface(
+            color = MaterialTheme.colorScheme.surfaceContainer, shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+            // S1: TalkBack users fold the docked keypad with an action (the handle is also a button).
+            modifier = if (dock != null) panelModifier.semantics { customActions = listOf(CustomAccessibilityAction(hideKeypadLabel) { dock.onExpandedChange(false); true }) } else panelModifier,
+        ) {
+            Column(
+                // S1: with large text or a short screen the docked panel scrolls inside its own height, so it never covers the list.
+                Modifier.fillMaxWidth().then(if (dock != null) Modifier.verticalScroll(rememberScrollState()) else Modifier).padding(bottom = 12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                if (dock != null) DockHandle(hideKeypadLabel) { dock.onExpandedChange(false) }
                 // Number display
                 Row(Modifier.fillMaxWidth().heightIn(min = 72.dp).padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                     if (hasHardwareKeys) {
@@ -432,6 +471,29 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit, searchQuery: String? = n
                     }
                 }
             }
+        }
+    }
+
+    androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize().focusRequester(rootFocus).onPreviewKeyEvent(::onKey).focusable()) {
+        // S1: docked on a wide landscape screen, the keypad sits beside the list instead of under it.
+        val beside = dock != null && maxWidth > maxHeight && maxWidth >= 560.dp
+        val maxPanel = if (dock != null) maxHeight * (if (beside) 1f else 0.62f) else androidx.compose.ui.unit.Dp.Unspecified
+        if (beside) {
+            Row(Modifier.fillMaxSize()) {
+                resultsArea(Modifier.weight(1f).fillMaxSize())
+                if (panelShown) panel(Modifier.width(360.dp).heightIn(max = maxPanel).align(Alignment.Bottom))
+            }
+        } else {
+            Column(Modifier.fillMaxSize()) {
+                resultsArea(Modifier.weight(1f).fillMaxWidth())
+                if (panelShown) panel(if (dock != null) Modifier.heightIn(max = maxPanel) else Modifier)
+            }
+        }
+        if (dock != null && !panelShown) {
+            DockedKeypadButton(
+                number = input.takeIf { it.isNotEmpty() && !isTextSearch() }?.let { Bidi.ltr(Format.number(it, vm.countryIso)) },
+                modifier = Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = 16.dp + if (showNumberActions) NUMBER_ACTIONS_HEIGHT else 0.dp),
+            ) { dock.onExpandedChange(true) }
         }
     }
 

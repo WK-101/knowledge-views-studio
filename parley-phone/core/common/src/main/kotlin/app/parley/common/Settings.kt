@@ -56,6 +56,8 @@ data class AppSettings(
     val recentsLayout: app.parley.common.calls.RecentsLayout = app.parley.common.calls.RecentsLayout.GROUPED,
     /** R4 (v3.3): rich call rows (shapes, tints, sequence dots, Call back pill) or the simple icons. */
     val recentsStyle: app.parley.common.ux.RecentsStyle = app.parley.common.ux.RecentsStyle.RICH,
+    /** S1/S2 (v3.3): optional combined surfaces (keypad in Recents, favourites in Contacts) and the Recents row tap. */
+    val surfaces: SurfaceLayout = SurfaceLayout(),
 ) {
     companion object {
         val DEFAULT_QUICK_REPLIES = listOf(

@@ -149,7 +149,9 @@ internal fun AppearancePage(vm: AppViewModel, open: (String) -> Unit = {}) {
     }
     // L1: per-app language (the system screen on Android 13+, an in-app picker before).
     SegmentedGroup(stringResource(R.string.lang_title)) { item("language") { LanguageRow() } }
-    val tabLabels = s.navTabs.visible.map { it.label }
+    // S1/S2 (v3.3): "Open on" offers the tabs actually in the bar (a combined option can take one out).
+    val layout = app.parley.common.HomeLayout(s.navTabs, s.surfaces)
+    val tabLabels = layout.visible.map { it.label }
     SegmentedGroup(stringResource(R.string.set_group_navigation_bar)) {
         item("nav_tabs") {
             Column {
@@ -158,14 +160,16 @@ internal fun AppearancePage(vm: AppViewModel, open: (String) -> Unit = {}) {
                     supportingContent = { Text(navTabsHelp) },
                     colors = rowColors(),
                 )
-                NavTabsEditor(s.navTabs) { next -> set { it.copy(navTabs = next, startTab = next.startTab(it.startTab)) } }
+                NavTabsEditor(s.navTabs, inside = layout.absorbed.associateWith { layout.hostOf(it) }) { next -> set { it.copy(navTabs = next, startTab = next.startTab(it.startTab)) } }
             }
         }
-        val visible = s.navTabs.visible
-        menuRow("start_tab", tabLabels, visible.indexOf(s.navTabs.startTab(s.startTab)).coerceAtLeast(0), Icons.Rounded.PhoneAndroid) { i ->
+        val visible = layout.visible
+        menuRow("start_tab", tabLabels, visible.indexOf(layout.startTab(s.startTab)).coerceAtLeast(0), Icons.Rounded.PhoneAndroid) { i ->
             set { it.copy(startTab = visible[i]) }
         }
     }
+    // S1/S2 (v3.3): combine Keypad + Recents and Favourites + Contacts (optional), and the Recents row tap.
+    LayoutSettingsGroup(vm)
     SegmentedGroup(stringResource(R.string.set_group_lists)) {
         choiceRow("density", densities, s.density.ordinal, Icons.Rounded.DensityMedium) { i -> set { it.copy(density = ListDensity.entries[i]) } }
         switchRow("row_actions", s.contactRowActions, Icons.Rounded.TouchApp) { v -> set { it.copy(contactRowActions = v) } }

@@ -12,6 +12,12 @@ object Tips {
     /** X4: "Leave" on the simple home needs a press and hold. */
     const val SIMPLE_LEAVE = "simple_leave"
 
+    /** S1 (v3.3): the keypad docked in Recents folds away with a swipe down or a scroll, and comes back with its button. */
+    const val DOCKED_KEYPAD = "docked_keypad"
+
+    /** S1/S2 (v3.3): the layout options, offered once in the "What's new" card. */
+    const val LAYOUT_OFFER = "layout_offer"
+
     /** Ids are stored comma-separated; anything that isn't a plain id is dropped. */
     private val ID = Regex("[a-z0-9_]{1,40}")
 

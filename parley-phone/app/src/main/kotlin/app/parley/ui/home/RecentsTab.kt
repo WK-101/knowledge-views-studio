@@ -30,6 +30,7 @@ import androidx.compose.material.icons.rounded.Dialpad
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.PersonAdd
 import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -73,7 +74,7 @@ import app.parley.ui.common.Format
 
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
-fun RecentsTab(vm: AppViewModel, open: (String) -> Unit) {
+fun RecentsTab(vm: AppViewModel, open: (String) -> Unit, bottomPadding: androidx.compose.ui.unit.Dp = 0.dp) {
     val groups by vm.recentGroups.collectAsStateWithLifecycle()
     val filter by vm.recentFilter.collectAsStateWithLifecycle()
     val sims by vm.sims.collectAsStateWithLifecycle()
@@ -115,7 +116,9 @@ fun RecentsTab(vm: AppViewModel, open: (String) -> Unit) {
     val toReturn = unreturned.size
     RecentsLegendHost()
 
-    LazyColumn(Modifier.fillMaxWidth()) {
+    // S1: what a tap on a call does (Settings › Appearance › Layout, in every layout).
+    val tapCalls = settings.surfaces.recentTap == app.parley.common.RecentTap.CALL
+    LazyColumn(Modifier.fillMaxWidth(), contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = bottomPadding)) {
         if (selected.isNotEmpty()) stickyHeader(key = "selection") { app.parley.ui.blocking.RecentsSelectionBar(vm, groups.orEmpty()) }
         item(key = "filters") {
             Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -222,6 +225,7 @@ fun RecentsTab(vm: AppViewModel, open: (String) -> Unit) {
                     badge = badgeFor(g),
                     selected = g.key in selected,
                     unreturned = g.latest.id in unreturned,
+                    tapCalls = tapCalls && selected.isEmpty() && hasNumber,
                     onOpen = {
                         val ct = g.contact
                         when {
@@ -243,7 +247,10 @@ fun RecentsTab(vm: AppViewModel, open: (String) -> Unit) {
 @Composable
 fun RecentRow(
     g: RecentGroup, countryIso: String, simLabels: Map<String, String>, onLongClick: (() -> Unit)? = null,
-    badge: app.parley.ui.blocking.RecentBadge? = null, selected: Boolean = false, unreturned: Boolean = false, onOpen: () -> Unit, onCall: () -> Unit,
+    badge: app.parley.ui.blocking.RecentBadge? = null, selected: Boolean = false, unreturned: Boolean = false,
+    /** S1: a tap calls back; the trailing button then opens the details instead. */
+    tapCalls: Boolean = false,
+    onOpen: () -> Unit, onCall: () -> Unit,
 ) {
     val context = LocalContext.current
     val e = g.latest
@@ -256,7 +263,11 @@ fun RecentRow(
     val attention = rich && unreturned && !g.hidden
     val sequence = if (rich) CallGlance.sequence(g.calls) else emptyList()
     ListItem(
-        modifier = Modifier.combinedClickable(onClick = onOpen, onLongClick = onLongClick, onLongClickLabel = stringResource(R.string.main_more_actions))
+        modifier = Modifier.combinedClickable(
+            onClick = if (tapCalls) onCall else onOpen, onLongClick = onLongClick,
+            onClickLabel = if (tapCalls) stringResource(R.string.main_call) else null,
+            onLongClickLabel = stringResource(R.string.main_more_actions),
+        )
             .then(if (rich) Modifier.callAccent(hue) else Modifier)
             .semantics { this.selected = selected },
         colors = when {
@@ -332,7 +343,9 @@ fun RecentRow(
           }
         },
         trailingContent = {
-            if (!g.hidden && g.number.isNotBlank()) {
+            if (tapCalls) {
+                IconButton(onClick = onOpen) { Icon(Icons.Rounded.Info, stringResource(R.string.surf_recent_details, g.title)) }
+            } else if (!g.hidden && g.number.isNotBlank()) {
                 if (attention) {
                     CallBackPill(g.title, onCall)
                 } else {

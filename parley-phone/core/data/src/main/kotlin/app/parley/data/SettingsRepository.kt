@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
 
@@ -35,6 +36,19 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
     val settings: StateFlow<AppSettings> = store.data
         .map { it.toSettings().also { _loaded.value = true } }
         .stateIn(scope, SharingStarted.Eagerly, AppSettings())
+
+    init {
+        // S1/S2 (v3.3): pin the layout schema once, before any new default could apply: an existing user keeps
+        // separate tabs exactly as they were (see SurfaceLayout.migrate).
+        scope.launch {
+            runCatching {
+                store.edit { prefs ->
+                    val existing = prefs.asMap().keys.any { it.name != K.surfaces.name }
+                    app.parley.common.SurfaceLayout.migrate(prefs[K.surfaces], existingUser = existing)?.let { prefs[K.surfaces] = it }
+                }
+            }
+        }
+    }
 
     /** Current settings, reading from disk if the flow hasn't emitted yet (e.g. process woken by a call). */
     suspend fun current(): AppSettings = if (_loaded.value) settings.value else store.data.first().toSettings()
@@ -112,6 +126,7 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
             navTabs = app.parley.common.NavTabs.decode(this[K.navTabs]),
             recentsLayout = enumOr(this[K.recentsLayout], d.recentsLayout),
             recentsStyle = enumOr(this[K.recentsStyle], d.recentsStyle),
+            surfaces = app.parley.common.SurfaceLayout.decode(this[K.surfaces]),
         )
     }
 
@@ -152,6 +167,7 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
         this[K.navTabs] = s.navTabs.encode()
         this[K.recentsLayout] = s.recentsLayout.name
         this[K.recentsStyle] = s.recentsStyle.name
+        this[K.surfaces] = s.surfaces.encode()
     }
 
     private inline fun <reified E : Enum<E>> enumOr(value: String?, default: E): E =
@@ -194,6 +210,7 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
         val navTabs = stringPreferencesKey("nav_tabs")
         val recentsLayout = stringPreferencesKey("recents_layout")
         val recentsStyle = stringPreferencesKey("recents_style")
+        val surfaces = stringPreferencesKey("surface_layout")
     }
 
     private companion object {
