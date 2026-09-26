@@ -38,6 +38,60 @@ object ContactPhotoProcessor {
             ?: fallback(target) { ByteArrayInputStream(bytes) }
     }
 
+    /**
+     * Q1: the picture at [source] upright and whole (no crop), its longer side at most [maxLong] px, as a software
+     * bitmap, or null when it can't be read. Bounded like [process]: the size is read first and the image decoded
+     * already reduced. Used to look for QR codes in photos.
+     */
+    fun decodeBounded(cr: ContentResolver, source: Uri, maxLong: Int): Bitmap? = try {
+        ImageDecoder.decodeBitmap(ImageDecoder.createSource(cr, source)) { decoder, info, _ ->
+            decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
+            decoder.isMutableRequired = false
+            val (tw, th) = PhotoMath.fitLongSide(info.size.width, info.size.height, maxLong)
+            if (tw != info.size.width || th != info.size.height) decoder.setTargetSize(tw, th)
+        }
+    } catch (e: Exception) {
+        Log.w(TAG, "ImageDecoder couldn't read the picture", e)
+        boundedFallback(maxLong) { cr.openInputStream(source) }
+    } catch (e: OutOfMemoryError) {
+        Log.w(TAG, "Picture too large", e)
+        null
+    }
+
+    /** The picture's size without decoding it, or null. */
+    fun size(cr: ContentResolver, source: Uri): Pair<Int, Int>? = try {
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        cr.openInputStream(source)?.use { BitmapFactory.decodeStream(it, null, bounds) }
+        if (bounds.outWidth > 0 && bounds.outHeight > 0) {
+            // EXIF-rotated photos swap sides; the scan sizes only use the longer side, so that doesn't matter.
+            bounds.outWidth to bounds.outHeight
+        } else {
+            null
+        }
+    } catch (e: Exception) {
+        null
+    }
+
+    private fun boundedFallback(maxLong: Int, open: () -> InputStream?): Bitmap? = try {
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        open()?.use { BitmapFactory.decodeStream(it, null, bounds) }
+        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) {
+            null
+        } else {
+            var sample = 1
+            while (maxOf(bounds.outWidth, bounds.outHeight) / (sample * 2) >= maxLong) sample *= 2
+            val orientation = open()?.use { runCatching { ExifInterface(it).getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL) }.getOrNull() }
+                ?: ExifInterface.ORIENTATION_NORMAL
+            open()?.use { BitmapFactory.decodeStream(it, null, BitmapFactory.Options().apply { inSampleSize = sample }) }?.let { upright(it, orientation) }
+        }
+    } catch (e: Exception) {
+        Log.w(TAG, "Picture couldn't be decoded", e)
+        null
+    } catch (e: OutOfMemoryError) {
+        Log.w(TAG, "Picture too large", e)
+        null
+    }
+
     private fun decode(source: ImageDecoder.Source, target: Int): ByteArray? = try {
         val bitmap = ImageDecoder.decodeBitmap(source) { decoder, info, _ ->
             // Software pixels: the result is compressed right away, and hardware bitmaps can't be.

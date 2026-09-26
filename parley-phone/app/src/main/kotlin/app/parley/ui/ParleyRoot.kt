@@ -47,6 +47,7 @@ import app.parley.ui.onboarding.OnboardingScreen
 import app.parley.ui.people.peopleRoutes
 import app.parley.messaging.messagingRoutes
 import app.parley.ui.extras.extrasRoutes
+import app.parley.ui.qr.qrRoutes
 import app.parley.ui.settings.PrivacyScreen
 import app.parley.ui.settings.SettingsScreen
 import app.parley.ui.settings.SpeedDialScreen
@@ -281,6 +282,8 @@ fun ParleyRoot(vm: AppViewModel) {
             messagingRoutes(vm, nav)
             // X2, X4
             extrasRoutes(vm, nav)
+            // Q1-Q4: Scan QR.
+            qrRoutes(vm, nav)
         }
        }
       }

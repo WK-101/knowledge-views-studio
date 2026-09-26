@@ -111,6 +111,6 @@ fun MyCardQrDialog(vm: AppViewModel, onDismiss: () -> Unit) {
             dismissButton = { androidx.compose.material3.TextButton(onDismiss) { Text(stringResource(R.string.dc_cancel)) } },
         )
     } else {
-        app.parley.ui.people.MeQrDialog(merged, onDismiss)
+        app.parley.ui.people.MeQrDialog(merged, onDismiss = onDismiss)
     }
 }

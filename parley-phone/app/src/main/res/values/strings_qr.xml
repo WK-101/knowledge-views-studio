@@ -1,0 +1,174 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Q1-Q6 (v3.3): Scan QR. English only for now (translations follow). -->
+<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
+    <!-- Entry points -->
+    <string name="qs_menu">Scan QR code</string>
+    <string name="qs_scan_theirs">Scan theirs</string>
+    <string name="qs_shortcut_short">Scan QR</string>
+    <string name="qs_shortcut_long">Scan a QR code from a photo</string>
+    <string name="qs_tile_label">Scan QR</string>
+    <string name="qs_tip_contacts">New: scan a QR code, such as someone\'s contact card or chat link</string>
+    <string name="qs_set_title">Scan QR code</string>
+    <string name="qs_set_summary">Read a contact, number, chat link, Wi-Fi or web address from a photo, without camera access</string>
+    <string name="qs_set_kw">qr, qr code, scan, scanner, barcode, vcard, business card, wifi, whatsapp, signal, telegram, camera</string>
+
+    <!-- Scan screen -->
+    <string name="qs_title">Scan QR code</string>
+    <string name="qs_intro">Take a photo of the code with your camera app, or choose a picture or screenshot. Parley reads it on your phone.</string>
+    <string name="qs_take_photo">Take a photo</string>
+    <string name="qs_pick_image">Pick an image</string>
+    <string name="qs_paste">Paste a link or text</string>
+    <string name="qs_privacy">Parley has no camera access and no internet. The photo is read on your phone and deleted right after.</string>
+    <string name="qs_reading">Looking for a code…</string>
+    <plurals name="qs_found_several">
+        <item quantity="one">Found %d code</item>
+        <item quantity="other">Found %d codes. Pick one</item>
+    </plurals>
+    <string name="qs_nothing_title">No code found in this picture</string>
+    <string name="qs_nothing_body">That happens. A second try usually works:</string>
+    <string name="qs_unreadable_title">This picture couldn\'t be opened</string>
+    <string name="qs_unreadable_body">It may be in a format Parley can\'t read. Try another picture or a screenshot.</string>
+    <string name="qs_tip_fill">Let the code fill most of the photo, with a little space around it.</string>
+    <string name="qs_tip_light">Use even light and avoid reflections on glossy paper or screens.</string>
+    <string name="qs_tip_steady">Hold steady and let the camera focus before taking the photo.</string>
+    <string name="qs_tip_screen">A code on another screen? A screenshot works best.</string>
+    <string name="qs_try_again">Take another photo</string>
+    <string name="qs_no_camera_app">No camera app is available to take the photo. Pick an image instead.</string>
+    <string name="qs_clipboard_empty">Nothing to paste. Copy a link or text first.</string>
+
+    <!-- What a code holds -->
+    <string name="qs_kind_contact">Contact</string>
+    <plurals name="qs_kind_contacts">
+        <item quantity="one">%d contact</item>
+        <item quantity="other">%d contacts</item>
+    </plurals>
+    <string name="qs_kind_parley_contact">Encrypted Parley contact</string>
+    <string name="qs_kind_parley_simple">Simple mode setup</string>
+    <string name="qs_kind_parley_template">Blocking rule pack</string>
+    <string name="qs_kind_phone">Phone number</string>
+    <string name="qs_kind_code">Phone code</string>
+    <string name="qs_kind_sms">Text message</string>
+    <string name="qs_kind_email">Email</string>
+    <string name="qs_kind_geo">Place on a map</string>
+    <string name="qs_kind_wifi">Wi-Fi network</string>
+    <string name="qs_kind_event">Calendar event</string>
+    <string name="qs_kind_url">Web address</string>
+    <string name="qs_kind_text">Text</string>
+    <string name="qs_link_phone">%1$s chat with a number</string>
+    <string name="qs_link_profile">%1$s profile</string>
+    <string name="qs_link_id">%1$s ID</string>
+    <string name="qs_link_group">%1$s group invite</string>
+    <string name="qs_link_channel">%1$s channel</string>
+    <string name="qs_link_invite">%1$s invitation</string>
+    <string name="qs_link_link">%1$s link</string>
+    <string name="qs_hidden_removed">This code had hidden formatting characters. They are left out here so the text reads as it really is.</string>
+
+    <!-- Fields -->
+    <string name="qs_field_phone">Phone</string>
+    <string name="qs_field_email">Email</string>
+    <string name="qs_field_address">Address</string>
+    <string name="qs_field_website">Website</string>
+    <string name="qs_field_date">Date</string>
+    <string name="qs_field_note">Note</string>
+    <string name="qs_field_to">To</string>
+    <string name="qs_field_cc">Copy to</string>
+    <string name="qs_field_subject">Subject</string>
+    <string name="qs_field_message">Message</string>
+    <string name="qs_field_coordinates">Coordinates</string>
+    <string name="qs_field_place">Place</string>
+    <string name="qs_field_network">Network name</string>
+    <string name="qs_field_security">Security</string>
+    <string name="qs_field_identity">User name</string>
+    <string name="qs_field_password">Password</string>
+    <string name="qs_field_when">When</string>
+    <string name="qs_field_link">Link</string>
+    <string name="qs_field_full_address">Full address</string>
+    <string name="qs_no_name">No name</string>
+
+    <!-- Contacts -->
+    <string name="qs_format_mecard">From a MECARD code</string>
+    <string name="qs_format_bizcard">From a BIZCARD code</string>
+    <string name="qs_several_contacts">This code holds several contacts. Tap one to see it, or import them all.</string>
+    <plurals name="qs_import_all">
+        <item quantity="one">Import %d contact</item>
+        <item quantity="other">Import all %d contacts</item>
+    </plurals>
+    <string name="qs_back_to_list">Back to the list</string>
+    <string name="qs_add_contact">Add to contacts</string>
+    <string name="qs_add_private">Add privately</string>
+    <string name="qs_add_temporary">Add as temporary</string>
+    <string name="qs_update_existing">Add to an existing contact</string>
+    <string name="qs_hidden_fields">This card has details the editor doesn\'t show (such as a photo or labels). Import it as it is to keep everything.</string>
+    <string name="qs_import_as_is">Import with every detail</string>
+    <string name="qs_import_failed">The contacts couldn\'t be prepared for import.</string>
+
+    <!-- Parley's own codes -->
+    <string name="qs_parley_contact_body">A contact shared from Parley, locked with a passcode. The person who showed it to you can read the passcode out.</string>
+    <string name="qs_parley_simple_body">A simple mode setup made in Parley, locked with a passcode.</string>
+    <string name="qs_parley_template_body">A pack of blocking rules shared from Parley. You can look at every rule before adding it.</string>
+    <string name="qs_open_in_parley">Open in Parley</string>
+
+    <!-- Numbers, messages, email -->
+    <string name="qs_call">Call</string>
+    <string name="qs_message_on">Message on…</string>
+    <string name="qs_put_on_keypad">Put on the keypad</string>
+    <string name="qs_code_warning">This is a phone code (it has * or #). Codes like this can change phone settings, for example forward your calls. Parley never dials it from here: check it on the keypad first.</string>
+    <string name="qs_sms_note">Nothing is sent until you press Send in your messaging app.</string>
+    <string name="qs_write_sms">Write the message</string>
+    <string name="qs_write_email">Write the email</string>
+
+    <!-- Places, Wi-Fi, events -->
+    <string name="qs_open_maps">Open in maps</string>
+    <string name="qs_copy_coordinates">Copy coordinates</string>
+    <string name="qs_wifi_open">Open (no password)</string>
+    <string name="qs_wifi_wep">WEP (old and weak)</string>
+    <string name="qs_wifi_wpa">WPA/WPA2</string>
+    <string name="qs_wifi_sae">WPA3</string>
+    <string name="qs_wifi_eap">Enterprise (EAP)</string>
+    <string name="qs_wifi_hidden">This network doesn\'t show its name; Android finds it once it\'s saved.</string>
+    <string name="qs_show_password">Show password</string>
+    <string name="qs_hide_password">Hide password</string>
+    <string name="qs_wifi_note_add">Parley can\'t join networks itself. Android asks you to save this one, and connects when it\'s in range.</string>
+    <string name="qs_wifi_note_settings">Parley can\'t join networks itself. Copy the password, then choose the network in Wi-Fi settings.</string>
+    <string name="qs_wifi_add">Save this network</string>
+    <string name="qs_copy_password">Copy password</string>
+    <string name="qs_wifi_settings">Open Wi-Fi settings</string>
+    <string name="qs_add_calendar">Add to calendar</string>
+
+    <!-- Messengers -->
+    <string name="qs_open_in">Open in %1$s</string>
+    <string name="qs_not_installed">%1$s isn\'t installed, or it can\'t open this link.</string>
+    <string name="qs_copy_link">Copy link</string>
+    <string name="qs_open_browser">Open in browser</string>
+    <string name="qs_browser_leaves">This leaves Parley: your browser opens the page and connects to the internet.</string>
+    <string name="qs_store_page">%1$s in your app store</string>
+    <string name="qs_save_contact">Save as contact</string>
+    <string name="qs_app_closed">%1$s has closed down. You can still copy the name.</string>
+    <string name="qs_scan_inside">%1$s usually wants its own codes scanned inside %1$s. Parley opens the app; use its scanner if nothing happens.</string>
+    <string name="qs_paste_only">%1$s has no link for this. Parley copies it and opens %1$s, so you can paste it there.</string>
+
+    <!-- Web addresses -->
+    <string name="qs_domain_label">Goes to</string>
+    <string name="qs_spelled_as">Spelled for the internet as %1$s</string>
+    <string name="qs_warn_http">Not encrypted (http): others on the network could see or change the page from %1$s.</string>
+    <string name="qs_warn_idn">%1$s uses letters from outside the English alphabet. That\'s normal for many languages; make sure it\'s the site you expect.</string>
+    <string name="qs_warn_mixed">%1$s mixes letters that look alike from different alphabets. This is a common trick to imitate a well-known site.</string>
+    <string name="qs_warn_lookalike">This page belongs to %1$s, even though the address mentions a well-known name. It may be imitating that site.</string>
+    <string name="qs_warn_shortener">%1$s is a link shortener: the real destination only shows once the browser opens it.</string>
+    <string name="qs_warn_userinfo">The address hides its real destination before an @ sign. It really goes to %1$s.</string>
+    <string name="qs_warn_ip">%1$s is a bare number instead of a name. Well-known sites rarely use these.</string>
+
+    <!-- Every result -->
+    <string name="qs_copy_text">Copy</string>
+    <string name="qs_share">Share</string>
+    <string name="qs_share_chooser">Share what the code holds</string>
+    <string name="qs_clip_label">QR code</string>
+    <string name="qs_copied">Copied</string>
+    <string name="qs_text_long">This is long; the rest is included when you copy or share it.</string>
+    <string name="qs_no_app">No app on this phone can open this.</string>
+    <string name="qs_no_browser">No browser is installed.</string>
+    <string name="qs_no_store">No app store is installed.</string>
+    <string name="qs_no_mail_app">No email app is installed.</string>
+    <string name="qs_no_maps">No maps app is installed.</string>
+    <string name="qs_no_calendar">No calendar app is installed.</string>
+</resources>

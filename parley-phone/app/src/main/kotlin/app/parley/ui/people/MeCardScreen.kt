@@ -16,6 +16,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountCircle
 import androidx.compose.material.icons.rounded.AddCircle
 import androidx.compose.material.icons.rounded.QrCode2
+import androidx.compose.material.icons.rounded.QrCodeScanner
 import androidx.compose.material.icons.rounded.RemoveCircle
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.AlertDialog
@@ -178,7 +179,8 @@ fun MeCardScreen(vm: AppViewModel, back: () -> Unit) {
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 32.dp),
         )
     }
-    if (showQr) MeQrDialog(merged) { showQr = false }
+    // Q2: "Scan theirs" right from your own code.
+    if (showQr) MeQrDialog(merged, onScan = { showQr = false; vm.navigate(app.parley.NavEvent.Route(app.parley.ui.qr.QrRoutes.SCAN)) }) { showQr = false }
 }
 
 @Composable
@@ -228,7 +230,7 @@ private fun shareVcard(context: android.content.Context, card: MeCard, parts: Se
 
 /** The card as a QR code (made on the phone), with the parts to include. */
 @Composable
-internal fun MeQrDialog(card: MeCard, onDismiss: () -> Unit) {
+internal fun MeQrDialog(card: MeCard, onScan: (() -> Unit)? = null, onDismiss: () -> Unit) {
     val context = LocalContext.current
     val parts = remember { mutableStateListOf(MeCards.Part.NAME, MeCards.Part.PHONES) }
     val available = MeCards.Part.entries.filter { p ->
@@ -250,6 +252,12 @@ internal fun MeQrDialog(card: MeCard, onDismiss: () -> Unit) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 bitmap?.let { Image(it.asImageBitmap(), stringResource(R.string.me_qr_desc), Modifier.size(240.dp).background(Color.White).padding(8.dp)) }
                 Text(stringResource(R.string.me_scan), modifier = Modifier.padding(vertical = 8.dp))
+                if (onScan != null) {
+                    androidx.compose.material3.OutlinedButton(onScan) {
+                        Icon(Icons.Rounded.QrCodeScanner, null, Modifier.size(18.dp))
+                        Text("  " + stringResource(R.string.qs_scan_theirs))
+                    }
+                }
                 available.forEach { p ->
                     Row(Modifier.fillMaxWidth().clickable { if (p in parts) parts.remove(p) else parts.add(p) }, verticalAlignment = Alignment.CenterVertically) {
                         Checkbox(p in parts, { if (it) parts.add(p) else parts.remove(p) })

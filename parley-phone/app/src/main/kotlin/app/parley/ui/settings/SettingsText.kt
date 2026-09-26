@@ -66,6 +66,7 @@ object SettingsText {
         "health" to Triple(R.string.set_health_title, R.string.set_health_summary, R.string.set_health_kw),
         "import_file" to Triple(R.string.set_import_file_title, R.string.set_import_file_summary, R.string.set_import_file_kw),
         "bulk_add" to Triple(R.string.set_bulk_add_title, R.string.set_bulk_add_summary, R.string.set_bulk_add_kw),
+        "scan_qr" to Triple(R.string.qs_set_title, R.string.qs_set_summary, R.string.qs_set_kw),
         "import_sim" to Triple(R.string.set_import_sim_title, R.string.set_import_sim_summary, R.string.set_import_sim_kw),
         "export_vcf" to Triple(R.string.set_export_vcf_title, R.string.set_export_vcf_summary, R.string.set_export_vcf_kw),
         "export_csv" to Triple(R.string.set_export_csv_title, R.string.set_export_csv_summary, R.string.set_export_csv_kw),
