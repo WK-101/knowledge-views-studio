@@ -90,6 +90,18 @@
         <package android:name="chat.simplex.app" />
         <package android:name="org.telegram.plus" />
         <package android:name="org.telegram.messenger.beta" />
+        <!-- Q3: messengers whose QR links "Scan QR" opens directly in the app (never QUERY_ALL_PACKAGES). -->
+        <package android:name="com.tencent.mm" />
+        <package android:name="jp.naver.line.android" />
+        <package android:name="com.facebook.orca" />
+        <package android:name="com.instagram.android" />
+        <package android:name="com.snapchat.android" />
+        <package android:name="com.kakao.talk" />
+        <package android:name="com.zing.zalo" />
+        <package android:name="network.loki.messenger" />
+        <package android:name="io.element.android.x" />
+        <package android:name="com.wire" />
+        <package android:name="org.briarproject.briar.android" />
         <!-- "Who can see your contacts": launcher apps only (never QUERY_ALL_PACKAGES). -->
         <intent>
             <action android:name="android.intent.action.MAIN" />
@@ -217,6 +229,12 @@
                 <data android:mimeType="vnd.android.cursor.item/contact" />
                 <data android:mimeType="vnd.android.cursor.item/person" />
                 <data android:mimeType="vnd.android.cursor.item/raw_contact" />
+            </intent-filter>
+            <!-- Q1: "Scan QR code" for a picture shared to Parley (it is searched for codes on the phone). -->
+            <intent-filter android:label="@string/qs_menu">
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="image/*" />
             </intent-filter>
             <!-- U9: the gear in Android's App info › "Parley" opens Parley's own Settings. -->
             <intent-filter>
@@ -350,6 +368,21 @@
             android:exported="true"
             android:icon="@drawable/ic_tile_message"
             android:label="Message a number"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.service.quicksettings.TOGGLEABLE_TILE"
+                android:value="false" />
+        </service>
+
+        <!-- Q2: Quick Settings tile "Scan QR" opens the scan screen (the camera app takes the photo, on a tap). -->
+        <service
+            android:name=".ui.qr.QrScanTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_tile_qr"
+            android:label="@string/qs_tile_label"
             android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
             <intent-filter>
                 <action android:name="android.service.quicksettings.action.QS_TILE" />

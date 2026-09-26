@@ -25,6 +25,8 @@ dependencies {
     }
     // Offline number parsing (E.164 with the SIM country as hint, numbers inside free text). Pure Java, no network.
     implementation(libs.libphonenumber)
+    // Q1: QR decoding from pictures (pure Java, offline). The app already ships it for making QR codes.
+    implementation(libs.zxing.core)
     testImplementation(libs.junit)
 }
 

@@ -59,6 +59,7 @@ import androidx.compose.material.icons.rounded.Science
 import androidx.compose.material.icons.rounded.SettingsPhone
 import androidx.compose.material.icons.rounded.SimCard
 import androidx.compose.material.icons.rounded.SimCardDownload
+import androidx.compose.material.icons.rounded.QrCodeScanner
 import androidx.compose.material.icons.rounded.SortByAlpha
 import androidx.compose.material.icons.rounded.Sync
 import androidx.compose.material.icons.rounded.Timer
@@ -390,6 +391,7 @@ internal fun ContactsPage(vm: AppViewModel, open: (String) -> Unit) {
             importer.launch(arrayOf("text/x-vcard", "text/vcard", "text/directory", "text/csv", "text/comma-separated-values", "application/octet-stream", "*/*"))
         }
         linkRow("import_sim", Icons.Rounded.SimCardDownload) { open(PeopleRoutes.SIM_IMPORT) }
+        linkRow("scan_qr", Icons.Rounded.QrCodeScanner) { open(app.parley.ui.qr.QrRoutes.SCAN) }
         linkRow("export_vcf", Icons.Rounded.FileDownload) { exporter.launch("contacts.vcf") }
         linkRow("export_csv", Icons.Rounded.FileDownload) { csvExporter.launch("contacts.csv") }
         if (severalAccounts) item("export_account") { app.parley.ui.people.ExportAccountRow(vm, Icons.AutoMirrored.Rounded.CallSplit) }

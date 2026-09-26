@@ -12,6 +12,9 @@ object Tips {
     /** X4: "Leave" on the simple home needs a press and hold. */
     const val SIMPLE_LEAVE = "simple_leave"
 
+    /** Q2: the new "Scan QR code" icon in the Contacts header. */
+    const val CONTACTS_SCAN_QR = "contacts_scan_qr"
+
     /** Ids are stored comma-separated; anything that isn't a plain id is dropped. */
     private val ID = Regex("[a-z0-9_]{1,40}")
 

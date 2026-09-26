@@ -33,6 +33,7 @@ import androidx.compose.material.icons.rounded.PersonAdd
 import androidx.compose.material.icons.rounded.SelectAll
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.SimCard
+import androidx.compose.material.icons.rounded.QrCodeScanner
 import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.TravelExplore
@@ -242,6 +243,10 @@ private fun TabActions(vm: AppViewModel, tab: StartTab, appLock: Boolean, open: 
     when (tab) {
         StartTab.RECENTS -> app.parley.ui.history.RecentsInsightsAction(open)
         StartTab.CONTACTS -> {
+            // Q2: Scan QR, with a one-time tip.
+            app.parley.ui.common.CoachMarkAnchor(app.parley.common.ux.Tips.CONTACTS_SCAN_QR, stringResource(R.string.qs_tip_contacts)) {
+                IconButton({ open(app.parley.ui.qr.QrRoutes.SCAN) }) { Icon(Icons.Rounded.QrCodeScanner, stringResource(R.string.qs_menu)) }
+            }
             IconButton({ open(app.parley.ui.people.PeopleRoutes.LABELS) }) { Icon(Icons.AutoMirrored.Rounded.Label, stringResource(R.string.home_labels)) }
             // U8: lock Parley now, without waiting for the timeout.
             if (appLock) IconButton({ app.parley.security.AppLock.lockNowByUser() }) { Icon(Icons.Rounded.Lock, stringResource(R.string.home_lock_now)) }
@@ -277,6 +282,7 @@ private fun ColumnScope.TabMenu(vm: AppViewModel, tab: StartTab, appLock: Boolea
                 vm.selection.value = vm.people.filtered.value.orEmpty().map { it.id }.toSet()
             }
             MenuItem(stringResource(R.string.home_add_several), Icons.Rounded.GroupAdd) { go(app.parley.messaging.MessagingRoutes.BULK_ADD) }
+            MenuItem(stringResource(R.string.qs_menu), Icons.Rounded.QrCodeScanner) { go(app.parley.ui.qr.QrRoutes.SCAN) }
             MenuItem(stringResource(R.string.home_duplicates), Icons.AutoMirrored.Rounded.CallMerge) { go(Routes.DUPLICATES) }
             // X2: "Who's in…" (trip mode).
             MenuItem(stringResource(R.string.x_trip_menu), Icons.Rounded.TravelExplore) { go(app.parley.ui.extras.ExtrasRoutes.TRIP) }
@@ -285,6 +291,7 @@ private fun ColumnScope.TabMenu(vm: AppViewModel, tab: StartTab, appLock: Boolea
         StartTab.KEYPAD -> {
             MenuItem(stringResource(R.string.home_speed_dial), Icons.Rounded.Speed) { go(Routes.SPEED_DIAL) }
             MenuItem(stringResource(R.string.home_sims), Icons.Rounded.SimCard) { go(app.parley.ui.history.HistoryRoutes.SIMS) }
+            MenuItem(stringResource(R.string.qs_menu), Icons.Rounded.QrCodeScanner) { go(app.parley.ui.qr.QrRoutes.SCAN) }
             MenuItem(stringResource(R.string.home_keypad_settings), Icons.Rounded.Tune) { go(Routes.settingsPage(SettingsCategory.KEYPAD)) }
         }
         StartTab.CIRCLE -> {

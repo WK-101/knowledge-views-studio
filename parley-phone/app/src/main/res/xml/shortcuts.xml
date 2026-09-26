@@ -13,4 +13,16 @@
             android:targetClass="app.parley.messaging.NumberActionActivity"
             android:targetPackage="app.parley.phone" />
     </shortcut>
+    <!-- Q2: "Scan QR" opens the scan screen. -->
+    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_qr"
+        android:shortcutId="scan_qr"
+        android:shortcutLongLabel="@string/qs_shortcut_long"
+        android:shortcutShortLabel="@string/qs_shortcut_short">
+        <intent
+            android:action="app.parley.action.SCAN_QR"
+            android:targetClass="app.parley.MainActivity"
+            android:targetPackage="app.parley.phone" />
+    </shortcut>
 </shortcuts>

@@ -107,6 +107,11 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
                 @Suppress("DEPRECATION")
                 val stream = intent.getParcelableExtra<android.net.Uri>(Intent.EXTRA_STREAM)
                 if (stream != null && isVcard(intent.type)) vm.navigate(NavEvent.ImportVcf(stream))
+                // Q1: a picture shared to Parley is searched for QR codes.
+                if (stream != null && intent.type?.startsWith("image/") == true) {
+                    app.parley.ui.qr.QrInbox.image.value = stream
+                    vm.navigate(NavEvent.Route(app.parley.ui.qr.QrRoutes.SCAN))
+                }
             }
             QUICK_CONTACT, QUICK_CONTACT_LEGACY -> data?.let(::openResolved)
             SHOW_OR_CREATE -> showOrCreate(data)
@@ -133,6 +138,8 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
             ACTION_OPEN_BLOCKING -> vm.navigate(NavEvent.Route(app.parley.ui.Routes.BLOCKING))
             ACTION_ADD_CALL -> vm.navigate(NavEvent.Tab(StartTab.KEYPAD, dial = ""))
             ACTION_BULK_ADD -> vm.navigate(NavEvent.Route(app.parley.messaging.MessagingRoutes.BULK_ADD))
+            // Q2: launcher shortcut and Quick Settings tile.
+            ACTION_SCAN_QR -> vm.navigate(NavEvent.Route(app.parley.ui.qr.QrRoutes.SCAN))
             // R4: the keep-in-touch digest opens the Circle (as the bar's extra tab while it's hidden).
             ACTION_SHOW_CIRCLE -> vm.navigate(NavEvent.Tab(StartTab.CIRCLE))
             ACTION_SHOW_MISSED -> {
@@ -201,6 +208,8 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
         /** M11: "Save all…" from the number sheet; the text waits in [app.parley.messaging.MessagingInbox]. */
         const val ACTION_BULK_ADD = "app.parley.BULK_ADD"
         const val ACTION_OPEN_BACKUP = "app.parley.OPEN_BACKUP"
+        /** Q2: opens the Scan QR screen (launcher shortcut, Quick Settings tile). */
+        const val ACTION_SCAN_QR = "app.parley.action.SCAN_QR"
         const val ACTION_OPEN_BLOCKING = "app.parley.OPEN_BLOCKING"
         const val QUICK_CONTACT = "android.provider.action.QUICK_CONTACT"
         const val QUICK_CONTACT_LEGACY = "com.android.contacts.action.QUICK_CONTACT"

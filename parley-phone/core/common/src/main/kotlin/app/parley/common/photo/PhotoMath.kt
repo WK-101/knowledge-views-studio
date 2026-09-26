@@ -92,4 +92,27 @@ object PhotoMath {
         8 -> ExifTransform(270, flipX = false) // ROTATE_270
         else -> ExifTransform(0, flipX = false) // NORMAL, UNDEFINED
     }
+
+    /**
+     * Q1: size to decode an image of [width]×[height] at so its longer side is at most [maxLong] px, keeping the
+     * aspect ratio. Never enlarges.
+     */
+    fun fitLongSide(width: Int, height: Int, maxLong: Int): Pair<Int, Int> {
+        if (width <= 0 || height <= 0) return width.coerceAtLeast(1) to height.coerceAtLeast(1)
+        val longer = maxOf(width, height)
+        if (longer <= maxLong || maxLong <= 0) return width to height
+        val scale = maxLong.toDouble() / longer
+        return maxOf(1, Math.round(width * scale).toInt()).coerceAtMost(maxLong) to maxOf(1, Math.round(height * scale).toInt()).coerceAtMost(maxLong)
+    }
+
+    /**
+     * Q1: longer-side sizes a picture is searched for QR codes at, most promising first: a medium size (fast, and
+     * enough for a code that fills a fair part of the photo), then larger for a small or dense code, then small
+     * (sensor noise and moiré on screens average out). Sizes the picture doesn't reach are left out.
+     */
+    fun qrScanSizes(width: Int, height: Int): List<Int> {
+        val longer = maxOf(width, height)
+        if (longer <= 0) return emptyList()
+        return listOf(1600, 3000, 800).map { minOf(it, longer) }.distinct()
+    }
 }

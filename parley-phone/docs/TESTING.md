@@ -595,3 +595,47 @@ Call the phone from another phone in each state below. For each one, check that 
 - [ ] Recents ⋮ › "What do the colours mean?": the legend lists each badge with a line of explanation.
 - [ ] Number history, the contact's Circle timeline, a private contact's calls and Call insights use the same badges (and the length bar / "No answer" in history and timeline rows).
 - [ ] TalkBack on a Recents row reads the call type in words ("Missed call · not called back yet"), then the rest of the row.
+
+### 16.2 QR scan
+
+Parley declares no CAMERA permission: check App info › Permissions never lists Camera. The build's permission check fails if one appears.
+
+**Getting a picture in (Q1)**
+- [ ] Contacts header › QR icon (first time: the tip "New: scan a QR code…" under it). "Take a photo" opens the phone's camera app; photograph a vCard QR: the result sheet opens. `adb shell ls /data/data/app.parley.phone/cache/qr` is empty afterwards (also after cancelling the camera, and after the camera app is killed mid-shot and Parley reopened).
+- [ ] "Pick an image" opens the system photo picker (no storage permission asked); a screenshot of a QR code reads. A 50 MP photo with a small code reads without the app stalling (decoding happens off the main thread; "Looking for a code…" shows meanwhile).
+- [ ] Share a picture from Gallery/Photos › Share › "Scan QR code" (Parley): the scan screen opens and reads it. With the app lock on, Parley asks to unlock first.
+- [ ] Copy `https://wa.me/491511234567` elsewhere, then "Paste a link or text": the WhatsApp sheet opens. The clipboard is only read on that tap (Android 12+ shows its "Parley pasted from your clipboard" toast only then).
+- [ ] A picture without a code: "No code found in this picture" with four tips and "Take another photo". A corrupt file: "This picture couldn't be opened".
+- [ ] Light-on-dark (inverted) code, a code photographed at an angle, a Data Matrix or Aztec code: read. A picture with two QR codes: "Found 2 codes. Pick one" lists both with their type.
+
+**Entry points (Q2)**
+- [ ] Contacts ⋮ › Scan QR code; Keypad ⋮ › Scan QR code; Contacts › My card › QR code › "Scan theirs"; Settings search "qr" or "scan" › Scan QR code (Settings › Contacts › Import & export); long-press the launcher icon › "Scan QR"; Quick Settings › edit › add "Scan QR" tile (collapses the shade and opens the scan screen, after unlocking).
+
+**Contacts (Q3, Q4)**
+- [ ] vCard 3.0, vCard 4.0 (`TEL;VALUE=uri:tel:+…`), vCard 2.1 with `CHARSET=UTF-8;ENCODING=QUOTED-PRINTABLE` (umlauts show right), MECARD (`MECARD:N:Owen,Sean;TEL:…;;`) and BIZCARD codes: the sheet shows a card with name, work, numbers, emails, address, website, dates, note.
+- [ ] "Add to contacts" opens Parley's editor filled in; a number you already have shows the duplicate warning. "Add privately" saves to private contacts (asks to unlock the vault if needed). "Add as temporary" opens the temporary-contact dialog with the name and first number. "Add to an existing contact" opens the picker, then the chosen contact's editor with the new details appended.
+- [ ] A card with a photo or labels: the note "This card has details the editor doesn't show" and "Import with every detail" (the import dialog, duplicates skipped).
+- [ ] A code with two vCards: the list; tap one to see its card ("Back to the list"), or "Import all 2 contacts".
+- [ ] Parley's own encrypted contact QR (`parley://qr`) and simple-mode QR (`parley://simple`): "Open in Parley" leads to the passcode dialogs as before. A Parley plain "My card" QR reads as a normal contact.
+- [ ] Pixel/Samsung camera or Lens scanning a vCard QR › "Add contact" offers Parley (it handles `text/vcard`, `text/x-vcard` and INSERT).
+
+**Numbers, messages, places, Wi-Fi, events (Q3, Q4, Q5)**
+- [ ] `tel:+12125551212`: number in full; Call goes through the dial guard and confirm-before-calling (a premium or spam-listed number warns); Message on…; Add to contacts; Put on the keypad.
+- [ ] `tel:*21*123%23` and `tel:%2A%2306%23`: the sheet says "Phone code", shows `*21*123#` / `*#06#` in full with the warning, and offers only "Put on the keypad" (never dials or runs it).
+- [ ] `SMSTO:+18005551212:Hello` and `sms:+18005551212?body=Hi`: "Write the message" opens the SMS app with the body; nothing is sent by Parley.
+- [ ] `mailto:a@example.com?subject=Hi&body=Text` and `MATMSG:TO:a@example.com;SUB:Hi;BODY:Text;;`: "Write the email" fills the email app.
+- [ ] `geo:40.71872,-73.98905`: "Open in maps"; "Copy coordinates".
+- [ ] `WIFI:T:WPA;S:Home;P:secret123;;`: name, WPA/WPA2, masked password with the eye button. Android 11+: "Save this network" shows Android's own "Save network?" dialog (no permission prompt from Parley). Android 10, WEP, enterprise or a password under 8 characters: only "Copy password" (kept out of clipboard previews on Android 13+) and "Open Wi-Fi settings". Backslash-escaped (`S:My\;Net`) and percent-encoded (`S:caf%C3%A9`) names both read right.
+- [ ] `BEGIN:VEVENT…DTSTART:20261001T090000Z…END:VEVENT`: "When" shows the local time; "Add to calendar" opens the calendar app's new-event screen filled in (no calendar permission).
+
+**Messenger links (Q3, Q4)**
+- [ ] With WhatsApp installed: `https://wa.me/491511234567` › "Open in WhatsApp" opens the chat in the app (not the browser). Also "Save as contact" and "Call". `https://chat.whatsapp.com/…` says "WhatsApp group invite".
+- [ ] Signal `https://signal.me/#p/+…` and `sgnl://…`, Telegram `https://t.me/name` and `tg://resolve?domain=…`, Threema `3mid:ECHOECHO,…`, Matrix `https://matrix.to/#/@a:matrix.org`, SimpleX `simplex:/contact#…`: each opens its app when installed.
+- [ ] Uninstall the app (or use one you don't have, e.g. LINE `https://line.me/R/ti/p/~x`): "LINE isn't installed…", then Copy link, "Open in browser" (with the note that the browser leaves Parley and uses the internet) and "LINE in your app store". Nothing opens until tapped.
+- [ ] A Session ID (66 hex characters starting 05): "Open in Session" copies it and opens Session. WeChat and KakaoTalk profile codes: the note about scanning inside the app. `skype:name?chat`: the note that Skype has closed.
+
+**Web addresses (Q4, Q5)**
+- [ ] `https://www.example.co.uk/path`: "Goes to example.co.uk" in large type, the full address below, "Open in browser" (the default browser, even if an app claims the link) and "Copy link".
+- [ ] `https://paypal.com.secure-login.io`, `https://paypa1.com`, `https://аpple.com` (Cyrillic а), `https://bit.ly/x`, `https://www.bank.com@evil.example`, `http://192.168.0.1`: each shows its red warning, and "Open in browser" isn't the highlighted button. `https://xn--mnchen-3ya.de` shows "münchen.de" and "Spelled for the internet as xn--mnchen-3ya.de".
+- [ ] Text containing a right-to-left override (e.g. `abc‮txt.exe`): the note "hidden formatting characters… left out" and the text shown without them. `javascript:…`, `intent:…`, `file:…` codes show as plain text with only Copy and Share.
+- [ ] Every sheet: Copy and Share work.

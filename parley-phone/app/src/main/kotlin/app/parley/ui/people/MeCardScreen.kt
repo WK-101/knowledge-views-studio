@@ -20,6 +20,7 @@ import androidx.compose.material.icons.rounded.AccountCircle
 import androidx.compose.material.icons.rounded.AddCircle
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.QrCode2
+import androidx.compose.material.icons.rounded.QrCodeScanner
 import androidx.compose.material.icons.rounded.RemoveCircle
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.AlertDialog
@@ -114,7 +115,7 @@ fun MeCardRow(vm: AppViewModel, open: (String) -> Unit) {
             }
         },
     )
-    if (showQr) MeQrDialog(card, onDismiss = { showQr = false }, onEdit = { showQr = false; edit() })
+    if (showQr) MeQrDialog(card, onDismiss = { showQr = false }, onEdit = { showQr = false; edit() }, onScan = { showQr = false; vm.navigate(app.parley.NavEvent.Route(app.parley.ui.qr.QrRoutes.SCAN)) })
 }
 
 /**
@@ -199,7 +200,8 @@ fun MeCardScreen(vm: AppViewModel, back: () -> Unit) {
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 32.dp),
         )
     }
-    if (showQr) MeQrDialog(merged, onDismiss = { showQr = false })
+    // Q2: "Scan theirs" right from your own code.
+    if (showQr) MeQrDialog(merged, onDismiss = { showQr = false }, onScan = { showQr = false; vm.navigate(app.parley.NavEvent.Route(app.parley.ui.qr.QrRoutes.SCAN)) })
 }
 
 @Composable
@@ -249,7 +251,7 @@ private fun shareVcard(context: android.content.Context, card: MeCard, parts: Se
 
 /** The card as a QR code (made on the phone), with the parts to include. [onEdit]: Q3, an Edit button to the editor. */
 @Composable
-internal fun MeQrDialog(card: MeCard, onDismiss: () -> Unit, onEdit: (() -> Unit)? = null) {
+internal fun MeQrDialog(card: MeCard, onDismiss: () -> Unit, onEdit: (() -> Unit)? = null, onScan: (() -> Unit)? = null) {
     val context = LocalContext.current
     val parts = remember { mutableStateListOf(MeCards.Part.NAME, MeCards.Part.PHONES) }
     val available = MeCards.Part.entries.filter { p ->
@@ -271,6 +273,12 @@ internal fun MeQrDialog(card: MeCard, onDismiss: () -> Unit, onEdit: (() -> Unit
             Column(Modifier.verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
                 bitmap?.let { Image(it.asImageBitmap(), stringResource(R.string.me_qr_desc), Modifier.size(240.dp).background(Color.White).padding(8.dp)) }
                 Text(stringResource(R.string.me_scan), modifier = Modifier.padding(vertical = 8.dp))
+                if (onScan != null) {
+                    androidx.compose.material3.OutlinedButton(onScan) {
+                        Icon(Icons.Rounded.QrCodeScanner, null, Modifier.size(18.dp))
+                        Text("  " + stringResource(R.string.qs_scan_theirs))
+                    }
+                }
                 available.forEach { p ->
                     Row(Modifier.fillMaxWidth().clickable { if (p in parts) parts.remove(p) else parts.add(p) }, verticalAlignment = Alignment.CenterVertically) {
                         Checkbox(p in parts, { if (it) parts.add(p) else parts.remove(p) })

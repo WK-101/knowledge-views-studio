@@ -2,4 +2,6 @@
 <paths>
     <cache-path name="transfer" path="transfer/" />
     <cache-path name="share" path="share/" />
+    <!-- Q1: the one photo the camera app takes for "Scan QR" (deleted once read). -->
+    <cache-path name="qr" path="qr/" />
 </paths>

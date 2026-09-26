@@ -155,6 +155,9 @@ object SettingsCatalog {
             "vcard", "vcf", "csv", "import", "google", "outlook", "excel", "spreadsheet", "columns", "mapping"),
         e("bulk_add", "Add several numbers", "Paste a list of numbers and save them at once, to a label, privately or for a few days", P,
             "bulk", "many", "paste", "list", "batch", "import numbers", "leads"),
+        // Q2: Scan QR (search finds it; it opens the scan screen).
+        e("scan_qr", "Scan QR code", "Read a contact, number, chat link, Wi-Fi or web address from a photo, without camera access", P,
+            "qr", "qr code", "scan", "scanner", "barcode", "vcard", "business card", "wifi", "whatsapp", "signal", "telegram", "camera"),
         e("import_sim", "Import from SIM card", "Copy the SIM's phonebook into your contacts", P, "sim", "phonebook", "copy"),
         e("export_vcf", "Export all to .vcf file", "Plain-text backup you control", P, "vcard", "export", "backup"),
         e("export_csv", "Export all to .csv file", "For spreadsheets", P, "spreadsheet", "excel", "export"),
