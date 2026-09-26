@@ -9,6 +9,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Cake
 import androidx.compose.material.icons.rounded.Event
 import androidx.compose.material.icons.rounded.Handshake
+import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.Update
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
@@ -51,7 +52,7 @@ private fun CallEntry.answered() = durationSec > 0 && (type == CallType.INCOMING
  * date. Tap to change the rhythm; for someone outside the Circle it offers to add them.
  */
 @Composable
-fun StayInTouchCard(meta: ContactMetaEntity?, d: ContactDetails, history: List<CallEntry>, interactions: List<Interaction>, onEdit: () -> Unit) {
+fun StayInTouchCard(meta: ContactMetaEntity?, d: ContactDetails, history: List<CallEntry>, interactions: List<Interaction>, goodTime: String? = null, onEdit: () -> Unit) {
     val res = LocalResources.current
     val every = meta?.reachOutDays
     val rhythm = KeepRhythm.decode(meta?.rhythm)
@@ -84,6 +85,10 @@ fun StayInTouchCard(meta: ContactMetaEntity?, d: ContactDetails, history: List<C
                     trailingContent = { StatusChip(status) },
                 )
             }
+        }
+        // X1: "Usually free 6–9 pm · 7:40 pm there".
+        if (goodTime != null) item("good_time") {
+            ListItem(colors = rowColors, leadingContent = { Icon(Icons.Rounded.Schedule, null) }, headlineContent = { Text(goodTime) })
         }
         if (next != null) item("next") {
             val (ev, days) = next

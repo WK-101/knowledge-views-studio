@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Machine-assisted translation — needs native review -->
+<!-- v3.2 Circle, part 2: R8/R9 on the call screen ("Anything to remember?", last note, promises). -->
+<resources>
+    <string name="memory_title">کچھ یاد رکھنا ہے؟</string>
+    <string name="memory_placeholder">ان کی خبر، کوئی وعدہ، کوئی تاریخ…</string>
+    <string name="memory_promise_hint">[ ] سے شروع ہونے والی سطریں وعدے بنتی ہیں، جنہیں بعد میں ٹک کر سکتے ہیں۔</string>
+    <string name="memory_chip_news">ان کی خبر</string>
+    <string name="memory_news_prefix">"ان کی خبر: "</string>
+    <string name="memory_chip_promised">میں نے وعدہ کیا…</string>
+    <string name="memory_chip_week">1 ہفتے میں فالو اپ</string>
+    <string name="memory_chip_month">1 مہینے میں فالو اپ</string>
+    <string name="memory_skip">ابھی نہیں</string>
+    <string name="memory_saved">ان کی ٹائم لائن میں محفوظ</string>
+    <string name="memory_last_note">آخری نوٹ: %1$s</string>
+    <plurals name="memory_more_promises">
+        <item quantity="one">+%1$d مزید وعدہ</item>
+        <item quantity="other">+%1$d مزید وعدے</item>
+    </plurals>
+</resources>

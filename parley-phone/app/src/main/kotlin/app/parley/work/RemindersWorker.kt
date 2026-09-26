@@ -24,6 +24,7 @@ import app.parley.common.circle.CirclePlanner
 import app.parley.common.circle.DateReminders
 import app.parley.common.circle.LastContact
 import app.parley.common.circle.ReminderDelivery
+import app.parley.common.circle.YearlyEvents
 import app.parley.common.people.LifeEvents
 import app.parley.container
 import app.parley.data.ContactEvent
@@ -59,6 +60,8 @@ class RemindersWorker(context: Context, params: WorkerParameters) : CoroutineWor
         val now = System.currentTimeMillis()
         if (s.birthdayReminders) runCatching { dates(c, cfg, today, now) }
         if (s.reachOutNudges) keepInTouch(c, cfg, today, now)
+        // R7: the Circle widget's dates and people move on daily.
+        runCatching { app.parley.shortcuts.CircleWidget.refresh(applicationContext) }
         return Result.success()
     }
 
@@ -123,10 +126,20 @@ class RemindersWorker(context: Context, params: WorkerParameters) : CoroutineWor
                 val upcoming = runCatching { c.contacts.events() }.getOrDefault(emptyList<ContactEvent>())
                     .filter { it.lookupKey in keys && !LifeEvents.isDeath(it.type, it.label) }
                     .mapNotNull { e -> EventDate.parse(e.date)?.let { CircleDigest.UpcomingDate(e.lookupKey, it.daysUntil(today).toInt()) } }
-                val picks = CircleDigest.pick(known.map { it.planned }, upcoming, now, c.circle.stateString(S_LAST_QUIET))
+                // X6: the serendipity pick can be anyone you were once in touch with, as long as they're a contact.
+                val quiet = c.circle.lastContactsAll(idx).filterKeys { it in contacts }.map { (k, t) -> CircleDigest.Quiet(k, t) }
+                // R10: life events remembered yearly, for anyone (not only the Circle).
+                val flags = c.circle.yearlyFlags()
+                val yearly = if (flags.isEmpty()) emptyList() else runCatching { c.contacts.events() }.getOrDefault(emptyList<ContactEvent>()).mapNotNull { e ->
+                    val d = EventDate.parse(e.date) ?: return@mapNotNull null
+                    if (LifeEvents.isDeath(e.type, e.label) || e.lookupKey !in contacts) return@mapNotNull null
+                    if (YearlyEvents.key(e.type, e.label, d) !in flags[e.lookupKey].orEmpty()) return@mapNotNull null
+                    YearlyEvents.upcoming(e.lookupKey, e.label?.takeIf { it.isNotBlank() } ?: applicationContext.getString(R.string.work_special_date), d, today, CircleDigest.DATE_WINDOW_DAYS)
+                }
+                val picks = CircleDigest.pick(known.map { it.planned }, upcoming, now, c.circle.stateString(S_LAST_QUIET), quiet, yearly)
                 c.circle.setStateString(S_LAST_DIGEST, today.toString())
                 c.circle.setStateString(S_LAST_QUIET, picks.firstOrNull { it.reason == CircleDigest.Reason.QUIET }?.lookupKey)
-                if (picks.isNotEmpty()) notifyDigest(picks.mapNotNull { p -> byKey[p.lookupKey]?.let { it to p.reason } }.map { (k, r) -> k.contact to r })
+                if (picks.isNotEmpty()) notifyDigest(picks.mapNotNull { p -> (byKey[p.lookupKey]?.contact ?: contacts[p.lookupKey])?.let { it to p } })
             }
             ReminderDelivery.AS_DUE -> {
                 val week = CircleDigest.weekOf(today).toString()
@@ -202,13 +215,17 @@ class RemindersWorker(context: Context, params: WorkerParameters) : CoroutineWor
         post(tag, b)
     }
 
-    private fun notifyDigest(people: List<Pair<ContactSummary, CircleDigest.Reason>>) {
+    private fun notifyDigest(people: List<Pair<ContactSummary, CircleDigest.Pick>>) {
         val ctx = applicationContext
-        val lines = people.map { (ct, reason) ->
-            when (reason) {
+        val lines = people.map { (ct, pick) ->
+            when (pick.reason) {
                 CircleDigest.Reason.DUE -> ctx.getString(R.string.circle_might_enjoy, ct.displayName)
                 CircleDigest.Reason.DATE -> ctx.getString(R.string.circle_digest_date, ct.displayName)
-                CircleDigest.Reason.QUIET -> ctx.getString(R.string.circle_digest_quiet, ct.displayName)
+                // X6: over a year since you were in touch.
+                CircleDigest.Reason.QUIET -> ctx.getString(R.string.c2_digest_long_quiet, ct.displayName)
+                // R10: "1 year since Ana's new job".
+                CircleDigest.Reason.YEARLY -> pick.years?.let { y -> ctx.resources.getQuantityString(R.plurals.c2_digest_yearly, y, y, ct.displayName, pick.label.orEmpty()) }
+                    ?: ctx.getString(R.string.c2_digest_yearly_no_year, ct.displayName, pick.label.orEmpty())
             }
         }
         val style = NotificationCompat.InboxStyle()

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Machine-assisted translation — needs native review -->
+<!-- v3.2 Circle, part 2: R8/R9 on the call screen ("Anything to remember?", last note, promises). -->
+<resources>
+    <string name="memory_title">Etwas zu merken?</string>
+    <string name="memory_placeholder">Neuigkeiten, ein Versprechen, ein Datum…</string>
+    <string name="memory_promise_hint">Zeilen, die mit [ ] beginnen, werden Versprechen zum späteren Abhaken.</string>
+    <string name="memory_chip_news">Neuigkeiten</string>
+    <string name="memory_news_prefix">"Neuigkeiten: "</string>
+    <string name="memory_chip_promised">Ich habe versprochen…</string>
+    <string name="memory_chip_week">In 1 Woche nachhaken</string>
+    <string name="memory_chip_month">In 1 Monat nachhaken</string>
+    <string name="memory_skip">Nicht jetzt</string>
+    <string name="memory_saved">In ihrem Verlauf gespeichert</string>
+    <string name="memory_last_note">Letzte Notiz: %1$s</string>
+    <plurals name="memory_more_promises">
+        <item quantity="one">+%1$d weiteres Versprechen</item>
+        <item quantity="other">+%1$d weitere Versprechen</item>
+    </plurals>
+</resources>

@@ -27,7 +27,25 @@ data class CallerDisplay(
     val subtitle: String? = null,
     /** I6: the "who is this" line of a private contact. */
     val context: String? = null,
+    /** R8/R9: the last note and open promises for this contact (never for private contacts). */
+    val memory: CallerMemory? = null,
+    /** R8: offer "Anything to remember?" after the call (a contact, and the setting is on). */
+    val memoryPrompt: Boolean = false,
 )
+
+/**
+ * R8/R9: what to remember about a caller. The call screen shows it only while the phone is unlocked, unless
+ * [onLockScreen] (the user allowed it).
+ */
+data class CallerMemory(
+    /** The newest note, in one line. */
+    val lastNote: String?,
+    /** Open promises ("[ ] …" lines), newest first. */
+    val promises: List<String>,
+    val onLockScreen: Boolean = false,
+) {
+    val isEmpty: Boolean get() = lastNote.isNullOrBlank() && promises.isEmpty()
+}
 
 data class InCallAppearance(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
@@ -72,6 +90,12 @@ interface TelecomDependencies {
     fun unknownRingtone(): String? = null
 
     fun saveCallNote(number: String?, connectTimeMillis: Long, text: String) {}
+
+    /**
+     * R8: "Anything to remember?" after a call with a contact: saves [note] as a call note (it shows on the contact's
+     * timeline) and, with [followUpDays], sets a one-off reminder to follow up.
+     */
+    fun rememberAfterCall(number: String, connectTimeMillis: Long, note: String?, followUpDays: Int?) {}
 
     /** Offline "where is this number from" for unknown callers. */
     fun describeNumber(number: String): String? = null

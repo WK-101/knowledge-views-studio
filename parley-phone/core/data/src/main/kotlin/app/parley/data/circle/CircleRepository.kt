@@ -12,6 +12,10 @@ import app.parley.common.circle.KeepRhythm
 import app.parley.common.circle.LastContact
 import app.parley.common.circle.LogMode
 import app.parley.common.circle.NaturalRhythm
+import app.parley.common.circle.PeopleInsights
+import app.parley.common.circle.Promises
+import app.parley.common.circle.YearlyEvents
+import app.parley.common.history.Period
 import app.parley.common.history.CallLogIndex
 import app.parley.data.backup.BackupExtras
 import app.parley.data.db.ContactMetaEntity
@@ -122,6 +126,23 @@ class CircleRepository(
         return calls + interactions.timesFor(lookupKey)
     }
 
+    /**
+     * X6: the last time you were in touch with every contact you ever were (answered calls with contacts and logged
+     * interactions), by lookup key. Private contacts aren't contacts, so they never appear.
+     */
+    suspend fun lastContactsAll(idx: CallLogIndex? = index().value): Map<String, Long> {
+        val out = HashMap<String, Long>()
+        idx?.calls?.forEach { c ->
+            if (c.durationSec <= 0 || (c.type != CallType.INCOMING && c.type != CallType.OUTGOING)) return@forEach
+            val key = c.personKey.takeIf { it.startsWith("c:") }?.removePrefix("c:")?.takeIf { it.isNotEmpty() } ?: return@forEach
+            if ((out[key] ?: Long.MIN_VALUE) < c.date) out[key] = c.date
+        }
+        runCatching { interactions.touchesSince(0) }.getOrDefault(emptyList()).forEach { t ->
+            if ((out[t.lookupKey] ?: Long.MIN_VALUE) < t.time) out[t.lookupKey] = t.time
+        }
+        return out
+    }
+
     // --- R3: "Log this?" ---
 
     /** A launch Parley just made for a Circle contact. [autoLogged]: "Always" already recorded it (offer Undo). */
@@ -172,6 +193,75 @@ class CircleRepository(
 
     fun isWished(occurrence: String): Boolean = app.parley.common.circle.DateReminders.has(stateSet(S_WISHED), occurrence)
 
+    // --- R8/R9: notes and promises about a person ---
+
+    /** Where a note lives: the pinned note, a call note or a logged interaction's note. */
+    enum class NoteSource { PINNED, CALL, LOGGED }
+
+    /** One note about a person ([time] 0 for the pinned note, which has no date). */
+    data class PersonNote(val source: NoteSource, val id: Long, val time: Long, val text: String) {
+        val promises: List<Promises.Item> get() = Promises.parse(text)
+    }
+
+    /**
+     * Every note about [lookupKey]: its pinned note, the call notes of its numbers ([numberKeys], match keys) and
+     * the notes of logged interactions (opened here). Newest first, the pinned note last.
+     */
+    suspend fun notesFor(lookupKey: String, numberKeys: Collection<String>, limit: Int = 60): List<PersonNote> = withContext(Dispatchers.IO) {
+        if (lookupKey.isEmpty()) return@withContext emptyList()
+        val calls = runCatching { if (numberKeys.isEmpty()) emptyList() else meta.callNotesNow(numberKeys.distinct()) }.getOrDefault(emptyList())
+            .take(limit).map { PersonNote(NoteSource.CALL, it.id, it.callDate, it.text) }
+        val logged = runCatching { interactions.interactionsFor(lookupKey) }.getOrDefault(emptyList())
+            .take(limit).mapNotNull { i -> i.note?.let { PersonNote(NoteSource.LOGGED, i.id, i.time, it) } }
+        val pinned = meta.meta(lookupKey)?.pinnedNote?.takeIf { it.isNotBlank() }?.let { PersonNote(NoteSource.PINNED, 0, 0, it) }
+        (calls + logged).sortedByDescending { it.time } + listOfNotNull(pinned)
+    }
+
+    /** R9: ticks a promise off (or back on) by rewriting its line in the note it lives in. */
+    suspend fun setPromiseDone(lookupKey: String, note: PersonNote, line: Int, done: Boolean): Boolean = withContext(Dispatchers.IO) {
+        val next = Promises.setDone(note.text, line, done)
+        if (next == note.text) return@withContext false
+        runCatching {
+            when (note.source) {
+                NoteSource.CALL -> meta.setCallNoteText(note.id, next)
+                NoteSource.LOGGED -> interactions.setNote(note.id, next)
+                NoteSource.PINNED -> meta.meta(lookupKey)?.let { meta.setMeta(it.copy(pinnedNote = next)) }
+            }
+            true
+        }.getOrDefault(false)
+    }
+
+    // --- R10: life events remembered yearly ---
+
+    suspend fun setYearly(lookupKey: String, contactId: Long?, key: String, on: Boolean) = withContext(Dispatchers.IO) {
+        if (lookupKey.isEmpty()) return@withContext
+        val m = meta.meta(lookupKey) ?: ContactMetaEntity(lookupKey)
+        meta.setMeta(m.copy(contactId = contactId ?: m.contactId, yearlyEvents = YearlyEvents.toggle(m.yearlyEvents, key, on)))
+    }
+
+    /** Lookup key -> flagged event keys. */
+    suspend fun yearlyFlags(): Map<String, Set<String>> = withContext(Dispatchers.IO) {
+        meta.allMetaNow().mapNotNull { r -> YearlyEvents.decode(r.yearlyEvents).takeIf { it.isNotEmpty() }?.let { r.lookupKey to it } }.toMap()
+    }
+
+    // --- R6: history for the People card ---
+
+    /**
+     * Every contact entry since [since] as [PeopleInsights.Touch]es keyed by lookup key: calls with contacts from
+     * the call log (private contacts' calls aren't there, and their interactions were moved into the vault) and
+     * logged interactions ("Mark as wished" entries as [PeopleInsights.TouchKind.WISHED]).
+     */
+    suspend fun touches(since: Long, idx: CallLogIndex? = index().value): List<PeopleInsights.Touch> {
+        val calls = idx?.calls(Period(since, Long.MAX_VALUE)).orEmpty().mapNotNull { c ->
+            val key = c.personKey.takeIf { it.startsWith("c:") }?.removePrefix("c:")?.takeIf { it.isNotEmpty() } ?: return@mapNotNull null
+            PeopleInsights.touchOf(key, c.call)
+        }
+        val logged = runCatching { interactions.touchesSince(since) }.getOrDefault(emptyList()).map {
+            PeopleInsights.Touch(it.lookupKey, it.time, if (it.dedupeKey.startsWith("w:")) PeopleInsights.TouchKind.WISHED else PeopleInsights.TouchKind.LOGGED)
+        }
+        return calls + logged
+    }
+
     // --- Backup (inside the encrypted backup's settings section) ---
 
     val backupExtras: BackupExtras = object : BackupExtras {
@@ -195,6 +285,10 @@ class CircleRepository(
                 items.put(p.put("t", i.type.name).put("c", i.channel?.name ?: JSONObject.NULL).put("at", i.time).put("note", i.note ?: JSONObject.NULL).put("u", i.dedupeKey))
             }
             out[X_INTERACTIONS] = items.toString()
+            // R10: life events remembered yearly.
+            val yearly = JSONArray()
+            yearlyFlags().forEach { (key, flags) -> person(key)?.let { yearly.put(it.put("y", JSONArray(flags.toList()))) } }
+            out[X_YEARLY] = yearly.toString()
             return out
         }
 
@@ -233,6 +327,18 @@ class CircleRepository(
                     runCatching { interactions.log(c.lookupKey, c.id, type, channel, o.optLong("at"), note, o.optString("u").ifEmpty { Interactions.manualKey(java.util.UUID.randomUUID().toString()) }) }
                 }
             }
+            values[X_YEARLY]?.let { json ->
+                val a = runCatching { JSONArray(json) }.getOrNull() ?: return@let
+                for (i in 0 until a.length()) {
+                    val o = a.optJSONObject(i) ?: continue
+                    val c = resolve(o) ?: continue
+                    val flags = o.optJSONArray("y")?.let { f -> (0 until f.length()).map { f.getString(it) } }.orEmpty()
+                    withContext(Dispatchers.IO) {
+                        val m = meta.meta(c.lookupKey) ?: ContactMetaEntity(c.lookupKey)
+                        meta.setMeta(m.copy(contactId = c.id, yearlyEvents = YearlyEvents.merge(m.yearlyEvents, YearlyEvents.encode(flags.toSet()))))
+                    }
+                }
+            }
         }
     }
 
@@ -243,5 +349,6 @@ class CircleRepository(
         private const val X_CONFIG = "${BackupExtras.PREFIX}circle.config"
         private const val X_MEMBERS = "${BackupExtras.PREFIX}circle.members"
         private const val X_INTERACTIONS = "${BackupExtras.PREFIX}circle.interactions"
+        private const val X_YEARLY = "${BackupExtras.PREFIX}circle.yearly"
     }
 }

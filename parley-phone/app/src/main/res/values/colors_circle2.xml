@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- R7: Circle widget colours (light); values-night has the dark ones. -->
+<resources>
+    <color name="c2_widget_bg">#F2FBF8FF</color>
+    <color name="c2_widget_text">#FF1B1B21</color>
+    <color name="c2_widget_text_dim">#FF45464F</color>
+    <color name="c2_widget_accent">#FF3F5AA9</color>
+    <color name="c2_widget_call_bg">#FFDCE1FF</color>
+</resources>

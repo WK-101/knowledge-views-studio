@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- R7: Circle widget colours (dark). -->
+<resources>
+    <color name="c2_widget_bg">#F21B1B21</color>
+    <color name="c2_widget_text">#FFE4E1E9</color>
+    <color name="c2_widget_text_dim">#FFC6C5D0</color>
+    <color name="c2_widget_accent">#FFB6C4FF</color>
+    <color name="c2_widget_call_bg">#FF26407F</color>
+</resources>

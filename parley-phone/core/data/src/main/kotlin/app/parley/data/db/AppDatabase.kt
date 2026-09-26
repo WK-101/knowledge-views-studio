@@ -145,6 +145,8 @@ data class ContactMetaEntity(
     val relationLinks: String? = null,
     /** R4: Circle rhythm, JSON ([app.parley.common.circle.KeepRhythm]); null = every [reachOutDays] days (v5). */
     val rhythm: String? = null,
+    /** R10: life events remembered yearly, one [app.parley.common.circle.YearlyEvents] key per line (v6). */
+    val yearlyEvents: String? = null,
 )
 
 /**
@@ -170,6 +172,9 @@ data class InteractionEntity(
     val dedupeKey: String,
     val createdAt: Long = System.currentTimeMillis(),
 )
+
+/** R6: when and how you were in touch, without opening any note. */
+data class InteractionTouchRow(val lookupKey: String, val time: Long, val dedupeKey: String)
 
 /** Newest interaction per contact, for the Circle list. */
 data class LastInteractionRow(val lookupKey: String, val time: Long, val type: String)
@@ -280,6 +285,14 @@ interface MetaDao {
 
     @Query("DELETE FROM call_notes WHERE id = :id")
     suspend fun deleteCallNote(id: Long)
+
+    /** R8/R9: the call notes of a person's numbers, newest first. */
+    @Query("SELECT * FROM call_notes WHERE numberKey IN (:keys) ORDER BY callDate DESC")
+    suspend fun callNotesNow(keys: List<String>): List<CallNoteEntity>
+
+    /** R9: a promise ticked off rewrites its line. */
+    @Query("UPDATE call_notes SET text = :text WHERE id = :id")
+    suspend fun setCallNoteText(id: Long, text: String)
 }
 
 @Dao
@@ -305,6 +318,13 @@ interface InteractionDao {
 
     @Query("SELECT time FROM interactions WHERE lookupKey = :key")
     suspend fun timesFor(key: String): List<Long>
+
+    @Query("SELECT lookupKey, time, dedupeKey FROM interactions WHERE time >= :since")
+    suspend fun touchesSince(since: Long): List<InteractionTouchRow>
+
+    /** Emits on every change (for the Circle widget). */
+    @Query("SELECT COUNT(*) FROM interactions")
+    fun countFlow(): Flow<Int>
 
     @Query("SELECT * FROM interactions WHERE id = :id")
     suspend fun get(id: Long): InteractionEntity?
@@ -484,14 +504,14 @@ interface PrefsDao {
         VaultContactEntity::class, VaultNumberEntity::class, PrivateCallEntity::class, CallNoteEntity::class,
         CallRingEntity::class, InteractionEntity::class,
     ],
-    version = 5,
+    version = 6,
     exportSchema = true,
     // v3: allow rules, schedules, SIM, hit counters, decision traces, ring lengths (blocking roadmap).
     // v4: temporary contacts remember their raw contact ids; contact metadata remembers the contact id and relation
     //     links (round-4 data-safety fixes F2, F8, F23). Added columns only, all nullable or defaulted.
     // v5: interactions (R2) and the Circle rhythm column in contact metadata (R4). A new table and a nullable
     //     column: nothing existing changes.
-    autoMigrations = [AutoMigration(from = 1, to = 2), AutoMigration(from = 2, to = 3), AutoMigration(from = 3, to = 4), AutoMigration(from = 4, to = 5)],
+    autoMigrations = [AutoMigration(from = 1, to = 2), AutoMigration(from = 2, to = 3), AutoMigration(from = 3, to = 4), AutoMigration(from = 4, to = 5), AutoMigration(from = 5, to = 6)],
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun blockDao(): BlockDao

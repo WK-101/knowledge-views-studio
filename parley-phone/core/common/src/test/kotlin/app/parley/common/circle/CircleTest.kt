@@ -133,7 +133,7 @@ class CircleTest {
 
     @Test fun digest_picks_one_due_one_date_one_quiet_each_once() {
         val due = CirclePlanner.Member("due", 14, now - 30 * day)
-        val quiet = CirclePlanner.Member("quiet", 365, now - 200 * day)
+        val quiet = CirclePlanner.Member("quiet", 730, now - 400 * day)
         val fine = CirclePlanner.Member("fine", 30, now - 2 * day)
         val picks = CircleDigest.pick(
             listOf(fine, quiet, due), listOf(CircleDigest.UpcomingDate("bday", 3), CircleDigest.UpcomingDate("due", 1)), now,

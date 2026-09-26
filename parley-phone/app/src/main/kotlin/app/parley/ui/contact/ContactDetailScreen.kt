@@ -38,6 +38,7 @@ import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Dialpad
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Email
+import androidx.compose.material.icons.rounded.EventRepeat
 import androidx.compose.material.icons.rounded.Forum
 import androidx.compose.material.icons.rounded.Handshake
 import androidx.compose.material.icons.rounded.History
@@ -168,6 +169,9 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
     val interactions by remember(details?.lookupKey) { details?.lookupKey?.takeIf { it.isNotEmpty() }?.let { vm.c.circle.interactions.interactions(it) } ?: kotlinx.coroutines.flow.flowOf(emptyList()) }
         .collectAsStateWithLifecycle(emptyList())
     var logDialog by remember { mutableStateOf(false) }
+    // R8/R9/X1: the pre-call peek (the number about to be called).
+    val circleCfg by vm.c.circle.config.collectAsStateWithLifecycle()
+    var peekNumber by remember { mutableStateOf<String?>(null) }
     var editEntry by remember { mutableStateOf<app.parley.data.circle.Interaction?>(null) }
     fun saveMeta(f: (app.parley.data.db.ContactMetaEntity) -> app.parley.data.db.ContactMetaEntity) {
         val key = details?.lookupKey ?: return
@@ -212,6 +216,18 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
             val mine = PhoneNumbers.LineSet(phones.map { it.value }, app.parley.data.PhoneEnv.countryIso(context))
             calls.orEmpty().filter { e -> e.number in mine }
         }
+    }
+    // R8/R9: every note about this person (call notes, interaction notes, pinned note), and its open promises.
+    val numberKeys = remember(d?.phones) { d?.phones.orEmpty().map { PhoneNumbers.matchKey(it.value) }.toSet() }
+    val memory by app.parley.ui.circle.rememberPersonMemory(vm, d?.lookupKey.orEmpty(), numberKeys, allNotes, interactions, meta)
+    // X1: a good time to call, from the calls with them and their local time.
+    val goodTime = remember(history, d?.phones) {
+        val p = d?.phones?.let { ps -> ps.firstOrNull { it.isPrimary } ?: ps.firstOrNull() }?.value
+        app.parley.ui.circle.goodTimeText(resources, history, p, app.parley.data.PhoneEnv.countryIso(context))
+    }
+    /** Calls [number], through the pre-call peek when there's something to remember and it's on. */
+    fun callPeek(number: String, name: String) {
+        if (circleCfg.preCallPeek && app.parley.ui.circle.hasPeek(memory, goodTime)) peekNumber = number else vm.requestCall(number, name)
     }
     val talked = history.firstOrNull { it.durationSec > 0 }
     val lastTalked = if (talked != null) stringResource(R.string.detail_last_talked, android.text.format.DateUtils.getRelativeTimeSpanString(talked.date, System.currentTimeMillis(), android.text.format.DateUtils.DAY_IN_MILLIS)) else stringResource(R.string.recents_empty)
@@ -371,7 +387,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                         val preferredCall = messengers.firstOrNull { it.accountType == prefs.call && it.isCall && !it.isVideo }
                         ActionTile(Icons.Rounded.Call, if (preferredCall != null) preferredCall.appName else stringResource(R.string.main_call), primary != null || preferredCall != null) {
                             if (preferredCall != null) ContactMessaging.start(context, preferredCall.intent(), preferredCall.appName)?.let { vm.toast(it) }
-                            else primary?.let { vm.requestCall(it.value, d.displayName) }
+                            else primary?.let { callPeek(it.value, d.displayName) }
                         }
                         val messageApp = prefs.message?.let { p -> if (p == MessengerPrefs.SMS) stringResource(R.string.detail_sms) else messengers.firstOrNull { it.accountType == p }?.appName ?: app.parley.common.MessengerApp.forPackage(p)?.label }
                         ActionTile(
@@ -396,11 +412,39 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                 }
             }
             // U4: Stay in touch right under the actions (R4: rhythm, last in touch, next date).
-            if (d.lookupKey.isNotEmpty()) item(key = "stay") { app.parley.ui.circle.StayInTouchCard(meta, d, history, interactions) { reachOut = true } }
+            if (d.lookupKey.isNotEmpty()) item(key = "stay") { app.parley.ui.circle.StayInTouchCard(meta, d, history, interactions, goodTime = goodTime) { reachOut = true } }
+            // R9: open promises from notes, ticked off here.
+            if (d.lookupKey.isNotEmpty() && memory.promises.isNotEmpty()) item(key = "promises") { app.parley.ui.circle.PromisesCard(vm, d.lookupKey, memory) }
             if (d.events.isNotEmpty()) item(key = "dates") {
                 SegmentedGroup(stringResource(R.string.circle_dates)) {
+                    val yearly = app.parley.common.circle.YearlyEvents.decode(meta?.yearlyEvents)
                     d.events.forEachIndexed { i, ev ->
-                        item { GroupDataRow(Icons.Rounded.Cake, i == 0, app.parley.ui.people.describeLifeEvent(resources, d, ev), app.parley.ui.people.eventLabel(resources, ev), onClick = {}) }
+                        item {
+                            // R10: a life event (new job, moved…) can be remembered yearly in the digest.
+                            val date = app.parley.common.EventDate.parse(ev.date)
+                            val canYearly = date != null && d.lookupKey.isNotEmpty() && app.parley.common.circle.YearlyEvents.eligible(ev.type) &&
+                                !app.parley.common.people.LifeEvents.isDeath(ev.type, ev.label)
+                            val key = if (canYearly) app.parley.common.circle.YearlyEvents.key(ev.type, ev.label, date!!) else null
+                            val on = key != null && key in yearly
+                            fun toggle() {
+                                key ?: return
+                                scope.launch { vm.c.circle.setYearly(d.lookupKey, contactId, key, !on) }
+                                vm.toast(resources.getString(if (on) R.string.c2_yearly_off else R.string.c2_yearly_on))
+                            }
+                            GroupDataRow(
+                                Icons.Rounded.Cake, i == 0, app.parley.ui.people.describeLifeEvent(resources, d, ev),
+                                app.parley.ui.people.eventLabel(resources, ev) + (if (on) resources.getString(R.string.main_separator) + resources.getString(R.string.c2_yearly_label) else ""),
+                                onClick = {},
+                                trailing = if (key == null) null else ({
+                                    IconButton(::toggle) {
+                                        Icon(
+                                            Icons.Rounded.EventRepeat, stringResource(if (on) R.string.c2_yearly_stop else R.string.c2_yearly_remember),
+                                            tint = if (on) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+                                }),
+                            )
+                        }
                     }
                 }
             }
@@ -416,7 +460,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                                 label = listOfNotNull(Format.phoneType(resources, p.type, p.label), pinned?.let { id -> sims.firstOrNull { it.id == id }?.label?.let { resources.getString(R.string.detail_always_sim, it) } }).joinToString(resources.getString(R.string.main_separator)),
                                 canDefault = d.phones.size > 1 && p.id != null,
                                 multiSim = sims.size > 1,
-                                onCall = { vm.requestCall(p.value, d.displayName) },
+                                onCall = { callPeek(p.value, d.displayName) },
                                 onMessage = { message(d, p.value) },
                                 onMessageOn = { messageSheet = p.value },
                                 onSim = { simFor = p.value },
@@ -584,16 +628,24 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
         if (secureQr) SecureQrDialog(d) { secureQr = false }
         if (copyToSim) app.parley.ui.people.CopyToSimDialog(vm, d) { copyToSim = false }
         if (editNote) {
-            var text by remember { mutableStateOf(meta?.pinnedNote.orEmpty()) }
+            var text by remember { mutableStateOf(androidx.compose.ui.text.input.TextFieldValue(meta?.pinnedNote.orEmpty())) }
             AlertDialog(
                 onDismissRequest = { editNote = false },
                 title = { Text(stringResource(R.string.detail_note_title)) },
-                text = { androidx.compose.material3.OutlinedTextField(text, { text = it }, placeholder = { Text(stringResource(R.string.detail_note_placeholder)) }, minLines = 2) },
-                confirmButton = { TextButton({ editNote = false; saveMeta { it.copy(pinnedNote = text.trim().ifEmpty { null }) } }) { Text(stringResource(R.string.main_save)) } },
+                // R9: the checkbox button starts a promise line.
+                text = { app.parley.ui.circle.PromiseNoteField(text, { text = it }, placeholder = stringResource(R.string.detail_note_placeholder)) },
+                confirmButton = { TextButton({ editNote = false; saveMeta { it.copy(pinnedNote = text.text.trim().ifEmpty { null }) } }) { Text(stringResource(R.string.main_save)) } },
                 dismissButton = { TextButton({ editNote = false }) { Text(stringResource(R.string.main_cancel)) } },
             )
         }
         if (reachOut) app.parley.ui.circle.RhythmDialog(vm, d, contactId, meta) { reachOut = false }
+        peekNumber?.let { n ->
+            app.parley.ui.circle.PreCallPeekSheet(
+                vm, d.lookupKey, d.given.ifBlank { d.displayName }, memory, goodTime,
+                onCall = { peekNumber = null; vm.requestCall(n, d.displayName) },
+                onDismiss = { peekNumber = null },
+            )
+        }
         if (logDialog || editEntry != null) {
             val initial = editEntry
             app.parley.ui.circle.LogInteractionDialog(d.given.ifBlank { d.displayName }, initial, onDismiss = { logDialog = false; editEntry = null }) { type, note, time ->

@@ -37,6 +37,22 @@ object NumberInfo {
         null
     }
 
+    private val zones by lazy { com.google.i18n.phonenumbers.PhoneNumberToTimeZonesMapper.getInstance() }
+
+    /**
+     * X1: the time zone of [number] from its country and area code (offline, libphonenumber's map), or null when it
+     * can't be told (unknown, or a country with several offsets and no area to go by).
+     */
+    fun timeZone(number: String?, countryIso: String, now: Long = System.currentTimeMillis()): java.time.ZoneId? = try {
+        if (number.isNullOrBlank()) null else {
+            val parsed = util.parse(number, countryIso.uppercase(Locale.ROOT))
+            val ids = zones.getTimeZonesForNumber(parsed).filter { it != com.google.i18n.phonenumbers.PhoneNumberToTimeZonesMapper.getUnknownTimeZone() }
+            app.parley.common.circle.GoodTime.zoneOf(ids, now)
+        }
+    } catch (_: Exception) {
+        null
+    }
+
     fun flag(region: String?): String? {
         if (region == null || region.length != 2) return null
         val base = 0x1F1E6 - 'A'.code

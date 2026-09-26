@@ -492,3 +492,40 @@ Call the phone from another phone in each state below. For each one, check that 
 - [ ] Names with `/ : ? #` make safe file names; two "Ana Silva" become "Ana Silva.md" and "Ana Silva (2).md". A note of your own already named "Ana Silva.md" in the folder is never overwritten (Parley's file gets "(2)").
 - [ ] "Only people in your circle" on: files of people outside the Circle that Parley wrote are removed; your own files stay. Export again without changes: "0 files updated". Change a note: only that file is rewritten.
 - [ ] Private (vault) contacts never get a file. "Keep it up to date" on: the hourly folder-sync run exports again (even with contact sync off). "Stop exporting to this folder" leaves the files where they are.
+
+### 15.5 Circle, part 2 (R6–R10, X1, X6)
+
+**People card in Insights (R6)**
+- [ ] Recents › Insights: a "People" section under the totals. With people in your Circle: "You were in touch with n of m in your circle this month" and an arrow against the 30 days before (worked out from calls and logged interactions, no snapshot). Log a meeting with a Circle member you hadn't reached this month: the count goes up on the next visit.
+- [ ] Open loops: miss a call from a contact → "Their call · …" with a Call button. Call back (even unanswered) or log an interaction: it's gone. Call a contact who doesn't answer → "Your call, not answered yet"; when they call back it's gone. Loops older than 30 days never show.
+- [ ] "Who usually reaches out first" per Circle member with at least 4 conversations; "Only you see this". ⋮ › Hide who reaches out first hides it; Settings › Recents & history › Who usually reaches out first brings it back.
+- [ ] "Your year" appears only with at least 20 calls or interactions in the last year: most in touch, longest gap with a Circle member, occasions acknowledged ("Mark as wished").
+- [ ] ⋮ › Hide this card: gone. Settings › Recents & history › People card in Insights turns it back on. Settings search "open loops" and "reaches out" find both rows. Private contacts never appear.
+
+**Circle widget (R7)**
+- [ ] Long-press home › Widgets › Parley › Circle: the picker shows a preview and the description. Place it: up to 3 people from the digest (tap a name opens the contact; the phone button calls through the pocket guard) and up to 3 dates in the next 14 days. Resize it smaller: fewer rows; larger: more.
+- [ ] Add someone to the Circle, log an interaction or make a call: the widget updates within a few seconds while Parley runs, and at least daily otherwise.
+- [ ] Turn on the app lock, lock the phone (screen off) and look at the widget right after unlocking with a PIN on a launcher that shows widgets before unlock, or reboot: only "n people to reach out to / n dates…", never names. After unlocking, names return. With the app lock off, names always show.
+- [ ] Move a Circle contact to private contacts: it disappears from the widget.
+
+**Remember what matters (R8)**
+- [ ] Settings › Calls › Remember what matters › "Anything to remember?" after calls (off by default). Turn it on, call a contact and hang up after it connects: the call-ended screen shows "Anything to remember?" with a note field, Their news, I promised… (adds "[ ] "), Follow up in 1 week / 1 month. Unknown numbers still get the V4 card instead; unanswered calls get nothing.
+- [ ] Save a note: toast "Saved to their timeline"; the note shows on the contact's timeline as a call note. Not now closes the screen; touching the card keeps it up.
+- [ ] Follow up in 1 week (wait a week, or move the phone date on and let WorkManager run): a "Follow up with …" notification, private on the lock screen (only a neutral line there), with Call; it lists open promises.
+- [ ] Next incoming call from that contact, phone unlocked: under the pinned note the call screen shows "Last note: …" and "☐ …" promises. Phone locked: not shown; unlock while ringing: it appears within a second. Settings › Notes on the lock screen on: shown while locked too. Private contacts never show it.
+- [ ] Contact page › Call (or tap a number) with a note, promise or good-time line: the pre-call peek sheet opens with them and a Call button; Cancel dials nothing. "Don't show again" turns it off (Settings › Calls › Peek before calling) and calls. Without anything to show, Call dials at once.
+
+**Promises (R9)**
+- [ ] The pinned note editor, the Log interaction note and the post-call note have a checkbox button and a one-line hint. Lines starting with "[ ] " become promises: a "Promises" group appears under Stay in touch; tick one off: it's gone, with "Ticked off: …" and Undo; the note line now reads "[x] …" in the timeline.
+- [ ] Promises tick off in the pre-call peek too.
+
+**Life events remembered yearly (R10)**
+- [ ] A contact with a custom date (e.g. label "New job", with a year) shows a repeat icon on the date row; tap it: "Remembered yearly" is added under the label. Birthdays and anniversaries have no icon.
+- [ ] Set the date to a few days after next Sunday's digest a year ago (or change the phone's date): the Sunday digest has "1 year since Ana's New job". Without a year: "Around now: Ana's New job".
+- [ ] Link that contact with another one (or rename a phone-only contact): the flag stays. Backup and restore on another phone: the flag comes back.
+
+**Good time to call (X1)**
+- [ ] A contact with at least 8 answered calls, mostly in the evening: the Stay in touch card and the peek show "Usually free 6 PM–9 PM". With a foreign number (e.g. +81 …): "· 7:40 AM there" in their time. Fewer than 8 answered calls or calls all over the day: no line. US/Canada numbers from area codes with several time zones may show no local time.
+
+**Digest serendipity (X6)**
+- [ ] With the weekly digest: the third line is someone you were in touch with more than a year ago ("It's been over a year since you and … were in touch"), Circle or not, and never the same person two Sundays in a row. Nobody quiet for a year: no such line.

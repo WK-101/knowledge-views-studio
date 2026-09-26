@@ -95,6 +95,18 @@ class InteractionStore(private val dao: InteractionDao) {
         dao.update(e.copy(type = type.name, noteBlob = seal(note), time = time ?: e.time))
     }
 
+    /** R9: only the note changes (a promise ticked off). Throws [SealException]. */
+    suspend fun setNote(id: Long, note: String?) = withContext(Dispatchers.IO) {
+        val e = dao.get(id) ?: return@withContext
+        dao.update(e.copy(noteBlob = seal(note)))
+    }
+
+    /** R6: (lookup key, time, dedupe key) of every interaction since [since]; notes stay sealed. */
+    suspend fun touchesSince(since: Long): List<app.parley.data.db.InteractionTouchRow> = withContext(Dispatchers.IO) { dao.touchesSince(since) }
+
+    /** Changes whenever any interaction is added, edited or deleted (R7 widget refresh). */
+    val changes: Flow<Int> get() = dao.countFlow()
+
     /** Deletes one entry and returns it, so the caller can offer Undo ([restore]). */
     suspend fun delete(id: Long): Interaction? = withContext(Dispatchers.IO) {
         val e = dao.get(id) ?: return@withContext null

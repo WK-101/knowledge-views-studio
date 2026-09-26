@@ -132,6 +132,8 @@ fun InsightsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
                     }
                 }
             }
+            // R6: the People card (its own windows: this month, open loops, the last year).
+            item(key = "people") { PeopleCard(vm, idx, open) }
             if (weeks.size > 1) {
                 item { Section(stringResource(R.string.hist_talk_per_week)) }
                 item { WeeklyBars(weeks, Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) }

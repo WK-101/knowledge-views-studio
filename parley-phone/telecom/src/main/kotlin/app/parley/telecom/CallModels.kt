@@ -58,6 +58,10 @@ data class CallUi(
     /** P6: why an outgoing call didn't go through (set on the ended call only), and the reason to show. */
     val failure: app.parley.common.calls.FailureKind? = null,
     val failureText: String? = null,
+    /** R8/R9: the last note and open promises of the caller. */
+    val memory: CallerMemory? = null,
+    /** R8: "Anything to remember?" is offered once the call ends. */
+    val memoryPrompt: Boolean = false,
 ) {
     val title: String get() = name ?: number?.takeIf { it.isNotBlank() } ?: fallbackTitle
     val isLive: Boolean get() = state != CallState.DISCONNECTED && state != CallState.DISCONNECTING
@@ -69,6 +73,10 @@ data class CallUi(
     /** P2: "Block & decline" is offered for a ringing call with a number (never an emergency call-back). */
     val canBlockAndDecline: Boolean
         get() = state == CallState.RINGING && !hidden && !isEmergency && !number.isNullOrBlank()
+
+    /** R8: after a call that connected with a contact, "Anything to remember?" (opt-in). */
+    val memoryCard: Boolean
+        get() = memoryPrompt && !noContact && !hidden && !isEmergency && connectTimeMillis > 0 && !number.isNullOrBlank()
 
     /** Show the post-call card: an ended call with a number that isn't in contacts (V4). */
     val postCallCard: Boolean

@@ -308,6 +308,19 @@
                 android:resource="@xml/widget_dial_info" />
         </receiver>
 
+        <!-- R7: the Circle widget (resizable RemoteViews). -->
+        <receiver
+            android:name=".shortcuts.CircleWidget"
+            android:exported="false"
+            android:label="@string/c2_widget_title">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_circle_info" />
+        </receiver>
+
         <!-- Shares the encrypted "move to a new phone" backup file. -->
         <provider
             android:name="androidx.core.content.FileProvider"

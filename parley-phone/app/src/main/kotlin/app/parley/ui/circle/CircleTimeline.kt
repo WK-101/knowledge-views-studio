@@ -27,7 +27,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SelectableDates
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -84,7 +83,7 @@ fun LogInteractionDialog(name: String, initial: Interaction?, onDismiss: () -> U
     val context = LocalContext.current
     val res = LocalResources.current
     var type by rememberSaveable { mutableStateOf(initial?.type ?: InteractionType.MEET) }
-    var note by rememberSaveable { mutableStateOf(initial?.note.orEmpty()) }
+    var note by rememberSaveable(stateSaver = androidx.compose.ui.text.input.TextFieldValue.Saver) { mutableStateOf(androidx.compose.ui.text.input.TextFieldValue(initial?.note.orEmpty())) }
     var time by rememberSaveable { mutableLongStateOf(initial?.time ?: System.currentTimeMillis()) }
     var picking by remember { mutableStateOf(false) }
     val zone = ZoneId.systemDefault()
@@ -98,7 +97,8 @@ fun LogInteractionDialog(name: String, initial: Interaction?, onDismiss: () -> U
                         FilterChip(type == t, { type = t }, label = { Text(CircleText.type(res, t)) }, leadingIcon = { Icon(CircleText.typeIcon(t), null) })
                     }
                 }
-                OutlinedTextField(note, { note = it }, label = { Text(stringResource(R.string.circle_note)) }, minLines = 2)
+                // R9: the checkbox button starts a promise line.
+                PromiseNoteField(note, { note = it }, label = stringResource(R.string.circle_note))
                 ListItem(
                     modifier = Modifier.clickable { picking = true },
                     colors = clearRow,
@@ -108,7 +108,7 @@ fun LogInteractionDialog(name: String, initial: Interaction?, onDismiss: () -> U
                 )
             }
         },
-        confirmButton = { TextButton({ onSave(type, note.trim().ifEmpty { null }, time) }) { Text(stringResource(R.string.main_save)) } },
+        confirmButton = { TextButton({ onSave(type, note.text.trim().ifEmpty { null }, time) }) { Text(stringResource(R.string.main_save)) } },
         dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.main_cancel)) } },
     )
     if (picking) {

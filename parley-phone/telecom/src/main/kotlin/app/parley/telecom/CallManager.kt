@@ -523,6 +523,8 @@ object CallManager {
             lastCall = found?.lastCall,
             subtitle = found?.subtitle,
             context = found?.context,
+            memory = found?.memory,
+            memoryPrompt = found?.memoryPrompt == true,
             unknown = id in unknownCallers,
             location = if (id in unknownCallers && number != null) locations.getOrPut(id) { runCatching { TelecomGraph.dependencies.describeNumber(number) }.getOrNull().orEmpty() }.ifEmpty { null } else null,
             verdict = outcomes[id]?.verdict,

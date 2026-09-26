@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- R7: the Circle widget preview (RemoteViews, no Glance). -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/circle_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_circle_bg"
+    android:orientation="vertical"
+    android:padding="14dp">
+
+    <TextView
+        android:id="@+id/circle_title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/c2_widget_title"
+        android:textColor="@color/c2_widget_accent"
+        android:textSize="14sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/circle_message"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:textColor="@color/c2_widget_text"
+        android:textSize="14sp"
+        android:visibility="gone" />
+
+    <LinearLayout
+        android:id="@+id/circle_person_0"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/circle_person_0_name"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:text="@string/c2_widget_preview_name_0"
+                android:textColor="@color/c2_widget_text"
+                android:textSize="15sp" />
+
+            <TextView
+                android:id="@+id/circle_person_0_line"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:text="@string/c2_widget_preview_line_0"
+                android:textColor="@color/c2_widget_text_dim"
+                android:textSize="12sp" />
+        </LinearLayout>
+
+        <ImageView
+            android:id="@+id/circle_person_0_call"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="@drawable/widget_circle_call_bg"
+            android:contentDescription="@string/c2_widget_call"
+            android:padding="10dp"
+            android:src="@drawable/ic_widget_call" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/circle_person_1"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/circle_person_1_name"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:text="@string/c2_widget_preview_name_1"
+                android:textColor="@color/c2_widget_text"
+                android:textSize="15sp" />
+
+            <TextView
+                android:id="@+id/circle_person_1_line"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:text="@string/c2_widget_preview_line_1"
+                android:textColor="@color/c2_widget_text_dim"
+                android:textSize="12sp" />
+        </LinearLayout>
+
+        <ImageView
+            android:id="@+id/circle_person_1_call"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="@drawable/widget_circle_call_bg"
+            android:contentDescription="@string/c2_widget_call"
+            android:padding="10dp"
+            android:src="@drawable/ic_widget_call" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/circle_dates_title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:text="@string/c2_widget_dates"
+        android:textColor="@color/c2_widget_accent"
+        android:textSize="12sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/circle_date_0"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:text="@string/c2_widget_preview_date_0"
+        android:textColor="@color/c2_widget_text"
+        android:textSize="13sp" />
+
+</LinearLayout>

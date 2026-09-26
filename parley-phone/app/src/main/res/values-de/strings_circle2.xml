@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Machine-assisted translation — needs native review -->
+<!-- v3.2 Circle, part 2: R6–R10, X1, X6 (People card, widget, memory, promises, yearly events, good time). -->
+<resources>
+    <string name="c2_digest_long_quiet">Seit über einem Jahr hattest du keinen Kontakt mit %1$s</string>
+    <string name="c2_digest_yearly_no_year">Um diese Zeit: %2$s von %1$s</string>
+    <string name="c2_first_both">Ihr meldet euch beide</string>
+    <string name="c2_first_mover">Wer sich meist zuerst meldet</string>
+    <string name="c2_first_mover_private">Nur du siehst das. Ausblenden über das ⋮-Menü oder in den Einstellungen.</string>
+    <string name="c2_first_them">Meist meldet sich %1$s zuerst</string>
+    <string name="c2_first_you">Meist meldest du dich zuerst</string>
+    <string name="c2_followup_body">Du wolltest nach eurem letzten Anruf nachhaken.</string>
+    <string name="c2_followup_title">Bei %1$s nachhaken</string>
+    <string name="c2_from_call">Anrufnotiz · %1$s</string>
+    <string name="c2_from_logged">Eingetragen · %1$s</string>
+    <string name="c2_from_pinned">Angeheftete Notiz</string>
+    <string name="c2_good_time">Meist erreichbar %1$s</string>
+    <string name="c2_hide_first_mover">Ausblenden, wer sich zuerst meldet</string>
+    <string name="c2_show_first_mover">Anzeigen, wer sich zuerst meldet</string>
+    <string name="c2_hide_people_card">Diese Karte ausblenden</string>
+    <string name="c2_insert_promise">Versprechen hinzufügen</string>
+    <string name="c2_open_loops">Offene Enden</string>
+    <string name="c2_open_promise">Offenes Versprechen</string>
+    <string name="c2_peek_dont_show">Nicht mehr zeigen</string>
+    <string name="c2_peek_off">Vorschau vor dem Anruf ist aus. Einschalten unter Einstellungen › Anrufe.</string>
+    <string name="c2_peek_title">Bevor du %1$s anrufst</string>
+    <string name="c2_people_title">Menschen</string>
+    <string name="c2_promise_done">Erledigt: %1$s</string>
+    <string name="c2_promise_hint">Beginne eine Zeile mit [ ], dann wird sie ein Versprechen zum Abhaken.</string>
+    <string name="c2_promises">Versprechen</string>
+    <string name="c2_reach_up">Mehr als im Monat davor (%1$d)</string>
+    <string name="c2_reach_down">Im Monat davor: %1$d</string>
+    <string name="c2_reach_same">Etwa wie im Monat davor</string>
+    <string name="c2_review_most">Am meisten Kontakt: %1$s</string>
+    <string name="c2_year_review">Dein Jahr</string>
+    <string name="c2_set_group_memory">Was wichtig ist</string>
+    <string name="c2_time_there">dort %1$s</string>
+    <string name="c2_widget_date_soon">Bald ein Datum</string>
+    <string name="c2_widget_empty">Nichts steht an. Füge Menschen auf ihrer Kontaktseite zu deinem Kreis hinzu.</string>
+    <string name="c2_widget_today">Heute</string>
+    <string name="c2_widget_tomorrow">Morgen</string>
+    <string name="c2_yearly_label">Jährlich erinnert</string>
+    <string name="c2_yearly_off">Wird nicht mehr jährlich erinnert</string>
+    <string name="c2_yearly_on">Du siehst es jedes Jahr in deiner Wochenübersicht</string>
+    <string name="c2_yearly_remember">Jährlich erinnern</string>
+    <string name="c2_yearly_stop">Nicht mehr jährlich erinnern</string>
+    <string name="c2_widget_call">Anrufen</string>
+    <string name="c2_widget_dates">Demnächst</string>
+    <string name="c2_widget_description">Anstehende Daten und Menschen aus deinem Kreis, mit Anruf-Taste. Mit App-Sperre nur Anzahlen, solange das Telefon gesperrt ist.</string>
+    <string name="c2_widget_title">Kreis</string>
+    <string name="c2_widget_preview_line_0">Würde sich über dich freuen</string>
+    <string name="c2_widget_preview_line_1">Geburtstag in 3 Tagen</string>
+    <string name="c2_widget_preview_date_0">Marco · Morgen · Jahrestag</string>
+    <string name="c2_set_memory_prompt_title">„Etwas zu merken?“ nach Anrufen</string>
+    <string name="c2_set_memory_prompt_summary">Eine Notiz und eine Erinnerung zum Nachhaken nach Anrufen mit Kontakten</string>
+    <string name="c2_set_memory_prompt_kw">notiz, notizen, merken, versprechen, nachhaken, nach dem anruf</string>
+    <string name="c2_set_memory_lock_title">Notizen auf dem Sperrbildschirm</string>
+    <string name="c2_set_memory_lock_summary">Letzte Notiz und Versprechen beim eingehenden Anruf auch bei gesperrtem Telefon zeigen</string>
+    <string name="c2_set_memory_lock_kw">sperrbildschirm, notiz, versprechen, eingehend, datenschutz</string>
+    <string name="c2_set_peek_title">Vorschau vor dem Anruf</string>
+    <string name="c2_set_peek_summary">Letzte Notiz, Versprechen und eine gute Anrufzeit, bevor du von einer Kontaktseite anrufst</string>
+    <string name="c2_set_peek_kw">vorschau, vor dem anruf, notiz, versprechen, gute zeit, ortszeit, zeitzone</string>
+    <string name="c2_set_people_card_title">Menschen-Karte in den Statistiken</string>
+    <string name="c2_set_people_card_summary">Kontakt in deinem Kreis, offene Enden und dein Jahr, in den Anrufstatistiken</string>
+    <string name="c2_set_people_card_kw">menschen, kreis, offene enden, jahresrückblick, statistik</string>
+    <string name="c2_set_first_mover_title">Wer sich meist zuerst meldet</string>
+    <string name="c2_set_first_mover_summary">Auf der Menschen-Karte. Nur du siehst es</string>
+    <string name="c2_set_first_mover_kw">zuerst, meldet sich, initiative, ruft zuerst an</string>
+    <plurals name="c2_digest_yearly">
+        <item quantity="one">%1$d Jahr seit %3$s von %2$s</item>
+        <item quantity="other">%1$d Jahre seit %3$s von %2$s</item>
+    </plurals>
+    <plurals name="c2_loop_their_call">
+        <item quantity="one">Anruf von ihnen · %2$s</item>
+        <item quantity="other">%1$d Anrufe von ihnen · zuletzt %2$s</item>
+    </plurals>
+    <plurals name="c2_loop_your_try">
+        <item quantity="one">Dein Anruf, noch nicht angenommen · %2$s</item>
+        <item quantity="other">Deine %1$d Anrufe, noch nicht angenommen · zuletzt %2$s</item>
+    </plurals>
+    <plurals name="c2_reach">
+        <item quantity="one">Diesen Monat hattest du Kontakt mit %1$d von %2$d Person in deinem Kreis</item>
+        <item quantity="other">Diesen Monat hattest du Kontakt mit %1$d von %2$d Menschen in deinem Kreis</item>
+    </plurals>
+    <plurals name="c2_review_gap">
+        <item quantity="one">Längste Pause: %1$d Tag, mit %2$s</item>
+        <item quantity="other">Längste Pause: %1$d Tage, mit %2$s</item>
+    </plurals>
+    <plurals name="c2_review_occasions">
+        <item quantity="one">%1$d Anlass gewürdigt</item>
+        <item quantity="other">%1$d Anlässe gewürdigt</item>
+    </plurals>
+    <plurals name="c2_review_entries">
+        <item quantity="one">%1$d-mal in Kontakt dieses Jahr</item>
+        <item quantity="other">%1$d-mal in Kontakt dieses Jahr</item>
+    </plurals>
+    <plurals name="c2_widget_count_dates">
+        <item quantity="one">%1$d Datum in den nächsten 2 Wochen</item>
+        <item quantity="other">%1$d Daten in den nächsten 2 Wochen</item>
+    </plurals>
+    <plurals name="c2_widget_count_people">
+        <item quantity="one">%1$d Person zum Melden</item>
+        <item quantity="other">%1$d Menschen zum Melden</item>
+    </plurals>
+    <plurals name="c2_widget_in_days">
+        <item quantity="one">In %1$d Tag</item>
+        <item quantity="other">In %1$d Tagen</item>
+    </plurals>
+</resources>

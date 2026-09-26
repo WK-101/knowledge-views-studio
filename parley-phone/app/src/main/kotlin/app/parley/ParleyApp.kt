@@ -28,6 +28,8 @@ class ParleyApp : Application() {
         container = DataContainer(this)
         TelecomGraph.install(AppTelecomDependencies(this, container))
         app.parley.blocking.BlockingSetup.install(this, container)
+        // R7: keeps the Circle widget current while Parley runs.
+        app.parley.shortcuts.CircleWidget.observe(this, container)
         // The process often starts for an incoming call: everything else runs off the main thread, and the parts the
         // call path reads synchronously are warmed first.
         container.scope.launch(Dispatchers.IO) {

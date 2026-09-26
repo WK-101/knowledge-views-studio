@@ -17,15 +17,19 @@ object CircleDigest {
     /** Dates this many days ahead can appear in the digest. */
     const val DATE_WINDOW_DAYS = 7
 
-    /** "Haven't heard from in a while": at least this long since the last contact. */
-    const val QUIET_DAYS = 60
+    /** X6: the serendipity pick is someone you haven't been in touch with for over a year. */
+    const val QUIET_DAYS = 365
 
-    enum class Reason { DUE, DATE, QUIET }
+    enum class Reason { DUE, DATE, QUIET, YEARLY }
 
-    data class Pick(val lookupKey: String, val reason: Reason)
+    /** [label] and [years]: the life event of a [Reason.YEARLY] pick (R10). */
+    data class Pick(val lookupKey: String, val reason: Reason, val label: String? = null, val years: Int? = null)
 
     /** An upcoming date of someone you know ([daysUntil] 0 = today). */
     data class UpcomingDate(val lookupKey: String, val daysUntil: Int)
+
+    /** X6: anyone you were once in touch with (Circle or not), with the last time; never-contacted people aren't. */
+    data class Quiet(val lookupKey: String, val last: Long)
 
     /** Weekly digest day. */
     val DIGEST_DAY: DayOfWeek = DayOfWeek.SUNDAY
@@ -41,14 +45,22 @@ object CircleDigest {
     }
 
     /**
-     * Up to three people: the most overdue Circle member, one with an upcoming date, and one you haven't heard from
-     * in a while (never the same person as last week's "quiet" pick). Each person appears once.
+     * Up to three people: the most overdue Circle member; one with an upcoming date or a life event remembered
+     * yearly (R10; whichever is sooner, a birthday on a tie); and one serendipity pick (X6), someone you haven't
+     * been in touch with for over a year, never the same person as last week's. A remaining date or yearly event
+     * fills a free place. Each person appears once.
+     *
+     * [quiet]: everyone you were once in touch with; [seed] varies the serendipity pick from week to week (the
+     * week number), so it isn't always the same longest-silent person.
      */
     fun pick(
         members: List<CirclePlanner.Member>,
         dates: List<UpcomingDate>,
         now: Long,
         lastQuiet: String? = null,
+        quiet: List<Quiet> = members.mapNotNull { m -> m.last?.let { Quiet(m.lookupKey, it) } },
+        yearly: List<YearlyEvents.Upcoming> = emptyList(),
+        seed: Long = now / (7 * DAY),
     ): List<Pick> {
         val out = ArrayList<Pick>()
         val used = HashSet<String>()
@@ -56,14 +68,28 @@ object CircleDigest {
             out += Pick(it.lookupKey, Reason.DUE)
             used += it.lookupKey
         }
-        dates.filter { it.daysUntil in 0..DATE_WINDOW_DAYS && it.lookupKey !in used }.minByOrNull { it.daysUntil }?.let {
-            out += Pick(it.lookupKey, Reason.DATE)
-            used += it.lookupKey
+        val dateQueue = (
+            dates.filter { it.daysUntil in 0..DATE_WINDOW_DAYS }.map { Triple(it.daysUntil, 0, Pick(it.lookupKey, Reason.DATE)) } +
+                yearly.filter { it.daysUntil in 0..DATE_WINDOW_DAYS }.map { Triple(it.daysUntil, 1, Pick(it.lookupKey, Reason.YEARLY, it.label, it.years)) }
+            ).sortedWith(compareBy({ it.first }, { it.second }, { it.third.lookupKey })).map { it.third }.toMutableList()
+        fun nextDate(): Pick? {
+            val i = dateQueue.indexOfFirst { it.lookupKey !in used }
+            return if (i < 0) null else dateQueue.removeAt(i)
         }
-        members.filter { m ->
-            m.lookupKey !in used && m.lookupKey != lastQuiet && !(m.snoozedUntil != null && now < m.snoozedUntil) &&
-                (m.last == null || now - m.last >= QUIET_DAYS * DAY)
-        }.minByOrNull { it.last ?: Long.MIN_VALUE }?.let { out += Pick(it.lookupKey, Reason.QUIET) }
+        nextDate()?.let { out += it; used += it.lookupKey }
+        val snoozed = members.filter { it.snoozedUntil != null && now < it.snoozedUntil }.map { it.lookupKey }.toSet()
+        val eligible = quiet.filter { q -> q.lookupKey !in used && q.lookupKey != lastQuiet && q.lookupKey !in snoozed && now - q.last >= QUIET_DAYS * DAY }
+            .distinctBy { it.lookupKey }.sortedBy { it.lookupKey }
+        if (eligible.isNotEmpty()) {
+            val q = eligible[Math.floorMod(seed, eligible.size.toLong()).toInt()]
+            out += Pick(q.lookupKey, Reason.QUIET)
+            used += q.lookupKey
+        }
+        while (out.size < MAX_PEOPLE) {
+            val p = nextDate() ?: break
+            out += p
+            used += p.lookupKey
+        }
         return out.take(MAX_PEOPLE)
     }
 

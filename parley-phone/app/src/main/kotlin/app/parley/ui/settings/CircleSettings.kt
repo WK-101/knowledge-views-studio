@@ -6,7 +6,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.NoteAdd
 import androidx.compose.material.icons.rounded.Event
+import androidx.compose.material.icons.rounded.Groups
+import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.SwapHoriz
+import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.Handshake
 import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.Tune
@@ -31,7 +36,9 @@ import app.parley.common.circle.CircleConfig
 import app.parley.common.circle.InteractionChannel
 import app.parley.common.circle.LogMode
 import app.parley.common.circle.ReminderDelivery
+import app.parley.ui.SegmentedGroup
 import app.parley.ui.SegmentedGroupScope
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.ui.circle.CircleText
 
 /**
@@ -59,6 +66,23 @@ fun SegmentedGroupScope.circleSettingRows(vm: AppViewModel, cfg: CircleConfig, b
         }
     }
     item("log_prompts") { LogPromptsRow(vm, cfg) }
+}
+
+/** R6: the People card in Insights and its "who reaches out first" part (Settings › Recents & history). */
+fun SegmentedGroupScope.peopleCardRows(vm: AppViewModel, cfg: CircleConfig) {
+    switchRow("people_card", cfg.peopleCard, Icons.Rounded.Groups) { v -> vm.c.circle.updateConfig { it.copy(peopleCard = v) } }
+    if (cfg.peopleCard) switchRow("first_mover", cfg.firstMover, Icons.Rounded.SwapHoriz) { v -> vm.c.circle.updateConfig { it.copy(firstMover = v) } }
+}
+
+/** R8/R9/X1: "Remember what matters" (Settings › Calls): the memory prompt, notes on the lock screen, the peek. */
+@Composable
+fun MemorySettingsGroup(vm: AppViewModel) {
+    val cfg by vm.c.circle.config.collectAsStateWithLifecycle()
+    SegmentedGroup(stringResource(R.string.c2_set_group_memory)) {
+        switchRow("memory_prompt", cfg.memoryPrompt, Icons.AutoMirrored.Rounded.NoteAdd) { v -> vm.c.circle.updateConfig { it.copy(memoryPrompt = v) } }
+        switchRow("memory_lock_screen", cfg.memoryOnLockScreen, Icons.Rounded.Lock) { v -> vm.c.circle.updateConfig { it.copy(memoryOnLockScreen = v) } }
+        switchRow("pre_call_peek", cfg.preCallPeek, Icons.Rounded.Visibility) { v -> vm.c.circle.updateConfig { it.copy(preCallPeek = v) } }
+    }
 }
 
 /** R3: Always / Ask / Never per channel. */
