@@ -30,6 +30,16 @@ data class CircleConfig(
     val favoritesSectionCollapsed: Boolean = false,
     /** R1: "Suggested from your calls" was dismissed. */
     val suggestionsDismissed: Boolean = false,
+    /** R6: the People card in Insights. */
+    val peopleCard: Boolean = true,
+    /** R6: "who usually reaches out first" on the People card (private; can be hidden). */
+    val firstMover: Boolean = true,
+    /** R8: "Anything to remember?" after calls with contacts (opt-in). */
+    val memoryPrompt: Boolean = false,
+    /** R8: the last note and open promises also on the incoming-call screen while the phone is locked. */
+    val memoryOnLockScreen: Boolean = false,
+    /** R8/R9/X1: the pre-call peek before calling from a contact's page. */
+    val preCallPeek: Boolean = true,
 ) {
     fun logMode(channel: InteractionChannel): LogMode = logModes[channel] ?: LogMode.ASK
 

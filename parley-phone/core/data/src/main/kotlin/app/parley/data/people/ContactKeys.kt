@@ -157,7 +157,7 @@ class ContactKeys(
     }
 }
 
-internal fun ContactMetaEntity.values() = MetaRekey.Values(pinnedNote, preferredMessenger, reachOutDays, lastNudgedAt, relationLinks, rhythm)
+internal fun ContactMetaEntity.values() = MetaRekey.Values(pinnedNote, preferredMessenger, reachOutDays, lastNudgedAt, relationLinks, rhythm, yearlyEvents)
 
 internal fun MetaRekey.Values.toEntity(key: String, contactId: Long?) =
-    ContactMetaEntity(key, pinnedNote, preferredMessenger, reachOutDays, lastNudgedAt, contactId, relationLinks, rhythm)
+    ContactMetaEntity(key, pinnedNote, preferredMessenger, reachOutDays, lastNudgedAt, contactId, relationLinks, rhythm, yearlyEvents)

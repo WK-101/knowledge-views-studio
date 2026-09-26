@@ -95,6 +95,13 @@ object SettingsCatalog {
             "default dialer", "role", "restricted settings", "sideload", "app info", "not asked"),
         e("answer_gesture", "Answer incoming calls by", "Swipe or tap", C, "slide", "swipe", "tap", "pocket", "answer"),
         e("confirm_call", "Confirm before calling", "Avoids accidental calls from lists and search", C, "accidental", "ask before", "pocket dial"),
+        // R8/R9/X1 (v3.2): remember what matters.
+        e("memory_prompt", "Anything to remember? after calls", "A note and a follow-up reminder after calls with your contacts", C,
+            "note", "notes", "remember", "promise", "follow up", "after call", "post-call", "memory"),
+        e("memory_lock_screen", "Notes on the lock screen", "Show the last note and promises on the incoming-call screen while the phone is locked", C,
+            "lock screen", "note", "promise", "incoming", "privacy"),
+        e("pre_call_peek", "Peek before calling", "The last note, promises and a good time to call, before you call from a contact's page", C,
+            "peek", "before calling", "note", "promise", "good time", "local time", "time zone"),
         e("call_haptics", "Vibrate on call events", "When a call connects, ends, is swapped or merged", C, "vibration", "haptic", "buzz"),
         e("connect_haptic", "Vibrate when a call connects", "A short buzz when the other person answers", C, "vibration", "haptic", "answered", "picked up"),
         e("unknown_ringtone", "Ringtone for unknown callers", "A different ringtone for numbers not in your contacts", C, "sound", "ring", "tone", "unknown numbers"),
@@ -171,6 +178,10 @@ object SettingsCatalog {
         e("clear_history", "Clear call history", "All calls, calls from unknown numbers or missed calls, with an export first", H,
             "delete", "clear", "wipe", "erase", "unknown numbers", "call log"),
         e("insights", "Call insights", "Talk time, top people, calls you didn't return", H, "statistics", "stats", "charts", "talk time"),
+        // R6 (v3.2): the People card.
+        e("people_card", "People card in Insights", "Reach in your circle, open loops and your year, in Call insights", H,
+            "people", "reach", "circle", "open loops", "year in review", "insights"),
+        e("first_mover", "Who usually reaches out first", "On the People card. Only you see it", H, "first", "reaches out", "initiates", "calls first", "people"),
         e("import_calls", "Import call history from CSV", "From Parley, Logger or a spreadsheet, with a dry run first", H, "csv", "import", "call log"),
 
         // Messaging

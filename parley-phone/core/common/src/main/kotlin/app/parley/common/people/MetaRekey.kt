@@ -42,6 +42,8 @@ object MetaRekey {
         val relationLinks: String? = null,
         /** R4: the Circle rhythm ([app.parley.common.circle.KeepRhythm]). */
         val rhythm: String? = null,
+        /** R10: life events remembered yearly ([app.parley.common.circle.YearlyEvents]). */
+        val yearlyEvents: String? = null,
     )
 
     /**
@@ -63,6 +65,7 @@ object MetaRekey {
             lastNudgedAt = listOfNotNull(into.lastNudgedAt, from.lastNudgedAt).maxOrNull(),
             relationLinks = links,
             rhythm = app.parley.common.circle.KeepRhythm.merge(into.rhythm, from.rhythm),
+            yearlyEvents = app.parley.common.circle.YearlyEvents.merge(into.yearlyEvents, from.yearlyEvents),
         )
     }
 }
