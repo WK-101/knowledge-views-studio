@@ -277,13 +277,28 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit, searchQuery: String? = n
         if (!target.isNullOrEmpty()) vm.requestCall(target, results.firstOrNull { it.contact != null && PhoneNumbers.same(it.number, target, vm.countryIso) }?.contact?.displayName, simId = simId)
     }
 
+    // S1: a D-pad focus inside the docked Recents list (only shown while nothing is typed).
+    var recentsHasFocus by remember { mutableStateOf(false) }
+    // Typing replaces the list, and its focus goes with it.
+    val typed = input.isNotEmpty()
+    LaunchedEffect(typed) { if (typed) recentsHasFocus = false }
+    fun keypadTakes(key: app.parley.common.KeypadKeys.Key) = app.parley.common.KeypadKeys.keypadTakes(
+        key, docked = dock != null, expanded = dock?.expanded ?: true, recentsFocused = recentsHasFocus && input.isEmpty(),
+    )
+
     fun onKey(e: KeyEvent): Boolean {
         val native = e.nativeKeyEvent
         val down = e.type == KeyEventType.KeyDown
         if (native.isCtrlPressed || native.isMetaPressed) return false
         when (native.keyCode) {
-            AndroidKeyEvent.KEYCODE_CALL -> { if (down) focusedResult?.let(::callResult) ?: callNow(); return true }
+            AndroidKeyEvent.KEYCODE_CALL -> {
+                if (!keypadTakes(app.parley.common.KeypadKeys.Key.CALL)) return false
+                if (down) focusedResult?.let(::callResult) ?: callNow()
+                return true
+            }
             AndroidKeyEvent.KEYCODE_ENTER, AndroidKeyEvent.KEYCODE_NUMPAD_ENTER -> {
+                // Docked: Enter on a focused Recents row (or with the keypad folded) belongs to that row.
+                if (!keypadTakes(app.parley.common.KeypadKeys.Key.ENTER)) return false
                 if (down) focusedResult?.let(::callResult) ?: callNow()
                 return true
             }
@@ -334,7 +349,7 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit, searchQuery: String? = n
                 // S1: nothing typed: the recent calls, as on the Recents tab.
                 Column(Modifier.fillMaxSize()) {
                     app.parley.ui.common.CoachMark(app.parley.common.ux.Tips.DOCKED_KEYPAD, stringResource(R.string.surf_tip_docked_keypad), enabled = panelShown)
-                    Box(Modifier.weight(1f)) { dock.idle() }
+                    Box(Modifier.weight(1f).onFocusChanged { recentsHasFocus = it.hasFocus }) { dock.idle() }
                 }
             } else if (input.isEmpty()) {
                 Column(Modifier.align(Alignment.Center).padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {

@@ -111,14 +111,22 @@ data class IcsTime(
 ) {
     val allDay: Boolean get() = hour == null
 
-    /** Milliseconds since the epoch; floating and whole-day times are read in [zone], TZID wins when it's known. */
-    fun toEpochMillis(zone: java.time.ZoneId): Long {
+    /**
+     * Milliseconds since the epoch; floating and whole-day times are read in [zone], TZID wins when it's known.
+     * Null for a date or time that doesn't exist (the parser refuses those, but this is untrusted input).
+     */
+    fun toEpochMillis(zone: java.time.ZoneId): Long? {
         val z = when {
             utc -> java.time.ZoneOffset.UTC
             allDay -> zone
             else -> tzid?.let { runCatching { java.time.ZoneId.of(it) }.getOrNull() } ?: zone
         }
-        val t = java.time.LocalDateTime.of(year, month, day, hour ?: 0, minute, second)
-        return t.atZone(z).toInstant().toEpochMilli()
+        return try {
+            java.time.LocalDateTime.of(year, month, day, hour ?: 0, minute, second).atZone(z).toInstant().toEpochMilli()
+        } catch (_: java.time.DateTimeException) {
+            null
+        } catch (_: ArithmeticException) {
+            null
+        }
     }
 }

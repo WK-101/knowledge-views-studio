@@ -122,7 +122,11 @@ fun HomeScreen(
         // S1/S2: a request for a tab that another surface hosts opens that surface (tel:, ACTION_DIAL, shortcuts
         // and the headset's Call button open the docked keypad, unfolded).
         tab = layout.hostOf(r.tab)
-        if (layout.opensDockedKeypad(r.tab)) dockOpen = true
+        if (layout.opensDockedKeypad(r.tab)) {
+            // The tab doesn't change, so an open Recents search would keep hiding the keypad and the number.
+            if (searching) closeSearch()
+            dockOpen = true
+        }
         r.dial?.let { vm.dialInput.value = it }
         if (r.missedOnly) vm.recentFilter.value = RecentFilter.MISSED
         onTabRequestHandled()

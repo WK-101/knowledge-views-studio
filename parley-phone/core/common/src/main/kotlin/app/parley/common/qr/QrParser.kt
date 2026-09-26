@@ -43,7 +43,7 @@ object QrParser {
         }
         MessengerQr.classify(t)?.let { return it.copy(raw = raw) }
         if (scheme == "http" || scheme == "https") {
-            UrlSafety.analyse(t)?.let { return QrPayload.Url(raw, t, it) }
+            UrlSafety.analyse(t)?.let { return QrPayload.Url(raw, it.url, it) }
         }
         if (EMAIL.matches(t)) return QrPayload.Email(raw, listOf(t))
         return QrPayload.Text(raw)
@@ -353,8 +353,9 @@ object QrParser {
         }
         if (!inEvent) return null
         fun text(k: String) = props[k]?.second?.let(::icsUnescape)?.takeIf { it.isNotBlank() }
-        val start = props["DTSTART"]?.let { (p, v) -> icsTime(v, p["TZID"]) }
-        var end = props["DTEND"]?.let { (p, v) -> icsTime(v, p["TZID"]) }
+        val start = props["DTSTART"]?.let { (p, v) -> icsTime(v, p["TZID"]) ?: return null }
+        // A date that doesn't exist (31 February) makes the whole code plain text rather than a wrong event.
+        var end = props["DTEND"]?.let { (p, v) -> icsTime(v, p["TZID"]) ?: return null }
         if (end == null && start != null) end = props["DURATION"]?.second?.let { duration(start, it) }
         val summary = text("SUMMARY").orEmpty()
         if (summary.isEmpty() && start == null) return null
@@ -368,7 +369,12 @@ object QrParser {
         val m = Regex("""^(\d{4})-?(\d{2})-?(\d{2})(?:T(\d{2}):?(\d{2}):?(\d{2})?(Z)?)?$""").find(v.trim()) ?: return null
         val g = m.groupValues
         val y = g[1].toInt(); val mo = g[2].toInt(); val d = g[3].toInt()
-        if (mo !in 1..12 || d !in 1..31) return null
+        // The calendar rules decide (30 April, 29 February only in leap years…), not a range check.
+        try {
+            java.time.LocalDate.of(y, mo, d)
+        } catch (_: java.time.DateTimeException) {
+            return null
+        }
         if (g[4].isEmpty()) return IcsTime(y, mo, d)
         val h = g[4].toInt(); val mi = g[5].toInt(); val s = g[6].ifEmpty { "0" }.toInt()
         if (h > 23 || mi > 59 || s > 60) return null

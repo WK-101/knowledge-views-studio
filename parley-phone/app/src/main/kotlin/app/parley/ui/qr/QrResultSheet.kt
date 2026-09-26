@@ -4,6 +4,7 @@ import android.content.res.Resources
 import android.provider.ContactsContract
 import android.text.format.DateUtils
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -45,6 +46,7 @@ import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material.icons.rounded.Wifi
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
@@ -87,6 +89,7 @@ import app.parley.common.qr.ParleyKind
 import app.parley.common.qr.QrApp
 import app.parley.common.qr.QrPayload
 import app.parley.common.qr.QrText
+import app.parley.common.qr.ScannedCard
 import app.parley.common.qr.UrlSafety
 import app.parley.common.qr.WifiSecurity
 import app.parley.common.record.ContactRecord
@@ -181,7 +184,8 @@ fun QrResultSheet(vm: AppViewModel, payload: QrPayload, onDismiss: () -> Unit, o
             }
             HorizontalDivider(Modifier.padding(vertical = 12.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TextButton({ QrActions.copy(context, payload.raw) }) {
+                // Q5: a Wi-Fi code's text holds its password: kept out of clipboard previews like "Copy password".
+                TextButton({ QrActions.copy(context, payload.raw, sensitive = payload is QrPayload.Wifi && !payload.password.isNullOrEmpty()) }) {
                     Icon(Icons.Rounded.ContentCopy, null, Modifier.size(18.dp))
                     Text("  " + stringResource(R.string.qs_copy_text))
                 }
@@ -255,7 +259,12 @@ private fun ColumnScope.ContactResult(vm: AppViewModel, p: QrPayload.Contact, on
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
-    val record = p.records.getOrNull(selected)
+    // Q4: favourite, voicemail, ringtone and labels from a stranger's card stay off unless ticked here.
+    val asks = remember(p) { ScannedCard.flags(p.records) }
+    var allowed by remember(p) { mutableStateOf(emptySet<ScannedCard.Flag>()) }
+    if (asks.isNotEmpty()) CardAsks(asks, remember(p) { ScannedCard.labels(p.records) }, allowed) { allowed = it }
+    val vcard = remember(p, allowed) { ScannedCard.vcardToImport(p.records, p.vcard, allowed) }
+    val record = p.records.getOrNull(selected)?.let { remember(it, allowed) { ScannedCard.strip(it, allowed) } }
     if (record == null) {
         // Several cards: pick one, or import them all.
         Text(stringResource(R.string.qs_several_contacts), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 8.dp))
@@ -274,12 +283,43 @@ private fun ColumnScope.ContactResult(vm: AppViewModel, p: QrPayload.Contact, on
         }
         Action(pluralStringResource(R.plurals.qs_import_all, p.records.size, p.records.size), Icons.Rounded.FileDownload, primary = true) {
             onDismiss()
-            importVcard(context, vm, p.vcard)
+            importVcard(context, vm, vcard)
         }
         return
     }
     if (p.records.size > 1) TextButton({ selected = -1 }) { Text(stringResource(R.string.qs_back_to_list)) }
-    ContactCard(vm, record, onDismiss, open, allCardsVcard = if (p.records.size == 1) p.vcard else null)
+    ContactCard(vm, record, onDismiss, open, allCardsVcard = if (p.records.size == 1) vcard else null)
+}
+
+/** Q4: "This card also asks to: …", each off until ticked. */
+@Composable
+private fun CardAsks(asks: Set<ScannedCard.Flag>, labels: List<String>, allowed: Set<ScannedCard.Flag>, onChange: (Set<ScannedCard.Flag>) -> Unit) {
+    Card(Modifier.fillMaxWidth().padding(top = 10.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)) {
+        Column(Modifier.padding(vertical = 8.dp)) {
+            Text(stringResource(R.string.qs_card_asks), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp))
+            ScannedCard.Flag.entries.filter { it in asks }.forEach { f ->
+                val text = when (f) {
+                    ScannedCard.Flag.STARRED -> stringResource(R.string.qs_card_ask_star)
+                    ScannedCard.Flag.VOICEMAIL -> stringResource(R.string.qs_card_ask_voicemail)
+                    ScannedCard.Flag.RINGTONE -> stringResource(R.string.qs_card_ask_ringtone)
+                    ScannedCard.Flag.LABELS -> stringResource(R.string.qs_card_ask_labels, QrText.shown(labels.joinToString(", "), 200, false))
+                }
+                val on = f in allowed
+                Row(
+                    Modifier.fillMaxWidth().toggleable(on, role = androidx.compose.ui.semantics.Role.Checkbox) { onChange(if (it) allowed + f else allowed - f) }
+                        .padding(horizontal = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Checkbox(on, null)
+                    Text(text, style = MaterialTheme.typography.bodyMedium)
+                }
+            }
+            Text(
+                stringResource(R.string.qs_card_asks_off), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+            )
+        }
+    }
 }
 
 private fun nameOf(r: ContactRecord, d: ContactDetails): String = r.displayName.ifBlank { d.composedName.ifBlank { d.company } }
@@ -441,6 +481,11 @@ private fun ColumnScope.EmailResult(vm: AppViewModel, p: QrPayload.Email, onDism
     val context = LocalContext.current
     if (p.to.isNotEmpty()) Field(stringResource(R.string.qs_field_to), p.to.joinToString(", "))
     if (p.cc.isNotEmpty()) Field(stringResource(R.string.qs_field_cc), p.cc.joinToString(", "))
+    // Every recipient the mail app will get is shown, hidden copies included.
+    if (p.bcc.isNotEmpty()) {
+        Field(stringResource(R.string.qs_field_bcc), p.bcc.joinToString(", "))
+        Note(stringResource(R.string.qs_bcc_note), Icons.Rounded.Warning, warning = true)
+    }
     p.subject?.let { Field(stringResource(R.string.qs_field_subject), it) }
     p.body?.let { Field(stringResource(R.string.qs_field_message), it) }
     Action(stringResource(R.string.qs_write_email), Icons.Rounded.Email, primary = true) { QrActions.email(context, p) }
@@ -504,9 +549,8 @@ private fun ColumnScope.WifiResult(p: QrPayload.Wifi) {
 private fun ColumnScope.EventResult(p: QrPayload.Event) {
     val context = LocalContext.current
     if (p.summary.isNotBlank()) Text(QrText.shown(p.summary, 200, false), style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(top = 12.dp))
-    p.start?.let { s ->
-        val zone = java.time.ZoneId.systemDefault()
-        val start = s.toEpochMillis(zone)
+    val zone = java.time.ZoneId.systemDefault()
+    p.start?.let { s -> s.toEpochMillis(zone)?.let { s to it } }?.let { (s, start) ->
         // An all-day event ends at the start of the next day: show the last day it covers.
         val end = p.end?.toEpochMillis(zone)?.let { if (s.allDay && it > start) it - 1 else it } ?: start
         var flags = DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_SHOW_WEEKDAY or DateUtils.FORMAT_SHOW_YEAR

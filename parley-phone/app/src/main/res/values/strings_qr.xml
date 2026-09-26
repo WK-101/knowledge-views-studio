@@ -72,6 +72,8 @@
     <string name="qs_field_note">Note</string>
     <string name="qs_field_to">To</string>
     <string name="qs_field_cc">Copy to</string>
+    <string name="qs_field_bcc">Hidden copy to (Bcc)</string>
+    <string name="qs_bcc_note">This code also sends a hidden copy to the addresses above. Your mail app may not show them.</string>
     <string name="qs_field_subject">Subject</string>
     <string name="qs_field_message">Message</string>
     <string name="qs_field_coordinates">Coordinates</string>
@@ -100,6 +102,13 @@
     <string name="qs_update_existing">Add to an existing contact</string>
     <string name="qs_hidden_fields">This card has details the editor doesn\'t show (such as a photo or labels). Import it as it is to keep everything.</string>
     <string name="qs_import_as_is">Import with every detail</string>
+    <!-- Q4: control fields of a scanned card (off unless ticked) -->
+    <string name="qs_card_asks">This card also asks to:</string>
+    <string name="qs_card_ask_star">Make them a favourite (favourites can ring through Do Not Disturb)</string>
+    <string name="qs_card_ask_voicemail">Send their calls straight to voicemail</string>
+    <string name="qs_card_ask_ringtone">Give them their own ringtone</string>
+    <string name="qs_card_ask_labels">Add them to labels: %1$s (call rules and quiet hours can go by labels)</string>
+    <string name="qs_card_asks_off">These stay off unless you tick them.</string>
     <string name="qs_import_failed">The contacts couldn\'t be prepared for import.</string>
 
     <!-- Parley's own codes -->

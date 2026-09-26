@@ -78,21 +78,35 @@ object CallGlance {
         return f.coerceIn(0.08f, 1f)
     }
 
+    /** R4: a missed call older than this no longer asks to be returned (the Missed chip would only grow). */
+    const val UNRETURNED_MAX_AGE_MS = 7L * 24 * 60 * 60 * 1000
+
     /**
      * Ids of missed calls not returned yet: no outgoing call to the number (answered or not: you tried) and no answered
-     * call from it came after. Only each number's latest missed call counts; hidden numbers can't be called back.
-     * [calls] are newest first; [key] gives a number's match key.
+     * call from it came after. Only each number's latest missed call counts, and only within [maxAgeMs] of [now].
+     * Private and withheld numbers can't be called back, and numbers that are [excluded] (blocked, or marked as spam)
+     * aren't worth it: neither counts. [calls] are newest first (Recents' merged list, not sorted again); [key]
+     * gives a number's match key. One pass, and [excluded] is asked only about the candidates.
      */
-    fun unreturnedMissed(calls: List<CallEntry>, key: (String) -> String): Set<Long> {
+    fun unreturnedMissed(
+        calls: List<CallEntry>, key: (String) -> String, now: Long,
+        maxAgeMs: Long = UNRETURNED_MAX_AGE_MS, excluded: (String) -> Boolean = { false },
+    ): Set<Long> {
+        val cutoff = now - maxAgeMs
         val handled = HashSet<String>()
         val out = LinkedHashSet<Long>()
-        for (e in calls.sortedByDescending { it.date }) {
-            if (e.presentationHidden || e.number.isBlank()) continue
+        for (e in calls) {
+            // Newest first: everything from here on is too old to count (or to have returned a call that counts).
+            if (e.date < cutoff) break
+            if (e.presentationHidden || e.number.none { it.isDigit() }) continue
             val k = key(e.number)
             if (k in handled) continue
             when (CallClass.of(e)) {
                 CallClass.OUTGOING, CallClass.NO_ANSWER, CallClass.INCOMING, CallClass.ANSWERED_ELSEWHERE -> handled += k
-                CallClass.MISSED -> { out += e.id; handled += k }
+                CallClass.MISSED -> {
+                    if (!excluded(e.number)) out += e.id
+                    handled += k
+                }
                 else -> Unit
             }
         }
@@ -100,5 +114,5 @@ object CallGlance {
     }
 
     /** People (numbers) with a missed call still to return, for the Missed chip's count. */
-    fun unreturnedCount(calls: List<CallEntry>, key: (String) -> String): Int = unreturnedMissed(calls, key).size
+    fun unreturnedCount(calls: List<CallEntry>, key: (String) -> String, now: Long): Int = unreturnedMissed(calls, key, now).size
 }

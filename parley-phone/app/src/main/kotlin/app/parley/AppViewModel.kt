@@ -9,7 +9,10 @@ import android.telecom.TelecomManager
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import app.parley.common.CallEntry
+import app.parley.common.CallPolicy
 import app.parley.common.CallType
+import app.parley.common.RuleKind
+import app.parley.common.RuleType
 import app.parley.common.DialSearch
 import app.parley.common.KeypadLayout
 import app.parley.common.ContactSummary
@@ -246,7 +249,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         (sys + priv.map { p ->
             CallEntry(-p.id, p.number, p.name, CallLogRepository.mapType(p.type), p.date, p.durationSec, null, false, false)
         }).sortedByDescending { it.date }
-    }
+    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, null) // R4: merged once, shared by Recents and the unreturned count.
 
     // F7: keyed by line (E.164 with this phone's country), so a foreign number sharing the last 9 digits isn't shown as private.
     private val vaultByKey = c.vault.contacts.map { list -> list.flatMap { v -> v.numbers.map { PhoneNumbers.lineKey(it, countryIso) to v.id } }.toMap() }
@@ -263,13 +266,38 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         calls?.let { group(it, index, filter, q, layout).map { g -> if (g.calls.first().id < 0) g.copy(vaultId = vaults[PhoneNumbers.lineKey(g.number, countryIso)]) else g } }
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
+    /** R4: the time the 7-day window of [unreturnedMissed] is measured from, moved on hourly. */
+    private val unreturnedClock = kotlinx.coroutines.flow.flow {
+        while (true) {
+            emit(System.currentTimeMillis())
+            kotlinx.coroutines.delay(60 * 60 * 1000L)
+        }
+    }
+
+    /** R4: block rules that name numbers (the others go by name, region or line type). */
+    private val numberRules = setOf(RuleType.EXACT, RuleType.PREFIX, RuleType.WILDCARD)
+
     /**
      * R4 (v3.3): ids of missed calls not returned yet, over every call (whatever the filters show), for the Recents
      * tint, the Call back pill and the Missed chip's count.
      */
-    val unreturnedMissed: StateFlow<Set<Long>> = allCalls.map { calls ->
-        calls?.let { CallGlance.unreturnedMissed(it, PhoneNumbers::matchKey) } ?: emptySet()
+    val unreturnedMissed: StateFlow<Set<Long>> = combine(allCalls, notWorthReturning(), unreturnedClock) { calls, excluded, now ->
+        calls?.let { CallGlance.unreturnedMissed(it, PhoneNumbers::matchKey, now, excluded = excluded) } ?: emptySet()
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, emptySet())
+
+    /**
+     * R4: numbers whose missed calls aren't worth a "call back": on the system block list, caught by a block rule, or
+     * last screened as blocked, reported or likely spam.
+     */
+    private fun notWorthReturning() = combine(c.blocks.systemList, c.blocks.rules, c.blocks.verdictIndex) { system, rules, verdicts ->
+        val keys = HashSet<String>()
+        system.forEach { keys += PhoneNumbers.matchKey(it.number) }
+        verdicts.forEach { (k, v) -> if (v.blocked || v.kind == "LIKELY_SPAM" || v.kind == "REPORTED") keys += PhoneNumbers.matchKey(k) }
+        val blockRules = rules.filter { it.enabled && it.kind == RuleKind.BLOCK && it.type in numberRules }
+        val iso = countryIso
+        val test: (String) -> Boolean = { n -> PhoneNumbers.matchKey(n) in keys || blockRules.any { r -> CallPolicy.ruleMatches(r, n, iso) } }
+        test
+    }
 
     private fun group(
         calls: List<CallEntry>, index: Map<String, ContactSummary>, filter: RecentFilter, q: String,

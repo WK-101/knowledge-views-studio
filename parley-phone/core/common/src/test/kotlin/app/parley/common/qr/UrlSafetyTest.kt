@@ -51,6 +51,31 @@ class UrlSafetyTest {
         assertNull(UrlSafety.analyse("ftp://example.com"))
     }
 
+    @Test fun shown_host_is_where_the_browser_goes() {
+        // A browser reads `\` as a path separator: this goes to evil.com, not paypal.com.
+        val i = UrlSafety.analyse("https://evil.com\\@paypal.com/login")!!
+        assertEquals("evil.com", i.domain)
+        assertEquals("https://evil.com/@paypal.com/login", i.url)
+        val u = UrlSafety.analyse("https://paypal.com@evil.com/login")!!
+        assertEquals("evil.com", u.displayHost)
+        assertTrue(UrlSafety.Warning.USERINFO in u.warnings)
+        // The address opened has no user name in front of the host.
+        assertEquals("https://evil.com/login", u.url)
+        assertNull(UrlSafety.analyse("https://paypal.com%2F.evil.com/"))
+        assertEquals("paypal.com", UrlSafety.analyse("https://PAY\tPAL.com./")!!.domain)
+        assertTrue(UrlSafety.Warning.IP_ADDRESS in w("http://0x7f.1/"))
+        assertEquals("127.0.0.1", UrlSafety.analyse("http://2130706433/")!!.displayHost)
+        assertTrue(UrlSafety.Warning.IP_ADDRESS in w("https://[::1]/"))
+        assertEquals("münchen.de", UrlSafety.analyse("https://m%C3%BCnchen.de/")!!.displayHost)
+    }
+
+    @Test fun parser_uses_the_normalised_address() {
+        val p = QrParser.parse("https://evil.com\\@paypal.com/login") as QrPayload.Url
+        assertEquals("evil.com", p.info.domain)
+        assertEquals(p.info.url, p.url)
+        assertTrue(QrParser.parse("https://paypal.com%5C.evil.com/") is QrPayload.Text)
+    }
+
     @Test fun text_cleaning() {
         assertEquals("abc", QrText.clean("a‮b⁦c"))
         assertEquals("a\nb", QrText.clean("a\r\nb\u0007"))
