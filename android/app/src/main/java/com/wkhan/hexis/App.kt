@@ -20,22 +20,14 @@ class App : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        // R71 — capture ANY uncaught crash to a file, then defer to the normal handler.
-        // SEC (R2-C) — write it to INTERNAL app-private storage (filesDir/last_crash.txt), not the
-        // app-EXTERNAL dir it used to use: the external files dir is reachable by other apps that hold
-        // storage access and survives uninstall on some OEMs, so a stack trace (with your file paths /
-        // note titles in it) shouldn't sit there. Retrieve it with `adb` or a future in-app viewer.
-        // Still mirrored to logcat (tag "HexisCrash") for a live `adb logcat` session.
+        // R71 / SEC (R2-C) — mirror ANY uncaught crash to logcat (tag "HexisCrash"), then defer to the
+        // platform handler. We deliberately do NOT persist the trace to disk: a stack trace can
+        // incidentally carry user-derived strings (a note title, an attachment path), so it stays only in
+        // the live logcat stream (`adb logcat`) and is never written to a file that could linger on-device.
         run {
             val prev = Thread.getDefaultUncaughtExceptionHandler()
             Thread.setDefaultUncaughtExceptionHandler { thread, err ->
-                runCatching {
-                    val trace = android.util.Log.getStackTraceString(err)
-                    android.util.Log.e("HexisCrash", "Uncaught on ${thread.name}", err)
-                    java.io.File(filesDir, "last_crash.txt").writeText(
-                        "Hexis crash @ ${java.util.Date()}\nthread=${thread.name}\n\n$trace"
-                    )
-                }
+                runCatching { android.util.Log.e("HexisCrash", "Uncaught on ${thread.name}", err) }
                 prev?.uncaughtException(thread, err)
             }
         }
