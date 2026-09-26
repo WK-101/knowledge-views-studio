@@ -87,6 +87,9 @@ object SettingsCatalog {
         e("avatar_style", "Avatars", "Colourful or grey letters; names that start with an emoji show it", A, "avatar", "monogram", "emoji", "picture", "letters", "grey", "gray"),
         // U2
         e("reset_tips", "Reset tips", "Show the one-time tips again (keypad, Recents, search)", A, "tips", "hints", "coach marks", "help", "tutorial", "onboarding"),
+        // X4 (v3.2)
+        e("simple_mode", "Simple mode", "Big photo buttons for up to 9 people, a larger keypad and a question before declining. Set it up for someone else", A,
+            "elderly", "senior", "assisted", "easy", "large", "big buttons", "grandparent", "accessibility", "launcher", "text to speech", "speak name"),
 
         // Calls
         e("default_dialer", "Default phone app", "Needed to show calls, manage blocking and the call log", C, "default dialer", "role", "phone app"),
@@ -202,6 +205,9 @@ object SettingsCatalog {
         e("sync", "Sync between your phones", "Through a Syncthing / Nextcloud folder, no server", U, "syncthing", "nextcloud", "folder", "second phone"),
         e("journal", "Recently deleted & changed", "Undo for 30 days", U, "undo", "trash", "restore", "deleted", "bin"),
         e("time_machine", "What changed (time machine)", "Daily snapshots for 6 months: see and undo changes", U, "snapshots", "history", "versions", "restore"),
+        // C5 (v3.2)
+        e("markdown_export", "Export notes as Markdown", "One .md file per person with notes and timeline, to a folder you choose", U,
+            "markdown", "md", "obsidian", "notes", "logseq", "export", "folder", "timeline"),
 
         // Notifications & device
         e("notification_settings", "Notification settings", "Sounds and importance of Parley's notifications (system)", N, "sound", "missed call", "notification", "alerts"),
