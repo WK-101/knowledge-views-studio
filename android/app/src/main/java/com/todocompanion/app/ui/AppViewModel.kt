@@ -970,14 +970,14 @@ class AppViewModel internal constructor(
     fun receiveEncryptedNote(uriString: String, passphrase: String, onOpen: (String) -> Unit) = viewModelScope.launch {
         val blob = withContext(Dispatchers.IO) { readImportTextBounded(android.net.Uri.parse(uriString)) }
         if (blob.isNullOrBlank()) { toast("Couldn't read that file"); return@launch }
-        if (!com.todocompanion.app.util.NoteCourier.looksEncrypted(blob)) { toast("Not a Kairo encrypted-note file"); return@launch }
+        if (!com.todocompanion.app.util.NoteCourier.looksEncrypted(blob)) { toast("Not a Hexis encrypted-note file"); return@launch }
         importEncryptedNote(blob, passphrase, onOpen)
     }
 
     /** Encrypted Note Courier — decrypt a received courier envelope with [passphrase] and create the note. */
     fun importEncryptedNote(blob: String, passphrase: String, onOpen: (String) -> Unit) = viewModelScope.launch {
         val payload = com.todocompanion.app.util.NoteCourier.open(blob, passphrase.toCharArray())
-        if (payload == null) { toast("Wrong passphrase, or not a Kairo note file"); return@launch }
+        if (payload == null) { toast("Wrong passphrase, or not a Hexis note file"); return@launch }
         val ws = activeWorkspace()
         val id = repo.upsertNote(com.todocompanion.app.data.entity.NoteEntity(
             id = "", workspaceId = ws, title = payload.title, body = payload.body, kind = payload.kind,
@@ -1010,7 +1010,7 @@ class AppViewModel internal constructor(
             com.todocompanion.app.util.NoteSite.Note(n.id, n.title.ifBlank { "Untitled" }, n.body, n.updatedAt,
                 refs[n.id].orEmpty().mapNotNull { tagName[it.tagId] })
         }
-        val files = com.todocompanion.app.util.NoteSite.build(siteNotes, "My Kairo notes")
+        val files = com.todocompanion.app.util.NoteSite.build(siteNotes, "My Hexis notes")
         val count = withContext(Dispatchers.IO) { com.todocompanion.app.util.NoteSite.writeToTree(appCtx, folderUri, files) }
         toast(if (count > 0) "Published ${files.size} pages — open index.html in any browser" else "Couldn't write to that folder")
     }
@@ -2135,7 +2135,7 @@ class AppViewModel internal constructor(
         val mime = cr.getType(uri) ?: "application/octet-stream"
         val name = displayNameOf(uri) ?: "attachment"
         val (bytes, why) = withContext(Dispatchers.IO) { readUriBytes(uri) }
-        if (bytes == null) { toast("Couldn't read that file ($why). Try Share ▸ Kairo from your file manager."); onDone(false); return@launch }
+        if (bytes == null) { toast("Couldn't read that file ($why). Try Share ▸ Hexis from your file manager."); onDone(false); return@launch }
         if (bytes.size > repo.maxAttachmentBytes) { toast("File too large (max 50 MB per file)"); onDone(false); return@launch }
         // F4: write the bytes to an app-private file and store only the path — the DB stays lean.
         val ok = withContext(Dispatchers.IO) {
@@ -2166,7 +2166,7 @@ class AppViewModel internal constructor(
             val mime = cr.getType(u) ?: "application/octet-stream"
             val name = displayNameOf(u) ?: "attachment"
             val (bytes, why) = withContext(Dispatchers.IO) { readUriBytes(u) }
-            if (bytes == null) { toast("Couldn't read one file ($why). Try Share ▸ Kairo from your file manager."); continue }
+            if (bytes == null) { toast("Couldn't read one file ($why). Try Share ▸ Hexis from your file manager."); continue }
             if (bytes.size > repo.maxAttachmentBytes) { toast("Skipped one file over 50 MB"); continue }
             val wrote = withContext(Dispatchers.IO) {
                 runCatching {

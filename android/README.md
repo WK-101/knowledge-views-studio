@@ -1,4 +1,4 @@
-# Kairo (Android)
+# Hexis (Android)
 
 A private, fully-offline task · habit · time · calendar manager — MyLifeOrganized-style outlining with a
 TickTick-grade UI, plus habit-building, time-tracking, a dedicated calendar, and a "life systems" layer.

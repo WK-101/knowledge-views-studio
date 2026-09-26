@@ -74,7 +74,7 @@ object NoteSite {
             <p class="meta">${notes.size} ${if (notes.size == 1) "note" else "notes"} · a self-contained offline copy — open in any browser</p>
             <input id="q" type="search" placeholder="Search notes…" autocomplete="off" aria-label="Search notes">
             <ul id="list"></ul>
-            <p class="foot">Exported from Kairo · fully offline · no account, no server. Math and diagrams show as plain text in this portable copy.</p>
+            <p class="foot">Exported from Hexis · fully offline · no account, no server. Math and diagrams show as plain text in this portable copy.</p>
             <script>
               var IDX=$json;
               var list=document.getElementById('list'), q=document.getElementById('q');

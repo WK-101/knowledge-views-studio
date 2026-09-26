@@ -170,10 +170,10 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             title = { Text("Sync conflict") },
             text = {
                 Column {
-                    Text("“${c.appTitle}” changed both in Kairo and in the .md file since the last sync.",
+                    Text("“${c.appTitle}” changed both in Hexis and in the .md file since the last sync.",
                         style = MaterialTheme.typography.bodyMedium)
                     Spacer(Modifier.height(10.dp))
-                    Text("In Kairo", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                    Text("In Hexis", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
                     Text(c.appPreview.ifBlank { "(empty)" }, style = MaterialTheme.typography.bodySmall, maxLines = 4, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.height(8.dp))
                     Text("In the file", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
@@ -185,7 +185,7 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                     }
                 }
             },
-            confirmButton = { TextButton(onClick = { vm.resolveNoteConflict(c.noteId, "app") }) { Text("Keep Kairo") } },
+            confirmButton = { TextButton(onClick = { vm.resolveNoteConflict(c.noteId, "app") }) { Text("Keep Hexis") } },
             dismissButton = {
                 Row {
                     TextButton(onClick = { vm.resolveNoteConflict(c.noteId, "file") }) { Text("Keep file") }
@@ -491,7 +491,7 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             // refresh runs, which is why they weren't showing. This lists EVERY non-archived activity.
             val allTimeActs by vm.timeVm.timeActivities.collectAsStateWithLifecycle()
             val trackActs = if (Modules.isEnabled(s, Modules.TIME)) allTimeActs.filter { !it.archived } else emptyList()
-            Text("Your launcher's long-press menu only shows the first few. These are all of Kairo's shortcuts — tap “Add to home” to place any one directly on your home screen.",
+            Text("Your launcher's long-press menu only shows the first few. These are all of Hexis's shortcuts — tap “Add to home” to place any one directly on your home screen.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             com.todocompanion.app.util.AppShortcuts.STATIC.forEach { spec ->
                 Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -519,7 +519,7 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                     }
                 }
             }
-            if (!pinnable) Text("This launcher can't add shortcuts from inside apps. You can still long-press Kairo's icon on the home screen to reach the first few.",
+            if (!pinnable) Text("This launcher can't add shortcuts from inside apps. You can still long-press Hexis's icon on the home screen to reach the first few.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 4.dp))
         }
 
@@ -870,7 +870,7 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                         )
                         TextButton(onClick = {
                             val cm = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as? android.content.ClipboardManager
-                            val clip = android.content.ClipData.newPlainText("Kairo automation token", s.automationToken)
+                            val clip = android.content.ClipData.newPlainText("Hexis automation token", s.automationToken)
                             if (android.os.Build.VERSION.SDK_INT >= 33) clip.description.extras =
                                 android.os.PersistableBundle().apply { putBoolean("android.content.extra.IS_SENSITIVE", true) }   // SEC (R2-C)
                             cm?.setPrimaryClip(clip)
@@ -892,7 +892,7 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                         singleLine = true, textStyle = MaterialTheme.typography.bodySmall, modifier = Modifier.fillMaxWidth(),
                         label = { Text("e.g. net.dinglisch.android.taskerm") },
                     )
-                    Text("Kairo emits start/stop events only to this package. Leave blank (the default) and no outgoing events are sent — so your activity names are never broadcast to other apps.",
+                    Text("Hexis emits start/stop events only to this package. Leave blank (the default) and no outgoing events are sent — so your activity names are never broadcast to other apps.",
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
@@ -1341,7 +1341,7 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                 }
                 Text(
                     if (s.appLockWipeAfter > 0)
-                        "⚠︎ IRREVERSIBLE: after ${s.appLockWipeAfter} failed unlock attempts, Kairo destroys the encryption keys and securely erases all data on this device — the same as Panic wipe. Only a JSON backup you exported earlier can restore it. Counts rejected fingerprint/face attempts; PIN entry is handled (and rate-limited) by the system."
+                        "⚠︎ IRREVERSIBLE: after ${s.appLockWipeAfter} failed unlock attempts, Hexis destroys the encryption keys and securely erases all data on this device — the same as Panic wipe. Only a JSON backup you exported earlier can restore it. Counts rejected fingerprint/face attempts; PIN entry is handled (and rate-limited) by the system."
                     else "Off — repeated failures never wipe. Turn on only if you understand a lost/forgotten biometric could destroy your data; always keep a JSON backup.",
                     style = MaterialTheme.typography.bodySmall,
                     color = if (s.appLockWipeAfter > 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
@@ -1357,7 +1357,7 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             Text("Marks the app secure (FLAG_SECURE): screenshots, screen recorders and the recent-apps thumbnail can't capture your content.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Toggle("Hide notifications completely on lock screen", s.lockscreenPrivacy) { vm.saveSettings(s.copy(lockscreenPrivacy = it)) }
-            Text("By default, notifications already redact their content on a locked screen — you see that a reminder arrived (“Kairo · reminder”) but never the task, note or habit name. Turn this on to hide them from the lock screen entirely, showing nothing at all until you unlock.",
+            Text("By default, notifications already redact their content on a locked screen — you see that a reminder arrived (“Hexis · reminder”) but never the task, note or habit name. Turn this on to hide them from the lock screen entirely, showing nothing at all until you unlock.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Toggle("Redact notes from shared exports", s.exportRedactNotes) { vm.saveSettings(s.copy(exportRedactNotes = it)) }
             Text("Leaves task notes out of the Markdown, CSV and calendar (.ics) exports you share — titles, dates and tags still export. The full JSON backup is unaffected.",

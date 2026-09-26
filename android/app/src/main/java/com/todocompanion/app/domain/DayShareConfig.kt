@@ -76,7 +76,7 @@ data class DayShareConfig(
     /** A single soft, non-causal observation (ReviewInsights.nudge for the surrounding window). */
     val pattern: Boolean = false,
     // ── Footer ──
-    /** The footer tagline line ("Kairo · a day, closed · 100% offline"). */
+    /** The footer tagline line ("Hexis · a day, closed · 100% offline"). */
     val footerTagline: Boolean = true,
     // ── Style ──
     /** The visual style the card renders in. PERSONAL (warm/dark) is the day default; PROFESSIONAL is the

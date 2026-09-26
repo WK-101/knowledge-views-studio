@@ -721,7 +721,7 @@ private fun buildBrag(items: List<Accomplishment>, listNameById: Map<String, Str
         }
     }
     sb.appendLine()
-    sb.appendLine("_Generated on ${today} from Kairo — The Done Record. Private, on-device._")
+    sb.appendLine("_Generated on ${today} from Hexis — The Done Record. Private, on-device._")
     return sb.toString()
 }
 
