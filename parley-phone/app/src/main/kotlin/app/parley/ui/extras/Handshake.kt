@@ -38,13 +38,18 @@ object HandshakeInbox {
     /** A received contact on its way through the editor: logged once the editor saves it ([onSaved]). */
     data class Pending(val line: String, val time: Long, val nonce: String)
 
-    @Volatile
-    var pending: Pending? = null
+    /** Bound to the one editor opened for it (its route carries [Pending.nonce]), and it expires. */
+    private val slot = app.parley.common.extras.PendingSlot<Pending>()
 
-    /** The editor saved contact [savedId] (null or ≤ 0: cancelled or private). Logs the meeting for a pending handshake. */
-    fun onSaved(vm: AppViewModel, savedId: Long?) {
-        val p = pending ?: return
-        pending = null
+    /** Holds [p] for the editor about to be opened with `Routes.edit(handshake = p.nonce)`. */
+    fun hold(p: Pending) = slot.put(p.nonce, System.currentTimeMillis(), p)
+
+    /**
+     * The editor opened with [handshake] (its route's id; empty for any other editor) saved contact [savedId] (null
+     * or ≤ 0: cancelled or private). Logs the meeting for the handshake bound to that editor, and only for it.
+     */
+    fun onSaved(vm: AppViewModel, savedId: Long?, handshake: String?) {
+        val p = slot.take(handshake, System.currentTimeMillis()) ?: return
         if (savedId == null || savedId <= 0) return
         vm.c.scope.launch {
             val key = runCatching { vm.c.contacts.lookupKeyOf(savedId) }.getOrNull() ?: return@launch

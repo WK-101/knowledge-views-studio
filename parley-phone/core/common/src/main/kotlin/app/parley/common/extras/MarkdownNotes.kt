@@ -8,7 +8,9 @@ import java.util.Locale
 /**
  * C5: one Markdown file per person, for Obsidian and other note apps: YAML front-matter (name, phones, e-mails,
  * dates, labels) and then the pinned note, the contact's note, the Circle rhythm and the timeline of calls and
- * logged interactions. Export only: Parley never reads these files back.
+ * logged interactions. Export only: Parley never imports anything from these files. Each file carries a fingerprint of
+ * itself ([MARKER], see [isUntouched]), so Parley can tell its own untouched files from ones the user edited, and
+ * never overwrites or deletes an edited one.
  *
  * Texts that the reader sees (headings, kinds of entries) are passed in already translated ([Headings],
  * [Entry.kind]); keys, dates and numbers are fixed formats (Locale.ROOT) so the files stay machine-readable.
@@ -73,8 +75,42 @@ object MarkdownNotes {
 
     private fun field(f: Field) = if (f.label.isBlank()) f.value.trim() else "${f.value.trim()} (${f.label.trim()})"
 
-    /** The whole file. [exportedAt] and [zone] date the file and the timeline. */
-    fun render(p: Person, zone: ZoneId, exportedAt: Long, h: Headings = Headings()): String = buildString {
+    /** Front-matter key of the file's own [fingerprint], written last in the front-matter. */
+    const val MARKER = "parley_export"
+
+    /** The whole file, sealed with its [fingerprint]. [exportedAt] and [zone] date the file and the timeline. */
+    fun render(p: Person, zone: ZoneId, exportedAt: Long, h: Headings = Headings()): String {
+        val body = renderBody(p, zone, exportedAt, h)
+        val end = body.indexOf("\n---\n", 3)
+        return body.substring(0, end + 1) + "$MARKER: ${fingerprint(body)}\n" + body.substring(end + 1)
+    }
+
+    /**
+     * C5: a hash of a file's content without its [MARKER] line and with the `exported:` date blanked, so it names what
+     * Parley wrote about the person (the same person exported on another day has the same fingerprint).
+     */
+    fun fingerprint(text: String): String {
+        val t = text.replace("\r\n", "\n")
+        val end = if (t.startsWith("---\n")) t.indexOf("\n---\n", 3) else -1
+        val normalised = if (end < 0) t else {
+            t.substring(0, end).split('\n').filterNot { it.startsWith("$MARKER:") }
+                .joinToString("\n") { if (it.startsWith("exported:")) "exported:" else it } + t.substring(end)
+        }
+        return app.parley.common.backup.RecordJson.sha256Hex(normalised.toByteArray(Charsets.UTF_8))
+    }
+
+    /** The fingerprint a file says it has, or null without one. */
+    fun markerOf(text: String): String? {
+        val t = text.replace("\r\n", "\n")
+        val end = if (t.startsWith("---\n")) t.indexOf("\n---\n", 3) else -1
+        if (end < 0) return null
+        return t.substring(0, end).split('\n').firstOrNull { it.startsWith("$MARKER:") }?.substringAfter(':')?.trim()?.ifEmpty { null }
+    }
+
+    /** True when [text] is a file Parley wrote and nobody changed since: its fingerprint still matches its content. */
+    fun isUntouched(text: String): Boolean = markerOf(text)?.let { it == fingerprint(text) } == true
+
+    private fun renderBody(p: Person, zone: ZoneId, exportedAt: Long, h: Headings): String = buildString {
         append("---\n")
         append("name: ").append(yaml(p.name)).append('\n')
         if (p.company.isNotBlank()) append("company: ").append(yaml(p.company.trim())).append('\n')
@@ -114,12 +150,36 @@ object MarkdownNotes {
      * this export (compared ignoring case) and receives the new one; a clash gets " (2)", " (3)"…
      */
     fun fileName(name: String, taken: MutableSet<String>): String {
-        val base = forbidden.replace(name, " ").replace(Regex("\\s+"), " ").trim().trimStart('.', ' ').trimEnd('.', ' ').take(80).trim()
-            .ifEmpty { "Contact" }
+        val base = baseName(name)
         var candidate = "$base.md"
         var n = 2
         while (candidate.lowercase(Locale.ROOT) in taken) candidate = "$base ($n).md".also { n++ }
         taken += candidate.lowercase(Locale.ROOT)
         return candidate
+    }
+
+    private fun baseName(name: String) =
+        forbidden.replace(name, " ").replace(Regex("\\s+"), " ").trim().trimStart('.', ' ').trimEnd('.', ' ').take(80).trim().ifEmpty { "Contact" }
+
+    /**
+     * C5: the file for [name] in a folder: the first of "Ana.md", "Ana (2).md"… that no one else got in this run
+     * ([used], lower case, receives the choice) and that is either free or Parley's own untouched file ([ours] is asked
+     * about files in [existing], lower-cased name → actual name). A file the user wrote or edited is stepped over and
+     * never reused. Returns the actual name (an existing file keeps its spelling).
+     */
+    fun chooseFile(name: String, used: MutableSet<String>, existing: Map<String, String>, ours: (String) -> Boolean): String {
+        val base = baseName(name)
+        var n = 1
+        while (true) {
+            val candidate = if (n == 1) "$base.md" else "$base ($n).md"
+            n++
+            val lc = candidate.lowercase(Locale.ROOT)
+            if (lc in used) continue
+            val there = existing[lc]
+            if (there == null || ours(there)) {
+                used += lc
+                return there ?: candidate
+            }
+        }
     }
 }

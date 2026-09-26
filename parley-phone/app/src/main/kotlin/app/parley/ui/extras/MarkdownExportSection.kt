@@ -137,13 +137,17 @@ fun MarkdownExportSection(vm: AppViewModel) {
                 Text(if (st.lastAt > 0) stringResource(R.string.x_md_last, Format.shortWhen(context, st.lastAt)) else stringResource(R.string.x_md_never))
             },
             supportingContent = {
-                Text(
-                    when (st.lastProblem) {
-                        MarkdownExport.NO_PERMISSION -> stringResource(R.string.x_md_no_permission)
-                        MarkdownExport.FOLDER_GONE -> stringResource(R.string.x_md_folder_gone)
-                        else -> pluralStringResource(R.plurals.x_md_people, st.lastPeople, st.lastPeople)
-                    },
-                )
+                Column {
+                    Text(
+                        when (st.lastProblem) {
+                            MarkdownExport.NO_PERMISSION -> stringResource(R.string.x_md_no_permission)
+                            MarkdownExport.FOLDER_GONE -> stringResource(R.string.x_md_folder_gone)
+                            else -> pluralStringResource(R.plurals.x_md_people, st.lastPeople, st.lastPeople)
+                        },
+                    )
+                    // C5: files the user edited are left alone; say so rather than silently writing a copy.
+                    if (st.lastProblem == null && st.lastKept > 0) Text(pluralStringResource(R.plurals.x_md_kept, st.lastKept, st.lastKept))
+                }
             },
         )
         Button({ run() }, enabled = st.folderUri != null && !running, modifier = Modifier.padding(horizontal = 16.dp)) { Text(stringResource(R.string.x_md_now)) }

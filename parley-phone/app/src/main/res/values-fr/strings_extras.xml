@@ -49,7 +49,7 @@
     <string name="x_md_call_note">Note d\'appel</string>
     <string name="x_md_failed">Impossible d\'exporter les notes. Vérifiez le dossier et réessayez.</string>
     <string name="x_md_title">Notes en Markdown</string>
-    <string name="x_md_text">Un fichier .md par personne : ses numéros, dates et libellés, puis vos notes et la chronologie. Pour Obsidian et d\'autres applis de notes. Dans un seul sens : Parley écrit les fichiers et ne les relit jamais.</string>
+    <string name="x_md_text">Un fichier .md par personne : ses numéros, dates et libellés, puis vos notes et la chronologie. Pour Obsidian et d\'autres applis de notes. Dans un seul sens : Parley écrit les fichiers et n\'en reprend jamais rien.</string>
     <string name="x_md_folder">Dossier Markdown</string>
     <string name="x_md_only_circle">Seulement les personnes de votre cercle</string>
     <string name="x_md_only_circle_body">Désactivé : tous vos contacts</string>
@@ -61,7 +61,7 @@
     <string name="x_md_folder_gone">Le dossier ne peut plus être ouvert. Choisissez-le à nouveau.</string>
     <string name="x_md_now">Exporter maintenant</string>
     <string name="x_md_stop">Arrêter l\'export vers ce dossier</string>
-    <string name="x_md_private_note">Les contacts privés ne sont jamais exportés. Parley ne modifie que les fichiers qu\'il a écrits ; vos propres notes dans le dossier restent intactes.</string>
+    <string name="x_md_private_note">Les contacts privés ne sont jamais exportés. Parley ne modifie ou ne supprime que les fichiers qu\'il a écrits et que personne n\'a modifiés depuis. Si vous en modifiez un, il devient le vôtre : Parley n\'y touche plus et écrit une nouvelle copie à côté.</string>
     <string name="x_set_markdown_title">Exporter les notes en Markdown</string>
     <string name="x_set_markdown_summary">Un fichier .md par personne avec notes et chronologie, dans le dossier de votre choix</string>
     <string name="x_set_markdown_kw">markdown, md, obsidian, notes, logseq, export, dossier, chronologie</string>
@@ -99,7 +99,7 @@
     <string name="x_simple_enter_passcode">Saisissez le code affiché sur l\'autre téléphone.</string>
     <string name="x_simple_wrong_pass">Impossible de l\'ouvrir. Vérifiez le code ou la phrase secrète.</string>
     <string name="x_simple_matched">Trouvé : %1$s</string>
-    <string name="x_simple_not_found">Absent de vos contacts : %1$s</string>
+    <string name="x_simple_not_in_contacts">Absent de vos contacts</string>
     <string name="x_simple_create">Créer</string>
     <string name="x_simple_import_note">Les personnes absentes de vos contacts ont quand même un bouton avec leur numéro. Créez-les pour ajouter une photo.</string>
     <string name="x_simple_use_on">Utiliser cette configuration et activer le mode simple</string>
@@ -166,5 +166,15 @@
         <item quantity="one">Personnes (%1$d sur %2$d)</item>
         <item quantity="many">Personnes (%1$d sur %2$d)</item>
         <item quantity="other">Personnes (%1$d sur %2$d)</item>
+    </plurals>
+    <plurals name="x_simple_skipped">
+        <item quantity="one">%d entrée n\'était pas un simple numéro de téléphone et a été ignorée</item>
+        <item quantity="many">%d entrées n\'étaient pas de simples numéros de téléphone et ont été ignorées</item>
+        <item quantity="other">%d entrées n\'étaient pas de simples numéros de téléphone et ont été ignorées</item>
+    </plurals>
+    <plurals name="x_md_kept">
+        <item quantity="one">%d fichier que vous avez modifié a été laissé tel quel</item>
+        <item quantity="many">%d fichiers que vous avez modifiés ont été laissés tels quels</item>
+        <item quantity="other">%d fichiers que vous avez modifiés ont été laissés tels quels</item>
     </plurals>
 </resources>

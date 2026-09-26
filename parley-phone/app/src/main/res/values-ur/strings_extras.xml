@@ -49,7 +49,7 @@
     <string name="x_md_call_note">کال نوٹ</string>
     <string name="x_md_failed">نوٹس ایکسپورٹ نہیں ہو سکے۔ فولڈر چیک کر کے دوبارہ کوشش کریں۔</string>
     <string name="x_md_title">Markdown میں نوٹس</string>
-    <string name="x_md_text">ہر شخص کے لیے ایک .md فائل: ان کے نمبر، تاریخیں اور لیبل، پھر آپ کے نوٹس اور ٹائم لائن۔ Obsidian اور دوسری نوٹ ایپس کے لیے۔ صرف ایک طرف: Parley فائلیں لکھتا ہے اور کبھی واپس نہیں پڑھتا۔</string>
+    <string name="x_md_text">ہر شخص کے لیے ایک .md فائل: ان کے نمبر، تاریخیں اور لیبل، پھر آپ کے نوٹس اور ٹائم لائن۔ Obsidian اور دوسری نوٹ ایپس کے لیے۔ صرف ایک طرف: Parley فائلیں لکھتا ہے اور ان سے کبھی کچھ واپس نہیں لیتا۔</string>
     <string name="x_md_folder">Markdown فولڈر</string>
     <string name="x_md_only_circle">صرف آپ کے حلقے کے لوگ</string>
     <string name="x_md_only_circle_body">بند: آپ کے سب رابطے</string>
@@ -61,7 +61,7 @@
     <string name="x_md_folder_gone">فولڈر اب نہیں کھل رہا۔ اسے دوبارہ چنیں۔</string>
     <string name="x_md_now">ابھی ایکسپورٹ کریں</string>
     <string name="x_md_stop">اس فولڈر میں ایکسپورٹ بند کریں</string>
-    <string name="x_md_private_note">نجی رابطے کبھی ایکسپورٹ نہیں ہوتے۔ Parley صرف اپنی لکھی فائلیں بدلتا ہے؛ فولڈر میں آپ کے اپنے نوٹس جوں کے توں رہتے ہیں۔</string>
+    <string name="x_md_private_note">نجی رابطے کبھی ایکسپورٹ نہیں ہوتے۔ Parley صرف وہی فائلیں بدلتا یا ہٹاتا ہے جو اس نے لکھیں اور جنہیں تب سے کسی نے نہیں بدلا۔ آپ کوئی فائل بدلیں تو وہ آپ کی ہو جاتی ہے: Parley اسے نہیں چھیڑتا اور اس کے ساتھ ایک نئی کاپی لکھتا ہے۔</string>
     <string name="x_set_markdown_title">نوٹس Markdown میں ایکسپورٹ کریں</string>
     <string name="x_set_markdown_summary">ہر شخص کے لیے نوٹس اور ٹائم لائن والی ایک .md فائل، آپ کے چنے فولڈر میں</string>
     <string name="x_set_markdown_kw">markdown, md, obsidian, نوٹس, logseq, ایکسپورٹ, فولڈر, ٹائم لائن</string>
@@ -99,7 +99,7 @@
     <string name="x_simple_enter_passcode">دوسرے فون پر دکھایا گیا پاس کوڈ لکھیں۔</string>
     <string name="x_simple_wrong_pass">یہ نہیں کھلا۔ پاس کوڈ یا پاس فریز چیک کریں۔</string>
     <string name="x_simple_matched">مل گیا: %1$s</string>
-    <string name="x_simple_not_found">آپ کے رابطوں میں نہیں: %1$s</string>
+    <string name="x_simple_not_in_contacts">آپ کے رابطوں میں نہیں</string>
     <string name="x_simple_create">بنائیں</string>
     <string name="x_simple_import_note">جو لوگ آپ کے رابطوں میں نہیں، انہیں بھی ان کے نمبر والا بٹن ملتا ہے۔ تصویر شامل کرنے کے لیے ان کا رابطہ بنائیں۔</string>
     <string name="x_simple_use_on">یہ سیٹ اپ استعمال کریں اور آسان موڈ آن کریں</string>
@@ -156,5 +156,13 @@
     <plurals name="x_simple_people_n">
         <item quantity="one">لوگ (%2$d میں سے %1$d)</item>
         <item quantity="other">لوگ (%2$d میں سے %1$d)</item>
+    </plurals>
+    <plurals name="x_simple_skipped">
+        <item quantity="one">%d اندراج عام فون نمبر نہیں تھا، اس لیے چھوڑ دیا گیا</item>
+        <item quantity="other">%d اندراجات عام فون نمبر نہیں تھے، اس لیے چھوڑ دیے گئے</item>
+    </plurals>
+    <plurals name="x_md_kept">
+        <item quantity="one">آپ کی بدلی ہوئی %d فائل جوں کی توں چھوڑ دی گئی</item>
+        <item quantity="other">آپ کی بدلی ہوئی %d فائلیں جوں کی توں چھوڑ دی گئیں</item>
     </plurals>
 </resources>

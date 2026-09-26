@@ -2,6 +2,8 @@ package app.parley.data.extras
 
 import android.content.Context
 import android.provider.ContactsContract
+import app.parley.common.ContactSummary
+import app.parley.common.extras.DndStars
 import app.parley.common.extras.LabelPolicies
 import app.parley.common.extras.LabelPolicy
 import app.parley.common.extras.SimpleConfig
@@ -39,10 +41,89 @@ class ExtrasStore(private val c: DataContainer) {
 
     fun updatePolicy(title: String, f: (LabelPolicy) -> LabelPolicy) = updatePolicies { m -> m + (title to f(m[title] ?: LabelPolicy())) }
 
-    /** Labels were renamed or merged on the labels screen (see LabelReferences). */
-    fun labelsRenamed(renames: Map<String, String>) = updatePolicies { LabelPolicies.renamed(it, renames) }
+    /**
+     * Labels were renamed or merged on the labels screen (see LabelReferences). Contacts starred for a label's Do Not
+     * Disturb choice follow it, or are unstarred when the label they end up in doesn't let people through.
+     */
+    suspend fun labelsRenamed(renames: Map<String, String>) {
+        updatePolicies { LabelPolicies.renamed(it, renames) }
+        val dnd = dndLabels()
+        applyRelease(DndStars.renamed(_dndStars.value, renames, dnd))
+    }
 
-    fun labelsDeleted(titles: Set<String>) = updatePolicies { LabelPolicies.deleted(it, titles) }
+    /** Labels were deleted: their policies go, and the contacts Parley starred only for them are unstarred. */
+    suspend fun labelsDeleted(titles: Set<String>) {
+        updatePolicies { LabelPolicies.deleted(it, titles) }
+        applyRelease(DndStars.release(_dndStars.value, titles))
+    }
+
+    // --- X3: contacts starred for "Allow through Do Not Disturb" ---
+
+    private val _dndStars = MutableStateFlow(DndStars.decode(prefs.getString(K_DND_STARS, null)))
+
+    /** Lookup key → the labels that made Parley star the contact (see [DndStars]). */
+    val dndStars: StateFlow<Map<String, Set<String>>> = _dndStars.asStateFlow()
+
+    @Synchronized
+    private fun updateDndStars(f: (Map<String, Set<String>>) -> Map<String, Set<String>>) {
+        val next = f(_dndStars.value).filterValues { it.isNotEmpty() }
+        if (next == _dndStars.value) return
+        _dndStars.value = next
+        prefs.edit().putString(K_DND_STARS, DndStars.encode(next)).apply()
+    }
+
+    private fun dndLabels(): Set<String> = _policies.value.filterValues { it.allowThroughDnd }.keys
+
+    /**
+     * Stars the [members] of [label] that aren't starred and records that Parley did; members Parley already starred
+     * for another label are recorded under this one too, so switching either off leaves them starred for the other.
+     * A star the user set isn't recorded. Returns how many were starred now.
+     */
+    suspend fun starForDnd(label: String, members: List<ContactSummary>): Int = withContext(Dispatchers.IO) {
+        val ledger = _dndStars.value
+        val starred = members.filter { !it.starred && runCatching { c.contacts.setStarred(it.id, true) }.isSuccess }
+        val shared = members.filter { it.starred && it.lookupKey in ledger }
+        updateDndStars { DndStars.add(it, label, (starred + shared).map { m -> m.lookupKey }) }
+        c.contacts.refresh()
+        starred.size
+    }
+
+    /** [label]'s "Allow through Do Not Disturb" was switched off: returns how many contacts were unstarred. */
+    suspend fun dndOff(label: String): Int {
+        updatePolicy(label) { it.copy(allowThroughDnd = false) }
+        return applyRelease(DndStars.release(_dndStars.value, setOf(label)))
+    }
+
+    /**
+     * Unstars the released contacts, found by lookup key (not by today's label members), except those still in a
+     * label that lets people through: they stay starred, recorded under that label.
+     */
+    private suspend fun applyRelease(r: DndStars.Release): Int = withContext(Dispatchers.IO) {
+        if (r.unstar.isEmpty()) {
+            updateDndStars { r.ledger }
+            return@withContext 0
+        }
+        val dnd = dndLabels()
+        val ids = r.unstar.associateWith { k -> runCatching { c.contacts.currentOf(k, null)?.first }.getOrNull() }
+        val wants = ids.mapValues { (_, id) -> if (id == null || dnd.isEmpty()) emptySet() else runCatching { c.contacts.labelTitlesOf(id) }.getOrDefault(emptySet()).intersect(dnd) }
+        val settled = DndStars.settle(r.ledger, r.unstar, wants)
+        var n = 0
+        for (k in settled.unstar) {
+            val id = ids[k] ?: continue
+            if (runCatching { c.contacts.setStarred(id, false) }.isSuccess) n++
+        }
+        updateDndStars { settled.ledger }
+        c.contacts.refresh()
+        n
+    }
+
+    /** F8: a contact's lookup key changed (see ContactKeys). */
+    fun dndRekey(from: String, to: String) = updateDndStars { DndStars.rekey(it, from, to) }
+
+    /** The contact moved into the vault: nothing of it stays outside. */
+    fun dndForget(key: String) = updateDndStars { it - key }
+
+    fun dndKeys(): Set<String> = _dndStars.value.keys
 
     /**
      * X3: the SIM a label asks for when calling [number], for people without a SIM of their own (the remembered SIM
@@ -142,6 +223,8 @@ class ExtrasStore(private val c: DataContainer) {
     val backupExtras: BackupExtras = object : BackupExtras {
         override suspend fun export(): Map<String, String> = buildMap {
             put(X_POLICIES, LabelPolicies.encode(_policies.value))
+            // X3: which contacts Parley starred for which label, so a restored phone can still unstar them later.
+            put(X_DND_STARS, DndStars.encode(_dndStars.value))
             // People by name and number: lookup keys mean nothing on another phone (the simple home resolves them).
             put(X_SIMPLE, SimpleSetup.encode(_simple.value.copy(people = _simple.value.people.map { it.copy(lookupKey = null) })))
             lastTripCity?.let { put(X_TRIP, it) }
@@ -150,9 +233,11 @@ class ExtrasStore(private val c: DataContainer) {
         override suspend fun import(values: Map<String, String>) {
             values[X_POLICIES]?.let { v ->
                 // SIM ids are per phone: a SIM that isn't here is simply skipped when calling.
-                val incoming = LabelPolicies.decode(v).mapValues { it.value.copy(starredByPolicy = emptySet()) }
+                val incoming = LabelPolicies.decode(v)
                 updatePolicies { current -> incoming + current }
             }
+            // The contacts' stars come back with the contacts; the record of which ones Parley set comes back here.
+            values[X_DND_STARS]?.let { v -> updateDndStars { current -> DndStars.merge(current, DndStars.decode(v)) } }
             values[X_SIMPLE]?.let { v -> updateSimple { SimpleSetup.decode(v) } }
             values[X_TRIP]?.let { lastTripCity = it }
         }
@@ -164,8 +249,10 @@ class ExtrasStore(private val c: DataContainer) {
         private const val K_SIMPLE = "simple_mode_v1"
         private const val K_TRIP = "trip_city"
         private const val K_SWAP = "handshake_swap"
+        private const val K_DND_STARS = "dnd_stars_v1"
         private const val X_POLICIES = "${BackupExtras.PREFIX}extras.labelPolicies"
         private const val X_SIMPLE = "${BackupExtras.PREFIX}extras.simple"
         private const val X_TRIP = "${BackupExtras.PREFIX}extras.tripCity"
+        private const val X_DND_STARS = "${BackupExtras.PREFIX}extras.dndStars"
     }
 }

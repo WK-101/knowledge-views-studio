@@ -5,7 +5,6 @@ import android.net.Uri
 import android.provider.DocumentsContract
 import app.parley.common.CallType
 import app.parley.common.PhoneNumbers
-import app.parley.common.backup.RecordJson
 import app.parley.common.circle.InteractionType
 import app.parley.common.extras.MarkdownNotes
 import app.parley.data.DataContainer
@@ -37,13 +36,17 @@ data class MarkdownStatus(
     val lastPeople: Int = 0,
     /** A [app.parley.common.StoredStatus] kind when the last run couldn't write (see [MarkdownExport]). */
     val lastProblem: String? = null,
+    /** Files the user had changed, left as they were in the last run (Parley wrote a fresh copy beside them instead). */
+    val lastKept: Int = 0,
 )
 
 /**
  * C5: one-way export of every person as a Markdown file ([MarkdownNotes]) into a folder picked with the system
- * picker (SAF): Obsidian vaults, Syncthing folders, a USB drive. Parley only writes: it never reads the files back.
- * Files are rewritten only when their content changed, files of people who are gone (or left the Circle, with
- * "only Circle") are removed, and files Parley didn't write are never touched (a clash gets another name).
+ * picker (SAF): Obsidian vaults, Syncthing folders, a USB drive. Parley never imports anything from the files; it
+ * reads one only to check that it is still exactly what Parley wrote ([MarkdownNotes.isUntouched]). Files are
+ * rewritten only when their content changed, files of people who are gone (or left the Circle, with "only Circle")
+ * are removed, and a file Parley didn't write, or one the user edited since, is never overwritten or removed: Parley
+ * writes its fresh copy under another name ("Ana (2).md") and the edited file becomes the user's.
  * Private (vault) contacts are never exported: they aren't in the system contacts this reads.
  */
 class MarkdownExport(private val context: Context, private val c: DataContainer) {
@@ -70,12 +73,17 @@ class MarkdownExport(private val context: Context, private val c: DataContainer)
     private fun load() = MarkdownStatus(
         prefs.getString("folder", null), prefs.getString("folderName", null), prefs.getBoolean("auto", true), prefs.getBoolean("onlyCircle", false),
         prefs.getLong("lastAt", 0), prefs.getInt("lastWritten", 0), prefs.getInt("lastPeople", 0), prefs.getString("lastProblem", null),
+        prefs.getInt("lastKept", 0),
     )
 
     fun setFolder(uri: Uri?, name: String?) {
         if (uri != null) runCatching { cr.takePersistableUriPermission(uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION) }
         prefs.edit().putString("folder", uri?.toString()).putString("folderName", name).remove("lastProblem").apply()
-        stateFile.delete() // a new folder: nothing there is ours yet
+        // C5: the same folder picked again keeps the record of Parley's files (their fingerprints adopt them anyway).
+        if (uri != null && uri.toString() != prefs.getString("stateFolder", null)) {
+            stateFile.delete() // a new folder: nothing there is ours yet
+            prefs.edit().putString("stateFolder", uri.toString()).apply()
+        }
         _status.value = load()
     }
 
@@ -89,7 +97,7 @@ class MarkdownExport(private val context: Context, private val c: DataContainer)
         _status.value = load()
     }
 
-    /** Files Parley wrote: name → content hash. */
+    /** Files Parley wrote: name → their [MarkdownNotes.fingerprint]. */
     private fun readState(): MutableMap<String, String> = runCatching {
         val o = JSONObject(stateFile.readText())
         o.keys().asSequence().associateWith { o.getString(it) }.toMutableMap()
@@ -101,8 +109,8 @@ class MarkdownExport(private val context: Context, private val c: DataContainer)
         if (!tmp.renameTo(stateFile)) { stateFile.delete(); tmp.renameTo(stateFile) }
     }
 
-    private fun finish(written: Int, people: Int, problem: String?) {
-        prefs.edit().putLong("lastAt", System.currentTimeMillis()).putInt("lastWritten", written).putInt("lastPeople", people)
+    private fun finish(written: Int, people: Int, problem: String?, kept: Int = 0) {
+        prefs.edit().putLong("lastAt", System.currentTimeMillis()).putInt("lastWritten", written).putInt("lastPeople", people).putInt("lastKept", kept)
             .apply { if (problem == null) remove("lastProblem") else putString("lastProblem", problem) }.apply()
         _status.value = load()
     }
@@ -118,14 +126,19 @@ class MarkdownExport(private val context: Context, private val c: DataContainer)
             val treeId = DocumentsContract.getTreeDocumentId(folder)
             val parentDoc = DocumentsContract.buildDocumentUriUsingTree(folder, treeId)
             val existing = HashMap<String, Uri>()
+            val sizes = HashMap<String, Long>()
             val listed = try {
                 cr.query(
                     DocumentsContract.buildChildDocumentsUriUsingTree(folder, treeId),
-                    arrayOf(DocumentsContract.Document.COLUMN_DOCUMENT_ID, DocumentsContract.Document.COLUMN_DISPLAY_NAME), null, null, null,
+                    arrayOf(DocumentsContract.Document.COLUMN_DOCUMENT_ID, DocumentsContract.Document.COLUMN_DISPLAY_NAME, DocumentsContract.Document.COLUMN_SIZE),
+                    null, null, null,
                 )?.use { cur ->
                     while (cur.moveToNext()) {
                         val name = cur.getString(1) ?: continue
-                        if (name.endsWith(".md", ignoreCase = true)) existing[name] = DocumentsContract.buildDocumentUriUsingTree(folder, cur.getString(0))
+                        if (name.endsWith(".md", ignoreCase = true)) {
+                            existing[name] = DocumentsContract.buildDocumentUriUsingTree(folder, cur.getString(0))
+                            sizes[name] = if (cur.isNull(2)) -1 else cur.getLong(2)
+                        }
                     }
                     true
                 } ?: false
@@ -138,8 +151,23 @@ class MarkdownExport(private val context: Context, private val c: DataContainer)
             }
 
             val state = readState()
-            // Files that aren't ours keep their names: ours pick another.
-            val taken = existing.keys.filter { it !in state }.map { it.lowercase(java.util.Locale.ROOT) }.toMutableSet()
+            // C5: a file is Parley's to change only while it is exactly what Parley wrote (its fingerprint still
+            // matches). Anything else, the user's own notes or Parley's file they edited, keeps its name and content.
+            val verdicts = HashMap<String, Boolean>()
+            fun untouched(name: String): Boolean = verdicts.getOrPut(name) {
+                val uri = existing[name] ?: return@getOrPut false
+                val size = sizes[name] ?: -1
+                if (size > MAX_READ) return@getOrPut false
+                runCatching {
+                    cr.openInputStream(uri)!!.use { s ->
+                        val b = s.readBytes()
+                        b.size <= MAX_READ && MarkdownNotes.isUntouched(String(b, Charsets.UTF_8))
+                    }
+                }.getOrDefault(false)
+            }
+            val byLower = existing.keys.associateBy { it.lowercase(java.util.Locale.ROOT) }
+            val used = HashSet<String>()
+            var kept = 0
             val members = c.circle.members().associate { it.lookupKey to it.everyDays }
             val onlyCircle = status.value.onlyCircle
             val people = c.contacts.snapshot().filter { !onlyCircle || it.lookupKey in members }
@@ -179,10 +207,14 @@ class MarkdownExport(private val context: Context, private val c: DataContainer)
                     timeline = timeline,
                     promises = promises,
                 )
-                val name = MarkdownNotes.fileName(person.name, taken)
-                val bytes = MarkdownNotes.render(person, zone, now, texts.headings).toByteArray(Charsets.UTF_8)
-                // The export date is in every file: compare without it, so unchanged people aren't rewritten daily.
-                val hash = RecordJson.sha256Hex(MarkdownNotes.render(person, zone, 0, texts.headings).toByteArray(Charsets.UTF_8))
+                val text = MarkdownNotes.render(person, zone, now, texts.headings)
+                // The fingerprint leaves out the export date, so unchanged people aren't rewritten daily.
+                val hash = MarkdownNotes.markerOf(text).orEmpty()
+                val name = MarkdownNotes.chooseFile(person.name, used, byLower) { n ->
+                    // Unchanged since the last run: nothing will be written, so no need to read the file.
+                    state[n] == hash || untouched(n)
+                }
+                val bytes = text.toByteArray(Charsets.UTF_8)
                 produced += name
                 if (state[name] == hash && name in existing) continue
                 val ok = try {
@@ -200,14 +232,16 @@ class MarkdownExport(private val context: Context, private val c: DataContainer)
                     written++
                 }
             }
-            // People who are gone: remove only files Parley wrote.
+            // People who are gone: remove only files Parley wrote that nobody edited since; an edited one is the user's.
             for (name in state.keys.toList()) {
                 if (name in produced) continue
-                existing[name]?.let { u -> runCatching { DocumentsContract.deleteDocument(cr, u) } }
+                existing[name]?.let { u ->
+                    if (untouched(name)) runCatching { DocumentsContract.deleteDocument(cr, u) } else kept++
+                }
                 state.remove(name)
             }
             writeState(state)
-            finish(written, people.size, null)
+            finish(written, people.size, null, kept)
             written
         }
     }
@@ -218,5 +252,8 @@ class MarkdownExport(private val context: Context, private val c: DataContainer)
 
         /** Newest calls kept in one file (the whole history of a daily caller would drown the notes). */
         private const val MAX_CALLS = 200
+
+        /** Larger files aren't Parley's (a file is a few kilobytes); they're never read or touched. */
+        private const val MAX_READ = 2L * 1024 * 1024
     }
 }
