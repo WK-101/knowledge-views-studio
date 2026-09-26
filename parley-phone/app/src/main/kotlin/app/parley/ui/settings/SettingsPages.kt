@@ -245,6 +245,8 @@ internal fun CallsPage(vm: AppViewModel, open: (String) -> Unit) {
         }
     }
     CallExtrasGroups(vm)
+    // R8/R9/X1: the memory prompt, notes on the lock screen and the pre-call peek.
+    MemorySettingsGroup(vm)
     SegmentedGroup(stringResource(R.string.set_group_sims)) {
         linkRow("sims", Icons.Rounded.SimCard) { open(HistoryRoutes.SIMS) }
         linkRow("sim_accounts", Icons.Rounded.SettingsPhone, external = true) { context.startSafely(Intent(TelecomManager.ACTION_CHANGE_PHONE_ACCOUNTS)) }
@@ -464,6 +466,7 @@ internal fun HistoryPage(vm: AppViewModel, open: (String) -> Unit) {
         item("clear_history") { app.parley.ui.history.ClearHistoryRow(vm, open, Icons.Rounded.DeleteSweep) }
     }
     val layoutLabels = app.parley.ui.history.recentsLayoutLabels()
+    val circleCfg by vm.c.circle.config.collectAsStateWithLifecycle()
     SegmentedGroup(stringResource(R.string.set_group_recents)) {
         switchRow("sim_labels", s.showSimLabels, Icons.Rounded.SimCard) { v -> set { it.copy(showSimLabels = v) } }
         // P8: grouped, chronological or by day (also in Recents ⋮).
@@ -471,6 +474,8 @@ internal fun HistoryPage(vm: AppViewModel, open: (String) -> Unit) {
             set { it.copy(recentsLayout = app.parley.common.calls.RecentsLayout.entries[i]) }
         }
         linkRow("insights", Icons.Rounded.Insights) { open(HistoryRoutes.INSIGHTS) }
+        // R6: the People card in Insights.
+        peopleCardRows(vm, circleCfg)
         linkRow("import_calls", Icons.Rounded.FileUpload) { open(HistoryRoutes.IMPORT) }
     }
 }

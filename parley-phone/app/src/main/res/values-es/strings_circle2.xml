@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Machine-assisted translation — needs native review -->
+<!-- v3.2 Circle, part 2: R6–R10, X1, X6 (People card, widget, memory, promises, yearly events, good time). -->
+<resources>
+    <string name="c2_digest_long_quiet">Hace más de un año que no hablas con %1$s</string>
+    <string name="c2_digest_yearly_no_year">Por estas fechas: %2$s de %1$s</string>
+    <string name="c2_first_both">Los dos dais el primer paso</string>
+    <string name="c2_first_mover">Quién suele dar el primer paso</string>
+    <string name="c2_first_mover_private">Solo lo ves tú. Ocúltalo desde el menú ⋮ o en Ajustes.</string>
+    <string name="c2_first_them">Normalmente %1$s da el primer paso</string>
+    <string name="c2_first_you">Normalmente das tú el primer paso</string>
+    <string name="c2_followup_body">Querías retomar el tema después de vuestra última llamada.</string>
+    <string name="c2_followup_title">Retomar con %1$s</string>
+    <string name="c2_from_call">Nota de llamada · %1$s</string>
+    <string name="c2_from_logged">Registrado · %1$s</string>
+    <string name="c2_from_pinned">Nota fijada</string>
+    <string name="c2_good_time">Suele estar libre %1$s</string>
+    <string name="c2_hide_first_mover">Ocultar quién da el primer paso</string>
+    <string name="c2_show_first_mover">Mostrar quién da el primer paso</string>
+    <string name="c2_hide_people_card">Ocultar esta tarjeta</string>
+    <string name="c2_insert_promise">Añadir una promesa</string>
+    <string name="c2_open_loops">Pendientes</string>
+    <string name="c2_open_promise">Promesa pendiente</string>
+    <string name="c2_peek_dont_show">No volver a mostrar</string>
+    <string name="c2_peek_off">La vista previa antes de llamar está desactivada. Actívala en Ajustes › Llamadas.</string>
+    <string name="c2_peek_title">Antes de llamar a %1$s</string>
+    <string name="c2_people_title">Personas</string>
+    <string name="c2_promise_done">Hecho: %1$s</string>
+    <string name="c2_promise_hint">Empieza una línea con [ ] para convertirla en una promesa que puedes marcar.</string>
+    <string name="c2_promises">Promesas</string>
+    <string name="c2_reach_up">Más que el mes anterior (%1$d)</string>
+    <string name="c2_reach_down">El mes anterior: %1$d</string>
+    <string name="c2_reach_same">Parecido al mes anterior</string>
+    <string name="c2_review_most">Con quien más: %1$s</string>
+    <string name="c2_year_review">Tu año</string>
+    <string name="c2_set_group_memory">Recordar lo importante</string>
+    <string name="c2_time_there">allí son las %1$s</string>
+    <string name="c2_widget_date_soon">Una fecha próxima</string>
+    <string name="c2_widget_empty">Nada próximo. Añade personas a tu Círculo desde la página de un contacto.</string>
+    <string name="c2_widget_today">Hoy</string>
+    <string name="c2_widget_tomorrow">Mañana</string>
+    <string name="c2_yearly_label">Se recuerda cada año</string>
+    <string name="c2_yearly_off">Ya no se recuerda cada año</string>
+    <string name="c2_yearly_on">Lo verás cada año en tu resumen semanal</string>
+    <string name="c2_yearly_remember">Recordar cada año</string>
+    <string name="c2_yearly_stop">Dejar de recordar cada año</string>
+    <string name="c2_widget_call">Llamar</string>
+    <string name="c2_widget_dates">Próximamente</string>
+    <string name="c2_widget_description">Próximas fechas y personas de tu Círculo, con botón de llamar. Con el bloqueo de la app, solo se ven cifras mientras el teléfono está bloqueado.</string>
+    <string name="c2_widget_title">Círculo</string>
+    <string name="c2_widget_preview_line_0">Seguro que le alegra saber de ti</string>
+    <string name="c2_widget_preview_line_1">Cumpleaños en 3 días</string>
+    <string name="c2_widget_preview_date_0">Marco · Mañana · Aniversario</string>
+    <string name="c2_set_memory_prompt_title">«¿Algo que recordar?» tras las llamadas</string>
+    <string name="c2_set_memory_prompt_summary">Una nota y un recordatorio para retomar tras llamar con tus contactos</string>
+    <string name="c2_set_memory_prompt_kw">nota, notas, recordar, promesa, retomar, después de la llamada</string>
+    <string name="c2_set_memory_lock_title">Notas en la pantalla de bloqueo</string>
+    <string name="c2_set_memory_lock_summary">Mostrar la última nota y las promesas en la llamada entrante con el teléfono bloqueado</string>
+    <string name="c2_set_memory_lock_kw">pantalla de bloqueo, nota, promesa, entrante, privacidad</string>
+    <string name="c2_set_peek_title">Vista previa antes de llamar</string>
+    <string name="c2_set_peek_summary">La última nota, las promesas y un buen momento para llamar, antes de llamar desde un contacto</string>
+    <string name="c2_set_peek_kw">vista previa, antes de llamar, nota, promesa, buen momento, hora local, zona horaria</string>
+    <string name="c2_set_people_card_title">Tarjeta Personas en Estadísticas</string>
+    <string name="c2_set_people_card_summary">Contacto en tu círculo, pendientes y tu año, en las estadísticas de llamadas</string>
+    <string name="c2_set_people_card_kw">personas, círculo, pendientes, resumen del año, estadísticas</string>
+    <string name="c2_set_first_mover_title">Quién suele dar el primer paso</string>
+    <string name="c2_set_first_mover_summary">En la tarjeta Personas. Solo lo ves tú</string>
+    <string name="c2_set_first_mover_kw">primero, primer paso, iniciativa, llama primero</string>
+    <plurals name="c2_digest_yearly">
+        <item quantity="one">%1$d año desde %3$s de %2$s</item>
+        <item quantity="many">%1$d años desde %3$s de %2$s</item>
+        <item quantity="other">%1$d años desde %3$s de %2$s</item>
+    </plurals>
+    <plurals name="c2_loop_their_call">
+        <item quantity="one">Su llamada · %2$s</item>
+        <item quantity="many">Sus %1$d llamadas · última %2$s</item>
+        <item quantity="other">Sus %1$d llamadas · última %2$s</item>
+    </plurals>
+    <plurals name="c2_loop_your_try">
+        <item quantity="one">Tu llamada, aún sin respuesta · %2$s</item>
+        <item quantity="many">Tus %1$d llamadas, aún sin respuesta · última %2$s</item>
+        <item quantity="other">Tus %1$d llamadas, aún sin respuesta · última %2$s</item>
+    </plurals>
+    <plurals name="c2_reach">
+        <item quantity="one">Este mes hablaste con %1$d de %2$d persona de tu círculo</item>
+        <item quantity="many">Este mes hablaste con %1$d de %2$d personas de tu círculo</item>
+        <item quantity="other">Este mes hablaste con %1$d de %2$d personas de tu círculo</item>
+    </plurals>
+    <plurals name="c2_review_gap">
+        <item quantity="one">Mayor pausa: %1$d día, con %2$s</item>
+        <item quantity="many">Mayor pausa: %1$d días, con %2$s</item>
+        <item quantity="other">Mayor pausa: %1$d días, con %2$s</item>
+    </plurals>
+    <plurals name="c2_review_occasions">
+        <item quantity="one">%1$d ocasión felicitada</item>
+        <item quantity="many">%1$d ocasiones felicitadas</item>
+        <item quantity="other">%1$d ocasiones felicitadas</item>
+    </plurals>
+    <plurals name="c2_review_entries">
+        <item quantity="one">En contacto %1$d vez este año</item>
+        <item quantity="many">En contacto %1$d veces este año</item>
+        <item quantity="other">En contacto %1$d veces este año</item>
+    </plurals>
+    <plurals name="c2_widget_count_dates">
+        <item quantity="one">%1$d fecha en las próximas 2 semanas</item>
+        <item quantity="many">%1$d fechas en las próximas 2 semanas</item>
+        <item quantity="other">%1$d fechas en las próximas 2 semanas</item>
+    </plurals>
+    <plurals name="c2_widget_count_people">
+        <item quantity="one">%1$d persona con quien hablar</item>
+        <item quantity="many">%1$d personas con quienes hablar</item>
+        <item quantity="other">%1$d personas con quienes hablar</item>
+    </plurals>
+    <plurals name="c2_widget_in_days">
+        <item quantity="one">En %1$d día</item>
+        <item quantity="many">En %1$d días</item>
+        <item quantity="other">En %1$d días</item>
+    </plurals>
+</resources>

@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Machine-assisted translation — needs native review -->
+<!-- v3.2 Circle, part 2: R6–R10, X1, X6 (People card, widget, memory, promises, yearly events, good time). -->
+<resources>
+    <string name="c2_digest_long_quiet">%1$s سے بات کیے ایک سال سے زیادہ ہو گیا</string>
+    <string name="c2_digest_yearly_no_year">ان دنوں: %1$s کا %2$s</string>
+    <string name="c2_first_both">آپ دونوں پہل کرتے ہیں</string>
+    <string name="c2_first_mover">عام طور پر پہل کون کرتا ہے</string>
+    <string name="c2_first_mover_private">یہ صرف آپ کو نظر آتا ہے۔ ⋮ مینو یا ترتیبات میں چھپائیں۔</string>
+    <string name="c2_first_them">عام طور پر %1$s پہل کرتے ہیں</string>
+    <string name="c2_first_you">عام طور پر آپ پہل کرتے ہیں</string>
+    <string name="c2_followup_body">آپ پچھلی کال کے بعد فالو اپ کرنا چاہتے تھے۔</string>
+    <string name="c2_followup_title">%1$s سے فالو اپ کریں</string>
+    <string name="c2_from_call">کال نوٹ · %1$s</string>
+    <string name="c2_from_logged">درج · %1$s</string>
+    <string name="c2_from_pinned">پن کیا گیا نوٹ</string>
+    <string name="c2_good_time">عام طور پر %1$s فارغ</string>
+    <string name="c2_hide_first_mover">کون پہل کرتا ہے، چھپائیں</string>
+    <string name="c2_show_first_mover">کون پہل کرتا ہے، دکھائیں</string>
+    <string name="c2_hide_people_card">یہ کارڈ چھپائیں</string>
+    <string name="c2_insert_promise">وعدہ شامل کریں</string>
+    <string name="c2_open_loops">ادھوری باتیں</string>
+    <string name="c2_open_promise">باقی وعدہ</string>
+    <string name="c2_peek_dont_show">دوبارہ نہ دکھائیں</string>
+    <string name="c2_peek_off">کال سے پہلے جھلک بند ہے۔ ترتیبات › کالز میں چالو کریں۔</string>
+    <string name="c2_peek_title">%1$s کو کال کرنے سے پہلے</string>
+    <string name="c2_people_title">لوگ</string>
+    <string name="c2_promise_done">مکمل: %1$s</string>
+    <string name="c2_promise_hint">کسی سطر کو [ ] سے شروع کریں، وہ ایک وعدہ بنے گی جسے آپ ٹک کر سکتے ہیں۔</string>
+    <string name="c2_promises">وعدے</string>
+    <string name="c2_reach_up">پچھلے مہینے %1$d سے زیادہ</string>
+    <string name="c2_reach_down">پچھلے مہینے: %1$d</string>
+    <string name="c2_reach_same">پچھلے مہینے جتنا ہی</string>
+    <string name="c2_review_most">سب سے زیادہ رابطہ: %1$s</string>
+    <string name="c2_year_review">آپ کا سال</string>
+    <string name="c2_set_group_memory">اہم باتیں یاد رکھیں</string>
+    <string name="c2_time_there">وہاں %1$s</string>
+    <string name="c2_widget_date_soon">ایک تاریخ آنے والی ہے</string>
+    <string name="c2_widget_empty">کچھ آنے والا نہیں۔ کسی رابطے کے صفحے سے لوگوں کو اپنے حلقے میں شامل کریں۔</string>
+    <string name="c2_widget_today">آج</string>
+    <string name="c2_widget_tomorrow">کل</string>
+    <string name="c2_yearly_label">ہر سال یاد</string>
+    <string name="c2_yearly_off">اب ہر سال یاد نہیں دلایا جائے گا</string>
+    <string name="c2_yearly_on">یہ ہر سال آپ کے ہفتہ وار خلاصے میں نظر آئے گا</string>
+    <string name="c2_yearly_remember">ہر سال یاد دلائیں</string>
+    <string name="c2_yearly_stop">ہر سال یاد دلانا بند کریں</string>
+    <string name="c2_widget_call">کال کریں</string>
+    <string name="c2_widget_dates">آنے والا</string>
+    <string name="c2_widget_description">آنے والی تاریخیں اور آپ کے حلقے کے لوگ، کال بٹن کے ساتھ۔ ایپ لاک آن ہو تو فون لاک رہنے تک صرف گنتی دکھتی ہے۔</string>
+    <string name="c2_widget_title">حلقہ</string>
+    <string name="c2_widget_preview_line_0">آپ سے بات کر کے خوش ہوں گے</string>
+    <string name="c2_widget_preview_line_1">3 دن میں سالگرہ</string>
+    <string name="c2_widget_preview_date_0">Marco · کل · سالگرہ</string>
+    <string name="c2_set_memory_prompt_title">کال کے بعد “کچھ یاد رکھنا ہے؟”</string>
+    <string name="c2_set_memory_prompt_summary">رابطوں سے کال کے بعد ایک نوٹ اور فالو اپ یاددہانی</string>
+    <string name="c2_set_memory_prompt_kw">نوٹ، یاد، وعدہ، فالو اپ، کال کے بعد</string>
+    <string name="c2_set_memory_lock_title">لاک اسکرین پر نوٹ</string>
+    <string name="c2_set_memory_lock_summary">فون لاک ہونے پر بھی آنے والی کال اسکرین پر آخری نوٹ اور وعدے دکھائیں</string>
+    <string name="c2_set_memory_lock_kw">لاک اسکرین، نوٹ، وعدہ، آنے والی، رازداری</string>
+    <string name="c2_set_peek_title">کال سے پہلے جھلک</string>
+    <string name="c2_set_peek_summary">رابطے کے صفحے سے کال سے پہلے آخری نوٹ، وعدے اور کال کا اچھا وقت</string>
+    <string name="c2_set_peek_kw">جھلک، کال سے پہلے، نوٹ، وعدہ، اچھا وقت، مقامی وقت، ٹائم زون</string>
+    <string name="c2_set_people_card_title">انسائٹس میں لوگ کارڈ</string>
+    <string name="c2_set_people_card_summary">کال انسائٹس میں آپ کے حلقے سے رابطہ، ادھوری باتیں اور آپ کا سال</string>
+    <string name="c2_set_people_card_kw">لوگ، حلقہ، ادھوری باتیں، سال کا خلاصہ، انسائٹس</string>
+    <string name="c2_set_first_mover_title">عام طور پر پہل کون کرتا ہے</string>
+    <string name="c2_set_first_mover_summary">لوگ کارڈ پر۔ صرف آپ کو دکھتا ہے</string>
+    <string name="c2_set_first_mover_kw">پہلے، پہل، پہلے کال</string>
+    <plurals name="c2_digest_yearly">
+        <item quantity="one">%2$s کے %3$s کو %1$d سال</item>
+        <item quantity="other">%2$s کے %3$s کو %1$d سال</item>
+    </plurals>
+    <plurals name="c2_loop_their_call">
+        <item quantity="one">ان کی کال · %2$s</item>
+        <item quantity="other">ان کی %1$d کالز · آخری %2$s</item>
+    </plurals>
+    <plurals name="c2_loop_your_try">
+        <item quantity="one">آپ کی کال، ابھی جواب نہیں · %2$s</item>
+        <item quantity="other">آپ کی %1$d کالز، ابھی جواب نہیں · آخری %2$s</item>
+    </plurals>
+    <plurals name="c2_reach">
+        <item quantity="one">اس مہینے آپ اپنے حلقے کے %2$d میں سے %1$d سے رابطے میں رہے</item>
+        <item quantity="other">اس مہینے آپ اپنے حلقے کے %2$d میں سے %1$d سے رابطے میں رہے</item>
+    </plurals>
+    <plurals name="c2_review_gap">
+        <item quantity="one">سب سے لمبا وقفہ: %1$d دن، %2$s کے ساتھ</item>
+        <item quantity="other">سب سے لمبا وقفہ: %1$d دن، %2$s کے ساتھ</item>
+    </plurals>
+    <plurals name="c2_review_occasions">
+        <item quantity="one">%1$d موقع یاد رکھا</item>
+        <item quantity="other">%1$d مواقع یاد رکھے</item>
+    </plurals>
+    <plurals name="c2_review_entries">
+        <item quantity="one">اس سال %1$d بار رابطہ</item>
+        <item quantity="other">اس سال %1$d بار رابطہ</item>
+    </plurals>
+    <plurals name="c2_widget_count_dates">
+        <item quantity="one">اگلے 2 ہفتوں میں %1$d تاریخ</item>
+        <item quantity="other">اگلے 2 ہفتوں میں %1$d تاریخیں</item>
+    </plurals>
+    <plurals name="c2_widget_count_people">
+        <item quantity="one">%1$d شخص سے رابطہ کریں</item>
+        <item quantity="other">%1$d لوگوں سے رابطہ کریں</item>
+    </plurals>
+    <plurals name="c2_widget_in_days">
+        <item quantity="one">%1$d دن میں</item>
+        <item quantity="other">%1$d دن میں</item>
+    </plurals>
+</resources>

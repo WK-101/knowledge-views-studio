@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- v3.2 Circle, part 2: R6–R10, X1, X6 (People card, widget, memory, promises, yearly events, good time). -->
+<resources>
+    <string name="c2_good_time_range" translatable="false">%1$s–%2$s</string>
+    <string name="c2_promise_line" translatable="false">☐ %1$s</string>
+    <string name="c2_widget_date_row" translatable="false">%1$s · %2$s</string>
+    <string name="c2_widget_preview_name_0" translatable="false">Ana</string>
+    <string name="c2_widget_preview_name_1" translatable="false">Sam</string>
+    <string name="c2_digest_long_quiet">It\'s been over a year since you and %1$s were in touch</string>
+    <string name="c2_digest_yearly_no_year">Around now: %1$s\'s %2$s</string>
+    <string name="c2_first_both">You both reach out</string>
+    <string name="c2_first_mover">Who usually reaches out first</string>
+    <string name="c2_first_mover_private">Only you see this. Hide it from the ⋮ menu or in Settings.</string>
+    <string name="c2_first_them">Usually %1$s reaches out first</string>
+    <string name="c2_first_you">Usually you reach out first</string>
+    <string name="c2_followup_body">You wanted to follow up after your last call.</string>
+    <string name="c2_followup_title">Follow up with %1$s</string>
+    <string name="c2_from_call">Call note · %1$s</string>
+    <string name="c2_from_logged">Logged · %1$s</string>
+    <string name="c2_from_pinned">Pinned note</string>
+    <string name="c2_good_time">Usually free %1$s</string>
+    <string name="c2_hide_first_mover">Hide who reaches out first</string>
+    <string name="c2_show_first_mover">Show who reaches out first</string>
+    <string name="c2_hide_people_card">Hide this card</string>
+    <string name="c2_insert_promise">Add a promise</string>
+    <string name="c2_open_loops">Open loops</string>
+    <string name="c2_open_promise">Open promise</string>
+    <string name="c2_peek_dont_show">Don\'t show again</string>
+    <string name="c2_peek_off">Peek before calling is off. Turn it on in Settings › Calls.</string>
+    <string name="c2_peek_title">Before you call %1$s</string>
+    <string name="c2_people_title">People</string>
+    <string name="c2_promise_done">Ticked off: %1$s</string>
+    <string name="c2_promise_hint">Start a line with [ ] to make it a promise you can tick off.</string>
+    <string name="c2_promises">Promises</string>
+    <string name="c2_reach_up">Up from %1$d the month before</string>
+    <string name="c2_reach_down">The month before: %1$d</string>
+    <string name="c2_reach_same">About the same as the month before</string>
+    <string name="c2_review_most">Most in touch: %1$s</string>
+    <string name="c2_year_review">Your year</string>
+    <string name="c2_set_group_memory">Remember what matters</string>
+    <string name="c2_time_there">%1$s there</string>
+    <string name="c2_widget_date_soon">A date coming up</string>
+    <string name="c2_widget_empty">Nothing coming up. Add people to your Circle from a contact\'s page.</string>
+    <string name="c2_widget_today">Today</string>
+    <string name="c2_widget_tomorrow">Tomorrow</string>
+    <string name="c2_yearly_label">Remembered yearly</string>
+    <string name="c2_yearly_off">No longer remembered yearly</string>
+    <string name="c2_yearly_on">You\'ll see it in your weekly digest each year</string>
+    <string name="c2_yearly_remember">Remember yearly</string>
+    <string name="c2_yearly_stop">Stop remembering yearly</string>
+    <string name="c2_widget_call">Call</string>
+    <string name="c2_widget_dates">Coming up</string>
+    <string name="c2_widget_description">Upcoming dates and people from your Circle, with a Call button. With the app lock on, only counts show while the phone is locked.</string>
+    <string name="c2_widget_title">Circle</string>
+    <string name="c2_widget_preview_line_0">Might enjoy hearing from you</string>
+    <string name="c2_widget_preview_line_1">Birthday in 3 days</string>
+    <string name="c2_widget_preview_date_0">Marco · Tomorrow · Anniversary</string>
+    <string name="c2_set_memory_prompt_title">Anything to remember? after calls</string>
+    <string name="c2_set_memory_prompt_summary">A note and a follow-up reminder after calls with your contacts</string>
+    <string name="c2_set_memory_prompt_kw">note, notes, remember, promise, follow up, after call, post-call, memory</string>
+    <string name="c2_set_memory_lock_title">Notes on the lock screen</string>
+    <string name="c2_set_memory_lock_summary">Show the last note and promises on the incoming-call screen while the phone is locked</string>
+    <string name="c2_set_memory_lock_kw">lock screen, note, promise, incoming, privacy</string>
+    <string name="c2_set_peek_title">Peek before calling</string>
+    <string name="c2_set_peek_summary">The last note, promises and a good time to call, before you call from a contact\'s page</string>
+    <string name="c2_set_peek_kw">peek, before calling, note, promise, good time, local time, time zone</string>
+    <string name="c2_set_people_card_title">People card in Insights</string>
+    <string name="c2_set_people_card_summary">Reach in your circle, open loops and your year, in Call insights</string>
+    <string name="c2_set_people_card_kw">people, reach, circle, open loops, year in review, insights</string>
+    <string name="c2_set_first_mover_title">Who usually reaches out first</string>
+    <string name="c2_set_first_mover_summary">On the People card. Only you see it</string>
+    <string name="c2_set_first_mover_kw">first, reaches out, initiates, calls first, people</string>
+    <plurals name="c2_digest_yearly">
+        <item quantity="one">%1$d year since %2$s\'s %3$s</item>
+        <item quantity="other">%1$d years since %2$s\'s %3$s</item>
+    </plurals>
+    <plurals name="c2_loop_their_call">
+        <item quantity="one">Their call · %2$s</item>
+        <item quantity="other">Their %1$d calls · last %2$s</item>
+    </plurals>
+    <plurals name="c2_loop_your_try">
+        <item quantity="one">Your call, not answered yet · %2$s</item>
+        <item quantity="other">Your %1$d calls, not answered yet · last %2$s</item>
+    </plurals>
+    <plurals name="c2_reach">
+        <item quantity="one">You were in touch with %1$d of %2$d person in your circle this month</item>
+        <item quantity="other">You were in touch with %1$d of %2$d people in your circle this month</item>
+    </plurals>
+    <plurals name="c2_review_gap">
+        <item quantity="one">Longest gap: %1$d day, with %2$s</item>
+        <item quantity="other">Longest gap: %1$d days, with %2$s</item>
+    </plurals>
+    <plurals name="c2_review_occasions">
+        <item quantity="one">%1$d occasion acknowledged</item>
+        <item quantity="other">%1$d occasions acknowledged</item>
+    </plurals>
+    <plurals name="c2_review_entries">
+        <item quantity="one">In touch %1$d time this year</item>
+        <item quantity="other">In touch %1$d times this year</item>
+    </plurals>
+    <plurals name="c2_widget_count_dates">
+        <item quantity="one">%1$d date in the next 2 weeks</item>
+        <item quantity="other">%1$d dates in the next 2 weeks</item>
+    </plurals>
+    <plurals name="c2_widget_count_people">
+        <item quantity="one">%1$d person to reach out to</item>
+        <item quantity="other">%1$d people to reach out to</item>
+    </plurals>
+    <plurals name="c2_widget_in_days">
+        <item quantity="one">In %1$d day</item>
+        <item quantity="other">In %1$d days</item>
+    </plurals>
+</resources>

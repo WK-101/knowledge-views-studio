@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Machine-assisted translation — needs native review -->
+<!-- v3.2 Circle, part 2: R6–R10, X1, X6 (People card, widget, memory, promises, yearly events, good time). -->
+<resources>
+    <string name="c2_digest_long_quiet">مرّ أكثر من عام منذ تواصلك مع %1$s</string>
+    <string name="c2_digest_yearly_no_year">في مثل هذا الوقت: %2$s لدى %1$s</string>
+    <string name="c2_first_both">كلاكما يبادر</string>
+    <string name="c2_first_mover">من يبادر عادةً أولًا</string>
+    <string name="c2_first_mover_private">هذا يظهر لك وحدك. أخفِه من القائمة ⋮ أو من الإعدادات.</string>
+    <string name="c2_first_them">عادةً يبادر %1$s أولًا</string>
+    <string name="c2_first_you">عادةً تبادر أنت أولًا</string>
+    <string name="c2_followup_body">أردت المتابعة بعد مكالمتكما الأخيرة.</string>
+    <string name="c2_followup_title">تابِع مع %1$s</string>
+    <string name="c2_from_call">ملاحظة مكالمة · %1$s</string>
+    <string name="c2_from_logged">مسجَّل · %1$s</string>
+    <string name="c2_from_pinned">ملاحظة مثبّتة</string>
+    <string name="c2_good_time">متاح عادةً %1$s</string>
+    <string name="c2_hide_first_mover">إخفاء من يبادر أولًا</string>
+    <string name="c2_show_first_mover">إظهار من يبادر أولًا</string>
+    <string name="c2_hide_people_card">إخفاء هذه البطاقة</string>
+    <string name="c2_insert_promise">إضافة وعد</string>
+    <string name="c2_open_loops">أمور معلّقة</string>
+    <string name="c2_open_promise">وعد قائم</string>
+    <string name="c2_peek_dont_show">عدم الإظهار مجددًا</string>
+    <string name="c2_peek_off">لمحة ما قبل الاتصال متوقفة. شغّلها من الإعدادات › المكالمات.</string>
+    <string name="c2_peek_title">قبل الاتصال بـ%1$s</string>
+    <string name="c2_people_title">الأشخاص</string>
+    <string name="c2_promise_done">تم: %1$s</string>
+    <string name="c2_promise_hint">ابدأ السطر بـ[ ] ليصبح وعدًا يمكنك تأشيره.</string>
+    <string name="c2_promises">الوعود</string>
+    <string name="c2_reach_up">أكثر من الشهر السابق (%1$d)</string>
+    <string name="c2_reach_down">الشهر السابق: %1$d</string>
+    <string name="c2_reach_same">تقريبًا مثل الشهر السابق</string>
+    <string name="c2_review_most">الأكثر تواصلًا: %1$s</string>
+    <string name="c2_year_review">عامك</string>
+    <string name="c2_set_group_memory">تذكُّر ما يهم</string>
+    <string name="c2_time_there">%1$s هناك</string>
+    <string name="c2_widget_date_soon">مناسبة قادمة</string>
+    <string name="c2_widget_empty">لا شيء قادم. أضف أشخاصًا إلى دائرتك من صفحة جهة الاتصال.</string>
+    <string name="c2_widget_today">اليوم</string>
+    <string name="c2_widget_tomorrow">غدًا</string>
+    <string name="c2_yearly_label">يُذكَّر سنويًا</string>
+    <string name="c2_yearly_off">لن يُذكَّر سنويًا بعد الآن</string>
+    <string name="c2_yearly_on">ستراه كل عام في ملخّصك الأسبوعي</string>
+    <string name="c2_yearly_remember">تذكير سنوي</string>
+    <string name="c2_yearly_stop">إيقاف التذكير السنوي</string>
+    <string name="c2_widget_call">اتصال</string>
+    <string name="c2_widget_dates">قريبًا</string>
+    <string name="c2_widget_description">المناسبات القادمة وأشخاص من دائرتك مع زر اتصال. مع قفل التطبيق تظهر الأعداد فقط ما دام الهاتف مقفلًا.</string>
+    <string name="c2_widget_title">الدائرة</string>
+    <string name="c2_widget_preview_line_0">سيسعده أن يسمع منك</string>
+    <string name="c2_widget_preview_line_1">عيد ميلاد بعد 3 أيام</string>
+    <string name="c2_widget_preview_date_0">Marco · غدًا · ذكرى سنوية</string>
+    <string name="c2_set_memory_prompt_title">«هل من شيء لتتذكّره؟» بعد المكالمات</string>
+    <string name="c2_set_memory_prompt_summary">ملاحظة وتذكير بالمتابعة بعد مكالماتك مع جهات الاتصال</string>
+    <string name="c2_set_memory_prompt_kw">ملاحظة، ملاحظات، تذكّر، وعد، متابعة، بعد المكالمة</string>
+    <string name="c2_set_memory_lock_title">الملاحظات على شاشة القفل</string>
+    <string name="c2_set_memory_lock_summary">إظهار آخر ملاحظة والوعود على شاشة المكالمة الواردة والهاتف مقفل</string>
+    <string name="c2_set_memory_lock_kw">شاشة القفل، ملاحظة، وعد، واردة، الخصوصية</string>
+    <string name="c2_set_peek_title">لمحة قبل الاتصال</string>
+    <string name="c2_set_peek_summary">آخر ملاحظة والوعود ووقت مناسب للاتصال، قبل الاتصال من صفحة جهة الاتصال</string>
+    <string name="c2_set_peek_kw">لمحة، قبل الاتصال، ملاحظة، وعد، وقت مناسب، التوقيت المحلي، المنطقة الزمنية</string>
+    <string name="c2_set_people_card_title">بطاقة الأشخاص في الإحصاءات</string>
+    <string name="c2_set_people_card_summary">التواصل في دائرتك والأمور المعلّقة وعامك، في إحصاءات المكالمات</string>
+    <string name="c2_set_people_card_kw">أشخاص، دائرة، أمور معلّقة، حصاد العام، إحصاءات</string>
+    <string name="c2_set_first_mover_title">من يبادر عادةً أولًا</string>
+    <string name="c2_set_first_mover_summary">على بطاقة الأشخاص. تراه أنت فقط</string>
+    <string name="c2_set_first_mover_kw">أولًا، يبادر، مبادرة، يتصل أولًا</string>
+    <plurals name="c2_digest_yearly">
+        <item quantity="zero">مرّ %1$d عام على %3$s لدى %2$s</item>
+        <item quantity="one">مرّ %1$d عام على %3$s لدى %2$s</item>
+        <item quantity="two">مرّ %1$d عام على %3$s لدى %2$s</item>
+        <item quantity="few">مرّ %1$d عام على %3$s لدى %2$s</item>
+        <item quantity="many">مرّ %1$d عام على %3$s لدى %2$s</item>
+        <item quantity="other">مرّ %1$d عام على %3$s لدى %2$s</item>
+    </plurals>
+    <plurals name="c2_loop_their_call">
+        <item quantity="zero">%1$d مكالمات منه · آخرها %2$s</item>
+        <item quantity="one">مكالمة منه · %2$s</item>
+        <item quantity="two">%1$d مكالمات منه · آخرها %2$s</item>
+        <item quantity="few">%1$d مكالمات منه · آخرها %2$s</item>
+        <item quantity="many">%1$d مكالمات منه · آخرها %2$s</item>
+        <item quantity="other">%1$d مكالمات منه · آخرها %2$s</item>
+    </plurals>
+    <plurals name="c2_loop_your_try">
+        <item quantity="zero">%1$d مكالمات منك، لم يُرد بعد · آخرها %2$s</item>
+        <item quantity="one">مكالمتك، لم يُرد بعد · %2$s</item>
+        <item quantity="two">%1$d مكالمات منك، لم يُرد بعد · آخرها %2$s</item>
+        <item quantity="few">%1$d مكالمات منك، لم يُرد بعد · آخرها %2$s</item>
+        <item quantity="many">%1$d مكالمات منك، لم يُرد بعد · آخرها %2$s</item>
+        <item quantity="other">%1$d مكالمات منك، لم يُرد بعد · آخرها %2$s</item>
+    </plurals>
+    <plurals name="c2_reach">
+        <item quantity="zero">تواصلت هذا الشهر مع %1$d من %2$d في دائرتك</item>
+        <item quantity="one">تواصلت هذا الشهر مع %1$d من %2$d في دائرتك</item>
+        <item quantity="two">تواصلت هذا الشهر مع %1$d من %2$d في دائرتك</item>
+        <item quantity="few">تواصلت هذا الشهر مع %1$d من %2$d في دائرتك</item>
+        <item quantity="many">تواصلت هذا الشهر مع %1$d من %2$d في دائرتك</item>
+        <item quantity="other">تواصلت هذا الشهر مع %1$d من %2$d في دائرتك</item>
+    </plurals>
+    <plurals name="c2_review_gap">
+        <item quantity="zero">أطول فجوة: %1$d يوم، مع %2$s</item>
+        <item quantity="one">أطول فجوة: %1$d يوم، مع %2$s</item>
+        <item quantity="two">أطول فجوة: %1$d يوم، مع %2$s</item>
+        <item quantity="few">أطول فجوة: %1$d يوم، مع %2$s</item>
+        <item quantity="many">أطول فجوة: %1$d يوم، مع %2$s</item>
+        <item quantity="other">أطول فجوة: %1$d يوم، مع %2$s</item>
+    </plurals>
+    <plurals name="c2_review_occasions">
+        <item quantity="zero">%1$d مناسبات تذكّرتها</item>
+        <item quantity="one">%1$d مناسبة تذكّرتها</item>
+        <item quantity="two">%1$d مناسبات تذكّرتها</item>
+        <item quantity="few">%1$d مناسبات تذكّرتها</item>
+        <item quantity="many">%1$d مناسبات تذكّرتها</item>
+        <item quantity="other">%1$d مناسبات تذكّرتها</item>
+    </plurals>
+    <plurals name="c2_review_entries">
+        <item quantity="zero">تواصل %1$d مرة هذا العام</item>
+        <item quantity="one">تواصل %1$d مرة هذا العام</item>
+        <item quantity="two">تواصل %1$d مرة هذا العام</item>
+        <item quantity="few">تواصل %1$d مرة هذا العام</item>
+        <item quantity="many">تواصل %1$d مرة هذا العام</item>
+        <item quantity="other">تواصل %1$d مرة هذا العام</item>
+    </plurals>
+    <plurals name="c2_widget_count_dates">
+        <item quantity="zero">%1$d مناسبة خلال أسبوعين</item>
+        <item quantity="one">%1$d مناسبة خلال أسبوعين</item>
+        <item quantity="two">%1$d مناسبة خلال أسبوعين</item>
+        <item quantity="few">%1$d مناسبة خلال أسبوعين</item>
+        <item quantity="many">%1$d مناسبة خلال أسبوعين</item>
+        <item quantity="other">%1$d مناسبة خلال أسبوعين</item>
+    </plurals>
+    <plurals name="c2_widget_count_people">
+        <item quantity="zero">%1$d أشخاص للتواصل معهم</item>
+        <item quantity="one">%1$d شخص للتواصل معه</item>
+        <item quantity="two">%1$d أشخاص للتواصل معهم</item>
+        <item quantity="few">%1$d أشخاص للتواصل معهم</item>
+        <item quantity="many">%1$d أشخاص للتواصل معهم</item>
+        <item quantity="other">%1$d أشخاص للتواصل معهم</item>
+    </plurals>
+    <plurals name="c2_widget_in_days">
+        <item quantity="zero">بعد %1$d يوم</item>
+        <item quantity="one">بعد %1$d يوم</item>
+        <item quantity="two">بعد %1$d يوم</item>
+        <item quantity="few">بعد %1$d يوم</item>
+        <item quantity="many">بعد %1$d يوم</item>
+        <item quantity="other">بعد %1$d يوم</item>
+    </plurals>
+</resources>
