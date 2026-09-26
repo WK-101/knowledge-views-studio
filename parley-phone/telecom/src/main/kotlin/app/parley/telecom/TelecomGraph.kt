@@ -40,6 +40,12 @@ data class InCallAppearance(
     val secureScreen: Boolean = false,
     /** False until the stored settings were read: the call screen stays secure until then. */
     val loaded: Boolean = false,
+    /** X4 simple mode: large answer and decline buttons (tap, never a slider). */
+    val simpleMode: Boolean = false,
+    /** X4: "Decline this call?" before declining. */
+    val confirmDecline: Boolean = false,
+    /** X4: say the caller's name aloud (on-device text-to-speech, contacts only, only while the ringer is on). */
+    val speakCallerName: Boolean = false,
 )
 
 /**

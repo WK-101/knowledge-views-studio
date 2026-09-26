@@ -24,7 +24,8 @@ class CallGate(private val c: DataContainer) {
      */
     suspend fun check(number: String, name: String?, simCount: Int, simId: String? = null, skipConfirm: Boolean = false): PendingCall? {
         val settings = c.settings.current()
-        val remembered = simId ?: withContext(Dispatchers.IO) { c.prefs.simFor(number) }
+        // X3: a label's SIM counts like a remembered one (the number's own choice wins).
+        val remembered = simId ?: withContext(Dispatchers.IO) { c.prefs.simFor(number) ?: c.extras.labelSimFor(number) }
         val default = withContext(Dispatchers.IO) { c.sims.defaultOutgoing() }
         val chooseSim = simId == null && simCount >= 2 && remembered == null && default == null && !PhoneNumbers.isServiceCode(number)
         val confirm = settings.confirmBeforeCall && !skipConfirm
@@ -48,7 +49,7 @@ class CallGate(private val c: DataContainer) {
     /** Places the call. [confirmed]: the user already said yes to everything the gate asked, the allowance included. */
     suspend fun place(number: String, simId: String?, name: String?, sims: List<SimAccount>, remember: Boolean = false, confirmed: Boolean = false): Placed {
         if (remember && simId != null) c.prefs.setSimFor(number, simId)
-        val chosen = simId ?: withContext(Dispatchers.IO) { c.prefs.simFor(number) ?: c.sims.defaultOutgoing() }
+        val chosen = simId ?: withContext(Dispatchers.IO) { c.prefs.simFor(number) ?: c.extras.labelSimFor(number) ?: c.sims.defaultOutgoing() }
         if (!confirmed) {
             callTime.outgoingWarning(number, chosen)?.let { note -> return Placed.Ask(PendingCall(number, name, true, false, note, simId)) }
         }

@@ -37,7 +37,8 @@ class DataContainer(context: Context) {
     /** Spam-list packs (device-protected storage). */
     val lists by lazy { SpamListStore(appContext) }
     val dialGuard by lazy { DialGuard(appContext, blocks, lists, callLog, contacts) }
-    val placer by lazy { CallPlacer(appContext, sims, prefs) }
+    // X3: a label's SIM for people without a remembered SIM of their own.
+    val placer by lazy { CallPlacer(appContext, sims, prefs).also { p -> p.fallbackSim = { n -> extras.labelSimFor(n) } } }
     val records by lazy { ContactRecordStore(appContext) }
     val calling by lazy { app.parley.data.calltime.CallingRepository(appContext) }
 
@@ -63,7 +64,7 @@ class DataContainer(context: Context) {
     val backup by lazy {
         app.parley.data.backup.BackupRepository(appContext, contacts, records, blocks, prefs, db, settings, vault, app.parley.data.backup.BackupPrefs(appContext))
             .apply { callHistory = history }
-            .also { it.extras = { listOf(people.backupExtras, circle.backupExtras) } }
+            .also { it.extras = { listOf(people.backupExtras, circle.backupExtras, extras.backupExtras) } }
     }
     val history: app.parley.data.history.CallHistory by lazy {
         app.parley.data.history.CallHistory(appContext, callLog, contacts, vault, scope).also { h ->
@@ -84,6 +85,12 @@ class DataContainer(context: Context) {
             index = { history.index }, contactsFlow = { contacts.contacts },
         )
     }
+
+    /** v3.2 extras: trip mode city (X2), label policies (X3), simple mode (X4). */
+    val extras by lazy { app.parley.data.extras.ExtrasStore(this) }
+
+    /** C5: one-way Markdown export of notes and timelines to a folder. */
+    val markdown by lazy { app.parley.data.extras.MarkdownExport(appContext, this) }
 
     @OptIn(kotlinx.coroutines.FlowPreview::class)
     private fun followKeyChanges() {

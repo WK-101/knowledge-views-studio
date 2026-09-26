@@ -47,6 +47,8 @@ class LabelReferences(private val c: DataContainer, private val prefs: PeoplePre
         c.settings.update { s -> s.copy(screening = s.screening.copy(offHours = LabelRefs.renameOffHours(s.screening.offHours, renames))) }
         c.calling.update { LabelRefs.renameConfig(it, renames) }
         prefs.update { it.copy(labelRingtones = LabelRefs.renameRingtones(it.labelRingtones, renames)) }
+        // X3: the label's SIM, rhythm and Do Not Disturb choice follow it.
+        c.extras.labelsRenamed(renames)
     }
 
     /**
@@ -58,6 +60,7 @@ class LabelReferences(private val c: DataContainer, private val prefs: PeoplePre
         c.blocks.allRules().filter { it.type == RuleType.LABEL && LabelRefs.refersTo(it.labelKey, titles) }.forEach { c.blocks.deleteRule(it.id) }
         c.calling.update { LabelRefs.deleteFromConfig(it, titles) }
         prefs.update { s -> s.copy(labelRingtones = s.labelRingtones.filterKeys { !LabelRefs.refersTo(it, titles) }) }
+        c.extras.labelsDeleted(titles)
         val oh = c.settings.current().screening.offHours
         if (oh.allow == OffHoursAllow.LABEL && LabelRefs.refersTo(oh.labelTitle, titles)) {
             c.settings.update { s -> s.copy(screening = s.screening.copy(offHours = LabelRefs.labelGone(s.screening.offHours))) }
