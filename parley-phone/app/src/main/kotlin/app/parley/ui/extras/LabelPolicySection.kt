@@ -100,19 +100,19 @@ fun LabelPolicySection(vm: AppViewModel, title: String, members: List<ContactSum
             }, Modifier.padding(start = 56.dp)) { Text(pluralStringResource(R.plurals.x_lp_add_members, outside.size, outside.size)) }
         }
         ListItem(
-            modifier = Modifier.clickable { if (p.allowThroughDnd) turnOffDnd(vm, title, p, members) { n -> vm.toast(res.getQuantityString(R.plurals.x_lp_unstarred, n, n)) } else explainDnd = true },
+            modifier = Modifier.clickable { if (p.allowThroughDnd) turnOffDnd(vm, title) { n -> vm.toast(res.getQuantityString(R.plurals.x_lp_unstarred, n, n)) } else explainDnd = true },
             leadingContent = { Icon(Icons.Rounded.DoNotDisturbOn, null) },
             headlineContent = { Text(stringResource(R.string.x_lp_dnd)) },
             supportingContent = { Text(stringResource(R.string.x_lp_dnd_summary)) },
             trailingContent = {
                 Switch(p.allowThroughDnd, { on ->
                     if (on) explainDnd = true
-                    else turnOffDnd(vm, title, p, members) { n -> vm.toast(res.getQuantityString(R.plurals.x_lp_unstarred, n, n)) }
+                    else turnOffDnd(vm, title) { n -> vm.toast(res.getQuantityString(R.plurals.x_lp_unstarred, n, n)) }
                 })
             },
         )
         if (p.allowThroughDnd) {
-            if (unstarred.isNotEmpty()) TextButton({ scope.launch { starAll(vm, title, unstarred) } }, Modifier.padding(start = 56.dp)) {
+            if (unstarred.isNotEmpty()) TextButton({ scope.launch { vm.c.extras.starForDnd(title, unstarred) } }, Modifier.padding(start = 56.dp)) {
                 Icon(Icons.Rounded.Star, null, Modifier.padding(end = 6.dp))
                 Text(pluralStringResource(R.plurals.x_lp_star_new, unstarred.size, unstarred.size))
             }
@@ -165,7 +165,8 @@ fun LabelPolicySection(vm: AppViewModel, title: String, members: List<ContactSum
                 explainDnd = false
                 scope.launch {
                     vm.c.extras.updatePolicy(title) { it.copy(allowThroughDnd = true) }
-                    starAll(vm, title, unstarred)
+                    // Every member: those Parley starred for another label are recorded under this one too.
+                    vm.c.extras.starForDnd(title, members)
                     openDndSettings(context)
                 }
             }) { Text(stringResource(R.string.x_lp_dnd_confirm)) }
@@ -174,21 +175,12 @@ fun LabelPolicySection(vm: AppViewModel, title: String, members: List<ContactSum
     )
 }
 
-/** Stars [people] and remembers that Parley did, so turning the policy off unstars only them. */
-private suspend fun starAll(vm: AppViewModel, title: String, people: List<ContactSummary>) {
-    val done = people.filter { runCatching { vm.c.contacts.setStarred(it.id, true) }.isSuccess }
-    vm.c.extras.updatePolicy(title) { it.copy(starredByPolicy = it.starredByPolicy + done.map { m -> m.lookupKey }) }
-    vm.c.contacts.refresh()
-}
-
-private fun turnOffDnd(vm: AppViewModel, title: String, p: LabelPolicy, members: List<ContactSummary>, done: (Int) -> Unit) {
-    vm.c.scope.launch {
-        val mine = members.filter { it.lookupKey in p.starredByPolicy && it.starred }
-        mine.forEach { runCatching { vm.c.contacts.setStarred(it.id, false) } }
-        vm.c.extras.updatePolicy(title) { it.copy(allowThroughDnd = false, starredByPolicy = emptySet()) }
-        vm.c.contacts.refresh()
-        done(mine.size)
-    }
+/**
+ * Switches the policy off: every contact Parley starred for this label (found by its record, not by today's members)
+ * is unstarred, unless another label that lets people through still asks for it.
+ */
+private fun turnOffDnd(vm: AppViewModel, title: String, done: (Int) -> Unit) {
+    vm.c.scope.launch { done(vm.c.extras.dndOff(title)) }
 }
 
 /** Android's "people who can interrupt" (priority) page; the general Do Not Disturb page or sound settings as fallbacks. */

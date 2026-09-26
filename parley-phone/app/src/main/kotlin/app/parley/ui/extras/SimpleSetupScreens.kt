@@ -202,7 +202,7 @@ fun SimpleSetupScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit
 private fun SimplePersonPicker(contacts: List<ContactSummary>, taken: Set<String>, onDismiss: () -> Unit, onPick: (ContactSummary, String) -> Unit) {
     var q by remember { mutableStateOf("") }
     var numbersOf by remember { mutableStateOf<ContactSummary?>(null) }
-    val shown = remember(q, contacts) { contacts.filter { it.phones.isNotEmpty() && TextSearch.matches(q, it.displayName, it.phones.map { p -> p.number }) }.take(200) }
+    val shown = remember(q, contacts) { contacts.filter { c -> c.phones.any { SimpleSetup.dialable(it.number) != null } && TextSearch.matches(q, c.displayName, c.phones.map { p -> p.number }) }.take(200) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.x_simple_add)) },
@@ -213,7 +213,8 @@ private fun SimplePersonPicker(contacts: List<ContactSummary>, taken: Set<String
                     items(shown, key = { it.id }) { c ->
                         ListItem(
                             modifier = Modifier.clickable {
-                                val numbers = c.phones.map { it.number }.distinct()
+                                // X4: only plain numbers can go on a tile (no codes, pauses or extensions).
+                                val numbers = c.phones.map { it.number }.filter { SimpleSetup.dialable(it) != null }.distinct()
                                 if (numbers.size == 1) onPick(c, numbers.first()) else numbersOf = c
                             },
                             colors = clearRow,
@@ -232,11 +233,11 @@ private fun SimplePersonPicker(contacts: List<ContactSummary>, taken: Set<String
             title = { Text(c.displayName) },
             text = {
                 Column {
-                    c.phones.map { it.number }.distinct().forEach { n ->
+                    c.phones.map { it.number }.filter { SimpleSetup.dialable(it) != null }.distinct().forEach { n ->
                         ListItem(
                             modifier = Modifier.clickable { numbersOf = null; onPick(c, n) }, colors = clearRow,
                             headlineContent = { Text(Bidi.ltr(n)) },
-                            trailingContent = { if (n in taken) Icon(Icons.Rounded.CheckCircle, null) },
+                            trailingContent = { if (SimpleSetup.dialable(n) in taken) Icon(Icons.Rounded.CheckCircle, null) },
                         )
                     }
                 }
@@ -306,12 +307,12 @@ fun SimpleImportScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Uni
     val qr by SimpleInbox.qr.collectAsStateWithLifecycle()
     val file by SimpleInbox.file.collectAsStateWithLifecycle()
     val source = qr ?: file
-    var imported by remember { mutableStateOf<SimpleConfig?>(null) }
+    var imported by remember { mutableStateOf<SimpleSetup.Imported?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     val contacts by vm.contacts.collectAsStateWithLifecycle()
     LaunchedEffect(source) { if (source == null && imported == null) back() }
     SettingsScaffold(stringResource(R.string.x_simple_import_title), back) {
-        val cfg = imported
+        val cfg = imported?.config
         if (cfg == null) {
             Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 var code by remember { mutableStateOf("") }
@@ -340,6 +341,12 @@ fun SimpleImportScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Uni
             }
         } else {
             val resolved = SimpleSetup.resolve(cfg.people, contacts.orEmpty())
+            val skipped = imported?.skipped ?: 0
+            // X4: people whose "number" was a code, a pause or not a phone number at all were left out; say so.
+            if (skipped > 0) Text(
+                pluralStringResource(R.plurals.x_simple_skipped, skipped, skipped), style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
+            )
             SegmentedGroup(pluralStringResource(R.plurals.x_simple_people_n, cfg.people.size, cfg.people.size, SimpleConfig.MAX_PEOPLE)) {
                 resolved.forEachIndexed { i, r ->
                     item("r$i") {
@@ -347,8 +354,12 @@ fun SimpleImportScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Uni
                             colors = clearRow,
                             leadingContent = { Avatar(r.person.name, r.contact?.photoUri, 40.dp) },
                             headlineContent = { Text(r.person.name) },
+                            // X4: the number this tile will call is always shown; a contact is "found" only when it has that number.
                             supportingContent = {
-                                Text(r.contact?.let { stringResource(R.string.x_simple_matched, it.displayName) } ?: stringResource(R.string.x_simple_not_found, Bidi.ltr(r.person.number)))
+                                Column {
+                                    Text(Bidi.ltr(r.person.number))
+                                    Text(r.contact?.let { stringResource(R.string.x_simple_matched, it.displayName) } ?: stringResource(R.string.x_simple_not_in_contacts))
+                                }
                             },
                             trailingContent = {
                                 if (r.contact == null) TextButton({ open(Routes.edit(name = r.person.name, phone = r.person.number)) }) { Text(stringResource(R.string.x_simple_create)) }

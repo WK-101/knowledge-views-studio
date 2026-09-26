@@ -49,7 +49,7 @@
     <string name="x_md_call_note">Anrufnotiz</string>
     <string name="x_md_failed">Die Notizen konnten nicht exportiert werden. Prüfe den Ordner und versuche es noch einmal.</string>
     <string name="x_md_title">Notizen als Markdown</string>
-    <string name="x_md_text">Eine .md-Datei pro Person: Nummern, Daten und Labels, dann deine Notizen und die Zeitleiste. Für Obsidian und andere Notiz-Apps. Nur in eine Richtung: Parley schreibt die Dateien und liest sie nie zurück.</string>
+    <string name="x_md_text">Eine .md-Datei pro Person: Nummern, Daten und Labels, dann deine Notizen und die Zeitleiste. Für Obsidian und andere Notiz-Apps. Nur in eine Richtung: Parley schreibt die Dateien und übernimmt nie etwas aus ihnen.</string>
     <string name="x_md_folder">Markdown-Ordner</string>
     <string name="x_md_only_circle">Nur Menschen in deinem Kreis</string>
     <string name="x_md_only_circle_body">Aus: alle deine Kontakte</string>
@@ -61,7 +61,7 @@
     <string name="x_md_folder_gone">Der Ordner lässt sich nicht mehr öffnen. Wähle ihn erneut aus.</string>
     <string name="x_md_now">Jetzt exportieren</string>
     <string name="x_md_stop">Export in diesen Ordner beenden</string>
-    <string name="x_md_private_note">Private Kontakte werden nie exportiert. Parley ändert nur die Dateien, die es selbst geschrieben hat; deine eigenen Notizen im Ordner bleiben unberührt.</string>
+    <string name="x_md_private_note">Private Kontakte werden nie exportiert. Parley ändert oder löscht nur Dateien, die es selbst geschrieben hat und die seitdem niemand bearbeitet hat. Bearbeitest du eine, gehört sie dir: Parley lässt sie in Ruhe und schreibt eine neue Kopie daneben.</string>
     <string name="x_set_markdown_title">Notizen als Markdown exportieren</string>
     <string name="x_set_markdown_summary">Eine .md-Datei pro Person mit Notizen und Zeitleiste, in einen Ordner deiner Wahl</string>
     <string name="x_set_markdown_kw">markdown, md, obsidian, notizen, logseq, export, ordner, zeitleiste</string>
@@ -99,7 +99,7 @@
     <string name="x_simple_enter_passcode">Gib den Code ein, der auf dem anderen Telefon angezeigt wird.</string>
     <string name="x_simple_wrong_pass">Das hat nicht geklappt. Prüfe den Code oder die Passphrase.</string>
     <string name="x_simple_matched">Gefunden: %1$s</string>
-    <string name="x_simple_not_found">Nicht in deinen Kontakten: %1$s</string>
+    <string name="x_simple_not_in_contacts">Nicht in deinen Kontakten</string>
     <string name="x_simple_create">Erstellen</string>
     <string name="x_simple_import_note">Personen, die nicht in deinen Kontakten sind, bekommen trotzdem eine Taste mit ihrer Nummer. Erstelle sie, um ein Foto hinzuzufügen.</string>
     <string name="x_simple_use_on">Einrichtung übernehmen und einfachen Modus einschalten</string>
@@ -156,5 +156,13 @@
     <plurals name="x_simple_people_n">
         <item quantity="one">Personen (%1$d von %2$d)</item>
         <item quantity="other">Personen (%1$d von %2$d)</item>
+    </plurals>
+    <plurals name="x_simple_skipped">
+        <item quantity="one">%d Eintrag war keine normale Telefonnummer und wurde weggelassen</item>
+        <item quantity="other">%d Einträge waren keine normalen Telefonnummern und wurden weggelassen</item>
+    </plurals>
+    <plurals name="x_md_kept">
+        <item quantity="one">%d Datei, die du geändert hast, blieb, wie sie war</item>
+        <item quantity="other">%d Dateien, die du geändert hast, blieben, wie sie waren</item>
     </plurals>
 </resources>

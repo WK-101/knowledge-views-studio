@@ -49,7 +49,7 @@
     <string name="x_md_call_note">Nota da ligação</string>
     <string name="x_md_failed">Não foi possível exportar as notas. Verifique a pasta e tente de novo.</string>
     <string name="x_md_title">Notas em Markdown</string>
-    <string name="x_md_text">Um arquivo .md por pessoa: números, datas e marcadores, depois suas notas e a linha do tempo. Para o Obsidian e outros apps de notas. Só em um sentido: o Parley escreve os arquivos e nunca os lê de volta.</string>
+    <string name="x_md_text">Um arquivo .md por pessoa: números, datas e marcadores, depois suas notas e a linha do tempo. Para o Obsidian e outros apps de notas. Só em um sentido: o Parley escreve os arquivos e nunca traz nada de volta deles.</string>
     <string name="x_md_folder">Pasta do Markdown</string>
     <string name="x_md_only_circle">Só as pessoas do seu círculo</string>
     <string name="x_md_only_circle_body">Desativado: todos os seus contatos</string>
@@ -61,7 +61,7 @@
     <string name="x_md_folder_gone">Não dá mais para abrir a pasta. Escolha-a de novo.</string>
     <string name="x_md_now">Exportar agora</string>
     <string name="x_md_stop">Parar de exportar para esta pasta</string>
-    <string name="x_md_private_note">Contatos particulares nunca são exportados. O Parley só altera os arquivos que ele mesmo escreveu; suas próprias notas na pasta continuam intactas.</string>
+    <string name="x_md_private_note">Contatos particulares nunca são exportados. O Parley só altera ou apaga arquivos que ele escreveu e que ninguém editou depois. Se você editar um, ele passa a ser seu: o Parley não mexe nele e escreve uma cópia nova ao lado.</string>
     <string name="x_set_markdown_title">Exportar notas em Markdown</string>
     <string name="x_set_markdown_summary">Um arquivo .md por pessoa com notas e linha do tempo, na pasta que você escolher</string>
     <string name="x_set_markdown_kw">markdown, md, obsidian, notas, logseq, exportar, pasta, linha do tempo</string>
@@ -99,7 +99,7 @@
     <string name="x_simple_enter_passcode">Digite o código mostrado no outro telefone.</string>
     <string name="x_simple_wrong_pass">Não abriu. Confira o código ou a frase secreta.</string>
     <string name="x_simple_matched">Encontrado: %1$s</string>
-    <string name="x_simple_not_found">Não está nos seus contatos: %1$s</string>
+    <string name="x_simple_not_in_contacts">Não está nos seus contatos</string>
     <string name="x_simple_create">Criar</string>
     <string name="x_simple_import_note">Quem não está nos seus contatos também ganha um botão com o número. Crie o contato para adicionar uma foto.</string>
     <string name="x_simple_use_on">Usar esta configuração e ativar o modo simples</string>
@@ -166,5 +166,15 @@
         <item quantity="one">Pessoas (%1$d de %2$d)</item>
         <item quantity="many">Pessoas (%1$d de %2$d)</item>
         <item quantity="other">Pessoas (%1$d de %2$d)</item>
+    </plurals>
+    <plurals name="x_simple_skipped">
+        <item quantity="one">%d item não era um número de telefone comum e foi deixado de fora</item>
+        <item quantity="many">%d itens não eram números de telefone comuns e foram deixados de fora</item>
+        <item quantity="other">%d itens não eram números de telefone comuns e foram deixados de fora</item>
+    </plurals>
+    <plurals name="x_md_kept">
+        <item quantity="one">%d arquivo que você alterou ficou como estava</item>
+        <item quantity="many">%d arquivos que você alterou ficaram como estavam</item>
+        <item quantity="other">%d arquivos que você alterou ficaram como estavam</item>
     </plurals>
 </resources>

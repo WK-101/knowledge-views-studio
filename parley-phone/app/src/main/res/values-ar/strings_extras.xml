@@ -49,7 +49,7 @@
     <string name="x_md_call_note">ملاحظة مكالمة</string>
     <string name="x_md_failed">تعذّر تصدير الملاحظات. تحقق من المجلد وحاول مرة أخرى.</string>
     <string name="x_md_title">الملاحظات بصيغة Markdown</string>
-    <string name="x_md_text">ملف ‎.md لكل شخص: أرقامه وتواريخه وتصنيفاته، ثم ملاحظاتك والخط الزمني. لتطبيق Obsidian وتطبيقات الملاحظات الأخرى. في اتجاه واحد فقط: يكتب Parley الملفات ولا يقرؤها أبدًا.</string>
+    <string name="x_md_text">ملف ‎.md لكل شخص: أرقامه وتواريخه وتصنيفاته، ثم ملاحظاتك والخط الزمني. لتطبيق Obsidian وتطبيقات الملاحظات الأخرى. في اتجاه واحد فقط: يكتب Parley الملفات ولا يأخذ منها شيئًا أبدًا.</string>
     <string name="x_md_folder">مجلد Markdown</string>
     <string name="x_md_only_circle">الأشخاص في دائرتك فقط</string>
     <string name="x_md_only_circle_body">متوقف: كل جهات اتصالك</string>
@@ -61,7 +61,7 @@
     <string name="x_md_folder_gone">لم يعد بالإمكان فتح المجلد. اختره من جديد.</string>
     <string name="x_md_now">صدِّر الآن</string>
     <string name="x_md_stop">إيقاف التصدير إلى هذا المجلد</string>
-    <string name="x_md_private_note">لا تُصدَّر جهات الاتصال الخاصة أبدًا. لا يغيّر Parley إلا الملفات التي كتبها؛ تبقى ملاحظاتك الخاصة في المجلد كما هي.</string>
+    <string name="x_md_private_note">لا تُصدَّر جهات الاتصال الخاصة أبدًا. لا يغيّر Parley أو يحذف إلا الملفات التي كتبها ولم يعدّلها أحد منذ ذلك الحين. إذا عدّلت ملفًا يصبح ملكك: يتركه Parley كما هو ويكتب نسخة جديدة بجانبه.</string>
     <string name="x_set_markdown_title">تصدير الملاحظات بصيغة Markdown</string>
     <string name="x_set_markdown_summary">ملف ‎.md لكل شخص مع الملاحظات والخط الزمني، إلى مجلد تختاره</string>
     <string name="x_set_markdown_kw">markdown, md, obsidian, ملاحظات, logseq, تصدير, مجلد, خط زمني</string>
@@ -99,7 +99,7 @@
     <string name="x_simple_enter_passcode">اكتب الرمز الظاهر على الهاتف الآخر.</string>
     <string name="x_simple_wrong_pass">لم يُفتح. تحقق من الرمز أو عبارة المرور.</string>
     <string name="x_simple_matched">تم العثور عليه: %1$s</string>
-    <string name="x_simple_not_found">ليس في جهات اتصالك: %1$s</string>
+    <string name="x_simple_not_in_contacts">ليس في جهات اتصالك</string>
     <string name="x_simple_create">إنشاء</string>
     <string name="x_simple_import_note">الأشخاص غير الموجودين في جهات اتصالك يحصلون أيضًا على زر برقمهم. أنشئ جهة اتصال لهم لإضافة صورة.</string>
     <string name="x_simple_use_on">استخدام هذا الإعداد وتشغيل الوضع البسيط</string>
@@ -196,5 +196,21 @@
         <item quantity="few">الأشخاص (%1$d من %2$d)</item>
         <item quantity="many">الأشخاص (%1$d من %2$d)</item>
         <item quantity="other">الأشخاص (%1$d من %2$d)</item>
+    </plurals>
+    <plurals name="x_simple_skipped">
+        <item quantity="zero">%d إدخالات لم تكن أرقام هاتف عادية فتم استبعادها</item>
+        <item quantity="one">%d إدخال لم يكن رقم هاتف عاديًا فتم استبعاده</item>
+        <item quantity="two">%d إدخالات لم تكن أرقام هاتف عادية فتم استبعادها</item>
+        <item quantity="few">%d إدخالات لم تكن أرقام هاتف عادية فتم استبعادها</item>
+        <item quantity="many">%d إدخالات لم تكن أرقام هاتف عادية فتم استبعادها</item>
+        <item quantity="other">%d إدخالات لم تكن أرقام هاتف عادية فتم استبعادها</item>
+    </plurals>
+    <plurals name="x_md_kept">
+        <item quantity="zero">تُركت %d ملفات غيّرتها كما هي</item>
+        <item quantity="one">تُرك %d ملف غيّرته كما هو</item>
+        <item quantity="two">تُركت %d ملفات غيّرتها كما هي</item>
+        <item quantity="few">تُركت %d ملفات غيّرتها كما هي</item>
+        <item quantity="many">تُركت %d ملفات غيّرتها كما هي</item>
+        <item quantity="other">تُركت %d ملفات غيّرتها كما هي</item>
     </plurals>
 </resources>

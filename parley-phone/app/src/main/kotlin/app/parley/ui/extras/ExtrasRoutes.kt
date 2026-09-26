@@ -44,16 +44,16 @@ object SimpleTransfer {
     fun encryptFile(c: SimpleConfig, passphrase: CharArray): ByteArray = BackupCrypto.encryptBytes(gzip(SimpleSetup.export(c)), listOf(Recipient.Passphrase(passphrase)))
 
     /** Throws on a wrong passphrase or a file that isn't a setup. */
-    fun decryptFile(bytes: ByteArray, passphrase: CharArray): SimpleConfig = SimpleSetup.import(gunzip(BackupCrypto.decryptBytes(bytes, Unlock.Passphrase(passphrase))))
+    fun decryptFile(bytes: ByteArray, passphrase: CharArray): SimpleSetup.Imported = SimpleSetup.importChecked(gunzip(BackupCrypto.decryptBytes(bytes, Unlock.Passphrase(passphrase))))
 
     fun qrLink(c: SimpleConfig, passcode: String): String {
         val sealed = BackupCrypto.encryptBytes(gzip(SimpleSetup.export(c)), listOf(Recipient.Passphrase(normalize(passcode))), QR_ITERATIONS)
         return "parley://simple?v=1&d=" + Base64.encodeToString(sealed, Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING)
     }
 
-    fun fromQr(uri: Uri, passcode: String): SimpleConfig {
+    fun fromQr(uri: Uri, passcode: String): SimpleSetup.Imported {
         val data = Base64.decode(uri.getQueryParameter("d").orEmpty(), Base64.URL_SAFE)
-        return SimpleSetup.import(gunzip(BackupCrypto.decryptBytes(data, Unlock.Passphrase(normalize(passcode)))))
+        return SimpleSetup.importChecked(gunzip(BackupCrypto.decryptBytes(data, Unlock.Passphrase(normalize(passcode)))))
     }
 
     private fun normalize(p: String) = p.uppercase().filter { it.isLetterOrDigit() }.toCharArray()

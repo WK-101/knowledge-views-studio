@@ -49,7 +49,7 @@
     <string name="x_md_call_note">कॉल नोट</string>
     <string name="x_md_failed">नोट एक्सपोर्ट नहीं हो सके। फ़ोल्डर जाँचें और फिर कोशिश करें।</string>
     <string name="x_md_title">Markdown में नोट</string>
-    <string name="x_md_text">हर व्यक्ति के लिए एक .md फ़ाइल: उनके नंबर, तारीख़ें और लेबल, फिर आपके नोट और टाइमलाइन। Obsidian और दूसरे नोट ऐप के लिए। सिर्फ़ एक तरफ़: Parley फ़ाइलें लिखता है, कभी वापस नहीं पढ़ता।</string>
+    <string name="x_md_text">हर व्यक्ति के लिए एक .md फ़ाइल: उनके नंबर, तारीख़ें और लेबल, फिर आपके नोट और टाइमलाइन। Obsidian और दूसरे नोट ऐप के लिए। सिर्फ़ एक तरफ़: Parley फ़ाइलें लिखता है, उनसे कभी कुछ वापस नहीं लेता।</string>
     <string name="x_md_folder">Markdown फ़ोल्डर</string>
     <string name="x_md_only_circle">सिर्फ़ आपके सर्कल के लोग</string>
     <string name="x_md_only_circle_body">बंद: आपके सभी संपर्क</string>
@@ -61,7 +61,7 @@
     <string name="x_md_folder_gone">फ़ोल्डर अब नहीं खुल रहा। उसे फिर से चुनें।</string>
     <string name="x_md_now">अभी एक्सपोर्ट करें</string>
     <string name="x_md_stop">इस फ़ोल्डर में एक्सपोर्ट बंद करें</string>
-    <string name="x_md_private_note">निजी संपर्क कभी एक्सपोर्ट नहीं होते। Parley सिर्फ़ अपनी लिखी फ़ाइलें बदलता है; फ़ोल्डर में आपके अपने नोट जस के तस रहते हैं।</string>
+    <string name="x_md_private_note">निजी संपर्क कभी एक्सपोर्ट नहीं होते। Parley सिर्फ़ वही फ़ाइलें बदलता या हटाता है जो उसने लिखीं और जिन्हें तब से किसी ने नहीं बदला। आप कोई फ़ाइल बदलें तो वह आपकी हो जाती है: Parley उसे नहीं छूता और उसके पास एक नई कॉपी लिखता है।</string>
     <string name="x_set_markdown_title">नोट Markdown में एक्सपोर्ट करें</string>
     <string name="x_set_markdown_summary">हर व्यक्ति के लिए नोट और टाइमलाइन वाली एक .md फ़ाइल, आपके चुने फ़ोल्डर में</string>
     <string name="x_set_markdown_kw">markdown, md, obsidian, नोट, logseq, एक्सपोर्ट, फ़ोल्डर, टाइमलाइन</string>
@@ -99,7 +99,7 @@
     <string name="x_simple_enter_passcode">दूसरे फ़ोन पर दिख रहा पासकोड लिखें।</string>
     <string name="x_simple_wrong_pass">यह नहीं खुला। पासकोड या पासफ़्रेज़ जाँचें।</string>
     <string name="x_simple_matched">मिला: %1$s</string>
-    <string name="x_simple_not_found">आपके संपर्कों में नहीं: %1$s</string>
+    <string name="x_simple_not_in_contacts">आपके संपर्कों में नहीं</string>
     <string name="x_simple_create">बनाएँ</string>
     <string name="x_simple_import_note">जो लोग आपके संपर्कों में नहीं हैं, उन्हें भी उनके नंबर वाला बटन मिलता है। फ़ोटो जोड़ने के लिए उनका संपर्क बनाएँ।</string>
     <string name="x_simple_use_on">यह सेटअप इस्तेमाल करें और आसान मोड चालू करें</string>
@@ -156,5 +156,13 @@
     <plurals name="x_simple_people_n">
         <item quantity="one">लोग (%2$d में से %1$d)</item>
         <item quantity="other">लोग (%2$d में से %1$d)</item>
+    </plurals>
+    <plurals name="x_simple_skipped">
+        <item quantity="one">%d प्रविष्टि सामान्य फ़ोन नंबर नहीं थी, इसलिए छोड़ दी गई</item>
+        <item quantity="other">%d प्रविष्टियाँ सामान्य फ़ोन नंबर नहीं थीं, इसलिए छोड़ दी गईं</item>
+    </plurals>
+    <plurals name="x_md_kept">
+        <item quantity="one">आपकी बदली हुई %d फ़ाइल जैसी थी वैसी छोड़ दी गई</item>
+        <item quantity="other">आपकी बदली हुई %d फ़ाइलें जैसी थीं वैसी छोड़ दी गईं</item>
     </plurals>
 </resources>

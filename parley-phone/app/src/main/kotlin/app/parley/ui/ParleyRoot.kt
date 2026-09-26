@@ -54,7 +54,7 @@ import app.parley.ui.settings.SpeedDialScreen
 object Routes {
     const val HOME = "home"
     const val CONTACT = "contact/{id}"
-    const val EDIT = "edit?id={id}&name={name}&phone={phone}&email={email}&addPhone={addPhone}&prefill={prefill}&vault={vault}"
+    const val EDIT = "edit?id={id}&name={name}&phone={phone}&email={email}&addPhone={addPhone}&prefill={prefill}&vault={vault}&hs={hs}"
     const val VAULT = "vault/{id}"
     fun vault(id: Long) = "vault/$id"
     const val HISTORY = "history/{number}"
@@ -81,9 +81,14 @@ object Routes {
     fun contact(id: Long) = "contact/$id"
     fun history(number: String) = "history/" + Uri.encode(number)
     fun pick(number: String) = "pick/" + Uri.encode(number)
-    fun edit(id: Long? = null, name: String? = null, phone: String? = null, email: String? = null, addPhone: String? = null, prefill: Boolean = false, vault: Long? = null): String =
+    /** [handshake]: X5, the id of the received card this editor was opened for (see HandshakeInbox). */
+    fun edit(
+        id: Long? = null, name: String? = null, phone: String? = null, email: String? = null, addPhone: String? = null, prefill: Boolean = false,
+        vault: Long? = null, handshake: String? = null,
+    ): String =
         "edit?id=${id ?: -1}&name=${Uri.encode(name.orEmpty())}&phone=${Uri.encode(phone.orEmpty())}" +
-            "&email=${Uri.encode(email.orEmpty())}&addPhone=${Uri.encode(addPhone.orEmpty())}&prefill=$prefill&vault=${vault ?: -1}"
+            "&email=${Uri.encode(email.orEmpty())}&addPhone=${Uri.encode(addPhone.orEmpty())}&prefill=$prefill&vault=${vault ?: -1}" +
+            "&hs=${Uri.encode(handshake.orEmpty())}"
 
     /** Picker for "add to existing contact"; the number (or "_" = use the pending prefill). */
     const val PREFILL_MARK = "_"
@@ -205,6 +210,7 @@ fun ParleyRoot(vm: AppViewModel) {
                     navArgument("addPhone") { defaultValue = "" },
                     navArgument("prefill") { type = NavType.BoolType; defaultValue = false },
                     navArgument("vault") { type = NavType.LongType; defaultValue = -1L },
+                    navArgument("hs") { defaultValue = "" },
                 ),
             ) {
                 val a = it.arguments!!
@@ -219,7 +225,7 @@ fun ParleyRoot(vm: AppViewModel) {
                     vaultId = a.getLong("vault").takeIf { it >= 0 },
                     done = { savedId ->
                         // X5: a contact received by QR gets its "Met at…" entry once it's saved.
-                        app.parley.ui.extras.HandshakeInbox.onSaved(vm, savedId)
+                        app.parley.ui.extras.HandshakeInbox.onSaved(vm, savedId, a.getString("hs"))
                         nav.popBackStack()
                         val here = nav.currentDestination?.route
                         when {
@@ -317,9 +323,9 @@ fun ParleyRoot(vm: AppViewModel) {
     }
     importUri?.let { uri -> app.parley.ui.common.ImportVcfDialog(vm, uri) { importUri = null } }
     secureQrUri?.let { uri ->
-        app.parley.ui.contact.ReceiveSecureQrDialog(vm, uri, onDone = { secureQrUri = null }) { details ->
+        app.parley.ui.contact.ReceiveSecureQrDialog(vm, uri, onDone = { secureQrUri = null }) { details, handshake ->
             vm.pendingPrefill = details
-            nav.navigate(Routes.edit(prefill = true))
+            nav.navigate(Routes.edit(prefill = true, handshake = handshake))
         }
     }
 }

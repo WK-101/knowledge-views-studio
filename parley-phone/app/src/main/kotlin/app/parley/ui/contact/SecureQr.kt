@@ -118,7 +118,7 @@ fun SecureQrDialog(details: ContactDetails, onDismiss: () -> Unit) {
 
 /** Receiving side of [SecureQr]: ask for the passcode, then save to the vault or phone contacts. */
 @Composable
-fun ReceiveSecureQrDialog(vm: AppViewModel, uri: Uri, onDone: () -> Unit, openEditor: (ContactDetails) -> Unit) {
+fun ReceiveSecureQrDialog(vm: AppViewModel, uri: Uri, onDone: () -> Unit, openEditor: (ContactDetails, String) -> Unit) {
     val scope = rememberCoroutineScope()
     val context = androidx.compose.ui.platform.LocalContext.current
     var code by remember { mutableStateOf("") }
@@ -188,9 +188,9 @@ fun ReceiveSecureQrDialog(vm: AppViewModel, uri: Uri, onDone: () -> Unit, openEd
             dismissButton = {
                 TextButton({
                     val (details, line) = withMet()
-                    // Logged in the Circle timeline once the editor has saved the contact.
-                    app.parley.ui.extras.HandshakeInbox.pending = app.parley.ui.extras.HandshakeInbox.Pending(line, received, nonce)
-                    onDone(); openEditor(details)
+                    // Logged in the Circle timeline once the editor opened for it (and only that one) saves the contact.
+                    app.parley.ui.extras.HandshakeInbox.hold(app.parley.ui.extras.HandshakeInbox.Pending(line, received, nonce))
+                    onDone(); openEditor(details, nonce)
                 }) { Text(stringResource(R.string.sqr_save_phone)) }
             },
         )

@@ -76,7 +76,7 @@ class DataContainer(context: Context) {
     val temporaries by lazy { app.parley.data.people.TemporaryContactStore(this) }
 
     /** Keeps notes, backgrounds, relation links and temporary flags attached when lookup keys change (F8). */
-    val contactKeys by lazy { app.parley.data.people.ContactKeys(contacts, meta, { people.backgrounds }) { circle.interactions } }
+    val contactKeys by lazy { app.parley.data.people.ContactKeys(contacts, meta, { people.backgrounds }, { circle.interactions }) { extras } }
 
     /** R1–R5: the Circle (keep-in-touch rhythms, interactions, "Log this?", reminder bookkeeping). */
     val circle by lazy {

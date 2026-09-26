@@ -27,6 +27,8 @@ class ContactKeys(
     private val backgrounds: () -> CallBackgrounds,
     /** R2: interactions are keyed like contact_meta and follow the same moves. */
     private val interactions: () -> app.parley.data.circle.InteractionStore? = { null },
+    /** X3: the record of contacts Parley starred for a label's Do Not Disturb choice follows the same moves. */
+    private val extras: () -> app.parley.data.extras.ExtrasStore? = { null },
 ) {
     private val mutex = Mutex()
 
@@ -59,6 +61,7 @@ class ContactKeys(
             runCatching { backgrounds().clear(key) }
             // R2: a private contact's interactions don't stay outside the vault (they'd put them back in the Circle).
             runCatching { interactions()?.forget(key) }
+            runCatching { extras()?.dndForget(key) }
             for (r in meta.allMetaNow()) {
                 val links = RelationLinks.decode(r.relationLinks)
                 if (links.values.none { it.lookupKey == key }) continue
@@ -77,6 +80,7 @@ class ContactKeys(
             rows.forEach { keys[it.lookupKey] = it.contactId }
             bg?.indexedKeys()?.forEach { keys.putIfAbsent(it, null) }
             runCatching { interactions()?.keys() }.getOrNull()?.forEach { keys.putIfAbsent(it, null) }
+            runCatching { extras()?.dndKeys() }.getOrNull()?.forEach { keys.putIfAbsent(it, null) }
             // Only moves that are plausibly the same person (no namesake takes over a deleted contact's note).
             val resolved = keys.mapValues { (key, id) ->
                 contacts.currentOf(key, id)?.takeIf { (newId, newKey) -> newKey == key || MetaRekey.plausible(key, newKey, id, newId) }
@@ -108,6 +112,7 @@ class ContactKeys(
         }
         runCatching { backgrounds().move(from, to) }
         runCatching { interactions()?.rekey(from, to, toId) }
+        runCatching { extras()?.dndRekey(from, to) }
         meta.temporary(from)?.let { t ->
             val existing = meta.temporary(to)
             val (ids, expiresAt) = TemporaryExpiry.merge(t.rawIds to t.expiresAt, existing?.rawIds to (existing?.expiresAt ?: Long.MAX_VALUE))

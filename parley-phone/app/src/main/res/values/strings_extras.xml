@@ -49,7 +49,7 @@
     <string name="x_md_call_note">Call note</string>
     <string name="x_md_failed">Couldn\'t export the notes. Check the folder and try again.</string>
     <string name="x_md_title">Notes as Markdown</string>
-    <string name="x_md_text">One .md file per person: their numbers, dates and labels, then your notes and the timeline. For Obsidian and other note apps. One way only: Parley writes the files and never reads them back.</string>
+    <string name="x_md_text">One .md file per person: their numbers, dates and labels, then your notes and the timeline. For Obsidian and other note apps. One way only: Parley writes the files and never takes anything back from them.</string>
     <string name="x_md_folder">Markdown folder</string>
     <string name="x_md_only_circle">Only people in your circle</string>
     <string name="x_md_only_circle_body">Off: everyone in your contacts</string>
@@ -61,7 +61,7 @@
     <string name="x_md_folder_gone">The folder can\'t be opened any more. Pick it again.</string>
     <string name="x_md_now">Export now</string>
     <string name="x_md_stop">Stop exporting to this folder</string>
-    <string name="x_md_private_note">Private contacts are never exported. Parley only changes the files it wrote; your own notes in the folder stay untouched.</string>
+    <string name="x_md_private_note">Private contacts are never exported. Parley only changes or removes files it wrote that nobody has edited since. Edit one and it\'s yours: Parley leaves it alone and writes a fresh copy beside it.</string>
     <string name="x_set_markdown_title">Export notes as Markdown</string>
     <string name="x_set_markdown_summary">One .md file per person with notes and timeline, to a folder you choose</string>
     <string name="x_set_markdown_kw">markdown, md, obsidian, notes, logseq, export, folder, timeline</string>
@@ -99,7 +99,7 @@
     <string name="x_simple_enter_passcode">Type the passcode shown on the other phone.</string>
     <string name="x_simple_wrong_pass">That didn\'t open it. Check the passcode or passphrase.</string>
     <string name="x_simple_matched">Found: %1$s</string>
-    <string name="x_simple_not_found">Not in your contacts: %1$s</string>
+    <string name="x_simple_not_in_contacts">Not in your contacts</string>
     <string name="x_simple_create">Create</string>
     <string name="x_simple_import_note">People who aren\'t in your contacts still get a button with their number. Create them to add a photo.</string>
     <string name="x_simple_use_on">Use this setup and turn on simple mode</string>
@@ -156,5 +156,13 @@
     <plurals name="x_simple_people_n">
         <item quantity="one">People (%1$d of %2$d)</item>
         <item quantity="other">People (%1$d of %2$d)</item>
+    </plurals>
+    <plurals name="x_simple_skipped">
+        <item quantity="one">%d entry wasn\'t a plain phone number and was left out</item>
+        <item quantity="other">%d entries weren\'t plain phone numbers and were left out</item>
+    </plurals>
+    <plurals name="x_md_kept">
+        <item quantity="one">%d file you changed was left as it is</item>
+        <item quantity="other">%d files you changed were left as they are</item>
     </plurals>
 </resources>
