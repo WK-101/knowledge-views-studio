@@ -196,7 +196,7 @@ fun ParleyRoot(vm: AppViewModel) {
                     vm = vm,
                     tabRequest = tabRequest,
                     onTabRequestHandled = { tabRequest = null },
-                    initialTab = settings.navTabs.startTab(settings.startTab),
+                    initialTab = app.parley.common.HomeLayout(settings.navTabs, settings.surfaces).startTab(settings.startTab),
                     open = { route -> nav.navigate(route) },
                 )
               }

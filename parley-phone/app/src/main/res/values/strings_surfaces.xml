@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- S1/S2 (v3.3): optional combined surfaces (keypad in Recents, favourites in Contacts). English only for now. -->
+<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
+    <!-- Settings › Appearance › Layout -->
+    <string name="surf_group_layout">Layout</string>
+    <string name="surf_set_calls_layout_title">Calls layout</string>
+    <string name="surf_set_calls_layout_summary">Keypad and Recents as separate tabs, or one screen with the keypad docked at the bottom</string>
+    <string name="surf_set_calls_layout_kw">combine, combined, merge, merge tabs, fewer tabs, keypad, dialpad, dialer, recents, one screen, docked, unified, classic, layout</string>
+    <string name="surf_set_fav_contacts_title">Favourites in Contacts</string>
+    <string name="surf_set_fav_contacts_summary">Off, a section at the top of Contacts, or a strip of avatars</string>
+    <string name="surf_set_fav_contacts_kw">favorites, favourites, starred, combine, merge, merge tabs, fewer tabs, strip, carousel, section, frequent, layout</string>
+    <string name="surf_set_recent_tap_title">Tapping a call in Recents</string>
+    <string name="surf_set_recent_tap_summary">Open its details, or call back straight away</string>
+    <string name="surf_set_recent_tap_kw">tap, call back, details, accidental, row, recents, tap recents to call, one tap</string>
+    <string name="surf_calls_separate">Separate</string>
+    <string name="surf_calls_combined">Combined</string>
+    <string name="surf_keep_keypad_tab">Also keep a separate Keypad tab</string>
+    <string name="surf_keep_keypad_tab_sub">The keypad is in Recents either way; dialling a number opens it there unless this tab is shown</string>
+    <string name="surf_fav_off">Off</string>
+    <string name="surf_fav_section">Section at top</string>
+    <string name="surf_fav_strip">Avatar strip</string>
+    <string name="surf_keep_fav_tab">Also keep a Favourites tab</string>
+    <string name="surf_keep_fav_tab_sub">The Favourites tab keeps its grid, sorting and reordering</string>
+    <string name="surf_frequents_row">Show frequent contacts</string>
+    <string name="surf_frequents_row_sub">A row of the people you called most lately, under the favourites</string>
+    <string name="surf_circle_moves">While its tab is hidden, the Circle shows in Contacts, under the favourites.</string>
+    <string name="surf_back_to_separate">Back to separate tabs</string>
+    <string name="surf_back_to_separate_sub">Your navigation bar comes back exactly as it was</string>
+    <string name="surf_back_action">Separate</string>
+    <string name="surf_tap_details">Open details</string>
+    <string name="surf_tap_call">Call</string>
+    <string name="surf_ask_keypad_title">Keep the Keypad tab too?</string>
+    <string name="surf_ask_keypad_body">The keypad will sit at the bottom of Recents. You can also keep its own tab in the navigation bar; you can change this later.</string>
+    <string name="surf_ask_fav_title">Keep the Favourites tab too?</string>
+    <string name="surf_ask_fav_body">Your favourites will show at the top of Contacts. You can also keep their own tab in the navigation bar; you can change this later.</string>
+    <string name="surf_ask_hide_tab">Hide the tab</string>
+    <string name="surf_ask_keep_tab">Keep the tab</string>
+    <!-- Navigation bar editor: a tab shown inside another one, e.g. "Shown in Recents". -->
+    <string name="surf_tab_inside">Shown in %1$s</string>
+
+    <!-- Docked keypad -->
+    <string name="surf_show_keypad_with">Show keypad, %1$s typed</string>
+    <string name="surf_tip_docked_keypad">Swipe the keypad down or scroll the list to fold it away. The keypad button brings it back.</string>
+    <string name="surf_recent_details">Details for %1$s</string>
+
+    <!-- Favourites in Contacts -->
+    <!-- Section header, e.g. "Favourites (5)". -->
+    <string name="surf_fav_header_count">%1$s (%2$d)</string>
+    <string name="surf_fav_empty">Star someone on their page to see them here.</string>
+    <string name="surf_reorder_title">Reorder favourites</string>
+    <string name="surf_fold">Fold</string>
+    <string name="surf_unfold">Unfold</string>
+    <string name="surf_folded">Folded</string>
+    <string name="surf_unfolded">Unfolded</string>
+
+    <!-- What's new -->
+    <string name="surf_whats_new_layout">New, if you like: fewer tabs. The keypad can sit in Recents, and your favourites at the top of Contacts. Nothing changes unless you choose it.</string>
+    <string name="surf_whats_new_layout_action">Layout options</string>
+</resources>

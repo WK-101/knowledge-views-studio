@@ -55,6 +55,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.R
 import app.parley.common.ContactSummary
+import app.parley.common.homeLayout
 import app.parley.common.people.FavoriteOrder
 import app.parley.common.people.FavoriteSort
 import app.parley.ui.Avatar
@@ -69,7 +70,8 @@ fun FavoritesTab(vm: AppViewModel, open: (String) -> Unit, query: String = "", o
     val ps by vm.people.settings.collectAsStateWithLifecycle()
     var reordering by remember { mutableStateOf(false) }
     // R1: while the Circle tab is hidden, the Circle is a folding section at the top of Favourites.
-    val circleHere = !vm.settings.collectAsStateWithLifecycle().value.navTabs.isVisible(app.parley.common.StartTab.CIRCLE)
+    // S2: unless the favourites moved into Contacts (then the Circle follows them there).
+    val circleHere = vm.settings.collectAsStateWithLifecycle().value.homeLayout.circleHost == app.parley.common.StartTab.FAVORITES
     if (favorites.isEmpty() && frequents.isEmpty()) {
         Column(Modifier.fillMaxSize()) {
             if (circleHere) Column(Modifier.padding(top = 12.dp)) { app.parley.ui.circle.CircleFavoritesSection(vm, open, query) }
@@ -218,7 +220,7 @@ private fun List<ContactSummary>.moved(from: Int, to: Int): List<ContactSummary>
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun Tile(name: String, photo: String?, onClick: () -> Unit, onLong: () -> Unit, modifier: Modifier = Modifier, reorder: Boolean = false) {
+internal fun Tile(name: String, photo: String?, onClick: () -> Unit, onLong: () -> Unit, modifier: Modifier = Modifier, reorder: Boolean = false) {
     Column(
         modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp))
             .then(if (reorder) Modifier else Modifier.combinedClickable(onClick = onClick, onLongClick = onLong, onClickLabel = stringResource(R.string.main_call), onLongClickLabel = stringResource(R.string.main_open_contact)))

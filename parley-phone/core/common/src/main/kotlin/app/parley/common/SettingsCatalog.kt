@@ -78,6 +78,13 @@ object SettingsCatalog {
         e("nav_tabs", "Navigation bar", "Show, hide and reorder Favorites, Recents, Contacts and Keypad", A,
             "tabs", "circle", "bottom bar", "bottom navigation", "navigation rail", "reorder", "hide tab", "customise", "customize", "menu"),
         e("start_tab", "Open on", "The tab Parley opens on", A, "start tab", "default tab", "home screen", "launch", "first screen"),
+        // S1/S2 (v3.3): optional combined surfaces, and what a tap on a call does (in every layout).
+        e("calls_layout", "Calls layout", "Keypad and Recents as separate tabs, or one screen with the keypad docked at the bottom", A,
+            "combine", "combined", "merge", "merge tabs", "fewer tabs", "keypad", "dialpad", "dialer", "recents", "one screen", "docked", "unified", "classic", "layout"),
+        e("favorites_in_contacts", "Favourites in Contacts", "Off, a section at the top of Contacts, or a strip of avatars", A,
+            "favorites", "favourites", "starred", "combine", "merge", "merge tabs", "fewer tabs", "strip", "carousel", "section", "frequent", "layout"),
+        e("recent_tap", "Tapping a call in Recents", "Open its details, or call back straight away", A,
+            "tap", "call back", "details", "accidental", "row", "recents", "tap recents to call", "one tap"),
         e("row_actions", "Call & message buttons on contacts", "Tapping a contact still opens it", A, "quick actions", "buttons", "sms", "row"),
         e("sort_names", "Sort and show names by", "First name or last name", A, "order", "alphabetical", "surname", "family name", "given name"),
         e("second_line", "Second line under names", "Company, nickname, account or number", A, "subtitle", "company", "account", "details"),

@@ -35,6 +35,7 @@ import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.SimCard
 import androidx.compose.material.icons.rounded.QrCodeScanner
 import androidx.compose.material.icons.rounded.Speed
+import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.TravelExplore
 import androidx.compose.material3.Badge
@@ -56,6 +57,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -71,6 +73,7 @@ import app.parley.R
 import app.parley.RecentFilter
 import app.parley.common.SettingsCategory
 import app.parley.common.StartTab
+import app.parley.common.homeLayout
 import app.parley.ui.Routes
 
 /**
@@ -98,6 +101,12 @@ fun HomeScreen(
     val missed by vm.missedCount.collectAsStateWithLifecycle()
     val selection by vm.selection.collectAsStateWithLifecycle()
     val scroll = TopAppBarDefaults.pinnedScrollBehavior()
+    // S1/S2 (v3.3): which tabs the bar shows and where the keypad and the favourites live.
+    val layout = settings.homeLayout
+    // S1: the docked keypad's folded state, kept for the session (tab switches, rotation). It starts unfolded when
+    // the keypad is where you asked Parley to open.
+    var dockOpen by rememberSaveable { mutableStateOf(settings.startTab == StartTab.KEYPAD) }
+    var reorderFavorites by remember { mutableStateOf(false) }
 
     fun closeSearch() {
         searching = false
@@ -110,7 +119,10 @@ fun HomeScreen(
 
     LaunchedEffect(tabRequest) {
         val r = tabRequest ?: return@LaunchedEffect
-        tab = r.tab
+        // S1/S2: a request for a tab that another surface hosts opens that surface (tel:, ACTION_DIAL, shortcuts
+        // and the headset's Call button open the docked keypad, unfolded).
+        tab = layout.hostOf(r.tab)
+        if (layout.opensDockedKeypad(r.tab)) dockOpen = true
         r.dial?.let { vm.dialInput.value = it }
         if (r.missedOnly) vm.recentFilter.value = RecentFilter.MISSED
         onTabRequestHandled()
@@ -126,10 +138,16 @@ fun HomeScreen(
         if (tab != StartTab.CONTACTS) vm.selection.value = emptySet()
         scroll.state.contentOffset = 0f
     }
+    // S1/S2: switching an option on while its tab is open moves to the surface that now hosts it.
+    LaunchedEffect(layout.absorbed) { layout.hostOf(tab).let { if (it != tab) tab = it } }
     BackHandler(enabled = selection.isNotEmpty()) { vm.selection.value = emptySet() }
+    // S1: Back folds the docked keypad first.
+    BackHandler(enabled = tab == StartTab.RECENTS && layout.keypadDocked && dockOpen && !searching) { dockOpen = false }
     BackHandler(enabled = searching) { closeSearch() }
 
-    val barTabs = settings.navTabs.barTabs(tab)
+    val barTabs = layout.barTabs(tab)
+    // S1/S2: with a single tab left there is nothing to switch between: no bar and no rail.
+    val showBar = layout.showBar(tab)
 
     Scaffold(
         modifier = Modifier.nestedScroll(scroll.nestedScrollConnection),
@@ -167,7 +185,7 @@ fun HomeScreen(
                     onSearch = { on -> if (on) searching = true else closeSearch() },
                     scrollBehavior = scroll,
                     actions = { TabActions(vm, tab, settings.appLock, open) },
-                    menu = { close -> TabMenu(vm, tab, settings.appLock, open, close) },
+                    menu = { close -> TabMenu(vm, tab, settings.appLock, open, close, onReorderFavorites = { reorderFavorites = true }) },
                 )
             }
         },
@@ -175,7 +193,7 @@ fun HomeScreen(
             Column(if (wide) Modifier.navigationBarsPadding() else Modifier) {
                 app.parley.ui.calltime.NotificationHealthBanner(vm)
                 app.parley.ui.calltime.ReturnToCallChip()
-                if (!wide) NavigationBar {
+                if (!wide && showBar) NavigationBar {
                     barTabs.forEach { t ->
                         NavigationBarItem(
                             selected = tab == t,
@@ -194,7 +212,7 @@ fun HomeScreen(
         },
     ) { padding ->
         Row(Modifier.fillMaxSize().padding(padding)) {
-            if (wide) {
+            if (wide && showBar) {
                 // The Scaffold already pads for the system bars and the header.
                 NavigationRail(windowInsets = WindowInsets(0)) {
                     Spacer(Modifier.weight(1f))
@@ -216,8 +234,8 @@ fun HomeScreen(
                     AnimatedContent(tab, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "tab") { t ->
                         when (t) {
                             StartTab.FAVORITES -> FavoritesTab(vm, open, favoriteQuery, onClearQuery = { favoriteQuery = "" })
-                            StartTab.RECENTS -> RecentsTab(vm, open)
-                            StartTab.CONTACTS -> ContactsTab(vm, open)
+                            StartTab.RECENTS -> if (layout.keypadDocked) CallsSurface(vm, open, searching, dockOpen) { dockOpen = it } else RecentsTab(vm, open)
+                            StartTab.CONTACTS -> ContactsTab(vm, open, onReorderFavorites = { reorderFavorites = true })
                             StartTab.KEYPAD -> KeypadTab(vm, open, keypadQuery.takeIf { searching })
                             StartTab.CIRCLE -> app.parley.ui.circle.CircleTab(vm, open, circleQuery)
                         }
@@ -226,6 +244,7 @@ fun HomeScreen(
             }
         }
     }
+    if (reorderFavorites) ReorderFavoritesSheet(vm) { reorderFavorites = false }
 }
 
 @Composable
@@ -263,10 +282,18 @@ private fun MenuItem(text: String, icon: ImageVector, onClick: () -> Unit) {
 
 /** "More options": the tab's own items first, then the ones every tab shares. */
 @Composable
-private fun ColumnScope.TabMenu(vm: AppViewModel, tab: StartTab, appLock: Boolean, open: (String) -> Unit, close: () -> Unit) {
+private fun ColumnScope.TabMenu(vm: AppViewModel, tab: StartTab, appLock: Boolean, open: (String) -> Unit, close: () -> Unit, onReorderFavorites: () -> Unit = {}) {
     fun go(route: String) { close(); open(route) }
+    val layout = vm.settings.collectAsStateWithLifecycle().value.homeLayout
     when (tab) {
         StartTab.RECENTS -> {
+            // S1: with the keypad docked here, the Keypad tab's own items come along.
+            if (layout.keypadDocked) {
+                MenuItem(stringResource(R.string.home_speed_dial), Icons.Rounded.Speed) { go(Routes.SPEED_DIAL) }
+                MenuItem(stringResource(R.string.home_sims), Icons.Rounded.SimCard) { go(app.parley.ui.history.HistoryRoutes.SIMS) }
+                MenuItem(stringResource(R.string.home_keypad_settings), Icons.Rounded.Tune) { go(Routes.settingsPage(SettingsCategory.KEYPAD)) }
+                HorizontalDivider()
+            }
             app.parley.ui.history.RecentsExportMenuItem(close)
             // P8, P5: call-list layout (quick toggle) and clear call history.
             app.parley.ui.history.RecentsLayoutMenuItem(vm, close)
@@ -284,6 +311,8 @@ private fun ColumnScope.TabMenu(vm: AppViewModel, tab: StartTab, appLock: Boolea
             MenuItem(stringResource(R.string.home_add_several), Icons.Rounded.GroupAdd) { go(app.parley.messaging.MessagingRoutes.BULK_ADD) }
             MenuItem(stringResource(R.string.qs_menu), Icons.Rounded.QrCodeScanner) { go(app.parley.ui.qr.QrRoutes.SCAN) }
             MenuItem(stringResource(R.string.home_duplicates), Icons.AutoMirrored.Rounded.CallMerge) { go(Routes.DUPLICATES) }
+            // S2: favourites shown in Contacts are reordered from here too.
+            if (layout.favoritesInContacts) MenuItem(stringResource(R.string.surf_reorder_title), Icons.Rounded.Star) { close(); onReorderFavorites() }
             // X2: "Who's in…" (trip mode).
             MenuItem(stringResource(R.string.x_trip_menu), Icons.Rounded.TravelExplore) { go(app.parley.ui.extras.ExtrasRoutes.TRIP) }
             MenuItem(stringResource(R.string.home_contacts_settings), Icons.Rounded.Tune) { go(Routes.settingsPage(SettingsCategory.CONTACTS)) }

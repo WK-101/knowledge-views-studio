@@ -56,11 +56,13 @@ Shared ⋮ items on every tab: Birthdays & dates, Temporary contacts, Recently d
 
 **Navigation bar.** Settings › Appearance › Navigation bar shows, hides and reorders the tabs (at least one stays); the rail on wide screens follows it and "Open on" offers only visible tabs. A hidden tab still opens from links: dialling a number (`tel:`, ACTION_DIAL, headset Call button) opens the Keypad and a missed-call notification opens Recents; the opened tab then appears in the bar, in its usual place, until you switch to another tab.
 
+**Layout (v3.3, optional).** Settings › Appearance › Layout can put the keypad at the bottom of Recents ("Calls layout: Combined"; fold it with a swipe down, a scroll or Back, bring it back with the keypad button; dial links open it there) and the favourites at the top of Contacts ("Section at top" or "Avatar strip", with an optional "Frequent" row and "Reorder favourites" in Contacts ⋮). Each asks whether to keep the absorbed tab too; the Navigation bar's own order and switches are never changed, so "Back to separate tabs" restores them exactly. While Favourites is in Contacts and the Circle tab is hidden, the Circle section moves to Contacts under the favourites. "Tapping a call in Recents" (Open details / Call) applies in every layout. Updates keep Separate / Off, and so do new installs.
+
 **Settings** (search covers every row below; the registry is `SettingsCatalog` in `core:common`)
 
 | Category | Settings |
 |---|---|
-| Appearance | Theme, Pure black, Wallpaper colours · Navigation bar, Open on · List density, Call & message buttons on contacts, Swipe actions (with a preview row), Avatars · Sort names by, Second line under names, Prefer nicknames |
+| Appearance | Theme, Pure black, Wallpaper colours · Navigation bar, Open on · Calls layout, Favourites in Contacts, Tapping a call in Recents · List density, Call & message buttons on contacts, Swipe actions (with a preview row), Avatars · Sort names by, Second line under names, Prefer nicknames |
 | Calls | Default phone app · Answer by, Confirm before calling, Vibrate on call events, Ringtone for unknown callers · Remind me of missed calls, Voicemail · Ask before pocket calls, Turn the screen off at your ear, Power button ends call · SIMs, SIM & calling accounts, Call forwarding/waiting/voicemail |
 | Keypad | Keypad tones, Keypad vibration · Keypad letters, Speed dial, USSD replies |
 | Call time | Reminders & limits, Plan minutes per SIM |

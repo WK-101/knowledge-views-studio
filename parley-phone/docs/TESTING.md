@@ -639,3 +639,47 @@ Parley declares no CAMERA permission: check App info › Permissions never lists
 - [ ] `https://paypal.com.secure-login.io`, `https://paypa1.com`, `https://аpple.com` (Cyrillic а), `https://bit.ly/x`, `https://www.bank.com@evil.example`, `http://192.168.0.1`: each shows its red warning, and "Open in browser" isn't the highlighted button. `https://xn--mnchen-3ya.de` shows "münchen.de" and "Spelled for the internet as xn--mnchen-3ya.de".
 - [ ] Text containing a right-to-left override (e.g. `abc‮txt.exe`): the note "hidden formatting characters… left out" and the text shown without them. `javascript:…`, `intent:…`, `file:…` codes show as plain text with only Copy and Share.
 - [ ] Every sheet: Copy and Share work.
+
+### 16.3 Combined surfaces
+
+Settings › Appearance › Layout (search "combine", "keypad", "favourites", "merge tabs"). Everything here is optional; Separate / Off is the default for new and existing users.
+
+**Update keeps the layout (migration)**
+- [ ] Install the previous release, reorder or hide tabs, pick an "Open on" tab, update to this build: the bar, its order, the start tab and the Recents row tap are exactly as before; Layout shows Calls layout "Separate" and Favourites in Contacts "Off".
+- [ ] After that update the "What's new" card mentions the layout options once, with "Layout options" (opens Settings on Calls layout, highlighted). Nothing changes until you pick something; after "Got it" the offer doesn't come back on later updates.
+- [ ] Backup, switch options, restore: the layout from the backup comes back.
+
+**Keypad + Recents (Calls layout: Combined)**
+- [ ] With the Keypad tab shown in the bar, tap "Combined": a dialog asks "Keep the Keypad tab too?". Back/outside changes nothing; "Hide the tab" docks the keypad and removes the tab from the bar; "Keep the tab" keeps both. Settings › Navigation bar lists Keypad with "Shown in Recents" and its switch unchanged.
+- [ ] Recents shows the calls with the keypad docked at the bottom. Folded: a round keypad button (bottom end). Unfold by tapping it or swiping it up; fold by tapping/swiping down the handle on top of the keypad, by scrolling the list, or with Back.
+- [ ] Type digits: the calls are replaced in place by the T9 matches, the Message / Add contact / Temporary chips appear above the keypad (outside it), and the digit keys, number field and Call button never move (screenshots before and after 10 digits). Delete the digits: the calls come back.
+- [ ] Fold while digits are typed: the button shows the number ("Show keypad, 0612… typed" in TalkBack); unfold restores it.
+- [ ] Switch to another tab and back, rotate: the keypad stays folded/unfolded as you left it (for this session).
+- [ ] `tel:` link, ACTION_DIAL (another app's dial button → Parley), "Add call" during a call, a shared number's "Edit before calling", Recents long-press "Edit number before calling", a contact's "Edit before call": Recents opens with the keypad unfolded and the number filled in. With "Also keep a separate Keypad tab" on, they open the Keypad tab instead.
+- [ ] Hardware keypad/keyboard (or `adb shell input keyevent KEYCODE_5`): typing on Recents unfolds the docked keypad and shows the number.
+- [ ] Header search on Recents searches calls (the keypad hides while searching).
+- [ ] Recents ⋮ adds Speed dial, SIMs & plan minutes and Keypad settings while the keypad is docked.
+- [ ] Large text (Settings › Display › Font size largest, or 200 %): the docked keypad takes at most ~60 % of the height and scrolls inside itself; the list above stays visible.
+- [ ] Landscape on a tablet/foldable (navigation rail): the keypad sits beside the calls list, not under it; folding it gives the list the full width.
+- [ ] RTL (Arabic/Urdu): digits stay 1 2 3 left to right, the folded keypad button sits at the bottom left, the previews in Settings are mirrored.
+- [ ] TalkBack: the keypad handle reads "Hide keypad" (button); the keypad panel has a "Hide keypad" action; the folded button reads "Show keypad".
+- [ ] Hide Recents in Settings › Navigation bar while Combined: the Keypad tab comes back in the bar (the keypad is never unreachable).
+
+**Tapping a call in Recents (every layout)**
+- [ ] Default "Open details": unchanged. "Call": a tap on a row calls back (through confirm-before-calling and the dial guard if on); the trailing button becomes "Details for …" and opens the contact / number history. Long-press still opens the actions sheet; while selecting, a tap selects.
+
+**Favourites + Contacts**
+- [ ] With the Favourites tab shown, pick "Section at top" or "Avatar strip": a dialog asks whether to keep the Favourites tab. Contacts shows, under "My card", a "Favourites (n)" header with Reorder and a fold chevron; the section uses the Favourites grid's columns (pinch there to change), the strip is one scrolling row of avatars.
+- [ ] Tap a favourite: calls (as on the Favourites tab); long-press: opens the contact.
+- [ ] Fold the header, leave, kill and reopen Parley: it stays folded. TalkBack reads it as a heading with "Folded/Unfolded".
+- [ ] "Show frequent contacts": a "Frequent" row of avatars under the favourites.
+- [ ] Reorder (header button or Contacts ⋮ › "Reorder favourites"): a sheet with drag handles and TalkBack "Move earlier/later"; the order matches the Favourites tab (custom order).
+- [ ] Circle tab hidden: the Circle section appears in Contacts under the favourites (and Settings says so); with "Also keep a Favourites tab" on it stays at the top of Favourites as before. Showing the Circle tab removes the section.
+- [ ] Searching or filtering Contacts hides the favourites and Circle sections; the A–Z fast scroller still jumps to the right letter with the sections shown.
+- [ ] Hide Contacts in Navigation bar while favourites are in Contacts: the Favourites tab comes back.
+
+**Tabs and start tab**
+- [ ] "Open on: Keypad" with Combined: Parley opens on Recents with the keypad unfolded; "Open on: Favorites" with favourites in Contacts: opens on Contacts. Switch back to Separate: they open on Keypad / Favorites again (the saved choice was kept).
+- [ ] "Open on" lists only the tabs in the bar.
+- [ ] Show only Recents and Keypad in the bar, then Combined: only one tab is left and the bottom bar (or rail) disappears; a missed-call notification or a Circle digest still opens its tab, with the bar back while it's open.
+- [ ] "Back to separate tabs" (shown while anything is combined): one tap restores the bar exactly as it was before combining; the Recents tap choice stays.

@@ -68,7 +68,7 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
             if (s.appLock) launch { runCatching { app.parley.shortcuts.CircleWidget.refreshIfShownLocked(applicationContext) } }
             // After a longer break, open on the preferred tab again; a quick app switch keeps your place.
             if (stoppedAt > 0 && android.os.SystemClock.elapsedRealtime() - stoppedAt > 5 * 60_000L && intent?.action == android.content.Intent.ACTION_MAIN) {
-                vm.navigate(NavEvent.Tab(s.navTabs.startTab(s.startTab)))
+                vm.navigate(NavEvent.Tab(app.parley.common.HomeLayout(s.navTabs, s.surfaces).startRequest(s.startTab)))
             }
         }
     }
