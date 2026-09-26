@@ -10,6 +10,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.Chat
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Call
+import androidx.compose.foundation.layout.Row
+import app.parley.ui.CallColors
 import androidx.compose.material.icons.rounded.DeleteSweep
 import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material3.AlertDialog
@@ -160,7 +163,11 @@ fun MessagedNumbersScreen(vm: AppViewModel, back: () -> Unit) {
                 }
             }
             items(entries, key = { it.key }) { e ->
-                RecordRow(e, region, onOpen = e.number?.let { n -> { vm.navigate(app.parley.NavEvent.History(n)) } }) {
+                RecordRow(
+                    e, region,
+                    onOpen = e.number?.let { n -> { vm.navigate(app.parley.NavEvent.History(n)) } },
+                    onCall = e.number?.let { n -> { vm.requestCall(n) } },
+                ) {
                     scope.launch { e.number?.let { store.forget(it) } ?: store.forgetKey(e.key) }
                 }
             }
@@ -178,14 +185,22 @@ fun MessagedNumbersScreen(vm: AppViewModel, back: () -> Unit) {
 }
 
 @Composable
-private fun RecordRow(e: LastMessaged, region: String, onOpen: (() -> Unit)?, onDelete: () -> Unit) {
+private fun RecordRow(e: LastMessaged, region: String, onOpen: (() -> Unit)?, onCall: (() -> Unit)?, onDelete: () -> Unit) {
     val shown = e.number?.let { n -> NumberText.toE164(n, region)?.let(NumberText::formatInternational) ?: n }
         ?: "…" + e.key.takeLast(4)
     val ago = DateUtils.getRelativeTimeSpanString(e.at, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS)
     ListItem(
         headlineContent = { Text(Bidi.ltr(shown), style = MaterialTheme.typography.bodyLarge) },
         supportingContent = { Text(e.label + stringResource(R.string.main_separator) + ago) },
-        trailingContent = { IconButton(onDelete) { Icon(Icons.Rounded.Close, stringResource(R.string.rec_delete_number, shown)) } },
+        trailingContent = {
+            Row {
+                // C2: call the number straight from the list.
+                if (onCall != null) {
+                    IconButton(onCall) { Icon(Icons.Rounded.Call, stringResource(R.string.v33_call_number, Bidi.ltr(shown)), tint = CallColors.Accept) }
+                }
+                IconButton(onDelete) { Icon(Icons.Rounded.Close, stringResource(R.string.rec_delete_number, shown)) }
+            }
+        },
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
         modifier = if (onOpen != null) Modifier.clickable(onClick = onOpen) else Modifier,
     )

@@ -17,6 +17,7 @@ import androidx.compose.material.icons.automirrored.rounded.CallMerge
 import androidx.compose.material.icons.automirrored.rounded.Label
 import androidx.compose.material.icons.automirrored.rounded.PhoneForwarded
 import androidx.compose.material.icons.automirrored.rounded.ShortText
+import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.AdminPanelSettings
 import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.AutoDelete
@@ -472,12 +473,17 @@ internal fun HistoryPage(vm: AppViewModel, open: (String) -> Unit) {
         item("clear_history") { app.parley.ui.history.ClearHistoryRow(vm, open, Icons.Rounded.DeleteSweep) }
     }
     val layoutLabels = app.parley.ui.history.recentsLayoutLabels()
+    val styleLabels = app.parley.ui.home.recentsStyleLabels()
     val circleCfg by vm.c.circle.config.collectAsStateWithLifecycle()
     SegmentedGroup(stringResource(R.string.set_group_recents)) {
         switchRow("sim_labels", s.showSimLabels, Icons.Rounded.SimCard) { v -> set { it.copy(showSimLabels = v) } }
         // P8: grouped, chronological or by day (also in Recents ⋮).
         menuRow("recents_layout", layoutLabels, s.recentsLayout.ordinal, Icons.AutoMirrored.Rounded.ViewList) { i ->
             set { it.copy(recentsLayout = app.parley.common.calls.RecentsLayout.entries[i]) }
+        }
+        // R4 (v3.3): rich or simple call rows.
+        menuRow("recents_style", styleLabels, s.recentsStyle.ordinal, Icons.Rounded.Palette) { i ->
+            set { it.copy(recentsStyle = app.parley.common.ux.RecentsStyle.entries[i]) }
         }
         linkRow("insights", Icons.Rounded.Insights) { open(HistoryRoutes.INSIGHTS) }
         // R6: the People card in Insights.

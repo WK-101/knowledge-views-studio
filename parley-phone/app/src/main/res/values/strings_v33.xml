@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- v3.3 corrections. English only for now: translations follow in a later pass. -->
+<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
+    <!-- C2: direct Call on "Message on…" and number-action surfaces -->
+    <string name="v33_call_number">Call %1$s</string>
+
+    <!-- Q3: My card opens the QR code -->
+    <string name="v33_me_show_qr">Show my QR code</string>
+    <string name="v33_me_edit">Edit my card</string>
+    <string name="v33_me_edit_short">Edit</string>
+
+    <!-- R4: Recents at a glance -->
+    <string name="v33_class_no_answer">No answer</string>
+    <string name="v33_not_returned">not called back yet</string>
+    <string name="v33_call_back">Call back</string>
+    <string name="v33_call_back_who">Call back %1$s</string>
+    <string name="v33_count">%1$d×</string>
+    <plurals name="v33_calls_sequence">
+        <item quantity="one">%1$d call: %2$s</item>
+        <item quantity="other">%1$d calls, latest: %2$s</item>
+    </plurals>
+    <plurals name="v33_to_call_back">
+        <item quantity="one">%1$d person to call back</item>
+        <item quantity="other">%1$d people to call back</item>
+    </plurals>
+    <string name="v33_legend_menu">What do the colours mean?</string>
+    <string name="v33_legend_title">Calls at a glance</string>
+    <string name="v33_legend_missed">Solid circle: a call you missed. The row stays tinted, with a Call back button, until you call back.</string>
+    <string name="v33_legend_declined">Solid square: a call you turned down.</string>
+    <string name="v33_legend_incoming">Soft circle: a call you took. The bar shows how long you talked.</string>
+    <string name="v33_legend_elsewhere">Dashed circle: taken on another device, like a watch.</string>
+    <string name="v33_legend_voicemail">Soft square: they left a voicemail.</string>
+    <string name="v33_legend_outgoing">Outlined circle: a call you made. The bar shows how long you talked.</string>
+    <string name="v33_legend_no_answer">Dashed circle: you called and nobody picked up.</string>
+    <string name="v33_legend_blocked">Crossed square: a call Parley or your phone blocked.</string>
+    <string name="v33_legend_unknown">A call of an unknown kind.</string>
+    <string name="v33_legend_footer">The shapes tell the calls apart too, so colour is never the only clue. Several calls in a row show a count and small dots, oldest first. Prefer plain icons? Settings › Recents style › Simple.</string>
+    <string name="v33_style_rich">Rich</string>
+    <string name="v33_style_simple">Simple</string>
+    <string name="v33_set_recents_style_title">Recents style</string>
+    <string name="v33_set_recents_style_summary">Rich: shapes, tints and a Call back button for missed calls. Simple: plain icons</string>
+    <string name="v33_set_recents_style_kw">rich, simple, colours, colors, icons, missed, call back, style, legend, colour blind</string>
+</resources>

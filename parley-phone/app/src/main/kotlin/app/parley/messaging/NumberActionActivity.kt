@@ -21,7 +21,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Chat
-import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.ContentPaste
 import androidx.compose.material.icons.rounded.GroupAdd
 import androidx.compose.ui.focus.focusRequester
@@ -198,7 +197,7 @@ class NumberActionActivity : ComponentActivity() {
                     Stage.Enter -> EnterNumber()
                     is Stage.Pick -> PickNumber(s.found)
                     is Stage.Actions -> NumberActions(s.number, s.raw)
-                    is Stage.Message -> MessageOnContent(s.number, s.accountId) { app -> afterLaunch(app != null) }
+                    is Stage.Message -> MessageOnContent(s.number, s.accountId, onCall = callAction()) { app -> afterLaunch(app != null) }
                     is Stage.Offer -> Unit
                 }
             }
@@ -305,9 +304,11 @@ class NumberActionActivity : ComponentActivity() {
             }
             if (ready) {
                 androidx.compose.runtime.key(e164) {
-                    MessageOnContent(e164!!) { app -> afterLaunch(app != null) }
+                    MessageOnContent(e164!!, onCall = callAction()) { app -> afterLaunch(app != null) }
                 }
             } else {
+                // C2: a number messengers can't open (short or service numbers) can still be called.
+                if (typed.count { it.isDigit() } >= 3) callAction()?.let { call -> CallFirstButton(typed) { call(typed) } }
                 Text(
                     stringResource(if (typed.isBlank()) R.string.num_type_or_paste else R.string.num_keep_typing),
                     style = MaterialTheme.typography.bodySmall,
@@ -362,11 +363,8 @@ class NumberActionActivity : ComponentActivity() {
                     modifier = Modifier.padding(horizontal = 24.dp),
                 )
             }
-            ListItem(
-                headlineContent = { Text(stringResource(R.string.main_call)) },
-                leadingContent = { Icon(Icons.Rounded.Call, null) },
-                modifier = Modifier.clickable { call(number, contactName) },
-            )
+            // C2: Call is the primary action, above the messengers.
+            if (callAction() != null) CallFirstButton(number) { call(number, contactName) }
             ListItem(
                 headlineContent = { Text(stringResource(R.string.missed_message_on)) },
                 supportingContent = { Text(stringResource(R.string.num_message_apps)) },
@@ -435,6 +433,17 @@ class NumberActionActivity : ComponentActivity() {
         Toast.makeText(this, TemporaryContact.savedMessage(resources, saved), Toast.LENGTH_SHORT).show()
         finish()
     }
+
+    /**
+     * C2: the sheet's Call action, or null during a call (the in-call screen's caller card opens this sheet too, and a
+     * second call to the same person from there would only put the first on hold).
+     */
+    private fun callAction(): ((String) -> Unit)? =
+        if (app.parley.telecom.CallManager.state.value.any { it.state != app.parley.telecom.CallState.DISCONNECTED && it.state != app.parley.telecom.CallState.DISCONNECTING }) {
+            null
+        } else {
+            { n -> call(n, null) }
+        }
 
     /** Same path as calls made in Parley ([app.parley.CallGate]): dial guard, allowance and confirm-before-call apply. */
     private fun call(number: String, name: String?) {

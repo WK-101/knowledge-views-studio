@@ -54,6 +54,8 @@ data class AppSettings(
     val navTabs: NavTabs = NavTabs(),
     /** P8: grouped (as before), every call on its own row, or one row per number per day. */
     val recentsLayout: app.parley.common.calls.RecentsLayout = app.parley.common.calls.RecentsLayout.GROUPED,
+    /** R4 (v3.3): rich call rows (shapes, tints, sequence dots, Call back pill) or the simple icons. */
+    val recentsStyle: app.parley.common.ux.RecentsStyle = app.parley.common.ux.RecentsStyle.RICH,
 ) {
     companion object {
         val DEFAULT_QUICK_REPLIES = listOf(

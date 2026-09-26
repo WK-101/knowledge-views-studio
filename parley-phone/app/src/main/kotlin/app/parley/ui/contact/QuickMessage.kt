@@ -54,7 +54,7 @@ fun rememberQuickMessenger(vm: AppViewModel): Pair<QuickMessenger, @Composable (
     }
     val host: @Composable () -> Unit = {
         pending?.let { p ->
-            ContactMessageSheet(p.reach, onDismiss = { pending = null }) { prefs ->
+            ContactMessageSheet(p.reach, onDismiss = { pending = null }, onCall = { n -> vm.requestCall(n, p.reach.name) }) { prefs ->
                 scope.launch {
                     val m = vm.c.meta.meta(p.lookupKey) ?: app.parley.data.db.ContactMetaEntity(p.lookupKey)
                     vm.c.meta.setMeta(m.copy(contactId = p.contactId, preferredMessenger = MessengerPrefs.decode(m.preferredMessenger).copy(message = prefs.message, number = prefs.number).encode()))

@@ -33,6 +33,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
@@ -296,7 +297,7 @@ fun BulkAddScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
                         Text(bulkSummary(rs, list), Modifier.padding(16.dp), style = MaterialTheme.typography.titleSmall)
                     }
                     itemsIndexed(list) { i, cand ->
-                        CandidateRow(cand, checked.getOrElse(i) { false }, region) { v -> checked = checked.toMutableList().also { it[i] = v } }
+                        CandidateRow(cand, checked.getOrElse(i) { false }, region, onCall = { n -> vm.requestCall(n, cand.existingName) }) { v -> checked = checked.toMutableList().also { it[i] = v } }
                     }
                     item { HorizontalDivider(Modifier.padding(vertical = 8.dp)) }
                     item { SectionTitle(stringResource(R.string.bulk_names)) }
@@ -389,7 +390,7 @@ private fun SectionTitle(text: String) {
 }
 
 @Composable
-private fun CandidateRow(c: BulkAdd.Candidate, checked: Boolean, region: String, onChange: (Boolean) -> Unit) {
+private fun CandidateRow(c: BulkAdd.Candidate, checked: Boolean, region: String, onCall: (String) -> Unit, onChange: (Boolean) -> Unit) {
     val shown = c.e164?.let(NumberText::formatInternational) ?: c.raw
     val status = when (c.status) {
         BulkAdd.Status.CONTACT -> stringResource(R.string.bulk_already_contact, c.existingName.orEmpty())
@@ -403,6 +404,15 @@ private fun CandidateRow(c: BulkAdd.Candidate, checked: Boolean, region: String,
             Text(listOfNotNull(status, where, c.raw.takeIf { it != shown }?.let { "“$it”" }).joinToString(stringResource(R.string.main_separator)), maxLines = 2, overflow = TextOverflow.Ellipsis)
         },
         leadingContent = { Checkbox(checked, onCheckedChange = null, enabled = c.selectable) },
+        // C2: any number found can be called before (or instead of) saving it.
+        trailingContent = {
+            IconButton({ onCall(c.e164 ?: c.raw) }) {
+                androidx.compose.material3.Icon(
+                    androidx.compose.material.icons.Icons.Rounded.Call, stringResource(R.string.v33_call_number, Bidi.ltr(shown)),
+                    tint = app.parley.ui.CallColors.Accept,
+                )
+            }
+        },
         modifier = Modifier.toggleable(checked, enabled = c.selectable, role = Role.Checkbox, onValueChange = onChange),
     )
 }

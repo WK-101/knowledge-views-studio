@@ -77,7 +77,7 @@ fun CallInsightsSection(vm: AppViewModel, numbers: List<String>, title: String =
         }
         ins.lastCall?.let { last ->
             ListItem(
-                leadingContent = { app.parley.ui.home.CallTypeIcon(last.type) },
+                leadingContent = { app.parley.ui.home.CallTypeIcon(last.type, durationSec = last.durationSec) },
                 headlineContent = { Text(stringResource(R.string.hist_last_call, android.text.format.DateUtils.getRelativeTimeSpanString(last.date, System.currentTimeMillis(), android.text.format.DateUtils.MINUTE_IN_MILLIS))) },
                 supportingContent = {
                     Text(

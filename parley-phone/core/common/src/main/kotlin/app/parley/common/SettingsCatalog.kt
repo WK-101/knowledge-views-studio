@@ -178,6 +178,9 @@ object SettingsCatalog {
         e("sim_labels", "Show SIM in call history", "Only when two SIMs are active", H, "dual sim", "sim label"),
         e("recents_layout", "Call list layout", "Grouped, every call on its own row, or grouped by day", H,
             "chronological", "grouped", "by day", "ungroup", "list", "call log", "layout"),
+        // R4 (v3.3)
+        e("recents_style", "Recents style", "Rich: shapes, tints and a Call back button for missed calls. Simple: plain icons", H,
+            "rich", "simple", "colours", "colors", "icons", "missed", "call back", "style", "legend", "colour blind"),
         e("clear_history", "Clear call history", "All calls, calls from unknown numbers or missed calls, with an export first", H,
             "delete", "clear", "wipe", "erase", "unknown numbers", "call log"),
         e("insights", "Call insights", "Talk time, top people, calls you didn't return", H, "statistics", "stats", "charts", "talk time"),

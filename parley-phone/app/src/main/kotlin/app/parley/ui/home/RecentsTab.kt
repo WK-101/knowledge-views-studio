@@ -59,6 +59,10 @@ import app.parley.AppViewModel
 import app.parley.RecentFilter
 import app.parley.RecentGroup
 import app.parley.common.CallType
+import app.parley.common.ux.CallClass
+import app.parley.common.ux.CallGlance
+import androidx.compose.ui.graphics.compositeOver
+import androidx.compose.ui.text.font.FontWeight
 import app.parley.ui.Avatar
 import app.parley.ui.CallColors
 import app.parley.ui.EmptyState
@@ -80,7 +84,7 @@ fun RecentsTab(vm: AppViewModel, open: (String) -> Unit) {
     // F19: the number with the SIM of its latest call, so a national number is read with that SIM's country.
     var messageFor by remember { mutableStateOf<Pair<String, String?>?>(null) }
     menuFor?.let { g -> RecentActionsSheet(vm, g, open, onMessageOn = { messageFor = it to g.latest.accountId }) { menuFor = null } }
-    messageFor?.let { (n, account) -> app.parley.messaging.MessageOnSheet(n, onDismiss = { messageFor = null }, accountId = account) }
+    messageFor?.let { (n, account) -> app.parley.messaging.MessageOnSheet(n, onDismiss = { messageFor = null }, accountId = account, onCall = { num -> vm.requestCall(num) }) }
     var daySummary by remember { mutableStateOf<Pair<Long, String>?>(null) }
     daySummary?.let { (day, title) -> app.parley.ui.history.DaySummarySheet(vm, day, title) { daySummary = null } }
     app.parley.ui.history.RecentsExportHost(vm)
@@ -105,6 +109,11 @@ fun RecentsTab(vm: AppViewModel, open: (String) -> Unit) {
     val isDefault by vm.isDefaultDialer.collectAsStateWithLifecycle()
     val voicemail by vm.c.voicemail.state.collectAsStateWithLifecycle()
     val query by vm.recentQuery.collectAsStateWithLifecycle()
+    // R4 (v3.3): missed calls not returned yet (tint, Call back pill, the Missed chip's count) and the legend.
+    val unreturned by vm.unreturnedMissed.collectAsStateWithLifecycle()
+    val rich = settings.recentsStyle == app.parley.common.ux.RecentsStyle.RICH
+    val toReturn = unreturned.size
+    RecentsLegendHost()
 
     LazyColumn(Modifier.fillMaxWidth()) {
         if (selected.isNotEmpty()) stickyHeader(key = "selection") { app.parley.ui.blocking.RecentsSelectionBar(vm, groups.orEmpty()) }
@@ -117,6 +126,11 @@ fun RecentsTab(vm: AppViewModel, open: (String) -> Unit) {
                         onClick = { vm.recentFilter.value = f },
                         label = {
                             Text(stringResource(f.labelRes))
+                            // R4 (v3.3): the Missed chip counts the people still to call back.
+                            if (f == RecentFilter.MISSED && rich && toReturn > 0) {
+                                Spacer(Modifier.width(6.dp))
+                                androidx.compose.material3.Badge { Text(toReturn.toString()) }
+                            }
                             if (f == RecentFilter.VOICEMAIL && voicemail.unheard > 0) {
                                 Spacer(Modifier.width(6.dp))
                                 androidx.compose.material3.Badge { Text(voicemail.unheard.toString()) }
@@ -124,6 +138,9 @@ fun RecentsTab(vm: AppViewModel, open: (String) -> Unit) {
                         },
                         modifier = if (f == RecentFilter.VOICEMAIL && voicemail.unheard > 0) {
                             val spoken = pluralStringResource(R.plurals.recents_voicemail_new, voicemail.unheard, voicemail.unheard)
+                            Modifier.semantics { contentDescription = spoken }
+                        } else if (f == RecentFilter.MISSED && rich && toReturn > 0) {
+                            val spoken = stringResource(f.labelRes) + stringResource(R.string.main_separator) + pluralStringResource(R.plurals.v33_to_call_back, toReturn, toReturn)
                             Modifier.semantics { contentDescription = spoken }
                         } else {
                             Modifier
@@ -204,6 +221,7 @@ fun RecentsTab(vm: AppViewModel, open: (String) -> Unit) {
                     onLongClick = { if (selected.isNotEmpty()) toggleSelected(g) else menuFor = g },
                     badge = badgeFor(g),
                     selected = g.key in selected,
+                    unreturned = g.latest.id in unreturned,
                     onOpen = {
                         val ct = g.contact
                         when {
@@ -225,29 +243,67 @@ fun RecentsTab(vm: AppViewModel, open: (String) -> Unit) {
 @Composable
 fun RecentRow(
     g: RecentGroup, countryIso: String, simLabels: Map<String, String>, onLongClick: (() -> Unit)? = null,
-    badge: app.parley.ui.blocking.RecentBadge? = null, selected: Boolean = false, onOpen: () -> Unit, onCall: () -> Unit,
+    badge: app.parley.ui.blocking.RecentBadge? = null, selected: Boolean = false, unreturned: Boolean = false, onOpen: () -> Unit, onCall: () -> Unit,
 ) {
     val context = LocalContext.current
     val e = g.latest
     val missed = e.type == CallType.MISSED || e.type == CallType.REJECTED
+    // R4 (v3.3): the rich look (shape-coded badge, accent bar, tint and Call back pill for unreturned missed calls,
+    // count chip and sequence dots, duration bar); Simple keeps the U3 row.
+    val rich = richCalls()
+    val cls = CallClass.of(e)
+    val hue = app.parley.ui.CallTypeColors.of(cls.hue)
+    val attention = rich && unreturned && !g.hidden
+    val sequence = if (rich) CallGlance.sequence(g.calls) else emptyList()
     ListItem(
         modifier = Modifier.combinedClickable(onClick = onOpen, onLongClick = onLongClick, onLongClickLabel = stringResource(R.string.main_more_actions))
+            .then(if (rich) Modifier.callAccent(hue) else Modifier)
             .semantics { this.selected = selected },
-        colors = if (selected) androidx.compose.material3.ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.secondaryContainer) else androidx.compose.material3.ListItemDefaults.colors(),
+        colors = when {
+            selected -> androidx.compose.material3.ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+            attention -> androidx.compose.material3.ListItemDefaults.colors(containerColor = hue.copy(alpha = 0.08f).compositeOver(MaterialTheme.colorScheme.surface))
+            else -> androidx.compose.material3.ListItemDefaults.colors()
+        },
         leadingContent = {
             if (g.hidden) MonoAvatar(avatarSize()) else Avatar(g.title, g.contact?.photoUri, avatarSize())
         },
         headlineContent = {
-            Text(
-                (if (g.vaultId != null) "🔒 " else "") + (if (g.calls.size > 1) stringResource(R.string.missed_name_count, g.shownTitle, g.calls.size) else g.shownTitle),
-                maxLines = 1, overflow = TextOverflow.Ellipsis,
-                color = if (missed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
-            )
+            if (rich) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        (if (g.vaultId != null) "🔒 " else "") + g.shownTitle,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        fontWeight = if (attention) FontWeight.Bold else null,
+                        modifier = Modifier.weight(1f, fill = false),
+                    )
+                    if (g.calls.size > 1) {
+                        Spacer(Modifier.width(6.dp))
+                        CallCountChip(g.calls.size, cls)
+                    }
+                }
+            } else {
+                Text(
+                    (if (g.vaultId != null) "🔒 " else "") + (if (g.calls.size > 1) stringResource(R.string.missed_name_count, g.shownTitle, g.calls.size) else g.shownTitle),
+                    maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    color = if (missed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+                )
+            }
         },
         supportingContent = {
           androidx.compose.foundation.layout.Column {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                CallTypeIcon(e.type, size = 20.dp)
+                if (rich) {
+                    // TalkBack reads the type in words (and that the call still waits for a call back).
+                    val words = stringResource(callClassLabel(cls)) + if (attention) stringResource(R.string.main_separator) + stringResource(R.string.v33_not_returned) else ""
+                    app.parley.ui.CallClassBadge(cls, size = 20.dp, contentDescription = words)
+                    if (sequence.isNotEmpty()) {
+                        Spacer(Modifier.width(6.dp))
+                        val spoken = sequenceDescription(g.calls.size, sequence)
+                        app.parley.ui.CallSequenceDots(sequence, Modifier.semantics { contentDescription = spoken })
+                    }
+                } else {
+                    CallTypeIcon(e.type, size = 20.dp)
+                }
                 Spacer(Modifier.width(6.dp))
                 val location = if (g.contact == null && g.vaultId == null && !g.hidden) remember(g.number) { app.parley.data.NumberInfo.location(g.number, countryIso) } else null
                 val parts = listOfNotNull(
@@ -255,9 +311,17 @@ fun RecentRow(
                     if (g.contact != null) g.contact.phones.firstOrNull { p -> app.parley.common.PhoneNumbers.matchKey(p.number) == app.parley.common.PhoneNumbers.matchKey(e.number) }
                         ?.let { p -> Format.phoneType(context.resources, p.type, p.label) } else if (!g.hidden && g.contact == null && g.cachedName != null) Bidi.ltr(Format.number(e.number, countryIso)) else null,
                     e.accountId?.let { simLabels[it] },
+                    // R4: an outgoing call nobody answered says so.
+                    if (rich && cls == CallClass.NO_ANSWER) stringResource(R.string.v33_class_no_answer) else null,
                     Format.shortWhen(context, e.date),
                 )
-                Text(parts.joinToString(stringResource(R.string.main_separator)), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(parts.joinToString(stringResource(R.string.main_separator)), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                // R4: how long you talked, as a small bar (the length in words for TalkBack).
+                if (rich && cls.answered) {
+                    Spacer(Modifier.width(8.dp))
+                    val length = Format.duration(e.durationSec)
+                    app.parley.ui.CallDurationBar(CallGlance.durationFraction(e.durationSec), cls, Modifier.semantics { contentDescription = length })
+                }
             }
             if (badge != null) {
                 Text(
@@ -269,7 +333,11 @@ fun RecentRow(
         },
         trailingContent = {
             if (!g.hidden && g.number.isNotBlank()) {
-                IconButton(onClick = onCall) { Icon(Icons.Rounded.Call, stringResource(R.string.main_call_who, g.title), tint = MaterialTheme.colorScheme.primary) }
+                if (attention) {
+                    CallBackPill(g.title, onCall)
+                } else {
+                    IconButton(onClick = onCall) { Icon(Icons.Rounded.Call, stringResource(R.string.main_call_who, g.title), tint = MaterialTheme.colorScheme.primary) }
+                }
             }
         },
     )
@@ -304,9 +372,17 @@ private fun callTypeVector(type: CallType): ImageVector = when (type) {
     CallType.UNKNOWN -> Icons.Rounded.Call
 }
 
-/** U3: a call type's icon on its tinted circle, the same in Recents, history, the contact page and insights. */
+/**
+ * U3: a call type's icon on its tinted circle, the same in Recents, history, the contact page and insights. R4 (v3.3):
+ * in the Rich style it is the shape-coded [app.parley.ui.CallClassBadge] ([durationSec] tells "No answer" apart).
+ */
 @Composable
-fun CallTypeIcon(type: CallType, modifier: Modifier = Modifier, size: androidx.compose.ui.unit.Dp = 32.dp, describe: Boolean = true) {
+fun CallTypeIcon(type: CallType, modifier: Modifier = Modifier, size: androidx.compose.ui.unit.Dp = 32.dp, describe: Boolean = true, durationSec: Long? = null) {
+    if (richCalls()) {
+        val cls = CallClass.of(type, durationSec ?: 1)
+        app.parley.ui.CallClassBadge(cls, modifier, size, contentDescription = if (describe) stringResource(callClassLabel(cls)) else null)
+        return
+    }
     app.parley.ui.CallTypeBadge(
         callTypeVector(type), app.parley.common.ux.CallHue.of(type), modifier, size,
         // Rows that already say the type in words pass describe = false, so it isn't read twice.

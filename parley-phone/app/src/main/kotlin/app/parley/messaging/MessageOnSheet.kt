@@ -101,9 +101,16 @@ object MessageOn {
 /** Bottom sheet listing the installed messengers for [number]. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MessageOnSheet(number: String, onDismiss: () -> Unit, accountId: String? = null, onLaunched: (MessengerApp?) -> Unit = { onDismiss() }) {
+fun MessageOnSheet(
+    number: String,
+    onDismiss: () -> Unit,
+    accountId: String? = null,
+    onCall: ((String) -> Unit)? = null,
+    onLaunched: (MessengerApp?) -> Unit = { onDismiss() },
+) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
-        MessageOnContent(number, accountId, onLaunched)
+        // C2: calling closes the sheet (the call screen or the call's questions take over).
+        MessageOnContent(number, accountId, onCall = onCall?.let { call -> { n -> onDismiss(); call(n) } }, onLaunched = onLaunched)
     }
 }
 
@@ -124,11 +131,12 @@ private fun rows(installed: List<MessengerApp>, lastApp: String?): List<Messenge
 
 /**
  * The sheet's content: the number in international form, an optional message ("Send my details"), installed
- * messengers (last used first), SMS, and the privacy line. [onLaunched] runs after an app was opened.
+ * messengers (last used first), SMS, and the privacy line. [onLaunched] runs after an app was opened. [onCall]: C2, a
+ * direct Call shown first (null where calling makes no sense, e.g. during a call).
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun MessageOnContent(number: String, accountId: String? = null, onLaunched: (MessengerApp?) -> Unit) {
+fun MessageOnContent(number: String, accountId: String? = null, onCall: ((String) -> Unit)? = null, onLaunched: (MessengerApp?) -> Unit) {
     val context = LocalContext.current
     val res = LocalResources.current
     val c = context.container
@@ -198,6 +206,8 @@ fun MessageOnContent(number: String, accountId: String? = null, onLaunched: (Mes
                 modifier = Modifier.padding(horizontal = 24.dp),
             )
         }
+        // C2: calling is the first, primary action; the number is dialled as given (the SIM's country applies).
+        if (onCall != null) CallFirstButton(number) { onCall(number) }
         if (unavailable != null) {
             Text(
                 stringResource(R.string.msg_only_sms),
