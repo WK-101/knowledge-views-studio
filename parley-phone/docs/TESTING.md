@@ -495,6 +495,16 @@ Call the phone from another phone in each state below. For each one, check that 
 **Digest serendipity (X6)**
 - [ ] With the weekly digest: the third line is someone you were in touch with more than a year ago ("It's been over a year since you and … were in touch"), Circle or not, and never the same person two Sundays in a row. Nobody quiet for a year: no such line.
 
+**Review fixes (Circle)**
+- [ ] Log a few interactions (one with a `[ ]` promise note) for a contact, then ⋮ › Move to private: the interactions don't appear anywhere (Circle, People card, widget). Move them back out: the timeline, notes and promise are back.
+- [ ] Mark a non-Circle contact's birthday as wished, then rename that phone-only contact: the entry stays on their timeline.
+- [ ] Restore a backup with Circle members and interactions onto a phone without those contacts yet: members and entries come back; the result mentions any entries with no matching contact.
+- [ ] Ask mode: open WhatsApp with a Circle contact, tap Log, open it again within 10 minutes, tap Log: no Undo is offered the second time, and the entry stays.
+- [ ] Two custom dates of one contact on the same day ("New job", "Moved"): two separate reminders; "Mark as wished" closes only the one tapped.
+- [ ] Weekly digest with nobody in the Circle but a date flagged "remembered yearly": the Sunday digest still arrives with that line.
+- [ ] App lock on, Circle widget on the home screen: lock and unlock the phone after Parley was closed from Recents: the counts show "Tap to show names"; a tap (or opening Parley) brings the names back.
+- [ ] Insights › People › Year in review in Arabic or Urdu: names are joined with the Arabic comma; a contact with a family-name-first or CJK name shows its given name (or the full name), never a split fragment.
+
 ### 15.6 Extras (X2–X5, C5)
 
 **Trip mode, "Who's in…" (X2)**

@@ -49,7 +49,7 @@ class DataContainer(context: Context) {
     val vcards by lazy { VCardIO(appContext, contacts, records) { vault.allNumbers() } }
 
     /** Lossless moves into and out of the private vault (F4). */
-    val vaultMoves by lazy { app.parley.data.vault.VaultMoves(vault, contacts, records) }
+    val vaultMoves by lazy { app.parley.data.vault.VaultMoves(vault, contacts, records) { circle.interactions } }
     val vault by lazy { app.parley.data.vault.VaultRepository(appContext, db, scope) }
     val meta by lazy { db.metaDao() }
     val journal by lazy { JournalRepository(meta, records) }
@@ -82,7 +82,7 @@ class DataContainer(context: Context) {
     val circle by lazy {
         app.parley.data.circle.CircleRepository(
             appContext, meta, app.parley.data.circle.InteractionStore(db.interactionDao()),
-            index = { history.index }, contactsFlow = { contacts.contacts },
+            index = { history.index }, contactsFlow = { contacts.contacts }, freshContacts = { contacts.loadNow() }, db = db,
         )
     }
 

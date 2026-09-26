@@ -97,6 +97,8 @@ data class RestoreReport(
     val error: String? = null,
     /** Parts that couldn't be restored (e.g. private contacts while the vault is locked). */
     val skipped: List<String> = emptyList(),
+    /** R2: Circle entries (members, interactions, yearly flags) whose person wasn't found among the contacts here. */
+    val unmatched: Int = 0,
 ) {
     fun summary(res: Resources) = error ?: buildList {
         add(res.getQuantityString(R.plurals.data_rst_added, added, added))
@@ -311,6 +313,8 @@ class BackupRepository(
                 o.put("recordBlobs", blobs)
                 if (s.recordOf.isNotEmpty()) o.put("recordOf", s.recordOf)
             }
+            // R2: logged interactions carried in the entry while the contact is private.
+            runCatching { vault.storedInteractions(v.id) }.getOrNull()?.let { o.put("interactions", it) }
             // The caller photo (kept encrypted apart from the details); inside the archive it is under the archive key.
             vault.photoBytes(v.id)?.let { o.put("photo", android.util.Base64.encodeToString(it, android.util.Base64.NO_WRAP)) }
             arr.put(o)
@@ -439,7 +443,8 @@ class BackupRepository(
                 val titles = labelTitlesHere()
                 settings.update { s -> s.copy(screening = s.screening.copy(offHours = app.parley.common.LabelRefs.restoreOffHours(s.screening.offHours, titles))) }
                 val x = all.filterKeys { it.startsWith(BackupExtras.PREFIX) }
-                if (x.isNotEmpty()) extras().forEach { it.import(x) }
+                // Extras match people against the contacts this restore just inserted (read fresh, see loadNow).
+                if (x.isNotEmpty()) extras().forEach { e -> r = r.copy(unmatched = r.unmatched + e.importCounting(x)) }
             }
         }
         if (o.vault) try {
@@ -580,6 +585,7 @@ class BackupRepository(
                 null, d.copy(photoUri = null), expiresAt,
                 purgeHistory = if (expiresAt != null) o.optBoolean("purgeHistory", false) else null,
                 record = record, recordOf = o.optString("recordOf").takeIf { record != null && it.isNotEmpty() },
+                interactions = o.optString("interactions").takeIf { it.isNotEmpty() },
             )
             o.optString("photo").takeIf { it.isNotEmpty() }?.let { p ->
                 runCatching { vault.setPhoto(id, android.util.Base64.decode(p, android.util.Base64.NO_WRAP)) }

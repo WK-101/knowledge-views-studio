@@ -137,4 +137,10 @@
         <item quantity="many">También %d días antes</item>
         <item quantity="other">También %d días antes</item>
     </plurals>
+    <!-- Restore summary: Circle members, interactions or yearly flags whose person wasn't found. -->
+    <plurals name="circle_restore_unmatched">
+        <item quantity="one">%d entrada del Círculo no coincidía con ningún contacto de este teléfono y se omitió</item>
+        <item quantity="many">%d entradas del Círculo no coincidían con ningún contacto de este teléfono y se omitieron</item>
+        <item quantity="other">%d entradas del Círculo no coincidían con ningún contacto de este teléfono y se omitieron</item>
+    </plurals>
 </resources>

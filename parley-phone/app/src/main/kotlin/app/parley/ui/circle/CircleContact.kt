@@ -118,7 +118,7 @@ fun RhythmDialog(vm: AppViewModel, d: ContactDetails, contactId: Long, meta: Con
             vm.c.circle.setRhythm(d.lookupKey, contactId, days, natural)
             if (days == null && current != null) {
                 val before = meta
-                CircleSnacks.show(CircleSnack(res.getString(R.string.circle_removed, d.displayName)) { vm.c.meta.setMeta(before) })
+                CircleSnacks.show(CircleSnack(res.getString(R.string.circle_removed, d.displayName)) { vm.c.circle.restoreMembership(before) })
             }
         }
     }

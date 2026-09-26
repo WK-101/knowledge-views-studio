@@ -50,7 +50,8 @@ class ContactKeys(
 
     /**
      * Forgets everything Parley kept for [key] outside the contact itself, after it moved into the vault (F4): its
-     * contact_meta row (the pinned note travels in the vault entry), its call background, a temporary flag, and the
+     * contact_meta row (the pinned note travels in the vault entry), its logged interactions (carried, sealed, in the
+     * vault entry by [app.parley.data.vault.VaultMoves.moveIn]), its call background, a temporary flag, and the
      * relation links other contacts had to it.
      */
     suspend fun forget(key: String) = withContext(Dispatchers.IO) {
@@ -59,7 +60,7 @@ class ContactKeys(
             meta.deleteMeta(key)
             meta.clearTemporary(key)
             runCatching { backgrounds().clear(key) }
-            // R2: a private contact's interactions don't stay outside the vault (they'd put them back in the Circle).
+            // R2: a private contact's interactions don't stay outside the vault (moveIn copied them into the entry).
             runCatching { interactions()?.forget(key) }
             runCatching { extras()?.dndForget(key) }
             for (r in meta.allMetaNow()) {
@@ -79,7 +80,9 @@ class ContactKeys(
             val keys = LinkedHashMap<String, Long?>()
             rows.forEach { keys[it.lookupKey] = it.contactId }
             bg?.indexedKeys()?.forEach { keys.putIfAbsent(it, null) }
-            runCatching { interactions()?.keys() }.getOrNull()?.forEach { keys.putIfAbsent(it, null) }
+            // R2: with the contact id they were logged with, so a key change without a shared segment (a rename of a
+            // phone-only contact, a first sync) is still followed for contacts that have no contact_meta row.
+            runCatching { interactions()?.keys() }.getOrNull()?.forEach { (k, id) -> if (keys[k] == null) keys[k] = id }
             runCatching { extras()?.dndKeys() }.getOrNull()?.forEach { keys.putIfAbsent(it, null) }
             // Only moves that are plausibly the same person (no namesake takes over a deleted contact's note).
             val resolved = keys.mapValues { (key, id) ->

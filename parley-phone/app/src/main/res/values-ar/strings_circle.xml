@@ -167,4 +167,13 @@
         <item quantity="many">وقبلها بـ %d يوم أيضًا</item>
         <item quantity="other">وقبلها بـ %d يوم أيضًا</item>
     </plurals>
+    <!-- Restore summary: Circle members, interactions or yearly flags whose person wasn't found. -->
+    <plurals name="circle_restore_unmatched">
+        <item quantity="zero">%d من إدخالات الدائرة لم تطابق أي جهة اتصال على هذا الهاتف فتم تخطيها</item>
+        <item quantity="one">%d من إدخالات الدائرة لم تطابق أي جهة اتصال على هذا الهاتف فتم تخطيها</item>
+        <item quantity="two">%d من إدخالات الدائرة لم تطابق أي جهة اتصال على هذا الهاتف فتم تخطيها</item>
+        <item quantity="few">%d من إدخالات الدائرة لم تطابق أي جهة اتصال على هذا الهاتف فتم تخطيها</item>
+        <item quantity="many">%d من إدخالات الدائرة لم تطابق أي جهة اتصال على هذا الهاتف فتم تخطيها</item>
+        <item quantity="other">%d من إدخالات الدائرة لم تطابق أي جهة اتصال على هذا الهاتف فتم تخطيها</item>
+    </plurals>
 </resources>

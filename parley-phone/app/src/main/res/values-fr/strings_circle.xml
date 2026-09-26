@@ -137,4 +137,10 @@
         <item quantity="many">Aussi %d jours avant</item>
         <item quantity="other">Aussi %d jours avant</item>
     </plurals>
+    <!-- Restore summary: Circle members, interactions or yearly flags whose person wasn't found. -->
+    <plurals name="circle_restore_unmatched">
+        <item quantity="one">%d entrée du Cercle ne correspondait à aucun contact de ce téléphone et a été ignorée</item>
+        <item quantity="many">%d entrées du Cercle ne correspondaient à aucun contact de ce téléphone et ont été ignorées</item>
+        <item quantity="other">%d entrées du Cercle ne correspondaient à aucun contact de ce téléphone et ont été ignorées</item>
+    </plurals>
 </resources>

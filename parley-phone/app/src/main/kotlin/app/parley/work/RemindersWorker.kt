@@ -76,7 +76,7 @@ class RemindersWorker(context: Context, params: WorkerParameters) : CoroutineWor
             val d = EventDate.parse(e.date) ?: continue
             if (!LifeEvents.remindBirthday(e.type, e.contactId in deceased)) continue
             val fire = DateReminders.fire(d, today, cfg.dateLeadDays) ?: continue
-            val key = DateReminders.eventKey(e.type, d)
+            val key = DateReminders.eventKey(e.type, d, e.label)
             val occasion = DateReminders.occurrence(e.contactId, key, d, today)
             if (c.circle.isWished(occasion)) continue
             val firedKey = "$occasion:${fire.name}"
@@ -105,7 +105,10 @@ class RemindersWorker(context: Context, params: WorkerParameters) : CoroutineWor
     // R4
     private suspend fun keepInTouch(c: DataContainer, cfg: CircleConfig, today: LocalDate, now: Long) {
         val members = c.circle.relearnDue(now)
-        if (members.isEmpty()) return
+        // R10/X6: the weekly digest also carries yearly life events and the serendipity pick, for anyone (not only
+        // the Circle), so it still goes out with an empty Circle.
+        val digest = cfg.delivery == ReminderDelivery.WEEKLY_DIGEST
+        if (members.isEmpty() && !digest) return
         // In a cold worker process the flows start empty (null): wait for the first real load.
         val contacts = withTimeoutOrNull(30_000) { c.contacts.contacts.filterNotNull().first() }?.associateBy { it.lookupKey } ?: return
         val idx = c.history.awaitIndex()
@@ -116,7 +119,7 @@ class RemindersWorker(context: Context, params: WorkerParameters) : CoroutineWor
             val last = c.circle.lastContact(m.lookupKey, idx)
             Known(m, contact, last, CirclePlanner.Member(m.lookupKey, m.days, last?.time, m.rhythm.snoozedUntil))
         }
-        if (known.isEmpty()) return
+        if (known.isEmpty() && !digest) return
         val byKey = known.associateBy { it.m.lookupKey }
         when (cfg.delivery) {
             ReminderDelivery.WEEKLY_DIGEST -> {
@@ -149,7 +152,8 @@ class RemindersWorker(context: Context, params: WorkerParameters) : CoroutineWor
                 for (key in due) {
                     val k = byKey[key] ?: continue
                     notifyNudge(k.contact, k.last, now)
-                    c.meta.setMeta(k.m.meta.copy(lastNudgedAt = now))
+                    // Only this column: the row may have changed since it was read (a pinned-note edit, a re-key).
+                    c.meta.setLastNudgedAt(key, now)
                 }
                 c.circle.setStateString(S_WEEK, week)
                 c.circle.setStateString(S_SENT, (sent + due.size).toString())

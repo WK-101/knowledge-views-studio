@@ -35,6 +35,21 @@ object Promises {
     }
 
     /**
+     * Where the promise that was on [line] of [snapshot] (the note as it was shown) is in [current] (the note as it
+     * is now, possibly edited since): the same line when it still holds that promise, else the first line holding a
+     * promise with the same text; null when it's gone.
+     */
+    fun lineIn(current: String, snapshot: String, line: Int): Int? {
+        val wanted = parse(snapshot).firstOrNull { it.line == line }?.text ?: return null
+        val now = parse(current)
+        return (now.firstOrNull { it.line == line && it.text == wanted } ?: now.firstOrNull { it.text == wanted })?.line
+    }
+
+    /** [setDone] applied to [current] for the promise the user saw on [line] of [snapshot] (see [lineIn]). */
+    fun setDoneFresh(current: String, snapshot: String, line: Int, done: Boolean): String =
+        lineIn(current, snapshot, line)?.let { setDone(current, it, done) } ?: current
+
+    /**
      * The editor's checkbox button: puts [OPEN] at the start of the line the cursor is on, or on a new line when
      * that line already has text. Returns the new text and cursor position.
      */

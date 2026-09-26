@@ -21,8 +21,16 @@ object DateReminders {
         }
     }
 
-    /** Stable id of one event of a contact (type and month-day; Android's data row ids change on edits). */
-    fun eventKey(type: Int, date: EventDate): String = "%d-%02d%02d".format(Locale.ROOT, type, date.month, date.day)
+    /**
+     * Stable id of one event of a contact (type, month-day and label; Android's data row ids change on edits). The
+     * label (normalised like [YearlyEvents.key], as a short hash) keeps two custom events on one day apart (G5);
+     * events without a label keep the key they always had.
+     */
+    fun eventKey(type: Int, date: EventDate, label: String? = null): String {
+        val base = "%d-%02d%02d".format(Locale.ROOT, type, date.month, date.day)
+        val norm = label?.trim()?.lowercase(Locale.ROOT)?.replace('\n', ' ').orEmpty()
+        return if (norm.isEmpty()) base else base + "-" + Integer.toHexString(norm.hashCode())
+    }
 
     /**
      * One occasion: this event in the year it next falls on. The lead-day and on-the-day reminders share it, also

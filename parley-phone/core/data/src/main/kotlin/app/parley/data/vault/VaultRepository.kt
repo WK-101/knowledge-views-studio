@@ -132,7 +132,9 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
      * Saves a private contact. [expiresAt] makes it temporary (null keeps the current expiry); [purgeHistory] (null
      * keeps the current choice) removes its call history when it expires. [record]: the lossless image of the phone
      * contact it came from ("Move to private", F4); it is sealed with the details (photo included) so moving back out
-     * restores every field. Editing an entry later keeps the stored record (see [storedRecord]).
+     * restores every field. Editing an entry later keeps the stored record (see [storedRecord]). [interactions]: the
+     * contact's logged interactions ([app.parley.common.circle.Interactions.encodeCarried]), sealed with the details
+     * so they come back on "Move out" and are never shown while the contact is private (R2); edits keep them too.
      */
     suspend fun save(
         id: Long?,
@@ -141,6 +143,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
         purgeHistory: Boolean? = null,
         record: ContactRecord? = null,
         recordOf: String? = null,
+        interactions: String? = null,
     ): Long = withContext(Dispatchers.IO) {
         val name = d.composedName.ifBlank { d.company.ifBlank { d.phones.firstOrNull()?.value ?: context.getString(app.parley.data.R.string.data_vault_fallback_name) } }
         val region = region()
@@ -171,10 +174,14 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
             detail.put(REC_BLOBS, blobs)
             // [recordOf] (a restored backup): the hash stored with the record, so "edited since" survives.
             detail.put(REC_OF, recordOf ?: RecordJson.sha256Hex(ContactDetailsJson.encode(ContactDetailsJson.decode(detailsJson)).toByteArray()))
-        } else if (existing != null) {
-            // Keep the original record through edits (the details hash then no longer matches: it was edited).
+        }
+        if (interactions != null) detail.put(INTERACTIONS, interactions)
+        if (existing != null && (record == null || interactions == null)) {
+            // Keep the original record (the details hash then no longer matches: it was edited) and the carried
+            // interactions through edits.
+            val keep = (if (record == null) listOf(REC, REC_BLOBS, REC_OF) else emptyList()) + (if (interactions == null) listOf(INTERACTIONS) else emptyList())
             runCatching { JSONObject(String(VaultCrypto.openDetail(existing.detailBlob))) }.getOrNull()?.let { old ->
-                listOf(REC, REC_BLOBS, REC_OF).forEach { k -> if (old.has(k)) detail.put(k, old.get(k)) }
+                keep.forEach { k -> if (old.has(k)) detail.put(k, old.get(k)) }
             }
         }
         val entity = VaultContactEntity(
@@ -387,6 +394,15 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
         StoredRecord(record, RecordJson.sha256Hex(now.toByteArray()) != o.optString(REC_OF), o.optString(REC_OF))
     }
 
+    /**
+     * R2: the interactions carried into entry [id] by "Move to private" ([app.parley.common.circle.Interactions.encodeCarried]
+     * text), or null. Throws [VaultCrypto.LockedException] when the vault must be unlocked first.
+     */
+    suspend fun storedInteractions(id: Long): String? = withContext(Dispatchers.IO) {
+        val e = dao.get(id) ?: return@withContext null
+        JSONObject(String(VaultCrypto.openDetail(e.detailBlob))).optString(INTERACTIONS).takeIf { it.isNotEmpty() }
+    }
+
     /** Every private contact's numbers, read straight from the database (import duplicate checks, F17). */
     suspend fun allNumbers(): List<String> = withContext(Dispatchers.IO) { dao.all().mapNotNull { summarize(it) }.flatMap { it.numbers } }
 
@@ -403,6 +419,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
         const val REC = "parleyRecord"
         const val REC_BLOBS = "parleyRecordBlobs"
         const val REC_OF = "parleyRecordOf"
+        const val INTERACTIONS = "parleyInteractions"
         const val C_TITLE = "t"
         const val C_COMPANY = "co"
         const val C_REGION = "rg"

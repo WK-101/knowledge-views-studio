@@ -10,6 +10,12 @@ import app.parley.common.CallType
 object PeopleInsights {
     private const val DAY = NaturalRhythm.DAY
 
+    /**
+     * How a person is mentioned in short lines: their given name when the contact has one, else the whole display
+     * name. Never a guess from splitting on spaces (family-name-first orders, CJK names without spaces).
+     */
+    fun shortName(given: String?, displayName: String): String = given?.trim()?.takeIf { it.isNotEmpty() } ?: displayName
+
     /** "This month" for reach: the last 30 days, compared with the 30 before. */
     const val REACH_DAYS = 30
 

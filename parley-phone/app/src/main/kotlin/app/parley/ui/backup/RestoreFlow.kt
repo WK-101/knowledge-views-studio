@@ -170,7 +170,9 @@ fun RestoreFlow(vm: AppViewModel, uri: Uri, onDone: () -> Unit) {
                         step = Step.Working(res.getString(R.string.rst_restoring))
                         scope.launch {
                             val report = repo.restore(s.opened, s.plan, s.options.copy(applyConflicts = applyConflicts))
-                            step = Step.Done(report.summary(res))
+                            // Circle entries whose person isn't on this phone are skipped; say how many.
+                            val unmatched = if (report.unmatched > 0) res.getString(R.string.main_separator) + res.getQuantityString(R.plurals.circle_restore_unmatched, report.unmatched, report.unmatched) else ""
+                            step = Step.Done(report.summary(res) + unmatched)
                         }
                     }) { Text(stringResource(R.string.dc_restore)) }
                 },

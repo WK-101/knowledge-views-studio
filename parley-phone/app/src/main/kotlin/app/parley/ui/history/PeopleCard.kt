@@ -49,6 +49,8 @@ private data class PeopleData(
     val loops: List<PeopleInsights.Loop>,
     val firstMovers: List<Pair<String, PeopleInsights.FirstMover>>,
     val review: PeopleInsights.Review?,
+    /** Given names (by lookup key) of the people mentioned by first name. */
+    val given: Map<String, String> = emptyMap(),
 )
 
 /**
@@ -68,12 +70,18 @@ fun PeopleCard(vm: AppViewModel, idx: CallLogIndex, open: (String) -> Unit) {
             val now = System.currentTimeMillis()
             val circle = vm.c.circle.members().map { it.lookupKey }.filter { it in contacts }.toSet()
             val touches = vm.c.circle.touches(now - 400 * CallLogIndex.DAY, idx).filter { it.key in contacts }
+            val firstMovers = touches.filter { it.key in circle }.groupBy { it.key }.mapNotNull { (k, list) -> PeopleInsights.firstMover(list)?.let { k to it } }
+                .sortedBy { contacts[it.first]?.displayName }
+            val review = PeopleInsights.yearInReview(touches, circle, now)
+            // First names from the structured name, never by splitting the display name.
+            val named = (firstMovers.map { it.first } + review?.most?.map { it.first }.orEmpty()).mapNotNull { contacts[it] }
+            val given = runCatching { vm.c.contacts.givenNames(named.map { it.id }) }.getOrDefault(emptyMap())
             PeopleData(
                 reach = if (circle.isEmpty()) null else PeopleInsights.reach(circle, touches, now),
                 loops = PeopleInsights.openLoops(touches, now).take(5),
-                firstMovers = touches.filter { it.key in circle }.groupBy { it.key }.mapNotNull { (k, list) -> PeopleInsights.firstMover(list)?.let { k to it } }
-                    .sortedBy { contacts[it.first]?.displayName },
-                review = PeopleInsights.yearInReview(touches, circle, now),
+                firstMovers = firstMovers,
+                review = review,
+                given = named.mapNotNull { ct -> given[ct.id]?.let { ct.lookupKey to it } }.toMap(),
             )
         }.getOrNull()
     }
@@ -123,7 +131,7 @@ fun PeopleCard(vm: AppViewModel, idx: CallLogIndex, open: (String) -> Unit) {
             SubHeader(stringResource(R.string.c2_first_mover))
             d.firstMovers.forEach { (key, who) ->
                 val ct = contacts[key] ?: return@forEach
-                val name = ct.displayName.substringBefore(' ')
+                val name = PeopleInsights.shortName(d.given[key], ct.displayName)
                 ContactLine(
                     vm, ct,
                     when (who) {
@@ -138,8 +146,8 @@ fun PeopleCard(vm: AppViewModel, idx: CallLogIndex, open: (String) -> Unit) {
         }
         d.review?.let { r ->
             SubHeader(stringResource(R.string.c2_year_review))
-            val most = r.most.mapNotNull { (k, n) -> contacts[k]?.let { it.displayName.substringBefore(' ') + " (" + app.parley.ui.Bidi.ltr(n.toString()) + ")" } }
-            if (most.isNotEmpty()) ListItem(headlineContent = { Text(stringResource(R.string.c2_review_most, most.joinToString(", "))) })
+            val most = r.most.mapNotNull { (k, n) -> contacts[k]?.let { stringResource(R.string.c2_review_person_count, PeopleInsights.shortName(d.given[k], it.displayName), app.parley.ui.Bidi.ltr(n.toString())) } }
+            if (most.isNotEmpty()) ListItem(headlineContent = { Text(stringResource(R.string.c2_review_most, most.joinToString(stringResource(R.string.dc_list_separator)))) })
             r.longestGap?.let { (k, days) ->
                 contacts[k]?.let { ct -> ListItem(headlineContent = { Text(pluralStringResource(R.plurals.c2_review_gap, days, days, ct.displayName)) }) }
             }

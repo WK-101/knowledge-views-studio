@@ -126,4 +126,9 @@
         <item quantity="one">Also %d day before</item>
         <item quantity="other">Also %d days before</item>
     </plurals>
+    <!-- Restore summary: Circle members, interactions or yearly flags whose person wasn't found. -->
+    <plurals name="circle_restore_unmatched">
+        <item quantity="one">%d Circle entry had no matching contact on this phone and was skipped</item>
+        <item quantity="other">%d Circle entries had no matching contact on this phone and were skipped</item>
+    </plurals>
 </resources>

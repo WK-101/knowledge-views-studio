@@ -2,6 +2,9 @@ package app.parley.common.circle
 
 import app.parley.common.Messenger
 import app.parley.common.MessengerApp
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.json.Json
 
 /**
  * R2: a contact that isn't a phone call (the call log is the only source of calls): a meeting, a message, a video
@@ -49,6 +52,13 @@ enum class ContactKind { CALL, MEET, MESSAGE, VIDEO, OTHER }
 
 data class LastContact(val time: Long, val kind: ContactKind)
 
+/**
+ * One logged interaction as it travels inside a private contact's (sealed) vault entry while the contact is private
+ * ("Move to private" and back): kind [t], channel [c], time [at], the opened [note] and the unique key [u].
+ */
+@Serializable
+data class CarriedInteraction(val t: String, val c: String? = null, val at: Long, val note: String? = null, val u: String)
+
 object Interactions {
     /** R3: prompts for the same channel and person within this window are one conversation. */
     const val BUCKET_MS = 10 * 60_000L
@@ -67,6 +77,19 @@ object Interactions {
 
     /** Unique key of a "Mark as wished" entry: one per occasion. */
     fun wishedKey(occurrence: String): String = "w:$occurrence"
+
+    private val carriedJson = Json { ignoreUnknownKeys = true }
+
+    /** Interactions carried into the vault (see [CarriedInteraction]); null when there are none. */
+    fun encodeCarried(list: List<CarriedInteraction>): String? =
+        if (list.isEmpty()) null else carriedJson.encodeToString(ListSerializer(CarriedInteraction.serializer()), list)
+
+    /** Reads [encodeCarried]'s text; anything unreadable reads as none. */
+    fun decodeCarried(text: String?): List<CarriedInteraction> = if (text.isNullOrBlank()) {
+        emptyList()
+    } else {
+        runCatching { carriedJson.decodeFromString(ListSerializer(CarriedInteraction.serializer()), text) }.getOrDefault(emptyList())
+    }
 
     fun kindOf(type: InteractionType): ContactKind = when (type) {
         InteractionType.MEET -> ContactKind.MEET

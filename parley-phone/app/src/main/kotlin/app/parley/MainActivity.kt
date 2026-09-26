@@ -64,6 +64,8 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
         lifecycleScope.launch {
             val s = vm.c.settings.current()
             app.parley.security.AppLock.onStart(s)
+            // R7: the phone is unlocked now: a Circle widget drawn while it was locked shows names again.
+            if (s.appLock) launch { runCatching { app.parley.shortcuts.CircleWidget.refreshIfShownLocked(applicationContext) } }
             // After a longer break, open on the preferred tab again; a quick app switch keeps your place.
             if (stoppedAt > 0 && android.os.SystemClock.elapsedRealtime() - stoppedAt > 5 * 60_000L && intent?.action == android.content.Intent.ACTION_MAIN) {
                 vm.navigate(NavEvent.Tab(s.navTabs.startTab(s.startTab)))

@@ -146,4 +146,8 @@
         <item quantity="many">بعد %1$d يوم</item>
         <item quantity="other">بعد %1$d يوم</item>
     </plurals>
+    <!-- R7: under the widget's counts while the phone is locked. -->
+    <string name="c2_widget_tap_reveal">انقر لإظهار الأسماء</string>
+    <!-- R6 year in review: a name and how many times (a number). -->
+    <string name="c2_review_person_count">%1$s (%2$s)</string>
 </resources>
