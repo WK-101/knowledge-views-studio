@@ -280,10 +280,17 @@ fun CalendarScreen(
         com.wkhan.hexis.domain.calendar.CalendarEngine.onDay(visEvents, d.toEpochDay(), zone)
     }
     val eventBlocksFor: (LocalDate) -> List<EventBlock> = { d ->
+        val dayStart = d.atStartOfDay(zone).toInstant().toEpochMilli()
+        val dayEnd = d.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
         eventOccForDay(d).filter { !it.event.allDay }.map { o ->
-            val st = Instant.ofEpochMilli(o.startMillis).atZone(zone)
+            // Clamp the drawn block to THIS day's column: an occurrence that began on a previous day
+            // (e.g. 22:00 → next-day 02:00) must render from 00:00 on the continuation day, not from its
+            // original 22:00 start, and a segment running past midnight is cut at the day's end.
+            val segStart = o.startMillis.coerceAtLeast(dayStart)
+            val segEnd = o.endMillis.coerceAtMost(dayEnd)
+            val st = Instant.ofEpochMilli(segStart).atZone(zone)
             val startMin = (st.hour * 60 + st.minute).coerceIn(0, 1439)
-            val durMin = ((o.endMillis - o.startMillis) / 60000L).toInt().coerceIn(15, 1440 - startMin)
+            val durMin = ((segEnd - segStart) / 60000L).toInt().coerceIn(15, 1440 - startMin)
             EventBlock(o.event.id, o.event.title, colorOf(o.event, eventCalById), startMin, durMin)
         }
     }

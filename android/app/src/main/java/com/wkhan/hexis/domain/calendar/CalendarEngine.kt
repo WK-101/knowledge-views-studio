@@ -42,8 +42,21 @@ object CalendarEngine {
             val exDays = ev.exDates.split(",").mapNotNull { it.trim().toLongOrNull() }.toSet()
             var cur = ev.startMillis
             var emitted = 0
+            // Fast-forward an open-ended series to the viewed window before emitting. The old flat
+            // 2000-iteration cap counted from the ORIGINAL start, so a daily/weekday series begun more than
+            // ~5.5 years before the window ran out of iterations before reaching it and vanished from every
+            // view (and burned 2000 iterations per expand). COUNT-limited rules keep iterating from the
+            // start — they're naturally bounded by their own count, and the emitted-check below stops them.
+            if (r != null && r.count == null) {
+                var skip = 0
+                while (cur + dur < windowStart && skip++ < 750_000) {
+                    val nxt = Recurrence.next(r, cur, zone)
+                    if (nxt <= cur) break
+                    cur = nxt
+                }
+            }
             var guard = 0
-            while (guard++ < 2000 && cur <= windowEnd) {
+            while (guard++ < 4000 && cur <= windowEnd) {
                 val day = epochDay(cur, zone)
                 val untilDay = r?.untilEpochDay
                 if (untilDay != null && day > untilDay) break

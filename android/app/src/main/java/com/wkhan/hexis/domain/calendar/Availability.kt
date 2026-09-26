@@ -94,8 +94,12 @@ object Availability {
         return days.map { d ->
             val dow = d.dayOfWeek.value
             val dayStart = d.atStartOfDay(zone).toInstant().toEpochMilli()
-            val winStart = dayStart + cfg.startHour.toLong() * 3_600_000L
-            val winEnd = dayStart + cfg.endHour.toLong() * 3_600_000L
+            // Local wall-clock hours (DST-correct), matching CalendarEngine.freeSlots/window. The old
+            // midnight + hours*3_600_000 arithmetic drifted an hour on the two DST-transition days each
+            // year, shifting the drawn window and busy-block clipping relative to the free slots.
+            val winStart = d.atTime(cfg.startHour.coerceIn(0, 23), 0).atZone(zone).toInstant().toEpochMilli()
+            val winEnd = if (cfg.endHour >= 24) d.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
+                else d.atTime(cfg.endHour.coerceIn(0, 23), 0).atZone(zone).toInstant().toEpochMilli()
             if (dow !in cfg.days || windowMin <= 0) {
                 return@map DayFree(d, false, emptyList(), emptyList(), emptyList(), 0, 0, windowMin, winStart, winEnd)
             }

@@ -136,7 +136,9 @@ object TimeReports {
         habitCheckins.forEach { ci ->
             if (ci.status != "done" || ci.epochDay !in startDay..endDay) return@forEach
             val h = habById[ci.habitId] ?: return@forEach
-            if (h.category.isNotBlank() && hs.meetsGoal(h, ci.count)) bucket(h.category)[2] += 1
+            // isSuccessDay (not meetsGoal) so a break-habit SLIP — stored as status="done" with count>0 —
+            // isn't tallied as a kept habit-day, which would inflate that life area's weight.
+            if (h.category.isNotBlank() && hs.isSuccessDay(h, ci)) bucket(h.category)[2] += 1
         }
         return acc.filter { it.value.any { v -> v > 0 } }
             .map { TagLine(it.key, it.value[0], it.value[1], it.value[2]) }

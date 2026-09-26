@@ -34,11 +34,13 @@ object TimeTracking {
     /** Per-activity minute totals inside the window, largest first, zero-minute activities dropped. */
     fun totalsByActivity(entries: List<TimeEntryEntity>, winStart: Long, winEnd: Long, now: Long): List<ActivityTotal> =
         entries.groupBy { it.activityId }
-            .map { (id, es) -> ActivityTotal(id, es.sumOf { minutesInWindow(it.startMillis, it.endMillis, winStart, winEnd, now) }) }
+            // Sum the overlapping MILLIS then floor once — flooring each entry to whole minutes first lost
+            // up to 59s per interval, so ten 90-second sessions read 10 min instead of the true 15.
+            .map { (id, es) -> ActivityTotal(id, (es.sumOf { millisInWindow(it.startMillis, it.endMillis, winStart, winEnd, now) } / 60_000L).toInt()) }
             .filter { it.minutes > 0 }
             .sortedByDescending { it.minutes }
 
     /** Total tracked minutes across all activities in the window. */
     fun totalMinutes(entries: List<TimeEntryEntity>, winStart: Long, winEnd: Long, now: Long): Int =
-        entries.sumOf { minutesInWindow(it.startMillis, it.endMillis, winStart, winEnd, now) }
+        (entries.sumOf { millisInWindow(it.startMillis, it.endMillis, winStart, winEnd, now) } / 60_000L).toInt()
 }

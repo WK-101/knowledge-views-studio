@@ -3384,7 +3384,13 @@ class AppViewModel internal constructor(
     fun addManualTimeEntry(activityId: String, startMillis: Long, endMillis: Long, note: String = "") = viewModelScope.launch {
         if (endMillis > startMillis) repo.addManualTimeEntry(activityId, startMillis, endMillis, note)
     }
-    fun updateTimeEntry(e: com.wkhan.hexis.data.entity.TimeEntryEntity) = viewModelScope.launch { repo.upsertTimeEntry(e); refreshTimeWidget() }
+    fun updateTimeEntry(e: com.wkhan.hexis.data.entity.TimeEntryEntity) = viewModelScope.launch {
+        // Reject an inverted / zero-length edit (end <= start): it persists silently but then vanishes from
+        // every total and list (durations coerce to 0). A running entry (endMillis null) is left alone.
+        val end = e.endMillis
+        if (end != null && end <= e.startMillis) return@launch
+        repo.upsertTimeEntry(e); refreshTimeWidget()
+    }
     fun deleteTimeEntry(id: String) = viewModelScope.launch { repo.deleteTimeEntry(id); refreshTimeWidget() }
     /** U4: split a logged interval in two at [atMillis]. */
     fun splitTimeEntry(id: String, atMillis: Long) = viewModelScope.launch { repo.splitTimeEntry(id, atMillis); refreshTimeWidget() }
@@ -4102,7 +4108,9 @@ class AppViewModel internal constructor(
                 com.wkhan.hexis.data.entity.EventEntity(id = "habit-upkeep", calendarId = calId, title = "",
                     startMillis = us, endMillis = winEndMs, busy = true, createdAt = 0, updatedAt = 0), us, winEndMs))
         }
-        val tasks = wsTasks.filter { it.id !in timedTaskIds }
+        // Exclude tasks already placed as a linked block on this day too (not just self-timed ones), so a
+        // second "Auto-schedule" tap doesn't drop a duplicate block for a task that a prior run scheduled.
+        val tasks = wsTasks.filter { it.id !in timedTaskIds && it.id !in linkedIds }
         val nowFloor = if (day == java.time.LocalDate.now(zone).toEpochDay()) System.currentTimeMillis() else null
         val bias = estimateBias.value?.medianRatio ?: 1.0
         val placements = com.wkhan.hexis.domain.calendar.CalendarPlanner.autoSchedule(

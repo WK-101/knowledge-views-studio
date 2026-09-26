@@ -106,7 +106,7 @@ object EventIcs {
         val out = ArrayList<EventEntity>()
         var inEvent = false
         var uid: String? = null; var summary = ""; var location = ""; var notes = ""; var url = ""
-        var start: LocalDateTime? = null; var end: LocalDateTime? = null; var allDay = false; var rrule = ""
+        var start: java.time.ZonedDateTime? = null; var end: java.time.ZonedDateTime? = null; var allDay = false; var rrule = ""
         // R52 — invitation fields.
         var organizer = ""; var confUrl = ""; val attendees = ArrayList<String>()
         var sequence = 0   // R53 — revision number for invite updates
@@ -118,8 +118,8 @@ object EventIcs {
                 line.equals("BEGIN:VEVENT", true) -> { inEvent = true; reset() }
                 line.equals("END:VEVENT", true) -> {
                     if (inEvent && summary.isNotBlank() && start != null) {
-                        val s = start!!.atZone(zone).toInstant().toEpochMilli()
-                        val e = (end ?: start!!.plusHours(1)).atZone(zone).toInstant().toEpochMilli()
+                        val s = start!!.toInstant().toEpochMilli()
+                        val e = (end ?: start!!.plusHours(1)).toInstant().toEpochMilli()
                         // A meeting invite scatters its join link across URL / CONFERENCE / X-props / LOCATION /
                         // DESCRIPTION; take the first that looks like one so the event gets a working "Join".
                         val joinUrl = url.ifBlank { confUrl }.ifBlank { detectUrl(location) }.ifBlank { detectUrl(notes) }
@@ -148,10 +148,10 @@ object EventIcs {
                         "ATTENDEE" -> cnOrValue(nameAndParams, value).takeIf { it.isNotBlank() }?.let { attendees += it }
                         "CONFERENCE", "X-GOOGLE-CONFERENCE", "X-MICROSOFT-SKYPETEAMSMEETINGURL",
                         "X-MICROSOFT-ONLINEMEETINGCONFLINK" -> if (confUrl.isBlank()) confUrl = detectUrl(value).ifBlank { value.trim() }
-                        "DTSTART" -> parseDt(nameAndParams, value)?.let { (dt, ad) -> start = dt; if (ad) allDay = true }
-                        "DTEND" -> parseDt(nameAndParams, value)?.let { (dt, _) -> end = dt }
+                        "DTSTART" -> parseDt(nameAndParams, value, zone)?.let { (dt, ad) -> start = dt; if (ad) allDay = true }
+                        "DTEND" -> parseDt(nameAndParams, value, zone)?.let { (dt, _) -> end = dt }
                         "RRULE" -> rrule = rfcToRule(value)
-                        "EXDATE" -> parseDt(nameAndParams, value)?.let { (dt, _) -> ex += dt.toLocalDate().toEpochDay() }
+                        "EXDATE" -> parseDt(nameAndParams, value, zone)?.let { (dt, _) -> ex += dt.toLocalDate().toEpochDay() }
                     }
                 }
             }
@@ -194,12 +194,26 @@ object EventIcs {
         }
     }
 
-    private fun parseDt(nameAndParams: String, value: String): Pair<LocalDateTime, Boolean>? {
-        val v = value.trim().removeSuffix("Z")
-        val isDate = nameAndParams.contains("VALUE=DATE", true) || (v.length == 8 && !v.contains('T'))
+    /** Parse an ICS date/date-time to a zoned instant + an all-day flag. Honours the UTC "Z" suffix and a
+     *  TZID= parameter; a genuinely floating value (no Z, no TZID) is anchored to [zone]. Returning a
+     *  ZonedDateTime (not a naive LocalDateTime the caller re-anchors to [zone]) is what fixes the old bug
+     *  where "DTSTART:...Z" and TZID times were read as local wall-clock and shifted by the zone offset. */
+    private fun parseDt(nameAndParams: String, value: String, zone: ZoneId): Pair<java.time.ZonedDateTime, Boolean>? {
+        val v = value.trim()
+        val isDate = nameAndParams.contains("VALUE=DATE", true) || (!v.contains('T') && v.length == 8)
         return runCatching {
-            if (isDate) LocalDate.parse(v, DATE).atStartOfDay() to true
-            else LocalDateTime.parse(v.take(15), DT) to false
+            when {
+                isDate -> LocalDate.parse(v.take(8), DATE).atStartOfDay(zone) to true
+                v.endsWith("Z", true) ->
+                    LocalDateTime.parse(v.removeSuffix("Z").removeSuffix("z").take(15), DT)
+                        .atZone(java.time.ZoneOffset.UTC) to false
+                else -> {
+                    val tzid = nameAndParams.split(';').firstOrNull { it.startsWith("TZID=", true) }
+                        ?.substringAfter('=')?.trim('"', ' ')
+                    val z = tzid?.let { runCatching { ZoneId.of(it) }.getOrNull() } ?: zone
+                    LocalDateTime.parse(v.take(15), DT).atZone(z) to false
+                }
+            }
         }.getOrNull()
     }
 

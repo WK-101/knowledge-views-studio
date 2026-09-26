@@ -309,7 +309,11 @@ object HabitStats {
             if (d in doneDays) doneCount++
             else {
                 misses++
-                val allowed = (expectedSeen * missesPerWeek.coerceAtLeast(0)) / 7
+                // Budget the tolerated misses over the run scanned so far, rounding UP so the weekly
+                // allowance is available from the very first expected day. Integer floor kept the budget at
+                // 0 for the first 6 expected days, so a single RECENT miss collapsed a weeks-long streak to
+                // zero the morning after one off day — the exact thing a forgiving streak exists to prevent.
+                val allowed = kotlin.math.ceil(expectedSeen.toDouble() * missesPerWeek.coerceAtLeast(0) / 7.0).toInt()
                 if (misses > allowed) break
             }
             d--
