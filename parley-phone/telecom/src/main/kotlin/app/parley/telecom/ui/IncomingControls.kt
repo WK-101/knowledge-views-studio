@@ -71,7 +71,18 @@ import kotlin.math.abs
 import kotlin.math.roundToInt
 
 @Composable
-fun IncomingControls(call: CallUi, gesture: AnswerGesture, hasActiveCall: Boolean, onMessage: () -> Unit, onBlockAndDecline: (() -> Unit)? = null) {
+fun IncomingControls(
+    call: CallUi, gesture: AnswerGesture, hasActiveCall: Boolean, onMessage: () -> Unit, onBlockAndDecline: (() -> Unit)? = null,
+    simple: Boolean = false, confirmDecline: Boolean = false,
+) {
+    // X4: simple mode asks before declining, so a stray tap never sends a call away.
+    var askDecline by remember { mutableStateOf(false) }
+    val decline = { if (confirmDecline) askDecline = true else CallManager.reject(call.id) }
+    if (askDecline) DeclineQuestion(onDecline = { askDecline = false; CallManager.reject(call.id) }, onDismiss = { askDecline = false })
+    if (simple) {
+        SimpleAnswerButtons(call.simHint, onAnswer = { CallManager.answer(call.id) }, onDecline = decline)
+        return
+    }
     Column(Modifier.fillMaxWidth().padding(bottom = 40.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         if (!call.hidden && !call.number.isNullOrBlank()) {
             FilledTonalButton(onClick = onMessage) {
@@ -84,8 +95,8 @@ fun IncomingControls(call: CallUi, gesture: AnswerGesture, hasActiveCall: Boolea
         // V5: on dual-SIM phones, which SIM the call came in on ("Work · …4567"), right on the answer control.
         val sim = call.simHint
         when (gesture) {
-            AnswerGesture.SWIPE -> AnswerSlider(sim, onAnswer = { CallManager.answer(call.id) }, onDecline = { CallManager.reject(call.id) })
-            AnswerGesture.TAP -> AnswerButtons(sim, onAnswer = { CallManager.answer(call.id) }, onDecline = { CallManager.reject(call.id) })
+            AnswerGesture.SWIPE -> AnswerSlider(sim, onAnswer = { CallManager.answer(call.id) }, onDecline = decline)
+            AnswerGesture.TAP -> AnswerButtons(sim, onAnswer = { CallManager.answer(call.id) }, onDecline = decline)
         }
         if (!call.silenced || onBlockAndDecline != null) {
             Spacer(Modifier.height(8.dp))
@@ -99,6 +110,41 @@ fun IncomingControls(call: CallUi, gesture: AnswerGesture, hasActiveCall: Boolea
             Spacer(Modifier.height(12.dp))
             TextButton(onClick = { CallManager.endAndAnswer(call.id) }) { Text(stringResource(R.string.incall_end_and_answer)) }
         }
+    }
+}
+
+/** X4: "Decline this call?" (simple mode). */
+@Composable
+private fun DeclineQuestion(onDecline: () -> Unit, onDismiss: () -> Unit) {
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.x_incall_decline_q)) },
+        text = { Text(stringResource(R.string.x_incall_decline_body)) },
+        confirmButton = { TextButton(onClick = onDecline) { Text(stringResource(R.string.incall_decline), color = CallColors.Decline) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.x_incall_keep_ringing)) } },
+    )
+}
+
+/** X4: two very large buttons, answer on top (easy to reach and hard to miss), decline below. */
+@Composable
+private fun SimpleAnswerButtons(sim: String?, onAnswer: () -> Unit, onDecline: () -> Unit) {
+    Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        BigAction(Icons.Rounded.Call, stringResource(R.string.incall_answer), CallColors.Accept, onAnswer, height = 112, a11y = sim?.let { stringResource(R.string.incall_answer_on, it) })
+        if (sim != null) SimTag(sim, Modifier.align(Alignment.CenterHorizontally))
+        BigAction(Icons.Rounded.CallEnd, stringResource(R.string.incall_decline), CallColors.Decline, onDecline, height = 80)
+    }
+}
+
+@Composable
+private fun BigAction(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, color: Color, onClick: () -> Unit, height: Int, a11y: String? = null) {
+    Row(
+        Modifier.fillMaxWidth().height(height.dp).clip(RoundedCornerShape(28.dp)).background(color)
+            .clickable(role = Role.Button, onClick = onClick).semantics { contentDescription = a11y ?: label },
+        horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(icon, null, tint = Color.White, modifier = Modifier.size(40.dp))
+        Spacer(Modifier.size(16.dp))
+        Text(label, color = Color.White, style = MaterialTheme.typography.headlineMedium)
     }
 }
 

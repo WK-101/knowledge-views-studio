@@ -375,6 +375,8 @@ fun LabelScreen(vm: AppViewModel, title: String, back: () -> Unit, open: (String
                     trailingContent = { if (tone != null) TextButton({ vm.people.update { it.copy(labelRingtones = it.labelRingtones - current) } }) { Text(stringResource(R.string.lbl_reset)) } },
                 )
             }
+            // X3: SIM, Circle rhythm and Do Not Disturb for this label.
+            item { app.parley.ui.extras.LabelPolicySection(vm, current, members) }
             item { Section(pluralStringResource(R.plurals.lbl_n_contacts, members.size, members.size)) }
             if (members.isEmpty()) item {
                 Text(stringResource(R.string.lbl_nobody), Modifier.padding(16.dp), style = MaterialTheme.typography.bodyMedium)

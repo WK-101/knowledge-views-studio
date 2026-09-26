@@ -35,6 +35,7 @@ import app.parley.common.calls.RingtoneSource
 import app.parley.data.ScreenRequest
 import app.parley.common.VerdictKind
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
@@ -47,6 +48,9 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
     override val appearance: StateFlow<InCallAppearance> = kotlinx.coroutines.flow.combine(c.settings.settings, c.settings.loaded) { s, loaded ->
         // G3/P3: "Hide screen content" reaches the call screen; it stays secure until the settings are read.
         InCallAppearance(s.themeMode, s.amoledBlack, s.dynamicColor, s.density, s.answerGesture, s.quickReplies, secureScreen = s.secureScreen, loaded = loaded)
+    }.combine(c.extras.simple) { look, simple ->
+        // X4: simple mode's incoming screen (large buttons, ask before declining, the caller's name spoken).
+        if (!simple.enabled) look else look.copy(simpleMode = true, confirmDecline = simple.confirmDecline, speakCallerName = simple.speakName)
     }.stateIn(c.scope, SharingStarted.Eagerly, InCallAppearance())
 
     override suspend fun callerInfo(number: String): CallerDisplay? = callerInfo(number, null)
@@ -254,7 +258,7 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
         c.scope.launch { runCatching { c.blocks.addRing(number, startedAt, ringMillis, answered) } }
     }
 
-    override suspend fun preferredAccountId(number: String): String? = withContext(Dispatchers.IO) { c.prefs.simFor(number) }
+    override suspend fun preferredAccountId(number: String): String? = withContext(Dispatchers.IO) { c.prefs.simFor(number) ?: c.extras.labelSimFor(number) }
 
     override fun mainIntent(context: Context, dialpad: Boolean): Intent =
         Intent(context, MainActivity::class.java)

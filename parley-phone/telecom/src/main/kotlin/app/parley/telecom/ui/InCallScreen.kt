@@ -122,6 +122,9 @@ fun InCallScreen(
     /** P2: the call just declined with "Block & decline" (Undo). */
     declineBlock: DeclineBlock? = null,
     onUndoBlock: () -> Unit = {},
+    /** X4 simple mode: large buttons and (optionally) a question before declining. */
+    simple: Boolean = false,
+    confirmDecline: Boolean = false,
 ) {
     val live = calls.filter { it.isLive }
     // A1/P9: which call is in front and whether a second one is waiting (pure logic in core:common).
@@ -222,7 +225,9 @@ fun InCallScreen(
                         gesture = answerGesture,
                         hasActiveCall = others.any { it.state == CallState.ACTIVE },
                         onMessage = { replyFor = primary.id },
-                        onBlockAndDecline = if (primary.canBlockAndDecline) ({ CallManager.blockAndDecline(primary.id) }) else null,
+                        onBlockAndDecline = if (primary.canBlockAndDecline && !simple) ({ CallManager.blockAndDecline(primary.id) }) else null,
+                        simple = simple,
+                        confirmDecline = confirmDecline,
                     )
                     primary.state == CallState.SELECT_ACCOUNT -> SimPicker(primary)
                     else -> {

@@ -99,6 +99,9 @@ class InCallActivity : ComponentActivity() {
                     if (CallManager.state.value.isEmpty() && !keepEnded) finishAndRemoveTask()
                 }
             }
+            // X4: the caller's name, spoken while it rings (simple mode, when chosen).
+            val ringingCall = calls.firstOrNull { it.state == CallState.RINGING }
+            if (look.speakCallerName) SpeakCallerName(ringingCall?.id?.takeIf { !ringingCall.silenced }, ringingCall?.name?.takeIf { ringingCall.contactId != null })
             ParleyTheme(look.themeMode, look.amoled, look.dynamicColor, look.density) {
                 if (inPip) PipCallCard(calls, audio, ended) else InCallScreen(
                     calls = calls,
@@ -122,6 +125,8 @@ class InCallActivity : ComponentActivity() {
                         keepEnded = true
                         CallManager.undoDeclineBlock()
                     },
+                    simple = look.simpleMode,
+                    confirmDecline = look.confirmDecline,
                 )
             }
         }

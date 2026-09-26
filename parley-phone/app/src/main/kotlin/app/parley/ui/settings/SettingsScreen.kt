@@ -279,7 +279,7 @@ fun SettingsPageScreen(vm: AppViewModel, category: SettingsCategory, focus: Stri
     CompositionLocalProvider(LocalHighlightKey provides shown) {
         SettingsScaffold(category.localTitle(), back) {
             when (category) {
-                SettingsCategory.APPEARANCE -> AppearancePage(vm)
+                SettingsCategory.APPEARANCE -> AppearancePage(vm, open)
                 SettingsCategory.CALLS -> CallsPage(vm, open)
                 SettingsCategory.KEYPAD -> KeypadPage(vm, open)
                 SettingsCategory.CALL_TIME -> CallTimePage(vm, open)

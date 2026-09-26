@@ -188,6 +188,13 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="parley" android:host="template" />
             </intent-filter>
+            <!-- X4: a simple-mode setup (parley://simple?d=...), encrypted with a passcode, opened by any QR scanner. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="parley" android:host="simple" />
+            </intent-filter>
             <!-- Open or share a .vcf file to import it. -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />

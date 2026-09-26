@@ -23,12 +23,16 @@ sealed interface PlaceResult {
 class CallPlacer(private val context: Context, private val sims: SimRepository, private val prefs: PrefsRepository) {
     private val telecom = context.getSystemService(TelecomManager::class.java)
 
+    /** X3: the SIM a label asks for, used when the number has no remembered SIM (blocking; we're off the main thread). */
+    @Volatile
+    var fallbackSim: ((String) -> String?)? = null
+
     suspend fun call(rawNumber: String, accountId: String? = null): PlaceResult {
         val number = rawNumber.trim()
         if (number.isEmpty()) return PlaceResult.Failed("Empty number")
         if (handleSecretCode(number)) return PlaceResult.Handled
         val extras = Bundle()
-        val chosen = accountId ?: prefs.simFor(number)
+        val chosen = accountId ?: prefs.simFor(number) ?: runCatching { fallbackSim?.invoke(number) }.getOrNull()
         sims.handle(chosen)?.let { extras.putParcelable(TelecomManager.EXTRA_PHONE_ACCOUNT_HANDLE, it) }
         return try {
             telecom.placeCall(Uri.fromParts("tel", number, null), extras)

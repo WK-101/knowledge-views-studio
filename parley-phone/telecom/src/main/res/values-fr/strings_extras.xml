@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- v3.2 extras: X2 trip mode, X3 label policies, X4 simple mode, X5 handshake, C5 Markdown export. -->
+<resources>
+    <string name="x_incall_decline_q">Refuser cet appel ?</string>
+    <string name="x_incall_decline_body">La personne qui appelle saura que vous n\'êtes pas disponible.</string>
+    <string name="x_incall_keep_ringing">Laisser sonner</string>
+    <string name="x_incall_is_calling">%1$s vous appelle</string>
+</resources>

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- v3.2 extras: X2 trip mode, X3 label policies, X4 simple mode, X5 handshake, C5 Markdown export. -->
+<resources>
+    <string name="x_incall_decline_q">यह कॉल मना करें?</string>
+    <string name="x_incall_decline_body">कॉल करने वाले को पता चलेगा कि आप अभी उपलब्ध नहीं हैं।</string>
+    <string name="x_incall_keep_ringing">घंटी बजने दें</string>
+    <string name="x_incall_is_calling">%1$s कॉल कर रहे हैं</string>
+</resources>

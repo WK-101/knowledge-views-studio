@@ -46,6 +46,7 @@ import app.parley.ui.home.HomeScreen
 import app.parley.ui.onboarding.OnboardingScreen
 import app.parley.ui.people.peopleRoutes
 import app.parley.messaging.messagingRoutes
+import app.parley.ui.extras.extrasRoutes
 import app.parley.ui.settings.PrivacyScreen
 import app.parley.ui.settings.SettingsScreen
 import app.parley.ui.settings.SpeedDialScreen
@@ -106,6 +107,15 @@ fun ParleyRoot(vm: AppViewModel) {
     if (!settings.onboardingDone && !skippedOnboarding && (onboardingStarted || !(isDefault && hasContacts))) {
         androidx.compose.runtime.SideEffect { onboardingStarted = true }
         OnboardingScreen(vm, onDone = { skippedOnboarding = true })
+        return
+    }
+
+    // X4: simple mode replaces the tabs (its own home, calls still go through the usual questions).
+    val simple by vm.c.extras.simple.collectAsStateWithLifecycle()
+    if (simple.enabled) {
+        val marks = remember { app.parley.ui.common.CoachMarks(vm.c.ux) }
+        androidx.compose.runtime.CompositionLocalProvider(app.parley.ui.common.LocalCoachMarks provides marks) { app.parley.ui.extras.SimpleHome(vm) }
+        CallDialogs(vm)
         return
     }
 
@@ -208,6 +218,8 @@ fun ParleyRoot(vm: AppViewModel) {
                     prefill = if (a.getBoolean("prefill")) vm.pendingPrefill.also { vm.pendingPrefill = null } else null,
                     vaultId = a.getLong("vault").takeIf { it >= 0 },
                     done = { savedId ->
+                        // X5: a contact received by QR gets its "Met at…" entry once it's saved.
+                        app.parley.ui.extras.HandshakeInbox.onSaved(vm, savedId)
                         nav.popBackStack()
                         val here = nav.currentDestination?.route
                         when {
@@ -261,6 +273,8 @@ fun ParleyRoot(vm: AppViewModel) {
             composable(Routes.CALL_TIME) { app.parley.ui.calltime.CallTimeScreen(vm, back = { nav.popBackStack() }) }
             peopleRoutes(vm, nav)
             messagingRoutes(vm, nav)
+            // X2, X4
+            extrasRoutes(vm, nav)
         }
        }
       }

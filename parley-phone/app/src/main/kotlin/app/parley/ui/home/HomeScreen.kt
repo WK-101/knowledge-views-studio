@@ -35,6 +35,7 @@ import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.SimCard
 import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material.icons.rounded.TravelExplore
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.DropdownMenuItem
@@ -275,6 +276,8 @@ private fun ColumnScope.TabMenu(vm: AppViewModel, tab: StartTab, appLock: Boolea
             }
             MenuItem(stringResource(R.string.home_add_several), Icons.Rounded.GroupAdd) { go(app.parley.messaging.MessagingRoutes.BULK_ADD) }
             MenuItem(stringResource(R.string.home_duplicates), Icons.AutoMirrored.Rounded.CallMerge) { go(Routes.DUPLICATES) }
+            // X2: "Who's in…" (trip mode).
+            MenuItem(stringResource(R.string.x_trip_menu), Icons.Rounded.TravelExplore) { go(app.parley.ui.extras.ExtrasRoutes.TRIP) }
             MenuItem(stringResource(R.string.home_contacts_settings), Icons.Rounded.Tune) { go(Routes.settingsPage(SettingsCategory.CONTACTS)) }
         }
         StartTab.KEYPAD -> {
@@ -283,9 +286,14 @@ private fun ColumnScope.TabMenu(vm: AppViewModel, tab: StartTab, appLock: Boolea
             MenuItem(stringResource(R.string.home_keypad_settings), Icons.Rounded.Tune) { go(Routes.settingsPage(SettingsCategory.KEYPAD)) }
         }
         StartTab.CIRCLE -> {
+            MenuItem(stringResource(R.string.x_trip_menu), Icons.Rounded.TravelExplore) { go(app.parley.ui.extras.ExtrasRoutes.TRIP) }
             MenuItem(stringResource(R.string.circle_settings), Icons.Rounded.Tune) { go(Routes.settingsPage(SettingsCategory.CONTACTS, "circle_delivery")) }
         }
-        StartTab.FAVORITES -> Unit
+        // X2: while the Circle tab is hidden, its section sits in Favourites and "Who's in…" comes with it.
+        StartTab.FAVORITES -> if (StartTab.CIRCLE !in vm.settings.collectAsStateWithLifecycle().value.navTabs.visible) {
+            MenuItem(stringResource(R.string.x_trip_menu), Icons.Rounded.TravelExplore) { go(app.parley.ui.extras.ExtrasRoutes.TRIP) }
+            HorizontalDivider()
+        }
     }
     if (tab != StartTab.FAVORITES) HorizontalDivider()
     MenuItem(stringResource(R.string.home_birthdays), Icons.Rounded.Cake) { go(Routes.BIRTHDAYS) }

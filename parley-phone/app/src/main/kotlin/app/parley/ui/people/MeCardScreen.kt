@@ -228,7 +228,7 @@ private fun shareVcard(context: android.content.Context, card: MeCard, parts: Se
 
 /** The card as a QR code (made on the phone), with the parts to include. */
 @Composable
-private fun MeQrDialog(card: MeCard, onDismiss: () -> Unit) {
+internal fun MeQrDialog(card: MeCard, onDismiss: () -> Unit) {
     val context = LocalContext.current
     val parts = remember { mutableStateListOf(MeCards.Part.NAME, MeCards.Part.PHONES) }
     val available = MeCards.Part.entries.filter { p ->

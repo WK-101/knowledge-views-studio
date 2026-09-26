@@ -106,6 +106,8 @@ fun FolderSyncScreen(vm: AppViewModel, back: () -> Unit) {
                 if (running) LinearProgressIndicator(Modifier.fillMaxWidth().padding(16.dp))
                 if (st.folderUri != null) TextButton({ sync.setFolder(null, null); FolderSyncWorker.schedule(context, false) }, Modifier.padding(horizontal = 8.dp)) { Text(stringResource(R.string.sync_stop)) }
             }
+            // C5: one-way Markdown notes, to a folder of their own.
+            item { app.parley.ui.extras.MarkdownExportSection(vm) }
         }
     }
 }
