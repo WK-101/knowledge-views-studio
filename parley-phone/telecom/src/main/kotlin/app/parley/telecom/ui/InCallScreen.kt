@@ -81,6 +81,7 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -199,7 +200,7 @@ fun InCallScreen(
                 when {
                     primary == null -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         val endedCall = shown ?: ended
-                        val card = declineBlock != null || (failed == null && ended?.postCallCard == true)
+                        val card = declineBlock != null || (failed == null && (ended?.postCallCard == true || ended?.memoryCard == true))
                         if (failed != null) {
                             // P6: the reason and Retry, until dismissed.
                             FailureBanner(failed, { onRetry(failed) }, { onDismissFailure(failed) }, Modifier.padding(bottom = if (card) 16.dp else 48.dp))
@@ -215,6 +216,8 @@ fun InCallScreen(
                             declineBlock != null -> DeclineBlockCard(declineBlock, onUndo = onUndoBlock, onDone = { onPostCall(PostCallChoice.Done) })
                             // V4: block, save, message or report an unknown number right after the call.
                             failed == null && ended != null && ended.postCallCard -> PostCallCard(ended, onChoice = onPostCall)
+                            // R8: "Anything to remember?" after a call with a contact (opt-in).
+                            failed == null && ended != null && ended.memoryCard -> MemoryCard(ended, onChoice = onPostCall)
                         }
                     }
                     primary.state == CallState.RINGING -> IncomingControls(
@@ -405,7 +408,9 @@ private fun CallerHeader(
         Spacer(Modifier.height(8.dp))
         StatusLine(call, ended)
         if (!ended && call.state != CallState.RINGING) RemainingLine(timing)
-        if (!compact && (call.note != null || call.lastCall != null)) {
+        // R8/R9: the last note and open promises, only while unlocked unless allowed on the lock screen.
+        val memory = call.memory?.takeIf { !ended && !it.isEmpty && (it.onLockScreen || !rememberKeyguardLocked()) }
+        if (!compact && (call.note != null || call.lastCall != null || memory != null)) {
             Surface(
                 color = MaterialTheme.colorScheme.tertiaryContainer,
                 shape = RoundedCornerShape(16.dp),
@@ -413,6 +418,7 @@ private fun CallerHeader(
             ) {
                 Column(Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
                     call.note?.let { Text(it, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium) }
+                    memory?.let { MemoryLines(it) }
                     call.lastCall?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onTertiaryContainer) }
                 }
             }
@@ -720,4 +726,34 @@ private fun CallBackground(uri: String?, scrim: androidx.compose.ui.graphics.Col
     val bmp = image ?: return
     androidx.compose.foundation.Image(bmp, null, Modifier.fillMaxSize(), contentScale = androidx.compose.ui.layout.ContentScale.Crop)
     Box(Modifier.fillMaxSize().background(scrim.copy(alpha = 0.72f)))
+}
+
+/** R8: whether the keyguard is showing, re-checked every second (the user may unlock with the call screen up). */
+@Composable
+private fun rememberKeyguardLocked(): Boolean {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val km = remember { context.getSystemService(android.app.KeyguardManager::class.java) }
+    var locked by remember { mutableStateOf(km?.isKeyguardLocked ?: true) }
+    androidx.compose.runtime.LaunchedEffect(km) {
+        while (true) {
+            locked = km?.isKeyguardLocked ?: true
+            kotlinx.coroutines.delay(1000)
+        }
+    }
+    return locked
+}
+
+/** R8/R9: "Last note: …" and up to three open promises. */
+@Composable
+private fun MemoryLines(m: app.parley.telecom.CallerMemory) {
+    m.lastNote?.takeIf { it.isNotBlank() }?.let {
+        Text(stringResource(R.string.memory_last_note, it), style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+    }
+    m.promises.take(3).forEach { p ->
+        Text(stringResource(R.string.memory_open_promise, p), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
+    if (m.promises.size > 3) {
+        val more = m.promises.size - 3
+        Text(pluralStringResource(R.plurals.memory_more_promises, more, more), style = MaterialTheme.typography.bodySmall)
+    }
 }

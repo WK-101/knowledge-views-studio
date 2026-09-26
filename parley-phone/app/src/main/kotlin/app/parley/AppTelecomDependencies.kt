@@ -20,6 +20,10 @@ import app.parley.data.DataContainer
 import app.parley.data.NumberInfo
 import app.parley.data.PhoneEnv
 import app.parley.telecom.CallerDisplay
+import app.parley.telecom.CallerMemory
+import app.parley.common.circle.Promises
+import app.parley.data.circle.CircleRepository
+import app.parley.work.FollowUpWorker
 import app.parley.telecom.InCallAppearance
 import app.parley.telecom.TelecomDependencies
 import app.parley.ui.common.Format
@@ -61,9 +65,13 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
             val note = it.lookupKey?.let { k -> c.meta.meta(k)?.pinnedNote }
             // I6: job and company under the name.
             val org = c.contacts.organization(it.contactId)
+            val cfg = c.circle.config.value
             CallerDisplay(
                 it.name, it.photoUri, it.numberLabel, it.contactId, it.lookupKey, note, last, backgroundUri = c.people.backgrounds.forLookupKey(it.lookupKey),
                 subtitle = CallerCard.subtitle(org?.second, org?.first),
+                // R8/R9: the last note and open promises; the call screen decides whether the lock screen may show them.
+                memory = it.lookupKey?.let { k -> runCatching { memoryFor(k, number, cfg.memoryOnLockScreen) }.getOrNull() },
+                memoryPrompt = cfg.memoryPrompt,
             )
         } ?: c.vault.lookup(number, PhoneEnv.countryIso(app, accountId))?.let { (id, info) ->
             // Discreet mode: a private contact shows as its number only, everywhere (call screen, lock screen and
@@ -102,6 +110,30 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
                     numberKey = PhoneNumbers.matchKey(number), callDate = if (connectTimeMillis > 0) connectTimeMillis else System.currentTimeMillis(), text = text,
                 ),
             )
+        }
+    }
+
+    /** R8/R9: newest note (not the pinned one, which the call screen already shows) and open promises. */
+    private suspend fun memoryFor(lookupKey: String, number: String, onLockScreen: Boolean): CallerMemory? {
+        val keys = (c.contacts.contacts.value?.firstOrNull { it.lookupKey == lookupKey }?.phones?.map { PhoneNumbers.matchKey(it.number) }.orEmpty() + PhoneNumbers.matchKey(number)).toSet()
+        val notes = c.circle.notesFor(lookupKey, keys).filter { it.source != CircleRepository.NoteSource.PINNED }
+        val m = CallerMemory(
+            lastNote = notes.firstOrNull()?.text?.let { Promises.preview(it) },
+            promises = notes.flatMap { n -> Promises.open(n.text).map { it.text } },
+            onLockScreen = onLockScreen,
+        )
+        return m.takeUnless { it.isEmpty }
+    }
+
+    /** R8: the note becomes a call note (on the contact's timeline); "follow up in" sets a one-off reminder. */
+    override fun rememberAfterCall(number: String, connectTimeMillis: Long, note: String?, followUpDays: Int?) {
+        c.scope.launch {
+            if (!note.isNullOrBlank()) saveCallNote(number, connectTimeMillis, note)
+            if (followUpDays != null) {
+                val found = withContext(Dispatchers.IO) { runCatching { c.contacts.lookup(number) }.getOrNull() }
+                val key = found?.lookupKey?.takeIf { !found.work } ?: return@launch
+                FollowUpWorker.schedule(app, key, found.contactId, followUpDays)
+            }
         }
     }
 

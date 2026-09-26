@@ -49,6 +49,9 @@ sealed interface PostCallChoice {
     data class SavePrivately(val number: String, val name: String) : PostCallChoice
     data class MessageOn(val number: String, val accountId: String?) : PostCallChoice
     data class Report(val number: String) : PostCallChoice
+
+    /** R8: "Anything to remember?" was saved (note and/or a follow-up in [followUpDays]). */
+    data class Remember(val number: String, val connectTimeMillis: Long, val note: String?, val followUpDays: Int?) : PostCallChoice
 }
 
 /**

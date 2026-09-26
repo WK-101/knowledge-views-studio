@@ -94,7 +94,7 @@ class InCallActivity : ComponentActivity() {
                     // V4: the post-call card for an unknown number stays a little longer, and for good once touched.
                     val last = CallManager.lastEnded.value
                     // P2: so does the "Blocked · Undo" card after Block & decline.
-                    val lingers = last?.postCallCard == true || (last != null && CallManager.declineBlock.value?.callId == last.id)
+                    val lingers = last?.postCallCard == true || last?.memoryCard == true || (last != null && CallManager.declineBlock.value?.callId == last.id)
                     delay(if (lingers && !inPip) POST_CALL_CARD_MS else ENDED_MS)
                     if (CallManager.state.value.isEmpty() && !keepEnded) finishAndRemoveTask()
                 }
@@ -231,6 +231,12 @@ class InCallActivity : ComponentActivity() {
             is PostCallChoice.MessageOn -> openApp {
                 Intent(ACTION_MESSAGE_ON).setClassName(packageName, MESSAGE_ON_ACTIVITY).putExtra("number", choice.number)
                     .apply { choice.accountId?.let { putExtra("account_id", it) } }
+            }
+            // R8: saved without unlocking (like a note during the call); nothing is shown back.
+            is PostCallChoice.Remember -> {
+                runCatching { deps.rememberAfterCall(choice.number, choice.connectTimeMillis, choice.note, choice.followUpDays) }
+                Toast.makeText(this, getString(app.parley.telecom.R.string.memory_saved), Toast.LENGTH_SHORT).show()
+                if (CallManager.state.value.isEmpty()) finishAndRemoveTask()
             }
             is PostCallChoice.SavePrivately -> unlockThen {
                 lifecycleScope.launch {

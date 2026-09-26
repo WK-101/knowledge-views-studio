@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Machine-assisted translation — needs native review -->
+<!-- v3.2 Circle, part 2: R8/R9 on the call screen ("Anything to remember?", last note, promises). -->
+<resources>
+    <string name="memory_title">هل من شيء لتتذكّره؟</string>
+    <string name="memory_placeholder">أخباره، وعد، موعد…</string>
+    <string name="memory_promise_hint">الأسطر التي تبدأ بـ[ ] تصبح وعودًا تؤشّرها لاحقًا.</string>
+    <string name="memory_chip_news">أخباره</string>
+    <string name="memory_news_prefix">"أخباره: "</string>
+    <string name="memory_chip_promised">وعدتُ…</string>
+    <string name="memory_chip_week">متابعة بعد أسبوع</string>
+    <string name="memory_chip_month">متابعة بعد شهر</string>
+    <string name="memory_skip">ليس الآن</string>
+    <string name="memory_saved">حُفظ في سجلّه الزمني</string>
+    <string name="memory_last_note">آخر ملاحظة: %1$s</string>
+    <plurals name="memory_more_promises">
+        <item quantity="zero">+%1$d وعود أخرى</item>
+        <item quantity="one">+%1$d وعد آخر</item>
+        <item quantity="two">+%1$d وعود أخرى</item>
+        <item quantity="few">+%1$d وعود أخرى</item>
+        <item quantity="many">+%1$d وعود أخرى</item>
+        <item quantity="other">+%1$d وعود أخرى</item>
+    </plurals>
+</resources>
