@@ -152,6 +152,14 @@ class ExtrasTest {
         assertFalse(md.contains("## Note\n"))
     }
 
+    @Test fun markdown_lists_promises_as_tasks() {
+        val promises = app.parley.common.circle.Promises.parse("[ ] send the book\nhello\n[x] call mum") +
+            app.parley.common.circle.Promises.parse("- [ ] send the book")
+        val md = MarkdownNotes.render(MarkdownNotes.Person(name = "Ana", promises = promises), ZoneOffset.UTC, 0)
+        assertTrue(md.contains("## Promises\n\n- [ ] send the book\n- [x] call mum\n"))
+        assertFalse(MarkdownNotes.render(MarkdownNotes.Person(name = "Ana"), ZoneOffset.UTC, 0).contains("## Promises"))
+    }
+
     @Test fun markdown_file_names_are_safe_and_unique() {
         val taken = HashSet<String>()
         assertEquals("Ana Marco.md", MarkdownNotes.fileName("Ana / Marco?", taken))

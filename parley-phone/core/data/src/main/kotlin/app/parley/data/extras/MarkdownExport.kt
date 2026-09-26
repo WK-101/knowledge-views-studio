@@ -160,6 +160,11 @@ class MarkdownExport(private val context: Context, private val c: DataContainer)
                     interactions[s.lookupKey].orEmpty().map { MarkdownNotes.Entry(it.time, texts.interaction(it.type), it.note) } +
                     keys.flatMap { notes[it].orEmpty() }.distinctBy { it.id }.map { MarkdownNotes.Entry(it.callDate, texts.callNote, it.text) }
                 val days = members[s.lookupKey]
+                val pinned = runCatching { c.meta.meta(s.lookupKey)?.pinnedNote }.getOrNull().orEmpty()
+                // R9: promises from every note of this person, not only the ones in the (capped) timeline.
+                val promises = (listOf(pinned) + interactions[s.lookupKey].orEmpty().mapNotNull { it.note } +
+                    keys.flatMap { notes[it].orEmpty() }.distinctBy { it.id }.map { it.text })
+                    .flatMap { app.parley.common.circle.Promises.parse(it) }
                 val person = MarkdownNotes.Person(
                     name = d.displayName.ifBlank { s.displayName },
                     phones = d.phones.map { MarkdownNotes.Field(texts.phoneLabel(it.type, it.label), it.value) },
@@ -167,11 +172,12 @@ class MarkdownExport(private val context: Context, private val c: DataContainer)
                     dates = d.events.map { MarkdownNotes.Field(texts.eventLabel(it), it.date) },
                     labels = runCatching { c.contacts.labelTitlesOf(s.id).toList() }.getOrDefault(emptyList()),
                     company = d.company,
-                    pinnedNote = runCatching { c.meta.meta(s.lookupKey)?.pinnedNote }.getOrNull().orEmpty(),
+                    pinnedNote = pinned,
                     note = d.note,
                     keepInTouch = days?.let(texts.keepInTouch),
                     keepInTouchDays = days,
                     timeline = timeline,
+                    promises = promises,
                 )
                 val name = MarkdownNotes.fileName(person.name, taken)
                 val bytes = MarkdownNotes.render(person, zone, now, texts.headings).toByteArray(Charsets.UTF_8)

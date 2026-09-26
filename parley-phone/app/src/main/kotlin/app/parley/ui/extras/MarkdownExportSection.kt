@@ -54,6 +54,7 @@ object MarkdownTexts {
                 note = res.getString(R.string.x_md_h_note),
                 circle = res.getString(R.string.x_md_h_circle),
                 timeline = res.getString(R.string.x_md_h_timeline),
+                promises = res.getString(R.string.c2_promises),
             ),
             phoneLabel = { t, l -> ContactsContract.CommonDataKinds.Phone.getTypeLabel(res, t, l).toString() },
             emailLabel = { t, l -> ContactsContract.CommonDataKinds.Email.getTypeLabel(res, t, l).toString() },

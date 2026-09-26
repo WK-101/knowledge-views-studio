@@ -33,6 +33,8 @@ object MarkdownNotes {
         val keepInTouch: String? = null,
         val keepInTouchDays: Int? = null,
         val timeline: List<Entry> = emptyList(),
+        /** R9 promises from all of this person's notes, as Markdown tasks (Obsidian renders them as checkboxes). */
+        val promises: List<app.parley.common.circle.Promises.Item> = emptyList(),
     )
 
     data class Headings(
@@ -40,6 +42,7 @@ object MarkdownNotes {
         val note: String = "Note",
         val circle: String = "Circle",
         val timeline: String = "Timeline",
+        val promises: String = "Promises",
     )
 
     private val DAY = DateTimeFormatter.ofPattern("yyyy-MM-dd", Locale.ROOT)
@@ -90,6 +93,7 @@ object MarkdownNotes {
         section(h.pinnedNote, p.pinnedNote)
         section(h.note, p.note)
         p.keepInTouch?.let { section(h.circle, it) }
+        section(h.promises, p.promises.distinctBy { it.text to it.done }.joinToString("\n") { "- [${if (it.done) "x" else " "}] ${oneLine(it.text)}" })
         if (p.timeline.isNotEmpty()) {
             append("\n## ").append(h.timeline).append("\n\n")
             p.timeline.sortedByDescending { it.time }.forEach { e ->

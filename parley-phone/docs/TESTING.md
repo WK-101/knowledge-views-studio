@@ -458,41 +458,6 @@ Call the phone from another phone in each state below. For each one, check that 
 **What's new (U6)**
 - [ ] Update over an older build (`adb install -r` with a higher versionCode): home shows a "What's new in Parley …" card once; tabs, start tab and Recents look exactly as before. "Try it" opens Appearance › Navigation bar; "Got it" dismisses it. It doesn't come back until the next version. A fresh install never shows it.
 
-### 15.6 Extras (X2–X5, C5)
-
-**Trip mode, "Who's in…" (X2)**
-- [ ] Contacts ⋮ › Who's in… and Circle ⋮ › Who's in… open the screen; with the Circle tab hidden, Favourites ⋮ has it too. No location permission is asked for, ever (Settings › Apps › Parley › Permissions shows none new).
-- [ ] Chips list the cities from your contacts' addresses (most common first). Type "lisboa", "LISBOA" or "Lisbóa": the same people show. "Rome" doesn't list someone in "Romeoville".
-- [ ] A contact with the city in an address shows "Address"; one whose note says "moved to Porto" shows "Mentioned in a note"; one with a Lisbon landline (+351 21…) shows "Number from there" for "Lisbon". Summary line: "You're in Lisbon: Ana, Marco" (and "… and 2 more").
-- [ ] Call and Message on a row work (the call goes through the usual confirm/SIM questions). Leave and come back: the last city is filled in and first among the chips.
-
-**Label policies (X3)**
-- [ ] Contacts › Labels › a label: under the ringtone, "For everyone in this label". With two SIMs: "SIM for calls" › pick SIM 2. Call a member with no remembered SIM from Contacts, Recents and the keypad: no SIM question, it goes out on SIM 2. A member with their own SIM (contact page › number › SIM) keeps theirs. Remove SIM 2: calls ask again (or use the default).
-- [ ] "Keep in touch when they join your circle" › Every 2 weeks. Open a member who isn't in the Circle › Stay in touch: the first row is "Like your “Family” label: Every 14 days". The label page offers "Add N members to your circle"; they appear in the Circle.
-- [ ] "Allow through Do Not Disturb": the explanation names the trade-off (starred shows in Favourites and other apps; every starred contact rings). Confirm: members are starred and Android's Do Not Disturb people page opens (or the Do Not Disturb/sound page on phones without it). A member added later shows "Star 1 new member". Turning it off unstars only the ones Parley starred.
-- [ ] Rename the label: its SIM, rhythm and Do Not Disturb choice follow. Delete it: they go. Back up and restore (Settings › Backup): the policies come back.
-
-**Simple mode (X4)**
-- [ ] Settings › Appearance › Simple mode (search "simple", "senior" or "elderly" finds it). Add 1, 4, then 9 people (a contact with several numbers asks which); remove one. Options: Keypad button, Ask before declining, Say who is calling.
-- [ ] "Turn on simple mode": the home becomes big photo tiles (1 = one tile, 4 = 2×2, 9 = 3×3) with names, and a large Keypad button. A tile asks "Call Ana?" with a big green Call. Keypad: big keys, hold 0 for +, delete, Call. A tel: link or the headset button opens the big keypad with the number.
-- [ ] Tapping "Leave" only says to press and hold (a one-time tip explains it too). Press and hold › confirm: with the app lock on, the fingerprint/PIN prompt shows first; cancelling keeps simple mode. App lock and "Hide screen content" apply to the simple home (screenshot blocked, recents thumbnail blank).
-- [ ] Incoming call in simple mode: very large Answer (top) and Decline buttons, no slider and no "Block & decline". With "Ask before declining": Decline asks "Decline this call?" ("Keep ringing" goes back). With "Say who is calling" and the ringer on: "Ana is calling" is spoken up to three times; not for unknown numbers, not in silent/vibrate or Do Not Disturb, and it stops when the call is answered or "Stop ringing" is tapped. No microphone permission appears.
-- [ ] Save the setup as a file (passphrase twice, 8+ characters) on phone A; on phone B Settings › Appearance › Simple mode › Import a setup file › passphrase: people are listed "Found: …" (matched by number, else by name) or "Not in your contacts" with Create (opens the editor with name and number). Wrong passphrase: "That didn't open it". "Use this setup and turn on simple mode" switches B to the simple home.
-- [ ] Show the setup as a QR code on A; scan it on B with any camera/QR app: Parley opens "Import simple mode" and asks for the passcode. In simple mode on B, the link just says to leave simple mode first.
-- [ ] Encrypted backup and restore keeps the simple-mode setup (people by name and number).
-
-**Handshake (X5)**
-- [ ] Phone A: a contact › Share › encrypted QR. Phone B scans it and types the passcode: under the contact, "Where did you meet?" (type "Café Lua"), "Also add it to their note" and "Swap: always show my card…". "Show my card" shows B's own card QR (or offers to fill it in when empty).
-- [ ] Save to phone contacts: the editor opens (note filled with "Met at Café Lua on 26 Sep 2026" when ticked); after saving, the contact's timeline shows a Met entry with that note. Cancelling the editor logs nothing. Saving the same contact twice from one scan logs one entry.
-- [ ] Save privately: the private contact's note gets the line when ticked (no Circle entry: private contacts aren't in the Circle).
-- [ ] With Swap ticked, the next received contact shows B's card QR straight away; A scans it with its camera to get B's card.
-
-**Markdown notes export (C5)**
-- [ ] Settings › Backup & sync › Export notes as Markdown (or Sync between your phones, below the sync card): pick a folder (e.g. an Obsidian vault). One `Name.md` per contact appears: YAML front-matter (name, company, phones with labels, emails, dates, labels, keep_in_touch_days, exported), then Pinned note, Note, Circle and Timeline (calls with minutes, Met/Message entries with notes, call notes), newest first. Obsidian shows the properties.
-- [ ] Names with `/ : ? #` make safe file names; two "Ana Silva" become "Ana Silva.md" and "Ana Silva (2).md". A note of your own already named "Ana Silva.md" in the folder is never overwritten (Parley's file gets "(2)").
-- [ ] "Only people in your circle" on: files of people outside the Circle that Parley wrote are removed; your own files stay. Export again without changes: "0 files updated". Change a note: only that file is rewritten.
-- [ ] Private (vault) contacts never get a file. "Keep it up to date" on: the hourly folder-sync run exports again (even with contact sync off). "Stop exporting to this folder" leaves the files where they are.
-
 ### 15.5 Circle, part 2 (R6–R10, X1, X6)
 
 **People card in Insights (R6)**
@@ -529,3 +494,38 @@ Call the phone from another phone in each state below. For each one, check that 
 
 **Digest serendipity (X6)**
 - [ ] With the weekly digest: the third line is someone you were in touch with more than a year ago ("It's been over a year since you and … were in touch"), Circle or not, and never the same person two Sundays in a row. Nobody quiet for a year: no such line.
+
+### 15.6 Extras (X2–X5, C5)
+
+**Trip mode, "Who's in…" (X2)**
+- [ ] Contacts ⋮ › Who's in… and Circle ⋮ › Who's in… open the screen; with the Circle tab hidden, Favourites ⋮ has it too. No location permission is asked for, ever (Settings › Apps › Parley › Permissions shows none new).
+- [ ] Chips list the cities from your contacts' addresses (most common first). Type "lisboa", "LISBOA" or "Lisbóa": the same people show. "Rome" doesn't list someone in "Romeoville".
+- [ ] A contact with the city in an address shows "Address"; one whose note says "moved to Porto" shows "Mentioned in a note"; one with a Lisbon landline (+351 21…) shows "Number from there" for "Lisbon". Summary line: "You're in Lisbon: Ana, Marco" (and "… and 2 more").
+- [ ] Call and Message on a row work (the call goes through the usual confirm/SIM questions). Leave and come back: the last city is filled in and first among the chips.
+
+**Label policies (X3)**
+- [ ] Contacts › Labels › a label: under the ringtone, "For everyone in this label". With two SIMs: "SIM for calls" › pick SIM 2. Call a member with no remembered SIM from Contacts, Recents and the keypad: no SIM question, it goes out on SIM 2. A member with their own SIM (contact page › number › SIM) keeps theirs. Remove SIM 2: calls ask again (or use the default).
+- [ ] "Keep in touch when they join your circle" › Every 2 weeks. Open a member who isn't in the Circle › Stay in touch: the first row is "Like your “Family” label: Every 14 days". The label page offers "Add N members to your circle"; they appear in the Circle.
+- [ ] "Allow through Do Not Disturb": the explanation names the trade-off (starred shows in Favourites and other apps; every starred contact rings). Confirm: members are starred and Android's Do Not Disturb people page opens (or the Do Not Disturb/sound page on phones without it). A member added later shows "Star 1 new member". Turning it off unstars only the ones Parley starred.
+- [ ] Rename the label: its SIM, rhythm and Do Not Disturb choice follow. Delete it: they go. Back up and restore (Settings › Backup): the policies come back.
+
+**Simple mode (X4)**
+- [ ] Settings › Appearance › Simple mode (search "simple", "senior" or "elderly" finds it). Add 1, 4, then 9 people (a contact with several numbers asks which); remove one. Options: Keypad button, Ask before declining, Say who is calling.
+- [ ] "Turn on simple mode": the home becomes big photo tiles (1 = one tile, 4 = 2×2, 9 = 3×3) with names, and a large Keypad button. A tile asks "Call Ana?" with a big green Call. Keypad: big keys, hold 0 for +, delete, Call. A tel: link or the headset button opens the big keypad with the number.
+- [ ] Tapping "Leave" only says to press and hold (a one-time tip explains it too). Press and hold › confirm: with the app lock on, the fingerprint/PIN prompt shows first; cancelling keeps simple mode. App lock and "Hide screen content" apply to the simple home (screenshot blocked, recents thumbnail blank).
+- [ ] Incoming call in simple mode: very large Answer (top) and Decline buttons, no slider and no "Block & decline". With "Ask before declining": Decline asks "Decline this call?" ("Keep ringing" goes back). With "Say who is calling" and the ringer on: "Ana is calling" is spoken up to three times; not for unknown numbers, not in silent/vibrate or Do Not Disturb, and it stops when the call is answered or "Stop ringing" is tapped. No microphone permission appears.
+- [ ] Save the setup as a file (passphrase twice, 8+ characters) on phone A; on phone B Settings › Appearance › Simple mode › Import a setup file › passphrase: people are listed "Found: …" (matched by number, else by name) or "Not in your contacts" with Create (opens the editor with name and number). Wrong passphrase: "That didn't open it". "Use this setup and turn on simple mode" switches B to the simple home.
+- [ ] Show the setup as a QR code on A; scan it on B with any camera/QR app: Parley opens "Import simple mode" and asks for the passcode. In simple mode on B, the link just says to leave simple mode first.
+- [ ] Encrypted backup and restore keeps the simple-mode setup (people by name and number).
+
+**Handshake (X5)**
+- [ ] Phone A: a contact › Share › encrypted QR. Phone B scans it and types the passcode: under the contact, "Where did you meet?" (type "Café Lua"), "Also add it to their note" and "Swap: always show my card…". "Show my card" shows B's own card QR (or offers to fill it in when empty).
+- [ ] Save to phone contacts: the editor opens (note filled with "Met at Café Lua on 26 Sep 2026" when ticked); after saving, the contact's timeline shows a Met entry with that note. Cancelling the editor logs nothing. Saving the same contact twice from one scan logs one entry.
+- [ ] Save privately: the private contact's note gets the line when ticked (no Circle entry: private contacts aren't in the Circle).
+- [ ] With Swap ticked, the next received contact shows B's card QR straight away; A scans it with its camera to get B's card.
+
+**Markdown notes export (C5)**
+- [ ] Settings › Backup & sync › Export notes as Markdown (or Sync between your phones, below the sync card): pick a folder (e.g. an Obsidian vault). One `Name.md` per contact appears: YAML front-matter (name, company, phones with labels, emails, dates, labels, keep_in_touch_days, exported), then Pinned note, Note, Circle and Timeline (calls with minutes, Met/Message entries with notes, call notes), newest first. Obsidian shows the properties.
+- [ ] Names with `/ : ? #` make safe file names; two "Ana Silva" become "Ana Silva.md" and "Ana Silva (2).md". A note of your own already named "Ana Silva.md" in the folder is never overwritten (Parley's file gets "(2)").
+- [ ] "Only people in your circle" on: files of people outside the Circle that Parley wrote are removed; your own files stay. Export again without changes: "0 files updated". Change a note: only that file is rewritten.
+- [ ] Private (vault) contacts never get a file. "Keep it up to date" on: the hourly folder-sync run exports again (even with contact sync off). "Stop exporting to this folder" leaves the files where they are.
