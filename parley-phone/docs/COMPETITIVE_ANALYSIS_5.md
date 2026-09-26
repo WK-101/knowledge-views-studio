@@ -10,6 +10,20 @@
 |---|---|
 | **Bondwidth** `com.phonepvr.friends` (GPL-3.0, minSdk 26) | An offline dialer and contacts app with a relationship companion on top. You pick people you want to stay close to ("bonds") and give each a check-in cadence. It logs your calls with them automatically, reminds you of birthdays and anniversaries, has a "Width" dashboard (health score, call analytics, year in review) and a widget. It also shows a daily quote. The phone side takes only small parts from Fossify; most of it is new Compose code. No INTERNET permission, and CI fails if one appears. |
 
+## Implementation status (v3.2)
+
+Everything in §2 and §5 is built and ships in **Parley 3.2.0** (versionCode 5) and **Parley Lists 1.1.1**:
+- bugs G1–G6;
+- Circle R1–R10;
+- phone P1–P9;
+- contacts and data C1–C5;
+- layout and wording U1–U7 (the writing guide is [WRITING.md](WRITING.md));
+- beyond both X1–X6;
+- distribution D1–D4 (see [RELEASING.md](RELEASING.md)).
+
+The v3.2 changes were then reviewed area by area. The review confirmed 27 findings, 2 of them High: a stale call-failure banner, and simple-mode import accepting MMI codes. All were fixed except the version bump, which the release step does. Device checks are in [TESTING.md](TESTING.md) §15.
+
+
 ## 1. Verdict
 
 Bondwidth's phone and contacts parts are thinner than Parley's. It fails at call waiting, dual-SIM account selection, `#` codes and the proximity sensor. Its dialpad Call button can dial the top match instead of the typed number. Its contact editor drops data. Parley was already ahead on everything we did last round, and still is.
