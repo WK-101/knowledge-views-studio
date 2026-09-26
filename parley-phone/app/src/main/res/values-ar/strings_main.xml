@@ -1043,4 +1043,12 @@
     <string name="ux_empty_open_contacts">فتح جهات الاتصال</string>
     <string name="ux_empty_back">رجوع</string>
     <string name="ux_empty_no_match">لا نتائج لـ «%1$s»</string>
+    <!-- Earlier strings that had no translation yet. -->
+    <string name="widget_description">اتصل بشخص واحد بنقرة واحدة</string>
+    <string name="shortcut_message_number_short">مراسلة رقم</string>
+    <string name="shortcut_message_number_long">مراسلة رقم دون حفظه</string>
+    <string name="permission_read_lists_label">قراءة قوائم الرسائل المزعجة في Parley</string>
+    <string name="permission_read_lists_description">يتيح لـ Parley نسخ قوائم الرسائل المزعجة التي نزّلها تطبيق Parley Lists.</string>
+    <string name="permission_lookup_private_name_label">البحث عن أسماء جهات اتصال Parley الخاصة</string>
+    <string name="permission_lookup_private_name_description">يتيح للتطبيق أن يسأل Parley عن اسم رقم هاتف واحد في كل مرة، إذا كان هذا الرقم يخص إحدى جهات اتصالك الخاصة. يطلب Parley أيضًا موافقتك على كل تطبيق، ولا يقدّم قائمة أبدًا.</string>
 </resources>

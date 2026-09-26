@@ -896,4 +896,12 @@
     <string name="ux_empty_open_contacts">Abrir contatos</string>
     <string name="ux_empty_back">Voltar</string>
     <string name="ux_empty_no_match">Nenhum resultado para “%1$s”</string>
+    <!-- Earlier strings that had no translation yet. -->
+    <string name="widget_description">Ligue para uma pessoa com um toque</string>
+    <string name="shortcut_message_number_short">Mandar mensagem para um número</string>
+    <string name="shortcut_message_number_long">Mandar mensagem para um número sem salvá-lo</string>
+    <string name="permission_read_lists_label">ler as listas de spam do Parley</string>
+    <string name="permission_read_lists_description">Permite que o Parley copie as listas de spam baixadas pelo app Parley Lists.</string>
+    <string name="permission_lookup_private_name_label">consultar nomes dos contatos privados do Parley</string>
+    <string name="permission_lookup_private_name_description">Permite que o app pergunte ao Parley o nome de um número de telefone por vez, se esse número pertencer a um dos seus contatos privados. O Parley também pede que você aprove cada app e nunca entrega uma lista.</string>
 </resources>

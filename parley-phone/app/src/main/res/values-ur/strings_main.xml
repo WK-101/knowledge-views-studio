@@ -847,4 +847,12 @@
     <string name="ux_empty_open_contacts">رابطے کھولیں</string>
     <string name="ux_empty_back">واپس جائیں</string>
     <string name="ux_empty_no_match">“%1$s” کے لیے کوئی نتیجہ نہیں</string>
+    <!-- Earlier strings that had no translation yet. -->
+    <string name="widget_description">ایک ٹیپ سے کسی ایک شخص کو کال کریں</string>
+    <string name="shortcut_message_number_short">کسی نمبر پر پیغام بھیجیں</string>
+    <string name="shortcut_message_number_long">کسی نمبر کو محفوظ کیے بغیر پیغام بھیجیں</string>
+    <string name="permission_read_lists_label">Parley کی اسپام فہرستیں پڑھیں</string>
+    <string name="permission_read_lists_description">Parley کو وہ اسپام فہرستیں کاپی کرنے دیتا ہے جو Parley Lists ایپ نے ڈاؤن لوڈ کی ہیں۔</string>
+    <string name="permission_lookup_private_name_label">Parley کے نجی رابطوں کے نام دیکھیں</string>
+    <string name="permission_lookup_private_name_description">ایپ کو Parley سے ایک وقت میں ایک فون نمبر کا نام پوچھنے دیتا ہے، اگر وہ نمبر آپ کے کسی نجی رابطے کا ہو۔ Parley ہر ایپ کے لیے آپ کی منظوری بھی مانگتا ہے اور کبھی فہرست نہیں دیتا۔</string>
 </resources>
