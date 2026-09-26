@@ -174,8 +174,12 @@ class TasksViewModel(
     private fun buildOutline(all: List<TaskEntity>, startId: String? = null): List<OutlineRow> {
         val byParent = all.groupBy { it.parentId }
         val out = ArrayList<OutlineRow>(all.size)
+        // Cycle guard: a corrupt parent↔descendant loop (reachable via import/restore, which bypass the
+        // nestUnder guard) or a pathologically deep chain must not recurse forever / overflow the stack.
+        val visited = HashSet<String>()
         fun dfs(parentId: String?, depth: Int) {
             byParent[parentId]?.sortedBy { it.sortOrder }?.forEach { t ->
+                if (!visited.add(t.id)) return@forEach
                 val kids = byParent[t.id].orEmpty()
                 out.add(OutlineRow(t, depth, kids.isNotEmpty(), t.collapsed))
                 if (!t.collapsed) dfs(t.id, depth + 1)
@@ -183,6 +187,7 @@ class TasksViewModel(
         }
         if (startId != null) {
             val root = all.firstOrNull { it.id == startId } ?: return emptyList()
+            visited.add(startId)
             val kids = byParent[startId].orEmpty()
             out.add(OutlineRow(root, 0, kids.isNotEmpty(), root.collapsed))
             if (!root.collapsed) dfs(startId, 1)
@@ -203,7 +208,9 @@ class TasksViewModel(
         val inc = all.filter { it.id in included }
         val byParent = inc.groupBy { it.parentId }
         val out = ArrayList<OutlineRow>(inc.size)
+        val visited = HashSet<String>()   // cycle guard (see buildOutline)
         fun dfs(t: TaskEntity, depth: Int) {
+            if (!visited.add(t.id)) return
             val kids = byParent[t.id].orEmpty()
             out.add(OutlineRow(t, depth, kids.isNotEmpty(), collapsed = false, matched = t.id in matched))
             kids.sortedBy { it.sortOrder }.forEach { dfs(it, depth + 1) }

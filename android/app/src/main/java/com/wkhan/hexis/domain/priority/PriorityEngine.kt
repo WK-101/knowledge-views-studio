@@ -228,7 +228,10 @@ object PriorityEngine {
             return actionable.sortedWith(cmp).map { Ranked(it, 0.0) }
         }
         return actionable.map { Ranked(it, score(it, now, byId, cfg) + depBoost(it.id)) }
-            .sortedByDescending { it.score }
+            // Stable, deterministic order: score desc, then task id — without the id tiebreak, tasks tied on
+            // an identical score (very common at default importance/urgency) fell back to SQLite row order,
+            // which has no secondary key, so equal-score rows could reshuffle between reads.
+            .sortedWith(compareByDescending<Ranked> { it.score }.thenBy { it.task.id })
     }
 
     /** Eisenhower quadrant index for the Matrix view (configurable thresholds). */

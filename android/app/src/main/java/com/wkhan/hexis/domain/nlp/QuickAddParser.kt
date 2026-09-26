@@ -226,7 +226,13 @@ object QuickAddParser {
             val nRaw = it.groupValues[1].lowercase()
             val n = if (nRaw == "a" || nRaw == "an") 1L else nRaw.toLong()
             when (it.groupValues[2].lowercase().removeSuffix("s")) {
-                "hour" -> { date = today; time = (time ?: now.toLocalTime()).plusHours(n); mark(ChipType.DATE, it.range) }
+                "hour" -> {
+                    // Advance date+time together so "in N hours" that crosses midnight lands on the next
+                    // day (at 23:00, "in 2 hours" is tomorrow 01:00, not today 01:00 — ~22h in the past).
+                    val t0 = time
+                    val end = (if (t0 != null) LocalDateTime.of(today, t0) else now).plusHours(n)
+                    date = end.toLocalDate(); time = end.toLocalTime(); mark(ChipType.DATE, it.range)
+                }
                 "day" -> setDate(today.plusDays(n), it.range)
                 "week" -> setDate(today.plusWeeks(n), it.range)
                 "month" -> setDate(today.plusMonths(n), it.range)
@@ -251,7 +257,10 @@ object QuickAddParser {
             Regex("(?<=\\s|^)([a-z]{3,9})\\s+(\\d{1,2})\\b", RegexOption.IGNORE_CASE).find(text)?.let { m ->
                 val mi = MONTHS.indexOfFirst { m.groupValues[1].lowercase().startsWith(it) }
                 if (mi >= 0) {
-                    val day = m.groupValues[2].toInt().coerceIn(1, 28)
+                    // Clamp to the ACTUAL length of the named month, not a flat 28 — a flat 28 turned
+                    // "aug 31" / "sep 30" into the 28th. An impossible day (e.g. "feb 30") still clamps.
+                    val monthLen = java.time.YearMonth.of(today.year, mi + 1).lengthOfMonth()
+                    val day = m.groupValues[2].toInt().coerceIn(1, monthLen)
                     var d = LocalDate.of(today.year, mi + 1, day)
                     if (d.isBefore(today)) d = d.plusYears(1)
                     setDate(d, m.range)

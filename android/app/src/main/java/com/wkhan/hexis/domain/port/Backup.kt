@@ -12,14 +12,25 @@ import com.wkhan.hexis.data.entity.TaskContextCrossRef
 import com.wkhan.hexis.data.entity.TaskEntity
 import com.wkhan.hexis.data.entity.TaskTagCrossRef
 import com.wkhan.hexis.data.entity.WorkspaceEntity
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.intOrNull
 
 /** Versioned, lossless backup envelope containing every entity. Round-trip = exact. */
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable
 data class BackupFile(
-    val format: String = FORMAT,
-    val version: Int = VERSION,
+    // EncodeDefault.ALWAYS forces these two provenance markers to be WRITTEN even though the compact
+    // writer drops at-default fields — so every Hexis backup self-identifies and decode() can reject a
+    // foreign file that declares a different format or a newer schema. (Pre-marker backups simply omit
+    // them and are still accepted; the empty-content guard in importJsonReplace is the wipe backstop.)
+    @EncodeDefault(EncodeDefault.Mode.ALWAYS) val format: String = FORMAT,
+    @EncodeDefault(EncodeDefault.Mode.ALWAYS) val version: Int = VERSION,
     val exportedAt: Long,
     val workspaces: List<WorkspaceEntity> = emptyList(),
     val filters: List<com.wkhan.hexis.data.entity.FilterEntity> = emptyList(),
@@ -84,6 +95,15 @@ data class BackupFile(
     // SM-2 review schedule is not, so it rides the backup to keep a restore truly lossless. Additive.
     val noteCards: List<com.wkhan.hexis.data.entity.NoteCardEntity> = emptyList(),
 ) {
+    /** True when the file carries no restorable rows in any core table. importJsonReplace refuses an
+     *  empty REPLACE so a foreign/partial/corrupt file (which decodes to an all-empty envelope) can't
+     *  wipe a populated store. A real Hexis backup always has at least a settings row. */
+    fun hasNoContent(): Boolean =
+        tasks.isEmpty() && notes.isEmpty() && habits.isEmpty() && events.isEmpty() &&
+            lists.isEmpty() && folders.isEmpty() && timeEntries.isEmpty() && timeActivities.isEmpty() &&
+            countdowns.isEmpty() && templates.isEmpty() && workspaces.isEmpty() && filters.isEmpty() &&
+            settings.isEmpty()
+
     companion object {
         const val FORMAT = "todo-companion"
         const val VERSION = 19
@@ -102,5 +122,20 @@ object Backup {
     private val decoder = Json { ignoreUnknownKeys = true; encodeDefaults = true }
 
     fun encode(data: BackupFile): String = encoder.encodeToString(BackupFile.serializer(), data)
-    fun decode(text: String): BackupFile = decoder.decodeFromString(BackupFile.serializer(), text)
+    fun decode(text: String): BackupFile {
+        val root = runCatching { decoder.parseToJsonElement(text) }.getOrElse {
+            throw IllegalArgumentException("Not a valid backup file — could not parse JSON.", it)
+        }
+        if (root !is JsonObject) throw IllegalArgumentException("Not a Hexis backup — expected a JSON object.")
+        // Provenance: reject a file that explicitly declares a different format or a newer schema than we
+        // can read. A file with no marker (a pre-marker backup) is tolerated; the empty-content guard in
+        // importJsonReplace stops a marker-less foreign file from wiping the store.
+        (root["format"] as? JsonPrimitive)?.contentOrNull?.let {
+            require(it == BackupFile.FORMAT) { "Not a Hexis backup (format='$it')." }
+        }
+        (root["version"] as? JsonPrimitive)?.intOrNull?.let {
+            require(it <= BackupFile.VERSION) { "This backup was written by a newer version of the app (v$it)." }
+        }
+        return decoder.decodeFromJsonElement(BackupFile.serializer(), root)
+    }
 }

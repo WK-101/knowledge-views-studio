@@ -1036,13 +1036,17 @@ class AppRepository(private val db: AppDatabase, private val appContext: android
      * pins this guarantee — if a new child table is added for notes, its cleanup belongs here.
      */
     suspend fun deleteNote(id: String) {
-        notes.unlinkAllTagsForNote(id)
-        notes.unlinkAllContextsForNote(id)
-        attachments.deleteForNote(id)
-        noteRevisions.clearForNote(id)
-        noteLinks.clearForNote(id)
-        noteCards.deleteForNote(id)      // Wave 3 — cascade Active-Recall cards with the note
-        notes.deleteById(id)
+        // D1 — the note and all its child rows come out atomically; a mid-cascade process kill can't leave
+        // the note alive with its attachments / revisions / tags / cards already gone.
+        db.withTransaction {
+            notes.unlinkAllTagsForNote(id)
+            notes.unlinkAllContextsForNote(id)
+            attachments.deleteForNote(id)
+            noteRevisions.clearForNote(id)
+            noteLinks.clearForNote(id)
+            noteCards.deleteForNote(id)      // Wave 3 — cascade Active-Recall cards with the note
+            notes.deleteById(id)
+        }
         runCatching { deleteNoteFts(ftsDb(), id) }
     }
 
@@ -1387,19 +1391,25 @@ class AppRepository(private val db: AppDatabase, private val appContext: android
 
     /** Permanently delete a task and its subtree. */
     suspend fun deleteSubtree(rootId: String) {
-        for (id in subtreeIds(rootId)) {
-            tags.unlinkAllForTask(id)
-            contexts.unlinkAllForTask(id)
-            // N1 — cancel each reminder's scheduled alarm before deleting its row, so a permanent delete
-            // doesn't leave an orphaned exact-alarm armed. (Trashing already re-arms via the F1 signal.)
-            reminders.forTask(id).forEach { onCancelReminder?.invoke(it.id) }
-            reminders.deleteForTask(id)
-            deps.removeAllInvolving(id)
-            checklist.deleteForTask(id)
-            activity.clearForTask(id)
-            tasks.deleteById(id)
-            runCatching { deleteTaskFts(ftsDb(), id) }   // R54 — keep the search index aligned
+        val ids = subtreeIds(rootId)
+        // N1 — cancel each reminder's scheduled alarm first (an OS call, outside the DB txn) so a permanent
+        // delete never leaves an orphaned exact-alarm armed. (Trashing already re-arms via the F1 signal.)
+        for (id in ids) reminders.forTask(id).forEach { onCancelReminder?.invoke(it.id) }
+        // D1 — delete the task rows and all their child rows atomically; a mid-cascade kill can't orphan
+        // checklist items / tags / contexts / dependencies under an already-deleted task.
+        db.withTransaction {
+            for (id in ids) {
+                tags.unlinkAllForTask(id)
+                contexts.unlinkAllForTask(id)
+                reminders.deleteForTask(id)
+                deps.removeAllInvolving(id)
+                checklist.deleteForTask(id)
+                activity.clearForTask(id)
+                tasks.deleteById(id)
+            }
         }
+        // R54 — keep the search index aligned AFTER the txn commits (FTS is raw-SQL, outside Room's txn).
+        runCatching { val sdb = ftsDb(); for (id in ids) deleteTaskFts(sdb, id) }
     }
 
     /** Empty the Trash. When [workspaceId] is given, only tasks trashed in that workspace are purged —
@@ -1549,9 +1559,12 @@ class AppRepository(private val db: AppDatabase, private val appContext: android
     /** Delete a folder; its lists and child folders move up to its parent. */
     suspend fun deleteFolder(id: String) {
         val f = folders.getAll().firstOrNull { it.id == id } ?: return
-        lists.getAll().filter { it.folderId == id }.forEach { lists.upsert(it.copy(folderId = f.parentId)) }
-        folders.getAll().filter { it.parentId == id }.forEach { folders.upsert(it.copy(parentId = f.parentId)) }
-        folders.deleteById(id)
+        // D1 — re-parent this folder's lists and child folders and drop the folder row atomically.
+        db.withTransaction {
+            lists.getAll().filter { it.folderId == id }.forEach { lists.upsert(it.copy(folderId = f.parentId)) }
+            folders.getAll().filter { it.parentId == id }.forEach { folders.upsert(it.copy(parentId = f.parentId)) }
+            folders.deleteById(id)
+        }
     }
 
     /** Permanently erase a folder and everything beneath it — sub-folders, their lists (and every task
@@ -1563,7 +1576,9 @@ class AppRepository(private val db: AppDatabase, private val appContext: android
         while (changed) { changed = false; folders.getAll().forEach { if (it.parentId in descFolderIds && it.id !in descFolderIds) { descFolderIds.add(it.id); changed = true } } }
         lists.getAll().filter { it.folderId in descFolderIds }.forEach { deleteList(it.id) }
         tasks.getAll().filter { it.folderId in descFolderIds && it.parentId == null }.forEach { deleteSubtree(it.id) }
-        tasks.getAll().filter { it.folderId in descFolderIds }.forEach { tasks.deleteById(it.id) }
+        // Remaining folder-captured tasks also route through deleteSubtree (child rows / alarms / FTS
+        // cleanup) rather than a bare deleteById that would orphan them.
+        tasks.getAll().filter { it.folderId in descFolderIds }.forEach { deleteSubtree(it.id) }
         descFolderIds.forEach { folders.deleteById(it) }
     }
 
@@ -1597,8 +1612,10 @@ class AppRepository(private val db: AppDatabase, private val appContext: android
             lists.upsert(it.copy(parentListId = victim?.parentListId, folderId = victim?.folderId ?: it.folderId))
         }
         tasks.getAll().filter { it.listId == id && it.parentId == null }.forEach { deleteSubtree(it.id) }
-        // any orphaned tasks with this listId (safety)
-        tasks.getAll().filter { it.listId == id }.forEach { tasks.deleteById(it.id) }
+        // Any remaining tasks tagged to this list (e.g. a subtask whose parent lived in another list) go
+        // through deleteSubtree too, so their child rows, tags, dependencies, FTS entries and armed alarms
+        // are cleaned up — a bare deleteById here used to orphan all of those.
+        tasks.getAll().filter { it.listId == id }.forEach { deleteSubtree(it.id) }
         lists.deleteById(id)
     }
 
@@ -2094,6 +2111,11 @@ class AppRepository(private val db: AppDatabase, private val appContext: android
 
     suspend fun importJsonReplace(text: String) {
         val b = Backup.decode(text)
+        // Data-safety — a REPLACE clears every table before reinserting. Refuse a file that carries no
+        // restorable content: a foreign, partial or corrupt JSON that merely decodes (Backup.decode
+        // tolerates unknown keys) yields an all-empty envelope, and without this guard the clear-then-
+        // reinsert below would COMMIT a total wipe. RestoreManager catches this and shows a clear error.
+        if (b.hasNoContent()) throw IllegalArgumentException("This backup contains no data to restore.")
         // The sync/backup-file passphrase is a device-local secret that never travels in a backup
         // (exportableSettings drops it). Preserve THIS device's passphrase across a replace-restore so a
         // restore doesn't silently blank it — otherwise encrypted-folder users would suddenly write

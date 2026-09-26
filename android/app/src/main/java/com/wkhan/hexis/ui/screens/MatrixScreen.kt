@@ -138,7 +138,9 @@ fun MatrixScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, showSettings: B
     // undated tasks are never date-constrained. "all" = no constraint.
     val dateEnd = matrixDateEnd(s.matrixDateFilter)
     val visible = tasks.filter {
-        !it.trashed && !it.abandoned && (s.matrixShowCompleted || !it.completed) &&
+        // Someday/Maybe tasks are parked and stay out of workload views (matches TaskEntity's invariant
+        // and every smart list) — the Matrix used to surface them.
+        !it.trashed && !it.abandoned && !it.someday && (s.matrixShowCompleted || !it.completed) &&
             inContainers(it) &&
             // Duration cap: keep tasks estimated to fit; unestimated tasks always pass.
             (s.matrixMaxDuration == 0 || ((it.estimateMin ?: it.estimateMax ?: it.durationMin)?.let { d -> d <= s.matrixMaxDuration } ?: true)) &&

@@ -978,7 +978,10 @@ data class AppSettings(
             priorityStartWeight = m[Keys.PRIO_START]?.toDoubleOrNull() ?: 2.0,
             priorityGoalWeight = m[Keys.PRIO_GOAL]?.toDoubleOrNull() ?: 5.0,
             priorityStarBoost = m[Keys.PRIO_STAR]?.toDoubleOrNull() ?: 1.25,
-            priorityCurveBase = m[Keys.PRIO_CURVE]?.toDoubleOrNull() ?: 1.5,
+            // Clamp on parse: PriorityEngine raises base^(level-3), so a restored/imported base <= 1 (or 0
+            // or negative) would yield Infinity/NaN scores and scramble the Do-Next order. The UI slider is
+            // 1.1-2.5; allow a little wider but never into the NaN-producing range.
+            priorityCurveBase = (m[Keys.PRIO_CURVE]?.toDoubleOrNull() ?: 1.5).coerceIn(1.05, 3.0),
             priorityOverdueBoost = m[Keys.PRIO_OVERDUE]?.toBooleanStrictOrNull() ?: true,
             priorityComputed = m[Keys.PRIO_COMPUTED]?.toBooleanStrictOrNull() ?: true,
             density = parse(m[Keys.DENSITY], Density.DEFAULT),

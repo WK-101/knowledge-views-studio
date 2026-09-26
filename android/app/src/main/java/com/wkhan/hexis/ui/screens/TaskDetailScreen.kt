@@ -1729,7 +1729,9 @@ private data class Rollup(val doneWeight: Double, val totalWeight: Double, val d
 private fun projectRollup(taskId: String, all: List<TaskEntity>): Rollup {
     val byParent = all.filter { !it.trashed }.groupBy { it.parentId }
     var dw = 0.0; var tw = 0.0; var dc = 0; var tc = 0
+    val visited = HashSet<String>()   // cycle guard: a corrupt parent↔descendant loop can't recurse forever
     fun walk(id: String) {
+        if (!visited.add(id)) return
         val kids = byParent[id].orEmpty()
         for (c in kids) {
             val grandkids = byParent[c.id].orEmpty()

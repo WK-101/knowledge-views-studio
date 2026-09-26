@@ -167,11 +167,20 @@ object Recurrence {
             Freq.WEEKLY -> {
                 if (r.byDays.isEmpty()) dt.plusWeeks(r.interval.toLong())
                 else {
-                    // Next selected weekday later this week; else jump `interval` weeks to the first selected day.
-                    var d = dt.plusDays(1)
-                    var hops = 0
-                    while (d.dayOfWeek.value !in r.byDays && hops < 7) { d = d.plusDays(1); hops++ }
-                    if (d.dayOfWeek.value !in r.byDays) dt.plusWeeks(r.interval.toLong()) else d
+                    // Honour INTERVAL for day-of-week rules: a selected weekday still LATER THIS (ISO) week
+                    // is the next occurrence; once the week's selected days are exhausted, jump `interval`
+                    // weeks ahead to that week's FIRST selected day. The old loop accepted any selected day
+                    // within 7 forward days, which silently crossed the week boundary and dropped the
+                    // interval — so "every other Tuesday" recurred weekly.
+                    val curDow = dt.dayOfWeek.value            // ISO 1=Mon..7=Sun
+                    val laterThisWeek = r.byDays.filter { it > curDow }.minOrNull()
+                    if (laterThisWeek != null) {
+                        dt.plusDays((laterThisWeek - curDow).toLong())
+                    } else {
+                        val firstSelected = r.byDays.min()
+                        val mondayOfThisWeek = dt.minusDays((curDow - 1).toLong())
+                        mondayOfThisWeek.plusWeeks(r.interval.toLong()).plusDays((firstSelected - 1).toLong())
+                    }
                 }
             }
         }

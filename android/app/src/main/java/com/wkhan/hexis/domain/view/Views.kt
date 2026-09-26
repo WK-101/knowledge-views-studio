@@ -59,8 +59,16 @@ object TaskViews {
     // [dayStartMin] shifts the day boundary later than midnight ("day starts at" setting): a moment
     // is mapped to the day it belongs to *after* subtracting the rollover, so e.g. with a 3am start,
     // 1am Tue still counts as Monday.
-    private fun localDate(millis: Long, zone: ZoneId, dayStartMin: Int = 0): LocalDate =
-        Instant.ofEpochMilli(millis - dayStartMin * 60_000L).atZone(zone).toLocalDate()
+    private fun localDate(millis: Long, zone: ZoneId, dayStartMin: Int = 0): LocalDate {
+        if (dayStartMin == 0) return Instant.ofEpochMilli(millis).atZone(zone).toLocalDate()
+        val zdt = Instant.ofEpochMilli(millis).atZone(zone)
+        // An all-day value is stored at LOCAL MIDNIGHT and means a whole calendar date; the "day starts at"
+        // rollover only applies to timed moments. Without this guard, subtracting the rollover from a
+        // midnight due date rolled it into the previous day — so a task due tomorrow surfaced in Today and
+        // a task due today read as Overdue for anyone whose day-start isn't midnight.
+        if (zdt.toLocalTime() == java.time.LocalTime.MIDNIGHT) return zdt.toLocalDate()
+        return Instant.ofEpochMilli(millis - dayStartMin * 60_000L).atZone(zone).toLocalDate()
+    }
 
     fun bucketOf(task: TaskEntity, now: Long, zone: ZoneId = ZoneId.systemDefault(), dayStartMin: Int = 0): Bucket {
         val due = task.dueDate ?: return Bucket.NODATE
