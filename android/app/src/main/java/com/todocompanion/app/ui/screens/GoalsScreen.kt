@@ -159,7 +159,7 @@ fun GoalsScreen(vm: AppViewModel, onBack: () -> Unit, onOpenNote: (String) -> Un
     }) { pad ->
         LazyColumn(Modifier.padding(pad).fillMaxSize(), contentPadding = androidx.compose.foundation.layout.PaddingValues(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             item {
-                Text("A goal is one objective carried by three arms at once — the tasks that finish it, the habit that practises it, and the hours you invest. Kairo reads its health from what you actually did.",
+                Text("A goal is one objective carried by three arms at once — the tasks that finish it, the habit that practises it, and the hours you invest. Hexis reads its health from what you actually did.",
                     style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             if (goals.isNotEmpty()) item {

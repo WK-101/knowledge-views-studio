@@ -100,7 +100,7 @@ class QuickBarWidget : BaseWidgetProvider() {
         }
 
     private fun labelFor(key: String): String = when (key) {
-        "app" -> "Open Kairo"; "task" -> "Task"; "note" -> "Note"; "habit" -> "Habit"; "time" -> "Time"
+        "app" -> "Open Hexis"; "task" -> "Task"; "note" -> "Note"; "habit" -> "Habit"; "time" -> "Time"
         "search" -> "Search"; "closeday" -> "Close"; "weekreview" -> "Review"
         "dailynote" -> "Daily note"; else -> key
     }
@@ -113,7 +113,7 @@ class QuickBarWidget : BaseWidgetProvider() {
 
         /** Human-readable names for the settings screen. */
         fun displayName(key: String): String = when (key) {
-            "app" -> "Open Kairo"; "task" -> "Quick add task"; "note" -> "Quick add note"; "habit" -> "Quick habit check"
+            "app" -> "Open Hexis"; "task" -> "Quick add task"; "note" -> "Quick add note"; "habit" -> "Quick habit check"
             "time" -> "Quick time track"; "search" -> "Quick search"; "closeday" -> "Close the day"
             "weekreview" -> "Weekly review"; "dailynote" -> "Today's daily note"; else -> key
         }

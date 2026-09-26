@@ -134,7 +134,7 @@ object OccasionCards {
             if (chips.isNotEmpty()) append("${chips.joinToString(" · ")}\n")
             if (m.weeks && ct.weeksPct != null) append("▦ ${ct.weeksLived} weeks lived · ${ct.weeksPct}% of an ${LIFE_YEARS}-year life\n")
             if (m.message && ct.message.isNotBlank()) append("\n“${ct.message}”\n")
-            if (m.footer) append("\n— Made with Kairo")
+            if (m.footer) append("\n— Made with Hexis")
         }
     }
 
@@ -457,7 +457,7 @@ object OccasionCards {
 
     private fun footer(cv: Canvas, w: Int, h: Int, color: Int, align: Paint.Align, x: Float = w / 2f) {
         val fp = Paint(Paint.ANTI_ALIAS_FLAG).apply { this.color = color; typeface = Typeface.DEFAULT; textAlign = align; textSize = min(w, h) * 0.026f; letterSpacing = 0.04f }
-        cv.drawText("Made with Kairo · 100% offline", x, h - min(w, h) * 0.04f, fp)
+        cv.drawText("Made with Hexis · 100% offline", x, h - min(w, h) * 0.04f, fp)
     }
 
     // ── Measured layout engine ────────────────────────────────────────────────────────────────────
@@ -730,7 +730,7 @@ object OccasionCards {
 
     private fun confetti(cv: Canvas, w: Int, h: Int, colors: IntArray, rnd: Random, count: Int) {
         val avoid = RectF(w * 0.14f, h * 0.16f, w * 0.86f, h * 0.84f)
-        val footerTop = h - min(w, h) * 0.09f   // keep the "Made with Kairo" line clear
+        val footerTop = h - min(w, h) * 0.09f   // keep the "Made with Hexis" line clear
         var placed = 0; var guard = 0
         while (placed < count && guard < count * 4) {
             guard++

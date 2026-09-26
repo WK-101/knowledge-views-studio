@@ -113,7 +113,7 @@ object DayCard {
 
         // Footer.
         reg.textSize = 32f; reg.color = muted
-        c.drawText("Kairo · a day, closed · 100% offline", 72f, (H - 60).toFloat(), reg)
+        c.drawText("Hexis · a day, closed · 100% offline", 72f, (H - 60).toFloat(), reg)
         return bmp
     }
 
@@ -128,7 +128,7 @@ object DayCard {
         append("\n")
         if (d.wins.isNotEmpty()) { append("\nWins:\n"); d.wins.take(3).forEach { append("⭐ $it\n") } }
         if (d.reflection.isNotBlank()) append("\n“${d.reflection}”\n")
-        append("\n— via Kairo")
+        append("\n— via Hexis")
     }
 
     // ── Daily-review SHARE redesign · a config-driven, variable-height "My day" card ──────────────────
@@ -265,7 +265,7 @@ object DayCard {
             if (cfg.pattern && d.pattern.isNotBlank()) { sc.label("A PATTERN"); sc.paragraph(d.pattern, 38f, italic = true, maxLines = 4); sc.gap(8f) }
 
             // ── Footer ──
-            footer(sc, pal, cfg.footerTagline, "Kairo · a day, closed · 100% offline")
+            footer(sc, pal, cfg.footerTagline, "Hexis · a day, closed · 100% offline")
             sc.paint()
         } catch (t: Throwable) {
             fallbackCard(pal, "My day", d.dateLabel)
@@ -318,7 +318,7 @@ object DayCard {
             if (cfg.woop && d.woopPlan.isNotBlank()) append("🧭 ${d.woopPlan}\n")
         }
         if (cfg.pattern && d.pattern.isNotBlank()) append("\n${d.pattern}\n")
-        if (cfg.footerTagline) append("\n— via Kairo")
+        if (cfg.footerTagline) append("\n— via Hexis")
     }
 
     // ── Period-spanning SHARE · the WEEK / MONTH / YEAR roll-up card ───────────────────────────────────
@@ -448,9 +448,9 @@ object DayCard {
 
             // ── Footer ──
             val tag = when (kind) {
-                PeriodKind.WEEK -> "Kairo · a week, reviewed · 100% offline"
-                PeriodKind.MONTH -> "Kairo · a month, reviewed · 100% offline"
-                PeriodKind.YEAR -> "Kairo · a year, reviewed · 100% offline"
+                PeriodKind.WEEK -> "Hexis · a week, reviewed · 100% offline"
+                PeriodKind.MONTH -> "Hexis · a month, reviewed · 100% offline"
+                PeriodKind.YEAR -> "Hexis · a year, reviewed · 100% offline"
             }
             footer(sc, pal, cfg.footerTagline, tag)
             sc.paint()
@@ -492,7 +492,7 @@ object DayCard {
         }
         if (cfg.goals && d.goals.isNotEmpty()) { append("\nGoals advanced:\n"); d.goals.forEach { append("🎯 $it\n") } }
         if (cfg.themes && d.themes.isNotEmpty()) append("\nThemes: ${d.themes.joinToString(", ")}\n")
-        if (cfg.footerTagline) append("\n— via Kairo")
+        if (cfg.footerTagline) append("\n— via Hexis")
     }
 
     // ── Track 1.5 · the any-period recap share card (used by the Omega recap screen) ────────────────────
@@ -557,7 +557,7 @@ object DayCard {
             }
 
             reg.textSize = 32f; reg.color = muted
-            c.drawText("Kairo · a period, recapped · 100% offline", 72f, (H - 60).toFloat(), reg)
+            c.drawText("Hexis · a period, recapped · 100% offline", 72f, (H - 60).toFloat(), reg)
         } catch (t: Throwable) {
             val p = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = onBg; typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD); textSize = 64f }
             c.drawText(d.title.ifBlank { "Recap" }, 72f, 160f, p)
@@ -571,7 +571,7 @@ object DayCard {
         if (d.avgRating > 0) append("★ ${oneDp(d.avgRating)} avg\n")
         d.lines.take(6).forEach { append("$it\n") }
         if (d.narrative.isNotBlank()) append("\n${d.narrative}\n")
-        append("\n— via Kairo")
+        append("\n— via Hexis")
     }
 
     private fun oneDp(v: Double): String = String.format(java.util.Locale.US, "%.1f", v)
@@ -849,7 +849,7 @@ private fun drawTile(c: Canvas, x: Float, y: Float, w: Float, h: Float, t: Share
 private fun footer(sc: ShareCanvas, pal: SharePalette, enabled: Boolean, personalTag: String) {
     if (enabled) {
         sc.gap(24f)
-        val text = if (pal.professional) "Generated ${shareTodayLabel()} · Kairo · private, on-device record" else personalTag
+        val text = if (pal.professional) "Generated ${shareTodayLabel()} · Hexis · private, on-device record" else personalTag
         sc.footerLine(text)
     } else {
         sc.gap(48f)

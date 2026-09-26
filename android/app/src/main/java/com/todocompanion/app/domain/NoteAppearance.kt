@@ -71,7 +71,7 @@ object NoteAppearance {
             dark = Palette("#0E1116", "#C9D1D9", "#8B949E", "#58A6FF", "#161B22", "#262C33", "#343B44"),
         ),
         ReadingTheme(
-            "kairo", "Kairo", font = "sans",
+            "kairo", "Hexis", font = "sans",
             light = Palette("#F5F6F8", "#1A1F27", "#68727F", "#0F7A6C", "#EFF1F4", "#E1E5EA", "#CDD3DB"),
             dark = Palette("#111419", "#E9ECF1", "#98A2AE", "#3EB6A5", "#20252D", "#272D36", "#343C47"),
         ),

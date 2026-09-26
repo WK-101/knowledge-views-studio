@@ -47,12 +47,12 @@ fun Onboarding(onDone: () -> Unit) {
     data class Page(val emoji: String, val title: String, val body: String, val bullets: List<String>, val brand: Boolean = false)
     val pages = listOf(
         // R68 — the brand story: where the name and the mark come from, and why they were chosen.
-        Page("✦", "Meet Kairo",
-            "The name is Greek — kairos, the opportune moment to act, as opposed to chronos, mere clock-time. It fits an app that has grown well past a to-do list: tasks, a calendar, habits, time tracking, occasions and a private life-systems engine — all to help you do the right thing at the right time.",
+        Page("✦", "Meet Hexis",
+            "The name is Greek — hexis, Aristotle's word for a settled disposition won through practice: the habit that becomes character. He called excellence itself a hexis. It fits an app built to turn small daily acts — tasks, a calendar, habits, time, notes and a private life-systems engine — into the person you are becoming.",
             listOf(
-                "🏛️  Kairos — the ancient word for the perfect moment",
-                "✦  The icon is an aperture opening onto a guiding star: the opening is the moment, the star is what it reveals",
-                "🎯  Name and mark chosen to say one thing — act at the right time"),
+                "🏛️  Hexis — Aristotle's word for the trained disposition, the habit made character",
+                "✦  The mark is four chevrons — tasks, habits, time, notes — converging on one gold centre: a compass pointing to the next right thing",
+                "🎯  Name and mark say one thing — small acts, repeated, become who you are"),
             brand = true),
         Page("🌱", "Four tools, one calm app",
             "Tasks, habits, time and notes live together in one private place — make any one your home base, turn off what you don't need, and add the rest whenever you're ready.",
@@ -88,7 +88,7 @@ fun Onboarding(onDone: () -> Unit) {
         // R68 — new since the last tour: the calendar moat, occasions, the record, the life-systems
         // gallery, and the home-screen surface. Each names screens you can actually open.
         Page("📅", "A calendar that plans your day",
-            "A full calendar lives inside Kairo — events with recurrence and alerts, protected time-blocks, and a planner that fits your tasks into the gaps of your day. No Google account, no sync.",
+            "A full calendar lives inside Hexis — events with recurrence and alerts, protected time-blocks, and a planner that fits your tasks into the gaps of your day. No Google account, no sync.",
             listOf(
                 "Time-blocking with durations & focus-protected blocks",
                 "“When am I free?” availability + an auto-schedule planner",
@@ -109,7 +109,7 @@ fun Onboarding(onDone: () -> Unit) {
                 "Impact map, milestone ledger & pattern insights",
                 "Wrapped — your private year in review")),
         Page("🧰", "A workshop of life-systems tools",
-            "Beyond habits, Kairo carries a gallery of on-device, science-backed tools for building a life on purpose. Open the Life Systems hub and pick one when you need it.",
+            "Beyond habits, Hexis carries a gallery of on-device, science-backed tools for building a life on purpose. Open the Life Systems hub and pick one when you need it.",
             listOf(
                 "Guided routines — run a morning or wind-down sequence step-by-step",
                 "Grounding library — 5-4-3-2-1 & box breathing for hard moments",
@@ -117,7 +117,7 @@ fun Onboarding(onDone: () -> Unit) {
                 "Rank your values (a card-sort) & self-escrow commitments",
                 "Fresh-start windows, a causal graph & your own correlations")),
         Page("🧩", "Home-screen widgets & one-tap capture",
-            "Put Kairo on your home screen — 22 widgets across every module, each themeable with its own size, opacity and light/dark, plus a tiny add-task button that pops a capture panel without ever opening the app.",
+            "Put Hexis on your home screen — 22 widgets across every module, each themeable with its own size, opacity and light/dark, plus a tiny add-task button that pops a capture panel without ever opening the app.",
             listOf(
                 "22 widgets: Do-Next, Agenda, Day, Matrix, Habits, Habit Insight, Goal Sprint, Focus, Time, Next Up, Routine Runner, Close the Day…",
                 "A 1×1 Quick-add button → a popup task panel, straight from home",
@@ -224,47 +224,37 @@ fun Onboarding(onDone: () -> Unit) {
 }
 
 /**
- * The Kairo mark ("The Reveal") drawn as a 3D box with the guiding star in front — rendered purely with
+ * The Hexis mark ("Four into one") — four chevrons (tasks · habits · time · notes) converging on a
+ * single gold centre, a compass of the four modules pointing to one bearing. Rendered purely with
  * Canvas primitives so the first-run tour never depends on inflating a drawable resource. Mirrors the
- * launcher icon's foreground (108-unit design space, scaled to the given size).
+ * launcher icon's foreground exactly (108-unit design space, scaled to the given size).
  */
 @Composable
 private fun KairoMark(modifier: Modifier = Modifier) {
     androidx.compose.foundation.Canvas(modifier) {
         val s = size.minDimension / 108f
         fun o(x: Float, y: Float) = androidx.compose.ui.geometry.Offset(x * s, y * s)
-        fun path(vararg pts: Pair<Float, Float>) = androidx.compose.ui.graphics.Path().apply {
-            moveTo(pts[0].first * s, pts[0].second * s)
-            for (i in 1 until pts.size) lineTo(pts[i].first * s, pts[i].second * s)
-            close()
-        }
-        // Three cube faces (top lightest → sides step darker).
-        drawPath(path(54f to 19f, 84.3f to 36.5f, 54f to 54f, 23.7f to 36.5f), androidx.compose.ui.graphics.Color(0xFF8C7BC6))
-        drawPath(path(84.3f to 36.5f, 84.3f to 71.5f, 54f to 89f, 54f to 54f), androidx.compose.ui.graphics.Color(0xFF5E5099))
-        drawPath(path(23.7f to 36.5f, 54f to 54f, 54f to 89f, 23.7f to 71.5f), androidx.compose.ui.graphics.Color(0xFF473A74))
-        // Cube outline + the three inner edges (drawn before the star, so they vanish behind it).
-        val edge = androidx.compose.ui.graphics.Color(0xFFC6B8EE)
-        drawPath(
-            path(54f to 19f, 84.3f to 36.5f, 84.3f to 71.5f, 54f to 89f, 23.7f to 71.5f, 23.7f to 36.5f),
-            edge, style = androidx.compose.ui.graphics.drawscope.Stroke(
-                width = 2.4f * s,
-                join = androidx.compose.ui.graphics.StrokeJoin.Round,
-                cap = androidx.compose.ui.graphics.StrokeCap.Round,
-            ),
+        val light = androidx.compose.ui.graphics.Color(0xFFECE7F6)
+        val gold = androidx.compose.ui.graphics.Color(0xFFF5B01E)
+        // Gold halo behind the core.
+        drawCircle(gold.copy(alpha = 0.22f), radius = 12f * s, center = o(54f, 54f))
+        // Four chevrons, each leaning inward toward the centre.
+        val stroke = androidx.compose.ui.graphics.drawscope.Stroke(
+            width = 7.5f * s,
+            cap = androidx.compose.ui.graphics.StrokeCap.Round,
+            join = androidx.compose.ui.graphics.StrokeJoin.Round,
         )
-        val cap = androidx.compose.ui.graphics.StrokeCap.Round
-        drawLine(edge, o(54f, 54f), o(84.3f, 36.5f), strokeWidth = 2.4f * s, cap = cap)
-        drawLine(edge, o(54f, 54f), o(23.7f, 36.5f), strokeWidth = 2.4f * s, cap = cap)
-        drawLine(edge, o(54f, 54f), o(54f, 89f), strokeWidth = 2.4f * s, cap = cap)
-        // The guiding star, in front.
-        val star = androidx.compose.ui.graphics.Path().apply {
-            moveTo(54f * s, 31f * s)
-            quadraticBezierTo(57.2f * s, 50.8f * s, 77f * s, 54f * s)
-            quadraticBezierTo(57.2f * s, 57.2f * s, 54f * s, 77f * s)
-            quadraticBezierTo(50.8f * s, 57.2f * s, 31f * s, 54f * s)
-            quadraticBezierTo(50.8f * s, 50.8f * s, 54f * s, 31f * s)
-            close()
+        fun chevron(ax: Float, ay: Float, apx: Float, apy: Float, bx: Float, by: Float) {
+            val p = androidx.compose.ui.graphics.Path().apply {
+                moveTo(ax * s, ay * s); lineTo(apx * s, apy * s); lineTo(bx * s, by * s)
+            }
+            drawPath(p, light, style = stroke)
         }
-        drawPath(star, androidx.compose.ui.graphics.Color(0xFFF5B01E))
+        chevron(41f, 26f, 54f, 39f, 67f, 26f) // N
+        chevron(82f, 41f, 69f, 54f, 82f, 67f) // E
+        chevron(41f, 82f, 54f, 69f, 67f, 82f) // S
+        chevron(26f, 41f, 39f, 54f, 26f, 67f) // W
+        // The gold core — the one point the four resolve to.
+        drawCircle(gold, radius = 6.5f * s, center = o(54f, 54f))
     }
 }

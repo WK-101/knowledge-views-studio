@@ -1,4 +1,4 @@
-Kairo is a private, fully-offline planner that brings tasks, a calendar, habits, and time tracking together in one place — with no account, no sign-in, and no network permission at all.
+Hexis is a private, fully-offline planner that brings tasks, a calendar, habits, and time tracking together in one place — with no account, no sign-in, and no network permission at all.
 
 Private by construction. The app declares no INTERNET permission, so it cannot send your data anywhere. Everything stays on your device. The only permissions it uses are local: notifications and exact alarms for on-device reminders, and vibrate. Your database can optionally be encrypted at rest (AES-256 via SQLCipher, with the key held in the Android KeyStore).
 

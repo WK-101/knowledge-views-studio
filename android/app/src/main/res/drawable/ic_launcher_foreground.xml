@@ -3,25 +3,25 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Kairo — "The Reveal" as a 3D box: an isometric cube (a hexagon split into three shaded faces),
-         with the guiding gold star floating IN FRONT of it. The cube's inner edges run from each corner
-         back to the centre, disappearing BEHIND the star — so the star reads as hovering before an open
-         box: the opening (the moment) and the star it reveals, in one depth-cued mark. -->
+    <!-- Hexis — "Four into one": four chevrons (tasks · habits · time · notes) converging on a single
+         gold centre. A compass of the four modules, all pointing to one bearing — the next right thing.
+         108-unit design space; the in-app KairoMark canvas mirrors these exact coordinates. -->
 
-    <!-- Three cube faces (top lightest → catching light; sides step darker for depth). -->
-    <path android:pathData="M54,19 L84.3,36.5 L54,54 L23.7,36.5 Z" android:fillColor="#8C7BC6" />
-    <path android:pathData="M84.3,36.5 L84.3,71.5 L54,89 L54,54 Z" android:fillColor="#5E5099" />
-    <path android:pathData="M23.7,36.5 L54,54 L54,89 L23.7,71.5 Z" android:fillColor="#473A74" />
+    <!-- Gold halo behind the core (the moment everything gathers to). -->
+    <path android:pathData="M42,54 a12,12 0 1,0 24,0 a12,12 0 1,0 -24,0 z"
+        android:fillColor="#F5B01E" android:fillAlpha="0.22" />
 
-    <!-- Cube outline + the three inner edges to the centre (drawn before the star, so they vanish behind it). -->
-    <path android:pathData="M54,19 L84.3,36.5 L84.3,71.5 L54,89 L23.7,71.5 L23.7,36.5 Z"
-        android:strokeColor="#C6B8EE" android:strokeWidth="2.4" android:strokeLineJoin="round" android:strokeLineCap="round" />
-    <path android:pathData="M54,54 L84.3,36.5" android:strokeColor="#C6B8EE" android:strokeWidth="2.4" android:strokeLineCap="round" />
-    <path android:pathData="M54,54 L23.7,36.5" android:strokeColor="#C6B8EE" android:strokeWidth="2.4" android:strokeLineCap="round" />
-    <path android:pathData="M54,54 L54,89"     android:strokeColor="#C6B8EE" android:strokeWidth="2.4" android:strokeLineCap="round" />
+    <!-- Four chevrons, light on the deep-indigo night, each leaning inward. -->
+    <path android:pathData="M41,26 L54,39 L67,26" android:strokeColor="#ECE7F6"
+        android:strokeWidth="7.5" android:strokeLineCap="round" android:strokeLineJoin="round" />
+    <path android:pathData="M82,41 L69,54 L82,67" android:strokeColor="#ECE7F6"
+        android:strokeWidth="7.5" android:strokeLineCap="round" android:strokeLineJoin="round" />
+    <path android:pathData="M41,82 L54,69 L67,82" android:strokeColor="#ECE7F6"
+        android:strokeWidth="7.5" android:strokeLineCap="round" android:strokeLineJoin="round" />
+    <path android:pathData="M26,41 L39,54 L26,67" android:strokeColor="#ECE7F6"
+        android:strokeWidth="7.5" android:strokeLineCap="round" android:strokeLineJoin="round" />
 
-    <!-- The guiding star, in front. -->
-    <path
-        android:pathData="M54,31 Q57.2,50.8 77,54 Q57.2,57.2 54,77 Q50.8,57.2 31,54 Q50.8,50.8 54,31 Z"
+    <!-- The gold core — the one point the four resolve to. -->
+    <path android:pathData="M47.5,54 a6.5,6.5 0 1,0 13,0 a6.5,6.5 0 1,0 -13,0 z"
         android:fillColor="#F5B01E" />
 </vector>

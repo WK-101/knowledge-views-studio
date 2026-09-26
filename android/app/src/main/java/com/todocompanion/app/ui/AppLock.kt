@@ -101,7 +101,7 @@ fun AppLockGate(
             }
         })
         val info = BiometricPrompt.PromptInfo.Builder()
-            .setTitle("Unlock Kairo")
+            .setTitle("Unlock Hexis")
             .setSubtitle("Verify it's you to continue")
             .setAllowedAuthenticators(authenticators)
             .build()
@@ -138,7 +138,7 @@ private fun LockScreen(onUnlock: () -> Unit) {
             Spacer(Modifier.height(16.dp))
             Text("Locked", style = MaterialTheme.typography.titleLarge)
             Spacer(Modifier.height(6.dp))
-            Text("Verify it's you to open Kairo.", style = MaterialTheme.typography.bodyMedium,
+            Text("Verify it's you to open Hexis.", style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
             Spacer(Modifier.height(24.dp))
             Button(onClick = onUnlock, contentPadding = PaddingValues(horizontal = 28.dp, vertical = 12.dp)) { Text("Unlock") }
@@ -162,7 +162,7 @@ private fun NoCredentialLockScreen(onOpen: () -> Unit, content: @Composable () -
             Spacer(Modifier.height(16.dp))
             Text("App lock needs a screen lock", style = MaterialTheme.typography.titleLarge, textAlign = TextAlign.Center)
             Spacer(Modifier.height(6.dp))
-            Text("Set a device PIN, pattern, password, or biometric in system Settings, then reopen Kairo — the lock only works once your device has a screen lock to check against.",
+            Text("Set a device PIN, pattern, password, or biometric in system Settings, then reopen Hexis — the lock only works once your device has a screen lock to check against.",
                 style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
             Spacer(Modifier.height(24.dp))
             // SEC (R2-A) — an explicit, clearly-labeled per-session downgrade (not a quiet "Open anyway").
@@ -193,7 +193,7 @@ private fun CannotLockScreen() {
             Spacer(Modifier.height(16.dp))
             Text("Locked", style = MaterialTheme.typography.titleLarge)
             Spacer(Modifier.height(6.dp))
-            Text("The app lock can't be shown here. Reopen Kairo from your launcher to unlock.",
+            Text("The app lock can't be shown here. Reopen Hexis from your launcher to unlock.",
                 style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
         }
     }

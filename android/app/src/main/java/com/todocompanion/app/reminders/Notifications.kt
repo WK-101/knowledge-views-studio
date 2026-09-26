@@ -21,7 +21,7 @@ object Notifications {
     const val SUMMARY_ID = 424242
 
     // Security (R18 → SEC hardening): lock-screen content is REDACTED BY DEFAULT. Every notification is
-    // built VISIBILITY_PRIVATE with a neutral public version, so a locked device shows only "Kairo ·
+    // built VISIBILITY_PRIVATE with a neutral public version, so a locked device shows only "Hexis ·
     // reminder" — never a task/note title, an occasion, or a habit name. When the user turns the setting ON
     // ("hide on lock screen"), we escalate to VISIBILITY_SECRET so nothing shows at all. Kept as a volatile
     // flag mirrored from the settings flow (notifications fire from background receivers). Fully local.
@@ -73,7 +73,7 @@ object Notifications {
     private fun redactedPublic(context: Context, channelId: String): Notification =
         NotificationCompat.Builder(context, channelId)
             .setSmallIcon(android.R.drawable.ic_popup_reminder)
-            .setContentTitle("Kairo")
+            .setContentTitle("Hexis")
             .setContentText("You have a reminder")
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .build()

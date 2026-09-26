@@ -95,7 +95,7 @@ object ProgressCard {
 
         // Footer.
         reg.textSize = 32f; reg.color = muted
-        c.drawText("Kairo · 100% offline", 72f, (H - 60).toFloat(), reg)
+        c.drawText("Hexis · 100% offline", 72f, (H - 60).toFloat(), reg)
         return bmp
     }
 
@@ -149,7 +149,7 @@ object ProgressCard {
             val s = "🔥 $streak streak"; c.drawText(s, (W - reg.measureText(s)) / 2f, 870f, reg)
         }
         reg.textSize = 32f; reg.color = muted
-        c.drawText("Kairo · 100% offline", 72f, (H - 60).toFloat(), reg)
+        c.drawText("Hexis · 100% offline", 72f, (H - 60).toFloat(), reg)
         return bmp
     }
 
@@ -176,7 +176,7 @@ object ProgressCard {
             reg.textSize = 32f; c.drawText(ellipsize(label, reg, tileW - 40f), x + 28f, y + 165f, reg)
         }
         reg.textSize = 32f; reg.color = muted
-        c.drawText("Kairo · 100% offline", 72f, (H - 60).toFloat(), reg)
+        c.drawText("Hexis · 100% offline", 72f, (H - 60).toFloat(), reg)
         return bmp
     }
 

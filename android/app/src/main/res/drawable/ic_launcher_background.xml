@@ -4,7 +4,7 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Kairo's deep indigo → aubergine "night of time" ground. -->
+    <!-- Hexis — deep indigo → aubergine "night" ground; the four-into-one compass glows upon it. -->
     <path android:pathData="M0,0 h108 v108 h-108 z">
         <aapt:attr name="android:fillColor">
             <gradient

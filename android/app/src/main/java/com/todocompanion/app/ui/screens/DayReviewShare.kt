@@ -215,7 +215,7 @@ private fun DayShareControls(cfg: DayShareConfig, data: DayCard.DayShareData, up
         ShareToggle("A pattern", "a soft observation", cfg.pattern, data.pattern.isNotBlank()) { update(cfg.copy(pattern = it)) }
     }
     ShareGroup("Footer") {
-        ShareToggle("Tagline", "Kairo · 100% offline", cfg.footerTagline, true) { update(cfg.copy(footerTagline = it)) }
+        ShareToggle("Tagline", "Hexis · 100% offline", cfg.footerTagline, true) { update(cfg.copy(footerTagline = it)) }
     }
 }
 
@@ -249,7 +249,7 @@ private fun PeriodShareControls(cfg: PeriodShareConfig, data: DayCard.PeriodShar
         ShareToggle("Themes", "recurring words", cfg.themes, data?.themes?.isNotEmpty() == true) { update(cfg.copy(themes = it)) }
     }
     ShareGroup("Footer") {
-        ShareToggle("Tagline", "Kairo · 100% offline", cfg.footerTagline, true) { update(cfg.copy(footerTagline = it)) }
+        ShareToggle("Tagline", "Hexis · 100% offline", cfg.footerTagline, true) { update(cfg.copy(footerTagline = it)) }
     }
 }
 

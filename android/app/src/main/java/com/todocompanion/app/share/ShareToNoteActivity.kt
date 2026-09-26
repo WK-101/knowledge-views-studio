@@ -9,7 +9,7 @@ import com.todocompanion.app.data.entity.NoteEntity
 import kotlinx.coroutines.launch
 
 /**
- * Wave 2 · Share-to-Kairo — the system share sheet (and the text-selection "Kairo note" action) can drop
+ * Wave 2 · Share-to-Hexis — the system share sheet (and the text-selection "Hexis note" action) can drop
  * any text straight into a new note, so the app is a capture target for the whole phone: an article, a
  * quote, a chat message, a snippet you highlighted. It writes a note into the current workspace's inbox
  * and finishes instantly — no window, no permission, entirely on-device. (Sharing text to *task* capture
@@ -40,7 +40,7 @@ class ShareToNoteActivity : Activity() {
                 .getOrDefault(com.todocompanion.app.data.entity.WorkspaceEntity.DEFAULT_ID)
             app.repository.upsertNote(NoteEntity(id = "", kind = "note", workspaceId = ws, title = title, body = body))
         }
-        Toast.makeText(this, "Saved to Kairo notes", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, "Saved to Hexis notes", Toast.LENGTH_SHORT).show()
         finish()
     }
 

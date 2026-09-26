@@ -3,13 +3,14 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Android 13+ themed-icon layer: a single-tint wireframe of the same 3D box + star. -->
-    <path android:pathData="M54,19 L84.3,36.5 L84.3,71.5 L54,89 L23.7,71.5 L23.7,36.5 Z"
-        android:strokeColor="#FFFFFF" android:strokeWidth="2.6" android:strokeLineJoin="round" android:strokeLineCap="round" />
-    <path android:pathData="M54,54 L84.3,36.5" android:strokeColor="#FFFFFF" android:strokeWidth="2.6" android:strokeLineCap="round" />
-    <path android:pathData="M54,54 L23.7,36.5" android:strokeColor="#FFFFFF" android:strokeWidth="2.6" android:strokeLineCap="round" />
-    <path android:pathData="M54,54 L54,89"     android:strokeColor="#FFFFFF" android:strokeWidth="2.6" android:strokeLineCap="round" />
-    <path
-        android:pathData="M54,31 Q57.2,50.8 77,54 Q57.2,57.2 54,77 Q50.8,57.2 31,54 Q50.8,50.8 54,31 Z"
-        android:fillColor="#FFFFFF" />
+    <!-- Android 13+ themed-icon layer: the four-into-one compass in a single tint. -->
+    <path android:pathData="M41,26 L54,39 L67,26" android:strokeColor="#FFFFFF"
+        android:strokeWidth="8" android:strokeLineCap="round" android:strokeLineJoin="round" />
+    <path android:pathData="M82,41 L69,54 L82,67" android:strokeColor="#FFFFFF"
+        android:strokeWidth="8" android:strokeLineCap="round" android:strokeLineJoin="round" />
+    <path android:pathData="M41,82 L54,69 L67,82" android:strokeColor="#FFFFFF"
+        android:strokeWidth="8" android:strokeLineCap="round" android:strokeLineJoin="round" />
+    <path android:pathData="M26,41 L39,54 L26,67" android:strokeColor="#FFFFFF"
+        android:strokeWidth="8" android:strokeLineCap="round" android:strokeLineJoin="round" />
+    <path android:pathData="M47,54 a7,7 0 1,0 14,0 a7,7 0 1,0 -14,0 z" android:fillColor="#FFFFFF" />
 </vector>

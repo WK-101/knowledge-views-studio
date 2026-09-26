@@ -1067,7 +1067,7 @@ private fun OccasionCardStudio(c: CountdownEntity, today: LocalDate) {
             ModToggle("Milestone", mods.milestone) { mods = mods.copy(milestone = it) }
             if (type == LifeEvent.EventType.BIRTHDAY) ModToggle("Zodiac", mods.zodiac) { mods = mods.copy(zodiac = it) }
             if (hasWeeks) ModToggle("Life in weeks", mods.weeks) { mods = mods.copy(weeks = it) }
-            ModToggle("Kairo mark", mods.footer) { mods = mods.copy(footer = it) }
+            ModToggle("Hexis mark", mods.footer) { mods = mods.copy(footer = it) }
         }
         Spacer(Modifier.height(8.dp))
 
