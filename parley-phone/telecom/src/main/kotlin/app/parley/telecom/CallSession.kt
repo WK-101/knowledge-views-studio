@@ -23,11 +23,11 @@ internal class CallSession(val id: String) {
 
     // ---- Screening ----
 
-    /** Screening hasn't answered yet. */
+    /**
+     * Screening hasn't answered yet: nothing is shown for the call meanwhile (at most
+     * [ScreeningCoordinator.SCREEN_TIMEOUT_MS], then it fails open and rings).
+     */
     var screening = false
-
-    /** The ringing notification waits a moment for the verdict (see [CallManager.holdsNotification]). */
-    var noticeHeld = false
 
     /** The add → first notification trace section is open. */
     var noticeTraced = false

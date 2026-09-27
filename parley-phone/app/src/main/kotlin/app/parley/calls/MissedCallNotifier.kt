@@ -38,6 +38,7 @@ import app.parley.data.PhoneEnv
 import app.parley.data.db.BlockedCallEntity
 import app.parley.data.people.CallerCards
 import app.parley.messaging.MessageOn
+import app.parley.messaging.NumberActionActivity
 import app.parley.ui.Bidi
 import app.parley.ui.calls.RingText
 import java.util.Locale
@@ -114,7 +115,17 @@ object MissedCallNotifier {
             if (!caller.hidden && caller.number.isNotBlank()) {
                 // One-ring scams and premium lines: no one-tap call back from the notification; the app asks first.
                 val risky = runCatching { c.dialGuard.check(caller.number).any { it.severe } }.getOrDefault(false)
-                if (!risky) b.addAction(0, context.getString(R.string.missed_call_back), broadcast(context, MissedCallActionReceiver.ACTION_CALL_BACK, caller.number, 30 + i, id))
+                // "Call back" takes the same path as any call in Parley (CallGate), in a small window that only
+                // shows up when the gate has something to ask.
+                if (!risky) {
+                    b.addAction(
+                        0, context.getString(R.string.missed_call_back),
+                        PendingIntent.getActivity(
+                            context, 30 + i, NumberActionActivity.callBackIntent(context, caller.number),
+                            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+                        ),
+                    )
+                }
                 b.addAction(
                     0, context.getString(R.string.reach_message_or_call),
                     PendingIntent.getActivity(

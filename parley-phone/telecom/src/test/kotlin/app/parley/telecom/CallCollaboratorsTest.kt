@@ -116,14 +116,18 @@ class CallCollaboratorsTest {
         assertFalse("reject" in failing.events)
     }
 
-    @Test fun theNotificationWaitsBrieflyForTheVerdict() {
+    @Test fun nothingIsShownWhileScreeningAndASlowVerdictFailsOpenAtTheTimeout() {
         val host = Host()
-        val s = start(Hooks(delayMs = 1_000), host)
-        assertTrue(s.noticeHeld)
-        scope.advanceTimeBy(ScreeningCoordinator.NOTICE_HOLD_MS + 1)
+        val s = start(Hooks(ScreenOutcome(Decision.Block(BlockAction.REJECT, BlockReason.RULE)), delayMs = 10_000), host)
+        // The notifier shows nothing for a call while it is being screened.
+        scope.advanceTimeBy(ScreeningCoordinator.SCREEN_TIMEOUT_MS - 1)
         scope.runCurrent()
-        assertFalse("after the hold a quiet notification shows while screening goes on", s.noticeHeld)
         assertTrue(s.screening)
+        assertTrue("no change is published before the verdict or the timeout", host.events.isEmpty())
+        scope.advanceTimeBy(2)
+        scope.runCurrent()
+        assertFalse(s.screening)
+        assertEquals(listOf("changed"), host.events)
     }
 
     @Test fun theScreeningServicesAnswerIsReusedUnlessTheSimMatters() {

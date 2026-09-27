@@ -354,9 +354,6 @@ object CallManager {
 
     fun isScreening(id: String) = sessions[id]?.screening == true
 
-    /** The ringing notification waits for the screening verdict a moment longer (at most [ScreeningCoordinator.NOTICE_HOLD_MS]). */
-    fun holdsNotification(id: String) = sessions[id]?.noticeHeld == true
-
     /** The first notification for an incoming call was posted: ends its add → notification trace section. */
     internal fun onNotificationShown(id: String) {
         sessions[id]?.let { notifier.endTrace(it) }

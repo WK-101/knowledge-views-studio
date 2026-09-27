@@ -6,6 +6,7 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.provider.CallLog
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.work.Constraints
@@ -24,6 +25,7 @@ import app.parley.blocking.ListsUpdaterClient
 import app.parley.blocking.SpamListWorker
 import app.parley.data.people.TemporaryContactStore
 import app.parley.ui.history.ExportFiles
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
@@ -47,16 +49,16 @@ class MaintenanceWorker(context: Context, params: WorkerParameters) : CoroutineW
         // A worker process starts lean: expiry notices name people and the key sweep indexes backgrounds, so wait for
         // the address book (bounded) as a running app would have it.
         withTimeoutOrNull(30_000) { c.contacts.contacts.filterNotNull().first() }
-        val notices = runCatching { runHousekeeping(c) }.getOrDefault(emptyList())
+        val notices = step("housekeeping") { runHousekeeping(c) }.orEmpty()
         notices.forEachIndexed { i, n -> notify(ctx, i, n) }
         // At most one backup reminder a month while a backup is overdue.
-        runCatching { BackupReminder.maybeNotify(ctx, c) }
+        step("backup reminder") { BackupReminder.maybeNotify(ctx, c) }
         // Call history: the full catch-up ran above (before retention); old exports and plan warnings.
-        runCatching { ExportFiles.cleanup(ctx, olderThanMillis = TimeUnit.HOURS.toMillis(1)) }
-        runCatching { HistoryWorker.warnPlans(ctx) }
+        step("export cleanup") { ExportFiles.cleanup(ctx, olderThanMillis = TimeUnit.HOURS.toMillis(1)) }
+        step("plan warnings") { HistoryWorker.warnPlans(ctx) }
         // Screening upkeep and lists from the optional "Parley Lists" app (read through its provider).
-        runCatching { SpamListWorker.run(c) }
-        runCatching { ListsUpdaterClient.refresh(ctx, c.lists) }
+        step("screening upkeep") { SpamListWorker.run(c) }
+        step("spam lists") { ListsUpdaterClient.refresh(ctx, c.lists) }
         return Result.success()
     }
 
@@ -85,6 +87,7 @@ class MaintenanceWorker(context: Context, params: WorkerParameters) : CoroutineW
 
     companion object {
         private const val NAME = "parley-maintenance"
+        private const val TAG = "ParleyMaintenance"
         private const val CHANNEL = NotificationChannels.HOUSEKEEPING
 
         /** The daily jobs this worker replaced; cancelled so they don't run twice. */
@@ -101,20 +104,31 @@ class MaintenanceWorker(context: Context, params: WorkerParameters) : CoroutineW
             )
         }
 
+        /**
+         * One upkeep job on its own: a failure is logged and the jobs after it still run (a vault row that can't be
+         * read must not stop the archive's retention, day after day).
+         */
+        private inline fun <T> step(name: String, block: () -> T): T? =
+            runCatching(block).onFailure { e ->
+                if (e is CancellationException) throw e
+                Log.w(TAG, "Maintenance step failed: $name", e)
+            }.getOrNull()
+
         /** Returns notices to show about temporary contacts that were merged into someone else. */
         suspend fun runHousekeeping(c: DataContainer): List<TemporaryContactStore.Notice> {
             val now = System.currentTimeMillis()
             val settings = c.settings.current()
             // 0. Follow lookup-key changes first, so temporary entries and notes point at the right people.
-            runCatching { c.contactKeys.sweep() }
+            step("lookup keys") { c.contactKeys.sweep() }
             // 1. Temporary contacts: only the raw contacts Parley recorded are deleted; merged details stay.
-            val notices = runCatching { c.temporaries.expire(now) }.getOrDefault(emptyList())
+            val notices = step("temporary contacts") { c.temporaries.expire(now) }.orEmpty()
             // 2. Expired vault entries
             //    (F5: private temporary contacts take their call history and "last messaged" entry with them)
             //    Only numbers nobody else has: not a phone contact (or unknown, without permission) and no other
             //    private contact; those keep their history.
-            for (v in c.vault.expiredEntries(now)) {
-                c.vault.delete(v.id)
+            for (v in step("expired vault entries") { c.vault.expiredEntries(now) }.orEmpty()) {
+                // A failed delete keeps the entry, and with it the history of its numbers.
+                if (step("vault delete") { c.vault.delete(v.id); true } != true) continue
                 v.numbers.forEach { n ->
                     val otherOwner = runCatching { c.contacts.isContact(n) != false || c.vault.lookup(n) != null }.getOrDefault(true)
                     if (otherOwner) return@forEach
@@ -124,15 +138,15 @@ class MaintenanceWorker(context: Context, params: WorkerParameters) : CoroutineW
             }
             // 3. Private call history
             if (settings.privateVaultHistory) {
-                c.vault.sweepCallLog(now - TimeUnit.DAYS.toMillis(30))
+                step("private call log") { c.vault.sweepCallLog(now - TimeUnit.DAYS.toMillis(30)) }
                 // Ring facts of private numbers leave no trace outside the vault either (numbers saved privately
                 // after their calls rang included).
                 runCatching { c.vault.allNumbers().forEach { n -> c.ringFacts.forget(n) } }
             }
             // 4. Call-log retention (the archive catches up on the whole log first and then follows the same
             //    setting, except numbers kept forever)
-            runCatching { c.history.sync(full = true) }
-            runCatching { c.history.applyRetention(settings.callLogRetentionDays) }
+            step("archive catch-up") { c.history.sync(full = true) }
+            step("archive retention") { c.history.applyRetention(settings.callLogRetentionDays) }
             if (settings.callLogRetentionDays > 0) {
                 val before = now - TimeUnit.DAYS.toMillis(settings.callLogRetentionDays.toLong())
                 runCatching {
@@ -144,9 +158,9 @@ class MaintenanceWorker(context: Context, params: WorkerParameters) : CoroutineW
             // "Forget messaged numbers after" (the stricter of it and the retention above wins).
             runCatching { c.messaging.pruneExpired(settings.callLogRetentionDays, now) }
             // 5. Journal older than 30 days
-            c.meta.pruneJournal(now - TimeUnit.DAYS.toMillis(30))
+            step("journal") { c.meta.pruneJournal(now - TimeUnit.DAYS.toMillis(30)) }
             // 6. Daily time-machine snapshot (incremental)
-            runCatching { c.timeMachine.snapshotIfDue() }
+            step("time machine") { c.timeMachine.snapshotIfDue() }
             return notices
         }
     }

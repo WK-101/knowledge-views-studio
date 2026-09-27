@@ -5,7 +5,6 @@ import app.parley.common.BlockAction
 import app.parley.common.Decision
 import app.parley.common.Verification
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 
@@ -42,17 +41,9 @@ internal class ScreeningCoordinator(private val scope: CoroutineScope, private v
         reusable(e) != null || e.outcome != null || hidden || runCatching { hooks().screeningActive() }.getOrDefault(true)
 
     fun start(session: CallSession, number: String?, hidden: Boolean, verification: Verification, callerName: String?, e: Earlier, host: Host) {
+        // No notification of any kind until the verdict (bounded by the timeout): a call that is then blocked must
+        // never have shown a name or an Answer button.
         session.screening = true
-        // The heads-up waits briefly for the verdict, so a call that is about to be rejected doesn't pop up the call
-        // screen; after that a quiet "Checking…" notification lets the user answer while screening finishes.
-        session.noticeHeld = true
-        scope.launch {
-            delay(NOTICE_HOLD_MS)
-            if (session.noticeHeld && host.stillPresent(session)) {
-                session.noticeHeld = false
-                host.changed()
-            }
-        }
         val earlier = reusable(e)
         scope.launch {
             Trace.beginAsyncSection(TRACE_SCREEN, session.id.hashCode())
@@ -63,7 +54,6 @@ internal class ScreeningCoordinator(private val scope: CoroutineScope, private v
             val decision = outcome?.decision
             outcome?.let { session.outcome = it }
             session.screening = false
-            session.noticeHeld = false
             if (decision is Decision.Block && host.stillPresent(session)) {
                 when (decision.action) {
                     BlockAction.REJECT -> host.rejectUnwanted(session)
@@ -80,12 +70,6 @@ internal class ScreeningCoordinator(private val scope: CoroutineScope, private v
 
     companion object {
         const val SCREEN_TIMEOUT_MS = 1500L
-
-        /**
-         * How long a ringing call's notification waits for the screening verdict. Verdicts from memory (rules, the
-         * screening service's earlier answer) arrive well within it; a slow one shows "Checking…" instead of nothing.
-         */
-        const val NOTICE_HOLD_MS = 500L
         private const val TRACE_SCREEN = "Parley.screenCall"
     }
 }

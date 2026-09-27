@@ -84,6 +84,7 @@ private fun ArchiveOffDialog(vm: AppViewModel, onDismiss: () -> Unit) {
         confirmLabel = stringResource(R.string.hist_archive_off_confirm),
         onConfirm = { vm.setArchiveEnabled(false); onDismiss() },
         onDismiss = onDismiss,
+        destructive = true,
         dismissLabel = stringResource(R.string.dc_cancel),
     )
 }
