@@ -100,6 +100,7 @@
     <string name="data_sync_in_sync">Everything is in sync</string>
     <string name="data_sync_no_permission">Not synced: Parley needs access to contacts</string>
     <string name="data_sync_folder_gone">Not synced: the folder can\'t be opened. Choose it again if it moved.</string>
+    <string name="data_sync_choose_mode">Choose how this folder is synced: encrypted or plain files.</string>
     <plurals name="data_sync_paused">
         <item quantity="one">Paused: this sync would delete %1$d contact or file. Check the folder, then confirm.</item>
         <item quantity="other">Paused: this sync would delete %1$d contacts or files. Check the folder, then confirm.</item>
