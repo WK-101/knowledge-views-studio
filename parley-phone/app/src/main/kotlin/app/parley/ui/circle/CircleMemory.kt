@@ -91,9 +91,9 @@ fun PromiseNoteField(value: TextFieldValue, onChange: (TextFieldValue) -> Unit, 
             IconButton({
                 val (text, cursor) = Promises.insertBox(value.text, value.selection.start)
                 onChange(TextFieldValue(text, TextRange(cursor)))
-            }) { Icon(Icons.Rounded.CheckBox, stringResource(R.string.c2_insert_promise)) }
+            }) { Icon(Icons.Rounded.CheckBox, stringResource(R.string.circle_insert_promise)) }
         },
-        supportingText = { Text(stringResource(R.string.c2_promise_hint)) },
+        supportingText = { Text(stringResource(R.string.circle_promise_hint)) },
     )
 }
 
@@ -103,7 +103,7 @@ suspend fun tickPromise(vm: AppViewModel, lookupKey: String, note: PersonNote, i
     if (!vm.c.circle.setPromiseDone(lookupKey, note, item.line, done)) return
     if (done) {
         val after = note.copy(text = Promises.setDone(note.text, item.line, true))
-        CircleSnacks.show(CircleSnack(res.getString(R.string.c2_promise_done, item.text)) { vm.c.circle.setPromiseDone(lookupKey, after, item.line, false) })
+        CircleSnacks.show(CircleSnack(res.getString(R.string.circle_promise_done, item.text)) { vm.c.circle.setPromiseDone(lookupKey, after, item.line, false) })
     }
 }
 
@@ -114,7 +114,7 @@ fun PromisesCard(vm: AppViewModel, lookupKey: String, memory: PersonMemory) {
     if (promises.isEmpty()) return
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    SegmentedGroup(stringResource(R.string.c2_promises)) {
+    SegmentedGroup(stringResource(R.string.circle_promises)) {
         promises.forEach { (note, p) ->
             item {
                 ListItem(
@@ -129,9 +129,9 @@ fun PromisesCard(vm: AppViewModel, lookupKey: String, memory: PersonMemory) {
 }
 
 private fun sourceText(res: Resources, note: PersonNote, date: (Long) -> String): String = when (note.source) {
-    NoteSource.PINNED -> res.getString(R.string.c2_from_pinned)
-    NoteSource.CALL -> res.getString(R.string.c2_from_call, date(note.time))
-    NoteSource.LOGGED -> res.getString(R.string.c2_from_logged, date(note.time))
+    NoteSource.PINNED -> res.getString(R.string.circle_from_pinned)
+    NoteSource.CALL -> res.getString(R.string.circle_from_call, date(note.time))
+    NoteSource.LOGGED -> res.getString(R.string.circle_from_logged, date(note.time))
 }
 
 /**
@@ -147,10 +147,10 @@ fun goodTimeText(res: Resources, calls: List<CallEntry>, number: String?, countr
     val hour = DateTimeFormatter.ofPattern(android.text.format.DateFormat.getBestDateTimePattern(locale, "j"), locale)
     val time = DateTimeFormatter.ofPattern(android.text.format.DateFormat.getBestDateTimePattern(locale, "jmm"), locale)
     val day = java.time.LocalDate.now()
-    val range = res.getString(R.string.c2_good_time_range, day.atTime(w.startHour, 0).format(hour), day.atTime(w.endOfDay, 0).format(hour))
-    val free = res.getString(R.string.c2_good_time, range)
+    val range = res.getString(R.string.circle_good_time_range, day.atTime(w.startHour, 0).format(hour), day.atTime(w.endOfDay, 0).format(hour))
+    val free = res.getString(R.string.circle_good_time, range)
     if (!GoodTime.differs(theirs, mine, now)) return free
-    return free + res.getString(R.string.main_separator) + res.getString(R.string.c2_time_there, Instant.ofEpochMilli(now).atZone(theirs).format(time))
+    return free + res.getString(R.string.main_separator) + res.getString(R.string.circle_time_there, Instant.ofEpochMilli(now).atZone(theirs).format(time))
 }
 
 /** Whether the pre-call peek has anything to say. */
@@ -169,7 +169,7 @@ fun PreCallPeekSheet(vm: AppViewModel, lookupKey: String, name: String, memory: 
     val res = LocalResources.current
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = state) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = 16.dp)) {
-            Text(stringResource(R.string.c2_peek_title, name), style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
+            Text(stringResource(R.string.circle_peek_title, name), style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
             goodTime?.let {
                 ListItem(colors = clearRow, leadingContent = { Icon(Icons.Rounded.Schedule, null) }, headlineContent = { Text(it) })
             }
@@ -186,15 +186,15 @@ fun PreCallPeekSheet(vm: AppViewModel, lookupKey: String, name: String, memory: 
                     colors = clearRow,
                     leadingContent = { Checkbox(false, { scope.launch { tickPromise(vm, lookupKey, note, p, true) } }) },
                     headlineContent = { Text(p.text) },
-                    supportingContent = { Text(stringResource(R.string.c2_open_promise)) },
+                    supportingContent = { Text(stringResource(R.string.circle_open_promise)) },
                 )
             }
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 TextButton({
                     vm.c.circle.updateConfig { it.copy(preCallPeek = false) }
-                    vm.toast(res.getString(R.string.c2_peek_off))
+                    vm.toast(res.getString(R.string.circle_peek_off))
                     onCall()
-                }) { Text(stringResource(R.string.c2_peek_dont_show)) }
+                }) { Text(stringResource(R.string.circle_peek_dont_show)) }
                 androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
                 TextButton(onDismiss) { Text(stringResource(R.string.main_cancel)) }
                 Button(onCall) {

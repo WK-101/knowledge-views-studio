@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="md_export_h_pinned">Nota fixada</string>
+    <string name="md_export_h_note">Nota</string>
+    <string name="md_export_h_circle">Círculo</string>
+    <string name="md_export_h_timeline">Linha do tempo</string>
+    <string name="md_export_call_in">Ligação recebida</string>
+    <string name="md_export_call_out">Ligação feita</string>
+    <string name="md_export_call_missed">Ligação perdida</string>
+    <string name="md_export_call">Ligação</string>
+    <string name="md_export_call_note">Nota da ligação</string>
+    <string name="md_export_failed">Não foi possível exportar as notas. Verifique a pasta e tente de novo.</string>
+    <string name="md_export_title">Notas em Markdown</string>
+    <string name="md_export_text">Um arquivo .md por pessoa: números, datas e marcadores, depois suas notas e a linha do tempo. Para o Obsidian e outros apps de notas. Só em um sentido: o Parley escreve os arquivos e nunca traz nada de volta deles.</string>
+    <string name="md_export_folder">Pasta do Markdown</string>
+    <string name="md_export_only_circle">Só as pessoas do seu círculo</string>
+    <string name="md_export_only_circle_body">Desativado: todos os seus contatos</string>
+    <string name="md_export_auto">Manter atualizado</string>
+    <string name="md_export_auto_body">Exportar de novo a cada hora, com a sincronização da pasta</string>
+    <string name="md_export_last">Última exportação %1$s</string>
+    <string name="md_export_never">Ainda não exportado</string>
+    <string name="md_export_no_permission">O Parley precisa de acesso aos contatos para exportar</string>
+    <string name="md_export_folder_gone">Não dá mais para abrir a pasta. Escolha-a de novo.</string>
+    <string name="md_export_now">Exportar agora</string>
+    <string name="md_export_stop">Parar de exportar para esta pasta</string>
+    <string name="md_export_private_note">Contatos particulares nunca são exportados. O Parley só altera ou apaga arquivos que ele escreveu e que ninguém editou depois. Se você editar um, ele passa a ser seu: o Parley não mexe nele e escreve uma cópia nova ao lado.</string>
+    <string name="set_markdown_title">Exportar notas em Markdown</string>
+    <string name="set_markdown_summary">Um arquivo .md por pessoa com notas e linha do tempo, na pasta que você escolher</string>
+    <string name="set_markdown_kw">markdown, md, obsidian, notas, logseq, exportar, pasta, linha do tempo</string>
+    <plurals name="md_export_minutes">
+        <item quantity="one">%d min</item>
+        <item quantity="many">%d min</item>
+        <item quantity="other">%d min</item>
+    </plurals>
+    <plurals name="md_export_written">
+        <item quantity="one">%d arquivo atualizado</item>
+        <item quantity="many">%d arquivos atualizados</item>
+        <item quantity="other">%d arquivos atualizados</item>
+    </plurals>
+    <plurals name="md_export_people">
+        <item quantity="one">%d pessoa exportada</item>
+        <item quantity="many">%d pessoas exportadas</item>
+        <item quantity="other">%d pessoas exportadas</item>
+    </plurals>
+    <plurals name="md_export_kept">
+        <item quantity="one">%d arquivo que você alterou ficou como estava</item>
+        <item quantity="many">%d arquivos que você alterou ficaram como estavam</item>
+        <item quantity="other">%d arquivos que você alterou ficaram como estavam</item>
+    </plurals>
+</resources>

@@ -93,7 +93,7 @@ fun SimpleHome(vm: AppViewModel) {
         vm.navEvents.collect { e ->
             when {
                 e is NavEvent.Tab && e.tab == StartTab.KEYPAD -> { keypad = true; e.dial?.let { d -> digits = d } }
-                e is NavEvent.Route && e.route == ExtrasRoutes.SIMPLE_IMPORT -> snackbar.showSnackbar(res.getString(R.string.x_simple_leave_to_import))
+                e is NavEvent.Route && e.route == ExtrasRoutes.SIMPLE_IMPORT -> snackbar.showSnackbar(res.getString(R.string.simple_leave_to_import))
                 else -> Unit
             }
         }
@@ -110,8 +110,8 @@ fun SimpleHome(vm: AppViewModel) {
                         style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f),
                     )
                     // Press and hold, so a stray tap never leaves simple mode.
-                    val leave = stringResource(R.string.x_simple_leave)
-                    app.parley.ui.common.CoachMarkAnchor(app.parley.common.ux.Tips.SIMPLE_LEAVE, stringResource(R.string.x_simple_leave_hold)) {
+                    val leave = stringResource(R.string.simple_leave)
+                    app.parley.ui.common.CoachMarkAnchor(app.parley.common.ux.Tips.SIMPLE_LEAVE, stringResource(R.string.simple_leave_hold)) {
                     Text(
                         leave,
                         style = MaterialTheme.typography.labelLarge,
@@ -119,7 +119,7 @@ fun SimpleHome(vm: AppViewModel) {
                         modifier = Modifier.clip(RoundedCornerShape(12.dp))
                             .combinedClickable(
                                 onClickLabel = leave,
-                                onClick = { vm.toast(res.getString(R.string.x_simple_leave_hold)) },
+                                onClick = { vm.toast(res.getString(R.string.simple_leave_hold)) },
                                 onLongClick = { askExit = true },
                             )
                             .padding(horizontal = 12.dp, vertical = 8.dp),
@@ -136,7 +136,7 @@ fun SimpleHome(vm: AppViewModel) {
                         Button({ keypad = true }, Modifier.fillMaxWidth().height(72.dp), shape = RoundedCornerShape(24.dp)) {
                             Icon(Icons.Rounded.Dialpad, null, Modifier.size(32.dp))
                             Spacer(Modifier.size(12.dp))
-                            Text(stringResource(R.string.x_simple_keypad_open), fontSize = 24.sp)
+                            Text(stringResource(R.string.simple_keypad_open), fontSize = 24.sp)
                         }
                     }
                 }
@@ -148,7 +148,7 @@ fun SimpleHome(vm: AppViewModel) {
     calling?.let { (name, number) ->
         AlertDialog(
             onDismissRequest = { calling = null },
-            title = { Text(stringResource(R.string.x_simple_call_q, name), style = MaterialTheme.typography.headlineMedium) },
+            title = { Text(stringResource(R.string.simple_call_q, name), style = MaterialTheme.typography.headlineMedium) },
             confirmButton = {
                 Button(
                     { calling = null; vm.requestCall(number, name.takeIf { it != number }, skipConfirm = true, source = CallSource.CONTACT) },
@@ -157,7 +157,7 @@ fun SimpleHome(vm: AppViewModel) {
                 ) {
                     Icon(Icons.Rounded.Call, null, Modifier.size(28.dp))
                     Spacer(Modifier.size(8.dp))
-                    Text(stringResource(R.string.x_simple_call), fontSize = 22.sp)
+                    Text(stringResource(R.string.simple_call), fontSize = 22.sp)
                 }
             },
             dismissButton = { TextButton({ calling = null }, Modifier.height(64.dp)) { Text(stringResource(R.string.dc_cancel), fontSize = 20.sp) } },
@@ -165,18 +165,18 @@ fun SimpleHome(vm: AppViewModel) {
     }
     if (askExit) AlertDialog(
         onDismissRequest = { askExit = false },
-        title = { Text(stringResource(R.string.x_simple_leave_q)) },
-        text = { Text(stringResource(R.string.x_simple_leave_body)) },
+        title = { Text(stringResource(R.string.simple_leave_q)) },
+        text = { Text(stringResource(R.string.simple_leave_body)) },
         confirmButton = {
             TextButton({
                 askExit = false
                 val act = context as? androidx.fragment.app.FragmentActivity
                 if (settings.appLock && act != null) {
-                    app.parley.security.AppLock.authenticate(act, res.getString(R.string.x_simple_leave_q)) { ok -> if (ok) vm.c.extras.updateSimple { it.copy(enabled = false) } }
+                    app.parley.security.AppLock.authenticate(act, res.getString(R.string.simple_leave_q)) { ok -> if (ok) vm.c.extras.updateSimple { it.copy(enabled = false) } }
                 } else {
                     vm.c.extras.updateSimple { it.copy(enabled = false) }
                 }
-            }) { Text(stringResource(R.string.x_simple_leave)) }
+            }) { Text(stringResource(R.string.simple_leave)) }
         },
         dismissButton = { TextButton({ askExit = false }) { Text(stringResource(R.string.dc_cancel)) } },
     )
@@ -187,7 +187,7 @@ fun SimpleHome(vm: AppViewModel) {
 private fun TileGrid(tiles: List<SimpleSetup.Resolved>, modifier: Modifier, onCall: (String, String) -> Unit) {
     if (tiles.isEmpty()) {
         Box(modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-            Text(stringResource(R.string.x_simple_no_people), style = MaterialTheme.typography.titleLarge, textAlign = TextAlign.Center)
+            Text(stringResource(R.string.simple_no_people), style = MaterialTheme.typography.titleLarge, textAlign = TextAlign.Center)
         }
         return
     }
@@ -230,7 +230,7 @@ private fun Tile(t: SimpleSetup.Resolved, onCall: (String, String) -> Unit) {
 @Composable
 private fun SimpleKeypad(digits: String, onDigits: (String) -> Unit, onClose: () -> Unit, onCall: () -> Unit) = Column(Modifier.fillMaxSize()) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        IconButton(onClose, Modifier.size(56.dp)) { Icon(Icons.Rounded.Close, stringResource(R.string.x_simple_keypad_close), Modifier.size(32.dp)) }
+        IconButton(onClose, Modifier.size(56.dp)) { Icon(Icons.Rounded.Close, stringResource(R.string.simple_keypad_close), Modifier.size(32.dp)) }
         ForceLtr {
             Text(
                 Bidi.ltr(digits), style = MaterialTheme.typography.displaySmall, maxLines = 1, overflow = TextOverflow.StartEllipsis,
@@ -238,7 +238,7 @@ private fun SimpleKeypad(digits: String, onDigits: (String) -> Unit, onClose: ()
             )
         }
         IconButton({ onDigits(digits.dropLast(1)) }, Modifier.size(56.dp), enabled = digits.isNotEmpty()) {
-            Icon(Icons.AutoMirrored.Rounded.Backspace, stringResource(R.string.x_simple_keypad_delete), Modifier.size(32.dp))
+            Icon(Icons.AutoMirrored.Rounded.Backspace, stringResource(R.string.simple_keypad_delete), Modifier.size(32.dp))
         }
     }
     ForceLtr {
@@ -259,7 +259,7 @@ private fun SimpleKeypad(digits: String, onDigits: (String) -> Unit, onClose: ()
     ) {
         Icon(Icons.Rounded.Call, null, Modifier.size(36.dp))
         Spacer(Modifier.size(12.dp))
-        Text(stringResource(R.string.x_simple_call), fontSize = 26.sp)
+        Text(stringResource(R.string.simple_call), fontSize = 26.sp)
     }
 }
 

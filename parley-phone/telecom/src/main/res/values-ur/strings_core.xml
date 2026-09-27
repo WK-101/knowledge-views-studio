@@ -159,7 +159,7 @@
     <string name="postcall_name">نام</string>
     <string name="postcall_save_explainer">Parley کے نجی رابطوں میں رکھا جاتا ہے، جہاں دوسری ایپس اسے نہیں دیکھ سکتیں، اور 7 دن بعد اس کی کال ہسٹری سمیت خود بخود حذف ہو جاتا ہے۔ آپ اسے عارضی رابطوں سے رکھ سکتے ہیں۔</string>
     <string name="tc_private_label">نجی</string>
-    <!-- v3.2 phone (P1, P2, P6) -->
+    <!-- Phone -->
     <string name="incall_unmute">آواز کھولیں</string>
     <string name="incall_block_decline">بلاک کریں اور مسترد کریں</string>
     <string name="incall_incoming_more">اس کال کے مزید اختیارات</string>
@@ -178,4 +178,9 @@
     <string name="decline_blocked_answered">اب سے %1$s کی کالیں مسترد کی جائیں گی۔ یہ کال اٹھا لی گئی تھی۔</string>
     <string name="decline_block_undone">ان بلاک کر دیا گیا۔ %1$s آپ کو دوبارہ کال کر سکتے ہیں۔</string>
     <string name="tc_undo">واپس کریں</string>
+
+    <string name="incall_decline_q">یہ کال مسترد کریں؟</string>
+    <string name="incall_decline_body">کال کرنے والے کو پتہ چلے گا کہ آپ ابھی دستیاب نہیں۔</string>
+    <string name="incall_keep_ringing">گھنٹی بجنے دیں</string>
+    <string name="incall_is_calling">%1$s کال کر رہے ہیں</string>
 </resources>

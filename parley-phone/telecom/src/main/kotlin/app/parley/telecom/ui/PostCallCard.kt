@@ -88,7 +88,7 @@ internal fun PostCallCard(call: CallUi, onChoice: (PostCallChoice) -> Unit) {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Action(Icons.Rounded.Block, stringResource(R.string.postcall_block)) { onChoice(PostCallChoice.Block(number)) }
                 Action(Icons.Rounded.Lock, stringResource(R.string.postcall_save_privately)) { saving = true }
-                Action(Icons.AutoMirrored.Rounded.Chat, stringResource(R.string.v34msg_postcall_message_or_call)) { onChoice(PostCallChoice.MessageOn(number, call.accountId)) }
+                Action(Icons.AutoMirrored.Rounded.Chat, stringResource(R.string.postcall_message_or_call)) { onChoice(PostCallChoice.MessageOn(number, call.accountId)) }
                 Action(Icons.Rounded.Flag, stringResource(R.string.postcall_report)) { onChoice(PostCallChoice.Report(number)) }
             }
             TextButton({ onChoice(PostCallChoice.Done) }, modifier = Modifier.align(Alignment.End)) { Text(stringResource(R.string.tc_done)) }

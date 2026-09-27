@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The contact editor. -->
+<resources>
+    <string name="editor_add_photo">Add photo</string>
+    <string name="editor_edit_photo">Change photo</string>
+    <string name="editor_photo_desc">Contact photo. Tap to choose a new one</string>
+    <string name="editor_saving_to">Save to: %1$s</string>
+    <string name="editor_change_account">Change where this contact is saved</string>
+    <string name="editor_private_here">Private · only in Parley</string>
+    <string name="editor_name_more">Show more name fields</string>
+    <string name="editor_name_less">Show fewer name fields</string>
+    <string name="editor_work">Work</string>
+    <string name="editor_type">Type: %1$s</string>
+    <string name="editor_change_type">Change type</string>
+    <string name="editor_remove_phone">Remove number</string>
+    <string name="editor_remove_email">Remove email</string>
+    <string name="editor_remove_website">Remove website</string>
+    <string name="editor_pick_date">Choose date</string>
+    <string name="editor_phone_hint">This doesn\'t look like a phone number yet</string>
+    <string name="editor_email_hint">This doesn\'t look like an email address yet</string>
+    <string name="editor_more_info">Add more info</string>
+    <string name="editor_more_info_title">Add to this contact</string>
+    <string name="editor_more_name">Nickname, prefix, middle name, phonetic name</string>
+    <string name="editor_more_date">Birthday, anniversary, other dates</string>
+    <string name="editor_more_address">Home, work or other address</string>
+    <string name="editor_more_website">Homepage, blog, profile</string>
+    <string name="editor_more_handle">Signal, Matrix, Telegram and more</string>
+    <string name="editor_more_relation">Partner, parent, manager…</string>
+    <string name="editor_more_note">Anything you want to remember</string>
+    <string name="editor_discard_body">Your changes to this contact haven\'t been saved.</string>
+    <string name="editor_saving">Saving</string>
+    <string name="editor_loading">Loading contact</string>
+</resources>

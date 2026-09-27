@@ -315,18 +315,18 @@ private fun ColumnScope.TabMenu(vm: AppViewModel, tab: StartTab, appLock: Boolea
             MenuItem(stringResource(R.string.home_add_several), Icons.Rounded.GroupAdd) { go(app.parley.messaging.MessagingRoutes.BULK_ADD) }
             MenuItem(stringResource(R.string.home_duplicates), Icons.AutoMirrored.Rounded.CallMerge) { go(Routes.DUPLICATES) }
             // S2: favourites shown in Contacts are reordered from here too.
-            if (layout.favoritesInContacts) MenuItem(stringResource(R.string.surf_reorder_title), Icons.Rounded.Star) { close(); onReorderFavorites() }
+            if (layout.favoritesInContacts) MenuItem(stringResource(R.string.home_reorder_title), Icons.Rounded.Star) { close(); onReorderFavorites() }
             // X2: "Who's in…" (trip mode).
-            MenuItem(stringResource(R.string.x_trip_menu), Icons.Rounded.TravelExplore) { go(app.parley.ui.extras.ExtrasRoutes.TRIP) }
+            MenuItem(stringResource(R.string.trip_menu), Icons.Rounded.TravelExplore) { go(app.parley.ui.extras.ExtrasRoutes.TRIP) }
         }
         StartTab.KEYPAD -> Unit
         StartTab.CIRCLE -> {
-            MenuItem(stringResource(R.string.x_trip_menu), Icons.Rounded.TravelExplore) { go(app.parley.ui.extras.ExtrasRoutes.TRIP) }
+            MenuItem(stringResource(R.string.trip_menu), Icons.Rounded.TravelExplore) { go(app.parley.ui.extras.ExtrasRoutes.TRIP) }
             MenuItem(stringResource(R.string.circle_settings), Icons.Rounded.Tune) { go(Routes.settingsPage(SettingsCategory.CONTACTS, "circle_delivery")) }
         }
         // X2: while the Circle tab is hidden, its section sits in Favourites and "Who's in…" comes with it.
         StartTab.FAVORITES -> if (StartTab.CIRCLE !in settings.navTabs.visible) {
-            MenuItem(stringResource(R.string.x_trip_menu), Icons.Rounded.TravelExplore) { go(app.parley.ui.extras.ExtrasRoutes.TRIP) }
+            MenuItem(stringResource(R.string.trip_menu), Icons.Rounded.TravelExplore) { go(app.parley.ui.extras.ExtrasRoutes.TRIP) }
         }
     }
     if (tab == StartTab.RECENTS || tab == StartTab.CONTACTS || tab == StartTab.CIRCLE || (tab == StartTab.FAVORITES && StartTab.CIRCLE !in settings.navTabs.visible)) {

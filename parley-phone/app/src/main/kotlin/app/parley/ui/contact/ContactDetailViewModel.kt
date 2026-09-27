@@ -218,7 +218,7 @@ class ContactDetailViewModel(private val c: DataContainer) : ViewModel() {
     fun setYearly(key: String, on: Boolean) {
         val lookup = current?.lookupKey ?: return
         launch { c.circle.setYearly(lookup, id, key, on) }
-        say(if (on) R.string.c2_yearly_on else R.string.c2_yearly_off)
+        say(if (on) R.string.circle_yearly_on else R.string.circle_yearly_off)
     }
 
     fun setSimFor(number: String, simId: String?) = launch { c.prefs.setSimFor(number, simId) }

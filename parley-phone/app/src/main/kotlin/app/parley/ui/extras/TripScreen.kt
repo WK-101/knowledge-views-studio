@@ -87,7 +87,7 @@ fun TripScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
 
     Scaffold(topBar = {
         TopAppBar(
-            title = { Text(stringResource(R.string.x_trip_title)) },
+            title = { Text(stringResource(R.string.trip_title)) },
             navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.dc_back)) } },
         )
     }) { p ->
@@ -95,7 +95,7 @@ fun TripScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
             item(key = "field") {
                 OutlinedTextField(
                     city, { city = it },
-                    label = { Text(stringResource(R.string.x_trip_city)) },
+                    label = { Text(stringResource(R.string.trip_city)) },
                     leadingIcon = { Icon(Icons.Rounded.LocationCity, null) },
                     trailingIcon = { if (city.isNotEmpty()) IconButton({ city = "" }) { Icon(Icons.Rounded.Close, stringResource(R.string.home_clear_search)) } },
                     singleLine = true,
@@ -104,7 +104,7 @@ fun TripScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
                 )
                 Text(
-                    stringResource(R.string.x_trip_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    stringResource(R.string.trip_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 16.dp),
                 )
             }
@@ -116,18 +116,18 @@ fun TripScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
             when {
                 data == null -> item(key = "loading") { LinearProgressIndicator(Modifier.fillMaxWidth().padding(16.dp)) }
                 city.isBlank() -> item(key = "empty") {
-                    EmptyState(Icons.Rounded.TravelExplore, stringResource(R.string.x_trip_empty_title), stringResource(R.string.x_trip_empty_body), Modifier.padding(top = 16.dp))
+                    EmptyState(Icons.Rounded.TravelExplore, stringResource(R.string.trip_empty_title), stringResource(R.string.trip_empty_body), Modifier.padding(top = 16.dp))
                 }
                 hits.isEmpty() -> item(key = "none") {
-                    EmptyState(Icons.Rounded.TravelExplore, stringResource(R.string.x_trip_none, city.trim()), stringResource(R.string.x_trip_none_body), Modifier.padding(top = 16.dp))
+                    EmptyState(Icons.Rounded.TravelExplore, stringResource(R.string.trip_none, city.trim()), stringResource(R.string.trip_none_body), Modifier.padding(top = 16.dp))
                 }
                 else -> {
                     item(key = "summary") {
-                        val names = hits.take(3).joinToString(stringResource(R.string.x_list_separator)) { it.person.name }
+                        val names = hits.take(3).joinToString(stringResource(R.string.trip_list_separator)) { it.person.name }
                         val more = hits.size - 3
                         Text(
-                            if (more > 0) androidx.compose.ui.res.pluralStringResource(R.plurals.x_trip_summary_more, more, city.trim(), names, more)
-                            else stringResource(R.string.x_trip_summary, city.trim(), names),
+                            if (more > 0) androidx.compose.ui.res.pluralStringResource(R.plurals.trip_summary_more, more, city.trim(), names, more)
+                            else stringResource(R.string.trip_summary, city.trim(), names),
                             style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(16.dp),
                         )
                     }
@@ -157,9 +157,9 @@ fun TripScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
 
 @Composable
 private fun reasonText(h: TripMatch.Hit): String {
-    val address = stringResource(R.string.x_trip_reason_address)
-    val number = stringResource(R.string.x_trip_reason_number)
-    val note = stringResource(R.string.x_trip_reason_note)
+    val address = stringResource(R.string.trip_reason_address)
+    val number = stringResource(R.string.trip_reason_number)
+    val note = stringResource(R.string.trip_reason_note)
     return h.reasons.sortedBy { it.ordinal }.joinToString(stringResource(R.string.main_separator)) { r ->
         when (r) {
             TripMatch.Reason.ADDRESS -> address

@@ -1313,7 +1313,7 @@
     <string name="sim_import_into">Importar para</string>
     <string name="sim_imported">%1$d de %2$d importados para %3$s</string>
 
-    <!-- Relation types (I5); the stored value stays English -->
+    <!-- Relation types; the stored value stays English -->
     <string name="rel_spouse">Cônjuge</string>
     <string name="rel_partner">Parceiro(a)</string>
     <string name="rel_domestic_partner">Companheiro(a)</string>
@@ -1398,7 +1398,7 @@
     <string name="rel_group_work">Trabalho</string>
     <string name="rel_group_other">Outros</string>
 
-    <!-- I1: messenger handles (brand names stay as they are) -->
+    <!-- Messenger handles (brand names stay as they are) -->
     <string name="handle_signal">Nome de usuário do Signal</string>
     <string name="handle_threema">ID do Threema</string>
     <string name="handle_sip">Endereço SIP</string>
@@ -1432,7 +1432,7 @@
     <string name="privnames_dir_request_text">%1$s procurou quem está ligando no diretório de contatos do Parley. Se você permitir, %1$s poderá mostrar o nome de um contato privado quando ele ligar, um número por vez; nunca recebe uma lista. Isso é separado de “Permitir que apps mostrem nomes privados”.</string>
     <string name="pn_directory_apps">Apps de telefone que usam o diretório</string>
     <string name="import_csv_column">Coluna CSV “%1$s”</string>
-    <!-- v3.2 C2/C3: back up first, backup reminder -->
+    <!-- Back up first, backup reminder -->
     <string name="ux_backup_first_title">Fazer backup antes?</string>
     <string name="ux_backup_first_last">Isso altera muitos contatos de uma vez. Último backup: %1$s.</string>
     <string name="ux_backup_first_never">Isso altera muitos contatos de uma vez, e ainda não há backup.</string>
@@ -1454,7 +1454,7 @@
         <item quantity="many">Após %d dias</item>
         <item quantity="other">Após %d dias</item>
     </plurals>
-    <!-- v3.2 U1: onboarding permissions page -->
+    <!-- Onboarding permissions page -->
     <string name="ux_onb_next">Começar</string>
     <string name="ux_onb_dialer_title">Torne o Parley seu app de telefone</string>
     <string name="ux_onb_dialer_body">Você pode mudar isso quando quiser em Configurações › Chamadas › App de telefone padrão.</string>

@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="set_simple_title">آسان موڈ</string>
+    <string name="set_simple_summary">زیادہ سے زیادہ 9 لوگوں کے لیے بڑے تصویری بٹن، بڑا کی پیڈ اور مسترد کرنے سے پہلے ایک سوال۔ کسی اور کے لیے سیٹ کریں</string>
+    <string name="set_simple_kw">بزرگ, معمر, مدد, آسان, بڑا, بڑے بٹن, دادا دادی, رسائی, نام بولیں</string>
+    <string name="simple_intro">ان کے لیے ایک پرسکون ہوم اسکرین جنہیں صرف ضروری چیزیں چاہییں: اہم لوگوں کے لیے بڑے تصویری بٹن، بڑا کی پیڈ، اور کال مسترد کرنے سے پہلے ایک سوال۔ اسے یہاں سیٹ کریں، یا اپنے فون پر سیٹ کر کے بھیج دیں۔</string>
+    <string name="simple_remove">%1$s کو ہٹائیں</string>
+    <string name="simple_add">کوئی شخص شامل کریں</string>
+    <string name="simple_options">اس فون پر</string>
+    <string name="simple_keypad">کی پیڈ بٹن</string>
+    <string name="simple_keypad_body">دوسرے نمبروں کے لیے بڑا کی پیڈ</string>
+    <string name="simple_confirm_decline">کال مسترد کرنے سے پہلے پوچھیں</string>
+    <string name="simple_confirm_decline_body">جواب دینے اور مسترد کرنے کے بڑے بٹن، اور پہلے “یہ کال مسترد کریں؟”</string>
+    <string name="simple_speak">بتائیں کہ کون کال کر رہا ہے</string>
+    <string name="simple_speak_body">گھنٹی بجتے وقت کال کرنے والے کا نام بولتا ہے۔ فون کا ٹیکسٹ ٹو اسپیچ استعمال ہوتا ہے؛ کچھ ریکارڈ نہیں ہوتا</string>
+    <string name="simple_turn_on">آسان موڈ آن کریں</string>
+    <string name="simple_exit_hint">آسان موڈ سے نکلنے کے لیے اوپر “نکلیں” کو دبا کر رکھیں، پھر تصدیق کریں (ایپ لاک آن ہو تو اس کے ساتھ)۔</string>
+    <string name="simple_share">دوسرا فون سیٹ کریں</string>
+    <string name="simple_save_file">سیٹ اپ کو فائل میں محفوظ کریں</string>
+    <string name="simple_save_file_body">آپ کے چنے پاس فریز سے انکرپٹ۔ رابطے نام اور نمبر کی صورت میں جاتے ہیں</string>
+    <string name="simple_show_qr">سیٹ اپ کو QR کوڈ کے طور پر دکھائیں</string>
+    <string name="simple_show_qr_body">دوسرے فون کے کیمرے سے اسکین کریں، پھر پاس کوڈ لکھیں</string>
+    <string name="simple_import_file">سیٹ اپ فائل امپورٹ کریں</string>
+    <string name="simple_import_file_body">کسی دوسرے فون پر بنی فائل سے</string>
+    <string name="simple_file_saved">سیٹ اپ محفوظ ہو گیا</string>
+    <string name="simple_file_failed">سیٹ اپ فائل محفوظ نہیں ہو سکی</string>
+    <string name="simple_pass">پاس فریز</string>
+    <string name="simple_pass_again">پاس فریز دوبارہ</string>
+    <string name="simple_pass_new">کم از کم 8 حروف کا پاس فریز چنیں۔ فائل کھولنے کے لیے دوسرے فون کو اس کی ضرورت ہو گی۔</string>
+    <string name="simple_pass_enter">وہ پاس فریز لکھیں جس سے سیٹ اپ محفوظ کیا گیا تھا۔</string>
+    <string name="simple_qr_desc">آسان موڈ سیٹ اپ کا QR کوڈ</string>
+    <string name="simple_qr_hint">دوسرے فون پر کسی بھی QR اسکینر سے کوڈ کھولیں؛ Parley کھلے گا اور یہ پاس کوڈ مانگے گا۔</string>
+    <string name="simple_import_title">آسان موڈ امپورٹ کریں</string>
+    <string name="simple_enter_passcode">دوسرے فون پر دکھایا گیا پاس کوڈ لکھیں۔</string>
+    <string name="simple_wrong_pass">یہ نہیں کھلا۔ پاس کوڈ یا پاس فریز چیک کریں۔</string>
+    <string name="simple_matched">مل گیا: %1$s</string>
+    <string name="simple_not_in_contacts">آپ کے رابطوں میں نہیں</string>
+    <string name="simple_create">بنائیں</string>
+    <string name="simple_import_note">جو لوگ آپ کے رابطوں میں نہیں، انہیں بھی ان کے نمبر والا بٹن ملتا ہے۔ تصویر شامل کرنے کے لیے ان کا رابطہ بنائیں۔</string>
+    <string name="simple_use_on">یہ سیٹ اپ استعمال کریں اور آسان موڈ آن کریں</string>
+    <string name="simple_use_later">بعد کے لیے محفوظ کریں</string>
+    <string name="simple_saved">آسان موڈ کا سیٹ اپ محفوظ ہو گیا</string>
+    <string name="simple_leave_to_import">سیٹ اپ امپورٹ کرنے کے لیے آسان موڈ سے نکلیں</string>
+    <string name="simple_leave">نکلیں</string>
+    <string name="simple_leave_hold">آسان موڈ سے نکلنے کے لیے دبا کر رکھیں</string>
+    <string name="simple_keypad_open">کی پیڈ</string>
+    <string name="simple_call_q">%1$s کو کال کریں؟</string>
+    <string name="simple_call">کال کریں</string>
+    <string name="simple_leave_q">آسان موڈ سے نکلیں؟</string>
+    <string name="simple_leave_body">Parley اپنے معمول کے ٹیبز پر واپس آ جاتا ہے۔ آسان موڈ کو ترتیبات › ظاہری شکل میں دوبارہ آن کر سکتے ہیں۔</string>
+    <string name="simple_no_people">ابھی یہاں کوئی نہیں۔ جس نے یہ فون سیٹ کیا، اس سے کہیں کہ ترتیبات › ظاہری شکل › آسان موڈ میں لوگ شامل کرے۔</string>
+    <string name="simple_keypad_close">کی پیڈ بند کریں</string>
+    <string name="simple_keypad_delete">ایک ہندسہ مٹائیں</string>
+    <plurals name="simple_people_n">
+        <item quantity="one">لوگ (%2$d میں سے %1$d)</item>
+        <item quantity="other">لوگ (%2$d میں سے %1$d)</item>
+    </plurals>
+    <plurals name="simple_skipped">
+        <item quantity="one">%d اندراج عام فون نمبر نہیں تھا، اس لیے چھوڑ دیا گیا</item>
+        <item quantity="other">%d اندراجات عام فون نمبر نہیں تھے، اس لیے چھوڑ دیے گئے</item>
+    </plurals>
+</resources>

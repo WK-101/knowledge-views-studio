@@ -127,7 +127,7 @@ private fun RoundIconButton(label: String, onClick: () -> Unit, content: @Compos
 private fun BackspaceButton(enabled: Boolean, onDelete: () -> Unit, onClear: () -> Unit) {
     val haptics = LocalHapticFeedback.current
     val label = stringResource(R.string.main_delete)
-    val clearLabel = stringResource(R.string.k34_clear_number)
+    val clearLabel = stringResource(R.string.keypad_clear_number)
     Box(
         Modifier.size(56.dp).clip(CircleShape)
             .combinedClickable(
@@ -182,14 +182,14 @@ private fun CallPillView(
 private fun PillSegment(vm: AppViewModel, s: CallPill.Segment, modifier: Modifier, onClick: () -> Unit) {
     val slot = s.slot
     val carrier = s.carrier
-    val slotName = slot?.let { stringResource(R.string.k34_sim_slot, it) }
+    val slotName = slot?.let { stringResource(R.string.keypad_sim_slot, it) }
     val shown = s.label ?: slotName ?: carrier.orEmpty()
     val spoken = when {
         slot == null -> stringResource(R.string.keypad_call_with, carrier ?: shown)
-        carrier != null -> stringResource(R.string.k34_call_with_sim_carrier, slot, carrier)
-        else -> stringResource(R.string.k34_call_with_sim, slot)
+        carrier != null -> stringResource(R.string.keypad_call_with_sim_carrier, slot, carrier)
+        else -> stringResource(R.string.keypad_call_with_sim, slot)
     }
-    val usual = stringResource(R.string.k34_sim_usual)
+    val usual = stringResource(R.string.keypad_sim_usual)
     Row(
         modifier.fillMaxHeight()
             .clickable(role = Role.Button, onClick = onClick)

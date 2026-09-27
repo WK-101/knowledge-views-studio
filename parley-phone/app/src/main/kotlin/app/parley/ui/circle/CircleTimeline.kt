@@ -214,7 +214,7 @@ fun ContactTimeline(
         Row(Modifier.padding(start = 16.dp)) {
             if (limit == null && grouped.size > months) TextButton({ months += 6 }) { Text(stringResource(R.string.circle_timeline_more)) }
             if (limit != null && all.size > limit && onShowAll != null) {
-                TextButton(onShowAll) { Text(pluralStringResource(R.plurals.v34_cp_show_all, all.size, all.size)) }
+                TextButton(onShowAll) { Text(pluralStringResource(R.plurals.contact_page_show_all, all.size, all.size)) }
             }
             onAllCalls?.let { TextButton(it) { Text(stringResource(R.string.circle_all_calls)) } }
         }

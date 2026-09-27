@@ -242,7 +242,7 @@ fun VaultDetailScreen(vm: AppViewModel, id: Long, back: () -> Unit, open: (Strin
                                     headline = { Text(DataL10n.ltr(Format.number(ph.value, vm.countryIso))) },
                                     trailing = { IconButton({ message(ph.value) }) { Icon(Icons.AutoMirrored.Rounded.Chat, stringResource(R.string.vault_message_number)) } },
                                     menu = { close ->
-                                        DropdownMenuItem({ Text(stringResource(R.string.v34msg_message_or_call_on)) }, leadingIcon = { Icon(Icons.AutoMirrored.Rounded.Message, null) }, onClick = { close(); messageSheet = ph.value })
+                                        DropdownMenuItem({ Text(stringResource(R.string.reach_message_or_call_on)) }, leadingIcon = { Icon(Icons.AutoMirrored.Rounded.Message, null) }, onClick = { close(); messageSheet = ph.value })
                                     },
                                 )
                             }

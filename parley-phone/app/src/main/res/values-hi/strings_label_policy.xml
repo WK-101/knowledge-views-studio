@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="label_policy_section">इस लेबल के सभी लोगों के लिए</string>
+    <string name="label_policy_sim">कॉल के लिए SIM</string>
+    <string name="label_policy_sim_none">कोई पसंद नहीं</string>
+    <string name="label_policy_sim_missing">ऐसा SIM जो इस फ़ोन में नहीं है</string>
+    <string name="label_policy_sim_on">कॉल %1$s से जाएँगी</string>
+    <string name="label_policy_sim_body">इस लेबल के उन लोगों के लिए जिनका अपना SIM तय नहीं है।</string>
+    <string name="label_policy_rhythm">आपके सर्कल में जुड़ने पर संपर्क में रहें</string>
+    <string name="label_policy_rhythm_none">तय नहीं</string>
+    <string name="label_policy_rhythm_body">जब आप “%1$s” से किसी को अपने सर्कल में जोड़ते हैं, तो Parley पहले यही लय सुझाता है।</string>
+    <string name="label_policy_dnd">परेशान न करें में भी आने दें</string>
+    <string name="label_policy_dnd_summary">यहाँ सभी को स्टार करता है, ताकि Android स्टार वाले संपर्कों की घंटी बजने दे</string>
+    <string name="label_policy_dnd_open">परेशान न करें की सेटिंग खोलें</string>
+    <string name="label_policy_dnd_title">परेशान न करें के दौरान “%1$s” की घंटी बजने दें?</string>
+    <string name="label_policy_dnd_confirm">स्टार करें और सेटिंग खोलें</string>
+    <string name="label_policy_rhythm_suggest">आपके “%1$s” लेबल की तरह: %2$s</string>
+    <plurals name="label_policy_added">
+        <item quantity="one">%d व्यक्ति आपके सर्कल में जोड़ा गया</item>
+        <item quantity="other">%d लोग आपके सर्कल में जोड़े गए</item>
+    </plurals>
+    <plurals name="label_policy_add_members">
+        <item quantity="one">%d सदस्य को अपने सर्कल में जोड़ें</item>
+        <item quantity="other">%d सदस्यों को अपने सर्कल में जोड़ें</item>
+    </plurals>
+    <plurals name="label_policy_unstarred">
+        <item quantity="one">%d संपर्क से स्टार हटाया गया</item>
+        <item quantity="other">%d संपर्कों से स्टार हटाया गया</item>
+    </plurals>
+    <plurals name="label_policy_star_new">
+        <item quantity="one">%d नए सदस्य को स्टार करें</item>
+        <item quantity="other">%d नए सदस्यों को स्टार करें</item>
+    </plurals>
+    <plurals name="label_policy_dnd_explain">
+        <item quantity="one">Parley इस लेबल के %d व्यक्ति को स्टार करता है। स्टार वाले संपर्क पसंदीदा और दूसरे ऐप में भी दिखते हैं। फिर Android की परेशान न करें सेटिंग में स्टार वाले संपर्कों की कॉल की अनुमति दें: सिर्फ़ यह लेबल नहीं, स्टार वाले सभी लोगों की घंटी बजेगी।</item>
+        <item quantity="other">Parley इस लेबल के %d लोगों को स्टार करता है। स्टार वाले संपर्क पसंदीदा और दूसरे ऐप में भी दिखते हैं। फिर Android की परेशान न करें सेटिंग में स्टार वाले संपर्कों की कॉल की अनुमति दें: सिर्फ़ यह लेबल नहीं, स्टार वाले सभी लोगों की घंटी बजेगी।</item>
+    </plurals>
+</resources>

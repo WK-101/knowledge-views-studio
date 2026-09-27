@@ -114,7 +114,7 @@ fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open
                         AssistChip({ Intents.copy(context, number) }, { Text(stringResource(R.string.hist_action_copy)) }, leadingIcon = { Icon(Icons.Rounded.ContentCopy, null) })
                     }
                     Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        AssistChip({ messageOn = true }, { Text(stringResource(R.string.v34msg_message_or_call_on)) }, leadingIcon = { Icon(Icons.AutoMirrored.Rounded.Chat, null) })
+                        AssistChip({ messageOn = true }, { Text(stringResource(R.string.reach_message_or_call_on)) }, leadingIcon = { Icon(Icons.AutoMirrored.Rounded.Chat, null) })
                     }
                     Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         if (contact == null) {

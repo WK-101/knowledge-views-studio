@@ -408,7 +408,7 @@ private fun CandidateRow(c: BulkAdd.Candidate, checked: Boolean, region: String,
         trailingContent = {
             IconButton({ onCall(c.e164 ?: c.raw) }) {
                 androidx.compose.material3.Icon(
-                    androidx.compose.material.icons.Icons.Rounded.Call, stringResource(R.string.v33_call_number, Bidi.ltr(shown)),
+                    androidx.compose.material.icons.Icons.Rounded.Call, stringResource(R.string.reach_call_number, Bidi.ltr(shown)),
                     tint = app.parley.ui.CallColors.Accept,
                 )
             }

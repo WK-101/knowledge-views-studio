@@ -149,7 +149,7 @@ internal fun DockHandle(label: String, fold: DockFoldState, onCollapse: () -> Un
 internal fun DockedKeypadButton(
     visible: Boolean, fold: DockFoldState, number: String?, badge: String?, modifier: Modifier = Modifier, onExpand: () -> Unit,
 ) {
-    val label = if (number == null) stringResource(R.string.keypad_show) else stringResource(R.string.surf_show_keypad_with, number)
+    val label = if (number == null) stringResource(R.string.keypad_show) else stringResource(R.string.home_show_keypad_with, number)
     val spring = spring<Float>(dampingRatio = 0.7f, stiffness = Spring.StiffnessMedium)
     AnimatedVisibility(
         visible = visible,
@@ -217,7 +217,7 @@ fun ContactsFavorites(vm: AppViewModel, open: (String) -> Unit, onReorder: () ->
         if (collapsed) return@Column
         if (favorites.isEmpty()) {
             Text(
-                stringResource(R.string.surf_fav_empty), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                stringResource(R.string.home_fav_empty), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp),
             )
         } else if (surfaces.favorites == FavoritesPlacement.STRIP) {
@@ -245,8 +245,8 @@ private fun RecentGroup.stripItem(vm: AppViewModel, open: (String) -> Unit) = St
 /** The folding header: "Favourites (n)", Reorder, and a chevron. TalkBack reads it as a heading with its state. */
 @Composable
 private fun SectionHeader(title: String, count: Int, collapsed: Boolean, onToggle: () -> Unit, onReorder: (() -> Unit)?) {
-    val state = stringResource(if (collapsed) R.string.surf_folded else R.string.surf_unfolded)
-    val action = stringResource(if (collapsed) R.string.surf_unfold else R.string.surf_fold)
+    val state = stringResource(if (collapsed) R.string.home_folded else R.string.home_unfolded)
+    val action = stringResource(if (collapsed) R.string.home_unfold else R.string.home_fold)
     Row(
         Modifier.fillMaxWidth()
             .clickable(onClickLabel = action, onClick = onToggle)
@@ -256,7 +256,7 @@ private fun SectionHeader(title: String, count: Int, collapsed: Boolean, onToggl
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            if (count > 0) stringResource(R.string.surf_fav_header_count, title, count) else title,
+            if (count > 0) stringResource(R.string.home_fav_header_count, title, count) else title,
             style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f),
         )
         if (onReorder != null) TextButton(onReorder) { Text(stringResource(R.string.fav_reorder)) }
@@ -324,7 +324,7 @@ fun ReorderFavoritesSheet(vm: AppViewModel, onDismiss: () -> Unit) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(Modifier.fillMaxWidth().navigationBarsPadding()) {
             Row(Modifier.fillMaxWidth().padding(start = 24.dp, end = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(stringResource(R.string.surf_reorder_title), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                Text(stringResource(R.string.home_reorder_title), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
                 TextButton(onDismiss) { Text(stringResource(R.string.main_done)) }
             }
             Text(

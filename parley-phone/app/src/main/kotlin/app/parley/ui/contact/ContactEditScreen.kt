@@ -170,15 +170,15 @@ private class MultiKind(
 )
 
 private val PHONES = MultiKind(
-    "phone", Icons.Rounded.Phone, R.string.detail_phone, R.string.edit_add_phone, R.string.v34e_remove_phone, phoneTypes, Phone.TYPE_MOBILE, KeyboardType.Phone,
-    { r, t -> Phone.getTypeLabel(r, t, null).toString() }, { it.phones }, { d, l -> d.copy(phones = l) }, EditorForm::phoneLooksWrong, R.string.v34e_phone_hint,
+    "phone", Icons.Rounded.Phone, R.string.detail_phone, R.string.edit_add_phone, R.string.editor_remove_phone, phoneTypes, Phone.TYPE_MOBILE, KeyboardType.Phone,
+    { r, t -> Phone.getTypeLabel(r, t, null).toString() }, { it.phones }, { d, l -> d.copy(phones = l) }, EditorForm::phoneLooksWrong, R.string.editor_phone_hint,
 )
 private val EMAILS = MultiKind(
-    "email", Icons.Rounded.Email, R.string.detail_email, R.string.edit_add_email, R.string.v34e_remove_email, emailTypes, Email.TYPE_HOME, KeyboardType.Email,
-    { r, t -> Email.getTypeLabel(r, t, null).toString() }, { it.emails }, { d, l -> d.copy(emails = l) }, EditorForm::emailLooksWrong, R.string.v34e_email_hint,
+    "email", Icons.Rounded.Email, R.string.detail_email, R.string.edit_add_email, R.string.editor_remove_email, emailTypes, Email.TYPE_HOME, KeyboardType.Email,
+    { r, t -> Email.getTypeLabel(r, t, null).toString() }, { it.emails }, { d, l -> d.copy(emails = l) }, EditorForm::emailLooksWrong, R.string.editor_email_hint,
 )
 private val WEBSITES = MultiKind(
-    "web", Icons.Rounded.Language, R.string.detail_website, R.string.edit_add_website, R.string.v34e_remove_website, webTypes, Website.TYPE_HOMEPAGE, KeyboardType.Uri,
+    "web", Icons.Rounded.Language, R.string.detail_website, R.string.edit_add_website, R.string.editor_remove_website, webTypes, Website.TYPE_HOMEPAGE, KeyboardType.Uri,
     { r, t -> r.getString(when (t) { Website.TYPE_HOMEPAGE -> R.string.edit_web_homepage; Website.TYPE_WORK -> R.string.edit_web_work; else -> R.string.edit_web_other }) },
     { it.websites }, { d, l -> d.copy(websites = l) },
 )
@@ -290,7 +290,7 @@ fun ContactEditScreen(
                     Button(onClick = ::save, enabled = canSave, modifier = Modifier.padding(end = 8.dp)) {
                         AnimatedContent(saving, label = "save") { busy ->
                             if (busy) {
-                                val desc = stringResource(R.string.v34e_saving)
+                                val desc = stringResource(R.string.editor_saving)
                                 CircularProgressIndicator(Modifier.size(18.dp).semantics { contentDescription = desc }, strokeWidth = 2.dp)
                             } else {
                                 Text(stringResource(R.string.main_save))
@@ -303,7 +303,7 @@ fun ContactEditScreen(
         },
     ) { padding ->
         if (d == null) {
-            val desc = stringResource(R.string.v34e_loading)
+            val desc = stringResource(R.string.editor_loading)
             Box(Modifier.padding(padding).fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(Modifier.semantics { contentDescription = desc })
             }
@@ -398,7 +398,7 @@ fun ContactEditScreen(
                     onToggle = { editor.moreName = !moreName }, first = fr(KEY_FIRST), nick = fr(KEY_NICK), update = ::update,
                 )
                 Segment(SegPos.Single) {
-                    GroupHead(Icons.Rounded.Business, stringResource(R.string.v34e_work))
+                    GroupHead(Icons.Rounded.Business, stringResource(R.string.editor_work))
                     EditorField(stringResource(R.string.edit_company), d.company, cap = KeyboardCapitalization.Words, locked = lockedRow(d.orgId), focus = fr(KEY_COMPANY)) { v -> update { it.copy(company = v) } }
                     EditorField(stringResource(R.string.edit_job_title), d.title, cap = KeyboardCapitalization.Words, locked = lockedRow(d.orgId)) { v -> update { it.copy(title = v) } }
                     Spacer(Modifier.height(4.dp))
@@ -569,7 +569,7 @@ fun ContactEditScreen(
                         FilledTonalButton({ moreSheet = true }) {
                             Icon(Icons.Rounded.Add, null, Modifier.size(18.dp))
                             Spacer(Modifier.width(8.dp))
-                            Text(stringResource(R.string.v34e_more_info))
+                            Text(stringResource(R.string.editor_more_info))
                         }
                     }
                 }
@@ -599,13 +599,13 @@ fun ContactEditScreen(
         if (moreSheet) {
             val entries = EditorForm.addable(shownKinds).map { k ->
                 when (k) {
-                    EditorForm.Kind.NAME_DETAILS -> MoreEntry(Icons.Rounded.Badge, stringResource(R.string.edit_name_details), stringResource(R.string.v34e_more_name)) { addKind(k) }
-                    EditorForm.Kind.DATE -> MoreEntry(Icons.Rounded.Cake, stringResource(R.string.edit_important_dates), stringResource(R.string.v34e_more_date)) { addKind(k) }
-                    EditorForm.Kind.ADDRESS -> MoreEntry(Icons.Rounded.Place, stringResource(R.string.detail_address), stringResource(R.string.v34e_more_address)) { addKind(k) }
-                    EditorForm.Kind.WEBSITE -> MoreEntry(Icons.Rounded.Language, stringResource(R.string.detail_website), stringResource(R.string.v34e_more_website)) { addKind(k) }
-                    EditorForm.Kind.HANDLE -> MoreEntry(Icons.Rounded.Forum, stringResource(R.string.edit_handles), stringResource(R.string.v34e_more_handle)) { addKind(k) }
-                    EditorForm.Kind.RELATION -> MoreEntry(Icons.Rounded.People, stringResource(R.string.edit_relations), stringResource(R.string.v34e_more_relation)) { addKind(k) }
-                    EditorForm.Kind.NOTE -> MoreEntry(Icons.AutoMirrored.Rounded.Notes, stringResource(R.string.edit_notes), stringResource(R.string.v34e_more_note)) { addKind(k) }
+                    EditorForm.Kind.NAME_DETAILS -> MoreEntry(Icons.Rounded.Badge, stringResource(R.string.edit_name_details), stringResource(R.string.editor_more_name)) { addKind(k) }
+                    EditorForm.Kind.DATE -> MoreEntry(Icons.Rounded.Cake, stringResource(R.string.edit_important_dates), stringResource(R.string.editor_more_date)) { addKind(k) }
+                    EditorForm.Kind.ADDRESS -> MoreEntry(Icons.Rounded.Place, stringResource(R.string.detail_address), stringResource(R.string.editor_more_address)) { addKind(k) }
+                    EditorForm.Kind.WEBSITE -> MoreEntry(Icons.Rounded.Language, stringResource(R.string.detail_website), stringResource(R.string.editor_more_website)) { addKind(k) }
+                    EditorForm.Kind.HANDLE -> MoreEntry(Icons.Rounded.Forum, stringResource(R.string.edit_handles), stringResource(R.string.editor_more_handle)) { addKind(k) }
+                    EditorForm.Kind.RELATION -> MoreEntry(Icons.Rounded.People, stringResource(R.string.edit_relations), stringResource(R.string.editor_more_relation)) { addKind(k) }
+                    EditorForm.Kind.NOTE -> MoreEntry(Icons.AutoMirrored.Rounded.Notes, stringResource(R.string.edit_notes), stringResource(R.string.editor_more_note)) { addKind(k) }
                 }
             }
             MoreInfoSheet(entries) { moreSheet = false }
@@ -625,7 +625,7 @@ fun ContactEditScreen(
         AlertDialog(
             onDismissRequest = { confirmDiscard = false },
             title = { Text(stringResource(R.string.edit_discard_title)) },
-            text = { Text(stringResource(R.string.v34e_discard_body)) },
+            text = { Text(stringResource(R.string.editor_discard_body)) },
             confirmButton = { TextButton({ confirmDiscard = false; done(null) }) { Text(stringResource(R.string.edit_discard)) } },
             dismissButton = { TextButton({ confirmDiscard = false }) { Text(stringResource(R.string.edit_keep_editing)) } },
         )
@@ -645,7 +645,7 @@ private fun AccountLine(
 ) {
     Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
         when {
-            vaultId != null -> InfoLine(Icons.Rounded.Lock, stringResource(R.string.v34e_private_here))
+            vaultId != null -> InfoLine(Icons.Rounded.Lock, stringResource(R.string.editor_private_here))
             isExisting -> InfoLine(
                 if (account?.isLocal != false) Icons.Rounded.PhoneAndroid else Icons.Rounded.AccountCircle,
                 stringResource(R.string.edit_saved_in, account?.displayLabel ?: stringResource(R.string.detail_phone)),
@@ -654,11 +654,11 @@ private fun AccountLine(
                 var open by remember { mutableStateOf(false) }
                 val privateLabel = stringResource(R.string.edit_private_only)
                 val current = if (privateNew) privateLabel else account?.let(label) ?: stringResource(R.string.edit_phone_only)
-                val change = stringResource(R.string.v34e_change_account)
+                val change = stringResource(R.string.editor_change_account)
                 Box {
                     AssistChip(
                         onClick = { open = true },
-                        label = { Text(stringResource(R.string.v34e_saving_to, current), maxLines = 2) },
+                        label = { Text(stringResource(R.string.editor_saving_to, current), maxLines = 2) },
                         leadingIcon = {
                             Icon(
                                 when { privateNew -> Icons.Rounded.Lock; account == null || account.isLocal -> Icons.Rounded.PhoneAndroid; else -> Icons.Rounded.AccountCircle },
@@ -728,7 +728,7 @@ private fun NameCard(
                     IconButton(onToggle) {
                         Icon(
                             if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
-                            stringResource(if (expanded) R.string.v34e_name_less else R.string.v34e_name_more),
+                            stringResource(if (expanded) R.string.editor_name_less else R.string.editor_name_more),
                         )
                     }
                 } else {
@@ -790,7 +790,7 @@ private fun DateRow(ev: EventItem, openPicker: Boolean, onPickerClosed: () -> Un
     val res = LocalResources.current
     val locked = ev.id != null && ev.id in LocalLocked.current
     var picking by remember { mutableStateOf(false) }
-    val pickLabel = stringResource(R.string.v34e_pick_date)
+    val pickLabel = stringResource(R.string.editor_pick_date)
     Column {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.weight(1f)) {
@@ -918,7 +918,7 @@ private fun RelationRow(
             Text(label, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
         } else {
             // The relation types are many and searchable, so the chip opens the search dialog rather than a menu.
-            val desc = stringResource(R.string.v34e_type, label)
+            val desc = stringResource(R.string.editor_type, label)
             AssistChip(
                 onClick = { typing = true }, label = { Text(label) },
                 trailingIcon = { Icon(Icons.Rounded.ArrowDropDown, null, Modifier.size(18.dp)) },

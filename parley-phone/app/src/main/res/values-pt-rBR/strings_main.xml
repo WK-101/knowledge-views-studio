@@ -829,7 +829,7 @@
     </plurals>
     <string name="save_contact_details">Salvar dados do contato</string>
     <string name="vm_messenger_copies_remain">Movido para contatos privados. As cópias no WhatsApp, Signal e outros mensageiros ficam até esse app sincronizar os contatos de novo</string>
-    <!-- v3.2 phone (P5, P8) -->
+    <!-- Phone -->
     <string name="recents_layout_grouped">Agrupadas</string>
     <string name="recents_layout_chronological">Cada chamada</string>
     <string name="recents_layout_by_day">Por dia</string>
@@ -865,11 +865,11 @@
     <string name="clear_history_cancel">Cancelar</string>
     <string name="clear_history_close">Fechar</string>
     <string name="clear_history_unknown_needs_contacts">Precisa de acesso aos seus contatos para saber quais números são desconhecidos</string>
-    <!-- v3.2 C4: birthday slots -->
+    <!-- Birthday slots -->
     <string name="ux_add_birthday">Adicionar aniversário?</string>
     <string name="ux_add_anniversary">Adicionar data comemorativa?</string>
     <string name="ux_date_not_saved">Não foi possível salvar a data. Você pode adicioná-la em Editar.</string>
-    <!-- v3.2 U2/U6: tips and What's new -->
+    <!-- Tips and What's new -->
     <string name="ux_tip_got_it">Entendi</string>
     <string name="ux_tip_search">Pesquise aqui nomes, números, notas e empresas.</string>
     <string name="ux_tip_speed_dial">Dica: toque e segure de 2 a 9 para ligar para alguém com um toque.</string>
@@ -880,7 +880,7 @@
     <string name="ux_whats_new_title">Novidades do Parley %1$s</string>
     <string name="ux_whats_new_body">Suas abas, a aba inicial e a lista de chamadas continuam como você deixou. As novidades chegam desativadas, para você testar quando quiser.</string>
     <string name="ux_whats_new_try">Experimentar</string>
-    <!-- v3.2 U5: empty states -->
+    <!-- Empty states -->
     <string name="ux_empty_clear_search">Limpar busca</string>
     <string name="ux_empty_clear_filter">Limpar filtro</string>
     <string name="ux_empty_add_contact">Criar contato</string>

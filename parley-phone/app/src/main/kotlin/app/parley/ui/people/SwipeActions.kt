@@ -242,11 +242,11 @@ fun blockWithUndo(vm: AppViewModel, numbers: List<String>) {
         val (already, fresh) = numbers.distinct().partition { runCatching { vm.c.blocks.isSystemBlocked(it) }.getOrDefault(false) }
         val done = fresh.filter { runCatching { vm.c.blocks.blockNumber(it) }.getOrDefault(false) }
         if (done.isEmpty()) {
-            vm.toast(res.getString(if (already.isNotEmpty() && fresh.isEmpty()) R.string.v34_swipe_already_blocked else R.string.vm_couldnt_block))
+            vm.toast(res.getString(if (already.isNotEmpty() && fresh.isEmpty()) R.string.contacts_swipe_already_blocked else R.string.vm_couldnt_block))
             return@launch
         }
         CircleSnacks.show(
-            CircleSnack(res.getQuantityString(R.plurals.v34_swipe_blocked, done.size, Bidi.ltr(done.first()), done.size)) {
+            CircleSnack(res.getQuantityString(R.plurals.contacts_swipe_blocked, done.size, Bidi.ltr(done.first()), done.size)) {
                 done.forEach { vm.c.blocks.unblockNumber(it) }
             },
         )
@@ -259,7 +259,7 @@ internal fun swipeLabel(res: Resources, a: SwipeAction, short: Boolean = false):
         SwipeAction.NONE -> R.string.swipe_none
         SwipeAction.CALL -> R.string.swipe_call
         SwipeAction.MESSAGE -> R.string.swipe_message
-        SwipeAction.MESSAGE_ON -> R.string.v34msg_message_or_call_on
+        SwipeAction.MESSAGE_ON -> R.string.reach_message_or_call_on
         SwipeAction.BLOCK -> R.string.swipe_block
         SwipeAction.DELETE -> if (short) R.string.swipe_delete_short else R.string.swipe_delete
     },

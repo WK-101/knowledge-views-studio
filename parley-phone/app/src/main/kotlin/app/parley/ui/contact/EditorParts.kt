@@ -198,8 +198,8 @@ internal fun EditorField(
 @Composable
 internal fun TypeChip(current: String, options: List<String>, enabled: Boolean = true, onPick: (Int) -> Unit) {
     var open by remember { mutableStateOf(false) }
-    val desc = stringResource(R.string.v34e_type, current)
-    val change = stringResource(R.string.v34e_change_type)
+    val desc = stringResource(R.string.editor_type, current)
+    val change = stringResource(R.string.editor_change_type)
     Box {
         AssistChip(
             onClick = { open = true }, enabled = enabled,
@@ -228,7 +228,7 @@ internal fun PhotoHeader(name: String, photo: String?, onPick: () -> Unit, onRem
     val has = photo != null
     Column(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         val pickLabel = stringResource(R.string.edit_choose_photo)
-        val photoDesc = stringResource(R.string.v34e_photo_desc)
+        val photoDesc = stringResource(R.string.editor_photo_desc)
         Box(
             Modifier.semantics(mergeDescendants = true) { contentDescription = photoDesc }
                 .clip(CircleShape).clickable(onClickLabel = pickLabel, onClick = onPick),
@@ -241,7 +241,7 @@ internal fun PhotoHeader(name: String, photo: String?, onPick: () -> Unit, onRem
             ) { Box(contentAlignment = Alignment.Center) { Icon(if (has) Icons.Rounded.Edit else Icons.Rounded.AddAPhoto, null, Modifier.size(20.dp)) } }
         }
         Row(horizontalArrangement = Arrangement.Center) {
-            TextButton(onPick) { Text(stringResource(if (has) R.string.v34e_edit_photo else R.string.v34e_add_photo)) }
+            TextButton(onPick) { Text(stringResource(if (has) R.string.editor_edit_photo else R.string.editor_add_photo)) }
             if (has) TextButton(onRemove) { Text(stringResource(R.string.edit_remove_photo), color = MaterialTheme.colorScheme.error) }
         }
         if (name.isNotBlank()) {
@@ -263,7 +263,7 @@ internal fun MoreInfoSheet(entries: List<MoreEntry>, onDismiss: () -> Unit) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(Modifier.navigationBarsPadding().padding(bottom = 16.dp)) {
             Text(
-                stringResource(R.string.v34e_more_info_title), style = MaterialTheme.typography.titleLarge,
+                stringResource(R.string.editor_more_info_title), style = MaterialTheme.typography.titleLarge,
                 modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp).semantics { heading() },
             )
             entries.forEach { e ->

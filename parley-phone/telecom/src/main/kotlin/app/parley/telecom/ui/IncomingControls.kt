@@ -118,10 +118,10 @@ fun IncomingControls(
 internal fun DeclineQuestion(onDecline: () -> Unit, onDismiss: () -> Unit) {
     androidx.compose.material3.AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.x_incall_decline_q)) },
-        text = { Text(stringResource(R.string.x_incall_decline_body)) },
+        title = { Text(stringResource(R.string.incall_decline_q)) },
+        text = { Text(stringResource(R.string.incall_decline_body)) },
         confirmButton = { TextButton(onClick = onDecline) { Text(stringResource(R.string.incall_decline), color = CallColors.Decline) } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.x_incall_keep_ringing)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.incall_keep_ringing)) } },
     )
 }
 

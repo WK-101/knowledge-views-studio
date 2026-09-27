@@ -379,11 +379,11 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
             val summary = next?.let { (i, days) ->
                 val label = app.parley.ui.people.eventLabel(resources, d.events[i])
                 when (days) {
-                    0L -> resources.getString(R.string.v34_cp_date_today, label)
-                    1L -> resources.getString(R.string.v34_cp_date_tomorrow, label)
-                    else -> resources.getQuantityString(R.plurals.v34_cp_date_in, days.toInt(), label, days.toInt())
+                    0L -> resources.getString(R.string.contact_page_date_today, label)
+                    1L -> resources.getString(R.string.contact_page_date_tomorrow, label)
+                    else -> resources.getQuantityString(R.plurals.contact_page_date_in, days.toInt(), label, days.toInt())
                 }
-            } ?: resources.getQuantityString(R.plurals.v34_cp_count_dates, d.events.size, d.events.size)
+            } ?: resources.getQuantityString(R.plurals.contact_page_count_dates, d.events.size, d.events.size)
             sections.add(ContactSection.DATES, sectionTitle(resources, ContactSection.DATES), summary) {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     SegmentedGroup {
@@ -402,12 +402,12 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                                 }
                                 GroupDataRow(
                                     Icons.Rounded.Cake, i == 0, app.parley.ui.people.describeLifeEvent(resources, d, ev),
-                                    app.parley.ui.people.eventLabel(resources, ev) + (if (on) resources.getString(R.string.main_separator) + resources.getString(R.string.c2_yearly_label) else ""),
+                                    app.parley.ui.people.eventLabel(resources, ev) + (if (on) resources.getString(R.string.main_separator) + resources.getString(R.string.circle_yearly_label) else ""),
                                     onClick = {},
                                     trailing = if (key == null) null else ({
                                         IconButton(::toggle) {
                                             Icon(
-                                                Icons.Rounded.EventRepeat, stringResource(if (on) R.string.c2_yearly_stop else R.string.c2_yearly_remember),
+                                                Icons.Rounded.EventRepeat, stringResource(if (on) R.string.circle_yearly_stop else R.string.circle_yearly_remember),
                                                 tint = if (on) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                                             )
                                         }
@@ -421,7 +421,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
             }
         }
         if (d.phones.isNotEmpty()) {
-            val summary = if (d.phones.size == 1) Bidi.ltr(Format.number(d.phones[0].value, vm.countryIso)) else resources.getQuantityString(R.plurals.v34_cp_count_numbers, d.phones.size, d.phones.size)
+            val summary = if (d.phones.size == 1) Bidi.ltr(Format.number(d.phones[0].value, vm.countryIso)) else resources.getQuantityString(R.plurals.contact_page_count_numbers, d.phones.size, d.phones.size)
             sections.add(ContactSection.PHONES, sectionTitle(resources, ContactSection.PHONES), summary) {
                 SegmentedGroup {
                     d.phones.forEachIndexed { i, p ->
@@ -444,7 +444,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
             }
         }
         if (d.emails.isNotEmpty()) {
-            val summary = if (d.emails.size == 1) d.emails[0].value else resources.getQuantityString(R.plurals.v34_cp_count_emails, d.emails.size, d.emails.size)
+            val summary = if (d.emails.size == 1) d.emails[0].value else resources.getQuantityString(R.plurals.contact_page_count_emails, d.emails.size, d.emails.size)
             sections.add(ContactSection.EMAILS, sectionTitle(resources, ContactSection.EMAILS), summary) {
                 SegmentedGroup {
                     d.emails.forEachIndexed { i, e ->
@@ -462,7 +462,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
             }
         }
         if (d.addresses.isNotEmpty()) {
-            val summary = if (d.addresses.size == 1) d.addresses[0].formatted.lines().joinToString(", ") { it.trim() } else resources.getQuantityString(R.plurals.v34_cp_count_addresses, d.addresses.size, d.addresses.size)
+            val summary = if (d.addresses.size == 1) d.addresses[0].formatted.lines().joinToString(", ") { it.trim() } else resources.getQuantityString(R.plurals.contact_page_count_addresses, d.addresses.size, d.addresses.size)
             sections.add(ContactSection.ADDRESSES, sectionTitle(resources, ContactSection.ADDRESSES), summary) {
                 SegmentedGroup {
                     d.addresses.forEachIndexed { i, a ->
@@ -474,10 +474,10 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
         val chatRows = messengers
         if (d.handles.isNotEmpty() || reachGroups.isNotEmpty()) {
             val apps = chatRows.map { it.appName }.distinct()
-            val summary = if (apps.isNotEmpty()) apps.joinToString(", ") else resources.getQuantityString(R.plurals.v34_cp_count_items, d.handles.size, d.handles.size)
+            val summary = if (apps.isNotEmpty()) apps.joinToString(", ") else resources.getQuantityString(R.plurals.contact_page_count_items, d.handles.size, d.handles.size)
             sections.add(ContactSection.MESSENGERS, sectionTitle(resources, ContactSection.MESSENGERS), summary) {
                 Column {
-                    app.parley.ui.common.CoachMark(app.parley.common.ux.Tips.REACH_USUAL, stringResource(R.string.v34msg_reach_hint), enabled = reachGroups.isNotEmpty())
+                    app.parley.ui.common.CoachMark(app.parley.common.ux.Tips.REACH_USUAL, stringResource(R.string.reach_reach_hint), enabled = reachGroups.isNotEmpty())
                     SegmentedGroup {
                         // I1: handles typed into the contact (Matrix, Threema, Signal username…).
                         handleRows(d.handles, Icons.Rounded.Forum, onWeb = { webLink = it })
@@ -493,7 +493,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
         }
         if (d.websites.isNotEmpty() || d.note.isNotBlank() || d.relations.isNotEmpty()) {
             val n = d.websites.size + d.relations.size + (if (d.note.isNotBlank()) 1 else 0)
-            sections.add(ContactSection.ABOUT, resources.getString(R.string.detail_about, d.given.ifBlank { d.displayName }), resources.getQuantityString(R.plurals.v34_cp_count_items, n, n)) {
+            sections.add(ContactSection.ABOUT, resources.getString(R.string.detail_about, d.given.ifBlank { d.displayName }), resources.getQuantityString(R.plurals.contact_page_count_items, n, n)) {
                 SegmentedGroup {
                     d.websites.forEachIndexed { i, w -> item { GroupDataRow(Icons.Rounded.Language, i == 0, w.value, resources.getString(R.string.detail_website), onClick = { Intents.web(context, w.value) }) } }
                     d.relations.forEachIndexed { i, rel ->
@@ -518,7 +518,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                 }
             }
         }
-        if (otherFields.isNotEmpty()) sections.add(ContactSection.OTHER, sectionTitle(resources, ContactSection.OTHER), resources.getQuantityString(R.plurals.v34_cp_count_items, otherFields.size, otherFields.size)) {
+        if (otherFields.isNotEmpty()) sections.add(ContactSection.OTHER, sectionTitle(resources, ContactSection.OTHER), resources.getQuantityString(R.plurals.contact_page_count_items, otherFields.size, otherFields.size)) {
             Column {
                 SegmentedGroup {
                     otherFields.forEachIndexed { i, f -> item { GroupDataRow(Icons.Rounded.Info, i == 0, f.value, f.label, onClick = {}) } }
@@ -529,18 +529,18 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
         val notes = ui.notes
         // R2: calls, logged interactions, call notes and dates, by month. P1: the latest few; "Show all" opens the rest.
         val timelineCount = remember(history, interactions, notes, d.events) { app.parley.ui.circle.timelineEntries(d, history, interactions, notes, java.time.ZoneId.systemDefault()).size }
-        sections.add(ContactSection.TIMELINE, sectionTitle(resources, ContactSection.TIMELINE), resources.getQuantityString(R.plurals.v34_cp_entries, timelineCount, timelineCount)) {
+        sections.add(ContactSection.TIMELINE, sectionTitle(resources, ContactSection.TIMELINE), resources.getQuantityString(R.plurals.contact_page_entries, timelineCount, timelineCount)) {
             app.parley.ui.circle.ContactTimeline(
                 vm, d, history, interactions, notes, onEdit = { editEntry = it },
                 onAllCalls = primary?.takeIf { history.size > 5 }?.let { p -> { open(Routes.history(p.value)) } },
                 limit = TIMELINE_PREVIEW, onShowAll = { open(ContactPageRoutes.timeline(contactId)) }, showTitle = false,
             )
         }
-        if (history.isNotEmpty()) sections.add(ContactSection.INSIGHTS, sectionTitle(resources, ContactSection.INSIGHTS), resources.getQuantityString(R.plurals.v34_cp_count_calls, history.size, history.size)) {
+        if (history.isNotEmpty()) sections.add(ContactSection.INSIGHTS, sectionTitle(resources, ContactSection.INSIGHTS), resources.getQuantityString(R.plurals.contact_page_count_calls, history.size, history.size)) {
             OnGroupSurface { app.parley.ui.history.CallInsightsSection(vm, d.phones.map { it.value }, showTitle = false) }
         }
         val note = meta?.pinnedNote
-        sections.add(ContactSection.NOTE, sectionTitle(resources, ContactSection.NOTE), note?.lineSequence()?.firstOrNull().orEmpty().ifBlank { resources.getString(R.string.v34_cp_no_note) }) {
+        sections.add(ContactSection.NOTE, sectionTitle(resources, ContactSection.NOTE), note?.lineSequence()?.firstOrNull().orEmpty().ifBlank { resources.getString(R.string.contact_page_no_note) }) {
             SegmentedGroup {
                 item {
                     ListItem(
@@ -553,7 +553,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                 }
             }
         }
-        sections.add(ContactSection.SETTINGS, sectionTitle(resources, ContactSection.SETTINGS), resources.getString(R.string.v34_cp_settings_summary)) {
+        sections.add(ContactSection.SETTINGS, sectionTitle(resources, ContactSection.SETTINGS), resources.getString(R.string.contact_page_settings_summary)) {
             SegmentedGroup {
                 item {
                     ListItem(
@@ -828,7 +828,7 @@ private fun PhoneRow(
         },
         menu = { close ->
             if (canDefault) DefaultMenuItem(p.isPrimary) { on -> close(); onDefault(on) }
-            DropdownMenuItem({ Text(stringResource(R.string.v34msg_message_or_call_on)) }, leadingIcon = { Icon(Icons.AutoMirrored.Rounded.Message, null) }, onClick = { close(); onMessageOn() })
+            DropdownMenuItem({ Text(stringResource(R.string.reach_message_or_call_on)) }, leadingIcon = { Icon(Icons.AutoMirrored.Rounded.Message, null) }, onClick = { close(); onMessageOn() })
             DropdownMenuItem({ Text(stringResource(R.string.detail_edit_before_call)) }, leadingIcon = { Icon(Icons.Rounded.Dialpad, null) }, onClick = {
                 close(); vm.navigate(app.parley.NavEvent.Tab(app.parley.common.StartTab.KEYPAD, dial = p.value))
             })

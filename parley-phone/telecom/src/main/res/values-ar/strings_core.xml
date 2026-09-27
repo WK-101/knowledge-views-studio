@@ -171,7 +171,7 @@
     <string name="postcall_name">الاسم</string>
     <string name="postcall_save_explainer">يُحفظ في جهات اتصال Parley الخاصة، حيث لا تراه التطبيقات الأخرى، ويُحذف تلقائيًا مع سجل مكالماته بعد 7 أيام. يمكنك الاحتفاظ به من جهات الاتصال المؤقتة.</string>
     <string name="tc_private_label">خاص</string>
-    <!-- v3.2 phone (P1, P2, P6) -->
+    <!-- Phone -->
     <string name="incall_unmute">إلغاء كتم الصوت</string>
     <string name="incall_block_decline">حظر ورفض</string>
     <string name="incall_incoming_more">خيارات أخرى لهذه المكالمة</string>
@@ -190,4 +190,9 @@
     <string name="decline_blocked_answered">سيتم رفض المكالمات من %1$s من الآن فصاعدًا. تم الرد على هذه المكالمة.</string>
     <string name="decline_block_undone">تم إلغاء الحظر. يمكن لـ %1$s الاتصال بك مجددًا.</string>
     <string name="tc_undo">تراجع</string>
+
+    <string name="incall_decline_q">رفض هذه المكالمة؟</string>
+    <string name="incall_decline_body">سيعرف المتصل أنك غير متاح.</string>
+    <string name="incall_keep_ringing">استمرار الرنين</string>
+    <string name="incall_is_calling">%1$s يتصل</string>
 </resources>

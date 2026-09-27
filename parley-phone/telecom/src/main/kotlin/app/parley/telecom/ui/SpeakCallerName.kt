@@ -22,7 +22,7 @@ import app.parley.telecom.R
 fun SpeakCallerName(callId: String?, name: String?) {
     if (callId == null || name.isNullOrBlank()) return
     val context = LocalContext.current
-    val text = stringResource(R.string.x_incall_is_calling, name)
+    val text = stringResource(R.string.incall_is_calling, name)
     DisposableEffect(callId, text) {
         val app = context.applicationContext
         val audio = app.getSystemService(AudioManager::class.java)

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="trip_title">कौन है…</string>
+    <string name="trip_city">शहर</string>
+    <string name="trip_hint">कोई शहर लिखें या चुनें। Parley कभी आपकी लोकेशन का इस्तेमाल नहीं करता।</string>
+    <string name="trip_empty_title">आप कहाँ जा रहे हैं?</string>
+    <string name="trip_empty_body">Parley उन लोगों को दिखाता है जिनका पता, नोट या फ़ोन नंबर उस शहर से मेल खाता है।</string>
+    <string name="trip_none">%1$s से कोई जुड़ा नहीं है</string>
+    <string name="trip_none_body">अभी किसी पते, नोट या नंबर में इसका ज़िक्र नहीं है।</string>
+    <string name="trip_list_separator">, </string>
+    <string name="trip_summary">आप %1$s में हैं: %2$s</string>
+    <string name="trip_reason_address">पता</string>
+    <string name="trip_reason_number">वहीं का नंबर</string>
+    <string name="trip_reason_note">नोट में ज़िक्र</string>
+    <string name="trip_menu">कौन है…</string>
+    <plurals name="trip_summary_more">
+        <item quantity="one">आप %1$s में हैं: %2$s और %3$d और</item>
+        <item quantity="other">आप %1$s में हैं: %2$s और %3$d और</item>
+    </plurals>
+</resources>

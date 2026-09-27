@@ -131,7 +131,7 @@ class CircleWidget : AppWidgetProvider() {
                 val line = when (p.reason) {
                     CircleDigest.Reason.DATE -> events.firstOrNull { it.first.lookupKey == p.lookupKey }?.let { (e, days) ->
                         whenText(ctx, days) + res.getString(R.string.main_separator) + app.parley.ui.people.eventLabel(res, EventItem(date = e.date, type = e.type, label = e.label))
-                    } ?: res.getString(R.string.c2_widget_date_soon)
+                    } ?: res.getString(R.string.circle_widget_date_soon)
                     else -> CircleText.last(res, lasts[p.lookupKey], now)
                 }
                 Row(ct.id, ct.displayName, line, (ct.phones.firstOrNull { it.isPrimary } ?: ct.phones.firstOrNull())?.number)
@@ -140,9 +140,9 @@ class CircleWidget : AppWidgetProvider() {
         }
 
         private fun whenText(ctx: Context, days: Int): String = when (days) {
-            0 -> ctx.getString(R.string.c2_widget_today)
-            1 -> ctx.getString(R.string.c2_widget_tomorrow)
-            else -> ctx.resources.getQuantityString(R.plurals.c2_widget_in_days, days, days)
+            0 -> ctx.getString(R.string.circle_widget_today)
+            1 -> ctx.getString(R.string.circle_widget_tomorrow)
+            else -> ctx.resources.getQuantityString(R.plurals.circle_widget_in_days, days, days)
         }
 
         private val personIds = listOf(
@@ -171,10 +171,10 @@ class CircleWidget : AppWidgetProvider() {
                 // App lock on and the phone locked: counts only, never names.
                 val res = ctx.resources
                 val text = listOf(
-                    res.getQuantityString(R.plurals.c2_widget_count_people, content.people.size, content.people.size),
-                    res.getQuantityString(R.plurals.c2_widget_count_dates, content.dates.size, content.dates.size),
+                    res.getQuantityString(R.plurals.circle_widget_count_people, content.people.size, content.people.size),
+                    res.getQuantityString(R.plurals.circle_widget_count_dates, content.dates.size, content.dates.size),
                 ).joinToString("\n")
-                v.setTextViewText(R.id.circle_message, text + "\n" + res.getString(R.string.c2_widget_tap_reveal))
+                v.setTextViewText(R.id.circle_message, text + "\n" + res.getString(R.string.circle_widget_tap_reveal))
                 v.setViewVisibility(R.id.circle_message, View.VISIBLE)
                 // A tap re-draws the widget (names return when the phone is unlocked); opening Parley does too.
                 val reveal = PendingIntent.getBroadcast(
@@ -187,7 +187,7 @@ class CircleWidget : AppWidgetProvider() {
                 return v
             }
             if (content.people.isEmpty() && content.dates.isEmpty()) {
-                v.setTextViewText(R.id.circle_message, ctx.getString(R.string.c2_widget_empty))
+                v.setTextViewText(R.id.circle_message, ctx.getString(R.string.circle_widget_empty))
                 v.setViewVisibility(R.id.circle_message, View.VISIBLE)
                 return v
             }
@@ -215,7 +215,7 @@ class CircleWidget : AppWidgetProvider() {
                     if (room < 18) return@forEachIndexed
                     room -= 20
                     v.setViewVisibility(dateIds[i], View.VISIBLE)
-                    v.setTextViewText(dateIds[i], ctx.getString(R.string.c2_widget_date_row, d.name, d.line))
+                    v.setTextViewText(dateIds[i], ctx.getString(R.string.circle_widget_date_row, d.name, d.line))
                     v.setOnClickPendingIntent(dateIds[i], contactIntent(ctx, d.contactId, 7400 + id * 8 + i))
                 }
             }

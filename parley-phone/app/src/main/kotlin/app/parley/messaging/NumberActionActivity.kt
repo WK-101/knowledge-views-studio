@@ -449,8 +449,8 @@ class NumberActionActivity : androidx.fragment.app.FragmentActivity() {
             // C2: Call is the primary action, above the messengers.
             if (callAction() != null) CallFirstButton(number) { call(number, contactName) }
             ListItem(
-                headlineContent = { Text(stringResource(R.string.v34msg_message_or_call_on)) },
-                supportingContent = { Text(stringResource(R.string.v34msg_apps_line)) },
+                headlineContent = { Text(stringResource(R.string.reach_message_or_call_on)) },
+                supportingContent = { Text(stringResource(R.string.reach_apps_line)) },
                 leadingContent = { Icon(Icons.AutoMirrored.Rounded.Chat, null) },
                 modifier = Modifier.clickable { stage = Stage.Message(number) },
             )

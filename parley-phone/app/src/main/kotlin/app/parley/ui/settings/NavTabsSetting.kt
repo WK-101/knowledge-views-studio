@@ -135,7 +135,7 @@ fun NavTabsEditor(
                     Column(Modifier.weight(1f)) {
                         Text(t.label, style = MaterialTheme.typography.bodyLarge)
                         inside[t]?.let { host ->
-                            if (shown) Text(stringResource(R.string.surf_tab_inside, host.label), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            if (shown) Text(stringResource(R.string.home_tab_inside, host.label), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         if (shown && !tabs.canHide(t)) {
                             Text(stringResource(R.string.set_tab_one_stays), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

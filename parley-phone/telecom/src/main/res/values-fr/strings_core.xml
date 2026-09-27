@@ -162,7 +162,7 @@
     <string name="postcall_name">Nom</string>
     <string name="postcall_save_explainer">Conservé dans les contacts privés de Parley, invisibles pour les autres apps, et supprimé automatiquement avec son historique d\'appels après 7 jours. Vous pouvez le garder depuis Contacts temporaires.</string>
     <string name="tc_private_label">Privé</string>
-    <!-- v3.2 phone (P1, P2, P6) -->
+    <!-- Phone -->
     <string name="incall_unmute">Réactiver le micro</string>
     <string name="incall_block_decline">Bloquer et refuser</string>
     <string name="incall_incoming_more">Plus d\'options pour cet appel</string>
@@ -181,4 +181,9 @@
     <string name="decline_blocked_answered">Les appels de %1$s seront refusés désormais. Cet appel a été pris.</string>
     <string name="decline_block_undone">Débloqué. %1$s peut de nouveau vous appeler.</string>
     <string name="tc_undo">Annuler</string>
+
+    <string name="incall_decline_q">Refuser cet appel ?</string>
+    <string name="incall_decline_body">La personne qui appelle saura que vous n\'êtes pas disponible.</string>
+    <string name="incall_keep_ringing">Laisser sonner</string>
+    <string name="incall_is_calling">%1$s vous appelle</string>
 </resources>

@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="set_simple_title">Mode simple</string>
+    <string name="set_simple_summary">De grands boutons avec photo pour 9 personnes au plus, un clavier plus grand et une question avant de refuser. À configurer pour quelqu\'un d\'autre</string>
+    <string name="set_simple_kw">senior, personnes âgées, assisté, facile, grand, grands boutons, grands-parents, accessibilité, annoncer le nom</string>
+    <string name="simple_intro">Un écran d\'accueil calme pour qui ne veut que l\'essentiel : de grands boutons avec photo pour les personnes qui comptent, un clavier plus grand et une question avant de refuser un appel. Configurez-le ici, ou sur votre téléphone et envoyez-le.</string>
+    <string name="simple_remove">Retirer %1$s</string>
+    <string name="simple_add">Ajouter une personne</string>
+    <string name="simple_options">Sur ce téléphone</string>
+    <string name="simple_keypad">Bouton du clavier</string>
+    <string name="simple_keypad_body">Un grand clavier pour les autres numéros</string>
+    <string name="simple_confirm_decline">Demander avant de refuser un appel</string>
+    <string name="simple_confirm_decline_body">De grands boutons pour répondre et refuser, et d\'abord « Refuser cet appel ? »</string>
+    <string name="simple_speak">Annoncer qui appelle</string>
+    <string name="simple_speak_body">Prononce le nom de l\'appelant pendant la sonnerie. Utilise la synthèse vocale du téléphone ; rien n\'est enregistré</string>
+    <string name="simple_turn_on">Activer le mode simple</string>
+    <string name="simple_exit_hint">Pour quitter le mode simple, appuyez longuement sur « Quitter » en haut, puis confirmez (avec le verrouillage de l\'appli, s\'il est activé).</string>
+    <string name="simple_share">Configurer un autre téléphone</string>
+    <string name="simple_save_file">Enregistrer la configuration dans un fichier</string>
+    <string name="simple_save_file_body">Chiffré avec une phrase secrète de votre choix. Les contacts voyagent sous forme de noms et de numéros</string>
+    <string name="simple_show_qr">Afficher la configuration en QR code</string>
+    <string name="simple_show_qr_body">Scannez-le avec l\'appareil photo de l\'autre téléphone, puis saisissez le code</string>
+    <string name="simple_import_file">Importer un fichier de configuration</string>
+    <string name="simple_import_file_body">Depuis un fichier créé sur un autre téléphone</string>
+    <string name="simple_file_saved">Configuration enregistrée</string>
+    <string name="simple_file_failed">Impossible d\'enregistrer le fichier de configuration</string>
+    <string name="simple_pass">Phrase secrète</string>
+    <string name="simple_pass_again">Répétez la phrase secrète</string>
+    <string name="simple_pass_new">Choisissez une phrase secrète d\'au moins 8 caractères. L\'autre téléphone en a besoin pour ouvrir le fichier.</string>
+    <string name="simple_pass_enter">Saisissez la phrase secrète utilisée pour enregistrer la configuration.</string>
+    <string name="simple_qr_desc">QR code de la configuration du mode simple</string>
+    <string name="simple_qr_hint">Ouvrez le code avec n\'importe quel lecteur de QR sur l\'autre téléphone ; Parley s\'ouvre et demande ce code.</string>
+    <string name="simple_import_title">Importer le mode simple</string>
+    <string name="simple_enter_passcode">Saisissez le code affiché sur l\'autre téléphone.</string>
+    <string name="simple_wrong_pass">Impossible de l\'ouvrir. Vérifiez le code ou la phrase secrète.</string>
+    <string name="simple_matched">Trouvé : %1$s</string>
+    <string name="simple_not_in_contacts">Absent de vos contacts</string>
+    <string name="simple_create">Créer</string>
+    <string name="simple_import_note">Les personnes absentes de vos contacts ont quand même un bouton avec leur numéro. Créez-les pour ajouter une photo.</string>
+    <string name="simple_use_on">Utiliser cette configuration et activer le mode simple</string>
+    <string name="simple_use_later">La garder pour plus tard</string>
+    <string name="simple_saved">Configuration du mode simple enregistrée</string>
+    <string name="simple_leave_to_import">Quittez le mode simple pour importer une configuration</string>
+    <string name="simple_leave">Quitter</string>
+    <string name="simple_leave_hold">Appuyez longuement pour quitter le mode simple</string>
+    <string name="simple_keypad_open">Clavier</string>
+    <string name="simple_call_q">Appeler %1$s ?</string>
+    <string name="simple_call">Appeler</string>
+    <string name="simple_leave_q">Quitter le mode simple ?</string>
+    <string name="simple_leave_body">Parley revient à ses onglets habituels. Vous pouvez réactiver le mode simple dans Réglages › Apparence.</string>
+    <string name="simple_no_people">Personne pour l\'instant. Demandez à la personne qui a configuré ce téléphone d\'ajouter des contacts dans Réglages › Apparence › Mode simple.</string>
+    <string name="simple_keypad_close">Fermer le clavier</string>
+    <string name="simple_keypad_delete">Effacer un chiffre</string>
+    <plurals name="simple_people_n">
+        <item quantity="one">Personnes (%1$d sur %2$d)</item>
+        <item quantity="many">Personnes (%1$d sur %2$d)</item>
+        <item quantity="other">Personnes (%1$d sur %2$d)</item>
+    </plurals>
+    <plurals name="simple_skipped">
+        <item quantity="one">%d entrée n\'était pas un simple numéro de téléphone et a été ignorée</item>
+        <item quantity="many">%d entrées n\'étaient pas de simples numéros de téléphone et ont été ignorées</item>
+        <item quantity="other">%d entrées n\'étaient pas de simples numéros de téléphone et ont été ignorées</item>
+    </plurals>
+</resources>

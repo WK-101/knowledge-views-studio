@@ -94,7 +94,7 @@ fun RecentsTab(vm: AppViewModel, open: (String) -> Unit, bottomPadding: androidx
     var daySummary by remember { mutableStateOf<Pair<Long, String>?>(null) }
     daySummary?.let { (day, title) -> app.parley.ui.history.DaySummarySheet(vm, day, title) { daySummary = null } }
     app.parley.ui.history.RecentsExportHost(vm)
-    app.parley.ui.history.RecentsV32Host(vm, open)
+    app.parley.ui.history.RecentsMenuDialogs(vm, open)
     // Blocking: verdict / "Don't call back" badges and multi-select block (B2, B8, B10).
     val badgeFor = app.parley.ui.blocking.rememberRecentBadges(vm)
     val selected by recents.selection.collectAsStateWithLifecycle()
@@ -148,7 +148,7 @@ fun RecentsTab(vm: AppViewModel, open: (String) -> Unit, bottomPadding: androidx
                             val spoken = pluralStringResource(R.plurals.recents_voicemail_new, voicemail.unheard, voicemail.unheard)
                             Modifier.semantics { contentDescription = spoken }
                         } else if (f == RecentFilter.MISSED && rich && toReturn > 0) {
-                            val spoken = stringResource(f.labelRes) + stringResource(R.string.main_separator) + pluralStringResource(R.plurals.v33_to_call_back, toReturn, toReturn)
+                            val spoken = stringResource(f.labelRes) + stringResource(R.string.main_separator) + pluralStringResource(R.plurals.recents_to_call_back, toReturn, toReturn)
                             Modifier.semantics { contentDescription = spoken }
                         } else {
                             Modifier
@@ -313,7 +313,7 @@ fun RecentRow(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (rich) {
                     // TalkBack reads the type in words (and that the call still waits for a call back).
-                    val words = stringResource(callClassLabel(cls)) + if (attention) stringResource(R.string.main_separator) + stringResource(R.string.v33_not_returned) else ""
+                    val words = stringResource(callClassLabel(cls)) + if (attention) stringResource(R.string.main_separator) + stringResource(R.string.recents_not_returned) else ""
                     app.parley.ui.CallClassBadge(cls, size = 20.dp, contentDescription = words)
                     if (sequence.isNotEmpty()) {
                         Spacer(Modifier.width(6.dp))
@@ -331,7 +331,7 @@ fun RecentRow(
                         ?.let { p -> Format.phoneType(context.resources, p.type, p.label) } else if (!g.hidden && g.contact == null && g.cachedName != null) Bidi.ltr(Format.number(e.number, countryIso)) else null,
                     e.accountId?.let { simLabels[it] },
                     // R4: an outgoing call nobody answered says so.
-                    if (rich && cls == CallClass.NO_ANSWER) stringResource(R.string.v33_class_no_answer) else null,
+                    if (rich && cls == CallClass.NO_ANSWER) stringResource(R.string.recents_class_no_answer) else null,
                     Format.shortWhen(context, e.date),
                 )
                 Text(parts.joinToString(stringResource(R.string.main_separator)), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
@@ -352,7 +352,7 @@ fun RecentRow(
         },
         trailingContent = {
             if (tapCalls) {
-                IconButton(onClick = onOpen) { Icon(Icons.Rounded.Info, stringResource(R.string.surf_recent_details, g.title)) }
+                IconButton(onClick = onOpen) { Icon(Icons.Rounded.Info, stringResource(R.string.home_recent_details, g.title)) }
             } else if (!g.hidden && g.number.isNotBlank()) {
                 if (attention) {
                     CallBackPill(g.title, onCall)
@@ -427,7 +427,7 @@ private fun RecentActionsSheet(vm: AppViewModel, recents: RecentsViewModel, g: R
         }
         row(R.string.main_call, Icons.Rounded.Call, hasNumber) { act { vm.requestCall(g.number, g.contact?.displayName) } }
         row(R.string.recents_send_message, Icons.AutoMirrored.Rounded.Message, hasNumber) { act { app.parley.ui.common.Intents.sms(context, g.number) } }
-        row(R.string.v34msg_message_or_call_on, Icons.AutoMirrored.Rounded.Chat, hasNumber) { act { onMessageOn(g.number) } }
+        row(R.string.reach_message_or_call_on, Icons.AutoMirrored.Rounded.Chat, hasNumber) { act { onMessageOn(g.number) } }
         row(R.string.recents_edit_before_call, Icons.Rounded.Dialpad, hasNumber) {
             act { vm.navigate(app.parley.NavEvent.Tab(app.parley.common.StartTab.KEYPAD, dial = g.number)) }
         }

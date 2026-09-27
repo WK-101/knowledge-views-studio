@@ -868,7 +868,7 @@
     </plurals>
     <string name="save_contact_details">Save contact details</string>
     <string name="vm_messenger_copies_remain">Moved to private contacts. Copies in WhatsApp, Signal and other messengers stay until that app syncs its contacts again</string>
-    <!-- v3.2 phone (P5, P8) -->
+    <!-- Phone -->
     <string name="recents_layout_grouped">Grouped</string>
     <string name="recents_layout_chronological">Every call</string>
     <string name="recents_layout_by_day">By day</string>
@@ -902,11 +902,11 @@
     <string name="clear_history_cancel">Cancel</string>
     <string name="clear_history_close">Close</string>
     <string name="clear_history_unknown_needs_contacts">Needs access to your contacts, to tell which numbers are unknown</string>
-    <!-- v3.2 C4: birthday slots -->
+    <!-- Birthday slots -->
     <string name="ux_add_birthday">Add birthday?</string>
     <string name="ux_add_anniversary">Add anniversary?</string>
     <string name="ux_date_not_saved">Couldn\'t save the date. You can add it with Edit.</string>
-    <!-- v3.2 U2/U6: tips and What's new -->
+    <!-- Tips and What's new -->
     <string name="ux_tip_got_it">Got it</string>
     <string name="ux_tip_search">Search names, numbers, notes and companies here.</string>
     <string name="ux_tip_speed_dial">Tip: long-press 2 to 9 to call someone with one touch.</string>
@@ -917,7 +917,7 @@
     <string name="ux_whats_new_title">What\'s new in Parley %1$s</string>
     <string name="ux_whats_new_body">Your tabs, start tab and call list stay just as you set them. New things arrive switched off, so you can try them when you like.</string>
     <string name="ux_whats_new_try">Try it</string>
-    <!-- v3.2 U5: empty states -->
+    <!-- Empty states -->
     <string name="ux_empty_clear_search">Clear search</string>
     <string name="ux_empty_clear_filter">Clear filter</string>
     <string name="ux_empty_add_contact">Create contact</string>

@@ -226,10 +226,10 @@ class RemindersWorker(context: Context, params: WorkerParameters) : CoroutineWor
                 CircleDigest.Reason.DUE -> ctx.getString(R.string.circle_might_enjoy, ct.displayName)
                 CircleDigest.Reason.DATE -> ctx.getString(R.string.circle_digest_date, ct.displayName)
                 // X6: over a year since you were in touch.
-                CircleDigest.Reason.QUIET -> ctx.getString(R.string.c2_digest_long_quiet, ct.displayName)
+                CircleDigest.Reason.QUIET -> ctx.getString(R.string.circle_digest_long_quiet, ct.displayName)
                 // R10: "1 year since Ana's new job".
-                CircleDigest.Reason.YEARLY -> pick.years?.let { y -> ctx.resources.getQuantityString(R.plurals.c2_digest_yearly, y, y, ct.displayName, pick.label.orEmpty()) }
-                    ?: ctx.getString(R.string.c2_digest_yearly_no_year, ct.displayName, pick.label.orEmpty())
+                CircleDigest.Reason.YEARLY -> pick.years?.let { y -> ctx.resources.getQuantityString(R.plurals.circle_digest_yearly, y, y, ct.displayName, pick.label.orEmpty()) }
+                    ?: ctx.getString(R.string.circle_digest_yearly_no_year, ct.displayName, pick.label.orEmpty())
             }
         }
         val style = NotificationCompat.InboxStyle()

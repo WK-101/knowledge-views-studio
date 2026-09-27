@@ -69,9 +69,9 @@ internal fun LayoutSettingsGroup(vm: AppViewModel) {
     // The tab a combine option would take out of the bar: asked about first, only when the user shows it.
     var askKeypad by remember { mutableStateOf(false) }
     var askFavorites by remember { mutableStateOf<FavoritesPlacement?>(null) }
-    val tapOptions = listOf(stringResource(R.string.surf_tap_details), stringResource(R.string.surf_tap_call))
+    val tapOptions = listOf(stringResource(R.string.home_tap_details), stringResource(R.string.home_tap_call))
 
-    SegmentedGroup(stringResource(R.string.surf_group_layout)) {
+    SegmentedGroup(stringResource(R.string.home_group_layout)) {
         item("calls_layout") {
             Column {
                 ListItem(
@@ -82,8 +82,8 @@ internal fun LayoutSettingsGroup(vm: AppViewModel) {
                 )
                 PreviewChoices(
                     listOf(
-                        Triple(stringResource(R.string.surf_calls_separate), Thumb.CALLS_SEPARATE, surfaces.calls == CallsLayout.SEPARATE),
-                        Triple(stringResource(R.string.surf_calls_combined), Thumb.CALLS_COMBINED, surfaces.calls == CallsLayout.COMBINED),
+                        Triple(stringResource(R.string.home_calls_separate), Thumb.CALLS_SEPARATE, surfaces.calls == CallsLayout.SEPARATE),
+                        Triple(stringResource(R.string.home_calls_combined), Thumb.CALLS_COMBINED, surfaces.calls == CallsLayout.COMBINED),
                     ),
                 ) { i ->
                     when {
@@ -97,7 +97,7 @@ internal fun LayoutSettingsGroup(vm: AppViewModel) {
         }
         if (surfaces.calls == CallsLayout.COMBINED) {
             item("keep_keypad_tab") {
-                SwitchRow(stringResource(R.string.surf_keep_keypad_tab), stringResource(R.string.surf_keep_keypad_tab_sub), surfaces.keepKeypadTab) { v ->
+                SwitchRow(stringResource(R.string.home_keep_keypad_tab), stringResource(R.string.home_keep_keypad_tab_sub), surfaces.keepKeypadTab) { v ->
                     set { it.copy(surfaces = it.surfaces.copy(keepKeypadTab = v)) }
                 }
             }
@@ -112,9 +112,9 @@ internal fun LayoutSettingsGroup(vm: AppViewModel) {
                 )
                 PreviewChoices(
                     listOf(
-                        Triple(stringResource(R.string.surf_fav_off), Thumb.FAV_OFF, surfaces.favorites == FavoritesPlacement.OFF),
-                        Triple(stringResource(R.string.surf_fav_section), Thumb.FAV_SECTION, surfaces.favorites == FavoritesPlacement.SECTION),
-                        Triple(stringResource(R.string.surf_fav_strip), Thumb.FAV_STRIP, surfaces.favorites == FavoritesPlacement.STRIP),
+                        Triple(stringResource(R.string.home_fav_off), Thumb.FAV_OFF, surfaces.favorites == FavoritesPlacement.OFF),
+                        Triple(stringResource(R.string.home_fav_section), Thumb.FAV_SECTION, surfaces.favorites == FavoritesPlacement.SECTION),
+                        Triple(stringResource(R.string.home_fav_strip), Thumb.FAV_STRIP, surfaces.favorites == FavoritesPlacement.STRIP),
                     ),
                 ) { i ->
                     val next = FavoritesPlacement.entries[i]
@@ -130,26 +130,26 @@ internal fun LayoutSettingsGroup(vm: AppViewModel) {
         }
         if (surfaces.favorites != FavoritesPlacement.OFF) {
             item("keep_favorites_tab") {
-                SwitchRow(stringResource(R.string.surf_keep_fav_tab), stringResource(R.string.surf_keep_fav_tab_sub), surfaces.keepFavoritesTab) { v ->
+                SwitchRow(stringResource(R.string.home_keep_fav_tab), stringResource(R.string.home_keep_fav_tab_sub), surfaces.keepFavoritesTab) { v ->
                     set { it.copy(surfaces = it.surfaces.copy(keepFavoritesTab = v)) }
                 }
             }
             item("frequents_row") {
-                SwitchRow(stringResource(R.string.surf_frequents_row), stringResource(R.string.surf_frequents_row_sub), surfaces.frequentsRow) { v ->
+                SwitchRow(stringResource(R.string.home_frequents_row), stringResource(R.string.home_frequents_row_sub), surfaces.frequentsRow) { v ->
                     set { it.copy(surfaces = it.surfaces.copy(frequentsRow = v)) }
                 }
             }
             if (s.homeLayout().circleHost == StartTab.CONTACTS) item("circle_moves") {
-                InfoRow(stringResource(R.string.surf_circle_moves), null)
+                InfoRow(stringResource(R.string.home_circle_moves), null)
             }
         }
         if (surfaces.merged) {
             item("layout_back") {
                 ListItem(
-                    headlineContent = { Text(stringResource(R.string.surf_back_to_separate)) },
-                    supportingContent = { Text(stringResource(R.string.surf_back_to_separate_sub)) },
+                    headlineContent = { Text(stringResource(R.string.home_back_to_separate)) },
+                    supportingContent = { Text(stringResource(R.string.home_back_to_separate_sub)) },
                     leadingContent = { Icon(Icons.Rounded.ViewAgenda, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
-                    trailingContent = { TextButton({ set { it.copy(surfaces = it.surfaces.separated()) } }) { Text(stringResource(R.string.surf_back_action)) } },
+                    trailingContent = { TextButton({ set { it.copy(surfaces = it.surfaces.separated()) } }) { Text(stringResource(R.string.home_back_action)) } },
                     colors = rowColors(),
                 )
             }
@@ -163,8 +163,8 @@ internal fun LayoutSettingsGroup(vm: AppViewModel) {
 
     if (askKeypad) {
         KeepTabDialog(
-            title = stringResource(R.string.surf_ask_keypad_title),
-            body = stringResource(R.string.surf_ask_keypad_body),
+            title = stringResource(R.string.home_ask_keypad_title),
+            body = stringResource(R.string.home_ask_keypad_body),
             onDismiss = { askKeypad = false },
         ) { keep ->
             askKeypad = false
@@ -173,8 +173,8 @@ internal fun LayoutSettingsGroup(vm: AppViewModel) {
     }
     askFavorites?.let { next ->
         KeepTabDialog(
-            title = stringResource(R.string.surf_ask_fav_title),
-            body = stringResource(R.string.surf_ask_fav_body),
+            title = stringResource(R.string.home_ask_fav_title),
+            body = stringResource(R.string.home_ask_fav_body),
             onDismiss = { askFavorites = null },
         ) { keep ->
             askFavorites = null
@@ -192,8 +192,8 @@ private fun KeepTabDialog(title: String, body: String, onDismiss: () -> Unit, on
         onDismissRequest = onDismiss,
         title = { Text(title) },
         text = { Text(body) },
-        confirmButton = { TextButton({ onPick(false) }) { Text(stringResource(R.string.surf_ask_hide_tab)) } },
-        dismissButton = { TextButton({ onPick(true) }) { Text(stringResource(R.string.surf_ask_keep_tab)) } },
+        confirmButton = { TextButton({ onPick(false) }) { Text(stringResource(R.string.home_ask_hide_tab)) } },
+        dismissButton = { TextButton({ onPick(true) }) { Text(stringResource(R.string.home_ask_keep_tab)) } },
     )
 }
 

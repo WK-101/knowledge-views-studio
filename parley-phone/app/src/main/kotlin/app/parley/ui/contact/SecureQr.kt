@@ -174,7 +174,7 @@ fun ReceiveSecureQrDialog(vm: AppViewModel, uri: Uri, onDone: () -> Unit, openEd
                 Column(Modifier.verticalScroll(rememberScrollState())) {
                     Text(listOfNotNull(r.phones.firstOrNull()?.value?.let(Bidi::ltr), r.emails.firstOrNull()?.value).joinToString(stringResource(R.string.main_separator)))
                     app.parley.ui.extras.HandshakeFields(vm, place, { place = it }, toNote, { toNote = it })
-                    TextButton({ showMine = true }) { Text(stringResource(R.string.x_hs_show_mine)) }
+                    TextButton({ showMine = true }) { Text(stringResource(R.string.handshake_show_mine)) }
                 }
             },
             confirmButton = {

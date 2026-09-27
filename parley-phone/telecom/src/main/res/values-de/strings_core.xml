@@ -159,7 +159,7 @@
     <string name="postcall_name">Name</string>
     <string name="postcall_save_explainer">Wird in den privaten Kontakten von Parley aufbewahrt, wo andere Apps ihn nicht sehen, und nach 7 Tagen samt Anrufliste automatisch gelöscht. Unter „Temporäre Kontakte“ können Sie ihn behalten.</string>
     <string name="tc_private_label">Privat</string>
-    <!-- v3.2 phone (P1, P2, P6) -->
+    <!-- Phone -->
     <string name="incall_unmute">Stummschaltung aus</string>
     <string name="incall_block_decline">Blockieren &amp; ablehnen</string>
     <string name="incall_incoming_more">Weitere Optionen für diesen Anruf</string>
@@ -178,4 +178,9 @@
     <string name="decline_blocked_answered">Anrufe von %1$s werden ab jetzt abgelehnt. Dieser Anruf wurde angenommen.</string>
     <string name="decline_block_undone">Blockierung aufgehoben. %1$s kann Sie wieder anrufen.</string>
     <string name="tc_undo">Rückgängig</string>
+
+    <string name="incall_decline_q">Anruf ablehnen?</string>
+    <string name="incall_decline_body">Die anrufende Person erfährt, dass du gerade nicht erreichbar bist.</string>
+    <string name="incall_keep_ringing">Weiter klingeln lassen</string>
+    <string name="incall_is_calling">%1$s ruft an</string>
 </resources>

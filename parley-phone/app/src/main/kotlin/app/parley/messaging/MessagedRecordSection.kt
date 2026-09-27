@@ -196,7 +196,7 @@ private fun RecordRow(e: LastMessaged, region: String, onOpen: (() -> Unit)?, on
             Row {
                 // C2: call the number straight from the list.
                 if (onCall != null) {
-                    IconButton(onCall) { Icon(Icons.Rounded.Call, stringResource(R.string.v33_call_number, Bidi.ltr(shown)), tint = CallColors.Accept) }
+                    IconButton(onCall) { Icon(Icons.Rounded.Call, stringResource(R.string.reach_call_number, Bidi.ltr(shown)), tint = CallColors.Accept) }
                 }
                 IconButton(onDelete) { Icon(Icons.Rounded.Close, stringResource(R.string.rec_delete_number, shown)) }
             }

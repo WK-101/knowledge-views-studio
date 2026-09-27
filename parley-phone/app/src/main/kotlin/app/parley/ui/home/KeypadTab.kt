@@ -360,7 +360,7 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit, searchQuery: String? = n
             if (input.isEmpty() && dock != null) {
                 // S1: nothing typed: the recent calls, as on the Recents tab.
                 Column(Modifier.fillMaxSize()) {
-                    app.parley.ui.common.CoachMark(app.parley.common.ux.Tips.DOCKED_KEYPAD, stringResource(R.string.surf_tip_docked_keypad), enabled = panelOpen)
+                    app.parley.ui.common.CoachMark(app.parley.common.ux.Tips.DOCKED_KEYPAD, stringResource(R.string.home_tip_docked_keypad), enabled = panelOpen)
                     Box(Modifier.weight(1f).onFocusChanged { recentsHasFocus = it.hasFocus }) { dock.idle() }
                 }
             } else if (input.isEmpty()) {
@@ -401,8 +401,8 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit, searchQuery: String? = n
                                 modifier = Modifier.clickable { open(Routes.pick(input)) },
                             )
                             ListItem(
-                                headlineContent = { Text(stringResource(R.string.v34msg_message_or_call_on)) },
-                                supportingContent = { Text(stringResource(R.string.v34msg_apps_line)) },
+                                headlineContent = { Text(stringResource(R.string.reach_message_or_call_on)) },
+                                supportingContent = { Text(stringResource(R.string.reach_apps_line)) },
                                 leadingContent = { Icon(Icons.AutoMirrored.Rounded.Chat, null) },
                                 modifier = Modifier.clickable { messageOn = input },
                             )
@@ -840,7 +840,7 @@ private fun NumberActionChips(canSave: Boolean, onMessage: () -> Unit, onAdd: ()
         horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        AssistChip(onClick = onMessage, label = { Text(stringResource(R.string.v34msg_message_or_call)) }, leadingIcon = { Icon(Icons.AutoMirrored.Rounded.Chat, null) })
+        AssistChip(onClick = onMessage, label = { Text(stringResource(R.string.reach_message_or_call)) }, leadingIcon = { Icon(Icons.AutoMirrored.Rounded.Chat, null) })
         if (canSave) {
             AssistChip(onClick = onAdd, label = { Text(stringResource(R.string.keypad_add_to_contacts)) }, leadingIcon = { Icon(Icons.Rounded.PersonAdd, null) })
             AssistChip(onClick = onTemporary, label = { Text(stringResource(R.string.keypad_save_temporary)) }, leadingIcon = { Icon(Icons.Rounded.AutoDelete, null) })

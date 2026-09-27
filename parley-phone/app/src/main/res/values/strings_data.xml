@@ -1251,7 +1251,7 @@
     <string name="sim_import_into">Import into</string>
     <string name="sim_imported">Imported %1$d of %2$d into %3$s</string>
 
-    <!-- Relation types (I5); the stored value stays English -->
+    <!-- Relation types; the stored value stays English -->
     <string name="rel_spouse">Spouse</string>
     <string name="rel_partner">Partner</string>
     <string name="rel_domestic_partner">Domestic partner</string>
@@ -1336,7 +1336,7 @@
     <string name="rel_group_work">Work</string>
     <string name="rel_group_other">Other</string>
 
-    <!-- I1: messenger handles (brand names stay as they are) -->
+    <!-- Messenger handles (brand names stay as they are) -->
     <string name="handle_signal">Signal username</string>
     <string name="handle_threema">Threema ID</string>
     <string name="handle_sip">SIP address</string>
@@ -1370,7 +1370,7 @@
     <string name="privnames_dir_request_text">%1$s looked a caller up in Parley\'s contacts directory. If you allow it, %1$s can show a private contact\'s name when they call, one number at a time; it never gets a list. This is separate from “Let apps show private names”.</string>
     <string name="pn_directory_apps">Phone apps using the directory</string>
     <string name="import_csv_column">CSV column “%1$s”</string>
-    <!-- v3.2 C2/C3: back up first, backup reminder -->
+    <!-- Back up first, backup reminder -->
     <string name="ux_backup_first_title">Back up first?</string>
     <string name="ux_backup_first_last">This changes many contacts at once. Your last backup was %1$s.</string>
     <string name="ux_backup_first_never">This changes many contacts at once, and there\'s no backup yet.</string>
@@ -1391,7 +1391,7 @@
         <item quantity="one">After %d day</item>
         <item quantity="other">After %d days</item>
     </plurals>
-    <!-- v3.2 U1: onboarding permissions page -->
+    <!-- Onboarding permissions page -->
     <string name="ux_onb_next">Get started</string>
     <string name="ux_onb_dialer_title">Make Parley your phone app</string>
     <string name="ux_onb_dialer_body">You can change this any time in Settings › Calls › Default phone app.</string>

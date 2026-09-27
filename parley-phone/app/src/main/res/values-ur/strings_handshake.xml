@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="handshake_met_at">%1$s پر %2$s کو ملے</string>
+    <string name="handshake_met_on">%1$s کو ملے</string>
+    <string name="handshake_place">آپ کہاں ملے؟</string>
+    <string name="handshake_place_hint">کوئی کیفے، کانفرنس، دوست کی پارٹی</string>
+    <string name="handshake_place_note">ان کی حلقے کی ٹائم لائن میں “…پر آج کی تاریخ کو ملے” کے طور پر محفوظ ہوتا ہے۔</string>
+    <string name="handshake_to_note">ان کے نوٹ میں بھی شامل کریں</string>
+    <string name="handshake_swap">تبادلہ: کارڈ ملنے کے بعد ہمیشہ میرا کارڈ دکھائیں</string>
+    <string name="handshake_show_mine">میرا کارڈ دکھائیں</string>
+    <string name="handshake_no_card">آپ کا کارڈ خالی ہے۔ شیئر کرنے کے لیے اپنا نام اور نمبر شامل کریں۔</string>
+    <string name="handshake_make_card">میرا کارڈ بھریں</string>
+</resources>

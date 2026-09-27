@@ -782,7 +782,7 @@
     </plurals>
     <string name="save_contact_details">संपर्क विवरण सहेजें</string>
     <string name="vm_messenger_copies_remain">निजी संपर्कों में ले जाया गया। WhatsApp, Signal और दूसरे मैसेंजर में कॉपी तब तक रहती हैं जब तक वह ऐप अपने संपर्क फिर से सिंक नहीं करता</string>
-    <!-- v3.2 phone (P5, P8) -->
+    <!-- Phone -->
     <string name="recents_layout_grouped">समूहित</string>
     <string name="recents_layout_chronological">हर कॉल</string>
     <string name="recents_layout_by_day">दिन के अनुसार</string>
@@ -816,11 +816,11 @@
     <string name="clear_history_cancel">रद्द करें</string>
     <string name="clear_history_close">बंद करें</string>
     <string name="clear_history_unknown_needs_contacts">कौन से नंबर अनजान हैं, यह जानने के लिए आपके संपर्कों की पहुंच चाहिए</string>
-    <!-- v3.2 C4: birthday slots -->
+    <!-- Birthday slots -->
     <string name="ux_add_birthday">जन्मदिन जोड़ें?</string>
     <string name="ux_add_anniversary">सालगिरह जोड़ें?</string>
     <string name="ux_date_not_saved">तारीख सहेजी नहीं जा सकी। आप इसे संपादित करें से जोड़ सकते हैं।</string>
-    <!-- v3.2 U2/U6: tips and What's new -->
+    <!-- Tips and What's new -->
     <string name="ux_tip_got_it">समझ गया</string>
     <string name="ux_tip_search">यहाँ नाम, नंबर, नोट और कंपनियाँ खोजें।</string>
     <string name="ux_tip_speed_dial">सुझाव: किसी को एक टच में कॉल करने के लिए 2 से 9 दबाकर रखें।</string>
@@ -831,7 +831,7 @@
     <string name="ux_whats_new_title">Parley %1$s में नया क्या है</string>
     <string name="ux_whats_new_body">आपके टैब, शुरुआती टैब और कॉल सूची वैसे ही रहते हैं जैसे आपने रखे थे। नई चीज़ें बंद होकर आती हैं, जब चाहें आज़माएँ।</string>
     <string name="ux_whats_new_try">आज़माएँ</string>
-    <!-- v3.2 U5: empty states -->
+    <!-- Empty states -->
     <string name="ux_empty_clear_search">खोज साफ़ करें</string>
     <string name="ux_empty_clear_filter">फ़िल्टर हटाएँ</string>
     <string name="ux_empty_add_contact">संपर्क बनाएँ</string>

@@ -1246,7 +1246,7 @@
     <string name="sim_import_into">اس میں درآمد کریں</string>
     <string name="sim_imported">%3$s میں %2$d میں سے %1$d درآمد کیے گئے</string>
 
-    <!-- Relation types (I5); the stored value stays English -->
+    <!-- Relation types; the stored value stays English -->
     <string name="rel_spouse">شریکِ حیات</string>
     <string name="rel_partner">ساتھی</string>
     <string name="rel_domestic_partner">گھریلو ساتھی</string>
@@ -1331,7 +1331,7 @@
     <string name="rel_group_work">کام</string>
     <string name="rel_group_other">دیگر</string>
 
-    <!-- I1: messenger handles (brand names stay as they are) -->
+    <!-- Messenger handles (brand names stay as they are) -->
     <string name="handle_signal">Signal یوزرنیم</string>
     <string name="handle_threema">Threema ID</string>
     <string name="handle_sip">SIP پتہ</string>
@@ -1365,7 +1365,7 @@
     <string name="privnames_dir_request_text">%1$s نے Parley کی رابطہ ڈائریکٹری میں کال کرنے والے کو تلاش کیا۔ اجازت دینے پر %1$s کال آنے پر کسی نجی رابطے کا نام دکھا سکتا ہے، ایک وقت میں ایک نمبر؛ اسے کبھی فہرست نہیں ملتی۔ یہ “ایپس کو نجی نام دکھانے دیں” سے الگ ہے۔</string>
     <string name="pn_directory_apps">ڈائریکٹری استعمال کرنے والی فون ایپس</string>
     <string name="import_csv_column">CSV کالم “%1$s”</string>
-    <!-- v3.2 C2/C3: back up first, backup reminder -->
+    <!-- Back up first, backup reminder -->
     <string name="ux_backup_first_title">پہلے بیک اپ لیں؟</string>
     <string name="ux_backup_first_last">اس سے ایک ساتھ کئی رابطے بدلیں گے۔ پچھلا بیک اپ: %1$s۔</string>
     <string name="ux_backup_first_never">اس سے ایک ساتھ کئی رابطے بدلیں گے، اور ابھی کوئی بیک اپ نہیں ہے۔</string>
@@ -1386,7 +1386,7 @@
         <item quantity="one">%d دن بعد</item>
         <item quantity="other">%d دن بعد</item>
     </plurals>
-    <!-- v3.2 U1: onboarding permissions page -->
+    <!-- Onboarding permissions page -->
     <string name="ux_onb_next">شروع کریں</string>
     <string name="ux_onb_dialer_title">Parley کو اپنی فون ایپ بنائیں</string>
     <string name="ux_onb_dialer_body">آپ اسے کبھی بھی سیٹنگز › کالز › ڈیفالٹ فون ایپ میں بدل سکتے ہیں۔</string>

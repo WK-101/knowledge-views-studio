@@ -1514,7 +1514,7 @@
     <string name="sim_import_into">الاستيراد إلى</string>
     <string name="sim_imported">استُورد %1$d من %2$d إلى %3$s</string>
 
-    <!-- Relation types (I5); the stored value stays English -->
+    <!-- Relation types; the stored value stays English -->
     <string name="rel_spouse">الزوج/الزوجة</string>
     <string name="rel_partner">الشريك</string>
     <string name="rel_domestic_partner">شريك المنزل</string>
@@ -1599,7 +1599,7 @@
     <string name="rel_group_work">العمل</string>
     <string name="rel_group_other">أخرى</string>
 
-    <!-- I1: messenger handles (brand names stay as they are) -->
+    <!-- Messenger handles (brand names stay as they are) -->
     <string name="handle_signal">اسم مستخدم Signal</string>
     <string name="handle_threema">معرّف Threema</string>
     <string name="handle_sip">عنوان SIP</string>
@@ -1633,7 +1633,7 @@
     <string name="privnames_dir_request_text">بحث %1$s عن متصل في دليل جهات اتصال Parley. إذا سمحت بذلك، يمكن لـ %1$s عرض اسم جهة اتصال خاصة عندما تتصل، رقمًا واحدًا في كل مرة؛ ولا يحصل أبدًا على قائمة. هذا منفصل عن “السماح للتطبيقات بعرض الأسماء الخاصة”.</string>
     <string name="pn_directory_apps">تطبيقات الهاتف التي تستخدم الدليل</string>
     <string name="import_csv_column">عمود CSV “%1$s”</string>
-    <!-- v3.2 C2/C3: back up first, backup reminder -->
+    <!-- Back up first, backup reminder -->
     <string name="ux_backup_first_title">نسخ احتياطي أولًا؟</string>
     <string name="ux_backup_first_last">سيغيّر هذا جهات اتصال كثيرة دفعة واحدة. آخر نسخة احتياطية: %1$s.</string>
     <string name="ux_backup_first_never">سيغيّر هذا جهات اتصال كثيرة دفعة واحدة، ولا توجد نسخة احتياطية بعد.</string>
@@ -1658,7 +1658,7 @@
         <item quantity="many">بعد %d يومًا</item>
         <item quantity="other">بعد %d يوم</item>
     </plurals>
-    <!-- v3.2 U1: onboarding permissions page -->
+    <!-- Onboarding permissions page -->
     <string name="ux_onb_next">ابدأ</string>
     <string name="ux_onb_dialer_title">اجعل Parley تطبيق الهاتف لديك</string>
     <string name="ux_onb_dialer_body">يمكنك تغيير ذلك في أي وقت من الإعدادات › المكالمات › تطبيق الهاتف الافتراضي.</string>

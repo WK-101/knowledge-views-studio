@@ -78,7 +78,7 @@ fun SegmentedGroupScope.peopleCardRows(vm: AppViewModel, cfg: CircleConfig) {
 @Composable
 fun MemorySettingsGroup(vm: AppViewModel) {
     val cfg by vm.c.circle.config.collectAsStateWithLifecycle()
-    SegmentedGroup(stringResource(R.string.c2_set_group_memory)) {
+    SegmentedGroup(stringResource(R.string.set_circle_group_memory)) {
         switchRow("memory_prompt", cfg.memoryPrompt, Icons.AutoMirrored.Rounded.NoteAdd) { v -> vm.c.circle.updateConfig { it.copy(memoryPrompt = v) } }
         switchRow("memory_lock_screen", cfg.memoryOnLockScreen, Icons.Rounded.Lock) { v -> vm.c.circle.updateConfig { it.copy(memoryOnLockScreen = v) } }
         switchRow("pre_call_peek", cfg.preCallPeek, Icons.Rounded.Visibility) { v -> vm.c.circle.updateConfig { it.copy(preCallPeek = v) } }

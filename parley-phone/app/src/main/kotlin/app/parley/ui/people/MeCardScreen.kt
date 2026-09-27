@@ -91,7 +91,7 @@ fun MeCardRow(vm: AppViewModel, open: (String) -> Unit) {
     var showQr by remember { mutableStateOf(false) }
     val edit = { open(PeopleRoutes.ME) }
     ListItem(
-        modifier = Modifier.clickable(onClickLabel = stringResource(R.string.v33_me_edit), onClick = edit),
+        modifier = Modifier.clickable(onClickLabel = stringResource(R.string.me_edit), onClick = edit),
         leadingContent = { Avatar(card.name.ifBlank { me }, null, app.parley.ui.avatarSize()) },
         headlineContent = { Text(card.name.ifBlank { myCard }) },
         supportingContent = {
@@ -102,7 +102,7 @@ fun MeCardRow(vm: AppViewModel, open: (String) -> Unit) {
         },
         trailingContent = if (card.isEmpty) null else ({
             // M1: its own 48dp target, so a tap on the QR code never opens the editor.
-            IconButton({ showQr = true }) { Icon(Icons.Rounded.QrCode2, stringResource(R.string.v33_me_show_qr), tint = MaterialTheme.colorScheme.primary) }
+            IconButton({ showQr = true }) { Icon(Icons.Rounded.QrCode2, stringResource(R.string.me_show_qr), tint = MaterialTheme.colorScheme.primary) }
         }),
     )
     if (showQr) MeQrDialog(card, onDismiss = { showQr = false }, onEdit = { showQr = false; edit() }, onScan = { showQr = false; vm.navigate(app.parley.NavEvent.Route(app.parley.ui.qr.QrRoutes.SCAN)) })
@@ -289,7 +289,7 @@ internal fun MeQrDialog(card: MeCard, onDismiss: () -> Unit, onEdit: (() -> Unit
         confirmButton = { TextButton(onDismiss) { Text(stringResource(R.string.dc_done)) } },
         dismissButton = {
             Row {
-                if (onEdit != null) TextButton(onEdit) { Text(stringResource(R.string.v33_me_edit_short)) }
+                if (onEdit != null) TextButton(onEdit) { Text(stringResource(R.string.me_edit_short)) }
                 TextButton({ shareVcard(context, card, parts.toSet()) }) { Text(stringResource(R.string.me_share_file)) }
             }
         },

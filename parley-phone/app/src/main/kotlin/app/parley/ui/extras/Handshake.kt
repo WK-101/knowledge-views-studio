@@ -63,7 +63,7 @@ object HandshakeInbox {
         val pattern = android.text.format.DateFormat.getBestDateTimePattern(locale, "d MMM yyyy")
         val date = java.text.SimpleDateFormat(pattern, locale).format(java.util.Date(time))
         val p = Handshake.cleanPlace(place)
-        return if (p.isEmpty()) res.getString(R.string.x_hs_met_on, date) else res.getString(R.string.x_hs_met_at, p, date)
+        return if (p.isEmpty()) res.getString(R.string.handshake_met_on, date) else res.getString(R.string.handshake_met_at, p, date)
     }
 }
 
@@ -73,14 +73,14 @@ fun HandshakeFields(vm: AppViewModel, place: String, onPlace: (String) -> Unit, 
     val swap by vm.c.extras.handshakeSwap.collectAsStateWithLifecycle()
     Column(Modifier.padding(top = 12.dp)) {
         OutlinedTextField(
-            place, onPlace, singleLine = true, label = { Text(stringResource(R.string.x_hs_place)) },
-            placeholder = { Text(stringResource(R.string.x_hs_place_hint)) },
+            place, onPlace, singleLine = true, label = { Text(stringResource(R.string.handshake_place)) },
+            placeholder = { Text(stringResource(R.string.handshake_place_hint)) },
             keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
             modifier = Modifier.fillMaxWidth(),
         )
-        Text(stringResource(R.string.x_hs_place_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
-        CheckLine(stringResource(R.string.x_hs_to_note), toNote, onToNote)
-        CheckLine(stringResource(R.string.x_hs_swap), swap) { vm.c.extras.setHandshakeSwap(it) }
+        Text(stringResource(R.string.handshake_place_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
+        CheckLine(stringResource(R.string.handshake_to_note), toNote, onToNote)
+        CheckLine(stringResource(R.string.handshake_swap), swap) { vm.c.extras.setHandshakeSwap(it) }
     }
 }
 
@@ -102,10 +102,10 @@ fun MyCardQrDialog(vm: AppViewModel, onDismiss: () -> Unit) {
         androidx.compose.material3.AlertDialog(
             onDismissRequest = onDismiss,
             title = { Text(stringResource(R.string.me_title)) },
-            text = { Text(stringResource(R.string.x_hs_no_card)) },
+            text = { Text(stringResource(R.string.handshake_no_card)) },
             confirmButton = {
                 androidx.compose.material3.TextButton({ onDismiss(); vm.navigate(app.parley.NavEvent.Route(app.parley.ui.people.PeopleRoutes.ME)) }) {
-                    Text(stringResource(R.string.x_hs_make_card))
+                    Text(stringResource(R.string.handshake_make_card))
                 }
             },
             dismissButton = { androidx.compose.material3.TextButton(onDismiss) { Text(stringResource(R.string.dc_cancel)) } },

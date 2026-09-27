@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Machine-assisted translation — needs native review -->
-<!-- v3.2 Circle: R1–R5, U4 (tab, list, timeline, reminders, "Log this?", settings). -->
+<!-- Circle (tab, list, timeline, reminders, "Log this?", settings). -->
 <resources>
     <string name="tab_circle">Círculo</string>
     <string name="circle_search">Pesquisar no seu círculo</string>
@@ -143,4 +143,123 @@
         <item quantity="many">%d entradas do Círculo não correspondiam a nenhum contato deste telefone e foram ignoradas</item>
         <item quantity="other">%d entradas do Círculo não correspondiam a nenhum contato deste telefone e foram ignoradas</item>
     </plurals>
+
+    <string name="circle_digest_long_quiet">Faz mais de um ano que você não fala com %1$s</string>
+    <string name="circle_digest_yearly_no_year">Por esta época: %2$s de %1$s</string>
+    <string name="circle_first_both">Vocês dois tomam a iniciativa</string>
+    <string name="circle_first_mover">Quem costuma tomar a iniciativa</string>
+    <string name="circle_first_mover_private">Só você vê isto. Oculte no menu ⋮ ou nas Configurações.</string>
+    <string name="circle_first_them">Normalmente %1$s toma a iniciativa</string>
+    <string name="circle_first_you">Normalmente você toma a iniciativa</string>
+    <string name="circle_followup_body">Você queria dar um retorno depois da última ligação.</string>
+    <string name="circle_followup_title">Dar um retorno para %1$s</string>
+    <string name="circle_from_call">Nota da ligação · %1$s</string>
+    <string name="circle_from_logged">Registrado · %1$s</string>
+    <string name="circle_from_pinned">Nota fixada</string>
+    <string name="circle_good_time">Costuma estar livre %1$s</string>
+    <string name="circle_hide_first_mover">Ocultar quem toma a iniciativa</string>
+    <string name="circle_show_first_mover">Mostrar quem toma a iniciativa</string>
+    <string name="circle_hide_people_card">Ocultar este cartão</string>
+    <string name="circle_insert_promise">Adicionar uma promessa</string>
+    <string name="circle_open_loops">Pendências</string>
+    <string name="circle_open_promise">Promessa em aberto</string>
+    <string name="circle_peek_dont_show">Não mostrar de novo</string>
+    <string name="circle_peek_off">A prévia antes de ligar está desativada. Ative em Configurações › Chamadas.</string>
+    <string name="circle_peek_title">Antes de ligar para %1$s</string>
+    <string name="circle_people_title">Pessoas</string>
+    <string name="circle_promise_done">Feito: %1$s</string>
+    <string name="circle_promise_hint">Comece uma linha com [ ] para virar uma promessa que você pode marcar.</string>
+    <string name="circle_promises">Promessas</string>
+    <string name="circle_reach_up">Mais que no mês anterior (%1$d)</string>
+    <string name="circle_reach_down">No mês anterior: %1$d</string>
+    <string name="circle_reach_same">Parecido com o mês anterior</string>
+    <string name="circle_review_most">Mais em contato: %1$s</string>
+    <string name="circle_year_review">Seu ano</string>
+    <string name="set_circle_group_memory">Lembrar o que importa</string>
+    <string name="circle_time_there">%1$s lá</string>
+    <string name="circle_widget_date_soon">Uma data chegando</string>
+    <string name="circle_widget_empty">Nada por vir. Adicione pessoas ao seu Círculo na página do contato.</string>
+    <string name="circle_widget_today">Hoje</string>
+    <string name="circle_widget_tomorrow">Amanhã</string>
+    <string name="circle_yearly_label">Lembrado todo ano</string>
+    <string name="circle_yearly_off">Não é mais lembrado todo ano</string>
+    <string name="circle_yearly_on">Você verá isso todo ano no seu resumo semanal</string>
+    <string name="circle_yearly_remember">Lembrar todo ano</string>
+    <string name="circle_yearly_stop">Parar de lembrar todo ano</string>
+    <string name="circle_widget_call">Ligar</string>
+    <string name="circle_widget_dates">Em breve</string>
+    <string name="circle_widget_description">Próximas datas e pessoas do seu Círculo, com botão de ligar. Com o bloqueio do app, só números aparecem enquanto o telefone está bloqueado.</string>
+    <string name="circle_widget_title">Círculo</string>
+    <string name="circle_widget_preview_line_0">Vai gostar de ter notícias suas</string>
+    <string name="circle_widget_preview_line_1">Aniversário em 3 dias</string>
+    <string name="circle_widget_preview_date_0">Marco · Amanhã · Aniversário de casamento</string>
+    <string name="set_circle_memory_prompt_title">“Algo para lembrar?” após as ligações</string>
+    <string name="set_circle_memory_prompt_summary">Uma nota e um lembrete de retorno após ligações com seus contatos</string>
+    <string name="set_circle_memory_prompt_kw">nota, notas, lembrar, promessa, retorno, após a ligação</string>
+    <string name="set_circle_memory_lock_title">Notas na tela de bloqueio</string>
+    <string name="set_circle_memory_lock_summary">Mostrar a última nota e as promessas na chamada recebida com o telefone bloqueado</string>
+    <string name="set_circle_memory_lock_kw">tela de bloqueio, nota, promessa, recebida, privacidade</string>
+    <string name="set_circle_peek_title">Prévia antes de ligar</string>
+    <string name="set_circle_peek_summary">A última nota, as promessas e um bom horário, antes de ligar pela página do contato</string>
+    <string name="set_circle_peek_kw">prévia, antes de ligar, nota, promessa, bom horário, hora local, fuso horário</string>
+    <string name="set_circle_people_card_title">Cartão Pessoas nas Estatísticas</string>
+    <string name="set_circle_people_card_summary">Contato no seu círculo, pendências e seu ano, nas estatísticas de chamadas</string>
+    <string name="set_circle_people_card_kw">pessoas, círculo, pendências, retrospectiva, estatísticas</string>
+    <string name="set_circle_first_mover_title">Quem costuma tomar a iniciativa</string>
+    <string name="set_circle_first_mover_summary">No cartão Pessoas. Só você vê</string>
+    <string name="set_circle_first_mover_kw">primeiro, iniciativa, liga primeiro</string>
+    <plurals name="circle_digest_yearly">
+        <item quantity="one">%1$d ano desde %3$s de %2$s</item>
+        <item quantity="many">%1$d anos desde %3$s de %2$s</item>
+        <item quantity="other">%1$d anos desde %3$s de %2$s</item>
+    </plurals>
+    <plurals name="circle_loop_their_call">
+        <item quantity="one">Ligação dessa pessoa · %2$s</item>
+        <item quantity="many">%1$d ligações dessa pessoa · última %2$s</item>
+        <item quantity="other">%1$d ligações dessa pessoa · última %2$s</item>
+    </plurals>
+    <plurals name="circle_loop_your_try">
+        <item quantity="one">Sua ligação, ainda sem resposta · %2$s</item>
+        <item quantity="many">Suas %1$d ligações, ainda sem resposta · última %2$s</item>
+        <item quantity="other">Suas %1$d ligações, ainda sem resposta · última %2$s</item>
+    </plurals>
+    <plurals name="circle_reach">
+        <item quantity="one">Neste mês você falou com %1$d de %2$d pessoa do seu círculo</item>
+        <item quantity="many">Neste mês você falou com %1$d de %2$d pessoas do seu círculo</item>
+        <item quantity="other">Neste mês você falou com %1$d de %2$d pessoas do seu círculo</item>
+    </plurals>
+    <plurals name="circle_review_gap">
+        <item quantity="one">Maior intervalo: %1$d dia, com %2$s</item>
+        <item quantity="many">Maior intervalo: %1$d dias, com %2$s</item>
+        <item quantity="other">Maior intervalo: %1$d dias, com %2$s</item>
+    </plurals>
+    <plurals name="circle_review_occasions">
+        <item quantity="one">%1$d ocasião lembrada</item>
+        <item quantity="many">%1$d ocasiões lembradas</item>
+        <item quantity="other">%1$d ocasiões lembradas</item>
+    </plurals>
+    <plurals name="circle_review_entries">
+        <item quantity="one">Em contato %1$d vez neste ano</item>
+        <item quantity="many">Em contato %1$d vezes neste ano</item>
+        <item quantity="other">Em contato %1$d vezes neste ano</item>
+    </plurals>
+    <plurals name="circle_widget_count_dates">
+        <item quantity="one">%1$d data nas próximas 2 semanas</item>
+        <item quantity="many">%1$d datas nas próximas 2 semanas</item>
+        <item quantity="other">%1$d datas nas próximas 2 semanas</item>
+    </plurals>
+    <plurals name="circle_widget_count_people">
+        <item quantity="one">%1$d pessoa para procurar</item>
+        <item quantity="many">%1$d pessoas para procurar</item>
+        <item quantity="other">%1$d pessoas para procurar</item>
+    </plurals>
+    <plurals name="circle_widget_in_days">
+        <item quantity="one">Em %1$d dia</item>
+        <item quantity="many">Em %1$d dias</item>
+        <item quantity="other">Em %1$d dias</item>
+    </plurals>
+    <!-- Under the widget's counts while the phone is locked. -->
+    <string name="circle_widget_tap_reveal">Toque para mostrar os nomes</string>
+    <!-- Year in review: a name and how many times (a number). -->
+    <string name="circle_review_person_count">%1$s (%2$s)</string>
 </resources>

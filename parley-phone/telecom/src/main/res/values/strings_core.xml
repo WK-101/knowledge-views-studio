@@ -192,7 +192,7 @@
     <string name="postcall_name">Name</string>
     <string name="postcall_save_explainer">Kept in Parley\'s private contacts, where other apps can\'t see it, and deleted automatically after 7 days with its call history. You can keep it from Temporary contacts.</string>
     <string name="tc_private_label">Private</string>
-    <!-- v3.2 phone (P1, P2, P6) -->
+    <!-- Phone -->
     <string name="incall_unmute">Unmute</string>
     <string name="incall_block_decline">Block &amp; decline</string>
     <string name="incall_incoming_more">More options for this call</string>
@@ -211,4 +211,11 @@
     <string name="decline_blocked_answered">Calls from %1$s will be declined from now on. This call was answered.</string>
     <string name="decline_block_undone">Unblocked. %1$s can call you again.</string>
     <string name="tc_undo">Undo</string>
+
+    <string name="postcall_message_or_call">Message or call on…</string>
+
+    <string name="incall_decline_q">Decline this call?</string>
+    <string name="incall_decline_body">The caller will hear that you\'re not available.</string>
+    <string name="incall_keep_ringing">Keep ringing</string>
+    <string name="incall_is_calling">%1$s is calling</string>
 </resources>

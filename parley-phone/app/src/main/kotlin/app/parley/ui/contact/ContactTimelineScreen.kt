@@ -107,7 +107,7 @@ fun ContactTimelineScreen(vm: AppViewModel, contactId: Long, back: () -> Unit) {
         modifier = Modifier.nestedScroll(bar.nestedScrollConnection),
         topBar = {
             TopAppBar(
-                title = { Text(dd?.let { stringResource(R.string.v34_cp_timeline_of, it.given.ifBlank { it.displayName }) } ?: stringResource(R.string.v34_cp_sec_timeline)) },
+                title = { Text(dd?.let { stringResource(R.string.contact_page_timeline_of, it.given.ifBlank { it.displayName }) } ?: stringResource(R.string.contact_page_sec_timeline)) },
                 navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.main_back)) } },
                 scrollBehavior = bar,
             )
@@ -122,9 +122,9 @@ fun ContactTimelineScreen(vm: AppViewModel, contactId: Long, back: () -> Unit) {
                 OutlinedTextField(
                     query, { query = it },
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-                    placeholder = { Text(stringResource(R.string.v34_cp_timeline_search)) },
+                    placeholder = { Text(stringResource(R.string.contact_page_timeline_search)) },
                     leadingIcon = { Icon(Icons.Rounded.Search, null) },
-                    trailingIcon = if (query.isEmpty()) null else ({ IconButton({ query = "" }) { Icon(Icons.Rounded.Clear, stringResource(R.string.v34_cp_clear_search)) } }),
+                    trailingIcon = if (query.isEmpty()) null else ({ IconButton({ query = "" }) { Icon(Icons.Rounded.Clear, stringResource(R.string.contact_page_clear_search)) } }),
                     singleLine = true,
                     shape = RoundedCornerShape(28.dp),
                 )
@@ -140,15 +140,15 @@ fun ContactTimelineScreen(vm: AppViewModel, contactId: Long, back: () -> Unit) {
             item(key = "count") {
                 val n = shown.sumOf { it.entries.size }
                 Text(
-                    pluralStringResource(R.plurals.v34_cp_entries, n, n), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    pluralStringResource(R.plurals.contact_page_entries, n, n), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 32.dp, vertical = 4.dp),
                 )
             }
             if (shown.isEmpty() && dd != null) item(key = "empty") {
                 EmptyState(
-                    Icons.Rounded.Search, stringResource(if (entries.isEmpty()) R.string.circle_timeline_empty else R.string.v34_cp_timeline_no_match),
+                    Icons.Rounded.Search, stringResource(if (entries.isEmpty()) R.string.circle_timeline_empty else R.string.contact_page_timeline_no_match),
                     modifier = Modifier.padding(top = 32.dp),
-                    action = if (entries.isEmpty()) null else stringResource(R.string.v34_cp_timeline_clear_filters),
+                    action = if (entries.isEmpty()) null else stringResource(R.string.contact_page_timeline_clear_filters),
                     onAction = { query = ""; kinds = emptyList() },
                 )
             }
@@ -194,11 +194,11 @@ private fun entryKey(e: TimelineEntry): String = when (e) {
 
 private fun kindLabel(res: android.content.res.Resources, k: TimelineKind): String = res.getString(
     when (k) {
-        TimelineKind.CALL -> R.string.v34_cp_kind_calls
-        TimelineKind.MISSED -> R.string.v34_cp_kind_missed
-        TimelineKind.LOGGED -> R.string.v34_cp_kind_logged
-        TimelineKind.NOTE -> R.string.v34_cp_kind_notes
-        TimelineKind.DATE -> R.string.v34_cp_kind_dates
+        TimelineKind.CALL -> R.string.contact_page_kind_calls
+        TimelineKind.MISSED -> R.string.contact_page_kind_missed
+        TimelineKind.LOGGED -> R.string.contact_page_kind_logged
+        TimelineKind.NOTE -> R.string.contact_page_kind_notes
+        TimelineKind.DATE -> R.string.contact_page_kind_dates
     },
 )
 
