@@ -175,14 +175,21 @@ class ContactRecordStore(private val context: Context) {
      * in memory at once. Photos are full resolution (RawContacts.DisplayPhoto) when [fullPhoto] and available,
      * otherwise the DATA15 thumbnail. Group rows carry [Col.GROUP_TITLE] for user-made groups.
      */
-    fun readAll(ids: List<Long>? = null, fullPhoto: Boolean = true): Sequence<ContactRecord> = sequence {
+    fun readAll(ids: List<Long>? = null, fullPhoto: Boolean = true): Sequence<ContactRecord> = readAllById(ids, fullPhoto).map { it.second }
+
+    /**
+     * Like [readAll], each record with the contact id it was read under. A record's lookup key can change between two
+     * queries (a first account sync, a link), its id within one read can't, so callers that pair records with what
+     * they listed before should pair by this id.
+     */
+    fun readAllById(ids: List<Long>? = null, fullPhoto: Boolean = true): Sequence<Pair<Long, ContactRecord>> = sequence {
         val all = ids ?: contactIds()
         if (all.isEmpty()) return@sequence
         val titles = groupTitles()
         for (chunk in all.chunked(BATCH)) yieldAll(readChunk(chunk, titles, fullPhoto))
     }
 
-    private fun readChunk(ids: List<Long>, titles: Map<Long, String>, fullPhoto: Boolean): List<ContactRecord> {
+    private fun readChunk(ids: List<Long>, titles: Map<Long, String>, fullPhoto: Boolean): List<Pair<Long, ContactRecord>> {
         class Head(val key: String, val name: String, val starred: Boolean, val ringtone: String?, val voicemail: Boolean)
         class Raw(val id: Long, val contactId: Long, val type: String?, val name: String?, val dataSet: String?, val sourceId: String?) {
             val rows = ArrayList<DataRow>()
@@ -238,7 +245,7 @@ class ContactRecordStore(private val context: Context) {
         val byContact = raws.values.groupBy { it.contactId }
         return ids.mapNotNull { id ->
             val h = heads[id] ?: return@mapNotNull null
-            ContactRecord(
+            id to ContactRecord(
                 key = h.key,
                 displayName = h.name,
                 starred = h.starred,

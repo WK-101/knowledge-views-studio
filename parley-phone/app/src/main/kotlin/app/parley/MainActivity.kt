@@ -200,6 +200,7 @@ class MainActivity : LockedActivity() {
         const val ACTION_OPEN_BACKUP = IntentRoutes.ACTION_OPEN_BACKUP
         const val ACTION_SCAN_QR = IntentRoutes.ACTION_SCAN_QR
         const val ACTION_OPEN_BLOCKING = IntentRoutes.ACTION_OPEN_BLOCKING
+        const val ACTION_OPEN_SYNC = IntentRoutes.ACTION_OPEN_SYNC
         const val QUICK_CONTACT = IntentRoutes.QUICK_CONTACT
         const val QUICK_CONTACT_LEGACY = IntentRoutes.QUICK_CONTACT_LEGACY
         const val SHOW_OR_CREATE = IntentRoutes.SHOW_OR_CREATE

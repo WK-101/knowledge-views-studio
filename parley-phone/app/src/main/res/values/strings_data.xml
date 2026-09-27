@@ -630,10 +630,10 @@
     <string name="sync_failed">Sync failed: %1$s</string>
     <string name="sync_title">Sync between your phones</string>
     <string name="sync_card_title">No server, no account</string>
-    <string name="sync_card_text">Parley keeps one file per contact in a folder you choose, encrypted with a passphrase your phones share. Sync that folder between devices with Syncthing, Nextcloud, or any folder-sync app, and set up the same folder in Parley on your other phone. Edits flow both ways; if the same contact changed on both phones, both versions are kept.</string>
+    <string name="sync_card_text">Parley keeps one file per contact in a folder you choose, encrypted with a passphrase your phones share (unless you choose plain files). Sync that folder between devices with Syncthing, Nextcloud, or any folder-sync app, and set up the same folder in Parley on your other phone. Edits flow both ways; if the same contact changed on both phones, both versions are kept.</string>
     <string name="sync_mode_title">How to store the files</string>
     <string name="sync_mode_encrypted">Encrypted (recommended)</string>
-    <string name="sync_mode_encrypted_summary">Each contact is an encrypted file. Your phones share one sync passphrase; nobody else with access to the folder can read or change the files.</string>
+    <string name="sync_mode_encrypted_summary">Each contact is an encrypted file. Your phones share one sync passphrase; without it, nobody with access to the folder can read the files or plant changes, and a phone that already synced ignores an older copy put back.</string>
     <string name="sync_mode_plain">Plain vCard files</string>
     <string name="sync_mode_plain_summary">Other apps can use the files, but anyone with access to the folder can read and change them.</string>
     <string name="sync_mode_is_encrypted">Files are encrypted</string>
@@ -659,6 +659,17 @@
         <item quantity="other">Apply %1$d deletions</item>
     </plurals>
     <string name="sync_now">Sync now</string>
+    <string name="sync_plain_left_toast">Encryption is on, but some plain files couldn\'t be removed from the folder</string>
+    <plurals name="sync_plain_left">
+        <item quantity="one">%1$d plain .vcf file from before encryption couldn\'t be removed and is still readable in the folder. Delete it there; Parley also tries again on each sync.</item>
+        <item quantity="other">%1$d plain .vcf files from before encryption couldn\'t be removed and are still readable in the folder. Delete them there; Parley also tries again on each sync.</item>
+    </plurals>
+    <string name="sync_paused_notify_title">Folder sync is waiting for you</string>
+    <string name="sync_paused_notify_public">Folder sync</string>
+    <plurals name="sync_paused_notify_text">
+        <item quantity="one">A sync would delete %1$d contact or file. Open Sync to check the folder and confirm.</item>
+        <item quantity="other">A sync would delete %1$d contacts or files. Open Sync to check the folder and confirm.</item>
+    </plurals>
     <string name="sync_stop">Stop syncing</string>
 
     <!-- Time machine (version history, what changed) -->

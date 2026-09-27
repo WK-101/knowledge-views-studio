@@ -147,4 +147,24 @@ class ContactVersionCheckTest {
         assertEquals("+1 555 0100", repo.details(base.id)!!.phones.single().value)
         Unit
     }
+
+    @Test fun aDraftOfAnotherCopyKeepsOnlyRowIdsOfTheCopyItIsPutOn() {
+        val draft = ContactDetails(
+            id = 1, nameId = 10, noteId = 11, editRawId = 100, editRawVersion = 3,
+            phones = listOf(
+                DataItem(20, "+1 555 0100", Phone.TYPE_MOBILE), DataItem(21, "+1 555 0199", Phone.TYPE_WORK), DataItem(null, "+1 555 0142", Phone.TYPE_HOME),
+            ),
+        )
+        val onto = ContactDetails(
+            id = 2, nameId = 30, editRawId = 200, editRawVersion = 7, writableRawIds = listOf(200),
+            phones = listOf(DataItem(40, "+1 555 0100", Phone.TYPE_MOBILE), DataItem(41, "+1 555 0177", Phone.TYPE_MOBILE)),
+        )
+        val adopted = ContactEditRebase.adopt(draft, onto)
+        // Same number and type: that row of the new copy; the others are new rows. Nothing of the old copy is left.
+        assertEquals(listOf(40L, null, null), adopted.phones.map { it.id })
+        assertEquals(listOf("+1 555 0100", "+1 555 0199", "+1 555 0142"), adopted.phones.map { it.value })
+        assertEquals(listOf(2L, 30L, null, 200L, 7L), listOf(adopted.id, adopted.nameId, adopted.noteId, adopted.editRawId, adopted.editRawVersion))
+        assertTrue(ContactEditRebase.hasRowIds(draft))
+        assertEquals(false, ContactEditRebase.hasRowIds(ContactDetails(phones = listOf(DataItem(null, "+1 555 0100")))))
+    }
 }

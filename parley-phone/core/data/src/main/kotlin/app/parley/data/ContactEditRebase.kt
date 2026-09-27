@@ -94,4 +94,39 @@ object ContactEditRebase {
         if (mineFor(Field.LABELS)) out = out.copy(groupIds = mine.groupIds)
         return out
     }
+
+    /**
+     * [draft] (an edit of another copy of the contact, or of a contact that has since been linked, unlinked or
+     * re-aggregated) with only row ids that belong to [onto]: a row keeps its id when [onto] has it, else takes the id
+     * of an unclaimed row of [onto] with the same content, else becomes a new row. The contact, name, note and
+     * raw-contact bookkeeping all come from [onto], so a save can only ever write rows of the copy it asserts.
+     */
+    fun adopt(draft: ContactDetails, onto: ContactDetails): ContactDetails {
+        fun <T> ids(mine: List<T>, theirs: List<T>, id: (T) -> Long?, content: (T) -> Any, withId: (T, Long?) -> T): List<T> {
+            val free = theirs.mapNotNull { id(it) }.toMutableSet()
+            val kept = mine.map { row -> id(row)?.takeIf { free.remove(it) } }
+            val byContent = HashMap<Any, ArrayDeque<Long>>()
+            theirs.forEach { row -> id(row)?.takeIf { it in free }?.let { byContent.getOrPut(content(row)) { ArrayDeque() }.addLast(it) } }
+            return mine.mapIndexed { i, row -> withId(row, kept[i] ?: byContent[content(row)]?.removeFirstOrNull()) }
+        }
+        fun item(d: DataItem): Any = Triple(t(d.value), d.type, d.label?.takeIf { d.type == 0 })
+        fun rows(mine: List<DataItem>, theirs: List<DataItem>) = ids(mine, theirs, { it.id }, ::item) { r, i -> r.copy(id = i) }
+        return draft.copy(
+            id = onto.id, lookupKey = onto.lookupKey, displayName = onto.displayName, photoUri = onto.photoUri,
+            nameId = onto.nameId, nicknameId = onto.nicknameId, orgId = onto.orgId, noteId = onto.noteId,
+            phones = rows(draft.phones, onto.phones), emails = rows(draft.emails, onto.emails),
+            websites = rows(draft.websites, onto.websites), relations = rows(draft.relations, onto.relations),
+            addresses = ids(draft.addresses, onto.addresses, { it.id }, { it.copy(id = null) }) { r, i -> r.copy(id = i) },
+            events = ids(draft.events, onto.events, { it.id }, { it.copy(id = null) }) { r, i -> r.copy(id = i) },
+            handles = ids(draft.handles, onto.handles, { it.id }, { it.copy(id = null, value = t(it.value)) }) { r, i -> r.copy(id = i) },
+            rawContacts = onto.rawContacts, editRawId = onto.editRawId, editRawVersion = onto.editRawVersion,
+            writableRawIds = onto.writableRawIds, readOnlyDataIds = onto.readOnlyDataIds,
+        )
+    }
+
+    /** Whether any row of [d] points at a data row (ids of the copy it was loaded from). */
+    fun hasRowIds(d: ContactDetails): Boolean =
+        listOf(d.phones, d.emails, d.websites, d.relations).any { l -> l.any { it.id != null } } ||
+            d.addresses.any { it.id != null } || d.events.any { it.id != null } || d.handles.any { it.id != null } ||
+            listOf(d.nameId, d.nicknameId, d.orgId, d.noteId, d.editRawId).any { it != null }
 }

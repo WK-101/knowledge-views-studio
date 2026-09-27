@@ -1127,6 +1127,7 @@ Contact saves changed elsewhere
 - [ ] "Show their version" shows the contact as it is now, with your edits set aside; "Keep mine" saves what the editor shows over their change.
 - [ ] Delete the contact in another app while editing it, then save: the sheet says it was removed and "Keep mine" saves your edits as a new contact.
 - [ ] Put Parley in the background while editing (with "Don't keep activities" on in Developer options), change the contact elsewhere, come back and save: the change is still caught.
+- [ ] With "Don't keep activities" on, edit a phone-only contact, leave Parley, and meanwhile link it to another contact (or let an account's copy join it) in another app. Back in Parley, save: the edit lands on the phone-only copy and the other copy is untouched. If that copy left the contact, "Changed elsewhere" opens first and the other copy's numbers are never deleted.
 - [ ] An ordinary edit (nothing changed elsewhere) saves straight away as before.
 
 Folder sync and indexing at scale
@@ -1135,6 +1136,11 @@ Folder sync and indexing at scale
 - [ ] Move a contact to another account (or let a first Google sync give it a new key): its file stays and no deletion spreads to other devices.
 - [ ] Delete a file (on another device) for a contact you edited here in the last three days: the sync pauses and asks; confirming deletes it (journaled). An older contact is deleted without the question (unless many go at once).
 - [ ] After updating from 3.x with folder sync on, the first sync reads each contact once and writes nothing it didn't need to; the one after reads nothing.
+- [ ] After updating from 3.x with folder sync on, choose "Encrypted": the folder then holds only `.parleycard` files (plus any `.vcf` that isn't Parley's); the next sync imports and duplicates nothing, contacts with only a name included. If some `.vcf` can't be removed, the Sync screen says how many are still readable there. Choosing "Plain vCard files" instead keeps the sync state: nothing is imported again.
+- [ ] Delete a file on another device for a contact this phone got from the folder yesterday: it is deleted here without a question. For a contact you edited here, only that deletion waits; the rest of the run syncs, and a notification (no name on the lock screen) opens the Sync screen to confirm.
+- [ ] Rename a label: the next sync rewrites its members' files with the new name.
+- [ ] Encrypted folder: copy a contact's file aside, edit the contact, sync, then put the old copy back: the next sync keeps the edit and writes the file again. Put back the file of a contact deleted here: it is not imported again.
+- [ ] A cloud folder that is still loading its listing (a provider that shows a spinner in the Files app): the sync says the folder is still loading and deletes nothing.
 - [ ] With a long call history, a new call shows in Recents and Insights at once; the insights numbers equal those after reopening the app.
 - [ ] While a Google account syncs thousands of contacts, the Contacts list stays responsive and settles once the sync ends.
 

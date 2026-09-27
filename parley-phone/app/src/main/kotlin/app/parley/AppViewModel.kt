@@ -1,5 +1,6 @@
 package app.parley
 
+import app.parley.work.FolderSyncNotice
 import app.parley.ui.Destination
 import android.net.Uri
 import app.parley.blocking.DialText
@@ -387,7 +388,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch(Dispatchers.IO) {
             c.contacts.contacts.debounce(20_000).collect {
                 val st = c.folderSync.status.value
-                if (it != null && st.folderUri != null && st.auto) runCatching { c.folderSync.syncNow() }
+                if (it != null && st.folderUri != null && st.auto) {
+                    runCatching { c.folderSync.syncNow() }
+                    FolderSyncNotice.update(getApplication(), c.folderSync.status.value)
+                }
             }
         }
         viewModelScope.launch(Dispatchers.Default) {

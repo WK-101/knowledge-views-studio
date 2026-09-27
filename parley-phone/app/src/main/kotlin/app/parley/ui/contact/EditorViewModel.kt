@@ -7,6 +7,7 @@ import android.provider.ContactsContract.CommonDataKinds.Phone
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.annotation.VisibleForTesting
 import androidx.core.os.bundleOf
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
@@ -124,6 +125,12 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
 
     /** The loaded contact the draft started from, for merging; null when a restored draft's base wasn't kept. */
     private var base: ContactDetails? = null
+
+    /**
+     * A restored draft was made of another copy of the contact than the one loaded now (or of a contact that is gone):
+     * saving first shows the changed-elsewhere choices instead of writing.
+     */
+    private var mustReconcile = false
 
     /** Stable row keys (animations, focus). */
     val keys = RowKeys()
@@ -274,6 +281,10 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
             message(if (orig == null) R.string.edit_add_name_first else R.string.edit_nothing_left)
             return
         }
+        if (mustReconcile) {
+            conflict = EditConflict(null, e, orig, orig?.let { ContactEditRebase.conflicts(null, e, it) }.orEmpty())
+            return
+        }
         saving = true
         val request = SaveContactUseCase.Request(
             original = orig, draft = e, account = account, photo = photo, removePhoto = removePhoto,
@@ -306,6 +317,7 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
         val k = conflict ?: return
         conflict = null
         val theirs = k.theirs ?: return
+        mustReconcile = false
         original = theirs
         base = theirs
         draft = if (theirs.phones.isEmpty()) theirs.copy(phones = listOf(DataItem(type = Phone.TYPE_MOBILE))) else theirs
@@ -317,11 +329,12 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
     fun keepMine() {
         val k = conflict ?: return
         conflict = null
+        mustReconcile = false
         val theirs = k.theirs
         if (theirs == null) {
             original = null
             base = null
-            draft = k.mine.copy(id = 0, lookupKey = "", nameId = null, nicknameId = null, orgId = null, noteId = null).withoutRowIds()
+            draft = k.mine.asNewContact()
         } else {
             rebaseOnto(theirs, ContactEditRebase.rebase(null, k.mine, theirs, emptyMap(), ThreeWayMerge.Side.MINE))
         }
@@ -333,6 +346,7 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
         val k = conflict ?: return
         val theirs = k.theirs ?: return
         conflict = null
+        mustReconcile = false
         rebaseOnto(theirs, ContactEditRebase.rebase(k.base, k.mine, theirs, picks, ThreeWayMerge.Side.MINE))
         message(R.string.edit_changed_merged)
     }
@@ -364,7 +378,8 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
 
     // ---------------------------------------------------------------- saved state
 
-    private fun toBundle(): Bundle {
+    @VisibleForTesting
+    internal fun toBundle(): Bundle {
         val d = draft ?: return Bundle()
         val b = bundleOf(
             K_ACCOUNT_TYPE to account?.type,
@@ -386,6 +401,7 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
             // The version the draft was based on, so a change made elsewhere while Parley was stopped is still caught.
             K_BASE_RAW to (original?.editRawId ?: 0L),
             K_BASE_VERSION to (original?.editRawVersion ?: -1L),
+            K_RECONCILE to mustReconcile,
         )
         // A draft too large for the saved-state transaction is left out: the contact is loaded again instead.
         val json = ContactDraftJson.encode(d).takeIf { it.length <= MAX_DRAFT_CHARS } ?: return b
@@ -413,14 +429,9 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
         } else {
             b.getString(K_DRAFT)
         }
-        json?.let { runCatching { ContactDraftJson.decode(it) }.getOrNull() }?.let { draft = it }
-        val o = original
-        val savedVersion = b.getLong(K_BASE_VERSION, -1L)
-        val sameCopy = o?.editRawId != null && o.editRawId == b.getLong(K_BASE_RAW)
-        if (o != null && sameCopy && savedVersion >= 0 && savedVersion != o.editRawVersion) {
-            // The contact changed while Parley was stopped: keep asserting the old version, and merge without a base.
-            original = o.copy(editRawVersion = savedVersion)
-            base = null
+        mustReconcile = b.getBoolean(K_RECONCILE)
+        json?.let { runCatching { ContactDraftJson.decode(it) }.getOrNull() }?.let { restored ->
+            if (args.vaultId == null && args.contactId != null) reconcile(restored, b.getLong(K_BASE_RAW), b.getLong(K_BASE_VERSION, -1L)) else draft = restored
         }
         account = if (b.getBoolean(K_HAS_ACCOUNT)) AccountRef(b.getString(K_ACCOUNT_TYPE), b.getString(K_ACCOUNT_NAME)) else null
         @Suppress("DEPRECATION")
@@ -436,6 +447,56 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
         moreName = b.getBoolean(K_MORE_NAME)
         revealed = b.getStringArray(K_REVEALED).orEmpty().mapNotNull { n -> EditorForm.Kind.entries.firstOrNull { it.name == n } }.toSet()
         askKeep = b.getString(K_ASK_KEEP_KEY)?.let { it to b.getLong(K_ASK_KEEP_ID) }
+    }
+
+    /**
+     * Puts a restored draft over the contact as loaded now. The draft's row ids belong to the copy (raw contact) it
+     * was made of, [savedRaw]. Meanwhile the contact may have been linked, unlinked or joined by an account's copy,
+     * so it now opens on another copy or under another id; saving those ids would delete and overwrite rows of a
+     * different raw contact. So: the same copy is edited again when it is still there; otherwise the draft keeps only
+     * ids of the copy loaded now ([ContactEditRebase.adopt]), and the save first asks what to keep.
+     */
+    @Suppress("CyclomaticComplexMethod")
+    private suspend fun reconcile(restored: ContactDetails, savedRaw: Long, savedVersion: Long) {
+        var o = original
+        if (o == null && restored.lookupKey.isNotEmpty()) {
+            // Re-aggregated under another id: found again by its lookup key.
+            o = c.contacts.resolve(restored.lookupKey, restored.id)?.let { id ->
+                (if (savedRaw > 0) c.contacts.editableRaw(id, savedRaw) else null) ?: c.contacts.editable(id)
+            }
+        }
+        // The contact now opens on another copy first: edit the copy the draft was made of while it is still writable.
+        val movedOn = o != null && o.editRawId != savedRaw
+        if (o != null && movedOn && savedRaw in o.writableRawIds) {
+            o = c.contacts.editableRaw(o.id, savedRaw) ?: o
+        }
+        if (o !== original) {
+            original = o
+            base = o
+            o?.let { account = it.rawContacts.firstOrNull { r -> r.id == it.editRawId }?.account ?: AccountRef(null, null) }
+        }
+        val now = o
+        draft = when {
+            now == null -> if (restored.id != 0L || ContactEditRebase.hasRowIds(restored)) {
+                mustReconcile = true
+                restored.asNewContact()
+            } else {
+                restored
+            }
+            (now.editRawId ?: 0L) == savedRaw && restored.editRawId == now.editRawId -> {
+                if (savedVersion >= 0 && savedVersion != now.editRawVersion) {
+                    // The contact changed while Parley was stopped: keep asserting the old version, and merge without a base.
+                    original = now.copy(editRawVersion = savedVersion)
+                    base = null
+                }
+                restored
+            }
+            else -> {
+                mustReconcile = true
+                base = null
+                ContactEditRebase.adopt(restored, now)
+            }
+        }
     }
 
     private fun encodeLinks(links: Map<String, RelationLinks.Link>): String = JSONObject().apply {
@@ -465,12 +526,17 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
         const val K_ASK_KEEP_ID = "askKeepId"
         const val K_BASE_RAW = "baseRaw"
         const val K_BASE_VERSION = "baseVersion"
+        const val K_RECONCILE = "reconcile"
         const val BG_REMOVE = "remove"
 
         /** About 200 KB in the parcel (UTF-16), well under the binder transaction limit with the rest of the state. */
         const val MAX_DRAFT_CHARS = 100_000
     }
 }
+
+/** The draft as a new contact: no contact, name, note or row ids of the one it was made from. */
+private fun ContactDetails.asNewContact(): ContactDetails =
+    copy(id = 0, lookupKey = "", nameId = null, nicknameId = null, orgId = null, noteId = null).withoutRowIds()
 
 /** The draft as new rows only (for saving it as a new contact). */
 private fun ContactDetails.withoutRowIds(): ContactDetails = copy(

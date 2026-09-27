@@ -35,6 +35,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.ui.common.Format
 import app.parley.ui.extras.MarkdownExportSection
+import app.parley.work.FolderSyncNotice
 import app.parley.work.FolderSyncWorker
 import kotlinx.coroutines.launch
 import androidx.compose.ui.res.pluralStringResource
@@ -85,6 +86,7 @@ fun FolderSyncScreen(vm: AppViewModel, back: () -> Unit) {
             val r = runCatching { sync.syncNow(allowMassDelete) }
             running = false
             vm.toast(r.getOrNull()?.summary(res) ?: res.getString(R.string.sync_failed, r.exceptionOrNull()?.message.toString()))
+            FolderSyncNotice.update(context, sync.status.value, post = false)
         }
     }
     ParleyScaffold(topBar = {
@@ -124,7 +126,7 @@ fun FolderSyncScreen(vm: AppViewModel, back: () -> Unit) {
                     supportingContent = st.resultText(LocalResources.current)?.let { r -> { Text(r) } },
                     leadingContent = { Icon(Icons.Rounded.Sync, null) },
                 )
-                if (st.folderUri != null) SyncModeRows(st.mode, onEncrypted = ::chooseEncrypted, onPlain = { askPlain = true })
+                if (st.folderUri != null) SyncModeRows(st.mode, st.plainLeft, onEncrypted = ::chooseEncrypted, onPlain = { askPlain = true })
                 SyncActions(st, running, onRun = ::run, onStop = { sync.setFolder(null, null); FolderSyncWorker.schedule(context, false) })
             }
             // One-way Markdown notes, to a folder of their own.
@@ -132,7 +134,17 @@ fun FolderSyncScreen(vm: AppViewModel, back: () -> Unit) {
         }
     }
 
-    askPass?.let { existing -> SyncPassphraseDialog(sync, existing, onReady = { askPass = null; run() }, onDismiss = { askPass = null }) }
+    askPass?.let { existing ->
+        SyncPassphraseDialog(
+            sync, existing,
+            onReady = { plainLeft ->
+                askPass = null
+                if (plainLeft) vm.toast(res.getString(R.string.sync_plain_left_toast))
+                run()
+            },
+            onDismiss = { askPass = null },
+        )
+    }
     if (askPlain) PlainFilesConsent(onUse = { askPlain = false; sync.usePlain(); run() }, onDismiss = { askPlain = false })
 }
 
@@ -152,7 +164,7 @@ private fun SyncActions(st: SyncStatus, running: Boolean, onRun: (allowMassDelet
 
 /** The shared sync passphrase: the folder's existing one (checked), or a new one that must be Strong. */
 @Composable
-private fun SyncPassphraseDialog(sync: FolderSync, existing: Boolean, onReady: () -> Unit, onDismiss: () -> Unit) {
+private fun SyncPassphraseDialog(sync: FolderSync, existing: Boolean, onReady: (plainLeft: Boolean) -> Unit, onDismiss: () -> Unit) {
     val res = LocalResources.current
     val scope = rememberCoroutineScope()
     var pass by remember { mutableStateOf("") }
@@ -165,7 +177,8 @@ private fun SyncPassphraseDialog(sync: FolderSync, existing: Boolean, onReady: (
         onConfirm = {
             scope.launch {
                 when (sync.useEncryption(pass.toCharArray())) {
-                    FolderSync.EncryptionSetup.READY -> onReady()
+                    FolderSync.EncryptionSetup.READY -> onReady(false)
+                    FolderSync.EncryptionSetup.PLAIN_FILES_LEFT -> onReady(true)
                     FolderSync.EncryptionSetup.WRONG_PASSPHRASE -> error = res.getString(R.string.sync_pass_wrong)
                     FolderSync.EncryptionSetup.FAILED -> error = res.getString(R.string.sync_setup_failed)
                 }
@@ -206,9 +219,12 @@ private fun PlainFilesConsent(onUse: () -> Unit, onDismiss: () -> Unit) {
     )
 }
 
-/** The folder's storage: a choice while unset (encrypted first), otherwise what it is, with a way to encrypt plain files. */
+/**
+ * The folder's storage: a choice while unset (encrypted first), otherwise what it is, with a way to encrypt plain files,
+ * and the plain files switching to encryption couldn't remove ([plainLeft]).
+ */
 @Composable
-private fun SyncModeRows(mode: SyncMode, onEncrypted: () -> Unit, onPlain: () -> Unit) {
+private fun SyncModeRows(mode: SyncMode, plainLeft: Int, onEncrypted: () -> Unit, onPlain: () -> Unit) {
     when (mode) {
         SyncMode.UNSET -> {
             Text(
@@ -231,6 +247,11 @@ private fun SyncModeRows(mode: SyncMode, onEncrypted: () -> Unit, onPlain: () ->
         SyncMode.ENCRYPTED -> ListItem(
             leadingContent = { Icon(Icons.Rounded.Lock, null, tint = MaterialTheme.colorScheme.primary) },
             headlineContent = { Text(stringResource(R.string.sync_mode_is_encrypted)) },
+            supportingContent = if (plainLeft > 0) {
+                { Text(pluralStringResource(R.plurals.sync_plain_left, plainLeft, plainLeft), color = MaterialTheme.colorScheme.error) }
+            } else {
+                null
+            },
         )
         SyncMode.PLAIN -> ListItem(
             modifier = Modifier.clickable(onClick = onEncrypted),

@@ -48,8 +48,8 @@ import app.parley.ui.ConfirmDialog
 @Composable
 fun EventDateDialog(initial: String, onDismiss: () -> Unit, onPick: (String) -> Unit) {
     val parsed = EventDate.parse(initial)
-    var month by remember { mutableIntStateOf(parsed?.month ?: LocalDate.now().monthValue) }
-    var day by remember { mutableIntStateOf(parsed?.day ?: LocalDate.now().dayOfMonth) }
+    var month by rememberSaveable { mutableIntStateOf(parsed?.month ?: LocalDate.now().monthValue) }
+    var day by rememberSaveable { mutableIntStateOf(parsed?.day ?: LocalDate.now().dayOfMonth) }
     var withYear by rememberSaveable { mutableStateOf(parsed?.year != null || parsed == null) }
     var year by rememberSaveable { mutableStateOf((parsed?.year ?: (LocalDate.now().year - 30)).toString()) }
     val maxDay = Month.of(month).maxLength()
