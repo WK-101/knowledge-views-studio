@@ -351,6 +351,15 @@ class CallHistory(
     }
 
     /**
+     * The private numbers, read from the vault itself, for paths that put old calls back into the archive (undo,
+     * restore). Only the newest window is checked again after them, so a private call that got past this filter
+     * outside it would stay for good.
+     */
+    private suspend fun privateLines(): PhoneIdentity.LineSet = PhoneIdentity.LineSet(vault.allNumbers(), countryIso)
+
+    private fun isPrivate(rec: CallLogRecord, vk: PhoneIdentity.LineSet) = !rec.number.isNullOrBlank() && rec.number in vk
+
+    /**
      * Every archived call, newest first, decrypted a page at a time so the whole archive is never held in memory.
      * Unreadable rows are skipped. False when the key can't be used (nothing was visited then, or not everything).
      */
@@ -588,7 +597,9 @@ class CallHistory(
             val known = keys()
             val iso = countryIso
             val now = System.currentTimeMillis()
+            val vk = privateLines()
             val fresh = trashed.mapNotNull { rec ->
+                if (isPrivate(rec, vk)) return@mapNotNull null
                 val key = crypto.mac(HistoryMerge.key(rec.toEntry(0)))
                 if (known.add(key)) entity(rec, key, iso, now) else null
             }
@@ -700,7 +711,9 @@ class CallHistory(
             val known = keys()
             val iso = countryIso
             val now = System.currentTimeMillis()
+            val vk = privateLines()
             val fresh = calls.mapNotNull { rec ->
+                if (isPrivate(rec, vk)) return@mapNotNull null
                 val key = crypto.mac(HistoryMerge.key(rec.toEntry(0)))
                 if (known.add(key)) entity(rec, key, iso, now) else null
             }
