@@ -1,5 +1,6 @@
 package app.parley.ui.calls
 
+import app.parley.security.SensitiveScreen
 import android.app.Activity
 import android.app.role.RoleManager
 import android.content.Context
@@ -74,6 +75,7 @@ private fun isDefaultDialer(context: Context): Boolean =
 /** The by-hand guide for this Android version, with buttons to App info and to Default apps. */
 @Composable
 fun DialerRoleGuide(onDismiss: () -> Unit) {
+    SensitiveScreen()
     val context = LocalContext.current
     val steps = when (RoleRescue.variant(Build.VERSION.SDK_INT)) {
         RoleRescue.Variant.ANDROID_10_11 -> stringResource(R.string.role_rescue_steps_q)

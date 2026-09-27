@@ -1,5 +1,6 @@
 package app.parley.picker
 
+import app.parley.security.LockedActivity
 import android.content.Context
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.Text
@@ -66,12 +67,9 @@ enum class PickKind(val mime: String) {
  * other apps can use Parley as the system contact picker. Also handles JOIN_CONTACT.
  * Returns aggregate contact lookup URIs or Data row URIs, with a read grant.
  */
-class PickerActivity : FragmentActivity() {
-    // The in-app language on Android 10-12 (Android 13+ applies per-app languages itself).
-    override fun attachBaseContext(newBase: Context) {
-        super.attachBaseContext(newBase)
-        AppLocale.override(this, newBase)
-    }
+class PickerActivity : LockedActivity() {
+    // It hands contacts to another app: other apps' overlays can't cover the choice.
+    override val hidesOverlays = true
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
@@ -80,6 +78,8 @@ class PickerActivity : FragmentActivity() {
         val multiple = intent.getBooleanExtra(Intent.EXTRA_ALLOW_MULTIPLE, false)
         val joinTarget = if (intent.action == ACTION_JOIN_CONTACT) intent.getLongExtra(EXTRA_JOIN_TARGET, -1L).takeIf { it > 0 } else null
         val c = container
+        // Another app chose the contact to join: its name is shown, and the join waits for an explicit confirmation.
+        if (joinTarget != null) lifecycleScope.launch { joinTargetName = withContext(Dispatchers.IO) { nameOf(joinTarget) } }
         setContent {
             val s by c.settings.settings.collectAsStateWithLifecycle()
             val locked by AppLock.locked.collectAsStateWithLifecycle()
@@ -91,6 +91,16 @@ class PickerActivity : FragmentActivity() {
                     LockScreen { AppLock.authenticate(this@PickerActivity) }
                     return@ParleyTheme
                 }
+                joinConfirm?.let { other ->
+                    ConfirmDialog(
+                        title = stringResource(R.string.picker_join_title),
+                        text = stringResource(R.string.picker_join_text, callerLabel(), joinTargetName.orEmpty(), other.title),
+                        confirmLabel = stringResource(R.string.picker_join_confirm),
+                        onConfirm = { joinConfirm = null; if (joinTarget != null) join(joinTarget, listOf(other)) },
+                        onDismiss = { joinConfirm = null },
+                        dismissLabel = stringResource(R.string.dc_cancel),
+                    )
+                }
                 oneField?.let { (pick, phones) ->
                     OneFieldDialog(pick, phones, onWhole = { oneField = null; deliver(listOf(pick), ask = false) }, onNumber = { uri ->
                         oneField = null
@@ -101,24 +111,28 @@ class PickerActivity : FragmentActivity() {
                     PickerScreen(
                         kind = if (joinTarget != null) PickKind.CONTACT else kind,
                         multiple = multiple && joinTarget == null,
-                        title = if (joinTarget != null) getString(R.string.picker_link_with) else null,
+                        title = if (joinTarget != null) joinTargetName?.let { getString(R.string.picker_link_name_with, it) } ?: getString(R.string.picker_link_with) else null,
                         excludeContactId = joinTarget,
                         onCancel = { setResult(Activity.RESULT_CANCELED); finish() },
-                        onPicked = { picks -> if (joinTarget != null) join(joinTarget, picks) else deliver(picks) },
+                        onPicked = { picks -> if (joinTarget != null) joinConfirm = picks.firstOrNull() else deliver(picks) },
                     )
                 }
             }
         }
     }
 
-    override fun onStart() {
-        super.onStart()
-        lifecycleScope.launch { AppLock.onStart(container.settings.current()) }
-    }
+    private var joinTargetName by mutableStateOf<String?>(null)
+    private var joinConfirm by mutableStateOf<Pick?>(null)
 
-    override fun onStop() {
-        AppLock.onStop()
-        super.onStop()
+    private fun nameOf(contactId: Long): String? = runCatching {
+        contentResolver.query(ContentUris.withAppendedId(ContactsContract.Contacts.CONTENT_URI, contactId), arrayOf(ContactsContract.Contacts.DISPLAY_NAME), null, null, null)
+            ?.use { c -> if (c.moveToFirst()) c.getString(0) else null }
+    }.getOrNull()
+
+    /** The app that asked, by its label (the package name when it has none). */
+    private fun callerLabel(): String {
+        val pkg = callingActivity?.packageName ?: return getString(R.string.picker_join_another_app)
+        return runCatching { packageManager.getApplicationLabel(packageManager.getApplicationInfo(pkg, 0)).toString() }.getOrDefault(pkg)
     }
 
     private fun join(target: Long, picks: List<Pick>) {

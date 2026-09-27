@@ -300,6 +300,7 @@ object VaultSession {
  */
 @Composable
 fun LockScreen(emergencyNumber: String? = null, checkingEmergency: Boolean = false, onUnlock: () -> Unit) {
+    SensitiveScreen()
     val handedOver by rememberUpdatedState(emergencyNumber)
     val checking by rememberUpdatedState(checkingEmergency)
     LaunchedEffect(Unit) {

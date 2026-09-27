@@ -618,6 +618,25 @@ private fun ColumnScope.MessengerResult(vm: AppViewModel, p: QrPayload.Messenger
     }
 }
 
+/**
+ * A web address from a note or anywhere else text came from outside (imported vCards, scanned codes): the owning
+ * domain large, with the look-alike, shortener and `user@host` warnings, before anything opens.
+ */
+@Composable
+@OptIn(ExperimentalMaterial3Api::class)
+fun WebAddressSheet(url: String, onDismiss: () -> Unit) {
+    val info = remember(url) { UrlSafety.analyse(url) }
+    if (info == null) {
+        onDismiss()
+        return
+    }
+    ParleySheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp).padding(bottom = 16.dp).navigationBarsPadding()) {
+            UrlResult(QrPayload.Url(url, info.url, info))
+        }
+    }
+}
+
 @Composable
 private fun ColumnScope.UrlResult(p: QrPayload.Url) {
     val context = LocalContext.current

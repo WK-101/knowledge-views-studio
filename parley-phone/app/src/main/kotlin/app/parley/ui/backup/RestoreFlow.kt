@@ -1,5 +1,6 @@
 package app.parley.ui.backup
 
+import app.parley.security.SensitiveScreen
 import android.net.Uri
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -65,6 +66,7 @@ private sealed interface Step {
 /** Unlock → choose what to restore → preview (new / updated / identical / conflicts) → restore → report. */
 @Composable
 fun RestoreFlow(vm: AppViewModel, uri: Uri, onDone: () -> Unit) {
+    SensitiveScreen()
     val context = LocalContext.current
     val res = LocalResources.current
     val scope = rememberCoroutineScope()

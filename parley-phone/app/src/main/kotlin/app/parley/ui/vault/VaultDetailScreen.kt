@@ -1,5 +1,6 @@
 package app.parley.ui.vault
 
+import app.parley.security.SensitiveScreen
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -97,6 +98,7 @@ import app.parley.ui.ConfirmDialog
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun VaultDetailScreen(vm: AppViewModel, id: Long, back: () -> Unit, open: (String) -> Unit) {
+    SensitiveScreen()
     val context = LocalContext.current
     val res = LocalResources.current
     val scope = rememberCoroutineScope()

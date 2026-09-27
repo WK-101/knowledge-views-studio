@@ -776,6 +776,11 @@
 
     <!-- Contact picker -->
     <string name="picker_link_with">Link with…</string>
+    <string name="picker_link_name_with">Link %1$s with…</string>
+    <string name="picker_join_title">Link these contacts?</string>
+    <string name="picker_join_text">%1$s asked to link %2$s with %3$s. They will show as one contact.</string>
+    <string name="picker_join_confirm">Link</string>
+    <string name="picker_join_another_app">Another app</string>
     <string name="picker_share_title">Share %1$s</string>
     <string name="picker_share_one">Share only one number instead of the whole contact? Some apps may not accept a single number.</string>
     <string name="picker_only">Only %1$s</string>

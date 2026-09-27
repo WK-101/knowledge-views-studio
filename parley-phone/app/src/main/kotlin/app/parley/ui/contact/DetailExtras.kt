@@ -1,5 +1,6 @@
 package app.parley.ui.contact
 
+import app.parley.ui.qr.WebAddressSheet
 import android.content.res.Resources
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -80,10 +81,16 @@ private val linkRegex = Regex(
     "(https?://[^\\s]+|www\\.[^\\s]+|[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}|\\+?[0-9][0-9 ()-]{6,}[0-9])",
 )
 
-/** Text with tappable web links, e-mail addresses and phone numbers (no extra library). */
+/**
+ * Text with tappable web links, e-mail addresses and phone numbers (no extra library). Notes often come from
+ * imported vCards or scanned codes, so a web link opens the same checked "web address" sheet as a scanned one
+ * (owning domain, look-alike and shortener warnings) instead of the browser directly.
+ */
 @Composable
 fun LinkifiedText(text: String, modifier: Modifier = Modifier) {
     val linkStyle = TextLinkStyles(SpanStyle(color = MaterialTheme.colorScheme.primary, textDecoration = TextDecoration.Underline))
+    var checking by remember { mutableStateOf<String?>(null) }
+    checking?.let { WebAddressSheet(it) { checking = null } }
     val annotated = remember(text, linkStyle) {
         buildAnnotatedString {
             var last = 0
@@ -96,7 +103,11 @@ fun LinkifiedText(text: String, modifier: Modifier = Modifier) {
                     v.startsWith("www.") -> "https://$v"
                     else -> "tel:" + v.filter { it.isDigit() || it == '+' }
                 }
-                pushLink(LinkAnnotation.Url(url, linkStyle))
+                if (url.startsWith("http")) {
+                    pushLink(LinkAnnotation.Clickable(url, linkStyle) { checking = url })
+                } else {
+                    pushLink(LinkAnnotation.Url(url, linkStyle))
+                }
                 append(v)
                 pop()
                 append(m.value.substring(v.length))
