@@ -992,7 +992,7 @@ Contacts list
 ### 20.1 Tests and CI
 
 Automated (no phone needed; `.github/workflows/parley.yml` runs all of it on every push and pull request that touches `parley-phone/`)
-- [ ] `./gradlew :core:common:test testDebugUnitTest` passes. The Robolectric tests cover contact saves (only changed rows are written, read-only rows are never touched, an emptied copy is removed, no delete without an undo copy, work-profile lookup), call screening (hidden, unknown, emergency, fail-open, work profile, rules and their log), the outgoing-call gate (emergency, confirmation, SIM question), an encrypted backup → wipe → restore round trip with every registry section, the vault / call-history / interaction crypto, and every Room migration from version 1 to 7. The first run downloads Robolectric's Android runtime (about 150 MB).
+- [ ] `./gradlew :core:common:test testDebugUnitTest` passes. The Robolectric tests cover contact saves (only changed rows are written, read-only rows are never touched, an emptied copy is removed, no delete without an undo copy, work-profile lookup), call screening (hidden, unknown, emergency, fail-open, work profile, rules and their log), the outgoing-call gate (emergency, confirmation, SIM question), an encrypted backup → wipe → restore round trip with every registry section, the vault / call-history / interaction crypto, and every Room migration from version 1 to 8. The first run downloads Robolectric's Android runtime (about 150 MB).
 - [ ] `./gradlew detekt` passes (new findings fail; existing ones are listed in `config/detekt/baseline.xml`; after a large refactor run `./gradlew detektBaseline` and review the diff).
 - [ ] `./gradlew checkHardcodedText -PfailOnHardcodedText=true lintDebug` passes (lint errors fail every module's build; warnings don't).
 - [ ] Add a permission to `app/src/main/AndroidManifest.xml` (e.g. `android.permission.READ_CALENDAR`) and run `./gradlew :app:assembleDebug`: the build fails with "Permissions not on the allow-list" (the check runs with every build, `bundleRelease` included). Revert.
@@ -1000,3 +1000,32 @@ Automated (no phone needed; `.github/workflows/parley.yml` runs all of it on eve
 
 On a phone (debug build only)
 - [ ] Install the debug build and use it for a few minutes (open Recents, Contacts, a contact, Settings, take a call): `adb logcat -s StrictMode` lists main-thread disk access and leaked resources as log lines only; the app never crashes because of them. The release build logs none of them.
+
+### 20.3 Performance
+
+Start-up and the call path (a phone with a few hundred contacts and calls; Perfetto or `adb shell atrace` for the trace sections)
+- [ ] With Parley closed (swipe it from Recents, or `adb shell am kill app.parley.phone`), ring the phone. The call screen or heads-up shows at once, or within half a second a quiet "Checking…" notification with Answer and Decline appears and turns into the normal incoming-call alert once screening decides. A call a block rule rejects never pops up the call screen.
+- [ ] In a trace of that call: `Parley.screenToRespond` (screening service), `Parley.screenCall` and `Parley.addToNotification` (in-call service) are there; no contacts or call-log scan runs in the process while the phone rings (no `ContactsRepository` / `CallLogRepository` loads; the "Last call …" line still shows for someone you called before).
+- [ ] About ten seconds after that call ends, the process loads the rest (a trace shows the contacts and call-log reads then). Opening Parley right away works as before.
+- [ ] Open Parley from the launcher: the system splash (the icon on Parley's window colour, dark in dark mode) stays until the app is ready; there is no blank white or dark frame before Recents. With the app lock on, the lock screen follows the splash directly and no contact flashes.
+- [ ] With a Circle widget placed, it still updates while Parley runs (log an interaction, change the app lock). Remove every Circle widget: nothing about it keeps running (no widget refresh in logcat).
+
+Data flow
+- [ ] Add, edit or sync many contacts at once (e.g. a Google account sync, or import a large vCard): Contacts updates once the burst settles (about a second), not once per change.
+- [ ] Link two contacts in the system Contacts app: a pinned note and the Circle rhythm follow within about 15 seconds of Parley running; nothing moves when nothing changed.
+- [ ] Call archive with more than 5000 calls (import a large CSV): Recents shows the newest; "Delete calls with this number" (all time) removes old archived calls too; a backup includes all of them; making a number private removes all of its archived calls.
+- [ ] Blocked calls: more than a year old are gone after the daily maintenance run; the list still shows recent ones.
+
+Background work
+- [ ] `adb shell dumpsys jobscheduler | grep -A3 app.parley.phone`: one daily maintenance job (battery not low), the reminders job at the chosen hour, and no separate daily housekeeping, history or screening jobs.
+- [ ] Temporary contact expiry, call-log retention, the backup reminder, plan warnings and spam-list refreshes still happen (run the maintenance job with `adb shell cmd jobscheduler run -f app.parley.phone <id>`).
+- [ ] Folder sync on with "Keep up to date": edit a contact; the folder is updated within a few minutes (not only hourly). Turning folder sync and the Markdown export off cancels both jobs.
+
+App lock and size
+- [ ] App lock on Android 11+: unlock with a fingerprint, and with the PIN from the same prompt; on Android 10: fingerprint through the system prompt, and with no fingerprint enrolled the screen-lock confirmation. Cancelling keeps Parley locked. The private vault still asks and unlocks as before.
+- [ ] Caller location ("Where is this number from") in English, German, Spanish, French, Portuguese and Arabic; with the phone in another language (e.g. Italian) it shows in English rather than not at all.
+- [ ] `./gradlew :app:checkReleaseApkSize`: about 12.8 MiB (was 13.9 MiB), under the 16 MiB budget. `unzip -l` of the release APK has no `androidx/appcompat` resources and only the six geocoder languages.
+
+Baseline profile
+- [ ] The release APK has `assets/dexopt/baseline.prof`, and `app/build/intermediates/merged_art_profile/release/` lists `Lapp/parley/...` rules. After `adb install` of a release build, `adb shell cmd package compile --reset app.parley.phone` followed by `adb shell dumpsys package dexopt | grep -A2 app.parley.phone` shows `speed-profile` once the profile installer ran (or after the next start).
+- [ ] With a device connected, `./gradlew :app:generateBaselineProfile` and the macrobenchmarks run as described in `docs/PERFORMANCE_BENCHMARKS.md`.
