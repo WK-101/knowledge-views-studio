@@ -1,5 +1,6 @@
 package app.parley.data.extras
 
+import app.parley.common.PhoneIdentity
 import android.content.Context
 import android.net.Uri
 import android.provider.DocumentsContract
@@ -10,6 +11,7 @@ import app.parley.common.extras.MarkdownNotes
 import app.parley.data.DataContainer
 import app.parley.data.EventItem
 import app.parley.data.Permissions
+import app.parley.data.PhoneEnv
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -174,6 +176,7 @@ class MarkdownExport(private val context: Context, private val c: DataContainer)
                 .sortedWith(compareBy<app.parley.common.ContactSummary> { it.displayName.lowercase() }.thenBy { it.id })
             val interactions = c.circle.interactions.all().groupBy { it.lookupKey }
             val notes = runCatching { c.meta.allCallNotes().first() }.getOrDefault(emptyList()).groupBy { it.numberKey }
+            val region = PhoneEnv.countryIso(context)
             val index = c.history.index.value ?: withTimeoutOrNull(10_000) { c.history.index.filterNotNull().first() }
             val zone = ZoneId.systemDefault()
             val now = System.currentTimeMillis()
@@ -182,7 +185,7 @@ class MarkdownExport(private val context: Context, private val c: DataContainer)
             val produced = HashSet<String>()
             for (s in people) {
                 val d = runCatching { c.contacts.details(s.id) }.getOrNull() ?: continue
-                val keys = d.phones.map { PhoneNumbers.matchKey(it.value) }.filter { it.isNotEmpty() }.toSet()
+                val keys = d.phones.flatMap { PhoneIdentity.lookupKeys(it.value, region) }.toSet()
                 val calls = index?.calls(personKey = "c:${s.lookupKey}").orEmpty().take(MAX_CALLS)
                 val timeline = calls.map { MarkdownNotes.Entry(it.date, texts.call(it.type, it.durationSec)) } +
                     interactions[s.lookupKey].orEmpty().map { MarkdownNotes.Entry(it.time, texts.interaction(it.type), it.note) } +

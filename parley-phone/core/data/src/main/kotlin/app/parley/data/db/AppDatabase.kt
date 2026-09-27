@@ -45,7 +45,7 @@ data class BlockRuleEntity(
  * Screened calls: every blocked call, plus unknown callers that were let through (so "Why did this ring?" can
  * show the stored decision trace). The table keeps its v1 name.
  */
-@Entity(tableName = "blocked_calls")
+@Entity(tableName = "blocked_calls", indices = [Index(value = ["number", "time"]), Index(value = ["time"])])
 data class BlockedCallEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val number: String?,
@@ -67,8 +67,11 @@ data class BlockedCallEntity(
     val simId: String? = null,
 )
 
-/** How long an incoming call rang before it was answered or given up (for the one-ring "wangiri" guard). */
-@Entity(tableName = "call_rings")
+/**
+ * How long an incoming call rang before it was answered or given up (for the one-ring "wangiri" guard). [numberKey]
+ * is [app.parley.common.PhoneIdentity.key]; rows from before the phone-key migration may still hold the last digits.
+ */
+@Entity(tableName = "call_rings", indices = [Index(value = ["numberKey"])])
 data class CallRingEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val numberKey: String,
@@ -84,7 +87,10 @@ data class SpeedDialEntity(
     val label: String?,
 )
 
-/** Remembered SIM per number (keyed by the last digits of the number). */
+/**
+ * Remembered SIM per number. The column keeps its first name, but holds [app.parley.common.PhoneIdentity.key] (rows
+ * from before the phone-key migration may still hold the last digits, which lookups still read).
+ */
 @Entity(tableName = "number_sim")
 data class NumberSimEntity(
     @PrimaryKey val matchKey: String,
@@ -198,8 +204,12 @@ data class VaultContactEntity(
 @Entity(tableName = "vault_numbers", primaryKeys = ["vaultId", "hmac"])
 data class VaultNumberEntity(val vaultId: Long, val hmac: String)
 
-/** Calls with vault contacts, removed from the system call log. */
-@Entity(tableName = "private_calls")
+/**
+ * Calls with vault contacts, removed from the system call log. [dedupeKey] ("vaultId|date|type") is unique, so a
+ * sweep that runs twice (the provider delete failed after the insert) or a restore run twice stores each call once;
+ * rows from before v7 have none.
+ */
+@Entity(tableName = "private_calls", indices = [Index(value = ["dedupeKey"], unique = true)])
 data class PrivateCallEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val vaultId: Long,
@@ -208,10 +218,19 @@ data class PrivateCallEntity(
     val date: Long,
     val durationSec: Long,
     val type: Int,
-)
+    val dedupeKey: String? = null,
+) {
+    companion object {
+        fun dedupeKey(vaultId: Long, date: Long, type: Int) = "$vaultId|$date|$type"
+    }
+}
 
-/** Notes attached to a call (from the in-call screen or history). */
-@Entity(tableName = "call_notes")
+/**
+ * Notes attached to a call (from the in-call screen or history). [numberKey] is [app.parley.common.PhoneIdentity.key];
+ * notes from before the phone-key migration may still hold the last digits (read with
+ * [app.parley.common.PhoneIdentity.lookupKeys]).
+ */
+@Entity(tableName = "call_notes", indices = [Index(value = ["numberKey"])])
 data class CallNoteEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val numberKey: String,
@@ -219,6 +238,41 @@ data class CallNoteEntity(
     val text: String,
     val createdAt: Long = System.currentTimeMillis(),
 )
+
+/**
+ * One connected call, written by the call path when the call ends: the usage ledger that call-time allowances count
+ * (supervision included). Unlike the system call log, nobody else can clear or trim it, and it has the calls with
+ * private contacts too. Kept for [app.parley.data.calltime.CallUsageLedger.KEEP_DAYS] days.
+ */
+@Entity(tableName = "call_usage", indices = [Index(value = ["startedAt"])])
+data class CallUsageEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    /** Connect time (wall clock). */
+    val startedAt: Long,
+    val durationSec: Long,
+    val incoming: Boolean,
+    /** [app.parley.common.PhoneIdentity.key] of the other party; null for a withheld number. */
+    val lineKey: String?,
+    /** Lookup key of the contact at the time of the call, when it was one. */
+    val contactKey: String?,
+    /** Phone-account (SIM) id. */
+    val accountId: String?,
+)
+
+@Dao
+interface UsageDao {
+    @Insert
+    suspend fun add(e: CallUsageEntity): Long
+
+    @Query("SELECT * FROM call_usage WHERE startedAt >= :since ORDER BY startedAt DESC")
+    suspend fun since(since: Long): List<CallUsageEntity>
+
+    @Query("DELETE FROM call_usage WHERE startedAt < :before")
+    suspend fun prune(before: Long)
+
+    @Query("SELECT COUNT(*) FROM call_usage")
+    suspend fun count(): Int
+}
 
 @Dao
 interface MetaDao {
@@ -271,6 +325,10 @@ interface MetaDao {
     @Query("SELECT * FROM contact_meta")
     suspend fun allMetaNow(): List<ContactMetaEntity>
 
+    /** Restore: only the fields a backup carries, without touching the Circle's own columns. */
+    @Query("UPDATE contact_meta SET pinnedNote = :note, preferredMessenger = :messenger, relationLinks = :links, lastNudgedAt = COALESCE(:nudged, lastNudgedAt) WHERE lookupKey = :key")
+    suspend fun setPersonalMeta(key: String, note: String?, messenger: String?, links: String?, nudged: Long?): Int
+
     @Upsert
     suspend fun setMeta(e: ContactMetaEntity)
 
@@ -286,6 +344,22 @@ interface MetaDao {
 
     @Query("SELECT * FROM call_notes WHERE numberKey = :key ORDER BY callDate DESC")
     fun callNotes(key: String): Flow<List<CallNoteEntity>>
+
+    /** Notes stored under any of [keys] (a line's key and its older last-digits key). */
+    @Query("SELECT * FROM call_notes WHERE numberKey IN (:keys) ORDER BY callDate DESC")
+    fun callNotesAny(keys: List<String>): Flow<List<CallNoteEntity>>
+
+    @Query("SELECT * FROM call_notes ORDER BY callDate DESC")
+    suspend fun allCallNotesNow(): List<CallNoteEntity>
+
+    @Query("SELECT DISTINCT numberKey FROM call_notes")
+    suspend fun callNoteKeys(): List<String>
+
+    @Query("UPDATE call_notes SET numberKey = :to WHERE numberKey = :from")
+    suspend fun rekeyCallNotes(from: String, to: String)
+
+    @Query("SELECT COUNT(*) FROM call_notes WHERE numberKey = :key AND callDate = :callDate AND text = :text")
+    suspend fun countCallNote(key: String, callDate: Long, text: String): Int
 
     @Query("SELECT * FROM call_notes ORDER BY callDate DESC")
     fun allCallNotes(): Flow<List<CallNoteEntity>>
@@ -399,8 +473,15 @@ interface VaultDao {
     @Query("SELECT * FROM private_calls ORDER BY date DESC")
     fun privateCalls(): Flow<List<PrivateCallEntity>>
 
-    @Insert
-    suspend fun addPrivateCall(c: PrivateCallEntity)
+    @Query("SELECT * FROM private_calls ORDER BY date DESC")
+    suspend fun allPrivateCalls(): List<PrivateCallEntity>
+
+    /** Returns -1 when the same call (see [PrivateCallEntity.dedupeKey]) is already stored. */
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun addPrivateCall(c: PrivateCallEntity): Long
+
+    @Query("SELECT COUNT(*) FROM private_calls WHERE vaultId = :vaultId AND date = :date AND type = :type")
+    suspend fun countPrivateCall(vaultId: Long, date: Long, type: Int): Int
 
     @Query("DELETE FROM private_calls WHERE vaultId = :id")
     suspend fun deletePrivateCalls(id: Long)
@@ -477,6 +558,18 @@ interface BlockDao {
     @Query("SELECT * FROM call_rings WHERE numberKey = :key ORDER BY startedAt DESC LIMIT 5")
     suspend fun ringsFor(key: String): List<CallRingEntity>
 
+    @Query("SELECT DISTINCT numberKey FROM call_rings")
+    suspend fun ringKeys(): List<String>
+
+    @Query("UPDATE call_rings SET numberKey = :to WHERE numberKey = :from")
+    suspend fun rekeyRings(from: String, to: String)
+
+    @Query("SELECT * FROM blocked_calls WHERE allowed = 0 ORDER BY time DESC LIMIT 500")
+    suspend fun blockedCallsNow(): List<BlockedCallEntity>
+
+    @Query("SELECT COUNT(*) FROM blocked_calls WHERE time = :time AND allowed = 0 AND ((number IS NULL AND :number IS NULL) OR number = :number)")
+    suspend fun countBlocked(number: String?, time: Long): Int
+
     @Query("DELETE FROM call_rings WHERE startedAt < :before")
     suspend fun pruneRings(before: Long)
 }
@@ -501,6 +594,9 @@ interface PrefsDao {
     @Query("SELECT * FROM number_sim")
     fun allSims(): Flow<List<NumberSimEntity>>
 
+    @Query("SELECT * FROM number_sim")
+    suspend fun allSimsNow(): List<NumberSimEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun setSim(e: NumberSimEntity)
 
@@ -513,16 +609,23 @@ interface PrefsDao {
         BlockRuleEntity::class, BlockedCallEntity::class, SpeedDialEntity::class, NumberSimEntity::class,
         JournalEntity::class, TemporaryContactEntity::class, ContactMetaEntity::class,
         VaultContactEntity::class, VaultNumberEntity::class, PrivateCallEntity::class, CallNoteEntity::class,
-        CallRingEntity::class, InteractionEntity::class,
+        CallRingEntity::class, InteractionEntity::class, CallUsageEntity::class,
     ],
-    version = 6,
+    version = 7,
     exportSchema = true,
     // v3: allow rules, schedules, SIM, hit counters, decision traces, ring lengths (blocking roadmap).
     // v4: temporary contacts remember their raw contact ids; contact metadata remembers the contact id and relation
     //     links (round-4 data-safety fixes F2, F8, F23). Added columns only, all nullable or defaulted.
     // v5: interactions (R2) and the Circle rhythm column in contact metadata (R4). A new table and a nullable
     //     column: nothing existing changes.
-    autoMigrations = [AutoMigration(from = 1, to = 2), AutoMigration(from = 2, to = 3), AutoMigration(from = 3, to = 4), AutoMigration(from = 4, to = 5), AutoMigration(from = 5, to = 6)],
+    // v7: the call-usage ledger (a new table), a nullable dedupe column with a unique index for private calls (old
+    //     rows keep NULL, which never conflicts), and indexes on the number columns that are looked up. Additive only.
+    //     Stored number keys move to PhoneIdentity.key afterwards, in the app (PhoneKeyMigrator): that needs the
+    //     phone's contacts and calls, which a schema migration can't read.
+    autoMigrations = [
+        AutoMigration(from = 1, to = 2), AutoMigration(from = 2, to = 3), AutoMigration(from = 3, to = 4), AutoMigration(from = 4, to = 5),
+        AutoMigration(from = 5, to = 6), AutoMigration(from = 6, to = 7),
+    ],
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun blockDao(): BlockDao
@@ -530,6 +633,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun metaDao(): MetaDao
     abstract fun vaultDao(): VaultDao
     abstract fun interactionDao(): InteractionDao
+    abstract fun usageDao(): UsageDao
 
     companion object {
         fun create(context: Context): AppDatabase =

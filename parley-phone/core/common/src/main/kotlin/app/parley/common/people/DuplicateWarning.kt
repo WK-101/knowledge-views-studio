@@ -1,5 +1,6 @@
 package app.parley.common.people
 
+import app.parley.common.PhoneIdentity
 import app.parley.common.ContactSummary
 import app.parley.common.Duplicates
 
@@ -20,14 +21,14 @@ class DuplicateLookup(contacts: List<ContactSummary>) {
 
     init {
         for (c in contacts) {
-            c.phones.forEach { p -> Duplicates.phoneKey(p.number)?.let { byPhone.putIfAbsent(it, c) } }
+            c.phones.forEach { p -> PhoneIdentity.portableKey(p.number)?.let { byPhone.putIfAbsent(it, c) } }
             c.emails.forEach { e -> Duplicates.emailKey(e)?.let { byEmail.putIfAbsent(it, c) } }
             Duplicates.nameKey(c.displayName)?.let { byName.putIfAbsent(it, c) }
         }
     }
 
     fun find(name: String, phones: List<String>, emails: List<String>): DuplicateHit? {
-        phones.forEach { p -> Duplicates.phoneKey(p)?.let { k -> byPhone[k]?.let { return DuplicateHit(it, DuplicateReason.NUMBER, p.trim()) } } }
+        phones.forEach { p -> PhoneIdentity.portableKey(p)?.let { k -> byPhone[k]?.let { return DuplicateHit(it, DuplicateReason.NUMBER, p.trim()) } } }
         emails.forEach { e -> Duplicates.emailKey(e)?.let { k -> byEmail[k]?.let { return DuplicateHit(it, DuplicateReason.EMAIL, e.trim()) } } }
         Duplicates.nameKey(name)?.let { k -> byName[k]?.let { return DuplicateHit(it, DuplicateReason.NAME, name.trim()) } }
         return null

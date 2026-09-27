@@ -1,5 +1,6 @@
 package app.parley.data
 
+import app.parley.common.PhoneIdentity
 import android.content.ContentValues
 import android.content.Context
 import android.provider.BlockedNumberContract
@@ -147,21 +148,21 @@ class BlockRepository(private val context: Context, db: AppDatabase, scope: Coro
     suspend fun lastBlocked(number: String): Long? = dao.lastBlocked(number)
 
     /** F7: the key a verdict for [number] is filed under; [accountId] is the SIM of the call when known. */
-    fun verdictKey(number: String, accountId: String?): String = PhoneNumbers.lineKey(number, PhoneEnv.countryIso(context, accountId))
+    fun verdictKey(number: String, accountId: String?): String = PhoneIdentity.key(number, PhoneEnv.countryIso(context, accountId))
 
     suspend fun addRing(number: String, startedAt: Long, ringMs: Long, answered: Boolean) =
         dao.addRing(CallRingEntity(numberKey = ringKey(number), startedAt = startedAt, ringMs = ringMs, answered = answered))
 
     /** Rings of this line; rows written before F7 were keyed by the last 9 digits and are still read. */
     suspend fun ringsFor(number: String) =
-        (dao.ringsFor(ringKey(number)) + dao.ringsFor(PhoneNumbers.matchKey(number))).distinctBy { it.id }.sortedByDescending { it.startedAt }
+        PhoneIdentity.lookupKeys(number, PhoneEnv.countryIso(context)).flatMap { dao.ringsFor(it) }.distinctBy { it.id }.sortedByDescending { it.startedAt }
 
     /** F7: ring records are keyed by line (E.164 when it can be derived). */
-    fun ringKey(number: String): String = PhoneNumbers.lineKey(number, PhoneEnv.countryIso(context))
+    fun ringKey(number: String): String = PhoneIdentity.key(number, PhoneEnv.countryIso(context))
 
     /** Whether a stored ring row belongs to [number] ([key] = [ringKey]; old rows by their last digits). */
     fun ringMatches(row: CallRingEntity, number: String, key: String = ringKey(number)): Boolean =
-        row.numberKey == key || row.numberKey == PhoneNumbers.matchKey(number)
+        row.numberKey == key || (PhoneIdentity.isLegacyKey(row.numberKey) && row.numberKey == PhoneIdentity.legacyKey(number))
 
     fun canUseSystemList(): Boolean = try {
         BlockedNumberContract.canCurrentUserBlockNumbers(context)

@@ -177,6 +177,43 @@ object Quotas {
         return out
     }
 
+    /**
+     * The calls an allowance counts: the call path's own [ledger] plus the call-history rows it doesn't have (calls
+     * from before the ledger existed, or made while Parley wasn't the phone app). A history row is the same call as a
+     * ledger row when it started up to [SAME_CALL_WINDOW_MS] before it (the log dates a call from when it started
+     * ringing or dialling, the ledger from when it connected) and lasted about as long.
+     */
+    fun mergeUsage(ledger: List<UsageEntry>, history: List<UsageEntry>): List<UsageEntry> {
+        if (ledger.isEmpty()) return history
+        val sorted = ledger.sortedBy { it.dateMillis }
+        val used = BooleanArray(sorted.size)
+        val extra = history.filter { h ->
+            val i = sorted.indices.firstOrNull { i ->
+                val l = sorted[i]
+                !used[i] && l.incoming == h.incoming && l.dateMillis - h.dateMillis in -SAME_CALL_SLACK_MS..SAME_CALL_WINDOW_MS &&
+                    kotlin.math.abs(l.durationSec - h.durationSec) <= SAME_CALL_DURATION_SLACK_SEC
+            }
+            if (i != null) used[i] = true
+            i == null
+        }
+        return sorted + extra
+    }
+
+    /**
+     * Supervised allowances fail closed: when the calls can't be read at all, every allowance of [rule] reads as used
+     * up (the dialler then asks before calling, and over-quota calls ring silently if that is set), instead of
+     * quietly allowing everything.
+     */
+    fun unknownUsage(rule: LimitRule?): List<QuotaStatus> = buildList {
+        if (rule == null) return@buildList
+        if (rule.dailyMinutes > 0) add(QuotaStatus(QuotaPeriod.DAY, rule.dailyMinutes * 60L, rule.dailyMinutes * 60L))
+        if (rule.weeklyMinutes > 0) add(QuotaStatus(QuotaPeriod.WEEK, rule.weeklyMinutes * 60L, rule.weeklyMinutes * 60L))
+    }
+
+    const val SAME_CALL_WINDOW_MS = 120_000L
+    const val SAME_CALL_SLACK_MS = 5_000L
+    const val SAME_CALL_DURATION_SLACK_SEC = 5L
+
     fun describe(q: QuotaStatus): String {
         val what = if (q.period == QuotaPeriod.DAY) "today" else "this week"
         return "${q.usedSec / 60} of ${q.allowanceSec / 60} min used $what"

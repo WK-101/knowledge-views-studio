@@ -1,5 +1,6 @@
 package app.parley.ui.contact
 
+import app.parley.common.PhoneIdentity
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -83,11 +84,11 @@ fun ContactTimelineScreen(vm: AppViewModel, contactId: Long, back: () -> Unit) {
     val history = remember(calls, dd?.phones) {
         val phones = dd?.phones.orEmpty()
         if (phones.isEmpty()) emptyList() else {
-            val mine = PhoneNumbers.LineSet(phones.map { it.value }, app.parley.data.PhoneEnv.countryIso(context))
+            val mine = PhoneIdentity.LineSet(phones.map { it.value }, app.parley.data.PhoneEnv.countryIso(context))
             calls.orEmpty().filter { e -> e.number in mine }
         }
     }
-    val keys = remember(dd?.phones) { dd?.phones.orEmpty().map { PhoneNumbers.matchKey(it.value) }.toSet() }
+    val keys = remember(dd?.phones) { dd?.phones.orEmpty().flatMap { PhoneIdentity.lookupKeys(it.value, vm.countryIso) }.toSet() }
     val notes = remember(allNotes, keys) { allNotes.filter { it.numberKey in keys } }
     var query by rememberSaveable { mutableStateOf("") }
     var kinds by rememberSaveable { mutableStateOf(emptyList<TimelineKind>()) }

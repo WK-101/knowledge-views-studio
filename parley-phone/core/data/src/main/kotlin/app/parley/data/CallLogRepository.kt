@@ -6,6 +6,7 @@ import android.provider.CallLog.Calls
 import app.parley.common.CallEntry
 import app.parley.common.CallType
 import app.parley.common.PhoneNumbers
+import app.parley.common.backup.CallLogRecord
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -90,6 +91,78 @@ class CallLogRepository(private val context: Context, scope: CoroutineScope) {
             .filter { !it.presentationHidden && PhoneNumbers.same(it.number, number, iso) }
     }
 
+    /**
+     * Earlier calls with [number] (or either line of a forwarded "A&B" number) before [before], newest first, read
+     * straight from the provider: the screening path can't wait for [calls] to load in a process just started for
+     * the call.
+     */
+    fun pastCalls(number: String, before: Long, limit: Int = 50): List<CallEntry> {
+        if (!Permissions.has(context, android.Manifest.permission.READ_CALL_LOG)) return emptyList()
+        val out = ArrayList<CallEntry>()
+        for (part in PhoneNumbers.forwardedParts(number)) {
+            val uri = android.net.Uri.withAppendedPath(Calls.CONTENT_FILTER_URI, android.net.Uri.encode(part))
+                .buildUpon().appendQueryParameter(Calls.LIMIT_PARAM_KEY, limit.toString()).build()
+            out += query(uri, "${Calls.DATE} < ?", arrayOf(before.toString()))
+        }
+        return out.sortedByDescending { it.date }
+    }
+
+    /** Unseen missed calls, newest first (what Telecom counts: missed, new and not read). */
+    fun unseenMissed(limit: Int = 50): List<CallEntry> {
+        if (!Permissions.has(context, android.Manifest.permission.READ_CALL_LOG)) return emptyList()
+        return query(
+            Calls.CONTENT_URI.buildUpon().appendQueryParameter(Calls.LIMIT_PARAM_KEY, limit.toString()).build(),
+            "${Calls.TYPE} = ? AND ${Calls.NEW} = 1 AND (${Calls.IS_READ} = 0 OR ${Calls.IS_READ} IS NULL)",
+            arrayOf(Calls.MISSED_TYPE.toString()),
+        )
+    }
+
+    /** Every row of the system call log, oldest first, with the columns a backup keeps. */
+    fun exportAll(): Sequence<CallLogRecord> = sequence {
+        val c = runCatching {
+            cr.query(
+                Calls.CONTENT_URI,
+                arrayOf(Calls.NUMBER, Calls.DATE, Calls.DURATION, Calls.TYPE, Calls.NUMBER_PRESENTATION, Calls.PHONE_ACCOUNT_ID, Calls.PHONE_ACCOUNT_COMPONENT_NAME, Calls.CACHED_NAME, Calls.NEW, Calls.IS_READ),
+                null, null, Calls.DATE + " ASC",
+            )
+        }.getOrNull() ?: return@sequence
+        c.use {
+            while (it.moveToNext()) {
+                yield(CallLogRecord(it.getString(0), it.getLong(1), it.getLong(2), it.getInt(3), it.getInt(4), it.getString(5), it.getString(6), it.getString(7), it.getInt(8) != 0, it.getInt(9) != 0))
+            }
+        }
+    }
+
+    /** "number|date|duration|type" of every system call-log row, to skip rows a restore would add twice. */
+    fun rowSignatures(): Set<String> {
+        val existing = HashSet<String>()
+        runCatching {
+            cr.query(Calls.CONTENT_URI, arrayOf(Calls.NUMBER, Calls.DATE, Calls.DURATION, Calls.TYPE), null, null, null)?.use { c ->
+                while (c.moveToNext()) existing += signature(c.getString(0), c.getLong(1), c.getLong(2), c.getInt(3))
+            }
+        }
+        return existing
+    }
+
+    /** Adds call-log rows (a restore); returns how many were written. */
+    fun insert(records: List<CallLogRecord>): Int = records.chunked(200).sumOf { chunk ->
+        val values = chunk.map { rec ->
+            ContentValues().apply {
+                put(Calls.NUMBER, rec.number)
+                put(Calls.DATE, rec.date)
+                put(Calls.DURATION, rec.duration)
+                put(Calls.TYPE, rec.type)
+                put(Calls.NUMBER_PRESENTATION, rec.presentation)
+                put(Calls.PHONE_ACCOUNT_ID, rec.accountId)
+                put(Calls.PHONE_ACCOUNT_COMPONENT_NAME, rec.accountComponent)
+                put(Calls.CACHED_NAME, rec.name)
+                put(Calls.NEW, if (rec.isNew) 1 else 0)
+                put(Calls.IS_READ, if (rec.isRead) 1 else 0)
+            }
+        }.toTypedArray()
+        runCatching { cr.bulkInsert(Calls.CONTENT_URI, values) }.getOrDefault(0)
+    }
+
     suspend fun delete(ids: Collection<Long>) = withContext(Dispatchers.IO) {
         if (ids.isEmpty()) return@withContext
         ids.chunked(500).forEach { chunk ->
@@ -117,6 +190,8 @@ class CallLogRepository(private val context: Context, scope: CoroutineScope) {
 
     companion object {
         const val PREVIEW_ROWS = 100
+
+        fun signature(number: String?, date: Long, duration: Long, type: Int) = "$number|$date|$duration|$type"
 
         fun mapType(t: Int): CallType = when (t) {
             Calls.INCOMING_TYPE -> CallType.INCOMING

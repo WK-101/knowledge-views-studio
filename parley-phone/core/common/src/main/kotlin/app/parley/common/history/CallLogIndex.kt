@@ -1,5 +1,6 @@
 package app.parley.common.history
 
+import app.parley.common.PhoneIdentity
 import app.parley.common.CallEntry
 import app.parley.common.CallType
 import app.parley.common.PhoneNumbers
@@ -195,7 +196,7 @@ class CallLogIndex private constructor(
     fun personKeyFor(number: String?): String {
         val key = NumberKeys.of(number, countryIso)
         if (key == NumberKeys.HIDDEN) return NumberKeys.HIDDEN
-        return contactByNumber[key] ?: contactByMatch[PhoneNumbers.matchKey(number)]?.takeIf { it != AMBIGUOUS } ?: numberPersonKey(key)
+        return contactByNumber[key] ?: PhoneIdentity.portableKey(number)?.let { contactByMatch[it] }?.takeIf { it != AMBIGUOUS } ?: numberPersonKey(key)
     }
 
     /** Calls in [period], optionally for one person and/or one SIM, newest first. */
@@ -386,8 +387,8 @@ class CallLogIndex private constructor(
                     val nk = NumberKeys.of(n, countryIso)
                     if (nk == NumberKeys.HIDDEN) continue
                     contactByNumber.putIfAbsent(nk, pk)
-                    val mk = PhoneNumbers.matchKey(n)
-                    if (mk.length >= 7) {
+                    val mk = PhoneIdentity.portableKey(n)
+                    if (mk != null) {
                         val prev = contactByMatch[mk]
                         contactByMatch[mk] = if (prev == null || prev == pk) pk else AMBIGUOUS
                     }
@@ -401,7 +402,7 @@ class CallLogIndex private constructor(
                 val nk = if (hidden) NumberKeys.HIDDEN else NumberKeys.of(e.number, countryIso)
                 val pk = when {
                     nk == NumberKeys.HIDDEN -> NumberKeys.HIDDEN
-                    else -> contactByNumber[nk] ?: contactByMatch[PhoneNumbers.matchKey(e.number)]?.takeIf { it != AMBIGUOUS } ?: numberPersonKey(nk)
+                    else -> contactByNumber[nk] ?: PhoneIdentity.portableKey(e.number)?.let { contactByMatch[it] }?.takeIf { it != AMBIGUOUS } ?: numberPersonKey(nk)
                 }
                 indexed += IndexedCall(e, nk, pk)
             }

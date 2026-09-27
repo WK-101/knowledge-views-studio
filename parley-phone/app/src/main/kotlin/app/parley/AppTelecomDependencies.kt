@@ -1,5 +1,6 @@
 package app.parley
 
+import app.parley.common.PhoneIdentity
 import android.content.Context
 import android.content.Intent
 import app.parley.common.Decision
@@ -13,6 +14,7 @@ import app.parley.common.people.CallerCard
 import app.parley.common.CallType
 import app.parley.common.PhoneNumbers
 import app.parley.data.db.CallNoteEntity
+import app.parley.data.db.CallUsageEntity
 import app.parley.common.Verification
 import app.parley.common.calltime.CallTimePlan
 import app.parley.calltime.CallTimePlanner
@@ -61,7 +63,7 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
     override suspend fun callerInfo(number: String): CallerDisplay? = callerInfo(number, null)
 
     override suspend fun callerInfo(number: String, accountId: String?): CallerDisplay? = withContext(Dispatchers.IO) {
-        val last = lastCallSummary(number)
+        val last = lastCallSummary(number, PhoneEnv.countryIso(app, accountId))
         c.contacts.lookup(number)?.let {
             if (it.work) {
                 // I9: a work-profile contact: its name and photo only (it can't be opened or noted from here).
@@ -91,9 +93,9 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
         }
     }
 
-    private fun lastCallSummary(number: String): String? {
-        val key = PhoneNumbers.matchKey(number)
-        val prev = c.callLog.calls.value.orEmpty().firstOrNull { PhoneNumbers.matchKey(it.number) == key } ?: return null
+    /** "Last call 3 days ago · 4 min", from the call history (archive included). */
+    private fun lastCallSummary(number: String, region: String): String? {
+        val prev = c.history.lastCallWith(number, region) ?: return null
         val ago = android.text.format.DateUtils.getRelativeTimeSpanString(prev.date, System.currentTimeMillis(), android.text.format.DateUtils.MINUTE_IN_MILLIS)
         val kind = when (prev.type) {
             CallType.MISSED -> R.string.caller_last_missed
@@ -112,7 +114,7 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
         c.scope.launch {
             c.meta.addCallNote(
                 CallNoteEntity(
-                    numberKey = PhoneNumbers.matchKey(number), callDate = if (connectTimeMillis > 0) connectTimeMillis else System.currentTimeMillis(), text = text,
+                    numberKey = PhoneIdentity.key(number, PhoneEnv.countryIso(app)), callDate = if (connectTimeMillis > 0) connectTimeMillis else System.currentTimeMillis(), text = text,
                 ),
             )
         }
@@ -120,7 +122,9 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
 
     /** R8/R9: newest note (not the pinned one, which the call screen already shows) and open promises. */
     private suspend fun memoryFor(lookupKey: String, number: String, onLockScreen: Boolean): CallerMemory? {
-        val keys = (c.contacts.contacts.value?.firstOrNull { it.lookupKey == lookupKey }?.phones?.map { PhoneNumbers.matchKey(it.number) }.orEmpty() + PhoneNumbers.matchKey(number)).toSet()
+        val region = PhoneEnv.countryIso(app)
+        val numbers = c.contacts.contacts.value?.firstOrNull { it.lookupKey == lookupKey }?.phones?.map { it.number }.orEmpty() + number
+        val keys = numbers.flatMap { PhoneIdentity.lookupKeys(it, region) }.toSet()
         val notes = c.circle.notesFor(lookupKey, keys).filter { it.source != CircleRepository.NoteSource.PINNED }
         val m = CallerMemory(
             lastNote = notes.firstOrNull()?.text?.let { Promises.preview(it) },
@@ -154,6 +158,23 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
                 kotlinx.coroutines.delay(2500)
                 c.vault.sweepCallLog(System.currentTimeMillis() - 6 * 60 * 60 * 1000L)
             }
+        }
+    }
+
+    override fun onCallUsage(number: String?, accountId: String?, incoming: Boolean, connectTimeMillis: Long, durationSec: Long) {
+        // Only while a rule counts allowances: nothing about calls is kept for its own sake.
+        if (c.calling.config.value.rules.none { it.hasQuota }) return
+        c.scope.launch(Dispatchers.IO) {
+            val found = number?.let { runCatching { c.contacts.lookup(it) }.getOrNull() }
+            runCatching {
+                c.callUsage.record(
+                    CallUsageEntity(
+                        startedAt = connectTimeMillis, durationSec = durationSec, incoming = incoming,
+                        lineKey = number?.let { PhoneIdentity.key(it, PhoneEnv.countryIso(app, accountId)) }?.ifEmpty { null },
+                        contactKey = found?.lookupKey?.takeIf { !found.work }, accountId = accountId,
+                    ),
+                )
+            }.onFailure { android.util.Log.w("Parley", "Call-usage ledger write failed", it) }
         }
     }
 

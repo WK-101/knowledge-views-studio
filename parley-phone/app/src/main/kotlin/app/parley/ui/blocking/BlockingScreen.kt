@@ -131,7 +131,7 @@ fun BlockingScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit = 
     val system by vm.c.blocks.systemList.collectAsStateWithLifecycle()
     val log by vm.c.blocks.blockedCalls.collectAsStateWithLifecycle(emptyList())
     val lists by vm.c.lists.state.collectAsStateWithLifecycle()
-    val calls by vm.c.callLog.calls.collectAsStateWithLifecycle()
+    val calls by vm.c.history.calls.collectAsStateWithLifecycle()
     val isDefault by vm.isDefaultDialer.collectAsStateWithLifecycle()
     val s = settings.screening
     var expanded by rememberSaveable { mutableStateOf(setOf<String>()) }

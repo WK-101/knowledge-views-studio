@@ -1,5 +1,6 @@
 package app.parley.data
 
+import app.parley.common.PhoneIdentity
 import android.content.ContentUris
 import android.content.Context
 import android.content.Intent
@@ -67,7 +68,7 @@ object Messengers {
 
         // Messenger-only contacts on the same numbers (an app's raw contact that didn't join this person).
         val others = LinkedHashSet<Long>()
-        for (p in ownPhones.distinctBy { PhoneNumbers.matchKey(it) }) {
+        for (p in ownPhones.distinctBy { PhoneIdentity.key(it, region) }) {
             cr.safeQuery(Uri.withAppendedPath(PhoneLookup.CONTENT_FILTER_URI, Uri.encode(p)), arrayOf(PhoneLookup._ID))?.use { c ->
                 while (c.moveToNext()) c.getLong(0).takeIf { it != contactId }?.let { others += it }
             }
@@ -100,6 +101,7 @@ object Messengers {
     private class Rows(val actions: List<MessengerAction>, val phones: List<String>)
 
     private fun readRows(context: Context, contactIds: List<Long>): Rows {
+        val region = PhoneEnv.countryIso(context)
         if (contactIds.isEmpty()) return Rows(emptyList(), emptyList())
         class Raw(val id: Long, val mime: String, val type: String?, val rawId: Long, val d1: String?, val d2: String?, val d3: String?)
         val raws = ArrayList<Raw>()
@@ -128,7 +130,7 @@ object Messengers {
             }
         }
         val actions = raws.mapNotNull { r ->
-            val single = phonesByRaw[r.rawId]?.distinctBy { PhoneNumbers.matchKey(it) }?.singleOrNull()
+            val single = phonesByRaw[r.rawId]?.distinctBy { PhoneIdentity.key(it, region) }?.singleOrNull()
             val row = MessengerMimes.classify(r.id, r.mime, r.type, r.d1, r.d2, r.d3, single) ?: return@mapNotNull null
             MessengerAction(
                 dataId = row.dataId, mimeType = row.mimeType, accountType = row.appKey, appName = row.appLabel, label = row.label,

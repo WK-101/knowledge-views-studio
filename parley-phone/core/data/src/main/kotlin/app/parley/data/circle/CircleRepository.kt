@@ -1,5 +1,6 @@
 package app.parley.data.circle
 
+import app.parley.common.PhoneIdentity
 import android.content.Context
 import app.parley.common.CallType
 import app.parley.common.PhoneNumbers
@@ -331,7 +332,7 @@ class CircleRepository(
             fun person(key: String): JSONObject {
                 val o = JSONObject().put("k", key)
                 val c = contacts[key] ?: return o
-                return o.put("n", c.displayName).put("p", JSONArray(c.phones.map { PhoneNumbers.matchKey(it.number) }.filter { it.length >= 7 }.distinct()))
+                return o.put("n", c.displayName).put("p", JSONArray(c.phones.mapNotNull { PhoneIdentity.portableKey(it.number) }.distinct()))
             }
             val members = JSONArray()
             members().forEach { m -> members.put(person(m.lookupKey).put("d", m.meta.reachOutDays).put("r", m.meta.rhythm ?: JSONObject.NULL)) }
@@ -364,7 +365,7 @@ class CircleRepository(
                 val phones = o.optJSONArray("p")?.let { a -> (0 until a.length()).map { a.getString(it) } }.orEmpty().toSet()
                 val name = o.optString("n")
                 return (
-                    contacts.firstOrNull { c -> phones.isNotEmpty() && c.phones.any { PhoneNumbers.matchKey(it.number) in phones } }
+                    contacts.firstOrNull { c -> phones.isNotEmpty() && c.phones.any { PhoneIdentity.portableKey(it.number) in phones } }
                         ?: contacts.filter { it.displayName == name && name.isNotBlank() }.singleOrNull()
                     ).also { if (it == null) unmatched++ }
             }

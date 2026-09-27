@@ -1,5 +1,6 @@
 package app.parley
 
+import app.parley.common.PhoneIdentity
 import android.content.ContentValues
 import android.content.Intent
 import android.os.Build
@@ -100,7 +101,7 @@ object InsertPrefill {
 
     /** Adds the prefill's multi-value rows to an existing contact draft ("add to existing"). */
     fun appendTo(existing: ContactDetails, add: ContactDetails): ContactDetails = existing.copy(
-        phones = existing.phones + add.phones.filter { p -> existing.phones.none { app.parley.common.PhoneNumbers.matchKey(it.value) == app.parley.common.PhoneNumbers.matchKey(p.value) } },
+        phones = existing.phones + add.phones.filter { p -> existing.phones.none { PhoneIdentity.same(it.value, p.value, null) } },
         emails = existing.emails + add.emails.filter { e -> existing.emails.none { it.value.equals(e.value, true) } },
         websites = existing.websites + add.websites,
         addresses = existing.addresses + add.addresses,

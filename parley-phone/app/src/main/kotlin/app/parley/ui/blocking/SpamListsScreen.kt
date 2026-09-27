@@ -87,7 +87,7 @@ fun SpamListsScreen(vm: AppViewModel, back: () -> Unit) {
             try {
                 val parsed = vm.c.lists.parse(uri)
                 pending = parsed
-                pendingDry = runCatching { vm.c.screener.dryRun(vm.c.callLog.calls.value.orEmpty(), 7, candidatePack = parsed) }.getOrNull()
+                pendingDry = runCatching { vm.c.screener.dryRun(vm.c.history.calls.value.orEmpty(), 7, candidatePack = parsed) }.getOrNull()
             } catch (e: Exception) {
                 error = e.message?.let { BlockingText.installFailure(context, it) } ?: res.getString(R.string.blk_not_valid_list)
             }

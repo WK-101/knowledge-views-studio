@@ -1,5 +1,6 @@
 package app.parley.common.history
 
+import app.parley.common.PhoneIdentity
 import java.util.Locale
 import app.parley.common.CallEntry
 import app.parley.common.CallType
@@ -54,10 +55,11 @@ object CallExport {
      * Attaches notes to calls: a note belongs to a call on the same number written between one minute before
      * the call started and ten minutes after it ended (notes are stamped with the connect time).
      */
-    fun rows(calls: List<CallEntry>, names: (CallEntry) -> String?, simLabel: (String?) -> String?, notes: List<ExportNote>): List<ExportRow> {
+    fun rows(calls: List<CallEntry>, names: (CallEntry) -> String?, simLabel: (String?) -> String?, notes: List<ExportNote>, region: String? = null): List<ExportRow> {
         val byKey = notes.groupBy { it.numberKey }
         return calls.map { e ->
-            val mine = byKey[PhoneNumbers.matchKey(e.number)].orEmpty()
+            // Notes are stored under the line's key, or under the old last-digits key before it was migrated.
+            val mine = PhoneIdentity.lookupKeys(e.number, region).flatMap { byKey[it].orEmpty() }
                 .filter { it.time >= e.date - 60_000 && it.time <= e.date + e.durationSec * 1000 + 600_000 }
                 .sortedBy { it.time }.map { it.text }
             ExportRow(e.date, e.durationSec, e.type, if (e.presentationHidden) "" else e.number, names(e), simLabel(e.accountId), mine)

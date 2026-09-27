@@ -1,5 +1,6 @@
 package app.parley.ui.history
 
+import app.parley.common.PhoneIdentity
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -168,14 +169,14 @@ fun ClearHistoryDialog(vm: AppViewModel, shown: List<CallEntry>?, open: (String)
     val contacts by vm.contacts.collectAsStateWithLifecycle()
     val contactsAllowed by vm.hasContactsPermission.collectAsStateWithLifecycle()
     val iso = vm.countryIso
-    val vaultKeys = remember(vault) { vault.flatMap { v -> v.numbers.map { PhoneNumbers.lineKey(it, iso) } }.toHashSet() }
+    val vaultKeys = remember(vault) { vault.flatMap { v -> v.numbers.map { PhoneIdentity.key(it, iso) } }.toHashSet() }
     // "Unknown numbers" only once the contacts are really there: before they load, or without the permission, every
     // number would look unknown (and calls with family and friends would go).
     val contactsReady = contactsAllowed && !contacts.isNullOrEmpty()
-    val knownKeys = remember(contacts) { contacts.orEmpty().flatMap { ct -> ct.phones.map { PhoneNumbers.matchKey(it.number) } }.filter { it.length >= 3 }.toHashSet() }
-    val isKnown = { n: String -> PhoneNumbers.matchKey(n) in knownKeys }
+    val known = remember(contacts) { PhoneIdentity.LineSet(contacts.orEmpty().flatMap { ct -> ct.phones.map { it.number } }.filter { PhoneNumbers.digits(it).length >= 3 }, iso) }
+    val isKnown = { n: String -> n in known }
     // Private contacts' calls are never cleared here, not even before the vault has moved them out of the system log.
-    val isPrivate = { n: String -> PhoneNumbers.lineKey(n, iso) in vaultKeys }
+    val isPrivate = { n: String -> PhoneIdentity.key(n, iso) in vaultKeys }
     val shownIds = remember(shown) { shown?.map { it.id }?.toSet().orEmpty() }
     val scopes = buildList {
         // "What Recents shows now" only when filters or a search narrow it down.
@@ -184,7 +185,7 @@ fun ClearHistoryDialog(vm: AppViewModel, shown: List<CallEntry>?, open: (String)
         add(ClearScope.MISSED)
         add(ClearScope.ALL)
     }
-    val counts = remember(all, shownIds, vaultKeys, knownKeys, contactsReady) {
+    val counts = remember(all, shownIds, vaultKeys, known, contactsReady) {
         ClearScope.entries.associateWith { ClearHistory.select(all.orEmpty(), it, isKnown, shownIds, isPrivate, contactsReady).size }
     }
     var picked by remember { mutableStateOf(scopes.first { ClearHistory.available(it, contactsReady) }) }

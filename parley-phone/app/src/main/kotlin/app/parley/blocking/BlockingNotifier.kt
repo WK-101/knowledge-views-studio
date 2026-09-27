@@ -1,5 +1,6 @@
 package app.parley.blocking
 
+import app.parley.common.PhoneIdentity
 import android.app.NotificationChannel
 import android.app.NotificationChannelGroup
 import android.app.NotificationManager
@@ -73,7 +74,7 @@ object BlockingNotifier {
 
         // B27: someone you know was silenced by off hours: offer a one-tap reply through the SMS app.
         if (decision is Decision.Block && decision.reason == BlockReason.OFF_HOURS && e.isContact && s.busyReply && number != null) {
-            val id = NotificationIds.screenBusy(PhoneNumbers.matchKey(number))
+            val id = NotificationIds.screenBusy(PhoneIdentity.key(number, null))
             val reply = PendingIntent.getActivity(
                 context, id, BlockingActions.replyIntent(number, s.busyReplyText).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,

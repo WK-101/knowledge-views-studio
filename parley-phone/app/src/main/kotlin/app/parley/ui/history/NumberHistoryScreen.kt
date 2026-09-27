@@ -1,5 +1,6 @@
 package app.parley.ui.history
 
+import app.parley.common.PhoneIdentity
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -59,12 +60,12 @@ fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open
     val calls by vm.c.history.calls.collectAsStateWithLifecycle()
     val sims by vm.sims.collectAsStateWithLifecycle()
     val index by vm.numberIndex.collectAsStateWithLifecycle()
-    val contact = index[PhoneNumbers.matchKey(number)]
+    val contact = index[number]
     val history = calls.orEmpty().filter { PhoneNumbers.same(it.number, number, vm.countryIso) }
     var blocked by remember { mutableStateOf(false) }
     var messageOn by remember { mutableStateOf(false) }
     if (messageOn) app.parley.messaging.MessageOnSheet(number, onDismiss = { messageOn = false }, onCall = { n -> vm.requestCall(n, contact?.displayName) })
-    val notes by vm.c.meta.callNotes(PhoneNumbers.matchKey(number)).collectAsStateWithLifecycle(emptyList())
+    val notes by vm.c.meta.callNotesAny(PhoneIdentity.lookupKeys(number, vm.countryIso)).collectAsStateWithLifecycle(emptyList())
     LaunchedEffect(number) { blocked = vm.c.blocks.isSystemBlocked(number) }
     val simLabels = sims.associate { it.id to it.label }.takeIf { sims.size > 1 }.orEmpty()
     val title = contact?.displayName ?: Format.number(number, vm.countryIso)

@@ -1,5 +1,6 @@
 package app.parley.ui.contact
 
+import app.parley.common.PhoneIdentity
 import android.app.Activity
 import android.content.Intent
 import android.media.RingtoneManager
@@ -228,12 +229,13 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
     val history = remember(calls, d?.phones) {
         val phones = d?.phones.orEmpty()
         if (phones.isEmpty()) emptyList() else {
-            val mine = PhoneNumbers.LineSet(phones.map { it.value }, app.parley.data.PhoneEnv.countryIso(context))
+            val mine = PhoneIdentity.LineSet(phones.map { it.value }, app.parley.data.PhoneEnv.countryIso(context))
             calls.orEmpty().filter { e -> e.number in mine }
         }
     }
     // R8/R9: every note about this person (call notes, interaction notes, pinned note), and its open promises.
-    val numberKeys = remember(d?.phones) { d?.phones.orEmpty().map { PhoneNumbers.matchKey(it.value) }.toSet() }
+    // Call notes are stored under each line's key, or under the old last-digits key until migrated.
+    val numberKeys = remember(d?.phones) { d?.phones.orEmpty().flatMap { PhoneIdentity.lookupKeys(it.value, vm.countryIso) }.toSet() }
     val memory by app.parley.ui.circle.rememberPersonMemory(vm, d?.lookupKey.orEmpty(), numberKeys, allNotes, interactions, meta)
     // X1: a good time to call, from the calls with them and their local time.
     val goodTime = remember(history, d?.phones) {
@@ -464,7 +466,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                 SegmentedGroup {
                     d.phones.forEachIndexed { i, p ->
                         item {
-                            val pinned = simPrefs.firstOrNull { it.matchKey == PhoneNumbers.matchKey(p.value) }?.phoneAccountId
+                            val pinned = simPrefs.firstOrNull { PhoneIdentity.matchesStored(it.matchKey, p.value, vm.countryIso) }?.phoneAccountId
                             PhoneRow(
                                 vm, p, first = i == 0,
                                 label = listOfNotNull(Format.phoneType(resources, p.type, p.label), pinned?.let { id -> sims.firstOrNull { it.id == id }?.label?.let { resources.getString(R.string.detail_always_sim, it) } }).joinToString(resources.getString(R.string.main_separator)),
@@ -571,8 +573,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                 GroupNote(stringResource(R.string.detail_other_fields_note))
             }
         }
-        val keys = d.phones.map { PhoneNumbers.matchKey(it.value) }.toSet()
-        val notes = allNotes.filter { it.numberKey in keys }
+        val notes = allNotes.filter { it.numberKey in numberKeys }
         // R2: calls, logged interactions, call notes and dates, by month. P1: the latest few; "Show all" opens the rest.
         val timelineCount = remember(history, interactions, notes, d.events) { app.parley.ui.circle.timelineEntries(d, history, interactions, notes, java.time.ZoneId.systemDefault()).size }
         sections.add(ContactSection.TIMELINE, sectionTitle(resources, ContactSection.TIMELINE), resources.getQuantityString(R.plurals.v34_cp_entries, timelineCount, timelineCount)) {

@@ -43,6 +43,11 @@ class ParleyApp : Application() {
             if (st.folderUri != null && st.auto) app.parley.work.FolderSyncWorker.runSoon(this@ParleyApp)
             app.parley.work.RemindersWorker.schedule(this@ParleyApp, container.settings.current().birthdayReminderHour)
         }
+        // Well after start-up (never on the call path): stored number keys move to the line key once.
+        container.scope.launch(Dispatchers.IO) {
+            kotlinx.coroutines.delay(30_000)
+            if (!container.phoneKeys.done) container.phoneKeys.runIfNeeded()
+        }
     }
 }
 

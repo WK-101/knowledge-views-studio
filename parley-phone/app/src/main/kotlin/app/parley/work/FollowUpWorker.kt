@@ -1,5 +1,7 @@
 package app.parley.work
 
+import app.parley.data.PhoneEnv
+import app.parley.common.PhoneIdentity
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -44,7 +46,7 @@ class FollowUpWorker(context: Context, params: WorkerParameters) : CoroutineWork
         nm.createNotificationChannel(NotificationChannel(RemindersWorker.CHANNEL, ctx.getString(R.string.work_channel_reminders), NotificationManager.IMPORTANCE_DEFAULT))
         // The open promises give the reminder its context ("☐ send the photos").
         val promises = runCatching {
-            c.circle.notesFor(key, contact.phones.map { PhoneNumbers.matchKey(it.number) }).flatMap { n -> Promises.open(n.text).map { it.text } }
+            c.circle.notesFor(key, contact.phones.flatMap { PhoneIdentity.lookupKeys(it.number, PhoneEnv.countryIso(c.appContext)) }).flatMap { n -> Promises.open(n.text).map { it.text } }
         }.getOrDefault(emptyList())
         val tag = app.parley.common.NotificationIds.followUp(contact.id)
         val code = tag.hashCode()

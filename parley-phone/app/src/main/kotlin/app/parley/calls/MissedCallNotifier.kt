@@ -14,7 +14,6 @@ import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Shader
 import android.net.Uri
-import android.provider.CallLog.Calls
 import android.text.format.DateUtils
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
@@ -24,6 +23,7 @@ import app.parley.R
 import app.parley.common.NotificationChannels
 import app.parley.common.NotificationIds
 import app.parley.common.NotificationPrivacy
+import app.parley.common.PhoneIdentity
 import app.parley.common.PhoneNumbers
 import app.parley.common.calls.DndState
 import app.parley.common.calls.MissedCall
@@ -186,22 +186,10 @@ object MissedCallNotifier {
 
     /** Unseen missed calls, newest first (what Telecom counts: missed, new and not read). */
     private fun unseenMissed(context: Context): List<MissedCall> = try {
-        context.contentResolver.query(
-            Calls.CONTENT_URI.buildUpon().appendQueryParameter(Calls.LIMIT_PARAM_KEY, "50").build(),
-            arrayOf(Calls.NUMBER, Calls.DATE, Calls.PHONE_ACCOUNT_ID, Calls.NUMBER_PRESENTATION),
-            "${Calls.TYPE} = ? AND ${Calls.NEW} = 1 AND (${Calls.IS_READ} = 0 OR ${Calls.IS_READ} IS NULL)",
-            arrayOf(Calls.MISSED_TYPE.toString()),
-            "${Calls.DATE} DESC",
-        )?.use { cur ->
-            buildList {
-                while (cur.moveToNext()) {
-                    val n = cur.getString(0).orEmpty()
-                    val account = cur.getString(2)
-                    val hidden = cur.getInt(3) != Calls.PRESENTATION_ALLOWED || n.isBlank()
-                    add(MissedCall(n, cur.getLong(1), account, hidden, if (hidden) MissedCalls.HIDDEN else PhoneNumbers.lineKey(n, PhoneEnv.countryIso(context, account))))
-                }
-            }
-        }.orEmpty()
+        context.container.callLog.unseenMissed().map { e ->
+            val hidden = e.presentationHidden || e.number.isBlank()
+            MissedCall(e.number, e.date, e.accountId, hidden, if (hidden) MissedCalls.HIDDEN else PhoneIdentity.key(e.number, PhoneEnv.countryIso(context, e.accountId)))
+        }
     } catch (_: Exception) {
         emptyList()
     }

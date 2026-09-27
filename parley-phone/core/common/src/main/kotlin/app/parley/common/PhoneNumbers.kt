@@ -90,19 +90,19 @@ object PhoneNumbers {
         }
     }
 
-    /** Key used for fast fuzzy equality: the last [MIN_MATCH] digits. */
-    fun matchKey(raw: String?): String {
+    /** The last [MIN_MATCH] digits. Implementation detail of [PhoneIdentity]; use that everywhere else. */
+    internal fun matchKey(raw: String?): String {
         val d = digits(raw)
         return if (d.length > MIN_MATCH) d.substring(d.length - MIN_MATCH) else d
     }
 
     /**
-     * F7: a key for one phone line, for maps and de-duplication. The E.164 form whenever it can be derived (national
+     * F7: [PhoneIdentity.key]. A key for one phone line, for maps and de-duplication. The E.164 form whenever it can be derived (national
      * numbers are read with [countryIso], ideally the country of the SIM that handled the call), so numbers from
      * different countries that share their last digits never collide. Only when no E.164 form can be derived does it
      * fall back to the digits, prefixed with `~` so a fallback key never equals an E.164 key.
      */
-    fun lineKey(raw: String?, countryIso: String?): String {
+    internal fun lineKey(raw: String?, countryIso: String?): String {
         toE164(raw, countryIso)?.let { return it }
         val d = digits(raw)
         return if (d.isEmpty()) "" else "~" + looseKey(d)
@@ -112,7 +112,7 @@ object PhoneNumbers {
      * The fallback form of [lineKey] regardless of whether an E.164 form exists: for reading records that were keyed
      * by the last digits before F7.
      */
-    fun fallbackLineKey(raw: String?): String {
+    internal fun fallbackLineKey(raw: String?): String {
         val d = digits(raw)
         return if (d.isEmpty()) "" else "~" + looseKey(d)
     }
@@ -125,7 +125,7 @@ object PhoneNumbers {
      * when both sides have one, the digit fallback otherwise), without comparing every pair. For a contact's call
      * history, de-duplication and the like.
      */
-    class LineSet(numbers: Iterable<String?>, private val countryIso: String?) {
+    internal class LineSet(numbers: Iterable<String?>, private val countryIso: String?) {
         private val e164 = HashSet<String>()
         /** Fallback keys of the numbers without an E.164 form. */
         private val looseWithoutE164 = HashSet<String>()
