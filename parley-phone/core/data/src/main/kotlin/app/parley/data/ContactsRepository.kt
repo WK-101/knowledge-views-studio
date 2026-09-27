@@ -294,16 +294,24 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope) {
     /**
      * Whether [number] belongs to a contact: true / false, or null when it couldn't be checked (no permission,
      * provider busy or failing). Screening must treat null as "maybe a contact" so a real contact is never blocked.
+     * Work-profile contacts count too (like caller ID in [lookup]), when the work profile's policy lets them be seen.
      */
     fun isContact(number: String): Boolean? {
         if (number.isBlank()) return false
         if (!Permissions.has(context, android.Manifest.permission.READ_CONTACTS)) return null
-        val uri = Uri.withAppendedPath(PhoneLookup.CONTENT_FILTER_URI, Uri.encode(number))
-        return try {
-            cr.query(uri, arrayOf(PhoneLookup._ID), null, null, null)?.use { it.count > 0 }
+        val personal = try {
+            cr.query(Uri.withAppendedPath(PhoneLookup.CONTENT_FILTER_URI, Uri.encode(number)), arrayOf(PhoneLookup._ID), null, null, null)?.use { it.count > 0 }
         } catch (_: Exception) {
             null
         }
+        if (personal == true || !WorkProfile.exists(context)) return personal
+        val work = try {
+            cr.query(Uri.withAppendedPath(PhoneLookup.ENTERPRISE_CONTENT_FILTER_URI, Uri.encode(number)), arrayOf(PhoneLookup._ID), null, null, null)?.use { it.count > 0 }
+        } catch (_: Exception) {
+            // The policy may forbid the lookup: then the personal answer stands.
+            null
+        }
+        return if (work == true) true else personal
     }
 
     /** Aggregated view of a contact (all sources), for display. */

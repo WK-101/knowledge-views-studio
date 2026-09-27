@@ -8,6 +8,7 @@ import app.parley.common.ListDensity
 import app.parley.common.ThemeMode
 import app.parley.common.Verification
 import app.parley.common.calltime.CallTimePlan
+import app.parley.common.calls.EmergencyPolicy
 import app.parley.common.calls.RingFacts
 import kotlinx.coroutines.flow.StateFlow
 
@@ -120,6 +121,9 @@ interface TelecomDependencies {
 
     /** Calling this number starts the emergency window, like an emergency number (B23: a GP, a school). */
     fun startsEmergencyWindow(number: String): Boolean = false
+
+    /** The platform's emergency-number check (see [EmergencyPolicy]); the fallback list until the app answers. */
+    fun isEmergencyNumber(number: String): Boolean = EmergencyPolicy.isFallbackEmergencyNumber(number)
 
     /** An incoming call stopped ringing: how long it rang and whether it was answered (B10 one-ring guard). */
     fun onRingFinished(number: String?, startedAt: Long, ringMillis: Long, answered: Boolean) {}

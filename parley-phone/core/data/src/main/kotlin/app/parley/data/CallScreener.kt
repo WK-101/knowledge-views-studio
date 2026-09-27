@@ -263,7 +263,7 @@ class CallScreener(
             countryIso = iso,
             ownNumbers = if (s.blockNeighbourSpoofing) sims.ownNumbers() else emptyList(),
             inSystemBlockList = replayHistory == null && blocks.isSystemBlocked(primary),
-            isEmergency = PhoneEnv.isEmergency(context, primary),
+            isEmergency = EmergencyNumbers.isEmergency(context, primary),
             contactLookupFailed = lookupFailed,
             contactStarred = starred,
             contactLabels = labels,

@@ -635,6 +635,9 @@
     <string name="ct_health_allow">Allow</string>
     <string name="ct_health_fsi">Full-screen incoming calls</string>
     <string name="ct_health_fsi_off">Calls may appear only as a notification, not over the lock screen.</string>
+    <string name="ct_health_channel">Incoming-call alerts</string>
+    <string name="ct_health_channel_off">The incoming-calls notification category is silenced or turned down, so the answer screen may not appear.</string>
+    <string name="ct_health_fix">Fix</string>
     <string name="ct_health_battery">Not battery-optimised</string>
     <string name="ct_health_battery_off">Some phones delay calls for optimised apps. Choose “Unrestricted” for Parley.</string>
     <string name="ct_health_all_ok">Calls will reach you</string>

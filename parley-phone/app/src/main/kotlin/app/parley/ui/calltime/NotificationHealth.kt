@@ -45,6 +45,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.R
 import app.parley.data.Permissions
+import app.parley.telecom.CallNotifier
 import app.parley.ui.CallColors
 import app.parley.ui.settings.bidiLtr
 import app.parley.ui.settings.settingTitle
@@ -65,6 +66,7 @@ object NotificationHealth {
         val nm = context.getSystemService(NotificationManager::class.java)
         val notifications = NotificationManagerCompat.from(context).areNotificationsEnabled()
         val fullScreen = Build.VERSION.SDK_INT < 34 || nm.canUseFullScreenIntent()
+        val channel = CallNotifier.incomingChannelAlerts(context)
         val dialer = Permissions.isDefaultDialer(context)
         val battery = context.getSystemService(PowerManager::class.java)?.isIgnoringBatteryOptimizations(context.packageName) == true
         fun s(id: Int) = context.getString(id)
@@ -72,6 +74,7 @@ object NotificationHealth {
             HealthCheck("role", s(R.string.ct_health_role), dialer, s(R.string.ct_health_role_off), s(R.string.set_set_default), critical = true),
             HealthCheck("notif", s(R.string.ct_health_notif), notifications, s(R.string.ct_health_notif_off), s(R.string.ct_health_allow), critical = true),
             HealthCheck("fsi", s(R.string.ct_health_fsi), fullScreen, s(R.string.ct_health_fsi_off), s(R.string.ct_health_allow), critical = true),
+            HealthCheck("channel", s(R.string.ct_health_channel), channel, s(R.string.ct_health_channel_off), s(R.string.ct_health_fix), critical = true),
             HealthCheck("battery", s(R.string.ct_health_battery), battery, s(R.string.ct_health_battery_off), s(R.string.set_action_change), critical = false),
         )
     }
@@ -82,6 +85,8 @@ object NotificationHealth {
     /** The screen that fixes [check]: app notification settings, the full-screen permission page, battery list. */
     fun fixIntent(context: Context, check: HealthCheck): Intent? = when (check.key) {
         "notif" -> Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+        "channel" -> Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
+            .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName).putExtra(Settings.EXTRA_CHANNEL_ID, CallNotifier.CH_INCOMING)
         "fsi" -> if (Build.VERSION.SDK_INT >= 34) Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT, ("package:" + context.packageName).toUri()) else null
         "battery" -> Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
         "role" -> context.getSystemService(RoleManager::class.java)?.createRequestRoleIntent(RoleManager.ROLE_DIALER)

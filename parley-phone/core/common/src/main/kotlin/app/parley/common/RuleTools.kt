@@ -60,7 +60,7 @@ object RuleTools {
             else -> canonicalWildcard(raw, countryIso).filter { it.isDigit() || it == '+' || it == '*' || it == '?' }
         }
         if (stored.isEmpty() || stored == "+") return Checked(raw, "Enter some digits")
-        if (type == RuleType.WILDCARD && CallPolicy.wildcardRegex(stored) == null) return Checked(raw, "Not a valid pattern")
+        if (type == RuleType.WILDCARD && WildcardPattern.compile(stored) == null) return Checked(raw, "Not a valid pattern")
         if (type == RuleType.PREFIX && stored.length <= 2) warnings += "A very short prefix matches a lot of numbers"
         if (type == RuleType.WILDCARD && stored.trimStart('+').all { it == '*' || it == '?' }) warnings += "This matches almost every number"
         if (stored.startsWith("+") && countryIso != null) {

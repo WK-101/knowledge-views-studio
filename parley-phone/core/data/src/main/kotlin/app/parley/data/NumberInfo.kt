@@ -31,6 +31,21 @@ object NumberInfo {
         return result
     }
 
+    /** The answer [location] already worked out, without working it out (for a first frame on the main thread). */
+    fun cachedLocation(number: String?, countryIso: String, locale: Locale = Locale.getDefault()): String? =
+        if (number.isNullOrBlank()) null else cache["$number|$countryIso|${locale.language}"]?.ifEmpty { null }
+
+    /**
+     * Off the main thread: loads libphonenumber's metadata and the geocoder data of [countryIso] (the country most
+     * callers come from), so the first incoming call or Recents scroll doesn't pay for it.
+     */
+    fun warm(countryIso: String) {
+        runCatching {
+            val example = util.getExampleNumber(countryIso.uppercase(Locale.ROOT)) ?: return
+            location(util.format(example, PhoneNumberUtil.PhoneNumberFormat.E164), countryIso)
+        }
+    }
+
     fun region(number: String?, countryIso: String): String? = try {
         if (number.isNullOrBlank()) null else util.getRegionCodeForNumber(util.parse(number, countryIso.uppercase(Locale.ROOT)))?.takeIf { it != "ZZ" }
     } catch (_: Exception) {

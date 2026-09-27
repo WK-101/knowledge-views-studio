@@ -319,7 +319,7 @@ fun RecentRow(
                     CallTypeIcon(e.type, size = 20.dp)
                 }
                 Spacer(Modifier.width(6.dp))
-                val location = if (g.contact == null && g.vaultId == null && !g.hidden) remember(g.number) { app.parley.data.NumberInfo.location(g.number, countryIso) } else null
+                val location = app.parley.ui.common.rememberNumberLocation(g.number, countryIso, enabled = g.contact == null && g.vaultId == null && !g.hidden)
                 val parts = listOfNotNull(
                     location,
                     if (g.contact != null) g.contact.phones.firstOrNull { p -> app.parley.common.PhoneNumbers.matchKey(p.number) == app.parley.common.PhoneNumbers.matchKey(e.number) }

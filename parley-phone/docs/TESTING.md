@@ -816,3 +816,33 @@ The editor was redesigned after comparing Google Contacts, Samsung One UI Contac
 - [ ] Landscape phone or tablet/foldable: two columns: photo, account, duplicate card, name and work on the left, the field cards on the right, each scrolling on its own. Portrait tablet: one column at most ~640dp wide, centred.
 - [ ] TalkBack: group titles are headings; type chips read "Type: Mobile", action "Change type"; "−" reads "Remove number/email/…"; the Save spinner reads "Saving".
 - [ ] Light and dark theme, and pure black: cards are visible against the background.
+
+## 18. Safety hotfix (3.4.1)
+
+### 18.1 Calls and screening
+
+Emergency calls (use your country's test procedure or a number your carrier documents for testing; never place a real emergency call just to test — the rows below can also be checked with a number added under Blocking › Emergency where noted, or by stopping at the point a question would appear):
+- [ ] Settings › Calls › "Confirm before calling" on, dual-SIM phone with no default SIM: typing 112 (or your local emergency number) and pressing Call shows **no** confirmation, **no** SIM question and **no** dial-guard warning; the platform picks the network.
+- [ ] "Call with SIM 2" on an emergency number places it on SIM 2 without questions.
+- [ ] Pocket guard on, a favourite/shortcut set to an emergency number, proximity sensor covered: no pocket question.
+- [ ] A call-time limit or allowance on "everyone": an emergency call is never timed, warned or ended, and has no "End in 1 min".
+- [ ] Emergency window: it starts when the emergency call starts. During the call, an incoming call from a hidden or blocked number is **not** screened; Blocking shows the "within an hour of an emergency call" countdown right away. After the call ends the countdown restarts at 60 min.
+- [ ] Change the phone's date/time by a day during the window: the window keeps running (not ended early). Reboot during the window: the countdown survives (wall-clock fallback).
+- [ ] A call arriving while the phone is in emergency callback mode (carrier-dependent) rings without screening and without "Block & decline".
+- [ ] App lock on: the lock screen shows "Emergency call". Tap it: a keypad opens; "Call" stays disabled for ordinary numbers and enables for your emergency number; Cancel closes it. Also check the lock screens of the direct-dial widget setup and the contact picker.
+
+Wildcard rules:
+- [ ] Add a wildcard block rule `+33 6*` (or your country) and test a matching and a non-matching number with "Test a call": results as before.
+- [ ] Import or type a pattern of 199 `*` followed by `9`: saving is instant, "Test a call" answers at once, and a real incoming call is screened without delay. A pattern longer than 200 characters is refused as "Not a valid pattern".
+
+Work profile:
+- [ ] Phone with a work profile whose policy allows cross-profile caller ID, "Block non-contacts" on: a call from a number saved only as a **work** contact rings (not blocked) and shows "Work profile" on the call screen. With the work profile paused or the policy off, behaviour is as before.
+
+Incoming-call notification:
+- [ ] Do Not Disturb set to "Starred contacts only" (calls): a call from a starred contact shows the full-screen answer UI / heads-up while the phone rings; a call from a non-starred number stays silent as DND says.
+- [ ] System settings › Notifications › Parley › "Incoming calls" set to Silent (or off): the next incoming call opens the call screen directly; Settings › Privacy dashboard (notification health) shows "Incoming-call alerts" with a Fix button that opens that channel's settings; the Home banner appears.
+- [ ] Android 14+: revoke "Full-screen notifications" for Parley: the health check flags it (as before) and incoming calls still open the call screen.
+
+Caller location off the main thread:
+- [ ] Cold start the app by an incoming call from an unknown number in another region: the call screen appears without a stall; the "where from" line appears a moment later.
+- [ ] Recents with many unknown numbers from different countries: first fling is smooth; locations fill in without jank. Number history and the number-action sheet still show the location.

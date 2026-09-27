@@ -3,6 +3,7 @@ package app.parley.shortcuts
 import android.app.Activity
 import app.parley.calls.ProximityProbe
 import app.parley.common.calls.CallSource
+import app.parley.common.calls.EmergencyPolicy
 import app.parley.common.calls.PocketGuard
 import kotlinx.coroutines.Dispatchers
 import android.content.Intent
@@ -11,6 +12,7 @@ import android.os.Bundle
 import androidx.core.content.pm.ShortcutManagerCompat
 import app.parley.MainActivity
 import app.parley.container
+import app.parley.data.EmergencyNumbers
 import kotlinx.coroutines.launch
 
 /** Invisible trampoline for home-screen shortcuts and the direct-dial widget. Not exported. */
@@ -30,7 +32,9 @@ class ShortcutActivity : Activity() {
             Shortcuts.Kind.CALL -> if (!number.isNullOrBlank()) {
                 if (contactId > 0) ShortcutManagerCompat.reportShortcutUsed(this, "fav-$contactId")
                 // V8: one tap on a widget or shortcut in a pocket shouldn't call anyone; ask while the sensor is covered.
-                if (container.callExtras.config.value.pocketGuard) {
+                if (container.callExtras.config.value.pocketGuard &&
+                    !EmergencyPolicy.bypasses(EmergencyPolicy.Safeguard.POCKET_GUARD, EmergencyNumbers.facts(this, number))
+                ) {
                     guardThenCall(number)
                     return
                 }

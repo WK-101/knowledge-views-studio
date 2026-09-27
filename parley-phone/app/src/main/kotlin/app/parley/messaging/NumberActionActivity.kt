@@ -59,7 +59,6 @@ import app.parley.MainActivity
 import app.parley.R
 import app.parley.common.NumberText
 import app.parley.container
-import app.parley.data.NumberInfo
 import app.parley.data.PhoneEnv
 import app.parley.data.PlaceResult
 import app.parley.ui.Bidi
@@ -350,7 +349,7 @@ class NumberActionActivity : ComponentActivity() {
             // With the app lock on, don't reveal who this is over another app.
             if (!locked) contactName = name
         }
-        val where = remember(number) { NumberInfo.location(number, region) }
+        val where = app.parley.ui.common.rememberNumberLocation(number, region)
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = 16.dp)) {
             Text(contactName ?: Bidi.ltr(e164?.let(NumberText::formatInternational) ?: Format.number(number, region)), style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 24.dp))
             val sub = listOfNotNull(if (contactName != null) Bidi.ltr(e164?.let(NumberText::formatInternational) ?: number) else null, where).joinToString(stringResource(R.string.main_separator))

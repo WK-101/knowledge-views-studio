@@ -103,7 +103,7 @@ fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open
                     Avatar(title, contact?.photoUri, 96.dp)
                     Text(title, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(top = 12.dp))
                     if (contact != null) Text(DataL10n.ltr(Format.number(number, vm.countryIso)), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    val where = remember(number) { app.parley.data.NumberInfo.location(number, vm.countryIso) }
+                    val where = app.parley.ui.common.rememberNumberLocation(number, vm.countryIso)
                     val flag = remember(number) { app.parley.data.NumberInfo.flag(app.parley.data.NumberInfo.region(number, vm.countryIso)) }
                     if (where != null || flag != null) Text(listOfNotNull(flag, where).joinToString(" "), color = MaterialTheme.colorScheme.onSurfaceVariant)
                     app.parley.messaging.LastMessagedNote(number)

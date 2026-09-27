@@ -567,8 +567,8 @@ object CallPolicy {
                 p.isNotEmpty() && candidates.any { it.startsWith(p) }
             }
             RuleType.WILDCARD -> {
-                val regex = wildcardRegex(RuleTools.canonicalWildcard(rule.pattern, countryIso)) ?: return false
-                candidates.any { regex.matches(it) }
+                val wildcard = WildcardPattern.compile(RuleTools.canonicalWildcard(rule.pattern, countryIso)) ?: return false
+                candidates.any { wildcard.matches(it) }
             }
             else -> false
         }
@@ -588,23 +588,5 @@ object CallPolicy {
             }
         }
         return out
-    }
-
-    /** '*' = any digits, '?' = exactly one digit. Everything else is taken literally after cleaning. */
-    fun wildcardRegex(pattern: String): Regex? {
-        val p = pattern.trim()
-        if (p.isEmpty()) return null
-        val sb = StringBuilder()
-        for ((i, c) in p.withIndex()) {
-            when {
-                c == '*' -> sb.append("[0-9]*")
-                c == '?' -> sb.append("[0-9]")
-                c in '0'..'9' -> sb.append(c)
-                c == '+' && i == 0 -> sb.append("\\+")
-                c == ' ' || c == '-' || c == '(' || c == ')' || c == '.' -> Unit
-                else -> return null
-            }
-        }
-        return Regex(sb.toString())
     }
 }

@@ -766,6 +766,9 @@
     <string name="lock_locked">Parley is locked</string>
     <string name="lock_calls_show">Incoming calls still show normally.</string>
     <string name="lock_unlock">Unlock</string>
+    <string name="lock_emergency_call">Emergency call</string>
+    <string name="lock_emergency_number">Emergency number</string>
+    <string name="lock_emergency_only">Only emergency numbers can be called while Parley is locked.</string>
     <string name="tile_private_hidden">Private hidden</string>
     <string name="tile_private_shown">Private shown</string>
 

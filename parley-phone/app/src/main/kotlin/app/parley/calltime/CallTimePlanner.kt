@@ -4,6 +4,8 @@ import android.content.Context
 import app.parley.R
 import app.parley.common.CallType
 import app.parley.common.PhoneNumbers
+import app.parley.common.calls.EmergencyPolicy
+import app.parley.common.calls.EmergencyPolicy.Safeguard
 import app.parley.common.calltime.CallFacts
 import app.parley.common.calltime.CallLimits
 import app.parley.common.calltime.CallTimePlan
@@ -14,6 +16,7 @@ import app.parley.common.calltime.QuotaStatus
 import app.parley.common.calltime.Quotas
 import app.parley.common.calltime.UsageEntry
 import app.parley.data.DataContainer
+import app.parley.data.EmergencyNumbers
 import app.parley.data.PhoneEnv
 import app.parley.telecom.ScreeningGuard
 import kotlinx.coroutines.Dispatchers
@@ -36,7 +39,6 @@ class CallTimePlanner(private val c: DataContainer) {
 
     private suspend fun subject(number: String?, accountId: String?, incoming: Boolean): Subject = withContext(Dispatchers.IO) {
         val config = c.calling.config.value
-        val emergency = PhoneEnv.isEmergency(c.appContext, number)
         val info = number?.takeIf { it.isNotBlank() }?.let { runCatching { c.contacts.lookup(it) }.getOrNull() }
         val key = info?.lookupKey?.takeIf { it.isNotBlank() }
         val labelRules = config.rules.filter { it.scope == LimitScope.LABEL }
@@ -46,9 +48,13 @@ class CallTimePlanner(private val c: DataContainer) {
         val keys = contact?.phones?.map { PhoneNumbers.matchKey(it.number) }?.toSet()
             ?: listOfNotNull(number?.takeIf { it.isNotBlank() }?.let { PhoneNumbers.matchKey(it) }).toSet()
         // The hour after an emergency call, and numbers listed as starting it (B23): never limited or silenced.
-        val window = runCatching { ScreeningGuard.inEmergencyWindow(c.appContext) }.getOrDefault(false) ||
-            (!number.isNullOrBlank() && c.settings.current().screening.emergencyExtras.any { PhoneNumbers.same(it, number, PhoneEnv.countryIso(c.appContext)) })
-        Subject(CallFacts(incoming, emergency, key, labels, accountId, inEmergencyWindow = window), keys, info?.name)
+        val emergency = EmergencyPolicy.Facts(
+            emergencyNumber = EmergencyNumbers.isEmergency(c.appContext, number),
+            inWindow = runCatching { ScreeningGuard.inEmergencyWindow(c.appContext) }.getOrDefault(false),
+            userListed = !number.isNullOrBlank() && c.settings.current().screening.emergencyExtras.any { PhoneNumbers.same(it, number, PhoneEnv.countryIso(c.appContext)) },
+        )
+        val exempt = EmergencyPolicy.bypasses(Safeguard.CALL_LIMITS, emergency)
+        Subject(CallFacts(incoming, emergency.isEmergency, key, labels, accountId, inEmergencyWindow = exempt), keys, info?.name)
     }
 
     /** Allowance status of the rule that governs [s], counted from the call history. */

@@ -7,6 +7,7 @@ import android.telecom.Connection
 import app.parley.common.BlockAction
 import app.parley.common.Decision
 import app.parley.common.Verification
+import app.parley.common.calls.EmergencyPolicy
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -24,11 +25,19 @@ class ParleyCallScreeningService : CallScreeningService() {
 
     override fun onScreenCall(details: Call.Details) {
         val incoming = runCatching { details.callDirection == Call.Details.DIRECTION_INCOMING }.getOrDefault(true)
-        if (!incoming || runCatching { ScreeningGuard.inEmergencyWindow(this) }.getOrDefault(true)) {
+        val number = runCatching { details.handle?.schemeSpecificPart }.getOrNull()
+        // Any doubt about an emergency lets the call through.
+        val emergency = EmergencyPolicy.Facts(
+            emergencyNumber = !number.isNullOrBlank() && runCatching { TelecomGraph.dependencies.isEmergencyNumber(number) }.getOrDefault(false),
+            emergencyCallProperty = runCatching {
+                details.hasProperty(Call.Details.PROPERTY_EMERGENCY_CALLBACK_MODE) || details.hasProperty(Call.Details.PROPERTY_NETWORK_IDENTIFIED_EMERGENCY_CALL)
+            }.getOrDefault(false),
+            inWindow = runCatching { ScreeningGuard.inEmergencyWindow(this) }.getOrDefault(true),
+        )
+        if (!incoming || EmergencyPolicy.bypasses(EmergencyPolicy.Safeguard.SCREENING, emergency)) {
             allow(details)
             return
         }
-        val number = runCatching { details.handle?.schemeSpecificPart }.getOrNull()
         val verification = runCatching {
             if (Build.VERSION.SDK_INT < 30) Verification.NOT_VERIFIED else when (details.callerNumberVerificationStatus) {
                 Connection.VERIFICATION_STATUS_PASSED -> Verification.PASSED
