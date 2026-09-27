@@ -88,7 +88,7 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
                 it.name, it.photoUri, it.numberLabel, it.contactId, it.lookupKey, note, last, backgroundUri = c.people.backgrounds.forLookupKey(it.lookupKey),
                 subtitle = CallerCard.subtitle(org?.second, org?.first),
                 // The last note and open promises; the call screen decides whether the lock screen may show them.
-                memory = it.lookupKey?.let { k -> runCatching { memoryFor(k, number, cfg.memoryOnLockScreen) }.getOrNull() },
+                memory = it.lookupKey?.let { k -> runCatching { memoryFor(k, it.contactId, number, cfg.memoryOnLockScreen) }.getOrNull() },
                 memoryPrompt = cfg.memoryPrompt,
             )
         } ?: c.vault.lookup(number, PhoneEnv.countryIso(app, accountId))?.let { (id, info) ->
@@ -136,9 +136,12 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
     }
 
     /** Newest note (not the pinned one, which the call screen already shows) and open promises. */
-    private suspend fun memoryFor(lookupKey: String, number: String, onLockScreen: Boolean): CallerMemory? {
+    private suspend fun memoryFor(lookupKey: String, contactId: Long?, number: String, onLockScreen: Boolean): CallerMemory? {
         val region = PhoneEnv.countryIso(app)
-        val numbers = c.contacts.contacts.value?.firstOrNull { it.lookupKey == lookupKey }?.phones?.map { it.number }.orEmpty() + number
+        val numbers = (
+            c.contacts.contacts.value?.firstOrNull { it.lookupKey == lookupKey }?.phones?.map { it.number }
+                ?: contactId?.let { runCatching { c.contacts.numbersOf(it) }.getOrNull() }.orEmpty()
+            ) + number
         val keys = numbers.flatMap { PhoneIdentity.lookupKeys(it, region) }.toSet()
         val notes = c.circle.notesFor(lookupKey, keys).filter { it.source != CircleRepository.NoteSource.PINNED }
         val m = CallerMemory(

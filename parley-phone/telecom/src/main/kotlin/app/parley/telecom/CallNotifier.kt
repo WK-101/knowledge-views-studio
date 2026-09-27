@@ -86,7 +86,24 @@ class CallNotifier(private val context: Context) {
             cancel(INCOMING_ID)
         } else if (ringing.id == dismissedIncoming) {
             // The user swiped this call's ringing/"Ringing silently" notification away: it stays away.
-        } else if (ringing.silenced) {
+        } else {
+            postRinging(ringing, ongoing)
+        }
+
+        if (ongoing == null) {
+            cancel(ONGOING_ID)
+        } else {
+            val a = CallManager.audio.value
+            val timing = CallClock.timings.value[ongoing.id]
+            // The chronometer counts by itself: the signature changes when the end time changes, not every second.
+            val chrono = CallChronometer.display(ongoing.connectTimeMillis, timing?.countdown, SystemClock.elapsedRealtime(), System.currentTimeMillis())
+            post(ONGOING_ID, ongoing, "o${a.muted}${a.current?.type}${chrono.signature}${timing?.canExtend}") { buildOngoing(ongoing, timing, chrono) }
+        }
+    }
+
+    /** The notification of a ringing call nobody dismissed: silenced, still being screened, or ringing. */
+    private fun postRinging(ringing: CallUi, ongoing: CallUi?) {
+        if (ringing.silenced) {
             post(INCOMING_ID, ringing, "s") { buildSilenced(ringing) }
         } else if (CallManager.isScreening(ringing.id)) {
             // Screening takes longer than usual (a cold start): a quiet "Checking…" with Answer and Decline, not the
@@ -102,16 +119,6 @@ class CallNotifier(private val context: Context) {
                 context.startActivity(InCallActivity.intent(context, false).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             }
             post(INCOMING_ID, ringing, "i") { buildIncoming(ringing) }
-        }
-
-        if (ongoing == null) {
-            cancel(ONGOING_ID)
-        } else {
-            val a = CallManager.audio.value
-            val timing = CallClock.timings.value[ongoing.id]
-            // The chronometer counts by itself: the signature changes when the end time changes, not every second.
-            val chrono = CallChronometer.display(ongoing.connectTimeMillis, timing?.countdown, SystemClock.elapsedRealtime(), System.currentTimeMillis())
-            post(ONGOING_ID, ongoing, "o${a.muted}${a.current?.type}${chrono.signature}${timing?.canExtend}") { buildOngoing(ongoing, timing, chrono) }
         }
     }
 

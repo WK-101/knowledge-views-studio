@@ -116,7 +116,8 @@ class CallLogRepository(private val context: Context, scope: CoroutineScope, sta
      * in a process that hasn't loaded [calls] (and shouldn't, while the phone rings).
      */
     fun lastCallWith(number: String, region: String?): CallEntry? =
-        pastCalls(number, System.currentTimeMillis(), limit = LAST_CALL_ROWS).firstOrNull { !it.presentationHidden && PhoneNumbers.same(it.number, number, region) }
+        pastCalls(number, System.currentTimeMillis(), limit = LAST_CALL_ROWS)
+            .firstOrNull { !it.presentationHidden && PhoneNumbers.same(it.number, number, region) }
 
     /** Unseen missed calls, newest first (what Telecom counts: missed, new and not read). */
     fun unseenMissed(limit: Int = 50): List<CallEntry> {

@@ -355,17 +355,9 @@ class CallHistory(
      * Unreadable rows are skipped. False when the key can't be used (nothing was visited then, or not everything).
      */
     private suspend fun scanArchive(visit: (ArchivedCall) -> Unit): Boolean {
-        var offset = 0
         try {
-            while (true) {
-                val page = dao.page(SCAN_PAGE, offset)
-                for (r in page) {
-                    val rec = openOrNull(r.blob)?.let { runCatching { decode(it) }.getOrNull() } ?: continue
-                    visit(ArchivedCall(r.id, rec))
-                }
-                if (page.size < SCAN_PAGE) return true
-                offset += page.size
-            }
+            scanPages(visit)
+            return true
         } catch (e: HistoryCrypto.KeyUnavailableException) {
             Log.w(TAG, "Archive key unavailable for now", e)
         } catch (e: HistoryCrypto.KeyLostException) {
@@ -373,6 +365,18 @@ class CallHistory(
         }
         return false
     }
+
+    private suspend fun scanPages(visit: (ArchivedCall) -> Unit) {
+        var offset = 0
+        do {
+            val page = dao.page(SCAN_PAGE, offset)
+            for (r in page) openRow(r)?.let { visit(ArchivedCall(r.id, it)) }
+            offset += page.size
+        } while (page.size == SCAN_PAGE)
+    }
+
+    /** A row's call, or null when it can't be read (key problems are passed on, as by [openOrNull]). */
+    private fun openRow(r: ArchivedCallEntity): CallLogRecord? = openOrNull(r.blob)?.let { runCatching { decode(it) }.getOrNull() }
 
     /** Every number in the archive (all of it, not only the window), e.g. for a one-off key migration. */
     suspend fun archivedNumbers(): List<String> = withContext(Dispatchers.IO) {
@@ -468,7 +472,7 @@ class CallHistory(
             val batch = now
             // The sealed copies of archived-only calls come from their rows (they may be older than the window).
             val archivedById = dao.byIds(list.filter { isArchived(it) }.map { it.id - ARCHIVE_ID_BASE })
-                .mapNotNull { r -> openOrNull(r.blob)?.let { runCatching { decode(it) }.getOrNull() }?.let { ARCHIVE_ID_BASE + r.id to ArchivedCall(r.id, it) } }
+                .mapNotNull { r -> openRow(r)?.let { ARCHIVE_ID_BASE + r.id to ArchivedCall(r.id, it) } }
                 .toMap()
             dao.trash(
                 list.map { e ->
@@ -505,7 +509,8 @@ class CallHistory(
         val archived = ArrayList<CallEntry>()
         scanArchive { a ->
             val e = a.toEntry()
-            if (e.date >= since && !e.presentationHidden && PhoneNumbers.sameExact(e.number, number, iso) && seen.add(HistoryMerge.key(e))) archived += e
+            val matches = e.date >= since && !e.presentationHidden && PhoneNumbers.sameExact(e.number, number, iso)
+            if (matches && seen.add(HistoryMerge.key(e))) archived += e
         }
         (system + archived).sortedByDescending { it.date }
     }

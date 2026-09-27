@@ -154,7 +154,9 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
 
     // A sync adapter or a bulk edit sends a burst of change notifications: the first load is immediate, later ones
     // wait until the burst has been quiet for a moment, so one sync means one reload rather than dozens.
-    val contacts: StateFlow<List<ContactSummary>?> = combine(cr.changes(Contacts.CONTENT_URI, retry = reload).debounceAfterFirst(CHANGE_QUIET_MS), reload) { _, _ -> }
+    private val contactChanges = cr.changes(Contacts.CONTENT_URI, retry = reload).debounceAfterFirst(CHANGE_QUIET_MS)
+
+    val contacts: StateFlow<List<ContactSummary>?> = combine(contactChanges, reload) { _, _ -> }
         .map { loadAll() }
         .flowOn(Dispatchers.IO)
         .stateIn(scope, started, null)
@@ -900,13 +902,22 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
     }
 
     /** Current lookup key of [contactId], or null. */
+    /** [contactId]'s phone numbers, straight from the provider (the call path doesn't load the whole list). */
+    fun numbersOf(contactId: Long): List<String> =
+        cr.safeQuery(Phone.CONTENT_URI, arrayOf(Phone.NUMBER), "${Phone.CONTACT_ID} = ?", arrayOf(contactId.toString()))
+            ?.use { c -> buildList { while (c.moveToNext()) c.getString(0)?.let(::add) } }.orEmpty()
+
     /** Every contact's lookup key → contact id, in one query (the key sweep's listing); null when contacts can't be read. */
     fun lookupKeys(): Map<String, Long>? = try {
-        cr.safeQuery(Contacts.CONTENT_URI, arrayOf(Contacts._ID, Contacts.LOOKUP_KEY))?.use { c ->
-            HashMap<String, Long>(c.count).apply { while (c.moveToNext()) c.getString(1)?.let { put(it, c.getLong(0)) } }
-        }
+        cr.safeQuery(Contacts.CONTENT_URI, arrayOf(Contacts._ID, Contacts.LOOKUP_KEY))?.use(::keyIdMap)
     } catch (_: Exception) {
         null
+    }
+
+    private fun keyIdMap(c: Cursor): Map<String, Long> {
+        val out = HashMap<String, Long>(c.count)
+        while (c.moveToNext()) c.getString(1)?.let { out[it] = c.getLong(0) }
+        return out
     }
 
     fun lookupKeyOf(contactId: Long): String? =

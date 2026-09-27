@@ -67,10 +67,13 @@ object CallManager {
     private val info = HashMap<String, CallerDisplay>()
     private val silenced = HashSet<String>()
     private val screening = HashSet<String>()
+
     /** Ringing calls whose notification waits a moment for the verdict (see [holdsNotification]). */
     private val noticeHeld = HashSet<String>()
+
     /** Incoming calls whose first notification is still being timed (add → notification). */
     private val noticeTraced = HashSet<String>()
+
     private val unknownCallers = HashSet<String>()
     private val locations = HashMap<String, String>()
     private var customRinger: Ringtone? = null
@@ -1129,6 +1132,7 @@ object CallManager {
     private const val ROUTE_SETTLE_MS = 1500L
     private const val PENDING_OUTGOING_MS = 8000L
     private const val SCREEN_TIMEOUT_MS = 1500L
+
     /**
      * How long a ringing call's notification waits for the screening verdict. Verdicts from memory (rules, the
      * screening service's earlier answer) arrive well within it; a slow one shows "Checking…" instead of nothing.

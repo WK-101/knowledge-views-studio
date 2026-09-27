@@ -125,7 +125,7 @@ class ContactKeys(
                 val now = resolved[r.lookupKey] ?: continue
                 if (now.second == r.lookupKey && r.contactId != now.first) meta.setMetaContactId(r.lookupKey, now.first)
             }
-            moved += rekeyTemporaries(current)
+            moved += rekeyTemporaries(current.entries.associate { (k, id) -> id to k })
             fixRelationLinks(current)
             // Index backgrounds made before the index existed (their keys are still current).
             if (bg != null) current.keys.forEach { k -> if (bg.forLookupKey(k) != null) bg.remember(k) }
@@ -170,13 +170,12 @@ class ContactKeys(
     }
 
     /** Temporary contacts follow their raw contacts, whose ids never change. */
-    private suspend fun rekeyTemporaries(current: Map<String, Long>): Int {
+    private suspend fun rekeyTemporaries(keyOf: Map<Long, String>): Int {
         var n = 0
-        val keyOf = HashMap<Long, String>(current.size).apply { current.forEach { (k, id) -> put(id, k) } }
         for (t in meta.allTemporary()) {
             val raws = TemporaryExpiry.decodeIds(t.rawIds) ?: continue
             val owner = contacts.contactsOfRaws(raws).values.firstOrNull() ?: continue
-            val key = keyOf[owner] ?: contacts.lookupKeyOf(owner) ?: continue
+            val key = keyOfContact(owner, keyOf) ?: continue
             if (key == t.lookupKey && owner == t.contactId) continue
             // Another entry may already live under the new key (two temporaries linked by Android): merge, like
             // moveLocked, so neither entry's raw ids are forgotten.
@@ -190,6 +189,8 @@ class ContactKeys(
         }
         return n
     }
+
+    private fun keyOfContact(id: Long, keyOf: Map<Long, String>): String? = keyOf[id] ?: contacts.lookupKeyOf(id)
 
     private suspend fun fixRelationLinks(current: Map<String, Long>) {
         for (r in meta.allMetaNow()) {
