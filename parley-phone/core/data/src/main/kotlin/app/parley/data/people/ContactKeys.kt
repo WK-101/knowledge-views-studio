@@ -1,5 +1,6 @@
 package app.parley.data.people
 
+import app.parley.common.people.KeySweep
 import app.parley.common.people.MetaRekey
 import app.parley.common.people.RelationLinks
 import app.parley.common.people.TemporaryExpiry
@@ -82,9 +83,18 @@ class ContactKeys(
         }
     }
 
-    /** Re-resolves every stored key; returns how many rows moved. */
+    /** The state of the last complete sweep, to skip the next one when nothing it depends on changed. */
+    private var lastSweep: KeySweep.Snapshot? = null
+
+    /**
+     * Re-resolves every stored key; returns how many rows moved. Keys the address book still has resolve from one
+     * listing of (key, id) pairs; only the others are looked up one by one. Skipped when neither that listing nor
+     * the stored keys changed since the last sweep.
+     */
     suspend fun sweep(): Int = withContext(Dispatchers.IO) {
         mutex.withLock {
+            // Without a listing (no permission) nothing can be resolved: leave everything where it is.
+            val current = contacts.lookupKeys() ?: return@withLock 0
             var moved = 0
             val rows = meta.allMetaNow()
             val bg = runCatching { backgrounds() }.getOrNull()
@@ -95,10 +105,16 @@ class ContactKeys(
             // phone-only contact, a first sync) is still followed for contacts that have no contact_meta row.
             runCatching { interactions()?.keys() }.getOrNull()?.forEach { (k, id) -> if (keys[k] == null) keys[k] = id }
             runCatching { extras()?.dndKeys() }.getOrNull()?.forEach { keys.putIfAbsent(it, null) }
+            val temporaries = meta.allTemporary()
+            val snapshot = KeySweep.Snapshot(current, keys + temporaries.associate { "t:" + it.lookupKey + ":" + it.rawIds to it.contactId })
+            if (snapshot == lastSweep) return@withLock 0
+            val split = KeySweep.split(keys, current)
             // Only moves that are plausibly the same person (no namesake takes over a deleted contact's note).
-            val resolved = keys.mapValues { (key, id) ->
+            val looked = split.needLookup.associateWith { key ->
+                val id = keys[key]
                 contacts.currentOf(key, id)?.takeIf { (newId, newKey) -> newKey == key || MetaRekey.plausible(key, newKey, id, newId) }
             }
+            val resolved: Map<String, Pair<Long, String>?> = keys.keys.associateWith { k -> split.direct[k] ?: looked[k] }
             for (m in MetaRekey.plan(resolved.mapValues { it.value?.second })) {
                 moveLocked(m.from, m.to, resolved[m.from]?.first)
                 moved++
@@ -109,13 +125,19 @@ class ContactKeys(
                 val now = resolved[r.lookupKey] ?: continue
                 if (now.second == r.lookupKey && r.contactId != now.first) meta.setMetaContactId(r.lookupKey, now.first)
             }
-            moved += rekeyTemporaries()
-            fixRelationLinks()
+            moved += rekeyTemporaries(current)
+            fixRelationLinks(current)
             // Index backgrounds made before the index existed (their keys are still current).
-            if (bg != null) contacts.contacts.value?.forEach { c -> if (bg.forLookupKey(c.lookupKey) != null) bg.remember(c.lookupKey) }
+            if (bg != null) current.keys.forEach { k -> if (bg.forLookupKey(k) != null) bg.remember(k) }
+            // What moved changes the stored keys: the next sweep runs once more, finds nothing and settles.
+            lastSweep = snapshot
             moved
         }
     }
+
+    /** (id, key) now for a stored [key]: from the listing when the address book still has it, else looked up. */
+    private fun resolve(key: String, id: Long?, current: Map<String, Long>): Pair<Long, String>? =
+        current[key]?.let { it to key } ?: contacts.currentOf(key, id)
 
     private suspend fun moveLocked(from: String, to: String, toId: Long?) {
         if (from == to) return
@@ -148,12 +170,13 @@ class ContactKeys(
     }
 
     /** Temporary contacts follow their raw contacts, whose ids never change. */
-    private suspend fun rekeyTemporaries(): Int {
+    private suspend fun rekeyTemporaries(current: Map<String, Long>): Int {
         var n = 0
+        val keyOf = HashMap<Long, String>(current.size).apply { current.forEach { (k, id) -> put(id, k) } }
         for (t in meta.allTemporary()) {
             val raws = TemporaryExpiry.decodeIds(t.rawIds) ?: continue
             val owner = contacts.contactsOfRaws(raws).values.firstOrNull() ?: continue
-            val key = contacts.lookupKeyOf(owner) ?: continue
+            val key = keyOf[owner] ?: contacts.lookupKeyOf(owner) ?: continue
             if (key == t.lookupKey && owner == t.contactId) continue
             // Another entry may already live under the new key (two temporaries linked by Android): merge, like
             // moveLocked, so neither entry's raw ids are forgotten.
@@ -168,13 +191,13 @@ class ContactKeys(
         return n
     }
 
-    private suspend fun fixRelationLinks() {
+    private suspend fun fixRelationLinks(current: Map<String, Long>) {
         for (r in meta.allMetaNow()) {
             val links = RelationLinks.decode(r.relationLinks)
             if (links.isEmpty()) continue
             var changed = false
             val updated = links.mapValues { (_, l) ->
-                val now = contacts.currentOf(l.lookupKey, l.contactId)
+                val now = resolve(l.lookupKey, l.contactId, current)
                     ?.takeIf { (id, key) -> key == l.lookupKey || MetaRekey.plausible(l.lookupKey, key, l.contactId, id) }
                 if (now != null && (now.second != l.lookupKey || now.first != l.contactId)) { changed = true; RelationLinks.Link(now.second, now.first) } else l
             }
