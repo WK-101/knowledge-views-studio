@@ -348,11 +348,11 @@ class CallNotifier(private val context: Context) {
     }
 
     companion object {
-        const val CH_INCOMING = "incoming_calls_v1"
-        const val CH_ONGOING = "ongoing_calls_v1"
-        const val CH_SILENCED = "silenced_calls_v1"
-        const val INCOMING_ID = 4711
-        const val ONGOING_ID = 4713
+        const val CH_INCOMING = app.parley.common.NotificationChannels.INCOMING_CALLS
+        const val CH_ONGOING = app.parley.common.NotificationChannels.ONGOING_CALLS
+        const val CH_SILENCED = app.parley.common.NotificationChannels.SILENCED_CALLS
+        const val INCOMING_ID = app.parley.common.NotificationIds.CALL_INCOMING
+        const val ONGOING_ID = app.parley.common.NotificationIds.CALL_ONGOING
 
         /**
          * Whether the incoming-calls channel can still pop up (heads-up / full screen). False when the user turned it

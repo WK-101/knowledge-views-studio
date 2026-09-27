@@ -48,10 +48,15 @@ class CallLogRepository(private val context: Context, scope: CoroutineScope) {
 
     private fun load(limit: Int = 3000): List<CallEntry> {
         if (!Permissions.has(context, android.Manifest.permission.READ_CALL_LOG)) return emptyList()
+        return query(Calls.CONTENT_URI.buildUpon().appendQueryParameter(Calls.LIMIT_PARAM_KEY, limit.toString()).build(), null, null)
+    }
+
+    private fun query(uri: android.net.Uri, selection: String?, args: Array<String>?): List<CallEntry> {
         val out = ArrayList<CallEntry>()
         cr.safeQuery(
-            Calls.CONTENT_URI.buildUpon().appendQueryParameter(Calls.LIMIT_PARAM_KEY, limit.toString()).build(),
+            uri,
             arrayOf(Calls._ID, Calls.NUMBER, Calls.CACHED_NAME, Calls.TYPE, Calls.DATE, Calls.DURATION, Calls.PHONE_ACCOUNT_ID, Calls.NEW, Calls.NUMBER_PRESENTATION),
+            selection, args,
             sort = Calls.DATE + " DESC",
         )?.use { c ->
             while (c.moveToNext()) {
@@ -71,6 +76,20 @@ class CallLogRepository(private val context: Context, scope: CoroutineScope) {
         return out
     }
 
+    /**
+     * Every system call-log row for [number] since [since], read from the provider rather than the newest-3000
+     * window [calls] shows, so destructive actions reach old calls too. The filter URI matches loosely (trailing
+     * digits); only rows that are the same number are returned.
+     */
+    fun queryForNumber(number: String, since: Long = Long.MIN_VALUE): List<CallEntry> {
+        if (number.isBlank() || !Permissions.has(context, android.Manifest.permission.READ_CALL_LOG)) return emptyList()
+        val iso = PhoneEnv.countryIso(context)
+        val uri = android.net.Uri.withAppendedPath(Calls.CONTENT_FILTER_URI, android.net.Uri.encode(number))
+        val bounded = since != Long.MIN_VALUE
+        return query(uri, if (bounded) "${Calls.DATE} >= ?" else null, if (bounded) arrayOf(since.toString()) else null)
+            .filter { !it.presentationHidden && PhoneNumbers.same(it.number, number, iso) }
+    }
+
     suspend fun delete(ids: Collection<Long>) = withContext(Dispatchers.IO) {
         if (ids.isEmpty()) return@withContext
         ids.chunked(500).forEach { chunk ->
@@ -81,8 +100,7 @@ class CallLogRepository(private val context: Context, scope: CoroutineScope) {
     suspend fun deleteAll() = withContext(Dispatchers.IO) { cr.delete(Calls.CONTENT_URI, null, null) }
 
     suspend fun deleteForNumber(number: String) = withContext(Dispatchers.IO) {
-        val ids = calls.value.orEmpty().filter { PhoneNumbers.same(it.number, number, PhoneEnv.countryIso(context)) }.map { it.id }
-        delete(ids)
+        delete(queryForNumber(number).map { it.id })
     }
 
     /** Clears the "new" flag on missed calls so badges and notifications go away. */

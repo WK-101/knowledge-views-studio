@@ -316,6 +316,8 @@ class CircleRepository(
     // --- Backup (inside the encrypted backup's settings section) ---
 
     val backupExtras: BackupExtras = object : BackupExtras {
+        override val section = "circle"
+
         /** Contacts read fresh (a restore has just inserted some), else the snapshot. */
         private suspend fun contactsNow(): List<app.parley.common.ContactSummary> =
             runCatching { freshContacts() }.getOrNull() ?: withTimeoutOrNull(30_000) { contactsFlow().filterNotNull().first() }.orEmpty()

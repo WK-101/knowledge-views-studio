@@ -8,7 +8,6 @@ import android.os.Bundle
 import android.provider.ContactsContract
 import android.view.WindowManager
 import android.widget.Toast
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.clickable
@@ -59,6 +58,7 @@ import app.parley.MainActivity
 import app.parley.R
 import app.parley.common.NumberText
 import app.parley.container
+import app.parley.security.AppLock
 import app.parley.data.PhoneEnv
 import app.parley.data.PlaceResult
 import app.parley.ui.Bidi
@@ -76,7 +76,7 @@ import kotlinx.coroutines.withContext
  * Nothing starts without a tap: several numbers show a picker, and every action is a button. The text is only used
  * to find numbers and is never stored. This activity doesn't handle `tel:` links (the keypad does).
  */
-class NumberActionActivity : ComponentActivity() {
+class NumberActionActivity : androidx.fragment.app.FragmentActivity() {
     // L1: the in-app language on Android 10-12 (Android 13+ applies per-app languages itself).
     override fun attachBaseContext(newBase: android.content.Context) {
         super.attachBaseContext(newBase)
@@ -100,8 +100,9 @@ class NumberActionActivity : ComponentActivity() {
     private var pendingCall by mutableStateOf<app.parley.PendingCall?>(null)
     private var callSims by mutableStateOf<List<app.parley.common.SimAccount>>(emptyList())
     private val gate by lazy { app.parley.CallGate(container) }
-    /** Read from disk before anything is shown: the defaults would mean no app lock and no secure screen. */
+    /** Names stay hidden while this is true; read from disk before anything is shown, then cleared by unlocking. */
     private var appLock = true
+    private var settingsSnapshot: app.parley.common.AppSettings? = null
     /** A chat with an unknown number was opened from here; offer a temporary contact when the user comes back. */
     private var awaitingReturn = false
     /** The selected, shared or pasted text, kept only while the sheet is open, for "Save all…" (M11). */
@@ -116,14 +117,34 @@ class NumberActionActivity : ComponentActivity() {
         window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
         lifecycleScope.launch {
             val settings = container.settings.current()
+            settingsSnapshot = settings
             appLock = settings.appLock
-            if (!settings.secureScreen) window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
-            setContent {
-                ParleyTheme(settings.themeMode, settings.amoledBlack, settings.dynamicColor, settings.density) {
-                    Sheet()
+            fun show() {
+                if (!settings.secureScreen) window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+                setContent {
+                    ParleyTheme(settings.themeMode, settings.amoledBlack, settings.dynamicColor, settings.density) {
+                        Sheet()
+                    }
                 }
             }
+            // Any app can open this sheet. While Parley is locked it would tell whether a number is a (private)
+            // contact and let "My details" be edited, so it asks for the unlock first, as Parley itself does.
+            AppLock.onStart(settings)
+            if (!settings.appLock || !AppLock.locked.value) {
+                appLock = false
+                return@launch show()
+            }
+            AppLock.authenticate(this@NumberActionActivity) { ok ->
+                if (!ok) return@authenticate finish()
+                appLock = false
+                show()
+            }
         }
+    }
+
+    override fun onStop() {
+        AppLock.onStop(settingsSnapshot)
+        super.onStop()
     }
 
     override fun onNewIntent(intent: Intent) {

@@ -41,8 +41,26 @@ object ListsUpdaterClient {
         false
     }
 
-    /** False when the companion is signed with a different key (the signature permission isn't granted). */
-    fun canRead(ctx: Context): Boolean = ctx.checkSelfPermission(permission(ctx)) == PackageManager.PERMISSION_GRANTED
+    /**
+     * Whether the provider behind the companion's authority really is Parley's companion: owned by the expected
+     * package, guarded by the lists permission, and signed with Parley's own key. Parley declares that permission
+     * itself, so holding it proves nothing about the other side; any app could claim the package name or the
+     * authority when the real companion isn't installed.
+     */
+    @Suppress("DEPRECATION")
+    fun isGenuine(ctx: Context): Boolean = try {
+        val pm = ctx.packageManager
+        val provider = pm.resolveContentProvider(authority(ctx), 0)
+        provider != null &&
+            provider.packageName == packageName(ctx) &&
+            provider.readPermission == permission(ctx) &&
+            pm.checkSignatures(ctx.packageName, provider.packageName) == PackageManager.SIGNATURE_MATCH
+    } catch (_: Exception) {
+        false
+    }
+
+    /** False unless the companion is genuine (see [isGenuine]); a look-alike is treated as absent. */
+    fun canRead(ctx: Context): Boolean = ctx.checkSelfPermission(permission(ctx)) == PackageManager.PERMISSION_GRANTED && isGenuine(ctx)
 
     fun launchIntent(ctx: Context): Intent? = ctx.packageManager.getLaunchIntentForPackage(packageName(ctx))
 
@@ -95,6 +113,7 @@ object ListsUpdaterClient {
     /** Copies one pack through the provider, verifies it and installs it. */
     suspend fun copy(ctx: Context, lists: SpamListStore, id: String, force: Boolean = false): SpamListStore.InstallResult {
         val result = try {
+            if (!canRead(ctx)) throw SecurityException("companion not verified")
             val parsed = lists.parse(packUri(ctx, id))
             if (parsed.manifest.id != id) {
                 SpamListStore.InstallResult.Failed(ctx.getString(R.string.blk_fail_id_mismatch))

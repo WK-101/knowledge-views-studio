@@ -13,6 +13,8 @@ import app.parley.MainActivity
 import app.parley.R
 import app.parley.common.BlockReason
 import app.parley.common.Decision
+import app.parley.common.NotificationChannels
+import app.parley.common.NotificationIds
 import app.parley.common.NotifyLevel
 import app.parley.common.PhoneNumbers
 import app.parley.common.VerdictKind
@@ -27,11 +29,11 @@ import kotlinx.coroutines.launch
  * Rules can override the level (none / quiet / normal).
  */
 object BlockingNotifier {
-    const val GROUP = "screening"
-    const val CH_BLOCKED = "screen_blocked_v1"
-    const val CH_REPORTED = "screen_reported_v1"
-    const val CH_LIKELY_SPAM = "screen_likely_spam_v1"
-    const val CH_BUSY = "screen_busy_reply_v1"
+    const val GROUP = NotificationChannels.SCREENING_GROUP
+    const val CH_BLOCKED = NotificationChannels.SCREEN_BLOCKED
+    const val CH_REPORTED = NotificationChannels.SCREEN_REPORTED
+    const val CH_LIKELY_SPAM = NotificationChannels.SCREEN_LIKELY_SPAM
+    const val CH_BUSY = NotificationChannels.SCREEN_BUSY_REPLY
 
     fun channels(context: Context) {
         val nm = context.getSystemService(NotificationManager::class.java) ?: return
@@ -71,7 +73,7 @@ object BlockingNotifier {
 
         // B27: someone you know was silenced by off hours: offer a one-tap reply through the SMS app.
         if (decision is Decision.Block && decision.reason == BlockReason.OFF_HOURS && e.isContact && s.busyReply && number != null) {
-            val id = ID_BUSY + (PhoneNumbers.matchKey(number).hashCode() and 0xFFF)
+            val id = NotificationIds.screenBusy(PhoneNumbers.matchKey(number))
             val reply = PendingIntent.getActivity(
                 context, id, BlockingActions.replyIntent(number, s.busyReplyText).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
@@ -156,9 +158,8 @@ object BlockingNotifier {
         return NotificationCompat.Action.Builder(0, title, pi).build()
     }
 
-    const val ID_BLOCKED = 5101
-    const val ID_LIKELY = 5102
-    const val ID_BUSY = 5200
+    const val ID_BLOCKED = NotificationIds.SCREEN_BLOCKED
+    const val ID_LIKELY = NotificationIds.SCREEN_LIKELY_SPAM
 }
 
 /** Notification actions: "Not spam" and "Expecting a call". Not exported. */

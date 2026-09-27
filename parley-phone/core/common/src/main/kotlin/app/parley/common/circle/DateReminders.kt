@@ -1,6 +1,7 @@
 package app.parley.common.circle
 
 import app.parley.common.EventDate
+import app.parley.common.NotificationIds
 import java.time.LocalDate
 import java.util.Locale
 
@@ -39,13 +40,13 @@ object DateReminders {
     fun occurrence(contactId: Long, eventKey: String, date: EventDate, today: LocalDate): String = "$contactId:$eventKey:${date.next(today).year}"
 
     /** G5: notification tag of one event (id 0), so two dates of one person never replace each other. */
-    fun tag(contactId: Long, eventKey: String): String = "birthday:$contactId:$eventKey"
+    fun tag(contactId: Long, eventKey: String): String = "${NotificationIds.PREFIX_BIRTHDAY}$contactId:$eventKey"
 
     /** G5: notification tag of a person's keep-in-touch reminder (id 0). */
-    fun nudgeTag(contactId: Long): String = "nudge:$contactId"
+    fun nudgeTag(contactId: Long): String = "${NotificationIds.PREFIX_NUDGE}$contactId"
 
     /** Tag of the weekly digest (id 0). */
-    const val DIGEST_TAG = "circle:digest"
+    const val DIGEST_TAG = NotificationIds.TAG_CIRCLE_DIGEST
 
     /**
      * Occasions remembered as fired or wished are kept for a while and then forgotten; entries look like

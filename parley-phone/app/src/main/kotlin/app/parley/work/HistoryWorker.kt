@@ -44,7 +44,7 @@ class HistoryWorker(context: Context, params: WorkerParameters) : CoroutineWorke
         private const val NAME = "parley-history"
         private const val NAME_SOON = "parley-history-after-call"
         private const val KEY_FULL = "full"
-        const val CHANNEL = "plan_v1"
+        const val CHANNEL = app.parley.common.NotificationChannels.PLAN
 
         fun schedule(context: Context) {
             WorkManager.getInstance(context).enqueueUniquePeriodicWork(
@@ -75,7 +75,7 @@ class HistoryWorker(context: Context, params: WorkerParameters) : CoroutineWorke
         }
 
         private fun notify(context: Context, u: PlanUsage, simLabel: String) {
-            val id = 20_000 + (u.config.simId.hashCode() and 0xFFFF)
+            val id = app.parley.common.NotificationIds.plan(u.config.simId)
             val open = PendingIntent.getActivity(
                 context, id,
                 Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
@@ -90,7 +90,7 @@ class HistoryWorker(context: Context, params: WorkerParameters) : CoroutineWorke
                 .setContentIntent(open)
                 .setAutoCancel(true)
             try {
-                NotificationManagerCompat.from(context).notify("plan", id, b.build())
+                NotificationManagerCompat.from(context).notify(app.parley.common.NotificationIds.TAG_PLAN, id, b.build())
             } catch (_: SecurityException) {
             }
         }

@@ -248,7 +248,7 @@ class RemindersWorker(context: Context, params: WorkerParameters) : CoroutineWor
 
     companion object {
         private const val NAME = "parley-reminders"
-        const val CHANNEL = "reminders_v1"
+        const val CHANNEL = app.parley.common.NotificationChannels.REMINDERS
         private const val S_FIRED = "fired"
         private const val S_LAST_DIGEST = "lastDigest"
         private const val S_LAST_QUIET = "lastQuiet"

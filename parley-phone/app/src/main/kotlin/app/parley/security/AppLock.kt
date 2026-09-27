@@ -86,11 +86,23 @@ object AppLock {
     fun canAuthenticate(activity: FragmentActivity): Boolean =
         BiometricManager.from(activity).canAuthenticate(authenticators) == BiometricManager.BIOMETRIC_SUCCESS
 
-    fun onStop() {
+    /** The settings seen last, so leaving the app can lock without waiting for storage. */
+    @Volatile
+    private var lastSettings: AppSettings? = null
+
+    /**
+     * Leaving Parley. With "lock immediately" the lock engages now, so the screen behind the recents thumbnail
+     * and the next return are already locked; longer timeouts are decided in [onStart].
+     */
+    fun onStop(settings: AppSettings? = null) {
         backgroundAt = SystemClock.elapsedRealtime()
+        val s = settings ?: lastSettings ?: return
+        if (s.appLock && s.lockAfterMinutes <= 0) locked.value = true
     }
 
+    /** Call before the first frame of a returning activity (it only reads memory), so content never flashes. */
     fun onStart(settings: AppSettings) {
+        lastSettings = settings
         promptOnShow = true
         if (!settings.appLock) {
             locked.value = false
@@ -118,21 +130,40 @@ object AppLock {
         locked.value = true
     }
 
-    /** Shows the system prompt. Failed attempts are allowed; only cancel/error keeps the lock. */
+    private fun unlocked() {
+        locked.value = false
+        everUnlocked = true
+    }
+
+    /**
+     * Shows the system prompt. Failed attempts are allowed; only cancel/error keeps the lock. It lets the user in
+     * without asking only when the phone has no screen lock at all (the app lock can't work then, and mustn't trap
+     * anyone). When the biometric stack reports anything else (hardware busy or unknown, an update required), the
+     * screen lock is confirmed instead.
+     */
     fun authenticate(activity: FragmentActivity, title: String? = null, onResult: (Boolean) -> Unit = {}) {
-        if (!canAuthenticate(activity)) {
-            // No screen lock set up: the app lock can't work, don't trap the user.
-            locked.value = false
-            everUnlocked = true
-            onResult(true)
-            return
+        val status = BiometricManager.from(activity).canAuthenticate(authenticators)
+        if (status != BiometricManager.BIOMETRIC_SUCCESS) {
+            val km = activity.getSystemService(KeyguardManager::class.java)
+            if (km?.isDeviceSecure != true) {
+                unlocked()
+                onResult(true)
+                return
+            }
+            android.util.Log.w("AppLock", "Biometric prompt unavailable ($status); confirming the screen lock instead")
+            return confirmCredential(activity, title ?: activity.getString(R.string.lock_unlock_parley)) { ok ->
+                if (ok) {
+                    unlocked()
+                    VaultSession.markAuthenticated()
+                }
+                onResult(ok)
+            }
         }
         val prompt = BiometricPrompt(
             activity, ContextCompat.getMainExecutor(activity),
             object : BiometricPrompt.AuthenticationCallback() {
                 override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
-                    locked.value = false
-                    everUnlocked = true
+                    unlocked()
                     VaultSession.markAuthenticated()
                     onResult(true)
                 }
@@ -156,23 +187,44 @@ object AppLock {
     fun authenticateForVault(activity: FragmentActivity, onResult: (Boolean) -> Unit) {
         if (Build.VERSION.SDK_INT >= 30) return authenticate(activity, activity.getString(R.string.lock_unlock_private), onResult)
         val km = activity.getSystemService(KeyguardManager::class.java)
-        @Suppress("DEPRECATION")
-        val intent = km?.takeIf { it.isDeviceSecure }?.createConfirmDeviceCredentialIntent(activity.getString(R.string.lock_unlock_private), null)
-        if (intent == null) {
+        if (km?.isDeviceSecure != true) {
             onResult(true)
             return
         }
-        var launcher: ActivityResultLauncher<Intent>? = null
-        launcher = activity.activityResultRegistry.register("vault-unlock-${SystemClock.elapsedRealtime()}", ActivityResultContracts.StartActivityForResult()) { r ->
-            launcher?.unregister()
-            val ok = r.resultCode == Activity.RESULT_OK
+        confirmCredential(activity, activity.getString(R.string.lock_unlock_private)) { ok ->
             if (ok) VaultSession.markAuthenticated()
             onResult(ok)
+        }
+    }
+
+    /** The keyguard's own "confirm your PIN, pattern or password" screen. False when it can't be shown. */
+    private fun confirmCredential(activity: FragmentActivity, title: String, onResult: (Boolean) -> Unit) {
+        @Suppress("DEPRECATION")
+        val intent = activity.getSystemService(KeyguardManager::class.java)?.createConfirmDeviceCredentialIntent(title, null)
+        if (intent == null) {
+            onResult(false)
+            return
+        }
+        var launcher: ActivityResultLauncher<Intent>? = null
+        launcher = activity.activityResultRegistry.register("confirm-credential-${SystemClock.elapsedRealtime()}", ActivityResultContracts.StartActivityForResult()) { r ->
+            launcher?.unregister()
+            onResult(r.resultCode == Activity.RESULT_OK)
         }
         launcher.launch(intent)
     }
 
-    fun applySecureFlag(activity: FragmentActivity, secure: Boolean) {
+    /**
+     * What the window may show outside Parley: with the app lock on, the recents thumbnail is blank (Android 13+
+     * skips it; before that FLAG_SECURE blanks it while locked or [leaving]), and "Hide screen content" keeps
+     * FLAG_SECURE on all the time.
+     */
+    fun protectWindow(activity: Activity, settings: AppSettings, leaving: Boolean = false) {
+        if (Build.VERSION.SDK_INT >= 33) activity.setRecentsScreenshotEnabled(!settings.appLock)
+        val hideWhileLocked = settings.appLock && (locked.value || (leaving && Build.VERSION.SDK_INT < 33))
+        applySecureFlag(activity, settings.secureScreen || hideWhileLocked)
+    }
+
+    fun applySecureFlag(activity: Activity, secure: Boolean) {
         if (secure) activity.window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
         else activity.window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
     }

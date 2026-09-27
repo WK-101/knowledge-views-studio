@@ -46,7 +46,7 @@ class FollowUpWorker(context: Context, params: WorkerParameters) : CoroutineWork
         val promises = runCatching {
             c.circle.notesFor(key, contact.phones.map { PhoneNumbers.matchKey(it.number) }).flatMap { n -> Promises.open(n.text).map { it.text } }
         }.getOrDefault(emptyList())
-        val tag = "followup:${contact.id}"
+        val tag = app.parley.common.NotificationIds.followUp(contact.id)
         val code = tag.hashCode()
         val public = NotificationCompat.Builder(ctx, RemindersWorker.CHANNEL)
             .setSmallIcon(R.drawable.ic_stat_cake)

@@ -14,6 +14,8 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import app.parley.MainActivity
+import app.parley.common.NotificationChannels
+import app.parley.common.NotificationIds
 import app.parley.container
 import app.parley.data.backup.BackupSchedule
 import java.util.concurrent.TimeUnit
@@ -22,7 +24,7 @@ import java.util.concurrent.TimeUnit
 class BackupWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
         val out = applicationContext.container.backup.backupNow(scheduled = true)
-        if (!out.ok || out.rotationPaused) notify(applicationContext, out.message)
+        if (!out.ok || out.rotationPaused || out.failedSections.isNotEmpty()) notify(applicationContext, out.message)
         return Result.success()
     }
 
@@ -46,12 +48,12 @@ class BackupWorker(context: Context, params: WorkerParameters) : CoroutineWorker
 
         fun notify(context: Context, text: String) {
             val nm = context.getSystemService(NotificationManager::class.java)
-            nm.createNotificationChannel(NotificationChannel("backup_v1", context.getString(app.parley.R.string.work_channel_backups), NotificationManager.IMPORTANCE_DEFAULT))
+            nm.createNotificationChannel(NotificationChannel(NotificationChannels.BACKUPS, context.getString(app.parley.R.string.work_channel_backups), NotificationManager.IMPORTANCE_DEFAULT))
             val open = PendingIntent.getActivity(
                 context, 77, Intent(context, MainActivity::class.java).setAction(MainActivity.ACTION_OPEN_BACKUP).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
                 PendingIntent.FLAG_IMMUTABLE,
             )
-            val n = NotificationCompat.Builder(context, "backup_v1")
+            val n = NotificationCompat.Builder(context, NotificationChannels.BACKUPS)
                 .setSmallIcon(app.parley.ui.R.drawable.ic_stat_block)
                 .setContentTitle(context.getString(app.parley.R.string.work_backup_title))
                 .setContentText(text)
@@ -60,7 +62,7 @@ class BackupWorker(context: Context, params: WorkerParameters) : CoroutineWorker
                 .setAutoCancel(true)
                 .build()
             try {
-                NotificationManagerCompat.from(context).notify(4720, n)
+                NotificationManagerCompat.from(context).notify(NotificationIds.TAG_BACKUP_FAILED, NotificationIds.BACKUP_ID, n)
             } catch (_: SecurityException) {
             }
         }

@@ -21,6 +21,8 @@ import androidx.core.app.NotificationManagerCompat
 import app.parley.MainActivity
 import app.parley.MissedCallActionReceiver
 import app.parley.R
+import app.parley.common.NotificationChannels
+import app.parley.common.NotificationIds
 import app.parley.common.NotificationPrivacy
 import app.parley.common.PhoneNumbers
 import app.parley.common.calls.DndState
@@ -47,9 +49,8 @@ import kotlinx.coroutines.withContext
  * With "Remind me of missed calls" on, the newest one alerts again every few minutes until it's seen (V3).
  */
 object MissedCallNotifier {
-    const val CHANNEL = "missed_calls_v1"
-    const val ID = 4712
-    private const val CHILD_BASE = 4720
+    const val CHANNEL = NotificationChannels.MISSED_CALLS
+    const val ID = NotificationIds.MISSED_SUMMARY
     private const val GROUP = "app.parley.MISSED_CALLS"
     private const val PREFS = "parley_missed_realert"
 
@@ -81,7 +82,7 @@ object MissedCallNotifier {
 
         shown.forEachIndexed { i, caller ->
             val d = details[i]
-            val id = if (grouped) CHILD_BASE + i else ID
+            val id = if (grouped) NotificationIds.missedChild(i) else ID
             val b = NotificationCompat.Builder(context, CHANNEL)
                 .setSmallIcon(app.parley.ui.R.drawable.ic_stat_missed)
                 .setContentTitle(d.title)
@@ -121,7 +122,7 @@ object MissedCallNotifier {
             }
         }
         // Children that are no longer needed (a caller whose calls were seen, or a single caller now).
-        (0 until MissedCalls.MAX_CHILDREN).filter { !grouped || it >= shown.size }.forEach { nm.cancel(CHILD_BASE + it) }
+        (0 until MissedCalls.MAX_CHILDREN).filter { !grouped || it >= shown.size }.forEach { nm.cancel(NotificationIds.missedChild(it)) }
         if (grouped) {
             val inbox = NotificationCompat.InboxStyle()
             details.forEach { inbox.addLine(it.inboxLine) }
@@ -254,12 +255,12 @@ object MissedCallNotifier {
     fun cancelAll(context: Context) {
         val nm = context.getSystemService(NotificationManager::class.java)
         nm.cancel(ID)
-        (0 until MissedCalls.MAX_CHILDREN).forEach { nm.cancel(CHILD_BASE + it) }
+        (0 until NotificationIds.MISSED_CHILD_COUNT).forEach { nm.cancel(NotificationIds.missedChild(it)) }
     }
 
     /** Any missed-call notification still on screen. */
     fun anyShowing(context: Context, childrenOnly: Boolean = false): Boolean = runCatching {
-        context.getSystemService(NotificationManager::class.java).activeNotifications.any { (!childrenOnly && it.id == ID) || it.id in CHILD_BASE until CHILD_BASE + MissedCalls.MAX_CHILDREN }
+        context.getSystemService(NotificationManager::class.java).activeNotifications.any { NotificationIds.isMissedCall(it.tag, it.id, childrenOnly) }
     }.getOrDefault(false)
 
     /** A small round contact photo for the notification's large icon. */

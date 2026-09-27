@@ -43,14 +43,14 @@ class HousekeepingWorker(context: Context, params: WorkerParameters) : Coroutine
             .setContentIntent(open)
             .setAutoCancel(true)
         try {
-            androidx.core.app.NotificationManagerCompat.from(ctx).notify("temporary", i, b.build())
+            androidx.core.app.NotificationManagerCompat.from(ctx).notify(app.parley.common.NotificationIds.TAG_TEMPORARY, i, b.build())
         } catch (_: SecurityException) {
         }
     }
 
     companion object {
         private const val NAME = "parley-housekeeping"
-        private const val CHANNEL = "contacts_housekeeping_v1"
+        private const val CHANNEL = app.parley.common.NotificationChannels.HOUSEKEEPING
 
         fun schedule(context: Context) {
             WorkManager.getInstance(context).enqueueUniquePeriodicWork(
