@@ -30,6 +30,7 @@ class CalendarEngineTest {
 
     private fun ld(ms: Long): LocalDate = java.time.Instant.ofEpochMilli(ms).atZone(zone).toLocalDate()
 
+    @Suppress("LongParameterList")   // intentional test-fixture builder — all but id/start/end are optional
     private fun ev(
         id: String,
         startMs: Long,
