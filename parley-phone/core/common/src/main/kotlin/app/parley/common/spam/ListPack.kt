@@ -7,13 +7,14 @@ import app.parley.common.PhoneNumbers
 import java.util.TreeMap
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
-import java.io.ByteArrayInputStream
+import app.parley.common.security.Bounded
+import app.parley.common.security.LimitExceededException
 import java.io.ByteArrayOutputStream
+import java.io.IOException
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.security.MessageDigest
 import java.util.zip.ZipEntry
-import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
 
 /**
@@ -75,7 +76,6 @@ object ListPack {
     const val NUMBERS = "numbers.bin"
     const val RANGES = "ranges.txt"
     const val SIGNATURE = "manifest.sig"
-    private const val MAX_ENTRY = 128L * 1024 * 1024
 
     val json = Json { ignoreUnknownKeys = true; encodeDefaults = true; prettyPrint = true }
 
@@ -104,25 +104,16 @@ object ListPack {
 
     /** Reads and fully verifies a pack. Throws [PackException] with a user-readable reason. */
     fun parse(zip: ByteArray): ParsedPack {
-        val files = HashMap<String, ByteArray>()
-        ZipInputStream(ByteArrayInputStream(zip)).use { z ->
-            while (true) {
-                val e = z.nextEntry ?: break
-                if (e.isDirectory) continue
-                val name = e.name.substringAfterLast('/')
-                if (name !in setOf(MANIFEST, NUMBERS, RANGES, SIGNATURE)) continue
-                val out = ByteArrayOutputStream()
-                val buf = ByteArray(64 * 1024)
-                var total = 0L
-                while (true) {
-                    val n = z.read(buf)
-                    if (n < 0) break
-                    total += n
-                    if (total > MAX_ENTRY) throw PackException("The list is too large")
-                    out.write(buf, 0, n)
-                }
-                files[name] = out.toByteArray()
-            }
+        if (zip.size > Bounded.Caps.PACK_FILE) throw PackException("The list is too large")
+        val files = try {
+            Bounded.unzip(
+                zip.inputStream(), want = { it in setOf(MANIFEST, NUMBERS, RANGES, SIGNATURE) },
+                maxEntries = Bounded.Caps.PACK_ENTRIES, maxEntryBytes = Bounded.Caps.PACK_TOTAL, maxTotalBytes = Bounded.Caps.PACK_TOTAL, what = "list",
+            )
+        } catch (_: LimitExceededException) {
+            throw PackException("The list is too large")
+        } catch (_: IOException) {
+            throw PackException("Not a Parley list: the file is damaged")
         }
         val manifestBytes = files[MANIFEST] ?: throw PackException("Not a Parley list: manifest.json is missing")
         val manifest = try {

@@ -1,6 +1,8 @@
 package app.parley.common.backup
 
 import app.parley.common.record.ContactRecord
+import app.parley.common.security.Bounded
+import app.parley.common.security.LimitExceededException
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.builtins.ListSerializer
@@ -545,7 +547,10 @@ class BackupArchiveReader private constructor(
             var inMemory = 0L
             var entryCount = 0
             try {
-                ZipInputStream(source()).use { zin ->
+                // A zip bomb expands far beyond real contacts and photos: the ratio guard stops it early. Large, very
+                // uniform address books compress well, so backups get more room than other inputs.
+                val guard = Bounded.RatioGuard(source(), ratio = 4 * Bounded.Caps.GZIP_RATIO, slack = 4L shl 20)
+                ZipInputStream(guard.compressed).use { zin ->
                     val buf = ByteArray(64 * 1024)
                     while (true) {
                         val e = zin.nextEntry ?: break
@@ -570,6 +575,11 @@ class BackupArchiveReader private constructor(
                             size += n; total += n
                             if (size > limits.maxEntryBytes) throw BackupIntegrityException("Entry $name exceeds size limit")
                             if (total > limits.maxTotalBytes) throw BackupIntegrityException("Backup exceeds total size limit")
+                            try {
+                                guard.check(total)
+                            } catch (e: LimitExceededException) {
+                                throw BackupIntegrityException("Backup expands too much to be real data", e)
+                            }
                             md.update(buf, 0, n)
                             if (bo != null) {
                                 inMemory += n

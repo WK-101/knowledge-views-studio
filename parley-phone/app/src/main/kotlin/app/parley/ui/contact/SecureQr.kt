@@ -1,5 +1,6 @@
 package app.parley.ui.contact
 
+import app.parley.common.security.Bounded
 import android.graphics.Bitmap
 import android.net.Uri
 import android.util.Base64
@@ -57,7 +58,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
 import java.security.SecureRandom
-import java.util.zip.GZIPInputStream
 import java.util.zip.GZIPOutputStream
 import app.parley.ui.ParleyDialog
 import app.parley.ui.ConfirmDialog
@@ -86,7 +86,7 @@ object SecureQr {
     fun decode(uri: Uri, passcode: String): ContactDetails {
         val data = Base64.decode(uri.getQueryParameter("d").orEmpty(), Base64.URL_SAFE)
         val zipped = BackupCrypto.decryptBytes(data, Unlock.Passphrase(normalize(passcode)))
-        val json = GZIPInputStream(zipped.inputStream()).use { it.readBytes() }
+        val json = Bounded.gunzip(zipped, Bounded.Caps.QR_GUNZIP)
         return ContactDetailsJson.decode(String(json))
     }
 

@@ -1,12 +1,13 @@
 package app.parley.common.vcard
 
 import app.parley.common.record.ContactRecord
+import app.parley.common.security.Bounded
+import app.parley.common.security.LimitExceededException
 import ezvcard.VCardVersion
 import ezvcard.io.text.VCardReader
 import ezvcard.io.text.VCardWriter
 import ezvcard.property.ProductId
 import java.io.BufferedInputStream
-import java.io.BufferedReader
 import java.io.Closeable
 import java.io.InputStream
 import java.io.InputStreamReader
@@ -64,7 +65,8 @@ object VCardStream {
      * parsed are recorded in [report] with their raw text; unmapped properties are counted there too.
      */
     fun read(input: Reader, report: ImportReportBuilder, onCard: (ParsedCard) -> Unit) {
-        val lines = if (input is BufferedReader) input else BufferedReader(input)
+        // Bounded lines and cards: a crafted file can't make one line or one card fill the memory.
+        val lines = Bounded.LineReader(input)
         val chunk = StringBuilder()
         var depth = 0
         var index = 0
@@ -84,9 +86,11 @@ object VCardStream {
                 continue
             }
             chunk.append(line).append("\r\n")
+            if (chunk.length > Bounded.Caps.VCARD_CARD) throw LimitExceededException("A card is larger than ${Bounded.Caps.VCARD_CARD shr 20} MB")
             if (head.startsWith("BEGIN:VCARD")) depth++
             if (head.startsWith("END:VCARD") && --depth == 0) {
                 sawCard = true
+                if (index >= Bounded.Caps.IMPORT_ENTRIES) throw LimitExceededException("The file has more than ${Bounded.Caps.IMPORT_ENTRIES} cards")
                 parseChunk(++index, chunk.toString(), report, onCard)
             }
         }

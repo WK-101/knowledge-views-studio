@@ -14,6 +14,8 @@ import app.parley.common.RuleTools
 import app.parley.common.PhoneNumbers
 import app.parley.common.RuleKind
 import app.parley.common.RuleType
+import app.parley.common.security.Bounded
+import app.parley.common.security.LimitExceededException
 import app.parley.common.spam.BuiltInPacks
 import app.parley.common.spam.Ed25519
 import app.parley.common.spam.ListPack
@@ -163,18 +165,10 @@ class SpamListStore(context: Context) {
 
     private fun readBytes(uri: Uri): ByteArray {
         val input = app.contentResolver.openInputStream(uri) ?: throw PackException("Couldn't open the file")
-        return input.use { s ->
-            val out = ByteArrayOutputStream()
-            val buf = ByteArray(64 * 1024)
-            var total = 0L
-            while (true) {
-                val n = s.read(buf)
-                if (n < 0) break
-                total += n
-                if (total > MAX_FILE) throw PackException("The file is too large")
-                out.write(buf, 0, n)
-            }
-            out.toByteArray()
+        return try {
+            input.use { Bounded.readBytes(it, Bounded.Caps.PACK_FILE, "list") }
+        } catch (_: LimitExceededException) {
+            throw PackException("The file is too large")
         }
     }
 
@@ -417,6 +411,5 @@ class SpamListStore(context: Context) {
     }
 
     companion object {
-        private const val MAX_FILE = 100L * 1024 * 1024
     }
 }

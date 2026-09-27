@@ -1,5 +1,6 @@
 package app.parley.ui.extras
 
+import app.parley.common.security.Bounded
 import android.net.Uri
 import android.util.Base64
 import androidx.navigation.NavController
@@ -13,7 +14,6 @@ import app.parley.common.extras.SimpleConfig
 import app.parley.common.extras.SimpleSetup
 import kotlinx.coroutines.flow.MutableStateFlow
 import java.io.ByteArrayOutputStream
-import java.util.zip.GZIPInputStream
 import java.util.zip.GZIPOutputStream
 
 /** Routes of the v3.2 extras (X2 trip mode, X4 simple-mode setup and import). */
@@ -39,7 +39,7 @@ object SimpleTransfer {
 
     private fun gzip(text: String): ByteArray = ByteArrayOutputStream().also { o -> GZIPOutputStream(o).use { it.write(text.toByteArray(Charsets.UTF_8)) } }.toByteArray()
 
-    private fun gunzip(b: ByteArray): String = GZIPInputStream(b.inputStream()).use { String(it.readBytes(), Charsets.UTF_8) }
+    private fun gunzip(b: ByteArray): String = String(Bounded.gunzip(b, Bounded.Caps.QR_GUNZIP, "setup"), Charsets.UTF_8)
 
     fun encryptFile(c: SimpleConfig, passphrase: CharArray): ByteArray = BackupCrypto.encryptBytes(gzip(SimpleSetup.export(c)), listOf(Recipient.Passphrase(passphrase)))
 
