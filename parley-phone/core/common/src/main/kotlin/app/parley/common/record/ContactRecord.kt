@@ -95,14 +95,8 @@ object Col {
 
 /** Messenger apps whose raw contacts and data rows are owned by their sync adapters (read-only for us). */
 object Messengers {
-    private val BASE = listOf(
-        "com.whatsapp", "com.whatsapp.w4b", "org.telegram.messenger", "org.thoughtcrime.securesms",
-        "com.viber.voip", "ch.threema.app", "jp.naver.line.android", "com.skype.raider", "com.wire",
-        "im.vector.app", "com.facebook.orca", "kik.android", "com.discord",
-    )
-
-    /** V34: plus every account type [app.parley.common.ReachApp] knows (Molly, Telegram forks, Threema flavours, Meet…). */
-    val PACKAGES = BASE + app.parley.common.ReachApp.ACCOUNT_TYPES.filter { it !in BASE }.sorted()
+    /** Every messenger account type, from [app.parley.common.MessengerCatalog]. */
+    val PACKAGES: List<String> = app.parley.common.MessengerCatalog.ACCOUNT_TYPES.sorted()
 
     fun isMessengerAccount(accountType: String?): Boolean = accountType != null && accountType in PACKAGES
 

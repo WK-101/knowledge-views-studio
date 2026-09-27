@@ -8,26 +8,6 @@ enum class Messenger(val label: String) {
     VIBER("Viber"),
 }
 
-/** One installable app for a [Messenger] (Signal and Molly both open Signal chats). */
-enum class MessengerApp(val messenger: Messenger, val packageName: String, val label: String) {
-    WHATSAPP(Messenger.WHATSAPP, "com.whatsapp", "WhatsApp"),
-    WHATSAPP_BUSINESS(Messenger.WHATSAPP, "com.whatsapp.w4b", "WhatsApp Business"),
-    SIGNAL(Messenger.SIGNAL, "org.thoughtcrime.securesms", "Signal"),
-    MOLLY(Messenger.SIGNAL, "im.molly.app", "Molly"),
-    TELEGRAM(Messenger.TELEGRAM, "org.telegram.messenger", "Telegram"),
-    TELEGRAM_WEB(Messenger.TELEGRAM, "org.telegram.messenger.web", "Telegram"),
-    TELEGRAM_X(Messenger.TELEGRAM, "org.thunderdog.challegram", "Telegram X"),
-    VIBER(Messenger.VIBER, "com.viber.voip", "Viber"),
-    ;
-
-    /** Whether this app can pre-fill a message. */
-    val takesText: Boolean get() = messenger == Messenger.WHATSAPP || messenger == Messenger.TELEGRAM
-
-    companion object {
-        fun forPackage(pkg: String?): MessengerApp? = entries.firstOrNull { it.packageName == pkg }
-    }
-}
-
 /** What to start: an intent action, its data URI, the app it must go to, and extras. */
 data class MessengerLink(
     val action: String,

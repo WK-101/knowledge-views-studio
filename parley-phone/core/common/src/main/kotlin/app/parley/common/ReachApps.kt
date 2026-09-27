@@ -14,62 +14,6 @@ enum class ReachKind {
     OTHER,
 }
 
-/**
- * V34: messenger apps whose contacts rows Parley recognises. Each app's sync adapter adds a raw contact (account type
- * [accountTypes], which is also the app's package) with data rows of its own mimetypes; opening such a row with
- * `ACTION_VIEW` on its `Data` URI and mimetype is how Google Contacts starts "Signal voice call +1 555…" and the like.
- *
- * [mimePrefixes] are the part after `vnd.android.cursor.item/` that the app's mimetypes start with. Molly writes
- * Signal's mimetypes, so it has none of its own and is told apart by its account type.
- */
-enum class ReachApp(val label: String, val accountTypes: List<String>, val mimePrefixes: List<String>, val chat: Messenger? = null) {
-    WHATSAPP("WhatsApp", listOf("com.whatsapp"), listOf("vnd.com.whatsapp."), Messenger.WHATSAPP),
-    WHATSAPP_BUSINESS("WhatsApp Business", listOf("com.whatsapp.w4b"), listOf("vnd.com.whatsapp.w4b."), Messenger.WHATSAPP),
-    SIGNAL("Signal", listOf("org.thoughtcrime.securesms"), listOf("vnd.org.thoughtcrime.securesms."), Messenger.SIGNAL),
-    MOLLY("Molly", listOf("im.molly.app", "im.molly.app.unifiedpush"), emptyList(), Messenger.SIGNAL),
-    TELEGRAM(
-        "Telegram", listOf("org.telegram.messenger", "org.telegram.messenger.web", "org.telegram.messenger.beta", "org.telegram.plus"),
-        listOf("vnd.org.telegram.messenger."), Messenger.TELEGRAM,
-    ),
-    TELEGRAM_X("Telegram X", listOf("org.thunderdog.challegram"), listOf("vnd.org.thunderdog.challegram."), Messenger.TELEGRAM),
-    VIBER("Viber", listOf("com.viber.voip"), listOf("vnd.com.viber.voip."), Messenger.VIBER),
-    THREEMA(
-        "Threema", listOf("ch.threema.app", "ch.threema.app.work", "ch.threema.app.libre", "ch.threema.app.green", "ch.threema.app.onprem"),
-        listOf("vnd.ch.threema.app."),
-    ),
-    LINE("LINE", listOf("jp.naver.line.android"), listOf("vnd.jp.naver.line.android.")),
-    IMO("imo", listOf("com.imo.android.imoim"), listOf("vnd.com.imo.android.imoim.")),
-    BOTIM("BOTIM", listOf("im.thebot.messenger"), listOf("vnd.im.thebot.messenger.")),
-    MEET("Google Meet", listOf("com.google.android.apps.tachyon"), listOf("com.google.android.apps.tachyon.", "vnd.com.google.android.apps.tachyon.")),
-    SKYPE("Skype", listOf("com.skype.raider"), listOf("vnd.com.skype.raider.", "com.skype.android.")),
-    WIRE("Wire", listOf("com.wire"), listOf("vnd.com.wire.")),
-    ELEMENT("Element", listOf("im.vector.app"), listOf("vnd.im.vector.app.")),
-    BRIAR("Briar", listOf("org.briarproject.briar.android"), listOf("vnd.org.briarproject.briar.android.")),
-    SIMPLEX("SimpleX", listOf("chat.simplex.app"), listOf("vnd.chat.simplex.app.")),
-    ;
-
-    /** The app's main package (also its main account type). */
-    val packageName: String get() = accountTypes[0]
-
-    companion object {
-        fun forAccountType(type: String?): ReachApp? = type?.let { t -> entries.firstOrNull { t in it.accountTypes } }
-
-        /** The app whose mimetype namespace [mime] is in, longest prefix first (Business before WhatsApp). */
-        fun forMime(mime: String): ReachApp? {
-            val sub = mime.substringAfter('/', "")
-            return entries.flatMap { app -> app.mimePrefixes.map { it to app } }
-                .sortedByDescending { it.first.length }
-                .firstOrNull { sub.startsWith(it.first) }?.second
-        }
-
-        /** The app for an installed chat app ([MessengerApp]), so a chat app and its contacts rows are one entry. */
-        fun forMessengerApp(app: MessengerApp): ReachApp? = forAccountType(app.packageName)
-
-        /** Every account type Parley knows as a messenger's (read-only, owned by the app's sync adapter). */
-        val ACCOUNT_TYPES: Set<String> = entries.flatMap { it.accountTypes }.toSet()
-    }
-}
-
 /** One recognised messenger row: which app ([appKey] is its account type), what it does, and for which number. */
 data class ReachRow(
     val dataId: Long,
@@ -94,30 +38,8 @@ data class ReachRow(
 object MessengerMimes {
     const val ITEM = "vnd.android.cursor.item/"
 
-    /** Known mimetypes and what they do. */
-    val KNOWN: Map<String, ReachKind> = buildMap {
-        for (wa in listOf("com.whatsapp", "com.whatsapp.w4b")) {
-            put("${ITEM}vnd.$wa.profile", ReachKind.MESSAGE)
-            put("${ITEM}vnd.$wa.voip.call", ReachKind.VOICE)
-            put("${ITEM}vnd.$wa.video.call", ReachKind.VIDEO)
-        }
-        // Signal and Molly (SyncSystemContactLinksJob / contactsformat.xml).
-        put("${ITEM}vnd.org.thoughtcrime.securesms.contact", ReachKind.MESSAGE)
-        put("${ITEM}vnd.org.thoughtcrime.securesms.call", ReachKind.VOICE)
-        put("${ITEM}vnd.org.thoughtcrime.securesms.videocall", ReachKind.VIDEO)
-        // Telegram (res/xml/contacts.xml).
-        put("${ITEM}vnd.org.telegram.messenger.android.profile", ReachKind.MESSAGE)
-        put("${ITEM}vnd.org.telegram.messenger.android.call", ReachKind.VOICE)
-        put("${ITEM}vnd.org.telegram.messenger.android.call.video", ReachKind.VIDEO)
-        // Viber: free calls and chats; Viber Out rows call the phone network and are billed.
-        put("${ITEM}vnd.com.viber.voip.viber_number_message", ReachKind.MESSAGE)
-        put("${ITEM}vnd.com.viber.voip.viber_number_call", ReachKind.VOICE)
-        put("${ITEM}vnd.com.viber.voip.viber_out_call_viber", ReachKind.PAID_CALL)
-        put("${ITEM}vnd.com.viber.voip.viber_out_call_none", ReachKind.PAID_CALL)
-        // Google Meet (formerly Duo).
-        put("${ITEM}com.google.android.apps.tachyon.phone", ReachKind.VIDEO)
-        put("${ITEM}com.google.android.apps.tachyon.phone.audio", ReachKind.VOICE)
-    }
+    /** Known mimetypes and what they do, from [MessengerCatalog]. */
+    val KNOWN: Map<String, ReachKind> = MessengerCatalog.entries.flatMap { e -> e.mimes.map { (m, k) -> ITEM + m to k } }.toMap()
 
     /** The platform's own kinds (names, numbers, e-mail…), which are never messenger rows. */
     private val PLATFORM = setOf(
@@ -277,8 +199,7 @@ object CallRoutes {
      */
     fun forApp(app: MessengerApp, video: Boolean, rows: List<ReachRow>): CallRoute {
         val kind = if (video) ReachKind.VIDEO else ReachKind.VOICE
-        val reach = ReachApp.forMessengerApp(app)
-        val row = rows.firstOrNull { it.kind == kind && (it.appKey == app.packageName || (reach != null && it.app == reach)) }
+        val row = rows.firstOrNull { it.kind == kind && (it.appKey == app.packageName || it.app == app.entry) }
         return if (row != null) CallRoute.Row(row) else CallRoute.ViaChat(app)
     }
 
@@ -304,4 +225,56 @@ object MessengerRowMatch {
     fun forNumber(rowNumber: String?, contactPhones: List<String>, number: String, region: String?): Boolean =
         if (rowNumber != null) PhoneNumbers.sameExact(rowNumber, number, region)
         else contactPhones.any { PhoneNumbers.sameExact(it, number, region) }
+}
+
+/** One row under "Call on" in the "Message or call on…" sheet. */
+sealed interface CallOnEntry {
+    /** An app that added call rows for this number: its Voice and Video buttons open those rows. */
+    data class Direct(val group: ReachGroup) : CallOnEntry
+
+    /** An installed chat app without a call row for this number: its chat opens, where the call button is. */
+    data class ViaChat(val app: MessengerApp) : CallOnEntry
+}
+
+/**
+ * What the "Message or call on…" sheet lists, the same way for a saved person, a private contact and an unsaved
+ * number, so the sheet has one layout everywhere.
+ */
+object ReachPlan {
+    /** One installed chat app per catalog entry, the one used last first. */
+    fun chatApps(installed: List<MessengerApp>, lastUsed: String?): List<MessengerApp> =
+        MessengerApp.onePerApp(installed).sortedByDescending { lastUsed != null && (it.packageName == lastUsed || lastUsed in it.entry.accountTypes) }
+
+    /** Whether [group] (an app's rows) belongs to the installed chat [app]: same account type, or same catalog entry. */
+    fun belongsTo(group: ReachGroup, app: MessengerApp): Boolean = group.appKey == app.packageName || group.app == app.entry
+
+    /**
+     * "Call on" rows: each chat app in [chatApps] with its own call rows for the number when it added some, otherwise
+     * through its chat; then the call rows of other apps (Threema, Meet…). [groups] are already for the chosen
+     * number. Groups without a voice or video row are left out.
+     */
+    fun callOn(chatApps: List<MessengerApp>, groups: List<ReachGroup>): List<CallOnEntry> {
+        val callable = groups.filter { it.canCall }
+        val out = ArrayList<CallOnEntry>()
+        val used = HashSet<ReachGroup>()
+        for (app in chatApps) {
+            val own = callable.firstOrNull { it !in used && belongsTo(it, app) }
+            if (own != null) {
+                used += own
+                out += CallOnEntry.Direct(own)
+            } else {
+                out += CallOnEntry.ViaChat(app)
+            }
+        }
+        val chatEntries = chatApps.map { it.entry }.toSet()
+        callable.filter { it !in used && it.app !in chatEntries }.distinctBy { it.appKey to it.number }.forEach { out += CallOnEntry.Direct(it) }
+        return out
+    }
+
+    /**
+     * The account type under which [app] has a chat row for this person ([linked]: account types with a message
+     * row), or null when it hasn't linked them (the chat then opens by number).
+     */
+    fun linkedKey(app: MessengerApp, linked: Set<String>): String? =
+        app.packageName.takeIf { it in linked } ?: app.entry.accountTypes.firstOrNull { it in linked }
 }

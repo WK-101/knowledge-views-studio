@@ -1,5 +1,7 @@
 package app.parley.common.people
 
+import app.parley.common.MessengerCatalog
+import app.parley.common.qr.QrApp
 import app.parley.common.record.Mime
 
 /** ContactsContract Im.PROTOCOL_* values (duplicated to keep this module pure JVM). */
@@ -184,29 +186,29 @@ object Handles {
                 HandleLink("https://matrix.to/#/" + v, MATRIX_APPS, isWeb = true)
             } else null
             HandleService.THREEMA -> if (threemaId.matches(v)) {
-                HandleLink("threema://compose?id=" + v, listOf("ch.threema.app", "ch.threema.app.libre", "ch.threema.app.work"))
+                HandleLink("threema://compose?id=" + v, QrApp.THREEMA.packages)
             } else null
             HandleService.TELEGRAM -> if (telegramName.matches(v)) {
                 HandleLink("tg://resolve?domain=" + v, TELEGRAM_APPS)
             } else null
-            HandleService.SIGNAL -> HandleLink("sgnl://signal.me/#u/" + encode(v), listOf("org.thoughtcrime.securesms", "im.molly.app"))
+            HandleService.SIGNAL -> HandleLink("sgnl://signal.me/#u/" + encode(v), QrApp.SIGNAL.packages)
             HandleService.XMPP -> if (address.matches(v)) HandleLink("xmpp:" + v, XMPP_APPS) else null
             HandleService.SIP -> if (address.matches(v)) HandleLink("sip:" + v, isCall = true) else null
-            HandleService.SKYPE -> HandleLink("skype:" + encode(v) + "?chat", listOf("com.skype.raider"))
+            HandleService.SKYPE -> HandleLink("skype:" + encode(v) + "?chat", MessengerCatalog.SKYPE.packages)
             HandleService.DISCORD -> if (v.all { it.isDigit() } && v.length in 15..21) {
-                HandleLink("https://discord.com/users/" + v, listOf("com.discord"), isWeb = true)
+                HandleLink("https://discord.com/users/" + v, MessengerCatalog.DISCORD.packages, isWeb = true)
             } else null
             HandleService.SIMPLEX -> if (v.startsWith("https://simplex.chat/") || v.startsWith("simplex:")) {
-                HandleLink(v, listOf("chat.simplex.app"), isWeb = v.startsWith("https://"))
+                HandleLink(v, MessengerCatalog.SIMPLEX.packages, isWeb = v.startsWith("https://"))
             } else null
             else -> null
         }
     }
 
-    /** Packages the app should be able to see (manifest `<queries>`), for [link] targets. */
-    val MATRIX_APPS = listOf("im.vector.app", "de.spiritcroc.riotx", "chat.fluffy.fluffychat")
-    val TELEGRAM_APPS = listOf("org.telegram.messenger", "org.telegram.messenger.web", "org.thunderdog.challegram", "org.telegram.plus", "org.telegram.messenger.beta")
-    val XMPP_APPS = listOf("eu.siacs.conversations", "im.quicksy.client", "org.monocles.chat")
+    /** Apps that open [link] targets, from [MessengerCatalog] (all of them are in the manifest's `<queries>`). */
+    val MATRIX_APPS: List<String> get() = QrApp.MATRIX.packages
+    val TELEGRAM_APPS: List<String> get() = QrApp.TELEGRAM.packages
+    val XMPP_APPS: List<String> get() = MessengerCatalog.XMPP.packages
 
     private fun encode(s: String): String = app.parley.common.MessengerLinks.encode(s, keep = "@:")
 }

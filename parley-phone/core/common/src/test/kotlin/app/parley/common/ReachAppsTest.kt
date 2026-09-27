@@ -159,17 +159,17 @@ class ReachAppsTest {
             row("${item}vnd.org.thoughtcrime.securesms.call", "org.thoughtcrime.securesms", id = 3),
             row("${item}vnd.com.whatsapp.w4b.video.call", "com.whatsapp.w4b", id = 7),
         )
-        val signal = CallRoutes.forApp(MessengerApp.SIGNAL, video = false, rows)
+        val signal = CallRoutes.forApp(MessengerApp.of(app.parley.common.MessengerCatalog.SIGNAL), video = false, rows)
         assertTrue(signal is CallRoute.Row)
         assertEquals(3L, (signal as CallRoute.Row).row.dataId)
         // No video row from Signal: the chat, never a pretend call link.
-        assertEquals(CallRoute.ViaChat(MessengerApp.SIGNAL), CallRoutes.forApp(MessengerApp.SIGNAL, video = true, rows))
+        assertEquals(CallRoute.ViaChat(MessengerApp.of(app.parley.common.MessengerCatalog.SIGNAL)), CallRoutes.forApp(MessengerApp.of(app.parley.common.MessengerCatalog.SIGNAL), video = true, rows))
         // Business's row doesn't start a call in WhatsApp.
-        assertEquals(CallRoute.ViaChat(MessengerApp.WHATSAPP), CallRoutes.forApp(MessengerApp.WHATSAPP, video = true, rows))
-        assertTrue(CallRoutes.forApp(MessengerApp.WHATSAPP_BUSINESS, video = true, rows) is CallRoute.Row)
+        assertEquals(CallRoute.ViaChat(MessengerApp.of(app.parley.common.MessengerCatalog.WHATSAPP)), CallRoutes.forApp(MessengerApp.of(app.parley.common.MessengerCatalog.WHATSAPP), video = true, rows))
+        assertTrue(CallRoutes.forApp(MessengerApp.of(app.parley.common.MessengerCatalog.WHATSAPP_BUSINESS), video = true, rows) is CallRoute.Row)
         // Molly doesn't take Signal's row.
-        assertEquals(CallRoute.ViaChat(MessengerApp.MOLLY), CallRoutes.forApp(MessengerApp.MOLLY, video = false, rows))
-        assertNotNull(ReachApp.forMessengerApp(MessengerApp.TELEGRAM_WEB))
+        assertEquals(CallRoute.ViaChat(MessengerApp.of(app.parley.common.MessengerCatalog.MOLLY)), CallRoutes.forApp(MessengerApp.of(app.parley.common.MessengerCatalog.MOLLY), video = false, rows))
+        assertNotNull(ReachApp.forMessengerApp(MessengerApp.forPackage("org.telegram.messenger.web")!!))
     }
 
     // ---- v3.4 review #5: messenger-only contacts match exact numbers only ----

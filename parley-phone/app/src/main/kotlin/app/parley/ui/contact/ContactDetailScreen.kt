@@ -167,7 +167,6 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
     var secureQr by remember { mutableStateOf(false) }
     var copyToSim by remember { mutableStateOf(false) }
     var messageSheet by remember { mutableStateOf<String?>(null) }
-    var videoChooser by remember { mutableStateOf(false) }
     var webLink by remember { mutableStateOf<HandleLink?>(null) }
     val allNotes by vm.c.meta.allCallNotes().collectAsStateWithLifecycle(emptyList())
     var editNote by remember { mutableStateOf(false) }
@@ -394,7 +393,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
         fun doVideo() {
             val only = r.videoRows.distinctBy { it.accountType }.singleOrNull()
             val target = preferredVideo ?: only
-            if (target != null) ContactMessaging.startRow(context, r, target)?.let { vm.toast(it) } else videoChooser = true
+            if (target != null) ContactMessaging.startRow(context, r, target)?.let { vm.toast(it) } else messageSheet = primary?.value.orEmpty()
         }
         val email = d.emails.firstOrNull { it.isPrimary } ?: d.emails.firstOrNull()
         val sections = PageSections()
@@ -669,7 +668,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                         if (r.videoRows.isNotEmpty()) {
                             ActionTile(
                                 Icons.Rounded.Videocam, preferredVideo?.appName ?: stringResource(R.string.detail_video), true,
-                                onLongClick = { videoChooser = true }, longClickLabel = stringResource(R.string.detail_choose_video),
+                                onLongClick = { messageSheet = primary?.value.orEmpty() }, longClickLabel = stringResource(R.string.detail_choose_video),
                             ) { doVideo() }
                         }
                         ActionTile(Icons.Rounded.Email, stringResource(R.string.detail_email), email != null) {
@@ -711,14 +710,12 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
         }
 
         messageSheet?.let { n ->
-            ContactMessageSheet(
-                r.copy(defaultNumber = n.ifEmpty { r.defaultNumber }),
+            app.parley.messaging.ReachSheet(
+                app.parley.messaging.ReachTarget.Person(r.copy(defaultNumber = n.ifEmpty { r.defaultNumber })) { p -> savePrefs(p) },
                 onDismiss = { messageSheet = null },
                 onCall = { num -> callPeek(num, r.name) },
-                onRemember = { p -> savePrefs(p) },
             )
         }
-        if (videoChooser) VideoChooser(r, onDismiss = { videoChooser = false }) { p -> savePrefs(p) }
         webLink?.let { l -> ConfirmWebLink(l) { webLink = null } }
         if (showQr) QrDialog(d) { showQr = false }
         if (secureQr) SecureQrDialog(d) { secureQr = false }

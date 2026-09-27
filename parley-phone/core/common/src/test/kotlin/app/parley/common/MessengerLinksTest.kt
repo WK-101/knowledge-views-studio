@@ -67,32 +67,32 @@ class MessengerLinksTest {
     // ---- Links: one per app, always an explicit package ----
 
     @Test fun whatsapp() {
-        val l = MessengerLinks.build(MessengerApp.WHATSAPP, pk, "Hi there & bye")!!
+        val l = MessengerLinks.build(MessengerApp.of(app.parley.common.MessengerCatalog.WHATSAPP), pk, "Hi there & bye")!!
         assertEquals("https://wa.me/923001234567?text=Hi%20there%20%26%20bye", l.uri)
         assertEquals("com.whatsapp", l.packageName)
         assertEquals(MessengerLink.ACTION_VIEW, l.action)
-        assertEquals("com.whatsapp.w4b", MessengerLinks.build(MessengerApp.WHATSAPP_BUSINESS, pk)!!.packageName)
-        assertEquals("https://wa.me/923001234567", MessengerLinks.build(MessengerApp.WHATSAPP, pk, "  ")!!.uri)
+        assertEquals("com.whatsapp.w4b", MessengerLinks.build(MessengerApp.of(app.parley.common.MessengerCatalog.WHATSAPP_BUSINESS), pk)!!.packageName)
+        assertEquals("https://wa.me/923001234567", MessengerLinks.build(MessengerApp.of(app.parley.common.MessengerCatalog.WHATSAPP), pk, "  ")!!.uri)
     }
 
     @Test fun signal_and_molly() {
-        val l = MessengerLinks.build(MessengerApp.SIGNAL, pk, "ignored")!!
+        val l = MessengerLinks.build(MessengerApp.of(app.parley.common.MessengerCatalog.SIGNAL), pk, "ignored")!!
         assertEquals("sgnl://signal.me/#p/+923001234567", l.uri)
         assertEquals("org.thoughtcrime.securesms", l.packageName)
-        assertEquals("im.molly.app", MessengerLinks.build(MessengerApp.MOLLY, pk)!!.packageName)
-        assertFalse(MessengerApp.SIGNAL.takesText)
+        assertEquals("im.molly.app", MessengerLinks.build(MessengerApp.of(app.parley.common.MessengerCatalog.MOLLY), pk)!!.packageName)
+        assertFalse(MessengerApp.of(app.parley.common.MessengerCatalog.SIGNAL).takesText)
     }
 
     @Test fun telegram_all_three_apps() {
-        val l = MessengerLinks.build(MessengerApp.TELEGRAM, pk, "Привет")!!
+        val l = MessengerLinks.build(MessengerApp.of(app.parley.common.MessengerCatalog.TELEGRAM), pk, "Привет")!!
         assertEquals("tg://resolve?phone=923001234567&text=%D0%9F%D1%80%D0%B8%D0%B2%D0%B5%D1%82", l.uri)
         assertEquals("org.telegram.messenger", l.packageName)
-        assertEquals("org.thunderdog.challegram", MessengerLinks.build(MessengerApp.TELEGRAM_X, pk)!!.packageName)
-        assertEquals("org.telegram.messenger.web", MessengerLinks.build(MessengerApp.TELEGRAM_WEB, pk)!!.packageName)
+        assertEquals("org.thunderdog.challegram", MessengerLinks.build(MessengerApp.of(app.parley.common.MessengerCatalog.TELEGRAM_X), pk)!!.packageName)
+        assertEquals("org.telegram.messenger.web", MessengerLinks.build(MessengerApp.forPackage("org.telegram.messenger.web")!!, pk)!!.packageName)
     }
 
     @Test fun viber() {
-        val l = MessengerLinks.build(MessengerApp.VIBER, pk)!!
+        val l = MessengerLinks.build(MessengerApp.of(app.parley.common.MessengerCatalog.VIBER), pk)!!
         assertEquals("viber://chat?number=%2B923001234567", l.uri)
         assertEquals("com.viber.voip", l.packageName)
     }
@@ -114,13 +114,13 @@ class MessengerLinksTest {
             // wa.me is WhatsApp's own verified link; nothing else is a web address.
             if (app.messenger != Messenger.WHATSAPP) assertFalse(l.uri.startsWith("http"))
         }
-        assertEquals("Install or enable WhatsApp Business", MessengerLinks.unavailableMessage(MessengerApp.WHATSAPP_BUSINESS))
+        assertEquals("Install or enable WhatsApp Business", MessengerLinks.unavailableMessage(MessengerApp.of(app.parley.common.MessengerCatalog.WHATSAPP_BUSINESS)))
     }
 
     @Test fun national_number_is_refused() {
         for (app in MessengerApp.entries) assertNull(MessengerLinks.build(app, "03001234567"))
-        assertNull(MessengerLinks.build(MessengerApp.WHATSAPP, "+0123456789"))
-        assertNull(MessengerLinks.build(MessengerApp.WHATSAPP, "+12"))
+        assertNull(MessengerLinks.build(MessengerApp.of(app.parley.common.MessengerCatalog.WHATSAPP), "+0123456789"))
+        assertNull(MessengerLinks.build(MessengerApp.of(app.parley.common.MessengerCatalog.WHATSAPP), "+12"))
     }
 
     @Test fun packages_are_unique() {

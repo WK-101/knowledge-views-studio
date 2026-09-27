@@ -1,31 +1,36 @@
 package app.parley.common.qr
 
+import app.parley.common.MessengerCatalog
+
 /**
  * Q3: messengers whose contact, chat and invite links a QR code can hold. [packages] are the apps (and forks) that
- * open them, the first one being the store page offered when none is installed. [scanInside]: the app mostly wants
- * its own codes scanned inside it (WeChat, KakaoTalk profiles); [legacy]: the service has closed.
+ * open them, from [MessengerCatalog]; the first one is the store page offered when none is installed. [scanInside]:
+ * the app mostly wants its own codes scanned inside it (WeChat, KakaoTalk profiles); [legacy]: the service has closed.
  */
-enum class QrApp(val label: String, val packages: List<String>, val scanInside: Boolean = false, val legacy: Boolean = false) {
-    WHATSAPP("WhatsApp", listOf("com.whatsapp", "com.whatsapp.w4b")),
-    SIGNAL("Signal", listOf("org.thoughtcrime.securesms", "im.molly.app")),
-    TELEGRAM("Telegram", listOf("org.telegram.messenger", "org.telegram.messenger.web", "org.thunderdog.challegram", "org.telegram.plus", "org.telegram.messenger.beta")),
-    WECHAT("WeChat", listOf("com.tencent.mm"), scanInside = true),
-    LINE("LINE", listOf("jp.naver.line.android")),
-    VIBER("Viber", listOf("com.viber.voip")),
-    THREEMA("Threema", listOf("ch.threema.app", "ch.threema.app.libre", "ch.threema.app.work")),
-    SKYPE("Skype", listOf("com.skype.raider"), legacy = true),
-    MESSENGER("Messenger", listOf("com.facebook.orca")),
-    INSTAGRAM("Instagram", listOf("com.instagram.android")),
-    SNAPCHAT("Snapchat", listOf("com.snapchat.android")),
-    KAKAOTALK("KakaoTalk", listOf("com.kakao.talk")),
-    ZALO("Zalo", listOf("com.zing.zalo")),
-    DISCORD("Discord", listOf("com.discord")),
-    SESSION("Session", listOf("network.loki.messenger")),
-    SIMPLEX("SimpleX Chat", listOf("chat.simplex.app")),
-    MATRIX("Matrix", listOf("im.vector.app", "io.element.android.x", "de.spiritcroc.riotx", "chat.fluffy.fluffychat")),
-    WIRE("Wire", listOf("com.wire")),
-    BRIAR("Briar", listOf("org.briarproject.briar.android")),
+enum class QrApp(val label: String, val scanInside: Boolean = false, val legacy: Boolean = false) {
+    WHATSAPP("WhatsApp"),
+    SIGNAL("Signal"),
+    TELEGRAM("Telegram"),
+    WECHAT("WeChat", scanInside = true),
+    LINE("LINE"),
+    VIBER("Viber"),
+    THREEMA("Threema"),
+    SKYPE("Skype", legacy = true),
+    MESSENGER("Messenger"),
+    INSTAGRAM("Instagram"),
+    SNAPCHAT("Snapchat"),
+    KAKAOTALK("KakaoTalk"),
+    ZALO("Zalo"),
+    DISCORD("Discord"),
+    SESSION("Session"),
+    SIMPLEX("SimpleX Chat"),
+    MATRIX("Matrix"),
+    WIRE("Wire"),
+    BRIAR("Briar"),
     ;
+
+    /** The apps that open this family's links, main apps first (catalog order). */
+    val packages: List<String> by lazy { MessengerCatalog.entries.filter { it.qr == this }.flatMap { it.packages } }
 
     /** No link scheme opens it with the payload: Parley copies the text and opens the app (Session IDs, Briar links). */
     val pasteOnly: Boolean get() = this == SESSION || this == BRIAR
