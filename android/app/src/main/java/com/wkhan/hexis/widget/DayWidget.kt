@@ -15,6 +15,7 @@ import com.wkhan.hexis.MainActivity
 import com.wkhan.hexis.R
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import java.time.DayOfWeek
@@ -68,18 +69,25 @@ class DayWidget : BaseWidgetProvider() {
         val offset = WidgetPrefs.dayOffset(context, id)
         val selected = today.plusDays(offset.toLong())
 
-        val s = runBlocking { app.repository.settingsSnapshot() }
+        // R109 (Tier-2) — the three reads a refresh needs (settings, tasks, events) are independent, so fetch
+        // them concurrently in one blocking scope instead of three sequential runBlocking hops: one parallel
+        // round-trip per refresh rather than three serial ones. Data and downstream logic are unchanged.
+        val (s, tasks, rawEvents) = runBlocking {
+            val sD = async { app.repository.settingsSnapshot() }
+            val tD = async { app.repository.wsTasksOnce() }
+            val eD = async { runCatching { app.repository.wsEventsOnce() }.getOrDefault(emptyList()) }
+            Triple(sD.await(), tD.await(), eD.await())
+        }
         val weekStart = if (s.weekStart in 1..7) DayOfWeek.of(s.weekStart) else WeekFields.of(Locale.getDefault()).firstDayOfWeek
         val fromStart = ((selected.dayOfWeek.value - weekStart.value) + 7) % 7
         val weekStartDate = selected.minusDays(fromStart.toLong())
         val weekDays = (0..6).map { weekStartDate.plusDays(it.toLong()) }
 
         // Per-day presence dots: any open task due, or any event, that day.
-        val tasks = runBlocking { app.repository.wsTasksOnce() }
         val weekStartMs = weekStartDate.atStartOfDay(zone).toInstant().toEpochMilli()
         val weekEndMs = weekStartDate.plusDays(7).atStartOfDay(zone).toInstant().toEpochMilli()
         val eventDays = runCatching {
-            runBlocking { com.wkhan.hexis.domain.calendar.CalendarEngine.expand(app.repository.wsEventsOnce(), weekStartMs, weekEndMs, zone) }
+            com.wkhan.hexis.domain.calendar.CalendarEngine.expand(rawEvents, weekStartMs, weekEndMs, zone)
                 .map { Instant.ofEpochMilli(it.startMillis).atZone(zone).toLocalDate() }.toSet()
         }.getOrDefault(emptySet())
         val taskDays = tasks.asSequence()

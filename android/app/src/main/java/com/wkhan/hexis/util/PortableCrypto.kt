@@ -1,7 +1,6 @@
 package com.wkhan.hexis.util
 
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
 import java.util.Base64
 import javax.crypto.Cipher
 import javax.crypto.SecretKeyFactory
@@ -45,7 +44,7 @@ object PortableCrypto {
         val salt: String, val iv: String, val ciphertext: String,
     )
 
-    private val json = Json { ignoreUnknownKeys = true }
+    private val json = AppJson   // R109 (Tier-2 dedup) — shared serializer; Envelope has no defaulted fields, so encoding is byte-identical
     private val b64: Base64.Encoder = Base64.getEncoder()
     private val unb64: Base64.Decoder = Base64.getDecoder()
 

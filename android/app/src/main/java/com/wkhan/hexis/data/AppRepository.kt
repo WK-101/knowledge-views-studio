@@ -32,6 +32,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.shareIn
+import com.wkhan.hexis.util.runCatchingLogged
 import java.util.UUID
 
 /** Single source of truth over Room. Reads are reactive Flows; writes are suspend.
@@ -86,11 +87,11 @@ class AppRepository(private val db: AppDatabase, private val appContext: android
     suspend fun optimizeStorage(): Boolean = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
         runCatching {
             val sdb = db.openHelper.writableDatabase
-            runCatching { rebuildTaskFtsBlocking(sdb) }   // R54 — recover a stale/missing search index too
-            runCatching { rebuildNoteFtsBlocking(sdb) }   // …including the note body index, so notes search stays fast
-            runCatching { sdb.execSQL("PRAGMA wal_checkpoint(TRUNCATE)") }
-            runCatching { sdb.execSQL("VACUUM") }
-            runCatching { sdb.execSQL("PRAGMA optimize") }
+            runCatchingLogged("optimize.rebuildTaskFts") { rebuildTaskFtsBlocking(sdb) }   // R54 — recover a stale/missing search index too
+            runCatchingLogged("optimize.rebuildNoteFts") { rebuildNoteFtsBlocking(sdb) }   // …including the note body index, so notes search stays fast
+            runCatchingLogged("optimize.walCheckpoint") { sdb.execSQL("PRAGMA wal_checkpoint(TRUNCATE)") }
+            runCatchingLogged("optimize.vacuum") { sdb.execSQL("VACUUM") }
+            runCatchingLogged("optimize.pragmaOptimize") { sdb.execSQL("PRAGMA optimize") }
             true
         }.getOrDefault(false)
     }
@@ -899,7 +900,7 @@ class AppRepository(private val db: AppDatabase, private val appContext: android
         if (vaulted) {
             // Purge any structured trace from a prior plaintext save, and keep the note out of search.
             notes.unlinkAllTagsForNote(id); notes.unlinkAllContextsForNote(id); noteLinks.clearForNote(id)
-            runCatching { deleteNoteFts(ftsDb(), id) }
+            runCatchingLogged("noteFtsDelete") { deleteNoteFts(ftsDb(), id) }
             noteCards.deleteForNote(id)   // Wave 3 — no flashcards from ciphertext
         } else {
             materializeNoteTags(id)      // inline body #tags → structured note_tags (before FTS so tag names index)
@@ -909,7 +910,7 @@ class AppRepository(private val db: AppDatabase, private val appContext: android
             materializeNoteCards(stamped)  // Wave 3 — derive Active-Recall cards, preserving each card's schedule
             // Wave 2 · Privacy Governance Dial — a note flagged noIndex keeps its structural links/tags but
             // is dropped from FTS so it never surfaces in search / Ask / related.
-            if (n.noIndex) runCatching { deleteNoteFts(ftsDb(), id) } else reindexNoteFts(stamped)
+            if (n.noIndex) runCatchingLogged("noteFtsDelete") { deleteNoteFts(ftsDb(), id) } else reindexNoteFts(stamped)
         }
         return id
     }
@@ -1056,7 +1057,7 @@ class AppRepository(private val db: AppDatabase, private val appContext: android
                 deletedBy = if (trashed) "user" else null,
             ))
         }
-        if (trashed) runCatching { deleteNoteFts(ftsDb(), id) } else notes.getById(id)?.let { syncNoteFts(id, it.title, it.body) }
+        if (trashed) runCatchingLogged("noteFtsDelete") { deleteNoteFts(ftsDb(), id) } else notes.getById(id)?.let { syncNoteFts(id, it.title, it.body) }
     }
 
     /**
@@ -1078,7 +1079,7 @@ class AppRepository(private val db: AppDatabase, private val appContext: android
             noteCards.deleteForNote(id)      // Wave 3 — cascade Active-Recall cards with the note
             notes.deleteById(id)
         }
-        runCatching { deleteNoteFts(ftsDb(), id) }
+        runCatchingLogged("noteFtsDelete") { deleteNoteFts(ftsDb(), id) }
     }
 
     suspend fun setNoteTags(noteId: String, tagIds: List<String>) {
@@ -1449,7 +1450,7 @@ class AppRepository(private val db: AppDatabase, private val appContext: android
             notes.getAll().filter { it.linkedTaskId in idSet }.forEach { notes.upsert(it.copy(linkedTaskId = null)) }
         }
         // R54 — keep the search index aligned AFTER the txn commits (FTS is raw-SQL, outside Room's txn).
-        runCatching { val sdb = ftsDb(); for (id in ids) deleteTaskFts(sdb, id) }
+        runCatchingLogged("taskFtsDeleteBatch") { val sdb = ftsDb(); for (id in ids) deleteTaskFts(sdb, id) }
     }
 
     /** Empty the Trash. When [workspaceId] is given, only tasks trashed in that workspace are purged —
@@ -2233,7 +2234,7 @@ class AppRepository(private val db: AppDatabase, private val appContext: android
         // reflects the committed rows. The count-freshness heuristic can't catch a same-cardinality
         // replacement (restoring N notes over a different N), so rebuild eagerly or search would return
         // stale, pre-restore ids.
-        runCatching { val sdb = ftsDb(); rebuildTaskFtsBlocking(sdb); rebuildNoteFtsBlocking(sdb) }
+        runCatchingLogged("ftsRebuildAll") { val sdb = ftsDb(); rebuildTaskFtsBlocking(sdb); rebuildNoteFtsBlocking(sdb) }
     }
 
     /**

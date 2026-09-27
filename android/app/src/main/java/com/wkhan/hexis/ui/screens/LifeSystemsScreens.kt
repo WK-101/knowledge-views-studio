@@ -551,7 +551,7 @@ private fun BuddiesScreen(vm: AppViewModel, onBack: () -> Unit) {
             if (buddies.isEmpty()) item { EmptyBlock("🤝", "No buddies yet", "Import a friend's shared digest to see their streaks here — a quiet, private cheer-squad.", null) }
             items(buddies.size) { i ->
                 val b = buddies[i]
-                val digest = remember(b.payloadJson) { runCatching { kotlinx.serialization.json.Json { ignoreUnknownKeys = true }.decodeFromString(LifeSystems.BuddyDigest.serializer(), b.payloadJson) }.getOrNull() }
+                val digest = remember(b.payloadJson) { runCatching { com.wkhan.hexis.util.AppJson.decodeFromString(LifeSystems.BuddyDigest.serializer(), b.payloadJson) }.getOrNull() }
                 Surface(shape = RoundedCornerShape(16.dp), color = appCardColor()) {
                     Column(Modifier.padding(16.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {

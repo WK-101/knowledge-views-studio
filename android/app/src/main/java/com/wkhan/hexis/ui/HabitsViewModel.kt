@@ -453,7 +453,7 @@ class HabitsViewModel(
         return kotlinx.serialization.json.Json.encodeToString(com.wkhan.hexis.domain.habit.LifeSystems.BuddyDigest.serializer(), digest)
     }
     fun importBuddyDigest(json: String) = scope.launch {
-        val digest = runCatching { kotlinx.serialization.json.Json { ignoreUnknownKeys = true }.decodeFromString(com.wkhan.hexis.domain.habit.LifeSystems.BuddyDigest.serializer(), json) }.getOrNull()
+        val digest = runCatching { com.wkhan.hexis.util.AppJson.decodeFromString(com.wkhan.hexis.domain.habit.LifeSystems.BuddyDigest.serializer(), json) }.getOrNull()
         if (digest == null) { app.toast("That doesn't look like a buddy digest."); return@launch }
         repo.upsertBuddy(com.wkhan.hexis.data.entity.BuddySnapshotEntity(java.util.UUID.randomUUID().toString(), digest.name, System.currentTimeMillis(), json, workspaceId = activeWorkspace()))
         app.toast("Imported ${digest.name}'s progress 🤝")

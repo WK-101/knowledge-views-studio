@@ -79,7 +79,7 @@ object TaskCoach {
      *  read from the task's own revision history. Null if too little history. */
     data class Reliability(val completions: Int, val onTime: Int, val ratePct: Int)
 
-    private val json = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
+    private val json = com.wkhan.hexis.util.AppJson   // R109 (Tier-2 dedup) — shared serializer
 
     fun reliability(task: TaskEntity, revisions: List<TaskRevisionEntity>, zone: ZoneId = ZoneId.systemDefault()): Reliability? {
         if (task.rrule.isNullOrBlank()) return null
