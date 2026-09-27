@@ -22,7 +22,6 @@ import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.DragIndicator
 import androidx.compose.material.icons.rounded.StarOutline
@@ -67,6 +66,7 @@ import app.parley.ui.Avatar
 import app.parley.ui.EmptyState
 import app.parley.ui.Routes
 import app.parley.ui.circle.CircleFavoritesSection
+import app.parley.ui.ParleyShapes
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -228,7 +228,7 @@ private fun List<ContactSummary>.moved(from: Int, to: Int): List<ContactSummary>
 @Composable
 internal fun Tile(name: String, photo: String?, onClick: () -> Unit, onLong: () -> Unit, modifier: Modifier = Modifier, reorder: Boolean = false) {
     Column(
-        modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp))
+        modifier.fillMaxWidth().clip(ParleyShapes.card)
             .then(if (reorder) Modifier else Modifier.combinedClickable(onClick = onClick, onLongClick = onLong, onClickLabel = stringResource(R.string.main_call), onLongClickLabel = stringResource(R.string.main_open_contact)))
             .padding(vertical = 12.dp, horizontal = 4.dp),
         horizontalAlignment = Alignment.CenterHorizontally,

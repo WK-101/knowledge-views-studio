@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Dialpad
 import androidx.compose.material.icons.rounded.Star
@@ -58,6 +57,7 @@ import app.parley.ui.SwitchRow
 import app.parley.ui.InfoRow
 import app.parley.ui.rowColors
 import app.parley.ui.ParleyDialog
+import app.parley.ui.ParleyShapes
 
 /**
  * Settings › Appearance › Layout. Both combine options with small previews, the question whether to
@@ -214,8 +214,8 @@ private fun PreviewChoices(options: List<Triple<String, Thumb, Boolean>>, onPick
             val cs = MaterialTheme.colorScheme
             Column(
                 Modifier.weight(1f)
-                    .clip(RoundedCornerShape(16.dp))
-                    .border(BorderStroke(if (selected) 2.dp else 1.dp, if (selected) cs.primary else cs.outlineVariant), RoundedCornerShape(16.dp))
+                    .clip(ParleyShapes.tile)
+                    .border(BorderStroke(if (selected) 2.dp else 1.dp, if (selected) cs.primary else cs.outlineVariant), ParleyShapes.tile)
                     .selectable(selected, role = Role.RadioButton) { onPick(i) }
                     .padding(8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,

@@ -21,7 +21,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -42,7 +41,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -82,13 +80,17 @@ import app.parley.ui.Avatar
 import app.parley.ui.people.RelationText
 import app.parley.ui.ParleyDialog
 import app.parley.ui.ConfirmDialog
+import app.parley.ui.ParleySheet
+import app.parley.ui.ParleyShapes
+import app.parley.ui.topOnly
+import app.parley.ui.bottomOnly
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.Shape
 
 // Building blocks of the redesigned contact editor.
 
 /** Where a piece sits in its group card: the pieces of one group stack into one rounded card. */
 internal enum class SegPos { Top, Middle, Bottom, Single }
-
-private val CardRadius = 24.dp
 
 /**
  * One piece of a group card. Groups are split into pieces (head, one per row, the "Add" row) so each row can be
@@ -97,10 +99,10 @@ private val CardRadius = 24.dp
 @Composable
 internal fun Segment(pos: SegPos, modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
     val shape = when (pos) {
-        SegPos.Top -> RoundedCornerShape(topStart = CardRadius, topEnd = CardRadius)
-        SegPos.Middle -> RoundedCornerShape(0.dp)
-        SegPos.Bottom -> RoundedCornerShape(bottomStart = CardRadius, bottomEnd = CardRadius)
-        SegPos.Single -> RoundedCornerShape(CardRadius)
+        SegPos.Top -> ParleyShapes.panel.topOnly()
+        SegPos.Middle -> RectangleShape
+        SegPos.Bottom -> ParleyShapes.panel.bottomOnly()
+        SegPos.Single -> ParleyShapes.panel
     }
     Surface(shape = shape, color = MaterialTheme.colorScheme.surfaceContainer, modifier = modifier.fillMaxWidth()) {
         val top = if (pos == SegPos.Top || pos == SegPos.Single) 12.dp else 4.dp
@@ -129,7 +131,7 @@ internal fun GroupHead(icon: ImageVector, title: String) {
 @Composable
 internal fun AddRow(label: String, onClick: () -> Unit) {
     Row(
-        Modifier.fillMaxWidth().heightIn(min = 48.dp).clip(RoundedCornerShape(12.dp)).clickable(onClick = onClick).padding(vertical = 6.dp),
+        Modifier.fillMaxWidth().heightIn(min = 48.dp).clip(ParleyShapes.control).clickable(onClick = onClick).padding(vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
@@ -153,7 +155,7 @@ internal val LocalLocked = staticCompositionLocalOf<Set<Long>> { emptySet() }
 @Composable
 internal fun LockIcon() = Icon(Icons.Rounded.Lock, stringResource(R.string.edit_locked))
 
-internal val FieldShape = RoundedCornerShape(14.dp)
+internal val FieldShape: Shape @Composable get() = ParleyShapes.control
 
 /**
  * A single-line editor field: IME "Next" moves on to the following field; [hint] is a gentle note shown once the
@@ -210,7 +212,7 @@ internal fun TypeChip(current: String, options: List<String>, enabled: Boolean =
             onClick = { open = true }, enabled = enabled,
             label = { Text(current, maxLines = 1, overflow = TextOverflow.Ellipsis) },
             trailingIcon = if (enabled) { { Icon(Icons.Rounded.ArrowDropDown, null, Modifier.size(AssistChipDefaults.IconSize)) } } else null,
-            shape = RoundedCornerShape(10.dp),
+            shape = ParleyShapes.control,
             modifier = Modifier.semantics {
                 contentDescription = desc
                 onClick(label = change) { open = true; true }
@@ -265,7 +267,7 @@ internal class MoreEntry(val icon: ImageVector, val title: String, val subtitle:
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun MoreInfoSheet(entries: List<MoreEntry>, onDismiss: () -> Unit) {
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    ParleySheet(onDismissRequest = onDismiss) {
         Column(Modifier.navigationBarsPadding().padding(bottom = 16.dp)) {
             Text(
                 stringResource(R.string.editor_more_info_title), style = MaterialTheme.typography.titleLarge,

@@ -18,7 +18,6 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Backspace
 import androidx.compose.material.icons.rounded.Call
@@ -73,6 +72,7 @@ import app.parley.ui.LocalSnackbar
 import app.parley.ui.ScreenSnackbarHost
 import app.parley.ui.ParleyDialog
 import app.parley.ui.ConfirmDialog
+import app.parley.ui.ParleyShapes
 
 /**
  * The simple home, shown instead of the tabs while simple mode is on. Big photo tiles (up to 3 × 3), each asks
@@ -123,7 +123,7 @@ fun SimpleHome(vm: AppViewModel) {
                         leave,
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.clip(RoundedCornerShape(12.dp))
+                        modifier = Modifier.clip(ParleyShapes.control)
                             .combinedClickable(
                                 onClickLabel = leave,
                                 onClick = { vm.toast(res.getString(R.string.simple_leave_hold)) },
@@ -140,7 +140,7 @@ fun SimpleHome(vm: AppViewModel) {
                     TileGrid(tiles, Modifier.weight(1f)) { name, number -> calling = name to number }
                     if (cfg.showKeypad) {
                         Spacer(Modifier.height(12.dp))
-                        Button({ keypad = true }, Modifier.fillMaxWidth().height(72.dp), shape = RoundedCornerShape(24.dp)) {
+                        Button({ keypad = true }, Modifier.fillMaxWidth().height(72.dp), shape = ParleyShapes.panel) {
                             Icon(Icons.Rounded.Dialpad, null, Modifier.size(32.dp))
                             Spacer(Modifier.size(12.dp))
                             Text(stringResource(R.string.simple_keypad_open), fontSize = 24.sp)
@@ -215,7 +215,7 @@ private fun Tile(t: SimpleSetup.Resolved, onCall: (String, String) -> Unit) {
     val label = stringResource(R.string.circle_call_who, t.person.name)
     Surface(
         onClick = { onCall(t.person.name, t.person.number) },
-        shape = RoundedCornerShape(24.dp),
+        shape = ParleyShapes.panel,
         color = MaterialTheme.colorScheme.secondaryContainer,
         modifier = Modifier.fillMaxSize().semantics { onClick(label) { onCall(t.person.name, t.person.number); true } },
     ) {
@@ -260,7 +260,7 @@ private fun SimpleKeypad(digits: String, onDigits: (String) -> Unit, onClose: ()
         }
     }
     Button(
-        onCall, enabled = digits.isNotBlank(), modifier = Modifier.fillMaxWidth().height(80.dp), shape = RoundedCornerShape(28.dp),
+        onCall, enabled = digits.isNotBlank(), modifier = Modifier.fillMaxWidth().height(80.dp), shape = ParleyShapes.sheet,
         colors = ButtonDefaults.buttonColors(containerColor = CallColors.Accept),
     ) {
         Icon(Icons.Rounded.Call, null, Modifier.size(36.dp))
@@ -273,7 +273,7 @@ private fun SimpleKeypad(digits: String, onDigits: (String) -> Unit, onClose: ()
 @Composable
 private fun Key(k: String, modifier: Modifier, onLong: (() -> Unit)? = null, onClick: () -> Unit) {
     Box(
-        modifier.clip(RoundedCornerShape(20.dp)).background(MaterialTheme.colorScheme.surfaceContainerHigh)
+        modifier.clip(ParleyShapes.card).background(MaterialTheme.colorScheme.surfaceContainerHigh)
             .combinedClickable(role = Role.Button, onLongClick = onLong, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) { Text(k, fontSize = 40.sp, style = MaterialTheme.typography.displaySmall) }

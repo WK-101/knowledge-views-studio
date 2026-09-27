@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Clear
 import androidx.compose.material.icons.rounded.Search
@@ -68,6 +67,7 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import app.parley.ui.ParleyTopBar
 import app.parley.ui.ParleyScaffold
+import app.parley.ui.ParleyShapes
 
 /**
  * A contact's whole timeline on its own screen ("Show all" on the contact page): search the notes,
@@ -133,7 +133,7 @@ fun ContactTimelineScreen(vm: AppViewModel, contactId: Long, back: () -> Unit) {
                     leadingIcon = { Icon(Icons.Rounded.Search, null) },
                     trailingIcon = if (query.isEmpty()) null else ({ IconButton({ query = "" }) { Icon(Icons.Rounded.Clear, stringResource(R.string.contact_page_clear_search)) } }),
                     singleLine = true,
-                    shape = RoundedCornerShape(28.dp),
+                    shape = ParleyShapes.sheet,
                 )
             }
             item(key = "kinds") {

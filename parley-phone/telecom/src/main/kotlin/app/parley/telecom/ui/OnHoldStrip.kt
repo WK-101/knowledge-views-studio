@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CallEnd
 import androidx.compose.material.icons.automirrored.rounded.CallMerge
@@ -38,6 +37,7 @@ import app.parley.telecom.CallState
 import app.parley.telecom.CallUi
 import app.parley.ui.Avatar
 import app.parley.ui.CallColors
+import app.parley.ui.ParleyShapes
 
 /**
  * "Ana on hold · 02:10" with Swap, Merge and End inline. Tapping the strip swaps, only when the call in front
@@ -57,11 +57,11 @@ internal fun OnHoldStrip(held: CallUi, front: CallUi?, modifier: Modifier = Modi
     val res = LocalResources.current
     Surface(
         color = MaterialTheme.colorScheme.secondaryContainer,
-        shape = RoundedCornerShape(20.dp),
+        shape = ParleyShapes.card,
         modifier = modifier
             .fillMaxWidth()
             .padding(top = 12.dp)
-            .clip(RoundedCornerShape(20.dp))
+            .clip(ParleyShapes.card)
             .clickable(enabled = canSwap, role = Role.Button, onClickLabel = res.getString(R.string.incall_switch_to_call), onClick = swap)
             .semantics(mergeDescendants = true) {
                 contentDescription = res.getString(R.string.incall_held_description, held.title, spokenDuration(res, heldFor))

@@ -62,7 +62,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.input.InputTransformation
@@ -91,7 +90,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -150,6 +148,9 @@ import app.parley.ui.common.Format
 import app.parley.ui.highlight
 import kotlinx.coroutines.awaitCancellation
 import app.parley.ui.ConfirmDialog
+import app.parley.ui.ParleySheet
+import app.parley.ui.ParleyShapes
+import app.parley.ui.topOnly
 
 private val keys = listOf(
     "1" to "", "2" to "ABC", "3" to "DEF",
@@ -450,7 +451,7 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit, searchQuery: String? = n
     val pressOrder = remember { PressOrder() }
     val panel: @Composable (Modifier) -> Unit = { panelModifier ->
         Surface(
-            color = MaterialTheme.colorScheme.surfaceContainer, shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+            color = MaterialTheme.colorScheme.surfaceContainer, shape = ParleyShapes.sheet.topOnly(),
             // TalkBack users fold the docked keypad with an action (the handle is also a button).
             modifier = if (dock != null) panelModifier.semantics { customActions = listOf(CustomAccessibilityAction(hideKeypadLabel) { dock.onExpandedChange(false); true }) } else panelModifier,
         ) {
@@ -719,7 +720,7 @@ private fun clipHint(cm: ClipboardManager?): ClipHint = try {
 @Composable
 private fun ImeiSheet(onDismiss: () -> Unit) {
     val context = LocalContext.current
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    ParleySheet(onDismissRequest = onDismiss) {
         Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 24.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(stringResource(R.string.keypad_imei_title), style = MaterialTheme.typography.titleLarge)
             Text(

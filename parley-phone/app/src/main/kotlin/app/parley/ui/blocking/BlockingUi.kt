@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.ExpandMore
@@ -50,6 +49,7 @@ import app.parley.R
 import app.parley.common.BlockAction
 import app.parley.common.NotifyLevel
 import app.parley.ui.OnGroupSurface
+import app.parley.ui.ParleyShapes
 
 /**
  * Collapsed section with summary chips (SpamBlocker's good idea without its endless page): the header tells
@@ -80,7 +80,7 @@ fun CollapsibleSection(title: String, help: String, summary: List<String>, expan
 
 /** An inset rounded card for a group of Blocking rows; shared rows blend into it. */
 @Composable
-fun BlockingCard(shape: Shape = RoundedCornerShape(20.dp), vertical: Dp = 6.dp, content: @Composable () -> Unit) {
+fun BlockingCard(shape: Shape = ParleyShapes.card, vertical: Dp = 6.dp, content: @Composable () -> Unit) {
     Surface(
         shape = shape, color = MaterialTheme.colorScheme.surfaceContainer,
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = vertical),

@@ -43,7 +43,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -90,6 +89,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import app.parley.ui.common.ProvideAppKit
 import app.parley.ui.ConfirmDialog
+import app.parley.ui.ParleySheet
 
 /**
  * A small sheet over the current app for a phone number found in text: "Call / Message with Parley" in text
@@ -283,7 +283,7 @@ class NumberActionActivity : FragmentActivity() {
         }
         when (val s = stage) {
             is Stage.Offer -> OfferDialog(s)
-            else -> ModalBottomSheet(onDismissRequest = { finish() }, sheetState = sheetState) {
+            else -> ParleySheet(onDismissRequest = { finish() }, sheetState = sheetState) {
                 when (s) {
                     Stage.NoNumber -> Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Text(stringResource(R.string.num_none_title), style = MaterialTheme.typography.titleLarge)

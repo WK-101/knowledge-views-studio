@@ -22,7 +22,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.InputChip
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -43,9 +42,9 @@ import app.parley.common.history.FilterPeriod
 import app.parley.common.history.HistoryFilter
 import app.parley.common.history.TypeGroup
 import kotlinx.coroutines.launch
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import app.parley.R
+import app.parley.ui.ParleySheet
 
 /**
  * Saved filter chips for the Recents filter row, plus a "Filter" chip that opens the editor
@@ -88,7 +87,7 @@ private fun FilterEditorSheet(vm: AppViewModel, active: HistoryFilter, onDismiss
     var draft by remember { mutableStateOf(active) }
     var name by remember { mutableStateOf(active.name) }
 
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    ParleySheet(onDismissRequest = onDismiss) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp).padding(bottom = 24.dp)) {
             Text(stringResource(R.string.hist_filter_title), style = MaterialTheme.typography.titleLarge)
 

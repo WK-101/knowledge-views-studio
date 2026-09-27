@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -42,6 +41,7 @@ import app.parley.telecom.CallUi
 import app.parley.telecom.ui.InCallActivity
 import app.parley.ui.CallColors
 import kotlinx.coroutines.delay
+import app.parley.ui.ParleyShapes
 
 /**
  * "● On call with Ana · 03:12 · Return" above the bottom navigation whenever a call exists. With a time
@@ -75,11 +75,11 @@ fun ReturnToCallChip(modifier: Modifier = Modifier) {
         val color = if (call?.state == CallState.RINGING) MaterialTheme.colorScheme.tertiary else CallColors.Accept
         Surface(
             color = color,
-            shape = RoundedCornerShape(20.dp),
+            shape = ParleyShapes.card,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 12.dp, vertical = 6.dp)
-                .clip(RoundedCornerShape(20.dp))
+                .clip(ParleyShapes.card)
                 .clickable(onClickLabel = stringResource(R.string.ct_chip_return_to_call)) { context.startActivity(InCallActivity.intent(context, false)) }
                 .semantics(mergeDescendants = true) { contentDescription = spoken },
         ) {

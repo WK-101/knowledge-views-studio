@@ -22,7 +22,6 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -59,6 +58,7 @@ import androidx.compose.ui.unit.sp
 import app.parley.R
 import app.parley.common.people.FastScroll
 import kotlin.math.roundToInt
+import app.parley.ui.ParleyShapes
 
 /**
  * The Contacts A–Z rail. Like Google Contacts and Samsung's phonebook, dragging along it shows a large
@@ -98,7 +98,7 @@ fun FastScrollRail(letters: List<String>, current: Int, modifier: Modifier = Mod
                 .fillMaxHeight()
                 .width(32.dp)
                 .padding(vertical = 8.dp)
-                .background(MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.9f * railAlpha), RoundedCornerShape(16.dp))
+                .background(MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.9f * railAlpha), ParleyShapes.tile)
                 .onSizeChanged { height = it.height }
                 .clearAndSetSemantics {
                     contentDescription = indexLabel
@@ -165,7 +165,7 @@ fun FastScrollRail(letters: List<String>, current: Int, modifier: Modifier = Mod
             exit = scaleOut(tween(150), transformOrigin = corner) + fadeOut(tween(150)),
         ) {
             Surface(
-                shape = RoundedCornerShape(topStartPercent = 50, topEndPercent = 50, bottomStartPercent = 50, bottomEndPercent = 8),
+                shape = ParleyShapes.bubble,
                 color = MaterialTheme.colorScheme.primaryContainer,
                 contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                 shadowElevation = 6.dp,

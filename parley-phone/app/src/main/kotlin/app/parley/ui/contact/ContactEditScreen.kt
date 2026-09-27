@@ -45,7 +45,6 @@ import androidx.compose.foundation.lazy.LazyItemScope
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -147,6 +146,8 @@ import app.parley.ui.ParleyTopBar
 import app.parley.ui.ParleyScaffold
 import app.parley.ui.ParleyDialog
 import app.parley.ui.ConfirmDialog
+import app.parley.ui.ParleyShapes
+import app.parley.ui.animatedCorners
 
 private val phoneTypes = listOf(Phone.TYPE_MOBILE, Phone.TYPE_HOME, Phone.TYPE_WORK, Phone.TYPE_MAIN, Phone.TYPE_FAX_WORK, Phone.TYPE_OTHER)
 private val emailTypes = listOf(Email.TYPE_HOME, Email.TYPE_WORK, Email.TYPE_MOBILE, Email.TYPE_OTHER)
@@ -282,7 +283,7 @@ fun ContactEditScreen(
                 val s = 1f - 0.08f * shrink
                 scaleX = s
                 scaleY = s
-                shape = RoundedCornerShape((32 * shrink).dp)
+                shape = animatedCorners((32 * shrink).dp)
                 clip = shrink > 0f
             }
             .nestedScroll(scroll.nestedScrollConnection),
@@ -681,7 +682,7 @@ private fun AccountLine(
                             )
                         },
                         trailingIcon = { Icon(Icons.Rounded.ArrowDropDown, null, Modifier.size(18.dp)) },
-                        shape = RoundedCornerShape(12.dp),
+                        shape = ParleyShapes.control,
                         modifier = Modifier.semantics { onClick(label = change) { open = true; true } },
                     )
                     DropdownMenu(open, { open = false }) {
@@ -937,7 +938,7 @@ private fun RelationRow(
             AssistChip(
                 onClick = { typing = true }, label = { Text(label) },
                 trailingIcon = { Icon(Icons.Rounded.ArrowDropDown, null, Modifier.size(18.dp)) },
-                shape = RoundedCornerShape(10.dp), modifier = Modifier.semantics { contentDescription = desc },
+                shape = ParleyShapes.control, modifier = Modifier.semantics { contentDescription = desc },
             )
         }
     }

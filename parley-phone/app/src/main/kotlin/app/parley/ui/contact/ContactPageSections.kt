@@ -20,7 +20,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material3.FilledTonalIconButton
@@ -46,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import app.parley.R
 import app.parley.common.people.ContactPageLayout
 import app.parley.common.people.ContactSection
+import app.parley.ui.ParleyShapes
 
 /**
  * The sections a contact's page has, collected in code order with their title, the summary shown while
@@ -93,7 +93,7 @@ fun FoldHeader(title: String, summary: String, folded: Boolean, onToggle: () -> 
         Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
-            .clip(RoundedCornerShape(16.dp))
+            .clip(ParleyShapes.tile)
             .clickable(
                 role = Role.Button, onClickLabel = stringResource(if (folded) R.string.contact_page_unfold else R.string.contact_page_fold),
                 onClick = onToggle,

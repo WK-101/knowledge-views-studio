@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material.icons.rounded.Refresh
@@ -30,6 +29,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import app.parley.telecom.CallUi
 import app.parley.telecom.R
+import app.parley.ui.ParleyShapes
 
 /**
  * An outgoing call that didn't go through: the reason ("Airplane mode is on", "No SIM was chosen", the network's
@@ -40,7 +40,7 @@ internal fun FailureBanner(call: CallUi, onRetry: () -> Unit, onDismiss: () -> U
     val scheme = MaterialTheme.colorScheme
     Surface(
         color = scheme.errorContainer,
-        shape = RoundedCornerShape(24.dp),
+        shape = ParleyShapes.panel,
         modifier = modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Polite },
     ) {
         Column(Modifier.padding(horizontal = 20.dp, vertical = 16.dp)) {

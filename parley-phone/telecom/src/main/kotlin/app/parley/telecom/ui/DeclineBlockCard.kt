@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material3.CircularProgressIndicator
@@ -30,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import app.parley.telecom.DeclineBlock
 import app.parley.telecom.R
 import app.parley.ui.Bidi
+import app.parley.ui.ParleyShapes
 
 /** After "Block & decline": what happened, and Undo while the rule is Parley's own new one. */
 @Composable
@@ -45,7 +45,7 @@ internal fun DeclineBlockCard(block: DeclineBlock, onUndo: () -> Unit, onDone: (
     }
     Surface(
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        shape = RoundedCornerShape(28.dp),
+        shape = ParleyShapes.sheet,
         modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp).semantics { liveRegion = LiveRegionMode.Polite },
     ) {
         Column(Modifier.padding(horizontal = 20.dp, vertical = 16.dp)) {

@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CheckBoxOutlineBlank
 import androidx.compose.material3.AssistChip
@@ -36,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import app.parley.common.circle.Promises
 import app.parley.telecom.CallUi
 import app.parley.telecom.R
+import app.parley.ui.ParleyShapes
 
 /**
  * "Anything to remember?" on the call-ended screen after a call with a contact (opt-in): a note, chips that
@@ -56,7 +56,7 @@ internal fun MemoryCard(call: CallUi, onChoice: (PostCallChoice) -> Unit) {
     }
     Surface(
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        shape = RoundedCornerShape(28.dp),
+        shape = ParleyShapes.sheet,
         modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)
             // Any touch keeps the screen up, like the post-call card.
             .pointerInput(Unit) {

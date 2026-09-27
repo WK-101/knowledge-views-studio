@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Message
 import androidx.compose.material.icons.rounded.Call
@@ -51,6 +50,7 @@ import app.parley.ui.SegmentedGroup
 import app.parley.ui.contact.QuickMessenger
 import app.parley.ui.contact.rememberQuickMessenger
 import kotlinx.coroutines.launch
+import app.parley.ui.ParleyShapes
 
 /**
  * The Circle tab. People with keep-in-touch set, most urgent first, each with a status chip, when you were last
@@ -165,7 +165,7 @@ fun StatusChip(s: CircleStatus) {
         CircleStatus.SOON -> MaterialTheme.colorScheme.secondaryContainer to MaterialTheme.colorScheme.onSecondaryContainer
         CircleStatus.FINE -> MaterialTheme.colorScheme.surfaceContainerHighest to MaterialTheme.colorScheme.onSurfaceVariant
     }
-    Surface(color = bg, contentColor = fg, shape = RoundedCornerShape(8.dp)) {
+    Surface(color = bg, contentColor = fg, shape = ParleyShapes.tag) {
         Text(CircleText.status(res, s), style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp))
     }
 }

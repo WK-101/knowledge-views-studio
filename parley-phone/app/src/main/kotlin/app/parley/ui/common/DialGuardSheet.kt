@@ -14,7 +14,6 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -26,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import app.parley.R
 import app.parley.blocking.DialText
 import app.parley.data.DialWarning
+import app.parley.ui.ParleySheet
 
 /**
  * The shared "think before you dial" sheet. Any feature that wants the user to confirm an
@@ -39,7 +39,7 @@ fun DialGuardSheet(who: String, warnings: List<DialWarning>, note: String? = nul
     val context = LocalContext.current
     val all = warnings.map { DialText.warning(context, it) } + listOfNotNull(note?.let { DialWarning(stringResource(R.string.call_time_used_up), it) })
     val severe = all.any { it.severe }
-    ModalBottomSheet(onDismissRequest = onCancel) {
+    ParleySheet(onDismissRequest = onCancel) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp).navigationBarsPadding().padding(bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(stringResource(R.string.call_who_question, who), style = MaterialTheme.typography.titleLarge)
             all.forEach { w ->

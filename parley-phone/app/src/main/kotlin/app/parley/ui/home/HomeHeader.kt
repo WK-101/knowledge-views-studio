@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -50,6 +49,7 @@ import app.parley.common.ux.Tips
 import app.parley.ui.common.CoachMarkAnchor
 import app.parley.ui.ParleyTopBar
 import app.parley.ui.BackButton
+import app.parley.ui.ParleyShapes
 
 /**
  * The header of every home tab: the tab's title, its own actions, a search icon that turns the bar into a search
@@ -122,7 +122,7 @@ private fun SearchBarHeader(query: String, hint: String, onQuery: (String) -> Un
                     // Clearing an empty field closes the search, like the back arrow.
                     IconButton({ if (query.isEmpty()) onClose() else onQuery("") }) { Icon(Icons.Rounded.Close, stringResource(if (query.isEmpty()) R.string.home_close_search else R.string.home_clear_search)) }
                 },
-                shape = RoundedCornerShape(28.dp),
+                shape = ParleyShapes.pill,
                 colors = TextFieldDefaults.colors(
                     focusedIndicatorColor = Color.Transparent,
                     unfocusedIndicatorColor = Color.Transparent,

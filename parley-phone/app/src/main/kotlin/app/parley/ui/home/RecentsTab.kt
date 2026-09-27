@@ -8,7 +8,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Badge
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ListItemDefaults
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.ui.unit.Dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import app.parley.NavEvent
@@ -98,7 +97,6 @@ import app.parley.ui.history.RecentsMenuDialogs
 import app.parley.ui.history.SavedFilterChips
 import app.parley.ui.people.SwipeActionRow
 import app.parley.ui.people.blockWithUndo
-import kotlinx.coroutines.launch
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.RecentFilter
@@ -109,13 +107,13 @@ import app.parley.common.ux.CallGlance
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.text.font.FontWeight
 import app.parley.ui.Avatar
-import app.parley.ui.CallColors
 import app.parley.ui.EmptyState
 import app.parley.ui.MonoAvatar
 import app.parley.ui.Routes
 import app.parley.ui.activityViewModel
 import app.parley.ui.avatarSize
 import app.parley.ui.common.Format
+import app.parley.ui.ParleySheet
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -461,7 +459,7 @@ fun CallTypeIcon(type: CallType, modifier: Modifier = Modifier, size: Dp = 32.dp
 private fun RecentActionsSheet(vm: AppViewModel, recents: RecentsViewModel, g: RecentGroup, open: (String) -> Unit, onMessageOn: (String) -> Unit, onDismiss: () -> Unit) {
     val context = LocalContext.current
     fun act(block: () -> Unit) { onDismiss(); block() }
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    ParleySheet(onDismissRequest = onDismiss) {
         Text(g.shownTitle, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
         val hasNumber = !g.hidden && g.number.isNotBlank()
         @Composable

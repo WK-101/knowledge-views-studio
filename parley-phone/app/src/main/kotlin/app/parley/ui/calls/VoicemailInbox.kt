@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.Call
@@ -85,6 +84,7 @@ import app.parley.ui.common.Format
 import app.parley.ui.home.RecentsViewModel
 import kotlinx.coroutines.launch
 import app.parley.ui.ConfirmDialog
+import app.parley.ui.ParleyShapes
 
 /**
  * The voicemail inbox, shown in Recents under the "Voicemail" chip: every voicemail Android's voicemail store
@@ -180,7 +180,7 @@ private fun VoicemailNote(vm: AppViewModel, state: VoicemailState) {
     val res = LocalResources.current
     Surface(
         color = MaterialTheme.colorScheme.surfaceContainer,
-        shape = RoundedCornerShape(20.dp),
+        shape = ParleyShapes.card,
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
     ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {

@@ -42,7 +42,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -94,6 +93,7 @@ import app.parley.ui.contact.ReachActionButton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import app.parley.ui.ParleySheet
 
 /**
  * Who "Message or call on…" is for. Every surface opens the same sheet, with the same layout: the number, Call via
@@ -122,7 +122,7 @@ fun ReachSheet(
     onCall: ((String) -> Unit)? = null,
     onLaunched: (MessengerApp?) -> Unit = { onDismiss() },
 ) {
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    ParleySheet(onDismissRequest = onDismiss) {
         ReachSheetContent(target, onCall = onCall?.let { call -> { n -> onDismiss(); call(n) } }, onLaunched = onLaunched)
     }
 }

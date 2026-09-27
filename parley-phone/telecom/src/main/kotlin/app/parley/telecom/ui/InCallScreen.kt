@@ -35,7 +35,6 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.VolumeUp
@@ -58,7 +57,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -119,6 +117,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import app.parley.ui.ConfirmDialog
+import app.parley.ui.ParleySheet
+import app.parley.ui.ParleyShapes
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -354,7 +354,7 @@ fun InCallScreen(
 
     val replyCall = live.firstOrNull { it.id == replyFor && it.state == CallState.RINGING }
     if (replyCall != null) {
-        ModalBottomSheet(onDismissRequest = { replyFor = null }) {
+        ParleySheet(onDismissRequest = { replyFor = null }) {
             Text(stringResource(R.string.incall_reply_sheet_title), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
             // The defaults live in core/common in English: while unedited, send them in the user's language.
             val replies = if (quickReplies == AppSettings.DEFAULT_QUICK_REPLIES) {
@@ -374,7 +374,7 @@ fun InCallScreen(
 
     val conference = live.firstOrNull { it.isConference }
     if (manageSheet && conference != null) {
-        ModalBottomSheet(onDismissRequest = { manageSheet = false }) {
+        ParleySheet(onDismissRequest = { manageSheet = false }) {
             Text(stringResource(R.string.incall_conference_call), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
             conference.children.forEach { child ->
                 ListItem(
@@ -457,7 +457,7 @@ private fun CallerHeader(
         if (!compact && (call.note != null || call.lastCall != null || memory != null)) {
             Surface(
                 color = MaterialTheme.colorScheme.tertiaryContainer,
-                shape = RoundedCornerShape(16.dp),
+                shape = ParleyShapes.tile,
                 modifier = Modifier.padding(top = 12.dp).fillMaxWidth(),
             ) {
                 Column(Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
@@ -524,7 +524,7 @@ private fun CallTimer(connectTime: Long) {
 @Composable
 private fun Chip(icon: ImageVector, text: String, warn: Boolean = false) {
     val color = if (warn) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.secondaryContainer
-    Surface(color = color, shape = RoundedCornerShape(50)) {
+    Surface(color = color, shape = ParleyShapes.pill) {
         Row(Modifier.padding(horizontal = 10.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(icon, null, Modifier.size(16.dp))
             Spacer(Modifier.width(6.dp))
@@ -538,8 +538,8 @@ private fun Chip(icon: ImageVector, text: String, warn: Boolean = false) {
 private fun OtherCallBanner(call: CallUi, onSwap: () -> Unit) {
     Surface(
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        shape = RoundedCornerShape(20.dp),
-        modifier = Modifier.fillMaxWidth().padding(top = 12.dp).clip(RoundedCornerShape(20.dp)).clickable(enabled = call.state == CallState.HOLDING, onClick = onSwap),
+        shape = ParleyShapes.card,
+        modifier = Modifier.fillMaxWidth().padding(top = 12.dp).clip(ParleyShapes.card).clickable(enabled = call.state == CallState.HOLDING, onClick = onSwap),
     ) {
         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             Avatar(call.title, call.photoUri, 36.dp)
@@ -620,7 +620,7 @@ private fun ControlButton(spec: ControlSpec) {
         Box(
             Modifier
                 .size(width = 80.dp, height = 64.dp)
-                .clip(RoundedCornerShape(if (spec.active) 20.dp else 32.dp))
+                .clip(if (spec.active) ParleyShapes.card else ParleyShapes.hero)
                 .background(if (spec.active) scheme.primary else scheme.surfaceContainerHigh)
                 .clickable(enabled = spec.enabled, role = if (spec.toggle) Role.Switch else Role.Button, onClick = spec.onClick)
                 .semantics {
@@ -651,7 +651,7 @@ private fun EndCallButton(onClick: () -> Unit) {
     Box(
         Modifier
             .size(width = 160.dp, height = 72.dp)
-            .clip(RoundedCornerShape(36.dp))
+            .clip(ParleyShapes.pill)
             .background(CallColors.Decline)
             .clickable(role = Role.Button, onClick = onClick)
             .semantics { contentDescription = endCall },
@@ -678,9 +678,9 @@ private fun SimPicker(call: CallUi) {
         Text(stringResource(R.string.incall_call_with), style = MaterialTheme.typography.titleMedium)
         accounts.forEach { (id, label) ->
             Surface(
-                shape = RoundedCornerShape(20.dp),
+                shape = ParleyShapes.card,
                 color = MaterialTheme.colorScheme.secondaryContainer,
-                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).clickable { CallManager.selectAccount(call.id, id) },
+                modifier = Modifier.fillMaxWidth().clip(ParleyShapes.card).clickable { CallManager.selectAccount(call.id, id) },
             ) {
                 Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Rounded.SimCard, null)

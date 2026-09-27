@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Chat
 import androidx.compose.material.icons.rounded.Block
@@ -39,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import app.parley.telecom.CallUi
 import app.parley.telecom.TelecomGraph
 import app.parley.ui.ConfirmDialog
+import app.parley.ui.ParleyShapes
 
 /** What the user did on the post-call card. */
 sealed interface PostCallChoice {
@@ -66,7 +66,7 @@ internal fun PostCallCard(call: CallUi, onChoice: (PostCallChoice) -> Unit) {
     var saving by remember { mutableStateOf(false) }
     Surface(
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        shape = RoundedCornerShape(28.dp),
+        shape = ParleyShapes.sheet,
         modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)
             // Any touch keeps the screen up (it would otherwise close a moment after the call).
             .pointerInput(Unit) {

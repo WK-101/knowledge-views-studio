@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Message
 import androidx.compose.material.icons.rounded.Call
@@ -58,6 +57,8 @@ import app.parley.telecom.CallState
 import app.parley.telecom.CallUi
 import app.parley.ui.Avatar
 import app.parley.ui.CallColors
+import app.parley.ui.ParleyShapes
+import app.parley.ui.topOnly
 
 /**
  * The call you're on, dimmed at the top while another call is waiting. It stays readable: the name and
@@ -68,7 +69,7 @@ internal fun CurrentCallCard(call: CallUi, canHold: Boolean, modifier: Modifier 
     val seconds by rememberCallSeconds(call.connectTimeMillis)
     Surface(
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        shape = RoundedCornerShape(24.dp),
+        shape = ParleyShapes.panel,
         modifier = modifier.fillMaxWidth().alpha(0.72f),
     ) {
         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -112,7 +113,7 @@ internal fun CallWaitingSheet(ringing: CallUi, current: CallUi?, heldCount: Int,
     AnimatedVisibility(visible, enter = slideInVertically { it } + fadeIn()) {
         Surface(
             color = MaterialTheme.colorScheme.surfaceContainerLow,
-            shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
+            shape = ParleyShapes.hero.topOnly(),
             tonalElevation = 3.dp,
             shadowElevation = 8.dp,
             modifier = Modifier.fillMaxWidth(),

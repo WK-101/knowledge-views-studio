@@ -21,7 +21,6 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Message
 import androidx.compose.material.icons.rounded.Call
@@ -71,6 +70,7 @@ import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.roundToInt
 import app.parley.ui.ParleyDialog
+import app.parley.ui.ParleyShapes
 
 @Composable
 fun IncomingControls(
@@ -140,7 +140,7 @@ private fun SimpleAnswerButtons(sim: String?, onAnswer: () -> Unit, onDecline: (
 @Composable
 private fun BigAction(icon: ImageVector, label: String, color: Color, onClick: () -> Unit, height: Int, a11y: String? = null) {
     Row(
-        Modifier.fillMaxWidth().height(height.dp).clip(RoundedCornerShape(28.dp)).background(color)
+        Modifier.fillMaxWidth().height(height.dp).clip(ParleyShapes.sheet).background(color)
             .clickable(role = Role.Button, onClick = onClick).semantics { contentDescription = a11y ?: label },
         horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -198,7 +198,7 @@ private fun RoundAction(
 @Composable
 private fun SimTag(text: String, modifier: Modifier = Modifier) {
     Row(
-        modifier.clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.secondaryContainer).padding(horizontal = 10.dp, vertical = 4.dp),
+        modifier.clip(ParleyShapes.control).background(MaterialTheme.colorScheme.secondaryContainer).padding(horizontal = 10.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(Icons.Rounded.SimCard, null, Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSecondaryContainer)
@@ -227,7 +227,7 @@ private fun AnswerSlider(sim: String?, onAnswer: () -> Unit, onDecline: () -> Un
         Modifier
             .fillMaxWidth()
             .height(88.dp)
-            .clip(RoundedCornerShape(44.dp))
+            .clip(ParleyShapes.pill)
             .background(MaterialTheme.colorScheme.surfaceContainerHigh)
             .semantics {
                 contentDescription = description

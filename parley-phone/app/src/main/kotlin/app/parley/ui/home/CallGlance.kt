@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.HelpOutline
@@ -51,6 +50,7 @@ import app.parley.ui.CallDurationBar
 import app.parley.ui.CallTypeColors
 import kotlinx.coroutines.flow.MutableStateFlow
 import app.parley.ui.ParleyDialog
+import app.parley.ui.ParleyShapes
 
 /** Rich or Simple call rows, from Settings › Recents style (provided by ParleyRoot). */
 val LocalRecentsStyle = staticCompositionLocalOf { RecentsStyle.RICH }
@@ -108,7 +108,7 @@ fun Modifier.callAccent(color: Color): Modifier = drawWithContent {
 fun CallCountChip(count: Int, latest: CallClass) {
     val color = CallTypeColors.of(latest.hue)
     Surface(
-        color = color.copy(alpha = 0.14f), contentColor = color, shape = RoundedCornerShape(8.dp),
+        color = color.copy(alpha = 0.14f), contentColor = color, shape = ParleyShapes.tag,
         // The row's sequence dots say the count in words.
         modifier = Modifier.clearAndSetSemantics { },
     ) {
