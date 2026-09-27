@@ -87,6 +87,12 @@ interface TelecomDependencies {
     /** Called when a call leaves Telecom (for private-history sweeps and call notes). */
     fun onCallEnded(number: String?, incoming: Boolean, connectTimeMillis: Long) {}
 
+    /**
+     * A connected, non-emergency call ended after [durationSec] seconds of talk: recorded in the call-usage ledger that
+     * allowances count (it survives a cleared call log and includes private contacts' calls).
+     */
+    fun onCallUsage(number: String?, accountId: String?, incoming: Boolean, connectTimeMillis: Long, durationSec: Long) {}
+
     /** Ringtone to play for callers who aren't contacts, or null to let the system ring. */
     fun unknownRingtone(): String? = null
 

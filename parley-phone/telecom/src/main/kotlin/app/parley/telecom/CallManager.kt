@@ -386,6 +386,15 @@ object CallManager {
         if (::appContext.isInitialized && EmergencyPolicy.startsWindow(emergencyFacts(call, ended.number, ended.incoming), ended.incoming)) {
             runCatching { ScreeningGuard.noteEmergencyCall(appContext) }
         }
+        // The allowance ledger: every connected call except emergency ones (never limited, so never counted).
+        if (ended.connectTimeMillis > 0 && !ended.isEmergency && !ended.isConference) {
+            val talkedSec = ((System.currentTimeMillis() - ended.connectTimeMillis) / 1000).coerceAtLeast(0)
+            runCatching {
+                TelecomGraph.dependencies.onCallUsage(
+                    ended.number.takeIf { !ended.hidden }, call.details.accountHandle?.id, ended.incoming, ended.connectTimeMillis, talkedSec,
+                )
+            }
+        }
         runCatching { TelecomGraph.dependencies.onCallEnded(ended.number, ended.incoming, ended.connectTimeMillis) }
         call.unregisterCallback(callback)
         calls -= call

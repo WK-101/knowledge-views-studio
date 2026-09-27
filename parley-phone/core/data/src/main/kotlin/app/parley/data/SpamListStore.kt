@@ -249,6 +249,43 @@ class SpamListStore(context: Context) {
         }
     }
 
+    // ---------- Backup ----------
+
+    /**
+     * Packs the user added from a file (a folder, the companion app and the built-ins can provide theirs again), for
+     * the backup: each pack's state (JSON) and its files as a pack, while they fit in [maxBytes] together. A stored
+     * pack keeps no signature file, so it comes back as an unsigned pack with the same entries.
+     */
+    suspend fun userPacks(maxBytes: Int): List<Pair<String, ByteArray>> = withContext(Dispatchers.IO) {
+        var total = 0
+        _state.value.packs.filter { it.origin == PackOrigin.FILE }.mapNotNull { p ->
+            val pd = packDir(p.id)
+            val out = java.io.ByteArrayOutputStream()
+            java.util.zip.ZipOutputStream(out).use { z ->
+                for (name in listOf(ListPack.MANIFEST, ListPack.NUMBERS, ListPack.RANGES)) {
+                    val f = File(pd, name).takeIf { it.isFile } ?: continue
+                    z.putNextEntry(java.util.zip.ZipEntry(name).apply { time = 0 })
+                    f.inputStream().use { it.copyTo(z) }
+                    z.closeEntry()
+                }
+            }
+            val zip = out.toByteArray()
+            if (total + zip.size > maxBytes) return@mapNotNull null
+            total += zip.size
+            ListsState(packs = listOf(p)).encode() to zip
+        }
+    }
+
+    /** Reinstalls a pack from [userPacks] with the user's choices, unless this phone has it already. */
+    suspend fun restoreUserPack(state: String, zip: ByteArray): Boolean {
+        val saved = ListsState.decode(state).packs.firstOrNull() ?: return false
+        if (_state.value.packs.any { it.id == saved.id }) return false
+        val parsed = runCatching { ListPack.parse(zip) }.getOrNull() ?: return false
+        if (install(parsed, PackOrigin.FILE) !is InstallResult.Installed) return false
+        setPack(saved.id) { it.copy(enabled = saved.enabled, mode = saved.mode, threshold = saved.threshold, action = saved.action, useRanges = saved.useRanges, notify = saved.notify, suppressed = saved.suppressed) }
+        return true
+    }
+
     suspend fun dismissSuggestion(id: String) = update { it.copy(dismissedSuggestions = (it.dismissedSuggestions + id).distinct()) }
 
     /** "Not spam": this number is never reported by [packId] again. */

@@ -16,13 +16,14 @@ import app.parley.common.RuleType
 import app.parley.common.DialSearch
 import app.parley.common.KeypadLayout
 import app.parley.common.ContactSummary
+import app.parley.common.PhoneIdentity
 import app.parley.common.PhoneNumbers
+import app.parley.data.history.CallHistory
 import app.parley.common.PhoneEntry
 import app.parley.common.SimAccount
 import app.parley.common.T9
 import app.parley.common.TextSearch
 import app.parley.data.Permissions
-import app.parley.data.CallLogRepository
 import app.parley.data.PhoneEnv
 import app.parley.data.PlaceResult
 import app.parley.data.messaging.Romanizer
@@ -181,18 +182,16 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
-    /** matchKey → contact, for naming call-log entries. */
-    val numberIndex: StateFlow<Map<String, ContactSummary>> = contacts.map { list ->
-        val m = HashMap<String, ContactSummary>()
-        list.orEmpty().forEach { ct -> ct.phones.forEach { p -> m.putIfAbsent(PhoneNumbers.matchKey(p.number), ct) } }
-        m as Map<String, ContactSummary>
-    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
+    /** Number → contact by line ([PhoneIdentity]), for naming call-log entries. */
+    val numberIndex: StateFlow<PhoneIdentity.LineMap<ContactSummary>> = contacts.map { list ->
+        val m = PhoneIdentity.LineMap<ContactSummary>(countryIso)
+        list.orEmpty().forEach { ct -> ct.phones.forEach { p -> m.putIfAbsent(p.number, ct) } }
+        m
+    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, PhoneIdentity.LineMap(countryIso))
 
     fun contactFor(number: String?): ContactSummary? {
-        if (number.isNullOrBlank()) return null
-        val key = PhoneNumbers.matchKey(number)
-        if (key.length < 3) return null
-        return numberIndex.value[key]
+        if (number.isNullOrBlank() || PhoneNumbers.digits(number).length < 3) return null
+        return numberIndex.value[number]
     }
 
     val contactQuery = MutableStateFlow("")
@@ -247,13 +246,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     private val allCalls = combine(c.history.calls, c.callLog.preview, c.vault.privateCalls, settings.map { it.hideVault }.distinctUntilChanged()) { full, preview, priv, hidden ->
         val sys = full ?: preview ?: return@combine null
         if (hidden || priv.isEmpty()) return@combine sys
-        (sys + priv.map { p ->
-            CallEntry(-p.id, p.number, p.name, CallLogRepository.mapType(p.type), p.date, p.durationSec, null, false, false)
-        }).sortedByDescending { it.date }
+        (sys + priv.map(CallHistory::privateEntry)).sortedByDescending { it.date }
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, null) // R4: merged once, shared by Recents and the unreturned count.
 
     // F7: keyed by line (E.164 with this phone's country), so a foreign number sharing the last 9 digits isn't shown as private.
-    private val vaultByKey = c.vault.contacts.map { list -> list.flatMap { v -> v.numbers.map { PhoneNumbers.lineKey(it, countryIso) to v.id } }.toMap() }
+    private val vaultByKey = c.vault.contacts.map { list -> list.flatMap { v -> v.numbers.map { PhoneIdentity.key(it, countryIso) to v.id } }.toMap() }
 
     /** [allCalls] with the Recents filter chips applied (SIM, type, period, duration). */
     private val filteredCalls = combine(allCalls, c.history.activeFilter) { calls, f ->
@@ -264,7 +261,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     private val callsAndLayout = combine(filteredCalls, settings.map { it.recentsLayout }.distinctUntilChanged()) { calls, layout -> calls to layout }
 
     val recentGroups: StateFlow<List<RecentGroup>?> = combine(callsAndLayout, numberIndex, recentFilter, recentQuery.debounce(80), vaultByKey) { (calls, layout), index, filter, q, vaults ->
-        calls?.let { group(it, index, filter, q, layout).map { g -> if (g.calls.first().id < 0) g.copy(vaultId = vaults[PhoneNumbers.lineKey(g.number, countryIso)]) else g } }
+        calls?.let { group(it, index, filter, q, layout).map { g -> if (g.calls.first().id < 0) g.copy(vaultId = vaults[PhoneIdentity.key(g.number, countryIso)]) else g } }
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     /** R4: the time the 7-day window of [unreturnedMissed] is measured from, moved on hourly. */
@@ -283,7 +280,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
      * tint, the Call back pill and the Missed chip's count.
      */
     val unreturnedMissed: StateFlow<Set<Long>> = combine(allCalls, notWorthReturning(), unreturnedClock) { calls, excluded, now ->
-        calls?.let { CallGlance.unreturnedMissed(it, PhoneNumbers::matchKey, now, excluded = excluded) } ?: emptySet()
+        calls?.let { CallGlance.unreturnedMissed(it, { n -> PhoneIdentity.key(n, countryIso) }, now, excluded = excluded) } ?: emptySet()
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, emptySet())
 
     /**
@@ -291,17 +288,17 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
      * last screened as blocked, reported or likely spam.
      */
     private fun notWorthReturning() = combine(c.blocks.systemList, c.blocks.rules, c.blocks.verdictIndex) { system, rules, verdicts ->
-        val keys = HashSet<String>()
-        system.forEach { keys += PhoneNumbers.matchKey(it.number) }
-        verdicts.forEach { (k, v) -> if (v.blocked || v.kind == "LIKELY_SPAM" || v.kind == "REPORTED") keys += PhoneNumbers.matchKey(k) }
-        val blockRules = rules.filter { it.enabled && it.kind == RuleKind.BLOCK && it.type in numberRules }
         val iso = countryIso
-        val test: (String) -> Boolean = { n -> PhoneNumbers.matchKey(n) in keys || blockRules.any { r -> CallPolicy.ruleMatches(r, n, iso) } }
+        // Verdicts are filed under line keys; system block-list entries are numbers.
+        val listed = PhoneIdentity.LineSet(system.map { it.number }, iso)
+        val flagged = PhoneIdentity.KeySet(verdicts.filter { (_, v) -> v.blocked || v.kind == "LIKELY_SPAM" || v.kind == "REPORTED" }.keys, iso)
+        val blockRules = rules.filter { it.enabled && it.kind == RuleKind.BLOCK && it.type in numberRules }
+        val test: (String) -> Boolean = { n -> n in listed || n in flagged || blockRules.any { r -> CallPolicy.ruleMatches(r, n, iso) } }
         test
     }
 
     private fun group(
-        calls: List<CallEntry>, index: Map<String, ContactSummary>, filter: RecentFilter, q: String,
+        calls: List<CallEntry>, index: PhoneIdentity.LineMap<ContactSummary>, filter: RecentFilter, q: String,
         layout: app.parley.common.calls.RecentsLayout = app.parley.common.calls.RecentsLayout.GROUPED,
     ): List<RecentGroup> {
         val filtered = calls.filter {
@@ -314,7 +311,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 RecentFilter.VOICEMAIL -> it.type == CallType.VOICEMAIL
             }
         }
-        fun keyOf(e: CallEntry) = if (e.presentationHidden || e.number.isBlank()) "hidden" else PhoneNumbers.matchKey(e.number)
+        fun keyOf(e: CallEntry) = if (e.presentationHidden || e.number.isBlank()) "hidden" else PhoneIdentity.key(e.number, countryIso).ifEmpty { "hidden" }
         val tz = java.util.TimeZone.getDefault()
         // P8: grouped (consecutive calls on one day), chronological (one row per call) or one row per number per day.
         val rows = app.parley.common.calls.RecentsGrouping.group(filtered, layout, ::keyOf) { e -> TimeUnit.MILLISECONDS.toDays(e.date + tz.getOffset(e.date)) }
@@ -322,7 +319,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             val e = list.first()
             val key = keyOf(e)
             RecentGroup(
-                key + ":" + e.id, e.number, if (key == "hidden") null else index[key], e.cachedName, list, key == "hidden",
+                key + ":" + e.id, e.number, if (key == "hidden") null else index[e.number], e.cachedName, list, key == "hidden",
                 fallbackTitle = str(if (key == "hidden") R.string.main_private_number else R.string.main_unknown),
             )
         }
@@ -330,20 +327,20 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         return grouped.filter { TextSearch.matches(q, it.title, listOf(it.number)) }
     }
 
-    /** Most-called numbers in the last 60 days that aren't favourites. */
-    val frequents: StateFlow<List<RecentGroup>> = combine(c.callLog.calls, numberIndex) { calls, index ->
+    /** Most-called numbers in the last 60 days that aren't favourites (from the call history, archive included). */
+    val frequents: StateFlow<List<RecentGroup>> = combine(c.history.calls, numberIndex) { calls, index ->
         val since = System.currentTimeMillis() - TimeUnit.DAYS.toMillis(60)
         calls.orEmpty()
             .filter { it.date > since && it.number.isNotBlank() && !it.presentationHidden && it.type != CallType.BLOCKED }
-            .groupBy { PhoneNumbers.matchKey(it.number) }
+            .groupBy { PhoneIdentity.key(it.number, countryIso) }
             .filter { it.value.size >= 2 }
             .entries.sortedByDescending { it.value.size }
-            .map { (k, v) -> RecentGroup(k, v.first().number, index[k], v.first().cachedName, v, false) }
+            .map { (k, v) -> RecentGroup(k, v.first().number, index[v.first().number], v.first().cachedName, v, false) }
             .filter { it.contact?.starred != true }
             .take(8)
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
-    val missedCount: StateFlow<Int> = c.callLog.calls.map { list -> list.orEmpty().count { it.type == CallType.MISSED && it.isNew } }
+    val missedCount: StateFlow<Int> = c.history.calls.map { list -> list.orEmpty().count { it.type == CallType.MISSED && it.isNew } }
         .stateIn(viewModelScope, SharingStarted.Eagerly, 0)
 
     /** V11: Recents is on screen: Telecom's missed-call count goes, and so does the re-alert. */
@@ -389,16 +386,16 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
-    private val dialSearch = DialSearch()
+    private val dialSearch = DialSearch(countryIso)
 
     /** Keypad results; narrows the previous results while you type (see [DialSearch]). */
-    val dialResults: StateFlow<List<DialResult>> = combine(dialInput, combine(encoded, encodedVault) { a, b -> a + b }, c.callLog.calls) { input, entries, calls ->
+    val dialResults: StateFlow<List<DialResult>> = combine(dialInput, combine(encoded, encodedVault) { a, b -> a + b }, c.history.calls) { input, entries, calls ->
         dialSearch.search(input, entries, calls)
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     /** Call pressed with nothing typed: the last number you called goes back on the keypad (like most dialers). */
     fun recallLastNumber(): Boolean {
-        val n = DialSearch.lastOutgoing(c.callLog.calls.value) ?: return false
+        val n = DialSearch.lastOutgoing(c.history.calls.value) ?: return false
         dialInput.value = n
         return true
     }
@@ -489,6 +486,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         // With "Private call history" on, their ring facts go too (the calls themselves move into the vault).
         if (c.settings.current().privateVaultHistory) {
             withContext(Dispatchers.IO) { d.phones.forEach { p -> runCatching { c.ringFacts.forget(p.value) } } }
+            // Their older calls too, not just the recent ones the sweep after each call reaches.
+            runCatching { c.vault.sweepCallLog(0) }
         }
         when {
             moved.messengerCopies -> toast(str(R.string.vm_messenger_copies_remain))

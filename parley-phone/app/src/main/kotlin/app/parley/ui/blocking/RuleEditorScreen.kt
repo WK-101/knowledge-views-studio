@@ -268,7 +268,7 @@ fun RuleEditorScreen(vm: AppViewModel, ruleId: Long, initial: BlockRule, back: (
                 OutlinedButton({
                     dryRunning = true
                     scope.launch {
-                        val calls = vm.c.callLog.calls.value.orEmpty()
+                        val calls = vm.c.history.calls.value.orEmpty()
                         dry = runCatching { vm.c.screener.dryRun(calls, 7, candidateRule = r.copy(id = -1, pattern = checked.pattern, enabled = true, hitCount = 0)) }.getOrNull()
                         dryRunning = false
                     }

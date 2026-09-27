@@ -4,7 +4,7 @@ import android.content.Context
 import android.os.SystemClock
 import android.provider.Settings
 import app.parley.common.Decision
-import app.parley.common.PhoneNumbers
+import app.parley.common.PhoneIdentity
 import app.parley.common.calls.EmergencyPolicy
 
 /**
@@ -22,7 +22,7 @@ object ScreeningGuard {
     private const val EMERGENCY_WINDOW_MS = EmergencyPolicy.WINDOW_MS
     private const val DECISION_TTL_MS = 30_000L
 
-    private data class Recent(val key: String, val at: Long, val outcome: ScreenOutcome)
+    private data class Recent(val number: String?, val at: Long, val outcome: ScreenOutcome)
     private val recent = ArrayDeque<Recent>()
 
     /**
@@ -68,7 +68,7 @@ object ScreeningGuard {
     fun remember(number: String?, outcome: ScreenOutcome) {
         val now = SystemClock.elapsedRealtime()
         recent.removeAll { now - it.at > DECISION_TTL_MS }
-        recent.addLast(Recent(key(number), now, outcome))
+        recent.addLast(Recent(number?.takeIf { it.isNotBlank() }, now, outcome))
     }
 
     @Synchronized
@@ -77,8 +77,10 @@ object ScreeningGuard {
     @Synchronized
     fun recallOutcome(number: String?): ScreenOutcome? {
         val now = SystemClock.elapsedRealtime()
-        return recent.lastOrNull { it.key == key(number) && now - it.at <= DECISION_TTL_MS }?.outcome
+        return recent.lastOrNull { sameCaller(it.number, number) && now - it.at <= DECISION_TTL_MS }?.outcome
     }
 
-    private fun key(number: String?) = if (number.isNullOrBlank()) "hidden" else PhoneNumbers.matchKey(number)
+    /** Hidden callers match each other; numbers match as the same line (the screening service and Telecom may format them differently). */
+    private fun sameCaller(stored: String?, number: String?) =
+        if (stored == null || number.isNullOrBlank()) stored == null && number.isNullOrBlank() else PhoneIdentity.same(stored, number, null)
 }

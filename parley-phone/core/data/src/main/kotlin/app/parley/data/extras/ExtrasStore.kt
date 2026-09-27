@@ -1,5 +1,6 @@
 package app.parley.data.extras
 
+import app.parley.common.storage.PersistentStores
 import android.content.Context
 import android.provider.ContactsContract
 import app.parley.common.ContactSummary
@@ -222,6 +223,7 @@ class ExtrasStore(private val c: DataContainer) {
 
     val backupExtras: BackupExtras = object : BackupExtras {
         override val section = "extras"
+        override val sections = setOf(PersistentStores.Sections.EXTRAS)
 
         override suspend fun export(): Map<String, String> = buildMap {
             put(X_POLICIES, LabelPolicies.encode(_policies.value))

@@ -16,7 +16,7 @@ object Duplicates {
         contacts.forEachIndexed { i, c ->
             val keys = buildList {
                 nameKey(c.displayName)?.let { add("n:$it") }
-                c.phones.forEach { p -> PhoneNumbers.matchKey(p.number).takeIf { it.length >= 7 }?.let { add("p:$it") } }
+                c.phones.forEach { p -> PhoneIdentity.portableKey(p.number)?.let { add("p:$it") } }
                 c.emails.forEach { add("e:" + it.trim().lowercase()) }
             }
             for (k in keys) {
@@ -29,8 +29,6 @@ object Duplicates {
             .map { idx -> idx.map { contacts[it] } }
             .sortedBy { it.first().displayName.lowercase() }
     }
-
-    fun phoneKey(number: String): String? = PhoneNumbers.matchKey(number).takeIf { it.length >= 7 }
 
     fun emailKey(email: String): String? = email.trim().lowercase().takeIf { it.isNotEmpty() }
 

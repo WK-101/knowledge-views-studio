@@ -60,7 +60,7 @@ fun HealthScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
     val context = LocalContext.current
     val res = androidx.compose.ui.platform.LocalResources.current
     val contacts by vm.contacts.collectAsStateWithLifecycle()
-    val calls by vm.c.callLog.calls.collectAsStateWithLifecycle()
+    val calls by vm.c.history.calls.collectAsStateWithLifecycle()
     val scanner = remember { HealthScanner(vm.c.appContext) }
     var issues by remember { mutableStateOf<List<HealthIssue>?>(null) }
     var round by remember { mutableIntStateOf(0) }

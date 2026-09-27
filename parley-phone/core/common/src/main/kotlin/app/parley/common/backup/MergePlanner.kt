@@ -1,5 +1,6 @@
 package app.parley.common.backup
 
+import app.parley.common.PhoneIdentity
 import app.parley.common.Duplicates
 import app.parley.common.PhoneNumbers
 import app.parley.common.TextSearch
@@ -83,11 +84,11 @@ data class MergePlan(
  * Pure restore planning. Matching order for each backup contact:
  *  1. same accountType + accountName + sourceId on any raw contact;
  *  2. same [ContactRecord.key] (lookup key);
- *  3. fingerprint: phone [PhoneNumbers.matchKey] (≥ 7 digits), lower-cased e-mail, or
+ *  3. fingerprint: phone [PhoneIdentity.portableKey], lower-cased e-mail, or
  *     [Duplicates.nameKey]; the candidate sharing the most fingerprint parts wins.
  *
  * A row is "missing" when no existing row has the same [DataRow.canonicalKey]; additionally phones
- * compare by matchKey, e-mails case-insensitively and photos by blob content, so re-formatted copies
+ * compare by [PhoneIdentity.portableKey], e-mails case-insensitively and photos by blob content, so re-formatted copies
  * aren't added twice. Name and photo are single-valued: a differing one is a conflict, not an addition.
  */
 object MergePlanner {
@@ -159,7 +160,7 @@ object MergePlanner {
         Duplicates.nameKey(c.displayName)?.let { add("n:$it") }
         for (r in c.raws) for (row in r.rows) {
             when (row.mimeType) {
-                Mime.PHONE -> PhoneNumbers.matchKey(row[Col1]).takeIf { it.length >= 7 }?.let { add("p:$it") }
+                Mime.PHONE -> PhoneIdentity.portableKey(row[Col1])?.let { add("p:$it") }
                 Mime.EMAIL -> row[Col1]?.trim()?.lowercase()?.takeIf { it.isNotEmpty() }?.let { add("e:$it") }
             }
         }
@@ -177,7 +178,7 @@ object MergePlanner {
         }
         add(row.canonicalKey)
         when (row.mimeType) {
-            Mime.PHONE -> PhoneNumbers.matchKey(row[Col1]).takeIf { it.length >= 7 }?.let { add("phone:$it") }
+            Mime.PHONE -> PhoneIdentity.portableKey(row[Col1])?.let { add("phone:$it") }
             Mime.EMAIL -> row[Col1]?.trim()?.lowercase()?.takeIf { it.isNotEmpty() }?.let { add("email:$it") }
         }
     }

@@ -1,5 +1,6 @@
 package app.parley.data
 
+import app.parley.common.PhoneIdentity
 import android.content.ContentProviderOperation
 import android.content.ContentResolver
 import android.content.ContentUris
@@ -134,6 +135,7 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope) {
         if (!Permissions.has(context, android.Manifest.permission.READ_CONTACTS)) return emptyList()
         val phones = HashMap<Long, MutableList<PhoneEntry>>()
         val seen = HashMap<Long, MutableSet<String>>()
+        val region = PhoneEnv.countryIso(context)
         cr.safeQuery(
             Phone.CONTENT_URI,
             arrayOf(Phone.CONTACT_ID, Phone.NUMBER, Phone.TYPE, Phone.LABEL, Phone.IS_SUPER_PRIMARY, Phone.IS_PRIMARY),
@@ -141,7 +143,7 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope) {
             while (c.moveToNext()) {
                 val id = c.getLong(0)
                 val number = c.getString(1) ?: continue
-                val key = PhoneNumbers.matchKey(number)
+                val key = PhoneIdentity.key(number, region)
                 if (!seen.getOrPut(id) { HashSet() }.add(key)) continue
                 // Default number: super-primary across the contact, or primary within its account.
                 phones.getOrPut(id) { ArrayList(2) } += PhoneEntry(number, c.getInt(2), c.getString(3), c.getInt(4) != 0 || c.getInt(5) != 0)
@@ -433,7 +435,7 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope) {
             }
         }
         base.copy(
-            phones = if (forEdit) phones else phones.distinctBy { PhoneNumbers.lineKey(it.value, PhoneEnv.countryIso(context)) + it.type },
+            phones = if (forEdit) phones else phones.distinctBy { PhoneIdentity.key(it.value, PhoneEnv.countryIso(context)) + it.type },
             emails = emails, websites = sites, relations = relations, addresses = addrs, events = events, groupIds = groups,
             handles = if (forEdit) handles else handles.distinctBy { it.service to it.value.trim().lowercase() },
             readOnlyDataIds = if (forEdit) readOnlyDataIds(dataIds) else emptySet(),

@@ -1,5 +1,7 @@
 package app.parley.data.circle
 
+import app.parley.common.storage.PersistentStores
+import app.parley.common.PhoneIdentity
 import android.content.Context
 import app.parley.common.CallType
 import app.parley.common.PhoneNumbers
@@ -317,6 +319,7 @@ class CircleRepository(
 
     val backupExtras: BackupExtras = object : BackupExtras {
         override val section = "circle"
+        override val sections = setOf(PersistentStores.Sections.CIRCLE)
 
         /** Contacts read fresh (a restore has just inserted some), else the snapshot. */
         private suspend fun contactsNow(): List<app.parley.common.ContactSummary> =
@@ -331,7 +334,7 @@ class CircleRepository(
             fun person(key: String): JSONObject {
                 val o = JSONObject().put("k", key)
                 val c = contacts[key] ?: return o
-                return o.put("n", c.displayName).put("p", JSONArray(c.phones.map { PhoneNumbers.matchKey(it.number) }.filter { it.length >= 7 }.distinct()))
+                return o.put("n", c.displayName).put("p", JSONArray(c.phones.mapNotNull { PhoneIdentity.portableKey(it.number) }.distinct()))
             }
             val members = JSONArray()
             members().forEach { m -> members.put(person(m.lookupKey).put("d", m.meta.reachOutDays).put("r", m.meta.rhythm ?: JSONObject.NULL)) }
@@ -364,39 +367,42 @@ class CircleRepository(
                 val phones = o.optJSONArray("p")?.let { a -> (0 until a.length()).map { a.getString(it) } }.orEmpty().toSet()
                 val name = o.optString("n")
                 return (
-                    contacts.firstOrNull { c -> phones.isNotEmpty() && c.phones.any { PhoneNumbers.matchKey(it.number) in phones } }
+                    contacts.firstOrNull { c -> phones.isNotEmpty() && c.phones.any { PhoneIdentity.portableKey(it.number) in phones } }
                         ?: contacts.filter { it.displayName == name && name.isNotBlank() }.singleOrNull()
                     ).also { if (it == null) unmatched++ }
             }
-            values[X_MEMBERS]?.let { json ->
-                val a = runCatching { JSONArray(json) }.getOrNull() ?: return@let
-                for (i in 0 until a.length()) {
-                    val o = a.optJSONObject(i) ?: continue
-                    val c = resolve(o) ?: continue
-                    editMeta(c.lookupKey, create = true) { m ->
-                        if (m.reachOutDays != null) null else m.copy(contactId = c.id, reachOutDays = o.optInt("d", 30), rhythm = o.optString("r").takeIf { o.has("r") && !o.isNull("r") })
+            // One transaction: a restore interrupted midway leaves none of the Circle half-restored.
+            tx {
+                values[X_MEMBERS]?.let { json ->
+                    val a = runCatching { JSONArray(json) }.getOrNull() ?: return@let
+                    for (i in 0 until a.length()) {
+                        val o = a.optJSONObject(i) ?: continue
+                        val c = resolve(o) ?: continue
+                        editMeta(c.lookupKey, create = true) { m ->
+                            if (m.reachOutDays != null) null else m.copy(contactId = c.id, reachOutDays = o.optInt("d", 30), rhythm = o.optString("r").takeIf { o.has("r") && !o.isNull("r") })
+                        }
                     }
                 }
-            }
-            values[X_INTERACTIONS]?.let { json ->
-                val a = runCatching { JSONArray(json) }.getOrNull() ?: return@let
-                for (i in 0 until a.length()) {
-                    val o = a.optJSONObject(i) ?: continue
-                    val c = resolve(o) ?: continue
-                    val type = InteractionType.entries.firstOrNull { it.name == o.optString("t") } ?: InteractionType.OTHER
-                    val channel = if (o.isNull("c")) null else InteractionChannel.decode(o.optString("c"))
-                    val note = if (o.isNull("note")) null else o.optString("note")
-                    // The unique key makes a second restore of the same backup add nothing.
-                    runCatching { interactions.log(c.lookupKey, c.id, type, channel, o.optLong("at"), note, o.optString("u").ifEmpty { Interactions.manualKey(java.util.UUID.randomUUID().toString()) }) }
+                values[X_INTERACTIONS]?.let { json ->
+                    val a = runCatching { JSONArray(json) }.getOrNull() ?: return@let
+                    for (i in 0 until a.length()) {
+                        val o = a.optJSONObject(i) ?: continue
+                        val c = resolve(o) ?: continue
+                        val type = InteractionType.entries.firstOrNull { it.name == o.optString("t") } ?: InteractionType.OTHER
+                        val channel = if (o.isNull("c")) null else InteractionChannel.decode(o.optString("c"))
+                        val note = if (o.isNull("note")) null else o.optString("note")
+                        // The unique key makes a second restore of the same backup add nothing.
+                        runCatching { interactions.log(c.lookupKey, c.id, type, channel, o.optLong("at"), note, o.optString("u").ifEmpty { Interactions.manualKey(java.util.UUID.randomUUID().toString()) }) }
+                    }
                 }
-            }
-            values[X_YEARLY]?.let { json ->
-                val a = runCatching { JSONArray(json) }.getOrNull() ?: return@let
-                for (i in 0 until a.length()) {
-                    val o = a.optJSONObject(i) ?: continue
-                    val c = resolve(o) ?: continue
-                    val flags = o.optJSONArray("y")?.let { f -> (0 until f.length()).map { f.getString(it) } }.orEmpty()
-                    editMeta(c.lookupKey, create = true) { m -> m.copy(contactId = c.id, yearlyEvents = YearlyEvents.merge(m.yearlyEvents, YearlyEvents.encode(flags.toSet()))) }
+                values[X_YEARLY]?.let { json ->
+                    val a = runCatching { JSONArray(json) }.getOrNull() ?: return@let
+                    for (i in 0 until a.length()) {
+                        val o = a.optJSONObject(i) ?: continue
+                        val c = resolve(o) ?: continue
+                        val flags = o.optJSONArray("y")?.let { f -> (0 until f.length()).map { f.getString(it) } }.orEmpty()
+                        editMeta(c.lookupKey, create = true) { m -> m.copy(contactId = c.id, yearlyEvents = YearlyEvents.merge(m.yearlyEvents, YearlyEvents.encode(flags.toSet()))) }
+                    }
                 }
             }
             return unmatched

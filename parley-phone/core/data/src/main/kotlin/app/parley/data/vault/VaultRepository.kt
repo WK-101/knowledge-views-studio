@@ -257,11 +257,16 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
         dao.get(id)?.let { dao.upsert(it.copy(expiresAt = expiresAt)) }
     }
 
+    /** Deletes a private contact with its fingerprints and private calls, all or nothing; then its photo. */
     suspend fun delete(id: Long) = withContext(Dispatchers.IO) {
+        keysLock.withLock {
+            db.withTransaction {
+                dao.delete(id)
+                dao.clearNumbers(id)
+                dao.deletePrivateCalls(id)
+            }
+        }
         photoFile(id).delete()
-        dao.delete(id)
-        dao.clearNumbers(id)
-        dao.deletePrivateCalls(id)
     }
 
     /**
@@ -346,6 +351,10 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
     /**
      * Moves call-log rows for vault numbers out of the system log into the encrypted private
      * history (needs WRITE_CALL_LOG, granted by the dialer role). Returns rows moved.
+     *
+     * A provider row is deleted only once its private copy is stored (or was already, from an earlier sweep whose
+     * delete failed): the unique dedupe key means a retry never stores a call twice, and a failed insert never loses
+     * the call.
      */
     suspend fun sweepCallLog(sinceMillis: Long): Int = withContext(Dispatchers.IO) {
         val cr = context.contentResolver
@@ -360,16 +369,30 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
                 while (c.moveToNext()) {
                     val number = c.getString(1) ?: continue
                     val hit = lookup(number) ?: continue
-                    val blob = VaultCrypto.sealCallerId(JSONObject().put("n", number).put("name", hit.second.name).toString().toByteArray())
-                    dao.addPrivateCall(PrivateCallEntity(vaultId = hit.first, blob = blob, date = c.getLong(2), durationSec = c.getLong(3), type = c.getInt(4)))
+                    val date = c.getLong(2)
+                    val type = c.getInt(4)
+                    val stored = runCatching { storePrivateCall(hit.first, number, hit.second.name, date, c.getLong(3), type) }.getOrDefault(false)
+                    if (!stored) continue
                     ids += c.getLong(0)
                     moved++
                 }
             }
-            if (ids.isNotEmpty()) cr.delete(CallLog.Calls.CONTENT_URI, "${CallLog.Calls._ID} IN (${ids.joinToString(",")})", null)
+            ids.chunked(500).forEach { chunk -> cr.delete(CallLog.Calls.CONTENT_URI, "${CallLog.Calls._ID} IN (${chunk.joinToString(",")})", null) }
         } catch (_: SecurityException) {
         }
         moved
+    }
+
+    /**
+     * Stores one private call unless it is already there (a sweep retried, a restore run twice). True when the call is
+     * now stored, whether by this call or before.
+     */
+    suspend fun storePrivateCall(vaultId: Long, number: String, name: String, date: Long, durationSec: Long, type: Int): Boolean = withContext(Dispatchers.IO) {
+        // Rows from before the dedupe key have none: count those by their columns.
+        if (dao.countPrivateCall(vaultId, date, type) > 0) return@withContext true
+        val blob = VaultCrypto.sealCallerId(JSONObject().put("n", number).put("name", name).toString().toByteArray())
+        dao.addPrivateCall(PrivateCallEntity(vaultId = vaultId, blob = blob, date = date, durationSec = durationSec, type = type, dedupeKey = PrivateCallEntity.dedupeKey(vaultId, date, type)))
+        true
     }
 
     suspend fun deletePrivateCall(id: Long) = withContext(Dispatchers.IO) { dao.deletePrivateCall(id) }
@@ -401,6 +424,19 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
     suspend fun storedInteractions(id: Long): String? = withContext(Dispatchers.IO) {
         val e = dao.get(id) ?: return@withContext null
         JSONObject(String(VaultCrypto.openDetail(e.detailBlob))).optString(INTERACTIONS).takeIf { it.isNotEmpty() }
+    }
+
+    /** Every private contact, read straight from the database (not the UI flow, which starts empty). */
+    suspend fun summariesNow(): List<VaultSummary> = withContext(Dispatchers.IO) { dao.all().mapNotNull { summarize(it) } }
+
+    /** The private calls of entry [vaultId], read straight from the database (backup). */
+    suspend fun privateCallsOf(vaultId: Long): List<PrivateCall> = withContext(Dispatchers.IO) {
+        dao.allPrivateCalls().filter { it.vaultId == vaultId }.mapNotNull { c ->
+            runCatching {
+                val o = JSONObject(String(VaultCrypto.openCallerId(c.blob)))
+                PrivateCall(c.id, c.vaultId, o.optString("n"), o.optString("name"), c.date, c.durationSec, c.type)
+            }.getOrNull()
+        }
     }
 
     /** Every private contact's numbers, read straight from the database (import duplicate checks, F17). */

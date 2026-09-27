@@ -1,5 +1,6 @@
 package app.parley.data
 
+import app.parley.common.PhoneIdentity
 import android.content.Context
 import android.net.Uri
 import android.provider.CallLog.Calls
@@ -65,6 +66,8 @@ class CallScreener(
     private val lists: SpamListStore? = null,
     /** Ringtone per label title, from the label pages (the one store for label ringtones). */
     private val labelRingtones: suspend () -> Map<String, String> = { emptyMap() },
+    /** Earlier calls with the caller (repeat callers, "called back"), read from the system log. */
+    private val callLog: CallLogRepository? = null,
 ) {
     /** Set by the app to post per-verdict notifications. Called off the call path. */
     @Volatile
@@ -159,7 +162,7 @@ class CallScreener(
         val incoming = calls.filter { it.date >= since && it.type != CallType.OUTGOING && it.type != CallType.UNKNOWN }
         val contactCache = HashMap<String, Boolean>()
         val replay = incoming.map { e ->
-            val key = PhoneNumbers.lineKey(e.number, PhoneEnv.countryIso(context, e.accountId))
+            val key = PhoneIdentity.key(e.number, PhoneEnv.countryIso(context, e.accountId))
             val isContact = !e.presentationHidden && e.number.isNotBlank() && contactCache.getOrPut(key) { contacts.isContact(e.number) != false }
             ReplayCall(e.number, e.date, e.type, e.presentationHidden || e.number.isBlank(), e.durationSec, isContact)
         }
@@ -289,22 +292,8 @@ class CallScreener(
                 .map { PastCall(it.date, it.type == CallType.OUTGOING, it.durationSec) }
                 .take(50).toList()
         }
-        if (!Permissions.has(context, android.Manifest.permission.READ_CALL_LOG)) return emptyList()
-        val out = ArrayList<PastCall>()
-        for (part in PhoneNumbers.forwardedParts(number)) {
-            try {
-                context.contentResolver.query(
-                    Uri.withAppendedPath(Calls.CONTENT_FILTER_URI, Uri.encode(part)),
-                    arrayOf(Calls.DATE, Calls.TYPE, Calls.DURATION),
-                    "${Calls.DATE} < ?", arrayOf(at.toString()), "${Calls.DATE} DESC",
-                )?.use { c ->
-                    var n = 0
-                    while (c.moveToNext() && n++ < 50) out += PastCall(c.getLong(0), c.getInt(1) == Calls.OUTGOING_TYPE, c.getLong(2))
-                }
-            } catch (_: Exception) {
-            }
-        }
-        return out.sortedByDescending { it.time }
+        return runCatching { callLog?.pastCalls(number, at) }.getOrNull().orEmpty()
+            .map { PastCall(it.date, it.type == CallType.OUTGOING, it.durationSec) }
     }
 
     private class ContactBits(val id: Long, val name: String?, val starred: Boolean, val ringtone: String?)
@@ -331,7 +320,7 @@ class CallScreener(
      */
     private suspend fun commit(req: ScreenRequest, g: Gathered, result: ScreeningResult, s: ScreeningSettings, now: Long) = commitLock.withLock {
         val number = g.facts.number
-        val key = if (number == null) "hidden" else PhoneNumbers.lineKey(number, PhoneEnv.countryIso(context, req.simId))
+        val key = if (number == null) "hidden" else PhoneIdentity.key(number, PhoneEnv.countryIso(context, req.simId))
         committed.entries.removeAll { now - it.value.at > RESCREEN_WINDOW_MS }
         val prev = committed[key]
         val entry = prev ?: Committed(now, null, HashSet(), HashSet()).also { committed[key] = it }

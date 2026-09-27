@@ -21,7 +21,8 @@ data class DialHit(
  * the contact list is unchanged, only those candidates are tested again. This keeps typing smooth with thousands of
  * contacts on slow phones. Not thread-safe: use one instance from one coroutine at a time.
  */
-class DialSearch {
+/** [region]: the SIM country, so numbers are matched as lines ([PhoneIdentity]). */
+class DialSearch(private val region: String? = null) {
     class Entry(val contact: ContactSummary, val encoded: T9.Encoded)
 
     private var lastEntries: List<Entry>? = null
@@ -29,7 +30,7 @@ class DialSearch {
     private var lastCandidates: IntArray? = null
 
     private var recencyCalls: List<CallEntry>? = null
-    private var recency: Map<String, Long> = emptyMap()
+    private var recency: PhoneIdentity.LineMap<Long> = PhoneIdentity.LineMap(region)
 
     /** For tests: how many entries the last search tested. */
     var lastScanned = 0
@@ -115,10 +116,10 @@ class DialSearch {
         return out.take(limit)
     }
 
-    private fun recencyMap(calls: List<CallEntry>?): Map<String, Long> {
+    private fun recencyMap(calls: List<CallEntry>?): PhoneIdentity.LineMap<Long> {
         if (calls !== recencyCalls) {
-            val m = HashMap<String, Long>()
-            calls.orEmpty().take(1500).forEach { e -> if (e.number.isNotBlank()) m.putIfAbsent(PhoneNumbers.matchKey(e.number), e.date) }
+            val m = PhoneIdentity.LineMap<Long>(region)
+            calls.orEmpty().take(1500).forEach { e -> if (e.number.isNotBlank()) m.putIfAbsent(e.number, e.date) }
             recency = m
             recencyCalls = calls
         }
@@ -126,18 +127,18 @@ class DialSearch {
     }
 
     /** People you called recently rank higher among equally good matches. */
-    private fun recencyBonus(contact: ContactSummary, lastCalled: Map<String, Long>, now: Long): Int {
-        val newest = contact.phones.mapNotNull { lastCalled[PhoneNumbers.matchKey(it.number)] }.maxOrNull() ?: return 0
+    private fun recencyBonus(contact: ContactSummary, lastCalled: PhoneIdentity.LineMap<Long>, now: Long): Int {
+        val newest = contact.phones.mapNotNull { lastCalled[it.number] }.maxOrNull() ?: return 0
         val days = (now - newest) / 86_400_000L
         return (60 - days * 2).coerceIn(0, 60).toInt()
     }
 
     private fun addRecentNumbers(q: String, out: MutableList<DialHit>, calls: List<CallEntry>?) {
-        val seen = out.flatMap { r -> r.contact?.phones.orEmpty().map { PhoneNumbers.matchKey(it.number) } }.toHashSet()
+        val seen = PhoneIdentity.LineSet(out.flatMap { r -> r.contact?.phones.orEmpty().map { it.number } }, region)
         calls.orEmpty().asSequence()
             .filter { it.number.isNotBlank() && !it.presentationHidden }
-            .distinctBy { PhoneNumbers.matchKey(it.number) }
-            .filter { PhoneNumbers.matchKey(it.number) !in seen && PhoneNumbers.digits(it.number).contains(q) }
+            .distinctBy { PhoneIdentity.key(it.number, region) }
+            .filter { it.number !in seen && PhoneNumbers.digits(it.number).contains(q) }
             .take(5)
             .forEach { out += DialHit(null, it.number, T9.Match(400, emptyList(), it.number)) }
     }

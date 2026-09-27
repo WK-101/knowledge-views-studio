@@ -3,6 +3,7 @@ package app.parley.calltime
 import android.content.Context
 import app.parley.R
 import app.parley.common.CallType
+import app.parley.common.PhoneIdentity
 import app.parley.common.PhoneNumbers
 import app.parley.common.calls.EmergencyPolicy
 import app.parley.common.calls.EmergencyPolicy.Safeguard
@@ -35,7 +36,7 @@ import java.util.Locale
 class CallTimePlanner(private val c: DataContainer) {
 
     /** The call as the policy sees it, plus the numbers that count towards the same person's allowance. */
-    private data class Subject(val facts: CallFacts, val numberKeys: Set<String>, val name: String?)
+    private data class Subject(val facts: CallFacts, val numbers: List<String>, val name: String?)
 
     private suspend fun subject(number: String?, accountId: String?, incoming: Boolean): Subject = withContext(Dispatchers.IO) {
         val config = c.calling.config.value
@@ -45,8 +46,7 @@ class CallTimePlanner(private val c: DataContainer) {
         // Label titles in every account (label limits are keyed by title).
         val labels = if (info == null || labelRules.isEmpty()) emptySet() else runCatching { c.people.labelsOf(info.contactId) }.getOrDefault(emptySet())
         val contact = key?.let { k -> c.contacts.contacts.value?.firstOrNull { it.lookupKey == k } }
-        val keys = contact?.phones?.map { PhoneNumbers.matchKey(it.number) }?.toSet()
-            ?: listOfNotNull(number?.takeIf { it.isNotBlank() }?.let { PhoneNumbers.matchKey(it) }).toSet()
+        val numbers = contact?.phones?.map { it.number } ?: listOfNotNull(number?.takeIf { it.isNotBlank() })
         // The hour after an emergency call, and numbers listed as starting it (B23): never limited or silenced.
         val emergency = EmergencyPolicy.Facts(
             emergencyNumber = EmergencyNumbers.isEmergency(c.appContext, number),
@@ -54,26 +54,51 @@ class CallTimePlanner(private val c: DataContainer) {
             userListed = !number.isNullOrBlank() && c.settings.current().screening.emergencyExtras.any { PhoneNumbers.same(it, number, PhoneEnv.countryIso(c.appContext)) },
         )
         val exempt = EmergencyPolicy.bypasses(Safeguard.CALL_LIMITS, emergency)
-        Subject(CallFacts(incoming, emergency.isEmergency, key, labels, accountId, inEmergencyWindow = exempt), keys, info?.name)
+        Subject(CallFacts(incoming, emergency.isEmergency, key, labels, accountId, inEmergencyWindow = exempt), numbers, info?.name)
     }
 
-    /** Allowance status of the rule that governs [s], counted from the call history. */
+    /**
+     * Allowance status of the rule that governs [s], counted from the call-usage ledger and the call history (private
+     * contacts' calls included). When neither can be read, a supervised allowance reads as used up (it fails closed);
+     * otherwise nothing is counted, as before.
+     */
     private suspend fun quotas(s: Subject): List<QuotaStatus> {
-        val rule = CallLimits.ruleFor(c.calling.config.value, s.facts)?.takeIf { it.hasQuota } ?: return emptyList()
-        // The process may have just started for this call: give the call log a moment to load.
-        val calls = c.callLog.calls.value ?: withTimeoutOrNull(LOG_WAIT_MS) { c.callLog.calls.filterNotNull().first() } ?: return emptyList()
-        val usage = calls.asSequence()
+        val config = c.calling.config.value
+        val rule = CallLimits.ruleFor(config, s.facts)?.takeIf { it.hasQuota } ?: return emptyList()
+        val now = System.currentTimeMillis()
+        val zone = ZoneId.systemDefault()
+        val firstDay = WeekFields.of(Locale.getDefault()).firstDayOfWeek
+        val region = PhoneEnv.countryIso(c.appContext)
+        val line = PhoneIdentity.LineSet(s.numbers, region)
+        // The ledger stores line keys, not numbers.
+        val lineKeys = s.numbers.map { PhoneIdentity.key(it, region) }.filter { it.isNotEmpty() }.toSet()
+        fun counts(number: String?, lineKey: String?, contactKey: String?, accountId: String?): Boolean = when (rule.scope) {
+            LimitScope.CONTACT, LimitScope.LABEL ->
+                (contactKey != null && contactKey == s.facts.contactKey) || (!number.isNullOrBlank() && number in line) || (lineKey != null && lineKey in lineKeys)
+            LimitScope.SIM -> accountId == rule.key
+            LimitScope.GLOBAL -> true
+        }
+        // The process may have just started for this call: give the history a moment to load.
+        val calls = c.history.callsWithPrivate.value ?: withTimeoutOrNull(LOG_WAIT_MS) { c.history.callsWithPrivate.filterNotNull().first() }
+        val since = minOf(Quotas.periodStart(now, zone, QuotaPeriod.DAY), Quotas.periodStart(now, zone, QuotaPeriod.WEEK, firstDay))
+        val ledger = try {
+            c.callUsage.since(since - Quotas.SAME_CALL_WINDOW_MS)
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            android.util.Log.w("CallTimePlanner", "Call-usage ledger unreadable", e)
+            null
+        }
+        if (calls == null && ledger == null) return if (config.supervised) Quotas.unknownUsage(rule) else emptyList()
+        val fromHistory = calls.orEmpty().asSequence()
             .filter { it.type == CallType.INCOMING || it.type == CallType.OUTGOING }
-            .filter { e ->
-                when (rule.scope) {
-                    LimitScope.CONTACT, LimitScope.LABEL -> e.number.isNotBlank() && PhoneNumbers.matchKey(e.number) in s.numberKeys
-                    LimitScope.SIM -> e.accountId == rule.key
-                    LimitScope.GLOBAL -> true
-                }
-            }
+            .filter { e -> counts(e.number, null, null, e.accountId) }
             .map { UsageEntry(it.date, it.durationSec, it.type == CallType.INCOMING) }
             .toList()
-        return Quotas.status(rule, usage, System.currentTimeMillis(), ZoneId.systemDefault(), WeekFields.of(Locale.getDefault()).firstDayOfWeek)
+        val fromLedger = ledger.orEmpty()
+            .filter { u -> counts(null, u.lineKey, u.contactKey, u.accountId) }
+            .map { UsageEntry(it.startedAt, it.durationSec, it.incoming) }
+        return Quotas.status(rule, Quotas.mergeUsage(fromLedger, fromHistory), now, zone, firstDay)
     }
 
     suspend fun plan(number: String?, accountId: String?, incoming: Boolean): CallTimePlan {

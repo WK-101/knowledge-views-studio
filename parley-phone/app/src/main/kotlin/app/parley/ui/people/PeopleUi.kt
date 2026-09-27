@@ -1,5 +1,6 @@
 package app.parley.ui.people
 
+import app.parley.common.PhoneIdentity
 import app.parley.common.ContactSummary
 import app.parley.common.PhoneNumbers
 import app.parley.common.people.FavoriteOrder
@@ -85,11 +86,11 @@ class PeopleUi(
     }.flowOn(Dispatchers.Default).stateIn(scope, SharingStarted.Eagerly, emptyMap())
 
     /** Calls per contact over the loaded call history (for "Most called"). */
-    private val callCounts: StateFlow<Map<Long, Int>> = combine(contacts, c.callLog.calls) { list, calls ->
-        val byKey = HashMap<String, Long>()
-        list.orEmpty().filter { it.starred }.forEach { ct -> ct.phones.forEach { p -> byKey.putIfAbsent(PhoneNumbers.matchKey(p.number), ct.id) } }
+    private val callCounts: StateFlow<Map<Long, Int>> = combine(contacts, c.history.calls) { list, calls ->
+        val byKey = PhoneIdentity.LineMap<Long>(countryIso)
+        list.orEmpty().filter { it.starred }.forEach { ct -> ct.phones.forEach { p -> byKey.putIfAbsent(p.number, ct.id) } }
         val counts = HashMap<Long, Int>()
-        calls.orEmpty().forEach { e -> byKey[PhoneNumbers.matchKey(e.number)]?.let { counts[it] = (counts[it] ?: 0) + 1 } }
+        calls.orEmpty().forEach { e -> byKey[e.number]?.let { counts[it] = (counts[it] ?: 0) + 1 } }
         counts as Map<Long, Int>
     }.flowOn(Dispatchers.Default).stateIn(scope, SharingStarted.Eagerly, emptyMap())
 

@@ -33,7 +33,10 @@ import app.parley.common.suspendRunCatching
 import app.parley.common.record.ContactRecord
 import app.parley.common.record.DataRow
 import app.parley.common.record.Mime
+import androidx.room.withTransaction
+import app.parley.common.storage.PersistentStores
 import app.parley.data.BlockRepository
+import app.parley.data.CallLogRepository
 import app.parley.data.ContactDetailsJson
 import app.parley.data.ContactsRepository
 import app.parley.data.PrefsRepository
@@ -102,6 +105,10 @@ data class RestoreReport(
     val skipped: List<String> = emptyList(),
     /** R2: Circle entries (members, interactions, yearly flags) whose person wasn't found among the contacts here. */
     val unmatched: Int = 0,
+    /** Parts that weren't applied because they would change a safeguard (supervised call-time limits) without asking. */
+    val needsConfirmation: Boolean = false,
+    /** Blocked-call log entries brought back. */
+    val blockedLog: Int = 0,
 ) {
     fun summary(res: Resources) = error ?: buildList {
         add(res.getQuantityString(R.plurals.data_rst_added, added, added))
@@ -130,20 +137,41 @@ class BackupRepository(
     private val settings: SettingsRepository,
     private val vault: VaultRepository,
     val prefs: BackupPrefs,
+    /** The system call log: the history layer's own reads and writes. */
+    private val callLog: CallLogRepository,
 ) {
     private val cr = context.contentResolver
 
     /** Feature data stored alongside the settings (see [BackupExtras]); set by the container. */
     var extras: () -> List<BackupExtras> = { emptyList() }
 
-    /** Every feature's extras; a section that fails is left out and named in [failed] rather than dropped silently. */
-    private suspend fun extrasMap(failed: MutableList<String>): Map<String, String> = extras().fold(emptyMap()) { acc, x ->
-        acc + suspendRunCatching { x.export() }.getOrElse { e ->
-            android.util.Log.w("BackupRepository", "Backup section ${x.section} failed", e)
-            failed += x.section
-            emptyMap()
+    /**
+     * Every feature's extras; a section that fails is left out and named in [failed] rather than dropped silently. So is
+     * a backed-up store of [PersistentStores] that no section writes (a store added without its backup part).
+     */
+    private suspend fun extrasMap(failed: MutableList<String>): Map<String, String> {
+        val parts = extras()
+        val covered = BUILT_IN_SECTIONS + parts.flatMap { it.sections }
+        (PersistentStores.requiredSections - covered).forEach { missing ->
+            android.util.Log.w("BackupRepository", "No backup part writes section $missing")
+            failed += missing
+        }
+        return parts.fold(emptyMap()) { acc, x ->
+            acc + suspendRunCatching { x.export() }.getOrElse { e ->
+                android.util.Log.w("BackupRepository", "Backup section ${x.section} failed", e)
+                failed += x.section
+                emptyMap()
+            }
         }
     }
+
+    /** Whether the last restore left a part waiting for confirmation (see [ConfirmedRestore]). */
+    fun hasPendingRestore(): Boolean = extras().any { it is ConfirmedRestore && it.hasPending() }
+
+    /** Applies what the last restore left waiting; call only after the user confirmed with the app lock. */
+    suspend fun applyPendingRestore(): Boolean = extras().filterIsInstance<ConfirmedRestore>().map { it.applyPending() }.any { it }
+
+    fun discardPendingRestore() = extras().filterIsInstance<ConfirmedRestore>().forEach { it.discardPending() }
     private val zone: ZoneId get() = ZoneId.systemDefault()
 
     /** Parley's call-history archive, backed up in its own optional section (set by the container). */
@@ -211,7 +239,7 @@ class BackupRepository(
                 dataKey = enc.dataKey
                 val writer = BackupArchiveWriter(enc, ArchiveMeta(now.toEpochMilli(), appVersion(), device()))
                 writer.writeContacts(records.readAll(fullPhoto = true).onEach { contactCount++ })
-                writer.writeCallLog(readCallLog().onEach { callCount++ })
+                writer.writeCallLog(callLog.exportAll().onEach { callCount++ })
                 callHistory?.let { h -> writer.writeCallHistory(h.backupLines()) }
                 writer.writeBlocking(blocking())
                 writer.writeSpeedDial(prefsRepo.speedDials.first().map { SpeedDialRecord(it.key, it.number, it.label) })
@@ -262,7 +290,7 @@ class BackupRepository(
         // Rotation, paused if many contacts disappeared (protects the last good backups). The reference count is
         // a high-water mark: it only moves while rotation runs, so the pause lasts until the user resumes it.
         val paused = !safety && state.lastContactCount >= 0 && RetentionDecider.mustPauseRotation(state.lastContactCount, contactCount)
-        val vaultMissing = !vaultIncluded && vault.contacts.value.isNotEmpty()
+        val vaultMissing = !vaultIncluded && runCatching { vault.summariesNow().isNotEmpty() }.getOrDefault(true)
         if (!paused && !safety && !incomplete) rotate(protect = if (vaultIncluded) finalName else state.lastVaultBackupName)
         val res = context.resources
         // Stored as what happened, rendered in the current language when shown (BackupState.resultText).
@@ -291,33 +319,19 @@ class BackupRepository(
 
     private fun device(): Map<String, String> = mapOf("model" to Build.MODEL, "sdk" to Build.VERSION.SDK_INT.toString())
 
-    private fun readCallLog(): Sequence<CallLogRecord> = sequence {
-        val c = runCatching {
-            cr.query(
-                CallLog.Calls.CONTENT_URI,
-                arrayOf(CallLog.Calls.NUMBER, CallLog.Calls.DATE, CallLog.Calls.DURATION, CallLog.Calls.TYPE, CallLog.Calls.NUMBER_PRESENTATION, CallLog.Calls.PHONE_ACCOUNT_ID, CallLog.Calls.PHONE_ACCOUNT_COMPONENT_NAME, CallLog.Calls.CACHED_NAME, CallLog.Calls.NEW, CallLog.Calls.IS_READ),
-                null, null, CallLog.Calls.DATE + " ASC",
-            )
-        }.getOrNull() ?: return@sequence
-        c.use {
-            while (it.moveToNext()) {
-                yield(CallLogRecord(it.getString(0), it.getLong(1), it.getLong(2), it.getInt(3), it.getInt(4), it.getString(5), it.getString(6), it.getString(7), it.getInt(8) != 0, it.getInt(9) != 0))
-            }
-        }
-    }
-
+    /** Read from the database, never from the UI flows (they start empty in a worker process that just started). */
     private suspend fun blocking(): BlockingSnapshot {
-        val rules = blocks.rules.value.map {
+        val rules = blocks.allRules().map {
             BlockRuleRecord(it.pattern, it.type.name, it.action.name, it.enabled, it.note, it.kind.name, it.simId, it.schedule?.encode(), it.notify.name, it.ringtone, it.expiresAt, it.label)
         }
         val system = blocks.loadSystemNow().map { it.number }
-        val log = blocks.blockedCalls.first().map { BlockedCallRecord(it.number, it.reason, it.action, it.time) }
+        val log = db.blockDao().blockedCallsNow().map { BlockedCallRecord(it.number, it.reason, it.action, it.time) }
         return BlockingSnapshot(rules, system, log)
     }
 
     /** Private contacts, re-encrypted under the archive key. Needs the vault unlocked (otherwise skipped). */
     private suspend fun vaultBlob(): ByteArray? {
-        val list = vault.contacts.value
+        val list = vault.summariesNow()
         if (list.isEmpty()) return null
         if (VaultCrypto.detailNeedsUnlock()) return null
         val arr = JSONArray()
@@ -336,6 +350,10 @@ class BackupRepository(
             }
             // R2: logged interactions carried in the entry while the contact is private.
             runCatching { vault.storedInteractions(v.id) }.getOrNull()?.let { o.put("interactions", it) }
+            // The private call history: removed from the system log, so this is its only copy.
+            val calls = JSONArray()
+            vault.privateCallsOf(v.id).forEach { c -> calls.put(JSONObject().put("n", c.number).put("name", c.name).put("d", c.date).put("s", c.durationSec).put("t", c.type)) }
+            if (calls.length() > 0) o.put("calls", calls)
             // The caller photo (kept encrypted apart from the details); inside the archive it is under the archive key.
             vault.photoBytes(v.id)?.let { o.put("photo", android.util.Base64.encodeToString(it, android.util.Base64.NO_WRAP)) }
             arr.put(o)
@@ -452,7 +470,20 @@ class BackupRepository(
             val archived = if (h != null) opened.reader.callHistory { it.toList() } else null
             if (h != null && archived != null) r = r.copy(calls = r.calls + h.restoreLines(archived))
         }
-        if (o.blocking) part(context.getString(R.string.data_rst_part_blocking)) { r = r.copy(rules = restoreBlocking(opened)) }
+        // Feature parts ride on the choice they belong to; they match people against the contacts restored above.
+        val featureValues = if (o.contacts || o.blocking || o.settings) runCatching { opened.reader.settings() }.getOrNull()?.filterKeys { it.startsWith(BackupExtras.PREFIX) }.orEmpty() else emptyMap()
+        suspend fun features(which: RestorePart) {
+            if (featureValues.isEmpty()) return
+            extras().filter { it.restoreWith == which }.forEach { e ->
+                part(e.section) { r = r.copy(unmatched = r.unmatched + e.importCounting(featureValues)) }
+            }
+        }
+        if (o.contacts) features(RestorePart.CONTACTS)
+        if (o.blocking) part(context.getString(R.string.data_rst_part_blocking)) {
+            val (rules, log) = restoreBlocking(opened)
+            r = r.copy(rules = rules, blockedLog = log)
+        }
+        if (o.blocking) features(RestorePart.BLOCKING)
         if (o.speedDial) part(context.getString(R.string.data_rst_part_speed_dial)) {
             opened.reader.speedDial()?.forEach { prefsRepo.setSpeedDial(it.slot, it.number, it.label) }
             opened.reader.numberSims()?.forEach { db.prefsDao().setSim(app.parley.data.db.NumberSimEntity(it.matchKey, it.phoneAccountId)) }
@@ -463,10 +494,8 @@ class BackupRepository(
                 // Off hours' "only this label" names a label of the old phone: keep it only if that title exists here.
                 val titles = labelTitlesHere()
                 settings.update { s -> s.copy(screening = s.screening.copy(offHours = app.parley.common.LabelRefs.restoreOffHours(s.screening.offHours, titles))) }
-                val x = all.filterKeys { it.startsWith(BackupExtras.PREFIX) }
-                // Extras match people against the contacts this restore just inserted (read fresh, see loadNow).
-                if (x.isNotEmpty()) extras().forEach { e -> r = r.copy(unmatched = r.unmatched + e.importCounting(x)) }
             }
+            features(RestorePart.SETTINGS)
         }
         if (o.vault) try {
             r = r.copy(vault = restoreVault(opened))
@@ -476,7 +505,7 @@ class BackupRepository(
             skipped += context.getString(R.string.data_rst_part_vault)
         }
         contacts.refresh()
-        r.copy(skipped = skipped)
+        r.copy(skipped = skipped, needsConfirmation = hasPendingRestore())
     }
 
     /** Removes the raw contacts the last restore added (existing contacts they joined keep their own entries). */
@@ -489,6 +518,11 @@ class BackupRepository(
         prefs.update { it.putString("restoreRawIds", "") }
         contacts.refresh()
         ids.size
+    }
+
+    private companion object {
+        /** Sections the backup writes itself (contacts, calls, blocking, speed dial, settings, private contacts). */
+        val BUILT_IN_SECTIONS = with(PersistentStores.Sections) { setOf(CONTACTS, CALL_LOG, CALL_HISTORY, BLOCKING, SPEED_DIAL, SETTINGS, VAULT) }
     }
 
     private fun idForKey(key: String): Long? = runCatching {
@@ -525,31 +559,10 @@ class BackupRepository(
     }
 
     private fun restoreCallLog(opened: OpenedBackup): Int {
-        val existing = HashSet<String>()
-        runCatching {
-            cr.query(CallLog.Calls.CONTENT_URI, arrayOf(CallLog.Calls.NUMBER, CallLog.Calls.DATE, CallLog.Calls.DURATION, CallLog.Calls.TYPE), null, null, null)?.use { c ->
-                while (c.moveToNext()) existing += "${c.getString(0)}|${c.getLong(1)}|${c.getLong(2)}|${c.getInt(3)}"
-            }
-        }
+        val existing = callLog.rowSignatures()
         var n = 0
         opened.reader.callLog { seq ->
-            seq.filter { "${it.number}|${it.date}|${it.duration}|${it.type}" !in existing }.chunked(200).forEach { chunk ->
-                val values = chunk.map { rec ->
-                    ContentValues().apply {
-                        put(CallLog.Calls.NUMBER, rec.number)
-                        put(CallLog.Calls.DATE, rec.date)
-                        put(CallLog.Calls.DURATION, rec.duration)
-                        put(CallLog.Calls.TYPE, rec.type)
-                        put(CallLog.Calls.NUMBER_PRESENTATION, rec.presentation)
-                        put(CallLog.Calls.PHONE_ACCOUNT_ID, rec.accountId)
-                        put(CallLog.Calls.PHONE_ACCOUNT_COMPONENT_NAME, rec.accountComponent)
-                        put(CallLog.Calls.CACHED_NAME, rec.name)
-                        put(CallLog.Calls.NEW, if (rec.isNew) 1 else 0)
-                        put(CallLog.Calls.IS_READ, if (rec.isRead) 1 else 0)
-                    }
-                }.toTypedArray()
-                n += runCatching { cr.bulkInsert(CallLog.Calls.CONTENT_URI, values) }.getOrDefault(0)
-            }
+            seq.filter { CallLogRepository.signature(it.number, it.date, it.duration, it.type) !in existing }.chunked(200).forEach { n += callLog.insert(it) }
         }
         return n
     }
@@ -557,8 +570,9 @@ class BackupRepository(
     /** Label titles on this phone (the way label references are keyed; group row ids differ between phones). */
     private fun labelTitlesHere(): Set<String> = runCatching { contacts.groups().map { app.parley.common.LabelRefs.key(it.title) }.toSet() }.getOrDefault(emptySet())
 
-    private suspend fun restoreBlocking(opened: OpenedBackup): Int {
-        val snap = opened.reader.blocking() ?: return 0
+    /** Rules (deduplicated) and the blocked-call log (entries this phone doesn't have). Returns both counts. */
+    private suspend fun restoreBlocking(opened: OpenedBackup): Pair<Int, Int> {
+        val snap = opened.reader.blocking() ?: return 0 to 0
         val existing = blocks.allRules().map { it.kind.name + "|" + it.pattern + "|" + it.type.name }.toHashSet()
         val titles = labelTitlesHere()
         var n = 0
@@ -580,19 +594,39 @@ class BackupRepository(
             n++
         }
         snap.systemBlockedNumbers.forEach { blocks.blockNumber(it) }
-        return n
+        var logged = 0
+        val dao = db.blockDao()
+        db.withTransaction {
+            for (e in snap.blockedCalls) {
+                if (dao.countBlocked(e.number, e.time) > 0) continue
+                dao.logBlocked(app.parley.data.db.BlockedCallEntity(number = e.number, reason = e.reason, action = e.action, time = e.time))
+                logged++
+            }
+        }
+        return n to logged
     }
 
     private suspend fun restoreVault(opened: OpenedBackup): Int {
         val blob = opened.reader.vault()["vault.json"] ?: return 0
         val arr = JSONObject(String(blob)).optJSONArray("contacts") ?: return 0
-        val have = vault.contacts.value.map { it.name to it.numbers.toSet() }.toSet()
+        val have = vault.summariesNow().associate { (it.name to it.numbers.toSet()) to it.id }
         var n = 0
+        // Private calls of an entry, restored once (the dedupe key skips calls already there).
+        suspend fun restoreCalls(id: Long, o: JSONObject) {
+            val calls = o.optJSONArray("calls") ?: return
+            for (i in 0 until calls.length()) {
+                val c = calls.optJSONObject(i) ?: continue
+                runCatching { vault.storePrivateCall(id, c.optString("n"), c.optString("name"), c.optLong("d"), c.optLong("s"), c.optInt("t")) }
+            }
+        }
         for (i in 0 until arr.length()) {
             val o = arr.getJSONObject(i)
             val d = ContactDetailsJson.decode(o.getString("details"))
             val sig = d.displayName to d.phones.map { it.value }.toSet()
-            if (sig in have) continue
+            have[sig]?.let { existing ->
+                restoreCalls(existing, o)
+                continue
+            }
             val blobs = o.optJSONObject("recordBlobs")
             val record = o.optString("record").takeIf { it.isNotEmpty() }?.let { line ->
                 runCatching {
@@ -611,6 +645,7 @@ class BackupRepository(
             o.optString("photo").takeIf { it.isNotEmpty() }?.let { p ->
                 runCatching { vault.setPhoto(id, android.util.Base64.decode(p, android.util.Base64.NO_WRAP)) }
             }
+            restoreCalls(id, o)
             n++
         }
         return n

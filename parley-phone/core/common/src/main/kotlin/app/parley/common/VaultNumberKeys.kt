@@ -14,7 +14,7 @@ object VaultNumberKeys {
     /** HMAC inputs stored for one vault number ([countryIso]: the region the number was entered in). */
     fun stored(number: String?, countryIso: String?): List<String> {
         PhoneNumbers.toE164(number, countryIso)?.let { return listOf(E164_PREFIX + it) }
-        return listOfNotNull(PhoneNumbers.matchKey(number).takeIf { it.isNotEmpty() })
+        return listOfNotNull(PhoneIdentity.legacyKey(number).takeIf { it.isNotEmpty() })
     }
 
     /** HMAC inputs for all numbers of one vault entry, without duplicates. */
@@ -26,7 +26,7 @@ object VaultNumberKeys {
      * non-exact lookup still finds the entry. Exact lookups never use these rows.
      */
     fun storedWithFallback(numbers: List<String>, countryIso: String?): List<String> =
-        (storedAll(numbers, countryIso) + numbers.mapNotNull { n -> PhoneNumbers.matchKey(n).takeIf { it.isNotEmpty() } }).distinct()
+        (storedAll(numbers, countryIso) + numbers.mapNotNull { n -> PhoneIdentity.legacyKey(n).takeIf { it.isNotEmpty() } }).distinct()
 
     /**
      * HMAC inputs to try for a caller, best first. [countryIso] is the country of the SIM that took the call when
@@ -34,7 +34,7 @@ object VaultNumberKeys {
      */
     fun lookup(number: String?, countryIso: String?, exact: Boolean = false): List<String> {
         val e164 = PhoneNumbers.toE164(number, countryIso)
-        val suffix = PhoneNumbers.matchKey(number).takeIf { it.isNotEmpty() }
+        val suffix = PhoneIdentity.legacyKey(number).takeIf { it.isNotEmpty() }
         return when {
             e164 != null && exact -> listOf(E164_PREFIX + e164)
             // The E.164 row first; the suffix rows are the fallback (see storedWithFallback).

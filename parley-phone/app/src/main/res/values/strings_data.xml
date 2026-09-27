@@ -1421,4 +1421,12 @@
     <string name="ux_perm_nearby">Nearby devices</string>
     <string name="ux_perm_nearby_why">Show your Bluetooth headset or car during calls.</string>
     <string name="ux_perm_nearby_without">calls still use Bluetooth, but the device\'s name isn\'t shown</string>
+    <plurals name="rst_blocked_log">
+        <item quantity="one">%1$d blocked call in the log</item>
+        <item quantity="other">%1$d blocked calls in the log</item>
+    </plurals>
+    <string name="rst_calltime_waiting">Call-time limits are supervised on this phone, so the backup\'s limits weren\'t applied.</string>
+    <string name="rst_calltime_apply">Apply the backup\'s limits</string>
+    <string name="rst_calltime_confirm">Replace the supervised call-time limits</string>
+    <string name="rst_calltime_applied">Call-time limits restored</string>
 </resources>

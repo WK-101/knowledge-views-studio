@@ -1,5 +1,7 @@
 package app.parley.data.people
 
+import app.parley.common.storage.PersistentStores
+import app.parley.common.PhoneIdentity
 import android.provider.ContactsContract.CommonDataKinds.GroupMembership
 import android.provider.ContactsContract.Data
 import android.util.Base64
@@ -69,6 +71,7 @@ class PeopleContainer(private val c: DataContainer) {
 /** Backs up people preferences, private-name approvals and call backgrounds (matched back by name and number). */
 private class PeopleBackupExtras(private val p: PeopleContainer, private val c: DataContainer) : BackupExtras {
     override val section = "people"
+    override val sections = setOf(PersistentStores.Sections.PEOPLE)
 
     override suspend fun export(): Map<String, String> {
         val out = LinkedHashMap<String, String>()
@@ -86,7 +89,7 @@ private class PeopleBackupExtras(private val p: PeopleContainer, private val c: 
                 total += bytes.size
                 out["${BackupExtras.PREFIX}bg.${ct.lookupKey}"] = JSONObject()
                     .put("name", ct.displayName)
-                    .put("phones", JSONArray(ct.phones.mapNotNull { Duplicates.phoneKey(it.number) }))
+                    .put("phones", JSONArray(ct.phones.mapNotNull { PhoneIdentity.portableKey(it.number) }))
                     .put("jpeg", Base64.encodeToString(bytes, Base64.NO_WRAP))
                     .toString()
             }
@@ -110,7 +113,7 @@ private class PeopleBackupExtras(private val p: PeopleContainer, private val c: 
             val name = o.optString("name")
             // Lookup keys change when contacts are restored on another phone: fall back to name + a shared number.
             val target = byKey[key] ?: contacts.firstOrNull { ct ->
-                ct.displayName == name && (phones.isEmpty() || ct.phones.any { PhoneNumbers.matchKey(it.number).let { mk -> mk.length >= 7 && mk in phones } })
+                ct.displayName == name && (phones.isEmpty() || ct.phones.any { PhoneIdentity.portableKey(it.number) in phones })
             } ?: continue
             val bytes = runCatching { Base64.decode(o.getString("jpeg"), Base64.NO_WRAP) }.getOrNull() ?: continue
             p.backgrounds.write(target.lookupKey, bytes)

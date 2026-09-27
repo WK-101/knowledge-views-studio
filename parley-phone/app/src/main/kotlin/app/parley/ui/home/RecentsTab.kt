@@ -1,5 +1,6 @@
 package app.parley.ui.home
 
+import app.parley.common.PhoneIdentity
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.runtime.mutableStateOf
@@ -322,7 +323,7 @@ fun RecentRow(
                 val location = app.parley.ui.common.rememberNumberLocation(g.number, countryIso, enabled = g.contact == null && g.vaultId == null && !g.hidden)
                 val parts = listOfNotNull(
                     location,
-                    if (g.contact != null) g.contact.phones.firstOrNull { p -> app.parley.common.PhoneNumbers.matchKey(p.number) == app.parley.common.PhoneNumbers.matchKey(e.number) }
+                    if (g.contact != null) g.contact.phones.firstOrNull { p -> PhoneIdentity.same(p.number, e.number, countryIso) }
                         ?.let { p -> Format.phoneType(context.resources, p.type, p.label) } else if (!g.hidden && g.contact == null && g.cachedName != null) Bidi.ltr(Format.number(e.number, countryIso)) else null,
                     e.accountId?.let { simLabels[it] },
                     // R4: an outgoing call nobody answered says so.

@@ -18,7 +18,7 @@ class DuplicateIndex {
     private val names = HashSet<String>()
 
     fun add(c: ContactSummary) {
-        c.phones.forEach { p -> Duplicates.phoneKey(p.number)?.let { phones += it } }
+        c.phones.forEach { p -> PhoneIdentity.portableKey(p.number)?.let { phones += it } }
         c.emails.forEach { e -> Duplicates.emailKey(e)?.let { emails += it } }
         Duplicates.nameKey(c.displayName)?.let { names += it }
     }
@@ -41,7 +41,7 @@ class DuplicateIndex {
     private fun keys(r: ContactRecord): Keys {
         val rows = r.raws.flatMap { it.rows }
         return Keys(
-            phones = rows.filter { it.mimeType == Mime.PHONE }.mapNotNull { it[Col.D1]?.let(Duplicates::phoneKey) }.toSet(),
+            phones = rows.filter { it.mimeType == Mime.PHONE }.mapNotNull { it[Col.D1]?.let(PhoneIdentity::portableKey) }.toSet(),
             emails = rows.filter { it.mimeType == Mime.EMAIL }.mapNotNull { it[Col.D1]?.let(Duplicates::emailKey) }.toSet(),
             name = Duplicates.nameKey(r.displayName),
         )

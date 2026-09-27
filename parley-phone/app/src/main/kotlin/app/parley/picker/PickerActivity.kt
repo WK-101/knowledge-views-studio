@@ -1,5 +1,6 @@
 package app.parley.picker
 
+import app.parley.common.PhoneIdentity
 import android.app.Activity
 import android.content.ClipData
 import android.content.ContentUris
@@ -145,7 +146,7 @@ class PickerActivity : androidx.fragment.app.FragmentActivity() {
         contentResolver.query(
             Phone.CONTENT_URI, arrayOf(Phone._ID, Phone.NUMBER), "${Phone.CONTACT_ID}=?", arrayOf(contactId.toString()), null,
         )?.use { c -> buildList { while (c.moveToNext()) add(c.getString(1).orEmpty() to ContentUris.withAppendedId(ContactsContract.Data.CONTENT_URI, c.getLong(0))) } }
-            .orEmpty().distinctBy { app.parley.common.PhoneNumbers.matchKey(it.first) }
+            .orEmpty().distinctBy { PhoneIdentity.key(it.first, null) }
     } catch (_: Exception) {
         emptyList()
     }

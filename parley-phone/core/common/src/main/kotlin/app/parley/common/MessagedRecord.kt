@@ -2,8 +2,8 @@ package app.parley.common
 
 /**
  * F13: the "last messaged" record (which numbers you opened a chat with through Parley, and when), as pure logic.
- * Entries are keyed by [PhoneNumbers.lineKey]; records written before F7 were keyed by the last 9 digits and are
- * read through [PhoneNumbers.fallbackLineKey].
+ * Entries are keyed by [PhoneIdentity.key]; records written before F7 were keyed by the last 9 digits and are
+ * read through [PhoneNumbers.fallbackLineKey] until [rekeyLegacy] moves them.
  */
 data class MessagedEntry(
     val key: String,
@@ -58,6 +58,22 @@ object MessagedRecord {
 
     /** Call-history retention applies here too: entries older than [before] go. */
     fun prune(entries: List<MessagedEntry>, before: Long): List<MessagedEntry> = entries.filter { it.at >= before }
+
+    /**
+     * Entries kept from before F7 (no number, keyed by the last digits) moved to the line key [plan] maps those digits
+     * to ([PhoneKeyMigration.plan]); where the line already has an entry, the newer of the two stays.
+     */
+    fun rekeyLegacy(entries: List<MessagedEntry>, plan: Map<String, String>): List<MessagedEntry> {
+        if (plan.isEmpty()) return entries
+        val moved = entries.map { e ->
+            val digits = if (e.number == null && e.key.startsWith(LEGACY_PREFIX)) e.key.removePrefix(LEGACY_PREFIX) else null
+            digits?.let { plan[it] }?.let { e.copy(key = it) } ?: e
+        }
+        return moved.groupBy { it.key }.values.map { same -> same.maxBy { it.at } }.sortedBy { it.at }
+    }
+
+    /** How [fromLegacy] keys a number of 7 digits or more: "~k" plus its last digits. */
+    private const val LEGACY_PREFIX = "~k"
 
     /** Converts an entry of the old plain record (key = last 9 digits) to the current keying. */
     fun fromLegacy(oldKey: String, appPackage: String?, label: String, at: Long): MessagedEntry? {

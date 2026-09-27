@@ -3,7 +3,9 @@ package app.parley.data.people
 import app.parley.common.people.MetaRekey
 import app.parley.common.people.RelationLinks
 import app.parley.common.people.TemporaryExpiry
+import androidx.room.withTransaction
 import app.parley.data.ContactsRepository
+import app.parley.data.db.AppDatabase
 import app.parley.data.db.ContactMetaEntity
 import app.parley.data.db.MetaDao
 import kotlinx.coroutines.Dispatchers
@@ -29,8 +31,13 @@ class ContactKeys(
     private val interactions: () -> app.parley.data.circle.InteractionStore? = { null },
     /** X3: the record of contacts Parley starred for a label's Do Not Disturb choice follows the same moves. */
     private val extras: () -> app.parley.data.extras.ExtrasStore? = { null },
+    /** The database behind [meta] and the interactions: each re-key's rows move in one transaction. */
+    private val db: AppDatabase? = null,
 ) {
     private val mutex = Mutex()
+
+    /** Runs the database writes of one re-key together: a crash midway leaves the old rows, never half of them. */
+    private suspend fun <T> tx(block: suspend () -> T): T = db?.withTransaction { block() } ?: block()
 
     /** After a link, unlink or move: re-key what belonged to the contacts in [before] (id, key). */
     suspend fun carry(before: List<Pair<Long, String>>) = withContext(Dispatchers.IO) {
@@ -57,17 +64,19 @@ class ContactKeys(
     suspend fun forget(key: String) = withContext(Dispatchers.IO) {
         if (key.isEmpty()) return@withContext
         mutex.withLock {
-            meta.deleteMeta(key)
-            meta.clearTemporary(key)
-            runCatching { backgrounds().clear(key) }
-            // R2: a private contact's interactions don't stay outside the vault (moveIn copied them into the entry).
-            runCatching { interactions()?.forget(key) }
-            runCatching { extras()?.dndForget(key) }
-            for (r in meta.allMetaNow()) {
-                val links = RelationLinks.decode(r.relationLinks)
-                if (links.values.none { it.lookupKey == key }) continue
-                meta.setMeta(r.copy(relationLinks = RelationLinks.encode(links.filterValues { it.lookupKey != key })))
+            tx {
+                meta.deleteMeta(key)
+                meta.clearTemporary(key)
+                // R2: a private contact's interactions don't stay outside the vault (moveIn copied them into the entry).
+                interactions()?.forget(key)
+                for (r in meta.allMetaNow()) {
+                    val links = RelationLinks.decode(r.relationLinks)
+                    if (links.values.none { it.lookupKey == key }) continue
+                    meta.setRelationLinks(r.lookupKey, RelationLinks.encode(links.filterValues { it.lookupKey != key }))
+                }
             }
+            runCatching { backgrounds().clear(key) }
+            runCatching { extras()?.dndForget(key) }
         }
     }
 
@@ -93,9 +102,10 @@ class ContactKeys(
                 moved++
             }
             // Remember ids for keys that didn't move, so the next change can be resolved from (id, key).
+            // Only the id column: a pinned note edited since the rows were read stays as it is now.
             for (r in rows) {
                 val now = resolved[r.lookupKey] ?: continue
-                if (now.second == r.lookupKey && r.contactId != now.first) meta.setMeta(r.copy(contactId = now.first))
+                if (now.second == r.lookupKey && r.contactId != now.first) meta.setMetaContactId(r.lookupKey, now.first)
             }
             moved += rekeyTemporaries()
             fixRelationLinks()
@@ -107,28 +117,32 @@ class ContactKeys(
 
     private suspend fun moveLocked(from: String, to: String, toId: Long?) {
         if (from == to) return
-        meta.meta(from)?.let { src ->
-            val dst = meta.meta(to)
-            val merged = MetaRekey.merge(dst?.values(), src.values())
-            meta.setMeta(merged.toEntity(to, toId ?: dst?.contactId ?: src.contactId))
-            meta.deleteMeta(from)
+        // Metadata, interactions, the temporary flag and relation links move together or not at all.
+        tx {
+            meta.meta(from)?.let { src ->
+                val dst = meta.meta(to)
+                val merged = MetaRekey.merge(dst?.values(), src.values())
+                meta.setMeta(merged.toEntity(to, toId ?: dst?.contactId ?: src.contactId))
+                meta.deleteMeta(from)
+            }
+            interactions()?.rekey(from, to, toId)
+            meta.temporary(from)?.let { t ->
+                val existing = meta.temporary(to)
+                val (ids, expiresAt) = TemporaryExpiry.merge(t.rawIds to t.expiresAt, existing?.rawIds to (existing?.expiresAt ?: Long.MAX_VALUE))
+                meta.clearTemporary(from)
+                meta.setTemporary(t.copy(lookupKey = to, contactId = toId ?: t.contactId, expiresAt = expiresAt, rawIds = ids))
+            }
+            // Relation links in other contacts that pointed at the old key.
+            for (r in meta.allMetaNow()) {
+                val links = RelationLinks.decode(r.relationLinks)
+                if (links.values.none { it.lookupKey == from }) continue
+                val updated = links.mapValues { (_, l) -> if (l.lookupKey == from) RelationLinks.Link(to, toId ?: l.contactId) else l }
+                meta.setRelationLinks(r.lookupKey, RelationLinks.encode(updated))
+            }
         }
+        // Files and preferences: outside the database, and self-healing on the next sweep.
         runCatching { backgrounds().move(from, to) }
-        runCatching { interactions()?.rekey(from, to, toId) }
         runCatching { extras()?.dndRekey(from, to) }
-        meta.temporary(from)?.let { t ->
-            val existing = meta.temporary(to)
-            val (ids, expiresAt) = TemporaryExpiry.merge(t.rawIds to t.expiresAt, existing?.rawIds to (existing?.expiresAt ?: Long.MAX_VALUE))
-            meta.clearTemporary(from)
-            meta.setTemporary(t.copy(lookupKey = to, contactId = toId ?: t.contactId, expiresAt = expiresAt, rawIds = ids))
-        }
-        // Relation links in other contacts that pointed at the old key.
-        for (r in meta.allMetaNow()) {
-            val links = RelationLinks.decode(r.relationLinks)
-            if (links.values.none { it.lookupKey == from }) continue
-            val updated = links.mapValues { (_, l) -> if (l.lookupKey == from) RelationLinks.Link(to, toId ?: l.contactId) else l }
-            meta.setMeta(r.copy(relationLinks = RelationLinks.encode(updated)))
-        }
     }
 
     /** Temporary contacts follow their raw contacts, whose ids never change. */
@@ -143,8 +157,10 @@ class ContactKeys(
             // moveLocked, so neither entry's raw ids are forgotten.
             val existing = if (key != t.lookupKey) meta.temporary(key) else null
             val (ids, expiresAt) = existing?.let { TemporaryExpiry.merge(t.rawIds to t.expiresAt, it.rawIds to it.expiresAt) } ?: (t.rawIds to t.expiresAt)
-            meta.clearTemporary(t.lookupKey)
-            meta.setTemporary(t.copy(lookupKey = key, contactId = owner, rawIds = ids, expiresAt = expiresAt))
+            tx {
+                meta.clearTemporary(t.lookupKey)
+                meta.setTemporary(t.copy(lookupKey = key, contactId = owner, rawIds = ids, expiresAt = expiresAt))
+            }
             n++
         }
         return n
@@ -160,7 +176,7 @@ class ContactKeys(
                     ?.takeIf { (id, key) -> key == l.lookupKey || MetaRekey.plausible(l.lookupKey, key, l.contactId, id) }
                 if (now != null && (now.second != l.lookupKey || now.first != l.contactId)) { changed = true; RelationLinks.Link(now.second, now.first) } else l
             }
-            if (changed) meta.setMeta(r.copy(relationLinks = RelationLinks.encode(updated)))
+            if (changed) meta.setRelationLinks(r.lookupKey, RelationLinks.encode(updated))
         }
     }
 }

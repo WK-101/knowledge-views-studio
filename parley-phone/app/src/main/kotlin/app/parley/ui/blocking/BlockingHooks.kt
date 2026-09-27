@@ -1,5 +1,6 @@
 package app.parley.ui.blocking
 
+import app.parley.common.PhoneIdentity
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -132,7 +133,7 @@ fun RecentsSelectionBar(vm: AppViewModel, groups: List<RecentGroup>) {
     var confirming by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
     val chosen = groups.filter { it.key in selected }
     val people = chosen.filter { it.contact != null || it.vaultId != null }
-    val unknown = chosen.filter { it.contact == null && it.vaultId == null && !it.hidden && it.number.isNotBlank() }.distinctBy { PhoneNumbers.matchKey(it.number) }
+    val unknown = chosen.filter { it.contact == null && it.vaultId == null && !it.hidden && it.number.isNotBlank() }.distinctBy { PhoneIdentity.key(it.number, vm.countryIso) }
     val numbers = unknown.map { it.number }
     Surface(color = MaterialTheme.colorScheme.secondaryContainer) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {

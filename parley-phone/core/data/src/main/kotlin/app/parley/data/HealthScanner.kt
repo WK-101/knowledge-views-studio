@@ -1,5 +1,6 @@
 package app.parley.data
 
+import app.parley.common.PhoneIdentity
 import android.content.ContentProviderOperation
 import android.content.ContentUris
 import android.content.Context
@@ -33,22 +34,22 @@ class HealthScanner(private val context: Context) {
     suspend fun scan(contacts: List<ContactSummary>, calls: List<CallEntry>, countryIso: String): List<HealthIssue> = withContext(Dispatchers.IO) {
         val out = ArrayList<HealthIssue>()
         val byKey = HashMap<String, MutableList<ContactSummary>>()
-        contacts.forEach { c -> c.phones.forEach { p -> PhoneNumbers.matchKey(p.number).takeIf { it.length >= 7 }?.let { byKey.getOrPut(it) { ArrayList() } += c } } }
-        val lastCall = HashMap<String, Long>()
-        calls.forEach { e -> lastCall.putIfAbsent(PhoneNumbers.matchKey(e.number), e.date) }
+        contacts.forEach { c -> c.phones.forEach { p -> PhoneIdentity.portableKey(p.number)?.let { byKey.getOrPut(it) { ArrayList() } += c } } }
+        val lastCall = PhoneIdentity.LineMap<Long>(countryIso)
+        calls.forEach { e -> lastCall.putIfAbsent(e.number, e.date) }
         val twoYears = System.currentTimeMillis() - 2L * 365 * 86_400_000L
 
         for (c in contacts) {
             val digitsOnly = c.displayName.all { it.isDigit() || it in "+-() " }
             if (digitsOnly && c.phones.isNotEmpty()) out += HealthIssue(HealthKind.NUMBER_AS_NAME, c.id, c.lookupKey, c.displayName, context.getString(R.string.data_health_number_as_name))
             if (c.phones.isEmpty() && c.emails.isEmpty() && digitsOnly) out += HealthIssue(HealthKind.EMPTY, c.id, c.lookupKey, c.displayName, context.getString(R.string.data_health_empty))
-            c.phones.map { PhoneNumbers.matchKey(it.number) }.distinct().forEach { k ->
+            c.phones.mapNotNull { PhoneIdentity.portableKey(it.number) }.distinct().forEach { k ->
                 val owners = byKey[k].orEmpty().distinctBy { it.id }
                 if (owners.size > 1 && owners.first().id == c.id) {
                     out += HealthIssue(HealthKind.SHARED_NUMBER, c.id, c.lookupKey, c.displayName, context.getString(R.string.data_health_shared, owners.drop(1).joinToString { it.displayName }))
                 }
             }
-            if (c.phones.isNotEmpty() && c.phones.none { p -> (lastCall[PhoneNumbers.matchKey(p.number)] ?: 0L) > twoYears } && calls.isNotEmpty()) {
+            if (c.phones.isNotEmpty() && c.phones.none { p -> (lastCall[p.number] ?: 0L) > twoYears } && calls.isNotEmpty()) {
                 val oldest = calls.lastOrNull()?.date ?: Long.MAX_VALUE
                 if (oldest < twoYears) out += HealthIssue(HealthKind.STALE, c.id, c.lookupKey, c.displayName, context.getString(R.string.data_health_stale))
             }

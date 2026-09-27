@@ -1,5 +1,6 @@
 package app.parley.data.history
 
+import app.parley.common.PhoneIdentity
 import android.content.ContentValues
 import android.content.Context
 import android.net.Uri
@@ -28,6 +29,7 @@ import app.parley.data.Permissions
 import app.parley.data.PhoneEnv
 import app.parley.data.backup.CallHistoryBackup
 import app.parley.data.changes
+import app.parley.data.vault.PrivateCall
 import app.parley.data.vault.VaultRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -106,7 +108,7 @@ class CallHistory(
     val activeFilter = MutableStateFlow(HistoryFilter())
 
     /** Private (vault) numbers, matched by line (F7: E.164, not the last 9 digits, so a foreign number sharing them stays). */
-    private val vaultKeys = vault.contacts.map { list -> PhoneNumbers.LineSet(list.flatMap { v -> v.numbers }, countryIso) }
+    private val vaultKeys = vault.contacts.map { list -> PhoneIdentity.LineSet(list.flatMap { v -> v.numbers }, countryIso) }
         .distinctUntilChanged()
 
     /**
@@ -125,6 +127,22 @@ class CallHistory(
         }
     }.flowOn(Dispatchers.Default).stateIn(scope, SharingStarted.Eagerly, null)
 
+    /**
+     * [calls] plus the calls with private (vault) contacts, newest first: every call Parley knows of. For counts that
+     * must not miss a call just because its contact is private (allowances). Private calls have negative ids.
+     */
+    val callsWithPrivate: StateFlow<List<CallEntry>?> = combine(calls, vault.privateCalls) { sys, priv ->
+        when {
+            sys == null -> null
+            priv.isEmpty() -> sys
+            else -> (sys + priv.map(::privateEntry)).sortedByDescending { it.date }
+        }
+    }.flowOn(Dispatchers.Default).stateIn(scope, SharingStarted.Eagerly, null)
+
+    /** The newest call with [number]'s line in [calls], or null (the caller's "last call" line). */
+    fun lastCallWith(number: String, region: String? = countryIso): CallEntry? =
+        calls.value?.firstOrNull { !it.presentationHidden && PhoneNumbers.same(it.number, number, region) }
+
     /** The shared index over [calls] and contacts, rebuilt off the main thread when either changes. */
     val index: StateFlow<CallLogIndex?> = combine(calls, contacts.contacts) { c, ct -> c to ct }
         .debounce(200)
@@ -137,6 +155,12 @@ class CallHistory(
         val known = if (ct == null || !Permissions.has(context, android.Manifest.permission.READ_CONTACTS)) null
         else ct.map { IndexContact(it.id, it.lookupKey, it.displayName, it.phones.map { p -> p.number }) }
         return CallLogIndex.build(calls, known, countryIso, zone)
+    }
+
+    /** Closes the archive database so "Delete all Parley data" can remove its file (the process restarts after). */
+    internal fun closeForWipe() = synchronized(this) {
+        runCatching { dbRef?.close() }
+        dbRef = null
     }
 
     /** Waits (up to 30 s) for the first index, e.g. in a worker. */
@@ -282,7 +306,7 @@ class CallHistory(
     internal fun openAux(blob: ByteArray): ByteArray = crypto.open(blob)
 
     /** Calls with private contacts never stay in the archive (they live in the vault's own history). */
-    private suspend fun purgeVault(vk: PhoneNumbers.LineSet): Boolean {
+    private suspend fun purgeVault(vk: PhoneIdentity.LineSet): Boolean {
         if (vk.isEmpty) return false
         val ids = _archive.value.orEmpty().filter { !it.record.number.isNullOrBlank() && it.record.number in vk }.map { it.rowId }
         if (ids.isEmpty()) return false
@@ -669,5 +693,9 @@ class CallHistory(
         private const val MAX_IMPORT_BYTES = 20 shl 20
 
         fun isArchived(e: CallEntry) = e.id >= ARCHIVE_ID_BASE
+
+        /** A private (vault) call as a history row; its id is the negated private-call id. */
+        fun privateEntry(p: PrivateCall): CallEntry =
+            CallEntry(-p.id, p.number, p.name, CallLogRepository.mapType(p.type), p.date, p.durationSec, null, false, false)
     }
 }

@@ -1,5 +1,6 @@
 package app.parley.data.sync
 
+import app.parley.common.PhoneIdentity
 import android.content.Context
 import android.net.Uri
 import android.provider.DocumentsContract
@@ -267,7 +268,7 @@ class FolderSync(private val context: Context, private val contacts: ContactsRep
             // 2. New files from other devices: link to a matching local contact (same phone or e-mail), or import.
             fun keysOf(r: ContactRecord): Set<String> = r.raws.flatMap { it.rows }.mapNotNull { row ->
                 when (row.mimeType) {
-                    Mime.PHONE -> row["data1"]?.let { Duplicates.phoneKey(it) }?.let { "p:$it" }
+                    Mime.PHONE -> row["data1"]?.let { PhoneIdentity.portableKey(it) }?.let { "p:$it" }
                     Mime.EMAIL -> row["data1"]?.let { Duplicates.emailKey(it) }?.let { "e:$it" }
                     else -> null
                 }

@@ -264,7 +264,7 @@ private fun TemplateCard(vm: AppViewModel, gallery: TemplateGallery, e: Template
                             dry = runCatching {
                                 val pack = RuleTemplates.toPack(t)?.let { b -> withContext(Dispatchers.Default) { app.parley.common.spam.ListPack.parse(b) } }
                                 vm.c.screener.dryRun(
-                                    vm.c.callLog.calls.value.orEmpty(), 7,
+                                    vm.c.history.calls.value.orEmpty(), 7,
                                     candidatePack = pack,
                                     candidateRules = RuleTemplates.toRules(t),
                                     candidateSettings = t.settings?.let { patch -> { s: app.parley.common.ScreeningSettings -> patch.apply(s) } },

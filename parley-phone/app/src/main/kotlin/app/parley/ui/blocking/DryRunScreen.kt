@@ -52,7 +52,7 @@ import app.parley.ui.settings.bidiLtr
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DryRunScreen(vm: AppViewModel, back: () -> Unit) {
-    val calls by vm.c.callLog.calls.collectAsStateWithLifecycle()
+    val calls by vm.c.history.calls.collectAsStateWithLifecycle()
     val rules by vm.c.blocks.rules.collectAsStateWithLifecycle()
     val settings by vm.settings.collectAsStateWithLifecycle()
     var days by remember { mutableIntStateOf(7) }
