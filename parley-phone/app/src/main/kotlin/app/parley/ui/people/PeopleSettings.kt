@@ -23,9 +23,9 @@ import app.parley.NavEvent
 import app.parley.common.people.SecondLineMode
 import app.parley.data.AccountRef
 import app.parley.ui.contact.Section
-import app.parley.ui.settings.LinkRow
-import app.parley.ui.settings.MenuRow
-import app.parley.ui.settings.SwitchRow
+import app.parley.ui.LinkRow
+import app.parley.ui.MenuRow
+import app.parley.ui.SwitchRow
 import app.parley.ui.settings.settingTitle
 import kotlinx.coroutines.launch
 import androidx.compose.ui.res.pluralStringResource

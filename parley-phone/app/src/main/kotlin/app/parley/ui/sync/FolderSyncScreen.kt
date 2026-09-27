@@ -44,6 +44,8 @@ import kotlinx.coroutines.launch
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import app.parley.R
+import androidx.compose.ui.semantics.Role
+import androidx.compose.foundation.selection.toggleable
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -91,10 +93,10 @@ fun FolderSyncScreen(vm: AppViewModel, back: () -> Unit) {
                     supportingContent = { Text(st.folderName ?: stringResource(R.string.bkp_folder_none)) },
                 )
                 ListItem(
-                    modifier = Modifier.clickable { sync.setAuto(!st.auto); FolderSyncWorker.schedule(context, !st.auto && st.folderUri != null) },
+                    modifier = Modifier.toggleable(st.auto, role = Role.Switch, onValueChange = { sync.setAuto(it); FolderSyncWorker.schedule(context, it && st.folderUri != null) }),
                     headlineContent = { Text(stringResource(R.string.sync_auto)) },
                     supportingContent = { Text(stringResource(R.string.sync_auto_summary)) },
-                    trailingContent = { Switch(st.auto, { sync.setAuto(it); FolderSyncWorker.schedule(context, it && st.folderUri != null) }) },
+                    trailingContent = { Switch(st.auto, onCheckedChange = null) },
                 )
                 ListItem(
                     headlineContent = { Text(if (st.lastSyncAt > 0) stringResource(R.string.sync_last, Format.shortWhen(context, st.lastSyncAt)) else stringResource(R.string.sync_never)) },

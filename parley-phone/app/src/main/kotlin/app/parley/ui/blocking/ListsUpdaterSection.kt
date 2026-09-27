@@ -43,6 +43,8 @@ import app.parley.blocking.ListsUpdaterClient
 import app.parley.common.spam.PackOrigin
 import app.parley.data.SpamListStore
 import kotlinx.coroutines.launch
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 
 /**
  * Spam lists › "Get automatic updates (optional app)". Parley never touches the internet: the optional
@@ -139,7 +141,7 @@ fun ListsUpdaterSection(vm: AppViewModel) {
                     }
                 },
                 trailingContent = {
-                    Switch(on, { v ->
+                    Switch(on, modifier = Modifier.semantics { contentDescription = pk.name }, onCheckedChange = { v ->
                         scope.launch {
                             busy = pk.id
                             if (v) report(pk.id, ListsUpdaterClient.subscribe(context, vm.c.lists, pk.id)) else ListsUpdaterClient.unsubscribe(context, vm.c.lists, pk.id)

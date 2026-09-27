@@ -39,7 +39,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.parley.AppViewModel
 import app.parley.ui.common.Intents
-import app.parley.ui.settings.SwitchRow
+import app.parley.ui.SwitchRow
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext

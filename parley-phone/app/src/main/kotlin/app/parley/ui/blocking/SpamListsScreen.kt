@@ -65,6 +65,9 @@ import app.parley.ui.contact.Section
 import app.parley.ui.settings.bidiLtr
 import app.parley.ui.settings.settingTitle
 import kotlinx.coroutines.launch
+import app.parley.ui.SwitchRow
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 
 /**
  * Spam lists: add a `.parleylist` file or subscribe to a folder (Syncthing, Nextcloud,
@@ -275,7 +278,7 @@ private fun PackCard(vm: AppViewModel, pk: PackState, now: Long) {
                     if (stale) Text(pluralStringResource(R.plurals.blk_out_of_date_days, pk.ttlDays, pk.ttlDays), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                 }
             },
-            trailingContent = { Switch(pk.enabled, { v -> scope.launch { vm.c.lists.setPack(pk.id) { it.copy(enabled = v) } } }) },
+            trailingContent = { Switch(pk.enabled, modifier = Modifier.semantics { contentDescription = name }, onCheckedChange = { v -> scope.launch { vm.c.lists.setPack(pk.id) { it.copy(enabled = v) } } }) },
         )
         Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             TextButton({ open = !open }) { Text(stringResource(if (open) R.string.blk_less else R.string.blk_options)) }
@@ -294,7 +297,7 @@ private fun PackCard(vm: AppViewModel, pk: PackState, now: Long) {
                     Slider(t, { t = it }, valueRange = 0f..100f, steps = 19, onValueChangeFinished = { scope.launch { vm.c.lists.setPack(pk.id) { it.copy(threshold = t.toInt()) } } })
                     ActionChoice(pk.action, { a -> scope.launch { vm.c.lists.setPack(pk.id) { it.copy(action = a) } } })
                 }
-                if (pk.ranges > 0) ToggleRow(stringResource(R.string.blk_match_ranges), stringResource(R.string.blk_match_ranges_help), pk.useRanges) { v -> scope.launch { vm.c.lists.setPack(pk.id) { it.copy(useRanges = v) } } }
+                if (pk.ranges > 0) SwitchRow(stringResource(R.string.blk_match_ranges), stringResource(R.string.blk_match_ranges_help), pk.useRanges) { v -> scope.launch { vm.c.lists.setPack(pk.id) { it.copy(useRanges = v) } } }
                 Text(stringResource(R.string.blk_notify), style = MaterialTheme.typography.labelLarge)
                 NotifyChoice(pk.notify, allowDefault = true) { n -> scope.launch { vm.c.lists.setPack(pk.id) { it.copy(notify = n) } } }
                 if (pk.suppressed.isNotEmpty()) {

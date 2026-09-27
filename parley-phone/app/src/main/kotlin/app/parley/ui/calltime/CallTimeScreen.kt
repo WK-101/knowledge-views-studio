@@ -50,11 +50,12 @@ import app.parley.common.calltime.LimitScope
 import app.parley.data.GroupInfo
 import app.parley.security.AppLock
 import app.parley.ui.contact.Section
-import app.parley.ui.settings.SwitchRow
-import app.parley.ui.settings.bidiLtr
-import app.parley.ui.settings.settingTitle
+import app.parley.ui.SwitchRow
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import app.parley.ui.MenuRow
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 
 /**
  * Settings › Calls › Call time: talk-time reminders, hard limits and allowances per contact, label, SIM
@@ -91,7 +92,7 @@ fun CallTimeScreen(vm: AppViewModel, back: () -> Unit) {
             item {
                 Help(stringResource(R.string.ct_reminders_help))
                 val choices = CallingConfig.REMINDER_CHOICES
-                ChoiceRow(stringResource(R.string.ct_remind_me), choices.map { reminderText(context, it) }, choices.indexOf(config.reminders.everyMinutes).coerceAtLeast(0)) { i ->
+                MenuRow(stringResource(R.string.ct_remind_me), choices.map { reminderText(context, it) }, choices.indexOf(config.reminders.everyMinutes).coerceAtLeast(0)) { i ->
                     set { it.copy(reminders = it.reminders.copy(everyMinutes = choices[i])) }
                 }
                 SwitchRow(stringResource(R.string.ct_beep), stringResource(R.string.ct_beep_body), config.reminders.beep) { v -> set { it.copy(reminders = it.reminders.copy(beep = v)) } }
@@ -134,7 +135,7 @@ fun CallTimeScreen(vm: AppViewModel, back: () -> Unit) {
             item {
                 Help(stringResource(R.string.ct_contact_limit_help))
                 val warn = CallingConfig.WARN_CHOICES
-                ChoiceRow(stringResource(R.string.ct_warn_before), warn.map { warnText(context, it) }, warn.indexOf(config.warnSeconds).coerceAtLeast(0)) { i ->
+                MenuRow(stringResource(R.string.ct_warn_before), warn.map { warnText(context, it) }, warn.indexOf(config.warnSeconds).coerceAtLeast(0)) { i ->
                     limits { it.copy(warnSeconds = warn[i]) }
                 }
                 SwitchRow(stringResource(R.string.ct_silence_over), stringResource(R.string.ct_silence_over_body), config.silenceIncomingOverQuota) { v ->
@@ -150,7 +151,8 @@ fun CallTimeScreen(vm: AppViewModel, back: () -> Unit) {
                     headlineContent = { Text(stringResource(R.string.ct_supervised)) },
                     supportingContent = { Text(stringResource(if (config.supervised) R.string.ct_supervised_on else R.string.set_off)) },
                     trailingContent = {
-                        Switch(config.supervised, { v ->
+                        val label = stringResource(R.string.ct_supervised)
+                        Switch(config.supervised, modifier = Modifier.semantics { contentDescription = label }, onCheckedChange = { v ->
                             val act = context as? FragmentActivity ?: return@Switch
                             if (v && !AppLock.canAuthenticate(act)) {
                                 noLock = true

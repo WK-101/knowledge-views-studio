@@ -1,7 +1,6 @@
 package app.parley.ui
 
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -72,7 +71,7 @@ fun GroupHeader(title: String, modifier: Modifier = Modifier) {
         title,
         style = MaterialTheme.typography.titleSmall,
         color = MaterialTheme.colorScheme.primary,
-        modifier = modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp).semantics { heading() },
+        modifier = modifier.padding(horizontal = Spacing.l, vertical = Spacing.s).semantics { heading() },
     )
 }
 
@@ -86,9 +85,9 @@ fun SegmentedGroup(title: String? = null, modifier: Modifier = Modifier, content
     val scope = SegmentedGroupScope().apply(content)
     if (scope.items.isEmpty()) return
     val highlight = LocalHighlightKey.current
-    Column(modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+    Column(modifier.fillMaxWidth().padding(horizontal = Spacing.listInset)) {
         if (title != null) GroupHeader(title)
-        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(Spacing.xxs)) {
             val n = scope.items.size
             scope.items.forEachIndexed { i, (key, row) -> androidx.compose.runtime.key(key ?: "#$i") {
                 val focused = key != null && key == highlight
@@ -105,7 +104,7 @@ fun SegmentedGroup(title: String? = null, modifier: Modifier = Modifier, content
                 }
                 val color by animateColorAsState(
                     if (flash) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainer,
-                    animationSpec = tween(600),
+                    animationSpec = ParleyMotion.slowEffects(),
                     label = "highlight",
                 )
                 Surface(

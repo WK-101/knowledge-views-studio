@@ -55,6 +55,9 @@ import app.parley.common.RecentTap
 import app.parley.common.StartTab
 import app.parley.ui.SegmentedGroup
 import kotlinx.coroutines.launch
+import app.parley.ui.SwitchRow
+import app.parley.ui.InfoRow
+import app.parley.ui.rowColors
 
 /**
  * Settings › Appearance › Layout. Both combine options with small previews, the question whether to

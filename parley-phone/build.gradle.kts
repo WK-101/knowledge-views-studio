@@ -113,7 +113,7 @@ detekt {
     config.setFrom(files("config/detekt/detekt.yml"))
     baseline = file("config/detekt/baseline.xml")
     source.setFrom(
-        listOf("app", "core/common", "core/data", "core/ui", "telecom", "lists-updater").flatMap { m ->
+        listOf("app", "core/common", "core/data", "core/ui", "telecom", "lists-updater", "tools/detekt-rules").flatMap { m ->
             listOf("$m/src/main/kotlin", "$m/src/test/kotlin", "$m/src/testShared/kotlin")
         }.map { file(it) }.filter { it.exists() },
     )
@@ -121,6 +121,7 @@ detekt {
 
 dependencies {
     detektPlugins(libs.detekt.formatting)
+    detektPlugins(project(":tools:detekt-rules"))
 }
 
 tasks.withType<io.gitlab.arturbosch.detekt.Detekt>().configureEach {

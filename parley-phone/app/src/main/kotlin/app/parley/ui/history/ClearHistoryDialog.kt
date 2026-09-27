@@ -39,7 +39,7 @@ import app.parley.common.calls.ClearHistory
 import app.parley.common.calls.ClearScope
 import app.parley.common.history.ExportFormat
 import app.parley.ui.Routes
-import app.parley.ui.settings.LinkRow
+import app.parley.ui.LinkRow
 import app.parley.ui.settings.settingSummary
 import app.parley.ui.settings.settingTitle
 import kotlinx.coroutines.launch

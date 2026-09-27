@@ -171,6 +171,8 @@ import app.parley.ui.vault.ExpiryDialog
 import java.time.LocalDate
 import java.time.ZoneId
 import kotlinx.coroutines.launch
+import androidx.compose.ui.semantics.Role
+import androidx.compose.foundation.selection.toggleable
 
 /**
  * A contact's page. U1: the photo and name dock into the top bar as you scroll ("last talked" shows there once
@@ -595,10 +597,11 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
             SegmentedGroup {
                 item {
                     ListItem(
+                        modifier = Modifier.toggleable(d.sendToVoicemail, role = Role.Switch, onValueChange = { v -> page.setSendToVoicemail(v) }),
                         colors = groupRowColors(),
                         leadingContent = { Icon(Icons.Rounded.Voicemail, null) },
                         headlineContent = { Text(stringResource(R.string.detail_send_to_voicemail)) },
-                        trailingContent = { Switch(d.sendToVoicemail, { v -> page.setSendToVoicemail(v) }) },
+                        trailingContent = { Switch(d.sendToVoicemail, onCheckedChange = null) },
                     )
                 }
                 blended { ContactCallTimeRows(vm, d.lookupKey, d.displayName, d.starred) }

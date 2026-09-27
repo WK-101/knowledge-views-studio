@@ -58,7 +58,7 @@ import app.parley.common.qr.QrParser
 import app.parley.common.qr.QrPayload
 import app.parley.common.qr.QrText
 import app.parley.ui.SegmentedGroup
-import app.parley.ui.settings.SettingsScaffold
+import app.parley.ui.SettingsScaffold
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch

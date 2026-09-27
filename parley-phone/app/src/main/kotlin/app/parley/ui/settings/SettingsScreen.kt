@@ -110,6 +110,9 @@ import app.parley.ui.journal.HistoryTab
 import app.parley.ui.people.hasSeveralAccounts
 import app.parley.ui.qr.QrRoutes
 import app.parley.ui.segmentShape
+import app.parley.ui.SettingsScaffold
+import app.parley.ui.TonalIcon
+import app.parley.ui.rowColors
 
 val SettingsCategory.icon: ImageVector
     get() = when (this) {

@@ -54,6 +54,8 @@ import androidx.compose.ui.res.stringResource
 import app.parley.R
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
+import androidx.compose.ui.semantics.Role
+import androidx.compose.foundation.selection.toggleable
 
 /** Settings › SIMs: one row per SIM, with its plan meter when set. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -103,10 +105,10 @@ fun SimSettingsScreen(vm: AppViewModel, simId: String, back: () -> Unit) {
             item { Section(stringResource(R.string.hist_plan_section)) }
             item {
                 ListItem(
-                    modifier = Modifier.clickable { save((plan ?: PlanConfig(simId)).copy(enabled = plan?.enabled != true)) },
+                    modifier = Modifier.toggleable(plan?.enabled == true, role = Role.Switch, onValueChange = { v -> save((plan ?: PlanConfig(simId)).copy(enabled = v)) }),
                     headlineContent = { Text(stringResource(R.string.hist_plan_track)) },
                     supportingContent = { Text(stringResource(R.string.hist_plan_track_summary)) },
-                    trailingContent = { Switch(plan?.enabled == true, { v -> save((plan ?: PlanConfig(simId)).copy(enabled = v)) }) },
+                    trailingContent = { Switch(plan?.enabled == true, onCheckedChange = null) },
                 )
             }
             if (plan != null && plan.enabled) {
@@ -209,10 +211,10 @@ private fun PlanEditor(plan: PlanConfig, save: (PlanConfig) -> Unit) {
 @Composable
 private fun Toggle(title: String, sub: String?, value: Boolean, onChange: (Boolean) -> Unit) {
     ListItem(
-        modifier = Modifier.clickable { onChange(!value) },
+        modifier = Modifier.toggleable(value, role = Role.Switch, onValueChange = onChange),
         headlineContent = { Text(title) },
         supportingContent = sub?.let { { Text(it) } },
-        trailingContent = { Switch(value, onChange) },
+        trailingContent = { Switch(value, onCheckedChange = null) },
     )
 }
 

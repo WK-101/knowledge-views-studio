@@ -24,7 +24,7 @@ import androidx.compose.ui.unit.sp
 import app.parley.AppViewModel
 import app.parley.common.people.Reports
 import app.parley.ui.common.Format
-import app.parley.ui.settings.SwitchRow
+import app.parley.ui.SwitchRow
 import androidx.compose.ui.res.stringResource
 import app.parley.R
 import app.parley.ui.settings.settingSummary

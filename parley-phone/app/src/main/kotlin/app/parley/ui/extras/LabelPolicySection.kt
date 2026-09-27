@@ -45,6 +45,8 @@ import app.parley.common.extras.LabelPolicies
 import app.parley.common.extras.LabelPolicy
 import app.parley.ui.contact.Section
 import kotlinx.coroutines.launch
+import androidx.compose.ui.semantics.Role
+import androidx.compose.foundation.selection.toggleable
 
 /**
  * A label's policies on its page, under the ringtone: the SIM to call its members on (when they have none of
@@ -106,16 +108,14 @@ fun LabelPolicySection(vm: AppViewModel, title: String, members: List<ContactSum
             }, Modifier.padding(start = 56.dp)) { Text(pluralStringResource(R.plurals.label_policy_add_members, outside.size, outside.size)) }
         }
         ListItem(
-            modifier = Modifier.clickable { if (p.allowThroughDnd) turnOffDnd(vm, title) { n -> vm.toast(res.getQuantityString(R.plurals.label_policy_unstarred, n, n)) } else explainDnd = true },
+            modifier = Modifier.toggleable(p.allowThroughDnd, role = Role.Switch) { on ->
+                if (on) explainDnd = true
+                else turnOffDnd(vm, title) { n -> vm.toast(res.getQuantityString(R.plurals.label_policy_unstarred, n, n)) }
+            },
             leadingContent = { Icon(Icons.Rounded.DoNotDisturbOn, null) },
             headlineContent = { Text(stringResource(R.string.label_policy_dnd)) },
             supportingContent = { Text(stringResource(R.string.label_policy_dnd_summary)) },
-            trailingContent = {
-                Switch(p.allowThroughDnd, { on ->
-                    if (on) explainDnd = true
-                    else turnOffDnd(vm, title) { n -> vm.toast(res.getQuantityString(R.plurals.label_policy_unstarred, n, n)) }
-                })
-            },
+            trailingContent = { Switch(p.allowThroughDnd, onCheckedChange = null) },
         )
         if (p.allowThroughDnd) {
             if (unstarred.isNotEmpty()) TextButton({ starNewOnly = true; explainDnd = true }, Modifier.padding(start = 56.dp)) {

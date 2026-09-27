@@ -32,6 +32,7 @@ import androidx.compose.ui.res.stringResource
 import app.parley.R
 import app.parley.ui.AppLocale
 import java.util.Locale
+import app.parley.ui.LinkRow
 
 /**
  * Settings › Appearance › Language. Android 13+ opens the system's per-app language screen (the list comes from

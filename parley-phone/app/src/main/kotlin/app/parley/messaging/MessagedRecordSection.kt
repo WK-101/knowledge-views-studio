@@ -55,6 +55,8 @@ import app.parley.data.messaging.LastMessaged
 import app.parley.ui.Bidi
 import app.parley.ui.EmptyState
 import kotlinx.coroutines.launch
+import androidx.compose.ui.semantics.Role
+import androidx.compose.foundation.selection.toggleable
 
 /**
  * For the privacy dashboard: "Keep a record of numbers you message" (on by default), how many numbers it holds,
@@ -68,6 +70,7 @@ fun MessagedRecordSection(openList: () -> Unit) {
     val expiry by store.expiryDays.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
     ListItem(
+        modifier = Modifier.toggleable(enabled, role = Role.Switch, onValueChange = { v -> scope.launch { store.setRecordEnabled(v) } }),
         headlineContent = { Text(stringResource(R.string.rec_keep_record)) },
         supportingContent = {
             Text(
@@ -79,7 +82,7 @@ fun MessagedRecordSection(openList: () -> Unit) {
                 },
             )
         },
-        trailingContent = { Switch(enabled, onCheckedChange = { v -> scope.launch { store.setRecordEnabled(v) } }) },
+        trailingContent = { Switch(enabled, onCheckedChange = null) },
     )
     ListItem(
         headlineContent = { Text(stringResource(R.string.home_messaged_numbers)) },
@@ -124,8 +127,8 @@ fun MessagedNumbersScreen(vm: AppViewModel, back: () -> Unit) {
                     supportingContent = {
                         Text(stringResource(if (enabled) R.string.rec_on_detail else R.string.rec_off_detail))
                     },
-                    trailingContent = { Switch(enabled, onCheckedChange = { v -> scope.launch { store.setRecordEnabled(v) } }) },
-                    modifier = Modifier.clickable { scope.launch { store.setRecordEnabled(!enabled) } },
+                    trailingContent = { Switch(enabled, onCheckedChange = null) },
+                    modifier = Modifier.toggleable(enabled, role = Role.Switch, onValueChange = { v -> scope.launch { store.setRecordEnabled(v) } }),
                 )
             }
             item {

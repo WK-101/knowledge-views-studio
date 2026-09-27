@@ -41,6 +41,8 @@ import app.parley.ui.SegmentedGroup
 import app.parley.ui.SegmentedGroupScope
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.ui.circle.CircleText
+import app.parley.ui.LinkRow
+import app.parley.ui.MenuRow
 
 /**
  * Settings › Contacts › Birthdays & dates: the Circle's rows (R3 "Log this?", R4 delivery and weekly cap, R5 lead

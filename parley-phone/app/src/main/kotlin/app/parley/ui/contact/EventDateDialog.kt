@@ -40,6 +40,8 @@ import java.time.Month
 import java.time.Year
 import java.time.format.TextStyle
 import java.util.Locale
+import androidx.compose.ui.semantics.Role
+import androidx.compose.foundation.selection.toggleable
 
 /**
  * Date entry that supports dates without a year (birthdays people only know the day of).
@@ -81,8 +83,8 @@ fun EventDateDialog(initial: String, onDismiss: () -> Unit, onPick: (String) -> 
                 }
                 ListItem(
                     headlineContent = { Text(stringResource(R.string.date_include_year)) },
-                    trailingContent = { Switch(withYear, { withYear = it }) },
-                    modifier = Modifier.clickable { withYear = !withYear },
+                    trailingContent = { Switch(withYear, onCheckedChange = null) },
+                    modifier = Modifier.toggleable(withYear, role = Role.Switch, onValueChange = { withYear = it }),
                 )
                 if (withYear) {
                     OutlinedTextField(

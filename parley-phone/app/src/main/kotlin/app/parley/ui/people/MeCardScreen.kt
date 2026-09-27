@@ -64,7 +64,7 @@ import app.parley.ui.CallColors
 import app.parley.ui.SegmentedGroup
 import app.parley.ui.avatarSize
 import app.parley.ui.qr.QrRoutes
-import app.parley.ui.settings.SettingsScaffold
+import app.parley.ui.SettingsScaffold
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.EncodeHintType
 import com.google.zxing.qrcode.QRCodeWriter

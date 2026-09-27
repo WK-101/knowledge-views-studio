@@ -8,7 +8,6 @@ import android.net.Uri
 import android.text.format.DateUtils
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -25,7 +24,6 @@ import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.LocalTextStyle
@@ -34,17 +32,13 @@ import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
@@ -53,23 +47,9 @@ import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import app.parley.R
-import app.parley.blocking.BlockingText
 import app.parley.common.BlockAction
 import app.parley.common.NotifyLevel
 import app.parley.ui.OnGroupSurface
-import app.parley.ui.settings.bidiLtr
-import app.parley.ui.settings.settingTitle
-
-/** A switch row whose whole line is the touch target. */
-@Composable
-fun ToggleRow(title: String, help: String?, value: Boolean, enabled: Boolean = true, onChange: (Boolean) -> Unit) {
-    ListItem(
-        modifier = Modifier.clickable(enabled = enabled, role = Role.Switch) { onChange(!value) },
-        headlineContent = { Text(title) },
-        supportingContent = help?.let { { Text(it) } },
-        trailingContent = { Switch(value, onChange, enabled = enabled) },
-    )
-}
 
 /**
  * Collapsed section with summary chips (SpamBlocker's good idea without its endless page): the header tells

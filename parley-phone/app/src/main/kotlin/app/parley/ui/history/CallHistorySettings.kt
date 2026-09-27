@@ -41,13 +41,15 @@ import app.parley.AppViewModel
 import app.parley.data.history.TrashBatch
 import app.parley.ui.common.Format
 import app.parley.ui.contact.Section
-import app.parley.ui.settings.SwitchRow
+import app.parley.ui.SwitchRow
 import app.parley.ui.settings.settingSummary
 import app.parley.ui.settings.settingTitle
 import kotlinx.coroutines.launch
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import app.parley.R
+import androidx.compose.ui.semantics.Role
+import androidx.compose.foundation.selection.toggleable
 
 /**
  * Settings › Recents & history: "Keep full call history" with its switch and how many calls the copy holds. The
@@ -62,7 +64,7 @@ fun KeepFullHistoryRow(vm: AppViewModel, icon: ImageVector? = null) {
     LaunchedEffect(archive) { count = vm.c.history.archiveCount() }
     var confirmOff by remember { mutableStateOf(false) }
     ListItem(
-        modifier = Modifier.clickable { if (prefs.archiveEnabled) confirmOff = true else vm.setArchiveEnabled(true) },
+        modifier = Modifier.toggleable(prefs.archiveEnabled, role = Role.Switch, onValueChange = { v -> if (v) vm.setArchiveEnabled(true) else confirmOff = true }),
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
         leadingContent = icon?.let { { Icon(it, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) } },
         headlineContent = { Text(settingTitle("archive")) },
@@ -72,7 +74,7 @@ fun KeepFullHistoryRow(vm: AppViewModel, icon: ImageVector? = null) {
                 else stringResource(R.string.hist_archive_off_summary),
             )
         },
-        trailingContent = { Switch(prefs.archiveEnabled, { v -> if (v) vm.setArchiveEnabled(true) else confirmOff = true }) },
+        trailingContent = { Switch(prefs.archiveEnabled, onCheckedChange = null) },
     )
     if (confirmOff) ArchiveOffDialog(vm) { confirmOff = false }
 }

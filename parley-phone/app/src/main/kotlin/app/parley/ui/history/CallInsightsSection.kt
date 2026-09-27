@@ -55,6 +55,8 @@ import app.parley.R
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
+import androidx.compose.ui.semantics.Role
+import androidx.compose.foundation.selection.toggleable
 
 /**
  * Per-person call insights for contact detail and number history: every number (E.164), last call,
@@ -151,11 +153,11 @@ private fun KeepForeverRow(vm: AppViewModel, numbers: List<String>) {
         scope.launch { vm.c.history.setKeepForever(numbers, v) }
     }
     ListItem(
-        modifier = Modifier.clickable { toggle(!on) },
+        modifier = Modifier.toggleable(on, role = Role.Switch, onValueChange = ::toggle),
         leadingContent = { Icon(Icons.Rounded.AllInclusive, null) },
         headlineContent = { Text(stringResource(R.string.hist_keep_forever)) },
         supportingContent = { Text(stringResource(R.string.hist_keep_forever_summary)) },
-        trailingContent = { Switch(on, ::toggle) },
+        trailingContent = { Switch(on, onCheckedChange = null) },
     )
 }
 

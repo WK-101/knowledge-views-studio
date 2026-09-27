@@ -54,6 +54,8 @@ import android.provider.ContactsContract.CommonDataKinds.Email
 import android.provider.ContactsContract.CommonDataKinds.Phone
 import androidx.compose.ui.res.stringResource
 import app.parley.R
+import androidx.compose.ui.semantics.Role
+import androidx.compose.foundation.selection.toggleable
 
 /**
  * A contact CSV that isn't Parley's own format (Google, Outlook, "Name,Phone", semicolons, tabs, one column).
@@ -135,8 +137,8 @@ fun CsvMappingScreen(vm: AppViewModel, back: () -> Unit) {
                 ListItem(
                     headlineContent = { Text(stringResource(R.string.csv_header)) },
                     supportingContent = { Text(if (hasHeader) stringResource(R.string.csv_header_on) else stringResource(R.string.csv_header_off)) },
-                    trailingContent = { Switch(hasHeader, { hasHeader = it; remap(p, it) }) },
-                    modifier = Modifier.clickable { hasHeader = !hasHeader; remap(p, hasHeader) },
+                    trailingContent = { Switch(hasHeader, onCheckedChange = null) },
+                    modifier = Modifier.toggleable(hasHeader, role = Role.Switch, onValueChange = { hasHeader = it; remap(p, it) }),
                 )
             }
             item { Section(stringResource(R.string.csv_columns)) }

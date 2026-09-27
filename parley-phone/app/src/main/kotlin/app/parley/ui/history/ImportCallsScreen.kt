@@ -53,6 +53,8 @@ import kotlinx.coroutines.launch
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import app.parley.R
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.semantics.Role
 
 /** Import call history from a CSV (Parley, Logger or any spreadsheet) with a dry run first. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -136,10 +138,10 @@ fun ImportCallsScreen(vm: AppViewModel, back: () -> Unit) {
                     item { MappingEditor(pl.header, pl.mapping) { replan(it) } }
                     item {
                         ListItem(
-                            modifier = Modifier.clickable { dayFirst = !dayFirst; replan(pl.mapping) },
+                            modifier = Modifier.toggleable(dayFirst, role = Role.Switch, onValueChange = { dayFirst = it; replan(pl.mapping) }),
                             headlineContent = { Text(stringResource(R.string.hist_import_day_first)) },
                             supportingContent = { Text(if (dayFirst) stringResource(R.string.hist_import_day_first_on) else stringResource(R.string.hist_import_day_first_off)) },
-                            trailingContent = { Switch(dayFirst, { dayFirst = it; replan(pl.mapping) }) },
+                            trailingContent = { Switch(dayFirst, onCheckedChange = null) },
                         )
                     }
                 }

@@ -72,8 +72,8 @@ import app.parley.ui.Bidi
 import app.parley.ui.Routes
 import app.parley.ui.SegmentedGroup
 import app.parley.ui.contact.SecureQr
-import app.parley.ui.settings.SettingsScaffold
-import app.parley.ui.settings.SwitchRow
+import app.parley.ui.SettingsScaffold
+import app.parley.ui.SwitchRow
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext

@@ -43,6 +43,8 @@ import app.parley.ui.circle.CircleText
 import app.parley.ui.common.Format
 import app.parley.work.FolderSyncWorker
 import kotlinx.coroutines.launch
+import androidx.compose.ui.semantics.Role
+import androidx.compose.foundation.selection.toggleable
 
 /** The worded parts of the Markdown files, in the app's language. */
 object MarkdownTexts {
@@ -119,17 +121,17 @@ fun MarkdownExportSection(vm: AppViewModel) {
             supportingContent = { Text(st.folderName ?: stringResource(R.string.bkp_folder_none)) },
         )
         ListItem(
-            modifier = Modifier.clickable { md.setOnlyCircle(!st.onlyCircle) },
+            modifier = Modifier.toggleable(st.onlyCircle, role = Role.Switch, onValueChange = { md.setOnlyCircle(it) }),
             leadingContent = { Icon(Icons.Rounded.Groups, null) },
             headlineContent = { Text(stringResource(R.string.md_export_only_circle)) },
             supportingContent = { Text(stringResource(R.string.md_export_only_circle_body)) },
-            trailingContent = { Switch(st.onlyCircle, { md.setOnlyCircle(it) }) },
+            trailingContent = { Switch(st.onlyCircle, onCheckedChange = null) },
         )
         ListItem(
-            modifier = Modifier.clickable { md.setAuto(!st.auto); FolderSyncWorker.reschedule(context) },
+            modifier = Modifier.toggleable(st.auto, role = Role.Switch, onValueChange = { md.setAuto(it); FolderSyncWorker.reschedule(context) }),
             headlineContent = { Text(stringResource(R.string.md_export_auto)) },
             supportingContent = { Text(stringResource(R.string.md_export_auto_body)) },
-            trailingContent = { Switch(st.auto, { md.setAuto(it); FolderSyncWorker.reschedule(context) }) },
+            trailingContent = { Switch(st.auto, onCheckedChange = null) },
         )
         ListItem(
             leadingContent = { Icon(Icons.Rounded.Description, null) },

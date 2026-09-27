@@ -32,6 +32,8 @@ import app.parley.ui.blocking.BlockingDialogs
 import app.parley.ui.qr.QrRoutes
 import app.parley.ui.temporary.rememberTemporaryItems
 import kotlinx.coroutines.launch
+import app.parley.ui.LinkRow
+import app.parley.ui.SettingsScaffold
 
 /**
  * Tools: the app-wide destinations that used to repeat in every tab's ⋮ menu. Reached from ⋮ › Tools on every tab

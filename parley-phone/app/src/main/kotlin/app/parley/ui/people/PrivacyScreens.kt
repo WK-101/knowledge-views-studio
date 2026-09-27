@@ -62,8 +62,8 @@ import app.parley.privatenames.PrivateNameProvider
 import app.parley.security.launchVault
 import app.parley.ui.common.Format
 import app.parley.ui.contact.Section
-import app.parley.ui.settings.LinkRow
-import app.parley.ui.settings.SwitchRow
+import app.parley.ui.LinkRow
+import app.parley.ui.SwitchRow
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import app.parley.R

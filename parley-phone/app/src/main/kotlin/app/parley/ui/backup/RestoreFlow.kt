@@ -44,6 +44,8 @@ import kotlinx.coroutines.launch
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import app.parley.R
+import androidx.compose.ui.semantics.Role
+import androidx.compose.foundation.selection.toggleable
 
 private sealed interface Step {
     data object Unlock : Step
@@ -74,8 +76,8 @@ fun RestoreFlow(vm: AppViewModel, uri: Uri, onDone: () -> Unit) {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     PassField(if (useRecovery) stringResource(R.string.rst_recovery_key) else stringResource(R.string.bkp_pass_title), secret) { secret = it; error = null }
                     error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Switch(useRecovery, { useRecovery = it; secret = "" })
+                    Row(Modifier.toggleable(useRecovery, role = Role.Switch) { useRecovery = it; secret = "" }, verticalAlignment = Alignment.CenterVertically) {
+                        Switch(useRecovery, onCheckedChange = null)
                         Text("  " + stringResource(R.string.rst_use_recovery))
                     }
                 }

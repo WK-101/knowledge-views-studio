@@ -31,6 +31,7 @@ import app.parley.messaging.MyDetailsDialog
 import app.parley.ui.people.PeopleRoutes
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import app.parley.ui.LinkRow
 
 /** Settings › Keypad: "Keypad letters". */
 @Composable
