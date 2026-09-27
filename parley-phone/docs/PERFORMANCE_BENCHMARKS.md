@@ -101,12 +101,12 @@ Measured on the unsigned release build (R8, resource shrinking) before and after
 
 | | Before | After |
 |---|---|---|
-| Release APK | 14,605,719 bytes (13.93 MiB) | 13,384,486 bytes (12.76 MiB), then + the profile and splash screen (see the commit message) |
-| `classes.dex` | 8,282,916 bytes; 37,878 method references; 7,390 classes | 7,964,912 bytes; 34,848 method references; 7,121 classes |
+| Release APK | 14,605,719 bytes (13.93 MiB) | 13,388,334 bytes (12.77 MiB), profile installer and splash screen included |
+| `classes.dex` | 8,282,916 bytes; 37,878 method references; 7,390 classes | 7,966,484 bytes; 34,865 method references; 7,128 classes |
 | AppCompat classes kept by R8 | 191 | 0 |
 | Geocoder place names (compressed) | 1,570,856 bytes, 35 languages | 1,117,302 bytes, 6 languages |
-| `resources.arsc` | 3,980,016 bytes | 3,743,808 bytes |
-| App rules in the merged ART profile | 0 | the hand-written profile above |
+| `resources.arsc` | 3,980,016 bytes | 3,746,364 bytes |
+| `assets/dexopt/baseline.prof` | 6,797 bytes, library rules only | 8,277 bytes, with Parley's own start-up and call-path code |
 
 Where the savings came from: the app lock uses the platform `BiometricPrompt` (API 29+) instead of
 `androidx.biometric`, which pulled in AppCompat; the geocoder keeps English, German, Spanish, French, Portuguese and
