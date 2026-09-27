@@ -85,3 +85,15 @@ subprojects {
         dependsOn(rootProject.tasks.named("checkLocaleFormat"))
     }
 }
+
+/*
+ * Unit tests: Robolectric fetches its Android runtime jar on first use. Take it from the same Maven Central mirror
+ * the build uses (Central rate-limits shared CI egress). Test JVMs stay small so they fit next to the Gradle daemon.
+ */
+subprojects {
+    tasks.withType<Test>().configureEach {
+        systemProperty("robolectric.dependency.repo.url", "https://maven-central.storage-download.googleapis.com/maven2")
+        maxHeapSize = "1536m"
+        testLogging { events("failed"); exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL }
+    }
+}
