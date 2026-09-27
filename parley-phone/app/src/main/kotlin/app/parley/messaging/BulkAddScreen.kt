@@ -72,6 +72,8 @@ import app.parley.common.PhoneNumbers
 import app.parley.common.messaging.BulkAdd
 import app.parley.common.messaging.IntroQueue
 import app.parley.data.AccountRef
+import app.parley.ui.common.AccountRefSaver
+import app.parley.ui.common.BooleanListSaver
 import app.parley.data.GroupInfo
 import app.parley.data.NumberInfo
 import app.parley.data.PhoneEnv
@@ -112,7 +114,10 @@ fun BulkAddScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Uni
     val rs = LocalResources.current
     var text by rememberSaveable { mutableStateOf(MessagingInbox.bulkText.orEmpty().also { MessagingInbox.bulkText = null }) }
     var candidates by remember { mutableStateOf<List<BulkAdd.Candidate>?>(null) }
-    var checked by remember { mutableStateOf<List<Boolean>>(emptyList()) }
+    // Which numbers are ticked, and whether the text was reviewed: after rotation or process death the review runs
+    // again from the saved text and the ticks are put back.
+    var checked by rememberSaveable(stateSaver = BooleanListSaver) { mutableStateOf<List<Boolean>>(emptyList()) }
+    var reviewed by rememberSaveable { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var progress by remember { mutableStateOf<Float?>(null) }
     var result by remember { mutableStateOf<Pair<BulkAddStore.Result, List<BulkItem>>?>(null) }
@@ -124,7 +129,7 @@ fun BulkAddScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Uni
     // Destination
     var where by rememberSaveable { mutableStateOf(Where.CONTACTS) }
     var accounts by remember { mutableStateOf<List<AccountRef>>(emptyList()) }
-    var account by remember { mutableStateOf<AccountRef?>(null) }
+    var account by rememberSaveable(stateSaver = AccountRefSaver) { mutableStateOf<AccountRef?>(null) }
     var labels by remember { mutableStateOf<List<GroupInfo>>(emptyList()) }
     var label by rememberSaveable { mutableStateOf("") }
     var days by rememberSaveable { mutableStateOf(7) }
@@ -155,10 +160,10 @@ fun BulkAddScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Uni
         accounts = accs
         labels = groups
         val s = vm.settings.value
-        account = accs.firstOrNull { it.type == s.defaultAccountType && it.name == s.defaultAccountName } ?: accs.firstOrNull()
+        if (account == null) account = accs.firstOrNull { it.type == s.defaultAccountType && it.name == s.defaultAccountName } ?: accs.firstOrNull()
     }
 
-    fun review() {
+    fun review(keepTicks: Boolean = false) {
         busy = true
         scope.launch {
             val list = withContext(Dispatchers.Default) {
@@ -176,11 +181,15 @@ fun BulkAddScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Uni
                 BulkAdd.review(found, region, { contacts[it] }, { privates[it] })
             }
             candidates = list
-            checked = list.map { it.checked }
+            checked = if (keepTicks && checked.size == list.size) checked else list.map { it.checked }
+            reviewed = list.isNotEmpty()
             busy = false
             if (list.isEmpty()) snackbar.showSnackbar(rs.getString(R.string.bulk_none_found))
         }
     }
+
+    // Restored after rotation or process death: review the saved text again, with the saved ticks.
+    LaunchedEffect(Unit) { if (reviewed && candidates == null && !busy) review(keepTicks = true) }
 
     fun itemsToSave(): List<BulkItem> {
         val list = candidates.orEmpty()
@@ -213,6 +222,7 @@ fun BulkAddScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Uni
             r.onSuccess { res ->
                 result = res to items
                 candidates = null
+                reviewed = false
                 undoWindow = res.batch.tag
                 val shown = try {
                     snackbar.showSnackbar(
@@ -339,7 +349,7 @@ fun BulkAddScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Uni
                     item {
                         val n = itemsToSave().size
                         Row(Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
-                            TextButton({ candidates = null }) { Text(stringResource(R.string.bulk_back_to_text)) }
+                            TextButton({ candidates = null; reviewed = false }) { Text(stringResource(R.string.bulk_back_to_text)) }
                             Button(::save, enabled = n > 0 && (where != Where.CONTACTS || account != null)) { Text(pluralStringResource(R.plurals.bulk_save_n, n, n)) }
                         }
                     }

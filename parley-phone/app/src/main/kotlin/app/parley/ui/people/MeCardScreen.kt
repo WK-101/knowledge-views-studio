@@ -41,6 +41,7 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -98,7 +99,7 @@ fun MeCardRow(vm: AppViewModel, open: (Destination) -> Unit) {
     val card = remember(own, profile) { MeCards.merge(own, profile) }
     val me = stringResource(R.string.me_short)
     val myCard = stringResource(R.string.me_title)
-    var showQr by remember { mutableStateOf(false) }
+    var showQr by rememberSaveable { mutableStateOf(false) }
     val edit = { open(PeopleRoutes.Me) }
     ParleyListItem(
         modifier = Modifier.clickable(onClickLabel = stringResource(R.string.me_edit), onClick = edit),
@@ -132,7 +133,7 @@ fun MeCardScreen(vm: AppViewModel, back: () -> Unit) {
     val own by store.card.collectAsStateWithLifecycle()
     val profile by produceState<MeCard?>(null) { value = store.profile() }
     var draft by remember(own) { mutableStateOf(own) }
-    var showQr by remember { mutableStateOf(false) }
+    var showQr by rememberSaveable { mutableStateOf(false) }
     val merged = remember(draft, profile) { MeCards.merge(draft, profile) }
     val dirty = draft.cleaned() != own
 

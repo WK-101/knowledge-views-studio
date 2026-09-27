@@ -19,7 +19,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -62,11 +62,11 @@ fun LimitRuleDialog(
     onDismiss: () -> Unit,
     extra: (@Composable () -> Unit)? = null,
 ) {
-    var perCall by remember { mutableStateOf(rule.perCallMinutes.takeIf { it > 0 }?.toString().orEmpty()) }
-    var daily by remember { mutableStateOf(rule.dailyMinutes.takeIf { it > 0 }?.toString().orEmpty()) }
-    var weekly by remember { mutableStateOf(rule.weeklyMinutes.takeIf { it > 0 }?.toString().orEmpty()) }
-    var incoming by remember { mutableStateOf(rule.incoming) }
-    var outgoing by remember { mutableStateOf(rule.outgoing) }
+    var perCall by rememberSaveable { mutableStateOf(rule.perCallMinutes.takeIf { it > 0 }?.toString().orEmpty()) }
+    var daily by rememberSaveable { mutableStateOf(rule.dailyMinutes.takeIf { it > 0 }?.toString().orEmpty()) }
+    var weekly by rememberSaveable { mutableStateOf(rule.weeklyMinutes.takeIf { it > 0 }?.toString().orEmpty()) }
+    var incoming by rememberSaveable { mutableStateOf(rule.incoming) }
+    var outgoing by rememberSaveable { mutableStateOf(rule.outgoing) }
     fun minutes(s: String) = s.trim().toIntOrNull()?.coerceIn(0, MAX_MINUTES) ?: 0
     ParleyDialog(
         onDismissRequest = onDismiss,

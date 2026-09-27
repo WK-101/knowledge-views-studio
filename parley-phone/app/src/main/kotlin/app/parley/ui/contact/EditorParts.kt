@@ -47,6 +47,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
@@ -293,8 +294,8 @@ internal fun MoreInfoSheet(entries: List<MoreEntry>, onDismiss: () -> Unit) {
 
 @Composable
 internal fun RelationTypeDialog(onDismiss: () -> Unit, onPick: (RelationType?) -> Unit) {
-    var query by remember { mutableStateOf("") }
-    var custom by remember { mutableStateOf(false) }
+    var query by rememberSaveable { mutableStateOf("") }
+    var custom by rememberSaveable { mutableStateOf(false) }
     val res = LocalResources.current
     val shown = remember(query, res) { RelationText.search(res, query) }
     ParleyDialog(
@@ -332,7 +333,7 @@ internal fun RelationTypeDialog(onDismiss: () -> Unit, onPick: (RelationType?) -
 @Composable
 fun ContactChooserDialog(vm: AppViewModel, onDismiss: () -> Unit, onPick: (id: Long, name: String, lookupKey: String) -> Unit) {
     val all by vm.contacts.collectAsStateWithLifecycle()
-    var query by remember { mutableStateOf("") }
+    var query by rememberSaveable { mutableStateOf("") }
     val shown = remember(all, query) { all.orEmpty().filter { TextSearch.matches(query, it.displayName, it.phones.map { p -> p.number }) }.take(200) }
     ParleyDialog(
         onDismissRequest = onDismiss,
@@ -360,7 +361,7 @@ fun ContactChooserDialog(vm: AppViewModel, onDismiss: () -> Unit, onPick: (id: L
 /** Free-text label for a phone, e-mail, date… (stored as TYPE_CUSTOM with this label; survives export). */
 @Composable
 internal fun CustomLabelDialog(initial: String?, onDismiss: () -> Unit, onDone: (String) -> Unit) {
-    var text by remember { mutableStateOf(initial.orEmpty()) }
+    var text by rememberSaveable { mutableStateOf(initial.orEmpty()) }
     ConfirmDialog(
         title = stringResource(R.string.edit_custom_label),
         text = null,

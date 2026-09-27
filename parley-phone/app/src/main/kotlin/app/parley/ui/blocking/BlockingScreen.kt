@@ -147,9 +147,9 @@ fun BlockingScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
     fun toggle(k: String) {
         expanded = if (k in expanded) expanded - k else expanded + k
     }
-    var addNumber by remember { mutableStateOf(false) }
+    var addNumber by rememberSaveable { mutableStateOf(false) }
     var presetToApply by remember { mutableStateOf<Preset?>(null) }
-    var testNumber by remember { mutableStateOf("") }
+    var testNumber by rememberSaveable { mutableStateOf("") }
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Unit) {
         while (true) {
@@ -519,7 +519,7 @@ fun BlockingScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
         )
     }
     if (addNumber) {
-        var n by remember { mutableStateOf("") }
+        var n by rememberSaveable { mutableStateOf("") }
         ConfirmDialog(
             title = stringResource(R.string.blk_block_a_number),
             text = null,
@@ -587,7 +587,7 @@ private fun OffHoursWho(vm: AppViewModel, oh: OffHours, onChange: (OffHours) -> 
 @Composable
 private fun SoundsSection(vm: AppViewModel, s: ScreeningSettings, set: ((ScreeningSettings) -> ScreeningSettings) -> Unit) {
     val context = LocalContext.current
-    var target by remember { mutableStateOf("") }
+    var target by rememberSaveable { mutableStateOf("") }
     val pick = rememberRingtonePicker { uri -> if (target == "repeat") set { it.copy(repeatRingtone = uri) } else set { it.copy(likelySpamRingtone = uri) } }
     SwitchRow(
         stringResource(R.string.blk_loud_favourites),
@@ -634,7 +634,7 @@ private fun SoundsSection(vm: AppViewModel, s: ScreeningSettings, set: ((Screeni
 
 @Composable
 private fun EmergencySection(vm: AppViewModel, s: ScreeningSettings, set: ((ScreeningSettings) -> ScreeningSettings) -> Unit) {
-    var n by remember { mutableStateOf("") }
+    var n by rememberSaveable { mutableStateOf("") }
     Text(
         stringResource(R.string.blk_emergency_extras_help),
         Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodySmall,
