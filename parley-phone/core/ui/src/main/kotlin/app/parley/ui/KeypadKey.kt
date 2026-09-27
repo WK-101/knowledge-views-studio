@@ -3,6 +3,7 @@ package app.parley.ui
 import android.os.SystemClock
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.Indication
 import androidx.compose.foundation.indication
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.PressInteraction
@@ -37,7 +38,8 @@ import kotlinx.coroutines.launch
  *   this same touch typed the key first (so the long-press may replace that digit); TalkBack's long click passes
  *   false, since nothing was typed;
  * - each key follows its own finger, so a second key can be pressed before the first is released (roll-over).
- * TalkBack gets a normal click (and long click) action.
+ * TalkBack gets a normal click (and long click) action. [indication]: the press feedback (a bounded ripple unless
+ * the key asks for another, e.g. the dialer's round, unbounded one).
  */
 @Composable
 fun Modifier.keypadKey(
@@ -46,6 +48,7 @@ fun Modifier.keypadKey(
     onLongPress: ((typedThisTouch: Boolean) -> Unit)? = null,
     longPressLabel: String? = null,
     deferPress: Boolean = false,
+    indication: Indication? = null,
 ): Modifier {
     val source = remember { MutableInteractionSource() }
     val scope = rememberCoroutineScope()
@@ -64,7 +67,7 @@ fun Modifier.keypadKey(
             // Nothing was typed by this action: the long-press must not replace (delete) a digit.
             if (hasLong) onLongClick(longPressLabel) { long?.invoke(false); true }
         }
-        .indication(source, ripple())
+        .indication(source, indication ?: ripple())
         .pointerInput(hasLong, deferPress) {
             val longMs = viewConfiguration.longPressTimeoutMillis
             val slop = viewConfiguration.touchSlop

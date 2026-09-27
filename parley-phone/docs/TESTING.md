@@ -695,3 +695,28 @@ Settings › Appearance › Layout (search "combine", "keypad", "favourites", "m
 - [ ] `mailto:a@example.com?bcc=b@example.com`: the sheet shows "Hidden copy to (Bcc)" and a warning.
 - [ ] Hardware keyboard, Combined layout, nothing typed: D-pad to a Recents row and press Enter: that row opens (the last number isn't recalled). With the keypad unfolded and focus on it, Enter still recalls the last number; digits always go to the keypad.
 - [ ] Missed chip: missed calls older than 7 days, from blocked or spam-marked numbers, or withheld numbers don't count as "to call back".
+
+## 17. v3.4
+
+### 17.1 Keypad
+
+Call pill (K1)
+- [ ] One SIM: the bottom row shows the keypad button (left), one compact green Call pill (centre) and backspace (right). The number row above the keys shows only the number.
+- [ ] Two SIMs: one green pill split in two ("📞 SIM 1 | 📞 SIM 2", or the carrier / your SIM labels, shortened with "…"), with a thin divider. Each half calls with its SIM, straight away (no SIM question). Three SIMs: three segments.
+- [ ] Two SIMs from the same carrier: the segments read "SIM 1" / "SIM 2"; TalkBack still says "Call with SIM 1 (Carrier)".
+- [ ] TalkBack on a segment: "Call with SIM 2 (Orange)"; the SIM a plain Call would use (remembered for the typed number, else the default SIM) is shown in bold and read as "Usual SIM for this call".
+- [ ] A SIM near its plan minutes shows a small dot on its segment's phone icon (not a big badge).
+- [ ] Nothing typed: a segment (or the single pill) puts the last dialled number back. Letters typed on a hardware keyboard: a segment calls the top match with that SIM.
+- [ ] Hardware Call key and Enter still follow the remembered / default SIM rules (and ask when there is neither).
+- [ ] Backspace: tap deletes before the cursor; long-press clears the number (with a haptic tick). It's dimmed with nothing typed, and nothing in the bottom row moves or appears while typing.
+
+Keypad look (K2)
+- [ ] Large light digits with letters beneath; voicemail icon under 1, "," under *, "+" under 0, ";" under #. No key backgrounds; a soft round ripple on press. Light and dark themes; 200 % font size (digits capped, letters readable).
+- [ ] Type a long number fast: the keys never move (number actions stay above the panel). Long-presses (0 → +, 1 → voicemail, 2–9 speed dial, * → pause, # → wait), local letter rows, tones/haptics and hardware keys work as before.
+- [ ] Keypad tab: the keypad button hides the keys to see more matches, and brings them back.
+
+Docked keypad folding (K3, Calls layout: Combined)
+- [ ] Drag the handle or anywhere on the panel (keys included) down: the keypad follows the finger and slides down behind the edge; release past about a third, or flick down, and it folds with a spring; a short slow drag springs back open. A swipe that starts on a key never types that digit.
+- [ ] Scroll the calls list: the keypad folds away first, following the finger, then the list scrolls; flinging keeps its speed for the list. Scrolling back up never pulls the keypad open.
+- [ ] Folded: a keypad FAB springs in at the bottom end, with the typed number's last digits as a badge ("…5678"). Tap it, or drag it up (the keypad follows), to unfold. No scrim, no jump of the list.
+- [ ] Still as in v3.3: tel: links / ACTION_DIAL unfold the keypad with the number; Back folds it; TalkBack "Hide on-screen keypad" action on the panel; large fonts scroll inside the panel (max ~62 % of the screen); landscape side by side, where the panel slides aside as it folds; typing on a hardware keypad unfolds it.
