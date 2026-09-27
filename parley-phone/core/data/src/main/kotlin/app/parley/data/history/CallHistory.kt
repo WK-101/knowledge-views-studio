@@ -164,11 +164,23 @@ class CallHistory(
         .flowOn(Dispatchers.Default)
         .stateIn(scope, SharingStarted.WhileSubscribed(60_000), null)
 
+    /** The last index and what it was built with, so new calls alone are appended rather than indexed again. */
+    private class Built(val contacts: List<ContactSummary>?, val permitted: Boolean, val country: String, val zone: ZoneId, val index: CallLogIndex)
+
+    @Volatile private var built: Built? = null
+
     private fun buildIndex(calls: List<CallEntry>, ct: List<ContactSummary>?): CallLogIndex {
         // Without the permission the list is empty but that means "unknown", not "nobody is a contact".
-        val known = if (ct == null || !Permissions.has(context, Manifest.permission.READ_CONTACTS)) null
-        else ct.map { IndexContact(it.id, it.lookupKey, it.displayName, it.phones.map { p -> p.number }) }
-        return CallLogIndex.build(calls, known, countryIso, zone)
+        val permitted = ct != null && Permissions.has(context, Manifest.permission.READ_CONTACTS)
+        val country = countryIso
+        val z = zone
+        built?.let { b ->
+            if (b.contacts === ct && b.permitted == permitted && b.country == country && b.zone == z) {
+                b.index.appending(calls)?.let { idx -> return idx.also { built = Built(ct, permitted, country, z, it) } }
+            }
+        }
+        val known = if (!permitted) null else ct.orEmpty().map { IndexContact(it.id, it.lookupKey, it.displayName, it.phones.map { p -> p.number }) }
+        return CallLogIndex.build(calls, known, country, z).also { built = Built(ct, permitted, country, z, it) }
     }
 
     /** Closes the archive database so "Delete all Parley data" can remove its file (the process restarts after). */

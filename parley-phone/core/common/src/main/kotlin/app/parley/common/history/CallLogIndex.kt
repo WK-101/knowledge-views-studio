@@ -187,8 +187,54 @@ class CallLogIndex private constructor(
     private val byPerson: Map<String, List<IndexedCall>>,
     private val contactByNumber: Map<String, String>,
     private val contactByMatch: Map<String, String>,
+    private val contactInfo: Map<String, IndexContact>,
+    /** The calls this index was built from, as given (for [appending]). */
+    private val source: List<CallEntry>,
 ) {
     val isEmpty: Boolean get() = calls.isEmpty()
+
+    /**
+     * This index with the calls [all] has in front of the ones it was built from, when that is all that changed: new
+     * calls arrived (none older than the newest indexed call) and nothing else moved. Only the new calls are keyed and
+     * only their people rebuilt, instead of the whole history. Null otherwise; then [build] from scratch. The
+     * contacts, country and zone must be the ones this index was built with.
+     */
+    fun appending(all: List<CallEntry>): CallLogIndex? {
+        val added = all.size - source.size
+        if (added < 0) return null
+        if (added == 0) return if (all === source || all == source) this else null
+        if (all.subList(added, all.size) != source) return null
+        val fresh = all.subList(0, added)
+        val newest = source.maxOfOrNull { it.date } ?: Long.MIN_VALUE
+        if (fresh.any { it.date < newest }) return null
+
+        // A duplicate of a new call can only be a call in the same second, so only the newest indexed calls matter.
+        val seen = HashSet<String>()
+        val horizon = fresh.minOf { it.date } - 1_000
+        for (c in calls) {
+            if (c.date < horizon) break
+            if (c.numberKey != NumberKeys.HIDDEN) seen += NumberKeys.dedupe(c.call.number, c.date) + "|" + c.type
+        }
+        val indexed = ArrayList<IndexedCall>(fresh.size)
+        for (e in fresh.sortedByDescending { it.date }) {
+            val hidden = e.presentationHidden || e.number.isBlank()
+            if (!hidden && !seen.add(NumberKeys.dedupe(e.number, e.date) + "|" + e.type)) continue
+            val nk = if (hidden) NumberKeys.HIDDEN else NumberKeys.of(e.number, countryIso)
+            indexed += IndexedCall(e, nk, personKey(nk, e.number, contactByNumber, contactByMatch))
+        }
+        val mergedCalls = ArrayList<IndexedCall>(indexed.size + calls.size).apply {
+            addAll(indexed)
+            addAll(calls)
+        }
+        val mergedByPerson = HashMap(byPerson)
+        val mergedPeople = HashMap(people)
+        for ((pk, list) in indexed.groupBy { it.personKey }) {
+            val joined = list + byPerson[pk].orEmpty()
+            mergedByPerson[pk] = joined
+            mergedPeople[pk] = person(pk, joined, contactInfo[pk], contactsKnown, countryIso)
+        }
+        return CallLogIndex(mergedCalls, mergedPeople, countryIso, zone, contactsKnown, mergedByPerson, contactByNumber, contactByMatch, contactInfo, all)
+    }
 
     fun person(key: String): Person? = people[key]
 
@@ -400,34 +446,37 @@ class CallLogIndex private constructor(
                 val hidden = e.presentationHidden || e.number.isBlank()
                 if (!hidden && !seen.add(NumberKeys.dedupe(e.number, e.date) + "|" + e.type)) continue
                 val nk = if (hidden) NumberKeys.HIDDEN else NumberKeys.of(e.number, countryIso)
-                val pk = when {
-                    nk == NumberKeys.HIDDEN -> NumberKeys.HIDDEN
-                    else -> contactByNumber[nk] ?: PhoneIdentity.portableKey(e.number)?.let { contactByMatch[it] }?.takeIf { it != AMBIGUOUS } ?: numberPersonKey(nk)
-                }
-                indexed += IndexedCall(e, nk, pk)
+                indexed += IndexedCall(e, nk, personKey(nk, e.number, contactByNumber, contactByMatch))
             }
             val byPerson = indexed.groupBy { it.personKey }
             val people = HashMap<String, Person>()
-            for ((pk, list) in byPerson) {
-                val contact = contactInfo[pk]
-                val seenKeys = list.map { it.numberKey }.distinct()
-                people[pk] = Person(
-                    key = pk,
-                    contactId = contact?.id,
-                    lookupKey = contact?.lookupKey,
-                    // Contact name, else the newest name the call log cached. Never a placeholder.
-                    name = contact?.name?.takeIf { it.isNotBlank() } ?: list.firstNotNullOfOrNull { it.call.cachedName?.takeIf { n -> n.isNotBlank() } },
-                    numberKeys = (seenKeys + contact?.numbers.orEmpty().map { NumberKeys.of(it, countryIso) }).filter { it != NumberKeys.HIDDEN }.distinct(),
-                    number = list.first().call.number,
-                    isContact = when {
-                        pk == NumberKeys.HIDDEN -> false
-                        contact != null -> true
-                        contacts == null -> null
-                        else -> false
-                    },
-                )
-            }
-            return CallLogIndex(indexed, people, countryIso, zone, contacts != null, byPerson, contactByNumber, contactByMatch)
+            for ((pk, list) in byPerson) people[pk] = person(pk, list, contactInfo[pk], contacts != null, countryIso)
+            return CallLogIndex(indexed, people, countryIso, zone, contacts != null, byPerson, contactByNumber, contactByMatch, contactInfo, calls)
+        }
+
+        private fun personKey(nk: String, number: String, contactByNumber: Map<String, String>, contactByMatch: Map<String, String>): String = when {
+            nk == NumberKeys.HIDDEN -> NumberKeys.HIDDEN
+            else -> contactByNumber[nk] ?: PhoneIdentity.portableKey(number)?.let { contactByMatch[it] }?.takeIf { it != AMBIGUOUS } ?: numberPersonKey(nk)
+        }
+
+        /** [pk]'s person from their calls ([list], newest first) and contact. */
+        private fun person(pk: String, list: List<IndexedCall>, contact: IndexContact?, contactsKnown: Boolean, countryIso: String?): Person {
+            val seenKeys = list.map { it.numberKey }.distinct()
+            return Person(
+                key = pk,
+                contactId = contact?.id,
+                lookupKey = contact?.lookupKey,
+                // Contact name, else the newest name the call log cached. Never a placeholder.
+                name = contact?.name?.takeIf { it.isNotBlank() } ?: list.firstNotNullOfOrNull { it.call.cachedName?.takeIf { n -> n.isNotBlank() } },
+                numberKeys = (seenKeys + contact?.numbers.orEmpty().map { NumberKeys.of(it, countryIso) }).filter { it != NumberKeys.HIDDEN }.distinct(),
+                number = list.first().call.number,
+                isContact = when {
+                    pk == NumberKeys.HIDDEN -> false
+                    contact != null -> true
+                    !contactsKnown -> null
+                    else -> false
+                },
+            )
         }
     }
 }

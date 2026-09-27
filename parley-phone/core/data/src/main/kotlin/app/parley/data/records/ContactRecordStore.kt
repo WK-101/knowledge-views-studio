@@ -17,6 +17,8 @@ import android.provider.ContactsContract.Data
 import android.provider.ContactsContract.Groups
 import android.provider.ContactsContract.RawContacts
 import android.util.Log
+import app.parley.common.Hex
+import app.parley.common.backup.RecordJson
 import app.parley.common.people.Batches
 import app.parley.common.record.Col
 import app.parley.common.record.ContactRecord
@@ -30,6 +32,7 @@ import app.parley.data.AccountRef
 import app.parley.data.ContactPhotoProcessor
 import app.parley.data.DeviceAccounts
 import app.parley.data.R
+import java.security.MessageDigest
 
 /** Maps a group-membership row to a group row id in [account], or null to drop the membership. */
 fun interface GroupResolver {
@@ -118,6 +121,67 @@ class ContactRecordStore(private val context: Context) {
             ?.use { c -> buildList { while (c.moveToNext()) add(c.getLong(0)) } }.orEmpty()
 
     fun read(contactId: Long, fullPhoto: Boolean = true): ContactRecord? = readAll(listOf(contactId), fullPhoto).firstOrNull()
+
+    /**
+     * A contact as far as change detection needs it: its key, raw contacts and a [token] made of their
+     * RawContacts.VERSION values. The provider bumps a raw contact's version on every change to it or its data, so
+     * an unchanged token means the contact's content is unchanged (a relink changes the raw ids, so the token too).
+     */
+    data class Head(val contactId: Long, val key: String, val rawIds: List<Long>, val token: String, val updatedAt: Long)
+
+    /** Every contact's [Head] (or those of [ids]), from two light queries: no data rows, no photos. */
+    fun heads(ids: Collection<Long>? = null): List<Head> {
+        val raws = HashMap<Long, MutableList<Pair<Long, Long>>>()
+        val idSel = ids?.let { "${RawContacts.CONTACT_ID} IN (${it.joinToString(",")}) AND " }.orEmpty()
+        if (ids != null && ids.isEmpty()) return emptyList()
+        query(RawContacts.CONTENT_URI, arrayOf(RawContacts.CONTACT_ID, RawContacts._ID, RawContacts.VERSION), "$idSel${RawContacts.DELETED}=0")?.use { c ->
+            while (c.moveToNext()) if (!c.isNull(0)) raws.getOrPut(c.getLong(0)) { ArrayList(1) } += c.getLong(1) to c.getLong(2)
+        }
+        val out = ArrayList<Head>(raws.size)
+        val sel = ids?.let { "${Contacts._ID} IN (${it.joinToString(",")})" }
+        query(Contacts.CONTENT_URI, arrayOf(Contacts._ID, Contacts.LOOKUP_KEY, Contacts.CONTACT_LAST_UPDATED_TIMESTAMP), sel)?.use { c ->
+            while (c.moveToNext()) {
+                val id = c.getLong(0)
+                val r = raws[id]?.sortedBy { it.first } ?: continue
+                out += Head(id, c.getString(1).orEmpty(), r.map { it.first }, r.joinToString(",") { "${it.first}:${it.second}" }, c.getLong(2))
+            }
+        }
+        return out
+    }
+
+    /**
+     * The SHA-256 of raw contact [rawId]'s photo: the full-resolution display photo, streamed (never held whole),
+     * or the [thumbnail] when there is none. A photo is thereby addressed by its content, so hashing a contact
+     * needn't load its photo, and an unchanged photo is never read twice ([cache]).
+     */
+    fun photoDigest(rawId: Long, thumbnail: ByteArray?, cache: MutableMap<String, String>? = null): String? {
+        val cacheKey = "$rawId|" + (thumbnail?.let { sha256(it) } ?: "")
+        cache?.get(cacheKey)?.let { return it }
+        val full = try {
+            cr.openAssetFileDescriptor(displayPhotoUri(rawId), "r")?.use { fd ->
+                fd.createInputStream().use { input ->
+                    val md = MessageDigest.getInstance("SHA-256")
+                    val buf = ByteArray(16 * 1024)
+                    var total = 0L
+                    while (true) {
+                        val n = input.read(buf)
+                        if (n < 0) break
+                        md.update(buf, 0, n)
+                        total += n
+                    }
+                    if (total > 0) Hex.encode(md.digest()) else null
+                }
+            }
+        } catch (_: Exception) {
+            null
+        }
+        val digest = full ?: thumbnail?.takeIf { it.isNotEmpty() }?.let(::sha256) ?: return null
+        cache?.put(cacheKey, digest)
+        return digest
+    }
+
+    /** Reads [rawId]'s full-resolution photo (null when it has only a thumbnail), for the one contact being written. */
+    fun fullPhoto(rawId: Long): ByteArray? = displayPhoto(rawId)
 
     /**
      * Reads [ids] (or every contact) lazily, [BATCH] contacts per query, so a large address book is never held
@@ -599,6 +663,8 @@ class ContactRecordStore(private val context: Context) {
     fun isWritableAccount(account: AccountRef): Boolean = DeviceAccounts.isWritable(account, DeviceAccounts.uploadingTypes(), localAccount())
 
     private fun localAccount(): AccountRef = DeviceAccounts.localAccount(context)
+
+    private fun sha256(b: ByteArray): String = RecordJson.sha256Hex(b)
 
     private fun query(uri: Uri, projection: Array<String>, selection: String? = null, args: Array<String>? = null, sort: String? = null): Cursor? =
         try {
