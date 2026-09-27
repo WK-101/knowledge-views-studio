@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.R
+import app.parley.blocking.DialText
 import app.parley.calltime.UssdState
 import app.parley.data.PlaceResult
 import app.parley.ui.common.Format
@@ -44,7 +45,7 @@ import app.parley.ui.settings.settingTitle
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberCoroutineScope
 
-/** The carrier's reply to a USSD code (A13). Shown from the root, like the call dialogs. */
+/** The carrier's reply to a USSD code. Shown from the root, like the call dialogs. */
 @Composable
 fun UssdDialog(vm: AppViewModel) {
     val state by vm.ussd.state.collectAsStateWithLifecycle()
@@ -106,7 +107,7 @@ fun UssdDialog(vm: AppViewModel) {
                     TextButton({
                         vm.ussd.dismiss()
                         // Placed through Telecom directly, so it isn't caught as USSD again.
-                        scope.launch { (vm.c.placer.call(s.code, s.simId) as? PlaceResult.Failed)?.let { vm.toast(app.parley.blocking.DialText.placeFailure(context, it.reason)) } }
+                        scope.launch { (vm.c.placer.call(s.code, s.simId) as? PlaceResult.Failed)?.let { vm.toast(DialText.placeFailure(context, it.reason)) } }
                     }) { Text(stringResource(R.string.ct_ussd_dial_as_call)) }
                 }
             },

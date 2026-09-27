@@ -1,5 +1,6 @@
 package app.parley.data
 
+import app.parley.common.people.HandleService
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -12,7 +13,7 @@ object ContactDetailsJson {
         put("phones", items(d.phones)); put("emails", items(d.emails)); put("sites", items(d.websites)); put("rel", items(d.relations))
         put("addr", JSONArray().apply { d.addresses.forEach { a -> put(JSONObject().put("s", a.street).put("c", a.city).put("r", a.region).put("p", a.postcode).put("k", a.country).put("t", a.type).put("l", a.label ?: "").put("b", a.poBox).put("n", a.neighborhood)) } })
         put("events", JSONArray().apply { d.events.forEach { e -> put(JSONObject().put("d", e.date).put("t", e.type).put("l", e.label ?: "")) } })
-        // I1 and I6 (read back only when present, so older entries decode as before).
+        // Handles and the caller card (read back only when present, so older entries decode as before).
         if (d.handles.any { it.value.isNotBlank() }) {
             put("im", JSONArray().apply { d.handles.filter { it.value.isNotBlank() }.forEach { h -> put(JSONObject().put("s", h.service.key).put("v", h.value).put("c", h.customProtocol ?: "")) } })
         }
@@ -34,7 +35,7 @@ object ContactDetailsJson {
             handles = o.optJSONArray("im")?.let { a ->
                 (0 until a.length()).map { i ->
                     a.getJSONObject(i).let {
-                        HandleItem(null, app.parley.common.people.HandleService.byKey(it.optString("s")) ?: app.parley.common.people.HandleService.OTHER, it.optString("v"), it.optString("c").ifEmpty { null })
+                        HandleItem(null, HandleService.byKey(it.optString("s")) ?: HandleService.OTHER, it.optString("v"), it.optString("c").ifEmpty { null })
                     }
                 }
             }.orEmpty(),

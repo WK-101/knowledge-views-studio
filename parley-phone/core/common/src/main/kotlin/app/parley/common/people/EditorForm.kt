@@ -1,7 +1,7 @@
 package app.parley.common.people
 
 /**
- * E1 (v3.4 editor): the pure rules behind the contact editor: which optional groups "Add more info" still offers,
+ * The pure rules behind the contact editor: which optional groups "Add more info" still offers,
  * when Save is enabled, what counts as a change, and gentle format checks. The UI (ContactEditScreen) feeds it
  * plain values so it stays testable here.
  */
@@ -53,7 +53,7 @@ object EditorForm {
 }
 
 /**
- * E1: stable keys for the editor's rows, one list per group, so rows animate in and out and keep their focus when
+ * Stable keys for the editor's rows, one list per group, so rows animate in and out and keep their focus when
  * another row of the group is added or removed. Keys are never reused.
  */
 class RowKeys {

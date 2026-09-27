@@ -11,6 +11,7 @@ import java.io.Closeable
 import java.io.InputStream
 import java.io.InputStreamReader
 import java.io.Reader
+import java.io.StringWriter
 import java.io.Writer
 import java.nio.charset.Charset
 import java.nio.charset.CodingErrorAction
@@ -131,7 +132,7 @@ object VCardStream {
 
     /** Convenience: writes [records] to a string. */
     fun writeAll(records: List<ContactRecord>, groupTitles: Map<Long, String> = emptyMap()): String {
-        val sw = java.io.StringWriter()
+        val sw = StringWriter()
         CardWriter(sw).use { w -> records.forEach { w.write(it, groupTitles) } }
         return sw.toString()
     }

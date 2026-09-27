@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Handshake: swapping cards in person. -->
+<resources>
+    <string name="handshake_met_at">Met at %1$s on %2$s</string>
+    <string name="handshake_met_on">Met on %1$s</string>
+    <string name="handshake_place">Where did you meet?</string>
+    <string name="handshake_place_hint">A café, a conference, a friend\'s party</string>
+    <string name="handshake_place_note">Saved as “Met at… on today\'s date” in their Circle timeline.</string>
+    <string name="handshake_to_note">Also add it to their note</string>
+    <string name="handshake_swap">Swap: always show my card after receiving one</string>
+    <string name="handshake_show_mine">Show my card</string>
+    <string name="handshake_no_card">Your card is empty. Add your name and number to share it.</string>
+    <string name="handshake_make_card">Fill in my card</string>
+</resources>

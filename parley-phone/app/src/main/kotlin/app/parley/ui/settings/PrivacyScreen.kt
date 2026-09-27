@@ -22,6 +22,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -32,9 +33,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import app.parley.AppViewModel
+import app.parley.NavEvent
 import app.parley.R
+import app.parley.messaging.MessagedRecordSection
+import app.parley.messaging.MessagingRoutes
 import app.parley.ui.CallColors
+import app.parley.ui.calltime.NotificationHealthCard
 import app.parley.ui.contact.Section
+import app.parley.ui.people.PrivacyLinks
 
 private val reasons = mapOf(
     "android.permission.CALL_PHONE" to R.string.set_perm_call_phone,
@@ -90,14 +96,14 @@ fun PrivacyScreen(vm: AppViewModel, back: () -> Unit) {
                     Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodyMedium,
                 )
             }
-            item { app.parley.ui.calltime.NotificationHealthCard(vm) }
-            item { app.parley.ui.people.PrivacyLinks(vm) }
+            item { NotificationHealthCard(vm) }
+            item { PrivacyLinks(vm) }
             item { Section(stringResource(R.string.set_privacy_keeps_private)) }
             item {
                 val vault by vm.c.vault.contacts.collectAsStateWithLifecycle()
                 val priv by vm.c.vault.privateCalls.collectAsStateWithLifecycle()
                 val s by vm.settings.collectAsStateWithLifecycle()
-                val journalCount by androidx.compose.runtime.produceState(0) { value = vm.c.meta.journalCount() }
+                val journalCount by produceState(0) { value = vm.c.meta.journalCount() }
                 ListItem(
                     headlineContent = { Text(pluralStringResource(R.plurals.set_privacy_private_contacts, vault.size, vault.size)) },
                     supportingContent = { Text(stringResource(R.string.set_privacy_private_contacts_body)) },
@@ -106,7 +112,7 @@ fun PrivacyScreen(vm: AppViewModel, back: () -> Unit) {
                     headlineContent = { Text(pluralStringResource(R.plurals.set_privacy_private_calls, priv.size, priv.size)) },
                     supportingContent = { Text(stringResource(R.string.set_privacy_private_calls_body)) },
                 )
-                app.parley.messaging.MessagedRecordSection { vm.navigate(app.parley.NavEvent.Route(app.parley.messaging.MessagingRoutes.MESSAGED)) }
+                MessagedRecordSection { vm.navigate(NavEvent.Route(MessagingRoutes.MESSAGED)) }
                 val archiveOn by vm.c.history.prefs.state.collectAsStateWithLifecycle()
                 ListItem(
                     headlineContent = {

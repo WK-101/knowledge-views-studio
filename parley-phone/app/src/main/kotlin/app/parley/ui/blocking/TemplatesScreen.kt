@@ -47,6 +47,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -58,14 +59,19 @@ import app.parley.R
 import app.parley.blocking.TemplateGallery
 import app.parley.blocking.TemplateInbox
 import app.parley.blocking.TemplateText
+import app.parley.common.ScreeningSettings
+import app.parley.common.spam.ListPack
 import app.parley.common.templates.OpenedTemplate
 import app.parley.common.templates.RuleTemplate
 import app.parley.common.templates.RuleTemplates
 import app.parley.common.templates.TemplateException
 import app.parley.data.DryRun
+import app.parley.ui.common.Format
+import app.parley.ui.contact.Section
 import app.parley.ui.contact.SecureQr
 import app.parley.ui.settings.bidiLtr
 import app.parley.ui.settings.settingTitle
+import java.io.ByteArrayOutputStream
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -80,7 +86,7 @@ import java.io.File
 @Composable
 fun TemplatesScreen(vm: AppViewModel, back: () -> Unit) {
     val context = LocalContext.current
-    val res = androidx.compose.ui.platform.LocalResources.current
+    val res = LocalResources.current
     val scope = rememberCoroutineScope()
     val gallery = remember { TemplateGallery.get(context) }
     val gs by gallery.state.collectAsStateWithLifecycle()
@@ -105,7 +111,7 @@ fun TemplatesScreen(vm: AppViewModel, back: () -> Unit) {
             try {
                 val text = withContext(Dispatchers.IO) {
                     context.contentResolver.openInputStream(uri)?.use { s ->
-                        val out = java.io.ByteArrayOutputStream()
+                        val out = ByteArrayOutputStream()
                         val buf = ByteArray(8192)
                         while (true) {
                             val n = s.read(buf)
@@ -166,7 +172,7 @@ fun TemplatesScreen(vm: AppViewModel, back: () -> Unit) {
             )
             groups.forEach { (title, list) ->
                 if (list.isNotEmpty()) {
-                    item(key = "h$title") { app.parley.ui.contact.Section(stringResource(title)) }
+                    item(key = "h$title") { Section(stringResource(title)) }
                     items(list, key = { "t" + it.template.id }) { e ->
                         TemplateCard(vm, gallery, e, gs.installed.any { it.id == e.template.id }, onShare = { shareFile(e.template) }, onQr = { qrFor = e.template })
                     }
@@ -218,7 +224,7 @@ private const val MAX_FILE = 1024 * 1024
 private fun TemplateCard(vm: AppViewModel, gallery: TemplateGallery, e: TemplateGallery.Entry, installed: Boolean, onShare: () -> Unit, onQr: () -> Unit) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
-    val res = androidx.compose.ui.platform.LocalResources.current
+    val res = LocalResources.current
     val t = e.template
     val name = TemplateText.name(context, t)
     val description = TemplateText.description(context, t)
@@ -255,19 +261,19 @@ private fun TemplateCard(vm: AppViewModel, gallery: TemplateGallery, e: Template
                     d != null -> Text(
                         if (d.current.unknown.isEmpty()) stringResource(R.string.blk_tpl_dry_none) else
                             pluralStringResource(R.plurals.blk_tpl_dry_result, d.current.unknown.size, d.added.size, d.current.unknown.size) +
-                                if (d.added.isNotEmpty()) " (" + d.added.take(3).joinToString { bidiLtr(app.parley.ui.common.Format.number(it.call.number, vm.countryIso)) } + if (d.added.size > 3) "…)" else ")" else ".",
+                                if (d.added.isNotEmpty()) " (" + d.added.take(3).joinToString { bidiLtr(Format.number(it.call.number, vm.countryIso)) } + if (d.added.size > 3) "…)" else ")" else ".",
                         fontWeight = FontWeight.Medium, style = MaterialTheme.typography.bodyMedium,
                     )
                     else -> TextButton({
                         scope.launch {
                             dryBusy = true
                             dry = runCatching {
-                                val pack = RuleTemplates.toPack(t)?.let { b -> withContext(Dispatchers.Default) { app.parley.common.spam.ListPack.parse(b) } }
+                                val pack = RuleTemplates.toPack(t)?.let { b -> withContext(Dispatchers.Default) { ListPack.parse(b) } }
                                 vm.c.screener.dryRun(
                                     vm.c.history.calls.value.orEmpty(), 7,
                                     candidatePack = pack,
                                     candidateRules = RuleTemplates.toRules(t),
-                                    candidateSettings = t.settings?.let { patch -> { s: app.parley.common.ScreeningSettings -> patch.apply(s) } },
+                                    candidateSettings = t.settings?.let { patch -> { s: ScreeningSettings -> patch.apply(s) } },
                                 )
                             }.getOrNull()
                             dryBusy = false

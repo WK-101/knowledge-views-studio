@@ -4,7 +4,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
 
-/** K4: pasting into the keypad and showing a formatted number over the typed digits. */
+/** Pasting into the keypad and showing a formatted number over the typed digits. */
 class DialTextTest {
     @Test fun sanitize_pasted_text() {
         assertEquals("+15551234567", DialText.sanitize("Tel: +1 (555) 123-4567"))

@@ -18,7 +18,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
 
-/** R1: one person in the Circle, as the list shows them. */
+/** One person in the Circle, as the list shows them. */
 data class CircleRow(
     val contact: ContactSummary,
     val days: Int,
@@ -27,11 +27,11 @@ data class CircleRow(
     val status: CircleStatus,
 )
 
-/** R1: one "Suggested from your calls" entry. */
+/** One "Suggested from your calls" entry. */
 data class CircleSuggestion(val contact: ContactSummary, val calls: Int, val days: Int)
 
 /**
- * R1: the Circle's list state, a view over system contacts (private contacts are never system contacts, so they
+ * The Circle's list state, a view over system contacts (private contacts are never system contacts, so they
  * can't appear here), contact metadata, interactions and the call-history index. Owned by
  * [app.parley.AppViewModel] (`vm.circle`).
  */

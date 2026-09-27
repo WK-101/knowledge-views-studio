@@ -14,9 +14,12 @@ import com.google.zxing.common.GlobalHistogramBinarizer
 import com.google.zxing.common.HybridBinarizer
 import com.google.zxing.multi.GenericMultipleBarcodeReader
 import com.google.zxing.multi.qrcode.QRCodeMultiReader
+import java.nio.ByteBuffer
+import java.nio.charset.CharacterCodingException
+import java.nio.charset.CodingErrorAction
 
 /**
- * Q1: finds QR codes (and Aztec / Data Matrix / PDF417 as a fallback) in a picture, offline, with ZXing. Pure JVM:
+ * Finds QR codes (and Aztec / Data Matrix / PDF417 as a fallback) in a picture, offline, with ZXing. Pure JVM:
  * the app hands it the pixels of an already downsampled bitmap. It tries, in order, until something is found:
  * the hybrid binarizer, the global-histogram one (better on evenly lit, low-contrast prints), light-on-dark codes
  * (inverted), and the picture turned a quarter. Several codes in one picture are all returned, each once.
@@ -104,10 +107,10 @@ object QrImageDecoder {
     /** [bytes] as UTF-8, or null when they aren't valid UTF-8. */
     internal fun utf8OrNull(bytes: ByteArray): String? = try {
         Charsets.UTF_8.newDecoder()
-            .onMalformedInput(java.nio.charset.CodingErrorAction.REPORT)
-            .onUnmappableCharacter(java.nio.charset.CodingErrorAction.REPORT)
-            .decode(java.nio.ByteBuffer.wrap(bytes)).toString()
-    } catch (_: java.nio.charset.CharacterCodingException) {
+            .onMalformedInput(CodingErrorAction.REPORT)
+            .onUnmappableCharacter(CodingErrorAction.REPORT)
+            .decode(ByteBuffer.wrap(bytes)).toString()
+    } catch (_: CharacterCodingException) {
         null
     }
 

@@ -1,5 +1,6 @@
 package app.parley.ui.blocking
 
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -38,6 +39,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -55,6 +57,7 @@ import app.parley.common.blocking.ImportPreset
 import app.parley.common.blocking.ImportedRule
 import app.parley.common.blocking.ListImport
 import app.parley.ui.settings.bidiLtrIfNumber
+import java.io.ByteArrayOutputStream
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -80,7 +83,7 @@ private fun ImportPreset.localHelp() = stringResource(
 )
 
 /** Errors from [ListImport] and file reading in the app's language. */
-private fun importError(context: android.content.Context, message: String?): String = when (message) {
+private fun importError(context: Context, message: String?): String = when (message) {
     null -> context.getString(R.string.blk_fail_read_file)
     "This file isn't valid JSON" -> context.getString(R.string.blk_import_err_json)
     "Not a Call Blocker backup (.cbbk)" -> context.getString(R.string.blk_import_err_cbbk)
@@ -92,14 +95,14 @@ private fun importError(context: android.content.Context, message: String?): Str
 private class ImportDraft(val source: String, val rows: List<List<String>>?, val preset: ImportPreset, var mapping: ColumnMapping?, val fixed: List<ImportedRule>?)
 
 /**
- * B7/B26: import Call Blocker (JSON or encrypted .cbbk), YACB, NoPhoneSpam or any CSV with column mapping,
+ * Import Call Blocker (JSON or encrypted .cbbk), YACB, NoPhoneSpam or any CSV with column mapping,
  * and share your own rules as a signed `.parleylist`.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TransferScreen(vm: AppViewModel, back: () -> Unit) {
     val context = LocalContext.current
-    val res = androidx.compose.ui.platform.LocalResources.current
+    val res = LocalResources.current
     val scope = rememberCoroutineScope()
     val rules by vm.c.blocks.rules.collectAsStateWithLifecycle()
     var preset by remember { mutableStateOf(ImportPreset.GENERIC) }
@@ -111,7 +114,7 @@ fun TransferScreen(vm: AppViewModel, back: () -> Unit) {
 
     suspend fun read(uri: Uri): ByteArray = withContext(Dispatchers.IO) {
         context.contentResolver.openInputStream(uri)?.use { s ->
-            val out = java.io.ByteArrayOutputStream()
+            val out = ByteArrayOutputStream()
             val buf = ByteArray(64 * 1024)
             var total = 0
             while (true) {
@@ -240,7 +243,7 @@ fun TransferScreen(vm: AppViewModel, back: () -> Unit) {
 private fun ImportPreviewDialog(vm: AppViewModel, d: ImportDraft, onDone: () -> Unit) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
-    val res = androidx.compose.ui.platform.LocalResources.current
+    val res = LocalResources.current
     var mapping by remember { mutableStateOf(d.mapping) }
     val header = d.rows?.firstOrNull().orEmpty()
     val parsed = remember(mapping) { d.fixed ?: d.rows?.let { rows -> mapping?.let { ListImport.rows(rows, it) } }.orEmpty() }

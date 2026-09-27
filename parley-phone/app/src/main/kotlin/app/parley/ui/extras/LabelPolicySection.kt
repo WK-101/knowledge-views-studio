@@ -1,5 +1,6 @@
 package app.parley.ui.extras
 
+import android.content.Context
 import android.content.Intent
 import android.provider.Settings
 import androidx.compose.foundation.clickable
@@ -16,6 +17,7 @@ import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Switch
@@ -29,6 +31,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.pluralStringResource
@@ -44,7 +47,7 @@ import app.parley.ui.contact.Section
 import kotlinx.coroutines.launch
 
 /**
- * X3: a label's policies on its page, under the ringtone: the SIM to call its members on (when they have none of
+ * A label's policies on its page, under the ringtone: the SIM to call its members on (when they have none of
  * their own), the keep-in-touch rhythm offered when a member joins the Circle, and "Allow through Do Not
  * Disturb". Android only lets starred contacts through, so that works by starring the members, which also puts them
  * in Favourites: the confirmation lists exactly who will be starred before anything changes.
@@ -67,20 +70,20 @@ fun LabelPolicySection(vm: AppViewModel, title: String, members: List<ContactSum
     val unstarred = members.filter { !it.starred }
 
     Column {
-        Section(stringResource(R.string.x_lp_section))
+        Section(stringResource(R.string.label_policy_section))
         if (sims.size >= 2 || p.simId != null) {
             val sim = sims.firstOrNull { it.id == p.simId }
             ListItem(
                 modifier = Modifier.clickable { pickSim = true },
                 leadingContent = { Icon(Icons.Rounded.SimCard, null) },
-                headlineContent = { Text(stringResource(R.string.x_lp_sim)) },
+                headlineContent = { Text(stringResource(R.string.label_policy_sim)) },
                 supportingContent = {
                     Text(
                         when {
-                            p.simId == null -> stringResource(R.string.x_lp_sim_none)
-                            sim == null -> stringResource(R.string.x_lp_sim_missing)
-                            else -> stringResource(R.string.x_lp_sim_on, sim.label)
-                        } + "\n" + stringResource(R.string.x_lp_sim_body),
+                            p.simId == null -> stringResource(R.string.label_policy_sim_none)
+                            sim == null -> stringResource(R.string.label_policy_sim_missing)
+                            else -> stringResource(R.string.label_policy_sim_on, sim.label)
+                        } + "\n" + stringResource(R.string.label_policy_sim_body),
                     )
                 },
             )
@@ -88,9 +91,9 @@ fun LabelPolicySection(vm: AppViewModel, title: String, members: List<ContactSum
         ListItem(
             modifier = Modifier.clickable { pickRhythm = true },
             leadingContent = { Icon(Icons.Rounded.Handshake, null) },
-            headlineContent = { Text(stringResource(R.string.x_lp_rhythm)) },
+            headlineContent = { Text(stringResource(R.string.label_policy_rhythm)) },
             supportingContent = {
-                Text(p.rhythmDays?.let { pluralStringResource(R.plurals.circle_every_days, it, it) } ?: stringResource(R.string.x_lp_rhythm_none))
+                Text(p.rhythmDays?.let { pluralStringResource(R.plurals.circle_every_days, it, it) } ?: stringResource(R.string.label_policy_rhythm_none))
             },
         )
         val days = p.rhythmDays
@@ -98,38 +101,39 @@ fun LabelPolicySection(vm: AppViewModel, title: String, members: List<ContactSum
             TextButton({
                 scope.launch {
                     outside.forEach { m -> vm.c.circle.setRhythm(m.lookupKey, m.id, days) }
-                    vm.toast(res.getQuantityString(R.plurals.x_lp_added, outside.size, outside.size))
+                    vm.toast(res.getQuantityString(R.plurals.label_policy_added, outside.size, outside.size))
                 }
-            }, Modifier.padding(start = 56.dp)) { Text(pluralStringResource(R.plurals.x_lp_add_members, outside.size, outside.size)) }
+            }, Modifier.padding(start = 56.dp)) { Text(pluralStringResource(R.plurals.label_policy_add_members, outside.size, outside.size)) }
         }
         ListItem(
-            modifier = Modifier.clickable { if (p.allowThroughDnd) turnOffDnd(vm, title) { n -> vm.toast(res.getQuantityString(R.plurals.x_lp_unstarred, n, n)) } else explainDnd = true },
+            modifier = Modifier.clickable { if (p.allowThroughDnd) turnOffDnd(vm, title) { n -> vm.toast(res.getQuantityString(R.plurals.label_policy_unstarred, n, n)) } else explainDnd = true },
             leadingContent = { Icon(Icons.Rounded.DoNotDisturbOn, null) },
-            headlineContent = { Text(stringResource(R.string.x_lp_dnd)) },
-            supportingContent = { Text(stringResource(R.string.x_lp_dnd_summary)) },
+            headlineContent = { Text(stringResource(R.string.label_policy_dnd)) },
+            supportingContent = { Text(stringResource(R.string.label_policy_dnd_summary)) },
             trailingContent = {
                 Switch(p.allowThroughDnd, { on ->
                     if (on) explainDnd = true
-                    else turnOffDnd(vm, title) { n -> vm.toast(res.getQuantityString(R.plurals.x_lp_unstarred, n, n)) }
+                    else turnOffDnd(vm, title) { n -> vm.toast(res.getQuantityString(R.plurals.label_policy_unstarred, n, n)) }
                 })
             },
         )
         if (p.allowThroughDnd) {
             if (unstarred.isNotEmpty()) TextButton({ starNewOnly = true; explainDnd = true }, Modifier.padding(start = 56.dp)) {
                 Icon(Icons.Rounded.Star, null, Modifier.padding(end = 6.dp))
-                Text(pluralStringResource(R.plurals.x_lp_star_new, unstarred.size, unstarred.size))
+                Text(pluralStringResource(R.plurals.label_policy_star_new, unstarred.size, unstarred.size))
             }
-            TextButton({ openDndSettings(context) }, Modifier.padding(start = 56.dp)) { Text(stringResource(R.string.x_lp_dnd_open)) }
+            TextButton({ openDndSettings(context) }, Modifier.padding(start = 56.dp)) { Text(stringResource(R.string.label_policy_dnd_open)) }
         }
     }
 
     if (pickSim) AlertDialog(
         onDismissRequest = { pickSim = false },
-        title = { Text(stringResource(R.string.x_lp_sim)) },
+        title = { Text(stringResource(R.string.label_policy_sim)) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
-                Text(stringResource(R.string.x_lp_sim_body), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(bottom = 8.dp))
-                (listOf<Pair<String?, String>>(null to stringResource(R.string.x_lp_sim_none)) + sims.map { it.id to it.label }).forEach { (id, label) ->
+                Text(stringResource(R.string.label_policy_sim_body), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(bottom = 8.dp))
+                val choices = listOf<Pair<String?, String>>(null to stringResource(R.string.label_policy_sim_none)) + sims.map { it.id to it.label }
+                choices.forEach { (id, label) ->
                     ListItem(
                         modifier = Modifier.clickable { vm.c.extras.updatePolicy(title) { it.copy(simId = id) }; pickSim = false },
                         leadingContent = { RadioButton(p.simId == id, { vm.c.extras.updatePolicy(title) { it.copy(simId = id) }; pickSim = false }) },
@@ -142,12 +146,15 @@ fun LabelPolicySection(vm: AppViewModel, title: String, members: List<ContactSum
     )
     if (pickRhythm) AlertDialog(
         onDismissRequest = { pickRhythm = false },
-        title = { Text(stringResource(R.string.x_lp_rhythm)) },
+        title = { Text(stringResource(R.string.label_policy_rhythm)) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
-                Text(stringResource(R.string.x_lp_rhythm_body, title), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(bottom = 8.dp))
+                Text(
+                    stringResource(R.string.label_policy_rhythm_body, title), style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(bottom = 8.dp),
+                )
                 (listOf<Int?>(null) + LabelPolicies.RHYTHM_CHOICES).forEach { d ->
-                    val label = d?.let { pluralStringResource(R.plurals.circle_every_days, it, it) } ?: stringResource(R.string.x_lp_rhythm_none)
+                    val label = d?.let { pluralStringResource(R.plurals.circle_every_days, it, it) } ?: stringResource(R.string.label_policy_rhythm_none)
                     ListItem(
                         modifier = Modifier.clickable { vm.c.extras.updatePolicy(title) { it.copy(rhythmDays = d) }; pickRhythm = false },
                         leadingContent = { RadioButton(p.rhythmDays == d, { vm.c.extras.updatePolicy(title) { it.copy(rhythmDays = d) }; pickRhythm = false }) },
@@ -161,22 +168,25 @@ fun LabelPolicySection(vm: AppViewModel, title: String, members: List<ContactSum
     if (explainDnd) AlertDialog(
         onDismissRequest = { explainDnd = false; starNewOnly = false },
         icon = { Icon(Icons.Rounded.DoNotDisturbOn, null) },
-        title = { Text(stringResource(R.string.x_lp_dnd_title, title)) },
+        title = { Text(stringResource(R.string.label_policy_dnd_title, title)) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
                 if (unstarred.isEmpty()) {
-                    Text(stringResource(R.string.x_lp_dnd_all_starred), style = MaterialTheme.typography.bodyMedium)
+                    Text(stringResource(R.string.label_policy_dnd_all_starred), style = MaterialTheme.typography.bodyMedium)
                 } else {
-                    Text(pluralStringResource(R.plurals.x_lp_dnd_preview, unstarred.size, unstarred.size), style = MaterialTheme.typography.bodyMedium)
+                    Text(pluralStringResource(R.plurals.label_policy_dnd_preview, unstarred.size, unstarred.size), style = MaterialTheme.typography.bodyMedium)
                     unstarred.forEach { m ->
                         ListItem(
                             leadingContent = { Icon(Icons.Rounded.Star, null, tint = MaterialTheme.colorScheme.primary) },
                             headlineContent = { Text(m.displayName) },
-                            colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
+                            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                         )
                     }
                 }
-                Text(stringResource(R.string.x_lp_dnd_everyone_note), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp))
+                Text(
+                    stringResource(R.string.label_policy_dnd_everyone_note), style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
             }
         },
         confirmButton = {
@@ -197,8 +207,8 @@ fun LabelPolicySection(vm: AppViewModel, title: String, members: List<ContactSum
             }) {
                 Text(
                     when {
-                        unstarred.isEmpty() -> stringResource(R.string.x_lp_dnd_open)
-                        else -> pluralStringResource(R.plurals.x_lp_dnd_star_confirm, unstarred.size, unstarred.size)
+                        unstarred.isEmpty() -> stringResource(R.string.label_policy_dnd_open)
+                        else -> pluralStringResource(R.plurals.label_policy_dnd_star_confirm, unstarred.size, unstarred.size)
                     },
                 )
             }
@@ -216,7 +226,7 @@ private fun turnOffDnd(vm: AppViewModel, title: String, done: (Int) -> Unit) {
 }
 
 /** Android's "people who can interrupt" (priority) page; the general Do Not Disturb page or sound settings as fallbacks. */
-fun openDndSettings(context: android.content.Context) {
+fun openDndSettings(context: Context) {
     val tries = listOf(Intent(ACTION_ZEN_PRIORITY), Intent(ACTION_ZEN), Intent(Settings.ACTION_SOUND_SETTINGS))
     for (i in tries) {
         if (runCatching { context.startActivity(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }.isSuccess) return
@@ -227,15 +237,15 @@ fun openDndSettings(context: android.content.Context) {
 private const val ACTION_ZEN_PRIORITY = "android.settings.ZEN_MODE_PRIORITY_SETTINGS"
 private const val ACTION_ZEN = "android.settings.ZEN_MODE_SETTINGS"
 
-/** X3: in "Stay in touch", the rhythm one of the person's labels asks for, offered first. Nothing when none does. */
+/** In "Stay in touch", the rhythm one of the person's labels asks for, offered first. Nothing when none does. */
 @Composable
 fun LabelRhythmSuggestion(vm: AppViewModel, contactId: Long, pick: (Int) -> Unit) {
     val suggestion by produceState<Pair<String, Int>?>(null, contactId) { value = runCatching { vm.c.extras.labelRhythmFor(contactId) }.getOrNull() }
     val (label, days) = suggestion ?: return
     ListItem(
         modifier = Modifier.clickable { pick(days) },
-        colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
+        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
         leadingContent = { Icon(Icons.AutoMirrored.Rounded.Label, null, tint = MaterialTheme.colorScheme.primary) },
-        headlineContent = { Text(stringResource(R.string.x_lp_rhythm_suggest, label, pluralStringResource(R.plurals.circle_every_days, days, days))) },
+        headlineContent = { Text(stringResource(R.string.label_policy_rhythm_suggest, label, pluralStringResource(R.plurals.circle_every_days, days, days))) },
     )
 }

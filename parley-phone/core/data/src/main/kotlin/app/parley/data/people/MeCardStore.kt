@@ -1,6 +1,8 @@
 package app.parley.data.people
 
+import android.Manifest
 import android.content.Context
+import android.net.Uri
 import android.provider.ContactsContract
 import android.provider.ContactsContract.CommonDataKinds.Email
 import android.provider.ContactsContract.CommonDataKinds.Organization
@@ -22,7 +24,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 /**
- * I2: your own card ("Me").
+ * Your own card ("Me").
  *
  * - Parley's copy lives in Parley's private storage, like the "My details" it replaces: it was read from there once
  *   ([migrateFrom]) so nothing typed before is lost, and "Send my details" keeps using its name and number.
@@ -68,8 +70,8 @@ class MeCardStore(context: Context) {
 
     /** Android's profile contact, or null when there is none (or contacts can't be read). */
     suspend fun profile(): MeCard? = withContext(Dispatchers.IO) {
-        if (!Permissions.has(app, android.Manifest.permission.READ_CONTACTS)) return@withContext null
-        val uri = android.net.Uri.withAppendedPath(ContactsContract.Profile.CONTENT_URI, ContactsContract.Contacts.Data.CONTENT_DIRECTORY)
+        if (!Permissions.has(app, Manifest.permission.READ_CONTACTS)) return@withContext null
+        val uri = Uri.withAppendedPath(ContactsContract.Profile.CONTENT_URI, ContactsContract.Contacts.Data.CONTENT_DIRECTORY)
         var name = ""
         val phones = ArrayList<String>()
         val emails = ArrayList<String>()

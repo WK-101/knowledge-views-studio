@@ -21,13 +21,13 @@ import kotlinx.coroutines.withContext
 import java.util.Locale
 
 /**
- * v3.2 extras kept in their own small store (like the Circle's config): X2 the last "Who's in…" city, X3 label
+ * Extras kept in their own small store (like the Circle's config): X2 the last "Who's in…" city, X3 label
  * policies, X4 the simple-mode setup. All of it travels in the encrypted backup ([backupExtras]).
  */
 class ExtrasStore(private val c: DataContainer) {
     private val prefs = c.appContext.getSharedPreferences(FILE, Context.MODE_PRIVATE)
 
-    // --- X3: label policies ---
+    // --- Label policies ---
 
     private val _policies = MutableStateFlow(LabelPolicies.decode(prefs.getString(K_POLICIES, null)))
     val policies: StateFlow<Map<String, LabelPolicy>> = _policies.asStateFlow()
@@ -58,7 +58,7 @@ class ExtrasStore(private val c: DataContainer) {
         applyRelease(DndStars.release(_dndStars.value, titles))
     }
 
-    // --- X3: contacts starred for "Allow through Do Not Disturb" ---
+    // --- Contacts starred for "Allow through Do Not Disturb" ---
 
     private val _dndStars = MutableStateFlow(DndStars.decode(prefs.getString(K_DND_STARS, null)))
 
@@ -118,7 +118,7 @@ class ExtrasStore(private val c: DataContainer) {
         n
     }
 
-    /** F8: a contact's lookup key changed (see ContactKeys). */
+    /** A contact's lookup key changed (see ContactKeys). */
     fun dndRekey(from: String, to: String) = updateDndStars { DndStars.rekey(it, from, to) }
 
     /** The contact moved into the vault: nothing of it stays outside. */
@@ -127,7 +127,7 @@ class ExtrasStore(private val c: DataContainer) {
     fun dndKeys(): Set<String> = _dndStars.value.keys
 
     /**
-     * X3: the SIM a label asks for when calling [number], for people without a SIM of their own (the remembered SIM
+     * The SIM a label asks for when calling [number], for people without a SIM of their own (the remembered SIM
      * per number wins; callers check it first). Blocking contacts query: call off the main thread. Null = none.
      */
     fun labelSimFor(number: String): String? {
@@ -140,14 +140,14 @@ class ExtrasStore(private val c: DataContainer) {
         }.getOrNull()
     }
 
-    /** X3: the Circle rhythm the labels of [contactId] suggest, with the label's title. */
+    /** The Circle rhythm the labels of [contactId] suggest, with the label's title. */
     suspend fun labelRhythmFor(contactId: Long): Pair<String, Int>? {
         val p = _policies.value
         if (p.values.none { it.rhythmDays != null }) return null
         return withContext(Dispatchers.IO) { LabelPolicies.rhythmFor(c.contacts.labelTitlesOf(contactId), p) }
     }
 
-    // --- X4: simple mode ---
+    // --- Simple mode ---
 
     private val _simple = MutableStateFlow(SimpleSetup.decode(prefs.getString(K_SIMPLE, null)))
     val simple: StateFlow<SimpleConfig> = _simple.asStateFlow()
@@ -160,7 +160,7 @@ class ExtrasStore(private val c: DataContainer) {
         prefs.edit().putString(K_SIMPLE, SimpleSetup.encode(next)).apply()
     }
 
-    // --- X5: handshake ---
+    // --- Handshake ---
 
     private val _swap = MutableStateFlow(prefs.getBoolean(K_SWAP, false))
 
@@ -172,7 +172,7 @@ class ExtrasStore(private val c: DataContainer) {
         prefs.edit().putBoolean(K_SWAP, on).apply()
     }
 
-    // --- X2: trip mode ---
+    // --- Trip mode ---
 
     var lastTripCity: String?
         get() = prefs.getString(K_TRIP, null)
@@ -227,7 +227,7 @@ class ExtrasStore(private val c: DataContainer) {
 
         override suspend fun export(): Map<String, String> = buildMap {
             put(X_POLICIES, LabelPolicies.encode(_policies.value))
-            // X3: which contacts Parley starred for which label, so a restored phone can still unstar them later.
+            // Which contacts Parley starred for which label, so a restored phone can still unstar them later.
             put(X_DND_STARS, DndStars.encode(_dndStars.value))
             // People by name and number: lookup keys mean nothing on another phone (the simple home resolves them).
             put(X_SIMPLE, SimpleSetup.encode(_simple.value.copy(people = _simple.value.people.map { it.copy(lookupKey = null) })))

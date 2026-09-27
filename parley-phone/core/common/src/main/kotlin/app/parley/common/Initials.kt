@@ -4,7 +4,7 @@ import java.text.BreakIterator
 import java.util.Locale
 
 /**
- * F27: avatar initials by user-perceived character (grapheme cluster), never half a surrogate pair: "𝒜lice" gives
+ * Avatar initials by user-perceived character (grapheme cluster), never half a surrogate pair: "𝒜lice" gives
  * "𝒜", "Élodie" written with a combining accent keeps the accent, and a name starting with an emoji is skipped
  * like any word that doesn't start with a letter.
  */

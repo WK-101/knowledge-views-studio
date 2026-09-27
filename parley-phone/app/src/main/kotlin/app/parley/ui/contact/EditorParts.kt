@@ -53,6 +53,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -61,6 +62,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
@@ -75,10 +77,12 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.R
+import app.parley.common.TextSearch
 import app.parley.common.people.RelationType
 import app.parley.ui.Avatar
+import app.parley.ui.people.RelationText
 
-// E1 (v3.4): building blocks of the redesigned contact editor.
+// Building blocks of the redesigned contact editor.
 
 /** Where a piece sits in its group card: the pieces of one group stack into one rounded card. */
 internal enum class SegPos { Top, Middle, Bottom, Single }
@@ -142,8 +146,8 @@ internal fun RemoveButton(description: String, onClick: () -> Unit) {
     IconButton(onClick) { Icon(Icons.Rounded.RemoveCircle, description, tint = MaterialTheme.colorScheme.error) }
 }
 
-/** Fields whose Data row the provider marks read-only (F12): shown, but locked. */
-internal val LocalLocked = androidx.compose.runtime.staticCompositionLocalOf<Set<Long>> { emptySet() }
+/** Fields whose Data row the provider marks read-only: shown, but locked. */
+internal val LocalLocked = staticCompositionLocalOf<Set<Long>> { emptySet() }
 
 @Composable
 internal fun LockIcon() = Icon(Icons.Rounded.Lock, stringResource(R.string.edit_locked))
@@ -198,8 +202,8 @@ internal fun EditorField(
 @Composable
 internal fun TypeChip(current: String, options: List<String>, enabled: Boolean = true, onPick: (Int) -> Unit) {
     var open by remember { mutableStateOf(false) }
-    val desc = stringResource(R.string.v34e_type, current)
-    val change = stringResource(R.string.v34e_change_type)
+    val desc = stringResource(R.string.editor_type, current)
+    val change = stringResource(R.string.editor_change_type)
     Box {
         AssistChip(
             onClick = { open = true }, enabled = enabled,
@@ -228,7 +232,7 @@ internal fun PhotoHeader(name: String, photo: String?, onPick: () -> Unit, onRem
     val has = photo != null
     Column(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         val pickLabel = stringResource(R.string.edit_choose_photo)
-        val photoDesc = stringResource(R.string.v34e_photo_desc)
+        val photoDesc = stringResource(R.string.editor_photo_desc)
         Box(
             Modifier.semantics(mergeDescendants = true) { contentDescription = photoDesc }
                 .clip(CircleShape).clickable(onClickLabel = pickLabel, onClick = onPick),
@@ -241,7 +245,7 @@ internal fun PhotoHeader(name: String, photo: String?, onPick: () -> Unit, onRem
             ) { Box(contentAlignment = Alignment.Center) { Icon(if (has) Icons.Rounded.Edit else Icons.Rounded.AddAPhoto, null, Modifier.size(20.dp)) } }
         }
         Row(horizontalArrangement = Arrangement.Center) {
-            TextButton(onPick) { Text(stringResource(if (has) R.string.v34e_edit_photo else R.string.v34e_add_photo)) }
+            TextButton(onPick) { Text(stringResource(if (has) R.string.editor_edit_photo else R.string.editor_add_photo)) }
             if (has) TextButton(onRemove) { Text(stringResource(R.string.edit_remove_photo), color = MaterialTheme.colorScheme.error) }
         }
         if (name.isNotBlank()) {
@@ -263,7 +267,7 @@ internal fun MoreInfoSheet(entries: List<MoreEntry>, onDismiss: () -> Unit) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(Modifier.navigationBarsPadding().padding(bottom = 16.dp)) {
             Text(
-                stringResource(R.string.v34e_more_info_title), style = MaterialTheme.typography.titleLarge,
+                stringResource(R.string.editor_more_info_title), style = MaterialTheme.typography.titleLarge,
                 modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp).semantics { heading() },
             )
             entries.forEach { e ->
@@ -288,8 +292,8 @@ internal fun MoreInfoSheet(entries: List<MoreEntry>, onDismiss: () -> Unit) {
 internal fun RelationTypeDialog(onDismiss: () -> Unit, onPick: (RelationType?) -> Unit) {
     var query by remember { mutableStateOf("") }
     var custom by remember { mutableStateOf(false) }
-    val res = androidx.compose.ui.platform.LocalResources.current
-    val shown = remember(query, res) { app.parley.ui.people.RelationText.search(res, query) }
+    val res = LocalResources.current
+    val shown = remember(query, res) { RelationText.search(res, query) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.edit_relation)) },
@@ -299,8 +303,8 @@ internal fun RelationTypeDialog(onDismiss: () -> Unit, onPick: (RelationType?) -
                 LazyColumn(Modifier.heightIn(max = 360.dp)) {
                     items(shown, key = { it.key }) { t ->
                         ListItem(
-                            headlineContent = { Text(app.parley.ui.people.RelationText.label(res, t)) },
-                            supportingContent = { Text(app.parley.ui.people.RelationText.group(res, t.group)) },
+                            headlineContent = { Text(RelationText.label(res, t)) },
+                            supportingContent = { Text(RelationText.group(res, t.group)) },
                             colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                             modifier = Modifier.clickable { onPick(t) },
                         )
@@ -321,12 +325,12 @@ internal fun RelationTypeDialog(onDismiss: () -> Unit, onPick: (RelationType?) -
     if (custom) CustomLabelDialog(query.ifBlank { null }, { custom = false }) { l -> custom = false; onPick(RelationType(key = "custom", label = l)) }
 }
 
-/** I5: pick the related person from your contacts (their lookup key is remembered, so renames don't break it). */
+/** Pick the related person from your contacts (their lookup key is remembered, so renames don't break it). */
 @Composable
 fun ContactChooserDialog(vm: AppViewModel, onDismiss: () -> Unit, onPick: (id: Long, name: String, lookupKey: String) -> Unit) {
     val all by vm.contacts.collectAsStateWithLifecycle()
     var query by remember { mutableStateOf("") }
-    val shown = remember(all, query) { all.orEmpty().filter { app.parley.common.TextSearch.matches(query, it.displayName, it.phones.map { p -> p.number }) }.take(200) }
+    val shown = remember(all, query) { all.orEmpty().filter { TextSearch.matches(query, it.displayName, it.phones.map { p -> p.number }) }.take(200) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.edit_choose_contact)) },

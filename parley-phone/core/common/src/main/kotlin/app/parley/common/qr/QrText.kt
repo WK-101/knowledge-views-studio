@@ -1,6 +1,8 @@
 package app.parley.common.qr
 
-/** Q5: scanned text made safe to show. */
+import java.io.ByteArrayOutputStream
+
+/** Scanned text made safe to show. */
 object QrText {
     /** Longest text shown in one place (the rest is still copied in full). */
     const val MAX_SHOWN = 2_000
@@ -39,7 +41,7 @@ object QrText {
     /** Percent-decoding (UTF-8); `+` stays a plus. Malformed escapes are kept as they are. */
     fun percentDecode(s: String): String {
         if ('%' !in s) return s
-        val out = java.io.ByteArrayOutputStream()
+        val out = ByteArrayOutputStream()
         var i = 0
         while (i < s.length) {
             val c = s[i]

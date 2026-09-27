@@ -18,6 +18,7 @@ import app.parley.MainActivity
 import app.parley.R
 import app.parley.common.ContactSummary
 import app.parley.common.EventDate
+import app.parley.common.NotificationChannels
 import app.parley.common.circle.CircleConfig
 import app.parley.common.circle.CircleDigest
 import app.parley.common.circle.CirclePlanner
@@ -29,6 +30,8 @@ import app.parley.common.people.LifeEvents
 import app.parley.container
 import app.parley.data.ContactEvent
 import app.parley.data.DataContainer
+import app.parley.data.circle.CircleRepository
+import app.parley.shortcuts.CircleWidget
 import app.parley.shortcuts.Shortcuts
 import app.parley.ui.circle.CircleText
 import kotlinx.coroutines.flow.filterNotNull
@@ -40,14 +43,14 @@ import java.time.LocalDateTime
 import java.util.concurrent.TimeUnit
 
 /**
- * Once a day at the chosen hour: date reminders (R5) and kind keep-in-touch reminders (R4). Entirely local: no
+ * Once a day at the chosen hour: date reminders and kind keep-in-touch reminders. Entirely local: no
  * calendar permission, no network.
  *
  * - Dates fire once on the lead day (if chosen) and once on the day, never daily; "Mark as wished" closes the
- *   occasion. Each event has its own tag, `birthday:<contactId>:<eventKey>` (G5).
+ *   occasion. Each event has its own tag, `birthday:<contactId>:<eventKey>`.
  * - Keep in touch: a Sunday digest with up to three people (default), or one notification per person as they come
- *   due, capped per week. "Not now" doubles the next gap. Answered calls and any logged interaction count (G6).
- * - Every notification is private on the lock screen, with a neutral public version, and stays on the phone (G4).
+ *   due, capped per week. "Not now" doubles the next gap. Answered calls and any logged interaction count.
+ * - Every notification is private on the lock screen, with a neutral public version, and stays on the phone.
  */
 class RemindersWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
@@ -60,12 +63,11 @@ class RemindersWorker(context: Context, params: WorkerParameters) : CoroutineWor
         val now = System.currentTimeMillis()
         if (s.birthdayReminders) runCatching { dates(c, cfg, today, now) }
         if (s.reachOutNudges) keepInTouch(c, cfg, today, now)
-        // R7: the Circle widget's dates and people move on daily.
-        runCatching { app.parley.shortcuts.CircleWidget.refresh(applicationContext) }
+        // The Circle widget's dates and people move on daily.
+        runCatching { CircleWidget.refresh(applicationContext) }
         return Result.success()
     }
 
-    // R5
     private fun dates(c: DataContainer, cfg: CircleConfig, today: LocalDate, now: Long) {
         val ctx = applicationContext
         val events = c.contacts.events()
@@ -102,17 +104,16 @@ class RemindersWorker(context: Context, params: WorkerParameters) : CoroutineWor
         c.circle.setStateSet(S_FIRED, fired)
     }
 
-    // R4
     private suspend fun keepInTouch(c: DataContainer, cfg: CircleConfig, today: LocalDate, now: Long) {
         val members = c.circle.relearnDue(now)
-        // R10/X6: the weekly digest also carries yearly life events and the serendipity pick, for anyone (not only
+        // The weekly digest also carries yearly life events and the serendipity pick, for anyone (not only
         // the Circle), so it still goes out with an empty Circle.
         val digest = cfg.delivery == ReminderDelivery.WEEKLY_DIGEST
         if (members.isEmpty() && !digest) return
         // In a cold worker process the flows start empty (null): wait for the first real load.
         val contacts = withTimeoutOrNull(30_000) { c.contacts.contacts.filterNotNull().first() }?.associateBy { it.lookupKey } ?: return
         val idx = c.history.awaitIndex()
-        data class Known(val m: app.parley.data.circle.CircleRepository.Member, val contact: ContactSummary, val last: LastContact?, val planned: CirclePlanner.Member)
+        data class Known(val m: CircleRepository.Member, val contact: ContactSummary, val last: LastContact?, val planned: CirclePlanner.Member)
         // Only people who are still system contacts: private (vault) contacts are never named here.
         val known = members.mapNotNull { m ->
             val contact = contacts[m.lookupKey] ?: return@mapNotNull null
@@ -129,9 +130,9 @@ class RemindersWorker(context: Context, params: WorkerParameters) : CoroutineWor
                 val upcoming = runCatching { c.contacts.events() }.getOrDefault(emptyList<ContactEvent>())
                     .filter { it.lookupKey in keys && !LifeEvents.isDeath(it.type, it.label) }
                     .mapNotNull { e -> EventDate.parse(e.date)?.let { CircleDigest.UpcomingDate(e.lookupKey, it.daysUntil(today).toInt()) } }
-                // X6: the serendipity pick can be anyone you were once in touch with, as long as they're a contact.
+                // The serendipity pick can be anyone you were once in touch with, as long as they're a contact.
                 val quiet = c.circle.lastContactsAll(idx).filterKeys { it in contacts }.map { (k, t) -> CircleDigest.Quiet(k, t) }
-                // R10: life events remembered yearly, for anyone (not only the Circle).
+                // Life events remembered yearly, for anyone (not only the Circle).
                 val flags = c.circle.yearlyFlags()
                 val yearly = if (flags.isEmpty()) emptyList() else runCatching { c.contacts.events() }.getOrDefault(emptyList<ContactEvent>()).mapNotNull { e ->
                     val d = EventDate.parse(e.date) ?: return@mapNotNull null
@@ -163,7 +164,7 @@ class RemindersWorker(context: Context, params: WorkerParameters) : CoroutineWor
 
     private fun builder(title: String): NotificationCompat.Builder {
         val ctx = applicationContext
-        // G4: nothing personal on the lock screen, and nothing mirrored to watches.
+        // Nothing personal on the lock screen, and nothing mirrored to watches.
         val public = NotificationCompat.Builder(ctx, CHANNEL)
             .setSmallIcon(R.drawable.ic_stat_cake)
             .setContentTitle(ctx.getString(R.string.circle_notif_public))
@@ -202,7 +203,7 @@ class RemindersWorker(context: Context, params: WorkerParameters) : CoroutineWor
         val code = tag.hashCode()
         val b = builder(title).setContentIntent(openContact(e.contactId, code))
         addCallAndMessage(b, e.phone, e.contactId, code)
-        // R5: "Mark as wished" logs it and closes this occasion.
+        // "Mark as wished" logs it and closes this occasion.
         b.addAction(0, applicationContext.getString(R.string.circle_mark_wished), CircleActionReceiver.wished(applicationContext, code + 3, tag, e.lookupKey, e.contactId, occasion))
         post(tag, b)
     }
@@ -225,11 +226,11 @@ class RemindersWorker(context: Context, params: WorkerParameters) : CoroutineWor
             when (pick.reason) {
                 CircleDigest.Reason.DUE -> ctx.getString(R.string.circle_might_enjoy, ct.displayName)
                 CircleDigest.Reason.DATE -> ctx.getString(R.string.circle_digest_date, ct.displayName)
-                // X6: over a year since you were in touch.
-                CircleDigest.Reason.QUIET -> ctx.getString(R.string.c2_digest_long_quiet, ct.displayName)
-                // R10: "1 year since Ana's new job".
-                CircleDigest.Reason.YEARLY -> pick.years?.let { y -> ctx.resources.getQuantityString(R.plurals.c2_digest_yearly, y, y, ct.displayName, pick.label.orEmpty()) }
-                    ?: ctx.getString(R.string.c2_digest_yearly_no_year, ct.displayName, pick.label.orEmpty())
+                // Over a year since you were in touch.
+                CircleDigest.Reason.QUIET -> ctx.getString(R.string.circle_digest_long_quiet, ct.displayName)
+                // "1 year since Ana's new job".
+                CircleDigest.Reason.YEARLY -> pick.years?.let { y -> ctx.resources.getQuantityString(R.plurals.circle_digest_yearly, y, y, ct.displayName, pick.label.orEmpty()) }
+                    ?: ctx.getString(R.string.circle_digest_yearly_no_year, ct.displayName, pick.label.orEmpty())
             }
         }
         val style = NotificationCompat.InboxStyle()
@@ -248,7 +249,7 @@ class RemindersWorker(context: Context, params: WorkerParameters) : CoroutineWor
 
     companion object {
         private const val NAME = "parley-reminders"
-        const val CHANNEL = app.parley.common.NotificationChannels.REMINDERS
+        const val CHANNEL = NotificationChannels.REMINDERS
         private const val S_FIRED = "fired"
         private const val S_LAST_DIGEST = "lastDigest"
         private const val S_LAST_QUIET = "lastQuiet"

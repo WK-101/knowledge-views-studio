@@ -39,7 +39,7 @@ class NavTabsTest {
         assertEquals(listOf(StartTab.KEYPAD), all.visible)
     }
 
-    /** U6: a saved bar from before an update keeps its tabs; the tab the update added arrives hidden. */
+    /** A saved bar from before an update keeps its tabs; the tab the update added arrives hidden. */
     @Test fun a_tab_added_by_an_update_arrives_hidden() {
         val saved = "RECENTS,KEYPAD,-FAVORITES,CONTACTS"
         val t = NavTabs.decode(saved)

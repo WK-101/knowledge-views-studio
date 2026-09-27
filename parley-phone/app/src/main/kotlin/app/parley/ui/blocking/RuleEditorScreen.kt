@@ -20,6 +20,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -50,6 +51,7 @@ import app.parley.R
 import app.parley.blocking.BlockingText
 import app.parley.common.BlockAction
 import app.parley.common.BlockRule
+import app.parley.common.LabelRefs
 import app.parley.common.LineType
 import app.parley.common.NotifyLevel
 import app.parley.common.RuleKind
@@ -82,7 +84,7 @@ internal fun typeLabel(t: RuleType) = stringResource(
 private val LINE_TYPES = listOf(LineType.VOIP, LineType.PREMIUM_RATE, LineType.SHARED_COST, LineType.TOLL_FREE, LineType.UAN, LineType.PERSONAL_NUMBER, LineType.MOBILE, LineType.FIXED_LINE)
 
 /**
- * Full rule editor (B1, B9, B16, B17, B18, B20, B24, B6): allow or block, what to match with a live preview,
+ * Full rule editor: allow or block, what to match with a live preview,
  * SIM, schedule, notification, ringtone, expiry, and "try it on last week" before saving.
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -148,7 +150,7 @@ fun RuleEditorScreen(vm: AppViewModel, ruleId: Long, initial: BlockRule, back: (
                 RuleType.EXACT, RuleType.PREFIX, RuleType.WILDCARD, RuleType.CALLER_NAME, RuleType.REGION -> OutlinedTextField(
                     r.pattern, { r = r.copy(pattern = it) }, singleLine = true, modifier = Modifier.fillMaxWidth(),
                     // Numbers and patterns stay left-to-right in Arabic and Urdu; a caller name follows its own script.
-                    textStyle = if (r.type.isNumberRule) ltrTextStyle() else androidx.compose.material3.LocalTextStyle.current,
+                    textStyle = if (r.type.isNumberRule) ltrTextStyle() else LocalTextStyle.current,
                     label = {
                         Text(
                             stringResource(
@@ -192,7 +194,7 @@ fun RuleEditorScreen(vm: AppViewModel, ruleId: Long, initial: BlockRule, back: (
                     if (groups.isEmpty()) Text(stringResource(R.string.blk_editor_no_labels), color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         // By title: the rule covers the label in every account.
-                        groups.map { app.parley.common.LabelRefs.key(it.title) }.distinct().forEach { t ->
+                        groups.map { LabelRefs.key(it.title) }.distinct().forEach { t ->
                             FilterChip(r.labelKey == t, { r = r.copy(pattern = t, label = t, ringtone = null) }, label = { Text(t) })
                         }
                     }

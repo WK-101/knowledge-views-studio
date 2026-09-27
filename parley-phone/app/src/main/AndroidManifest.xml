@@ -25,7 +25,7 @@
     <uses-permission android:name="android.permission.READ_PHONE_NUMBERS" />
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
 
-    <!-- Reads packs from the optional "Parley Lists" companion app (B4c). A signature permission: only granted
+    <!-- Reads packs from the optional "Parley Lists" companion app. A signature permission: only granted
          when both apps are signed with the same key. Parley still has no network access. -->
     <uses-permission android:name="${listsPermission}" />
 
@@ -76,7 +76,7 @@
         <package android:name="org.telegram.messenger.web" />
         <package android:name="org.thunderdog.challegram" />
         <package android:name="com.viber.voip" />
-        <!-- I1: apps that open messenger handles (Threema, Matrix, XMPP…), and Message on… for private contacts. -->
+        <!-- Apps that open messenger handles (Threema, Matrix, XMPP…), and Message on… for private contacts. -->
         <package android:name="ch.threema.app" />
         <package android:name="ch.threema.app.libre" />
         <package android:name="ch.threema.app.work" />
@@ -91,14 +91,14 @@
         <package android:name="chat.simplex.app" />
         <package android:name="org.telegram.plus" />
         <package android:name="org.telegram.messenger.beta" />
-        <!-- V34: apps whose contacts rows "Message or call on…" opens, so the intent goes to the app that owns the row. -->
+        <!-- Apps whose contacts rows "Message or call on…" opens, so the intent goes to the app that owns the row. -->
         <package android:name="com.imo.android.imoim" />
         <package android:name="im.thebot.messenger" />
         <package android:name="com.google.android.apps.tachyon" />
         <package android:name="im.molly.app.unifiedpush" />
         <package android:name="ch.threema.app.green" />
         <package android:name="ch.threema.app.onprem" />
-        <!-- Q3: messengers whose QR links "Scan QR" opens directly in the app (never QUERY_ALL_PACKAGES). -->
+        <!-- Messengers whose QR links "Scan QR" opens directly in the app (never QUERY_ALL_PACKAGES). -->
         <package android:name="com.tencent.mm" />
         <package android:name="jp.naver.line.android" />
         <package android:name="com.facebook.orca" />
@@ -121,7 +121,7 @@
         <package android:name="app.grapheneos.camera" />
         <package android:name="app.grapheneos.pdfviewer" />
         <package android:name="app.grapheneos.gmscompat" />
-        <!-- The optional list updater companion (B4c). -->
+        <!-- The optional list updater companion. -->
         <package android:name="${listsPackage}" />
     </queries>
 
@@ -147,7 +147,7 @@
                 <category android:name="android.intent.category.LAUNCHER" />
                 <category android:name="android.intent.category.APP_CONTACTS" />
             </intent-filter>
-            <!-- M8: static launcher shortcut "Message a number". -->
+            <!-- Static launcher shortcut "Message a number". -->
             <meta-data
                 android:name="android.app.shortcuts"
                 android:resource="@xml/shortcuts" />
@@ -208,7 +208,7 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="parley" android:host="template" />
             </intent-filter>
-            <!-- X4: a simple-mode setup (parley://simple?d=...), encrypted with a passcode, opened by any QR scanner. -->
+            <!-- A simple-mode setup (parley://simple?d=...), encrypted with a passcode, opened by any QR scanner. -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -238,13 +238,13 @@
                 <data android:mimeType="vnd.android.cursor.item/person" />
                 <data android:mimeType="vnd.android.cursor.item/raw_contact" />
             </intent-filter>
-            <!-- Q1: "Scan QR code" for a picture shared to Parley (it is searched for codes on the phone). -->
+            <!-- "Scan QR code" for a picture shared to Parley (it is searched for codes on the phone). -->
             <intent-filter android:label="@string/qs_menu">
                 <action android:name="android.intent.action.SEND" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="image/*" />
             </intent-filter>
-            <!-- U9: the gear in Android's App info › "Parley" opens Parley's own Settings. -->
+            <!-- The gear in Android's App info › "Parley" opens Parley's own Settings. -->
             <intent-filter>
                 <action android:name="android.intent.action.APPLICATION_PREFERENCES" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -334,11 +334,11 @@
                 android:resource="@xml/widget_dial_info" />
         </receiver>
 
-        <!-- R7: the Circle widget (resizable RemoteViews). -->
+        <!-- The Circle widget (resizable RemoteViews). -->
         <receiver
             android:name=".shortcuts.CircleWidget"
             android:exported="false"
-            android:label="@string/c2_widget_title">
+            android:label="@string/circle_widget_title">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
@@ -379,7 +379,7 @@
             android:taskAffinity=""
             android:theme="@style/Theme.Parley.Sheet" />
 
-        <!-- Quick Settings tile (M8): "Message a number" opens an empty number sheet; nothing shows over the lock screen. -->
+        <!-- Quick Settings tile: "Message a number" opens an empty number sheet; nothing shows over the lock screen. -->
         <service
             android:name=".messaging.MessageNumberTileService"
             android:exported="true"
@@ -394,7 +394,7 @@
                 android:value="false" />
         </service>
 
-        <!-- Q2: Quick Settings tile "Scan QR" opens the scan screen (the camera app takes the photo, on a tap). -->
+        <!-- Quick Settings tile "Scan QR" opens the scan screen (the camera app takes the photo, on a tap). -->
         <service
             android:name=".ui.qr.QrScanTileService"
             android:exported="true"
@@ -445,11 +445,11 @@
         <receiver
             android:name=".MissedCallActionReceiver"
             android:exported="false" />
-        <!-- R4/R5: "Not now" and "Mark as wished" on reminder notifications. -->
+        <!-- "Not now" and "Mark as wished" on reminder notifications. -->
         <receiver
             android:name=".work.CircleActionReceiver"
             android:exported="false" />
-        <!-- "Remind me of missed calls": an inexact alarm, so no exact-alarm permission (V3). -->
+        <!-- "Remind me of missed calls": an inexact alarm, so no exact-alarm permission. -->
         <receiver
             android:name=".calls.MissedReAlertReceiver"
             android:exported="false" />
@@ -471,7 +471,7 @@
             android:taskAffinity=""
             android:theme="@android:style/Theme.NoDisplay" />
 
-        <!-- I7: opt-in contacts Directory for private names. Disabled until turned on in Privacy › Private names;
+        <!-- Opt-in contacts Directory for private names. Disabled until turned on in Privacy › Private names;
              the Contacts Provider (which holds READ_CONTACTS) discovers it and forwards approved phone apps'
              lookups. It answers only "directories" and one exact number per phone_lookup. -->
         <provider
@@ -486,7 +486,7 @@
                 android:value="true" />
         </provider>
 
-        <!-- I6: private contacts' photos, decrypted in memory for Parley's own screens only (not exported). -->
+        <!-- Private contacts' photos, decrypted in memory for Parley's own screens only (not exported). -->
         <provider
             android:name=".privatenames.VaultPhotoProvider"
             android:authorities="${applicationId}.vaultphotos"

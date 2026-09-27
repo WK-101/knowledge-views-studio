@@ -8,7 +8,7 @@ import java.time.YearMonth
 import java.time.ZoneId
 
 /**
- * R2: a contact's timeline. Calls (from the call log), interactions, call notes and dates, newest first and grouped
+ * A contact's timeline. Calls (from the call log), interactions, call notes and dates, newest first and grouped
  * by month. The source lists stay where they are; this only merges them.
  */
 sealed interface TimelineEntry {

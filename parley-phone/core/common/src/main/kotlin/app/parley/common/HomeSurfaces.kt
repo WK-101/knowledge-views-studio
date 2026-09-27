@@ -1,16 +1,16 @@
 package app.parley.common
 
-/** S1 (v3.3): the keypad as its own tab (as before) or docked at the foot of Recents. */
+/** The keypad as its own tab (as before) or docked at the foot of Recents. */
 enum class CallsLayout { SEPARATE, COMBINED }
 
-/** S2 (v3.3): favourites only in their own tab (as before), as a folding section at the top of Contacts, or a strip of avatars. */
+/** Favourites only in their own tab (as before), as a folding section at the top of Contacts, or a strip of avatars. */
 enum class FavoritesPlacement { OFF, SECTION, STRIP }
 
-/** S1: what tapping a call in Recents does. Opening the details is the long-standing behaviour. */
+/** What tapping a call in Recents does. Opening the details is the long-standing behaviour. */
 enum class RecentTap { OPEN_DETAILS, CALL }
 
 /**
- * S1/S2 (v3.3): optional combined surfaces. Nothing here ever changes on its own: an update keeps Separate / Off
+ * Optional combined surfaces. Nothing here ever changes on its own: an update keeps Separate / Off
  * (see [migrate]), and merging hides a tab from the bar through [HomeLayout] only, without touching [NavTabs]
  * (so the saved order and "shown" switches come back exactly as they were when the option is switched off).
  */
@@ -107,7 +107,7 @@ data class SurfaceLayout(
 }
 
 /**
- * S1/S2 (v3.3): which tabs the bar shows and which surface hosts the keypad, the favourites and the Circle,
+ * Which tabs the bar shows and which surface hosts the keypad, the favourites and the Circle,
  * given [tabs] (the user's order and switches) and [surfaces] (the combine options).
  *
  * A tab is only absorbed while its host tab is shown, so combining can never leave the keypad or the favourites
@@ -158,7 +158,7 @@ data class HomeLayout(val tabs: NavTabs = NavTabs(), val surfaces: SurfaceLayout
     fun showBar(current: StartTab): Boolean = barTabs(current).size > 1
 
     /**
-     * R1: where the Circle section lives while the Circle tab is hidden: at the top of Favourites as before, or,
+     * Where the Circle section lives while the Circle tab is hidden: at the top of Favourites as before, or,
      * when Favourites is folded into Contacts (and its tab not kept), in Contacts under the favourites.
      */
     val circleHost: StartTab?
@@ -169,5 +169,5 @@ data class HomeLayout(val tabs: NavTabs = NavTabs(), val surfaces: SurfaceLayout
         }
 }
 
-/** S1/S2: the home layout these settings describe. */
+/** The home layout these settings describe. */
 val AppSettings.homeLayout: HomeLayout get() = HomeLayout(navTabs, surfaces)

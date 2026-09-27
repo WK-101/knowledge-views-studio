@@ -8,7 +8,7 @@ import androidx.core.text.BidiFormatter
 import androidx.core.text.TextDirectionHeuristicsCompat
 
 /**
- * L3: phone numbers, keypads and DTMF digits read left to right in every language, also in Arabic and Urdu.
+ * Phone numbers, keypads and DTMF digits read left to right in every language, also in Arabic and Urdu.
  * Only these are forced; the rest of the app follows the language's direction.
  */
 object Bidi {
@@ -22,7 +22,7 @@ object Bidi {
     fun ltrOrNull(text: String?): String? = text?.let(::ltr)
 }
 
-/** Lays out [content] left to right (a keypad, a number field), whatever the language (L3). */
+/** Lays out [content] left to right (a keypad, a number field), whatever the language. */
 @Composable
 fun ForceLtr(content: @Composable () -> Unit) {
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr, content = content)

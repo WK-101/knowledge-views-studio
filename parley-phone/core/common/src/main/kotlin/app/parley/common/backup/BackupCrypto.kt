@@ -1,5 +1,6 @@
 package app.parley.common.backup
 
+import java.io.PushbackInputStream
 import java.util.Locale
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
@@ -579,7 +580,7 @@ class DecryptingInputStream internal constructor(
     val header: EnvelopeHeader,
     private val key: SecretKey,
 ) : InputStream() {
-    private val src = java.io.PushbackInputStream(input, 1)
+    private val src = PushbackInputStream(input, 1)
     private val cipherLen = header.segmentSize + BackupCrypto.TAG_SIZE
     private val cbuf = ByteArray(cipherLen)
     private var plain = ByteArray(0)

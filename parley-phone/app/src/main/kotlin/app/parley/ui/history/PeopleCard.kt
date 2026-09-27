@@ -40,10 +40,11 @@ import app.parley.common.ContactSummary
 import app.parley.common.circle.PeopleInsights
 import app.parley.common.history.CallLogIndex
 import app.parley.ui.Avatar
+import app.parley.ui.Bidi
 import app.parley.ui.Routes
 import app.parley.ui.common.Format
 
-/** R6: everything the People card shows, worked out once per history change. */
+/** Everything the People card shows, worked out once per history change. */
 private data class PeopleData(
     val reach: PeopleInsights.Reach?,
     val loops: List<PeopleInsights.Loop>,
@@ -54,7 +55,7 @@ private data class PeopleData(
 )
 
 /**
- * R6: the "People" card in Insights (never on the home screen): reach in your circle this month against the month
+ * The "People" card in Insights (never on the home screen): reach in your circle this month against the month
  * before, open loops (their call you haven't returned, your call they haven't answered; any later contact closes
  * them), who usually reaches out first (private, hideable) and a year in review once there are 20 entries. The
  * whole card can be turned off here or in Settings › Recents & history. Private contacts are never in it.
@@ -92,67 +93,68 @@ fun PeopleCard(vm: AppViewModel, idx: CallLogIndex, open: (String) -> Unit) {
     Column(Modifier.fillMaxWidth()) {
         HorizontalDivider(Modifier.padding(top = 8.dp), color = MaterialTheme.colorScheme.surfaceContainerHigh)
         Row(Modifier.fillMaxWidth().padding(start = 16.dp, top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(stringResource(R.string.c2_people_title), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f))
+            Text(stringResource(R.string.circle_people_title), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f))
             Box {
                 IconButton({ menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.main_more)) }
                 DropdownMenu(menu, { menu = false }) {
                     DropdownMenuItem(
-                        { Text(stringResource(if (cfg.firstMover) R.string.c2_hide_first_mover else R.string.c2_show_first_mover)) },
+                        { Text(stringResource(if (cfg.firstMover) R.string.circle_hide_first_mover else R.string.circle_show_first_mover)) },
                         onClick = { menu = false; vm.c.circle.updateConfig { it.copy(firstMover = !it.firstMover) } },
                     )
-                    DropdownMenuItem({ Text(stringResource(R.string.c2_hide_people_card)) }, onClick = { menu = false; vm.c.circle.updateConfig { it.copy(peopleCard = false) } })
+                    DropdownMenuItem({ Text(stringResource(R.string.circle_hide_people_card)) }, onClick = { menu = false; vm.c.circle.updateConfig { it.copy(peopleCard = false) } })
                 }
             }
         }
         d.reach?.let { r ->
             val (icon, trend) = when (r.trend) {
-                PeopleInsights.Trend.UP -> Icons.AutoMirrored.Rounded.TrendingUp to stringResource(R.string.c2_reach_up, r.before)
-                PeopleInsights.Trend.DOWN -> Icons.AutoMirrored.Rounded.TrendingDown to stringResource(R.string.c2_reach_down, r.before)
-                PeopleInsights.Trend.SAME -> Icons.AutoMirrored.Rounded.TrendingFlat to stringResource(R.string.c2_reach_same)
+                PeopleInsights.Trend.UP -> Icons.AutoMirrored.Rounded.TrendingUp to stringResource(R.string.circle_reach_up, r.before)
+                PeopleInsights.Trend.DOWN -> Icons.AutoMirrored.Rounded.TrendingDown to stringResource(R.string.circle_reach_down, r.before)
+                PeopleInsights.Trend.SAME -> Icons.AutoMirrored.Rounded.TrendingFlat to stringResource(R.string.circle_reach_same)
             }
             ListItem(
-                headlineContent = { Text(pluralStringResource(R.plurals.c2_reach, r.circle, r.now, r.circle)) },
+                headlineContent = { Text(pluralStringResource(R.plurals.circle_reach, r.circle, r.now, r.circle)) },
                 supportingContent = { Text(trend) },
                 trailingContent = { Icon(icon, trend, tint = MaterialTheme.colorScheme.primary) },
             )
         }
         if (d.loops.isNotEmpty()) {
-            SubHeader(stringResource(R.string.c2_open_loops))
+            SubHeader(stringResource(R.string.circle_open_loops))
             d.loops.forEach { l ->
                 val ct = contacts[l.key] ?: return@forEach
                 val line = when (l.kind) {
-                    PeopleInsights.LoopKind.THEIR_CALL -> pluralStringResource(R.plurals.c2_loop_their_call, l.count, l.count, Format.shortWhen(context, l.time))
-                    PeopleInsights.LoopKind.YOUR_TRY -> pluralStringResource(R.plurals.c2_loop_your_try, l.count, l.count, Format.shortWhen(context, l.time))
+                    PeopleInsights.LoopKind.THEIR_CALL -> pluralStringResource(R.plurals.circle_loop_their_call, l.count, l.count, Format.shortWhen(context, l.time))
+                    PeopleInsights.LoopKind.YOUR_TRY ->
+                        pluralStringResource(R.plurals.circle_loop_your_try, l.count, l.count, Format.shortWhen(context, l.time))
                 }
                 ContactLine(vm, ct, line, open)
             }
         }
         if (cfg.firstMover && d.firstMovers.isNotEmpty()) {
-            SubHeader(stringResource(R.string.c2_first_mover))
+            SubHeader(stringResource(R.string.circle_first_mover))
             d.firstMovers.forEach { (key, who) ->
                 val ct = contacts[key] ?: return@forEach
                 val name = PeopleInsights.shortName(d.given[key], ct.displayName)
                 ContactLine(
                     vm, ct,
                     when (who) {
-                        PeopleInsights.FirstMover.THEM -> stringResource(R.string.c2_first_them, name)
-                        PeopleInsights.FirstMover.YOU -> stringResource(R.string.c2_first_you)
-                        PeopleInsights.FirstMover.BOTH -> stringResource(R.string.c2_first_both)
+                        PeopleInsights.FirstMover.THEM -> stringResource(R.string.circle_first_them, name)
+                        PeopleInsights.FirstMover.YOU -> stringResource(R.string.circle_first_you)
+                        PeopleInsights.FirstMover.BOTH -> stringResource(R.string.circle_first_both)
                     },
                     open, call = false,
                 )
             }
-            Text(stringResource(R.string.c2_first_mover_private), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
+            Text(stringResource(R.string.circle_first_mover_private), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
         }
         d.review?.let { r ->
-            SubHeader(stringResource(R.string.c2_year_review))
-            val most = r.most.mapNotNull { (k, n) -> contacts[k]?.let { stringResource(R.string.c2_review_person_count, PeopleInsights.shortName(d.given[k], it.displayName), app.parley.ui.Bidi.ltr(n.toString())) } }
-            if (most.isNotEmpty()) ListItem(headlineContent = { Text(stringResource(R.string.c2_review_most, most.joinToString(stringResource(R.string.dc_list_separator)))) })
+            SubHeader(stringResource(R.string.circle_year_review))
+            val most = r.most.mapNotNull { (k, n) -> contacts[k]?.let { stringResource(R.string.circle_review_person_count, PeopleInsights.shortName(d.given[k], it.displayName), Bidi.ltr(n.toString())) } }
+            if (most.isNotEmpty()) ListItem(headlineContent = { Text(stringResource(R.string.circle_review_most, most.joinToString(stringResource(R.string.dc_list_separator)))) })
             r.longestGap?.let { (k, days) ->
-                contacts[k]?.let { ct -> ListItem(headlineContent = { Text(pluralStringResource(R.plurals.c2_review_gap, days, days, ct.displayName)) }) }
+                contacts[k]?.let { ct -> ListItem(headlineContent = { Text(pluralStringResource(R.plurals.circle_review_gap, days, days, ct.displayName)) }) }
             }
-            if (r.occasions > 0) ListItem(headlineContent = { Text(pluralStringResource(R.plurals.c2_review_occasions, r.occasions, r.occasions)) })
-            ListItem(headlineContent = { Text(pluralStringResource(R.plurals.c2_review_entries, r.entries, r.entries)) })
+            if (r.occasions > 0) ListItem(headlineContent = { Text(pluralStringResource(R.plurals.circle_review_occasions, r.occasions, r.occasions)) })
+            ListItem(headlineContent = { Text(pluralStringResource(R.plurals.circle_review_entries, r.entries, r.entries)) })
         }
     }
 }

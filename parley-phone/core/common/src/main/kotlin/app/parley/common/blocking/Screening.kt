@@ -34,7 +34,7 @@ class ScreeningPipeline(private val effects: ScreeningEffects) {
     fun test(facts: IncomingCallFacts, rules: List<BlockRule>, settings: ScreeningSettings, clock: PolicyClock): ScreeningResult =
         CallPolicy.decide(facts, rules, settings, clock)
 
-    /** Replays past calls against rules and settings (B13). Pure: no effects are touched. */
+    /** Replays past calls against rules and settings. Pure: no effects are touched. */
     fun dryRun(
         calls: List<ReplayCall>,
         rules: List<BlockRule>,
@@ -67,7 +67,7 @@ data class ReplayReport(val results: List<ReplayResult>) {
     }
 }
 
-/** B10: one-ring missed calls from abroad or premium lines ("wangiri") are a call-back scam. */
+/** One-ring missed calls from abroad or premium lines ("wangiri") are a call-back scam. */
 object WangiriGuard {
     /** About one ring. */
     const val ONE_RING_MS = 6_000L
@@ -81,7 +81,7 @@ object WangiriGuard {
     }
 }
 
-/** B12: a local "likely spam for you" score from how you treat a number, with a 1-hour regret window. */
+/** A local "likely spam for you" score from how you treat a number, with a 1-hour regret window. */
 object PersonalReputation {
     const val REGRET_WINDOW_MS = 60 * 60 * 1000L
     const val SHORT_CALL_SEC = 3L
@@ -100,7 +100,7 @@ object PersonalReputation {
      * for longer, or they called again soon after (maybe it was urgent).
      */
     fun suggestions(calls: List<CallEntry>, now: Long, countryOf: (CallEntry) -> String? = { null }, exclude: (String) -> Boolean): List<Suggestion> {
-        // F7: one line per E.164 number (national numbers read with the country of the call's SIM), not per last 9 digits.
+        // One line per E.164 number (national numbers read with the country of the call's SIM), not per last 9 digits.
         val byNumber = calls.filter { it.number.isNotBlank() && !it.presentationHidden }.groupBy { PhoneNumbers.lineKey(it.number, countryOf(it)) }
         val out = ArrayList<Suggestion>()
         for ((_, list) in byNumber) {

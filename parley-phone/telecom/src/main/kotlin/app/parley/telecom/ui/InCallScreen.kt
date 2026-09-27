@@ -1,9 +1,19 @@
 package app.parley.telecom.ui
 
 import android.annotation.SuppressLint
+import android.app.KeyguardManager
+import android.content.res.Resources
+import android.graphics.BitmapFactory
+import android.net.Uri
 import android.telecom.TelecomManager
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.produceState
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -66,9 +76,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
+import app.parley.common.AppSettings
+import app.parley.common.NotificationPrivacy
+import app.parley.telecom.CallerMemory
 import app.parley.telecom.R
 import app.parley.ui.Bidi
 import app.parley.ui.ForceLtr
@@ -101,6 +116,9 @@ import app.parley.telecom.RouteType
 import app.parley.ui.Avatar
 import app.parley.ui.CallColors
 import app.parley.ui.keypadKey
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -114,28 +132,28 @@ fun InCallScreen(
     onKeypad: (Boolean) -> Unit,
     onAddCall: () -> Unit,
     onOpenContact: (CallUi) -> Unit,
-    /** V4: what the user did on the post-call card (touching it at all keeps the screen up). */
+    /** What the user did on the post-call card (touching it at all keeps the screen up). */
     onPostCall: (PostCallChoice) -> Unit = {},
-    /** P6: an outgoing call that didn't go through, with its reason, until dismissed. */
+    /** An outgoing call that didn't go through, with its reason, until dismissed. */
     failed: CallUi? = null,
     onRetry: (CallUi) -> Unit = {},
     onDismissFailure: (CallUi) -> Unit = {},
-    /** P2: the call just declined with "Block & decline" (Undo). */
+    /** The call just declined with "Block & decline" (Undo). */
     declineBlock: DeclineBlock? = null,
     onUndoBlock: () -> Unit = {},
-    /** X4 simple mode: large buttons and (optionally) a question before declining. */
+    /** Simple mode: large buttons and (optionally) a question before declining. */
     simple: Boolean = false,
     confirmDecline: Boolean = false,
-    /** X4: a call declined from the notification while "Confirm before declining" is on: ask first. */
+    /** A call declined from the notification while "Confirm before declining" is on: ask first. */
     askDeclineFor: String? = null,
     onAskDeclineDone: () -> Unit = {},
 ) {
     val live = calls.filter { it.isLive }
-    // A1/P9: which call is in front and whether a second one is waiting (pure logic in core:common).
+    // Which call is in front and whether a second one is waiting (pure logic in core:common).
     val slots = CallWaiting.slots(live) { it.state.live() }
     val primary = slots.primary
     val others = live.filter { it.id != primary?.id }
-    // P6: a call that just ended (still in Telecom, or already gone) keeps its name; never an older call's.
+    // A call that just ended (still in Telecom, or already gone) keeps its name; never an older call's.
     val endedNow = calls.firstOrNull { !it.isLive }
     val shown = primary ?: endedNow?.let { c -> ended?.takeIf { it.id == c.id } ?: c } ?: ended ?: calls.firstOrNull()
     val timings by CallClock.timings.collectAsStateWithLifecycle()
@@ -146,7 +164,7 @@ fun InCallScreen(
     var moreSheet by remember { mutableStateOf(false) }
     var noteFor by remember { mutableStateOf<String?>(null) }
 
-    // Call waiting (A1): a ringing call while another call is active or held.
+    // Call waiting: a ringing call while another call is active or held.
     val held = slots.held
     val current = slots.current
     val waiting = slots.waiting && current != null && primary != null
@@ -157,8 +175,8 @@ fun InCallScreen(
             .fillMaxSize()
             .background(Brush.verticalGradient(listOf(scheme.primaryContainer.copy(alpha = 0.55f), scheme.surface, scheme.surface))),
     ) {
-        // Landscape phones and unfolded foldables: caller on the left, controls on the right (A9).
-        // The caller's own call-screen picture (C14), under a theme-coloured scrim so every control stays legible.
+        // Landscape phones and unfolded foldables: caller on the left, controls on the right.
+        // The caller's own call-screen picture, under a theme-coloured scrim so every control stays legible.
         CallBackground(primary?.backgroundUri, scheme.surface)
         val twoPane = maxWidth > maxHeight && maxWidth >= 560.dp
         val short = maxHeight < 480.dp
@@ -183,9 +201,9 @@ fun InCallScreen(
             }
         } else {
             val header: @Composable ColumnScope.(Dp) -> Unit = { avatar ->
-                // P6: a second call that didn't go through ("Add call"), shown above the call that goes on.
+                // A second call that didn't go through ("Add call"), shown above the call that goes on.
                 if (primary != null && failed != null) FailureBanner(failed, { onRetry(failed) }, { onDismissFailure(failed) }, Modifier.padding(top = 12.dp))
-                // P2: a call just declined with "Block & decline" while another call goes on: Undo stays at hand.
+                // A call just declined with "Block & decline" while another call goes on: Undo stays at hand.
                 if (primary != null && declineBlock != null) {
                     Spacer(Modifier.height(12.dp))
                     DeclineBlockCard(declineBlock, onUndo = onUndoBlock, onDone = { CallManager.dismissDeclineBlock() })
@@ -213,7 +231,7 @@ fun InCallScreen(
                         val endedCall = shown ?: ended
                         val card = declineBlock != null || (failed == null && (ended?.postCallCard == true || ended?.memoryCard == true))
                         if (failed != null) {
-                            // P6: the reason and Retry, until dismissed.
+                            // The reason and Retry, until dismissed.
                             FailureBanner(failed, { onRetry(failed) }, { onDismissFailure(failed) }, Modifier.padding(bottom = if (card) 16.dp else 48.dp))
                         } else {
                             Text(
@@ -223,15 +241,15 @@ fun InCallScreen(
                             )
                         }
                         when {
-                            // P2: "Blocked and declined", with Undo.
+                            // "Blocked and declined", with Undo.
                             declineBlock != null -> DeclineBlockCard(declineBlock, onUndo = onUndoBlock, onDone = { onPostCall(PostCallChoice.Done) })
-                            // V4: block, save, message or report an unknown number right after the call.
+                            // Block, save, message or report an unknown number right after the call.
                             failed == null && ended != null && ended.postCallCard -> PostCallCard(ended, onChoice = onPostCall)
-                            // R8: "Anything to remember?" after a call with a contact (opt-in).
+                            // "Anything to remember?" after a call with a contact (opt-in).
                             failed == null && ended != null && ended.memoryCard -> MemoryCard(ended, onChoice = onPostCall)
                         }
                     }
-                    // P2: "Block & decline" is under way: nothing left to answer.
+                    // "Block & decline" is under way: nothing left to answer.
                     primary.state == CallState.RINGING && primary.blockingDecline -> BlockingDecline()
                     primary.state == CallState.RINGING -> IncomingControls(
                         call = primary,
@@ -294,7 +312,7 @@ fun InCallScreen(
         AlertDialog(
             onDismissRequest = { noteFor = null },
             title = { Text(stringResource(R.string.incall_note_title)) },
-            text = { androidx.compose.material3.OutlinedTextField(text, { text = it }, minLines = 3, placeholder = { Text(stringResource(R.string.incall_note_placeholder)) }) },
+            text = { OutlinedTextField(text, { text = it }, minLines = 3, placeholder = { Text(stringResource(R.string.incall_note_placeholder)) }) },
             confirmButton = { TextButton({ if (text.isNotBlank()) CallManager.saveNote(id, text.trim()); noteFor = null }) { Text(stringResource(R.string.tc_save)) } },
             dismissButton = { TextButton({ noteFor = null }) { Text(stringResource(R.string.tc_cancel)) } },
         )
@@ -323,7 +341,7 @@ fun InCallScreen(
         )
     }
 
-    // X4: Decline tapped in the notification, with "Confirm before declining" on.
+    // Decline tapped in the notification, with "Confirm before declining" on.
     val askCall = live.firstOrNull { it.id == askDeclineFor && it.state == CallState.RINGING }
     if (askCall != null) {
         DeclineQuestion(onDecline = { CallManager.reject(askCall.id); onAskDeclineDone() }, onDismiss = onAskDeclineDone)
@@ -336,8 +354,8 @@ fun InCallScreen(
         ModalBottomSheet(onDismissRequest = { replyFor = null }) {
             Text(stringResource(R.string.incall_reply_sheet_title), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
             // The defaults live in core/common in English: while unedited, send them in the user's language.
-            val replies = if (quickReplies == app.parley.common.AppSettings.DEFAULT_QUICK_REPLIES) {
-                androidx.compose.ui.res.stringArrayResource(R.array.incall_default_quick_replies).toList()
+            val replies = if (quickReplies == AppSettings.DEFAULT_QUICK_REPLIES) {
+                stringArrayResource(R.array.incall_default_quick_replies).toList()
             } else {
                 quickReplies
             }
@@ -375,7 +393,7 @@ fun InCallScreen(
 
 /** One half of the two-pane layout: centred, and scrollable when it doesn't fit. */
 @Composable
-private fun androidx.compose.foundation.layout.RowScope.Pane(content: @Composable ColumnScope.() -> Unit) {
+private fun RowScope.Pane(content: @Composable ColumnScope.() -> Unit) {
     Box(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.Center) {
         Column(Modifier.verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally, content = content)
     }
@@ -391,7 +409,7 @@ private fun CallerHeader(
     avatarSize: Dp,
     onReply: () -> Unit,
 ) {
-    // TalkBack: while ringing, the caller's name offers answer and decline as actions (A12).
+    // TalkBack: while ringing, the caller's name offers answer and decline as actions.
     val ringing = call.state == CallState.RINGING && !ended
     val res = LocalResources.current
     val a11y = if (!ringing) Modifier else Modifier.semantics(mergeDescendants = true) {
@@ -421,17 +439,17 @@ private fun CallerHeader(
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
         )
-        val sub = listOfNotNull(call.label?.let { l -> if (app.parley.common.NotificationPrivacy.isVaultLabel(l)) stringResource(R.string.tc_private_label) else l }, call.number?.takeIf { call.name != null }?.let(Bidi::ltr)).joinToString(stringResource(R.string.tc_separator))
+        val sub = listOfNotNull(call.label?.let { l -> if (NotificationPrivacy.isVaultLabel(l)) stringResource(R.string.tc_private_label) else l }, call.number?.takeIf { call.name != null }?.let(Bidi::ltr)).joinToString(stringResource(R.string.tc_separator))
         if (sub.isNotEmpty()) {
             Text(sub, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
         }
-        // I6: job/company and "who is this".
+        // Job/company and "who is this".
         call.subtitle?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis) }
         if (!compact) call.context?.let { Text(it, style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp)) }
         Spacer(Modifier.height(8.dp))
         StatusLine(call, ended)
         if (!ended && call.state != CallState.RINGING) RemainingLine(timing)
-        // R8/R9: the last note and open promises, only while unlocked unless allowed on the lock screen.
+        // The last note and open promises, only while unlocked unless allowed on the lock screen.
         val memory = call.memory?.takeIf { !ended && !it.isEmpty && (it.onLockScreen || !rememberKeyguardLocked()) }
         if (!compact && (call.note != null || call.lastCall != null || memory != null)) {
             Surface(
@@ -449,7 +467,7 @@ private fun CallerHeader(
         if (call.unknown && call.state == CallState.RINGING) {
             Text(listOfNotNull(stringResource(R.string.incall_not_in_contacts), call.location).joinToString(stringResource(R.string.tc_separator)), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp))
         }
-        // Screening verdict (B2): "Likely spam · FTC list", "Allowed by 'Plumber'".
+        // Screening verdict: "Likely spam · FTC list", "Allowed by 'Plumber'".
         if (call.verdict != null && call.state == CallState.RINGING) {
             Text(
                 call.verdict, style = MaterialTheme.typography.labelLarge,
@@ -476,7 +494,7 @@ private fun StatusLine(call: CallUi, ended: Boolean) {
         ended -> call.disconnectReason ?: stringResource(R.string.incall_call_ended)
         call.silenced -> call.silenceReason ?: stringResource(R.string.call_silenced_rules)
         call.state == CallState.RINGING -> stringResource(R.string.notif_incoming_call)
-        // The SIM the call goes out on, even before Telecom has settled on it (A10).
+        // The SIM the call goes out on, even before Telecom has settled on it.
         call.state == CallState.DIALING || call.state == CallState.CONNECTING || call.state == CallState.NEW ->
             call.accountLabel?.let { stringResource(R.string.incall_status_calling_via, it) } ?: stringResource(R.string.incall_status_calling)
         call.state == CallState.HOLDING -> stringResource(R.string.incall_status_on_hold)
@@ -578,7 +596,7 @@ private fun ControlGrid(
 
 /**
  * One in-call button. [spoken] is the stable name TalkBack reads; toggles add their state, so TalkBack says
- * "Mute, off" rather than a label that flips between "Mute" and "Unmute" (A12).
+ * "Mute, off" rather than a label that flips between "Mute" and "Unmute".
  */
 private data class ControlSpec(
     val icon: ImageVector,
@@ -675,7 +693,7 @@ private fun SimPicker(call: CallUi) {
 @Composable
 private fun DtmfKeypad(callId: String, onClose: () -> Unit, scroll: Boolean = true) {
     var typed by rememberSaveable { mutableStateOf("") }
-    // One running tone per key (V7): a key's release only stops its own tone.
+    // One running tone per key: a key's release only stops its own tone.
     val tokens = remember { HashMap<Char, Long>() }
     // The keypad can close while a key is held (hidden, call ended): stop every tone it started.
     DisposableEffect(callId) {
@@ -688,7 +706,7 @@ private fun DtmfKeypad(callId: String, onClose: () -> Unit, scroll: Boolean = tr
     // In the two-pane layout the whole pane scrolls instead.
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = if (scroll) Modifier.verticalScroll(rememberScrollState()) else Modifier) {
         Text(Bidi.ltr(typed.takeLast(20)), style = MaterialTheme.typography.headlineSmall, modifier = Modifier.height(40.dp))
-        // L3: the keypad reads 1 2 3 left to right in every language.
+        // The keypad reads 1 2 3 left to right in every language.
         ForceLtr { Column(horizontalAlignment = Alignment.CenterHorizontally) { listOf("123", "456", "789", "*0#").forEach { row ->
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(vertical = 6.dp)) {
                 row.forEach { c ->
@@ -714,7 +732,7 @@ private fun DtmfKeypad(callId: String, onClose: () -> Unit, scroll: Boolean = tr
     }
 }
 
-private fun dtmfName(res: android.content.res.Resources, c: Char): String = when (c) {
+private fun dtmfName(res: Resources, c: Char): String = when (c) {
     '*' -> res.getString(app.parley.ui.R.string.ui_key_star)
     '#' -> res.getString(app.parley.ui.R.string.ui_key_pound)
     else -> c.toString()
@@ -729,46 +747,46 @@ fun routeIcon(r: AudioRoute): ImageVector = when (r.type) {
 }
 
 @Composable
-private fun CallBackground(uri: String?, scrim: androidx.compose.ui.graphics.Color) {
+private fun CallBackground(uri: String?, scrim: Color) {
     if (uri == null) return
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val image by androidx.compose.runtime.produceState<androidx.compose.ui.graphics.ImageBitmap?>(null, uri) {
-        value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+    val context = LocalContext.current
+    val image by produceState<ImageBitmap?>(null, uri) {
+        value = withContext(Dispatchers.IO) {
             runCatching {
-                val u = android.net.Uri.parse(uri)
-                val opts = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
-                context.contentResolver.openInputStream(u)?.use { android.graphics.BitmapFactory.decodeStream(it, null, opts) }
+                val u = Uri.parse(uri)
+                val opts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                context.contentResolver.openInputStream(u)?.use { BitmapFactory.decodeStream(it, null, opts) }
                 var sample = 1
                 while (opts.outWidth / (sample * 2) >= 1080 && opts.outHeight / (sample * 2) >= 1080) sample *= 2
                 context.contentResolver.openInputStream(u)?.use {
-                    android.graphics.BitmapFactory.decodeStream(it, null, android.graphics.BitmapFactory.Options().apply { inSampleSize = sample })
+                    BitmapFactory.decodeStream(it, null, BitmapFactory.Options().apply { inSampleSize = sample })
                 }?.asImageBitmap()
             }.getOrNull()
         }
     }
     val bmp = image ?: return
-    androidx.compose.foundation.Image(bmp, null, Modifier.fillMaxSize(), contentScale = androidx.compose.ui.layout.ContentScale.Crop)
+    Image(bmp, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
     Box(Modifier.fillMaxSize().background(scrim.copy(alpha = 0.72f)))
 }
 
-/** R8: whether the keyguard is showing, re-checked every second (the user may unlock with the call screen up). */
+/** Whether the keyguard is showing, re-checked every second (the user may unlock with the call screen up). */
 @Composable
 private fun rememberKeyguardLocked(): Boolean {
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val km = remember { context.getSystemService(android.app.KeyguardManager::class.java) }
+    val context = LocalContext.current
+    val km = remember { context.getSystemService(KeyguardManager::class.java) }
     var locked by remember { mutableStateOf(km?.isKeyguardLocked ?: true) }
-    androidx.compose.runtime.LaunchedEffect(km) {
+    LaunchedEffect(km) {
         while (true) {
             locked = km?.isKeyguardLocked ?: true
-            kotlinx.coroutines.delay(1000)
+            delay(1000)
         }
     }
     return locked
 }
 
-/** R8/R9: "Last note: …" and up to three open promises. */
+/** "Last note: …" and up to three open promises. */
 @Composable
-private fun MemoryLines(m: app.parley.telecom.CallerMemory) {
+private fun MemoryLines(m: CallerMemory) {
     m.lastNote?.takeIf { it.isNotBlank() }?.let {
         Text(stringResource(R.string.memory_last_note, it), style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
     }

@@ -1,7 +1,7 @@
 package app.parley.common.people
 
 /**
- * U10 and U11: text Parley hands to other apps only when you ask: a crash report (numbers, e-mail addresses and
+ * Text Parley hands to other apps only when you ask: a crash report (numbers, e-mail addresses and
  * content URIs masked), a masked dump of the contacts tables for diagnostics, and selected contacts as plain text.
  */
 object Reports {
@@ -68,7 +68,7 @@ object Reports {
 }
 
 /**
- * I7: rules of the opt-in contacts Directory that lets approved phone apps show private names. The Contacts
+ * Rules of the opt-in contacts Directory that lets approved phone apps show private names. The Contacts
  * Provider discovers the directory and forwards other apps' lookups to it with its own identity, adding the real
  * app's package as [CALLER_PACKAGE_PARAM]; only a request that really comes from the Contacts Provider may name
  * another app that way.

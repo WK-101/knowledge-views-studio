@@ -21,6 +21,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.ui.Avatar
@@ -44,11 +45,11 @@ import app.parley.R
 @Composable
 fun JournalList(vm: AppViewModel, open: (String) -> Unit, onShowSnapshots: () -> Unit, modifier: Modifier = Modifier) {
     val context = LocalContext.current
-    val res = androidx.compose.ui.platform.LocalResources.current
+    val res = LocalResources.current
     val scope = rememberCoroutineScope()
     val entries by vm.c.journal.recent().collectAsStateWithLifecycle(emptyList())
     if (entries.isEmpty()) {
-        // U5: nothing to undo yet; the daily snapshots are the other way back.
+        // Nothing to undo yet; the daily snapshots are the other way back.
         EmptyState(
             Icons.Rounded.History, stringResource(R.string.jr_empty_title), stringResource(R.string.jr_empty_text), modifier,
             action = stringResource(R.string.ux_empty_what_changed), onAction = onShowSnapshots,

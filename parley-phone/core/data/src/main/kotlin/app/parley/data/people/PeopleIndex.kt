@@ -1,6 +1,9 @@
 package app.parley.data.people
 
+import android.Manifest
 import android.content.Context
+import android.database.Cursor
+import android.net.Uri
 import android.provider.ContactsContract.CommonDataKinds.Event
 import android.provider.ContactsContract.CommonDataKinds.GroupMembership
 import android.provider.ContactsContract.CommonDataKinds.Nickname
@@ -13,6 +16,7 @@ import android.provider.ContactsContract.CommonDataKinds.Website
 import android.provider.ContactsContract.Data
 import android.provider.ContactsContract.Groups
 import android.provider.ContactsContract.RawContacts
+import app.parley.common.people.BroadSearch
 import app.parley.common.people.LifeEvents
 import app.parley.common.people.PersonExtra
 import app.parley.common.record.Messengers
@@ -37,8 +41,8 @@ data class PeopleIndexData(
     /** Contacts per label title. */
     val labelCounts: Map<String, Int> = emptyMap(),
     val loaded: Boolean = false,
-    /** I8: what the Contacts tab's search also looks at (addresses, notes, websites, handles…). */
-    val search: Map<Long, app.parley.common.people.BroadSearch.Extra> = emptyMap(),
+    /** What the Contacts tab's search also looks at (addresses, notes, websites, handles…). */
+    val search: Map<Long, BroadSearch.Extra> = emptyMap(),
 ) {
     fun countFor(a: AccountRef): Int = accountCounts[a] ?: 0
 
@@ -72,7 +76,7 @@ class PeopleIndex(private val context: Context, contacts: ContactsRepository, sc
     }
 
     private fun load(): PeopleIndexData {
-        if (!Permissions.has(context, android.Manifest.permission.READ_CONTACTS)) return PeopleIndexData(loaded = true)
+        if (!Permissions.has(context, Manifest.permission.READ_CONTACTS)) return PeopleIndexData(loaded = true)
         val byId = HashMap<Long, Acc>()
         fun acc(id: Long) = byId.getOrPut(id) { Acc() }
 
@@ -109,7 +113,7 @@ class PeopleIndex(private val context: Context, contacts: ContactsRepository, sc
                 Nickname.CONTENT_ITEM_TYPE -> if (a.nickname.isEmpty()) a.nickname = c.getString(2).orEmpty().trim()
                 GroupMembership.CONTENT_ITEM_TYPE -> c.getString(2)?.toLongOrNull()?.let { titles[it] }?.let { a.labels += it }
                 Event.CONTENT_ITEM_TYPE -> if (LifeEvents.isDeath(c.getInt(3), c.getString(4))) a.deceased = true
-                // I8: formatted address, note, website and handles are all DATA1.
+                // Formatted address, note, website and handles are all DATA1.
                 StructuredPostal.CONTENT_ITEM_TYPE -> c.getString(2)?.takeIf { it.isNotBlank() }?.let { a.addresses += it }
                 Note.CONTENT_ITEM_TYPE -> if (a.note.isEmpty()) a.note = c.getString(2).orEmpty()
                 Website.CONTENT_ITEM_TYPE -> c.getString(2)?.takeIf { it.isNotBlank() }?.let { a.websites += it }
@@ -122,17 +126,17 @@ class PeopleIndex(private val context: Context, contacts: ContactsRepository, sc
         extras.values.forEach { e -> e.labels.forEach { labelCounts[it] = (labelCounts[it] ?: 0) + 1 } }
         titles.values.forEach { labelCounts.putIfAbsent(it, 0) }
         val search = byId.mapValues { (_, a) ->
-            app.parley.common.people.BroadSearch.Extra(a.nickname, a.company, a.title, a.addresses, a.note, a.websites, a.handles)
+            BroadSearch.Extra(a.nickname, a.company, a.title, a.addresses, a.note, a.websites, a.handles)
         }
         return PeopleIndexData(extras, accountContacts.mapValues { it.value.size }, labelCounts, loaded = true, search = search)
     }
 
     private inline fun query(
-        uri: android.net.Uri,
+        uri: Uri,
         projection: Array<String>,
         selection: String? = null,
         args: Array<String>? = null,
-        each: (android.database.Cursor) -> Unit,
+        each: (Cursor) -> Unit,
     ) {
         val c = try {
             cr.query(uri, projection, selection, args, null)

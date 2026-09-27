@@ -29,6 +29,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -44,13 +45,13 @@ import app.parley.data.SpamListStore
 import kotlinx.coroutines.launch
 
 /**
- * Spam lists › "Get automatic updates (optional app)" (B4c). Parley never touches the internet: the optional
+ * Spam lists › "Get automatic updates (optional app)". Parley never touches the internet: the optional
  * Parley Lists app downloads public lists, and Parley copies and verifies them through a protected link.
  */
 @Composable
 fun ListsUpdaterSection(vm: AppViewModel) {
     val context = LocalContext.current
-    val res = androidx.compose.ui.platform.LocalResources.current
+    val res = LocalResources.current
     val scope = rememberCoroutineScope()
     val state by vm.c.lists.state.collectAsStateWithLifecycle()
     var refreshKey by remember { mutableIntStateOf(0) }

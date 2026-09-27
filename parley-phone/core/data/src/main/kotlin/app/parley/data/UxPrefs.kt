@@ -1,26 +1,27 @@
 package app.parley.data
 
 import android.content.Context
+import android.content.SharedPreferences
 import app.parley.common.ux.BackupNudge
 import app.parley.common.ux.Tips
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
 /**
- * v3.2 layout and wording state (U2 tips, U6 "What's new", C3 backup reminder). Kept apart from [SettingsRepository]
+ * Layout and wording state (U2 tips, U6 "What's new", C3 backup reminder). Kept apart from [SettingsRepository]
  * because most of it isn't a setting but "what the user has already seen"; the two real settings (reminder
  * threshold, reset tips) are listed in SettingsCatalog like every other.
  */
 data class UxState(
-    /** U2: coach marks already dismissed. */
+    /** Coach marks already dismissed. */
     val seenTips: Set<String> = emptySet(),
-    /** U6: the last version code whose "What's new" card was seen, dismissed or skipped. */
+    /** The last version code whose "What's new" card was seen, dismissed or skipped. */
     val whatsNewSeen: Int = 0,
-    /** C3: remind after this many days without a backup (14 or 30). */
+    /** Remind after this many days without a backup (14 or 30). */
     val backupReminderDays: Int = BackupNudge.REMINDER_DAYS.first(),
-    /** C3: the banner stays hidden until then (a dismissal snoozes, never silences for good). */
+    /** The banner stays hidden until then (a dismissal snoozes, never silences for good). */
     val backupSnoozedUntil: Long = 0,
-    /** C3: when the last reminder notification went out (at most one a month). */
+    /** When the last reminder notification went out (at most one a month). */
     val backupNotifiedAt: Long = 0,
 )
 
@@ -37,14 +38,14 @@ class UxPrefs(context: Context) {
         backupNotifiedAt = prefs.getLong(K_NOTIFIED, 0),
     )
 
-    private fun edit(f: (android.content.SharedPreferences.Editor) -> Unit) {
+    private fun edit(f: (SharedPreferences.Editor) -> Unit) {
         prefs.edit().also(f).apply()
         _state.value = load()
     }
 
     fun dismissTip(id: String) = edit { it.putString(K_TIPS, Tips.encode(_state.value.seenTips + id)) }
 
-    /** U2: "Reset tips" shows every coach mark again. */
+    /** "Reset tips" shows every coach mark again. */
     fun resetTips() = edit { it.remove(K_TIPS) }
 
     fun setWhatsNewSeen(version: Int) = edit { it.putInt(K_WHATS_NEW, version) }

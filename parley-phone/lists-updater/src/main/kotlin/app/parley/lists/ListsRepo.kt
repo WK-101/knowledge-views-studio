@@ -1,6 +1,8 @@
 package app.parley.lists
 
+import android.annotation.SuppressLint
 import android.content.Context
+import android.content.res.Resources
 import app.parley.common.spam.Ed25519
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -73,7 +75,7 @@ class ListsRepo private constructor(context: Context) {
     private val app = context.applicationContext
 
     /** For wording update errors in the current language. */
-    internal val res: android.content.res.Resources get() = app.resources
+    internal val res: Resources get() = app.resources
     val packsDir: File = File(app.filesDir, "packs").apply { mkdirs() }
     val ftcDir: File = File(app.filesDir, "ftc").apply { mkdirs() }
     private val stateFile = File(app.filesDir, "state.json")
@@ -124,7 +126,7 @@ class ListsRepo private constructor(context: Context) {
         private val CODEC = Json { ignoreUnknownKeys = true; encodeDefaults = false }
 
         // Holds only the application context.
-        @android.annotation.SuppressLint("StaticFieldLeak")
+        @SuppressLint("StaticFieldLeak")
         @Volatile
         private var instance: ListsRepo? = null
 

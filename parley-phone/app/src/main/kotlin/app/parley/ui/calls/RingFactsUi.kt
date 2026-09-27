@@ -28,6 +28,7 @@ import app.parley.AppViewModel
 import app.parley.common.calls.RingExplainer
 import app.parley.common.calls.RingFacts
 import app.parley.ui.common.Format
+import app.parley.ui.contact.Section
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -42,7 +43,7 @@ private fun rememberRingFacts(vm: AppViewModel, number: String): List<RingFacts>
 }
 
 /**
- * Number history: "Why did my phone ring, or not?" (V9) for the last calls from this number: Do Not Disturb, ringer
+ * Number history: "Why did my phone ring, or not?" for the last calls from this number: Do Not Disturb, ringer
  * mode, which ringtone, and where the call was answered. Each row opens to every fact.
  */
 @Composable
@@ -52,7 +53,7 @@ fun RingFactsHistorySection(vm: AppViewModel, number: String) {
     val context = LocalContext.current
     val res = LocalResources.current
     Column {
-        app.parley.ui.contact.Section(stringResource(R.string.ring_section_title))
+        Section(stringResource(R.string.ring_section_title))
         facts.take(MAX_SHOWN).forEach { f ->
             var open by remember(f.startedAt) { mutableStateOf(false) }
             val why = RingText.whyNoRing(res, f)

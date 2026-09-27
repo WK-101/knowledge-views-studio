@@ -1,9 +1,11 @@
 package app.parley.common.calltime
 
+import app.parley.common.LabelRefs
 import java.time.DayOfWeek
 import java.time.Instant
 import java.time.ZoneId
 import java.time.temporal.TemporalAdjusters
+import kotlin.math.abs
 
 /** What the policy needs to know about a call. Filled in by the app (contact lookup, labels, SIM). */
 data class CallFacts(
@@ -17,7 +19,7 @@ data class CallFacts(
     val accountId: String? = null,
     /**
      * Within the hour after an emergency call, or a call to a number the user listed as starting that window
-     * (B23): the emergency operator's call-back must never be limited or silenced.
+     * : the emergency operator's call-back must never be limited or silenced.
      */
     val inEmergencyWindow: Boolean = false,
 )
@@ -34,18 +36,18 @@ data class QuotaStatus(val period: QuotaPeriod, val allowanceSec: Long, val used
 
 /** Everything the call path needs to time one call. Empty for calls with nothing to time. */
 data class CallTimePlan(
-    /** Hard limit counted from the moment the call connected (T5). */
+    /** Hard limit counted from the moment the call connected. */
     val limitMs: Long? = null,
     val warnBeforeMs: Long = 60_000,
-    /** Talk-time reminder interval (T1). */
+    /** Talk-time reminder interval. */
     val reminderEveryMs: Long? = null,
     val reminderBeep: Boolean = true,
     val reminderVibrate: Boolean = true,
-    /** Allowance left when the call started (T6). Reaching it only warns; it never ends the call. */
+    /** Allowance left when the call started. Reaching it only warns; it never ends the call. */
     val quotaLeftMs: Long? = null,
     /** Where the limit comes from, shown in the call ("Limit for Family"). */
     val source: String? = null,
-    /** False in supervised mode: no "+5 min" or "Don't end" during the call (T7). */
+    /** False in supervised mode: no "+5 min" or "Don't end" during the call. */
     val canExtend: Boolean = true,
 ) {
     val isEmpty: Boolean get() = limitMs == null && reminderEveryMs == null && quotaLeftMs == null
@@ -56,7 +58,7 @@ data class CallTimePlan(
 }
 
 /**
- * Call-time policy (T1, T5, T6, T7). Pure and deterministic: the clock and time zone are passed in.
+ * Call-time policy. Pure and deterministic: the clock and time zone are passed in.
  *
  * Safety rules that no setting can change:
  * - emergency calls are never limited, timed or silenced;
@@ -83,7 +85,7 @@ object CallLimits {
 
     private fun matches(rule: LimitRule, facts: CallFacts): Boolean = when (rule.scope) {
         LimitScope.CONTACT -> facts.contactKey != null && rule.key == facts.contactKey
-        LimitScope.LABEL -> facts.labelTitles.any { app.parley.common.LabelRefs.key(it) == app.parley.common.LabelRefs.limitTitle(rule) }
+        LimitScope.LABEL -> facts.labelTitles.any { LabelRefs.key(it) == LabelRefs.limitTitle(rule) }
         LimitScope.SIM -> facts.accountId != null && rule.key == facts.accountId
         LimitScope.GLOBAL -> true
     }
@@ -126,16 +128,16 @@ object CallLimits {
         LimitScope.GLOBAL -> "Limit for all calls"
     }
 
-    /** Whether an incoming call should ring silently because its allowance is used up (T6). */
+    /** Whether an incoming call should ring silently because its allowance is used up. */
     fun silenceIncoming(config: CallingConfig, facts: CallFacts, quotas: List<QuotaStatus>): Boolean =
         facts.incoming && config.silenceIncomingOverQuota && !isExempt(config, facts) && quotas.any { it.exhausted }
 
-    /** The used-up allowance an outgoing call should ask about, or null to call straight away (T6). */
+    /** The used-up allowance an outgoing call should ask about, or null to call straight away. */
     fun outgoingBlocker(config: CallingConfig, facts: CallFacts, quotas: List<QuotaStatus>): QuotaStatus? =
         if (facts.incoming || isExempt(config, facts)) null else quotas.firstOrNull { it.exhausted }
 }
 
-/** Daily and weekly allowances computed from the call history (T6). */
+/** Daily and weekly allowances computed from the call history. */
 object Quotas {
     /**
      * Start of the current period in [zone]. "Lazily by date": this only depends on today's date, so a reboot
@@ -191,7 +193,7 @@ object Quotas {
             val i = sorted.indices.firstOrNull { i ->
                 val l = sorted[i]
                 !used[i] && l.incoming == h.incoming && l.dateMillis - h.dateMillis in -SAME_CALL_SLACK_MS..SAME_CALL_WINDOW_MS &&
-                    kotlin.math.abs(l.durationSec - h.durationSec) <= SAME_CALL_DURATION_SLACK_SEC
+                    abs(l.durationSec - h.durationSec) <= SAME_CALL_DURATION_SLACK_SEC
             }
             if (i != null) used[i] = true
             i == null

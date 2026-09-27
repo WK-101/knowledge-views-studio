@@ -98,7 +98,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -116,9 +118,11 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
+import app.parley.NavEvent
 import app.parley.R
 import app.parley.common.people.EditorForm
 import app.parley.common.people.HandleService
@@ -132,8 +136,14 @@ import app.parley.data.ContactDetails
 import app.parley.data.DataItem
 import app.parley.data.EventItem
 import app.parley.data.HandleItem
+import app.parley.data.NumberInfo
 import app.parley.data.PostalItem
+import app.parley.ui.Routes
+import app.parley.ui.people.CallBackgroundEditor
+import app.parley.ui.people.DuplicateWarning
 import app.parley.ui.people.HandleText
+import app.parley.ui.people.RelationText
+import app.parley.ui.people.eventLabel
 import app.parley.ui.screenViewModel
 import kotlinx.coroutines.launch
 
@@ -144,15 +154,15 @@ private val webTypes = listOf(Website.TYPE_HOMEPAGE, Website.TYPE_WORK, Website.
 private val eventTypes = listOf(Event.TYPE_BIRTHDAY, Event.TYPE_ANNIVERSARY, Event.TYPE_OTHER)
 
 /** Country used to interpret phone numbers typed in the editor. */
-val LocalCountryIso = androidx.compose.runtime.staticCompositionLocalOf { "US" }
+val LocalCountryIso = staticCompositionLocalOf { "US" }
 
-// E1: focus keys of the fixed fields (row keys from RowKeys are positive).
+// Focus keys of the fixed fields (row keys from RowKeys are positive).
 private const val KEY_FIRST = -1L
 private const val KEY_NICK = -2L
 private const val KEY_NOTE = -3L
 private const val KEY_COMPANY = -4L
 
-/** E1: phones, e-mails and websites share one row layout; this says how each differs. */
+/** Phones, e-mails and websites share one row layout; this says how each differs. */
 private class MultiKind(
     val group: String,
     val icon: ImageVector,
@@ -170,15 +180,17 @@ private class MultiKind(
 )
 
 private val PHONES = MultiKind(
-    "phone", Icons.Rounded.Phone, R.string.detail_phone, R.string.edit_add_phone, R.string.v34e_remove_phone, phoneTypes, Phone.TYPE_MOBILE, KeyboardType.Phone,
-    { r, t -> Phone.getTypeLabel(r, t, null).toString() }, { it.phones }, { d, l -> d.copy(phones = l) }, EditorForm::phoneLooksWrong, R.string.v34e_phone_hint,
+    "phone", Icons.Rounded.Phone, R.string.detail_phone, R.string.edit_add_phone, R.string.editor_remove_phone, phoneTypes, Phone.TYPE_MOBILE,
+    KeyboardType.Phone, { r, t -> Phone.getTypeLabel(r, t, null).toString() }, { it.phones }, { d, l -> d.copy(phones = l) },
+    EditorForm::phoneLooksWrong, R.string.editor_phone_hint,
 )
 private val EMAILS = MultiKind(
-    "email", Icons.Rounded.Email, R.string.detail_email, R.string.edit_add_email, R.string.v34e_remove_email, emailTypes, Email.TYPE_HOME, KeyboardType.Email,
-    { r, t -> Email.getTypeLabel(r, t, null).toString() }, { it.emails }, { d, l -> d.copy(emails = l) }, EditorForm::emailLooksWrong, R.string.v34e_email_hint,
+    "email", Icons.Rounded.Email, R.string.detail_email, R.string.edit_add_email, R.string.editor_remove_email, emailTypes, Email.TYPE_HOME,
+    KeyboardType.Email, { r, t -> Email.getTypeLabel(r, t, null).toString() }, { it.emails }, { d, l -> d.copy(emails = l) },
+    EditorForm::emailLooksWrong, R.string.editor_email_hint,
 )
 private val WEBSITES = MultiKind(
-    "web", Icons.Rounded.Language, R.string.detail_website, R.string.edit_add_website, R.string.v34e_remove_website, webTypes, Website.TYPE_HOMEPAGE, KeyboardType.Uri,
+    "web", Icons.Rounded.Language, R.string.detail_website, R.string.edit_add_website, R.string.editor_remove_website, webTypes, Website.TYPE_HOMEPAGE, KeyboardType.Uri,
     { r, t -> r.getString(when (t) { Website.TYPE_HOMEPAGE -> R.string.edit_web_homepage; Website.TYPE_WORK -> R.string.edit_web_work; else -> R.string.edit_web_other }) },
     { it.websites }, { d, l -> d.copy(websites = l) },
 )
@@ -208,7 +220,7 @@ fun ContactEditScreen(
     // and process death keep it; this composable only draws it.
     val editor: EditorViewModel = screenViewModel()
     LaunchedEffect(Unit) { editor.start(EditorArgs(contactId, prefillName, prefillPhone, prefillEmail, addPhone, prefill, vaultId, rawId)) }
-    val latestDone by androidx.compose.runtime.rememberUpdatedState(done)
+    val latestDone by rememberUpdatedState(done)
     LaunchedEffect(editor) {
         editor.events.collect { e ->
             when (e) {
@@ -233,7 +245,7 @@ fun ContactEditScreen(
     val isVault = editor.isVault
     val bgChange = editor.background
     val idx by vm.people.index.collectAsStateWithLifecycle()
-    // E1: stable row keys (animations, focus) and the field to focus next.
+    // Stable row keys (animations, focus) and the field to focus next.
     val keys = editor.keys
     val requesters = remember { HashMap<Long, FocusRequester>() }
     fun fr(key: Long) = requesters.getOrPut(key) { FocusRequester() }
@@ -248,7 +260,7 @@ fun ContactEditScreen(
     val changed = editor.changed
     val canSave = editor.canSave
 
-    // E1: unsaved-changes guard with predictive back: the editor shrinks with the gesture, then asks.
+    // Unsaved-changes guard with predictive back: the editor shrinks with the gesture, then asks.
     var backProgress by remember { mutableFloatStateOf(0f) }
     PredictiveBackHandler(enabled = changed && !saving && !confirmDiscard && askKeep == null) { events ->
         try {
@@ -286,11 +298,11 @@ fun ContactEditScreen(
                 },
                 navigationIcon = { IconButton({ if (changed) confirmDiscard = true else done(null) }) { Icon(Icons.Rounded.Close, stringResource(R.string.main_cancel)) } },
                 actions = {
-                    // E1: Save is ready once there is something to save (new) or something changed (existing).
+                    // Save is ready once there is something to save (new) or something changed (existing).
                     Button(onClick = ::save, enabled = canSave, modifier = Modifier.padding(end = 8.dp)) {
                         AnimatedContent(saving, label = "save") { busy ->
                             if (busy) {
-                                val desc = stringResource(R.string.v34e_saving)
+                                val desc = stringResource(R.string.editor_saving)
                                 CircularProgressIndicator(Modifier.size(18.dp).semantics { contentDescription = desc }, strokeWidth = 2.dp)
                             } else {
                                 Text(stringResource(R.string.main_save))
@@ -303,7 +315,7 @@ fun ContactEditScreen(
         },
     ) { padding ->
         if (d == null) {
-            val desc = stringResource(R.string.v34e_loading)
+            val desc = stringResource(R.string.editor_loading)
             Box(Modifier.padding(padding).fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(Modifier.semantics { contentDescription = desc })
             }
@@ -386,11 +398,11 @@ fun ContactEditScreen(
                     )
                 }
                 if (contactId == null && vaultId == null) {
-                    app.parley.ui.people.DuplicateWarning(vm, d, onOpen = { id -> vm.navigate(app.parley.NavEvent.Contact(id)) }) { id ->
+                    DuplicateWarning(vm, d, onOpen = { id -> vm.navigate(NavEvent.Contact(id)) }) { id ->
                         // "Add these details to her": continue in the existing contact's editor with this draft appended.
                         vm.pendingPrefill = d
                         done(null)
-                        vm.navigate(app.parley.NavEvent.Route(app.parley.ui.Routes.edit(id = id, prefill = true)))
+                        vm.navigate(NavEvent.Route(Routes.edit(id = id, prefill = true)))
                     }
                 }
                 NameCard(
@@ -398,7 +410,7 @@ fun ContactEditScreen(
                     onToggle = { editor.moreName = !moreName }, first = fr(KEY_FIRST), nick = fr(KEY_NICK), update = ::update,
                 )
                 Segment(SegPos.Single) {
-                    GroupHead(Icons.Rounded.Business, stringResource(R.string.v34e_work))
+                    GroupHead(Icons.Rounded.Business, stringResource(R.string.editor_work))
                     EditorField(stringResource(R.string.edit_company), d.company, cap = KeyboardCapitalization.Words, locked = lockedRow(d.orgId), focus = fr(KEY_COMPANY)) { v -> update { it.copy(company = v) } }
                     EditorField(stringResource(R.string.edit_job_title), d.title, cap = KeyboardCapitalization.Words, locked = lockedRow(d.orgId)) { v -> update { it.copy(title = v) } }
                     Spacer(Modifier.height(4.dp))
@@ -535,7 +547,7 @@ fun ContactEditScreen(
             if (isVault) {
                 put("call") {
                     Segment(SegPos.Single, Modifier.animateItem()) {
-                        // I6: shown on the call screen (and, outside discreet mode, a missed-call notification).
+                        // Shown on the call screen (and, outside discreet mode, a missed-call notification).
                         GroupHead(Icons.Rounded.PhoneInTalk, stringResource(R.string.edit_when_they_call))
                         Column(Modifier.padding(end = 8.dp, bottom = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             OutlinedTextField(
@@ -558,18 +570,18 @@ fun ContactEditScreen(
 
             val lookup = original?.lookupKey
             if (!isVault && !lookup.isNullOrEmpty()) {
-                put("bg") { Segment(SegPos.Single, Modifier.animateItem()) { Box(Modifier.padding(end = 8.dp, bottom = 8.dp)) { app.parley.ui.people.CallBackgroundEditor(vm, lookup, bgChange, editor::changeBackground) } } }
+                put("bg") { Segment(SegPos.Single, Modifier.animateItem()) { Box(Modifier.padding(end = 8.dp, bottom = 8.dp)) { CallBackgroundEditor(vm, lookup, bgChange, editor::changeBackground) } } }
                 put("bg:gap") { Spacer(Modifier.height(12.dp)) }
             }
 
-            // U5 / E1: "Add more info" offers only the kinds not on screen yet.
+            // "Add more info" offers only the kinds not on screen yet.
             if (EditorForm.addable(shownKinds).isNotEmpty()) {
                 put("more") {
                     Box(Modifier.fillMaxWidth().animateItem(), contentAlignment = Alignment.Center) {
                         FilledTonalButton({ moreSheet = true }) {
                             Icon(Icons.Rounded.Add, null, Modifier.size(18.dp))
                             Spacer(Modifier.width(8.dp))
-                            Text(stringResource(R.string.v34e_more_info))
+                            Text(stringResource(R.string.editor_more_info))
                         }
                     }
                 }
@@ -581,7 +593,7 @@ fun ContactEditScreen(
             BoxWithConstraints(Modifier.padding(padding).consumeWindowInsets(padding).imePadding().fillMaxSize()) {
                 val wide = maxWidth >= 720.dp
                 if (wide) {
-                    // E1: two columns on wide screens and in landscape: photo, account and name beside the fields.
+                    // Two columns on wide screens and in landscape: photo, account and name beside the fields.
                     Row(Modifier.fillMaxSize().padding(horizontal = 24.dp), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
                         Column(Modifier.weight(0.42f).fillMaxHeight().verticalScroll(rememberScrollState()).padding(bottom = 24.dp)) { header() }
                         LazyColumn(Modifier.weight(0.58f).fillMaxHeight(), state = listState, contentPadding = PaddingValues(top = 8.dp)) { fields(0) }
@@ -599,13 +611,13 @@ fun ContactEditScreen(
         if (moreSheet) {
             val entries = EditorForm.addable(shownKinds).map { k ->
                 when (k) {
-                    EditorForm.Kind.NAME_DETAILS -> MoreEntry(Icons.Rounded.Badge, stringResource(R.string.edit_name_details), stringResource(R.string.v34e_more_name)) { addKind(k) }
-                    EditorForm.Kind.DATE -> MoreEntry(Icons.Rounded.Cake, stringResource(R.string.edit_important_dates), stringResource(R.string.v34e_more_date)) { addKind(k) }
-                    EditorForm.Kind.ADDRESS -> MoreEntry(Icons.Rounded.Place, stringResource(R.string.detail_address), stringResource(R.string.v34e_more_address)) { addKind(k) }
-                    EditorForm.Kind.WEBSITE -> MoreEntry(Icons.Rounded.Language, stringResource(R.string.detail_website), stringResource(R.string.v34e_more_website)) { addKind(k) }
-                    EditorForm.Kind.HANDLE -> MoreEntry(Icons.Rounded.Forum, stringResource(R.string.edit_handles), stringResource(R.string.v34e_more_handle)) { addKind(k) }
-                    EditorForm.Kind.RELATION -> MoreEntry(Icons.Rounded.People, stringResource(R.string.edit_relations), stringResource(R.string.v34e_more_relation)) { addKind(k) }
-                    EditorForm.Kind.NOTE -> MoreEntry(Icons.AutoMirrored.Rounded.Notes, stringResource(R.string.edit_notes), stringResource(R.string.v34e_more_note)) { addKind(k) }
+                    EditorForm.Kind.NAME_DETAILS -> MoreEntry(Icons.Rounded.Badge, stringResource(R.string.edit_name_details), stringResource(R.string.editor_more_name)) { addKind(k) }
+                    EditorForm.Kind.DATE -> MoreEntry(Icons.Rounded.Cake, stringResource(R.string.edit_important_dates), stringResource(R.string.editor_more_date)) { addKind(k) }
+                    EditorForm.Kind.ADDRESS -> MoreEntry(Icons.Rounded.Place, stringResource(R.string.detail_address), stringResource(R.string.editor_more_address)) { addKind(k) }
+                    EditorForm.Kind.WEBSITE -> MoreEntry(Icons.Rounded.Language, stringResource(R.string.detail_website), stringResource(R.string.editor_more_website)) { addKind(k) }
+                    EditorForm.Kind.HANDLE -> MoreEntry(Icons.Rounded.Forum, stringResource(R.string.edit_handles), stringResource(R.string.editor_more_handle)) { addKind(k) }
+                    EditorForm.Kind.RELATION -> MoreEntry(Icons.Rounded.People, stringResource(R.string.edit_relations), stringResource(R.string.editor_more_relation)) { addKind(k) }
+                    EditorForm.Kind.NOTE -> MoreEntry(Icons.AutoMirrored.Rounded.Notes, stringResource(R.string.edit_notes), stringResource(R.string.editor_more_note)) { addKind(k) }
                 }
             }
             MoreInfoSheet(entries) { moreSheet = false }
@@ -625,14 +637,14 @@ fun ContactEditScreen(
         AlertDialog(
             onDismissRequest = { confirmDiscard = false },
             title = { Text(stringResource(R.string.edit_discard_title)) },
-            text = { Text(stringResource(R.string.v34e_discard_body)) },
+            text = { Text(stringResource(R.string.editor_discard_body)) },
             confirmButton = { TextButton({ confirmDiscard = false; done(null) }) { Text(stringResource(R.string.edit_discard)) } },
             dismissButton = { TextButton({ confirmDiscard = false }) { Text(stringResource(R.string.edit_keep_editing)) } },
         )
     }
 }
 
-/** E1: "Save to" chip for new contacts (private or an account), or where an existing contact lives. */
+/** "Save to" chip for new contacts (private or an account), or where an existing contact lives. */
 @Composable
 private fun AccountLine(
     vaultId: Long?,
@@ -645,7 +657,7 @@ private fun AccountLine(
 ) {
     Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
         when {
-            vaultId != null -> InfoLine(Icons.Rounded.Lock, stringResource(R.string.v34e_private_here))
+            vaultId != null -> InfoLine(Icons.Rounded.Lock, stringResource(R.string.editor_private_here))
             isExisting -> InfoLine(
                 if (account?.isLocal != false) Icons.Rounded.PhoneAndroid else Icons.Rounded.AccountCircle,
                 stringResource(R.string.edit_saved_in, account?.displayLabel ?: stringResource(R.string.detail_phone)),
@@ -654,11 +666,11 @@ private fun AccountLine(
                 var open by remember { mutableStateOf(false) }
                 val privateLabel = stringResource(R.string.edit_private_only)
                 val current = if (privateNew) privateLabel else account?.let(label) ?: stringResource(R.string.edit_phone_only)
-                val change = stringResource(R.string.v34e_change_account)
+                val change = stringResource(R.string.editor_change_account)
                 Box {
                     AssistChip(
                         onClick = { open = true },
-                        label = { Text(stringResource(R.string.v34e_saving_to, current), maxLines = 2) },
+                        label = { Text(stringResource(R.string.editor_saving_to, current), maxLines = 2) },
                         leadingIcon = {
                             Icon(
                                 when { privateNew -> Icons.Rounded.Lock; account == null || account.isLocal -> Icons.Rounded.PhoneAndroid; else -> Icons.Rounded.AccountCircle },
@@ -702,7 +714,7 @@ private fun InfoLine(icon: ImageVector, text: String) {
     }
 }
 
-/** E1: the name card: first and last name, with a chevron for prefix, middle, suffix, phonetic and nickname. */
+/** The name card: first and last name, with a chevron for prefix, middle, suffix, phonetic and nickname. */
 @Composable
 private fun NameCard(
     d: ContactDetails,
@@ -715,7 +727,7 @@ private fun NameCard(
 ) {
     val locked = lockedRow(d.nameId)
     val words = KeyboardCapitalization.Words
-    val spec = spring<androidx.compose.ui.unit.IntSize>(stiffness = Spring.StiffnessMediumLow)
+    val spec = spring<IntSize>(stiffness = Spring.StiffnessMediumLow)
     Segment(SegPos.Single) {
         GroupHead(Icons.Rounded.Person, stringResource(R.string.edit_name))
         Column(Modifier.padding(end = 0.dp)) {
@@ -728,7 +740,7 @@ private fun NameCard(
                     IconButton(onToggle) {
                         Icon(
                             if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
-                            stringResource(if (expanded) R.string.v34e_name_less else R.string.v34e_name_more),
+                            stringResource(if (expanded) R.string.editor_name_less else R.string.editor_name_more),
                         )
                     }
                 } else {
@@ -755,13 +767,13 @@ private fun NameCard(
     }
 }
 
-/** E1: one phone, e-mail or website: the field (flag for numbers), a type chip under it and the red "−". */
+/** One phone, e-mail or website: the field (flag for numbers), a type chip under it and the red "−". */
 @Composable
 private fun MultiRow(kind: MultiKind, item: DataItem, focus: FocusRequester, onChange: (DataItem) -> Unit, onRemove: () -> Unit) {
     val res = LocalResources.current
     val locked = item.id != null && item.id in LocalLocked.current
     val iso = LocalCountryIso.current
-    val flag = if (kind === PHONES && item.value.length >= 6) remember(item.value, iso) { app.parley.data.NumberInfo.flag(app.parley.data.NumberInfo.region(item.value, iso)) } else null
+    val flag = if (kind === PHONES && item.value.length >= 6) remember(item.value, iso) { NumberInfo.flag(NumberInfo.region(item.value, iso)) } else null
     val current = if (item.type == 0) item.label ?: stringResource(R.string.edit_custom) else kind.typeLabel(res, item.type)
     Column {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -784,13 +796,13 @@ private fun MultiRow(kind: MultiKind, item: DataItem, focus: FocusRequester, onC
     }
 }
 
-/** E1: a date row: the year-optional picker behind a read-only field, and its type chip. */
+/** A date row: the year-optional picker behind a read-only field, and its type chip. */
 @Composable
 private fun DateRow(ev: EventItem, openPicker: Boolean, onPickerClosed: () -> Unit, onChange: (EventItem) -> Unit, onRemove: () -> Unit) {
     val res = LocalResources.current
     val locked = ev.id != null && ev.id in LocalLocked.current
     var picking by remember { mutableStateOf(false) }
-    val pickLabel = stringResource(R.string.v34e_pick_date)
+    val pickLabel = stringResource(R.string.editor_pick_date)
     Column {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.weight(1f)) {
@@ -806,7 +818,7 @@ private fun DateRow(ev: EventItem, openPicker: Boolean, onPickerClosed: () -> Un
         if (!locked) {
             var custom by remember { mutableStateOf(false) }
             TypeChip(
-                app.parley.ui.people.eventLabel(res, ev),
+                eventLabel(res, ev),
                 eventTypes.map { res.getString(Event.getTypeResource(it)) } + stringResource(R.string.edit_event_death) + stringResource(R.string.edit_custom_more),
             ) { t ->
                 when (t) {
@@ -817,7 +829,7 @@ private fun DateRow(ev: EventItem, openPicker: Boolean, onPickerClosed: () -> Un
             }
             if (custom) CustomLabelDialog(ev.label.takeIf { ev.type == Event.TYPE_CUSTOM }, { custom = false }) { onChange(ev.copy(type = Event.TYPE_CUSTOM, label = it)) }
         } else {
-            Text(app.parley.ui.people.eventLabel(res, ev), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
+            Text(eventLabel(res, ev), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
         }
     }
     if (picking || openPicker) {
@@ -825,7 +837,7 @@ private fun DateRow(ev: EventItem, openPicker: Boolean, onPickerClosed: () -> Un
     }
 }
 
-/** E1: one address: type chip and "−" on top, then the parts (PO box and neighbourhood when it has them, F25). */
+/** One address: type chip and "−" on top, then the parts (PO box and neighbourhood when it has them, F25). */
 @Composable
 private fun AddressRow(a: PostalItem, focus: FocusRequester, onChange: (PostalItem) -> Unit, onRemove: () -> Unit) {
     val res = LocalResources.current
@@ -861,7 +873,7 @@ private fun AddressRow(a: PostalItem, focus: FocusRequester, onChange: (PostalIt
     }
 }
 
-/** I1 / E1: one messenger handle: service chip, the handle with a per-service hint, a warning when it looks off. */
+/** One messenger handle: service chip, the handle with a per-service hint, a warning when it looks off. */
 @Composable
 private fun HandleRow(h: HandleItem, focus: FocusRequester, onChange: (HandleItem) -> Unit, onRemove: () -> Unit) {
     val res = LocalResources.current
@@ -890,7 +902,7 @@ private fun HandleRow(h: HandleItem, focus: FocusRequester, onChange: (HandleIte
     }
 }
 
-/** I5 / E1: one relation: the name (or pick the contact), its searchable vCard 4.0 type as a chip. */
+/** One relation: the name (or pick the contact), its searchable vCard 4.0 type as a chip. */
 @Composable
 private fun RelationRow(
     vm: AppViewModel,
@@ -904,7 +916,7 @@ private fun RelationRow(
     val locked = item.id != null && item.id in LocalLocked.current
     var typing by remember { mutableStateOf(false) }
     var picking by remember { mutableStateOf(false) }
-    val label = RelationTypes.fromAndroid(item.type, item.label)?.let { app.parley.ui.people.RelationText.label(res, it) }
+    val label = RelationTypes.fromAndroid(item.type, item.label)?.let { RelationText.label(res, it) }
         ?: if (item.type == 0) item.label ?: stringResource(R.string.edit_custom) else Relation.getTypeLabel(res, item.type, null).toString()
     Column {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -918,7 +930,7 @@ private fun RelationRow(
             Text(label, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
         } else {
             // The relation types are many and searchable, so the chip opens the search dialog rather than a menu.
-            val desc = stringResource(R.string.v34e_type, label)
+            val desc = stringResource(R.string.editor_type, label)
             AssistChip(
                 onClick = { typing = true }, label = { Text(label) },
                 trailingIcon = { Icon(Icons.Rounded.ArrowDropDown, null, Modifier.size(18.dp)) },

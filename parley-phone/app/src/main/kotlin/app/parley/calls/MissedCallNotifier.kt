@@ -14,12 +14,14 @@ import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Shader
 import android.net.Uri
+import android.os.Build
 import android.text.format.DateUtils
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import app.parley.MainActivity
 import app.parley.MissedCallActionReceiver
 import app.parley.R
+import app.parley.blocking.BlockingText
 import app.parley.common.NotificationChannels
 import app.parley.common.NotificationIds
 import app.parley.common.NotificationPrivacy
@@ -33,20 +35,26 @@ import app.parley.common.calls.MissedReAlert
 import app.parley.container
 import app.parley.data.DataContainer
 import app.parley.data.PhoneEnv
+import app.parley.data.db.BlockedCallEntity
+import app.parley.data.people.CallerCards
+import app.parley.messaging.MessageOn
 import app.parley.ui.Bidi
+import app.parley.ui.calls.RingText
+import java.util.Locale
+import kotlin.math.abs
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * Parley's missed-call notifications (V2, V3). Telecom delegates them to the default dialer and only says how many
+ * Parley's missed-call notifications. Telecom delegates them to the default dialer and only says how many
  * there are and the latest number; the details come from the call log:
  * - one notification per caller with a count, grouped under a summary when several people called;
  * - the contact photo, the SIM (dual-SIM phones), the time, and "Why didn't it ring?" from the stored screening
  *   decision and ring facts ("Silenced: off hours", "Didn't ring: phone on silent");
  * - Call back, Message on… and (for numbers that aren't contacts) Block;
- * - F14: a private contact's name never shows in discreet mode, and the lock screen only gets "Missed call".
- * With "Remind me of missed calls" on, the newest one alerts again every few minutes until it's seen (V3).
+ * - a private contact's name never shows in discreet mode, and the lock screen only gets "Missed call".
+ * With "Remind me of missed calls" on, the newest one alerts again every few minutes until it's seen.
  */
 object MissedCallNotifier {
     const val CHANNEL = NotificationChannels.MISSED_CALLS
@@ -98,19 +106,19 @@ object MissedCallNotifier {
                 .setPublicVersion(publicVersion(context, if (grouped) total else caller.count))
                 .setDeleteIntent(broadcast(context, if (grouped) MissedCallActionReceiver.ACTION_DISMISSED_ONE else MissedCallActionReceiver.ACTION_CLEAR, null, 20 + i))
             d.photo?.let { b.setLargeIcon(it) }
-            // I6: job or "who is this" (private version only; never for private contacts in discreet mode).
-            if (!caller.hidden && caller.number.isNotBlank()) app.parley.data.people.CallerCards.missedCallLine(c, caller.number, hideVault)?.let { b.setSubText(it) }
+            // Job or "who is this" (private version only; never for private contacts in discreet mode).
+            if (!caller.hidden && caller.number.isNotBlank()) CallerCards.missedCallLine(c, caller.number, hideVault)?.let { b.setSubText(it) }
             // Only the newest caller makes a sound (or the re-alert); the others arrive quietly.
             if (i > 0) b.setSilent(true)
-            if (grouped) b.setGroup(GROUP).setSortKey("%02d".format(java.util.Locale.ROOT, i))
+            if (grouped) b.setGroup(GROUP).setSortKey("%02d".format(Locale.ROOT, i))
             if (!caller.hidden && caller.number.isNotBlank()) {
-                // One-ring scams and premium lines: no one-tap call back from the notification (B10); the app asks first.
+                // One-ring scams and premium lines: no one-tap call back from the notification; the app asks first.
                 val risky = runCatching { c.dialGuard.check(caller.number).any { it.severe } }.getOrDefault(false)
                 if (!risky) b.addAction(0, context.getString(R.string.missed_call_back), broadcast(context, MissedCallActionReceiver.ACTION_CALL_BACK, caller.number, 30 + i, id))
                 b.addAction(
-                    0, context.getString(R.string.v34msg_message_or_call),
+                    0, context.getString(R.string.reach_message_or_call),
                     PendingIntent.getActivity(
-                        context, 40 + i, app.parley.messaging.MessageOn.intent(context, caller.number, caller.accountId),
+                        context, 40 + i, MessageOn.intent(context, caller.number, caller.accountId),
                         PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
                     ),
                 )
@@ -155,12 +163,12 @@ object MissedCallNotifier {
 
     private suspend fun describe(
         context: Context, c: DataContainer, caller: MissedCaller, hideVault: Boolean, simLabels: Map<String, String>,
-        screened: List<app.parley.data.db.BlockedCallEntity>,
+        screened: List<BlockedCallEntity>,
     ): Shown {
         val number = caller.number.takeIf { !caller.hidden && it.isNotBlank() }
         val contact = number?.let { runCatching { c.contacts.lookup(it) }.getOrNull() }
         val vaultName = if (contact == null && number != null) runCatching { c.vault.lookup(number)?.second?.name }.getOrNull() else null
-        // F14: a private contact's name never shows in discreet mode.
+        // A private contact's name never shows in discreet mode.
         val name = NotificationPrivacy.missedCallName(contact?.name, vaultName, hideVault, number)
             ?.let { if (it == number) Bidi.ltr(it) else it } ?: context.getString(R.string.main_private_number)
         val time = DateUtils.formatDateTime(context, caller.latest, DateUtils.FORMAT_SHOW_TIME)
@@ -172,12 +180,12 @@ object MissedCallNotifier {
         val verdict = number?.let { n ->
             val iso = PhoneEnv.countryIso(context, caller.accountId)
             screened.firstOrNull { e ->
-                !e.allowed && e.action == "SILENCE" && e.number != null && kotlin.math.abs(e.time - caller.latest) < 5 * 60_000L &&
+                !e.allowed && e.action == "SILENCE" && e.number != null && abs(e.time - caller.latest) < 5 * 60_000L &&
                     PhoneNumbers.same(e.number, n, iso)
-            }?.verdict?.let { v -> app.parley.blocking.BlockingText.verdict(context, v) }
+            }?.verdict?.let { v -> BlockingText.verdict(context, v) }
         }
         val facts = runCatching { c.ringFacts.near(number, caller.latest) }.getOrNull()
-        val why = app.parley.ui.calls.RingText.whyNoRing(context.resources, facts, verdict)
+        val why = RingText.whyNoRing(context.resources, facts, verdict)
         val photo = contact?.photoUri?.let { loadCircle(context, it) }
         val inboxLine = (if (caller.count > 1) context.getString(R.string.missed_name_count, name, caller.count) else name) + sep + time + (sim?.let { sep + it } ?: "")
         // Discreet mode: "Block" depends on phone contacts only, so its absence never reveals a private contact.
@@ -218,7 +226,7 @@ object MissedCallNotifier {
      * the rule editor (an activity, which the lock screen only starts after unlocking).
      */
     private fun blockAction(context: Context, number: String, req: Int, notificationId: Int): NotificationCompat.Action {
-        if (android.os.Build.VERSION.SDK_INT >= 31) {
+        if (Build.VERSION.SDK_INT >= 31) {
             return NotificationCompat.Action.Builder(0, context.getString(R.string.main_block), broadcast(context, MissedCallActionReceiver.ACTION_BLOCK, number, req, notificationId))
                 .setAuthenticationRequired(true).build()
         }
@@ -262,7 +270,7 @@ object MissedCallNotifier {
         out
     }.getOrNull()
 
-    // ---------------------------------------------------------------- V3: re-alert
+    // ---------------------------------------------------------------- Re-alert
 
     /**
      * Schedules the next re-alert (inexact, allowed while idle: no exact-alarm permission). A new missed call starts
@@ -330,7 +338,7 @@ object MissedCallNotifier {
     const val ACTION_REALERT = "app.parley.MISSED_REALERT"
 }
 
-/** The re-alert alarm (V3). Not exported. */
+/** The re-alert alarm. Not exported. */
 class MissedReAlertReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != MissedCallNotifier.ACTION_REALERT) return

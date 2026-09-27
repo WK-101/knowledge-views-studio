@@ -1,5 +1,6 @@
 package app.parley.ui.history
 
+import android.text.format.DateFormat
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -56,7 +57,9 @@ import app.parley.common.history.CallLogIndex
 import app.parley.common.history.Period
 import app.parley.common.history.Person
 import app.parley.common.history.WeekBucket
+import app.parley.common.ux.CallHue
 import app.parley.ui.Avatar
+import app.parley.ui.CallTypeColors
 import app.parley.ui.Routes
 import app.parley.ui.common.Format
 import app.parley.ui.contact.Section
@@ -81,7 +84,7 @@ private enum class InsightPeriod(@StringRes val label: Int) {
     }
 }
 
-/** H5: offline call insights, opened from the Recents top bar. */
+/** Offline call insights, opened from the Recents top bar. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun InsightsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
@@ -132,7 +135,7 @@ fun InsightsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
                     }
                 }
             }
-            // R6: the People card (its own windows: this month, open loops, the last year).
+            // The People card (its own windows: this month, open loops, the last year).
             item(key = "people") { PeopleCard(vm, idx, open) }
             if (weeks.size > 1) {
                 item { Section(stringResource(R.string.hist_talk_per_week)) }
@@ -214,13 +217,13 @@ internal fun PersonRow(vm: AppViewModel, person: Person, sub: String, open: (Str
 /** Stacked weekly bars: calls you made (primary) on top of calls you received (tertiary). No chart library. */
 @Composable
 private fun WeeklyBars(weeks: List<WeekBucket>, modifier: Modifier = Modifier) {
-    // U3: the fixed call colours, as on the call icons.
-    val outColor = app.parley.ui.CallTypeColors.of(app.parley.common.ux.CallHue.OUTGOING)
-    val inColor = app.parley.ui.CallTypeColors.of(app.parley.common.ux.CallHue.INCOMING)
+    // The fixed call colours, as on the call icons.
+    val outColor = CallTypeColors.of(CallHue.OUTGOING)
+    val inColor = CallTypeColors.of(CallHue.INCOMING)
     val grid = MaterialTheme.colorScheme.outlineVariant
     val max = weeks.maxOf { it.talkSec }.coerceAtLeast(60)
     val locale = Locale.getDefault()
-    val fmt = DateTimeFormatter.ofPattern(android.text.format.DateFormat.getBestDateTimePattern(locale, "dMMM"), locale)
+    val fmt = DateTimeFormatter.ofPattern(DateFormat.getBestDateTimePattern(locale, "dMMM"), locale)
     val busiest = weeks.maxBy { it.talkSec }
     val desc = stringResource(R.string.hist_weekly_desc, fmt.format(busiest.weekStart), HistoryFormat.talk(busiest.talkSec))
     Column(modifier) {

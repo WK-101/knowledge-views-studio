@@ -1,9 +1,14 @@
 package app.parley.shortcuts
 
+import android.R
 import android.app.Activity
+import android.app.AlertDialog
+import android.content.Context
 import app.parley.calls.ProximityProbe
 import app.parley.common.calls.CallSource
 import app.parley.common.calls.PocketGuard
+import app.parley.ui.AppLocale
+import app.parley.ui.DataL10n
 import kotlinx.coroutines.Dispatchers
 import android.content.Intent
 import android.net.Uri
@@ -16,10 +21,10 @@ import kotlinx.coroutines.launch
 
 /** Invisible trampoline for home-screen shortcuts and the direct-dial widget. Not exported. */
 class ShortcutActivity : Activity() {
-    // L1: the in-app language on Android 10-12 (Android 13+ applies per-app languages itself).
-    override fun attachBaseContext(newBase: android.content.Context) {
+    // The in-app language on Android 10-12 (Android 13+ applies per-app languages itself).
+    override fun attachBaseContext(newBase: Context) {
         super.attachBaseContext(newBase)
-        app.parley.ui.AppLocale.override(this, newBase)
+        AppLocale.override(this, newBase)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -59,7 +64,7 @@ class ShortcutActivity : Activity() {
                 return@launch finish()
             }
             if (isFinishing || isDestroyed) return@launch
-            // V8: one tap on a widget or shortcut in a pocket shouldn't call anyone; ask while the sensor is covered.
+            // One tap on a widget or shortcut in a pocket shouldn't call anyone; ask while the sensor is covered.
             if (c.callExtras.config.value.pocketGuard) return@launch guardThenCall(number)
             c.scope.launch { c.placer.call(number) }
             finish()
@@ -76,8 +81,8 @@ class ShortcutActivity : Activity() {
                 finish()
                 return@launch
             }
-            android.app.AlertDialog.Builder(this@ShortcutActivity, android.R.style.Theme_DeviceDefault_Dialog_Alert)
-                .setTitle(getString(app.parley.R.string.shortcut_call_confirm, app.parley.ui.DataL10n.ltr(number)))
+            AlertDialog.Builder(this@ShortcutActivity, R.style.Theme_DeviceDefault_Dialog_Alert)
+                .setTitle(getString(app.parley.R.string.shortcut_call_confirm, DataL10n.ltr(number)))
                 .setMessage(getString(app.parley.R.string.pocket_body))
                 .setPositiveButton(getString(app.parley.R.string.shortcut_call)) { _, _ -> c.scope.launch { c.placer.call(number) } }
                 .setNegativeButton(getString(app.parley.R.string.dc_cancel), null)

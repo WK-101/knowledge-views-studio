@@ -58,7 +58,7 @@ import app.parley.ui.SegmentedGroup
 import app.parley.ui.SegmentedGroupScope
 
 /**
- * V34: "Reach via apps": one row per messenger (and per number when the person has several) with the actions that
+ * "Reach via apps": one row per messenger (and per number when the person has several) with the actions that
  * app added for them: Message, Voice, Video. Tapping opens the app's own row; long-press makes it the usual way
  * (the Message, Call and Video buttons at the top then use it). Only apps that registered this person show up, so
  * nothing here pretends a call is possible.
@@ -75,7 +75,7 @@ fun ReachViaApps(
     modifier: Modifier = Modifier,
 ) {
     if (groups.isEmpty()) return
-    SegmentedGroup(stringResource(R.string.v34msg_reach_title), modifier) {
+    SegmentedGroup(stringResource(R.string.reach_reach_title), modifier) {
         reachViaAppsRows(groups, prefs, showNumbers, onOpen, onToggleUsual)
     }
 }
@@ -117,14 +117,14 @@ fun MessengerPrefs.toggleUsual(row: ReachRow): MessengerPrefs {
 private fun ReachAppRow(g: ReachGroup, prefs: MessengerPrefs, showNumber: Boolean, onOpen: (ReachRow) -> Unit, onToggleUsual: (ReachRow) -> Unit) {
     val sep = stringResource(R.string.main_separator)
     val can = listOfNotNull(
-        g.message?.let { stringResource(R.string.v34msg_can_message) },
-        g.voice?.let { stringResource(R.string.v34msg_can_voice) },
-        g.video?.let { stringResource(R.string.v34msg_can_video) },
+        g.message?.let { stringResource(R.string.reach_can_message) },
+        g.voice?.let { stringResource(R.string.reach_can_voice) },
+        g.video?.let { stringResource(R.string.reach_can_video) },
     ).joinToString(sep)
     val usual = listOfNotNull(
-        g.message?.takeIf { prefs.isUsual(it) }?.let { stringResource(R.string.v34msg_usual_message) },
-        g.voice?.takeIf { prefs.isUsual(it) }?.let { stringResource(R.string.v34msg_usual_voice) },
-        g.video?.takeIf { prefs.isUsual(it) }?.let { stringResource(R.string.v34msg_usual_video) },
+        g.message?.takeIf { prefs.isUsual(it) }?.let { stringResource(R.string.reach_usual_message) },
+        g.voice?.takeIf { prefs.isUsual(it) }?.let { stringResource(R.string.reach_usual_voice) },
+        g.video?.takeIf { prefs.isUsual(it) }?.let { stringResource(R.string.reach_usual_video) },
     )
     val sub = listOfNotNull(g.number?.takeIf { showNumber }?.let { Bidi.ltr(it) } ?: can.takeIf { it.isNotEmpty() }).plus(usual).joinToString(sep)
     Row(
@@ -140,9 +140,9 @@ private fun ReachAppRow(g: ReachGroup, prefs: MessengerPrefs, showNumber: Boolea
             }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            g.message?.let { r -> ReachActionButton(Icons.AutoMirrored.Rounded.Chat, stringResource(R.string.v34msg_message_on_app, g.appLabel), prefs.isUsual(r), { onOpen(r) }, { onToggleUsual(r) }) }
-            g.voice?.let { r -> ReachActionButton(Icons.Rounded.Call, stringResource(R.string.v34msg_voice_on_app, g.appLabel), prefs.isUsual(r), { onOpen(r) }, { onToggleUsual(r) }) }
-            g.video?.let { r -> ReachActionButton(Icons.Rounded.Videocam, stringResource(R.string.v34msg_video_on_app, g.appLabel), prefs.isUsual(r), { onOpen(r) }, { onToggleUsual(r) }) }
+            g.message?.let { r -> ReachActionButton(Icons.AutoMirrored.Rounded.Chat, stringResource(R.string.reach_message_on_app, g.appLabel), prefs.isUsual(r), { onOpen(r) }, { onToggleUsual(r) }) }
+            g.voice?.let { r -> ReachActionButton(Icons.Rounded.Call, stringResource(R.string.reach_voice_on_app, g.appLabel), prefs.isUsual(r), { onOpen(r) }, { onToggleUsual(r) }) }
+            g.video?.let { r -> ReachActionButton(Icons.Rounded.Videocam, stringResource(R.string.reach_video_on_app, g.appLabel), prefs.isUsual(r), { onOpen(r) }, { onToggleUsual(r) }) }
         }
     }
 }
@@ -150,7 +150,7 @@ private fun ReachAppRow(g: ReachGroup, prefs: MessengerPrefs, showNumber: Boolea
 /**
  * A round badge for an app: its own launcher icon when [packageName] is installed and visible to Parley (every
  * messenger Parley knows is listed in the manifest's `<queries>`), otherwise a letter badge. Parley ships no brand
- * logos. v3.4 review #6: icons load off the main thread and are cached for the process.
+ * logos. icons load off the main thread and are cached for the process.
  */
 @Composable
 fun AppBadge(label: String, modifier: Modifier = Modifier, packageName: String? = null) {
@@ -208,7 +208,7 @@ fun ReachActionButton(icon: ImageVector, description: String, usual: Boolean, on
         if (usual) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSecondaryContainer,
         spring(stiffness = Spring.StiffnessMediumLow), label = "reachContent",
     )
-    val longLabel = stringResource(if (usual) R.string.v34msg_stop_usual else R.string.v34msg_make_usual)
+    val longLabel = stringResource(if (usual) R.string.reach_stop_usual else R.string.reach_make_usual)
     Box(
         Modifier.size(48.dp).clip(CircleShape).background(container)
             .combinedClickable(

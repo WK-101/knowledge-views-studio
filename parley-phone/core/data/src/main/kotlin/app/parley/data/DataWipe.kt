@@ -3,6 +3,7 @@ package app.parley.data
 import android.content.ContentProviderOperation
 import android.content.ContentUris
 import android.content.Context
+import android.provider.CallLog
 import android.provider.ContactsContract
 import android.provider.ContactsContract.RawContacts
 import android.util.Log
@@ -43,7 +44,7 @@ class DataWipe(private val context: Context, private val c: DataContainer) {
                 failed += name
             }
         }
-        if (o.callLog) step("call log") { context.contentResolver.delete(android.provider.CallLog.Calls.CONTENT_URI, null, null) }
+        if (o.callLog) step("call log") { context.contentResolver.delete(CallLog.Calls.CONTENT_URI, null, null) }
         if (o.phoneContacts) step("phone contacts") { deletePhoneContacts() }
         // Databases: closed first, so their files (and journals) can go.
         step("databases") {

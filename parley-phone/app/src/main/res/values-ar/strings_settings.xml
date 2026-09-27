@@ -739,7 +739,7 @@
     <string name="ct_chip_on_hold">%1$s في الانتظار</string>
     <string name="ct_chip_on_call">في مكالمة مع %1$s</string>
     <string name="ct_chip_left">متبقٍ %1$s</string>
-    <!-- v3.2 phone (P4, P5, P7, P8) -->
+    <!-- Phone -->
     <string name="set_default_dialer_help_title">لا يمكنك جعل Parley تطبيق الهاتف الافتراضي؟</string>
     <string name="set_default_dialer_help_summary">دليل خطوة بخطوة لإصدار Android لديك، مع معلومات التطبيق</string>
     <string name="set_default_dialer_help_kw">المتصل الافتراضي، دور، إعدادات مقيدة، معلومات التطبيق</string>
@@ -760,7 +760,7 @@
     <string name="role_rescue_app_info">معلومات التطبيق</string>
     <string name="role_rescue_default_apps">التطبيقات التلقائية</string>
     <string name="role_rescue_close">إغلاق</string>
-    <!-- v3.2 C3/U2 settings -->
+    <!-- Backup reminder and tips settings -->
     <string name="set_backup_reminder_title">ذكّرني بالنسخ الاحتياطي</string>
     <string name="set_backup_reminder_summary">تذكير هادئ عندما يمرّ وقت دون نسخ احتياطي (إشعار واحد في الشهر على الأكثر)</string>
     <string name="set_backup_reminder_kw">تذكير، متأخر، نسخ احتياطي، إشعار</string>

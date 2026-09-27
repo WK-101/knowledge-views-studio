@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="label_policy_section">لكل من في هذا التصنيف</string>
+    <string name="label_policy_sim">شريحة SIM للمكالمات</string>
+    <string name="label_policy_sim_none">بلا تفضيل</string>
+    <string name="label_policy_sim_missing">شريحة SIM غير موجودة في هذا الهاتف</string>
+    <string name="label_policy_sim_on">تخرج المكالمات عبر %1$s</string>
+    <string name="label_policy_sim_body">تُستخدم لأشخاص هذا التصنيف الذين ليست لهم شريحة SIM خاصة.</string>
+    <string name="label_policy_rhythm">البقاء على تواصل عند انضمامهم إلى دائرتك</string>
+    <string name="label_policy_rhythm_none">غير محدد</string>
+    <string name="label_policy_rhythm_body">عندما تضيف شخصًا من «%1$s» إلى دائرتك، يقترح Parley هذا الإيقاع أولًا.</string>
+    <string name="label_policy_dnd">السماح أثناء عدم الإزعاج</string>
+    <string name="label_policy_dnd_summary">يضع نجمة على الجميع هنا، ليسمح Android برنين جهات الاتصال المميزة بنجمة</string>
+    <string name="label_policy_dnd_open">فتح إعدادات عدم الإزعاج</string>
+    <string name="label_policy_dnd_title">السماح برنين «%1$s» أثناء عدم الإزعاج؟</string>
+    <string name="label_policy_rhythm_suggest">مثل تصنيف «%1$s»: %2$s</string>
+    <plurals name="label_policy_added">
+        <item quantity="zero">أُضيف %d أشخاص إلى دائرتك</item>
+        <item quantity="one">أُضيف %d شخص إلى دائرتك</item>
+        <item quantity="two">أُضيف %d أشخاص إلى دائرتك</item>
+        <item quantity="few">أُضيف %d أشخاص إلى دائرتك</item>
+        <item quantity="many">أُضيف %d أشخاص إلى دائرتك</item>
+        <item quantity="other">أُضيف %d أشخاص إلى دائرتك</item>
+    </plurals>
+    <plurals name="label_policy_add_members">
+        <item quantity="zero">إضافة %d أعضاء إلى دائرتك</item>
+        <item quantity="one">إضافة %d عضو إلى دائرتك</item>
+        <item quantity="two">إضافة %d أعضاء إلى دائرتك</item>
+        <item quantity="few">إضافة %d أعضاء إلى دائرتك</item>
+        <item quantity="many">إضافة %d أعضاء إلى دائرتك</item>
+        <item quantity="other">إضافة %d أعضاء إلى دائرتك</item>
+    </plurals>
+    <plurals name="label_policy_unstarred">
+        <item quantity="zero">أُزيلت النجمة من %d جهات اتصال</item>
+        <item quantity="one">أُزيلت النجمة من %d جهة اتصال</item>
+        <item quantity="two">أُزيلت النجمة من %d جهات اتصال</item>
+        <item quantity="few">أُزيلت النجمة من %d جهات اتصال</item>
+        <item quantity="many">أُزيلت النجمة من %d جهات اتصال</item>
+        <item quantity="other">أُزيلت النجمة من %d جهات اتصال</item>
+    </plurals>
+    <plurals name="label_policy_star_new">
+        <item quantity="zero">وضع نجمة على %d أعضاء جدد</item>
+        <item quantity="one">وضع نجمة على %d عضو جديد</item>
+        <item quantity="two">وضع نجمة على %d أعضاء جدد</item>
+        <item quantity="few">وضع نجمة على %d أعضاء جدد</item>
+        <item quantity="many">وضع نجمة على %d أعضاء جدد</item>
+        <item quantity="other">وضع نجمة على %d أعضاء جدد</item>
+    </plurals>
+</resources>

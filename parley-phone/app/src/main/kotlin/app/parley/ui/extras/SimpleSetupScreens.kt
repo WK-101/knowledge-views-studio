@@ -56,6 +56,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -80,7 +81,7 @@ import kotlinx.coroutines.withContext
 private val clearRow @Composable get() = ListItemDefaults.colors(containerColor = Color.Transparent)
 
 /**
- * X4: Settings › Appearance › Simple mode. Choose up to nine people, the options for the incoming screen, and turn
+ * Settings › Appearance › Simple mode. Choose up to nine people, the options for the incoming screen, and turn
  * it on here or hand the setup to another phone as an encrypted file or QR code (and import one).
  */
 @Composable
@@ -104,7 +105,7 @@ fun SimpleSetupScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit
                 runCatching { context.contentResolver.openOutputStream(uri, "wt")!!.use { it.write(SimpleTransfer.encryptFile(cfg, pass)) } }.isSuccess
             }
             pass.fill(' ')
-            vm.toast(res.getString(if (ok) R.string.x_simple_file_saved else R.string.x_simple_file_failed))
+            vm.toast(res.getString(if (ok) R.string.simple_file_saved else R.string.simple_file_failed))
         }
     }
     val loader = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -114,12 +115,12 @@ fun SimpleSetupScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit
         }
     }
 
-    SettingsScaffold(stringResource(R.string.x_set_simple_title), back) {
+    SettingsScaffold(stringResource(R.string.set_simple_title), back) {
         Text(
-            stringResource(R.string.x_simple_intro), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            stringResource(R.string.simple_intro), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
         )
-        SegmentedGroup(pluralStringResource(R.plurals.x_simple_people_n, cfg.people.size, cfg.people.size, SimpleConfig.MAX_PEOPLE)) {
+        SegmentedGroup(pluralStringResource(R.plurals.simple_people_n, cfg.people.size, cfg.people.size, SimpleConfig.MAX_PEOPLE)) {
             resolved.forEachIndexed { i, r ->
                 item("p$i") {
                     ListItem(
@@ -129,7 +130,7 @@ fun SimpleSetupScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit
                         supportingContent = { Text(Bidi.ltr(r.person.number)) },
                         trailingContent = {
                             IconButton({ store.updateSimple { c -> c.copy(people = c.people.filterIndexed { j, _ -> j != i }) } }) {
-                                Icon(Icons.Rounded.RemoveCircle, stringResource(R.string.x_simple_remove, r.person.name), tint = MaterialTheme.colorScheme.error)
+                                Icon(Icons.Rounded.RemoveCircle, stringResource(R.string.simple_remove, r.person.name), tint = MaterialTheme.colorScheme.error)
                             }
                         },
                     )
@@ -140,44 +141,44 @@ fun SimpleSetupScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit
                     modifier = Modifier.clickable { picking = true },
                     colors = clearRow,
                     leadingContent = { Icon(Icons.Rounded.PersonAdd, null, tint = MaterialTheme.colorScheme.primary) },
-                    headlineContent = { Text(stringResource(R.string.x_simple_add)) },
+                    headlineContent = { Text(stringResource(R.string.simple_add)) },
                 )
             }
         }
-        SegmentedGroup(stringResource(R.string.x_simple_options)) {
-            item("keypad") { SwitchRow(stringResource(R.string.x_simple_keypad), stringResource(R.string.x_simple_keypad_body), cfg.showKeypad, Icons.Rounded.Dialpad) { v -> store.updateSimple { it.copy(showKeypad = v) } } }
-            item("decline") { SwitchRow(stringResource(R.string.x_simple_confirm_decline), stringResource(R.string.x_simple_confirm_decline_body), cfg.confirmDecline, Icons.Rounded.HelpOutline) { v -> store.updateSimple { it.copy(confirmDecline = v) } } }
-            item("speak") { SwitchRow(stringResource(R.string.x_simple_speak), stringResource(R.string.x_simple_speak_body), cfg.speakName, Icons.Rounded.RecordVoiceOver) { v -> store.updateSimple { it.copy(speakName = v) } } }
+        SegmentedGroup(stringResource(R.string.simple_options)) {
+            item("keypad") { SwitchRow(stringResource(R.string.simple_keypad), stringResource(R.string.simple_keypad_body), cfg.showKeypad, Icons.Rounded.Dialpad) { v -> store.updateSimple { it.copy(showKeypad = v) } } }
+            item("decline") { SwitchRow(stringResource(R.string.simple_confirm_decline), stringResource(R.string.simple_confirm_decline_body), cfg.confirmDecline, Icons.Rounded.HelpOutline) { v -> store.updateSimple { it.copy(confirmDecline = v) } } }
+            item("speak") { SwitchRow(stringResource(R.string.simple_speak), stringResource(R.string.simple_speak_body), cfg.speakName, Icons.Rounded.RecordVoiceOver) { v -> store.updateSimple { it.copy(speakName = v) } } }
         }
         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Button({ store.updateSimple { it.copy(enabled = true) } }, enabled = cfg.people.isNotEmpty() || cfg.showKeypad, modifier = Modifier.fillMaxWidth()) {
-                Text(stringResource(R.string.x_simple_turn_on))
+                Text(stringResource(R.string.simple_turn_on))
             }
-            Text(stringResource(R.string.x_simple_exit_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(stringResource(R.string.simple_exit_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        SegmentedGroup(stringResource(R.string.x_simple_share)) {
+        SegmentedGroup(stringResource(R.string.simple_share)) {
             item("file") {
                 ListItem(
                     modifier = Modifier.clickable(enabled = cfg.people.isNotEmpty()) { askFilePass = true }, colors = clearRow,
                     leadingContent = { Icon(Icons.Rounded.FileDownload, null) },
-                    headlineContent = { Text(stringResource(R.string.x_simple_save_file)) },
-                    supportingContent = { Text(stringResource(R.string.x_simple_save_file_body)) },
+                    headlineContent = { Text(stringResource(R.string.simple_save_file)) },
+                    supportingContent = { Text(stringResource(R.string.simple_save_file_body)) },
                 )
             }
             item("qr") {
                 ListItem(
                     modifier = Modifier.clickable(enabled = cfg.people.isNotEmpty()) { showQr = true }, colors = clearRow,
                     leadingContent = { Icon(Icons.Rounded.QrCode2, null) },
-                    headlineContent = { Text(stringResource(R.string.x_simple_show_qr)) },
-                    supportingContent = { Text(stringResource(R.string.x_simple_show_qr_body)) },
+                    headlineContent = { Text(stringResource(R.string.simple_show_qr)) },
+                    supportingContent = { Text(stringResource(R.string.simple_show_qr_body)) },
                 )
             }
             item("import") {
                 ListItem(
                     modifier = Modifier.clickable { loader.launch(arrayOf("*/*")) }, colors = clearRow,
                     leadingContent = { Icon(Icons.Rounded.FileUpload, null) },
-                    headlineContent = { Text(stringResource(R.string.x_simple_import_file)) },
-                    supportingContent = { Text(stringResource(R.string.x_simple_import_file_body)) },
+                    headlineContent = { Text(stringResource(R.string.simple_import_file)) },
+                    supportingContent = { Text(stringResource(R.string.simple_import_file_body)) },
                 )
             }
         }
@@ -188,7 +189,7 @@ fun SimpleSetupScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit
         store.updateSimple { it.copy(people = it.people + SimplePerson(c.displayName, number, c.lookupKey)) }
     }
     if (askFilePass) PassphraseDialog(
-        title = stringResource(R.string.x_simple_save_file), confirm = true, onDismiss = { askFilePass = false },
+        title = stringResource(R.string.simple_save_file), confirm = true, onDismiss = { askFilePass = false },
     ) { pass ->
         askFilePass = false
         filePass = pass
@@ -205,7 +206,7 @@ private fun SimplePersonPicker(contacts: List<ContactSummary>, taken: Set<String
     val shown = remember(q, contacts) { contacts.filter { c -> c.phones.any { SimpleSetup.dialable(it.number) != null } && TextSearch.matches(q, c.displayName, c.phones.map { p -> p.number }) }.take(200) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.x_simple_add)) },
+        title = { Text(stringResource(R.string.simple_add)) },
         text = {
             Column {
                 OutlinedTextField(q, { q = it }, singleLine = true, label = { Text(stringResource(R.string.home_search_contacts)) }, modifier = Modifier.fillMaxWidth())
@@ -213,7 +214,7 @@ private fun SimplePersonPicker(contacts: List<ContactSummary>, taken: Set<String
                     items(shown, key = { it.id }) { c ->
                         ListItem(
                             modifier = Modifier.clickable {
-                                // X4: only plain numbers can go on a tile (no codes, pauses or extensions).
+                                // Only plain numbers can go on a tile (no codes, pauses or extensions).
                                 val numbers = c.phones.map { it.number }.filter { SimpleSetup.dialable(it) != null }.distinct()
                                 if (numbers.size == 1) onPick(c, numbers.first()) else numbersOf = c
                             },
@@ -258,13 +259,13 @@ private fun PassphraseDialog(title: String, confirm: Boolean, onDismiss: () -> U
         title = { Text(title) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(stringResource(if (confirm) R.string.x_simple_pass_new else R.string.x_simple_pass_enter))
+                Text(stringResource(if (confirm) R.string.simple_pass_new else R.string.simple_pass_enter))
                 OutlinedTextField(
-                    a, { a = it }, singleLine = true, label = { Text(stringResource(R.string.x_simple_pass)) },
+                    a, { a = it }, singleLine = true, label = { Text(stringResource(R.string.simple_pass)) },
                     visualTransformation = PasswordVisualTransformation(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                 )
                 if (confirm) OutlinedTextField(
-                    b, { b = it }, singleLine = true, label = { Text(stringResource(R.string.x_simple_pass_again)) },
+                    b, { b = it }, singleLine = true, label = { Text(stringResource(R.string.simple_pass_again)) },
                     visualTransformation = PasswordVisualTransformation(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                     isError = b.isNotEmpty() && a != b,
                 )
@@ -282,13 +283,13 @@ private fun SimpleQrDialog(cfg: SimpleConfig, onDismiss: () -> Unit) {
     val bitmap by produceState<Bitmap?>(null, cfg) { value = withContext(Dispatchers.Default) { SecureQr.qr(SimpleTransfer.qrLink(cfg, passcode)) } }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.x_simple_show_qr)) },
+        title = { Text(stringResource(R.string.simple_show_qr)) },
         text = {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                bitmap?.let { Image(it.asImageBitmap(), stringResource(R.string.x_simple_qr_desc), Modifier.size(260.dp).background(Color.White).padding(8.dp)) }
+                bitmap?.let { Image(it.asImageBitmap(), stringResource(R.string.simple_qr_desc), Modifier.size(260.dp).background(Color.White).padding(8.dp)) }
                 Text(stringResource(R.string.sqr_passcode), style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 12.dp))
                 Text(Bidi.ltr(passcode), style = MaterialTheme.typography.headlineSmall, fontFamily = FontFamily.Monospace)
-                Text(stringResource(R.string.x_simple_qr_hint), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp))
+                Text(stringResource(R.string.simple_qr_hint), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp))
             }
         },
         confirmButton = { TextButton(onDismiss) { Text(stringResource(R.string.main_done)) } },
@@ -296,7 +297,7 @@ private fun SimpleQrDialog(cfg: SimpleConfig, onDismiss: () -> Unit) {
 }
 
 /**
- * X4: importing a setup (from a file or a scanned QR code): unlock it, see who it found in this phone's contacts,
+ * Importing a setup (from a file or a scanned QR code): unlock it, see who it found in this phone's contacts,
  * create the missing ones, then use it and turn simple mode on.
  */
 @Composable
@@ -311,17 +312,17 @@ fun SimpleImportScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Uni
     var error by remember { mutableStateOf<String?>(null) }
     val contacts by vm.contacts.collectAsStateWithLifecycle()
     LaunchedEffect(source) { if (source == null && imported == null) back() }
-    SettingsScaffold(stringResource(R.string.x_simple_import_title), back) {
+    SettingsScaffold(stringResource(R.string.simple_import_title), back) {
         val cfg = imported?.config
         if (cfg == null) {
             Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 var code by remember { mutableStateOf("") }
-                Text(stringResource(if (qr != null) R.string.x_simple_enter_passcode else R.string.x_simple_pass_enter))
+                Text(stringResource(if (qr != null) R.string.simple_enter_passcode else R.string.simple_pass_enter))
                 OutlinedTextField(
                     code, { code = it; error = null }, singleLine = true, isError = error != null,
-                    label = { Text(stringResource(if (qr != null) R.string.sqr_passcode else R.string.x_simple_pass)) },
+                    label = { Text(stringResource(if (qr != null) R.string.sqr_passcode else R.string.simple_pass)) },
                     supportingText = error?.let { e -> { Text(e) } },
-                    visualTransformation = if (qr != null) androidx.compose.ui.text.input.VisualTransformation.None else PasswordVisualTransformation(),
+                    visualTransformation = if (qr != null) VisualTransformation.None else PasswordVisualTransformation(),
                     keyboardOptions = KeyboardOptions(capitalization = if (qr != null) KeyboardCapitalization.Characters else KeyboardCapitalization.None),
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -335,34 +336,34 @@ fun SimpleImportScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Uni
                                 else SimpleTransfer.decryptFile(context.contentResolver.openInputStream(f!!)!!.use { it.readBytes() }, code.toCharArray())
                             }.getOrNull()
                         }
-                        if (imported == null) error = res.getString(R.string.x_simple_wrong_pass)
+                        if (imported == null) error = res.getString(R.string.simple_wrong_pass)
                     }
                 }, enabled = code.isNotEmpty()) { Text(stringResource(R.string.msg_open)) }
             }
         } else {
             val resolved = SimpleSetup.resolve(cfg.people, contacts.orEmpty())
             val skipped = imported?.skipped ?: 0
-            // X4: people whose "number" was a code, a pause or not a phone number at all were left out; say so.
+            // People whose "number" was a code, a pause or not a phone number at all were left out; say so.
             if (skipped > 0) Text(
-                pluralStringResource(R.plurals.x_simple_skipped, skipped, skipped), style = MaterialTheme.typography.bodyMedium,
+                pluralStringResource(R.plurals.simple_skipped, skipped, skipped), style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
             )
-            SegmentedGroup(pluralStringResource(R.plurals.x_simple_people_n, cfg.people.size, cfg.people.size, SimpleConfig.MAX_PEOPLE)) {
+            SegmentedGroup(pluralStringResource(R.plurals.simple_people_n, cfg.people.size, cfg.people.size, SimpleConfig.MAX_PEOPLE)) {
                 resolved.forEachIndexed { i, r ->
                     item("r$i") {
                         ListItem(
                             colors = clearRow,
                             leadingContent = { Avatar(r.person.name, r.contact?.photoUri, 40.dp) },
                             headlineContent = { Text(r.person.name) },
-                            // X4: the number this tile will call is always shown; a contact is "found" only when it has that number.
+                            // The number this tile will call is always shown; a contact is "found" only when it has that number.
                             supportingContent = {
                                 Column {
                                     Text(Bidi.ltr(r.person.number))
-                                    Text(r.contact?.let { stringResource(R.string.x_simple_matched, it.displayName) } ?: stringResource(R.string.x_simple_not_in_contacts))
+                                    Text(r.contact?.let { stringResource(R.string.simple_matched, it.displayName) } ?: stringResource(R.string.simple_not_in_contacts))
                                 }
                             },
                             trailingContent = {
-                                if (r.contact == null) TextButton({ open(Routes.edit(name = r.person.name, phone = r.person.number)) }) { Text(stringResource(R.string.x_simple_create)) }
+                                if (r.contact == null) TextButton({ open(Routes.edit(name = r.person.name, phone = r.person.number)) }) { Text(stringResource(R.string.simple_create)) }
                                 else Icon(Icons.Rounded.CheckCircle, null, tint = MaterialTheme.colorScheme.primary)
                             },
                         )
@@ -370,22 +371,22 @@ fun SimpleImportScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Uni
                 }
             }
             Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(stringResource(R.string.x_simple_import_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(stringResource(R.string.simple_import_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Button({
                     // Keys of the contacts found here, so the tiles follow renames on this phone.
                     val people = SimpleSetup.resolve(cfg.people, vm.contacts.value.orEmpty()).map { r -> r.person.copy(lookupKey = r.contact?.lookupKey) }
                     vm.c.extras.updateSimple { cfg.copy(people = people, enabled = true) }
                     SimpleInbox.qr.value = null
                     SimpleInbox.file.value = null
-                }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.x_simple_use_on)) }
+                }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.simple_use_on)) }
                 OutlinedButton({
                     val people = SimpleSetup.resolve(cfg.people, vm.contacts.value.orEmpty()).map { r -> r.person.copy(lookupKey = r.contact?.lookupKey) }
                     vm.c.extras.updateSimple { cfg.copy(people = people, enabled = false) }
-                    vm.toast(res.getString(R.string.x_simple_saved))
+                    vm.toast(res.getString(R.string.simple_saved))
                     SimpleInbox.qr.value = null
                     SimpleInbox.file.value = null
                     back()
-                }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.x_simple_use_later)) }
+                }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.simple_use_later)) }
             }
         }
     }

@@ -1,5 +1,6 @@
 package app.parley.ui.calltime
 
+import android.content.Context
 import android.os.SystemClock
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
@@ -46,9 +47,9 @@ import app.parley.ui.settings.settingTitle
 import kotlinx.coroutines.delay
 
 /**
- * "● On call with Ana · 03:12 · Return" above the bottom navigation whenever a call exists (A3). With a time
- * limit it counts down instead (T3). Right after dialling, before Telecom has the call, it says which SIM the
- * call goes out on (A10).
+ * "● On call with Ana · 03:12 · Return" above the bottom navigation whenever a call exists. With a time
+ * limit it counts down instead. Right after dialling, before Telecom has the call, it says which SIM the
+ * call goes out on.
  */
 @Composable
 fun ReturnToCallChip(modifier: Modifier = Modifier) {
@@ -96,7 +97,7 @@ fun ReturnToCallChip(modifier: Modifier = Modifier) {
     }
 }
 
-private fun describe(context: android.content.Context, call: CallUi, count: Int, remainingMs: Long?): Pair<String, String> {
+private fun describe(context: Context, call: CallUi, count: Int, remainingMs: Long?): Pair<String, String> {
     val who = call.title
     val more = if (count > 1) " +${count - 1}" else ""
     val status = when (call.state) {

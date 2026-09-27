@@ -25,7 +25,7 @@ import app.parley.telecom.CallManager
 import app.parley.telecom.RouteType
 
 /**
- * The adaptive audio button (A5): with no headset it is a plain Speaker toggle; with Bluetooth or a wired
+ * The adaptive audio button: with no headset it is a plain Speaker toggle; with Bluetooth or a wired
  * headset it names the current route and opens [AudioRouteSheet].
  */
 internal data class AudioButton(val label: String, val spoken: String, val isToggle: Boolean, val on: Boolean)

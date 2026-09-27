@@ -1,6 +1,8 @@
 package app.parley.ui.qr
 
+import android.content.Context
 import android.content.res.Resources
+import android.net.Uri
 import android.provider.ContactsContract
 import android.text.format.DateUtils
 import androidx.compose.foundation.clickable
@@ -73,14 +75,17 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
+import androidx.fragment.app.FragmentActivity
 import app.parley.AppViewModel
 import app.parley.NavEvent
 import app.parley.R
+import app.parley.blocking.TemplateInbox
 import app.parley.common.MessengerLinks
 import app.parley.common.StartTab
 import app.parley.common.qr.ContactFormat
@@ -102,10 +107,17 @@ import app.parley.messaging.MessengerLauncher
 import app.parley.security.launchVault
 import app.parley.ui.Bidi
 import app.parley.ui.Routes
+import app.parley.ui.blocking.BlockingRoutes
+import app.parley.ui.extras.ExtrasRoutes
+import app.parley.ui.extras.SimpleInbox
+import app.parley.ui.temporary.SaveTemporaryDialog
+import app.parley.ui.temporary.TemporaryContactActions
+import java.time.ZoneId
+import java.util.Locale
 import kotlinx.coroutines.launch
 import java.io.File
 
-/** Q4: plain words and icons for what a code holds. */
+/** Plain words and icons for what a code holds. */
 object QrLabels {
     fun icon(p: QrPayload): ImageVector = when (p) {
         is QrPayload.Contact -> if (p.records.size > 1) Icons.Rounded.Groups else Icons.Rounded.Person
@@ -154,7 +166,7 @@ object QrLabels {
 }
 
 /**
- * Q4: the result sheet. It says what the code holds in plain words, shows it in full (control and bidi-override
+ * The result sheet. It says what the code holds in plain words, shows it in full (control and bidi-override
  * characters removed) and offers actions; nothing happens until a button is tapped. Every result can be copied and
  * shared.
  */
@@ -185,7 +197,7 @@ fun QrResultSheet(vm: AppViewModel, payload: QrPayload, onDismiss: () -> Unit, o
             }
             HorizontalDivider(Modifier.padding(vertical = 12.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                // Q5: a Wi-Fi code's text holds its password: kept out of clipboard previews like "Copy password".
+                // A Wi-Fi code's text holds its password: kept out of clipboard previews like "Copy password".
                 TextButton({ QrActions.copy(context, payload.raw, sensitive = payload is QrPayload.Wifi && !payload.password.isNullOrEmpty()) }) {
                     Icon(Icons.Rounded.ContentCopy, null, Modifier.size(18.dp))
                     Text("  " + stringResource(R.string.qs_copy_text))
@@ -241,7 +253,7 @@ private fun Note(text: String, icon: ImageVector = Icons.Rounded.Info, warning: 
 // ---------------------------------------------------------------- contacts
 
 /** Writes [vcard] to the share folder so the importer can read it (all cards, every field). */
-private fun importVcard(context: android.content.Context, vm: AppViewModel, vcard: String) {
+private fun importVcard(context: Context, vm: AppViewModel, vcard: String) {
     runCatching {
         val dir = File(context.cacheDir, "share").apply { mkdirs() }
         val f = File(dir, "scanned-contacts.vcf")
@@ -260,7 +272,7 @@ private fun ColumnScope.ContactResult(vm: AppViewModel, p: QrPayload.Contact, on
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
-    // Q4: favourite, voicemail, ringtone and labels from a stranger's card stay off unless ticked here.
+    // Favourite, voicemail, ringtone and labels from a stranger's card stay off unless ticked here.
     val asks = remember(p) { ScannedCard.flags(p.records) }
     var allowed by remember(p) { mutableStateOf(emptySet<ScannedCard.Flag>()) }
     if (asks.isNotEmpty()) CardAsks(asks, remember(p) { ScannedCard.labels(p.records) }, allowed) { allowed = it }
@@ -292,7 +304,7 @@ private fun ColumnScope.ContactResult(vm: AppViewModel, p: QrPayload.Contact, on
     ContactCard(vm, record, onDismiss, open, allCardsVcard = if (p.records.size == 1) vcard else null)
 }
 
-/** Q4: "This card also asks to: …", each off until ticked. */
+/** "This card also asks to: …", each off until ticked. */
 @Composable
 private fun CardAsks(asks: Set<ScannedCard.Flag>, labels: List<String>, allowed: Set<ScannedCard.Flag>, onChange: (Set<ScannedCard.Flag>) -> Unit) {
     Card(Modifier.fillMaxWidth().padding(top = 10.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)) {
@@ -307,7 +319,7 @@ private fun CardAsks(asks: Set<ScannedCard.Flag>, labels: List<String>, allowed:
                 }
                 val on = f in allowed
                 Row(
-                    Modifier.fillMaxWidth().toggleable(on, role = androidx.compose.ui.semantics.Role.Checkbox) { onChange(if (it) allowed + f else allowed - f) }
+                    Modifier.fillMaxWidth().toggleable(on, role = Role.Checkbox) { onChange(if (it) allowed + f else allowed - f) }
                         .padding(horizontal = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -355,7 +367,7 @@ private fun ColumnScope.ContactCard(vm: AppViewModel, record: ContactRecord, onD
         vm.navigate(NavEvent.NewContact(details))
     }
     Action(stringResource(R.string.qs_add_private), Icons.Rounded.Lock) {
-        scope.launchVault(context as? androidx.fragment.app.FragmentActivity, { e -> vm.toast(res.getString(R.string.edit_save_failed, e.message.orEmpty())) }) {
+        scope.launchVault(context as? FragmentActivity, { e -> vm.toast(res.getString(R.string.edit_save_failed, e.message.orEmpty())) }) {
             val id = vm.c.vault.save(null, details)
             vm.toast(res.getString(R.string.sqr_saved_private))
             onDismiss()
@@ -365,13 +377,13 @@ private fun ColumnScope.ContactCard(vm: AppViewModel, record: ContactRecord, onD
     details.phones.firstOrNull()?.value?.let { number ->
         Action(stringResource(R.string.qs_add_temporary), Icons.Rounded.AutoDelete) { temporary = true }
         if (temporary) {
-            app.parley.ui.temporary.SaveTemporaryDialog(
+            SaveTemporaryDialog(
                 number = Bidi.ltr(number), suggestedName = QrText.shown(name, 80, false).ifBlank { number },
                 onDismiss = { temporary = false },
             ) { n, days, deleteHistory, visible ->
                 temporary = false
                 scope.launch {
-                    val saved = app.parley.ui.temporary.TemporaryContactActions.save(vm, number, n, days, deleteHistory, visible)
+                    val saved = TemporaryContactActions.save(vm, number, n, days, deleteHistory, visible)
                     if (saved != null) {
                         vm.toast(res.getQuantityString(if (saved.private) R.plurals.caller_saved_private_days else R.plurals.caller_saved_days, days, days))
                         onDismiss()
@@ -412,16 +424,16 @@ private fun ColumnScope.ParleyResult(vm: AppViewModel, p: QrPayload.Parley, onDi
     )
     Action(stringResource(R.string.qs_open_in_parley), Icons.Rounded.QrCode2, primary = true) {
         onDismiss()
-        val uri = android.net.Uri.parse(p.raw)
+        val uri = Uri.parse(p.raw)
         when (p.kind) {
             ParleyKind.CONTACT -> vm.navigate(NavEvent.SecureQr(uri))
             ParleyKind.SIMPLE -> {
-                app.parley.ui.extras.SimpleInbox.qr.value = uri
-                vm.navigate(NavEvent.Route(app.parley.ui.extras.ExtrasRoutes.SIMPLE_IMPORT))
+                SimpleInbox.qr.value = uri
+                vm.navigate(NavEvent.Route(ExtrasRoutes.SIMPLE_IMPORT))
             }
             ParleyKind.TEMPLATE -> {
-                app.parley.blocking.TemplateInbox.pending.value = uri
-                vm.navigate(NavEvent.Route(app.parley.ui.blocking.BlockingRoutes.TEMPLATES))
+                TemplateInbox.pending.value = uri
+                vm.navigate(NavEvent.Route(BlockingRoutes.TEMPLATES))
             }
         }
     }
@@ -437,7 +449,7 @@ private fun ColumnScope.NumberActions(vm: AppViewModel, number: String, onDismis
             vm.requestCall(number)
         }
     }
-    Action(stringResource(R.string.v34msg_message_or_call_on), Icons.AutoMirrored.Rounded.Chat) { messageOn = true }
+    Action(stringResource(R.string.reach_message_or_call_on), Icons.AutoMirrored.Rounded.Chat) { messageOn = true }
     Action(stringResource(R.string.qs_add_contact), Icons.Rounded.PersonAdd) {
         onDismiss()
         vm.navigate(NavEvent.NewContact(ContactDetails(phones = listOf(DataItem(value = number, type = ContactsContract.CommonDataKinds.Phone.TYPE_MOBILE)))))
@@ -503,7 +515,7 @@ private fun ColumnScope.EmailResult(vm: AppViewModel, p: QrPayload.Email, onDism
 @Composable
 private fun ColumnScope.GeoResult(p: QrPayload.Geo) {
     val context = LocalContext.current
-    val coords = String.format(java.util.Locale.ROOT, "%.6f, %.6f", p.lat, p.lon)
+    val coords = String.format(Locale.ROOT, "%.6f, %.6f", p.lat, p.lon)
     Field(stringResource(R.string.qs_field_coordinates), coords, ltr = true, mono = true)
     p.query?.let { Field(stringResource(R.string.qs_field_place), it) }
     Action(stringResource(R.string.qs_open_maps), Icons.Rounded.Place, primary = true) { QrActions.map(context, p) }
@@ -550,7 +562,7 @@ private fun ColumnScope.WifiResult(p: QrPayload.Wifi) {
 private fun ColumnScope.EventResult(p: QrPayload.Event) {
     val context = LocalContext.current
     if (p.summary.isNotBlank()) Text(QrText.shown(p.summary, 200, false), style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(top = 12.dp))
-    val zone = java.time.ZoneId.systemDefault()
+    val zone = ZoneId.systemDefault()
     p.start?.let { s -> s.toEpochMillis(zone)?.let { s to it } }?.let { (s, start) ->
         // An all-day event ends at the start of the next day: show the last day it covers.
         val end = p.end?.toEpochMillis(zone)?.let { if (s.allDay && it > start) it - 1 else it } ?: start

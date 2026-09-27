@@ -1,5 +1,8 @@
 package app.parley.data
 
+import android.Manifest
+import android.content.ContentProviderResult
+import android.util.Log
 import app.parley.common.PhoneIdentity
 import android.content.ContentProviderOperation
 import android.content.ContentResolver
@@ -37,7 +40,12 @@ import app.parley.common.PhoneEntry
 import app.parley.common.PhoneNumbers
 import app.parley.common.people.Batches
 import app.parley.common.people.ContactText
+import app.parley.common.people.Handles
+import app.parley.common.people.RowEdits
 import app.parley.common.record.ContentDiff
+import app.parley.common.record.Messengers
+import app.parley.data.people.ParleyWriteLog
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
@@ -46,6 +54,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
@@ -57,7 +66,7 @@ import kotlinx.coroutines.withContext
 /**
  * Observes a content URI; emits Unit on start and on each change.
  *
- * F29: registering fails with a SecurityException while the permission is missing. When [retry] is given, each of
+ * Registering fails with a SecurityException while the permission is missing. When [retry] is given, each of
  * its emissions (e.g. a refresh after the permission was granted) tries to register again, so the flow starts
  * following changes without a restart.
  */
@@ -104,10 +113,10 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope) {
     private suspend fun journal(ids: List<Long>, action: String) {
         lastJournalIds = try {
             beforeChange?.invoke(ids, action).orEmpty()
-        } catch (e: kotlinx.coroutines.CancellationException) {
+        } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            android.util.Log.w("ContactsRepository", "Journal failed for $action", e)
+            Log.w("ContactsRepository", "Journal failed for $action", e)
             if (action == "DELETE") throw IllegalStateException("Couldn't keep an undo copy, so nothing was deleted", e)
             emptyList()
         }
@@ -116,7 +125,7 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope) {
     /** Bumped after permission changes so observers reload. */
     private val reload = MutableStateFlow(0)
 
-    val contacts: StateFlow<List<ContactSummary>?> = kotlinx.coroutines.flow.combine(cr.changes(Contacts.CONTENT_URI, retry = reload), reload) { _, _ -> }
+    val contacts: StateFlow<List<ContactSummary>?> = combine(cr.changes(Contacts.CONTENT_URI, retry = reload), reload) { _, _ -> }
         .map { loadAll() }
         .flowOn(Dispatchers.IO)
         .stateIn(scope, SharingStarted.Eagerly, null)
@@ -132,7 +141,7 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope) {
     suspend fun loadNow(): List<ContactSummary> = withContext(Dispatchers.IO) { loadAll() }
 
     private fun loadAll(): List<ContactSummary> {
-        if (!Permissions.has(context, android.Manifest.permission.READ_CONTACTS)) return emptyList()
+        if (!Permissions.has(context, Manifest.permission.READ_CONTACTS)) return emptyList()
         val phones = HashMap<Long, MutableList<PhoneEntry>>()
         val seen = HashMap<Long, MutableSet<String>>()
         val region = PhoneEnv.countryIso(context)
@@ -168,7 +177,7 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope) {
         )?.use { c ->
             while (c.moveToNext()) {
                 val id = c.getLong(0)
-                // A contact holding only an address, note, website… has no display name: list it anyway (F24).
+                // A contact holding only an address, note, website… has no display name: list it anyway.
                 val name = c.getString(2)?.takeIf { it.isNotBlank() }
                     ?: phones[id]?.firstOrNull()?.number
                     ?: emails[id]?.firstOrNull()
@@ -245,7 +254,7 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope) {
      * contacts come first). If that fails (policy, older OEM builds) the personal lookup is used, as before.
      */
     fun lookup(number: String): CallerInfo? {
-        if (number.isBlank() || !Permissions.has(context, android.Manifest.permission.READ_CONTACTS)) return null
+        if (number.isBlank() || !Permissions.has(context, Manifest.permission.READ_CONTACTS)) return null
         if (WorkProfile.exists(context)) {
             try {
                 lookupIn(Uri.withAppendedPath(PhoneLookup.ENTERPRISE_CONTENT_FILTER_URI, Uri.encode(number)), number, strict = true)?.let { return it }
@@ -278,7 +287,7 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope) {
         }
     }
 
-    /** I6: (company, job title) of [contactId]'s first organization row, or null. */
+    /** (company, job title) of [contactId]'s first organization row, or null. */
     fun organization(contactId: Long): Pair<String, String>? =
         cr.safeQuery(
             Data.CONTENT_URI, arrayOf(Organization.COMPANY, Organization.TITLE),
@@ -300,7 +309,7 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope) {
      */
     fun isContact(number: String): Boolean? {
         if (number.isBlank()) return false
-        if (!Permissions.has(context, android.Manifest.permission.READ_CONTACTS)) return null
+        if (!Permissions.has(context, Manifest.permission.READ_CONTACTS)) return null
         val personal = try {
             cr.query(Uri.withAppendedPath(PhoneLookup.CONTENT_FILTER_URI, Uri.encode(number)), arrayOf(PhoneLookup._ID), null, null, null)?.use { it.count > 0 }
         } catch (_: Exception) {
@@ -330,7 +339,7 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope) {
 
     private fun writableTypes(): Set<String> = DeviceAccounts.uploadingTypes()
 
-    /** Local (AOSP, Android 15 or OEM phone account) or uploading; never SIM or messenger accounts (F3, F10). */
+    /** Local (AOSP, Android 15 or OEM phone account) or uploading; never SIM or messenger accounts. */
     private fun isWritable(a: AccountRef, types: Set<String>, local: AccountRef): Boolean = DeviceAccounts.isWritable(a, types, local)
 
     /**
@@ -417,7 +426,7 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope) {
                     Phone.CONTENT_ITEM_TYPE -> phones += DataItem(id, s(2), c.getInt(3), c.getString(4), c.getInt(12) != 0)
                     Email.CONTENT_ITEM_TYPE -> emails += DataItem(id, s(2), c.getInt(3), c.getString(4), c.getInt(12) != 0)
                     Im.CONTENT_ITEM_TYPE, SipAddress.CONTENT_ITEM_TYPE ->
-                        app.parley.common.people.Handles.fromRow(c.getString(1), c.getString(2), c.getString(6), c.getString(7))
+                        Handles.fromRow(c.getString(1), c.getString(2), c.getString(6), c.getString(7))
                             ?.let { h -> handles += HandleItem(id, h.service, h.value, h.customProtocol) }
                     Website.CONTENT_ITEM_TYPE -> sites += DataItem(id, s(2), c.getInt(3), c.getString(4))
                     Relation.CONTENT_ITEM_TYPE -> relations += DataItem(id, s(2), c.getInt(3), c.getString(4))
@@ -444,11 +453,11 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope) {
 
     /**
      * Accounts contacts can be saved, imported, moved or restored to: the device account first, then accounts whose
-     * contacts sync adapter uploads. SIM, messenger and other read-only accounts are never offered (F3).
+     * contacts sync adapter uploads. SIM, messenger and other read-only accounts are never offered.
      */
     fun accounts(): List<AccountRef> = DeviceAccounts.targets(context)
 
-    /** Whether new data can be written to raw contacts of [account] (F3). */
+    /** Whether new data can be written to raw contacts of [account]. */
     fun isWritableAccount(account: AccountRef): Boolean = isWritable(account, writableTypes(), localAccount())
 
     /** All contact dates (birthdays, anniversaries…) with the first phone number. */
@@ -472,7 +481,7 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope) {
 
     /**
      * The user's labels: groups with a title that aren't system groups ("My Contacts", Family/Friends/Coworkers),
-     * auto-add, read-only or the favourites group ("Starred in Android") (F11).
+     * auto-add, read-only or the favourites group ("Starred in Android").
      */
     fun groups(): List<GroupInfo> {
         val out = ArrayList<GroupInfo>()
@@ -491,7 +500,7 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope) {
         return out
     }
 
-    /** Ids of [groupIds] that are user labels; system, read-only and favourites groups are left out (F11). */
+    /** Ids of [groupIds] that are user labels; system, read-only and favourites groups are left out. */
     fun userGroupIds(groupIds: Collection<Long>): Set<Long> {
         if (groupIds.isEmpty()) return emptySet()
         val out = HashSet<Long>()
@@ -583,7 +592,7 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope) {
 
             // Only rows that really changed are written, so a sync adapter uploads (and other apps see) just the edit.
             val changed = LinkedHashSet<String>()
-            // Read-only rows (F12) are shown locked; an edit or removal of one must not be written or logged.
+            // Read-only rows are shown locked; an edit or removal of one must not be written or logged.
             val locked = original?.readOnlyDataIds.orEmpty()
             fun insert(mime: String, values: ContentValues) {
                 ops += insertTarget(ContentProviderOperation.newInsert(Data.CONTENT_URI))
@@ -669,19 +678,19 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope) {
                 Event.CONTENT_ITEM_TYPE, Event.START_DATE, Event.TYPE, Event.LABEL,
             )
 
-            // I1: messenger handles. Only Im and SIP rows are planned, so no other row can be touched (see RowEdits).
-            fun handleRow(h: HandleItem) = app.parley.common.people.Handles.toColumns(h.handle).let { (m, v) -> app.parley.common.people.RowEdits.Row(h.id, m, v) }
-            val handleOps = app.parley.common.people.RowEdits.plan(
+            // Messenger handles. Only Im and SIP rows are planned, so no other row can be touched (see RowEdits).
+            fun handleRow(h: HandleItem) = Handles.toColumns(h.handle).let { (m, v) -> RowEdits.Row(h.id, m, v) }
+            val handleOps = RowEdits.plan(
                 original?.handles.orEmpty().map(::handleRow), edited.handles.map(::handleRow),
                 setOf(Im.CONTENT_ITEM_TYPE, SipAddress.CONTENT_ITEM_TYPE), locked,
             )
             fun cv(m: Map<String, String?>) = ContentValues().apply { m.forEach { (k, v) -> put(k, v) } }
             handleOps.forEach { op ->
                 when (op) {
-                    is app.parley.common.people.RowEdits.Op.Delete -> delete(op.id, op.mime)
-                    is app.parley.common.people.RowEdits.Op.Update -> update(op.id, op.mime, cv(op.values))
+                    is RowEdits.Op.Delete -> delete(op.id, op.mime)
+                    is RowEdits.Op.Update -> update(op.id, op.mime, cv(op.values))
                     // TYPE_OTHER (3) for both kinds, like other contacts apps.
-                    is app.parley.common.people.RowEdits.Op.Insert -> insert(op.mime, cv(op.values).apply { put(Data.DATA2, 3) })
+                    is RowEdits.Op.Insert -> insert(op.mime, cv(op.values).apply { put(Data.DATA2, 3) })
                 }
             }
 
@@ -735,7 +744,7 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope) {
                 }
             }
 
-            val results = if (ops.isEmpty()) emptyArray<android.content.ContentProviderResult>() else cr.applyBatch(ContactsContract.AUTHORITY, ops)
+            val results = if (ops.isEmpty()) emptyArray<ContentProviderResult>() else cr.applyBatch(ContactsContract.AUTHORITY, ops)
             val finalRawId = rawId ?: results.firstOrNull()?.uri?.let { ContentUris.parseId(it) } ?: return@withContext null
             // Every field of this copy was cleared: remove the empty raw contact instead of leaving a blank behind
             // (AOSP does the same, F24). The person stays if another copy has details.
@@ -756,7 +765,7 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope) {
         }
 
     /** Parley's own saves, per raw contact ("Why did this change?"). */
-    val writeLog by lazy { app.parley.data.people.ParleyWriteLog(context) }
+    val writeLog by lazy { ParleyWriteLog(context) }
 
     private fun fieldName(mime: String): String = when (mime) {
         StructuredName.CONTENT_ITEM_TYPE -> "Name"
@@ -789,7 +798,7 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope) {
         }
 
     private fun writePhoto(rawId: Long, source: Uri) {
-        // C1: bounded decode, EXIF rotation, HEIC, centre square, 720 px (the old full decode could run out of memory).
+        // Bounded decode, EXIF rotation, HEIC, centre square, 720 px (the old full decode could run out of memory).
         val bytes = ContactPhotoProcessor.process(cr, source) ?: return
         val uri = Uri.withAppendedPath(ContentUris.withAppendedId(RawContacts.CONTENT_URI, rawId), RawContacts.DisplayPhoto.CONTENT_DIRECTORY)
         cr.openAssetFileDescriptor(uri, "rw")?.use { fd -> fd.createOutputStream().use { it.write(bytes) } }
@@ -867,7 +876,7 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope) {
 
     /**
      * Called after Parley changed how raw contacts are grouped into contacts (join, separate, move), with the
-     * (contact id, lookup key) pairs from before, so per-contact metadata and temporary flags can follow (F2, F8).
+     * (contact id, lookup key) pairs from before, so per-contact metadata and temporary flags can follow.
      * Set by the container.
      */
     var afterRelink: (suspend (before: List<Pair<Long, String>>, kind: String) -> Unit)? = null
@@ -875,10 +884,10 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope) {
     private suspend fun relinked(before: List<Pair<Long, String>>, kind: String) {
         try {
             afterRelink?.invoke(before, kind)
-        } catch (e: kotlinx.coroutines.CancellationException) {
+        } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            android.util.Log.w("ContactsRepository", "Metadata re-key after $kind failed", e)
+            Log.w("ContactsRepository", "Metadata re-key after $kind failed", e)
         }
     }
 
@@ -887,7 +896,7 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope) {
 
     /**
      * Merges several contacts into one (platform "join"). Like AOSP and contacts-android's ContactLinks, the name of
-     * the first contact becomes the default name, so the shown name doesn't flip after linking (F26). Returns the
+     * the first contact becomes the default name, so the shown name doesn't flip after linking. Returns the
      * merged contact's id.
      */
     suspend fun join(contactIds: List<Long>): Long? = withContext(Dispatchers.IO) {
@@ -929,7 +938,7 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope) {
     /**
      * Makes data row [dataId] the default of its kind: primary in its raw contact and super-primary for the whole
      * contact, clearing the flags on the other rows of that kind first (like AOSP's "Set default" and
-     * contacts-android's DefaultContactData). For numbers, e-mails and names (F26).
+     * contacts-android's DefaultContactData). For numbers, e-mails and names.
      */
     suspend fun setDefault(dataId: Long): Boolean = withContext(Dispatchers.IO) {
         val (raw, contact, mime) = cr.safeQuery(
@@ -973,7 +982,7 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope) {
 
     /**
      * Deletes exactly these raw contacts (a temporary contact's own copies), journaling their contacts first. Other
-     * raw contacts of the same person are never touched (F2).
+     * raw contacts of the same person are never touched.
      */
     suspend fun deleteRaws(rawIds: Collection<Long>) = withContext(Dispatchers.IO) {
         val owners = contactsOfRaws(rawIds)
@@ -984,7 +993,7 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope) {
     }
 
     /**
-     * Removes a contact that moved into the private vault, leaving as little readable behind as possible (F4):
+     * Removes a contact that moved into the private vault, leaving as little readable behind as possible:
      * phone-only and never-synced copies are purged at once (CALLER_IS_SYNCADAPTER, like AccountDiagnostics does);
      * synced copies are deleted normally so their account removes them on the server too. Messenger copies
      * (WhatsApp, Signal…) belong to their app and can't be deleted here: they stay until that app syncs its contacts.
@@ -1007,7 +1016,7 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope) {
         )?.use { c ->
             while (c.moveToNext()) {
                 val account = AccountRef(c.getString(1), c.getString(2))
-                if (app.parley.common.record.Messengers.isMessengerAccount(account.type)) { messengers = true; continue } // the messenger owns it
+                if (Messengers.isMessengerAccount(account.type)) { messengers = true; continue } // the messenger owns it
                 val uri = ContentUris.withAppendedId(RawContacts.CONTENT_URI, c.getLong(0))
                 val unsynced = DeviceAccounts.isLocal(account, local) || c.isNull(3)
                 if (unsynced) {

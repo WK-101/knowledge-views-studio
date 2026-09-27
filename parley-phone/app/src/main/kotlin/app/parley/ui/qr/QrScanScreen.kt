@@ -1,6 +1,7 @@
 package app.parley.ui.qr
 
 import android.content.ActivityNotFoundException
+import android.content.ClipboardManager
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -41,6 +42,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
@@ -57,12 +59,13 @@ import app.parley.common.qr.QrPayload
 import app.parley.common.qr.QrText
 import app.parley.ui.SegmentedGroup
 import app.parley.ui.settings.SettingsScaffold
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 
-/** Q2: the "Scan QR" screen, reached from Contacts, the keypad, My card, Settings, the launcher and the tile. */
+/** The "Scan QR" screen, reached from Contacts, the keypad, My card, Settings, the launcher and the tile. */
 object QrRoutes {
     const val SCAN = "qrscan"
 }
@@ -80,7 +83,7 @@ private sealed interface ScanState {
 }
 
 /**
- * Q1: reads a QR code without the camera permission. "Take a photo" asks the phone's camera app for one picture
+ * Reads a QR code without the camera permission. "Take a photo" asks the phone's camera app for one picture
  * (written to Parley's cache and deleted once read), "Pick an image" uses the system photo picker (no storage
  * permission), a picture can be shared to Parley, and "Paste" reads the clipboard only when tapped. Decoding is
  * offline (ZXing). Nothing found is answered with tips; several codes let you pick one; one code opens its sheet.
@@ -88,7 +91,7 @@ private sealed interface ScanState {
 @Composable
 fun QrScanScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
     val context = LocalContext.current
-    val res = androidx.compose.ui.platform.LocalResources.current
+    val res = LocalResources.current
     val scope = rememberCoroutineScope()
     var state by remember { mutableStateOf<ScanState>(ScanState.Idle) }
     var payload by remember { mutableStateOf<QrPayload?>(null) }
@@ -109,7 +112,7 @@ fun QrScanScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
         scope.launch {
             val outcome = try {
                 QrScanner.scan(context, uri)
-            } catch (e: kotlinx.coroutines.CancellationException) {
+            } catch (e: CancellationException) {
                 throw e
             } catch (_: Exception) {
                 QrScanner.Outcome.Unreadable
@@ -164,7 +167,7 @@ fun QrScanScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
     }
 
     fun paste() {
-        val clip = runCatching { context.getSystemService(android.content.ClipboardManager::class.java).primaryClip }.getOrNull()
+        val clip = runCatching { context.getSystemService(ClipboardManager::class.java).primaryClip }.getOrNull()
         val text = clip?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.coerceToText(context)?.toString()
         if (text.isNullOrBlank()) {
             vm.toast(res.getString(R.string.qs_clipboard_empty))

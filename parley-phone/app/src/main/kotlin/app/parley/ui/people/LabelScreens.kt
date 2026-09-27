@@ -44,6 +44,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -55,6 +56,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
@@ -64,7 +66,9 @@ import app.parley.data.AccountRef
 import app.parley.data.people.Label
 import app.parley.ui.EmptyState
 import app.parley.ui.Routes
+import app.parley.ui.blocking.LabelBlockingMenuItem
 import app.parley.ui.contact.Section
+import app.parley.ui.extras.LabelPolicySection
 import app.parley.ui.home.ContactRow
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -79,7 +83,7 @@ import app.parley.R
 fun ManageLabelsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
-    val res = androidx.compose.ui.platform.LocalResources.current
+    val res = LocalResources.current
     val idx by vm.people.index.collectAsStateWithLifecycle()
     val all by vm.contacts.collectAsStateWithLifecycle()
     var labels by remember { mutableStateOf<List<Label>?>(null) }
@@ -93,8 +97,8 @@ fun ManageLabelsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Uni
     var deleting by remember { mutableStateOf<String?>(null) }
     var menu by remember { mutableStateOf(false) }
 
-    // U7: scroll-linked top-bar tint.
-    val barTint = androidx.compose.material3.TopAppBarDefaults.pinnedScrollBehavior()
+    // Scroll-linked top-bar tint.
+    val barTint = TopAppBarDefaults.pinnedScrollBehavior()
     Scaffold(modifier = Modifier.nestedScroll(barTint.nestedScrollConnection), topBar = {
         TopAppBar(
             scrollBehavior = barTint,
@@ -231,7 +235,7 @@ fun ManageLabelsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Uni
 private fun CreateLabelDialog(vm: AppViewModel, onDismiss: () -> Unit, onCreated: () -> Unit) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
-    val res = androidx.compose.ui.platform.LocalResources.current
+    val res = LocalResources.current
     var name by remember { mutableStateOf("") }
     var accounts by remember { mutableStateOf<List<AccountRef>>(emptyList()) }
     var account by remember { mutableStateOf<AccountRef?>(null) }
@@ -274,7 +278,7 @@ private fun CreateLabelDialog(vm: AppViewModel, onDismiss: () -> Unit, onCreated
 private fun RenameLabelDialog(vm: AppViewModel, old: String, onDismiss: () -> Unit, onDone: (String) -> Unit) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
-    val res = androidx.compose.ui.platform.LocalResources.current
+    val res = LocalResources.current
     var name by remember { mutableStateOf(old) }
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -305,7 +309,7 @@ private fun RenameLabelDialog(vm: AppViewModel, old: String, onDismiss: () -> Un
 @Composable
 fun LabelScreen(vm: AppViewModel, title: String, back: () -> Unit, open: (String) -> Unit) {
     val context = LocalContext.current
-    val res = androidx.compose.ui.platform.LocalResources.current
+    val res = LocalResources.current
     val scope = rememberCoroutineScope()
     var current by remember { mutableStateOf(title) }
     val idx by vm.people.index.collectAsStateWithLifecycle()
@@ -331,8 +335,8 @@ fun LabelScreen(vm: AppViewModel, title: String, back: () -> Unit, open: (String
             .putExtra(RingtoneManager.EXTRA_RINGTONE_EXISTING_URI, tone?.let(Uri::parse)),
     )
 
-    // U7: scroll-linked top-bar tint.
-    val barTint = androidx.compose.material3.TopAppBarDefaults.pinnedScrollBehavior()
+    // Scroll-linked top-bar tint.
+    val barTint = TopAppBarDefaults.pinnedScrollBehavior()
     Scaffold(modifier = Modifier.nestedScroll(barTint.nestedScrollConnection), topBar = {
         TopAppBar(
             scrollBehavior = barTint,
@@ -356,7 +360,7 @@ fun LabelScreen(vm: AppViewModel, title: String, back: () -> Unit, open: (String
                     IconButton({ menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.dc_more)) }
                     DropdownMenu(menu, { menu = false }) {
                         // Screening rules for everyone in this label (block, only-they-ring at night, ringtone).
-                        app.parley.ui.blocking.LabelBlockingMenuItem(current) { menu = false }
+                        LabelBlockingMenuItem(current) { menu = false }
                         DropdownMenuItem({ Text(stringResource(R.string.lbl_rename)) }, leadingIcon = { Icon(Icons.Rounded.Edit, null) }, onClick = { menu = false; renaming = true })
                         DropdownMenuItem({ Text(stringResource(R.string.lbl_delete)) }, leadingIcon = { Icon(Icons.Rounded.Delete, null) }, onClick = { menu = false; confirmDelete = true })
                     }
@@ -375,8 +379,8 @@ fun LabelScreen(vm: AppViewModel, title: String, back: () -> Unit, open: (String
                     trailingContent = { if (tone != null) TextButton({ vm.people.update { it.copy(labelRingtones = it.labelRingtones - current) } }) { Text(stringResource(R.string.lbl_reset)) } },
                 )
             }
-            // X3: SIM, Circle rhythm and Do Not Disturb for this label.
-            item { app.parley.ui.extras.LabelPolicySection(vm, current, members) }
+            // SIM, Circle rhythm and Do Not Disturb for this label.
+            item { LabelPolicySection(vm, current, members) }
             item { Section(pluralStringResource(R.plurals.lbl_n_contacts, members.size, members.size)) }
             if (members.isEmpty()) item {
                 Text(stringResource(R.string.lbl_nobody), Modifier.padding(16.dp), style = MaterialTheme.typography.bodyMedium)

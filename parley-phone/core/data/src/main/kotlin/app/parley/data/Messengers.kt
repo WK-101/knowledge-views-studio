@@ -27,12 +27,12 @@ data class MessengerAction(
     /** A call of any kind (voice or video), as before V34. */
     val isCall: Boolean,
     val isVideo: Boolean,
-    /** V34: what the row does, from its mimetype. */
+    /** What the row does, from its mimetype. */
     val kind: ReachKind = if (isVideo) ReachKind.VIDEO else if (isCall) ReachKind.VOICE else ReachKind.MESSAGE,
-    /** V34: the number the row is for, when the app said. */
+    /** The number the row is for, when the app said. */
     val number: String? = null,
     val app: ReachApp? = null,
-    /** V34: the installed app to send the intent to (Signal and Molly share mimetypes); null lets Android pick. */
+    /** The installed app to send the intent to (Signal and Molly share mimetypes); null lets Android pick. */
     val packageName: String? = null,
 ) {
     val row: ReachRow get() = ReachRow(dataId, mimeType, accountType, app, appName, kind, number, label)
@@ -48,7 +48,7 @@ data class MessengerAction(
  * Reads the rows WhatsApp, Signal, Telegram, Threema… add to contacts, so Parley can offer "Call on…/Message on…"
  * without network access and without listing installed apps.
  *
- * V34: rows are recognised by mimetype ([MessengerMimes]), and also found when the app's raw contact didn't join the
+ * Rows are recognised by mimetype ([MessengerMimes]), and also found when the app's raw contact didn't join the
  * person's contact. That was why Signal went missing: WhatsApp's raw contacts are merged by the usual name and
  * number matching, but Signal pins its raw contact to one sibling raw contact with an aggregation exception when it
  * syncs, and copies that raw contact's name. When that sibling is later replaced (moved to another account, edited
@@ -74,7 +74,7 @@ object Messengers {
             }
         }
         val messengerOnly = others.filter { id -> onlyMessengerRaws(context, id) }
-        // v3.4 review #5: exact number match only, and only rows that carry a number.
+        // Exact number match only, and only rows that carry a number.
         val extra = if (messengerOnly.isEmpty()) emptyList() else readRows(context, messengerOnly).actions.filter { a ->
             MessengerRowMatch.extraRow(a.number, ownPhones, region)
         }
@@ -83,7 +83,7 @@ object Messengers {
         return all to ownPhones
     }
 
-    /** V34: the messenger rows for [number] (a saved contact's, or a temporary visible contact's once apps synced). */
+    /** The messenger rows for [number] (a saved contact's, or a temporary visible contact's once apps synced). */
     fun actionsForNumber(context: Context, number: String): List<MessengerAction> {
         if (number.isBlank()) return emptyList()
         val ids = LinkedHashSet<Long>()
@@ -91,7 +91,7 @@ object Messengers {
             while (c.moveToNext()) ids += c.getLong(0)
         }
         val region = PhoneEnv.countryIso(context)
-        // v3.4 review #5: rows without a number only from a contact that itself has this exact number.
+        // Rows without a number only from a contact that itself has this exact number.
         return ids.flatMap { id ->
             val (actions, phones) = actionsAndPhones(context, id)
             actions.filter { a -> MessengerRowMatch.forNumber(a.number, phones, number, region) }

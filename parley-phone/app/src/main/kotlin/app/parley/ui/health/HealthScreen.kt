@@ -1,12 +1,15 @@
 package app.parley.ui.health
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.HealthAndSafety
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -18,6 +21,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -28,21 +32,26 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
+import app.parley.common.ux.BackupNudge
 import app.parley.data.HealthIssue
 import app.parley.data.HealthKind
 import app.parley.data.HealthScanner
 import androidx.compose.foundation.layout.heightIn
 import app.parley.ui.EmptyState
 import app.parley.ui.Routes
+import app.parley.ui.backup.rememberBackupFirst
 import app.parley.ui.contact.Section
+import app.parley.ui.people.AccountDiagnosticsSection
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import app.parley.R
+import kotlinx.coroutines.withContext
 
 private val titles = mapOf(
     HealthKind.NO_COUNTRY_CODE to R.string.health_no_country,
@@ -57,8 +66,7 @@ private val titles = mapOf(
 @Composable
 fun HealthScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
     val scope = rememberCoroutineScope()
-    val context = LocalContext.current
-    val res = androidx.compose.ui.platform.LocalResources.current
+    val res = LocalResources.current
     val contacts by vm.contacts.collectAsStateWithLifecycle()
     val calls by vm.c.history.calls.collectAsStateWithLifecycle()
     val scanner = remember { HealthScanner(vm.c.appContext) }
@@ -67,11 +75,11 @@ fun HealthScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
     LaunchedEffect(contacts, round) { issues = scanner.scan(contacts.orEmpty(), calls.orEmpty(), vm.countryIso) }
     var confirmStale by remember { mutableStateOf<List<Triple<HealthIssue, String, String>>?>(null) }
     confirmStale?.let { list ->
-        androidx.compose.material3.AlertDialog(
+        AlertDialog(
             onDismissRequest = { confirmStale = null },
             title = { Text(pluralStringResource(R.plurals.health_stale_confirm_title, list.size, list.size)) },
             text = {
-                androidx.compose.foundation.layout.Column {
+                Column {
                     Text(stringResource(R.string.health_stale_confirm_text))
                     LazyColumn(Modifier.padding(top = 8.dp).heightIn(max = 320.dp)) {
                         items(list.size) { k ->
@@ -94,10 +102,10 @@ fun HealthScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
         )
     }
 
-    // C2: "Back up first?" before deleting many contacts at once.
-    val backupFirst = app.parley.ui.backup.rememberBackupFirst(vm)
-    // U7: scroll-linked top-bar tint.
-    val barTint = androidx.compose.material3.TopAppBarDefaults.pinnedScrollBehavior()
+    // "Back up first?" before deleting many contacts at once.
+    val backupFirst = rememberBackupFirst(vm)
+    // Scroll-linked top-bar tint.
+    val barTint = TopAppBarDefaults.pinnedScrollBehavior()
     Scaffold(modifier = Modifier.nestedScroll(barTint.nestedScrollConnection), topBar = {
         TopAppBar(title = { Text(stringResource(R.string.health_title)) }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.dc_back)) } }, scrollBehavior = barTint)
     }) { p ->
@@ -107,8 +115,8 @@ fun HealthScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
             return@Scaffold
         }
         if (list.isEmpty()) {
-            androidx.compose.foundation.layout.Column(Modifier.padding(p).verticalScroll(androidx.compose.foundation.rememberScrollState())) {
-                app.parley.ui.people.AccountDiagnosticsSection(vm)
+            Column(Modifier.padding(p).verticalScroll(rememberScrollState())) {
+                AccountDiagnosticsSection(vm)
                 EmptyState(
                     Icons.Rounded.HealthAndSafety, stringResource(R.string.health_all_tidy), stringResource(R.string.health_all_tidy_text),
                     action = stringResource(R.string.main_done), onAction = back,
@@ -117,7 +125,7 @@ fun HealthScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
             return@Scaffold
         }
         LazyColumn(Modifier.padding(p)) {
-            item { app.parley.ui.people.AccountDiagnosticsSection(vm) }
+            item { AccountDiagnosticsSection(vm) }
             titles.forEach { (kind, title) ->
                 val group = list.filter { it.kind == kind }
                 if (group.isEmpty()) return@forEach
@@ -131,9 +139,9 @@ fun HealthScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
                         HealthKind.SHARED_NUMBER -> TextButton({ open(Routes.DUPLICATES) }, Modifier.padding(horizontal = 8.dp)) { Text(stringResource(R.string.health_review_duplicates)) }
                         HealthKind.STALE -> TextButton({
                             val phoneLabel = res.getString(R.string.health_phone)
-                            // Never with one tap: list who and where first (F18).
+                            // Never with one tap: list who and where first.
                             scope.launch {
-                                confirmStale = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                confirmStale = withContext(Dispatchers.IO) {
                                     group.map { i ->
                                         val where = vm.c.contacts.details(i.contactId)?.rawContacts.orEmpty().map { it.account.displayLabel }.distinct()
                                         Triple(i, i.name, where.joinToString(", ").ifEmpty { phoneLabel })
@@ -143,7 +151,7 @@ fun HealthScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
                         }, Modifier.padding(horizontal = 8.dp)) { Text(stringResource(R.string.health_auto_delete)) }
                         HealthKind.EMPTY -> TextButton({
                             val ids = group.map { it.contactId }
-                            backupFirst.ask(ids.size, app.parley.common.ux.BackupNudge.LARGE_DELETE) { vm.deleteContacts(ids); round++ }
+                            backupFirst.ask(ids.size, BackupNudge.LARGE_DELETE) { vm.deleteContacts(ids); round++ }
                         }, Modifier.padding(horizontal = 8.dp)) { Text(stringResource(R.string.health_delete_all, group.size)) }
                         HealthKind.NUMBER_AS_NAME -> Unit
                     }

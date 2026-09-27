@@ -1,5 +1,6 @@
 package app.parley.ui.home
 
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -53,14 +54,19 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
+import app.parley.NavEvent
 import app.parley.R
 import app.parley.common.ContactSummary
+import app.parley.common.StartTab
+import app.parley.common.TextSearch
+import app.parley.common.calls.CallSource
 import app.parley.common.homeLayout
 import app.parley.common.people.FavoriteOrder
 import app.parley.common.people.FavoriteSort
 import app.parley.ui.Avatar
 import app.parley.ui.EmptyState
 import app.parley.ui.Routes
+import app.parley.ui.circle.CircleFavoritesSection
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -69,16 +75,16 @@ fun FavoritesTab(vm: AppViewModel, open: (String) -> Unit, query: String = "", o
     val frequents by vm.frequents.collectAsStateWithLifecycle()
     val ps by vm.people.settings.collectAsStateWithLifecycle()
     var reordering by remember { mutableStateOf(false) }
-    // R1: while the Circle tab is hidden, the Circle is a folding section at the top of Favourites.
-    // S2: unless the favourites moved into Contacts (then the Circle follows them there).
-    val circleHere = vm.settings.collectAsStateWithLifecycle().value.homeLayout.circleHost == app.parley.common.StartTab.FAVORITES
+    // While the Circle tab is hidden, the Circle is a folding section at the top of Favourites.
+    // Unless the favourites moved into Contacts (then the Circle follows them there).
+    val circleHere = vm.settings.collectAsStateWithLifecycle().value.homeLayout.circleHost == StartTab.FAVORITES
     if (favorites.isEmpty() && frequents.isEmpty()) {
         Column(Modifier.fillMaxSize()) {
-            if (circleHere) Column(Modifier.padding(top = 12.dp)) { app.parley.ui.circle.CircleFavoritesSection(vm, open, query) }
-            // U5: nothing starred yet: the way on is the contact list.
+            if (circleHere) Column(Modifier.padding(top = 12.dp)) { CircleFavoritesSection(vm, open, query) }
+            // Nothing starred yet: the way on is the contact list.
             EmptyState(
                 Icons.Rounded.StarOutline, stringResource(R.string.fav_empty_title), stringResource(R.string.fav_empty_body),
-                action = stringResource(R.string.ux_empty_choose_favorites), onAction = { vm.navigate(app.parley.NavEvent.Tab(app.parley.common.StartTab.CONTACTS)) },
+                action = stringResource(R.string.ux_empty_choose_favorites), onAction = { vm.navigate(NavEvent.Tab(StartTab.CONTACTS)) },
             )
         }
         return
@@ -92,8 +98,8 @@ fun FavoritesTab(vm: AppViewModel, open: (String) -> Unit, query: String = "", o
     // Search from the header filters favourites and frequent contacts (reordering pauses while searching).
     val q = query.trim()
     LaunchedEffect(q.isNotEmpty()) { if (q.isNotEmpty()) reordering = false }
-    val shownFavorites = if (q.isEmpty()) order else order.filter { app.parley.common.TextSearch.matches(q, it.displayName, it.phones.map { p -> p.number }) }
-    val shownFrequents = if (q.isEmpty()) frequents else frequents.filter { app.parley.common.TextSearch.matches(q, it.title, listOf(it.number)) }
+    val shownFavorites = if (q.isEmpty()) order else order.filter { TextSearch.matches(q, it.displayName, it.phones.map { p -> p.number }) }
+    val shownFrequents = if (q.isEmpty()) frequents else frequents.filter { TextSearch.matches(q, it.title, listOf(it.number)) }
     val cells = if (ps.favoriteColumns > 0) GridCells.Fixed(ps.favoriteColumns) else GridCells.Adaptive(104.dp)
     fun commit() = vm.people.setFavoriteOrder(order.map { it.lookupKey })
 
@@ -121,7 +127,7 @@ fun FavoritesTab(vm: AppViewModel, open: (String) -> Unit, query: String = "", o
         },
     ) {
         if (circleHere && !reordering) item(span = { GridItemSpan(maxLineSpan) }, key = "circle") {
-            app.parley.ui.circle.CircleFavoritesSection(vm, open, q)
+            CircleFavoritesSection(vm, open, q)
         }
         if (q.isNotEmpty() && shownFavorites.isEmpty() && shownFrequents.isEmpty()) item(span = { GridItemSpan(maxLineSpan) }) {
             EmptyState(
@@ -147,7 +153,7 @@ fun FavoritesTab(vm: AppViewModel, open: (String) -> Unit, query: String = "", o
             val dragging = dragKey == c.lookupKey
             val moveEarlier = stringResource(R.string.fav_move_earlier)
             val moveLater = stringResource(R.string.fav_move_later)
-            val base = Modifier.animateItem(placementSpec = if (dragging) null else androidx.compose.animation.core.spring())
+            val base = Modifier.animateItem(placementSpec = if (dragging) null else spring())
             if (reordering) {
                 Tile(
                     c.displayName, c.photoUri, onClick = {}, onLong = {}, reorder = true,
@@ -188,7 +194,7 @@ fun FavoritesTab(vm: AppViewModel, open: (String) -> Unit, query: String = "", o
                 )
             } else {
                 Tile(c.displayName, c.photoUri, modifier = base, onClick = {
-                    c.phones.firstOrNull()?.let { p -> vm.requestCall(p.number, c.displayName, source = app.parley.common.calls.CallSource.FAVORITE) } ?: open(Routes.contact(c.id))
+                    c.phones.firstOrNull()?.let { p -> vm.requestCall(p.number, c.displayName, source = CallSource.FAVORITE) } ?: open(Routes.contact(c.id))
                 }, onLong = { open(Routes.contact(c.id)) })
             }
         }
@@ -197,7 +203,7 @@ fun FavoritesTab(vm: AppViewModel, open: (String) -> Unit, query: String = "", o
                 Text(stringResource(R.string.fav_frequent), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(start = 8.dp, top = 16.dp, bottom = 4.dp))
             }
             items(shownFrequents, key = { "q" + it.key }) { g ->
-                Tile(g.title, g.contact?.photoUri, onClick = { vm.requestCall(g.number, g.contact?.displayName, source = app.parley.common.calls.CallSource.FAVORITE) }, onLong = {
+                Tile(g.title, g.contact?.photoUri, onClick = { vm.requestCall(g.number, g.contact?.displayName, source = CallSource.FAVORITE) }, onLong = {
                     g.contact?.let { open(Routes.contact(it.id)) } ?: open(Routes.history(g.number))
                 })
             }

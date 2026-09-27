@@ -1,6 +1,7 @@
 package app.parley.common.people
 
 import app.parley.common.MessengerCatalog
+import app.parley.common.MessengerLinks
 import app.parley.common.qr.QrApp
 import app.parley.common.record.Mime
 
@@ -21,7 +22,7 @@ object ImProtocol {
 }
 
 /**
- * I1: messenger handles (Matrix, Threema ID, Telegram and Signal usernames, Discord, XMPP, SIP…) as Android stores
+ * Messenger handles (Matrix, Threema ID, Telegram and Signal usernames, Discord, XMPP, SIP…) as Android stores
  * them: `Im` rows (DATA1 handle, DATA5 protocol, DATA6 custom protocol name) and `SipAddress` rows (DATA1).
  *
  * The services Android predefines keep their protocol number; the others are written as PROTOCOL_CUSTOM with the
@@ -210,5 +211,5 @@ object Handles {
     val TELEGRAM_APPS: List<String> get() = QrApp.TELEGRAM.packages
     val XMPP_APPS: List<String> get() = MessengerCatalog.XMPP.packages
 
-    private fun encode(s: String): String = app.parley.common.MessengerLinks.encode(s, keep = "@:")
+    private fun encode(s: String): String = MessengerLinks.encode(s, keep = "@:")
 }

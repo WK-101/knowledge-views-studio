@@ -29,7 +29,7 @@ data class LastMessaged(val app: MessengerApp?, val label: String, val at: Long,
 /** Your details for "Send my details". */
 data class MyDetails(val name: String = "", val number: String = "")
 
-/** A chat Parley opened for a number that isn't a contact; offered as a temporary contact on return (M4). */
+/** A chat Parley opened for a number that isn't a contact; offered as a temporary contact on return. */
 data class OpenedChat(val number: String, val appLabel: String, val at: Long)
 
 /**
@@ -37,7 +37,7 @@ data class OpenedChat(val number: String, val appLabel: String, val at: Long)
  * server): the keypad alphabet, the last messenger chosen, the WhatsApp/Business choice, your details for drafts,
  * and when you last messaged each number. Nothing here leaves the phone.
  *
- * F13: the "last messaged" record is encrypted (the vault's caller-ID key, in the Android Keystore), can be turned
+ * The "last messaged" record is encrypted (the vault's caller-ID key, in the Android Keystore), can be turned
  * off ("Keep a record of numbers you message"), cleared per number or at once, never holds private (vault)
  * numbers, follows call-history retention and goes with expired temporary contacts. [isPrivateNumber] tells vault
  * numbers apart (checked off the main thread).
@@ -63,7 +63,7 @@ class MessagingStore(
     val recordEnabled: StateFlow<Boolean> = _recordEnabled.asStateFlow()
 
     private val _expiryDays = MutableStateFlow(prefs.getInt(K_EXPIRY_DAYS, 0))
-    /** M10: "Forget messaged numbers after" N days (0 = never; call-history retention applies as well). */
+    /** "Forget messaged numbers after" N days (0 = never; call-history retention applies as well). */
     val expiryDays: StateFlow<Int> = _expiryDays.asStateFlow()
 
     private var entries: List<MessagedEntry> = emptyList()
@@ -92,7 +92,7 @@ class MessagingStore(
             } finally {
                 loaded.complete(Unit)
             }
-            // M10: expired entries go as soon as the record is loaded, not only in the daily housekeeping.
+            // Expired entries go as soon as the record is loaded, not only in the daily housekeeping.
             runCatching { pruneExpired() }
         }
     }
@@ -121,7 +121,7 @@ class MessagingStore(
         get() = prefs.getString(K_LAST_APP, null)
         set(v) = prefs.edit { putString(K_LAST_APP, v) }
 
-    /** V34: package (or account type) of the app used last for a call from "Message or call on…", offered first. */
+    /** Package (or account type) of the app used last for a call from "Message or call on…", offered first. */
     var lastCallApp: String?
         get() = prefs.getString(K_LAST_CALL_APP, null)
         set(v) = prefs.edit { putString(K_LAST_CALL_APP, v) }
@@ -131,7 +131,7 @@ class MessagingStore(
         get() = prefs.getString(K_WA_CHOICE, null)
         set(v) = prefs.edit { putString(K_WA_CHOICE, v) }
 
-    /** F30: the one-time "WhatsApp may ask to sync contacts" explanation was shown. */
+    /** The one-time "WhatsApp may ask to sync contacts" explanation was shown. */
     var whatsappSyncNoticeShown: Boolean
         get() = prefs.getBoolean(K_WA_SYNC_NOTICE, false)
         set(v) = prefs.edit { putBoolean(K_WA_SYNC_NOTICE, v) }
@@ -173,7 +173,7 @@ class MessagingStore(
     /** Call-history retention: drops entries older than [before]. */
     suspend fun pruneOlderThan(before: Long) = update { MessagedRecord.prune(it, before) }
 
-    /** M10: sets "Forget messaged numbers after" and applies it right away. */
+    /** Sets "Forget messaged numbers after" and applies it right away. */
     suspend fun setExpiryDays(days: Int) {
         prefs.edit { putInt(K_EXPIRY_DAYS, days.coerceAtLeast(0)) }
         _expiryDays.value = days.coerceAtLeast(0)
@@ -181,7 +181,7 @@ class MessagingStore(
     }
 
     /**
-     * M10: drops entries past the record's own expiry or the call-history retention ([retentionDays], 0 = keep),
+     * Drops entries past the record's own expiry or the call-history retention ([retentionDays], 0 = keep),
      * whichever is stricter. Called on load, when the setting changes and by the daily housekeeping.
      */
     suspend fun pruneExpired(retentionDays: Int = 0, now: Long = System.currentTimeMillis()) {

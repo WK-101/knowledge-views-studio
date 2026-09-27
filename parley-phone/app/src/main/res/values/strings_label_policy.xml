@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Label policies: SIM, rhythm and Do Not Disturb per label. -->
+<resources>
+    <string name="label_policy_section">For everyone in this label</string>
+    <string name="label_policy_sim">SIM for calls</string>
+    <string name="label_policy_sim_none">No preference</string>
+    <string name="label_policy_sim_missing">A SIM that isn\'t in this phone</string>
+    <string name="label_policy_sim_on">Calls go out on %1$s</string>
+    <string name="label_policy_sim_body">Used for people in this label who don\'t have a SIM of their own.</string>
+    <string name="label_policy_rhythm">Keep in touch when they join your Circle</string>
+    <string name="label_policy_rhythm_none">Not set</string>
+    <string name="label_policy_rhythm_body">When you add someone from “%1$s” to your Circle, Parley suggests this rhythm first.</string>
+    <string name="label_policy_dnd">Allow through Do Not Disturb</string>
+    <string name="label_policy_dnd_summary">Works by starring everyone here, which also puts them in Favourites: Android lets starred contacts ring</string>
+    <string name="label_policy_dnd_open">Open Do Not Disturb settings</string>
+    <string name="label_policy_dnd_title">Let “%1$s” ring during Do Not Disturb?</string>
+    <string name="label_policy_rhythm_suggest">Like your “%1$s” label: %2$s</string>
+    <plurals name="label_policy_added">
+        <item quantity="one">%d person added to your Circle</item>
+        <item quantity="other">%d people added to your Circle</item>
+    </plurals>
+    <plurals name="label_policy_add_members">
+        <item quantity="one">Add %d member to your Circle</item>
+        <item quantity="other">Add %d members to your Circle</item>
+    </plurals>
+    <plurals name="label_policy_unstarred">
+        <item quantity="one">%d contact unstarred</item>
+        <item quantity="other">%d contacts unstarred</item>
+    </plurals>
+    <plurals name="label_policy_star_new">
+        <item quantity="one">Star %d new member</item>
+        <item quantity="other">Star %d new members</item>
+    </plurals>
+    <string name="label_policy_dnd_all_starred">Everyone in this label is already starred, so they are already in Favourites.</string>
+    <string name="label_policy_dnd_everyone_note">Then, in Android\'s Do Not Disturb settings, allow calls from starred contacts. Everyone starred can ring, not only this label. Turning this off unstars only the people Parley starred for it.</string>
+    <plurals name="label_policy_dnd_preview">
+        <item quantity="one">This person will be starred and appear in Favourites (and as starred in other apps):</item>
+        <item quantity="other">These %d people will be starred and appear in Favourites (and as starred in other apps):</item>
+    </plurals>
+    <plurals name="label_policy_dnd_star_confirm">
+        <item quantity="one">Star %d and open settings</item>
+        <item quantity="other">Star %d and open settings</item>
+    </plurals>
+</resources>

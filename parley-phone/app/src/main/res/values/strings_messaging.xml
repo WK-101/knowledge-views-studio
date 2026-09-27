@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- "Message or call on…": reaching a contact through messenger apps. -->
+<resources>
+    <!-- Direct Call on "Message on…" and number-action surfaces -->
+    <string name="reach_call_number">Call %1$s</string>
+
+    <!-- Entry points -->
+    <string name="reach_message_or_call_on">Message or call on…</string>
+    <string name="reach_message_or_call">Message or call</string>
+    <string name="reach_apps_line">WhatsApp, Signal, Telegram, Viber or SMS</string>
+
+    <!-- Sheet sections -->
+    <string name="reach_section_message">Message on</string>
+    <string name="reach_section_call">Call on</string>
+    <string name="reach_call_direct">Voice or video call in the app</string>
+    <string name="reach_call_voice_only">Voice call in the app</string>
+    <string name="reach_call_video_only">Video call in the app</string>
+    <string name="reach_call_via_chat">Open chat on %1$s to call</string>
+    <string name="reach_call_via_chat_sub">%1$s can\'t start a call from a number. The chat opens, then tap its call button.</string>
+    <string name="reach_call_via_chat_hint">Tap the call button at the top of the chat</string>
+    <string name="reach_no_call_apps">No app for calls is installed. Calls through WhatsApp, Signal, Telegram or Viber show up here once one is.</string>
+    <string name="reach_save_for_calls_sub">WhatsApp, Signal and other apps can only offer call buttons for a contact they can see. You choose in the next step whether they may see this one.</string>
+    <string name="reach_save_for_calls_notice">Apps can offer calls only if you tick \"Save visible to other apps\". Then WhatsApp, Signal and any app that can read your contacts will see this number until it deletes itself. Left unticked, it stays private in Parley.</string>
+    <string name="reach_save_already_known">This number is already saved, so nothing was added</string>
+    <plurals name="reach_save_for_calls">
+        <item quantity="one">Save for %d day so apps can offer calls</item>
+        <item quantity="other">Save for %d days so apps can offer calls</item>
+    </plurals>
+
+    <!-- Actions (TalkBack labels and long-press) -->
+    <string name="reach_message_on_app">Message on %1$s</string>
+    <string name="reach_voice_on_app">Voice call on %1$s</string>
+    <string name="reach_video_on_app">Video call on %1$s</string>
+    <string name="reach_make_usual">Use by default</string>
+    <string name="reach_stop_usual">Stop using by default</string>
+
+    <!-- "Reach via apps" on the contact page -->
+    <string name="reach_reach_title">Message or call on…</string>
+    <string name="reach_can_message">Message</string>
+    <string name="reach_can_voice">Voice</string>
+    <string name="reach_can_video">Video</string>
+    <string name="reach_usual_message">Usual for messages</string>
+    <string name="reach_usual_voice">Usual for calls</string>
+    <string name="reach_usual_video">Usual for video</string>
+    <string name="reach_reach_hint">Long-press a button to make it the usual way.</string>
+</resources>

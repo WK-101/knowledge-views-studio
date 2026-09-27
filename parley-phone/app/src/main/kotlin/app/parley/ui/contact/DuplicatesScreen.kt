@@ -3,6 +3,7 @@ package app.parley.ui.contact
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -25,6 +26,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -46,6 +48,7 @@ import app.parley.common.Duplicates
 import app.parley.ui.Avatar
 import app.parley.ui.Bidi
 import app.parley.ui.EmptyState
+import app.parley.ui.backup.rememberBackupFirst
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -59,10 +62,10 @@ fun DuplicatesScreen(vm: AppViewModel, back: () -> Unit) {
     val groups by produceState<List<List<ContactSummary>>?>(null, all) {
         value = withContext(Dispatchers.Default) { Duplicates.find(all.orEmpty()) }
     }
-    // U7: scroll-linked top-bar tint.
-    val barTint = androidx.compose.material3.TopAppBarDefaults.pinnedScrollBehavior()
-    // C2: "Back up first?" before the first merge (asked once per visit).
-    val backupFirst = app.parley.ui.backup.rememberBackupFirst(vm)
+    // Scroll-linked top-bar tint.
+    val barTint = TopAppBarDefaults.pinnedScrollBehavior()
+    // "Back up first?" before the first merge (asked once per visit).
+    val backupFirst = rememberBackupFirst(vm)
     Scaffold(modifier = Modifier.nestedScroll(barTint.nestedScrollConnection), topBar = {
         TopAppBar(title = { Text(stringResource(R.string.dup_title)) }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.main_back)) } }, scrollBehavior = barTint)
     }) { p ->
@@ -74,7 +77,7 @@ fun DuplicatesScreen(vm: AppViewModel, back: () -> Unit) {
                 Icons.Rounded.DoneAll, stringResource(R.string.dup_none), stringResource(R.string.dup_none_body), Modifier.padding(p),
                 action = stringResource(R.string.main_done), onAction = back,
             )
-            else -> LazyColumn(Modifier.padding(p), contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            else -> LazyColumn(Modifier.padding(p), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 item {
                     Text(
                         stringResource(R.string.dup_explainer),

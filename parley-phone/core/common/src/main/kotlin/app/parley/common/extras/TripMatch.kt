@@ -3,7 +3,7 @@ package app.parley.common.extras
 import app.parley.common.TextSearch
 
 /**
- * X2 "Who's in…" (trip mode): the people linked to a city you type or pick. Nothing is detected: there is no
+ * "Who's in…" (trip mode): the people linked to a city you type or pick. Nothing is detected: there is no
  * location permission, the city is always typed. A person matches through a postal address (city, region or
  * country), a note that mentions the place, or the place libphonenumber's offline geocoder gives for one of their
  * numbers ("Lisbon", "Mountain View, CA", "Portugal").

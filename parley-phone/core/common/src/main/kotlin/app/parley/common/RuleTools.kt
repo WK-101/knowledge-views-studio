@@ -1,7 +1,7 @@
 package app.parley.common
 
 /**
- * Rule editor helpers (B16): normalise a pattern before saving, validate it, and preview what it will match
+ * Rule editor helpers: normalise a pattern before saving, validate it, and preview what it will match
  * ("Will match +52 444…, 444…, 01 444…"). Pure and unit-tested.
  */
 object RuleTools {

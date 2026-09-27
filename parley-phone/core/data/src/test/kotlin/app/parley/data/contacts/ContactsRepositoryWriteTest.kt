@@ -2,6 +2,7 @@ package app.parley.data.contacts
 
 import android.Manifest
 import android.app.Application
+import android.os.UserManager
 import android.provider.ContactsContract.CommonDataKinds.Email
 import android.provider.ContactsContract.CommonDataKinds.Note
 import android.provider.ContactsContract.CommonDataKinds.Phone
@@ -12,6 +13,7 @@ import app.parley.data.ContactsRepository
 import app.parley.data.DataItem
 import app.parley.data.WorkProfile
 import app.parley.data.testing.FakeContactsProvider
+import java.io.IOException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -131,7 +133,7 @@ class ContactsRepositoryWriteTest {
 
     @Test fun aDeleteNeverGoesAheadWithoutItsUndoCopy() = runBlocking {
         val id = create()
-        repo.beforeChange = { _, _ -> throw java.io.IOException("disk full") }
+        repo.beforeChange = { _, _ -> throw IOException("disk full") }
         assertThrows(IllegalStateException::class.java) { runBlocking { repo.delete(listOf(id)) } }
         assertEquals(1, provider.rows("raw_contacts").size)
 
@@ -143,7 +145,7 @@ class ContactsRepositoryWriteTest {
 
     @Test fun aFailedJournalDoesNotBlockAnEdit() = runBlocking {
         val id = create()
-        repo.beforeChange = { _, _ -> throw java.io.IOException("disk full") }
+        repo.beforeChange = { _, _ -> throw IOException("disk full") }
         val before = repo.editable(id)!!
         assertNotNull(repo.save(before, before.copy(nickname = "Countess"), null, null, false))
         assertEquals(emptyList<Long>(), repo.lastJournalIds)
@@ -166,7 +168,7 @@ class ContactsRepositoryWriteTest {
 
         provider.workNumbers += "+1 555 0123"
         assertEquals("no work profile: the enterprise lookup isn't asked", false, repo.isContact("+1 555 0123"))
-        val um = app.getSystemService(android.os.UserManager::class.java)
+        val um = app.getSystemService(UserManager::class.java)
         shadowOf(um).addProfile(0, 10, "Work", 0x20 /* UserInfo.FLAG_MANAGED_PROFILE */)
         resetWorkProfileCache()
         assertEquals(true, repo.isContact("+1 555 0123"))

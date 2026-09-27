@@ -7,6 +7,7 @@ import android.os.Bundle
 import android.telecom.TelecomManager
 import android.telephony.TelephonyManager
 import app.parley.common.PhoneNumbers
+import app.parley.common.calls.DialCodes
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -25,11 +26,11 @@ sealed interface PlaceResult {
 class CallPlacer(private val context: Context, private val sims: SimRepository, private val prefs: PrefsRepository) {
     private val telecom = context.getSystemService(TelecomManager::class.java)
 
-    /** X3: the SIM a label asks for, used when the number has no remembered SIM. Blocking: only called on [Dispatchers.IO]. */
+    /** The SIM a label asks for, used when the number has no remembered SIM. Blocking: only called on [Dispatchers.IO]. */
     @Volatile
     var fallbackSim: ((String) -> String?)? = null
 
-    /** The SIM for [number] without a choice of its own: the remembered one, else a label's (X3). Off the main thread. */
+    /** The SIM for [number] without a choice of its own: the remembered one, else a label's. Off the main thread. */
     suspend fun resolveSim(number: String): String? = withContext(Dispatchers.IO) {
         prefs.simFor(number) ?: runCatching { fallbackSim?.invoke(number) }.getOrNull()
     }
@@ -66,7 +67,7 @@ class CallPlacer(private val context: Context, private val sims: SimRepository, 
 
     /** *#*#1234#*#* style codes are broadcast to the owning app (allowed for the default dialer). */
     private fun handleSecretCode(number: String): Boolean {
-        val code = app.parley.common.calls.DialCodes.secretCode(number) ?: return false
+        val code = DialCodes.secretCode(number) ?: return false
         return try {
             context.getSystemService(TelephonyManager::class.java).sendDialerSpecialCode(code)
             true

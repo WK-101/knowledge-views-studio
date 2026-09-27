@@ -7,6 +7,8 @@ import app.parley.R
 import app.parley.common.CallEntry
 import app.parley.common.ContactSummary
 import app.parley.common.PhoneIdentity
+import app.parley.common.circle.InteractionType
+import app.parley.common.circle.Interactions
 import app.parley.common.people.MessengerPrefs
 import app.parley.common.people.OtherFields
 import app.parley.common.people.RelationLinks
@@ -17,11 +19,13 @@ import app.parley.data.DataItem
 import app.parley.data.MessengerAction
 import app.parley.data.Messengers
 import app.parley.data.circle.Interaction
+import app.parley.data.circle.InteractionStore
 import app.parley.data.db.CallNoteEntity
 import app.parley.data.db.ContactMetaEntity
 import app.parley.data.db.NumberSimEntity
 import app.parley.data.db.TemporaryContactEntity
 import app.parley.ui.circle.PersonMemory
+import java.util.UUID
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
@@ -56,18 +60,18 @@ data class ContactDetailUiState(
     /** Call notes on their numbers. */
     val notes: List<CallNoteEntity> = emptyList(),
     val messengers: List<MessengerAction> = emptyList(),
-    /** I4: kinds Parley doesn't edit, read-only. */
+    /** Kinds Parley doesn't edit, read-only. */
     val otherFields: List<OtherFields.Field> = emptyList(),
     /** Set when this is a temporary contact (its deletion date). */
     val temporary: TemporaryContactEntity? = null,
     val simPrefs: List<NumberSimEntity> = emptyList(),
-    /** R8/R9: every note about them (call notes, interaction notes, pinned note). */
+    /** Every note about them (call notes, interaction notes, pinned note). */
     val memory: PersonMemory = PersonMemory(),
 ) {
     val prefs: MessengerPrefs get() = MessengerPrefs.decode(meta?.preferredMessenger)
 }
 
-/** What a tap on a relation leads to (F23). */
+/** What a tap on a relation leads to. */
 sealed interface RelationTarget {
     data class Contact(val id: Long) : RelationTarget
 
@@ -129,11 +133,11 @@ class ContactDetailViewModel(private val c: DataContainer) : ViewModel() {
     private val meta = lookupKey.flatMapLatest { k -> if (k.isEmpty()) flowOf(null) else c.meta.metaFlow(k) }
     private val temporary = lookupKey.flatMapLatest { k -> if (k.isEmpty()) flowOf(null) else c.meta.temporaryFlow(k) }
 
-    // R2: logged interactions for the timeline and the Stay in touch card.
+    // Logged interactions for the timeline and the Stay in touch card.
     private val interactions = lookupKey.flatMapLatest { k -> if (k.isEmpty()) flowOf(emptyList()) else c.circle.interactions.interactions(k) }
     private val notes = numberKeys.flatMapLatest { keys -> if (keys.isEmpty()) flowOf(emptyList()) else c.meta.callNotesAny(keys.toList()) }
 
-    // F7: same line by E.164 (read with this phone's country), not by the last 9 digits.
+    // Same line by E.164 (read with this phone's country), not by the last 9 digits.
     private val history = combine(phones, c.history.calls) { mine, calls ->
         if (mine.isEmpty()) emptyList() else PhoneIdentity.LineSet(mine, countryIso).let { set -> calls.orEmpty().filter { e -> e.number in set } }
     }.flowOn(Dispatchers.Default)
@@ -142,7 +146,7 @@ class ContactDetailViewModel(private val c: DataContainer) : ViewModel() {
 
     private val personal = combine(meta, interactions, notes, temporary) { m, i, n, t -> Personal(m, i, n, t) }
 
-    // R8/R9: the person's notes, re-read when any of their sources changes.
+    // The person's notes, re-read when any of their sources changes.
     private val memory = combine(lookupKey, numberKeys, personal) { k, keys, _ -> k to keys }
         .mapLatest { (k, keys) -> PersonMemory(suspendRunCatching { c.circle.notesFor(k, keys) }.getOrDefault(emptyList())) }
 
@@ -185,7 +189,7 @@ class ContactDetailViewModel(private val c: DataContainer) : ViewModel() {
 
     fun vcardUri(lookupKey: String): Uri = c.contacts.vcardUri(lookupKey)
 
-    /** I3: makes [item] the default of its kind, or clears the default. */
+    /** Makes [item] the default of its kind, or clears the default. */
     fun setDefault(item: DataItem, mime: String, on: Boolean) = launch {
         val dataId = item.id ?: return@launch
         val ok = if (on) c.contacts.setDefault(dataId) else c.contacts.clearDefault(id, mime)
@@ -202,7 +206,7 @@ class ContactDetailViewModel(private val c: DataContainer) : ViewModel() {
     /** The note shown when they call; blank removes it. */
     fun setPinnedNote(text: String) = launch {
         val key = current?.lookupKey?.takeIf { it.isNotEmpty() } ?: return@launch
-        // The contact id is kept beside the key so the row can follow a key change (F8). Targeted writes, so the
+        // The contact id is kept beside the key so the row can follow a key change. Targeted writes, so the
         // Circle's dialog (which writes the same row) never loses an update.
         c.meta.ensureMeta(key, id)
         c.meta.setPinnedNote(key, id, text.trim().ifEmpty { null })
@@ -214,11 +218,11 @@ class ContactDetailViewModel(private val c: DataContainer) : ViewModel() {
         c.meta.setPreferredMessenger(key, id, p.encode())
     }
 
-    /** R10: remembers a life event yearly in the digest, or stops. */
+    /** Remembers a life event yearly in the digest, or stops. */
     fun setYearly(key: String, on: Boolean) {
         val lookup = current?.lookupKey ?: return
         launch { c.circle.setYearly(lookup, id, key, on) }
-        say(if (on) R.string.c2_yearly_on else R.string.c2_yearly_off)
+        say(if (on) R.string.circle_yearly_on else R.string.circle_yearly_off)
     }
 
     fun setSimFor(number: String, simId: String?) = launch { c.prefs.setSimFor(number, simId) }
@@ -233,17 +237,17 @@ class ContactDetailViewModel(private val c: DataContainer) : ViewModel() {
         )
     }
 
-    /** R2: logs a new interaction (or edits [initial]); a note that can't be encrypted isn't saved. */
-    fun saveInteraction(initial: Interaction?, type: app.parley.common.circle.InteractionType, note: String?, time: Long) = launch {
+    /** Logs a new interaction (or edits [initial]); a note that can't be encrypted isn't saved. */
+    fun saveInteraction(initial: Interaction?, type: InteractionType, note: String?, time: Long) = launch {
         val d = current ?: return@launch
         try {
             if (initial == null) {
-                c.circle.interactions.log(d.lookupKey, id, type, null, time, note, app.parley.common.circle.Interactions.manualKey(java.util.UUID.randomUUID().toString()))
+                c.circle.interactions.log(d.lookupKey, id, type, null, time, note, Interactions.manualKey(UUID.randomUUID().toString()))
                 say(R.string.circle_logged, d.given.ifBlank { d.displayName })
             } else {
                 c.circle.interactions.edit(initial.id, type, note, time.takeIf { it != initial.time })
             }
-        } catch (_: app.parley.data.circle.InteractionStore.SealException) {
+        } catch (_: InteractionStore.SealException) {
             say(R.string.circle_note_failed)
         }
     }
@@ -253,7 +257,7 @@ class ContactDetailViewModel(private val c: DataContainer) : ViewModel() {
         if (state.value.meta != null) c.meta.deleteMeta(lookupKey)
     }
 
-    /** A relation's contact: by the remembered lookup key first, then by name; several namesakes: ask (F23). */
+    /** A relation's contact: by the remembered lookup key first, then by name; several namesakes: ask. */
     fun openRelation(name: String, onResult: (RelationTarget) -> Unit) = launch {
         val link = RelationLinks.decode(state.value.meta?.relationLinks)[RelationLinks.nameKey(name)]
         val all = c.directory.contacts.value ?: c.contacts.snapshot()

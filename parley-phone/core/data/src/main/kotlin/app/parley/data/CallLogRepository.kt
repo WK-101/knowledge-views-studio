@@ -1,7 +1,9 @@
 package app.parley.data
 
+import android.Manifest
 import android.content.ContentValues
 import android.content.Context
+import android.net.Uri
 import android.provider.CallLog.Calls
 import app.parley.common.CallEntry
 import app.parley.common.CallType
@@ -28,15 +30,15 @@ class CallLogRepository(private val context: Context, scope: CoroutineScope) {
     private var fullLoaded = false
 
     /**
-     * V11: the newest [PREVIEW_ROWS] calls, read first so Recents can show them while the full log loads. Only filled
+     * The newest [PREVIEW_ROWS] calls, read first so Recents can show them while the full log loads. Only filled
      * before the first full load; use [calls] for anything that needs the whole log.
      */
     val preview: StateFlow<List<CallEntry>?> = _preview
 
-    // F29: a refresh after READ_CALL_LOG is granted also registers the observer, so Recents update live.
+    // A refresh after READ_CALL_LOG is granted also registers the observer, so Recents update live.
     val calls: StateFlow<List<CallEntry>?> = combine(cr.changes(Calls.CONTENT_URI, retry = reload), reload) { _, _ -> }
         .map {
-            // Two-stage load (V11): a quick first page on the first load only, then everything.
+            // Two-stage load: a quick first page on the first load only, then everything.
             if (_preview.value == null && !fullLoaded) _preview.value = load(PREVIEW_ROWS)
             load().also { fullLoaded = true }
         }
@@ -48,11 +50,11 @@ class CallLogRepository(private val context: Context, scope: CoroutineScope) {
     }
 
     private fun load(limit: Int = 3000): List<CallEntry> {
-        if (!Permissions.has(context, android.Manifest.permission.READ_CALL_LOG)) return emptyList()
+        if (!Permissions.has(context, Manifest.permission.READ_CALL_LOG)) return emptyList()
         return query(Calls.CONTENT_URI.buildUpon().appendQueryParameter(Calls.LIMIT_PARAM_KEY, limit.toString()).build(), null, null)
     }
 
-    private fun query(uri: android.net.Uri, selection: String?, args: Array<String>?): List<CallEntry> {
+    private fun query(uri: Uri, selection: String?, args: Array<String>?): List<CallEntry> {
         val out = ArrayList<CallEntry>()
         cr.safeQuery(
             uri,
@@ -84,9 +86,9 @@ class CallLogRepository(private val context: Context, scope: CoroutineScope) {
      * list must never reach another number that merely ends the same way.
      */
     fun queryForNumber(number: String, since: Long = Long.MIN_VALUE): List<CallEntry> {
-        if (number.isBlank() || !Permissions.has(context, android.Manifest.permission.READ_CALL_LOG)) return emptyList()
+        if (number.isBlank() || !Permissions.has(context, Manifest.permission.READ_CALL_LOG)) return emptyList()
         val iso = PhoneEnv.countryIso(context)
-        val uri = android.net.Uri.withAppendedPath(Calls.CONTENT_FILTER_URI, android.net.Uri.encode(number))
+        val uri = Uri.withAppendedPath(Calls.CONTENT_FILTER_URI, Uri.encode(number))
         val bounded = since != Long.MIN_VALUE
         return query(uri, if (bounded) "${Calls.DATE} >= ?" else null, if (bounded) arrayOf(since.toString()) else null)
             .filter { !it.presentationHidden && PhoneNumbers.sameExact(it.number, number, iso) }
@@ -98,10 +100,10 @@ class CallLogRepository(private val context: Context, scope: CoroutineScope) {
      * the call.
      */
     fun pastCalls(number: String, before: Long, limit: Int = 50): List<CallEntry> {
-        if (!Permissions.has(context, android.Manifest.permission.READ_CALL_LOG)) return emptyList()
+        if (!Permissions.has(context, Manifest.permission.READ_CALL_LOG)) return emptyList()
         val out = ArrayList<CallEntry>()
         for (part in PhoneNumbers.forwardedParts(number)) {
-            val uri = android.net.Uri.withAppendedPath(Calls.CONTENT_FILTER_URI, android.net.Uri.encode(part))
+            val uri = Uri.withAppendedPath(Calls.CONTENT_FILTER_URI, Uri.encode(part))
                 .buildUpon().appendQueryParameter(Calls.LIMIT_PARAM_KEY, limit.toString()).build()
             out += query(uri, "${Calls.DATE} < ?", arrayOf(before.toString()))
         }
@@ -110,7 +112,7 @@ class CallLogRepository(private val context: Context, scope: CoroutineScope) {
 
     /** Unseen missed calls, newest first (what Telecom counts: missed, new and not read). */
     fun unseenMissed(limit: Int = 50): List<CallEntry> {
-        if (!Permissions.has(context, android.Manifest.permission.READ_CALL_LOG)) return emptyList()
+        if (!Permissions.has(context, Manifest.permission.READ_CALL_LOG)) return emptyList()
         return query(
             Calls.CONTENT_URI.buildUpon().appendQueryParameter(Calls.LIMIT_PARAM_KEY, limit.toString()).build(),
             "${Calls.TYPE} = ? AND ${Calls.NEW} = 1 AND (${Calls.IS_READ} = 0 OR ${Calls.IS_READ} IS NULL)",

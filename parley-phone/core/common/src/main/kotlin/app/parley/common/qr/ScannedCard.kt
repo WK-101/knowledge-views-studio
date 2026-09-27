@@ -2,11 +2,12 @@ package app.parley.common.qr
 
 import app.parley.common.record.Col
 import app.parley.common.record.ContactRecord
+import app.parley.common.record.DataRow
 import app.parley.common.record.Mime
 import app.parley.common.vcard.VCardStream
 
 /**
- * Q4: a contact card from a QR code comes from a stranger, so the parts of it that change how Parley and Android
+ * A contact card from a QR code comes from a stranger, so the parts of it that change how Parley and Android
  * treat the caller (favourite, which rings through Do Not Disturb; straight to voicemail; a ringtone; labels, which
  * call rules, off hours and ringtones go by) are dropped unless the user ticks them on the result sheet.
  */
@@ -60,5 +61,5 @@ object ScannedCard {
 
     private fun labelRows(record: ContactRecord) = record.raws.flatMap { it.rows }.filter { it.mimeType == Mime.GROUP }
 
-    private fun isStarredLabel(row: app.parley.common.record.DataRow) = row[Col.GROUP_TITLE].equals(STARRED_LABEL, ignoreCase = true)
+    private fun isStarredLabel(row: DataRow) = row[Col.GROUP_TITLE].equals(STARRED_LABEL, ignoreCase = true)
 }

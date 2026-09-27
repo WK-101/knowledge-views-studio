@@ -118,7 +118,7 @@ class HomeSurfacesTest {
         assertTrue(l.favoritesInContacts)
         assertEquals(listOf(StartTab.RECENTS, StartTab.CONTACTS, StartTab.KEYPAD), l.visible)
         assertEquals(StartTab.CONTACTS, l.hostOf(StartTab.FAVORITES))
-        // R1: the Circle section follows the favourites into Contacts.
+        // The Circle section follows the favourites into Contacts.
         assertEquals(StartTab.CONTACTS, l.circleHost)
         // Keeping the Favorites tab keeps the Circle there, as before.
         val kept = HomeLayout(NavTabs(), favSection.copy(keepFavoritesTab = true))

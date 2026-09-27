@@ -71,17 +71,18 @@ import app.parley.container
 import app.parley.data.PhoneEnv
 import app.parley.data.messaging.MyDetails
 import app.parley.ui.Bidi
+import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * Entry points for "Message or call on…" (M2). In-app screens show [ReachSheet]; code outside the app's UI (the
+ * Entry points for "Message or call on…". In-app screens show [ReachSheet]; code outside the app's UI (the
  * in-call screen, notifications) starts [intent], which opens the same sheet over whatever is on screen.
  */
 object MessageOn {
     /**
      * Opens the "Message or call on…" sheet for [number] in its own small window. [accountId] is the SIM that handled the call
-     * the number comes from, so a national number is read with that SIM's country (F19).
+     * the number comes from, so a national number is read with that SIM's country.
      */
     fun intent(context: Context, number: String, accountId: String? = null): Intent = Intent(context, NumberActionActivity::class.java)
         .setAction(NumberActionActivity.ACTION_MESSAGE_ON)
@@ -99,11 +100,11 @@ object MessageOn {
 }
 
 internal fun countryLabel(code: String): String {
-    val name = java.util.Locale("", code).displayCountry.ifBlank { code }
+    val name = Locale("", code).displayCountry.ifBlank { code }
     return "$name ($code)"
 }
 
-/** F19: searchable list of every country libphonenumber knows, with its calling code. */
+/** Searchable list of every country libphonenumber knows, with its calling code. */
 @Composable
 fun CountryPickerDialog(selected: String?, onDismiss: () -> Unit, onPick: (String) -> Unit) {
     val all = remember { NumberText.regions() }
@@ -156,7 +157,7 @@ fun MyDetailsDialog(initial: MyDetails, suggestNumber: suspend () -> String?, on
     )
 }
 
-/** "Last messaged via Signal · 2 days ago" (M5), from Parley's own record; nothing if never. */
+/** "Last messaged via Signal · 2 days ago", from Parley's own record; nothing if never. */
 @Composable
 fun LastMessagedNote(number: String, modifier: Modifier = Modifier) {
     val store = LocalContext.current.container.messaging

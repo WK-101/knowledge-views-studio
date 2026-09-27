@@ -48,7 +48,7 @@ import kotlinx.coroutines.launch
 private val BackupState.ready get() = hasKeys && folderUri != null
 
 /**
- * C2: "Back up first?" before a change to many contacts at once (a large import, merging, a bulk delete) when the
+ * "Back up first?" before a change to many contacts at once (a large import, merging, a bulk delete) when the
  * last backup is more than 7 days old. [ask] runs the change straight away when no question is needed. Once the
  * user has answered, later changes through the same gate (the next duplicate group, say) don't ask again.
  */
@@ -64,7 +64,7 @@ class BackupFirstGate internal constructor() {
     }
 }
 
-/** C2: the gate and its dialog; call once per screen and use the returned gate's [BackupFirstGate.ask]. */
+/** The gate and its dialog; call once per screen and use the returned gate's [BackupFirstGate.ask]. */
 @Composable
 fun rememberBackupFirst(vm: AppViewModel): BackupFirstGate {
     val gate = remember { BackupFirstGate() }
@@ -133,7 +133,7 @@ private fun relative(time: Long): String =
     DateUtils.getRelativeTimeSpanString(time, System.currentTimeMillis(), DateUtils.DAY_IN_MILLIS).toString()
 
 /**
- * C3: a quiet card once a backup is overdue (after 14 or 30 days, as chosen). "Not now" hides it for a week; it
+ * A quiet card once a backup is overdue (after 14 or 30 days, as chosen). "Not now" hides it for a week; it
  * comes back while no backup has been made, and is never switched off for good.
  */
 @Composable
@@ -188,7 +188,7 @@ fun BackupReminderBanner(vm: AppViewModel, modifier: Modifier = Modifier) {
     }
 }
 
-/** C3: "Remind me to back up after" 30 or 14 days (there is no "never": a dismissal only snoozes). */
+/** "Remind me to back up after" 30 or 14 days (there is no "never": a dismissal only snoozes). */
 @Composable
 fun BackupReminderChoice(vm: AppViewModel, modifier: Modifier = Modifier) {
     val ux by vm.c.ux.state.collectAsStateWithLifecycle()

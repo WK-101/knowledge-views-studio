@@ -8,8 +8,10 @@ import android.net.Uri
 import android.provider.VoicemailContract
 import android.provider.VoicemailContract.Status
 import android.provider.VoicemailContract.Voicemails
+import android.telephony.TelephonyManager
 import app.parley.common.calls.VoicemailFiles
 import app.parley.data.Permissions
+import app.parley.data.R
 import app.parley.data.changes
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -67,7 +69,7 @@ data class VoicemailState(
 }
 
 /**
- * The voicemail inbox (V1), read from Android's voicemail store.
+ * The voicemail inbox, read from Android's voicemail store.
  *
  * Access: AOSP's `VoicemailPermissions.callerHasReadAccess/WriteAccess` give **the default (or system) dialer** full
  * read and write access to every voicemail, without READ_VOICEMAIL / WRITE_VOICEMAIL (those are signature|privileged
@@ -147,12 +149,12 @@ class VoicemailRepository(private val context: Context, scope: CoroutineScope) {
                             accountId = c.getString(1),
                             configured = config == Status.CONFIGURATION_STATE_OK,
                             problem = when {
-                                config == Status.CONFIGURATION_STATE_CAN_BE_CONFIGURED -> context.getString(app.parley.data.R.string.data_vm_can_configure)
-                                config == Status.CONFIGURATION_STATE_NOT_CONFIGURED -> context.getString(app.parley.data.R.string.data_vm_not_configured)
+                                config == Status.CONFIGURATION_STATE_CAN_BE_CONFIGURED -> context.getString(R.string.data_vm_can_configure)
+                                config == Status.CONFIGURATION_STATE_NOT_CONFIGURED -> context.getString(R.string.data_vm_not_configured)
                                 data == Status.DATA_CHANNEL_STATE_NO_CONNECTION || data == Status.DATA_CHANNEL_STATE_NO_CONNECTION_CELLULAR_REQUIRED ->
-                                    context.getString(app.parley.data.R.string.data_vm_no_data)
-                                data != Status.DATA_CHANNEL_STATE_OK -> context.getString(app.parley.data.R.string.data_vm_server_problem)
-                                notif == Status.NOTIFICATION_CHANNEL_STATE_NO_CONNECTION -> context.getString(app.parley.data.R.string.data_vm_no_connection)
+                                    context.getString(R.string.data_vm_no_data)
+                                data != Status.DATA_CHANNEL_STATE_OK -> context.getString(R.string.data_vm_server_problem)
+                                notif == Status.NOTIFICATION_CHANNEL_STATE_NO_CONNECTION -> context.getString(R.string.data_vm_no_connection)
                                 else -> null
                             },
                             settingsUri = c.getString(5)?.takeIf { it.isNotBlank() }?.let(Uri::parse),
@@ -216,6 +218,6 @@ class VoicemailRepository(private val context: Context, scope: CoroutineScope) {
 
     companion object {
         /** Android's voicemail settings screen (carrier visual voicemail on/off, number, notifications). */
-        const val CONFIGURE_ACTION: String = android.telephony.TelephonyManager.ACTION_CONFIGURE_VOICEMAIL
+        const val CONFIGURE_ACTION: String = TelephonyManager.ACTION_CONFIGURE_VOICEMAIL
     }
 }

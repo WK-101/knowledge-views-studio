@@ -52,7 +52,7 @@ object MessengerLinks {
     }
 
     /**
-     * M13: Telegram's profile page for a number (`tg://resolve?phone=<digits>&profile`) rather than the chat, in
+     * Telegram's profile page for a number (`tg://resolve?phone=<digits>&profile`) rather than the chat, in
      * [app] (Telegram, Telegram X…). Versions that don't know `profile` open the chat instead. Null when [app] isn't
      * a Telegram app or [e164] isn't an international number.
      */
@@ -78,7 +78,7 @@ object MessengerLinks {
     }
 
     /**
-     * F19: why a chat link can't be built for this number, shown on the disabled row; null when it can. [e164] is the
+     * Why a chat link can't be built for this number, shown on the disabled row; null when it can. [e164] is the
      * international form, or null when none could be worked out.
      */
     fun unavailableReason(e164: String?): String? = when (unavailable(e164)) {
@@ -87,7 +87,7 @@ object MessengerLinks {
         null -> null
     }
 
-    /** Why a chat link can't be built (see [unavailableReason]), as data for the app to word (L1). */
+    /** Why a chat link can't be built (see [unavailableReason]), as data for the app to word. */
     enum class Unavailable { NO_COUNTRY_CODE, INCOMPLETE }
 
     fun unavailable(e164: String?): Unavailable? = when {

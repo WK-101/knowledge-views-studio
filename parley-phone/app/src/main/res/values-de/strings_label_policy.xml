@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="label_policy_section">Für alle mit diesem Label</string>
+    <string name="label_policy_sim">SIM für Anrufe</string>
+    <string name="label_policy_sim_none">Keine Vorgabe</string>
+    <string name="label_policy_sim_missing">Eine SIM, die nicht in diesem Telefon ist</string>
+    <string name="label_policy_sim_on">Anrufe gehen über %1$s</string>
+    <string name="label_policy_sim_body">Gilt für Personen mit diesem Label, die keine eigene SIM-Auswahl haben.</string>
+    <string name="label_policy_rhythm">In Kontakt bleiben, wenn sie in deinen Kreis kommen</string>
+    <string name="label_policy_rhythm_none">Nicht festgelegt</string>
+    <string name="label_policy_rhythm_body">Wenn du jemanden aus „%1$s“ zu deinem Kreis hinzufügst, schlägt Parley zuerst diesen Rhythmus vor.</string>
+    <string name="label_policy_dnd">Bei „Bitte nicht stören“ durchlassen</string>
+    <string name="label_policy_dnd_summary">Markiert alle hier mit Stern, damit Android markierte Kontakte klingeln lassen kann</string>
+    <string name="label_policy_dnd_open">Einstellungen für „Bitte nicht stören“ öffnen</string>
+    <string name="label_policy_dnd_title">„%1$s“ bei „Bitte nicht stören“ klingeln lassen?</string>
+    <string name="label_policy_rhythm_suggest">Wie dein Label „%1$s“: %2$s</string>
+    <plurals name="label_policy_added">
+        <item quantity="one">%d Person zu deinem Kreis hinzugefügt</item>
+        <item quantity="other">%d Personen zu deinem Kreis hinzugefügt</item>
+    </plurals>
+    <plurals name="label_policy_add_members">
+        <item quantity="one">%d Mitglied zu deinem Kreis hinzufügen</item>
+        <item quantity="other">%d Mitglieder zu deinem Kreis hinzufügen</item>
+    </plurals>
+    <plurals name="label_policy_unstarred">
+        <item quantity="one">Stern bei %d Kontakt entfernt</item>
+        <item quantity="other">Stern bei %d Kontakten entfernt</item>
+    </plurals>
+    <plurals name="label_policy_star_new">
+        <item quantity="one">%d neues Mitglied mit Stern markieren</item>
+        <item quantity="other">%d neue Mitglieder mit Stern markieren</item>
+    </plurals>
+</resources>

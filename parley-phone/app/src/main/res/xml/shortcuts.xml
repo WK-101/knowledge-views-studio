@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- M8: static launcher shortcut "Message a number" (the dynamic ones, New contact and favourites, come from
+<!-- Static launcher shortcut "Message a number" (the dynamic ones, New contact and favourites, come from
      Shortcuts.updateDynamic). src/debug has a copy with the debug package name. -->
 <shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
     <shortcut
@@ -13,7 +13,7 @@
             android:targetClass="app.parley.messaging.NumberActionActivity"
             android:targetPackage="app.parley.phone" />
     </shortcut>
-    <!-- Q2: "Scan QR" opens the scan screen. -->
+    <!-- "Scan QR" opens the scan screen. -->
     <shortcut
         android:enabled="true"
         android:icon="@drawable/ic_shortcut_qr"

@@ -1,5 +1,7 @@
 package app.parley
 
+import android.text.format.DateUtils
+import android.util.Log
 import app.parley.common.PhoneIdentity
 import android.content.Context
 import android.content.Intent
@@ -42,6 +44,7 @@ import app.parley.common.calls.RingtoneSource
 import app.parley.data.ScreenRequest
 import app.parley.common.VerdictKind
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -52,11 +55,11 @@ import kotlinx.coroutines.withContext
 
 class AppTelecomDependencies(private val app: Context, private val c: DataContainer) : TelecomDependencies {
 
-    override val appearance: StateFlow<InCallAppearance> = kotlinx.coroutines.flow.combine(c.settings.settings, c.settings.loaded) { s, loaded ->
-        // G3/P3: "Hide screen content" reaches the call screen; it stays secure until the settings are read.
+    override val appearance: StateFlow<InCallAppearance> = combine(c.settings.settings, c.settings.loaded) { s, loaded ->
+        // "Hide screen content" reaches the call screen; it stays secure until the settings are read.
         InCallAppearance(s.themeMode, s.amoledBlack, s.dynamicColor, s.density, s.answerGesture, s.quickReplies, secureScreen = s.secureScreen, loaded = loaded)
     }.combine(c.extras.simple) { look, simple ->
-        // X4: simple mode's incoming screen (large buttons, ask before declining, the caller's name spoken).
+        // Simple mode's incoming screen (large buttons, ask before declining, the caller's name spoken).
         if (!simple.enabled) look else look.copy(simpleMode = true, confirmDecline = simple.confirmDecline, speakCallerName = simple.speakName)
     }.stateIn(c.scope, SharingStarted.Eagerly, InCallAppearance())
 
@@ -66,17 +69,17 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
         val last = lastCallSummary(number, PhoneEnv.countryIso(app, accountId))
         c.contacts.lookup(number)?.let {
             if (it.work) {
-                // I9: a work-profile contact: its name and photo only (it can't be opened or noted from here).
+                // A work-profile contact: its name and photo only (it can't be opened or noted from here).
                 return@withContext CallerDisplay(it.name, it.photoUri, it.numberLabel, null, null, null, last, subtitle = app.getString(R.string.caller_work_profile))
             }
             val note = it.lookupKey?.let { k -> c.meta.meta(k)?.pinnedNote }
-            // I6: job and company under the name.
+            // Job and company under the name.
             val org = c.contacts.organization(it.contactId)
             val cfg = c.circle.config.value
             CallerDisplay(
                 it.name, it.photoUri, it.numberLabel, it.contactId, it.lookupKey, note, last, backgroundUri = c.people.backgrounds.forLookupKey(it.lookupKey),
                 subtitle = CallerCard.subtitle(org?.second, org?.first),
-                // R8/R9: the last note and open promises; the call screen decides whether the lock screen may show them.
+                // The last note and open promises; the call screen decides whether the lock screen may show them.
                 memory = it.lookupKey?.let { k -> runCatching { memoryFor(k, number, cfg.memoryOnLockScreen) }.getOrNull() },
                 memoryPrompt = cfg.memoryPrompt,
             )
@@ -84,7 +87,7 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
             // Discreet mode: a private contact shows as its number only, everywhere (call screen, lock screen and
             // notifications), like an unknown caller, so nothing reveals it is in the vault (as for missed calls, F14).
             if (c.settings.current().hideVault) return@withContext null
-            // I6: a private contact's card comes from its caller-ID copy, so it shows while the phone is locked.
+            // A private contact's card comes from its caller-ID copy, so it shows while the phone is locked.
             val card = c.vault.callerCard(id)
             CallerDisplay(
                 info.name, card?.photoUri, info.numberLabel, null, null, card?.note, last,
@@ -96,7 +99,7 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
     /** "Last call 3 days ago · 4 min", from the call history (archive included). */
     private fun lastCallSummary(number: String, region: String): String? {
         val prev = c.history.lastCallWith(number, region) ?: return null
-        val ago = android.text.format.DateUtils.getRelativeTimeSpanString(prev.date, System.currentTimeMillis(), android.text.format.DateUtils.MINUTE_IN_MILLIS)
+        val ago = DateUtils.getRelativeTimeSpanString(prev.date, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS)
         val kind = when (prev.type) {
             CallType.MISSED -> R.string.caller_last_missed
             CallType.OUTGOING -> R.string.caller_last_outgoing
@@ -120,7 +123,7 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
         }
     }
 
-    /** R8/R9: newest note (not the pinned one, which the call screen already shows) and open promises. */
+    /** Newest note (not the pinned one, which the call screen already shows) and open promises. */
     private suspend fun memoryFor(lookupKey: String, number: String, onLockScreen: Boolean): CallerMemory? {
         val region = PhoneEnv.countryIso(app)
         val numbers = c.contacts.contacts.value?.firstOrNull { it.lookupKey == lookupKey }?.phones?.map { it.number }.orEmpty() + number
@@ -134,7 +137,7 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
         return m.takeUnless { it.isEmpty }
     }
 
-    /** R8: the note becomes a call note (on the contact's timeline); "follow up in" sets a one-off reminder. */
+    /** The note becomes a call note (on the contact's timeline); "follow up in" sets a one-off reminder. */
     override fun rememberAfterCall(number: String, connectTimeMillis: Long, note: String?, followUpDays: Int?) {
         c.scope.launch {
             if (!note.isNullOrBlank()) saveCallNote(number, connectTimeMillis, note)
@@ -155,7 +158,7 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
             if (c.vault.lookup(number) == null) return@launch
             // Telecom writes the call log shortly after the call ends; sweep a few times.
             repeat(3) {
-                kotlinx.coroutines.delay(2500)
+                delay(2500)
                 c.vault.sweepCallLog(System.currentTimeMillis() - 6 * 60 * 60 * 1000L)
             }
         }
@@ -174,7 +177,7 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
                         contactKey = found?.lookupKey?.takeIf { !found.work }, accountId = accountId,
                     ),
                 )
-            }.onFailure { android.util.Log.w("Parley", "Call-usage ledger write failed", it) }
+            }.onFailure { Log.w("Parley", "Call-usage ledger write failed", it) }
         }
     }
 
@@ -186,12 +189,12 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
 
     override fun callHaptics(): Boolean = c.calling.config.value.haptics
 
-    // ---- v3.2 phone (P2, P6, P7) ----
+    // ---- Phone ----
 
     override fun connectHaptic(): Boolean = c.calling.config.value.connectHaptic
 
     /**
-     * P2: the block rule is written before the call is declined; its id lets the call-ended screen undo it. The caller
+     * The block rule is written before the call is declined; its id lets the call-ended screen undo it. The caller
      * waits for this to finish (never cancels it), so what the card says is what's in the database. The in-memory
      * rules the call path reads are refreshed whatever happened.
      */
@@ -222,7 +225,7 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
         }
     }
 
-    /** P6: Retry places the call directly: the user already went through the checks for this number. */
+    /** Retry places the call directly: the user already went through the checks for this number. */
     override suspend fun redial(number: String, accountId: String?): String? = withContext(Dispatchers.IO) {
         (c.placer.call(number, accountId) as? PlaceResult.Failed)?.let { PlaceFailureText.placeFailure(app, it.reason) }
     }
@@ -234,7 +237,7 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
     override suspend fun screen(number: String?, hidden: Boolean, verification: Verification): Decision =
         withContext(Dispatchers.IO) { c.screener.screen(number, hidden, verification) }
 
-    // ---- Blocking & screening (B2, B9, B10, B23, B24) ----
+    // ---- Blocking & screening ----
 
     override suspend fun screenCall(number: String?, hidden: Boolean, verification: Verification, accountId: String?, callerName: String?): ScreenOutcome =
         withContext(Dispatchers.IO) {
@@ -258,7 +261,7 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
             )
         }
 
-    /** V9: where the screener's ringtone comes from. */
+    /** Where the screener's ringtone comes from. */
     private fun ringtoneSource(r: ScreeningResult): RingtoneSource? = when {
         r.ringtone == null -> null
         r.allowedBy == AllowReason.RULE && r.rule?.ringtone != null -> RingtoneSource.RULE
@@ -267,7 +270,7 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
         else -> RingtoneSource.LABEL
     }
 
-    // ---- v3.1 calls (V4, V6, V9) ----
+    // ---- Calls ----
 
     override fun proximityEnabled(): Boolean = c.callExtras.config.value.proximitySensor
 

@@ -44,17 +44,17 @@ import app.parley.ui.common.Format
 import app.parley.work.FolderSyncWorker
 import kotlinx.coroutines.launch
 
-/** C5: the worded parts of the Markdown files, in the app's language. */
+/** The worded parts of the Markdown files, in the app's language. */
 object MarkdownTexts {
     fun build(context: Context): MarkdownExport.Texts {
         val res = context.resources
         return MarkdownExport.Texts(
             headings = MarkdownNotes.Headings(
-                pinnedNote = res.getString(R.string.x_md_h_pinned),
-                note = res.getString(R.string.x_md_h_note),
-                circle = res.getString(R.string.x_md_h_circle),
-                timeline = res.getString(R.string.x_md_h_timeline),
-                promises = res.getString(R.string.c2_promises),
+                pinnedNote = res.getString(R.string.md_export_h_pinned),
+                note = res.getString(R.string.md_export_h_note),
+                circle = res.getString(R.string.md_export_h_circle),
+                timeline = res.getString(R.string.md_export_h_timeline),
+                promises = res.getString(R.string.circle_promises),
             ),
             phoneLabel = { t, l -> ContactsContract.CommonDataKinds.Phone.getTypeLabel(res, t, l).toString() },
             emailLabel = { t, l -> ContactsContract.CommonDataKinds.Email.getTypeLabel(res, t, l).toString() },
@@ -63,23 +63,23 @@ object MarkdownTexts {
             call = { type, sec ->
                 val kind = res.getString(
                     when (type) {
-                        CallType.INCOMING, CallType.ANSWERED_EXTERNALLY -> R.string.x_md_call_in
-                        CallType.OUTGOING -> R.string.x_md_call_out
-                        CallType.MISSED, CallType.REJECTED, CallType.BLOCKED -> R.string.x_md_call_missed
-                        else -> R.string.x_md_call
+                        CallType.INCOMING, CallType.ANSWERED_EXTERNALLY -> R.string.md_export_call_in
+                        CallType.OUTGOING -> R.string.md_export_call_out
+                        CallType.MISSED, CallType.REJECTED, CallType.BLOCKED -> R.string.md_export_call_missed
+                        else -> R.string.md_export_call
                     },
                 )
                 val min = ((sec + 59) / 60).toInt()
-                if (sec > 0) kind + " · " + res.getQuantityString(R.plurals.x_md_minutes, min, min) else kind // l10n-ok (separator)
+                if (sec > 0) kind + " · " + res.getQuantityString(R.plurals.md_export_minutes, min, min) else kind // l10n-ok (separator)
             },
             interaction = { t -> CircleText.type(res, t) },
-            callNote = res.getString(R.string.x_md_call_note),
+            callNote = res.getString(R.string.md_export_call_note),
         )
     }
 }
 
 /**
- * C5 on the "Sync between your phones" screen: a second, one-way folder for Markdown notes (Obsidian and other note
+ * On the "Sync between your phones" screen: a second, one-way folder for Markdown notes (Obsidian and other note
  * apps). It shares the folder-sync worker: "Keep it up to date" exports again every hour.
  */
 @Composable
@@ -95,7 +95,7 @@ fun MarkdownExportSection(vm: AppViewModel) {
         scope.launch {
             val n = runCatching { md.exportNow(MarkdownTexts.build(context)) }
             running = false
-            vm.toast(n.getOrNull()?.let { res.getQuantityString(R.plurals.x_md_written, it, it) } ?: res.getString(R.string.x_md_failed))
+            vm.toast(n.getOrNull()?.let { res.getQuantityString(R.plurals.md_export_written, it, it) } ?: res.getString(R.string.md_export_failed))
         }
     }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
@@ -108,55 +108,58 @@ fun MarkdownExportSection(vm: AppViewModel) {
     Column {
         Card(Modifier.fillMaxWidth().padding(16.dp)) {
             Column(Modifier.padding(16.dp)) {
-                Text(stringResource(R.string.x_md_title), style = MaterialTheme.typography.titleMedium)
-                Text(stringResource(R.string.x_md_text), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 6.dp))
+                Text(stringResource(R.string.md_export_title), style = MaterialTheme.typography.titleMedium)
+                Text(stringResource(R.string.md_export_text), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 6.dp))
             }
         }
         ListItem(
             modifier = Modifier.clickable { picker.launch(null) },
             leadingContent = { Icon(Icons.Rounded.Folder, null) },
-            headlineContent = { Text(stringResource(R.string.x_md_folder)) },
+            headlineContent = { Text(stringResource(R.string.md_export_folder)) },
             supportingContent = { Text(st.folderName ?: stringResource(R.string.bkp_folder_none)) },
         )
         ListItem(
             modifier = Modifier.clickable { md.setOnlyCircle(!st.onlyCircle) },
             leadingContent = { Icon(Icons.Rounded.Groups, null) },
-            headlineContent = { Text(stringResource(R.string.x_md_only_circle)) },
-            supportingContent = { Text(stringResource(R.string.x_md_only_circle_body)) },
+            headlineContent = { Text(stringResource(R.string.md_export_only_circle)) },
+            supportingContent = { Text(stringResource(R.string.md_export_only_circle_body)) },
             trailingContent = { Switch(st.onlyCircle, { md.setOnlyCircle(it) }) },
         )
         ListItem(
             modifier = Modifier.clickable { md.setAuto(!st.auto); FolderSyncWorker.reschedule(context) },
-            headlineContent = { Text(stringResource(R.string.x_md_auto)) },
-            supportingContent = { Text(stringResource(R.string.x_md_auto_body)) },
+            headlineContent = { Text(stringResource(R.string.md_export_auto)) },
+            supportingContent = { Text(stringResource(R.string.md_export_auto_body)) },
             trailingContent = { Switch(st.auto, { md.setAuto(it); FolderSyncWorker.reschedule(context) }) },
         )
         ListItem(
             leadingContent = { Icon(Icons.Rounded.Description, null) },
             headlineContent = {
-                Text(if (st.lastAt > 0) stringResource(R.string.x_md_last, Format.shortWhen(context, st.lastAt)) else stringResource(R.string.x_md_never))
+                Text(
+                    if (st.lastAt > 0) stringResource(R.string.md_export_last, Format.shortWhen(context, st.lastAt))
+                    else stringResource(R.string.md_export_never),
+                )
             },
             supportingContent = {
                 Column {
                     Text(
                         when (st.lastProblem) {
-                            MarkdownExport.NO_PERMISSION -> stringResource(R.string.x_md_no_permission)
-                            MarkdownExport.FOLDER_GONE -> stringResource(R.string.x_md_folder_gone)
-                            else -> pluralStringResource(R.plurals.x_md_people, st.lastPeople, st.lastPeople)
+                            MarkdownExport.NO_PERMISSION -> stringResource(R.string.md_export_no_permission)
+                            MarkdownExport.FOLDER_GONE -> stringResource(R.string.md_export_folder_gone)
+                            else -> pluralStringResource(R.plurals.md_export_people, st.lastPeople, st.lastPeople)
                         },
                     )
-                    // C5: files the user edited are left alone; say so rather than silently writing a copy.
-                    if (st.lastProblem == null && st.lastKept > 0) Text(pluralStringResource(R.plurals.x_md_kept, st.lastKept, st.lastKept))
+                    // Files the user edited are left alone; say so rather than silently writing a copy.
+                    if (st.lastProblem == null && st.lastKept > 0) Text(pluralStringResource(R.plurals.md_export_kept, st.lastKept, st.lastKept))
                 }
             },
         )
-        Button({ run() }, enabled = st.folderUri != null && !running, modifier = Modifier.padding(horizontal = 16.dp)) { Text(stringResource(R.string.x_md_now)) }
+        Button({ run() }, enabled = st.folderUri != null && !running, modifier = Modifier.padding(horizontal = 16.dp)) { Text(stringResource(R.string.md_export_now)) }
         if (running) LinearProgressIndicator(Modifier.fillMaxWidth().padding(16.dp))
         if (st.folderUri != null) TextButton({ md.setFolder(null, null); FolderSyncWorker.reschedule(context) }, Modifier.padding(horizontal = 8.dp)) {
-            Text(stringResource(R.string.x_md_stop))
+            Text(stringResource(R.string.md_export_stop))
         }
         Text(
-            stringResource(R.string.x_md_private_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            stringResource(R.string.md_export_private_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(16.dp),
         )
     }

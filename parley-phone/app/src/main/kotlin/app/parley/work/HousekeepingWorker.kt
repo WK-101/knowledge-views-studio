@@ -1,14 +1,25 @@
 package app.parley.work
 
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
 import android.provider.CallLog
+import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
+import app.parley.MainActivity
+import app.parley.R
+import app.parley.common.NotificationChannels
+import app.parley.common.NotificationIds
 import app.parley.container
 import app.parley.data.DataContainer
+import app.parley.data.people.TemporaryContactStore
 import java.util.concurrent.TimeUnit
 
 /**
@@ -20,37 +31,37 @@ class HousekeepingWorker(context: Context, params: WorkerParameters) : Coroutine
     override suspend fun doWork(): Result {
         val notices = runHousekeeping(applicationContext.container)
         notices.forEachIndexed { i, n -> notify(applicationContext, i, n) }
-        // C3: at most one backup reminder a month while a backup is overdue.
+        // At most one backup reminder a month while a backup is overdue.
         runCatching { BackupReminder.maybeNotify(applicationContext, applicationContext.container) }
         return Result.success()
     }
 
-    /** "X expired; the details you merged were kept" (F2). */
-    private fun notify(ctx: Context, i: Int, n: app.parley.data.people.TemporaryContactStore.Notice) {
-        val nm = ctx.getSystemService(android.app.NotificationManager::class.java)
-        nm.createNotificationChannel(android.app.NotificationChannel(CHANNEL, ctx.getString(app.parley.R.string.work_channel_housekeeping), android.app.NotificationManager.IMPORTANCE_LOW))
-        val open = android.app.PendingIntent.getActivity(
-            ctx, 0, android.content.Intent(ctx, app.parley.MainActivity::class.java).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
-            android.app.PendingIntent.FLAG_IMMUTABLE,
+    /** "X expired; the details you merged were kept". */
+    private fun notify(ctx: Context, i: Int, n: TemporaryContactStore.Notice) {
+        val nm = ctx.getSystemService(NotificationManager::class.java)
+        nm.createNotificationChannel(NotificationChannel(CHANNEL, ctx.getString(R.string.work_channel_housekeeping), NotificationManager.IMPORTANCE_LOW))
+        val open = PendingIntent.getActivity(
+            ctx, 0, Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            PendingIntent.FLAG_IMMUTABLE,
         )
-        val name = n.name ?: ctx.getString(app.parley.R.string.work_temp_someone)
-        val text = ctx.getString(if (n.keptDetails) app.parley.R.string.work_temp_expired_kept else app.parley.R.string.work_temp_expired_merged, name)
-        val b = androidx.core.app.NotificationCompat.Builder(ctx, CHANNEL)
-            .setSmallIcon(app.parley.R.drawable.ic_stat_cake)
-            .setContentTitle(ctx.getString(app.parley.R.string.work_temp_expired_title))
+        val name = n.name ?: ctx.getString(R.string.work_temp_someone)
+        val text = ctx.getString(if (n.keptDetails) R.string.work_temp_expired_kept else R.string.work_temp_expired_merged, name)
+        val b = NotificationCompat.Builder(ctx, CHANNEL)
+            .setSmallIcon(R.drawable.ic_stat_cake)
+            .setContentTitle(ctx.getString(R.string.work_temp_expired_title))
             .setContentText(text)
-            .setStyle(androidx.core.app.NotificationCompat.BigTextStyle().bigText(text))
+            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
             .setContentIntent(open)
             .setAutoCancel(true)
         try {
-            androidx.core.app.NotificationManagerCompat.from(ctx).notify(app.parley.common.NotificationIds.TAG_TEMPORARY, i, b.build())
+            NotificationManagerCompat.from(ctx).notify(NotificationIds.TAG_TEMPORARY, i, b.build())
         } catch (_: SecurityException) {
         }
     }
 
     companion object {
         private const val NAME = "parley-housekeeping"
-        private const val CHANNEL = app.parley.common.NotificationChannels.HOUSEKEEPING
+        private const val CHANNEL = NotificationChannels.HOUSEKEEPING
 
         fun schedule(context: Context) {
             WorkManager.getInstance(context).enqueueUniquePeriodicWork(
@@ -60,12 +71,12 @@ class HousekeepingWorker(context: Context, params: WorkerParameters) : Coroutine
         }
 
         /** Returns notices to show about temporary contacts that were merged into someone else. */
-        suspend fun runHousekeeping(c: DataContainer): List<app.parley.data.people.TemporaryContactStore.Notice> {
+        suspend fun runHousekeeping(c: DataContainer): List<TemporaryContactStore.Notice> {
             val now = System.currentTimeMillis()
             val settings = c.settings.current()
             // 0. Follow lookup-key changes first, so temporary entries and notes point at the right people.
             runCatching { c.contactKeys.sweep() }
-            // 1. Temporary contacts: only the raw contacts Parley recorded are deleted; merged details stay (F2).
+            // 1. Temporary contacts: only the raw contacts Parley recorded are deleted; merged details stay.
             val notices = runCatching { c.temporaries.expire(now) }.getOrDefault(emptyList())
             // 2. Expired vault entries
             //    (F5: private temporary contacts take their call history and "last messaged" entry with them)
@@ -83,7 +94,7 @@ class HousekeepingWorker(context: Context, params: WorkerParameters) : Coroutine
             // 3. Private call history
             if (settings.privateVaultHistory) {
                 c.vault.sweepCallLog(now - TimeUnit.DAYS.toMillis(30))
-                // Ring facts (V9) of private numbers leave no trace outside the vault either (numbers saved privately
+                // Ring facts of private numbers leave no trace outside the vault either (numbers saved privately
                 // after their calls rang included).
                 runCatching { c.vault.allNumbers().forEach { n -> c.ringFacts.forget(n) } }
             }
@@ -96,10 +107,10 @@ class HousekeepingWorker(context: Context, params: WorkerParameters) : Coroutine
                 runCatching {
                     c.appContext.contentResolver.delete(CallLog.Calls.CONTENT_URI, "${CallLog.Calls.DATE} < ?", arrayOf(before.toString()))
                 }
-                // F13: the "last messaged" record follows the same retention.
+                // The "last messaged" record follows the same retention.
                 runCatching { c.messaging.pruneOlderThan(before) }
             }
-            // M10: "Forget messaged numbers after" (the stricter of it and the retention above wins).
+            // "Forget messaged numbers after" (the stricter of it and the retention above wins).
             runCatching { c.messaging.pruneExpired(settings.callLogRetentionDays, now) }
             // 5. Journal older than 30 days
             c.meta.pruneJournal(now - TimeUnit.DAYS.toMillis(30))

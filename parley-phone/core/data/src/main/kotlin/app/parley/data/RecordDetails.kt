@@ -6,7 +6,7 @@ import app.parley.common.record.ContactRecord
 import app.parley.common.record.Mime
 
 /**
- * Q4: a contact read by the vCard engine (a scanned code, a shared card) as a draft for the editor. It fills every
+ * A contact read by the vCard engine (a scanned code, a shared card) as a draft for the editor. It fills every
  * field the editor has, with the same columns [ContactsRepository] reads. Rows the editor can't show (a photo, rows
  * of other apps) are left out: [hasHiddenFields] tells the screen to offer importing the card as it is instead.
  */

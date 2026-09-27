@@ -9,11 +9,11 @@ import org.junit.Test
 import java.time.LocalDate
 import java.time.ZoneOffset
 
-/** v3.2 Circle review fixes: carried interactions, event keys, fresh promise ticks, short names, digest. */
+/** Circle review fixes: carried interactions, event keys, fresh promise ticks, short names, digest. */
 class CircleReviewFixesTest {
     private val day = NaturalRhythm.DAY
 
-    // R2: interactions carried in the vault entry
+    // Interactions carried in the vault entry
 
     @Test fun carried_interactions_round_trip() {
         val list = listOf(
@@ -29,7 +29,7 @@ class CircleReviewFixesTest {
         assertEquals(emptyList<CarriedInteraction>(), Interactions.decodeCarried("not json"))
     }
 
-    // G5: two custom events on one day are separate occasions
+    // Two custom events on one day are separate occasions
 
     @Test fun event_key_includes_the_label() {
         val d = EventDate(null, 3, 14)
@@ -41,7 +41,7 @@ class CircleReviewFixesTest {
         assertNotEquals(DateReminders.tag(7, DateReminders.eventKey(0, d, "a")), DateReminders.tag(7, DateReminders.eventKey(0, d, "b")))
     }
 
-    // R9: ticking a promise uses the note as it is now
+    // Ticking a promise uses the note as it is now
 
     @Test fun promise_tick_applies_to_the_current_note() {
         val shown = "[ ] call the bank\n[ ] send photos"
@@ -56,7 +56,7 @@ class CircleReviewFixesTest {
         assertEquals(Promises.setDone(shown, 1, true), Promises.setDoneFresh(shown, shown, 1, true))
     }
 
-    // R6: names are never split on spaces
+    // Names are never split on spaces
 
     @Test fun short_name_uses_the_given_name_or_the_whole_name() {
         assertEquals("Ana", PeopleInsights.shortName("Ana", "Ana María López"))
@@ -64,7 +64,7 @@ class CircleReviewFixesTest {
         assertEquals("Nguyen Van An", PeopleInsights.shortName("  ", "Nguyen Van An"))
     }
 
-    // R10/X6: a digest without anyone in the Circle
+    // A digest without anyone in the Circle
 
     @Test fun digest_with_an_empty_circle_still_has_yearly_and_serendipity_picks() {
         val today = LocalDate.of(2026, 9, 27)

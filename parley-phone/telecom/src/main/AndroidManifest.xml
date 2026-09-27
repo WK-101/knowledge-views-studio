@@ -25,7 +25,7 @@
             </intent-filter>
         </service>
 
-        <!-- P1: picture-in-picture during calls (resizing into and out of PiP doesn't recreate the activity). -->
+        <!-- Picture-in-picture during calls (resizing into and out of PiP doesn't recreate the activity). -->
         <activity
             android:name="app.parley.telecom.ui.InCallActivity"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|uiMode|density"

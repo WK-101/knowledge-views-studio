@@ -40,7 +40,7 @@ import androidx.compose.ui.unit.dp
 import app.parley.telecom.CallUi
 import app.parley.telecom.TelecomGraph
 
-/** What the user did on the post-call card (V4). */
+/** What the user did on the post-call card. */
 sealed interface PostCallChoice {
     /** Touched the card: keep the call-ended screen up. */
     data object Touched : PostCallChoice
@@ -50,12 +50,12 @@ sealed interface PostCallChoice {
     data class MessageOn(val number: String, val accountId: String?) : PostCallChoice
     data class Report(val number: String) : PostCallChoice
 
-    /** R8: "Anything to remember?" was saved (note and/or a follow-up in [followUpDays]). */
+    /** "Anything to remember?" was saved (note and/or a follow-up in [followUpDays]). */
     data class Remember(val number: String, val connectTimeMillis: Long, val note: String?, val followUpDays: Int?) : PostCallChoice
 }
 
 /**
- * Shown on the call-ended screen after a call with a number that isn't in your contacts (V4): block it (opens the
+ * Shown on the call-ended screen after a call with a number that isn't in your contacts: block it (opens the
  * rule editor), save it privately for a week, message it on a chat app, or report it. Each opens only after the
  * phone is unlocked.
  */
@@ -88,7 +88,7 @@ internal fun PostCallCard(call: CallUi, onChoice: (PostCallChoice) -> Unit) {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Action(Icons.Rounded.Block, stringResource(R.string.postcall_block)) { onChoice(PostCallChoice.Block(number)) }
                 Action(Icons.Rounded.Lock, stringResource(R.string.postcall_save_privately)) { saving = true }
-                Action(Icons.AutoMirrored.Rounded.Chat, stringResource(R.string.v34msg_postcall_message_or_call)) { onChoice(PostCallChoice.MessageOn(number, call.accountId)) }
+                Action(Icons.AutoMirrored.Rounded.Chat, stringResource(R.string.postcall_message_or_call)) { onChoice(PostCallChoice.MessageOn(number, call.accountId)) }
                 Action(Icons.Rounded.Flag, stringResource(R.string.postcall_report)) { onChoice(PostCallChoice.Report(number)) }
             }
             TextButton({ onChoice(PostCallChoice.Done) }, modifier = Modifier.align(Alignment.End)) { Text(stringResource(R.string.tc_done)) }

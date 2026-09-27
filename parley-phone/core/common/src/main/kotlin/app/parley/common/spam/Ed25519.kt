@@ -1,5 +1,6 @@
 package app.parley.common.spam
 
+import java.security.SecureRandom
 import java.util.Locale
 import java.math.BigInteger
 import java.security.MessageDigest
@@ -133,7 +134,7 @@ object Ed25519 {
     }
 
     /** A new random secret key (32 bytes). */
-    fun newSecret(): ByteArray = ByteArray(32).also { java.security.SecureRandom().nextBytes(it) }
+    fun newSecret(): ByteArray = ByteArray(32).also { SecureRandom().nextBytes(it) }
 
     /** Short, readable key fingerprint for the UI: first 8 bytes of SHA-256, grouped. */
     fun fingerprint(publicKey: ByteArray): String =

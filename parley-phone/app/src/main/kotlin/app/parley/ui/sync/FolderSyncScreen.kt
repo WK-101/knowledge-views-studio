@@ -33,10 +33,12 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.ui.common.Format
+import app.parley.ui.extras.MarkdownExportSection
 import app.parley.work.FolderSyncWorker
 import kotlinx.coroutines.launch
 import androidx.compose.ui.res.pluralStringResource
@@ -47,7 +49,7 @@ import app.parley.R
 @Composable
 fun FolderSyncScreen(vm: AppViewModel, back: () -> Unit) {
     val context = LocalContext.current
-    val res = androidx.compose.ui.platform.LocalResources.current
+    val res = LocalResources.current
     val scope = rememberCoroutineScope()
     val sync = vm.c.folderSync
     val st by sync.status.collectAsStateWithLifecycle()
@@ -96,7 +98,7 @@ fun FolderSyncScreen(vm: AppViewModel, back: () -> Unit) {
                 )
                 ListItem(
                     headlineContent = { Text(if (st.lastSyncAt > 0) stringResource(R.string.sync_last, Format.shortWhen(context, st.lastSyncAt)) else stringResource(R.string.sync_never)) },
-                    supportingContent = st.resultText(androidx.compose.ui.platform.LocalResources.current)?.let { r -> { Text(r) } },
+                    supportingContent = st.resultText(LocalResources.current)?.let { r -> { Text(r) } },
                     leadingContent = { Icon(Icons.Rounded.Sync, null) },
                 )
                 if (st.pendingDeletions > 0 && !running) {
@@ -106,8 +108,8 @@ fun FolderSyncScreen(vm: AppViewModel, back: () -> Unit) {
                 if (running) LinearProgressIndicator(Modifier.fillMaxWidth().padding(16.dp))
                 if (st.folderUri != null) TextButton({ sync.setFolder(null, null); FolderSyncWorker.schedule(context, false) }, Modifier.padding(horizontal = 8.dp)) { Text(stringResource(R.string.sync_stop)) }
             }
-            // C5: one-way Markdown notes, to a folder of their own.
-            item { app.parley.ui.extras.MarkdownExportSection(vm) }
+            // One-way Markdown notes, to a folder of their own.
+            item { MarkdownExportSection(vm) }
         }
     }
 }

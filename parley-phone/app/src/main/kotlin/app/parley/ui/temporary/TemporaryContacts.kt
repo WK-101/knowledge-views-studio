@@ -53,11 +53,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
+import app.parley.NavEvent
+import app.parley.common.StartTab
+import app.parley.data.TemporaryContacts
 import app.parley.ui.Avatar
 import app.parley.ui.EmptyState
 import app.parley.ui.Routes
@@ -65,7 +69,6 @@ import app.parley.ui.common.Format
 import app.parley.ui.segmentShape
 import kotlinx.coroutines.launch
 import android.content.res.Resources
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import app.parley.R
@@ -94,9 +97,9 @@ data class TemporaryItem(
  * use): private (vault) by default, or a phone-only contact when the user asks for it to be visible to other apps.
  */
 object TemporaryContactActions {
-    suspend fun save(vm: AppViewModel, number: String, name: String, days: Int, deleteHistory: Boolean, visible: Boolean): app.parley.data.TemporaryContacts.Saved? =
+    suspend fun save(vm: AppViewModel, number: String, name: String, days: Int, deleteHistory: Boolean, visible: Boolean): TemporaryContacts.Saved? =
         runCatching {
-            app.parley.data.TemporaryContacts.save(vm.c, name, number, days, private = !visible, purgeHistory = deleteHistory)
+            TemporaryContacts.save(vm.c, name, number, days, private = !visible, purgeHistory = deleteHistory)
         }.getOrNull()
 
     /** Visible ones go through [app.parley.data.people.TemporaryContactStore]; private ones are vault entries with an expiry. */
@@ -180,8 +183,7 @@ fun timeLeft(res: Resources, expiresAt: Long, now: Long = System.currentTimeMill
 fun TemporaryContactsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
     val items = rememberTemporaryItems(vm)
     val scope = rememberCoroutineScope()
-    val context = LocalContext.current
-    val res = androidx.compose.ui.platform.LocalResources.current
+    val res = LocalResources.current
     var extendFor by remember { mutableStateOf<TemporaryItem?>(null) }
     var deleteFor by remember { mutableStateOf<TemporaryItem?>(null) }
     val scroll = TopAppBarDefaults.pinnedScrollBehavior()
@@ -200,8 +202,8 @@ fun TemporaryContactsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -
                 Icons.Rounded.AutoDelete, stringResource(R.string.temp_empty_title),
                 stringResource(R.string.temp_empty_text),
                 Modifier.padding(p),
-                // U5: temporary contacts start on the keypad.
-                action = stringResource(R.string.ux_empty_open_keypad), onAction = { vm.navigate(app.parley.NavEvent.Tab(app.parley.common.StartTab.KEYPAD)) },
+                // Temporary contacts start on the keypad.
+                action = stringResource(R.string.ux_empty_open_keypad), onAction = { vm.navigate(NavEvent.Tab(StartTab.KEYPAD)) },
             )
             return@Scaffold
         }
@@ -265,7 +267,7 @@ private fun TemporaryRow(t: TemporaryItem, countryIso: String, onOpen: () -> Uni
             }
         },
         supportingContent = {
-            Text(listOfNotNull(timeLeft(androidx.compose.ui.platform.LocalResources.current, t.expiresAt), t.number?.let { DataL10n.ltr(Format.number(it, countryIso)) }).joinToString(" · "))
+            Text(listOfNotNull(timeLeft(LocalResources.current, t.expiresAt), t.number?.let { DataL10n.ltr(Format.number(it, countryIso)) }).joinToString(" · "))
         },
         trailingContent = {
             Row {
@@ -336,7 +338,7 @@ private fun DurationDialog(title: String, onDismiss: () -> Unit, onPick: (Int) -
 @Composable
 fun SaveTemporaryDialog(number: String, suggestedName: String, onDismiss: () -> Unit, onSave: (name: String, days: Int, deleteHistory: Boolean, visible: Boolean) -> Unit) {
     var name by rememberSaveable { mutableStateOf(suggestedName) }
-    var days by rememberSaveable { mutableStateOf<Int?>(app.parley.data.TemporaryContacts.DEFAULT_DAYS) }
+    var days by rememberSaveable { mutableStateOf<Int?>(TemporaryContacts.DEFAULT_DAYS) }
     var custom by rememberSaveable { mutableStateOf("") }
     var deleteHistory by rememberSaveable { mutableStateOf(true) }
     var visible by rememberSaveable { mutableStateOf(false) }

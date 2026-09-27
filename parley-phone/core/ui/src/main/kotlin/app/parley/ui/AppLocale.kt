@@ -4,13 +4,15 @@ import android.app.Activity
 import android.app.LocaleManager
 import android.content.Context
 import android.content.res.Configuration
+import android.content.res.Resources
 import android.os.Build
 import android.os.LocaleList
+import android.view.ContextThemeWrapper
 import androidx.core.content.edit
 import java.util.Locale
 
 /**
- * Per-app language (L1). Android 13+ stores it itself ([LocaleManager], the system "App languages" screen). On
+ * Per-app language. Android 13+ stores it itself ([LocaleManager], the system "App languages" screen). On
  * Android 10–12 Parley stores the choice and applies it as a configuration override: every activity calls
  * [override] from `attachBaseContext`, and the application context is wrapped by [wrap], so notifications and
  * toasts follow it too. No AppCompat needed.
@@ -75,12 +77,12 @@ object AppLocale {
     }
 
     /** Applies [overrideConfig] to an activity; call right after `super.attachBaseContext(base)`. */
-    fun override(activity: android.view.ContextThemeWrapper, base: Context) {
+    fun override(activity: ContextThemeWrapper, base: Context) {
         overrideConfig(base)?.let(activity::applyOverrideConfiguration)
     }
 
     private fun stored(context: Context): String? =
         runCatching { context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY_TAG, null) }.getOrNull()
 
-    private fun systemLocale(): Locale = android.content.res.Resources.getSystem().configuration.locales[0]
+    private fun systemLocale(): Locale = Resources.getSystem().configuration.locales[0]
 }

@@ -1,5 +1,6 @@
 package app.parley.ui.history
 
+import app.parley.common.SettingsCategory
 import app.parley.ui.activityViewModel
 import android.net.Uri
 import androidx.compose.material.icons.Icons
@@ -14,6 +15,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
+import app.parley.ui.home.RecentsViewModel
+import app.parley.ui.settings.SettingsPageScreen
 import kotlinx.coroutines.flow.MutableStateFlow
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
@@ -36,20 +39,20 @@ fun NavGraphBuilder.historyDestinations(vm: AppViewModel, nav: NavController) {
     composable(HistoryRoutes.INSIGHTS) { InsightsScreen(vm, back = { nav.popBackStack() }, open = { r -> nav.navigate(r) }) }
     // The former "Call history" sub-screen is part of Settings › Recents & history now; old links land there.
     composable(HistoryRoutes.SETTINGS) {
-        app.parley.ui.settings.SettingsPageScreen(vm, app.parley.common.SettingsCategory.HISTORY, "archive", back = { nav.popBackStack() }, open = { r -> nav.navigate(r) })
+        SettingsPageScreen(vm, SettingsCategory.HISTORY, "archive", back = { nav.popBackStack() }, open = { r -> nav.navigate(r) })
     }
     composable(HistoryRoutes.IMPORT) { ImportCallsScreen(vm, back = { nav.popBackStack() }) }
     composable(HistoryRoutes.SIMS) { SimListScreen(vm, back = { nav.popBackStack() }, open = { r -> nav.navigate(r) }) }
     composable(HistoryRoutes.SIM) { SimSettingsScreen(vm, Uri.decode(it.arguments?.getString("id").orEmpty()), back = { nav.popBackStack() }) }
 }
 
-/** Recents top-bar action: Insights (H5). */
+/** Recents top-bar action: Insights. */
 @Composable
 fun RecentsInsightsAction(open: (String) -> Unit) {
     IconButton({ open(HistoryRoutes.INSIGHTS) }) { Icon(Icons.Rounded.Insights, stringResource(R.string.hist_insights_action)) }
 }
 
-/** Recents overflow item "Export…" (H2); the sheet itself is shown by [RecentsExportHost] in Recents. */
+/** Recents overflow item "Export…"; the sheet itself is shown by [RecentsExportHost] in Recents. */
 @Composable
 fun RecentsExportMenuItem(closeMenu: () -> Unit) {
     DropdownMenuItem({ Text(stringResource(R.string.hist_export_menu)) }, leadingIcon = { Icon(Icons.Rounded.FileDownload, null) }, onClick = {
@@ -65,7 +68,7 @@ private val exportRequested = MutableStateFlow(false)
 fun RecentsExportHost(vm: AppViewModel) {
     val show by exportRequested.collectAsStateWithLifecycle()
     if (!show) return
-    val groups by activityViewModel<app.parley.ui.home.RecentsViewModel>().groups.collectAsStateWithLifecycle()
+    val groups by activityViewModel<RecentsViewModel>().groups.collectAsStateWithLifecycle()
     val calls = remember(groups) { groups.orEmpty().flatMap { it.calls } }
     ExportSheet(vm, calls, subject = null) { exportRequested.value = false }
 }

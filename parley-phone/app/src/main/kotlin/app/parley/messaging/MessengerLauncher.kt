@@ -1,9 +1,15 @@
 package app.parley.messaging
 
 import android.content.ActivityNotFoundException
+import android.content.ClipData
+import android.content.ClipDescription
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.content.res.Resources
+import android.os.Build
+import android.os.PersistableBundle
 import androidx.core.net.toUri
 import android.provider.Telephony
 import app.parley.R
@@ -49,13 +55,13 @@ object MessengerLauncher {
         return open(context, link, app)
     }
 
-    /** Copies [text] for pasting, kept out of clipboard previews and keyboard suggestions on Android 13+ (F19). */
+    /** Copies [text] for pasting, kept out of clipboard previews and keyboard suggestions on Android 13+. */
     fun copySensitive(context: Context, text: String) {
-        val clip = android.content.ClipData.newPlainText("message", text)
-        if (android.os.Build.VERSION.SDK_INT >= 33) {
-            clip.description.extras = android.os.PersistableBundle().apply { putBoolean(android.content.ClipDescription.EXTRA_IS_SENSITIVE, true) }
+        val clip = ClipData.newPlainText("message", text)
+        if (Build.VERSION.SDK_INT >= 33) {
+            clip.description.extras = PersistableBundle().apply { putBoolean(ClipDescription.EXTRA_IS_SENSITIVE, true) }
         }
-        context.getSystemService(android.content.ClipboardManager::class.java).setPrimaryClip(clip)
+        context.getSystemService(ClipboardManager::class.java).setPrimaryClip(clip)
     }
 
     fun open(context: Context, link: MessengerLink, app: MessengerApp?): String? {
@@ -84,7 +90,7 @@ object TemporaryContact {
         TemporaryContacts.save(c, name, number, days, private = private, purgeHistory = true)
 
     /** What to tell the user after saving. */
-    fun savedMessage(res: android.content.res.Resources, saved: TemporaryContacts.Saved?): String = when {
+    fun savedMessage(res: Resources, saved: TemporaryContacts.Saved?): String = when {
         saved == null -> res.getString(R.string.keypad_save_failed)
         saved.private -> res.getQuantityString(R.plurals.msg_saved_private_for, DEFAULT_DAYS, DEFAULT_DAYS)
         else -> res.getQuantityString(R.plurals.msg_saved_visible_for, DEFAULT_DAYS, DEFAULT_DAYS)

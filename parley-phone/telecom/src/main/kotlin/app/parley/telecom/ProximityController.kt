@@ -5,7 +5,7 @@ import android.os.PowerManager
 
 /**
  * Turns the screen off when the phone is held to the ear during an earpiece call. Can be switched off in
- * Settings › Calls (V6), for broken sensors or for listening with the phone in a pocket.
+ * Settings › Calls, for broken sensors or for listening with the phone in a pocket.
  */
 class ProximityController(context: Context) {
     private val pm = context.getSystemService(PowerManager::class.java)

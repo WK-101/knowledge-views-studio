@@ -1,7 +1,7 @@
 package app.parley.common.spam
 
 /**
- * Regulator range packs shipped inside the app (B5). They carry no personal data: only number ranges that a
+ * Regulator range packs shipped inside the app. They carry no personal data: only number ranges that a
  * regulator reserved for a purpose. Suggested when the SIM country matches.
  */
 object BuiltInPacks {

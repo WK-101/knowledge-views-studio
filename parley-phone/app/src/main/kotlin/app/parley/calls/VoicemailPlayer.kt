@@ -33,7 +33,7 @@ data class PlayerState(
 )
 
 /**
- * Plays one voicemail at a time from its content URI (V1). Speaker by default; "Earpiece" plays it quietly at the ear
+ * Plays one voicemail at a time from its content URI. Speaker by default; "Earpiece" plays it quietly at the ear
  * like a call, using the communication audio mode only while it plays (never during a real call, which owns the audio).
  */
 class VoicemailPlayer(context: Context, private val onStarted: (Voicemail) -> Unit = {}) {

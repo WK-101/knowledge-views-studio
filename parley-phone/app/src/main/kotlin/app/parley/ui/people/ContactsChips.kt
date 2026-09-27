@@ -32,6 +32,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import androidx.compose.ui.res.stringResource
 import app.parley.R
+import app.parley.ui.Routes
+import app.parley.ui.temporary.rememberTemporaryItems
 
 /**
  * Contacts-tab filter row: All · Private · Unlabelled · labels (multi-select, AND/OR) · account, plus shortcuts
@@ -99,12 +101,12 @@ fun ContactsFilterChips(vm: AppViewModel, showVault: Boolean, vaultHidden: Boole
         }
         AssistChip(onClick = { open(PeopleRoutes.LABELS) }, label = { Text(stringResource(R.string.ppl_chip_labels)) }, leadingIcon = { Icon(Icons.AutoMirrored.Rounded.Label, null, Modifier.size(16.dp)) })
         // Contacts that delete themselves: shown only when there are some.
-        val temporary = app.parley.ui.temporary.rememberTemporaryItems(vm).size
+        val temporary = rememberTemporaryItems(vm).size
         if (temporary > 0) {
             AssistChip(
-                onClick = { open(app.parley.ui.Routes.TEMPORARY) },
+                onClick = { open(Routes.TEMPORARY) },
                 label = { Text(stringResource(R.string.ppl_chip_temporary, temporary)) },
-                leadingIcon = { Icon(androidx.compose.material.icons.Icons.Rounded.AutoDelete, null, Modifier.size(16.dp)) },
+                leadingIcon = { Icon(Icons.Rounded.AutoDelete, null, Modifier.size(16.dp)) },
             )
         }
     }

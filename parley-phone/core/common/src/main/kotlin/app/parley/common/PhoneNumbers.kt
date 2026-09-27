@@ -97,7 +97,7 @@ object PhoneNumbers {
     }
 
     /**
-     * F7: [PhoneIdentity.key]. A key for one phone line, for maps and de-duplication. The E.164 form whenever it can be derived (national
+     * [PhoneIdentity.key]. A key for one phone line, for maps and de-duplication. The E.164 form whenever it can be derived (national
      * numbers are read with [countryIso], ideally the country of the SIM that handled the call), so numbers from
      * different countries that share their last digits never collide. Only when no E.164 form can be derived does it
      * fall back to the digits, prefixed with `~` so a fallback key never equals an E.164 key.

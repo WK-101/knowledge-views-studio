@@ -9,6 +9,7 @@ import app.parley.data.db.AppDatabase
 import app.parley.data.db.NumberSimEntity
 import app.parley.data.history.CallHistory
 import app.parley.data.messaging.MessagingStore
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
@@ -66,7 +67,7 @@ class PhoneKeyMigrator(
             runCatching { messaging().rekeyLegacy(plan) }.onFailure { Log.w(TAG, "Messaged-numbers record not re-keyed", it) }
             prefs.edit().putInt(K_VERSION, VERSION).apply()
             plan.size
-        } catch (e: kotlinx.coroutines.CancellationException) {
+        } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             Log.w(TAG, "Phone-key migration failed; old keys stay readable", e)

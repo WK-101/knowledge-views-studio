@@ -153,14 +153,14 @@ private fun ReachLayout(
     footer: @Composable ColumnScope.() -> Unit,
 ) {
     Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = 16.dp)) {
-        Text(stringResource(R.string.v34msg_message_or_call_on), style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 24.dp))
+        Text(stringResource(R.string.reach_message_or_call_on), style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 24.dp))
         header()
-        // C2: calling is the first, primary action; the number is dialled as given (the SIM's country applies).
+        // Calling is the first, primary action; the number is dialled as given (the SIM's country applies).
         if (onCall != null && callNumber != null) CallFirstButton(callNumber) { onCall(callNumber) }
         beforeMessages()
-        SheetSection(stringResource(R.string.v34msg_section_message))
+        SheetSection(stringResource(R.string.reach_section_message))
         messages()
-        SheetSection(stringResource(R.string.v34msg_section_call))
+        SheetSection(stringResource(R.string.reach_section_call))
         calls()
         footer()
     }
@@ -244,9 +244,9 @@ fun DirectCallItem(
             Text(
                 stringResource(
                     when {
-                        voice && video -> R.string.v34msg_call_direct
-                        video -> R.string.v34msg_call_video_only
-                        else -> R.string.v34msg_call_voice_only
+                        voice && video -> R.string.reach_call_direct
+                        video -> R.string.reach_call_video_only
+                        else -> R.string.reach_call_voice_only
                     },
                 ),
             )
@@ -254,8 +254,8 @@ fun DirectCallItem(
         leadingContent = { AppBadge(label, packageName = packageName) },
         trailingContent = {
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                if (voice) ReachActionButton(Icons.Rounded.Call, stringResource(R.string.v34msg_voice_on_app, label), voiceUsual, onVoice)
-                if (video) ReachActionButton(Icons.Rounded.Videocam, stringResource(R.string.v34msg_video_on_app, label), videoUsual, onVideo)
+                if (voice) ReachActionButton(Icons.Rounded.Call, stringResource(R.string.reach_voice_on_app, label), voiceUsual, onVoice)
+                if (video) ReachActionButton(Icons.Rounded.Videocam, stringResource(R.string.reach_video_on_app, label), videoUsual, onVideo)
             }
         },
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
@@ -269,8 +269,8 @@ fun DirectCallItem(
 @Composable
 fun ViaChatCallItem(label: String, enabled: Boolean = true, sub: String? = null, packageName: String? = null, onClick: () -> Unit) {
     ListItem(
-        headlineContent = { Text(stringResource(R.string.v34msg_call_via_chat, label)) },
-        supportingContent = { Text(sub ?: stringResource(R.string.v34msg_call_via_chat_sub, label)) },
+        headlineContent = { Text(stringResource(R.string.reach_call_via_chat, label)) },
+        supportingContent = { Text(sub ?: stringResource(R.string.reach_call_via_chat_sub, label)) },
         leadingContent = { AppBadge(label, packageName = packageName) },
         trailingContent = { Icon(Icons.AutoMirrored.Rounded.Chat, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
         colors = if (enabled) ListItemDefaults.colors(containerColor = Color.Transparent)
@@ -290,7 +290,7 @@ private fun CallOnRows(
     onViaChat: (MessengerApp) -> Unit,
 ) {
     if (entries.isEmpty()) {
-        Text(stringResource(R.string.v34msg_no_call_apps), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
+        Text(stringResource(R.string.reach_no_call_apps), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
     }
     entries.forEach { e ->
         when (e) {
@@ -321,7 +321,7 @@ private fun FooterNote(icon: ImageVector, text: String) {
 // ---------------------------------------------------------------- A saved or private person
 
 /**
- * M6/M7: pick the number, then an installed chat app (its own row when it has linked the person, otherwise by
+ * Pick the number, then an installed chat app (its own row when it has linked the person, otherwise by
  * number), another app's chat row, or SMS; "Call on" lists the calls apps added for that number and, for chat apps
  * that didn't, their chat (no app offers a link that starts a call to a number). A message choice and a call or
  * video choice are remembered separately (MessengerPrefs).
@@ -421,7 +421,7 @@ private fun PersonReach(r: Reach, onRemember: (MessengerPrefs) -> Unit, onCall: 
                 },
                 onViaChat = { app ->
                     val err = openChat(app)
-                    if (err == null) Toast.makeText(context, res.getString(R.string.v34msg_call_via_chat_hint), Toast.LENGTH_LONG).show()
+                    if (err == null) Toast.makeText(context, res.getString(R.string.reach_call_via_chat_hint), Toast.LENGTH_LONG).show()
                     done(app, err, r.prefs, withNumber = false)
                 },
             )
@@ -439,7 +439,7 @@ private fun PersonReach(r: Reach, onRemember: (MessengerPrefs) -> Unit, onCall: 
 // ---------------------------------------------------------------- A number
 
 /**
- * M2: a number that may not be saved, in international form (with the SIM's country; the chip changes it), an
+ * A number that may not be saved, in international form (with the SIM's country; the chip changes it), an
  * optional message ("Send my details"), the installed chat apps (last used first) and SMS; "Call on" offers each chat
  * app's own call rows when it has linked this number, otherwise its chat, and other apps' call rows. An unsaved
  * number can be saved as a temporary contact so apps can add call rows once they sync.
@@ -451,7 +451,7 @@ private fun NumberReach(number: String, accountId: String?, onCall: ((String) ->
     val c = context.container
     val store = c.messaging
     val scope = rememberCoroutineScope()
-    // F19: the country of the SIM that took the call, which the user can override for this number with the chip.
+    // The country of the SIM that took the call, which the user can override for this number with the chip.
     val simRegion = remember(accountId) { PhoneEnv.countryIso(context, accountId) }
     var regionOverride by rememberSaveable(number) { mutableStateOf<String?>(null) }
     var pickCountry by remember { mutableStateOf(false) }
@@ -467,7 +467,7 @@ private fun NumberReach(number: String, accountId: String?, onCall: ((String) ->
     var editDetails by remember { mutableStateOf(false) }
     var askSave by remember { mutableStateOf(false) }
     // Re-checked before any offer, so a quick tap before the lookup finishes is harmless. [known] is null until the
-    // contact and private lookups finish (v3.4 review #3: the "save for calls" row waits for it).
+    // contact and private lookups finish (the "save for calls" row waits for it).
     var known by remember(number) { mutableStateOf<Boolean?>(null) }
     LaunchedEffect(number) {
         known = withContext(Dispatchers.IO) { runCatching { !ChatThenDecide.stillUnknown(c, number) }.getOrDefault(true) }
@@ -486,7 +486,7 @@ private fun NumberReach(number: String, accountId: String?, onCall: ((String) ->
         val link = e164?.let { MessengerLinks.build(app, it, draft) } ?: return
         if (draft.isNotBlank() && !app.takesText) {
             val clip = ClipData.newPlainText("message", draft)
-            // F19: keep the draft out of clipboard previews and keyboard suggestions (Android 13+).
+            // Keep the draft out of clipboard previews and keyboard suggestions (Android 13+).
             if (Build.VERSION.SDK_INT >= 33) {
                 clip.description.extras = PersistableBundle().apply { putBoolean(ClipDescription.EXTRA_IS_SENSITIVE, true) }
             }
@@ -511,7 +511,7 @@ private fun NumberReach(number: String, accountId: String?, onCall: ((String) ->
         val link = e164?.let { MessengerLinks.build(app, it) } ?: return toast(unavailable ?: res.getString(R.string.msg_cant_open_number))
         val err = MessengerLauncher.open(context, link, app)
         if (err != null) return toast(err)
-        toast(res.getString(R.string.v34msg_call_via_chat_hint))
+        toast(res.getString(R.string.reach_call_via_chat_hint))
         store.lastCallApp = app.packageName
         store.recordOpened(number, app, app.label, isContact)
         onLaunched(app)
@@ -527,7 +527,7 @@ private fun NumberReach(number: String, accountId: String?, onCall: ((String) ->
                 modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp),
             )
             if (nationalForm) {
-                // F19: a national number is read with this country; tap to change it (e.g. the call came in abroad).
+                // A national number is read with this country; tap to change it (e.g. the call came in abroad).
                 AssistChip(
                     onClick = { pickCountry = true },
                     label = { Text(stringResource(if (regionOverride == null) R.string.num_country else R.string.msg_country_changed, countryLabel(region))) },
@@ -570,13 +570,13 @@ private fun NumberReach(number: String, accountId: String?, onCall: ((String) ->
                 Text(stringResource(R.string.msg_no_chat_apps), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp))
             }
             chatApps.forEach { app ->
-                // F19: only enabled when a link can actually be built; otherwise the reason is shown.
+                // Only enabled when a link can actually be built; otherwise the reason is shown.
                 val sub = when {
                     unavailable != null -> unavailable
                     draft.isNotBlank() && !app.takesText -> stringResource(R.string.msg_will_copy)
                     else -> null
                 }
-                // M13: Telegram rows also open the person's profile (long-press or the ⋮ button).
+                // Telegram rows also open the person's profile (long-press or the ⋮ button).
                 val telegram = app.messenger == Messenger.TELEGRAM
                 MessageAppItem(
                     app.label, app.packageName, sub, enabled = unavailable == null, usual = false, onClick = { launch(app) },
@@ -613,11 +613,11 @@ private fun NumberReach(number: String, accountId: String?, onCall: ((String) ->
                 onStart = ::startRow,
                 onViaChat = ::viaChat,
             )
-            // v3.4 review #3: only once the lookup says the number is neither a contact nor a private one.
+            // Only once the lookup says the number is neither a contact nor a private one.
             if (known == false && callApps.isNotEmpty()) {
                 ListItem(
-                    headlineContent = { Text(pluralStringResource(R.plurals.v34msg_save_for_calls, TemporaryContact.DEFAULT_DAYS, TemporaryContact.DEFAULT_DAYS)) },
-                    supportingContent = { Text(stringResource(R.string.v34msg_save_for_calls_sub)) },
+                    headlineContent = { Text(pluralStringResource(R.plurals.reach_save_for_calls, TemporaryContact.DEFAULT_DAYS, TemporaryContact.DEFAULT_DAYS)) },
+                    supportingContent = { Text(stringResource(R.string.reach_save_for_calls_sub)) },
                     leadingContent = { Icon(Icons.Rounded.Timer, null, Modifier.padding(horizontal = 8.dp)) },
                     colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                     modifier = Modifier.clickable(role = Role.Button) { askSave = true },
@@ -645,16 +645,16 @@ private fun NumberReach(number: String, accountId: String?, onCall: ((String) ->
         }
     }
     if (askSave) {
-        // F5: private unless the user ticks "visible"; the notice says plainly that apps only see it when ticked.
+        // Private unless the user ticks "visible"; the notice says plainly that apps only see it when ticked.
         TemporaryNameDialog(
-            TemporaryContact.suggestedName(number, null, region), notice = stringResource(R.string.v34msg_save_for_calls_notice),
+            TemporaryContact.suggestedName(number, null, region), notice = stringResource(R.string.reach_save_for_calls_notice),
             initialVisible = false, onDismiss = { askSave = false },
         ) { name, visible ->
             askSave = false
             scope.launch {
                 // Checked again right before saving: never a second copy of a contact or a private person's number.
                 val unknown = withContext(Dispatchers.IO) { runCatching { ChatThenDecide.stillUnknown(c, number) && (e164 == null || ChatThenDecide.stillUnknown(c, e164)) }.getOrDefault(false) }
-                if (!unknown) return@launch toast(res.getString(R.string.v34msg_save_already_known))
+                if (!unknown) return@launch toast(res.getString(R.string.reach_save_already_known))
                 val saved = withContext(Dispatchers.IO) { runCatching { TemporaryContact.save(c, e164 ?: number, name, private = !visible) }.getOrNull() }
                 toast(TemporaryContact.savedMessage(res, saved))
             }

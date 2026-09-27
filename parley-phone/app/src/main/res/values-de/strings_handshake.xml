@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="handshake_met_at">Getroffen bei %1$s am %2$s</string>
+    <string name="handshake_met_on">Getroffen am %1$s</string>
+    <string name="handshake_place">Wo habt ihr euch getroffen?</string>
+    <string name="handshake_place_hint">Ein Café, eine Konferenz, eine Party bei Freunden</string>
+    <string name="handshake_place_note">Wird als „Getroffen bei… am heutigen Datum“ in der Kreis-Zeitleiste gespeichert.</string>
+    <string name="handshake_to_note">Auch zur Notiz hinzufügen</string>
+    <string name="handshake_swap">Tauschen: nach dem Empfang immer meine Karte zeigen</string>
+    <string name="handshake_show_mine">Meine Karte zeigen</string>
+    <string name="handshake_no_card">Deine Karte ist leer. Füge Namen und Nummer hinzu, um sie zu teilen.</string>
+    <string name="handshake_make_card">Meine Karte ausfüllen</string>
+</resources>

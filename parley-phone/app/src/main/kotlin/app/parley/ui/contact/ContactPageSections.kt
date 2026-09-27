@@ -1,5 +1,6 @@
 package app.parley.ui.contact
 
+import android.content.res.Resources
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
@@ -47,7 +48,7 @@ import app.parley.common.people.ContactPageLayout
 import app.parley.common.people.ContactSection
 
 /**
- * P1 (v3.4): the sections a contact's page has, collected in code order with their title, the summary shown while
+ * The sections a contact's page has, collected in code order with their title, the summary shown while
  * folded, and their content; [foldableSections] draws them in the order chosen in Settings.
  */
 class PageSections {
@@ -65,7 +66,7 @@ class PageSections {
 /** The sections this page shows, in order (hidden and empty ones left out). */
 fun PageSections.shown(layout: ContactPageLayout): List<ContactSection> = layout.visible.filter { it in entries }
 
-/** P1: one list item per shown section: a fold header and its content, which folds with a spring. */
+/** One list item per shown section: a fold header and its content, which folds with a spring. */
 fun LazyListScope.foldableSections(sections: PageSections, layout: ContactPageLayout, onFold: (ContactSection, Boolean) -> Unit) {
     sections.shown(layout).forEach { s ->
         val e = sections.entries.getValue(s)
@@ -87,13 +88,16 @@ fun LazyListScope.foldableSections(sections: PageSections, layout: ContactPageLa
 @Composable
 fun FoldHeader(title: String, summary: String, folded: Boolean, onToggle: () -> Unit) {
     val turn by animateFloatAsState(if (folded) 0f else 180f, spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMediumLow), label = "chevron")
-    val state = stringResource(if (folded) R.string.v34_cp_folded else R.string.v34_cp_open)
+    val state = stringResource(if (folded) R.string.contact_page_folded else R.string.contact_page_open)
     Row(
         Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
             .clip(RoundedCornerShape(16.dp))
-            .clickable(role = Role.Button, onClickLabel = stringResource(if (folded) R.string.v34_cp_unfold else R.string.v34_cp_fold), onClick = onToggle)
+            .clickable(
+                role = Role.Button, onClickLabel = stringResource(if (folded) R.string.contact_page_unfold else R.string.contact_page_fold),
+                onClick = onToggle,
+            )
             .heightIn(min = 48.dp)
             .semantics(mergeDescendants = true) {
                 heading()
@@ -119,7 +123,7 @@ fun FoldHeader(title: String, summary: String, folded: Boolean, onToggle: () -> 
 class QuickAction(val icon: ImageVector, val label: String, val enabled: Boolean, val onClick: () -> Unit)
 
 /**
- * P1: the compact bar that stays under the top bar once the big header has scrolled away: the quick actions as
+ * The compact bar that stays under the top bar once the big header has scrolled away: the quick actions as
  * 48 dp tonal buttons and, on long pages, chips that jump to a section.
  */
 @Composable
@@ -144,20 +148,20 @@ fun PinnedContactBar(actions: List<QuickAction>, jumps: List<Pair<String, () -> 
     }
 }
 
-/** P1: a section's name, as the page and Settings › Contact page sections show it. */
-fun sectionTitle(res: android.content.res.Resources, s: ContactSection): String = res.getString(
+/** A section's name, as the page and Settings › Contact page sections show it. */
+fun sectionTitle(res: Resources, s: ContactSection): String = res.getString(
     when (s) {
-        ContactSection.STAY -> R.string.v34_cp_sec_stay
-        ContactSection.DATES -> R.string.v34_cp_sec_dates
-        ContactSection.PHONES -> R.string.v34_cp_sec_phones
-        ContactSection.EMAILS -> R.string.v34_cp_sec_emails
-        ContactSection.ADDRESSES -> R.string.v34_cp_sec_addresses
-        ContactSection.MESSENGERS -> R.string.v34_cp_sec_messengers
-        ContactSection.ABOUT -> R.string.v34_cp_sec_about
-        ContactSection.OTHER -> R.string.v34_cp_sec_other
-        ContactSection.TIMELINE -> R.string.v34_cp_sec_timeline
-        ContactSection.INSIGHTS -> R.string.v34_cp_sec_insights
-        ContactSection.NOTE -> R.string.v34_cp_sec_note
-        ContactSection.SETTINGS -> R.string.v34_cp_sec_settings
+        ContactSection.STAY -> R.string.contact_page_sec_stay
+        ContactSection.DATES -> R.string.contact_page_sec_dates
+        ContactSection.PHONES -> R.string.contact_page_sec_phones
+        ContactSection.EMAILS -> R.string.contact_page_sec_emails
+        ContactSection.ADDRESSES -> R.string.contact_page_sec_addresses
+        ContactSection.MESSENGERS -> R.string.contact_page_sec_messengers
+        ContactSection.ABOUT -> R.string.contact_page_sec_about
+        ContactSection.OTHER -> R.string.contact_page_sec_other
+        ContactSection.TIMELINE -> R.string.contact_page_sec_timeline
+        ContactSection.INSIGHTS -> R.string.contact_page_sec_insights
+        ContactSection.NOTE -> R.string.contact_page_sec_note
+        ContactSection.SETTINGS -> R.string.contact_page_sec_settings
     },
 )

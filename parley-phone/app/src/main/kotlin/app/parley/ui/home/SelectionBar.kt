@@ -28,6 +28,7 @@ import androidx.compose.material.icons.rounded.StarOutline
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
@@ -35,6 +36,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -51,7 +53,12 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.R
+import app.parley.common.ux.BackupNudge
 import app.parley.data.GroupInfo
+import app.parley.messaging.IntroduceStart
+import app.parley.ui.backup.rememberBackupFirst
+import app.parley.ui.people.CopyAsTextMenuItem
+import app.parley.ui.people.MoveToPrivateDialog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -69,8 +76,8 @@ fun SelectionBar(vm: AppViewModel) {
     var confirmPrivate by remember { mutableStateOf(false) }
     var labelPicker by remember { mutableStateOf<List<GroupInfo>?>(null) }
     val res = LocalResources.current
-    // C2: "Back up first?" before merging or deleting many contacts.
-    val backupFirst = app.parley.ui.backup.rememberBackupFirst(vm)
+    // "Back up first?" before merging or deleting many contacts.
+    val backupFirst = rememberBackupFirst(vm)
 
     val exporter = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/x-vcard")) { uri ->
         if (uri != null) scope.launch {
@@ -81,8 +88,8 @@ fun SelectionBar(vm: AppViewModel) {
 
     Surface(color = MaterialTheme.colorScheme.secondaryContainer) {
         // Same room for the status bar and cutout as the header it replaces.
-        @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
-        val insets = androidx.compose.material3.TopAppBarDefaults.windowInsets
+        @OptIn(ExperimentalMaterial3Api::class)
+        val insets = TopAppBarDefaults.windowInsets
         Row(
             Modifier.fillMaxWidth().windowInsetsPadding(insets).heightIn(min = 64.dp).padding(horizontal = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -114,8 +121,8 @@ fun SelectionBar(vm: AppViewModel) {
                     })
                     DropdownMenuItem({ Text(stringResource(R.string.sel_introduce)) }, leadingIcon = { Icon(Icons.AutoMirrored.Rounded.Message, null) }, onClick = {
                         menu = false
-                        // M13: one prefilled chat at a time; you press Send yourself.
-                        if (!app.parley.messaging.IntroduceStart.fromContacts(vm, chosen)) vm.toast(res.getString(R.string.sel_no_numbers))
+                        // One prefilled chat at a time; you press Send yourself.
+                        if (!IntroduceStart.fromContacts(vm, chosen)) vm.toast(res.getString(R.string.sel_no_numbers))
                     })
                     if (chosen.size >= 2) {
                         DropdownMenuItem({ Text(stringResource(R.string.sel_merge)) }, leadingIcon = { Icon(Icons.AutoMirrored.Rounded.CallMerge, null) }, onClick = {
@@ -129,7 +136,7 @@ fun SelectionBar(vm: AppViewModel) {
                             }
                         })
                     }
-                    app.parley.ui.people.CopyAsTextMenuItem(chosen) { menu = false }
+                    CopyAsTextMenuItem(chosen) { menu = false }
                     DropdownMenuItem({ Text(stringResource(R.string.sel_export_vcf)) }, leadingIcon = { Icon(Icons.Rounded.FileDownload, null) }, onClick = {
                         menu = false
                         exporter.launch("contacts-${chosen.size}.vcf")
@@ -142,7 +149,7 @@ fun SelectionBar(vm: AppViewModel) {
     }
 
     if (confirmPrivate) {
-        app.parley.ui.people.MoveToPrivateDialog(vm, chosen.map { it.id }, onDismiss = { confirmPrivate = false }) { vm.selection.value = emptySet() }
+        MoveToPrivateDialog(vm, chosen.map { it.id }, onDismiss = { confirmPrivate = false }) { vm.selection.value = emptySet() }
     }
     if (confirmDelete) {
         AlertDialog(
@@ -153,7 +160,7 @@ fun SelectionBar(vm: AppViewModel) {
                 TextButton({
                     confirmDelete = false
                     val ids = chosen.map { it.id }
-                    backupFirst.ask(ids.size, app.parley.common.ux.BackupNudge.LARGE_DELETE) {
+                    backupFirst.ask(ids.size, BackupNudge.LARGE_DELETE) {
                         vm.deleteContacts(ids)
                         vm.selection.value = emptySet()
                     }

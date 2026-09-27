@@ -1,6 +1,7 @@
 package app.parley.common.qr
 
 import app.parley.common.qr.ScannedCard.Flag
+import app.parley.common.record.Col
 import app.parley.common.vcard.VCardStream
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -28,7 +29,7 @@ class ScannedCardTest {
         assertNull(s.customRingtone)
         assertTrue(ScannedCard.flags(s).isEmpty())
         // The details stay.
-        assertTrue(s.raws.flatMap { it.rows }.any { it[app.parley.common.record.Col.D1] == "+12125551212" })
+        assertTrue(s.raws.flatMap { it.rows }.any { it[Col.D1] == "+12125551212" })
     }
 
     @Test fun only_ticked_flags_are_kept() {

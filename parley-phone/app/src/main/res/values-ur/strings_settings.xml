@@ -635,7 +635,7 @@
     <string name="ct_chip_on_hold">%1$s ہولڈ پر</string>
     <string name="ct_chip_on_call">%1$s کے ساتھ کال پر</string>
     <string name="ct_chip_left">%1$s باقی</string>
-    <!-- v3.2 phone (P4, P5, P7, P8) -->
+    <!-- Phone -->
     <string name="set_default_dialer_help_title">Parley کو ڈیفالٹ فون ایپ نہیں بنا پا رہے؟</string>
     <string name="set_default_dialer_help_summary">آپ کے Android ورژن کے لیے مرحلہ وار رہنمائی، ایپ کی معلومات کے ساتھ</string>
     <string name="set_default_dialer_help_kw">ڈیفالٹ ڈائلر، کردار، محدود ترتیبات، ایپ کی معلومات</string>
@@ -656,7 +656,7 @@
     <string name="role_rescue_app_info">ایپ کی معلومات</string>
     <string name="role_rescue_default_apps">ڈیفالٹ ایپس</string>
     <string name="role_rescue_close">بند کریں</string>
-    <!-- v3.2 C3/U2 settings -->
+    <!-- Backup reminder and tips settings -->
     <string name="set_backup_reminder_title">بیک اپ کی یاد دلائیں</string>
     <string name="set_backup_reminder_summary">کچھ عرصے سے بیک اپ نہ ہونے پر ایک ہلکی یاد دہانی (مہینے میں زیادہ سے زیادہ ایک اطلاع)</string>
     <string name="set_backup_reminder_kw">یاد دہانی, ریمائنڈر, بیک اپ, اطلاع</string>

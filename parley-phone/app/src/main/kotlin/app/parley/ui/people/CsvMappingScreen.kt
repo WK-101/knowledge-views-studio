@@ -35,6 +35,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.parley.AppViewModel
@@ -51,12 +52,11 @@ import kotlinx.coroutines.launch
 import android.content.res.Resources
 import android.provider.ContactsContract.CommonDataKinds.Email
 import android.provider.ContactsContract.CommonDataKinds.Phone
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import app.parley.R
 
 /**
- * M12: a contact CSV that isn't Parley's own format (Google, Outlook, "Name,Phone", semicolons, tabs, one column).
+ * A contact CSV that isn't Parley's own format (Google, Outlook, "Name,Phone", semicolons, tabs, one column).
  * Each column gets a guessed meaning the user can change, with the first contacts previewed as they would be saved;
  * then the normal import runs and its report is shown.
  */
@@ -65,8 +65,7 @@ import app.parley.R
 fun CsvMappingScreen(vm: AppViewModel, back: () -> Unit) {
     val request = remember { MessagingInbox.csvImport }
     val scope = rememberCoroutineScope()
-    val context = LocalContext.current
-    val res = androidx.compose.ui.platform.LocalResources.current
+    val res = LocalResources.current
     var preview by remember { mutableStateOf<VCardIO.CsvPreview?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     var hasHeader by remember { mutableStateOf(true) }
@@ -205,7 +204,7 @@ fun CsvMappingScreen(vm: AppViewModel, back: () -> Unit) {
 @Composable
 private fun ColumnRow(name: String, samples: String, target: ColumnTarget, onPick: (ColumnTarget) -> Unit) {
     var open by remember { mutableStateOf(false) }
-    val res = androidx.compose.ui.platform.LocalResources.current
+    val res = LocalResources.current
     ListItem(
         headlineContent = { Text(name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
         supportingContent = {

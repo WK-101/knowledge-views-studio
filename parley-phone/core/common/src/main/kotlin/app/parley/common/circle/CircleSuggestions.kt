@@ -1,7 +1,7 @@
 package app.parley.common.circle
 
 /**
- * R1: "Suggested from your calls": the contacts you call most who aren't in your Circle yet, each with the rhythm
+ * "Suggested from your calls": the contacts you call most who aren't in your Circle yet, each with the rhythm
  * your history suggests. One tap adds them; nothing is added on its own.
  */
 object CircleSuggestions {

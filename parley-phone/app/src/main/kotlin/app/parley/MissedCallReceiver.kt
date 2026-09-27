@@ -6,6 +6,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.telecom.TelecomManager
+import app.parley.blocking.BlockingActions
 import app.parley.calls.MissedCallNotifier
 import app.parley.data.PlaceResult
 import kotlinx.coroutines.launch
@@ -47,10 +48,10 @@ class MissedCallActionReceiver : BroadcastReceiver() {
                         MissedCallNotifier.cancelAll(context)
                         seen(context)
                     }
-                    // V2: block from the notification (only after unlocking, see MissedCallNotifier.blockAction).
+                    // Block from the notification (only after unlocking, see MissedCallNotifier.blockAction).
                     ACTION_BLOCK -> {
                         intent.getStringExtra("number")?.takeIf { it.isNotBlank() }?.let { n ->
-                            if (!c.blocks.blockNumber(n)) app.parley.blocking.BlockingActions.blockNumberRule(c, n)
+                            if (!c.blocks.blockNumber(n)) BlockingActions.blockNumberRule(c, n)
                         }
                         nm.cancel(intent.getIntExtra(EXTRA_ID, MissedCallNotifier.ID))
                         if (!MissedCallNotifier.anyShowing(context, childrenOnly = true)) {
@@ -71,7 +72,7 @@ class MissedCallActionReceiver : BroadcastReceiver() {
         }
     }
 
-    /** Marks missed calls seen: clears Telecom's count and stops the re-alert (V3). */
+    /** Marks missed calls seen: clears Telecom's count and stops the re-alert. */
     private suspend fun seen(context: Context) {
         MissedCallNotifier.stopReAlert(context)
         context.container.callLog.markMissedRead()

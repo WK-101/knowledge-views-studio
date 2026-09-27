@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="handshake_met_at">التقينا في %1$s يوم %2$s</string>
+    <string name="handshake_met_on">التقينا يوم %1$s</string>
+    <string name="handshake_place">أين التقيتما؟</string>
+    <string name="handshake_place_hint">مقهى، مؤتمر، حفلة عند صديق</string>
+    <string name="handshake_place_note">يُحفظ بصيغة «التقينا في… بتاريخ اليوم» في الخط الزمني للدائرة.</string>
+    <string name="handshake_to_note">إضافته أيضًا إلى ملاحظته</string>
+    <string name="handshake_swap">تبادل: اعرض بطاقتي دائمًا بعد استلام بطاقة</string>
+    <string name="handshake_show_mine">اعرض بطاقتي</string>
+    <string name="handshake_no_card">بطاقتك فارغة. أضف اسمك ورقمك لمشاركتها.</string>
+    <string name="handshake_make_card">املأ بطاقتي</string>
+</resources>

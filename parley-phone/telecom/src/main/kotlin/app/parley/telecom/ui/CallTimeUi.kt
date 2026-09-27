@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -31,6 +32,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import android.content.res.Resources
@@ -48,7 +51,7 @@ import app.parley.telecom.CallUi
 import app.parley.ui.Bidi
 import kotlinx.coroutines.delay
 
-/** The caller's name, or their number kept left to right in right-to-left languages (L3). */
+/** The caller's name, or their number kept left to right in right-to-left languages. */
 internal val CallUi.displayTitle: String get() = if (name == null) Bidi.ltr(title) else title
 
 /** "12:05" or "1:02:05". */
@@ -92,7 +95,7 @@ internal fun rememberCallSeconds(connectTimeMillis: Long): State<Long> = produce
 }
 
 /**
- * Remaining-time ring around the caller's photo (T5). Shows only for calls that will be ended; turns to the
+ * Remaining-time ring around the caller's photo. Shows only for calls that will be ended; turns to the
  * error colour once the warning time is reached.
  */
 @Composable
@@ -113,8 +116,8 @@ internal fun CallTimeRing(timing: CallTiming?, size: Dp, content: @Composable ()
         Canvas(Modifier.size(size + 16.dp)) {
             val stroke = 5.dp.toPx()
             val inset = stroke / 2
-            val arcSize = androidx.compose.ui.geometry.Size(this.size.width - stroke, this.size.height - stroke)
-            val topLeft = androidx.compose.ui.geometry.Offset(inset, inset)
+            val arcSize = Size(this.size.width - stroke, this.size.height - stroke)
+            val topLeft = Offset(inset, inset)
             drawArc(track, 0f, 360f, false, topLeft, arcSize, style = Stroke(stroke))
             drawArc(color, -90f, 360f * left / total, false, topLeft, arcSize, style = Stroke(stroke, cap = StrokeCap.Round))
         }
@@ -122,7 +125,7 @@ internal fun CallTimeRing(timing: CallTiming?, size: Dp, content: @Composable ()
     }
 }
 
-/** "12:31 left · Limit for Ana", or the allowance note (T5, T6). */
+/** "12:31 left · Limit for Ana", or the allowance note. */
 @Composable
 internal fun RemainingLine(timing: CallTiming?) {
     val cd = timing?.countdown ?: return
@@ -162,10 +165,10 @@ internal fun RemainingLine(timing: CallTiming?) {
 }
 
 /**
- * The in-call "More" sheet (T2): wrap-up controls (+2 / +5 min, End in 1 min, Don't end) and call notes.
+ * The in-call "More" sheet: wrap-up controls (+2 / +5 min, End in 1 min, Don't end) and call notes.
  * In supervised mode a limit can only be shortened.
  */
-@OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 internal fun CallMoreSheet(call: CallUi, timing: CallTiming?, onDismiss: () -> Unit, onNote: () -> Unit, onOpenContact: (() -> Unit)?) {
     val cd = timing?.countdown

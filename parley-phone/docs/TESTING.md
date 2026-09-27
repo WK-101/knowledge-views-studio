@@ -377,7 +377,7 @@ Call the phone from another phone in each state below. For each one, check that 
 **Call list layout (P8)**
 - [ ] Recents ⋮ › Layout: Grouped / Every call / By day. Grouped: calls in a row from one number share a row (as before). Every call: one row each. By day: one row per number per day even when other calls came in between (the count shows). Day headers stay. The choice is also in Settings › Recents & history › Call list layout and survives a restart.
 
-**Regression checks (P9)** — unit tests in `core/common/.../calls/PhoneV32Test.kt`; on the device:
+**Regression checks (P9)** — unit tests in `core/common/.../calls/DialTargetTest.kt`; on the device:
 - [ ] Keypad: `*#06#` shows the IMEI; `*100#` sends a USSD request; `**21*+4915112345678#` (paste it) keeps the `+` and `#` and goes to the network as a forwarding code; `#31#0612345678` calls with the number hidden.
 - [ ] Type `555` while a contact "+1 555 0100" is the top match: Call dials 555. Typing a name on a hardware keyboard calls the top match.
 - [ ] During a call, a second call rings with the call-waiting sheet (ringtone/tone, Answer, Hold & answer, End & answer).

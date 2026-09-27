@@ -1,5 +1,7 @@
 package app.parley.common.qr
 
+import app.parley.common.SettingsCatalog
+import app.parley.common.SettingsCategory
 import app.parley.common.photo.PhotoMath
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -98,8 +100,8 @@ class UrlSafetyTest {
 
 class ScanQrSettingTest {
     @Test fun scan_qr_is_in_settings_search() {
-        val e = app.parley.common.SettingsCatalog.entries.first { it.key == "scan_qr" }
-        assertEquals(app.parley.common.SettingsCategory.CONTACTS, e.category)
+        val e = SettingsCatalog.entries.first { it.key == "scan_qr" }
+        assertEquals(SettingsCategory.CONTACTS, e.category)
         assertTrue("qr" in e.keywords)
     }
 }

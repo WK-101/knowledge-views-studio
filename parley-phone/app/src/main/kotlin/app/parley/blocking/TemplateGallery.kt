@@ -1,8 +1,15 @@
 package app.parley.blocking
 
+import android.annotation.SuppressLint
 import android.content.Context
+import android.net.Uri
 import app.parley.R
+import app.parley.common.BlockAction
 import app.parley.common.ListMode
+import app.parley.common.OffHoursAllow
+import app.parley.common.RuleKind
+import app.parley.common.RuleType
+import app.parley.common.Schedule
 import app.parley.common.spam.ListPack
 import app.parley.common.spam.PackOrigin
 import app.parley.common.templates.ImportedTemplate
@@ -12,6 +19,7 @@ import app.parley.common.templates.RuleTemplate
 import app.parley.common.templates.RuleTemplates
 import app.parley.common.templates.TemplateGalleryState
 import app.parley.data.DataContainer
+import app.parley.ui.settings.bidiLtr
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -125,7 +133,7 @@ class TemplateGallery private constructor(context: Context) {
         private const val ASSETS = "templates"
 
         // Holds only the application context.
-        @android.annotation.SuppressLint("StaticFieldLeak")
+        @SuppressLint("StaticFieldLeak")
         @Volatile
         private var instance: TemplateGallery? = null
 
@@ -151,40 +159,40 @@ object TemplateText {
         "us.toll-free-warn" to (R.string.blk_tpl_us_toll_free_name to R.string.blk_tpl_us_toll_free_desc),
     )
 
-    fun name(context: Context, t: app.parley.common.templates.RuleTemplate): String = texts[t.id]?.let { context.getString(it.first) } ?: t.name
+    fun name(context: Context, t: RuleTemplate): String = texts[t.id]?.let { context.getString(it.first) } ?: t.name
 
-    fun description(context: Context, t: app.parley.common.templates.RuleTemplate): String = texts[t.id]?.let { context.getString(it.second) } ?: t.description
+    fun description(context: Context, t: RuleTemplate): String = texts[t.id]?.let { context.getString(it.second) } ?: t.description
 
     /** [RuleTemplates.describe] in the app's language: one line per rule, range and setting. */
-    fun describe(context: Context, t: app.parley.common.templates.RuleTemplate): List<String> {
+    fun describe(context: Context, t: RuleTemplate): List<String> {
         val out = ArrayList<String>()
         val german = context.resources.configuration.locales.get(0)?.language == "de"
         RuleTemplates.toRules(t).forEach { r ->
             val what = when (r.type) {
-                app.parley.common.RuleType.PREFIX -> context.getString(R.string.blk_tpl_what_prefix, r.pattern)
-                app.parley.common.RuleType.EXACT -> app.parley.ui.settings.bidiLtr(r.pattern)
-                app.parley.common.RuleType.WILDCARD -> context.getString(R.string.blk_tpl_what_wildcard, r.pattern)
+                RuleType.PREFIX -> context.getString(R.string.blk_tpl_what_prefix, r.pattern)
+                RuleType.EXACT -> bidiLtr(r.pattern)
+                RuleType.WILDCARD -> context.getString(R.string.blk_tpl_what_wildcard, r.pattern)
                 // German capitalises nouns; elsewhere the title reads as part of the sentence.
                 else -> BlockingText.ruleTitle(context, r).let { if (german) it else it.replaceFirstChar { c -> c.lowercase() } }
             }
             val verb = when {
-                r.kind == app.parley.common.RuleKind.ALLOW -> R.string.blk_tpl_allow
-                r.action == app.parley.common.BlockAction.SILENCE -> R.string.blk_tpl_silence
+                r.kind == RuleKind.ALLOW -> R.string.blk_tpl_allow
+                r.action == BlockAction.SILENCE -> R.string.blk_tpl_silence
                 else -> R.string.blk_tpl_reject
             }
             out += context.getString(verb, what) +
-                (r.schedule?.let { s -> " (" + app.parley.common.Schedule.hm(s.startMinute) + "–" + app.parley.common.Schedule.hm(s.endMinute) + ")" } ?: "") +
+                (r.schedule?.let { s -> " (" + Schedule.hm(s.startMinute) + "–" + Schedule.hm(s.endMinute) + ")" } ?: "") +
                 (r.note?.let { " · $it" } ?: "")
         }
         t.warnList?.let { l ->
-            val verb = if (l.mode == app.parley.common.ListMode.BLOCK) R.string.blk_tpl_range_block else R.string.blk_tpl_range_warn
+            val verb = if (l.mode == ListMode.BLOCK) R.string.blk_tpl_range_block else R.string.blk_tpl_range_warn
             l.ranges.forEach { r ->
-                out += context.getString(verb, app.parley.ui.settings.bidiLtr(r.prefix + "…"), l.categories[r.category.toString()] ?: context.getString(R.string.blk_res_listed))
+                out += context.getString(verb, bidiLtr(r.prefix + "…"), l.categories[r.category.toString()] ?: context.getString(R.string.blk_res_listed))
             }
         }
         t.settings?.let { s ->
-            fun action(a: app.parley.common.BlockAction) =
-                context.getString(if (a == app.parley.common.BlockAction.SILENCE) R.string.blk_tpl_silenced else R.string.blk_tpl_rejected)
+            fun action(a: BlockAction) =
+                context.getString(if (a == BlockAction.SILENCE) R.string.blk_tpl_silenced else R.string.blk_tpl_rejected)
             s.blockInvalid?.let {
                 out += if (it) context.getString(R.string.blk_tpl_stop_invalid) + (s.invalidAction?.let { a -> " (${action(a)})" } ?: "")
                 else context.getString(R.string.blk_tpl_let_invalid)
@@ -193,13 +201,13 @@ object TemplateText {
             s.offHours?.let { o ->
                 out += if (o.enabled) {
                     val who = when (o.allow) {
-                        app.parley.common.OffHoursAllow.CONTACTS -> context.getString(R.string.blk_who_contacts)
-                        app.parley.common.OffHoursAllow.FAVOURITES -> context.getString(R.string.blk_who_favourites)
-                        app.parley.common.OffHoursAllow.LABEL -> o.labelTitle ?: context.getString(R.string.blk_who_label)
+                        OffHoursAllow.CONTACTS -> context.getString(R.string.blk_who_contacts)
+                        OffHoursAllow.FAVOURITES -> context.getString(R.string.blk_who_favourites)
+                        OffHoursAllow.LABEL -> o.labelTitle ?: context.getString(R.string.blk_who_label)
                     }
                     context.getString(
                         R.string.blk_tpl_off_hours,
-                        app.parley.common.Schedule.hm(o.schedule.startMinute), app.parley.common.Schedule.hm(o.schedule.endMinute), who, action(o.action),
+                        Schedule.hm(o.schedule.startMinute), Schedule.hm(o.schedule.endMinute), who, action(o.action),
                     )
                 } else {
                     context.getString(R.string.blk_tpl_off_hours_off)
@@ -241,5 +249,5 @@ object TemplateText {
 
 /** A template link opened from a QR scanner, waiting for the gallery screen to show it. */
 object TemplateInbox {
-    val pending = MutableStateFlow<android.net.Uri?>(null)
+    val pending = MutableStateFlow<Uri?>(null)
 }

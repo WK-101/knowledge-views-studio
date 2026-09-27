@@ -4,7 +4,7 @@ import app.parley.common.record.DataRow
 import app.parley.common.record.Mime
 
 /**
- * I4: data rows Parley doesn't edit (Google's "File as", user-defined fields, identity rows, any app's own kinds),
+ * Data rows Parley doesn't edit (Google's "File as", user-defined fields, identity rows, any app's own kinds),
  * turned into read-only label/value lines for the contact page, so nothing looks lost. Rows Parley shows elsewhere
  * (the kinds it edits, photos, labels, handles) and messenger apps' own action rows are left out.
  */

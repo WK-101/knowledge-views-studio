@@ -1,10 +1,15 @@
 package app.parley.data.sync
 
+import android.Manifest
+import android.content.ContentUris
+import android.content.Intent
+import android.provider.ContactsContract
 import app.parley.common.PhoneIdentity
 import android.content.Context
 import android.net.Uri
 import android.provider.DocumentsContract
 import app.parley.common.Duplicates
+import app.parley.common.StoredStatus
 import app.parley.common.backup.RecordJson
 import app.parley.common.record.ContactRecord
 import app.parley.common.record.Mime
@@ -38,7 +43,7 @@ data class SyncStatus(
 ) {
     /** The last result in the current language (rendered now, not when it was stored). */
     fun resultText(res: Resources): String? {
-        val s = app.parley.common.StoredStatus.decode(lastResult) ?: return lastResult
+        val s = StoredStatus.decode(lastResult) ?: return lastResult
         return when (s.kind) {
             NO_PERMISSION -> res.getString(R.string.data_sync_no_permission)
             FOLDER_GONE -> res.getString(R.string.data_sync_folder_gone)
@@ -99,7 +104,7 @@ class FolderSync(private val context: Context, private val contacts: ContactsRep
 
     fun setFolder(uri: Uri?, name: String?) {
         prefs.edit().remove("pendingDeletions").remove("lastResult").apply()
-        if (uri != null) runCatching { cr.takePersistableUriPermission(uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION) }
+        if (uri != null) runCatching { cr.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION) }
         prefs.edit().putString("folder", uri?.toString()).putString("folderName", name).apply()
         stateFile.delete() // new folder: start fresh (first sync links matching contacts instead of duplicating)
         _status.value = load()
@@ -143,7 +148,7 @@ class FolderSync(private val context: Context, private val contacts: ContactsRep
     /** Hashed, so names are short, filesystem-safe and never collide after sanitising. */
     private fun fileNameFor(key: String) = sha(key.toByteArray()).take(32) + ".vcf"
 
-    private fun finish(status: app.parley.common.StoredStatus, pending: Int = 0) {
+    private fun finish(status: StoredStatus, pending: Int = 0) {
         prefs.edit().putLong("lastAt", System.currentTimeMillis()).putString("lastResult", status.encode()).putInt("pendingDeletions", pending).apply()
         _status.value = load()
     }
@@ -156,8 +161,8 @@ class FolderSync(private val context: Context, private val contacts: ContactsRep
     suspend fun syncNow(allowMassDelete: Boolean = false): SyncReport = mutex.withLock {
         withContext(Dispatchers.IO) {
             val folder = status.value.folderUri?.let(Uri::parse) ?: return@withContext SyncReport()
-            if (!Permissions.has(context, android.Manifest.permission.READ_CONTACTS) || !Permissions.has(context, android.Manifest.permission.WRITE_CONTACTS)) {
-                finish(app.parley.common.StoredStatus.of(SyncStatus.NO_PERMISSION))
+            if (!Permissions.has(context, Manifest.permission.READ_CONTACTS) || !Permissions.has(context, Manifest.permission.WRITE_CONTACTS)) {
+                finish(StoredStatus.of(SyncStatus.NO_PERMISSION))
                 return@withContext SyncReport()
             }
             var rep = SyncReport()
@@ -184,7 +189,7 @@ class FolderSync(private val context: Context, private val contacts: ContactsRep
                 false
             }
             if (!listed) {
-                finish(app.parley.common.StoredStatus.of(SyncStatus.FOLDER_GONE))
+                finish(StoredStatus.of(SyncStatus.FOLDER_GONE))
                 return@withContext SyncReport()
             }
 
@@ -207,7 +212,7 @@ class FolderSync(private val context: Context, private val contacts: ContactsRep
                 if (rec == null && file?.bytes != null && sha(file.bytes) == e.fileHash) deletions++
             }
             if (!allowMassDelete && deletions > 3 && deletions * 4 > state.size) {
-                finish(app.parley.common.StoredStatus.of(SyncStatus.PAUSED, deletions), deletions)
+                finish(StoredStatus.of(SyncStatus.PAUSED, deletions), deletions)
                 return@withContext SyncReport()
             }
 
@@ -303,7 +308,7 @@ class FolderSync(private val context: Context, private val contacts: ContactsRep
             }
 
             writeState(state)
-            finish(app.parley.common.StoredStatus.of(SyncStatus.REPORT, rep.written, rep.imported, rep.updatedFromFolder, rep.deletedLocal, rep.deletedFiles, rep.conflicts, rep.linked))
+            finish(StoredStatus.of(SyncStatus.REPORT, rep.written, rep.imported, rep.updatedFromFolder, rep.deletedLocal, rep.deletedFiles, rep.conflicts, rep.linked))
             contacts.refresh()
             rep
         }
@@ -328,7 +333,7 @@ class FolderSync(private val context: Context, private val contacts: ContactsRep
     }
 
     private fun idFor(key: String): Long? = runCatching {
-        android.provider.ContactsContract.Contacts.lookupContact(cr, Uri.withAppendedPath(android.provider.ContactsContract.Contacts.CONTENT_LOOKUP_URI, key))
-            ?.let { android.content.ContentUris.parseId(it) }
+        ContactsContract.Contacts.lookupContact(cr, Uri.withAppendedPath(ContactsContract.Contacts.CONTENT_LOOKUP_URI, key))
+            ?.let { ContentUris.parseId(it) }
     }.getOrNull()
 }

@@ -1,9 +1,11 @@
 package app.parley.ui.history
 
+import android.text.format.DateUtils
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -42,6 +44,7 @@ import app.parley.common.history.NumberKeys
 import app.parley.common.history.TrendDirection
 import app.parley.ui.common.Format
 import app.parley.ui.contact.Section
+import app.parley.ui.home.CallTypeIcon
 import kotlinx.coroutines.launch
 import java.time.DayOfWeek
 import java.time.format.TextStyle
@@ -54,9 +57,9 @@ import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 
 /**
- * H6: per-person call insights for contact detail and number history: every number (E.164), last call,
+ * Per-person call insights for contact detail and number history: every number (E.164), last call,
  * monthly average, trend, weekday × hour heatmap, "usually answers after 6 pm", call rhythm, and the
- * per-person "Keep forever" switch of the archive (H1). [numbers] are all of the person's numbers.
+ * per-person "Keep forever" switch of the archive. [numbers] are all of the person's numbers.
  */
 @Composable
 fun CallInsightsSection(vm: AppViewModel, numbers: List<String>, title: String = stringResource(R.string.hist_calls_section), showTitle: Boolean = true) {
@@ -70,7 +73,7 @@ fun CallInsightsSection(vm: AppViewModel, numbers: List<String>, title: String =
     if (ins.totals.total == 0) return
 
     Column {
-        // P1 (v3.4): a contact page's foldable section header shows the title instead.
+        // A contact page's foldable section header shows the title instead.
         if (showTitle) Section(title)
         val shown = ins.numbers.map { NumberKeys.e164(it) ?: it.removePrefix("#") }
         if (shown.size > 1 || shown.firstOrNull() != first) {
@@ -78,8 +81,8 @@ fun CallInsightsSection(vm: AppViewModel, numbers: List<String>, title: String =
         }
         ins.lastCall?.let { last ->
             ListItem(
-                leadingContent = { app.parley.ui.home.CallTypeIcon(last.type, durationSec = last.durationSec) },
-                headlineContent = { Text(stringResource(R.string.hist_last_call, android.text.format.DateUtils.getRelativeTimeSpanString(last.date, System.currentTimeMillis(), android.text.format.DateUtils.MINUTE_IN_MILLIS))) },
+                leadingContent = { CallTypeIcon(last.type, durationSec = last.durationSec) },
+                headlineContent = { Text(stringResource(R.string.hist_last_call, DateUtils.getRelativeTimeSpanString(last.date, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS))) },
                 supportingContent = {
                     Text(
                         listOfNotNull(Format.fullDate(context, last.date), Format.duration(last.durationSec).ifBlank { null }).joinToString(" · ") +
@@ -193,14 +196,14 @@ fun HeatmapGrid(h: Heatmap, modifier: Modifier = Modifier) {
         Row(Modifier.fillMaxWidth().padding(start = 28.dp)) {
             listOf("0", "6", "12", "18", "24").forEachIndexed { i, s ->
                 Text(s, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                if (i < 4) androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
+                if (i < 4) Spacer(Modifier.weight(1f))
             }
         }
     }
 }
 
 /**
- * H7: in the keep-in-touch editor, suggests an interval from the call rhythm ("you usually talk every 9 days").
+ * In the keep-in-touch editor, suggests an interval from the call rhythm ("you usually talk every 9 days").
  * Shows nothing without a clear rhythm.
  */
 @Composable

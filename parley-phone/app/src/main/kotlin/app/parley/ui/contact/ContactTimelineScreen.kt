@@ -1,5 +1,8 @@
 package app.parley.ui.contact
 
+import android.content.res.Resources
+import androidx.compose.material3.Surface
+import androidx.compose.ui.platform.LocalContext
 import app.parley.common.PhoneIdentity
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -51,6 +54,9 @@ import app.parley.common.circle.TimelineEntry
 import app.parley.common.circle.TimelineFilter
 import app.parley.common.circle.TimelineKind
 import app.parley.data.ContactDetails
+import app.parley.data.EventItem
+import app.parley.data.PhoneEnv
+import app.parley.data.circle.Interaction
 import app.parley.ui.EmptyState
 import app.parley.ui.circle.CircleText
 import app.parley.ui.circle.LogInteractionDialog
@@ -59,11 +65,14 @@ import app.parley.ui.circle.rememberMonthFormat
 import app.parley.ui.circle.saveInteraction
 import app.parley.ui.circle.timelineEntries
 import app.parley.ui.history.HistoryText
+import app.parley.ui.people.eventLabel
+import app.parley.ui.segmentShape
 import java.time.ZoneId
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 
 /**
- * P1 (v3.4): a contact's whole timeline on its own screen ("Show all" on the contact page): search the notes,
+ * A contact's whole timeline on its own screen ("Show all" on the contact page): search the notes,
  * numbers and kinds, filter by calls, missed calls, logged moments, notes and dates, one sticky heading per month.
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
@@ -77,14 +86,14 @@ fun ContactTimelineScreen(vm: AppViewModel, contactId: Long, back: () -> Unit) {
     val dd = d
     val calls by vm.c.history.calls.collectAsStateWithLifecycle()
     val allNotes by vm.c.meta.allCallNotes().collectAsStateWithLifecycle(emptyList())
-    val interactions by remember(dd?.lookupKey) { dd?.lookupKey?.takeIf { it.isNotEmpty() }?.let { vm.c.circle.interactions.interactions(it) } ?: kotlinx.coroutines.flow.flowOf(emptyList()) }
+    val interactions by remember(dd?.lookupKey) { dd?.lookupKey?.takeIf { it.isNotEmpty() }?.let { vm.c.circle.interactions.interactions(it) } ?: flowOf(emptyList()) }
         .collectAsStateWithLifecycle(emptyList())
-    val context = androidx.compose.ui.platform.LocalContext.current
+    val context = LocalContext.current
     // The same calls as the contact page (F7: by E.164 with this phone's country).
     val history = remember(calls, dd?.phones) {
         val phones = dd?.phones.orEmpty()
         if (phones.isEmpty()) emptyList() else {
-            val mine = PhoneIdentity.LineSet(phones.map { it.value }, app.parley.data.PhoneEnv.countryIso(context))
+            val mine = PhoneIdentity.LineSet(phones.map { it.value }, PhoneEnv.countryIso(context))
             calls.orEmpty().filter { e -> e.number in mine }
         }
     }
@@ -92,7 +101,7 @@ fun ContactTimelineScreen(vm: AppViewModel, contactId: Long, back: () -> Unit) {
     val notes = remember(allNotes, keys) { allNotes.filter { it.numberKey in keys } }
     var query by rememberSaveable { mutableStateOf("") }
     var kinds by rememberSaveable { mutableStateOf(emptyList<TimelineKind>()) }
-    var editEntry by remember { mutableStateOf<app.parley.data.circle.Interaction?>(null) }
+    var editEntry by remember { mutableStateOf<Interaction?>(null) }
     val zone = remember { ZoneId.systemDefault() }
     val entries = remember(dd, history, interactions, notes) { dd?.let { timelineEntries(it, history, interactions, notes, zone) }.orEmpty() }
     val sep = stringResource(R.string.main_separator)
@@ -107,7 +116,7 @@ fun ContactTimelineScreen(vm: AppViewModel, contactId: Long, back: () -> Unit) {
         modifier = Modifier.nestedScroll(bar.nestedScrollConnection),
         topBar = {
             TopAppBar(
-                title = { Text(dd?.let { stringResource(R.string.v34_cp_timeline_of, it.given.ifBlank { it.displayName }) } ?: stringResource(R.string.v34_cp_sec_timeline)) },
+                title = { Text(dd?.let { stringResource(R.string.contact_page_timeline_of, it.given.ifBlank { it.displayName }) } ?: stringResource(R.string.contact_page_sec_timeline)) },
                 navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.main_back)) } },
                 scrollBehavior = bar,
             )
@@ -122,9 +131,9 @@ fun ContactTimelineScreen(vm: AppViewModel, contactId: Long, back: () -> Unit) {
                 OutlinedTextField(
                     query, { query = it },
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-                    placeholder = { Text(stringResource(R.string.v34_cp_timeline_search)) },
+                    placeholder = { Text(stringResource(R.string.contact_page_timeline_search)) },
                     leadingIcon = { Icon(Icons.Rounded.Search, null) },
-                    trailingIcon = if (query.isEmpty()) null else ({ IconButton({ query = "" }) { Icon(Icons.Rounded.Clear, stringResource(R.string.v34_cp_clear_search)) } }),
+                    trailingIcon = if (query.isEmpty()) null else ({ IconButton({ query = "" }) { Icon(Icons.Rounded.Clear, stringResource(R.string.contact_page_clear_search)) } }),
                     singleLine = true,
                     shape = RoundedCornerShape(28.dp),
                 )
@@ -140,15 +149,15 @@ fun ContactTimelineScreen(vm: AppViewModel, contactId: Long, back: () -> Unit) {
             item(key = "count") {
                 val n = shown.sumOf { it.entries.size }
                 Text(
-                    pluralStringResource(R.plurals.v34_cp_entries, n, n), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    pluralStringResource(R.plurals.contact_page_entries, n, n), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 32.dp, vertical = 4.dp),
                 )
             }
             if (shown.isEmpty() && dd != null) item(key = "empty") {
                 EmptyState(
-                    Icons.Rounded.Search, stringResource(if (entries.isEmpty()) R.string.circle_timeline_empty else R.string.v34_cp_timeline_no_match),
+                    Icons.Rounded.Search, stringResource(if (entries.isEmpty()) R.string.circle_timeline_empty else R.string.contact_page_timeline_no_match),
                     modifier = Modifier.padding(top = 32.dp),
-                    action = if (entries.isEmpty()) null else stringResource(R.string.v34_cp_timeline_clear_filters),
+                    action = if (entries.isEmpty()) null else stringResource(R.string.contact_page_timeline_clear_filters),
                     onAction = { query = ""; kinds = emptyList() },
                 )
             }
@@ -167,8 +176,8 @@ fun ContactTimelineScreen(vm: AppViewModel, contactId: Long, back: () -> Unit) {
                     val k = (seen[base] ?: 0) + 1
                     seen[base] = k
                     item(key = if (k == 1) base else "$base#$k") {
-                        androidx.compose.material3.Surface(
-                            shape = app.parley.ui.segmentShape(i, n), color = MaterialTheme.colorScheme.surfaceContainer,
+                        Surface(
+                            shape = segmentShape(i, n), color = MaterialTheme.colorScheme.surfaceContainer,
                             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).animateItem(),
                         ) { TimelineEntryRow(vm, e, interactions) { editEntry = it } }
                     }
@@ -192,20 +201,20 @@ private fun entryKey(e: TimelineEntry): String = when (e) {
     is TimelineEntry.Date -> "d" + e.time + "_" + e.type + "_" + e.label
 }
 
-private fun kindLabel(res: android.content.res.Resources, k: TimelineKind): String = res.getString(
+private fun kindLabel(res: Resources, k: TimelineKind): String = res.getString(
     when (k) {
-        TimelineKind.CALL -> R.string.v34_cp_kind_calls
-        TimelineKind.MISSED -> R.string.v34_cp_kind_missed
-        TimelineKind.LOGGED -> R.string.v34_cp_kind_logged
-        TimelineKind.NOTE -> R.string.v34_cp_kind_notes
-        TimelineKind.DATE -> R.string.v34_cp_kind_dates
+        TimelineKind.CALL -> R.string.contact_page_kind_calls
+        TimelineKind.MISSED -> R.string.contact_page_kind_missed
+        TimelineKind.LOGGED -> R.string.contact_page_kind_logged
+        TimelineKind.NOTE -> R.string.contact_page_kind_notes
+        TimelineKind.DATE -> R.string.contact_page_kind_dates
     },
 )
 
 /** The words an entry shows, localised, so "missed" or "coffee" finds it. */
-private fun searchText(res: android.content.res.Resources, e: TimelineEntry, sep: String): String = when (e) {
+private fun searchText(res: Resources, e: TimelineEntry, sep: String): String = when (e) {
     is TimelineEntry.Call -> res.getString(HistoryText.callType(e.call.type))
     is TimelineEntry.Logged -> CircleText.type(res, e.type) + (e.channel?.let { sep + CircleText.channel(res, it) } ?: "")
     is TimelineEntry.Note -> res.getString(R.string.circle_call_note)
-    is TimelineEntry.Date -> app.parley.ui.people.eventLabel(res, app.parley.data.EventItem(date = e.date.format(), type = e.type, label = e.label))
+    is TimelineEntry.Date -> eventLabel(res, EventItem(date = e.date.format(), type = e.type, label = e.label))
 }

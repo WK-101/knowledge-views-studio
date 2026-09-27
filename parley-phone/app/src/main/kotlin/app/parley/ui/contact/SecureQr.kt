@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.platform.LocalContext
+import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
@@ -34,16 +36,22 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import app.parley.AppViewModel
+import app.parley.NavEvent
 import app.parley.R
 import app.parley.common.backup.BackupCrypto
 import app.parley.common.backup.Recipient
 import app.parley.common.backup.Unlock
+import app.parley.common.extras.Handshake
 import app.parley.data.ContactDetails
 import app.parley.data.ContactDetailsJson
 import app.parley.ui.Bidi
+import app.parley.ui.extras.HandshakeFields
+import app.parley.ui.extras.HandshakeInbox
+import app.parley.ui.extras.MyCardQrDialog
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.EncodeHintType
 import com.google.zxing.qrcode.QRCodeWriter
+import java.util.UUID
 import kotlinx.coroutines.Dispatchers
 import app.parley.security.launchVault
 import kotlinx.coroutines.launch
@@ -120,12 +128,12 @@ fun SecureQrDialog(details: ContactDetails, onDismiss: () -> Unit) {
 @Composable
 fun ReceiveSecureQrDialog(vm: AppViewModel, uri: Uri, onDone: () -> Unit, openEditor: (ContactDetails, String) -> Unit) {
     val scope = rememberCoroutineScope()
-    val context = androidx.compose.ui.platform.LocalContext.current
+    val context = LocalContext.current
     var code by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
     var result by remember { mutableStateOf<ContactDetails?>(null) }
     val r = result
-    val res = androidx.compose.ui.platform.LocalResources.current
+    val res = LocalResources.current
     if (r == null) {
         AlertDialog(
             onDismissRequest = onDone,
@@ -156,16 +164,16 @@ fun ReceiveSecureQrDialog(vm: AppViewModel, uri: Uri, onDone: () -> Unit, openEd
             dismissButton = { TextButton(onDone) { Text(stringResource(R.string.main_cancel)) } },
         )
     } else {
-        // X5 handshake: where you met (a MEET entry, and optionally the note), and "Swap" shows your own card.
+        // Handshake: where you met (a MEET entry, and optionally the note), and "Swap" shows your own card.
         var place by remember { mutableStateOf("") }
         var toNote by remember { mutableStateOf(false) }
         val swap by vm.c.extras.handshakeSwap.collectAsStateWithLifecycle()
         var showMine by remember { mutableStateOf(swap) }
         val received = remember { System.currentTimeMillis() }
-        val nonce = remember { java.util.UUID.randomUUID().toString() }
+        val nonce = remember { UUID.randomUUID().toString() }
         fun withMet(): Pair<ContactDetails, String> {
-            val line = app.parley.ui.extras.HandshakeInbox.line(res, place, received)
-            return (if (toNote) r.copy(note = app.parley.common.extras.Handshake.appendToNote(r.note, line)) else r) to line
+            val line = HandshakeInbox.line(res, place, received)
+            return (if (toNote) r.copy(note = Handshake.appendToNote(r.note, line)) else r) to line
         }
         AlertDialog(
             onDismissRequest = onDone,
@@ -173,15 +181,15 @@ fun ReceiveSecureQrDialog(vm: AppViewModel, uri: Uri, onDone: () -> Unit, openEd
             text = {
                 Column(Modifier.verticalScroll(rememberScrollState())) {
                     Text(listOfNotNull(r.phones.firstOrNull()?.value?.let(Bidi::ltr), r.emails.firstOrNull()?.value).joinToString(stringResource(R.string.main_separator)))
-                    app.parley.ui.extras.HandshakeFields(vm, place, { place = it }, toNote, { toNote = it })
-                    TextButton({ showMine = true }) { Text(stringResource(R.string.x_hs_show_mine)) }
+                    HandshakeFields(vm, place, { place = it }, toNote, { toNote = it })
+                    TextButton({ showMine = true }) { Text(stringResource(R.string.handshake_show_mine)) }
                 }
             },
             confirmButton = {
                 TextButton({
                     val (details, _) = withMet()
-                    scope.launchVault(context as? androidx.fragment.app.FragmentActivity, { e -> vm.toast(res.getString(R.string.edit_save_failed, e.message.orEmpty())) }) {
-                        val id = vm.c.vault.save(null, details); vm.toast(res.getString(R.string.sqr_saved_private)); onDone(); vm.navigate(app.parley.NavEvent.Vault(id))
+                    scope.launchVault(context as? FragmentActivity, { e -> vm.toast(res.getString(R.string.edit_save_failed, e.message.orEmpty())) }) {
+                        val id = vm.c.vault.save(null, details); vm.toast(res.getString(R.string.sqr_saved_private)); onDone(); vm.navigate(NavEvent.Vault(id))
                     }
                 }) { Text(stringResource(R.string.sqr_save_privately)) }
             },
@@ -189,11 +197,11 @@ fun ReceiveSecureQrDialog(vm: AppViewModel, uri: Uri, onDone: () -> Unit, openEd
                 TextButton({
                     val (details, line) = withMet()
                     // Logged in the Circle timeline once the editor opened for it (and only that one) saves the contact.
-                    app.parley.ui.extras.HandshakeInbox.hold(app.parley.ui.extras.HandshakeInbox.Pending(line, received, nonce))
+                    HandshakeInbox.hold(HandshakeInbox.Pending(line, received, nonce))
                     onDone(); openEditor(details, nonce)
                 }) { Text(stringResource(R.string.sqr_save_phone)) }
             },
         )
-        if (showMine) app.parley.ui.extras.MyCardQrDialog(vm) { showMine = false }
+        if (showMine) MyCardQrDialog(vm) { showMine = false }
     }
 }

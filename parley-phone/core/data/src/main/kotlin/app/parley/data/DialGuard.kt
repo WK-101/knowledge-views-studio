@@ -1,6 +1,7 @@
 package app.parley.data
 
 import android.content.Context
+import app.parley.common.CallEntry
 import app.parley.common.CallPolicy
 import app.parley.common.CallType
 import app.parley.common.LineType
@@ -9,10 +10,12 @@ import app.parley.common.RuleKind
 import app.parley.common.blocking.WangiriGuard
 import app.parley.common.calls.EmergencyPolicy
 import app.parley.common.calls.EmergencyPolicy.Safeguard
+import app.parley.data.db.CallRingEntity
+import kotlin.math.abs
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-/** Something worth a second look before dialling (B10, B11). */
+/** Something worth a second look before dialling. */
 data class DialWarning(val title: String, val body: String, val severe: Boolean = false)
 
 /**
@@ -25,7 +28,7 @@ class DialGuard(
     private val blocks: BlockRepository,
     private val lists: SpamListStore,
     /** The call history (archive included), for "they called you once and hung up". */
-    private val calls: () -> List<app.parley.common.CallEntry>?,
+    private val calls: () -> List<CallEntry>?,
     private val contacts: ContactsRepository,
 ) {
     suspend fun check(number: String): List<DialWarning> = withContext(Dispatchers.IO) {
@@ -57,7 +60,7 @@ class DialGuard(
     private suspend fun wangiri(number: String, iso: String, type: LineType, region: String?): DialWarning? {
         val lastIncoming = calls().orEmpty().firstOrNull { it.type != CallType.OUTGOING && PhoneNumbers.same(it.number, number, iso) } ?: return null
         if (System.currentTimeMillis() - lastIncoming.date > 14 * 86_400_000L) return null
-        val ring = blocks.ringsFor(number).firstOrNull { kotlin.math.abs(it.startedAt - lastIncoming.date) < 120_000 }
+        val ring = blocks.ringsFor(number).firstOrNull { abs(it.startedAt - lastIncoming.date) < 120_000 }
         if (!WangiriGuard.isSuspect(lastIncoming.type, ring?.ringMs, type, region, iso)) return null
         return DialWarning(
             "Don't call back?",
@@ -67,11 +70,11 @@ class DialGuard(
         )
     }
 
-    /** Recents badge (B10): whether this missed call looks like a one-ring scam. */
-    fun isWangiri(type: CallType, number: String, date: Long, rings: List<app.parley.data.db.CallRingEntity>, iso: String): Boolean {
+    /** Recents badge: whether this missed call looks like a one-ring scam. */
+    fun isWangiri(type: CallType, number: String, date: Long, rings: List<CallRingEntity>, iso: String): Boolean {
         if (type != CallType.MISSED && type != CallType.REJECTED) return false
         val key = blocks.ringKey(number)
-        val ring = rings.firstOrNull { blocks.ringMatches(it, number, key) && kotlin.math.abs(it.startedAt - date) < 120_000 }
+        val ring = rings.firstOrNull { blocks.ringMatches(it, number, key) && abs(it.startedAt - date) < 120_000 }
         val f = NumberFacts.of(number, iso)
         return WangiriGuard.isSuspect(type, ring?.ringMs, f.lineType, f.region, iso)
     }

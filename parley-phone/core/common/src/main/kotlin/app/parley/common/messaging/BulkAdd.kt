@@ -4,7 +4,7 @@ import app.parley.common.NumberText
 import app.parley.common.PhoneNumbers
 
 /**
- * M11 "Add several numbers…": the pure part. Numbers are found in pasted or shared text, each one is checked against
+ * "Add several numbers…": the pure part. Numbers are found in pasted or shared text, each one is checked against
  * contacts, private contacts and the rest of the list, and named with a pattern. Nothing here touches storage.
  */
 object BulkAdd {

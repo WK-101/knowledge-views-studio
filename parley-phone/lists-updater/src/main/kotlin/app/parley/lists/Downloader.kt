@@ -1,5 +1,6 @@
 package app.parley.lists
 
+import android.content.res.Resources
 import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.net.HttpURLConnection
@@ -20,7 +21,7 @@ object Downloader {
 
     private const val USER_AGENT = "ParleyLists/1.0"
 
-    fun get(res: android.content.res.Resources, url: String, maxBytes: Long, etag: String? = null, lastModified: String? = null): Result {
+    fun get(res: Resources, url: String, maxBytes: Long, etag: String? = null, lastModified: String? = null): Result {
         var current = url
         repeat(5) {
             if (!current.startsWith("https://", ignoreCase = true)) return Result.Failed(res.getString(R.string.lists_err_https))

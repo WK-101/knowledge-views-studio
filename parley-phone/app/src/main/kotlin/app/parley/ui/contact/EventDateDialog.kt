@@ -33,8 +33,11 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import app.parley.R
 import app.parley.common.EventDate
+import java.text.DateFormat
+import java.text.SimpleDateFormat
 import java.time.LocalDate
 import java.time.Month
+import java.time.Year
 import java.time.format.TextStyle
 import java.util.Locale
 
@@ -52,9 +55,9 @@ fun EventDateDialog(initial: String, onDismiss: () -> Unit, onPick: (String) -> 
     val maxDay = Month.of(month).maxLength()
     if (day > maxDay) day = maxDay
     val yearValue = year.toIntOrNull()?.takeIf { it in 1800..LocalDate.now().year + 1 }
-    val valid = !withYear || yearValue != null && (month != 2 || day != 29 || java.time.Year.isLeap(yearValue.toLong()))
+    val valid = !withYear || yearValue != null && (month != 2 || day != 29 || Year.isLeap(yearValue.toLong()))
     val dayFirst = remember {
-        val pattern = java.text.DateFormat.getDateInstance(java.text.DateFormat.SHORT, Locale.getDefault()).let { (it as? java.text.SimpleDateFormat)?.toPattern().orEmpty() }
+        val pattern = DateFormat.getDateInstance(DateFormat.SHORT, Locale.getDefault()).let { (it as? SimpleDateFormat)?.toPattern().orEmpty() }
         pattern.indexOf('d') in 0 until pattern.indexOf('M').let { if (it < 0) Int.MAX_VALUE else it }
     }
 

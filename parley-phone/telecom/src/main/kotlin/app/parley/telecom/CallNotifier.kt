@@ -1,6 +1,7 @@
 package app.parley.telecom
 
 import android.annotation.SuppressLint
+import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -8,14 +9,20 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import android.os.SystemClock
 import android.provider.ContactsContract
+import android.text.format.DateFormat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.Person
 import androidx.core.graphics.drawable.IconCompat
+import app.parley.common.NotificationChannels
+import app.parley.common.NotificationIds
+import app.parley.common.NotificationPrivacy
 import app.parley.common.calltime.CallChronometer
 import app.parley.telecom.ui.InCallActivity
 import app.parley.ui.PhotoCache
+import java.util.Date
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -40,7 +47,7 @@ class CallNotifier(private val context: Context) {
                 // Telecom plays the ringtone and vibration; the channel itself stays silent.
                 setSound(null, null)
                 enableVibration(false)
-                lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
+                lockscreenVisibility = Notification.VISIBILITY_PUBLIC
             },
         )
         nm.createNotificationChannel(
@@ -75,7 +82,7 @@ class CallNotifier(private val context: Context) {
             cancel(INCOMING_ID)
             dismissedIncoming = null
         } else if (ringing.blockingDecline) {
-            // P2: "Block & decline" is under way: nothing to answer or decline any more.
+            // "Block & decline" is under way: nothing to answer or decline any more.
             cancel(INCOMING_ID)
         } else if (ringing.id == dismissedIncoming) {
             // The user swiped this call's ringing/"Ringing silently" notification away: it stays away.
@@ -96,8 +103,8 @@ class CallNotifier(private val context: Context) {
         } else {
             val a = CallManager.audio.value
             val timing = CallClock.timings.value[ongoing.id]
-            // The chronometer counts by itself: the signature changes when the end time changes, not every second (T3).
-            val chrono = CallChronometer.display(ongoing.connectTimeMillis, timing?.countdown, android.os.SystemClock.elapsedRealtime(), System.currentTimeMillis())
+            // The chronometer counts by itself: the signature changes when the end time changes, not every second.
+            val chrono = CallChronometer.display(ongoing.connectTimeMillis, timing?.countdown, SystemClock.elapsedRealtime(), System.currentTimeMillis())
             post(ONGOING_ID, ongoing, "o${a.muted}${a.current?.type}${chrono.signature}${timing?.canExtend}") { buildOngoing(ongoing, timing, chrono) }
         }
     }
@@ -108,7 +115,7 @@ class CallNotifier(private val context: Context) {
     private var dismissedIncoming: String? = null
 
     /**
-     * F6: the user swiped a call notification away (allowed for ongoing notifications since Android 14). Without it
+     * The user swiped a call notification away (allowed for ongoing notifications since Android 14). Without it
      * there's no way back to an active, held or dialling call or its hang-up button, so that one is posted again
      * straight away — but only while the call it belonged to is still live. A ringing or "Ringing silently"
      * notification the user dismissed stays dismissed (the call screen and the system ringer still work).
@@ -131,7 +138,7 @@ class CallNotifier(private val context: Context) {
     }
 
     /** Posts unless the visible content is unchanged (NotificationManager rate-limits updates). */
-    private fun post(id: Int, call: CallUi, variant: String, build: () -> android.app.Notification) {
+    private fun post(id: Int, call: CallUi, variant: String, build: () -> Notification) {
         val photo = call.photoUri
         val photoReady = photo != null && PhotoCache.peek("$photo@256") != null
         val signature = listOf(variant, call.id, call.state, call.title, call.label, call.number, call.accountLabel, call.connectTimeMillis, photoReady, confirmDecline()).joinToString("|")
@@ -160,7 +167,7 @@ class CallNotifier(private val context: Context) {
         if (lastPosted.remove(id) != null) nm.cancel(id)
     }
 
-    private fun plainFallback(call: CallUi): android.app.Notification {
+    private fun plainFallback(call: CallUi): Notification {
         val ringing = call.state == CallState.RINGING
         return NotificationCompat.Builder(context, if (ringing) CH_INCOMING else CH_ONGOING)
             .setSmallIcon(app.parley.ui.R.drawable.ic_stat_call)
@@ -215,7 +222,7 @@ class CallNotifier(private val context: Context) {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
 
-    /** Delete intent: re-posts the notification if the user swipes it away while the call is live (F6). */
+    /** Delete intent: re-posts the notification if the user swipes it away while the call is live. */
     private fun dismissIntent(notificationId: Int, callId: String): PendingIntent =
         PendingIntent.getBroadcast(
             context, 20 + notificationId % 100,
@@ -226,16 +233,16 @@ class CallNotifier(private val context: Context) {
         )
 
     /**
-     * F14: the vault's "Private" label never goes into a call notification: notifications can be shown on the lock
+     * The vault's "Private" label never goes into a call notification: notifications can be shown on the lock
      * screen (and read by notification listeners), and the label would reveal that the caller is a private contact.
      */
     private fun subtitle(call: CallUi): String = listOfNotNull(
-        app.parley.common.NotificationPrivacy.shownLabel(call.label),
+        NotificationPrivacy.shownLabel(call.label),
         call.number?.takeIf { call.name != null },
         call.accountLabel,
     ).joinToString(context.getString(R.string.tc_separator))
 
-    /** X4: "Confirm before declining" (simple mode) covers the notification's Decline too. */
+    /** "Confirm before declining" (simple mode) covers the notification's Decline too. */
     private fun confirmDecline(): Boolean = runCatching { TelecomGraph.dependencies.appearance.value.confirmDecline }.getOrDefault(false)
 
     /**
@@ -260,7 +267,7 @@ class CallNotifier(private val context: Context) {
     )
 
     /** What the lock screen shows when notification content is hidden: who (as on the call screen), no labels. */
-    private fun publicVersion(call: CallUi, channel: String, text: String): android.app.Notification =
+    private fun publicVersion(call: CallUi, channel: String, text: String): Notification =
         NotificationCompat.Builder(context, channel)
             .setSmallIcon(app.parley.ui.R.drawable.ic_stat_call)
             .setContentTitle(call.title)
@@ -268,7 +275,7 @@ class CallNotifier(private val context: Context) {
             .setCategory(NotificationCompat.CATEGORY_CALL)
             .build()
 
-    private fun buildIncoming(call: CallUi): android.app.Notification {
+    private fun buildIncoming(call: CallUi): Notification {
         val answer = answerIntent(call)
         return NotificationCompat.Builder(context, CH_INCOMING)
             .setSmallIcon(app.parley.ui.R.drawable.ic_stat_call)
@@ -289,7 +296,7 @@ class CallNotifier(private val context: Context) {
             .build()
     }
 
-    private fun buildSilenced(call: CallUi): android.app.Notification =
+    private fun buildSilenced(call: CallUi): Notification =
         NotificationCompat.Builder(context, CH_SILENCED)
             .setSmallIcon(app.parley.ui.R.drawable.ic_stat_block)
             .setContentTitle(context.getString(R.string.notif_silenced_call_title, call.title))
@@ -302,7 +309,7 @@ class CallNotifier(private val context: Context) {
             .setDeleteIntent(dismissIntent(INCOMING_ID, call.id))
             .build()
 
-    private fun buildOngoing(call: CallUi, timing: CallTiming?, chrono: CallChronometer.Display): android.app.Notification {
+    private fun buildOngoing(call: CallUi, timing: CallTiming?, chrono: CallChronometer.Display): Notification {
         val audio = CallManager.audio.value
         val limited = timing?.countdown?.hasEnd == true
         val b = NotificationCompat.Builder(context, CH_ONGOING)
@@ -330,7 +337,7 @@ class CallNotifier(private val context: Context) {
             .addPerson(person(call))
             .addAction(0, context.getString(if (audio.muted) R.string.notif_unmute else R.string.notif_mute), action(CallActionReceiver.ACTION_MUTE, call.id, 7))
         if (limited && timing.canExtend) {
-            // Wrap-up actions replace Speaker while a limit runs (T3).
+            // Wrap-up actions replace Speaker while a limit runs.
             b.addAction(0, context.getString(R.string.notif_plus_5_min), action(CallActionReceiver.ACTION_EXTEND, call.id, 11))
             b.addAction(0, context.getString(R.string.notif_dont_end), action(CallActionReceiver.ACTION_KEEP_GOING, call.id, 12))
         } else {
@@ -343,16 +350,16 @@ class CallNotifier(private val context: Context) {
     }
 
     private fun endsText(timing: CallTiming, chrono: CallChronometer.Display): String {
-        val at = android.text.format.DateFormat.getTimeFormat(context).format(java.util.Date(chrono.whenMillis))
+        val at = DateFormat.getTimeFormat(context).format(Date(chrono.whenMillis))
         return listOfNotNull(timing.source, context.getString(R.string.notif_ends_at, at)).joinToString(context.getString(R.string.tc_separator)).replaceFirstChar { it.uppercase() }
     }
 
     companion object {
-        const val CH_INCOMING = app.parley.common.NotificationChannels.INCOMING_CALLS
-        const val CH_ONGOING = app.parley.common.NotificationChannels.ONGOING_CALLS
-        const val CH_SILENCED = app.parley.common.NotificationChannels.SILENCED_CALLS
-        const val INCOMING_ID = app.parley.common.NotificationIds.CALL_INCOMING
-        const val ONGOING_ID = app.parley.common.NotificationIds.CALL_ONGOING
+        const val CH_INCOMING = NotificationChannels.INCOMING_CALLS
+        const val CH_ONGOING = NotificationChannels.ONGOING_CALLS
+        const val CH_SILENCED = NotificationChannels.SILENCED_CALLS
+        const val INCOMING_ID = NotificationIds.CALL_INCOMING
+        const val ONGOING_ID = NotificationIds.CALL_ONGOING
 
         /**
          * Whether the incoming-calls channel can still pop up (heads-up / full screen). False when the user turned it

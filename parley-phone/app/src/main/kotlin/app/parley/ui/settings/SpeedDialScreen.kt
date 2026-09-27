@@ -1,6 +1,7 @@
 package app.parley.ui.settings
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -61,7 +62,7 @@ fun SpeedDialScreen(vm: AppViewModel, back: () -> Unit) {
             onDismissRequest = { editing = null },
             title = { Text(stringResource(R.string.set_speed_dial_key, key)) },
             text = {
-                androidx.compose.foundation.layout.Column {
+                Column {
                     OutlinedTextField(q, { q = it }, label = { Text(stringResource(R.string.set_name_or_number)) }, singleLine = true)
                     matches.forEach { c ->
                         c.phones.forEach { ph ->

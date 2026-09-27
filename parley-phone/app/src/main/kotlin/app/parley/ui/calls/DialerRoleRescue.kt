@@ -34,7 +34,7 @@ import app.parley.R
 import app.parley.common.calls.RoleRescue
 
 /**
- * P4: asks Android to make Parley the default phone app. Some phones answer "no" at once without showing the question
+ * Asks Android to make Parley the default phone app. Some phones answer "no" at once without showing the question
  * (the user declined twice before, the maker blocks the request, or Android restricts a sideloaded install). A refusal
  * that comes back within [RoleRescue.SILENT_CANCEL_MS] can't be a person pressing Cancel, so then [DialerRoleGuide]
  * opens: how to set it by hand on this Android version, with App info. A real Cancel never shows the guide.
@@ -71,7 +71,7 @@ fun rememberDialerRoleRequest(onResult: (granted: Boolean) -> Unit = {}): () -> 
 private fun isDefaultDialer(context: Context): Boolean =
     runCatching { context.getSystemService(RoleManager::class.java)?.isRoleHeld(RoleManager.ROLE_DIALER) == true }.getOrDefault(false)
 
-/** P4: the by-hand guide for this Android version, with buttons to App info and to Default apps. */
+/** The by-hand guide for this Android version, with buttons to App info and to Default apps. */
 @Composable
 fun DialerRoleGuide(onDismiss: () -> Unit) {
     val context = LocalContext.current

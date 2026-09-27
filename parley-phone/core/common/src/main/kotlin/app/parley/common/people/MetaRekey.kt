@@ -1,5 +1,8 @@
 package app.parley.common.people
 
+import app.parley.common.circle.KeepRhythm
+import app.parley.common.circle.YearlyEvents
+
 /**
  * Parley keeps per-contact information (pinned note, preferred messenger, keep-in-touch, relation links, call
  * backgrounds) under the contact's lookup key. Lookup keys change when contacts are linked or unlinked, when a
@@ -40,9 +43,9 @@ object MetaRekey {
         val reachOutDays: Int? = null,
         val lastNudgedAt: Long? = null,
         val relationLinks: String? = null,
-        /** R4: the Circle rhythm ([app.parley.common.circle.KeepRhythm]). */
+        /** The Circle rhythm ([app.parley.common.circle.KeepRhythm]). */
         val rhythm: String? = null,
-        /** R10: life events remembered yearly ([app.parley.common.circle.YearlyEvents]). */
+        /** Life events remembered yearly ([app.parley.common.circle.YearlyEvents]). */
         val yearlyEvents: String? = null,
     )
 
@@ -64,8 +67,8 @@ object MetaRekey {
             reachOutDays = listOfNotNull(into.reachOutDays, from.reachOutDays).minOrNull(),
             lastNudgedAt = listOfNotNull(into.lastNudgedAt, from.lastNudgedAt).maxOrNull(),
             relationLinks = links,
-            rhythm = app.parley.common.circle.KeepRhythm.merge(into.rhythm, from.rhythm),
-            yearlyEvents = app.parley.common.circle.YearlyEvents.merge(into.yearlyEvents, from.yearlyEvents),
+            rhythm = KeepRhythm.merge(into.rhythm, from.rhythm),
+            yearlyEvents = YearlyEvents.merge(into.yearlyEvents, from.yearlyEvents),
         )
     }
 }

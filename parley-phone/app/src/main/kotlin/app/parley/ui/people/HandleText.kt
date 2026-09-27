@@ -6,7 +6,7 @@ import app.parley.common.people.Handle
 import app.parley.common.people.HandleProblem
 import app.parley.common.people.HandleService
 
-/** I1: localised texts for messenger handles. Service names that are brands stay as they are. */
+/** Localised texts for messenger handles. Service names that are brands stay as they are. */
 object HandleText {
     /** Name of a service in menus: "Matrix", "Signal username", "Other"… */
     fun service(res: Resources, s: HandleService): String = when (s) {

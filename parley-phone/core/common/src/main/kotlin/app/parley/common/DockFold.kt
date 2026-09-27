@@ -1,7 +1,7 @@
 package app.parley.common
 
 /**
- * K3 (v3.4): the docked keypad's fold, as a fraction: 1 = unfolded, 0 = folded. Drags on the panel (or its handle,
+ * The docked keypad's fold, as a fraction: 1 = unfolded, 0 = folded. Drags on the panel (or its handle,
  * or the folded keypad button) move it with the finger; on release it settles open or folded by [settle]. A scroll
  * through the list under it folds it first ([preScroll]), then the list scrolls: the two never fight.
  */

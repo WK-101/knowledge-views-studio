@@ -2,7 +2,7 @@ package app.parley.common.people
 
 import app.parley.common.Initials
 
-/** U4: what a swipe on a contact or Recents row does. [DELETE] always comes with an Undo. */
+/** What a swipe on a contact or Recents row does. [DELETE] always comes with an Undo. */
 /** What a swipe on a list row does; the app shows a localised label for each value. */
 enum class SwipeAction {
     NONE,
@@ -19,7 +19,7 @@ enum class SwipeAction {
     }
 }
 
-/** U4 settings: off by default; right swipe calls and left swipe messages once turned on. */
+/** Swipe settings: off by default; right swipe calls and left swipe messages once turned on. */
 data class SwipeConfig(val enabled: Boolean = false, val right: SwipeAction = SwipeAction.CALL, val left: SwipeAction = SwipeAction.MESSAGE) {
     /**
      * The action for a swipe towards the end or the start of a row laid out [rtl] or not. [right] and [left] are
@@ -37,7 +37,7 @@ data class SwipeConfig(val enabled: Boolean = false, val right: SwipeAction = Sw
     }
 }
 
-/** U6: how avatars without a photo look. */
+/** How avatars without a photo look. */
 enum class AvatarStyle {
     COLOURFUL,
     GREY,
@@ -45,7 +45,7 @@ enum class AvatarStyle {
 
 object AvatarText {
     /**
-     * U6 emoji-as-avatar: a name that starts with an emoji ("🐶 Rex", "🏠 Home") shows that emoji instead of
+     * Emoji-as-avatar: a name that starts with an emoji ("🐶 Rex", "🏠 Home") shows that emoji instead of
      * letters. Returns the first grapheme when it is an emoji (flags, skin tones and ZWJ sequences included).
      */
     fun leadingEmoji(name: String): String? {

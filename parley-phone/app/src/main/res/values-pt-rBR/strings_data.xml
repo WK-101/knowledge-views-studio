@@ -4,7 +4,6 @@
     <!-- Shared actions (data area: history, people, backup, vault and friends) -->
     <string name="dc_cancel">Cancelar</string>
     <string name="dc_back">Voltar</string>
-    <string name="dc_close">Fechar</string>
     <string name="dc_ok">OK</string>
     <string name="dc_got_it">Entendi</string>
     <string name="dc_restore">Restaurar</string>
@@ -29,7 +28,6 @@
     <string name="hist_archive_off_text">O Parley exclui a cópia criptografada das suas chamadas. O histórico do próprio celular não muda, mas as chamadas que o Android já descartou se perdem de vez.</string>
     <string name="hist_archive_off_confirm">Desativar e excluir</string>
     <string name="hist_settings_title">Histórico de chamadas</string>
-    <string name="hist_keep_full">Manter o histórico completo de chamadas</string>
     <plurals name="hist_archive_count">
         <item quantity="one">%1$d chamada no arquivo do Parley</item>
         <item quantity="many">%1$d chamadas no arquivo do Parley</item>
@@ -42,7 +40,6 @@
         <item quantity="other">Sua configuração mantém o histórico de chamadas por %1$d dias; chamadas mais antigas são excluídas dos dois, exceto os números que você mantém para sempre.</item>
     </plurals>
     <string name="hist_retention_forever">Sua configuração mantém o histórico de chamadas para sempre.</string>
-    <string name="hist_kept_forever">Mantidos para sempre</string>
     <string name="hist_kept_forever_empty">Abra um contato ou o histórico de um número e ative “Manter este histórico para sempre” para guardá-lo independentemente da configuração de retenção.</string>
     <string name="hist_stop_keeping">Parar de manter para sempre</string>
     <string name="hist_recently_deleted">Chamadas excluídas recentemente</string>
@@ -61,8 +58,6 @@
     <string name="hist_export_import">Exportar e importar</string>
     <string name="hist_csv_bom">CSV compatível com o Excel</string>
     <string name="hist_csv_bom_summary">Adiciona uma marca de ordem de bytes para que os acentos apareçam corretamente no Excel</string>
-    <string name="hist_import_csv">Importar histórico de chamadas de CSV</string>
-    <string name="hist_import_csv_summary">Do Parley, do Logger ou de uma planilha</string>
     <string name="hist_export_hint">Para exportar, abra Recentes › ⋮ › Exportar, ou o histórico de um número.</string>
     <string name="dc_joined_dot">%1$s · %2$s</string>
     <string name="dc_list_separator">", "</string>
@@ -354,7 +349,6 @@
     <string name="hist_action_call">Ligar</string>
     <string name="hist_action_message">Mensagem</string>
     <string name="hist_action_copy">Copiar</string>
-    <string name="hist_action_message_on">Mensagem por…</string>
     <string name="hist_action_new_contact">Novo contato</string>
     <string name="hist_action_add_to_contact">Adicionar a um contato</string>
     <string name="hist_action_view_contact">Ver contato</string>
@@ -443,12 +437,6 @@
     <string name="work_anniversary_today">%1$s: data comemorativa hoje</string>
     <string name="work_special_date">data especial</string>
     <string name="work_event_today">%1$s: %2$s hoje</string>
-    <string name="work_catch_up">Fale com %1$s</string>
-    <plurals name="work_catch_up_days">
-        <item quantity="one">Fale com %2$s — última conversa há %1$d dia</item>
-        <item quantity="many">Fale com %2$s — última conversa há %1$d dias</item>
-        <item quantity="other">Fale com %2$s — última conversa há %1$d dias</item>
-    </plurals>
     <string name="work_action_call">Ligar</string>
     <string name="work_action_message">Mensagem</string>
 
@@ -525,7 +513,6 @@
     <string name="vault_unlock_all_summary">Nomes e números funcionam sem desbloquear, para que as chamadas continuem mostrando quem está ligando.</string>
     <string name="vault_phone">Telefone</string>
     <string name="vault_message_number">Enviar mensagem a este número</string>
-    <string name="vault_message_on">Mensagem por…</string>
     <string name="vault_messengers">Mensageiros</string>
     <string name="vault_about">Sobre</string>
     <string name="vault_address">Endereço</string>
@@ -701,7 +688,6 @@
     <string name="tm_restore_version">Restaurar esta versão</string>
     <string name="tm_saved_copy">Salvo como um contato separado</string>
     <string name="tm_save_copy">Salvar como cópia</string>
-    <string name="tm_changes_title">O que mudou</string>
     <string name="tm_since_yesterday">Desde ontem</string>
     <string name="tm_last_week">Última semana</string>
     <string name="tm_last_month">Último mês</string>
@@ -788,10 +774,8 @@
     <string name="onb_spam_text">Bloqueie números ocultos, prefixos e padrões — decidido no seu telefone.</string>
     <string name="onb_open_title">Código aberto, sem anúncios, sem contas</string>
     <string name="onb_open_text">Software livre sob GPL-3.0. Sem rastreadores, nunca.</string>
-    <string name="onb_prompt_title">Uma única solicitação do sistema</string>
     <string name="onb_prompt_text">Definir o Parley como app de telefone dá a ele tudo o que precisa — sem labirinto de permissões.</string>
     <string name="onb_set_default">Definir como app de telefone padrão</string>
-    <string name="onb_not_now">Agora não — usar só contatos e chamadas</string>
 
     <!-- Contact picker -->
     <string name="picker_link_with">Vincular com…</string>
@@ -1105,7 +1089,6 @@
     <string name="swipe_none">Nada</string>
     <string name="swipe_call">Ligar</string>
     <string name="swipe_message">Mensagem</string>
-    <string name="swipe_message_on">Mensagem por…</string>
     <string name="swipe_block">Bloquear</string>
     <string name="swipe_delete">Excluir (com desfazer)</string>
     <string name="swipe_delete_short">Excluir</string>
@@ -1121,7 +1104,6 @@
     <string name="avatar_emoji_hint">Nomes que começam com um emoji o mostram</string>
 
     <!-- People: my card -->
-    <string name="me_open">Abrir meu cartão</string>
     <string name="me_short">Eu</string>
     <string name="me_title">Meu cartão</string>
     <string name="me_empty">Adicione seus dados para compartilhá-los como QR code</string>
@@ -1313,7 +1295,7 @@
     <string name="sim_import_into">Importar para</string>
     <string name="sim_imported">%1$d de %2$d importados para %3$s</string>
 
-    <!-- Relation types (I5); the stored value stays English -->
+    <!-- Relation types; the stored value stays English -->
     <string name="rel_spouse">Cônjuge</string>
     <string name="rel_partner">Parceiro(a)</string>
     <string name="rel_domestic_partner">Companheiro(a)</string>
@@ -1398,7 +1380,7 @@
     <string name="rel_group_work">Trabalho</string>
     <string name="rel_group_other">Outros</string>
 
-    <!-- I1: messenger handles (brand names stay as they are) -->
+    <!-- Messenger handles (brand names stay as they are) -->
     <string name="handle_signal">Nome de usuário do Signal</string>
     <string name="handle_threema">ID do Threema</string>
     <string name="handle_sip">Endereço SIP</string>
@@ -1432,7 +1414,7 @@
     <string name="privnames_dir_request_text">%1$s procurou quem está ligando no diretório de contatos do Parley. Se você permitir, %1$s poderá mostrar o nome de um contato privado quando ele ligar, um número por vez; nunca recebe uma lista. Isso é separado de “Permitir que apps mostrem nomes privados”.</string>
     <string name="pn_directory_apps">Apps de telefone que usam o diretório</string>
     <string name="import_csv_column">Coluna CSV “%1$s”</string>
-    <!-- v3.2 C2/C3: back up first, backup reminder -->
+    <!-- Back up first, backup reminder -->
     <string name="ux_backup_first_title">Fazer backup antes?</string>
     <string name="ux_backup_first_last">Isso altera muitos contatos de uma vez. Último backup: %1$s.</string>
     <string name="ux_backup_first_never">Isso altera muitos contatos de uma vez, e ainda não há backup.</string>
@@ -1454,7 +1436,7 @@
         <item quantity="many">Após %d dias</item>
         <item quantity="other">Após %d dias</item>
     </plurals>
-    <!-- v3.2 U1: onboarding permissions page -->
+    <!-- Onboarding permissions page -->
     <string name="ux_onb_next">Começar</string>
     <string name="ux_onb_dialer_title">Torne o Parley seu app de telefone</string>
     <string name="ux_onb_dialer_body">Você pode mudar isso quando quiser em Configurações › Chamadas › App de telefone padrão.</string>

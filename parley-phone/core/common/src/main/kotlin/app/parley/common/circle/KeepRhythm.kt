@@ -7,7 +7,7 @@ import java.time.ZoneId
 import java.time.temporal.ChronoUnit
 import kotlin.math.ceil
 
-/** R4: how the keep-in-touch gap is chosen for one person. */
+/** How the keep-in-touch gap is chosen for one person. */
 enum class RhythmMode {
     /** A fixed gap: "every N days" (contact_meta.reachOutDays). */
     EVERY,
@@ -17,7 +17,7 @@ enum class RhythmMode {
 }
 
 /**
- * R4: the rhythm part of a Circle member, stored as one small JSON value beside `reachOutDays` in contact_meta
+ * The rhythm part of a Circle member, stored as one small JSON value beside `reachOutDays` in contact_meta
  * (`rhythm`). A contact is in the Circle when `reachOutDays` is set; in [RhythmMode.NATURAL] it is the fallback
  * until enough history exists.
  */
@@ -62,7 +62,7 @@ data class KeepRhythm(
     }
 }
 
-/** R4: learns a person's usual rhythm from the days you were in touch (answered calls and interactions). */
+/** Learns a person's usual rhythm from the days you were in touch (answered calls and interactions). */
 object NaturalRhythm {
     const val DAY = 86_400_000L
     const val MIN_DAYS = 7
@@ -93,10 +93,10 @@ object NaturalRhythm {
         if (!r.needsRelearn(now)) r else r.copy(learnedDays = learn(times, now, zone) ?: r.learnedDays, learnedAt = now)
 }
 
-/** R1: the chip on a Circle row. Sorted by urgency in this order. */
+/** The chip on a Circle row. Sorted by urgency in this order. */
 enum class CircleStatus { DUE, SOON, FINE }
 
-/** R1/R4: where each Circle member stands, from the last contact and their rhythm. */
+/** Where each Circle member stands, from the last contact and their rhythm. */
 object CirclePlanner {
     private const val DAY = NaturalRhythm.DAY
 

@@ -40,7 +40,7 @@ import app.parley.ui.Avatar
 import app.parley.ui.CallColors
 
 /**
- * "Ana on hold · 02:10" with Swap, Merge and End inline (A2). Tapping the strip swaps, only when the call in front
+ * "Ana on hold · 02:10" with Swap, Merge and End inline. Tapping the strip swaps, only when the call in front
  * can be held (or swapped as a conference); otherwise the strip offers Merge and End and tapping does nothing.
  * When the call in front ends, [CallManager] resumes the held call by itself.
  */

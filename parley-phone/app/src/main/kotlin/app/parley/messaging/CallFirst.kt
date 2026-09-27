@@ -23,13 +23,13 @@ import app.parley.ui.Bidi
 import app.parley.ui.CallColors
 
 /**
- * C2: the direct Call shown first on every "Message on…" / number-action surface, so a number found in Recents, a
+ * The direct Call shown first on every "Message on…" / number-action surface, so a number found in Recents, a
  * notification, shared text or the tile can be called as easily as messaged. [onClick] goes through Parley's normal
  * call path (CallGate: dial guard, allowance, confirm, SIM choice).
  */
 @Composable
 fun CallFirstButton(number: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
-    val description = stringResource(R.string.v33_call_number, Bidi.ltr(number))
+    val description = stringResource(R.string.reach_call_number, Bidi.ltr(number))
     Button(
         onClick = onClick,
         modifier = modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp).heightIn(min = 56.dp)

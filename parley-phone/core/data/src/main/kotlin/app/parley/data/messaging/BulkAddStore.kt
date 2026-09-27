@@ -6,6 +6,7 @@ import android.content.Context
 import android.provider.ContactsContract
 import android.provider.ContactsContract.CommonDataKinds.Phone
 import androidx.core.content.edit
+import app.parley.common.messaging.BulkAdd
 import app.parley.common.people.Batches
 import app.parley.common.record.Col
 import app.parley.common.record.ContactRecord
@@ -16,6 +17,7 @@ import app.parley.data.AccountRef
 import app.parley.data.ContactDetails
 import app.parley.data.DataContainer
 import app.parley.data.DataItem
+import app.parley.data.R
 import app.parley.data.TemporaryContacts
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
@@ -27,7 +29,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import kotlin.coroutines.coroutineContext
 
-/** Where "Add several numbers…" saves (M11). */
+/** Where "Add several numbers…" saves. */
 sealed interface BulkDestination {
     /** Contacts in [account], in the label [label] (created when new; null: no label). */
     data class Label(val account: AccountRef, val label: String?) : BulkDestination
@@ -57,7 +59,7 @@ data class BulkBatch(
 )
 
 /**
- * M11: saves many numbers at once, in chunks of [CHUNK] (contacts through [app.parley.data.records.ContactRecordStore.insertAll],
+ * Saves many numbers at once, in chunks of [CHUNK] (contacts through [app.parley.data.records.ContactRecordStore.insertAll],
  * private ones through the vault), as one batch with one undo. Batches are remembered for [KEEP_DAYS] days so a batch
  * can still be deleted later.
  */
@@ -80,7 +82,7 @@ class BulkAddStore(private val c: DataContainer) {
         val keys = ArrayList<String>()
         val vaultIds = ArrayList<Long>()
         val failed = ArrayList<String>()
-        val notSaved = c.appContext.getString(app.parley.data.R.string.data_write_failed)
+        val notSaved = c.appContext.getString(R.string.data_write_failed)
         var done = 0
         when (destination) {
             is BulkDestination.Label -> {
@@ -125,7 +127,7 @@ class BulkAddStore(private val c: DataContainer) {
                 progress(done, items.size)
             }
         }
-        val batch = BulkBatch(app.parley.common.messaging.BulkAdd.batchTag(now), now, where, items.size - failed.size, rawIds, keys, vaultIds)
+        val batch = BulkBatch(BulkAdd.batchTag(now), now, where, items.size - failed.size, rawIds, keys, vaultIds)
         if (batch.count > 0) remember(batch)
         Result(batch, batch.count, failed)
     }

@@ -12,6 +12,7 @@ import androidx.compose.material.icons.automirrored.rounded.Chat
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Call
 import androidx.compose.foundation.layout.Row
+import app.parley.NavEvent
 import app.parley.ui.CallColors
 import androidx.compose.material.icons.rounded.DeleteSweep
 import androidx.compose.material.icons.rounded.Timer
@@ -56,8 +57,8 @@ import app.parley.ui.EmptyState
 import kotlinx.coroutines.launch
 
 /**
- * F13, for the privacy dashboard: "Keep a record of numbers you message" (on by default), how many numbers it holds,
- * and a link to the "Messaged numbers" screen (M10) with per-item delete, clear all and automatic expiry.
+ * For the privacy dashboard: "Keep a record of numbers you message" (on by default), how many numbers it holds,
+ * and a link to the "Messaged numbers" screen with per-item delete, clear all and automatic expiry.
  */
 @Composable
 fun MessagedRecordSection(openList: () -> Unit) {
@@ -88,7 +89,7 @@ fun MessagedRecordSection(openList: () -> Unit) {
 }
 
 /**
- * M10 "Messaged numbers" (from the privacy dashboard, Settings › Messaging and Recents ⋮): the numbers you opened a
+ * "Messaged numbers" (from the privacy dashboard, Settings › Messaging and Recents ⋮): the numbers you opened a
  * chat with through Parley, each with delete, "Clear all", "Don't keep a record" and "Forget after N days".
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -165,7 +166,7 @@ fun MessagedNumbersScreen(vm: AppViewModel, back: () -> Unit) {
             items(entries, key = { it.key }) { e ->
                 RecordRow(
                     e, region,
-                    onOpen = e.number?.let { n -> { vm.navigate(app.parley.NavEvent.History(n)) } },
+                    onOpen = e.number?.let { n -> { vm.navigate(NavEvent.History(n)) } },
                     onCall = e.number?.let { n -> { vm.requestCall(n) } },
                 ) {
                     scope.launch { e.number?.let { store.forget(it) } ?: store.forgetKey(e.key) }
@@ -194,9 +195,9 @@ private fun RecordRow(e: LastMessaged, region: String, onOpen: (() -> Unit)?, on
         supportingContent = { Text(e.label + stringResource(R.string.main_separator) + ago) },
         trailingContent = {
             Row {
-                // C2: call the number straight from the list.
+                // Call the number straight from the list.
                 if (onCall != null) {
-                    IconButton(onCall) { Icon(Icons.Rounded.Call, stringResource(R.string.v33_call_number, Bidi.ltr(shown)), tint = CallColors.Accept) }
+                    IconButton(onCall) { Icon(Icons.Rounded.Call, stringResource(R.string.reach_call_number, Bidi.ltr(shown)), tint = CallColors.Accept) }
                 }
                 IconButton(onDelete) { Icon(Icons.Rounded.Close, stringResource(R.string.rec_delete_number, shown)) }
             }

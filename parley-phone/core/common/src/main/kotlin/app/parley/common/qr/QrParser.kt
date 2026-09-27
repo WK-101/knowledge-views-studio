@@ -1,9 +1,13 @@
 package app.parley.common.qr
 
 import app.parley.common.vcard.VCardStream
+import java.time.DateTimeException
+import java.time.Duration
+import java.time.LocalDate
+import java.time.LocalDateTime
 
 /**
- * Q3: classifies the text of a QR code (or pasted text) into a [QrPayload]. Pure and offline; see the ZXing
+ * Classifies the text of a QR code (or pasted text) into a [QrPayload]. Pure and offline; see the ZXing
  * "Barcode Contents" conventions for the formats. Order matters: Parley's own links, contacts, then schemes, then
  * known messenger links, then any web address, then plain text.
  */
@@ -371,8 +375,8 @@ object QrParser {
         val y = g[1].toInt(); val mo = g[2].toInt(); val d = g[3].toInt()
         // The calendar rules decide (30 April, 29 February only in leap years…), not a range check.
         try {
-            java.time.LocalDate.of(y, mo, d)
-        } catch (_: java.time.DateTimeException) {
+            LocalDate.of(y, mo, d)
+        } catch (_: DateTimeException) {
             return null
         }
         if (g[4].isEmpty()) return IcsTime(y, mo, d)
@@ -383,8 +387,8 @@ object QrParser {
 
     /** DTSTART plus a DURATION such as `PT1H30M` or `P1D`. */
     private fun duration(start: IcsTime, v: String): IcsTime? = runCatching {
-        val d = java.time.Duration.parse(v.trim().replace(Regex("^P(\\d+)D$"), "P$1DT0S"))
-        val base = java.time.LocalDateTime.of(start.year, start.month, start.day, start.hour ?: 0, start.minute, start.second)
+        val d = Duration.parse(v.trim().replace(Regex("^P(\\d+)D$"), "P$1DT0S"))
+        val base = LocalDateTime.of(start.year, start.month, start.day, start.hour ?: 0, start.minute, start.second)
         val e = base.plus(d)
         if (start.allDay) IcsTime(e.year, e.monthValue, e.dayOfMonth)
         else start.copy(year = e.year, month = e.monthValue, day = e.dayOfMonth, hour = e.hour, minute = e.minute, second = e.second)

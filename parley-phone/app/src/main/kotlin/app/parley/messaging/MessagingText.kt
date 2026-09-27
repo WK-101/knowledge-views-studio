@@ -4,8 +4,9 @@ import android.content.res.Resources
 import app.parley.R
 import app.parley.common.MessengerApp
 import app.parley.common.MessengerLinks
+import app.parley.common.messaging.IntroQueue
 
-/** Messaging texts that core/common decides in English, in the user's language (L1). */
+/** Messaging texts that core/common decides in English, in the user's language. */
 object MessagingText {
     /** Why a chat link can't be built for [e164], or null when it can ([MessengerLinks.unavailableReason]). */
     fun unavailable(res: Resources, e164: String?): String? = when (MessengerLinks.unavailable(e164)) {
@@ -27,11 +28,11 @@ object MessagingText {
     }
 
     /** "3 of 12", or "Done" at the end ([app.parley.common.messaging.IntroQueue.progress]). */
-    fun introProgress(res: Resources, q: app.parley.common.messaging.IntroQueue): String =
+    fun introProgress(res: Resources, q: IntroQueue): String =
         if (q.finished) res.getString(R.string.main_done) else res.getString(R.string.intro_progress, q.index + 1, q.targets.size)
 
     /** "Opened 9 chats · skipped 2" ([app.parley.common.messaging.IntroQueue.summary]). */
-    fun introSummary(res: Resources, q: app.parley.common.messaging.IntroQueue): String = buildList {
+    fun introSummary(res: Resources, q: IntroQueue): String = buildList {
         add(res.getQuantityString(R.plurals.intro_opened, q.opened.size, q.opened.size))
         if (q.skipped.isNotEmpty()) add(res.getQuantityString(R.plurals.intro_skipped, q.skipped.size, q.skipped.size))
         val left = if (q.stopped) q.targets.size - q.index - (if (q.index in q.opened || q.index in q.skipped) 1 else 0) else 0

@@ -13,7 +13,7 @@ class CallGlanceTest {
 
     private val key = { n: String -> n.filter(Char::isDigit).takeLast(9) }
 
-    // ---------------------------------------------------------------- R4 call classes
+    // ---------------------------------------------------------------- Call classes
 
     @Test fun call_class_mapping() {
         assertEquals(CallClass.MISSED, CallClass.of(CallType.MISSED, 0))
@@ -39,7 +39,7 @@ class CallGlanceTest {
         assertEquals(setOf(CallClass.INCOMING, CallClass.OUTGOING), CallClass.entries.filter { it.answered }.toSet())
     }
 
-    // ---------------------------------------------------------------- R4 sequence dots
+    // ---------------------------------------------------------------- Sequence dots
 
     @Test fun sequence_dots_are_oldest_first_and_capped() {
         val calls = listOf(
@@ -54,7 +54,7 @@ class CallGlanceTest {
         assertEquals(listOf(CallClass.MISSED, CallClass.OUTGOING), CallGlance.sequence(calls.take(2)))
     }
 
-    // ---------------------------------------------------------------- R4 duration bar
+    // ---------------------------------------------------------------- Duration bar
 
     @Test fun duration_bar_grows_with_the_call() {
         assertEquals(0f, CallGlance.durationFraction(0), 0f)
@@ -66,7 +66,7 @@ class CallGlanceTest {
         assertTrue(CallGlance.durationFraction(1) in 0.08f..0.1f)
     }
 
-    // ---------------------------------------------------------------- R4 unreturned missed calls
+    // ---------------------------------------------------------------- Unreturned missed calls
 
     @Test fun missed_call_is_unreturned_until_called_back() {
         val calls = listOf(

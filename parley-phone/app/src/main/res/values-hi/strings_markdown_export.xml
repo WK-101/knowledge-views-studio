@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="md_export_h_pinned">पिन किया नोट</string>
+    <string name="md_export_h_note">नोट</string>
+    <string name="md_export_h_circle">सर्कल</string>
+    <string name="md_export_h_timeline">टाइमलाइन</string>
+    <string name="md_export_call_in">आने वाली कॉल</string>
+    <string name="md_export_call_out">जाने वाली कॉल</string>
+    <string name="md_export_call_missed">छूटी कॉल</string>
+    <string name="md_export_call">कॉल</string>
+    <string name="md_export_call_note">कॉल नोट</string>
+    <string name="md_export_failed">नोट एक्सपोर्ट नहीं हो सके। फ़ोल्डर जाँचें और फिर कोशिश करें।</string>
+    <string name="md_export_title">Markdown में नोट</string>
+    <string name="md_export_text">हर व्यक्ति के लिए एक .md फ़ाइल: उनके नंबर, तारीख़ें और लेबल, फिर आपके नोट और टाइमलाइन। Obsidian और दूसरे नोट ऐप के लिए। सिर्फ़ एक तरफ़: Parley फ़ाइलें लिखता है, उनसे कभी कुछ वापस नहीं लेता।</string>
+    <string name="md_export_folder">Markdown फ़ोल्डर</string>
+    <string name="md_export_only_circle">सिर्फ़ आपके सर्कल के लोग</string>
+    <string name="md_export_only_circle_body">बंद: आपके सभी संपर्क</string>
+    <string name="md_export_auto">अपडेट रखें</string>
+    <string name="md_export_auto_body">फ़ोल्डर सिंक के साथ हर घंटे फिर से एक्सपोर्ट करें</string>
+    <string name="md_export_last">पिछला एक्सपोर्ट %1$s</string>
+    <string name="md_export_never">अभी एक्सपोर्ट नहीं हुआ</string>
+    <string name="md_export_no_permission">एक्सपोर्ट के लिए Parley को संपर्कों तक पहुँच चाहिए</string>
+    <string name="md_export_folder_gone">फ़ोल्डर अब नहीं खुल रहा। उसे फिर से चुनें।</string>
+    <string name="md_export_now">अभी एक्सपोर्ट करें</string>
+    <string name="md_export_stop">इस फ़ोल्डर में एक्सपोर्ट बंद करें</string>
+    <string name="md_export_private_note">निजी संपर्क कभी एक्सपोर्ट नहीं होते। Parley सिर्फ़ वही फ़ाइलें बदलता या हटाता है जो उसने लिखीं और जिन्हें तब से किसी ने नहीं बदला। आप कोई फ़ाइल बदलें तो वह आपकी हो जाती है: Parley उसे नहीं छूता और उसके पास एक नई कॉपी लिखता है।</string>
+    <string name="set_markdown_title">नोट Markdown में एक्सपोर्ट करें</string>
+    <string name="set_markdown_summary">हर व्यक्ति के लिए नोट और टाइमलाइन वाली एक .md फ़ाइल, आपके चुने फ़ोल्डर में</string>
+    <string name="set_markdown_kw">markdown, md, obsidian, नोट, logseq, एक्सपोर्ट, फ़ोल्डर, टाइमलाइन</string>
+    <plurals name="md_export_minutes">
+        <item quantity="one">%d मिनट</item>
+        <item quantity="other">%d मिनट</item>
+    </plurals>
+    <plurals name="md_export_written">
+        <item quantity="one">%d फ़ाइल अपडेट हुई</item>
+        <item quantity="other">%d फ़ाइलें अपडेट हुईं</item>
+    </plurals>
+    <plurals name="md_export_people">
+        <item quantity="one">%d व्यक्ति एक्सपोर्ट हुआ</item>
+        <item quantity="other">%d लोग एक्सपोर्ट हुए</item>
+    </plurals>
+    <plurals name="md_export_kept">
+        <item quantity="one">आपकी बदली हुई %d फ़ाइल जैसी थी वैसी छोड़ दी गई</item>
+        <item quantity="other">आपकी बदली हुई %d फ़ाइलें जैसी थीं वैसी छोड़ दी गईं</item>
+    </plurals>
+</resources>

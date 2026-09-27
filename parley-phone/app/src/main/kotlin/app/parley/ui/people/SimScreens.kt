@@ -30,6 +30,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
@@ -50,7 +51,6 @@ import app.parley.ui.contact.Section
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import app.parley.R
@@ -72,8 +72,7 @@ private fun simWarningText(w: SimWarning): String = when (w.issue) {
 @Composable
 fun CopyToSimDialog(vm: AppViewModel, d: ContactDetails, onDismiss: () -> Unit) {
     val scope = rememberCoroutineScope()
-    val context = LocalContext.current
-    val res = androidx.compose.ui.platform.LocalResources.current
+    val res = LocalResources.current
     var cards by remember { mutableStateOf<List<SimCard>?>(null) }
     var card by remember { mutableStateOf<SimCard?>(null) }
     LaunchedEffect(Unit) {
@@ -137,8 +136,7 @@ fun CopyToSimDialog(vm: AppViewModel, d: ContactDetails, onDismiss: () -> Unit) 
 @Composable
 fun SimImportScreen(vm: AppViewModel, back: () -> Unit) {
     val scope = rememberCoroutineScope()
-    val context = LocalContext.current
-    val res = androidx.compose.ui.platform.LocalResources.current
+    val res = LocalResources.current
     val contacts by vm.contacts.collectAsStateWithLifecycle()
     var cards by remember { mutableStateOf<List<SimCard>?>(null) }
     var card by remember { mutableStateOf<SimCard?>(null) }

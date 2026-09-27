@@ -53,7 +53,7 @@ import app.parley.ui.CallDurationBar
 import app.parley.ui.CallTypeColors
 import kotlinx.coroutines.flow.MutableStateFlow
 
-/** R4 (v3.3): Rich or Simple call rows, from Settings › Recents style (provided by ParleyRoot). */
+/** Rich or Simple call rows, from Settings › Recents style (provided by ParleyRoot). */
 val LocalRecentsStyle = staticCompositionLocalOf { RecentsStyle.RICH }
 
 /** Whether call rows use the rich look. */
@@ -69,7 +69,7 @@ fun callClassLabel(cls: CallClass): Int = when (cls) {
     CallClass.ANSWERED_ELSEWHERE -> R.string.hist_type_answered_elsewhere
     CallClass.VOICEMAIL -> R.string.hist_type_voicemail
     CallClass.OUTGOING -> R.string.hist_type_outgoing
-    CallClass.NO_ANSWER -> R.string.v33_class_no_answer
+    CallClass.NO_ANSWER -> R.string.recents_class_no_answer
     CallClass.BLOCKED -> R.string.hist_type_blocked
     CallClass.UNKNOWN -> R.string.hist_type_unknown
 }
@@ -77,23 +77,23 @@ fun callClassLabel(cls: CallClass): Int = when (cls) {
 /** What each badge means, for the legend. */
 @StringRes
 private fun callClassMeaning(cls: CallClass): Int = when (cls) {
-    CallClass.MISSED -> R.string.v33_legend_missed
-    CallClass.DECLINED -> R.string.v33_legend_declined
-    CallClass.INCOMING -> R.string.v33_legend_incoming
-    CallClass.ANSWERED_ELSEWHERE -> R.string.v33_legend_elsewhere
-    CallClass.VOICEMAIL -> R.string.v33_legend_voicemail
-    CallClass.OUTGOING -> R.string.v33_legend_outgoing
-    CallClass.NO_ANSWER -> R.string.v33_legend_no_answer
-    CallClass.BLOCKED -> R.string.v33_legend_blocked
-    CallClass.UNKNOWN -> R.string.v33_legend_unknown
+    CallClass.MISSED -> R.string.recents_legend_missed
+    CallClass.DECLINED -> R.string.recents_legend_declined
+    CallClass.INCOMING -> R.string.recents_legend_incoming
+    CallClass.ANSWERED_ELSEWHERE -> R.string.recents_legend_elsewhere
+    CallClass.VOICEMAIL -> R.string.recents_legend_voicemail
+    CallClass.OUTGOING -> R.string.recents_legend_outgoing
+    CallClass.NO_ANSWER -> R.string.recents_legend_no_answer
+    CallClass.BLOCKED -> R.string.recents_legend_blocked
+    CallClass.UNKNOWN -> R.string.recents_legend_unknown
 }
 
 /** The two Recents styles' names, in [RecentsStyle] order. */
 @Composable
-fun recentsStyleLabels(): List<String> = listOf(stringResource(R.string.v33_style_rich), stringResource(R.string.v33_style_simple))
+fun recentsStyleLabels(): List<String> = listOf(stringResource(R.string.recents_style_rich), stringResource(R.string.recents_style_simple))
 
 /**
- * R4: a thin bar in the call's colour along the row's leading edge (right in right-to-left languages), drawn over the
+ * A thin bar in the call's colour along the row's leading edge (right in right-to-left languages), drawn over the
  * row's own background.
  */
 fun Modifier.callAccent(color: Color): Modifier = drawWithContent {
@@ -104,7 +104,7 @@ fun Modifier.callAccent(color: Color): Modifier = drawWithContent {
     drawRoundRect(color, topLeft = Offset(x, inset), size = Size(w, (size.height - 2 * inset).coerceAtLeast(w)), cornerRadius = CornerRadius(w / 2, w / 2))
 }
 
-/** R4: "3×" coloured by the row's latest call, next to the name of a row with several calls. */
+/** "3×" coloured by the row's latest call, next to the name of a row with several calls. */
 @Composable
 fun CallCountChip(count: Int, latest: CallClass) {
     val color = CallTypeColors.of(latest.hue)
@@ -113,22 +113,22 @@ fun CallCountChip(count: Int, latest: CallClass) {
         // The row's sequence dots say the count in words.
         modifier = Modifier.clearAndSetSemantics { },
     ) {
-        Text(stringResource(R.string.v33_count, count), style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp))
+        Text(stringResource(R.string.recents_count, count), style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp))
     }
 }
 
-/** R4: "3 calls: missed call, missed call, outgoing call", read for a row's sequence dots. */
+/** "3 calls: missed call, missed call, outgoing call", read for a row's sequence dots. */
 @Composable
 fun sequenceDescription(total: Int, classes: List<CallClass>): String {
     val words = classes.map { stringResource(callClassLabel(it)) }.joinToString(", ")
-    return pluralStringResource(R.plurals.v33_calls_sequence, total, total, words)
+    return pluralStringResource(R.plurals.recents_calls_sequence, total, total, words)
 }
 
-/** R4: the Call back pill that replaces the call icon on a missed call not returned yet. */
+/** The Call back pill that replaces the call icon on a missed call not returned yet. */
 @Composable
 fun CallBackPill(who: String, onClick: () -> Unit) {
     val color = CallTypeColors.of(CallClass.MISSED.hue)
-    val label = stringResource(R.string.v33_call_back_who, who)
+    val label = stringResource(R.string.recents_call_back_who, who)
     FilledTonalButton(
         onClick = onClick,
         contentPadding = PaddingValues(horizontal = 12.dp),
@@ -137,12 +137,12 @@ fun CallBackPill(who: String, onClick: () -> Unit) {
     ) {
         Icon(Icons.Rounded.Call, null, Modifier.size(18.dp))
         Spacer(Modifier.width(6.dp))
-        Text(stringResource(R.string.v33_call_back), style = MaterialTheme.typography.labelLarge, maxLines = 1)
+        Text(stringResource(R.string.recents_call_back), style = MaterialTheme.typography.labelLarge, maxLines = 1)
     }
 }
 
 /**
- * R4: the trailing part of a call row in history lists (number history, contact timeline, private contacts): a
+ * The trailing part of a call row in history lists (number history, contact timeline, private contacts): a
  * proportional bar and the length for a talked call, "No answer" for an outgoing call nobody picked up. Nothing in
  * the Simple style (those rows already say the length in words).
  */
@@ -152,7 +152,7 @@ fun CallLengthGlance(e: CallEntry) {
     val cls = CallClass.of(e)
     when {
         cls.answered -> CallDurationBar(CallGlance.durationFraction(e.durationSec), cls)
-        cls == CallClass.NO_ANSWER -> Text(stringResource(R.string.v33_class_no_answer), style = MaterialTheme.typography.labelMedium, color = CallTypeColors.of(cls.hue))
+        cls == CallClass.NO_ANSWER -> Text(stringResource(R.string.recents_class_no_answer), style = MaterialTheme.typography.labelMedium, color = CallTypeColors.of(cls.hue))
     }
 }
 
@@ -171,10 +171,10 @@ private fun LegendRow(cls: CallClass) {
 
 private val legendRequested = MutableStateFlow(false)
 
-/** R4: Recents ⋮ › "What do the colours mean?". */
+/** Recents ⋮ › "What do the colours mean?". */
 @Composable
 fun RecentsLegendMenuItem(closeMenu: () -> Unit) {
-    DropdownMenuItem({ Text(stringResource(R.string.v33_legend_menu)) }, leadingIcon = { Icon(Icons.AutoMirrored.Rounded.HelpOutline, null) }, onClick = {
+    DropdownMenuItem({ Text(stringResource(R.string.recents_legend_menu)) }, leadingIcon = { Icon(Icons.AutoMirrored.Rounded.HelpOutline, null) }, onClick = {
         closeMenu()
         legendRequested.value = true
     })
@@ -187,12 +187,12 @@ fun RecentsLegendHost() {
     if (!shown) return
     AlertDialog(
         onDismissRequest = { legendRequested.value = false },
-        title = { Text(stringResource(R.string.v33_legend_title)) },
+        title = { Text(stringResource(R.string.recents_legend_title)) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
                 CallClass.entries.filter { it != CallClass.UNKNOWN }.forEach { LegendRow(it) }
                 Text(
-                    stringResource(R.string.v33_legend_footer),
+                    stringResource(R.string.recents_legend_footer),
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 8.dp),
                 )

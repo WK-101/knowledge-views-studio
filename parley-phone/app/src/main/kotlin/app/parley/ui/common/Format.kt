@@ -2,6 +2,9 @@ package app.parley.ui.common
 
 import android.content.Context
 import android.content.res.Resources
+import android.icu.text.MeasureFormat
+import android.icu.util.Measure
+import android.icu.util.MeasureUnit
 import android.provider.ContactsContract.CommonDataKinds.Email
 import android.provider.ContactsContract.CommonDataKinds.Phone
 import android.telephony.PhoneNumberUtils
@@ -9,6 +12,7 @@ import android.text.format.DateFormat
 import android.text.format.DateUtils
 import app.parley.R
 import java.util.Calendar
+import java.util.Locale
 
 object Format {
     fun number(raw: String, countryIso: String): String {
@@ -49,12 +53,12 @@ object Format {
     /** "45s", "3m 5s", "1h 2m" in the user's language (ICU narrow units, so no resources are needed). */
     fun duration(sec: Long): String {
         if (sec <= 0) return ""
-        val fmt = android.icu.text.MeasureFormat.getInstance(java.util.Locale.getDefault(), android.icu.text.MeasureFormat.FormatWidth.NARROW)
-        fun m(n: Long, u: android.icu.util.MeasureUnit) = android.icu.util.Measure(n, u)
+        val fmt = MeasureFormat.getInstance(Locale.getDefault(), MeasureFormat.FormatWidth.NARROW)
+        fun m(n: Long, u: MeasureUnit) = Measure(n, u)
         return when {
-            sec < 60 -> fmt.formatMeasures(m(sec, android.icu.util.MeasureUnit.SECOND))
-            sec < 3600 -> fmt.formatMeasures(m(sec / 60, android.icu.util.MeasureUnit.MINUTE), m(sec % 60, android.icu.util.MeasureUnit.SECOND))
-            else -> fmt.formatMeasures(m(sec / 3600, android.icu.util.MeasureUnit.HOUR), m((sec % 3600) / 60, android.icu.util.MeasureUnit.MINUTE))
+            sec < 60 -> fmt.formatMeasures(m(sec, MeasureUnit.SECOND))
+            sec < 3600 -> fmt.formatMeasures(m(sec / 60, MeasureUnit.MINUTE), m(sec % 60, MeasureUnit.SECOND))
+            else -> fmt.formatMeasures(m(sec / 3600, MeasureUnit.HOUR), m((sec % 3600) / 60, MeasureUnit.MINUTE))
         }
     }
 }

@@ -26,6 +26,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.unit.dp
 import app.parley.AppViewModel
 import app.parley.common.CallEntry
@@ -43,7 +44,7 @@ import app.parley.R
 @Composable
 fun ExportSheet(vm: AppViewModel, calls: List<CallEntry>, subject: String?, onDismiss: () -> Unit) {
     val context = LocalContext.current
-    val res = androidx.compose.ui.platform.LocalResources.current
+    val res = LocalResources.current
     val scope = rememberCoroutineScope()
     var busy by remember { mutableStateOf(false) }
 

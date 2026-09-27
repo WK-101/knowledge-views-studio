@@ -45,7 +45,7 @@ import app.parley.ui.settings.bidiLtrIfNumber
 private data class Gap(val text: String, val fix: String?, val action: (() -> Unit)?)
 
 /**
- * B15: which path screening runs on and what it can't see, each gap with a one-tap fix.
+ * Which path screening runs on and what it can't see, each gap with a one-tap fix.
  * - Phone app: every call is checked, including contacts, hidden numbers and the SIM.
  * - Screening only: Android never shows hidden callers or the SIM to a screening app.
  * - Neither: nothing is screened.

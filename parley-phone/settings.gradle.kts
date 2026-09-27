@@ -19,5 +19,5 @@ dependencyResolutionManagement {
 
 rootProject.name = "parley-phone"
 include(":app", ":core:common", ":core:data", ":core:ui", ":telecom")
-// Optional companion app (B4c): downloads public spam lists for Parley, which has no internet access.
+// Optional companion app: downloads public spam lists for Parley, which has no internet access.
 include(":lists-updater")

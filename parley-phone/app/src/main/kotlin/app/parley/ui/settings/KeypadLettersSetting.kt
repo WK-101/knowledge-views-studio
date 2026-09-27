@@ -18,20 +18,23 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.res.stringResource
+import app.parley.NavEvent
 import app.parley.R
 import app.parley.AppViewModel
 import app.parley.common.KeypadLayout
 import app.parley.messaging.MyDetailsDialog
+import app.parley.ui.people.PeopleRoutes
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-/** Settings › Keypad: "Keypad letters" (K6). */
+/** Settings › Keypad: "Keypad letters". */
 @Composable
-fun KeypadLettersRow(vm: AppViewModel, icon: androidx.compose.ui.graphics.vector.ImageVector? = null) {
+fun KeypadLettersRow(vm: AppViewModel, icon: ImageVector? = null) {
     val store = vm.c.messaging
     val choice by store.keypadLayoutChoice.collectAsStateWithLifecycle()
     val contacts by vm.contacts.collectAsStateWithLifecycle()
@@ -74,15 +77,15 @@ fun KeypadLettersRow(vm: AppViewModel, icon: androidx.compose.ui.graphics.vector
     }
 }
 
-/** Settings › Messaging: "My card" (I2), which replaced "My details" and still fills in "Send my details". */
+/** Settings › Messaging: "My card", which replaced "My details" and still fills in "Send my details". */
 @Composable
-fun MyDetailsRow(vm: AppViewModel, icon: androidx.compose.ui.graphics.vector.ImageVector? = null) {
+fun MyDetailsRow(vm: AppViewModel, icon: ImageVector? = null) {
     val details by vm.c.messaging.myDetails.collectAsStateWithLifecycle()
     LinkRow(
         settingTitle("my_details"),
         listOf(details.name, details.number.takeIf { it.isNotBlank() }?.let(::bidiLtr).orEmpty()).filter { it.isNotBlank() }.joinToString(" · ").ifEmpty { settingSummary("my_details") },
         icon,
-    ) { vm.navigate(app.parley.NavEvent.Route(app.parley.ui.people.PeopleRoutes.ME)) }
+    ) { vm.navigate(NavEvent.Route(PeopleRoutes.ME)) }
 }
 
 /** [KeypadLayout.label] in the current language (the alphabet sample in brackets stays as it is). */

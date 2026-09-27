@@ -1,5 +1,10 @@
 package app.parley
 
+import android.net.Uri
+import app.parley.blocking.DialText
+import app.parley.common.DialHit
+import app.parley.common.StartTab
+import app.parley.data.ContactDetails
 import app.parley.ui.circle.CircleUi
 import android.annotation.SuppressLint
 import android.Manifest
@@ -45,7 +50,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.concurrent.TimeUnit
 
-/** Recents filter chips. VOICEMAIL shows the voicemail inbox (V1) instead of the call list. */
+/** Recents filter chips. VOICEMAIL shows the voicemail inbox instead of the call list. */
 enum class RecentFilter { ALL, MISSED, INCOMING, OUTGOING, BLOCKED, VOICEMAIL }
 
 data class RecentGroup(
@@ -65,7 +70,7 @@ data class RecentGroup(
 }
 
 /** One keypad result row (see [app.parley.common.DialHit]). */
-typealias DialResult = app.parley.common.DialHit
+typealias DialResult = DialHit
 
 data class PendingCall(
     val number: String,
@@ -76,13 +81,13 @@ data class PendingCall(
     val note: String? = null,
     val simId: String? = null,
     /** Shown first in the shared dial-guard sheet (premium line, one-ring scam, listed number). */
-    val warnings: List<app.parley.data.DialWarning> = emptyList(),
+    val warnings: List<DialWarning> = emptyList(),
 )
 
 sealed interface UiEvent {
     data class Message(val text: String) : UiEvent
     data class Undo(val text: String, val journalIds: List<Long>) : UiEvent
-    /** U4: calls deleted from history (a swipe), with Undo from the archive's deleted-calls batch. */
+    /** Calls deleted from history (a swipe), with Undo from the archive's deleted-calls batch. */
     data class UndoCalls(val text: String, val batchId: Long) : UiEvent
     data object RequestCallPermission : UiEvent
 }
@@ -90,13 +95,13 @@ sealed interface UiEvent {
 sealed interface NavEvent {
     data class Contact(val id: Long) : NavEvent
     data class History(val number: String) : NavEvent
-    data class NewContact(val prefill: app.parley.data.ContactDetails) : NavEvent
-    data class InsertOrEdit(val prefill: app.parley.data.ContactDetails) : NavEvent
-    data class ImportVcf(val uri: android.net.Uri) : NavEvent
-    data class SecureQr(val uri: android.net.Uri) : NavEvent
+    data class NewContact(val prefill: ContactDetails) : NavEvent
+    data class InsertOrEdit(val prefill: ContactDetails) : NavEvent
+    data class ImportVcf(val uri: Uri) : NavEvent
+    data class SecureQr(val uri: Uri) : NavEvent
     data class Vault(val id: Long) : NavEvent
     data class Route(val route: String) : NavEvent
-    data class Tab(val tab: app.parley.common.StartTab, val dial: String? = null, val missedOnly: Boolean = false) : NavEvent
+    data class Tab(val tab: StartTab, val dial: String? = null, val missedOnly: Boolean = false) : NavEvent
 }
 
 // Telephony calls here are covered by the default-dialer role and each one handles SecurityException.
@@ -119,7 +124,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val pendingCall = MutableStateFlow<PendingCall?>(null)
 
     /** Draft handed to the editor by other apps (Insert extras) or "add to contact" flows. */
-    var pendingPrefill: app.parley.data.ContactDetails? = null
+    var pendingPrefill: ContactDetails? = null
 
     private var hasCallLogPermission = false
 
@@ -134,7 +139,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val hadContacts = hasContactsPermission.value
         isDefaultDialer.value = Permissions.isDefaultDialer(ctx)
         hasContactsPermission.value = Permissions.has(ctx, Manifest.permission.READ_CONTACTS)
-        // F29: call-log access granted later (outside the dialer role) must also re-register the observers.
+        // Call-log access granted later (outside the dialer role) must also re-register the observers.
         val hadCallLog = hasCallLogPermission
         hasCallLogPermission = Permissions.has(ctx, Manifest.permission.READ_CALL_LOG)
         if (wasDefault != isDefaultDialer.value || hadContacts != hasContactsPermission.value || hadCallLog != hasCallLogPermission) {
@@ -190,7 +195,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** Contacts-feature state: label and account filters, second line, favourites order. */
     val people = PeopleUi(c, viewModelScope, contacts, contactQuery, countryIso)
 
-    /** R1: the Circle (people with keep-in-touch set) and its suggestions. */
+    /** The Circle (people with keep-in-touch set) and its suggestions. */
     val circle = CircleUi(c, viewModelScope, contacts)
 
     val favorites: StateFlow<List<ContactSummary>> = contacts.map { it.orEmpty().filter { c -> c.starred } }
@@ -214,7 +219,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val missedCount: StateFlow<Int> = c.history.calls.map { list -> list.orEmpty().count { it.type == CallType.MISSED && it.isNew } }
         .stateIn(viewModelScope, SharingStarted.Eagerly, 0)
 
-    /** V11: Recents is on screen: Telecom's missed-call count goes, and so does the re-alert. */
+    /** Recents is on screen: Telecom's missed-call count goes, and so does the re-alert. */
     fun onRecentsShown() {
         MissedCallNotifier.stopReAlert(getApplication())
         try {
@@ -237,7 +242,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     // ---------- Calling ----------
 
-    /** USSD codes typed on the keypad (A13). */
+    /** USSD codes typed on the keypad. */
     val ussd = UssdSession(c, viewModelScope)
     private val gate = CallGate(c)
 
@@ -258,7 +263,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
         viewModelScope.launch {
             val p = gate.check(number, name, sims.value.size, simId, skipConfirm)
-            // V8: a one-tap call (favourite) while the proximity sensor is covered asks first: probably a pocket.
+            // A one-tap call (favourite) while the proximity sensor is covered asks first: probably a pocket.
             val pocket = PocketGuard.GUARDED.contains(source) && c.callExtras.config.value.pocketGuard &&
                 !EmergencyPolicy.bypasses(EmergencyPolicy.Safeguard.POCKET_GUARD, gate.isEmergency(number)) &&
                 PocketGuard.shouldAsk(true, source, ProximityProbe.isCovered(ctx))
@@ -273,7 +278,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /** [confirmed]: the user already said yes to a used-up call-time allowance (T6). */
+    /** [confirmed]: the user already said yes to a used-up call-time allowance. */
     fun place(number: String, simId: String?, remember: Boolean = false, confirmed: Boolean = false) {
         pendingCall.value = null
         if (Ussd.isUssd(number)) {
@@ -283,14 +288,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             when (val r = gate.place(number, simId, contactFor(number)?.displayName, sims.value, remember, confirmed)) {
                 is CallGate.Placed.Ask -> pendingCall.value = r.pending
-                is CallGate.Placed.Done -> (r.result as? PlaceResult.Failed)?.let { toast(app.parley.blocking.DialText.placeFailure(getApplication(), it.reason)) }
+                is CallGate.Placed.Done -> (r.result as? PlaceResult.Failed)?.let { toast(DialText.placeFailure(getApplication(), it.reason)) }
             }
         }
     }
 
     fun callVoicemail() {
         when (val r = c.placer.callVoicemail()) {
-            is PlaceResult.Failed -> toast(app.parley.blocking.DialText.placeFailure(getApplication(), r.reason))
+            is PlaceResult.Failed -> toast(DialText.placeFailure(getApplication(), r.reason))
             else -> Unit
         }
     }
@@ -299,10 +304,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
      * Moves a phone contact into the vault, leaving no readable copy in Parley: no journal entry, and its
      * time-machine versions are purged. Throws [app.parley.data.vault.VaultCrypto.LockedException] if locked.
      */
-    suspend fun moveToVault(contactId: Long, d: app.parley.data.ContactDetails): Long {
+    suspend fun moveToVault(contactId: Long, d: ContactDetails): Long {
         // The pinned note moves into the vault entry (it's shown on the call screen from there).
         val note = d.pinnedNote.ifBlank { d.lookupKey.takeIf { it.isNotEmpty() }?.let { c.meta.meta(it)?.pinnedNote }.orEmpty() }
-        // Lossless: the vault keeps the full contact record (photo included); local copies are purged at once (F4).
+        // Lossless: the vault keeps the full contact record (photo included); local copies are purged at once.
         val moved = c.vaultMoves.moveIn(contactId, d.copy(pinnedNote = note))
         if (d.lookupKey.isNotEmpty()) {
             c.journal.forget(d.lookupKey)
@@ -339,8 +344,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /** U4: deletes one Recents row's calls, offering Undo (the archive keeps them 30 days). */
-    /** [keepPrivate] (P5): leaves out calls with private contacts the vault hasn't moved out of the system log yet. */
+    /** Deletes one Recents row's calls, offering Undo (the archive keeps them 30 days). */
+    /** [keepPrivate]: leaves out calls with private contacts the vault hasn't moved out of the system log yet. */
     fun deleteCallsWithUndo(entries: List<CallEntry>, keepPrivate: Boolean = false) {
         viewModelScope.launch {
             val privateNumbers = HashMap<String, Boolean>()

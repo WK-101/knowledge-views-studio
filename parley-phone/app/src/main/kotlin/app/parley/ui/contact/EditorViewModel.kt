@@ -11,6 +11,7 @@ import androidx.core.os.bundleOf
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import app.parley.InsertPrefill
 import app.parley.R
 import app.parley.common.people.EditorForm
 import app.parley.common.people.RelationLinks
@@ -88,7 +89,7 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
     var background by mutableStateOf<BackgroundChange>(BackgroundChange.None)
         private set
 
-    /** I5: relations whose contact was chosen with the picker (name key → that contact). */
+    /** Relations whose contact was chosen with the picker (name key → that contact). */
     private var pickedLinks = emptyMap<String, RelationLinks.Link>()
     var moreName by mutableStateOf(false)
     var revealed by mutableStateOf(emptySet<EditorForm.Kind>())
@@ -99,7 +100,7 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
     var askKeep by mutableStateOf<Pair<String, Long>?>(null)
         private set
 
-    /** E1: stable row keys (animations, focus). */
+    /** Stable row keys (animations, focus). */
     val keys = RowKeys()
 
     private val eventChannel = Channel<EditorEvent>(Channel.BUFFERED)
@@ -171,9 +172,9 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
             val loaded = withPhoneRow(d ?: ContactDetails())
             var e = d ?: ContactDetails()
             if (a.addPhone.isNotBlank()) e = e.copy(phones = e.phones + DataItem(value = a.addPhone, type = Phone.TYPE_MOBILE))
-            if (a.prefill != null) e = app.parley.InsertPrefill.appendTo(e, a.prefill)
+            if (a.prefill != null) e = InsertPrefill.appendTo(e, a.prefill)
             draft = withPhoneRow(e)
-            // E1: an added number or appended details count as a change, so Save is ready for them.
+            // An added number or appended details count as a change, so Save is ready for them.
             start = loaded
             account = d?.rawContacts?.firstOrNull { it.id == d.editRawId }?.account ?: AccountRef(null, null)
         } else {
@@ -228,7 +229,7 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
     fun save() {
         val e = draft ?: return
         if (saving) return
-        // A contact holding only an address, a note or a website is fine (F24); a completely empty one is not.
+        // A contact holding only an address, a note or a website is fine; a completely empty one is not.
         val empty = !EditorForm.hasContent(EditorDrafts.texts(e))
         // Clearing one copy of a linked contact is allowed: that empty copy is removed and the others stay.
         val orig = original
@@ -259,7 +260,7 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
         }
     }
 
-    /** The answer to "Keep this contact?" after saving a temporary contact (F2). */
+    /** The answer to "Keep this contact?" after saving a temporary contact. */
     fun answerKeep(keep: Boolean) {
         val (key, id) = askKeep ?: return
         askKeep = null
@@ -356,7 +357,7 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
 
 /** What counts as content and as a change in an editor draft. */
 internal object EditorDrafts {
-    /** E1: the draft without never-saved blank rows, so an added-and-left-empty row isn't a change. */
+    /** The draft without never-saved blank rows, so an added-and-left-empty row isn't a change. */
     fun meaningful(d: ContactDetails): ContactDetails {
         fun m(l: List<DataItem>) = EditorForm.meaningful(l, { it.id == null }, { it.value.isBlank() })
         return d.copy(

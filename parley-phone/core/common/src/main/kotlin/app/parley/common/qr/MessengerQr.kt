@@ -3,7 +3,7 @@ package app.parley.common.qr
 import app.parley.common.MessengerCatalog
 
 /**
- * Q3: messengers whose contact, chat and invite links a QR code can hold. [packages] are the apps (and forks) that
+ * Messengers whose contact, chat and invite links a QR code can hold. [packages] are the apps (and forks) that
  * open them, from [MessengerCatalog]; the first one is the store page offered when none is installed. [scanInside]:
  * the app mostly wants its own codes scanned inside it (WeChat, KakaoTalk profiles); [legacy]: the service has closed.
  */
@@ -39,7 +39,6 @@ enum class QrApp(val label: String, val scanInside: Boolean = false, val legacy:
 object MessengerQr {
     private val SESSION_ID = Regex("^05[0-9a-fA-F]{64}$")
     private val THREEMA_ID = Regex("^[0-9A-Z*][0-9A-Z]{7}$")
-    private val DIGITS = Regex("^\\+?[0-9]{6,15}$")
 
     /** The messenger link in [text] (one line, already trimmed), or null when it isn't one. */
     fun classify(text: String): QrPayload.Messenger? {

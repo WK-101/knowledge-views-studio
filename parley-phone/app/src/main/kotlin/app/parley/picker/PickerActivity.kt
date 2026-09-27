@@ -1,5 +1,16 @@
 package app.parley.picker
 
+import android.content.Context
+import androidx.compose.foundation.layout.Column
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.res.stringResource
+import androidx.fragment.app.FragmentActivity
+import app.parley.R
 import app.parley.common.PhoneIdentity
 import android.app.Activity
 import android.content.ClipData
@@ -19,8 +30,14 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import app.parley.container
+import app.parley.security.AppLock
+import app.parley.security.LockScreen
+import app.parley.ui.AppLocale
+import app.parley.ui.DataL10n
 import app.parley.ui.ParleyTheme
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /** What another app asked us to pick. */
 enum class PickKind(val mime: String) {
@@ -49,11 +66,11 @@ enum class PickKind(val mime: String) {
  * other apps can use Parley as the system contact picker. Also handles JOIN_CONTACT.
  * Returns aggregate contact lookup URIs or Data row URIs, with a read grant.
  */
-class PickerActivity : androidx.fragment.app.FragmentActivity() {
-    // L1: the in-app language on Android 10-12 (Android 13+ applies per-app languages itself).
-    override fun attachBaseContext(newBase: android.content.Context) {
+class PickerActivity : FragmentActivity() {
+    // The in-app language on Android 10-12 (Android 13+ applies per-app languages itself).
+    override fun attachBaseContext(newBase: Context) {
         super.attachBaseContext(newBase)
-        app.parley.ui.AppLocale.override(this, newBase)
+        AppLocale.override(this, newBase)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -65,13 +82,13 @@ class PickerActivity : androidx.fragment.app.FragmentActivity() {
         val c = container
         setContent {
             val s by c.settings.settings.collectAsStateWithLifecycle()
-            val locked by app.parley.security.AppLock.locked.collectAsStateWithLifecycle()
-            androidx.compose.runtime.LaunchedEffect(s.secureScreen) { app.parley.security.AppLock.applySecureFlag(this@PickerActivity, s.secureScreen) }
+            val locked by AppLock.locked.collectAsStateWithLifecycle()
+            LaunchedEffect(s.secureScreen) { AppLock.applySecureFlag(this@PickerActivity, s.secureScreen) }
             val loaded by c.settings.loaded.collectAsStateWithLifecycle()
             ParleyTheme(s.themeMode, s.amoledBlack, s.dynamicColor, s.density) {
                 if (!loaded) return@ParleyTheme
                 if (locked && s.appLock) {
-                    app.parley.security.LockScreen { app.parley.security.AppLock.authenticate(this@PickerActivity) }
+                    LockScreen { AppLock.authenticate(this@PickerActivity) }
                     return@ParleyTheme
                 }
                 oneField?.let { (pick, phones) ->
@@ -83,7 +100,7 @@ class PickerActivity : androidx.fragment.app.FragmentActivity() {
                 PickerScreen(
                     kind = if (joinTarget != null) PickKind.CONTACT else kind,
                     multiple = multiple && joinTarget == null,
-                    title = if (joinTarget != null) getString(app.parley.R.string.picker_link_with) else null,
+                    title = if (joinTarget != null) getString(R.string.picker_link_with) else null,
                     excludeContactId = joinTarget,
                     onCancel = { setResult(Activity.RESULT_CANCELED); finish() },
                     onPicked = { picks -> if (joinTarget != null) join(joinTarget, picks) else deliver(picks) },
@@ -94,11 +111,11 @@ class PickerActivity : androidx.fragment.app.FragmentActivity() {
 
     override fun onStart() {
         super.onStart()
-        lifecycleScope.launch { app.parley.security.AppLock.onStart(container.settings.current()) }
+        lifecycleScope.launch { AppLock.onStart(container.settings.current()) }
     }
 
     override fun onStop() {
-        app.parley.security.AppLock.onStop()
+        AppLock.onStop()
         super.onStop()
     }
 
@@ -112,7 +129,7 @@ class PickerActivity : androidx.fragment.app.FragmentActivity() {
     }
 
     /** Pending "share the whole contact or only one number?" question (Privacy › Share just one contact). */
-    private var oneField by androidx.compose.runtime.mutableStateOf<Pair<Pick, List<Pair<String, Uri>>>?>(null)
+    private var oneField by mutableStateOf<Pair<Pick, List<Pair<String, Uri>>>?>(null)
 
     private fun deliver(picks: List<Pick>, ask: Boolean = true) {
         if (picks.isEmpty()) {
@@ -125,7 +142,7 @@ class PickerActivity : androidx.fragment.app.FragmentActivity() {
             container.people.prefs.settings.value.pickerOneField
         ) {
             lifecycleScope.launch {
-                val phones = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { phonesOf(single.contactId) }
+                val phones = withContext(Dispatchers.IO) { phonesOf(single.contactId) }
                 if (phones.isEmpty()) deliver(picks, ask = false) else oneField = single to phones
             }
             return
@@ -159,20 +176,20 @@ class PickerActivity : androidx.fragment.app.FragmentActivity() {
 
 data class Pick(val contactId: Long, val uri: Uri, val title: String, val subtitle: String?, val photoUri: String?)
 
-@androidx.compose.runtime.Composable
+@Composable
 private fun OneFieldDialog(pick: Pick, phones: List<Pair<String, Uri>>, onWhole: () -> Unit, onNumber: (Uri) -> Unit, onDismiss: () -> Unit) {
-    androidx.compose.material3.AlertDialog(
+    AlertDialog(
         onDismissRequest = onDismiss,
-        title = { androidx.compose.material3.Text(androidx.compose.ui.res.stringResource(app.parley.R.string.picker_share_title, pick.title)) },
+        title = { Text(stringResource(R.string.picker_share_title, pick.title)) },
         text = {
-            androidx.compose.foundation.layout.Column {
-                androidx.compose.material3.Text(androidx.compose.ui.res.stringResource(app.parley.R.string.picker_share_one))
+            Column {
+                Text(stringResource(R.string.picker_share_one))
                 phones.forEach { (n, uri) ->
-                    androidx.compose.material3.TextButton({ onNumber(uri) }) { androidx.compose.material3.Text(androidx.compose.ui.res.stringResource(app.parley.R.string.picker_only, app.parley.ui.DataL10n.ltr(n))) }
+                    TextButton({ onNumber(uri) }) { Text(stringResource(R.string.picker_only, DataL10n.ltr(n))) }
                 }
             }
         },
-        confirmButton = { androidx.compose.material3.TextButton(onWhole) { androidx.compose.material3.Text(androidx.compose.ui.res.stringResource(app.parley.R.string.picker_whole)) } },
-        dismissButton = { androidx.compose.material3.TextButton(onDismiss) { androidx.compose.material3.Text(androidx.compose.ui.res.stringResource(app.parley.R.string.dc_cancel)) } },
+        confirmButton = { TextButton(onWhole) { Text(stringResource(R.string.picker_whole)) } },
+        dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dc_cancel)) } },
     )
 }

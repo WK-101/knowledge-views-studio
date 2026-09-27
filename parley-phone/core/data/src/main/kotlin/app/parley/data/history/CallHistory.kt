@@ -1,5 +1,7 @@
 package app.parley.data.history
 
+import android.Manifest
+import app.parley.common.ContactSummary
 import app.parley.common.PhoneIdentity
 import android.content.ContentValues
 import android.content.Context
@@ -27,10 +29,13 @@ import app.parley.data.CallLogRepository
 import app.parley.data.ContactsRepository
 import app.parley.data.Permissions
 import app.parley.data.PhoneEnv
+import app.parley.data.R
 import app.parley.data.backup.CallHistoryBackup
 import app.parley.data.changes
 import app.parley.data.vault.PrivateCall
 import app.parley.data.vault.VaultRepository
+import java.io.File
+import java.time.LocalDate
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
@@ -60,9 +65,9 @@ import java.util.concurrent.TimeUnit
 data class ArchivedCall(val rowId: Long, val record: CallLogRecord)
 
 /**
- * Call history as data: Parley's encrypted archive of the system call log (H1), the merged view Recents
- * reads, the shared [CallLogIndex] (H9), deletes with a 30-day undo (K10), CSV import (H8) and per-SIM plan
- * meters (T8).
+ * Call history as data: Parley's encrypted archive of the system call log, the merged view Recents
+ * reads, the shared [CallLogIndex], deletes with a 30-day undo, CSV import and per-SIM plan
+ * meters.
  *
  * The archive mirrors every call-log row as soon as the log changes (content observer) and again in a daily
  * catch-up, so calls survive when the system log trims itself. It follows the retention setting except for
@@ -104,7 +109,7 @@ class CallHistory(
     /** Numbers whose history ignores retention: fingerprint → number. */
     val keptForever: StateFlow<Map<String, String>> = _kept
 
-    /** Filter applied to Recents (H4); saved filters live in [prefs]. */
+    /** Filter applied to Recents; saved filters live in [prefs]. */
     val activeFilter = MutableStateFlow(HistoryFilter())
 
     /** Private (vault) numbers, matched by line (F7: E.164, not the last 9 digits, so a foreign number sharing them stays). */
@@ -150,9 +155,9 @@ class CallHistory(
         .flowOn(Dispatchers.Default)
         .stateIn(scope, SharingStarted.WhileSubscribed(60_000), null)
 
-    private fun buildIndex(calls: List<CallEntry>, ct: List<app.parley.common.ContactSummary>?): CallLogIndex {
+    private fun buildIndex(calls: List<CallEntry>, ct: List<ContactSummary>?): CallLogIndex {
         // Without the permission the list is empty but that means "unknown", not "nobody is a contact".
-        val known = if (ct == null || !Permissions.has(context, android.Manifest.permission.READ_CONTACTS)) null
+        val known = if (ct == null || !Permissions.has(context, Manifest.permission.READ_CONTACTS)) null
         else ct.map { IndexContact(it.id, it.lookupKey, it.displayName, it.phones.map { p -> p.number }) }
         return CallLogIndex.build(calls, known, countryIso, zone)
     }
@@ -234,7 +239,7 @@ class CallHistory(
             dbRef = null
             for (ext in listOf("", "-wal", "-shm", "-journal")) {
                 val f = context.getDatabasePath(HistoryDatabase.NAME + ext)
-                if (f.exists()) f.renameTo(java.io.File(f.parentFile, "parley-history-$suffix.db$ext"))
+                if (f.exists()) f.renameTo(File(f.parentFile, "parley-history-$suffix.db$ext"))
             }
         }
         crypto.reset(suffix)
@@ -255,7 +260,7 @@ class CallHistory(
     suspend fun sync(full: Boolean): Int = withContext(Dispatchers.IO + NonCancellable) {
         mutex.withLock {
             if (!prefs.current().archiveEnabled) return@withLock 0
-            if (!Permissions.has(context, android.Manifest.permission.READ_CALL_LOG)) return@withLock 0
+            if (!Permissions.has(context, Manifest.permission.READ_CALL_LOG)) return@withLock 0
             if (_archive.value == null) reload()
             // Key not usable right now: leave the archive alone and try on the next change.
             if (_archive.value == null) return@withLock 0
@@ -414,7 +419,7 @@ class CallHistory(
             keys.chunked(500).forEach { dao.deleteKeys(it) }
             knownKeys?.removeAll(keys.toSet())
             reload()
-            // Ring facts (V9) of deleted calls go with them.
+            // Ring facts of deleted calls go with them.
             list.filter { !it.presentationHidden && it.number.isNotBlank() }.groupBy { it.number }
                 .forEach { (n, calls) -> runCatching { onForget?.invoke(n, calls.map { it.date }) } }
             batch
@@ -476,7 +481,7 @@ class CallHistory(
 
     suspend fun deleteForNumber(number: String): Long? = deleteRange(number, DeleteRange.ALL)
 
-    suspend fun deleteRange(number: String, range: DeleteRange, picked: java.time.LocalDate? = null): Long? = withContext(Dispatchers.IO + NonCancellable) {
+    suspend fun deleteRange(number: String, range: DeleteRange, picked: LocalDate? = null): Long? = withContext(Dispatchers.IO + NonCancellable) {
         val since = range.since(System.currentTimeMillis(), zone, picked)
         val batch = delete(callsFor(number, since))
         // Everything for this number: archive rows filed under its key that couldn't be read into the list go too.
@@ -496,13 +501,13 @@ class CallHistory(
     /** Puts a deleted batch back into the system call log (and the archive). Returns calls restored. */
     suspend fun undoDelete(batchId: Long): Int = withContext(Dispatchers.IO + NonCancellable) { undoLock.withLock { undoDeleteLocked(batchId) } }
 
-    /** One undo at a time: a second tap waits and then finds the batch gone (F21). */
+    /** One undo at a time: a second tap waits and then finds the batch gone. */
     private val undoLock = Mutex()
 
     private suspend fun undoDeleteLocked(batchId: Long): Int {
         val trashed = dao.trashed(batchId).mapNotNull { runCatching { decode(String(crypto.open(it.blob))) }.getOrNull() }
         if (trashed.isEmpty()) return 0
-        // F21: idempotent. Rows the system log already has again (an earlier, interrupted undo) aren't inserted twice.
+        // Idempotent. Rows the system log already has again (an earlier, interrupted undo) aren't inserted twice.
         val from = trashed.minOf { it.date } - 1000
         val present = readProvider(from).filter { it.date <= trashed.maxOf { r -> r.date } + 1000 }
         val rows = HistoryMerge.missing(trashed, present) { HistoryMerge.key(it.toEntry(0)) }
@@ -523,15 +528,15 @@ class CallHistory(
         return maxOf(n, trashed.size.takeIf { prefs.current().archiveEnabled } ?: 0)
     }
 
-    // ------------------------------------------------------------------ import (H8)
+    // ------------------------------------------------------------------ import
 
     /** Dry run: reads and parses the file, checks it against the whole history. Nothing is written. */
     suspend fun planImport(uri: Uri, mapping: ColumnMapping? = null, dayFirst: Boolean = true): ImportPlan = withContext(Dispatchers.IO) {
         val text = cr.openInputStream(uri)?.use { input ->
             val bytes = input.readBytes()
-            require(bytes.size <= MAX_IMPORT_BYTES) { context.getString(app.parley.data.R.string.data_file_too_large) }
+            require(bytes.size <= MAX_IMPORT_BYTES) { context.getString(R.string.data_file_too_large) }
             String(bytes, Charsets.UTF_8)
-        } ?: throw IllegalArgumentException(context.getString(app.parley.data.R.string.data_file_open_failed))
+        } ?: throw IllegalArgumentException(context.getString(R.string.data_file_open_failed))
         val existing = HashSet<String>()
         readProvider(null).forEach { existing += importKey(it) }
         _archive.value.orEmpty().forEach { existing += importKey(it.record) }
@@ -562,7 +567,7 @@ class CallHistory(
         n
     }
 
-    // ------------------------------------------------------------------ plan meter (T8)
+    // ------------------------------------------------------------------ plan meter
 
     val plans: StateFlow<List<PlanConfig>> = prefs.state.map { it.plans }.distinctUntilChanged()
         .stateIn(scope, SharingStarted.Eagerly, emptyList())
@@ -602,7 +607,7 @@ class CallHistory(
     override suspend fun backupLines(): List<CallHistoryLine> = withContext(Dispatchers.IO) {
         if (_archive.value == null) reload()
         // Rather fail the backup than silently leave the archive out.
-        if (_archive.value == null && prefs.current().archiveEnabled) throw IllegalStateException(context.getString(app.parley.data.R.string.data_archive_locked))
+        if (_archive.value == null && prefs.current().archiveEnabled) throw IllegalStateException(context.getString(R.string.data_archive_locked))
         val inProvider = readProvider(null).map { HistoryMerge.key(it.toEntry(0)) }.toHashSet()
         _archive.value.orEmpty().map { it.record }.filter { HistoryMerge.key(it.toEntry(0)) !in inProvider }.map { CallHistoryLine(call = it) } +
             _kept.value.values.map { CallHistoryLine(keepForever = it) }

@@ -30,6 +30,7 @@ import app.parley.PendingCall
 import app.parley.R
 import app.parley.common.SimAccount
 import app.parley.ui.Bidi
+import app.parley.ui.history.simPlanSummary
 
 /** Confirm-before-call and SIM chooser. Shown from the root so every screen can place calls. */
 @Composable
@@ -39,7 +40,7 @@ fun CallDialogs(vm: AppViewModel) {
     val p = pending ?: return
     CallQuestions(
         p, sims, vm.countryIso,
-        planSummary = { app.parley.ui.history.simPlanSummary(vm, it) },
+        planSummary = { simPlanSummary(vm, it) },
         onUpdate = { vm.pendingCall.value = it },
         onPlace = { number, simId, remember, confirmed -> vm.place(number, simId, remember, confirmed) },
     )

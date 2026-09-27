@@ -38,6 +38,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -58,7 +59,7 @@ fun UpdaterScreen(repo: ListsRepo) {
         Updater.prune(repo, s.config)
     }
     fun size(b: Long) = Formatter.formatShortFileSize(context, b)
-    val res = androidx.compose.ui.platform.LocalResources.current
+    val res = LocalResources.current
     fun ago(t: Long) = if (t <= 0) res.getString(R.string.lists_never) else DateUtils.getRelativeTimeSpanString(t, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS).toString()
 
     Scaffold(topBar = { TopAppBar(title = { Text(stringResource(R.string.app_name)) }) }) { p ->

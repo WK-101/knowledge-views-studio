@@ -3,7 +3,7 @@ package app.parley.common.calls
 import app.parley.common.SimAccount
 
 /**
- * K1 (v3.4): the keypad's Call pill. One SIM (or none, or more than [MAX_SEGMENTS] call accounts): a single Call
+ * The keypad's Call pill. One SIM (or none, or more than [MAX_SEGMENTS] call accounts): a single Call
  * pill that follows the usual SIM rules (remembered SIM, default SIM, else the SIM question). Two or three SIMs:
  * one pill split into a segment per SIM, each calling with its own SIM.
  */

@@ -3,6 +3,7 @@ package app.parley.data.calls
 import android.content.Context
 import android.util.Base64
 import app.parley.common.calls.CallExtrasConfig
+import app.parley.common.calls.RingExplainer
 import app.parley.common.calls.RingFacts
 import app.parley.common.calls.RingFactsCodec
 import app.parley.data.history.CallHistory
@@ -35,7 +36,7 @@ class CallExtrasRepository(context: Context) {
 }
 
 /**
- * Ring-side facts per incoming call (V9). In app-private storage, like the screening trace; the newest [MAX_ROWS] of
+ * Ring-side facts per incoming call. In app-private storage, like the screening trace; the newest [MAX_ROWS] of
  * the last [KEEP_DAYS] days are kept. Nothing leaves the phone, and nothing is readable at rest: rows are keyed by
  * the call-history archive's keyed fingerprint of the line (never the number) and the facts (Bluetooth device names
  * among them) are sealed with the archive key. Deleting or purging calls forgets their facts
@@ -104,7 +105,7 @@ class RingFactsStore(private val context: Context, private val history: () -> Ca
     }
 
     /** The facts of the call from [number] that rang at about [time] (a call-log date), or null. */
-    fun near(number: String?, time: Long): RingFacts? = app.parley.common.calls.RingExplainer.matchFor(forNumber(number), time)
+    fun near(number: String?, time: Long): RingFacts? = RingExplainer.matchFor(forNumber(number), time)
 
     /**
      * Forgets [number]'s facts: those of the calls at [dates] (call-log dates), or all of them when [dates] is null
@@ -116,7 +117,7 @@ class RingFactsStore(private val context: Context, private val history: () -> Ca
         val mine = rows().filter { it.key == k }
         if (mine.isEmpty()) return
         val drop = if (dates == null) mine.map { it.facts }.toSet()
-        else dates.mapNotNull { d -> app.parley.common.calls.RingExplainer.matchFor(mine.map { it.facts }, d) }.toSet()
+        else dates.mapNotNull { d -> RingExplainer.matchFor(mine.map { it.facts }, d) }.toSet()
         if (drop.isEmpty()) return
         store(rows().filterNot { it.key == k && it.facts in drop })
     }

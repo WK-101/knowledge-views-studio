@@ -1,7 +1,7 @@
 package app.parley.common
 
 /**
- * F7: what the vault fingerprints (HMACs) for a phone number, so caller ID can match without decrypting.
+ * What the vault fingerprints (HMACs) for a phone number, so caller ID can match without decrypting.
  *
  * Numbers are keyed by their E.164 form, prefixed with [E164_PREFIX] so these rows never collide with the older
  * rows keyed by the last digits. The last-digits key is only stored for a number whose E.164 form can't be derived
@@ -45,7 +45,7 @@ object VaultNumberKeys {
     }
 
     /**
-     * F15: which of several vault entries sharing a number wins: never an expired one, then the most recently
+     * Which of several vault entries sharing a number wins: never an expired one, then the most recently
      * updated, then the newest created, then the highest id (deterministic).
      */
     data class Candidate(val id: Long, val updatedAt: Long, val createdAt: Long, val expiresAt: Long?)

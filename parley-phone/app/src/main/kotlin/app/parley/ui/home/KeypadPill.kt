@@ -63,19 +63,20 @@ import app.parley.common.DockFold
 import app.parley.common.SimAccount
 import app.parley.common.calls.CallPill
 import app.parley.ui.CallColors
+import app.parley.ui.history.SimPlanBadge
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
-/** K1: the pill's height; the bottom row around it keeps one height whatever the SIMs (C1: the keys never move). */
+/** The pill's height; the bottom row around it keeps one height whatever the SIMs (C1: the keys never move). */
 internal val CALL_PILL_HEIGHT = 56.dp
 
-/** K1: the side slots of the bottom row (keypad toggle, backspace), equal so the pill stays centred. */
+/** The side slots of the bottom row (keypad toggle, backspace), equal so the pill stays centred. */
 private val SIDE_SLOT = 72.dp
 
 /**
- * K1 (v3.4): the keypad's bottom row, as on most phones: the keypad toggle, the green Call pill in the middle, and
+ * The keypad's bottom row, as on most phones: the keypad toggle, the green Call pill in the middle, and
  * backspace (a long press clears the number). The row's height and the pill's width depend only on the SIMs,
  * never on what is typed.
  */
@@ -127,7 +128,7 @@ private fun RoundIconButton(label: String, onClick: () -> Unit, content: @Compos
 private fun BackspaceButton(enabled: Boolean, onDelete: () -> Unit, onClear: () -> Unit) {
     val haptics = LocalHapticFeedback.current
     val label = stringResource(R.string.main_delete)
-    val clearLabel = stringResource(R.string.k34_clear_number)
+    val clearLabel = stringResource(R.string.keypad_clear_number)
     Box(
         Modifier.size(56.dp).clip(CircleShape)
             .combinedClickable(
@@ -149,7 +150,7 @@ private fun BackspaceButton(enabled: Boolean, onDelete: () -> Unit, onClear: () 
 }
 
 /**
- * K1: the green Call pill. No [segments]: one compact pill that follows the usual SIM rules. Otherwise one pill
+ * The green Call pill. No [segments]: one compact pill that follows the usual SIM rules. Otherwise one pill
  * split into a segment per SIM, each its own touch target ("Call with SIM 1 (Carrier)"), with a thin divider.
  */
 @Composable
@@ -182,14 +183,14 @@ private fun CallPillView(
 private fun PillSegment(vm: AppViewModel, s: CallPill.Segment, modifier: Modifier, onClick: () -> Unit) {
     val slot = s.slot
     val carrier = s.carrier
-    val slotName = slot?.let { stringResource(R.string.k34_sim_slot, it) }
+    val slotName = slot?.let { stringResource(R.string.keypad_sim_slot, it) }
     val shown = s.label ?: slotName ?: carrier.orEmpty()
     val spoken = when {
         slot == null -> stringResource(R.string.keypad_call_with, carrier ?: shown)
-        carrier != null -> stringResource(R.string.k34_call_with_sim_carrier, slot, carrier)
-        else -> stringResource(R.string.k34_call_with_sim, slot)
+        carrier != null -> stringResource(R.string.keypad_call_with_sim_carrier, slot, carrier)
+        else -> stringResource(R.string.keypad_call_with_sim, slot)
     }
-    val usual = stringResource(R.string.k34_sim_usual)
+    val usual = stringResource(R.string.keypad_sim_usual)
     Row(
         modifier.fillMaxHeight()
             .clickable(role = Role.Button, onClick = onClick)
@@ -202,7 +203,7 @@ private fun PillSegment(vm: AppViewModel, s: CallPill.Segment, modifier: Modifie
         horizontalArrangement = Arrangement.Center,
     ) {
         // The plan badge stays a small dot on the icon.
-        app.parley.ui.history.SimPlanBadge(vm, s.simId) { Icon(Icons.Rounded.Call, null, tint = Color.White, modifier = Modifier.size(22.dp)) }
+        SimPlanBadge(vm, s.simId) { Icon(Icons.Rounded.Call, null, tint = Color.White, modifier = Modifier.size(22.dp)) }
         Spacer(Modifier.width(6.dp))
         Text(
             shown, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis,
@@ -212,13 +213,13 @@ private fun PillSegment(vm: AppViewModel, s: CallPill.Segment, modifier: Modifie
     }
 }
 
-// ---------------------------------------------------------------- K3: docked keypad fold
+// ---------------------------------------------------------------- Docked keypad fold
 
-/** K3: the spring the docked keypad folds and unfolds with (Material 3 Expressive's default spatial spring). */
+/** The spring the docked keypad folds and unfolds with (Material 3 Expressive's default spatial spring). */
 private fun foldSpring() = spring<Float>(dampingRatio = 0.85f, stiffness = Spring.StiffnessMediumLow)
 
 /**
- * K3 (v3.4): the docked keypad's fold, 1 = unfolded, 0 = folded. It follows the finger while dragged (panel,
+ * The docked keypad's fold, 1 = unfolded, 0 = folded. It follows the finger while dragged (panel,
  * handle, folded button, list scroll) and otherwise springs to the state the home screen keeps ([open]).
  */
 @Stable
@@ -321,7 +322,7 @@ internal class DockFoldState(open: Boolean, private val scope: CoroutineScope, p
 }
 
 /**
- * K3: lays the panel out at its full size and shows [DockFoldState.value] of it, clipped, so the panel slides down
+ * Lays the panel out at its full size and shows [DockFoldState.value] of it, clipped, so the panel slides down
  * (or aside, [horizontal]) behind the edge instead of squeezing its keys; the list beside it grows smoothly.
  */
 internal fun Modifier.foldable(state: DockFoldState, horizontal: Boolean): Modifier = this.clipToBounds().layout { m, c ->

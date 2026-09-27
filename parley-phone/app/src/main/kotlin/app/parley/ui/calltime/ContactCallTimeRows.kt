@@ -28,8 +28,8 @@ import app.parley.ui.settings.bidiLtr
 import app.parley.ui.settings.settingTitle
 
 /**
- * Contact page rows "Talk-time reminder" (T1) and "Call time limit" (T5, T6). A favourite can also be marked
- * "Never limit" (T7).
+ * Contact page rows "Talk-time reminder" and "Call time limit". A favourite can also be marked
+ * "Never limit".
  */
 @Composable
 fun ContactCallTimeRows(vm: AppViewModel, lookupKey: String, name: String, starred: Boolean) {

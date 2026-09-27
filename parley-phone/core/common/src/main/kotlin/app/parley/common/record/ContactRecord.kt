@@ -1,5 +1,7 @@
 package app.parley.common.record
 
+import app.parley.common.MessengerCatalog
+
 /**
  * Lossless, platform-independent image of an Android contact, mirroring ContactsContract:
  * Contact (aggregate) -> RawContact (one per account) -> Data rows (generic DATA1..DATA15).
@@ -96,7 +98,7 @@ object Col {
 /** Messenger apps whose raw contacts and data rows are owned by their sync adapters (read-only for us). */
 object Messengers {
     /** Every messenger account type, from [app.parley.common.MessengerCatalog]. */
-    val PACKAGES: List<String> = app.parley.common.MessengerCatalog.ACCOUNT_TYPES.sorted()
+    val PACKAGES: List<String> = MessengerCatalog.ACCOUNT_TYPES.sorted()
 
     fun isMessengerAccount(accountType: String?): Boolean = accountType != null && accountType in PACKAGES
 

@@ -1,7 +1,11 @@
 package app.parley.ui.history
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.ListItemDefaults
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import app.parley.ui.SegmentedGroupScope
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
@@ -37,6 +41,9 @@ import app.parley.AppViewModel
 import app.parley.data.history.TrashBatch
 import app.parley.ui.common.Format
 import app.parley.ui.contact.Section
+import app.parley.ui.settings.SwitchRow
+import app.parley.ui.settings.settingSummary
+import app.parley.ui.settings.settingTitle
 import kotlinx.coroutines.launch
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -48,7 +55,7 @@ import app.parley.R
  * calls are restored from History & undo.
  */
 @Composable
-fun KeepFullHistoryRow(vm: AppViewModel, icon: androidx.compose.ui.graphics.vector.ImageVector? = null) {
+fun KeepFullHistoryRow(vm: AppViewModel, icon: ImageVector? = null) {
     val prefs by vm.c.history.prefs.state.collectAsStateWithLifecycle()
     val archive by vm.c.history.archive.collectAsStateWithLifecycle()
     var count by remember { mutableIntStateOf(0) }
@@ -56,9 +63,9 @@ fun KeepFullHistoryRow(vm: AppViewModel, icon: androidx.compose.ui.graphics.vect
     var confirmOff by remember { mutableStateOf(false) }
     ListItem(
         modifier = Modifier.clickable { if (prefs.archiveEnabled) confirmOff = true else vm.setArchiveEnabled(true) },
-        colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
-        leadingContent = icon?.let { { Icon(it, null, tint = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant) } },
-        headlineContent = { Text(app.parley.ui.settings.settingTitle("archive")) },
+        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+        leadingContent = icon?.let { { Icon(it, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) } },
+        headlineContent = { Text(settingTitle("archive")) },
         supportingContent = {
             Text(
                 if (prefs.archiveEnabled) stringResource(R.string.hist_archive_on_summary) + "\n" + pluralStringResource(R.plurals.hist_archive_count, count, count)
@@ -92,13 +99,13 @@ fun SegmentedGroupScope.keptForeverRow(vm: AppViewModel) = item("kept_forever") 
 private fun KeptForever(vm: AppViewModel) {
     val scope = rememberCoroutineScope()
     val kept by vm.c.history.keptForever.collectAsStateWithLifecycle()
-    val rowColors = androidx.compose.material3.ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent)
-    androidx.compose.foundation.layout.Column {
+    val rowColors = ListItemDefaults.colors(containerColor = Color.Transparent)
+    Column {
         ListItem(
             colors = rowColors,
             leadingContent = { Icon(Icons.Rounded.History, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
-            headlineContent = { Text(app.parley.ui.settings.settingTitle("kept_forever")) },
-            supportingContent = { Text(if (kept.isEmpty()) stringResource(R.string.hist_kept_forever_empty) else app.parley.ui.settings.settingSummary("kept_forever")) },
+            headlineContent = { Text(settingTitle("kept_forever")) },
+            supportingContent = { Text(if (kept.isEmpty()) stringResource(R.string.hist_kept_forever_empty) else settingSummary("kept_forever")) },
         )
         kept.entries.sortedBy { it.value }.forEach { (key, number) ->
             ListItem(
@@ -115,8 +122,8 @@ private fun KeptForever(vm: AppViewModel) {
 fun SegmentedGroupScope.csvBomRow(vm: AppViewModel) = item("csv_bom") {
     val scope = rememberCoroutineScope()
     val prefs by vm.c.history.prefs.state.collectAsStateWithLifecycle()
-    app.parley.ui.settings.SwitchRow(
-        app.parley.ui.settings.settingTitle("csv_bom"), app.parley.ui.settings.settingSummary("csv_bom"), prefs.csvBom, Icons.Rounded.TableChart,
+    SwitchRow(
+        settingTitle("csv_bom"), settingSummary("csv_bom"), prefs.csvBom, Icons.Rounded.TableChart,
     ) { v -> scope.launch { vm.c.history.prefs.setCsvBom(v) } }
 }
 

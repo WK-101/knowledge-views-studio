@@ -1,9 +1,13 @@
 package app.parley.common.qr
 
 import app.parley.common.record.ContactRecord
+import java.time.DateTimeException
+import java.time.LocalDateTime
+import java.time.ZoneId
+import java.time.ZoneOffset
 
 /**
- * Q1: what a scanned (or pasted) QR code holds, classified by [QrParser]. Every payload is untrusted: the app shows
+ * What a scanned (or pasted) QR code holds, classified by [QrParser]. Every payload is untrusted: the app shows
  * it in plain words and acts only on the user's tap, never by itself, and never looks anything up on the network.
  * [raw] is the whole text as scanned (capped at [QrParser.MAX_INPUT]).
  */
@@ -115,15 +119,15 @@ data class IcsTime(
      * Milliseconds since the epoch; floating and whole-day times are read in [zone], TZID wins when it's known.
      * Null for a date or time that doesn't exist (the parser refuses those, but this is untrusted input).
      */
-    fun toEpochMillis(zone: java.time.ZoneId): Long? {
+    fun toEpochMillis(zone: ZoneId): Long? {
         val z = when {
-            utc -> java.time.ZoneOffset.UTC
+            utc -> ZoneOffset.UTC
             allDay -> zone
-            else -> tzid?.let { runCatching { java.time.ZoneId.of(it) }.getOrNull() } ?: zone
+            else -> tzid?.let { runCatching { ZoneId.of(it) }.getOrNull() } ?: zone
         }
         return try {
-            java.time.LocalDateTime.of(year, month, day, hour ?: 0, minute, second).atZone(z).toInstant().toEpochMilli()
-        } catch (_: java.time.DateTimeException) {
+            LocalDateTime.of(year, month, day, hour ?: 0, minute, second).atZone(z).toInstant().toEpochMilli()
+        } catch (_: DateTimeException) {
             null
         } catch (_: ArithmeticException) {
             null

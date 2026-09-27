@@ -1,5 +1,6 @@
 package app.parley.ui.people
 
+import android.app.Application
 import android.content.res.Resources
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
@@ -44,6 +45,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalResources
@@ -87,11 +89,11 @@ private fun SwipeAction.colors(): Pair<Color, Color> = when (this) {
 }
 
 /**
- * U4: a contact or Recents row with swipe actions (off by default, Settings › Appearance). The same actions are
+ * A contact or Recents row with swipe actions (off by default, Settings › Appearance). The same actions are
  * offered to TalkBack as custom actions. Nothing is dismissed by the gesture itself, so a Delete always goes
  * through the caller's undo path (and Block offers Undo too, [blockWithUndo]).
  *
- * S1 (v3.4): a swipe only starts after a clear sideways move (past the touch slop and at least twice as sideways
+ * A swipe only starts after a clear sideways move (past the touch slop and at least twice as sideways
  * as up or down, [SwipeGesture.classify]) and never while [listState] is still flinging, so it doesn't fight the
  * list's scrolling. It commits past a third of the row or with a quick flick; a tick is felt when the threshold is
  * crossed (and again if you go back), the action's colour and icon pop in at that point, and the row springs back.
@@ -211,7 +213,7 @@ private fun SwipeBackground(o: Float, right: SwipeAction, left: SwipeAction, arm
     val onContainer by animateColorAsState(if (armed) fg else MaterialTheme.colorScheme.onSurfaceVariant, label = "swipe_fg")
     val pop by animateFloatAsState(if (armed) 1.15f else 1f, spring(dampingRatio = 0.35f, stiffness = Spring.StiffnessMedium), label = "swipe_pop")
     if (action == SwipeAction.NONE || o == 0f) return
-    val density = androidx.compose.ui.platform.LocalDensity.current.density
+    val density = LocalDensity.current.density
     val progress = (abs(o) / SwipeGesture.threshold(width.toFloat().coerceAtLeast(1f), density)).coerceIn(0f, 1f)
     Row(
         modifier.background(container).padding(horizontal = 24.dp),
@@ -234,19 +236,19 @@ private fun SwipeBackground(o: Float, right: SwipeAction, left: SwipeAction, arm
     }
 }
 
-/** S1: Block from a swipe, with Undo on the snackbar (a swipe is easy to make by mistake). */
+/** Block from a swipe, with Undo on the snackbar (a swipe is easy to make by mistake). */
 fun blockWithUndo(vm: AppViewModel, numbers: List<String>) {
-    val res = vm.getApplication<android.app.Application>().resources
+    val res = vm.getApplication<Application>().resources
     vm.viewModelScope.launch {
         // Only numbers this swipe newly blocked go into Undo, so Undo never lifts an earlier block.
         val (already, fresh) = numbers.distinct().partition { runCatching { vm.c.blocks.isSystemBlocked(it) }.getOrDefault(false) }
         val done = fresh.filter { runCatching { vm.c.blocks.blockNumber(it) }.getOrDefault(false) }
         if (done.isEmpty()) {
-            vm.toast(res.getString(if (already.isNotEmpty() && fresh.isEmpty()) R.string.v34_swipe_already_blocked else R.string.vm_couldnt_block))
+            vm.toast(res.getString(if (already.isNotEmpty() && fresh.isEmpty()) R.string.contacts_swipe_already_blocked else R.string.vm_couldnt_block))
             return@launch
         }
         CircleSnacks.show(
-            CircleSnack(res.getQuantityString(R.plurals.v34_swipe_blocked, done.size, Bidi.ltr(done.first()), done.size)) {
+            CircleSnack(res.getQuantityString(R.plurals.contacts_swipe_blocked, done.size, Bidi.ltr(done.first()), done.size)) {
                 done.forEach { vm.c.blocks.unblockNumber(it) }
             },
         )
@@ -259,7 +261,7 @@ internal fun swipeLabel(res: Resources, a: SwipeAction, short: Boolean = false):
         SwipeAction.NONE -> R.string.swipe_none
         SwipeAction.CALL -> R.string.swipe_call
         SwipeAction.MESSAGE -> R.string.swipe_message
-        SwipeAction.MESSAGE_ON -> R.string.v34msg_message_or_call_on
+        SwipeAction.MESSAGE_ON -> R.string.reach_message_or_call_on
         SwipeAction.BLOCK -> R.string.swipe_block
         SwipeAction.DELETE -> if (short) R.string.swipe_delete_short else R.string.swipe_delete
     },

@@ -11,7 +11,7 @@ import app.parley.common.calls.RingOutcome
 import app.parley.common.calls.RingerMode
 import app.parley.common.calls.RingtoneSource
 
-/** "Why did my phone ring, or not?" (V9) in the user's language; the decisions are [RingExplainer]'s. */
+/** "Why did my phone ring, or not?" in the user's language; the decisions are [RingExplainer]'s. */
 object RingText {
     /** One line for a missed-call notification, or null when nothing explains the silence. */
     fun whyNoRing(res: Resources, f: RingFacts?, screeningVerdict: String? = null): String? = when (val r = RingExplainer.noRing(f, screeningVerdict)) {

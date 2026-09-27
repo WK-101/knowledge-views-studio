@@ -6,11 +6,11 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** K2 separators, K6 keypad alphabets, Arabic-Indic digits. */
+/** Separators, keypad alphabets, Arabic-Indic digits. */
 class T9LayoutsTest {
     private fun m(q: String, name: String, layout: KeypadLayout = KeypadLayout.LATIN) = T9.match(q, T9.Encoded(name, layout), emptyList())
 
-    // ---- K2: 0 = space, 1 = punctuation ----
+    // ---- 0 = space, 1 = punctuation ----
 
     @Test fun zero_is_a_space_between_words() {
         val r = m("56460764", "John Smith")!!
@@ -40,7 +40,7 @@ class T9LayoutsTest {
         assertNotNull(m("101", "Room 101"))
     }
 
-    // ---- K6: layouts ----
+    // ---- Layouts ----
 
     @Test fun every_layout_letter_has_its_key() {
         for (layout in KeypadLayout.entries) {

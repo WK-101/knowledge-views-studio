@@ -25,12 +25,13 @@ import androidx.compose.ui.semantics.semantics
 import app.parley.common.calls.KeyAction
 import app.parley.common.calls.KeyPressTracker
 import app.parley.common.calls.PressOrder
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
- * Touch handling for a keypad key (V7), shared by the dialer keypad and the in-call keypad:
+ * Touch handling for a keypad key, shared by the dialer keypad and the in-call keypad:
  * - [onPress] runs as soon as the finger touches the key (type the digit, start the tone or DTMF); with
  *   [deferPress] (keys inside a scrolling container) only once the touch settled without scrolling, or on a tap;
  * - [onToneStop] runs when the finger lifts or slides off, with the delay that makes every tone at least
@@ -125,7 +126,7 @@ fun Modifier.keypadKey(
                         }
                         run(tracker.move(inside, SystemClock.uptimeMillis(), scrolled))
                     }
-                } catch (e: kotlinx.coroutines.CancellationException) {
+                } catch (e: CancellationException) {
                     taken = true
                     throw e
                 } finally {

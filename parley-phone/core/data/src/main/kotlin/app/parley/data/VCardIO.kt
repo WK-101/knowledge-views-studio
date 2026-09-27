@@ -5,14 +5,18 @@ import android.net.Uri
 import android.util.Log
 import app.parley.common.ContactSummary
 import app.parley.common.DuplicateIndex
+import app.parley.common.PhoneEntry
 import app.parley.common.record.ContactRecord
 import app.parley.common.record.withoutMessengers
+import app.parley.common.vcard.ColumnTarget
 import app.parley.common.vcard.ContactCsv
+import app.parley.common.vcard.CsvColumnMapping
 import app.parley.common.vcard.ImportReport
 import app.parley.common.vcard.ImportReportBuilder
 import app.parley.common.vcard.ParsedCard
 import app.parley.common.vcard.VCardStream
 import app.parley.data.records.ContactRecordStore
+import java.io.FileNotFoundException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
@@ -32,7 +36,7 @@ class VCardIO(
     private val context: Context,
     private val contacts: ContactsRepository,
     private val store: ContactRecordStore,
-    /** Numbers of private (vault) contacts, so an import doesn't duplicate them as visible contacts (F17). */
+    /** Numbers of private (vault) contacts, so an import doesn't duplicate them as visible contacts. */
     private val vaultNumbers: suspend () -> List<String> = { emptyList() },
 ) {
     private val cr = context.contentResolver
@@ -99,7 +103,7 @@ class VCardIO(
         withContext(Dispatchers.IO) {
             val total = countCards(source)
             runImport(account, total, progress, skipDuplicates) { report, sink ->
-                val input = cr.openInputStream(source) ?: throw java.io.FileNotFoundException(context.getString(R.string.data_file_read_failed))
+                val input = cr.openInputStream(source) ?: throw FileNotFoundException(context.getString(R.string.data_file_read_failed))
                 VCardStream.reader(input).use { VCardStream.read(it, report, sink) }
             }
         }
@@ -107,40 +111,40 @@ class VCardIO(
     suspend fun importCsv(source: Uri, account: AccountRef, progress: (Int, Int) -> Unit = { _, _ -> }, skipDuplicates: Boolean = false): ImportReport =
         withContext(Dispatchers.IO) {
             runImport(account, 0, progress, skipDuplicates) { report, sink ->
-                val input = cr.openInputStream(source) ?: throw java.io.FileNotFoundException(context.getString(R.string.data_file_read_failed))
+                val input = cr.openInputStream(source) ?: throw FileNotFoundException(context.getString(R.string.data_file_read_failed))
                 VCardStream.reader(input).use { ContactCsv.read(it, report, sink) }
             }
         }
 
     /**
-     * M12: the start of a CSV file for the column-mapping screen: its separator, the first [rows] lines and whether it
+     * The start of a CSV file for the column-mapping screen: its separator, the first [rows] lines and whether it
      * is Parley's own format (then [import] reads it without asking). Null when the file isn't a CSV (a vCard).
      */
     data class CsvPreview(val delimiter: Char, val rows: List<List<String>>, val parley: Boolean, val numberList: Boolean)
 
     suspend fun csvPreview(source: Uri, rows: Int = 30): CsvPreview? = withContext(Dispatchers.IO) {
         if (!looksLikeCsv(source)) return@withContext null
-        val input = cr.openInputStream(source) ?: throw java.io.FileNotFoundException(context.getString(R.string.data_file_read_failed))
+        val input = cr.openInputStream(source) ?: throw FileNotFoundException(context.getString(R.string.data_file_read_failed))
         VCardStream.reader(input).buffered().use { r ->
             val (delimiter, numberList) = ContactCsv.sniff(r)
             val head = ContactCsv.parse(r, delimiter).take(rows).toList()
-            CsvPreview(delimiter, head, parley = head.firstOrNull()?.let { app.parley.common.vcard.CsvColumnMapping.isParleyHeader(it) } == true, numberList = numberList)
+            CsvPreview(delimiter, head, parley = head.firstOrNull()?.let { CsvColumnMapping.isParleyHeader(it) } == true, numberList = numberList)
         }
     }
 
-    /** M12: imports a CSV with the columns the user mapped ([mapping], one per column). */
+    /** Imports a CSV with the columns the user mapped ([mapping], one per column). */
     suspend fun importMapped(
         source: Uri,
         account: AccountRef,
         delimiter: Char,
-        mapping: List<app.parley.common.vcard.ColumnTarget>,
+        mapping: List<ColumnTarget>,
         hasHeader: Boolean,
         progress: (Int, Int) -> Unit = { _, _ -> },
         skipDuplicates: Boolean = false,
     ): ImportReport = withContext(Dispatchers.IO) {
         runImport(account, 0, progress, skipDuplicates) { report, sink ->
-            val input = cr.openInputStream(source) ?: throw java.io.FileNotFoundException(context.getString(R.string.data_file_read_failed))
-            VCardStream.reader(input).use { app.parley.common.vcard.CsvColumnMapping.read(it, delimiter, mapping, hasHeader, report, sink) }
+            val input = cr.openInputStream(source) ?: throw FileNotFoundException(context.getString(R.string.data_file_read_failed))
+            VCardStream.reader(input).use { CsvColumnMapping.read(it, delimiter, mapping, hasHeader, report, sink) }
         }
     }
 
@@ -158,7 +162,7 @@ class VCardIO(
             DuplicateIndex().apply {
                 contacts.snapshot().forEach { add(it) }
                 val vault = runCatching { vaultNumbers() }.getOrDefault(emptyList())
-                if (vault.isNotEmpty()) add(ContactSummary(0, "", "", null, false, vault.map { app.parley.common.PhoneEntry(it, 2, null) }))
+                if (vault.isNotEmpty()) add(ContactSummary(0, "", "", null, false, vault.map { PhoneEntry(it, 2, null) }))
             }
         } else {
             null
@@ -168,7 +172,7 @@ class VCardIO(
         var seen = 0
         fun flush() {
             if (pending.isEmpty()) return
-            // C1: imported photos are resized, turned upright and cropped like the editor's.
+            // Imported photos are resized, turned upright and cropped like the editor's.
             val results = store.insertAll(pending.map { it.record }, account, groups, processPhotos = true)
             results.forEachIndexed { i, res ->
                 if (res.contactId != null) report.imported++
@@ -195,7 +199,7 @@ class VCardIO(
     }
 
     /**
-     * C2: about how many contacts a file holds (vCards, or non-blank CSV lines less a header), without parsing it,
+     * About how many contacts a file holds (vCards, or non-blank CSV lines less a header), without parsing it,
      * so a large import can offer "Back up first?". 0 when the file can't be read.
      */
     suspend fun estimateCount(source: Uri): Int = withContext(Dispatchers.IO) {
@@ -220,7 +224,7 @@ class VCardIO(
 
     /**
      * A file is treated as CSV when its first non-blank text is not a vCard and its first line has a comma, semicolon
-     * or tab, or when it is a plain list of phone numbers, one per line (F17).
+     * or tab, or when it is a plain list of phone numbers, one per line.
      */
     private fun looksLikeCsv(source: Uri): Boolean = try {
         cr.openInputStream(source)?.use { input ->

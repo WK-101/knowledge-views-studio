@@ -9,11 +9,11 @@ import kotlinx.serialization.json.Json
  */
 @Serializable
 data class CallExtrasConfig(
-    /** V6: turn the screen off near the ear during earpiece calls. Off for broken sensors or listening in a pocket. */
+    /** Turn the screen off near the ear during earpiece calls. Off for broken sensors or listening in a pocket. */
     val proximitySensor: Boolean = true,
-    /** V8: ask before calling from a favourite, the widget or a shortcut while the proximity sensor is covered. */
+    /** Ask before calling from a favourite, the widget or a shortcut while the proximity sensor is covered. */
     val pocketGuard: Boolean = true,
-    /** V3: re-alert for unseen missed calls every N minutes; 0 = off (the default). */
+    /** Re-alert for unseen missed calls every N minutes; 0 = off (the default). */
     val missedReAlertMinutes: Int = 0,
 ) {
     companion object {
@@ -33,7 +33,7 @@ data class CallExtrasConfig(
     }
 }
 
-/** V3: re-notify an unseen missed call every few minutes, for a while, and never through Do Not Disturb. */
+/** Re-notify an unseen missed call every few minutes, for a while, and never through Do Not Disturb. */
 object MissedReAlert {
     /** The choices offered in Settings; 0 = off. */
     val CHOICES = listOf(0, 5, 10, 15, 30)
@@ -75,7 +75,7 @@ object MissedReAlert {
     }
 }
 
-/** Where a call was started, for the pocket-dial guard (V8). */
+/** Where a call was started, for the pocket-dial guard. */
 enum class CallSource { KEYPAD, RECENTS, CONTACT, FAVORITE, WIDGET, SHORTCUT, OTHER }
 
 object PocketGuard {

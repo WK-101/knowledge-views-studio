@@ -2,7 +2,7 @@ import java.util.Properties
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 /**
- * "Parley Lists": the optional companion that downloads public spam lists (B4c). It is a separate app so that
+ * "Parley Lists": the optional companion that downloads public spam lists. It is a separate app so that
  * Parley itself never gets the INTERNET permission, and this app never gets contacts, phone or call-log access.
  * It depends on :core:common (pack builder) and :core:ui (theme) only; never on :core:data or :app.
  */
@@ -19,7 +19,7 @@ val keystoreProps = Properties().apply {
     if (f.exists()) f.inputStream().use { load(it) }
 }
 
-// G1/D1: as in app/build.gradle.kts, only the block and the line F-Droid strips refer to the signing config, so its
+// As in app/build.gradle.kts, only the block and the line F-Droid strips refer to the signing config, so its
 // build stays valid (and unsigned). Checked by tools/fdroid-strip-check.sh.
 val releaseStorePath: String? = keystoreProps.getProperty("storeFile") ?: System.getenv("PARLEY_KEYSTORE")
 
@@ -31,7 +31,7 @@ android {
         applicationId = "app.parley.lists"
         minSdk = 29
         targetSdk = 36
-        // D4: plain literals only (F-Droid's update check reads them with a regex). Tag lists-v<versionName>.
+        // Plain literals only (F-Droid's update check reads them with a regex). Tag lists-v<versionName>.
         versionCode = 3
         versionName = "1.1.1"
         manifestPlaceholders["listsPermission"] = "app.parley.permission.READ_LISTS"
@@ -68,7 +68,7 @@ android {
 
     buildFeatures { compose = true }
 
-    // L1: per-app language. The locale list (android:localeConfig) is generated from the values-* folders, with
+    // Per-app language. The locale list (android:localeConfig) is generated from the values-* folders, with
     // res/resources.properties naming the language of the default strings.
     androidResources { generateLocaleConfig = true }
 

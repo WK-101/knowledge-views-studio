@@ -1,5 +1,7 @@
 package app.parley.ui.calltime
 
+import android.content.Context
+import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -15,6 +17,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
@@ -32,6 +35,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.dp
 import androidx.fragment.app.FragmentActivity
 import app.parley.R
@@ -43,12 +47,12 @@ import app.parley.ui.settings.bidiLtr
 import app.parley.ui.settings.settingTitle
 
 /**
- * Supervised mode (T7): limits can only be changed after proving presence with the app lock (fingerprint,
+ * Supervised mode: limits can only be changed after proving presence with the app lock (fingerprint,
  * face or screen lock). One unlock is good for a couple of minutes.
  */
 @Composable
 fun rememberSupervisedGate(config: CallingConfig): (String, () -> Unit) -> Unit {
-    val activity = androidx.activity.compose.LocalActivity.current as? FragmentActivity
+    val activity = LocalActivity.current as? FragmentActivity
     return { why, action ->
         if (!config.supervised || VaultSession.recentlyAuthenticated(SUPERVISED_WINDOW_MS)) {
             action()
@@ -60,7 +64,7 @@ fun rememberSupervisedGate(config: CallingConfig): (String, () -> Unit) -> Unit 
 
 private const val SUPERVISED_WINDOW_MS = 2 * 60_000L
 
-/** Editor for one limit rule: per call, per day, per week; incoming and/or outgoing (T5, T6). */
+/** Editor for one limit rule: per call, per day, per week; incoming and/or outgoing. */
 @Composable
 fun LimitRuleDialog(
     title: String,
@@ -123,7 +127,7 @@ private fun MinutesField(label: String, value: String, onChange: (String) -> Uni
         label = { Text(label) },
         singleLine = true,
         // Digits stay left-to-right in Arabic and Urdu.
-        textStyle = androidx.compose.material3.LocalTextStyle.current.copy(textDirection = androidx.compose.ui.text.style.TextDirection.Ltr),
+        textStyle = LocalTextStyle.current.copy(textDirection = TextDirection.Ltr),
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
         modifier = Modifier.fillMaxWidth(),
     )
@@ -168,9 +172,9 @@ fun ChoiceRow(title: String, options: List<String>, selected: Int, leading: (@Co
 }
 
 /** "Every 15 min" / "Off". */
-fun reminderText(context: android.content.Context, minutes: Int): String =
+fun reminderText(context: Context, minutes: Int): String =
     if (minutes <= 0) context.getString(R.string.set_off) else context.getString(R.string.ct_every_min, minutes)
 
 /** "every 15 min" / "off", inside a sentence. */
-fun reminderTextInline(context: android.content.Context, minutes: Int): String =
+fun reminderTextInline(context: Context, minutes: Int): String =
     if (minutes <= 0) context.getString(R.string.ct_off_inline) else context.getString(R.string.ct_every_min_inline, minutes)

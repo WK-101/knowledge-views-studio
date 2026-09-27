@@ -1,5 +1,10 @@
 package app.parley.data
 
+import app.parley.common.people.ContactText
+import app.parley.common.people.Handle
+import app.parley.common.people.HandleService
+import app.parley.common.record.AccountKinds
+
 /** One editable multi-value row (phone, e-mail, website). [id] is null for rows not yet saved. */
 data class DataItem(
     val id: Long? = null,
@@ -18,13 +23,13 @@ data class PostalItem(
     val country: String = "",
     val type: Int = 0,
     val label: String? = null,
-    /** StructuredPostal.POBOX: loaded, shown and saved, never dropped (F25). */
+    /** StructuredPostal.POBOX: loaded, shown and saved, never dropped. */
     val poBox: String = "",
     /** StructuredPostal.NEIGHBORHOOD. */
     val neighborhood: String = "",
 ) {
     val formatted: String
-        get() = app.parley.common.people.ContactText.postal(street, poBox, neighborhood, postcode, city, region, country)
+        get() = ContactText.postal(street, poBox, neighborhood, postcode, city, region, country)
     val isBlank: Boolean get() = listOf(street, poBox, neighborhood, city, region, postcode, country).all { it.isBlank() }
 }
 
@@ -37,21 +42,21 @@ data class EventItem(
 )
 
 /**
- * I1: a messenger handle row (Im or SipAddress). [id] is null for rows not yet saved. [customProtocol] keeps an
+ * A messenger handle row (Im or SipAddress). [id] is null for rows not yet saved. [customProtocol] keeps an
  * unknown service's own name.
  */
 data class HandleItem(
     val id: Long? = null,
-    val service: app.parley.common.people.HandleService = app.parley.common.people.HandleService.SIGNAL,
+    val service: HandleService = HandleService.SIGNAL,
     val value: String = "",
     val customProtocol: String? = null,
 ) {
-    val handle: app.parley.common.people.Handle get() = app.parley.common.people.Handle(service, value, customProtocol)
+    val handle: Handle get() = Handle(service, value, customProtocol)
 }
 
 data class AccountRef(val type: String?, val name: String?) {
-    /** Phone-only storage: no account, or an OEM phone account such as Samsung's `vnd.sec.contact.phone` (F10). */
-    val isLocal: Boolean get() = app.parley.common.record.AccountKinds.isLocalType(type)
+    /** Phone-only storage: no account, or an OEM phone account such as Samsung's `vnd.sec.contact.phone`. */
+    val isLocal: Boolean get() = AccountKinds.isLocalType(type)
     val displayLabel: String
         get() = when {
             type == null || isLocal -> "Phone only (not synced)"
@@ -106,18 +111,18 @@ data class ContactDetails(
     val writableRawIds: List<Long> = emptyList(),
     /**
      * Data rows the provider marks read-only (Data.IS_READ_ONLY, set by some sync adapters). The editor shows them
-     * locked and saving never changes or deletes them (F12).
+     * locked and saving never changes or deletes them.
      */
     val readOnlyDataIds: Set<Long> = emptySet(),
-    /** I1: messenger handles (Im and SIP rows). */
+    /** Messenger handles (Im and SIP rows). */
     val handles: List<HandleItem> = emptyList(),
     /**
-     * I6, private contacts only (kept in their encrypted record): a "who is this" line and a note shown when they
+     * Private contacts only (kept in their encrypted record): a "who is this" line and a note shown when they
      * call. Regular contacts keep their note for calls in Parley's contact metadata instead.
      */
     val context: String = "",
     val pinnedNote: String = "",
-    /** M7, private contacts only: their [app.parley.common.people.MessengerPrefs], encoded. */
+    /** Private contacts only: their [app.parley.common.people.MessengerPrefs], encoded. */
     val messengerPrefs: String = "",
 ) {
     val composedName: String
@@ -132,7 +137,7 @@ data class CallerInfo(
     val numberLabel: String?,
     val customRingtone: String?,
     val sendToVoicemail: Boolean,
-    /** I9: found in the work profile (through the enterprise lookup); it can't be opened or edited from here. */
+    /** Found in the work profile (through the enterprise lookup); it can't be opened or edited from here. */
     val work: Boolean = false,
 )
 

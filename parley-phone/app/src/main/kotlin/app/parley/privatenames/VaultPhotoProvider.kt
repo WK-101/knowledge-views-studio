@@ -9,7 +9,7 @@ import app.parley.ParleyApp
 import java.io.FileNotFoundException
 
 /**
- * I6: serves private contacts' photos, decrypted in memory, to Parley itself (lists, the contact page and the call
+ * Serves private contacts' photos, decrypted in memory, to Parley itself (lists, the contact page and the call
  * screen load photos by URI). Not exported: no other app can open these URIs, and nothing decrypted is written to
  * storage. `content://<package>.vaultphotos/<vault id>/<version>`.
  */

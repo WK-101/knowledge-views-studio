@@ -1,5 +1,7 @@
 package app.parley.blocking
 
+import android.os.Build
+import app.parley.common.BlockAction
 import app.parley.common.PhoneIdentity
 import android.app.NotificationChannel
 import android.app.NotificationChannelGroup
@@ -22,11 +24,13 @@ import app.parley.common.VerdictKind
 import app.parley.container
 import app.parley.data.PhoneEnv
 import app.parley.data.ScreenedCall
+import app.parley.ui.common.Format
+import app.parley.ui.settings.bidiLtr
 import kotlinx.coroutines.launch
 
 /**
- * Per-verdict notification channels (B6): Blocked, Reported (a spam list blocked it) and Likely spam (a list
- * warned but the call rang), each switchable in system settings; plus the busy auto-reply (B27).
+ * Per-verdict notification channels: Blocked, Reported (a spam list blocked it) and Likely spam (a list
+ * warned but the call rang), each switchable in system settings; plus the busy auto-reply.
  * Rules can override the level (none / quiet / normal).
  */
 object BlockingNotifier {
@@ -66,13 +70,13 @@ object BlockingNotifier {
     private fun post(context: Context, e: ScreenedCall) {
         val s = e.settings
         val number = e.request.number?.takeIf { it.isNotBlank() && !e.request.hidden }
-        val who = e.contactName ?: number?.let { app.parley.ui.settings.bidiLtr(app.parley.ui.common.Format.number(it, PhoneEnv.countryIso(context))) } ?: context.getString(R.string.blk_private_number)
+        val who = e.contactName ?: number?.let { bidiLtr(Format.number(it, PhoneEnv.countryIso(context))) } ?: context.getString(R.string.blk_private_number)
         val decision = e.result.decision
         val nm = NotificationManagerCompat.from(context)
         if (!nm.areNotificationsEnabled()) return
         channels(context)
 
-        // B27: someone you know was silenced by off hours: offer a one-tap reply through the SMS app.
+        // Someone you know was silenced by off hours: offer a one-tap reply through the SMS app.
         if (decision is Decision.Block && decision.reason == BlockReason.OFF_HOURS && e.isContact && s.busyReply && number != null) {
             val id = NotificationIds.screenBusy(PhoneIdentity.key(number, null))
             val reply = PendingIntent.getActivity(
@@ -102,7 +106,7 @@ object BlockingNotifier {
         val blocked = decision is Decision.Block
         val title = when {
             !blocked -> context.getString(R.string.blk_n_likely_title, who)
-            (decision as Decision.Block).action == app.parley.common.BlockAction.SILENCE -> context.getString(R.string.blk_n_silenced_title, who)
+            (decision as Decision.Block).action == BlockAction.SILENCE -> context.getString(R.string.blk_n_silenced_title, who)
             else -> context.getString(R.string.blk_n_blocked_title, who)
         }
         val open = PendingIntent.getActivity(
@@ -142,7 +146,7 @@ object BlockingNotifier {
      * lock screen only starts after unlocking.
      */
     private fun action(context: Context, title: String, action: String, number: String?, packId: String?, req: Int): NotificationCompat.Action {
-        if (android.os.Build.VERSION.SDK_INT >= 31) {
+        if (Build.VERSION.SDK_INT >= 31) {
             val pi = PendingIntent.getBroadcast(
                 context, req,
                 Intent(context, BlockingActionReceiver::class.java).setAction(action).putExtra(BlockingActionReceiver.EXTRA_NUMBER, number).putExtra(BlockingActionReceiver.EXTRA_PACK, packId),

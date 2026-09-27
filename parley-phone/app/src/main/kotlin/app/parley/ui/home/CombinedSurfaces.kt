@@ -57,10 +57,12 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
@@ -86,17 +88,18 @@ import app.parley.common.ContactSummary
 import app.parley.common.FavoritesPlacement
 import app.parley.common.calls.CallSource
 import app.parley.ui.Avatar
+import app.parley.ui.ForceLtr
 import app.parley.ui.Routes
 import kotlinx.coroutines.launch
 
 /**
- * S1 (v3.3): the keypad docked at the foot of Recents. [expanded] is kept by the home screen for the session
+ * The keypad docked at the foot of Recents. [expanded] is kept by the home screen for the session
  * (tab switches and rotation keep it); [idle] is what the results area shows while nothing is typed.
  */
 class KeypadDock(val expanded: Boolean, val onExpandedChange: (Boolean) -> Unit, val idle: @Composable () -> Unit)
 
 /**
- * S1: Recents with the keypad docked at the bottom ("Calls layout: Combined"). Typing replaces the calls with the
+ * Recents with the keypad docked at the bottom ("Calls layout: Combined"). Typing replaces the calls with the
  * keypad's matches in place; the header search searches the calls as on the Recents tab (the keypad folds away).
  */
 @Composable
@@ -115,7 +118,7 @@ fun CallsSurface(vm: AppViewModel, open: (String) -> Unit, searching: Boolean, e
 }
 
 /**
- * S1: the grab handle on top of the docked keypad: tap it, or swipe it down, to fold the keypad away. K3 (v3.4): the
+ * The grab handle on top of the docked keypad: tap it, or swipe it down, to fold the keypad away. K3: the
  * keypad follows the finger and settles by distance and speed ([DockFoldState]).
  */
 @Composable
@@ -141,7 +144,7 @@ internal fun DockHandle(label: String, fold: DockFoldState, onCollapse: () -> Un
 }
 
 /**
- * S1: the folded keypad: a keypad button. K3 (v3.4): a Material 3 FAB with the keypad icon that springs in as the
+ * The folded keypad: a keypad button. K3: a Material 3 FAB with the keypad icon that springs in as the
  * keypad folds, with the typed number's last digits as a badge; tap it, or drag it up (the keypad follows), to bring
  * the keypad back.
  */
@@ -149,7 +152,7 @@ internal fun DockHandle(label: String, fold: DockFoldState, onCollapse: () -> Un
 internal fun DockedKeypadButton(
     visible: Boolean, fold: DockFoldState, number: String?, badge: String?, modifier: Modifier = Modifier, onExpand: () -> Unit,
 ) {
-    val label = if (number == null) stringResource(R.string.keypad_show) else stringResource(R.string.surf_show_keypad_with, number)
+    val label = if (number == null) stringResource(R.string.keypad_show) else stringResource(R.string.home_show_keypad_with, number)
     val spring = spring<Float>(dampingRatio = 0.7f, stiffness = Spring.StiffnessMedium)
     AnimatedVisibility(
         visible = visible,
@@ -174,7 +177,7 @@ internal fun DockedKeypadButton(
             BadgedBox(badge = {
                 if (badge != null) {
                     Badge(containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary) {
-                        app.parley.ui.ForceLtr { Text(badge, maxLines = 1) }
+                        ForceLtr { Text(badge, maxLines = 1) }
                     }
                 }
             }) { Icon(Icons.Rounded.Dialpad, null) }
@@ -182,10 +185,10 @@ internal fun DockedKeypadButton(
     }
 }
 
-// ---------------------------------------------------------------- S2: favourites in Contacts
+// ---------------------------------------------------------------- Favourites in Contacts
 
 /**
- * S2 (v3.3): the favourites at the top of Contacts, as a folding section (tiles in the Favourites grid's columns)
+ * The favourites at the top of Contacts, as a folding section (tiles in the Favourites grid's columns)
  * or a strip of avatars, with an optional "Frequent" row. Tap calls, a long press opens the contact, as on the
  * Favourites tab. The folded state is remembered (it's the user's choice).
  */
@@ -197,7 +200,7 @@ fun ContactsFavorites(vm: AppViewModel, open: (String) -> Unit, onReorder: () ->
     val ps by vm.people.settings.collectAsStateWithLifecycle()
     val surfaces = settings.surfaces
     val collapsed = surfaces.favoritesCollapsed
-    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val scope = rememberCoroutineScope()
     fun toggle() {
         scope.launch { vm.c.settings.update { it.copy(surfaces = it.surfaces.copy(favoritesCollapsed = !it.surfaces.favoritesCollapsed)) } }
     }
@@ -217,7 +220,7 @@ fun ContactsFavorites(vm: AppViewModel, open: (String) -> Unit, onReorder: () ->
         if (collapsed) return@Column
         if (favorites.isEmpty()) {
             Text(
-                stringResource(R.string.surf_fav_empty), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                stringResource(R.string.home_fav_empty), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp),
             )
         } else if (surfaces.favorites == FavoritesPlacement.STRIP) {
@@ -245,8 +248,8 @@ private fun RecentGroup.stripItem(vm: AppViewModel, open: (String) -> Unit) = St
 /** The folding header: "Favourites (n)", Reorder, and a chevron. TalkBack reads it as a heading with its state. */
 @Composable
 private fun SectionHeader(title: String, count: Int, collapsed: Boolean, onToggle: () -> Unit, onReorder: (() -> Unit)?) {
-    val state = stringResource(if (collapsed) R.string.surf_folded else R.string.surf_unfolded)
-    val action = stringResource(if (collapsed) R.string.surf_unfold else R.string.surf_fold)
+    val state = stringResource(if (collapsed) R.string.home_folded else R.string.home_unfolded)
+    val action = stringResource(if (collapsed) R.string.home_unfold else R.string.home_fold)
     Row(
         Modifier.fillMaxWidth()
             .clickable(onClickLabel = action, onClick = onToggle)
@@ -256,7 +259,7 @@ private fun SectionHeader(title: String, count: Int, collapsed: Boolean, onToggl
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            if (count > 0) stringResource(R.string.surf_fav_header_count, title, count) else title,
+            if (count > 0) stringResource(R.string.home_fav_header_count, title, count) else title,
             style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f),
         )
         if (onReorder != null) TextButton(onReorder) { Text(stringResource(R.string.fav_reorder)) }
@@ -306,7 +309,7 @@ private fun AvatarStrip(items: List<StripItem>) {
 }
 
 /**
- * S2: reorder the favourites from Contacts (the section header or Contacts ⋮): drag a row by its handle, or use
+ * Reorder the favourites from Contacts (the section header or Contacts ⋮): drag a row by its handle, or use
  * TalkBack's "Move earlier / later". The order is the same custom order the Favourites tab uses.
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -324,7 +327,7 @@ fun ReorderFavoritesSheet(vm: AppViewModel, onDismiss: () -> Unit) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(Modifier.fillMaxWidth().navigationBarsPadding()) {
             Row(Modifier.fillMaxWidth().padding(start = 24.dp, end = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(stringResource(R.string.surf_reorder_title), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                Text(stringResource(R.string.home_reorder_title), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
                 TextButton(onDismiss) { Text(stringResource(R.string.main_done)) }
             }
             Text(
@@ -339,7 +342,7 @@ fun ReorderFavoritesSheet(vm: AppViewModel, onDismiss: () -> Unit) {
                             Modifier.fillMaxWidth()
                                 .zIndex(if (lifted) 1f else 0f)
                                 .graphicsLayer { translationY = if (lifted) dragOffset else 0f }
-                                .background(if (lifted) MaterialTheme.colorScheme.surfaceContainerHighest else androidx.compose.ui.graphics.Color.Transparent)
+                                .background(if (lifted) MaterialTheme.colorScheme.surfaceContainerHighest else Color.Transparent)
                                 .onSizeChanged { rowHeight = it.height }
                                 .heightIn(min = 56.dp)
                                 .semantics {

@@ -29,6 +29,7 @@ import androidx.compose.material.icons.rounded.CallEnd
 import androidx.compose.material.icons.rounded.SimCard
 import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.IconButton
@@ -45,6 +46,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import app.parley.telecom.R
 import app.parley.ui.ForceLtr
@@ -75,7 +77,7 @@ fun IncomingControls(
     call: CallUi, gesture: AnswerGesture, hasActiveCall: Boolean, onMessage: () -> Unit, onBlockAndDecline: (() -> Unit)? = null,
     simple: Boolean = false, confirmDecline: Boolean = false,
 ) {
-    // X4: simple mode asks before declining, so a stray tap never sends a call away.
+    // Simple mode asks before declining, so a stray tap never sends a call away.
     var askDecline by remember { mutableStateOf(false) }
     val decline = { if (confirmDecline) askDecline = true else CallManager.reject(call.id) }
     if (askDecline) DeclineQuestion(onDecline = { askDecline = false; CallManager.reject(call.id) }, onDismiss = { askDecline = false })
@@ -92,7 +94,7 @@ fun IncomingControls(
             }
             Spacer(Modifier.height(28.dp))
         }
-        // V5: on dual-SIM phones, which SIM the call came in on ("Work · …4567"), right on the answer control.
+        // On dual-SIM phones, which SIM the call came in on ("Work · …4567"), right on the answer control.
         val sim = call.simHint
         when (gesture) {
             AnswerGesture.SWIPE -> AnswerSlider(sim, onAnswer = { CallManager.answer(call.id) }, onDecline = decline)
@@ -102,7 +104,7 @@ fun IncomingControls(
             Spacer(Modifier.height(8.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (!call.silenced) TextButton(onClick = { CallManager.ignore(call.id) }) { Text(stringResource(R.string.incall_ignore_stop_ringing)) }
-                // P2: "Block & decline" sits behind ⋮, two deliberate taps, so it can't happen by accident.
+                // "Block & decline" sits behind ⋮, two deliberate taps, so it can't happen by accident.
                 if (onBlockAndDecline != null) BlockAndDeclineMenu(onBlockAndDecline)
             }
         }
@@ -113,19 +115,19 @@ fun IncomingControls(
     }
 }
 
-/** X4: "Decline this call?" (simple mode). */
+/** "Decline this call?" (simple mode). */
 @Composable
 internal fun DeclineQuestion(onDecline: () -> Unit, onDismiss: () -> Unit) {
-    androidx.compose.material3.AlertDialog(
+    AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.x_incall_decline_q)) },
-        text = { Text(stringResource(R.string.x_incall_decline_body)) },
+        title = { Text(stringResource(R.string.incall_decline_q)) },
+        text = { Text(stringResource(R.string.incall_decline_body)) },
         confirmButton = { TextButton(onClick = onDecline) { Text(stringResource(R.string.incall_decline), color = CallColors.Decline) } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.x_incall_keep_ringing)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.incall_keep_ringing)) } },
     )
 }
 
-/** X4: two very large buttons, answer on top (easy to reach and hard to miss), decline below. */
+/** Two very large buttons, answer on top (easy to reach and hard to miss), decline below. */
 @Composable
 private fun SimpleAnswerButtons(sim: String?, onAnswer: () -> Unit, onDecline: () -> Unit) {
     Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -136,7 +138,7 @@ private fun SimpleAnswerButtons(sim: String?, onAnswer: () -> Unit, onDecline: (
 }
 
 @Composable
-private fun BigAction(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, color: Color, onClick: () -> Unit, height: Int, a11y: String? = null) {
+private fun BigAction(icon: ImageVector, label: String, color: Color, onClick: () -> Unit, height: Int, a11y: String? = null) {
     Row(
         Modifier.fillMaxWidth().height(height.dp).clip(RoundedCornerShape(28.dp)).background(color)
             .clickable(role = Role.Button, onClick = onClick).semantics { contentDescription = a11y ?: label },
@@ -148,7 +150,7 @@ private fun BigAction(icon: androidx.compose.ui.graphics.vector.ImageVector, lab
     }
 }
 
-/** P2: ⋮ on the incoming screen with "Block & decline". */
+/** ⋮ on the incoming screen with "Block & decline". */
 @Composable
 private fun BlockAndDeclineMenu(onBlockAndDecline: () -> Unit) {
     var open by remember { mutableStateOf(false) }
@@ -177,7 +179,7 @@ private fun AnswerButtons(sim: String?, onAnswer: () -> Unit, onDecline: () -> U
 
 @Composable
 private fun RoundAction(
-    icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, color: Color, onClick: () -> Unit,
+    icon: ImageVector, label: String, color: Color, onClick: () -> Unit,
     sub: String? = null, a11y: String? = null,
 ) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -192,7 +194,7 @@ private fun RoundAction(
     }
 }
 
-/** The SIM a call came in on, as a small tag under the answer control (V5). */
+/** The SIM a call came in on, as a small tag under the answer control. */
 @Composable
 private fun SimTag(text: String, modifier: Modifier = Modifier) {
     Row(
@@ -208,7 +210,7 @@ private fun SimTag(text: String, modifier: Modifier = Modifier) {
 /**
  * Horizontal slide-to-answer: drag right to answer, left to decline. Requires a deliberate drag
  * past 55% of the track, which avoids pocket answers. TalkBack users get explicit actions.
- * The track stays left to right in right-to-left languages too, matching "slide right to answer" (L3).
+ * The track stays left to right in right-to-left languages too, matching "slide right to answer".
  */
 @Composable
 private fun AnswerSlider(sim: String?, onAnswer: () -> Unit, onDecline: () -> Unit) = ForceLtr {

@@ -4,7 +4,6 @@
     <!-- Shared actions (data area: history, people, backup, vault and friends) -->
     <string name="dc_cancel">إلغاء</string>
     <string name="dc_back">رجوع</string>
-    <string name="dc_close">إغلاق</string>
     <string name="dc_ok">حسناً</string>
     <string name="dc_got_it">فهمت</string>
     <string name="dc_restore">استعادة</string>
@@ -29,7 +28,6 @@
     <string name="hist_archive_off_text">سيحذف Parley نسخته المشفّرة من مكالماتك. لن يتغير سجل مكالمات هاتفك نفسه، لكن المكالمات التي حذفها Android بالفعل ستضيع نهائياً.</string>
     <string name="hist_archive_off_confirm">إيقاف وحذف</string>
     <string name="hist_settings_title">سجل المكالمات</string>
-    <string name="hist_keep_full">الاحتفاظ بسجل المكالمات كاملاً</string>
     <plurals name="hist_archive_count" tools:ignore="ImpliedQuantity">
         <item quantity="zero">%1$d مكالمة في أرشيف Parley</item>
         <item quantity="one">مكالمة واحدة في أرشيف Parley</item>
@@ -48,7 +46,6 @@
         <item quantity="other">يحتفظ إعدادك بسجل المكالمات لمدة %1$d يوماً؛ تُحذف المكالمات الأقدم من كليهما، إلا الأرقام التي تحتفظ بها للأبد.</item>
     </plurals>
     <string name="hist_retention_forever">يحتفظ إعدادك بسجل المكالمات للأبد.</string>
-    <string name="hist_kept_forever">محفوظة للأبد</string>
     <string name="hist_kept_forever_empty">افتح جهة اتصال أو سجل رقم وفعّل «الاحتفاظ بسجل المكالمات هذا للأبد» للاحتفاظ به مهما كان إعداد المدة.</string>
     <string name="hist_stop_keeping">إيقاف الاحتفاظ للأبد</string>
     <string name="hist_recently_deleted">المكالمات المحذوفة مؤخراً</string>
@@ -73,8 +70,6 @@
     <string name="hist_export_import">التصدير والاستيراد</string>
     <string name="hist_csv_bom">CSV متوافق مع Excel</string>
     <string name="hist_csv_bom_summary">يضيف علامة ترتيب البايت لتظهر الأحرف المشكولة بشكل صحيح في Excel</string>
-    <string name="hist_import_csv">استيراد سجل المكالمات من CSV</string>
-    <string name="hist_import_csv_summary">من Parley أو Logger أو جدول بيانات</string>
     <string name="hist_export_hint">للتصدير افتح الأحدث › ⋮ › تصدير، أو سجل رقم ما.</string>
     <string name="dc_joined_dot">%1$s · %2$s</string>
     <string name="dc_list_separator">"، "</string>
@@ -438,7 +433,6 @@
     <string name="hist_action_call">اتصال</string>
     <string name="hist_action_message">رسالة</string>
     <string name="hist_action_copy">نسخ</string>
-    <string name="hist_action_message_on">مراسلة عبر…</string>
     <string name="hist_action_new_contact">جهة اتصال جديدة</string>
     <string name="hist_action_add_to_contact">إضافة إلى جهة اتصال</string>
     <string name="hist_action_view_contact">عرض جهة الاتصال</string>
@@ -533,15 +527,6 @@
     <string name="work_anniversary_today">ذكرى %1$s اليوم</string>
     <string name="work_special_date">تاريخ مميز</string>
     <string name="work_event_today">%1$s: %2$s اليوم</string>
-    <string name="work_catch_up">تواصل مع %1$s</string>
-    <plurals name="work_catch_up_days">
-        <item quantity="zero">تواصل مع %2$s — آخر حديث منذ %1$d يوم</item>
-        <item quantity="one">تواصل مع %2$s — آخر حديث منذ يوم واحد</item>
-        <item quantity="two">تواصل مع %2$s — آخر حديث منذ %1$d يوم</item>
-        <item quantity="few">تواصل مع %2$s — آخر حديث منذ %1$d يوم</item>
-        <item quantity="many">تواصل مع %2$s — آخر حديث منذ %1$d يوم</item>
-        <item quantity="other">تواصل مع %2$s — آخر حديث منذ %1$d يوم</item>
-    </plurals>
     <string name="work_action_call">اتصال</string>
     <string name="work_action_message">رسالة</string>
 
@@ -630,7 +615,6 @@
     <string name="vault_unlock_all_summary">تعمل الأسماء والأرقام دون فتح القفل حتى تُظهر المكالمات هوية المتصل.</string>
     <string name="vault_phone">الهاتف</string>
     <string name="vault_message_number">مراسلة هذا الرقم</string>
-    <string name="vault_message_on">مراسلة عبر…</string>
     <string name="vault_messengers">تطبيقات المراسلة</string>
     <string name="vault_about">نبذة</string>
     <string name="vault_address">العنوان</string>
@@ -833,7 +817,6 @@
     <string name="tm_restore_version">استعادة هذا الإصدار</string>
     <string name="tm_saved_copy">حُفظت كجهة اتصال منفصلة</string>
     <string name="tm_save_copy">حفظ كنسخة</string>
-    <string name="tm_changes_title">ما الذي تغيّر</string>
     <string name="tm_since_yesterday">منذ الأمس</string>
     <string name="tm_last_week">الأسبوع الماضي</string>
     <string name="tm_last_month">الشهر الماضي</string>
@@ -929,10 +912,8 @@
     <string name="onb_spam_text">احظر الأرقام المخفية والبادئات والأنماط — والقرار يُتخذ على هاتفك.</string>
     <string name="onb_open_title">مفتوح المصدر، بلا إعلانات ولا حسابات</string>
     <string name="onb_open_text">برنامج حر بترخيص GPL-3.0. بلا أدوات تتبّع، أبداً.</string>
-    <string name="onb_prompt_title">طلب واحد من النظام</string>
     <string name="onb_prompt_text">تعيين Parley كتطبيق الهاتف يمنحه كل ما يحتاجه — بلا متاهة أذونات.</string>
     <string name="onb_set_default">تعيين كتطبيق الهاتف الافتراضي</string>
-    <string name="onb_not_now">ليس الآن — استخدام جهات الاتصال والاتصال فقط</string>
 
     <!-- Contact picker -->
     <string name="picker_link_with">ربط مع…</string>
@@ -1276,7 +1257,6 @@
     <string name="swipe_none">لا شيء</string>
     <string name="swipe_call">اتصال</string>
     <string name="swipe_message">رسالة</string>
-    <string name="swipe_message_on">مراسلة عبر…</string>
     <string name="swipe_block">حظر</string>
     <string name="swipe_delete">حذف (مع إمكانية التراجع)</string>
     <string name="swipe_delete_short">حذف</string>
@@ -1292,7 +1272,6 @@
     <string name="avatar_emoji_hint">الأسماء التي تبدأ برمز تعبيري تعرضه</string>
 
     <!-- People: my card -->
-    <string name="me_open">فتح بطاقتي</string>
     <string name="me_short">أنا</string>
     <string name="me_title">بطاقتي</string>
     <string name="me_empty">أضف تفاصيلك لمشاركتها كرمز QR</string>
@@ -1514,7 +1493,7 @@
     <string name="sim_import_into">الاستيراد إلى</string>
     <string name="sim_imported">استُورد %1$d من %2$d إلى %3$s</string>
 
-    <!-- Relation types (I5); the stored value stays English -->
+    <!-- Relation types; the stored value stays English -->
     <string name="rel_spouse">الزوج/الزوجة</string>
     <string name="rel_partner">الشريك</string>
     <string name="rel_domestic_partner">شريك المنزل</string>
@@ -1599,7 +1578,7 @@
     <string name="rel_group_work">العمل</string>
     <string name="rel_group_other">أخرى</string>
 
-    <!-- I1: messenger handles (brand names stay as they are) -->
+    <!-- Messenger handles (brand names stay as they are) -->
     <string name="handle_signal">اسم مستخدم Signal</string>
     <string name="handle_threema">معرّف Threema</string>
     <string name="handle_sip">عنوان SIP</string>
@@ -1633,7 +1612,7 @@
     <string name="privnames_dir_request_text">بحث %1$s عن متصل في دليل جهات اتصال Parley. إذا سمحت بذلك، يمكن لـ %1$s عرض اسم جهة اتصال خاصة عندما تتصل، رقمًا واحدًا في كل مرة؛ ولا يحصل أبدًا على قائمة. هذا منفصل عن “السماح للتطبيقات بعرض الأسماء الخاصة”.</string>
     <string name="pn_directory_apps">تطبيقات الهاتف التي تستخدم الدليل</string>
     <string name="import_csv_column">عمود CSV “%1$s”</string>
-    <!-- v3.2 C2/C3: back up first, backup reminder -->
+    <!-- Back up first, backup reminder -->
     <string name="ux_backup_first_title">نسخ احتياطي أولًا؟</string>
     <string name="ux_backup_first_last">سيغيّر هذا جهات اتصال كثيرة دفعة واحدة. آخر نسخة احتياطية: %1$s.</string>
     <string name="ux_backup_first_never">سيغيّر هذا جهات اتصال كثيرة دفعة واحدة، ولا توجد نسخة احتياطية بعد.</string>
@@ -1658,7 +1637,7 @@
         <item quantity="many">بعد %d يومًا</item>
         <item quantity="other">بعد %d يوم</item>
     </plurals>
-    <!-- v3.2 U1: onboarding permissions page -->
+    <!-- Onboarding permissions page -->
     <string name="ux_onb_next">ابدأ</string>
     <string name="ux_onb_dialer_title">اجعل Parley تطبيق الهاتف لديك</string>
     <string name="ux_onb_dialer_body">يمكنك تغيير ذلك في أي وقت من الإعدادات › المكالمات › تطبيق الهاتف الافتراضي.</string>

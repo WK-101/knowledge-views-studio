@@ -82,7 +82,7 @@ object NumberText {
     /** Whether [e164] is a valid number for its country (not just a plausible length). */
     fun isValid(e164: String?): Boolean = e164 != null && parse(e164, null)?.let { util.isValidNumber(it) } == true
 
-    /** A country for the country picker (F19): "FR", 33, "France". */
+    /** A country for the country picker: "FR", 33, "France". */
     data class Region(val code: String, val callingCode: Int, val name: String)
 
     /** Every region libphonenumber knows, named in [locale] and sorted by name. */

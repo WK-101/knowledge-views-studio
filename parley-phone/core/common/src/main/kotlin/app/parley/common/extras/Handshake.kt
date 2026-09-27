@@ -3,7 +3,7 @@ package app.parley.common.extras
 import app.parley.common.circle.Interactions
 
 /**
- * X5 handshake: a contact received by QR gets a "Met at … on …" line. The sentence itself is localised by the app;
+ * Handshake: a contact received by QR gets a "Met at … on …" line. The sentence itself is localised by the app;
  * this keeps the bookkeeping: where the line goes in the note, and the unique key of the Circle entry.
  */
 object Handshake {
@@ -29,7 +29,7 @@ object Handshake {
 }
 
 /**
- * X5: one value waiting for the screen it was made for: [put] binds it to that screen's launch [id] (passed in the
+ * One value waiting for the screen it was made for: [put] binds it to that screen's launch [id] (passed in the
  * screen's route), and only [take] with the same id gets it, within [ttlMs]. A screen opened any other way (another
  * app's "add contact", a deep link) has no id or another one and never gets it; an old value expires.
  */

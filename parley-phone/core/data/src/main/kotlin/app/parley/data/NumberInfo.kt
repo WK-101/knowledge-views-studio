@@ -1,8 +1,12 @@
 package app.parley.data
 
+import app.parley.common.circle.GoodTime
+import com.google.i18n.phonenumbers.PhoneNumberToTimeZonesMapper
 import com.google.i18n.phonenumbers.PhoneNumberUtil
 import com.google.i18n.phonenumbers.geocoding.PhoneNumberOfflineGeocoder
+import java.time.ZoneId
 import java.util.Locale
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Offline phone-number facts via libphonenumber's bundled data: where a number is from
@@ -11,7 +15,7 @@ import java.util.Locale
 object NumberInfo {
     private val util by lazy { PhoneNumberUtil.getInstance() }
     private val geocoder by lazy { PhoneNumberOfflineGeocoder.getInstance() }
-    private val cache = java.util.concurrent.ConcurrentHashMap<String, String>()
+    private val cache = ConcurrentHashMap<String, String>()
 
     fun location(number: String?, countryIso: String, locale: Locale = Locale.getDefault()): String? {
         if (number.isNullOrBlank()) return null
@@ -52,17 +56,17 @@ object NumberInfo {
         null
     }
 
-    private val zones by lazy { com.google.i18n.phonenumbers.PhoneNumberToTimeZonesMapper.getInstance() }
+    private val zones by lazy { PhoneNumberToTimeZonesMapper.getInstance() }
 
     /**
-     * X1: the time zone of [number] from its country and area code (offline, libphonenumber's map), or null when it
+     * The time zone of [number] from its country and area code (offline, libphonenumber's map), or null when it
      * can't be told (unknown, or a country with several offsets and no area to go by).
      */
-    fun timeZone(number: String?, countryIso: String, now: Long = System.currentTimeMillis()): java.time.ZoneId? = try {
+    fun timeZone(number: String?, countryIso: String, now: Long = System.currentTimeMillis()): ZoneId? = try {
         if (number.isNullOrBlank()) null else {
             val parsed = util.parse(number, countryIso.uppercase(Locale.ROOT))
-            val ids = zones.getTimeZonesForNumber(parsed).filter { it != com.google.i18n.phonenumbers.PhoneNumberToTimeZonesMapper.getUnknownTimeZone() }
-            app.parley.common.circle.GoodTime.zoneOf(ids, now)
+            val ids = zones.getTimeZonesForNumber(parsed).filter { it != PhoneNumberToTimeZonesMapper.getUnknownTimeZone() }
+            GoodTime.zoneOf(ids, now)
         }
     } catch (_: Exception) {
         null

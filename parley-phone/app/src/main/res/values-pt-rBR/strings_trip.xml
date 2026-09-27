@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="trip_title">Quem está em…</string>
+    <string name="trip_city">Cidade</string>
+    <string name="trip_hint">Digite uma cidade ou escolha uma. O Parley nunca usa sua localização.</string>
+    <string name="trip_empty_title">Para onde você vai?</string>
+    <string name="trip_empty_body">O Parley mostra as pessoas cujo endereço, notas ou número de telefone combinam com a cidade.</string>
+    <string name="trip_none">Ninguém ligado a %1$s</string>
+    <string name="trip_none_body">Nenhum endereço, nota ou número menciona essa cidade ainda.</string>
+    <string name="trip_list_separator">, </string>
+    <string name="trip_summary">Você está em %1$s: %2$s</string>
+    <string name="trip_reason_address">Endereço</string>
+    <string name="trip_reason_number">Número de lá</string>
+    <string name="trip_reason_note">Mencionado em uma nota</string>
+    <string name="trip_menu">Quem está em…</string>
+    <plurals name="trip_summary_more">
+        <item quantity="one">Você está em %1$s: %2$s e mais %3$d</item>
+        <item quantity="many">Você está em %1$s: %2$s e mais %3$d</item>
+        <item quantity="other">Você está em %1$s: %2$s e mais %3$d</item>
+    </plurals>
+</resources>

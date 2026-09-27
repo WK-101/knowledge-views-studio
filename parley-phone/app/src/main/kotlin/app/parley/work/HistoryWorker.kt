@@ -16,9 +16,13 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import app.parley.MainActivity
+import app.parley.R
+import app.parley.common.NotificationChannels
+import app.parley.common.NotificationIds
 import app.parley.common.history.PlanUsage
 import app.parley.container
 import app.parley.ui.history.ExportFiles
+import app.parley.ui.history.HistoryText
 import java.util.concurrent.TimeUnit
 
 /**
@@ -44,7 +48,7 @@ class HistoryWorker(context: Context, params: WorkerParameters) : CoroutineWorke
         private const val NAME = "parley-history"
         private const val NAME_SOON = "parley-history-after-call"
         private const val KEY_FULL = "full"
-        const val CHANNEL = app.parley.common.NotificationChannels.PLAN
+        const val CHANNEL = NotificationChannels.PLAN
 
         fun schedule(context: Context) {
             WorkManager.getInstance(context).enqueueUniquePeriodicWork(
@@ -67,30 +71,30 @@ class HistoryWorker(context: Context, params: WorkerParameters) : CoroutineWorke
             if (due.isEmpty()) return
             val sims = c.sims.accounts().associate { it.id to it.label }
             val nm = context.getSystemService(NotificationManager::class.java)
-            nm.createNotificationChannel(NotificationChannel(CHANNEL, context.getString(app.parley.R.string.work_channel_plan), NotificationManager.IMPORTANCE_DEFAULT))
+            nm.createNotificationChannel(NotificationChannel(CHANNEL, context.getString(R.string.work_channel_plan), NotificationManager.IMPORTANCE_DEFAULT))
             for (u in due) {
-                notify(context, u, sims[u.config.simId] ?: context.getString(app.parley.R.string.hist_filter_sim))
+                notify(context, u, sims[u.config.simId] ?: context.getString(R.string.hist_filter_sim))
                 c.history.markWarned(u)
             }
         }
 
         private fun notify(context: Context, u: PlanUsage, simLabel: String) {
-            val id = app.parley.common.NotificationIds.plan(u.config.simId)
+            val id = NotificationIds.plan(u.config.simId)
             val open = PendingIntent.getActivity(
                 context, id,
                 Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
             )
-            val title = if (u.isOver) context.getString(app.parley.R.string.work_plan_used_up, simLabel)
-            else context.getString(app.parley.R.string.work_plan_used_percent, simLabel, (u.fraction * 100).toInt())
+            val title = if (u.isOver) context.getString(R.string.work_plan_used_up, simLabel)
+            else context.getString(R.string.work_plan_used_percent, simLabel, (u.fraction * 100).toInt())
             val b = NotificationCompat.Builder(context, CHANNEL)
-                .setSmallIcon(app.parley.R.drawable.ic_stat_timer)
+                .setSmallIcon(R.drawable.ic_stat_timer)
                 .setContentTitle(title)
-                .setContentText(app.parley.ui.history.HistoryText.planSummary(context.resources, u))
+                .setContentText(HistoryText.planSummary(context.resources, u))
                 .setContentIntent(open)
                 .setAutoCancel(true)
             try {
-                NotificationManagerCompat.from(context).notify(app.parley.common.NotificationIds.TAG_PLAN, id, b.build())
+                NotificationManagerCompat.from(context).notify(NotificationIds.TAG_PLAN, id, b.build())
             } catch (_: SecurityException) {
             }
         }

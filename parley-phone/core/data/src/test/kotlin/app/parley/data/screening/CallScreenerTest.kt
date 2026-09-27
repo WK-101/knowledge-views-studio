@@ -2,6 +2,7 @@ package app.parley.data.screening
 
 import android.Manifest
 import android.app.Application
+import android.os.UserManager
 import android.provider.ContactsContract.CommonDataKinds.Phone
 import androidx.test.core.app.ApplicationProvider
 import app.parley.common.AllowReason
@@ -101,7 +102,7 @@ class CallScreenerTest {
     @Test fun aWorkProfileContactCountsAsAContact() {
         screening { it.copy(blockNonContacts = true) }
         provider.workNumbers += "+1 202 555 0177"
-        shadowOf(app.getSystemService(android.os.UserManager::class.java)).addProfile(0, 10, "Work", 0x20)
+        shadowOf(app.getSystemService(UserManager::class.java)).addProfile(0, 10, "Work", 0x20)
         assertFalse(screen("+1 202 555 0177").blocked)
     }
 

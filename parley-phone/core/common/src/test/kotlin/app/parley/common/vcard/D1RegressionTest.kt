@@ -7,7 +7,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** Round-2/3 regression list (D1): custom labels, plain-text addresses, one bad card in a file. */
+/** Round-2/3 regression list: custom labels, plain-text addresses, one bad card in a file. */
 class D1RegressionTest {
     private fun import(text: String) = VCardStream.readAll(text.trimIndent().replace("\n", "\r\n") + "\r\n")
 

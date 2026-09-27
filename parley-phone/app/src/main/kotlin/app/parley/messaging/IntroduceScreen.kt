@@ -56,7 +56,7 @@ import app.parley.ui.EmptyState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-/** Starting points of "Introduce myself…" (M13). */
+/** Starting points of "Introduce myself…". */
 object IntroduceStart {
     /** From Contacts multi-select: each person's mobile number (else the first one). False when none has a number. */
     fun fromContacts(vm: AppViewModel, chosen: List<ContactSummary>): Boolean {
@@ -87,7 +87,7 @@ private val QueueSaver = Saver<IntroQueue, ArrayList<Int>>(
 )
 
 /**
- * M13 "Introduce myself to a list": opens one chat at a time in the chosen messenger with "Send my details"
+ * "Introduce myself to a list": opens one chat at a time in the chosen messenger with "Send my details"
  * prefilled. You press Send there; when you come back, Parley moves on to the next person. No automation, no SMS
  * permission: every message is sent by you.
  */

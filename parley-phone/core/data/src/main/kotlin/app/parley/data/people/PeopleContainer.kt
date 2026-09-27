@@ -1,5 +1,6 @@
 package app.parley.data.people
 
+import app.parley.common.LabelRefs
 import app.parley.common.storage.PersistentStores
 import app.parley.common.PhoneIdentity
 import android.provider.ContactsContract.CommonDataKinds.GroupMembership
@@ -39,9 +40,9 @@ class PeopleContainer(private val c: DataContainer) {
     val audit by lazy { ContactsAudit(c.appContext) }
     val privateNames by lazy { PrivateNameAccess(c.appContext) }
     val diagnostics by lazy { Diagnostics(c.appContext) }
-    /** I2: your own card. */
+    /** Your own card. */
     val me by lazy { MeCardStore(c.appContext) }
-    /** U10: opt-in local crash capture. */
+    /** Opt-in local crash capture. */
     val crashes by lazy { CrashStore(c.appContext) }
     val backupExtras: BackupExtras by lazy { PeopleBackupExtras(this, c) }
 
@@ -59,7 +60,7 @@ class PeopleContainer(private val c: DataContainer) {
         val tones = prefs.settings.value.labelRingtones
         if (tones.isEmpty()) return null
         val contactId = c.contacts.lookup(number)?.contactId ?: return null
-        return app.parley.common.LabelRefs.ringtoneFor(labelsOf(contactId), tones)
+        return LabelRefs.ringtoneFor(labelsOf(contactId), tones)
     }
 
     fun callBackgroundFor(number: String): String? = backgrounds.callBackgroundFor(number)

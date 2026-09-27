@@ -1,6 +1,7 @@
 package app.parley.common.calltime
 
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 
 /** What a limit rule applies to. The most specific matching scope wins: contact › label › SIM › all calls. */
@@ -8,7 +9,7 @@ import kotlinx.serialization.json.Json
 enum class LimitScope { CONTACT, LABEL, SIM, GLOBAL }
 
 /**
- * One call-time rule (T5, T6). A rule with no limit and no quota is never stored: removing all values
+ * One call-time rule. A rule with no limit and no quota is never stored: removing all values
  * removes the rule.
  */
 @Serializable
@@ -36,7 +37,7 @@ data class LimitRule(
     fun appliesTo(incomingCall: Boolean): Boolean = if (incomingCall) incoming else outgoing
 }
 
-/** Soft talk-time reminders (T1): a beep in the earpiece and/or a vibration. They never end a call. */
+/** Soft talk-time reminders: a beep in the earpiece and/or a vibration. They never end a call. */
 @Serializable
 data class ReminderSettings(
     /** Minutes between reminders during every call (0 = off). */
@@ -53,9 +54,9 @@ data class ReminderSettings(
  */
 @Serializable
 data class CallingConfig(
-    /** Vibrate on connect, disconnect, swap, merge and limit warnings (A6). */
+    /** Vibrate on connect, disconnect, swap, merge and limit warnings. */
     val haptics: Boolean = true,
-    /** P7: the buzz when a call connects (with [haptics] on). Answer and decline keep their own, distinct buzz. */
+    /** The buzz when a call connects (with [haptics] on). Answer and decline keep their own, distinct buzz. */
     val connectHaptic: Boolean = true,
     val reminders: ReminderSettings = ReminderSettings(),
     val rules: List<LimitRule> = emptyList(),
@@ -63,7 +64,7 @@ data class CallingConfig(
     val warnSeconds: Int = 60,
     /** When an allowance is used up, incoming calls from that person ring silently. */
     val silenceIncomingOverQuota: Boolean = false,
-    /** Limits can only be changed after unlocking with the app lock, and can't be extended during a call (T7). */
+    /** Limits can only be changed after unlocking with the app lock, and can't be extended during a call. */
     val supervised: Boolean = false,
     /** Contacts (lookup keys) that are never limited, typically favourites. */
     val neverLimit: Set<String> = emptySet(),
@@ -86,7 +87,7 @@ data class CallingConfig(
     }
 }
 
-/** One carrier reply to a USSD code (A13), kept on this phone only. */
+/** One carrier reply to a USSD code, kept on this phone only. */
 @Serializable
 data class UssdEntry(
     val code: String,
@@ -105,8 +106,8 @@ object CallingJson {
     fun decode(text: String?): CallingConfig =
         if (text.isNullOrBlank()) CallingConfig() else runCatching { json.decodeFromString(CallingConfig.serializer(), text) }.getOrDefault(CallingConfig())
 
-    fun encodeUssd(list: List<UssdEntry>): String = json.encodeToString(kotlinx.serialization.builtins.ListSerializer(UssdEntry.serializer()), list)
+    fun encodeUssd(list: List<UssdEntry>): String = json.encodeToString(ListSerializer(UssdEntry.serializer()), list)
 
     fun decodeUssd(text: String?): List<UssdEntry> =
-        if (text.isNullOrBlank()) emptyList() else runCatching { json.decodeFromString(kotlinx.serialization.builtins.ListSerializer(UssdEntry.serializer()), text) }.getOrDefault(emptyList())
+        if (text.isNullOrBlank()) emptyList() else runCatching { json.decodeFromString(ListSerializer(UssdEntry.serializer()), text) }.getOrDefault(emptyList())
 }

@@ -26,7 +26,7 @@ sealed interface UssdState {
 }
 
 /**
- * USSD codes typed on the keypad (A13): sent with [TelephonyManager.sendUssdRequest] on the chosen SIM, the
+ * USSD codes typed on the keypad: sent with [TelephonyManager.sendUssdRequest] on the chosen SIM, the
  * carrier's reply shown in a dialog and kept in a local history (nothing leaves the phone).
  */
 // Telephony calls here are covered by the default-dialer role (CALL_PHONE) and each one handles SecurityException.

@@ -13,12 +13,13 @@ import app.parley.common.RuleTools
 import app.parley.common.RuleType
 import app.parley.data.DataContainer
 import app.parley.data.PhoneEnv
+import app.parley.ui.common.Intents
 
 /** Blocking actions shared by the Blocking screen, Recents, number history, notifications and the QS tile. */
 object BlockingActions {
     const val DAY = 86_400_000L
 
-    /** B21: let unknown callers ring for [minutes] (0 = stop now). */
+    /** Let unknown callers ring for [minutes] (0 = stop now). */
     suspend fun snooze(c: DataContainer, minutes: Int) {
         val until = if (minutes <= 0) 0L else System.currentTimeMillis() + minutes * 60_000L
         c.settings.update { it.copy(screening = it.screening.copy(snoozeUntil = until)) }
@@ -27,7 +28,7 @@ object BlockingActions {
     fun snoozeRemaining(c: DataContainer, now: Long = System.currentTimeMillis()): Long =
         (c.settings.settings.value.screening.snoozeUntil - now).coerceAtLeast(0)
 
-    /** B1: an allow rule for this exact number, forever or for [hours]. Replaces an older temporary one. */
+    /** An allow rule for this exact number, forever or for [hours]. Replaces an older temporary one. */
     suspend fun allowNumber(c: DataContainer, number: String, hours: Int? = null, note: String? = null) {
         val iso = PhoneEnv.countryIso(c.appContext)
         val pattern = RuleTools.check(number, RuleType.EXACT, iso).pattern
@@ -40,13 +41,13 @@ object BlockingActions {
         c.blocks.saveRule(rule)
     }
 
-    /** B3: "Not spam" on a blocked call: always allow it, and stop the list that reported it from doing so again. */
+    /** "Not spam" on a blocked call: always allow it, and stop the list that reported it from doing so again. */
     suspend fun notSpam(c: DataContainer, number: String, packId: String?) {
         allowNumber(c, number, note = c.appContext.getString(R.string.blk_not_spam))
         c.lists.suppress(packId, number, PhoneEnv.countryIso(c.appContext))
     }
 
-    /** B22: allow every number that shares all but the last [keepDigits] digits ("the office's other lines"). */
+    /** Allow every number that shares all but the last [keepDigits] digits ("the office's other lines"). */
     suspend fun allowPrefix(c: DataContainer, number: String, dropDigits: Int, name: String?) {
         val iso = PhoneEnv.countryIso(c.appContext)
         val e = PhoneNumbers.toE164(number, iso) ?: PhoneNumbers.clean(number)
@@ -69,13 +70,13 @@ object BlockingActions {
         false
     }
 
-    /** B8: opens the browser with the number as a search. Always behind a confirmation (it leaves the phone). */
+    /** Opens the browser with the number as a search. Always behind a confirmation (it leaves the phone). */
     fun searchWeb(context: Context, number: String, baseUrl: String) {
         val q = PhoneNumbers.toE164(number, PhoneEnv.countryIso(context)) ?: number
         launch(context, Intent(Intent.ACTION_VIEW, Uri.parse(baseUrl + Uri.encode(q))).addCategory(Intent.CATEGORY_BROWSABLE))
     }
 
-    /** B25: carriers' spam short code (US, UK, Canada, Ireland…): the SMS app opens with the number filled in. */
+    /** Carriers' spam short code (US, UK, Canada, Ireland…): the SMS app opens with the number filled in. */
     const val CARRIER_SPAM_SHORT_CODE = "7726"
 
     fun reportToCarrier(context: Context, number: String) {
@@ -102,11 +103,11 @@ object BlockingActions {
     }
 
     fun openRegulator(context: Context, r: Regulator, number: String) {
-        app.parley.ui.common.Intents.copy(context, number)
+        Intents.copy(context, number)
         launch(context, Intent(Intent.ACTION_VIEW, Uri.parse(r.url)).addCategory(Intent.CATEGORY_BROWSABLE))
     }
 
-    /** B27: the SMS app opens with the reply filled in; Parley never sends SMS itself. */
+    /** The SMS app opens with the reply filled in; Parley never sends SMS itself. */
     fun replyIntent(number: String, text: String): Intent =
         Intent(Intent.ACTION_SENDTO, Uri.fromParts("smsto", number, null)).putExtra("sms_body", text)
 }

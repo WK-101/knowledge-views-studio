@@ -1,5 +1,6 @@
 package app.parley.ui.contact
 
+import android.content.res.Resources
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -69,7 +70,7 @@ import app.parley.ui.SegmentedGroup
 import app.parley.ui.settings.SettingsScaffold
 import app.parley.ui.settings.SwitchRow
 
-/** P1 (v3.4): the contact page's own screens. */
+/** The contact page's own screens. */
 object ContactPageRoutes {
     const val TIMELINE = "contacttimeline/{id}"
     fun timeline(id: Long) = "contacttimeline/$id"
@@ -84,7 +85,7 @@ fun NavGraphBuilder.contactPageRoutes(vm: AppViewModel, nav: NavController) {
 }
 
 /**
- * P1: Settings › Contacts › Contact page sections. Drag a section by its handle to reorder it; each one starts
+ * Settings › Contacts › Contact page sections. Drag a section by its handle to reorder it; each one starts
  * open, folded or hidden (hiding never deletes anything). TalkBack gets "Move up" / "Move down" on each row.
  */
 @Composable
@@ -92,19 +93,20 @@ fun ContactPageSettingsScreen(vm: AppViewModel, back: () -> Unit) {
     val s by vm.people.settings.collectAsStateWithLifecycle()
     val layout = s.contactPage
     fun set(f: (ContactPageLayout) -> ContactPageLayout) = vm.people.update { it.copy(contactPage = f(it.contactPage)) }
-    SettingsScaffold(stringResource(R.string.v34_cp_settings_title), back, actions = {
-        TextButton({ set { it.reset() } }, enabled = !layout.isDefault) { Text(stringResource(R.string.v34_cp_reset)) }
+    SettingsScaffold(stringResource(R.string.contact_page_settings_title), back, actions = {
+        TextButton({ set { it.reset() } }, enabled = !layout.isDefault) { Text(stringResource(R.string.contact_page_reset)) }
     }) {
         Text(
-            stringResource(R.string.v34_cp_settings_body), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            stringResource(R.string.contact_page_settings_body), style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = 32.dp),
         )
-        SegmentedGroup(stringResource(R.string.v34_cp_sections)) {
+        SegmentedGroup(stringResource(R.string.contact_page_sections)) {
             item("contact_page") { SectionsEditor(layout) { next -> set { next } } }
         }
         SegmentedGroup {
             item("contact_page_chips") {
-                SwitchRow(stringResource(R.string.v34_cp_chips_title), stringResource(R.string.v34_cp_chips_summary), s.sectionChips, Icons.Rounded.SmartButton) { v ->
+                SwitchRow(stringResource(R.string.contact_page_chips_title), stringResource(R.string.contact_page_chips_summary), s.sectionChips, Icons.Rounded.SmartButton) { v ->
                     vm.people.update { it.copy(sectionChips = v) }
                 }
             }
@@ -144,7 +146,7 @@ private fun SectionsEditor(layout: ContactPageLayout, onChange: (ContactPageLayo
                         .background(if (lifted) MaterialTheme.colorScheme.surfaceContainerHighest else Color.Transparent)
                         .onSizeChanged { rowHeight = it.height }
                         .heightIn(min = 56.dp)
-                        .clickable(onClickLabel = stringResource(R.string.v34_cp_choose_start)) { menu = true }
+                        .clickable(onClickLabel = stringResource(R.string.contact_page_choose_start)) { menu = true }
                         .semantics {
                             stateDescription = modeText
                             customActions = listOfNotNull(
@@ -215,11 +217,11 @@ private fun SectionsEditor(layout: ContactPageLayout, onChange: (ContactPageLayo
     }
 }
 
-private fun modeLabel(res: android.content.res.Resources, m: SectionMode): String = res.getString(
+private fun modeLabel(res: Resources, m: SectionMode): String = res.getString(
     when (m) {
-        SectionMode.OPEN -> R.string.v34_cp_mode_open
-        SectionMode.FOLDED -> R.string.v34_cp_mode_folded
-        SectionMode.HIDDEN -> R.string.v34_cp_mode_hidden
+        SectionMode.OPEN -> R.string.contact_page_mode_open
+        SectionMode.FOLDED -> R.string.contact_page_mode_folded
+        SectionMode.HIDDEN -> R.string.contact_page_mode_hidden
     },
 )
 

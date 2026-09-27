@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- v3.2 Circle: R1–R5, U4 (tab, list, timeline, reminders, "Log this?", settings). -->
+<!-- Circle (tab, list, timeline, reminders, "Log this?", settings). -->
 <resources>
     <string name="tab_circle">Circle</string>
     <string name="circle_search">Search your Circle</string>
@@ -41,7 +41,6 @@
     <string name="circle_add_to_circle">Add to your Circle</string>
     <string name="circle_add_to_circle_body">A gentle reminder when it’s been a while</string>
     <string name="circle_next_date_today">%1$s today</string>
-    <string name="circle_dates">Dates</string>
     <string name="circle_rhythm_natural">Natural rhythm</string>
     <string name="circle_rhythm_natural_body">Learns how often you two usually talk and reminds you only when a gap is unusual for you. Relearned every month.</string>
     <string name="circle_remove">Remove from your Circle</string>
@@ -70,7 +69,6 @@
     <string name="circle_might_enjoy">%1$s might enjoy hearing from you</string>
     <string name="circle_digest_title">People you might like to hear from</string>
     <string name="circle_digest_date">%1$s has a date coming up</string>
-    <string name="circle_digest_quiet">It’s been a while since you and %1$s talked</string>
     <string name="circle_lead_on_day">Only on the day</string>
     <string name="circle_delivery_digest">Weekly digest (Sunday)</string>
     <string name="circle_delivery_as_due">As they come due</string>
@@ -131,4 +129,118 @@
         <item quantity="one">%d Circle entry had no matching contact on this phone and was skipped</item>
         <item quantity="other">%d Circle entries had no matching contact on this phone and were skipped</item>
     </plurals>
+
+    <string name="circle_good_time_range" translatable="false">%1$s–%2$s</string>
+    <string name="circle_promise_line" translatable="false">☐ %1$s</string>
+    <string name="circle_widget_date_row" translatable="false">%1$s · %2$s</string>
+    <string name="circle_widget_preview_name_0" translatable="false">Ana</string>
+    <string name="circle_widget_preview_name_1" translatable="false">Sam</string>
+    <string name="circle_digest_long_quiet">It\'s been over a year since you and %1$s were in touch</string>
+    <string name="circle_digest_yearly_no_year">Around now: %1$s\'s %2$s</string>
+    <string name="circle_first_both">You both reach out</string>
+    <string name="circle_first_mover">Who usually reaches out first</string>
+    <string name="circle_first_mover_private">Only you see this. Hide it from the ⋮ menu or in Settings.</string>
+    <string name="circle_first_them">Usually %1$s reaches out first</string>
+    <string name="circle_first_you">Usually you reach out first</string>
+    <string name="circle_followup_body">You wanted to follow up after your last call.</string>
+    <string name="circle_followup_title">Follow up with %1$s</string>
+    <string name="circle_from_call">Call note · %1$s</string>
+    <string name="circle_from_logged">Logged · %1$s</string>
+    <string name="circle_from_pinned">Pinned note</string>
+    <string name="circle_good_time">Usually free %1$s</string>
+    <string name="circle_hide_first_mover">Hide who reaches out first</string>
+    <string name="circle_show_first_mover">Show who reaches out first</string>
+    <string name="circle_hide_people_card">Hide this card</string>
+    <string name="circle_insert_promise">Add a promise</string>
+    <string name="circle_open_loops">Open loops</string>
+    <string name="circle_open_promise">Open promise</string>
+    <string name="circle_peek_dont_show">Don\'t show again</string>
+    <string name="circle_peek_off">Peek before calling is off. Turn it on in Settings › Calls.</string>
+    <string name="circle_peek_title">Before you call %1$s</string>
+    <string name="circle_people_title">People</string>
+    <string name="circle_promise_done">Ticked off: %1$s</string>
+    <string name="circle_promise_hint">Start a line with [ ] to make it a promise you can tick off.</string>
+    <string name="circle_promises">Promises</string>
+    <string name="circle_reach_up">Up from %1$d the month before</string>
+    <string name="circle_reach_down">The month before: %1$d</string>
+    <string name="circle_reach_same">About the same as the month before</string>
+    <string name="circle_review_most">Most in touch: %1$s</string>
+    <string name="circle_year_review">Your year</string>
+    <string name="set_circle_group_memory">Remember what matters</string>
+    <string name="circle_time_there">%1$s there</string>
+    <string name="circle_widget_date_soon">A date coming up</string>
+    <string name="circle_widget_empty">Nothing coming up. Add people to your Circle from a contact\'s page.</string>
+    <string name="circle_widget_today">Today</string>
+    <string name="circle_widget_tomorrow">Tomorrow</string>
+    <string name="circle_yearly_label">Remembered yearly</string>
+    <string name="circle_yearly_off">No longer remembered yearly</string>
+    <string name="circle_yearly_on">You\'ll see it in your weekly digest each year</string>
+    <string name="circle_yearly_remember">Remember yearly</string>
+    <string name="circle_yearly_stop">Stop remembering yearly</string>
+    <string name="circle_widget_call">Call</string>
+    <string name="circle_widget_dates">Coming up</string>
+    <string name="circle_widget_description">Upcoming dates and people from your Circle, with a Call button. With the app lock on, only counts show while the phone is locked.</string>
+    <string name="circle_widget_title">Circle</string>
+    <string name="circle_widget_preview_line_0">Might enjoy hearing from you</string>
+    <string name="circle_widget_preview_line_1">Birthday in 3 days</string>
+    <string name="circle_widget_preview_date_0">Marco · Tomorrow · Anniversary</string>
+    <string name="set_circle_memory_prompt_title">Anything to remember? after calls</string>
+    <string name="set_circle_memory_prompt_summary">A note and a follow-up reminder after calls with your contacts</string>
+    <string name="set_circle_memory_prompt_kw">note, notes, remember, promise, follow up, after call, post-call, memory</string>
+    <string name="set_circle_memory_lock_title">Notes on the lock screen</string>
+    <string name="set_circle_memory_lock_summary">Show the last note and promises on the incoming-call screen while the phone is locked</string>
+    <string name="set_circle_memory_lock_kw">lock screen, note, promise, incoming, privacy</string>
+    <string name="set_circle_peek_title">Peek before calling</string>
+    <string name="set_circle_peek_summary">The last note, promises and a good time to call, before you call from a contact\'s page</string>
+    <string name="set_circle_peek_kw">peek, before calling, note, promise, good time, local time, time zone</string>
+    <string name="set_circle_people_card_title">People card in Call insights</string>
+    <string name="set_circle_people_card_summary">Reach in your Circle, open loops and your year, in Call insights</string>
+    <string name="set_circle_people_card_kw">people, reach, circle, open loops, year in review, insights</string>
+    <string name="set_circle_first_mover_title">Who usually reaches out first</string>
+    <string name="set_circle_first_mover_summary">On the People card. Only you see it</string>
+    <string name="set_circle_first_mover_kw">first, reaches out, initiates, calls first, people</string>
+    <plurals name="circle_digest_yearly">
+        <item quantity="one">%1$d year since %2$s\'s %3$s</item>
+        <item quantity="other">%1$d years since %2$s\'s %3$s</item>
+    </plurals>
+    <plurals name="circle_loop_their_call">
+        <item quantity="one">Their call · %2$s</item>
+        <item quantity="other">Their %1$d calls · last %2$s</item>
+    </plurals>
+    <plurals name="circle_loop_your_try">
+        <item quantity="one">Your call, not answered yet · %2$s</item>
+        <item quantity="other">Your %1$d calls, not answered yet · last %2$s</item>
+    </plurals>
+    <plurals name="circle_reach">
+        <item quantity="one">You were in touch with %1$d of %2$d person in your Circle this month</item>
+        <item quantity="other">You were in touch with %1$d of %2$d people in your Circle this month</item>
+    </plurals>
+    <plurals name="circle_review_gap">
+        <item quantity="one">Longest gap: %1$d day, with %2$s</item>
+        <item quantity="other">Longest gap: %1$d days, with %2$s</item>
+    </plurals>
+    <plurals name="circle_review_occasions">
+        <item quantity="one">%1$d occasion acknowledged</item>
+        <item quantity="other">%1$d occasions acknowledged</item>
+    </plurals>
+    <plurals name="circle_review_entries">
+        <item quantity="one">In touch %1$d time this year</item>
+        <item quantity="other">In touch %1$d times this year</item>
+    </plurals>
+    <plurals name="circle_widget_count_dates">
+        <item quantity="one">%1$d date in the next 2 weeks</item>
+        <item quantity="other">%1$d dates in the next 2 weeks</item>
+    </plurals>
+    <plurals name="circle_widget_count_people">
+        <item quantity="one">%1$d person to reach out to</item>
+        <item quantity="other">%1$d people to reach out to</item>
+    </plurals>
+    <plurals name="circle_widget_in_days">
+        <item quantity="one">In %1$d day</item>
+        <item quantity="other">In %1$d days</item>
+    </plurals>
+    <!-- Under the widget's counts while the phone is locked. -->
+    <string name="circle_widget_tap_reveal">Tap to show names</string>
+    <!-- Year in review: a name and how many times (a number). -->
+    <string name="circle_review_person_count">%1$s (%2$s)</string>
 </resources>

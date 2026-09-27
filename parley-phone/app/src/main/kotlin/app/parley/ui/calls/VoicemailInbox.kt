@@ -81,19 +81,21 @@ import app.parley.data.calls.VoicemailState
 import app.parley.ui.Avatar
 import app.parley.ui.Bidi
 import app.parley.ui.EmptyState
+import app.parley.ui.activityViewModel
 import app.parley.ui.avatarSize
 import app.parley.ui.common.Format
+import app.parley.ui.home.RecentsViewModel
 import kotlinx.coroutines.launch
 
 /**
- * The voicemail inbox (V1), shown in Recents under the "Voicemail" chip: every voicemail Android's voicemail store
+ * The voicemail inbox, shown in Recents under the "Voicemail" chip: every voicemail Android's voicemail store
  * holds, with playback (speaker or earpiece, seek), transcription, mark heard, call back, share and delete.
  */
 @Composable
 fun VoicemailInbox(vm: AppViewModel, query: String) {
     val context = LocalContext.current
     val state by vm.c.voicemail.state.collectAsStateWithLifecycle()
-    val recents: app.parley.ui.home.RecentsViewModel = app.parley.ui.activityViewModel()
+    val recents: RecentsViewModel = activityViewModel()
     val scope = rememberCoroutineScope()
     val player = remember { VoicemailPlayer(context) { v -> if (!v.heard) scope.launch { vm.c.voicemail.markHeard(listOf(v.id)) } } }
     DisposableEffect(player) { onDispose { player.release() } }
@@ -112,7 +114,7 @@ fun VoicemailInbox(vm: AppViewModel, query: String) {
     Column(Modifier.fillMaxWidth()) {
         VoicemailNote(vm, state)
         if (state.loaded && state.available && items.isEmpty()) {
-            // U5: no match (clear the search) or no voicemail yet (call the mailbox).
+            // No match (clear the search) or no voicemail yet (call the mailbox).
             if (query.isBlank()) {
                 EmptyState(
                     Icons.Rounded.Voicemail, stringResource(R.string.vmi_empty), modifier = Modifier.padding(top = 32.dp),

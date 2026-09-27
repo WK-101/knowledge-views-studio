@@ -1,5 +1,8 @@
 package app.parley.data.extras
 
+import android.Manifest
+import android.content.Intent
+import app.parley.common.ContactSummary
 import app.parley.common.PhoneIdentity
 import android.content.Context
 import android.net.Uri
@@ -7,11 +10,13 @@ import android.provider.DocumentsContract
 import app.parley.common.CallType
 import app.parley.common.PhoneNumbers
 import app.parley.common.circle.InteractionType
+import app.parley.common.circle.Promises
 import app.parley.common.extras.MarkdownNotes
 import app.parley.data.DataContainer
 import app.parley.data.EventItem
 import app.parley.data.Permissions
 import app.parley.data.PhoneEnv
+import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -25,7 +30,7 @@ import org.json.JSONObject
 import java.io.File
 import java.time.ZoneId
 
-/** C5: the Markdown export's folder and switches, and how the last run went. */
+/** The Markdown export's folder and switches, and how the last run went. */
 data class MarkdownStatus(
     val folderUri: String? = null,
     val folderName: String? = null,
@@ -43,7 +48,7 @@ data class MarkdownStatus(
 )
 
 /**
- * C5: one-way export of every person as a Markdown file ([MarkdownNotes]) into a folder picked with the system
+ * One-way export of every person as a Markdown file ([MarkdownNotes]) into a folder picked with the system
  * picker (SAF): Obsidian vaults, Syncthing folders, a USB drive. Parley never imports anything from the files; it
  * reads one only to check that it is still exactly what Parley wrote ([MarkdownNotes.isUntouched]). Files are
  * rewritten only when their content changed, files of people who are gone (or left the Circle, with "only Circle")
@@ -79,9 +84,9 @@ class MarkdownExport(private val context: Context, private val c: DataContainer)
     )
 
     fun setFolder(uri: Uri?, name: String?) {
-        if (uri != null) runCatching { cr.takePersistableUriPermission(uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION) }
+        if (uri != null) runCatching { cr.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION) }
         prefs.edit().putString("folder", uri?.toString()).putString("folderName", name).remove("lastProblem").apply()
-        // C5: the same folder picked again keeps the record of Parley's files (their fingerprints adopt them anyway).
+        // The same folder picked again keeps the record of Parley's files (their fingerprints adopt them anyway).
         if (uri != null && uri.toString() != prefs.getString("stateFolder", null)) {
             stateFile.delete() // a new folder: nothing there is ours yet
             prefs.edit().putString("stateFolder", uri.toString()).apply()
@@ -121,7 +126,7 @@ class MarkdownExport(private val context: Context, private val c: DataContainer)
     suspend fun exportNow(texts: Texts): Int = mutex.withLock {
         withContext(Dispatchers.IO) {
             val folder = status.value.folderUri?.let(Uri::parse) ?: return@withContext 0
-            if (!Permissions.has(context, android.Manifest.permission.READ_CONTACTS)) {
+            if (!Permissions.has(context, Manifest.permission.READ_CONTACTS)) {
                 finish(0, 0, NO_PERMISSION)
                 return@withContext 0
             }
@@ -153,7 +158,7 @@ class MarkdownExport(private val context: Context, private val c: DataContainer)
             }
 
             val state = readState()
-            // C5: a file is Parley's to change only while it is exactly what Parley wrote (its fingerprint still
+            // A file is Parley's to change only while it is exactly what Parley wrote (its fingerprint still
             // matches). Anything else, the user's own notes or Parley's file they edited, keeps its name and content.
             val verdicts = HashMap<String, Boolean>()
             fun untouched(name: String): Boolean = verdicts.getOrPut(name) {
@@ -167,13 +172,13 @@ class MarkdownExport(private val context: Context, private val c: DataContainer)
                     }
                 }.getOrDefault(false)
             }
-            val byLower = existing.keys.associateBy { it.lowercase(java.util.Locale.ROOT) }
+            val byLower = existing.keys.associateBy { it.lowercase(Locale.ROOT) }
             val used = HashSet<String>()
             var kept = 0
             val members = c.circle.members().associate { it.lookupKey to it.everyDays }
             val onlyCircle = status.value.onlyCircle
             val people = c.contacts.snapshot().filter { !onlyCircle || it.lookupKey in members }
-                .sortedWith(compareBy<app.parley.common.ContactSummary> { it.displayName.lowercase() }.thenBy { it.id })
+                .sortedWith(compareBy<ContactSummary> { it.displayName.lowercase() }.thenBy { it.id })
             val interactions = c.circle.interactions.all().groupBy { it.lookupKey }
             val notes = runCatching { c.meta.allCallNotes().first() }.getOrDefault(emptyList()).groupBy { it.numberKey }
             val region = PhoneEnv.countryIso(context)
@@ -192,10 +197,10 @@ class MarkdownExport(private val context: Context, private val c: DataContainer)
                     keys.flatMap { notes[it].orEmpty() }.distinctBy { it.id }.map { MarkdownNotes.Entry(it.callDate, texts.callNote, it.text) }
                 val days = members[s.lookupKey]
                 val pinned = runCatching { c.meta.meta(s.lookupKey)?.pinnedNote }.getOrNull().orEmpty()
-                // R9: promises from every note of this person, not only the ones in the (capped) timeline.
+                // Promises from every note of this person, not only the ones in the (capped) timeline.
                 val promises = (listOf(pinned) + interactions[s.lookupKey].orEmpty().mapNotNull { it.note } +
                     keys.flatMap { notes[it].orEmpty() }.distinctBy { it.id }.map { it.text })
-                    .flatMap { app.parley.common.circle.Promises.parse(it) }
+                    .flatMap { Promises.parse(it) }
                 val person = MarkdownNotes.Person(
                     name = d.displayName.ifBlank { s.displayName },
                     phones = d.phones.map { MarkdownNotes.Field(texts.phoneLabel(it.type, it.label), it.value) },

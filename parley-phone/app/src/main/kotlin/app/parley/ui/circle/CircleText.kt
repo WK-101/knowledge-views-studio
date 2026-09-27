@@ -18,7 +18,7 @@ import app.parley.common.circle.LastContact
 import app.parley.common.circle.LogMode
 import app.parley.common.circle.RhythmMode
 
-/** Texts of the Circle (R1–R5), in the app language. Warm and blame-free: no counters, no "overdue". */
+/** Texts of the Circle, in the app language. Warm and blame-free: no counters, no "overdue". */
 object CircleText {
     fun status(res: Resources, s: CircleStatus): String = res.getString(
         when (s) {

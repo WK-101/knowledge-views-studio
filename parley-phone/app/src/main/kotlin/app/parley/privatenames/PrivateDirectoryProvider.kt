@@ -12,6 +12,7 @@ import android.provider.ContactsContract
 import android.provider.ContactsContract.Directory
 import android.provider.ContactsContract.PhoneLookup
 import app.parley.ParleyApp
+import app.parley.R
 import app.parley.common.people.DirectoryPolicy
 import app.parley.data.DataContainer
 import app.parley.common.people.LookupApproval
@@ -22,7 +23,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
 
 /**
- * I7: an opt-in contacts Directory (`android.content.ContactDirectory`) so a phone app you approve (Google Phone, also
+ * An opt-in contacts Directory (`android.content.ContactDirectory`) so a phone app you approve (Google Phone, also
  * when it runs in the car) can show a private contact's name when they call.
  *
  * How Android uses it (verified against AOSP ContactsProvider2 / ContactDirectoryManager): the Contacts Provider
@@ -61,7 +62,7 @@ class PrivateDirectoryProvider : ContentProvider() {
             when (col) {
                 Directory.ACCOUNT_NAME -> "Parley"
                 Directory.ACCOUNT_TYPE -> ctx.packageName
-                Directory.DISPLAY_NAME -> ctx.getString(app.parley.R.string.privnames_directory)
+                Directory.DISPLAY_NAME -> ctx.getString(R.string.privnames_directory)
                 Directory.EXPORT_SUPPORT -> Directory.EXPORT_SUPPORT_NONE
                 Directory.SHORTCUT_SUPPORT -> Directory.SHORTCUT_SUPPORT_NONE
                 Directory.PHOTO_SUPPORT -> Directory.PHOTO_SUPPORT_NONE

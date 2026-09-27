@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="label_policy_section">Pour tout le monde dans ce libellé</string>
+    <string name="label_policy_sim">SIM pour les appels</string>
+    <string name="label_policy_sim_none">Pas de préférence</string>
+    <string name="label_policy_sim_missing">Une SIM absente de ce téléphone</string>
+    <string name="label_policy_sim_on">Les appels passent par %1$s</string>
+    <string name="label_policy_sim_body">Utilisée pour les personnes de ce libellé qui n\'ont pas leur propre SIM.</string>
+    <string name="label_policy_rhythm">Garder le contact quand ils rejoignent votre cercle</string>
+    <string name="label_policy_rhythm_none">Non défini</string>
+    <string name="label_policy_rhythm_body">Quand vous ajoutez quelqu\'un de « %1$s » à votre cercle, Parley propose d\'abord ce rythme.</string>
+    <string name="label_policy_dnd">Autoriser en mode Ne pas déranger</string>
+    <string name="label_policy_dnd_summary">Ajoute tout le monde aux favoris, pour qu\'Android laisse sonner les contacts favoris</string>
+    <string name="label_policy_dnd_open">Ouvrir les réglages Ne pas déranger</string>
+    <string name="label_policy_dnd_title">Laisser sonner « %1$s » en mode Ne pas déranger ?</string>
+    <string name="label_policy_rhythm_suggest">Comme votre libellé « %1$s » : %2$s</string>
+    <plurals name="label_policy_added">
+        <item quantity="one">%d personne ajoutée à votre cercle</item>
+        <item quantity="many">%d personnes ajoutées à votre cercle</item>
+        <item quantity="other">%d personnes ajoutées à votre cercle</item>
+    </plurals>
+    <plurals name="label_policy_add_members">
+        <item quantity="one">Ajouter %d membre à votre cercle</item>
+        <item quantity="many">Ajouter %d membres à votre cercle</item>
+        <item quantity="other">Ajouter %d membres à votre cercle</item>
+    </plurals>
+    <plurals name="label_policy_unstarred">
+        <item quantity="one">%d contact retiré des favoris</item>
+        <item quantity="many">%d contacts retirés des favoris</item>
+        <item quantity="other">%d contacts retirés des favoris</item>
+    </plurals>
+    <plurals name="label_policy_star_new">
+        <item quantity="one">Ajouter %d nouveau membre aux favoris</item>
+        <item quantity="many">Ajouter %d nouveaux membres aux favoris</item>
+        <item quantity="other">Ajouter %d nouveaux membres aux favoris</item>
+    </plurals>
+</resources>

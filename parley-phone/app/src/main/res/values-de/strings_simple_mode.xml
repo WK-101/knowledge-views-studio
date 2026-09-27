@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="set_simple_title">Einfacher Modus</string>
+    <string name="set_simple_summary">Große Fototasten für bis zu 9 Personen, ein größeres Tastenfeld und eine Rückfrage vor dem Ablehnen. Für jemand anderen einrichten</string>
+    <string name="set_simple_kw">senioren, älter, betreut, einfach, groß, große tasten, großeltern, barrierefreiheit, name ansagen</string>
+    <string name="simple_intro">Ein ruhiger Startbildschirm für alle, die nur das Nötigste wollen: große Fototasten für die wichtigen Menschen, ein größeres Tastenfeld und eine Rückfrage, bevor ein Anruf abgelehnt wird. Richte ihn hier ein oder auf deinem Telefon und schick ihn rüber.</string>
+    <string name="simple_remove">%1$s entfernen</string>
+    <string name="simple_add">Person hinzufügen</string>
+    <string name="simple_options">Auf diesem Telefon</string>
+    <string name="simple_keypad">Taste für das Tastenfeld</string>
+    <string name="simple_keypad_body">Ein großes Tastenfeld für andere Nummern</string>
+    <string name="simple_confirm_decline">Vor dem Ablehnen fragen</string>
+    <string name="simple_confirm_decline_body">Große Tasten zum Annehmen und Ablehnen, und vorher „Anruf ablehnen?“</string>
+    <string name="simple_speak">Sagen, wer anruft</string>
+    <string name="simple_speak_body">Spricht den Namen, während es klingelt. Nutzt die Sprachausgabe des Telefons; nichts wird aufgenommen</string>
+    <string name="simple_turn_on">Einfachen Modus einschalten</string>
+    <string name="simple_exit_hint">Zum Verlassen oben „Verlassen“ gedrückt halten und bestätigen (mit der App-Sperre, falls sie an ist).</string>
+    <string name="simple_share">Anderes Telefon einrichten</string>
+    <string name="simple_save_file">Einrichtung als Datei speichern</string>
+    <string name="simple_save_file_body">Verschlüsselt mit einer Passphrase deiner Wahl. Kontakte reisen als Namen und Nummern</string>
+    <string name="simple_show_qr">Einrichtung als QR-Code zeigen</string>
+    <string name="simple_show_qr_body">Mit der Kamera des anderen Telefons scannen, dann den Code eingeben</string>
+    <string name="simple_import_file">Einrichtungsdatei importieren</string>
+    <string name="simple_import_file_body">Aus einer Datei, die auf einem anderen Telefon erstellt wurde</string>
+    <string name="simple_file_saved">Einrichtung gespeichert</string>
+    <string name="simple_file_failed">Die Einrichtungsdatei konnte nicht gespeichert werden</string>
+    <string name="simple_pass">Passphrase</string>
+    <string name="simple_pass_again">Passphrase wiederholen</string>
+    <string name="simple_pass_new">Wähle eine Passphrase mit mindestens 8 Zeichen. Das andere Telefon braucht sie zum Öffnen der Datei.</string>
+    <string name="simple_pass_enter">Gib die Passphrase ein, mit der die Einrichtung gespeichert wurde.</string>
+    <string name="simple_qr_desc">QR-Code der Einrichtung für den einfachen Modus</string>
+    <string name="simple_qr_hint">Öffne den Code mit einem beliebigen QR-Scanner auf dem anderen Telefon; Parley öffnet sich und fragt nach diesem Code.</string>
+    <string name="simple_import_title">Einfachen Modus importieren</string>
+    <string name="simple_enter_passcode">Gib den Code ein, der auf dem anderen Telefon angezeigt wird.</string>
+    <string name="simple_wrong_pass">Das hat nicht geklappt. Prüfe den Code oder die Passphrase.</string>
+    <string name="simple_matched">Gefunden: %1$s</string>
+    <string name="simple_not_in_contacts">Nicht in deinen Kontakten</string>
+    <string name="simple_create">Erstellen</string>
+    <string name="simple_import_note">Personen, die nicht in deinen Kontakten sind, bekommen trotzdem eine Taste mit ihrer Nummer. Erstelle sie, um ein Foto hinzuzufügen.</string>
+    <string name="simple_use_on">Einrichtung übernehmen und einfachen Modus einschalten</string>
+    <string name="simple_use_later">Für später speichern</string>
+    <string name="simple_saved">Einrichtung für den einfachen Modus gespeichert</string>
+    <string name="simple_leave_to_import">Verlasse den einfachen Modus, um eine Einrichtung zu importieren</string>
+    <string name="simple_leave">Verlassen</string>
+    <string name="simple_leave_hold">Gedrückt halten, um den einfachen Modus zu verlassen</string>
+    <string name="simple_keypad_open">Tastenfeld</string>
+    <string name="simple_call_q">%1$s anrufen?</string>
+    <string name="simple_call">Anrufen</string>
+    <string name="simple_leave_q">Einfachen Modus verlassen?</string>
+    <string name="simple_leave_body">Parley zeigt wieder die gewohnten Tabs. Du kannst den einfachen Modus unter Einstellungen › Darstellung wieder einschalten.</string>
+    <string name="simple_no_people">Noch niemand hier. Bitte die Person, die dieses Telefon eingerichtet hat, unter Einstellungen › Darstellung › Einfacher Modus Menschen hinzuzufügen.</string>
+    <string name="simple_keypad_close">Tastenfeld schließen</string>
+    <string name="simple_keypad_delete">Ziffer löschen</string>
+    <plurals name="simple_people_n">
+        <item quantity="one">Personen (%1$d von %2$d)</item>
+        <item quantity="other">Personen (%1$d von %2$d)</item>
+    </plurals>
+    <plurals name="simple_skipped">
+        <item quantity="one">%d Eintrag war keine normale Telefonnummer und wurde weggelassen</item>
+        <item quantity="other">%d Einträge waren keine normalen Telefonnummern und wurden weggelassen</item>
+    </plurals>
+</resources>

@@ -34,6 +34,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
@@ -45,8 +46,9 @@ import app.parley.common.people.Handles
 import app.parley.data.HandleItem
 import app.parley.ui.SegmentedGroupScope
 import app.parley.ui.common.Intents
+import app.parley.ui.people.HandleText
 
-/** U3: a labelled quick-action tile (label ≥ 12 sp); long-press offers the alternative (choose again). */
+/** A labelled quick-action tile (label ≥ 12 sp); long-press offers the alternative (choose again). */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun RowScope.ActionTile(icon: ImageVector, label: String, enabled: Boolean, onLongClick: (() -> Unit)? = null, longClickLabel: String? = null, onClick: () -> Unit) {
@@ -113,7 +115,7 @@ fun GroupDataRow(
 }
 
 /**
- * I1: the "Messengers" rows for handles: tap opens the handle in its app (explicit package when known, else the
+ * The "Messengers" rows for handles: tap opens the handle in its app (explicit package when known, else the
  * system chooser; web links ask first through [onWeb]); long-press copies.
  */
 fun SegmentedGroupScope.handleRows(handles: List<HandleItem>, icon: ImageVector, onWeb: (HandleLink) -> Unit, firstHasIcon: Boolean = true) {
@@ -122,7 +124,7 @@ fun SegmentedGroupScope.handleRows(handles: List<HandleItem>, icon: ImageVector,
             val context = LocalContext.current
             val link = remember(h) { Handles.link(h.handle) }
             GroupDataRow(
-                icon, showIcon = firstHasIcon && i == 0, text = h.value, label = app.parley.ui.people.HandleText.label(androidx.compose.ui.platform.LocalResources.current, h.handle),
+                icon, showIcon = firstHasIcon && i == 0, text = h.value, label = HandleText.label(LocalResources.current, h.handle),
                 onClick = {
                     if (link == null) Intents.copy(context, h.value)
                     else if (!ContactMessaging.openHandle(context, link)) onWeb(link)

@@ -1,5 +1,6 @@
 package app.parley.work
 
+import app.parley.common.NotificationIds
 import app.parley.data.PhoneEnv
 import app.parley.common.PhoneIdentity
 import android.app.NotificationChannel
@@ -27,7 +28,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 import java.util.concurrent.TimeUnit
 
 /**
- * R8: the one-off "follow up in 1 week / 1 month" reminder from "Anything to remember?". Only the contact's lookup
+ * The one-off "follow up in 1 week / 1 month" reminder from "Anything to remember?". Only the contact's lookup
  * key and id are stored in WorkManager's database; the name is read when it fires. If the contact is gone (or
  * became private) nothing is shown. Private on the lock screen with a neutral public version, and phone-only.
  */
@@ -48,7 +49,7 @@ class FollowUpWorker(context: Context, params: WorkerParameters) : CoroutineWork
         val promises = runCatching {
             c.circle.notesFor(key, contact.phones.flatMap { PhoneIdentity.lookupKeys(it.number, PhoneEnv.countryIso(c.appContext)) }).flatMap { n -> Promises.open(n.text).map { it.text } }
         }.getOrDefault(emptyList())
-        val tag = app.parley.common.NotificationIds.followUp(contact.id)
+        val tag = NotificationIds.followUp(contact.id)
         val code = tag.hashCode()
         val public = NotificationCompat.Builder(ctx, RemindersWorker.CHANNEL)
             .setSmallIcon(R.drawable.ic_stat_cake)
@@ -61,9 +62,9 @@ class FollowUpWorker(context: Context, params: WorkerParameters) : CoroutineWork
         )
         val b = NotificationCompat.Builder(ctx, RemindersWorker.CHANNEL)
             .setSmallIcon(R.drawable.ic_stat_cake)
-            .setContentTitle(ctx.getString(R.string.c2_followup_title, contact.displayName))
-            .setContentText(promises.firstOrNull()?.let { ctx.getString(R.string.c2_promise_line, it) } ?: ctx.getString(R.string.c2_followup_body))
-            .setStyle(NotificationCompat.BigTextStyle().bigText(if (promises.isEmpty()) ctx.getString(R.string.c2_followup_body) else promises.take(5).joinToString("\n") { ctx.getString(R.string.c2_promise_line, it) }))
+            .setContentTitle(ctx.getString(R.string.circle_followup_title, contact.displayName))
+            .setContentText(promises.firstOrNull()?.let { ctx.getString(R.string.circle_promise_line, it) } ?: ctx.getString(R.string.circle_followup_body))
+            .setStyle(NotificationCompat.BigTextStyle().bigText(if (promises.isEmpty()) ctx.getString(R.string.circle_followup_body) else promises.take(5).joinToString("\n") { ctx.getString(R.string.circle_promise_line, it) }))
             .setAutoCancel(true)
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
             .setPublicVersion(public)

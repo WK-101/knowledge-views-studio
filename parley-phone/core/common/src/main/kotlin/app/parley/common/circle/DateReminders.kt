@@ -6,7 +6,7 @@ import java.time.LocalDate
 import java.util.Locale
 
 /**
- * R5: birthday and date reminders. Each occasion fires at most twice: once on the lead day (1, 3 or 7 days before,
+ * Birthday and date reminders. Each occasion fires at most twice: once on the lead day (1, 3 or 7 days before,
  * if chosen) and once on the day, never daily. "Mark as wished" closes the occasion so nothing more fires for it.
  */
 object DateReminders {
@@ -24,7 +24,7 @@ object DateReminders {
 
     /**
      * Stable id of one event of a contact (type, month-day and label; Android's data row ids change on edits). The
-     * label (normalised like [YearlyEvents.key], as a short hash) keeps two custom events on one day apart (G5);
+     * label (normalised like [YearlyEvents.key], as a short hash) keeps two custom events on one day apart;
      * events without a label keep the key they always had.
      */
     fun eventKey(type: Int, date: EventDate, label: String? = null): String {
@@ -39,10 +39,10 @@ object DateReminders {
      */
     fun occurrence(contactId: Long, eventKey: String, date: EventDate, today: LocalDate): String = "$contactId:$eventKey:${date.next(today).year}"
 
-    /** G5: notification tag of one event (id 0), so two dates of one person never replace each other. */
+    /** Notification tag of one event (id 0), so two dates of one person never replace each other. */
     fun tag(contactId: Long, eventKey: String): String = "${NotificationIds.PREFIX_BIRTHDAY}$contactId:$eventKey"
 
-    /** G5: notification tag of a person's keep-in-touch reminder (id 0). */
+    /** Notification tag of a person's keep-in-touch reminder (id 0). */
     fun nudgeTag(contactId: Long): String = "${NotificationIds.PREFIX_NUDGE}$contactId"
 
     /** Tag of the weekly digest (id 0). */

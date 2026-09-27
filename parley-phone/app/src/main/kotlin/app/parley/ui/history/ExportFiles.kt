@@ -3,6 +3,7 @@ package app.parley.ui.history
 import android.content.ClipData
 import android.content.Context
 import android.content.Intent
+import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Typeface
@@ -36,7 +37,7 @@ import java.time.format.DateTimeFormatter
 import app.parley.R
 
 /**
- * Readable exports of call history (H2): CSV, JSON, ICS and PDF files shared through the app's FileProvider,
+ * Readable exports of call history: CSV, JSON, ICS and PDF files shared through the app's FileProvider,
  * and printing through [PrintManager] with a PDF drawn locally (no WebView, nothing loaded from anywhere).
  * Files go to `cache/transfer/export/` and are deleted on the next app start (or by the daily worker).
  */
@@ -145,7 +146,7 @@ object ExportFiles {
             return pages
         }
 
-        fun draw(canvas: android.graphics.Canvas, title: String, rows: List<ExportRow>, range: IntRange, page: Int, pageCount: Int, zone: ZoneId) {
+        fun draw(canvas: Canvas, title: String, rows: List<ExportRow>, range: IntRange, page: Int, pageCount: Int, zone: ZoneId) {
             val fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
             var y = margin + 14f
             canvas.drawText(title, margin, y, titleP)

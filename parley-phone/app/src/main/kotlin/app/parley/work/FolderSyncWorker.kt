@@ -9,6 +9,7 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import app.parley.container
+import app.parley.ui.extras.MarkdownTexts
 import java.util.concurrent.TimeUnit
 
 /** Hourly folder sync (only when a sync folder is set and auto-sync is on), and the C5 Markdown export with it. */
@@ -16,14 +17,14 @@ class FolderSyncWorker(context: Context, params: WorkerParameters) : CoroutineWo
     override suspend fun doWork(): Result {
         val sync = applicationContext.container.folderSync
         if (sync.status.value.folderUri != null && sync.status.value.auto) runCatching { sync.syncNow() }
-        // C5: one-way Markdown notes, when a folder is set and "Keep it up to date" is on.
+        // One-way Markdown notes, when a folder is set and "Keep it up to date" is on.
         val md = applicationContext.container.markdown
-        if (md.status.value.folderUri != null && md.status.value.auto) runCatching { md.exportNow(app.parley.ui.extras.MarkdownTexts.build(applicationContext)) }
+        if (md.status.value.folderUri != null && md.status.value.auto) runCatching { md.exportNow(MarkdownTexts.build(applicationContext)) }
         return Result.success()
     }
 
     companion object {
-        /** C5: after the Markdown export's folder or switch changed. */
+        /** After the Markdown export's folder or switch changed. */
         fun reschedule(context: Context) {
             val st = context.container.folderSync.status.value
             schedule(context, st.folderUri != null && st.auto)
@@ -37,7 +38,7 @@ class FolderSyncWorker(context: Context, params: WorkerParameters) : CoroutineWo
             )
         }
 
-        /** [on]: folder sync wants the hourly run; the Markdown export's own wish is added here (C5). */
+        /** [on]: folder sync wants the hourly run; the Markdown export's own wish is added here. */
         fun schedule(context: Context, on: Boolean) {
             val wm = WorkManager.getInstance(context)
             val md = context.container.markdown.status.value

@@ -1,5 +1,6 @@
 package app.parley.ui.calltime
 
+import android.content.Context
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
@@ -33,6 +34,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -41,6 +43,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.R
 import app.parley.calltime.CallTimePlanner
+import app.parley.common.LabelRefs
 import app.parley.common.calltime.CallingConfig
 import app.parley.common.calltime.LimitRule
 import app.parley.common.calltime.LimitScope
@@ -54,14 +57,14 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * Settings › Calls › Call time: talk-time reminders (T1), hard limits and allowances per contact, label, SIM
- * or all calls (T5, T6), and supervised mode (T7).
+ * Settings › Calls › Call time: talk-time reminders, hard limits and allowances per contact, label, SIM
+ * or all calls, and supervised mode.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CallTimeScreen(vm: AppViewModel, back: () -> Unit) {
     val context = LocalContext.current
-    val res = androidx.compose.ui.platform.LocalResources.current
+    val res = LocalResources.current
     val config by vm.c.calling.config.collectAsStateWithLifecycle()
     val sims by vm.sims.collectAsStateWithLifecycle()
     val contacts by vm.contacts.collectAsStateWithLifecycle()
@@ -112,7 +115,7 @@ fun CallTimeScreen(vm: AppViewModel, back: () -> Unit) {
             }
             val labelRules = config.rules.filter { it.scope == LimitScope.LABEL }
             items(labelRules, key = { it.id }) { r ->
-                val name = app.parley.common.LabelRefs.limitTitle(r)
+                val name = LabelRefs.limitTitle(r)
                 RuleRow(Icons.AutoMirrored.Rounded.Label, labelTitle(name), r) { edit(labelTitle(name), r.copy(title = name)) }
             }
             item {
@@ -182,13 +185,13 @@ fun CallTimeScreen(vm: AppViewModel, back: () -> Unit) {
             text = {
                 Column {
                     // One entry per label title: the limit covers that label in every account.
-                    groups.groupBy { app.parley.common.LabelRefs.key(it.title) }.forEach { (title, gs) ->
+                    groups.groupBy { LabelRefs.key(it.title) }.forEach { (title, gs) ->
                         ListItem(
                             headlineContent = { Text(title) },
                             supportingContent = { Text(gs.map { it.account.displayLabel }.distinct().joinToString(", ")) },
                             modifier = Modifier.clickable {
                                 pickLabel = false
-                                val r = config.rules.firstOrNull { it.scope == LimitScope.LABEL && app.parley.common.LabelRefs.limitTitle(it) == title }
+                                val r = config.rules.firstOrNull { it.scope == LimitScope.LABEL && LabelRefs.limitTitle(it) == title }
                                     ?: LimitRule(LimitScope.LABEL, title, title)
                                 editing = labelTitle(title) to r
                             },
@@ -225,5 +228,5 @@ private fun Help(text: String) {
     Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
 }
 
-private fun warnText(context: android.content.Context, sec: Int): String =
+private fun warnText(context: Context, sec: Int): String =
     if (sec % 60 == 0) context.getString(R.string.ct_minutes_short, sec / 60) else context.getString(R.string.ct_seconds_short, sec)

@@ -20,7 +20,6 @@
     <string name="main_message">Message</string>
     <string name="main_more">More</string>
     <string name="main_search">Search</string>
-    <string name="main_remove">Remove</string>
     <string name="main_block">Block</string>
     <string name="main_private_number">Private number</string>
     <string name="main_unknown">Unknown</string>
@@ -143,7 +142,6 @@
     <!-- Missed-call notifications -->
     <string name="missed_channel">Missed calls</string>
     <string name="missed_call_back">Call back</string>
-    <string name="missed_message_on">Message or call on…</string>
     <string name="missed_more">+%1$d more</string>
     <string name="missed_title_one">Missed call</string>
     <plurals name="missed_title_many">
@@ -204,18 +202,10 @@
     <string name="home_lock_now">Lock now</string>
     <string name="home_speed_dial">Speed dial</string>
     <string name="home_messaged_numbers">Messaged numbers</string>
-    <string name="home_history_settings">Call history settings</string>
     <string name="home_select_all">Select all</string>
     <string name="home_add_several">Add several numbers…</string>
     <string name="home_duplicates">Find &amp; merge duplicates</string>
-    <string name="home_contacts_settings">Contacts settings</string>
-    <string name="home_sims">SIMs &amp; plan minutes</string>
-    <string name="home_keypad_settings">Keypad settings</string>
-    <string name="home_birthdays">Birthdays &amp; dates</string>
     <string name="home_temporary">Temporary contacts</string>
-    <string name="home_recently_deleted">History &amp; undo</string>
-    <string name="home_tidy_up">Contact health check</string>
-    <string name="home_blocked_numbers">Blocking &amp; screening</string>
     <string name="home_settings">Settings</string>
     <string name="home_tools">Tools</string>
     <string name="home_more_options">More options</string>
@@ -313,8 +303,6 @@
     <string name="keypad_hint_qwerty">Type a number, or letters of a name</string>
     <string name="keypad_hint_t9">Type a number or letters of a name (T9)</string>
     <string name="keypad_create_contact">Create new contact</string>
-    <!-- Messaging apps are brand names: keep them as they are. -->
-    <string name="keypad_message_apps">SMS, WhatsApp, Signal, Telegram, Viber</string>
     <string name="keypad_hide">Hide on-screen keypad</string>
     <string name="keypad_show">Show on-screen keypad</string>
     <string name="keypad_speed_empty_title">Speed dial %1$d is empty</string>
@@ -412,26 +400,14 @@
     <string name="detail_always_sim">Always %1$s</string>
     <string name="detail_default_email">Default email</string>
     <string name="detail_address">Address</string>
-    <string name="detail_messengers">Message or call on…</string>
-    <!-- "WhatsApp · your usual choice" -->
-    <string name="detail_usual_choice">%1$s · your usual choice</string>
     <string name="detail_usual">Usual</string>
-    <string name="detail_dont_use_default">Don\'t use by default</string>
-    <string name="detail_use_default">Use by default</string>
     <!-- "About Ana" -->
     <string name="detail_about">About %1$s</string>
     <string name="detail_website">Website</string>
     <string name="detail_no_contact_named">No contact named %1$s</string>
     <string name="detail_note">Note</string>
-    <string name="detail_other_fields">Other fields</string>
     <string name="detail_other_fields_note">Saved by another app or account. Parley shows them as they are and never changes them.</string>
     <string name="detail_send_to_voicemail">Send calls to voicemail</string>
-    <string name="detail_keep_in_touch">Remind me to keep in touch</string>
-    <plurals name="detail_not_talked_days">
-        <item quantity="one">If you haven\'t talked in %d day</item>
-        <item quantity="other">If you haven\'t talked in %d days</item>
-    </plurals>
-    <string name="detail_off">Off</string>
     <string name="detail_default_ringtone">Default ringtone</string>
     <string name="detail_ringtone">Ringtone</string>
     <plurals name="detail_linked_from">
@@ -439,12 +415,6 @@
         <item quantity="other">Linked from %d sources</item>
     </plurals>
     <string name="detail_saved_in">Saved in</string>
-    <string name="detail_call_notes">Call notes</string>
-    <string name="detail_recent_calls">Recent calls</string>
-    <plurals name="detail_see_all_calls">
-        <item quantity="one">See all %d call</item>
-        <item quantity="other">See all %d calls</item>
-    </plurals>
     <string name="detail_note_title">Note for calls</string>
     <string name="detail_note_placeholder">e.g. Ask about the invoice</string>
     <string name="detail_keep_in_touch_title">Keep in touch</string>
@@ -477,7 +447,6 @@
     <!-- Contact editor -->
     <string name="edit_date">Date</string>
     <string name="edit_relation">Relation</string>
-    <string name="edit_handle">Messenger handle</string>
     <string name="edit_notes">Notes</string>
     <string name="edit_name_details">Name details</string>
     <string name="edit_unlock_first">Unlock the private contact first</string>
@@ -492,7 +461,6 @@
     <string name="edit_title_edit">Edit contact</string>
     <string name="edit_private_note">Private contact: stored encrypted inside Parley only. Other apps can\'t see it; calls from it still show its name.</string>
     <string name="edit_choose_photo">Choose a photo</string>
-    <string name="edit_change_photo">Change photo</string>
     <string name="edit_remove_photo">Remove photo</string>
     <string name="edit_private_photo">The photo is encrypted and only shown inside Parley, including on the call screen.</string>
     <string name="edit_private_only">Private (only in Parley)</string>
@@ -515,7 +483,6 @@
     <string name="edit_add_phone">Add phone</string>
     <string name="edit_add_email">Add email</string>
     <string name="edit_add_website">Add website</string>
-    <string name="edit_type">Type</string>
     <string name="edit_remove_address">Remove address</string>
     <string name="edit_street">Street</string>
     <string name="edit_po_box">PO box</string>
@@ -539,7 +506,6 @@
     <string name="edit_who_placeholder">e.g. Plumber, fixed the boiler in May</string>
     <string name="edit_who_support">One line under their name when they call</string>
     <string name="edit_private_call_note">Job and company from Name are shown too. These are encrypted, and readable on the call screen while the phone is locked, like the name.</string>
-    <string name="edit_more_fields">More fields</string>
     <string name="edit_keep_title">Keep this contact?</string>
     <string name="edit_keep_body">It was saved as a temporary contact and deletes itself soon. Keep it now that you\'ve added to it?</string>
     <string name="edit_keep">Keep</string>
@@ -549,7 +515,6 @@
     <string name="edit_keep_editing">Keep editing</string>
     <string name="edit_locked">Can\'t be changed here: the account that owns this field keeps it read-only</string>
     <string name="edit_handles">Messenger handles</string>
-    <string name="edit_service">Service</string>
     <string name="edit_remove_handle">Remove handle</string>
     <string name="edit_service_name">Service name</string>
     <string name="edit_service_placeholder">e.g. Jami, Briar</string>
@@ -557,8 +522,6 @@
     <string name="edit_relations">Relations</string>
     <string name="edit_choose_contact">Choose a contact</string>
     <string name="edit_remove_relation">Remove relation</string>
-    <!-- "Relation: Sister" -->
-    <string name="edit_relation_type">Relation: %1$s</string>
     <string name="edit_add_relation">Add relation</string>
     <string name="edit_custom_label">Custom label</string>
     <string name="edit_custom_placeholder">e.g. Boat, Name day</string>
@@ -583,14 +546,11 @@
     <string name="msg_no_app_opens">No app can open this</string>
     <string name="msg_app_has_contact">%1$s has this contact</string>
     <string name="msg_app_cant_see">%1$s can\'t see your contacts; you can still message them</string>
-    <string name="msg_message_on_title">Message %1$s on…</string>
     <string name="msg_no_chat_apps">No chat apps found. Install or enable WhatsApp, Signal, Telegram or Viber to message from here.</string>
     <string name="msg_sms">Text message (SMS)</string>
     <string name="msg_always_use">Always use this for %1$s</string>
     <string name="msg_note_private">Chats open by number, straight in the app. The messenger can\'t see your private contacts.</string>
     <string name="msg_note_contact">Chats open straight in the app, never through a browser. Long-press Message to choose again.</string>
-    <string name="msg_video_with">Video call with…</string>
-    <string name="msg_video_note">Parley remembers your choice. Long-press Video to choose again.</string>
     <string name="msg_open_browser_title">Open in a browser?</string>
     <!-- %1$s is a website address such as matrix.to -->
     <string name="msg_open_browser_body">No app on this phone opens %1$s directly. Opening it in a browser tells that website which profile you\'re looking at.</string>
@@ -657,7 +617,6 @@
     <string name="num_type_or_paste">Type or paste a number. Parley reads the clipboard only when you tap Paste.</string>
     <string name="num_keep_typing">Keep typing, or pick the number\'s country.</string>
     <string name="num_country">Country: %1$s</string>
-    <string name="num_message_apps">WhatsApp, Signal, Telegram, Viber or SMS</string>
     <string name="num_save_temporary">Save as a temporary contact</string>
     <string name="num_save_temporary_question">Save as a temporary contact?</string>
     <plurals name="num_private_deletes">
@@ -683,16 +642,11 @@
     <string name="msg_optional">Message (optional)</string>
     <string name="msg_send_details">Send my details</string>
     <string name="msg_edit_details">Edit my details</string>
-    <!-- "WhatsApp Business · long-press to change" -->
-    <string name="msg_long_press_change">%1$s · long-press to change</string>
     <string name="msg_will_copy">Your message will be copied for pasting</string>
     <string name="msg_more_actions_for">More %1$s actions</string>
     <string name="msg_open_chat">Open chat</string>
     <string name="msg_open_profile">Open profile</string>
-    <string name="msg_choose_whatsapp">Choose WhatsApp or WhatsApp Business</string>
     <string name="msg_chat_or_profile">Open chat or profile</string>
-    <string name="msg_open_with">Open with</string>
-    <string name="msg_remember_whatsapp">Parley will remember your choice. Long-press WhatsApp to change it.</string>
     <string name="msg_country_title">Country of this number</string>
     <string name="msg_search_countries">Search countries or +code</string>
     <string name="msg_my_details">My details</string>
@@ -868,7 +822,7 @@
     </plurals>
     <string name="save_contact_details">Save contact details</string>
     <string name="vm_messenger_copies_remain">Moved to private contacts. Copies in WhatsApp, Signal and other messengers stay until that app syncs its contacts again</string>
-    <!-- v3.2 phone (P5, P8) -->
+    <!-- Phone -->
     <string name="recents_layout_grouped">Grouped</string>
     <string name="recents_layout_chronological">Every call</string>
     <string name="recents_layout_by_day">By day</string>
@@ -902,11 +856,11 @@
     <string name="clear_history_cancel">Cancel</string>
     <string name="clear_history_close">Close</string>
     <string name="clear_history_unknown_needs_contacts">Needs access to your contacts, to tell which numbers are unknown</string>
-    <!-- v3.2 C4: birthday slots -->
+    <!-- Birthday slots -->
     <string name="ux_add_birthday">Add birthday?</string>
     <string name="ux_add_anniversary">Add anniversary?</string>
     <string name="ux_date_not_saved">Couldn\'t save the date. You can add it with Edit.</string>
-    <!-- v3.2 U2/U6: tips and What's new -->
+    <!-- Tips and What's new -->
     <string name="ux_tip_got_it">Got it</string>
     <string name="ux_tip_search">Search names, numbers, notes and companies here.</string>
     <string name="ux_tip_speed_dial">Tip: long-press 2 to 9 to call someone with one touch.</string>
@@ -917,7 +871,7 @@
     <string name="ux_whats_new_title">What\'s new in Parley %1$s</string>
     <string name="ux_whats_new_body">Your tabs, start tab and call list stay just as you set them. New things arrive switched off, so you can try them when you like.</string>
     <string name="ux_whats_new_try">Try it</string>
-    <!-- v3.2 U5: empty states -->
+    <!-- Empty states -->
     <string name="ux_empty_clear_search">Clear search</string>
     <string name="ux_empty_clear_filter">Clear filter</string>
     <string name="ux_empty_add_contact">Create contact</string>

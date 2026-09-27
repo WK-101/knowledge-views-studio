@@ -1,5 +1,6 @@
 package app.parley.common
 
+import java.time.Year
 import java.util.Locale
 import java.time.LocalDate
 import java.time.MonthDay
@@ -13,7 +14,7 @@ data class EventDate(val year: Int?, val month: Int, val day: Int) {
 
     /** Next occurrence on or after [today] (Feb 29 falls back to Feb 28 in non-leap years). */
     fun next(today: LocalDate): LocalDate {
-        fun at(y: Int): LocalDate = if (month == 2 && day == 29 && !java.time.Year.isLeap(y.toLong())) LocalDate.of(y, 2, 28) else LocalDate.of(y, month, day)
+        fun at(y: Int): LocalDate = if (month == 2 && day == 29 && !Year.isLeap(y.toLong())) LocalDate.of(y, 2, 28) else LocalDate.of(y, month, day)
         val thisYear = at(today.year)
         return if (thisYear.isBefore(today)) at(today.year + 1) else thisYear
     }

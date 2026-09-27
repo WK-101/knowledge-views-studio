@@ -4,6 +4,7 @@ import app.parley.common.circle.InteractionChannel
 import app.parley.common.circle.InteractionType
 import app.parley.data.db.InteractionDao
 import app.parley.data.db.InteractionEntity
+import app.parley.data.db.InteractionTouchRow
 import app.parley.data.vault.VaultCrypto
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -11,7 +12,7 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 
-/** R2: one logged interaction, with its note opened. */
+/** One logged interaction, with its note opened. */
 data class Interaction(
     val id: Long,
     val lookupKey: String,
@@ -24,7 +25,7 @@ data class Interaction(
 )
 
 /**
- * R2: interactions in Room. Notes are sealed with Parley's Keystore key for small private records (the key that
+ * Interactions in Room. Notes are sealed with Parley's Keystore key for small private records (the key that
  * also seals the "messaged numbers" record): AES-GCM, no user authentication, so the Circle and reminders work
  * while the phone is locked, but nothing personal is readable at rest. Everything else in a row (who, when, which
  * kind) is what the call log already holds for calls.
@@ -95,7 +96,7 @@ class InteractionStore(private val dao: InteractionDao) {
         dao.update(e.copy(type = type.name, noteBlob = seal(note), time = time ?: e.time))
     }
 
-    /** R9: only the note changes (a promise ticked off). Throws [SealException]. */
+    /** Only the note changes (a promise ticked off). Throws [SealException]. */
     suspend fun setNote(id: Long, note: String?) = withContext(Dispatchers.IO) {
         val e = dao.get(id) ?: return@withContext
         dao.update(e.copy(noteBlob = seal(note)))
@@ -104,8 +105,8 @@ class InteractionStore(private val dao: InteractionDao) {
     /** The current (opened) note of entry [id], or null. */
     suspend fun noteOf(id: Long): String? = withContext(Dispatchers.IO) { dao.get(id)?.let { open(it.noteBlob) } }
 
-    /** R6: (lookup key, time, dedupe key) of every interaction since [since]; notes stay sealed. */
-    suspend fun touchesSince(since: Long): List<app.parley.data.db.InteractionTouchRow> = withContext(Dispatchers.IO) { dao.touchesSince(since) }
+    /** (lookup key, time, dedupe key) of every interaction since [since]; notes stay sealed. */
+    suspend fun touchesSince(since: Long): List<InteractionTouchRow> = withContext(Dispatchers.IO) { dao.touchesSince(since) }
 
     /** Changes whenever any interaction is added, edited or deleted (R7 widget refresh). */
     val changes: Flow<Int> get() = dao.countFlow()

@@ -4,7 +4,7 @@ import app.parley.common.CallEntry
 import app.parley.common.CallType
 
 /**
- * R6: the "People" card in Insights, worked out from history alone (the call log and logged interactions; no
+ * The "People" card in Insights, worked out from history alone (the call log and logged interactions; no
  * snapshot table). Everything here is pure: the app hands in [Touch]es and today's Circle.
  */
 object PeopleInsights {
@@ -44,10 +44,10 @@ object PeopleInsights {
         /** Your call they didn't answer. */
         UNANSWERED_OUT,
 
-        /** A logged meeting, message, video call… (R2). */
+        /** A logged meeting, message, video call…. */
         LOGGED,
 
-        /** "Mark as wished" (R5). */
+        /** "Mark as wished". */
         WISHED,
         ;
 

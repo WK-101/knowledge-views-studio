@@ -34,7 +34,7 @@ data class CallTiming(
 }
 
 /**
- * Call time (T1–T5) and call haptics (A6). Runs only while Telecom has calls: nothing is scheduled between calls.
+ * Call time and call haptics. Runs only while Telecom has calls: nothing is scheduled between calls.
  *
  * - Every call gets its plan (reminders, limit, allowance) when it is added; the countdown starts from the call's
  *   connect time, on the `elapsedRealtime` clock, when it becomes active.
@@ -69,7 +69,7 @@ object CallClock {
 
     /**
      * Calls that are never timed: emergency calls, any call while the emergency window runs (the operator's
-     * call-back, either direction), and numbers the user listed as starting that window (B23).
+     * call-back, either direction), and numbers the user listed as starting that window.
      */
     private fun exempt(number: String?, emergency: Boolean): Boolean {
         if (emergency) return true
@@ -127,7 +127,7 @@ object CallClock {
                 continue
             }
             liveIds += c.id
-            // P7: the connect buzz is optional, and skipped for a call just answered here (it had the answer buzz).
+            // The connect buzz is optional, and skipped for a call just answered here (it had the answer buzz).
             if (c.state == CallState.ACTIVE && connected.add(c.id) && !CallManager.wasAnsweredByUser(c.id) &&
                 runCatching { TelecomGraph.dependencies.connectHaptic() }.getOrDefault(true)
             ) feedback?.haptic(CallHaptic.CONNECT)
@@ -146,7 +146,7 @@ object CallClock {
         reschedule()
     }
 
-    // ---- Wrap-up controls (T2) ----
+    // ---- Wrap-up controls ----
 
     fun extend(id: String, minutes: Int) = change(id) { it.extend(minutes * 60_000L) }
 

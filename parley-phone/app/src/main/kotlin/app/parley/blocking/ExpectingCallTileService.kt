@@ -6,16 +6,17 @@ import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
 import app.parley.R
 import app.parley.container
+import app.parley.ui.AppLocale
 import kotlinx.coroutines.launch
 
 /**
- * Quick Settings tile (B21): "Expecting a call". Each tap cycles off → 30 min → 1 h → 2 h → off, letting
+ * Quick Settings tile: "Expecting a call". Each tap cycles off → 30 min → 1 h → 2 h → off, letting
  * unknown callers ring through your screening rules until it runs out on its own.
  */
 class ExpectingCallTileService : TileService() {
-    // L1: the in-app language on Android 10-12 (Android 13+ applies per-app languages itself).
-    override fun attachBaseContext(newBase: android.content.Context) {
-        super.attachBaseContext(app.parley.ui.AppLocale.wrap(newBase))
+    // The in-app language on Android 10-12 (Android 13+ applies per-app languages itself).
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(AppLocale.wrap(newBase))
     }
 
     override fun onStartListening() {

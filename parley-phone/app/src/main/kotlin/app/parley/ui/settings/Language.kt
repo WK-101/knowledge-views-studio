@@ -7,6 +7,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.rememberScrollState
@@ -33,7 +34,7 @@ import app.parley.ui.AppLocale
 import java.util.Locale
 
 /**
- * Settings › Appearance › Language (L1). Android 13+ opens the system's per-app language screen (the list comes from
+ * Settings › Appearance › Language. Android 13+ opens the system's per-app language screen (the list comes from
  * the generated locale config); if a device doesn't offer that screen, and on Android 10–12, a small in-app
  * picker sets it through [AppLocale].
  */
@@ -54,7 +55,7 @@ fun LanguageRow() {
     if (picker) LanguagePickerDialog(current) { picker = false }
 }
 
-@androidx.annotation.RequiresApi(33)
+@RequiresApi(33)
 private fun openSystemSettings(context: Context): Boolean = runCatching {
     context.startActivity(Intent(Settings.ACTION_APP_LOCALE_SETTINGS, Uri.fromParts("package", context.packageName, null)))
 }.isSuccess

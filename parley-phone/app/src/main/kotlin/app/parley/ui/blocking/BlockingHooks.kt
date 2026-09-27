@@ -1,5 +1,10 @@
 package app.parley.ui.blocking
 
+import androidx.compose.material3.AlertDialog
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
+import androidx.compose.ui.platform.LocalResources
+import app.parley.common.LabelRefs
 import app.parley.ui.activityViewModel
 import app.parley.common.PhoneIdentity
 import androidx.compose.foundation.clickable
@@ -53,9 +58,14 @@ import app.parley.container
 import app.parley.common.PhoneNumbers
 import app.parley.common.TraceCodec
 import app.parley.ui.common.Format
+import app.parley.ui.contact.Section
+import app.parley.ui.home.RecentsViewModel
 import app.parley.ui.settings.bidiLtr
 import app.parley.ui.settings.bidiLtrIfNumber
+import kotlin.math.abs
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /*
  * Small entry points other screens drop in with one line. Each opens a dialog through [BlockingDialogs], so
@@ -68,7 +78,7 @@ fun RecentBlockingActions(vm: AppViewModel, number: String, contactName: String?
     if (number.isBlank()) return
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
-    val res = androidx.compose.ui.platform.LocalResources.current
+    val res = LocalResources.current
     @Composable
     fun row(label: String, icon: ImageVector, onClick: () -> Unit) =
         ListItem(headlineContent = { Text(label) }, leadingContent = { Icon(icon, null) }, modifier = Modifier.clickable { dismiss(); onClick() })
@@ -97,11 +107,11 @@ data class RecentBadge(val text: String, val warn: Boolean)
 fun rememberRecentBadges(vm: AppViewModel): (RecentGroup) -> RecentBadge? {
     val verdicts by vm.c.blocks.verdictIndex.collectAsStateWithLifecycle()
     val rings by vm.c.blocks.rings.collectAsStateWithLifecycle()
-    val groups by activityViewModel<app.parley.ui.home.RecentsViewModel>().groups.collectAsStateWithLifecycle()
+    val groups by activityViewModel<RecentsViewModel>().groups.collectAsStateWithLifecycle()
     val context = LocalContext.current
-    val res = androidx.compose.ui.platform.LocalResources.current
-    val badges by androidx.compose.runtime.produceState(emptyMap<String, RecentBadge>(), groups, verdicts, rings) {
-        value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
+    val res = LocalResources.current
+    val badges by produceState(emptyMap<String, RecentBadge>(), groups, verdicts, rings) {
+        value = withContext(Dispatchers.Default) {
             val iso = vm.countryIso
             val out = HashMap<String, RecentBadge>()
             for (g in groups.orEmpty()) {
@@ -110,7 +120,7 @@ fun rememberRecentBadges(vm: AppViewModel): (RecentGroup) -> RecentBadge? {
                 val badge = if (vm.c.dialGuard.isWangiri(e.type, g.number, e.date, rings, iso)) {
                     RecentBadge(res.getString(R.string.blk_dont_call_back), warn = true)
                 } else {
-                    verdicts[vm.c.blocks.verdictKey(g.number, e.accountId)]?.takeIf { kotlin.math.abs(it.time - e.date) < 10 * 60_000L || it.time > e.date }
+                    verdicts[vm.c.blocks.verdictKey(g.number, e.accountId)]?.takeIf { abs(it.time - e.date) < 10 * 60_000L || it.time > e.date }
                         ?.let { v -> RecentBadge(BlockingText.verdict(context, v.text) ?: v.text, warn = v.blocked || v.kind == "LIKELY_SPAM" || v.kind == "REPORTED") }
                 }
                 if (badge != null) out[g.key] = badge
@@ -122,17 +132,17 @@ fun rememberRecentBadges(vm: AppViewModel): (RecentGroup) -> RecentBadge? {
 }
 
 /**
- * Bar shown while Recents rows are selected (B8): block the unknown numbers in one go, after a confirmation that
+ * Bar shown while Recents rows are selected: block the unknown numbers in one go, after a confirmation that
  * lists them. Contacts and private (vault) contacts are never blocked from here: they're left out and named, to
  * be blocked from their own page if that's really meant.
  */
 @Composable
 fun RecentsSelectionBar(vm: AppViewModel, groups: List<RecentGroup>) {
-    val recents: app.parley.ui.home.RecentsViewModel = activityViewModel()
+    val recents: RecentsViewModel = activityViewModel()
     val selected by recents.selection.collectAsStateWithLifecycle()
     if (selected.isEmpty()) return
     val scope = rememberCoroutineScope()
-    var confirming by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    var confirming by remember { mutableStateOf(false) }
     val chosen = groups.filter { it.key in selected }
     val people = chosen.filter { it.contact != null || it.vaultId != null }
     val unknown = chosen.filter { it.contact == null && it.vaultId == null && !it.hidden && it.number.isNotBlank() }.distinctBy { PhoneIdentity.key(it.number, vm.countryIso) }
@@ -148,8 +158,8 @@ fun RecentsSelectionBar(vm: AppViewModel, groups: List<RecentGroup>) {
         }
     }
     if (confirming) {
-        val res = androidx.compose.ui.platform.LocalResources.current
-        androidx.compose.material3.AlertDialog(
+        val res = LocalResources.current
+        AlertDialog(
             onDismissRequest = { confirming = false },
             title = { Text(pluralStringResource(R.plurals.blk_block_numbers_q, numbers.size, numbers.size)) },
             text = {
@@ -187,7 +197,7 @@ private const val MAX_LISTED = 12
 @Composable
 fun ScreeningHistorySection(vm: AppViewModel, number: String, contactName: String?) {
     val screened by vm.c.blocks.screenedCalls.collectAsStateWithLifecycle(emptyList())
-    val context = androidx.compose.ui.platform.LocalContext.current
+    val context = LocalContext.current
     val mine = remember(screened, number) { screened.filter { it.number != null && PhoneNumbers.same(it.number, number, vm.countryIso) }.take(10) }
     Column {
         Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -196,7 +206,7 @@ fun ScreeningHistorySection(vm: AppViewModel, number: String, contactName: Strin
             if (contactName == null) AssistChip({ BlockingDialogs.show(BlockingDialog.Report(number)) }, { Text(stringResource(R.string.blk_report)) }, leadingIcon = { Icon(Icons.Rounded.Flag, null) })
         }
         if (mine.isNotEmpty()) {
-            app.parley.ui.contact.Section(stringResource(R.string.blk_screening))
+            Section(stringResource(R.string.blk_screening))
             mine.forEach { e ->
                 ListItem(
                     modifier = Modifier.clickable { BlockingDialogs.show(BlockingDialog.Why(number)) },
@@ -209,7 +219,7 @@ fun ScreeningHistorySection(vm: AppViewModel, number: String, contactName: Strin
     }
 }
 
-/** Contact overflow item (B22). Put it inside the contact page's DropdownMenu. */
+/** Contact overflow item. Put it inside the contact page's DropdownMenu. */
 @Composable
 fun ContactPrefixAllowMenuItem(name: String?, numbers: List<String>, closeMenu: () -> Unit) {
     if (numbers.isEmpty()) return
@@ -220,20 +230,20 @@ fun ContactPrefixAllowMenuItem(name: String?, numbers: List<String>, closeMenu: 
     )
 }
 
-/** Label page overflow item (B18/B24). Put it inside the label page's DropdownMenu. */
+/** Label page overflow item. Put it inside the label page's DropdownMenu. */
 @Composable
 fun LabelBlockingMenuItem(title: String, closeMenu: () -> Unit) {
     DropdownMenuItem(
         { Text(stringResource(R.string.blk_label_menu)) },
         leadingIcon = { Icon(Icons.Rounded.Shield, null) },
-        onClick = { closeMenu(); BlockingDialogs.show(BlockingDialog.LabelRule(app.parley.common.LabelRefs.key(title))) },
+        onClick = { closeMenu(); BlockingDialogs.show(BlockingDialog.LabelRule(LabelRefs.key(title))) },
     )
 }
 
-/** Keypad or home overflow item (B21). */
+/** Keypad or home overflow item. */
 @Composable
 fun ExpectingCallMenuItem(closeMenu: () -> Unit) {
-    val c = androidx.compose.ui.platform.LocalContext.current.container
+    val c = LocalContext.current.container
     val s by c.settings.settings.collectAsStateWithLifecycle()
     val active = s.screening.snoozeActive(System.currentTimeMillis())
     val scope = rememberCoroutineScope()

@@ -2,6 +2,7 @@ package app.parley.ui.backup
 
 import android.content.Intent
 import android.net.Uri
+import android.text.format.Formatter
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
@@ -50,6 +51,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -75,7 +77,7 @@ import app.parley.R
 @Composable
 fun BackupScreen(vm: AppViewModel, back: () -> Unit) {
     val context = LocalContext.current
-    val res = androidx.compose.ui.platform.LocalResources.current
+    val res = LocalResources.current
     val scope = rememberCoroutineScope()
     val repo = vm.c.backup
     val state by repo.prefs.state.collectAsStateWithLifecycle()
@@ -128,8 +130,8 @@ fun BackupScreen(vm: AppViewModel, back: () -> Unit) {
         TopAppBar(title = { Text(stringResource(R.string.bkp_title)) }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.dc_back)) } })
     }) { p ->
         LazyColumn(Modifier.padding(p)) {
-            // C3: overdue reminder (also in Settings); "Not now" snoozes it.
-            item { app.parley.ui.backup.BackupReminderBanner(vm) }
+            // Overdue reminder (also in Settings); "Not now" snoozes it.
+            item { BackupReminderBanner(vm) }
             item {
                 val ready = state.hasKeys && state.folderUri != null
                 Card(
@@ -142,7 +144,7 @@ fun BackupScreen(vm: AppViewModel, back: () -> Unit) {
                             state.keyId?.let { stringResource(R.string.bkp_verified_key, Format.fullDate(context, state.lastVerifiedAt), it) }
                                 ?: stringResource(R.string.bkp_verified, Format.fullDate(context, state.lastVerifiedAt)),
                             style = MaterialTheme.typography.bodySmall)
-                        state.resultText(androidx.compose.ui.platform.LocalResources.current)?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+                        state.resultText(LocalResources.current)?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
                         if (state.rotationPaused) Row { Icon(Icons.Rounded.Warning, null, tint = MaterialTheme.colorScheme.error); Text("  " + stringResource(R.string.bkp_rotation_paused), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
                         if (state.rotationPaused) TextButton({ repo.resumeRotation() }) { Text(stringResource(R.string.bkp_resume_rotation)) }
                         Text(
@@ -204,13 +206,13 @@ fun BackupScreen(vm: AppViewModel, back: () -> Unit) {
                     trailingContent = null,
                 )
                 if (state.keepLast == 0) Text(stringResource(R.string.bkp_keep_smart_summary), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(horizontal = 16.dp))
-                // C3: when to remind about an overdue backup (14 or 30 days; at most one notification a month).
+                // When to remind about an overdue backup (14 or 30 days; at most one notification a month).
                 ListItem(
                     headlineContent = { Text(stringResource(R.string.set_backup_reminder_title)) },
                     supportingContent = {
                         Column {
                             Text(stringResource(R.string.set_backup_reminder_summary))
-                            app.parley.ui.backup.BackupReminderChoice(vm, Modifier.padding(top = 8.dp))
+                            BackupReminderChoice(vm, Modifier.padding(top = 8.dp))
                         }
                     },
                 )
@@ -243,7 +245,7 @@ fun BackupScreen(vm: AppViewModel, back: () -> Unit) {
                     ListItem(
                         modifier = Modifier.clickable { restoreUri = f.uri },
                         headlineContent = { Text(Format.fullDate(context, f.time)) },
-                        supportingContent = { Text(android.text.format.Formatter.formatShortFileSize(context, f.size)) },
+                        supportingContent = { Text(Formatter.formatShortFileSize(context, f.size)) },
                         trailingContent = { Text(stringResource(R.string.dc_restore), color = MaterialTheme.colorScheme.primary) },
                     )
                 }

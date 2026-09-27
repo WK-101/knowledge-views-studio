@@ -15,7 +15,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 /**
- * Visible (phone) temporary contacts: people saved for a few days that delete themselves (F2). New ones are created
+ * Visible (phone) temporary contacts: people saved for a few days that delete themselves. New ones are created
  * through the facade [app.parley.data.TemporaryContacts.save], which is the single entry point for both kinds
  * (private ones live in the vault and expire with its `expiresAt`); it calls [createPhone] here. Screens and workers
  * use this store to mark, keep, clear and expire them and never write the table directly.
@@ -152,7 +152,7 @@ class TemporaryContactStore(private val c: DataContainer) {
                 c.meta.clearTemporary(t.lookupKey)
                 // Only numbers no remaining contact uses lose their call history.
                 val unused = numbers.filter { c.contacts.isContact(it) == false }
-                // F13: they leave the "last messaged" record too.
+                // They leave the "last messaged" record too.
                 unused.forEach { n -> runCatching { c.messaging.forget(n) } }
                 if (d.purgeHistory) unused.forEach { n -> runCatching { c.history.purgeNumber(n) } }
                 if (d.keptMerged) {

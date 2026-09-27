@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="handshake_met_at">Rencontré à %1$s le %2$s</string>
+    <string name="handshake_met_on">Rencontré le %1$s</string>
+    <string name="handshake_place">Où vous êtes-vous rencontrés ?</string>
+    <string name="handshake_place_hint">Un café, une conférence, une fête entre amis</string>
+    <string name="handshake_place_note">Enregistré comme « Rencontré à… à la date du jour » dans sa chronologie du cercle.</string>
+    <string name="handshake_to_note">L\'ajouter aussi à sa note</string>
+    <string name="handshake_swap">Échange : toujours montrer ma carte après en avoir reçu une</string>
+    <string name="handshake_show_mine">Montrer ma carte</string>
+    <string name="handshake_no_card">Votre carte est vide. Ajoutez votre nom et votre numéro pour la partager.</string>
+    <string name="handshake_make_card">Remplir ma carte</string>
+</resources>

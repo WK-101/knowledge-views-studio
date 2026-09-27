@@ -3,7 +3,7 @@ package app.parley.common.ux
 import app.parley.common.CallType
 
 /**
- * U3: the fixed colour family of a call. Incoming, outgoing, missed and blocked calls keep the same hue everywhere
+ * The fixed colour family of a call. Incoming, outgoing, missed and blocked calls keep the same hue everywhere
  * (Recents, number history, the contact page, insights, private contacts) whatever the wallpaper colours are.
  */
 enum class CallHue {

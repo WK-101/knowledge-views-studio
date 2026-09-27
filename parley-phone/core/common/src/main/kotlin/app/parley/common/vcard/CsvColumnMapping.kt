@@ -7,7 +7,7 @@ import app.parley.common.record.Mime
 import app.parley.common.record.RawRecord
 import java.io.Reader
 
-/** What a CSV column holds (M12). */
+/** What a CSV column holds. */
 /** What a CSV column holds. The app shows a localised label for each value. */
 enum class CsvField {
     IGNORE,
@@ -41,7 +41,7 @@ data class ColumnTarget(val field: CsvField, val type: Int? = null) {
 }
 
 /**
- * M12: contact CSVs that aren't Parley's own format (Google, Outlook, "Name,Phone", any headers, semicolon or tab
+ * Contact CSVs that aren't Parley's own format (Google, Outlook, "Name,Phone", any headers, semicolon or tab
  * separated, a single column). [guess] proposes what each column holds, the user corrects it on the mapping screen,
  * and [read] turns each line into a contact with that mapping. Pure: the file is read by the caller.
  */

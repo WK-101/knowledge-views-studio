@@ -9,7 +9,7 @@ import app.parley.common.calls.EmergencyPolicy
 
 /**
  * Safety rules around screening that must hold regardless of user settings:
- * - after an emergency call, nothing is blocked for [EMERGENCY_WINDOW_MS] so call-backs from
+ * - after an emergency call, nothing is blocked for [EmergencyPolicy.WINDOW_MS] so call-backs from
  *   emergency services (often hidden or unknown numbers) always get through;
  * - a decision made by the CallScreeningService is reused by the InCallService instead of
  *   screening (and logging) the same call twice.
@@ -19,7 +19,6 @@ object ScreeningGuard {
     private const val KEY_EMERGENCY = "last_emergency_wall_ms"
     private const val KEY_EMERGENCY_ELAPSED = "last_emergency_elapsed_ms"
     private const val KEY_EMERGENCY_BOOT = "last_emergency_boot"
-    private const val EMERGENCY_WINDOW_MS = EmergencyPolicy.WINDOW_MS
     private const val DECISION_TTL_MS = 30_000L
 
     private data class Recent(val number: String?, val at: Long, val outcome: ScreenOutcome)

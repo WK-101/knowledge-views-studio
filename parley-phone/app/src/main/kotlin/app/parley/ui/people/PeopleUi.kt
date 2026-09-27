@@ -63,7 +63,7 @@ class PeopleUi(
             val e = idx.extras[ct.id]
             if (!(f2.isEmpty || f2.matches(e))) return@filter false
             if (q.isBlank()) return@filter true
-            // I8: addresses, notes, company, websites and handles too (Contacts search only, never the keypad).
+            // Addresses, notes, company, websites and handles too (Contacts search only, never the keypad).
             val extra = idx.search[ct.id] ?: e?.let { BroadSearch.Extra(nickname = it.nickname, company = it.company, title = it.title) }
             val field = BroadSearch.match(q, ct.displayName, ct.phones.map { it.number }, ct.emails, extra) ?: return@filter false
             if (BroadSearch.explains(field)) hints[ct.id] = matchHint(c.appContext.resources, field)
@@ -86,7 +86,7 @@ class PeopleUi(
         list?.let { ListSections.interleave(it) { c -> ListSections.letterOf(c.displayName) } }
     }.flowOn(Dispatchers.Default).stateIn(scope, SharingStarted.WhileSubscribed(5_000), null)
 
-    /** I8: "Matched: address" for contacts the search found by another field than the name or number. */
+    /** "Matched: address" for contacts the search found by another field than the name or number. */
     val searchHints: StateFlow<Map<Long, String>> = searched.map { it?.second.orEmpty() }.stateIn(scope, SharingStarted.WhileSubscribed(5_000), emptyMap())
 
     /** Second line for each visible contact (collisions among visible names are resolved automatically). */

@@ -12,7 +12,7 @@ import android.os.VibratorManager
 import app.parley.common.calltime.CallHaptic
 
 /**
- * Haptics (A6) and earpiece beeps (T1, T5) during calls.
+ * Haptics and earpiece beeps during calls.
  *
  * Vibration respects silent mode and the "Call haptics" setting. Beeps use the voice-call stream, so they
  * play where the call audio plays and the other person doesn't hear them as a separate sound.

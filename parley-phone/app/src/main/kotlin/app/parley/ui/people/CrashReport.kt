@@ -17,6 +17,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -26,15 +27,17 @@ import app.parley.ui.common.Format
 import app.parley.ui.settings.SwitchRow
 import androidx.compose.ui.res.stringResource
 import app.parley.R
+import app.parley.ui.settings.settingSummary
+import app.parley.ui.settings.settingTitle
 
 /**
- * U10: after a crash (with "Keep crash reports" on), the next start offers the report: send it by e-mail or any
+ * After a crash (with "Keep crash reports" on), the next start offers the report: send it by e-mail or any
  * app, with numbers and e-mail addresses masked, or dismiss it. Parley sends nothing itself.
  */
 @Composable
 fun CrashReportHost(vm: AppViewModel) {
     val context = LocalContext.current
-    val res = androidx.compose.ui.platform.LocalResources.current
+    val res = LocalResources.current
     val store = vm.c.people.crashes
     var crash by remember { mutableStateOf(if (store.enabled.value) store.last() else null) }
     val c = crash ?: return
@@ -76,8 +79,8 @@ fun CrashReportsRow(vm: AppViewModel) {
     val store = vm.c.people.crashes
     var on by remember { mutableStateOf(store.enabled.value) }
     SwitchRow(
-        app.parley.ui.settings.settingTitle("crash_reports"),
-        app.parley.ui.settings.settingSummary("crash_reports"),
+        settingTitle("crash_reports"),
+        settingSummary("crash_reports"),
         on,
     ) { v ->
         store.setEnabled(v)

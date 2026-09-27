@@ -34,7 +34,7 @@ import android.icu.util.Measure
 import android.icu.util.MeasureUnit
 import java.util.Locale
 
-/** H3: tap a Recents day header → that day's made / received / missed / rejected calls and talk time. */
+/** Tap a Recents day header → that day's made / received / missed / rejected calls and talk time. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DaySummarySheet(vm: AppViewModel, dayMillis: Long, title: String, onDismiss: () -> Unit) {

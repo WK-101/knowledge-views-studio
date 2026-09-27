@@ -36,7 +36,7 @@ object CircleSnacks {
 }
 
 /**
- * R3 and R2's Undo on the app's snackbar. "Log this?" is shown only once Parley is back in front after the launch
+ * "Log this?" and the Circle's Undo on the app's snackbar. "Log this?" is shown only once Parley is back in front after the launch
  * (the user was in the chat app meanwhile), and not after an hour.
  */
 @Composable
