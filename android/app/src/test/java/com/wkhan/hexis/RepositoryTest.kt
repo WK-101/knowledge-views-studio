@@ -7,8 +7,11 @@ import com.wkhan.hexis.data.AppRepository
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import com.wkhan.hexis.data.entity.AttachmentEntity
+import com.wkhan.hexis.data.entity.HabitEntity
 import com.wkhan.hexis.data.entity.NoteEntity
 import com.wkhan.hexis.data.entity.NotebookEntity
+import com.wkhan.hexis.data.entity.TimeEntryEntity
+import com.wkhan.hexis.domain.Goal
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -176,5 +179,93 @@ class RepositoryTest {
         val n = repo.getNote(noteId)
         assertNotNull("a notebook's notes survive its deletion", n)
         assertNull("the note is reparented to 'no notebook'", n!!.notebookId)
+    }
+
+    // ── Cross-module cascade integrity (R109, Tier-1). The schema declares NO foreign keys — AppRepository
+    // is the single writer that keeps the graph consistent (see the KDoc on deleteHabit/deleteList/
+    // deleteFolder). These pin that a permanent delete clears every back-reference and re-parents children
+    // rather than orphaning rows, mirroring the deleteNote test above. ──
+
+    @Test fun deleteHabit_clearsCrossModuleBackReferences_keepsLinkedRows() = runBlocking {
+        val t0 = 1_700_000_000_000L
+        // Habit A is the victim; B is stacked after A (anchor) and names A as its "instead-of" replacement.
+        repo.upsertHabit(HabitEntity(id = "A", name = "Meditate", createdAt = t0))
+        repo.upsertHabit(HabitEntity(id = "B", name = "Journal", createdAt = t0, anchorHabitId = "A", replacementHabitId = "A"))
+        // A tracked interval tagged to A, and a goal whose habit arm is A.
+        val actId = repo.createTimeActivity("Focus", null, null)
+        repo.upsertTimeEntry(TimeEntryEntity(id = "e1", activityId = actId, startMillis = t0, endMillis = t0 + 60_000L, habitId = "A"))
+        repo.replaceWorkspaceGoals("default", listOf(Goal(id = "g1", name = "Calm", habitId = "A", workspaceId = "default")))
+
+        // Preconditions.
+        assertNotNull(db.habitDao().getById("A"))
+        assertEquals("A", repo.timeEntriesOnce().first { it.id == "e1" }.habitId)
+
+        repo.deleteHabit("A")
+
+        // The habit row is gone…
+        assertNull("habit A permanently deleted", db.habitDao().getById("A"))
+        // …every back-reference to it is cleared, and the referencing rows themselves survive.
+        val b = db.habitDao().getById("B")!!
+        assertNull("stack anchor cleared", b.anchorHabitId)
+        assertNull("replacement pointer cleared", b.replacementHabitId)
+        val e = repo.timeEntriesOnce().first { it.id == "e1" }
+        assertNull("time entry keeps its row, loses the habit link", e.habitId)
+        assertEquals("time entry not deleted", actId, e.activityId)
+        val g = repo.goalsFromTableOnce().first { it.id == "g1" }
+        assertEquals("goal's habit arm blanked, goal kept", "", g.habitId)
+    }
+
+    @Test fun deleteList_deletesItsTasks_andReparentsChildLists() = runBlocking {
+        val parent = repo.createList("Project")
+        val taskId = repo.createTask(parent, "Do work")
+        val child = repo.createList("Sub-project", parentListId = parent)
+
+        repo.deleteList(parent)
+
+        assertNull("list deleted", repo.getList(parent))
+        assertNull("its tasks are permanently removed", repo.getTask(taskId))
+        val c = repo.getList(child)
+        assertNotNull("child list survives", c)
+        assertNull("child list re-parented up to root (not orphaned under a dead list)", c!!.parentListId)
+    }
+
+    @Test fun deleteFolder_reparentsListsAndChildFoldersToParent() = runBlocking {
+        val folderId = repo.createFolder("Area")
+        val childFolder = repo.createFolder("Sub-area", parentId = folderId)
+        val listId = repo.createList("A list", folderId = folderId)
+
+        repo.deleteFolder(folderId)
+
+        assertNull("folder deleted", db.folderDao().getAll().firstOrNull { it.id == folderId })
+        assertNull("its lists move up to the folder's parent (root here)", repo.getList(listId)!!.folderId)
+        val cf = db.folderDao().getAll().first { it.id == childFolder }
+        assertNull("child folder re-parented up to root", cf.parentId)
+    }
+
+    // ── R109 (Tier-1 scalability): the windowed / aggregate time-entry SQL reads only the range it draws. ──
+
+    @Test fun timeEntriesBetween_and_activityTotals_windowAndAggregateInSql() = runBlocking {
+        val a1 = repo.createTimeActivity("Deep Work", null, null)
+        val a2 = repo.createTimeActivity("Email", null, null)
+        val day = 1_700_000_000_000L
+        val hour = 3_600_000L
+        // Finished entries: two on a1 (30m + 45m) and one on a2 (20m), all inside the window…
+        repo.upsertTimeEntry(TimeEntryEntity(id = "w1", activityId = a1, startMillis = day, endMillis = day + 30 * 60_000L))
+        repo.upsertTimeEntry(TimeEntryEntity(id = "w2", activityId = a1, startMillis = day + hour, endMillis = day + hour + 45 * 60_000L))
+        repo.upsertTimeEntry(TimeEntryEntity(id = "w3", activityId = a2, startMillis = day + 2 * hour, endMillis = day + 2 * hour + 20 * 60_000L))
+        // …one finished entry that STARTS before the window (excluded)…
+        repo.upsertTimeEntry(TimeEntryEntity(id = "old", activityId = a1, startMillis = day - hour, endMillis = day - hour + 60 * 60_000L))
+        // …and one still-running entry inside the window (counted by the range read; excluded from the SUM).
+        repo.upsertTimeEntry(TimeEntryEntity(id = "run", activityId = a2, startMillis = day + 3 * hour, endMillis = null))
+
+        val windowStart = day
+        val windowEnd = day + 4 * hour
+
+        val inWindow = repo.timeEntriesBetween(windowStart, windowEnd).map { it.id }.toSet()
+        assertEquals("half-open window includes start, excludes before-start", setOf("w1", "w2", "w3", "run"), inWindow)
+
+        val totals = repo.timeMinutesByActivityBetween(windowStart, windowEnd)
+        assertEquals("a1 = 30 + 45 min, floored from SQL SUM", 75L, totals[a1])
+        assertEquals("a2 = 20 min (running 'run' has no end → not summed)", 20L, totals[a2])
     }
 }
