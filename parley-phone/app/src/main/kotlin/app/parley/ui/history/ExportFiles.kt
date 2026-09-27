@@ -26,6 +26,7 @@ import app.parley.common.history.ExportFormat
 import app.parley.common.history.ExportNote
 import app.parley.common.history.ExportRow
 import app.parley.container
+import app.parley.data.PhoneEnv
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
@@ -49,7 +50,7 @@ object ExportFiles {
         val c = context.container
         val sims = c.sims.accounts().associate { it.id to it.label }
         val notes = c.meta.allCallNotes().first().map { ExportNote(it.numberKey, it.callDate, it.text) }
-        CallExport.rows(calls, names, { id -> id?.let { sims[it] } }, notes)
+        CallExport.rows(calls, names, { id -> id?.let { sims[it] } }, notes, PhoneEnv.countryIso(context))
     }
 
     /** Writes [rows] in [format] and returns the file (older exports are removed first). */

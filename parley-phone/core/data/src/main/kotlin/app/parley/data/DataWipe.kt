@@ -63,6 +63,13 @@ class DataWipe(private val context: Context, private val c: DataContainer) {
                 StoreKind.ROOM_TABLE -> Unit
             }
         }
+        // Call-history archives and wrapped keys set aside after a key loss (CallHistory.startOver) aren't registered
+        // stores, but they are still Parley's data.
+        step("set-aside history") {
+            context.getDatabasePath(PersistentStores.HISTORY_DB).parentFile?.listFiles()
+                ?.filter { it.name.startsWith(LOST_HISTORY_PREFIX) }?.forEach { it.delete() }
+            context.noBackupFilesDir.listFiles()?.filter { it.name.startsWith(LOST_KEYS_PREFIX) }?.forEach { it.delete() }
+        }
         step("cache") { context.cacheDir.listFiles()?.forEach { it.deleteRecursively() } }
         Result(failed)
     }
@@ -97,5 +104,7 @@ class DataWipe(private val context: Context, private val c: DataContainer) {
 
     private companion object {
         const val TAG = "DataWipe"
+        const val LOST_HISTORY_PREFIX = "parley-history-lost-"
+        const val LOST_KEYS_PREFIX = "history.keys."
     }
 }

@@ -114,4 +114,16 @@ class PhoneIdentityTest {
         assertNull(m[""])
         assertFalse(m.isEmpty)
     }
+
+    @Test fun known_set_keeps_contacts_saved_in_another_countrys_national_format() {
+        // A German mobile saved nationally on a phone set to France reads as a French E.164 form.
+        val contacts = listOf("0171 1234567", "06 12 34 56 78")
+        assertFalse("+491711234567" in PhoneIdentity.LineSet(contacts, "FR"))
+        val known = PhoneIdentity.KnownSet(contacts, "FR")
+        assertTrue("+491711234567" in known)
+        assertTrue("+33 6 12 34 56 78" in known)
+        assertTrue("0612345678" in known)
+        assertFalse("+33699999999" in known)
+        assertFalse("112" in known)
+    }
 }

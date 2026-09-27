@@ -1,6 +1,8 @@
 package app.parley.data
 
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
 import android.util.Log
 import androidx.room.withTransaction
 import app.parley.common.PhoneIdentity
@@ -40,6 +42,7 @@ class PhoneKeyMigrator(
     suspend fun runIfNeeded(): Int = withContext(Dispatchers.IO) {
         if (done) return@withContext 0
         // Without the contacts or the calls, too little is known to resolve anything: try again at the next start.
+        if (!canRead()) return@withContext 0
         val people = withTimeoutOrNull(WAIT_MS) { contacts.contacts.filterNotNull().first() } ?: return@withContext 0
         val calls = withTimeoutOrNull(WAIT_MS) { history().calls.filterNotNull().first() } ?: return@withContext 0
         val region = PhoneEnv.countryIso(context)
@@ -48,7 +51,11 @@ class PhoneKeyMigrator(
         val meta = db.metaDao()
         val blocks = db.blockDao()
         val sims = db.prefsDao()
-        val stored = meta.callNoteKeys() + blocks.ringKeys() + sims.allSimsNow().map { it.matchKey }
+        // The messaged-numbers record's old entries too, so they resolve through contacts and calls on their own.
+        val messagedDigits = runCatching { messaging().legacyDigits() }.getOrDefault(emptyList())
+        val stored = meta.callNoteKeys() + blocks.ringKeys() + sims.allSimsNow().map { it.matchKey } + messagedDigits
+        // Nothing known yet (a phone still syncing its contacts): marking the migration done would strand old keys.
+        if (known.isEmpty() && stored.any { PhoneIdentity.isLegacyKey(it) }) return@withContext 0
         val plan = PhoneKeyMigration.plan(stored, known, region)
         try {
             if (plan.isNotEmpty()) {
@@ -74,6 +81,10 @@ class PhoneKeyMigrator(
             0
         }
     }
+
+    /** Without the permissions, contacts and calls read as empty lists rather than as missing. */
+    private fun canRead() = listOf(Manifest.permission.READ_CONTACTS, Manifest.permission.READ_CALL_LOG)
+        .all { context.checkSelfPermission(it) == PackageManager.PERMISSION_GRANTED }
 
     companion object {
         /** Registered in [PersistentStores]. */

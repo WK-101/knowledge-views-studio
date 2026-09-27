@@ -107,7 +107,7 @@
 
     <!-- Contact health check (core/data) -->
     <string name="data_health_number_as_name">No name, only a number</string>
-    <string name="data_health_empty">No number or e-mail</string>
+    <string name="data_health_empty">No number or email</string>
     <string name="data_health_shared">Same number as %1$s</string>
     <string name="data_health_stale">No calls in over 2 years</string>
     <string name="data_health_country_code">%1$s → %2$s</string>

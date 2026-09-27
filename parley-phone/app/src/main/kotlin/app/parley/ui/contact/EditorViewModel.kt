@@ -57,6 +57,10 @@ sealed interface EditorEvent {
  * The contact editor's state and its save. The draft, the picked photo, the account and the other choices live here,
  * so rotation, a theme, font or language change keep the edit; they are also written to saved state, so the edit
  * survives the process being stopped in the background (for example while the photo picker is open).
+ *
+ * Saved state holds only the draft and the choices: the contact is loaded again on restore (so a private contact goes
+ * through the vault's unlock again), and a private draft is sealed with the vault's detail key, never kept in plain
+ * text outside Parley.
  */
 class EditorViewModel(private val c: DataContainer, private val saved: SavedStateHandle) : ViewModel() {
     private val saveContact = SaveContactUseCase(c)
@@ -138,12 +142,13 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
         viewModelScope.launch {
             accounts = withContext(Dispatchers.IO) { c.contacts.accounts() }
             groups = withContext(Dispatchers.IO) { c.contacts.groups() }
-            if (restored != null && restore(restored)) return@launch
-            load(a)
+            if (!load(a)) return@launch
+            if (restored != null && restored.containsKey(K_HAS_ACCOUNT)) restore(restored)
         }
     }
 
-    private suspend fun load(a: EditorArgs) {
+    /** Loads the contact (or the new one's prefill); false when the editor is leaving (the vault is locked). */
+    private suspend fun load(a: EditorArgs): Boolean {
         if (a.contactId == null && a.vaultId == null) privateNew = c.people.prefs.current().privateByDefault
         val s = c.settings.settings.value
         account = accounts.firstOrNull { it.type == s.defaultAccountType && it.name == s.defaultAccountName }
@@ -155,16 +160,15 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
                 try {
                     c.vault.details(vaultId)
                 } catch (_: VaultCrypto.LockedException) {
-                    eventChannel.send(EditorEvent.Message(c.appContext.getString(R.string.edit_unlock_first)))
-                    eventChannel.send(EditorEvent.Done(null))
-                    return
+                    leaveLocked()
+                    return false
                 } ?: ContactDetails()
             } else {
                 a.prefill ?: ContactDetails()
             }
             draft = withPhoneRow(e)
             start = draft
-            return
+            return true
         }
         if (a.contactId != null) {
             val d = if (a.rawId != null) c.contacts.editableRaw(a.contactId, a.rawId) else c.contacts.editable(a.contactId)
@@ -181,7 +185,7 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
             if (a.prefill != null) {
                 draft = withPhoneRow(a.prefill)
                 start = null
-                return
+                return true
             }
             val parts = a.prefillName.trim().split(Regex("\\s+"), limit = 2)
             draft = ContactDetails(
@@ -192,6 +196,12 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
             )
             start = draft
         }
+        return true
+    }
+
+    private suspend fun leaveLocked() {
+        eventChannel.send(EditorEvent.Message(c.appContext.getString(R.string.edit_unlock_first)))
+        eventChannel.send(EditorEvent.Done(null))
     }
 
     fun update(f: (ContactDetails) -> ContactDetails) {
@@ -278,20 +288,17 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
 
     private fun toBundle(): Bundle {
         val d = draft ?: return Bundle()
-        return bundleOf(
-            K_DRAFT to ContactDraftJson.encode(d),
-            K_ORIGINAL to original?.let(ContactDraftJson::encode),
-            K_START to start?.let(ContactDraftJson::encode),
+        val b = bundleOf(
             K_ACCOUNT_TYPE to account?.type,
             K_ACCOUNT_NAME to account?.name,
             K_HAS_ACCOUNT to (account != null),
             K_PHOTO to photo,
             K_REMOVE_PHOTO to removePhoto,
             K_PRIVATE_NEW to privateNew,
-            K_BACKGROUND to when (val b = background) {
+            K_BACKGROUND to when (val bg = background) {
                 BackgroundChange.None -> null
                 BackgroundChange.Remove -> BG_REMOVE
-                is BackgroundChange.Set -> b.uri.toString()
+                is BackgroundChange.Set -> bg.uri.toString()
             },
             K_LINKS to encodeLinks(pickedLinks),
             K_MORE_NAME to moreName,
@@ -299,15 +306,33 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
             K_ASK_KEEP_KEY to askKeep?.first,
             K_ASK_KEEP_ID to (askKeep?.second ?: 0L),
         )
+        // A draft too large for the saved-state transaction is left out: the contact is loaded again instead.
+        val json = ContactDraftJson.encode(d).takeIf { it.length <= MAX_DRAFT_CHARS } ?: return b
+        if (isVault) {
+            // Sealed, or not kept at all when the vault's key is locked right now.
+            runCatching { VaultCrypto.sealDetail(json.toByteArray()) }.getOrNull()?.let { b.putByteArray(K_SEALED_DRAFT, it) }
+        } else {
+            b.putString(K_DRAFT, json)
+        }
+        return b
     }
 
-    /** Puts back an edit saved before the process was stopped; false when there was none. */
-    private fun restore(b: Bundle): Boolean {
-        val d = b.getString(K_DRAFT) ?: return false
-        val decoded = runCatching { ContactDraftJson.decode(d) }.getOrNull() ?: return false
-        original = b.getString(K_ORIGINAL)?.let { runCatching { ContactDraftJson.decode(it) }.getOrNull() }
-        start = b.getString(K_START)?.let { runCatching { ContactDraftJson.decode(it) }.getOrNull() }
-        draft = decoded
+    /** Puts back an edit saved before the process was stopped, over the contact [load] just read. */
+    private suspend fun restore(b: Bundle) {
+        val sealed = b.getByteArray(K_SEALED_DRAFT)
+        val json = if (sealed != null) {
+            try {
+                withContext(Dispatchers.IO) { VaultCrypto.openDetail(sealed).decodeToString() }
+            } catch (_: VaultCrypto.LockedException) {
+                leaveLocked()
+                return
+            } catch (_: Exception) {
+                null
+            }
+        } else {
+            b.getString(K_DRAFT)
+        }
+        json?.let { runCatching { ContactDraftJson.decode(it) }.getOrNull() }?.let { draft = it }
         account = if (b.getBoolean(K_HAS_ACCOUNT)) AccountRef(b.getString(K_ACCOUNT_TYPE), b.getString(K_ACCOUNT_NAME)) else null
         @Suppress("DEPRECATION")
         photo = b.getParcelable(K_PHOTO)
@@ -322,7 +347,6 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
         moreName = b.getBoolean(K_MORE_NAME)
         revealed = b.getStringArray(K_REVEALED).orEmpty().mapNotNull { n -> EditorForm.Kind.entries.firstOrNull { it.name == n } }.toSet()
         askKeep = b.getString(K_ASK_KEEP_KEY)?.let { it to b.getLong(K_ASK_KEEP_ID) }
-        return true
     }
 
     private fun encodeLinks(links: Map<String, RelationLinks.Link>): String = JSONObject().apply {
@@ -337,8 +361,7 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
     private companion object {
         const val STATE = "editor"
         const val K_DRAFT = "draft"
-        const val K_ORIGINAL = "original"
-        const val K_START = "start"
+        const val K_SEALED_DRAFT = "sealedDraft"
         const val K_ACCOUNT_TYPE = "accountType"
         const val K_ACCOUNT_NAME = "accountName"
         const val K_HAS_ACCOUNT = "hasAccount"
@@ -352,6 +375,9 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
         const val K_ASK_KEEP_KEY = "askKeepKey"
         const val K_ASK_KEEP_ID = "askKeepId"
         const val BG_REMOVE = "remove"
+
+        /** About 200 KB in the parcel (UTF-16), well under the binder transaction limit with the rest of the state. */
+        const val MAX_DRAFT_CHARS = 100_000
     }
 }
 

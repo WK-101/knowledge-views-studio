@@ -69,14 +69,16 @@ fun ClearHistoryDialog(vm: AppViewModel, shown: List<CallEntry>?, open: (String)
     val contacts by vm.contacts.collectAsStateWithLifecycle()
     val contactsAllowed by vm.hasContactsPermission.collectAsStateWithLifecycle()
     val iso = vm.countryIso
-    val vaultKeys = remember(vault) { vault.flatMap { v -> v.numbers.map { PhoneIdentity.key(it, iso) } }.toHashSet() }
+    val vaultKeys = remember(vault) { PhoneIdentity.KnownSet(vault.flatMap { v -> v.numbers }, iso) }
     // "Unknown numbers" only once the contacts are really there: before they load, or without the permission, every
     // number would look unknown (and calls with family and friends would go).
     val contactsReady = contactsAllowed && !contacts.isNullOrEmpty()
-    val known = remember(contacts) { PhoneIdentity.LineSet(contacts.orEmpty().flatMap { ct -> ct.phones.map { it.number } }.filter { PhoneNumbers.digits(it).length >= 3 }, iso) }
+    val known = remember(contacts) {
+        PhoneIdentity.KnownSet(contacts.orEmpty().flatMap { ct -> ct.phones.map { it.number } }.filter { PhoneNumbers.digits(it).length >= 3 }, iso)
+    }
     val isKnown = { n: String -> n in known }
     // Private contacts' calls are never cleared here, not even before the vault has moved them out of the system log.
-    val isPrivate = { n: String -> PhoneIdentity.key(n, iso) in vaultKeys }
+    val isPrivate = { n: String -> n in vaultKeys }
     val shownIds = remember(shown) { shown?.map { it.id }?.toSet().orEmpty() }
     val scopes = buildList {
         // "What Recents shows now" only when filters or a search narrow it down.

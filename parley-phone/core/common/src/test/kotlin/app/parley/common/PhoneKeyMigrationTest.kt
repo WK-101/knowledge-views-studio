@@ -51,4 +51,14 @@ class PhoneKeyMigrationTest {
         assertEquals("+33612345678", moved.key)
         assertEquals(moved, MessagedRecord.find(listOf(moved), "06 12 34 56 78", "FR"))
     }
+
+    @Test fun messaged_record_legacy_digits_resolve_through_known_numbers() {
+        val old = MessagedRecord.fromLegacy("612345678", "org.example", "Chat", 10)!!
+        val current = MessagedEntry("+33700000000", "+33700000000", null, "SMS", 20)
+        val digits = MessagedRecord.legacyDigits(listOf(old, current))
+        assertEquals(listOf("612345678"), digits)
+        // No other table holds these digits: the plan still resolves them through the contacts and calls.
+        val plan = PhoneKeyMigration.plan(digits, listOf("06 12 34 56 78"), "FR")
+        assertEquals("+33612345678", MessagedRecord.rekeyLegacy(listOf(old), plan).single().key)
+    }
 }

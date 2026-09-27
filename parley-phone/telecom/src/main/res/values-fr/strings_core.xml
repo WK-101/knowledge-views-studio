@@ -156,7 +156,6 @@
     <string name="postcall_what_to_do">Que voulez-vous faire de ce numéro ?</string>
     <string name="postcall_block">Bloquer</string>
     <string name="postcall_save_privately">Enregistrer en privé</string>
-    <string name="postcall_message_on">Écrire via…</string>
     <string name="postcall_report">Signaler</string>
     <string name="postcall_save_title">Enregistrer en privé pendant 7 jours</string>
     <string name="postcall_name">Nom</string>

@@ -54,9 +54,10 @@ object CallExport {
 
     /**
      * Attaches notes to calls: a note belongs to a call on the same number written between one minute before
-     * the call started and ten minutes after it ended (notes are stamped with the connect time).
+     * the call started and ten minutes after it ended (notes are stamped with the connect time). [region] is the
+     * phone's country, the same one notes are keyed with, so nationally written numbers find their notes.
      */
-    fun rows(calls: List<CallEntry>, names: (CallEntry) -> String?, simLabel: (String?) -> String?, notes: List<ExportNote>, region: String? = null): List<ExportRow> {
+    fun rows(calls: List<CallEntry>, names: (CallEntry) -> String?, simLabel: (String?) -> String?, notes: List<ExportNote>, region: String?): List<ExportRow> {
         val byKey = notes.groupBy { it.numberKey }
         return calls.map { e ->
             // Notes are stored under the line's key, or under the old last-digits key before it was migrated.
