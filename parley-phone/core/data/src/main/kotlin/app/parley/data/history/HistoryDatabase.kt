@@ -60,8 +60,13 @@ interface HistoryDao {
     @Query("SELECT * FROM archived_calls ORDER BY date DESC")
     suspend fun all(): List<ArchivedCallEntity>
 
-    @Query("SELECT id FROM archived_calls ORDER BY date DESC, id DESC")
-    suspend fun idsNewestFirst(): List<Long>
+    /** Ids of the newest [limit] rows (the window kept decrypted in memory). */
+    @Query("SELECT id FROM archived_calls ORDER BY date DESC, id DESC LIMIT :limit")
+    suspend fun newestIds(limit: Int): List<Long>
+
+    /** A page of rows, newest first, for reading the whole archive without holding it. */
+    @Query("SELECT * FROM archived_calls ORDER BY date DESC, id DESC LIMIT :limit OFFSET :offset")
+    suspend fun page(limit: Int, offset: Int): List<ArchivedCallEntity>
 
     @Query("SELECT * FROM archived_calls WHERE id IN (:ids)")
     suspend fun byIds(ids: List<Long>): List<ArchivedCallEntity>

@@ -332,8 +332,12 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
 
     override fun simRulesActive(): Boolean = c.screener.hasSimRules()
 
-    override fun startsEmergencyWindow(number: String): Boolean =
-        c.settings.settings.value.screening.emergencyExtras.any { PhoneNumbers.same(it, number, PhoneEnv.countryIso(app)) }
+    override fun startsEmergencyWindow(number: String): Boolean {
+        val extras = c.settings.settings.value.screening.emergencyExtras
+        if (extras.isEmpty()) return false
+        val iso = PhoneEnv.countryIso(app)
+        return extras.any { PhoneNumbers.same(it, number, iso) }
+    }
 
     override fun isEmergencyNumber(number: String): Boolean = EmergencyNumbers.isEmergency(app, number)
 

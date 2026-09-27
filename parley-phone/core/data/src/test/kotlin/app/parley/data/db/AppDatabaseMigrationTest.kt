@@ -73,7 +73,7 @@ class AppDatabaseMigrationTest {
 
     private companion object {
         const val NAME = "migration-test.db"
-        const val LATEST = 7
+        const val LATEST = 8
     }
 }
 

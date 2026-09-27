@@ -1,6 +1,6 @@
 package app.parley.data.vault
 
-import java.util.Locale
+import app.parley.common.Hex
 import android.os.Build
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyPermanentlyInvalidatedException
@@ -127,7 +127,7 @@ object VaultCrypto {
         }
         val mac = Mac.getInstance("HmacSHA256")
         mac.init(key)
-        return mac.doFinal(value.toByteArray()).joinToString("") { "%02x".format(Locale.ROOT, it) }
+        return Hex.encode(mac.doFinal(value.toByteArray()))
     }
 
     fun randomBytes(n: Int) = ByteArray(n).also { random.nextBytes(it) }

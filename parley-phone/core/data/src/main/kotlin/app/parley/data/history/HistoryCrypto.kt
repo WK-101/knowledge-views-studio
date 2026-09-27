@@ -2,8 +2,8 @@ package app.parley.data.history
 
 import android.security.keystore.KeyPermanentlyInvalidatedException
 import java.security.UnrecoverableKeyException
-import java.util.Locale
 import android.content.Context
+import app.parley.common.Hex
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import java.io.File
@@ -89,10 +89,14 @@ internal class HistoryCrypto(context: Context) {
 
     /** Keyed fingerprint (hex, 128 bits) so rows can be matched and deduplicated without decrypting. */
     fun mac(value: String): String {
-        val m = Mac.getInstance("HmacSHA256")
-        m.init(keys().second)
-        return m.doFinal(value.toByteArray(Charsets.UTF_8)).take(16).joinToString("") { "%02x".format(Locale.ROOT, it) }
+        val key = keys().second
+        // One initialised Mac per thread and key: a full sync fingerprints every call-log row. doFinal resets it.
+        val m = macs.get()?.takeIf { it.first === key }?.second
+            ?: Mac.getInstance("HmacSHA256").also { it.init(key); macs.set(key to it) }
+        return Hex.encode(m.doFinal(value.toByteArray(Charsets.UTF_8)), MAC_BYTES)
     }
+
+    private val macs = ThreadLocal<Pair<SecretKeySpec, Mac>>()
 
     private fun keyStore(): KeyStore = KeyStore.getInstance(STORE).apply { load(null) }
 
@@ -149,5 +153,8 @@ internal class HistoryCrypto(context: Context) {
         const val STORE = "AndroidKeyStore"
         const val ALIAS = "parley_history_wrap_v1"
         const val VERSION: Byte = 1
+
+        /** Fingerprints keep the first 128 bits of the HMAC. */
+        const val MAC_BYTES = 16
     }
 }
