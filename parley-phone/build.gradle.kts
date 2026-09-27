@@ -1,6 +1,8 @@
 plugins {
     alias(libs.plugins.android.application) apply false
     alias(libs.plugins.android.library) apply false
+    alias(libs.plugins.android.test) apply false
+    alias(libs.plugins.androidx.baselineprofile) apply false
     alias(libs.plugins.kotlin.android) apply false
     alias(libs.plugins.kotlin.jvm) apply false
     alias(libs.plugins.kotlin.compose) apply false
@@ -113,7 +115,7 @@ detekt {
     config.setFrom(files("config/detekt/detekt.yml"))
     baseline = file("config/detekt/baseline.xml")
     source.setFrom(
-        listOf("app", "core/common", "core/data", "core/ui", "telecom", "lists-updater").flatMap { m ->
+        listOf("app", "core/common", "core/data", "core/ui", "telecom", "lists-updater", "baselineprofile").flatMap { m ->
             listOf("$m/src/main/kotlin", "$m/src/test/kotlin", "$m/src/testShared/kotlin")
         }.map { file(it) }.filter { it.exists() },
     )

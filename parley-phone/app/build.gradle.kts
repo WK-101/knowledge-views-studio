@@ -6,6 +6,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.androidx.baselineprofile)
 }
 
 val keystoreProps = Properties().apply {
@@ -114,6 +115,13 @@ kotlin {
     compilerOptions { jvmTarget.set(JvmTarget.JVM_17) }
 }
 
+// `./gradlew :app:generateBaselineProfile` with a device connected writes src/release/generated/baselineProfiles/;
+// never during an ordinary build (F-Droid builds without a device).
+baselineProfile {
+    automaticGenerationDuringBuild = false
+    saveInSrc = true
+}
+
 dependencies {
     implementation(project(":core:common"))
     implementation(project(":core:data"))
@@ -127,6 +135,11 @@ dependencies {
     implementation(libs.zxing.core)
     implementation(libs.androidx.fragment)
     implementation(libs.androidx.work)
+    // Installs the baseline profile (app/src/main/baseline-prof.txt plus the generated one) on sideloaded and F-Droid
+    // installs, which get no cloud profiles.
+    implementation(libs.androidx.profileinstaller)
+    implementation(libs.androidx.core.splashscreen)
+    baselineProfile(project(":baselineprofile"))
     debugImplementation(libs.compose.ui.tooling.preview)
 
     testImplementation(libs.junit)

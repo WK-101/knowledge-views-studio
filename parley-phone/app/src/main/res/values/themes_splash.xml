@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The launch window of the main activity: the system splash (the app icon on Parley's window colour), held until
+         the settings are read, then Theme.Parley. Also dark in dark mode (parley_window has a night value). -->
+    <style name="Theme.Parley.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/parley_window</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="postSplashScreenTheme">@style/Theme.Parley</item>
+    </style>
+</resources>
