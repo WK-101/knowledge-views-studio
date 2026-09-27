@@ -150,26 +150,31 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
      * none do.
      */
     suspend fun upgradeDetailKey(): Boolean = withContext(Dispatchers.IO) {
-        if (!VaultCrypto.detailKeyNeedsUpgrade()) return@withContext false
+        // Under the key lock throughout: every save seals and writes under it too, so no blob can be sealed with a
+        // key this deletes, and no row read before the upgrade is written back after it.
         keysLock.withLock {
+            VaultCrypto.reconcileGenerations(generationsInUse())
+            if (!VaultCrypto.detailKeyNeedsUpgrade()) return@withLock false
             VaultCrypto.upgradeDetailKey(
                 reseal = { convert ->
-                    val all = dao.all()
                     // Entries whose key was already lost stay as they are; everything else must convert.
-                    val converted = all.mapNotNull { e ->
+                    val converted = dao.all().mapNotNull { e ->
                         try {
-                            e.copy(detailBlob = convert(e.detailBlob))
+                            e.id to convert(e.detailBlob)
                         } catch (_: VaultCrypto.KeyLostException) {
                             null
                         }
                     }
-                    db.withTransaction { converted.forEach { dao.upsert(it) } }
+                    // Only the sealed details change: expiry and the caller-ID copy stay as they are now.
+                    db.withTransaction { converted.forEach { (id, blob) -> dao.setDetailBlob(id, blob) } }
                     true
                 },
-                inUse = { dao.all().map { VaultCrypto.generationOf(it.detailBlob) }.toSet() },
+                inUse = { generationsInUse() },
             )
         }
     }
+
+    private suspend fun generationsInUse(): Set<Int> = dao.all().map { VaultCrypto.generationOf(it.detailBlob) }.toSet()
 
     /**
      * The details that survive a lost detail key, from the caller-ID copy [o]: name, numbers and labels, and the
@@ -210,55 +215,58 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
         val name = d.composedName.ifBlank { d.company.ifBlank { d.phones.firstOrNull()?.value ?: context.getString(R.string.data_vault_fallback_name) } }
         val region = region()
         val numbers = d.phones.map { it.value }.filter { it.isNotBlank() }
-        val existing = id?.let { dao.get(it) }
-        val purge = purgeHistory ?: existing?.let { summarize(it)?.purgeHistory } ?: false
-        val caller = JSONObject().put("name", name).put("numbers", JSONArray(numbers))
-            .put("labels", JSONArray(d.phones.filter { it.value.isNotBlank() }.map { it.type }))
-            // The caller card's extra lines, readable while the phone is locked like the name.
-            .apply {
-                CallerCard.subtitle(d.title, d.company)?.let { put("sub", it) }
-                // Kept apart too, so a lost detail key can restore them (see rebuiltFromCallerId).
-                d.title.trim().ifEmpty { null }?.let { put(C_TITLE, it) }
-                d.company.trim().ifEmpty { null }?.let { put(C_COMPANY, it) }
-                d.context.trim().ifEmpty { null }?.let { put("ctx", it) }
-                d.pinnedNote.trim().ifEmpty { null }?.let { put("note", it) }
-            }
-            // When it was last saved, so the newest of two entries sharing a number wins.
-            .put("u", System.currentTimeMillis())
-            .apply { if (purge) put("purge", true) }
-            // The region national numbers were read with, so re-fingerprinting later uses the same one.
-            .put(C_REGION, region)
-        val detailsJson = ContactDetailsJson.encode(d.copy(photoUri = null))
-        val detail = JSONObject(detailsJson)
-        if (record != null) {
-            val blobs = JSONObject()
-            detail.put(REC, RecordJson.encode(record) { h, b -> blobs.put(h, Base64.encodeToString(b, Base64.NO_WRAP)) })
-            detail.put(REC_BLOBS, blobs)
-            // [recordOf] (a restored backup): the hash stored with the record, so "edited since" survives.
-            detail.put(REC_OF, recordOf ?: RecordJson.sha256Hex(ContactDetailsJson.encode(ContactDetailsJson.decode(detailsJson)).toByteArray()))
-        }
-        if (interactions != null) detail.put(INTERACTIONS, interactions)
-        if (existing != null && (record == null || interactions == null)) {
-            // Keep the original record (the details hash then no longer matches: it was edited) and the carried
-            // interactions through edits.
-            val keep = (if (record == null) listOf(REC, REC_BLOBS, REC_OF) else emptyList()) + (if (interactions == null) listOf(INTERACTIONS) else emptyList())
-            val old = try {
-                JSONObject(String(VaultCrypto.openDetail(existing.detailBlob)))
-            } catch (_: VaultCrypto.KeyLostException) {
-                // The user is saving over a record that can't be opened any more: keep the old blob aside first.
-                setAside(existing.id, existing.detailBlob)
-                null
-            }
-            old?.let { keep.forEach { k -> if (old.has(k)) detail.put(k, old.get(k)) } }
-        }
-        val entity = VaultContactEntity(
-            id = id ?: 0,
-            callerIdBlob = VaultCrypto.sealCallerId(caller.toString().toByteArray()),
-            detailBlob = VaultCrypto.sealDetail(detail.toString().toByteArray()),
-            expiresAt = expiresAt ?: existing?.expiresAt,
-            createdAt = existing?.createdAt ?: System.currentTimeMillis(),
-        )
+        // Read, sealed and written under the key lock, so a key upgrade can't delete the key this seals with, and an
+        // expiry or a re-seal made meanwhile isn't overwritten with what was read before it.
         keysLock.withLock {
+            val existing = id?.let { dao.get(it) }
+            val purge = purgeHistory ?: existing?.let { summarize(it)?.purgeHistory } ?: false
+            val caller = JSONObject().put("name", name).put("numbers", JSONArray(numbers))
+                .put("labels", JSONArray(d.phones.filter { it.value.isNotBlank() }.map { it.type }))
+                // The caller card's extra lines, readable while the phone is locked like the name.
+                .apply {
+                    CallerCard.subtitle(d.title, d.company)?.let { put("sub", it) }
+                    // Kept apart too, so a lost detail key can restore them (see rebuiltFromCallerId).
+                    d.title.trim().ifEmpty { null }?.let { put(C_TITLE, it) }
+                    d.company.trim().ifEmpty { null }?.let { put(C_COMPANY, it) }
+                    d.context.trim().ifEmpty { null }?.let { put("ctx", it) }
+                    d.pinnedNote.trim().ifEmpty { null }?.let { put("note", it) }
+                }
+                // When it was last saved, so the newest of two entries sharing a number wins.
+                .put("u", System.currentTimeMillis())
+                .apply { if (purge) put("purge", true) }
+                // The region national numbers were read with, so re-fingerprinting later uses the same one.
+                .put(C_REGION, region)
+            val detailsJson = ContactDetailsJson.encode(d.copy(photoUri = null))
+            val detail = JSONObject(detailsJson)
+            if (record != null) {
+                val blobs = JSONObject()
+                detail.put(REC, RecordJson.encode(record) { h, b -> blobs.put(h, Base64.encodeToString(b, Base64.NO_WRAP)) })
+                detail.put(REC_BLOBS, blobs)
+                // [recordOf] (a restored backup): the hash stored with the record, so "edited since" survives.
+                detail.put(REC_OF, recordOf ?: RecordJson.sha256Hex(ContactDetailsJson.encode(ContactDetailsJson.decode(detailsJson)).toByteArray()))
+            }
+            if (interactions != null) detail.put(INTERACTIONS, interactions)
+            if (existing != null && (record == null || interactions == null)) {
+                // Keep the original record (the details hash then no longer matches: it was edited) and the carried
+                // interactions through edits.
+                val keep = (if (record == null) listOf(REC, REC_BLOBS, REC_OF) else emptyList()) +
+                    (if (interactions == null) listOf(INTERACTIONS) else emptyList())
+                val old = try {
+                    JSONObject(String(VaultCrypto.openDetail(existing.detailBlob)))
+                } catch (_: VaultCrypto.KeyLostException) {
+                    // The user is saving over a record that can't be opened any more: keep the old blob aside first.
+                    setAside(existing.id, existing.detailBlob)
+                    null
+                }
+                old?.let { keep.forEach { k -> if (old.has(k)) detail.put(k, old.get(k)) } }
+            }
+            val entity = VaultContactEntity(
+                id = id ?: 0,
+                callerIdBlob = VaultCrypto.sealCallerId(caller.toString().toByteArray()),
+                detailBlob = VaultCrypto.sealDetail(detail.toString().toByteArray()),
+                expiresAt = expiresAt ?: existing?.expiresAt,
+                createdAt = existing?.createdAt ?: System.currentTimeMillis(),
+            )
             db.withTransaction {
                 val newId = dao.upsert(entity).let { if (id != null) id else it }
                 dao.clearNumbers(newId)
@@ -270,7 +278,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
 
     private fun region(): String = PhoneEnv.countryIso(context)
 
-    /** Serialises fingerprint writes: a save and the one-off re-keying must never interleave. */
+    /** Serialises writes of sealed details and fingerprints: saves, expiry changes, key upgrades and re-keying never interleave. */
     private val keysLock = Mutex()
 
     /**
@@ -318,10 +326,13 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
 
     init {
         scope.launch { runCatching { migrateNumberKeys() } }
+        // Settles the key generation from the stored blobs before anything audits it (an interrupted upgrade).
+        scope.launch { runCatching { keysLock.withLock { VaultCrypto.reconcileGenerations(generationsInUse()) } } }
     }
 
+    /** Only the expiry column: a re-seal or a save running meanwhile is never undone by an older copy of the row. */
     suspend fun setExpiry(id: Long, expiresAt: Long?) = withContext(Dispatchers.IO) {
-        dao.get(id)?.let { dao.upsert(it.copy(expiresAt = expiresAt)) }
+        keysLock.withLock { dao.setExpiry(id, expiresAt) }
     }
 
     /** Deletes a private contact with its fingerprints and private calls, all or nothing; then its photo. */

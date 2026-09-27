@@ -50,6 +50,9 @@ object VaultCrypto {
     private const val HMAC_KEY = "parley_vault_hmac_v1"
     private const val AUTH_SECONDS = 300
 
+    /** The detail-key generation in effect (vault_keys prefs); a newer alias without it is an unfinished upgrade. */
+    private const val K_COMMITTED = "committedGeneration"
+
     /** First byte of a blob sealed by a generation ≥ 1 key (an IV length is never this large). */
     private const val GEN_MARK: Byte = 0x7A
 
@@ -79,14 +82,58 @@ object VaultCrypto {
 
     private fun detailAlias(gen: Int) = if (gen == 0) LEGACY_DETAIL_KEY else "$DETAIL_PREFIX$gen"
 
-    /** The newest detail-key generation in the Keystore, or null when there is none yet. */
-    private fun currentGeneration(): Int? {
-        var best: Int? = if (ks.containsAlias(LEGACY_DETAIL_KEY)) 0 else null
+    /** Every detail-key generation the Keystore holds. */
+    private fun storedGenerations(): Set<Int> = buildSet {
+        if (ks.containsAlias(LEGACY_DETAIL_KEY)) add(0)
         for (a in ks.aliases().toList()) {
-            val g = a.removePrefix(DETAIL_PREFIX).takeIf { a.startsWith(DETAIL_PREFIX) }?.toIntOrNull() ?: continue
-            if (best == null || g > best) best = g
+            if (a.startsWith(DETAIL_PREFIX)) a.removePrefix(DETAIL_PREFIX).toIntOrNull()?.let { add(it) }
         }
-        return best
+    }
+
+    /**
+     * The generation new details are sealed with, or null when there is none yet. It is the committed one: a key that
+     * an upgrade created but hasn't committed (still re-sealing, or interrupted by the process dying) is never used
+     * for sealing and never counts for the audit. Installs from before the commit record use the newest key until
+     * [reconcileGenerations] settles it from the stored blobs.
+     */
+    private fun currentGeneration(): Int? {
+        val committed = committedGeneration()
+        if (committed != null && ks.containsAlias(detailAlias(committed))) return committed
+        return if (committed == null) storedGenerations().maxOrNull() else null
+    }
+
+    private fun committedGeneration(): Int? = generationPrefs()?.getInt(K_COMMITTED, -1)?.takeIf { it >= 0 }
+
+    private fun commitGeneration(gen: Int) {
+        // Synchronous: the commit is what makes an upgrade final, so it must be on disk before old keys go.
+        generationPrefs()?.edit()?.putInt(K_COMMITTED, gen)?.commit()
+    }
+
+    /**
+     * Settles which generation is in effect from the blobs actually stored ([inUse]) and removes what an interrupted
+     * upgrade left behind: a key newer than every blob and than the committed generation holds nothing and is deleted,
+     * so the audit looks at the key the data really uses and the upgrade runs again. Call with every writer of detail
+     * blobs held off (the vault's key lock).
+     */
+    fun reconcileGenerations(inUse: Set<Int>) {
+        val stored = storedGenerations()
+        if (stored.isEmpty()) return
+        val newestUsed = inUse.maxOrNull()
+        val committed = committedGeneration()
+        val effective = when {
+            // Re-sealed blobs under a newer key mean the upgrade's transaction went through before the commit record.
+            committed != null && newestUsed != null && newestUsed > committed -> newestUsed
+            committed != null -> committed
+            newestUsed != null -> newestUsed
+            else -> stored.max()
+        }
+        if (effective != committed) commitGeneration(effective)
+        for (g in stored) {
+            if (g > effective && g !in inUse) {
+                Log.w("VaultCrypto", "Removing detail key generation $g left by an interrupted upgrade")
+                runCatching { ks.deleteEntry(detailAlias(g)) }
+            }
+        }
     }
 
     private fun deviceSecure(): Boolean = appContext?.getSystemService(KeyguardManager::class.java)?.isDeviceSecure == true
@@ -157,12 +204,14 @@ object VaultCrypto {
     }
 
     /** The key new detail blobs are sealed with (created on first use). */
+    @Synchronized
     private fun sealingGeneration(): Int {
         currentGeneration()?.let { return it }
         // A fresh install starts at generation 1 (with the authentication and unlock requirements). A generation
         // number is never reused, so a blob of a vanished key can't be mistaken for one of a new key.
-        val next = highestGenerationEver() + 1
+        val next = maxOf(highestGenerationEver(), storedGenerations().maxOrNull() ?: 0) + 1
         createDetailKey(next)
+        commitGeneration(next)
         return next
     }
 
@@ -204,6 +253,7 @@ object VaultCrypto {
             // New data goes under a new generation; blobs of the invalidated key stay as they are (never deleted here).
             val next = maxOf(gen, highestGenerationEver()) + 1
             createDetailKey(next)
+            commitGeneration(next)
             return sealDetail(next, plain)
         } catch (e: InvalidKeyException) {
             throw classify(e)
@@ -290,13 +340,14 @@ object VaultCrypto {
     /**
      * Re-seals every detail blob under a new, authentication-bound key generation. Call right after the user
      * authenticated. [reseal] receives a function that turns an old blob into a new one and must store all results in
-     * one transaction, returning false to abandon. Old keys are deleted only once nothing refers to them ([inUse]).
-     * Returns true when the vault now uses the new key.
+     * one transaction, returning false to abandon. The new key is committed only after that transaction, so nothing
+     * else seals with it before, and old keys are deleted only once nothing refers to them ([inUse]). The caller holds
+     * off every other writer of detail blobs for the whole call. Returns true when the vault now uses the new key.
      */
     suspend fun upgradeDetailKey(reseal: suspend (convert: (ByteArray) -> ByteArray) -> Boolean, inUse: suspend () -> Set<Int>): Boolean {
         if (!detailKeyNeedsUpgrade()) return false
         val old = currentGeneration() ?: return false
-        val next = maxOf(old, highestGenerationEver()) + 1
+        val next = maxOf(old, highestGenerationEver(), storedGenerations().max()) + 1
         if (!createDetailKey(next)) {
             ks.deleteEntry(detailAlias(next))
             return false
@@ -322,6 +373,7 @@ object VaultCrypto {
             ks.deleteEntry(detailAlias(next))
             return false
         }
+        commitGeneration(next)
         val used = inUse()
         for (g in 0 until next) if (g !in used && ks.containsAlias(detailAlias(g))) ks.deleteEntry(detailAlias(g))
         return true

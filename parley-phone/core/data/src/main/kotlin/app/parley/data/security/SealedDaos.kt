@@ -13,10 +13,25 @@ import kotlinx.coroutines.flow.map
  * [MetaDao] with pinned notes, call-note texts and journal payloads sealed at rest ([RecordCrypto]). Everything above
  * it sees plain values; the table rows hold sealed ones. Plain rows from older versions read as they are until
  * [RecordSealing] re-seals them.
+ *
+ * A sealed note that can't be opened right now (a Keystore hiccup, or a lost key) reads as no note, but is never
+ * replaced by one of the whole-row writes ([setMeta], [setPersonalMeta]) that pass that "no note" back: the stored
+ * ciphertext stays until the note is explicitly set ([setPinnedNote]).
  */
 class SealedMetaDao(private val dao: MetaDao, private val crypto: RecordCrypto) : MetaDao by dao {
     private fun ContactMetaEntity.opened() = if (crypto.isSealed(pinnedNote)) copy(pinnedNote = crypto.openText(pinnedNote)) else this
-    private fun ContactMetaEntity.sealed() = copy(pinnedNote = crypto.sealText(pinnedNote))
+
+    /** What to store for [key]'s note when a write passes [note]: sealed, or the stored ciphertext kept for null. */
+    private suspend fun noteToStore(key: String, note: String?): String? = note?.let { crypto.sealText(it) } ?: unreadableNote(key)
+
+    /** [key]'s stored note as it is (sealed) when it can't be opened right now; null otherwise. */
+    suspend fun unreadableNote(key: String): String? = dao.meta(key)?.pinnedNote?.takeIf { crypto.isUnreadable(it) }
+
+    /** Stores [sealed] (a ciphertext read with [unreadableNote]) unchanged as the note of [key]'s existing row. */
+    suspend fun keepSealedNote(key: String, sealed: String) {
+        require(crypto.isSealed(sealed))
+        dao.meta(key)?.let { dao.setMeta(it.copy(pinnedNote = sealed)) }
+    }
     private fun CallNoteEntity.opened() = if (crypto.isSealed(text)) copy(text = crypto.openText(text).orEmpty()) else this
 
     override suspend fun addJournal(e: JournalEntity): Long = dao.addJournal(e.copy(payload = crypto.sealBytes(e.payload)))
@@ -34,9 +49,9 @@ class SealedMetaDao(private val dao: MetaDao, private val crypto: RecordCrypto) 
     override suspend fun allMetaNow(): List<ContactMetaEntity> = dao.allMetaNow().map { it.opened() }
 
     override suspend fun setPersonalMeta(key: String, note: String?, messenger: String?, links: String?, nudged: Long?): Int =
-        dao.setPersonalMeta(key, crypto.sealText(note), messenger, links, nudged)
+        dao.setPersonalMeta(key, noteToStore(key, note), messenger, links, nudged)
 
-    override suspend fun setMeta(e: ContactMetaEntity) = dao.setMeta(e.sealed())
+    override suspend fun setMeta(e: ContactMetaEntity) = dao.setMeta(e.copy(pinnedNote = noteToStore(e.lookupKey, e.pinnedNote)))
 
     override suspend fun addCallNote(n: CallNoteEntity): Long = dao.addCallNote(n.copy(text = crypto.sealText(n.text).orEmpty()))
 

@@ -9,15 +9,24 @@ import java.security.MessageDigest
  * PBKDF2 alone. The JDK and Android ship no scrypt, and a pure implementation keeps the app free of native code.
  */
 object Scrypt {
+    /** The most memory one derivation may take (128·r·N bytes), whatever the caller passes. */
+    const val MAX_MEMORY_BYTES = 256L shl 20
+
+    /** The most PBKDF2 output the p lanes may need (128·r·p bytes). */
+    const val MAX_LANE_BYTES = 64L shl 20
+
     /**
      * Derives [dkLen] bytes from [password] and [salt]. [n] must be a power of two above 1; [r] and [p] at least 1.
-     * Callers cap the parameters they accept from files (see the backup's KDF limits).
+     * Callers cap the parameters they accept from files (see the backup's KDF limits); these bounds hold here too, so
+     * no parameters can overflow the buffer sizes or ask for more than [MAX_MEMORY_BYTES].
      */
     fun derive(password: ByteArray, salt: ByteArray, n: Int, r: Int, p: Int, dkLen: Int): ByteArray {
         require(n > 1 && n and (n - 1) == 0) { "N must be a power of two above 1" }
         require(r >= 1 && p >= 1 && dkLen >= 1) { "r, p and the key length must be positive" }
         require(r.toLong() * p < 1L shl 30) { "r·p is too large" }
-        require(n.toLong() * r * 128 <= Int.MAX_VALUE) { "N·r is too large" }
+        require(128L * r * p <= MAX_LANE_BYTES) { "r·p is too large" }
+        require(128L * r * n <= MAX_MEMORY_BYTES) { "N·r needs too much memory" }
+        require(dkLen <= MAX_LANE_BYTES) { "The key length is too large" }
         val blockBytes = 128 * r
         val b = pbkdf2Sha256(password, salt, 1, p * blockBytes)
         val words = 32 * r

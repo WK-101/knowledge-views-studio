@@ -243,6 +243,7 @@ private fun OriginNote(origin: ArchiveOrigin) {
         ArchiveOrigin.THIS_PHONE -> stringResource(R.string.rst_origin_this) to false
         ArchiveOrigin.OTHER_PHONE -> stringResource(R.string.rst_origin_other) to false
         ArchiveOrigin.UNKNOWN_SIGNER -> stringResource(R.string.rst_origin_unknown) to true
+        ArchiveOrigin.UNCONFIRMED_PHONE -> stringResource(R.string.rst_origin_unconfirmed) to true
         ArchiveOrigin.UNSIGNED -> stringResource(R.string.rst_origin_unsigned) to true
         ArchiveOrigin.BAD_SIGNATURE -> stringResource(R.string.rst_origin_bad) to true
     }

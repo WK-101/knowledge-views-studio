@@ -150,6 +150,9 @@ object BackupCrypto {
 
     internal const val MAX_HEADER_BODY = 64 * 1024
     internal const val MAX_WRAPS = 16
+
+    /** Passphrase attempts through embedded key bundles per open (each runs the bundle's KDF). */
+    const val MAX_BUNDLE_ATTEMPTS = 2
     private const val GCM_NONCE = 12
     private val MAGIC_BYTES = MAGIC.toByteArray(Charsets.US_ASCII)
 
@@ -277,13 +280,17 @@ object BackupCrypto {
      * Recovers the archive's data key. Throws [WrongKeyException] if no wrap opens with [unlock].
      * Note: a corrupted wrap is indistinguishable from a wrong secret at this point.
      */
-    fun unwrapDataKey(header: EnvelopeHeader, unlock: Unlock): SecretKey = open(header, unlock).dataKey
+    fun unwrapDataKey(header: EnvelopeHeader, unlock: Unlock, policy: KdfPolicy = KdfPolicy.BACKUP): SecretKey = open(header, unlock, policy).dataKey
 
     /**
      * Like [unwrapDataKey], and says which key bundle opened the archive. That bundle is genuine (its private key
      * opened with the user's own secret), so it can vouch for the device key that signed the archive.
+     *
+     * [policy] bounds every key derivation a passphrase attempt runs: the header's KDF (checked when it was read) and
+     * the KDF of each embedded key bundle, so a payload held to one fixed cost (a QR code, a setup file) can't carry a
+     * bundle that makes each attempt far more expensive. At most [MAX_BUNDLE_ATTEMPTS] bundles are tried.
      */
-    fun open(header: EnvelopeHeader, unlock: Unlock): Opened {
+    fun open(header: EnvelopeHeader, unlock: Unlock, policy: KdfPolicy = KdfPolicy.BACKUP): Opened {
         var bundle: KeyBundle? = null
         var privateKey: PrivateKey? = null
         fun viaBundles(unlockBundle: (KeyBundle) -> PrivateKey?): ByteArray? = publicWraps(header).firstNotNullOfOrNull { (b, ct) ->
@@ -292,7 +299,7 @@ object BackupCrypto {
         }
         val dek: ByteArray? = when (unlock) {
             is Unlock.Passphrase -> openPassphraseWrap(header, unlock.passphrase)
-                ?: viaBundles { b -> try { unlockPrivateKey(b, unlock.passphrase) } catch (_: WrongKeyException) { null } }
+                ?: viaBundles(bundleUnlocker(unlock.passphrase, policy))
             is Unlock.Recovery -> {
                 val kek = hkdf(unlock.key.bytes(), header.salt, "parley/v1/archive-recovery")
                 header.wraps.filter { it.type == WrapType.RECOVERY }.firstNotNullOfOrNull {
@@ -306,6 +313,19 @@ object BackupCrypto {
         return Opened(SecretKeySpec(dek, "AES").also { dek.fill(0) }, bundle, privateKey)
     }
 
+    /** Unlocks embedded bundles with [passphrase]: only those whose KDF [policy] allows, at most [MAX_BUNDLE_ATTEMPTS]. */
+    private fun bundleUnlocker(passphrase: CharArray, policy: KdfPolicy): (KeyBundle) -> PrivateKey? {
+        var derivations = 0
+        return { b ->
+            if (!policy.accepts(b.kdf) || derivations >= MAX_BUNDLE_ATTEMPTS) {
+                null
+            } else {
+                derivations++
+                try { unlockPrivateKey(b, passphrase) } catch (_: WrongKeyException) { null }
+            }
+        }
+    }
+
     /** The data key from a direct PASSPHRASE wrap (derived only when the archive has one), or null. */
     private fun openPassphraseWrap(header: EnvelopeHeader, passphrase: CharArray): ByteArray? {
         val wraps = header.wraps.filter { it.type == WrapType.PASSPHRASE }
@@ -317,7 +337,7 @@ object BackupCrypto {
     /** Reads the header from [input], unwraps the data key and returns the plaintext stream. */
     fun decrypt(input: InputStream, unlock: Unlock, policy: KdfPolicy = KdfPolicy.BACKUP): DecryptingInputStream {
         val header = readHeader(input, policy)
-        return DecryptingInputStream(input, header, unwrapDataKey(header, unlock))
+        return DecryptingInputStream(input, header, unwrapDataKey(header, unlock, policy))
     }
 
     /**

@@ -1,6 +1,7 @@
 package app.parley.common.security
 
 import org.junit.Assert.assertArrayEquals
+import org.junit.Assert.assertThrows
 import org.junit.Test
 
 /** Test vectors of RFC 7914 (section 11 for PBKDF2-HMAC-SHA256, section 12 for scrypt). */
@@ -51,5 +52,13 @@ class ScryptTest {
     @Test(expected = IllegalArgumentException::class)
     fun rejects_n_that_is_not_a_power_of_two() {
         Scrypt.derive(ByteArray(1), ByteArray(1), 1000, 8, 1, 32)
+    }
+
+    @Test fun derive_enforces_its_own_bounds_whatever_the_caller_passes() {
+        // 128·r·p would overflow an Int (and ask for gigabytes of PBKDF2 output).
+        assertThrows(IllegalArgumentException::class.java) { Scrypt.derive(ByteArray(1), ByteArray(1), 2, 1 shl 12, 1 shl 12, 32) }
+        // 128·r·N within Int range but far more memory than any backup setting.
+        assertThrows(IllegalArgumentException::class.java) { Scrypt.derive(ByteArray(1), ByteArray(1), 1 shl 20, 8, 1, 32) }
+        assertThrows(IllegalArgumentException::class.java) { Scrypt.derive(ByteArray(1), ByteArray(1), 16, 1, 1 shl 20, 32) }
     }
 }

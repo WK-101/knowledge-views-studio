@@ -27,9 +27,13 @@ object FakeAndroidKeyStore {
     private const val NAME = "AndroidKeyStore"
     internal val keys: MutableMap<String, SecretKey> = ConcurrentHashMap()
 
+    /** When set, every key read throws what it returns: a Keystore that is busy, failing or reports a key unrecoverable. */
+    @Volatile var failure: (() -> Exception)? = null
+
     /** Installs the provider (once per JVM) and forgets every key, so each test starts with an empty Keystore. */
     fun install() {
         keys.clear()
+        failure = null
         if (Security.getProvider(NAME) !is FakeProvider) {
             Security.removeProvider(NAME)
             Security.insertProviderAt(FakeProvider(), 1)
@@ -50,7 +54,10 @@ object FakeAndroidKeyStore {
     }
 
     class FakeKeyStoreSpi : KeyStoreSpi() {
-        override fun engineGetKey(alias: String, password: CharArray?): Key? = keys[alias]
+        override fun engineGetKey(alias: String, password: CharArray?): Key? {
+            failure?.let { throw it() }
+            return keys[alias]
+        }
         override fun engineGetCertificateChain(alias: String?): Array<Certificate>? = null
         override fun engineGetCertificate(alias: String?): Certificate? = null
         override fun engineGetCreationDate(alias: String?): Date? = if (alias in keys) Date(0) else null
