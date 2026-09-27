@@ -5,6 +5,8 @@
     <string name="data_bkp_need_folder">Choose a backup folder first</string>
     <string name="data_bkp_folder_gone">The backup folder is no longer accessible. Choose it again.</string>
     <string name="data_bkp_failed">Backup failed: %1$s</string>
+    <!-- %1$s the usual result ("Backed up 12 contacts"), %2$s internal names of the parts left out. -->
+    <string name="data_bkp_sections_missing">%1$s. Some parts couldn\'t be included this time (%2$s); the next backup tries again.</string>
     <string name="data_bkp_not_verified">The written backup didn\'t verify, so it was discarded. Check free space and try again.</string>
     <plurals name="data_bkp_ready">
         <item quantity="one">Backup ready: %1$d contact</item>

@@ -221,6 +221,8 @@ class ExtrasStore(private val c: DataContainer) {
     // --- Backup (inside the encrypted backup's settings section) ---
 
     val backupExtras: BackupExtras = object : BackupExtras {
+        override val section = "extras"
+
         override suspend fun export(): Map<String, String> = buildMap {
             put(X_POLICIES, LabelPolicies.encode(_policies.value))
             // X3: which contacts Parley starred for which label, so a restored phone can still unstar them later.

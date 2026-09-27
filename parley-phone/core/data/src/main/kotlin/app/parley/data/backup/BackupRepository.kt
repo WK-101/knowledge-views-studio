@@ -29,6 +29,7 @@ import app.parley.common.backup.Unlock
 import app.parley.common.BlockAction
 import app.parley.common.BlockRule
 import app.parley.common.RuleType
+import app.parley.common.suspendRunCatching
 import app.parley.common.record.ContactRecord
 import app.parley.common.record.DataRow
 import app.parley.common.record.Mime
@@ -63,6 +64,8 @@ data class BackupOutcome(
     val rotationPaused: Boolean = false,
     val vaultIncluded: Boolean = false,
     val message: String,
+    /** Feature sections ([BackupExtras.section]) that couldn't be exported and are missing from this backup. */
+    val failedSections: List<String> = emptyList(),
 )
 
 data class BackupFileInfo(val uri: Uri, val name: String, val time: Long, val size: Long)
@@ -133,7 +136,14 @@ class BackupRepository(
     /** Feature data stored alongside the settings (see [BackupExtras]); set by the container. */
     var extras: () -> List<BackupExtras> = { emptyList() }
 
-    private suspend fun extrasMap(): Map<String, String> = extras().fold(emptyMap()) { acc, x -> acc + runCatching { x.export() }.getOrDefault(emptyMap()) }
+    /** Every feature's extras; a section that fails is left out and named in [failed] rather than dropped silently. */
+    private suspend fun extrasMap(failed: MutableList<String>): Map<String, String> = extras().fold(emptyMap()) { acc, x ->
+        acc + suspendRunCatching { x.export() }.getOrElse { e ->
+            android.util.Log.w("BackupRepository", "Backup section ${x.section} failed", e)
+            failed += x.section
+            emptyMap()
+        }
+    }
     private val zone: ZoneId get() = ZoneId.systemDefault()
 
     /** Parley's call-history archive, backed up in its own optional section (set by the container). */
@@ -190,6 +200,10 @@ class BackupRepository(
         var contactCount = 0
         var callCount = 0
         var vaultIncluded = false
+        val failedSections = ArrayList<String>()
+        // A backup that is fine except for a feature section says so, instead of looking complete.
+        fun gaps(o: BackupOutcome) = if (failedSections.isEmpty()) o
+        else o.copy(failedSections = failedSections.toList(), message = context.getString(R.string.data_bkp_sections_missing, o.message, failedSections.joinToString(", ")))
         val dataKey: SecretKey
         val manifest = try {
             cr.openOutputStream(doc, "wt")!!.use { raw ->
@@ -202,7 +216,7 @@ class BackupRepository(
                 writer.writeBlocking(blocking())
                 writer.writeSpeedDial(prefsRepo.speedDials.first().map { SpeedDialRecord(it.key, it.number, it.label) })
                 writer.writeNumberSims(prefsRepo.numberSims.first().map { NumberSimRecord(it.matchKey, it.phoneAccountId) })
-                writer.writeSettings(settings.exportMap() + extrasMap())
+                writer.writeSettings(settings.exportMap() + extrasMap(failedSections))
                 val v = vaultBlob()
                 if (v != null) {
                     writer.writeVault(mapOf("vault.json" to v))
@@ -229,14 +243,14 @@ class BackupRepository(
             return@withContext fail(context.getString(R.string.data_bkp_not_verified), app.parley.common.StoredStatus.of(BackupState.NOT_VERIFIED))
         }
         if (target != null) {
-            return@withContext BackupOutcome(true, null, contactCount, callCount, verified = true, vaultIncluded = vaultIncluded, message = context.resources.getQuantityString(R.plurals.data_bkp_ready, contactCount, contactCount))
+            return@withContext gaps(BackupOutcome(true, null, contactCount, callCount, verified = true, vaultIncluded = vaultIncluded, message = context.resources.getQuantityString(R.plurals.data_bkp_ready, contactCount, contactCount)))
         }
 
         val hash = manifest.contentHash()
         if (scheduled && hash == state.lastContentHash) {
             runCatching { DocumentsContract.deleteDocument(cr, doc) }
             prefs.update { it.putLong("verifiedAt", System.currentTimeMillis()).putString("lastResult", app.parley.common.StoredStatus.of(BackupState.UNCHANGED).encode()) }
-            return@withContext BackupOutcome(true, state.lastBackupName, contactCount, callCount, unchanged = true, verified = true, message = context.getString(R.string.data_bkp_nothing_changed))
+            return@withContext gaps(BackupOutcome(true, state.lastBackupName, contactCount, callCount, unchanged = true, verified = true, message = context.getString(R.string.data_bkp_nothing_changed)))
         }
         val renamed = runCatching { DocumentsContract.renameDocument(cr, doc, finalName) }.getOrNull() ?: doc
 
@@ -255,7 +269,7 @@ class BackupRepository(
             if (!paused && !safety) it.putInt("lastCount", contactCount)
             if (vaultIncluded) it.putString("vaultName", finalName)
         }
-        BackupOutcome(true, finalName, contactCount, callCount, verified = true, rotationPaused = paused, vaultIncluded = vaultIncluded, message = res.getQuantityString(if (paused) R.plurals.data_bkp_backed_up_paused else R.plurals.data_bkp_backed_up, contactCount, contactCount))
+        gaps(BackupOutcome(true, finalName, contactCount, callCount, verified = true, rotationPaused = paused, vaultIncluded = vaultIncluded, message = res.getQuantityString(if (paused) R.plurals.data_bkp_backed_up_paused else R.plurals.data_bkp_backed_up, contactCount, contactCount)))
     }
 
     /** Accepts the current contact count after a rotation pause, so old backups rotate again. */

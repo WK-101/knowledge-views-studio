@@ -5,6 +5,9 @@ package app.parley.data.backup
  * (so they never land in the app settings store). Values are plain strings; keep each feature's total small.
  */
 interface BackupExtras {
+    /** A short name for the backup report when this part couldn't be exported. */
+    val section: String
+
     suspend fun export(): Map<String, String>
 
     /** Receives only the keys starting with [PREFIX] from the backup being restored. */

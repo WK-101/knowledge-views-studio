@@ -344,7 +344,8 @@ fun ContactEditScreen(
         }
         saving = true
         scope.launch {
-            val id = try {
+            // Leaving the editor cancels this; only a real error says "Save failed".
+            val id = app.parley.common.suspendRunCatching {
                 if (isVault) {
                     val existing = vaultId?.takeIf { it > 0 }
                     val cleaned = e.copy(handles = e.handles.filter { it.value.isNotBlank() })
@@ -365,7 +366,7 @@ fun ContactEditScreen(
                         if (saved != null) rememberRelations(vm, saved, e, pickedLinks)
                     }
                 }
-            } catch (ex: Exception) {
+            }.getOrElse { ex ->
                 vm.toast(res.getString(R.string.edit_save_failed, ex.message.orEmpty()))
                 null
             }
