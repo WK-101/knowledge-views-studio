@@ -17,8 +17,8 @@ import app.parley.data.DataContainer
  * screen like Parley's other reminders.
  */
 object BackupReminder {
-    private const val CHANNEL = "backup_v1"
-    private const val TAG = "backup_reminder"
+    private const val CHANNEL = app.parley.common.NotificationChannels.BACKUPS
+    private const val TAG = app.parley.common.NotificationIds.TAG_BACKUP_REMINDER
 
     fun maybeNotify(context: Context, c: DataContainer, now: Long = System.currentTimeMillis()) {
         val state = c.backup.prefs.state.value
@@ -52,7 +52,7 @@ object BackupReminder {
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .build()
         try {
-            NotificationManagerCompat.from(context).notify(TAG, 0, n)
+            NotificationManagerCompat.from(context).notify(TAG, app.parley.common.NotificationIds.BACKUP_ID, n)
             c.ux.setBackupNotified(now)
         } catch (_: SecurityException) {
             // Notifications not allowed: the banners in Settings and Backup still show.
