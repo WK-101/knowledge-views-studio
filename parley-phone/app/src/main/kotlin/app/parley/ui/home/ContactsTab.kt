@@ -53,6 +53,7 @@ import app.parley.AppViewModel
 import app.parley.R
 import app.parley.common.ContactSummary
 import app.parley.common.homeLayout
+import app.parley.common.people.FastScroll
 import app.parley.data.GroupInfo
 import app.parley.ui.Avatar
 import app.parley.ui.shared
@@ -205,13 +206,13 @@ fun ContactsTab(vm: AppViewModel, open: (String) -> Unit, onReorderFavorites: ()
                     // U4: opt-in swipe actions (never while selecting).
                     app.parley.ui.people.SwipeActionRow(
                         if (selection.isEmpty()) peopleSettings.swipe else peopleSettings.swipe.copy(enabled = false),
-                        hasNumber = number != null, canDelete = true,
+                        hasNumber = number != null, canDelete = true, listState = state,
                         onAction = { a ->
                             when (a) {
                                 app.parley.common.people.SwipeAction.CALL -> number?.let { vm.requestCall(it, c.displayName) }
                                 app.parley.common.people.SwipeAction.MESSAGE -> quick.message(c)
                                 app.parley.common.people.SwipeAction.MESSAGE_ON -> quick.message(c, ask = true)
-                                app.parley.common.people.SwipeAction.BLOCK -> c.phones.forEach { vm.blockNumber(it.number) }
+                                app.parley.common.people.SwipeAction.BLOCK -> app.parley.ui.people.blockWithUndo(vm, c.phones.map { it.number })
                                 app.parley.common.people.SwipeAction.DELETE -> vm.deleteContacts(listOf(c.id))
                                 app.parley.common.people.SwipeAction.NONE -> Unit
                             }
@@ -233,8 +234,13 @@ fun ContactsTab(vm: AppViewModel, open: (String) -> Unit, onReorderFavorites: ()
             }
         }
         if (query.isBlank() && contacts.size > 30) {
-            FastScroller(sections.keys.toList(), Modifier.align(Alignment.CenterEnd)) { s ->
-                sections[s]?.let { scope.launch { state.scrollToItem(it) } }
+            // A4 (v3.4): "★" jumps to the favourites when they're at the top of Contacts.
+            val favIndex = 1 + (if (showMe) 1 else 0)
+            val letters = remember(sections, showFavorites) { (if (showFavorites) listOf(FAVOURITES_MARK) else emptyList()) + sections.keys }
+            val starts = remember(sections, showFavorites, favIndex) { (if (showFavorites) listOf(favIndex) else emptyList()) + sections.values }
+            val atTop by remember(starts) { androidx.compose.runtime.derivedStateOf { FastScroll.sectionAt(state.firstVisibleItemIndex, starts).coerceAtLeast(0) } }
+            FastScrollRail(letters, atTop, Modifier.align(Alignment.CenterEnd)) { i ->
+                starts.getOrNull(i)?.let { scope.launch { state.scrollToItem(it) } }
             }
         }
         quickHost()
@@ -290,32 +296,5 @@ fun ContactRow(
     )
 }
 
-@Composable
-private fun FastScroller(letters: List<String>, modifier: Modifier, onLetter: (String) -> Unit) {
-    var height by remember { mutableStateOf(1) }
-    // U7: letters as large as fit (8 to 13 sp), so a short alphabet isn't tiny and a long one doesn't overlap.
-    val density = androidx.compose.ui.platform.LocalDensity.current
-    val letterSp = with(density) { (height / letters.size.coerceAtLeast(1) * 0.62f).toSp().value }.coerceIn(8f, 13f)
-    val indexLabel = stringResource(R.string.contacts_alphabet_index)
-    Column(
-        modifier
-            .fillMaxHeight()
-            .width(28.dp)
-            .padding(vertical = 8.dp)
-            .onSizeChanged { height = it.height }
-            .semantics { contentDescription = indexLabel }
-            .pointerInput(letters) {
-                fun pick(y: Float) {
-                    val i = ((y / height) * letters.size).toInt().coerceIn(0, letters.size - 1)
-                    onLetter(letters[i])
-                }
-                detectVerticalDragGestures(onDragStart = { pick(it.y) }) { change, _ -> pick(change.position.y) }
-            },
-        verticalArrangement = Arrangement.SpaceEvenly,
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        letters.forEach { l ->
-            Text(l, fontSize = letterSp.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.clickable { onLetter(l) })
-        }
-    }
-}
+/** A4: the rail entry for the favourites section. */
+private const val FAVOURITES_MARK = "\u2605"

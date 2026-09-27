@@ -52,7 +52,16 @@ private fun CallEntry.answered() = durationSec > 0 && (type == CallType.INCOMING
  * date. Tap to change the rhythm; for someone outside the Circle it offers to add them.
  */
 @Composable
-fun StayInTouchCard(meta: ContactMetaEntity?, d: ContactDetails, history: List<CallEntry>, interactions: List<Interaction>, goodTime: String? = null, onEdit: () -> Unit) {
+fun StayInTouchCard(
+    meta: ContactMetaEntity?,
+    d: ContactDetails,
+    history: List<CallEntry>,
+    interactions: List<Interaction>,
+    goodTime: String? = null,
+    /** P1 (v3.4): null where a foldable section header already says "Stay in touch". */
+    title: String? = stringResource(R.string.circle_stay_in_touch),
+    onEdit: () -> Unit,
+) {
     val res = LocalResources.current
     val every = meta?.reachOutDays
     val rhythm = KeepRhythm.decode(meta?.rhythm)
@@ -62,7 +71,7 @@ fun StayInTouchCard(meta: ContactMetaEntity?, d: ContactDetails, history: List<C
     val next = d.events.mapNotNull { ev -> EventDate.parse(ev.date)?.let { ev to it.daysUntil(today) } }
         .filter { it.second <= 60 && !app.parley.common.people.LifeEvents.isDeath(it.first.type, it.first.label) }
         .minByOrNull { it.second }
-    SegmentedGroup(stringResource(R.string.circle_stay_in_touch)) {
+    SegmentedGroup(title) {
         if (every == null) {
             item("stay") {
                 ListItem(

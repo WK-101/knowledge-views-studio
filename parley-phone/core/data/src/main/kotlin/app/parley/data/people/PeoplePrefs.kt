@@ -41,6 +41,10 @@ data class PeopleSettings(
     val swipe: app.parley.common.people.SwipeConfig = app.parley.common.people.SwipeConfig(),
     /** U6: how avatars without a photo look. */
     val avatarStyle: app.parley.common.people.AvatarStyle = app.parley.common.people.AvatarStyle.COLOURFUL,
+    /** P1 (v3.4): the contact page's section order, start modes and remembered folds. */
+    val contactPage: app.parley.common.people.ContactPageLayout = app.parley.common.people.ContactPageLayout(),
+    /** P1: "jump to section" chips under a contact page's pinned header. */
+    val sectionChips: Boolean = true,
 )
 
 private val Context.peopleStore: DataStore<Preferences> by preferencesDataStore(name = "people")
@@ -68,9 +72,9 @@ class PeoplePrefs(context: Context, scope: CoroutineScope) {
         store.edit { p ->
             map.forEach { (k, v) ->
                 when (k) {
-                    K.nickname.name, K.matchAll.name, K.privateDefault.name, K.pickerOne.name, K.swipeOn.name -> p[booleanPreferencesKey(k)] = v.toBoolean()
+                    K.nickname.name, K.matchAll.name, K.privateDefault.name, K.pickerOne.name, K.swipeOn.name, K.sectionChips.name -> p[booleanPreferencesKey(k)] = v.toBoolean()
                     K.columns.name -> v.toIntOrNull()?.let { p[intPreferencesKey(k)] = it }
-                    K.secondLine.name, K.favSort.name, K.favOrder.name, K.ringtones.name, K.swipeRight.name, K.swipeLeft.name, K.avatar.name ->
+                    K.secondLine.name, K.favSort.name, K.favOrder.name, K.ringtones.name, K.swipeRight.name, K.swipeLeft.name, K.avatar.name, K.contactPage.name ->
                         p[stringPreferencesKey(k)] = v
                 }
             }
@@ -97,6 +101,8 @@ class PeoplePrefs(context: Context, scope: CoroutineScope) {
                 left = app.parley.common.people.SwipeAction.parse(this[K.swipeLeft], d.swipe.left),
             ),
             avatarStyle = this[K.avatar]?.let { v -> app.parley.common.people.AvatarStyle.entries.firstOrNull { it.name == v } } ?: d.avatarStyle,
+            contactPage = app.parley.common.people.ContactPageLayout.decode(this[K.contactPage]),
+            sectionChips = this[K.sectionChips] ?: d.sectionChips,
         )
     }
 
@@ -114,6 +120,8 @@ class PeoplePrefs(context: Context, scope: CoroutineScope) {
         this[K.swipeRight] = s.swipe.right.name
         this[K.swipeLeft] = s.swipe.left.name
         this[K.avatar] = s.avatarStyle.name
+        this[K.contactPage] = s.contactPage.encode()
+        this[K.sectionChips] = s.sectionChips
     }
 
     private object K {
@@ -130,6 +138,8 @@ class PeoplePrefs(context: Context, scope: CoroutineScope) {
         val swipeRight = stringPreferencesKey("swipe_right")
         val swipeLeft = stringPreferencesKey("swipe_left")
         val avatar = stringPreferencesKey("avatar_style")
+        val contactPage = stringPreferencesKey("contact_page")
+        val sectionChips = booleanPreferencesKey("contact_page_chips")
     }
 
     private companion object {

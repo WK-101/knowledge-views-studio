@@ -44,6 +44,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import app.parley.AppViewModel
@@ -152,9 +153,28 @@ suspend fun saveInteraction(vm: AppViewModel, d: ContactDetails, contactId: Long
     }
 }
 
+/** R2: everything on a contact's timeline (calls, logged interactions, call notes and the dates among them), unsorted. */
+fun timelineEntries(d: ContactDetails, history: List<CallEntry>, interactions: List<Interaction>, notes: List<CallNoteEntity>, zone: ZoneId): List<TimelineEntry> {
+    val entries = history.map { TimelineEntry.Call(it) } +
+        interactions.map { TimelineEntry.Logged(it.id, it.time, it.type, it.channel, it.note) } +
+        notes.map { TimelineEntry.Note(it.id, it.callDate, it.text) }
+    val dates = Timeline.dates(
+        d.events.filterNot { app.parley.common.people.LifeEvents.isDeath(it.type, it.label) }.mapNotNull { e -> EventDate.parse(e.date)?.let { Triple(e.type, e.label, it) } },
+        entries, LocalDate.now(), zone,
+    )
+    return entries + dates
+}
+
+/** The "January 2026" heading of a timeline month. */
+@Composable
+internal fun rememberMonthFormat(): DateTimeFormatter =
+    remember { DateTimeFormatter.ofPattern(android.text.format.DateFormat.getBestDateTimePattern(Locale.getDefault(), "MMMMyyyy")) }
+
 /**
  * R2: the contact's timeline: calls, logged interactions, call notes and dates, newest first, one group per month.
  * Three months show at first; "Show earlier" adds more. Logged entries can be edited or deleted (with Undo).
+ * P1 (v3.4): on the contact page only the latest [limit] entries show (the section header has the title), and
+ * "Show all" ([onShowAll]) opens the full timeline with search and filters.
  */
 @Composable
 fun ContactTimeline(
@@ -165,73 +185,79 @@ fun ContactTimeline(
     notes: List<CallNoteEntity>,
     onEdit: (Interaction) -> Unit,
     onAllCalls: (() -> Unit)?,
+    limit: Int? = null,
+    onShowAll: (() -> Unit)? = null,
+    showTitle: Boolean = true,
 ) {
-    val context = LocalContext.current
-    val res = LocalResources.current
-    val scope = rememberCoroutineScope()
     val zone = remember { ZoneId.systemDefault() }
     var months by rememberSaveable { mutableIntStateOf(3) }
-    val grouped = remember(history, interactions, notes, d.events) {
-        val entries = history.map { TimelineEntry.Call(it) } +
-            interactions.map { TimelineEntry.Logged(it.id, it.time, it.type, it.channel, it.note) } +
-            notes.map { TimelineEntry.Note(it.id, it.callDate, it.text) }
-        val dates = Timeline.dates(
-            d.events.filterNot { app.parley.common.people.LifeEvents.isDeath(it.type, it.label) }.mapNotNull { e -> EventDate.parse(e.date)?.let { Triple(e.type, e.label, it) } },
-            entries, LocalDate.now(), zone,
-        )
-        Timeline.group(entries + dates, zone)
+    val all = remember(history, interactions, notes, d.events) { timelineEntries(d, history, interactions, notes, zone) }
+    val grouped = remember(all, limit) {
+        val g = Timeline.group(all, zone)
+        if (limit == null) g else Timeline.group(g.flatMap { it.entries }.take(limit), zone)
     }
-    val monthFormat = remember { DateTimeFormatter.ofPattern(android.text.format.DateFormat.getBestDateTimePattern(Locale.getDefault(), "MMMMyyyy")) }
+    val monthFormat = rememberMonthFormat()
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (grouped.isEmpty()) {
-            SegmentedGroup(stringResource(R.string.circle_timeline)) {
+            SegmentedGroup(if (showTitle) stringResource(R.string.circle_timeline) else null) {
                 item { ListItem(colors = clearRow, headlineContent = { Text(stringResource(R.string.circle_timeline_empty), color = MaterialTheme.colorScheme.onSurfaceVariant) }) }
             }
         }
-        grouped.take(months).forEachIndexed { i, m ->
+        (if (limit == null) grouped.take(months) else grouped).forEachIndexed { i, m ->
             val title = m.month.atDay(1).format(monthFormat)
-            SegmentedGroup(if (i == 0) stringResource(R.string.circle_timeline) + stringResource(R.string.main_separator) + title else title) {
+            SegmentedGroup(if (i == 0 && showTitle) stringResource(R.string.circle_timeline) + stringResource(R.string.main_separator) + title else title) {
                 m.entries.forEach { e ->
-                    item {
-                        when (e) {
-                            is TimelineEntry.Call -> {
-                                ListItem(
-                                    colors = clearRow,
-                                    leadingContent = { app.parley.ui.home.CallTypeIcon(e.call.type, durationSec = e.call.durationSec) },
-                                    trailingContent = { app.parley.ui.home.CallLengthGlance(e.call) },
-                                    headlineContent = { Text(Format.fullDate(context, e.time)) },
-                                    supportingContent = {
-                                        Text(listOf(Bidi.ltr(Format.number(e.call.number, vm.countryIso)), Format.duration(e.call.durationSec)).filter { it.isNotBlank() }.joinToString(stringResource(R.string.main_separator)))
-                                    },
-                                )
-                            }
-                            is TimelineEntry.Logged -> LoggedRow(e, interactions.firstOrNull { it.id == e.id }, onEdit) { item ->
-                                scope.launch {
-                                    val gone = vm.c.circle.interactions.delete(item.id) ?: return@launch
-                                    CircleSnacks.show(CircleSnack(res.getString(R.string.circle_entry_deleted)) { vm.c.circle.interactions.restore(gone) })
-                                }
-                            }
-                            is TimelineEntry.Note -> ListItem(
-                                colors = clearRow,
-                                leadingContent = { Icon(Icons.AutoMirrored.Rounded.Notes, null) },
-                                headlineContent = { app.parley.ui.contact.LinkifiedText(e.text) },
-                                supportingContent = { Text(stringResource(R.string.circle_call_note) + stringResource(R.string.main_separator) + Format.fullDate(context, e.time)) },
-                            )
-                            is TimelineEntry.Date -> ListItem(
-                                colors = clearRow,
-                                leadingContent = { Icon(if (e.type == android.provider.ContactsContract.CommonDataKinds.Event.TYPE_BIRTHDAY) Icons.Rounded.Cake else Icons.Rounded.Event, null) },
-                                headlineContent = { Text(app.parley.ui.people.eventLabel(res, EventItem(date = e.date.format(), type = e.type, label = e.label))) },
-                                supportingContent = { Text(Instant.ofEpochMilli(e.time).atZone(zone).toLocalDate().format(DateTimeFormatter.ofLocalizedDate(java.time.format.FormatStyle.LONG))) },
-                            )
-                        }
-                    }
+                    item { TimelineEntryRow(vm, e, interactions, onEdit) }
                 }
             }
         }
         Row(Modifier.padding(start = 16.dp)) {
-            if (grouped.size > months) TextButton({ months += 6 }) { Text(stringResource(R.string.circle_timeline_more)) }
+            if (limit == null && grouped.size > months) TextButton({ months += 6 }) { Text(stringResource(R.string.circle_timeline_more)) }
+            if (limit != null && all.size > limit && onShowAll != null) {
+                TextButton(onShowAll) { Text(pluralStringResource(R.plurals.v34_cp_show_all, all.size, all.size)) }
+            }
             onAllCalls?.let { TextButton(it) { Text(stringResource(R.string.circle_all_calls)) } }
         }
+    }
+}
+
+/** One timeline entry; logged ones can be edited and deleted (with Undo). */
+@Composable
+internal fun TimelineEntryRow(vm: AppViewModel, e: TimelineEntry, interactions: List<Interaction>, onEdit: (Interaction) -> Unit) {
+    val context = LocalContext.current
+    val res = LocalResources.current
+    val scope = rememberCoroutineScope()
+    val zone = remember { ZoneId.systemDefault() }
+    when (e) {
+        is TimelineEntry.Call -> {
+            ListItem(
+                colors = clearRow,
+                leadingContent = { app.parley.ui.home.CallTypeIcon(e.call.type, durationSec = e.call.durationSec) },
+                trailingContent = { app.parley.ui.home.CallLengthGlance(e.call) },
+                headlineContent = { Text(Format.fullDate(context, e.time)) },
+                supportingContent = {
+                    Text(listOf(Bidi.ltr(Format.number(e.call.number, vm.countryIso)), Format.duration(e.call.durationSec)).filter { it.isNotBlank() }.joinToString(stringResource(R.string.main_separator)))
+                },
+            )
+        }
+        is TimelineEntry.Logged -> LoggedRow(e, interactions.firstOrNull { it.id == e.id }, onEdit) { item ->
+            scope.launch {
+                val gone = vm.c.circle.interactions.delete(item.id) ?: return@launch
+                CircleSnacks.show(CircleSnack(res.getString(R.string.circle_entry_deleted)) { vm.c.circle.interactions.restore(gone) })
+            }
+        }
+        is TimelineEntry.Note -> ListItem(
+            colors = clearRow,
+            leadingContent = { Icon(Icons.AutoMirrored.Rounded.Notes, null) },
+            headlineContent = { app.parley.ui.contact.LinkifiedText(e.text) },
+            supportingContent = { Text(stringResource(R.string.circle_call_note) + stringResource(R.string.main_separator) + Format.fullDate(context, e.time)) },
+        )
+        is TimelineEntry.Date -> ListItem(
+            colors = clearRow,
+            leadingContent = { Icon(if (e.type == android.provider.ContactsContract.CommonDataKinds.Event.TYPE_BIRTHDAY) Icons.Rounded.Cake else Icons.Rounded.Event, null) },
+            headlineContent = { Text(app.parley.ui.people.eventLabel(res, EventItem(date = e.date.format(), type = e.type, label = e.label))) },
+            supportingContent = { Text(Instant.ofEpochMilli(e.time).atZone(zone).toLocalDate().format(DateTimeFormatter.ofLocalizedDate(java.time.format.FormatStyle.LONG))) },
+        )
     }
 }
 

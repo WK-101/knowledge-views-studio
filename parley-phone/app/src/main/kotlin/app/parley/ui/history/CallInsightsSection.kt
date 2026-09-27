@@ -59,7 +59,7 @@ import java.time.format.FormatStyle
  * per-person "Keep forever" switch of the archive (H1). [numbers] are all of the person's numbers.
  */
 @Composable
-fun CallInsightsSection(vm: AppViewModel, numbers: List<String>, title: String = stringResource(R.string.hist_calls_section)) {
+fun CallInsightsSection(vm: AppViewModel, numbers: List<String>, title: String = stringResource(R.string.hist_calls_section), showTitle: Boolean = true) {
     val index by vm.c.history.index.collectAsStateWithLifecycle()
     val prefs by vm.c.history.prefs.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -70,7 +70,8 @@ fun CallInsightsSection(vm: AppViewModel, numbers: List<String>, title: String =
     if (ins.totals.total == 0) return
 
     Column {
-        Section(title)
+        // P1 (v3.4): a contact page's foldable section header shows the title instead.
+        if (showTitle) Section(title)
         val shown = ins.numbers.map { NumberKeys.e164(it) ?: it.removePrefix("#") }
         if (shown.size > 1 || shown.firstOrNull() != first) {
             Text(shown.joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 16.dp))

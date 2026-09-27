@@ -5,7 +5,6 @@ import android.graphics.Bitmap
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -18,7 +17,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountCircle
 import androidx.compose.material.icons.rounded.AddCircle
-import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.QrCode2
 import androidx.compose.material.icons.rounded.QrCodeScanner
 import androidx.compose.material.icons.rounded.RemoveCircle
@@ -79,10 +77,9 @@ private fun MigrateMyDetails(vm: AppViewModel) {
 }
 
 /**
- * I2: "My card" at the top of Contacts. Q3: a tap shows the QR code straight away (with Share and Edit in it); the
- * editor is behind the row's Edit button or a long-press. An empty card opens the editor, as there is nothing to show.
+ * I2: "My card" at the top of Contacts. v3.4 (M1): the row opens the editor like any contact; the QR button on its
+ * end shows the QR code (with Share and Edit in it). An empty card has no QR button, as there is nothing to show.
  */
-@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun MeCardRow(vm: AppViewModel, open: (String) -> Unit) {
     MigrateMyDetails(vm)
@@ -94,12 +91,7 @@ fun MeCardRow(vm: AppViewModel, open: (String) -> Unit) {
     var showQr by remember { mutableStateOf(false) }
     val edit = { open(PeopleRoutes.ME) }
     ListItem(
-        modifier = Modifier.combinedClickable(
-            onClickLabel = stringResource(if (card.isEmpty) R.string.me_open else R.string.v33_me_show_qr),
-            onClick = { if (card.isEmpty) edit() else showQr = true },
-            onLongClickLabel = stringResource(R.string.v33_me_edit),
-            onLongClick = edit,
-        ),
+        modifier = Modifier.clickable(onClickLabel = stringResource(R.string.v33_me_edit), onClick = edit),
         leadingContent = { Avatar(card.name.ifBlank { me }, null, app.parley.ui.avatarSize()) },
         headlineContent = { Text(card.name.ifBlank { myCard }) },
         supportingContent = {
@@ -108,12 +100,10 @@ fun MeCardRow(vm: AppViewModel, open: (String) -> Unit) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         },
-        trailingContent = {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                if (!card.isEmpty) Icon(Icons.Rounded.QrCode2, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                IconButton(edit) { Icon(Icons.Rounded.Edit, stringResource(R.string.v33_me_edit), tint = MaterialTheme.colorScheme.onSurfaceVariant) }
-            }
-        },
+        trailingContent = if (card.isEmpty) null else ({
+            // M1: its own 48dp target, so a tap on the QR code never opens the editor.
+            IconButton({ showQr = true }) { Icon(Icons.Rounded.QrCode2, stringResource(R.string.v33_me_show_qr), tint = MaterialTheme.colorScheme.primary) }
+        }),
     )
     if (showQr) MeQrDialog(card, onDismiss = { showQr = false }, onEdit = { showQr = false; edit() }, onScan = { showQr = false; vm.navigate(app.parley.NavEvent.Route(app.parley.ui.qr.QrRoutes.SCAN)) })
 }

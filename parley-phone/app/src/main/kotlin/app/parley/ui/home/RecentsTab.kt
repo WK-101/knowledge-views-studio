@@ -118,7 +118,9 @@ fun RecentsTab(vm: AppViewModel, open: (String) -> Unit, bottomPadding: androidx
 
     // S1: what a tap on a call does (Settings › Appearance › Layout, in every layout).
     val tapCalls = settings.surfaces.recentTap == app.parley.common.RecentTap.CALL
-    LazyColumn(Modifier.fillMaxWidth(), contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = bottomPadding)) {
+    // S1 (v3.4): swipes don't start while this list is still flinging.
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    LazyColumn(Modifier.fillMaxWidth(), state = listState, contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = bottomPadding)) {
         if (selected.isNotEmpty()) stickyHeader(key = "selection") { app.parley.ui.blocking.RecentsSelectionBar(vm, groups.orEmpty()) }
         item(key = "filters") {
             Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -208,12 +210,13 @@ fun RecentsTab(vm: AppViewModel, open: (String) -> Unit, bottomPadding: androidx
                   if (selected.isEmpty()) swipe else swipe.copy(enabled = false), hasNumber = hasNumber,
                   // Private calls live in Parley's encrypted history, which has no undo: no swipe delete there.
                   canDelete = g.vaultId == null && g.calls.all { it.id > 0 },
+                  listState = listState,
                   onAction = { a ->
                       when (a) {
                           app.parley.common.people.SwipeAction.CALL -> vm.requestCall(g.number, g.contact?.displayName)
                           app.parley.common.people.SwipeAction.MESSAGE -> g.contact?.let { quick.message(it, g.number) } ?: app.parley.ui.common.Intents.sms(context, g.number)
                           app.parley.common.people.SwipeAction.MESSAGE_ON -> g.contact?.let { quick.message(it, g.number, ask = true) } ?: run { messageFor = g.number to g.latest.accountId }
-                          app.parley.common.people.SwipeAction.BLOCK -> vm.blockNumber(g.number)
+                          app.parley.common.people.SwipeAction.BLOCK -> app.parley.ui.people.blockWithUndo(vm, listOf(g.number))
                           app.parley.common.people.SwipeAction.DELETE -> vm.deleteCallsWithUndo(g.calls)
                           app.parley.common.people.SwipeAction.NONE -> Unit
                       }

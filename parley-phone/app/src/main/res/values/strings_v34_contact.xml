@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- v3.4 contact page and list. English only for now: translations follow in a later pass. -->
+<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
+    <!-- P1: foldable sections on a contact's page -->
+    <string name="v34_cp_folded">Folded</string>
+    <string name="v34_cp_open">Open</string>
+    <string name="v34_cp_fold">Fold</string>
+    <string name="v34_cp_unfold">Unfold</string>
+    <string name="v34_cp_sec_stay">Stay in touch</string>
+    <string name="v34_cp_sec_dates">Dates</string>
+    <string name="v34_cp_sec_phones">Phone</string>
+    <string name="v34_cp_sec_emails">Email</string>
+    <string name="v34_cp_sec_addresses">Address</string>
+    <string name="v34_cp_sec_messengers">Messengers</string>
+    <string name="v34_cp_sec_about">About them</string>
+    <string name="v34_cp_sec_other">Other fields</string>
+    <string name="v34_cp_sec_timeline">Timeline</string>
+    <string name="v34_cp_sec_insights">Call insights</string>
+    <string name="v34_cp_sec_note">Note for calls</string>
+    <string name="v34_cp_sec_settings">Settings for this contact</string>
+    <plurals name="v34_cp_show_all">
+        <item quantity="one">Show all (%1$d)</item>
+        <item quantity="other">Show all (%1$d)</item>
+    </plurals>
+    <plurals name="v34_cp_entries">
+        <item quantity="one">%1$d entry</item>
+        <item quantity="other">%1$d entries</item>
+    </plurals>
+    <string name="v34_cp_date_today">%1$s today</string>
+    <string name="v34_cp_date_tomorrow">%1$s tomorrow</string>
+    <plurals name="v34_cp_date_in">
+        <item quantity="one">%1$s in %2$d day</item>
+        <item quantity="other">%1$s in %2$d days</item>
+    </plurals>
+    <plurals name="v34_cp_count_dates">
+        <item quantity="one">%1$d date</item>
+        <item quantity="other">%1$d dates</item>
+    </plurals>
+    <plurals name="v34_cp_count_numbers">
+        <item quantity="one">%1$d number</item>
+        <item quantity="other">%1$d numbers</item>
+    </plurals>
+    <plurals name="v34_cp_count_emails">
+        <item quantity="one">%1$d address</item>
+        <item quantity="other">%1$d addresses</item>
+    </plurals>
+    <plurals name="v34_cp_count_addresses">
+        <item quantity="one">%1$d place</item>
+        <item quantity="other">%1$d places</item>
+    </plurals>
+    <plurals name="v34_cp_count_items">
+        <item quantity="one">%1$d item</item>
+        <item quantity="other">%1$d items</item>
+    </plurals>
+    <plurals name="v34_cp_count_calls">
+        <item quantity="one">%1$d call</item>
+        <item quantity="other">%1$d calls</item>
+    </plurals>
+    <string name="v34_cp_no_note">No note yet</string>
+    <string name="v34_cp_settings_summary">Ringtone, voicemail, where it\'s saved</string>
+    <!-- P1: the full timeline -->
+    <string name="v34_cp_timeline_of">Timeline with %1$s</string>
+    <string name="v34_cp_timeline_search">Search notes, numbers, kinds</string>
+    <string name="v34_cp_clear_search">Clear search</string>
+    <string name="v34_cp_timeline_no_match">Nothing matches</string>
+    <string name="v34_cp_timeline_clear_filters">Clear search and filters</string>
+    <string name="v34_cp_kind_calls">Calls</string>
+    <string name="v34_cp_kind_missed">Missed</string>
+    <string name="v34_cp_kind_logged">Logged</string>
+    <string name="v34_cp_kind_notes">Notes</string>
+    <string name="v34_cp_kind_dates">Dates</string>
+    <!-- P1: Settings › Contacts › Contact page sections -->
+    <string name="v34_cp_settings_title">Contact page sections</string>
+    <string name="v34_cp_reset">Reset</string>
+    <string name="v34_cp_settings_body">Drag a section by its handle to move it. Tap it to choose whether it starts open, folded or hidden. Hiding a section never deletes anything. Folding or unfolding a section on a contact\'s page is remembered for every contact.</string>
+    <string name="v34_cp_sections">Sections</string>
+    <string name="v34_cp_chips_title">Jump to a section</string>
+    <string name="v34_cp_chips_summary">Chips under the pinned buttons, on long contact pages</string>
+    <string name="v34_cp_choose_start">Choose how it starts</string>
+    <string name="v34_cp_mode_open">Open</string>
+    <string name="v34_cp_mode_folded">Folded</string>
+    <string name="v34_cp_mode_hidden">Hidden</string>
+    <string name="v34_set_contact_page_title">Contact page sections</string>
+    <string name="v34_set_contact_page_summary">Order, fold or hide the sections of a contact\'s page</string>
+    <string name="v34_set_contact_page_kw">contact page, sections, order, reorder, fold, collapse, expand, hide, timeline, layout, jump</string>
+    <!-- S1: Block from a swipe, with Undo -->
+    <plurals name="v34_swipe_blocked">
+        <item quantity="one">Blocked %1$s</item>
+        <item quantity="other">Blocked %2$d numbers</item>
+    </plurals>
+</resources>
