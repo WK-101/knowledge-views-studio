@@ -1,3 +1,6 @@
+// The feature's destinations and its graph live together, named for the graph.
+@file:Suppress("MatchingDeclarationName")
+
 package app.parley.ui.blocking
 
 import androidx.navigation.NavController
@@ -22,7 +25,8 @@ object BlockingRoutes {
     @Serializable data object Templates : Destination
 
     /** A rule to edit ([id] > 0) or a new one of [kind] and [type] for [pattern]. */
-    @Serializable data class Rule(val id: Long, val kind: String = RuleKind.BLOCK.name, val type: String = RuleType.PREFIX.name, val pattern: String = "") : Destination
+    @Serializable
+    data class Rule(val id: Long, val kind: String = RuleKind.BLOCK.name, val type: String = RuleType.PREFIX.name, val pattern: String = "") : Destination
 
     fun rule(id: Long, kind: RuleKind = RuleKind.BLOCK, type: RuleType = RuleType.PREFIX, pattern: String = ""): Destination =
         Rule(id, kind.name, type.name, pattern)

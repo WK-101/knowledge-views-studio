@@ -158,20 +158,7 @@ class ContactRecordStore(private val context: Context) {
         val cacheKey = "$rawId|" + (thumbnail?.let { sha256(it) } ?: "")
         cache?.get(cacheKey)?.let { return it }
         val full = try {
-            cr.openAssetFileDescriptor(displayPhotoUri(rawId), "r")?.use { fd ->
-                fd.createInputStream().use { input ->
-                    val md = MessageDigest.getInstance("SHA-256")
-                    val buf = ByteArray(16 * 1024)
-                    var total = 0L
-                    while (true) {
-                        val n = input.read(buf)
-                        if (n < 0) break
-                        md.update(buf, 0, n)
-                        total += n
-                    }
-                    if (total > 0) Hex.encode(md.digest()) else null
-                }
-            }
+            cr.openAssetFileDescriptor(displayPhotoUri(rawId), "r")?.use { fd -> fd.createInputStream().use(::streamDigest) }
         } catch (_: Exception) {
             null
         }
@@ -663,6 +650,20 @@ class ContactRecordStore(private val context: Context) {
     fun isWritableAccount(account: AccountRef): Boolean = DeviceAccounts.isWritable(account, DeviceAccounts.uploadingTypes(), localAccount())
 
     private fun localAccount(): AccountRef = DeviceAccounts.localAccount(context)
+
+    /** SHA-256 of a stream read in small blocks; null when it is empty. */
+    private fun streamDigest(input: java.io.InputStream): String? {
+        val md = MessageDigest.getInstance("SHA-256")
+        val buf = ByteArray(16 * 1024)
+        var total = 0L
+        var n = input.read(buf)
+        while (n >= 0) {
+            md.update(buf, 0, n)
+            total += n
+            n = input.read(buf)
+        }
+        return if (total > 0) Hex.encode(md.digest()) else null
+    }
 
     private fun sha256(b: ByteArray): String = RecordJson.sha256Hex(b)
 

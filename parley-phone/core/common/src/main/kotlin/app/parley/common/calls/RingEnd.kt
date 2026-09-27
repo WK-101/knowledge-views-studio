@@ -28,27 +28,32 @@ object RingEnd {
     data class Result(val silence: SilenceReason?, val ringtone: RingtoneSource, val ringtoneDetail: String?, val outcome: RingOutcome)
 
     fun of(f: Facts): Result {
-        val silence = when {
-            !f.silenced -> null
-            f.quotaSilenced -> SilenceReason.QUOTA
-            f.blocked && !f.blockedReject -> SilenceReason.RULES
-            f.ignoredByUser -> SilenceReason.IGNORED
-            else -> SilenceReason.OTHER
-        }
-        val tone = when {
-            f.blocked -> RingtoneSource.NONE to null
-            // "Ignore" after the tone started: the tone that played still counts.
-            f.tonePlayed != null -> f.tonePlayed
-            silence != null && !f.ignoredByUser -> RingtoneSource.NONE to null
-            else -> RingtoneSource.SYSTEM to null
-        }
-        val outcome = when {
-            f.connected -> RingOutcome.ANSWERED
-            f.blocked && f.blockedReject -> RingOutcome.BLOCKED
-            f.disconnect == Disconnect.ANSWERED_ELSEWHERE -> RingOutcome.ANSWERED_ELSEWHERE
-            f.disconnect == Disconnect.REJECTED -> RingOutcome.DECLINED
-            else -> RingOutcome.MISSED
-        }
-        return Result(silence, tone.first, tone.second, outcome)
+        val silence = silence(f)
+        val tone = tone(f, silence)
+        return Result(silence, tone.first, tone.second, outcome(f))
+    }
+
+    private fun silence(f: Facts): SilenceReason? = when {
+        !f.silenced -> null
+        f.quotaSilenced -> SilenceReason.QUOTA
+        f.blocked && !f.blockedReject -> SilenceReason.RULES
+        f.ignoredByUser -> SilenceReason.IGNORED
+        else -> SilenceReason.OTHER
+    }
+
+    private fun tone(f: Facts, silence: SilenceReason?): Pair<RingtoneSource, String?> = when {
+        f.blocked -> RingtoneSource.NONE to null
+        // "Ignore" after the tone started: the tone that played still counts.
+        f.tonePlayed != null -> f.tonePlayed
+        silence != null && !f.ignoredByUser -> RingtoneSource.NONE to null
+        else -> RingtoneSource.SYSTEM to null
+    }
+
+    private fun outcome(f: Facts): RingOutcome = when {
+        f.connected -> RingOutcome.ANSWERED
+        f.blocked && f.blockedReject -> RingOutcome.BLOCKED
+        f.disconnect == Disconnect.ANSWERED_ELSEWHERE -> RingOutcome.ANSWERED_ELSEWHERE
+        f.disconnect == Disconnect.REJECTED -> RingOutcome.DECLINED
+        else -> RingOutcome.MISSED
     }
 }

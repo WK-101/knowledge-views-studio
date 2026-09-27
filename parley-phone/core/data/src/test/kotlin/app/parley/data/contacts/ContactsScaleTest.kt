@@ -14,6 +14,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -39,7 +40,7 @@ class ContactsScaleTest {
     @Before fun setUp() {
         shadowOf(app).grantPermissions(Manifest.permission.READ_CONTACTS, Manifest.permission.WRITE_CONTACTS)
         provider = FakeContactsProvider.install()
-        repo = ContactsRepository(app, scope, started = kotlinx.coroutines.flow.SharingStarted.Lazily)
+        repo = ContactsRepository(app, scope, started = SharingStarted.Lazily)
         repo.beforeChange = { _, _ -> listOf(1L) }
         // Straight into the tables: a name and a number each, last changed long ago.
         provider.exec(
@@ -82,7 +83,7 @@ class ContactsScaleTest {
         // The patched list is exactly what a full load gives.
         provider.exec("DELETE FROM raw_contacts WHERE _id = 7")
         val incremental = repo.loadNow()
-        val fresh = ContactsRepository(app, scope, started = kotlinx.coroutines.flow.SharingStarted.Lazily).loadNow()
+        val fresh = ContactsRepository(app, scope, started = SharingStarted.Lazily).loadNow()
         assertEquals(fresh, incremental)
     }
 

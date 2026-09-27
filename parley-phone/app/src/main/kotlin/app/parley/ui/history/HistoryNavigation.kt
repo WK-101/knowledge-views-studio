@@ -1,3 +1,6 @@
+// The feature's destinations and its graph live together, named for the graph.
+@file:Suppress("MatchingDeclarationName")
+
 package app.parley.ui.history
 
 import androidx.navigation.NavController

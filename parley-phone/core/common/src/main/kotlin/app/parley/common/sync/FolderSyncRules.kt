@@ -55,6 +55,9 @@ object FolderSyncRules {
      * What identifies a file's version without reading it: last-modified time and size. Null when the folder's
      * provider doesn't report both (the file is then read and hashed every run).
      */
-    fun stamp(lastModified: Long?, size: Long?): String? =
-        if (lastModified == null || size == null || lastModified <= 0L || size < 0L) null else "$lastModified:$size"
+    fun stamp(lastModified: Long?, size: Long?): String? {
+        val t = lastModified?.takeIf { it > 0L } ?: return null
+        val n = size?.takeIf { it >= 0L } ?: return null
+        return "$t:$n"
+    }
 }

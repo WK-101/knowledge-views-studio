@@ -206,7 +206,11 @@ class FakeContactsProvider : ContentProvider() {
                 touchRaw(id)
                 ContentUris.withAppendedId(ContactsContract.RawContacts.CONTENT_URI, id)
             }
-            "data" -> ContentUris.withAppendedId(ContactsContract.Data.CONTENT_URI, db.insertOrThrow("data", null, known("data", values)).also { touchRaw(values?.getAsLong("raw_contact_id")) })
+            "data" -> {
+                val id = db.insertOrThrow("data", null, known("data", values))
+                touchRaw(values?.getAsLong("raw_contact_id"))
+                ContentUris.withAppendedId(ContactsContract.Data.CONTENT_URI, id)
+            }
             "groups" -> ContentUris.withAppendedId(ContactsContract.Groups.CONTENT_URI, db.insertOrThrow("groups", null, known("groups", values)))
             else -> null
         }
@@ -219,9 +223,9 @@ class FakeContactsProvider : ContentProvider() {
         return when (s.firstOrNull()) {
             "data" -> db.update("data", known("data", values), where("_id"), if (s.size > 1) null else selectionArgs).also { bump(where("_id"), selectionArgs.takeIf { s.size == 1 }) }
             "raw_contacts" -> db.update("raw_contacts", known("raw_contacts", values), where("_id"), if (s.size > 1) null else selectionArgs)
-                .also { n -> if (n > 0 && values?.containsKey("version") != true) touch("UPDATE raw_contacts SET version = version + 1, last_updated = ? WHERE " + (where("_id") ?: "1"), selectionArgs.takeIf { s.size == 1 }) }
+                .also { n -> if (n > 0 && values?.containsKey("version") != true) touchWhere(where("_id"), selectionArgs.takeIf { s.size == 1 }) }
             "contacts" -> db.update("raw_contacts", known("raw_contacts", values), where("contact_id"), if (s.size > 1) null else selectionArgs)
-                .also { n -> if (n > 0) touch("UPDATE raw_contacts SET version = version + 1, last_updated = ? WHERE " + (where("contact_id") ?: "1"), selectionArgs.takeIf { s.size == 1 }) }
+                .also { n -> if (n > 0) touchWhere(where("contact_id"), selectionArgs.takeIf { s.size == 1 }) }
             "groups" -> db.update("groups", known("groups", values), where("_id"), if (s.size > 1) null else selectionArgs)
             else -> 1 // aggregation exceptions and the like: recorded only
         }
@@ -232,7 +236,11 @@ class FakeContactsProvider : ContentProvider() {
      * does (so do inserting and deleting rows, and changing the raw contact itself).
      */
     private fun bump(where: String?, args: Array<out String>?) {
-        touch("UPDATE raw_contacts SET version = version + 1, last_updated = ? WHERE _id IN (SELECT raw_contact_id FROM data" + (where?.let { " WHERE $it" } ?: "") + ")", args)
+        touchWhere("_id IN (SELECT raw_contact_id FROM data" + (where?.let { " WHERE $it" } ?: "") + ")", args)
+    }
+
+    private fun touchWhere(where: String?, args: Array<out String>?) {
+        touch("UPDATE raw_contacts SET version = version + 1, last_updated = ? WHERE " + (where ?: "1"), args)
     }
 
     private fun touchRaw(rawId: Long?) {

@@ -16,7 +16,14 @@ internal class CallLimitsGate(private val scope: CoroutineScope, private val hoo
      * Asks, bounded by [ScreeningCoordinator.SCREEN_TIMEOUT_MS], whether [number]'s allowance is used up; if so and
      * the call still rings, [silence] runs.
      */
-    fun checkAllowance(session: CallSession, number: String, accountId: String?, emergency: EmergencyPolicy.Facts, stillRinging: () -> Boolean, silence: () -> Unit) {
+    fun checkAllowance(
+        session: CallSession,
+        number: String,
+        accountId: String?,
+        emergency: EmergencyPolicy.Facts,
+        stillRinging: () -> Boolean,
+        silence: () -> Unit,
+    ) {
         if (EmergencyPolicy.bypasses(Safeguard.CALL_TIME_ALLOWANCE, emergency)) return
         scope.launch {
             val over = withTimeoutOrNull(ScreeningCoordinator.SCREEN_TIMEOUT_MS) {

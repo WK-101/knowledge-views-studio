@@ -31,7 +31,9 @@ data class CsvImportRequest(val uri: Uri, val account: AccountRef, val skipDupli
  */
 object MessagingInbox {
     @Volatile var bulkText: String? = null
+
     @Volatile var introTargets: List<IntroQueue.Target> = emptyList()
+
     @Volatile var csvImport: CsvImportRequest? = null
 }
 

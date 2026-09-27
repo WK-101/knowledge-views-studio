@@ -176,6 +176,8 @@ data class PersonInsights(
  * - Calls are grouped by [Person]: all numbers of a contact belong to one person.
  * - Times are bucketed in [zone].
  */
+// The index is built once and shared; its lookup tables are passed on whole when new calls are appended.
+@Suppress("LongParameterList")
 class CallLogIndex private constructor(
     /** Newest first. */
     val calls: List<IndexedCall>,
@@ -193,6 +195,23 @@ class CallLogIndex private constructor(
 ) {
     val isEmpty: Boolean get() = calls.isEmpty()
 
+    /** [all] is the calls this index was built from with [added] calls in front, none older than the newest one. */
+    private fun onlyNewerInFront(all: List<CallEntry>, added: Int): Boolean {
+        if (added <= 0 || all.subList(added, all.size) != source) return false
+        val newest = source.maxOfOrNull { it.date } ?: Long.MIN_VALUE
+        return all.subList(0, added).none { it.date < newest }
+    }
+
+    /** Dedupe keys of the indexed calls since [horizon]: a duplicate of a new call can only be a call in the same second. */
+    private fun newestKeys(horizon: Long): HashSet<String> {
+        val seen = HashSet<String>()
+        for (c in calls) {
+            if (c.date < horizon) break
+            if (c.numberKey != NumberKeys.HIDDEN) seen += NumberKeys.dedupe(c.call.number, c.date) + "|" + c.type
+        }
+        return seen
+    }
+
     /**
      * This index with the calls [all] has in front of the ones it was built from, when that is all that changed: new
      * calls arrived (none older than the newest indexed call) and nothing else moved. Only the new calls are keyed and
@@ -201,20 +220,11 @@ class CallLogIndex private constructor(
      */
     fun appending(all: List<CallEntry>): CallLogIndex? {
         val added = all.size - source.size
-        if (added < 0) return null
-        if (added == 0) return if (all === source || all == source) this else null
-        if (all.subList(added, all.size) != source) return null
+        if (added == 0 && (all === source || all == source)) return this
+        if (!onlyNewerInFront(all, added)) return null
         val fresh = all.subList(0, added)
-        val newest = source.maxOfOrNull { it.date } ?: Long.MIN_VALUE
-        if (fresh.any { it.date < newest }) return null
 
-        // A duplicate of a new call can only be a call in the same second, so only the newest indexed calls matter.
-        val seen = HashSet<String>()
-        val horizon = fresh.minOf { it.date } - 1_000
-        for (c in calls) {
-            if (c.date < horizon) break
-            if (c.numberKey != NumberKeys.HIDDEN) seen += NumberKeys.dedupe(c.call.number, c.date) + "|" + c.type
-        }
+        val seen = newestKeys(fresh.minOf { it.date } - 1_000)
         val indexed = ArrayList<IndexedCall>(fresh.size)
         for (e in fresh.sortedByDescending { it.date }) {
             val hidden = e.presentationHidden || e.number.isBlank()

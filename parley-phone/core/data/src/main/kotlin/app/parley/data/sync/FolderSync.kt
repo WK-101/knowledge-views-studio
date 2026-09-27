@@ -200,7 +200,11 @@ class FolderSync(private val context: Context, private val contacts: ContactsRep
             if (id == null) {
                 raw
             } else {
-                raw.copy(rows = raw.rows.map { row -> if (row.mimeType == Mime.PHOTO && row[Col.D14] != null) records.fullPhoto(id)?.let { row.copy(blob = it) } ?: row else row })
+                raw.copy(
+                    rows = raw.rows.map { row ->
+                        if (row.mimeType == Mime.PHOTO && row[Col.D14] != null) records.fullPhoto(id)?.let { row.copy(blob = it) } ?: row else row
+                    },
+                )
             }
         },
     )
@@ -256,7 +260,13 @@ class FolderSync(private val context: Context, private val contacts: ContactsRep
     private class Listed(val uri: Uri, val stamp: String?)
 
     /** Per entry: what changed, found in the first pass (only hashes and flags are kept, never contents). */
-    private class Look(var fileChanged: Boolean = false, var fileGone: Boolean = false, var unreadable: Boolean = false, var localChanged: Boolean = false, var localGone: Boolean = false)
+    private class Look {
+        var fileChanged = false
+        var fileGone = false
+        var unreadable = false
+        var localChanged = false
+        var localGone = false
+    }
 
     private suspend fun run(allowMassDelete: Boolean): SyncReport {
         val folder = status.value.folderUri?.let(Uri::parse) ?: return SyncReport()
@@ -453,7 +463,8 @@ class FolderSync(private val context: Context, private val contacts: ContactsRep
                     val theirs = readFile(file.uri) ?: continue
                     val rec = head?.let(::readOne) ?: continue
                     runCatching {
-                        DocumentsContract.createDocument(cr, parentDoc, "text/vcard", name.removeSuffix(".vcf") + ".conflict-" + System.currentTimeMillis() + ".vcf")
+                        val aside = name.removeSuffix(".vcf") + ".conflict-" + System.currentTimeMillis() + ".vcf"
+                        DocumentsContract.createDocument(cr, parentDoc, "text/vcard", aside)
                             ?.let { u -> cr.openOutputStream(u, "wt")!!.use { it.write(theirs) } }
                     }
                     val bytes = render(withFullPhotos(rec), e.contactKey)

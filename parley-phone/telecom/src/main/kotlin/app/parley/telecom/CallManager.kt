@@ -274,7 +274,9 @@ object CallManager {
         val base = toUi(call)
         // An outgoing call that never went through: the reason and Retry stay on the call-ended screen.
         val failure = CallFailure.classify(endFacts(call, base, s))
-        val ended = (if (failure == null) base else base.copy(failure = failure, failureText = failureText(failure, call))).copy(unknown = false, location = null)
+        // The unknown-caller extras (tone, "where from") end with the ringing.
+        val shown = base.copy(unknown = false, location = null)
+        val ended = if (failure == null) shown else shown.copy(failure = failure, failureText = failureText(failure, call))
         _lastEnded.value = ended
         // A call that failed before the caller lookup finished still shows the name on "Call ended".
         if (ended.name == null && !ended.hidden && !ended.number.isNullOrBlank()) lookUpEndedName(ended)

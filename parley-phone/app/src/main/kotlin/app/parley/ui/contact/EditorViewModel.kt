@@ -411,7 +411,8 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
         json?.let { runCatching { ContactDraftJson.decode(it) }.getOrNull() }?.let { draft = it }
         val o = original
         val savedVersion = b.getLong(K_BASE_VERSION, -1L)
-        if (o != null && o.editRawId != null && o.editRawId == b.getLong(K_BASE_RAW) && savedVersion >= 0 && savedVersion != o.editRawVersion) {
+        val sameCopy = o?.editRawId != null && o.editRawId == b.getLong(K_BASE_RAW)
+        if (o != null && sameCopy && savedVersion >= 0 && savedVersion != o.editRawVersion) {
             // The contact changed while Parley was stopped: keep asserting the old version, and merge without a base.
             original = o.copy(editRawVersion = savedVersion)
             base = null

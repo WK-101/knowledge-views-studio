@@ -165,7 +165,9 @@ class CallHistory(
         .stateIn(scope, SharingStarted.WhileSubscribed(60_000), null)
 
     /** The last index and what it was built with, so new calls alone are appended rather than indexed again. */
-    private class Built(val contacts: List<ContactSummary>?, val permitted: Boolean, val country: String, val zone: ZoneId, val index: CallLogIndex)
+    private class Built(val contacts: List<ContactSummary>?, val permitted: Boolean, val country: String, val zone: ZoneId, val index: CallLogIndex) {
+        fun sameInputs(ct: List<ContactSummary>?, p: Boolean, c: String, z: ZoneId) = contacts === ct && permitted == p && country == c && zone == z
+    }
 
     @Volatile private var built: Built? = null
 
@@ -175,7 +177,7 @@ class CallHistory(
         val country = countryIso
         val z = zone
         built?.let { b ->
-            if (b.contacts === ct && b.permitted == permitted && b.country == country && b.zone == z) {
+            if (b.sameInputs(ct, permitted, country, z)) {
                 b.index.appending(calls)?.let { idx -> return idx.also { built = Built(ct, permitted, country, z, it) } }
             }
         }
