@@ -34,8 +34,9 @@ import android.telecom.TelecomManager
 import android.view.WindowManager
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.biometric.BiometricManager
-import androidx.biometric.BiometricPrompt
+import android.hardware.biometrics.BiometricManager
+import android.hardware.biometrics.BiometricPrompt
+import android.os.CancellationSignal
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -80,16 +81,27 @@ object AppLock {
     private var backgroundAt = 0L
     private var everUnlocked = false
 
-    /** Strong enough to also unlock time-bound Keystore keys (vault). */
-    val authenticators: Int
-        get() = if (Build.VERSION.SDK_INT >= 30) {
-            BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.DEVICE_CREDENTIAL
-        } else {
-            BiometricManager.Authenticators.BIOMETRIC_WEAK or BiometricManager.Authenticators.DEVICE_CREDENTIAL
-        }
+    /**
+     * Android 11+: a strong biometric (strong enough to also unlock time-bound Keystore keys, the vault) or the screen
+     * lock. The platform's own BiometricPrompt is used (minSdk 29 has it), which keeps AndroidX's biometric library
+     * and the AppCompat it brings out of a Compose-only app.
+     */
+    private const val AUTHENTICATORS = BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.DEVICE_CREDENTIAL
 
+    /**
+     * Whether the system prompt can run: on Android 11+ for a strong biometric or the screen lock; on Android 10 only
+     * for an enrolled biometric (the screen lock alone goes through the keyguard's confirmation, see [authenticate]).
+     */
+    private fun promptStatus(context: Context): Int {
+        val bm = context.getSystemService(BiometricManager::class.java) ?: return BiometricManager.BIOMETRIC_ERROR_HW_UNAVAILABLE
+        @Suppress("DEPRECATION")
+        return if (Build.VERSION.SDK_INT >= 30) bm.canAuthenticate(AUTHENTICATORS) else bm.canAuthenticate()
+    }
+
+    /** A biometric or the screen lock can confirm it's you. */
     fun canAuthenticate(activity: FragmentActivity): Boolean =
-        BiometricManager.from(activity).canAuthenticate(authenticators) == BiometricManager.BIOMETRIC_SUCCESS
+        promptStatus(activity) == BiometricManager.BIOMETRIC_SUCCESS ||
+            (Build.VERSION.SDK_INT < 30 && activity.getSystemService(KeyguardManager::class.java)?.isDeviceSecure == true)
 
     /** The settings seen last, so leaving the app can lock without waiting for storage. */
     @Volatile
@@ -147,7 +159,7 @@ object AppLock {
      * screen lock is confirmed instead.
      */
     fun authenticate(activity: FragmentActivity, title: String? = null, onResult: (Boolean) -> Unit = {}) {
-        val status = BiometricManager.from(activity).canAuthenticate(authenticators)
+        val status = promptStatus(activity)
         if (status != BiometricManager.BIOMETRIC_SUCCESS) {
             val km = activity.getSystemService(KeyguardManager::class.java)
             if (km?.isDeviceSecure != true) {
@@ -164,8 +176,16 @@ object AppLock {
                 onResult(ok)
             }
         }
-        val prompt = BiometricPrompt(
-            activity, ContextCompat.getMainExecutor(activity),
+        val prompt = BiometricPrompt.Builder(activity)
+            .setTitle(title ?: activity.getString(R.string.lock_unlock_parley))
+            .apply {
+                // The screen lock is always offered too, so no negative button (the system shows "Use PIN" etc.).
+                @Suppress("DEPRECATION")
+                if (Build.VERSION.SDK_INT >= 30) setAllowedAuthenticators(AUTHENTICATORS) else setDeviceCredentialAllowed(true)
+            }
+            .build()
+        prompt.authenticate(
+            CancellationSignal(), ContextCompat.getMainExecutor(activity),
             object : BiometricPrompt.AuthenticationCallback() {
                 override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
                     unlocked()
@@ -175,12 +195,6 @@ object AppLock {
 
                 override fun onAuthenticationError(errorCode: Int, errString: CharSequence) = onResult(false)
             },
-        )
-        prompt.authenticate(
-            BiometricPrompt.PromptInfo.Builder()
-                .setTitle(title ?: activity.getString(R.string.lock_unlock_parley))
-                .setAllowedAuthenticators(authenticators)
-                .build(),
         )
     }
 

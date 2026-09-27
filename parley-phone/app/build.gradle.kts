@@ -89,6 +89,13 @@ android {
 
     packaging {
         resources.excludes += setOf("META-INF/*.version", "META-INF/**/LICENSE*", "kotlin/**", "DebugProbesKt.bin")
+        // "Where is this number from" place names: only English and the app's other languages the geocoder has
+        // data for (German, Spanish, French, Portuguese, Arabic; none for Hindi or Urdu). The Chinese set alone was
+        // 790 KB. NumberInfo asks in English for any other language (GeoLanguages), so a dropped file is never read.
+        resources.excludes += listOf(
+            "be", "bg", "bs", "el", "fa", "fi", "hr", "hu", "hy", "id", "it", "iw", "ja", "kk", "ko", "nl", "pl", "ro",
+            "ru", "sq", "sr", "sv", "th", "tr", "uk", "vi", "zh", "zh_Hant",
+        ).map { "com/google/i18n/phonenumbers/geocoding/data/*_$it" }
     }
 
     lint {
@@ -118,7 +125,6 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.zxing.core)
-    implementation(libs.androidx.biometric)
     implementation(libs.androidx.fragment)
     implementation(libs.androidx.work)
     debugImplementation(libs.compose.ui.tooling.preview)
