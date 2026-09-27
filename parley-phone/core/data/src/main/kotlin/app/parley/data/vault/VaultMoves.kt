@@ -37,9 +37,14 @@ class VaultMoves(
     /** [messengerCopies]: WhatsApp, Signal… copies stay until that app resyncs its contacts. */
     data class MovedIn(val vaultId: Long, val removedAfterSync: Boolean, val messengerCopies: Boolean = false)
 
-    /** Throws [VaultCrypto.LockedException] when the vault must be unlocked first; nothing is deleted then. */
+    /**
+     * Throws [VaultCrypto.LockedException] when the vault must be unlocked first, and [IllegalStateException] when
+     * the whole contact can't be read; nothing is deleted then (the phone copy is only removed once the vault holds
+     * everything it had: there is no journal copy of a contact moved into the vault).
+     */
     suspend fun moveIn(contactId: Long, shown: ContactDetails): MovedIn = withContext(Dispatchers.IO) {
         val record = records.read(contactId, fullPhoto = true)?.let { capPhoto(contactId, it) }?.withoutMessengers()
+            ?: throw IllegalStateException("Couldn't read the whole contact, so it wasn't moved")
         // R2: read before the caller forgets the key (ContactKeys.forget deletes them outside the vault).
         val carried = shown.lookupKey.takeIf { it.isNotEmpty() }?.let { key ->
             runCatching { interactions()?.interactionsFor(key) }.getOrNull().orEmpty()
@@ -47,7 +52,7 @@ class VaultMoves(
         }.orEmpty()
         val id = vault.save(null, shown, record = record, interactions = Interactions.encodeCarried(carried))
         // I6: the contact's photo becomes the private contact's (encrypted) caller photo.
-        record?.raws?.asSequence()?.flatMap { it.rows }?.firstOrNull { it.mimeType == Mime.PHOTO && (it.blob?.size ?: 0) > 0 }?.blob
+        record.raws.asSequence().flatMap { it.rows }.firstOrNull { it.mimeType == Mime.PHOTO && (it.blob?.size ?: 0) > 0 }?.blob
             ?.let { runCatching { vault.setPhoto(id, it) } }
         val purged = contacts.purgeForVault(contactId)
         contacts.refresh()

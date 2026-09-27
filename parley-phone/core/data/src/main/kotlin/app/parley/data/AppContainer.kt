@@ -64,15 +64,32 @@ class DataContainer(context: Context) {
     val ux by lazy { UxPrefs(appContext) }
     val people by lazy { app.parley.data.people.PeopleContainer(this) }
     val backup by lazy {
-        app.parley.data.backup.BackupRepository(appContext, contacts, records, blocks, prefs, db, settings, vault, app.parley.data.backup.BackupPrefs(appContext))
+        app.parley.data.backup.BackupRepository(appContext, contacts, records, blocks, prefs, db, settings, vault, app.parley.data.backup.BackupPrefs(appContext), callLog)
             .apply { callHistory = history }
-            .also { it.extras = { listOf(people.backupExtras, circle.backupExtras, extras.backupExtras) } }
+            .also { it.extras = { backupParts } }
     }
+    /**
+     * Every feature part of the backup. Each names the [app.parley.common.storage.PersistentStores] sections it writes;
+     * the backup reports a backed-up store no part covers.
+     */
+    private val backupParts: List<app.parley.data.backup.BackupExtras> by lazy {
+        listOf(
+            people.backupExtras, circle.backupExtras, extras.backupExtras,
+            app.parley.data.backup.ContactNotesBackup(db, { contacts.loadNow() }) { id -> contacts.rawIds(id) },
+            app.parley.data.backup.CallTimeBackup(calling, callExtras) { contacts.loadNow() },
+            app.parley.data.backup.HistorySettingsBackup { history.prefs },
+            app.parley.data.backup.SpamListsBackup { lists },
+        )
+    }
+
     val history: app.parley.data.history.CallHistory by lazy {
         app.parley.data.history.CallHistory(appContext, callLog, contacts, vault, scope).also { h ->
             h.onForget = { n, dates -> ringFacts.forget(n, dates) }
         }
     }
+
+    /** "Delete all Parley data" (every store in [app.parley.common.storage.PersistentStores]). */
+    val wipe by lazy { DataWipe(appContext, this) }
 
     /** Moves rows stored under the old last-digits number key to the line key, once (see [PhoneKeyMigrator]). */
     val phoneKeys by lazy { PhoneKeyMigrator(appContext, db, contacts, { history }) { messaging } }
@@ -81,7 +98,7 @@ class DataContainer(context: Context) {
     val temporaries by lazy { app.parley.data.people.TemporaryContactStore(this) }
 
     /** Keeps notes, backgrounds, relation links and temporary flags attached when lookup keys change (F8). */
-    val contactKeys by lazy { app.parley.data.people.ContactKeys(contacts, meta, { people.backgrounds }, { circle.interactions }) { extras } }
+    val contactKeys by lazy { app.parley.data.people.ContactKeys(contacts, meta, { people.backgrounds }, { circle.interactions }, { extras }, db) }
 
     /** R1–R5: the Circle (keep-in-touch rhythms, interactions, "Log this?", reminder bookkeeping). */
     val circle by lazy {

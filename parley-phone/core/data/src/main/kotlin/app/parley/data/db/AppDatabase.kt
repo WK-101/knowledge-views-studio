@@ -335,6 +335,12 @@ interface MetaDao {
     @Query("DELETE FROM contact_meta WHERE lookupKey = :key")
     suspend fun deleteMeta(key: String)
 
+    @Query("UPDATE contact_meta SET contactId = :id WHERE lookupKey = :key")
+    suspend fun setMetaContactId(key: String, id: Long?)
+
+    @Query("UPDATE contact_meta SET relationLinks = :links WHERE lookupKey = :key")
+    suspend fun setRelationLinks(key: String, links: String?)
+
     /** R4: targeted writes, so a row read a while ago never overwrites newer edits (pinned note, a re-key). */
     @Query("UPDATE contact_meta SET lastNudgedAt = :at WHERE lookupKey = :key")
     suspend fun setLastNudgedAt(key: String, at: Long?)

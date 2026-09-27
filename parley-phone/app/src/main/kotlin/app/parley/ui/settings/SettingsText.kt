@@ -110,6 +110,7 @@ object SettingsText {
         "private_names" to Triple(R.string.set_private_names_title, R.string.set_private_names_summary, R.string.set_private_names_kw),
         "private_directory" to Triple(R.string.set_private_directory_title, R.string.set_private_directory_summary, R.string.set_private_directory_kw),
         "app_permissions" to Triple(R.string.set_app_permissions_title, R.string.set_app_permissions_summary, R.string.set_app_permissions_kw),
+        "delete_all_data" to Triple(R.string.set_delete_all_data_title, R.string.set_delete_all_data_summary, R.string.set_delete_all_data_kw),
         "backup" to Triple(R.string.set_backup_title, R.string.set_backup_summary, R.string.set_backup_kw),
         "backup_reminder" to Triple(R.string.set_backup_reminder_title, R.string.set_backup_reminder_summary, R.string.set_backup_reminder_kw),
         "sync" to Triple(R.string.set_sync_title, R.string.set_sync_summary, R.string.set_sync_kw),

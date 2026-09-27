@@ -8,6 +8,8 @@ import app.parley.data.db.MetaDao
 import app.parley.data.records.ContactRecordStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
@@ -22,10 +24,13 @@ class JournalRepository(private val dao: MetaDao, private val records: ContactRe
 
     fun recent(days: Int = 30): Flow<List<JournalRow>> = dao.journal(System.currentTimeMillis() - days * 86_400_000L)
 
-    /** Snapshots contacts; returns the journal ids (for "Undo"). */
+    /**
+     * Snapshots contacts; returns the journal ids (for "Undo"). A contact that can't be read throws (so a delete never
+     * goes ahead without its copy); one that no longer exists has nothing to keep and is skipped.
+     */
     suspend fun snapshot(contactIds: Collection<Long>, action: String): List<Long> = withContext(Dispatchers.IO) {
         contactIds.mapNotNull { id ->
-            val record = runCatching { records.read(id, fullPhoto = true) }.getOrNull() ?: return@mapNotNull null
+            val record = records.read(id, fullPhoto = true) ?: return@mapNotNull null
             val blobs = JSONObject()
             val line = RecordJson.encode(record) { hash, bytes -> blobs.put(hash, Base64.encodeToString(bytes, Base64.NO_WRAP)) }
             val payload = JSONObject().put("record", line).put("blobs", blobs).toString().toByteArray()
@@ -37,14 +42,22 @@ class JournalRepository(private val dao: MetaDao, private val records: ContactRe
     /** Forgets every journaled copy of a contact (it moved into the private vault). */
     suspend fun forget(key: String) = dao.deleteJournalFor(key)
 
-    /** Re-creates the contact exactly as it was (in its original accounts). Returns the new contact id. */
-    suspend fun restore(entryId: Long): Long? = withContext(Dispatchers.IO) {
-        val e = dao.journalEntry(entryId) ?: return@withContext null
+    private val restoring = Mutex()
+
+    /**
+     * Re-creates the contact exactly as it was (in its original accounts). Returns the new contact id, or null when it
+     * failed or was already restored (a double tap or a retry never makes a second copy).
+     */
+    suspend fun restore(entryId: Long): Long? = withContext(Dispatchers.IO) { restoring.withLock { restoreLocked(entryId) } }
+
+    private suspend fun restoreLocked(entryId: Long): Long? {
+        val e = dao.journalEntry(entryId) ?: return null
+        if (e.restored) return null
         val json = JSONObject(String(GZIPInputStream(e.payload.inputStream()).use { it.readBytes() }))
         val blobs = json.optJSONObject("blobs") ?: JSONObject()
         val record = RecordJson.decode(json.getString("record")) { hash -> blobs.optString(hash).takeIf { it.isNotEmpty() }?.let { Base64.decode(it, Base64.NO_WRAP) } }
         val id = records.insert(record, target = null)
         if (id != null) dao.markRestored(entryId)
-        id
+        return id
     }
 }

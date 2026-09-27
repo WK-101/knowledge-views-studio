@@ -687,4 +687,21 @@
     <string name="set_reset_tips_kw">tips, hints, coach marks, help, tutorial</string>
     <string name="set_group_tips">Tips</string>
     <string name="ux_tips_reset_done">Tips will show again</string>
+    <string name="set_delete_all_data_title">Delete all Parley data</string>
+    <string name="set_delete_all_data_summary">Everything Parley keeps on this phone, after an optional backup</string>
+    <string name="set_delete_all_data_kw">erase, wipe, reset, clear data, forget, start over, remove everything</string>
+    <string name="wipe_title">Delete all Parley data?</string>
+    <string name="wipe_body">This removes everything Parley keeps on this phone: private contacts and their calls, notes, the Circle, label settings, blocking rules and logs, call-time limits, the call-history archive, backup keys and all settings. Parley then starts again as new. This can\'t be undone.</string>
+    <string name="wipe_outside">Backups, synced folders and Markdown exports you saved to a folder stay where they are.</string>
+    <string name="wipe_backup_first">Make a backup first</string>
+    <string name="wipe_no_backup">Backups aren\'t set up, so nothing can be brought back afterwards.</string>
+    <string name="wipe_call_log">Also delete Android\'s call history (used by every phone app)</string>
+    <string name="wipe_phone_contacts">Also delete the contacts stored on this phone (contacts in Google or other synced accounts stay)</string>
+    <string name="wipe_confirm_word">DELETE</string>
+    <string name="wipe_type_to_confirm">Type %1$s to confirm</string>
+    <string name="wipe_confirm">Delete everything</string>
+    <string name="wipe_backing_up">Backing up…</string>
+    <string name="wipe_backup_failed">The backup didn\'t work, so nothing was deleted. %1$s</string>
+    <string name="wipe_deleting">Deleting…</string>
+    <string name="wipe_in_call">Finish the call first, then try again.</string>
 </resources>

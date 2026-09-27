@@ -1,5 +1,6 @@
 package app.parley.data.people
 
+import app.parley.common.storage.PersistentStores
 import app.parley.common.PhoneIdentity
 import android.provider.ContactsContract.CommonDataKinds.GroupMembership
 import android.provider.ContactsContract.Data
@@ -70,6 +71,7 @@ class PeopleContainer(private val c: DataContainer) {
 /** Backs up people preferences, private-name approvals and call backgrounds (matched back by name and number). */
 private class PeopleBackupExtras(private val p: PeopleContainer, private val c: DataContainer) : BackupExtras {
     override val section = "people"
+    override val sections = setOf(PersistentStores.Sections.PEOPLE)
 
     override suspend fun export(): Map<String, String> {
         val out = LinkedHashMap<String, String>()

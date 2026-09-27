@@ -157,6 +157,12 @@ class CallHistory(
         return CallLogIndex.build(calls, known, countryIso, zone)
     }
 
+    /** Closes the archive database so "Delete all Parley data" can remove its file (the process restarts after). */
+    internal fun closeForWipe() = synchronized(this) {
+        runCatching { dbRef?.close() }
+        dbRef = null
+    }
+
     /** Waits (up to 30 s) for the first index, e.g. in a worker. */
     suspend fun awaitIndex(): CallLogIndex? = withTimeoutOrNull(30_000) { index.filterNotNull().first() }
 

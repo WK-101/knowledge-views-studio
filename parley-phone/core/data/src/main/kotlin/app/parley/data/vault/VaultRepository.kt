@@ -426,6 +426,19 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
         JSONObject(String(VaultCrypto.openDetail(e.detailBlob))).optString(INTERACTIONS).takeIf { it.isNotEmpty() }
     }
 
+    /** Every private contact, read straight from the database (not the UI flow, which starts empty). */
+    suspend fun summariesNow(): List<VaultSummary> = withContext(Dispatchers.IO) { dao.all().mapNotNull { summarize(it) } }
+
+    /** The private calls of entry [vaultId], read straight from the database (backup). */
+    suspend fun privateCallsOf(vaultId: Long): List<PrivateCall> = withContext(Dispatchers.IO) {
+        dao.allPrivateCalls().filter { it.vaultId == vaultId }.mapNotNull { c ->
+            runCatching {
+                val o = JSONObject(String(VaultCrypto.openCallerId(c.blob)))
+                PrivateCall(c.id, c.vaultId, o.optString("n"), o.optString("name"), c.date, c.durationSec, c.type)
+            }.getOrNull()
+        }
+    }
+
     /** Every private contact's numbers, read straight from the database (import duplicate checks, F17). */
     suspend fun allNumbers(): List<String> = withContext(Dispatchers.IO) { dao.all().mapNotNull { summarize(it) }.flatMap { it.numbers } }
 

@@ -224,6 +224,8 @@ object SettingsCatalog {
         e("private_directory", "Private names in other phone apps", "Off by default. A phone app you approve (for example Google Phone, also in the car) can show who is calling", S,
             "directory", "car", "work profile", "android auto", "caller id", "dialer", "private names"),
         e("app_permissions", "App permissions (system)", "Android's settings for Parley", S, "permissions", "system", "app info"),
+        e("delete_all_data", "Delete all Parley data", "Everything Parley keeps on this phone, after an optional backup", S,
+            "erase", "wipe", "reset", "clear data", "forget", "start over", "remove everything"),
 
         // Backup & sync
         e("backup", "Backup & restore", "Encrypted backups to a folder you choose", U, "restore", "export", "encrypted", "new phone", "move", "transfer"),

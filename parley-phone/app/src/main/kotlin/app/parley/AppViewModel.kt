@@ -488,6 +488,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         // With "Private call history" on, their ring facts go too (the calls themselves move into the vault).
         if (c.settings.current().privateVaultHistory) {
             withContext(Dispatchers.IO) { d.phones.forEach { p -> runCatching { c.ringFacts.forget(p.value) } } }
+            // Their older calls too, not just the recent ones the sweep after each call reaches.
+            runCatching { c.vault.sweepCallLog(0) }
         }
         when {
             moved.messengerCopies -> toast(str(R.string.vm_messenger_copies_remain))

@@ -28,7 +28,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.fragment.app.FragmentActivity
 import app.parley.AppViewModel
+import app.parley.security.AppLock
 import app.parley.common.backup.MergePlan
 import app.parley.common.backup.RecoveryKey
 import app.parley.common.backup.RestoreMode
@@ -47,7 +49,8 @@ private sealed interface Step {
     data class Working(val text: String) : Step
     data class Options(val opened: OpenedBackup) : Step
     data class Preview(val opened: OpenedBackup, val plan: MergePlan, val options: RestoreOptions) : Step
-    data class Done(val text: String) : Step
+    /** [pending]: a part waits for confirmation (supervised call-time limits). */
+    data class Done(val text: String, val pending: Boolean = false) : Step
 }
 
 /** Unlock → choose what to restore → preview (new / updated / identical / conflicts) → restore → report. */
@@ -172,20 +175,45 @@ fun RestoreFlow(vm: AppViewModel, uri: Uri, onDone: () -> Unit) {
                             val report = repo.restore(s.opened, s.plan, s.options.copy(applyConflicts = applyConflicts))
                             // Circle entries whose person isn't on this phone are skipped; say how many.
                             val unmatched = if (report.unmatched > 0) res.getString(R.string.main_separator) + res.getQuantityString(R.plurals.circle_restore_unmatched, report.unmatched, report.unmatched) else ""
-                            step = Step.Done(report.summary(res) + unmatched)
+                            val blockedLog = if (report.blockedLog > 0) res.getString(R.string.main_separator) + res.getQuantityString(R.plurals.rst_blocked_log, report.blockedLog, report.blockedLog) else ""
+                            step = Step.Done(report.summary(res) + unmatched + blockedLog, report.needsConfirmation)
                         }
                     }) { Text(stringResource(R.string.dc_restore)) }
                 },
                 dismissButton = { TextButton(onDone) { Text(stringResource(R.string.dc_cancel)) } },
             )
         }
-        is Step.Done -> AlertDialog(
-            onDismissRequest = onDone,
-            title = { Text(stringResource(R.string.rst_finished)) },
-            text = { Text(s.text) },
-            confirmButton = { TextButton(onDone) { Text(stringResource(R.string.dc_done)) } },
-            dismissButton = { TextButton({ scope.launch { repo.undoLastRestore(); vm.toast(res.getString(R.string.rst_undone)); onDone() } }) { Text(stringResource(R.string.dc_undo)) } },
-        )
+        is Step.Done -> {
+            // Supervised limits are replaced only after the app lock confirms it; closing the dialog drops them.
+            var pending by remember { mutableStateOf(s.pending) }
+            val finish = {
+                repo.discardPendingRestore()
+                onDone()
+            }
+            AlertDialog(
+                onDismissRequest = finish,
+                title = { Text(stringResource(R.string.rst_finished)) },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(s.text)
+                        if (pending) {
+                            Text(stringResource(R.string.rst_calltime_waiting), style = MaterialTheme.typography.bodySmall)
+                            TextButton({
+                                val act = context as? FragmentActivity ?: return@TextButton
+                                AppLock.authenticate(act, res.getString(R.string.rst_calltime_confirm)) { ok ->
+                                    if (ok) scope.launch {
+                                        if (repo.applyPendingRestore()) vm.toast(res.getString(R.string.rst_calltime_applied))
+                                        pending = false
+                                    }
+                                }
+                            }) { Text(stringResource(R.string.rst_calltime_apply)) }
+                        }
+                    }
+                },
+                confirmButton = { TextButton(finish) { Text(stringResource(R.string.dc_done)) } },
+                dismissButton = { TextButton({ scope.launch { repo.discardPendingRestore(); repo.undoLastRestore(); vm.toast(res.getString(R.string.rst_undone)); onDone() } }) { Text(stringResource(R.string.dc_undo)) } },
+            )
+        }
     }
 }
 

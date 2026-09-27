@@ -21,6 +21,7 @@ import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.AdminPanelSettings
 import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.AutoDelete
+import androidx.compose.material.icons.rounded.DeleteForever
 import androidx.compose.material.icons.rounded.Backup
 import androidx.compose.material.icons.rounded.Badge
 import androidx.compose.material.icons.rounded.BatteryAlert
@@ -545,6 +546,7 @@ internal fun PrivacyPage(vm: AppViewModel, open: (String) -> Unit) {
     val s by vm.settings.collectAsStateWithLifecycle()
     val set = rememberSettingsSetter(vm)
     val pn by vm.c.people.privateNames.state.collectAsStateWithLifecycle()
+    var wipe by remember { mutableStateOf(false) }
     val lockTimes = listOf(0, 1, 5, 15, 60)
     val lockLabels = listOf(
         stringResource(R.string.set_lock_immediately),
@@ -579,7 +581,9 @@ internal fun PrivacyPage(vm: AppViewModel, open: (String) -> Unit) {
         linkRow("app_permissions", Icons.Rounded.AdminPanelSettings, external = true) {
             context.startSafely(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + context.packageName)))
         }
+        linkRow("delete_all_data", Icons.Rounded.DeleteForever) { wipe = true }
     }
+    if (wipe) DeleteAllDataDialog(vm) { wipe = false }
 }
 
 // ---------------------------------------------------------------- Backup & sync
