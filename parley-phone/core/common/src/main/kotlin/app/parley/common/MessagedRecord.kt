@@ -72,6 +72,13 @@ object MessagedRecord {
         return moved.groupBy { it.key }.values.map { same -> same.maxBy { it.at } }.sortedBy { it.at }
     }
 
+    /**
+     * The last digits of the entries kept from before F7, in the form [PhoneKeyMigration.plan] resolves, so they are
+     * re-keyed even when no other stored row has the same digits.
+     */
+    fun legacyDigits(entries: List<MessagedEntry>): List<String> =
+        entries.filter { it.number == null && it.key.startsWith(LEGACY_PREFIX) }.map { it.key.removePrefix(LEGACY_PREFIX) }.distinct()
+
     /** How [fromLegacy] keys a number of 7 digits or more: "~k" plus its last digits. */
     private const val LEGACY_PREFIX = "~k"
 

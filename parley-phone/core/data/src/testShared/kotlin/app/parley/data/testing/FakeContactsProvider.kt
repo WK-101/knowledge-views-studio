@@ -17,6 +17,12 @@ import org.robolectric.Robolectric
  * column names, so Parley's real queries, selections and batches run unchanged. It keeps one aggregate per raw
  * contact (the contact id is the first raw contact's id unless a test sets another), ignores aggregation exceptions
  * and photos, and records every write in [writes] so a test can check exactly which rows a save touched.
+ *
+ * Two behaviours of the real provider that Parley must cope with are kept:
+ * - Lookup keys change ([changeLookupKey], as after a first sync or a rename), and an old key still resolves to the
+ *   contact that now holds its raw contacts.
+ * - Deleting a raw contact of a synced account only marks it `deleted = 1` until the sync adapter runs ([purgeDeleted]);
+ *   such rows stay visible through the raw_contacts URI. Phone-only raw contacts (no account) go at once.
  */
 class FakeContactsProvider : ContentProvider() {
     /** One write the provider received: "insert", "update" or "delete", the path and the values. */
@@ -50,10 +56,15 @@ class FakeContactsProvider : ContentProvider() {
                 "favorites INTEGER NOT NULL DEFAULT 0, deleted INTEGER NOT NULL DEFAULT 0, group_visible INTEGER NOT NULL DEFAULT 0, " +
                 "should_sync INTEGER NOT NULL DEFAULT 1, dirty INTEGER NOT NULL DEFAULT 0, version INTEGER NOT NULL DEFAULT 1)",
         )
+        // The current key a test gave a contact, and the raw contacts each earlier key stood for.
+        db.execSQL("CREATE TABLE lookup_override (contact_id INTEGER PRIMARY KEY, lookup TEXT NOT NULL)")
+        db.execSQL("CREATE TABLE lookup_history (lookup TEXT NOT NULL, raw_contact_id INTEGER NOT NULL)")
         val name = "(SELECT n.data1 FROM data n JOIN raw_contacts nr ON n.raw_contact_id = nr._id WHERE nr.contact_id = r.contact_id " +
             "AND n.mimetype = '${ContactsContract.CommonDataKinds.StructuredName.CONTENT_ITEM_TYPE}' ORDER BY n._id LIMIT 1)"
         db.execSQL(
-            "CREATE VIEW contacts AS SELECT r.contact_id AS _id, 'lk' || r.contact_id AS lookup, $name AS display_name, $name AS display_name_alt, " +
+            "CREATE VIEW contacts AS SELECT r.contact_id AS _id, " +
+                "COALESCE((SELECT o.lookup FROM lookup_override o WHERE o.contact_id = r.contact_id), 'lk' || r.contact_id) AS lookup, " +
+                "$name AS display_name, $name AS display_name_alt, " +
                 "NULL AS phonetic_name, NULL AS photo_uri, NULL AS photo_thumb_uri, 0 AS photo_id, MAX(r.starred) AS starred, " +
                 "MAX(r.custom_ringtone) AS custom_ringtone, MAX(r.send_to_voicemail) AS send_to_voicemail, $name AS sort_key, $name AS sort_key_alt, " +
                 "MIN(r._id) AS name_raw_contact_id, 0 AS pinned, 0 AS times_contacted, 0 AS last_time_contacted, 1 AS in_visible_group, " +
@@ -85,7 +96,7 @@ class FakeContactsProvider : ContentProvider() {
         return when (s.firstOrNull()) {
             "contacts" -> when {
                 s.size == 1 -> q("contacts")
-                s[1] == "lookup" -> q("contacts", "lookup = '${s[2]}'")
+                s[1] == "lookup" -> q("contacts", "_id = ${resolveLookup(s[2], s.getOrNull(3)?.toLongOrNull()) ?: -1}")
                 else -> q("contacts", "_id = ${s[1].toLong()}")
             }
             "raw_contacts" -> if (s.size == 1) q("raw_contacts") else q("raw_contacts", "_id = ${s[1].toLong()}")
@@ -100,6 +111,21 @@ class FakeContactsProvider : ContentProvider() {
             "phone_lookup_enterprise" -> phoneLookup(s.getOrNull(1).orEmpty(), projection, work = true)
             else -> MatrixCursor(projection ?: emptyArray())
         }
+    }
+
+    /**
+     * Like the real provider: a key with the contact's id is that contact when the key is still its own; otherwise
+     * the key is resolved to the contact that holds the raw contacts it stood for.
+     */
+    private fun resolveLookup(key: String, id: Long?): Long? {
+        fun one(sql: String, vararg args: String): Long? = db.rawQuery(sql, args).use { c -> if (c.moveToFirst()) c.getLong(0) else null }
+        if (id != null && one("SELECT _id FROM contacts WHERE _id = ? AND lookup = ?", id.toString(), key) != null) return id
+        one("SELECT _id FROM contacts WHERE lookup = ?", key)?.let { return it }
+        return one(
+            "SELECT r.contact_id FROM lookup_history h JOIN raw_contacts r ON r._id = h.raw_contact_id " +
+                "WHERE h.lookup = ? AND r.deleted = 0 ORDER BY r._id LIMIT 1",
+            key,
+        )
     }
 
     private fun digits(n: String) = n.filter { it.isDigit() }
@@ -202,23 +228,70 @@ class FakeContactsProvider : ContentProvider() {
     override fun delete(uri: Uri, selection: String?, selectionArgs: Array<out String>?): Int {
         record("delete", uri, selection = selection)
         val s = segments(uri)
+        val syncAdapter = uri.getBooleanQueryParameter(ContactsContract.CALLER_IS_SYNCADAPTER, false)
         return when (s.firstOrNull()) {
             "data" -> if (s.size > 1) db.delete("data", "_id = ${s[1].toLong()}", null) else db.delete("data", selection, selectionArgs)
             "raw_contacts" -> {
                 val raw = s.getOrNull(1)?.toLong()
                 val where = if (raw != null) "_id = $raw" else selection
                 val args = if (raw != null) null else selectionArgs
-                db.delete("data", "raw_contact_id IN (SELECT _id FROM raw_contacts" + (where?.let { " WHERE $it" } ?: "") + ")", args)
-                db.delete("raw_contacts", where, args)
+                deleteRaws(where, args, syncAdapter)
             }
             "contacts" -> {
                 val id = s.getOrNull(1)?.toLong() ?: return 0
-                db.delete("data", "raw_contact_id IN (SELECT _id FROM raw_contacts WHERE contact_id = $id)", null)
-                db.delete("raw_contacts", "contact_id = $id", null)
+                deleteRaws("contact_id = $id", null, syncAdapter)
             }
             "groups" -> if (s.size > 1) db.delete("groups", "_id = ${s[1].toLong()}", null) else db.delete("groups", selection, selectionArgs)
             else -> 0
         }
+    }
+
+    /** Synced accounts' raw contacts are only marked deleted (unless the sync adapter asks); the others go now. */
+    private fun deleteRaws(where: String?, args: Array<out String>?, syncAdapter: Boolean): Int {
+        val w = where?.let { "($it)" } ?: "1"
+        val a = args?.toList()?.toTypedArray() ?: emptyArray()
+        var n = 0
+        if (!syncAdapter) {
+            n += db.compileStatement("UPDATE raw_contacts SET deleted = 1, dirty = 1 WHERE $w AND deleted = 0 AND account_type IS NOT NULL").apply {
+                a.forEachIndexed { i, v -> bindString(i + 1, v) }
+            }.executeUpdateDelete()
+        }
+        val hard = if (syncAdapter) w else "$w AND account_type IS NULL"
+        db.delete("data", "raw_contact_id IN (SELECT _id FROM raw_contacts WHERE $hard)", a)
+        n += db.delete("raw_contacts", hard, a)
+        return n
+    }
+
+    /** What the sync adapter does after uploading deletions: rows marked deleted go for good. */
+    fun purgeDeleted() {
+        db.execSQL("DELETE FROM data WHERE raw_contact_id IN (SELECT _id FROM raw_contacts WHERE deleted = 1)")
+        db.execSQL("DELETE FROM raw_contacts WHERE deleted = 1")
+    }
+
+    /**
+     * Gives [contactId] a new lookup key, as a first sync, a rename of a phone-only contact or a relink does. The old
+     * key keeps resolving to whichever contact holds its raw contacts.
+     */
+    fun changeLookupKey(contactId: Long, newKey: String) {
+        val old = db.rawQuery("SELECT lookup FROM contacts WHERE _id = ?", arrayOf(contactId.toString()))
+            .use { c -> if (c.moveToFirst()) c.getString(0) else null }
+        if (old != null) {
+            db.execSQL("INSERT INTO lookup_history (lookup, raw_contact_id) SELECT ?, _id FROM raw_contacts WHERE contact_id = ?", arrayOf(old, contactId))
+        }
+        db.execSQL("INSERT OR REPLACE INTO lookup_override (contact_id, lookup) VALUES (?, ?)", arrayOf(contactId, newKey))
+    }
+
+    /**
+     * Moves raw contact [rawId] to the contact [contactId] (a link done by another app). The key of the contact it
+     * left keeps resolving through that raw contact.
+     */
+    fun moveRaw(rawId: Long, contactId: Long) {
+        db.execSQL(
+            "INSERT INTO lookup_history (lookup, raw_contact_id) " +
+                "SELECT c.lookup, r._id FROM raw_contacts r JOIN contacts c ON c._id = r.contact_id WHERE r._id = ?",
+            arrayOf(rawId),
+        )
+        db.execSQL("UPDATE raw_contacts SET contact_id = ? WHERE _id = ?", arrayOf(contactId, rawId))
     }
 
     override fun getType(uri: Uri): String? = null

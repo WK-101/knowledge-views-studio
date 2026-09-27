@@ -3,6 +3,7 @@ package app.parley.ui.settings
 import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
+import android.content.res.Resources
 import android.content.pm.ShortcutManager
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -36,10 +37,14 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.work.WorkManager
 import app.parley.AppViewModel
 import app.parley.R
+import app.parley.data.DataContainer
 import app.parley.data.DataWipe
+import app.parley.data.vault.VaultCrypto
 import app.parley.security.AppLock
 import app.parley.telecom.CallManager
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -47,12 +52,18 @@ private sealed interface WipeStep {
     data object Ask : WipeStep
     data class Working(val text: String) : WipeStep
     data class Failed(val text: String) : WipeStep
+
+    /** Private contacts exist but the backup couldn't include them (their key was locked). */
+    data object VaultLocked : WipeStep
 }
 
 /**
- * Settings › Privacy › Delete all Parley data: a strong confirmation (typing a word, then the app lock when it is on),
- * an optional backup first, and separate choices for Android's call log and the contacts stored on the phone. Everything
- * Parley keeps goes; the app then starts again as new.
+ * Settings › Privacy › Delete all Parley data: a strong confirmation (typing a word, then the app lock when it is on,
+ * or the screen lock while supervised call-time limits are set), an optional backup first, and separate choices for
+ * Android's call log and the contacts stored on the phone. Everything Parley keeps goes; the app then starts again as new.
+ *
+ * The backup and the wipe run in the app's scope, not the dialog's: a rotation or theme change mid-way must neither
+ * cancel the restart after a wipe (old in-memory state would be written back) nor leave a wipe half-reported.
  */
 @Composable
 fun DeleteAllDataDialog(vm: AppViewModel, onDismiss: () -> Unit) {
@@ -68,30 +79,11 @@ fun DeleteAllDataDialog(vm: AppViewModel, onDismiss: () -> Unit) {
     var typed by remember { mutableStateOf("") }
     val word = stringResource(R.string.wipe_confirm_word)
 
-    fun run() {
-        if (CallManager.state.value.isNotEmpty()) {
-            step = WipeStep.Failed(res.getString(R.string.wipe_in_call))
-            return
-        }
-        scope.launch {
-            if (backupFirst) {
-                step = WipeStep.Working(res.getString(R.string.wipe_backing_up))
-                val b = vm.c.backup.backupNow(scheduled = false)
-                if (!b.ok) {
-                    step = WipeStep.Failed(res.getString(R.string.wipe_backup_failed, b.message))
-                    return@launch
-                }
-            }
-            step = WipeStep.Working(res.getString(R.string.wipe_deleting))
-            val app = context.applicationContext
-            withContext(Dispatchers.IO) {
-                runCatching { WorkManager.getInstance(app).cancelAllWork().result.get() }
-                runCatching { app.getSystemService(NotificationManager::class.java).cancelAll() }
-                runCatching { app.getSystemService(ShortcutManager::class.java).removeAllDynamicShortcuts() }
-            }
-            vm.c.wipe.wipe(DataWipe.Options(callLog = callLog, phoneContacts = phoneContacts))
-            restart(app)
-        }
+    /** Backs up (when asked), checks again that no call started meanwhile, wipes and restarts. */
+    fun proceed(withoutPrivate: Boolean) {
+        val app = context.applicationContext
+        val job = WipeJob(vm.c, app, res, backupFirst, withoutPrivate, DataWipe.Options(callLog = callLog, phoneContacts = phoneContacts))
+        vm.c.scope.launch(Dispatchers.Main) { job.run { step = it } }
     }
 
     when (val s = step) {
@@ -114,10 +106,7 @@ fun DeleteAllDataDialog(vm: AppViewModel, onDismiss: () -> Unit) {
             },
             confirmButton = {
                 TextButton(
-                    {
-                        val act = context as? FragmentActivity
-                        if (vm.settings.value.appLock && act != null) AppLock.authenticate(act, res.getString(R.string.wipe_title)) { ok -> if (ok) run() } else run()
-                    },
+                    { confirmWipe(context, vm, scope, backupFirst, { step = it }, ::proceed) },
                     enabled = typed.trim().equals(word, ignoreCase = true),
                 ) { Text(stringResource(R.string.wipe_confirm), color = MaterialTheme.colorScheme.error) }
             },
@@ -135,6 +124,97 @@ fun DeleteAllDataDialog(vm: AppViewModel, onDismiss: () -> Unit) {
             text = { Text(s.text) },
             confirmButton = { TextButton(onDismiss) { Text(stringResource(R.string.dc_done)) } },
         )
+        WipeStep.VaultLocked -> VaultLockedDialog(
+            onUnlock = {
+                val act = context as? FragmentActivity
+                if (act != null) AppLock.authenticateForVault(act) { ok -> if (ok) proceed(withoutPrivate = false) }
+            },
+            onWithout = { proceed(withoutPrivate = true) },
+            onDismiss = onDismiss,
+        )
+    }
+}
+
+@Composable
+private fun VaultLockedDialog(onUnlock: () -> Unit, onWithout: () -> Unit, onDismiss: () -> Unit) = AlertDialog(
+    onDismissRequest = onDismiss,
+    title = { Text(stringResource(R.string.wipe_title)) },
+    text = {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(stringResource(R.string.wipe_private_locked))
+            TextButton(onWithout) { Text(stringResource(R.string.wipe_without_private), color = MaterialTheme.colorScheme.error) }
+        }
+    },
+    confirmButton = { TextButton(onUnlock) { Text(stringResource(R.string.wipe_unlock_private)) } },
+    dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dc_cancel)) } },
+)
+
+/**
+ * After the typed word: the app lock (or the screen lock while supervised call-time limits are set, which the wipe
+ * removes too, even with the app lock off), then, for a backup, the private contacts' unlock so they go into it.
+ */
+private fun confirmWipe(
+    context: Context, vm: AppViewModel, scope: CoroutineScope, backupFirst: Boolean,
+    show: (WipeStep) -> Unit, proceed: (withoutPrivate: Boolean) -> Unit,
+) {
+    val act = context as? FragmentActivity
+    fun start() {
+        if (inCall()) return show(WipeStep.Failed(context.getString(R.string.wipe_in_call)))
+        if (!backupFirst) return proceed(false)
+        scope.launch {
+            val hasPrivate = runCatching { vm.c.vault.summariesNow().isNotEmpty() }.getOrDefault(true)
+            when {
+                !hasPrivate || !VaultCrypto.detailNeedsUnlock() -> proceed(false)
+                act == null -> show(WipeStep.VaultLocked)
+                else -> AppLock.authenticateForVault(act) { ok -> if (ok) proceed(false) else show(WipeStep.VaultLocked) }
+            }
+        }
+    }
+    val needsAuth = vm.settings.value.appLock || vm.c.calling.config.value.supervised
+    when {
+        !needsAuth -> start()
+        act != null -> AppLock.authenticate(act, context.getString(R.string.wipe_title)) { ok -> if (ok) start() }
+    }
+}
+
+private fun inCall() = CallManager.state.value.isNotEmpty() || CallManager.pendingOutgoing.value != null
+
+/**
+ * The backup (when asked) and the wipe, run in the app's scope. A backup counts only when it is complete and, if
+ * there are private contacts, holds them too (unless the user chose to go on without them).
+ */
+private class WipeJob(
+    private val c: DataContainer,
+    private val app: Context,
+    private val res: Resources,
+    private val backup: Boolean,
+    private val withoutPrivate: Boolean,
+    private val options: DataWipe.Options,
+) {
+    suspend fun run(show: (WipeStep) -> Unit) {
+        if (backup) backUp(show)?.let { return show(it) }
+        // A call may have started during the backup: closing the database or exiting would break it.
+        if (inCall()) return show(WipeStep.Failed(res.getString(R.string.wipe_in_call)))
+        show(WipeStep.Working(res.getString(R.string.wipe_deleting)))
+        withContext(Dispatchers.IO + NonCancellable) {
+            runCatching { WorkManager.getInstance(app).cancelAllWork().result.get() }
+            runCatching { app.getSystemService(NotificationManager::class.java).cancelAll() }
+            runCatching { app.getSystemService(ShortcutManager::class.java).removeAllDynamicShortcuts() }
+            c.wipe.wipe(options)
+        }
+        restart(app)
+    }
+
+    /** Null when the backup is good enough to wipe after, otherwise the step that says why not. */
+    private suspend fun backUp(show: (WipeStep) -> Unit): WipeStep? {
+        show(WipeStep.Working(res.getString(R.string.wipe_backing_up)))
+        val b = c.backup.backupNow(scheduled = false)
+        return when {
+            !b.ok -> WipeStep.Failed(res.getString(R.string.wipe_backup_failed, b.message))
+            b.failedSections.isNotEmpty() -> WipeStep.Failed(res.getString(R.string.wipe_backup_incomplete, b.message))
+            !b.vaultIncluded && !withoutPrivate && runCatching { c.vault.summariesNow().isNotEmpty() }.getOrDefault(true) -> WipeStep.VaultLocked
+            else -> null
+        }
     }
 }
 

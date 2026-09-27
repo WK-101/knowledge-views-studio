@@ -646,7 +646,7 @@ internal fun PrivacyPage(vm: AppViewModel, open: (String) -> Unit) {
         linkRow("who_can_see", Icons.Rounded.Apps) { open(PeopleRoutes.WHO_CAN_SEE) }
         linkRow("private_names", Icons.Rounded.Badge, sub = if (pn.enabled) on else off) { open(PeopleRoutes.PRIVATE_NAMES) }
     }
-    AdvancedGroup(setOf("private_directory", "app_permissions")) {
+    AdvancedGroup(setOf("private_directory", "app_permissions", "delete_all_data")) {
         linkRow("private_directory", Icons.Rounded.PhoneLocked, sub = if (pn.directory) on else off) { open(PeopleRoutes.PRIVATE_NAMES) }
         linkRow("app_permissions", Icons.Rounded.AdminPanelSettings, external = true) {
             context.startSafely(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + context.packageName)))

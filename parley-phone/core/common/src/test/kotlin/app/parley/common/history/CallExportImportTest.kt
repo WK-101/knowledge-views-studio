@@ -1,6 +1,7 @@
 package app.parley.common.history
 
 import app.parley.common.CallType
+import app.parley.common.PhoneIdentity
 import app.parley.common.PhoneNumbers
 import java.time.LocalDate
 import org.junit.Assert.assertEquals
@@ -132,9 +133,16 @@ class CallExportImportTest {
                 ExportNote(PhoneNumbers.matchKey("+33612345678"), c.date + 5_000, "Invoice"),
                 ExportNote(PhoneNumbers.matchKey("+33612345678"), c.date + 86_400_000, "Other day"),
             ),
+            region = null,
         )
         assertEquals(listOf("Invoice"), rows.single().notes)
         assertEquals(null, rows.single().name)
+    }
+
+    @Test fun notes_keyed_by_line_match_a_national_number_with_the_region() {
+        val c = call("06 12 34 56 78", CallType.OUTGOING, at(2026, 1, 1, 10), 120)
+        val notes = listOf(ExportNote(PhoneIdentity.key("+33612345678", "FR"), c.date + 5_000, "Invoice"))
+        assertEquals(listOf("Invoice"), CallExport.rows(listOf(c), { null }, { null }, notes, region = "FR").single().notes)
     }
 
     // ------------------------------------------------------------------ import
@@ -228,7 +236,7 @@ class CallExportImportTest {
         assertEquals(66, u.talkSec)
         assertEquals(before, calls)
         // Exports after metering still show the real durations.
-        val csv = CallExport.csv(CallExport.rows(calls, { null }, { null }, emptyList()), UTC)
+        val csv = CallExport.csv(CallExport.rows(calls, { null }, { null }, emptyList(), region = null), UTC)
         assertTrue(csv.contains(",61,0:01:01,"))
         assertTrue(csv.contains(",5,0:00:05,"))
     }

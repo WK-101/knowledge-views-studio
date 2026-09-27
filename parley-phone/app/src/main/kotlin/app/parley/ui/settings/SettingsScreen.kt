@@ -93,6 +93,7 @@ import androidx.compose.material.icons.rounded.Dashboard
 import androidx.compose.material.icons.rounded.Handyman
 import app.parley.common.SettingsCategory
 import app.parley.common.SettingsSearch
+import app.parley.common.circle.ReminderDelivery
 import app.parley.common.vcard.ImportReport
 import app.parley.data.VCardIO
 import app.parley.ui.EmptyState
@@ -299,10 +300,23 @@ private fun SearchResults(query: String, modifier: Modifier, onClear: () -> Unit
 fun SettingsPageScreen(vm: AppViewModel, category: SettingsCategory, focus: String?, back: () -> Unit, open: (String) -> Unit) {
     val s by vm.settings.collectAsStateWithLifecycle()
     val severalAccounts = hasSeveralAccounts(vm)
-    // A setting found by search that is shown only when another one is on: point at that one instead.
-    val shown = when {
-        focus == "lock_after" && !s.appLock -> "app_lock"
-        focus == "reminder_time" && !s.birthdayReminders -> "birthday_reminders"
+    val archiveOn = vm.c.history.prefs.state.collectAsStateWithLifecycle().value.archiveEnabled
+    val circle by vm.c.circle.config.collectAsStateWithLifecycle()
+    // A setting found by search that is shown only when another one is on: point at that one instead, and say why.
+    val controller = when (focus) {
+        "lock_after" -> "app_lock".takeIf { !s.appLock }
+        "reminder_time", "date_lead" -> "birthday_reminders".takeIf { !s.birthdayReminders }
+        "kept_forever" -> "archive".takeIf { !archiveOn }
+        "circle_delivery" -> "nudges".takeIf { !s.reachOutNudges }
+        "circle_weekly_cap" -> when {
+            !s.reachOutNudges -> "nudges"
+            circle.delivery != ReminderDelivery.AS_DUE -> "circle_delivery"
+            else -> null
+        }
+        "first_mover" -> "people_card".takeIf { !circle.peopleCard }
+        else -> null
+    }
+    val shown = controller ?: when {
         focus == "export_account" && !severalAccounts -> "export_vcf"
         // One row for SIMs and their plan minutes (search finds it by either name).
         focus == "plan_minutes" -> "sims"
@@ -310,6 +324,13 @@ fun SettingsPageScreen(vm: AppViewModel, category: SettingsCategory, focus: Stri
     }
     CompositionLocalProvider(LocalHighlightKey provides shown) {
         SettingsScaffold(category.localTitle(), back) {
+            if (focus != null && controller != null) {
+                Text(
+                    stringResource(R.string.set_search_shown_after, settingTitle(focus), settingTitle(controller)),
+                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 24.dp),
+                )
+            }
             when (category) {
                 SettingsCategory.APPEARANCE -> AppearancePage(vm, open)
                 SettingsCategory.LAYOUT -> LayoutPage(vm, open)

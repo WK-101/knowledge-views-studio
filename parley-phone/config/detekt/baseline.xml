@@ -133,7 +133,7 @@
     <ID>CyclomaticComplexMethod:DialGuard.kt$DialGuard$private suspend fun checkInternal(number: String): List&lt;DialWarning&gt;</ID>
     <ID>CyclomaticComplexMethod:DialSearch.kt$DialSearch$fun search(input: String, entries: List&lt;Entry&gt;, calls: List&lt;CallEntry&gt;?, now: Long = System.currentTimeMillis(), limit: Int = 50): List&lt;DialHit&gt;</ID>
     <ID>CyclomaticComplexMethod:Downloader.kt$Downloader$fun get(res: Resources, url: String, maxBytes: Long, etag: String? = null, lastModified: String? = null): Result</ID>
-    <ID>CyclomaticComplexMethod:EditorViewModel.kt$EditorViewModel$private suspend fun load(a: EditorArgs)</ID>
+    <ID>CyclomaticComplexMethod:EditorViewModel.kt$EditorViewModel$private suspend fun load(a: EditorArgs): Boolean</ID>
     <ID>CyclomaticComplexMethod:EventDateDialog.kt$@Composable fun EventDateDialog(initial: String, onDismiss: () -&gt; Unit, onPick: (String) -&gt; Unit)</ID>
     <ID>CyclomaticComplexMethod:FakeContactsProvider.kt$FakeContactsProvider$override fun query(uri: Uri, projection: Array&lt;out String&gt;?, selection: String?, selectionArgs: Array&lt;out String&gt;?, sortOrder: String?): Cursor?</ID>
     <ID>CyclomaticComplexMethod:FakeContactsProvider.kt$FakeContactsProvider$private fun phoneLookup(number: String, projection: Array&lt;out String&gt;?, work: Boolean): Cursor</ID>
@@ -743,7 +743,6 @@
     <ID>MaxLineLength:CircleWidget.kt$CircleWidget.Companion$Intent(ctx, MainActivity::class.java).setAction(MainActivity.ACTION_SHOW_CALLER).putExtra(MainActivity.EXTRA_CONTACT_ID, contactId).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)</ID>
     <ID>MaxLineLength:CircleWidget.kt$CircleWidget.Companion$v.setOnClickPendingIntent(call, PendingIntent.getActivity(ctx, 7300 + id * 8 + i, Shortcuts.intent(ctx, Shortcuts.Kind.CALL, p.phone, p.contactId), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT))</ID>
     <ID>MaxLineLength:CircleWidget.kt$CircleWidget.Companion$val contacts = withTimeoutOrNull(20_000) { c.contacts.contacts.filterNotNull().first() }?.associateBy { it.lookupKey } ?: return Content(emptyList(), emptyList())</ID>
-    <ID>MaxLineLength:ClearHistoryDialog.kt$val known = remember(contacts) { PhoneIdentity.LineSet(contacts.orEmpty().flatMap { ct -&gt; ct.phones.map { it.number } }.filter { PhoneNumbers.digits(it).length &gt;= 3 }, iso) }</ID>
     <ID>MaxLineLength:CombinedSurfaces.kt$if (i &lt; order.size - 1) CustomAccessibilityAction(moveLater) { order = order.movedTo(i, i + 1); commit(); true } else null</ID>
     <ID>MaxLineLength:ContactCsv.kt$ContactCsv$if (v.isNotEmpty()) { val (t, l) = typeCode(cell("Email $i Type"), EMAIL_TYPES, "3"); put(Mime.EMAIL, Col.D1 to v, Col.D2 to t, Col.D3 to l) }</ID>
     <ID>MaxLineLength:ContactCsv.kt$ContactCsv$if (v.isNotEmpty()) { val (t, l) = typeCode(cell("Phone $i Type"), PHONE_TYPES, "7"); put(Mime.PHONE, Col.D1 to v, Col.D2 to t, Col.D3 to l) }</ID>
@@ -909,7 +908,6 @@
     <ID>MaxLineLength:CsvPackConverterTest.kt$CsvPackConverterTest$categoryKeywords = listOf("arnaque" to 3, "démarchage" to 1)</ID>
     <ID>MaxLineLength:CsvPackConverterTest.kt$CsvPackConverterTest$val viaConverter = PackBuilder(PackManifest(id = "a", name = "a")).also { CsvPackConverter.tally(clean, FtcDncSource.SPEC).addTo(it, FtcDncSource.SPEC) }</ID>
     <ID>MaxLineLength:DataWipe.kt$DataWipe$context.contentResolver.safeQuery(RawContacts.CONTENT_URI, arrayOf(RawContacts._ID, RawContacts.ACCOUNT_TYPE, RawContacts.ACCOUNT_NAME), "${RawContacts.DELETED}=0")</ID>
-    <ID>MaxLineLength:DeleteAllData.kt$if (vm.settings.value.appLock &amp;&amp; act != null) AppLock.authenticate(act, res.getString(R.string.wipe_title)) { ok -&gt; if (ok) run() } else run()</ID>
     <ID>MaxLineLength:DeletedCalls.kt$vm.toast(if (n &gt; 0) res.getQuantityString(R.plurals.hist_restored_calls, n, n) else res.getString(R.string.hist_restore_failed_default))</ID>
     <ID>MaxLineLength:DetailExtras.kt$Modifier.fillMaxSize().background(Color.Black).pointerInput(Unit) { detectTapGestures(onTap = { onDismiss() }, onDoubleTap = { scale = if (scale &gt; 1f) 1f else 2.5f; offset = Offset.Zero }) }</ID>
     <ID>MaxLineLength:DetailExtras.kt$modifier = Modifier.fillMaxSize().transformable(state).graphicsLayer(scaleX = scale, scaleY = scale, translationX = offset.x, translationY = offset.y)</ID>

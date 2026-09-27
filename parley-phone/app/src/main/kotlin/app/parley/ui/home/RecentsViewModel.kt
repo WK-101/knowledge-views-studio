@@ -36,6 +36,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -129,10 +130,27 @@ class RecentsViewModel(private val c: DataContainer) : ViewModel() {
         calls?.let { group(it, index, filter, q, layout).map { g -> if (g.calls.first().id < 0) g.copy(vaultId = vaults[PhoneIdentity.key(g.number, countryIso)]) else g } }
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_AFTER_MS), null)
 
+    /**
+     * The place names under unknown numbers ("Paris, France") are looked up off the main thread, so the rows find them
+     * ready in the cache instead of each starting its own lookup while the list scrolls. It runs only while [list] has
+     * subscribers, so the pipeline stops with the screen instead of regrouping in the background.
+     */
+    private val locationPrefetch: Flow<Nothing> = flow {
+        groups.collectLatest { list ->
+            withContext(Dispatchers.IO) {
+                list.orEmpty().asSequence()
+                    .filter { it.contact == null && it.vaultId == null && !it.hidden && it.number.isNotBlank() }
+                    .map { it.number }.distinct().take(LOCATIONS_AHEAD)
+                    .forEach { n -> runCatching { NumberInfo.location(n, countryIso) } }
+            }
+        }
+    }
+
     /** The list with its day headers; redone at midnight so "Today" becomes "Yesterday". */
-    val list: StateFlow<RecentsList?> = combine(groups, localDays()) { groups, today ->
-        groups?.let { RecentsList(it, rows(it, today)) }
-    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_AFTER_MS), null)
+    val list: StateFlow<RecentsList?> = merge(
+        combine(groups, localDays()) { groups, today -> groups?.let { RecentsList(it, rows(it, today)) } },
+        locationPrefetch,
+    ).flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_AFTER_MS), null)
 
     private fun rows(groups: List<RecentGroup>, today: Long): List<RecentsRow> {
         val tz = TimeZone.getDefault()
@@ -199,21 +217,6 @@ class RecentsViewModel(private val c: DataContainer) : ViewModel() {
         }
         if (q.isBlank()) return grouped
         return grouped.filter { TextSearch.matches(q, it.title, listOf(it.number)) }
-    }
-
-    init {
-        // The place names under unknown numbers ("Paris, France") are looked up here, off the main thread, so the
-        // rows find them ready in the cache instead of each starting its own lookup while the list scrolls.
-        viewModelScope.launch {
-            groups.collectLatest { list ->
-                withContext(Dispatchers.IO) {
-                    list.orEmpty().asSequence()
-                        .filter { it.contact == null && it.vaultId == null && !it.hidden && it.number.isNotBlank() }
-                        .map { it.number }.distinct().take(LOCATIONS_AHEAD)
-                        .forEach { n -> runCatching { NumberInfo.location(n, countryIso) } }
-                }
-            }
-        }
     }
 
     private companion object {

@@ -379,7 +379,7 @@
     <string name="detail_set_ringtone">Set ringtone</string>
     <string name="detail_block_numbers">Block numbers</string>
     <string name="detail_separate">Separate linked contacts</string>
-    <string name="detail_move_vault">Move to private vault</string>
+    <string name="detail_move_vault">Make private</string>
     <string name="detail_move_failed">Couldn\'t move: %1$s</string>
     <string name="detail_moved_private">Moved to your private contacts</string>
     <string name="detail_change_expiry">Change auto-delete</string>

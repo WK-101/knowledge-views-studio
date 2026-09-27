@@ -74,6 +74,20 @@ object PhoneIdentity {
     }
 
     /**
+     * "Is this one of these numbers?" for filters that delete what is *not* in the set ("Clear unknown numbers"): the
+     * caller-ID rules of [LineSet], and also any number sharing the last digits ([portableKey]) with one of them. A
+     * contact saved in another country's national format ("0171 1234567" on a French phone) reads as the wrong E.164
+     * form, yet its calls must still count as known. Errs on the side of keeping.
+     */
+    class KnownSet(numbers: Iterable<String?>, region: String?) {
+        private val list = numbers.toList()
+        private val lines = LineSet(list, region)
+        private val portable = list.mapNotNullTo(HashSet()) { portableKey(it) }
+        val isEmpty: Boolean get() = lines.isEmpty
+        operator fun contains(raw: String?): Boolean = raw in lines || portableKey(raw)?.let { it in portable } == true
+    }
+
+    /**
      * Stored keys ([key], or the older [legacyKey]) answering "is this number one of them?" with [same]'s rules. A key
      * is never read back as a number: "~k612345678" has letters that would dial as digits.
      */

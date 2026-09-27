@@ -162,6 +162,12 @@ class MessagingStore(
     /** Per-item delete by record key (for entries kept from before F13, which have no number). */
     suspend fun forgetKey(key: String) = update { list -> list.filterNot { it.key == key } }
 
+    /** The last digits of entries kept from before F7, once the record is loaded (see PhoneKeyMigrator). */
+    suspend fun legacyDigits(): List<String> {
+        loaded.await()
+        return recordLock.withLock { MessagedRecord.legacyDigits(entries) }
+    }
+
     /** Moves entries kept from before F7 (last digits only) to the line key [plan] resolved (see PhoneKeyMigrator). */
     suspend fun rekeyLegacy(plan: Map<String, String>) {
         if (plan.isNotEmpty()) update { MessagedRecord.rekeyLegacy(it, plan) }

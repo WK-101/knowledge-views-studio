@@ -309,6 +309,7 @@
     <string name="set_search_empty_title">Search all settings</string>
     <string name="set_search_empty_body">Try “dark”, “vibration”, “backup” or “spam”.</string>
     <string name="set_search_no_match">No settings match “%1$s”</string>
+    <string name="set_search_shown_after">“%1$s” shows up here once “%2$s” is on or set to fit.</string>
     <string name="set_quick_replies_dialog">Quick replies</string>
     <string name="set_import_finished">Import finished</string>
     <string name="set_not_imported">Not imported</string>
@@ -793,4 +794,8 @@
     <string name="wipe_backup_failed">The backup didn\'t work, so nothing was deleted. %1$s</string>
     <string name="wipe_deleting">Deleting…</string>
     <string name="wipe_in_call">Finish the call first, then try again.</string>
+    <string name="wipe_backup_incomplete">The backup is missing some parts, so nothing was deleted. %1$s</string>
+    <string name="wipe_private_locked">Private contacts can only go into the backup while they\'re unlocked. Unlock them to include them, or delete without backing them up.</string>
+    <string name="wipe_unlock_private">Unlock and back up</string>
+    <string name="wipe_without_private">Delete without backing up private contacts</string>
 </resources>
