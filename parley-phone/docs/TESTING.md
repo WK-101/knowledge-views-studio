@@ -986,3 +986,17 @@ Keypad
 
 Contacts list
 - [ ] 1000+ contacts: letter headers are right (accents under their base letter, digits under #), the fast-scroll rail jumps to each letter (and ★ to the favourites), select, swipe and search work as before.
+
+## 20. Quality (3.6)
+
+### 20.1 Tests and CI
+
+Automated (no phone needed; `.github/workflows/parley.yml` runs all of it on every push and pull request that touches `parley-phone/`)
+- [ ] `./gradlew :core:common:test testDebugUnitTest` passes. The Robolectric tests cover contact saves (only changed rows are written, read-only rows are never touched, an emptied copy is removed, no delete without an undo copy, work-profile lookup), call screening (hidden, unknown, emergency, fail-open, work profile, rules and their log), the outgoing-call gate (emergency, confirmation, SIM question), an encrypted backup → wipe → restore round trip with every registry section, the vault / call-history / interaction crypto, and every Room migration from version 1 to 7. The first run downloads Robolectric's Android runtime (about 150 MB).
+- [ ] `./gradlew detekt` passes (new findings fail; existing ones are listed in `config/detekt/baseline.xml`; after a large refactor run `./gradlew detektBaseline` and review the diff).
+- [ ] `./gradlew checkHardcodedText -PfailOnHardcodedText=true lintDebug` passes (lint errors fail every module's build; warnings don't).
+- [ ] Add a permission to `app/src/main/AndroidManifest.xml` (e.g. `android.permission.READ_CALENDAR`) and run `./gradlew :app:assembleDebug`: the build fails with "Permissions not on the allow-list" (the check runs with every build, `bundleRelease` included). Revert.
+- [ ] `./gradlew :app:checkReleaseApkSize` builds the unsigned release APK and prints its size; it fails above 16 MiB.
+
+On a phone (debug build only)
+- [ ] Install the debug build and use it for a few minutes (open Recents, Contacts, a contact, Settings, take a call): `adb logcat -s StrictMode` lists main-thread disk access and leaked resources as log lines only; the app never crashes because of them. The release build logs none of them.

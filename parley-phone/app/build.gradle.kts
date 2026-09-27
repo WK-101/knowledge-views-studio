@@ -1,3 +1,4 @@
+import java.util.Locale
 import java.util.Properties
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
@@ -96,6 +97,10 @@ android {
         // Missing translations are warnings (they fall back to English); see lint.xml.
         lintConfig = rootProject.file("lint.xml")
     }
+
+    testOptions { unitTests.isIncludeAndroidResources = true }
+    // The fake Keystore and Contacts Provider are shared with core:data's Robolectric tests.
+    sourceSets["test"].java.srcDir(rootProject.file("core/data/src/testShared/kotlin"))
 }
 
 kotlin {
@@ -117,9 +122,40 @@ dependencies {
     implementation(libs.androidx.fragment)
     implementation(libs.androidx.work)
     debugImplementation(libs.compose.ui.tooling.preview)
+
+    testImplementation(libs.junit)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.test.core)
+    testImplementation(libs.kotlinx.coroutines.test)
 }
 
-// Privacy guard: fail the build if any forbidden permission sneaks into the merged manifest.
+// Privacy guard, an allow-list: the merged manifest may ask for exactly these permissions (plus the app's own
+// signature permissions below). Anything a new dependency or manifest change brings in fails the build until it is
+// reviewed and added here. Parley never gets network, location, camera, microphone, SMS or storage access.
+val allowedPermissions = setOf(
+    "android.permission.ANSWER_PHONE_CALLS",
+    "android.permission.BLUETOOTH_CONNECT",
+    "android.permission.CALL_PHONE",
+    "android.permission.FOREGROUND_SERVICE",
+    "android.permission.GET_ACCOUNTS",
+    "android.permission.MODIFY_AUDIO_SETTINGS",
+    "android.permission.POST_NOTIFICATIONS",
+    "android.permission.READ_CALL_LOG",
+    "android.permission.READ_CONTACTS",
+    "android.permission.READ_PHONE_NUMBERS",
+    "android.permission.READ_PHONE_STATE",
+    "android.permission.READ_SYNC_SETTINGS",
+    "android.permission.RECEIVE_BOOT_COMPLETED",
+    "android.permission.USE_BIOMETRIC",
+    "android.permission.USE_FINGERPRINT",
+    "android.permission.USE_FULL_SCREEN_INTENT",
+    "android.permission.VIBRATE",
+    "android.permission.WAKE_LOCK",
+    "android.permission.WRITE_CALL_LOG",
+    "android.permission.WRITE_CONTACTS",
+)
+
+// Never allowed, whatever the list above says; named in the error so the reason is clear.
 val forbiddenPermissions = listOf(
     "android.permission.INTERNET",
     "android.permission.ACCESS_NETWORK_STATE",
@@ -135,19 +171,56 @@ val forbiddenPermissions = listOf(
     "com.google.android.gms.permission.AD_ID",
 )
 
+// APK-size budget (the release APK was about 13.8 MiB at 3.4.1): `./gradlew :app:checkReleaseApkSize` builds the
+// release APK and fails above the budget, so growth is a decision rather than an accident. CI runs it.
+val apkBudgetBytes = 16L * 1024 * 1024
+
 androidComponents {
     onVariants { variant ->
         val cap = variant.name.replaceFirstChar { it.uppercase() }
+        if (variant.buildType == "release") {
+            val apkDir = variant.artifacts.get(com.android.build.api.artifact.SingleArtifact.APK)
+            val loader = variant.artifacts.getBuiltArtifactsLoader()
+            tasks.register("check${cap}ApkSize") {
+                group = "verification"
+                description = "Fails when the ${variant.name} APK is larger than ${apkBudgetBytes / (1024 * 1024)} MiB."
+                inputs.dir(apkDir)
+                doLast {
+                    val apks = loader.load(apkDir.get())?.elements.orEmpty().map { File(it.outputFile) }
+                    if (apks.isEmpty()) throw GradleException("No ${variant.name} APK found in ${apkDir.get()}")
+                    apks.forEach { apk ->
+                        val mib = "%.2f".format(Locale.ROOT, apk.length() / (1024.0 * 1024.0))
+                        if (apk.length() > apkBudgetBytes) {
+                            throw GradleException("${apk.name} is $mib MiB, over the ${apkBudgetBytes / (1024 * 1024)} MiB budget (app/build.gradle.kts)")
+                        }
+                        logger.lifecycle("APK size: ${apk.name} is $mib MiB (budget ${apkBudgetBytes / (1024 * 1024)} MiB)")
+                    }
+                }
+            }
+        }
+        // The app's own permissions: the lists companion's signature permission and AndroidX's receiver guard.
+        val own = variant.applicationId.zip(variant.manifestPlaceholders.getting("listsPermission")) { id, lists ->
+            setOf(lists, "$id.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION")
+        }
         val task = tasks.register("check${cap}Permissions") {
+            group = "verification"
+            description = "Fails when the merged ${variant.name} manifest asks for a permission that isn't allowed."
             val manifest = variant.artifacts.get(com.android.build.api.artifact.SingleArtifact.MERGED_MANIFEST)
             inputs.file(manifest)
             doLast {
                 val text = manifest.get().asFile.readText()
                 val found = forbiddenPermissions.filter { text.contains("\"$it\"") }
                 if (found.isNotEmpty()) throw GradleException("Forbidden permissions in merged manifest: $found")
+                val used = Regex("<uses-permission(?:-sdk-23)?[^>]*android:name=\"([^\"]+)\"").findAll(text).map { it.groupValues[1] }.toSet()
+                val extra = used - allowedPermissions - own.get()
+                if (extra.isNotEmpty()) throw GradleException("Permissions not on the allow-list in the merged manifest: $extra (see app/build.gradle.kts)")
                 logger.lifecycle("Permission check passed for ${variant.name}")
             }
         }
-        afterEvaluate { tasks.findByName("assemble$cap")?.dependsOn(task) }
+        // Hooked to preBuild, which every build of the variant starts with (assemble, bundle, install, lint, unit tests).
+        // preBuild can't depend on the check (the manifest merge itself depends on preBuild), so the check finalizes it:
+        // it runs in the same build, after the merge, and fails that build. Packaging also waits for it.
+        tasks.matching { it.name == "pre${cap}Build" }.configureEach { finalizedBy(task) }
+        afterEvaluate { listOf("assemble$cap", "bundle$cap").forEach { tasks.findByName(it)?.dependsOn(task) } }
     }
 }

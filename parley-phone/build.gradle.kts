@@ -6,6 +6,7 @@ plugins {
     alias(libs.plugins.kotlin.compose) apply false
     alias(libs.plugins.ksp) apply false
     alias(libs.plugins.kotlin.serialization) apply false
+    alias(libs.plugins.detekt)
 }
 
 /*
@@ -33,10 +34,13 @@ val checkHardcodedText by tasks.registering {
             Regex("""\.addAction\(\s*0\s*,\s*$lit"""),
             Regex("""\b(?:toast|showMessage)\(\s*$lit"""),
         )
+        // String templates ("${n.count}", "$name") and \uXXXX escapes hold no words a translator could see.
+        val notText = Regex("""\$\{[^}]*\}|\$[A-Za-z_]\w*|\\u[0-9A-Fa-f]{4}""")
         val hits = sources.asFileTree.matching { include("**/*.kt") }.files.sorted().flatMap { f ->
             f.readLines().mapIndexedNotNull { i, line ->
                 val code = line.substringBefore("//").trim()
-                if (code.startsWith("*") || line.contains("l10n-ok") || patterns.none { it.containsMatchIn(code) }) null
+                val scan = code.replace(notText, "#")
+                if (code.startsWith("*") || line.contains("l10n-ok") || patterns.none { it.containsMatchIn(scan) }) null
                 else "${f.relativeTo(root)}:${i + 1}: ${code.take(140)}"
             }
         }
@@ -83,5 +87,57 @@ subprojects {
     tasks.matching { it.name.startsWith("lint") && it.name != "lintFix" }.configureEach {
         dependsOn(rootProject.tasks.named("checkHardcodedText"))
         dependsOn(rootProject.tasks.named("checkLocaleFormat"))
+    }
+}
+
+/*
+ * Unit tests: Robolectric fetches its Android runtime jar on first use. Take it from the same Maven Central mirror
+ * the build uses (Central rate-limits shared CI egress). Test JVMs stay small so they fit next to the Gradle daemon.
+ */
+subprojects {
+    tasks.withType<Test>().configureEach {
+        systemProperty("robolectric.dependency.repo.url", "https://maven-central.storage-download.googleapis.com/maven2")
+        maxHeapSize = "1536m"
+        testLogging { events("failed"); exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL }
+    }
+}
+
+/*
+ * Static analysis: one detekt run over every module's Kotlin (main and test), with detekt's defaults, Parley's rules
+ * (config/detekt/detekt.yml) and ktlint formatting through detekt-formatting. Findings that predate it are in
+ * config/detekt/baseline.xml, so the task fails only on new ones. `./gradlew detektBaseline` rewrites the baseline.
+ */
+detekt {
+    buildUponDefaultConfig = true
+    parallel = true
+    config.setFrom(files("config/detekt/detekt.yml"))
+    baseline = file("config/detekt/baseline.xml")
+    source.setFrom(
+        listOf("app", "core/common", "core/data", "core/ui", "telecom", "lists-updater").flatMap { m ->
+            listOf("$m/src/main/kotlin", "$m/src/test/kotlin", "$m/src/testShared/kotlin")
+        }.map { file(it) }.filter { it.exists() },
+    )
+}
+
+dependencies {
+    detektPlugins(libs.detekt.formatting)
+}
+
+tasks.withType<io.gitlab.arturbosch.detekt.Detekt>().configureEach {
+    jvmTarget = "17"
+    reports {
+        html.required.set(true)
+        xml.required.set(true)
+        sarif.required.set(false)
+        txt.required.set(false)
+        md.required.set(false)
+    }
+}
+tasks.withType<io.gitlab.arturbosch.detekt.DetektCreateBaselineTask>().configureEach { jvmTarget = "17" }
+
+// detekt 1.23 runs its own Kotlin compiler (2.0.x); keep the Kotlin Gradle plugin's newer version out of its classpath.
+configurations.matching { it.name == "detekt" || it.name == "detektPlugins" }.configureEach {
+    resolutionStrategy.eachDependency {
+        if (requested.group == "org.jetbrains.kotlin") useVersion(io.gitlab.arturbosch.detekt.getSupportedKotlinVersion())
     }
 }

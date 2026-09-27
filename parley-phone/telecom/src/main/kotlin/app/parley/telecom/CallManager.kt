@@ -12,6 +12,7 @@ import android.telecom.VideoProfile
 import app.parley.common.BlockAction
 import app.parley.common.Decision
 import app.parley.common.Verification
+import app.parley.common.calls.CallBook
 import app.parley.common.calltime.CallHaptic
 import app.parley.common.calls.AnswerRoute
 import app.parley.common.calls.CallFailure
@@ -83,9 +84,9 @@ object CallManager {
     val pendingOutgoing: StateFlow<PendingOutgoing?> = _pendingOutgoing.asStateFlow()
 
     /** When each held call was put on hold (A2). */
-    private val heldSince = HashMap<String, Long>()
+    /** Hold timers, last live states and which held call to resume (lazy: the state sets are declared below). */
+    private val book by lazy { CallBook(CallState.HOLDING, FRONT_STATES, BUSY_STATES, setOf(CallState.DISCONNECTING, CallState.DISCONNECTED)) }
     /** Last live state of each top-level call, to know whether the call that ended was the one in front (A2). */
-    private val lastLiveState = HashMap<String, CallState>()
     private val quotaSilenced = HashSet<String>()
     private val endedByLimit = HashSet<String>()
     /** P6: calls the user ended or cancelled themselves (never a "failure"). */
@@ -404,7 +405,6 @@ object CallManager {
         postDial.remove(id)
         quotaSilenced -= id
         endedByLimit -= id
-        heldSince.remove(id)
         noContact -= id
         ringFacts.remove(id)
         dtmfPlaying.remove(id)
@@ -417,7 +417,7 @@ object CallManager {
         systemSilenced -= id
         blockingDecline -= id
         if (calls.isEmpty()) emergencyNumbers.clear()
-        val wasInFront = lastLiveState.remove(id) in FRONT_STATES
+        val wasInFront = book.remove(id)
         publish()
         if (wasInFront) resumeHeldIfAlone()
     }
@@ -429,10 +429,7 @@ object CallManager {
     private fun resumeHeldIfAlone() {
         scope.launch {
             delay(RESUME_DELAY_MS)
-            val top = calls.filter { it.parent == null }
-            val busy = top.any { mapState(it.stateCompat()) in BUSY_STATES }
-            val held = top.filter { mapState(it.stateCompat()) == CallState.HOLDING }
-            if (!busy && held.size == 1) held.first().unhold()
+            book.toResume(calls.filter { it.parent == null }.map { it to mapState(it.stateCompat()) })?.unhold()
         }
     }
 
@@ -458,8 +455,7 @@ object CallManager {
         calls.toList().forEach { it.unregisterCallback(callback) }
         calls.clear()
         accountLabels.clear()
-        heldSince.clear()
-        lastLiveState.clear()
+        book.clear()
         outcomes.clear()
         quotaSilenced.clear()
         endedByLimit.clear()
@@ -499,7 +495,7 @@ object CallManager {
         calls.filter { it.parent == null }.forEach { c ->
             val id = idOf(c)
             val st = mapState(c.stateCompat())
-            if (st == CallState.HOLDING) heldSince.getOrPut(id) { now } else heldSince.remove(id)
+            book.update(id, st, now)
             // V9: where an incoming call was answered, read again a moment later once the audio route has settled.
             if (st == CallState.ACTIVE && id in ringFacts && id !in answeredRoute) {
                 answeredRoute[id] = RingSnapshot.route(_audio.value) ?: (AnswerRoute.EARPIECE to null)
@@ -508,7 +504,6 @@ object CallManager {
                     if (id in answeredRoute) RingSnapshot.route(_audio.value)?.let { answeredRoute[id] = it }
                 }
             }
-            if (st != CallState.DISCONNECTING && st != CallState.DISCONNECTED) lastLiveState[id] = st
         }
         val top = calls.filter { it.parent == null }.map { toUi(it) }
         if (top.isNotEmpty()) _pendingOutgoing.value = null
@@ -558,7 +553,7 @@ object CallManager {
             silenced = id in silenced,
             silenceReason = if (id in quotaSilenced) str(R.string.call_silenced_quota) else null,
             accountId = account?.id,
-            heldSinceElapsed = heldSince[id] ?: 0L,
+            heldSinceElapsed = book.heldSince(id),
             isEmergency = isEmergencyCall(call, number),
             note = found?.note,
             lastCall = found?.lastCall,
@@ -907,7 +902,7 @@ object CallManager {
         outgoing = !ended.incoming,
         connected = ended.connectTimeMillis > 0,
         code = endCode(call.details.disconnectCause),
-        endedInSimPicker = lastLiveState[id] == CallState.SELECT_ACCOUNT,
+        endedInSimPicker = book.lastLiveState(id) == CallState.SELECT_ACCOUNT,
         userEnded = id in userEnded,
         airplaneMode = ::appContext.isInitialized &&
             runCatching { android.provider.Settings.Global.getInt(appContext.contentResolver, android.provider.Settings.Global.AIRPLANE_MODE_ON, 0) != 0 }.getOrDefault(false),

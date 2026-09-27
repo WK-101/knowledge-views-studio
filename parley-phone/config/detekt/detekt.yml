@@ -1,0 +1,80 @@
+# Parley's detekt rules, on top of detekt's defaults (buildUponDefaultConfig). Existing findings live in
+# baseline.xml, so only new code has to follow them; fix a finding and regenerate the baseline with
+# `./gradlew detektBaseline` to shrink it. Formatting comes from the ktlint rules of detekt-formatting.
+
+exceptions:
+  # A caught exception must be used (rethrown, logged, wrapped) or the catch must say why it's ignored
+  # (name it `_`, `ignored` or `expected`).
+  SwallowedException:
+    active: true
+    allowedExceptionNameRegex: '_|(ignore|expected).*'
+  TooGenericExceptionCaught:
+    active: true
+    allowedExceptionNameRegex: '_|(ignore|expected).*'
+  TooGenericExceptionThrown:
+    active: true
+
+empty-blocks:
+  EmptyCatchBlock:
+    active: true
+    allowedExceptionNameRegex: '_|(ignore|expected).*'
+
+complexity:
+  LongMethod:
+    active: true
+    threshold: 80
+    # Composables are long by nature; they get their own, larger limit through the baseline for now.
+  LongParameterList:
+    active: true
+    functionThreshold: 8
+    constructorThreshold: 10
+    ignoreDefaultParameters: true
+    ignoreAnnotated: ['Composable']
+  TooManyFunctions:
+    active: false
+
+style:
+  # UI code talks to repositories and view models, never to Room entities or DAOs.
+  ForbiddenImport:
+    active: true
+    includes: ['**/ui/**']
+    imports:
+      - value: 'app.parley.data.db.*'
+        reason: 'UI code must not use Room entities or DAOs; go through a repository or the view model.'
+  MaxLineLength:
+    active: true
+    maxLineLength: 160
+    excludeCommentStatements: true
+  MagicNumber:
+    active: false
+  WildcardImport:
+    active: false
+  ReturnCount:
+    active: false
+  ForbiddenComment:
+    active: false
+
+naming:
+  FunctionNaming:
+    # Composables are PascalCase; tests in core:common use snake_case names.
+    ignoreAnnotated: ['Composable', 'Test']
+
+formatting:
+  # The codebase's own line length (and MaxLineLength above) instead of ktlint's.
+  MaximumLineLength:
+    active: false
+  # Imports are grouped by hand in places; ordering churn isn't worth a finding.
+  ImportOrdering:
+    active: false
+  # The codebase keeps calls, parameter lists and short if/else on one line up to the line limit; ktlint's wrapping
+  # rules would flag most of it (over 12,000 findings) without catching bugs.
+  ArgumentListWrapping:
+    active: false
+  ParameterListWrapping:
+    active: false
+  Wrapping:
+    active: false
+  PropertyWrapping:
+    active: false
+  MultiLineIfElse:
+    active: false
