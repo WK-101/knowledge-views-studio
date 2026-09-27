@@ -1,5 +1,8 @@
 package app.parley.security
 
+import android.app.PendingIntent
+import android.content.Intent
+import android.os.Build
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
 import app.parley.container
@@ -19,12 +22,24 @@ class VaultTileService : TileService() {
 
     override fun onClick() {
         super.onClick()
-        // Hiding is always allowed; showing again from the lock screen needs the phone unlocked first.
-        if (isLocked && container.settings.settings.value.hideVault) {
-            unlockAndRun { toggle() }
-            return
+        val s = container.settings.settings.value
+        // Hiding is always allowed. Showing again needs the phone unlocked first and, with the app lock on,
+        // Parley's own unlock too: an unlocked phone in someone else's hands mustn't reveal private names.
+        if (!s.hideVault) return toggle()
+        if (isLocked) unlockAndRun { reveal(s.appLock) } else reveal(s.appLock)
+    }
+
+    // The Intent overload only runs below Android 14, where it is the only one.
+    @android.annotation.SuppressLint("StartActivityAndCollapseDeprecated")
+    private fun reveal(appLock: Boolean) {
+        if (!appLock) return toggle()
+        val intent = Intent(this, DiscreetRevealActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        if (Build.VERSION.SDK_INT >= 34) {
+            startActivityAndCollapse(PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT))
+        } else {
+            @Suppress("DEPRECATION")
+            startActivityAndCollapse(intent)
         }
-        toggle()
     }
 
     private fun toggle() {
@@ -42,5 +57,29 @@ class VaultTileService : TileService() {
         tile.label = getString(if (hidden) app.parley.R.string.tile_private_hidden else app.parley.R.string.tile_private_shown)
         if (android.os.Build.VERSION.SDK_INT >= 29) tile.subtitle = getString(app.parley.R.string.app_name)
         tile.updateTile()
+    }
+}
+
+/** Asks for Parley's unlock, then turns discreet mode off. Invisible apart from the system prompt. Not exported. */
+class DiscreetRevealActivity : androidx.fragment.app.FragmentActivity() {
+    override fun attachBaseContext(newBase: android.content.Context) {
+        super.attachBaseContext(newBase)
+        app.parley.ui.AppLocale.override(this, newBase)
+    }
+
+    override fun onCreate(savedInstanceState: android.os.Bundle?) {
+        super.onCreate(savedInstanceState)
+        AppLock.applySecureFlag(this, true)
+        if (savedInstanceState != null) return
+        AppLock.authenticate(this, getString(app.parley.R.string.lock_unlock_private)) { ok ->
+            if (ok) {
+                val c = container
+                c.scope.launch {
+                    c.settings.update { it.copy(hideVault = false) }
+                    android.service.quicksettings.TileService.requestListeningState(applicationContext, android.content.ComponentName(applicationContext, VaultTileService::class.java))
+                }
+            }
+            finish()
+        }
     }
 }

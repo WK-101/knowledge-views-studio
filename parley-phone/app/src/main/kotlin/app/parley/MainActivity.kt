@@ -44,9 +44,9 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
                 }
             }
             val locked by app.parley.security.AppLock.locked.collectAsStateWithLifecycle()
-            LaunchedEffect(settings.secureScreen) { app.parley.security.AppLock.applySecureFlag(this@MainActivity, settings.secureScreen) }
+            val settingsLoaded by vm.c.settings.loaded.collectAsStateWithLifecycle()
+            LaunchedEffect(settings.secureScreen, settings.appLock, locked, settingsLoaded) { protectWindow() }
             ParleyTheme(settings.themeMode, settings.amoledBlack, settings.dynamicColor, settings.density) {
-                val settingsLoaded by vm.c.settings.loaded.collectAsStateWithLifecycle()
                 if (!settingsLoaded) {
                     // Until we know whether the app lock is on, show nothing rather than flash the contacts.
                     androidx.compose.material3.Surface(androidx.compose.ui.Modifier.fillMaxSize()) {}
@@ -59,11 +59,20 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
         }
     }
 
+    /** The settings, once loaded; null before (the UI shows nothing until then). */
+    private fun loadedSettings(): app.parley.common.AppSettings? = vm.c.settings.takeIf { it.loaded.value }?.settings?.value
+
+    private fun protectWindow(leaving: Boolean = false) {
+        loadedSettings()?.let { app.parley.security.AppLock.protectWindow(this, it, leaving) }
+    }
+
     override fun onStart() {
         super.onStart()
+        // Decide the lock before the first frame when the settings are in memory, so content never flashes.
+        val known = loadedSettings()?.also { app.parley.security.AppLock.onStart(it) }
         lifecycleScope.launch {
             val s = vm.c.settings.current()
-            app.parley.security.AppLock.onStart(s)
+            if (known == null) app.parley.security.AppLock.onStart(s)
             // R7: the phone is unlocked now: a Circle widget drawn while it was locked shows names again.
             if (s.appLock) launch { runCatching { app.parley.shortcuts.CircleWidget.refreshIfShownLocked(applicationContext) } }
             // After a longer break, open on the preferred tab again; a quick app switch keeps your place.
@@ -77,12 +86,20 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
 
     override fun onStop() {
         stoppedAt = android.os.SystemClock.elapsedRealtime()
-        app.parley.security.AppLock.onStop()
+        app.parley.security.AppLock.onStop(loadedSettings())
+        protectWindow(leaving = true)
         super.onStop()
+    }
+
+    override fun onPause() {
+        // Before Android 13 the recents thumbnail can only be blanked with FLAG_SECURE, set before it's taken.
+        protectWindow(leaving = true)
+        super.onPause()
     }
 
     override fun onResume() {
         super.onResume()
+        protectWindow()
         vm.refreshEnvironment()
     }
 

@@ -816,3 +816,38 @@ The editor was redesigned after comparing Google Contacts, Samsung One UI Contac
 - [ ] Landscape phone or tablet/foldable: two columns: photo, account, duplicate card, name and work on the left, the field cards on the right, each scrolling on its own. Portrait tablet: one column at most ~640dp wide, centred.
 - [ ] TalkBack: group titles are headings; type chips read "Type: Mobile", action "Change type"; "−" reads "Remove number/email/…"; the Save spinner reads "Saving".
 - [ ] Light and dark theme, and pure black: cards are visible against the background.
+
+## 18. Safety hotfix (3.4.1)
+
+### 18.2 Data and privacy
+
+Notifications (id and channel registry)
+- [ ] Force a scheduled backup to fail (pick a backup folder, then remove it or revoke access; run the backup worker): the "Parley backup" notification shows. Get a missed call: both notifications stay. Open Recents: the missed call goes, the backup alert stays.
+- [ ] With the backup alert showing and two missed calls from different people: swipe both missed-call children away: the calls are marked seen (the badge clears) and "Remind me of missed calls" stops re-alerting.
+- [ ] Incoming, ongoing, missed, blocked / likely spam, busy auto-reply, plan warning, reminders, follow-up, temporary contacts and private-name requests still post and keep their system channel settings (no duplicate channels in App info › Notifications).
+
+Delete history for a number
+- [ ] Needs a number with calls older than the newest 3000 in the system call log (import a call-history CSV with old calls for one number, or use a long-lived phone), archive on. Recents › number › Delete history › All: the dialog counts every call, old ones too. Delete, then Settings › History › sync now (or wait 6 h): none of them come back in the number's history.
+- [ ] Undo right after deleting: every call returns, in the system log and in Parley. Range "Last month" deletes only the last month's calls.
+
+Clipboard
+- [ ] Android 13+: copy a number (contact long-press, Recents › Copy number, number history › Copy) and the backup recovery key: the clipboard preview shows dots, not the text; paste still works. Gboard's clipboard history doesn't keep them.
+- [ ] Android 12 and older: copying shows the "Copied" toast.
+
+Private-name requests
+- [ ] A third-party dialer asks for private names: the notification on the lock screen shows only "Private name requests". Tap Allow from the lock screen: the phone asks to unlock first; only then is the app approved. Same for Don't allow, and for the Directory variant.
+- [ ] Android 10–11: Allow from the lock screen opens the unlock screen first, then records the answer (no Parley window shows).
+
+App lock
+- [ ] App lock on, "Lock after" immediately: open Parley, press Home, open Recents: Parley's thumbnail is blank (Android 13+: no screenshot at all). Return: the lock screen shows at once, with no flash of contacts.
+- [ ] "Lock after" 1 minute: switch away and back within a minute: still unlocked; after a minute: locked, with no flash of content.
+- [ ] Phone with a screen lock where the fingerprint sensor is unavailable (e.g. no fingerprints enrolled with biometrics-only prompts, or sensor busy): Unlock asks for the PIN / pattern instead of letting you in. Phone with no screen lock at all: the app lock lets you in (it can't work without one).
+- [ ] Parley locked: select a phone number in another app › "Call / Message with Parley": Parley asks to unlock first; cancel closes the sheet. After unlocking, contact names and "My details" show as usual. App lock off: the sheet opens straight away.
+- [ ] Discreet mode on, app lock on: tap the "Private hidden" Quick Settings tile on an unlocked phone: Parley asks to unlock; cancel leaves private contacts hidden; unlock shows them and the tile flips. Hiding again needs no unlock. App lock off: the tile toggles straight away (after the phone unlock if on the lock screen).
+
+Companion app
+- [ ] Parley Lists from the same build/source: its packs list and install as before. Install a Parley Lists signed with a different key (e.g. a debug build next to a release Parley): Blocking › Lists shows "signed by a different developer" and nothing is read from it.
+
+Save and backup errors
+- [ ] Edit a contact, tap Save and immediately press Back: no "Save failed" message appears.
+- [ ] A backup where one feature section fails (e.g. debugger-injected exception in Circle export): the backup completes and its message names the part left out ("Some parts couldn't be included this time (circle)…"); scheduled backups post the notification.

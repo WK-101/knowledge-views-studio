@@ -11,6 +11,7 @@ import android.content.Intent
 import android.database.Cursor
 import android.database.MatrixCursor
 import android.net.Uri
+import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import app.parley.MainActivity
@@ -76,8 +77,8 @@ class PrivateNameProvider : ContentProvider() {
     companion object {
         const val PATH = "lookup"
         private val COLUMNS = arrayOf("display_name", "photo_uri")
-        private const val CHANNEL = "private_names_v1"
-        private const val NOTIFICATION_TAG = "private-name-request"
+        private const val CHANNEL = app.parley.common.NotificationChannels.PRIVATE_NAMES
+        private const val NOTIFICATION_TAG = app.parley.common.NotificationIds.TAG_PRIVATE_NAME
 
         fun authority(context: Context) = context.packageName + ".privatenames"
 
@@ -94,11 +95,31 @@ class PrivateNameProvider : ContentProvider() {
             ctx.getSystemService(NotificationManager::class.java)
                 .createNotificationChannel(NotificationChannel(CHANNEL, ctx.getString(app.parley.R.string.privnames_channel), NotificationManager.IMPORTANCE_DEFAULT))
             val id = notificationId(pkg, directory)
-            fun decide(allow: Boolean) = PendingIntent.getBroadcast(
-                ctx, id * 2 + if (allow) 1 else 0,
-                Intent(ctx, PrivateNameDecisionReceiver::class.java).putExtra(EXTRA_PACKAGE, pkg).putExtra(EXTRA_ALLOW, allow).putExtra(EXTRA_DIRECTORY, directory),
-                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
-            )
+            // Granting lasting access to private names must not work from the lock screen: Android 12+ asks for the
+            // unlock before sending the broadcast; before that, the action opens an invisible activity, which the lock
+            // screen only starts after unlocking.
+            fun decide(allow: Boolean): NotificationCompat.Action {
+                val title = ctx.getString(if (allow) app.parley.R.string.privnames_allow else app.parley.R.string.privnames_deny)
+                val req = id * 2 + if (allow) 1 else 0
+                if (Build.VERSION.SDK_INT >= 31) {
+                    val pi = PendingIntent.getBroadcast(
+                        ctx, req, decisionIntent(Intent(ctx, PrivateNameDecisionReceiver::class.java), pkg, allow, directory),
+                        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+                    )
+                    return NotificationCompat.Action.Builder(0, title, pi).setAuthenticationRequired(true).build()
+                }
+                val pi = PendingIntent.getActivity(
+                    ctx, req,
+                    decisionIntent(Intent(ctx, PrivateNameDecisionActivity::class.java), pkg, allow, directory)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_HISTORY),
+                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+                )
+                return NotificationCompat.Action.Builder(0, title, pi).build()
+            }
+            val public = NotificationCompat.Builder(ctx, CHANNEL)
+                .setSmallIcon(app.parley.R.drawable.ic_tile_private)
+                .setContentTitle(ctx.getString(app.parley.R.string.privnames_channel))
+                .build()
             val open = PendingIntent.getActivity(ctx, id, Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK), PendingIntent.FLAG_IMMUTABLE)
             val n = NotificationCompat.Builder(ctx, CHANNEL)
                 .setSmallIcon(app.parley.R.drawable.ic_tile_private)
@@ -106,8 +127,11 @@ class PrivateNameProvider : ContentProvider() {
                 .setStyle(NotificationCompat.BigTextStyle().bigText(ctx.getString(if (directory) app.parley.R.string.privnames_dir_request_text else app.parley.R.string.privnames_request_text, label)))
                 .setContentIntent(open)
                 .setAutoCancel(true)
-                .addAction(0, ctx.getString(app.parley.R.string.privnames_allow), decide(true))
-                .addAction(0, ctx.getString(app.parley.R.string.privnames_deny), decide(false))
+                .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+                .setPublicVersion(public)
+                .setLocalOnly(true)
+                .addAction(decide(true))
+                .addAction(decide(false))
                 .build()
             try {
                 NotificationManagerCompat.from(ctx).notify(NOTIFICATION_TAG, id, n)
@@ -119,20 +143,35 @@ class PrivateNameProvider : ContentProvider() {
         const val EXTRA_ALLOW = "allow"
         const val EXTRA_DIRECTORY = "directory"
 
+        private fun decisionIntent(i: Intent, pkg: String, allow: Boolean, directory: Boolean) =
+            i.putExtra(EXTRA_PACKAGE, pkg).putExtra(EXTRA_ALLOW, allow).putExtra(EXTRA_DIRECTORY, directory)
+
+        /** Records the user's answer from the request notification. */
+        internal fun decide(context: Context, intent: Intent) {
+            val pkg = intent.getStringExtra(EXTRA_PACKAGE) ?: return
+            val allow = intent.getBooleanExtra(EXTRA_ALLOW, false)
+            val directory = intent.getBooleanExtra(EXTRA_DIRECTORY, false)
+            (context.applicationContext as? ParleyApp)?.containerOrNull?.people?.privateNames
+                ?.setApproval(pkg, if (allow) LookupApproval.ALLOWED else LookupApproval.DENIED, directory)
+            cancel(context, pkg, directory)
+        }
+
         private fun notificationId(pkg: String, directory: Boolean) = if (directory) ("directory:" + pkg).hashCode() else pkg.hashCode()
 
         fun cancel(ctx: Context, pkg: String, directory: Boolean = false) = NotificationManagerCompat.from(ctx).cancel(NOTIFICATION_TAG, notificationId(pkg, directory))
     }
 }
 
-/** "Allow" / "Don't allow" from the request notification. Not exported: only Parley's own PendingIntents reach it. */
+/** "Allow" / "Don't allow" from the request notification (Android 12+). Not exported: only Parley's own PendingIntents reach it. */
 class PrivateNameDecisionReceiver : BroadcastReceiver() {
-    override fun onReceive(context: Context, intent: Intent) {
-        val pkg = intent.getStringExtra(PrivateNameProvider.EXTRA_PACKAGE) ?: return
-        val allow = intent.getBooleanExtra(PrivateNameProvider.EXTRA_ALLOW, false)
-        val directory = intent.getBooleanExtra(PrivateNameProvider.EXTRA_DIRECTORY, false)
-        (context.applicationContext as? ParleyApp)?.containerOrNull?.people?.privateNames
-            ?.setApproval(pkg, if (allow) LookupApproval.ALLOWED else LookupApproval.DENIED, directory)
-        PrivateNameProvider.cancel(context, pkg, directory)
+    override fun onReceive(context: Context, intent: Intent) = PrivateNameProvider.decide(context, intent)
+}
+
+/** The same answer on Android 10-11, where only an activity can make the lock screen ask for the unlock first. Not exported. */
+class PrivateNameDecisionActivity : android.app.Activity() {
+    override fun onCreate(savedInstanceState: android.os.Bundle?) {
+        super.onCreate(savedInstanceState)
+        PrivateNameProvider.decide(applicationContext, intent)
+        finish()
     }
 }

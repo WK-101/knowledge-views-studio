@@ -369,6 +369,14 @@
             </intent-filter>
         </service>
 
+        <!-- Turning discreet mode off from the tile asks for the app lock first. -->
+        <activity
+            android:name=".security.DiscreetRevealActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:taskAffinity=""
+            android:theme="@style/Theme.Parley.Sheet" />
+
         <!-- Quick Settings tile (M8): "Message a number" opens an empty number sheet; nothing shows over the lock screen. -->
         <service
             android:name=".messaging.MessageNumberTileService"
@@ -453,6 +461,13 @@
         <receiver
             android:name=".privatenames.PrivateNameDecisionReceiver"
             android:exported="false" />
+        <activity
+            android:name=".privatenames.PrivateNameDecisionActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.NoDisplay" />
 
         <!-- I7: opt-in contacts Directory for private names. Disabled until turned on in Privacy › Private names;
              the Contacts Provider (which holds READ_CONTACTS) discovers it and forwards approved phone apps'
