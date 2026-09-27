@@ -1,6 +1,6 @@
 # Writing for Parley
 
-How Parley talks to people (U7, round 5). Every new string follows this guide, in all 8 languages. The names of things (Favourites, Circle, Labels, History & undo, "Message or call on…"…) are fixed in [GLOSSARY.md](GLOSSARY.md).
+How Parley talks to people (U7, round 5). Every new string follows this guide. Parley is English-only for now; other languages are not a priority. The names of things (Favourites, Circle, Labels, History & undo, "Message or call on…"…) are fixed in [GLOSSARY.md](GLOSSARY.md).
 
 ## Voice
 
