@@ -720,7 +720,7 @@ private fun HabitRow(
                 else -> "Mark done"
             }
             Box(
-                Modifier.size(44.dp).clip(CircleShape)
+                Modifier.size(48.dp).clip(CircleShape)   // 48dp min touch target (was 44) — the primary daily action
                     .background(if (done && !isBreak) color.copy(alpha = .16f) else if (isBreak && HabitStats.isRelapse(h, todayCount)) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = if (scheduledToday) .5f else .25f))
                     .border(2.dp, when { isBreak && HabitStats.isRelapse(h, todayCount) -> MaterialTheme.colorScheme.error; done -> color; else -> MaterialTheme.colorScheme.outlineVariant }, CircleShape)
                     .clickable(onClickLabel = ringAction) { if (isNumeric && scheduledToday && !skippedToday) onSetValue() else onCycle() }

@@ -277,7 +277,7 @@ fun HabitTrendsScreen(vm: AppViewModel, onBack: () -> Unit) {
                 Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     RadarLegendDot(MaterialTheme.colorScheme.primary, "Time")
                     RadarLegendDot(MaterialTheme.colorScheme.tertiary, "Tasks")
-                    RadarLegendDot(Color(0xFF12A05C), "Habits")
+                    RadarLegendDot(com.wkhan.hexis.ui.theme.LocalHexisColors.current.good, "Habits")
                 }
             }
 
@@ -344,7 +344,7 @@ private fun RadarByArea(report: List<com.wkhan.hexis.domain.TimeReports.TagLine>
     if (n < 3) return
     val timeColor = MaterialTheme.colorScheme.primary
     val taskColor = MaterialTheme.colorScheme.tertiary
-    val habitColor = Color(0xFF12A05C)
+    val habitColor = com.wkhan.hexis.ui.theme.LocalHexisColors.current.good   // adapts to dark/AMOLED like its Time/Tasks siblings
     val grid = MaterialTheme.colorScheme.outlineVariant
     val labelArgb = MaterialTheme.colorScheme.onSurfaceVariant.toArgb()
     val maxTime = (areas.maxOfOrNull { it.minutes } ?: 0).coerceAtLeast(1)

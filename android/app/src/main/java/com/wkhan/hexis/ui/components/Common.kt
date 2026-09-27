@@ -5,6 +5,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -521,13 +522,19 @@ fun ToggleRow(
     subtitle: String? = null,
     enabled: Boolean = true,
 ) {
-    Row(modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+    // Make the whole row one Role.Switch target that merges title+subtitle, so TalkBack announces
+    // "<title>, switch, on/off" (was: an unlabeled Switch node the reader couldn't tie to a setting) and
+    // the entire row toggles, not just the far-right switch.
+    val rowMod = if (enabled)
+        modifier.fillMaxWidth().toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange)
+    else modifier.fillMaxWidth()
+    Row(rowMod.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f).padding(end = 12.dp)) {
             Text(title, style = MaterialTheme.typography.bodyLarge,
                 color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant)
             if (subtitle != null) Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        androidx.compose.material3.Switch(checked = checked, onCheckedChange = onCheckedChange, enabled = enabled)
+        androidx.compose.material3.Switch(checked = checked, onCheckedChange = null, enabled = enabled)
     }
 }
 

@@ -38,7 +38,12 @@ class App : Application() {
             // SEC (R2-A/H2) — one-time move of any legacy cleartext sync passphrase out of the DB settings
             // table into the KeyStore-wrapped SecurePrefs, before the first snapshot reads it.
             runCatching { repository.migrateSyncPassToSecurePrefs() }
-            val s0 = repository.settingsSnapshot(); repository.ensureSeed()
+            // Defensive, like the calls around it: if the DB can't open (e.g. the KeyStore key was lost after
+            // an OS-level restore so the encrypted file can't be decrypted), an uncaught throw here on appScope
+            // would crash EVERY launch and the user could never reach Settings to import a JSON backup — the
+            // documented recovery path. Degrade to defaults instead of crashing.
+            val s0 = runCatching { repository.settingsSnapshot() }.getOrDefault(com.wkhan.hexis.domain.AppSettings())
+            runCatching { repository.ensureSeed() }
             // W3 (goals→Room, Increment 2) — one-time, idempotent safety net for the JSON→table flip: adopt any
             // goal/review still living only in the legacy settings-JSON into the table (e.g. one created on an
             // Increment-1 build before the flip). Additive; a no-op once everything's in the table.

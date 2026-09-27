@@ -121,6 +121,10 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -244,10 +248,14 @@ private fun CompactBottomBar(
                 // Tapping the active tab re-triggers it (Calendar → jump to today). Long-pressing the FIRST
                 // tab jumps to the configured home shortcut (default Inbox).
                 Box(
-                    Modifier.weight(1f).fillMaxHeight().combinedClickable(
-                        onClick = { if (selected) onReselect(t) else onSelect(t) },
-                        onLongClick = if (idx == 0) ({ onLongPressPrimary() }) else null,
-                    ),
+                    Modifier.weight(1f).fillMaxHeight()
+                        // Expose the active tab to TalkBack (the custom bar replaced NavigationBarItem, which
+                        // would have announced this) and merge the icon+label into one Tab node.
+                        .semantics(mergeDescendants = true) { this.selected = selected; this.role = Role.Tab }
+                        .combinedClickable(
+                            onClick = { if (selected) onReselect(t) else onSelect(t) },
+                            onLongClick = if (idx == 0) ({ onLongPressPrimary() }) else null,
+                        ),
                     contentAlignment = Alignment.Center,
                 ) {
                     // Icon + a small always-on label (M3 navigation convention) so every destination is
