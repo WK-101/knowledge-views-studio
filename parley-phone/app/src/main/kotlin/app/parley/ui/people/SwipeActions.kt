@@ -121,7 +121,7 @@ internal fun swipeLabel(res: Resources, a: SwipeAction, short: Boolean = false):
         SwipeAction.NONE -> R.string.swipe_none
         SwipeAction.CALL -> R.string.swipe_call
         SwipeAction.MESSAGE -> R.string.swipe_message
-        SwipeAction.MESSAGE_ON -> R.string.swipe_message_on
+        SwipeAction.MESSAGE_ON -> R.string.v34msg_message_or_call_on
         SwipeAction.BLOCK -> R.string.swipe_block
         SwipeAction.DELETE -> if (short) R.string.swipe_delete_short else R.string.swipe_delete
     },

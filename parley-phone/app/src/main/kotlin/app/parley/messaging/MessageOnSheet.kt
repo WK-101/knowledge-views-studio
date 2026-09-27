@@ -190,7 +190,7 @@ fun MessageOnContent(number: String, accountId: String? = null, onCall: ((String
     }
 
     Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = 16.dp)) {
-        Text(stringResource(R.string.missed_message_on), style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 24.dp))
+        Text(stringResource(R.string.v34msg_message_or_call_on), style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 24.dp))
         Text(
             Bidi.ltr(e164?.let(NumberText::formatInternational) ?: number),
             style = MaterialTheme.typography.bodyLarge,
@@ -235,6 +235,7 @@ fun MessageOnContent(number: String, accountId: String? = null, onCall: ((String
                 TextButton({ editDetails = true }) { Text(stringResource(R.string.msg_edit_details)) }
             }
         }
+        SheetSection(stringResource(R.string.v34msg_section_message))
         if (rows.isEmpty()) {
             Text(
                 stringResource(R.string.msg_no_chat_apps),
@@ -305,6 +306,8 @@ fun MessageOnContent(number: String, accountId: String? = null, onCall: ((String
                 }
             }),
         )
+        // V34: Call on…
+        CallOnSection(number, e164, unavailable, installed, isContact, region, onLaunched)
         Row(Modifier.padding(horizontal = 24.dp, vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Icon(Icons.Rounded.Lock, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(stringResource(MessageOn.PRIVACY_LINE_RES), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

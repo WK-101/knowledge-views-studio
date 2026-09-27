@@ -695,3 +695,23 @@ Settings › Appearance › Layout (search "combine", "keypad", "favourites", "m
 - [ ] `mailto:a@example.com?bcc=b@example.com`: the sheet shows "Hidden copy to (Bcc)" and a warning.
 - [ ] Hardware keyboard, Combined layout, nothing typed: D-pad to a Recents row and press Enter: that row opens (the last number isn't recalled). With the keypad unfolded and focus on it, Enter still recalls the last number; digits always go to the keypad.
 - [ ] Missed chip: missed calls older than 7 days, from blocked or spam-marked numbers, or withheld numbers don't count as "to call back".
+
+## 17. v3.4
+
+### 17.2 Message and call on
+
+Needs a phone with some of WhatsApp, WhatsApp Business, Signal (or Molly), Telegram, Viber, Threema installed and set up, and contacts who use them.
+
+- [ ] Signal contact: open a contact who is on Signal. "Reach via apps" lists Signal with Message, Voice and Video buttons; each opens Signal (chat, voice call, video call) for that person. The Video tile at the top also offers Signal.
+- [ ] Signal detection regression: take a contact Signal linked, move it to another account (or edit it so its raw contact is replaced), wait for Signal to sync: Signal still shows under "Reach via apps" (read from Signal's own contact on the same number).
+- [ ] WhatsApp and WhatsApp Business both linked: two separate rows; WhatsApp's Voice opens WhatsApp, Business's opens Business.
+- [ ] Contact with two numbers where Signal knows only one: each app row shows the number it is for.
+- [ ] Viber contact: Viber shows Message and Voice; Viber Out (paid) is never offered as a call.
+- [ ] Phone in French or German: Signal's voice call row still shows as Voice (not as a chat).
+- [ ] Long-press Voice on Signal: the button fills and the row says "Usual for calls"; the Call tile at the top now reads "Signal" and starts a Signal call. Long-press again: back to normal calls. A one-time tip explains the long-press.
+- [ ] Contact page Message long-press / "Message or call on…" in a number's menu: the sheet is titled "Message or call <name>", has "Message on" (apps, SMS) and "Call on". Apps that added call rows show Voice/Video buttons; installed chat apps that didn't say "Open chat on WhatsApp to call" and, when tapped, open the chat with a toast pointing at the call button. With "Always use this" ticked, a call choice is remembered as the call (or video) app and doesn't change the message choice.
+- [ ] Keypad: type an unsaved number; the chip reads "Message or call"; the sheet shows "Call on" with each installed chat app as "Open chat on … to call" (never a pretend direct call), and "Save for 7 days so apps can offer calls". Save it (visible to other apps ticked by default), wait a few minutes, reopen the sheet: apps that synced now offer direct Voice/Video buttons.
+- [ ] Keypad: type the number of a saved contact who is on Signal: "Call on" offers Signal's Voice and Video directly.
+- [ ] Recents row actions, missed-call notification action, post-call card and number history all say "Message or call on…" and open the same sheet.
+- [ ] TalkBack: each round button reads "Voice call on Signal" etc.; long-press is announced as "Use by default"/"Stop using by default". Buttons are 48 dp; layout works in RTL, dark theme, largest font and landscape.
+- [ ] With Signal and Molly both installed and linked, Molly's rows open Molly and Signal's open Signal (no chooser).

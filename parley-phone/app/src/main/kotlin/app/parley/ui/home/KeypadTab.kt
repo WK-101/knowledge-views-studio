@@ -389,8 +389,8 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit, searchQuery: String? = n
                                 modifier = Modifier.clickable { open(Routes.pick(input)) },
                             )
                             ListItem(
-                                headlineContent = { Text(stringResource(R.string.missed_message_on)) },
-                                supportingContent = { Text(stringResource(R.string.keypad_message_apps)) },
+                                headlineContent = { Text(stringResource(R.string.v34msg_message_or_call_on)) },
+                                supportingContent = { Text(stringResource(R.string.v34msg_apps_line)) },
                                 leadingContent = { Icon(Icons.AutoMirrored.Rounded.Chat, null) },
                                 modifier = Modifier.clickable { messageOn = input },
                             )
@@ -819,7 +819,7 @@ private fun NumberActionChips(canSave: Boolean, onMessage: () -> Unit, onAdd: ()
         horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        AssistChip(onClick = onMessage, label = { Text(stringResource(R.string.main_message)) }, leadingIcon = { Icon(Icons.AutoMirrored.Rounded.Chat, null) })
+        AssistChip(onClick = onMessage, label = { Text(stringResource(R.string.v34msg_message_or_call)) }, leadingIcon = { Icon(Icons.AutoMirrored.Rounded.Chat, null) })
         if (canSave) {
             AssistChip(onClick = onAdd, label = { Text(stringResource(R.string.keypad_add_to_contacts)) }, leadingIcon = { Icon(Icons.Rounded.PersonAdd, null) })
             AssistChip(onClick = onTemporary, label = { Text(stringResource(R.string.keypad_save_temporary)) }, leadingIcon = { Icon(Icons.Rounded.AutoDelete, null) })

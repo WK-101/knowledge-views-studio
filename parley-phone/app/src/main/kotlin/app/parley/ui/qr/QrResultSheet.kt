@@ -436,7 +436,7 @@ private fun ColumnScope.NumberActions(vm: AppViewModel, number: String, onDismis
             vm.requestCall(number)
         }
     }
-    Action(stringResource(R.string.qs_message_on), Icons.AutoMirrored.Rounded.Chat) { messageOn = true }
+    Action(stringResource(R.string.v34msg_message_or_call_on), Icons.AutoMirrored.Rounded.Chat) { messageOn = true }
     Action(stringResource(R.string.qs_add_contact), Icons.Rounded.PersonAdd) {
         onDismiss()
         vm.navigate(NavEvent.NewContact(ContactDetails(phones = listOf(DataItem(value = number, type = ContactsContract.CommonDataKinds.Phone.TYPE_MOBILE)))))
