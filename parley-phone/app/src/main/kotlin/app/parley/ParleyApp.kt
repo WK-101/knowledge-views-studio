@@ -44,7 +44,7 @@ class ParleyApp : Application() {
         // Keeps the Circle widget current while Parley runs (from the full start on, and only while one is placed).
         CircleWidget.observe(this, container)
         // The process often starts for an incoming call: only what the call path reads synchronously is warmed here,
-        // off the main thread, and the stores the first screens read are built on IO rather than on first use.
+        // off the main thread.
         container.scope.launch(Dispatchers.IO) {
             Trace.beginAsyncSection(TRACE_WARM, 0)
             try {
@@ -52,10 +52,12 @@ class ParleyApp : Application() {
             } finally {
                 Trace.endAsyncSection(TRACE_WARM, 0)
             }
-            container.warmStores()
             // Plaintext call-history exports never outlive the next start.
             ExportFiles.cleanup(this@ParleyApp)
         }
+        // Alongside: the preference-backed stores the call screen and the first screens read, built on IO so their
+        // first read never parses a file on the main thread (the view model touches several as it is created).
+        container.scope.launch(Dispatchers.IO) { container.warmStores() }
         // Everything else waits for the UI or a settled call (see DataContainer.fullStart), and never runs more than
         // two things at a time.
         container.scope.launch(container.warmDispatcher) {
