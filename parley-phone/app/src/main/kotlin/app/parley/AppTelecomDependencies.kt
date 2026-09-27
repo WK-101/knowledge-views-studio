@@ -24,6 +24,7 @@ import app.parley.data.DataContainer
 import app.parley.data.EmergencyNumbers
 import app.parley.data.NumberInfo
 import app.parley.data.PhoneEnv
+import app.parley.telecom.CallManager
 import app.parley.telecom.CallerDisplay
 import app.parley.telecom.CallerMemory
 import app.parley.common.circle.Promises
@@ -46,6 +47,8 @@ import app.parley.common.VerdictKind
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
@@ -54,11 +57,16 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 class AppTelecomDependencies(private val app: Context, private val c: DataContainer) : TelecomDependencies {
+    private companion object {
+        /** After the last call ends, this long before the full app loads. */
+        const val CALL_SETTLE_MS = 10_000L
+    }
 
     override val appearance: StateFlow<InCallAppearance> = combine(c.settings.settings, c.settings.loaded) { s, loaded ->
         // "Hide screen content" reaches the call screen; it stays secure until the settings are read.
         InCallAppearance(s.themeMode, s.amoledBlack, s.dynamicColor, s.density, s.answerGesture, s.quickReplies, secureScreen = s.secureScreen, loaded = loaded)
-    }.combine(c.extras.simple) { look, simple ->
+        // Built inside the flow (on the container's scope), not here on the main thread in Application.onCreate.
+    }.combine(flow { emitAll(c.extras.simple) }) { look, simple ->
         // Simple mode's incoming screen (large buttons, ask before declining, the caller's name spoken).
         if (!simple.enabled) look else look.copy(simpleMode = true, confirmDecline = simple.confirmDecline, speakCallerName = simple.speakName)
     }.stateIn(c.scope, SharingStarted.Eagerly, InCallAppearance())
@@ -96,9 +104,13 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
         }
     }
 
-    /** "Last call 3 days ago · 4 min", from the call history (archive included). */
+    /**
+     * "Last call 3 days ago · 4 min", from the call history (archive included) once it is loaded; in a process started
+     * for this call, from one small call-log query instead of loading the whole history while the phone rings.
+     */
     private fun lastCallSummary(number: String, region: String): String? {
-        val prev = c.history.lastCallWith(number, region) ?: return null
+        val prev = (if (c.history.calls.value != null) c.history.lastCallWith(number, region) else c.callLog.lastCallWith(number, region))
+            ?: return null
         val ago = DateUtils.getRelativeTimeSpanString(prev.date, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS)
         val kind = when (prev.type) {
             CallType.MISSED -> R.string.caller_last_missed
@@ -152,6 +164,13 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
     override fun onCallEnded(number: String?, incoming: Boolean, connectTimeMillis: Long) {
         // Archive the call and check plan minutes once Telecom has written the call log.
         HistoryWorker.checkSoon(app)
+        // A process started for this call loads the rest of the app once no call is left (Recents is often next).
+        if (!c.fullStart.isOpen) {
+            c.scope.launch {
+                delay(CALL_SETTLE_MS)
+                if (CallManager.state.value.none { it.isLive }) c.startFull()
+            }
+        }
         if (number.isNullOrBlank()) return
         c.scope.launch {
             if (!c.settings.current().privateVaultHistory) return@launch

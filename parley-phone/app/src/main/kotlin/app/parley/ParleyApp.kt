@@ -2,6 +2,7 @@ package app.parley
 
 import android.app.Application
 import android.content.Context
+import android.os.Trace
 import app.parley.blocking.BlockingSetup
 import app.parley.data.DataContainer
 import app.parley.data.people.CrashStore
@@ -40,27 +41,39 @@ class ParleyApp : Application() {
         container = DataContainer(this)
         TelecomGraph.install(AppTelecomDependencies(this, container))
         BlockingSetup.install(this, container)
-        // Keeps the Circle widget current while Parley runs.
+        // Keeps the Circle widget current while Parley runs (from the full start on, and only while one is placed).
         CircleWidget.observe(this, container)
-        // The process often starts for an incoming call: everything else runs off the main thread, and the parts the
-        // call path reads synchronously are warmed first.
+        // The process often starts for an incoming call: only what the call path reads synchronously is warmed here,
+        // off the main thread, and the stores the first screens read are built on IO rather than on first use.
         container.scope.launch(Dispatchers.IO) {
-            BlockingSetup.warm(this@ParleyApp, container)
-            HousekeepingWorker.schedule(this@ParleyApp)
-            HistoryWorker.schedule(this@ParleyApp)
+            Trace.beginAsyncSection(TRACE_WARM, 0)
+            try {
+                BlockingSetup.warm(this@ParleyApp, container)
+            } finally {
+                Trace.endAsyncSection(TRACE_WARM, 0)
+            }
+            container.warmStores()
             // Plaintext call-history exports never outlive the next start.
             ExportFiles.cleanup(this@ParleyApp)
+        }
+        // Everything else waits for the UI or a settled call (see DataContainer.fullStart), and never runs more than
+        // two things at a time.
+        container.scope.launch(container.warmDispatcher) {
+            container.fullStart.await()
+            BlockingSetup.warmLater(this@ParleyApp, container)
+            HousekeepingWorker.schedule(this@ParleyApp)
+            HistoryWorker.schedule(this@ParleyApp)
             // Sync later, off the call path (the daily housekeeping run takes the time-machine snapshot).
             val st = container.folderSync.status.value
             if (st.folderUri != null && st.auto) FolderSyncWorker.runSoon(this@ParleyApp)
             RemindersWorker.schedule(this@ParleyApp, container.settings.current().birthdayReminderHour)
-        }
-        // Well after start-up (never on the call path): stored number keys move to the line key once.
-        container.scope.launch(Dispatchers.IO) {
+            // Well after that: stored number keys move to the line key once.
             delay(30_000)
             if (!container.phoneKeys.done) container.phoneKeys.runIfNeeded()
         }
     }
 }
+
+private const val TRACE_WARM = "Parley.warmCallPath"
 
 val Context.container: DataContainer get() = (applicationContext as ParleyApp).container

@@ -74,7 +74,7 @@ class CallNotifier(private val context: Context) {
         }
         // Incoming (ringing) and ongoing calls use separate notifications, so a call-waiting call
         // is a *new* notification that pops up (heads-up / full-screen) rather than a silent update.
-        val ringing = live.firstOrNull { it.state == CallState.RINGING && !CallManager.isScreening(it.id) }
+        val ringing = live.firstOrNull { it.state == CallState.RINGING && !CallManager.holdsNotification(it.id) }
         val ongoing = live.firstOrNull { it.state == CallState.ACTIVE }
             ?: live.firstOrNull { it.state != CallState.RINGING }
 
@@ -88,7 +88,13 @@ class CallNotifier(private val context: Context) {
             // The user swiped this call's ringing/"Ringing silently" notification away: it stays away.
         } else if (ringing.silenced) {
             post(INCOMING_ID, ringing, "s") { buildSilenced(ringing) }
+        } else if (CallManager.isScreening(ringing.id)) {
+            // Screening takes longer than usual (a cold start): a quiet "Checking…" with Answer and Decline, not the
+            // heads-up and full-screen call screen, which a rejected spam call must never pop up.
+            post(INCOMING_ID, ringing, "c") { buildSilenced(ringing) }
         } else {
+            // Replacing the quiet "Checking…" notification: posted fresh, so it alerts like any incoming call.
+            if (lastPosted[INCOMING_ID]?.startsWith("c|") == true) cancel(INCOMING_ID)
             // Without a full-screen alert (permission, notifications, or the channel turned down) the call screen is
             // opened directly, so a ringing call always has a way to answer.
             if (ongoing == null && ringing.id !in directlyLaunched && (!canUseFullScreen() || !notificationsAllowed() || !incomingChannelAlerts(context))) {
@@ -147,6 +153,7 @@ class CallNotifier(private val context: Context) {
         val nmc = NotificationManagerCompat.from(context)
         try {
             nmc.notify(id, build())
+            if (id == INCOMING_ID) CallManager.onNotificationShown(call.id)
         } catch (_: SecurityException) {
         } catch (_: IllegalArgumentException) {
             // Some Android versions reject CallStyle outside a foreground service: fall back to a plain notification.

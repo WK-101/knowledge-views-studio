@@ -99,7 +99,11 @@ fun ContentResolver.changes(uri: Uri, retry: Flow<*>? = null): Flow<Unit> = call
     }
 }.onStart { emit(Unit) }.conflate()
 
-class ContactsRepository(private val context: Context, scope: CoroutineScope) {
+/**
+ * [started]: when the shared [contacts] list starts loading (the container defers it in processes started for a call,
+ * a worker or a widget; see [StartGate]).
+ */
+class ContactsRepository(private val context: Context, scope: CoroutineScope, started: SharingStarted = SharingStarted.Eagerly) {
     private val cr: ContentResolver = context.contentResolver
 
     /** Called before Parley changes existing contacts (set by the container to journal them). */
@@ -128,7 +132,7 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope) {
     val contacts: StateFlow<List<ContactSummary>?> = combine(cr.changes(Contacts.CONTENT_URI, retry = reload), reload) { _, _ -> }
         .map { loadAll() }
         .flowOn(Dispatchers.IO)
-        .stateIn(scope, SharingStarted.Eagerly, null)
+        .stateIn(scope, started, null)
 
     fun refresh() {
         reload.value++

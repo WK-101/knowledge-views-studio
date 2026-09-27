@@ -54,13 +54,19 @@ data class PeopleIndexData(
  * Per-contact fields the lists need beyond the contact summaries (company, title, nickname, accounts, labels,
  * date of death), recomputed off the main thread whenever the address book changes.
  */
-class PeopleIndex(private val context: Context, contacts: ContactsRepository, scope: CoroutineScope) {
+class PeopleIndex(
+    private val context: Context,
+    contacts: ContactsRepository,
+    scope: CoroutineScope,
+    /** Deferred with the contact list itself (see [app.parley.data.StartGate]). */
+    started: SharingStarted = SharingStarted.Eagerly,
+) {
     private val cr = context.contentResolver
 
     val data: StateFlow<PeopleIndexData> = contacts.contacts
         .map { if (it == null) PeopleIndexData() else load() }
         .flowOn(Dispatchers.IO)
-        .stateIn(scope, SharingStarted.Eagerly, PeopleIndexData())
+        .stateIn(scope, started, PeopleIndexData())
 
     private class Acc {
         var company = ""

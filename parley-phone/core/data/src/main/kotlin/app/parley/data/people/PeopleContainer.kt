@@ -28,7 +28,7 @@ import org.json.JSONObject
  */
 class PeopleContainer(private val c: DataContainer) {
     val prefs: PeoplePrefs = c.peoplePrefs
-    val index = PeopleIndex(c.appContext, c.contacts, c.scope)
+    val index = PeopleIndex(c.appContext, c.contacts, c.scope, c.fullStart.sharing)
     val labelRefs = LabelReferences(c, prefs)
     val labels = LabelsRepository(c.appContext, c.contacts, labelRefs)
     val backgrounds = CallBackgrounds(c.appContext, c.contacts)

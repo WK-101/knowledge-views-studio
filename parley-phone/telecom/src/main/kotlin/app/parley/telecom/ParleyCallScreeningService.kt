@@ -1,6 +1,7 @@
 package app.parley.telecom
 
 import android.os.Build
+import android.os.Trace
 import android.telecom.Call
 import android.telecom.CallScreeningService
 import android.telecom.Connection
@@ -24,6 +25,8 @@ class ParleyCallScreeningService : CallScreeningService() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
     override fun onScreenCall(details: Call.Details) {
+        // onScreenCall → respondToCall, for Perfetto / systrace (ended in [respond]).
+        Trace.beginAsyncSection(TRACE_RESPOND, System.identityHashCode(details))
         val incoming = runCatching { details.callDirection == Call.Details.DIRECTION_INCOMING }.getOrDefault(true)
         val number = runCatching { details.handle?.schemeSpecificPart }.getOrNull()
         // Any doubt about an emergency lets the call through.
@@ -72,10 +75,15 @@ class ParleyCallScreeningService : CallScreeningService() {
 
     private fun respond(details: Call.Details, response: CallResponse) {
         runCatching { respondToCall(details, response) }
+        Trace.endAsyncSection(TRACE_RESPOND, System.identityHashCode(details))
     }
 
     override fun onDestroy() {
         scope.cancel()
         super.onDestroy()
+    }
+
+    private companion object {
+        const val TRACE_RESPOND = "Parley.screenToRespond"
     }
 }

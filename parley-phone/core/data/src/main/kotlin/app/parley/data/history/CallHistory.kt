@@ -30,6 +30,7 @@ import app.parley.data.ContactsRepository
 import app.parley.data.Permissions
 import app.parley.data.PhoneEnv
 import app.parley.data.R
+import app.parley.data.StartGate
 import app.parley.data.backup.CallHistoryBackup
 import app.parley.data.changes
 import app.parley.data.vault.PrivateCall
@@ -81,6 +82,8 @@ class CallHistory(
     private val contacts: ContactsRepository,
     private val vault: VaultRepository,
     private val scope: CoroutineScope,
+    /** The archive is read, synced and followed only once the full data graph starts (see [StartGate]). */
+    private val gate: StartGate,
 ) : CallHistoryBackup {
     val prefs = HistoryPrefs(context, scope)
     @Volatile private var dbRef: HistoryDatabase? = null
@@ -130,7 +133,7 @@ class CallHistory(
             !on || arch.isNullOrEmpty() -> sys
             else -> HistoryMerge.merge(sys, arch.asSequence().take(ARCHIVE_UI_WINDOW).map { it.toEntry() }.filter { it.number !in vk || it.number.isBlank() }.toList())
         }
-    }.flowOn(Dispatchers.Default).stateIn(scope, SharingStarted.Eagerly, null)
+    }.flowOn(Dispatchers.Default).stateIn(scope, gate.sharing, null)
 
     /**
      * [calls] plus the calls with private (vault) contacts, newest first: every call Parley knows of. For counts that
@@ -142,7 +145,7 @@ class CallHistory(
             priv.isEmpty() -> sys
             else -> (sys + priv.map(::privateEntry)).sortedByDescending { it.date }
         }
-    }.flowOn(Dispatchers.Default).stateIn(scope, SharingStarted.Eagerly, null)
+    }.flowOn(Dispatchers.Default).stateIn(scope, gate.sharing, null)
 
     /** The newest call with [number]'s line in [calls], or null (the caller's "last call" line). */
     fun lastCallWith(number: String, region: String? = countryIso): CallEntry? =
@@ -174,7 +177,10 @@ class CallHistory(
     suspend fun awaitCalls(): List<CallEntry>? = withTimeoutOrNull(30_000) { calls.filterNotNull().first() }
 
     init {
+        // Not in a process started for a call, a worker or a widget: decrypting the archive and a full catch-up would
+        // compete with call screening. Workers sync explicitly; the rest waits for the UI or a settled call.
         scope.launch(Dispatchers.IO) {
+            gate.await()
             val s = prefs.current()
             runCatching { reload() }
             if (s.archiveEnabled) {
