@@ -12,6 +12,7 @@ import android.widget.RemoteViewsService
 import com.wkhan.hexis.App
 import com.wkhan.hexis.MainActivity
 import com.wkhan.hexis.R
+import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
 import java.time.Instant
 import java.time.LocalDate
@@ -131,11 +132,18 @@ private class AgendaFactory(private val context: Context, private val widgetId: 
         style = WidgetStyle.resolve(context, widgetId)
         val listId = if (scope.startsWith("list:")) scope.removePrefix("list:") else null
 
-        val tasks = runBlocking { app.repository.wsTasksOnce() }
+        // R109 (Tier-2) — fetch tasks, the clock setting and (only when a time-based scope needs them) events
+        // concurrently in one blocking scope instead of sequential runBlocking hops. Same data, same logic.
         // Phase 0 S1: honour the app's 12/24-hour clock on the widget too (falls back to device preference).
-        val use24 = runBlocking {
-            com.wkhan.hexis.domain.AppClock.is24(app.repository.settingsSnapshot().timeFormat,
-                android.text.format.DateFormat.is24HourFormat(context))
+        val needEvents = listId == null && scope != "scheduled"
+        val (tasks, use24, rawEvents) = runBlocking {
+            val tD = async { app.repository.wsTasksOnce() }
+            val uD = async {
+                com.wkhan.hexis.domain.AppClock.is24(app.repository.settingsSnapshot().timeFormat,
+                    android.text.format.DateFormat.is24HourFormat(context))
+            }
+            val eD = async { if (needEvents) runCatching { app.repository.wsEventsOnce() }.getOrDefault(emptyList()) else emptyList() }
+            Triple(tD.await(), uD.await(), eD.await())
         }
         fun clock(h: Int, m: Int): String = if (use24) "%02d:%02d".format(h, m)
             else { val h12 = ((h + 11) % 12) + 1; val ap = if (h < 12) "AM" else "PM"; if (m == 0) "$h12 $ap" else "%d:%02d %s".format(h12, m, ap) }
@@ -172,9 +180,9 @@ private class AgendaFactory(private val context: Context, private val widgetId: 
 
         // R41 — the agenda reads the dedicated calendar too: today's / this-week's EVENT occurrences,
         // interleaved by start time. Only for the time-based scopes; a list-scoped widget stays tasks-only.
-        val eventRows = if (listId != null || scope == "scheduled") emptyList() else runBlocking {
+        val eventRows = if (!needEvents) emptyList() else run {
             val winEnd = if (scope == "next7") endWeek else endToday
-            com.wkhan.hexis.domain.calendar.CalendarEngine.expand(app.repository.wsEventsOnce(), startToday, winEnd, zone)
+            com.wkhan.hexis.domain.calendar.CalendarEngine.expand(rawEvents, startToday, winEnd, zone)
                 .filter { it.endMillis >= System.currentTimeMillis() && it.startMillis < winEnd }
                 .map { o ->
                     val st = Instant.ofEpochMilli(o.startMillis).atZone(zone)

@@ -249,10 +249,16 @@ private class DayFactory(private val context: Context, private val widgetId: Int
         val dayEnd = date.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
         val isToday = date == today
 
-        val tasks = runBlocking { app.repository.wsTasksOnce() }
-        val use24 = runBlocking {
-            com.wkhan.hexis.domain.AppClock.is24(app.repository.settingsSnapshot().timeFormat,
-                android.text.format.DateFormat.is24HourFormat(context))
+        // R109 (Tier-2) — fetch tasks, the clock setting and events concurrently in one blocking scope
+        // instead of three sequential runBlocking hops (same data, same downstream logic).
+        val (tasks, use24, rawEvents) = runBlocking {
+            val tD = async { app.repository.wsTasksOnce() }
+            val uD = async {
+                com.wkhan.hexis.domain.AppClock.is24(app.repository.settingsSnapshot().timeFormat,
+                    android.text.format.DateFormat.is24HourFormat(context))
+            }
+            val eD = async { runCatching { app.repository.wsEventsOnce() }.getOrDefault(emptyList()) }
+            Triple(tD.await(), uD.await(), eD.await())
         }
         fun clock(h: Int, m: Int): String = if (use24) "%02d:%02d".format(h, m)
             else { val h12 = ((h + 11) % 12) + 1; val ap = if (h < 12) "AM" else "PM"; if (m == 0) "$h12 $ap" else "%d:%02d %s".format(h12, m, ap) }
@@ -276,8 +282,8 @@ private class DayFactory(private val context: Context, private val widgetId: Int
                 Row(t.id, t.title.ifBlank { "Untitled" }, sub, overdue, isEvent = false, sortKey = if (overdue) 0 else due, priColor = pc, priTint = pt)
             }.toList()
 
-        val eventRows = runBlocking {
-            com.wkhan.hexis.domain.calendar.CalendarEngine.expand(app.repository.wsEventsOnce(), dayStart, dayEnd, zone)
+        val eventRows = run {
+            com.wkhan.hexis.domain.calendar.CalendarEngine.expand(rawEvents, dayStart, dayEnd, zone)
                 .filter { it.startMillis < dayEnd && it.endMillis > dayStart }
                 .map { o ->
                     val st = Instant.ofEpochMilli(o.startMillis).atZone(zone)
