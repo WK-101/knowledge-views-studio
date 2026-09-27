@@ -32,8 +32,12 @@ internal class HistoryCrypto(
     /** The Keystore alias of the wrapping key (other small-record stores use the same envelope under their own). */
     private val alias: String = ALIAS,
 ) {
-    /** The key is gone for good (invalidated, unrecoverable, or its Keystore entry provably missing). */
-    class KeyLostException(cause: Throwable?) : Exception("Call-history archive key is no longer available", cause)
+    /**
+     * The key is gone for good (invalidated, unrecoverable, or its Keystore entry provably missing). [provable] is
+     * false when only an [UnrecoverableKeyException] says so: AndroidKeyStore also wraps some passing keystore2 errors
+     * (a busy or failing backend) in it, so stores that must not give up their key on a guess treat it as temporary.
+     */
+    class KeyLostException(cause: Throwable?, val provable: Boolean = true) : Exception("Call-history archive key is no longer available", cause)
 
     /** The key couldn't be used right now (Keystore busy, not ready, I/O). Nothing is lost: try again later. */
     class KeyUnavailableException(cause: Throwable?) : Exception("Call-history archive key is temporarily unavailable", cause)
@@ -52,7 +56,7 @@ internal class HistoryCrypto(
                 } catch (e: KeyLostException) {
                     throw e
                 } catch (e: Exception) {
-                    throw if (isPermanent(e)) KeyLostException(e) else KeyUnavailableException(e)
+                    throw if (isPermanent(e)) KeyLostException(e, provable = isProvable(e)) else KeyUnavailableException(e)
                 }
             } else {
                 ByteArray(64).also { random.nextBytes(it) }.also { k ->
@@ -70,12 +74,14 @@ internal class HistoryCrypto(
 
     /**
      * Forgets the key (after [KeyLostException]); the next use creates a new one. The wrapped key file is moved
-     * aside ([suffix]) with the old database, never deleted.
+     * aside ([suffix]) with the old database, never deleted. [deleteKeystoreEntry]: also drop the wrapping key, so a
+     * new one is made under the same alias; stores that move to a new alias instead keep the old entry, in case it
+     * can still open the file set aside.
      */
-    fun reset(suffix: String) = synchronized(this) {
+    fun reset(suffix: String, deleteKeystoreEntry: Boolean = true) = synchronized(this) {
         keys = null
         if (file.exists() && !file.renameTo(File(file.parentFile, "${file.name}.$suffix"))) file.delete()
-        runCatching { keyStore().deleteEntry(alias) }
+        if (deleteKeystoreEntry) runCatching { keyStore().deleteEntry(alias) }
     }
 
     fun seal(plain: ByteArray): ByteArray {
@@ -150,6 +156,16 @@ internal class HistoryCrypto(
                 ) {
                     return true
                 }
+                t = t.cause
+            }
+            return false
+        }
+
+        /** Loss the Keystore states outright: the key was invalidated, or it doesn't open what it wrapped. */
+        fun isProvable(e: Throwable): Boolean {
+            var t: Throwable? = e
+            while (t != null) {
+                if (t is KeyPermanentlyInvalidatedException || t is AEADBadTagException) return true
                 t = t.cause
             }
             return false

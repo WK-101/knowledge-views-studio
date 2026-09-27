@@ -16,6 +16,8 @@
     <!-- Call history: archive notices -->
     <string name="hist_archive_reset_title">Parley\'s call archive was reset</string>
     <string name="hist_archive_reset_text">Its encryption key was no longer available on this phone (this can happen after a system update or a security change), so a new archive was started. The old one was set aside, not deleted.</string>
+    <string name="records_key_reset_title">Some older notes can\'t be opened</string>
+    <string name="records_key_reset_text">The key that protects pinned notes, call notes and undo history was no longer available on this phone (this can happen after a system update or a security change). New notes use a new key. Older ones were kept as they are, not deleted, and an earlier backup still has them.</string>
     <string name="hist_archive_intro_title">Parley keeps its own copy of your calls</string>
     <string name="hist_archive_intro_text">Android may drop old calls, so Parley keeps an encrypted copy on this phone. Calls you clear in another app stay in Parley; delete them here, or turn the archive off in its settings.</string>
     <string name="hist_archive_settings">Archive settings</string>
@@ -1461,6 +1463,7 @@
     <string name="rst_origin_this">Made on this phone</string>
     <string name="rst_origin_other">Made on another phone of yours</string>
     <string name="rst_origin_unknown">Signed by a phone your backup key doesn\'t know. If you didn\'t make this backup yourself, don\'t restore it.</string>
+    <string name="rst_origin_unconfirmed">Signed by a phone that was never confirmed with your backup passphrase. Backups from a phone that used Parley before backups were signed look like this until you tap “Mark this phone\'s backups as yours” in its backup settings. Restore it if you made it yourself.</string>
     <string name="rst_origin_unsigned">This backup isn\'t signed (older versions of Parley didn\'t sign backups). Restore it only if you made it yourself.</string>
     <string name="rst_origin_bad">This backup\'s signature doesn\'t match its content, so it may have been changed. Don\'t restore it unless you\'re sure where it came from.</string>
 </resources>

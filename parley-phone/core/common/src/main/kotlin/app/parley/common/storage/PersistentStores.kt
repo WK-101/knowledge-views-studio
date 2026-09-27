@@ -144,6 +144,7 @@ object PersistentStores {
         PersistentStore("backup", StoreKind.PREFS, StorePolicy.Secret("The backup keys and the backup folder of this phone")),
         PersistentStore("vault_keys", StoreKind.PREFS, local("Which vault key generations this phone has used")),
         PersistentStore("record_sealing", StoreKind.PREFS, local("Whether older notes were sealed on this phone")),
+        PersistentStore("record_crypto", StoreKind.PREFS, local("Which small-records key this phone uses, keys set aside and the reset notice")),
         // ---- files
         PersistentStore("timemachine", StoreKind.FILES, local("Contact history of this phone, kept 180 days"), location = PersistentStore.FILES),
         PersistentStore("vault_photos", StoreKind.FILES, StorePolicy.BackedUpWithVault, Sections.VAULT, PersistentStore.FILES),

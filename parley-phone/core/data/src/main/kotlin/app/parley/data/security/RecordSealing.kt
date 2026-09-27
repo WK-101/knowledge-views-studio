@@ -9,12 +9,13 @@ import app.parley.data.db.AppDatabase
 /**
  * Seals the small records that older versions stored plain: pinned notes, call notes, screened callers' names, journal
  * payloads and time-machine snapshots. Runs in the background until everything is sealed (then it remembers that and
- * stops); values stay readable throughout, since readers accept both forms. Each write applies only if the value is
+ * stops, until a value has to be stored plain again because the key couldn't be used: [markPending]); values stay
+ * readable throughout, since readers accept both forms. Each write applies only if the value is
  * still the plain one it read, so an edit made meanwhile is never lost.
  */
 class RecordSealing(context: Context, private val db: AppDatabase, private val timeMachine: () -> TimeMachine) {
     private val crypto = RecordCrypto.get(context)
-    private val prefs = context.getSharedPreferences("record_sealing", Context.MODE_PRIVATE)
+    private val prefs = context.getSharedPreferences(FILE, Context.MODE_PRIVATE)
 
     val done: Boolean get() = prefs.getBoolean(DONE, false)
 
@@ -61,8 +62,15 @@ class RecordSealing(context: Context, private val db: AppDatabase, private val t
         }
     }
 
-    private companion object {
-        const val TAG = "RecordSealing"
-        const val DONE = "done_v1"
+    companion object {
+        private const val TAG = "RecordSealing"
+        private const val FILE = "record_sealing"
+        private const val DONE = "done_v1"
+
+        /** A value was just stored plain as a fallback: the next run seals it. */
+        fun markPending(context: Context) {
+            val prefs = context.getSharedPreferences(FILE, Context.MODE_PRIVATE)
+            if (prefs.getBoolean(DONE, false)) prefs.edit().putBoolean(DONE, false).apply()
+        }
     }
 }

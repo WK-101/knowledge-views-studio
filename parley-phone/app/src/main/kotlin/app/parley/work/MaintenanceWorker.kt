@@ -120,6 +120,8 @@ class MaintenanceWorker(context: Context, params: WorkerParameters) : CoroutineW
             val settings = c.settings.current()
             // 0. Follow lookup-key changes first, so temporary entries and notes point at the right people.
             step("lookup keys") { c.contactKeys.sweep() }
+            // Values stored plain while the records key couldn't be used are sealed once it can.
+            step("record sealing") { if (!c.recordSealing.done) c.recordSealing.runIfNeeded() }
             // 1. Temporary contacts: only the raw contacts Parley recorded are deleted; merged details stay.
             val notices = step("temporary contacts") { c.temporaries.expire(now) }.orEmpty()
             // 2. Expired vault entries

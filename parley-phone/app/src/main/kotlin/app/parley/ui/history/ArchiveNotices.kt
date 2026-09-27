@@ -12,11 +12,14 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
+import app.parley.data.security.RecordCrypto
 import kotlinx.coroutines.launch
 import androidx.compose.ui.res.stringResource
 import app.parley.R
@@ -24,14 +27,24 @@ import app.parley.R
 /**
  * One-time notes about Parley's call archive, shown at the top of Recents:
  * - when the archive first holds calls: calls cleared in other apps stay in Parley (with a link to its settings);
- * - when the archive's key was lost and a new archive started (the old one is kept aside, not deleted).
+ * - when the archive's key was lost and a new archive started (the old one is kept aside, not deleted);
+ * - when the key of notes and other small records was lost and a new one is used (older records are kept as they are).
  */
 @Composable
 fun ArchiveNotices(vm: AppViewModel, open: (Destination) -> Unit) {
     val prefs by vm.c.history.prefs.state.collectAsStateWithLifecycle()
     val archive by vm.c.history.archive.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val records = remember { RecordCrypto.get(context) }
+    val recordsReset by records.resetAt.collectAsStateWithLifecycle()
     when {
+        recordsReset > 0 -> Note(
+            stringResource(R.string.records_key_reset_title),
+            stringResource(R.string.records_key_reset_text),
+            onSettings = null,
+            onDismiss = { records.acknowledgeReset() },
+        )
         !prefs.archiveResetSeen && prefs.archiveResetAt > 0 -> Note(
             stringResource(R.string.hist_archive_reset_title),
             stringResource(R.string.hist_archive_reset_text),
@@ -54,13 +67,13 @@ fun ArchiveNotices(vm: AppViewModel, open: (Destination) -> Unit) {
 }
 
 @Composable
-private fun Note(title: String, text: String, onSettings: () -> Unit, onDismiss: () -> Unit) {
+private fun Note(title: String, text: String, onSettings: (() -> Unit)?, onDismiss: () -> Unit) {
     Card(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp)) {
         Column(Modifier.padding(start = 16.dp, end = 8.dp, top = 12.dp)) {
             Text(title, style = MaterialTheme.typography.titleSmall)
             Text(text, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 4.dp, end = 8.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                TextButton(onSettings) { Text(stringResource(R.string.hist_archive_settings)) }
+                if (onSettings != null) TextButton(onSettings) { Text(stringResource(R.string.hist_archive_settings)) }
                 TextButton(onDismiss) { Text(stringResource(R.string.dc_got_it)) }
             }
         }

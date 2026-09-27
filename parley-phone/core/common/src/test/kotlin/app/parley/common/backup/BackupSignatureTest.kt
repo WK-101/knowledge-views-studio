@@ -158,4 +158,52 @@ class BackupSignatureTest {
         assertNull(BackupCrypto.open(BackupCrypto.readHeader(ByteArrayInputStream(direct)), Unlock.Passphrase(PASS)).bundle)
         assertTrue(BackupCrypto.DEFAULT_KDF is KdfParams.Scrypt)
     }
+
+    @Test fun a_phone_that_was_never_confirmed_is_told_apart_from_a_foreign_endorsement() {
+        // Keys from before signing: this phone signs but carries no endorsement until the passphrase is entered.
+        val unconfirmed = Phone(null, null)
+        assertEquals(ArchiveOrigin.UNCONFIRMED_PHONE, origin(archive(BUNDLE, unconfirmed), Unlock.Passphrase(PASS), Phone(null, null).publicKey))
+        // On the phone that made it, it is still this phone's.
+        assertEquals(ArchiveOrigin.THIS_PHONE, origin(archive(BUNDLE, unconfirmed), Unlock.Passphrase(PASS), unconfirmed.publicKey))
+    }
+
+    @Test fun the_signed_manifest_is_unambiguous() {
+        val header = byteArrayOf(1, 2, 3)
+        val honest = Manifest(1, 5, "4.0", device = mapOf("model" to "Pixel"), counts = mapOf("contacts" to 2L))
+        // A device value that takes in the count line reads the same in the old line-based form...
+        val smuggled = Manifest(1, 5, "4.0", device = mapOf("model" to "Pixel\nc\u0000contacts\u00002"))
+        assertArrayEquals(ArchiveSignatures.signedBytes(header, honest), ArchiveSignatures.signedBytes(header, smuggled))
+        // ...but not in the canonical form that new signatures cover.
+        assertTrue(!ArchiveSignatures.canonicalBytes(header, honest).contentEquals(ArchiveSignatures.canonicalBytes(header, smuggled)))
+    }
+
+    @Test fun new_signatures_cover_the_canonical_form_and_older_ones_still_verify() {
+        val phone = Phone(BUNDLE, PASS)
+        val file = archive(BUNDLE, phone)
+        val header = BackupCrypto.readHeader(ByteArrayInputStream(file))
+        val key = BackupCrypto.open(header, Unlock.Passphrase(PASS))
+        val m = BackupArchiveReader.open({ BackupCrypto.decrypt(ByteArrayInputStream(file), key.dataKey) }).manifest
+        val sig = m.signature!!
+        assertNotNull(sig.sig2)
+        // A signature made before the canonical form (no sig2) is checked in the old form.
+        val older = m.copy(signature = sig.copy(sig2 = null))
+        assertEquals(ArchiveOrigin.THIS_PHONE, ArchiveSignatures.verify(header.bytes, older, key.bundle, phone.publicKey))
+        // When sig2 is there, it is the one that counts.
+        val swapped = m.copy(signature = sig.copy(sig2 = sig.sig))
+        assertEquals(ArchiveOrigin.BAD_SIGNATURE, ArchiveSignatures.verify(header.bytes, swapped, key.bundle, phone.publicKey))
+    }
+
+    @Test fun a_payload_held_to_one_kdf_cant_carry_a_costlier_key_bundle() {
+        // A QR code or setup file allows exactly one cheap KDF; the embedded bundle asks for a costlier one.
+        val qrKdf = KdfParams.Pbkdf2(BackupCrypto.MIN_ITERATIONS)
+        val file = BackupCrypto.encryptBytes("hi".toByteArray(), listOf(Recipient.PublicKey(BUNDLE)), qrKdf)
+        try {
+            BackupCrypto.decryptBytes(file, Unlock.Passphrase(PASS), KdfPolicy.exactly(qrKdf))
+            fail("the bundle's KDF is outside the payload's policy")
+        } catch (_: WrongKeyException) {
+            // Refused without running the bundle's KDF.
+        }
+        // Under the backup policy the same file opens.
+        assertArrayEquals("hi".toByteArray(), BackupCrypto.decryptBytes(file, Unlock.Passphrase(PASS)))
+    }
 }

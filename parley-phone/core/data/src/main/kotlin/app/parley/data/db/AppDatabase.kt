@@ -363,6 +363,9 @@ interface MetaDao {
     @Query("UPDATE contact_meta SET lastNudgedAt = :at WHERE lookupKey = :key")
     suspend fun setLastNudgedAt(key: String, at: Long?)
 
+    @Query("UPDATE contact_meta SET rhythm = :rhythm WHERE lookupKey = :key")
+    suspend fun setMetaRhythm(key: String, rhythm: String?)
+
     @Insert
     suspend fun addCallNote(n: CallNoteEntity): Long
 
@@ -494,6 +497,13 @@ interface VaultDao {
 
     @Query("DELETE FROM vault_contacts WHERE id = :id")
     suspend fun delete(id: Long)
+
+    /** Targeted writes, so a row read a while ago never brings back an older blob or expiry. */
+    @Query("UPDATE vault_contacts SET detailBlob = :blob WHERE id = :id")
+    suspend fun setDetailBlob(id: Long, blob: ByteArray)
+
+    @Query("UPDATE vault_contacts SET expiresAt = :expiresAt WHERE id = :id")
+    suspend fun setExpiry(id: Long, expiresAt: Long?)
 
     @Query("DELETE FROM vault_numbers WHERE vaultId = :id")
     suspend fun clearNumbers(id: Long)

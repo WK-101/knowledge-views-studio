@@ -6,6 +6,7 @@ import android.app.Activity
 import android.content.Context
 import android.os.Build
 import android.view.View
+import app.parley.ui.SensitiveDialogs
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.activity.compose.LocalActivity
@@ -117,12 +118,16 @@ fun SensitiveScreen() {
     val view: View = LocalView.current
     DisposableEffect(activity, view) {
         OverlayGuard.acquire(activity)
+        // Dialogs of the flow are windows of their own: they ignore touches through overlays too (before Android 12
+        // nothing hides the overlays themselves).
+        SensitiveDialogs.acquire()
         // Also the window this screen is drawn in when it is a dialog of its own.
         val root = view.rootView
         val before = root.filterTouchesWhenObscured
         root.filterTouchesWhenObscured = true
         onDispose {
             root.filterTouchesWhenObscured = before
+            SensitiveDialogs.release()
             OverlayGuard.release(activity)
         }
     }

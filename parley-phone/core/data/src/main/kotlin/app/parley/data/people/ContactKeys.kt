@@ -11,6 +11,7 @@ import app.parley.data.db.AppDatabase
 import app.parley.data.db.ContactMetaEntity
 import app.parley.data.db.MetaDao
 import app.parley.data.extras.ExtrasStore
+import app.parley.data.security.SealedMetaDao
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -108,6 +109,7 @@ class ContactKeys(
             val temporaries = meta.allTemporary()
             val snapshot = KeySweep.Snapshot(current, keys + temporaries.associate { "t:" + it.lookupKey + ":" + it.rawIds to it.contactId })
             if (snapshot == lastSweep) return@withLock 0
+            notesWaiting = false
             val split = KeySweep.split(keys, current)
             // Only moves that are plausibly the same person (no namesake takes over a deleted contact's note).
             val looked = split.needLookup.associateWith { key ->
@@ -130,7 +132,7 @@ class ContactKeys(
             // Index backgrounds made before the index existed (their keys are still current).
             if (bg != null) current.keys.forEach { k -> if (bg.forLookupKey(k) != null) bg.remember(k) }
             // What moved changes the stored keys: the next sweep runs once more, finds nothing and settles.
-            lastSweep = snapshot
+            lastSweep = snapshot.takeUnless { notesWaiting }
             moved
         }
     }
@@ -143,12 +145,7 @@ class ContactKeys(
         if (from == to) return
         // Metadata, interactions, the temporary flag and relation links move together or not at all.
         tx {
-            meta.meta(from)?.let { src ->
-                val dst = meta.meta(to)
-                val merged = MetaRekey.merge(dst?.values(), src.values())
-                meta.setMeta(merged.toEntity(to, toId ?: dst?.contactId ?: src.contactId))
-                meta.deleteMeta(from)
-            }
+            meta.meta(from)?.let { src -> moveMetaRow(from, to, toId, src) }
             interactions()?.rekey(from, to, toId)
             meta.temporary(from)?.let { t ->
                 val existing = meta.temporary(to)
@@ -168,6 +165,32 @@ class ContactKeys(
         runCatching { backgrounds().move(from, to) }
         runCatching { extras()?.dndRekey(from, to) }
     }
+
+    /**
+     * Moves [from]'s contact_meta row ([src]) onto [to], merged with what [to] has. A pinned note that can't be opened
+     * right now (sealed, key unavailable) moves as it is when the other side has no note; when both have one they
+     * can't be merged, so both rows stay and a later sweep tries again.
+     */
+    private suspend fun moveMetaRow(from: String, to: String, toId: Long?, src: ContactMetaEntity) {
+        val sealed = meta as? SealedMetaDao
+        val srcHidden = sealed?.unreadableNote(from)
+        val dstHidden = sealed?.unreadableNote(to) != null
+        val dst = meta.meta(to)
+        val srcBlocked = srcHidden != null && (dstHidden || dst?.pinnedNote != null)
+        val dstBlocked = dstHidden && src.pinnedNote != null
+        if (srcBlocked || dstBlocked) {
+            notesWaiting = true
+            return
+        }
+        val merged = MetaRekey.merge(dst?.values(), src.values())
+        // A hidden note at [to] is kept by the write itself (the merged note is null there).
+        meta.setMeta(merged.toEntity(to, toId ?: dst?.contactId ?: src.contactId))
+        if (srcHidden != null) sealed?.keepSealedNote(to, srcHidden)
+        meta.deleteMeta(from)
+    }
+
+    /** A move was held back by a note that can't be opened right now: the next sweep must not be skipped. */
+    private var notesWaiting = false
 
     /** Temporary contacts follow their raw contacts, whose ids never change. */
     private suspend fun rekeyTemporaries(keyOf: Map<Long, String>): Int {

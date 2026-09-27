@@ -63,7 +63,10 @@ class CircleRepository(
 
     private suspend fun <T> tx(block: suspend () -> T): T = db?.withTransaction(block) ?: block()
 
-    /** Changes [lookupKey]'s contact_meta row as it is now (created when missing), atomically. */
+    /**
+     * Changes [lookupKey]'s contact_meta row as it is now (created when missing), atomically. A pinned note that can't
+     * be opened right now reads as none and is kept as stored by the write ([app.parley.data.security.SealedMetaDao]).
+     */
     private suspend fun editMeta(lookupKey: String, create: Boolean, transform: (ContactMetaEntity) -> ContactMetaEntity?) = withContext(Dispatchers.IO) {
         tx {
             val m = meta.meta(lookupKey) ?: if (create) ContactMetaEntity(lookupKey) else null
@@ -142,7 +145,8 @@ class CircleRepository(
                 if (!current.needsRelearn(now)) return@tx Member(row, current)
                 val next = NaturalRhythm.relearn(current, times, now, ZoneId.systemDefault())
                 val updated = row.copy(rhythm = next.encode())
-                meta.setMeta(updated)
+                // Only the rhythm column: the rest of the row (a note that can't be opened right now) stays as stored.
+                meta.setMetaRhythm(mem.lookupKey, updated.rhythm)
                 Member(updated, next)
             }
         }

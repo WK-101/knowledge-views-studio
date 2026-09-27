@@ -84,4 +84,65 @@ class VaultKeyLifecycleTest {
         val aside = File(context.noBackupFilesDir, "vault-unreadable").listFiles().orEmpty()
         assertTrue(aside.any { it.readBytes().contentEquals(before) })
     }
+
+    private fun detailAliases() = FakeAndroidKeyStore.keys.keys.filter { it.startsWith("parley_vault_detail") }.toSet()
+
+    private fun setDeviceSecure(secure: Boolean) =
+        org.robolectric.Shadows.shadowOf(context.getSystemService(android.app.KeyguardManager::class.java)).setIsDeviceSecure(secure)
+
+    /** What a process killed mid-upgrade leaves: a newer key that no blob uses. */
+    private fun leaveInterruptedUpgrade(gen: Int) {
+        FakeAndroidKeyStore.keys["parley_vault_detail_g$gen"] = javax.crypto.KeyGenerator.getInstance("AES", "SunJCE").apply { init(256) }.generateKey()
+        context.getSharedPreferences("vault_keys", Context.MODE_PRIVATE).edit().putInt("maxGeneration", gen).commit()
+    }
+
+    private val ada = ContactDetails(given = "Ada", family = "Lovelace", phones = listOf(DataItem(null, "+44 20 7946 0000", 2)), pinnedNote = "Tea, not coffee")
+
+    @Test fun an_interrupted_upgrade_is_cleaned_up_and_run_again() = runBlocking {
+        setDeviceSecure(false)
+        val vault = VaultRepository(context, db, scope)
+        val id = vault.save(null, ada)
+        assertEquals(1, VaultCrypto.generationOf(db.vaultDao().get(id)!!.detailBlob))
+        leaveInterruptedUpgrade(2)
+        // The leftover key is never the one audited or sealed with.
+        assertEquals(1, VaultCrypto.auditDetailKey().generation)
+        assertEquals(1, VaultCrypto.generationOf(VaultCrypto.sealDetail("x".toByteArray())))
+
+        setDeviceSecure(true)
+        assertTrue(vault.upgradeDetailKey())
+        val gen = VaultCrypto.generationOf(db.vaultDao().get(id)!!.detailBlob)
+        assertEquals(3, gen)
+        assertEquals(setOf("parley_vault_detail_g3"), detailAliases())
+        assertEquals("Tea, not coffee", vault.details(id)!!.pinnedNote)
+    }
+
+    @Test fun an_interrupted_upgrade_from_before_the_commit_record_is_settled_from_the_blobs() = runBlocking {
+        setDeviceSecure(false)
+        val vault = VaultRepository(context, db, scope)
+        val id = vault.save(null, ada)
+        leaveInterruptedUpgrade(2)
+        // Installs from before the commit record only had the aliases to go by.
+        context.getSharedPreferences("vault_keys", Context.MODE_PRIVATE).edit().remove("committedGeneration").commit()
+
+        setDeviceSecure(true)
+        assertTrue(vault.upgradeDetailKey())
+        assertEquals(3, VaultCrypto.generationOf(db.vaultDao().get(id)!!.detailBlob))
+        assertEquals(setOf("parley_vault_detail_g3"), detailAliases())
+        assertEquals("Ada Lovelace", vault.details(id)!!.displayName)
+    }
+
+    @Test fun an_expiry_change_and_a_key_upgrade_never_undo_each_other() = runBlocking {
+        setDeviceSecure(false)
+        val vault = VaultRepository(context, db, scope)
+        val id = vault.save(null, ada, expiresAt = 5_000L)
+        val caller = db.vaultDao().get(id)!!.callerIdBlob
+        vault.setExpiry(id, null)
+        assertEquals(null, db.vaultDao().get(id)!!.expiresAt)
+        setDeviceSecure(true)
+        assertTrue(vault.upgradeDetailKey())
+        val row = db.vaultDao().get(id)!!
+        assertEquals("the upgrade changes only the sealed details", null, row.expiresAt)
+        assertArrayEquals(caller, row.callerIdBlob)
+        assertEquals("Tea, not coffee", vault.details(id)!!.pinnedNote)
+    }
 }

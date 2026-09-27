@@ -186,14 +186,11 @@ fun VaultDetailScreen(vm: AppViewModel, id: Long, back: () -> Unit, open: (Desti
                                     // The note for calls and the messaging choice follow them into Parley's metadata.
                                     if (d.pinnedNote.isNotBlank() || d.messengerPrefs.isNotBlank()) {
                                         vm.c.contacts.lookupKeyOf(newId)?.let { key ->
-                                            val m = vm.c.meta.meta(key) ?: app.parley.data.db.ContactMetaEntity(key)
-                                            vm.c.meta.setMeta(
-                                                m.copy(
-                                                    contactId = newId,
-                                                    pinnedNote = d.pinnedNote.ifBlank { null } ?: m.pinnedNote,
-                                                    preferredMessenger = d.messengerPrefs.ifBlank { null } ?: m.preferredMessenger,
-                                                ),
-                                            )
+                                            // Only the fields the vault carried: the rest of the row (a note that can't be
+                                            // opened right now included) stays as stored.
+                                            vm.c.meta.ensureMeta(key, newId)
+                                            if (d.pinnedNote.isNotBlank()) vm.c.meta.setPinnedNote(key, newId, d.pinnedNote)
+                                            if (d.messengerPrefs.isNotBlank()) vm.c.meta.setPreferredMessenger(key, newId, d.messengerPrefs)
                                         }
                                     }
                                     vm.toast(res.getString(R.string.vault_moved_out))

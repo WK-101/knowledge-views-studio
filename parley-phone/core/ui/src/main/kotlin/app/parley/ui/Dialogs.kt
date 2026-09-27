@@ -9,8 +9,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.window.DialogProperties
 
 /*
@@ -35,7 +38,10 @@ fun ParleyDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismissRequest,
-        confirmButton = confirmButton,
+        confirmButton = {
+            if (SensitiveDialogs.active) IgnoreObscuredTouches()
+            confirmButton()
+        },
         modifier = modifier,
         dismissButton = dismissButton,
         icon = icon,
@@ -44,6 +50,37 @@ fun ParleyDialog(
         shape = ParleyShapes.sheet,
         properties = properties,
     )
+}
+
+/**
+ * Held while a sensitive screen shows (unlocking, restoring a backup, deleting everything, taking back the phone
+ * app): every dialog opened meanwhile ignores touches that pass through another app's overlay. A dialog is a window of
+ * its own, so the guard on the activity's window doesn't reach it, and before Android 12 nothing else hides overlays.
+ */
+object SensitiveDialogs {
+    private val holds = mutableIntStateOf(0)
+
+    val active: Boolean get() = holds.intValue > 0
+
+    fun acquire() {
+        holds.intValue++
+    }
+
+    fun release() {
+        holds.intValue = maxOf(0, holds.intValue - 1)
+    }
+}
+
+/** Makes the window this is composed in drop touches made through an overlay, while it is shown. */
+@Composable
+private fun IgnoreObscuredTouches() {
+    val view = LocalView.current
+    DisposableEffect(view) {
+        val root = view.rootView
+        val before = root.filterTouchesWhenObscured
+        root.filterTouchesWhenObscured = true
+        onDispose { root.filterTouchesWhenObscured = before }
+    }
 }
 
 /**

@@ -34,4 +34,24 @@ class PassphraseStrengthTest {
     @Test fun score_grows_with_length() {
         assertTrue(PassphraseStrength.estimate("kitten tulip").guessesLog10 < PassphraseStrength.estimate("kitten tulip harbour").guessesLog10)
     }
+
+    @Test fun well_known_patterns_are_never_strong() {
+        // Word + year + symbol, repeated halves, names and places with a digit: the first rules any cracker tries.
+        val weak = listOf(
+            "Summer2024!", "summer2024summer2024", "Liverpool1!", "jessica12345", "Butterfly2024", "Chelsea2023!",
+            "Michael1985", "Sunshine2020!", "Dragonfly99", "abcdabcdabcd", "Password2024!", "Barcelona10",
+            "monkey123monkey123", "Charlotte2019", "Manchester1!", "Elephant2022",
+        )
+        for (p in weak) assertTrue("$p scored ${score(p)}", score(p) < 4)
+        for (p in listOf("Summer2024!", "summer2024summer2024", "Liverpool1!", "jessica12345", "Butterfly2024")) {
+            assertFalse("$p is accepted for a backup", PassphraseStrength.acceptableForBackup(p))
+        }
+    }
+
+    @Test fun repeated_halves_cost_little_more_than_one_half() {
+        val once = PassphraseStrength.estimate("tulip2024").guessesLog10
+        val twice = PassphraseStrength.estimate("tulip2024tulip2024").guessesLog10
+        assertTrue("$once vs $twice", twice - once < 2)
+        assertEquals(Hint.REPEAT, PassphraseStrength.estimate("qzvxkqzvxkqzvxk").hint)
+    }
 }
