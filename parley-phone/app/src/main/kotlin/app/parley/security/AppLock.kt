@@ -1,10 +1,31 @@
 package app.parley.security
 
+import android.net.Uri
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextDirection
+import app.parley.container
+import app.parley.data.EmergencyNumbers
+import app.parley.data.PlaceResult
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import android.app.Activity
 import android.app.KeyguardManager
+import android.content.ActivityNotFoundException
+import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.SystemClock
+import android.telecom.TelecomManager
 import android.view.WindowManager
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
@@ -18,16 +39,19 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Emergency
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
@@ -207,6 +231,77 @@ fun LockScreen(onUnlock: () -> Unit) {
             )
             Spacer(Modifier.height(24.dp))
             Button(onUnlock) { Text(stringResource(R.string.lock_unlock)) }
+            // Parley is the phone app: its lock must never stand between the user and an emergency call.
+            var emergency by remember { mutableStateOf(false) }
+            TextButton({ emergency = true }, Modifier.padding(top = 8.dp)) {
+                Icon(Icons.Rounded.Emergency, null, Modifier.size(18.dp))
+                Text("  " + stringResource(R.string.lock_emergency_call))
+            }
+            if (emergency) EmergencyDialog { emergency = false }
+        }
+    }
+}
+
+/**
+ * A keypad that calls only numbers the platform recognises as emergency numbers (Android has no public way to open
+ * the system's emergency dialer). The call goes through Telecom on whichever SIM or network can carry it.
+ */
+@Composable
+private fun EmergencyDialog(onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var number by remember { mutableStateOf("") }
+    var isEmergency by remember { mutableStateOf(false) }
+    LaunchedEffect(number) { isEmergency = withContext(Dispatchers.IO) { EmergencyNumbers.isEmergency(context, number.trim()) } }
+    val focus = remember { FocusRequester() }
+    LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = { Icon(Icons.Rounded.Emergency, null) },
+        title = { Text(stringResource(R.string.lock_emergency_call)) },
+        text = {
+            Column {
+                OutlinedTextField(
+                    number, { v -> number = v.filter { it.isDigit() || it in "+*#" } },
+                    Modifier.focusRequester(focus),
+                    singleLine = true,
+                    label = { Text(stringResource(R.string.lock_emergency_number)) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                    textStyle = MaterialTheme.typography.headlineSmall.copy(textDirection = TextDirection.Ltr),
+                )
+                Text(
+                    stringResource(R.string.lock_emergency_only), style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp),
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                {
+                    val n = number.trim()
+                    scope.launch {
+                        val placed = withContext(Dispatchers.IO) { EmergencyNumbers.isEmergency(context, n) } &&
+                            context.container.placer.call(n, null, simResolved = true) is PlaceResult.Placed
+                        if (!placed) EmergencyDialer.openSystemDialer(context, n)
+                        onDismiss()
+                    }
+                },
+                enabled = isEmergency,
+            ) { Text(stringResource(R.string.main_call)) }
+        },
+        dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.main_cancel)) } },
+    )
+}
+
+object EmergencyDialer {
+    /** When Parley can't place the call itself: the system dialer (never Parley's own keypad, which is behind the lock). */
+    fun openSystemDialer(context: Context, number: String) {
+        val pkg = runCatching { context.getSystemService(TelecomManager::class.java)?.systemDialerPackage }.getOrNull()
+            ?.takeIf { it != context.packageName } ?: return
+        try {
+            context.startActivity(Intent(Intent.ACTION_DIAL, Uri.fromParts("tel", number, null)).setPackage(pkg).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        } catch (_: ActivityNotFoundException) {
+        } catch (_: SecurityException) {
         }
     }
 }

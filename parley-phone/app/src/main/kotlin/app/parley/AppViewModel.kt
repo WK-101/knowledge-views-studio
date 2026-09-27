@@ -31,6 +31,7 @@ import app.parley.calltime.CallTimePlanner
 import app.parley.calltime.UssdSession
 import app.parley.common.calltime.Ussd
 import app.parley.common.calls.CallSource
+import app.parley.common.calls.EmergencyPolicy
 import app.parley.common.calls.PocketGuard
 import app.parley.calls.MissedCallNotifier
 import app.parley.calls.ProximityProbe
@@ -427,6 +428,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             val p = gate.check(number, name, sims.value.size, simId, skipConfirm)
             // V8: a one-tap call (favourite) while the proximity sensor is covered asks first: probably a pocket.
             val pocket = PocketGuard.GUARDED.contains(source) && c.callExtras.config.value.pocketGuard &&
+                !EmergencyPolicy.bypasses(EmergencyPolicy.Safeguard.POCKET_GUARD, gate.isEmergency(number)) &&
                 PocketGuard.shouldAsk(true, source, ProximityProbe.isCovered(ctx))
             val ask = if (pocket) {
                 val covered = DialWarning(str(R.string.pocket_title), str(R.string.pocket_body))

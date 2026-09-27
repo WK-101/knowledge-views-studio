@@ -3,7 +3,9 @@ package app.parley
 import app.parley.calltime.CallTimePlanner
 import app.parley.common.PhoneNumbers
 import app.parley.common.SimAccount
+import app.parley.common.calls.EmergencyPolicy
 import app.parley.data.DataContainer
+import app.parley.data.EmergencyNumbers
 import app.parley.data.PlaceResult
 import app.parley.telecom.CallManager
 import kotlinx.coroutines.Dispatchers
@@ -23,13 +25,15 @@ class CallGate(private val c: DataContainer) {
      * picked (no SIM question then). [simCount]: SIMs that can call.
      */
     suspend fun check(number: String, name: String?, simCount: Int, simId: String? = null, skipConfirm: Boolean = false): PendingCall? {
+        // An emergency call is never held up by a question: no confirmation, no SIM choice, no warnings, no allowance.
+        if (isEmergency(number)) return null
         val settings = c.settings.current()
         // X3: a label's SIM counts like a remembered one (the number's own choice wins).
         val remembered = simId ?: c.placer.resolveSim(number)
         val default = withContext(Dispatchers.IO) { c.sims.defaultOutgoing() }
         val chooseSim = simId == null && simCount >= 2 && remembered == null && default == null && !PhoneNumbers.isServiceCode(number)
         val confirm = settings.confirmBeforeCall && !skipConfirm
-        // Contacts never get the guard's warnings (they are checked inside); emergency numbers are skipped too.
+        // Contacts never get the guard's warnings (they are checked inside).
         val warnings = c.dialGuard.check(number)
         // A SIM still to be chosen changes the allowance: then it's checked once the SIM is known.
         val note = if (!chooseSim) callTime.outgoingWarning(number, remembered ?: default) else null
@@ -48,6 +52,12 @@ class CallGate(private val c: DataContainer) {
 
     /** Places the call. [confirmed]: the user already said yes to everything the gate asked, the allowance included. */
     suspend fun place(number: String, simId: String?, name: String?, sims: List<SimAccount>, remember: Boolean = false, confirmed: Boolean = false): Placed {
+        if (isEmergency(number)) {
+            // Only a SIM the user picked for this call; otherwise the platform routes it over whichever network can
+            // carry it (a remembered or label SIM may have no service).
+            CallManager.expectOutgoing(number, null)
+            return Placed.Done(c.placer.call(number, simId, simResolved = true))
+        }
         if (remember && simId != null) c.prefs.setSimFor(number, simId)
         // Resolved once, off the main thread, and handed to the placer (which would otherwise look it up again).
         val resolved = simId ?: c.placer.resolveSim(number)
@@ -58,5 +68,10 @@ class CallGate(private val c: DataContainer) {
         // "Calling via Work SIM…" until the call exists (A10).
         CallManager.expectOutgoing(number, sims.takeIf { it.size >= 2 }?.firstOrNull { it.id == chosen }?.label)
         return Placed.Done(c.placer.call(number, resolved, simResolved = true))
+    }
+
+    /** Off the main thread: the platform check may cross into the phone process. */
+    suspend fun isEmergency(number: String): Boolean = withContext(Dispatchers.IO) {
+        EmergencyPolicy.Facts(emergencyNumber = EmergencyNumbers.isEmergency(c.appContext, number)).isEmergency
     }
 }

@@ -15,6 +15,8 @@ import app.parley.common.Verification
 import app.parley.common.calltime.CallHaptic
 import app.parley.common.calls.AnswerRoute
 import app.parley.common.calls.CallFailure
+import app.parley.common.calls.EmergencyPolicy
+import app.parley.common.calls.EmergencyPolicy.Safeguard
 import app.parley.common.calls.EndCode
 import app.parley.common.calls.EndFacts
 import app.parley.common.calls.FailureKind
@@ -152,8 +154,13 @@ object CallManager {
             ringFacts[id] = runCatching { RingSnapshot.capture(appContext, now) }.getOrElse { RingFacts(now) }
         }
 
+        // An emergency call opens the emergency window as soon as it exists, so a call-back arriving during it, or
+        // after the process died before the call ended, still gets through.
+        val emergency = emergencyFacts(call, number, incoming)
+        if (EmergencyPolicy.startsWindow(emergency, incoming)) runCatching { ScreeningGuard.noteEmergencyCall(appContext) }
+
         // Screening runs before we show any UI, bounded by a hard timeout so ringing is never held up.
-        // Never screen right after an emergency call (call-backs must get through).
+        // Never screen an emergency call or right after one (call-backs must get through).
         val earlierOutcome = if (incoming) ScreeningGuard.recallOutcome(number) else null
         val accountId = call.details.accountHandle?.id
         // The screening service decided without knowing the SIM: re-check when per-SIM rules exist (B9), always when
@@ -162,7 +169,7 @@ object CallManager {
             !(it.decision == Decision.Allow && accountId != null && (it.deferredToSim || runCatching { deps.simRulesActive() }.getOrDefault(true)))
         }
         val active = runCatching { deps.screeningActive() }.getOrDefault(true)
-        if (incoming && !ScreeningGuard.inEmergencyWindow(context) && (earlier != null || earlierOutcome != null || hidden || active)) {
+        if (incoming && !EmergencyPolicy.bypasses(Safeguard.SCREENING, emergency) && (earlier != null || earlierOutcome != null || hidden || active)) {
             screening += id
             scope.launch {
                 val callerName = call.details.callerDisplayName?.takeIf { it.isNotBlank() }
@@ -204,7 +211,7 @@ object CallManager {
         }
 
         // An incoming call whose allowance is used up rings silently when the user asked for that (T6).
-        if (incoming && number != null && !hidden && !isEmergency(number) && !ScreeningGuard.inEmergencyWindow(context)) {
+        if (incoming && number != null && !hidden && !EmergencyPolicy.bypasses(Safeguard.CALL_TIME_ALLOWANCE, emergency)) {
             scope.launch {
                 val silence = withTimeoutOrNull(SCREEN_TIMEOUT_MS) { runCatching { deps.silenceOverQuota(number, call.details.accountHandle?.id) }.getOrDefault(false) } == true
                 if (silence && calls.contains(call) && call.stateCompat() == Call.STATE_RINGING && id !in silenced) {
@@ -368,9 +375,10 @@ object CallManager {
             }
         }
         outcomes.remove(id)
-        val extraEmergency = !ended.incoming && !ended.number.isNullOrBlank() &&
-            runCatching { TelecomGraph.dependencies.startsEmergencyWindow(ended.number) }.getOrDefault(false)
-        if ((ended.isEmergency || extraEmergency) && ::appContext.isInitialized) ScreeningGuard.noteEmergencyCall(appContext)
+        // The window started when the call was added; it runs for its full length from the end of the call too.
+        if (::appContext.isInitialized && EmergencyPolicy.startsWindow(emergencyFacts(call, ended.number, ended.incoming), ended.incoming)) {
+            runCatching { ScreeningGuard.noteEmergencyCall(appContext) }
+        }
         runCatching { TelecomGraph.dependencies.onCallEnded(ended.number, ended.incoming, ended.connectTimeMillis) }
         call.unregisterCallback(callback)
         calls -= call
@@ -392,6 +400,7 @@ object CallManager {
         answeredByUser -= id
         systemSilenced -= id
         blockingDecline -= id
+        if (calls.isEmpty()) emergencyNumbers.clear()
         val wasInFront = lastLiveState.remove(id) in FRONT_STATES
         publish()
         if (wasInFront) resumeHeldIfAlone()
@@ -533,7 +542,7 @@ object CallManager {
             silenceReason = if (id in quotaSilenced) str(R.string.call_silenced_quota) else null,
             accountId = account?.id,
             heldSinceElapsed = heldSince[id] ?: 0L,
-            isEmergency = isEmergency(number),
+            isEmergency = isEmergencyCall(call, number),
             note = found?.note,
             lastCall = found?.lastCall,
             subtitle = found?.subtitle,
@@ -597,12 +606,32 @@ object CallManager {
     /** A UI text in the user's language; null before [init] (calls only arrive after it). */
     private fun str(res: Int): String? = if (::appContext.isInitialized) appContext.getString(res) else null
 
-    private fun isEmergency(number: String?): Boolean = try {
-        number != null && ::appContext.isInitialized &&
-            appContext.getSystemService(android.telephony.TelephonyManager::class.java).isEmergencyNumber(number)
-    } catch (_: Exception) {
-        false
+    /** Platform answers per number, while calls exist (the list depends on the SIM and network, so not for longer). */
+    private val emergencyNumbers = java.util.concurrent.ConcurrentHashMap<String, Boolean>()
+
+    private fun isEmergency(number: String?): Boolean {
+        if (number.isNullOrBlank()) return false
+        return emergencyNumbers.getOrPut(number) {
+            runCatching { TelecomGraph.dependencies.isEmergencyNumber(number) }.getOrElse { EmergencyPolicy.isFallbackEmergencyNumber(number) }
+        }
     }
+
+    /** An emergency number, or a call the network identified as one, or one taking place in emergency callback mode. */
+    private fun isEmergencyCall(call: Call, number: String?): Boolean =
+        isEmergency(number) || hasEmergencyProperty(call)
+
+    private fun hasEmergencyProperty(call: Call): Boolean = runCatching {
+        call.details.hasProperty(Call.Details.PROPERTY_NETWORK_IDENTIFIED_EMERGENCY_CALL) ||
+            call.details.hasProperty(Call.Details.PROPERTY_EMERGENCY_CALLBACK_MODE)
+    }.getOrDefault(false)
+
+    /** What [EmergencyPolicy] needs about [call]. */
+    private fun emergencyFacts(call: Call, number: String?, incoming: Boolean): EmergencyPolicy.Facts = EmergencyPolicy.Facts(
+        emergencyNumber = isEmergency(number),
+        emergencyCallProperty = hasEmergencyProperty(call),
+        inWindow = ::appContext.isInitialized && runCatching { ScreeningGuard.inEmergencyWindow(appContext) }.getOrDefault(false),
+        userListed = !incoming && !number.isNullOrBlank() && runCatching { TelecomGraph.dependencies.startsEmergencyWindow(number) }.getOrDefault(false),
+    )
 
     private val accountLabels = HashMap<PhoneAccountHandle, String?>()
 
@@ -721,9 +750,9 @@ object CallManager {
         val call = find(id) ?: return
         val st = mapState(call.stateCompat())
         if (st == CallState.RINGING || st == CallState.DISCONNECTED || st == CallState.DISCONNECTING) return
-        if (isEmergency(call.details.handle?.schemeSpecificPart)) return
-        // Never during the emergency window: this may be the operator calling back.
-        if (::appContext.isInitialized && ScreeningGuard.inEmergencyWindow(appContext)) return
+        // Never an emergency call, nor during the emergency window: this may be the operator calling back.
+        val incoming = call.details.callDirection == Call.Details.DIRECTION_INCOMING
+        if (EmergencyPolicy.bypasses(Safeguard.CALL_LIMITS, emergencyFacts(call, call.details.handle?.schemeSpecificPart, incoming))) return
         endedByLimit += id
         call.disconnect()
     }
@@ -798,7 +827,7 @@ object CallManager {
     fun blockAndDecline(id: String) {
         val call = find(id) ?: return
         val number = call.details.handle?.schemeSpecificPart?.takeIf { it.isNotBlank() } ?: return
-        if (call.details.handlePresentation != TelecomManager.PRESENTATION_ALLOWED || isEmergency(number)) return
+        if (call.details.handlePresentation != TelecomManager.PRESENTATION_ALLOWED || isEmergencyCall(call, number)) return
         if (id in blockingDecline) return
         blockingDecline += id
         userEnded += id

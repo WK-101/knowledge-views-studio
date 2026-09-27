@@ -17,6 +17,7 @@ import app.parley.common.Verification
 import app.parley.common.calltime.CallTimePlan
 import app.parley.calltime.CallTimePlanner
 import app.parley.data.DataContainer
+import app.parley.data.EmergencyNumbers
 import app.parley.data.NumberInfo
 import app.parley.data.PhoneEnv
 import app.parley.telecom.CallerDisplay
@@ -290,6 +291,8 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
 
     override fun startsEmergencyWindow(number: String): Boolean =
         c.settings.settings.value.screening.emergencyExtras.any { PhoneNumbers.same(it, number, PhoneEnv.countryIso(app)) }
+
+    override fun isEmergencyNumber(number: String): Boolean = EmergencyNumbers.isEmergency(app, number)
 
     override fun onRingFinished(number: String?, startedAt: Long, ringMillis: Long, answered: Boolean) {
         if (number.isNullOrBlank()) return

@@ -3,6 +3,7 @@ package app.parley.telecom
 import android.content.Context
 import android.os.PowerManager
 import android.os.SystemClock
+import app.parley.common.calls.EmergencyPolicy
 import app.parley.common.calltime.CallHaptic
 import app.parley.common.calltime.CallTimeBook
 import app.parley.common.calltime.CallTimePlan
@@ -73,8 +74,11 @@ object CallClock {
     private fun exempt(number: String?, emergency: Boolean): Boolean {
         if (emergency) return true
         val ctx = appContext
-        if (ctx != null && runCatching { ScreeningGuard.inEmergencyWindow(ctx) }.getOrDefault(false)) return true
-        return !number.isNullOrBlank() && runCatching { TelecomGraph.dependencies.startsEmergencyWindow(number) }.getOrDefault(false)
+        val facts = EmergencyPolicy.Facts(
+            inWindow = ctx != null && runCatching { ScreeningGuard.inEmergencyWindow(ctx) }.getOrDefault(false),
+            userListed = !number.isNullOrBlank() && runCatching { TelecomGraph.dependencies.startsEmergencyWindow(number) }.getOrDefault(false),
+        )
+        return EmergencyPolicy.bypasses(EmergencyPolicy.Safeguard.CALL_LIMITS, facts)
     }
 
     internal fun detach() {

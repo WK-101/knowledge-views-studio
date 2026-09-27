@@ -64,13 +64,4 @@ object PhoneEnv {
         if (found != null) simCountries[accountId] = found else misses[accountId] = android.os.SystemClock.elapsedRealtime()
         return found
     }
-
-    fun isEmergency(context: Context, number: String?): Boolean {
-        if (number.isNullOrBlank()) return false
-        return try {
-            context.getSystemService(TelephonyManager::class.java)?.isEmergencyNumber(number) == true
-        } catch (_: Exception) {
-            false
-        }
-    }
 }

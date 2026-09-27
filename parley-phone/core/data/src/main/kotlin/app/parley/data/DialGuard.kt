@@ -7,6 +7,8 @@ import app.parley.common.LineType
 import app.parley.common.PhoneNumbers
 import app.parley.common.RuleKind
 import app.parley.common.blocking.WangiriGuard
+import app.parley.common.calls.EmergencyPolicy
+import app.parley.common.calls.EmergencyPolicy.Safeguard
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -31,7 +33,7 @@ class DialGuard(
 
     private suspend fun checkInternal(number: String): List<DialWarning> {
         if (number.isBlank() || PhoneNumbers.isServiceCode(number)) return emptyList()
-        if (PhoneEnv.isEmergency(context, number)) return emptyList()
+        if (EmergencyPolicy.bypasses(Safeguard.DIAL_GUARD, EmergencyNumbers.facts(context, number))) return emptyList()
         val iso = PhoneEnv.countryIso(context)
         val out = ArrayList<DialWarning>()
         val facts = NumberFacts.of(number, iso)
