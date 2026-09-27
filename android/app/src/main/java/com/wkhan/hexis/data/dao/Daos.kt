@@ -805,6 +805,9 @@ interface AttachmentDao {
     suspend fun clear()
 }
 
+// Row shape for the SUM…GROUP BY roll-up above — column aliases map to these fields by name.
+data class ActivityTotalMillis(val activityId: String, val totalMillis: Long)
+
 // Tier S — time tracking: named activities + recorded intervals. One running entry at a time.
 @Dao
 interface TimeTrackingDao {
@@ -818,6 +821,22 @@ interface TimeTrackingDao {
 
     @Query("SELECT * FROM time_entries ORDER BY startMillis DESC")
     fun observeEntries(): Flow<List<com.wkhan.hexis.data.entity.TimeEntryEntity>>
+    // R109 (Tier-1 scalability) — window by start time so a report / digest reads only the day (or range)
+    // it draws instead of pulling the whole table into Kotlin and filtering there. Both use the existing
+    // Index("startMillis"), so the DB seeks the range rather than scanning. Half-open [start, end) matches
+    // the old Kotlin `startMillis in start until end` predicate exactly.
+    @Query("SELECT * FROM time_entries WHERE startMillis >= :startMillis AND startMillis < :endMillis ORDER BY startMillis DESC")
+    fun observeEntriesBetween(startMillis: Long, endMillis: Long): Flow<List<com.wkhan.hexis.data.entity.TimeEntryEntity>>
+    @Query("SELECT * FROM time_entries WHERE startMillis >= :startMillis AND startMillis < :endMillis ORDER BY startMillis DESC")
+    suspend fun entriesBetween(startMillis: Long, endMillis: Long): List<com.wkhan.hexis.data.entity.TimeEntryEntity>
+    // Push the "minutes per activity over a window" roll-up into SQL (SUM…GROUP BY) so a totals report
+    // never has to materialise every entry. Finished entries only (a running one has no endMillis); the
+    // caller floors millis→minutes once, consistent with domain/TimeTracking.kt.
+    @Query(
+        "SELECT activityId AS activityId, SUM(endMillis - startMillis) AS totalMillis FROM time_entries " +
+            "WHERE endMillis IS NOT NULL AND startMillis >= :startMillis AND startMillis < :endMillis GROUP BY activityId"
+    )
+    suspend fun totalMillisByActivityBetween(startMillis: Long, endMillis: Long): List<com.wkhan.hexis.data.dao.ActivityTotalMillis>
     @Query("SELECT * FROM time_entries WHERE endMillis IS NULL LIMIT 1")
     suspend fun runningEntry(): com.wkhan.hexis.data.entity.TimeEntryEntity?
     @Query("SELECT * FROM time_entries") suspend fun getEntries(): List<com.wkhan.hexis.data.entity.TimeEntryEntity>

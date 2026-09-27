@@ -703,6 +703,17 @@ class AppRepository(private val db: AppDatabase, private val appContext: android
     suspend fun runningTimeEntries(): List<com.wkhan.hexis.data.entity.TimeEntryEntity> = timeTrack.getEntries().filter { it.running }
     /** Every recorded time entry (R41 planner: planned-vs-actual, estimate calibration, weekly audit). */
     suspend fun timeEntriesOnce(): List<com.wkhan.hexis.data.entity.TimeEntryEntity> = timeTrack.getEntries()
+    /** R109 (Tier-1 scalability) — entries whose start falls in the half-open window [start, end), read via
+     *  the startMillis index instead of loading the whole table and filtering in Kotlin. */
+    suspend fun timeEntriesBetween(startMillis: Long, endMillis: Long): List<com.wkhan.hexis.data.entity.TimeEntryEntity> =
+        timeTrack.entriesBetween(startMillis, endMillis)
+    /** Observed variant of [timeEntriesBetween] for a window-scoped UI/report. */
+    fun observeTimeEntriesBetween(startMillis: Long, endMillis: Long): Flow<List<com.wkhan.hexis.data.entity.TimeEntryEntity>> =
+        timeTrack.observeEntriesBetween(startMillis, endMillis)
+    /** R109 — minutes tracked per activity over [start, end), aggregated in SQL (SUM…GROUP BY). Finished
+     *  entries only; millis are floored to whole minutes once, matching domain/TimeTracking.kt. */
+    suspend fun timeMinutesByActivityBetween(startMillis: Long, endMillis: Long): Map<String, Long> =
+        timeTrack.totalMillisByActivityBetween(startMillis, endMillis).associate { it.activityId to (it.totalMillis / 60_000L) }
     /** Every time activity, one-shot (the self-contained TimeTrackingController scopes these by workspace). */
     suspend fun timeActivitiesOnce(): List<com.wkhan.hexis.data.entity.TimeActivityEntity> = timeTrack.getActivities()
     /** Stop the (first) running entry, if any. With multi-timer on this stops one; callers can loop. */
@@ -1205,7 +1216,7 @@ class AppRepository(private val db: AppDatabase, private val appContext: android
         val start = java.time.LocalDate.ofEpochDay(epochDay).atStartOfDay(zone).toInstant().toEpochMilli()
         val end = start + 86_400_000L
         val doneTasks = tasks.getAll().filter { val c = it.completedAt; c != null && c in start until end }
-        val entries = timeTrack.getEntries().filter { it.startMillis in start until end }
+        val entries = timeTrack.entriesBetween(start, end)   // R109 — windowed read (was whole-table filter)
         val trackedMin = entries.sumOf { val e = it.endMillis; (if (e != null) e - it.startMillis else 0L).coerceAtLeast(0L) } / 60_000L
         val checkins = habits.getCheckins().filter { it.epochDay == epochDay && it.count > 0 }
         val habitNames = habits.getAll().associateBy { it.id }
