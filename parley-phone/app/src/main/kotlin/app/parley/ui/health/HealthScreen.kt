@@ -94,9 +94,9 @@ fun HealthScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
         )
     }
 
-    // C2: "Back up first?" before deleting many contacts at once.
+    // "Back up first?" before deleting many contacts at once.
     val backupFirst = app.parley.ui.backup.rememberBackupFirst(vm)
-    // U7: scroll-linked top-bar tint.
+    // Scroll-linked top-bar tint.
     val barTint = androidx.compose.material3.TopAppBarDefaults.pinnedScrollBehavior()
     Scaffold(modifier = Modifier.nestedScroll(barTint.nestedScrollConnection), topBar = {
         TopAppBar(title = { Text(stringResource(R.string.health_title)) }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.dc_back)) } }, scrollBehavior = barTint)
@@ -131,7 +131,7 @@ fun HealthScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
                         HealthKind.SHARED_NUMBER -> TextButton({ open(Routes.DUPLICATES) }, Modifier.padding(horizontal = 8.dp)) { Text(stringResource(R.string.health_review_duplicates)) }
                         HealthKind.STALE -> TextButton({
                             val phoneLabel = res.getString(R.string.health_phone)
-                            // Never with one tap: list who and where first (F18).
+                            // Never with one tap: list who and where first.
                             scope.launch {
                                 confirmStale = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
                                     group.map { i ->

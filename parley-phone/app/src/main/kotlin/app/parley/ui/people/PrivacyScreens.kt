@@ -84,7 +84,7 @@ fun WhoCanSeeScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) 
         context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$pkg")))
     }.onFailure { vm.toast(res.getString(R.string.who_settings_failed)) }
 
-    // U7: scroll-linked top-bar tint.
+    // Scroll-linked top-bar tint.
     val barTint = androidx.compose.material3.TopAppBarDefaults.pinnedScrollBehavior()
     Scaffold(modifier = Modifier.nestedScroll(barTint.nestedScrollConnection), topBar = {
         TopAppBar(title = { Text(stringResource(R.string.privacy_who_can_see)) }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.dc_back)) } }, scrollBehavior = barTint)
@@ -146,7 +146,7 @@ fun WhoCanSeeScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) 
             }
 
             item {
-                // F30: messaging unsaved numbers keeps working without WhatsApp's Contacts permission, as far as Parley can tell.
+                // Messaging unsaved numbers keeps working without WhatsApp's Contacts permission, as far as Parley can tell.
                 ListItem(
                     leadingContent = { Icon(Icons.Rounded.Info, null) },
                     headlineContent = { Text(stringResource(R.string.who_messengers)) },
@@ -241,7 +241,7 @@ fun PrivateNamesScreen(vm: AppViewModel, back: () -> Unit) {
     val pm = context.packageManager
     fun label(pkg: String) = runCatching { pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString() }.getOrDefault(pkg)
 
-    // U7: scroll-linked top-bar tint.
+    // Scroll-linked top-bar tint.
     val barTint = androidx.compose.material3.TopAppBarDefaults.pinnedScrollBehavior()
     Scaffold(modifier = Modifier.nestedScroll(barTint.nestedScrollConnection), topBar = {
         TopAppBar(title = { Text(stringResource(R.string.pn_title)) }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.dc_back)) } }, scrollBehavior = barTint)
@@ -255,7 +255,7 @@ fun PrivateNamesScreen(vm: AppViewModel, back: () -> Unit) {
                 )
             }
             item {
-                // I7: the opt-in contacts Directory (same approvals, limit and log as the lookup above).
+                // The opt-in contacts Directory (same approvals, limit and log as the lookup above).
                 Section(stringResource(R.string.pn_directory_section))
                 SwitchRow(
                     app.parley.ui.settings.settingTitle("private_directory"),

@@ -42,7 +42,7 @@ private fun dayNames(style: java.time.format.TextStyle): List<String> {
 }
 
 /**
- * "Active: always / on a schedule" (B17). [value] null = always. Presets cover the common cases;
+ * "Active: always / on a schedule". [value] null = always. Presets cover the common cases;
  * a window whose end is earlier than its start runs past midnight.
  */
 @Composable

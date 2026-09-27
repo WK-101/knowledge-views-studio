@@ -22,7 +22,7 @@ import app.parley.ui.ParleyRoot
 import app.parley.ui.ParleyTheme
 
 class MainActivity : androidx.fragment.app.FragmentActivity() {
-    // L1: the in-app language on Android 10-12 (Android 13+ applies per-app languages itself).
+    // The in-app language on Android 10-12 (Android 13+ applies per-app languages itself).
     override fun attachBaseContext(newBase: android.content.Context) {
         super.attachBaseContext(newBase)
         app.parley.ui.AppLocale.override(this, newBase)
@@ -100,7 +100,7 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
         lifecycleScope.launch {
             val s = vm.c.settings.current()
             if (known == null) app.parley.security.AppLock.onStart(s)
-            // R7: the phone is unlocked now: a Circle widget drawn while it was locked shows names again.
+            // The phone is unlocked now: a Circle widget drawn while it was locked shows names again.
             if (s.appLock) launch { runCatching { app.parley.shortcuts.CircleWidget.refreshIfShownLocked(applicationContext) } }
             // After a longer break, open on the preferred tab again; a quick app switch keeps your place.
             if (stoppedAt > 0 && android.os.SystemClock.elapsedRealtime() - stoppedAt > 5 * 60_000L && intent?.action == android.content.Intent.ACTION_MAIN) {
@@ -154,7 +154,7 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
                 @Suppress("DEPRECATION")
                 val stream = intent.getParcelableExtra<android.net.Uri>(Intent.EXTRA_STREAM)
                 if (stream != null && isVcard(intent.type)) vm.navigate(NavEvent.ImportVcf(stream))
-                // Q1: a picture shared to Parley is searched for QR codes.
+                // A picture shared to Parley is searched for QR codes.
                 if (stream != null && intent.type?.startsWith("image/") == true) {
                     app.parley.ui.qr.QrInbox.image.value = stream
                     vm.navigate(NavEvent.Route(app.parley.ui.qr.QrRoutes.SCAN))
@@ -164,7 +164,7 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
             SHOW_OR_CREATE -> showOrCreate(data)
             Intent.ACTION_DIAL, Intent.ACTION_VIEW -> when {
                 data?.scheme == "parley" && data.host == "qr" -> vm.navigate(NavEvent.SecureQr(data))
-                // X4: a simple-mode setup shared as a QR code.
+                // A simple-mode setup shared as a QR code.
                 data?.scheme == "parley" && data.host == "simple" -> {
                     app.parley.ui.extras.SimpleInbox.qr.value = data
                     vm.navigate(NavEvent.Route(app.parley.ui.extras.ExtrasRoutes.SIMPLE_IMPORT))
@@ -185,9 +185,9 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
             ACTION_OPEN_BLOCKING -> vm.navigate(NavEvent.Route(app.parley.ui.Routes.BLOCKING))
             ACTION_ADD_CALL -> vm.navigate(NavEvent.Tab(StartTab.KEYPAD, dial = ""))
             ACTION_BULK_ADD -> vm.navigate(NavEvent.Route(app.parley.messaging.MessagingRoutes.BULK_ADD))
-            // Q2: launcher shortcut and Quick Settings tile.
+            // Launcher shortcut and Quick Settings tile.
             ACTION_SCAN_QR -> vm.navigate(NavEvent.Route(app.parley.ui.qr.QrRoutes.SCAN))
-            // R4: the keep-in-touch digest opens the Circle (as the bar's extra tab while it's hidden).
+            // The keep-in-touch digest opens the Circle (as the bar's extra tab while it's hidden).
             ACTION_SHOW_CIRCLE -> vm.navigate(NavEvent.Tab(StartTab.CIRCLE))
             ACTION_SHOW_MISSED -> {
                 vm.navigate(NavEvent.Tab(StartTab.RECENTS, missedOnly = true))
@@ -201,7 +201,7 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
                     !number.isNullOrBlank() -> vm.navigate(NavEvent.History(number))
                 }
             }
-            // V4: the post-call card's "Block" and "Report" for an unknown number.
+            // The post-call card's "Block" and "Report" for an unknown number.
             ACTION_POST_CALL -> intent.getStringExtra(EXTRA_NUMBER)?.takeIf { it.isNotBlank() }?.let { number ->
                 when (intent.getStringExtra(EXTRA_POST_CALL_ACTION)) {
                     "BLOCK" -> vm.navigate(
@@ -252,10 +252,10 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
 
     companion object {
         const val ACTION_ADD_CALL = "app.parley.ADD_CALL"
-        /** M11: "Save all…" from the number sheet; the text waits in [app.parley.messaging.MessagingInbox]. */
+        /** "Save all…" from the number sheet; the text waits in [app.parley.messaging.MessagingInbox]. */
         const val ACTION_BULK_ADD = "app.parley.BULK_ADD"
         const val ACTION_OPEN_BACKUP = "app.parley.OPEN_BACKUP"
-        /** Q2: opens the Scan QR screen (launcher shortcut, Quick Settings tile). */
+        /** Opens the Scan QR screen (launcher shortcut, Quick Settings tile). */
         const val ACTION_SCAN_QR = "app.parley.action.SCAN_QR"
         const val ACTION_OPEN_BLOCKING = "app.parley.OPEN_BLOCKING"
         const val QUICK_CONTACT = "android.provider.action.QUICK_CONTACT"

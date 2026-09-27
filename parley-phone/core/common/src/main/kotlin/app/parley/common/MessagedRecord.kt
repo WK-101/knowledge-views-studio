@@ -1,7 +1,7 @@
 package app.parley.common
 
 /**
- * F13: the "last messaged" record (which numbers you opened a chat with through Parley, and when), as pure logic.
+ * The "last messaged" record (which numbers you opened a chat with through Parley, and when), as pure logic.
  * Entries are keyed by [PhoneIdentity.key]; records written before F7 were keyed by the last 9 digits and are
  * read through [PhoneNumbers.fallbackLineKey] until [rekeyLegacy] moves them.
  */
@@ -42,13 +42,13 @@ object MessagedRecord {
         return entries.filterNot { it.key == key || (it.number == null && it.key == legacy) }
     }
 
-    /** M10: "Forget messaged numbers after" choices, in days (0 = never). */
+    /** "Forget messaged numbers after" choices, in days (0 = never). */
     val EXPIRY_CHOICES = listOf(0, 7, 30, 90)
 
     fun expiryLabel(days: Int): String = if (days <= 0) "Never" else "After $days days"
 
     /**
-     * M10: the oldest time kept, from the record's own expiry ([expiryDays], 0 = never) and the call-history
+     * The oldest time kept, from the record's own expiry ([expiryDays], 0 = never) and the call-history
      * retention ([retentionDays], 0 = keep): whichever is stricter wins. Null when nothing expires.
      */
     fun cutoff(expiryDays: Int, retentionDays: Int, now: Long): Long? {

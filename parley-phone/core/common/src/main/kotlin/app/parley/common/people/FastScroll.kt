@@ -1,6 +1,6 @@
 package app.parley.common.people
 
-/** A4 (v3.4): the A–Z rail's maths: which entry is under the finger, and where the letter bubble goes. */
+/** The A–Z rail's maths: which entry is under the finger, and where the letter bubble goes. */
 object FastScroll {
     /** The entry at [y] on a rail [height] tall with [count] evenly spaced entries (clamped to the ends). */
     fun indexAt(y: Float, height: Float, count: Int): Int {

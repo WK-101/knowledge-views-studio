@@ -4,10 +4,10 @@ import app.parley.common.CallType
 import app.parley.common.PhoneNumbers
 import app.parley.common.TextSearch
 
-/** P1 (v3.4): the kinds of entries the full timeline filters by. */
+/** The kinds of entries the full timeline filters by. */
 enum class TimelineKind { CALL, MISSED, LOGGED, NOTE, DATE }
 
-/** P1: the full-screen timeline's search and type filter. */
+/** The full-screen timeline's search and type filter. */
 data class TimelineFilter(val query: String = "", val kinds: Set<TimelineKind> = emptySet()) {
     val isEmpty: Boolean get() = query.isBlank() && kinds.isEmpty()
 

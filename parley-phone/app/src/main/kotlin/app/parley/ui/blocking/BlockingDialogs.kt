@@ -66,7 +66,7 @@ sealed interface BlockingDialog {
     /** "Why did this ring? / Why was this blocked?": the stored trace, or a live test when none was stored. */
     data class Why(val number: String) : BlockingDialog
 
-    /** "Test this call" (B13): today's rules, no side effects. */
+    /** "Test this call": today's rules, no side effects. */
     data class Test(val number: String) : BlockingDialog
     data class WebSearch(val number: String, val contactName: String?) : BlockingDialog
     data class Report(val number: String) : BlockingDialog

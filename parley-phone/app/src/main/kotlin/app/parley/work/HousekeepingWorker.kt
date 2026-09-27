@@ -20,12 +20,12 @@ class HousekeepingWorker(context: Context, params: WorkerParameters) : Coroutine
     override suspend fun doWork(): Result {
         val notices = runHousekeeping(applicationContext.container)
         notices.forEachIndexed { i, n -> notify(applicationContext, i, n) }
-        // C3: at most one backup reminder a month while a backup is overdue.
+        // At most one backup reminder a month while a backup is overdue.
         runCatching { BackupReminder.maybeNotify(applicationContext, applicationContext.container) }
         return Result.success()
     }
 
-    /** "X expired; the details you merged were kept" (F2). */
+    /** "X expired; the details you merged were kept". */
     private fun notify(ctx: Context, i: Int, n: app.parley.data.people.TemporaryContactStore.Notice) {
         val nm = ctx.getSystemService(android.app.NotificationManager::class.java)
         nm.createNotificationChannel(android.app.NotificationChannel(CHANNEL, ctx.getString(app.parley.R.string.work_channel_housekeeping), android.app.NotificationManager.IMPORTANCE_LOW))
@@ -65,7 +65,7 @@ class HousekeepingWorker(context: Context, params: WorkerParameters) : Coroutine
             val settings = c.settings.current()
             // 0. Follow lookup-key changes first, so temporary entries and notes point at the right people.
             runCatching { c.contactKeys.sweep() }
-            // 1. Temporary contacts: only the raw contacts Parley recorded are deleted; merged details stay (F2).
+            // 1. Temporary contacts: only the raw contacts Parley recorded are deleted; merged details stay.
             val notices = runCatching { c.temporaries.expire(now) }.getOrDefault(emptyList())
             // 2. Expired vault entries
             //    (F5: private temporary contacts take their call history and "last messaged" entry with them)
@@ -83,7 +83,7 @@ class HousekeepingWorker(context: Context, params: WorkerParameters) : Coroutine
             // 3. Private call history
             if (settings.privateVaultHistory) {
                 c.vault.sweepCallLog(now - TimeUnit.DAYS.toMillis(30))
-                // Ring facts (V9) of private numbers leave no trace outside the vault either (numbers saved privately
+                // Ring facts of private numbers leave no trace outside the vault either (numbers saved privately
                 // after their calls rang included).
                 runCatching { c.vault.allNumbers().forEach { n -> c.ringFacts.forget(n) } }
             }
@@ -96,10 +96,10 @@ class HousekeepingWorker(context: Context, params: WorkerParameters) : Coroutine
                 runCatching {
                     c.appContext.contentResolver.delete(CallLog.Calls.CONTENT_URI, "${CallLog.Calls.DATE} < ?", arrayOf(before.toString()))
                 }
-                // F13: the "last messaged" record follows the same retention.
+                // The "last messaged" record follows the same retention.
                 runCatching { c.messaging.pruneOlderThan(before) }
             }
-            // M10: "Forget messaged numbers after" (the stricter of it and the retention above wins).
+            // "Forget messaged numbers after" (the stricter of it and the retention above wins).
             runCatching { c.messaging.pruneExpired(settings.callLogRetentionDays, now) }
             // 5. Journal older than 30 days
             c.meta.pruneJournal(now - TimeUnit.DAYS.toMillis(30))

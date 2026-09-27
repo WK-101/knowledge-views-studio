@@ -20,7 +20,7 @@ import androidx.compose.ui.res.stringResource
 import app.parley.R
 
 /**
- * U11: "Copy as text" for selected contacts: names, numbers (with their type) and e-mail addresses as plain text.
+ * "Copy as text" for selected contacts: names, numbers (with their type) and e-mail addresses as plain text.
  * The clip is marked sensitive, so Android 13+ keeps it out of the clipboard preview and keyboard suggestions.
  */
 @Composable

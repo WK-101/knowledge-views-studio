@@ -8,7 +8,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** M12: contact CSVs in other layouts, with guessed and user-chosen column mappings. */
+/** Contact CSVs in other layouts, with guessed and user-chosen column mappings. */
 class CsvColumnMappingTest {
     private fun rows(r: ContactRecord, mime: String) = r.raws.flatMap { it.rows }.filter { it.mimeType == mime }
     private fun t(f: CsvField, type: Int? = null) = ColumnTarget(f, type)

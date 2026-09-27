@@ -10,7 +10,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.coroutines.resume
 
 /**
- * One reading of the proximity sensor, for the pocket-dial guard (V8). No permission needed. The sensor reports its
+ * One reading of the proximity sensor, for the pocket-dial guard. No permission needed. The sensor reports its
  * current state right after a listener registers; if it doesn't within [timeoutMs] (or there is no sensor) the answer
  * is null, which never blocks a call.
  */

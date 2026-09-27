@@ -16,7 +16,7 @@ import com.google.zxing.multi.GenericMultipleBarcodeReader
 import com.google.zxing.multi.qrcode.QRCodeMultiReader
 
 /**
- * Q1: finds QR codes (and Aztec / Data Matrix / PDF417 as a fallback) in a picture, offline, with ZXing. Pure JVM:
+ * Finds QR codes (and Aztec / Data Matrix / PDF417 as a fallback) in a picture, offline, with ZXing. Pure JVM:
  * the app hands it the pixels of an already downsampled bitmap. It tries, in order, until something is found:
  * the hybrid binarizer, the global-histogram one (better on evenly lit, low-contrast prints), light-on-dark codes
  * (inverted), and the picture turned a quarter. Several codes in one picture are all returned, each once.

@@ -23,14 +23,14 @@ object ExtrasRoutes {
     const val SIMPLE_IMPORT = "simpleimport"
 }
 
-/** X4: a setup waiting to be imported: a `parley://simple` link from a QR scanner, or a file picked in the setup. */
+/** A setup waiting to be imported: a `parley://simple` link from a QR scanner, or a file picked in the setup. */
 object SimpleInbox {
     val qr = MutableStateFlow<Uri?>(null)
     val file = MutableStateFlow<Uri?>(null)
 }
 
 /**
- * X4: a simple-mode setup travels encrypted, with the backup's crypto (AES-GCM, key from a passphrase): as a file
+ * A simple-mode setup travels encrypted, with the backup's crypto (AES-GCM, key from a passphrase): as a file
  * (the passphrase you choose) or as a `parley://simple?d=…` QR code (a one-time passcode read out, like the
  * encrypted contact QR). No account and no network: the other phone opens the file or scans the code.
  */

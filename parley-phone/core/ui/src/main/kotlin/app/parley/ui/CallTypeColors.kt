@@ -40,7 +40,7 @@ import app.parley.common.ux.CallClass
 import app.parley.common.ux.CallHue
 
 /**
- * U3: fixed call colours, not taken from the (dynamic) colour scheme, with a light and a dark value each so they
+ * Fixed call colours, not taken from the (dynamic) colour scheme, with a light and a dark value each so they
  * keep enough contrast on both. Shown as the icon colour on a circle tinted with the same hue ([CallTypeBadge]).
  */
 object CallTypeColors {
@@ -69,7 +69,7 @@ object CallTypeColors {
     internal fun isDarkSurface(): Boolean = MaterialTheme.colorScheme.surface.luminance() < 0.5f
 }
 
-/** U3: a call-direction icon in its fixed colour on a circle tinted with the same hue. */
+/** A call-direction icon in its fixed colour on a circle tinted with the same hue. */
 @Composable
 fun CallTypeBadge(icon: ImageVector, hue: CallHue, modifier: Modifier = Modifier, size: Dp = 32.dp, contentDescription: String? = null) {
     val dark = CallTypeColors.isDarkSurface()
@@ -82,7 +82,7 @@ fun CallTypeBadge(icon: ImageVector, hue: CallHue, modifier: Modifier = Modifier
     }
 }
 
-/** R4 (v3.3): the glyph of a call class. */
+/** The glyph of a call class. */
 fun callClassVector(cls: CallClass): ImageVector = when (cls.glyph) {
     CallClass.Glyph.ARROW_IN -> Icons.AutoMirrored.Rounded.CallReceived
     CallClass.Glyph.ARROW_OUT -> Icons.AutoMirrored.Rounded.CallMade
@@ -99,7 +99,7 @@ fun callClassVector(cls: CallClass): ImageVector = when (cls.glyph) {
 private fun onSolid(dark: Boolean): Color = if (dark) Color(0xFF1B1B1F) else Color.White
 
 /**
- * R4 (v3.3): a call's badge, told apart by shape as well as colour ([CallClass]): solid for calls to notice (missed
+ * A call's badge, told apart by shape as well as colour ([CallClass]): solid for calls to notice (missed
  * round, declined square), tonal for calls taken, outlined for calls you made, dashed for calls that didn't connect
  * here (no answer, answered elsewhere), a crossed square for blocked ones.
  */
@@ -125,7 +125,7 @@ fun CallClassBadge(cls: CallClass, modifier: Modifier = Modifier, size: Dp = 32.
 }
 
 /**
- * R4 (v3.3): the order of a row's calls as tiny marks, oldest first: solid dots for calls to notice, rings for calls
+ * The order of a row's calls as tiny marks, oldest first: solid dots for calls to notice, rings for calls
  * you made, tonal dots for the others, squares for declined and blocked calls (shape again, not only colour).
  */
 @Composable
@@ -147,7 +147,7 @@ fun CallSequenceDots(classes: List<CallClass>, modifier: Modifier = Modifier, do
     }
 }
 
-/** R4 (v3.3): a talk's length as a short bar ([fraction] 0..1 from `CallGlance.durationFraction`). */
+/** A talk's length as a short bar ([fraction] 0..1 from `CallGlance.durationFraction`). */
 @Composable
 fun CallDurationBar(fraction: Float, cls: CallClass, modifier: Modifier = Modifier, width: Dp = 36.dp) {
     val color = CallTypeColors.of(cls.hue)

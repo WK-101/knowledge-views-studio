@@ -11,7 +11,7 @@ import java.io.PrintWriter
 import java.io.StringWriter
 
 /**
- * U10: opt-in local crash capture. When "Keep crash reports" is on, the last uncaught exception is written to
+ * Opt-in local crash capture. When "Keep crash reports" is on, the last uncaught exception is written to
  * Parley's private storage (before the process dies) and offered on the next start: share it by e-mail or any app
  * (numbers and e-mail addresses masked), or dismiss it. Nothing is sent by Parley, which has no internet access.
  * Off by default; turning it off deletes a stored report.

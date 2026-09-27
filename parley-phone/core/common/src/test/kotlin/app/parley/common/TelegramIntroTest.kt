@@ -8,7 +8,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class TelegramIntroTest {
-    // ---- M13: Telegram profile ----
+    // ---- Telegram profile ----
 
     @Test fun telegram_profile_link() {
         val l = MessengerLinks.telegramProfile(MessengerApp.of(app.parley.common.MessengerCatalog.TELEGRAM), "+923001234567")
@@ -20,7 +20,7 @@ class TelegramIntroTest {
         assertNull(MessengerLinks.telegramProfile(MessengerApp.of(app.parley.common.MessengerCatalog.TELEGRAM), "03001234567"))
     }
 
-    // ---- M13: introduction queue ----
+    // ---- Introduction queue ----
 
     @Test fun intro_queue_advances_only_after_a_chat_was_opened() {
         val q0 = IntroQueue((1..3).map { IntroQueue.Target("P$it", "+1555000000$it") })

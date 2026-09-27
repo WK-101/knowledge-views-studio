@@ -62,7 +62,7 @@ fun ToolsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
             linkRow("journal", Icons.Rounded.RestoreFromTrash) { open(Routes.journal()) }
             linkRow("backup", Icons.Rounded.Backup) { open(Routes.BACKUP) }
             linkRow("privacy_dashboard", Icons.Rounded.PrivacyTip) { open(Routes.PRIVACY) }
-            // U8: lock Parley now, without waiting for the timeout.
+            // Lock Parley now, without waiting for the timeout.
             if (s.appLock) item("lock_now") {
                 LinkRow(stringResource(R.string.home_lock_now), stringResource(R.string.tools_lock_now_sub), Icons.Rounded.Lock) {
                     app.parley.security.AppLock.lockNowByUser()

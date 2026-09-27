@@ -5,7 +5,7 @@ import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 
 /**
- * R4 / X6: what the kind reminders say, and when. Nothing escalates: a person appears at most once a week, "Not now"
+ * What the kind reminders say, and when. Nothing escalates: a person appears at most once a week, "Not now"
  * pushes them a full gap further, and there are no counters.
  */
 object CircleDigest {
@@ -17,18 +17,18 @@ object CircleDigest {
     /** Dates this many days ahead can appear in the digest. */
     const val DATE_WINDOW_DAYS = 7
 
-    /** X6: the serendipity pick is someone you haven't been in touch with for over a year. */
+    /** The serendipity pick is someone you haven't been in touch with for over a year. */
     const val QUIET_DAYS = 365
 
     enum class Reason { DUE, DATE, QUIET, YEARLY }
 
-    /** [label] and [years]: the life event of a [Reason.YEARLY] pick (R10). */
+    /** [label] and [years]: the life event of a [Reason.YEARLY] pick. */
     data class Pick(val lookupKey: String, val reason: Reason, val label: String? = null, val years: Int? = null)
 
     /** An upcoming date of someone you know ([daysUntil] 0 = today). */
     data class UpcomingDate(val lookupKey: String, val daysUntil: Int)
 
-    /** X6: anyone you were once in touch with (Circle or not), with the last time; never-contacted people aren't. */
+    /** Anyone you were once in touch with (Circle or not), with the last time; never-contacted people aren't. */
     data class Quiet(val lookupKey: String, val last: Long)
 
     /** Weekly digest day. */
@@ -46,7 +46,7 @@ object CircleDigest {
 
     /**
      * Up to three people: the most overdue Circle member; one with an upcoming date or a life event remembered
-     * yearly (R10; whichever is sooner, a birthday on a tie); and one serendipity pick (X6), someone you haven't
+     * yearly (R10; whichever is sooner, a birthday on a tie); and one serendipity pick, someone you haven't
      * been in touch with for over a year, never the same person as last week's. A remaining date or yearly event
      * fills a free place. Each person appears once.
      *

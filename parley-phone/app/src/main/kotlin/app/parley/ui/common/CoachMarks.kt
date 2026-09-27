@@ -43,7 +43,7 @@ import app.parley.common.ux.Tips
 import app.parley.data.UxPrefs
 
 /**
- * U2: one-time, dismissible coach marks for gestures nobody finds on their own. Any screen can add one with
+ * One-time, dismissible coach marks for gestures nobody finds on their own. Any screen can add one with
  * [CoachMark] (an inline card) or [CoachMarkAnchor] (a small bubble under a button), with an id from [Tips].
  * Only one shows at a time; a dismissed one stays gone until Settings › Appearance › Reset tips.
  */
@@ -109,14 +109,14 @@ private fun MarkContent(id: String, text: String, marks: CoachMarks, action: Str
     }
 }
 
-/** U2: an inline tip card, shown once until dismissed ([enabled] false keeps it away, e.g. while a list is empty). */
+/** An inline tip card, shown once until dismissed ([enabled] false keeps it away, e.g. while a list is empty). */
 @Composable
 fun CoachMark(id: String, text: String, modifier: Modifier = Modifier, enabled: Boolean = true, action: String? = null, onAction: (() -> Unit)? = null) {
     val (marks, visible) = rememberMarkVisible(id, enabled) ?: return
     if (visible) MarkContent(id, text, marks, action, onAction, modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp))
 }
 
-/** U2: a tip bubble under [content] (a header button, say), shown once until dismissed. */
+/** A tip bubble under [content] (a header button, say), shown once until dismissed. */
 @Composable
 fun CoachMarkAnchor(id: String, text: String, enabled: Boolean = true, content: @Composable () -> Unit) {
     Box {

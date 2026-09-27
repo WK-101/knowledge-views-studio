@@ -64,7 +64,7 @@ import app.parley.ui.settings.settingTitle
 import kotlinx.coroutines.launch
 
 /**
- * Spam lists (B4, B5, B7, B13): add a `.parleylist` file or subscribe to a folder (Syncthing, Nextcloud,
+ * Spam lists: add a `.parleylist` file or subscribe to a folder (Syncthing, Nextcloud,
  * Downloads); each list warns by default, blocking is opt-in with a score threshold. Before adding a file
  * you see what it would have caught last week.
  */

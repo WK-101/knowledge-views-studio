@@ -47,7 +47,7 @@ class MissedCallActionReceiver : BroadcastReceiver() {
                         MissedCallNotifier.cancelAll(context)
                         seen(context)
                     }
-                    // V2: block from the notification (only after unlocking, see MissedCallNotifier.blockAction).
+                    // Block from the notification (only after unlocking, see MissedCallNotifier.blockAction).
                     ACTION_BLOCK -> {
                         intent.getStringExtra("number")?.takeIf { it.isNotBlank() }?.let { n ->
                             if (!c.blocks.blockNumber(n)) app.parley.blocking.BlockingActions.blockNumberRule(c, n)
@@ -71,7 +71,7 @@ class MissedCallActionReceiver : BroadcastReceiver() {
         }
     }
 
-    /** Marks missed calls seen: clears Telecom's count and stops the re-alert (V3). */
+    /** Marks missed calls seen: clears Telecom's count and stops the re-alert. */
     private suspend fun seen(context: Context) {
         MissedCallNotifier.stopReAlert(context)
         context.container.callLog.markMissedRead()

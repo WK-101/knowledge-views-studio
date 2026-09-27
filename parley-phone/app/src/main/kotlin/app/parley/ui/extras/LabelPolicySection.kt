@@ -44,7 +44,7 @@ import app.parley.ui.contact.Section
 import kotlinx.coroutines.launch
 
 /**
- * X3: a label's policies on its page, under the ringtone: the SIM to call its members on (when they have none of
+ * A label's policies on its page, under the ringtone: the SIM to call its members on (when they have none of
  * their own), the keep-in-touch rhythm offered when a member joins the Circle, and "Allow through Do Not
  * Disturb". Android only lets starred contacts through, so that works by starring the members, which also puts them
  * in Favourites: the confirmation lists exactly who will be starred before anything changes.
@@ -227,7 +227,7 @@ fun openDndSettings(context: android.content.Context) {
 private const val ACTION_ZEN_PRIORITY = "android.settings.ZEN_MODE_PRIORITY_SETTINGS"
 private const val ACTION_ZEN = "android.settings.ZEN_MODE_SETTINGS"
 
-/** X3: in "Stay in touch", the rhythm one of the person's labels asks for, offered first. Nothing when none does. */
+/** In "Stay in touch", the rhythm one of the person's labels asks for, offered first. Nothing when none does. */
 @Composable
 fun LabelRhythmSuggestion(vm: AppViewModel, contactId: Long, pick: (Int) -> Unit) {
     val suggestion by produceState<Pair<String, Int>?>(null, contactId) { value = runCatching { vm.c.extras.labelRhythmFor(contactId) }.getOrNull() }

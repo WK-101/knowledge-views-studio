@@ -1,7 +1,7 @@
 package app.parley.common.people
 
 /**
- * I5: relation types. Android has 14 built-in Relation types; vCard 4.0 (RFC 6350 RELATED) adds its own list, and
+ * Relation types. Android has 14 built-in Relation types; vCard 4.0 (RFC 6350 RELATED) adds its own list, and
  * people want the everyday family words too. Each type has a stable English [key] (what's compared and exported,
  * so labels can be translated later without changing stored data) and an English [label].
  *

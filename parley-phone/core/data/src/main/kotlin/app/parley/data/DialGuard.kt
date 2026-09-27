@@ -12,7 +12,7 @@ import app.parley.common.calls.EmergencyPolicy.Safeguard
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-/** Something worth a second look before dialling (B10, B11). */
+/** Something worth a second look before dialling. */
 data class DialWarning(val title: String, val body: String, val severe: Boolean = false)
 
 /**
@@ -67,7 +67,7 @@ class DialGuard(
         )
     }
 
-    /** Recents badge (B10): whether this missed call looks like a one-ring scam. */
+    /** Recents badge: whether this missed call looks like a one-ring scam. */
     fun isWangiri(type: CallType, number: String, date: Long, rings: List<app.parley.data.db.CallRingEntity>, iso: String): Boolean {
         if (type != CallType.MISSED && type != CallType.REJECTED) return false
         val key = blocks.ringKey(number)

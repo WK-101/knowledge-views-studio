@@ -9,7 +9,7 @@ enum class DndState { OFF, PRIORITY, ALARMS, TOTAL_SILENCE, UNKNOWN }
 
 enum class RingerMode { NORMAL, VIBRATE, SILENT, UNKNOWN }
 
-/** Which ringtone the call used (V9). */
+/** Which ringtone the call used. */
 enum class RingtoneSource {
     /** The phone's default ringtone, played by Android. */
     DEFAULT,
@@ -46,7 +46,7 @@ enum class RingOutcome { ANSWERED, ANSWERED_ELSEWHERE, MISSED, DECLINED, BLOCKED
 enum class AnswerRoute { EARPIECE, SPEAKER, BLUETOOTH, WIRED, OTHER }
 
 /**
- * Ring-side facts about one incoming call (V9): what Android's ringer was set to, which tone played and where the
+ * Ring-side facts about one incoming call: what Android's ringer was set to, which tone played and where the
  * call was answered. Stored next to the screening trace so "Why did my phone ring, or not?" has both halves.
  * Nothing here is sent anywhere.
  */
@@ -99,7 +99,7 @@ object RingFactsCodec {
     }
 }
 
-/** Why a call didn't ring (V9), as data: the app words it in the user's language (L1). */
+/** Why a call didn't ring, as data: the app words it in the user's language. */
 sealed interface NoRing {
     /** Parley kept it quiet; [reason] is the stored reason or the screening verdict. */
     data class Silenced(val reason: String) : NoRing
@@ -112,7 +112,7 @@ sealed interface NoRing {
     data class ShortRing(val seconds: Long) : NoRing
 }
 
-/** Plain-language lines for "Why did my phone ring, or not?" (V9). */
+/** Plain-language lines for "Why did my phone ring, or not?". */
 object RingExplainer {
     /** Why [f] didn't ring, or null when nothing explains the silence. */
     fun noRing(f: RingFacts?, screeningVerdict: String? = null): NoRing? {

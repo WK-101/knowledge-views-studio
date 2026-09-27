@@ -62,7 +62,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 
-/** Q2: the "Scan QR" screen, reached from Contacts, the keypad, My card, Settings, the launcher and the tile. */
+/** The "Scan QR" screen, reached from Contacts, the keypad, My card, Settings, the launcher and the tile. */
 object QrRoutes {
     const val SCAN = "qrscan"
 }
@@ -80,7 +80,7 @@ private sealed interface ScanState {
 }
 
 /**
- * Q1: reads a QR code without the camera permission. "Take a photo" asks the phone's camera app for one picture
+ * Reads a QR code without the camera permission. "Take a photo" asks the phone's camera app for one picture
  * (written to Parley's cache and deleted once read), "Pick an image" uses the system photo picker (no storage
  * permission), a picture can be shared to Parley, and "Paste" reads the clipboard only when tapped. Decoding is
  * offline (ZXing). Nothing found is answered with tips; several codes let you pick one; one code opens its sheet.

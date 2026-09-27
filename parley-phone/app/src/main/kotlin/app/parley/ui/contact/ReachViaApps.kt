@@ -58,7 +58,7 @@ import app.parley.ui.SegmentedGroup
 import app.parley.ui.SegmentedGroupScope
 
 /**
- * V34: "Reach via apps": one row per messenger (and per number when the person has several) with the actions that
+ * "Reach via apps": one row per messenger (and per number when the person has several) with the actions that
  * app added for them: Message, Voice, Video. Tapping opens the app's own row; long-press makes it the usual way
  * (the Message, Call and Video buttons at the top then use it). Only apps that registered this person show up, so
  * nothing here pretends a call is possible.
@@ -150,7 +150,7 @@ private fun ReachAppRow(g: ReachGroup, prefs: MessengerPrefs, showNumber: Boolea
 /**
  * A round badge for an app: its own launcher icon when [packageName] is installed and visible to Parley (every
  * messenger Parley knows is listed in the manifest's `<queries>`), otherwise a letter badge. Parley ships no brand
- * logos. v3.4 review #6: icons load off the main thread and are cached for the process.
+ * logos. icons load off the main thread and are cached for the process.
  */
 @Composable
 fun AppBadge(label: String, modifier: Modifier = Modifier, packageName: String? = null) {

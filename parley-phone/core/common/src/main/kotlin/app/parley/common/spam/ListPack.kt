@@ -15,7 +15,7 @@ import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
 
 /**
- * `.parleylist` spam-list pack (B4): a zip holding
+ * `.parleylist` spam-list pack: a zip holding
  * - `manifest.json` ([PackManifest]), which carries the SHA-256 of the other files;
  * - `numbers.bin`: sorted records of 10 bytes: big-endian uint64 E.164 digits, category byte, score byte;
  * - `ranges.txt`: one prefix per line, `+33162 1 80` (prefix, category, score), `#` comments;

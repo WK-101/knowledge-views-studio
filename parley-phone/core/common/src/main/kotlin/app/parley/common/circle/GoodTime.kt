@@ -7,7 +7,7 @@ import java.time.ZoneId
 import java.time.ZoneOffset
 
 /**
- * X1: a good time to call someone, from your own history with them: the hours when they answer your calls or call
+ * A good time to call someone, from your own history with them: the hours when they answer your calls or call
  * you. Worked out on the phone, in their local time when it's known (from the number), and only once there are
  * at least [MIN_ANSWERED] answered calls.
  */

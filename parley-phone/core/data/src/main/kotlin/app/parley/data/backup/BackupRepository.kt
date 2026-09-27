@@ -103,7 +103,7 @@ data class RestoreReport(
     val error: String? = null,
     /** Parts that couldn't be restored (e.g. private contacts while the vault is locked). */
     val skipped: List<String> = emptyList(),
-    /** R2: Circle entries (members, interactions, yearly flags) whose person wasn't found among the contacts here. */
+    /** Circle entries (members, interactions, yearly flags) whose person wasn't found among the contacts here. */
     val unmatched: Int = 0,
     /** Parts that weren't applied because they would change a safeguard (supervised call-time limits) without asking. */
     val needsConfirmation: Boolean = false,
@@ -339,7 +339,7 @@ class BackupRepository(
             val d = runCatching { vault.details(v.id) }.getOrNull() ?: continue
             val o = JSONObject().put("details", ContactDetailsJson.encode(d.copy(photoUri = null))).put("expiresAt", v.expiresAt ?: 0L)
             if (v.purgeHistory) o.put("purgeHistory", true)
-            // The lossless phone-contact image of a moved contact (F4), with the hash that tells whether the details
+            // The lossless phone-contact image of a moved contact, with the hash that tells whether the details
             // were edited since ("recordOf"), so moving out after a restore behaves as before. Optional: older
             // Parley versions ignore it (and only wrote it for unedited entries, which is what a missing hash means).
             runCatching { vault.storedRecord(v.id) }.getOrNull()?.let { s ->
@@ -348,7 +348,7 @@ class BackupRepository(
                 o.put("recordBlobs", blobs)
                 if (s.recordOf.isNotEmpty()) o.put("recordOf", s.recordOf)
             }
-            // R2: logged interactions carried in the entry while the contact is private.
+            // Logged interactions carried in the entry while the contact is private.
             runCatching { vault.storedInteractions(v.id) }.getOrNull()?.let { o.put("interactions", it) }
             // The private call history: removed from the system log, so this is its only copy.
             val calls = JSONArray()

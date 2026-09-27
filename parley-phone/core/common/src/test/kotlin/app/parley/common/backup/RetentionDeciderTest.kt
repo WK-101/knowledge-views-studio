@@ -68,7 +68,7 @@ class RetentionDeciderTest {
     }
 
     @Test fun weeklyUsesIsoWeeks() {
-        // 2026-01-04 is a Sunday (ISO week 2026-W01), 2026-01-05 is Monday (W02).
+        // 2026-01-04 is a Sunday (ISO week 2026-W01), 2026-01-05 is Monday.
         val sun = file(Instant.parse("2026-01-04T10:00:00Z"))
         val sat = file(Instant.parse("2026-01-03T10:00:00Z"))
         val mon = file(Instant.parse("2026-01-05T10:00:00Z"))

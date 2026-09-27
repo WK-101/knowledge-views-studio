@@ -62,7 +62,7 @@ class ContactRecordStore(private val context: Context) {
             "${Groups.DELETED}=0",
         )?.use { c ->
             while (c.moveToNext()) {
-                // System, auto-add, read-only and favourites groups are account plumbing, never user labels (F1, F11).
+                // System, auto-add, read-only and favourites groups are account plumbing, never user labels.
                 val system = !ContentDiff.isUserGroup(c.getString(1) ?: "?", c.getString(4), c.getInt(5) != 0, c.getInt(6) != 0, c.getInt(7) != 0)
                 out += GroupRef(c.getLong(0), c.getString(1)?.takeIf { it.isNotBlank() }, AccountRef(c.getString(2), c.getString(3)), system)
             }
@@ -235,11 +235,11 @@ class ContactRecordStore(private val context: Context) {
         target: AccountRef?,
         groups: GroupResolver = groupResolver(),
         includeReadOnly: Boolean = false,
-        /** C1: photos from outside (vCard import) go through [ContactPhotoProcessor]; restores keep theirs as stored. */
+        /** Photos from outside (vCard import) go through [ContactPhotoProcessor]; restores keep theirs as stored. */
         processPhotos: Boolean = false,
     ): List<InsertResult> {
         val results = arrayOfNulls<InsertResult>(records.size)
-        // Never write into a SIM, messenger or read-only account, whatever the caller picked (F3).
+        // Never write into a SIM, messenger or read-only account, whatever the caller picked.
         val safeTarget = target?.let { if (isWritableAccount(it)) it else localAccount() }
         val available = if (safeTarget == null) availableAccounts() else emptySet()
         val plans = records.mapIndexed { i, r ->
@@ -301,7 +301,7 @@ class ContactRecordStore(private val context: Context) {
             }
             out
         }
-        // Copies merged into one raw contact must not end up with several defaults per kind (F26).
+        // Copies merged into one raw contact must not end up with several defaults per kind.
         val flagged = PrimaryFlags.normalize(kept)
         val planned = grouped.mapIndexedNotNull { gi, (account, raws) ->
             val keepDataSet = target == null && raws.size == 1 && AccountRef(raws[0].accountType, raws[0].accountName) == account
@@ -399,7 +399,7 @@ class ContactRecordStore(private val context: Context) {
         var error: String? = null
         plan.raws.zip(rawIds).forEach { (raw, id) ->
             raw.photo?.let { photo ->
-                // C1: an unreadable picture (or one that can't be processed) is written as it came, as before.
+                // An unreadable picture (or one that can't be processed) is written as it came, as before.
                 val bytes = if (plan.processPhotos) ContactPhotoProcessor.process(photo) ?: photo else photo
                 if (!writePhoto(id, bytes)) error = context.getString(R.string.data_write_photo_failed)
             }
@@ -424,8 +424,8 @@ class ContactRecordStore(private val context: Context) {
     /**
      * Makes the writable part of an existing contact match [record] in place (folder sync). Both sides are compared
      * in canonical form ([ContentDiff]), so unchanged rows keep their ids and sync state and nothing is re-uploaded
-     * needlessly (F9); memberships of system, auto-add, read-only and favourites groups are never removed, since a
-     * vCard only carries user labels (F1); read-only rows are never deleted (F12). New rows go to [targetRaw].
+     * needlessly; memberships of system, auto-add, read-only and favourites groups are never removed, since a
+     * vCard only carries user labels; read-only rows are never deleted. New rows go to [targetRaw].
      * Read-only raws (messengers) and the contact's id, links and history stay untouched. The rows and flags are
      * written in one batch when it fits (atomic), and the photo only once they are. Returns false if nothing could
      * be written.
@@ -555,7 +555,7 @@ class ContactRecordStore(private val context: Context) {
         query(Data.CONTENT_URI, arrayOf(Data._ID), "${Data.RAW_CONTACT_ID}=? AND ${Data.MIMETYPE}=?", arrayOf(rawId.toString(), Mime.PHOTO))
             ?.use { it.count > 0 } ?: false
 
-    /** Links raw contacts, in batches small enough for the provider however many copies there are (F16). */
+    /** Links raw contacts, in batches small enough for the provider however many copies there are. */
     private fun keepTogether(rawIds: List<Long>) {
         val ops = Batches.pairs(rawIds).map { (a, b) ->
             ContentProviderOperation.newUpdate(AggregationExceptions.CONTENT_URI)
@@ -578,7 +578,7 @@ class ContactRecordStore(private val context: Context) {
 
     /**
      * Accounts a restored raw contact may keep: writable ones present on this device (signed in or holding contacts),
-     * never SIM, messenger or read-only accounts; everything else goes to the device account (F3).
+     * never SIM, messenger or read-only accounts; everything else goes to the device account.
      */
     fun availableAccounts(): Set<AccountRef> {
         val set = HashSet<AccountRef>()
@@ -595,7 +595,7 @@ class ContactRecordStore(private val context: Context) {
         return set.filter { DeviceAccounts.isWritable(it, uploading, local) }.toSet()
     }
 
-    /** Whether Parley may write raw contacts into [account] (F3). */
+    /** Whether Parley may write raw contacts into [account]. */
     fun isWritableAccount(account: AccountRef): Boolean = DeviceAccounts.isWritable(account, DeviceAccounts.uploadingTypes(), localAccount())
 
     private fun localAccount(): AccountRef = DeviceAccounts.localAccount(context)

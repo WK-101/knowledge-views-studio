@@ -10,12 +10,12 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 
 /**
- * Quick Settings "End call" tile (A11): a safety net when the call screen is out of reach. It ends the active
+ * Quick Settings "End call" tile: a safety net when the call screen is out of reach. It ends the active
  * call (else one being dialled, else a held one) through the same [CallManager] path as the hang-up button,
  * and never rejects a ringing call. Unavailable when there is no call.
  */
 class HangUpTileService : TileService() {
-    // L1: the in-app language on Android 10-12 (Android 13+ applies per-app languages itself).
+    // The in-app language on Android 10-12 (Android 13+ applies per-app languages itself).
     override fun attachBaseContext(newBase: android.content.Context) {
         super.attachBaseContext(app.parley.ui.AppLocale.wrap(newBase))
     }

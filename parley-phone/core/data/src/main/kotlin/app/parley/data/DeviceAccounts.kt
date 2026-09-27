@@ -9,7 +9,7 @@ import android.provider.ContactsContract.RawContacts
 import app.parley.common.record.AccountKinds
 
 /**
- * Which contacts accounts exist on this device and which Parley may write to (F3, F10). One place for the rules
+ * Which contacts accounts exist on this device and which Parley may write to. One place for the rules
  * so saving, importing, moving and restoring agree:
  * - the phone-only account is always writable, whether it is null (AOSP), Android 15's local account, or an OEM type
  *   such as Samsung's `vnd.sec.contact.phone` or Xiaomi's `com.android.contacts.default`;

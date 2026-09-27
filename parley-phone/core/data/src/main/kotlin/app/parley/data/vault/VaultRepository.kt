@@ -40,12 +40,12 @@ data class VaultSummary(
     val expiresAt: Long?,
     /** Last saved (from the caller-ID copy; the creation time for entries saved before this was recorded). */
     val updatedAt: Long = 0,
-    /** A temporary private contact whose call history goes with it when it expires (F5). */
+    /** A temporary private contact whose call history goes with it when it expires. */
     val purgeHistory: Boolean = false,
 )
 
 /**
- * I6: what the call screen shows for a private contact, readable without unlocking (from the caller-ID copy):
+ * What the call screen shows for a private contact, readable without unlocking (from the caller-ID copy):
  * job/company, the "who is this" line, the note for calls, and whether an encrypted photo exists.
  */
 data class VaultCallerCard(
@@ -134,7 +134,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
      * contact it came from ("Move to private", F4); it is sealed with the details (photo included) so moving back out
      * restores every field. Editing an entry later keeps the stored record (see [storedRecord]). [interactions]: the
      * contact's logged interactions ([app.parley.common.circle.Interactions.encodeCarried]), sealed with the details
-     * so they come back on "Move out" and are never shown while the contact is private (R2); edits keep them too.
+     * so they come back on "Move out" and are never shown while the contact is private; edits keep them too.
      */
     suspend fun save(
         id: Long?,
@@ -152,7 +152,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
         val purge = purgeHistory ?: existing?.let { summarize(it)?.purgeHistory } ?: false
         val caller = JSONObject().put("name", name).put("numbers", JSONArray(numbers))
             .put("labels", JSONArray(d.phones.filter { it.value.isNotBlank() }.map { it.type }))
-            // I6: the caller card's extra lines, readable while the phone is locked like the name.
+            // The caller card's extra lines, readable while the phone is locked like the name.
             .apply {
                 app.parley.common.people.CallerCard.subtitle(d.title, d.company)?.let { put("sub", it) }
                 // Kept apart too, so a lost detail key can restore them (see rebuiltFromCallerId).
@@ -161,10 +161,10 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
                 d.context.trim().ifEmpty { null }?.let { put("ctx", it) }
                 d.pinnedNote.trim().ifEmpty { null }?.let { put("note", it) }
             }
-            // F15: when it was last saved, so the newest of two entries sharing a number wins.
+            // When it was last saved, so the newest of two entries sharing a number wins.
             .put("u", System.currentTimeMillis())
             .apply { if (purge) put("purge", true) }
-            // The region national numbers were read with, so re-fingerprinting later uses the same one (F7).
+            // The region national numbers were read with, so re-fingerprinting later uses the same one.
             .put(C_REGION, region)
         val detailsJson = ContactDetailsJson.encode(d.copy(photoUri = null))
         val detail = JSONObject(detailsJson)
@@ -203,18 +203,18 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
 
     private fun region(): String = PhoneEnv.countryIso(context)
 
-    /** Serialises fingerprint writes: a save and the one-off re-keying must never interleave (F7). */
+    /** Serialises fingerprint writes: a save and the one-off re-keying must never interleave. */
     private val keysLock = Mutex()
 
     /**
-     * F7: E.164 fingerprints, plus the last-digits one as an extra fallback (so a number read with a different
+     * E.164 fingerprints, plus the last-digits one as an extra fallback (so a number read with a different
      * region than at save time is still found by non-exact lookups; exact lookups never use it).
      */
     private fun numberRows(id: Long, numbers: List<String>, region: String?): List<VaultNumberEntity> =
         VaultNumberKeys.storedWithFallback(numbers, region).map { VaultNumberEntity(id, VaultCrypto.hmac(it)) }
 
     /**
-     * F7 migration, once: entries saved before E.164 keys were fingerprinted by their last 9 digits only. The
+     * Migration, once: entries saved before E.164 keys were fingerprinted by their last 9 digits only. The
      * numbers are in the caller-ID copy, which opens without unlocking, so every entry is re-fingerprinted in place
      * (no schema change: same table, new rows). An entry that can't be read keeps its old rows, so it still works
      * as before. Until this finishes, lookups still find the old rows through the last-digits fallback.
@@ -272,7 +272,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
     /**
      * Caller ID for incoming calls; works without user authentication.
      *
-     * F7: matched on the E.164 form, reading a national number with [countryIso] (the country of the SIM that took
+     * Matched on the E.164 form, reading a national number with [countryIso] (the country of the SIM that took
      * the call when known, else this phone's region); the last digits are only a fallback for entries stored without
      * an E.164 form, and [exact] (the private-name provider) never uses them. F15: expired entries never match, and
      * of several entries sharing a number the most recently updated wins.
@@ -298,7 +298,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
         null
     }
 
-    /** I6: the caller card of entry [id] (no unlock needed), or null. */
+    /** The caller card of entry [id] (no unlock needed), or null. */
     suspend fun callerCard(id: Long): VaultCallerCard? = withContext(Dispatchers.IO) {
         val e = dao.get(id) ?: return@withContext null
         runCatching {
@@ -310,7 +310,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
         }.getOrNull()
     }
 
-    // ---- I6: encrypted photo (the caller-ID key, so the call screen can show it while the phone is locked) ----
+    // ---- Encrypted photo (the caller-ID key, so the call screen can show it while the phone is locked) ----
 
     private fun photoDir() = java.io.File(context.filesDir, "vault_photos").apply { mkdirs() }
     private fun photoFile(id: Long) = java.io.File(photoDir(), "$id.bin")
@@ -332,7 +332,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
 
     /** Stores [image] (any format Android decodes) as entry [id]'s photo, scaled down and encrypted. */
     suspend fun setPhoto(id: Long, image: ByteArray): Boolean = withContext(Dispatchers.IO) {
-        // C1: bounded decode, upright, centre square (512 px is plenty for a caller photo).
+        // Bounded decode, upright, centre square (512 px is plenty for a caller photo).
         val jpeg = app.parley.data.ContactPhotoProcessor.process(image, PHOTO_PX) ?: return@withContext false
         val tmp = java.io.File(photoDir(), "$id.tmp")
         tmp.writeBytes(VaultCrypto.sealCallerId(jpeg))
@@ -343,7 +343,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
         photoFile(id).delete()
     }
 
-    /** Expired entries with what housekeeping needs to clean up after them (F5, F13). */
+    /** Expired entries with what housekeeping needs to clean up after them. */
     suspend fun expiredEntries(now: Long): List<VaultSummary> = withContext(Dispatchers.IO) {
         dao.expired(now).map { e -> summarize(e) ?: VaultSummary(e.id, "", emptyList(), e.expiresAt) }
     }
@@ -418,7 +418,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
     }
 
     /**
-     * R2: the interactions carried into entry [id] by "Move to private" ([app.parley.common.circle.Interactions.encodeCarried]
+     * The interactions carried into entry [id] by "Move to private" ([app.parley.common.circle.Interactions.encodeCarried]
      * text), or null. Throws [VaultCrypto.LockedException] when the vault must be unlocked first.
      */
     suspend fun storedInteractions(id: Long): String? = withContext(Dispatchers.IO) {

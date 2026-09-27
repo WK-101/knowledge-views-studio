@@ -16,7 +16,7 @@ import java.io.InputStream
 import java.nio.ByteBuffer
 
 /**
- * C1 (G2): turns any picture into a contact photo with bounded memory. The size is read first and the image is
+ * Turns any picture into a contact photo with bounded memory. The size is read first and the image is
  * decoded already reduced (a 50 MP photo never sits in memory at full size), turned upright from its EXIF
  * orientation, cropped to the centre square and written as a [PhotoMath.TARGET] px JPEG.
  *
@@ -39,7 +39,7 @@ object ContactPhotoProcessor {
     }
 
     /**
-     * Q1: the picture at [source] upright and whole (no crop), its longer side at most [maxLong] px, as a software
+     * The picture at [source] upright and whole (no crop), its longer side at most [maxLong] px, as a software
      * bitmap, or null when it can't be read. Bounded like [process]: the size is read first and the image decoded
      * already reduced. Used to look for QR codes in photos.
      */

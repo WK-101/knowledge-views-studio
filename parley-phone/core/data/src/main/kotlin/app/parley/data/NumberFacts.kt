@@ -6,7 +6,7 @@ import app.parley.common.PhoneNumbers
 import com.google.i18n.phonenumbers.PhoneNumberUtil
 import java.util.Locale
 
-/** Offline libphonenumber facts that screening rules use: region, line type, validity (B14, B20, B10, B11). */
+/** Offline libphonenumber facts that screening rules use: region, line type, validity. */
 data class NumberFactsResult(val region: String?, val lineType: LineType, val validity: NumberValidity)
 
 object NumberFacts {

@@ -6,7 +6,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** One row per link form in the research table (B2). */
+/** One row per link form in the research table. */
 class MessengerQrTest {
     private fun m(text: String): QrPayload.Messenger {
         val p = QrParser.parse(text)

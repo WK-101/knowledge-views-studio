@@ -88,7 +88,7 @@ class PrivateNameProvider : ContentProvider() {
             runCatching { context.packageManager.resolveContentProvider(authority(context), 0)?.readPermission }
                 .getOrNull() ?: "app.parley.permission.LOOKUP_PRIVATE_NAME"
 
-        /** [directory]: the request is for the contacts Directory (I7), which has its own approvals and text. */
+        /** [directory]: the request is for the contacts Directory, which has its own approvals and text. */
         internal fun askUser(ctx: Context, pkg: String, directory: Boolean = false) {
             val pm = ctx.packageManager
             val label = runCatching { pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString() }.getOrDefault(pkg)

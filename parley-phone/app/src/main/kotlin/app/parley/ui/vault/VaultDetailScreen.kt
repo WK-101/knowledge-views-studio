@@ -103,7 +103,7 @@ fun VaultDetailScreen(vm: AppViewModel, id: Long, back: () -> Unit, open: (Strin
     var messageSheet by remember { mutableStateOf<String?>(null) }
     var webLink by remember { mutableStateOf<app.parley.common.people.HandleLink?>(null) }
     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
-    // U7: scroll-linked tint.
+    // Scroll-linked tint.
     val barColor by androidx.compose.animation.animateColorAsState(
         if (listState.canScrollBackward) MaterialTheme.colorScheme.surfaceContainer else MaterialTheme.colorScheme.surface, label = "bar",
     )
@@ -117,7 +117,7 @@ fun VaultDetailScreen(vm: AppViewModel, id: Long, back: () -> Unit, open: (Strin
             defaultNumber = numbers.firstOrNull()?.first, messengers = emptyList(), prefs = prefs, isPrivate = true,
         )
     }
-    // M7 for private contacts: the choice is kept in their encrypted record (needs the unlocked details).
+    // For private contacts: the choice is kept in their encrypted record (needs the unlocked details).
     fun savePrefs(p: app.parley.common.people.MessengerPrefs) {
         val d = details ?: return vm.toast(res.getString(R.string.vault_unlock_to_remember))
         val next = d.copy(messengerPrefs = p.encode().orEmpty())
@@ -148,10 +148,10 @@ fun VaultDetailScreen(vm: AppViewModel, id: Long, back: () -> Unit, open: (Strin
                                 val d = details ?: return@launchVault
                                 val s = vm.settings.value
                                 val account = app.parley.data.AccountRef(s.defaultAccountType, s.defaultAccountName)
-                                // Restores the original contact losslessly when the vault kept its record (F4).
+                                // Restores the original contact losslessly when the vault kept its record.
                                 val newId = vm.c.vaultMoves.moveOut(id, d, account)
                                 if (newId != null) {
-                                    // I6: the note for calls and the messaging choice follow them into Parley's metadata.
+                                    // The note for calls and the messaging choice follow them into Parley's metadata.
                                     if (d.pinnedNote.isNotBlank() || d.messengerPrefs.isNotBlank()) {
                                         vm.c.contacts.lookupKeyOf(newId)?.let { key ->
                                             val m = vm.c.meta.meta(key) ?: app.parley.data.db.ContactMetaEntity(key)
@@ -189,7 +189,7 @@ fun VaultDetailScreen(vm: AppViewModel, id: Long, back: () -> Unit, open: (Strin
                     summary?.expiresAt?.let { Text(stringResource(R.string.vault_deletes_on, Format.fullDate(context, it)), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
                     Spacer(Modifier.height(16.dp))
                     val first = summary?.numbers?.firstOrNull()
-                    // U3 tiles; M6 "Message on…" for private contacts too.
+                    // Call tiles, and "Message on…" for private contacts too.
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         ActionTile(Icons.Rounded.Call, stringResource(R.string.vault_call), first != null) { first?.let { vm.requestCall(it, summary.name) } }
                         val sms = stringResource(R.string.vault_sms)

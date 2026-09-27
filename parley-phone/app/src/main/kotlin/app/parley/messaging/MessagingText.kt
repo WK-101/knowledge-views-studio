@@ -5,7 +5,7 @@ import app.parley.R
 import app.parley.common.MessengerApp
 import app.parley.common.MessengerLinks
 
-/** Messaging texts that core/common decides in English, in the user's language (L1). */
+/** Messaging texts that core/common decides in English, in the user's language. */
 object MessagingText {
     /** Why a chat link can't be built for [e164], or null when it can ([MessengerLinks.unavailableReason]). */
     fun unavailable(res: Resources, e164: String?): String? = when (MessengerLinks.unavailable(e164)) {

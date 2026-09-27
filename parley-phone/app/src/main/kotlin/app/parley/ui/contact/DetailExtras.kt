@@ -43,7 +43,7 @@ import java.time.format.FormatStyle
 
 /**
  * "12 March 1990 · 35 years · in 6 days" for birthdays, shorter for other dates. With [res] the words are in the
- * user's language (L1); without, English. The parts are always joined with " · ".
+ * user's language; without, English. The parts are always joined with " · ".
  */
 fun describeEvent(raw: String, birthday: Boolean, today: LocalDate = LocalDate.now(), res: android.content.res.Resources? = null): String {
     val e = EventDate.parse(raw) ?: return raw

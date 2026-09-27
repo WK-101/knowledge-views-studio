@@ -10,7 +10,7 @@ class BackupNudgeTest {
 
     private val now = 1_800_000_000_000L
 
-    // ---------------------------------------------------------------- C2 back up first
+    // ---------------------------------------------------------------- Back up first
 
     @Test fun backup_first_only_for_large_changes_with_an_old_backup() {
         // Backed up yesterday: never asks.
@@ -26,7 +26,7 @@ class BackupNudgeTest {
         assertTrue(BackupNudge.backupFirst(0, now, 1, 1))
     }
 
-    // ---------------------------------------------------------------- C3 reminder
+    // ---------------------------------------------------------------- Reminder
 
     @Test fun reminder_days_are_14_or_30() {
         assertEquals(30, BackupNudge.reminderDays(0))

@@ -42,7 +42,7 @@ private fun rememberRingFacts(vm: AppViewModel, number: String): List<RingFacts>
 }
 
 /**
- * Number history: "Why did my phone ring, or not?" (V9) for the last calls from this number: Do Not Disturb, ringer
+ * Number history: "Why did my phone ring, or not?" for the last calls from this number: Do Not Disturb, ringer
  * mode, which ringtone, and where the call was answered. Each row opens to every fact.
  */
 @Composable

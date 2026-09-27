@@ -86,7 +86,7 @@ import app.parley.ui.common.Format
 import kotlinx.coroutines.launch
 
 /**
- * The voicemail inbox (V1), shown in Recents under the "Voicemail" chip: every voicemail Android's voicemail store
+ * The voicemail inbox, shown in Recents under the "Voicemail" chip: every voicemail Android's voicemail store
  * holds, with playback (speaker or earpiece, seek), transcription, mark heard, call back, share and delete.
  */
 @Composable
@@ -112,7 +112,7 @@ fun VoicemailInbox(vm: AppViewModel, query: String) {
     Column(Modifier.fillMaxWidth()) {
         VoicemailNote(vm, state)
         if (state.loaded && state.available && items.isEmpty()) {
-            // U5: no match (clear the search) or no voicemail yet (call the mailbox).
+            // No match (clear the search) or no voicemail yet (call the mailbox).
             if (query.isBlank()) {
                 EmptyState(
                     Icons.Rounded.Voicemail, stringResource(R.string.vmi_empty), modifier = Modifier.padding(top = 32.dp),

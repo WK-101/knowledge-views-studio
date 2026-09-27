@@ -3,7 +3,7 @@ package app.parley.common.people
 import app.parley.common.TextSearch
 
 /**
- * I8: Contacts-tab search over more than names and numbers: e-mail, nickname, company and job title, postal
+ * Contacts-tab search over more than names and numbers: e-mail, nickname, company and job title, postal
  * address, notes, websites and messenger handles. Only for the Contacts tab's search box (never the keypad's T9).
  * [match] says which field matched, so the row can say "Matched: address".
  */

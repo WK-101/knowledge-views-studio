@@ -29,7 +29,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import app.parley.R
 
-/** U4: Settings › Appearance › Swipe actions, with a live preview row to try them on. */
+/** Settings › Appearance › Swipe actions, with a live preview row to try them on. */
 @Composable
 fun SwipeSettings(vm: AppViewModel) {
     val s by vm.people.settings.collectAsStateWithLifecycle()
@@ -66,7 +66,7 @@ fun SwipeSettings(vm: AppViewModel) {
     }
 }
 
-/** U6: Settings › Appearance › Avatars. */
+/** Settings › Appearance › Avatars. */
 @Composable
 fun AvatarStyleSetting(vm: AppViewModel) {
     val s by vm.people.settings.collectAsStateWithLifecycle()

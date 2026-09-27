@@ -47,7 +47,7 @@ class CallTimePlanner(private val c: DataContainer) {
         val labels = if (info == null || labelRules.isEmpty()) emptySet() else runCatching { c.people.labelsOf(info.contactId) }.getOrDefault(emptySet())
         val contact = key?.let { k -> c.contacts.contacts.value?.firstOrNull { it.lookupKey == k } }
         val numbers = contact?.phones?.map { it.number } ?: listOfNotNull(number?.takeIf { it.isNotBlank() })
-        // The hour after an emergency call, and numbers listed as starting it (B23): never limited or silenced.
+        // The hour after an emergency call, and numbers listed as starting it: never limited or silenced.
         val emergency = EmergencyPolicy.Facts(
             emergencyNumber = EmergencyNumbers.isEmergency(c.appContext, number),
             inWindow = runCatching { ScreeningGuard.inEmergencyWindow(c.appContext) }.getOrDefault(false),
@@ -117,7 +117,7 @@ class CallTimePlanner(private val c: DataContainer) {
         return CallLimits.silenceIncoming(config, s.facts, quotas(s))
     }
 
-    /** A sentence for the confirmation dialog when an outgoing call's allowance is used up, else null (T6). */
+    /** A sentence for the confirmation dialog when an outgoing call's allowance is used up, else null. */
     suspend fun outgoingWarning(number: String, accountId: String?): String? {
         val config = c.calling.config.value
         if (config.rules.none { it.hasQuota }) return null

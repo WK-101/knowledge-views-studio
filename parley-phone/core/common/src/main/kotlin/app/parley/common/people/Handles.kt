@@ -21,7 +21,7 @@ object ImProtocol {
 }
 
 /**
- * I1: messenger handles (Matrix, Threema ID, Telegram and Signal usernames, Discord, XMPP, SIP…) as Android stores
+ * Messenger handles (Matrix, Threema ID, Telegram and Signal usernames, Discord, XMPP, SIP…) as Android stores
  * them: `Im` rows (DATA1 handle, DATA5 protocol, DATA6 custom protocol name) and `SipAddress` rows (DATA1).
  *
  * The services Android predefines keep their protocol number; the others are written as PROTOCOL_CUSTOM with the

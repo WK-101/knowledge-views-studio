@@ -106,7 +106,7 @@ class KeypadViewModel(private val c: DataContainer) : ViewModel() {
     /** How many call accounts the phone has (the home screen keeps it current). */
     val simCount = MutableStateFlow(0)
 
-    /** K1: the SIM a plain Call would use for what's typed (remembered, a label's, else the default), shown on its segment. */
+    /** The SIM a plain Call would use for what's typed (remembered, a label's, else the default), shown on its segment. */
     val preferredSim: StateFlow<String?> = combine(input, simCount) { i, n -> i to n }
         .debounce(150)
         .mapLatest { (i, n) ->

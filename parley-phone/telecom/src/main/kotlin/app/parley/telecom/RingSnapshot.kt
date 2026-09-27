@@ -10,7 +10,7 @@ import app.parley.common.calls.RingFacts
 import app.parley.common.calls.RingerMode
 
 /**
- * Reads the ringer's state when a call starts ringing (V9): Do Not Disturb, ringer mode, ring volume and "vibrate for
+ * Reads the ringer's state when a call starts ringing: Do Not Disturb, ringer mode, ring volume and "vibrate for
  * calls". Memory reads of system services only, so it's safe on the call path. Every read fails soft.
  */
 internal object RingSnapshot {

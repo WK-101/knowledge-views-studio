@@ -46,7 +46,7 @@ import androidx.compose.foundation.layout.Arrangement
 import app.parley.ui.settings.bidiLtr
 
 /**
- * Coverage replay (B13): "current rules would have blocked 14 of 22 unknown calls", with each past call's
+ * Coverage replay: "current rules would have blocked 14 of 22 unknown calls", with each past call's
  * would-be decision. Reads only; nothing is blocked, logged, counted or notified.
  */
 @OptIn(ExperimentalMaterial3Api::class)

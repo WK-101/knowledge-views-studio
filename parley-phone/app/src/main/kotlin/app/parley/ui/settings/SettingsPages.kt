@@ -150,7 +150,7 @@ internal fun AppearancePage(vm: AppViewModel, open: (String) -> Unit = {}) {
         switchRow("amoled", s.amoledBlack, Icons.Rounded.Contrast) { v -> set { it.copy(amoledBlack = v) } }
         if (Build.VERSION.SDK_INT >= 31) switchRow("dynamic_color", s.dynamicColor, Icons.Rounded.Wallpaper) { v -> set { it.copy(dynamicColor = v) } }
     }
-    // L1: per-app language (the system screen on Android 13+, an in-app picker before).
+    // Per-app language (the system screen on Android 13+, an in-app picker before).
     SegmentedGroup(stringResource(R.string.lang_title)) { item("language") { LanguageRow() } }
     SegmentedGroup(stringResource(R.string.set_group_lists)) {
         choiceRow("density", densities, s.density.ordinal, Icons.Rounded.DensityMedium) { i -> set { it.copy(density = ListDensity.entries[i]) } }
@@ -161,7 +161,7 @@ internal fun AppearancePage(vm: AppViewModel, open: (String) -> Unit = {}) {
         item("second_line") { app.parley.ui.people.SecondLineRow(vm, Icons.AutoMirrored.Rounded.ShortText) }
         item("prefer_nickname") { app.parley.ui.people.PreferNicknameRow(vm, Icons.Rounded.Badge) }
     }
-    // U2: every one-time tip shows again.
+    // Every one-time tip shows again.
     val tipsReset = stringResource(R.string.ux_tips_reset_done)
     SegmentedGroup(stringResource(R.string.set_group_tips)) {
         linkRow("reset_tips", Icons.Rounded.Lightbulb) {
@@ -179,7 +179,7 @@ internal fun LayoutPage(vm: AppViewModel, open: (String) -> Unit) {
     val set = rememberSettingsSetter(vm)
     val navTabsTitle = settingTitle("nav_tabs")
     val navTabsHelp = stringResource(R.string.set_nav_tabs_help)
-    // S1/S2 (v3.3): "Open on" offers the tabs actually in the bar (a combined option can take one out).
+    // "Open on" offers the tabs actually in the bar (a combined option can take one out).
     val layout = app.parley.common.HomeLayout(s.navTabs, s.surfaces)
     val tabLabels = layout.visible.map { it.label }
     SegmentedGroup(stringResource(R.string.set_group_navigation_bar)) {
@@ -198,13 +198,13 @@ internal fun LayoutPage(vm: AppViewModel, open: (String) -> Unit) {
             set { it.copy(startTab = visible[i]) }
         }
     }
-    // S1/S2 (v3.3): combine Keypad + Recents and Favourites + Contacts (optional), and the Recents row tap.
+    // Combine Keypad + Recents and Favourites + Contacts (optional), and the Recents row tap.
     LayoutSettingsGroup(vm)
     SegmentedGroup(stringResource(R.string.set_group_gestures)) {
         switchRow("row_actions", s.contactRowActions, Icons.Rounded.TouchApp) { v -> set { it.copy(contactRowActions = v) } }
         item("swipe_actions") { app.parley.ui.people.SwipeSettings(vm) }
     }
-    // X4: simple mode, set up here (for someone else, or for yourself).
+    // Simple mode, set up here (for someone else, or for yourself).
     SegmentedGroup {
         linkRow("simple_mode", Icons.Rounded.Accessibility) { open(app.parley.ui.extras.ExtrasRoutes.SIMPLE_SETUP) }
     }
@@ -218,7 +218,7 @@ internal fun CallsPage(vm: AppViewModel, open: (String) -> Unit) {
     val s by vm.settings.collectAsStateWithLifecycle()
     val isDefault by vm.isDefaultDialer.collectAsStateWithLifecycle()
     val set = rememberSettingsSetter(vm)
-    // P4: the role request, with the by-hand guide when Android refuses without asking.
+    // The role request, with the by-hand guide when Android refuses without asking.
     val requestRole = app.parley.ui.calls.rememberDialerRoleRequest { vm.refreshEnvironment() }
     val unknownTonePicker = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { res ->
         if (res.resultCode == android.app.Activity.RESULT_OK) {
@@ -248,7 +248,7 @@ internal fun CallsPage(vm: AppViewModel, open: (String) -> Unit) {
                 }),
             )
         }
-        // P4: the by-hand guide, for phones that refuse the request without asking.
+        // The by-hand guide, for phones that refuse the request without asking.
         if (!isDefault) item("default_dialer_help") {
             var guide by remember { mutableStateOf(false) }
             LinkRow(settingTitle("default_dialer_help"), settingSummary("default_dialer_help"), Icons.AutoMirrored.Rounded.HelpOutline) { guide = true }
@@ -270,7 +270,7 @@ internal fun CallsPage(vm: AppViewModel, open: (String) -> Unit) {
         }
     }
     CallExtrasGroups(vm)
-    // R8/R9/X1: the memory prompt, notes on the lock screen and the pre-call peek.
+    // The memory prompt, notes on the lock screen and the pre-call peek.
     MemorySettingsGroup(vm)
     SegmentedGroup(stringResource(R.string.set_group_sims)) {
         linkRow("sims", Icons.Rounded.SimCard) { open(HistoryRoutes.SIMS) }
@@ -368,7 +368,7 @@ internal fun ContactsPage(vm: AppViewModel, open: (String) -> Unit) {
             vm.toast(exportMessage(context, r))
         }
     }
-    // C2: a large import offers "Back up first?" before anything is written.
+    // A large import offers "Back up first?" before anything is written.
     val backupFirst = app.parley.ui.backup.rememberBackupFirst(vm)
     val importer = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) scope.launch {
@@ -403,7 +403,6 @@ internal fun ContactsPage(vm: AppViewModel, open: (String) -> Unit) {
         linkRow("bulk_add", Icons.Rounded.GroupAdd) { open(app.parley.messaging.MessagingRoutes.BULK_ADD) }
         linkRow("duplicates", Icons.AutoMirrored.Rounded.CallMerge) { open(Routes.DUPLICATES) }
         linkRow("health", Icons.Rounded.HealthAndSafety) { open(Routes.HEALTH) }
-        // P1 (v3.4)
         linkRow("contact_page", Icons.Rounded.ViewAgenda) { open(app.parley.ui.contact.ContactPageRoutes.SECTIONS) }
     }
     val severalAccounts = app.parley.ui.people.hasSeveralAccounts(vm)
@@ -428,7 +427,7 @@ internal fun ContactsPage(vm: AppViewModel, open: (String) -> Unit) {
     }
     SegmentedGroup(stringResource(R.string.set_group_circle)) {
         switchRow("nudges", s.reachOutNudges, Icons.Rounded.Handshake) { v -> set { it.copy(reachOutNudges = v) } }
-        // R3/R4/R5: the Circle's reminder and "Log this?" choices.
+        // The Circle's reminder and "Log this?" choices.
         circleSettingRows(vm, circleCfg, s.birthdayReminders, s.reachOutNudges)
     }
     AdvancedGroup(setOf("import_sim", "export_account")) {
@@ -447,7 +446,7 @@ internal fun ContactsPage(vm: AppViewModel, open: (String) -> Unit) {
                         ListItem(headlineContent = { Text(vm.accountLabel(a)) }, colors = rowColors(), modifier = Modifier.clickable {
                             importAccounts = null
                             scope.launch {
-                                // M12: a CSV in another layout (Google, Outlook, any columns) goes to the column mapping first.
+                                // A CSV in another layout (Google, Outlook, any columns) goes to the column mapping first.
                                 val preview = runCatching { vm.c.vcards.csvPreview(uri) }.getOrNull()
                                 if (preview != null && !preview.parley) {
                                     app.parley.messaging.MessagingInbox.csvImport = app.parley.messaging.CsvImportRequest(uri, a, skipDuplicates)
@@ -497,7 +496,7 @@ internal fun HistoryPage(vm: AppViewModel, open: (String) -> Unit) {
             set { it.copy(callLogRetentionDays = retention[i]) }
         }
         if (archiveOn) keptForeverRow(vm)
-        // P5: clear everything, unknown numbers or missed calls, with an export first.
+        // Clear everything, unknown numbers or missed calls, with an export first.
         item("clear_history") { app.parley.ui.history.ClearHistoryRow(vm, open, Icons.Rounded.DeleteSweep) }
         // Deleted calls are restored where everything else is: History & undo › Calls.
         linkRow("history_details", Icons.Rounded.RestoreFromTrash) { open(Routes.journal(app.parley.ui.journal.HistoryTab.CALLS)) }
@@ -506,16 +505,16 @@ internal fun HistoryPage(vm: AppViewModel, open: (String) -> Unit) {
     val styleLabels = app.parley.ui.home.recentsStyleLabels()
     val circleCfg by vm.c.circle.config.collectAsStateWithLifecycle()
     SegmentedGroup(stringResource(R.string.set_group_recents)) {
-        // P8: grouped, chronological or by day (also in Recents ⋮).
+        // Grouped, chronological or by day (also in Recents ⋮).
         menuRow("recents_layout", layoutLabels, s.recentsLayout.ordinal, Icons.AutoMirrored.Rounded.ViewList) { i ->
             set { it.copy(recentsLayout = app.parley.common.calls.RecentsLayout.entries[i]) }
         }
-        // R4 (v3.3): rich or simple call rows.
+        // Rich or simple call rows.
         menuRow("recents_style", styleLabels, s.recentsStyle.ordinal, Icons.Rounded.Palette) { i ->
             set { it.copy(recentsStyle = app.parley.common.ux.RecentsStyle.entries[i]) }
         }
         linkRow("insights", Icons.Rounded.Insights) { open(HistoryRoutes.INSIGHTS) }
-        // R6: the People card in Call insights.
+        // The People card in Call insights.
         peopleCardRows(vm, circleCfg)
     }
     SegmentedGroup(stringResource(R.string.hist_export_import)) {
@@ -541,7 +540,7 @@ internal fun MessagingPage(vm: AppViewModel, open: (String) -> Unit) {
         linkRow("quick_replies", Icons.Rounded.Quickreply, sub = s.quickReplies.joinToString(" · ")) { editReplies = true }
         item("my_details") { MyDetailsRow(vm, Icons.Rounded.Badge) }
     }
-    // M10: the record of numbers you opened chats with, and when it forgets them.
+    // The record of numbers you opened chats with, and when it forgets them.
     val recorded by vm.c.messaging.lastMessaged.collectAsStateWithLifecycle()
     val recording by vm.c.messaging.recordEnabled.collectAsStateWithLifecycle()
     val expiry by vm.c.messaging.expiryDays.collectAsStateWithLifecycle()
@@ -621,7 +620,7 @@ internal fun BackupPage(vm: AppViewModel, open: (String) -> Unit) {
     val context = LocalContext.current
     val b by vm.c.backup.prefs.state.collectAsStateWithLifecycle()
     val lastBackup = if (b.lastBackupAt > 0) stringResource(R.string.set_last_backup, app.parley.ui.common.Format.shortWhen(context, b.lastBackupAt)) else null
-    // C3: the overdue reminder and its threshold.
+    // The overdue reminder and its threshold.
     app.parley.ui.backup.BackupReminderBanner(vm)
     val ux by vm.c.ux.state.collectAsStateWithLifecycle()
     val reminderOptions = app.parley.common.ux.BackupNudge.REMINDER_DAYS.map { pluralStringResource(R.plurals.ux_backup_after_days, it, it) }
@@ -635,7 +634,6 @@ internal fun BackupPage(vm: AppViewModel, open: (String) -> Unit) {
             Icons.Rounded.NotificationsActive,
         ) { i -> vm.c.ux.setBackupReminderDays(app.parley.common.ux.BackupNudge.REMINDER_DAYS[i]) }
         linkRow("sync", Icons.Rounded.Sync) { open(Routes.SYNC) }
-        // C5
         linkRow("markdown_export", Icons.Rounded.Description) { open(Routes.SYNC) }
     }
     SegmentedGroup(stringResource(R.string.set_group_undo)) {

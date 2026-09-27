@@ -119,17 +119,17 @@ data class ScreeningSettings(
     val blockNeighbourSpoofing: Boolean = false,
     val blockFailedVerification: Boolean = false,
     val defaultAction: BlockAction = BlockAction.REJECT,
-    /** B14: numbers libphonenumber says can't exist or aren't assigned for their region. */
+    /** Numbers libphonenumber says can't exist or aren't assigned for their region. */
     val blockInvalid: Boolean = false,
     val invalidAction: BlockAction = BlockAction.SILENCE,
-    // B17: per-toggle schedules (null = always).
+    // Per-toggle schedules (null = always).
     val hiddenSchedule: Schedule? = null,
     val nonContactsSchedule: Schedule? = null,
     val neighbourSchedule: Schedule? = null,
     val verificationSchedule: Schedule? = null,
     val invalidSchedule: Schedule? = null,
     val offHours: OffHours = OffHours(),
-    // B19: repeat callers and "people you talked to".
+    // Repeat callers and "people you talked to".
     val repeatCallers: Boolean = true,
     val repeatWindowMinutes: Int = 3,
     /** Redials faster than this don't count as a repeat (bots redial instantly). */
@@ -139,25 +139,21 @@ data class ScreeningSettings(
     val allowAnswered: Boolean = false,
     val answeredMinSeconds: Int = 30,
     val answeredDays: Int = 30,
-    /** B21: "Expecting a call": unknown callers ring until this time. */
+    /** "Expecting a call": unknown callers ring until this time. */
     val snoozeUntil: Long = 0,
-    /** B23: numbers that start the emergency window when you call them (a GP, a school). */
+    /** Numbers that start the emergency window when you call them (a GP, a school). */
     val emergencyExtras: List<String> = emptyList(),
-    // B6: default notification level per verdict.
+    // Default notification level per verdict.
     val notifyBlocked: NotifyLevel = NotifyLevel.QUIET,
     val notifyReported: NotifyLevel = NotifyLevel.QUIET,
     val notifyLikelySpam: NotifyLevel = NotifyLevel.NORMAL,
-    // B27
     val busyReply: Boolean = false,
     val busyReplyText: String = "In a meeting. I'll call you back.",
-    // B24
     val ringLoudFavourites: Boolean = false,
     val ringLoudRepeat: Boolean = false,
     val repeatRingtone: String? = null,
     val likelySpamRingtone: String? = null,
-    // B12
     val reputationSuggestions: Boolean = true,
-    // B8
     val webSearchUrl: String = "https://duckduckgo.com/?q=",
 ) {
     fun snoozeActive(nowMillis: Long) = snoozeUntil > nowMillis

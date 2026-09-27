@@ -194,7 +194,7 @@ object DialText {
             val d = T9.asciiDigit(c)
             when {
                 d != null -> append(d)
-                // P9: also right after a '*', for the number in a forwarding code ("**21*+4915112345678#").
+                // Also right after a '*', for the number in a forwarding code ("**21*+4915112345678#").
                 c == '+' -> if (isEmpty() || last() == '*') append(c)
                 c == '*' || c == '#' || c == ',' || c == ';' -> append(c)
             }

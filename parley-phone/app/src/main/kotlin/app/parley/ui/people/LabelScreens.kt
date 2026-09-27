@@ -93,7 +93,7 @@ fun ManageLabelsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Uni
     var deleting by remember { mutableStateOf<String?>(null) }
     var menu by remember { mutableStateOf(false) }
 
-    // U7: scroll-linked top-bar tint.
+    // Scroll-linked top-bar tint.
     val barTint = androidx.compose.material3.TopAppBarDefaults.pinnedScrollBehavior()
     Scaffold(modifier = Modifier.nestedScroll(barTint.nestedScrollConnection), topBar = {
         TopAppBar(
@@ -331,7 +331,7 @@ fun LabelScreen(vm: AppViewModel, title: String, back: () -> Unit, open: (String
             .putExtra(RingtoneManager.EXTRA_RINGTONE_EXISTING_URI, tone?.let(Uri::parse)),
     )
 
-    // U7: scroll-linked top-bar tint.
+    // Scroll-linked top-bar tint.
     val barTint = androidx.compose.material3.TopAppBarDefaults.pinnedScrollBehavior()
     Scaffold(modifier = Modifier.nestedScroll(barTint.nestedScrollConnection), topBar = {
         TopAppBar(
@@ -375,7 +375,7 @@ fun LabelScreen(vm: AppViewModel, title: String, back: () -> Unit, open: (String
                     trailingContent = { if (tone != null) TextButton({ vm.people.update { it.copy(labelRingtones = it.labelRingtones - current) } }) { Text(stringResource(R.string.lbl_reset)) } },
                 )
             }
-            // X3: SIM, Circle rhythm and Do Not Disturb for this label.
+            // SIM, Circle rhythm and Do Not Disturb for this label.
             item { app.parley.ui.extras.LabelPolicySection(vm, current, members) }
             item { Section(pluralStringResource(R.plurals.lbl_n_contacts, members.size, members.size)) }
             if (members.isEmpty()) item {

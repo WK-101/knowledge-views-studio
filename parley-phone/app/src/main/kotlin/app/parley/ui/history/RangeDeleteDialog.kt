@@ -36,7 +36,7 @@ import androidx.compose.ui.res.stringResource
 import app.parley.R
 
 /**
- * K10: delete one number's calls from a point in time until now. Deleted calls are kept sealed for 30 days;
+ * Delete one number's calls from a point in time until now. Deleted calls are kept sealed for 30 days;
  * [onDeleted] gets the undo batch and the count.
  */
 @OptIn(ExperimentalMaterial3Api::class)

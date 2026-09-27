@@ -48,7 +48,7 @@ fun JournalList(vm: AppViewModel, open: (String) -> Unit, onShowSnapshots: () ->
     val scope = rememberCoroutineScope()
     val entries by vm.c.journal.recent().collectAsStateWithLifecycle(emptyList())
     if (entries.isEmpty()) {
-        // U5: nothing to undo yet; the daily snapshots are the other way back.
+        // Nothing to undo yet; the daily snapshots are the other way back.
         EmptyState(
             Icons.Rounded.History, stringResource(R.string.jr_empty_title), stringResource(R.string.jr_empty_text), modifier,
             action = stringResource(R.string.ux_empty_what_changed), onAction = onShowSnapshots,

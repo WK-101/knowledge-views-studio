@@ -31,7 +31,7 @@ import app.parley.telecom.R
 import app.parley.ui.Avatar
 
 /**
- * P1: the picture-in-picture window: who, the timer (or the call's status) and a Muted tag. Mute and Hang up are
+ * The picture-in-picture window: who, the timer (or the call's status) and a Muted tag. Mute and Hang up are
  * the window's own actions.
  */
 @Composable

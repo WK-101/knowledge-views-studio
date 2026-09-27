@@ -1,7 +1,7 @@
 package app.parley.common.people
 
 /**
- * I2: your own card ("Me"). Parley keeps its own copy (private to Parley, like the "My details" it replaces) and
+ * Your own card ("Me"). Parley keeps its own copy (private to Parley, like the "My details" it replaces) and
  * shows it merged with Android's profile contact ("Me" in ContactsContract.Profile, readable with the contacts
  * permission Parley already has) when the phone has one.
  */

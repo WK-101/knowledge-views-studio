@@ -17,7 +17,6 @@ class CircleTest {
     private val zone = ZoneOffset.UTC
     private val now = LocalDate.of(2026, 9, 25).atStartOfDay(zone).toInstant().toEpochMilli() + 12 * 3_600_000L
 
-    // R2 / R3
 
     @Test fun prompt_key_buckets_ten_minutes_per_channel_and_person() {
         val t = 1_000_000_000_000L - (1_000_000_000_000L % Interactions.BUCKET_MS)
@@ -45,7 +44,7 @@ class CircleTest {
         assertEquals(LastContact(9, ContactKind.VIDEO), Interactions.lastContact(null, 9L to InteractionType.VIDEO))
     }
 
-    // G6: any interaction resets the clock.
+    // Any interaction resets the clock.
     @Test fun an_interaction_makes_someone_fine_again() {
         val overdue = CirclePlanner.Member("k", 14, last = now - 40 * day)
         assertEquals(CircleStatus.DUE, CirclePlanner.status(overdue, now))
@@ -53,7 +52,6 @@ class CircleTest {
         assertEquals(CircleStatus.FINE, CirclePlanner.status(overdue.copy(last = last), now))
     }
 
-    // R4
 
     @Test fun natural_rhythm_is_median_gap_times_one_and_a_half_at_least_a_week() {
         // Every 10 days -> 15.
@@ -182,7 +180,6 @@ class CircleTest {
         assertEquals(0, bad.dateLeadDays)
     }
 
-    // R5
 
     @Test fun date_reminders_fire_on_the_lead_day_and_the_day_only() {
         val bday = EventDate(1990, 10, 2)
@@ -204,7 +201,7 @@ class CircleTest {
         assertEquals("7:3-0101:2027", lead)
         assertEquals("birthday:7:3-0101", DateReminders.tag(7, key))
         assertEquals("nudge:10005", DateReminders.nudgeTag(10005))
-        // A birthday and an anniversary of one person have different tags (G5).
+        // A birthday and an anniversary of one person have different tags.
         assertFalse(DateReminders.tag(7, DateReminders.eventKey(1, d)) == DateReminders.tag(7, DateReminders.eventKey(3, d)))
     }
 
@@ -215,7 +212,6 @@ class CircleTest {
         assertFalse(DateReminders.has(kept, "b"))
     }
 
-    // R1
 
     @Test fun suggestions_are_the_most_called_outside_the_circle() {
         val cands = (1..15).map { CircleSuggestions.Candidate("k$it", it, if (it % 2 == 0) it * 2 else null) } +
@@ -229,7 +225,7 @@ class CircleTest {
         assertEquals(NaturalRhythm.MIN_DAYS, CircleSuggestions.daysFor(CircleSuggestions.Candidate("x", 3, 2)))
     }
 
-    // R2 timeline
+    // Timeline
 
     @Test fun timeline_merges_sources_and_groups_by_month_newest_first() {
         val sep = LocalDate.of(2026, 9, 10).atStartOfDay(zone).toInstant().toEpochMilli()
@@ -258,7 +254,7 @@ class CircleTest {
     }
 
     @Test fun timeline_dates_show_a_birthday_stored_twice_once() {
-        // v3.4 review #1: a linked contact with the same birthday in two accounts, one without the year.
+        // A linked contact with the same birthday in two accounts, one without the year.
         val t = LocalDate.of(2025, 1, 1).atStartOfDay(zone).toInstant().toEpochMilli()
         val events = listOf(Triple(3, null, EventDate(1990, 5, 1)), Triple(3, null, EventDate(1990, 5, 1)), Triple(3, null, EventDate(null, 5, 1)))
         val dates = Timeline.dates(events, listOf(TimelineEntry.Note(1, t, "x")), LocalDate.of(2026, 9, 25), zone)

@@ -1,7 +1,7 @@
 package app.parley.common.ux
 
 /**
- * U1: whether Parley was sideloaded. Android 13+ blocks "restricted settings" (the default phone app role among
+ * Whether Parley was sideloaded. Android 13+ blocks "restricted settings" (the default phone app role among
  * them) for apps installed from a file rather than an app store, and the role request then fails without saying
  * why. Onboarding explains this first when [needsRestrictedSettingsHelp].
  */

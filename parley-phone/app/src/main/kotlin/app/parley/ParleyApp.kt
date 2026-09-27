@@ -16,7 +16,7 @@ class ParleyApp : Application() {
      */
     val containerOrNull: DataContainer? get() = if (::container.isInitialized) container else null
 
-    // L1: on Android 10-12 the in-app language also applies to notifications and toasts.
+    // On Android 10-12 the in-app language also applies to notifications and toasts.
     override fun attachBaseContext(base: android.content.Context) {
         super.attachBaseContext(app.parley.ui.AppLocale.wrap(base))
     }
@@ -24,12 +24,12 @@ class ParleyApp : Application() {
     override fun onCreate() {
         super.onCreate()
         DebugStrictMode.install(this)
-        // U10: stores the last crash on this phone when "Keep crash reports" is on (it reads that flag at crash time).
+        // Stores the last crash on this phone when "Keep crash reports" is on (it reads that flag at crash time).
         app.parley.data.people.CrashStore(this).install()
         container = DataContainer(this)
         TelecomGraph.install(AppTelecomDependencies(this, container))
         app.parley.blocking.BlockingSetup.install(this, container)
-        // R7: keeps the Circle widget current while Parley runs.
+        // Keeps the Circle widget current while Parley runs.
         app.parley.shortcuts.CircleWidget.observe(this, container)
         // The process often starts for an incoming call: everything else runs off the main thread, and the parts the
         // call path reads synchronously are warmed first.

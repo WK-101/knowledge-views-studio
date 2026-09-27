@@ -105,7 +105,7 @@ import app.parley.ui.Routes
 import kotlinx.coroutines.launch
 import java.io.File
 
-/** Q4: plain words and icons for what a code holds. */
+/** Plain words and icons for what a code holds. */
 object QrLabels {
     fun icon(p: QrPayload): ImageVector = when (p) {
         is QrPayload.Contact -> if (p.records.size > 1) Icons.Rounded.Groups else Icons.Rounded.Person
@@ -154,7 +154,7 @@ object QrLabels {
 }
 
 /**
- * Q4: the result sheet. It says what the code holds in plain words, shows it in full (control and bidi-override
+ * The result sheet. It says what the code holds in plain words, shows it in full (control and bidi-override
  * characters removed) and offers actions; nothing happens until a button is tapped. Every result can be copied and
  * shared.
  */
@@ -185,7 +185,7 @@ fun QrResultSheet(vm: AppViewModel, payload: QrPayload, onDismiss: () -> Unit, o
             }
             HorizontalDivider(Modifier.padding(vertical = 12.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                // Q5: a Wi-Fi code's text holds its password: kept out of clipboard previews like "Copy password".
+                // A Wi-Fi code's text holds its password: kept out of clipboard previews like "Copy password".
                 TextButton({ QrActions.copy(context, payload.raw, sensitive = payload is QrPayload.Wifi && !payload.password.isNullOrEmpty()) }) {
                     Icon(Icons.Rounded.ContentCopy, null, Modifier.size(18.dp))
                     Text("  " + stringResource(R.string.qs_copy_text))
@@ -260,7 +260,7 @@ private fun ColumnScope.ContactResult(vm: AppViewModel, p: QrPayload.Contact, on
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
-    // Q4: favourite, voicemail, ringtone and labels from a stranger's card stay off unless ticked here.
+    // Favourite, voicemail, ringtone and labels from a stranger's card stay off unless ticked here.
     val asks = remember(p) { ScannedCard.flags(p.records) }
     var allowed by remember(p) { mutableStateOf(emptySet<ScannedCard.Flag>()) }
     if (asks.isNotEmpty()) CardAsks(asks, remember(p) { ScannedCard.labels(p.records) }, allowed) { allowed = it }
@@ -292,7 +292,7 @@ private fun ColumnScope.ContactResult(vm: AppViewModel, p: QrPayload.Contact, on
     ContactCard(vm, record, onDismiss, open, allCardsVcard = if (p.records.size == 1) vcard else null)
 }
 
-/** Q4: "This card also asks to: …", each off until ticked. */
+/** "This card also asks to: …", each off until ticked. */
 @Composable
 private fun CardAsks(asks: Set<ScannedCard.Flag>, labels: List<String>, allowed: Set<ScannedCard.Flag>, onChange: (Set<ScannedCard.Flag>) -> Unit) {
     Card(Modifier.fillMaxWidth().padding(top = 10.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)) {

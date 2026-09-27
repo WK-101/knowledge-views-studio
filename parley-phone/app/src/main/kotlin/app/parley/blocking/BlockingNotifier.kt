@@ -25,8 +25,8 @@ import app.parley.data.ScreenedCall
 import kotlinx.coroutines.launch
 
 /**
- * Per-verdict notification channels (B6): Blocked, Reported (a spam list blocked it) and Likely spam (a list
- * warned but the call rang), each switchable in system settings; plus the busy auto-reply (B27).
+ * Per-verdict notification channels: Blocked, Reported (a spam list blocked it) and Likely spam (a list
+ * warned but the call rang), each switchable in system settings; plus the busy auto-reply.
  * Rules can override the level (none / quiet / normal).
  */
 object BlockingNotifier {
@@ -72,7 +72,7 @@ object BlockingNotifier {
         if (!nm.areNotificationsEnabled()) return
         channels(context)
 
-        // B27: someone you know was silenced by off hours: offer a one-tap reply through the SMS app.
+        // Someone you know was silenced by off hours: offer a one-tap reply through the SMS app.
         if (decision is Decision.Block && decision.reason == BlockReason.OFF_HOURS && e.isContact && s.busyReply && number != null) {
             val id = NotificationIds.screenBusy(PhoneIdentity.key(number, null))
             val reply = PendingIntent.getActivity(

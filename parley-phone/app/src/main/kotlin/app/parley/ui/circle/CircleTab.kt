@@ -53,7 +53,7 @@ import app.parley.ui.contact.rememberQuickMessenger
 import kotlinx.coroutines.launch
 
 /**
- * R1: the Circle tab. People with keep-in-touch set, most urgent first, each with a status chip, when you were last
+ * The Circle tab. People with keep-in-touch set, most urgent first, each with a status chip, when you were last
  * in touch and one-tap Call / Message. An empty Circle offers "Suggested from your calls"; a search with no match
  * says so (it never claims the Circle is empty).
  */
@@ -93,7 +93,7 @@ fun CircleTab(vm: AppViewModel, open: (String) -> Unit, query: String) {
 }
 
 /**
- * R1: the Circle as a folding section at the top of Favourites, used while the Circle tab is hidden. Shows nothing
+ * The Circle as a folding section at the top of Favourites, used while the Circle tab is hidden. Shows nothing
  * for an empty Circle without suggestions, so Favourites stays as it was for people who don't use it.
  */
 @Composable

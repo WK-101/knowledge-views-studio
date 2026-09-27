@@ -75,7 +75,7 @@ fun IncomingControls(
     call: CallUi, gesture: AnswerGesture, hasActiveCall: Boolean, onMessage: () -> Unit, onBlockAndDecline: (() -> Unit)? = null,
     simple: Boolean = false, confirmDecline: Boolean = false,
 ) {
-    // X4: simple mode asks before declining, so a stray tap never sends a call away.
+    // Simple mode asks before declining, so a stray tap never sends a call away.
     var askDecline by remember { mutableStateOf(false) }
     val decline = { if (confirmDecline) askDecline = true else CallManager.reject(call.id) }
     if (askDecline) DeclineQuestion(onDecline = { askDecline = false; CallManager.reject(call.id) }, onDismiss = { askDecline = false })
@@ -92,7 +92,7 @@ fun IncomingControls(
             }
             Spacer(Modifier.height(28.dp))
         }
-        // V5: on dual-SIM phones, which SIM the call came in on ("Work · …4567"), right on the answer control.
+        // On dual-SIM phones, which SIM the call came in on ("Work · …4567"), right on the answer control.
         val sim = call.simHint
         when (gesture) {
             AnswerGesture.SWIPE -> AnswerSlider(sim, onAnswer = { CallManager.answer(call.id) }, onDecline = decline)
@@ -102,7 +102,7 @@ fun IncomingControls(
             Spacer(Modifier.height(8.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (!call.silenced) TextButton(onClick = { CallManager.ignore(call.id) }) { Text(stringResource(R.string.incall_ignore_stop_ringing)) }
-                // P2: "Block & decline" sits behind ⋮, two deliberate taps, so it can't happen by accident.
+                // "Block & decline" sits behind ⋮, two deliberate taps, so it can't happen by accident.
                 if (onBlockAndDecline != null) BlockAndDeclineMenu(onBlockAndDecline)
             }
         }
@@ -113,7 +113,7 @@ fun IncomingControls(
     }
 }
 
-/** X4: "Decline this call?" (simple mode). */
+/** "Decline this call?" (simple mode). */
 @Composable
 internal fun DeclineQuestion(onDecline: () -> Unit, onDismiss: () -> Unit) {
     androidx.compose.material3.AlertDialog(
@@ -125,7 +125,7 @@ internal fun DeclineQuestion(onDecline: () -> Unit, onDismiss: () -> Unit) {
     )
 }
 
-/** X4: two very large buttons, answer on top (easy to reach and hard to miss), decline below. */
+/** Two very large buttons, answer on top (easy to reach and hard to miss), decline below. */
 @Composable
 private fun SimpleAnswerButtons(sim: String?, onAnswer: () -> Unit, onDecline: () -> Unit) {
     Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -148,7 +148,7 @@ private fun BigAction(icon: androidx.compose.ui.graphics.vector.ImageVector, lab
     }
 }
 
-/** P2: ⋮ on the incoming screen with "Block & decline". */
+/** ⋮ on the incoming screen with "Block & decline". */
 @Composable
 private fun BlockAndDeclineMenu(onBlockAndDecline: () -> Unit) {
     var open by remember { mutableStateOf(false) }
@@ -192,7 +192,7 @@ private fun RoundAction(
     }
 }
 
-/** The SIM a call came in on, as a small tag under the answer control (V5). */
+/** The SIM a call came in on, as a small tag under the answer control. */
 @Composable
 private fun SimTag(text: String, modifier: Modifier = Modifier) {
     Row(
@@ -208,7 +208,7 @@ private fun SimTag(text: String, modifier: Modifier = Modifier) {
 /**
  * Horizontal slide-to-answer: drag right to answer, left to decline. Requires a deliberate drag
  * past 55% of the track, which avoids pocket answers. TalkBack users get explicit actions.
- * The track stays left to right in right-to-left languages too, matching "slide right to answer" (L3).
+ * The track stays left to right in right-to-left languages too, matching "slide right to answer".
  */
 @Composable
 private fun AnswerSlider(sim: String?, onAnswer: () -> Unit, onDecline: () -> Unit) = ForceLtr {

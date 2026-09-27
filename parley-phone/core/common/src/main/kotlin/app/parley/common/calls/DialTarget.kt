@@ -1,6 +1,6 @@
 package app.parley.common.calls
 
-/** P9: the number the keypad's Call button dials. */
+/** The number the keypad's Call button dials. */
 object DialTarget {
     /**
      * The typed number exactly as typed (`*`, `#`, `+`, pauses and waits included): the top search result is only
@@ -13,7 +13,7 @@ object DialTarget {
     }
 }
 
-/** P9: `*#*#1234#*#*` codes are sent to the app that owns them, not dialled. */
+/** `*#*#1234#*#*` codes are sent to the app that owns them, not dialled. */
 object DialCodes {
     private val secret = Regex("^\\*#\\*#([0-9]+)#\\*#\\*$")
 

@@ -69,7 +69,7 @@ import app.parley.ui.SegmentedGroup
 import app.parley.ui.settings.SettingsScaffold
 import app.parley.ui.settings.SwitchRow
 
-/** P1 (v3.4): the contact page's own screens. */
+/** The contact page's own screens. */
 object ContactPageRoutes {
     const val TIMELINE = "contacttimeline/{id}"
     fun timeline(id: Long) = "contacttimeline/$id"
@@ -84,7 +84,7 @@ fun NavGraphBuilder.contactPageRoutes(vm: AppViewModel, nav: NavController) {
 }
 
 /**
- * P1: Settings › Contacts › Contact page sections. Drag a section by its handle to reorder it; each one starts
+ * Settings › Contacts › Contact page sections. Drag a section by its handle to reorder it; each one starts
  * open, folded or hidden (hiding never deletes anything). TalkBack gets "Move up" / "Move down" on each row.
  */
 @Composable

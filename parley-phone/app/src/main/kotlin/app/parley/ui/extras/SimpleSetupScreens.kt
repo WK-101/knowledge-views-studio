@@ -80,7 +80,7 @@ import kotlinx.coroutines.withContext
 private val clearRow @Composable get() = ListItemDefaults.colors(containerColor = Color.Transparent)
 
 /**
- * X4: Settings › Appearance › Simple mode. Choose up to nine people, the options for the incoming screen, and turn
+ * Settings › Appearance › Simple mode. Choose up to nine people, the options for the incoming screen, and turn
  * it on here or hand the setup to another phone as an encrypted file or QR code (and import one).
  */
 @Composable
@@ -213,7 +213,7 @@ private fun SimplePersonPicker(contacts: List<ContactSummary>, taken: Set<String
                     items(shown, key = { it.id }) { c ->
                         ListItem(
                             modifier = Modifier.clickable {
-                                // X4: only plain numbers can go on a tile (no codes, pauses or extensions).
+                                // Only plain numbers can go on a tile (no codes, pauses or extensions).
                                 val numbers = c.phones.map { it.number }.filter { SimpleSetup.dialable(it) != null }.distinct()
                                 if (numbers.size == 1) onPick(c, numbers.first()) else numbersOf = c
                             },
@@ -296,7 +296,7 @@ private fun SimpleQrDialog(cfg: SimpleConfig, onDismiss: () -> Unit) {
 }
 
 /**
- * X4: importing a setup (from a file or a scanned QR code): unlock it, see who it found in this phone's contacts,
+ * Importing a setup (from a file or a scanned QR code): unlock it, see who it found in this phone's contacts,
  * create the missing ones, then use it and turn simple mode on.
  */
 @Composable
@@ -342,7 +342,7 @@ fun SimpleImportScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Uni
         } else {
             val resolved = SimpleSetup.resolve(cfg.people, contacts.orEmpty())
             val skipped = imported?.skipped ?: 0
-            // X4: people whose "number" was a code, a pause or not a phone number at all were left out; say so.
+            // People whose "number" was a code, a pause or not a phone number at all were left out; say so.
             if (skipped > 0) Text(
                 pluralStringResource(R.plurals.simple_skipped, skipped, skipped), style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
@@ -354,7 +354,7 @@ fun SimpleImportScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Uni
                             colors = clearRow,
                             leadingContent = { Avatar(r.person.name, r.contact?.photoUri, 40.dp) },
                             headlineContent = { Text(r.person.name) },
-                            // X4: the number this tile will call is always shown; a contact is "found" only when it has that number.
+                            // The number this tile will call is always shown; a contact is "found" only when it has that number.
                             supportingContent = {
                                 Column {
                                     Text(Bidi.ltr(r.person.number))

@@ -47,7 +47,7 @@ import androidx.compose.ui.res.stringResource
 import app.parley.R
 
 /**
- * H4: saved filter chips for the Recents filter row, plus a "Filter" chip that opens the editor
+ * Saved filter chips for the Recents filter row, plus a "Filter" chip that opens the editor
  * (SIM + type + period + duration). Put it inside the existing chip Row.
  */
 @Composable

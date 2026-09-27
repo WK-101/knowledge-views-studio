@@ -1,7 +1,7 @@
 package app.parley.common.photo
 
 /**
- * C1 (G2): the arithmetic behind the contact photo processor, kept free of Android types so it can be tested.
+ * The arithmetic behind the contact photo processor, kept free of Android types so it can be tested.
  * The processor reads the image size first, decodes at a reduced size ([sampleSize] or [scaledSize]), turns it
  * upright ([ExifTransform]), crops the centre square ([centerSquare]) and writes a [TARGET] px JPEG.
  */
@@ -94,7 +94,7 @@ object PhotoMath {
     }
 
     /**
-     * Q1: size to decode an image of [width]×[height] at so its longer side is at most [maxLong] px, keeping the
+     * Size to decode an image of [width]×[height] at so its longer side is at most [maxLong] px, keeping the
      * aspect ratio. Never enlarges.
      */
     fun fitLongSide(width: Int, height: Int, maxLong: Int): Pair<Int, Int> {
@@ -106,7 +106,7 @@ object PhotoMath {
     }
 
     /**
-     * Q1: longer-side sizes a picture is searched for QR codes at, most promising first: a medium size (fast, and
+     * Longer-side sizes a picture is searched for QR codes at, most promising first: a medium size (fast, and
      * enough for a code that fills a fair part of the photo), then larger for a small or dense code, then small
      * (sensor noise and moiré on screens average out). Sizes the picture doesn't reach are left out.
      */

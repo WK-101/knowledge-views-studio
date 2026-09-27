@@ -12,7 +12,7 @@ data class CallUi(
     val name: String?,
     val label: String?,
     val photoUri: String?,
-    /** The caller's call-screen background (C14), a file in Parley's storage, or null. */
+    /** The caller's call-screen background, a file in Parley's storage, or null. */
     val backgroundUri: String? = null,
     val contactId: Long?,
     val incoming: Boolean,
@@ -36,15 +36,15 @@ data class CallUi(
     val lookupKey: String? = null,
     val note: String? = null,
     val lastCall: String? = null,
-    /** I6: job/company and the "who is this" line of the caller card. */
+    /** Job/company and the "who is this" line of the caller card. */
     val subtitle: String? = null,
     val context: String? = null,
     /** Caller lookup finished and found nobody. */
     val unknown: Boolean = false,
     val location: String? = null,
-    /** Phone account (SIM) of the call, or the one requested when dialling (A10). */
+    /** Phone account (SIM) of the call, or the one requested when dialling. */
     val accountId: String? = null,
-    /** `elapsedRealtime` when the call was put on hold (0 = not held), for "on hold · 02:10" (A2). */
+    /** `elapsedRealtime` when the call was put on hold (0 = not held), for "on hold · 02:10". */
     val heldSinceElapsed: Long = 0,
     /** Why the call rings silently when it isn't a blocking rule (e.g. an allowance is used up). */
     val silenceReason: String? = null,
@@ -53,43 +53,43 @@ data class CallUi(
     val verdictWarn: Boolean = false,
     /** The caller lookup finished and the number is neither a contact nor a private contact (any direction; V4). */
     val noContact: Boolean = false,
-    /** The number of the SIM the call is on, when Android knows it and two SIMs are in use (V5). */
+    /** The number of the SIM the call is on, when Android knows it and two SIMs are in use. */
     val accountNumber: String? = null,
     /** Localised "Private number" / "Unknown", shown when there is neither a name nor a number. */
     val fallbackTitle: String = "",
-    /** P6: why an outgoing call didn't go through (set on the ended call only), and the reason to show. */
+    /** Why an outgoing call didn't go through (set on the ended call only), and the reason to show. */
     val failure: app.parley.common.calls.FailureKind? = null,
     val failureText: String? = null,
-    /** R8/R9: the last note and open promises of the caller. */
+    /** The last note and open promises of the caller. */
     val memory: CallerMemory? = null,
-    /** R8: "Anything to remember?" is offered once the call ends. */
+    /** "Anything to remember?" is offered once the call ends. */
     val memoryPrompt: Boolean = false,
-    /** X4: the user silenced the ringer with a hardware key (volume, power) while this call rang. */
+    /** The user silenced the ringer with a hardware key (volume, power) while this call rang. */
     val systemSilenced: Boolean = false,
-    /** P2: "Block & decline" is writing the rule; the call can't be answered from Parley meanwhile. */
+    /** "Block & decline" is writing the rule; the call can't be answered from Parley meanwhile. */
     val blockingDecline: Boolean = false,
 ) {
     val title: String get() = name ?: number?.takeIf { it.isNotBlank() } ?: fallbackTitle
     val isLive: Boolean get() = state != CallState.DISCONNECTED && state != CallState.DISCONNECTING
 
-    /** "Work · …4567": which SIM a call came in on, for the answer control on dual-SIM phones (V5). */
+    /** "Work · …4567": which SIM a call came in on, for the answer control on dual-SIM phones. */
     val simHint: String?
         get() = accountLabel?.let { l -> listOfNotNull(l, accountNumber?.filter { it.isDigit() }?.takeLast(4)?.takeIf { it.length == 4 }?.let { "…$it" }).joinToString(" · ") }
 
-    /** P2: "Block & decline" is offered for a ringing call with a number (never an emergency call-back). */
+    /** "Block & decline" is offered for a ringing call with a number (never an emergency call-back). */
     val canBlockAndDecline: Boolean
         get() = state == CallState.RINGING && !hidden && !isEmergency && !number.isNullOrBlank() && !blockingDecline
 
-    /** R8: after a call that connected with a contact, "Anything to remember?" (opt-in). */
+    /** After a call that connected with a contact, "Anything to remember?" (opt-in). */
     val memoryCard: Boolean
         get() = memoryPrompt && !noContact && !hidden && !isEmergency && connectTimeMillis > 0 && !number.isNullOrBlank()
 
-    /** Show the post-call card: an ended call with a number that isn't in contacts (V4). */
+    /** Show the post-call card: an ended call with a number that isn't in contacts. */
     val postCallCard: Boolean
         get() = noContact && !hidden && !isEmergency && !number.isNullOrBlank() && number.count { it.isDigit() } >= 3
 }
 
-/** P1/P9: the state as the pure call-waiting logic in core:common sees it. */
+/** The state as the pure call-waiting logic in core:common sees it. */
 fun CallState.live(): app.parley.common.calls.LiveCallState = when (this) {
     CallState.RINGING -> app.parley.common.calls.LiveCallState.RINGING
     CallState.ACTIVE -> app.parley.common.calls.LiveCallState.ACTIVE
@@ -111,10 +111,10 @@ data class AudioUi(
     val hasExternal: Boolean get() = routes.any { it.type == RouteType.BLUETOOTH || it.type == RouteType.WIRED }
 }
 
-/** An outgoing call Parley asked Telecom to place, shown until the call exists (A10). */
+/** An outgoing call Parley asked Telecom to place, shown until the call exists. */
 data class PendingOutgoing(val number: String, val simLabel: String?, val atElapsed: Long)
 
-/** P2: the call the user declined with "Block & decline", for Undo on the call-ended screen. */
+/** The call the user declined with "Block & decline", for Undo on the call-ended screen. */
 data class DeclineBlock(
     val callId: String,
     val number: String,

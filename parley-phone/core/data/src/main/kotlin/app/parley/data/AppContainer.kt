@@ -37,30 +37,30 @@ class DataContainer(context: Context) {
     /** Spam-list packs (device-protected storage). */
     val lists by lazy { SpamListStore(appContext) }
     val dialGuard by lazy { DialGuard(appContext, blocks, lists, { history.calls.value }, contacts) }
-    // X3: a label's SIM for people without a remembered SIM of their own.
+    // A label's SIM for people without a remembered SIM of their own.
     val placer by lazy { CallPlacer(appContext, sims, prefs).also { p -> p.fallbackSim = { n -> extras.labelSimFor(n) } } }
     val records by lazy { ContactRecordStore(appContext) }
     val calling by lazy { app.parley.data.calltime.CallingRepository(appContext) }
     /** Connected calls as the call path saw them, for allowances (a ledger nobody else can clear). */
     val callUsage by lazy { app.parley.data.calltime.CallUsageLedger(db) }
 
-    /** v3.1 call switches (proximity, pocket guard, missed-call re-alert), ring facts (V9) and voicemail (V1). */
+    /** Call switches (proximity, pocket guard, missed-call re-alert), ring facts and voicemail. */
     val callExtras by lazy { app.parley.data.calls.CallExtrasRepository(appContext) }
     val ringFacts: app.parley.data.calls.RingFactsStore by lazy { app.parley.data.calls.RingFactsStore(appContext) { history } }
     val voicemail by lazy { app.parley.data.calls.VoicemailRepository(appContext, scope) }
     val vcards by lazy { VCardIO(appContext, contacts, records) { vault.allNumbers() } }
 
-    /** Lossless moves into and out of the private vault (F4). */
+    /** Lossless moves into and out of the private vault. */
     val vaultMoves by lazy { app.parley.data.vault.VaultMoves(vault, contacts, records) { circle.interactions } }
     val vault by lazy { app.parley.data.vault.VaultRepository(appContext, db, scope) }
     val meta by lazy { db.metaDao() }
     val journal by lazy { JournalRepository(meta, records) }
     val folderSync by lazy { app.parley.data.sync.FolderSync(appContext, contacts, records) }
     val messaging by lazy { app.parley.data.messaging.MessagingStore(appContext, scope) { n -> vault.lookup(n) != null } }
-    /** M11: "Add several numbers…" batches (one undo per batch). */
+    /** "Add several numbers…" batches (one undo per batch). */
     val bulkAdd by lazy { app.parley.data.messaging.BulkAddStore(this) }
     val timeMachine by lazy { app.parley.data.backup.TimeMachine(appContext, records) }
-    /** v3.2: tips seen, "What's new" and the backup reminder (U2, U6, C3). */
+    /** Tips seen, "What's new" and the backup reminder. */
     val ux by lazy { UxPrefs(appContext) }
     val people by lazy { app.parley.data.people.PeopleContainer(this) }
     val backup by lazy {
@@ -94,13 +94,13 @@ class DataContainer(context: Context) {
     /** Moves rows stored under the old last-digits number key to the line key, once (see [PhoneKeyMigrator]). */
     val phoneKeys by lazy { PhoneKeyMigrator(appContext, db, contacts, { history }) { messaging } }
 
-    /** Temporary contacts: the one API to create, mark, keep and expire them (F2). */
+    /** Temporary contacts: the one API to create, mark, keep and expire them. */
     val temporaries by lazy { app.parley.data.people.TemporaryContactStore(this) }
 
-    /** Keeps notes, backgrounds, relation links and temporary flags attached when lookup keys change (F8). */
+    /** Keeps notes, backgrounds, relation links and temporary flags attached when lookup keys change. */
     val contactKeys by lazy { app.parley.data.people.ContactKeys(contacts, meta, { people.backgrounds }, { circle.interactions }, { extras }, db) }
 
-    /** R1–R5: the Circle (keep-in-touch rhythms, interactions, "Log this?", reminder bookkeeping). */
+    /** The Circle (keep-in-touch rhythms, interactions, "Log this?", reminder bookkeeping). */
     val circle by lazy {
         app.parley.data.circle.CircleRepository(
             appContext, meta, app.parley.data.circle.InteractionStore(db.interactionDao()),
@@ -111,10 +111,10 @@ class DataContainer(context: Context) {
     /** Contacts as the screens show them and the number → contact index, shared by the view models. */
     val directory by lazy { ContactDirectory(contacts, settings, PhoneEnv.countryIso(appContext), scope) }
 
-    /** v3.2 extras: trip mode city (X2), label policies (X3), simple mode (X4). */
+    /** Extras: trip mode city, label policies, simple mode. */
     val extras by lazy { app.parley.data.extras.ExtrasStore(this) }
 
-    /** C5: one-way Markdown export of notes and timelines to a folder. */
+    /** One-way Markdown export of notes and timelines to a folder. */
     val markdown by lazy { app.parley.data.extras.MarkdownExport(appContext, this) }
 
     @OptIn(kotlinx.coroutines.FlowPreview::class)

@@ -40,7 +40,7 @@ class ContactMover(private val context: Context, private val contacts: ContactsR
         val raw = record.raws.firstOrNull { it.rawId == rawId } ?: return@withContext Result.Failed(context.getString(R.string.data_move_copy_read_failed))
         if (raw.accountType == target.type && raw.accountName == target.name) return@withContext Result.Failed(context.getString(R.string.data_move_already_there))
         if (AccountRef(raw.accountType, raw.accountName).isLocal && target.isLocal) return@withContext Result.Failed(context.getString(R.string.data_move_already_phone))
-        // The original is deleted after copying, so the copy must land somewhere it can live (F3).
+        // The original is deleted after copying, so the copy must land somewhere it can live.
         if (!contacts.isWritableAccount(target)) return@withContext Result.Failed(context.getString(R.string.data_move_not_writable))
         val oldKey = contacts.lookupKeyOf(contactId)
 
@@ -55,7 +55,7 @@ class ContactMover(private val context: Context, private val contacts: ContactsR
         if (others.isNotEmpty()) setAggregation(listOf(newRaw) + others, AggregationExceptions.TYPE_KEEP_TOGETHER)
         cr.delete(ContentUris.withAppendedId(RawContacts.CONTENT_URI, rawId), null, null)
         val newId = contactIdForRaw(newRaw)
-        // Notes, backgrounds and other Parley data follow the contact to its new key (F8).
+        // Notes, backgrounds and other Parley data follow the contact to its new key.
         if (oldKey != null && newId != null) contacts.notifyRelinked(listOf(contactId to oldKey), "MOVE:$newId")
         contacts.refresh()
         Result.Done(newId)
@@ -91,7 +91,7 @@ class ContactMover(private val context: Context, private val contacts: ContactsR
         emptyList()
     }
 
-    /** Every pair, in batches the provider accepts however many copies there are (F16). */
+    /** Every pair, in batches the provider accepts however many copies there are. */
     private fun setAggregation(raws: List<Long>, type: Int) {
         val ops = Batches.pairs(raws).map { (a, b) ->
             ContentProviderOperation.newUpdate(AggregationExceptions.CONTENT_URI)

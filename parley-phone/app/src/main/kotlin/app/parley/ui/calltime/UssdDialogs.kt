@@ -44,7 +44,7 @@ import app.parley.ui.settings.settingTitle
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberCoroutineScope
 
-/** The carrier's reply to a USSD code (A13). Shown from the root, like the call dialogs. */
+/** The carrier's reply to a USSD code. Shown from the root, like the call dialogs. */
 @Composable
 fun UssdDialog(vm: AppViewModel) {
     val state by vm.ussd.state.collectAsStateWithLifecycle()

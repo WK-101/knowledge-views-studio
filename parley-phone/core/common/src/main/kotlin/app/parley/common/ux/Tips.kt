@@ -1,7 +1,7 @@
 package app.parley.common.ux
 
 /**
- * U2: one-time coach marks. Each mark has a stable id; once dismissed it never shows again until the user picks
+ * One-time coach marks. Each mark has a stable id; once dismissed it never shows again until the user picks
  * "Reset tips". Later features add their own ids here (for example the Circle suggestions or "Log this?").
  */
 object Tips {
@@ -9,19 +9,19 @@ object Tips {
     const val RECENTS_SWIPE = "recents_swipe"
     const val HEADER_SEARCH = "header_search"
 
-    /** X4: "Leave" on the simple home needs a press and hold. */
+    /** "Leave" on the simple home needs a press and hold. */
     const val SIMPLE_LEAVE = "simple_leave"
 
-    /** Q2: the new "Scan QR code" icon in the Contacts header. */
+    /** The new "Scan QR code" icon in the Contacts header. */
     const val CONTACTS_SCAN_QR = "contacts_scan_qr"
 
-    /** S1 (v3.3): the keypad docked in Recents folds away with a swipe down or a scroll, and comes back with its button. */
+    /** The keypad docked in Recents folds away with a swipe down or a scroll, and comes back with its button. */
     const val DOCKED_KEYPAD = "docked_keypad"
 
-    /** S1/S2 (v3.3): the layout options, offered once in the "What's new" card. */
+    /** The layout options, offered once in the "What's new" card. */
     const val LAYOUT_OFFER = "layout_offer"
 
-    /** V34: long-press an app's Message / Voice / Video button in "Reach via apps" to make it the usual way. */
+    /** Long-press an app's Message / Voice / Video button in "Reach via apps" to make it the usual way. */
     const val REACH_USUAL = "reach_usual"
 
     /** Ids are stored comma-separated; anything that isn't a plain id is dropped. */
@@ -41,7 +41,7 @@ object Tips {
 }
 
 /**
- * U6: the "What's new" card. It shows once per app version after an update, as a card the user can dismiss, and
+ * The "What's new" card. It shows once per app version after an update, as a card the user can dismiss, and
  * never after a fresh install (there is nothing "new" yet). It never changes tabs or layout by itself.
  */
 object WhatsNew {

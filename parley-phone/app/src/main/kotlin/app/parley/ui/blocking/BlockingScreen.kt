@@ -163,7 +163,7 @@ fun BlockingScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit = 
         }.take(5)
     }
 
-    // U7: scroll-linked top-bar tint.
+    // Scroll-linked top-bar tint.
     val barScroll = androidx.compose.material3.TopAppBarDefaults.pinnedScrollBehavior()
     Scaffold(modifier = Modifier.nestedScroll(barScroll.nestedScrollConnection), topBar = {
         TopAppBar(title = { Text(stringResource(R.string.blk_title)) }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.set_back)) } }, scrollBehavior = barScroll)
@@ -171,7 +171,7 @@ fun BlockingScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit = 
         LazyColumn(Modifier.padding(p)) {
             item(key = "status") { ScreeningStatusCard(vm) }
 
-            // B21: "Expecting a call" chip in the header.
+            // "Expecting a call" chip in the header.
             item(key = "snooze") {
                 val left = s.snoozeUntil - now
                 Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -191,7 +191,7 @@ fun BlockingScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit = 
                 }
             }
 
-            // B23: visible emergency countdown.
+            // Visible emergency countdown.
             item(key = "emergency-live") {
                 val ends = remember(now) { ScreeningGuard.emergencyWindowEndsAt(context) }
                 if (ends != null) {
@@ -456,7 +456,7 @@ fun BlockingScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit = 
             }
             val shown = log.take(100)
             itemsIndexed(shown, key = { _, e -> "l" + e.id }) { i, e ->
-                // U2: the log as one segmented group.
+                // The log as one segmented group.
                 BlockingCard(app.parley.ui.segmentShape(i, shown.size), vertical = 1.dp) { BlockedLogRow(vm, e) }
             }
         }
@@ -623,7 +623,7 @@ private fun RuleRow(vm: AppViewModel, r: BlockRule, now: Long, onClick: () -> Un
     )
 }
 
-/** Expandable blocked-log row: the stored trace, plus "Not spam", allow for a day, report, delete (B3, B25). */
+/** Expandable blocked-log row: the stored trace, plus "Not spam", allow for a day, report, delete. */
 @Composable
 private fun BlockedLogRow(vm: AppViewModel, e: BlockedCallEntity) {
     val context = LocalContext.current

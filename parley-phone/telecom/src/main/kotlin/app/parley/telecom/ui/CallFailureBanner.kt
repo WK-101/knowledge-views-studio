@@ -32,7 +32,7 @@ import app.parley.telecom.CallUi
 import app.parley.telecom.R
 
 /**
- * P6: an outgoing call that didn't go through: the reason ("Airplane mode is on", "No SIM was chosen", the network's
+ * An outgoing call that didn't go through: the reason ("Airplane mode is on", "No SIM was chosen", the network's
  * own text) and Retry. It stays until the user dismisses it.
  */
 @Composable

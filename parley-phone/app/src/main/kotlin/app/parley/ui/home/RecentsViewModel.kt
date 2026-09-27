@@ -103,7 +103,7 @@ class RecentsViewModel(private val c: DataContainer) : ViewModel() {
     val voicemail get() = c.voicemail.state
 
     /** System call log (plus Parley's archive) + private (vault) calls, newest first. */
-    // V11: until the full log (and the archive) have loaded, the first page of the call log is shown.
+    // Until the full log (and the archive) have loaded, the first page of the call log is shown.
     private val allCalls: StateFlow<List<CallEntry>?> = combine(
         c.history.calls, c.callLog.preview, c.vault.privateCalls, settings.map { it.hideVault }.distinctUntilChanged(),
     ) { full, preview, priv, hidden ->
@@ -112,7 +112,7 @@ class RecentsViewModel(private val c: DataContainer) : ViewModel() {
         (sys + priv.map(CallHistory::privateEntry)).sortedByDescending { it.date }
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_AFTER_MS), null) // merged once, shared by the list and the unreturned count
 
-    // F7: keyed by line (E.164 with this phone's country), so a foreign number sharing the last 9 digits isn't shown as private.
+    // Keyed by line (E.164 with this phone's country), so a foreign number sharing the last 9 digits isn't shown as private.
     private val vaultByKey = c.vault.contacts.map { list -> list.flatMap { v -> v.numbers.map { PhoneIdentity.key(it, countryIso) to v.id } }.toMap() }
 
     /** [allCalls] with the filter chips of the call history applied (SIM, type, period, duration). */
@@ -120,7 +120,7 @@ class RecentsViewModel(private val c: DataContainer) : ViewModel() {
         if (calls == null || f.isEmpty) calls else calls.filter(f.matcher(System.currentTimeMillis(), java.time.ZoneId.systemDefault()))
     }
 
-    // P8: the call-list layout travels with the calls, so Recents regroups when it changes.
+    // The call-list layout travels with the calls, so Recents regroups when it changes.
     private val callsAndLayout = combine(filteredCalls, settings.map { it.recentsLayout }.distinctUntilChanged()) { calls, layout -> calls to layout }
 
     val groups: StateFlow<List<RecentGroup>?> = combine(callsAndLayout, directory.numberIndex, filter, query.debounce(80), vaultByKey) { (calls, layout), index, filter, q, vaults ->
@@ -142,11 +142,11 @@ class RecentsViewModel(private val c: DataContainer) : ViewModel() {
         }
     }
 
-    /** R4: block rules that name numbers (the others go by name, region or line type). */
+    /** Block rules that name numbers (the others go by name, region or line type). */
     private val numberRules = setOf(RuleType.EXACT, RuleType.PREFIX, RuleType.WILDCARD)
 
     /**
-     * R4 (v3.3): ids of missed calls not returned yet, over every call (whatever the filters show), for the Recents
+     * Ids of missed calls not returned yet, over every call (whatever the filters show), for the Recents
      * tint, the Call back pill and the Missed chip's count.
      */
     val unreturnedMissed: StateFlow<Set<Long>> = combine(allCalls, notWorthReturning(), hourly()) { calls, excluded, now ->
@@ -154,7 +154,7 @@ class RecentsViewModel(private val c: DataContainer) : ViewModel() {
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_AFTER_MS), emptySet())
 
     /**
-     * R4: numbers whose missed calls aren't worth a "call back": on the system block list, caught by a block rule, or
+     * Numbers whose missed calls aren't worth a "call back": on the system block list, caught by a block rule, or
      * last screened as blocked, reported or likely spam.
      */
     private fun notWorthReturning() = combine(c.blocks.systemList, c.blocks.rules, c.blocks.verdictIndex) { system, rules, verdicts ->
@@ -185,7 +185,7 @@ class RecentsViewModel(private val c: DataContainer) : ViewModel() {
         val tz = TimeZone.getDefault()
         val privateNumber = c.appContext.getString(R.string.main_private_number)
         val unknown = c.appContext.getString(R.string.main_unknown)
-        // P8: grouped (consecutive calls on one day), chronological (one row per call) or one row per number per day.
+        // Grouped (consecutive calls on one day), chronological (one row per call) or one row per number per day.
         val rows = RecentsGrouping.group(filtered, layout, ::keyOf) { e -> ListSections.localDay(e.date, tz) }
         val grouped = rows.map { list ->
             val e = list.first()
@@ -220,7 +220,7 @@ class RecentsViewModel(private val c: DataContainer) : ViewModel() {
         /** Rows whose place name is looked up ahead of scrolling. */
         const val LOCATIONS_AHEAD = 300
 
-        /** R4: the time the 7-day window of [unreturnedMissed] is measured from, moved on hourly. */
+        /** The time the 7-day window of [unreturnedMissed] is measured from, moved on hourly. */
         fun hourly(): Flow<Long> = flow {
             while (true) {
                 emit(System.currentTimeMillis())

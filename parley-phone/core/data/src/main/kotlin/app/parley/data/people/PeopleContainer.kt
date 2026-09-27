@@ -39,9 +39,9 @@ class PeopleContainer(private val c: DataContainer) {
     val audit by lazy { ContactsAudit(c.appContext) }
     val privateNames by lazy { PrivateNameAccess(c.appContext) }
     val diagnostics by lazy { Diagnostics(c.appContext) }
-    /** I2: your own card. */
+    /** Your own card. */
     val me by lazy { MeCardStore(c.appContext) }
-    /** U10: opt-in local crash capture. */
+    /** Opt-in local crash capture. */
     val crashes by lazy { CrashStore(c.appContext) }
     val backupExtras: BackupExtras by lazy { PeopleBackupExtras(this, c) }
 

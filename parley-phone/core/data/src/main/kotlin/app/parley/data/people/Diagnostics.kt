@@ -92,7 +92,7 @@ class Diagnostics(private val context: Context) {
     }
 
     /**
-     * U10: the contacts tables as the provider holds them (raw contacts and their data rows), for problems that
+     * The contacts tables as the provider holds them (raw contacts and their data rows), for problems that
      * depend on how an account stored something. Content is never included: each value is replaced by its shape
      * ("Aaaa +99 9923", see [app.parley.common.people.Reports.shape]); account names are masked like e-mail
      * addresses. At most [maxRows] data rows.

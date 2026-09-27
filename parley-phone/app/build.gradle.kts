@@ -13,7 +13,7 @@ val keystoreProps = Properties().apply {
     if (f.exists()) f.inputStream().use { load(it) }
 }
 
-// G1/D1: sign the release only when a keystore is configured (keystore.properties or PARLEY_KEYSTORE). F-Droid
+// Sign the release only when a keystore is configured (keystore.properties or PARLEY_KEYSTORE). F-Droid
 // deletes the `signingConfigs { }` block and every line starting with `signingConfig =` before it builds, so no line
 // that survives that strip may refer to the signing config. Without a keystore, assembleRelease is unsigned.
 // Checked by tools/fdroid-strip-check.sh.
@@ -27,7 +27,7 @@ android {
         applicationId = "app.parley.phone"
         minSdk = 29
         targetSdk = 36
-        // D4: keep these two plain literals. F-Droid's update check reads them line by line with a regex and can't
+        // Keep these two plain literals. F-Droid's update check reads them line by line with a regex and can't
         // follow a variable or an expression. Bump both for a release, then tag v<versionName> (docs/RELEASING.md).
         versionCode = 8
         versionName = "3.4.1"
@@ -54,7 +54,7 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            // G1: after F-Droid's strip this is an empty `if`; the line inside is the only reference to the config.
+            // After F-Droid's strip this is an empty `if`; the line inside is the only reference to the config.
             if (releaseStorePath != null) {
                 signingConfig = signingConfigs.findByName("release")
             }
@@ -70,7 +70,7 @@ android {
 
     buildFeatures { compose = true }
 
-    // L1: per-app language. The locale list (android:localeConfig) is generated from the values-* folders, with
+    // Per-app language. The locale list (android:localeConfig) is generated from the values-* folders, with
     // res/resources.properties naming the language of the default strings.
     androidResources { generateLocaleConfig = true }
     // The in-app language picker (Android 10-12) needs every language in the APK, also when built as a bundle.

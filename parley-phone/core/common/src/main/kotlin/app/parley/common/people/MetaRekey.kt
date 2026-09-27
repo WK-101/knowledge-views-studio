@@ -40,9 +40,9 @@ object MetaRekey {
         val reachOutDays: Int? = null,
         val lastNudgedAt: Long? = null,
         val relationLinks: String? = null,
-        /** R4: the Circle rhythm ([app.parley.common.circle.KeepRhythm]). */
+        /** The Circle rhythm ([app.parley.common.circle.KeepRhythm]). */
         val rhythm: String? = null,
-        /** R10: life events remembered yearly ([app.parley.common.circle.YearlyEvents]). */
+        /** Life events remembered yearly ([app.parley.common.circle.YearlyEvents]). */
         val yearlyEvents: String? = null,
     )
 

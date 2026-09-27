@@ -5,7 +5,7 @@ import app.parley.R
 import app.parley.common.people.RelationType
 import app.parley.common.people.RelationTypes
 
-/** I5: localised names of the relation types. The stored value stays the English label (see [RelationTypes]). */
+/** Localised names of the relation types. The stored value stays the English label (see [RelationTypes]). */
 object RelationText {
     fun label(res: Resources, t: RelationType): String = labelRes(t)?.let(res::getString) ?: t.label
 

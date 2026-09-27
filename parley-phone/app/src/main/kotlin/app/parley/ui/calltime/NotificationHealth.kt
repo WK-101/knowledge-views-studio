@@ -50,7 +50,7 @@ import app.parley.ui.CallColors
 import app.parley.ui.settings.bidiLtr
 import app.parley.ui.settings.settingTitle
 
-/** One thing that decides whether calls reliably show up (A4). */
+/** One thing that decides whether calls reliably show up. */
 data class HealthCheck(
     val key: String,
     val title: String,
@@ -120,7 +120,7 @@ private fun rememberFixer(vm: AppViewModel, onDone: () -> Unit = {}): (HealthChe
     }
 }
 
-/** "Calls will reach you" card on the privacy dashboard: each check with a one-tap fix (A4). */
+/** "Calls will reach you" card on the privacy dashboard: each check with a one-tap fix. */
 @Composable
 fun NotificationHealthCard(vm: AppViewModel) {
     // Coming back from the fix screen resumes this screen, which checks again.
@@ -156,7 +156,7 @@ fun NotificationHealthCard(vm: AppViewModel) {
 }
 
 /**
- * Home banner when something stops calls from showing (A4). Dismissing hides it until a different problem
+ * Home banner when something stops calls from showing. Dismissing hides it until a different problem
  * appears.
  */
 @Composable

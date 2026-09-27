@@ -10,7 +10,7 @@ import kotlinx.coroutines.launch
 
 /** Quick Settings tile: hide/show private contacts instantly (discreet mode). */
 class VaultTileService : TileService() {
-    // L1: the in-app language on Android 10-12 (Android 13+ applies per-app languages itself).
+    // The in-app language on Android 10-12 (Android 13+ applies per-app languages itself).
     override fun attachBaseContext(newBase: android.content.Context) {
         super.attachBaseContext(app.parley.ui.AppLocale.wrap(newBase))
     }

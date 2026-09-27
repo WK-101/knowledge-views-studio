@@ -40,7 +40,7 @@ private fun versionInfo(context: Context): Pair<Int, Boolean> = runCatching {
 }.getOrDefault(0 to true)
 
 /**
- * U6: "What's new" once per update, as a card at the top of home that the user dismisses (never a screen in the
+ * "What's new" once per update, as a card at the top of home that the user dismisses (never a screen in the
  * way). The layout promise comes first: an update never changes the tab order, the start tab or the call list;
  * anything new arrives switched off and "Try it" opens where it can be turned on.
  */
@@ -53,7 +53,7 @@ fun WhatsNewCard(vm: AppViewModel, open: (String) -> Unit, modifier: Modifier = 
     // A fresh install has nothing "new": remember this version quietly.
     LaunchedEffect(decision) { if (decision == WhatsNew.Decision.MARK_SEEN) vm.c.ux.setWhatsNewSeen(version) }
     if (decision != WhatsNew.Decision.SHOW) return
-    // S1/S2 (v3.3): the combine options are offered once, here, and only switched on from Settings (never automatically).
+    // The combine options are offered once, here, and only switched on from Settings (never automatically).
     val settings by vm.settings.collectAsStateWithLifecycle()
     val offerLayout = app.parley.common.ux.Tips.LAYOUT_OFFER !in ux.seenTips && !settings.surfaces.merged
     fun seen() {

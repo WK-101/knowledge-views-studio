@@ -82,7 +82,7 @@ internal fun typeLabel(t: RuleType) = stringResource(
 private val LINE_TYPES = listOf(LineType.VOIP, LineType.PREMIUM_RATE, LineType.SHARED_COST, LineType.TOLL_FREE, LineType.UAN, LineType.PERSONAL_NUMBER, LineType.MOBILE, LineType.FIXED_LINE)
 
 /**
- * Full rule editor (B1, B9, B16, B17, B18, B20, B24, B6): allow or block, what to match with a live preview,
+ * Full rule editor: allow or block, what to match with a live preview,
  * SIM, schedule, notification, ringtone, expiry, and "try it on last week" before saving.
  */
 @OptIn(ExperimentalMaterial3Api::class)

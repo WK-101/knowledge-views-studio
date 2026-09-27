@@ -41,7 +41,7 @@ import androidx.lifecycle.lifecycleScope
 import app.parley.common.calls.CallWaiting
 
 class InCallActivity : ComponentActivity() {
-    // L1: the in-app language on Android 10-12 (Android 13+ applies per-app languages itself).
+    // The in-app language on Android 10-12 (Android 13+ applies per-app languages itself).
     override fun attachBaseContext(newBase: android.content.Context) {
         super.attachBaseContext(newBase)
         app.parley.ui.AppLocale.override(this, newBase)
@@ -49,13 +49,13 @@ class InCallActivity : ComponentActivity() {
 
     private var showDialpad by mutableStateOf(false)
 
-    /** P1: shown as a picture-in-picture window. */
+    /** Shown as a picture-in-picture window. */
     private var inPip by mutableStateOf(false)
 
-    /** P1: Parley is opening one of its own screens (Add call, a contact): no PiP then, the Return to call chip leads back. */
+    /** Parley is opening one of its own screens (Add call, a contact): no PiP then, the Return to call chip leads back. */
     private var leavingForApp = false
 
-    /** X4: the call whose notification Decline was tapped with "Confirm before declining" on: ask here first. */
+    /** The call whose notification Decline was tapped with "Confirm before declining" on: ask here first. */
     private var askDeclineFor by mutableStateOf<String?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -75,15 +75,15 @@ class InCallActivity : ComponentActivity() {
             val ended by CallManager.lastEnded.collectAsStateWithLifecycle()
             val declineBlock by CallManager.declineBlock.collectAsStateWithLifecycle()
             var keypad by remember { mutableStateOf(showDialpad) }
-            // G3/P3: "Hide screen content" covers the call screen too.
+            // "Hide screen content" covers the call screen too.
             LaunchedEffect(look.secureScreen, look.loaded) { applySecure(look) }
-            // P1: the PiP actions (mute state) and whether leaving may enter PiP follow the calls.
+            // The PiP actions (mute state) and whether leaving may enter PiP follow the calls.
             LaunchedEffect(calls, audio.muted) { updatePip() }
-            // P6: an outgoing call that didn't go through keeps the screen (reason and Retry) until dismissed. CallManager
+            // An outgoing call that didn't go through keeps the screen (reason and Retry) until dismissed. CallManager
             // drops the failure once it's dismissed or a newer call starts, so it's never stale.
             val failed = ended?.takeIf { e -> e.failure != null && calls.none { it.id == e.id && it.isLive } }
             LaunchedEffect(failed?.id) { if (failed != null && CallManager.state.value.none { it.isLive }) keepEnded = true }
-            // P2: on the call-ended screen for that call, or above a call that goes on (call waiting, a second call).
+            // On the call-ended screen for that call, or above a call that goes on (call waiting, a second call).
             val blockedHere = declineBlock?.takeIf { b ->
                 calls.none { it.id == b.callId && it.isLive } && (b.callId == ended?.id || calls.any { it.isLive })
             }
@@ -95,15 +95,15 @@ class InCallActivity : ComponentActivity() {
             }
             LaunchedEffect(calls.isEmpty(), keepEnded) {
                 if (calls.isEmpty() && !keepEnded) {
-                    // V4: the post-call card for an unknown number stays a little longer, and for good once touched.
+                    // The post-call card for an unknown number stays a little longer, and for good once touched.
                     val last = CallManager.lastEnded.value
-                    // P2: so does the "Blocked · Undo" card after Block & decline.
+                    // So does the "Blocked · Undo" card after Block & decline.
                     val lingers = last?.postCallCard == true || last?.memoryCard == true || (last != null && CallManager.declineBlock.value?.callId == last.id)
                     delay(if (lingers && !inPip) POST_CALL_CARD_MS else ENDED_MS)
                     if (CallManager.state.value.isEmpty() && !keepEnded) finishAndRemoveTask()
                 }
             }
-            // X4: the caller's name, spoken while it rings (simple mode, when chosen). Never for a call waiting during
+            // The caller's name, spoken while it rings (simple mode, when chosen). Never for a call waiting during
             // another call (Telecom doesn't ring then), and never once the ringer was silenced, here or with a key.
             val ringingCall = calls.firstOrNull { it.state == CallState.RINGING }
                 ?.takeIf { r -> !r.silenced && !r.systemSilenced && calls.none { it.id != r.id && it.isLive && it.state != CallState.RINGING } }
@@ -140,14 +140,14 @@ class InCallActivity : ComponentActivity() {
         }
     }
 
-    /** P1: opens one of Parley's own screens without turning the call screen into a PiP window. */
+    /** Opens one of Parley's own screens without turning the call screen into a PiP window. */
     private fun startOwnScreen(intent: Intent) {
         leavingForApp = true
         updatePip()
         runCatching { startActivity(intent) }
     }
 
-    /** P6: Retry on the failure banner: the same number, on the same SIM. */
+    /** Retry on the failure banner: the same number, on the same SIM. */
     private fun retry(c: CallUi) {
         val number = c.number ?: return
         CallManager.dismissFailure(c.id)
@@ -163,13 +163,13 @@ class InCallActivity : ComponentActivity() {
         }
     }
 
-    /** G3/P3: like AppLock.applySecureFlag. Until the stored settings are read, the screen stays secure. */
+    /** Like AppLock.applySecureFlag. Until the stored settings are read, the screen stays secure. */
     private fun applySecure(look: InCallAppearance) {
         if (!look.loaded || look.secureScreen) window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
         else window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
     }
 
-    // ---- P1: picture-in-picture ----
+    // ---- Picture-in-picture ----
 
     private fun pipSupported(): Boolean = packageManager.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)
 
@@ -230,7 +230,7 @@ class InCallActivity : ComponentActivity() {
         inPip = isInPictureInPictureMode
     }
 
-    /** The call-ended screen stays up while the user uses the post-call card (V4). */
+    /** The call-ended screen stays up while the user uses the post-call card. */
     private var keepEnded by mutableStateOf(false)
 
     private fun onPostCall(choice: PostCallChoice) {
@@ -245,7 +245,7 @@ class InCallActivity : ComponentActivity() {
                 Intent(ACTION_MESSAGE_ON).setClassName(packageName, MESSAGE_ON_ACTIVITY).putExtra("number", choice.number)
                     .apply { choice.accountId?.let { putExtra("account_id", it) } }
             }
-            // R8: saved without unlocking (like a note during the call); nothing is shown back.
+            // Saved without unlocking (like a note during the call); nothing is shown back.
             is PostCallChoice.Remember -> {
                 runCatching { deps.rememberAfterCall(choice.number, choice.connectTimeMillis, choice.note, choice.followUpDays) }
                 Toast.makeText(this, getString(app.parley.telecom.R.string.memory_saved), Toast.LENGTH_SHORT).show()
@@ -285,7 +285,7 @@ class InCallActivity : ComponentActivity() {
             intent.getStringExtra(CallActionReceiver.EXTRA_ID)?.let { CallManager.answer(it) }
             setIntent(Intent(intent).setAction(null))
         }
-        // X4: Decline from the notification with "Confirm before declining" on: the question, on this screen.
+        // Decline from the notification with "Confirm before declining" on: the question, on this screen.
         if (intent?.action == ACTION_ASK_DECLINE) {
             askDeclineFor = intent.getStringExtra(CallActionReceiver.EXTRA_ID)
             setIntent(Intent(intent).setAction(null))

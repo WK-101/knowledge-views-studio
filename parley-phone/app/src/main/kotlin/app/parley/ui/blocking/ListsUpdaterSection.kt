@@ -44,7 +44,7 @@ import app.parley.data.SpamListStore
 import kotlinx.coroutines.launch
 
 /**
- * Spam lists › "Get automatic updates (optional app)" (B4c). Parley never touches the internet: the optional
+ * Spam lists › "Get automatic updates (optional app)". Parley never touches the internet: the optional
  * Parley Lists app downloads public lists, and Parley copies and verifies them through a protected link.
  */
 @Composable

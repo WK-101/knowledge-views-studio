@@ -73,7 +73,7 @@ private const val CONTENT_CONTACT = "contact"
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ContactsTab(vm: AppViewModel, open: (String) -> Unit, onReorderFavorites: () -> Unit = {}) {
-    // P9: the rows with their letter headers, worked out once per list change (PeopleUi.listing).
+    // The rows with their letter headers, worked out once per list change (PeopleUi.listing).
     val listing by vm.people.listing.collectAsStateWithLifecycle()
     val query by vm.contactQuery.collectAsStateWithLifecycle()
     val selection by vm.selection.collectAsStateWithLifecycle()
@@ -87,7 +87,7 @@ fun ContactsTab(vm: AppViewModel, open: (String) -> Unit, onReorderFavorites: ()
     val peopleSettings by vm.people.settings.collectAsStateWithLifecycle()
     val hints by vm.people.searchHints.collectAsStateWithLifecycle()
     val index by vm.people.index.collectAsStateWithLifecycle()
-    // M7: the row's message button and a "Message" swipe use each person's usual way to message.
+    // The row's message button and a "Message" swipe use each person's usual way to message.
     val (quick, quickHost) = app.parley.ui.contact.rememberQuickMessenger(vm)
     if (showVault && !settings.hideVault) {
         LazyColumn(Modifier.fillMaxSize()) {
@@ -95,7 +95,7 @@ fun ContactsTab(vm: AppViewModel, open: (String) -> Unit, onReorderFavorites: ()
             val shown = vaultList.filter { app.parley.common.TextSearch.matches(query, it.name, it.numbers) }
             if (shown.isEmpty()) {
                 item {
-                    // U5: no match (clear the search) or none yet (create one).
+                    // No match (clear the search) or none yet (create one).
                     if (query.isNotBlank()) {
                         EmptyState(
                             androidx.compose.material.icons.Icons.Rounded.Lock, stringResource(R.string.contacts_no_matches, query), modifier = Modifier.padding(top = 32.dp),
@@ -133,9 +133,9 @@ fun ContactsTab(vm: AppViewModel, open: (String) -> Unit, onReorderFavorites: ()
     val state = rememberLazyListState()
     val scope = rememberCoroutineScope()
     // Build (index of first item for each section) for the fast-scroll rail.
-    // I2: "My card" leads the list when nothing is being searched or filtered.
+    // "My card" leads the list when nothing is being searched or filtered.
     val showMe = query.isBlank() && filter.isEmpty && selection.isEmpty()
-    // S2 (v3.3): the favourites (and the Circle, when it moved with them) under "My card", while not searching.
+    // The favourites (and the Circle, when it moved with them) under "My card", while not searching.
     val layout = settings.homeLayout
     val showFavorites = showMe && layout.favoritesInContacts
     val showCircle = showFavorites && layout.circleHost == app.parley.common.StartTab.CONTACTS
@@ -160,7 +160,7 @@ fun ContactsTab(vm: AppViewModel, open: (String) -> Unit, onReorderFavorites: ()
                             else -> stringResource(R.string.contacts_none)
                         },
                         modifier = Modifier.padding(top = 48.dp),
-                        // U5: one way on for each case.
+                        // One way on for each case.
                         action = stringResource(
                             when {
                                 query.isNotBlank() -> R.string.ux_empty_clear_search
@@ -192,7 +192,7 @@ fun ContactsTab(vm: AppViewModel, open: (String) -> Unit, onReorderFavorites: ()
                 val c = (row as ListSections.Row.Item).item
                 item(key = c.id, contentType = CONTENT_CONTACT) {
                     val number = (c.phones.firstOrNull { it.isPrimary } ?: c.phones.firstOrNull())?.number
-                    // U4: opt-in swipe actions (never while selecting).
+                    // Opt-in swipe actions (never while selecting).
                     app.parley.ui.people.SwipeActionRow(
                         if (selection.isEmpty()) peopleSettings.swipe else peopleSettings.swipe.copy(enabled = false),
                         hasNumber = number != null, canDelete = true, listState = state,
@@ -223,7 +223,7 @@ fun ContactsTab(vm: AppViewModel, open: (String) -> Unit, onReorderFavorites: ()
             }
         }
         if (query.isBlank() && count > 30) {
-            // A4 (v3.4): "★" jumps to the favourites when they're at the top of Contacts.
+            // "★" jumps to the favourites when they're at the top of Contacts.
             val favIndex = 1 + (if (showMe) 1 else 0)
             val letters = remember(sections, showFavorites) { (if (showFavorites) listOf(FAVOURITES_MARK) else emptyList()) + sections.keys }
             val starts = remember(sections, showFavorites, favIndex) { (if (showFavorites) listOf(favIndex) else emptyList()) + sections.values }
@@ -246,9 +246,9 @@ fun ContactRow(
     selected: Boolean = false,
     selectionMode: Boolean = false,
     onLongClick: (() -> Unit)? = null,
-    /** M7: the message button; by default a text message to the number. */
+    /** The message button; by default a text message to the number. */
     onMessage: ((String) -> Unit)? = null,
-    /** U6: a contact that is only a company gets a building in lists too. */
+    /** A contact that is only a company gets a building in lists too. */
     isCompany: Boolean = false,
     onClick: () -> Unit,
 ) {
@@ -285,5 +285,5 @@ fun ContactRow(
     )
 }
 
-/** A4: the rail entry for the favourites section. */
+/** The rail entry for the favourites section. */
 private const val FAVOURITES_MARK = "\u2605"

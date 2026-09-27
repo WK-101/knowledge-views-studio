@@ -3,7 +3,7 @@ package app.parley.common.people
 import app.parley.common.MessengerApp
 
 /**
- * M7: a contact's preferred ways to reach them, stored in `contact_meta.preferredMessenger` (for private contacts in
+ * A contact's preferred ways to reach them, stored in `contact_meta.preferredMessenger` (for private contacts in
  * their encrypted record).
  *
  * Compatible with what older versions stored there: a bare account type such as `com.whatsapp` meant "call with

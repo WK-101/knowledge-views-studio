@@ -89,7 +89,7 @@ import kotlinx.coroutines.withContext
 private enum class Where { CONTACTS, PRIVATE, TEMPORARY }
 
 /**
- * M11 "Add several numbers…" (Contacts ⋮, and "Save all…" on the number sheet): paste or share text, review every
+ * "Add several numbers…" (Contacts ⋮, and "Save all…" on the number sheet): paste or share text, review every
  * number found (already a contact, already private, repeated, invalid), name them with a pattern and save them to a
  * label in an account, privately, or as temporary contacts. One batch, one "Undo this batch"; the batch is kept for
  * 30 days so it can still be deleted later, and the people can be greeted with "Introduce myself…".
@@ -404,7 +404,7 @@ private fun CandidateRow(c: BulkAdd.Candidate, checked: Boolean, region: String,
             Text(listOfNotNull(status, where, c.raw.takeIf { it != shown }?.let { "“$it”" }).joinToString(stringResource(R.string.main_separator)), maxLines = 2, overflow = TextOverflow.Ellipsis)
         },
         leadingContent = { Checkbox(checked, onCheckedChange = null, enabled = c.selectable) },
-        // C2: any number found can be called before (or instead of) saving it.
+        // Any number found can be called before (or instead of) saving it.
         trailingContent = {
             IconButton({ onCall(c.e164 ?: c.raw) }) {
                 androidx.compose.material3.Icon(

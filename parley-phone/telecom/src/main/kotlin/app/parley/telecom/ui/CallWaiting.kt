@@ -60,7 +60,7 @@ import app.parley.ui.Avatar
 import app.parley.ui.CallColors
 
 /**
- * The call you're on, dimmed at the top while another call is waiting (A1). It stays readable: the name and
+ * The call you're on, dimmed at the top while another call is waiting. It stays readable: the name and
  * the running time, and what answering will do to it.
  */
 @Composable
@@ -95,13 +95,13 @@ internal fun CurrentCallCard(call: CallUi, canHold: Boolean, modifier: Modifier 
 }
 
 /**
- * The waiting call, sliding up as a sheet with Hold & answer · End & answer · Decline · Reply (A1). It can't be
+ * The waiting call, sliding up as a sheet with Hold & answer · End & answer · Decline · Reply. It can't be
  * swiped away: the call keeps ringing until one of the choices is made.
  */
 @Composable
 internal fun CallWaitingSheet(ringing: CallUi, current: CallUi?, heldCount: Int, confirmDecline: Boolean = false, onReply: () -> Unit) {
     val active = current?.takeIf { it.state == CallState.ACTIVE }
-    // X4: with "Confirm before declining" on, Decline asks first here too, like the incoming screen.
+    // With "Confirm before declining" on, Decline asks first here too, like the incoming screen.
     var askDecline by remember { mutableStateOf(false) }
     val decline = { if (confirmDecline) askDecline = true else CallManager.reject(ringing.id) }
     if (askDecline) DeclineQuestion(onDecline = { askDecline = false; CallManager.reject(ringing.id) }, onDismiss = { askDecline = false })

@@ -6,7 +6,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** K3 every number, K7 text search, K9 narrowing, A7 redial. */
+/** Every number, text search, narrowing, redial. */
 class DialSearchTest {
     private fun contact(id: Long, name: String, vararg phones: PhoneEntry) =
         ContactSummary(id, "k$id", name, null, false, phones.toList())
@@ -104,7 +104,7 @@ class DialSearchTest {
         assertTrue(DialSearch().search("*#06#", entries(john), emptyList()).isEmpty())
     }
 
-    // ---- A7: Call with nothing typed recalls the last number you called ----
+    // ---- Call with nothing typed recalls the last number you called ----
 
     @Test fun empty_call_press_recalls_last_outgoing_number() {
         val calls = listOf(

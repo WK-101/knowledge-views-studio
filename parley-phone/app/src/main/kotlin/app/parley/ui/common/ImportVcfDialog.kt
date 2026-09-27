@@ -36,7 +36,7 @@ fun ImportVcfDialog(vm: AppViewModel, uri: Uri, onDone: () -> Unit) {
     var result by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(uri) { accounts = withContext(Dispatchers.IO) { vm.c.contacts.accounts() } }
     val res = LocalResources.current
-    // C2: a large file offers "Back up first?" before the import starts.
+    // A large file offers "Back up first?" before the import starts.
     val backupFirst = app.parley.ui.backup.rememberBackupFirst(vm)
     // The decision waits for the count (the rows can't be tapped before it's in); a count that can't be taken asks.
     var count by remember { mutableStateOf<Int?>(null) }

@@ -8,7 +8,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** V34: messenger mimetype → app and action, grouping per number, and honest call routes. */
+/** Messenger mimetype → app and action, grouping per number, and honest call routes. */
 class ReachAppsTest {
     private val item = MessengerMimes.ITEM
 
@@ -172,7 +172,7 @@ class ReachAppsTest {
         assertNotNull(ReachApp.forMessengerApp(MessengerApp.forPackage("org.telegram.messenger.web")!!))
     }
 
-    // ---- v3.4 review #5: messenger-only contacts match exact numbers only ----
+    // ---- messenger-only contacts match exact numbers only ----
 
     @Test fun messenger_only_rows_need_an_exact_number() {
         // No SIM country: national numbers don't parse, and the last nine digits are the same.

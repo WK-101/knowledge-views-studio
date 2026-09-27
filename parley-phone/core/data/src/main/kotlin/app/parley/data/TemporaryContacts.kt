@@ -6,7 +6,7 @@ import android.provider.ContactsContract
  * Temporary contacts: a name and a number that delete themselves (and, by default, their call history) after a
  * few days. Used after messaging an unsaved number ("Chat, then decide", "Save as a temporary contact").
  *
- * F5: they are **private** by default: kept in Parley's encrypted vault with an expiry, so WhatsApp and every other
+ * They are **private** by default: kept in Parley's encrypted vault with an expiry, so WhatsApp and every other
  * app that can read contacts never sees them. [save] with `private = false` ("Save visible to other apps") keeps
  * the old behaviour, a phone-only system contact.
  *
@@ -39,7 +39,7 @@ object TemporaryContacts {
         val expiresAt = now + days * 86_400_000L
         if (private) {
             val id = c.vault.save(null, details, expiresAt = expiresAt, purgeHistory = purgeHistory)
-            // F13: vault numbers are never kept in the "last messaged" record.
+            // Vault numbers are never kept in the "last messaged" record.
             c.messaging.forget(number)
             return Saved(id, private = true)
         }

@@ -3,7 +3,7 @@ package app.parley.common.qr
 import app.parley.common.record.ContactRecord
 
 /**
- * Q1: what a scanned (or pasted) QR code holds, classified by [QrParser]. Every payload is untrusted: the app shows
+ * What a scanned (or pasted) QR code holds, classified by [QrParser]. Every payload is untrusted: the app shows
  * it in plain words and acts only on the user's tap, never by itself, and never looks anything up on the network.
  * [raw] is the whole text as scanned (capped at [QrParser.MAX_INPUT]).
  */

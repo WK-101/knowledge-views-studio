@@ -11,7 +11,7 @@ class CallWaitingTest {
 
     private fun slots(vararg c: C) = CallWaiting.slots(c.toList()) { it.s }
 
-    // ---- P9 / A1: call waiting
+    // ---- Call waiting
 
     @Test fun a_second_ringing_call_is_call_waiting() {
         val s = slots(C("a", LiveCallState.ACTIVE), C("b", LiveCallState.RINGING))
@@ -34,7 +34,7 @@ class CallWaitingTest {
         assertNull(slots().primary)
     }
 
-    // ---- P1: picture-in-picture
+    // ---- Picture-in-picture
 
     @Test fun pip_never_for_ringing_calls_or_the_sim_picker() {
         val pip = { l: List<C> -> CallWaiting.pipAllowed(l, { it.s }, { it.sim }) }

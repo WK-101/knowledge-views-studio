@@ -1,6 +1,6 @@
 package app.parley.common.calls
 
-/** P8: how Recents lists calls. */
+/** How Recents lists calls. */
 enum class RecentsLayout {
     /** Calls in a row from the same number on the same day share one row (the layout Parley always had). */
     GROUPED,
@@ -12,7 +12,7 @@ enum class RecentsLayout {
     BY_DAY,
 }
 
-/** P8: turns a newest-first call list into Recents rows for a [RecentsLayout]. */
+/** Turns a newest-first call list into Recents rows for a [RecentsLayout]. */
 object RecentsGrouping {
     /**
      * [items] must be newest first. [key] identifies the caller (the same key = the same row), [day] the local day.

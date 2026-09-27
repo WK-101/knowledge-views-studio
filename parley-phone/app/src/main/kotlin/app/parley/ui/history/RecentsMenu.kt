@@ -34,9 +34,9 @@ import app.parley.ui.settings.settingTitle
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 
-// ---------------------------------------------------------------- P8: call-list layout
+// ---------------------------------------------------------------- Call-list layout
 
-/** P8: the names of the three layouts, in [RecentsLayout] order. */
+/** The names of the three layouts, in [RecentsLayout] order. */
 @Composable
 fun recentsLayoutLabels(): List<String> = listOf(
     stringResource(R.string.recents_layout_grouped),
@@ -47,7 +47,7 @@ fun recentsLayoutLabels(): List<String> = listOf(
 private val layoutRequested = MutableStateFlow(false)
 private val clearRequested = MutableStateFlow(false)
 
-/** P8: Recents ⋮ › "Call list layout" (the quick toggle; the same setting is in Settings › Recents & history). */
+/** Recents ⋮ › "Call list layout" (the quick toggle; the same setting is in Settings › Recents & history). */
 @Composable
 fun RecentsLayoutMenuItem(vm: AppViewModel, closeMenu: () -> Unit) {
     val s by vm.settings.collectAsStateWithLifecycle()
@@ -61,7 +61,7 @@ fun RecentsLayoutMenuItem(vm: AppViewModel, closeMenu: () -> Unit) {
     )
 }
 
-/** P5: Recents ⋮ › "Clear call history…". */
+/** Recents ⋮ › "Clear call history…". */
 @Composable
 fun ClearHistoryMenuItem(closeMenu: () -> Unit) {
     DropdownMenuItem({ Text(stringResource(R.string.clear_history_menu)) }, leadingIcon = { Icon(Icons.Rounded.DeleteSweep, null) }, onClick = {

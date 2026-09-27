@@ -29,7 +29,7 @@ import app.parley.messaging.MyDetailsDialog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-/** Settings › Keypad: "Keypad letters" (K6). */
+/** Settings › Keypad: "Keypad letters". */
 @Composable
 fun KeypadLettersRow(vm: AppViewModel, icon: androidx.compose.ui.graphics.vector.ImageVector? = null) {
     val store = vm.c.messaging
@@ -74,7 +74,7 @@ fun KeypadLettersRow(vm: AppViewModel, icon: androidx.compose.ui.graphics.vector
     }
 }
 
-/** Settings › Messaging: "My card" (I2), which replaced "My details" and still fills in "Send my details". */
+/** Settings › Messaging: "My card", which replaced "My details" and still fills in "Send my details". */
 @Composable
 fun MyDetailsRow(vm: AppViewModel, icon: androidx.compose.ui.graphics.vector.ImageVector? = null) {
     val details by vm.c.messaging.myDetails.collectAsStateWithLifecycle()

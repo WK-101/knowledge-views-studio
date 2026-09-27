@@ -59,7 +59,7 @@ import app.parley.ui.contact.rememberQuickMessenger
 import kotlinx.coroutines.delay
 
 /**
- * X2 "Who's in…": type a city (or pick one from your contacts' addresses) and see who's linked to it by address,
+ * "Who's in…": type a city (or pick one from your contacts' addresses) and see who's linked to it by address,
  * by a note, or by where their number is from. No location permission: the city is always typed or picked.
  * The last city is remembered.
  */

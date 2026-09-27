@@ -5,7 +5,7 @@ import java.util.Locale
 /** One unseen missed call from the call log. [key] identifies the caller's line (see PhoneNumbers.lineKey). */
 data class MissedCall(val number: String, val date: Long, val accountId: String?, val hidden: Boolean, val key: String)
 
-/** Unseen missed calls from one caller (V2): one notification each, with a count. */
+/** Unseen missed calls from one caller: one notification each, with a count. */
 data class MissedCaller(
     val key: String,
     val number: String,
@@ -39,7 +39,7 @@ object MissedCalls {
     const val HIDDEN = "hidden"
 }
 
-/** File names and labels for voicemail audio (V1). */
+/** File names and labels for voicemail audio. */
 object VoicemailFiles {
     /** A file extension for a voicemail's MIME type, so the shared file opens in other apps. */
     fun extensionFor(mime: String?): String = when (mime?.lowercase()?.substringBefore(';')?.trim()) {

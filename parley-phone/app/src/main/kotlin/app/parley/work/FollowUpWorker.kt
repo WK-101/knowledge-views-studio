@@ -27,7 +27,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 import java.util.concurrent.TimeUnit
 
 /**
- * R8: the one-off "follow up in 1 week / 1 month" reminder from "Anything to remember?". Only the contact's lookup
+ * The one-off "follow up in 1 week / 1 month" reminder from "Anything to remember?". Only the contact's lookup
  * key and id are stored in WorkManager's database; the name is read when it fires. If the contact is gone (or
  * became private) nothing is shown. Private on the lock screen with a neutral public version, and phone-only.
  */

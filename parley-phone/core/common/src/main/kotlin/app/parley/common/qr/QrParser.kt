@@ -3,7 +3,7 @@ package app.parley.common.qr
 import app.parley.common.vcard.VCardStream
 
 /**
- * Q3: classifies the text of a QR code (or pasted text) into a [QrPayload]. Pure and offline; see the ZXing
+ * Classifies the text of a QR code (or pasted text) into a [QrPayload]. Pure and offline; see the ZXing
  * "Barcode Contents" conventions for the formats. Order matters: Parley's own links, contacts, then schemes, then
  * known messenger links, then any web address, then plain text.
  */

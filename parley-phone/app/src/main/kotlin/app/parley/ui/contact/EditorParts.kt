@@ -78,7 +78,7 @@ import app.parley.R
 import app.parley.common.people.RelationType
 import app.parley.ui.Avatar
 
-// E1 (v3.4): building blocks of the redesigned contact editor.
+// Building blocks of the redesigned contact editor.
 
 /** Where a piece sits in its group card: the pieces of one group stack into one rounded card. */
 internal enum class SegPos { Top, Middle, Bottom, Single }
@@ -142,7 +142,7 @@ internal fun RemoveButton(description: String, onClick: () -> Unit) {
     IconButton(onClick) { Icon(Icons.Rounded.RemoveCircle, description, tint = MaterialTheme.colorScheme.error) }
 }
 
-/** Fields whose Data row the provider marks read-only (F12): shown, but locked. */
+/** Fields whose Data row the provider marks read-only: shown, but locked. */
 internal val LocalLocked = androidx.compose.runtime.staticCompositionLocalOf<Set<Long>> { emptySet() }
 
 @Composable
@@ -321,7 +321,7 @@ internal fun RelationTypeDialog(onDismiss: () -> Unit, onPick: (RelationType?) -
     if (custom) CustomLabelDialog(query.ifBlank { null }, { custom = false }) { l -> custom = false; onPick(RelationType(key = "custom", label = l)) }
 }
 
-/** I5: pick the related person from your contacts (their lookup key is remembered, so renames don't break it). */
+/** Pick the related person from your contacts (their lookup key is remembered, so renames don't break it). */
 @Composable
 fun ContactChooserDialog(vm: AppViewModel, onDismiss: () -> Unit, onPick: (id: Long, name: String, lookupKey: String) -> Unit) {
     val all by vm.contacts.collectAsStateWithLifecycle()

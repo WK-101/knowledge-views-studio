@@ -1,6 +1,6 @@
 package app.parley.common.qr
 
-/** Q5: scanned text made safe to show. */
+/** Scanned text made safe to show. */
 object QrText {
     /** Longest text shown in one place (the rest is still copied in full). */
     const val MAX_SHOWN = 2_000

@@ -10,11 +10,11 @@ import app.parley.MainActivity
 import app.parley.R
 
 /**
- * Q2: Quick Settings tile "Scan QR". Opens Parley's scan screen (after unlocking, like any app); the photo is taken
+ * Quick Settings tile "Scan QR". Opens Parley's scan screen (after unlocking, like any app); the photo is taken
  * only when you tap "Take a photo" there.
  */
 class QrScanTileService : TileService() {
-    // L1: the in-app language on Android 10-12 (Android 13+ applies per-app languages itself).
+    // The in-app language on Android 10-12 (Android 13+ applies per-app languages itself).
     override fun attachBaseContext(newBase: android.content.Context) {
         super.attachBaseContext(app.parley.ui.AppLocale.wrap(newBase))
     }

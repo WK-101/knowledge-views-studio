@@ -147,7 +147,7 @@ private fun ColumnScope.DefaultDialerStep(vm: AppViewModel, next: () -> Unit) {
     LaunchedEffect(isDefault, available) { if (isDefault || !available) next() }
     val sideloaded = remember { InstallSource.needsRestrictedSettingsHelp(installerOf(context), Build.VERSION.SDK_INT) }
     var failed by remember { mutableStateOf(false) }
-    // P4: the shared role request; it opens the by-hand guide itself when Android refuses without asking.
+    // The shared role request; it opens the by-hand guide itself when Android refuses without asking.
     val requestRole = app.parley.ui.calls.rememberDialerRoleRequest { granted ->
         vm.refreshEnvironment()
         if (granted || vm.isDefaultDialer.value) {
@@ -163,7 +163,7 @@ private fun ColumnScope.DefaultDialerStep(vm: AppViewModel, next: () -> Unit) {
     Text(stringResource(R.string.ux_onb_dialer_title), style = MaterialTheme.typography.headlineSmall)
     Text(stringResource(R.string.onb_prompt_text), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
     Text(stringResource(R.string.ux_onb_dialer_body), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    // U1: sideloaded on Android 13+: say what "Restricted setting" means before the role request can fail.
+    // Sideloaded on Android 13+: say what "Restricted setting" means before the role request can fail.
     if (sideloaded) RestrictedSettingsCard(emphasise = failed) { appInfo(context) }
     Spacer(Modifier.weight(1f))
     Button(
@@ -173,7 +173,7 @@ private fun ColumnScope.DefaultDialerStep(vm: AppViewModel, next: () -> Unit) {
     TextButton(next, Modifier.align(Alignment.CenterHorizontally)) { Text(stringResource(R.string.ux_not_now)) }
 }
 
-/** U1: why the default-phone-app step may say "Restricted setting" on a sideloaded install, and the way out. */
+/** Why the default-phone-app step may say "Restricted setting" on a sideloaded install, and the way out. */
 @Composable
 private fun RestrictedSettingsCard(emphasise: Boolean, openAppInfo: () -> Unit) {
     Card(

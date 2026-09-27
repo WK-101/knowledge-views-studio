@@ -31,7 +31,7 @@ import app.parley.telecom.DeclineBlock
 import app.parley.telecom.R
 import app.parley.ui.Bidi
 
-/** P2: after "Block & decline": what happened, and Undo while the rule is Parley's own new one. */
+/** After "Block & decline": what happened, and Undo while the rule is Parley's own new one. */
 @Composable
 internal fun DeclineBlockCard(block: DeclineBlock, onUndo: () -> Unit, onDone: () -> Unit) {
     val number = Bidi.ltr(block.number)
@@ -63,7 +63,7 @@ internal fun DeclineBlockCard(block: DeclineBlock, onUndo: () -> Unit, onDone: (
     }
 }
 
-/** P2: in place of the answer controls while "Block & decline" writes the rule (a second or so at most). */
+/** In place of the answer controls while "Block & decline" writes the rule (a second or so at most). */
 @Composable
 internal fun BlockingDecline() {
     Column(

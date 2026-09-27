@@ -4,7 +4,7 @@ import java.net.IDN
 import java.net.URI
 
 /**
- * Q4: one parser for http(s) addresses, shared by [UrlSafety] and [MessengerQr], that reads the host the way a
+ * One parser for http(s) addresses, shared by [UrlSafety] and [MessengerQr], that reads the host the way a
  * browser does (the WHATWG URL rules for "special" schemes): tabs and line breaks anywhere are dropped, `\` is a
  * path separator just like `/`, any run of slashes after the scheme is skipped, the text before the last `@` of the
  * authority is a user name, the host is percent-decoded, converted to ASCII (punycode) and lower-cased, and a host

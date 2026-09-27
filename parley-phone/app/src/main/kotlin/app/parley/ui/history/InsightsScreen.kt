@@ -81,7 +81,7 @@ private enum class InsightPeriod(@StringRes val label: Int) {
     }
 }
 
-/** H5: offline call insights, opened from the Recents top bar. */
+/** Offline call insights, opened from the Recents top bar. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun InsightsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
@@ -132,7 +132,7 @@ fun InsightsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
                     }
                 }
             }
-            // R6: the People card (its own windows: this month, open loops, the last year).
+            // The People card (its own windows: this month, open loops, the last year).
             item(key = "people") { PeopleCard(vm, idx, open) }
             if (weeks.size > 1) {
                 item { Section(stringResource(R.string.hist_talk_per_week)) }
@@ -214,7 +214,7 @@ internal fun PersonRow(vm: AppViewModel, person: Person, sub: String, open: (Str
 /** Stacked weekly bars: calls you made (primary) on top of calls you received (tertiary). No chart library. */
 @Composable
 private fun WeeklyBars(weeks: List<WeekBucket>, modifier: Modifier = Modifier) {
-    // U3: the fixed call colours, as on the call icons.
+    // The fixed call colours, as on the call icons.
     val outColor = app.parley.ui.CallTypeColors.of(app.parley.common.ux.CallHue.OUTGOING)
     val inColor = app.parley.ui.CallTypeColors.of(app.parley.common.ux.CallHue.INCOMING)
     val grid = MaterialTheme.colorScheme.outlineVariant

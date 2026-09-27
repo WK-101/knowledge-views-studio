@@ -22,7 +22,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
 
 /**
- * I7: an opt-in contacts Directory (`android.content.ContactDirectory`) so a phone app you approve (Google Phone, also
+ * An opt-in contacts Directory (`android.content.ContactDirectory`) so a phone app you approve (Google Phone, also
  * when it runs in the car) can show a private contact's name when they call.
  *
  * How Android uses it (verified against AOSP ContactsProvider2 / ContactDirectoryManager): the Contacts Provider

@@ -26,14 +26,14 @@ import app.parley.R
 import app.parley.data.DialWarning
 
 /**
- * The shared "think before you dial" sheet (B10, B11). Any feature that wants the user to confirm an
+ * The shared "think before you dial" sheet. Any feature that wants the user to confirm an
  * outgoing call (premium lines, one-ring scams, quotas, limits…) passes its [warnings] here.
  * Get warnings for a number with `container.dialGuard.check(number)`.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DialGuardSheet(who: String, warnings: List<DialWarning>, note: String? = null, onCall: () -> Unit, onCancel: () -> Unit) {
-    // A used-up call-time allowance (T6) is one more reason to think, shown with the others (one question, not two).
+    // A used-up call-time allowance is one more reason to think, shown with the others (one question, not two).
     val context = androidx.compose.ui.platform.LocalContext.current
     val all = warnings.map { app.parley.blocking.DialText.warning(context, it) } + listOfNotNull(note?.let { DialWarning(stringResource(R.string.call_time_used_up), it) })
     val severe = all.any { it.severe }

@@ -30,12 +30,12 @@ import app.parley.data.ContactDetails
 import app.parley.data.EventItem
 import kotlinx.coroutines.launch
 
-/** C4: whether the contact page has a birthday or anniversary slot to offer. */
+/** Whether the contact page has a birthday or anniversary slot to offer. */
 fun hasMissingDates(d: ContactDetails): Boolean =
     d.events.none { it.type == Event.TYPE_BIRTHDAY } || d.events.none { it.type == Event.TYPE_ANNIVERSARY }
 
 /**
- * C4: "Add birthday?" and "Add anniversary?" chips on the contact page when those dates are empty. The date is saved
+ * "Add birthday?" and "Add anniversary?" chips on the contact page when those dates are empty. The date is saved
  * straight into the system contact (an Event row, like the editor writes), so it's never kept only in Parley and
  * other apps, sync and backups see it. [onSaved] reloads the page.
  */

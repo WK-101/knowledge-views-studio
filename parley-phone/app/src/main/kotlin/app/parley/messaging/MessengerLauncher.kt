@@ -49,7 +49,7 @@ object MessengerLauncher {
         return open(context, link, app)
     }
 
-    /** Copies [text] for pasting, kept out of clipboard previews and keyboard suggestions on Android 13+ (F19). */
+    /** Copies [text] for pasting, kept out of clipboard previews and keyboard suggestions on Android 13+. */
     fun copySensitive(context: Context, text: String) {
         val clip = android.content.ClipData.newPlainText("message", text)
         if (android.os.Build.VERSION.SDK_INT >= 33) {

@@ -60,9 +60,9 @@ import java.util.concurrent.TimeUnit
 data class ArchivedCall(val rowId: Long, val record: CallLogRecord)
 
 /**
- * Call history as data: Parley's encrypted archive of the system call log (H1), the merged view Recents
- * reads, the shared [CallLogIndex] (H9), deletes with a 30-day undo (K10), CSV import (H8) and per-SIM plan
- * meters (T8).
+ * Call history as data: Parley's encrypted archive of the system call log, the merged view Recents
+ * reads, the shared [CallLogIndex], deletes with a 30-day undo, CSV import and per-SIM plan
+ * meters.
  *
  * The archive mirrors every call-log row as soon as the log changes (content observer) and again in a daily
  * catch-up, so calls survive when the system log trims itself. It follows the retention setting except for
@@ -104,7 +104,7 @@ class CallHistory(
     /** Numbers whose history ignores retention: fingerprint → number. */
     val keptForever: StateFlow<Map<String, String>> = _kept
 
-    /** Filter applied to Recents (H4); saved filters live in [prefs]. */
+    /** Filter applied to Recents; saved filters live in [prefs]. */
     val activeFilter = MutableStateFlow(HistoryFilter())
 
     /** Private (vault) numbers, matched by line (F7: E.164, not the last 9 digits, so a foreign number sharing them stays). */
@@ -414,7 +414,7 @@ class CallHistory(
             keys.chunked(500).forEach { dao.deleteKeys(it) }
             knownKeys?.removeAll(keys.toSet())
             reload()
-            // Ring facts (V9) of deleted calls go with them.
+            // Ring facts of deleted calls go with them.
             list.filter { !it.presentationHidden && it.number.isNotBlank() }.groupBy { it.number }
                 .forEach { (n, calls) -> runCatching { onForget?.invoke(n, calls.map { it.date }) } }
             batch
@@ -496,13 +496,13 @@ class CallHistory(
     /** Puts a deleted batch back into the system call log (and the archive). Returns calls restored. */
     suspend fun undoDelete(batchId: Long): Int = withContext(Dispatchers.IO + NonCancellable) { undoLock.withLock { undoDeleteLocked(batchId) } }
 
-    /** One undo at a time: a second tap waits and then finds the batch gone (F21). */
+    /** One undo at a time: a second tap waits and then finds the batch gone. */
     private val undoLock = Mutex()
 
     private suspend fun undoDeleteLocked(batchId: Long): Int {
         val trashed = dao.trashed(batchId).mapNotNull { runCatching { decode(String(crypto.open(it.blob))) }.getOrNull() }
         if (trashed.isEmpty()) return 0
-        // F21: idempotent. Rows the system log already has again (an earlier, interrupted undo) aren't inserted twice.
+        // Idempotent. Rows the system log already has again (an earlier, interrupted undo) aren't inserted twice.
         val from = trashed.minOf { it.date } - 1000
         val present = readProvider(from).filter { it.date <= trashed.maxOf { r -> r.date } + 1000 }
         val rows = HistoryMerge.missing(trashed, present) { HistoryMerge.key(it.toEntry(0)) }
@@ -523,7 +523,7 @@ class CallHistory(
         return maxOf(n, trashed.size.takeIf { prefs.current().archiveEnabled } ?: 0)
     }
 
-    // ------------------------------------------------------------------ import (H8)
+    // ------------------------------------------------------------------ import
 
     /** Dry run: reads and parses the file, checks it against the whole history. Nothing is written. */
     suspend fun planImport(uri: Uri, mapping: ColumnMapping? = null, dayFirst: Boolean = true): ImportPlan = withContext(Dispatchers.IO) {
@@ -562,7 +562,7 @@ class CallHistory(
         n
     }
 
-    // ------------------------------------------------------------------ plan meter (T8)
+    // ------------------------------------------------------------------ plan meter
 
     val plans: StateFlow<List<PlanConfig>> = prefs.state.map { it.plans }.distinctUntilChanged()
         .stateIn(scope, SharingStarted.Eagerly, emptyList())

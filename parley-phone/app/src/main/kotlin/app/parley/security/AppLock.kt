@@ -121,7 +121,7 @@ object AppLock {
     }
 
     /**
-     * Whether the lock screen asks for the fingerprint as soon as it shows. Off after "Lock now" (U8): you locked
+     * Whether the lock screen asks for the fingerprint as soon as it shows. Off after "Lock now": you locked
      * Parley on purpose, so it waits for you to tap Unlock.
      */
     @Volatile

@@ -43,7 +43,7 @@ import app.parley.ui.Avatar
 import app.parley.ui.Routes
 import app.parley.ui.common.Format
 
-/** R6: everything the People card shows, worked out once per history change. */
+/** Everything the People card shows, worked out once per history change. */
 private data class PeopleData(
     val reach: PeopleInsights.Reach?,
     val loops: List<PeopleInsights.Loop>,
@@ -54,7 +54,7 @@ private data class PeopleData(
 )
 
 /**
- * R6: the "People" card in Insights (never on the home screen): reach in your circle this month against the month
+ * The "People" card in Insights (never on the home screen): reach in your circle this month against the month
  * before, open loops (their call you haven't returned, your call they haven't answered; any later contact closes
  * them), who usually reaches out first (private, hideable) and a year in review once there are 20 entries. The
  * whole card can be turned off here or in Settings › Recents & history. Private contacts are never in it.

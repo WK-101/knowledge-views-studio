@@ -7,7 +7,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** M1: messenger links and the number parsing behind them (with WhatsOpen's regressions). */
+/** Messenger links and the number parsing behind them (with WhatsOpen's regressions). */
 class MessengerLinksTest {
     private val pk = "+923001234567"
 
@@ -37,7 +37,7 @@ class MessengerLinksTest {
         assertNull(NumberText.toE164("", "PK"))
     }
 
-    // ---- Numbers in free text (M3) ----
+    // ---- Numbers in free text ----
 
     @Test fun plus_one_number_in_text_is_one_number() {
         // WhatsOpen split "+1 555-123-4567" at the space and opened +55 (Brazil).

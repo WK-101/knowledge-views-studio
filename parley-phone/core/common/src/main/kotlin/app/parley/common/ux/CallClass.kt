@@ -4,11 +4,11 @@ import app.parley.common.CallEntry
 import app.parley.common.CallType
 import kotlin.math.ln
 
-/** R4 (v3.3): how Recents rows look. Rich: shapes, tints, sequence dots and a Call back pill. Simple: the U3 icons. */
+/** How Recents rows look. Rich: shapes, tints, sequence dots and a Call back pill. Simple: the U3 icons. */
 enum class RecentsStyle { RICH, SIMPLE }
 
 /**
- * R4 (v3.3): what a call was, finer than [CallType] (an outgoing call nobody answered is its own class), each with a
+ * What a call was, finer than [CallType] (an outgoing call nobody answered is its own class), each with a
  * badge that tells it apart without colour: a [fill] and a [form] for the badge and a [glyph] inside it. The colour
  * ([hue]) comes on top, so the classes stay distinct for colour-blind users, in grey scale and in dark mode.
  */
@@ -53,7 +53,7 @@ enum class CallClass(val hue: CallHue, val fill: Fill, val form: Form, val glyph
     }
 }
 
-/** R4 (v3.3): pure helpers behind the rich Recents rows. */
+/** Pure helpers behind the rich Recents rows. */
 object CallGlance {
     /** Most dots in a row's call sequence. */
     const val MAX_DOTS = 4
@@ -78,7 +78,7 @@ object CallGlance {
         return f.coerceIn(0.08f, 1f)
     }
 
-    /** R4: a missed call older than this no longer asks to be returned (the Missed chip would only grow). */
+    /** A missed call older than this no longer asks to be returned (the Missed chip would only grow). */
     const val UNRETURNED_MAX_AGE_MS = 7L * 24 * 60 * 60 * 1000
 
     /**

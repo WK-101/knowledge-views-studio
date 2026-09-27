@@ -27,9 +27,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * "Chat, then decide" (M4): when you come back to Parley after opening a chat with a number that isn't a contact,
+ * "Chat, then decide": when you come back to Parley after opening a chat with a number that isn't a contact,
  * offer to keep it as a temporary contact that deletes itself in 7 days. Shown once per chat, within an hour.
- * F5: saved privately by default (Parley's vault), so WhatsApp and other apps can't read it; the dialog offers
+ * Saved privately by default (Parley's vault), so WhatsApp and other apps can't read it; the dialog offers
  * "Save visible to other apps" instead. [openContact] opens a system contact, [openPrivate] a private one.
  */
 @Composable
@@ -81,7 +81,7 @@ object ChatThenDecide {
 }
 
 /**
- * F30: once, after coming back from a WhatsApp chat with an unsaved number: newer WhatsApp versions may ask to sync
+ * Once, after coming back from a WhatsApp chat with an unsaved number: newer WhatsApp versions may ask to sync
  * contacts before opening such a chat. That's WhatsApp's question, and declining is fine.
  */
 object WhatsAppNotice {

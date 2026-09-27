@@ -59,7 +59,7 @@ import kotlinx.coroutines.launch
 
 private val clearRow @Composable get() = ListItemDefaults.colors(containerColor = Color.Transparent)
 
-/** R8/R9: what Parley remembers about a person: every note, the newest one and the open promises. */
+/** What Parley remembers about a person: every note, the newest one and the open promises. */
 data class PersonMemory(val notes: List<PersonNote> = emptyList()) {
     /** The newest dated note (the pinned note shows on its own). */
     val lastNote: PersonNote? get() = notes.firstOrNull { it.source != NoteSource.PINNED }
@@ -76,7 +76,7 @@ fun rememberPersonMemory(vm: AppViewModel, lookupKey: String, numberKeys: Set<St
     }
 
 /**
- * R9: a note field with the checkbox button, which starts a promise line ("[ ] "), and a one-line hint explaining
+ * A note field with the checkbox button, which starts a promise line ("[ ] "), and a one-line hint explaining
  * the convention.
  */
 @Composable
@@ -97,7 +97,7 @@ fun PromiseNoteField(value: TextFieldValue, onChange: (TextFieldValue) -> Unit, 
     )
 }
 
-/** R9: ticks a promise off (or back on), with Undo. */
+/** Ticks a promise off (or back on), with Undo. */
 suspend fun tickPromise(vm: AppViewModel, lookupKey: String, note: PersonNote, item: Promises.Item, done: Boolean) {
     val res = vm.getApplication<android.app.Application>().resources
     if (!vm.c.circle.setPromiseDone(lookupKey, note, item.line, done)) return
@@ -107,7 +107,7 @@ suspend fun tickPromise(vm: AppViewModel, lookupKey: String, note: PersonNote, i
     }
 }
 
-/** R9: the open promises on the contact's page, each with a box to tick off. Nothing shows without any. */
+/** The open promises on the contact's page, each with a box to tick off. Nothing shows without any. */
 @Composable
 fun PromisesCard(vm: AppViewModel, lookupKey: String, memory: PersonMemory) {
     val promises = memory.promises
@@ -135,7 +135,7 @@ private fun sourceText(res: Resources, note: PersonNote, date: (Long) -> String)
 }
 
 /**
- * X1: "Usually free 6–9 pm · 7:40 pm there" from the calls with this person ([calls], any of their numbers). Their
+ * "Usually free 6–9 pm · 7:40 pm there" from the calls with this person ([calls], any of their numbers). Their
  * time zone comes from [number] (offline, by country and area code); the time there is only added when it differs
  * from yours. Null with fewer than eight answered calls or no clear pattern.
  */
@@ -157,7 +157,7 @@ fun goodTimeText(res: Resources, calls: List<CallEntry>, number: String?, countr
 fun hasPeek(memory: PersonMemory, goodTime: String?): Boolean = memory.lastNote != null || memory.promises.isNotEmpty() || goodTime != null
 
 /**
- * R8/R9/X1: the pre-call peek before dialling from a contact's page: a good time to call, the last note and the open
+ * The pre-call peek before dialling from a contact's page: a good time to call, the last note and the open
  * promises (tick them off right here), then Call. It can be turned off from the sheet or in Settings.
  */
 @OptIn(ExperimentalMaterial3Api::class)

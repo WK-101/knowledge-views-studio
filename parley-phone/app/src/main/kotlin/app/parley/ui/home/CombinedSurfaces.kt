@@ -90,13 +90,13 @@ import app.parley.ui.Routes
 import kotlinx.coroutines.launch
 
 /**
- * S1 (v3.3): the keypad docked at the foot of Recents. [expanded] is kept by the home screen for the session
+ * The keypad docked at the foot of Recents. [expanded] is kept by the home screen for the session
  * (tab switches and rotation keep it); [idle] is what the results area shows while nothing is typed.
  */
 class KeypadDock(val expanded: Boolean, val onExpandedChange: (Boolean) -> Unit, val idle: @Composable () -> Unit)
 
 /**
- * S1: Recents with the keypad docked at the bottom ("Calls layout: Combined"). Typing replaces the calls with the
+ * Recents with the keypad docked at the bottom ("Calls layout: Combined"). Typing replaces the calls with the
  * keypad's matches in place; the header search searches the calls as on the Recents tab (the keypad folds away).
  */
 @Composable
@@ -115,7 +115,7 @@ fun CallsSurface(vm: AppViewModel, open: (String) -> Unit, searching: Boolean, e
 }
 
 /**
- * S1: the grab handle on top of the docked keypad: tap it, or swipe it down, to fold the keypad away. K3 (v3.4): the
+ * The grab handle on top of the docked keypad: tap it, or swipe it down, to fold the keypad away. K3: the
  * keypad follows the finger and settles by distance and speed ([DockFoldState]).
  */
 @Composable
@@ -141,7 +141,7 @@ internal fun DockHandle(label: String, fold: DockFoldState, onCollapse: () -> Un
 }
 
 /**
- * S1: the folded keypad: a keypad button. K3 (v3.4): a Material 3 FAB with the keypad icon that springs in as the
+ * The folded keypad: a keypad button. K3: a Material 3 FAB with the keypad icon that springs in as the
  * keypad folds, with the typed number's last digits as a badge; tap it, or drag it up (the keypad follows), to bring
  * the keypad back.
  */
@@ -182,10 +182,10 @@ internal fun DockedKeypadButton(
     }
 }
 
-// ---------------------------------------------------------------- S2: favourites in Contacts
+// ---------------------------------------------------------------- Favourites in Contacts
 
 /**
- * S2 (v3.3): the favourites at the top of Contacts, as a folding section (tiles in the Favourites grid's columns)
+ * The favourites at the top of Contacts, as a folding section (tiles in the Favourites grid's columns)
  * or a strip of avatars, with an optional "Frequent" row. Tap calls, a long press opens the contact, as on the
  * Favourites tab. The folded state is remembered (it's the user's choice).
  */
@@ -306,7 +306,7 @@ private fun AvatarStrip(items: List<StripItem>) {
 }
 
 /**
- * S2: reorder the favourites from Contacts (the section header or Contacts ⋮): drag a row by its handle, or use
+ * Reorder the favourites from Contacts (the section header or Contacts ⋮): drag a row by its handle, or use
  * TalkBack's "Move earlier / later". The order is the same custom order the Favourites tab uses.
  */
 @OptIn(ExperimentalMaterial3Api::class)

@@ -13,7 +13,7 @@ import androidx.compose.ui.res.stringResource
 import app.parley.telecom.R
 
 /**
- * X4: says "<name> is calling" a few times while a call rings. Android's on-device text-to-speech: nothing is
+ * Says "<name> is calling" a few times while a call rings. Android's on-device text-to-speech: nothing is
  * recorded and no microphone is involved. Only for contacts ([name] non-null), and only when the ringer is on and
  * Do Not Disturb isn't silencing calls, so a silent phone stays silent. Stops as soon as the call stops ringing or
  * the ringer is silenced (the caller passes a null [callId] then).

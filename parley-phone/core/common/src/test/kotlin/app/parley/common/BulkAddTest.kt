@@ -15,7 +15,7 @@ class BulkAddTest {
         Saved one: 0333 5550000
     """.trimIndent()
 
-    // ---- M11: review ----
+    // ---- Review ----
 
     @Test fun finds_every_number_including_repeats() {
         val found = NumberText.find(text, "PK", distinct = false)
@@ -48,7 +48,7 @@ class BulkAddTest {
         assertEquals(BulkAdd.MAX_NUMBERS, BulkAdd.review(many, "PK", { null }, { null }).size)
     }
 
-    // ---- M11: naming ----
+    // ---- Naming ----
 
     @Test fun naming_patterns() {
         assertEquals("Lead 03", BulkAdd.name(BulkAdd.Pattern.NUMBERED.template, "Lead", 3, 12, "+92 300 1234567"))

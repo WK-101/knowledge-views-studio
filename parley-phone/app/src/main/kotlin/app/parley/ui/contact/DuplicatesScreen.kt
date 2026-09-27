@@ -59,9 +59,9 @@ fun DuplicatesScreen(vm: AppViewModel, back: () -> Unit) {
     val groups by produceState<List<List<ContactSummary>>?>(null, all) {
         value = withContext(Dispatchers.Default) { Duplicates.find(all.orEmpty()) }
     }
-    // U7: scroll-linked top-bar tint.
+    // Scroll-linked top-bar tint.
     val barTint = androidx.compose.material3.TopAppBarDefaults.pinnedScrollBehavior()
-    // C2: "Back up first?" before the first merge (asked once per visit).
+    // "Back up first?" before the first merge (asked once per visit).
     val backupFirst = app.parley.ui.backup.rememberBackupFirst(vm)
     Scaffold(modifier = Modifier.nestedScroll(barTint.nestedScrollConnection), topBar = {
         TopAppBar(title = { Text(stringResource(R.string.dup_title)) }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.main_back)) } }, scrollBehavior = barTint)

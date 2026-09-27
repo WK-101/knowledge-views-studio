@@ -35,7 +35,7 @@ class CallExtrasRepository(context: Context) {
 }
 
 /**
- * Ring-side facts per incoming call (V9). In app-private storage, like the screening trace; the newest [MAX_ROWS] of
+ * Ring-side facts per incoming call. In app-private storage, like the screening trace; the newest [MAX_ROWS] of
  * the last [KEEP_DAYS] days are kept. Nothing leaves the phone, and nothing is readable at rest: rows are keyed by
  * the call-history archive's keyed fingerprint of the line (never the number) and the facts (Bluetooth device names
  * among them) are sealed with the archive key. Deleting or purging calls forgets their facts

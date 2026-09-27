@@ -150,7 +150,7 @@ fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open
                     leadingContent = { app.parley.ui.home.CallTypeIcon(e.type, describe = false, durationSec = e.durationSec) },
                     headlineContent = { Text(Format.fullDate(context, e.date)) },
                     supportingContent = {
-                        // R4 (v3.3): the rich style names the call class ("No answer" for an outgoing call nobody took).
+                        // The rich style names the call class ("No answer" for an outgoing call nobody took).
                         val typeText = if (app.parley.ui.home.richCalls()) app.parley.ui.home.callClassLabel(app.parley.common.ux.CallClass.of(e)) else HistoryText.callType(e.type)
                         Text(listOfNotNull(stringResource(typeText), Format.duration(e.durationSec).ifBlank { null }, e.accountId?.let { simLabels[it] }).joinToString(" · "))
                     },

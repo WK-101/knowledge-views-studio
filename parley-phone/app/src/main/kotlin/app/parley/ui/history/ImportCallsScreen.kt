@@ -53,7 +53,7 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import app.parley.R
 
-/** H8: import call history from a CSV (Parley, Logger or any spreadsheet) with a dry run first. */
+/** Import call history from a CSV (Parley, Logger or any spreadsheet) with a dry run first. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ImportCallsScreen(vm: AppViewModel, back: () -> Unit) {

@@ -55,7 +55,7 @@ class SaveContactUseCase(private val c: DataContainer) {
         val id = suspendRunCatching {
             if (r.toVault) saveVault(r, notes) else saveContact(r, notes)
         }.getOrElse { return Outcome.Failed(it.message.orEmpty()) } ?: return Outcome.NotSaved
-        // A temporary contact the user just edited for real is asked once whether to keep it (F2).
+        // A temporary contact the user just edited for real is asked once whether to keep it.
         val key = r.original?.lookupKey
         val askKeep = !r.toVault && !key.isNullOrEmpty() && c.temporaries.needsKeepPrompt(key)
         return Outcome.Saved(id, key.takeIf { askKeep }, notes)
@@ -65,7 +65,7 @@ class SaveContactUseCase(private val c: DataContainer) {
         val e = r.draft
         val cleaned = e.copy(handles = e.handles.filter { it.value.isNotBlank() })
         val id = c.vault.save(r.vaultId?.takeIf { it > 0 }, cleaned)
-        // I6: the encrypted caller photo, decoded reduced and upright from the picked file, never read whole.
+        // The encrypted caller photo, decoded reduced and upright from the picked file, never read whole.
         val picked = r.photo
         if (picked != null) {
             val bytes = withContext(Dispatchers.IO) { ContactPhotoProcessor.process(c.appContext.contentResolver, picked) }
@@ -89,7 +89,7 @@ class SaveContactUseCase(private val c: DataContainer) {
         return saved
     }
 
-    /** Remembers which contact each relation names, by lookup key, beside the name-only Data row (F23, I5). */
+    /** Remembers which contact each relation names, by lookup key, beside the name-only Data row. */
     private suspend fun rememberRelations(contactId: Long, e: ContactDetails, picked: Map<String, RelationLinks.Link>) = withContext(Dispatchers.IO) {
         val key = c.contacts.lookupKeyOf(contactId) ?: return@withContext
         val m = c.meta.meta(key)

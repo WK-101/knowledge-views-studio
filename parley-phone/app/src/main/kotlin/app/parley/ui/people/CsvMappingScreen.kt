@@ -56,7 +56,7 @@ import androidx.compose.ui.res.stringResource
 import app.parley.R
 
 /**
- * M12: a contact CSV that isn't Parley's own format (Google, Outlook, "Name,Phone", semicolons, tabs, one column).
+ * A contact CSV that isn't Parley's own format (Google, Outlook, "Name,Phone", semicolons, tabs, one column).
  * Each column gets a guessed meaning the user can change, with the first contacts previewed as they would be saved;
  * then the normal import runs and its report is shown.
  */

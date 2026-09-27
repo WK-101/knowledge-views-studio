@@ -18,7 +18,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * M7 for list rows: the row's message button (and a "Message" swipe) uses the person's remembered way to message;
+ * For list rows: the row's message button (and a "Message" swipe) uses the person's remembered way to message;
  * with none yet, it shows "Message on…" once and remembers the choice. Call [message]; place [Host] once.
  */
 class QuickMessenger internal constructor(internal val open: (ContactSummary, String?, Boolean) -> Unit) {

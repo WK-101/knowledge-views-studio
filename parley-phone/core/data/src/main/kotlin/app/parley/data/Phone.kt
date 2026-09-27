@@ -25,7 +25,7 @@ object PhoneEnv {
     }
 
     /**
-     * F7/F19: the country of the SIM that handled a call ([accountId] is its PhoneAccountHandle id, as stored in the
+     * The country of the SIM that handled a call ([accountId] is its PhoneAccountHandle id, as stored in the
      * call log), falling back to [countryIso] when it is unknown (one SIM, a SIP account, no permission).
      */
     fun countryIso(context: Context, accountId: String?): String = simCountry(context, accountId) ?: countryIso(context)

@@ -6,7 +6,7 @@ import app.parley.common.Decision
 
 /**
  * What screening decided for one call, as the call path needs it: the decision, a one-line verdict for the
- * caller card ("Reported by FTC list"), and how Parley's own ringer should ring (B2, B24).
+ * caller card ("Reported by FTC list"), and how Parley's own ringer should ring.
  */
 data class ScreenOutcome(
     val decision: Decision,
@@ -22,7 +22,7 @@ data class ScreenOutcome(
      * service): the InCallService must screen again with the SIM.
      */
     val deferredToSim: Boolean = false,
-    /** Where [ringtone] comes from, for "Why did my phone ring?" (V9). */
+    /** Where [ringtone] comes from, for "Why did my phone ring?". */
     val ringtoneSource: app.parley.common.calls.RingtoneSource? = null,
     /** The rule or label named by [ringtoneSource]. */
     val ringtoneName: String? = null,

@@ -111,7 +111,7 @@ fun ParleyRoot(vm: AppViewModel) {
         return
     }
 
-    // U1: once started, onboarding runs to its permissions page even after the phone role grants contacts.
+    // Once started, onboarding runs to its permissions page even after the phone role grants contacts.
     var onboardingStarted by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
     if (!settings.onboardingDone && !skippedOnboarding && (onboardingStarted || !(isDefault && hasContacts))) {
         androidx.compose.runtime.SideEffect { onboardingStarted = true }
@@ -119,7 +119,7 @@ fun ParleyRoot(vm: AppViewModel) {
         return
     }
 
-    // X4: simple mode replaces the tabs (its own home, calls still go through the usual questions).
+    // Simple mode replaces the tabs (its own home, calls still go through the usual questions).
     val simple by vm.c.extras.simple.collectAsStateWithLifecycle()
     if (simple.enabled) {
         val marks = remember { app.parley.ui.common.CoachMarks(vm.c.ux) }
@@ -173,11 +173,11 @@ fun ParleyRoot(vm: AppViewModel) {
         }
     }
 
-    // U6: avatar style for every list and page.
+    // Avatar style for every list and page.
     val avatarStyle = vm.people.settings.collectAsStateWithLifecycle().value.avatarStyle
-    // U2: one-time tips, one at a time.
+    // One-time tips, one at a time.
     val coachMarks = remember { app.parley.ui.common.CoachMarks(vm.c.ux) }
-    // R4 (v3.3): Rich or Simple call rows everywhere calls are listed.
+    // Rich or Simple call rows everywhere calls are listed.
     val recentsStyle = vm.settings.collectAsStateWithLifecycle().value.recentsStyle
     androidx.compose.runtime.CompositionLocalProvider(
         LocalAvatarStyle provides avatarStyle, app.parley.ui.common.LocalCoachMarks provides coachMarks,
@@ -233,7 +233,7 @@ fun ParleyRoot(vm: AppViewModel) {
                     prefill = if (a.getBoolean("prefill")) vm.pendingPrefill.also { vm.pendingPrefill = null } else null,
                     vaultId = a.getLong("vault").takeIf { it >= 0 },
                     done = { savedId ->
-                        // X5: a contact received by QR gets its "Met at…" entry once it's saved.
+                        // A contact received by QR gets its "Met at…" entry once it's saved.
                         app.parley.ui.extras.HandshakeInbox.onSaved(vm, savedId, a.getString("hs"))
                         nav.popBackStack()
                         val here = nav.currentDestination?.route
@@ -291,12 +291,11 @@ fun ParleyRoot(vm: AppViewModel) {
             historyDestinations(vm, nav)
             composable(Routes.CALL_TIME) { app.parley.ui.calltime.CallTimeScreen(vm, back = { nav.popBackStack() }) }
             peopleRoutes(vm, nav)
-            // P1 (v3.4): full timeline, contact page sections.
+            // Full timeline, contact page sections.
             contactPageRoutes(vm, nav)
             messagingRoutes(vm, nav)
-            // X2, X4
             extrasRoutes(vm, nav)
-            // Q1-Q4: Scan QR.
+            // Scan QR.
             qrRoutes(vm, nav)
         }
        }
@@ -304,10 +303,10 @@ fun ParleyRoot(vm: AppViewModel) {
         SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 80.dp))
     }
     }
-    // U10: a crash report kept from last time is offered once.
+    // A crash report kept from last time is offered once.
     app.parley.ui.people.CrashReportHost(vm)
     app.parley.messaging.ChatThenDecideHost(snackbar, openPrivate = { id -> nav.navigate(Routes.vault(id)) { launchSingleTop = true } }) { id -> nav.navigate(Routes.contact(id)) { launchSingleTop = true } }
-    // R3 "Log this?" and the Circle's Undo messages.
+    // "Log this?" and the Circle's Undo messages.
     app.parley.ui.circle.CircleSnackHost(vm, snackbar)
     CallDialogs(vm)
     app.parley.ui.calltime.UssdDialog(vm)

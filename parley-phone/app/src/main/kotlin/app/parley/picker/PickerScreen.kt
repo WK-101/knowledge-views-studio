@@ -103,7 +103,7 @@ fun PickerScreen(
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
                     )
                 }
-                // U5: a search with no result can be cleared; an empty list just says so.
+                // A search with no result can be cleared; an empty list just says so.
                 if (shown.isEmpty()) item {
                     if (query.isNotBlank()) {
                         EmptyState(

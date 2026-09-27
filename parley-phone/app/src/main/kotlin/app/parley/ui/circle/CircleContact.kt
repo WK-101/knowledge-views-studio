@@ -48,7 +48,7 @@ private val rowColors @Composable get() = ListItemDefaults.colors(containerColor
 private fun CallEntry.answered() = durationSec > 0 && (type == CallType.INCOMING || type == CallType.OUTGOING)
 
 /**
- * U4 / R4: the "Stay in touch" card under the contact's actions: the rhythm, when you were last in touch and the next
+ * The "Stay in touch" card under the contact's actions: the rhythm, when you were last in touch and the next
  * date. Tap to change the rhythm; for someone outside the Circle it offers to add them.
  */
 @Composable
@@ -58,7 +58,7 @@ fun StayInTouchCard(
     history: List<CallEntry>,
     interactions: List<Interaction>,
     goodTime: String? = null,
-    /** P1 (v3.4): null where a foldable section header already says "Stay in touch". */
+    /** Null where a foldable section header already says "Stay in touch". */
     title: String? = stringResource(R.string.circle_stay_in_touch),
     onEdit: () -> Unit,
 ) {
@@ -95,7 +95,7 @@ fun StayInTouchCard(
                 )
             }
         }
-        // X1: "Usually free 6–9 pm · 7:40 pm there".
+        // "Usually free 6–9 pm · 7:40 pm there".
         if (goodTime != null) item("good_time") {
             ListItem(colors = rowColors, leadingContent = { Icon(Icons.Rounded.Schedule, null) }, headlineContent = { Text(goodTime) })
         }
@@ -112,7 +112,7 @@ fun StayInTouchCard(
 }
 
 /**
- * R4: choose how often to stay in touch: the rhythm your history suggests, Natural rhythm, a fixed gap, or off.
+ * Choose how often to stay in touch: the rhythm your history suggests, Natural rhythm, a fixed gap, or off.
  * Removing someone from the Circle can be undone.
  */
 @Composable
@@ -136,7 +136,7 @@ fun RhythmDialog(vm: AppViewModel, d: ContactDetails, contactId: Long, meta: Con
         title = { Text(stringResource(R.string.detail_keep_in_touch_title)) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
-                // X3: a label's rhythm for people joining the Circle.
+                // A label's rhythm for people joining the Circle.
                 if (current == null) app.parley.ui.extras.LabelRhythmSuggestion(vm, contactId) { days -> set(days) }
                 app.parley.ui.history.RhythmSuggestion(vm, d.phones.map { it.value }) { days -> set(days) }
                 ListItem(

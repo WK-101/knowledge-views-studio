@@ -1,7 +1,7 @@
 package app.parley.common
 
 /**
- * What call notifications may say (F14). Notifications can appear on the lock screen and are readable by
+ * What call notifications may say. Notifications can appear on the lock screen and are readable by
  * notification listeners, so private (vault) contacts need care.
  */
 object NotificationPrivacy {

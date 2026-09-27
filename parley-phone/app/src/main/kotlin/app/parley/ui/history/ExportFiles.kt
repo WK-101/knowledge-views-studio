@@ -36,7 +36,7 @@ import java.time.format.DateTimeFormatter
 import app.parley.R
 
 /**
- * Readable exports of call history (H2): CSV, JSON, ICS and PDF files shared through the app's FileProvider,
+ * Readable exports of call history: CSV, JSON, ICS and PDF files shared through the app's FileProvider,
  * and printing through [PrintManager] with a PDF drawn locally (no WebView, nothing loaded from anywhere).
  * Files go to `cache/transfer/export/` and are deleted on the next app start (or by the daily worker).
  */

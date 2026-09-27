@@ -92,7 +92,7 @@ object SettingsCatalog {
         e("nav_tabs", "Navigation bar", "Show, hide and reorder Favourites, Recents, Contacts and Keypad", L,
             "tabs", "circle", "bottom bar", "bottom navigation", "navigation rail", "reorder", "hide tab", "customise", "customize", "menu"),
         e("start_tab", "Open on", "The tab Parley opens on", L, "start tab", "default tab", "home screen", "launch", "first screen"),
-        // S1/S2 (v3.3): optional combined surfaces, and what a tap on a call does (in every layout).
+        // Optional combined surfaces, and what a tap on a call does (in every layout).
         e("calls_layout", "Calls layout", "Keypad and Recents as separate tabs, or one screen with the keypad docked at the bottom", L,
             "combine", "combined", "merge", "merge tabs", "fewer tabs", "keypad", "dialpad", "dialer", "recents", "one screen", "docked", "unified", "classic", "layout"),
         e("favorites_in_contacts", "Favourites in Contacts", "Off, a section at the top of Contacts, or a strip of avatars", L,
@@ -106,20 +106,18 @@ object SettingsCatalog {
         e("swipe_actions", "Swipe actions", "Off by default. Swipe a contact or a call right to call, left to message", L,
             "swipe", "gesture", "slide", "left", "right", "quick actions"),
         e("avatar_style", "Avatars", "Colourful or grey letters; names that start with an emoji show it", A, "avatar", "monogram", "emoji", "picture", "letters", "grey", "gray"),
-        // U2
         e("reset_tips", "Reset tips", "Show the one-time tips again (keypad, Recents, search)", A, "tips", "hints", "coach marks", "help", "tutorial", "onboarding"),
-        // X4 (v3.2)
         e("simple_mode", "Simple mode", "Big photo buttons for up to 9 people, a larger keypad and a question before declining. Set it up for someone else", L,
             "elderly", "senior", "assisted", "easy", "large", "big buttons", "grandparent", "accessibility", "launcher", "text to speech", "speak name"),
 
         // Calls
         e("default_dialer", "Default phone app", "Needed to show calls, manage blocking and the call log", C, "default dialer", "role", "phone app"),
-        // P4: when Android refuses the role request without asking.
+        // When Android refuses the role request without asking.
         e("default_dialer_help", "Can't make Parley the default phone app?", "A step-by-step guide for your Android version, with App info", C,
             "default dialer", "role", "restricted settings", "sideload", "app info", "not asked"),
         e("answer_gesture", "Answer incoming calls by", "Swipe or tap", C, "slide", "swipe", "tap", "pocket", "answer"),
         e("confirm_call", "Confirm before calling", "Avoids accidental calls from lists and search", C, "accidental", "ask before", "pocket dial"),
-        // R8/R9/X1 (v3.2): remember what matters.
+        // Remember what matters.
         e("memory_prompt", "Anything to remember? after calls", "A note and a follow-up reminder after calls with your contacts", C,
             "note", "notes", "remember", "promise", "follow up", "after call", "post-call", "memory"),
         e("memory_lock_screen", "Notes on the lock screen", "Show the last note and promises on the incoming-call screen while the phone is locked", C,
@@ -172,14 +170,13 @@ object SettingsCatalog {
         e("temporary_contacts", "Temporary contacts", "Contacts that delete themselves after a while", P, "temp", "expire", "expiry", "self-destruct", "delete automatically"),
         e("duplicates", "Find & merge duplicates", "Contacts saved twice", P, "merge", "duplicate", "dedupe", "join"),
         e("health", "Contact health check", "Numbers without country code, empty and stale contacts", P, "tidy", "clean up", "fix", "cleanup"),
-        // P1 (v3.4)
         e("contact_page", "Contact page sections", "Order, fold or hide the sections of a contact's page", P,
             "sections", "order", "reorder", "fold", "collapse", "expand", "hide", "timeline", "layout", "jump"),
         e("import_file", "Import from .vcf or .csv file", "Any CSV (Google, Outlook, a spreadsheet): choose what each column holds. With a report.", P,
             "vcard", "vcf", "csv", "import", "google", "outlook", "excel", "spreadsheet", "columns", "mapping"),
         e("bulk_add", "Add several numbers", "Paste a list of numbers and save them at once, to a label, privately or for a few days", P,
             "bulk", "many", "paste", "list", "batch", "import numbers", "leads"),
-        // Q2: Scan QR (search finds it; it opens the scan screen).
+        // Scan QR (search finds it; it opens the scan screen).
         at(SettingPlace.TOOLS, "scan_qr", "Scan QR code", "Read a contact, number, chat link, Wi-Fi or web address from a photo, without camera access", P,
             "qr", "qr code", "scan", "scanner", "barcode", "vcard", "business card", "wifi", "whatsapp", "signal", "telegram", "camera"),
         e("import_sim", "Import from SIM card", "Copy the SIM's phonebook into your contacts", P, "sim", "phonebook", "copy"),
@@ -190,7 +187,7 @@ object SettingsCatalog {
         e("birthday_reminders", "Birthday reminders", "A notification on the day", P, "notification", "remind", "birthday"),
         e("reminder_time", "Reminder time", "When birthday reminders arrive", P, "hour", "time", "birthday"),
         e("nudges", "Keep-in-touch nudges", "For contacts where you set a reminder", P, "reach out", "remind", "call back", "keep in touch"),
-        // R3–R5 (v3.2): the Circle.
+        // The Circle.
         e("date_lead", "Remind me before dates", "On the day, or also 1, 3 or 7 days before", P, "birthday", "anniversary", "lead time", "days before", "early", "advance"),
         e("circle_delivery", "How keep-in-touch reminders arrive", "A weekly digest on Sunday, or one at a time as they come due", P,
             "digest", "weekly", "sunday", "circle", "remind", "keep in touch", "nudge", "notification"),
@@ -208,13 +205,12 @@ object SettingsCatalog {
         e("sim_labels", "Show SIM in call history", "Only when two SIMs are active", H, "dual sim", "sim label"),
         e("recents_layout", "Call list layout", "Grouped, every call on its own row, or grouped by day", H,
             "chronological", "grouped", "by day", "ungroup", "list", "call log", "layout"),
-        // R4 (v3.3)
         e("recents_style", "Recents style", "Rich: shapes, tints and a Call back button for missed calls. Simple: plain icons", H,
             "rich", "simple", "colours", "colors", "icons", "missed", "call back", "style", "legend", "colour blind"),
         e("clear_history", "Clear call history", "All calls, calls from unknown numbers or missed calls, with an export first", H,
             "delete", "clear", "wipe", "erase", "unknown numbers", "call log"),
         e("insights", "Call insights", "Talk time, top people, calls you didn't return", H, "statistics", "stats", "charts", "talk time"),
-        // R6 (v3.2): the People card.
+        // The People card.
         e("people_card", "People card in Call insights", "Reach in your circle, open loops and your year, in Call insights", H,
             "people", "reach", "circle", "open loops", "year in review", "insights"),
         e("first_mover", "Who usually reaches out first", "On the People card. Only you see it", H, "first", "reaches out", "initiates", "calls first", "people"),
@@ -246,13 +242,11 @@ object SettingsCatalog {
 
         // Backup & sync
         e("backup", "Backup & restore", "Encrypted backups to a folder you choose", U, "restore", "export", "encrypted", "new phone", "move", "transfer"),
-        // C3
         e("backup_reminder", "Remind me to back up", "A quiet reminder when there's been no backup for a while", U, "reminder", "overdue", "backup", "notification", "nag"),
         e("sync", "Sync between your phones", "Through a Syncthing / Nextcloud folder, no server", U, "syncthing", "nextcloud", "folder", "second phone"),
         e("journal", "History & undo", "Deleted contacts and calls, changes and daily snapshots: undo for 30 days", U,
             "undo", "trash", "restore", "deleted", "bin", "recently deleted", "journal"),
         e("time_machine", "Daily snapshots (time machine)", "Daily snapshots for 6 months: see and undo changes", U, "snapshots", "history", "versions", "restore"),
-        // C5 (v3.2)
         e("markdown_export", "Export notes as Markdown", "One .md file per person with notes and timeline, to a folder you choose", U,
             "markdown", "md", "obsidian", "notes", "logseq", "export", "folder", "timeline"),
 

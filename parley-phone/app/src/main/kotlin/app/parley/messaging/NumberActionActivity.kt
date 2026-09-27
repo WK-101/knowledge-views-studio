@@ -69,7 +69,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * A small sheet over the current app for a phone number found in text (M3): "Call / Message with Parley" in text
+ * A small sheet over the current app for a phone number found in text: "Call / Message with Parley" in text
  * selection menus, and text shared to Parley. Also hosts the "Message on…" sheet for places outside Parley's own
  * screens (missed-call notification, in-call screen).
  *
@@ -77,7 +77,7 @@ import kotlinx.coroutines.withContext
  * to find numbers and is never stored. This activity doesn't handle `tel:` links (the keypad does).
  */
 class NumberActionActivity : androidx.fragment.app.FragmentActivity() {
-    // L1: the in-app language on Android 10-12 (Android 13+ applies per-app languages itself).
+    // The in-app language on Android 10-12 (Android 13+ applies per-app languages itself).
     override fun attachBaseContext(newBase: android.content.Context) {
         super.attachBaseContext(newBase)
         app.parley.ui.AppLocale.override(this, newBase)
@@ -85,10 +85,10 @@ class NumberActionActivity : androidx.fragment.app.FragmentActivity() {
 
     private sealed interface Stage {
         data object NoNumber : Stage
-        /** M8: "Message a number" (tile, launcher shortcut): an empty field with Paste and the country. */
+        /** "Message a number" (tile, launcher shortcut): an empty field with Paste and the country. */
         data object Enter : Stage
         data class Pick(val found: List<NumberText.Found>) : Stage
-        /** [raw] is the number as written in the text, re-read when the user picks another country (F19). */
+        /** [raw] is the number as written in the text, re-read when the user picks another country. */
         data class Actions(val number: String, val raw: String? = null) : Stage
         /** [accountId]: the SIM of the call the number comes from (missed-call notification), for its country. */
         data class Message(val number: String, val accountId: String? = null) : Stage
@@ -107,7 +107,7 @@ class NumberActionActivity : androidx.fragment.app.FragmentActivity() {
     private var settingsSnapshot: app.parley.common.AppSettings? = null
     /** A chat with an unknown number was opened from here; offer a temporary contact when the user comes back. */
     private var awaitingReturn = false
-    /** The selected, shared or pasted text, kept only while the sheet is open, for "Save all…" (M11). */
+    /** The selected, shared or pasted text, kept only while the sheet is open, for "Save all…". */
     private var sourceText: String? = null
     private var leftForChat = false
     /** Nothing shows while this is true: the lock engaged again while the sheet was open. */
@@ -293,7 +293,7 @@ class NumberActionActivity : androidx.fragment.app.FragmentActivity() {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = 16.dp)) {
             Text(stringResource(R.string.num_choose), style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
             if (sourceText != null) {
-                // M11: several numbers in the text can be saved together, after a review.
+                // Several numbers in the text can be saved together, after a review.
                 ListItem(
                     headlineContent = { Text(pluralStringResource(R.plurals.num_save_all, found.size, found.size)) },
                     supportingContent = { Text(stringResource(R.string.num_save_all_body)) },
@@ -311,7 +311,7 @@ class NumberActionActivity : androidx.fragment.app.FragmentActivity() {
         }
     }
 
-    /** M11: hands the text to Parley's "Add several numbers" screen (in memory only) and closes the sheet. */
+    /** Hands the text to Parley's "Add several numbers" screen (in memory only) and closes the sheet. */
     private fun saveAll() {
         MessagingInbox.bulkText = sourceText
         startActivity(
@@ -321,7 +321,7 @@ class NumberActionActivity : androidx.fragment.app.FragmentActivity() {
     }
 
     /**
-     * M8: an empty number field. The clipboard is read only when the Paste chip is tapped; a national number is read
+     * An empty number field. The clipboard is read only when the Paste chip is tapped; a national number is read
      * with the SIM's country unless another is chosen; the messengers appear once the number is complete.
      */
     @Composable
@@ -381,7 +381,7 @@ class NumberActionActivity : androidx.fragment.app.FragmentActivity() {
                     ReachSheetContent(ReachTarget.Number(e164!!), onCall = callAction()) { app -> afterLaunch(app != null) }
                 }
             } else {
-                // C2: a number messengers can't open (short or service numbers) can still be called.
+                // A number messengers can't open (short or service numbers) can still be called.
                 if (typed.count { it.isDigit() } >= 3) callAction()?.let { call -> CallFirstButton(typed) { call(typed) } }
                 Text(
                     stringResource(if (typed.isBlank()) R.string.num_type_or_paste else R.string.num_keep_typing),
@@ -412,7 +412,7 @@ class NumberActionActivity : androidx.fragment.app.FragmentActivity() {
     private fun NumberActions(found: String, raw: String?) {
         val scope = rememberCoroutineScope()
         val defaultRegion = remember { PhoneEnv.countryIso(this) }
-        // F19: a national number in the text is read with this phone's country unless the user picks another.
+        // A national number in the text is read with this phone's country unless the user picks another.
         var regionOverride by rememberSaveable(raw) { mutableStateOf<String?>(null) }
         var pickCountry by remember { mutableStateOf(false) }
         val region = regionOverride ?: defaultRegion
@@ -446,7 +446,7 @@ class NumberActionActivity : androidx.fragment.app.FragmentActivity() {
                     modifier = Modifier.padding(horizontal = 24.dp),
                 )
             }
-            // C2: Call is the primary action, above the messengers.
+            // Call is the primary action, above the messengers.
             if (callAction() != null) CallFirstButton(number) { call(number, contactName) }
             ListItem(
                 headlineContent = { Text(stringResource(R.string.reach_message_or_call_on)) },
@@ -494,7 +494,7 @@ class NumberActionActivity : androidx.fragment.app.FragmentActivity() {
     private fun OfferDialog(s: Stage.Offer) {
         val scope = rememberCoroutineScope()
         val region = remember { PhoneEnv.countryIso(this) }
-        // F30: once, after the first WhatsApp chat opened from here.
+        // Once, after the first WhatsApp chat opened from here.
         val notice = remember {
             if (s.via.startsWith("WhatsApp") && !container.messaging.whatsappSyncNoticeShown) {
                 container.messaging.whatsappSyncNoticeShown = true
@@ -518,7 +518,7 @@ class NumberActionActivity : androidx.fragment.app.FragmentActivity() {
     }
 
     /**
-     * C2: the sheet's Call action, or null during a call (the in-call screen's caller card opens this sheet too, and a
+     * The sheet's Call action, or null during a call (the in-call screen's caller card opens this sheet too, and a
      * second call to the same person from there would only put the first on hold).
      */
     private fun callAction(): ((String) -> Unit)? =
@@ -560,7 +560,7 @@ class NumberActionActivity : androidx.fragment.app.FragmentActivity() {
     companion object {
         const val ACTION_MESSAGE_ON = "app.parley.action.MESSAGE_ON"
         const val EXTRA_NUMBER = "number"
-        /** PhoneAccountHandle id of the call the number comes from (F19). */
+        /** PhoneAccountHandle id of the call the number comes from. */
         const val EXTRA_ACCOUNT_ID = "account_id"
         /** Selected or shared text beyond this is ignored (a phone number is never that far in). */
         private const val MAX_TEXT = 10_000
@@ -570,7 +570,7 @@ class NumberActionActivity : androidx.fragment.app.FragmentActivity() {
 /**
  * Name for a temporary contact, prefilled with "WhatsApp · +92 300 1234567". F5: saved privately unless
  * "Save visible to other apps" is ticked; [onSave] gets the name and that choice. [notice] is an extra line shown
- * first (F30).
+ * first.
  */
 @Composable
 fun TemporaryNameDialog(

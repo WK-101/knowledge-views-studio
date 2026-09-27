@@ -12,7 +12,7 @@ import app.parley.common.ux.BackupNudge
 import app.parley.data.DataContainer
 
 /**
- * C3: at most one quiet notification a month once a backup is overdue (the Settings and Backup banners do the rest).
+ * At most one quiet notification a month once a backup is overdue (the Settings and Backup banners do the rest).
  * Checked by the daily housekeeping run. The text names no one, but still stays off watches and hides on a locked
  * screen like Parley's other reminders.
  */

@@ -1,7 +1,7 @@
 package app.parley.common.messaging
 
 /**
- * M13 "Introduce myself to a list": a step-by-step queue of chats. Parley opens one chat at a time with your details
+ * "Introduce myself to a list": a step-by-step queue of chats. Parley opens one chat at a time with your details
  * prefilled; you press Send in the messenger yourself. Nothing is sent automatically: this is only the bookkeeping
  * of where you are ("3 of 12"), what you opened and what you skipped.
  */

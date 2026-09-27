@@ -30,7 +30,7 @@ import kotlinx.coroutines.launch
 import java.util.Locale
 
 /**
- * X5 handshake: a contact received by QR remembers where and when you met ("Met at the conference on 25 Sep"), as
+ * Handshake: a contact received by QR remembers where and when you met ("Met at the conference on 25 Sep"), as
  * a MEET entry in the Circle timeline and, if chosen, a line in the contact's note. "Swap" shows your own card right
  * after theirs arrives, so both phones end up with each other's details.
  */
@@ -92,7 +92,7 @@ private fun CheckLine(text: String, checked: Boolean, onChange: (Boolean) -> Uni
     }
 }
 
-/** X5 "Swap": your own card as a QR code (the Me card's dialog), shown right after theirs arrived. */
+/** "Swap": your own card as a QR code (the Me card's dialog), shown right after theirs arrived. */
 @Composable
 fun MyCardQrDialog(vm: AppViewModel, onDismiss: () -> Unit) {
     val own by vm.c.people.me.card.collectAsStateWithLifecycle()

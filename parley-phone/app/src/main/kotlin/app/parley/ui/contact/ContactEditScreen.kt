@@ -146,13 +146,13 @@ private val eventTypes = listOf(Event.TYPE_BIRTHDAY, Event.TYPE_ANNIVERSARY, Eve
 /** Country used to interpret phone numbers typed in the editor. */
 val LocalCountryIso = androidx.compose.runtime.staticCompositionLocalOf { "US" }
 
-// E1: focus keys of the fixed fields (row keys from RowKeys are positive).
+// Focus keys of the fixed fields (row keys from RowKeys are positive).
 private const val KEY_FIRST = -1L
 private const val KEY_NICK = -2L
 private const val KEY_NOTE = -3L
 private const val KEY_COMPANY = -4L
 
-/** E1: phones, e-mails and websites share one row layout; this says how each differs. */
+/** Phones, e-mails and websites share one row layout; this says how each differs. */
 private class MultiKind(
     val group: String,
     val icon: ImageVector,
@@ -233,7 +233,7 @@ fun ContactEditScreen(
     val isVault = editor.isVault
     val bgChange = editor.background
     val idx by vm.people.index.collectAsStateWithLifecycle()
-    // E1: stable row keys (animations, focus) and the field to focus next.
+    // Stable row keys (animations, focus) and the field to focus next.
     val keys = editor.keys
     val requesters = remember { HashMap<Long, FocusRequester>() }
     fun fr(key: Long) = requesters.getOrPut(key) { FocusRequester() }
@@ -248,7 +248,7 @@ fun ContactEditScreen(
     val changed = editor.changed
     val canSave = editor.canSave
 
-    // E1: unsaved-changes guard with predictive back: the editor shrinks with the gesture, then asks.
+    // Unsaved-changes guard with predictive back: the editor shrinks with the gesture, then asks.
     var backProgress by remember { mutableFloatStateOf(0f) }
     PredictiveBackHandler(enabled = changed && !saving && !confirmDiscard && askKeep == null) { events ->
         try {
@@ -286,7 +286,7 @@ fun ContactEditScreen(
                 },
                 navigationIcon = { IconButton({ if (changed) confirmDiscard = true else done(null) }) { Icon(Icons.Rounded.Close, stringResource(R.string.main_cancel)) } },
                 actions = {
-                    // E1: Save is ready once there is something to save (new) or something changed (existing).
+                    // Save is ready once there is something to save (new) or something changed (existing).
                     Button(onClick = ::save, enabled = canSave, modifier = Modifier.padding(end = 8.dp)) {
                         AnimatedContent(saving, label = "save") { busy ->
                             if (busy) {
@@ -535,7 +535,7 @@ fun ContactEditScreen(
             if (isVault) {
                 put("call") {
                     Segment(SegPos.Single, Modifier.animateItem()) {
-                        // I6: shown on the call screen (and, outside discreet mode, a missed-call notification).
+                        // Shown on the call screen (and, outside discreet mode, a missed-call notification).
                         GroupHead(Icons.Rounded.PhoneInTalk, stringResource(R.string.edit_when_they_call))
                         Column(Modifier.padding(end = 8.dp, bottom = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             OutlinedTextField(
@@ -562,7 +562,7 @@ fun ContactEditScreen(
                 put("bg:gap") { Spacer(Modifier.height(12.dp)) }
             }
 
-            // U5 / E1: "Add more info" offers only the kinds not on screen yet.
+            // "Add more info" offers only the kinds not on screen yet.
             if (EditorForm.addable(shownKinds).isNotEmpty()) {
                 put("more") {
                     Box(Modifier.fillMaxWidth().animateItem(), contentAlignment = Alignment.Center) {
@@ -581,7 +581,7 @@ fun ContactEditScreen(
             BoxWithConstraints(Modifier.padding(padding).consumeWindowInsets(padding).imePadding().fillMaxSize()) {
                 val wide = maxWidth >= 720.dp
                 if (wide) {
-                    // E1: two columns on wide screens and in landscape: photo, account and name beside the fields.
+                    // Two columns on wide screens and in landscape: photo, account and name beside the fields.
                     Row(Modifier.fillMaxSize().padding(horizontal = 24.dp), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
                         Column(Modifier.weight(0.42f).fillMaxHeight().verticalScroll(rememberScrollState()).padding(bottom = 24.dp)) { header() }
                         LazyColumn(Modifier.weight(0.58f).fillMaxHeight(), state = listState, contentPadding = PaddingValues(top = 8.dp)) { fields(0) }
@@ -632,7 +632,7 @@ fun ContactEditScreen(
     }
 }
 
-/** E1: "Save to" chip for new contacts (private or an account), or where an existing contact lives. */
+/** "Save to" chip for new contacts (private or an account), or where an existing contact lives. */
 @Composable
 private fun AccountLine(
     vaultId: Long?,
@@ -702,7 +702,7 @@ private fun InfoLine(icon: ImageVector, text: String) {
     }
 }
 
-/** E1: the name card: first and last name, with a chevron for prefix, middle, suffix, phonetic and nickname. */
+/** The name card: first and last name, with a chevron for prefix, middle, suffix, phonetic and nickname. */
 @Composable
 private fun NameCard(
     d: ContactDetails,
@@ -755,7 +755,7 @@ private fun NameCard(
     }
 }
 
-/** E1: one phone, e-mail or website: the field (flag for numbers), a type chip under it and the red "−". */
+/** One phone, e-mail or website: the field (flag for numbers), a type chip under it and the red "−". */
 @Composable
 private fun MultiRow(kind: MultiKind, item: DataItem, focus: FocusRequester, onChange: (DataItem) -> Unit, onRemove: () -> Unit) {
     val res = LocalResources.current
@@ -784,7 +784,7 @@ private fun MultiRow(kind: MultiKind, item: DataItem, focus: FocusRequester, onC
     }
 }
 
-/** E1: a date row: the year-optional picker behind a read-only field, and its type chip. */
+/** A date row: the year-optional picker behind a read-only field, and its type chip. */
 @Composable
 private fun DateRow(ev: EventItem, openPicker: Boolean, onPickerClosed: () -> Unit, onChange: (EventItem) -> Unit, onRemove: () -> Unit) {
     val res = LocalResources.current
@@ -825,7 +825,7 @@ private fun DateRow(ev: EventItem, openPicker: Boolean, onPickerClosed: () -> Un
     }
 }
 
-/** E1: one address: type chip and "−" on top, then the parts (PO box and neighbourhood when it has them, F25). */
+/** One address: type chip and "−" on top, then the parts (PO box and neighbourhood when it has them, F25). */
 @Composable
 private fun AddressRow(a: PostalItem, focus: FocusRequester, onChange: (PostalItem) -> Unit, onRemove: () -> Unit) {
     val res = LocalResources.current
@@ -861,7 +861,7 @@ private fun AddressRow(a: PostalItem, focus: FocusRequester, onChange: (PostalIt
     }
 }
 
-/** I1 / E1: one messenger handle: service chip, the handle with a per-service hint, a warning when it looks off. */
+/** One messenger handle: service chip, the handle with a per-service hint, a warning when it looks off. */
 @Composable
 private fun HandleRow(h: HandleItem, focus: FocusRequester, onChange: (HandleItem) -> Unit, onRemove: () -> Unit) {
     val res = LocalResources.current
@@ -890,7 +890,7 @@ private fun HandleRow(h: HandleItem, focus: FocusRequester, onChange: (HandleIte
     }
 }
 
-/** I5 / E1: one relation: the name (or pick the contact), its searchable vCard 4.0 type as a chip. */
+/** One relation: the name (or pick the contact), its searchable vCard 4.0 type as a chip. */
 @Composable
 private fun RelationRow(
     vm: AppViewModel,

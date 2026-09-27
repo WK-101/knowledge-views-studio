@@ -3,7 +3,7 @@ package app.parley.data.people
 import app.parley.common.people.CallerCard
 import app.parley.data.DataContainer
 
-/** I6: the caller-card line other surfaces reuse (the missed-call notification). */
+/** The caller-card line other surfaces reuse (the missed-call notification). */
 object CallerCards {
     /**
      * The extra line for a missed call from [number]: a contact's job/company, or a private contact's "who is this"

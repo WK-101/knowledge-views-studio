@@ -7,13 +7,13 @@ import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 
 /**
- * R2: a contact that isn't a phone call (the call log is the only source of calls): a meeting, a message, a video
+ * A contact that isn't a phone call (the call log is the only source of calls): a meeting, a message, a video
  * call or anything else, with an optional note. Stored per contact under its lookup key.
  */
 enum class InteractionType { MEET, MESSAGE, VIDEO, OTHER }
 
 /**
- * R3: where Parley started a conversation. Each channel has its own "Log this?" choice ([LogMode]). Calls are never
+ * Where Parley started a conversation. Each channel has its own "Log this?" choice ([LogMode]). Calls are never
  * a channel: they come from the call log only, so nothing is ever counted twice.
  */
 enum class InteractionChannel(val type: InteractionType) {
@@ -44,7 +44,7 @@ enum class InteractionChannel(val type: InteractionType) {
     }
 }
 
-/** R3: what happens after Parley opens a chat or video call with someone in your circle. */
+/** What happens after Parley opens a chat or video call with someone in your circle. */
 enum class LogMode { ALWAYS, ASK, NEVER }
 
 /** Kinds of "last in touch": a call from the call log, or a logged interaction. */
@@ -60,7 +60,7 @@ data class LastContact(val time: Long, val kind: ContactKind)
 data class CarriedInteraction(val t: String, val c: String? = null, val at: Long, val note: String? = null, val u: String)
 
 object Interactions {
-    /** R3: prompts for the same channel and person within this window are one conversation. */
+    /** Prompts for the same channel and person within this window are one conversation. */
     const val BUCKET_MS = 10 * 60_000L
 
     /** How long after leaving Parley the "Log this?" question is still asked on return. */

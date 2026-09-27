@@ -61,7 +61,7 @@ import app.parley.common.people.FastScroll
 import kotlin.math.roundToInt
 
 /**
- * A4 (v3.4): the Contacts A–Z rail. Like Google Contacts and Samsung's phonebook, dragging along it shows a large
+ * The Contacts A–Z rail. Like Google Contacts and Samsung's phonebook, dragging along it shows a large
  * letter bubble beside the finger (its pointed corner at the finger, so the thumb doesn't hide it), the letter
  * under the finger is highlighted on the rail, each new letter gives a light tick and the list jumps to it. Out of
  * a drag, the rail highlights the section at the top of the list. The entries are the list's own sections (other
@@ -81,7 +81,7 @@ fun FastScrollRail(letters: List<String>, current: Int, modifier: Modifier = Mod
     val latestLetters by rememberUpdatedState(letters)
     val latestPick by rememberUpdatedState(onPick)
     val selected = if (dragging && touched >= 0) touched else current
-    // U7: letters as large as fit (8 to 13 sp), so a short alphabet isn't tiny and a long one doesn't overlap.
+    // Letters as large as fit (8 to 13 sp), so a short alphabet isn't tiny and a long one doesn't overlap.
     val letterSp = with(density) { (height / letters.size.coerceAtLeast(1) * 0.62f).toSp().value }.coerceIn(8f, 13f)
     val bubble = 72.dp
     val bubblePx = with(density) { bubble.toPx() }

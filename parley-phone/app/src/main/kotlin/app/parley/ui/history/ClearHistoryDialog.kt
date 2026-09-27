@@ -43,7 +43,7 @@ import app.parley.ui.settings.settingSummary
 import app.parley.ui.settings.settingTitle
 import kotlinx.coroutines.launch
 
-/** P5: Settings › Recents & history › Clear call history. */
+/** Settings › Recents & history › Clear call history. */
 @Composable
 fun ClearHistoryRow(vm: AppViewModel, open: (String) -> Unit, icon: ImageVector? = null) {
     var show by remember { mutableStateOf(false) }
@@ -54,7 +54,7 @@ fun ClearHistoryRow(vm: AppViewModel, open: (String) -> Unit, icon: ImageVector?
 private enum class ClearStep { SCOPE, EXPORT, CONFIRM }
 
 /**
- * P5: which calls (all, unknown numbers, missed, or what Recents shows now), then "Export first?" (a CSV file, or an
+ * Which calls (all, unknown numbers, missed, or what Recents shows now), then "Export first?" (a CSV file, or an
  * encrypted backup), then a confirmation. Deleted calls stay in Recently deleted for 30 days, with Undo.
  * Calls with private contacts live in the vault and are never touched here.
  */
@@ -94,7 +94,7 @@ fun ClearHistoryDialog(vm: AppViewModel, shown: List<CallEntry>?, open: (String)
         if (!ClearHistory.available(picked, contactsReady)) picked = scopes.first { ClearHistory.available(it, contactsReady) }
     }
     var busy by remember { mutableStateOf(false) }
-    // P5: the calls are fixed when the user moves on from the scope, so what's exported is what's deleted.
+    // The calls are fixed when the user moves on from the scope, so what's exported is what's deleted.
     var chosen by remember { mutableStateOf<List<CallEntry>>(emptyList()) }
     fun selected() = ClearHistory.select(all.orEmpty(), picked, isKnown, shownIds, isPrivate, contactsReady)
     val count = if (step == ClearStep.SCOPE) counts[picked] ?: 0 else chosen.size

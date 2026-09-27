@@ -46,7 +46,7 @@ import app.parley.data.HandleItem
 import app.parley.ui.SegmentedGroupScope
 import app.parley.ui.common.Intents
 
-/** U3: a labelled quick-action tile (label ≥ 12 sp); long-press offers the alternative (choose again). */
+/** A labelled quick-action tile (label ≥ 12 sp); long-press offers the alternative (choose again). */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun RowScope.ActionTile(icon: ImageVector, label: String, enabled: Boolean, onLongClick: (() -> Unit)? = null, longClickLabel: String? = null, onClick: () -> Unit) {
@@ -113,7 +113,7 @@ fun GroupDataRow(
 }
 
 /**
- * I1: the "Messengers" rows for handles: tap opens the handle in its app (explicit package when known, else the
+ * The "Messengers" rows for handles: tap opens the handle in its app (explicit package when known, else the
  * system chooser; web links ask first through [onWeb]); long-press copies.
  */
 fun SegmentedGroupScope.handleRows(handles: List<HandleItem>, icon: ImageVector, onWeb: (HandleLink) -> Unit, firstHasIcon: Boolean = true) {

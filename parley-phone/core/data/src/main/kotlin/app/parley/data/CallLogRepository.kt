@@ -28,15 +28,15 @@ class CallLogRepository(private val context: Context, scope: CoroutineScope) {
     private var fullLoaded = false
 
     /**
-     * V11: the newest [PREVIEW_ROWS] calls, read first so Recents can show them while the full log loads. Only filled
+     * The newest [PREVIEW_ROWS] calls, read first so Recents can show them while the full log loads. Only filled
      * before the first full load; use [calls] for anything that needs the whole log.
      */
     val preview: StateFlow<List<CallEntry>?> = _preview
 
-    // F29: a refresh after READ_CALL_LOG is granted also registers the observer, so Recents update live.
+    // A refresh after READ_CALL_LOG is granted also registers the observer, so Recents update live.
     val calls: StateFlow<List<CallEntry>?> = combine(cr.changes(Calls.CONTENT_URI, retry = reload), reload) { _, _ -> }
         .map {
-            // Two-stage load (V11): a quick first page on the first load only, then everything.
+            // Two-stage load: a quick first page on the first load only, then everything.
             if (_preview.value == null && !fullLoaded) _preview.value = load(PREVIEW_ROWS)
             load().also { fullLoaded = true }
         }

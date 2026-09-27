@@ -12,7 +12,7 @@ import java.time.LocalDate
 import java.time.ZoneOffset
 
 class ExtrasTest {
-    // X2: trip mode
+    // Trip mode
 
     private val ana = TripMatch.Person(1, "Ana", places = listOf("Lisboa", "Portugal"))
     private val marco = TripMatch.Person(2, "Marco", note = "Moved to São Paulo last spring")
@@ -45,7 +45,7 @@ class ExtrasTest {
         assertEquals(listOf("LISBON", "Porto"), TripMatch.cityChoices(listOf("Porto", "Lisbon", "Lisbon"), recent = "LISBON"))
     }
 
-    // X3: label policies
+    // Label policies
 
     @Test fun label_sim_follows_alphabetical_labels_and_available_sims() {
         val p = mapOf("Work" to LabelPolicy(simId = "sim2"), "Family" to LabelPolicy(simId = "sim1"))
@@ -73,7 +73,7 @@ class ExtrasTest {
         assertTrue(LabelPolicies.decode("not json").isEmpty())
     }
 
-    // X4: simple mode
+    // Simple mode
 
     private fun contact(id: Long, name: String, key: String, vararg numbers: String) =
         ContactSummary(id, key, name, null, false, numbers.map { PhoneEntry(it, 2, null) })
@@ -146,7 +146,7 @@ class ExtrasTest {
         assertEquals(3 to 3, SimpleSetup.grid(9))
     }
 
-    // X3: Do Not Disturb stars
+    // Do Not Disturb stars
 
     @Test fun dnd_stars_are_reference_counted_per_label() {
         var l = DndStars.add(emptyMap(), "Work", listOf("a", "b"))
@@ -174,7 +174,7 @@ class ExtrasTest {
         assertEquals(mapOf("a" to setOf("Work", "Family")), DndStars.merge(l, mapOf("a" to setOf("Family"))))
     }
 
-    // X5: handshake
+    // Handshake
 
     @Test fun pending_slot_is_bound_to_its_editor_and_expires() {
         val slot = PendingSlot<String>(ttlMs = 1_000)
@@ -197,7 +197,7 @@ class ExtrasTest {
         assertTrue(Handshake.meetKey("n").startsWith("m:"))
     }
 
-    // C5: Markdown notes
+    // Markdown notes
 
     @Test fun markdown_has_front_matter_and_timeline() {
         val t = LocalDate.of(2026, 9, 20).atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()

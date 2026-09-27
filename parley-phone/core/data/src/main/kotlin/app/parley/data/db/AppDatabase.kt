@@ -125,7 +125,7 @@ data class TemporaryContactEntity(
     val purgeHistory: Boolean,
     /**
      * The raw contacts that make up the temporary contact, comma-separated (v4). Only these are ever deleted; null
-     * for entries made before v4, which are only deleted while they are still a single raw contact (F2).
+     * for entries made before v4, which are only deleted while they are still a single raw contact.
      */
     val rawIds: String? = null,
     /** Name at the time it was made temporary, for the "expired" notice (v4). */
@@ -149,14 +149,14 @@ data class ContactMetaEntity(
     val contactId: Long? = null,
     /** Relation name -> related contact's lookup key ([app.parley.common.people.RelationLinks], v4, F23). */
     val relationLinks: String? = null,
-    /** R4: Circle rhythm, JSON ([app.parley.common.circle.KeepRhythm]); null = every [reachOutDays] days (v5). */
+    /** Circle rhythm, JSON ([app.parley.common.circle.KeepRhythm]); null = every [reachOutDays] days (v5). */
     val rhythm: String? = null,
-    /** R10: life events remembered yearly, one [app.parley.common.circle.YearlyEvents] key per line (v6). */
+    /** Life events remembered yearly, one [app.parley.common.circle.YearlyEvents] key per line (v6). */
     val yearlyEvents: String? = null,
 )
 
 /**
- * R2: a contact that isn't a phone call (met, messaged, video call, other), keyed to the contact's lookup key like
+ * A contact that isn't a phone call (met, messaged, video call, other), keyed to the contact's lookup key like
  * contact_meta (re-keyed by [app.parley.data.people.ContactKeys]). The note is sealed with the Keystore key Parley
  * uses for small private records ([app.parley.data.circle.InteractionStore]); nothing personal is stored in clear.
  * [dedupeKey] is unique, so a "Log this?" accepted twice or a restore run twice records one entry (v5).
@@ -179,7 +179,7 @@ data class InteractionEntity(
     val createdAt: Long = System.currentTimeMillis(),
 )
 
-/** R6: when and how you were in touch, without opening any note. */
+/** When and how you were in touch, without opening any note. */
 data class InteractionTouchRow(val lookupKey: String, val time: Long, val dedupeKey: String)
 
 /** A stored interaction key and its last known contact id. */
@@ -358,7 +358,7 @@ interface MetaDao {
     @Query("UPDATE contact_meta SET relationLinks = :links WHERE lookupKey = :key")
     suspend fun setRelationLinks(key: String, links: String?)
 
-    /** R4: targeted writes, so a row read a while ago never overwrites newer edits (pinned note, a re-key). */
+    /** Targeted writes, so a row read a while ago never overwrites newer edits (pinned note, a re-key). */
     @Query("UPDATE contact_meta SET lastNudgedAt = :at WHERE lookupKey = :key")
     suspend fun setLastNudgedAt(key: String, at: Long?)
 
@@ -390,11 +390,11 @@ interface MetaDao {
     @Query("DELETE FROM call_notes WHERE id = :id")
     suspend fun deleteCallNote(id: Long)
 
-    /** R8/R9: the call notes of a person's numbers, newest first. */
+    /** The call notes of a person's numbers, newest first. */
     @Query("SELECT * FROM call_notes WHERE numberKey IN (:keys) ORDER BY callDate DESC")
     suspend fun callNotesNow(keys: List<String>): List<CallNoteEntity>
 
-    /** R9: a promise ticked off rewrites its line. */
+    /** A promise ticked off rewrites its line. */
     @Query("SELECT * FROM call_notes WHERE id = :id")
     suspend fun callNote(id: Long): CallNoteEntity?
 
@@ -639,7 +639,7 @@ interface PrefsDao {
     // v3: allow rules, schedules, SIM, hit counters, decision traces, ring lengths (blocking roadmap).
     // v4: temporary contacts remember their raw contact ids; contact metadata remembers the contact id and relation
     //     links (round-4 data-safety fixes F2, F8, F23). Added columns only, all nullable or defaulted.
-    // v5: interactions (R2) and the Circle rhythm column in contact metadata (R4). A new table and a nullable
+    // v5: interactions and the Circle rhythm column in contact metadata. A new table and a nullable
     //     column: nothing existing changes.
     // v7: the call-usage ledger (a new table), a nullable dedupe column with a unique index for private calls (old
     //     rows keep NULL, which never conflicts), and indexes on the number columns that are looked up. Additive only.

@@ -73,7 +73,7 @@ class AccountDiagnostics(private val context: Context) {
         }
         val local = localAccount()
         val counts = owning.mapValues { it.value.size }
-        // Samsung/Xiaomi (before Android 15) and other OEMs keep phone-only contacts under their own type (F10).
+        // Samsung/Xiaomi (before Android 15) and other OEMs keep phone-only contacts under their own type.
         val localPresent = fixed() || (counts[AccountKey(null, null)] ?: 0) > 0 || (local.type != null && (counts[AccountKey(local.type, local.name)] ?: 0) > 0) ||
             counts.any { (k, n) -> n > 0 && app.parley.common.record.AccountKinds.isLocalType(k.type) }
         val signedInKeys = accounts.map { AccountKey(it.type, it.name) }.toSet()

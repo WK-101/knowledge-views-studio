@@ -75,7 +75,7 @@ import kotlinx.coroutines.launch
 private val clearRow @Composable get() = ListItemDefaults.colors(containerColor = Color.Transparent)
 
 /**
- * R2: log a meeting, message, video call or anything else with an optional note ([initial] null), or edit an entry.
+ * Log a meeting, message, video call or anything else with an optional note ([initial] null), or edit an entry.
  * An edit keeps the entry's time unless a new day is picked (then the time of day stays).
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -98,7 +98,7 @@ fun LogInteractionDialog(name: String, initial: Interaction?, onDismiss: () -> U
                         FilterChip(type == t, { type = t }, label = { Text(CircleText.type(res, t)) }, leadingIcon = { Icon(CircleText.typeIcon(t), null) })
                     }
                 }
-                // R9: the checkbox button starts a promise line.
+                // The checkbox button starts a promise line.
                 PromiseNoteField(note, { note = it }, label = stringResource(R.string.circle_note))
                 ListItem(
                     modifier = Modifier.clickable { picking = true },
@@ -153,7 +153,7 @@ suspend fun saveInteraction(vm: AppViewModel, d: ContactDetails, contactId: Long
     }
 }
 
-/** R2: everything on a contact's timeline (calls, logged interactions, call notes and the dates among them), unsorted. */
+/** Everything on a contact's timeline (calls, logged interactions, call notes and the dates among them), unsorted. */
 fun timelineEntries(d: ContactDetails, history: List<CallEntry>, interactions: List<Interaction>, notes: List<CallNoteEntity>, zone: ZoneId): List<TimelineEntry> {
     val entries = history.map { TimelineEntry.Call(it) } +
         interactions.map { TimelineEntry.Logged(it.id, it.time, it.type, it.channel, it.note) } +
@@ -171,9 +171,9 @@ internal fun rememberMonthFormat(): DateTimeFormatter =
     remember { DateTimeFormatter.ofPattern(android.text.format.DateFormat.getBestDateTimePattern(Locale.getDefault(), "MMMMyyyy")) }
 
 /**
- * R2: the contact's timeline: calls, logged interactions, call notes and dates, newest first, one group per month.
+ * The contact's timeline: calls, logged interactions, call notes and dates, newest first, one group per month.
  * Three months show at first; "Show earlier" adds more. Logged entries can be edited or deleted (with Undo).
- * P1 (v3.4): on the contact page only the latest [limit] entries show (the section header has the title), and
+ * On the contact page only the latest [limit] entries show (the section header has the title), and
  * "Show all" ([onShowAll]) opens the full timeline with search and filters.
  */
 @Composable

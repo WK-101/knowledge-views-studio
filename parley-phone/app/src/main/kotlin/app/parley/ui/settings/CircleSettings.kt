@@ -68,13 +68,13 @@ fun SegmentedGroupScope.circleSettingRows(vm: AppViewModel, cfg: CircleConfig, b
     item("log_prompts") { LogPromptsRow(vm, cfg) }
 }
 
-/** R6: the People card in Insights and its "who reaches out first" part (Settings › Recents & history). */
+/** The People card in Insights and its "who reaches out first" part (Settings › Recents & history). */
 fun SegmentedGroupScope.peopleCardRows(vm: AppViewModel, cfg: CircleConfig) {
     switchRow("people_card", cfg.peopleCard, Icons.Rounded.Groups) { v -> vm.c.circle.updateConfig { it.copy(peopleCard = v) } }
     if (cfg.peopleCard) switchRow("first_mover", cfg.firstMover, Icons.Rounded.SwapHoriz) { v -> vm.c.circle.updateConfig { it.copy(firstMover = v) } }
 }
 
-/** R8/R9/X1: "Remember what matters" (Settings › Calls): the memory prompt, notes on the lock screen, the peek. */
+/** "Remember what matters" (Settings › Calls): the memory prompt, notes on the lock screen, the peek. */
 @Composable
 fun MemorySettingsGroup(vm: AppViewModel) {
     val cfg by vm.c.circle.config.collectAsStateWithLifecycle()
@@ -85,7 +85,7 @@ fun MemorySettingsGroup(vm: AppViewModel) {
     }
 }
 
-/** R3: Always / Ask / Never per channel. */
+/** Always / Ask / Never per channel. */
 @Composable
 private fun LogPromptsRow(vm: AppViewModel, cfg: CircleConfig) {
     val res = LocalResources.current

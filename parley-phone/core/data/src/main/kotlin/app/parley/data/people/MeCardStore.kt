@@ -22,7 +22,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 /**
- * I2: your own card ("Me").
+ * Your own card ("Me").
  *
  * - Parley's copy lives in Parley's private storage, like the "My details" it replaces: it was read from there once
  *   ([migrateFrom]) so nothing typed before is lost, and "Send my details" keeps using its name and number.

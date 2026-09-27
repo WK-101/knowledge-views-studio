@@ -69,7 +69,7 @@ import app.parley.messaging.MessengerLauncher
 import app.parley.ui.Bidi
 
 /**
- * M6/M7: how to reach one person by message: their numbers, the messenger rows apps added for them (none for
+ * How to reach one person by message: their numbers, the messenger rows apps added for them (none for
  * private contacts: no other app can see those), and the remembered choice.
  */
 data class Reach(
@@ -81,7 +81,7 @@ data class Reach(
     val prefs: MessengerPrefs,
     /** A private contact: nothing about them is written outside Parley's encrypted storage. */
     val isPrivate: Boolean = false,
-    /** R3: the saved contact this is (for "Log this?" when they're in the Circle); null for private contacts. */
+    /** The saved contact this is (for "Log this?" when they're in the Circle); null for private contacts. */
     val lookupKey: String? = null,
     val contactId: Long? = null,
 ) {
@@ -89,7 +89,7 @@ data class Reach(
     val linked: Set<String> get() = messengers.filter { it.kind == ReachKind.MESSAGE }.map { it.accountType }.toSet()
     val videoRows: List<MessengerAction> get() = messengers.filter { it.kind == ReachKind.VIDEO }
 
-    /** V34: the messenger rows per app and number, for "Reach via apps" and the sheet's "Call on". */
+    /** The messenger rows per app and number, for "Reach via apps" and the sheet's "Call on". */
     fun groups(region: String?): List<ReachGroup> = ReachGroups.group(messengers.map { it.row }) { a, b -> PhoneNumbers.same(a, b, region) }
 
     /** The action behind [row] (a row of [groups]). */
@@ -126,7 +126,7 @@ object ContactMessaging {
     }
 
     /**
-     * R3: Parley just opened [channel] for [r]. If they're in the Circle, "Log this?" is asked when you come back
+     * Parley just opened [channel] for [r]. If they're in the Circle, "Log this?" is asked when you come back
      * (or logged at once, per Settings). Calls are never logged here: the call log already has them.
      */
     fun offerLog(context: Context, r: Reach, channel: InteractionChannel) {
@@ -160,7 +160,7 @@ object ContactMessaging {
     }
 
     /**
-     * I1: opens a handle link. An app that handles it directly is used with its package; otherwise the system
+     * Opens a handle link. An app that handles it directly is used with its package; otherwise the system
      * chooser. A web link ([HandleLink.isWeb]) with no app to take it returns false so the caller can ask first:
      * nothing ever opens a browser without the user agreeing.
      */
@@ -182,7 +182,7 @@ object ContactMessaging {
     }
 }
 
-/** "Open matrix.to in your browser?" before a handle's web link goes to a browser (I1). */
+/** "Open matrix.to in your browser?" before a handle's web link goes to a browser. */
 @Composable
 fun ConfirmWebLink(link: HandleLink, onDismiss: () -> Unit) {
     val context = LocalContext.current

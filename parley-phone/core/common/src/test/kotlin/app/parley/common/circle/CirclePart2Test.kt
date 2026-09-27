@@ -14,7 +14,6 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.time.ZoneOffset
 
-/** R6–R10, X1, X6. */
 class CirclePart2Test {
     private val day = NaturalRhythm.DAY
     private val hour = 3_600_000L
@@ -25,7 +24,6 @@ class CirclePart2Test {
     private fun call(type: CallType, at: Long, sec: Long = 60) = CallEntry(0, "+491701234567", null, type, at, sec, null, false, false)
     private fun t(key: String, daysAgo: Double, kind: PeopleInsights.TouchKind) = PeopleInsights.Touch(key, now - (daysAgo * day).toLong(), kind)
 
-    // R9
 
     @Test fun promises_are_lines_with_a_box() {
         val note = "Met at the café\n[ ] send the photos\n- [x] book the table\n  [ ]   call Mum on Sunday\n[] not a promise\n[ ]"
@@ -56,7 +54,6 @@ class CirclePart2Test {
         assertEquals("Hi · ☐ photos · ☑ table", Promises.preview("Hi\n\n[ ] photos\n[x] table"))
     }
 
-    // R6
 
     @Test fun reach_counts_people_in_touch_this_month_against_the_month_before() {
         val circle = setOf("a", "b", "c")
@@ -131,7 +128,6 @@ class CirclePart2Test {
         assertNull(PeopleInsights.touchOf("a", call(CallType.BLOCKED, now, 0)))
     }
 
-    // X1
 
     @Test fun good_time_needs_eight_answered_calls_and_a_clear_window() {
         val evenings = (1..8).map { call(if (it % 2 == 0) CallType.INCOMING else CallType.OUTGOING, now - it * day + 7 * hour) } // 19:00 UTC
@@ -163,7 +159,6 @@ class CirclePart2Test {
         assertFalse(GoodTime.differs(null, ZoneId.of("Europe/Berlin"), now))
     }
 
-    // R10
 
     @Test fun yearly_flags_are_keyed_by_type_label_and_day_and_merge_on_rekey() {
         val d = EventDate(2025, 10, 1)
@@ -188,7 +183,7 @@ class CirclePart2Test {
         assertNull(YearlyEvents.upcoming("ana", "moved", EventDate(null, 9, 27), today, 7)!!.years)
     }
 
-    // X6 + R10 in the digest
+    // In the digest
 
     @Test fun serendipity_pick_is_someone_quiet_for_over_a_year_never_twice_in_a_row() {
         val quiet = listOf(CircleDigest.Quiet("old1", now - 400 * day), CircleDigest.Quiet("old2", now - 500 * day), CircleDigest.Quiet("recent", now - 200 * day))

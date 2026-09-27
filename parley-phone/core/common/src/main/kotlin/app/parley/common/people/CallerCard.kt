@@ -1,7 +1,7 @@
 package app.parley.common.people
 
 /**
- * I6: the extra lines on a caller card: "Engineer · Acme" and a "who is this" context line ("Plumber, fixed the
+ * The extra lines on a caller card: "Engineer · Acme" and a "who is this" context line ("Plumber, fixed the
  * boiler in May"), for private contacts too. What the in-call screen may show and what a notification may say are
  * different: notifications can reach the lock screen and notification listeners.
  */

@@ -56,7 +56,7 @@ import app.parley.ui.SegmentedGroup
 import kotlinx.coroutines.launch
 
 /**
- * S1/S2 (v3.3): Settings › Appearance › Layout. Both combine options with small previews, the question whether to
+ * Settings › Appearance › Layout. Both combine options with small previews, the question whether to
  * keep the absorbed tab too (never removed silently), "Back to separate tabs", and the Recents row tap (shown in
  * every layout, unlike iOS's setting that only appears in its combined view).
  */

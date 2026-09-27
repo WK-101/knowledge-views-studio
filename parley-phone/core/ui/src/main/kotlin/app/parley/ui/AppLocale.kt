@@ -10,7 +10,7 @@ import androidx.core.content.edit
 import java.util.Locale
 
 /**
- * Per-app language (L1). Android 13+ stores it itself ([LocaleManager], the system "App languages" screen). On
+ * Per-app language. Android 13+ stores it itself ([LocaleManager], the system "App languages" screen). On
  * Android 10–12 Parley stores the choice and applies it as a configuration override: every activity calls
  * [override] from `attachBaseContext`, and the application context is wrapped by [wrap], so notifications and
  * toasts follow it too. No AppCompat needed.

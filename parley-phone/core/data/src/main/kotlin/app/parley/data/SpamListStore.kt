@@ -47,7 +47,7 @@ data class ListLookup(val hits: List<ListHit>, val failed: Boolean)
 data class ListsSummary(val lists: Int, val numbers: Long, val updatedAt: Long?, val stale: Int)
 
 /**
- * Installed spam-list packs (B4/B5/B7). Files live in device-protected storage so the data is readable
+ * Installed spam-list packs. Files live in device-protected storage so the data is readable
  * before the first unlock; numbers are memory-mapped and binary-searched on each incoming call.
  */
 class SpamListStore(context: Context) {
@@ -370,7 +370,7 @@ class SpamListStore(context: Context) {
         }
     }
 
-    // ---------- Sharing your rules (B7) ----------
+    // ---------- Sharing your rules ----------
 
     private val keyFile = File(app.filesDir, "blocking/share.key")
 

@@ -65,7 +65,7 @@ class CallBackgrounds(context: Context, private val contacts: ContactsRepository
         _version.value++
     }
 
-    // ---- Keys (F8). File names are hashes, so an index remembers which lookup key each background belongs to;
+    // ---- Keys. File names are hashes, so an index remembers which lookup key each background belongs to;
     // when a contact's key changes (link, unlink, first sync, move) the background can follow it.
 
     private val indexFile = File(dir, "index.txt")

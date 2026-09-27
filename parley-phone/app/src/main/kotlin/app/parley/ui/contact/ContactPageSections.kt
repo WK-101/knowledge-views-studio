@@ -47,7 +47,7 @@ import app.parley.common.people.ContactPageLayout
 import app.parley.common.people.ContactSection
 
 /**
- * P1 (v3.4): the sections a contact's page has, collected in code order with their title, the summary shown while
+ * The sections a contact's page has, collected in code order with their title, the summary shown while
  * folded, and their content; [foldableSections] draws them in the order chosen in Settings.
  */
 class PageSections {
@@ -65,7 +65,7 @@ class PageSections {
 /** The sections this page shows, in order (hidden and empty ones left out). */
 fun PageSections.shown(layout: ContactPageLayout): List<ContactSection> = layout.visible.filter { it in entries }
 
-/** P1: one list item per shown section: a fold header and its content, which folds with a spring. */
+/** One list item per shown section: a fold header and its content, which folds with a spring. */
 fun LazyListScope.foldableSections(sections: PageSections, layout: ContactPageLayout, onFold: (ContactSection, Boolean) -> Unit) {
     sections.shown(layout).forEach { s ->
         val e = sections.entries.getValue(s)
@@ -119,7 +119,7 @@ fun FoldHeader(title: String, summary: String, folded: Boolean, onToggle: () -> 
 class QuickAction(val icon: ImageVector, val label: String, val enabled: Boolean, val onClick: () -> Unit)
 
 /**
- * P1: the compact bar that stays under the top bar once the big header has scrolled away: the quick actions as
+ * The compact bar that stays under the top bar once the big header has scrolled away: the quick actions as
  * 48 dp tonal buttons and, on long pages, chips that jump to a section.
  */
 @Composable
@@ -144,7 +144,7 @@ fun PinnedContactBar(actions: List<QuickAction>, jumps: List<Pair<String, () -> 
     }
 }
 
-/** P1: a section's name, as the page and Settings › Contact page sections show it. */
+/** A section's name, as the page and Settings › Contact page sections show it. */
 fun sectionTitle(res: android.content.res.Resources, s: ContactSection): String = res.getString(
     when (s) {
         ContactSection.STAY -> R.string.contact_page_sec_stay

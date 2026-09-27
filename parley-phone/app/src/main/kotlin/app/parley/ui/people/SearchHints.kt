@@ -4,7 +4,7 @@ import android.content.res.Resources
 import app.parley.R
 import app.parley.common.people.BroadSearch
 
-/** I8: "Matched: address" under a contact the Contacts search found by another field than the name or number. */
+/** "Matched: address" under a contact the Contacts search found by another field than the name or number. */
 internal fun matchHint(res: Resources, field: BroadSearch.Field?): String {
     val name = when (field) {
         BroadSearch.Field.EMAIL -> R.string.search_field_email

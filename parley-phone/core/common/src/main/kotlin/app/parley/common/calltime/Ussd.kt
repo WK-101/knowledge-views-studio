@@ -1,7 +1,7 @@
 package app.parley.common.calltime
 
 /**
- * Recognises USSD codes (balance checks like `*100#`, `#123*1#`) typed on the keypad (A13).
+ * Recognises USSD codes (balance checks like `*100#`, `#123*1#`) typed on the keypad.
  *
  * Supplementary-service codes (call forwarding `**21*…#`, waiting `*43#`, caller ID `*31#`, barring, PIN
  * changes, `*#06#`) are *not* USSD: the phone handles them itself when they are dialled like a call, so they

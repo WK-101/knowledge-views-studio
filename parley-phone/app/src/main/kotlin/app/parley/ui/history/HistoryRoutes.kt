@@ -43,13 +43,13 @@ fun NavGraphBuilder.historyDestinations(vm: AppViewModel, nav: NavController) {
     composable(HistoryRoutes.SIM) { SimSettingsScreen(vm, Uri.decode(it.arguments?.getString("id").orEmpty()), back = { nav.popBackStack() }) }
 }
 
-/** Recents top-bar action: Insights (H5). */
+/** Recents top-bar action: Insights. */
 @Composable
 fun RecentsInsightsAction(open: (String) -> Unit) {
     IconButton({ open(HistoryRoutes.INSIGHTS) }) { Icon(Icons.Rounded.Insights, stringResource(R.string.hist_insights_action)) }
 }
 
-/** Recents overflow item "Export…" (H2); the sheet itself is shown by [RecentsExportHost] in Recents. */
+/** Recents overflow item "Export…"; the sheet itself is shown by [RecentsExportHost] in Recents. */
 @Composable
 fun RecentsExportMenuItem(closeMenu: () -> Unit) {
     DropdownMenuItem({ Text(stringResource(R.string.hist_export_menu)) }, leadingIcon = { Icon(Icons.Rounded.FileDownload, null) }, onClick = {

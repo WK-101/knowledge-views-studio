@@ -87,11 +87,11 @@ private fun SwipeAction.colors(): Pair<Color, Color> = when (this) {
 }
 
 /**
- * U4: a contact or Recents row with swipe actions (off by default, Settings › Appearance). The same actions are
+ * A contact or Recents row with swipe actions (off by default, Settings › Appearance). The same actions are
  * offered to TalkBack as custom actions. Nothing is dismissed by the gesture itself, so a Delete always goes
  * through the caller's undo path (and Block offers Undo too, [blockWithUndo]).
  *
- * S1 (v3.4): a swipe only starts after a clear sideways move (past the touch slop and at least twice as sideways
+ * A swipe only starts after a clear sideways move (past the touch slop and at least twice as sideways
  * as up or down, [SwipeGesture.classify]) and never while [listState] is still flinging, so it doesn't fight the
  * list's scrolling. It commits past a third of the row or with a quick flick; a tick is felt when the threshold is
  * crossed (and again if you go back), the action's colour and icon pop in at that point, and the row springs back.
@@ -234,7 +234,7 @@ private fun SwipeBackground(o: Float, right: SwipeAction, left: SwipeAction, arm
     }
 }
 
-/** S1: Block from a swipe, with Undo on the snackbar (a swipe is easy to make by mistake). */
+/** Block from a swipe, with Undo on the snackbar (a swipe is easy to make by mistake). */
 fun blockWithUndo(vm: AppViewModel, numbers: List<String>) {
     val res = vm.getApplication<android.app.Application>().resources
     vm.viewModelScope.launch {

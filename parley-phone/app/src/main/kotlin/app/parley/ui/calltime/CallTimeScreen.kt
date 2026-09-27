@@ -54,8 +54,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * Settings › Calls › Call time: talk-time reminders (T1), hard limits and allowances per contact, label, SIM
- * or all calls (T5, T6), and supervised mode (T7).
+ * Settings › Calls › Call time: talk-time reminders, hard limits and allowances per contact, label, SIM
+ * or all calls, and supervised mode.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

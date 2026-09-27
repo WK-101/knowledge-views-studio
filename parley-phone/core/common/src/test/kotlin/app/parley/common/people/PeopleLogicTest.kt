@@ -14,7 +14,7 @@ class PeopleLogicTest {
     private fun c(id: Long, name: String, vararg numbers: String, key: String = "k$id", emails: List<String> = emptyList()) =
         ContactSummary(id, key, name, null, true, numbers.map { PhoneEntry(it, 2, null) }, emails)
 
-    // ---------------------------------------------------------------- C1 second line
+    // ---------------------------------------------------------------- Second line
 
     @Test fun second_line_follows_the_chosen_mode() {
         val list = listOf(c(1, "Anna", "+441234567890"), c(2, "Ben"))
@@ -56,7 +56,7 @@ class PeopleLogicTest {
         assertEquals("Robert Jones", SecondLines.displayName(a, PersonExtra(nickname = " "), true))
     }
 
-    // ---------------------------------------------------------------- C2 label filters
+    // ---------------------------------------------------------------- Label filters
 
     @Test fun label_filter_or_and_unlabelled() {
         val fam = PersonExtra(labels = setOf("Family"))
@@ -89,7 +89,7 @@ class PeopleLogicTest {
         assertEquals(setOf(3L, 4L), LabelMerge.toAdd(members, setOf("Pals", "Mates", "Friends"), "Friends"))
     }
 
-    // ---------------------------------------------------------------- C4 favourites
+    // ---------------------------------------------------------------- Favourites
 
     @Test fun favourites_custom_order_by_lookup_key_with_new_ones_last() {
         val favs = listOf(c(1, "Zoe", key = "z"), c(2, "Adam", key = "a"), c(3, "Mia", key = "m"), c(4, "Bea", key = "b"))
@@ -115,7 +115,7 @@ class PeopleLogicTest {
         assertEquals(6, FavoriteOrder.columnsAfterPinch(6, 0.5f))
     }
 
-    // ---------------------------------------------------------------- C6 duplicate warning
+    // ---------------------------------------------------------------- Duplicate warning
 
     @Test fun duplicate_warning_by_number_email_and_full_name() {
         val lookup = DuplicateLookup(listOf(c(1, "Anna Smith", "+44 7700 900123", emails = listOf("anna@example.com")), c(2, "Bob")))
@@ -129,7 +129,7 @@ class PeopleLogicTest {
         assertEquals("Anna Smith", byName.contact.displayName)
     }
 
-    // ---------------------------------------------------------------- C9 date of death
+    // ---------------------------------------------------------------- Date of death
 
     @Test fun death_label_is_recognised_and_stops_birthday_reminders() {
         assertTrue(LifeEvents.isDeath(0, "Date of death"))
@@ -153,7 +153,7 @@ class PeopleLogicTest {
         assertNull(LifeEvents.ageAtDeath(EventDate(null, 5, 1), EventDate(2020, 5, 1)))
     }
 
-    // ---------------------------------------------------------------- C8 SIM
+    // ---------------------------------------------------------------- SIM
 
     @Test fun sim_fit_keeps_one_number_and_shortens_the_name() {
         val r = SimFit.fit("Alexandra Montgomery-Smith", listOf(PhoneEntry("+44 7700 900123", 1, null), PhoneEntry("07700 900999", 2, null)), otherFields = 2)
@@ -177,7 +177,7 @@ class PeopleLogicTest {
         assertNull(SimFit.fit("Long", listOf(PhoneEntry("1".repeat(25), 2, null))).entry)
     }
 
-    // ---------------------------------------------------------------- D2 masking
+    // ---------------------------------------------------------------- Masking
 
     @Test fun diagnostics_mask_numbers_emails_and_uris() {
         val m = Masking.mask("Call to +44 7700 900123 failed for anna@example.com via content://com.android.contacts/data/1234 (code 42)")
@@ -189,7 +189,7 @@ class PeopleLogicTest {
         assertEquals("••••••••23", Masking.maskNumber("0123456723"))
     }
 
-    // ---------------------------------------------------------------- C11 provenance
+    // ---------------------------------------------------------------- Provenance
 
 
     @Test fun provenance_parley_when_version_unchanged() {
@@ -222,7 +222,7 @@ class PeopleLogicTest {
         assertNull(Provenance.verdict(listOf(RawState(1, "Phone only", false, 3, false)), emptyList(), null))
     }
 
-    // ---------------------------------------------------------------- C7 accounts
+    // ---------------------------------------------------------------- Accounts
 
     @Test fun account_check_flags_orphans_sync_off_and_missing_local() {
         val g = AccountKey("com.google", "a@x")
@@ -240,7 +240,7 @@ class PeopleLogicTest {
         assertEquals(listOf(AccountFindingKind.NO_CONTACTS), AccountCheck.check(setOf(g), emptyMap(), emptySet(), true, true).map { it.kind })
     }
 
-    // ---------------------------------------------------------------- C15 lookup policy
+    // ---------------------------------------------------------------- Lookup policy
 
     @Test fun lookup_accepts_only_one_exact_number() {
         assertEquals("+447700900123", LookupPolicy.parseNumber("+44 7700 900123"))

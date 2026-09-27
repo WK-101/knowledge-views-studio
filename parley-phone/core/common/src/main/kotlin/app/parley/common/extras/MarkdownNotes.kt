@@ -6,7 +6,7 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 /**
- * C5: one Markdown file per person, for Obsidian and other note apps: YAML front-matter (name, phones, e-mails,
+ * One Markdown file per person, for Obsidian and other note apps: YAML front-matter (name, phones, e-mails,
  * dates, labels) and then the pinned note, the contact's note, the Circle rhythm and the timeline of calls and
  * logged interactions. Export only: Parley never imports anything from these files. Each file carries a fingerprint of
  * itself ([MARKER], see [isUntouched]), so Parley can tell its own untouched files from ones the user edited, and
@@ -35,7 +35,7 @@ object MarkdownNotes {
         val keepInTouch: String? = null,
         val keepInTouchDays: Int? = null,
         val timeline: List<Entry> = emptyList(),
-        /** R9 promises from all of this person's notes, as Markdown tasks (Obsidian renders them as checkboxes). */
+        /** Promises from all of this person's notes, as Markdown tasks (Obsidian renders them as checkboxes). */
         val promises: List<app.parley.common.circle.Promises.Item> = emptyList(),
     )
 
@@ -86,7 +86,7 @@ object MarkdownNotes {
     }
 
     /**
-     * C5: a hash of a file's content without its [MARKER] line and with the `exported:` date blanked, so it names what
+     * A hash of a file's content without its [MARKER] line and with the `exported:` date blanked, so it names what
      * Parley wrote about the person (the same person exported on another day has the same fingerprint).
      */
     fun fingerprint(text: String): String {
@@ -162,7 +162,7 @@ object MarkdownNotes {
         forbidden.replace(name, " ").replace(Regex("\\s+"), " ").trim().trimStart('.', ' ').trimEnd('.', ' ').take(80).trim().ifEmpty { "Contact" }
 
     /**
-     * C5: the file for [name] in a folder: the first of "Ana.md", "Ana (2).md"… that no one else got in this run
+     * The file for [name] in a folder: the first of "Ana.md", "Ana (2).md"… that no one else got in this run
      * ([used], lower case, receives the choice) and that is either free or Parley's own untouched file ([ours] is asked
      * about files in [existing], lower-cased name → actual name). A file the user wrote or edited is stepped over and
      * never reused. Returns the actual name (an existing file keeps its spelling).

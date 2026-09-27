@@ -1,6 +1,6 @@
 package app.parley.common
 
-/** V34: what one messenger row in the contacts database does when opened. */
+/** What one messenger row in the contacts database does when opened. */
 enum class ReachKind {
     /** Opens the chat. */
     MESSAGE,
@@ -30,7 +30,7 @@ data class ReachRow(
 )
 
 /**
- * V34: recognises messenger rows by mimetype instead of guessing from localised labels. Exact mimetypes come from
+ * Recognises messenger rows by mimetype instead of guessing from localised labels. Exact mimetypes come from
  * the apps' own manifests and contacts structure files where they are public (Signal, Molly, Telegram, Threema) and
  * from what the apps are known to write (WhatsApp, Viber, Meet); anything else an app namespaces under its own
  * account type is classified by the words in its mimetype.
@@ -126,7 +126,7 @@ object MessengerMimes {
     }
 }
 
-/** V34: one app's ways to reach a person (on one number): each is null when the app didn't add that row. */
+/** One app's ways to reach a person (on one number): each is null when the app didn't add that row. */
 data class ReachGroup(
     val appKey: String,
     val app: ReachApp?,
@@ -180,7 +180,7 @@ object ReachGroups {
         if (number == null) groups else groups.filter { it.number == null || same(it.number, number) }
 }
 
-/** V34: how "Call on <app>" works for a number. */
+/** How "Call on <app>" works for a number. */
 sealed interface CallRoute {
     /** The app added a call row for this number (a saved contact it has linked): opening it starts the call. */
     data class Row(val row: ReachRow) : CallRoute
@@ -210,7 +210,7 @@ object CallRoutes {
 }
 
 /**
- * v3.4 review #5: which messenger rows belong to a person. Numbers are compared with [PhoneNumbers.sameExact] (never
+ * Which messenger rows belong to a person. Numbers are compared with [PhoneNumbers.sameExact] (never
  * the last-digits fallback), so on a phone without a SIM country another person's messenger rows can't match.
  */
 object MessengerRowMatch {

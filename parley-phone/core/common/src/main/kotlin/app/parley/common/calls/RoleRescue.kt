@@ -1,6 +1,6 @@
 package app.parley.common.calls
 
-/** P4: the default-phone-app role request that Android answered without asking the user. */
+/** The default-phone-app role request that Android answered without asking the user. */
 object RoleRescue {
     /** A refusal faster than this can't have come from a person pressing Cancel on a dialog. */
     const val SILENT_CANCEL_MS = 300L

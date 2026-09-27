@@ -28,7 +28,7 @@ import androidx.compose.ui.res.stringResource
 import app.parley.R
 
 /**
- * U10: after a crash (with "Keep crash reports" on), the next start offers the report: send it by e-mail or any
+ * After a crash (with "Keep crash reports" on), the next start offers the report: send it by e-mail or any
  * app, with numbers and e-mail addresses masked, or dismiss it. Parley sends nothing itself.
  */
 @Composable

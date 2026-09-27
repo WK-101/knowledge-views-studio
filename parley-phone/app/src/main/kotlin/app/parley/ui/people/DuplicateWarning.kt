@@ -41,7 +41,7 @@ import app.parley.ui.DataL10n
 fun DuplicateWarning(vm: AppViewModel, draft: ContactDetails, onOpen: (Long) -> Unit, onAddTo: (Long) -> Unit) {
     val contacts by vm.contacts.collectAsStateWithLifecycle()
     val lookup = remember(contacts) { contacts?.let { DuplicateLookup(it) } }
-    // F15: private contacts count too (not in discreet mode, where the vault stays out of sight). Their ids are
+    // Private contacts count too (not in discreet mode, where the vault stays out of sight). Their ids are
     // negative so they never clash with a contact id.
     val vault by vm.c.vault.contacts.collectAsStateWithLifecycle()
     val settings by vm.settings.collectAsStateWithLifecycle()

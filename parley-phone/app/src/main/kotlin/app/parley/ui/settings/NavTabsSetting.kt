@@ -55,7 +55,7 @@ import app.parley.ui.home.label
 @Composable
 fun NavTabsEditor(
     tabs: NavTabs,
-    /** S1/S2 (v3.3): tabs a combined surface shows instead of the bar (Keypad → Recents, Favorites → Contacts). */
+    /** Tabs a combined surface shows instead of the bar (Keypad → Recents, Favorites → Contacts). */
     inside: Map<StartTab, StartTab> = emptyMap(),
     onChange: (NavTabs) -> Unit,
 ) {

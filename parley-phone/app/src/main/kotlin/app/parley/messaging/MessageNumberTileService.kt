@@ -10,12 +10,12 @@ import android.service.quicksettings.TileService
 import app.parley.R
 
 /**
- * Quick Settings tile (M8): "Message a number". Opens the number sheet with an empty field, a Paste chip (the
+ * Quick Settings tile: "Message a number". Opens the number sheet with an empty field, a Paste chip (the
  * clipboard is read only when you tap it), the country and the messengers. The sheet isn't allowed over the lock
  * screen, so a locked phone asks to unlock first and nothing (no recent numbers, no history) shows before that.
  */
 class MessageNumberTileService : TileService() {
-    // L1: the in-app language on Android 10-12 (Android 13+ applies per-app languages itself).
+    // The in-app language on Android 10-12 (Android 13+ applies per-app languages itself).
     override fun attachBaseContext(newBase: android.content.Context) {
         super.attachBaseContext(app.parley.ui.AppLocale.wrap(newBase))
     }
@@ -42,7 +42,7 @@ class MessageNumberTileService : TileService() {
     }
 }
 
-/** "Message a number" (M8): the empty number sheet, from the tile, the launcher shortcut and Parley's menus. */
+/** "Message a number": the empty number sheet, from the tile, the launcher shortcut and Parley's menus. */
 object MessageNumber {
     const val ACTION = "app.parley.action.MESSAGE_NUMBER"
 

@@ -138,9 +138,9 @@ import kotlinx.coroutines.withContext
  * A contact's page. U1: the photo and name dock into the top bar as you scroll ("last talked" shows there once
  * collapsed); U2: grouped sections; U3: labelled Call / Message / Video / Email tiles; M6/M7: "Message on…" with a
  * remembered choice per person; I1 handles, I3 default number or e-mail, I4 other fields, I5 relation types.
- * U4 (v3.2): header, actions, Stay in touch, dates, numbers, timeline (R2), notes; "Log interaction" is the FAB for
+ * Header, actions, Stay in touch, dates, numbers, timeline, notes; "Log interaction" is the FAB for
  * Circle contacts and a ⋮ item for everyone else.
- * P1 (v3.4): every section folds (its summary shows while folded), in the order and start state chosen in Settings;
+ * Every section folds (its summary shows while folded), in the order and start state chosen in Settings;
  * a compact bar with the quick actions (and jump chips on long pages) stays under the top bar once scrolled; the
  * timeline shows the latest few entries with "Show all" opening the full, searchable one.
  */
@@ -178,7 +178,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
     val otherFields = ui.otherFields
     val interactions = ui.interactions
     var logDialog by remember { mutableStateOf(false) }
-    // R8/R9/X1: the pre-call peek (the number about to be called).
+    // The pre-call peek (the number about to be called).
     val circleCfg by page.circleConfig.collectAsStateWithLifecycle()
     var peekNumber by remember { mutableStateOf<String?>(null) }
     var editEntry by remember { mutableStateOf<app.parley.data.circle.Interaction?>(null) }
@@ -196,9 +196,9 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
 
     val d = details
     val history = ui.history
-    // R8/R9: every note about this person (call notes, interaction notes, pinned note), and its open promises.
+    // Every note about this person (call notes, interaction notes, pinned note), and its open promises.
     val memory = ui.memory
-    // X1: a good time to call, from the calls with them and their local time.
+    // A good time to call, from the calls with them and their local time.
     val goodTime = remember(history, d?.phones) {
         val p = d?.phones?.let { ps -> ps.firstOrNull { it.isPrimary } ?: ps.firstOrNull() }?.value
         app.parley.ui.circle.goodTimeText(resources, history, p, app.parley.data.PhoneEnv.countryIso(context))
@@ -211,13 +211,13 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
     val lastTalked = if (talked != null) stringResource(R.string.detail_last_talked, android.text.format.DateUtils.getRelativeTimeSpanString(talked.date, System.currentTimeMillis(), android.text.format.DateUtils.DAY_IN_MILLIS)) else stringResource(R.string.recents_empty)
     val listState = rememberLazyListState()
     val density = LocalDensity.current
-    // U1: the header has scrolled away once the name is under the top bar.
+    // The header has scrolled away once the name is under the top bar.
     val collapseAt = with(density) { 190.dp.toPx() }
     val collapsed by remember { derivedStateOf { listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > collapseAt } }
     val headerFraction by remember {
         derivedStateOf { if (listState.firstVisibleItemIndex > 0) 1f else (listState.firstVisibleItemScrollOffset / collapseAt).coerceIn(0f, 1f) }
     }
-    // P1 (v3.4): the page's sections (order, start modes, remembered folds); a fold shows at once, then is stored.
+    // The page's sections (order, start modes, remembered folds); a fold shows at once, then is stored.
     val peopleSettings by vm.people.settings.collectAsStateWithLifecycle()
     var layout by remember { mutableStateOf(peopleSettings.contactPage) }
     LaunchedEffect(peopleSettings.contactPage) { layout = peopleSettings.contactPage }
@@ -225,14 +225,14 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
         layout = layout.withFold(s, folded)
         vm.people.update { it.copy(contactPage = it.contactPage.withFold(s, folded)) }
     }
-    // P1: the compact action bar is pinned once the big tiles have scrolled under the top bar.
+    // The compact action bar is pinned once the big tiles have scrolled under the top bar.
     var headerHeight by remember { mutableIntStateOf(0) }
     var pinnedHeight by remember { mutableIntStateOf(0) }
     val pinAt = with(density) { 48.dp.toPx() }
     val pinned by remember {
         derivedStateOf { listState.firstVisibleItemIndex > 0 || (headerHeight > 0 && listState.firstVisibleItemScrollOffset > headerHeight - pinAt) }
     }
-    // U7: the bar takes the scrolled-content tint once content passes under it.
+    // The bar takes the scrolled-content tint once content passes under it.
     val barColor by animateColorAsState(
         if (listState.canScrollBackward) MaterialTheme.colorScheme.surfaceContainer else MaterialTheme.colorScheme.surface, label = "bar",
     )
@@ -278,7 +278,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                         IconButton({ open(Routes.edit(id = contactId)) }) { Icon(Icons.Rounded.Edit, stringResource(R.string.main_edit)) }
                         IconButton({ menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.main_more)) }
                         DropdownMenu(menu, { menu = false }) {
-                            // U4: "Log interaction" is the FAB for Circle contacts; for everyone else it's here.
+                            // "Log interaction" is the FAB for Circle contacts; for everyone else it's here.
                             if (meta?.reachOutDays == null) DropdownMenuItem({ Text(stringResource(R.string.circle_log_interaction)) }, leadingIcon = { Icon(Icons.Rounded.Handshake, null) }, onClick = { menu = false; logDialog = true })
                             DropdownMenuItem({ Text(stringResource(R.string.detail_share_file)) }, leadingIcon = { Icon(Icons.Rounded.Share, null) }, onClick = {
                                 menu = false; Intents.shareVcard(context, page.vcardUri(d.lookupKey), d.displayName)
@@ -311,7 +311,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                             DropdownMenuItem({ Text(stringResource(R.string.detail_move_vault)) }, leadingIcon = { Icon(Icons.Rounded.Lock, null) }, onClick = {
                                 menu = false
                                 scope.launchVault(context as? androidx.fragment.app.FragmentActivity, { e -> vm.toast(resources.getString(R.string.detail_move_failed, e.message.orEmpty())) }) {
-                                    // I6: the note for calls and the messaging choice go with them (encrypted).
+                                    // The note for calls and the messaging choice go with them (encrypted).
                                     val id = vm.moveToVault(contactId, d.copy(pinnedNote = meta?.pinnedNote.orEmpty(), messengerPrefs = prefs.encode().orEmpty()))
                                     // Now kept encrypted with them: no plaintext copy stays in Parley's metadata.
                                     page.forgetMeta(d.lookupKey)
@@ -343,9 +343,9 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
         }
         val primary = d.phones.firstOrNull { it.isPrimary } ?: d.phones.firstOrNull()
         val r = reach(d)
-        // V34: messenger rows grouped per app and number (Reach via apps).
+        // Messenger rows grouped per app and number (Reach via apps).
         val reachGroups = remember(messengers) { r.groups(app.parley.data.PhoneEnv.countryIso(context)) }
-        // P1: the quick actions, shared by the big tiles and the pinned bar.
+        // The quick actions, shared by the big tiles and the pinned bar.
         val preferredCall = messengers.firstOrNull { it.accountType == prefs.call && it.isCall && !it.isVideo }
         val canCall = primary != null || preferredCall != null
         fun doCall() {
@@ -363,14 +363,14 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
         val sections = PageSections()
         val sep = resources.getString(R.string.main_separator)
         val today = remember { java.time.LocalDate.now() }
-        // U4: Stay in touch right under the actions (R4: rhythm, last in touch, next date); R9: open promises.
+        // Stay in touch right under the actions (R4: rhythm, last in touch, next date); R9: open promises.
         if (d.lookupKey.isNotEmpty()) sections.add(ContactSection.STAY, sectionTitle(resources, ContactSection.STAY), lastTalked) {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 app.parley.ui.circle.StayInTouchCard(meta, d, history, interactions, goodTime = goodTime, title = null) { reachOut = true }
                 if (memory.promises.isNotEmpty()) app.parley.ui.circle.PromisesCard(vm, d.lookupKey, memory)
             }
         }
-        // C4: empty birthday / anniversary slots, saved straight to the system contact.
+        // Empty birthday / anniversary slots, saved straight to the system contact.
         if (d.events.isNotEmpty() || hasMissingDates(d)) {
             val dated = d.events.mapIndexedNotNull { i, ev ->
                 app.parley.common.EventDate.parse(ev.date)?.takeUnless { app.parley.common.people.LifeEvents.isDeath(ev.type, ev.label) }?.let { i to it }
@@ -390,7 +390,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                         val yearly = app.parley.common.circle.YearlyEvents.decode(meta?.yearlyEvents)
                         d.events.forEachIndexed { i, ev ->
                             item {
-                                // R10: a life event (new job, moved…) can be remembered yearly in the digest.
+                                // A life event (new job, moved…) can be remembered yearly in the digest.
                                 val date = app.parley.common.EventDate.parse(ev.date)
                                 val canYearly = date != null && d.lookupKey.isNotEmpty() && app.parley.common.circle.YearlyEvents.eligible(ev.type) &&
                                     !app.parley.common.people.LifeEvents.isDeath(ev.type, ev.label)
@@ -479,9 +479,9 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                 Column {
                     app.parley.ui.common.CoachMark(app.parley.common.ux.Tips.REACH_USUAL, stringResource(R.string.reach_reach_hint), enabled = reachGroups.isNotEmpty())
                     SegmentedGroup {
-                        // I1: handles typed into the contact (Matrix, Threema, Signal username…).
+                        // Handles typed into the contact (Matrix, Threema, Signal username…).
                         handleRows(d.handles, Icons.Rounded.Forum, onWeb = { webLink = it })
-                        // V34: "Reach via apps": each messenger's Message / Voice / Video for this person, per number.
+                        // "Reach via apps": each messenger's Message / Voice / Video for this person, per number.
                         reachViaAppsRows(
                             reachGroups, prefs, showNumbers = d.phones.size > 1,
                             onOpen = { row -> r.action(row)?.let { m -> ContactMessaging.startRow(context, r, m)?.let { vm.toast(it) } } },
@@ -501,7 +501,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                             val label = RelationTypes.fromAndroid(rel.type, rel.label)?.let { app.parley.ui.people.RelationText.label(resources, it) }
                                 ?: android.provider.ContactsContract.CommonDataKinds.Relation.getTypeLabel(resources, rel.type, rel.label).toString()
                             GroupDataRow(Icons.Rounded.People, i == 0, rel.value, label, onClick = {
-                                // By the remembered lookup key first, then by name; several namesakes: ask (F23).
+                                // By the remembered lookup key first, then by name; several namesakes: ask.
                                 page.openRelation(rel.value) { target ->
                                     when (target) {
                                         is RelationTarget.Contact -> open(Routes.contact(target.id))
@@ -527,7 +527,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
             }
         }
         val notes = ui.notes
-        // R2: calls, logged interactions, call notes and dates, by month. P1: the latest few; "Show all" opens the rest.
+        // Calls, logged interactions, call notes and dates, by month. P1: the latest few; "Show all" opens the rest.
         val timelineCount = remember(history, interactions, notes, d.events) { app.parley.ui.circle.timelineEntries(d, history, interactions, notes, java.time.ZoneId.systemDefault()).size }
         sections.add(ContactSection.TIMELINE, sectionTitle(resources, ContactSection.TIMELINE), resources.getQuantityString(R.plurals.contact_page_entries, timelineCount, timelineCount)) {
             app.parley.ui.circle.ContactTimeline(
@@ -586,7 +586,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                     Modifier.fillMaxWidth().onSizeChanged { headerHeight = it.height }.padding(horizontal = 16.dp).padding(top = 8.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    // U1: shrinks and fades as it scrolls under the bar, where the small avatar and name appear.
+                    // Shrinks and fades as it scrolls under the bar, where the small avatar and name appear.
                     Column(
                         Modifier.graphicsLayer {
                             val s = 1f - 0.25f * headerFraction
@@ -612,7 +612,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                         else page.reload()
                     }
                     Spacer(Modifier.height(16.dp))
-                    // U3: labelled tiles.
+                    // Labelled tiles.
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         ActionTile(Icons.Rounded.Call, if (preferredCall != null) preferredCall.appName else stringResource(R.string.main_call), canCall) { doCall() }
                         val messageApp = prefs.message?.let { p -> if (p == MessengerPrefs.SMS) stringResource(R.string.detail_sms) else messengers.firstOrNull { it.accountType == p }?.appName ?: app.parley.common.MessengerApp.forPackage(p)?.label }
@@ -632,10 +632,10 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                     }
                 }
             }
-            // P1: every section folds; order, start modes and hidden ones come from Settings › Contacts › Contact page sections.
+            // Every section folds; order, start modes and hidden ones come from Settings › Contacts › Contact page sections.
             foldableSections(sections, layout, ::fold)
         }
-        // P1: once the big header has gone, a compact bar keeps the actions (and, on long pages, jumps to a section).
+        // Once the big header has gone, a compact bar keeps the actions (and, on long pages, jumps to a section).
         AnimatedVisibility(
             pinned, Modifier.align(Alignment.TopCenter).padding(top = padding.calculateTopPadding()),
             enter = expandVertically(spring(stiffness = Spring.StiffnessMediumLow), expandFrom = Alignment.Top) + fadeIn(),
@@ -680,7 +680,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
             AlertDialog(
                 onDismissRequest = { editNote = false },
                 title = { Text(stringResource(R.string.detail_note_title)) },
-                // R9: the checkbox button starts a promise line.
+                // The checkbox button starts a promise line.
                 text = { app.parley.ui.circle.PromiseNoteField(text, { text = it }, placeholder = stringResource(R.string.detail_note_placeholder)) },
                 confirmButton = { TextButton({ editNote = false; page.setPinnedNote(text.text) }) { Text(stringResource(R.string.main_save)) } },
                 dismissButton = { TextButton({ editNote = false }) { Text(stringResource(R.string.main_cancel)) } },
@@ -786,10 +786,10 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
     }
 }
 
-/** P1: timeline entries shown on the page before "Show all". */
+/** Timeline entries shown on the page before "Show all". */
 private const val TIMELINE_PREVIEW = 5
 
-/** P1: jump chips appear from this many shown sections. */
+/** Jump chips appear from this many shown sections. */
 private const val JUMP_CHIPS_FROM = 4
 
 @Composable
@@ -801,7 +801,7 @@ private fun DefaultMenuItem(isDefault: Boolean, onSet: (Boolean) -> Unit) {
     )
 }
 
-/** One number: tap calls; the chat icon messages it (M6/M7); long-press: copy, default (I3), message on…, SIM. */
+/** One number: tap calls; the chat icon messages it; long-press: copy, default, message on…, SIM. */
 @Composable
 private fun PhoneRow(
     vm: AppViewModel,

@@ -5,7 +5,7 @@ import app.parley.common.blocking.Csv
 import java.time.LocalDate
 
 /**
- * How to read one public CSV of reported numbers (B4c). Column names are matched case-insensitively,
+ * How to read one public CSV of reported numbers. Column names are matched case-insensitively,
  * first exact, then as a substring.
  */
 data class CsvSpec(

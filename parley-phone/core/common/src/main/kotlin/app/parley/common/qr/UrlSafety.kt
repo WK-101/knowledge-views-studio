@@ -3,7 +3,7 @@ package app.parley.common.qr
 import java.net.IDN
 
 /**
- * Q4 anti-phishing: the parts of a web address worth showing before anyone opens it. The domain is shown big
+ * Anti-phishing: the parts of a web address worth showing before anyone opens it. The domain is shown big
  * (in its readable form, with the punycode form beside it when they differ), and a few offline heuristics raise a
  * warning: look-alike letters from other scripts, a well-known name in front of someone else's domain, link
  * shorteners that hide the destination, `user@host` tricks, bare IP addresses and plain http. Nothing is looked up.

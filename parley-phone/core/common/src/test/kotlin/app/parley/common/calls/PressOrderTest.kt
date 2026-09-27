@@ -5,7 +5,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** v3.4 review #4: the docked keypad's deferred presses keep their order and only a downward drag drops one. */
+/** The docked keypad's deferred presses keep their order and only a downward drag drops one. */
 class PressOrderTest {
     private val press = KeyAction.Press
 

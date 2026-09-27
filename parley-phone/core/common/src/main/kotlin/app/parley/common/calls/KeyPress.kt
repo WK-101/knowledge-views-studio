@@ -1,6 +1,6 @@
 package app.parley.common.calls
 
-/** What a keypad key should do in response to a touch event (V7). */
+/** What a keypad key should do in response to a touch event. */
 sealed interface KeyAction {
     /** Finger down: type the digit and start its tone (or in-call DTMF) straight away. */
     data object Press : KeyAction
@@ -13,7 +13,7 @@ sealed interface KeyAction {
 }
 
 /**
- * Touch handling for one keypad key, as a small state machine that knows nothing about Android (V7):
+ * Touch handling for one keypad key, as a small state machine that knows nothing about Android:
  * - the tone starts on press, not on release;
  * - the tone stops on release, but never before [minToneMs] (short taps still sound like a key);
  * - sliding off the key stops the tone and cancels the long-press;
@@ -76,7 +76,7 @@ class KeyPressTracker(
             left = true
             return emptyList()
         }
-        // v3.4 review #4: slid off the key without a cancelling drag (sideways or up): the tap still counts.
+        // Slid off the key without a cancelling drag (sideways or up): the tap still counts.
         if (pending && !inside) {
             left = true
             return press(now) + stopTone(now)
@@ -129,7 +129,7 @@ class KeyPressTracker(
 
     companion object {
         /**
-         * v3.4 review #4: whether a move of ([dx], [dy]) from the down position cancels a deferred press. With
+         * Whether a move of ([dx], [dy]) from the down position cancels a deferred press. With
          * [downOnly] (the docked keypad, which only folds on a downward drag) only a downward move past [slop]
          * does; sideways and upward slides still type. Otherwise any move past [slop] does (a scroll either way).
          */
@@ -144,7 +144,7 @@ class KeyPressTracker(
 }
 
 /**
- * v3.4 review #4: keeps deferred key presses in the order the keys went down. A key whose press waits for the touch
+ * Keeps deferred key presses in the order the keys went down. A key whose press waits for the touch
  * to settle registers with [waiting]; when another key goes down first, every earlier waiting press is committed
  * (oldest first) before the new one waits, so rolling from one key to the next never swaps digits. A commit for a
  * press that was already typed or dropped does nothing (the tracker ignores it). Not thread-safe: one UI thread.

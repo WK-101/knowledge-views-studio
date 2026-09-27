@@ -52,14 +52,14 @@ fun BirthdaysScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) 
     val resources = androidx.compose.ui.platform.LocalResources.current
     val all by vm.contacts.collectAsStateWithLifecycle()
     val list by produceState<List<UpcomingEvent>?>(null, all) { value = withContext(Dispatchers.IO) { upcoming(vm.c.contacts.events()) } }
-    // U7: scroll-linked top-bar tint.
+    // Scroll-linked top-bar tint.
     val barTint = androidx.compose.material3.TopAppBarDefaults.pinnedScrollBehavior()
     Scaffold(modifier = Modifier.nestedScroll(barTint.nestedScrollConnection), topBar = {
         TopAppBar(title = { Text(stringResource(R.string.bday_title)) }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.dc_back)) } }, scrollBehavior = barTint)
     }) { p ->
         val items = list
         if (items != null && items.isEmpty()) {
-            // U5: dates live on contacts; the way on is the contact list.
+            // Dates live on contacts; the way on is the contact list.
             EmptyState(
                 Icons.Rounded.Cake, stringResource(R.string.bday_empty_title), stringResource(R.string.bday_empty_text), Modifier.padding(p),
                 action = stringResource(R.string.ux_empty_open_contacts), onAction = { vm.navigate(app.parley.NavEvent.Tab(app.parley.common.StartTab.CONTACTS)) },

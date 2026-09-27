@@ -38,9 +38,9 @@ import app.parley.telecom.CallUi
 import app.parley.telecom.R
 
 /**
- * R8: "Anything to remember?" on the call-ended screen after a call with a contact (opt-in): a note, chips that
+ * "Anything to remember?" on the call-ended screen after a call with a contact (opt-in): a note, chips that
  * start a line ("Their news: ", a promise "[ ] ") and a follow-up reminder in a week or a month. Saved as a call
- * note, so it shows on the contact's timeline; promises can be ticked off there later (R9).
+ * note, so it shows on the contact's timeline; promises can be ticked off there later.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable

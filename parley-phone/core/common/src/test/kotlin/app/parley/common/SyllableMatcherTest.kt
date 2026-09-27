@@ -6,7 +6,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** K8: Chinese, Japanese and Korean names matched by romanised syllables. */
+/** Chinese, Japanese and Korean names matched by romanised syllables. */
 class SyllableMatcherTest {
     // 张三 = zhang san, 王小明 = wang xiao ming, 김민수 = gim min su.
     private fun enc(name: String, vararg syl: String?) = T9.Encoded(name, syllables = syl.toList())

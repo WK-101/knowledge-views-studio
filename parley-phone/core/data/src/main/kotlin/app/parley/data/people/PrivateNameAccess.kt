@@ -18,9 +18,9 @@ data class PrivateNameState(
     val enabled: Boolean = false,
     val approvals: Map<String, LookupApproval> = emptyMap(),
     val log: List<LookupLogEntry> = emptyList(),
-    /** I7: the contacts Directory that approved phone apps can ask (off by default). */
+    /** The contacts Directory that approved phone apps can ask (off by default). */
     val directory: Boolean = false,
-    /** I7: approvals for the Directory, kept apart from the lookup provider's (allowing one never allows the other). */
+    /** Approvals for the Directory, kept apart from the lookup provider's (allowing one never allows the other). */
     val directoryApprovals: Map<String, LookupApproval> = emptyMap(),
 )
 
@@ -45,7 +45,7 @@ class PrivateNameAccess(context: Context) {
         _state.value = read()
     }
 
-    /** I7: turns the Directory on or off (the caller also enables or disables the provider component). */
+    /** Turns the Directory on or off (the caller also enables or disables the provider component). */
     @Synchronized
     fun setDirectoryEnabled(on: Boolean) {
         prefs.edit().putBoolean(K_DIRECTORY, on).apply()
@@ -64,7 +64,7 @@ class PrivateNameAccess(context: Context) {
         return if (signedWith(pkg, cert)) a else null
     }
 
-    /** [directory]: the Directory's approval (I7), separate from the lookup provider's. */
+    /** [directory]: the Directory's approval, separate from the lookup provider's. */
     @Synchronized
     fun setApproval(pkg: String, a: LookupApproval?, directory: Boolean = false) {
         // Allowing needs the app's certificate: an app that can't be looked up now is asked again on its next query.

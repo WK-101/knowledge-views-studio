@@ -92,7 +92,7 @@ private fun importError(context: android.content.Context, message: String?): Str
 private class ImportDraft(val source: String, val rows: List<List<String>>?, val preset: ImportPreset, var mapping: ColumnMapping?, val fixed: List<ImportedRule>?)
 
 /**
- * B7/B26: import Call Blocker (JSON or encrypted .cbbk), YACB, NoPhoneSpam or any CSV with column mapping,
+ * Import Call Blocker (JSON or encrypted .cbbk), YACB, NoPhoneSpam or any CSV with column mapping,
  * and share your own rules as a signed `.parleylist`.
  */
 @OptIn(ExperimentalMaterial3Api::class)

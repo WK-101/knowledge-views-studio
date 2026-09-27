@@ -30,7 +30,7 @@ import kotlinx.coroutines.withContext
 
 data class SystemBlockedNumber(val id: Long, val number: String)
 
-/** What Recents and the caller card show for a number that was screened (B2). */
+/** What Recents and the caller card show for a number that was screened. */
 data class VerdictSummary(val text: String, val kind: String?, val blocked: Boolean, val time: Long, val entryId: Long)
 
 class BlockRepository(private val context: Context, db: AppDatabase, scope: CoroutineScope) {
@@ -147,7 +147,7 @@ class BlockRepository(private val context: Context, db: AppDatabase, scope: Coro
 
     suspend fun lastBlocked(number: String): Long? = dao.lastBlocked(number)
 
-    /** F7: the key a verdict for [number] is filed under; [accountId] is the SIM of the call when known. */
+    /** The key a verdict for [number] is filed under; [accountId] is the SIM of the call when known. */
     fun verdictKey(number: String, accountId: String?): String = PhoneIdentity.key(number, PhoneEnv.countryIso(context, accountId))
 
     suspend fun addRing(number: String, startedAt: Long, ringMs: Long, answered: Boolean) =
@@ -157,7 +157,7 @@ class BlockRepository(private val context: Context, db: AppDatabase, scope: Coro
     suspend fun ringsFor(number: String) =
         PhoneIdentity.lookupKeys(number, PhoneEnv.countryIso(context)).flatMap { dao.ringsFor(it) }.distinctBy { it.id }.sortedByDescending { it.startedAt }
 
-    /** F7: ring records are keyed by line (E.164 when it can be derived). */
+    /** Ring records are keyed by line (E.164 when it can be derived). */
     fun ringKey(number: String): String = PhoneIdentity.key(number, PhoneEnv.countryIso(context))
 
     /** Whether a stored ring row belongs to [number] ([key] = [ringKey]; old rows by their last digits). */

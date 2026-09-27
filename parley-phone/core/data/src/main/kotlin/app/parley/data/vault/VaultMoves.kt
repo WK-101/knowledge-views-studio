@@ -16,7 +16,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * Moving contacts into and out of the private vault without losing anything (F4).
+ * Moving contacts into and out of the private vault without losing anything.
  *
  * In: the vault keeps the lossless [ContactRecord] (IM, SIP, department, PO box, custom rows, the photo…) beside the
  * editable details, sealed with the strong key. Phone-only and never-synced copies are purged at once; synced copies
@@ -25,7 +25,7 @@ import kotlinx.coroutines.withContext
  * Out: the record is inserted back as it was (accounts kept when still writable here); edits made in the vault since
  * are applied on top.
  *
- * R2: the contact's logged interactions (with their notes) travel sealed inside the vault entry, so they are never
+ * The contact's logged interactions (with their notes) travel sealed inside the vault entry, so they are never
  * shown while the contact is private and are logged again under the restored contact on "Move out".
  */
 class VaultMoves(
@@ -45,13 +45,13 @@ class VaultMoves(
     suspend fun moveIn(contactId: Long, shown: ContactDetails): MovedIn = withContext(Dispatchers.IO) {
         val record = records.read(contactId, fullPhoto = true)?.let { capPhoto(contactId, it) }?.withoutMessengers()
             ?: throw IllegalStateException("Couldn't read the whole contact, so it wasn't moved")
-        // R2: read before the caller forgets the key (ContactKeys.forget deletes them outside the vault).
+        // Read before the caller forgets the key (ContactKeys.forget deletes them outside the vault).
         val carried = shown.lookupKey.takeIf { it.isNotEmpty() }?.let { key ->
             runCatching { interactions()?.interactionsFor(key) }.getOrNull().orEmpty()
                 .map { CarriedInteraction(it.type.name, it.channel?.name, it.time, it.note, it.dedupeKey) }
         }.orEmpty()
         val id = vault.save(null, shown, record = record, interactions = Interactions.encodeCarried(carried))
-        // I6: the contact's photo becomes the private contact's (encrypted) caller photo.
+        // The contact's photo becomes the private contact's (encrypted) caller photo.
         record.raws.asSequence().flatMap { it.rows }.firstOrNull { it.mimeType == Mime.PHOTO && (it.blob?.size ?: 0) > 0 }?.blob
             ?.let { runCatching { vault.setPhoto(id, it) } }
         val purged = contacts.purgeForVault(contactId)
@@ -81,7 +81,7 @@ class VaultMoves(
             }
         }
         if (newId != null) {
-            // R2: the interactions carried in the entry come back under the restored contact.
+            // The interactions carried in the entry come back under the restored contact.
             val carried = runCatching { Interactions.decodeCarried(vault.storedInteractions(vaultId)) }.getOrDefault(emptyList())
             val store = interactions()
             val key = if (carried.isNotEmpty() && store != null) contacts.lookupKeyOf(newId) else null

@@ -45,7 +45,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.concurrent.TimeUnit
 
-/** Recents filter chips. VOICEMAIL shows the voicemail inbox (V1) instead of the call list. */
+/** Recents filter chips. VOICEMAIL shows the voicemail inbox instead of the call list. */
 enum class RecentFilter { ALL, MISSED, INCOMING, OUTGOING, BLOCKED, VOICEMAIL }
 
 data class RecentGroup(
@@ -82,7 +82,7 @@ data class PendingCall(
 sealed interface UiEvent {
     data class Message(val text: String) : UiEvent
     data class Undo(val text: String, val journalIds: List<Long>) : UiEvent
-    /** U4: calls deleted from history (a swipe), with Undo from the archive's deleted-calls batch. */
+    /** Calls deleted from history (a swipe), with Undo from the archive's deleted-calls batch. */
     data class UndoCalls(val text: String, val batchId: Long) : UiEvent
     data object RequestCallPermission : UiEvent
 }
@@ -134,7 +134,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val hadContacts = hasContactsPermission.value
         isDefaultDialer.value = Permissions.isDefaultDialer(ctx)
         hasContactsPermission.value = Permissions.has(ctx, Manifest.permission.READ_CONTACTS)
-        // F29: call-log access granted later (outside the dialer role) must also re-register the observers.
+        // Call-log access granted later (outside the dialer role) must also re-register the observers.
         val hadCallLog = hasCallLogPermission
         hasCallLogPermission = Permissions.has(ctx, Manifest.permission.READ_CALL_LOG)
         if (wasDefault != isDefaultDialer.value || hadContacts != hasContactsPermission.value || hadCallLog != hasCallLogPermission) {
@@ -190,7 +190,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** Contacts-feature state: label and account filters, second line, favourites order. */
     val people = PeopleUi(c, viewModelScope, contacts, contactQuery, countryIso)
 
-    /** R1: the Circle (people with keep-in-touch set) and its suggestions. */
+    /** The Circle (people with keep-in-touch set) and its suggestions. */
     val circle = CircleUi(c, viewModelScope, contacts)
 
     val favorites: StateFlow<List<ContactSummary>> = contacts.map { it.orEmpty().filter { c -> c.starred } }
@@ -214,7 +214,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val missedCount: StateFlow<Int> = c.history.calls.map { list -> list.orEmpty().count { it.type == CallType.MISSED && it.isNew } }
         .stateIn(viewModelScope, SharingStarted.Eagerly, 0)
 
-    /** V11: Recents is on screen: Telecom's missed-call count goes, and so does the re-alert. */
+    /** Recents is on screen: Telecom's missed-call count goes, and so does the re-alert. */
     fun onRecentsShown() {
         MissedCallNotifier.stopReAlert(getApplication())
         try {
@@ -237,7 +237,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     // ---------- Calling ----------
 
-    /** USSD codes typed on the keypad (A13). */
+    /** USSD codes typed on the keypad. */
     val ussd = UssdSession(c, viewModelScope)
     private val gate = CallGate(c)
 
@@ -258,7 +258,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
         viewModelScope.launch {
             val p = gate.check(number, name, sims.value.size, simId, skipConfirm)
-            // V8: a one-tap call (favourite) while the proximity sensor is covered asks first: probably a pocket.
+            // A one-tap call (favourite) while the proximity sensor is covered asks first: probably a pocket.
             val pocket = PocketGuard.GUARDED.contains(source) && c.callExtras.config.value.pocketGuard &&
                 !EmergencyPolicy.bypasses(EmergencyPolicy.Safeguard.POCKET_GUARD, gate.isEmergency(number)) &&
                 PocketGuard.shouldAsk(true, source, ProximityProbe.isCovered(ctx))
@@ -273,7 +273,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /** [confirmed]: the user already said yes to a used-up call-time allowance (T6). */
+    /** [confirmed]: the user already said yes to a used-up call-time allowance. */
     fun place(number: String, simId: String?, remember: Boolean = false, confirmed: Boolean = false) {
         pendingCall.value = null
         if (Ussd.isUssd(number)) {
@@ -302,7 +302,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     suspend fun moveToVault(contactId: Long, d: app.parley.data.ContactDetails): Long {
         // The pinned note moves into the vault entry (it's shown on the call screen from there).
         val note = d.pinnedNote.ifBlank { d.lookupKey.takeIf { it.isNotEmpty() }?.let { c.meta.meta(it)?.pinnedNote }.orEmpty() }
-        // Lossless: the vault keeps the full contact record (photo included); local copies are purged at once (F4).
+        // Lossless: the vault keeps the full contact record (photo included); local copies are purged at once.
         val moved = c.vaultMoves.moveIn(contactId, d.copy(pinnedNote = note))
         if (d.lookupKey.isNotEmpty()) {
             c.journal.forget(d.lookupKey)
@@ -339,8 +339,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /** U4: deletes one Recents row's calls, offering Undo (the archive keeps them 30 days). */
-    /** [keepPrivate] (P5): leaves out calls with private contacts the vault hasn't moved out of the system log yet. */
+    /** Deletes one Recents row's calls, offering Undo (the archive keeps them 30 days). */
+    /** [keepPrivate]: leaves out calls with private contacts the vault hasn't moved out of the system log yet. */
     fun deleteCallsWithUndo(entries: List<CallEntry>, keepPrivate: Boolean = false) {
         viewModelScope.launch {
             val privateNumbers = HashMap<String, Boolean>()

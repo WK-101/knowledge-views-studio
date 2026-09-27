@@ -18,7 +18,7 @@ import app.parley.common.qr.QrPayload
 import app.parley.common.qr.WifiSecurity
 
 /**
- * Q4: what the result sheet's buttons do. Every one runs only on the user's tap. Intents name their target app
+ * What the result sheet's buttons do. Every one runs only on the user's tap. Intents name their target app
  * wherever one is known (the messenger's package, the default browser, the SMS app), and nothing here uses the
  * network: a browser or another app does, after the user chose to leave Parley.
  */

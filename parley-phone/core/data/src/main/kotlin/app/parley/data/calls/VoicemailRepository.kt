@@ -67,7 +67,7 @@ data class VoicemailState(
 }
 
 /**
- * The voicemail inbox (V1), read from Android's voicemail store.
+ * The voicemail inbox, read from Android's voicemail store.
  *
  * Access: AOSP's `VoicemailPermissions.callerHasReadAccess/WriteAccess` give **the default (or system) dialer** full
  * read and write access to every voicemail, without READ_VOICEMAIL / WRITE_VOICEMAIL (those are signature|privileged

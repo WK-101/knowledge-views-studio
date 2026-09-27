@@ -27,7 +27,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import kotlin.coroutines.coroutineContext
 
-/** Where "Add several numbers…" saves (M11). */
+/** Where "Add several numbers…" saves. */
 sealed interface BulkDestination {
     /** Contacts in [account], in the label [label] (created when new; null: no label). */
     data class Label(val account: AccountRef, val label: String?) : BulkDestination
@@ -57,7 +57,7 @@ data class BulkBatch(
 )
 
 /**
- * M11: saves many numbers at once, in chunks of [CHUNK] (contacts through [app.parley.data.records.ContactRecordStore.insertAll],
+ * Saves many numbers at once, in chunks of [CHUNK] (contacts through [app.parley.data.records.ContactRecordStore.insertAll],
  * private ones through the vault), as one batch with one undo. Batches are remembered for [KEEP_DAYS] days so a batch
  * can still be deleted later.
  */

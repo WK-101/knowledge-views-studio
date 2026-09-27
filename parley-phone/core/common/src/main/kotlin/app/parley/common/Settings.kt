@@ -7,7 +7,7 @@ enum class ListDensity { COMFORTABLE, COMPACT }
 /** How an incoming call is answered. SWIPE protects against pocket answers; TAP is easiest to use. */
 enum class AnswerGesture { SWIPE, TAP }
 
-/** Home tabs. New tabs are added at the end; [NavTabs] keeps them hidden until the user shows them (U6). */
+/** Home tabs. New tabs are added at the end; [NavTabs] keeps them hidden until the user shows them. */
 enum class StartTab { FAVORITES, RECENTS, CONTACTS, KEYPAD, CIRCLE }
 
 data class AppSettings(
@@ -52,11 +52,11 @@ data class AppSettings(
     val contactRowActions: Boolean = false,
     /** Order and visibility of the home tabs (bottom bar and navigation rail). */
     val navTabs: NavTabs = NavTabs(),
-    /** P8: grouped (as before), every call on its own row, or one row per number per day. */
+    /** Grouped (as before), every call on its own row, or one row per number per day. */
     val recentsLayout: app.parley.common.calls.RecentsLayout = app.parley.common.calls.RecentsLayout.GROUPED,
-    /** R4 (v3.3): rich call rows (shapes, tints, sequence dots, Call back pill) or the simple icons. */
+    /** Rich call rows (shapes, tints, sequence dots, Call back pill) or the simple icons. */
     val recentsStyle: app.parley.common.ux.RecentsStyle = app.parley.common.ux.RecentsStyle.RICH,
-    /** S1/S2 (v3.3): optional combined surfaces (keypad in Recents, favourites in Contacts) and the Recents row tap. */
+    /** Optional combined surfaces (keypad in Recents, favourites in Contacts) and the Recents row tap. */
     val surfaces: SurfaceLayout = SurfaceLayout(),
 ) {
     companion object {

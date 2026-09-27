@@ -48,7 +48,7 @@ data class ScreenedCall(
     val settings: ScreeningSettings,
 )
 
-/** Replay of the last days (B13): what the current rules would do, and optionally what a candidate would add. */
+/** Replay of the last days: what the current rules would do, and optionally what a candidate would add. */
 data class DryRun(val current: ReplayReport, val candidate: ReplayReport?) {
     val added get() = candidate?.newlyBlocked(current).orEmpty()
 }
@@ -94,7 +94,7 @@ class CallScreener(
     }
 
     /**
-     * SIM rules need the phone account, which only the InCallService path has (B9). Before the rules have been
+     * SIM rules need the phone account, which only the InCallService path has. Before the rules have been
      * read this says yes, so a decision made without the SIM is checked again rather than trusted.
      */
     fun hasSimRules(): Boolean = blocks.rulesCache?.any { it.simId != null } ?: true
@@ -142,7 +142,7 @@ class CallScreener(
     }
 
     /**
-     * Replays the incoming calls of the last [days] (B13). Pure reads: no log, counters, notifications or
+     * Replays the incoming calls of the last [days]. Pure reads: no log, counters, notifications or
      * rate-limit state are touched. With a [candidateRule] or [candidatePack], also reports what it would add.
      */
     suspend fun dryRun(
@@ -211,7 +211,7 @@ class CallScreener(
         tones: Map<String, String> = emptyMap(),
     ): Gathered {
         val number = req.number?.takeIf { it.isNotBlank() }
-        // F7: national numbers are read with the country of the SIM that took the call, when known.
+        // National numbers are read with the country of the SIM that took the call, when known.
         val iso = PhoneEnv.countryIso(context, req.simId)
         if (number == null || req.hidden) {
             return Gathered(IncomingCallFacts(number = null, hidden = true, isContact = false, verification = req.verification, countryIso = iso, simId = req.simId), null)

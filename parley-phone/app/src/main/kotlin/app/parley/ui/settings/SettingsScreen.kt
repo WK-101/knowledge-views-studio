@@ -130,7 +130,7 @@ fun SettingsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
     val isDefault by vm.isDefaultDialer.collectAsStateWithLifecycle()
     var searching by rememberSaveable { mutableStateOf(false) }
     var query by rememberSaveable { mutableStateOf("") }
-    // P4: the role request, with the by-hand guide when Android refuses without asking.
+    // The role request, with the by-hand guide when Android refuses without asking.
     val requestRole = app.parley.ui.calls.rememberDialerRoleRequest { vm.refreshEnvironment() }
     BackHandler(searching) { searching = false; query = "" }
     val scroll = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
@@ -178,7 +178,7 @@ fun SettingsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
                     }
                 }
             }
-            // C3: a quiet reminder once a backup is overdue (Not now snoozes it for a week).
+            // A quiet reminder once a backup is overdue (Not now snoozes it for a week).
             app.parley.ui.backup.BackupReminderBanner(vm, Modifier.padding(vertical = 0.dp))
             // Tools (birthdays, blocking, backups, History & undo…) are also here, not only in the tabs' ⋮ menus.
             SegmentedGroup {
@@ -252,7 +252,7 @@ private fun SearchResults(query: String, modifier: Modifier, onClear: () -> Unit
         return
     }
     if (results.isEmpty()) {
-        // U5: no match: clear the search and start again.
+        // No match: clear the search and start again.
         EmptyState(
             Icons.AutoMirrored.Rounded.ManageSearch, stringResource(R.string.set_search_no_match, query), modifier = modifier,
             action = stringResource(R.string.ux_empty_clear_search), onAction = onClear,

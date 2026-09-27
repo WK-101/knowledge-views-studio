@@ -54,9 +54,9 @@ import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 
 /**
- * H6: per-person call insights for contact detail and number history: every number (E.164), last call,
+ * Per-person call insights for contact detail and number history: every number (E.164), last call,
  * monthly average, trend, weekday × hour heatmap, "usually answers after 6 pm", call rhythm, and the
- * per-person "Keep forever" switch of the archive (H1). [numbers] are all of the person's numbers.
+ * per-person "Keep forever" switch of the archive. [numbers] are all of the person's numbers.
  */
 @Composable
 fun CallInsightsSection(vm: AppViewModel, numbers: List<String>, title: String = stringResource(R.string.hist_calls_section), showTitle: Boolean = true) {
@@ -70,7 +70,7 @@ fun CallInsightsSection(vm: AppViewModel, numbers: List<String>, title: String =
     if (ins.totals.total == 0) return
 
     Column {
-        // P1 (v3.4): a contact page's foldable section header shows the title instead.
+        // A contact page's foldable section header shows the title instead.
         if (showTitle) Section(title)
         val shown = ins.numbers.map { NumberKeys.e164(it) ?: it.removePrefix("#") }
         if (shown.size > 1 || shown.firstOrNull() != first) {
@@ -200,7 +200,7 @@ fun HeatmapGrid(h: Heatmap, modifier: Modifier = Modifier) {
 }
 
 /**
- * H7: in the keep-in-touch editor, suggests an interval from the call rhythm ("you usually talk every 9 days").
+ * In the keep-in-touch editor, suggests an interval from the call rhythm ("you usually talk every 9 days").
  * Shows nothing without a clear rhythm.
  */
 @Composable

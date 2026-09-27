@@ -70,10 +70,10 @@ private val avatarPalette = listOf(
 
 fun avatarColor(seed: String): Color = avatarPalette[(seed.hashCode() and 0x7fffffff) % avatarPalette.size]
 
-/** F27: grapheme-aware (see [app.parley.common.Initials]). */
+/** Grapheme-aware (see [app.parley.common.Initials]). */
 fun initialsOf(name: String): String = app.parley.common.Initials.of(name)
 
-/** U6: how avatars without a photo look (Settings › Appearance › Avatars), provided at the app's root. */
+/** How avatars without a photo look (Settings › Appearance › Avatars), provided at the app's root. */
 val LocalAvatarStyle = androidx.compose.runtime.staticCompositionLocalOf { app.parley.common.people.AvatarStyle.COLOURFUL }
 
 @Composable
@@ -86,7 +86,7 @@ fun Avatar(name: String, photoUri: String?, size: Dp = 44.dp, modifier: Modifier
     }
     val grey = LocalAvatarStyle.current == app.parley.common.people.AvatarStyle.GREY
     val emoji = remember(name) { app.parley.common.people.AvatarText.leadingEmoji(name) }
-    // U6: the grey monogram is a soft vertical gradient in the theme's neutral tones.
+    // The grey monogram is a soft vertical gradient in the theme's neutral tones.
     val greyTop = MaterialTheme.colorScheme.surfaceContainerHighest
     val greyBottom = MaterialTheme.colorScheme.outlineVariant
     val background = when {
@@ -104,12 +104,12 @@ fun Avatar(name: String, photoUri: String?, size: Dp = 44.dp, modifier: Modifier
         if (img != null) {
             Image(img, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.size(size))
         } else if (emoji != null && !isCompany) {
-            // U6: "🐶 Rex" shows the dog.
+            // "🐶 Rex" shows the dog.
             Text(emoji, fontSize = (size.value * 0.5f).sp)
         } else {
             val initials = if (isCompany) "" else initialsOf(name)
             if (isCompany) {
-                // F27: a contact that is only a company gets a building, not the company's initials.
+                // A contact that is only a company gets a building, not the company's initials.
                 Icon(Icons.Rounded.Business, null, tint = ink, modifier = Modifier.size(size * 0.55f))
             } else if (initials.isNotEmpty()) {
                 Text(initials, color = ink, fontWeight = FontWeight.SemiBold, fontSize = (size.value * 0.38f).sp)

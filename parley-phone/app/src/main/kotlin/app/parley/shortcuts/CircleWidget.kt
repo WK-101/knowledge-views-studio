@@ -35,7 +35,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 import java.time.LocalDate
 
 /**
- * R7: the Circle widget. Plain RemoteViews (no Glance): upcoming dates in the next 14 days and up to three people
+ * The Circle widget. Plain RemoteViews (no Glance): upcoming dates in the next 14 days and up to three people
  * from the Circle digest, each with a Call button (through the shortcut trampoline, so the pocket guard applies).
  *
  * - With the app lock on, it shows only counts, never names, while the device is locked; names come back once the
@@ -51,7 +51,7 @@ class CircleWidget : AppWidgetProvider() {
     override fun onAppWidgetOptionsChanged(context: Context, manager: AppWidgetManager, id: Int, options: Bundle) = refreshAsync(context)
 
     override fun onReceive(context: Context, intent: Intent) {
-        // R7: "tap to show names" on the locked rendering (drawn again with names only if the phone is unlocked now).
+        // "tap to show names" on the locked rendering (drawn again with names only if the phone is unlocked now).
         if (intent.action == ACTION_REVEAL) refreshAsync(context) else super.onReceive(context, intent)
     }
 

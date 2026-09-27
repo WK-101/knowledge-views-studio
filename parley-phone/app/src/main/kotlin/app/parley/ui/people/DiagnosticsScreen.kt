@@ -65,7 +65,7 @@ fun DiagnosticsScreen(vm: AppViewModel, back: () -> Unit) {
                 "privateNameLookup" to vm.c.people.privateNames.state.value.enabled.toString(),
             )
             vm.c.people.diagnostics.report(vm.settings.value, vm.people.settings.value, extra, mask) +
-                // U10: the contacts tables with every value reduced to its shape (always masked).
+                // The contacts tables with every value reduced to its shape (always masked).
                 if (tables) "\n" + vm.c.people.diagnostics.rawDump() else ""
         }
     }
@@ -75,7 +75,7 @@ fun DiagnosticsScreen(vm: AppViewModel, back: () -> Unit) {
             vm.toast(res.getString(if (ok) R.string.diag_saved else R.string.diag_save_failed))
         }
     }
-    // U7: scroll-linked top-bar tint.
+    // Scroll-linked top-bar tint.
     val barTint = androidx.compose.material3.TopAppBarDefaults.pinnedScrollBehavior()
     Scaffold(modifier = Modifier.nestedScroll(barTint.nestedScrollConnection), topBar = {
         TopAppBar(title = { Text(stringResource(R.string.diag_title)) }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.dc_back)) } }, scrollBehavior = barTint)

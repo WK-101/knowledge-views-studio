@@ -37,13 +37,13 @@ data class PeopleSettings(
     val pickerOneField: Boolean = false,
     /** Ringtone URI per label title. */
     val labelRingtones: Map<String, String> = emptyMap(),
-    /** U4: swipe actions on contact and Recents rows (off by default). */
+    /** Swipe actions on contact and Recents rows (off by default). */
     val swipe: app.parley.common.people.SwipeConfig = app.parley.common.people.SwipeConfig(),
-    /** U6: how avatars without a photo look. */
+    /** How avatars without a photo look. */
     val avatarStyle: app.parley.common.people.AvatarStyle = app.parley.common.people.AvatarStyle.COLOURFUL,
-    /** P1 (v3.4): the contact page's section order, start modes and remembered folds. */
+    /** The contact page's section order, start modes and remembered folds. */
     val contactPage: app.parley.common.people.ContactPageLayout = app.parley.common.people.ContactPageLayout(),
-    /** P1: "jump to section" chips under a contact page's pinned header. */
+    /** "jump to section" chips under a contact page's pinned header. */
     val sectionChips: Boolean = true,
 )
 

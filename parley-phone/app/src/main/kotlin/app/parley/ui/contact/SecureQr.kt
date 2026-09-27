@@ -156,7 +156,7 @@ fun ReceiveSecureQrDialog(vm: AppViewModel, uri: Uri, onDone: () -> Unit, openEd
             dismissButton = { TextButton(onDone) { Text(stringResource(R.string.main_cancel)) } },
         )
     } else {
-        // X5 handshake: where you met (a MEET entry, and optionally the note), and "Swap" shows your own card.
+        // Handshake: where you met (a MEET entry, and optionally the note), and "Swap" shows your own card.
         var place by remember { mutableStateOf("") }
         var toNote by remember { mutableStateOf(false) }
         val swap by vm.c.extras.handshakeSwap.collectAsStateWithLifecycle()

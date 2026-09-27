@@ -69,7 +69,7 @@ fun SelectionBar(vm: AppViewModel) {
     var confirmPrivate by remember { mutableStateOf(false) }
     var labelPicker by remember { mutableStateOf<List<GroupInfo>?>(null) }
     val res = LocalResources.current
-    // C2: "Back up first?" before merging or deleting many contacts.
+    // "Back up first?" before merging or deleting many contacts.
     val backupFirst = app.parley.ui.backup.rememberBackupFirst(vm)
 
     val exporter = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/x-vcard")) { uri ->
@@ -114,7 +114,7 @@ fun SelectionBar(vm: AppViewModel) {
                     })
                     DropdownMenuItem({ Text(stringResource(R.string.sel_introduce)) }, leadingIcon = { Icon(Icons.AutoMirrored.Rounded.Message, null) }, onClick = {
                         menu = false
-                        // M13: one prefilled chat at a time; you press Send yourself.
+                        // One prefilled chat at a time; you press Send yourself.
                         if (!app.parley.messaging.IntroduceStart.fromContacts(vm, chosen)) vm.toast(res.getString(R.string.sel_no_numbers))
                     })
                     if (chosen.size >= 2) {

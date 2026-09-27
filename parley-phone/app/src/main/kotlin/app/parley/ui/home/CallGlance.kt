@@ -53,7 +53,7 @@ import app.parley.ui.CallDurationBar
 import app.parley.ui.CallTypeColors
 import kotlinx.coroutines.flow.MutableStateFlow
 
-/** R4 (v3.3): Rich or Simple call rows, from Settings › Recents style (provided by ParleyRoot). */
+/** Rich or Simple call rows, from Settings › Recents style (provided by ParleyRoot). */
 val LocalRecentsStyle = staticCompositionLocalOf { RecentsStyle.RICH }
 
 /** Whether call rows use the rich look. */
@@ -93,7 +93,7 @@ private fun callClassMeaning(cls: CallClass): Int = when (cls) {
 fun recentsStyleLabels(): List<String> = listOf(stringResource(R.string.recents_style_rich), stringResource(R.string.recents_style_simple))
 
 /**
- * R4: a thin bar in the call's colour along the row's leading edge (right in right-to-left languages), drawn over the
+ * A thin bar in the call's colour along the row's leading edge (right in right-to-left languages), drawn over the
  * row's own background.
  */
 fun Modifier.callAccent(color: Color): Modifier = drawWithContent {
@@ -104,7 +104,7 @@ fun Modifier.callAccent(color: Color): Modifier = drawWithContent {
     drawRoundRect(color, topLeft = Offset(x, inset), size = Size(w, (size.height - 2 * inset).coerceAtLeast(w)), cornerRadius = CornerRadius(w / 2, w / 2))
 }
 
-/** R4: "3×" coloured by the row's latest call, next to the name of a row with several calls. */
+/** "3×" coloured by the row's latest call, next to the name of a row with several calls. */
 @Composable
 fun CallCountChip(count: Int, latest: CallClass) {
     val color = CallTypeColors.of(latest.hue)
@@ -117,14 +117,14 @@ fun CallCountChip(count: Int, latest: CallClass) {
     }
 }
 
-/** R4: "3 calls: missed call, missed call, outgoing call", read for a row's sequence dots. */
+/** "3 calls: missed call, missed call, outgoing call", read for a row's sequence dots. */
 @Composable
 fun sequenceDescription(total: Int, classes: List<CallClass>): String {
     val words = classes.map { stringResource(callClassLabel(it)) }.joinToString(", ")
     return pluralStringResource(R.plurals.recents_calls_sequence, total, total, words)
 }
 
-/** R4: the Call back pill that replaces the call icon on a missed call not returned yet. */
+/** The Call back pill that replaces the call icon on a missed call not returned yet. */
 @Composable
 fun CallBackPill(who: String, onClick: () -> Unit) {
     val color = CallTypeColors.of(CallClass.MISSED.hue)
@@ -142,7 +142,7 @@ fun CallBackPill(who: String, onClick: () -> Unit) {
 }
 
 /**
- * R4: the trailing part of a call row in history lists (number history, contact timeline, private contacts): a
+ * The trailing part of a call row in history lists (number history, contact timeline, private contacts): a
  * proportional bar and the length for a talked call, "No answer" for an outgoing call nobody picked up. Nothing in
  * the Simple style (those rows already say the length in words).
  */
@@ -171,7 +171,7 @@ private fun LegendRow(cls: CallClass) {
 
 private val legendRequested = MutableStateFlow(false)
 
-/** R4: Recents ⋮ › "What do the colours mean?". */
+/** Recents ⋮ › "What do the colours mean?". */
 @Composable
 fun RecentsLegendMenuItem(closeMenu: () -> Unit) {
     DropdownMenuItem({ Text(stringResource(R.string.recents_legend_menu)) }, leadingIcon = { Icon(Icons.AutoMirrored.Rounded.HelpOutline, null) }, onClick = {

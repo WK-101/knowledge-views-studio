@@ -23,7 +23,7 @@ import app.parley.ui.Bidi
 import app.parley.ui.CallColors
 
 /**
- * C2: the direct Call shown first on every "Message on…" / number-action surface, so a number found in Recents, a
+ * The direct Call shown first on every "Message on…" / number-action surface, so a number found in Recents, a
  * notification, shared text or the tile can be called as easily as messaged. [onClick] goes through Parley's normal
  * call path (CallGate: dial guard, allowance, confirm, SIM choice).
  */

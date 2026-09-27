@@ -3,7 +3,7 @@ package app.parley.common.calls
 import app.parley.common.CallEntry
 import app.parley.common.CallType
 
-/** P5: which calls "Clear call history" removes. */
+/** Which calls "Clear call history" removes. */
 enum class ClearScope {
     ALL,
 
@@ -16,7 +16,7 @@ enum class ClearScope {
 }
 
 /**
- * P5: picks the calls to clear. Private-contact calls never are: the vault's own ones (negative ids), and a private
+ * Picks the calls to clear. Private-contact calls never are: the vault's own ones (negative ids), and a private
  * contact's call still in the system log ([isPrivate]; the vault moves it out a little later, or never without
  * WRITE_CALL_LOG).
  */

@@ -13,13 +13,13 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.withContext
 import java.io.File
 
-/** Q1: a picture shared to Parley ("Scan QR with Parley"), waiting for the scan screen. */
+/** A picture shared to Parley ("Scan QR with Parley"), waiting for the scan screen. */
 object QrInbox {
     val image = MutableStateFlow<Uri?>(null)
 }
 
 /**
- * Q1: reads QR codes from a picture, off the main thread and with bounded memory: the picture is decoded already
+ * Reads QR codes from a picture, off the main thread and with bounded memory: the picture is decoded already
  * reduced (see [ContactPhotoProcessor.decodeBounded]) at a few sizes ([PhotoMath.qrScanSizes]) until codes are
  * found. Parley never uses the camera itself: photos come from the camera app, the photo picker or a share.
  */

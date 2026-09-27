@@ -75,7 +75,7 @@ class CallNotifier(private val context: Context) {
             cancel(INCOMING_ID)
             dismissedIncoming = null
         } else if (ringing.blockingDecline) {
-            // P2: "Block & decline" is under way: nothing to answer or decline any more.
+            // "Block & decline" is under way: nothing to answer or decline any more.
             cancel(INCOMING_ID)
         } else if (ringing.id == dismissedIncoming) {
             // The user swiped this call's ringing/"Ringing silently" notification away: it stays away.
@@ -96,7 +96,7 @@ class CallNotifier(private val context: Context) {
         } else {
             val a = CallManager.audio.value
             val timing = CallClock.timings.value[ongoing.id]
-            // The chronometer counts by itself: the signature changes when the end time changes, not every second (T3).
+            // The chronometer counts by itself: the signature changes when the end time changes, not every second.
             val chrono = CallChronometer.display(ongoing.connectTimeMillis, timing?.countdown, android.os.SystemClock.elapsedRealtime(), System.currentTimeMillis())
             post(ONGOING_ID, ongoing, "o${a.muted}${a.current?.type}${chrono.signature}${timing?.canExtend}") { buildOngoing(ongoing, timing, chrono) }
         }
@@ -108,7 +108,7 @@ class CallNotifier(private val context: Context) {
     private var dismissedIncoming: String? = null
 
     /**
-     * F6: the user swiped a call notification away (allowed for ongoing notifications since Android 14). Without it
+     * The user swiped a call notification away (allowed for ongoing notifications since Android 14). Without it
      * there's no way back to an active, held or dialling call or its hang-up button, so that one is posted again
      * straight away — but only while the call it belonged to is still live. A ringing or "Ringing silently"
      * notification the user dismissed stays dismissed (the call screen and the system ringer still work).
@@ -215,7 +215,7 @@ class CallNotifier(private val context: Context) {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
 
-    /** Delete intent: re-posts the notification if the user swipes it away while the call is live (F6). */
+    /** Delete intent: re-posts the notification if the user swipes it away while the call is live. */
     private fun dismissIntent(notificationId: Int, callId: String): PendingIntent =
         PendingIntent.getBroadcast(
             context, 20 + notificationId % 100,
@@ -226,7 +226,7 @@ class CallNotifier(private val context: Context) {
         )
 
     /**
-     * F14: the vault's "Private" label never goes into a call notification: notifications can be shown on the lock
+     * The vault's "Private" label never goes into a call notification: notifications can be shown on the lock
      * screen (and read by notification listeners), and the label would reveal that the caller is a private contact.
      */
     private fun subtitle(call: CallUi): String = listOfNotNull(
@@ -235,7 +235,7 @@ class CallNotifier(private val context: Context) {
         call.accountLabel,
     ).joinToString(context.getString(R.string.tc_separator))
 
-    /** X4: "Confirm before declining" (simple mode) covers the notification's Decline too. */
+    /** "Confirm before declining" (simple mode) covers the notification's Decline too. */
     private fun confirmDecline(): Boolean = runCatching { TelecomGraph.dependencies.appearance.value.confirmDecline }.getOrDefault(false)
 
     /**
@@ -330,7 +330,7 @@ class CallNotifier(private val context: Context) {
             .addPerson(person(call))
             .addAction(0, context.getString(if (audio.muted) R.string.notif_unmute else R.string.notif_mute), action(CallActionReceiver.ACTION_MUTE, call.id, 7))
         if (limited && timing.canExtend) {
-            // Wrap-up actions replace Speaker while a limit runs (T3).
+            // Wrap-up actions replace Speaker while a limit runs.
             b.addAction(0, context.getString(R.string.notif_plus_5_min), action(CallActionReceiver.ACTION_EXTEND, call.id, 11))
             b.addAction(0, context.getString(R.string.notif_dont_end), action(CallActionReceiver.ACTION_KEEP_GOING, call.id, 12))
         } else {

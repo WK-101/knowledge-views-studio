@@ -32,7 +32,7 @@ class LabelsRepository(
 
     /**
      * Only user labels may be renamed, merged, deleted or emptied: system groups ("My Contacts"), read-only groups
-     * and the favourites group ("Starred in Android", whose members are the starred contacts) are refused (F11).
+     * and the favourites group ("Starred in Android", whose members are the starred contacts) are refused.
      */
     private fun safe(groups: List<GroupInfo>): List<GroupInfo> {
         val ok = contacts.userGroupIds(groups.map { it.id })

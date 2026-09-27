@@ -1,6 +1,6 @@
 package app.parley.common.calls
 
-/** P1/P9: which live call is in front and whether a second one is waiting. */
+/** Which live call is in front and whether a second one is waiting. */
 enum class LiveCallState { RINGING, ACTIVE, HOLDING, DIALING, OTHER }
 
 object CallWaiting {
@@ -24,7 +24,7 @@ object CallWaiting {
         return Slots(primary, current, held, primary != null && state(primary) == LiveCallState.RINGING && current != null)
     }
 
-    /** P1: picture-in-picture only for a call that's going, never while one rings or asks for a SIM. */
+    /** Picture-in-picture only for a call that's going, never while one rings or asks for a SIM. */
     fun <T> pipAllowed(live: List<T>, state: (T) -> LiveCallState, askingForSim: (T) -> Boolean): Boolean =
         live.isNotEmpty() && live.none { state(it) == LiveCallState.RINGING || askingForSim(it) }
 }

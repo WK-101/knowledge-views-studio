@@ -4,7 +4,7 @@ import android.content.Context
 import android.os.UserManager
 
 /**
- * I9: whether this user has a work profile (or any other managed profile), so caller lookup can ask the Contacts
+ * Whether this user has a work profile (or any other managed profile), so caller lookup can ask the Contacts
  * Provider's enterprise lookup. `getUserProfiles()` needs no permission. Checked at most once a minute: profiles
  * rarely change, and incoming calls must not wait.
  */

@@ -1,12 +1,12 @@
 package app.parley.common.calls
 
-/** P6: Telecom's disconnect cause, without the Android types. */
+/** Telecom's disconnect cause, without the Android types. */
 enum class EndCode { LOCAL, REMOTE, BUSY, ERROR, RESTRICTED, CANCELED, OTHER, MISSED, REJECTED, UNKNOWN }
 
-/** P6: why an outgoing call didn't go through. */
+/** Why an outgoing call didn't go through. */
 enum class FailureKind { AIRPLANE_MODE, NO_SIM_SELECTED, BUSY, OTHER }
 
-/** P6: what is known when a call leaves Telecom. */
+/** What is known when a call leaves Telecom. */
 data class EndFacts(
     val outgoing: Boolean,
     val connected: Boolean,
@@ -21,7 +21,7 @@ data class EndFacts(
 )
 
 /**
- * P6: an outgoing call that never connected and that the user didn't end gets a failure banner with the reason
+ * An outgoing call that never connected and that the user didn't end gets a failure banner with the reason
  * and Retry. Only a real error counts: a call the other side declined isn't a "failure" of the phone, and a LOCAL
  * or CANCELED end is a hang-up from somewhere (the power button, a headset, a car kit, a watch), never a failure.
  * BUSY is, since it's worth retrying.

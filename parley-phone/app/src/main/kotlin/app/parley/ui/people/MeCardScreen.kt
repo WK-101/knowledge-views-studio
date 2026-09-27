@@ -67,7 +67,7 @@ import androidx.compose.ui.res.stringResource
 import app.parley.R
 import app.parley.ui.DataL10n
 
-/** Imports the old "My details" once, so the card starts with what was typed there (I2). */
+/** Imports the old "My details" once, so the card starts with what was typed there. */
 @Composable
 private fun MigrateMyDetails(vm: AppViewModel) {
     LaunchedEffect(Unit) {
@@ -77,7 +77,7 @@ private fun MigrateMyDetails(vm: AppViewModel) {
 }
 
 /**
- * I2: "My card" at the top of Contacts. v3.4 (M1): the row opens the editor like any contact; the QR button on its
+ * "My card" at the top of Contacts. v3.4: the row opens the editor like any contact; the QR button on its
  * end shows the QR code (with Share and Edit in it). An empty card has no QR button, as there is nothing to show.
  */
 @Composable
@@ -101,7 +101,7 @@ fun MeCardRow(vm: AppViewModel, open: (String) -> Unit) {
             )
         },
         trailingContent = if (card.isEmpty) null else ({
-            // M1: its own 48dp target, so a tap on the QR code never opens the editor.
+            // Its own 48dp target, so a tap on the QR code never opens the editor.
             IconButton({ showQr = true }) { Icon(Icons.Rounded.QrCode2, stringResource(R.string.me_show_qr), tint = MaterialTheme.colorScheme.primary) }
         }),
     )
@@ -109,7 +109,7 @@ fun MeCardRow(vm: AppViewModel, open: (String) -> Unit) {
 }
 
 /**
- * I2: your own card. Parley keeps it (private to Parley, like "My details" before), shows it with the phone's
+ * Your own card. Parley keeps it (private to Parley, like "My details" before), shows it with the phone's
  * profile ("Me") when there is one, and shares it as a vCard or a QR code with only the parts you choose. Its name
  * and first number also fill in "Send my details".
  */
@@ -190,7 +190,7 @@ fun MeCardScreen(vm: AppViewModel, back: () -> Unit) {
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 32.dp),
         )
     }
-    // Q2: "Scan theirs" right from your own code.
+    // "Scan theirs" right from your own code.
     if (showQr) MeQrDialog(merged, onDismiss = { showQr = false }, onScan = { showQr = false; vm.navigate(app.parley.NavEvent.Route(app.parley.ui.qr.QrRoutes.SCAN)) })
 }
 

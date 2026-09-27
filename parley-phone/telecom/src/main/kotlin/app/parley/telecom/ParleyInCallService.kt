@@ -20,7 +20,7 @@ import app.parley.telecom.ui.InCallActivity
 // Telephony calls here are covered by the default-dialer role and each one handles SecurityException.
 @SuppressLint("MissingPermission")
 class ParleyInCallService : InCallService() {
-    // L1: the in-app language on Android 10-12 (Android 13+ applies per-app languages itself).
+    // The in-app language on Android 10-12 (Android 13+ applies per-app languages itself).
     override fun attachBaseContext(newBase: android.content.Context) {
         super.attachBaseContext(app.parley.ui.AppLocale.wrap(newBase))
     }

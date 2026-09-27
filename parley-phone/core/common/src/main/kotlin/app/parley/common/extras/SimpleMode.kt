@@ -7,14 +7,14 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
 /**
- * X4: one tile of the simple home. The tile always dials [number]; a contact of this phone lends its photo only when it
+ * One tile of the simple home. The tile always dials [number]; a contact of this phone lends its photo only when it
  * has that number ([lookupKey] picks between several that do).
  */
 @Serializable
 data class SimplePerson(val name: String, val number: String, val lookupKey: String? = null)
 
 /**
- * X4 simple (assisted) mode: a home of big photo tiles for up to [MAX_PEOPLE] people, a larger keypad, and on the
+ * Simple (assisted) mode: a home of big photo tiles for up to [MAX_PEOPLE] people, a larger keypad, and on the
  * incoming screen large buttons, a question before declining and (optionally) the caller's name spoken aloud.
  */
 @Serializable

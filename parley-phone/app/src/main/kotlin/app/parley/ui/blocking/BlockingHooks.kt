@@ -122,7 +122,7 @@ fun rememberRecentBadges(vm: AppViewModel): (RecentGroup) -> RecentBadge? {
 }
 
 /**
- * Bar shown while Recents rows are selected (B8): block the unknown numbers in one go, after a confirmation that
+ * Bar shown while Recents rows are selected: block the unknown numbers in one go, after a confirmation that
  * lists them. Contacts and private (vault) contacts are never blocked from here: they're left out and named, to
  * be blocked from their own page if that's really meant.
  */
@@ -209,7 +209,7 @@ fun ScreeningHistorySection(vm: AppViewModel, number: String, contactName: Strin
     }
 }
 
-/** Contact overflow item (B22). Put it inside the contact page's DropdownMenu. */
+/** Contact overflow item. Put it inside the contact page's DropdownMenu. */
 @Composable
 fun ContactPrefixAllowMenuItem(name: String?, numbers: List<String>, closeMenu: () -> Unit) {
     if (numbers.isEmpty()) return
@@ -220,7 +220,7 @@ fun ContactPrefixAllowMenuItem(name: String?, numbers: List<String>, closeMenu: 
     )
 }
 
-/** Label page overflow item (B18/B24). Put it inside the label page's DropdownMenu. */
+/** Label page overflow item. Put it inside the label page's DropdownMenu. */
 @Composable
 fun LabelBlockingMenuItem(title: String, closeMenu: () -> Unit) {
     DropdownMenuItem(
@@ -230,7 +230,7 @@ fun LabelBlockingMenuItem(title: String, closeMenu: () -> Unit) {
     )
 }
 
-/** Keypad or home overflow item (B21). */
+/** Keypad or home overflow item. */
 @Composable
 fun ExpectingCallMenuItem(closeMenu: () -> Unit) {
     val c = androidx.compose.ui.platform.LocalContext.current.container

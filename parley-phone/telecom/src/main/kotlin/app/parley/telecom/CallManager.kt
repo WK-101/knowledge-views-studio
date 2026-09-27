@@ -56,13 +56,13 @@ object CallManager {
     private val locations = HashMap<String, String>()
     private var customRinger: android.media.Ringtone? = null
     private var customRingerFor: String? = null
-    /** Screening outcome per call: verdict for the caller card and ringer plan (B2, B24). */
+    /** Screening outcome per call: verdict for the caller card and ringer plan. */
     private val outcomes = HashMap<String, ScreenOutcome>()
     private val ringStartedAt = HashMap<String, Long>()
     private var boostedFor: String? = null
     /** Calls whose caller lookup found no contact or private contact (V4 post-call card). */
     private val noContact = HashSet<String>()
-    /** Ringer state when each incoming call started ringing, completed when it ends (V9). */
+    /** Ringer state when each incoming call started ringing, completed when it ends. */
     private val ringFacts = HashMap<String, RingFacts>()
     private val ignoredByUser = HashSet<String>()
     private val loudFor = HashSet<String>()
@@ -79,26 +79,26 @@ object CallManager {
     private val _lastEnded = MutableStateFlow<CallUi?>(null)
     val lastEnded: StateFlow<CallUi?> = _lastEnded.asStateFlow()
 
-    /** A call Parley just asked Telecom to place, until it shows up (A10). */
+    /** A call Parley just asked Telecom to place, until it shows up. */
     private val _pendingOutgoing = MutableStateFlow<PendingOutgoing?>(null)
     val pendingOutgoing: StateFlow<PendingOutgoing?> = _pendingOutgoing.asStateFlow()
 
-    /** When each held call was put on hold (A2). */
+    /** When each held call was put on hold. */
     /** Hold timers, last live states and which held call to resume (lazy: the state sets are declared below). */
     private val book by lazy { CallBook(CallState.HOLDING, FRONT_STATES, BUSY_STATES, setOf(CallState.DISCONNECTING, CallState.DISCONNECTED)) }
-    /** Last live state of each top-level call, to know whether the call that ended was the one in front (A2). */
+    /** Last live state of each top-level call, to know whether the call that ended was the one in front. */
     private val quotaSilenced = HashSet<String>()
     private val endedByLimit = HashSet<String>()
-    /** P6: calls the user ended or cancelled themselves (never a "failure"). */
+    /** Calls the user ended or cancelled themselves (never a "failure"). */
     private val userEnded = HashSet<String>()
-    /** P7: calls answered from Parley (the answer buzz already confirmed them, so no connect buzz). */
+    /** Calls answered from Parley (the answer buzz already confirmed them, so no connect buzz). */
     private val answeredByUser = HashSet<String>()
-    /** X4: ringing calls the user silenced with a hardware key (volume, power): the spoken name stops too. */
+    /** Ringing calls the user silenced with a hardware key (volume, power): the spoken name stops too. */
     private val systemSilenced = HashSet<String>()
-    /** P2: calls whose "Block & decline" is still writing the rule (no answering from Parley meanwhile). */
+    /** Calls whose "Block & decline" is still writing the rule (no answering from Parley meanwhile). */
     private val blockingDecline = HashSet<String>()
 
-    /** P2: the last call declined with "Block & decline", for Undo on the call-ended screen. */
+    /** The last call declined with "Block & decline", for Undo on the call-ended screen. */
     private val _declineBlock = MutableStateFlow<DeclineBlock?>(null)
     val declineBlock: StateFlow<DeclineBlock?> = _declineBlock.asStateFlow()
 
@@ -139,7 +139,7 @@ object CallManager {
     internal fun add(context: Context, call: Call) {
         appContext = context.applicationContext
         val id = idOf(call)
-        // P6/P2: a new call starts: an earlier call's failure banner (and its Retry) or "Blocked · Undo" card is stale.
+        // A new call starts: an earlier call's failure banner (and its Retry) or "Blocked · Undo" card is stale.
         _lastEnded.value = null
         _declineBlock.value?.let { b -> if (calls.none { idOf(it) == b.callId }) _declineBlock.value = null }
         calls += call
@@ -165,7 +165,7 @@ object CallManager {
         // Never screen an emergency call or right after one (call-backs must get through).
         val earlierOutcome = if (incoming) ScreeningGuard.recallOutcome(number) else null
         val accountId = call.details.accountHandle?.id
-        // The screening service decided without knowing the SIM: re-check when per-SIM rules exist (B9), always when
+        // The screening service decided without knowing the SIM: re-check when per-SIM rules exist, always when
         // it only let the call through because a SIM-limited allow rule might apply.
         val earlier = earlierOutcome?.takeIf {
             !(it.decision == Decision.Allow && accountId != null && (it.deferredToSim || runCatching { deps.simRulesActive() }.getOrDefault(true)))
@@ -212,7 +212,7 @@ object CallManager {
             }
         }
 
-        // An incoming call whose allowance is used up rings silently when the user asked for that (T6).
+        // An incoming call whose allowance is used up rings silently when the user asked for that.
         if (incoming && number != null && !hidden && !EmergencyPolicy.bypasses(Safeguard.CALL_TIME_ALLOWANCE, emergency)) {
             scope.launch {
                 val silence = withTimeoutOrNull(SCREEN_TIMEOUT_MS) { runCatching { deps.silenceOverQuota(number, call.details.accountHandle?.id) }.getOrDefault(false) } == true
@@ -280,7 +280,7 @@ object CallManager {
         // Claimed now so a second lookup/screening result doesn't start another tone while we wait.
         customRinger = tone
         customRingerFor = id
-        // F20: silence Telecom first and wait until its ringtone has actually stopped (bounded), so the two never
+        // Silence Telecom first and wait until its ringtone has actually stopped (bounded), so the two never
         // overlap. Everything is re-checked afterwards: the call may have been answered, silenced or ended meanwhile.
         silenceRinger()
         scope.launch {
@@ -344,7 +344,7 @@ object CallManager {
     internal fun onSystemSilence() {
         stopCustomRinger()
         restoreBoost()
-        // X4: a silent phone stays silent: the spoken caller name stops with the ringer.
+        // A silent phone stays silent: the spoken caller name stops with the ringer.
         calls.filter { it.stateCompat() == Call.STATE_RINGING }.forEach { systemSilenced += idOf(it) }
         publish()
     }
@@ -368,11 +368,11 @@ object CallManager {
         if (boostedFor == id) restoreBoost()
         unknownCallers -= id
         val base = toUi(call)
-        // P6: an outgoing call that never went through: the reason and Retry stay on the call-ended screen.
+        // An outgoing call that never went through: the reason and Retry stay on the call-ended screen.
         val failure = CallFailure.classify(endFacts(call, base, id))
         val ended = if (failure == null) base else base.copy(failure = failure, failureText = failureText(failure, call))
         _lastEnded.value = ended
-        // P6: a call that failed before the caller lookup finished still shows the name on "Call ended".
+        // A call that failed before the caller lookup finished still shows the name on "Call ended".
         if (ended.name == null && !ended.hidden && !ended.number.isNullOrBlank()) lookUpEndedName(ended)
         ringStartedAt.remove(id)?.let { started ->
             val connected = ended.connectTimeMillis > 0
@@ -423,7 +423,7 @@ object CallManager {
     }
 
     /**
-     * When the call in front ends and exactly one held call is left, resume it (A2), unless another call is
+     * When the call in front ends and exactly one held call is left, resume it, unless another call is
      * ringing, dialling or active. Checked after a moment, since some networks resume on their own.
      */
     private fun resumeHeldIfAlone() {
@@ -496,7 +496,7 @@ object CallManager {
             val id = idOf(c)
             val st = mapState(c.stateCompat())
             book.update(id, st, now)
-            // V9: where an incoming call was answered, read again a moment later once the audio route has settled.
+            // Where an incoming call was answered, read again a moment later once the audio route has settled.
             if (st == CallState.ACTIVE && id in ringFacts && id !in answeredRoute) {
                 answeredRoute[id] = RingSnapshot.route(_audio.value) ?: (AnswerRoute.EARPIECE to null)
                 scope.launch {
@@ -522,7 +522,7 @@ object CallManager {
         fun can(c: Int) = (caps and c) != 0
         val conferenceable = call.conferenceableCalls.isNotEmpty()
         val state = mapState(call.stateCompat())
-        // Before Telecom picks the account, the one Parley asked for is in the intent extras (A10).
+        // Before Telecom picks the account, the one Parley asked for is in the intent extras.
         val account = d.accountHandle ?: requestedAccount(d)
         return CallUi(
             id = id,
@@ -661,7 +661,7 @@ object CallManager {
 
     private val accountNumbers = HashMap<PhoneAccountHandle, String?>()
 
-    /** The SIM's own number (V5), only on dual-SIM phones and only when Android knows it. */
+    /** The SIM's own number, only on dual-SIM phones and only when Android knows it. */
     private fun accountNumber(h: PhoneAccountHandle?): String? {
         if (h == null || !::appContext.isInitialized || accountLabel(h) == null) return null
         return accountNumbers.getOrPut(h) {
@@ -675,7 +675,7 @@ object CallManager {
     }
 
     /**
-     * Completes the ring facts captured when [call] started ringing (V9): which tone played, whether Parley kept it
+     * Completes the ring facts captured when [call] started ringing: which tone played, whether Parley kept it
      * quiet and why, and how the call ended.
      */
     private fun finishRingFacts(id: String, call: Call, f: RingFacts, rang: Long, connected: Boolean): RingFacts {
@@ -733,7 +733,7 @@ object CallManager {
         answered(id)
     }
 
-    /** P7: the answer buzz, and no connect buzz right after it. */
+    /** The answer buzz, and no connect buzz right after it. */
     private fun answered(id: String) {
         answeredByUser += id
         CallClock.haptic(CallHaptic.ANSWER)
@@ -742,7 +742,7 @@ object CallManager {
     internal fun wasAnsweredByUser(id: String) = id in answeredByUser
 
     /**
-     * Puts the active call on hold and answers the waiting one (A1). Telecom would end an active call that
+     * Puts the active call on hold and answers the waiting one. Telecom would end an active call that
      * can't be held, so the UI only offers this when holding is possible.
      */
     fun holdAndAnswer(id: String) {
@@ -755,7 +755,7 @@ object CallManager {
     }
 
     /**
-     * Ends the call whose time limit ran out (T5). Only that call: a waiting or held call is never touched, and
+     * Ends the call whose time limit ran out. Only that call: a waiting or held call is never touched, and
      * `TelecomManager.endCall()` (which picks a call on its own) is never used.
      */
     internal fun endForLimit(id: String) {
@@ -769,7 +769,7 @@ object CallManager {
         call.disconnect()
     }
 
-    /** Ends the call a "hang up" shortcut should end (A11): the active one, else one being dialled, else a held one. */
+    /** Ends the call a "hang up" shortcut should end: the active one, else one being dialled, else a held one. */
     fun hangupForeground(): Boolean {
         val top = calls.filter { it.parent == null }
         val pick = top.firstOrNull { mapState(it.stateCompat()) == CallState.ACTIVE }
@@ -805,7 +805,7 @@ object CallManager {
     fun reject(id: String, message: String? = null) {
         val call = find(id) ?: return
         userEnded += id
-        // P7: declining has its own buzz, different from answering.
+        // Declining has its own buzz, different from answering.
         CallClock.haptic(CallHaptic.DECLINE)
         val canText = (call.details.callCapabilities and Call.Details.CAPABILITY_RESPOND_VIA_TEXT) != 0
         if (message != null && canText) {
@@ -831,7 +831,7 @@ object CallManager {
     }
 
     /**
-     * P2: "Block & decline". The ringing stops at once and Parley's answer controls go away; the block rule is
+     * "Block & decline". The ringing stops at once and Parley's answer controls go away; the block rule is
      * written first (waited for a bounded time, so the call can't ring on while the database is slow), then the call
      * is declined as unwanted. The write itself is never cancelled: when it takes longer, the card says "Blocking…"
      * and shows the real outcome (with Undo) once the write is done.
@@ -868,7 +868,7 @@ object CallManager {
         }
     }
 
-    /** P2: Undo on the call-ended screen. */
+    /** Undo on the call-ended screen. */
     fun undoDeclineBlock() {
         val b = _declineBlock.value ?: return
         val rule = b.ruleId?.takeIf { it > 0 } ?: return
@@ -877,27 +877,27 @@ object CallManager {
         scope.launch { runCatching { TelecomGraph.dependencies.undoBlockForDecline(rule) } }
     }
 
-    /** P2: Done on the "Blocked · Undo" card shown above a call that goes on. */
+    /** Done on the "Blocked · Undo" card shown above a call that goes on. */
     fun dismissDeclineBlock() {
         _declineBlock.value = null
     }
 
-    /** P6: Dismiss (or Retry) on the failure banner: it stays gone, whichever screen shows the ended call next. */
+    /** Dismiss (or Retry) on the failure banner: it stays gone, whichever screen shows the ended call next. */
     fun dismissFailure(id: String) {
         _lastEnded.value?.takeIf { it.id == id && it.failure != null }?.let { _lastEnded.value = it.copy(failure = null, failureText = null) }
     }
 
-    /** P6: Retry couldn't place the call: the banner comes back, unless another call has started since. */
+    /** Retry couldn't place the call: the banner comes back, unless another call has started since. */
     fun restoreFailure(failed: CallUi) {
         // A new call clears the last ended one (see [add]), so an id match means none has started.
         if (_lastEnded.value?.id == failed.id) _lastEnded.value = failed
     }
 
-    /** P6: Retry on the failure banner. The reason it still failed, or null. */
+    /** Retry on the failure banner. The reason it still failed, or null. */
     suspend fun redial(number: String, accountId: String?): String? =
         runCatching { TelecomGraph.dependencies.redial(number, accountId) }.getOrElse { it.message ?: str(R.string.call_disconnect_failed) }
 
-    /** P6: what's known about a call that just left Telecom. */
+    /** What's known about a call that just left Telecom. */
     private fun endFacts(call: Call, ended: CallUi, id: String): EndFacts = EndFacts(
         outgoing = !ended.incoming,
         connected = ended.connectTimeMillis > 0,
@@ -933,7 +933,7 @@ object CallManager {
             ?: str(R.string.call_failed_generic)
     }
 
-    /** P6: the caller lookup hadn't finished when the call ended: fill the name in on the call-ended screen. */
+    /** The caller lookup hadn't finished when the call ended: fill the name in on the call-ended screen. */
     private fun lookUpEndedName(ended: CallUi) {
         val number = ended.number ?: return
         scope.launch {
@@ -1084,9 +1084,9 @@ object CallManager {
     private const val PENDING_OUTGOING_MS = 8000L
     private const val SCREEN_TIMEOUT_MS = 1500L
     private const val LOOKUP_TIMEOUT_MS = 2000L
-    /** P2: how long "Block & decline" waits for the rule before declining anyway. */
+    /** How long "Block & decline" waits for the rule before declining anyway. */
     private const val BLOCK_TIMEOUT_MS = 1500L
-    /** F20: after silencing Telecom, wait at least this long, and at most the max for its ringtone to stop. */
+    /** After silencing Telecom, wait at least this long, and at most the max for its ringtone to stop. */
     private const val RINGER_STOP_MIN_MS = 120L
     private const val RINGER_STOP_MAX_MS = 700L
     private const val RINGER_POLL_MS = 40L

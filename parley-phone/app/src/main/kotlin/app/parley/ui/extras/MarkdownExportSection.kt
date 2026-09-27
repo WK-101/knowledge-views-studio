@@ -44,7 +44,7 @@ import app.parley.ui.common.Format
 import app.parley.work.FolderSyncWorker
 import kotlinx.coroutines.launch
 
-/** C5: the worded parts of the Markdown files, in the app's language. */
+/** The worded parts of the Markdown files, in the app's language. */
 object MarkdownTexts {
     fun build(context: Context): MarkdownExport.Texts {
         val res = context.resources
@@ -79,7 +79,7 @@ object MarkdownTexts {
 }
 
 /**
- * C5 on the "Sync between your phones" screen: a second, one-way folder for Markdown notes (Obsidian and other note
+ * On the "Sync between your phones" screen: a second, one-way folder for Markdown notes (Obsidian and other note
  * apps). It shares the folder-sync worker: "Keep it up to date" exports again every hour.
  */
 @Composable
@@ -145,7 +145,7 @@ fun MarkdownExportSection(vm: AppViewModel) {
                             else -> pluralStringResource(R.plurals.md_export_people, st.lastPeople, st.lastPeople)
                         },
                     )
-                    // C5: files the user edited are left alone; say so rather than silently writing a copy.
+                    // Files the user edited are left alone; say so rather than silently writing a copy.
                     if (st.lastProblem == null && st.lastKept > 0) Text(pluralStringResource(R.plurals.md_export_kept, st.lastKept, st.lastKept))
                 }
             },

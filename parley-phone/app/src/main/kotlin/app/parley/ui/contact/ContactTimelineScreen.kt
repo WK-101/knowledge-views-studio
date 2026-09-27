@@ -63,7 +63,7 @@ import java.time.ZoneId
 import kotlinx.coroutines.launch
 
 /**
- * P1 (v3.4): a contact's whole timeline on its own screen ("Show all" on the contact page): search the notes,
+ * A contact's whole timeline on its own screen ("Show all" on the contact page): search the notes,
  * numbers and kinds, filter by calls, missed calls, logged moments, notes and dates, one sticky heading per month.
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)

@@ -36,7 +36,7 @@ import org.json.JSONObject
 import java.time.ZoneId
 
 /**
- * R1–R5: the Circle's data layer. The Circle is a *view* over system contacts: a contact is in it when its
+ * The Circle's data layer. The Circle is a *view* over system contacts: a contact is in it when its
  * contact_meta row has a keep-in-touch rhythm (`reachOutDays`, plus [KeepRhythm] in `rhythm`). Interactions live in
  * [interactions]; calls always come from the call log (through the call-history index).
  *
@@ -115,7 +115,7 @@ class CircleRepository(
         editMeta(before.lookupKey, create = true) { m -> m.copy(contactId = m.contactId ?: before.contactId, reachOutDays = before.reachOutDays, lastNudgedAt = before.lastNudgedAt, rhythm = before.rhythm) }
     }
 
-    /** R4 "Not now": the next reminder about [lookupKey] waits one more full gap. */
+    /** "Not now": the next reminder about [lookupKey] waits one more full gap. */
     suspend fun snooze(lookupKey: String, now: Long = System.currentTimeMillis()) {
         editMeta(lookupKey, create = false) { m ->
             val r = KeepRhythm.decode(m.rhythm)
@@ -124,7 +124,7 @@ class CircleRepository(
         }
     }
 
-    /** Monthly re-learning of natural rhythms (R4); returns the members, updated. */
+    /** Monthly re-learning of natural rhythms; returns the members, updated. */
     suspend fun relearnDue(now: Long = System.currentTimeMillis()): List<Member> = withContext(Dispatchers.IO) {
         members().map { mem ->
             if (!mem.rhythm.needsRelearn(now)) return@map mem
@@ -151,7 +151,7 @@ class CircleRepository(
     fun lastAnsweredCall(lookupKey: String, idx: CallLogIndex? = index().value): Long? =
         idx?.calls(personKey = personKey(lookupKey))?.firstOrNull { it.durationSec > 0 && (it.type == CallType.INCOMING || it.type == CallType.OUTGOING) }?.date
 
-    /** G6: the latest time you were in touch: an answered call or any logged interaction. */
+    /** The latest time you were in touch: an answered call or any logged interaction. */
     suspend fun lastContact(lookupKey: String, idx: CallLogIndex? = index().value): LastContact? {
         return Interactions.lastContact(lastAnsweredCall(lookupKey, idx), interactions.latestFor(lookupKey))
     }
@@ -164,7 +164,7 @@ class CircleRepository(
     }
 
     /**
-     * X6: the last time you were in touch with every contact you ever were (answered calls with contacts and logged
+     * The last time you were in touch with every contact you ever were (answered calls with contacts and logged
      * interactions), by lookup key. Private contacts aren't contacts, so they never appear.
      */
     suspend fun lastContactsAll(idx: CallLogIndex? = index().value): Map<String, Long> {
@@ -180,7 +180,7 @@ class CircleRepository(
         return out
     }
 
-    // --- R3: "Log this?" ---
+    // --- "Log this?" ---
 
     /**
      * A launch Parley just made for a Circle contact. [loggedId]: "Always" already recorded it as this row (offer
@@ -222,14 +222,14 @@ class CircleRepository(
         return runCatching { interactions.log(p.lookupKey, p.contactId, p.channel.type, p.channel, p.time, null, p.dedupeKey) }.getOrNull()
     }
 
-    // --- R4/R5 bookkeeping for the reminders worker ---
+    // --- Bookkeeping for the reminders worker ---
 
     fun stateString(key: String): String? = prefs.getString("s.$key", null)
     fun setStateString(key: String, value: String?) = prefs.edit().apply { if (value == null) remove("s.$key") else putString("s.$key", value) }.apply()
     fun stateSet(key: String): Set<String> = prefs.getStringSet("s.$key", emptySet()).orEmpty().toSet()
     fun setStateSet(key: String, value: Set<String>) = prefs.edit().putStringSet("s.$key", value).apply()
 
-    /** R5 "Mark as wished": records an interaction for the occasion (once) and closes it. */
+    /** "Mark as wished": records an interaction for the occasion (once) and closes it. */
     suspend fun markWished(lookupKey: String, contactId: Long?, occurrence: String, now: Long = System.currentTimeMillis()): Boolean {
         setStateSet(S_WISHED, app.parley.common.circle.DateReminders.prune(stateSet(S_WISHED), now) + "$occurrence|$now")
         if (lookupKey.isEmpty()) return false
@@ -238,7 +238,7 @@ class CircleRepository(
 
     fun isWished(occurrence: String): Boolean = app.parley.common.circle.DateReminders.has(stateSet(S_WISHED), occurrence)
 
-    // --- R8/R9: notes and promises about a person ---
+    // --- Notes and promises about a person ---
 
     /** Where a note lives: the pinned note, a call note or a logged interaction's note. */
     enum class NoteSource { PINNED, CALL, LOGGED }
@@ -262,7 +262,7 @@ class CircleRepository(
         (calls + logged).sortedByDescending { it.time } + listOfNotNull(pinned)
     }
 
-    /** R9: ticks a promise off (or back on) by rewriting its line in the note it lives in. */
+    /** Ticks a promise off (or back on) by rewriting its line in the note it lives in. */
     suspend fun setPromiseDone(lookupKey: String, note: PersonNote, line: Int, done: Boolean): Boolean = withContext(Dispatchers.IO) {
         // [note] is what was shown; the note may have been edited since: re-read it and change only that promise's
         // box in the current text (in one transaction, so nothing written meanwhile is reverted).
@@ -285,7 +285,7 @@ class CircleRepository(
         }.getOrDefault(false)
     }
 
-    // --- R10: life events remembered yearly ---
+    // --- Life events remembered yearly ---
 
     suspend fun setYearly(lookupKey: String, contactId: Long?, key: String, on: Boolean) {
         if (lookupKey.isEmpty()) return
@@ -297,7 +297,7 @@ class CircleRepository(
         meta.allMetaNow().mapNotNull { r -> YearlyEvents.decode(r.yearlyEvents).takeIf { it.isNotEmpty() }?.let { r.lookupKey to it } }.toMap()
     }
 
-    // --- R6: history for the People card ---
+    // --- History for the People card ---
 
     /**
      * Every contact entry since [since] as [PeopleInsights.Touch]es keyed by lookup key: calls with contacts from
@@ -344,7 +344,7 @@ class CircleRepository(
                 items.put(person(i.lookupKey).put("t", i.type.name).put("c", i.channel?.name ?: JSONObject.NULL).put("at", i.time).put("note", i.note ?: JSONObject.NULL).put("u", i.dedupeKey))
             }
             out[X_INTERACTIONS] = items.toString()
-            // R10: life events remembered yearly.
+            // Life events remembered yearly.
             val yearly = JSONArray()
             yearlyFlags().forEach { (key, flags) -> yearly.put(person(key).put("y", JSONArray(flags.toList()))) }
             out[X_YEARLY] = yearly.toString()

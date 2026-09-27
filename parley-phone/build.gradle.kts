@@ -10,7 +10,7 @@ plugins {
 }
 
 /*
- * L1: Android lint can't see text written into Compose code, so this task looks for the usual shapes of it
+ * Android lint can't see text written into Compose code, so this task looks for the usual shapes of it
  * (Text("…"), contentDescription = "…", toasts, notification texts, TalkBack actions) in the UI modules and lists
  * them as warnings. It runs before every lint task; -PfailOnHardcodedText=true turns the warnings into a failure.
  * A line that must stay as it is (a format pattern, a brand name) can carry the comment `// l10n-ok`.

@@ -28,7 +28,7 @@ class CallGate(private val c: DataContainer) {
         // An emergency call is never held up by a question: no confirmation, no SIM choice, no warnings, no allowance.
         if (isEmergency(number)) return null
         val settings = c.settings.current()
-        // X3: a label's SIM counts like a remembered one (the number's own choice wins).
+        // A label's SIM counts like a remembered one (the number's own choice wins).
         val remembered = simId ?: c.placer.resolveSim(number)
         val default = withContext(Dispatchers.IO) { c.sims.defaultOutgoing() }
         val chooseSim = simId == null && simCount >= 2 && remembered == null && default == null && !PhoneNumbers.isServiceCode(number)
@@ -65,7 +65,7 @@ class CallGate(private val c: DataContainer) {
         if (!confirmed) {
             callTime.outgoingWarning(number, chosen)?.let { note -> return Placed.Ask(PendingCall(number, name, true, false, note, simId)) }
         }
-        // "Calling via Work SIM…" until the call exists (A10).
+        // "Calling via Work SIM…" until the call exists.
         CallManager.expectOutgoing(number, sims.takeIf { it.size >= 2 }?.firstOrNull { it.id == chosen }?.label)
         return Placed.Done(c.placer.call(number, resolved, simResolved = true))
     }

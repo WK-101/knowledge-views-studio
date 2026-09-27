@@ -69,13 +69,13 @@ fun FavoritesTab(vm: AppViewModel, open: (String) -> Unit, query: String = "", o
     val frequents by vm.frequents.collectAsStateWithLifecycle()
     val ps by vm.people.settings.collectAsStateWithLifecycle()
     var reordering by remember { mutableStateOf(false) }
-    // R1: while the Circle tab is hidden, the Circle is a folding section at the top of Favourites.
-    // S2: unless the favourites moved into Contacts (then the Circle follows them there).
+    // While the Circle tab is hidden, the Circle is a folding section at the top of Favourites.
+    // Unless the favourites moved into Contacts (then the Circle follows them there).
     val circleHere = vm.settings.collectAsStateWithLifecycle().value.homeLayout.circleHost == app.parley.common.StartTab.FAVORITES
     if (favorites.isEmpty() && frequents.isEmpty()) {
         Column(Modifier.fillMaxSize()) {
             if (circleHere) Column(Modifier.padding(top = 12.dp)) { app.parley.ui.circle.CircleFavoritesSection(vm, open, query) }
-            // U5: nothing starred yet: the way on is the contact list.
+            // Nothing starred yet: the way on is the contact list.
             EmptyState(
                 Icons.Rounded.StarOutline, stringResource(R.string.fav_empty_title), stringResource(R.string.fav_empty_body),
                 action = stringResource(R.string.ux_empty_choose_favorites), onAction = { vm.navigate(app.parley.NavEvent.Tab(app.parley.common.StartTab.CONTACTS)) },

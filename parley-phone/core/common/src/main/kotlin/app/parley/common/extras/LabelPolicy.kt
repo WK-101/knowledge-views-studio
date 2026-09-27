@@ -6,7 +6,7 @@ import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
 
 /**
- * X3: what a label (by title) carries besides its ringtone. [simId]: the SIM its members are called on when they
+ * What a label (by title) carries besides its ringtone. [simId]: the SIM its members are called on when they
  * have no SIM of their own; [rhythmDays]: the keep-in-touch gap offered when a member joins the Circle;
  * [allowThroughDnd]: members are starred so Android's "starred contacts" Do Not Disturb exception lets them ring
  * (which contacts Parley starred, and for which labels, is kept apart in [DndStars]).
@@ -57,7 +57,7 @@ object LabelPolicies {
 }
 
 /**
- * X3: which labels made Parley star each contact for "Allow through Do Not Disturb" (lookup key → label titles), a
+ * Which labels made Parley star each contact for "Allow through Do Not Disturb" (lookup key → label titles), a
  * reference count kept apart from the policies so it survives a label being deleted, merged or switched off, and
  * travels in the backup. Parley unstars a contact only when it did the starring and no label that still lets people
  * through asks for it any more; a star the user set is never recorded, so never taken away.

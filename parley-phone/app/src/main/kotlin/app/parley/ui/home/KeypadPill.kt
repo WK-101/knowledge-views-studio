@@ -68,14 +68,14 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
-/** K1: the pill's height; the bottom row around it keeps one height whatever the SIMs (C1: the keys never move). */
+/** The pill's height; the bottom row around it keeps one height whatever the SIMs (C1: the keys never move). */
 internal val CALL_PILL_HEIGHT = 56.dp
 
-/** K1: the side slots of the bottom row (keypad toggle, backspace), equal so the pill stays centred. */
+/** The side slots of the bottom row (keypad toggle, backspace), equal so the pill stays centred. */
 private val SIDE_SLOT = 72.dp
 
 /**
- * K1 (v3.4): the keypad's bottom row, as on most phones: the keypad toggle, the green Call pill in the middle, and
+ * The keypad's bottom row, as on most phones: the keypad toggle, the green Call pill in the middle, and
  * backspace (a long press clears the number). The row's height and the pill's width depend only on the SIMs,
  * never on what is typed.
  */
@@ -149,7 +149,7 @@ private fun BackspaceButton(enabled: Boolean, onDelete: () -> Unit, onClear: () 
 }
 
 /**
- * K1: the green Call pill. No [segments]: one compact pill that follows the usual SIM rules. Otherwise one pill
+ * The green Call pill. No [segments]: one compact pill that follows the usual SIM rules. Otherwise one pill
  * split into a segment per SIM, each its own touch target ("Call with SIM 1 (Carrier)"), with a thin divider.
  */
 @Composable
@@ -212,13 +212,13 @@ private fun PillSegment(vm: AppViewModel, s: CallPill.Segment, modifier: Modifie
     }
 }
 
-// ---------------------------------------------------------------- K3: docked keypad fold
+// ---------------------------------------------------------------- Docked keypad fold
 
-/** K3: the spring the docked keypad folds and unfolds with (Material 3 Expressive's default spatial spring). */
+/** The spring the docked keypad folds and unfolds with (Material 3 Expressive's default spatial spring). */
 private fun foldSpring() = spring<Float>(dampingRatio = 0.85f, stiffness = Spring.StiffnessMediumLow)
 
 /**
- * K3 (v3.4): the docked keypad's fold, 1 = unfolded, 0 = folded. It follows the finger while dragged (panel,
+ * The docked keypad's fold, 1 = unfolded, 0 = folded. It follows the finger while dragged (panel,
  * handle, folded button, list scroll) and otherwise springs to the state the home screen keeps ([open]).
  */
 @Stable
@@ -321,7 +321,7 @@ internal class DockFoldState(open: Boolean, private val scope: CoroutineScope, p
 }
 
 /**
- * K3: lays the panel out at its full size and shows [DockFoldState.value] of it, clipped, so the panel slides down
+ * Lays the panel out at its full size and shows [DockFoldState.value] of it, clipped, so the panel slides down
  * (or aside, [horizontal]) behind the edge instead of squeezing its keys; the list beside it grows smoothly.
  */
 internal fun Modifier.foldable(state: DockFoldState, horizontal: Boolean): Modifier = this.clipToBounds().layout { m, c ->

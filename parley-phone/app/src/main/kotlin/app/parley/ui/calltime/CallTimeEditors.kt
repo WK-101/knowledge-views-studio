@@ -43,7 +43,7 @@ import app.parley.ui.settings.bidiLtr
 import app.parley.ui.settings.settingTitle
 
 /**
- * Supervised mode (T7): limits can only be changed after proving presence with the app lock (fingerprint,
+ * Supervised mode: limits can only be changed after proving presence with the app lock (fingerprint,
  * face or screen lock). One unlock is good for a couple of minutes.
  */
 @Composable
@@ -60,7 +60,7 @@ fun rememberSupervisedGate(config: CallingConfig): (String, () -> Unit) -> Unit 
 
 private const val SUPERVISED_WINDOW_MS = 2 * 60_000L
 
-/** Editor for one limit rule: per call, per day, per week; incoming and/or outgoing (T5, T6). */
+/** Editor for one limit rule: per call, per day, per week; incoming and/or outgoing. */
 @Composable
 fun LimitRuleDialog(
     title: String,

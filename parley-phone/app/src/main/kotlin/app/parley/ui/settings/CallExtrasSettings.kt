@@ -26,7 +26,7 @@ import app.parley.common.calls.MissedReAlert
 import app.parley.ui.SegmentedGroup
 
 /**
- * Settings › Calls additions of v3.1: the pocket-dial guard (V8), missed-call re-alert (V3) and voicemail (V1). The
+ * Settings › Calls additions of v3.1: the pocket-dial guard, missed-call re-alert and voicemail. The
  * proximity sensor switch and "Power button ends call" are under Advanced ([CallsAdvancedGroup]).
  */
 @Composable

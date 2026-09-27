@@ -3,7 +3,7 @@ package app.parley.common.people
 import app.parley.common.EventDate
 import java.time.LocalDate
 
-/** P1 (v3.4): how a section of a contact's page starts: open, folded to its header, or not shown at all. */
+/** How a section of a contact's page starts: open, folded to its header, or not shown at all. */
 enum class SectionMode(val code: Char) {
     OPEN('o'),
     FOLDED('f'),
@@ -16,7 +16,7 @@ enum class SectionMode(val code: Char) {
 }
 
 /**
- * P1: the sections of a contact's page, in their default order. [id] is what's stored: never rename one. The
+ * The sections of a contact's page, in their default order. [id] is what's stored: never rename one. The
  * details are open by default; the rarely used ones start folded.
  */
 enum class ContactSection(val id: String, val defaultMode: SectionMode) {
@@ -40,7 +40,7 @@ enum class ContactSection(val id: String, val defaultMode: SectionMode) {
 }
 
 /**
- * P1: the order of a contact's page and how each section starts ([modes], from Settings › Contacts › Contact page
+ * The order of a contact's page and how each section starts ([modes], from Settings › Contacts › Contact page
  * sections), plus the folds last chosen on a page ([folds], true = folded), which apply to every contact. Hiding a
  * section only stops it being drawn: its data, place and fold are kept for when it's shown again.
  *
@@ -130,7 +130,7 @@ data class ContactPageLayout(
     }
 }
 
-/** P1: texts for folded section headers. */
+/** Texts for folded section headers. */
 object ContactPage {
     /** The soonest of [dates] (index into the list and days until it), or null when there are none. */
     fun nextDate(dates: List<EventDate>, today: LocalDate): Pair<Int, Long>? =

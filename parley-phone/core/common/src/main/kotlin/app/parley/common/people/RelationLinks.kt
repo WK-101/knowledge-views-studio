@@ -73,7 +73,7 @@ object RelationLinks {
     /**
      * Links to remember after the relations of a contact were saved: an existing link is kept while its name is still
      * a relation; a new name that matches exactly one contact is linked to it. Names no longer used are dropped.
-     * [picked] (I5): contacts chosen with the editor's contact picker, by name key; they win over everything else.
+     * [picked]: contacts chosen with the editor's contact picker, by name key; they win over everything else.
      */
     fun update(
         names: List<String>,

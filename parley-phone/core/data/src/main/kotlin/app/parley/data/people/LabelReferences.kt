@@ -47,7 +47,7 @@ class LabelReferences(private val c: DataContainer, private val prefs: PeoplePre
         c.settings.update { s -> s.copy(screening = s.screening.copy(offHours = LabelRefs.renameOffHours(s.screening.offHours, renames))) }
         c.calling.update { LabelRefs.renameConfig(it, renames) }
         prefs.update { it.copy(labelRingtones = LabelRefs.renameRingtones(it.labelRingtones, renames)) }
-        // X3: the label's SIM, rhythm and Do Not Disturb choice follow it.
+        // The label's SIM, rhythm and Do Not Disturb choice follow it.
         c.extras.labelsRenamed(renames)
     }
 

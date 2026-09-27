@@ -55,7 +55,7 @@ object NumberInfo {
     private val zones by lazy { com.google.i18n.phonenumbers.PhoneNumberToTimeZonesMapper.getInstance() }
 
     /**
-     * X1: the time zone of [number] from its country and area code (offline, libphonenumber's map), or null when it
+     * The time zone of [number] from its country and area code (offline, libphonenumber's map), or null when it
      * can't be told (unknown, or a country with several offsets and no area to go by).
      */
     fun timeZone(number: String?, countryIso: String, now: Long = System.currentTimeMillis()): java.time.ZoneId? = try {

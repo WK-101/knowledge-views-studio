@@ -87,7 +87,7 @@ fun RecentsTab(vm: AppViewModel, open: (String) -> Unit, bottomPadding: androidx
     val context = LocalContext.current
     val simLabels = remember(sims) { if (sims.size > 1) sims.associate { it.id to it.label } else emptyMap() }
     var menuFor by remember { mutableStateOf<RecentGroup?>(null) }
-    // F19: the number with the SIM of its latest call, so a national number is read with that SIM's country.
+    // The number with the SIM of its latest call, so a national number is read with that SIM's country.
     var messageFor by remember { mutableStateOf<Pair<String, String?>?>(null) }
     menuFor?.let { g -> RecentActionsSheet(vm, recents, g, open, onMessageOn = { messageFor = it to g.latest.accountId }) { menuFor = null } }
     messageFor?.let { (n, account) -> app.parley.messaging.ReachSheet(app.parley.messaging.ReachTarget.Number(n, account), onDismiss = { messageFor = null }, onCall = { num -> vm.requestCall(num) }) }
@@ -95,33 +95,33 @@ fun RecentsTab(vm: AppViewModel, open: (String) -> Unit, bottomPadding: androidx
     daySummary?.let { (day, title) -> app.parley.ui.history.DaySummarySheet(vm, day, title) { daySummary = null } }
     app.parley.ui.history.RecentsExportHost(vm)
     app.parley.ui.history.RecentsMenuDialogs(vm, open)
-    // Blocking: verdict / "Don't call back" badges and multi-select block (B2, B8, B10).
+    // Blocking: verdict / "Don't call back" badges and multi-select block.
     val badgeFor = app.parley.ui.blocking.rememberRecentBadges(vm)
     val selected by recents.selection.collectAsStateWithLifecycle()
-    // U4: opt-in swipe actions; M7: "Message" uses a contact's usual way to message.
+    // Opt-in swipe actions; M7: "Message" uses a contact's usual way to message.
     val swipe = vm.people.settings.collectAsStateWithLifecycle().value.swipe
     val (quick, quickHost) = app.parley.ui.contact.rememberQuickMessenger(vm)
     quickHost()
     androidx.activity.compose.BackHandler(enabled = selected.isNotEmpty()) { recents.clearSelection() }
     fun toggleSelected(g: RecentGroup) = recents.toggleSelected(g)
-    // V11: opening Recents (or coming back to it) clears Telecom's missed-call count and stops the re-alert.
+    // Opening Recents (or coming back to it) clears Telecom's missed-call count and stops the re-alert.
     androidx.lifecycle.compose.LifecycleResumeEffect(Unit) {
         vm.onRecentsShown()
         onPauseOrDispose { }
     }
-    // V1: the Voicemail chip, with the number of unheard voicemails, while Parley can read them (default phone app).
+    // The Voicemail chip, with the number of unheard voicemails, while Parley can read them (default phone app).
     val isDefault by vm.isDefaultDialer.collectAsStateWithLifecycle()
     val voicemail by recents.voicemail.collectAsStateWithLifecycle()
     val query by recents.query.collectAsStateWithLifecycle()
-    // R4 (v3.3): missed calls not returned yet (tint, Call back pill, the Missed chip's count) and the legend.
+    // Missed calls not returned yet (tint, Call back pill, the Missed chip's count) and the legend.
     val unreturned by recents.unreturnedMissed.collectAsStateWithLifecycle()
     val rich = settings.recentsStyle == app.parley.common.ux.RecentsStyle.RICH
     val toReturn = unreturned.size
     RecentsLegendHost()
 
-    // S1: what a tap on a call does (Settings › Appearance › Layout, in every layout).
+    // What a tap on a call does (Settings › Appearance › Layout, in every layout).
     val tapCalls = settings.surfaces.recentTap == app.parley.common.RecentTap.CALL
-    // S1 (v3.4): swipes don't start while this list is still flinging.
+    // Swipes don't start while this list is still flinging.
     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
     LazyColumn(Modifier.fillMaxWidth(), state = listState, contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = bottomPadding)) {
         if (selected.isNotEmpty()) stickyHeader(key = "selection") { app.parley.ui.blocking.RecentsSelectionBar(vm, groups.orEmpty()) }
@@ -134,7 +134,7 @@ fun RecentsTab(vm: AppViewModel, open: (String) -> Unit, bottomPadding: androidx
                         onClick = { recents.filter.value = f },
                         label = {
                             Text(stringResource(f.labelRes))
-                            // R4 (v3.3): the Missed chip counts the people still to call back.
+                            // The Missed chip counts the people still to call back.
                             if (f == RecentFilter.MISSED && rich && toReturn > 0) {
                                 Spacer(Modifier.width(6.dp))
                                 androidx.compose.material3.Badge { Text(toReturn.toString()) }
@@ -165,7 +165,7 @@ fun RecentsTab(vm: AppViewModel, open: (String) -> Unit, bottomPadding: androidx
         item(key = "archive-notes") { app.parley.ui.history.ArchiveNotices(vm, open) }
         val list = groups
         val rows = model?.rows.orEmpty()
-        // U2: swipe and long-press actions on calls, told once (only when there are calls to try them on).
+        // Swipe and long-press actions on calls, told once (only when there are calls to try them on).
         if (!list.isNullOrEmpty()) item(key = "tip") {
             app.parley.ui.common.CoachMark(
                 app.parley.common.ux.Tips.RECENTS_SWIPE,
@@ -176,7 +176,7 @@ fun RecentsTab(vm: AppViewModel, open: (String) -> Unit, bottomPadding: androidx
         }
         if (list != null && list.isEmpty()) {
             item(key = "empty") {
-                // U5: "no matches" (clear the search), a filter that shows nothing (show all), or no calls yet (keypad).
+                // "no matches" (clear the search), a filter that shows nothing (show all), or no calls yet (keypad).
                 val activeSaved by recents.historyFilter.collectAsStateWithLifecycle()
                 when {
                     query.isNotBlank() -> EmptyState(
@@ -195,7 +195,7 @@ fun RecentsTab(vm: AppViewModel, open: (String) -> Unit, bottomPadding: androidx
                 }
             }
         }
-        // P1: the day headers are worked out once per list change in the view model; a header's text is formatted
+        // The day headers are worked out once per list change in the view model; a header's text is formatted
         // only when it is on screen.
         items(rows, key = { it.key }, contentType = { if (it is RecentsRow.Day) RecentsRow.TYPE_DAY else RecentsRow.TYPE_CALL }) { row ->
             when (row) {
@@ -256,14 +256,14 @@ fun RecentsTab(vm: AppViewModel, open: (String) -> Unit, bottomPadding: androidx
 fun RecentRow(
     g: RecentGroup, countryIso: String, simLabels: Map<String, String>, onLongClick: (() -> Unit)? = null,
     badge: app.parley.ui.blocking.RecentBadge? = null, selected: Boolean = false, unreturned: Boolean = false,
-    /** S1: a tap calls back; the trailing button then opens the details instead. */
+    /** A tap calls back; the trailing button then opens the details instead. */
     tapCalls: Boolean = false,
     onOpen: () -> Unit, onCall: () -> Unit,
 ) {
     val context = LocalContext.current
     val e = g.latest
     val missed = e.type == CallType.MISSED || e.type == CallType.REJECTED
-    // R4 (v3.3): the rich look (shape-coded badge, accent bar, tint and Call back pill for unreturned missed calls,
+    // The rich look (shape-coded badge, accent bar, tint and Call back pill for unreturned missed calls,
     // count chip and sequence dots, duration bar); Simple keeps the U3 row.
     val rich = richCalls()
     val cls = CallClass.of(e)
@@ -330,12 +330,12 @@ fun RecentRow(
                     if (g.contact != null) g.contact.phones.firstOrNull { p -> PhoneIdentity.same(p.number, e.number, countryIso) }
                         ?.let { p -> Format.phoneType(context.resources, p.type, p.label) } else if (!g.hidden && g.contact == null && g.cachedName != null) Bidi.ltr(Format.number(e.number, countryIso)) else null,
                     e.accountId?.let { simLabels[it] },
-                    // R4: an outgoing call nobody answered says so.
+                    // An outgoing call nobody answered says so.
                     if (rich && cls == CallClass.NO_ANSWER) stringResource(R.string.recents_class_no_answer) else null,
                     Format.shortWhen(context, e.date),
                 )
                 Text(parts.joinToString(stringResource(R.string.main_separator)), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
-                // R4: how long you talked, as a small bar (the length in words for TalkBack).
+                // How long you talked, as a small bar (the length in words for TalkBack).
                 if (rich && cls.answered) {
                     Spacer(Modifier.width(8.dp))
                     val length = Format.duration(e.durationSec)
@@ -364,7 +364,7 @@ fun RecentRow(
     )
 }
 
-/** The row's title; a number (no name) stays left to right in right-to-left languages (L3). */
+/** The row's title; a number (no name) stays left to right in right-to-left languages. */
 private val RecentGroup.shownTitle: String
     get() = if (contact == null && cachedName.isNullOrBlank() && number.isNotBlank()) Bidi.ltr(title) else title
 
@@ -379,7 +379,7 @@ private val RecentFilter.labelRes: Int
         RecentFilter.VOICEMAIL -> R.string.recents_filter_voicemail
     }
 
-/** U3: the icon of a call type, in its fixed call colour (never the wallpaper colours). */
+/** The icon of a call type, in its fixed call colour (never the wallpaper colours). */
 @Composable
 fun callTypeIcon(type: CallType): Pair<ImageVector, Color> = callTypeVector(type) to app.parley.ui.CallTypeColors.of(app.parley.common.ux.CallHue.of(type))
 
@@ -394,7 +394,7 @@ private fun callTypeVector(type: CallType): ImageVector = when (type) {
 }
 
 /**
- * U3: a call type's icon on its tinted circle, the same in Recents, history, the contact page and insights. R4 (v3.3):
+ * A call type's icon on its tinted circle, the same in Recents, history, the contact page and insights. R4:
  * in the Rich style it is the shape-coded [app.parley.ui.CallClassBadge] ([durationSec] tells "No answer" apart).
  */
 @Composable

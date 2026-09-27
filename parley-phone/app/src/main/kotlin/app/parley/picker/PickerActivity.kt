@@ -50,7 +50,7 @@ enum class PickKind(val mime: String) {
  * Returns aggregate contact lookup URIs or Data row URIs, with a read grant.
  */
 class PickerActivity : androidx.fragment.app.FragmentActivity() {
-    // L1: the in-app language on Android 10-12 (Android 13+ applies per-app languages itself).
+    // The in-app language on Android 10-12 (Android 13+ applies per-app languages itself).
     override fun attachBaseContext(newBase: android.content.Context) {
         super.attachBaseContext(newBase)
         app.parley.ui.AppLocale.override(this, newBase)

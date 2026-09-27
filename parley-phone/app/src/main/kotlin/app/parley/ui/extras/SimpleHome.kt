@@ -68,7 +68,7 @@ import app.parley.ui.CallColors
 import app.parley.ui.ForceLtr
 
 /**
- * X4: the simple home, shown instead of the tabs while simple mode is on. Big photo tiles (up to 3 × 3), each asks
+ * The simple home, shown instead of the tabs while simple mode is on. Big photo tiles (up to 3 × 3), each asks
  * "Call Ana?" first; a large keypad; nothing else to get lost in. Leaving needs a long press on "Leave", a
  * confirmation, and the app lock's check when the app lock is on. The app lock and "Hide screen content" apply here
  * as everywhere (MainActivity draws this inside them).

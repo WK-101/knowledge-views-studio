@@ -157,10 +157,10 @@ private val dtmfTone = mapOf(
 /** Tone length for keys typed on a hardware keypad (on-screen keys hold theirs while pressed). */
 private const val KEY_TONE_MS = 150
 
-/** `*#06#`: Android only shows the IMEI to the system, so Parley explains where to find it (K5). */
+/** `*#06#`: Android only shows the IMEI to the system, so Parley explains where to find it. */
 private const val IMEI_CODE = "*#06#"
 
-/** C1: height of the typed number's action chips at the foot of the results (outside the keypad panel). */
+/** Height of the typed number's action chips at the foot of the results (outside the keypad panel). */
 private val NUMBER_ACTIONS_HEIGHT = 56.dp
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
@@ -190,7 +190,7 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit, searchQuery: String? = n
     /** Result row focused with the D-pad; Call/Enter calls it. */
     var focusedResult by remember { mutableStateOf<DialResult?>(null) }
 
-    // K7: phones with a hardware keypad or keyboard type on it; the on-screen keypad starts hidden.
+    // Phones with a hardware keypad or keyboard type on it; the on-screen keypad starts hidden.
     val configuration = LocalConfiguration.current
     val hasHardwareKeys = hardwareKeysAvailable(configuration)
     val qwerty = configuration.keyboard == Configuration.KEYBOARD_QWERTY && hasHardwareKeys
@@ -201,14 +201,14 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit, searchQuery: String? = n
     }
     DisposableEffect(Unit) { onDispose { tone?.release() } }
     val audioManager = remember { context.getSystemService(AudioManager::class.java) }
-    /** F22: the system "Dial pad tones" setting and the ringer mode, read on every press (they can change any time). */
+    /** The system "Dial pad tones" setting and the ringer mode, read on every press (they can change any time). */
     fun toneAllowed(): Boolean = app.parley.common.KeypadFeedback.playTone(
         appSetting = settings.dialpadTones,
         systemDialpadTones = runCatching { Settings.System.getInt(context.contentResolver, Settings.System.DTMF_TONE_WHEN_DIALING, 1) == 1 }.getOrDefault(true),
         ringerNormal = audioManager?.ringerMode?.let { it == AudioManager.RINGER_MODE_NORMAL } ?: true,
     )
 
-    // K4: the number is an editable field (cursor, selection, paste) that never opens the on-screen keyboard.
+    // The number is an editable field (cursor, selection, paste) that never opens the on-screen keyboard.
     val field = rememberTextFieldState(input)
     LaunchedEffect(input) { if (field.text.toString() != input) field.setTextAndPlaceCursorAtEnd(input) }
     LaunchedEffect(field) { snapshotFlow { field.text.toString() }.collect { if (it != keypad.input.value) keypad.input.value = it } }
@@ -216,7 +216,7 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit, searchQuery: String? = n
 
     fun insert(text: String) = field.insertAtCursor(text)
 
-    // S1: typing on a hardware keypad while the docked keypad is folded unfolds it (the number shows there).
+    // Typing on a hardware keypad while the docked keypad is folded unfolds it (the number shows there).
     fun unfold() { dock?.let { if (!it.expanded) it.onExpandedChange(true) } }
 
     fun press(c: Char) {
@@ -226,7 +226,7 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit, searchQuery: String? = n
         if (toneAllowed()) dtmfTone[c]?.let { tone?.startTone(it, KEY_TONE_MS) }
     }
 
-    // V7: on-screen keys start their tone on touch and hold it until release (at least 150 ms). Only the key that
+    // On-screen keys start their tone on touch and hold it until release (at least 150 ms). Only the key that
     // started the current tone may stop it, so rolling over to the next key doesn't cut that key's tone.
     val toneToken = remember { java.util.concurrent.atomic.AtomicInteger() }
     fun keyDown(c: Char): Int {
@@ -260,7 +260,7 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit, searchQuery: String? = n
     fun callNow() {
         val n = input.trim()
         if (n.isEmpty()) {
-            // A7: recall the last dialled number, like most dialers.
+            // Recall the last dialled number, like most dialers.
             keypad.recallLastNumber()
             return
         }
@@ -268,13 +268,13 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit, searchQuery: String? = n
             results.firstOrNull()?.let(::callResult)
             return
         }
-        // P9: the typed number exactly as typed ('#' codes included), never the top match.
+        // The typed number exactly as typed ('#' codes included), never the top match.
         val target = app.parley.common.calls.DialTarget.pick(n, results.firstOrNull()?.number) ?: return
         vm.requestCall(target, results.firstOrNull { it.contact != null && PhoneNumbers.same(it.number, target, vm.countryIso) }?.contact?.displayName)
     }
 
     fun callWithSim(simId: String) {
-        // K1: a SIM segment with nothing typed recalls the last number, like the plain Call pill.
+        // A SIM segment with nothing typed recalls the last number, like the plain Call pill.
         if (input.isBlank()) {
             keypad.recallLastNumber()
             return
@@ -288,7 +288,7 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit, searchQuery: String? = n
         if (!target.isNullOrEmpty()) vm.requestCall(target, results.firstOrNull { it.contact != null && PhoneNumbers.same(it.number, target, vm.countryIso) }?.contact?.displayName, simId = simId)
     }
 
-    // S1: a D-pad focus inside the docked Recents list (only shown while nothing is typed).
+    // A D-pad focus inside the docked Recents list (only shown while nothing is typed).
     var recentsHasFocus by remember { mutableStateOf(false) }
     // Typing replaces the list, and its focus goes with it.
     val typed = input.isNotEmpty()
@@ -336,13 +336,13 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit, searchQuery: String? = n
     val rootFocus = remember { FocusRequester() }
     LaunchedEffect(Unit) { runCatching { rootFocus.requestFocus() } }
 
-    // Actions for the typed number: message it (M2), or save it (as a contact, into one, or for a while).
+    // Actions for the typed number: message it, or save it (as a contact, into one, or for a while).
     val typedNumber = input.trim()
     val showNumberActions = typedNumber.isNotEmpty() && !isTextSearch() && !PhoneNumbers.isServiceCode(typedNumber)
 
-    // S1: docked at the foot of Recents, the panel folds away (scrolling the list, a swipe down on its handle) and a
-    // keypad button brings it back; the panel's height still never changes while typing (C1).
-    // K3 (v3.4): the fold follows the finger and springs open or folded (see DockFoldState).
+    // Docked at the foot of Recents, the panel folds away (scrolling the list, a swipe down on its handle) and a
+    // keypad button brings it back; the panel's height still never changes while typing.
+    // The fold follows the finger and springs open or folded (see DockFoldState).
     val density = LocalDensity.current
     val fold = remember { DockFoldState(dock?.expanded ?: true, scope, density) }
     val latestDock by androidx.compose.runtime.rememberUpdatedState(dock)
@@ -352,13 +352,13 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit, searchQuery: String? = n
     val panelShown = dock == null || fold.value > 0f || fold.dragging
     val panelOpen = dock?.expanded ?: true
 
-    // K1: the SIM a plain Call would use for what's typed (remembered, a label's, else the default), shown on its segment.
+    // The SIM a plain Call would use for what's typed (remembered, a label's, else the default), shown on its segment.
     val preferredSim by keypad.preferredSim.collectAsStateWithLifecycle()
 
     val resultsArea: @Composable (Modifier) -> Unit = { areaModifier ->
         Box(if (dock != null) areaModifier.nestedScroll(fold.listConnection) else areaModifier) {
             if (input.isEmpty() && dock != null) {
-                // S1: nothing typed: the recent calls, as on the Recents tab.
+                // Nothing typed: the recent calls, as on the Recents tab.
                 Column(Modifier.fillMaxSize()) {
                     app.parley.ui.common.CoachMark(app.parley.common.ux.Tips.DOCKED_KEYPAD, stringResource(R.string.home_tip_docked_keypad), enabled = panelOpen)
                     Box(Modifier.weight(1f).onFocusChanged { recentsHasFocus = it.hasFocus }) { dock.idle() }
@@ -372,7 +372,7 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit, searchQuery: String? = n
                         textAlign = TextAlign.Center,
                     )
                     PasteChip(vm.countryIso) { text -> field.setTextAndPlaceCursorAtEnd(text) }
-                    // U2: long-press 2-9 for speed dial, told once.
+                    // Long-press 2-9 for speed dial, told once.
                     app.parley.ui.common.CoachMark(
                         app.parley.common.ux.Tips.KEYPAD_SPEED_DIAL, stringResource(R.string.ux_tip_speed_dial),
                         enabled = showKeypad, action = stringResource(R.string.ux_tip_set_up), onAction = { open(Routes.SPEED_DIAL) },
@@ -410,7 +410,7 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit, searchQuery: String? = n
                     }
                 }
             }
-            // C1: the number's actions sit at the foot of the results, above the keypad panel, never inside it: the
+            // The number's actions sit at the foot of the results, above the keypad panel, never inside it: the
             // panel is anchored to the bottom, so anything appearing in it while typing would push the keys up under
             // the user's finger. The panel's height now never changes while typing (portrait, landscape, hardware keys).
             if (showNumberActions) {
@@ -432,22 +432,22 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit, searchQuery: String? = n
 
     val hideKeypadLabel = stringResource(R.string.keypad_hide)
     val toggleLabel = stringResource(if (showKeypad) R.string.keypad_hide else R.string.keypad_show)
-    // K1: the keypad button left of the pill: folds the docked keypad; hides the keys on the Keypad tab (and with a
+    // The keypad button left of the pill: folds the docked keypad; hides the keys on the Keypad tab (and with a
     // hardware keypad, where typing goes on without them).
     val onToggle: () -> Unit = if (dock != null && !hasHardwareKeys) ({ dock.onExpandedChange(false) }) else ({ showKeypad = !showKeypad })
-    // v3.4 review #4: the docked keys share one press order, so rolling between keys never swaps digits.
+    // The docked keys share one press order, so rolling between keys never swaps digits.
     val pressOrder = remember { PressOrder() }
     val panel: @Composable (Modifier) -> Unit = { panelModifier ->
         Surface(
             color = MaterialTheme.colorScheme.surfaceContainer, shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
-            // S1: TalkBack users fold the docked keypad with an action (the handle is also a button).
+            // TalkBack users fold the docked keypad with an action (the handle is also a button).
             modifier = if (dock != null) panelModifier.semantics { customActions = listOf(CustomAccessibilityAction(hideKeypadLabel) { dock.onExpandedChange(false); true }) } else panelModifier,
         ) {
             Column(Modifier.fillMaxWidth()) {
-                // K3: the handle stays on top (outside the panel's own scroll) and drags the fold.
+                // The handle stays on top (outside the panel's own scroll) and drags the fold.
                 if (dock != null) DockHandle(hideKeypadLabel, fold) { dock.onExpandedChange(false) }
                 Column(
-                    // S1: with large text or a short screen the docked panel scrolls inside its own height, so it never
+                    // With large text or a short screen the docked panel scrolls inside its own height, so it never
                     // covers the list. K3: a drag down past its top folds the keypad (panelConnection).
                     Modifier.fillMaxWidth()
                         .then(if (dock != null) Modifier.nestedScroll(fold.panelConnection).verticalScroll(rememberScrollState()) else Modifier)
@@ -456,10 +456,10 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit, searchQuery: String? = n
                 ) {
                     // Number display. K1: only the number; backspace moved to the bottom row, beside the Call pill.
                     Box(Modifier.fillMaxWidth().heightIn(min = 72.dp).padding(horizontal = 24.dp), contentAlignment = Alignment.Center) {
-                        // L3: the number reads left to right in every language.
+                        // The number reads left to right in every language.
                         ForceLtr { NumberField(field, vm.countryIso, Modifier.fillMaxWidth()) }
                     }
-                    // L3: 1 2 3 stays left to right in right-to-left languages, like every phone keypad.
+                    // 1 2 3 stays left to right in right-to-left languages, like every phone keypad.
                     if (showKeypad) ForceLtr { Column { keys.chunked(3).forEach { row ->
                             Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
                                 row.forEach { (digit, letters) ->
@@ -468,7 +468,7 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit, searchQuery: String? = n
                                     DialKey(
                                         digit, letters, localLetters(layout, d),
                                         modifier = Modifier.weight(1f),
-                                        // K3: in the docked panel a drag on a key folds the keypad, so a key waits for
+                                        // In the docked panel a drag on a key folds the keypad, so a key waits for
                                         // the touch to settle (100 ms) and a downward swipe never types a digit.
                                         deferPress = dock != null,
                                         pressOrder = pressOrder,
@@ -488,7 +488,7 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit, searchQuery: String? = n
                         }
                     } }
                     Spacer(Modifier.height(4.dp))
-                    // K1 / C1: a fixed-height row whose pill depends only on the SIMs, never on what is typed.
+                    // A fixed-height row whose pill depends only on the SIMs, never on what is typed.
                     KeypadBottomRow(
                         vm, sims, preferredSim,
                         hasInput = input.isNotEmpty(),
@@ -506,19 +506,19 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit, searchQuery: String? = n
     }
 
     androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize().focusRequester(rootFocus).onPreviewKeyEvent(::onKey).focusable()) {
-        // S1: docked on a wide landscape screen, the keypad sits beside the list instead of under it.
+        // Docked on a wide landscape screen, the keypad sits beside the list instead of under it.
         val beside = dock != null && maxWidth > maxHeight && maxWidth >= 560.dp
         val maxPanel = if (dock != null) maxHeight * (if (beside) 1f else 0.62f) else androidx.compose.ui.unit.Dp.Unspecified
         if (beside) {
             Row(Modifier.fillMaxSize()) {
                 resultsArea(Modifier.weight(1f).fillMaxSize())
-                // K3: side by side, the panel slides aside as it folds.
+                // Side by side, the panel slides aside as it folds.
                 if (panelShown) panel(Modifier.align(Alignment.Bottom).foldable(fold, horizontal = true).width(360.dp).heightIn(max = maxPanel))
             }
         } else {
             Column(Modifier.fillMaxSize()) {
                 resultsArea(Modifier.weight(1f).fillMaxWidth())
-                // K3: the panel keeps its full layout and slides down behind the edge as it folds (no squeezed keys).
+                // The panel keeps its full layout and slides down behind the edge as it folds (no squeezed keys).
                 if (panelShown) panel(if (dock != null) Modifier.foldable(fold, horizontal = false).heightIn(max = maxPanel) else Modifier)
             }
         }
@@ -574,7 +574,7 @@ private fun hardwareKeysAvailable(c: Configuration): Boolean =
     (c.keyboard == Configuration.KEYBOARD_12KEY || c.keyboard == Configuration.KEYBOARD_QWERTY) &&
         c.hardKeyboardHidden != Configuration.HARDKEYBOARDHIDDEN_YES
 
-/** Second row of letters on a key for the chosen alphabet (K6); none for Latin only. */
+/** Second row of letters on a key for the chosen alphabet; none for Latin only. */
 private fun localLetters(layout: KeypadLayout, digit: Char): String = layout.lettersFor(digit)
 
 private fun TextFieldState.insertAtCursor(text: String) = edit {
@@ -736,10 +736,10 @@ private fun DialKey(
     onPress: () -> Unit, onRelease: (afterMs: Long) -> Unit, onLong: ((typedThisTouch: Boolean) -> Unit)?,
 ) {
     val fontScale = LocalDensity.current.fontScale
-    // K2 (v3.4): large, light digits with the letters (or the long-press character) beneath, no key backgrounds.
+    // Large, light digits with the letters (or the long-press character) beneath, no key backgrounds.
     val digitSize = ((if (digit == "*") 38f else 34f) * minOf(fontScale, 1.5f) / fontScale).sp
     val res = LocalResources.current
-    // K2: what shows under the digit: the Latin letters, or the key's long-press character (",", "+", ";").
+    // What shows under the digit: the Latin letters, or the key's long-press character (",", "+", ";").
     val under = when (digit) {
         "*" -> ","
         "#" -> ";"
@@ -749,12 +749,12 @@ private fun DialKey(
         modifier
             .padding(horizontal = 4.dp)
             .heightIn(min = 66.dp)
-            // V7: typed and sounded on touch; slide off to cancel the long-press; keys roll over.
-            // K2: a soft round ripple around the key's centre instead of a filled key shape.
+            // Typed and sounded on touch; slide off to cancel the long-press; keys roll over.
+            // A soft round ripple around the key's centre instead of a filled key shape.
             .keypadKey(
                 onPress = onPress, onToneStop = onRelease, onLongPress = onLong, longPressLabel = longPressLabel(res, digit),
                 deferPress = deferPress, indication = keyRipple,
-                // v3.4 review #4: digits keep their order, and only a downward drag (a fold) drops a waiting press.
+                // Digits keep their order, and only a downward drag (a fold) drops a waiting press.
                 pressOrder = pressOrder, foldDownOnly = deferPress,
             )
             .padding(vertical = 2.dp)
@@ -775,7 +775,7 @@ private fun DialKey(
     }
 }
 
-/** K2: the keys' press feedback: a round ripple, a little wider than the digit and its letters. */
+/** The keys' press feedback: a round ripple, a little wider than the digit and its letters. */
 private val keyRipple = androidx.compose.material3.ripple(bounded = false, radius = 38.dp)
 
 private fun longPressLabel(res: android.content.res.Resources, digit: String): String? = when (digit) {
@@ -786,7 +786,7 @@ private fun longPressLabel(res: android.content.res.Resources, digit: String): S
     else -> if (digit[0] in '2'..'9') res.getString(R.string.home_speed_dial) else null
 }
 
-/** What TalkBack reads for a key: "2, A B C", "1, voicemail", "star", "pound" (A12). */
+/** What TalkBack reads for a key: "2, A B C", "1, voicemail", "star", "pound". */
 private fun keyDescription(res: android.content.res.Resources, digit: String, letters: String): String = when (digit) {
     "*" -> res.getString(app.parley.ui.R.string.ui_key_star)
     "#" -> res.getString(app.parley.ui.R.string.ui_key_pound)
@@ -796,7 +796,7 @@ private fun keyDescription(res: android.content.res.Resources, digit: String, le
 
 /**
  * A keypad result. Main rows show the contact with the matched letters highlighted and the number that will be
- * dialled ("Mobile · Primary · 06 12…"); [DialResult.secondary] rows list the contact's other numbers (K3).
+ * dialled ("Mobile · Primary · 06 12…"); [DialResult.secondary] rows list the contact's other numbers.
  */
 @Composable
 private fun DialResultRow(r: DialResult, countryIso: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
@@ -853,7 +853,7 @@ private fun NumberActionChips(canSave: Boolean, onMessage: () -> Unit, onAdd: ()
 @Composable
 private fun KeypadContactSearch(vm: AppViewModel, keypad: KeypadViewModel, query: String, open: (String) -> Unit) {
     val q = query.trim()
-    // P8: searched in the view model over names folded once per contacts change, off the main thread.
+    // Searched in the view model over names folded once per contacts change, off the main thread.
     LaunchedEffect(query) { keypad.searchQuery.value = query }
     if (q.isEmpty()) {
         app.parley.ui.EmptyState(Icons.Rounded.Search, stringResource(R.string.home_search_contacts), stringResource(R.string.keypad_search_body))
@@ -865,7 +865,7 @@ private fun KeypadContactSearch(vm: AppViewModel, keypad: KeypadViewModel, query
     val foundVault = r.vault
     // The results of the query before this one stay up while the new search runs.
     if (found.isEmpty() && foundVault.isEmpty() && r.query == q) {
-        // U5: no match: offer to save what was typed as a new contact.
+        // No match: offer to save what was typed as a new contact.
         app.parley.ui.EmptyState(
             Icons.Rounded.Search, stringResource(R.string.keypad_no_match, q),
             action = stringResource(R.string.keypad_create_contact),

@@ -3,7 +3,7 @@ package app.parley.common.calltime
 enum class CountdownEvent { REMINDER, WARN, QUOTA_USED, END }
 
 /**
- * The timing state of one call, on the `elapsedRealtime` clock (T4): it keeps counting through deep sleep and
+ * The timing state of one call, on the `elapsedRealtime` clock: it keeps counting through deep sleep and
  * ignores wall-clock changes. Immutable; [step] returns the next state and what happened.
  *
  * The budget starts when the call connected ([startElapsed]), not when it was dialled or answered in the UI.
@@ -25,7 +25,7 @@ data class Countdown(
     val warnedFor: Long? = null,
     val remindersFired: Int = 0,
     val quotaWarned: Boolean = false,
-    /** Bumped whenever the end time changes, so notifications re-post only then (T3). */
+    /** Bumped whenever the end time changes, so notifications re-post only then. */
     val revision: Int = 0,
 ) {
     /** When the call will be ended, or null if it won't. */
@@ -168,7 +168,7 @@ class CallTimeBook {
 }
 
 /**
- * What the ongoing-call notification shows (T3). A countdown uses the platform chronometer counting down to
+ * What the ongoing-call notification shows. A countdown uses the platform chronometer counting down to
  * the end time, so the notification is posted once per change of end time, never once per second.
  */
 object CallChronometer {
@@ -185,7 +185,7 @@ object CallChronometer {
     }
 }
 
-/** Vibration patterns for call events (A6): off/on timings in milliseconds, starting with a pause. */
+/** Vibration patterns for call events: off/on timings in milliseconds, starting with a pause. */
 enum class CallHaptic(val timings: LongArray) {
     CONNECT(longArrayOf(0, 45)),
     DISCONNECT(longArrayOf(0, 30, 90, 30)),
@@ -193,7 +193,7 @@ enum class CallHaptic(val timings: LongArray) {
     MERGE(longArrayOf(0, 20, 50, 20, 50, 20)),
     REMINDER(longArrayOf(0, 120)),
     WARN(longArrayOf(0, 250, 150, 250)),
-    /** P7: answering rises (short, then longer); declining is one firm buzz. Both differ from connect. */
+    /** Answering rises (short, then longer); declining is one firm buzz. Both differ from connect. */
     ANSWER(longArrayOf(0, 25, 60, 70)),
     DECLINE(longArrayOf(0, 110)),
 }

@@ -38,7 +38,7 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
         .stateIn(scope, SharingStarted.Eagerly, AppSettings())
 
     init {
-        // S1/S2 (v3.3): pin the layout schema once, before any new default could apply: an existing user keeps
+        // Pin the layout schema once, before any new default could apply: an existing user keeps
         // separate tabs exactly as they were (see SurfaceLayout.migrate).
         scope.launch {
             runCatching {

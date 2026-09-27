@@ -1,7 +1,7 @@
 package app.parley.common.circle
 
 /**
- * R9: promises are note lines that start with `[ ]` (open) or `[x]` (done). There is no language parsing: it's a
+ * Promises are note lines that start with `[ ]` (open) or `[x]` (done). There is no language parsing: it's a
  * plain convention the note editor explains and inserts with a checkbox button. A leading "- " (Markdown task
  * lists) and spaces before the box are allowed, so notes pasted from elsewhere work too.
  */

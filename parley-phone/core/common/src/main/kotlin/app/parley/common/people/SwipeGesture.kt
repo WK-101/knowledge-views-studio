@@ -3,7 +3,7 @@ package app.parley.common.people
 import kotlin.math.abs
 import kotlin.math.sign
 
-/** U4 (v3.4 S1): what a touch on a swipeable row turned out to be. */
+/** What a touch on a swipeable row turned out to be. */
 enum class SwipeIntent {
     /** Not moved past the touch slop yet. */
     UNDECIDED,
@@ -14,7 +14,7 @@ enum class SwipeIntent {
 }
 
 /**
- * S1: the maths of a row swipe, kept apart from Compose so it can be tested. A swipe starts only after a clear
+ * The maths of a row swipe, kept apart from Compose so it can be tested. A swipe starts only after a clear
  * sideways move (past the slop and at least [ANGLE_RATIO] times more sideways than up or down), never while the
  * list is still flinging, and commits past a positional threshold or with a quick flick the same way.
  */

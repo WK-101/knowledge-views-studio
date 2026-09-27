@@ -5,7 +5,7 @@ import java.time.LocalDate
 import java.util.Locale
 
 /**
- * R10: custom dates (new job, moved, baby) marked "remember yearly". The flags live in Parley's contact_meta row
+ * Custom dates (new job, moved, baby) marked "remember yearly". The flags live in Parley's contact_meta row
  * (`yearlyEvents`, one key per line), never in the system contact, and follow key changes through
  * [app.parley.common.people.MetaRekey]. A key is the event's type, label and month-day, so it survives the row id
  * changing on an edit; renaming the label or moving the day clears it, which is what the user would expect.

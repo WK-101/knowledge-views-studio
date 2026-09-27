@@ -37,7 +37,7 @@ data class PeopleIndexData(
     /** Contacts per label title. */
     val labelCounts: Map<String, Int> = emptyMap(),
     val loaded: Boolean = false,
-    /** I8: what the Contacts tab's search also looks at (addresses, notes, websites, handles…). */
+    /** What the Contacts tab's search also looks at (addresses, notes, websites, handles…). */
     val search: Map<Long, app.parley.common.people.BroadSearch.Extra> = emptyMap(),
 ) {
     fun countFor(a: AccountRef): Int = accountCounts[a] ?: 0
@@ -109,7 +109,7 @@ class PeopleIndex(private val context: Context, contacts: ContactsRepository, sc
                 Nickname.CONTENT_ITEM_TYPE -> if (a.nickname.isEmpty()) a.nickname = c.getString(2).orEmpty().trim()
                 GroupMembership.CONTENT_ITEM_TYPE -> c.getString(2)?.toLongOrNull()?.let { titles[it] }?.let { a.labels += it }
                 Event.CONTENT_ITEM_TYPE -> if (LifeEvents.isDeath(c.getInt(3), c.getString(4))) a.deceased = true
-                // I8: formatted address, note, website and handles are all DATA1.
+                // Formatted address, note, website and handles are all DATA1.
                 StructuredPostal.CONTENT_ITEM_TYPE -> c.getString(2)?.takeIf { it.isNotBlank() }?.let { a.addresses += it }
                 Note.CONTENT_ITEM_TYPE -> if (a.note.isEmpty()) a.note = c.getString(2).orEmpty()
                 Website.CONTENT_ITEM_TYPE -> c.getString(2)?.takeIf { it.isNotBlank() }?.let { a.websites += it }

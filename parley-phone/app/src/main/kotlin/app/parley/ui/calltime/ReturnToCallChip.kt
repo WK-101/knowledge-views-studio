@@ -46,9 +46,9 @@ import app.parley.ui.settings.settingTitle
 import kotlinx.coroutines.delay
 
 /**
- * "● On call with Ana · 03:12 · Return" above the bottom navigation whenever a call exists (A3). With a time
- * limit it counts down instead (T3). Right after dialling, before Telecom has the call, it says which SIM the
- * call goes out on (A10).
+ * "● On call with Ana · 03:12 · Return" above the bottom navigation whenever a call exists. With a time
+ * limit it counts down instead. Right after dialling, before Telecom has the call, it says which SIM the
+ * call goes out on.
  */
 @Composable
 fun ReturnToCallChip(modifier: Modifier = Modifier) {
