@@ -58,6 +58,11 @@ data class ListsState(
     val folderError: String? = null,
     /** Built-in packs the user dismissed the suggestion for. */
     val dismissedSuggestions: List<String> = emptyList(),
+    /**
+     * The Parley Lists companion's signing key (Base64), pinned when its first list was installed: every later list
+     * from the companion must carry the same key. The companion itself is verified by Parley's signature first.
+     */
+    val updaterKey: String? = null,
 ) {
     fun encode(): String = CODEC.encodeToString(serializer(), this)
 

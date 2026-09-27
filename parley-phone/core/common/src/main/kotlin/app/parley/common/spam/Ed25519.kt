@@ -3,14 +3,29 @@ package app.parley.common.spam
 import java.security.SecureRandom
 import java.util.Locale
 import java.math.BigInteger
+import java.security.GeneralSecurityException
+import java.security.KeyFactory
 import java.security.MessageDigest
+import java.security.Signature
+import java.security.spec.PKCS8EncodedKeySpec
+import java.security.spec.X509EncodedKeySpec
 
 /**
- * Minimal pure-Kotlin Ed25519 (RFC 8032), used to sign and verify `.parleylist` packs on every API level
- * (Android only exposes Ed25519 from API 33). Not constant-time: fine for verifying public data and for
- * signing your own shared rule packs, not for high-value keys.
+ * Ed25519 (RFC 8032) for `.parleylist` packs and shared templates. The platform's implementation (constant-time)
+ * is used where there is one: Android 13+ and the JVM. Older Android versions fall back to the minimal pure-Kotlin
+ * one below, which is not constant-time: fine for verifying public data, acceptable for signing your own shared rule
+ * packs on those versions.
  */
 object Ed25519 {
+    // DER prefixes that turn a raw 32-byte key into X.509 / PKCS#8 for the platform's KeyFactory.
+    private val X509_PREFIX = byteArrayOf(0x30, 0x2a, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x03, 0x21, 0x00)
+    private val PKCS8_PREFIX = byteArrayOf(0x30, 0x2e, 0x02, 0x01, 0x00, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x04, 0x22, 0x04, 0x20)
+
+    /** Whether the platform has Ed25519 (checked once). */
+    val platformAvailable: Boolean by lazy {
+        runCatching { Signature.getInstance("Ed25519"); KeyFactory.getInstance("Ed25519") }.isSuccess
+    }
+
     // BigInteger.TWO only exists from Android API 33.
     private val TWO: BigInteger = BigInteger.valueOf(2)
     private val P: BigInteger = BigInteger.ONE.shiftLeft(255).subtract(BigInteger.valueOf(19))
@@ -113,6 +128,32 @@ object Ed25519 {
     fun publicKey(secret: ByteArray): ByteArray = compress(mul(expand(secret).first, G))
 
     fun sign(secret: ByteArray, message: ByteArray): ByteArray {
+        require(secret.size == 32) { "Ed25519 secret key must be 32 bytes" }
+        if (platformAvailable) {
+            try {
+                val key = KeyFactory.getInstance("Ed25519").generatePrivate(PKCS8EncodedKeySpec(PKCS8_PREFIX + secret))
+                return Signature.getInstance("Ed25519").run { initSign(key); update(message); sign() }
+            } catch (_: GeneralSecurityException) {
+                // A provider that lists Ed25519 but can't take this key: the pure implementation gives the same result.
+            }
+        }
+        return signPure(secret, message)
+    }
+
+    fun verify(publicKey: ByteArray, message: ByteArray, signature: ByteArray): Boolean {
+        if (publicKey.size != 32 || signature.size != 64) return false
+        // The pure check stays authoritative for what it rejects (s ≥ L, non-canonical points), so both paths agree.
+        if (!platformAvailable) return verifyPure(publicKey, message, signature)
+        return try {
+            val key = KeyFactory.getInstance("Ed25519").generatePublic(X509EncodedKeySpec(X509_PREFIX + publicKey))
+            Signature.getInstance("Ed25519").run { initVerify(key); update(message); verify(signature) } &&
+                fromLe(signature.copyOfRange(32, 64)) < L
+        } catch (_: GeneralSecurityException) {
+            verifyPure(publicKey, message, signature)
+        }
+    }
+
+    internal fun signPure(secret: ByteArray, message: ByteArray): ByteArray {
         val (a, prefix) = expand(secret)
         val pub = compress(mul(a, G))
         val r = fromLe(sha512(prefix, message)).mod(L)
@@ -122,7 +163,7 @@ object Ed25519 {
         return rs + toLe(s)
     }
 
-    fun verify(publicKey: ByteArray, message: ByteArray, signature: ByteArray): Boolean {
+    internal fun verifyPure(publicKey: ByteArray, message: ByteArray, signature: ByteArray): Boolean {
         if (publicKey.size != 32 || signature.size != 64) return false
         val a = decompress(publicKey) ?: return false
         val rs = signature.copyOfRange(0, 32)

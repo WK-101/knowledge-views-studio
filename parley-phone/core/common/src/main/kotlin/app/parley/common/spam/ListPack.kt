@@ -102,6 +102,26 @@ object ListPack {
         return a.size == 32 && MessageDigest.isEqual(a, b)
     }
 
+    /**
+     * Whether a pack from [origin] may replace [existing] (null: nothing installed under that id) and, for the companion,
+     * whether its key matches the pinned [updaterKey]. Returns the reason it may not, or null.
+     * - A built-in list is only ever replaced by the built-in one.
+     * - A signed list is only replaced by one signed with the same full key (first seen, then pinned).
+     * - The companion's lists must be signed, with the companion key pinned at its first list.
+     */
+    fun refusal(existing: PackState?, installedKey: String?, candidate: ParsedPack, origin: PackOrigin, updaterKey: String?): String? {
+        if (existing?.origin == PackOrigin.BUILTIN && origin != PackOrigin.BUILTIN) return "A built-in list can't be replaced by another list with the same id"
+        if (existing?.fingerprint != null && origin != PackOrigin.BUILTIN) {
+            val same = candidate.signature == SignatureStatus.SIGNED && sameKey(installedKey, candidate.manifest)
+            if (!same) return "This update is signed by a different key (${candidate.fingerprint ?: "unsigned"}) than the installed list (${existing.fingerprint})"
+        }
+        if (origin == PackOrigin.UPDATER) {
+            if (candidate.signature != SignatureStatus.SIGNED) return "Lists from Parley Lists must be signed"
+            if (updaterKey != null && !sameKey(updaterKey, candidate.manifest)) return "This list isn't signed with Parley Lists' key"
+        }
+        return null
+    }
+
     /** Reads and fully verifies a pack. Throws [PackException] with a user-readable reason. */
     fun parse(zip: ByteArray): ParsedPack {
         if (zip.size > Bounded.Caps.PACK_FILE) throw PackException("The list is too large")

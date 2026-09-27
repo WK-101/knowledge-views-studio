@@ -114,6 +114,46 @@ The value must be the one at the top of this page (lowercase, without colons). I
 update can install over existing installs, from F-Droid or anywhere else. Keep an offline backup of the `.jks` and
 the passwords.
 
+### Where the key lives and where signing happens
+
+The signing key gates every update of both apps and the `READ_LISTS` signature permission, so it never sits in the
+project tree, in `dist/`, in `/tmp` or on a machine that builds untrusted code.
+
+- **Storage.** Keep the `.jks` on an encrypted, offline medium (a hardware token or a password manager's file
+  attachment), with a second offline copy. Use different store and key passwords, and `chmod 600` the file whenever
+  it is on disk. If it was ever copied somewhere it shouldn't be, treat it as compromised and plan a key rotation
+  (APK Signature Scheme v3 lineage, `apksigner rotate`).
+- **Option A: sign in CI from secrets.** Store the keystore Base64-encoded and the two passwords as encrypted
+  repository secrets, available only to a protected `release` environment that requires a reviewer and runs only
+  for `v*` / `lists-v*` tags. The release job decodes the keystore to `$RUNNER_TEMP` (never into the workspace), sets
+  `PARLEY_KEYSTORE`, `PARLEY_KEYSTORE_PASSWORD`, `PARLEY_KEY_ALIAS` and `PARLEY_KEY_PASSWORD`, builds, verifies the
+  certificate with `apksigner verify --print-certs`, and deletes the file in an `always()` step. Pull requests never
+  see the secrets (GitHub doesn't pass them to forks' workflows), and the verification job in `parley.yml` stays
+  secret-free.
+- **Option B: sign on an air-gapped machine.** CI (or F-Droid) builds the unsigned release; check it is reproducible
+  (§4), copy `app-release-unsigned.apk` to the offline machine, align and sign it there:
+
+  ```bash
+  zipalign -p -f 4 app-release-unsigned.apk aligned.apk
+  apksigner sign --ks parley-release.jks --ks-key-alias parley --v1-signing-enabled false \
+    --v2-signing-enabled true --v3-signing-enabled true --out Parley-X.Y.Z.apk aligned.apk
+  apksigner verify --print-certs Parley-X.Y.Z.apk | grep SHA-256
+  ```
+
+  and copy only the signed APK back. The key never touches a networked machine.
+
+### Dependency verification
+
+Gradle checks every downloaded artifact (plugins, libraries, lint and detekt jars) against
+`gradle/verification-metadata.xml` (SHA-256), locally and in CI; a changed or unexpected artifact fails the build.
+After adding or updating a dependency, regenerate the file, review the diff (new components only, from the expected
+groups) and commit it with the change:
+
+```bash
+./gradlew --write-verification-metadata sha256 resolveAllDependencies \
+  :core:common:test testDebugUnitTest detekt lintDebug assembleDebug
+```
+
 ## 3. Release checklist
 
 For Parley `X.Y.Z` (and, when needed, Parley Lists `A.B.C`):

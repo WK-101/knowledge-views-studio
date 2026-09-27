@@ -198,12 +198,11 @@ class SpamListStore(context: Context) {
         if (!ListPack.isValidId(m.id)) throw PackException("The list has an invalid id")
         val existing = _state.value.packs.firstOrNull { it.id == m.id }
         if (existing != null && existing.version > m.version && !force) return InstallResult.Older(existing.version, m.version)
-        // A signed pack can only be replaced by the same publisher key: the whole 32-byte key, not its short fingerprint.
-        if (existing?.fingerprint != null && !force) {
-            val sameKey = p.signature == SignatureStatus.SIGNED && ListPack.sameKey(installedKey(existing), m)
-            if (!sameKey) {
-                return InstallResult.Failed("This update is signed by a different key (${p.fingerprint ?: "unsigned"}) than the installed list (${existing.fingerprint})")
-            }
+        // Keys are pinned: a signed pack is replaced only under the same full key, built-ins only by built-ins, and the
+        // companion's packs only under the companion key pinned at its first pack.
+        if (!force || origin != PackOrigin.BUILTIN) {
+            val installed = existing?.let { installedKey(it) }
+            ListPack.refusal(existing, installed, p, origin, _state.value.updaterKey)?.let { return InstallResult.Failed(it) }
         }
         val name = ListPack.storageName(m.id)
         val target = File(dir, name)
@@ -230,7 +229,8 @@ class SpamListStore(context: Context) {
             existing?.let { fresh.copy(enabled = it.enabled, mode = it.mode, threshold = it.threshold, action = it.action, useRanges = it.useRanges, notify = it.notify, suppressed = it.suppressed) } ?: fresh
         }
         val s = _state.value
-        writeState(s.copy(packs = s.packs.filter { it.id != m.id } + state))
+        val pinned = if (origin == PackOrigin.UPDATER && s.updaterKey == null) m.publicKey else s.updaterKey
+        writeState(s.copy(packs = s.packs.filter { it.id != m.id } + state, updaterKey = pinned))
         return InstallResult.Installed(state, existing != null)
     }
 
@@ -239,7 +239,11 @@ class SpamListStore(context: Context) {
     suspend fun setPack(id: String, f: (PackState) -> PackState) = update { s -> s.copy(packs = s.packs.map { if (it.id == id) f(it) else it }) }
 
     suspend fun remove(id: String) {
-        update { s -> s.copy(packs = s.packs.filter { it.id != id }) }
+        // With no companion list left, its key is no longer pinned (a reinstalled companion has a new key).
+        update { s ->
+            val rest = s.packs.filter { it.id != id }
+            s.copy(packs = rest, updaterKey = s.updaterKey.takeIf { rest.any { it.origin == PackOrigin.UPDATER } })
+        }
         dropIndex(id)
         withContext(Dispatchers.IO) {
             File(dir, ListPack.storageName(id)).deleteRecursively()
