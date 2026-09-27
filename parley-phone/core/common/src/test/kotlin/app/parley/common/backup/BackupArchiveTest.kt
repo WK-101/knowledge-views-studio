@@ -243,7 +243,7 @@ class BackupArchiveTest {
     @Test fun encryptedPipelineRoundTrip() {
         val pass = "pw".toCharArray()
         val bo = ByteArrayOutputStream()
-        val enc = BackupCrypto.encrypt(bo, listOf(Recipient.Passphrase(pass)), BackupCrypto.MIN_ITERATIONS)
+        val enc = BackupCrypto.encrypt(bo, listOf(Recipient.Passphrase(pass)), KdfParams.Pbkdf2(BackupCrypto.MIN_ITERATIONS))
         BackupArchiveWriter(enc, ArchiveMeta(5, "1.1")).use { it.writeAll() }
         val file = bo.toByteArray()
         val key = BackupCrypto.unwrapDataKey(BackupCrypto.readHeader(ByteArrayInputStream(file)), Unlock.Passphrase(pass))

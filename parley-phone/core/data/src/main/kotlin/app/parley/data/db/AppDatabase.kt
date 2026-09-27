@@ -401,6 +401,20 @@ interface MetaDao {
 
     @Query("UPDATE call_notes SET text = :text WHERE id = :id")
     suspend fun setCallNoteText(id: Long, text: String)
+
+    /** Journal ids, for re-sealing older payloads one at a time. */
+    @Query("SELECT id FROM journal")
+    suspend fun journalIds(): List<Long>
+
+    // Re-sealing older plain values: each write applies only if the value is still the one read (no lost edit).
+    @Query("UPDATE journal SET payload = :payload WHERE id = :id AND payload = :old")
+    suspend fun resealJournalPayload(id: Long, old: ByteArray, payload: ByteArray)
+
+    @Query("UPDATE contact_meta SET pinnedNote = :note WHERE lookupKey = :key AND pinnedNote = :old")
+    suspend fun resealPinnedNote(key: String, old: String, note: String)
+
+    @Query("UPDATE call_notes SET text = :text WHERE id = :id AND text = :old")
+    suspend fun resealCallNote(id: Long, old: String, text: String)
 }
 
 @Dao
@@ -533,6 +547,10 @@ interface BlockDao {
 
     @Insert
     suspend fun logBlocked(call: BlockedCallEntity)
+
+    /** Re-sealing an older plain caller name (applies only if it is still the one read). */
+    @Query("UPDATE blocked_calls SET callerName = :name WHERE id = :id AND callerName = :old")
+    suspend fun resealCallerName(id: Long, old: String, name: String)
 
     @Query("SELECT * FROM blocked_calls WHERE allowed = 0 ORDER BY time DESC LIMIT 500")
     fun blockedCalls(): Flow<List<BlockedCallEntity>>

@@ -60,14 +60,17 @@ object IntentRoutes {
 
     private fun go(e: NavEvent) = IntentTarget(e)
 
-    /** [typeOf] reads a content URI's type (only asked for `content:` links without one). */
+    /**
+     * [typeOf] reads a content URI's type (only asked for `content:` links without one). [readable] says whether Parley
+     * may read a URI another app handed over (see [app.parley.security.SharedUris]): other apps' `content:` URIs only.
+     */
     @Suppress("CyclomaticComplexMethod")
-    fun resolve(intent: Intent, typeOf: (Uri) -> String?): IntentTarget? {
+    fun resolve(intent: Intent, readable: (Uri) -> Boolean = { it.scheme == "content" }, typeOf: (Uri) -> String?): IntentTarget? {
         val data = intent.data
         return when (intent.action) {
             Intent.ACTION_SEND -> {
                 @Suppress("DEPRECATION")
-                val stream = intent.getParcelableExtra<Uri>(Intent.EXTRA_STREAM) ?: return null
+                val stream = intent.getParcelableExtra<Uri>(Intent.EXTRA_STREAM)?.takeIf(readable) ?: return null
                 when {
                     isVcard(intent.type) -> go(NavEvent.ImportVcf(stream))
                     // A picture shared to Parley is searched for QR codes.
@@ -82,7 +85,7 @@ object IntentRoutes {
                 // A simple-mode setup shared as a QR code.
                 data?.scheme == "parley" && data.host == "simple" -> IntentTarget(NavEvent.Route(ExtrasRoutes.SimpleImport), simpleSetup = data)
                 data?.scheme == "parley" && data.host == "template" -> IntentTarget(NavEvent.Route(BlockingRoutes.Templates), template = data)
-                data != null && data.scheme == "content" && isVcard(intent.type ?: typeOf(data)) -> go(NavEvent.ImportVcf(data))
+                data != null && data.scheme == "content" && readable(data) && isVcard(intent.type ?: typeOf(data)) -> go(NavEvent.ImportVcf(data))
                 data?.scheme == "tel" -> go(NavEvent.Tab(StartTab.KEYPAD, dial = data.schemeSpecificPart.orEmpty()))
                 intent.type == "vnd.android.cursor.dir/calls" -> go(NavEvent.Tab(StartTab.RECENTS))
                 intent.action == Intent.ACTION_DIAL -> go(NavEvent.Tab(StartTab.KEYPAD, dial = ""))

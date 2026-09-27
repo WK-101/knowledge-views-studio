@@ -87,6 +87,25 @@ class BackupRoundTripTest {
         c.settings.update { AppSettings() }
     }
 
+    @Test fun securitySettingsWaitForConfirmation() = runBlocking {
+        c.settings.update { it.copy(appLock = true, hideVault = true, confirmBeforeCall = true) }
+        c.backup.setupKeys(passphrase.toCharArray())
+        assertTrue(c.backup.backupNow(scheduled = false, target = Uri.fromFile(file)).ok)
+        wipe()
+
+        val opened = c.backup.open(Uri.fromFile(file), Unlock.Passphrase(passphrase.toCharArray()))
+        val report = c.backup.restore(opened, c.backup.plan(opened, RestoreMode.MERGE), RestoreOptions(settings = true))
+        // Ordinary settings come back; the app lock and discreet mode wait for the user.
+        assertTrue(report.needsConfirmation)
+        assertTrue(c.settings.current().confirmBeforeCall)
+        assertFalse(c.settings.current().appLock)
+        assertFalse(c.settings.current().hideVault)
+        assertTrue(c.backup.applyPendingRestore())
+        assertTrue(c.settings.current().appLock)
+        assertTrue(c.settings.current().hideVault)
+        assertFalse(c.backup.hasPendingRestore())
+    }
+
     @Test fun everythingComesBackAfterAWipe() = runBlocking {
         seed()
         c.backup.setupKeys(passphrase.toCharArray())

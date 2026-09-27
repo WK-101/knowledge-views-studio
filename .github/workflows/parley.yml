@@ -46,6 +46,11 @@ jobs:
       - name: Android SDK location
         run: echo "sdk.dir=$ANDROID_HOME" > local.properties
 
+      # Every step below checks each downloaded artifact against gradle/verification-metadata.xml (SHA-256);
+      # an artifact that isn't listed or doesn't match fails the job.
+      - name: Dependency verification metadata present
+        run: test -s gradle/verification-metadata.xml
+
       - name: Unit tests (all modules, Robolectric included)
         run: ./gradlew --stacktrace :core:common:test testDebugUnitTest
 

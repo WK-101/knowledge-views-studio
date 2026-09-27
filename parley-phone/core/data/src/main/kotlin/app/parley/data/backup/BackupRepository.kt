@@ -20,6 +20,11 @@ import app.parley.common.StoredStatus
 import app.parley.common.backup.BackupArchiveReader
 import app.parley.common.backup.BackupArchiveWriter
 import app.parley.common.backup.ArchiveMeta
+import app.parley.common.backup.ArchiveOrigin
+import app.parley.common.backup.ArchiveSignatures
+import app.parley.common.backup.ArchiveSigning
+import app.parley.common.backup.KeyBundle
+import app.parley.common.backup.WrongKeyException
 import app.parley.common.backup.BackupCrypto
 import app.parley.common.backup.BackupFile
 import app.parley.common.backup.BlockRuleRecord
@@ -68,6 +73,7 @@ import org.json.JSONObject
 import java.time.Instant
 import java.time.ZoneId
 import javax.crypto.SecretKey
+import java.security.PrivateKey
 import android.content.res.Resources
 import app.parley.data.R
 
@@ -87,8 +93,8 @@ data class BackupOutcome(
 
 data class BackupFileInfo(val uri: Uri, val name: String, val time: Long, val size: Long)
 
-/** A decrypted, integrity-checked backup ready for preview/restore. */
-class OpenedBackup internal constructor(val uri: Uri, val reader: BackupArchiveReader) {
+/** A decrypted, integrity-checked backup ready for preview/restore. [origin]: which phone signed it, if any. */
+class OpenedBackup internal constructor(val uri: Uri, val reader: BackupArchiveReader, val origin: ArchiveOrigin = ArchiveOrigin.UNSIGNED) {
     val createdAt: Long get() = reader.manifest.createdAt
     val counts: Map<String, Long> get() = reader.manifest.counts
 }
@@ -179,13 +185,24 @@ class BackupRepository(
         }
     }
 
+    /** Security settings from the last restore, waiting for the user to confirm them ([SettingsRepository.SECURITY_KEYS]). */
+    @Volatile private var pendingSecurity: Map<String, String> = emptyMap()
+
     /** Whether the last restore left a part waiting for confirmation (see [ConfirmedRestore]). */
-    fun hasPendingRestore(): Boolean = extras().any { it is ConfirmedRestore && it.hasPending() }
+    fun hasPendingRestore(): Boolean = pendingSecurity.isNotEmpty() || extras().any { it is ConfirmedRestore && it.hasPending() }
 
     /** Applies what the last restore left waiting; call only after the user confirmed with the app lock. */
-    suspend fun applyPendingRestore(): Boolean = extras().filterIsInstance<ConfirmedRestore>().map { it.applyPending() }.any { it }
+    suspend fun applyPendingRestore(): Boolean {
+        val security = pendingSecurity
+        pendingSecurity = emptyMap()
+        if (security.isNotEmpty()) settings.importMap(security)
+        return extras().filterIsInstance<ConfirmedRestore>().map { it.applyPending() }.any { it } || security.isNotEmpty()
+    }
 
-    fun discardPendingRestore() = extras().filterIsInstance<ConfirmedRestore>().forEach { it.discardPending() }
+    fun discardPendingRestore() {
+        pendingSecurity = emptyMap()
+        extras().filterIsInstance<ConfirmedRestore>().forEach { it.discardPending() }
+    }
     private val zone: ZoneId get() = ZoneId.systemDefault()
 
     /** Parley's call-history archive, backed up in its own optional section (set by the container). */
@@ -196,18 +213,50 @@ class BackupRepository(
     /** First-time setup: returns the recovery key to show the user once. */
     suspend fun setupKeys(passphrase: CharArray): RecoveryKey = withContext(Dispatchers.Default) {
         val recovery = RecoveryKey.generate()
-        prefs.saveKeyBundle(BackupCrypto.createKeyBundle(passphrase, recovery))
+        val bundle = BackupCrypto.createKeyBundle(passphrase, recovery)
+        prefs.saveKeyBundle(bundle)
+        endorse(bundle, BackupCrypto.unlockPrivateKey(bundle, recovery))
         recovery
     }
 
     suspend fun changePassphrase(old: CharArray, new: CharArray): Boolean = withContext(Dispatchers.Default) {
         val bundle = prefs.keyBundle() ?: return@withContext false
         try {
-            prefs.saveKeyBundle(BackupCrypto.changePassphrase(bundle, old, new))
+            val changed = BackupCrypto.changePassphrase(bundle, old, new)
+            prefs.saveKeyBundle(changed)
+            if (!prefs.state.value.signedAsYours) endorse(changed, BackupCrypto.unlockPrivateKey(changed, new))
             true
         } catch (_: Exception) {
             false
         }
+    }
+
+    /**
+     * Lets the backup key vouch for this phone's signing key, so a restore on another phone shows this phone's backups
+     * as yours. Needs the passphrase once (backups made before signing existed). False on a wrong passphrase.
+     */
+    suspend fun confirmThisPhone(passphrase: CharArray): Boolean = withContext(Dispatchers.Default) {
+        val bundle = prefs.keyBundle() ?: return@withContext false
+        val pk = try {
+            BackupCrypto.unlockPrivateKey(bundle, passphrase)
+        } catch (_: WrongKeyException) {
+            return@withContext false
+        }
+        endorse(bundle, pk)
+    }
+
+    /** Stores the bundle's endorsement of this phone's signing key; false when the Keystore has no key to offer. */
+    private fun endorse(bundle: KeyBundle, privateKey: PrivateKey): Boolean {
+        val signer = DeviceSigner.load(context) ?: return false
+        prefs.saveEndorsement(bundle.keyId, ArchiveSignatures.endorse(privateKey, signer.publicKey))
+        return true
+    }
+
+    /** This phone's signer with its endorsement, when the endorsement still matches the key and the bundle. */
+    private fun signer(bundle: KeyBundle): DeviceSigner? {
+        val signer = DeviceSigner.load(context) ?: return null
+        val e = prefs.endorsement()?.takeIf { ArchiveSignatures.endorsementValid(bundle.publicKey, signer.publicKey, it) }
+        return signer.endorsed(e)
     }
 
     fun setFolder(uri: Uri, name: String?) {
@@ -251,7 +300,9 @@ class BackupRepository(
             cr.openOutputStream(doc, "wt")!!.use { raw ->
                 val enc = BackupCrypto.encrypt(raw.buffered(), listOf(Recipient.PublicKey(bundle)))
                 dataKey = enc.dataKey
-                val writer = BackupArchiveWriter(enc, ArchiveMeta(now.toEpochMilli(), appVersion(), device()))
+                // Signed with this phone's Keystore key, so a restore can tell this backup from one planted in the folder.
+                val signing = signer(bundle)?.let { ArchiveSigning(enc.header.bytes, it) }
+                val writer = BackupArchiveWriter(enc, ArchiveMeta(now.toEpochMilli(), appVersion(), device(), signing))
                 writer.writeContacts(records.readAll(fullPhoto = true).onEach { contactCount++ })
                 writer.writeCallLog(callLog.exportAll().onEach { callCount++ })
                 callHistory?.let { h -> writer.writeCallHistory(h.backupLines()) }
@@ -417,11 +468,22 @@ class BackupRepository(
 
     // ------------------------------------------------------------------ restore
 
-    /** Decrypts and fully verifies a backup. Throws WrongKeyException / BackupIntegrityException. */
+    /**
+     * Decrypts and fully verifies a backup, and checks which phone signed it. Throws WrongKeyException /
+     * BackupIntegrityException.
+     */
     suspend fun open(uri: Uri, unlock: Unlock): OpenedBackup = withContext(Dispatchers.IO) {
         val header = cr.openInputStream(uri)!!.use { BackupCrypto.readHeader(it) }
-        val key = BackupCrypto.unwrapDataKey(header, unlock)
-        OpenedBackup(uri, BackupArchiveReader.open({ BackupCrypto.decrypt(cr.openInputStream(uri)!!, key) }))
+        val opened = BackupCrypto.open(header, unlock)
+        val key = opened.dataKey
+        val reader = BackupArchiveReader.open({ BackupCrypto.decrypt(cr.openInputStream(uri)!!, key) })
+        // The user just proved they hold this phone's backup secret: let it vouch for this phone if it didn't yet.
+        val mine = prefs.keyBundle()
+        if (mine != null && opened.bundle?.keyId == mine.keyId && !prefs.state.value.signedAsYours) {
+            opened.privateKey?.let { runCatching { endorse(mine, it) } }
+        }
+        val origin = ArchiveSignatures.verify(header.bytes, reader.manifest, opened.bundle, DeviceSigner.publicKey())
+        OpenedBackup(uri, reader, origin)
     }
 
     suspend fun plan(opened: OpenedBackup, mode: RestoreMode): MergePlan = withContext(Dispatchers.IO) {
@@ -504,7 +566,12 @@ class BackupRepository(
         }
         if (o.settings) part(context.getString(R.string.data_rst_part_settings)) {
             opened.reader.settings()?.let { all ->
-                settings.importMap(all.filterKeys { !it.startsWith(BackupExtras.PREFIX) })
+                val plain = all.filterKeys { !it.startsWith(BackupExtras.PREFIX) }
+                // App lock, discreet mode and hiding the screen wait for the user's confirmation; everything else applies.
+                val (security, rest) = plain.entries.partition { it.key in SettingsRepository.SECURITY_KEYS }
+                settings.importMap(rest.associate { it.key to it.value })
+                val here = settings.exportMap()
+                pendingSecurity = security.associate { it.key to it.value }.filter { (k, v) -> here[k] != v }
                 // Off hours' "only this label" names a label of the old phone: keep it only if that title exists here.
                 val titles = labelTitlesHere()
                 settings.update { s -> s.copy(screening = s.screening.copy(offHours = LabelRefs.restoreOffHours(s.screening.offHours, titles))) }

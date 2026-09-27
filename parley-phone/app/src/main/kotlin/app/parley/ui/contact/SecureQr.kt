@@ -1,5 +1,8 @@
 package app.parley.ui.contact
 
+import app.parley.common.backup.KdfPolicy
+import app.parley.common.backup.KdfParams
+import app.parley.common.security.Bounded
 import android.graphics.Bitmap
 import android.net.Uri
 import android.util.Base64
@@ -57,7 +60,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
 import java.security.SecureRandom
-import java.util.zip.GZIPInputStream
 import java.util.zip.GZIPOutputStream
 import app.parley.ui.ParleyDialog
 import app.parley.ui.ConfirmDialog
@@ -69,7 +71,9 @@ import app.parley.ui.ConfirmDialog
  */
 object SecureQr {
     private const val ALPHABET = "ABCDEFGHJKMNPQRSTVWXYZ23456789"
-    private const val ITERATIONS = 200_000
+
+    /** The passcode's cost; a scanned code must use exactly this, so a crafted code can't stall the phone. */
+    private val KDF = KdfParams.Pbkdf2(200_000)
 
     fun newPasscode(): String {
         val r = SecureRandom()
@@ -79,14 +83,14 @@ object SecureQr {
     fun encode(details: ContactDetails, passcode: String): String {
         val json = ContactDetailsJson.encode(details.copy(photoUri = null, pinnedNote = "", context = "", messengerPrefs = "")).toByteArray()
         val zipped = ByteArrayOutputStream().also { o -> GZIPOutputStream(o).use { it.write(json) } }.toByteArray()
-        val sealed = BackupCrypto.encryptBytes(zipped, listOf(Recipient.Passphrase(normalize(passcode))), ITERATIONS)
+        val sealed = BackupCrypto.encryptBytes(zipped, listOf(Recipient.Passphrase(normalize(passcode))), KDF)
         return "parley://qr?v=1&d=" + Base64.encodeToString(sealed, Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING)
     }
 
     fun decode(uri: Uri, passcode: String): ContactDetails {
         val data = Base64.decode(uri.getQueryParameter("d").orEmpty(), Base64.URL_SAFE)
-        val zipped = BackupCrypto.decryptBytes(data, Unlock.Passphrase(normalize(passcode)))
-        val json = GZIPInputStream(zipped.inputStream()).use { it.readBytes() }
+        val zipped = BackupCrypto.decryptBytes(data, Unlock.Passphrase(normalize(passcode)), KdfPolicy.exactly(KDF))
+        val json = Bounded.gunzip(zipped, Bounded.Caps.QR_GUNZIP)
         return ContactDetailsJson.decode(String(json))
     }
 

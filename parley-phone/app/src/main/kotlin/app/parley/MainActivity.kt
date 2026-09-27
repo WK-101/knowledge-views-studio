@@ -1,5 +1,7 @@
 package app.parley
 
+import app.parley.security.SharedUris
+import app.parley.security.LockedActivity
 import android.Manifest
 import android.content.Context
 import android.content.Intent
@@ -41,13 +43,8 @@ import app.parley.ui.ParleyRoot
 import app.parley.ui.ParleyTheme
 import kotlinx.coroutines.withContext
 
-class MainActivity : FragmentActivity() {
-    // The in-app language on Android 10-12 (Android 13+ applies per-app languages itself).
-    override fun attachBaseContext(newBase: Context) {
-        super.attachBaseContext(newBase)
-        AppLocale.override(this, newBase)
-    }
-
+/** The app itself. The app lock, window protection and locale come from [LockedActivity]. */
+class MainActivity : LockedActivity() {
     private val vm: AppViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -110,20 +107,10 @@ class MainActivity : FragmentActivity() {
         }
     }
 
-    /** The settings, once loaded; null before (the UI shows nothing until then). */
-    private fun loadedSettings(): AppSettings? = vm.c.settings.takeIf { it.loaded.value }?.settings?.value
-
-    private fun protectWindow(leaving: Boolean = false) {
-        loadedSettings()?.let { AppLock.protectWindow(this, it, leaving) }
-    }
-
     override fun onStart() {
         super.onStart()
-        // Decide the lock before the first frame when the settings are in memory, so content never flashes.
-        val known = loadedSettings()?.also { AppLock.onStart(it) }
         lifecycleScope.launch {
             val s = vm.c.settings.current()
-            if (known == null) AppLock.onStart(s)
             // The phone is unlocked now: a Circle widget drawn while it was locked shows names again.
             if (s.appLock) launch { runCatching { CircleWidget.refreshIfShownLocked(applicationContext) } }
             // After a longer break, open on the preferred tab again; a quick app switch keeps your place.
@@ -139,20 +126,11 @@ class MainActivity : FragmentActivity() {
         stoppedAt = SystemClock.elapsedRealtime()
         // Placed or put aside: coming back shows the ordinary lock screen.
         lockEmergencyNumber = null
-        AppLock.onStop(loadedSettings())
-        protectWindow(leaving = true)
         super.onStop()
-    }
-
-    override fun onPause() {
-        // Before Android 13 the recents thumbnail can only be blanked with FLAG_SECURE, set before it's taken.
-        protectWindow(leaving = true)
-        super.onPause()
     }
 
     override fun onResume() {
         super.onResume()
-        protectWindow()
         vm.refreshEnvironment()
     }
 
@@ -172,7 +150,7 @@ class MainActivity : FragmentActivity() {
     private fun handleIntent(intent: Intent?) {
         intent ?: return
         checkEmergencyDial(intent)
-        val t = IntentRoutes.resolve(intent) { contentResolver.getType(it) } ?: return
+        val t = IntentRoutes.resolve(intent, readable = { SharedUris.acceptable(this, it) }) { contentResolver.getType(it) } ?: return
         t.qrImage?.let { QrInbox.image.value = it }
         t.simpleSetup?.let { SimpleInbox.qr.value = it }
         t.template?.let { TemplateInbox.pending.value = it }

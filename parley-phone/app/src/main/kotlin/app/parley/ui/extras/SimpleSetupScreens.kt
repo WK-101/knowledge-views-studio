@@ -1,5 +1,6 @@
 package app.parley.ui.extras
 
+import app.parley.common.security.Bounded
 import app.parley.ui.Destination
 import android.graphics.Bitmap
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -350,7 +351,10 @@ fun SimpleImportScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -
                         imported = withContext(Dispatchers.IO) {
                             runCatching {
                                 if (q != null) SimpleTransfer.fromQr(q, code)
-                                else SimpleTransfer.decryptFile(context.contentResolver.openInputStream(f!!)!!.use { it.readBytes() }, code.toCharArray())
+                                else SimpleTransfer.decryptFile(
+                                    context.contentResolver.openInputStream(f!!)!!.use { Bounded.readBytes(it, Bounded.Caps.SETUP_FILE, "setup") },
+                                    code.toCharArray(),
+                                )
                             }.getOrNull()
                         }
                         if (imported == null) error = res.getString(R.string.simple_wrong_pass)

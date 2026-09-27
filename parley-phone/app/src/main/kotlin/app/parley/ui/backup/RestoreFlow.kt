@@ -1,5 +1,6 @@
 package app.parley.ui.backup
 
+import app.parley.security.SensitiveScreen
 import android.net.Uri
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -31,7 +32,12 @@ import androidx.compose.ui.unit.dp
 import androidx.fragment.app.FragmentActivity
 import app.parley.AppViewModel
 import app.parley.security.AppLock
+import app.parley.common.backup.ArchiveOrigin
 import app.parley.common.backup.MergePlan
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.VerifiedUser
+import androidx.compose.material.icons.rounded.Warning
+import androidx.compose.material3.Icon
 import app.parley.common.backup.RecoveryKey
 import app.parley.common.backup.RestoreMode
 import app.parley.common.backup.Unlock
@@ -60,6 +66,7 @@ private sealed interface Step {
 /** Unlock → choose what to restore → preview (new / updated / identical / conflicts) → restore → report. */
 @Composable
 fun RestoreFlow(vm: AppViewModel, uri: Uri, onDone: () -> Unit) {
+    SensitiveScreen()
     val context = LocalContext.current
     val res = LocalResources.current
     val scope = rememberCoroutineScope()
@@ -136,6 +143,7 @@ fun RestoreFlow(vm: AppViewModel, uri: Uri, onDone: () -> Unit) {
                 dismissLabel = stringResource(R.string.dc_cancel),
                 content = {
                     Column(Modifier.heightIn(max = 480.dp).verticalScroll(rememberScrollState())) {
+                        OriginNote(s.opened.origin)
                         Text(stringResource(R.string.rst_how), style = MaterialTheme.typography.titleSmall)
                         listOf(
                             RestoreMode.MERGE to stringResource(R.string.rst_mode_merge),
@@ -208,16 +216,16 @@ fun RestoreFlow(vm: AppViewModel, uri: Uri, onDone: () -> Unit) {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(s.text)
                         if (pending) {
-                            Text(stringResource(R.string.rst_calltime_waiting), style = MaterialTheme.typography.bodySmall)
+                            Text(stringResource(R.string.rst_safety_waiting), style = MaterialTheme.typography.bodySmall)
                             TextButton({
                                 val act = context as? FragmentActivity ?: return@TextButton
-                                AppLock.authenticate(act, res.getString(R.string.rst_calltime_confirm)) { ok ->
+                                AppLock.authenticate(act, res.getString(R.string.rst_safety_confirm)) { ok ->
                                     if (ok) scope.launch {
-                                        if (repo.applyPendingRestore()) vm.toast(res.getString(R.string.rst_calltime_applied))
+                                        if (repo.applyPendingRestore()) vm.toast(res.getString(R.string.rst_safety_applied))
                                         pending = false
                                     }
                                 }
-                            }) { Text(stringResource(R.string.rst_calltime_apply)) }
+                            }) { Text(stringResource(R.string.rst_safety_apply)) }
                         }
                     }
                 },
@@ -225,6 +233,28 @@ fun RestoreFlow(vm: AppViewModel, uri: Uri, onDone: () -> Unit) {
                 dismissButton = { TextButton({ scope.launch { repo.discardPendingRestore(); repo.undoLastRestore(); vm.toast(res.getString(R.string.rst_undone)); onDone() } }) { Text(stringResource(R.string.dc_undo)) } },
             )
         }
+    }
+}
+
+/** Which phone made the backup; a warning when that can't be shown, so a planted file doesn't pass as yours. */
+@Composable
+private fun OriginNote(origin: ArchiveOrigin) {
+    val (text, warn) = when (origin) {
+        ArchiveOrigin.THIS_PHONE -> stringResource(R.string.rst_origin_this) to false
+        ArchiveOrigin.OTHER_PHONE -> stringResource(R.string.rst_origin_other) to false
+        ArchiveOrigin.UNKNOWN_SIGNER -> stringResource(R.string.rst_origin_unknown) to true
+        ArchiveOrigin.UNSIGNED -> stringResource(R.string.rst_origin_unsigned) to true
+        ArchiveOrigin.BAD_SIGNATURE -> stringResource(R.string.rst_origin_bad) to true
+    }
+    Row(Modifier.padding(bottom = 12.dp), verticalAlignment = Alignment.Top) {
+        Icon(
+            if (warn) Icons.Rounded.Warning else Icons.Rounded.VerifiedUser, null,
+            tint = if (warn) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+        )
+        Text(
+            text, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(start = 8.dp),
+            color = if (warn) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+        )
     }
 }
 

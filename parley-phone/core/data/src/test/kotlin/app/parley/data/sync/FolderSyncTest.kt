@@ -1,5 +1,8 @@
 package app.parley.data.sync
 
+import org.junit.Assert.assertFalse
+import app.parley.data.testing.FakeAndroidKeyStore
+import app.parley.common.backup.SyncCrypto
 import android.Manifest
 import android.app.Application
 import android.provider.ContactsContract.CommonDataKinds.Phone
@@ -47,6 +50,8 @@ class FolderSyncTest {
         repo.beforeChange = { _, _ -> listOf(1L) }
         sync = FolderSync(app, repo, ContactRecordStore(app))
         sync.setFolder(folder.treeUri, "Sync")
+        // These tests read and write plain vCards; encrypted files are covered by encryptedFilesAreSealedAndBoundToTheFolderKey.
+        sync.usePlain()
     }
 
     @After fun tearDown() = scope.cancel()
@@ -100,6 +105,42 @@ class FolderSyncTest {
         // That is now the synced state: nothing more to do.
         val again = sync.syncNow()
         assertEquals(0, again.updatedFromFolder + again.written)
+    }
+
+    @Test fun aFolderWithoutAChosenModeWaitsForTheChoice() = runBlocking {
+        add("Ada", "+44 20 7946 0000")
+        sync.setFolder(folder.treeUri, "Sync")
+        assertEquals(0, sync.syncNow().written)
+        assertEquals(SyncStatus.CHOOSE_MODE, kind())
+        assertTrue(folder.names().isEmpty())
+    }
+
+    @Test fun encryptedFilesAreSealedAndBoundToTheFolderKey() = runBlocking {
+        FakeAndroidKeyStore.install()
+        add("Ada", "+44 20 7946 0000")
+        sync.setFolder(folder.treeUri, "Sync")
+        assertEquals(FolderSync.EncryptionSetup.READY, sync.useEncryption("harbour lantern quiet mosaic".toCharArray()))
+        assertEquals(1, sync.syncNow().written)
+        val card = folder.names().single { it.endsWith(SyncCrypto.EXTENSION) }
+        assertFalse(File(folder.dir, card).readText(Charsets.ISO_8859_1).contains("Ada"))
+        assertTrue(SyncCrypto.HEADER_NAME in folder.names())
+
+        // Another phone with the same passphrase gets the same key and adds a contact; a plain .vcf is ignored.
+        val header = File(folder.dir, SyncCrypto.HEADER_NAME).readBytes()
+        val key = SyncCrypto.unlock(header, "harbour lantern quiet mosaic".toCharArray())!!
+        val grace = "BEGIN:VCARD\r\nVERSION:4.0\r\nFN:Grace Hopper\r\nN:Hopper;Grace;;;\r\nTEL:+1 555 0100\r\nEND:VCARD\r\n"
+        File(folder.dir, "g.parleycard").writeBytes(SyncCrypto.seal(key, "g.parleycard", grace.toByteArray()))
+        folder.put("planted.vcf", grace.replace("Grace", "Mallory"))
+        // A sealed file renamed to another name doesn't open.
+        File(folder.dir, "swapped.parleycard").writeBytes(SyncCrypto.seal(key, "other.parleycard", grace.toByteArray()))
+        val rep = sync.syncNow()
+        assertEquals(1, rep.imported)
+        val names = repo.loadNow().map { it.displayName }
+        assertTrue(names.contains("Grace Hopper"))
+        assertFalse(names.any { it.contains("Mallory") })
+        // A wrong passphrase for this folder is refused.
+        sync.setFolder(folder.treeUri, "Sync")
+        assertEquals(FolderSync.EncryptionSetup.WRONG_PASSPHRASE, sync.useEncryption("not the passphrase".toCharArray()))
     }
 
     @Test fun aNewFileFromAnotherDeviceIsImported() = runBlocking {

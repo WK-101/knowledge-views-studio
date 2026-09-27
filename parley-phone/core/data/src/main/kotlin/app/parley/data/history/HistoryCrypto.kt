@@ -25,14 +25,19 @@ import javax.crypto.spec.SecretKeySpec
  * kept up to date while the phone is locked). Rows are then sealed in software, which is fast enough for tens
  * of thousands of calls; the wrapped keys sit in no-backup storage.
  */
-internal class HistoryCrypto(context: Context) {
+internal class HistoryCrypto(
+    context: Context,
+    /** Where the wrapped key is kept (no-backup storage). */
+    private val file: File = File(context.noBackupFilesDir, "history.keys"),
+    /** The Keystore alias of the wrapping key (other small-record stores use the same envelope under their own). */
+    private val alias: String = ALIAS,
+) {
     /** The key is gone for good (invalidated, unrecoverable, or its Keystore entry provably missing). */
     class KeyLostException(cause: Throwable?) : Exception("Call-history archive key is no longer available", cause)
 
     /** The key couldn't be used right now (Keystore busy, not ready, I/O). Nothing is lost: try again later. */
     class KeyUnavailableException(cause: Throwable?) : Exception("Call-history archive key is temporarily unavailable", cause)
 
-    private val file = File(context.noBackupFilesDir, "history.keys")
     private val random = SecureRandom()
 
     @Volatile private var keys: Pair<SecretKeySpec, SecretKeySpec>? = null
@@ -70,7 +75,7 @@ internal class HistoryCrypto(context: Context) {
     fun reset(suffix: String) = synchronized(this) {
         keys = null
         if (file.exists() && !file.renameTo(File(file.parentFile, "${file.name}.$suffix"))) file.delete()
-        runCatching { keyStore().deleteEntry(ALIAS) }
+        runCatching { keyStore().deleteEntry(alias) }
     }
 
     fun seal(plain: ByteArray): ByteArray {
@@ -102,10 +107,10 @@ internal class HistoryCrypto(context: Context) {
 
     private fun wrappingKey(): SecretKey {
         val ks = keyStore()
-        (ks.getKey(ALIAS, null) as? SecretKey)?.let { return it }
+        (ks.getKey(alias, null) as? SecretKey)?.let { return it }
         val gen = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, STORE)
         gen.init(
-            KeyGenParameterSpec.Builder(ALIAS, KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT)
+            KeyGenParameterSpec.Builder(alias, KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT)
                 .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
                 .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
                 .setKeySize(256)
@@ -124,9 +129,9 @@ internal class HistoryCrypto(context: Context) {
     private fun unwrap(blob: ByteArray): ByteArray {
         val ivLen = blob[0].toInt()
         val ks = keyStore()
-        val key = ks.getKey(ALIAS, null) as? SecretKey
+        val key = ks.getKey(alias, null) as? SecretKey
             // Provably missing only if the Keystore loaded and says the alias isn't there.
-            ?: throw if (!ks.containsAlias(ALIAS)) KeyLostException(null) else KeyUnavailableException(null)
+            ?: throw if (!ks.containsAlias(alias)) KeyLostException(null) else KeyUnavailableException(null)
         val c = Cipher.getInstance("AES/GCM/NoPadding")
         c.init(Cipher.DECRYPT_MODE, key, GCMParameterSpec(128, blob, 1, ivLen))
         return c.doFinal(blob, 1 + ivLen, blob.size - 1 - ivLen)

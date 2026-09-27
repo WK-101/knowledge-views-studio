@@ -1,5 +1,7 @@
 package app.parley.common.templates
 
+import app.parley.common.security.Bounded
+import app.parley.common.security.LimitExceededException
 import app.parley.common.BlockAction
 import app.parley.common.BlockRule
 import app.parley.common.CountryCodes
@@ -14,10 +16,8 @@ import app.parley.common.spam.PackBuilder
 import app.parley.common.spam.PackManifest
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
-import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.util.Base64
-import java.util.zip.GZIPInputStream
 import java.util.zip.GZIPOutputStream
 
 /**
@@ -294,21 +294,9 @@ object RuleTemplates {
         }
         if (bytes.size > 64 * 1024) throw TemplateException("The code is too large")
         val text = try {
-            GZIPInputStream(ByteArrayInputStream(bytes)).use { s ->
-                val out = ByteArrayOutputStream()
-                val buf = ByteArray(8192)
-                var total = 0
-                while (true) {
-                    val n = s.read(buf)
-                    if (n < 0) break
-                    total += n
-                    if (total > 512 * 1024) throw TemplateException("The code is too large")
-                    out.write(buf, 0, n)
-                }
-                out.toByteArray().decodeToString()
-            }
-        } catch (e: TemplateException) {
-            throw e
+            Bounded.gunzip(bytes, 512L * 1024).decodeToString()
+        } catch (_: LimitExceededException) {
+            throw TemplateException("The code is too large")
         } catch (e: Exception) {
             throw TemplateException("The code is damaged")
         }

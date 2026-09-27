@@ -10,6 +10,7 @@ import app.parley.common.Duplicates
 import app.parley.common.PhoneNumbers
 import app.parley.data.DataContainer
 import app.parley.data.backup.BackupExtras
+import app.parley.data.backup.ConfirmedRestore
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
@@ -69,8 +70,26 @@ class PeopleContainer(private val c: DataContainer) {
     fun labelsOf(contactId: Long): Set<String> = c.contacts.labelTitlesOf(contactId)
 }
 
-/** Backs up people preferences, private-name approvals and call backgrounds (matched back by name and number). */
-private class PeopleBackupExtras(private val p: PeopleContainer, private val c: DataContainer) : BackupExtras {
+/**
+ * Backs up people preferences, private-name approvals and call backgrounds (matched back by name and number). The
+ * approvals decide which apps may read private names, so a restore keeps them waiting for the user's confirmation.
+ */
+private class PeopleBackupExtras(private val p: PeopleContainer, private val c: DataContainer) : BackupExtras, ConfirmedRestore {
+    @Volatile private var pendingApprovals: String? = null
+
+    override fun hasPending(): Boolean = pendingApprovals != null
+
+    override suspend fun applyPending(): Boolean {
+        val a = pendingApprovals ?: return false
+        pendingApprovals = null
+        p.privateNames.importApprovals(a)
+        return true
+    }
+
+    override fun discardPending() {
+        pendingApprovals = null
+    }
+
     override val section = "people"
     override val sections = setOf(PersistentStores.Sections.PEOPLE)
 
@@ -101,7 +120,7 @@ private class PeopleBackupExtras(private val p: PeopleContainer, private val c: 
     override suspend fun import(values: Map<String, String>) {
         val peoplePrefix = "${BackupExtras.PREFIX}people."
         p.prefs.importMap(values.filterKeys { it.startsWith(peoplePrefix) }.mapKeys { it.key.removePrefix(peoplePrefix) })
-        values["${BackupExtras.PREFIX}privatenames.approvals"]?.let { p.privateNames.importApprovals(it) }
+        values["${BackupExtras.PREFIX}privatenames.approvals"]?.let { a -> if (a != p.privateNames.exportApprovals()) pendingApprovals = a }
         values["${BackupExtras.PREFIX}me.card"]?.let { p.me.importJson(it) }
         val bgs = values.filterKeys { it.startsWith("${BackupExtras.PREFIX}bg.") }
         if (bgs.isEmpty()) return

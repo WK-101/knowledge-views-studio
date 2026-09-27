@@ -35,6 +35,41 @@ class ListPackTest {
         assertFalse(Ed25519.verify(Ed25519.publicKey(sk2), byteArrayOf(0x73), sig2))
     }
 
+    /** RFC 8032 §7.1 tests 1, 2, 3 and "SHA(abc)", through both the platform and the pure implementation. */
+    @Test fun ed25519_rfc8032_vectors_on_both_paths() {
+        val vectors = listOf(
+            Triple(
+                "9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60", "",
+                "e5564300c360ac729086e2cc806e828a84877f1eb8e5d974d873e065224901555fb8821590a33bacc61e39701cf9b46bd25bf5f0595bbe24655141438e7a100b",
+            ),
+            Triple(
+                "4ccd089b28ff96da9db6c346ec114e0f5b8a319f35aba624da8cf6ed4fb8a6fb", "72",
+                "92a009a9f0d4cab8720e820b5f642540a2b27b5416503f8fb3762223ebdb69da085ac1e43e15996e458f3613d0f11d8c387b2eaeb4302aeeb00d291612bb0c00",
+            ),
+            Triple(
+                "c5aa8df43f9f837bedb7442f31dcb7b166d38535076f094b85ce3a2e0b4458f7", "af82",
+                "6291d657deec24024827e69c3abe01a30ce548a284743a445e3680d7db5ac3ac18ff9b538d16f290ae67f760984dc6594a7c15e9716ed28dc027beceea1ec40a",
+            ),
+            Triple(
+                "833fe62409237b9d62ec77587520911e9a759cec1d19755b7da901b96dca3d42",
+                "ddaf35a193617abacc417349ae20413112e6fa4e89a97ea20a9eeee64b55d39a2192992a274fc1a836ba3c23a3feebbd454d4423643ce80e2a9ac94fa54ca49f",
+                "dc2a4459e7369633a52b1bf277839a00201009a3efbf3ecb69bea2186c26b58909351fc9ac90b3ecfdfbc7c66431e0303dca179c138ac17ad9bef1177331a704",
+            ),
+        )
+        assertTrue("the JVM has Ed25519", Ed25519.platformAvailable)
+        for ((sk, msg, sig) in vectors) {
+            val m = hex(msg)
+            assertArrayEquals(hex(sig), Ed25519.sign(hex(sk), m))
+            assertArrayEquals(hex(sig), Ed25519.signPure(hex(sk), m))
+            val pk = Ed25519.publicKey(hex(sk))
+            assertTrue(Ed25519.verify(pk, m, hex(sig)))
+            assertTrue(Ed25519.verifyPure(pk, m, hex(sig)))
+            val bad = hex(sig).also { it[0] = (it[0] + 1).toByte() }
+            assertFalse(Ed25519.verify(pk, m, bad))
+            assertFalse(Ed25519.verifyPure(pk, m, bad))
+        }
+    }
+
     @Test fun ed25519_matches_the_jdk() {
         val sk = Ed25519.newSecret()
         val msg = "parley".encodeToByteArray()
@@ -69,6 +104,29 @@ class ListPackTest {
         assertTrue(idx.lookup("01 62 12 34 56", "FR", true)!!.range)
         assertNull(idx.lookup("01 62 12 34 56", "FR", false))
         assertNull(idx.lookup("+33612345678", "FR", true))
+    }
+
+    @Test fun keys_are_pinned_per_pack_and_for_the_companion() {
+        val sk = Ed25519.newSecret()
+        fun pack(key: ByteArray?, id: String = "test.pack") = ListPack.parse(
+            PackBuilder(PackManifest(id = id, name = "Test", version = 1)).apply { addNumber("+18555550100", 1, 90) }.build(key),
+        )
+        val signed = pack(sk)
+        val installedKey = signed.manifest.publicKey
+        fun state(origin: PackOrigin, fp: String?) =
+            PackState(id = "test.pack", name = "Test", version = 1, fingerprint = fp, publicKey = installedKey, origin = origin)
+        val installed = state(PackOrigin.FILE, signed.fingerprint)
+        // Same key: fine. Another key or unsigned: refused.
+        assertNull(ListPack.refusal(installed, installedKey, pack(sk), PackOrigin.FILE, null))
+        assertNotNull(ListPack.refusal(installed, installedKey, pack(Ed25519.newSecret()), PackOrigin.FILE, null))
+        assertNotNull(ListPack.refusal(installed, installedKey, pack(null), PackOrigin.FILE, null))
+        // A built-in is never replaced by a file or the companion.
+        assertNotNull(ListPack.refusal(state(PackOrigin.BUILTIN, null), null, pack(sk), PackOrigin.FILE, null))
+        // The companion's lists must be signed, and with the pinned companion key once there is one.
+        assertNotNull(ListPack.refusal(null, null, pack(null, "other"), PackOrigin.UPDATER, null))
+        assertNull(ListPack.refusal(null, null, pack(sk, "other"), PackOrigin.UPDATER, null))
+        assertNull(ListPack.refusal(null, null, pack(sk, "other"), PackOrigin.UPDATER, installedKey))
+        assertNotNull(ListPack.refusal(null, null, pack(Ed25519.newSecret(), "other"), PackOrigin.UPDATER, installedKey))
     }
 
     @Test fun unsigned_pack_is_accepted_and_marked() {

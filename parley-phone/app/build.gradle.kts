@@ -159,6 +159,8 @@ val allowedPermissions = setOf(
     "android.permission.CALL_PHONE",
     "android.permission.FOREGROUND_SERVICE",
     "android.permission.GET_ACCOUNTS",
+    // Hides other apps' overlays over sensitive screens (Android 12+), against tapjacking; a normal permission.
+    "android.permission.HIDE_OVERLAY_WINDOWS",
     "android.permission.MODIFY_AUDIO_SETTINGS",
     "android.permission.POST_NOTIFICATIONS",
     "android.permission.READ_CALL_LOG",

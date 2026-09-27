@@ -1,5 +1,6 @@
 package app.parley.messaging
 
+import app.parley.security.LockedActivity
 import android.Manifest
 import android.content.ClipboardManager
 import android.content.Context
@@ -57,7 +58,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.lifecycleScope
 import app.parley.CallGate
 import app.parley.MainActivity
@@ -79,7 +79,6 @@ import app.parley.data.PhoneEnv
 import app.parley.data.PlaceResult
 import app.parley.telecom.CallManager
 import app.parley.telecom.CallState
-import app.parley.ui.AppLocale
 import app.parley.ui.Bidi
 import app.parley.ui.ParleyTheme
 import app.parley.ui.common.CallQuestions
@@ -103,12 +102,9 @@ import androidx.compose.ui.semantics.semantics
  * Nothing starts without a tap: several numbers show a picker, and every action is a button. The text is only used
  * to find numbers and is never stored. This activity doesn't handle `tel:` links (the keypad does).
  */
-class NumberActionActivity : FragmentActivity() {
-    // The in-app language on Android 10-12 (Android 13+ applies per-app languages itself).
-    override fun attachBaseContext(newBase: Context) {
-        super.attachBaseContext(newBase)
-        AppLocale.override(this, newBase)
-    }
+class NumberActionActivity : LockedActivity() {
+    // A sheet over another app: other apps' overlays can't cover its buttons.
+    override val hidesOverlays = true
 
     private sealed interface Stage {
         data object NoNumber : Stage

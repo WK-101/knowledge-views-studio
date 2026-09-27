@@ -144,3 +144,23 @@ configurations.matching { it.name == "detekt" || it.name == "detektPlugins" }.co
         if (requested.group == "org.jetbrains.kotlin") useVersion(io.gitlab.arturbosch.detekt.getSupportedKotlinVersion())
     }
 }
+
+/*
+ * Dependency verification: every artifact Gradle downloads is checked against gradle/verification-metadata.xml
+ * (SHA-256). After adding or updating a dependency, regenerate the file and review the diff:
+ *   ./gradlew --write-verification-metadata sha256 resolveAllDependencies <the tasks CI runs>
+ * This task resolves every configuration of every module (release ones included) so nothing is missed.
+ */
+tasks.register("resolveAllDependencies") {
+    group = "help"
+    description = "Resolves every resolvable configuration of every module (for dependency verification metadata)."
+    notCompatibleWithConfigurationCache("Walks every project's configurations")
+    doLast {
+        allprojects.forEach { p ->
+            p.configurations.filter { it.isCanBeResolved }.forEach { c ->
+                // Some Android configurations can't be resolved on their own (they need a variant's attributes).
+                runCatching { c.resolve() }
+            }
+        }
+    }
+}

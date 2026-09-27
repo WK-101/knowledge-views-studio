@@ -91,6 +91,7 @@ class ContactsScaleTest {
         val folder = FakeDocumentsProvider.install()
         val sync = FolderSync(app, repo, ContactRecordStore(app))
         sync.setFolder(folder.treeUri, "Sync")
+        sync.usePlain()
 
         val (first, firstMs) = timed { sync.syncNow() }
         assertEquals(COUNT, first.written)

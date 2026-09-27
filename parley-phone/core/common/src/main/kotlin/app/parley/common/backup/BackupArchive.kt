@@ -1,6 +1,8 @@
 package app.parley.common.backup
 
 import app.parley.common.record.ContactRecord
+import app.parley.common.security.Bounded
+import app.parley.common.security.LimitExceededException
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.builtins.ListSerializer
@@ -105,6 +107,8 @@ data class Manifest(
     val device: Map<String, String> = emptyMap(),
     val counts: Map<String, Long> = emptyMap(),
     val entries: List<ManifestEntry> = emptyList(),
+    /** The making phone's signature over the header and everything above (absent in older backups). */
+    val signature: ArchiveSignature? = null,
 ) {
     fun entry(name: String): ManifestEntry? = entries.firstOrNull { it.name == name }
 
@@ -121,12 +125,16 @@ data class Manifest(
     }
 }
 
-/** Caller-supplied metadata for [Manifest]. */
+/** Caller-supplied metadata for [Manifest]. [signing] signs the manifest with the phone's key. */
 data class ArchiveMeta(
     val createdAt: Long,
     val appVersion: String,
     val device: Map<String, String> = emptyMap(),
+    val signing: ArchiveSigning? = null,
 )
+
+/** Signs an archive: [header] is the envelope header it is written under (see [EncryptingOutputStream.header]). */
+class ArchiveSigning(val header: ByteArray, val signer: ArchiveSigner)
 
 /** Zip-bomb and memory limits enforced by [BackupArchiveReader]. Sizes are uncompressed bytes actually read. */
 data class ArchiveLimits(
@@ -381,7 +389,7 @@ class BackupArchiveWriter private constructor(out: OutputStream?, private val me
         if (counts.containsKey(BackupArchive.Counts.CONTACTS)) counts[BackupArchive.Counts.PHOTOS] = photos.size.toLong()
         photos.forEach { (h, b) -> entry("${BackupArchive.PHOTO_PREFIX}$h.bin") { it.write(b) } }
         photos.clear()
-        val m = Manifest(
+        val unsigned = Manifest(
             formatVersion = BackupArchive.FORMAT_VERSION,
             createdAt = meta.createdAt,
             appVersion = meta.appVersion,
@@ -389,6 +397,7 @@ class BackupArchiveWriter private constructor(out: OutputStream?, private val me
             counts = TreeMap(counts),
             entries = entries.toList(),
         )
+        val m = meta.signing?.let { s -> unsigned.copy(signature = ArchiveSignatures.sign(s.signer, s.header, unsigned)) } ?: unsigned
         zip?.let { z ->
             z.putNextEntry(ZipEntry(BackupArchive.MANIFEST).apply { setTimeLocal(BackupArchive.DOS_EPOCH) })
             z.write(jsonBytes(RecordJson.json.encodeToString(Manifest.serializer(), m)))
@@ -545,7 +554,10 @@ class BackupArchiveReader private constructor(
             var inMemory = 0L
             var entryCount = 0
             try {
-                ZipInputStream(source()).use { zin ->
+                // A zip bomb expands far beyond real contacts and photos: the ratio guard stops it early. Large, very
+                // uniform address books compress well, so backups get more room than other inputs.
+                val guard = Bounded.RatioGuard(source(), ratio = 4 * Bounded.Caps.GZIP_RATIO, slack = 4L shl 20)
+                ZipInputStream(guard.compressed).use { zin ->
                     val buf = ByteArray(64 * 1024)
                     while (true) {
                         val e = zin.nextEntry ?: break
@@ -570,6 +582,11 @@ class BackupArchiveReader private constructor(
                             size += n; total += n
                             if (size > limits.maxEntryBytes) throw BackupIntegrityException("Entry $name exceeds size limit")
                             if (total > limits.maxTotalBytes) throw BackupIntegrityException("Backup exceeds total size limit")
+                            try {
+                                guard.check(total)
+                            } catch (e: LimitExceededException) {
+                                throw BackupIntegrityException("Backup expands too much to be real data", e)
+                            }
                             md.update(buf, 0, n)
                             if (bo != null) {
                                 inMemory += n

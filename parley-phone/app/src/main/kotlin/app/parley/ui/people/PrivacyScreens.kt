@@ -1,5 +1,6 @@
 package app.parley.ui.people
 
+import app.parley.security.SensitiveScreen
 import app.parley.ui.Destination
 import android.content.Intent
 import android.net.Uri
@@ -241,6 +242,7 @@ private fun ApprovalRow(pkg: String, label: String, a: LookupApproval, set: (Loo
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PrivateNamesScreen(vm: AppViewModel, back: () -> Unit) {
+    SensitiveScreen()
     val context = LocalContext.current
     val access = vm.c.people.privateNames
     val st by access.state.collectAsStateWithLifecycle()

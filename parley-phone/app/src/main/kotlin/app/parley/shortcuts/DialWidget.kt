@@ -1,5 +1,6 @@
 package app.parley.shortcuts
 
+import app.parley.security.LockedActivity
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
@@ -18,7 +19,6 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.getValue
 import androidx.core.graphics.createBitmap
-import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.R
 import app.parley.container
@@ -26,7 +26,6 @@ import app.parley.picker.PickKind
 import app.parley.picker.PickerScreen
 import app.parley.security.AppLock
 import app.parley.security.LockScreen
-import app.parley.ui.AppLocale
 import app.parley.ui.ParleyTheme
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Dispatchers
@@ -91,13 +90,7 @@ class DialWidget : AppWidgetProvider() {
 }
 
 /** Chooses the phone number for a new direct-dial widget. */
-class DialWidgetConfigActivity : FragmentActivity() {
-    // The in-app language on Android 10-12 (Android 13+ applies per-app languages itself).
-    override fun attachBaseContext(newBase: Context) {
-        super.attachBaseContext(newBase)
-        AppLocale.override(this, newBase)
-    }
-
+class DialWidgetConfigActivity : LockedActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
@@ -138,15 +131,5 @@ class DialWidgetConfigActivity : FragmentActivity() {
                 )
             }
         }
-    }
-
-    override fun onStart() {
-        super.onStart()
-        lifecycleScope.launch { AppLock.onStart(container.settings.current()) }
-    }
-
-    override fun onStop() {
-        AppLock.onStop()
-        super.onStop()
     }
 }

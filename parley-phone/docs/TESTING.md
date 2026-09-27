@@ -1075,6 +1075,49 @@ Baseline profile
 
 ## 21. Hardening (4.0)
 
+### 21.1 Security
+
+What each item protects is explained in [SECURITY_MODEL.md](SECURITY_MODEL.md).
+
+Private contacts: key lifecycle
+- [ ] Fresh install on a phone **with** a screen lock: add a private contact, then `adb shell dumpsys keystore2` (or the "vault key" line in diagnostics, if shown) lists `parley_vault_detail_g1`. Opening its details asks for the fingerprint or PIN after 5 minutes; with the phone locked (another app in front, screen off), the details can't be opened by the app.
+- [ ] Phone **without** a screen lock: add a private contact, then set a PIN. Open Parley, unlock it (or open a private contact and confirm): within a few seconds the vault moves to a new key (`parley_vault_detail_g2`), every private contact still opens, and the old key is gone.
+- [ ] Update from 3.x with private contacts: after the first unlock, all of them still open and the old `parley_vault_detail_v1` key is replaced.
+- [ ] Remove the screen lock (Settings › Security › None), then open a private contact: name, numbers, job title and the note for calls show, with "Some details can't be opened any more". Nothing is rewritten until "Keep what's left"; after it, the contact opens normally and a file sits in `no_backup/vault-unreadable/`.
+
+Small records sealed at rest
+- [ ] Add a pinned note, a call note and let a named caller be screened; `adb shell run-as app.parley.phone sqlite3 databases/parley.db "select pinnedNote from contact_meta; select text from call_notes; select callerName from blocked_calls"` shows only `\u0001rs1:` values. The app shows them normally, and a backup restores them readable.
+- [ ] Update from 3.x with existing notes: about 30 seconds after opening Parley the same query shows them sealed; nothing was lost. The undo journal ("History & undo") and time-machine snapshots still restore.
+
+Backups
+- [ ] New backup passphrase: "password12" and "qwertyuiop12" show Weak with a hint and Save stays disabled; "correct horse battery staple" shows Strong or Very strong and saves.
+- [ ] Restore a backup made on this phone: the options show "Made on this phone". Restore it on a second phone (same passphrase): "Made on another phone of yours".
+- [ ] Restore a backup made by 3.x: "This backup isn't signed…" warning in red; restoring still works.
+- [ ] Existing 3.x users: Backup shows "Mark this phone's backups as yours"; enter the passphrase once and the row disappears.
+- [ ] Restore with "Settings" ticked from a backup that had the app lock and discreet mode on, onto a phone where they are off: the summary says safety settings weren't changed; "Apply the backup's safety settings" asks for the app lock and then turns them on. Closing the dialog leaves them off. Same for supervised call time and apps allowed to show private names.
+- [ ] A `parley://qr` or `parley://simple` link whose header asks for 10,000,000 KDF rounds is refused at once ("damaged"), without a long wait.
+
+Folder sync
+- [ ] Choose a new sync folder: Parley asks how to store the files; "Encrypted (recommended)" asks for a new sync passphrase (Strong required). The folder then holds `.parley-sync` and `*.parleycard` files, none readable as text.
+- [ ] On the second phone choose the same folder, "Encrypted": it asks for the passphrase chosen on the first phone; a wrong one says so; the right one syncs both ways.
+- [ ] "Plain vCard files" needs the "I understand these files are readable by anyone with the folder" tick; the screen then says the files are readable, with "Switch to encrypted files". Switching removes the `.vcf` files this phone wrote.
+- [ ] A folder set up with 3.x shows the choice and doesn't sync until one is made. A 10 MB `.vcf` in a plain folder is skipped (left alone), not loaded.
+
+Bounded readers
+- [ ] Import a vCard with a 20 MB PHOTO line, a CSV with a 5 MB quoted cell, and a zip bomb renamed `.parleylist`: each fails with a short "too large" message, and Parley stays responsive.
+
+Overlays, shares and links
+- [ ] Android 12+: with a floating overlay app (a screen dimmer or chat bubble) on, open the app lock, a private contact, Delete all data, a backup restore, Private names, or the "Message a number" sheet: the overlay disappears while the screen shows and comes back afterwards.
+- [ ] Share a `file:///sdcard/...vcf` to Parley with `adb shell am start -a android.intent.action.SEND -t text/x-vcard --eu android.intent.extra.STREAM file:///sdcard/Download/a.vcf app.parley.phone/app.parley.MainActivity`: nothing is imported. The same file shared from a file manager (a `content://` URI) imports.
+- [ ] A note containing `https://paypa1.com/login`: tapping it opens the web-address sheet with the domain large and the look-alike warning, not the browser.
+- [ ] `adb shell am start -a com.android.contacts.action.JOIN_CONTACT --el com.android.contacts.action.CONTACT_ID <id> app.parley.phone/app.parley.picker.PickerActivity`: the picker title names the contact; picking another asks "Link these contacts?" naming the app and both contacts.
+
+Entry points and build
+- [ ] With the app lock on (lock at once): the contact picker (from another app), the "Message a number" sheet and the dial-widget setup all show the lock; with "Hide screen content" on, their screenshots are black and Recents shows them blank.
+- [ ] `./gradlew :app:testDebugUnitTest --tests '*ExportedComponents*'` passes; add `android:exported="true"` to any activity or service without a permission and it fails naming it.
+- [ ] Change one byte of a cached dependency jar under `~/.gradle/caches/modules-2` (or edit a checksum in `gradle/verification-metadata.xml`): the build fails with a verification error.
+- [ ] Spam lists: install a list from Parley Lists, then a list with the same id signed by another key: refused. Removing every Parley Lists list unpins its key.
+
 ### 21.2 Robustness
 
 Contact saves changed elsewhere

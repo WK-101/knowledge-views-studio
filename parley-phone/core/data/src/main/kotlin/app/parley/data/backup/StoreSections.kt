@@ -1,5 +1,6 @@
 package app.parley.data.backup
 
+import app.parley.data.db.MetaDao
 import android.util.Base64
 import androidx.room.withTransaction
 import app.parley.common.ContactSummary
@@ -45,12 +46,14 @@ private fun JSONArray.objects(): List<JSONObject> = (0 until length()).mapNotNul
 class ContactNotesBackup(
     private val db: AppDatabase,
     private val contactsNow: suspend () -> List<ContactSummary>,
+    /** The notes DAO the app uses (it seals notes at rest); the backup holds them decrypted, inside its own encryption. */
+    private val metaDao: MetaDao = db.metaDao(),
     private val rawIds: (Long) -> List<Long>,
 ) : BackupExtras {
     override val section = "contact notes"
     override val sections = setOf(Sections.CONTACT_NOTES)
     override val restoreWith = RestorePart.CONTACTS
-    private val meta get() = db.metaDao()
+    private val meta get() = metaDao
 
     override suspend fun export(): Map<String, String> {
         val refs = PersonRefs(contactsNow())
@@ -138,8 +141,8 @@ class ContactNotesBackup(
 
 /**
  * Call-time settings (reminders, limits, allowances, supervision) and the call switches (proximity, pocket guard,
- * missed-call re-alert). Restoring over supervised limits is never done silently: the backup's settings wait until the
- * user confirms with the app lock ([ConfirmedRestore]).
+ * missed-call re-alert). Supervision is never changed silently (neither lifted nor imposed): the backup's settings wait
+ * until the user confirms with the app lock ([ConfirmedRestore]).
  */
 class CallTimeBackup(
     private val calling: CallingRepository,
@@ -169,7 +172,8 @@ class CallTimeBackup(
         val people = values[K_PEOPLE]?.let { runCatching { JSONObject(it) }.getOrNull() } ?: JSONObject()
         val refs = PersonRefs(contactsNow())
         val mapped = CallTimeRestore.remap(backup) { k -> refs.resolve(people.optJSONObject(k)?.toPersonRef() ?: PersonRef(k))?.lookupKey }
-        if (calling.config.value.supervised) pending = mapped.config else apply(mapped.config)
+        // Supervision is a safeguard either way: switching it off, or on, from a file waits for the user's confirmation.
+        if (calling.config.value.supervised || mapped.config.supervised) pending = mapped.config else apply(mapped.config)
         return mapped.unmatched
     }
 

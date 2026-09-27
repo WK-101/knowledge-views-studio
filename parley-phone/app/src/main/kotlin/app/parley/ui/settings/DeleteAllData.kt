@@ -1,5 +1,6 @@
 package app.parley.ui.settings
 
+import app.parley.security.SensitiveScreen
 import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
@@ -69,6 +70,7 @@ private sealed interface WipeStep {
  */
 @Composable
 fun DeleteAllDataDialog(vm: AppViewModel, onDismiss: () -> Unit) {
+    SensitiveScreen()
     val context = LocalContext.current
     val res = LocalResources.current
     val scope = rememberCoroutineScope()

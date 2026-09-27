@@ -5,6 +5,8 @@ import app.parley.common.record.ContactRecord
 import app.parley.common.record.DataRow
 import app.parley.common.record.Mime
 import app.parley.common.record.RawRecord
+import app.parley.common.security.Bounded
+import app.parley.common.security.LimitExceededException
 import java.io.BufferedReader
 import java.io.Reader
 
@@ -175,9 +177,8 @@ object ContactCsv {
 
     /** Reads a one-number-per-line list: each number becomes a contact that shows the number as its name. */
     fun readNumberList(input: Reader, report: ImportReportBuilder, onRecord: (ParsedCard) -> Unit) {
-        val r = if (input is BufferedReader) input else BufferedReader(input)
         var line = 0
-        r.lineSequence().forEach { raw ->
+        Bounded.LineReader(input, maxLines = Bounded.Caps.IMPORT_ENTRIES.toLong()).lineSequence().forEach { raw ->
             line++
             val cell = unescapeFormula(raw.trim().trimStart('﻿').trim('"')).trim()
             if (cell.isEmpty()) return@forEach
@@ -215,6 +216,9 @@ object ContactCsv {
 
     private const val SNIFF_CHARS = 16 * 1024
 
+    /** More columns than any real export has (Google's has about 90). */
+    private const val MAX_COLUMNS = 2_000
+
     /** RFC 4180 parser: quoted cells may hold [delimiter]s, quotes and line breaks. Returns rows of cells. */
     fun parse(input: Reader, delimiter: Char = ','): Sequence<List<String>> = sequence {
         val r = if (input is BufferedReader) input else BufferedReader(input)
@@ -223,7 +227,11 @@ object ContactCsv {
         var quoted = false
         var any = false
         var first = true
+        var rows = 0
         while (true) {
+            // A crafted file could hold one endless quoted cell or millions of columns: cap both, and the row count.
+            if (cell.length > Bounded.Caps.TEXT_LINE) throw LimitExceededException("A cell is longer than ${Bounded.Caps.TEXT_LINE / 1024} KB")
+            if (row.size > MAX_COLUMNS) throw LimitExceededException("A line has more than $MAX_COLUMNS columns")
             var ch = r.read()
             if (first) { first = false; if (ch == 0xFEFF) ch = r.read() }
             if (ch < 0) break
@@ -242,7 +250,10 @@ object ContactCsv {
                 '\r', '\n' -> {
                     if (c == '\r') { r.mark(1); if (r.read() != '\n'.code) r.reset() }
                     row += cell.toString(); cell.setLength(0)
-                    if (!(row.size == 1 && row[0].isEmpty())) yield(row.toList())
+                    if (!(row.size == 1 && row[0].isEmpty())) {
+                        if (++rows > Bounded.Caps.IMPORT_ENTRIES) throw LimitExceededException("The file has more than ${Bounded.Caps.IMPORT_ENTRIES} lines")
+                        yield(row.toList())
+                    }
                     row.clear()
                     any = false
                 }

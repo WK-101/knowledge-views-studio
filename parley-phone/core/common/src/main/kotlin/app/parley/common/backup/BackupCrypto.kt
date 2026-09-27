@@ -25,15 +25,12 @@ import java.security.spec.MGF1ParameterSpec
 import java.security.spec.PKCS8EncodedKeySpec
 import java.security.spec.RSAKeyGenParameterSpec
 import java.security.spec.X509EncodedKeySpec
-import java.text.Normalizer
 import javax.crypto.AEADBadTagException
 import javax.crypto.Cipher
 import javax.crypto.Mac
 import javax.crypto.SecretKey
-import javax.crypto.SecretKeyFactory
 import javax.crypto.spec.GCMParameterSpec
 import javax.crypto.spec.OAEPParameterSpec
-import javax.crypto.spec.PBEKeySpec
 import javax.crypto.spec.PSource
 import javax.crypto.spec.SecretKeySpec
 
@@ -43,11 +40,11 @@ import javax.crypto.spec.SecretKeySpec
  * File layout (all integers big-endian):
  *
  *   header := magic "PARLEYB1" | u8 version | u32 bodyLen | body
- *   body   := u8 kdfAlg(1 = PBKDF2-HMAC-SHA256) | u32 iterations | u8 saltLen(16) | salt
+ *   body   := u8 kdfAlg | u32 kdfParam | u8 saltLen(16) | salt
  *             | u32 segmentSize | noncePrefix[7] | u8 wrapCount | wrap*
  *   wrap   := u8 type | u32 len | payload
  *   payload:
- *     PASSPHRASE  nonce[12] | AES-GCM(KEK = PBKDF2(passphrase, salt, iterations), DEK)
+ *     PASSPHRASE  nonce[12] | AES-GCM(KEK = KDF(passphrase, salt), DEK)
  *     RECOVERY    nonce[12] | AES-GCM(KEK = HKDF-SHA256(recoveryKey, salt), DEK)
  *     PUBLIC_KEY  u32 bundleLen | KeyBundle bytes | u32 rsaLen | RSA-OAEP-SHA256(publicKey, DEK)
  *
@@ -58,6 +55,9 @@ import javax.crypto.spec.SecretKeySpec
  * payload is one empty last segment. The last-segment flag and the counter in the nonce make truncation,
  * reordering and extension fail authentication. The header is AAD of every segment, so any header byte
  * that a key wrap does not itself cover (KDF params, nonce prefix, other wraps) is authenticated too.
+ *
+ * kdfAlg 1 is PBKDF2-HMAC-SHA256 (kdfParam = iterations); kdfAlg 2 is scrypt (kdfParam = log2 N << 16 | r << 8 | p,
+ * see [KdfParams]). New files use scrypt; PBKDF2 files stay readable. Readers cap the parameters ([KdfPolicy]).
  *
  * A PUBLIC_KEY wrap embeds the KeyBundle (public key + private key encrypted under the passphrase and
  * under the recovery key), so scheduled backups need only the public key on the phone, yet can be
@@ -72,7 +72,7 @@ class WrongKeyException(message: String, cause: Throwable? = null) : IOException
 
 /** What an archive is encrypted to. Any one of them can later decrypt it. */
 sealed interface Recipient {
-    /** DEK wrapped under PBKDF2(passphrase). The caller may wipe the array after [BackupCrypto.encrypt]. */
+    /** DEK wrapped under KDF(passphrase). The caller may wipe the array after [BackupCrypto.encrypt]. */
     class Passphrase(val passphrase: CharArray) : Recipient
     class Recovery(val key: RecoveryKey) : Recipient
     /** Public-key wrap: needs no secret at backup time. */
@@ -106,7 +106,7 @@ class KeyWrap(val type: WrapType, payload: ByteArray) {
 /** Parsed envelope header. [bytes] is the exact serialized header (the AAD of every segment). */
 class EnvelopeHeader internal constructor(
     val version: Int,
-    val iterations: Int,
+    val kdf: KdfParams,
     salt: ByteArray,
     val segmentSize: Int,
     noncePrefix: ByteArray,
@@ -123,6 +123,9 @@ class EnvelopeHeader internal constructor(
 
     val wrapTypes: Set<WrapType> get() = wraps.map { it.type }.toSet()
 
+    /** The KDF's stored parameter (PBKDF2 iterations, or packed scrypt settings). */
+    val iterations: Int get() = kdf.param
+
     /** The key bundle embedded in a PUBLIC_KEY wrap, if any (to show "encrypted to key XYZ"). */
     val keyBundle: KeyBundle?
         get() = wraps.firstOrNull { it.type == WrapType.PUBLIC_KEY }?.let { BackupCrypto.splitPublicWrap(it.payload).first }
@@ -133,14 +136,18 @@ object BackupCrypto {
     const val VERSION = 1
     const val DEFAULT_ITERATIONS = 600_000
     const val MIN_ITERATIONS = 1_000
-    const val MAX_ITERATIONS = 10_000_000
+
+    /** Readers refuse more: a crafted file must not make each passphrase attempt burn many seconds. */
+    const val MAX_ITERATIONS = 2_000_000
+
+    /** New files: scrypt with N = 2^15, r = 8, p = 1 (32 MB, about a second on a phone). */
+    val DEFAULT_KDF: KdfParams = KdfParams.Scrypt(15, 8, 1)
     const val SEGMENT_SIZE = 64 * 1024
     const val SALT_SIZE = 16
     const val NONCE_PREFIX_SIZE = 7
     const val TAG_SIZE = 16
     const val RSA_BITS = 3072
 
-    internal const val KDF_PBKDF2_SHA256 = 1
     internal const val MAX_HEADER_BODY = 64 * 1024
     internal const val MAX_WRAPS = 16
     private const val GCM_NONCE = 12
@@ -153,17 +160,17 @@ object BackupCrypto {
      * everything written to it. Closing the returned stream finishes the last segment and closes [out];
      * [EncryptingOutputStream.finish] finishes without closing.
      *
-     * [iterations] is the PBKDF2 cost for [Recipient.Passphrase] wraps (tests use [MIN_ITERATIONS]).
+     * [kdf] is the cost for [Recipient.Passphrase] wraps (tests use a cheap one).
      */
     fun encrypt(
         out: OutputStream,
         recipients: List<Recipient>,
-        iterations: Int = DEFAULT_ITERATIONS,
+        kdf: KdfParams = DEFAULT_KDF,
         random: SecureRandom = SecureRandom(),
     ): EncryptingOutputStream {
         require(recipients.isNotEmpty()) { "At least one recipient is required" }
         require(recipients.size <= MAX_WRAPS) { "Too many recipients" }
-        checkIterations(iterations)
+        checkKdf(kdf)
         val dek = ByteArray(32).also(random::nextBytes)
         val salt = ByteArray(SALT_SIZE).also(random::nextBytes)
         val prefix = ByteArray(NONCE_PREFIX_SIZE).also(random::nextBytes)
@@ -171,7 +178,7 @@ object BackupCrypto {
             val wraps = recipients.map { r ->
                 when (r) {
                     is Recipient.Passphrase -> {
-                        val kek = pbkdf2(r.passphrase, salt, iterations)
+                        val kek = Kdf.derive(r.passphrase, salt, kdf)
                         KeyWrap(WrapType.PASSPHRASE, gcmSeal(kek, dek, wrapAad(WrapType.PASSPHRASE), random))
                     }
                     is Recipient.Recovery -> {
@@ -192,7 +199,7 @@ object BackupCrypto {
                     }
                 }
             }
-            val header = buildHeader(iterations, salt, SEGMENT_SIZE, prefix, wraps)
+            val header = buildHeader(kdf, salt, SEGMENT_SIZE, prefix, wraps)
             return EncryptingOutputStream(out, header, SecretKeySpec(dek, "AES"))
         } finally {
             dek.fill(0)
@@ -203,18 +210,21 @@ object BackupCrypto {
     fun encryptBytes(
         plaintext: ByteArray,
         recipients: List<Recipient>,
-        iterations: Int = DEFAULT_ITERATIONS,
+        kdf: KdfParams = DEFAULT_KDF,
         random: SecureRandom = SecureRandom(),
     ): ByteArray {
         val bo = ByteArrayOutputStream()
-        encrypt(bo, recipients, iterations, random).use { it.write(plaintext) }
+        encrypt(bo, recipients, kdf, random).use { it.write(plaintext) }
         return bo.toByteArray()
     }
 
     // ---------------------------------------------------------------- decryption
 
-    /** Reads and validates the header, leaving [input] positioned at the first segment. */
-    fun readHeader(input: InputStream): EnvelopeHeader {
+    /**
+     * Reads and validates the header, leaving [input] positioned at the first segment. KDF parameters outside
+     * [policy] are refused before any key derivation runs.
+     */
+    fun readHeader(input: InputStream, policy: KdfPolicy = KdfPolicy.BACKUP): EnvelopeHeader {
         val din = DataInputStream(input)
         try {
             val magic = ByteArray(MAGIC_BYTES.size).also(din::readFully)
@@ -227,20 +237,18 @@ object BackupCrypto {
             val headerBytes = ByteArrayOutputStream(9 + 4 + bodyLen).apply {
                 write(magic); write(version); write(ByteBuffer.allocate(4).putInt(bodyLen).array()); write(body)
             }.toByteArray()
-            return parseBody(version, body, headerBytes)
+            return parseBody(version, body, headerBytes, policy)
         } catch (e: EOFException) {
             throw BackupIntegrityException("Truncated header", e)
         }
     }
 
-    private fun parseBody(version: Int, body: ByteArray, headerBytes: ByteArray): EnvelopeHeader {
+    private fun parseBody(version: Int, body: ByteArray, headerBytes: ByteArray, policy: KdfPolicy): EnvelopeHeader {
         val bin = ByteArrayInputStream(body)
         val d = DataInputStream(bin)
         try {
-            val kdf = d.readUnsignedByte()
-            if (kdf != KDF_PBKDF2_SHA256) throw BackupIntegrityException("Unknown KDF $kdf")
-            val iterations = d.readInt()
-            if (iterations !in MIN_ITERATIONS..MAX_ITERATIONS) throw BackupIntegrityException("KDF iterations out of range")
+            val kdf = KdfParams.of(d.readUnsignedByte(), d.readInt())
+            if (!policy.accepts(kdf)) throw BackupIntegrityException("KDF parameters out of range")
             val saltLen = d.readUnsignedByte()
             if (saltLen != SALT_SIZE) throw BackupIntegrityException("Bad salt length")
             val salt = ByteArray(saltLen).also(d::readFully)
@@ -256,49 +264,59 @@ object BackupCrypto {
                 KeyWrap(type, ByteArray(len).also(d::readFully))
             }
             if (bin.available() != 0) throw BackupIntegrityException("Trailing header bytes")
-            return EnvelopeHeader(version, iterations, salt, seg, prefix, wraps, headerBytes)
+            return EnvelopeHeader(version, kdf, salt, seg, prefix, wraps, headerBytes)
         } catch (e: EOFException) {
             throw BackupIntegrityException("Truncated header", e)
         }
     }
 
+    /** An opened archive key, with the key bundle it came through (null for a direct passphrase or recovery wrap). */
+    class Opened internal constructor(val dataKey: SecretKey, val bundle: KeyBundle?, val privateKey: PrivateKey?)
+
     /**
      * Recovers the archive's data key. Throws [WrongKeyException] if no wrap opens with [unlock].
      * Note: a corrupted wrap is indistinguishable from a wrong secret at this point.
      */
-    fun unwrapDataKey(header: EnvelopeHeader, unlock: Unlock): SecretKey {
+    fun unwrapDataKey(header: EnvelopeHeader, unlock: Unlock): SecretKey = open(header, unlock).dataKey
+
+    /**
+     * Like [unwrapDataKey], and says which key bundle opened the archive. That bundle is genuine (its private key
+     * opened with the user's own secret), so it can vouch for the device key that signed the archive.
+     */
+    fun open(header: EnvelopeHeader, unlock: Unlock): Opened {
+        var bundle: KeyBundle? = null
+        var privateKey: PrivateKey? = null
+        fun viaBundles(unlockBundle: (KeyBundle) -> PrivateKey?): ByteArray? = publicWraps(header).firstNotNullOfOrNull { (b, ct) ->
+            val pk = unlockBundle(b) ?: return@firstNotNullOfOrNull null
+            rsaOpenOrNull(pk, ct)?.also { bundle = b; privateKey = pk }
+        }
         val dek: ByteArray? = when (unlock) {
-            is Unlock.Passphrase -> {
-                var found: ByteArray? = null
-                if (header.wraps.any { it.type == WrapType.PASSPHRASE }) {
-                    val kek = pbkdf2(unlock.passphrase, header.salt, header.iterations)
-                    found = header.wraps.filter { it.type == WrapType.PASSPHRASE }.firstNotNullOfOrNull {
-                        gcmOpenOrNull(kek, it.payload, wrapAad(WrapType.PASSPHRASE))
-                    }
-                }
-                found ?: publicWraps(header).firstNotNullOfOrNull { (bundle, ct) ->
-                    val pk = try { unlockPrivateKey(bundle, unlock.passphrase) } catch (_: WrongKeyException) { null }
-                    pk?.let { rsaOpenOrNull(it, ct) }
-                }
-            }
+            is Unlock.Passphrase -> openPassphraseWrap(header, unlock.passphrase)
+                ?: viaBundles { b -> try { unlockPrivateKey(b, unlock.passphrase) } catch (_: WrongKeyException) { null } }
             is Unlock.Recovery -> {
                 val kek = hkdf(unlock.key.bytes(), header.salt, "parley/v1/archive-recovery")
                 header.wraps.filter { it.type == WrapType.RECOVERY }.firstNotNullOfOrNull {
                     gcmOpenOrNull(kek, it.payload, wrapAad(WrapType.RECOVERY))
-                } ?: publicWraps(header).firstNotNullOfOrNull { (bundle, ct) ->
-                    val pk = try { unlockPrivateKey(bundle, unlock.key) } catch (_: WrongKeyException) { null }
-                    pk?.let { rsaOpenOrNull(it, ct) }
-                }
+                } ?: viaBundles { b -> try { unlockPrivateKey(b, unlock.key) } catch (_: WrongKeyException) { null } }
             }
+            // The caller's own key: no bundle vouches for anything here.
             is Unlock.WithPrivateKey -> publicWraps(header).firstNotNullOfOrNull { (_, ct) -> rsaOpenOrNull(unlock.key, ct) }
         }
         if (dek == null || dek.size != 32) throw WrongKeyException("Wrong passphrase or key")
-        return SecretKeySpec(dek, "AES").also { dek.fill(0) }
+        return Opened(SecretKeySpec(dek, "AES").also { dek.fill(0) }, bundle, privateKey)
+    }
+
+    /** The data key from a direct PASSPHRASE wrap (derived only when the archive has one), or null. */
+    private fun openPassphraseWrap(header: EnvelopeHeader, passphrase: CharArray): ByteArray? {
+        val wraps = header.wraps.filter { it.type == WrapType.PASSPHRASE }
+        if (wraps.isEmpty()) return null
+        val kek = Kdf.derive(passphrase, header.salt, header.kdf)
+        return wraps.firstNotNullOfOrNull { gcmOpenOrNull(kek, it.payload, wrapAad(WrapType.PASSPHRASE)) }
     }
 
     /** Reads the header from [input], unwraps the data key and returns the plaintext stream. */
-    fun decrypt(input: InputStream, unlock: Unlock): DecryptingInputStream {
-        val header = readHeader(input)
+    fun decrypt(input: InputStream, unlock: Unlock, policy: KdfPolicy = KdfPolicy.BACKUP): DecryptingInputStream {
+        val header = readHeader(input, policy)
         return DecryptingInputStream(input, header, unwrapDataKey(header, unlock))
     }
 
@@ -309,8 +327,8 @@ object BackupCrypto {
     fun decrypt(input: InputStream, dataKey: SecretKey): DecryptingInputStream =
         DecryptingInputStream(input, readHeader(input), dataKey)
 
-    fun decryptBytes(ciphertext: ByteArray, unlock: Unlock): ByteArray =
-        decrypt(ByteArrayInputStream(ciphertext), unlock).use { it.readBytes() }
+    fun decryptBytes(ciphertext: ByteArray, unlock: Unlock, policy: KdfPolicy = KdfPolicy.BACKUP): ByteArray =
+        decrypt(ByteArrayInputStream(ciphertext), unlock, policy).use { it.readBytes() }
 
     // ---------------------------------------------------------------- key bundle
 
@@ -321,23 +339,23 @@ object BackupCrypto {
     fun createKeyBundle(
         passphrase: CharArray,
         recoveryKey: RecoveryKey = RecoveryKey.generate(),
-        iterations: Int = DEFAULT_ITERATIONS,
+        kdf: KdfParams = DEFAULT_KDF,
         random: SecureRandom = SecureRandom(),
     ): KeyBundle {
-        checkIterations(iterations)
+        checkKdf(kdf)
         val kpg = KeyPairGenerator.getInstance("RSA")
         kpg.initialize(RSAKeyGenParameterSpec(RSA_BITS, RSAKeyGenParameterSpec.F4), random)
         val kp = kpg.generateKeyPair()
         val pkcs8 = kp.private.encoded
         try {
-            return sealBundle(kp.public.encoded, pkcs8, passphrase, recoveryKey, iterations, random)
+            return sealBundle(kp.public.encoded, pkcs8, passphrase, recoveryKey, kdf, random)
         } finally {
             pkcs8.fill(0)
         }
     }
 
     fun unlockPrivateKey(bundle: KeyBundle, passphrase: CharArray): PrivateKey {
-        val kek = pbkdf2(passphrase, bundle.salt, bundle.iterations)
+        val kek = Kdf.derive(passphrase, bundle.salt, bundle.kdf)
         return bundlePrivate(bundle, gcmOpenOrNull(kek, bundle.passphraseWrap, bundleAad(bundle.publicKeyBytes, WrapType.PASSPHRASE)))
     }
 
@@ -347,39 +365,39 @@ object BackupCrypto {
     }
 
     /**
-     * Re-wraps the private key under [newPassphrase] with a fresh salt. The key pair, the recovery
-     * wrap and therefore every existing backup stay valid.
+     * Re-wraps the private key under [newPassphrase] with a fresh salt (and, by default, the current [DEFAULT_KDF], so
+     * older PBKDF2 bundles move to scrypt). The key pair, the recovery wrap and therefore every existing backup stay valid.
      */
     fun changePassphrase(
         bundle: KeyBundle,
         oldPassphrase: CharArray,
         newPassphrase: CharArray,
-        iterations: Int = bundle.iterations,
+        kdf: KdfParams = DEFAULT_KDF,
         random: SecureRandom = SecureRandom(),
     ): KeyBundle {
-        checkIterations(iterations)
+        checkKdf(kdf)
         val pk = unlockPrivateKey(bundle, oldPassphrase)
         val pkcs8 = pk.encoded
         try {
             // The recovery wrap has its own salt (recoverySalt), so it is kept byte-for-byte.
             val salt = ByteArray(SALT_SIZE).also(random::nextBytes)
-            val passKek = pbkdf2(newPassphrase, salt, iterations)
+            val passKek = Kdf.derive(newPassphrase, salt, kdf)
             val passWrap = gcmSeal(passKek, pkcs8, bundleAad(bundle.publicKeyBytes, WrapType.PASSPHRASE), random)
-            return KeyBundle(bundle.publicKeyBytes, iterations, salt, passWrap, bundle.recoveryWrap, bundle.recoverySalt)
+            return KeyBundle(bundle.publicKeyBytes, kdf, salt, passWrap, bundle.recoveryWrap, bundle.recoverySalt)
         } finally {
             pkcs8.fill(0)
         }
     }
 
     private fun sealBundle(
-        pub: ByteArray, pkcs8: ByteArray, passphrase: CharArray, recoveryKey: RecoveryKey, iterations: Int, random: SecureRandom,
+        pub: ByteArray, pkcs8: ByteArray, passphrase: CharArray, recoveryKey: RecoveryKey, kdf: KdfParams, random: SecureRandom,
     ): KeyBundle {
         val salt = ByteArray(SALT_SIZE).also(random::nextBytes)
         val recSalt = ByteArray(SALT_SIZE).also(random::nextBytes)
-        val passWrap = gcmSeal(pbkdf2(passphrase, salt, iterations), pkcs8, bundleAad(pub, WrapType.PASSPHRASE), random)
+        val passWrap = gcmSeal(Kdf.derive(passphrase, salt, kdf), pkcs8, bundleAad(pub, WrapType.PASSPHRASE), random)
         val recKek = hkdf(recoveryKey.bytes(), recSalt, "parley/v1/bundle-recovery")
         val recWrap = gcmSeal(recKek, pkcs8, bundleAad(pub, WrapType.RECOVERY), random)
-        return KeyBundle(pub, iterations, salt, passWrap, recWrap, recSalt)
+        return KeyBundle(pub, kdf, salt, passWrap, recWrap, recSalt)
     }
 
     private fun bundlePrivate(bundle: KeyBundle, pkcs8: ByteArray?): PrivateKey {
@@ -398,8 +416,7 @@ object BackupCrypto {
 
     // ---------------------------------------------------------------- primitives
 
-    internal fun checkIterations(iterations: Int) =
-        require(iterations in MIN_ITERATIONS..MAX_ITERATIONS) { "iterations must be in $MIN_ITERATIONS..$MAX_ITERATIONS" }
+    internal fun checkKdf(kdf: KdfParams) = require(KdfPolicy.BACKUP.accepts(kdf)) { "KDF parameters out of range: $kdf" }
 
     private val OAEP = OAEPParameterSpec("SHA-256", "MGF1", MGF1ParameterSpec.SHA256, PSource.PSpecified.DEFAULT)
 
@@ -428,10 +445,10 @@ object BackupCrypto {
         }
     }
 
-    private fun buildHeader(iterations: Int, salt: ByteArray, seg: Int, prefix: ByteArray, wraps: List<KeyWrap>): EnvelopeHeader {
+    private fun buildHeader(kdf: KdfParams, salt: ByteArray, seg: Int, prefix: ByteArray, wraps: List<KeyWrap>): EnvelopeHeader {
         val body = ByteArrayOutputStream()
         DataOutputStream(body).apply {
-            writeByte(KDF_PBKDF2_SHA256); writeInt(iterations); writeByte(salt.size); write(salt)
+            writeByte(kdf.alg); writeInt(kdf.param); writeByte(salt.size); write(salt)
             writeInt(seg); write(prefix); writeByte(wraps.size)
             wraps.forEach { w -> val p = w.payload; writeByte(w.type.id); writeInt(p.size); write(p) }
         }
@@ -439,23 +456,10 @@ object BackupCrypto {
         check(b.size <= MAX_HEADER_BODY) { "Header too large" }
         val all = ByteArrayOutputStream()
         DataOutputStream(all).apply { write(MAGIC_BYTES); writeByte(VERSION); writeInt(b.size); write(b) }
-        return EnvelopeHeader(VERSION, iterations, salt, seg, prefix, wraps, all.toByteArray())
+        return EnvelopeHeader(VERSION, kdf, salt, seg, prefix, wraps, all.toByteArray())
     }
 
     private fun wrapAad(type: WrapType): ByteArray = MAGIC_BYTES + VERSION.toByte() + type.id.toByte()
-
-    internal fun pbkdf2(passphrase: CharArray, salt: ByteArray, iterations: Int): ByteArray {
-        require(passphrase.isNotEmpty()) { "Passphrase must not be empty" }
-        checkIterations(iterations)
-        // NFC so the same passphrase typed on another keyboard/device derives the same key.
-        val normalized = Normalizer.normalize(String(passphrase), Normalizer.Form.NFC).toCharArray()
-        val spec = PBEKeySpec(normalized, salt, iterations, 256)
-        try {
-            return SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256").generateSecret(spec).encoded
-        } finally {
-            spec.clearPassword(); normalized.fill('\u0000')
-        }
-    }
 
     /** HKDF-SHA256 (RFC 5869), 32-byte output. */
     internal fun hkdf(ikm: ByteArray, salt: ByteArray, info: String): ByteArray {
@@ -640,12 +644,12 @@ class DecryptingInputStream internal constructor(
 
 /**
  * Persistent public-key material for scheduled backups. Holds the RSA public key in the clear and the
- * PKCS#8 private key twice: AES-GCM-sealed under PBKDF2(passphrase, [salt]) and under
+ * PKCS#8 private key twice: AES-GCM-sealed under [kdf](passphrase, [salt]) and under
  * HKDF(recovery key, [recoverySalt]). Safe to store unprotected and embedded in every archive.
  */
 class KeyBundle internal constructor(
     publicKeyBytes: ByteArray,
-    val iterations: Int,
+    val kdf: KdfParams,
     salt: ByteArray,
     passphraseWrap: ByteArray,
     recoveryWrap: ByteArray,
@@ -673,11 +677,16 @@ class KeyBundle internal constructor(
     /** Short fingerprint of the public key, e.g. to show which key a backup was made for. */
     val keyId: String get() = BackupCrypto.sha256(pub).copyOf(8).joinToString("") { "%02x".format(Locale.ROOT, it) }
 
+    /** The KDF's stored parameter (PBKDF2 iterations, or packed scrypt settings). */
+    val iterations: Int get() = kdf.param
+
     fun toBytes(): ByteArray {
         val bo = ByteArrayOutputStream()
         DataOutputStream(bo).apply {
-            write(MAGIC.toByteArray(Charsets.US_ASCII)); writeByte(1)
-            writeInt(iterations); writeByte(s.size); write(s); writeByte(rs.size); write(rs)
+            // Version 1 (PBKDF2 only) stays byte-identical, so bundles made before scrypt keep their bytes.
+            write(MAGIC.toByteArray(Charsets.US_ASCII))
+            if (kdf is KdfParams.Pbkdf2) writeByte(1) else { writeByte(2); writeByte(kdf.alg) }
+            writeInt(kdf.param); writeByte(s.size); write(s); writeByte(rs.size); write(rs)
             writeShort(pub.size); write(pub); writeShort(pw.size); write(pw); writeShort(rw.size); write(rw)
         }
         return bo.toByteArray()
@@ -698,9 +707,12 @@ class KeyBundle internal constructor(
             try {
                 val magic = ByteArray(8).also(d::readFully)
                 if (!magic.contentEquals(MAGIC.toByteArray(Charsets.US_ASCII))) throw BackupIntegrityException("Not a Parley key bundle")
-                if (d.readUnsignedByte() != 1) throw BackupIntegrityException("Unsupported key bundle version")
-                val it = d.readInt()
-                if (it !in BackupCrypto.MIN_ITERATIONS..BackupCrypto.MAX_ITERATIONS) throw BackupIntegrityException("KDF iterations out of range")
+                val kdf = when (d.readUnsignedByte()) {
+                    1 -> KdfParams.Pbkdf2(d.readInt())
+                    2 -> KdfParams.of(d.readUnsignedByte(), d.readInt())
+                    else -> throw BackupIntegrityException("Unsupported key bundle version")
+                }
+                if (!KdfPolicy.BACKUP.accepts(kdf)) throw BackupIntegrityException("KDF parameters out of range")
                 fun field(maxLen: Int, lenReader: () -> Int): ByteArray {
                     val l = lenReader()
                     if (l < 0 || l > maxLen || l > bin.available()) throw BackupIntegrityException("Bad key bundle field")
@@ -713,7 +725,7 @@ class KeyBundle internal constructor(
                 val pw = field(MAX_FIELD) { d.readUnsignedShort() }
                 val rw = field(MAX_FIELD) { d.readUnsignedShort() }
                 if (bin.available() != 0) throw BackupIntegrityException("Trailing key bundle bytes")
-                val b = KeyBundle(pub, it, salt, pw, rw, recSalt)
+                val b = KeyBundle(pub, kdf, salt, pw, rw, recSalt)
                 val pk = b.publicKey
                 if (pk !is RSAPublicKey || pk.modulus.bitLength() < 2048) throw BackupIntegrityException("Unsupported public key")
                 return b

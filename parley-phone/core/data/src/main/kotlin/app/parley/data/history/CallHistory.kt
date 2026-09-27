@@ -1,5 +1,7 @@
 package app.parley.data.history
 
+import app.parley.common.security.Bounded
+import app.parley.common.security.LimitExceededException
 import android.Manifest
 import app.parley.common.ContactSummary
 import app.parley.common.PhoneIdentity
@@ -629,8 +631,12 @@ class CallHistory(
     /** Dry run: reads and parses the file, checks it against the whole history. Nothing is written. */
     suspend fun planImport(uri: Uri, mapping: ColumnMapping? = null, dayFirst: Boolean = true): ImportPlan = withContext(Dispatchers.IO) {
         val text = cr.openInputStream(uri)?.use { input ->
-            val bytes = input.readBytes()
-            require(bytes.size <= MAX_IMPORT_BYTES) { context.getString(R.string.data_file_too_large) }
+            // Stops reading at the cap instead of loading the whole file first.
+            val bytes = try {
+                Bounded.readBytes(input, MAX_IMPORT_BYTES.toLong())
+            } catch (_: LimitExceededException) {
+                throw IllegalArgumentException(context.getString(R.string.data_file_too_large))
+            }
             String(bytes, Charsets.UTF_8)
         } ?: throw IllegalArgumentException(context.getString(R.string.data_file_open_failed))
         val existing = HashSet<String>()

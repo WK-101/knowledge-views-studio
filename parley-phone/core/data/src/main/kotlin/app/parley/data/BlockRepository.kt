@@ -1,5 +1,8 @@
 package app.parley.data
 
+import app.parley.data.security.SealedBlockDao
+import app.parley.data.security.RecordCrypto
+import app.parley.data.db.BlockDao
 import app.parley.common.CallPolicy
 import app.parley.common.Decision
 import app.parley.common.PhoneIdentity
@@ -39,7 +42,8 @@ data class VerdictSummary(val text: String, val kind: String?, val blocked: Bool
 private const val BLOCKED_KEEP = 5_000
 
 class BlockRepository(private val context: Context, db: AppDatabase, scope: CoroutineScope) {
-    private val dao = db.blockDao()
+    // Screened callers' names are sealed at rest.
+    private val dao: BlockDao = SealedBlockDao(db.blockDao(), RecordCrypto.get(context))
     private val cr = context.contentResolver
 
     /**

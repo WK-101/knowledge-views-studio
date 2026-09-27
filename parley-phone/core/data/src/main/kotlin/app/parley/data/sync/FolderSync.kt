@@ -12,6 +12,11 @@ import android.provider.DocumentsContract.Document
 import app.parley.common.Duplicates
 import app.parley.common.StoredStatus
 import app.parley.common.backup.RecordJson
+import app.parley.common.backup.SyncCrypto
+import app.parley.common.security.Bounded
+import app.parley.common.security.LimitExceededException
+import app.parley.data.security.RecordCrypto
+import android.util.Base64
 import app.parley.common.sync.FolderSyncRules
 import app.parley.common.record.Col
 import app.parley.common.record.ContactRecord
@@ -43,6 +48,8 @@ data class SyncStatus(
     val lastResult: String? = null,
     /** Deletions a paused run is waiting for the user to confirm. */
     val pendingDeletions: Int = 0,
+    /** Encrypted or plain files; unset for a folder set up before encryption existed (it waits for a choice). */
+    val mode: SyncMode = SyncMode.UNSET,
 ) {
     /** The last result in the current language (rendered now, not when it was stored). */
     fun resultText(res: Resources): String? {
@@ -51,6 +58,7 @@ data class SyncStatus(
             NO_PERMISSION -> res.getString(R.string.data_sync_no_permission)
             FOLDER_GONE -> res.getString(R.string.data_sync_folder_gone)
             PAUSED -> res.getQuantityString(R.plurals.data_sync_paused, s.int(0), s.int(0))
+            CHOOSE_MODE -> res.getString(R.string.data_sync_choose_mode)
             REPORT -> SyncReport(s.int(0), s.int(1), s.int(2), s.int(3), s.int(4), s.int(5), s.int(6)).summary(res)
             else -> null
         }
@@ -61,6 +69,7 @@ data class SyncStatus(
         const val FOLDER_GONE = "folder_gone"
         const val PAUSED = "paused"
         const val REPORT = "report"
+        const val CHOOSE_MODE = "choose_mode"
     }
 }
 
@@ -103,10 +112,109 @@ class FolderSync(private val context: Context, private val contacts: ContactsRep
     private fun load() = SyncStatus(
         prefs.getString("folder", null), prefs.getString("folderName", null), prefs.getBoolean("auto", true),
         prefs.getLong("lastAt", 0), prefs.getString("lastResult", null), prefs.getInt("pendingDeletions", 0),
+        mode = runCatching { SyncMode.valueOf(prefs.getString("mode", null)!!) }.getOrDefault(SyncMode.UNSET),
     )
 
+    /** The codec for the chosen mode; null until the user chose (a folder from before encrypted sync, or a new one). */
+    private fun codec(): SyncCodec? = when (status.value.mode) {
+        SyncMode.PLAIN -> SyncCodec.Plain
+        SyncMode.ENCRYPTED -> prefs.getString("folderKey", null)?.let { stored ->
+            val crypto = RecordCrypto.get(context)
+            val sealed = Base64.decode(stored, Base64.NO_WRAP)
+            if (!crypto.isSealed(sealed)) null else runCatching { SyncCodec.Encrypted(crypto.openBytes(sealed)) }.getOrNull()
+        }
+        SyncMode.UNSET -> null
+    }
+
+    /** Whether the chosen folder already holds an encrypted sync (another phone set it up): then its passphrase is needed. */
+    suspend fun folderIsEncrypted(): Boolean = withContext(Dispatchers.IO) { readHeader() != null }
+
+    private fun folderDoc(): Pair<Uri, String>? {
+        val folder = status.value.folderUri?.let(Uri::parse) ?: return null
+        return folder to DocumentsContract.getTreeDocumentId(folder)
+    }
+
+    private fun headerUri(): Uri? {
+        val (folder, treeId) = folderDoc() ?: return null
+        val children = DocumentsContract.buildChildDocumentsUriUsingTree(folder, treeId)
+        val columns = arrayOf(DocumentsContract.Document.COLUMN_DOCUMENT_ID, DocumentsContract.Document.COLUMN_DISPLAY_NAME)
+        return cr.query(children, columns, null, null, null)?.use { c ->
+            var found: Uri? = null
+            while (c.moveToNext()) if (c.getString(1) == SyncCrypto.HEADER_NAME) found = DocumentsContract.buildDocumentUriUsingTree(folder, c.getString(0))
+            found
+        }
+    }
+
+    private fun readHeader(): ByteArray? = runCatching {
+        headerUri()?.let { u -> cr.openInputStream(u)?.use { Bounded.readBytes(it, 4096, "sync header") } }
+    }.getOrNull()
+
+    /** Result of [useEncryption]. */
+    enum class EncryptionSetup { READY, WRONG_PASSPHRASE, FAILED }
+
+    /**
+     * Encrypts the folder's files with a key from [passphrase]: the folder's existing one when another phone set it up
+     * (the same passphrase is needed), or a new one. The plain .vcf files this phone wrote there before are removed.
+     */
+    suspend fun useEncryption(passphrase: CharArray): EncryptionSetup = mutex.withLock {
+        withContext(Dispatchers.IO) {
+            val (folder, treeId) = folderDoc() ?: return@withContext EncryptionSetup.FAILED
+            val existing = readHeader()
+            val key = try {
+                if (existing != null) {
+                    SyncCrypto.unlock(existing, passphrase) ?: return@withContext EncryptionSetup.WRONG_PASSPHRASE
+                } else {
+                    val (header, k) = SyncCrypto.newFolder(passphrase)
+                    val parent = DocumentsContract.buildDocumentUriUsingTree(folder, treeId)
+                    val uri = DocumentsContract.createDocument(cr, parent, "application/octet-stream", SyncCrypto.HEADER_NAME)
+                        ?: return@withContext EncryptionSetup.FAILED
+                    cr.openOutputStream(uri, "wt")!!.use { it.write(header) }
+                    k
+                }
+            } catch (_: Exception) {
+                return@withContext EncryptionSetup.FAILED
+            }
+            val crypto = RecordCrypto.get(context)
+            val sealed = crypto.sealBytes(key)
+            key.fill(0)
+            // The key is only ever stored sealed by the Keystore.
+            if (!crypto.isSealed(sealed)) return@withContext EncryptionSetup.FAILED
+            if (status.value.mode == SyncMode.PLAIN) removePlainFiles()
+            prefs.edit().putString("mode", SyncMode.ENCRYPTED.name).putString("folderKey", Base64.encodeToString(sealed, Base64.NO_WRAP))
+                .remove("lastResult").apply()
+            stateFile.delete() // new file names and format: the first run links matching contacts instead of duplicating
+            _status.value = load()
+            EncryptionSetup.READY
+        }
+    }
+
+    /** Plain vCard files, after the user agreed that anyone with access to the folder can read them. */
+    fun usePlain() {
+        prefs.edit().putString("mode", SyncMode.PLAIN.name).remove("folderKey").remove("lastResult").apply()
+        stateFile.delete()
+        _status.value = load()
+    }
+
+    /** Deletes the plain files this phone manages (those in the sync state), after switching to encryption. */
+    private fun removePlainFiles() {
+        val (folder, treeId) = folderDoc() ?: return
+        val mine = readState().keys
+        val children = DocumentsContract.buildChildDocumentsUriUsingTree(folder, treeId)
+        runCatching {
+            cr.query(children, arrayOf(Document.COLUMN_DOCUMENT_ID, Document.COLUMN_DISPLAY_NAME), null, null, null)?.use { c ->
+                while (c.moveToNext()) {
+                    val name = c.getString(1) ?: continue
+                    if (name in mine && name.endsWith(SyncCodec.Plain.extension)) {
+                        runCatching { DocumentsContract.deleteDocument(cr, DocumentsContract.buildDocumentUriUsingTree(folder, c.getString(0))) }
+                    }
+                }
+            }
+        }
+    }
+
     fun setFolder(uri: Uri?, name: String?) {
-        prefs.edit().remove("pendingDeletions").remove("lastResult").apply()
+        // A new folder starts without a mode: the user chooses encrypted (default) or plain files for it.
+        prefs.edit().remove("pendingDeletions").remove("lastResult").remove("mode").remove("folderKey").apply()
         if (uri != null) runCatching { cr.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION) }
         prefs.edit().putString("folder", uri?.toString()).putString("folderName", name).apply()
         stateFile.delete() // new folder: start fresh (first sync links matching contacts instead of duplicating)
@@ -222,8 +330,8 @@ class FolderSync(private val context: Context, private val contacts: ContactsRep
         Ezvcard.parse(String(bytes, Charsets.UTF_8)).first()?.let { VCardMapper.fromVCard(it) }
     }.getOrNull()
 
-    /** Hashed, so names are short, filesystem-safe and never collide after sanitising. */
-    private fun fileNameFor(key: String) = sha(key.toByteArray()).take(32) + ".vcf"
+    /** Hashed, so names are short, filesystem-safe, never collide after sanitising and say nothing about the person. */
+    private fun fileNameFor(key: String, codec: SyncCodec) = codec.fileName(sha(key.toByteArray()).take(32))
 
     private fun finish(status: StoredStatus, pending: Int = 0) {
         prefs.edit().putLong("lastAt", System.currentTimeMillis()).putString("lastResult", status.encode()).putInt("pendingDeletions", pending).apply()
@@ -270,6 +378,10 @@ class FolderSync(private val context: Context, private val contacts: ContactsRep
 
     private suspend fun run(allowMassDelete: Boolean): SyncReport {
         val folder = status.value.folderUri?.let(Uri::parse) ?: return SyncReport()
+        val codec = codec() ?: run {
+            finish(StoredStatus.of(SyncStatus.CHOOSE_MODE))
+            return SyncReport()
+        }
         if (!Permissions.has(context, Manifest.permission.READ_CONTACTS) || !Permissions.has(context, Manifest.permission.WRITE_CONTACTS)) {
             finish(StoredStatus.of(SyncStatus.NO_PERMISSION))
             return SyncReport()
@@ -291,7 +403,9 @@ class FolderSync(private val context: Context, private val contacts: ContactsRep
             )?.use { c ->
                 while (c.moveToNext()) {
                     val name = c.getString(1) ?: continue
-                    if (!name.endsWith(".vcf") || name.contains(".conflict")) continue
+                    if (!codec.accepts(name)) continue
+                    // More files than any address book: something else is in this folder; stop rather than guess.
+                    if (files.size >= MAX_FILES) throw LimitExceededException("Too many files in the sync folder")
                     val stamp = FolderSyncRules.stamp(if (c.isNull(2)) null else c.getLong(2), if (c.isNull(3)) null else c.getLong(3))
                     files[name] = Listed(DocumentsContract.buildDocumentUriUsingTree(folder, c.getString(0)), stamp)
                 }
@@ -305,8 +419,10 @@ class FolderSync(private val context: Context, private val contacts: ContactsRep
             return SyncReport()
         }
 
-        fun readFile(uri: Uri): ByteArray? = runCatching { cr.openInputStream(uri)?.use { it.readBytes() } }.getOrNull()
-            .also { stats = stats.copy(filesRead = stats.filesRead + 1) }
+        // The vCard in a file, or null when it can't be read (too large, another key, altered): left alone, not deleted.
+        fun readFile(name: String, uri: Uri): ByteArray? =
+            runCatching { cr.openInputStream(uri)?.use { codec.decode(name, Bounded.readBytes(it, Bounded.Caps.SYNC_FILE)) } }.getOrNull()
+                .also { stats = stats.copy(filesRead = stats.filesRead + 1) }
 
         fun stampOf(uri: Uri): String? = runCatching {
             cr.query(uri, arrayOf(Document.COLUMN_LAST_MODIFIED, Document.COLUMN_SIZE), null, null, null)?.use { c ->
@@ -372,7 +488,7 @@ class FolderSync(private val context: Context, private val contacts: ContactsRep
                 file == null -> look.fileGone = true
                 e.stamp != null && file.stamp == e.stamp -> Unit
                 else -> {
-                    val bytes = readFile(file.uri)
+                    val bytes = readFile(name, file.uri)
                     if (bytes == null) {
                         look.unreadable = true // unreadable is not missing: left alone this run
                     } else if (sha(bytes) == e.fileHash) {
@@ -409,8 +525,8 @@ class FolderSync(private val context: Context, private val contacts: ContactsRep
         }
 
         fun writeFile(name: String, bytes: ByteArray): String? = try {
-            val uri = files[name]?.uri ?: DocumentsContract.createDocument(cr, parentDoc, "text/vcard", name)!!
-            cr.openOutputStream(uri, "wt")!!.use { it.write(bytes) }
+            val uri = files[name]?.uri ?: DocumentsContract.createDocument(cr, parentDoc, codec.mime, name)!!
+            cr.openOutputStream(uri, "wt")!!.use { it.write(codec.encode(name, bytes)) }
             stats = stats.copy(filesWritten = stats.filesWritten + 1)
             files[name] = Listed(uri, null)
             stampOf(uri) ?: ""
@@ -449,7 +565,7 @@ class FolderSync(private val context: Context, private val contacts: ContactsRep
                 }
                 FolderSyncRules.Action.APPLY_FILE -> {
                     val file = files[name] ?: continue
-                    val bytes = readFile(file.uri) ?: continue
+                    val bytes = readFile(name, file.uri) ?: continue
                     val remote = parse(bytes) ?: continue
                     val id = head?.contactId ?: continue
                     val newId = applyRemote(id, remote) ?: continue
@@ -460,12 +576,12 @@ class FolderSync(private val context: Context, private val contacts: ContactsRep
                 }
                 FolderSyncRules.Action.CONFLICT -> {
                     val file = files[name] ?: continue
-                    val theirs = readFile(file.uri) ?: continue
+                    val theirs = readFile(name, file.uri) ?: continue
                     val rec = head?.let(::readOne) ?: continue
                     runCatching {
-                        val aside = name.removeSuffix(".vcf") + ".conflict-" + System.currentTimeMillis() + ".vcf"
-                        DocumentsContract.createDocument(cr, parentDoc, "text/vcard", aside)
-                            ?.let { u -> cr.openOutputStream(u, "wt")!!.use { it.write(theirs) } }
+                        val aside = codec.conflictName(name, System.currentTimeMillis())
+                        DocumentsContract.createDocument(cr, parentDoc, codec.mime, aside)
+                            ?.let { u -> cr.openOutputStream(u, "wt")!!.use { it.write(codec.encode(aside, theirs)) } }
                     }
                     val bytes = render(withFullPhotos(rec), e.contactKey)
                     writeFile(name, bytes)?.let { stamp -> state[name] = entryFor(head, sha(bytes), localHash(rec), stamp.ifEmpty { null }) }
@@ -495,7 +611,7 @@ class FolderSync(private val context: Context, private val contacts: ContactsRep
             val taken = HashSet<Long>()
             for (name in newFiles) {
                 val file = files.getValue(name)
-                val bytes = readFile(file.uri) ?: continue
+                val bytes = readFile(name, file.uri) ?: continue
                 val remote = parse(bytes) ?: continue
                 val match = matchKeys(remote).firstNotNullOfOrNull { k -> byMatch[k]?.takeIf { it !in taken } }
                 if (match != null) {
@@ -525,7 +641,7 @@ class FolderSync(private val context: Context, private val contacts: ContactsRep
             stats = stats.copy(contactsRead = stats.contactsRead + recs.size, largestPage = maxOf(stats.largestPage, recs.size))
             for (rec in recs) {
                 val h = headsByKey[rec.key] ?: continue
-                val name = fileNameFor(rec.key)
+                val name = fileNameFor(rec.key, codec)
                 val bytes = render(withFullPhotos(rec), rec.key)
                 val stamp = writeFile(name, bytes) ?: continue
                 state[name] = entryFor(h, sha(bytes), localHash(rec), stamp.ifEmpty { null })
@@ -574,5 +690,6 @@ class FolderSync(private val context: Context, private val contacts: ContactsRep
 
     private companion object {
         const val HASH_V2 = 2
+        const val MAX_FILES = 50_000
     }
 }

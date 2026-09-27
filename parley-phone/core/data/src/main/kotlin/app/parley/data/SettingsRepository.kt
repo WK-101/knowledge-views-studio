@@ -221,7 +221,13 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
         val surfaces = stringPreferencesKey("surface_layout")
     }
 
-    private companion object {
-        const val SEP = "\u001F"
+    companion object {
+        private const val SEP = "\u001F"
+
+        /**
+         * Settings that protect the phone's content (app lock, its delay, hiding the screen, discreet mode). A backup
+         * never changes them on its own: a restore keeps them waiting until the user confirms with the app lock.
+         */
+        val SECURITY_KEYS: Set<String> = setOf(K.appLock.name, K.lockAfter.name, K.secure.name, K.hideVault.name)
     }
 }
