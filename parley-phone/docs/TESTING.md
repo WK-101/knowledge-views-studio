@@ -720,3 +720,41 @@ Docked keypad folding (K3, Calls layout: Combined)
 - [ ] Scroll the calls list: the keypad folds away first, following the finger, then the list scrolls; flinging keeps its speed for the list. Scrolling back up never pulls the keypad open.
 - [ ] Folded: a keypad FAB springs in at the bottom end, with the typed number's last digits as a badge ("…5678"). Tap it, or drag it up (the keypad follows), to unfold. No scrim, no jump of the list.
 - [ ] Still as in v3.3: tel: links / ACTION_DIAL unfold the keypad with the number; Back folds it; TalkBack "Hide on-screen keypad" action on the panel; large fonts scroll inside the panel (max ~62 % of the screen); landscape side by side, where the panel slides aside as it folds; typing on a hardware keypad unfolds it.
+
+### 17.4 Contact editor
+The editor was redesigned after comparing Google Contacts, Samsung One UI Contacts, iOS Contacts, Fossify/Goodwy and Outlook (notes in `docs/EDITOR_DESIGN.md`): big photo with an edit badge, a "Save to" chip, one Name card that expands, a rounded card per kind of field with inline type chips, "+ Add …" rows and red "−", and "Add more info" for the rest. Nothing about what's saved changed.
+
+**Look and layout**
+- [ ] New contact: top bar with ✕ and a Save button that stays disabled until something is typed; from Recents › "Create contact" (number prefilled) Save is ready at once.
+- [ ] Edit an existing contact: Save is disabled until something changes; add an empty phone row and remove it again: still disabled, and Back leaves without asking.
+- [ ] "Add to existing contact" from a number: the number is appended and Save is ready without typing.
+- [ ] 128dp round photo with a badge (camera without a photo, pencil with one); tapping it or "Add photo" opens the system photo picker; "Remove photo" appears only with a photo. The name typed so far shows under the photo.
+- [ ] Name card: First and Last name; the chevron (TalkBack: "Show more name fields") slides in Prefix, Middle, Suffix, Phonetic first/last and Nickname with a spring. With any of them filled the card stays open and the chevron is gone.
+- [ ] Work card: Company and Title.
+- [ ] Phone, Email: each row has a type chip under it ("Mobile ▾"); its menu ticks the current type and ends with "Custom…". Phone numbers show the country flag after 6 characters.
+- [ ] "+ Add phone" adds a row that slides in, and the keyboard opens in it (phone keyboard; email keyboard for email, URL keyboard for website). The red "−" removes a row, and the rows below slide up.
+- [ ] Keyboard "Next" walks First → Last → Company → Title → first phone …
+- [ ] Type "call me" in a phone or "ana@example" in an email, then leave the field: a gentle hint under it ("doesn't look like … yet"); it never blocks Save and disappears while you type.
+- [ ] "Add more info" opens a sheet listing only what isn't on screen: Name details, Important dates, Address, Website, Messenger handles, Relations, Notes (Notes are already shown for existing contacts). Picking one adds its card, scrolls to it and focuses it; picking "Important dates" opens the date picker right away. When everything is shown the button is gone.
+- [ ] Dates: the picker still allows a date without a year; type chip offers Birthday, Anniversary, Other, Death, Custom….
+- [ ] Address: type chip and "−" on top, then Street, (PO box, Neighbourhood if the address has them), Postcode + City, Region + Country.
+- [ ] Handles: service chip (Signal, Matrix, …, Other → "Service name"), per-service hint and warning under the handle.
+- [ ] Relations: person icon picks a contact; the type chip opens the searchable relation list.
+- [ ] Labels (for the chosen account) as filter chips with a tick; Notes; Call screen background (existing contacts); private contacts show "When they call".
+
+**Safety and flows (unchanged behaviour)**
+- [ ] New contact "Save to" chip: Private (only in Parley) or each account with its count, current one ticked; existing contacts show "Saved in …"; private contacts show "Private · only in Parley".
+- [ ] Type a name or number of an existing contact in a new contact: the "already exists" card appears (Open / Add these details / Someone else).
+- [ ] A contact with read-only rows (e.g. from an Exchange or messenger account): those rows show a lock, no "−" and a plain type label; saving keeps them. "Edit this copy" edits one raw contact only.
+- [ ] Google-only fields (File as, custom fields), PO box and neighbourhood survive an edit (compare before/after in another contacts app).
+- [ ] Temporary contact: edit and save → "Keep this contact?" as before. QR-received contact (encrypted QR › Add): after saving, "Met at…" appears (the `&hs=` route still works).
+- [ ] Private contact: photo is encrypted (note under the photo); editing needs the vault unlocked.
+- [ ] Undo/"What changed" lists the edit as before.
+
+**Back, discard, accessibility**
+- [ ] With changes, swipe back slowly (Android 14+): the editor shrinks with the gesture; release → "Discard changes?" with "Your changes … haven't been saved." Cancel the swipe: it springs back. ✕ asks the same. Without changes, Back and ✕ just leave.
+- [ ] Largest font and display size: fields wrap, chips and "−" stay tappable (48dp), nothing overlaps.
+- [ ] Arabic/Urdu (RTL): cards, chips, "−" and the chevron mirror correctly; numbers stay left-to-right.
+- [ ] Landscape phone or tablet/foldable: two columns: photo, account, duplicate card, name and work on the left, the field cards on the right, each scrolling on its own. Portrait tablet: one column at most ~640dp wide, centred.
+- [ ] TalkBack: group titles are headings; type chips read "Type: Mobile", action "Change type"; "−" reads "Remove number/email/…"; the Save spinner reads "Saving".
+- [ ] Light and dark theme, and pure black: cards are visible against the background.

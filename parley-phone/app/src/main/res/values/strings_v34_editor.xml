@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- v3.4 contact editor redesign (E1). English only for now. -->
+<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
+    <string name="v34e_add_photo">Add photo</string>
+    <string name="v34e_edit_photo">Change photo</string>
+    <string name="v34e_photo_desc">Contact photo. Tap to choose a new one</string>
+    <string name="v34e_saving_to">Save to: %1$s</string>
+    <string name="v34e_change_account">Change where this contact is saved</string>
+    <string name="v34e_private_here">Private · only in Parley</string>
+    <string name="v34e_name_more">Show more name fields</string>
+    <string name="v34e_name_less">Show fewer name fields</string>
+    <string name="v34e_work">Work</string>
+    <string name="v34e_type">Type: %1$s</string>
+    <string name="v34e_change_type">Change type</string>
+    <string name="v34e_remove_phone">Remove number</string>
+    <string name="v34e_remove_email">Remove email</string>
+    <string name="v34e_remove_website">Remove website</string>
+    <string name="v34e_pick_date">Choose date</string>
+    <string name="v34e_phone_hint">This doesn\'t look like a phone number yet</string>
+    <string name="v34e_email_hint">This doesn\'t look like an email address yet</string>
+    <string name="v34e_more_info">Add more info</string>
+    <string name="v34e_more_info_title">Add to this contact</string>
+    <string name="v34e_more_name">Nickname, prefix, middle name, phonetic name</string>
+    <string name="v34e_more_date">Birthday, anniversary, other dates</string>
+    <string name="v34e_more_address">Home, work or other address</string>
+    <string name="v34e_more_website">Homepage, blog, profile</string>
+    <string name="v34e_more_handle">Signal, Matrix, Telegram and more</string>
+    <string name="v34e_more_relation">Partner, parent, manager…</string>
+    <string name="v34e_more_note">Anything you want to remember</string>
+    <string name="v34e_discard_body">Your changes to this contact haven\'t been saved.</string>
+    <string name="v34e_saving">Saving</string>
+    <string name="v34e_loading">Loading contact</string>
+</resources>
