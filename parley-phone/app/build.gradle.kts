@@ -96,6 +96,10 @@ android {
         // Missing translations are warnings (they fall back to English); see lint.xml.
         lintConfig = rootProject.file("lint.xml")
     }
+
+    testOptions { unitTests.isIncludeAndroidResources = true }
+    // The fake Keystore and Contacts Provider are shared with core:data's Robolectric tests.
+    sourceSets["test"].java.srcDir(rootProject.file("core/data/src/testShared/kotlin"))
 }
 
 kotlin {
@@ -117,6 +121,11 @@ dependencies {
     implementation(libs.androidx.fragment)
     implementation(libs.androidx.work)
     debugImplementation(libs.compose.ui.tooling.preview)
+
+    testImplementation(libs.junit)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.test.core)
+    testImplementation(libs.kotlinx.coroutines.test)
 }
 
 // Privacy guard: fail the build if any forbidden permission sneaks into the merged manifest.
