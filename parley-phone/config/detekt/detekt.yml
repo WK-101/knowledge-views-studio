@@ -38,6 +38,8 @@ style:
   ForbiddenImport:
     active: true
     includes: ['**/ui/**']
+    # View models and use cases are the layer that may talk to the database; composables may not.
+    excludes: ['**/*ViewModel.kt', '**/*UseCase.kt']
     imports:
       - value: 'app.parley.data.db.*'
         reason: 'UI code must not use Room entities or DAOs; go through a repository or the view model.'
