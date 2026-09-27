@@ -107,6 +107,8 @@ data class Manifest(
     val device: Map<String, String> = emptyMap(),
     val counts: Map<String, Long> = emptyMap(),
     val entries: List<ManifestEntry> = emptyList(),
+    /** The making phone's signature over the header and everything above (absent in older backups). */
+    val signature: ArchiveSignature? = null,
 ) {
     fun entry(name: String): ManifestEntry? = entries.firstOrNull { it.name == name }
 
@@ -123,12 +125,16 @@ data class Manifest(
     }
 }
 
-/** Caller-supplied metadata for [Manifest]. */
+/** Caller-supplied metadata for [Manifest]. [signing] signs the manifest with the phone's key. */
 data class ArchiveMeta(
     val createdAt: Long,
     val appVersion: String,
     val device: Map<String, String> = emptyMap(),
+    val signing: ArchiveSigning? = null,
 )
+
+/** Signs an archive: [header] is the envelope header it is written under (see [EncryptingOutputStream.header]). */
+class ArchiveSigning(val header: ByteArray, val signer: ArchiveSigner)
 
 /** Zip-bomb and memory limits enforced by [BackupArchiveReader]. Sizes are uncompressed bytes actually read. */
 data class ArchiveLimits(
@@ -383,7 +389,7 @@ class BackupArchiveWriter private constructor(out: OutputStream?, private val me
         if (counts.containsKey(BackupArchive.Counts.CONTACTS)) counts[BackupArchive.Counts.PHOTOS] = photos.size.toLong()
         photos.forEach { (h, b) -> entry("${BackupArchive.PHOTO_PREFIX}$h.bin") { it.write(b) } }
         photos.clear()
-        val m = Manifest(
+        val unsigned = Manifest(
             formatVersion = BackupArchive.FORMAT_VERSION,
             createdAt = meta.createdAt,
             appVersion = meta.appVersion,
@@ -391,6 +397,7 @@ class BackupArchiveWriter private constructor(out: OutputStream?, private val me
             counts = TreeMap(counts),
             entries = entries.toList(),
         )
+        val m = meta.signing?.let { s -> unsigned.copy(signature = ArchiveSignatures.sign(s.signer, s.header, unsigned)) } ?: unsigned
         zip?.let { z ->
             z.putNextEntry(ZipEntry(BackupArchive.MANIFEST).apply { setTimeLocal(BackupArchive.DOS_EPOCH) })
             z.write(jsonBytes(RecordJson.json.encodeToString(Manifest.serializer(), m)))

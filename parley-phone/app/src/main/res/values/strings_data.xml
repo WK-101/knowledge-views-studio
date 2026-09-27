@@ -550,6 +550,22 @@
     <string name="bkp_new_pass">New passphrase (10+ characters)</string>
     <string name="bkp_repeat">Repeat</string>
     <string name="bkp_pass_hint">A few unrelated words make a strong, memorable passphrase.</string>
+    <string name="bkp_strength_0">Very weak</string>
+    <string name="bkp_strength_1">Weak</string>
+    <string name="bkp_strength_2">Fair</string>
+    <string name="bkp_strength_3">Strong</string>
+    <string name="bkp_strength_4">Very strong</string>
+    <string name="bkp_strength_short">Use at least 10 characters.</string>
+    <string name="bkp_strength_common">This is a commonly used password or word.</string>
+    <string name="bkp_strength_keyboard">Keys next to each other on a keyboard are easy to guess.</string>
+    <string name="bkp_strength_sequence">Runs like abc or 123 are easy to guess.</string>
+    <string name="bkp_strength_repeat">Repeated characters are easy to guess.</string>
+    <string name="bkp_strength_date">Dates and years are easy to guess.</string>
+    <string name="bkp_strength_words">Add another word or two that don\'t belong together.</string>
+    <string name="bkp_strength_needed">Anyone with a copy of a backup can keep guessing offline, so the passphrase needs to be at least Strong.</string>
+    <string name="bkp_confirm_phone">Mark this phone\'s backups as yours</string>
+    <string name="bkp_confirm_phone_summary">Enter your passphrase once, so a restore on another phone recognises backups made here.</string>
+    <string name="bkp_confirm_phone_done">This phone\'s backups are now marked as yours</string>
 
     <!-- Restore flow -->
     <string name="rst_open_title">Open backup</string>
@@ -1409,8 +1425,13 @@
         <item quantity="one">%1$d blocked call in the log</item>
         <item quantity="other">%1$d blocked calls in the log</item>
     </plurals>
-    <string name="rst_calltime_waiting">Call-time limits are supervised on this phone, so the backup\'s limits weren\'t applied.</string>
-    <string name="rst_calltime_apply">Apply the backup\'s limits</string>
-    <string name="rst_calltime_confirm">Replace the supervised call-time limits</string>
-    <string name="rst_calltime_applied">Call-time limits restored</string>
+    <string name="rst_safety_waiting">Safety settings in the backup (app lock, discreet mode, supervised call time or apps allowed to show private names) weren\'t changed. Apply them only if you made this backup yourself.</string>
+    <string name="rst_safety_apply">Apply the backup\'s safety settings</string>
+    <string name="rst_safety_confirm">Apply safety settings from a backup</string>
+    <string name="rst_safety_applied">Safety settings restored</string>
+    <string name="rst_origin_this">Made on this phone</string>
+    <string name="rst_origin_other">Made on another phone of yours</string>
+    <string name="rst_origin_unknown">Signed by a phone your backup key doesn\'t know. If you didn\'t make this backup yourself, don\'t restore it.</string>
+    <string name="rst_origin_unsigned">This backup isn\'t signed (older versions of Parley didn\'t sign backups). Restore it only if you made it yourself.</string>
+    <string name="rst_origin_bad">This backup\'s signature doesn\'t match its content, so it may have been changed. Don\'t restore it unless you\'re sure where it came from.</string>
 </resources>

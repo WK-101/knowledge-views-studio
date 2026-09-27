@@ -138,8 +138,8 @@ class ContactNotesBackup(
 
 /**
  * Call-time settings (reminders, limits, allowances, supervision) and the call switches (proximity, pocket guard,
- * missed-call re-alert). Restoring over supervised limits is never done silently: the backup's settings wait until the
- * user confirms with the app lock ([ConfirmedRestore]).
+ * missed-call re-alert). Supervision is never changed silently (neither lifted nor imposed): the backup's settings wait
+ * until the user confirms with the app lock ([ConfirmedRestore]).
  */
 class CallTimeBackup(
     private val calling: CallingRepository,
@@ -169,7 +169,8 @@ class CallTimeBackup(
         val people = values[K_PEOPLE]?.let { runCatching { JSONObject(it) }.getOrNull() } ?: JSONObject()
         val refs = PersonRefs(contactsNow())
         val mapped = CallTimeRestore.remap(backup) { k -> refs.resolve(people.optJSONObject(k)?.toPersonRef() ?: PersonRef(k))?.lookupKey }
-        if (calling.config.value.supervised) pending = mapped.config else apply(mapped.config)
+        // Supervision is a safeguard either way: switching it off, or on, from a file waits for the user's confirmation.
+        if (calling.config.value.supervised || mapped.config.supervised) pending = mapped.config else apply(mapped.config)
         return mapped.unmatched
     }
 

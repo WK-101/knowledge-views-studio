@@ -21,6 +21,7 @@ import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.Key
 import androidx.compose.material.icons.rounded.PhoneAndroid
 import androidx.compose.material.icons.rounded.Restore
+import androidx.compose.material.icons.rounded.VerifiedUser
 import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -71,6 +72,8 @@ import app.parley.ui.ParleyTopBar
 import app.parley.ui.ParleyScaffold
 import app.parley.ui.ParleyDialog
 import app.parley.ui.ConfirmDialog
+import app.parley.ui.StrengthMeter
+import app.parley.common.security.PassphraseStrength
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -86,6 +89,7 @@ fun BackupScreen(vm: AppViewModel, back: () -> Unit) {
     var setPass by remember { mutableStateOf(false) }
     var changePass by remember { mutableStateOf(false) }
     var recovery by remember { mutableStateOf<String?>(null) }
+    var confirmPhone by remember { mutableStateOf(false) }
     var restoreUri by remember { mutableStateOf<Uri?>(null) }
     LaunchedEffect(state.folderUri, refresh) { files = withContext(Dispatchers.IO) { repo.listBackups() } }
 
@@ -163,6 +167,15 @@ fun BackupScreen(vm: AppViewModel, back: () -> Unit) {
                     headlineContent = { Text(if (state.hasKeys) stringResource(R.string.bkp_change_pass) else stringResource(R.string.bkp_set_pass)) },
                     supportingContent = { Text(if (state.hasKeys) stringResource(R.string.bkp_change_pass_summary) else stringResource(R.string.bkp_set_pass_summary)) },
                 )
+                // Keys made before backups were signed: one passphrase entry lets the key vouch for this phone.
+                if (state.hasKeys && !state.signedAsYours) {
+                    ListItem(
+                        modifier = Modifier.clickable { confirmPhone = true },
+                        leadingContent = { Icon(Icons.Rounded.VerifiedUser, null) },
+                        headlineContent = { Text(stringResource(R.string.bkp_confirm_phone)) },
+                        supportingContent = { Text(stringResource(R.string.bkp_confirm_phone_summary)) },
+                    )
+                }
                 ListItem(
                     modifier = Modifier.clickable { folderPicker.launch(null) },
                     leadingContent = { Icon(Icons.Rounded.Folder, null) },
@@ -269,6 +282,25 @@ fun BackupScreen(vm: AppViewModel, back: () -> Unit) {
             }
         }
     }
+    if (confirmPhone) {
+        var pass by remember { mutableStateOf("") }
+        ConfirmDialog(
+            title = stringResource(R.string.bkp_confirm_phone),
+            text = stringResource(R.string.bkp_confirm_phone_summary),
+            confirmLabel = stringResource(R.string.dc_ok),
+            onConfirm = {
+                scope.launch {
+                    val ok = repo.confirmThisPhone(pass.toCharArray())
+                    vm.toast(res.getString(if (ok) R.string.bkp_confirm_phone_done else R.string.bkp_pass_wrong))
+                    if (ok) confirmPhone = false
+                }
+            },
+            onDismiss = { confirmPhone = false },
+            dismissLabel = stringResource(R.string.dc_cancel),
+            confirmEnabled = pass.isNotEmpty(),
+            content = { PassField(stringResource(R.string.bkp_current_pass), pass) { pass = it } },
+        )
+    }
     recovery?.let { key ->
         ParleyDialog(
             onDismissRequest = {},
@@ -291,7 +323,10 @@ private fun PassphraseDialog(change: Boolean, onDismiss: () -> Unit, onSave: (St
     var old by remember { mutableStateOf("") }
     var new by remember { mutableStateOf("") }
     var confirm by remember { mutableStateOf("") }
-    val ok = new.length >= 10 && new == confirm && (!change || old.isNotEmpty())
+    val estimate = remember(new) { PassphraseStrength.estimate(new) }
+    // Every backup carries the key wrapped under this passphrase, so it must stand up to offline guessing.
+    val strongEnough = PassphraseStrength.acceptableForBackup(new)
+    val ok = strongEnough && new == confirm && (!change || old.isNotEmpty())
     ConfirmDialog(
         title = if (change) stringResource(R.string.bkp_change_pass_title) else stringResource(R.string.bkp_pass_title),
         text = null,
@@ -304,11 +339,33 @@ private fun PassphraseDialog(change: Boolean, onDismiss: () -> Unit, onSave: (St
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (change) PassField(stringResource(R.string.bkp_current_pass), old) { old = it }
                 PassField(stringResource(R.string.bkp_new_pass), new) { new = it }
+                if (new.isNotEmpty()) {
+                    StrengthMeter(estimate.score, stringResource(strengthLabel(estimate.score)), strengthHint(estimate.hint)?.let { stringResource(it) })
+                }
                 PassField(stringResource(R.string.bkp_repeat), confirm) { confirm = it }
-                Text(stringResource(R.string.bkp_pass_hint), style = MaterialTheme.typography.bodySmall)
+                Text(stringResource(if (new.isNotEmpty() && !strongEnough) R.string.bkp_strength_needed else R.string.bkp_pass_hint), style = MaterialTheme.typography.bodySmall)
             }
         },
     )
+}
+
+private fun strengthLabel(score: Int) = when (score) {
+    0 -> R.string.bkp_strength_0
+    1 -> R.string.bkp_strength_1
+    2 -> R.string.bkp_strength_2
+    3 -> R.string.bkp_strength_3
+    else -> R.string.bkp_strength_4
+}
+
+private fun strengthHint(h: PassphraseStrength.Hint): Int? = when (h) {
+    PassphraseStrength.Hint.NONE -> null
+    PassphraseStrength.Hint.TOO_SHORT -> R.string.bkp_strength_short
+    PassphraseStrength.Hint.COMMON -> R.string.bkp_strength_common
+    PassphraseStrength.Hint.KEYBOARD -> R.string.bkp_strength_keyboard
+    PassphraseStrength.Hint.SEQUENCE -> R.string.bkp_strength_sequence
+    PassphraseStrength.Hint.REPEAT -> R.string.bkp_strength_repeat
+    PassphraseStrength.Hint.DATE -> R.string.bkp_strength_date
+    PassphraseStrength.Hint.ADD_WORDS -> R.string.bkp_strength_words
 }
 
 @Composable

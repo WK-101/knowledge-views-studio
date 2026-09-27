@@ -1,5 +1,7 @@
 package app.parley.ui.extras
 
+import app.parley.common.backup.KdfPolicy
+import app.parley.common.backup.KdfParams
 import app.parley.common.security.Bounded
 import android.net.Uri
 import android.util.Base64
@@ -35,7 +37,11 @@ object SimpleInbox {
  * encrypted contact QR). No account and no network: the other phone opens the file or scans the code.
  */
 object SimpleTransfer {
-    private const val QR_ITERATIONS = 200_000
+    /** The QR code's passcode cost; a scanned code must use exactly this, so a crafted code can't stall the phone. */
+    private val QR_KDF = KdfParams.Pbkdf2(200_000)
+
+    /** Setup files: made with the backup's default KDF (older ones with 600,000 PBKDF2 rounds); nothing else is read. */
+    private val FILE_KDFS = KdfPolicy.exactly(KdfParams.Pbkdf2(BackupCrypto.DEFAULT_ITERATIONS), BackupCrypto.DEFAULT_KDF)
 
     private fun gzip(text: String): ByteArray = ByteArrayOutputStream().also { o -> GZIPOutputStream(o).use { it.write(text.toByteArray(Charsets.UTF_8)) } }.toByteArray()
 
@@ -44,16 +50,16 @@ object SimpleTransfer {
     fun encryptFile(c: SimpleConfig, passphrase: CharArray): ByteArray = BackupCrypto.encryptBytes(gzip(SimpleSetup.export(c)), listOf(Recipient.Passphrase(passphrase)))
 
     /** Throws on a wrong passphrase or a file that isn't a setup. */
-    fun decryptFile(bytes: ByteArray, passphrase: CharArray): SimpleSetup.Imported = SimpleSetup.importChecked(gunzip(BackupCrypto.decryptBytes(bytes, Unlock.Passphrase(passphrase))))
+    fun decryptFile(bytes: ByteArray, passphrase: CharArray): SimpleSetup.Imported = SimpleSetup.importChecked(gunzip(BackupCrypto.decryptBytes(bytes, Unlock.Passphrase(passphrase), FILE_KDFS)))
 
     fun qrLink(c: SimpleConfig, passcode: String): String {
-        val sealed = BackupCrypto.encryptBytes(gzip(SimpleSetup.export(c)), listOf(Recipient.Passphrase(normalize(passcode))), QR_ITERATIONS)
+        val sealed = BackupCrypto.encryptBytes(gzip(SimpleSetup.export(c)), listOf(Recipient.Passphrase(normalize(passcode))), QR_KDF)
         return "parley://simple?v=1&d=" + Base64.encodeToString(sealed, Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING)
     }
 
     fun fromQr(uri: Uri, passcode: String): SimpleSetup.Imported {
         val data = Base64.decode(uri.getQueryParameter("d").orEmpty(), Base64.URL_SAFE)
-        return SimpleSetup.importChecked(gunzip(BackupCrypto.decryptBytes(data, Unlock.Passphrase(normalize(passcode)))))
+        return SimpleSetup.importChecked(gunzip(BackupCrypto.decryptBytes(data, Unlock.Passphrase(normalize(passcode)), KdfPolicy.exactly(QR_KDF))))
     }
 
     private fun normalize(p: String) = p.uppercase().filter { it.isLetterOrDigit() }.toCharArray()

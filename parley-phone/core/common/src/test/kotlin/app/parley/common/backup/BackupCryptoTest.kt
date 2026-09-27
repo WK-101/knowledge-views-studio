@@ -23,13 +23,13 @@ class BackupCryptoTest {
         val PASS = "correct horse battery staple".toCharArray()
         val RECOVERY: RecoveryKey = RecoveryKey.generate()
         // RSA-3072 generation is slow; share one bundle across tests.
-        val BUNDLE: KeyBundle by lazy { BackupCrypto.createKeyBundle(PASS, RECOVERY, IT) }
+        val BUNDLE: KeyBundle by lazy { BackupCrypto.createKeyBundle(PASS, RECOVERY, KdfParams.Pbkdf2(IT)) }
     }
 
     private fun data(n: Int) = Random(n).nextBytes(n)
 
     private fun enc(plain: ByteArray, recipients: List<Recipient> = listOf(Recipient.Passphrase(PASS))): ByteArray =
-        BackupCrypto.encryptBytes(plain, recipients, IT)
+        BackupCrypto.encryptBytes(plain, recipients, KdfParams.Pbkdf2(IT))
 
     private fun dec(ct: ByteArray, unlock: Unlock = Unlock.Passphrase(PASS)): ByteArray = BackupCrypto.decryptBytes(ct, unlock)
 
@@ -61,7 +61,7 @@ class BackupCryptoTest {
     @Test fun streamingWithOddWriteAndReadSizes() {
         val p = data(2 * SEG + 12345)
         val bo = ByteArrayOutputStream()
-        BackupCrypto.encrypt(bo, listOf(Recipient.Passphrase(PASS)), IT).use { out ->
+        BackupCrypto.encrypt(bo, listOf(Recipient.Passphrase(PASS)), KdfParams.Pbkdf2(IT)).use { out ->
             var i = 0
             var step = 1
             while (i < p.size) {
@@ -79,7 +79,7 @@ class BackupCryptoTest {
     @Test fun finishDoesNotCloseUnderlyingStream() {
         var closed = false
         val bo = object : ByteArrayOutputStream() { override fun close() { closed = true } }
-        val e = BackupCrypto.encrypt(bo, listOf(Recipient.Passphrase(PASS)), IT)
+        val e = BackupCrypto.encrypt(bo, listOf(Recipient.Passphrase(PASS)), KdfParams.Pbkdf2(IT))
         e.write(byteArrayOf(1, 2, 3)); e.finish()
         assertFalse(closed)
         assertArrayEquals(byteArrayOf(1, 2, 3), dec(bo.toByteArray()))
@@ -241,11 +241,11 @@ class BackupCryptoTest {
         val ct = enc(data(10))
         fun withIterations(n: Int) = ct.copyOf().also { ByteBuffer.wrap(it).putInt(14, n) }
         assertThrows<BackupIntegrityException> { BackupCrypto.readHeader(ByteArrayInputStream(withIterations(999))) }
-        assertThrows<BackupIntegrityException> { BackupCrypto.readHeader(ByteArrayInputStream(withIterations(10_000_001))) }
+        assertThrows<BackupIntegrityException> { BackupCrypto.readHeader(ByteArrayInputStream(withIterations(2_000_001))) }
         assertThrows<BackupIntegrityException> { BackupCrypto.readHeader(ByteArrayInputStream(withIterations(-1))) }
-        assertThrows<IllegalArgumentException> { enc(data(1), listOf(Recipient.Passphrase(PASS))).let { BackupCrypto.encryptBytes(it, listOf(Recipient.Passphrase(PASS)), 999) } }
-        assertThrows<IllegalArgumentException> { BackupCrypto.encryptBytes(ByteArray(1), listOf(Recipient.Passphrase(CharArray(0))), IT) }
-        assertThrows<IllegalArgumentException> { BackupCrypto.encryptBytes(ByteArray(1), emptyList(), IT) }
+        assertThrows<IllegalArgumentException> { enc(data(1), listOf(Recipient.Passphrase(PASS))).let { BackupCrypto.encryptBytes(it, listOf(Recipient.Passphrase(PASS)), KdfParams.Pbkdf2(999)) } }
+        assertThrows<IllegalArgumentException> { BackupCrypto.encryptBytes(ByteArray(1), listOf(Recipient.Passphrase(CharArray(0))), KdfParams.Pbkdf2(IT)) }
+        assertThrows<IllegalArgumentException> { BackupCrypto.encryptBytes(ByteArray(1), emptyList(), KdfParams.Pbkdf2(IT)) }
     }
 
     @Test fun headerLengthAndGarbageAreRejected() {

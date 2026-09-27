@@ -35,6 +35,11 @@ data class BackupState(
     val lastRestoreIds: List<Long> = emptyList(),
     /** Newest backup that contains private contacts; rotation keeps it while newer ones lack them. */
     val lastVaultBackupName: String? = null,
+    /**
+     * Whether the backup key vouches for this phone's signing key, so this phone's backups show as yours on another
+     * phone too. Set whenever the passphrase or recovery key is entered here (setup, change, restore, "confirm").
+     */
+    val signedAsYours: Boolean = false,
 ) {
     val policy: RetentionPolicy get() = if (keepLast > 0) RetentionPolicy.Simple(keepLast) else RetentionPolicy.Periodic(daily = 7, weekly = 5, monthly = 12, yearly = 3)
 
@@ -94,6 +99,7 @@ class BackupPrefs(context: Context) {
         rotationPaused = prefs.getBoolean("paused", false),
         lastRestoreIds = prefs.getString("restoreRawIds", "").orEmpty().split(',').mapNotNull { it.toLongOrNull() },
         lastVaultBackupName = prefs.getString("vaultName", null),
+        signedAsYours = prefs.getString("endorsedKeyId", null).let { it != null && it == prefs.getString("keyId", null) },
     )
 
     fun update(f: (SharedPreferences.Editor) -> Unit) {
@@ -105,5 +111,15 @@ class BackupPrefs(context: Context) {
 
     fun saveKeyBundle(b: KeyBundle) = update {
         it.putString("bundle", Base64.encodeToString(b.toBytes(), Base64.NO_WRAP)).putString("keyId", b.keyId)
+    }
+
+    /** The key bundle's endorsement of this phone's signing key, if it is for the current bundle. */
+    fun endorsement(): ByteArray? {
+        if (!state.value.signedAsYours) return null
+        return prefs.getString("endorsement", null)?.let { runCatching { Base64.decode(it, Base64.NO_WRAP) }.getOrNull() }
+    }
+
+    fun saveEndorsement(keyId: String, endorsement: ByteArray) = update {
+        it.putString("endorsement", Base64.encodeToString(endorsement, Base64.NO_WRAP)).putString("endorsedKeyId", keyId)
     }
 }
