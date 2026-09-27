@@ -6,7 +6,9 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Build
+import android.provider.ContactsContract
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.Person
@@ -80,7 +82,10 @@ class CallNotifier(private val context: Context) {
         } else if (ringing.silenced) {
             post(INCOMING_ID, ringing, "s") { buildSilenced(ringing) }
         } else {
-            if ((!canUseFullScreen() || !notificationsAllowed()) && ongoing == null && directlyLaunched.add(ringing.id)) {
+            // Without a full-screen alert (permission, notifications, or the channel turned down) the call screen is
+            // opened directly, so a ringing call always has a way to answer.
+            if (ongoing == null && ringing.id !in directlyLaunched && (!canUseFullScreen() || !notificationsAllowed() || !incomingChannelAlerts(context))) {
+                directlyLaunched += ringing.id
                 context.startActivity(InCallActivity.intent(context, false).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             }
             post(INCOMING_ID, ringing, "i") { buildIncoming(ringing) }
@@ -181,8 +186,23 @@ class CallNotifier(private val context: Context) {
 
     private fun person(call: CallUi): Person {
         val b = Person.Builder().setName(call.title).setImportant(true)
+        personUri(call)?.let { b.setUri(it) }
         call.photoUri?.let { uri -> PhotoCache.peek("$uri@256")?.let { b.setIcon(IconCompat.createWithBitmap(it)) } }
         return b.build()
+    }
+
+    /**
+     * Who is calling, in the form Do Not Disturb matches against "starred contacts" / "contacts only": the contact's
+     * lookup URI when known, else the number. Without it the system may hold back the full-screen answer UI while
+     * Telecom rings for an allowed caller.
+     */
+    private fun personUri(call: CallUi): String? {
+        val id = call.contactId
+        val key = call.lookupKey
+        if (id != null && id > 0 && !key.isNullOrBlank() && !ContactsContract.Contacts.isEnterpriseContactId(id)) {
+            return ContactsContract.Contacts.getLookupUri(id, key).toString()
+        }
+        return call.number?.takeIf { !call.hidden && it.isNotBlank() }?.let { Uri.fromParts("tel", it, null).toString() }
     }
 
     private fun contentIntent(): PendingIntent =
@@ -263,6 +283,7 @@ class CallNotifier(private val context: Context) {
             .setContentIntent(contentIntent())
             .setFullScreenIntent(contentIntent(), true)
             .setStyle(NotificationCompat.CallStyle.forIncomingCall(person(call), declineIntent(call.id, 3), answer))
+            .addPerson(person(call))
             .addAction(0, context.getString(R.string.notif_ignore), action(CallActionReceiver.ACTION_IGNORE, call.id, 10))
             .setDeleteIntent(dismissIntent(INCOMING_ID, call.id))
             .build()
@@ -306,6 +327,7 @@ class CallNotifier(private val context: Context) {
             // high-importance, so this never pops up; it only satisfies the platform check.
             .setFullScreenIntent(contentIntent(), false)
             .setStyle(NotificationCompat.CallStyle.forOngoingCall(person(call), action(CallActionReceiver.ACTION_HANGUP, call.id, 6)))
+            .addPerson(person(call))
             .addAction(0, context.getString(if (audio.muted) R.string.notif_unmute else R.string.notif_mute), action(CallActionReceiver.ACTION_MUTE, call.id, 7))
         if (limited && timing.canExtend) {
             // Wrap-up actions replace Speaker while a limit runs (T3).
@@ -331,6 +353,15 @@ class CallNotifier(private val context: Context) {
         const val CH_SILENCED = "silenced_calls_v1"
         const val INCOMING_ID = 4711
         const val ONGOING_ID = 4713
+
+        /**
+         * Whether the incoming-calls channel can still pop up (heads-up / full screen). False when the user turned it
+         * down to silent or off; true while it doesn't exist yet (it's created at high importance).
+         */
+        fun incomingChannelAlerts(context: Context): Boolean = runCatching {
+            val ch = context.getSystemService(NotificationManager::class.java)?.getNotificationChannel(CH_INCOMING)
+            ch == null || ch.importance >= NotificationManager.IMPORTANCE_HIGH
+        }.getOrDefault(true)
 
         /** The live notifier while the in-call service runs, for the dismiss intent (main thread only). */
         internal var instance: CallNotifier? = null

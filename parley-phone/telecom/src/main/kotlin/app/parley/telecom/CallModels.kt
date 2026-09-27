@@ -32,6 +32,8 @@ data class CallUi(
     val postDialWait: String?,
     val silenced: Boolean,
     val isEmergency: Boolean,
+    /** The contact's lookup key, with [contactId]: who is calling for Do Not Disturb's contact filters. */
+    val lookupKey: String? = null,
     val note: String? = null,
     val lastCall: String? = null,
     /** I6: job/company and the "who is this" line of the caller card. */

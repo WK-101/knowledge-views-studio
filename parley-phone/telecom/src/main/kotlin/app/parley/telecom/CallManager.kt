@@ -523,6 +523,7 @@ object CallManager {
             photoUri = found?.photoUri,
             backgroundUri = found?.backgroundUri,
             contactId = found?.contactId,
+            lookupKey = found?.lookupKey,
             incoming = d.callDirection == Call.Details.DIRECTION_INCOMING,
             connectTimeMillis = d.connectTimeMillis,
             isConference = d.hasProperty(Call.Details.PROPERTY_CONFERENCE),
