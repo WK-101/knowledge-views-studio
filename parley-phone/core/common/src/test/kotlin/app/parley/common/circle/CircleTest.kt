@@ -256,4 +256,16 @@ class CircleTest {
         val dates = Timeline.dates(listOf(Triple(3, null, bday)), listOf(TimelineEntry.Note(1, t, "x")), LocalDate.of(2026, 9, 25), zone)
         assertEquals(2, dates.size)
     }
+
+    @Test fun timeline_dates_show_a_birthday_stored_twice_once() {
+        // v3.4 review #1: a linked contact with the same birthday in two accounts, one without the year.
+        val t = LocalDate.of(2025, 1, 1).atStartOfDay(zone).toInstant().toEpochMilli()
+        val events = listOf(Triple(3, null, EventDate(1990, 5, 1)), Triple(3, null, EventDate(1990, 5, 1)), Triple(3, null, EventDate(null, 5, 1)))
+        val dates = Timeline.dates(events, listOf(TimelineEntry.Note(1, t, "x")), LocalDate.of(2026, 9, 25), zone)
+        assertEquals(2, dates.size)
+        assertEquals(dates.size, dates.map { Triple(it.time, it.type, it.label) }.toSet().size)
+        // A different type or label on the same day stays.
+        val more = Timeline.dates(events + Triple(1, null, EventDate(2000, 5, 1)) + Triple(0, "Name day", EventDate(null, 5, 1)), listOf(TimelineEntry.Note(1, t, "x")), LocalDate.of(2026, 9, 25), zone)
+        assertEquals(6, more.size)
+    }
 }

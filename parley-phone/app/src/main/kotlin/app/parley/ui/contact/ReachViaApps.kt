@@ -1,5 +1,17 @@
 package app.parley.ui.contact
 
+import android.content.Context
+import android.content.pm.PackageManager
+import android.util.LruCache
+import androidx.compose.foundation.Image
+import androidx.compose.runtime.produceState
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.core.graphics.drawable.toBitmap
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
@@ -120,7 +132,7 @@ private fun ReachAppRow(g: ReachGroup, prefs: MessengerPrefs, showNumber: Boolea
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        AppBadge(g.appLabel)
+        AppBadge(g.appLabel, packageName = g.appKey)
         Column(Modifier.weight(1f).semantics(mergeDescendants = true) {}) {
             Text(g.appLabel, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
             if (sub.isNotEmpty()) {
@@ -135,15 +147,49 @@ private fun ReachAppRow(g: ReachGroup, prefs: MessengerPrefs, showNumber: Boolea
     }
 }
 
-/** A round letter badge for an app (no brand logos: Parley can't see other apps' icons and doesn't ship them). */
+/**
+ * A round badge for an app: its own launcher icon when [packageName] is installed and visible to Parley (every
+ * messenger Parley knows is listed in the manifest's `<queries>`), otherwise a letter badge. Parley ships no brand
+ * logos. v3.4 review #6: icons load off the main thread and are cached for the process.
+ */
 @Composable
-fun AppBadge(label: String, modifier: Modifier = Modifier) {
+fun AppBadge(label: String, modifier: Modifier = Modifier, packageName: String? = null) {
+    val context = LocalContext.current
+    val px = with(LocalDensity.current) { 40.dp.roundToPx() }
+    val icon by produceState(packageName?.let { AppIcons.cached(it, px) }, packageName, px) {
+        if (packageName != null && value == null) value = withContext(Dispatchers.IO) { AppIcons.load(context, packageName, px) }
+    }
+    val loaded = icon
+    if (loaded != null) {
+        Image(loaded, null, modifier.size(40.dp).clip(CircleShape).clearAndSetSemantics {})
+        return
+    }
     val letter = label.trim().firstOrNull()?.uppercaseChar()?.toString().orEmpty()
     Box(
         modifier.size(40.dp).clip(CircleShape).background(MaterialTheme.colorScheme.secondaryContainer).clearAndSetSemantics {},
         contentAlignment = Alignment.Center,
     ) {
         Text(letter, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSecondaryContainer)
+    }
+}
+
+/** Installed apps' icons by package and size. A missing app isn't remembered, so it shows once installed. */
+private object AppIcons {
+    private val cache = LruCache<String, ImageBitmap>(32)
+
+    fun cached(pkg: String, px: Int): ImageBitmap? = cache.get("$pkg@$px")
+
+    fun load(context: Context, pkg: String, px: Int): ImageBitmap? {
+        cached(pkg, px)?.let { return it }
+        val bitmap = try {
+            context.packageManager.getApplicationIcon(pkg).toBitmap(px, px).asImageBitmap()
+        } catch (_: PackageManager.NameNotFoundException) {
+            null
+        } catch (_: RuntimeException) {
+            null
+        } ?: return null
+        cache.put("$pkg@$px", bitmap)
+        return bitmap
     }
 }
 

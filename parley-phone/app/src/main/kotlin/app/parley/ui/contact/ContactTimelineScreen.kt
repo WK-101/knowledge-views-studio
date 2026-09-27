@@ -159,8 +159,13 @@ fun ContactTimelineScreen(vm: AppViewModel, contactId: Long, back: () -> Unit) {
                     )
                 }
                 val n = m.entries.size
+                // Keys stay unique even if two entries look alike (a duplicate gets "#k" on its key).
+                val seen = HashMap<String, Int>()
                 m.entries.forEachIndexed { i, e ->
-                    item(key = entryKey(e)) {
+                    val base = entryKey(e)
+                    val k = (seen[base] ?: 0) + 1
+                    seen[base] = k
+                    item(key = if (k == 1) base else "$base#$k") {
                         androidx.compose.material3.Surface(
                             shape = app.parley.ui.segmentShape(i, n), color = MaterialTheme.colorScheme.surfaceContainer,
                             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).animateItem(),

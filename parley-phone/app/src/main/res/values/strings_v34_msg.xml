@@ -17,7 +17,9 @@
     <string name="v34msg_call_via_chat_sub">%1$s can\'t start a call from a number. The chat opens, then tap its call button.</string>
     <string name="v34msg_call_via_chat_hint">Tap the call button at the top of the chat</string>
     <string name="v34msg_no_call_apps">No app for calls is installed. Calls through WhatsApp, Signal, Telegram or Viber show up here once one is.</string>
-    <string name="v34msg_save_for_calls_sub">Visible to WhatsApp, Signal and other apps. Their call buttons show up here after each app syncs its contacts, which can take a few minutes, and only if this person uses that app.</string>
+    <string name="v34msg_save_for_calls_sub">WhatsApp, Signal and other apps can only offer call buttons for a contact they can see. You choose in the next step whether they may see this one.</string>
+    <string name="v34msg_save_for_calls_notice">Apps can offer calls only if you tick \"Save visible to other apps\". Then WhatsApp, Signal and any app that can read your contacts will see this number until it deletes itself. Left unticked, it stays private in Parley.</string>
+    <string name="v34msg_save_already_known">This number is already saved, so nothing was added</string>
     <plurals name="v34msg_save_for_calls">
         <item quantity="one">Save for %d day so apps can offer calls</item>
         <item quantity="other">Save for %d days so apps can offer calls</item>

@@ -312,7 +312,7 @@ fun ContactMessageSheet(r: Reach, onDismiss: () -> Unit, onCall: ((String) -> Un
                 val via = c.viaChat
                 if (via != null) {
                     val enabled = (via.packageName in linked) || unavailable == null
-                    app.parley.messaging.ViaChatCallItem(via.label, enabled = enabled, sub = if (enabled) null else unavailable) {
+                    app.parley.messaging.ViaChatCallItem(via.label, enabled = enabled, sub = if (enabled) null else unavailable, packageName = via.packageName) {
                         val route = if (via.packageName in linked) MessageRoute.MessengerRow(via.packageName) else number?.let { MessageRoute.MessengerLink(via, it) } ?: MessageRoute.Ask
                         val err = ContactMessaging.open(context, route, r)
                         if (err == null) Toast.makeText(context, res.getString(R.string.v34msg_call_via_chat_hint), Toast.LENGTH_LONG).show()
@@ -320,7 +320,7 @@ fun ContactMessageSheet(r: Reach, onDismiss: () -> Unit, onCall: ((String) -> Un
                     }
                 } else {
                     app.parley.messaging.DirectCallItem(
-                        c.label, voice = c.voice != null, video = c.video != null,
+                        c.label, voice = c.voice != null, video = c.video != null, packageName = (c.voice ?: c.video)?.accountType,
                         voiceUsual = c.voice?.let { r.prefs.call == it.accountType } == true, videoUsual = c.video?.let { r.prefs.video == it.accountType } == true,
                         onVoice = { c.voice?.let { m -> done(ContactMessaging.startRow(context, r, m), r.prefs.copy(call = m.accountType), withNumber = false) } },
                         onVideo = { c.video?.let { m -> done(ContactMessaging.startRow(context, r, m), r.prefs.copy(video = m.accountType), withNumber = false) } },

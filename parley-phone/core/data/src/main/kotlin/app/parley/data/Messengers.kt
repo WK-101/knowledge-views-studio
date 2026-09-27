@@ -10,6 +10,7 @@ import android.provider.ContactsContract.Data
 import android.provider.ContactsContract.PhoneLookup
 import android.provider.ContactsContract.RawContacts
 import app.parley.common.MessengerMimes
+import app.parley.common.MessengerRowMatch
 import app.parley.common.PhoneNumbers
 import app.parley.common.ReachApp
 import app.parley.common.ReachKind
@@ -55,12 +56,14 @@ data class MessengerAction(
  * contacts that share one of the person's numbers are now read too.
  */
 object Messengers {
-    fun actions(context: Context, contactId: Long): List<MessengerAction> {
+    fun actions(context: Context, contactId: Long): List<MessengerAction> = actionsAndPhones(context, contactId).first
+
+    /** The contact's messenger rows, and its own phone numbers. */
+    private fun actionsAndPhones(context: Context, contactId: Long): Pair<List<MessengerAction>, List<String>> {
         val cr = context.contentResolver
         val own = readRows(context, listOf(contactId))
         val ownPhones = own.phones
         val region = PhoneEnv.countryIso(context)
-        fun same(a: String, b: String) = PhoneNumbers.same(a, b, region)
 
         // Messenger-only contacts on the same numbers (an app's raw contact that didn't join this person).
         val others = LinkedHashSet<Long>()
@@ -70,12 +73,13 @@ object Messengers {
             }
         }
         val messengerOnly = others.filter { id -> onlyMessengerRaws(context, id) }
+        // v3.4 review #5: exact number match only, and only rows that carry a number.
         val extra = if (messengerOnly.isEmpty()) emptyList() else readRows(context, messengerOnly).actions.filter { a ->
-            val n = a.number
-            n != null && ownPhones.any { same(it, n) }
+            MessengerRowMatch.extraRow(a.number, ownPhones, region)
         }
-        return (own.actions + extra).distinctBy { it.dataId }
+        val all = (own.actions + extra).distinctBy { it.dataId }
             .sortedWith(compareBy({ it.app?.ordinal ?: Int.MAX_VALUE }, { it.appName }, { it.kind.ordinal }))
+        return all to ownPhones
     }
 
     /** V34: the messenger rows for [number] (a saved contact's, or a temporary visible contact's once apps synced). */
@@ -86,8 +90,11 @@ object Messengers {
             while (c.moveToNext()) ids += c.getLong(0)
         }
         val region = PhoneEnv.countryIso(context)
-        return ids.flatMap { actions(context, it) }.distinctBy { it.dataId }
-            .filter { a -> a.number == null || PhoneNumbers.same(a.number, number, region) }
+        // v3.4 review #5: rows without a number only from a contact that itself has this exact number.
+        return ids.flatMap { id ->
+            val (actions, phones) = actionsAndPhones(context, id)
+            actions.filter { a -> MessengerRowMatch.forNumber(a.number, phones, number, region) }
+        }.distinctBy { it.dataId }
     }
 
     private class Rows(val actions: List<MessengerAction>, val phones: List<String>)

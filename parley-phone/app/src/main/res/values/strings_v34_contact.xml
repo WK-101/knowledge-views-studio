@@ -88,4 +88,5 @@
         <item quantity="one">Blocked %1$s</item>
         <item quantity="other">Blocked %2$d numbers</item>
     </plurals>
+    <string name="v34_swipe_already_blocked">Already blocked</string>
 </resources>

@@ -156,11 +156,13 @@ fun MessageOnContent(number: String, accountId: String? = null, onCall: ((String
     var draft by rememberSaveable { mutableStateOf("") }
     var askWhatsApp by remember { mutableStateOf(false) }
     var editDetails by remember { mutableStateOf(false) }
-    // Re-checked before any offer, so a quick tap before the lookup finishes is harmless.
-    var isContact by remember { mutableStateOf(false) }
+    // Re-checked before any offer, so a quick tap before the lookup finishes is harmless. [known] is null until the
+    // contact and private lookups finish (v3.4 review #3: the "save for calls" row waits for it).
+    var known by remember(number) { mutableStateOf<Boolean?>(null) }
     LaunchedEffect(number) {
-        isContact = withContext(Dispatchers.IO) { c.contacts.lookup(number) != null || c.vault.lookup(number) != null }
+        known = withContext(Dispatchers.IO) { runCatching { !ChatThenDecide.stillUnknown(c, number) }.getOrDefault(true) }
     }
+    val isContact = known == true
 
     fun launch(app: MessengerApp) {
         val link = e164?.let { MessengerLinks.build(app, it, draft) } ?: return
@@ -307,7 +309,7 @@ fun MessageOnContent(number: String, accountId: String? = null, onCall: ((String
             }),
         )
         // V34: Call on…
-        CallOnSection(number, e164, unavailable, installed, isContact, region, onLaunched)
+        CallOnSection(number, e164, unavailable, installed, known, region, onLaunched)
         Row(Modifier.padding(horizontal = 24.dp, vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Icon(Icons.Rounded.Lock, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(stringResource(MessageOn.PRIVACY_LINE_RES), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
