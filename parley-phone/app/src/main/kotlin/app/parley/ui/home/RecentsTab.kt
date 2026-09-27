@@ -1,5 +1,6 @@
 package app.parley.ui.home
 
+import app.parley.ui.Destination
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Column
@@ -121,7 +122,7 @@ import androidx.compose.ui.semantics.heading
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun RecentsTab(vm: AppViewModel, open: (String) -> Unit, bottomPadding: Dp = 0.dp) {
+fun RecentsTab(vm: AppViewModel, open: (Destination) -> Unit, bottomPadding: Dp = 0.dp) {
     // The list, its day headers and the chips' state come from RecentsViewModel; this only draws them.
     val recents: RecentsViewModel = activityViewModel()
     val model by recents.list.collectAsStateWithLifecycle()
@@ -460,7 +461,7 @@ fun CallTypeIcon(type: CallType, modifier: Modifier = Modifier, size: Dp = 32.dp
 /** Long-press actions for a Recents row. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun RecentActionsSheet(vm: AppViewModel, recents: RecentsViewModel, g: RecentGroup, open: (String) -> Unit, onMessageOn: (String) -> Unit, onDismiss: () -> Unit) {
+private fun RecentActionsSheet(vm: AppViewModel, recents: RecentsViewModel, g: RecentGroup, open: (Destination) -> Unit, onMessageOn: (String) -> Unit, onDismiss: () -> Unit) {
     val context = LocalContext.current
     fun act(block: () -> Unit) { onDismiss(); block() }
     ParleySheet(onDismissRequest = onDismiss) {

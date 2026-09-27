@@ -110,7 +110,7 @@ fun PrivacyScreen(vm: AppViewModel, back: () -> Unit) {
                     headlineContent = { Text(pluralStringResource(R.plurals.set_privacy_private_calls, priv.size, priv.size)) },
                     supportingContent = { Text(stringResource(R.string.set_privacy_private_calls_body)) },
                 )
-                MessagedRecordSection { vm.navigate(NavEvent.Route(MessagingRoutes.MESSAGED)) }
+                MessagedRecordSection { vm.navigate(NavEvent.Route(MessagingRoutes.Messaged)) }
                 val archiveOn by vm.c.history.prefs.state.collectAsStateWithLifecycle()
                 ListItem(
                     headlineContent = {

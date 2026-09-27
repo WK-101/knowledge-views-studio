@@ -1,5 +1,6 @@
 package app.parley.ui.journal
 
+import app.parley.ui.Destination
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -35,7 +36,7 @@ import app.parley.ui.ParleyListItem
 
 /** The contacts tab of History & undo: 30 days of undo for any contact Parley deleted, edited, merged or separated. */
 @Composable
-fun JournalList(vm: AppViewModel, open: (String) -> Unit, onShowSnapshots: () -> Unit, modifier: Modifier = Modifier) {
+fun JournalList(vm: AppViewModel, open: (Destination) -> Unit, onShowSnapshots: () -> Unit, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val res = LocalResources.current
     val scope = rememberCoroutineScope()

@@ -1,5 +1,6 @@
 package app.parley.ui.extras
 
+import app.parley.ui.Destination
 import android.graphics.Bitmap
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -88,7 +89,7 @@ private val clearRow @Composable get() = ListItemDefaults.colors(containerColor 
  * it on here or hand the setup to another phone as an encrypted file or QR code (and import one).
  */
 @Composable
-fun SimpleSetupScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
+fun SimpleSetupScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit) {
     val context = LocalContext.current
     val res = LocalResources.current
     val scope = rememberCoroutineScope()
@@ -114,7 +115,7 @@ fun SimpleSetupScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit
     val loader = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
             SimpleInbox.file.value = uri
-            open(ExtrasRoutes.SIMPLE_IMPORT)
+            open(ExtrasRoutes.SimpleImport)
         }
     }
 
@@ -312,7 +313,7 @@ private fun SimpleQrDialog(cfg: SimpleConfig, onDismiss: () -> Unit) {
  * create the missing ones, then use it and turn simple mode on.
  */
 @Composable
-fun SimpleImportScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
+fun SimpleImportScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit) {
     val context = LocalContext.current
     val res = LocalResources.current
     val scope = rememberCoroutineScope()

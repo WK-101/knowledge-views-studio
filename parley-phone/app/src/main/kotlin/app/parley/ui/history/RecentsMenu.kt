@@ -1,5 +1,6 @@
 package app.parley.ui.history
 
+import app.parley.ui.Destination
 import app.parley.ui.activityViewModel
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -73,7 +74,7 @@ fun ClearHistoryMenuItem(closeMenu: () -> Unit) {
 
 /** Shows the layout picker and "Clear call history" when asked from the Recents ⋮ menu. */
 @Composable
-fun RecentsMenuDialogs(vm: AppViewModel, open: (String) -> Unit) {
+fun RecentsMenuDialogs(vm: AppViewModel, open: (Destination) -> Unit) {
     val layout by layoutRequested.collectAsStateWithLifecycle()
     val clear by clearRequested.collectAsStateWithLifecycle()
     if (layout) RecentsLayoutDialog(vm) { layoutRequested.value = false }

@@ -56,11 +56,6 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.navigation.NavController
-import androidx.navigation.NavGraphBuilder
-import androidx.navigation.NavType
-import androidx.navigation.compose.composable
-import androidx.navigation.navArgument
 import app.parley.AppViewModel
 import app.parley.R
 import app.parley.common.people.ContactPageLayout
@@ -69,20 +64,6 @@ import app.parley.common.people.SectionMode
 import app.parley.ui.SegmentedGroup
 import app.parley.ui.SettingsScaffold
 import app.parley.ui.SwitchRow
-
-/** The contact page's own screens. */
-object ContactPageRoutes {
-    const val TIMELINE = "contacttimeline/{id}"
-    fun timeline(id: Long) = "contacttimeline/$id"
-    const val SECTIONS = "contactpagesections"
-}
-
-fun NavGraphBuilder.contactPageRoutes(vm: AppViewModel, nav: NavController) {
-    composable(ContactPageRoutes.TIMELINE, arguments = listOf(navArgument("id") { type = NavType.LongType })) {
-        ContactTimelineScreen(vm, it.arguments!!.getLong("id"), back = { nav.popBackStack() })
-    }
-    composable(ContactPageRoutes.SECTIONS) { ContactPageSettingsScreen(vm, back = { nav.popBackStack() }) }
-}
 
 /**
  * Settings › Contacts › Contact page sections. Drag a section by its handle to reorder it; each one starts

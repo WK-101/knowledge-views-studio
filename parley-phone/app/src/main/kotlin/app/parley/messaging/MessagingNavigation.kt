@@ -4,17 +4,22 @@ import android.net.Uri
 import androidx.navigation.NavController
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
-import app.parley.AppViewModel
 import app.parley.common.messaging.IntroQueue
 import app.parley.data.AccountRef
+import app.parley.ui.Destination
+import app.parley.ui.appVm
 import app.parley.ui.people.CsvMappingScreen
+import kotlinx.serialization.Serializable
 
 /** Screens of the messaging round and the contact CSV mapping. */
 object MessagingRoutes {
-    const val MESSAGED = "messaging/messaged"
-    const val BULK_ADD = "messaging/bulk"
-    const val INTRODUCE = "messaging/introduce"
-    const val CSV_MAPPING = "import/csv-columns"
+    @Serializable data object Messaged : Destination
+
+    @Serializable data object BulkAdd : Destination
+
+    @Serializable data object Introduce : Destination
+
+    @Serializable data object CsvMapping : Destination
 }
 
 /** A contact CSV waiting for its columns to be mapped. */
@@ -30,11 +35,11 @@ object MessagingInbox {
     @Volatile var csvImport: CsvImportRequest? = null
 }
 
-fun NavGraphBuilder.messagingRoutes(vm: AppViewModel, nav: NavController) {
-    composable(MessagingRoutes.MESSAGED) { MessagedNumbersScreen(vm, back = { nav.popBackStack() }) }
-    composable(MessagingRoutes.BULK_ADD) {
-        BulkAddScreen(vm, back = { nav.popBackStack() }, open = { r -> nav.navigate(r) })
-    }
-    composable(MessagingRoutes.INTRODUCE) { IntroduceScreen(vm, back = { nav.popBackStack() }) }
-    composable(MessagingRoutes.CSV_MAPPING) { CsvMappingScreen(vm, back = { nav.popBackStack() }) }
+/** Messaged numbers, "Add several numbers", "Introduce myself" and the CSV column mapping. */
+fun NavGraphBuilder.messagingGraph(nav: NavController) {
+    val back: () -> Unit = { nav.popBackStack() }
+    composable<MessagingRoutes.Messaged> { MessagedNumbersScreen(appVm(), back = back) }
+    composable<MessagingRoutes.BulkAdd> { BulkAddScreen(appVm(), back = back, open = { r -> nav.navigate(r) }) }
+    composable<MessagingRoutes.Introduce> { IntroduceScreen(appVm(), back = back) }
+    composable<MessagingRoutes.CsvMapping> { CsvMappingScreen(appVm(), back = back) }
 }

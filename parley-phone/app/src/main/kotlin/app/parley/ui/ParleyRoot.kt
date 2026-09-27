@@ -30,111 +30,34 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import androidx.navigation.navArgument
 import app.parley.AppViewModel
 import app.parley.NavEvent
 import app.parley.UiEvent
 import app.parley.common.HomeLayout
-import app.parley.common.SettingsCategory
 import app.parley.data.ContactDetails
 import app.parley.messaging.ChatThenDecideHost
-import app.parley.ui.backup.BackupScreen
-import app.parley.ui.birthdays.BirthdaysScreen
 import app.parley.ui.blocking.BlockingDialogHost
-import app.parley.ui.blocking.BlockingRoutes
-import app.parley.ui.blocking.BlockingScreen
 import app.parley.ui.LocalNavAnimScope
 import app.parley.ui.LocalSharedScope
 import app.parley.ui.LocalAvatarStyle
-import app.parley.ui.calltime.CallTimeScreen
 import app.parley.ui.calltime.UssdDialog
 import app.parley.ui.circle.CircleSnackHost
 import app.parley.ui.common.CallDialogs
 import app.parley.ui.common.CoachMarks
 import app.parley.ui.common.ImportVcfDialog
 import app.parley.ui.common.LocalCoachMarks
-import app.parley.ui.contact.ContactDetailScreen
-import app.parley.ui.contact.ContactEditScreen
-import app.parley.ui.contact.ContactPickerScreen
-import app.parley.ui.contact.DuplicatesScreen
 import app.parley.ui.contact.ReceiveSecureQrDialog
-import app.parley.ui.extras.HandshakeInbox
 import app.parley.ui.extras.SimpleHome
-import app.parley.ui.health.HealthScreen
-import app.parley.ui.history.NumberHistoryScreen
-import app.parley.ui.history.historyDestinations
 import app.parley.ui.home.HomeScreen
 import app.parley.ui.home.LocalRecentsStyle
-import app.parley.ui.journal.HistoryHubScreen
-import app.parley.ui.journal.HistoryTab
 import app.parley.ui.onboarding.OnboardingScreen
 import app.parley.ui.people.CrashReportHost
-import app.parley.ui.people.peopleRoutes
-import app.parley.ui.contact.contactPageRoutes
-import app.parley.messaging.messagingRoutes
-import app.parley.ui.extras.extrasRoutes
-import app.parley.ui.qr.qrRoutes
-import app.parley.ui.settings.PrivacyScreen
-import app.parley.ui.settings.SettingsPageScreen
-import app.parley.ui.settings.SettingsScreen
-import app.parley.ui.settings.SpeedDialScreen
-import app.parley.ui.settings.ToolsScreen
-import app.parley.ui.sync.FolderSyncScreen
-import app.parley.ui.temporary.TemporaryContactsScreen
-import app.parley.ui.timemachine.VersionHistoryScreen
-import app.parley.ui.vault.VaultDetailScreen
 import app.parley.ui.common.ProvideAppKit
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
-
-object Routes {
-    const val HOME = "home"
-    const val CONTACT = "contact/{id}"
-    const val EDIT = "edit?id={id}&name={name}&phone={phone}&email={email}&addPhone={addPhone}&prefill={prefill}&vault={vault}&hs={hs}"
-    const val VAULT = "vault/{id}"
-    fun vault(id: Long) = "vault/$id"
-    const val HISTORY = "history/{number}"
-    const val PICK = "pick/{number}"
-    const val SETTINGS = "settings"
-    const val SETTINGS_PAGE = "settings/page/{category}?focus={focus}"
-    fun settingsPage(category: SettingsCategory, focus: String? = null) =
-        "settings/page/${category.name}" + if (focus != null) "?focus=" + Uri.encode(focus) else ""
-    const val TEMPORARY = "temporary"
-    const val BLOCKING = "blocking"
-    const val DUPLICATES = "duplicates"
-    const val PRIVACY = "privacy"
-    const val SPEED_DIAL = "speeddial"
-    const val BIRTHDAYS = "birthdays"
-    const val HEALTH = "health"
-    /** History & undo; [journal] opens it on one tab. */
-    const val JOURNAL = "journal?tab={tab}"
-    fun journal(tab: HistoryTab = HistoryTab.CONTACTS) = "journal?tab=" + tab.key
-    const val TOOLS = "tools"
-    const val BACKUP = "backup"
-    const val SYNC = "sync"
-    const val CALL_TIME = "calltime"
-    const val VERSIONS = "versions/{id}"
-    fun versions(id: Long) = "versions/$id"
-
-    fun contact(id: Long) = "contact/$id"
-    fun history(number: String) = "history/" + Uri.encode(number)
-    fun pick(number: String) = "pick/" + Uri.encode(number)
-    /** [handshake]: X5, the id of the received card this editor was opened for (see HandshakeInbox). */
-    fun edit(
-        id: Long? = null, name: String? = null, phone: String? = null, email: String? = null, addPhone: String? = null, prefill: Boolean = false,
-        vault: Long? = null, handshake: String? = null,
-    ): String =
-        "edit?id=${id ?: -1}&name=${Uri.encode(name.orEmpty())}&phone=${Uri.encode(phone.orEmpty())}" +
-            "&email=${Uri.encode(email.orEmpty())}&addPhone=${Uri.encode(addPhone.orEmpty())}&prefill=$prefill&vault=${vault ?: -1}" +
-            "&hs=${Uri.encode(handshake.orEmpty())}"
-
-    /** Picker for "add to existing contact"; the number (or "_" = use the pending prefill). */
-    const val PREFILL_MARK = "_"
-}
 
 /**
  * The app's root: the shared components' words and the one snackbar every screen shows (see [ParleySnackbar]),
@@ -188,8 +111,6 @@ private fun ParleyRootContent(vm: AppViewModel, appSnackbar: ParleySnackbar) {
     LaunchedEffect(Unit) {
         vm.navEvents.collect { e ->
             when (e) {
-                is NavEvent.Contact -> nav.navigate(Routes.contact(e.id)) { launchSingleTop = true }
-                is NavEvent.History -> nav.navigate(Routes.history(e.number)) { launchSingleTop = true }
                 is NavEvent.NewContact -> {
                     vm.pendingPrefill = e.prefill
                     nav.navigate(Routes.edit(prefill = true))
@@ -197,12 +118,11 @@ private fun ParleyRootContent(vm: AppViewModel, appSnackbar: ParleySnackbar) {
                 is NavEvent.InsertOrEdit -> insertOrEdit = e.prefill
                 is NavEvent.ImportVcf -> importUri = e.uri
                 is NavEvent.SecureQr -> secureQrUri = e.uri
-                is NavEvent.Vault -> nav.navigate(Routes.vault(e.id)) { launchSingleTop = true }
-                is NavEvent.Route -> nav.navigate(e.route) { launchSingleTop = true }
                 is NavEvent.Tab -> {
-                    nav.popBackStack(Routes.HOME, inclusive = false)
+                    nav.popBackStack(Routes.Home, inclusive = false)
                     tabRequest = e
                 }
+                else -> Routes.forEvent(e)?.let { d -> nav.navigate(d) { launchSingleTop = true } }
             }
         }
     }
@@ -231,21 +151,21 @@ private fun ParleyRootContent(vm: AppViewModel, appSnackbar: ParleySnackbar) {
     val recentsStyle = vm.settings.collectAsStateWithLifecycle().value.recentsStyle
     CompositionLocalProvider(
         LocalAvatarStyle provides avatarStyle, LocalCoachMarks provides coachMarks,
-        LocalRecentsStyle provides recentsStyle,
+        LocalRecentsStyle provides recentsStyle, LocalAppViewModel provides vm,
     ) {
     val rtlSign = if (LocalLayoutDirection.current == LayoutDirection.Rtl) -1 else 1
     Box(Modifier.fillMaxSize()) {
       SharedTransitionLayout {
        CompositionLocalProvider(LocalSharedScope provides this) {
         NavHost(
-            nav, startDestination = Routes.HOME,
+            nav, startDestination = Routes.Home,
             // Forward screens come in from the end side: the right, or the left in Arabic and Urdu.
             enterTransition = { slideInHorizontally { w -> w / 6 * rtlSign } + fadeIn() },
             exitTransition = { fadeOut() },
             popEnterTransition = { fadeIn() },
             popExitTransition = { slideOutHorizontally { w -> w / 6 * rtlSign } + fadeOut() },
         ) {
-            composable(Routes.HOME) {
+            composable<Routes.Home> {
               CompositionLocalProvider(LocalNavAnimScope provides this) {
                 HomeScreen(
                     vm = vm,
@@ -256,99 +176,7 @@ private fun ParleyRootContent(vm: AppViewModel, appSnackbar: ParleySnackbar) {
                 )
               }
             }
-            composable(Routes.CONTACT, arguments = listOf(navArgument("id") { type = NavType.LongType })) {
-              CompositionLocalProvider(LocalNavAnimScope provides this) {
-                ContactDetailScreen(vm, it.arguments!!.getLong("id"), back = { nav.popBackStack() }, open = { r -> nav.navigate(r) })
-              }
-            }
-            composable(
-                Routes.EDIT,
-                arguments = listOf(
-                    navArgument("id") { type = NavType.LongType; defaultValue = -1L },
-                    navArgument("name") { defaultValue = "" },
-                    navArgument("phone") { defaultValue = "" },
-                    navArgument("email") { defaultValue = "" },
-                    navArgument("addPhone") { defaultValue = "" },
-                    navArgument("prefill") { type = NavType.BoolType; defaultValue = false },
-                    navArgument("vault") { type = NavType.LongType; defaultValue = -1L },
-                    navArgument("hs") { defaultValue = "" },
-                ),
-            ) {
-                val a = it.arguments!!
-                ContactEditScreen(
-                    vm,
-                    contactId = a.getLong("id").takeIf { id -> id > 0 },
-                    prefillName = a.getString("name").orEmpty(),
-                    prefillPhone = a.getString("phone").orEmpty(),
-                    prefillEmail = a.getString("email").orEmpty(),
-                    addPhone = a.getString("addPhone").orEmpty(),
-                    prefill = if (a.getBoolean("prefill")) vm.pendingPrefill.also { vm.pendingPrefill = null } else null,
-                    vaultId = a.getLong("vault").takeIf { it >= 0 },
-                    done = { savedId ->
-                        // A contact received by QR gets its "Met at…" entry once it's saved.
-                        HandshakeInbox.onSaved(vm, savedId, a.getString("hs"))
-                        nav.popBackStack()
-                        val here = nav.currentDestination?.route
-                        when {
-                            savedId == null -> Unit
-                            savedId < 0 -> if (here != Routes.VAULT) nav.navigate(Routes.vault(-savedId)) { launchSingleTop = true }
-                            here != Routes.CONTACT -> nav.navigate(Routes.contact(savedId)) { launchSingleTop = true }
-                        }
-                    },
-                )
-            }
-            composable(Routes.VAULT, arguments = listOf(navArgument("id") { type = NavType.LongType })) {
-                VaultDetailScreen(vm, it.arguments!!.getLong("id"), back = { nav.popBackStack() }, open = { r -> nav.navigate(r) })
-            }
-            composable(Routes.HISTORY) {
-                NumberHistoryScreen(vm, Uri.decode(it.arguments!!.getString("number").orEmpty()), back = { nav.popBackStack() }, open = { r -> nav.navigate(r) })
-            }
-            composable(Routes.PICK) {
-                val number = Uri.decode(it.arguments!!.getString("number").orEmpty())
-                ContactPickerScreen(vm, back = { nav.popBackStack() }, onPick = { id ->
-                    nav.popBackStack()
-                    if (number == Routes.PREFILL_MARK) nav.navigate(Routes.edit(id = id, prefill = true))
-                    else nav.navigate(Routes.edit(id = id, addPhone = number))
-                })
-            }
-            composable(Routes.SETTINGS) { SettingsScreen(vm, back = { nav.popBackStack() }, open = { r -> nav.navigate(r) }) }
-            composable(
-                Routes.SETTINGS_PAGE,
-                arguments = listOf(navArgument("category") { type = NavType.StringType }, navArgument("focus") { nullable = true; defaultValue = null }),
-            ) {
-                val a = it.arguments!!
-                val category = SettingsCategory.entries.firstOrNull { c -> c.name == a.getString("category") }
-                    ?: SettingsCategory.APPEARANCE
-                SettingsPageScreen(vm, category, a.getString("focus"), back = { nav.popBackStack() }, open = { r -> nav.navigate(r) })
-            }
-            composable(Routes.TEMPORARY) { TemporaryContactsScreen(vm, back = { nav.popBackStack() }, open = { r -> nav.navigate(r) }) }
-            composable(Routes.BLOCKING) { BlockingScreen(vm, back = { nav.popBackStack() }, open = { r -> nav.navigate(r) }) }
-            BlockingRoutes.register(this, vm) { nav.popBackStack() }
-            composable(Routes.DUPLICATES) { DuplicatesScreen(vm, back = { nav.popBackStack() }) }
-            composable(Routes.PRIVACY) { PrivacyScreen(vm, back = { nav.popBackStack() }) }
-            composable(Routes.SYNC) { FolderSyncScreen(vm, back = { nav.popBackStack() }) }
-            composable(Routes.VERSIONS, arguments = listOf(navArgument("id") { type = NavType.LongType })) {
-                VersionHistoryScreen(vm, it.arguments!!.getLong("id"), back = { nav.popBackStack() }, open = { r -> nav.navigate(r) })
-            }
-            composable(Routes.BACKUP) { BackupScreen(vm, back = { nav.popBackStack() }) }
-            composable(Routes.JOURNAL, arguments = listOf(navArgument("tab") { type = NavType.StringType; nullable = true; defaultValue = null })) {
-                HistoryHubScreen(
-                    vm, HistoryTab.of(it.arguments?.getString("tab")), back = { nav.popBackStack() }, open = { r -> nav.navigate(r) },
-                )
-            }
-            composable(Routes.TOOLS) { ToolsScreen(vm, back = { nav.popBackStack() }, open = { r -> nav.navigate(r) }) }
-            composable(Routes.HEALTH) { HealthScreen(vm, back = { nav.popBackStack() }, open = { r -> nav.navigate(r) }) }
-            composable(Routes.BIRTHDAYS) { BirthdaysScreen(vm, back = { nav.popBackStack() }, open = { r -> nav.navigate(r) }) }
-            composable(Routes.SPEED_DIAL) { SpeedDialScreen(vm, back = { nav.popBackStack() }) }
-            historyDestinations(vm, nav)
-            composable(Routes.CALL_TIME) { CallTimeScreen(vm, back = { nav.popBackStack() }) }
-            peopleRoutes(vm, nav)
-            // Full timeline, contact page sections.
-            contactPageRoutes(vm, nav)
-            messagingRoutes(vm, nav)
-            extrasRoutes(vm, nav)
-            // Scan QR.
-            qrRoutes(vm, nav)
+            parleyGraph(nav)
         }
        }
       }

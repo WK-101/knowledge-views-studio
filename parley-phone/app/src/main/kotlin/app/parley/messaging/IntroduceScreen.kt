@@ -1,5 +1,6 @@
 package app.parley.messaging
 
+import app.parley.ui.Destination
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -64,14 +65,14 @@ object IntroduceStart {
         }.distinctBy { it.number }
         if (targets.isEmpty()) return false
         MessagingInbox.introTargets = targets
-        vm.navigate(NavEvent.Route(MessagingRoutes.INTRODUCE))
+        vm.navigate(NavEvent.Route(MessagingRoutes.Introduce))
         return true
     }
 
     /** From the bulk-add result. */
-    fun fromList(targets: List<IntroQueue.Target>, open: (String) -> Unit) {
+    fun fromList(targets: List<IntroQueue.Target>, open: (Destination) -> Unit) {
         MessagingInbox.introTargets = targets
-        open(MessagingRoutes.INTRODUCE)
+        open(MessagingRoutes.Introduce)
     }
 }
 

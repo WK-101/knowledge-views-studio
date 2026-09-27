@@ -1,5 +1,6 @@
 package app.parley.ui.qr
 
+import app.parley.ui.Destination
 import android.content.ActivityNotFoundException
 import android.content.ClipboardManager
 import android.net.Uri
@@ -49,9 +50,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.navigation.NavController
-import androidx.navigation.NavGraphBuilder
-import androidx.navigation.compose.composable
 import app.parley.AppViewModel
 import app.parley.R
 import app.parley.common.qr.QrParser
@@ -64,15 +62,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
-
-/** The "Scan QR" screen, reached from Contacts, the keypad, My card, Settings, the launcher and the tile. */
-object QrRoutes {
-    const val SCAN = "qrscan"
-}
-
-fun NavGraphBuilder.qrRoutes(vm: AppViewModel, nav: NavController) {
-    composable(QrRoutes.SCAN) { QrScanScreen(vm, back = { nav.popBackStack() }, open = { r -> nav.navigate(r) }) }
-}
 
 private sealed interface ScanState {
     data object Idle : ScanState
@@ -89,7 +78,7 @@ private sealed interface ScanState {
  * offline (ZXing). Nothing found is answered with tips; several codes let you pick one; one code opens its sheet.
  */
 @Composable
-fun QrScanScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
+fun QrScanScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit) {
     val context = LocalContext.current
     val res = LocalResources.current
     val scope = rememberCoroutineScope()

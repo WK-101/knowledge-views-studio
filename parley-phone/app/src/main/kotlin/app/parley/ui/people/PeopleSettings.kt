@@ -1,5 +1,6 @@
 package app.parley.ui.people
 
+import app.parley.ui.Destination
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
@@ -65,9 +66,9 @@ fun PreferNicknameRow(vm: AppViewModel, icon: ImageVector? = null) {
 
 /** Settings › Contacts: labels. */
 @Composable
-fun LabelsRow(vm: AppViewModel, open: (String) -> Unit, icon: ImageVector? = null) {
+fun LabelsRow(vm: AppViewModel, open: (Destination) -> Unit, icon: ImageVector? = null) {
     val idx by vm.people.index.collectAsStateWithLifecycle()
-    LinkRow(settingTitle("labels"), pluralStringResource(R.plurals.labels_row_summary, idx.labelCounts.size, idx.labelCounts.size), icon) { open(PeopleRoutes.LABELS) }
+    LinkRow(settingTitle("labels"), pluralStringResource(R.plurals.labels_row_summary, idx.labelCounts.size, idx.labelCounts.size), icon) { open(PeopleRoutes.Labels) }
 }
 
 /** Whether "Export one account" applies (more than one account has contacts). */
@@ -119,9 +120,9 @@ fun PrivacyLinks(vm: AppViewModel) {
     val pn by vm.c.people.privateNames.state.collectAsStateWithLifecycle()
     Section(stringResource(R.string.privacy_section))
     LinkRow(stringResource(R.string.privacy_who_can_see), stringResource(R.string.privacy_who_can_see_summary)) {
-        vm.navigate(NavEvent.Route(PeopleRoutes.WHO_CAN_SEE))
+        vm.navigate(NavEvent.Route(PeopleRoutes.WhoCanSee))
     }
-    LinkRow(stringResource(R.string.privacy_private_names), if (pn.enabled) stringResource(R.string.dc_on) else stringResource(R.string.dc_off)) { vm.navigate(NavEvent.Route(PeopleRoutes.PRIVATE_NAMES)) }
+    LinkRow(stringResource(R.string.privacy_private_names), if (pn.enabled) stringResource(R.string.dc_on) else stringResource(R.string.dc_off)) { vm.navigate(NavEvent.Route(PeopleRoutes.PrivateNames)) }
 }
 
 /** "Google · me@x (212)": account label with its number of contacts. */

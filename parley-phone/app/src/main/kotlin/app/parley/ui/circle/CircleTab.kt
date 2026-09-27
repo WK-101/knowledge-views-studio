@@ -1,5 +1,6 @@
 package app.parley.ui.circle
 
+import app.parley.ui.Destination
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -61,7 +62,7 @@ import app.parley.ui.avatarSize
  * says so (it never claims the Circle is empty).
  */
 @Composable
-fun CircleTab(vm: AppViewModel, open: (String) -> Unit, query: String) {
+fun CircleTab(vm: AppViewModel, open: (Destination) -> Unit, query: String) {
     val rows by vm.circle.rows.collectAsStateWithLifecycle()
     val suggestions by vm.circle.suggestions.collectAsStateWithLifecycle()
     val config by vm.c.circle.config.collectAsStateWithLifecycle()
@@ -100,7 +101,7 @@ fun CircleTab(vm: AppViewModel, open: (String) -> Unit, query: String) {
  * for an empty Circle without suggestions, so Favourites stays as it was for people who don't use it.
  */
 @Composable
-fun CircleFavoritesSection(vm: AppViewModel, open: (String) -> Unit, query: String) {
+fun CircleFavoritesSection(vm: AppViewModel, open: (Destination) -> Unit, query: String) {
     val rows by vm.circle.rows.collectAsStateWithLifecycle()
     val suggestions by vm.circle.suggestions.collectAsStateWithLifecycle()
     val config by vm.c.circle.config.collectAsStateWithLifecycle()
@@ -137,7 +138,7 @@ fun CircleFavoritesSection(vm: AppViewModel, open: (String) -> Unit, query: Stri
 }
 
 @Composable
-private fun CircleRowItem(vm: AppViewModel, r: CircleRow, quick: QuickMessenger, open: (String) -> Unit) {
+private fun CircleRowItem(vm: AppViewModel, r: CircleRow, quick: QuickMessenger, open: (Destination) -> Unit) {
     val res = LocalResources.current
     val phone = r.contact.phones.firstOrNull { it.isPrimary } ?: r.contact.phones.firstOrNull()
     ParleyListItem(

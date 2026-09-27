@@ -1,5 +1,6 @@
 package app.parley.ui.history
 
+import app.parley.ui.Destination
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -66,7 +67,7 @@ private data class PeopleData(
  * whole card can be turned off here or in Settings › Recents & history. Private contacts are never in it.
  */
 @Composable
-fun PeopleCard(vm: AppViewModel, idx: CallLogIndex, open: (String) -> Unit) {
+fun PeopleCard(vm: AppViewModel, idx: CallLogIndex, open: (Destination) -> Unit) {
     val cfg by vm.c.circle.config.collectAsStateWithLifecycle()
     if (!cfg.peopleCard) return
     val all by vm.contacts.collectAsStateWithLifecycle()
@@ -173,7 +174,7 @@ private fun SubHeader(text: String) {
 }
 
 @Composable
-private fun ContactLine(vm: AppViewModel, ct: ContactSummary, sub: String, open: (String) -> Unit, call: Boolean = true) {
+private fun ContactLine(vm: AppViewModel, ct: ContactSummary, sub: String, open: (Destination) -> Unit, call: Boolean = true) {
     val phone = (ct.phones.firstOrNull { it.isPrimary } ?: ct.phones.firstOrNull())?.number
     ParleyListItem(
         modifier = Modifier.clickable { open(Routes.contact(ct.id)) },

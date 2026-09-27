@@ -1,5 +1,6 @@
 package app.parley.ui.people
 
+import app.parley.ui.Destination
 import android.app.Activity
 import android.content.Intent
 import android.media.RingtoneManager
@@ -78,7 +79,7 @@ import app.parley.ui.ConfirmDialog
 /** Settings-like screen listing every label: open, create, rename, delete and merge. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ManageLabelsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
+fun ManageLabelsScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val res = LocalResources.current
@@ -311,7 +312,7 @@ private fun RenameLabelDialog(vm: AppViewModel, old: String, onDismiss: () -> Un
 /** One label: its members and group actions (message all, e-mail all, ringtone, blocking). */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun LabelScreen(vm: AppViewModel, title: String, back: () -> Unit, open: (String) -> Unit) {
+fun LabelScreen(vm: AppViewModel, title: String, back: () -> Unit, open: (Destination) -> Unit) {
     val context = LocalContext.current
     val res = LocalResources.current
     val scope = rememberCoroutineScope()

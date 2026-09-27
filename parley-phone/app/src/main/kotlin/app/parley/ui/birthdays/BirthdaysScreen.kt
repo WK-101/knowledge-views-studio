@@ -1,5 +1,6 @@
 package app.parley.ui.birthdays
 
+import app.parley.ui.Destination
 import android.provider.ContactsContract.CommonDataKinds.Event
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Row
@@ -52,7 +53,7 @@ fun upcoming(events: List<ContactEvent>, today: LocalDate = LocalDate.now()): Li
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun BirthdaysScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
+fun BirthdaysScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit) {
     val context = LocalContext.current
     val resources = LocalResources.current
     val all by vm.contacts.collectAsStateWithLifecycle()

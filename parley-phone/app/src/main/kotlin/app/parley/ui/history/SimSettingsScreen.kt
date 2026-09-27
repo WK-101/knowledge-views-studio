@@ -1,5 +1,6 @@
 package app.parley.ui.history
 
+import app.parley.ui.Destination
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -57,7 +58,7 @@ import app.parley.ui.ParleyScaffold
 /** Settings › SIMs: one row per SIM, with its plan meter when set. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SimListScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
+fun SimListScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit) {
     val sims by vm.sims.collectAsStateWithLifecycle()
     val usage by vm.c.history.planUsage.collectAsStateWithLifecycle()
     val res = LocalResources.current

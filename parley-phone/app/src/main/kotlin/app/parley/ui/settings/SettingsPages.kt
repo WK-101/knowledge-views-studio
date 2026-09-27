@@ -1,5 +1,6 @@
 package app.parley.ui.settings
 
+import app.parley.ui.Destination
 import android.app.Activity
 import android.app.NotificationManager
 import android.content.Context
@@ -185,7 +186,7 @@ private fun Context.startSafely(intent: Intent) {
 // ---------------------------------------------------------------- Appearance
 
 @Composable
-internal fun AppearancePage(vm: AppViewModel, open: (String) -> Unit = {}) {
+internal fun AppearancePage(vm: AppViewModel, open: (Destination) -> Unit = {}) {
     val s by vm.settings.collectAsStateWithLifecycle()
     val set = rememberSettingsSetter(vm)
     val themes = listOf(stringResource(R.string.set_theme_system), stringResource(R.string.set_theme_light), stringResource(R.string.set_theme_dark))
@@ -220,7 +221,7 @@ internal fun AppearancePage(vm: AppViewModel, open: (String) -> Unit = {}) {
 // ---------------------------------------------------------------- Layout & gestures
 
 @Composable
-internal fun LayoutPage(vm: AppViewModel, open: (String) -> Unit) {
+internal fun LayoutPage(vm: AppViewModel, open: (Destination) -> Unit) {
     val s by vm.settings.collectAsStateWithLifecycle()
     val set = rememberSettingsSetter(vm)
     val navTabsTitle = settingTitle("nav_tabs")
@@ -252,14 +253,14 @@ internal fun LayoutPage(vm: AppViewModel, open: (String) -> Unit) {
     }
     // Simple mode, set up here (for someone else, or for yourself).
     SegmentedGroup {
-        linkRow("simple_mode", Icons.Rounded.Accessibility) { open(ExtrasRoutes.SIMPLE_SETUP) }
+        linkRow("simple_mode", Icons.Rounded.Accessibility) { open(ExtrasRoutes.SimpleSetup) }
     }
 }
 
 // ---------------------------------------------------------------- Calls
 
 @Composable
-internal fun CallsPage(vm: AppViewModel, open: (String) -> Unit) {
+internal fun CallsPage(vm: AppViewModel, open: (Destination) -> Unit) {
     val context = LocalContext.current
     val s by vm.settings.collectAsStateWithLifecycle()
     val isDefault by vm.isDefaultDialer.collectAsStateWithLifecycle()
@@ -319,7 +320,7 @@ internal fun CallsPage(vm: AppViewModel, open: (String) -> Unit) {
     // The memory prompt, notes on the lock screen and the pre-call peek.
     MemorySettingsGroup(vm)
     SegmentedGroup(stringResource(R.string.set_group_sims)) {
-        linkRow("sims", Icons.Rounded.SimCard) { open(HistoryRoutes.SIMS) }
+        linkRow("sims", Icons.Rounded.SimCard) { open(HistoryRoutes.Sims) }
         linkRow("sim_accounts", Icons.Rounded.SettingsPhone, external = true) { context.startSafely(Intent(TelecomManager.ACTION_CHANGE_PHONE_ACCOUNTS)) }
         linkRow("carrier_settings", Icons.AutoMirrored.Rounded.PhoneForwarded, external = true) { context.startSafely(Intent(TelecomManager.ACTION_SHOW_CALL_SETTINGS)) }
     }
@@ -329,7 +330,7 @@ internal fun CallsPage(vm: AppViewModel, open: (String) -> Unit) {
 // ---------------------------------------------------------------- Keypad
 
 @Composable
-internal fun KeypadPage(vm: AppViewModel, open: (String) -> Unit) {
+internal fun KeypadPage(vm: AppViewModel, open: (Destination) -> Unit) {
     val s by vm.settings.collectAsStateWithLifecycle()
     val set = rememberSettingsSetter(vm)
     SegmentedGroup(stringResource(R.string.set_group_feedback)) {
@@ -338,7 +339,7 @@ internal fun KeypadPage(vm: AppViewModel, open: (String) -> Unit) {
     }
     SegmentedGroup(stringResource(R.string.set_group_keys)) {
         item("keypad_letters") { KeypadLettersRow(vm, Icons.Rounded.Translate) }
-        linkRow("speed_dial", Icons.Rounded.Speed) { open(Routes.SPEED_DIAL) }
+        linkRow("speed_dial", Icons.Rounded.Speed) { open(Routes.SpeedDial) }
         item("ussd") { UssdRow(vm, Icons.Rounded.Tag) }
     }
 }
@@ -346,25 +347,25 @@ internal fun KeypadPage(vm: AppViewModel, open: (String) -> Unit) {
 // ---------------------------------------------------------------- Call time
 
 @Composable
-internal fun CallTimePage(vm: AppViewModel, open: (String) -> Unit) {
+internal fun CallTimePage(vm: AppViewModel, open: (Destination) -> Unit) {
     SegmentedGroup {
         item("call_time") { CallTimeRow(vm, open, Icons.Rounded.Timer) }
         // Plan minutes are set per SIM: one row, on the Calls page ("SIMs & plan minutes").
-        linkRow("sims", Icons.Rounded.SimCard) { open(HistoryRoutes.SIMS) }
+        linkRow("sims", Icons.Rounded.SimCard) { open(HistoryRoutes.Sims) }
     }
 }
 
 // ---------------------------------------------------------------- Blocking
 
 @Composable
-internal fun BlockingPage(vm: AppViewModel, open: (String) -> Unit) {
+internal fun BlockingPage(vm: AppViewModel, open: (Destination) -> Unit) {
     val s by vm.settings.collectAsStateWithLifecycle()
     val set = rememberSettingsSetter(vm)
     val scope = rememberCoroutineScope()
     val snoozing = s.screening.snoozeActive(System.currentTimeMillis())
     val snoozeOn = stringResource(R.string.set_expecting_call_on)
     SegmentedGroup {
-        linkRow("blocking", Icons.Rounded.Block) { open(Routes.BLOCKING) }
+        linkRow("blocking", Icons.Rounded.Block) { open(Routes.Blocking) }
         switchRow("repeat_callers", s.repeatCallerRingsThrough, Icons.Rounded.Repeat) { v -> set { it.copy(repeatCallerRingsThrough = v) } }
         switchRow("expecting_call", snoozing, Icons.Rounded.HourglassTop, sub = if (snoozing) snoozeOn else null) { v ->
             if (v) BlockingDialogs.show(BlockingDialog.Snooze)
@@ -372,17 +373,17 @@ internal fun BlockingPage(vm: AppViewModel, open: (String) -> Unit) {
         }
     }
     SegmentedGroup(stringResource(R.string.set_group_lists_rules)) {
-        linkRow("spam_lists", Icons.Rounded.Inventory2) { open(BlockingRoutes.LISTS) }
-        linkRow("templates", Icons.Rounded.Style) { open(BlockingRoutes.TEMPLATES) }
-        linkRow("dry_run", Icons.Rounded.Science) { open(BlockingRoutes.DRY_RUN) }
-        linkRow("transfer", Icons.Rounded.ImportExport) { open(BlockingRoutes.TRANSFER) }
+        linkRow("spam_lists", Icons.Rounded.Inventory2) { open(BlockingRoutes.Lists) }
+        linkRow("templates", Icons.Rounded.Style) { open(BlockingRoutes.Templates) }
+        linkRow("dry_run", Icons.Rounded.Science) { open(BlockingRoutes.DryRun) }
+        linkRow("transfer", Icons.Rounded.ImportExport) { open(BlockingRoutes.Transfer) }
     }
 }
 
 // ---------------------------------------------------------------- Contacts
 
 @Composable
-internal fun ContactsPage(vm: AppViewModel, open: (String) -> Unit) {
+internal fun ContactsPage(vm: AppViewModel, open: (Destination) -> Unit) {
     val context = LocalContext.current
     val res = LocalResources.current
     val scope = rememberCoroutineScope()
@@ -444,12 +445,12 @@ internal fun ContactsPage(vm: AppViewModel, open: (String) -> Unit) {
         }
         item("labels") { LabelsRow(vm, open, Icons.AutoMirrored.Rounded.Label) }
         linkRow("temporary_contacts", Icons.Rounded.AutoDelete, sub = tempSub) {
-            open(Routes.TEMPORARY)
+            open(Routes.Temporary)
         }
-        linkRow("bulk_add", Icons.Rounded.GroupAdd) { open(MessagingRoutes.BULK_ADD) }
-        linkRow("duplicates", Icons.AutoMirrored.Rounded.MergeType) { open(Routes.DUPLICATES) }
-        linkRow("health", Icons.Rounded.HealthAndSafety) { open(Routes.HEALTH) }
-        linkRow("contact_page", Icons.Rounded.ViewAgenda) { open(ContactPageRoutes.SECTIONS) }
+        linkRow("bulk_add", Icons.Rounded.GroupAdd) { open(MessagingRoutes.BulkAdd) }
+        linkRow("duplicates", Icons.AutoMirrored.Rounded.MergeType) { open(Routes.Duplicates) }
+        linkRow("health", Icons.Rounded.HealthAndSafety) { open(Routes.Health) }
+        linkRow("contact_page", Icons.Rounded.ViewAgenda) { open(ContactPageRoutes.Sections) }
     }
     val severalAccounts = hasSeveralAccounts(vm)
     SegmentedGroup(stringResource(R.string.set_group_import_export)) {
@@ -460,7 +461,7 @@ internal fun ContactsPage(vm: AppViewModel, open: (String) -> Unit) {
         linkRow("export_csv", Icons.Rounded.FileDownload) { csvExporter.launch("contacts.csv") }
     }
     SegmentedGroup(stringResource(R.string.set_group_birthdays)) {
-        linkRow("birthdays", Icons.Rounded.Cake) { open(Routes.BIRTHDAYS) }
+        linkRow("birthdays", Icons.Rounded.Cake) { open(Routes.Birthdays) }
         switchRow("birthday_reminders", s.birthdayReminders, Icons.Rounded.NotificationsActive, sub = reminderSub) { v ->
             set { it.copy(birthdayReminders = v) }
         }
@@ -477,7 +478,7 @@ internal fun ContactsPage(vm: AppViewModel, open: (String) -> Unit) {
         circleSettingRows(vm, circleCfg, s.birthdayReminders, s.reachOutNudges)
     }
     AdvancedGroup(setOf("import_sim", "export_account")) {
-        linkRow("import_sim", Icons.Rounded.SimCardDownload) { open(PeopleRoutes.SIM_IMPORT) }
+        linkRow("import_sim", Icons.Rounded.SimCardDownload) { open(PeopleRoutes.SimImport) }
         if (severalAccounts) item("export_account") { ExportAccountRow(vm, Icons.AutoMirrored.Rounded.CallSplit) }
     }
 
@@ -496,7 +497,7 @@ internal fun ContactsPage(vm: AppViewModel, open: (String) -> Unit) {
                                 val preview = runCatching { vm.c.vcards.csvPreview(uri) }.getOrNull()
                                 if (preview != null && !preview.parley) {
                                     MessagingInbox.csvImport = CsvImportRequest(uri, a, skipDuplicates)
-                                    open(MessagingRoutes.CSV_MAPPING)
+                                    open(MessagingRoutes.CsvMapping)
                                     return@launch
                                 }
                                 progress = importing
@@ -523,7 +524,7 @@ internal fun ContactsPage(vm: AppViewModel, open: (String) -> Unit) {
 // ---------------------------------------------------------------- Recents & history
 
 @Composable
-internal fun HistoryPage(vm: AppViewModel, open: (String) -> Unit) {
+internal fun HistoryPage(vm: AppViewModel, open: (Destination) -> Unit) {
     val s by vm.settings.collectAsStateWithLifecycle()
     val set = rememberSettingsSetter(vm)
     val archiveOn = vm.c.history.prefs.state.collectAsStateWithLifecycle().value.archiveEnabled
@@ -559,12 +560,12 @@ internal fun HistoryPage(vm: AppViewModel, open: (String) -> Unit) {
         menuRow("recents_style", styleLabels, s.recentsStyle.ordinal, Icons.Rounded.Palette) { i ->
             set { it.copy(recentsStyle = RecentsStyle.entries[i]) }
         }
-        linkRow("insights", Icons.Rounded.Insights) { open(HistoryRoutes.INSIGHTS) }
+        linkRow("insights", Icons.Rounded.Insights) { open(HistoryRoutes.Insights) }
         // The People card in Call insights.
         peopleCardRows(vm, circleCfg)
     }
     SegmentedGroup(stringResource(R.string.hist_export_import)) {
-        linkRow("import_calls", Icons.Rounded.FileUpload) { open(HistoryRoutes.IMPORT) }
+        linkRow("import_calls", Icons.Rounded.FileUpload) { open(HistoryRoutes.Import) }
         csvBomRow(vm)
     }
     AdvancedGroup(setOf("sim_labels")) {
@@ -576,7 +577,7 @@ internal fun HistoryPage(vm: AppViewModel, open: (String) -> Unit) {
 // ---------------------------------------------------------------- Messaging
 
 @Composable
-internal fun MessagingPage(vm: AppViewModel, open: (String) -> Unit) {
+internal fun MessagingPage(vm: AppViewModel, open: (Destination) -> Unit) {
     val s by vm.settings.collectAsStateWithLifecycle()
     val set = rememberSettingsSetter(vm)
     val scope = rememberCoroutineScope()
@@ -593,7 +594,7 @@ internal fun MessagingPage(vm: AppViewModel, open: (String) -> Unit) {
     val messagedSub = if (recording) pluralStringResource(R.plurals.set_numbers_count, recorded.size, recorded.size) else stringResource(R.string.set_not_kept)
     SegmentedGroup(stringResource(R.string.set_group_messaged)) {
         linkRow("messaged_numbers", Icons.AutoMirrored.Rounded.Chat, sub = messagedSub) {
-            open(MessagingRoutes.MESSAGED)
+            open(MessagingRoutes.Messaged)
         }
         val choices = MessagedRecord.EXPIRY_CHOICES
         menuRow("messaged_expiry", choices.map { expiryLabel(context, it) }, choices.indexOf(expiry).coerceAtLeast(0), Icons.Rounded.Timer) { i ->
@@ -611,7 +612,7 @@ internal fun MessagingPage(vm: AppViewModel, open: (String) -> Unit) {
 // ---------------------------------------------------------------- Privacy & security
 
 @Composable
-internal fun PrivacyPage(vm: AppViewModel, open: (String) -> Unit) {
+internal fun PrivacyPage(vm: AppViewModel, open: (Destination) -> Unit) {
     val context = LocalContext.current
     val res = LocalResources.current
     val s by vm.settings.collectAsStateWithLifecycle()
@@ -645,12 +646,12 @@ internal fun PrivacyPage(vm: AppViewModel, open: (String) -> Unit) {
         switchRow("private_history", s.privateVaultHistory, Icons.Rounded.PhoneLocked) { v -> set { it.copy(privateVaultHistory = v) } }
     }
     SegmentedGroup(stringResource(R.string.set_group_your_data)) {
-        linkRow("privacy_dashboard", Icons.Rounded.PrivacyTip) { open(Routes.PRIVACY) }
-        linkRow("who_can_see", Icons.Rounded.Apps) { open(PeopleRoutes.WHO_CAN_SEE) }
-        linkRow("private_names", Icons.Rounded.Badge, sub = if (pn.enabled) on else off) { open(PeopleRoutes.PRIVATE_NAMES) }
+        linkRow("privacy_dashboard", Icons.Rounded.PrivacyTip) { open(Routes.Privacy) }
+        linkRow("who_can_see", Icons.Rounded.Apps) { open(PeopleRoutes.WhoCanSee) }
+        linkRow("private_names", Icons.Rounded.Badge, sub = if (pn.enabled) on else off) { open(PeopleRoutes.PrivateNames) }
     }
     AdvancedGroup(setOf("private_directory", "app_permissions", "delete_all_data")) {
-        linkRow("private_directory", Icons.Rounded.PhoneLocked, sub = if (pn.directory) on else off) { open(PeopleRoutes.PRIVATE_NAMES) }
+        linkRow("private_directory", Icons.Rounded.PhoneLocked, sub = if (pn.directory) on else off) { open(PeopleRoutes.PrivateNames) }
         linkRow("app_permissions", Icons.Rounded.AdminPanelSettings, external = true) {
             context.startSafely(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + context.packageName)))
         }
@@ -662,7 +663,7 @@ internal fun PrivacyPage(vm: AppViewModel, open: (String) -> Unit) {
 // ---------------------------------------------------------------- Backup & sync
 
 @Composable
-internal fun BackupPage(vm: AppViewModel, open: (String) -> Unit) {
+internal fun BackupPage(vm: AppViewModel, open: (Destination) -> Unit) {
     val context = LocalContext.current
     val b by vm.c.backup.prefs.state.collectAsStateWithLifecycle()
     val lastBackup = if (b.lastBackupAt > 0) stringResource(R.string.set_last_backup, Format.shortWhen(context, b.lastBackupAt)) else null
@@ -674,13 +675,13 @@ internal fun BackupPage(vm: AppViewModel, open: (String) -> Unit) {
         linkRow(
             "backup", Icons.Rounded.Backup,
             sub = lastBackup,
-        ) { open(Routes.BACKUP) }
+        ) { open(Routes.Backup) }
         menuRow(
             "backup_reminder", reminderOptions, BackupNudge.REMINDER_DAYS.indexOf(ux.backupReminderDays).coerceAtLeast(0),
             Icons.Rounded.NotificationsActive,
         ) { i -> vm.c.ux.setBackupReminderDays(BackupNudge.REMINDER_DAYS[i]) }
-        linkRow("sync", Icons.Rounded.Sync) { open(Routes.SYNC) }
-        linkRow("markdown_export", Icons.Rounded.Description) { open(Routes.SYNC) }
+        linkRow("sync", Icons.Rounded.Sync) { open(Routes.Sync) }
+        linkRow("markdown_export", Icons.Rounded.Description) { open(Routes.Sync) }
     }
     SegmentedGroup(stringResource(R.string.set_group_undo)) {
         linkRow("journal", Icons.Rounded.RestoreFromTrash) { open(Routes.journal()) }
@@ -731,7 +732,7 @@ internal fun NotificationsPage(vm: AppViewModel) {
 // ---------------------------------------------------------------- About
 
 @Composable
-internal fun AboutPage(open: (String) -> Unit, vm: AppViewModel? = null) {
+internal fun AboutPage(open: (Destination) -> Unit, vm: AppViewModel? = null) {
     val context = LocalContext.current
     val diagnosticsSub = stringResource(R.string.set_diagnostics_sub)
     SegmentedGroup {
@@ -741,7 +742,7 @@ internal fun AboutPage(open: (String) -> Unit, vm: AppViewModel? = null) {
             })
         }
         linkRow("diagnostics", Icons.Rounded.BugReport, sub = diagnosticsSub) {
-            open(PeopleRoutes.DIAGNOSTICS)
+            open(PeopleRoutes.Diagnostics)
         }
         if (vm != null) item("crash_reports") { CrashReportsRow(vm) }
     }

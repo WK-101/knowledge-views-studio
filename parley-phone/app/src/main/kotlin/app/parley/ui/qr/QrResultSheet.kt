@@ -1,5 +1,6 @@
 package app.parley.ui.qr
 
+import app.parley.ui.Destination
 import android.content.Context
 import android.content.res.Resources
 import android.net.Uri
@@ -173,7 +174,7 @@ object QrLabels {
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun QrResultSheet(vm: AppViewModel, payload: QrPayload, onDismiss: () -> Unit, open: (String) -> Unit) {
+fun QrResultSheet(vm: AppViewModel, payload: QrPayload, onDismiss: () -> Unit, open: (Destination) -> Unit) {
     val context = LocalContext.current
     val res = LocalResources.current
     ParleySheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
@@ -264,7 +265,7 @@ private fun importVcard(context: Context, vm: AppViewModel, vcard: String) {
 }
 
 @Composable
-private fun ColumnScope.ContactResult(vm: AppViewModel, p: QrPayload.Contact, onDismiss: () -> Unit, open: (String) -> Unit) {
+private fun ColumnScope.ContactResult(vm: AppViewModel, p: QrPayload.Contact, onDismiss: () -> Unit, open: (Destination) -> Unit) {
     val context = LocalContext.current
     var selected by remember { mutableIntStateOf(if (p.records.size == 1) 0 else -1) }
     if (p.format != ContactFormat.VCARD) {
@@ -339,7 +340,7 @@ private fun CardAsks(asks: Set<ScannedCard.Flag>, labels: List<String>, allowed:
 private fun nameOf(r: ContactRecord, d: ContactDetails): String = r.displayName.ifBlank { d.composedName.ifBlank { d.company } }
 
 @Composable
-private fun ColumnScope.ContactCard(vm: AppViewModel, record: ContactRecord, onDismiss: () -> Unit, open: (String) -> Unit, allCardsVcard: String?) {
+private fun ColumnScope.ContactCard(vm: AppViewModel, record: ContactRecord, onDismiss: () -> Unit, open: (Destination) -> Unit, allCardsVcard: String?) {
     val context = LocalContext.current
     val res = LocalResources.current
     val scope = rememberCoroutineScope()
@@ -430,11 +431,11 @@ private fun ColumnScope.ParleyResult(vm: AppViewModel, p: QrPayload.Parley, onDi
             ParleyKind.CONTACT -> vm.navigate(NavEvent.SecureQr(uri))
             ParleyKind.SIMPLE -> {
                 SimpleInbox.qr.value = uri
-                vm.navigate(NavEvent.Route(ExtrasRoutes.SIMPLE_IMPORT))
+                vm.navigate(NavEvent.Route(ExtrasRoutes.SimpleImport))
             }
             ParleyKind.TEMPLATE -> {
                 TemplateInbox.pending.value = uri
-                vm.navigate(NavEvent.Route(BlockingRoutes.TEMPLATES))
+                vm.navigate(NavEvent.Route(BlockingRoutes.Templates))
             }
         }
     }

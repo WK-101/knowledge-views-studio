@@ -1,5 +1,6 @@
 package app.parley.messaging
 
+import app.parley.ui.Destination
 import android.content.ClipboardManager
 import android.content.res.Resources
 import android.text.format.DateUtils
@@ -101,7 +102,7 @@ private enum class Where { CONTACTS, PRIVATE, TEMPORARY }
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun BulkAddScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
+fun BulkAddScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit) {
     val context = LocalContext.current
     val c = vm.c
     val scope = rememberCoroutineScope()

@@ -1,5 +1,6 @@
 package app.parley.ui.people
 
+import app.parley.ui.Destination
 import android.provider.ContactsContract.CommonDataKinds.Event
 import android.text.format.DateFormat
 import androidx.compose.foundation.clickable
@@ -69,7 +70,7 @@ import app.parley.ui.ConfirmDialog
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun AccountChips(vm: AppViewModel, d: ContactDetails, open: (String) -> Unit, onChanged: (Long?) -> Unit) {
+fun AccountChips(vm: AppViewModel, d: ContactDetails, open: (Destination) -> Unit, onChanged: (Long?) -> Unit) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val res = LocalResources.current
@@ -156,7 +157,7 @@ fun AccountChips(vm: AppViewModel, d: ContactDetails, open: (String) -> Unit, on
 
 /** "Why did this change?": who last changed this contact (Parley, another app, or a sync account). */
 @Composable
-fun ProvenanceRow(vm: AppViewModel, contactId: Long, refreshKey: Any?, open: (String) -> Unit) {
+fun ProvenanceRow(vm: AppViewModel, contactId: Long, refreshKey: Any?, open: (Destination) -> Unit) {
     val context = LocalContext.current
     val res = LocalResources.current
     val verdict by produceState<ProvenanceVerdict?>(null, contactId, refreshKey) {
