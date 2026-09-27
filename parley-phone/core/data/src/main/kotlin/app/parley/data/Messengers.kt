@@ -3,68 +3,146 @@ package app.parley.data
 import android.content.ContentUris
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.net.Uri
+import android.provider.ContactsContract.CommonDataKinds.Phone
 import android.provider.ContactsContract.Data
+import android.provider.ContactsContract.PhoneLookup
 import android.provider.ContactsContract.RawContacts
+import app.parley.common.MessengerMimes
+import app.parley.common.PhoneNumbers
+import app.parley.common.ReachApp
+import app.parley.common.ReachKind
+import app.parley.common.ReachRow
 
-/** One action a messenger app registered on a contact (e.g. "Signal call +1 555…"). */
+/** One action a messenger app registered on a contact (e.g. "Signal Voice Call +1 555…"). */
 data class MessengerAction(
     val dataId: Long,
     val mimeType: String,
     val accountType: String,
     val appName: String,
     val label: String,
+    /** A call of any kind (voice or video), as before V34. */
     val isCall: Boolean,
     val isVideo: Boolean,
+    /** V34: what the row does, from its mimetype. */
+    val kind: ReachKind = if (isVideo) ReachKind.VIDEO else if (isCall) ReachKind.VOICE else ReachKind.MESSAGE,
+    /** V34: the number the row is for, when the app said. */
+    val number: String? = null,
+    val app: ReachApp? = null,
+    /** V34: the installed app to send the intent to (Signal and Molly share mimetypes); null lets Android pick. */
+    val packageName: String? = null,
 ) {
+    val row: ReachRow get() = ReachRow(dataId, mimeType, accountType, app, appName, kind, number, label)
+
+    /** What Google Contacts does for a third-party row: VIEW on the row's Data URI with its mimetype. */
     fun intent(): Intent = Intent(Intent.ACTION_VIEW)
         .setDataAndType(ContentUris.withAppendedId(Data.CONTENT_URI, dataId), mimeType)
+        .apply { packageName?.let { setPackage(it) } }
         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
 }
 
 /**
- * Reads the rows WhatsApp, Signal, Telegram, Threema… add to contacts, so Parley can offer
- * "Call with…/Message with…" without network access and without listing installed apps.
+ * Reads the rows WhatsApp, Signal, Telegram, Threema… add to contacts, so Parley can offer "Call on…/Message on…"
+ * without network access and without listing installed apps.
+ *
+ * V34: rows are recognised by mimetype ([MessengerMimes]), and also found when the app's raw contact didn't join the
+ * person's contact. That was why Signal went missing: WhatsApp's raw contacts are merged by the usual name and
+ * number matching, but Signal pins its raw contact to one sibling raw contact with an aggregation exception when it
+ * syncs, and copies that raw contact's name. When that sibling is later replaced (moved to another account, edited
+ * into a new raw contact, re-synced by Google) the exception is gone and Signal's raw contact becomes a separate,
+ * Signal-only contact, which Parley hides; reading only the opened contact's rows then found nothing. Messenger-only
+ * contacts that share one of the person's numbers are now read too.
  */
 object Messengers {
-    val KNOWN = mapOf(
-        "com.whatsapp" to "WhatsApp",
-        "com.whatsapp.w4b" to "WhatsApp Business",
-        "org.thoughtcrime.securesms" to "Signal",
-        "im.molly.app" to "Molly",
-        "org.telegram.messenger" to "Telegram",
-        "org.thunderdog.challegram" to "Telegram X",
-        "ch.threema.app" to "Threema",
-        "com.viber.voip" to "Viber",
-        "com.wire" to "Wire",
-        "im.vector.app" to "Element",
-        "com.google.android.apps.tachyon" to "Google Meet",
-        "org.briarproject.briar.android" to "Briar",
-        "chat.simplex.app" to "SimpleX",
-    )
-
     fun actions(context: Context, contactId: Long): List<MessengerAction> {
-        val out = ArrayList<MessengerAction>()
-        context.contentResolver.safeQuery(
-            Data.CONTENT_URI,
-            arrayOf(Data._ID, Data.MIMETYPE, RawContacts.ACCOUNT_TYPE, Data.DATA1, Data.DATA2, Data.DATA3),
-            "${Data.CONTACT_ID}=? AND ${RawContacts.ACCOUNT_TYPE} IS NOT NULL",
-            arrayOf(contactId.toString()),
-        )?.use { c ->
-            while (c.moveToNext()) {
-                val mime = c.getString(1) ?: continue
-                val type = c.getString(2) ?: continue
-                if (type !in KNOWN && !mime.contains("vnd.")) continue
-                if (!mime.startsWith("vnd.android.cursor.item/vnd.")) continue
-                val app = KNOWN[type] ?: continue
-                val label = c.getString(5)?.takeIf { it.isNotBlank() } ?: c.getString(4)?.takeIf { it.isNotBlank() } ?: app
-                val lower = mime.lowercase() + " " + label.lowercase()
-                out += MessengerAction(
-                    dataId = c.getLong(0), mimeType = mime, accountType = type, appName = app, label = label,
-                    isCall = lower.contains("call") || lower.contains("voip") || lower.contains("audio"),
-                    isVideo = lower.contains("video"),
-                )
+        val cr = context.contentResolver
+        val own = readRows(context, listOf(contactId))
+        val ownPhones = own.phones
+        val region = PhoneEnv.countryIso(context)
+        fun same(a: String, b: String) = PhoneNumbers.same(a, b, region)
+
+        // Messenger-only contacts on the same numbers (an app's raw contact that didn't join this person).
+        val others = LinkedHashSet<Long>()
+        for (p in ownPhones.distinctBy { PhoneNumbers.matchKey(it) }) {
+            cr.safeQuery(Uri.withAppendedPath(PhoneLookup.CONTENT_FILTER_URI, Uri.encode(p)), arrayOf(PhoneLookup._ID))?.use { c ->
+                while (c.moveToNext()) c.getLong(0).takeIf { it != contactId }?.let { others += it }
             }
         }
-        return out.sortedWith(compareBy({ it.appName }, { !it.isCall && !it.isVideo }, { it.isVideo }))
+        val messengerOnly = others.filter { id -> onlyMessengerRaws(context, id) }
+        val extra = if (messengerOnly.isEmpty()) emptyList() else readRows(context, messengerOnly).actions.filter { a ->
+            val n = a.number
+            n != null && ownPhones.any { same(it, n) }
+        }
+        return (own.actions + extra).distinctBy { it.dataId }
+            .sortedWith(compareBy({ it.app?.ordinal ?: Int.MAX_VALUE }, { it.appName }, { it.kind.ordinal }))
+    }
+
+    /** V34: the messenger rows for [number] (a saved contact's, or a temporary visible contact's once apps synced). */
+    fun actionsForNumber(context: Context, number: String): List<MessengerAction> {
+        if (number.isBlank()) return emptyList()
+        val ids = LinkedHashSet<Long>()
+        context.contentResolver.safeQuery(Uri.withAppendedPath(PhoneLookup.CONTENT_FILTER_URI, Uri.encode(number)), arrayOf(PhoneLookup._ID))?.use { c ->
+            while (c.moveToNext()) ids += c.getLong(0)
+        }
+        val region = PhoneEnv.countryIso(context)
+        return ids.flatMap { actions(context, it) }.distinctBy { it.dataId }
+            .filter { a -> a.number == null || PhoneNumbers.same(a.number, number, region) }
+    }
+
+    private class Rows(val actions: List<MessengerAction>, val phones: List<String>)
+
+    private fun readRows(context: Context, contactIds: List<Long>): Rows {
+        if (contactIds.isEmpty()) return Rows(emptyList(), emptyList())
+        class Raw(val id: Long, val mime: String, val type: String?, val rawId: Long, val d1: String?, val d2: String?, val d3: String?)
+        val raws = ArrayList<Raw>()
+        context.contentResolver.safeQuery(
+            Data.CONTENT_URI,
+            arrayOf(Data._ID, Data.MIMETYPE, RawContacts.ACCOUNT_TYPE, Data.RAW_CONTACT_ID, Data.DATA1, Data.DATA2, Data.DATA3),
+            "${Data.CONTACT_ID} IN (${contactIds.joinToString(",")})",
+            null,
+        )?.use { c ->
+            while (c.moveToNext()) {
+                raws += Raw(c.getLong(0), c.getString(1) ?: continue, c.getString(2), c.getLong(3), c.getString(4), c.getString(5), c.getString(6))
+            }
+        }
+        val phonesByRaw = raws.filter { it.mime == Phone.CONTENT_ITEM_TYPE && !it.d1.isNullOrBlank() }.groupBy({ it.rawId }, { it.d1!! })
+        // The person's own numbers: from their own raw contacts, not the apps' copies.
+        val ownPhones = raws.filter { it.mime == Phone.CONTENT_ITEM_TYPE && !it.d1.isNullOrBlank() && !app.parley.common.record.Messengers.isMessengerAccount(it.type) }
+            .map { it.d1!! }
+        val installed = HashMap<String, Boolean>()
+        fun installedPkg(type: String): String? = type.takeIf { t ->
+            installed.getOrPut(t) {
+                try {
+                    context.packageManager.getApplicationInfo(t, 0).enabled
+                } catch (_: PackageManager.NameNotFoundException) {
+                    false
+                }
+            }
+        }
+        val actions = raws.mapNotNull { r ->
+            val single = phonesByRaw[r.rawId]?.distinctBy { PhoneNumbers.matchKey(it) }?.singleOrNull()
+            val row = MessengerMimes.classify(r.id, r.mime, r.type, r.d1, r.d2, r.d3, single) ?: return@mapNotNull null
+            MessengerAction(
+                dataId = row.dataId, mimeType = row.mimeType, accountType = row.appKey, appName = row.appLabel, label = row.label,
+                isCall = row.kind == ReachKind.VOICE || row.kind == ReachKind.VIDEO,
+                isVideo = row.kind == ReachKind.VIDEO,
+                kind = row.kind, number = row.number, app = row.app, packageName = installedPkg(row.appKey),
+            )
+        }
+        return Rows(actions, ownPhones.ifEmpty { phonesByRaw.values.flatten() })
+    }
+
+    /** Whether every raw contact of [contactId] belongs to a messenger (a contact only an app made). */
+    private fun onlyMessengerRaws(context: Context, contactId: Long): Boolean {
+        var any = false
+        context.contentResolver.safeQuery(RawContacts.CONTENT_URI, arrayOf(RawContacts.ACCOUNT_TYPE), "${RawContacts.CONTACT_ID}=? AND ${RawContacts.DELETED}=0", arrayOf(contactId.toString()))?.use { c ->
+            while (c.moveToNext()) {
+                val t = c.getString(0)
+                if (!app.parley.common.record.Messengers.isMessengerAccount(t) && ReachApp.forAccountType(t) == null) return false
+                any = true
+            }
+        }
+        return any
     }
 }

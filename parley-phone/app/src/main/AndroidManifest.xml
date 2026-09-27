@@ -90,6 +90,13 @@
         <package android:name="chat.simplex.app" />
         <package android:name="org.telegram.plus" />
         <package android:name="org.telegram.messenger.beta" />
+        <!-- V34: apps whose contacts rows "Message or call on…" opens, so the intent goes to the app that owns the row. -->
+        <package android:name="com.imo.android.imoim" />
+        <package android:name="im.thebot.messenger" />
+        <package android:name="com.google.android.apps.tachyon" />
+        <package android:name="im.molly.app.unifiedpush" />
+        <package android:name="ch.threema.app.green" />
+        <package android:name="ch.threema.app.onprem" />
         <!-- Q3: messengers whose QR links "Scan QR" opens directly in the app (never QUERY_ALL_PACKAGES). -->
         <package android:name="com.tencent.mm" />
         <package android:name="jp.naver.line.android" />

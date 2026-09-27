@@ -121,6 +121,11 @@ class MessagingStore(
         get() = prefs.getString(K_LAST_APP, null)
         set(v) = prefs.edit { putString(K_LAST_APP, v) }
 
+    /** V34: package (or account type) of the app used last for a call from "Message or call on…", offered first. */
+    var lastCallApp: String?
+        get() = prefs.getString(K_LAST_CALL_APP, null)
+        set(v) = prefs.edit { putString(K_LAST_CALL_APP, v) }
+
     /** WhatsApp or WhatsApp Business, asked once when both are installed. */
     var whatsappChoice: String?
         get() = prefs.getString(K_WA_CHOICE, null)
@@ -264,6 +269,7 @@ class MessagingStore(
         const val K_MY_NUMBER = "my_number"
         const val K_LAST_APP = "last_app"
         const val K_WA_CHOICE = "whatsapp_choice"
+        const val K_LAST_CALL_APP = "last_call_app"
         const val K_WA_SYNC_NOTICE = "whatsapp_sync_notice"
         /** The plain record written before F13 (read once, then removed). */
         const val K_LAST_MESSAGED_PLAIN = "last_messaged"

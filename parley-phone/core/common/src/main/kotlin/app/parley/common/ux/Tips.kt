@@ -21,6 +21,9 @@ object Tips {
     /** S1/S2 (v3.3): the layout options, offered once in the "What's new" card. */
     const val LAYOUT_OFFER = "layout_offer"
 
+    /** V34: long-press an app's Message / Voice / Video button in "Reach via apps" to make it the usual way. */
+    const val REACH_USUAL = "reach_usual"
+
     /** Ids are stored comma-separated; anything that isn't a plain id is dropped. */
     private val ID = Regex("[a-z0-9_]{1,40}")
 
