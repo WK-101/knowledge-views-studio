@@ -356,7 +356,11 @@ fun InCallScreen(
     val replyCall = live.firstOrNull { it.id == replyFor && it.state == CallState.RINGING }
     if (replyCall != null) {
         ParleySheet(onDismissRequest = { replyFor = null }) {
-            Text(stringResource(R.string.incall_reply_sheet_title), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp).semantics { heading() })
+            Text(
+                stringResource(R.string.incall_reply_sheet_title),
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp).semantics { heading() },
+            )
             // The defaults live in core/common in English: while unedited, send them in the user's language.
             val replies = if (quickReplies == AppSettings.DEFAULT_QUICK_REPLIES) {
                 stringArrayResource(R.array.incall_default_quick_replies).toList()
@@ -376,7 +380,11 @@ fun InCallScreen(
     val conference = live.firstOrNull { it.isConference }
     if (manageSheet && conference != null) {
         ParleySheet(onDismissRequest = { manageSheet = false }) {
-            Text(stringResource(R.string.incall_conference_call), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp).semantics { heading() })
+            Text(
+                stringResource(R.string.incall_conference_call),
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp).semantics { heading() },
+            )
             conference.children.forEach { child ->
                 ListItem(
                     headlineContent = { Text(child.displayTitle) },

@@ -102,7 +102,11 @@ fun SimSettingsScreen(vm: AppViewModel, simId: String, back: () -> Unit) {
             item { Section(stringResource(R.string.hist_plan_section)) }
             item {
                 ListItem(
-                    modifier = Modifier.toggleable(plan?.enabled == true, role = Role.Switch, onValueChange = { v -> save((plan ?: PlanConfig(simId)).copy(enabled = v)) }),
+                    modifier = Modifier.toggleable(
+                        plan?.enabled == true,
+                        role = Role.Switch,
+                        onValueChange = { v -> save((plan ?: PlanConfig(simId)).copy(enabled = v)) },
+                    ),
                     headlineContent = { Text(stringResource(R.string.hist_plan_track)) },
                     supportingContent = { Text(stringResource(R.string.hist_plan_track_summary)) },
                     trailingContent = { Switch(plan?.enabled == true, onCheckedChange = null) },

@@ -91,7 +91,11 @@ fun CallTimeScreen(vm: AppViewModel, back: () -> Unit) {
             item {
                 Help(stringResource(R.string.ct_reminders_help))
                 val choices = CallingConfig.REMINDER_CHOICES
-                MenuRow(stringResource(R.string.ct_remind_me), choices.map { reminderText(context, it) }, choices.indexOf(config.reminders.everyMinutes).coerceAtLeast(0)) { i ->
+                MenuRow(
+                    stringResource(R.string.ct_remind_me),
+                    choices.map { reminderText(context, it) },
+                    choices.indexOf(config.reminders.everyMinutes).coerceAtLeast(0),
+                ) { i ->
                     set { it.copy(reminders = it.reminders.copy(everyMinutes = choices[i])) }
                 }
                 SwitchRow(stringResource(R.string.ct_beep), stringResource(R.string.ct_beep_body), config.reminders.beep) { v -> set { it.copy(reminders = it.reminders.copy(beep = v)) } }

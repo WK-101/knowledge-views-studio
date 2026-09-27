@@ -51,7 +51,12 @@ object Shortcuts {
         val out = createBitmap(size, size)
         val c = Canvas(out)
         c.drawColor(avatarColor(name).toArgb())
-        val p = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = avatarInk(name).toArgb(); textSize = size * 0.32f; textAlign = Paint.Align.CENTER; isFakeBoldText = true }
+        val p = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = avatarInk(name).toArgb()
+            textSize = size * 0.32f
+            textAlign = Paint.Align.CENTER
+            isFakeBoldText = true
+        }
         c.drawText(initialsOf(name).ifEmpty { "#" }, size / 2f, size / 2f - (p.descent() + p.ascent()) / 2, p)
         return out
     }

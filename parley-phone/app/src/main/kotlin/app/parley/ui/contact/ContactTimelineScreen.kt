@@ -113,7 +113,10 @@ fun ContactTimelineScreen(vm: AppViewModel, contactId: Long, back: () -> Unit) {
         modifier = Modifier.nestedScroll(bar.nestedScrollConnection),
         topBar = {
             ParleyTopBar(
-                dd?.let { stringResource(R.string.contact_page_timeline_of, it.given.ifBlank { it.displayName }) } ?: stringResource(R.string.contact_page_sec_timeline),
+                dd?.let { stringResource(
+                    R.string.contact_page_timeline_of,
+                    it.given.ifBlank { it.displayName },
+                ) } ?: stringResource(R.string.contact_page_sec_timeline),
                 onBack = back,
                 scrollBehavior = bar,
             )

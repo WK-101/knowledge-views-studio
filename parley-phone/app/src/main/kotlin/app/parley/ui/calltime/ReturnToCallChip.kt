@@ -89,7 +89,14 @@ fun ReturnToCallChip(modifier: Modifier = Modifier) {
             Row(Modifier.padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(8.dp).clip(CircleShape).background(ink))
                 Spacer(Modifier.width(10.dp))
-                Text(text, color = ink, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                Text(
+                    text,
+                    color = ink,
+                    style = MaterialTheme.typography.labelLarge,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
                 Spacer(Modifier.width(8.dp))
                 Text(stringResource(R.string.ct_chip_return), color = ink, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
             }

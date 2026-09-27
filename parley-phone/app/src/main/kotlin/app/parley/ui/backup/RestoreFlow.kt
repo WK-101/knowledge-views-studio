@@ -76,7 +76,10 @@ fun RestoreFlow(vm: AppViewModel, uri: Uri, onDone: () -> Unit) {
             confirmLabel = stringResource(R.string.rst_open),
             onConfirm = {
                 val unlock = if (useRecovery) {
-                    runCatching { Unlock.Recovery(RecoveryKey.parse(secret)) }.getOrElse { error = res.getString(R.string.rst_not_recovery); return@ConfirmDialog }
+                    runCatching { Unlock.Recovery(RecoveryKey.parse(secret)) }.getOrElse {
+                        error = res.getString(R.string.rst_not_recovery)
+                        return@ConfirmDialog
+                    }
                 } else {
                     Unlock.Passphrase(secret.toCharArray())
                 }
@@ -100,7 +103,10 @@ fun RestoreFlow(vm: AppViewModel, uri: Uri, onDone: () -> Unit) {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     PassField(if (useRecovery) stringResource(R.string.rst_recovery_key) else stringResource(R.string.bkp_pass_title), secret) { secret = it; error = null }
                     error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-                    Row(Modifier.toggleable(useRecovery, role = Role.Switch) { useRecovery = it; secret = "" }, verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        Modifier.toggleable(useRecovery, role = Role.Switch) { useRecovery = it; secret = "" },
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
                         Switch(useRecovery, onCheckedChange = null)
                         Text("  " + stringResource(R.string.rst_use_recovery))
                     }

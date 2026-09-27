@@ -113,7 +113,11 @@ fun ManageLabelsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Uni
                     Box {
                         IconButton({ menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.dc_more)) }
                         DropdownMenu(menu, { menu = false }) {
-                            DropdownMenuItem({ Text(stringResource(R.string.lbl_merge_labels)) }, leadingIcon = { Icon(Icons.AutoMirrored.Rounded.MergeType, null) }, onClick = { menu = false; merging = true })
+                            DropdownMenuItem(
+                                { Text(stringResource(R.string.lbl_merge_labels)) },
+                                leadingIcon = { Icon(Icons.AutoMirrored.Rounded.MergeType, null) },
+                                onClick = { menu = false; merging = true },
+                            )
                         }
                     }
                 }

@@ -30,7 +30,6 @@ import app.parley.ui.LocalAvatarStyle
 import app.parley.ui.OnGroupSurface
 import app.parley.ui.MenuRow
 import app.parley.ui.SwitchRow
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import app.parley.R
 import app.parley.ui.settings.settingSummary

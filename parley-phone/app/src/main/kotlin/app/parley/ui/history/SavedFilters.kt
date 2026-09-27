@@ -84,13 +84,25 @@ fun SavedFilterChips(vm: AppViewModel) {
     if (editing) FilterEditorSheet(vm, active) { editing = false }
 }
 
+/** Deletes a saved filter at once; the snackbar's Undo puts the list back as it was. */
+@Composable
+private fun rememberFilterDelete(vm: AppViewModel): (List<HistoryFilter>, HistoryFilter) -> Unit {
+    val snackbar = LocalSnackbar.current
+    val res = LocalResources.current
+    val undo = stringResource(R.string.dc_undo)
+    return { before, f ->
+        vm.viewModelScope.launch { vm.c.history.prefs.setSavedFilters(before - f) }
+        snackbar?.show(res.getString(R.string.hist_filter_deleted, f.name), undo) {
+            vm.viewModelScope.launch { vm.c.history.prefs.setSavedFilters(before) }
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 private fun FilterEditorSheet(vm: AppViewModel, active: HistoryFilter, onDismiss: () -> Unit) {
     val scope = rememberCoroutineScope()
-    val snackbar = LocalSnackbar.current
-    val res = LocalResources.current
-    val undo = stringResource(R.string.dc_undo)
+    val delete = rememberFilterDelete(vm)
     val sims by vm.sims.collectAsStateWithLifecycle()
     val prefs by vm.c.history.prefs.state.collectAsStateWithLifecycle()
     var draft by remember { mutableStateOf(active) }
@@ -161,13 +173,7 @@ private fun FilterEditorSheet(vm: AppViewModel, active: HistoryFilter, onDismiss
                             label = { Text(f.name) },
                             trailingIcon = {
                                 // A full-size touch target; the filter can be brought back from the snackbar.
-                                IconButton({
-                                    val before = prefs.savedFilters
-                                    scope.launch { vm.c.history.prefs.setSavedFilters(before - f) }
-                                    snackbar?.show(res.getString(R.string.hist_filter_deleted, f.name), undo) {
-                                        vm.viewModelScope.launch { vm.c.history.prefs.setSavedFilters(before) }
-                                    }
-                                }) {
+                                IconButton({ delete(prefs.savedFilters, f) }) {
                                     Icon(Icons.Rounded.Close, stringResource(R.string.hist_filter_delete, f.name), Modifier.size(16.dp))
                                 }
                             },

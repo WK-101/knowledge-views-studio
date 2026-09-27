@@ -1000,3 +1000,38 @@ Automated (no phone needed; `.github/workflows/parley.yml` runs all of it on eve
 
 On a phone (debug build only)
 - [ ] Install the debug build and use it for a few minutes (open Recents, Contacts, a contact, Settings, take a call): `adb logcat -s StrictMode` lists main-thread disk access and leaked resources as log lines only; the app never crashes because of them. The release build logs none of them.
+
+### 20.2 Design system and accessibility
+
+Automated
+- [ ] `./gradlew detekt` passes with the `parley` rules on: add `AlertDialog(`, `TopAppBar(`, `ModalBottomSheet(`, `RoundedCornerShape(8.dp)` or `Toast.makeText(…)` to any screen in `app/` and run it: `DesignSystemComponent` / `SystemToast` fail the build and name the core/ui replacement. Revert.
+- [ ] `./gradlew checkHardcodedText -PfailOnHardcodedText=true` also catches `actionLabel = "…"` and `showSnackbar("…")`.
+- [ ] `./gradlew :core:common:test` includes `ContrastTest` (every avatar colour reaches 4.5:1 with its initials' ink).
+
+Top bars, dialogs, sheets (walk through Settings, Blocking & screening, Call history, SIMs, Speed dial, Backup, Privacy dashboard, Labels, Temporary contacts, History & undo, Birthdays, Health check, Scan QR, a contact, the editor, the picker)
+- [ ] Every screen's top bar has the same Back arrow on the start side (on the right in Arabic/Urdu) and TalkBack reads "Back" in the app's language on each; the title is one line with "…" when long.
+- [ ] Settings screens keep their large title that collapses on scroll; screens with a scroll tint (Birthdays, Health, Labels, Temporary contacts) still tint.
+- [ ] Delete a call from its history, a label, a voicemail, a temporary contact, a private contact, selected contacts, all "Messaged numbers", a blocking rule; discard an edit: each confirmation shows the action in red with Cancel before it. Other questions (Move, Open, Save, Import) keep the normal colour.
+- [ ] Dialogs and sheets have the same rounded corners (28 dp); sheet titles are read as headings by TalkBack.
+
+Snackbar
+- [ ] Contacts tab: delete a contact: the "Deleted … Undo" snackbar sits above the navigation bar and the "Create contact" button moves up for it (it never covers the button). Undo brings the contact back. Same on a contact's page with the "Log interaction" button, and on Recents after deleting a call.
+- [ ] Switch the app language to German or Arabic, delete a contact: the snackbar action is "Rückgängig" / Arabic, not "Undo".
+- [ ] Copy a number on Android 12 or older, or tap "Open in…" for an app that isn't installed: the message is a snackbar inside Parley, not a system toast. From the "Message a number" sheet over another app (Quick Settings tile), "Paste" with nothing on the clipboard still shows a system toast (no Parley screen is behind it).
+- [ ] Number history › delete a call; Add several numbers › save: their Undo snackbars still work and appear inside the screen.
+
+Accessibility
+- [ ] TalkBack: Contacts A–Z letters, Recents day headers, "Frequent", the contact page's section titles, the People card's sub-titles and the call-history filter sheet's titles are announced as headings; swipe up/down with "Headings" navigation jumps between them.
+- [ ] TalkBack: every on/off row (Blocking & screening, Call time, Settings, Call history's "Keep full history", Folder sync, Markdown export, the contact page's "Send to voicemail", the editor's "Include year") is one focus stop read as "<title>, switch, on/off"; double-tap toggles it. The switch on a blocking rule and on a spam list says which rule or list it is.
+- [ ] Call-history filter sheet: the × on a saved filter is a full-size touch target; deleting shows "Filter … deleted" with Undo, which brings it back.
+- [ ] Simple mode: TalkBack on "Leave" says the tap explains and the long press ("Leave simple mode") leaves.
+- [ ] Settings › Accessibility › Remove animations on, then an incoming call: the answer slider's thumb doesn't pulse.
+- [ ] Font size at the largest setting and display size largest: avatar initials (two letters) stay inside their circle in Contacts, Recents and on the contact page.
+- [ ] Dark theme, incoming call while Parley is open on another screen: the ringing "Return to call" chip's text is dark on the light teal (readable); during the call it is white on a darker green. Accept/call buttons and the call swipe action are the darker green with white text.
+- [ ] Avatars without a photo: lime, orange, blue and green circles have dark initials; indigo, purple, pink, brown, deep purple and teal ones white.
+
+Theme and density
+- [ ] Settings › Appearance › Dynamic colour off (or an Android 10–11 phone): dialogs, sheets, chips, outlines and the search field are tinted blue like the cards, with no purple anywhere, in light and dark. AMOLED black on: sheets, menus and dialogs are near-black too.
+- [ ] Settings › Appearance › List density › Compact: rows in Contacts, Recents, Keypad results, Circle, the picker, Insights, Temporary contacts, Birthdays, Duplicates and History & undo get visibly shorter (avatars 36 dp); Comfortable restores them. Trailing call/message buttons still fit and work.
+- [ ] Arabic or Urdu: opening a screen slides it in from the left, Back slides it out to the left.
+- [ ] Contact and label merges show a merge icon (not the call-merge one), "Separate" and "Unlink" an unlink icon; the default number's menu star is filled while it is the default.

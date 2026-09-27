@@ -184,7 +184,7 @@
     <ID>CyclomaticComplexMethod:PackTool.kt$PackTool$@JvmStatic fun main(args: Array&lt;String&gt;)</ID>
     <ID>CyclomaticComplexMethod:ParleyCallScreeningService.kt$ParleyCallScreeningService$override fun onScreenCall(details: Call.Details)</ID>
     <ID>CyclomaticComplexMethod:ParleyInCallService.kt$ParleyInCallService$@Deprecated("Replaced by CallEndpoint APIs on 34+") override fun onCallAudioStateChanged(audioState: CallAudioState)</ID>
-    <ID>CyclomaticComplexMethod:ParleyRoot.kt$@OptIn(ExperimentalSharedTransitionApi::class) @Composable fun ParleyRoot(vm: AppViewModel)</ID>
+    <ID>CyclomaticComplexMethod:ParleyRoot.kt$@OptIn(ExperimentalSharedTransitionApi::class) @Composable private fun ParleyRootContent(vm: AppViewModel, appSnackbar: ParleySnackbar)</ID>
     <ID>CyclomaticComplexMethod:PeopleCard.kt$@Composable fun PeopleCard(vm: AppViewModel, idx: CallLogIndex, open: (String) -&gt; Unit)</ID>
     <ID>CyclomaticComplexMethod:PeopleContainer.kt$PeopleBackupExtras$override suspend fun import(values: Map&lt;String, String&gt;)</ID>
     <ID>CyclomaticComplexMethod:PeopleIndex.kt$PeopleIndex$private fun load(): PeopleIndexData</ID>
@@ -344,7 +344,7 @@
     <ID>LongMethod:MissedCallNotifier.kt$MissedCallNotifier$suspend fun show(context: Context, telecomCount: Int, latestNumber: String?, reAlert: Boolean = false)</ID>
     <ID>LongMethod:NavTabsSetting.kt$@Composable fun NavTabsEditor( tabs: NavTabs, /** Tabs a combined surface shows instead of the bar (Keypad → Recents, Favorites → Contacts). */ inside: Map&lt;StartTab, StartTab&gt; = emptyMap(), onChange: (NavTabs) -&gt; Unit, )</ID>
     <ID>LongMethod:NumberHistoryScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -&gt; Unit, open: (String) -&gt; Unit)</ID>
-    <ID>LongMethod:ParleyRoot.kt$@OptIn(ExperimentalSharedTransitionApi::class) @Composable fun ParleyRoot(vm: AppViewModel)</ID>
+    <ID>LongMethod:ParleyRoot.kt$@OptIn(ExperimentalSharedTransitionApi::class) @Composable private fun ParleyRootContent(vm: AppViewModel, appSnackbar: ParleySnackbar)</ID>
     <ID>LongMethod:PeopleCard.kt$@Composable fun PeopleCard(vm: AppViewModel, idx: CallLogIndex, open: (String) -&gt; Unit)</ID>
     <ID>LongMethod:PrivacyScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun PrivacyScreen(vm: AppViewModel, back: () -&gt; Unit)</ID>
     <ID>LongMethod:PrivacyScreens.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun WhoCanSeeScreen(vm: AppViewModel, back: () -&gt; Unit, open: (String) -&gt; Unit)</ID>

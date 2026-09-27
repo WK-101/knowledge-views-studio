@@ -223,7 +223,13 @@ fun TransferScreen(vm: AppViewModel, back: () -> Unit) {
             onDismiss = { cbbk = null },
             dismissLabel = stringResource(R.string.set_cancel),
             confirmEnabled = pw.isNotEmpty(),
-            content = { OutlinedTextField(pw, { pw = it }, label = { Text(stringResource(R.string.blk_password)) }, singleLine = true, visualTransformation = PasswordVisualTransformation()) },
+            content = { OutlinedTextField(
+                pw,
+                { pw = it },
+                label = { Text(stringResource(R.string.blk_password)) },
+                singleLine = true,
+                visualTransformation = PasswordVisualTransformation(),
+            ) },
         )
     }
     error?.let { e ->

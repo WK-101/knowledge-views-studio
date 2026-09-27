@@ -53,7 +53,11 @@ fun KeepFullHistoryRow(vm: AppViewModel, icon: ImageVector? = null) {
     LaunchedEffect(archive) { count = vm.c.history.archiveCount() }
     var confirmOff by remember { mutableStateOf(false) }
     ListItem(
-        modifier = Modifier.toggleable(prefs.archiveEnabled, role = Role.Switch, onValueChange = { v -> if (v) vm.setArchiveEnabled(true) else confirmOff = true }),
+        modifier = Modifier.toggleable(
+            prefs.archiveEnabled,
+            role = Role.Switch,
+            onValueChange = { v -> if (v) vm.setArchiveEnabled(true) else confirmOff = true },
+        ),
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
         leadingContent = icon?.let { { Icon(it, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) } },
         headlineContent = { Text(settingTitle("archive")) },

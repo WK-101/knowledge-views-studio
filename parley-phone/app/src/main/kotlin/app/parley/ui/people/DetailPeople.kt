@@ -95,7 +95,11 @@ fun AccountChips(vm: AppViewModel, d: ContactDetails, open: (String) -> Unit, on
                         DropdownMenuItem({ Text(stringResource(R.string.ppl_read_only)) }, enabled = false, onClick = {})
                     }
                     if (d.rawContacts.size > 1) {
-                        DropdownMenuItem({ Text(stringResource(R.string.ppl_unlink)) }, leadingIcon = { Icon(Icons.Rounded.LinkOff, null) }, onClick = { menu = false; unlinking = raw })
+                        DropdownMenuItem(
+                            { Text(stringResource(R.string.ppl_unlink)) },
+                            leadingIcon = { Icon(Icons.Rounded.LinkOff, null) },
+                            onClick = { menu = false; unlinking = raw },
+                        )
                     }
                 }
             }

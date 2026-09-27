@@ -66,7 +66,11 @@ private fun routeKind(res: Resources, r: AudioRoute): String? = when (r.type) {
 internal fun AudioRouteSheet(audio: AudioUi, onDismiss: () -> Unit) {
     val res = LocalResources.current
     ParleySheet(onDismissRequest = onDismiss) {
-        Text(res.getString(R.string.audio_output), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp).semantics { heading() })
+        Text(
+            res.getString(R.string.audio_output),
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp).semantics { heading() },
+        )
         val order = listOf(RouteType.BLUETOOTH, RouteType.WIRED, RouteType.EARPIECE, RouteType.SPEAKER, RouteType.STREAMING)
         audio.routes.sortedBy { order.indexOf(it.type) }.forEach { r ->
             val selected = audio.current?.key == r.key

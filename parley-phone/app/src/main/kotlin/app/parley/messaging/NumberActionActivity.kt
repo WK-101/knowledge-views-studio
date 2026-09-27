@@ -575,7 +575,11 @@ class NumberActionActivity : FragmentActivity() {
             when (val r = gate.place(number, simId, name, callSims, remember, confirmed)) {
                 is CallGate.Placed.Ask -> pendingCall = r.pending
                 is CallGate.Placed.Done -> {
-                    (r.result as? PlaceResult.Failed)?.let { showMessage(this@NumberActionActivity, DialText.placeFailure(this@NumberActionActivity, it.reason), long = true) }
+                    (r.result as? PlaceResult.Failed)?.let { showMessage(
+                        this@NumberActionActivity,
+                        DialText.placeFailure(this@NumberActionActivity, it.reason),
+                        long = true,
+                    ) }
                     finish()
                 }
             }

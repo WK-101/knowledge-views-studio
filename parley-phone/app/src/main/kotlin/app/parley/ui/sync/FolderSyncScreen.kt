@@ -91,7 +91,11 @@ fun FolderSyncScreen(vm: AppViewModel, back: () -> Unit) {
                     supportingContent = { Text(st.folderName ?: stringResource(R.string.bkp_folder_none)) },
                 )
                 ListItem(
-                    modifier = Modifier.toggleable(st.auto, role = Role.Switch, onValueChange = { sync.setAuto(it); FolderSyncWorker.schedule(context, it && st.folderUri != null) }),
+                    modifier = Modifier.toggleable(
+                        st.auto,
+                        role = Role.Switch,
+                        onValueChange = { sync.setAuto(it); FolderSyncWorker.schedule(context, it && st.folderUri != null) },
+                    ),
                     headlineContent = { Text(stringResource(R.string.sync_auto)) },
                     supportingContent = { Text(stringResource(R.string.sync_auto_summary)) },
                     trailingContent = { Switch(st.auto, onCheckedChange = null) },

@@ -16,7 +16,6 @@ import app.parley.calltime.CallTimePlanner
 import app.parley.common.calltime.LimitScope
 import app.parley.ui.Routes
 import app.parley.ui.calltime.UssdHistoryDialog
-import app.parley.ui.calltime.reminderText
 import app.parley.ui.calltime.reminderTextInline
 import app.parley.ui.SwitchRow
 import app.parley.ui.LinkRow

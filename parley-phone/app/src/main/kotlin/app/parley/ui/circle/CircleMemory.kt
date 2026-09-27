@@ -177,7 +177,11 @@ fun PreCallPeekSheet(vm: AppViewModel, lookupKey: String, name: String, memory: 
     val res = LocalResources.current
     ParleySheet(onDismissRequest = onDismiss, sheetState = state) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = 16.dp)) {
-            Text(stringResource(R.string.circle_peek_title, name), style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp).semantics { heading() })
+            Text(
+                stringResource(R.string.circle_peek_title, name),
+                style = MaterialTheme.typography.titleLarge,
+                modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp).semantics { heading() },
+            )
             goodTime?.let {
                 ListItem(colors = clearRow, leadingContent = { Icon(Icons.Rounded.Schedule, null) }, headlineContent = { Text(it) })
             }

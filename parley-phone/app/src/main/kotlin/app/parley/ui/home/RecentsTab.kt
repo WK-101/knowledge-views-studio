@@ -248,7 +248,8 @@ fun RecentsTab(vm: AppViewModel, open: (String) -> Unit, bottomPadding: Dp = 0.d
                     val header = remember(row.date, row.today, context) { Format.dayHeader(context, row.date) }
                     ListSectionHeader(
                         header, inset = 20.dp, top = Spacing.m,
-                        modifier = Modifier.fillMaxWidth().clickable(onClickLabel = stringResource(R.string.recents_day_summary)) { daySummary = row.date to header },
+                        modifier = Modifier.fillMaxWidth()
+                            .clickable(onClickLabel = stringResource(R.string.recents_day_summary)) { daySummary = row.date to header },
                     )
                 }
                 is RecentsRow.Call -> {
@@ -463,7 +464,11 @@ private fun RecentActionsSheet(vm: AppViewModel, recents: RecentsViewModel, g: R
     val context = LocalContext.current
     fun act(block: () -> Unit) { onDismiss(); block() }
     ParleySheet(onDismissRequest = onDismiss) {
-        Text(g.shownTitle, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp).semantics { heading() })
+        Text(
+            g.shownTitle,
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp).semantics { heading() },
+        )
         val hasNumber = !g.hidden && g.number.isNotBlank()
         @Composable
         fun row(label: Int, icon: ImageVector, enabled: Boolean = true, onClick: () -> Unit) {

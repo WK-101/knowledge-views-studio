@@ -249,6 +249,17 @@ fun SpamListsScreen(vm: AppViewModel, back: () -> Unit) {
     }
 }
 
+/** The list's on/off switch. The row doesn't toggle, so the switch says which list it turns on or off. */
+@Composable
+private fun PackSwitch(vm: AppViewModel, pk: PackState, name: String) {
+    val scope = rememberCoroutineScope()
+    Switch(
+        pk.enabled,
+        modifier = Modifier.semantics { contentDescription = name },
+        onCheckedChange = { v -> scope.launch { vm.c.lists.setPack(pk.id) { it.copy(enabled = v) } } },
+    )
+}
+
 @Composable
 private fun PackCard(vm: AppViewModel, pk: PackState, now: Long) {
     val scope = rememberCoroutineScope()
@@ -276,7 +287,7 @@ private fun PackCard(vm: AppViewModel, pk: PackState, now: Long) {
                     if (stale) Text(pluralStringResource(R.plurals.blk_out_of_date_days, pk.ttlDays, pk.ttlDays), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                 }
             },
-            trailingContent = { Switch(pk.enabled, modifier = Modifier.semantics { contentDescription = name }, onCheckedChange = { v -> scope.launch { vm.c.lists.setPack(pk.id) { it.copy(enabled = v) } } }) },
+            trailingContent = { PackSwitch(vm, pk, name) },
         )
         Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             TextButton({ open = !open }) { Text(stringResource(if (open) R.string.blk_less else R.string.blk_options)) }
@@ -295,7 +306,9 @@ private fun PackCard(vm: AppViewModel, pk: PackState, now: Long) {
                     Slider(t, { t = it }, valueRange = 0f..100f, steps = 19, onValueChangeFinished = { scope.launch { vm.c.lists.setPack(pk.id) { it.copy(threshold = t.toInt()) } } })
                     ActionChoice(pk.action, { a -> scope.launch { vm.c.lists.setPack(pk.id) { it.copy(action = a) } } })
                 }
-                if (pk.ranges > 0) SwitchRow(stringResource(R.string.blk_match_ranges), stringResource(R.string.blk_match_ranges_help), pk.useRanges) { v -> scope.launch { vm.c.lists.setPack(pk.id) { it.copy(useRanges = v) } } }
+                if (pk.ranges > 0) SwitchRow(stringResource(R.string.blk_match_ranges), stringResource(R.string.blk_match_ranges_help), pk.useRanges) { v ->
+                    scope.launch { vm.c.lists.setPack(pk.id) { it.copy(useRanges = v) } }
+                }
                 Text(stringResource(R.string.blk_notify), style = MaterialTheme.typography.labelLarge)
                 NotifyChoice(pk.notify, allowDefault = true) { n -> scope.launch { vm.c.lists.setPack(pk.id) { it.copy(notify = n) } } }
                 if (pk.suppressed.isNotEmpty()) {

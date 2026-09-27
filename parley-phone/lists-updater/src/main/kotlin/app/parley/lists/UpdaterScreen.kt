@@ -25,11 +25,9 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -46,6 +44,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import java.text.NumberFormat
+import app.parley.ui.ParleyScaffold
+import app.parley.ui.ParleyTopBar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -62,7 +62,7 @@ fun UpdaterScreen(repo: ListsRepo) {
     val res = LocalResources.current
     fun ago(t: Long) = if (t <= 0) res.getString(R.string.lists_never) else DateUtils.getRelativeTimeSpanString(t, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS).toString()
 
-    Scaffold(topBar = { TopAppBar(title = { Text(stringResource(R.string.app_name)) }) }) { p ->
+    ParleyScaffold(topBar = { ParleyTopBar(stringResource(R.string.app_name), onBack = null) }) { p ->
         LazyColumn(Modifier.padding(p)) {
             item {
                 Card(Modifier.fillMaxWidth().padding(16.dp)) {

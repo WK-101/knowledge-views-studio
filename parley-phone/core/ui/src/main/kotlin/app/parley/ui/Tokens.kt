@@ -40,25 +40,46 @@ object Spacing {
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 object ParleyShapes {
     /** Tags, badges and small status chips (8 dp). */
-    val tag: CornerBasedShape @Composable @ReadOnlyComposable get() = MaterialTheme.shapes.extraSmall
+    val tag: CornerBasedShape
+        @Composable
+        @ReadOnlyComposable
+        get() = MaterialTheme.shapes.extraSmall
 
     /** Text fields, thumbnails and small controls (12 dp). */
-    val control: CornerBasedShape @Composable @ReadOnlyComposable get() = MaterialTheme.shapes.small
+    val control: CornerBasedShape
+        @Composable
+        @ReadOnlyComposable
+        get() = MaterialTheme.shapes.small
 
     /** Tiles and option previews (16 dp). */
-    val tile: CornerBasedShape @Composable @ReadOnlyComposable get() = MaterialTheme.shapes.medium
+    val tile: CornerBasedShape
+        @Composable
+        @ReadOnlyComposable
+        get() = MaterialTheme.shapes.medium
 
     /** Cards and grouped lists, the outer corner of a segmented group (20 dp). */
-    val card: CornerBasedShape @Composable @ReadOnlyComposable get() = MaterialTheme.shapes.largeIncreased
+    val card: CornerBasedShape
+        @Composable
+        @ReadOnlyComposable
+        get() = MaterialTheme.shapes.largeIncreased
 
     /** Large panels and big buttons (24 dp). */
-    val panel: CornerBasedShape @Composable @ReadOnlyComposable get() = MaterialTheme.shapes.large
+    val panel: CornerBasedShape
+        @Composable
+        @ReadOnlyComposable
+        get() = MaterialTheme.shapes.large
 
     /** Sheets, dialogs and the call cards (28 dp). */
-    val sheet: CornerBasedShape @Composable @ReadOnlyComposable get() = MaterialTheme.shapes.extraLarge
+    val sheet: CornerBasedShape
+        @Composable
+        @ReadOnlyComposable
+        get() = MaterialTheme.shapes.extraLarge
 
     /** Hero surfaces: the photo header, the dial pad panel (32 dp). */
-    val hero: CornerBasedShape @Composable @ReadOnlyComposable get() = MaterialTheme.shapes.extraLargeIncreased
+    val hero: CornerBasedShape
+        @Composable
+        @ReadOnlyComposable
+        get() = MaterialTheme.shapes.extraLargeIncreased
 
     /** Fully round ends (pills, drag handles, the call button). */
     val pill: Shape get() = CircleShape

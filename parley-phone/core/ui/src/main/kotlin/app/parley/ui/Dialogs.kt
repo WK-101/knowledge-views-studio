@@ -70,7 +70,12 @@ fun ConfirmDialog(
         title = title?.let { { Text(it) } },
         text = when {
             content != null -> {
-                { Column { if (text != null) Text(text); content() } }
+                {
+                    Column {
+                        if (text != null) Text(text)
+                        content()
+                    }
+                }
             }
             text != null -> {
                 { Text(text) }
@@ -80,7 +85,11 @@ fun ConfirmDialog(
         confirmButton = {
             TextButton(
                 onConfirm, enabled = confirmEnabled,
-                colors = if (destructive) ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error) else ButtonDefaults.textButtonColors(),
+                colors = if (destructive) {
+                    ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                } else {
+                    ButtonDefaults.textButtonColors()
+                },
             ) { Text(confirmLabel) }
         },
         dismissButton = { TextButton(onDismiss) { Text(dismissLabel) } },

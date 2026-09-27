@@ -324,7 +324,11 @@ fun ReorderFavoritesSheet(vm: AppViewModel, onDismiss: () -> Unit) {
     ParleySheet(onDismissRequest = onDismiss) {
         Column(Modifier.fillMaxWidth().navigationBarsPadding()) {
             Row(Modifier.fillMaxWidth().padding(start = 24.dp, end = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(stringResource(R.string.home_reorder_title), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f).semantics { heading() })
+                Text(
+                    stringResource(R.string.home_reorder_title),
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.weight(1f).semantics { heading() },
+                )
                 TextButton(onDismiss) { Text(stringResource(R.string.main_done)) }
             }
             Text(
