@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CloudDownload
 import androidx.compose.material.icons.rounded.Refresh
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -17,7 +16,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -43,6 +41,9 @@ import app.parley.blocking.ListsUpdaterClient
 import app.parley.common.spam.PackOrigin
 import app.parley.data.SpamListStore
 import kotlinx.coroutines.launch
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import app.parley.ui.ConfirmDialog
 
 /**
  * Spam lists › "Get automatic updates (optional app)". Parley never touches the internet: the optional
@@ -139,7 +140,7 @@ fun ListsUpdaterSection(vm: AppViewModel) {
                     }
                 },
                 trailingContent = {
-                    Switch(on, { v ->
+                    Switch(on, modifier = Modifier.semantics { contentDescription = pk.name }, onCheckedChange = { v ->
                         scope.launch {
                             busy = pk.id
                             if (v) report(pk.id, ListsUpdaterClient.subscribe(context, vm.c.lists, pk.id)) else ListsUpdaterClient.unsubscribe(context, vm.c.lists, pk.id)
@@ -153,17 +154,16 @@ fun ListsUpdaterSection(vm: AppViewModel) {
     }
 
     keyConflict?.let { (id, reason) ->
-        AlertDialog(
-            onDismissRequest = { keyConflict = null },
-            title = { Text(stringResource(R.string.blk_replace_list_q)) },
-            text = { Text(reason + "\n\n" + stringResource(R.string.blk_replace_list_body)) },
-            confirmButton = {
-                TextButton({
-                    keyConflict = null
-                    scope.launch { report(id, ListsUpdaterClient.copy(context, vm.c.lists, id, force = true)) }
-                }) { Text(stringResource(R.string.blk_replace)) }
+        ConfirmDialog(
+            title = stringResource(R.string.blk_replace_list_q),
+            text = reason + "\n\n" + stringResource(R.string.blk_replace_list_body),
+            confirmLabel = stringResource(R.string.blk_replace),
+            onConfirm = {
+                keyConflict = null
+                scope.launch { report(id, ListsUpdaterClient.copy(context, vm.c.lists, id, force = true)) }
             },
-            dismissButton = { TextButton({ keyConflict = null }) { Text(stringResource(R.string.blk_keep_mine)) } },
+            onDismiss = { keyConflict = null },
+            dismissLabel = stringResource(R.string.blk_keep_mine),
         )
     }
 }

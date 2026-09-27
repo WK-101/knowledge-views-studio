@@ -3,7 +3,6 @@ package app.parley.ui.people
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
-import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -23,7 +22,6 @@ import androidx.compose.material.icons.rounded.QrCode2
 import androidx.compose.material.icons.rounded.QrCodeScanner
 import androidx.compose.material.icons.rounded.RemoveCircle
 import androidx.compose.material.icons.rounded.Share
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
@@ -64,7 +62,7 @@ import app.parley.ui.CallColors
 import app.parley.ui.SegmentedGroup
 import app.parley.ui.avatarSize
 import app.parley.ui.qr.QrRoutes
-import app.parley.ui.settings.SettingsScaffold
+import app.parley.ui.SettingsScaffold
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.EncodeHintType
 import com.google.zxing.qrcode.QRCodeWriter
@@ -74,6 +72,9 @@ import app.parley.R
 import app.parley.ui.DataL10n
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import app.parley.ui.ParleyDialog
+import app.parley.ui.showMessage
+import app.parley.ui.ParleyListItem
 
 /** Imports the old "My details" once, so the card starts with what was typed there. */
 @Composable
@@ -98,7 +99,7 @@ fun MeCardRow(vm: AppViewModel, open: (String) -> Unit) {
     val myCard = stringResource(R.string.me_title)
     var showQr by remember { mutableStateOf(false) }
     val edit = { open(PeopleRoutes.ME) }
-    ListItem(
+    ParleyListItem(
         modifier = Modifier.clickable(onClickLabel = stringResource(R.string.me_edit), onClick = edit),
         leadingContent = { Avatar(card.name.ifBlank { me }, null, avatarSize()) },
         headlineContent = { Text(card.name.ifBlank { myCard }) },
@@ -244,7 +245,7 @@ private fun shareVcard(context: Context, card: MeCard, parts: Set<MeCards.Part>)
         val send = Intent(Intent.ACTION_SEND).setType("text/x-vcard").putExtra(Intent.EXTRA_STREAM, uri)
             .putExtra(Intent.EXTRA_SUBJECT, card.name.ifBlank { context.getString(R.string.me_title) }).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         context.startActivity(Intent.createChooser(send, context.getString(R.string.me_share_chooser)))
-    }.onFailure { Toast.makeText(context, context.getString(R.string.me_share_failed), Toast.LENGTH_SHORT).show() }
+    }.onFailure { showMessage(context, context.getString(R.string.me_share_failed)) }
 }
 
 /** The card as a QR code (made on the phone), with the parts to include. [onEdit]: Q3, an Edit button to the editor. */
@@ -264,7 +265,7 @@ internal fun MeQrDialog(card: MeCard, onDismiss: () -> Unit, onEdit: (() -> Unit
     }
     val text = MeCards.vcard(card, parts.toSet())
     val bitmap = remember(text) { qr(text, 720) }
-    AlertDialog(
+    ParleyDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.me_title)) },
         text = {

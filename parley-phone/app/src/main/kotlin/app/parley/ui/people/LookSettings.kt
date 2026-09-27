@@ -28,9 +28,8 @@ import app.parley.common.people.SwipeAction
 import app.parley.ui.Avatar
 import app.parley.ui.LocalAvatarStyle
 import app.parley.ui.OnGroupSurface
-import app.parley.ui.settings.MenuRow
-import app.parley.ui.settings.SwitchRow
-import androidx.compose.ui.platform.LocalContext
+import app.parley.ui.MenuRow
+import app.parley.ui.SwitchRow
 import androidx.compose.ui.res.stringResource
 import app.parley.R
 import app.parley.ui.settings.settingSummary

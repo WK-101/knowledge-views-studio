@@ -80,3 +80,14 @@ formatting:
     active: false
   MultiLineIfElse:
     active: false
+
+# Parley's own rules (tools/detekt-rules).
+parley:
+  # Raw TopAppBar, AlertDialog, ModalBottomSheet and RoundedCornerShape outside core/ui, which wraps them.
+  DesignSystemComponent:
+    active: true
+    excludes: ['**/core/ui/**', '**/tools/**']
+  # System toasts inside Parley's screens (the snackbar is the one feedback channel there).
+  SystemToast:
+    active: true
+    excludes: ['**/core/ui/**', '**/tools/**']

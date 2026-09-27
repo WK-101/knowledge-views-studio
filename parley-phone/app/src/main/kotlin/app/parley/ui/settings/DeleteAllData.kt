@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -47,6 +46,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import app.parley.ui.ParleyDialog
+import app.parley.ui.ConfirmDialog
+import app.parley.ui.InfoDialog
 
 private sealed interface WipeStep {
     data object Ask : WipeStep
@@ -87,7 +89,7 @@ fun DeleteAllDataDialog(vm: AppViewModel, onDismiss: () -> Unit) {
     }
 
     when (val s = step) {
-        WipeStep.Ask -> AlertDialog(
+        WipeStep.Ask -> ParleyDialog(
             onDismissRequest = onDismiss,
             title = { Text(stringResource(R.string.wipe_title)) },
             text = {
@@ -112,17 +114,17 @@ fun DeleteAllDataDialog(vm: AppViewModel, onDismiss: () -> Unit) {
             },
             dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dc_cancel)) } },
         )
-        is WipeStep.Working -> AlertDialog(
+        is WipeStep.Working -> ParleyDialog(
             onDismissRequest = {},
             title = { Text(s.text) },
             text = { LinearProgressIndicator(Modifier.fillMaxWidth()) },
             confirmButton = {},
         )
-        is WipeStep.Failed -> AlertDialog(
-            onDismissRequest = onDismiss,
-            title = { Text(stringResource(R.string.wipe_title)) },
-            text = { Text(s.text) },
-            confirmButton = { TextButton(onDismiss) { Text(stringResource(R.string.dc_done)) } },
+        is WipeStep.Failed -> InfoDialog(
+            title = stringResource(R.string.wipe_title),
+            text = s.text,
+            onDismiss = onDismiss,
+            closeLabel = stringResource(R.string.dc_done),
         )
         WipeStep.VaultLocked -> VaultLockedDialog(
             onUnlock = {
@@ -136,17 +138,19 @@ fun DeleteAllDataDialog(vm: AppViewModel, onDismiss: () -> Unit) {
 }
 
 @Composable
-private fun VaultLockedDialog(onUnlock: () -> Unit, onWithout: () -> Unit, onDismiss: () -> Unit) = AlertDialog(
-    onDismissRequest = onDismiss,
-    title = { Text(stringResource(R.string.wipe_title)) },
-    text = {
+private fun VaultLockedDialog(onUnlock: () -> Unit, onWithout: () -> Unit, onDismiss: () -> Unit) = ConfirmDialog(
+    title = stringResource(R.string.wipe_title),
+    text = null,
+    confirmLabel = stringResource(R.string.wipe_unlock_private),
+    onConfirm = onUnlock,
+    onDismiss = onDismiss,
+    dismissLabel = stringResource(R.string.dc_cancel),
+    content = {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(stringResource(R.string.wipe_private_locked))
             TextButton(onWithout) { Text(stringResource(R.string.wipe_without_private), color = MaterialTheme.colorScheme.error) }
         }
     },
-    confirmButton = { TextButton(onUnlock) { Text(stringResource(R.string.wipe_unlock_private)) } },
-    dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dc_cancel)) } },
 )
 
 /**

@@ -21,7 +21,6 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Message
 import androidx.compose.material.icons.rounded.Call
@@ -29,7 +28,6 @@ import androidx.compose.material.icons.rounded.CallEnd
 import androidx.compose.material.icons.rounded.SimCard
 import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.MoreVert
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.IconButton
@@ -71,6 +69,9 @@ import app.parley.ui.CallColors
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.roundToInt
+import app.parley.ui.ParleyDialog
+import app.parley.ui.ParleyShapes
+import app.parley.ui.ParleyMotion
 
 @Composable
 fun IncomingControls(
@@ -118,7 +119,7 @@ fun IncomingControls(
 /** "Decline this call?" (simple mode). */
 @Composable
 internal fun DeclineQuestion(onDecline: () -> Unit, onDismiss: () -> Unit) {
-    AlertDialog(
+    ParleyDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.incall_decline_q)) },
         text = { Text(stringResource(R.string.incall_decline_body)) },
@@ -140,7 +141,7 @@ private fun SimpleAnswerButtons(sim: String?, onAnswer: () -> Unit, onDecline: (
 @Composable
 private fun BigAction(icon: ImageVector, label: String, color: Color, onClick: () -> Unit, height: Int, a11y: String? = null) {
     Row(
-        Modifier.fillMaxWidth().height(height.dp).clip(RoundedCornerShape(28.dp)).background(color)
+        Modifier.fillMaxWidth().height(height.dp).clip(ParleyShapes.sheet).background(color)
             .clickable(role = Role.Button, onClick = onClick).semantics { contentDescription = a11y ?: label },
         horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -198,7 +199,7 @@ private fun RoundAction(
 @Composable
 private fun SimTag(text: String, modifier: Modifier = Modifier) {
     Row(
-        modifier.clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.secondaryContainer).padding(horizontal = 10.dp, vertical = 4.dp),
+        modifier.clip(ParleyShapes.control).background(MaterialTheme.colorScheme.secondaryContainer).padding(horizontal = 10.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(Icons.Rounded.SimCard, null, Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSecondaryContainer)
@@ -220,6 +221,7 @@ private fun AnswerSlider(sim: String?, onAnswer: () -> Unit, onDecline: () -> Un
     val description = if (sim != null) stringResource(R.string.incall_slider_description_sim, sim) else stringResource(R.string.incall_slider_description)
     val haptics = LocalHapticFeedback.current
     val offset = remember { Animatable(0f) }
+    val still = ParleyMotion.reducedMotion()
     val pulse by rememberInfiniteTransition(label = "pulse").animateFloat(
         0f, 1f, infiniteRepeatable(tween(1400), RepeatMode.Restart), label = "p",
     )
@@ -227,7 +229,7 @@ private fun AnswerSlider(sim: String?, onAnswer: () -> Unit, onDecline: () -> Un
         Modifier
             .fillMaxWidth()
             .height(88.dp)
-            .clip(RoundedCornerShape(44.dp))
+            .clip(ParleyShapes.pill)
             .background(MaterialTheme.colorScheme.surfaceContainerHigh)
             .semantics {
                 contentDescription = description
@@ -289,7 +291,8 @@ private fun AnswerSlider(sim: String?, onAnswer: () -> Unit, onDecline: () -> Un
                 },
             contentAlignment = Alignment.Center,
         ) {
-            val scale = if (abs(progress) < 0.05f) 1f + 0.12f * pulse else 1f
+            // With animations removed (Accessibility settings) the thumb stays still.
+            val scale = if (!still && abs(progress) < 0.05f) 1f + 0.12f * pulse else 1f
             Icon(Icons.Rounded.Call, null, tint = Color.White, modifier = Modifier.size((32 * scale).dp))
         }
     }

@@ -1,6 +1,5 @@
 package app.parley.messaging
 
-import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -11,7 +10,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.Chat
 import androidx.compose.material.icons.rounded.Badge
 import androidx.compose.material.icons.rounded.CheckCircle
@@ -20,15 +18,12 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -48,13 +43,15 @@ import app.parley.NavEvent
 import app.parley.common.StartTab
 import app.parley.R
 import app.parley.common.ContactSummary
-import app.parley.common.MessageDrafts
 import app.parley.common.NumberText
 import app.parley.common.messaging.IntroQueue
 import app.parley.ui.Bidi
 import app.parley.ui.EmptyState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import app.parley.ui.ParleyTopBar
+import app.parley.ui.ParleyScaffold
+import app.parley.ui.showMessage
 
 /** Starting points of "Introduce myself…". */
 object IntroduceStart {
@@ -120,28 +117,25 @@ fun IntroduceScreen(vm: AppViewModel, back: () -> Unit) {
         val t = queue.current ?: return
         val error = MessengerLauncher.openChat(context, a, t.number, draft)
         if (error != null) {
-            Toast.makeText(context, error, Toast.LENGTH_LONG).show()
+            showMessage(context, error, long = true)
             return
         }
-        if (!a.takesText && draft != null) Toast.makeText(context, res.getString(R.string.intro_copied), Toast.LENGTH_LONG).show()
+        if (!a.takesText && draft != null) showMessage(context, res.getString(R.string.intro_copied), long = true)
         store.lastApp = a.packageName
         store.recordOpened(t.number, a, a.label, isContact = true)
         queue = queue.markOpened()
         awaitingReturn = true
     }
 
-    Scaffold(topBar = {
-        TopAppBar(
-            title = { Text(stringResource(R.string.intro_title)) },
-            navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.main_back)) } },
-        )
+    ParleyScaffold(topBar = {
+        ParleyTopBar(stringResource(R.string.intro_title), onBack = back)
     }) { p ->
         if (queue.targets.isEmpty()) {
             EmptyState(
                 Icons.Rounded.Groups, stringResource(R.string.intro_empty), stringResource(R.string.intro_empty_body), Modifier.padding(p),
                 action = stringResource(R.string.ux_empty_open_contacts), onAction = { vm.navigate(NavEvent.Tab(StartTab.CONTACTS)) },
             )
-            return@Scaffold
+            return@ParleyScaffold
         }
         Column(Modifier.fillMaxSize().padding(p).verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(

@@ -9,7 +9,6 @@ import android.net.Uri
 import android.os.Bundle
 import android.provider.ContactsContract
 import android.view.WindowManager
-import android.widget.Toast
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.clickable
@@ -39,12 +38,10 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.material.icons.rounded.Timer
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -89,6 +86,12 @@ import app.parley.ui.common.rememberNumberLocation
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import app.parley.ui.common.ProvideAppKit
+import app.parley.ui.ConfirmDialog
+import app.parley.ui.ParleySheet
+import app.parley.ui.showMessage
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 
 /**
  * A small sheet over the current app for a phone number found in text: "Call / Message with Parley" in text
@@ -150,7 +153,7 @@ class NumberActionActivity : FragmentActivity() {
             if (!settings.secureScreen) window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
             setContent {
                 ParleyTheme(settings.themeMode, settings.amoledBlack, settings.dynamicColor, settings.density) {
-                    if (!hidden) Sheet()
+                    if (!hidden) ProvideAppKit { Sheet() }
                 }
             }
             reveal(settings)
@@ -282,10 +285,10 @@ class NumberActionActivity : FragmentActivity() {
         }
         when (val s = stage) {
             is Stage.Offer -> OfferDialog(s)
-            else -> ModalBottomSheet(onDismissRequest = { finish() }, sheetState = sheetState) {
+            else -> ParleySheet(onDismissRequest = { finish() }, sheetState = sheetState) {
                 when (s) {
                     Stage.NoNumber -> Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text(stringResource(R.string.num_none_title), style = MaterialTheme.typography.titleLarge)
+                        Text(stringResource(R.string.num_none_title), style = MaterialTheme.typography.titleLarge, modifier = Modifier.semantics { heading() })
                         Text(stringResource(R.string.num_none_body), style = MaterialTheme.typography.bodyMedium)
                         TextButton({ finish() }) { Text(stringResource(R.string.main_close)) }
                     }
@@ -363,12 +366,12 @@ class NumberActionActivity : FragmentActivity() {
                 getSystemService(ClipboardManager::class.java).primaryClip?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.coerceToText(this)?.toString()
             }.getOrNull()?.take(MAX_TEXT)
             if (clip.isNullOrBlank()) {
-                Toast.makeText(this, getString(R.string.num_nothing_to_paste), Toast.LENGTH_SHORT).show()
+                showMessage(this, getString(R.string.num_nothing_to_paste))
                 return
             }
             val found = NumberText.find(clip, region)
             when {
-                found.isEmpty() -> Toast.makeText(this, getString(R.string.num_no_number_copied), Toast.LENGTH_SHORT).show()
+                found.isEmpty() -> showMessage(this, getString(R.string.num_no_number_copied))
                 found.size == 1 -> typed = found[0].raw
                 else -> {
                     sourceText = clip
@@ -535,7 +538,7 @@ class NumberActionActivity : FragmentActivity() {
 
     private suspend fun saveTemporary(number: String, name: String, visible: Boolean) {
         val saved = withContext(Dispatchers.IO) { runCatching { TemporaryContact.save(container, number, name, private = !visible) }.getOrNull() }
-        Toast.makeText(this, TemporaryContact.savedMessage(resources, saved), Toast.LENGTH_SHORT).show()
+        showMessage(this, TemporaryContact.savedMessage(resources, saved))
         finish()
     }
 
@@ -572,7 +575,11 @@ class NumberActionActivity : FragmentActivity() {
             when (val r = gate.place(number, simId, name, callSims, remember, confirmed)) {
                 is CallGate.Placed.Ask -> pendingCall = r.pending
                 is CallGate.Placed.Done -> {
-                    (r.result as? PlaceResult.Failed)?.let { Toast.makeText(this@NumberActionActivity, DialText.placeFailure(this@NumberActionActivity, it.reason), Toast.LENGTH_LONG).show() }
+                    (r.result as? PlaceResult.Failed)?.let { showMessage(
+                        this@NumberActionActivity,
+                        DialText.placeFailure(this@NumberActionActivity, it.reason),
+                        long = true,
+                    ) }
                     finish()
                 }
             }
@@ -606,10 +613,14 @@ fun TemporaryNameDialog(
     var name by rememberSaveable { mutableStateOf(suggested) }
     var visible by rememberSaveable { mutableStateOf(initialVisible) }
     val days = TemporaryContact.DEFAULT_DAYS
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(title ?: stringResource(R.string.num_save_temporary)) },
-        text = {
+    ConfirmDialog(
+        title = title ?: stringResource(R.string.num_save_temporary),
+        text = null,
+        confirmLabel = stringResource(if (visible) R.string.main_save else R.string.sqr_save_privately),
+        onConfirm = { onSave(name, visible) },
+        onDismiss = onDismiss,
+        dismissLabel = stringResource(R.string.num_not_now),
+        content = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 notice?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary) }
                 Text(pluralStringResource(if (visible) R.plurals.num_temp_visible_body else R.plurals.num_temp_private_body, days, days))
@@ -623,7 +634,5 @@ fun TemporaryNameDialog(
                 }
             }
         },
-        confirmButton = { TextButton({ onSave(name, visible) }) { Text(stringResource(if (visible) R.string.main_save else R.string.sqr_save_privately)) } },
-        dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.num_not_now)) } },
     )
 }

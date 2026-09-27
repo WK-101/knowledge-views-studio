@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -28,6 +27,7 @@ import app.parley.data.ContactDetails
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.EncodeHintType
 import com.google.zxing.qrcode.QRCodeWriter
+import app.parley.ui.ParleyDialog
 
 /** Generates the QR code on-device; the user picks which fields are shared. */
 @Composable
@@ -48,7 +48,7 @@ fun QrDialog(details: ContactDetails, onDismiss: () -> Unit) {
         append("END:VCARD")
     }
     val bitmap = remember(vcard) { encode(vcard, 720) }
-    AlertDialog(
+    ParleyDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.qr_share_title, details.displayName)) },
         text = {

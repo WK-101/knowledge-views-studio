@@ -12,7 +12,6 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -33,15 +32,18 @@ import android.icu.text.MeasureFormat
 import android.icu.util.Measure
 import android.icu.util.MeasureUnit
 import java.util.Locale
+import app.parley.ui.ParleySheet
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 
 /** Tap a Recents day header → that day's made / received / missed / rejected calls and talk time. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DaySummarySheet(vm: AppViewModel, dayMillis: Long, title: String, onDismiss: () -> Unit) {
     val index by vm.c.history.index.collectAsStateWithLifecycle()
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    ParleySheet(onDismissRequest = onDismiss) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 32.dp)) {
-            Text(title, style = MaterialTheme.typography.titleLarge)
+            Text(title, style = MaterialTheme.typography.titleLarge, modifier = Modifier.semantics { heading() })
             val idx = index
             if (idx == null) {
                 CircularProgressIndicator(Modifier.padding(24.dp).align(Alignment.CenterHorizontally))

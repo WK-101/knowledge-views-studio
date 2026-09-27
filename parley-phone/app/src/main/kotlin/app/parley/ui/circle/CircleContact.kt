@@ -11,7 +11,6 @@ import androidx.compose.material.icons.rounded.Event
 import androidx.compose.material.icons.rounded.Handshake
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.Update
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
@@ -45,6 +44,7 @@ import app.parley.ui.history.RhythmSuggestion
 import app.parley.ui.people.eventLabel
 import java.time.LocalDate
 import kotlinx.coroutines.launch
+import app.parley.ui.ParleyDialog
 
 private val rowColors @Composable get() = ListItemDefaults.colors(containerColor = Color.Transparent)
 
@@ -135,7 +135,7 @@ fun RhythmDialog(vm: AppViewModel, d: ContactDetails, contactId: Long, meta: Con
             }
         }
     }
-    AlertDialog(
+    ParleyDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.detail_keep_in_touch_title)) },
         text = {

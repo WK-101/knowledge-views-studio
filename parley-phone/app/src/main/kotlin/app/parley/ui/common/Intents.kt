@@ -9,15 +9,15 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.PersistableBundle
-import android.widget.Toast
 import app.parley.R
+import app.parley.ui.showMessage
 
 object Intents {
     private fun launch(context: Context, intent: Intent) {
         try {
             context.startActivity(intent)
         } catch (_: ActivityNotFoundException) {
-            Toast.makeText(context, context.getString(R.string.main_no_app), Toast.LENGTH_SHORT).show()
+            showMessage(context, context.getString(R.string.main_no_app))
         }
     }
 
@@ -52,6 +52,6 @@ object Intents {
         }
         runCatching { context.getSystemService(ClipboardManager::class.java).setPrimaryClip(clip) }
         // Android 13+ confirms copies itself.
-        if (Build.VERSION.SDK_INT < 33) Toast.makeText(context, context.getString(R.string.main_copied), Toast.LENGTH_SHORT).show()
+        if (Build.VERSION.SDK_INT < 33) showMessage(context, context.getString(R.string.main_copied))
     }
 }

@@ -18,7 +18,6 @@ import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Event
 import androidx.compose.material.icons.rounded.MoreVert
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DropdownMenu
@@ -81,6 +80,7 @@ import java.time.format.FormatStyle
 import java.util.Locale
 import java.util.UUID
 import kotlinx.coroutines.launch
+import app.parley.ui.ConfirmDialog
 
 private val clearRow @Composable get() = ListItemDefaults.colors(containerColor = Color.Transparent)
 
@@ -98,10 +98,14 @@ fun LogInteractionDialog(name: String, initial: Interaction?, onDismiss: () -> U
     var time by rememberSaveable { mutableLongStateOf(initial?.time ?: System.currentTimeMillis()) }
     var picking by remember { mutableStateOf(false) }
     val zone = ZoneId.systemDefault()
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(if (initial == null) stringResource(R.string.circle_log_with, name) else stringResource(R.string.circle_edit_entry)) },
-        text = {
+    ConfirmDialog(
+        title = if (initial == null) stringResource(R.string.circle_log_with, name) else stringResource(R.string.circle_edit_entry),
+        text = null,
+        confirmLabel = stringResource(R.string.main_save),
+        onConfirm = { onSave(type, note.text.trim().ifEmpty { null }, time) },
+        onDismiss = onDismiss,
+        dismissLabel = stringResource(R.string.main_cancel),
+        content = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     InteractionType.entries.forEach { t ->
@@ -119,8 +123,6 @@ fun LogInteractionDialog(name: String, initial: Interaction?, onDismiss: () -> U
                 )
             }
         },
-        confirmButton = { TextButton({ onSave(type, note.text.trim().ifEmpty { null }, time) }) { Text(stringResource(R.string.main_save)) } },
-        dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.main_cancel)) } },
     )
     if (picking) {
         val now = System.currentTimeMillis()

@@ -11,25 +11,20 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.FileOpen
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -53,6 +48,11 @@ import kotlinx.coroutines.launch
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import app.parley.R
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.semantics.Role
+import app.parley.ui.ParleyTopBar
+import app.parley.ui.ParleyScaffold
+import app.parley.ui.ParleyDialog
 
 /** Import call history from a CSV (Parley, Logger or any spreadsheet) with a dry run first. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -92,8 +92,8 @@ fun ImportCallsScreen(vm: AppViewModel, back: () -> Unit) {
         }
     }
 
-    Scaffold(topBar = {
-        TopAppBar(title = { Text(stringResource(R.string.hist_import_title)) }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.dc_back)) } })
+    ParleyScaffold(topBar = {
+        ParleyTopBar(stringResource(R.string.hist_import_title), onBack = back)
     }) { p ->
         LazyColumn(Modifier.padding(p)) {
             item {
@@ -136,10 +136,10 @@ fun ImportCallsScreen(vm: AppViewModel, back: () -> Unit) {
                     item { MappingEditor(pl.header, pl.mapping) { replan(it) } }
                     item {
                         ListItem(
-                            modifier = Modifier.clickable { dayFirst = !dayFirst; replan(pl.mapping) },
+                            modifier = Modifier.toggleable(dayFirst, role = Role.Switch, onValueChange = { dayFirst = it; replan(pl.mapping) }),
                             headlineContent = { Text(stringResource(R.string.hist_import_day_first)) },
                             supportingContent = { Text(if (dayFirst) stringResource(R.string.hist_import_day_first_on) else stringResource(R.string.hist_import_day_first_off)) },
-                            trailingContent = { Switch(dayFirst, { dayFirst = it; replan(pl.mapping) }) },
+                            trailingContent = { Switch(dayFirst, onCheckedChange = null) },
                         )
                     }
                 }
@@ -186,7 +186,7 @@ fun ImportCallsScreen(vm: AppViewModel, back: () -> Unit) {
         }
     }
     report?.let { r ->
-        AlertDialog(
+        ParleyDialog(
             onDismissRequest = { report = null },
             title = { Text(stringResource(R.string.hist_import_finished)) },
             text = { Text(r) },

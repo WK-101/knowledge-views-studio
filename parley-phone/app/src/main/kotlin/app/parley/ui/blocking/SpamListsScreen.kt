@@ -11,13 +11,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Verified
 import androidx.compose.material.icons.rounded.Warning
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -26,12 +24,10 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -65,6 +61,14 @@ import app.parley.ui.contact.Section
 import app.parley.ui.settings.bidiLtr
 import app.parley.ui.settings.settingTitle
 import kotlinx.coroutines.launch
+import app.parley.ui.SwitchRow
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import app.parley.ui.ParleyTopBar
+import app.parley.ui.ParleyScaffold
+import app.parley.ui.ParleyDialog
+import app.parley.ui.ConfirmDialog
+import app.parley.ui.InfoDialog
 
 /**
  * Spam lists: add a `.parleylist` file or subscribe to a folder (Syncthing, Nextcloud,
@@ -106,11 +110,8 @@ fun SpamListsScreen(vm: AppViewModel, back: () -> Unit) {
         }
     }
 
-    Scaffold(topBar = {
-        TopAppBar(
-            title = { Text(settingTitle("spam_lists")) },
-            navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.set_back)) } },
-        )
+    ParleyScaffold(topBar = {
+        ParleyTopBar(settingTitle("spam_lists"), onBack = back)
     }) { p ->
         LazyColumn(Modifier.padding(p)) {
             item {
@@ -189,10 +190,24 @@ fun SpamListsScreen(vm: AppViewModel, back: () -> Unit) {
     pending?.let { pk ->
         val m = pk.manifest
         val existing = state.packs.firstOrNull { it.id == m.id }
-        AlertDialog(
-            onDismissRequest = { pending = null; pendingDry = null },
-            title = { Text(stringResource(if (existing != null) R.string.blk_update_list_q else R.string.blk_add_list_q, m.name)) },
-            text = {
+        ConfirmDialog(
+            title = stringResource(if (existing != null) R.string.blk_update_list_q else R.string.blk_add_list_q, m.name),
+            text = null,
+            confirmLabel = stringResource(if (existing != null) R.string.blk_update else R.string.blk_add),
+            onConfirm = {
+                scope.launch {
+                    when (val r = vm.c.lists.install(pk, PackOrigin.FILE)) {
+                        is SpamListStore.InstallResult.Installed -> vm.toast(res.getString(if (r.replaced) R.string.blk_updated_toast else R.string.blk_added_toast))
+                        is SpamListStore.InstallResult.Older -> vm.toast(res.getString(R.string.blk_list_newer_version, r.installed.toString()))
+                        is SpamListStore.InstallResult.Failed -> error = BlockingText.installFailure(context, r.reason)
+                    }
+                }
+                pending = null
+                pendingDry = null
+            },
+            onDismiss = { pending = null; pendingDry = null },
+            dismissLabel = stringResource(R.string.set_cancel),
+            content = {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     val count = pk.numbers.size / 10
                     Text(
@@ -222,30 +237,27 @@ fun SpamListsScreen(vm: AppViewModel, back: () -> Unit) {
                     Text(stringResource(R.string.blk_new_lists_warn), style = MaterialTheme.typography.bodySmall)
                 }
             },
-            confirmButton = {
-                TextButton({
-                    scope.launch {
-                        when (val r = vm.c.lists.install(pk, PackOrigin.FILE)) {
-                            is SpamListStore.InstallResult.Installed -> vm.toast(res.getString(if (r.replaced) R.string.blk_updated_toast else R.string.blk_added_toast))
-                            is SpamListStore.InstallResult.Older -> vm.toast(res.getString(R.string.blk_list_newer_version, r.installed.toString()))
-                            is SpamListStore.InstallResult.Failed -> error = BlockingText.installFailure(context, r.reason)
-                        }
-                    }
-                    pending = null
-                    pendingDry = null
-                }) { Text(stringResource(if (existing != null) R.string.blk_update else R.string.blk_add)) }
-            },
-            dismissButton = { TextButton({ pending = null; pendingDry = null }) { Text(stringResource(R.string.set_cancel)) } },
         )
     }
     error?.let { e ->
-        AlertDialog(
-            onDismissRequest = { error = null },
-            title = { Text(stringResource(R.string.blk_cant_add_list)) },
-            text = { Text(e) },
-            confirmButton = { TextButton({ error = null }) { Text(stringResource(R.string.set_ok)) } },
+        InfoDialog(
+            title = stringResource(R.string.blk_cant_add_list),
+            text = e,
+            onDismiss = { error = null },
+            closeLabel = stringResource(R.string.set_ok),
         )
     }
+}
+
+/** The list's on/off switch. The row doesn't toggle, so the switch says which list it turns on or off. */
+@Composable
+private fun PackSwitch(vm: AppViewModel, pk: PackState, name: String) {
+    val scope = rememberCoroutineScope()
+    Switch(
+        pk.enabled,
+        modifier = Modifier.semantics { contentDescription = name },
+        onCheckedChange = { v -> scope.launch { vm.c.lists.setPack(pk.id) { it.copy(enabled = v) } } },
+    )
 }
 
 @Composable
@@ -275,7 +287,7 @@ private fun PackCard(vm: AppViewModel, pk: PackState, now: Long) {
                     if (stale) Text(pluralStringResource(R.plurals.blk_out_of_date_days, pk.ttlDays, pk.ttlDays), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                 }
             },
-            trailingContent = { Switch(pk.enabled, { v -> scope.launch { vm.c.lists.setPack(pk.id) { it.copy(enabled = v) } } }) },
+            trailingContent = { PackSwitch(vm, pk, name) },
         )
         Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             TextButton({ open = !open }) { Text(stringResource(if (open) R.string.blk_less else R.string.blk_options)) }
@@ -294,7 +306,9 @@ private fun PackCard(vm: AppViewModel, pk: PackState, now: Long) {
                     Slider(t, { t = it }, valueRange = 0f..100f, steps = 19, onValueChangeFinished = { scope.launch { vm.c.lists.setPack(pk.id) { it.copy(threshold = t.toInt()) } } })
                     ActionChoice(pk.action, { a -> scope.launch { vm.c.lists.setPack(pk.id) { it.copy(action = a) } } })
                 }
-                if (pk.ranges > 0) ToggleRow(stringResource(R.string.blk_match_ranges), stringResource(R.string.blk_match_ranges_help), pk.useRanges) { v -> scope.launch { vm.c.lists.setPack(pk.id) { it.copy(useRanges = v) } } }
+                if (pk.ranges > 0) SwitchRow(stringResource(R.string.blk_match_ranges), stringResource(R.string.blk_match_ranges_help), pk.useRanges) { v ->
+                    scope.launch { vm.c.lists.setPack(pk.id) { it.copy(useRanges = v) } }
+                }
                 Text(stringResource(R.string.blk_notify), style = MaterialTheme.typography.labelLarge)
                 NotifyChoice(pk.notify, allowDefault = true) { n -> scope.launch { vm.c.lists.setPack(pk.id) { it.copy(notify = n) } } }
                 if (pk.suppressed.isNotEmpty()) {
@@ -309,7 +323,7 @@ private fun PackCard(vm: AppViewModel, pk: PackState, now: Long) {
         }
     }
     if (confirmRemove) {
-        AlertDialog(
+        ParleyDialog(
             onDismissRequest = { confirmRemove = false },
             title = { Text(stringResource(R.string.blk_remove_list_q, name)) },
             confirmButton = {

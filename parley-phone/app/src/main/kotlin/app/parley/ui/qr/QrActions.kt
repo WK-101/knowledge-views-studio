@@ -13,12 +13,12 @@ import android.os.Build
 import android.os.PersistableBundle
 import android.provider.CalendarContract
 import android.provider.Settings
-import android.widget.Toast
 import app.parley.R
 import app.parley.common.qr.QrApp
 import app.parley.common.qr.QrPayload
 import app.parley.common.qr.WifiSecurity
 import java.time.ZoneId
+import app.parley.ui.showMessage
 
 /**
  * What the result sheet's buttons do. Every one runs only on the user's tap. Intents name their target app
@@ -34,7 +34,7 @@ object QrActions {
         }
         runCatching { context.getSystemService(ClipboardManager::class.java).setPrimaryClip(clip) }
         // Android 13+ confirms copies itself.
-        if (Build.VERSION.SDK_INT < 33) Toast.makeText(context, R.string.qs_copied, Toast.LENGTH_SHORT).show()
+        if (Build.VERSION.SDK_INT < 33) showMessage(context, context.getString(R.string.qs_copied))
     }
 
     fun share(context: Context, text: String) {
@@ -47,10 +47,10 @@ object QrActions {
         context.startActivity(intent)
         true
     } catch (_: ActivityNotFoundException) {
-        Toast.makeText(context, missing, Toast.LENGTH_SHORT).show()
+        showMessage(context, context.getString(missing))
         false
     } catch (_: SecurityException) {
-        Toast.makeText(context, missing, Toast.LENGTH_SHORT).show()
+        showMessage(context, context.getString(missing))
         false
     }
 

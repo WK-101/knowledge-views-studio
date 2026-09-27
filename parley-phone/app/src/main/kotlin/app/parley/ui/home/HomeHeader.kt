@@ -11,11 +11,9 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Search
@@ -49,6 +47,9 @@ import androidx.compose.ui.unit.dp
 import app.parley.R
 import app.parley.common.ux.Tips
 import app.parley.ui.common.CoachMarkAnchor
+import app.parley.ui.ParleyTopBar
+import app.parley.ui.BackButton
+import app.parley.ui.ParleyShapes
 
 /**
  * The header of every home tab: the tab's title, its own actions, a search icon that turns the bar into a search
@@ -82,7 +83,7 @@ fun HomeHeader(
             SearchBarHeader(query, searchHint, onQuery, onClose = { onSearch(false) }, scrollBehavior = scrollBehavior)
         } else {
             var menuOpen by rememberSaveable { mutableStateOf(false) }
-            TopAppBar(
+            ParleyTopBar(
                 title = { Text(title, style = MaterialTheme.typography.headlineSmall, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 actions = {
                     // A one-time tip under the search icon.
@@ -107,8 +108,8 @@ private fun SearchBarHeader(query: String, hint: String, onQuery: (String) -> Un
     val focus = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
     LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
-    TopAppBar(
-        navigationIcon = { IconButton(onClose) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.home_close_search)) } },
+    ParleyTopBar(
+        navigationIcon = { BackButton(onClose, stringResource(R.string.home_close_search)) },
         title = {
             TextField(
                 value = query,
@@ -121,7 +122,7 @@ private fun SearchBarHeader(query: String, hint: String, onQuery: (String) -> Un
                     // Clearing an empty field closes the search, like the back arrow.
                     IconButton({ if (query.isEmpty()) onClose() else onQuery("") }) { Icon(Icons.Rounded.Close, stringResource(if (query.isEmpty()) R.string.home_close_search else R.string.home_clear_search)) }
                 },
-                shape = RoundedCornerShape(28.dp),
+                shape = ParleyShapes.pill,
                 colors = TextFieldDefaults.colors(
                     focusedIndicatorColor = Color.Transparent,
                     unfocusedIndicatorColor = Color.Transparent,

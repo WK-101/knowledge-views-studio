@@ -25,8 +25,6 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.gestures.animateScrollBy
@@ -51,7 +49,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.Chat
 import androidx.compose.material.icons.automirrored.rounded.Message
 import androidx.compose.material.icons.automirrored.rounded.Notes
@@ -59,7 +56,6 @@ import androidx.compose.material.icons.rounded.AddToHomeScreen
 import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.Cake
 import androidx.compose.material.icons.rounded.Call
-import androidx.compose.material.icons.automirrored.rounded.CallSplit
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Dialpad
 import androidx.compose.material.icons.rounded.Edit
@@ -86,7 +82,6 @@ import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material.icons.rounded.Videocam
 import androidx.compose.material.icons.rounded.Voicemail
 import androidx.compose.material.icons.rounded.Info
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -95,11 +90,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -171,6 +164,17 @@ import app.parley.ui.vault.ExpiryDialog
 import java.time.LocalDate
 import java.time.ZoneId
 import kotlinx.coroutines.launch
+import androidx.compose.ui.semantics.Role
+import androidx.compose.foundation.selection.toggleable
+import app.parley.ui.ParleyTopBar
+import app.parley.ui.ParleyScaffold
+import app.parley.ui.BackButton
+import app.parley.ui.ParleyDialog
+import app.parley.ui.ConfirmDialog
+import app.parley.ui.ListSectionHeader
+import app.parley.ui.Spacing
+import app.parley.ui.ParleyMotion
+import androidx.compose.material.icons.rounded.LinkOff
 
 /**
  * A contact's page. U1: the photo and name dock into the top bar as you scroll ("last talked" shows there once
@@ -292,9 +296,9 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
         }
     }
 
-    Scaffold(
+    ParleyScaffold(
         topBar = {
-            TopAppBar(
+            ParleyTopBar(
                 title = {
                     AnimatedVisibility(collapsed && d != null, enter = fadeIn(), exit = fadeOut()) {
                         if (d != null) Row(verticalAlignment = Alignment.CenterVertically) {
@@ -307,7 +311,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = barColor, scrolledContainerColor = barColor),
-                navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.main_back)) } },
+                navigationIcon = { BackButton(back) },
                 actions = {
                     if (d != null) {
                         IconButton({ page.setStarred(!d.starred) }) {
@@ -342,7 +346,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                             }
                             ContactPrefixAllowMenuItem(d.composedName.ifBlank { null }, d.phones.map { it.value }) { menu = false }
                             if (d.rawContacts.size > 1) {
-                                DropdownMenuItem({ Text(stringResource(R.string.detail_separate)) }, leadingIcon = { Icon(Icons.AutoMirrored.Rounded.CallSplit, null) }, onClick = {
+                                DropdownMenuItem({ Text(stringResource(R.string.detail_separate)) }, leadingIcon = { Icon(Icons.Rounded.LinkOff, null) }, onClick = {
                                     menu = false; page.separate(back)
                                 })
                             }
@@ -377,7 +381,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
     ) { padding ->
         if (d == null) {
             if (loaded) Text(stringResource(R.string.detail_gone), Modifier.padding(padding).padding(24.dp))
-            return@Scaffold
+            return@ParleyScaffold
         }
         val primary = d.phones.firstOrNull { it.isPrimary } ?: d.phones.firstOrNull()
         val r = reach(d)
@@ -595,10 +599,11 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
             SegmentedGroup {
                 item {
                     ListItem(
+                        modifier = Modifier.toggleable(d.sendToVoicemail, role = Role.Switch, onValueChange = { v -> page.setSendToVoicemail(v) }),
                         colors = groupRowColors(),
                         leadingContent = { Icon(Icons.Rounded.Voicemail, null) },
                         headlineContent = { Text(stringResource(R.string.detail_send_to_voicemail)) },
-                        trailingContent = { Switch(d.sendToVoicemail, { v -> page.setSendToVoicemail(v) }) },
+                        trailingContent = { Switch(d.sendToVoicemail, onCheckedChange = null) },
                     )
                 }
                 blended { ContactCallTimeRows(vm, d.lookupKey, d.displayName, d.starred) }
@@ -676,8 +681,8 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
         // Once the big header has gone, a compact bar keeps the actions (and, on long pages, jumps to a section).
         AnimatedVisibility(
             pinned, Modifier.align(Alignment.TopCenter).padding(top = padding.calculateTopPadding()),
-            enter = expandVertically(spring(stiffness = Spring.StiffnessMediumLow), expandFrom = Alignment.Top) + fadeIn(),
-            exit = shrinkVertically(spring(stiffness = Spring.StiffnessMedium), shrinkTowards = Alignment.Top) + fadeOut(),
+            enter = expandVertically(ParleyMotion.spatial(), expandFrom = Alignment.Top) + fadeIn(ParleyMotion.effects()),
+            exit = shrinkVertically(ParleyMotion.fastSpatial(), shrinkTowards = Alignment.Top) + fadeOut(ParleyMotion.fastEffects()),
         ) {
             val actions = listOfNotNull(
                 QuickAction(Icons.Rounded.Call, stringResource(R.string.main_call_who, d.displayName), canCall) { doCall() },
@@ -715,13 +720,14 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
         if (copyToSim) CopyToSimDialog(vm, d) { copyToSim = false }
         if (editNote) {
             var text by remember { mutableStateOf(TextFieldValue(meta?.pinnedNote.orEmpty())) }
-            AlertDialog(
-                onDismissRequest = { editNote = false },
-                title = { Text(stringResource(R.string.detail_note_title)) },
-                // The checkbox button starts a promise line.
-                text = { PromiseNoteField(text, { text = it }, placeholder = stringResource(R.string.detail_note_placeholder)) },
-                confirmButton = { TextButton({ editNote = false; page.setPinnedNote(text.text) }) { Text(stringResource(R.string.main_save)) } },
-                dismissButton = { TextButton({ editNote = false }) { Text(stringResource(R.string.main_cancel)) } },
+            ConfirmDialog(
+                title = stringResource(R.string.detail_note_title),
+                text = null,
+                confirmLabel = stringResource(R.string.main_save),
+                onConfirm = { editNote = false; page.setPinnedNote(text.text) },
+                onDismiss = { editNote = false },
+                dismissLabel = stringResource(R.string.main_cancel),
+                content = { PromiseNoteField(text, { text = it }, placeholder = stringResource(R.string.detail_note_placeholder)) },
             )
         }
         if (reachOut) RhythmDialog(vm, d, contactId, meta) { reachOut = false }
@@ -741,7 +747,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
             }
         }
         if (pinDialog) {
-            AlertDialog(
+            ParleyDialog(
                 onDismissRequest = { pinDialog = false },
                 title = { Text(stringResource(R.string.detail_add_home)) },
                 text = {
@@ -767,7 +773,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
             )
         }
         relationChoice?.let { ids ->
-            AlertDialog(
+            ParleyDialog(
                 onDismissRequest = { relationChoice = null },
                 title = { Text(stringResource(R.string.detail_which_contact)) },
                 text = {
@@ -795,16 +801,18 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
         }
         d.photoUri?.takeIf { showPhoto }?.let { PhotoViewer(it) { showPhoto = false } }
         if (confirmDelete) {
-            AlertDialog(
-                onDismissRequest = { confirmDelete = false },
-                title = { Text(stringResource(R.string.detail_delete_title, d.displayName)) },
-                text = { Text(stringResource(R.string.detail_delete_body)) },
-                confirmButton = { TextButton({ confirmDelete = false; vm.deleteContacts(listOf(contactId)); back() }) { Text(stringResource(R.string.main_delete)) } },
-                dismissButton = { TextButton({ confirmDelete = false }) { Text(stringResource(R.string.main_cancel)) } },
+            ConfirmDialog(
+                title = stringResource(R.string.detail_delete_title, d.displayName),
+                text = stringResource(R.string.detail_delete_body),
+                confirmLabel = stringResource(R.string.main_delete),
+                onConfirm = { confirmDelete = false; vm.deleteContacts(listOf(contactId)); back() },
+                onDismiss = { confirmDelete = false },
+                destructive = true,
+                dismissLabel = stringResource(R.string.main_cancel),
             )
         }
         simFor?.let { number ->
-            AlertDialog(
+            ParleyDialog(
                 onDismissRequest = { simFor = null },
                 title = { Text(stringResource(R.string.detail_sim_for, Bidi.ltr(Format.number(number, vm.countryIso)))) },
                 text = {
@@ -834,7 +842,8 @@ private const val JUMP_CHIPS_FROM = 4
 private fun DefaultMenuItem(isDefault: Boolean, onSet: (Boolean) -> Unit) {
     DropdownMenuItem(
         { Text(stringResource(if (isDefault) R.string.detail_remove_default else R.string.detail_set_default)) },
-        leadingIcon = { Icon(if (isDefault) Icons.Rounded.StarOutline else Icons.Rounded.Star, null) },
+        // The icon shows the current state, like the star on the number itself.
+        leadingIcon = { Icon(if (isDefault) Icons.Rounded.Star else Icons.Rounded.StarOutline, null) },
         onClick = { onSet(!isDefault) },
     )
 }
@@ -878,7 +887,7 @@ private fun PhoneRow(
 @Composable
 fun Section(title: String) {
     Column {
-        HorizontalDivider(Modifier.padding(top = 8.dp), color = MaterialTheme.colorScheme.surfaceContainerHigh)
-        Text(title, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 4.dp))
+        HorizontalDivider(Modifier.padding(top = Spacing.s), color = MaterialTheme.colorScheme.surfaceContainerHigh)
+        ListSectionHeader(title, top = Spacing.m)
     }
 }

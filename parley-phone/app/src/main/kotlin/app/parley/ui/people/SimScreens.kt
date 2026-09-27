@@ -6,22 +6,17 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.SimCard
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -57,6 +52,10 @@ import app.parley.R
 import app.parley.common.people.SimIssue
 import app.parley.common.people.SimWarning
 import app.parley.ui.DataL10n
+import app.parley.ui.ParleyTopBar
+import app.parley.ui.ParleyScaffold
+import app.parley.ui.ParleyDialog
+import app.parley.ui.ConfirmDialog
 
 @Composable
 private fun simWarningText(w: SimWarning): String = when (w.issue) {
@@ -87,11 +86,25 @@ fun CopyToSimDialog(vm: AppViewModel, d: ContactDetails, onDismiss: () -> Unit) 
             chosen?.nameMax ?: SimFit.DEFAULT_NAME_MAX, chosen?.numberMax ?: SimFit.DEFAULT_NUMBER_MAX, vm.c.people.sim::encodedLength,
         )
     }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        icon = { Icon(Icons.Rounded.SimCard, null) },
-        title = { Text(stringResource(R.string.sim_copy_title)) },
-        text = {
+    ConfirmDialog(
+        title = stringResource(R.string.sim_copy_title),
+        text = null,
+        confirmLabel = stringResource(R.string.sim_copy),
+        onConfirm = {
+            val e = fit.entry ?: return@ConfirmDialog
+            val c = chosen ?: return@ConfirmDialog
+            onDismiss()
+            scope.launch {
+                val err = vm.c.people.sim.write(c, e)
+                if (err != null) runCatching { vm.c.people.diagnostics.record("Copy to SIM", IllegalStateException(err)) }
+                vm.toast(err ?: res.getString(R.string.sim_copied, c.label))
+            }
+        },
+        onDismiss = onDismiss,
+        dismissLabel = stringResource(R.string.dc_cancel),
+        icon = Icons.Rounded.SimCard,
+        confirmEnabled = fit.entry != null && chosen != null && chosen.free != 0,
+        content = {
             Column {
                 when {
                     cards == null -> CircularProgressIndicator()
@@ -115,19 +128,6 @@ fun CopyToSimDialog(vm: AppViewModel, d: ContactDetails, onDismiss: () -> Unit) 
                 }
             }
         },
-        confirmButton = {
-            TextButton({
-                val e = fit.entry ?: return@TextButton
-                val c = chosen ?: return@TextButton
-                onDismiss()
-                scope.launch {
-                    val err = vm.c.people.sim.write(c, e)
-                    if (err != null) runCatching { vm.c.people.diagnostics.record("Copy to SIM", IllegalStateException(err)) }
-                    vm.toast(err ?: res.getString(R.string.sim_copied, c.label))
-                }
-            }, enabled = fit.entry != null && chosen != null && chosen.free != 0) { Text(stringResource(R.string.sim_copy)) }
-        },
-        dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dc_cancel)) } },
     )
 }
 
@@ -163,10 +163,10 @@ fun SimImportScreen(vm: AppViewModel, back: () -> Unit) {
         picked = list.indices.filter { !existing.matches(recordOf(list[it])) }.toSet()
     }
 
-    Scaffold(topBar = {
-        TopAppBar(
-            title = { Text(stringResource(R.string.sim_import_title)) },
-            navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.dc_back)) } },
+    ParleyScaffold(topBar = {
+        ParleyTopBar(
+            stringResource(R.string.sim_import_title),
+            onBack = back,
             actions = { Button({ chooseAccount = true }, enabled = picked.isNotEmpty() && !busy, modifier = Modifier.padding(end = 8.dp)) { Text(stringResource(R.string.sim_import_n, picked.size)) } },
         )
     }) { p ->
@@ -202,7 +202,7 @@ fun SimImportScreen(vm: AppViewModel, back: () -> Unit) {
         }
     }
     if (chooseAccount) {
-        AlertDialog(
+        ParleyDialog(
             onDismissRequest = { chooseAccount = false },
             title = { Text(stringResource(R.string.sim_import_into)) },
             text = {

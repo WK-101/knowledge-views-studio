@@ -2,7 +2,6 @@ package app.parley.ui.history
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -38,6 +37,7 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import app.parley.R
 import kotlinx.coroutines.withContext
+import app.parley.ui.ConfirmDialog
 
 /**
  * Delete one number's calls from a point in time until now. Deleted calls are kept sealed for 30 days;
@@ -62,10 +62,27 @@ fun RangeDeleteDialog(vm: AppViewModel, number: String, onDeleted: (batchId: Lon
     }
     val selected = count(range)
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.hist_range_title)) },
-        text = {
+    ConfirmDialog(
+        title = stringResource(R.string.hist_range_title),
+        text = null,
+        confirmLabel = if (selected != null && selected > 0) stringResource(R.string.hist_range_delete_n, selected) else stringResource(R.string.dc_delete),
+        onConfirm = {
+            val r = range
+            val p = picked
+            val n = count(r) ?: 0
+            // The dialog leaves composition on dismiss, taking its own scope with it; the delete and the
+            // Undo hand-off must outlive it, so they run in the view model's scope.
+            vm.viewModelScope.launch {
+                val batch = vm.c.history.deleteRange(number, r, p)
+                if (batch != null) onDeleted(batch, n)
+            }
+            onDismiss()
+        },
+        onDismiss = onDismiss,
+        destructive = true,
+        dismissLabel = stringResource(R.string.dc_cancel),
+        confirmEnabled = selected != null && selected > 0,
+        content = {
             Column {
                 DeleteRange.entries.forEach { r ->
                     val n = count(r)
@@ -89,24 +106,6 @@ fun RangeDeleteDialog(vm: AppViewModel, number: String, onDeleted: (batchId: Lon
                 )
             }
         },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    val r = range
-                    val p = picked
-                    val n = count(r) ?: 0
-                    // The dialog leaves composition on dismiss, taking its own scope with it; the delete and the
-                    // Undo hand-off must outlive it, so they run in the view model's scope.
-                    vm.viewModelScope.launch {
-                        val batch = vm.c.history.deleteRange(number, r, p)
-                        if (batch != null) onDeleted(batch, n)
-                    }
-                    onDismiss()
-                },
-                enabled = selected != null && selected > 0,
-            ) { Text(if (selected != null && selected > 0) stringResource(R.string.hist_range_delete_n, selected) else stringResource(R.string.dc_delete)) }
-        },
-        dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dc_cancel)) } },
     )
 
     if (picking) {

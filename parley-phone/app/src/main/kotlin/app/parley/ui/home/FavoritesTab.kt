@@ -1,6 +1,5 @@
 package app.parley.ui.home
 
-import androidx.compose.animation.core.spring
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -22,7 +21,6 @@ import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.DragIndicator
 import androidx.compose.material.icons.rounded.StarOutline
@@ -67,6 +65,11 @@ import app.parley.ui.Avatar
 import app.parley.ui.EmptyState
 import app.parley.ui.Routes
 import app.parley.ui.circle.CircleFavoritesSection
+import app.parley.ui.ParleyShapes
+import app.parley.ui.ListSectionHeader
+import app.parley.ui.Spacing
+import app.parley.ui.ParleyMotion
+import androidx.compose.ui.unit.IntOffset
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -153,7 +156,8 @@ fun FavoritesTab(vm: AppViewModel, open: (String) -> Unit, query: String = "", o
             val dragging = dragKey == c.lookupKey
             val moveEarlier = stringResource(R.string.fav_move_earlier)
             val moveLater = stringResource(R.string.fav_move_later)
-            val base = Modifier.animateItem(placementSpec = if (dragging) null else spring())
+            val placement = ParleyMotion.fastSpatial<IntOffset>()
+            val base = Modifier.animateItem(placementSpec = if (dragging) null else placement)
             if (reordering) {
                 Tile(
                     c.displayName, c.photoUri, onClick = {}, onLong = {}, reorder = true,
@@ -200,7 +204,7 @@ fun FavoritesTab(vm: AppViewModel, open: (String) -> Unit, query: String = "", o
         }
         if (shownFrequents.isNotEmpty() && !reordering) {
             item(span = { GridItemSpan(maxLineSpan) }) {
-                Text(stringResource(R.string.fav_frequent), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(start = 8.dp, top = 16.dp, bottom = 4.dp))
+                ListSectionHeader(stringResource(R.string.fav_frequent), inset = Spacing.s, top = Spacing.l)
             }
             items(shownFrequents, key = { "q" + it.key }) { g ->
                 Tile(g.title, g.contact?.photoUri, onClick = { vm.requestCall(g.number, g.contact?.displayName, source = CallSource.FAVORITE) }, onLong = {
@@ -228,7 +232,7 @@ private fun List<ContactSummary>.moved(from: Int, to: Int): List<ContactSummary>
 @Composable
 internal fun Tile(name: String, photo: String?, onClick: () -> Unit, onLong: () -> Unit, modifier: Modifier = Modifier, reorder: Boolean = false) {
     Column(
-        modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp))
+        modifier.fillMaxWidth().clip(ParleyShapes.card)
             .then(if (reorder) Modifier else Modifier.combinedClickable(onClick = onClick, onLongClick = onLong, onClickLabel = stringResource(R.string.main_call), onLongClickLabel = stringResource(R.string.main_open_contact)))
             .padding(vertical = 12.dp, horizontal = 4.dp),
         horizontalAlignment = Alignment.CenterHorizontally,

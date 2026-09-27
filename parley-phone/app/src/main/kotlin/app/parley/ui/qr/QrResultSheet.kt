@@ -56,8 +56,6 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -116,6 +114,9 @@ import java.time.ZoneId
 import java.util.Locale
 import kotlinx.coroutines.launch
 import java.io.File
+import app.parley.ui.ParleySheet
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 
 /** Plain words and icons for what a code holds. */
 object QrLabels {
@@ -175,11 +176,11 @@ object QrLabels {
 fun QrResultSheet(vm: AppViewModel, payload: QrPayload, onDismiss: () -> Unit, open: (String) -> Unit) {
     val context = LocalContext.current
     val res = LocalResources.current
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+    ParleySheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp).padding(bottom = 16.dp).navigationBarsPadding()) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Icon(QrLabels.icon(payload), null, tint = MaterialTheme.colorScheme.primary)
-                Text(QrLabels.kind(res, payload), style = MaterialTheme.typography.titleLarge)
+                Text(QrLabels.kind(res, payload), style = MaterialTheme.typography.titleLarge, modifier = Modifier.semantics { heading() })
             }
             if (QrText.hasHidden(payload.raw)) Note(stringResource(R.string.qs_hidden_removed), Icons.Rounded.Info)
             when (payload) {

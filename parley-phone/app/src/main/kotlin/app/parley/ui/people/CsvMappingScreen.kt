@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.ArrowDropDown
 import androidx.compose.material.icons.rounded.TableChart
 import androidx.compose.material3.Button
@@ -18,14 +17,11 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -54,6 +50,10 @@ import android.provider.ContactsContract.CommonDataKinds.Email
 import android.provider.ContactsContract.CommonDataKinds.Phone
 import androidx.compose.ui.res.stringResource
 import app.parley.R
+import androidx.compose.ui.semantics.Role
+import androidx.compose.foundation.selection.toggleable
+import app.parley.ui.ParleyTopBar
+import app.parley.ui.ParleyScaffold
 
 /**
  * A contact CSV that isn't Parley's own format (Google, Outlook, "Name,Phone", semicolons, tabs, one column).
@@ -94,11 +94,8 @@ fun CsvMappingScreen(vm: AppViewModel, back: () -> Unit) {
         }
     }
 
-    Scaffold(topBar = {
-        TopAppBar(
-            title = { Text(stringResource(R.string.csv_title)) },
-            navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.dc_back)) } },
-        )
+    ParleyScaffold(topBar = {
+        ParleyTopBar(stringResource(R.string.csv_title), onBack = back)
     }) { pad ->
         val p = preview
         if (request == null || error != null) {
@@ -106,11 +103,11 @@ fun CsvMappingScreen(vm: AppViewModel, back: () -> Unit) {
                 Icons.Rounded.TableChart, stringResource(R.string.csv_nothing_title), error ?: stringResource(R.string.csv_nothing_text), Modifier.padding(pad),
                 action = stringResource(R.string.ux_empty_back), onAction = back,
             )
-            return@Scaffold
+            return@ParleyScaffold
         }
         if (p == null) {
             Box(Modifier.fillMaxSize().padding(pad), contentAlignment = Alignment.Center) { LinearProgressIndicator() }
-            return@Scaffold
+            return@ParleyScaffold
         }
         val header = if (hasHeader) p.rows.first() else emptyList()
         val data = if (hasHeader) p.rows.drop(1) else p.rows
@@ -135,8 +132,8 @@ fun CsvMappingScreen(vm: AppViewModel, back: () -> Unit) {
                 ListItem(
                     headlineContent = { Text(stringResource(R.string.csv_header)) },
                     supportingContent = { Text(if (hasHeader) stringResource(R.string.csv_header_on) else stringResource(R.string.csv_header_off)) },
-                    trailingContent = { Switch(hasHeader, { hasHeader = it; remap(p, it) }) },
-                    modifier = Modifier.clickable { hasHeader = !hasHeader; remap(p, hasHeader) },
+                    trailingContent = { Switch(hasHeader, onCheckedChange = null) },
+                    modifier = Modifier.toggleable(hasHeader, role = Role.Switch, onValueChange = { hasHeader = it; remap(p, it) }),
                 )
             }
             item { Section(stringResource(R.string.csv_columns)) }

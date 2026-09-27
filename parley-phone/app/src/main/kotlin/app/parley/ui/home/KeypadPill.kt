@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Backspace
 import androidx.compose.material.icons.rounded.Call
@@ -27,7 +26,6 @@ import androidx.compose.material.icons.rounded.Dialpad
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
@@ -68,6 +66,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
+import app.parley.ui.ParleyShapes
 
 /** The pill's height; the bottom row around it keeps one height whatever the SIMs (C1: the keys never move). */
 internal val CALL_PILL_HEIGHT = 56.dp
@@ -157,7 +156,7 @@ private fun BackspaceButton(enabled: Boolean, onDelete: () -> Unit, onClear: () 
 private fun CallPillView(
     vm: AppViewModel, segments: List<CallPill.Segment>, onCall: () -> Unit, onCallWith: (String) -> Unit, modifier: Modifier,
 ) {
-    val shape = RoundedCornerShape(50)
+    val shape = ParleyShapes.pill
     if (segments.isEmpty()) {
         val label = stringResource(R.string.main_call)
         Box(

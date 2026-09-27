@@ -10,7 +10,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -23,6 +22,9 @@ import app.parley.telecom.AudioRoute
 import app.parley.telecom.AudioUi
 import app.parley.telecom.CallManager
 import app.parley.telecom.RouteType
+import app.parley.ui.ParleySheet
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 
 /**
  * The adaptive audio button: with no headset it is a plain Speaker toggle; with Bluetooth or a wired
@@ -63,8 +65,12 @@ private fun routeKind(res: Resources, r: AudioRoute): String? = when (r.type) {
 @Composable
 internal fun AudioRouteSheet(audio: AudioUi, onDismiss: () -> Unit) {
     val res = LocalResources.current
-    ModalBottomSheet(onDismissRequest = onDismiss) {
-        Text(res.getString(R.string.audio_output), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
+    ParleySheet(onDismissRequest = onDismiss) {
+        Text(
+            res.getString(R.string.audio_output),
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp).semantics { heading() },
+        )
         val order = listOf(RouteType.BLUETOOTH, RouteType.WIRED, RouteType.EARPIECE, RouteType.SPEAKER, RouteType.STREAMING)
         audio.routes.sortedBy { order.indexOf(it.type) }.forEach { r ->
             val selected = audio.current?.key == r.key

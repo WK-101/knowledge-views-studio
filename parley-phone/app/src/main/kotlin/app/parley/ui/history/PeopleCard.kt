@@ -43,6 +43,11 @@ import app.parley.ui.Avatar
 import app.parley.ui.Bidi
 import app.parley.ui.Routes
 import app.parley.ui.common.Format
+import app.parley.ui.ListSectionHeader
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import app.parley.ui.ParleyListItem
+import app.parley.ui.avatarSize
 
 /** Everything the People card shows, worked out once per history change. */
 private data class PeopleData(
@@ -93,7 +98,10 @@ fun PeopleCard(vm: AppViewModel, idx: CallLogIndex, open: (String) -> Unit) {
     Column(Modifier.fillMaxWidth()) {
         HorizontalDivider(Modifier.padding(top = 8.dp), color = MaterialTheme.colorScheme.surfaceContainerHigh)
         Row(Modifier.fillMaxWidth().padding(start = 16.dp, top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(stringResource(R.string.circle_people_title), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f))
+            Text(
+                stringResource(R.string.circle_people_title), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.weight(1f).semantics { heading() },
+            )
             Box {
                 IconButton({ menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.main_more)) }
                 DropdownMenu(menu, { menu = false }) {
@@ -161,15 +169,15 @@ fun PeopleCard(vm: AppViewModel, idx: CallLogIndex, open: (String) -> Unit) {
 
 @Composable
 private fun SubHeader(text: String) {
-    Text(text, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 16.dp, top = 8.dp))
+    ListSectionHeader(text, color = MaterialTheme.colorScheme.onSurfaceVariant, bottom = 0.dp)
 }
 
 @Composable
 private fun ContactLine(vm: AppViewModel, ct: ContactSummary, sub: String, open: (String) -> Unit, call: Boolean = true) {
     val phone = (ct.phones.firstOrNull { it.isPrimary } ?: ct.phones.firstOrNull())?.number
-    ListItem(
+    ParleyListItem(
         modifier = Modifier.clickable { open(Routes.contact(ct.id)) },
-        leadingContent = { Avatar(ct.displayName, ct.photoUri, 40.dp) },
+        leadingContent = { Avatar(ct.displayName, ct.photoUri, avatarSize()) },
         headlineContent = { Text(ct.displayName, maxLines = 1, overflow = TextOverflow.Ellipsis) },
         supportingContent = { Text(sub) },
         trailingContent = if (call && phone != null) ({

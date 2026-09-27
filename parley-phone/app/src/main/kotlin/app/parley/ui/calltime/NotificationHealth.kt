@@ -47,8 +47,6 @@ import app.parley.R
 import app.parley.data.Permissions
 import app.parley.telecom.CallNotifier
 import app.parley.ui.CallColors
-import app.parley.ui.settings.bidiLtr
-import app.parley.ui.settings.settingTitle
 
 /** One thing that decides whether calls reliably show up. */
 data class HealthCheck(

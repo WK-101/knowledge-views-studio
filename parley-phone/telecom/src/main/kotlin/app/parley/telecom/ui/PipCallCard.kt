@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.MicOff
 import androidx.compose.material3.Icon
@@ -29,6 +28,7 @@ import app.parley.telecom.CallState
 import app.parley.telecom.CallUi
 import app.parley.telecom.R
 import app.parley.ui.Avatar
+import app.parley.ui.ParleyShapes
 
 /**
  * The picture-in-picture window: who, the timer (or the call's status) and a Muted tag. Mute and Hang up are
@@ -63,7 +63,7 @@ internal fun PipCallCard(calls: List<CallUi>, audio: AudioUi, ended: CallUi?) {
                 }
                 if (audio.muted && call.isLive) {
                     Row(
-                        Modifier.padding(top = 2.dp).clip(RoundedCornerShape(8.dp)).background(scheme.errorContainer).padding(horizontal = 6.dp, vertical = 1.dp),
+                        Modifier.padding(top = 2.dp).clip(ParleyShapes.tag).background(scheme.errorContainer).padding(horizontal = 6.dp, vertical = 1.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Icon(Icons.Rounded.MicOff, null, Modifier.size(12.dp), tint = scheme.onErrorContainer)

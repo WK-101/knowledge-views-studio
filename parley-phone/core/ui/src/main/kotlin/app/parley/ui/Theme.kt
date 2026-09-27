@@ -10,7 +10,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialExpressiveTheme
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MotionScheme
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.Typography
@@ -29,20 +28,46 @@ import androidx.compose.ui.unit.dp
 import app.parley.common.ListDensity
 import app.parley.common.ThemeMode
 
+// The full brand scheme (Material Theme Builder tones of the brand blue), used when dynamic colour is off or not
+// available: every role is set, so dialogs, sheets, chips and outlines never fall back to Material's baseline purple.
 private val BrandLight = lightColorScheme(
     primary = Color(0xFF2F5BD3),
     onPrimary = Color.White,
     primaryContainer = Color(0xFFDCE2FF),
     onPrimaryContainer = Color(0xFF001552),
+    inversePrimary = Color(0xFFB6C4FF),
     secondary = Color(0xFF5A5D72),
+    onSecondary = Color.White,
     secondaryContainer = Color(0xFFDFE1F9),
-    tertiary = Color(0xFF00897B),
+    onSecondaryContainer = Color(0xFF171B2C),
+    // Teal tone 40: white text on it reaches 4.5:1.
+    tertiary = Color(0xFF006A60),
+    onTertiary = Color.White,
     tertiaryContainer = Color(0xFFB2F1E6),
+    onTertiaryContainer = Color(0xFF00201C),
     background = Color(0xFFFBF8FF),
+    onBackground = Color(0xFF1A1B21),
     surface = Color(0xFFFBF8FF),
+    onSurface = Color(0xFF1A1B21),
+    surfaceVariant = Color(0xFFE1E2F3),
+    onSurfaceVariant = Color(0xFF444653),
+    surfaceTint = Color(0xFF2F5BD3),
+    inverseSurface = Color(0xFF2F3036),
+    inverseOnSurface = Color(0xFFF1F0F7),
+    error = Color(0xFFBA1A1A),
+    onError = Color.White,
+    errorContainer = Color(0xFFFFDAD6),
+    onErrorContainer = Color(0xFF410002),
+    outline = Color(0xFF757684),
+    outlineVariant = Color(0xFFC5C6D5),
+    scrim = Color.Black,
+    surfaceBright = Color(0xFFFBF8FF),
+    surfaceDim = Color(0xFFDBD9E0),
+    surfaceContainerLowest = Color.White,
+    surfaceContainerLow = Color(0xFFF5F2FA),
     surfaceContainer = Color(0xFFEFEDF4),
     surfaceContainerHigh = Color(0xFFE9E7EF),
-    error = Color(0xFFBA1A1A),
+    surfaceContainerHighest = Color(0xFFE3E1E9),
 )
 
 private val BrandDark = darkColorScheme(
@@ -50,20 +75,47 @@ private val BrandDark = darkColorScheme(
     onPrimary = Color(0xFF00277F),
     primaryContainer = Color(0xFF1841B3),
     onPrimaryContainer = Color(0xFFDCE2FF),
+    inversePrimary = Color(0xFF2F5BD3),
     secondary = Color(0xFFC3C5DD),
+    onSecondary = Color(0xFF2C2F42),
     secondaryContainer = Color(0xFF434659),
+    onSecondaryContainer = Color(0xFFDFE1F9),
     tertiary = Color(0xFF80D5C8),
+    onTertiary = Color(0xFF003731),
     tertiaryContainer = Color(0xFF005048),
+    onTertiaryContainer = Color(0xFFB2F1E6),
     background = Color(0xFF121318),
+    onBackground = Color(0xFFE3E1E9),
     surface = Color(0xFF121318),
+    onSurface = Color(0xFFE3E1E9),
+    surfaceVariant = Color(0xFF444653),
+    onSurfaceVariant = Color(0xFFC5C6D5),
+    surfaceTint = Color(0xFFB6C4FF),
+    inverseSurface = Color(0xFFE3E1E9),
+    inverseOnSurface = Color(0xFF2F3036),
+    error = Color(0xFFFFB4AB),
+    onError = Color(0xFF690005),
+    errorContainer = Color(0xFF93000A),
+    onErrorContainer = Color(0xFFFFDAD6),
+    outline = Color(0xFF8F909E),
+    outlineVariant = Color(0xFF444653),
+    scrim = Color.Black,
+    surfaceBright = Color(0xFF38393F),
+    surfaceDim = Color(0xFF121318),
+    surfaceContainerLowest = Color(0xFF0D0E13),
+    surfaceContainerLow = Color(0xFF1A1B21),
     surfaceContainer = Color(0xFF1E1F25),
     surfaceContainerHigh = Color(0xFF292A2F),
-    error = Color(0xFFFFB4AB),
+    surfaceContainerHighest = Color(0xFF34343A),
 )
 
+/** Black surfaces for OLED screens; every surface role, so no grey panel is left over. */
 private fun ColorScheme.amoled(): ColorScheme = copy(
     background = Color.Black,
     surface = Color.Black,
+    surfaceDim = Color.Black,
+    surfaceBright = Color(0xFF2A2A2E),
+    surfaceVariant = Color(0xFF26262A),
     surfaceContainerLowest = Color.Black,
     surfaceContainerLow = Color(0xFF0B0B0D),
     surfaceContainer = Color(0xFF121214),
@@ -71,11 +123,27 @@ private fun ColorScheme.amoled(): ColorScheme = copy(
     surfaceContainerHighest = Color(0xFF232326),
 )
 
-/** Colours used for the call accept / decline actions everywhere. */
+/**
+ * Colours used for the call accept / decline actions everywhere. White text on [Accept] reaches 4.5:1, and as an
+ * icon colour it keeps 3:1 on the dark surfaces too.
+ */
 object CallColors {
-    val Accept = Color(0xFF1E9E5A)
+    val Accept = Color(0xFF188550)
     val Decline = Color(0xFFD93A3A)
 }
+
+/** The radii behind [ParleyShapes]: Material 3 Expressive's scale. */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+private val ParleyShapeScale = Shapes(
+    extraSmall = RoundedCornerShape(8.dp),
+    small = RoundedCornerShape(12.dp),
+    medium = RoundedCornerShape(16.dp),
+    large = RoundedCornerShape(24.dp),
+    extraLarge = RoundedCornerShape(28.dp),
+    largeIncreased = RoundedCornerShape(20.dp),
+    extraLargeIncreased = RoundedCornerShape(32.dp),
+    extraExtraLarge = RoundedCornerShape(48.dp),
+)
 
 val LocalDensityPref = staticCompositionLocalOf { ListDensity.COMFORTABLE }
 
@@ -105,13 +173,7 @@ fun ParleyTheme(
         MaterialExpressiveTheme(
             colorScheme = scheme,
             motionScheme = MotionScheme.expressive(),
-            shapes = Shapes(
-                extraSmall = RoundedCornerShape(8.dp),
-                small = RoundedCornerShape(12.dp),
-                medium = RoundedCornerShape(16.dp),
-                large = RoundedCornerShape(24.dp),
-                extraLarge = RoundedCornerShape(32.dp),
-            ),
+            shapes = ParleyShapeScale,
             typography = Typography(),
             content = content,
         )

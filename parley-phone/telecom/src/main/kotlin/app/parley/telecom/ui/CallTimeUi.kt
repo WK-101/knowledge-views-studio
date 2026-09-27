@@ -24,7 +24,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
@@ -50,6 +49,8 @@ import app.parley.telecom.CallTiming
 import app.parley.telecom.CallUi
 import app.parley.ui.Bidi
 import kotlinx.coroutines.delay
+import app.parley.ui.ParleySheet
+import androidx.compose.ui.semantics.heading
 
 /** The caller's name, or their number kept left to right in right-to-left languages. */
 internal val CallUi.displayTitle: String get() = if (name == null) Bidi.ltr(title) else title
@@ -173,9 +174,9 @@ internal fun RemainingLine(timing: CallTiming?) {
 internal fun CallMoreSheet(call: CallUi, timing: CallTiming?, onDismiss: () -> Unit, onNote: () -> Unit, onOpenContact: (() -> Unit)?) {
     val cd = timing?.countdown
     val now by rememberElapsedNow()
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    ParleySheet(onDismissRequest = onDismiss) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
-            Text(stringResource(R.string.calltime_title), style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.calltime_title), style = MaterialTheme.typography.titleMedium, modifier = Modifier.semantics { heading() })
             val sep = stringResource(R.string.tc_separator)
             val status = when {
                 cd?.endAt != null -> stringResource(R.string.calltime_ends_in, clockText((cd.remainingMs(now) ?: 0) / 1000)) + (timing.source?.let { sep + it } ?: "")

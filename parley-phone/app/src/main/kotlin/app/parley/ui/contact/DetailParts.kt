@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.automirrored.rounded.OpenInNew
@@ -47,13 +46,14 @@ import app.parley.data.HandleItem
 import app.parley.ui.SegmentedGroupScope
 import app.parley.ui.common.Intents
 import app.parley.ui.people.HandleText
+import app.parley.ui.ParleyShapes
 
 /** A labelled quick-action tile (label ≥ 12 sp); long-press offers the alternative (choose again). */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun RowScope.ActionTile(icon: ImageVector, label: String, enabled: Boolean, onLongClick: (() -> Unit)? = null, longClickLabel: String? = null, onClick: () -> Unit) {
     Surface(
-        shape = RoundedCornerShape(20.dp),
+        shape = ParleyShapes.card,
         color = if (enabled) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainer,
         contentColor = if (enabled) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
         modifier = Modifier.weight(1f).heightIn(min = 72.dp),

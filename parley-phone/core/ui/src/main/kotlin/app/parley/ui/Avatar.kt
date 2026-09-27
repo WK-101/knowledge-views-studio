@@ -34,10 +34,10 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import app.parley.common.Initials
 import app.parley.common.people.AvatarStyle
 import app.parley.common.people.AvatarText
+import app.parley.common.ux.AvatarPalette
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -69,12 +69,10 @@ object PhotoCache {
     }
 }
 
-private val avatarPalette = listOf(
-    Color(0xFF3F51B5), Color(0xFF00897B), Color(0xFF8E24AA), Color(0xFFD81B60), Color(0xFFF4511E),
-    Color(0xFF6D4C41), Color(0xFF1E88E5), Color(0xFF43A047), Color(0xFF5E35B1), Color(0xFFC0CA33),
-)
+fun avatarColor(seed: String): Color = Color(AvatarPalette.colorFor(seed))
 
-fun avatarColor(seed: String): Color = avatarPalette[(seed.hashCode() and 0x7fffffff) % avatarPalette.size]
+/** The initials' colour on [avatarColor] (white or a dark ink, whichever reaches 4.5:1). */
+fun avatarInk(seed: String): Color = Color(AvatarPalette.inkFor(AvatarPalette.colorFor(seed)))
 
 /** Grapheme-aware (see [app.parley.common.Initials]). */
 fun initialsOf(name: String): String = Initials.of(name)
@@ -101,7 +99,11 @@ fun Avatar(name: String, photoUri: String?, size: Dp = 44.dp, modifier: Modifier
         grey -> Modifier.background(Brush.verticalGradient(listOf(greyTop, greyBottom)))
         else -> Modifier.background(avatarColor(name))
     }
-    val ink = if (grey && image == null && emoji == null) MaterialTheme.colorScheme.onSurfaceVariant else Color.White
+    val ink = if (grey && image == null && emoji == null) MaterialTheme.colorScheme.onSurfaceVariant else avatarInk(name)
+    // Initials follow the circle, not the font size: at 200 % text they would no longer fit in it.
+    val density = LocalDensity.current
+    val initialsSize = with(density) { (size * 0.38f).toSp() }
+    val emojiSize = with(density) { (size * 0.5f).toSp() }
     Box(
         modifier.size(size).clip(CircleShape).then(background),
         contentAlignment = Alignment.Center,
@@ -111,14 +113,14 @@ fun Avatar(name: String, photoUri: String?, size: Dp = 44.dp, modifier: Modifier
             Image(img, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.size(size))
         } else if (emoji != null && !isCompany) {
             // "🐶 Rex" shows the dog.
-            Text(emoji, fontSize = (size.value * 0.5f).sp)
+            Text(emoji, fontSize = emojiSize)
         } else {
             val initials = if (isCompany) "" else initialsOf(name)
             if (isCompany) {
                 // A contact that is only a company gets a building, not the company's initials.
                 Icon(Icons.Rounded.Business, null, tint = ink, modifier = Modifier.size(size * 0.55f))
             } else if (initials.isNotEmpty()) {
-                Text(initials, color = ink, fontWeight = FontWeight.SemiBold, fontSize = (size.value * 0.38f).sp)
+                Text(initials, color = ink, fontWeight = FontWeight.SemiBold, fontSize = initialsSize)
             } else {
                 Icon(Icons.Rounded.Person, null, tint = ink, modifier = Modifier.size(size * 0.6f))
             }

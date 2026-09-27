@@ -12,9 +12,7 @@ import android.provider.Settings
 import android.telephony.PhoneNumberUtils
 import android.view.KeyEvent as AndroidKeyEvent
 import android.view.textclassifier.TextClassifier
-import android.widget.Toast
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -46,7 +44,6 @@ import app.parley.ui.temporary.SaveTemporaryDialog
 import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -64,8 +61,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.input.InputTransformation
@@ -79,18 +74,14 @@ import androidx.compose.foundation.text.input.insert
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.Backspace
 import androidx.compose.material.icons.automirrored.rounded.Chat
 import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.ContentPaste
-import androidx.compose.material.icons.rounded.Dialpad
 import androidx.compose.material.icons.rounded.PersonAdd
 import androidx.compose.material.icons.rounded.PersonAddAlt
 import androidx.compose.material.icons.rounded.AutoDelete
 import androidx.compose.material.icons.rounded.Search
-import androidx.compose.material.icons.rounded.SimCard
 import androidx.compose.material.icons.rounded.Voicemail
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -98,7 +89,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -114,11 +104,9 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.key.KeyEvent
@@ -152,13 +140,19 @@ import app.parley.common.calls.PressOrder
 import app.parley.messaging.ReachSheet
 import app.parley.messaging.ReachTarget
 import app.parley.ui.Avatar
-import app.parley.ui.CallColors
 import app.parley.ui.MatchStyle
 import app.parley.ui.Routes
 import app.parley.ui.keypadKey
 import app.parley.ui.common.Format
 import app.parley.ui.highlight
 import kotlinx.coroutines.awaitCancellation
+import app.parley.ui.ConfirmDialog
+import app.parley.ui.ParleySheet
+import app.parley.ui.ParleyShapes
+import app.parley.ui.topOnly
+import app.parley.ui.showMessage
+import app.parley.ui.ParleyListItem
+import androidx.compose.ui.semantics.heading
 
 private val keys = listOf(
     "1" to "", "2" to "ABC", "3" to "DEF",
@@ -459,7 +453,7 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit, searchQuery: String? = n
     val pressOrder = remember { PressOrder() }
     val panel: @Composable (Modifier) -> Unit = { panelModifier ->
         Surface(
-            color = MaterialTheme.colorScheme.surfaceContainer, shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+            color = MaterialTheme.colorScheme.surfaceContainer, shape = ParleyShapes.sheet.topOnly(),
             // TalkBack users fold the docked keypad with an action (the handle is also a button).
             modifier = if (dock != null) panelModifier.semantics { customActions = listOf(CustomAccessibilityAction(hideKeypadLabel) { dock.onExpandedChange(false); true }) } else panelModifier,
         ) {
@@ -555,12 +549,13 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit, searchQuery: String? = n
     }
 
     unassigned?.let { key ->
-        AlertDialog(
-            onDismissRequest = { unassigned = null },
-            title = { Text(stringResource(R.string.keypad_speed_empty_title, key)) },
-            text = { Text(stringResource(R.string.keypad_speed_empty_body, key)) },
-            confirmButton = { TextButton({ unassigned = null; open(Routes.SPEED_DIAL) }) { Text(stringResource(R.string.keypad_set_up)) } },
-            dismissButton = { TextButton({ unassigned = null }) { Text(stringResource(R.string.main_cancel)) } },
+        ConfirmDialog(
+            title = stringResource(R.string.keypad_speed_empty_title, key),
+            text = stringResource(R.string.keypad_speed_empty_body, key),
+            confirmLabel = stringResource(R.string.keypad_set_up),
+            onConfirm = { unassigned = null; open(Routes.SPEED_DIAL) },
+            onDismiss = { unassigned = null },
+            dismissLabel = stringResource(R.string.main_cancel),
         )
     }
     messageOn?.let { n -> ReachSheet(ReachTarget.Number(n), onDismiss = { messageOn = null }, onCall = { num -> vm.requestCall(num) }) }
@@ -703,7 +698,7 @@ private fun PasteChip(countryIso: String, onPaste: (String) -> Unit) {
         onClick = {
             val text = runCatching { cm?.primaryClip?.getItemAt(0)?.coerceToText(context)?.toString() }.getOrNull().orEmpty()
             val number = NumberText.find(text, countryIso).firstOrNull()?.raw?.let(DialText::sanitize)
-            if (number.isNullOrEmpty()) Toast.makeText(context, res.getString(R.string.keypad_no_clip_number), Toast.LENGTH_SHORT).show()
+            if (number.isNullOrEmpty()) showMessage(context, res.getString(R.string.keypad_no_clip_number))
             else onPaste(number)
         },
         label = { Text(stringResource(if (hint == ClipHint.NUMBER) R.string.keypad_paste_number else R.string.keypad_paste)) },
@@ -727,9 +722,9 @@ private fun clipHint(cm: ClipboardManager?): ClipHint = try {
 @Composable
 private fun ImeiSheet(onDismiss: () -> Unit) {
     val context = LocalContext.current
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    ParleySheet(onDismissRequest = onDismiss) {
         Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 24.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(stringResource(R.string.keypad_imei_title), style = MaterialTheme.typography.titleLarge)
+            Text(stringResource(R.string.keypad_imei_title), style = MaterialTheme.typography.titleLarge, modifier = Modifier.semantics { heading() })
             Text(
                 stringResource(R.string.keypad_imei_body),
                 style = MaterialTheme.typography.bodyMedium,
@@ -834,9 +829,9 @@ private fun DialResultRow(r: DialResult, countryIso: String, modifier: Modifier 
         )
         return
     }
-    ListItem(
+    ParleyListItem(
         modifier = modifier.clickable(onClick = onClick),
-        leadingContent = { Avatar(c?.displayName ?: r.number, c?.photoUri, 40.dp) },
+        leadingContent = { Avatar(c?.displayName ?: r.number, c?.photoUri, avatarSize()) },
         headlineContent = {
             if (c != null) Text(highlight(c.displayName, r.match.nameRanges, MatchStyle), maxLines = 1, overflow = TextOverflow.Ellipsis)
             else Text(Bidi.ltr(Format.number(r.number, countryIso)))
@@ -895,7 +890,7 @@ private fun KeypadContactSearch(vm: AppViewModel, keypad: KeypadViewModel, query
     }
     LazyColumn(Modifier.fillMaxSize()) {
         items(foundVault, key = { "v" + it.id }) { v ->
-            ListItem(
+            ParleyListItem(
                 modifier = Modifier.clickable { open(Routes.vault(v.id)) },
                 leadingContent = { Avatar(v.name, null, avatarSize()) },
                 headlineContent = { Text("\uD83D\uDD12 " + v.name) },

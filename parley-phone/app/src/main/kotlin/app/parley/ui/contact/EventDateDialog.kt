@@ -7,12 +7,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ExpandMore
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -20,7 +17,6 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -40,6 +36,9 @@ import java.time.Month
 import java.time.Year
 import java.time.format.TextStyle
 import java.util.Locale
+import androidx.compose.ui.semantics.Role
+import androidx.compose.foundation.selection.toggleable
+import app.parley.ui.ConfirmDialog
 
 /**
  * Date entry that supports dates without a year (birthdays people only know the day of).
@@ -61,10 +60,15 @@ fun EventDateDialog(initial: String, onDismiss: () -> Unit, onPick: (String) -> 
         pattern.indexOf('d') in 0 until pattern.indexOf('M').let { if (it < 0) Int.MAX_VALUE else it }
     }
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.date_choose)) },
-        text = {
+    ConfirmDialog(
+        title = stringResource(R.string.date_choose),
+        text = null,
+        confirmLabel = stringResource(R.string.main_ok),
+        onConfirm = { onPick(EventDate(if (withYear) yearValue else null, month, day).format()) },
+        onDismiss = onDismiss,
+        dismissLabel = stringResource(R.string.main_cancel),
+        confirmEnabled = valid,
+        content = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     val dayField: @Composable (Modifier) -> Unit = { m ->
@@ -81,8 +85,8 @@ fun EventDateDialog(initial: String, onDismiss: () -> Unit, onPick: (String) -> 
                 }
                 ListItem(
                     headlineContent = { Text(stringResource(R.string.date_include_year)) },
-                    trailingContent = { Switch(withYear, { withYear = it }) },
-                    modifier = Modifier.clickable { withYear = !withYear },
+                    trailingContent = { Switch(withYear, onCheckedChange = null) },
+                    modifier = Modifier.toggleable(withYear, role = Role.Switch, onValueChange = { withYear = it }),
                 )
                 if (withYear) {
                     OutlinedTextField(
@@ -92,8 +96,6 @@ fun EventDateDialog(initial: String, onDismiss: () -> Unit, onPick: (String) -> 
                 }
             }
         },
-        confirmButton = { TextButton({ onPick(EventDate(if (withYear) yearValue else null, month, day).format()) }, enabled = valid) { Text(stringResource(R.string.main_ok)) } },
-        dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.main_cancel)) } },
     )
 }
 

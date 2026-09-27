@@ -1,8 +1,6 @@
 package app.parley.ui.contact
 
 import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.spring
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -21,7 +19,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -32,7 +29,6 @@ import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.RemoveCircle
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.DropdownMenu
@@ -43,7 +39,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -81,13 +76,21 @@ import app.parley.common.TextSearch
 import app.parley.common.people.RelationType
 import app.parley.ui.Avatar
 import app.parley.ui.people.RelationText
+import app.parley.ui.ParleyDialog
+import app.parley.ui.ConfirmDialog
+import app.parley.ui.ParleySheet
+import app.parley.ui.ParleyShapes
+import app.parley.ui.topOnly
+import app.parley.ui.bottomOnly
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.Shape
+import app.parley.ui.ParleyListItem
+import app.parley.ui.ParleyMotion
 
 // Building blocks of the redesigned contact editor.
 
 /** Where a piece sits in its group card: the pieces of one group stack into one rounded card. */
 internal enum class SegPos { Top, Middle, Bottom, Single }
-
-private val CardRadius = 24.dp
 
 /**
  * One piece of a group card. Groups are split into pieces (head, one per row, the "Add" row) so each row can be
@@ -96,10 +99,10 @@ private val CardRadius = 24.dp
 @Composable
 internal fun Segment(pos: SegPos, modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
     val shape = when (pos) {
-        SegPos.Top -> RoundedCornerShape(topStart = CardRadius, topEnd = CardRadius)
-        SegPos.Middle -> RoundedCornerShape(0.dp)
-        SegPos.Bottom -> RoundedCornerShape(bottomStart = CardRadius, bottomEnd = CardRadius)
-        SegPos.Single -> RoundedCornerShape(CardRadius)
+        SegPos.Top -> ParleyShapes.panel.topOnly()
+        SegPos.Middle -> RectangleShape
+        SegPos.Bottom -> ParleyShapes.panel.bottomOnly()
+        SegPos.Single -> ParleyShapes.panel
     }
     Surface(shape = shape, color = MaterialTheme.colorScheme.surfaceContainer, modifier = modifier.fillMaxWidth()) {
         val top = if (pos == SegPos.Top || pos == SegPos.Single) 12.dp else 4.dp
@@ -128,7 +131,7 @@ internal fun GroupHead(icon: ImageVector, title: String) {
 @Composable
 internal fun AddRow(label: String, onClick: () -> Unit) {
     Row(
-        Modifier.fillMaxWidth().heightIn(min = 48.dp).clip(RoundedCornerShape(12.dp)).clickable(onClick = onClick).padding(vertical = 6.dp),
+        Modifier.fillMaxWidth().heightIn(min = 48.dp).clip(ParleyShapes.control).clickable(onClick = onClick).padding(vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
@@ -152,7 +155,7 @@ internal val LocalLocked = staticCompositionLocalOf<Set<Long>> { emptySet() }
 @Composable
 internal fun LockIcon() = Icon(Icons.Rounded.Lock, stringResource(R.string.edit_locked))
 
-internal val FieldShape = RoundedCornerShape(14.dp)
+internal val FieldShape: Shape @Composable get() = ParleyShapes.control
 
 /**
  * A single-line editor field: IME "Next" moves on to the following field; [hint] is a gentle note shown once the
@@ -209,7 +212,7 @@ internal fun TypeChip(current: String, options: List<String>, enabled: Boolean =
             onClick = { open = true }, enabled = enabled,
             label = { Text(current, maxLines = 1, overflow = TextOverflow.Ellipsis) },
             trailingIcon = if (enabled) { { Icon(Icons.Rounded.ArrowDropDown, null, Modifier.size(AssistChipDefaults.IconSize)) } } else null,
-            shape = RoundedCornerShape(10.dp),
+            shape = ParleyShapes.control,
             modifier = Modifier.semantics {
                 contentDescription = desc
                 onClick(label = change) { open = true; true }
@@ -251,7 +254,7 @@ internal fun PhotoHeader(name: String, photo: String?, onPick: () -> Unit, onRem
         if (name.isNotBlank()) {
             Text(
                 name, style = MaterialTheme.typography.headlineSmall, textAlign = TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(horizontal = 16.dp).animateContentSize(spring(stiffness = Spring.StiffnessMediumLow)),
+                modifier = Modifier.padding(horizontal = 16.dp).animateContentSize(ParleyMotion.spatial()),
             )
         }
     }
@@ -264,7 +267,7 @@ internal class MoreEntry(val icon: ImageVector, val title: String, val subtitle:
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun MoreInfoSheet(entries: List<MoreEntry>, onDismiss: () -> Unit) {
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    ParleySheet(onDismissRequest = onDismiss) {
         Column(Modifier.navigationBarsPadding().padding(bottom = 16.dp)) {
             Text(
                 stringResource(R.string.editor_more_info_title), style = MaterialTheme.typography.titleLarge,
@@ -294,7 +297,7 @@ internal fun RelationTypeDialog(onDismiss: () -> Unit, onPick: (RelationType?) -
     var custom by remember { mutableStateOf(false) }
     val res = LocalResources.current
     val shown = remember(query, res) { RelationText.search(res, query) }
-    AlertDialog(
+    ParleyDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.edit_relation)) },
         text = {
@@ -331,7 +334,7 @@ fun ContactChooserDialog(vm: AppViewModel, onDismiss: () -> Unit, onPick: (id: L
     val all by vm.contacts.collectAsStateWithLifecycle()
     var query by remember { mutableStateOf("") }
     val shown = remember(all, query) { all.orEmpty().filter { TextSearch.matches(query, it.displayName, it.phones.map { p -> p.number }) }.take(200) }
-    AlertDialog(
+    ParleyDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.edit_choose_contact)) },
         text = {
@@ -339,7 +342,7 @@ fun ContactChooserDialog(vm: AppViewModel, onDismiss: () -> Unit, onPick: (id: L
                 OutlinedTextField(query, { query = it }, label = { Text(stringResource(R.string.main_search)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 LazyColumn(Modifier.heightIn(max = 360.dp)) {
                     items(shown, key = { it.id }) { c ->
-                        ListItem(
+                        ParleyListItem(
                             leadingContent = { Avatar(c.displayName, c.photoUri, 36.dp) },
                             headlineContent = { Text(c.displayName) },
                             colors = ListItemDefaults.colors(containerColor = Color.Transparent),
@@ -358,11 +361,14 @@ fun ContactChooserDialog(vm: AppViewModel, onDismiss: () -> Unit, onPick: (id: L
 @Composable
 internal fun CustomLabelDialog(initial: String?, onDismiss: () -> Unit, onDone: (String) -> Unit) {
     var text by remember { mutableStateOf(initial.orEmpty()) }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.edit_custom_label)) },
-        text = { OutlinedTextField(text, { text = it }, singleLine = true, placeholder = { Text(stringResource(R.string.edit_custom_placeholder)) }) },
-        confirmButton = { TextButton({ onDismiss(); onDone(text.trim()) }, enabled = text.isNotBlank()) { Text(stringResource(R.string.main_ok)) } },
-        dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.main_cancel)) } },
+    ConfirmDialog(
+        title = stringResource(R.string.edit_custom_label),
+        text = null,
+        confirmLabel = stringResource(R.string.main_ok),
+        onConfirm = { onDismiss(); onDone(text.trim()) },
+        onDismiss = onDismiss,
+        dismissLabel = stringResource(R.string.main_cancel),
+        confirmEnabled = text.isNotBlank(),
+        content = { OutlinedTextField(text, { text = it }, singleLine = true, placeholder = { Text(stringResource(R.string.edit_custom_placeholder)) }) },
     )
 }

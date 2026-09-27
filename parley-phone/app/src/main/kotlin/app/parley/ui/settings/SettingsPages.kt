@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.CallMerge
 import androidx.compose.material.icons.automirrored.rounded.Label
 import androidx.compose.material.icons.automirrored.rounded.PhoneForwarded
 import androidx.compose.material.icons.automirrored.rounded.ShortText
@@ -64,7 +63,6 @@ import androidx.compose.material.icons.rounded.Science
 import androidx.compose.material.icons.rounded.SettingsPhone
 import androidx.compose.material.icons.rounded.SimCard
 import androidx.compose.material.icons.rounded.SimCardDownload
-import androidx.compose.material.icons.rounded.QrCodeScanner
 import androidx.compose.material.icons.rounded.SortByAlpha
 import androidx.compose.material.icons.rounded.Sync
 import androidx.compose.material.icons.rounded.Timer
@@ -82,7 +80,6 @@ import androidx.compose.material.icons.rounded.Style
 import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.AccountCircle
 import androidx.compose.material.icons.automirrored.rounded.CallSplit
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
@@ -167,6 +164,12 @@ import app.parley.work.RemindersWorker
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import app.parley.ui.LinkRow
+import app.parley.ui.InfoRow
+import app.parley.ui.rowColors
+import app.parley.ui.SwitchRow
+import app.parley.ui.ParleyDialog
+import androidx.compose.material.icons.automirrored.rounded.MergeType
 
 /** Saves a settings change. */
 @Composable
@@ -444,7 +447,7 @@ internal fun ContactsPage(vm: AppViewModel, open: (String) -> Unit) {
             open(Routes.TEMPORARY)
         }
         linkRow("bulk_add", Icons.Rounded.GroupAdd) { open(MessagingRoutes.BULK_ADD) }
-        linkRow("duplicates", Icons.AutoMirrored.Rounded.CallMerge) { open(Routes.DUPLICATES) }
+        linkRow("duplicates", Icons.AutoMirrored.Rounded.MergeType) { open(Routes.DUPLICATES) }
         linkRow("health", Icons.Rounded.HealthAndSafety) { open(Routes.HEALTH) }
         linkRow("contact_page", Icons.Rounded.ViewAgenda) { open(ContactPageRoutes.SECTIONS) }
     }
@@ -479,7 +482,7 @@ internal fun ContactsPage(vm: AppViewModel, open: (String) -> Unit) {
     }
 
     importAccounts?.let { (uri, accs) ->
-        AlertDialog(
+        ParleyDialog(
             onDismissRequest = { importAccounts = null },
             title = { Text(stringResource(R.string.set_import_into)) },
             text = {

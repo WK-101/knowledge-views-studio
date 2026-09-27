@@ -24,8 +24,7 @@ import androidx.compose.material.icons.rounded.QrCode2
 import androidx.compose.material.icons.rounded.RecordVoiceOver
 import androidx.compose.material.icons.rounded.RemoveCircle
 import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.HelpOutline
-import androidx.compose.material3.AlertDialog
+import androidx.compose.material.icons.automirrored.rounded.HelpOutline
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -72,11 +71,15 @@ import app.parley.ui.Bidi
 import app.parley.ui.Routes
 import app.parley.ui.SegmentedGroup
 import app.parley.ui.contact.SecureQr
-import app.parley.ui.settings.SettingsScaffold
-import app.parley.ui.settings.SwitchRow
+import app.parley.ui.SettingsScaffold
+import app.parley.ui.SwitchRow
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import app.parley.ui.ParleyDialog
+import app.parley.ui.ConfirmDialog
+import app.parley.ui.ParleyListItem
+import app.parley.ui.avatarSize
 
 private val clearRow @Composable get() = ListItemDefaults.colors(containerColor = Color.Transparent)
 
@@ -123,9 +126,9 @@ fun SimpleSetupScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit
         SegmentedGroup(pluralStringResource(R.plurals.simple_people_n, cfg.people.size, cfg.people.size, SimpleConfig.MAX_PEOPLE)) {
             resolved.forEachIndexed { i, r ->
                 item("p$i") {
-                    ListItem(
+                    ParleyListItem(
                         colors = clearRow,
-                        leadingContent = { Avatar(r.person.name, r.contact?.photoUri, 40.dp) },
+                        leadingContent = { Avatar(r.person.name, r.contact?.photoUri, avatarSize()) },
                         headlineContent = { Text(r.person.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                         supportingContent = { Text(Bidi.ltr(r.person.number)) },
                         trailingContent = {
@@ -147,7 +150,12 @@ fun SimpleSetupScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit
         }
         SegmentedGroup(stringResource(R.string.simple_options)) {
             item("keypad") { SwitchRow(stringResource(R.string.simple_keypad), stringResource(R.string.simple_keypad_body), cfg.showKeypad, Icons.Rounded.Dialpad) { v -> store.updateSimple { it.copy(showKeypad = v) } } }
-            item("decline") { SwitchRow(stringResource(R.string.simple_confirm_decline), stringResource(R.string.simple_confirm_decline_body), cfg.confirmDecline, Icons.Rounded.HelpOutline) { v -> store.updateSimple { it.copy(confirmDecline = v) } } }
+            item("decline") { SwitchRow(
+                stringResource(R.string.simple_confirm_decline),
+                stringResource(R.string.simple_confirm_decline_body),
+                cfg.confirmDecline,
+                Icons.AutoMirrored.Rounded.HelpOutline,
+            ) { v -> store.updateSimple { it.copy(confirmDecline = v) } } }
             item("speak") { SwitchRow(stringResource(R.string.simple_speak), stringResource(R.string.simple_speak_body), cfg.speakName, Icons.Rounded.RecordVoiceOver) { v -> store.updateSimple { it.copy(speakName = v) } } }
         }
         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -204,7 +212,7 @@ private fun SimplePersonPicker(contacts: List<ContactSummary>, taken: Set<String
     var q by remember { mutableStateOf("") }
     var numbersOf by remember { mutableStateOf<ContactSummary?>(null) }
     val shown = remember(q, contacts) { contacts.filter { c -> c.phones.any { SimpleSetup.dialable(it.number) != null } && TextSearch.matches(q, c.displayName, c.phones.map { p -> p.number }) }.take(200) }
-    AlertDialog(
+    ParleyDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.simple_add)) },
         text = {
@@ -212,7 +220,7 @@ private fun SimplePersonPicker(contacts: List<ContactSummary>, taken: Set<String
                 OutlinedTextField(q, { q = it }, singleLine = true, label = { Text(stringResource(R.string.home_search_contacts)) }, modifier = Modifier.fillMaxWidth())
                 LazyColumn(Modifier.heightIn(max = 360.dp).padding(top = 8.dp)) {
                     items(shown, key = { it.id }) { c ->
-                        ListItem(
+                        ParleyListItem(
                             modifier = Modifier.clickable {
                                 // Only plain numbers can go on a tile (no codes, pauses or extensions).
                                 val numbers = c.phones.map { it.number }.filter { SimpleSetup.dialable(it) != null }.distinct()
@@ -229,7 +237,7 @@ private fun SimplePersonPicker(contacts: List<ContactSummary>, taken: Set<String
         confirmButton = { TextButton(onDismiss) { Text(stringResource(R.string.dc_cancel)) } },
     )
     numbersOf?.let { c ->
-        AlertDialog(
+        ParleyDialog(
             onDismissRequest = { numbersOf = null },
             title = { Text(c.displayName) },
             text = {
@@ -254,10 +262,15 @@ private fun PassphraseDialog(title: String, confirm: Boolean, onDismiss: () -> U
     var a by remember { mutableStateOf("") }
     var b by remember { mutableStateOf("") }
     val ok = if (confirm) a.length >= 8 && a == b else a.isNotEmpty()
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(title) },
-        text = {
+    ConfirmDialog(
+        title = title,
+        text = null,
+        confirmLabel = stringResource(R.string.main_ok),
+        onConfirm = { onDone(a.toCharArray()) },
+        onDismiss = onDismiss,
+        dismissLabel = stringResource(R.string.dc_cancel),
+        confirmEnabled = ok,
+        content = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(stringResource(if (confirm) R.string.simple_pass_new else R.string.simple_pass_enter))
                 OutlinedTextField(
@@ -271,8 +284,6 @@ private fun PassphraseDialog(title: String, confirm: Boolean, onDismiss: () -> U
                 )
             }
         },
-        confirmButton = { TextButton({ onDone(a.toCharArray()) }, enabled = ok) { Text(stringResource(R.string.main_ok)) } },
-        dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dc_cancel)) } },
     )
 }
 
@@ -281,7 +292,7 @@ private fun PassphraseDialog(title: String, confirm: Boolean, onDismiss: () -> U
 private fun SimpleQrDialog(cfg: SimpleConfig, onDismiss: () -> Unit) {
     val passcode = remember { SecureQr.newPasscode() }
     val bitmap by produceState<Bitmap?>(null, cfg) { value = withContext(Dispatchers.Default) { SecureQr.qr(SimpleTransfer.qrLink(cfg, passcode)) } }
-    AlertDialog(
+    ParleyDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.simple_show_qr)) },
         text = {
@@ -351,9 +362,9 @@ fun SimpleImportScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Uni
             SegmentedGroup(pluralStringResource(R.plurals.simple_people_n, cfg.people.size, cfg.people.size, SimpleConfig.MAX_PEOPLE)) {
                 resolved.forEachIndexed { i, r ->
                     item("r$i") {
-                        ListItem(
+                        ParleyListItem(
                             colors = clearRow,
-                            leadingContent = { Avatar(r.person.name, r.contact?.photoUri, 40.dp) },
+                            leadingContent = { Avatar(r.person.name, r.contact?.photoUri, avatarSize()) },
                             headlineContent = { Text(r.person.name) },
                             // The number this tile will call is always shown; a contact is "found" only when it has that number.
                             supportingContent = {

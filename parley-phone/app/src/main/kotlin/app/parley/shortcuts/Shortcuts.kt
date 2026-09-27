@@ -5,7 +5,6 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
-import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Rect
 import android.net.Uri
@@ -18,6 +17,7 @@ import app.parley.MainActivity
 import app.parley.R
 import app.parley.common.ContactSummary
 import app.parley.ui.avatarColor
+import app.parley.ui.avatarInk
 import app.parley.ui.initialsOf
 import androidx.compose.ui.graphics.toArgb
 
@@ -51,7 +51,12 @@ object Shortcuts {
         val out = createBitmap(size, size)
         val c = Canvas(out)
         c.drawColor(avatarColor(name).toArgb())
-        val p = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE; textSize = size * 0.32f; textAlign = Paint.Align.CENTER; isFakeBoldText = true }
+        val p = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = avatarInk(name).toArgb()
+            textSize = size * 0.32f
+            textAlign = Paint.Align.CENTER
+            isFakeBoldText = true
+        }
         c.drawText(initialsOf(name).ifEmpty { "#" }, size / 2f, size / 2f - (p.descent() + p.ascent()) / 2, p)
         return out
     }

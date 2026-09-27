@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -44,6 +43,10 @@ import kotlinx.coroutines.launch
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import app.parley.R
+import androidx.compose.ui.semantics.Role
+import androidx.compose.foundation.selection.toggleable
+import app.parley.ui.ParleyDialog
+import app.parley.ui.ConfirmDialog
 
 private sealed interface Step {
     data object Unlock : Step
@@ -67,43 +70,50 @@ fun RestoreFlow(vm: AppViewModel, uri: Uri, onDone: () -> Unit) {
     val repo = vm.c.backup
 
     when (val s = step) {
-        Step.Unlock -> AlertDialog(
-            onDismissRequest = onDone,
-            title = { Text(stringResource(R.string.rst_open_title)) },
-            text = {
+        Step.Unlock -> ConfirmDialog(
+            title = stringResource(R.string.rst_open_title),
+            text = null,
+            confirmLabel = stringResource(R.string.rst_open),
+            onConfirm = {
+                val unlock = if (useRecovery) {
+                    runCatching { Unlock.Recovery(RecoveryKey.parse(secret)) }.getOrElse {
+                        error = res.getString(R.string.rst_not_recovery)
+                        return@ConfirmDialog
+                    }
+                } else {
+                    Unlock.Passphrase(secret.toCharArray())
+                }
+                step = Step.Working(res.getString(R.string.rst_decrypting))
+                scope.launch {
+                    step = try {
+                        Step.Options(repo.open(uri, unlock))
+                    } catch (_: WrongKeyException) {
+                        error = res.getString(if (useRecovery) R.string.rst_wrong_recovery else R.string.rst_wrong_pass)
+                        Step.Unlock
+                    } catch (e: Exception) {
+                        error = res.getString(R.string.rst_damaged, e.message.orEmpty())
+                        Step.Unlock
+                    }
+                }
+            },
+            onDismiss = onDone,
+            dismissLabel = stringResource(R.string.dc_cancel),
+            confirmEnabled = secret.isNotBlank(),
+            content = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     PassField(if (useRecovery) stringResource(R.string.rst_recovery_key) else stringResource(R.string.bkp_pass_title), secret) { secret = it; error = null }
                     error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Switch(useRecovery, { useRecovery = it; secret = "" })
+                    Row(
+                        Modifier.toggleable(useRecovery, role = Role.Switch) { useRecovery = it; secret = "" },
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Switch(useRecovery, onCheckedChange = null)
                         Text("  " + stringResource(R.string.rst_use_recovery))
                     }
                 }
             },
-            confirmButton = {
-                TextButton({
-                    val unlock = if (useRecovery) {
-                        runCatching { Unlock.Recovery(RecoveryKey.parse(secret)) }.getOrElse { error = res.getString(R.string.rst_not_recovery); return@TextButton }
-                    } else {
-                        Unlock.Passphrase(secret.toCharArray())
-                    }
-                    step = Step.Working(res.getString(R.string.rst_decrypting))
-                    scope.launch {
-                        step = try {
-                            Step.Options(repo.open(uri, unlock))
-                        } catch (_: WrongKeyException) {
-                            error = res.getString(if (useRecovery) R.string.rst_wrong_recovery else R.string.rst_wrong_pass)
-                            Step.Unlock
-                        } catch (e: Exception) {
-                            error = res.getString(R.string.rst_damaged, e.message.orEmpty())
-                            Step.Unlock
-                        }
-                    }
-                }, enabled = secret.isNotBlank()) { Text(stringResource(R.string.rst_open)) }
-            },
-            dismissButton = { TextButton(onDone) { Text(stringResource(R.string.dc_cancel)) } },
         )
-        is Step.Working -> AlertDialog(
+        is Step.Working -> ParleyDialog(
             onDismissRequest = {},
             title = { Text(s.text) },
             text = { LinearProgressIndicator(Modifier.fillMaxWidth()) },
@@ -113,10 +123,18 @@ fun RestoreFlow(vm: AppViewModel, uri: Uri, onDone: () -> Unit) {
             var mode by remember { mutableStateOf(RestoreMode.MERGE) }
             var o by remember { mutableStateOf(RestoreOptions()) }
             val c = s.opened.counts
-            AlertDialog(
-                onDismissRequest = onDone,
-                title = { Text(stringResource(R.string.rst_backup_from, Format.fullDate(context, s.opened.createdAt))) },
-                text = {
+            ConfirmDialog(
+                title = stringResource(R.string.rst_backup_from, Format.fullDate(context, s.opened.createdAt)),
+                text = null,
+                confirmLabel = stringResource(R.string.dc_next),
+                onConfirm = {
+                    val opts = o.copy(mode = mode)
+                    step = Step.Working(res.getString(R.string.rst_comparing))
+                    scope.launch { step = Step.Preview(s.opened, repo.plan(s.opened, mode), opts) }
+                },
+                onDismiss = onDone,
+                dismissLabel = stringResource(R.string.dc_cancel),
+                content = {
                     Column(Modifier.heightIn(max = 480.dp).verticalScroll(rememberScrollState())) {
                         Text(stringResource(R.string.rst_how), style = MaterialTheme.typography.titleSmall)
                         listOf(
@@ -138,23 +156,28 @@ fun RestoreFlow(vm: AppViewModel, uri: Uri, onDone: () -> Unit) {
                         Check(stringResource(R.string.rst_settings), o.settings) { o = o.copy(settings = it) }
                     }
                 },
-                confirmButton = {
-                    TextButton({
-                        val opts = o.copy(mode = mode)
-                        step = Step.Working(res.getString(R.string.rst_comparing))
-                        scope.launch { step = Step.Preview(s.opened, repo.plan(s.opened, mode), opts) }
-                    }) { Text(stringResource(R.string.dc_next)) }
-                },
-                dismissButton = { TextButton(onDone) { Text(stringResource(R.string.dc_cancel)) } },
             )
         }
         is Step.Preview -> {
             val sum = s.plan.summary
             var applyConflicts by remember { mutableStateOf(false) }
-            AlertDialog(
-                onDismissRequest = onDone,
-                title = { Text(stringResource(R.string.rst_ready)) },
-                text = {
+            ConfirmDialog(
+                title = stringResource(R.string.rst_ready),
+                text = null,
+                confirmLabel = stringResource(R.string.dc_restore),
+                onConfirm = {
+                    step = Step.Working(res.getString(R.string.rst_restoring))
+                    scope.launch {
+                        val report = repo.restore(s.opened, s.plan, s.options.copy(applyConflicts = applyConflicts))
+                        // Circle entries whose person isn't on this phone are skipped; say how many.
+                        val unmatched = if (report.unmatched > 0) res.getString(R.string.main_separator) + res.getQuantityString(R.plurals.circle_restore_unmatched, report.unmatched, report.unmatched) else ""
+                        val blockedLog = if (report.blockedLog > 0) res.getString(R.string.main_separator) + res.getQuantityString(R.plurals.rst_blocked_log, report.blockedLog, report.blockedLog) else ""
+                        step = Step.Done(report.summary(res) + unmatched + blockedLog, report.needsConfirmation)
+                    }
+                },
+                onDismiss = onDone,
+                dismissLabel = stringResource(R.string.dc_cancel),
+                content = {
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         if (s.options.contacts) {
                             Text(pluralStringResource(R.plurals.rst_new, sum.new, sum.new))
@@ -169,19 +192,6 @@ fun RestoreFlow(vm: AppViewModel, uri: Uri, onDone: () -> Unit) {
                         Text(stringResource(R.string.rst_merge_note), style = MaterialTheme.typography.bodySmall)
                     }
                 },
-                confirmButton = {
-                    TextButton({
-                        step = Step.Working(res.getString(R.string.rst_restoring))
-                        scope.launch {
-                            val report = repo.restore(s.opened, s.plan, s.options.copy(applyConflicts = applyConflicts))
-                            // Circle entries whose person isn't on this phone are skipped; say how many.
-                            val unmatched = if (report.unmatched > 0) res.getString(R.string.main_separator) + res.getQuantityString(R.plurals.circle_restore_unmatched, report.unmatched, report.unmatched) else ""
-                            val blockedLog = if (report.blockedLog > 0) res.getString(R.string.main_separator) + res.getQuantityString(R.plurals.rst_blocked_log, report.blockedLog, report.blockedLog) else ""
-                            step = Step.Done(report.summary(res) + unmatched + blockedLog, report.needsConfirmation)
-                        }
-                    }) { Text(stringResource(R.string.dc_restore)) }
-                },
-                dismissButton = { TextButton(onDone) { Text(stringResource(R.string.dc_cancel)) } },
             )
         }
         is Step.Done -> {
@@ -191,7 +201,7 @@ fun RestoreFlow(vm: AppViewModel, uri: Uri, onDone: () -> Unit) {
                 repo.discardPendingRestore()
                 onDone()
             }
-            AlertDialog(
+            ParleyDialog(
                 onDismissRequest = finish,
                 title = { Text(stringResource(R.string.rst_finished)) },
                 text = {

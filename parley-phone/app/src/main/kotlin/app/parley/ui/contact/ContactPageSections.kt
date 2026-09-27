@@ -2,13 +2,7 @@ package app.parley.ui.contact
 
 import android.content.res.Resources
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -20,7 +14,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material3.FilledTonalIconButton
@@ -46,6 +39,8 @@ import androidx.compose.ui.unit.dp
 import app.parley.R
 import app.parley.common.people.ContactPageLayout
 import app.parley.common.people.ContactSection
+import app.parley.ui.ParleyShapes
+import app.parley.ui.ParleyMotion
 
 /**
  * The sections a contact's page has, collected in code order with their title, the summary shown while
@@ -76,8 +71,8 @@ fun LazyListScope.foldableSections(sections: PageSections, layout: ContactPageLa
                 FoldHeader(e.title, e.summary, folded) { onFold(s, !folded) }
                 AnimatedVisibility(
                     !folded,
-                    enter = expandVertically(spring(stiffness = Spring.StiffnessMediumLow)) + fadeIn(),
-                    exit = shrinkVertically(spring(stiffness = Spring.StiffnessMedium)) + fadeOut(),
+                    enter = ParleyMotion.expandIn(),
+                    exit = ParleyMotion.collapseOut(),
                 ) { e.body() }
             }
         }
@@ -87,13 +82,13 @@ fun LazyListScope.foldableSections(sections: PageSections, layout: ContactPageLa
 /** The header of a foldable section: its title, a summary while folded ("124 entries"), and a turning chevron. */
 @Composable
 fun FoldHeader(title: String, summary: String, folded: Boolean, onToggle: () -> Unit) {
-    val turn by animateFloatAsState(if (folded) 0f else 180f, spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMediumLow), label = "chevron")
+    val turn by animateFloatAsState(if (folded) 0f else 180f, ParleyMotion.spatial(), label = "chevron")
     val state = stringResource(if (folded) R.string.contact_page_folded else R.string.contact_page_open)
     Row(
         Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
-            .clip(RoundedCornerShape(16.dp))
+            .clip(ParleyShapes.tile)
             .clickable(
                 role = Role.Button, onClickLabel = stringResource(if (folded) R.string.contact_page_unfold else R.string.contact_page_fold),
                 onClick = onToggle,

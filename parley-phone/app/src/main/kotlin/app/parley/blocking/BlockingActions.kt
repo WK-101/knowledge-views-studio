@@ -4,7 +4,6 @@ import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import android.widget.Toast
 import app.parley.R
 import app.parley.common.BlockRule
 import app.parley.common.PhoneNumbers
@@ -14,6 +13,7 @@ import app.parley.common.RuleType
 import app.parley.data.DataContainer
 import app.parley.data.PhoneEnv
 import app.parley.ui.common.Intents
+import app.parley.ui.showMessage
 
 /** Blocking actions shared by the Blocking screen, Recents, number history, notifications and the QS tile. */
 object BlockingActions {
@@ -66,7 +66,7 @@ object BlockingActions {
         context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         true
     } catch (_: ActivityNotFoundException) {
-        Toast.makeText(context, context.getString(R.string.blk_no_app), Toast.LENGTH_SHORT).show()
+        showMessage(context, context.getString(R.string.blk_no_app))
         false
     }
 

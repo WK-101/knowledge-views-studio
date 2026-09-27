@@ -14,22 +14,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -62,6 +54,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import app.parley.ui.ParleyTopBar
+import app.parley.ui.ParleyScaffold
+import app.parley.ui.ConfirmDialog
+import app.parley.ui.InfoDialog
 
 /** [ImportPreset.title] and [ImportPreset.help] in the app's language. */
 private fun presetTitleRes(p: ImportPreset) = when (p) {
@@ -157,8 +153,8 @@ fun TransferScreen(vm: AppViewModel, back: () -> Unit) {
         }
     }
 
-    Scaffold(topBar = {
-        TopAppBar(title = { Text(stringResource(R.string.blk_transfer_title)) }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.set_back)) } })
+    ParleyScaffold(topBar = {
+        ParleyTopBar(stringResource(R.string.blk_transfer_title), onBack = back)
     }) { p ->
         Column(Modifier.padding(p).verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(stringResource(R.string.blk_transfer_import_title), style = MaterialTheme.typography.titleMedium)
@@ -209,32 +205,39 @@ fun TransferScreen(vm: AppViewModel, back: () -> Unit) {
     draft?.let { d -> ImportPreviewDialog(vm, d, onDone = { draft = null }) }
     cbbk?.let { bytes ->
         var pw by remember { mutableStateOf("") }
-        AlertDialog(
-            onDismissRequest = { cbbk = null },
-            title = { Text(stringResource(R.string.blk_cbbk_password_title)) },
-            text = { OutlinedTextField(pw, { pw = it }, label = { Text(stringResource(R.string.blk_password)) }, singleLine = true, visualTransformation = PasswordVisualTransformation()) },
-            confirmButton = {
-                TextButton({
-                    scope.launch {
-                        try {
-                            val json = withContext(Dispatchers.Default) { ListImport.decryptCbbk(bytes, pw.toCharArray()) }
-                            draft = ImportDraft("Call Blocker", null, preset, null, ListImport.callBlockerJson(json))
-                            cbbk = null
-                        } catch (e: IllegalArgumentException) {
-                            error = importError(context, e.message)
-                        }
+        ConfirmDialog(
+            title = stringResource(R.string.blk_cbbk_password_title),
+            text = null,
+            confirmLabel = stringResource(R.string.blk_open),
+            onConfirm = {
+                scope.launch {
+                    try {
+                        val json = withContext(Dispatchers.Default) { ListImport.decryptCbbk(bytes, pw.toCharArray()) }
+                        draft = ImportDraft("Call Blocker", null, preset, null, ListImport.callBlockerJson(json))
+                        cbbk = null
+                    } catch (e: IllegalArgumentException) {
+                        error = importError(context, e.message)
                     }
-                }, enabled = pw.isNotEmpty()) { Text(stringResource(R.string.blk_open)) }
+                }
             },
-            dismissButton = { TextButton({ cbbk = null }) { Text(stringResource(R.string.set_cancel)) } },
+            onDismiss = { cbbk = null },
+            dismissLabel = stringResource(R.string.set_cancel),
+            confirmEnabled = pw.isNotEmpty(),
+            content = { OutlinedTextField(
+                pw,
+                { pw = it },
+                label = { Text(stringResource(R.string.blk_password)) },
+                singleLine = true,
+                visualTransformation = PasswordVisualTransformation(),
+            ) },
         )
     }
     error?.let { e ->
-        AlertDialog(
-            onDismissRequest = { error = null },
-            title = { Text(stringResource(R.string.blk_cant_import)) },
-            text = { Text(e) },
-            confirmButton = { TextButton({ error = null }) { Text(stringResource(R.string.set_ok)) } },
+        InfoDialog(
+            title = stringResource(R.string.blk_cant_import),
+            text = e,
+            onDismiss = { error = null },
+            closeLabel = stringResource(R.string.set_ok),
         )
     }
 }
@@ -253,10 +256,21 @@ private fun ImportPreviewDialog(vm: AppViewModel, d: ImportDraft, onDone: () -> 
             if (c.error != null) null else BlockRule(pattern = c.pattern, type = r.type, kind = r.kind, note = r.note ?: res.getString(R.string.blk_imported_from, d.source))
         }
     }
-    AlertDialog(
-        onDismissRequest = onDone,
-        title = { Text(stringResource(R.string.blk_import_from, d.source)) },
-        text = {
+    ConfirmDialog(
+        title = stringResource(R.string.blk_import_from, d.source),
+        text = null,
+        confirmLabel = stringResource(R.string.blk_import),
+        onConfirm = {
+            scope.launch {
+                val n = vm.c.blocks.addRules(checked)
+                vm.toast(res.getQuantityString(R.plurals.blk_imported_rules, n, n))
+            }
+            onDone()
+        },
+        onDismiss = onDone,
+        dismissLabel = stringResource(R.string.set_cancel),
+        confirmEnabled = checked.isNotEmpty(),
+        content = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 val m = mapping
                 if (d.rows != null && m != null) {
@@ -278,16 +292,6 @@ private fun ImportPreviewDialog(vm: AppViewModel, d: ImportDraft, onDone: () -> 
                 Text(stringResource(R.string.blk_not_duplicated), style = MaterialTheme.typography.bodySmall)
             }
         },
-        confirmButton = {
-            TextButton({
-                scope.launch {
-                    val n = vm.c.blocks.addRules(checked)
-                    vm.toast(res.getQuantityString(R.plurals.blk_imported_rules, n, n))
-                }
-                onDone()
-            }, enabled = checked.isNotEmpty()) { Text(stringResource(R.string.blk_import)) }
-        },
-        dismissButton = { TextButton(onDone) { Text(stringResource(R.string.set_cancel)) } },
     )
 }
 

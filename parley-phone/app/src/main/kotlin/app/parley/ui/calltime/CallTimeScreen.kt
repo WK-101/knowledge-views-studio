@@ -7,24 +7,19 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.automirrored.rounded.Label
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Public
 import androidx.compose.material.icons.rounded.SimCard
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -50,11 +45,16 @@ import app.parley.common.calltime.LimitScope
 import app.parley.data.GroupInfo
 import app.parley.security.AppLock
 import app.parley.ui.contact.Section
-import app.parley.ui.settings.SwitchRow
-import app.parley.ui.settings.bidiLtr
-import app.parley.ui.settings.settingTitle
+import app.parley.ui.SwitchRow
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import app.parley.ui.MenuRow
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import app.parley.ui.ParleyTopBar
+import app.parley.ui.ParleyScaffold
+import app.parley.ui.ParleyDialog
+import app.parley.ui.InfoDialog
 
 /**
  * Settings › Calls › Call time: talk-time reminders, hard limits and allowances per contact, label, SIM
@@ -83,15 +83,19 @@ fun CallTimeScreen(vm: AppViewModel, back: () -> Unit) {
     fun edit(title: String, rule: LimitRule) = gate(unlockReason) { editing = title to rule }
     fun labelTitle(name: String) = res.getString(R.string.ct_label_title, name)
 
-    Scaffold(topBar = {
-        TopAppBar(title = { Text(stringResource(R.string.ct_title)) }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.set_back)) } })
+    ParleyScaffold(topBar = {
+        ParleyTopBar(stringResource(R.string.ct_title), onBack = back)
     }) { p ->
         LazyColumn(Modifier.padding(p)) {
             item { Section(stringResource(R.string.ct_section_reminders)) }
             item {
                 Help(stringResource(R.string.ct_reminders_help))
                 val choices = CallingConfig.REMINDER_CHOICES
-                ChoiceRow(stringResource(R.string.ct_remind_me), choices.map { reminderText(context, it) }, choices.indexOf(config.reminders.everyMinutes).coerceAtLeast(0)) { i ->
+                MenuRow(
+                    stringResource(R.string.ct_remind_me),
+                    choices.map { reminderText(context, it) },
+                    choices.indexOf(config.reminders.everyMinutes).coerceAtLeast(0),
+                ) { i ->
                     set { it.copy(reminders = it.reminders.copy(everyMinutes = choices[i])) }
                 }
                 SwitchRow(stringResource(R.string.ct_beep), stringResource(R.string.ct_beep_body), config.reminders.beep) { v -> set { it.copy(reminders = it.reminders.copy(beep = v)) } }
@@ -134,7 +138,7 @@ fun CallTimeScreen(vm: AppViewModel, back: () -> Unit) {
             item {
                 Help(stringResource(R.string.ct_contact_limit_help))
                 val warn = CallingConfig.WARN_CHOICES
-                ChoiceRow(stringResource(R.string.ct_warn_before), warn.map { warnText(context, it) }, warn.indexOf(config.warnSeconds).coerceAtLeast(0)) { i ->
+                MenuRow(stringResource(R.string.ct_warn_before), warn.map { warnText(context, it) }, warn.indexOf(config.warnSeconds).coerceAtLeast(0)) { i ->
                     limits { it.copy(warnSeconds = warn[i]) }
                 }
                 SwitchRow(stringResource(R.string.ct_silence_over), stringResource(R.string.ct_silence_over_body), config.silenceIncomingOverQuota) { v ->
@@ -150,7 +154,8 @@ fun CallTimeScreen(vm: AppViewModel, back: () -> Unit) {
                     headlineContent = { Text(stringResource(R.string.ct_supervised)) },
                     supportingContent = { Text(stringResource(if (config.supervised) R.string.ct_supervised_on else R.string.set_off)) },
                     trailingContent = {
-                        Switch(config.supervised, { v ->
+                        val label = stringResource(R.string.ct_supervised)
+                        Switch(config.supervised, modifier = Modifier.semantics { contentDescription = label }, onCheckedChange = { v ->
                             val act = context as? FragmentActivity ?: return@Switch
                             if (v && !AppLock.canAuthenticate(act)) {
                                 noLock = true
@@ -179,7 +184,7 @@ fun CallTimeScreen(vm: AppViewModel, back: () -> Unit) {
         LimitRuleDialog(title, rule, onSave = { r -> set { it.withRule(r) } }, onDismiss = { editing = null })
     }
     if (pickLabel) {
-        AlertDialog(
+        ParleyDialog(
             onDismissRequest = { pickLabel = false },
             title = { Text(stringResource(R.string.ct_limit_label_title)) },
             text = {
@@ -204,11 +209,11 @@ fun CallTimeScreen(vm: AppViewModel, back: () -> Unit) {
         )
     }
     if (noLock) {
-        AlertDialog(
-            onDismissRequest = { noLock = false },
-            title = { Text(stringResource(R.string.ct_no_lock_title)) },
-            text = { Text(stringResource(R.string.ct_no_lock_body)) },
-            confirmButton = { TextButton({ noLock = false }) { Text(stringResource(R.string.set_ok)) } },
+        InfoDialog(
+            title = stringResource(R.string.ct_no_lock_title),
+            text = stringResource(R.string.ct_no_lock_body),
+            onDismiss = { noLock = false },
+            closeLabel = stringResource(R.string.set_ok),
         )
     }
 }

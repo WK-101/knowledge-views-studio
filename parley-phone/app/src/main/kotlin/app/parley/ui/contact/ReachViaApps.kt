@@ -13,8 +13,6 @@ import androidx.core.graphics.drawable.toBitmap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.spring
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -56,6 +54,7 @@ import app.parley.common.people.MessengerPrefs
 import app.parley.ui.Bidi
 import app.parley.ui.SegmentedGroup
 import app.parley.ui.SegmentedGroupScope
+import app.parley.ui.ParleyMotion
 
 /**
  * "Reach via apps": one row per messenger (and per number when the person has several) with the actions that
@@ -202,11 +201,11 @@ private object AppIcons {
 fun ReachActionButton(icon: ImageVector, description: String, usual: Boolean, onClick: () -> Unit, onLongClick: (() -> Unit)? = null) {
     val container by animateColorAsState(
         if (usual) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondaryContainer,
-        spring(stiffness = Spring.StiffnessMediumLow), label = "reachContainer",
+        ParleyMotion.effects(), label = "reachContainer",
     )
     val content by animateColorAsState(
         if (usual) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSecondaryContainer,
-        spring(stiffness = Spring.StiffnessMediumLow), label = "reachContent",
+        ParleyMotion.effects(), label = "reachContent",
     )
     val longLabel = stringResource(if (usual) R.string.reach_stop_usual else R.string.reach_make_usual)
     Box(

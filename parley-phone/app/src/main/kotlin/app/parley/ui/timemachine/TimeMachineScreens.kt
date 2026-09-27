@@ -9,20 +9,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.History
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
@@ -56,6 +50,10 @@ import android.content.res.Resources
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import app.parley.R
+import app.parley.ui.ParleyTopBar
+import app.parley.ui.ParleyScaffold
+import app.parley.ui.ParleyDialog
+import app.parley.ui.ParleyListItem
 
 /** Human-readable one-liner for a stored data row. */
 fun describe(res: Resources, row: DataRow): String? {
@@ -102,8 +100,8 @@ fun VersionHistoryScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, op
         }
     }
     var chosen by remember { mutableStateOf<ContactVersion?>(null) }
-    Scaffold(topBar = {
-        TopAppBar(title = { Text(stringResource(R.string.tm_history_title)) }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.dc_back)) } })
+    ParleyScaffold(topBar = {
+        ParleyTopBar(stringResource(R.string.tm_history_title), onBack = back)
     }) { p ->
         val list = versions
         when {
@@ -140,7 +138,7 @@ fun VersionHistoryScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, op
         }
     }
     chosen?.record?.let { rec ->
-        AlertDialog(
+        ParleyDialog(
             onDismissRequest = { chosen = null },
             title = { Text(rec.displayName) },
             text = { Column { lines(res, rec).forEach { Text(it) } } },
@@ -201,7 +199,7 @@ fun SnapshotChanges(vm: AppViewModel, open: (String) -> Unit, modifier: Modifier
                 item { Section(stringResource(R.string.tm_removed, d.removed.size)) }
                 d.removed.forEach { r ->
                     item {
-                        ListItem(
+                        ParleyListItem(
                             leadingContent = { Avatar(r.displayName, null) },
                             headlineContent = { Text(r.displayName) },
                             supportingContent = { Text(lines(res, r).take(2).joinToString(" · ")) },

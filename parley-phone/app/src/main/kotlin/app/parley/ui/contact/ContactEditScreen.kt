@@ -14,9 +14,7 @@ import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -45,7 +43,6 @@ import androidx.compose.foundation.lazy.LazyItemScope
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -72,7 +69,6 @@ import androidx.compose.material.icons.rounded.Phone
 import androidx.compose.material.icons.rounded.PhoneAndroid
 import androidx.compose.material.icons.rounded.PhoneInTalk
 import androidx.compose.material.icons.rounded.Place
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -86,10 +82,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -146,6 +140,13 @@ import app.parley.ui.people.RelationText
 import app.parley.ui.people.eventLabel
 import app.parley.ui.screenViewModel
 import kotlinx.coroutines.launch
+import app.parley.ui.ParleyTopBar
+import app.parley.ui.ParleyScaffold
+import app.parley.ui.ParleyDialog
+import app.parley.ui.ConfirmDialog
+import app.parley.ui.ParleyShapes
+import app.parley.ui.animatedCorners
+import app.parley.ui.ParleyMotion
 
 private val phoneTypes = listOf(Phone.TYPE_MOBILE, Phone.TYPE_HOME, Phone.TYPE_WORK, Phone.TYPE_MAIN, Phone.TYPE_FAX_WORK, Phone.TYPE_OTHER)
 private val emailTypes = listOf(Email.TYPE_HOME, Email.TYPE_WORK, Email.TYPE_MOBILE, Email.TYPE_OTHER)
@@ -270,23 +271,23 @@ fun ContactEditScreen(
             backProgress = 0f
         }
     }
-    val shrink by animateFloatAsState(backProgress, spring(stiffness = Spring.StiffnessMediumLow), label = "back")
+    val shrink by animateFloatAsState(backProgress, ParleyMotion.spatial(), label = "back")
 
     fun save() = editor.save()
 
     val scroll = TopAppBarDefaults.pinnedScrollBehavior()
-    Scaffold(
+    ParleyScaffold(
         modifier = Modifier
             .graphicsLayer {
                 val s = 1f - 0.08f * shrink
                 scaleX = s
                 scaleY = s
-                shape = RoundedCornerShape((32 * shrink).dp)
+                shape = animatedCorners((32 * shrink).dp)
                 clip = shrink > 0f
             }
             .nestedScroll(scroll.nestedScrollConnection),
         topBar = {
-            TopAppBar(
+            ParleyTopBar(
                 title = {
                     Text(
                         stringResource(
@@ -319,7 +320,7 @@ fun ContactEditScreen(
             Box(Modifier.padding(padding).fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(Modifier.semantics { contentDescription = desc })
             }
-            return@Scaffold
+            return@ParleyScaffold
         }
         fun update(f: (ContactDetails) -> ContactDetails) = editor.update(f)
         fun shown(k: EditorForm.Kind, has: Boolean) = has || k in revealed
@@ -625,7 +626,7 @@ fun ContactEditScreen(
     }
 
     if (askKeep != null) {
-        AlertDialog(
+        ParleyDialog(
             onDismissRequest = {},
             title = { Text(stringResource(R.string.edit_keep_title)) },
             text = { Text(stringResource(R.string.edit_keep_body)) },
@@ -634,12 +635,14 @@ fun ContactEditScreen(
         )
     }
     if (confirmDiscard) {
-        AlertDialog(
-            onDismissRequest = { confirmDiscard = false },
-            title = { Text(stringResource(R.string.edit_discard_title)) },
-            text = { Text(stringResource(R.string.editor_discard_body)) },
-            confirmButton = { TextButton({ confirmDiscard = false; done(null) }) { Text(stringResource(R.string.edit_discard)) } },
-            dismissButton = { TextButton({ confirmDiscard = false }) { Text(stringResource(R.string.edit_keep_editing)) } },
+        ConfirmDialog(
+            title = stringResource(R.string.edit_discard_title),
+            text = stringResource(R.string.editor_discard_body),
+            confirmLabel = stringResource(R.string.edit_discard),
+            onConfirm = { confirmDiscard = false; done(null) },
+            onDismiss = { confirmDiscard = false },
+            destructive = true,
+            dismissLabel = stringResource(R.string.edit_keep_editing),
         )
     }
 }
@@ -678,7 +681,7 @@ private fun AccountLine(
                             )
                         },
                         trailingIcon = { Icon(Icons.Rounded.ArrowDropDown, null, Modifier.size(18.dp)) },
-                        shape = RoundedCornerShape(12.dp),
+                        shape = ParleyShapes.control,
                         modifier = Modifier.semantics { onClick(label = change) { open = true; true } },
                     )
                     DropdownMenu(open, { open = false }) {
@@ -727,7 +730,7 @@ private fun NameCard(
 ) {
     val locked = lockedRow(d.nameId)
     val words = KeyboardCapitalization.Words
-    val spec = spring<IntSize>(stiffness = Spring.StiffnessMediumLow)
+    val spec = ParleyMotion.spatial<IntSize>()
     Segment(SegPos.Single) {
         GroupHead(Icons.Rounded.Person, stringResource(R.string.edit_name))
         Column(Modifier.padding(end = 0.dp)) {
@@ -934,7 +937,7 @@ private fun RelationRow(
             AssistChip(
                 onClick = { typing = true }, label = { Text(label) },
                 trailingIcon = { Icon(Icons.Rounded.ArrowDropDown, null, Modifier.size(18.dp)) },
-                shape = RoundedCornerShape(10.dp), modifier = Modifier.semantics { contentDescription = desc },
+                shape = ParleyShapes.control, modifier = Modifier.semantics { contentDescription = desc },
             )
         }
     }

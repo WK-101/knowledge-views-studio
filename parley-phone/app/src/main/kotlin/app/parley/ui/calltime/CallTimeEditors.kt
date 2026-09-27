@@ -7,20 +7,13 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ListItem
-import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -30,9 +23,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextDirection
@@ -43,8 +33,7 @@ import app.parley.common.calltime.CallingConfig
 import app.parley.common.calltime.LimitRule
 import app.parley.security.AppLock
 import app.parley.security.VaultSession
-import app.parley.ui.settings.bidiLtr
-import app.parley.ui.settings.settingTitle
+import app.parley.ui.ParleyDialog
 
 /**
  * Supervised mode: limits can only be changed after proving presence with the app lock (fingerprint,
@@ -79,7 +68,7 @@ fun LimitRuleDialog(
     var incoming by remember { mutableStateOf(rule.incoming) }
     var outgoing by remember { mutableStateOf(rule.outgoing) }
     fun minutes(s: String) = s.trim().toIntOrNull()?.coerceIn(0, MAX_MINUTES) ?: 0
-    AlertDialog(
+    ParleyDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
         text = {
@@ -139,36 +128,6 @@ private fun CheckRow(label: String, checked: Boolean, onChange: (Boolean) -> Uni
         Checkbox(checked, onChange)
         Text(label)
     }
-}
-
-/** A row with a switch inside a dialog. */
-@Composable
-fun DialogSwitch(label: String, sub: String?, checked: Boolean, onChange: (Boolean) -> Unit) {
-    ListItem(
-        headlineContent = { Text(label) },
-        supportingContent = sub?.let { { Text(it) } },
-        trailingContent = { Switch(checked, onChange) },
-        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-        modifier = Modifier.clickable { onChange(!checked) },
-    )
-}
-
-/** A list row that opens a dropdown of [options]. */
-@Composable
-fun ChoiceRow(title: String, options: List<String>, selected: Int, leading: (@Composable () -> Unit)? = null, onPick: (Int) -> Unit) {
-    var open by remember { mutableStateOf(false) }
-    ListItem(
-        modifier = Modifier.clickable { open = true },
-        leadingContent = leading,
-        headlineContent = { Text(title) },
-        supportingContent = { Text(options.getOrElse(selected) { "" }) },
-        trailingContent = {
-            DropdownMenu(open, { open = false }) {
-                options.forEachIndexed { i, o -> DropdownMenuItem({ Text(o) }, onClick = { open = false; onPick(i) }) }
-            }
-        },
-        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-    )
 }
 
 /** "Every 15 min" / "Off". */

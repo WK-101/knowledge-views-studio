@@ -1,30 +1,21 @@
 package app.parley.ui.history
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import app.parley.ui.SegmentedGroupScope
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.TableChart
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -34,20 +25,20 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
-import app.parley.data.history.TrashBatch
 import app.parley.ui.common.Format
-import app.parley.ui.contact.Section
-import app.parley.ui.settings.SwitchRow
+import app.parley.ui.SwitchRow
 import app.parley.ui.settings.settingSummary
 import app.parley.ui.settings.settingTitle
 import kotlinx.coroutines.launch
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import app.parley.R
+import androidx.compose.ui.semantics.Role
+import androidx.compose.foundation.selection.toggleable
+import app.parley.ui.ConfirmDialog
 
 /**
  * Settings › Recents & history: "Keep full call history" with its switch and how many calls the copy holds. The
@@ -62,7 +53,11 @@ fun KeepFullHistoryRow(vm: AppViewModel, icon: ImageVector? = null) {
     LaunchedEffect(archive) { count = vm.c.history.archiveCount() }
     var confirmOff by remember { mutableStateOf(false) }
     ListItem(
-        modifier = Modifier.clickable { if (prefs.archiveEnabled) confirmOff = true else vm.setArchiveEnabled(true) },
+        modifier = Modifier.toggleable(
+            prefs.archiveEnabled,
+            role = Role.Switch,
+            onValueChange = { v -> if (v) vm.setArchiveEnabled(true) else confirmOff = true },
+        ),
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
         leadingContent = icon?.let { { Icon(it, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) } },
         headlineContent = { Text(settingTitle("archive")) },
@@ -72,7 +67,7 @@ fun KeepFullHistoryRow(vm: AppViewModel, icon: ImageVector? = null) {
                 else stringResource(R.string.hist_archive_off_summary),
             )
         },
-        trailingContent = { Switch(prefs.archiveEnabled, { v -> if (v) vm.setArchiveEnabled(true) else confirmOff = true }) },
+        trailingContent = { Switch(prefs.archiveEnabled, onCheckedChange = null) },
     )
     if (confirmOff) ArchiveOffDialog(vm) { confirmOff = false }
 }
@@ -83,12 +78,13 @@ private fun AppViewModel.setArchiveEnabled(on: Boolean) {
 
 @Composable
 private fun ArchiveOffDialog(vm: AppViewModel, onDismiss: () -> Unit) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.hist_archive_off_title)) },
-        text = { Text(stringResource(R.string.hist_archive_off_text)) },
-        confirmButton = { TextButton({ vm.setArchiveEnabled(false); onDismiss() }) { Text(stringResource(R.string.hist_archive_off_confirm)) } },
-        dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dc_cancel)) } },
+    ConfirmDialog(
+        title = stringResource(R.string.hist_archive_off_title),
+        text = stringResource(R.string.hist_archive_off_text),
+        confirmLabel = stringResource(R.string.hist_archive_off_confirm),
+        onConfirm = { vm.setArchiveEnabled(false); onDismiss() },
+        onDismiss = onDismiss,
+        dismissLabel = stringResource(R.string.dc_cancel),
     )
 }
 

@@ -11,12 +11,11 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.CallSplit
+import androidx.compose.material.icons.rounded.LinkOff
 import androidx.compose.material.icons.rounded.DriveFileMove
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Sync
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -61,6 +60,8 @@ import android.content.res.Resources
 import androidx.compose.ui.res.stringResource
 import app.parley.R
 import app.parley.common.people.ProvenanceKind
+import app.parley.ui.ParleyDialog
+import app.parley.ui.ConfirmDialog
 
 /**
  * "Saved in" chips on the contact page, each with its actions: Edit this copy · Move to… · Unlink.
@@ -94,7 +95,11 @@ fun AccountChips(vm: AppViewModel, d: ContactDetails, open: (String) -> Unit, on
                         DropdownMenuItem({ Text(stringResource(R.string.ppl_read_only)) }, enabled = false, onClick = {})
                     }
                     if (d.rawContacts.size > 1) {
-                        DropdownMenuItem({ Text(stringResource(R.string.ppl_unlink)) }, leadingIcon = { Icon(Icons.Rounded.CallSplit, null) }, onClick = { menu = false; unlinking = raw })
+                        DropdownMenuItem(
+                            { Text(stringResource(R.string.ppl_unlink)) },
+                            leadingIcon = { Icon(Icons.Rounded.LinkOff, null) },
+                            onClick = { menu = false; unlinking = raw },
+                        )
                     }
                 }
             }
@@ -103,7 +108,7 @@ fun AccountChips(vm: AppViewModel, d: ContactDetails, open: (String) -> Unit, on
     moving?.let { raw ->
         var accounts by remember { mutableStateOf<List<AccountRef>>(emptyList()) }
         LaunchedEffect(Unit) { accounts = withContext(Dispatchers.IO) { vm.c.contacts.accounts() }.filter { it != raw.account } }
-        AlertDialog(
+        ParleyDialog(
             onDismissRequest = { moving = null },
             title = { Text(stringResource(R.string.ppl_move_title)) },
             text = {
@@ -130,22 +135,21 @@ fun AccountChips(vm: AppViewModel, d: ContactDetails, open: (String) -> Unit, on
         )
     }
     unlinking?.let { raw ->
-        AlertDialog(
-            onDismissRequest = { unlinking = null },
-            title = { Text(stringResource(R.string.ppl_unlink_title, raw.account.displayLabel)) },
-            text = { Text(stringResource(R.string.ppl_unlink_text)) },
-            confirmButton = {
-                TextButton({
-                    unlinking = null
-                    scope.launch {
-                        when (val r = vm.c.people.mover.unlink(d.id, raw.id)) {
-                            is ContactMover.Result.Done -> { vm.toast(res.getString(R.string.ppl_unlinked)); onChanged(null) }
-                            is ContactMover.Result.Failed -> vm.toast(r.reason)
-                        }
+        ConfirmDialog(
+            title = stringResource(R.string.ppl_unlink_title, raw.account.displayLabel),
+            text = stringResource(R.string.ppl_unlink_text),
+            confirmLabel = stringResource(R.string.ppl_unlink),
+            onConfirm = {
+                unlinking = null
+                scope.launch {
+                    when (val r = vm.c.people.mover.unlink(d.id, raw.id)) {
+                        is ContactMover.Result.Done -> { vm.toast(res.getString(R.string.ppl_unlinked)); onChanged(null) }
+                        is ContactMover.Result.Failed -> vm.toast(r.reason)
                     }
-                }) { Text(stringResource(R.string.ppl_unlink)) }
+                }
             },
-            dismissButton = { TextButton({ unlinking = null }) { Text(stringResource(R.string.dc_cancel)) } },
+            onDismiss = { unlinking = null },
+            dismissLabel = stringResource(R.string.dc_cancel),
         )
     }
 }

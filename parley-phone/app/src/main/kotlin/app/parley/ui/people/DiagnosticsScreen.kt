@@ -11,17 +11,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -39,12 +33,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.parley.AppViewModel
 import app.parley.ui.common.Intents
-import app.parley.ui.settings.SwitchRow
+import app.parley.ui.SwitchRow
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import androidx.compose.ui.res.stringResource
 import app.parley.R
+import app.parley.ui.ParleyTopBar
+import app.parley.ui.ParleyScaffold
 
 /** Settings › About › "Export diagnostics": preview the report, then save it or share it yourself. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -79,8 +75,8 @@ fun DiagnosticsScreen(vm: AppViewModel, back: () -> Unit) {
     }
     // Scroll-linked top-bar tint.
     val barTint = TopAppBarDefaults.pinnedScrollBehavior()
-    Scaffold(modifier = Modifier.nestedScroll(barTint.nestedScrollConnection), topBar = {
-        TopAppBar(title = { Text(stringResource(R.string.diag_title)) }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.dc_back)) } }, scrollBehavior = barTint)
+    ParleyScaffold(modifier = Modifier.nestedScroll(barTint.nestedScrollConnection), topBar = {
+        ParleyTopBar(stringResource(R.string.diag_title), onBack = back, scrollBehavior = barTint)
     }) { p ->
         Column(Modifier.padding(p)) {
             Text(

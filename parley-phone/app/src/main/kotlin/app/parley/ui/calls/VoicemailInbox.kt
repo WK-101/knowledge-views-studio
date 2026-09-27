@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.Call
@@ -31,12 +30,10 @@ import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.Voicemail
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedButton
@@ -45,7 +42,6 @@ import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -86,6 +82,9 @@ import app.parley.ui.avatarSize
 import app.parley.ui.common.Format
 import app.parley.ui.home.RecentsViewModel
 import kotlinx.coroutines.launch
+import app.parley.ui.ConfirmDialog
+import app.parley.ui.ParleyShapes
+import app.parley.ui.ParleyListItem
 
 /**
  * The voicemail inbox, shown in Recents under the "Voicemail" chip: every voicemail Android's voicemail store
@@ -158,18 +157,18 @@ fun VoicemailInbox(vm: AppViewModel, query: String) {
     }
 
     confirmDelete?.let { v ->
-        AlertDialog(
-            onDismissRequest = { confirmDelete = null },
-            title = { Text(stringResource(R.string.vmi_delete_title)) },
-            text = { Text(stringResource(R.string.vmi_delete_body)) },
-            confirmButton = {
-                TextButton({
-                    confirmDelete = null
-                    if (playing.id == v.id) player.stop()
-                    scope.launch { vm.toast(res.getString(if (vm.c.voicemail.delete(v)) R.string.vmi_deleted else R.string.vmi_delete_failed)) }
-                }) { Text(stringResource(R.string.main_delete)) }
+        ConfirmDialog(
+            title = stringResource(R.string.vmi_delete_title),
+            text = stringResource(R.string.vmi_delete_body),
+            confirmLabel = stringResource(R.string.main_delete),
+            onConfirm = {
+                confirmDelete = null
+                if (playing.id == v.id) player.stop()
+                scope.launch { vm.toast(res.getString(if (vm.c.voicemail.delete(v)) R.string.vmi_deleted else R.string.vmi_delete_failed)) }
             },
-            dismissButton = { TextButton({ confirmDelete = null }) { Text(stringResource(R.string.main_cancel)) } },
+            onDismiss = { confirmDelete = null },
+            destructive = true,
+            dismissLabel = stringResource(R.string.main_cancel),
         )
     }
 }
@@ -181,7 +180,7 @@ private fun VoicemailNote(vm: AppViewModel, state: VoicemailState) {
     val res = LocalResources.current
     Surface(
         color = MaterialTheme.colorScheme.surfaceContainer,
-        shape = RoundedCornerShape(20.dp),
+        shape = ParleyShapes.card,
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
     ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -243,7 +242,7 @@ private fun VoicemailRow(
     val contact = remember(v.number) { vm.contactFor(v.number) }
     val title = contact?.displayName ?: v.number.takeIf { it.isNotBlank() }?.let { Bidi.ltr(Format.number(it, vm.countryIso)) } ?: stringResource(R.string.main_private_number)
     Column {
-        ListItem(
+        ParleyListItem(
             modifier = Modifier.clickable(onClickLabel = stringResource(if (expanded) R.string.vmi_collapse else R.string.vmi_show_player), onClick = onToggle),
             colors = if (expanded) ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow) else ListItemDefaults.colors(),
             leadingContent = {

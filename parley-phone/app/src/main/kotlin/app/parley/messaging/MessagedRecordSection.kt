@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.Chat
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Call
@@ -16,7 +15,6 @@ import app.parley.NavEvent
 import app.parley.ui.CallColors
 import androidx.compose.material.icons.rounded.DeleteSweep
 import androidx.compose.material.icons.rounded.Timer
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -26,11 +24,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -43,7 +38,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.R
@@ -55,6 +49,11 @@ import app.parley.data.messaging.LastMessaged
 import app.parley.ui.Bidi
 import app.parley.ui.EmptyState
 import kotlinx.coroutines.launch
+import androidx.compose.ui.semantics.Role
+import androidx.compose.foundation.selection.toggleable
+import app.parley.ui.ParleyTopBar
+import app.parley.ui.ParleyScaffold
+import app.parley.ui.ConfirmDialog
 
 /**
  * For the privacy dashboard: "Keep a record of numbers you message" (on by default), how many numbers it holds,
@@ -68,6 +67,7 @@ fun MessagedRecordSection(openList: () -> Unit) {
     val expiry by store.expiryDays.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
     ListItem(
+        modifier = Modifier.toggleable(enabled, role = Role.Switch, onValueChange = { v -> scope.launch { store.setRecordEnabled(v) } }),
         headlineContent = { Text(stringResource(R.string.rec_keep_record)) },
         supportingContent = {
             Text(
@@ -79,7 +79,7 @@ fun MessagedRecordSection(openList: () -> Unit) {
                 },
             )
         },
-        trailingContent = { Switch(enabled, onCheckedChange = { v -> scope.launch { store.setRecordEnabled(v) } }) },
+        trailingContent = { Switch(enabled, onCheckedChange = null) },
     )
     ListItem(
         headlineContent = { Text(stringResource(R.string.home_messaged_numbers)) },
@@ -108,10 +108,10 @@ fun MessagedNumbersScreen(vm: AppViewModel, back: () -> Unit) {
     val entries = remember(record) { record.values.sortedByDescending { it.at } }
     val res = LocalResources.current
 
-    Scaffold(topBar = {
-        TopAppBar(
-            title = { Text(stringResource(R.string.home_messaged_numbers)) },
-            navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.main_back)) } },
+    ParleyScaffold(topBar = {
+        ParleyTopBar(
+            stringResource(R.string.home_messaged_numbers),
+            onBack = back,
             actions = {
                 if (entries.isNotEmpty()) IconButton({ confirmClear = true }) { Icon(Icons.Rounded.DeleteSweep, stringResource(R.string.rec_clear_all)) }
             },
@@ -124,8 +124,8 @@ fun MessagedNumbersScreen(vm: AppViewModel, back: () -> Unit) {
                     supportingContent = {
                         Text(stringResource(if (enabled) R.string.rec_on_detail else R.string.rec_off_detail))
                     },
-                    trailingContent = { Switch(enabled, onCheckedChange = { v -> scope.launch { store.setRecordEnabled(v) } }) },
-                    modifier = Modifier.clickable { scope.launch { store.setRecordEnabled(!enabled) } },
+                    trailingContent = { Switch(enabled, onCheckedChange = null) },
+                    modifier = Modifier.toggleable(enabled, role = Role.Switch, onValueChange = { v -> scope.launch { store.setRecordEnabled(v) } }),
                 )
             }
             item {
@@ -175,12 +175,14 @@ fun MessagedNumbersScreen(vm: AppViewModel, back: () -> Unit) {
         }
     }
     if (confirmClear) {
-        AlertDialog(
-            onDismissRequest = { confirmClear = false },
-            title = { Text(pluralStringResource(R.plurals.rec_clear_title, entries.size, entries.size)) },
-            text = { Text(stringResource(R.string.rec_clear_body)) },
-            confirmButton = { TextButton({ confirmClear = false; scope.launch { store.clearAll() } }) { Text(stringResource(R.string.rec_clear_all)) } },
-            dismissButton = { TextButton({ confirmClear = false }) { Text(stringResource(R.string.main_cancel)) } },
+        ConfirmDialog(
+            title = pluralStringResource(R.plurals.rec_clear_title, entries.size, entries.size),
+            text = stringResource(R.string.rec_clear_body),
+            confirmLabel = stringResource(R.string.rec_clear_all),
+            onConfirm = { confirmClear = false; scope.launch { store.clearAll() } },
+            onDismiss = { confirmClear = false },
+            destructive = true,
+            dismissLabel = stringResource(R.string.main_cancel),
         )
     }
 }

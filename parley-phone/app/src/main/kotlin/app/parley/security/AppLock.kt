@@ -3,7 +3,6 @@ package app.parley.security
 import android.net.Uri
 import android.util.Log
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
@@ -69,6 +68,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import androidx.compose.ui.res.stringResource
 import app.parley.R
+import app.parley.ui.ParleyDialog
 
 /**
  * App lock for Parley's own screens. The in-call screen is a separate activity and is never
@@ -322,7 +322,7 @@ private fun EmergencyDialog(initial: String, onDismiss: () -> Unit) {
     LaunchedEffect(number) { isEmergency = withContext(Dispatchers.IO) { EmergencyNumbers.isEmergency(context, number.trim()) } }
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
-    AlertDialog(
+    ParleyDialog(
         onDismissRequest = onDismiss,
         icon = { Icon(Icons.Rounded.Emergency, null) },
         title = { Text(stringResource(R.string.lock_emergency_call)) },

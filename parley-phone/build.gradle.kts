@@ -27,12 +27,12 @@ val checkHardcodedText by tasks.registering {
         val lit = "\"(?:[^\"\\\\]|\\\\.)*[A-Za-z]{2,}(?:[^\"\\\\]|\\\\.)*\""
         val patterns = listOf(
             Regex("""\bText\(\s*$lit"""),
-            Regex("""\b(?:contentDescription|onClickLabel|onLongClickLabel|stateDescription)\s*=\s*$lit"""),
+            Regex("""\b(?:contentDescription|onClickLabel|onLongClickLabel|stateDescription|actionLabel)\s*=\s*$lit"""),
             Regex("""CustomAccessibilityAction\(\s*$lit"""),
             Regex("""Toast\.makeText\([^,]+,\s*$lit"""),
             Regex("""\.set(?:ContentTitle|ContentText|SubText|SummaryText|BigContentTitle)\(\s*$lit"""),
             Regex("""\.addAction\(\s*0\s*,\s*$lit"""),
-            Regex("""\b(?:toast|showMessage)\(\s*$lit"""),
+            Regex("""\b(?:toast|showMessage|showSnackbar|systemMessage)\(\s*$lit"""),
         )
         // String templates ("${n.count}", "$name") and \uXXXX escapes hold no words a translator could see.
         val notText = Regex("""\$\{[^}]*\}|\$[A-Za-z_]\w*|\\u[0-9A-Fa-f]{4}""")
@@ -113,7 +113,7 @@ detekt {
     config.setFrom(files("config/detekt/detekt.yml"))
     baseline = file("config/detekt/baseline.xml")
     source.setFrom(
-        listOf("app", "core/common", "core/data", "core/ui", "telecom", "lists-updater").flatMap { m ->
+        listOf("app", "core/common", "core/data", "core/ui", "telecom", "lists-updater", "tools/detekt-rules").flatMap { m ->
             listOf("$m/src/main/kotlin", "$m/src/test/kotlin", "$m/src/testShared/kotlin")
         }.map { file(it) }.filter { it.exists() },
     )
@@ -121,6 +121,7 @@ detekt {
 
 dependencies {
     detektPlugins(libs.detekt.formatting)
+    detektPlugins(project(":tools:detekt-rules"))
 }
 
 tasks.withType<io.gitlab.arturbosch.detekt.Detekt>().configureEach {

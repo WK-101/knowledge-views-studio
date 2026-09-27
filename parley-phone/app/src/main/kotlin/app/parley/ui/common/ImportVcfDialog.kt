@@ -3,7 +3,6 @@ package app.parley.ui.common
 import android.net.Uri
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.Text
@@ -28,6 +27,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import app.parley.ui.ParleyDialog
 
 /** Import a .vcf opened or shared from another app: choose the account, import, show the result. */
 @Composable
@@ -50,7 +50,7 @@ fun ImportVcfDialog(vm: AppViewModel, uri: Uri, onDone: () -> Unit) {
         }
     }
 
-    AlertDialog(
+    ParleyDialog(
         onDismissRequest = { if (!running) onDone() },
         title = { Text(stringResource(if (result != null) R.string.import_finished else R.string.import_into)) },
         text = {

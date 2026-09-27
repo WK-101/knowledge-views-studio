@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -27,7 +26,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -42,9 +40,8 @@ import app.parley.telecom.CallState
 import app.parley.telecom.CallUi
 import app.parley.telecom.ui.InCallActivity
 import app.parley.ui.CallColors
-import app.parley.ui.settings.bidiLtr
-import app.parley.ui.settings.settingTitle
 import kotlinx.coroutines.delay
+import app.parley.ui.ParleyShapes
 
 /**
  * "● On call with Ana · 03:12 · Return" above the bottom navigation whenever a call exists. With a time
@@ -75,23 +72,33 @@ fun ReturnToCallChip(modifier: Modifier = Modifier) {
                 t to t
             }
         }
-        val color = if (call?.state == CallState.RINGING) MaterialTheme.colorScheme.tertiary else CallColors.Accept
+        // Both pairs reach 4.5:1: onTertiary on tertiary (in every scheme), white on the call green.
+        val ringing = call?.state == CallState.RINGING
+        val color = if (ringing) MaterialTheme.colorScheme.tertiary else CallColors.Accept
+        val ink = if (ringing) MaterialTheme.colorScheme.onTertiary else Color.White
         Surface(
             color = color,
-            shape = RoundedCornerShape(20.dp),
+            shape = ParleyShapes.card,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 12.dp, vertical = 6.dp)
-                .clip(RoundedCornerShape(20.dp))
+                .clip(ParleyShapes.card)
                 .clickable(onClickLabel = stringResource(R.string.ct_chip_return_to_call)) { context.startActivity(InCallActivity.intent(context, false)) }
                 .semantics(mergeDescendants = true) { contentDescription = spoken },
         ) {
             Row(Modifier.padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(8.dp).clip(CircleShape).background(Color.White))
+                Box(Modifier.size(8.dp).clip(CircleShape).background(ink))
                 Spacer(Modifier.width(10.dp))
-                Text(text, color = Color.White, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                Text(
+                    text,
+                    color = ink,
+                    style = MaterialTheme.typography.labelLarge,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
                 Spacer(Modifier.width(8.dp))
-                Text(stringResource(R.string.ct_chip_return), color = Color.White, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.ct_chip_return), color = ink, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
             }
         }
     }

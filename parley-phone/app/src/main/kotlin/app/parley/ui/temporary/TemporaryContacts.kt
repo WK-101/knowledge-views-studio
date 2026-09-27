@@ -17,30 +17,24 @@ import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.AutoDelete
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.MoreTime
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.PushPin
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -73,6 +67,11 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import app.parley.R
 import app.parley.ui.DataL10n
+import app.parley.ui.ParleyTopBar
+import app.parley.ui.ParleyScaffold
+import app.parley.ui.ConfirmDialog
+import app.parley.ui.ParleyListItem
+import app.parley.ui.avatarSize
 
 private const val DAY_MS = 86_400_000L
 
@@ -187,14 +186,10 @@ fun TemporaryContactsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -
     var extendFor by remember { mutableStateOf<TemporaryItem?>(null) }
     var deleteFor by remember { mutableStateOf<TemporaryItem?>(null) }
     val scroll = TopAppBarDefaults.pinnedScrollBehavior()
-    Scaffold(
+    ParleyScaffold(
         modifier = Modifier.nestedScroll(scroll.nestedScrollConnection),
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.temp_title)) },
-                navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.dc_back)) } },
-                scrollBehavior = scroll,
-            )
+            ParleyTopBar(stringResource(R.string.temp_title), onBack = back, scrollBehavior = scroll)
         },
     ) { p ->
         if (items.isEmpty()) {
@@ -205,7 +200,7 @@ fun TemporaryContactsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -
                 // Temporary contacts start on the keypad.
                 action = stringResource(R.string.ux_empty_open_keypad), onAction = { vm.navigate(NavEvent.Tab(StartTab.KEYPAD)) },
             )
-            return@Scaffold
+            return@ParleyScaffold
         }
         LazyColumn(Modifier.fillMaxSize().padding(p), contentPadding = PaddingValues(16.dp)) {
             item {
@@ -236,19 +231,17 @@ fun TemporaryContactsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -
         }
     }
     deleteFor?.let { t ->
-        AlertDialog(
-            onDismissRequest = { deleteFor = null },
-            title = { Text(stringResource(R.string.temp_delete_now_title, t.name)) },
-            text = {
-                Text(
-                    when {
-                        t.purgeHistory -> stringResource(R.string.temp_delete_with_history)
-                        else -> stringResource(R.string.temp_delete_keep_history)
-                    } + if (t.vaultId == null) " " + stringResource(R.string.temp_delete_restore_hint) else "",
-                )
-            },
-            confirmButton = { TextButton({ deleteFor = null; scope.launch { TemporaryContactActions.deleteNow(vm, t) } }) { Text(stringResource(R.string.dc_delete)) } },
-            dismissButton = { TextButton({ deleteFor = null }) { Text(stringResource(R.string.dc_cancel)) } },
+        ConfirmDialog(
+            title = stringResource(R.string.temp_delete_now_title, t.name),
+            text = when {
+                t.purgeHistory -> stringResource(R.string.temp_delete_with_history)
+                else -> stringResource(R.string.temp_delete_keep_history)
+            } + if (t.vaultId == null) " " + stringResource(R.string.temp_delete_restore_hint) else "",
+            confirmLabel = stringResource(R.string.dc_delete),
+            onConfirm = { deleteFor = null; scope.launch { TemporaryContactActions.deleteNow(vm, t) } },
+            onDismiss = { deleteFor = null },
+            destructive = true,
+            dismissLabel = stringResource(R.string.dc_cancel),
         )
     }
 }
@@ -256,10 +249,10 @@ fun TemporaryContactsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -
 @Composable
 private fun TemporaryRow(t: TemporaryItem, countryIso: String, onOpen: () -> Unit, onExtend: () -> Unit, onKeep: () -> Unit, onDelete: () -> Unit) {
     var menu by remember { mutableStateOf(false) }
-    ListItem(
+    ParleyListItem(
         modifier = Modifier.clickable(onClick = onOpen),
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-        leadingContent = { Avatar(t.name, null, 40.dp) },
+        leadingContent = { Avatar(t.name, null, avatarSize()) },
         headlineContent = {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (t.vaultId != null) Icon(Icons.Rounded.Lock, stringResource(R.string.temp_private), Modifier.padding(end = 4.dp).padding(top = 1.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -322,12 +315,15 @@ private fun DurationDialog(title: String, onDismiss: () -> Unit, onPick: (Int) -
     var days by rememberSaveable { mutableStateOf<Int?>(7) }
     var custom by rememberSaveable { mutableStateOf("") }
     val chosen = days ?: custom.toIntOrNull()?.takeIf { it in 1..3650 }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(title) },
-        text = { DurationPicker(days, custom, { days = it }, { custom = it; days = null }) },
-        confirmButton = { TextButton({ chosen?.let(onPick) }, enabled = chosen != null) { Text(stringResource(R.string.dc_save)) } },
-        dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dc_cancel)) } },
+    ConfirmDialog(
+        title = title,
+        text = null,
+        confirmLabel = stringResource(R.string.dc_save),
+        onConfirm = { chosen?.let(onPick) },
+        onDismiss = onDismiss,
+        dismissLabel = stringResource(R.string.dc_cancel),
+        confirmEnabled = chosen != null,
+        content = { DurationPicker(days, custom, { days = it }, { custom = it; days = null }) },
     )
 }
 
@@ -343,11 +339,16 @@ fun SaveTemporaryDialog(number: String, suggestedName: String, onDismiss: () -> 
     var deleteHistory by rememberSaveable { mutableStateOf(true) }
     var visible by rememberSaveable { mutableStateOf(false) }
     val chosen = days ?: custom.toIntOrNull()?.takeIf { it in 1..3650 }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        icon = { Icon(Icons.Rounded.AutoDelete, null) },
-        title = { Text(stringResource(R.string.temp_save_title)) },
-        text = {
+    ConfirmDialog(
+        title = stringResource(R.string.temp_save_title),
+        text = null,
+        confirmLabel = if (visible) stringResource(R.string.dc_save) else stringResource(R.string.temp_save_privately),
+        onConfirm = { chosen?.let { onSave(name, it, deleteHistory, visible) } },
+        onDismiss = onDismiss,
+        dismissLabel = stringResource(R.string.dc_cancel),
+        icon = Icons.Rounded.AutoDelete,
+        confirmEnabled = chosen != null,
+        content = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
                     if (visible) stringResource(R.string.temp_save_visible_text, DataL10n.ltr(number))
@@ -373,7 +374,5 @@ fun SaveTemporaryDialog(number: String, suggestedName: String, onDismiss: () -> 
                 }
             }
         },
-        confirmButton = { TextButton({ chosen?.let { onSave(name, it, deleteHistory, visible) } }, enabled = chosen != null) { Text(if (visible) stringResource(R.string.dc_save) else stringResource(R.string.temp_save_privately)) } },
-        dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dc_cancel)) } },
     )
 }

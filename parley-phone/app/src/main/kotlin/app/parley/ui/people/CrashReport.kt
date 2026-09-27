@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -24,11 +23,12 @@ import androidx.compose.ui.unit.sp
 import app.parley.AppViewModel
 import app.parley.common.people.Reports
 import app.parley.ui.common.Format
-import app.parley.ui.settings.SwitchRow
+import app.parley.ui.SwitchRow
 import androidx.compose.ui.res.stringResource
 import app.parley.R
 import app.parley.ui.settings.settingSummary
 import app.parley.ui.settings.settingTitle
+import app.parley.ui.ParleyDialog
 
 /**
  * After a crash (with "Keep crash reports" on), the next start offers the report: send it by e-mail or any
@@ -46,7 +46,7 @@ fun CrashReportHost(vm: AppViewModel) {
         store.clear()
         crash = null
     }
-    AlertDialog(
+    ParleyDialog(
         onDismissRequest = { crash = null },
         title = { Text(stringResource(R.string.ppl_crash_title)) },
         text = {

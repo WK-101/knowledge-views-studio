@@ -4,7 +4,6 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -23,14 +22,15 @@ import app.parley.NavEvent
 import app.parley.common.people.SecondLineMode
 import app.parley.data.AccountRef
 import app.parley.ui.contact.Section
-import app.parley.ui.settings.LinkRow
-import app.parley.ui.settings.MenuRow
-import app.parley.ui.settings.SwitchRow
+import app.parley.ui.LinkRow
+import app.parley.ui.MenuRow
+import app.parley.ui.SwitchRow
 import app.parley.ui.settings.settingTitle
 import kotlinx.coroutines.launch
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import app.parley.R
+import app.parley.ui.ParleyDialog
 
 /** Settings › Appearance: second line under names. */
 @Composable
@@ -93,7 +93,7 @@ fun ExportAccountRow(vm: AppViewModel, icon: ImageVector? = null) {
     }
     LinkRow(settingTitle("export_account"), idx.accountCounts.entries.joinToString(" · ") { res.getString(R.string.ppl_account_count, it.key.displayLabel, it.value) }, icon) { chooseAccount = true }
     if (chooseAccount) {
-        AlertDialog(
+        ParleyDialog(
             onDismissRequest = { chooseAccount = false },
             title = { Text(stringResource(R.string.export_account_title)) },
             text = {

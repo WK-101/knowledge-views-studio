@@ -67,8 +67,8 @@ import app.parley.common.people.ContactPageLayout
 import app.parley.common.people.ContactSection
 import app.parley.common.people.SectionMode
 import app.parley.ui.SegmentedGroup
-import app.parley.ui.settings.SettingsScaffold
-import app.parley.ui.settings.SwitchRow
+import app.parley.ui.SettingsScaffold
+import app.parley.ui.SwitchRow
 
 /** The contact page's own screens. */
 object ContactPageRoutes {

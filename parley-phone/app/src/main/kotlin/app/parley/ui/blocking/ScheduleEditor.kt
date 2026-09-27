@@ -6,13 +6,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimePicker
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
@@ -24,7 +22,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -32,11 +29,10 @@ import androidx.compose.ui.unit.dp
 import app.parley.R
 import app.parley.blocking.BlockingText
 import app.parley.common.Schedule
-import app.parley.ui.settings.bidiLtr
-import app.parley.ui.settings.bidiLtrIfNumber
 import java.time.DayOfWeek
 import java.time.format.TextStyle
 import java.util.Locale
+import app.parley.ui.ConfirmDialog
 
 /** Day letters and names from the app's locale, Monday first (the order of [Schedule.days] bits). */
 @Composable
@@ -94,18 +90,18 @@ private fun ScheduleDetails(value: Schedule, onChange: (Schedule) -> Unit) {
     editing?.let { which ->
         val initial = if (which == 0) value.startMinute else value.endMinute
         val state = rememberTimePickerState(initial / 60, initial % 60, is24Hour = true)
-        AlertDialog(
-            onDismissRequest = { editing = null },
-            title = { Text(stringResource(if (which == 0) R.string.blk_sched_starts_at else R.string.blk_sched_ends_at)) },
-            text = { TimePicker(state) },
-            confirmButton = {
-                TextButton({
-                    val m = state.hour * 60 + state.minute
-                    onChange(if (which == 0) value.copy(startMinute = m) else value.copy(endMinute = m))
-                    editing = null
-                }) { Text(stringResource(R.string.set_ok)) }
+        ConfirmDialog(
+            title = stringResource(if (which == 0) R.string.blk_sched_starts_at else R.string.blk_sched_ends_at),
+            text = null,
+            confirmLabel = stringResource(R.string.set_ok),
+            onConfirm = {
+                val m = state.hour * 60 + state.minute
+                onChange(if (which == 0) value.copy(startMinute = m) else value.copy(endMinute = m))
+                editing = null
             },
-            dismissButton = { TextButton({ editing = null }) { Text(stringResource(R.string.set_cancel)) } },
+            onDismiss = { editing = null },
+            dismissLabel = stringResource(R.string.set_cancel),
+            content = { TimePicker(state) },
         )
     }
 }

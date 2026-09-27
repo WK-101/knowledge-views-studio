@@ -15,45 +15,28 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.ui.draw.clip
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.People
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.R
@@ -63,7 +46,6 @@ import app.parley.common.TextSearch
 import app.parley.common.homeLayout
 import app.parley.common.people.FastScroll
 import app.parley.common.people.SwipeAction
-import app.parley.data.GroupInfo
 import app.parley.ui.Avatar
 import app.parley.ui.circle.CircleFavoritesSection
 import app.parley.ui.common.Format
@@ -77,10 +59,11 @@ import app.parley.ui.shared
 import app.parley.ui.EmptyState
 import app.parley.ui.Routes
 import app.parley.ui.avatarSize
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import app.parley.common.ux.ListSections
+import app.parley.ui.ListSectionHeader
+import app.parley.ui.Spacing
+import app.parley.ui.ParleyListItem
 
 fun sectionOf(name: String): String = ListSections.letterOf(name)
 
@@ -130,7 +113,7 @@ fun ContactsTab(vm: AppViewModel, open: (String) -> Unit, onReorderFavorites: ()
             }
             shown.forEach { v ->
                 item(key = "v" + v.id) {
-                    ListItem(
+                    ParleyListItem(
                         modifier = Modifier.clickable { open(Routes.vault(v.id)) },
                         leadingContent = { Avatar(v.name, remember(v.id, v.updatedAt) { vm.c.vault.photoUri(v.id) }, avatarSize()) },
                         headlineContent = { Text(v.name) },
@@ -199,10 +182,7 @@ fun ContactsTab(vm: AppViewModel, open: (String) -> Unit, onReorderFavorites: ()
                 if (row is ListSections.Row.Header) {
                     val s = row.section
                     stickyHeader(key = "s$s", contentType = CONTENT_LETTER) {
-                        Text(
-                            s, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).padding(start = 24.dp, top = 8.dp, bottom = 4.dp),
-                        )
+                        ListSectionHeader(s, sticky = true, inset = Spacing.xl)
                     }
                     return@forEach
                 }
@@ -269,7 +249,7 @@ fun ContactRow(
     isCompany: Boolean = false,
     onClick: () -> Unit,
 ) {
-    ListItem(
+    ParleyListItem(
         modifier = Modifier.combinedClickable(onClick = onClick, onLongClick = onLongClick, onLongClickLabel = stringResource(R.string.recents_select)),
         colors = if (selected) ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.secondaryContainer) else ListItemDefaults.colors(),
         leadingContent = {

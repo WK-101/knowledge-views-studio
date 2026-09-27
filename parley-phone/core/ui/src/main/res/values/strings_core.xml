@@ -4,4 +4,9 @@
     <!-- TalkBack names of keypad keys, shared by the dialer and the in-call keypad. -->
     <string name="ui_key_star">star</string>
     <string name="ui_key_pound">pound</string>
+    <!-- Fallbacks for the shared components (the app passes its own translated texts through LocalKitStrings). -->
+    <string name="ui_back">Back</string>
+    <string name="ui_cancel">Cancel</string>
+    <string name="ui_change">Change</string>
+    <string name="ui_close">Close</string>
 </resources>

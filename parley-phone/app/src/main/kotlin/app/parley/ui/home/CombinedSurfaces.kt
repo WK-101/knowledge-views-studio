@@ -1,7 +1,6 @@
 package app.parley.ui.home
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -32,8 +31,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Dialpad
@@ -47,7 +44,6 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -66,7 +62,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.Role
@@ -91,6 +86,11 @@ import app.parley.ui.Avatar
 import app.parley.ui.ForceLtr
 import app.parley.ui.Routes
 import kotlinx.coroutines.launch
+import app.parley.ui.ParleySheet
+import app.parley.ui.ParleyShapes
+import app.parley.ui.ListSectionHeader
+import app.parley.ui.Spacing
+import app.parley.ui.ParleyMotion
 
 /**
  * The keypad docked at the foot of Recents. [expanded] is kept by the home screen for the session
@@ -137,7 +137,7 @@ internal fun DockHandle(label: String, fold: DockFoldState, onCollapse: () -> Un
         contentAlignment = Alignment.Center,
     ) {
         Box(
-            Modifier.padding(top = 10.dp, bottom = 6.dp).size(width = 36.dp, height = 4.dp).clip(RoundedCornerShape(2.dp))
+            Modifier.padding(top = 10.dp, bottom = 6.dp).size(width = 36.dp, height = 4.dp).clip(ParleyShapes.pill)
                 .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)),
         )
     }
@@ -153,7 +153,7 @@ internal fun DockedKeypadButton(
     visible: Boolean, fold: DockFoldState, number: String?, badge: String?, modifier: Modifier = Modifier, onExpand: () -> Unit,
 ) {
     val label = if (number == null) stringResource(R.string.keypad_show) else stringResource(R.string.home_show_keypad_with, number)
-    val spring = spring<Float>(dampingRatio = 0.7f, stiffness = Spring.StiffnessMedium)
+    val spring = ParleyMotion.fastSpatial<Float>()
     AnimatedVisibility(
         visible = visible,
         modifier = modifier,
@@ -229,10 +229,7 @@ fun ContactsFavorites(vm: AppViewModel, open: (String) -> Unit, onReorder: () ->
             FavoriteGrid(favorites, ps.favoriteColumns, onCall = ::call, onOpen = { open(Routes.contact(it.id)) })
         }
         if (shownFrequents.isNotEmpty()) {
-            Text(
-                stringResource(R.string.fav_frequent), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(start = 24.dp, top = 8.dp, bottom = 4.dp).semantics { heading() },
-            )
+            ListSectionHeader(stringResource(R.string.fav_frequent), inset = Spacing.xl)
             AvatarStrip(shownFrequents.map { g -> g.stripItem(vm, open) })
         }
         HorizontalDivider(Modifier.padding(top = 8.dp, start = 16.dp, end = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
@@ -293,7 +290,7 @@ private fun AvatarStrip(items: List<StripItem>) {
     LazyRow(contentPadding = PaddingValues(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
         items(items, key = { it.key }) { item ->
             Column(
-                Modifier.width(80.dp).clip(RoundedCornerShape(16.dp))
+                Modifier.width(80.dp).clip(ParleyShapes.tile)
                     .combinedClickable(onClick = item.onClick, onLongClick = item.onLong, onClickLabel = callLabel, onLongClickLabel = openLabel)
                     .padding(vertical = 8.dp, horizontal = 4.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -324,10 +321,14 @@ fun ReorderFavoritesSheet(vm: AppViewModel, onDismiss: () -> Unit) {
     fun commit() = vm.people.setFavoriteOrder(order.map { it.lookupKey })
     val moveEarlier = stringResource(R.string.fav_move_earlier)
     val moveLater = stringResource(R.string.fav_move_later)
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    ParleySheet(onDismissRequest = onDismiss) {
         Column(Modifier.fillMaxWidth().navigationBarsPadding()) {
             Row(Modifier.fillMaxWidth().padding(start = 24.dp, end = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(stringResource(R.string.home_reorder_title), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                Text(
+                    stringResource(R.string.home_reorder_title),
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.weight(1f).semantics { heading() },
+                )
                 TextButton(onDismiss) { Text(stringResource(R.string.main_done)) }
             }
             Text(

@@ -8,7 +8,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Badge
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ListItemDefaults
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.ui.unit.Dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import app.parley.NavEvent
@@ -98,7 +97,6 @@ import app.parley.ui.history.RecentsMenuDialogs
 import app.parley.ui.history.SavedFilterChips
 import app.parley.ui.people.SwipeActionRow
 import app.parley.ui.people.blockWithUndo
-import kotlinx.coroutines.launch
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.RecentFilter
@@ -109,13 +107,17 @@ import app.parley.common.ux.CallGlance
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.text.font.FontWeight
 import app.parley.ui.Avatar
-import app.parley.ui.CallColors
 import app.parley.ui.EmptyState
 import app.parley.ui.MonoAvatar
 import app.parley.ui.Routes
 import app.parley.ui.activityViewModel
 import app.parley.ui.avatarSize
 import app.parley.ui.common.Format
+import app.parley.ui.ParleySheet
+import app.parley.ui.ListSectionHeader
+import app.parley.ui.Spacing
+import app.parley.ui.ParleyListItem
+import androidx.compose.ui.semantics.heading
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -244,10 +246,10 @@ fun RecentsTab(vm: AppViewModel, open: (String) -> Unit, bottomPadding: Dp = 0.d
             when (row) {
                 is RecentsRow.Day -> {
                     val header = remember(row.date, row.today, context) { Format.dayHeader(context, row.date) }
-                    Text(
-                        header, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.fillMaxWidth().clickable(onClickLabel = stringResource(R.string.recents_day_summary)) { daySummary = row.date to header }
-                            .padding(start = 20.dp, top = 12.dp, bottom = 4.dp),
+                    ListSectionHeader(
+                        header, inset = 20.dp, top = Spacing.m,
+                        modifier = Modifier.fillMaxWidth()
+                            .clickable(onClickLabel = stringResource(R.string.recents_day_summary)) { daySummary = row.date to header },
                     )
                 }
                 is RecentsRow.Call -> {
@@ -313,7 +315,7 @@ fun RecentRow(
     val hue = CallTypeColors.of(cls.hue)
     val attention = rich && unreturned && !g.hidden
     val sequence = if (rich) CallGlance.sequence(g.calls) else emptyList()
-    ListItem(
+    ParleyListItem(
         modifier = Modifier.combinedClickable(
             onClick = if (tapCalls) onCall else onOpen, onLongClick = onLongClick,
             onClickLabel = if (tapCalls) stringResource(R.string.main_call) else null,
@@ -461,8 +463,12 @@ fun CallTypeIcon(type: CallType, modifier: Modifier = Modifier, size: Dp = 32.dp
 private fun RecentActionsSheet(vm: AppViewModel, recents: RecentsViewModel, g: RecentGroup, open: (String) -> Unit, onMessageOn: (String) -> Unit, onDismiss: () -> Unit) {
     val context = LocalContext.current
     fun act(block: () -> Unit) { onDismiss(); block() }
-    ModalBottomSheet(onDismissRequest = onDismiss) {
-        Text(g.shownTitle, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
+    ParleySheet(onDismissRequest = onDismiss) {
+        Text(
+            g.shownTitle,
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp).semantics { heading() },
+        )
         val hasNumber = !g.hidden && g.number.isNotBlank()
         @Composable
         fun row(label: Int, icon: ImageVector, enabled: Boolean = true, onClick: () -> Unit) {

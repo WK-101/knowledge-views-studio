@@ -1,7 +1,5 @@
 package app.parley.ui.blocking
 
-import android.content.Context
-import androidx.annotation.StringRes
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -14,8 +12,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material.icons.rounded.RemoveCircleOutline
-import androidx.compose.material.icons.rounded.Warning
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -35,7 +31,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
-import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -58,10 +53,11 @@ import app.parley.data.db.BlockedCallEntity
 import app.parley.ui.calls.RingFactsFor
 import app.parley.ui.common.Format
 import app.parley.ui.settings.bidiLtr
-import app.parley.ui.settings.settingTitle
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import app.parley.ui.ParleyDialog
+import app.parley.ui.ConfirmDialog
 
 /** Dialogs any screen can open (Recents, number history, contact and label menus, notifications). */
 sealed interface BlockingDialog {
@@ -144,7 +140,7 @@ private fun WhyDialog(vm: AppViewModel, number: String, live: Boolean, onDismiss
     }
     val blocked = stored?.let { !it.allowed } ?: test?.blocked ?: false
     val context = LocalContext.current
-    AlertDialog(
+    ParleyDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(if (live) R.string.blk_why_test else if (blocked) R.string.blk_why_blocked else R.string.blk_why_rang)) },
         text = {
@@ -184,10 +180,14 @@ private fun WhyDialog(vm: AppViewModel, number: String, live: Boolean, onDismiss
 private fun WebSearchDialog(vm: AppViewModel, d: BlockingDialog.WebSearch, onDismiss: () -> Unit) {
     val context = LocalContext.current
     val url = vm.settings.collectAsStateWithLifecycle().value.screening.webSearchUrl
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.blk_web_title)) },
-        text = {
+    ConfirmDialog(
+        title = stringResource(R.string.blk_web_title),
+        text = null,
+        confirmLabel = stringResource(if (d.contactName != null) R.string.blk_search_anyway else R.string.blk_search),
+        onConfirm = { onDismiss(); BlockingActions.searchWeb(context, d.number, url) },
+        onDismiss = onDismiss,
+        dismissLabel = stringResource(R.string.set_cancel),
+        content = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(stringResource(R.string.blk_web_body, bidiLtr(Format.number(d.number, vm.countryIso))))
                 if (d.contactName != null) {
@@ -198,8 +198,6 @@ private fun WebSearchDialog(vm: AppViewModel, d: BlockingDialog.WebSearch, onDis
                 }
             }
         },
-        confirmButton = { TextButton({ onDismiss(); BlockingActions.searchWeb(context, d.number, url) }) { Text(stringResource(if (d.contactName != null) R.string.blk_search_anyway else R.string.blk_search)) } },
-        dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.set_cancel)) } },
     )
 }
 
@@ -209,16 +207,17 @@ private fun ReportDialog(vm: AppViewModel, number: String, onDismiss: () -> Unit
     val regulator = remember { BlockingActions.regulatorFor(vm.countryIso) }
     var confirmRegulator by remember { mutableStateOf(false) }
     if (confirmRegulator && regulator != null) {
-        AlertDialog(
-            onDismissRequest = onDismiss,
-            title = { Text(stringResource(R.string.blk_open_regulator, regulator.name)) },
-            text = { Text(stringResource(R.string.blk_open_regulator_body)) },
-            confirmButton = { TextButton({ onDismiss(); BlockingActions.openRegulator(context, regulator, number) }) { Text(stringResource(R.string.blk_open)) } },
-            dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.set_cancel)) } },
+        ConfirmDialog(
+            title = stringResource(R.string.blk_open_regulator, regulator.name),
+            text = stringResource(R.string.blk_open_regulator_body),
+            confirmLabel = stringResource(R.string.blk_open),
+            onConfirm = { onDismiss(); BlockingActions.openRegulator(context, regulator, number) },
+            onDismiss = onDismiss,
+            dismissLabel = stringResource(R.string.set_cancel),
         )
         return
     }
-    AlertDialog(
+    ParleyDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.blk_report_title)) },
         text = {
@@ -250,10 +249,21 @@ private fun PrefixAllowDialog(vm: AppViewModel, d: BlockingDialog.PrefixAllow, o
     val prefix = e164.dropLast(drop)
     val context = LocalContext.current
     val res = LocalResources.current
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.blk_prefix_title)) },
-        text = {
+    ConfirmDialog(
+        title = stringResource(R.string.blk_prefix_title),
+        text = null,
+        confirmLabel = stringResource(R.string.blk_allow),
+        onConfirm = {
+            scope.launch {
+                BlockingActions.allowPrefix(vm.c, chosen, drop, d.name)
+                vm.toast(if (d.name != null) res.getString(R.string.blk_prefix_done_named, d.name) else res.getString(R.string.blk_prefix_done))
+            }
+            onDismiss()
+        },
+        onDismiss = onDismiss,
+        dismissLabel = stringResource(R.string.set_cancel),
+        confirmEnabled = chosen.isNotBlank() && prefix.count { it.isDigit() } >= 4,
+        content = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(if (d.name != null) stringResource(R.string.blk_prefix_body_named, d.name) else stringResource(R.string.blk_prefix_body))
                 if (d.numbers.size > 1) d.numbers.forEach { n ->
@@ -269,16 +279,6 @@ private fun PrefixAllowDialog(vm: AppViewModel, d: BlockingDialog.PrefixAllow, o
                 Text(stringResource(R.string.blk_prefix_will_allow, bidiLtr(prefix + "X".repeat(drop))), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
             }
         },
-        confirmButton = {
-            TextButton({
-                scope.launch {
-                    BlockingActions.allowPrefix(vm.c, chosen, drop, d.name)
-                    vm.toast(if (d.name != null) res.getString(R.string.blk_prefix_done_named, d.name) else res.getString(R.string.blk_prefix_done))
-                }
-                onDismiss()
-            }, enabled = chosen.isNotBlank() && prefix.count { it.isDigit() } >= 4) { Text(stringResource(R.string.blk_allow)) }
-        },
-        dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.set_cancel)) } },
     )
 }
 
@@ -298,10 +298,28 @@ private fun LabelRuleDialog(vm: AppViewModel, d: BlockingDialog.LabelRule, onDis
     var pickedTone by remember { mutableStateOf<String?>(null) }
     val tone = pickedTone ?: people.labelRingtones[d.title]
     val pickTone = rememberRingtonePicker { pickedTone = it }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.blk_label_title, d.title)) },
-        text = {
+    ConfirmDialog(
+        title = stringResource(R.string.blk_label_title, d.title),
+        text = null,
+        confirmLabel = stringResource(R.string.set_save),
+        onConfirm = {
+            scope.launch {
+                when (choice) {
+                    0 -> vm.c.blocks.saveRule(BlockRule(pattern = d.title, type = RuleType.LABEL, label = d.title, kind = RuleKind.BLOCK))
+                    1 -> vm.c.settings.update {
+                        it.copy(screening = it.screening.copy(offHours = it.screening.offHours.copy(enabled = true, allow = OffHoursAllow.LABEL, labelId = null, labelTitle = d.title)))
+                    }
+                    // Only the ringtone: no allow rule (which would also let the label ring through off hours).
+                    2 -> pickedTone?.let { t -> vm.people.update { s -> s.copy(labelRingtones = s.labelRingtones + (d.title to t)) } }
+                }
+                vm.toast(res.getString(R.string.blk_saved))
+            }
+            onDismiss()
+        },
+        onDismiss = onDismiss,
+        dismissLabel = stringResource(R.string.set_cancel),
+        confirmEnabled = choice != 2 || tone != null,
+        content = {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 options.forEachIndexed { i, (t, help) ->
                     Row(Modifier.fillMaxWidth().clickable { choice = i }, verticalAlignment = Alignment.CenterVertically) {
@@ -315,23 +333,6 @@ private fun LabelRuleDialog(vm: AppViewModel, d: BlockingDialog.LabelRule, onDis
                 if (choice == 2) TextButton({ pickTone(tone) }) { Text(ringtoneTitle(LocalContext.current, tone) ?: stringResource(R.string.blk_choose_ringtone)) }
             }
         },
-        confirmButton = {
-            TextButton({
-                scope.launch {
-                    when (choice) {
-                        0 -> vm.c.blocks.saveRule(BlockRule(pattern = d.title, type = RuleType.LABEL, label = d.title, kind = RuleKind.BLOCK))
-                        1 -> vm.c.settings.update {
-                            it.copy(screening = it.screening.copy(offHours = it.screening.offHours.copy(enabled = true, allow = OffHoursAllow.LABEL, labelId = null, labelTitle = d.title)))
-                        }
-                        // Only the ringtone: no allow rule (which would also let the label ring through off hours).
-                        2 -> pickedTone?.let { t -> vm.people.update { s -> s.copy(labelRingtones = s.labelRingtones + (d.title to t)) } }
-                    }
-                    vm.toast(res.getString(R.string.blk_saved))
-                }
-                onDismiss()
-            }, enabled = choice != 2 || tone != null) { Text(stringResource(R.string.set_save)) }
-        },
-        dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.set_cancel)) } },
     )
 }
 
@@ -340,7 +341,7 @@ private fun SnoozeDialog(vm: AppViewModel, onDismiss: () -> Unit) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val res = LocalResources.current
-    AlertDialog(
+    ParleyDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.blk_expecting_question)) },
         text = { Text(stringResource(R.string.blk_snooze_body)) },

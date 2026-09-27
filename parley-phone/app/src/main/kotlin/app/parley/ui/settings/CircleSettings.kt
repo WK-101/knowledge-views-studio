@@ -15,7 +15,6 @@ import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.Handshake
 import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.Tune
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -41,6 +40,9 @@ import app.parley.ui.SegmentedGroup
 import app.parley.ui.SegmentedGroupScope
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.ui.circle.CircleText
+import app.parley.ui.LinkRow
+import app.parley.ui.MenuRow
+import app.parley.ui.ParleyDialog
 
 /**
  * Settings › Contacts › Birthdays & dates: the Circle's rows (R3 "Log this?", R4 delivery and weekly cap, R5 lead
@@ -93,7 +95,7 @@ private fun LogPromptsRow(vm: AppViewModel, cfg: CircleConfig) {
     var open by remember { mutableStateOf(false) }
     LinkRow(settingTitle("log_prompts"), settingSummary("log_prompts"), Icons.Rounded.Handshake) { open = true }
     if (!open) return
-    AlertDialog(
+    ParleyDialog(
         onDismissRequest = { open = false },
         title = { Text(settingTitle("log_prompts")) },
         text = {

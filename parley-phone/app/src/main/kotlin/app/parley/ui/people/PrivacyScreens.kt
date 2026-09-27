@@ -13,12 +13,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Android
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Shield
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -26,13 +24,10 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -62,13 +57,16 @@ import app.parley.privatenames.PrivateNameProvider
 import app.parley.security.launchVault
 import app.parley.ui.common.Format
 import app.parley.ui.contact.Section
-import app.parley.ui.settings.LinkRow
-import app.parley.ui.settings.SwitchRow
+import app.parley.ui.LinkRow
+import app.parley.ui.SwitchRow
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import app.parley.R
 import app.parley.common.people.LookupOutcome
 import app.parley.ui.settings.settingTitle
+import app.parley.ui.ParleyTopBar
+import app.parley.ui.ParleyScaffold
+import app.parley.ui.ConfirmDialog
 
 /** Honest wording from the design notes (COMPETITIVE_ANALYSIS_2 §5.4). Parley never claims to control other apps. */
 private object Wording {
@@ -93,8 +91,8 @@ fun WhoCanSeeScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) 
 
     // Scroll-linked top-bar tint.
     val barTint = TopAppBarDefaults.pinnedScrollBehavior()
-    Scaffold(modifier = Modifier.nestedScroll(barTint.nestedScrollConnection), topBar = {
-        TopAppBar(title = { Text(stringResource(R.string.privacy_who_can_see)) }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.dc_back)) } }, scrollBehavior = barTint)
+    ParleyScaffold(modifier = Modifier.nestedScroll(barTint.nestedScrollConnection), topBar = {
+        ParleyTopBar(stringResource(R.string.privacy_who_can_see), onBack = back, scrollBehavior = barTint)
     }) { p ->
         LazyColumn(Modifier.padding(p)) {
             item {
@@ -250,8 +248,8 @@ fun PrivateNamesScreen(vm: AppViewModel, back: () -> Unit) {
 
     // Scroll-linked top-bar tint.
     val barTint = TopAppBarDefaults.pinnedScrollBehavior()
-    Scaffold(modifier = Modifier.nestedScroll(barTint.nestedScrollConnection), topBar = {
-        TopAppBar(title = { Text(stringResource(R.string.pn_title)) }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.dc_back)) } }, scrollBehavior = barTint)
+    ParleyScaffold(modifier = Modifier.nestedScroll(barTint.nestedScrollConnection), topBar = {
+        ParleyTopBar(stringResource(R.string.pn_title), onBack = back, scrollBehavior = barTint)
     }) { p ->
         LazyColumn(Modifier.padding(p)) {
             item {
@@ -325,25 +323,24 @@ fun MoveToPrivateDialog(vm: AppViewModel, ids: List<Long>, onDismiss: () -> Unit
     val context = LocalContext.current
     val res = LocalResources.current
     val scope = rememberCoroutineScope()
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(pluralStringResource(R.plurals.move_private_title, ids.size, ids.size)) },
-        text = { Text(stringResource(R.string.move_private_text)) },
-        confirmButton = {
-            TextButton({
-                onDismiss()
-                scope.launchVault(context as? FragmentActivity, { e -> vm.toast(res.getString(R.string.vault_move_failed, e.message.orEmpty())) }) {
-                    var moved = 0
-                    for (id in ids) {
-                        val d = vm.c.contacts.details(id) ?: continue
-                        vm.moveToVault(id, d)
-                        moved++
-                    }
-                    vm.toast(res.getQuantityString(R.plurals.move_private_done, moved, moved))
-                    onDone()
+    ConfirmDialog(
+        title = pluralStringResource(R.plurals.move_private_title, ids.size, ids.size),
+        text = stringResource(R.string.move_private_text),
+        confirmLabel = stringResource(R.string.move_private_move),
+        onConfirm = {
+            onDismiss()
+            scope.launchVault(context as? FragmentActivity, { e -> vm.toast(res.getString(R.string.vault_move_failed, e.message.orEmpty())) }) {
+                var moved = 0
+                for (id in ids) {
+                    val d = vm.c.contacts.details(id) ?: continue
+                    vm.moveToVault(id, d)
+                    moved++
                 }
-            }) { Text(stringResource(R.string.move_private_move)) }
+                vm.toast(res.getQuantityString(R.plurals.move_private_done, moved, moved))
+                onDone()
+            }
         },
-        dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dc_cancel)) } },
+        onDismiss = onDismiss,
+        dismissLabel = stringResource(R.string.dc_cancel),
     )
 }

@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -32,6 +31,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import app.parley.R
 import app.parley.common.calls.RoleRescue
+import app.parley.ui.ParleyDialog
 
 /**
  * Asks Android to make Parley the default phone app. Some phones answer "no" at once without showing the question
@@ -80,7 +80,7 @@ fun DialerRoleGuide(onDismiss: () -> Unit) {
         RoleRescue.Variant.ANDROID_12 -> stringResource(R.string.role_rescue_steps_s)
         RoleRescue.Variant.ANDROID_13_PLUS -> stringResource(R.string.role_rescue_steps_s) + "\n\n" + stringResource(R.string.role_rescue_restricted)
     }
-    AlertDialog(
+    ParleyDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.role_rescue_title)) },
         text = {

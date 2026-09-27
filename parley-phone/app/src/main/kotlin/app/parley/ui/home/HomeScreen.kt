@@ -18,22 +18,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.CallMerge
-import androidx.compose.material.icons.automirrored.rounded.Chat
 import androidx.compose.material.icons.rounded.GroupAdd
 import androidx.compose.material.icons.automirrored.rounded.Label
-import androidx.compose.material.icons.rounded.AutoDelete
-import androidx.compose.material.icons.rounded.Block
-import androidx.compose.material.icons.rounded.Cake
-import androidx.compose.material.icons.rounded.HealthAndSafety
-import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Lock
-import androidx.compose.material.icons.rounded.ManageHistory
 import androidx.compose.material.icons.rounded.PersonAdd
 import androidx.compose.material.icons.rounded.SelectAll
 import androidx.compose.material.icons.rounded.Handyman
 import androidx.compose.material.icons.rounded.Settings
-import androidx.compose.material.icons.rounded.SimCard
 import androidx.compose.material.icons.rounded.QrCodeScanner
 import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.Star
@@ -51,7 +42,6 @@ import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationRail
 import androidx.compose.material3.NavigationRailItem
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -91,6 +81,8 @@ import app.parley.ui.history.RecentsInsightsAction
 import app.parley.ui.history.RecentsLayoutMenuItem
 import app.parley.ui.people.PeopleRoutes
 import app.parley.ui.qr.QrRoutes
+import app.parley.ui.ParleyScaffold
+import androidx.compose.material.icons.automirrored.rounded.MergeType
 
 /**
  * Home: one tab at a time under a shared header ([HomeHeader]), with a bottom bar on phones and a navigation rail on
@@ -171,7 +163,7 @@ fun HomeScreen(
     // With a single tab left there is nothing to switch between: no bar and no rail.
     val showBar = layout.showBar(tab)
 
-    Scaffold(
+    ParleyScaffold(
         modifier = Modifier.nestedScroll(scroll.nestedScrollConnection),
         topBar = {
             if (tab == StartTab.CONTACTS && selection.isNotEmpty()) {
@@ -328,7 +320,7 @@ private fun ColumnScope.TabMenu(vm: AppViewModel, tab: StartTab, appLock: Boolea
                 vm.selection.value = vm.people.filtered.value.orEmpty().map { it.id }.toSet()
             }
             MenuItem(stringResource(R.string.home_add_several), Icons.Rounded.GroupAdd) { go(MessagingRoutes.BULK_ADD) }
-            MenuItem(stringResource(R.string.home_duplicates), Icons.AutoMirrored.Rounded.CallMerge) { go(Routes.DUPLICATES) }
+            MenuItem(stringResource(R.string.home_duplicates), Icons.AutoMirrored.Rounded.MergeType) { go(Routes.DUPLICATES) }
             // Favourites shown in Contacts are reordered from here too.
             if (layout.favoritesInContacts) MenuItem(stringResource(R.string.home_reorder_title), Icons.Rounded.Star) { close(); onReorderFavorites() }
             // "Who's in…" (trip mode).

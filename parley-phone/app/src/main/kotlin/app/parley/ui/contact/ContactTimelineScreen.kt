@@ -5,7 +5,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.ui.platform.LocalContext
 import app.parley.common.PhoneIdentity
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -14,9 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Clear
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -25,9 +22,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -42,13 +37,10 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.heading
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.R
-import app.parley.common.PhoneNumbers
 import app.parley.common.circle.Timeline
 import app.parley.common.circle.TimelineEntry
 import app.parley.common.circle.TimelineFilter
@@ -70,6 +62,11 @@ import app.parley.ui.segmentShape
 import java.time.ZoneId
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
+import app.parley.ui.ParleyTopBar
+import app.parley.ui.ParleyScaffold
+import app.parley.ui.ParleyShapes
+import app.parley.ui.ListSectionHeader
+import app.parley.ui.Spacing
 
 /**
  * A contact's whole timeline on its own screen ("Show all" on the contact page): search the notes,
@@ -112,12 +109,15 @@ fun ContactTimelineScreen(vm: AppViewModel, contactId: Long, back: () -> Unit) {
     val monthFormat = rememberMonthFormat()
     val bar = TopAppBarDefaults.pinnedScrollBehavior()
 
-    Scaffold(
+    ParleyScaffold(
         modifier = Modifier.nestedScroll(bar.nestedScrollConnection),
         topBar = {
-            TopAppBar(
-                title = { Text(dd?.let { stringResource(R.string.contact_page_timeline_of, it.given.ifBlank { it.displayName }) } ?: stringResource(R.string.contact_page_sec_timeline)) },
-                navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.main_back)) } },
+            ParleyTopBar(
+                dd?.let { stringResource(
+                    R.string.contact_page_timeline_of,
+                    it.given.ifBlank { it.displayName },
+                ) } ?: stringResource(R.string.contact_page_sec_timeline),
+                onBack = back,
                 scrollBehavior = bar,
             )
         },
@@ -135,7 +135,7 @@ fun ContactTimelineScreen(vm: AppViewModel, contactId: Long, back: () -> Unit) {
                     leadingIcon = { Icon(Icons.Rounded.Search, null) },
                     trailingIcon = if (query.isEmpty()) null else ({ IconButton({ query = "" }) { Icon(Icons.Rounded.Clear, stringResource(R.string.contact_page_clear_search)) } }),
                     singleLine = true,
-                    shape = RoundedCornerShape(28.dp),
+                    shape = ParleyShapes.sheet,
                 )
             }
             item(key = "kinds") {
@@ -163,10 +163,7 @@ fun ContactTimelineScreen(vm: AppViewModel, contactId: Long, back: () -> Unit) {
             }
             shown.forEach { m ->
                 stickyHeader(key = "m" + m.month) {
-                    Text(
-                        m.month.atDay(1).format(monthFormat), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).padding(start = 32.dp, top = 12.dp, bottom = 6.dp).semantics { heading() },
-                    )
+                    ListSectionHeader(m.month.atDay(1).format(monthFormat), sticky = true, inset = Spacing.xxl, top = Spacing.m, bottom = 6.dp)
                 }
                 val n = m.entries.size
                 // Keys stay unique even if two entries look alike (a duplicate gets "#k" on its key).

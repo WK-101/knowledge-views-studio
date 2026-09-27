@@ -11,13 +11,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Dialpad
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.TouchApp
 import androidx.compose.material.icons.rounded.ViewAgenda
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
@@ -55,6 +53,11 @@ import app.parley.common.RecentTap
 import app.parley.common.StartTab
 import app.parley.ui.SegmentedGroup
 import kotlinx.coroutines.launch
+import app.parley.ui.SwitchRow
+import app.parley.ui.InfoRow
+import app.parley.ui.rowColors
+import app.parley.ui.ParleyDialog
+import app.parley.ui.ParleyShapes
 
 /**
  * Settings › Appearance › Layout. Both combine options with small previews, the question whether to
@@ -189,7 +192,7 @@ private fun AppSettings.homeLayout() = HomeLayout(navTabs, surfaces)
 /** Asks whether the absorbed tab also stays in the bar; dismissing changes nothing. */
 @Composable
 private fun KeepTabDialog(title: String, body: String, onDismiss: () -> Unit, onPick: (keep: Boolean) -> Unit) {
-    AlertDialog(
+    ParleyDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
         text = { Text(body) },
@@ -211,8 +214,8 @@ private fun PreviewChoices(options: List<Triple<String, Thumb, Boolean>>, onPick
             val cs = MaterialTheme.colorScheme
             Column(
                 Modifier.weight(1f)
-                    .clip(RoundedCornerShape(16.dp))
-                    .border(BorderStroke(if (selected) 2.dp else 1.dp, if (selected) cs.primary else cs.outlineVariant), RoundedCornerShape(16.dp))
+                    .clip(ParleyShapes.tile)
+                    .border(BorderStroke(if (selected) 2.dp else 1.dp, if (selected) cs.primary else cs.outlineVariant), ParleyShapes.tile)
                     .selectable(selected, role = Role.RadioButton) { onPick(i) }
                     .padding(8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,

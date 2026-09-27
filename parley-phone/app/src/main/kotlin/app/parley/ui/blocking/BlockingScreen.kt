@@ -1,7 +1,6 @@
 package app.parley.ui.blocking
 
 import android.Manifest
-import android.content.Context
 import android.content.Intent
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -18,10 +17,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.PlaylistAddCheck
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Bedtime
@@ -35,7 +32,6 @@ import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Rule
 import androidx.compose.material.icons.rounded.Security
 import androidx.compose.material.icons.rounded.VerifiedUser
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -46,14 +42,11 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.InputChip
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -107,9 +100,15 @@ import app.parley.ui.settings.bidiLtr
 import app.parley.ui.settings.settingTitle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import app.parley.ui.SwitchRow
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import app.parley.ui.ParleyTopBar
+import app.parley.ui.ParleyScaffold
+import app.parley.ui.ConfirmDialog
+import app.parley.ui.ListSectionHeader
 
 /** Situations, not mechanisms: each preset says what it's for and changes a few toggles. */
 private data class Preset(@StringRes val title: Int, @StringRes val help: Int, val apply: (AppSettings) -> AppSettings)
@@ -174,8 +173,8 @@ fun BlockingScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit = 
 
     // Scroll-linked top-bar tint.
     val barScroll = TopAppBarDefaults.pinnedScrollBehavior()
-    Scaffold(modifier = Modifier.nestedScroll(barScroll.nestedScrollConnection), topBar = {
-        TopAppBar(title = { Text(stringResource(R.string.blk_title)) }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.set_back)) } }, scrollBehavior = barScroll)
+    ParleyScaffold(modifier = Modifier.nestedScroll(barScroll.nestedScrollConnection), topBar = {
+        ParleyTopBar(stringResource(R.string.blk_title), onBack = back, scrollBehavior = barScroll)
     }) { p ->
         LazyColumn(Modifier.padding(p)) {
             item(key = "status") { ScreeningStatusCard(vm) }
@@ -215,16 +214,25 @@ fun BlockingScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit = 
             }
 
             item(key = "presets") {
-                Text(stringResource(R.string.blk_quick_setups), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(start = 16.dp, top = 8.dp))
+                ListSectionHeader(stringResource(R.string.blk_quick_setups), bottom = 0.dp)
                 Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     PRESETS.forEach { pr -> AssistChip({ presetToApply = pr }, { Text(stringResource(pr.title)) }) }
                 }
             }
 
             item(key = "main") { BlockingCard {
-                ToggleRow(stringResource(R.string.blk_hidden), stringResource(R.string.blk_hidden_help) + (s.hiddenSchedule?.let { " · ${BlockingText.schedule(context, it)}" } ?: ""), s.blockHidden, enabled = isDefault) { v -> setScreening { it.copy(blockHidden = v) } }
+                SwitchRow(
+                    stringResource(R.string.blk_hidden),
+                    stringResource(R.string.blk_hidden_help) + (s.hiddenSchedule?.let { " · ${BlockingText.schedule(context, it)}" } ?: ""),
+                    s.blockHidden,
+                    enabled = isDefault,
+                ) { v -> setScreening { it.copy(blockHidden = v) } }
                 if (!isDefault) Text(stringResource(R.string.blk_hidden_needs_default), Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
-                ToggleRow(stringResource(R.string.blk_non_contacts), stringResource(R.string.blk_non_contacts_help) + (s.nonContactsSchedule?.let { " · ${BlockingText.schedule(context, it)}" } ?: ""), s.blockNonContacts) { v -> setScreening { it.copy(blockNonContacts = v) } }
+                SwitchRow(
+                    stringResource(R.string.blk_non_contacts),
+                    stringResource(R.string.blk_non_contacts_help) + (s.nonContactsSchedule?.let { " · ${BlockingText.schedule(context, it)}" } ?: ""),
+                    s.blockNonContacts,
+                ) { v -> setScreening { it.copy(blockNonContacts = v) } }
                 ListItem(
                     headlineContent = { Text(stringResource(R.string.blk_when_stopped)) },
                     supportingContent = { Column { ActionChoice(s.defaultAction, { a -> setScreening { it.copy(defaultAction = a) } }, Modifier.padding(top = 8.dp)) } },
@@ -243,15 +251,27 @@ fun BlockingScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit = 
                     ),
                     "allow" in expanded, { toggle("allow") }, Icons.Rounded.VerifiedUser,
                 ) {
-                    ToggleRow(stringResource(R.string.blk_repeat_callers), stringResource(R.string.blk_repeat_callers_help, s.repeatWindowMinutes, s.repeatMinIntervalSeconds), settings.repeatCallerRingsThrough) { v ->
+                    SwitchRow(
+                        stringResource(R.string.blk_repeat_callers),
+                        stringResource(R.string.blk_repeat_callers_help, s.repeatWindowMinutes, s.repeatMinIntervalSeconds),
+                        settings.repeatCallerRingsThrough,
+                    ) { v ->
                         scope.launch { vm.c.settings.update { it.copy(repeatCallerRingsThrough = v) } }
                     }
                     if (settings.repeatCallerRingsThrough) {
                         LabeledSlider(stringResource(R.string.blk_repeat_window, s.repeatWindowMinutes), s.repeatWindowMinutes.toFloat(), 1f..15f, 13) { v -> setScreening { it.copy(repeatWindowMinutes = v.toInt()) } }
                         LabeledSlider(stringResource(R.string.blk_repeat_min_interval, s.repeatMinIntervalSeconds), s.repeatMinIntervalSeconds.toFloat(), 0f..60f, 11) { v -> setScreening { it.copy(repeatMinIntervalSeconds = v.toInt()) } }
                     }
-                    ToggleRow(stringResource(R.string.blk_numbers_you_called), pluralStringResource(R.plurals.blk_numbers_you_called_help, s.dialledDays, s.dialledDays), s.allowDialled) { v -> setScreening { it.copy(allowDialled = v) } }
-                    ToggleRow(stringResource(R.string.blk_people_you_talked_to), pluralStringResource(R.plurals.blk_people_you_talked_to_help, s.answeredDays, s.answeredMinSeconds, s.answeredDays), s.allowAnswered) { v -> setScreening { it.copy(allowAnswered = v) } }
+                    SwitchRow(
+                        stringResource(R.string.blk_numbers_you_called),
+                        pluralStringResource(R.plurals.blk_numbers_you_called_help, s.dialledDays, s.dialledDays),
+                        s.allowDialled,
+                    ) { v -> setScreening { it.copy(allowDialled = v) } }
+                    SwitchRow(
+                        stringResource(R.string.blk_people_you_talked_to),
+                        pluralStringResource(R.plurals.blk_people_you_talked_to_help, s.answeredDays, s.answeredMinSeconds, s.answeredDays),
+                        s.allowAnswered,
+                    ) { v -> setScreening { it.copy(allowAnswered = v) } }
                     TextButton({ open(BlockingRoutes.rule(0, RuleKind.ALLOW)) }, Modifier.padding(horizontal = 8.dp)) { Icon(Icons.Rounded.Add, null); Text(" " + stringResource(R.string.blk_allow_number_or_range)) }
                     allowRules.forEach { r -> RuleRow(vm, r, now) { open(BlockingRoutes.rule(r.id)) } }
                 }
@@ -324,11 +344,19 @@ fun BlockingScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit = 
                     },
                     "offhours" in expanded, { toggle("offhours") }, Icons.Rounded.Bedtime,
                 ) {
-                    ToggleRow(stringResource(R.string.blk_use_off_hours), null, oh.enabled) { v -> setScreening { it.copy(offHours = it.offHours.copy(enabled = v)) } }
+                    SwitchRow(
+                        stringResource(R.string.blk_use_off_hours),
+                        null,
+                        oh.enabled,
+                    ) { v -> setScreening { it.copy(offHours = it.offHours.copy(enabled = v)) } }
                     ScheduleField(oh.schedule, { sc -> setScreening { it.copy(offHours = it.offHours.copy(schedule = sc ?: Schedule(Schedule.ALL_DAYS, 22 * 60, 7 * 60))) } }, alwaysLabel = stringResource(R.string.blk_all_day))
                     OffHoursWho(vm, oh) { o -> setScreening { it.copy(offHours = o) } }
                     ListItem(headlineContent = { Text(stringResource(R.string.blk_everyone_else)) }, supportingContent = { ActionChoice(oh.action, { a -> setScreening { it.copy(offHours = it.offHours.copy(action = a)) } }, Modifier.padding(top = 8.dp)) })
-                    ToggleRow(stringResource(R.string.blk_offer_reply), stringResource(R.string.blk_offer_reply_help, s.busyReplyText), s.busyReply) { v -> setScreening { it.copy(busyReply = v) } }
+                    SwitchRow(
+                        stringResource(R.string.blk_offer_reply),
+                        stringResource(R.string.blk_offer_reply_help, s.busyReplyText),
+                        s.busyReply,
+                    ) { v -> setScreening { it.copy(busyReply = v) } }
                     if (s.busyReply) {
                         var text by remember(s.busyReplyText) { mutableStateOf(s.busyReplyText) }
                         OutlinedTextField(text, { text = it }, label = { Text(stringResource(R.string.blk_reply_text)) }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
@@ -348,12 +376,20 @@ fun BlockingScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit = 
                     ),
                     "more" in expanded, { toggle("more") }, Icons.Rounded.Security,
                 ) {
-                    ToggleRow(stringResource(R.string.blk_neighbour), stringResource(R.string.blk_neighbour_help), s.blockNeighbourSpoofing) { v ->
+                    SwitchRow(stringResource(R.string.blk_neighbour), stringResource(R.string.blk_neighbour_help), s.blockNeighbourSpoofing) { v ->
                         if (v && !Permissions.has(context, Manifest.permission.READ_PHONE_NUMBERS)) numbersPermission.launch(Manifest.permission.READ_PHONE_NUMBERS)
                         else setScreening { it.copy(blockNeighbourSpoofing = v) }
                     }
-                    ToggleRow(stringResource(R.string.blk_failed_verification), stringResource(R.string.blk_failed_verification_help), s.blockFailedVerification) { v -> setScreening { it.copy(blockFailedVerification = v) } }
-                    ToggleRow(stringResource(R.string.blk_cant_exist), stringResource(R.string.blk_cant_exist_help), s.blockInvalid) { v -> setScreening { it.copy(blockInvalid = v) } }
+                    SwitchRow(
+                        stringResource(R.string.blk_failed_verification),
+                        stringResource(R.string.blk_failed_verification_help),
+                        s.blockFailedVerification,
+                    ) { v -> setScreening { it.copy(blockFailedVerification = v) } }
+                    SwitchRow(
+                        stringResource(R.string.blk_cant_exist),
+                        stringResource(R.string.blk_cant_exist_help),
+                        s.blockInvalid,
+                    ) { v -> setScreening { it.copy(blockInvalid = v) } }
                     if (s.blockInvalid) ListItem(headlineContent = { Text(stringResource(R.string.blk_invalid_are)) }, supportingContent = { ActionChoice(s.invalidAction, { a -> setScreening { it.copy(invalidAction = a) } }, Modifier.padding(top = 8.dp)) })
                     Text(stringResource(R.string.blk_active), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(start = 16.dp, top = 8.dp))
                     ToggleScheduleRow(stringResource(R.string.blk_hidden_numbers), s.hiddenSchedule) { sc -> setScreening { it.copy(hiddenSchedule = sc) } }
@@ -472,22 +508,31 @@ fun BlockingScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit = 
     }
 
     presetToApply?.let { pr ->
-        AlertDialog(
-            onDismissRequest = { presetToApply = null },
-            title = { Text(stringResource(pr.title)) },
-            text = { Text(stringResource(pr.help)) },
-            confirmButton = { TextButton({ scope.launch { vm.c.settings.update(pr.apply) }; presetToApply = null }) { Text(stringResource(R.string.blk_use_this)) } },
-            dismissButton = { TextButton({ presetToApply = null }) { Text(stringResource(R.string.set_cancel)) } },
+        ConfirmDialog(
+            title = stringResource(pr.title),
+            text = stringResource(pr.help),
+            confirmLabel = stringResource(R.string.blk_use_this),
+            onConfirm = { scope.launch { vm.c.settings.update(pr.apply) }; presetToApply = null },
+            onDismiss = { presetToApply = null },
+            dismissLabel = stringResource(R.string.set_cancel),
         )
     }
     if (addNumber) {
         var n by remember { mutableStateOf("") }
-        AlertDialog(
-            onDismissRequest = { addNumber = false },
-            title = { Text(stringResource(R.string.blk_block_a_number)) },
-            text = { OutlinedTextField(n, { n = it }, label = { Text(stringResource(R.string.blk_phone_number)) }, singleLine = true, textStyle = ltrTextStyle()) },
-            confirmButton = { TextButton({ if (n.isNotBlank()) vm.blockNumber(n.trim()); addNumber = false }) { Text(stringResource(R.string.blk_block)) } },
-            dismissButton = { TextButton({ addNumber = false }) { Text(stringResource(R.string.set_cancel)) } },
+        ConfirmDialog(
+            title = stringResource(R.string.blk_block_a_number),
+            text = null,
+            confirmLabel = stringResource(R.string.blk_block),
+            onConfirm = { if (n.isNotBlank()) vm.blockNumber(n.trim()); addNumber = false },
+            onDismiss = { addNumber = false },
+            dismissLabel = stringResource(R.string.set_cancel),
+            content = { OutlinedTextField(
+                n,
+                { n = it },
+                label = { Text(stringResource(R.string.blk_phone_number)) },
+                singleLine = true,
+                textStyle = ltrTextStyle(),
+            ) },
         )
     }
 }
@@ -543,8 +588,16 @@ private fun SoundsSection(vm: AppViewModel, s: ScreeningSettings, set: ((Screeni
     val context = LocalContext.current
     var target by remember { mutableStateOf("") }
     val pick = rememberRingtonePicker { uri -> if (target == "repeat") set { it.copy(repeatRingtone = uri) } else set { it.copy(likelySpamRingtone = uri) } }
-    ToggleRow(stringResource(R.string.blk_loud_favourites), stringResource(R.string.blk_loud_favourites_help), s.ringLoudFavourites) { v -> set { it.copy(ringLoudFavourites = v) } }
-    ToggleRow(stringResource(R.string.blk_loud_repeat), stringResource(R.string.blk_loud_repeat_help, s.repeatWindowMinutes), s.ringLoudRepeat) { v -> set { it.copy(ringLoudRepeat = v) } }
+    SwitchRow(
+        stringResource(R.string.blk_loud_favourites),
+        stringResource(R.string.blk_loud_favourites_help),
+        s.ringLoudFavourites,
+    ) { v -> set { it.copy(ringLoudFavourites = v) } }
+    SwitchRow(
+        stringResource(R.string.blk_loud_repeat),
+        stringResource(R.string.blk_loud_repeat_help, s.repeatWindowMinutes),
+        s.ringLoudRepeat,
+    ) { v -> set { it.copy(ringLoudRepeat = v) } }
     ListItem(
         modifier = Modifier.clickable { target = "repeat"; pick(s.repeatRingtone) },
         headlineContent = { Text(stringResource(R.string.blk_ringtone_repeat)) },
@@ -608,10 +661,11 @@ private fun RuleRow(vm: AppViewModel, r: BlockRule, now: Long, onClick: () -> Un
     val expiresAt = r.expiresAt
     val expired = expiresAt != null && expiresAt <= now
     val context = LocalContext.current
+    val title = BlockingText.ruleTitle(context, r).let { if (r.note.isNullOrBlank() && r.type.isNumberRule) bidiLtr(it) else it }
     ListItem(
         modifier = Modifier.clickable(onClick = onClick),
         leadingContent = { Icon(if (r.kind == RuleKind.ALLOW) Icons.Rounded.VerifiedUser else Icons.Rounded.Rule, null) },
-        headlineContent = { Text(BlockingText.ruleTitle(context, r).let { if (r.note.isNullOrBlank() && r.type.isNumberRule) bidiLtr(it) else it }) },
+        headlineContent = { Text(title) },
         supportingContent = {
             Text(
                 listOfNotNull(
@@ -628,7 +682,12 @@ private fun RuleRow(vm: AppViewModel, r: BlockRule, now: Long, onClick: () -> Un
                 ).joinToString(" · "),
             )
         },
-        trailingContent = { Switch(r.enabled && !expired, { v -> scope.launch { vm.c.blocks.saveRule(r.copy(enabled = v, expiresAt = if (expired && v) null else r.expiresAt)) } }) },
+        // The row opens the rule; the switch is its own control and says which rule it turns on or off.
+        trailingContent = { Switch(
+            r.enabled && !expired,
+            modifier = Modifier.semantics { contentDescription = title },
+            onCheckedChange = { v -> scope.launch { vm.c.blocks.saveRule(r.copy(enabled = v, expiresAt = if (expired && v) null else r.expiresAt)) } },
+        ) },
     )
 }
 

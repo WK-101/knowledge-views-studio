@@ -15,7 +15,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.clickable
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
@@ -24,8 +23,8 @@ import app.parley.calltime.CallTimePlanner
 import app.parley.common.calltime.CallingConfig
 import app.parley.common.calltime.LimitRule
 import app.parley.common.calltime.LimitScope
-import app.parley.ui.settings.bidiLtr
-import app.parley.ui.settings.settingTitle
+import app.parley.ui.MenuRow
+import app.parley.ui.SwitchRow
 
 /**
  * Contact page rows "Talk-time reminder" and "Call time limit". A favourite can also be marked
@@ -45,7 +44,7 @@ fun ContactCallTimeRows(vm: AppViewModel, lookupKey: String, name: String, starr
     }
     val unlockReason = stringResource(R.string.ct_unlock_limits)
     Column {
-        ChoiceRow(
+        MenuRow(
             stringResource(R.string.ct_talk_time_reminder), labels, choices.indexOf(own ?: -1).coerceAtLeast(0),
             leading = { Icon(Icons.Rounded.Timer, null) },
         ) { i ->
@@ -85,7 +84,7 @@ fun ContactCallTimeRows(vm: AppViewModel, lookupKey: String, name: String, starr
             },
             onDismiss = { editLimit = false },
             extra = if (starred || never) {
-                { DialogSwitch(stringResource(R.string.ct_never_limit), stringResource(R.string.ct_never_limit_body), never) { never = it } }
+                { SwitchRow(stringResource(R.string.ct_never_limit), stringResource(R.string.ct_never_limit_body), never) { never = it } }
             } else {
                 null
             },

@@ -5,7 +5,6 @@ import android.content.ClipDescription
 import android.content.ClipboardManager
 import android.os.Build
 import android.os.PersistableBundle
-import android.widget.Toast
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -42,7 +41,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -94,6 +92,8 @@ import app.parley.ui.contact.ReachActionButton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import app.parley.ui.ParleySheet
+import app.parley.ui.showMessage
 
 /**
  * Who "Message or call on…" is for. Every surface opens the same sheet, with the same layout: the number, Call via
@@ -122,7 +122,7 @@ fun ReachSheet(
     onCall: ((String) -> Unit)? = null,
     onLaunched: (MessengerApp?) -> Unit = { onDismiss() },
 ) {
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    ParleySheet(onDismissRequest = onDismiss) {
         ReachSheetContent(target, onCall = onCall?.let { call -> { n -> onDismiss(); call(n) } }, onLaunched = onLaunched)
     }
 }
@@ -350,7 +350,7 @@ private fun PersonReach(r: Reach, onRemember: (MessengerPrefs) -> Unit, onCall: 
 
     fun done(app: MessengerApp?, err: String?, prefs: MessengerPrefs, withNumber: Boolean = true) {
         if (err != null) {
-            Toast.makeText(context, err, Toast.LENGTH_LONG).show()
+            showMessage(context, err, long = true)
             return
         }
         if (remember) onRemember(if (withNumber) prefs.copy(number = number?.takeIf { it != r.defaultNumber }) else prefs)
@@ -421,7 +421,7 @@ private fun PersonReach(r: Reach, onRemember: (MessengerPrefs) -> Unit, onCall: 
                 },
                 onViaChat = { app ->
                     val err = openChat(app)
-                    if (err == null) Toast.makeText(context, res.getString(R.string.reach_call_via_chat_hint), Toast.LENGTH_LONG).show()
+                    if (err == null) showMessage(context, res.getString(R.string.reach_call_via_chat_hint), long = true)
                     done(app, err, r.prefs, withNumber = false)
                 },
             )
@@ -480,7 +480,7 @@ private fun NumberReach(number: String, accountId: String?, onCall: ((String) ->
         ReachPlan.callOn(callApps, ReachGroups.group(actions.map { it.row }) { a, b -> PhoneNumbers.same(a, b, region) })
     }
     val isContact = known == true
-    fun toast(text: String) = Toast.makeText(context, text, Toast.LENGTH_LONG).show()
+    fun toast(text: String) = showMessage(context, text, long = true)
 
     fun launch(app: MessengerApp) {
         val link = e164?.let { MessengerLinks.build(app, it, draft) } ?: return

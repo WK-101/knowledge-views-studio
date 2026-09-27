@@ -21,3 +21,5 @@ rootProject.name = "parley-phone"
 include(":app", ":core:common", ":core:data", ":core:ui", ":telecom")
 // Optional companion app: downloads public spam lists for Parley, which has no internet access.
 include(":lists-updater")
+// detekt rules that keep screens on the shared components of core/ui.
+include(":tools:detekt-rules")

@@ -14,7 +14,6 @@ import androidx.compose.material.icons.rounded.DoNotDisturbOn
 import androidx.compose.material.icons.rounded.Handshake
 import androidx.compose.material.icons.rounded.SimCard
 import androidx.compose.material.icons.rounded.Star
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
@@ -45,6 +44,10 @@ import app.parley.common.extras.LabelPolicies
 import app.parley.common.extras.LabelPolicy
 import app.parley.ui.contact.Section
 import kotlinx.coroutines.launch
+import androidx.compose.ui.semantics.Role
+import androidx.compose.foundation.selection.toggleable
+import app.parley.ui.ParleyDialog
+import app.parley.ui.ConfirmDialog
 
 /**
  * A label's policies on its page, under the ringtone: the SIM to call its members on (when they have none of
@@ -106,16 +109,14 @@ fun LabelPolicySection(vm: AppViewModel, title: String, members: List<ContactSum
             }, Modifier.padding(start = 56.dp)) { Text(pluralStringResource(R.plurals.label_policy_add_members, outside.size, outside.size)) }
         }
         ListItem(
-            modifier = Modifier.clickable { if (p.allowThroughDnd) turnOffDnd(vm, title) { n -> vm.toast(res.getQuantityString(R.plurals.label_policy_unstarred, n, n)) } else explainDnd = true },
+            modifier = Modifier.toggleable(p.allowThroughDnd, role = Role.Switch) { on ->
+                if (on) explainDnd = true
+                else turnOffDnd(vm, title) { n -> vm.toast(res.getQuantityString(R.plurals.label_policy_unstarred, n, n)) }
+            },
             leadingContent = { Icon(Icons.Rounded.DoNotDisturbOn, null) },
             headlineContent = { Text(stringResource(R.string.label_policy_dnd)) },
             supportingContent = { Text(stringResource(R.string.label_policy_dnd_summary)) },
-            trailingContent = {
-                Switch(p.allowThroughDnd, { on ->
-                    if (on) explainDnd = true
-                    else turnOffDnd(vm, title) { n -> vm.toast(res.getQuantityString(R.plurals.label_policy_unstarred, n, n)) }
-                })
-            },
+            trailingContent = { Switch(p.allowThroughDnd, onCheckedChange = null) },
         )
         if (p.allowThroughDnd) {
             if (unstarred.isNotEmpty()) TextButton({ starNewOnly = true; explainDnd = true }, Modifier.padding(start = 56.dp)) {
@@ -126,7 +127,7 @@ fun LabelPolicySection(vm: AppViewModel, title: String, members: List<ContactSum
         }
     }
 
-    if (pickSim) AlertDialog(
+    if (pickSim) ParleyDialog(
         onDismissRequest = { pickSim = false },
         title = { Text(stringResource(R.string.label_policy_sim)) },
         text = {
@@ -144,7 +145,7 @@ fun LabelPolicySection(vm: AppViewModel, title: String, members: List<ContactSum
         },
         confirmButton = { TextButton({ pickSim = false }) { Text(stringResource(R.string.dc_cancel)) } },
     )
-    if (pickRhythm) AlertDialog(
+    if (pickRhythm) ParleyDialog(
         onDismissRequest = { pickRhythm = false },
         title = { Text(stringResource(R.string.label_policy_rhythm)) },
         text = {
@@ -165,11 +166,32 @@ fun LabelPolicySection(vm: AppViewModel, title: String, members: List<ContactSum
         },
         confirmButton = { TextButton({ pickRhythm = false }) { Text(stringResource(R.string.dc_cancel)) } },
     )
-    if (explainDnd) AlertDialog(
-        onDismissRequest = { explainDnd = false; starNewOnly = false },
-        icon = { Icon(Icons.Rounded.DoNotDisturbOn, null) },
-        title = { Text(stringResource(R.string.label_policy_dnd_title, title)) },
-        text = {
+    if (explainDnd) ConfirmDialog(
+        title = stringResource(R.string.label_policy_dnd_title, title),
+        text = null,
+        confirmLabel = when {
+            unstarred.isEmpty() -> stringResource(R.string.label_policy_dnd_open)
+            else -> pluralStringResource(R.plurals.label_policy_dnd_star_confirm, unstarred.size, unstarred.size)
+        },
+        onConfirm = {
+            val newOnly = starNewOnly
+            explainDnd = false
+            starNewOnly = false
+            scope.launch {
+                if (newOnly) {
+                    vm.c.extras.starForDnd(title, unstarred)
+                } else {
+                    vm.c.extras.updatePolicy(title) { it.copy(allowThroughDnd = true) }
+                    // Every member: those Parley starred for another label are recorded under this one too.
+                    vm.c.extras.starForDnd(title, members)
+                    openDndSettings(context)
+                }
+            }
+        },
+        onDismiss = { explainDnd = false; starNewOnly = false },
+        dismissLabel = stringResource(R.string.dc_cancel),
+        icon = Icons.Rounded.DoNotDisturbOn,
+        content = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
                 if (unstarred.isEmpty()) {
                     Text(stringResource(R.string.label_policy_dnd_all_starred), style = MaterialTheme.typography.bodyMedium)
@@ -189,31 +211,6 @@ fun LabelPolicySection(vm: AppViewModel, title: String, members: List<ContactSum
                 )
             }
         },
-        confirmButton = {
-            TextButton({
-                val newOnly = starNewOnly
-                explainDnd = false
-                starNewOnly = false
-                scope.launch {
-                    if (newOnly) {
-                        vm.c.extras.starForDnd(title, unstarred)
-                    } else {
-                        vm.c.extras.updatePolicy(title) { it.copy(allowThroughDnd = true) }
-                        // Every member: those Parley starred for another label are recorded under this one too.
-                        vm.c.extras.starForDnd(title, members)
-                        openDndSettings(context)
-                    }
-                }
-            }) {
-                Text(
-                    when {
-                        unstarred.isEmpty() -> stringResource(R.string.label_policy_dnd_open)
-                        else -> pluralStringResource(R.plurals.label_policy_dnd_star_confirm, unstarred.size, unstarred.size)
-                    },
-                )
-            }
-        },
-        dismissButton = { TextButton({ explainDnd = false; starNewOnly = false }) { Text(stringResource(R.string.dc_cancel)) } },
     )
 }
 

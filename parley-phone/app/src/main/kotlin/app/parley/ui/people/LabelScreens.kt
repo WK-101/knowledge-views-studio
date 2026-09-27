@@ -15,21 +15,17 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.Label
 import androidx.compose.material.icons.automirrored.rounded.LabelOff
 import androidx.compose.material.icons.automirrored.rounded.Message
 import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.Block
-import androidx.compose.material.icons.rounded.CallMerge
+import androidx.compose.material.icons.automirrored.rounded.MergeType
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Email
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.MusicNote
-import androidx.compose.material.icons.rounded.VerifiedUser
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -40,10 +36,8 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -76,6 +70,10 @@ import kotlinx.coroutines.withContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import app.parley.R
+import app.parley.ui.ParleyTopBar
+import app.parley.ui.ParleyScaffold
+import app.parley.ui.BackButton
+import app.parley.ui.ConfirmDialog
 
 /** Settings-like screen listing every label: open, create, rename, delete and merge. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -99,13 +97,13 @@ fun ManageLabelsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Uni
 
     // Scroll-linked top-bar tint.
     val barTint = TopAppBarDefaults.pinnedScrollBehavior()
-    Scaffold(modifier = Modifier.nestedScroll(barTint.nestedScrollConnection), topBar = {
-        TopAppBar(
+    ParleyScaffold(modifier = Modifier.nestedScroll(barTint.nestedScrollConnection), topBar = {
+        ParleyTopBar(
             scrollBehavior = barTint,
             title = { Text(if (merging) pluralStringResource(R.plurals.lbl_selected, picked.size, picked.size) else stringResource(R.string.lbl_title)) },
             navigationIcon = {
                 if (merging) IconButton({ merging = false; picked = emptySet() }) { Icon(Icons.Rounded.Close, stringResource(R.string.lbl_stop_merging)) }
-                else IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.dc_back)) }
+                else BackButton(back)
             },
             actions = {
                 if (merging) {
@@ -115,14 +113,18 @@ fun ManageLabelsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Uni
                     Box {
                         IconButton({ menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.dc_more)) }
                         DropdownMenu(menu, { menu = false }) {
-                            DropdownMenuItem({ Text(stringResource(R.string.lbl_merge_labels)) }, leadingIcon = { Icon(Icons.Rounded.CallMerge, null) }, onClick = { menu = false; merging = true })
+                            DropdownMenuItem(
+                                { Text(stringResource(R.string.lbl_merge_labels)) },
+                                leadingIcon = { Icon(Icons.AutoMirrored.Rounded.MergeType, null) },
+                                onClick = { menu = false; merging = true },
+                            )
                         }
                     }
                 }
             },
         )
     }) { p ->
-        val list = labels ?: return@Scaffold
+        val list = labels ?: return@ParleyScaffold
         val unlabelled = all.orEmpty().count { idx.extras[it.id]?.labels.isNullOrEmpty() }
         LazyColumn(Modifier.padding(p)) {
             if (merging) item {
@@ -177,10 +179,24 @@ fun ManageLabelsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Uni
 
     if (mergeTarget) {
         var target by remember { mutableStateOf(picked.first()) }
-        AlertDialog(
-            onDismissRequest = { mergeTarget = false },
-            title = { Text(stringResource(R.string.lbl_merge_into)) },
-            text = {
+        ConfirmDialog(
+            title = stringResource(R.string.lbl_merge_into),
+            text = null,
+            confirmLabel = stringResource(R.string.lbl_merge),
+            onConfirm = {
+                mergeTarget = false
+                scope.launch {
+                    val n = runCatching { vm.c.people.labels.merge(picked, target) }.getOrElse { vm.toast(res.getString(R.string.lbl_merge_failed, it.message.toString())); return@launch }
+                    vm.toast(if (n > 0) res.getQuantityString(R.plurals.lbl_merged_added, n, n, target) else res.getString(R.string.lbl_merged, target))
+                    merging = false
+                    picked = emptySet()
+                    vm.c.contacts.refresh()
+                    round++
+                }
+            },
+            onDismiss = { mergeTarget = false },
+            dismissLabel = stringResource(R.string.dc_cancel),
+            content = {
                 Column {
                     picked.sorted().forEach { t ->
                         ListItem(
@@ -193,40 +209,26 @@ fun ManageLabelsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Uni
                     Text(stringResource(R.string.lbl_merge_note, target), style = MaterialTheme.typography.bodySmall)
                 }
             },
-            confirmButton = {
-                TextButton({
-                    mergeTarget = false
-                    scope.launch {
-                        val n = runCatching { vm.c.people.labels.merge(picked, target) }.getOrElse { vm.toast(res.getString(R.string.lbl_merge_failed, it.message.toString())); return@launch }
-                        vm.toast(if (n > 0) res.getQuantityString(R.plurals.lbl_merged_added, n, n, target) else res.getString(R.string.lbl_merged, target))
-                        merging = false
-                        picked = emptySet()
-                        vm.c.contacts.refresh()
-                        round++
-                    }
-                }) { Text(stringResource(R.string.lbl_merge)) }
-            },
-            dismissButton = { TextButton({ mergeTarget = false }) { Text(stringResource(R.string.dc_cancel)) } },
         )
     }
     if (creating) CreateLabelDialog(vm, onDismiss = { creating = false }) { round++ }
     renaming?.let { old -> RenameLabelDialog(vm, old, onDismiss = { renaming = null }) { round++ } }
     deleting?.let { t ->
-        AlertDialog(
-            onDismissRequest = { deleting = null },
-            title = { Text(stringResource(R.string.lbl_delete_title, t)) },
-            text = { Text(stringResource(R.string.lbl_delete_text)) },
-            confirmButton = {
-                TextButton({
-                    deleting = null
-                    scope.launch {
-                        runCatching { vm.c.people.labels.delete(t) }.getOrNull()?.let { vm.toast(it) }
-                        vm.c.contacts.refresh()
-                        round++
-                    }
-                }) { Text(stringResource(R.string.dc_delete)) }
+        ConfirmDialog(
+            title = stringResource(R.string.lbl_delete_title, t),
+            text = stringResource(R.string.lbl_delete_text),
+            confirmLabel = stringResource(R.string.dc_delete),
+            onConfirm = {
+                deleting = null
+                scope.launch {
+                    runCatching { vm.c.people.labels.delete(t) }.getOrNull()?.let { vm.toast(it) }
+                    vm.c.contacts.refresh()
+                    round++
+                }
             },
-            dismissButton = { TextButton({ deleting = null }) { Text(stringResource(R.string.dc_cancel)) } },
+            onDismiss = { deleting = null },
+            destructive = true,
+            dismissLabel = stringResource(R.string.dc_cancel),
         )
     }
 }
@@ -245,10 +247,21 @@ private fun CreateLabelDialog(vm: AppViewModel, onDismiss: () -> Unit, onCreated
         val s = vm.settings.value
         account = accounts.firstOrNull { it.type == s.defaultAccountType && it.name == s.defaultAccountName } ?: accounts.firstOrNull { it.type == "com.google" } ?: accounts.firstOrNull()
     }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.lbl_new)) },
-        text = {
+    ConfirmDialog(
+        title = stringResource(R.string.lbl_new),
+        text = null,
+        confirmLabel = stringResource(R.string.lbl_create),
+        onConfirm = {
+            val a = account ?: return@ConfirmDialog
+            onDismiss()
+            scope.launch {
+                if (vm.c.people.labels.create(name, a) != null) { vm.toast(res.getString(R.string.lbl_created, name.trim())); onCreated() } else vm.toast(res.getString(R.string.lbl_create_failed))
+            }
+        },
+        onDismiss = onDismiss,
+        dismissLabel = stringResource(R.string.dc_cancel),
+        confirmEnabled = name.isNotBlank() && account != null,
+        content = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
                 OutlinedTextField(name, { name = it }, label = { Text(stringResource(R.string.lbl_name)) }, singleLine = true)
                 Text(stringResource(R.string.lbl_saved_in), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 12.dp))
@@ -261,16 +274,6 @@ private fun CreateLabelDialog(vm: AppViewModel, onDismiss: () -> Unit, onCreated
                 }
             }
         },
-        confirmButton = {
-            TextButton({
-                val a = account ?: return@TextButton
-                onDismiss()
-                scope.launch {
-                    if (vm.c.people.labels.create(name, a) != null) { vm.toast(res.getString(R.string.lbl_created, name.trim())); onCreated() } else vm.toast(res.getString(R.string.lbl_create_failed))
-                }
-            }, enabled = name.isNotBlank() && account != null) { Text(stringResource(R.string.lbl_create)) }
-        },
-        dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dc_cancel)) } },
     )
 }
 
@@ -280,27 +283,28 @@ private fun RenameLabelDialog(vm: AppViewModel, old: String, onDismiss: () -> Un
     val context = LocalContext.current
     val res = LocalResources.current
     var name by remember { mutableStateOf(old) }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.lbl_rename_title)) },
-        text = {
+    ConfirmDialog(
+        title = stringResource(R.string.lbl_rename_title),
+        text = null,
+        confirmLabel = stringResource(R.string.lbl_rename),
+        onConfirm = {
+            onDismiss()
+            scope.launch {
+                // Its ringtone, rules, limits and off-hours choice follow the label (see LabelReferences).
+                runCatching { vm.c.people.labels.rename(old, name) }.onFailure { vm.toast(res.getString(R.string.lbl_rename_failed, it.message.toString())) }
+                vm.c.contacts.refresh()
+                onDone(name.trim())
+            }
+        },
+        onDismiss = onDismiss,
+        dismissLabel = stringResource(R.string.dc_cancel),
+        confirmEnabled = name.isNotBlank() && name.trim() != old,
+        content = {
             Column {
                 OutlinedTextField(name, { name = it }, singleLine = true)
                 Text(stringResource(R.string.lbl_rename_note), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp))
             }
         },
-        confirmButton = {
-            TextButton({
-                onDismiss()
-                scope.launch {
-                    // Its ringtone, rules, limits and off-hours choice follow the label (see LabelReferences).
-                    runCatching { vm.c.people.labels.rename(old, name) }.onFailure { vm.toast(res.getString(R.string.lbl_rename_failed, it.message.toString())) }
-                    vm.c.contacts.refresh()
-                    onDone(name.trim())
-                }
-            }, enabled = name.isNotBlank() && name.trim() != old) { Text(stringResource(R.string.lbl_rename)) }
-        },
-        dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dc_cancel)) } },
     )
 }
 
@@ -337,11 +341,10 @@ fun LabelScreen(vm: AppViewModel, title: String, back: () -> Unit, open: (String
 
     // Scroll-linked top-bar tint.
     val barTint = TopAppBarDefaults.pinnedScrollBehavior()
-    Scaffold(modifier = Modifier.nestedScroll(barTint.nestedScrollConnection), topBar = {
-        TopAppBar(
-            scrollBehavior = barTint,
-            title = { Text(current) },
-            navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.dc_back)) } },
+    ParleyScaffold(modifier = Modifier.nestedScroll(barTint.nestedScrollConnection), topBar = {
+        ParleyTopBar(
+            current,
+            onBack = back,
             actions = {
                 IconButton({
                     val numbers = members.mapNotNull { c -> (c.phones.firstOrNull { it.isPrimary } ?: c.phones.firstOrNull { it.type == 2 } ?: c.phones.firstOrNull())?.number }
@@ -366,6 +369,7 @@ fun LabelScreen(vm: AppViewModel, title: String, back: () -> Unit, open: (String
                     }
                 }
             },
+            scrollBehavior = barTint,
         )
     }) { p ->
         LazyColumn(Modifier.padding(p)) {
@@ -401,22 +405,22 @@ fun LabelScreen(vm: AppViewModel, title: String, back: () -> Unit, open: (String
     }
     if (renaming) RenameLabelDialog(vm, current, onDismiss = { renaming = false }) { current = it }
     if (confirmDelete) {
-        AlertDialog(
-            onDismissRequest = { confirmDelete = false },
-            title = { Text(stringResource(R.string.lbl_delete_title, current)) },
-            text = { Text(pluralStringResource(R.plurals.lbl_delete_text_n, members.size, members.size)) },
-            confirmButton = {
-                TextButton({
-                    confirmDelete = false
-                    scope.launch {
-                        // Its ringtone, rules and limits go with it; a notice says when off hours had to change.
-                        runCatching { vm.c.people.labels.delete(current) }.getOrNull()?.let { vm.toast(it) }
-                        vm.c.contacts.refresh()
-                        back()
-                    }
-                }) { Text(stringResource(R.string.dc_delete)) }
+        ConfirmDialog(
+            title = stringResource(R.string.lbl_delete_title, current),
+            text = pluralStringResource(R.plurals.lbl_delete_text_n, members.size, members.size),
+            confirmLabel = stringResource(R.string.dc_delete),
+            onConfirm = {
+                confirmDelete = false
+                scope.launch {
+                    // Its ringtone, rules and limits go with it; a notice says when off hours had to change.
+                    runCatching { vm.c.people.labels.delete(current) }.getOrNull()?.let { vm.toast(it) }
+                    vm.c.contacts.refresh()
+                    back()
+                }
             },
-            dismissButton = { TextButton({ confirmDelete = false }) { Text(stringResource(R.string.dc_cancel)) } },
+            onDismiss = { confirmDelete = false },
+            destructive = true,
+            dismissLabel = stringResource(R.string.dc_cancel),
         )
     }
 }

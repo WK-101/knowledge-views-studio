@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Wallpaper
 import androidx.compose.material3.Icon
@@ -36,6 +35,8 @@ import app.parley.data.ContactDetails
 import app.parley.ui.PhotoCache
 import androidx.compose.ui.res.stringResource
 import app.parley.R
+import app.parley.ui.ParleyShapes
+import app.parley.ui.ListSectionHeader
 
 /** What the editor will do with the call-screen background on save. */
 sealed interface BackgroundChange {
@@ -56,7 +57,7 @@ fun CallBackgroundEditor(vm: AppViewModel, lookupKey: String, change: Background
     }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri -> if (uri != null) onChange(BackgroundChange.Set(uri)) }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(stringResource(R.string.ppl_bg_title), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
+        ListSectionHeader(stringResource(R.string.ppl_bg_title), inset = 0.dp, top = 0.dp, bottom = 0.dp)
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Preview(shown, version)
             Column {
@@ -76,7 +77,7 @@ fun CallBackgroundEditor(vm: AppViewModel, lookupKey: String, change: Background
 private fun Preview(uri: String?, version: Int) {
     val context = LocalContext.current
     val img by produceState<ImageBitmap?>(null, uri, version) { value = uri?.let { PhotoCache.load(context, it, 256)?.asImageBitmap() } }
-    val m = Modifier.size(64.dp, 96.dp).clip(RoundedCornerShape(12.dp))
+    val m = Modifier.size(64.dp, 96.dp).clip(ParleyShapes.control)
     val b = img
     if (b != null) Image(b, stringResource(R.string.ppl_bg_desc), m, contentScale = ContentScale.Crop) else Icon(Icons.Rounded.Wallpaper, null, Modifier.size(64.dp))
 }

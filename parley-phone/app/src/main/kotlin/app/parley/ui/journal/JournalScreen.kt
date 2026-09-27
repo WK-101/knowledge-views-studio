@@ -1,25 +1,16 @@
 package app.parley.ui.journal
 
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.History
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -32,6 +23,7 @@ import kotlinx.coroutines.launch
 import androidx.annotation.StringRes
 import androidx.compose.ui.res.stringResource
 import app.parley.R
+import app.parley.ui.ParleyListItem
 
 @StringRes private fun actionText(a: String): Int? = when (a) {
     "DELETE" -> R.string.jr_deleted
@@ -58,7 +50,7 @@ fun JournalList(vm: AppViewModel, open: (String) -> Unit, onShowSnapshots: () ->
     }
     LazyColumn(modifier) {
         items(entries, key = { it.id }) { e ->
-            ListItem(
+            ParleyListItem(
                 leadingContent = { Avatar(e.displayName, null) },
                 headlineContent = { Text(e.displayName) },
                 supportingContent = {

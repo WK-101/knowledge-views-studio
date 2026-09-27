@@ -18,19 +18,16 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Backspace
 import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Dialpad
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -71,6 +68,11 @@ import app.parley.ui.Bidi
 import app.parley.ui.CallColors
 import app.parley.ui.ForceLtr
 import app.parley.ui.common.CoachMarkAnchor
+import app.parley.ui.LocalSnackbar
+import app.parley.ui.ScreenSnackbarHost
+import app.parley.ui.ParleyDialog
+import app.parley.ui.ConfirmDialog
+import app.parley.ui.ParleyShapes
 
 /**
  * The simple home, shown instead of the tabs while simple mode is on. Big photo tiles (up to 3 × 3), each asks
@@ -91,7 +93,7 @@ fun SimpleHome(vm: AppViewModel) {
     var digits by rememberSaveable { mutableStateOf("") }
     var calling by remember { mutableStateOf<Pair<String, String>?>(null) }
     var askExit by remember { mutableStateOf(false) }
-    val snackbar = remember { SnackbarHostState() }
+    val snackbar = LocalSnackbar.current?.state ?: remember { SnackbarHostState() }
 
     // Links into the app still work where they make sense here: a number to dial opens the keypad with it.
     LaunchedEffect(Unit) {
@@ -116,15 +118,18 @@ fun SimpleHome(vm: AppViewModel) {
                     )
                     // Press and hold, so a stray tap never leaves simple mode.
                     val leave = stringResource(R.string.simple_leave)
+                    val hold = stringResource(R.string.simple_leave_hold)
                     CoachMarkAnchor(Tips.SIMPLE_LEAVE, stringResource(R.string.simple_leave_hold)) {
                     Text(
                         leave,
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.clip(RoundedCornerShape(12.dp))
+                        modifier = Modifier.clip(ParleyShapes.control)
                             .combinedClickable(
-                                onClickLabel = leave,
-                                onClick = { vm.toast(res.getString(R.string.simple_leave_hold)) },
+                                // A tap only explains; the long press leaves, and TalkBack says so.
+                                onClickLabel = hold,
+                                onClick = { vm.toast(hold) },
+                                onLongClickLabel = leave,
                                 onLongClick = { askExit = true },
                             )
                             .padding(horizontal = 12.dp, vertical = 8.dp),
@@ -138,7 +143,7 @@ fun SimpleHome(vm: AppViewModel) {
                     TileGrid(tiles, Modifier.weight(1f)) { name, number -> calling = name to number }
                     if (cfg.showKeypad) {
                         Spacer(Modifier.height(12.dp))
-                        Button({ keypad = true }, Modifier.fillMaxWidth().height(72.dp), shape = RoundedCornerShape(24.dp)) {
+                        Button({ keypad = true }, Modifier.fillMaxWidth().height(72.dp), shape = ParleyShapes.panel) {
                             Icon(Icons.Rounded.Dialpad, null, Modifier.size(32.dp))
                             Spacer(Modifier.size(12.dp))
                             Text(stringResource(R.string.simple_keypad_open), fontSize = 24.sp)
@@ -146,12 +151,12 @@ fun SimpleHome(vm: AppViewModel) {
                     }
                 }
             }
-            SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 96.dp))
+            ScreenSnackbarHost(Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 96.dp))
         }
     }
 
     calling?.let { (name, number) ->
-        AlertDialog(
+        ParleyDialog(
             onDismissRequest = { calling = null },
             title = { Text(stringResource(R.string.simple_call_q, name), style = MaterialTheme.typography.headlineMedium) },
             confirmButton = {
@@ -168,22 +173,21 @@ fun SimpleHome(vm: AppViewModel) {
             dismissButton = { TextButton({ calling = null }, Modifier.height(64.dp)) { Text(stringResource(R.string.dc_cancel), fontSize = 20.sp) } },
         )
     }
-    if (askExit) AlertDialog(
-        onDismissRequest = { askExit = false },
-        title = { Text(stringResource(R.string.simple_leave_q)) },
-        text = { Text(stringResource(R.string.simple_leave_body)) },
-        confirmButton = {
-            TextButton({
-                askExit = false
-                val act = context as? FragmentActivity
-                if (settings.appLock && act != null) {
-                    AppLock.authenticate(act, res.getString(R.string.simple_leave_q)) { ok -> if (ok) vm.c.extras.updateSimple { it.copy(enabled = false) } }
-                } else {
-                    vm.c.extras.updateSimple { it.copy(enabled = false) }
-                }
-            }) { Text(stringResource(R.string.simple_leave)) }
+    if (askExit) ConfirmDialog(
+        title = stringResource(R.string.simple_leave_q),
+        text = stringResource(R.string.simple_leave_body),
+        confirmLabel = stringResource(R.string.simple_leave),
+        onConfirm = {
+            askExit = false
+            val act = context as? FragmentActivity
+            if (settings.appLock && act != null) {
+                AppLock.authenticate(act, res.getString(R.string.simple_leave_q)) { ok -> if (ok) vm.c.extras.updateSimple { it.copy(enabled = false) } }
+            } else {
+                vm.c.extras.updateSimple { it.copy(enabled = false) }
+            }
         },
-        dismissButton = { TextButton({ askExit = false }) { Text(stringResource(R.string.dc_cancel)) } },
+        onDismiss = { askExit = false },
+        dismissLabel = stringResource(R.string.dc_cancel),
     )
 }
 
@@ -214,7 +218,7 @@ private fun Tile(t: SimpleSetup.Resolved, onCall: (String, String) -> Unit) {
     val label = stringResource(R.string.circle_call_who, t.person.name)
     Surface(
         onClick = { onCall(t.person.name, t.person.number) },
-        shape = RoundedCornerShape(24.dp),
+        shape = ParleyShapes.panel,
         color = MaterialTheme.colorScheme.secondaryContainer,
         modifier = Modifier.fillMaxSize().semantics { onClick(label) { onCall(t.person.name, t.person.number); true } },
     ) {
@@ -259,7 +263,7 @@ private fun SimpleKeypad(digits: String, onDigits: (String) -> Unit, onClose: ()
         }
     }
     Button(
-        onCall, enabled = digits.isNotBlank(), modifier = Modifier.fillMaxWidth().height(80.dp), shape = RoundedCornerShape(28.dp),
+        onCall, enabled = digits.isNotBlank(), modifier = Modifier.fillMaxWidth().height(80.dp), shape = ParleyShapes.sheet,
         colors = ButtonDefaults.buttonColors(containerColor = CallColors.Accept),
     ) {
         Icon(Icons.Rounded.Call, null, Modifier.size(36.dp))
@@ -272,7 +276,7 @@ private fun SimpleKeypad(digits: String, onDigits: (String) -> Unit, onClose: ()
 @Composable
 private fun Key(k: String, modifier: Modifier, onLong: (() -> Unit)? = null, onClick: () -> Unit) {
     Box(
-        modifier.clip(RoundedCornerShape(20.dp)).background(MaterialTheme.colorScheme.surfaceContainerHigh)
+        modifier.clip(ParleyShapes.card).background(MaterialTheme.colorScheme.surfaceContainerHigh)
             .combinedClickable(role = Role.Button, onLongClick = onLong, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) { Text(k, fontSize = 40.sp, style = MaterialTheme.typography.displaySmall) }

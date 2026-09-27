@@ -5,7 +5,6 @@ import android.content.ClipDescription
 import android.content.ClipboardManager
 import android.os.Build
 import android.os.PersistableBundle
-import android.widget.Toast
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material3.DropdownMenuItem
@@ -19,6 +18,7 @@ import app.parley.common.people.Reports
 import app.parley.ui.common.Format
 import androidx.compose.ui.res.stringResource
 import app.parley.R
+import app.parley.ui.showMessage
 
 /**
  * "Copy as text" for selected contacts: names, numbers (with their type) and e-mail addresses as plain text.
@@ -43,6 +43,6 @@ fun CopyAsTextMenuItem(chosen: List<ContactSummary>, close: () -> Unit) {
             clip.description.extras = PersistableBundle().apply { putBoolean("android.content.extra.IS_SENSITIVE", true) }
         }
         context.getSystemService(ClipboardManager::class.java).setPrimaryClip(clip)
-        Toast.makeText(context, res.getQuantityString(R.plurals.ppl_copied, chosen.size, chosen.size), Toast.LENGTH_SHORT).show()
+        showMessage(context, res.getQuantityString(R.plurals.ppl_copied, chosen.size, chosen.size))
     })
 }
