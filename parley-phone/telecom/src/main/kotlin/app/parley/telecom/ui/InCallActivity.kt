@@ -38,9 +38,9 @@ import app.parley.ui.AppLocale
 import app.parley.ui.ParleyTheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import android.widget.Toast
 import androidx.lifecycle.lifecycleScope
 import app.parley.common.calls.CallWaiting
+import app.parley.ui.systemMessage
 
 class InCallActivity : ComponentActivity() {
     // The in-app language on Android 10-12 (Android 13+ applies per-app languages itself).
@@ -157,7 +157,7 @@ class InCallActivity : ComponentActivity() {
             val problem = CallManager.redial(number, c.accountId)
             if (problem != null) {
                 CallManager.restoreFailure(c)
-                Toast.makeText(this@InCallActivity, problem, Toast.LENGTH_LONG).show()
+                systemMessage(this@InCallActivity, problem, long = true)
             } else {
                 // The new call opens this screen again; if it never comes, the screen closes as usual.
                 keepEnded = false
@@ -250,13 +250,13 @@ class InCallActivity : ComponentActivity() {
             // Saved without unlocking (like a note during the call); nothing is shown back.
             is PostCallChoice.Remember -> {
                 runCatching { deps.rememberAfterCall(choice.number, choice.connectTimeMillis, choice.note, choice.followUpDays) }
-                Toast.makeText(this, getString(R.string.memory_saved), Toast.LENGTH_SHORT).show()
+                systemMessage(this, getString(R.string.memory_saved))
                 if (CallManager.state.value.isEmpty()) finishAndRemoveTask()
             }
             is PostCallChoice.SavePrivately -> unlockThen {
                 lifecycleScope.launch {
                     val said = runCatching { deps.savePrivately(choice.number, choice.name) }.getOrNull()
-                    Toast.makeText(this@InCallActivity, said ?: getString(R.string.incall_save_failed), Toast.LENGTH_LONG).show()
+                    systemMessage(this@InCallActivity, said ?: getString(R.string.incall_save_failed), long = true)
                     if (said != null && CallManager.state.value.isEmpty()) finishAndRemoveTask()
                 }
             }

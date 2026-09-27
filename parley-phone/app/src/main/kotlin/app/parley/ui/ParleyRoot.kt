@@ -18,7 +18,6 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -88,7 +87,6 @@ import app.parley.ui.sync.FolderSyncScreen
 import app.parley.ui.temporary.TemporaryContactsScreen
 import app.parley.ui.timemachine.VersionHistoryScreen
 import app.parley.ui.vault.VaultDetailScreen
-import androidx.compose.runtime.rememberCoroutineScope
 import app.parley.ui.common.ProvideAppKit
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
@@ -144,10 +142,8 @@ object Routes {
  */
 @Composable
 fun ParleyRoot(vm: AppViewModel) {
-    val scope = rememberCoroutineScope()
-    val snackbar = remember { ParleySnackbar(SnackbarHostState(), scope) }
     ProvideAppKit {
-        CompositionLocalProvider(LocalSnackbar provides snackbar) { ParleyRootContent(vm, snackbar) }
+        ProvideSnackbar { snackbar -> ParleyRootContent(vm, snackbar) }
     }
 }
 

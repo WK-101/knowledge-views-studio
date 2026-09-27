@@ -3,7 +3,6 @@ package app.parley.ui.people
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
-import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -74,6 +73,7 @@ import app.parley.ui.DataL10n
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import app.parley.ui.ParleyDialog
+import app.parley.ui.showMessage
 
 /** Imports the old "My details" once, so the card starts with what was typed there. */
 @Composable
@@ -244,7 +244,7 @@ private fun shareVcard(context: Context, card: MeCard, parts: Set<MeCards.Part>)
         val send = Intent(Intent.ACTION_SEND).setType("text/x-vcard").putExtra(Intent.EXTRA_STREAM, uri)
             .putExtra(Intent.EXTRA_SUBJECT, card.name.ifBlank { context.getString(R.string.me_title) }).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         context.startActivity(Intent.createChooser(send, context.getString(R.string.me_share_chooser)))
-    }.onFailure { Toast.makeText(context, context.getString(R.string.me_share_failed), Toast.LENGTH_SHORT).show() }
+    }.onFailure { showMessage(context, context.getString(R.string.me_share_failed)) }
 }
 
 /** The card as a QR code (made on the phone), with the parts to include. [onEdit]: Q3, an Edit button to the editor. */

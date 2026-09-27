@@ -1,6 +1,8 @@
 package app.parley.ui
 
+import android.app.Activity
 import android.content.Context
+import android.content.ContextWrapper
 import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -27,6 +29,8 @@ import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.contentColorFor
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
@@ -41,6 +45,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.CoroutineScope
+import java.util.WeakHashMap
 import kotlinx.coroutines.launch
 
 /**
@@ -80,19 +85,50 @@ fun ScreenSnackbarHost(modifier: Modifier = Modifier) {
 }
 
 /**
- * A short message for the user: the app's snackbar inside Parley's window, a system toast in windows that have no
- * snackbar (the sheets shown over other apps, the call screen).
+ * Creates the app's snackbar for this window, provides it to the screens ([LocalSnackbar]) and lets code without
+ * a composition reach it ([showMessage]).
  */
+@Composable
+fun ProvideSnackbar(content: @Composable (ParleySnackbar) -> Unit) {
+    val scope = rememberCoroutineScope()
+    val snackbar = remember { ParleySnackbar(SnackbarHostState(), scope) }
+    val activity = LocalContext.current.findActivity()
+    DisposableEffect(activity, snackbar) {
+        if (activity != null) synchronized(windows) { windows[activity] = snackbar }
+        onDispose { if (activity != null) synchronized(windows) { windows.remove(activity) } }
+    }
+    CompositionLocalProvider(LocalSnackbar provides snackbar) { content(snackbar) }
+}
+
+private val windows = WeakHashMap<Activity, ParleySnackbar>()
+
+private tailrec fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
+}
+
+/**
+ * A short message for the user from code that has a [context] but no composition (a copy, an app that isn't
+ * there): the snackbar of the Parley window [context] belongs to, or a system toast when that window has none
+ * (the sheets shown over other apps, the call screen, a service).
+ */
+fun showMessage(context: Context, text: CharSequence, long: Boolean = false) {
+    val snackbar = context.findActivity()?.let { synchronized(windows) { windows[it] } }
+    if (snackbar != null) snackbar.show(text.toString()) else systemMessage(context, text, long)
+}
+
+/** [showMessage] for composables. */
 @Composable
 fun rememberShowMessage(): (String) -> Unit {
     val snackbar = LocalSnackbar.current
     val context = LocalContext.current
-    return remember(snackbar, context) { { text -> if (snackbar != null) snackbar.show(text) else systemMessage(context, text) } }
+    return remember(snackbar, context) { { text -> if (snackbar != null) snackbar.show(text) else showMessage(context, text) } }
 }
 
 /**
  * A system toast, for surfaces where no Parley screen is showing (a service, an activity finishing, a sheet over
- * another app). Inside Parley's own screens use the snackbar ([rememberShowMessage]).
+ * another app). Inside Parley's own screens use [showMessage] or [rememberShowMessage].
  */
 fun systemMessage(context: Context, text: CharSequence, long: Boolean = false) {
     Toast.makeText(context, text, if (long) Toast.LENGTH_LONG else Toast.LENGTH_SHORT).show()

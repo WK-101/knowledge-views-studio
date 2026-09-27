@@ -4,7 +4,6 @@ import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import android.widget.Toast
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
@@ -31,6 +30,7 @@ import app.parley.data.MessengerAction
 import app.parley.data.PhoneEnv
 import app.parley.messaging.MessengerLauncher
 import app.parley.ui.ConfirmDialog
+import app.parley.ui.showMessage
 
 /**
  * How to reach one person by message: their numbers, the messenger rows apps added for them (none for
@@ -140,7 +140,7 @@ object ContactMessaging {
         try {
             context.startActivity(chooser)
         } catch (_: ActivityNotFoundException) {
-            Toast.makeText(context, context.getString(R.string.msg_no_app_opens), Toast.LENGTH_SHORT).show()
+            showMessage(context, context.getString(R.string.msg_no_app_opens))
         }
         return true
     }

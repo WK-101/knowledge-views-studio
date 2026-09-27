@@ -9,7 +9,6 @@ import android.net.Uri
 import android.os.Bundle
 import android.provider.ContactsContract
 import android.view.WindowManager
-import android.widget.Toast
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.clickable
@@ -90,6 +89,7 @@ import kotlinx.coroutines.withContext
 import app.parley.ui.common.ProvideAppKit
 import app.parley.ui.ConfirmDialog
 import app.parley.ui.ParleySheet
+import app.parley.ui.showMessage
 
 /**
  * A small sheet over the current app for a phone number found in text: "Call / Message with Parley" in text
@@ -364,12 +364,12 @@ class NumberActionActivity : FragmentActivity() {
                 getSystemService(ClipboardManager::class.java).primaryClip?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.coerceToText(this)?.toString()
             }.getOrNull()?.take(MAX_TEXT)
             if (clip.isNullOrBlank()) {
-                Toast.makeText(this, getString(R.string.num_nothing_to_paste), Toast.LENGTH_SHORT).show()
+                showMessage(this, getString(R.string.num_nothing_to_paste))
                 return
             }
             val found = NumberText.find(clip, region)
             when {
-                found.isEmpty() -> Toast.makeText(this, getString(R.string.num_no_number_copied), Toast.LENGTH_SHORT).show()
+                found.isEmpty() -> showMessage(this, getString(R.string.num_no_number_copied))
                 found.size == 1 -> typed = found[0].raw
                 else -> {
                     sourceText = clip
@@ -536,7 +536,7 @@ class NumberActionActivity : FragmentActivity() {
 
     private suspend fun saveTemporary(number: String, name: String, visible: Boolean) {
         val saved = withContext(Dispatchers.IO) { runCatching { TemporaryContact.save(container, number, name, private = !visible) }.getOrNull() }
-        Toast.makeText(this, TemporaryContact.savedMessage(resources, saved), Toast.LENGTH_SHORT).show()
+        showMessage(this, TemporaryContact.savedMessage(resources, saved))
         finish()
     }
 
@@ -573,7 +573,7 @@ class NumberActionActivity : FragmentActivity() {
             when (val r = gate.place(number, simId, name, callSims, remember, confirmed)) {
                 is CallGate.Placed.Ask -> pendingCall = r.pending
                 is CallGate.Placed.Done -> {
-                    (r.result as? PlaceResult.Failed)?.let { Toast.makeText(this@NumberActionActivity, DialText.placeFailure(this@NumberActionActivity, it.reason), Toast.LENGTH_LONG).show() }
+                    (r.result as? PlaceResult.Failed)?.let { showMessage(this@NumberActionActivity, DialText.placeFailure(this@NumberActionActivity, it.reason), long = true) }
                     finish()
                 }
             }

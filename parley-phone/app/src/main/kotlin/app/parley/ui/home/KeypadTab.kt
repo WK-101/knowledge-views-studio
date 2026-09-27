@@ -12,7 +12,6 @@ import android.provider.Settings
 import android.telephony.PhoneNumberUtils
 import android.view.KeyEvent as AndroidKeyEvent
 import android.view.textclassifier.TextClassifier
-import android.widget.Toast
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -151,6 +150,7 @@ import app.parley.ui.ConfirmDialog
 import app.parley.ui.ParleySheet
 import app.parley.ui.ParleyShapes
 import app.parley.ui.topOnly
+import app.parley.ui.showMessage
 
 private val keys = listOf(
     "1" to "", "2" to "ABC", "3" to "DEF",
@@ -696,7 +696,7 @@ private fun PasteChip(countryIso: String, onPaste: (String) -> Unit) {
         onClick = {
             val text = runCatching { cm?.primaryClip?.getItemAt(0)?.coerceToText(context)?.toString() }.getOrNull().orEmpty()
             val number = NumberText.find(text, countryIso).firstOrNull()?.raw?.let(DialText::sanitize)
-            if (number.isNullOrEmpty()) Toast.makeText(context, res.getString(R.string.keypad_no_clip_number), Toast.LENGTH_SHORT).show()
+            if (number.isNullOrEmpty()) showMessage(context, res.getString(R.string.keypad_no_clip_number))
             else onPaste(number)
         },
         label = { Text(stringResource(if (hint == ClipHint.NUMBER) R.string.keypad_paste_number else R.string.keypad_paste)) },

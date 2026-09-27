@@ -1,6 +1,5 @@
 package app.parley.messaging
 
-import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -23,7 +22,6 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -53,6 +51,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import app.parley.ui.ParleyTopBar
 import app.parley.ui.ParleyScaffold
+import app.parley.ui.showMessage
 
 /** Starting points of "Introduce myself…". */
 object IntroduceStart {
@@ -118,10 +117,10 @@ fun IntroduceScreen(vm: AppViewModel, back: () -> Unit) {
         val t = queue.current ?: return
         val error = MessengerLauncher.openChat(context, a, t.number, draft)
         if (error != null) {
-            Toast.makeText(context, error, Toast.LENGTH_LONG).show()
+            showMessage(context, error, long = true)
             return
         }
-        if (!a.takesText && draft != null) Toast.makeText(context, res.getString(R.string.intro_copied), Toast.LENGTH_LONG).show()
+        if (!a.takesText && draft != null) showMessage(context, res.getString(R.string.intro_copied), long = true)
         store.lastApp = a.packageName
         store.recordOpened(t.number, a, a.label, isContact = true)
         queue = queue.markOpened()
