@@ -50,8 +50,12 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
         }
     }
 
-    /** Current settings, reading from disk if the flow hasn't emitted yet (e.g. process woken by a call). */
-    suspend fun current(): AppSettings = if (_loaded.value) settings.value else store.data.first().toSettings()
+    /**
+     * Current settings as stored. Read from the store rather than [settings], which can lag a moment behind an
+     * [update] that just finished (a call placed right after changing "confirm before calling" must see it).
+     * DataStore serves this from memory once loaded, and reads disk when the process was just woken by a call.
+     */
+    suspend fun current(): AppSettings = store.data.first().toSettings()
 
     /** All stored preferences as typed strings ("b:true", "i:5", "s:text") for backups. */
     suspend fun exportMap(): Map<String, String> = store.data.first().asMap().mapKeys { it.key.name }.mapValues { (_, v) ->
