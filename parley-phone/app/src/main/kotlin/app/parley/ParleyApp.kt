@@ -4,8 +4,10 @@ import android.app.Application
 import android.content.Context
 import android.os.Trace
 import app.parley.blocking.BlockingSetup
+import app.parley.common.suspendRunCatching
 import app.parley.data.DataContainer
 import app.parley.data.people.CrashStore
+import app.parley.security.VaultSession
 import app.parley.shortcuts.CircleWidget
 import app.parley.telecom.TelecomGraph
 import app.parley.ui.AppLocale
@@ -42,6 +44,8 @@ class ParleyApp : Application() {
         BlockingSetup.install(this, container)
         // Keeps the Circle widget current while Parley runs (from the full start on, and only while one is placed).
         CircleWidget.observe(this, container)
+        // Right after the user authenticates, the vault moves to an authentication-bound key if it isn't on one yet.
+        VaultSession.onAuthenticated = { container.scope.launch(Dispatchers.IO) { suspendRunCatching { container.vault.upgradeDetailKey() } } }
         // The process often starts for an incoming call: only what the call path reads synchronously is warmed here,
         // off the main thread.
         container.scope.launch(Dispatchers.IO) {
@@ -69,6 +73,8 @@ class ParleyApp : Application() {
             // Well after that: stored number keys move to the line key once.
             delay(30_000)
             if (!container.phoneKeys.done) container.phoneKeys.runIfNeeded()
+            // Notes, screened names, the journal and snapshots from older versions are sealed at rest once.
+            if (!container.recordSealing.done) suspendRunCatching { container.recordSealing.runIfNeeded() }
         }
     }
 }

@@ -1,5 +1,9 @@
 package app.parley.data
 
+import app.parley.data.security.RecordSealing
+import app.parley.data.security.SealedMetaDao
+import app.parley.data.security.RecordCrypto
+import app.parley.data.db.MetaDao
 import android.content.Context
 import android.util.Log
 import app.parley.data.backup.BackupExtras
@@ -30,6 +34,7 @@ import app.parley.data.people.TemporaryContactStore
 import app.parley.data.records.ContactRecordStore
 import app.parley.data.sync.FolderSync
 import app.parley.data.vault.VaultMoves
+import app.parley.data.vault.VaultCrypto
 import app.parley.data.vault.VaultRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
@@ -45,6 +50,11 @@ import kotlinx.coroutines.launch
 class DataContainer(context: Context) {
     val appContext: Context = context.applicationContext
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+    init {
+        // The vault's key generation checks for a secure lock screen and StrongBox.
+        VaultCrypto.appContext = appContext
+    }
 
     /**
      * Opens when the UI starts or a call has settled. Until then the process runs lean: what call screening and the
@@ -97,7 +107,8 @@ class DataContainer(context: Context) {
     /** Lossless moves into and out of the private vault. */
     val vaultMoves by lazy { VaultMoves(vault, contacts, records) { circle.interactions } }
     val vault by lazy { VaultRepository(appContext, db, scope) }
-    val meta by lazy { db.metaDao() }
+    /** Pinned notes, call notes and journal payloads are sealed at rest behind this DAO. */
+    val meta: MetaDao by lazy { SealedMetaDao(db.metaDao(), RecordCrypto.get(appContext)) }
     val journal by lazy { JournalRepository(meta, records) }
     val folderSync by lazy { FolderSync(appContext, contacts, records) }
     val messaging by lazy { MessagingStore(appContext, scope) { n -> vault.lookup(n) != null } }
@@ -119,7 +130,7 @@ class DataContainer(context: Context) {
     private val backupParts: List<BackupExtras> by lazy {
         listOf(
             people.backupExtras, circle.backupExtras, extras.backupExtras,
-            ContactNotesBackup(db, { contacts.loadNow() }) { id -> contacts.rawIds(id) },
+            ContactNotesBackup(db, { contacts.loadNow() }, metaDao = meta) { id -> contacts.rawIds(id) },
             CallTimeBackup(calling, callExtras) { contacts.loadNow() },
             HistorySettingsBackup { history.prefs },
             SpamListsBackup { lists },
@@ -136,6 +147,8 @@ class DataContainer(context: Context) {
     val wipe by lazy { DataWipe(appContext, this) }
 
     /** Moves rows stored under the old last-digits number key to the line key, once (see [PhoneKeyMigrator]). */
+    /** Seals small records older versions stored plain (runs once in the background). */
+    val recordSealing by lazy { RecordSealing(appContext, db) { timeMachine } }
     val phoneKeys by lazy { PhoneKeyMigrator(appContext, db, contacts, { history }) { messaging } }
 
     /** Temporary contacts: the one API to create, mark, keep and expire them. */

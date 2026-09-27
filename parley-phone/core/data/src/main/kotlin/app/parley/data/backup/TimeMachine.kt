@@ -1,5 +1,7 @@
 package app.parley.data.backup
 
+import java.io.ByteArrayOutputStream
+import app.parley.data.security.RecordCrypto
 import android.content.Context
 import app.parley.common.backup.BlobStore
 import app.parley.common.backup.ContactVersion
@@ -18,8 +20,11 @@ import java.io.File
 import java.util.zip.GZIPInputStream
 import java.util.zip.GZIPOutputStream
 
-/** Content-addressed blobs (gzip) in app-private storage; unchanged contacts cost nothing. */
-class FileBlobStore(private val dir: File) : BlobStore {
+/**
+ * Content-addressed blobs (gzip, then sealed with the small-records key when [crypto] is set) in app-private storage;
+ * unchanged contacts cost nothing. Blobs written before sealing are read as they are.
+ */
+class FileBlobStore(private val dir: File, private val crypto: RecordCrypto? = null) : BlobStore {
     init {
         dir.mkdirs()
     }
@@ -30,10 +35,27 @@ class FileBlobStore(private val dir: File) : BlobStore {
         val f = file(hash)
         if (f.exists()) return
         val tmp = File(f.path + ".tmp")
-        GZIPOutputStream(tmp.outputStream()).use { it.write(bytes) }
+        tmp.writeBytes(seal(gzip(bytes)))
         tmp.renameTo(f)
     }
-    override fun get(hash: String): ByteArray? = file(hash).takeIf { it.exists() }?.let { f -> GZIPInputStream(f.inputStream()).use { it.readBytes() } }
+    override fun get(hash: String): ByteArray? = file(hash).takeIf { it.exists() }?.let { f -> gunzip(open(f.readBytes())) }
+
+    private fun gzip(b: ByteArray) = ByteArrayOutputStream().also { o -> GZIPOutputStream(o).use { it.write(b) } }.toByteArray()
+    private fun gunzip(b: ByteArray) = GZIPInputStream(b.inputStream()).use { it.readBytes() }
+    private fun seal(b: ByteArray) = crypto?.sealBytes(b) ?: b
+    private fun open(b: ByteArray) = crypto?.openBytes(b) ?: b
+
+    /** Seals one blob written before sealing existed; false when it already was (or sealing isn't available). */
+    fun resealIfPlain(f: File): Boolean {
+        val c = crypto ?: return false
+        val raw = f.readBytes()
+        if (c.isSealed(raw)) return false
+        val sealed = c.sealBytes(raw)
+        if (!c.isSealed(sealed)) return false
+        val tmp = File(f.path + ".tmp")
+        tmp.writeBytes(sealed)
+        return tmp.renameTo(f)
+    }
 
     fun all(): Sequence<File> = dir.walkTopDown().filter { it.isFile && !it.name.endsWith(".tmp") }
 }
@@ -45,7 +67,10 @@ class FileBlobStore(private val dir: File) : BlobStore {
  */
 class TimeMachine(context: Context, private val records: ContactRecordStore) {
     private val root = File(context.filesDir, "timemachine")
-    private val store = FileBlobStore(File(root, "blobs"))
+    private val store = FileBlobStore(File(root, "blobs"), RecordCrypto.get(context))
+
+    /** Re-seals snapshot blobs written before sealing existed; returns how many. */
+    suspend fun resealOld(): Int = mutex.withLock { withContext(Dispatchers.IO) { store.all().count { runCatching { store.resealIfPlain(it) }.getOrDefault(false) } } }
     private val indexDir = File(root, "index").apply { mkdirs() }
 
     private val mutex = Mutex()

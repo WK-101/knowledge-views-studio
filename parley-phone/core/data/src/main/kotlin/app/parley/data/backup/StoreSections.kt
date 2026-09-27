@@ -1,5 +1,6 @@
 package app.parley.data.backup
 
+import app.parley.data.db.MetaDao
 import android.util.Base64
 import androidx.room.withTransaction
 import app.parley.common.ContactSummary
@@ -45,12 +46,14 @@ private fun JSONArray.objects(): List<JSONObject> = (0 until length()).mapNotNul
 class ContactNotesBackup(
     private val db: AppDatabase,
     private val contactsNow: suspend () -> List<ContactSummary>,
+    /** The notes DAO the app uses (it seals notes at rest); the backup holds them decrypted, inside its own encryption. */
+    private val metaDao: MetaDao = db.metaDao(),
     private val rawIds: (Long) -> List<Long>,
 ) : BackupExtras {
     override val section = "contact notes"
     override val sections = setOf(Sections.CONTACT_NOTES)
     override val restoreWith = RestorePart.CONTACTS
-    private val meta get() = db.metaDao()
+    private val meta get() = metaDao
 
     override suspend fun export(): Map<String, String> {
         val refs = PersonRefs(contactsNow())
