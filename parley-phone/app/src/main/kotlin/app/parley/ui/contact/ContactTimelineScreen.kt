@@ -16,7 +16,6 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Clear
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -25,9 +24,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -48,7 +45,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.R
-import app.parley.common.PhoneNumbers
 import app.parley.common.circle.Timeline
 import app.parley.common.circle.TimelineEntry
 import app.parley.common.circle.TimelineFilter
@@ -70,6 +66,8 @@ import app.parley.ui.segmentShape
 import java.time.ZoneId
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
+import app.parley.ui.ParleyTopBar
+import app.parley.ui.ParleyScaffold
 
 /**
  * A contact's whole timeline on its own screen ("Show all" on the contact page): search the notes,
@@ -112,12 +110,12 @@ fun ContactTimelineScreen(vm: AppViewModel, contactId: Long, back: () -> Unit) {
     val monthFormat = rememberMonthFormat()
     val bar = TopAppBarDefaults.pinnedScrollBehavior()
 
-    Scaffold(
+    ParleyScaffold(
         modifier = Modifier.nestedScroll(bar.nestedScrollConnection),
         topBar = {
-            TopAppBar(
-                title = { Text(dd?.let { stringResource(R.string.contact_page_timeline_of, it.given.ifBlank { it.displayName }) } ?: stringResource(R.string.contact_page_sec_timeline)) },
-                navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.main_back)) } },
+            ParleyTopBar(
+                dd?.let { stringResource(R.string.contact_page_timeline_of, it.given.ifBlank { it.displayName }) } ?: stringResource(R.string.contact_page_sec_timeline),
+                onBack = back,
                 scrollBehavior = bar,
             )
         },

@@ -30,7 +30,6 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -71,6 +70,8 @@ import app.parley.ui.Bidi
 import app.parley.ui.CallColors
 import app.parley.ui.ForceLtr
 import app.parley.ui.common.CoachMarkAnchor
+import app.parley.ui.LocalSnackbar
+import app.parley.ui.ScreenSnackbarHost
 
 /**
  * The simple home, shown instead of the tabs while simple mode is on. Big photo tiles (up to 3 × 3), each asks
@@ -91,7 +92,7 @@ fun SimpleHome(vm: AppViewModel) {
     var digits by rememberSaveable { mutableStateOf("") }
     var calling by remember { mutableStateOf<Pair<String, String>?>(null) }
     var askExit by remember { mutableStateOf(false) }
-    val snackbar = remember { SnackbarHostState() }
+    val snackbar = LocalSnackbar.current?.state ?: remember { SnackbarHostState() }
 
     // Links into the app still work where they make sense here: a number to dial opens the keypad with it.
     LaunchedEffect(Unit) {
@@ -146,7 +147,7 @@ fun SimpleHome(vm: AppViewModel) {
                     }
                 }
             }
-            SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 96.dp))
+            ScreenSnackbarHost(Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 96.dp))
         }
     }
 

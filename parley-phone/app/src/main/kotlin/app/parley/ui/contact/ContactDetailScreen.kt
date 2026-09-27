@@ -51,7 +51,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.Chat
 import androidx.compose.material.icons.automirrored.rounded.Message
 import androidx.compose.material.icons.automirrored.rounded.Notes
@@ -99,7 +98,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -173,6 +171,9 @@ import java.time.ZoneId
 import kotlinx.coroutines.launch
 import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.selection.toggleable
+import app.parley.ui.ParleyTopBar
+import app.parley.ui.ParleyScaffold
+import app.parley.ui.BackButton
 
 /**
  * A contact's page. U1: the photo and name dock into the top bar as you scroll ("last talked" shows there once
@@ -294,9 +295,9 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
         }
     }
 
-    Scaffold(
+    ParleyScaffold(
         topBar = {
-            TopAppBar(
+            ParleyTopBar(
                 title = {
                     AnimatedVisibility(collapsed && d != null, enter = fadeIn(), exit = fadeOut()) {
                         if (d != null) Row(verticalAlignment = Alignment.CenterVertically) {
@@ -309,7 +310,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = barColor, scrolledContainerColor = barColor),
-                navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.main_back)) } },
+                navigationIcon = { BackButton(back) },
                 actions = {
                     if (d != null) {
                         IconButton({ page.setStarred(!d.starred) }) {
@@ -379,7 +380,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
     ) { padding ->
         if (d == null) {
             if (loaded) Text(stringResource(R.string.detail_gone), Modifier.padding(padding).padding(24.dp))
-            return@Scaffold
+            return@ParleyScaffold
         }
         val primary = d.phones.firstOrNull { it.isPrimary } ?: d.phones.firstOrNull()
         val r = reach(d)

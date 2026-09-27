@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.SnackbarDuration
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.ui.platform.LocalResources
@@ -17,7 +16,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.Message
 import androidx.compose.material.icons.automirrored.rounded.Chat
 import androidx.compose.material.icons.rounded.Block
@@ -33,9 +31,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -71,6 +67,9 @@ import kotlinx.coroutines.launch
 import androidx.compose.ui.res.stringResource
 import app.parley.R
 import app.parley.ui.DataL10n
+import app.parley.ui.ParleyTopBar
+import app.parley.ui.ParleyScaffold
+import app.parley.ui.LocalSnackbar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -93,7 +92,8 @@ fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open
     var menu by remember { mutableStateOf(false) }
     var exporting by remember { mutableStateOf(false) }
     var rangeDelete by remember { mutableStateOf(false) }
-    val snackbar = remember { SnackbarHostState() }
+    // The app's one snackbar, shown inside this screen's Scaffold.
+    val snackbar = LocalSnackbar.current?.state ?: remember { SnackbarHostState() }
     if (exporting) ExportSheet(vm, history, subject = title) { exporting = false }
     if (rangeDelete) {
         RangeDeleteDialog(vm, number, onDismiss = { rangeDelete = false }, onDeleted = { batch, n ->
@@ -104,10 +104,10 @@ fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open
         })
     }
 
-    Scaffold(snackbarHost = { SnackbarHost(snackbar) }, topBar = {
-        TopAppBar(
-            title = { Text(stringResource(R.string.hist_settings_title)) },
-            navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.dc_back)) } },
+    ParleyScaffold(topBar = {
+        ParleyTopBar(
+            stringResource(R.string.hist_settings_title),
+            onBack = back,
             actions = {
                 Box {
                     IconButton({ menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.dc_more_options)) }

@@ -89,6 +89,7 @@ import app.parley.ui.common.rememberNumberLocation
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import app.parley.ui.common.ProvideAppKit
 
 /**
  * A small sheet over the current app for a phone number found in text: "Call / Message with Parley" in text
@@ -150,7 +151,7 @@ class NumberActionActivity : FragmentActivity() {
             if (!settings.secureScreen) window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
             setContent {
                 ParleyTheme(settings.themeMode, settings.amoledBlack, settings.dynamicColor, settings.density) {
-                    if (!hidden) Sheet()
+                    if (!hidden) ProvideAppKit { Sheet() }
                 }
             }
             reveal(settings)

@@ -9,19 +9,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -48,6 +44,8 @@ import app.parley.data.DryRun
 import app.parley.ui.common.Format
 import androidx.compose.foundation.layout.Arrangement
 import app.parley.ui.settings.bidiLtr
+import app.parley.ui.ParleyTopBar
+import app.parley.ui.ParleyScaffold
 
 /**
  * Coverage replay: "current rules would have blocked 14 of 22 unknown calls", with each past call's
@@ -68,8 +66,8 @@ fun DryRunScreen(vm: AppViewModel, back: () -> Unit) {
         result = runCatching { vm.c.screener.dryRun(calls.orEmpty(), days) }.getOrNull()
         loading = false
     }
-    Scaffold(topBar = {
-        TopAppBar(title = { Text(stringResource(R.string.blk_dry_title)) }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.set_back)) } })
+    ParleyScaffold(topBar = {
+        ParleyTopBar(stringResource(R.string.blk_dry_title), onBack = back)
     }) { p ->
         LazyColumn(Modifier.padding(p)) {
             item {

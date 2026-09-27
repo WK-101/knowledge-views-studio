@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.FileOpen
 import androidx.compose.material.icons.rounded.QrCode
@@ -30,10 +29,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -76,6 +73,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import app.parley.ui.ParleyTopBar
+import app.parley.ui.ParleyScaffold
 
 /**
  * Blocking › Templates (v3): curated offline rule sets that install and uninstall as a group, each previewed
@@ -143,10 +142,10 @@ fun TemplatesScreen(vm: AppViewModel, back: () -> Unit) {
         context.startActivity(Intent.createChooser(send, res.getString(R.string.blk_tpl_share_chooser, TemplateText.name(context, t))))
     }
 
-    Scaffold(topBar = {
-        TopAppBar(
-            title = { Text(settingTitle("templates")) },
-            navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.set_back)) } },
+    ParleyScaffold(topBar = {
+        ParleyTopBar(
+            settingTitle("templates"),
+            onBack = back,
             actions = { IconButton({ pickFile.launch(arrayOf("*/*")) }) { Icon(Icons.Rounded.FileOpen, stringResource(R.string.blk_tpl_open_file)) } },
         )
     }) { p ->

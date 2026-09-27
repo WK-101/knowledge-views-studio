@@ -1,6 +1,5 @@
 package app.parley.ui.blocking
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -11,7 +10,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material3.AlertDialog
@@ -24,13 +22,11 @@ import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -58,7 +54,6 @@ import app.parley.common.RuleKind
 import app.parley.common.RuleTools
 import app.parley.common.RuleType
 import app.parley.common.Schedule
-import app.parley.common.lineTypeLabel
 import app.parley.data.DryRun
 import app.parley.data.GroupInfo
 import app.parley.ui.common.Format
@@ -66,6 +61,8 @@ import app.parley.ui.settings.bidiLtr
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import app.parley.ui.ParleyTopBar
+import app.parley.ui.ParleyScaffold
 
 @Composable
 internal fun typeLabel(t: RuleType) = stringResource(
@@ -121,10 +118,10 @@ fun RuleEditorScreen(vm: AppViewModel, ruleId: Long, initial: BlockRule, back: (
         }
     }
 
-    Scaffold(topBar = {
-        TopAppBar(
-            title = { Text(stringResource(if (ruleId == 0L) R.string.blk_new_rule else R.string.blk_edit_rule)) },
-            navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.set_back)) } },
+    ParleyScaffold(topBar = {
+        ParleyTopBar(
+            stringResource(if (ruleId == 0L) R.string.blk_new_rule else R.string.blk_edit_rule),
+            onBack = back,
             actions = {
                 if (ruleId != 0L) IconButton({ confirmDelete = true }) { Icon(Icons.Rounded.Delete, stringResource(R.string.blk_delete_rule)) }
                 TextButton(::save, enabled = checked.error == null) { Text(stringResource(R.string.set_save)) }

@@ -11,21 +11,16 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.DoneAll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -52,6 +47,8 @@ import app.parley.ui.backup.rememberBackupFirst
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import app.parley.ui.ParleyTopBar
+import app.parley.ui.ParleyScaffold
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -66,8 +63,8 @@ fun DuplicatesScreen(vm: AppViewModel, back: () -> Unit) {
     val barTint = TopAppBarDefaults.pinnedScrollBehavior()
     // "Back up first?" before the first merge (asked once per visit).
     val backupFirst = rememberBackupFirst(vm)
-    Scaffold(modifier = Modifier.nestedScroll(barTint.nestedScrollConnection), topBar = {
-        TopAppBar(title = { Text(stringResource(R.string.dup_title)) }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.main_back)) } }, scrollBehavior = barTint)
+    ParleyScaffold(modifier = Modifier.nestedScroll(barTint.nestedScrollConnection), topBar = {
+        ParleyTopBar(stringResource(R.string.dup_title), onBack = back, scrollBehavior = barTint)
     }) { p ->
         val res = LocalResources.current
         val list = groups?.filter { g -> g.first().id !in dismissed }

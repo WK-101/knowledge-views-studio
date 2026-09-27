@@ -18,7 +18,6 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.Message
 import androidx.compose.material.icons.rounded.ArrowDropDown
 import androidx.compose.material.icons.rounded.CheckCircle
@@ -42,15 +41,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -89,6 +85,9 @@ import app.parley.ui.people.accountLabel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import app.parley.ui.ParleyTopBar
+import app.parley.ui.ParleyScaffold
+import app.parley.ui.LocalSnackbar
 
 private enum class Where { CONTACTS, PRIVATE, TEMPORARY }
 
@@ -104,7 +103,8 @@ fun BulkAddScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
     val context = LocalContext.current
     val c = vm.c
     val scope = rememberCoroutineScope()
-    val snackbar = remember { SnackbarHostState() }
+    // The app's one snackbar, shown inside this screen's Scaffold.
+    val snackbar = LocalSnackbar.current?.state ?: remember { SnackbarHostState() }
     val region = remember { PhoneEnv.countryIso(context) }
     val rs = LocalResources.current
     var text by rememberSaveable { mutableStateOf(MessagingInbox.bulkText.orEmpty().also { MessagingInbox.bulkText = null }) }
@@ -225,14 +225,10 @@ fun BulkAddScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
         }
     }
 
-    Scaffold(
+    ParleyScaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.bulk_title)) },
-                navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.main_back)) } },
-            )
+            ParleyTopBar(stringResource(R.string.bulk_title), onBack = back)
         },
-        snackbarHost = { SnackbarHost(snackbar) },
     ) { p ->
         val res = result
         val list = candidates

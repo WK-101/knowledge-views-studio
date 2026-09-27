@@ -89,7 +89,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -146,6 +145,8 @@ import app.parley.ui.people.RelationText
 import app.parley.ui.people.eventLabel
 import app.parley.ui.screenViewModel
 import kotlinx.coroutines.launch
+import app.parley.ui.ParleyTopBar
+import app.parley.ui.ParleyScaffold
 
 private val phoneTypes = listOf(Phone.TYPE_MOBILE, Phone.TYPE_HOME, Phone.TYPE_WORK, Phone.TYPE_MAIN, Phone.TYPE_FAX_WORK, Phone.TYPE_OTHER)
 private val emailTypes = listOf(Email.TYPE_HOME, Email.TYPE_WORK, Email.TYPE_MOBILE, Email.TYPE_OTHER)
@@ -275,7 +276,7 @@ fun ContactEditScreen(
     fun save() = editor.save()
 
     val scroll = TopAppBarDefaults.pinnedScrollBehavior()
-    Scaffold(
+    ParleyScaffold(
         modifier = Modifier
             .graphicsLayer {
                 val s = 1f - 0.08f * shrink
@@ -286,7 +287,7 @@ fun ContactEditScreen(
             }
             .nestedScroll(scroll.nestedScrollConnection),
         topBar = {
-            TopAppBar(
+            ParleyTopBar(
                 title = {
                     Text(
                         stringResource(
@@ -319,7 +320,7 @@ fun ContactEditScreen(
             Box(Modifier.padding(padding).fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(Modifier.semantics { contentDescription = desc })
             }
-            return@Scaffold
+            return@ParleyScaffold
         }
         fun update(f: (ContactDetails) -> ContactDetails) = editor.update(f)
         fun shown(k: EditorForm.Kind, has: Boolean) = has || k in revealed

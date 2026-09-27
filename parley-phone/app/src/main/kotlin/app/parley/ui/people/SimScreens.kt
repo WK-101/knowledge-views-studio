@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.SimCard
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -14,14 +13,11 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -57,6 +53,8 @@ import app.parley.R
 import app.parley.common.people.SimIssue
 import app.parley.common.people.SimWarning
 import app.parley.ui.DataL10n
+import app.parley.ui.ParleyTopBar
+import app.parley.ui.ParleyScaffold
 
 @Composable
 private fun simWarningText(w: SimWarning): String = when (w.issue) {
@@ -163,10 +161,10 @@ fun SimImportScreen(vm: AppViewModel, back: () -> Unit) {
         picked = list.indices.filter { !existing.matches(recordOf(list[it])) }.toSet()
     }
 
-    Scaffold(topBar = {
-        TopAppBar(
-            title = { Text(stringResource(R.string.sim_import_title)) },
-            navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.dc_back)) } },
+    ParleyScaffold(topBar = {
+        ParleyTopBar(
+            stringResource(R.string.sim_import_title),
+            onBack = back,
             actions = { Button({ chooseAccount = true }, enabled = picked.isNotEmpty() && !busy, modifier = Modifier.padding(end = 8.dp)) { Text(stringResource(R.string.sim_import_n, picked.size)) } },
         )
     }) { p ->

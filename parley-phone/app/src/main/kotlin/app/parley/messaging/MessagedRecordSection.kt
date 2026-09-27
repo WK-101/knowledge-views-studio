@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.Chat
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Call
@@ -26,11 +25,9 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -43,7 +40,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.R
@@ -57,6 +53,8 @@ import app.parley.ui.EmptyState
 import kotlinx.coroutines.launch
 import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.selection.toggleable
+import app.parley.ui.ParleyTopBar
+import app.parley.ui.ParleyScaffold
 
 /**
  * For the privacy dashboard: "Keep a record of numbers you message" (on by default), how many numbers it holds,
@@ -111,10 +109,10 @@ fun MessagedNumbersScreen(vm: AppViewModel, back: () -> Unit) {
     val entries = remember(record) { record.values.sortedByDescending { it.at } }
     val res = LocalResources.current
 
-    Scaffold(topBar = {
-        TopAppBar(
-            title = { Text(stringResource(R.string.home_messaged_numbers)) },
-            navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.main_back)) } },
+    ParleyScaffold(topBar = {
+        ParleyTopBar(
+            stringResource(R.string.home_messaged_numbers),
+            onBack = back,
             actions = {
                 if (entries.isNotEmpty()) IconButton({ confirmClear = true }) { Icon(Icons.Rounded.DeleteSweep, stringResource(R.string.rec_clear_all)) }
             },

@@ -27,9 +27,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -50,6 +48,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import androidx.compose.ui.res.stringResource
 import app.parley.R
+import app.parley.ui.ParleyTopBar
+import app.parley.ui.ParleyScaffold
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -70,9 +70,9 @@ fun PickerScreen(
     }
     val shown = items.orEmpty().filter { TextSearch.matches(query, it.title, listOfNotNull(it.subtitle), listOfNotNull(it.subtitle)) }
 
-    Scaffold(
+    ParleyScaffold(
         topBar = {
-            TopAppBar(
+            ParleyTopBar(
                 title = {
                     Text(
                         title ?: when (kind) {

@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.automirrored.rounded.Label
 import androidx.compose.material.icons.rounded.Lock
@@ -17,14 +16,11 @@ import androidx.compose.material.icons.rounded.SimCard
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -56,6 +52,8 @@ import kotlinx.coroutines.withContext
 import app.parley.ui.MenuRow
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import app.parley.ui.ParleyTopBar
+import app.parley.ui.ParleyScaffold
 
 /**
  * Settings › Calls › Call time: talk-time reminders, hard limits and allowances per contact, label, SIM
@@ -84,8 +82,8 @@ fun CallTimeScreen(vm: AppViewModel, back: () -> Unit) {
     fun edit(title: String, rule: LimitRule) = gate(unlockReason) { editing = title to rule }
     fun labelTitle(name: String) = res.getString(R.string.ct_label_title, name)
 
-    Scaffold(topBar = {
-        TopAppBar(title = { Text(stringResource(R.string.ct_title)) }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.set_back)) } })
+    ParleyScaffold(topBar = {
+        ParleyTopBar(stringResource(R.string.ct_title), onBack = back)
     }) { p ->
         LazyColumn(Modifier.padding(p)) {
             item { Section(stringResource(R.string.ct_section_reminders)) }

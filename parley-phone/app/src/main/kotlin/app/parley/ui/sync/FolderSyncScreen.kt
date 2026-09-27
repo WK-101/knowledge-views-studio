@@ -8,23 +8,19 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.Sync
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -46,6 +42,8 @@ import androidx.compose.ui.res.stringResource
 import app.parley.R
 import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.selection.toggleable
+import app.parley.ui.ParleyTopBar
+import app.parley.ui.ParleyScaffold
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -70,8 +68,8 @@ fun FolderSyncScreen(vm: AppViewModel, back: () -> Unit) {
             vm.toast(r.getOrNull()?.summary(res) ?: res.getString(R.string.sync_failed, r.exceptionOrNull()?.message.toString()))
         }
     }
-    Scaffold(topBar = {
-        TopAppBar(title = { Text(stringResource(R.string.sync_title)) }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.dc_back)) } })
+    ParleyScaffold(topBar = {
+        ParleyTopBar(stringResource(R.string.sync_title), onBack = back)
     }) { p ->
         LazyColumn(Modifier.padding(p)) {
             item {

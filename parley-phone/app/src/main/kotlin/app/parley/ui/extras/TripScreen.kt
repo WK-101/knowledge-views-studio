@@ -13,7 +13,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.Message
 import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.Close
@@ -27,9 +26,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -59,6 +56,8 @@ import app.parley.ui.EmptyState
 import app.parley.ui.Routes
 import app.parley.ui.contact.rememberQuickMessenger
 import kotlinx.coroutines.delay
+import app.parley.ui.ParleyTopBar
+import app.parley.ui.ParleyScaffold
 
 /**
  * "Who's in…": type a city (or pick one from your contacts' addresses) and see who's linked to it by address,
@@ -87,11 +86,8 @@ fun TripScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
     val (quick, quickHost) = rememberQuickMessenger(vm)
     quickHost()
 
-    Scaffold(topBar = {
-        TopAppBar(
-            title = { Text(stringResource(R.string.trip_title)) },
-            navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.dc_back)) } },
-        )
+    ParleyScaffold(topBar = {
+        ParleyTopBar(stringResource(R.string.trip_title), onBack = back)
     }) { p ->
         LazyColumn(Modifier.padding(p), contentPadding = PaddingValues(bottom = 24.dp)) {
             item(key = "field") {

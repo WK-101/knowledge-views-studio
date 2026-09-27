@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.Message
 import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.Delete
@@ -24,7 +23,6 @@ import androidx.compose.material.icons.rounded.LockOpen
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -32,10 +30,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -76,7 +72,6 @@ import app.parley.ui.contact.ContactMessaging
 import app.parley.ui.contact.GroupDataRow
 import app.parley.ui.contact.LinkifiedText
 import app.parley.ui.contact.Reach
-import app.parley.ui.contact.Section
 import app.parley.ui.SegmentedGroup
 import app.parley.ui.contact.ActionTile
 import app.parley.ui.contact.SecureQrDialog
@@ -93,6 +88,9 @@ import kotlinx.coroutines.launch
 import androidx.compose.ui.res.stringResource
 import app.parley.R
 import app.parley.ui.DataL10n
+import app.parley.ui.ParleyTopBar
+import app.parley.ui.ParleyScaffold
+import app.parley.ui.BackButton
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -154,11 +152,11 @@ fun VaultDetailScreen(vm: AppViewModel, id: Long, back: () -> Unit, open: (Strin
         }
     }
 
-    Scaffold(topBar = {
-        TopAppBar(
+    ParleyScaffold(topBar = {
+        ParleyTopBar(
             title = { Row(verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Rounded.Lock, null); Text("  " + stringResource(R.string.vault_title)) } },
             colors = TopAppBarDefaults.topAppBarColors(containerColor = barColor, scrolledContainerColor = barColor),
-            navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.dc_back)) } },
+            navigationIcon = { BackButton(back) },
             actions = {
                 if (details != null) {
                     IconButton({ open(Routes.edit(vault = id)) }) { Icon(Icons.Rounded.Edit, stringResource(R.string.dc_edit)) }

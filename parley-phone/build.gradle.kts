@@ -27,12 +27,12 @@ val checkHardcodedText by tasks.registering {
         val lit = "\"(?:[^\"\\\\]|\\\\.)*[A-Za-z]{2,}(?:[^\"\\\\]|\\\\.)*\""
         val patterns = listOf(
             Regex("""\bText\(\s*$lit"""),
-            Regex("""\b(?:contentDescription|onClickLabel|onLongClickLabel|stateDescription)\s*=\s*$lit"""),
+            Regex("""\b(?:contentDescription|onClickLabel|onLongClickLabel|stateDescription|actionLabel)\s*=\s*$lit"""),
             Regex("""CustomAccessibilityAction\(\s*$lit"""),
             Regex("""Toast\.makeText\([^,]+,\s*$lit"""),
             Regex("""\.set(?:ContentTitle|ContentText|SubText|SummaryText|BigContentTitle)\(\s*$lit"""),
             Regex("""\.addAction\(\s*0\s*,\s*$lit"""),
-            Regex("""\b(?:toast|showMessage)\(\s*$lit"""),
+            Regex("""\b(?:toast|showMessage|showSnackbar|systemMessage)\(\s*$lit"""),
         )
         // String templates ("${n.count}", "$name") and \uXXXX escapes hold no words a translator could see.
         val notText = Regex("""\$\{[^}]*\}|\$[A-Za-z_]\w*|\\u[0-9A-Fa-f]{4}""")

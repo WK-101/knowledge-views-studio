@@ -38,6 +38,7 @@ import app.parley.ui.ParleyTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import app.parley.ui.common.ProvideAppKit
 
 /** What another app asked us to pick. */
 enum class PickKind(val mime: String) {
@@ -97,14 +98,16 @@ class PickerActivity : FragmentActivity() {
                         deliver(listOf(pick.copy(uri = uri)), ask = false)
                     }, onDismiss = { oneField = null })
                 }
-                PickerScreen(
-                    kind = if (joinTarget != null) PickKind.CONTACT else kind,
-                    multiple = multiple && joinTarget == null,
-                    title = if (joinTarget != null) getString(R.string.picker_link_with) else null,
-                    excludeContactId = joinTarget,
-                    onCancel = { setResult(Activity.RESULT_CANCELED); finish() },
-                    onPicked = { picks -> if (joinTarget != null) join(joinTarget, picks) else deliver(picks) },
-                )
+                ProvideAppKit {
+                    PickerScreen(
+                        kind = if (joinTarget != null) PickKind.CONTACT else kind,
+                        multiple = multiple && joinTarget == null,
+                        title = if (joinTarget != null) getString(R.string.picker_link_with) else null,
+                        excludeContactId = joinTarget,
+                        onCancel = { setResult(Activity.RESULT_CANCELED); finish() },
+                        onPicked = { picks -> if (joinTarget != null) join(joinTarget, picks) else deliver(picks) },
+                    )
+                }
             }
         }
     }

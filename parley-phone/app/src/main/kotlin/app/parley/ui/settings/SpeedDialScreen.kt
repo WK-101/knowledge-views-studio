@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -14,10 +13,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -31,6 +28,8 @@ import app.parley.R
 import app.parley.AppViewModel
 import app.parley.common.TextSearch
 import kotlinx.coroutines.launch
+import app.parley.ui.ParleyTopBar
+import app.parley.ui.ParleyScaffold
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -39,8 +38,8 @@ fun SpeedDialScreen(vm: AppViewModel, back: () -> Unit) {
     val entries by vm.c.prefs.speedDials.collectAsStateWithLifecycle(emptyList())
     val contacts by vm.contacts.collectAsStateWithLifecycle()
     var editing by remember { mutableStateOf<Int?>(null) }
-    Scaffold(topBar = {
-        TopAppBar(title = { Text(settingTitle("speed_dial")) }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.set_back)) } })
+    ParleyScaffold(topBar = {
+        ParleyTopBar(settingTitle("speed_dial"), onBack = back)
     }) { p ->
         LazyColumn(Modifier.padding(p)) {
             items((2..9).toList()) { key ->

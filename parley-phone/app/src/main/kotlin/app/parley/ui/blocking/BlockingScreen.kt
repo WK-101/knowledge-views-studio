@@ -1,7 +1,6 @@
 package app.parley.ui.blocking
 
 import android.Manifest
-import android.content.Context
 import android.content.Intent
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -18,10 +17,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.PlaylistAddCheck
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Bedtime
@@ -46,14 +43,11 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.InputChip
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -107,12 +101,13 @@ import app.parley.ui.settings.bidiLtr
 import app.parley.ui.settings.settingTitle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import app.parley.ui.SwitchRow
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import app.parley.ui.ParleyTopBar
+import app.parley.ui.ParleyScaffold
 
 /** Situations, not mechanisms: each preset says what it's for and changes a few toggles. */
 private data class Preset(@StringRes val title: Int, @StringRes val help: Int, val apply: (AppSettings) -> AppSettings)
@@ -177,8 +172,8 @@ fun BlockingScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit = 
 
     // Scroll-linked top-bar tint.
     val barScroll = TopAppBarDefaults.pinnedScrollBehavior()
-    Scaffold(modifier = Modifier.nestedScroll(barScroll.nestedScrollConnection), topBar = {
-        TopAppBar(title = { Text(stringResource(R.string.blk_title)) }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.set_back)) } }, scrollBehavior = barScroll)
+    ParleyScaffold(modifier = Modifier.nestedScroll(barScroll.nestedScrollConnection), topBar = {
+        ParleyTopBar(stringResource(R.string.blk_title), onBack = back, scrollBehavior = barScroll)
     }) { p ->
         LazyColumn(Modifier.padding(p)) {
             item(key = "status") { ScreeningStatusCard(vm) }

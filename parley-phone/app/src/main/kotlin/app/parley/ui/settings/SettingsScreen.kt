@@ -22,7 +22,6 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.Chat
 import androidx.compose.material.icons.automirrored.rounded.ManageSearch
 import androidx.compose.material.icons.rounded.Backup
@@ -46,7 +45,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -56,7 +54,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -113,6 +110,9 @@ import app.parley.ui.segmentShape
 import app.parley.ui.SettingsScaffold
 import app.parley.ui.TonalIcon
 import app.parley.ui.rowColors
+import app.parley.ui.ParleyTopBar
+import app.parley.ui.ParleyScaffold
+import app.parley.ui.BackButton
 
 val SettingsCategory.icon: ImageVector
     get() = when (this) {
@@ -153,18 +153,19 @@ fun SettingsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
     BackHandler(searching) { searching = false; query = "" }
     val scroll = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
 
-    Scaffold(
+    ParleyScaffold(
         modifier = if (searching) Modifier else Modifier.nestedScroll(scroll.nestedScrollConnection),
         topBar = {
             AnimatedContent(searching, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "settings-search") { s ->
                 if (s) {
                     SettingsSearchBar(query, { query = it }) { searching = false; query = "" }
                 } else {
-                    LargeTopAppBar(
-                        title = { Text(stringResource(R.string.set_settings)) },
-                        navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.set_back)) } },
+                    ParleyTopBar(
+                        stringResource(R.string.set_settings),
+                        onBack = back,
                         actions = { IconButton({ searching = true }) { Icon(Icons.Rounded.Search, stringResource(R.string.set_search_settings)) } },
                         scrollBehavior = scroll,
+                        large = true,
                     )
                 }
             }
@@ -172,7 +173,7 @@ fun SettingsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
     ) { p ->
         if (searching) {
             SearchResults(query, Modifier.padding(p), onClear = { query = "" }) { e -> open(settingRoute(e)) }
-            return@Scaffold
+            return@ParleyScaffold
         }
         Column(
             Modifier.fillMaxSize().padding(p).verticalScroll(rememberScrollState()).padding(bottom = 16.dp),
@@ -235,8 +236,8 @@ private fun SettingsSearchBar(query: String, onQuery: (String) -> Unit, onClose:
     val focus = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
     LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
-    TopAppBar(
-        navigationIcon = { IconButton(onClose) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.set_close_search)) } },
+    ParleyTopBar(
+        navigationIcon = { BackButton(onClose, stringResource(R.string.set_close_search)) },
         title = {
             TextField(
                 value = query,

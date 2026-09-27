@@ -3,16 +3,10 @@ package app.parley.ui.journal
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.PrimaryTabRow
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -24,6 +18,8 @@ import app.parley.AppViewModel
 import app.parley.R
 import app.parley.ui.history.DeletedCallsList
 import app.parley.ui.timemachine.SnapshotChanges
+import app.parley.ui.ParleyTopBar
+import app.parley.ui.ParleyScaffold
 
 /** The tabs of History & undo, in order; [key] is what a route's `tab` argument names. */
 enum class HistoryTab(val key: String) {
@@ -45,11 +41,8 @@ enum class HistoryTab(val key: String) {
 @Composable
 fun HistoryHubScreen(vm: AppViewModel, initial: HistoryTab, back: () -> Unit, open: (String) -> Unit) {
     var tab by rememberSaveable { mutableIntStateOf(initial.ordinal) }
-    Scaffold(topBar = {
-        TopAppBar(
-            title = { Text(stringResource(R.string.jr_title)) },
-            navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.dc_back)) } },
-        )
+    ParleyScaffold(topBar = {
+        ParleyTopBar(stringResource(R.string.jr_title), onBack = back)
     }) { p ->
         Column(Modifier.padding(p).fillMaxSize()) {
             PrimaryTabRow(selectedTabIndex = tab) {

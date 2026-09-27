@@ -17,7 +17,6 @@ import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.AutoDelete
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Lock
@@ -40,7 +39,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -73,6 +71,8 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import app.parley.R
 import app.parley.ui.DataL10n
+import app.parley.ui.ParleyTopBar
+import app.parley.ui.ParleyScaffold
 
 private const val DAY_MS = 86_400_000L
 
@@ -187,14 +187,10 @@ fun TemporaryContactsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -
     var extendFor by remember { mutableStateOf<TemporaryItem?>(null) }
     var deleteFor by remember { mutableStateOf<TemporaryItem?>(null) }
     val scroll = TopAppBarDefaults.pinnedScrollBehavior()
-    Scaffold(
+    ParleyScaffold(
         modifier = Modifier.nestedScroll(scroll.nestedScrollConnection),
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.temp_title)) },
-                navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.dc_back)) } },
-                scrollBehavior = scroll,
-            )
+            ParleyTopBar(stringResource(R.string.temp_title), onBack = back, scrollBehavior = scroll)
         },
     ) { p ->
         if (items.isEmpty()) {
@@ -205,7 +201,7 @@ fun TemporaryContactsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -
                 // Temporary contacts start on the keypad.
                 action = stringResource(R.string.ux_empty_open_keypad), onAction = { vm.navigate(NavEvent.Tab(StartTab.KEYPAD)) },
             )
-            return@Scaffold
+            return@ParleyScaffold
         }
         LazyColumn(Modifier.fillMaxSize().padding(p), contentPadding = PaddingValues(16.dp)) {
             item {
