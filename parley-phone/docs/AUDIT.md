@@ -179,6 +179,32 @@ Everything in §3 marked High that is small:
 | Translations | 100% key parity in all shipped languages |
 | Accessibility | All text ≥ 4.5:1 contrast; every interactive element labelled and ≥ 48dp |
 
-## 6. Recommended next step
+## 6. Status after the four phases (4.0.0)
+
+All four phases shipped: 3.4.1 (safety hotfix), 3.5 (consolidation), 3.6 (quality) and 4.0 (hardening). Each ended with an independent review of its changes and a fix pass, and every release passed unit tests, detekt, lint (errors fail), the hard-coded-text check, the permission allow-list and the APK-size budget.
+
+| Dimension | Before | Now (estimate) | What changed |
+|---|---|---|---|
+| Privacy by design | 8.5 | **9.0** | Clipboard, lock-screen and plaintext-note leaks closed; small records sealed; tapjacking protection on sensitive screens |
+| Security engineering | 6.5 | **8.5** | Key lifecycle with safe upgrades, signed backups, scrypt with a strength meter, encrypted sync with replay detection, bounded readers, `LockedActivity` and an exported-component test, dependency verification, pinned pack keys |
+| Data safety & correctness | 6.2 | **8.5** | Store registry drives backup, restore and wipe; version-checked saves with "Changed elsewhere"; draft rebase after process death; incremental sync that never deletes on an incomplete listing |
+| Telecom robustness | 6.8 | **8.5** | `EmergencyPolicy`; per-call `CallSession` with separate screening, ringer, limits and notification collaborators; lean call-path start |
+| Performance | 6.0 | **7.5** | Lean call path, deferred warm-up, debounced observers, precomputed lists, one maintenance worker, baseline profile. Not yet measured on a device |
+| UI consistency | 6.0 | **8.0** | One design kit in `core/ui` enforced by detekt rules; all screens migrated |
+| UX coherence | 4.0 | **7.5** | One glossary, one "Message or call on…" sheet, 7-item menus plus Tools, one History & undo hub, searchable settings |
+| Code quality & maintainability | 5.0 | **7.5** | Per-feature ViewModels and use cases, one number key, one call read model, type-safe navigation, domain naming |
+| Tests & release engineering | 4.5 | **7.5** | CI workflow; Robolectric tests for data, telecom and ViewModels with fake providers; migration tests; detekt with a shrinking baseline |
+| Localisation | 4.5 | n/a | Parley is English-only for now by decision; translation work is paused |
+| **Overall** | **≈ 6** | **≈ 8** | The remaining points need real devices and measurement, not more code |
+
+**Still open, and why:**
+- **Device verification.** The performance targets in §5 (cold start, ring-to-UI, jank) have Macrobenchmarks but have not been run on a phone. Run them and the TESTING.md checklist (§21) on a real device before calling 4.0 final.
+- **APK size.** 4.0.0 is about 13 MiB against the ≤ 12 MB target; the budget check stops growth but the geocoder data and Compose still need trimming.
+- **Call-history archive key loss.** If Android loses the archive key, the archive is still set aside and a new one started (the vault and small records now keep data through transient errors). Old archive entries are not recoverable in that case; a backup is the safety net.
+- **KDF.** scrypt was chosen over Argon2id, because it is available without a native library.
+- **Sync limits.** A phone that joins a sync folder later cannot detect an old file that someone put back before it joined.
+- **Signing.** The release key is outside the repository; keep it and its backup offline (signing from CI secrets remains optional).
+
+## 7. Recommended next step (original)
 
 Start with **Phase 0 (v3.4.1)** right away. It is small, it fixes the real safety and data-loss issues, and it doesn't conflict with the larger work. Then run **Phase 1**, the consolidation release, *before* adding any new features, because every new feature built on today's duplicated foundations adds to the debt described in §4.

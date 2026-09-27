@@ -1158,3 +1158,11 @@ Forms keep their input
 - [ ] Rotate, or switch dark mode, while typing in: the blocking rule editor (pattern, note, schedule, SIM), the new-label and rename-label dialogs, a label page's SIM and rhythm choices, Simple mode setup (the person picker's search), "Add several numbers" (text, ticks after "Review", naming, account), "Choose columns" for a CSV (changed columns and the header switch), the call-time rule editor, speed dial's search, the date dialog, the blocking screen's test number and "Add number", saved filters' name. Everything stays.
 - [ ] With "Don't keep activities" on, leave and return to those screens: the same holds.
 - [ ] Passphrases and passcodes (backup, Simple mode file and QR, shared list import) are empty again after the activity is recreated: they are never kept in saved state.
+
+### 21.3 Keys and sealed records after the review
+
+1. **Transient Keystore error keeps notes.** With call notes and pinned notes present, force a Keystore failure (reboot and open Parley before the first unlock, or use a debug build with the key alias revoked). Parley shows a notice card instead of empty notes. After unlocking, the notes are all back, not replaced by blanks.
+2. **Interrupted vault upgrade.** Start the vault key upgrade (unlock the vault after updating from 3.6), then force-stop Parley mid-way. On the next start all private contacts open, and the upgrade finishes on its own.
+3. **Passphrase strength.** Type `password123`, `Summer2026!` and a common word repeated: each is rated weak. Four random words are rated strong.
+4. **Backup origin.** Restore a backup made on this phone: it is shown as from this phone. Restore one made on another phone, or with the signature stripped: it is shown as unconfirmed, and the restore still works after you confirm.
+5. **Overlay protection.** With a screen-overlay app running (for example a floating-bubble app), open the backup passphrase and "Delete all Parley data" dialogs. Taps through the overlay are ignored.
