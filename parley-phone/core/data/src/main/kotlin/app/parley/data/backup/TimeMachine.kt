@@ -3,6 +3,7 @@ package app.parley.data.backup
 import android.content.Context
 import app.parley.common.backup.BlobStore
 import app.parley.common.backup.ContactVersion
+import app.parley.common.backup.RecordJson
 import app.parley.common.backup.SnapshotDiff
 import app.parley.common.backup.SnapshotIndex
 import app.parley.common.backup.SnapshotWriter
@@ -103,7 +104,7 @@ class TimeMachine(context: Context, private val records: ContactRecordStore) {
     }
 
     private fun photoHashes(r: ContactRecord): List<String> =
-        r.raws.flatMap { raw -> raw.rows.mapNotNull { row -> row.blob?.let { app.parley.common.backup.RecordJson.sha256Hex(it) } } }
+        r.raws.flatMap { raw -> raw.rows.mapNotNull { row -> row.blob?.let { RecordJson.sha256Hex(it) } } }
 
     suspend fun history(key: String): List<ContactVersion> = withContext(Dispatchers.IO) { Snapshots.history(store, snapshots(), key) }
 

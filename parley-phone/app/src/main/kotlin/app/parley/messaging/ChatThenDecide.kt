@@ -1,5 +1,6 @@
 package app.parley.messaging
 
+import android.content.res.Resources
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
@@ -92,7 +93,7 @@ object WhatsAppNotice {
     /** The notice text, [R.string.msg_whatsapp_sync]. */
     val TEXT_RES = R.string.msg_whatsapp_sync
 
-    suspend fun maybeShow(res: android.content.res.Resources, c: DataContainer, chat: OpenedChat, snackbar: SnackbarHostState) {
+    suspend fun maybeShow(res: Resources, c: DataContainer, chat: OpenedChat, snackbar: SnackbarHostState) {
         if (!chat.appLabel.startsWith("WhatsApp") || c.messaging.whatsappSyncNoticeShown) return
         c.messaging.whatsappSyncNoticeShown = true
         snackbar.showSnackbar(res.getString(TEXT_RES), actionLabel = res.getString(R.string.main_ok), duration = SnackbarDuration.Long)

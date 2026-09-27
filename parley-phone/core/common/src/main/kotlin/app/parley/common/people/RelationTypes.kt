@@ -1,5 +1,7 @@
 package app.parley.common.people
 
+import app.parley.common.TextSearch
+
 /**
  * Relation types. Android has 14 built-in Relation types; vCard 4.0 (RFC 6350 RELATED) adds its own list, and
  * people want the everyday family words too. Each type has a stable English [key] (what's compared and exported,
@@ -130,5 +132,5 @@ object RelationTypes {
             .sortedBy { if (norm(it.label).startsWith(q)) 0 else 1 }
     }
 
-    private fun norm(s: String) = app.parley.common.TextSearch.normalize(s.trim()).replace(' ', '-')
+    private fun norm(s: String) = TextSearch.normalize(s.trim()).replace(' ', '-')
 }

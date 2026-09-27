@@ -29,6 +29,7 @@ import androidx.compose.material.icons.rounded.CallEnd
 import androidx.compose.material.icons.rounded.SimCard
 import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.IconButton
@@ -45,6 +46,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import app.parley.telecom.R
 import app.parley.ui.ForceLtr
@@ -116,7 +118,7 @@ fun IncomingControls(
 /** "Decline this call?" (simple mode). */
 @Composable
 internal fun DeclineQuestion(onDecline: () -> Unit, onDismiss: () -> Unit) {
-    androidx.compose.material3.AlertDialog(
+    AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.incall_decline_q)) },
         text = { Text(stringResource(R.string.incall_decline_body)) },
@@ -136,7 +138,7 @@ private fun SimpleAnswerButtons(sim: String?, onAnswer: () -> Unit, onDecline: (
 }
 
 @Composable
-private fun BigAction(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, color: Color, onClick: () -> Unit, height: Int, a11y: String? = null) {
+private fun BigAction(icon: ImageVector, label: String, color: Color, onClick: () -> Unit, height: Int, a11y: String? = null) {
     Row(
         Modifier.fillMaxWidth().height(height.dp).clip(RoundedCornerShape(28.dp)).background(color)
             .clickable(role = Role.Button, onClick = onClick).semantics { contentDescription = a11y ?: label },
@@ -177,7 +179,7 @@ private fun AnswerButtons(sim: String?, onAnswer: () -> Unit, onDecline: () -> U
 
 @Composable
 private fun RoundAction(
-    icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, color: Color, onClick: () -> Unit,
+    icon: ImageVector, label: String, color: Color, onClick: () -> Unit,
     sub: String? = null, a11y: String? = null,
 ) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {

@@ -2,6 +2,7 @@ package app.parley.ui.people
 
 import android.content.res.Resources
 import app.parley.R
+import app.parley.common.TextSearch
 import app.parley.common.people.RelationType
 import app.parley.common.people.RelationTypes
 
@@ -104,10 +105,10 @@ object RelationText {
 
     /** Picker search: the English label or key (as stored) and the label in the current language. */
     fun search(res: Resources, query: String): List<RelationType> {
-        val q = app.parley.common.TextSearch.normalize(query.trim())
+        val q = TextSearch.normalize(query.trim())
         if (q.isEmpty()) return RelationTypes.all
         val english = RelationTypes.search(query)
-        val local = RelationTypes.all.filter { app.parley.common.TextSearch.normalize(label(res, it)).contains(q) }
+        val local = RelationTypes.all.filter { TextSearch.normalize(label(res, it)).contains(q) }
         return (local + english).distinct()
     }
 }

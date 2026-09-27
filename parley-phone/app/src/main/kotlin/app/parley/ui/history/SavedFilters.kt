@@ -35,6 +35,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
@@ -56,7 +57,7 @@ fun SavedFilterChips(vm: AppViewModel) {
     val prefs by vm.c.history.prefs.state.collectAsStateWithLifecycle()
     val sims by vm.sims.collectAsStateWithLifecycle()
     var editing by remember { mutableStateOf(false) }
-    val res = androidx.compose.ui.platform.LocalResources.current
+    val res = LocalResources.current
     val simFallback = stringResource(R.string.hist_filter_sim)
     val simLabel = { id: String -> sims.firstOrNull { it.id == id }?.label ?: simFallback }
 

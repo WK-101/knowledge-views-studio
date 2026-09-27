@@ -1,8 +1,10 @@
 package app.parley.common.spam
 
+import java.util.Base64
 import java.util.Locale
 import app.parley.common.CountryCodes
 import app.parley.common.PhoneNumbers
+import java.util.TreeMap
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import java.io.ByteArrayInputStream
@@ -91,11 +93,11 @@ object ListPack {
     fun readManifest(bytes: ByteArray): PackManifest? = runCatching { json.decodeFromString(PackManifest.serializer(), bytes.decodeToString()) }.getOrNull()
 
     /** The publisher key a signed pack names, decoded (full 32 bytes), or null. */
-    fun publicKeyBytes(p: PackManifest): ByteArray? = p.publicKey?.let { runCatching { java.util.Base64.getDecoder().decode(it) }.getOrNull() }
+    fun publicKeyBytes(p: PackManifest): ByteArray? = p.publicKey?.let { runCatching { Base64.getDecoder().decode(it) }.getOrNull() }
 
     /** Whether [candidate] was signed by the same publisher key as the installed pack ([installedKey], Base64). Full key compare. */
     fun sameKey(installedKey: String?, candidate: PackManifest): Boolean {
-        val a = installedKey?.let { runCatching { java.util.Base64.getDecoder().decode(it) }.getOrNull() } ?: return false
+        val a = installedKey?.let { runCatching { Base64.getDecoder().decode(it) }.getOrNull() } ?: return false
         val b = publicKeyBytes(candidate) ?: return false
         return a.size == 32 && MessageDigest.isEqual(a, b)
     }
@@ -146,7 +148,7 @@ object ListPack {
         var status = SignatureStatus.UNSIGNED
         var fingerprint: String? = null
         if (sig != null) {
-            val key = manifest.publicKey?.let { runCatching { java.util.Base64.getDecoder().decode(it) }.getOrNull() }
+            val key = manifest.publicKey?.let { runCatching { Base64.getDecoder().decode(it) }.getOrNull() }
                 ?: throw PackException("The list is signed but names no key")
             if (!Ed25519.verify(key, manifestBytes, sig)) throw PackException("The list's signature is not valid")
             status = SignatureStatus.SIGNED
@@ -191,7 +193,7 @@ object ListPack {
 
 /** Builds packs offline (tools, tests, and "share my rules"). */
 class PackBuilder(private val base: PackManifest) {
-    private val numbers = java.util.TreeMap<Long, Pair<Int, Int>>()
+    private val numbers = TreeMap<Long, Pair<Int, Int>>()
     private val ranges = LinkedHashMap<String, PackRange>()
 
     /** Adds a number (any format; national numbers use [countryIso]). Returns false when it isn't a usable number. */
@@ -233,7 +235,7 @@ class PackBuilder(private val base: PackManifest) {
             created = if (base.created == 0L) now else base.created,
             entries = numbers.size,
             ranges = ranges.size,
-            publicKey = secretKey?.let { java.util.Base64.getEncoder().encodeToString(Ed25519.publicKey(it)) },
+            publicKey = secretKey?.let { Base64.getEncoder().encodeToString(Ed25519.publicKey(it)) },
             sha256 = mapOf(ListPack.NUMBERS to ListPack.sha256Hex(nums), ListPack.RANGES to ListPack.sha256Hex(rangesBytes)),
         )
         val manifestBytes = ListPack.json.encodeToString(PackManifest.serializer(), manifest).encodeToByteArray()

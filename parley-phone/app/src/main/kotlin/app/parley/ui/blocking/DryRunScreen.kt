@@ -1,5 +1,6 @@
 package app.parley.ui.blocking
 
+import android.net.Uri
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -34,12 +35,15 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavType
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import app.parley.AppViewModel
 import app.parley.R
 import app.parley.blocking.BlockingText
+import app.parley.common.RuleKind
+import app.parley.common.RuleType
 import app.parley.data.DryRun
 import app.parley.ui.common.Format
 import androidx.compose.foundation.layout.Arrangement
@@ -117,11 +121,11 @@ object BlockingRoutes {
     const val TEMPLATES = "blocking/templates"
     const val RULE = "blocking/rule/{id}?kind={kind}&type={type}&pattern={pattern}"
 
-    fun rule(id: Long, kind: app.parley.common.RuleKind = app.parley.common.RuleKind.BLOCK, type: app.parley.common.RuleType = app.parley.common.RuleType.PREFIX, pattern: String = "") =
+    fun rule(id: Long, kind: RuleKind = RuleKind.BLOCK, type: RuleType = RuleType.PREFIX, pattern: String = "") =
         "blocking/rule/$id?kind=${kind.name}&type=${type.name}&pattern=${android.net.Uri.encode(pattern)}"
 
     /** Adds every blocking destination to a NavGraph. */
-    fun register(builder: androidx.navigation.NavGraphBuilder, vm: AppViewModel, back: () -> Unit) {
+    fun register(builder: NavGraphBuilder, vm: AppViewModel, back: () -> Unit) {
         with(builder) {
             composable(LISTS) { SpamListsScreen(vm, back) }
             composable(TRANSFER) { TransferScreen(vm, back) }
@@ -137,9 +141,9 @@ object BlockingRoutes {
                 ),
             ) {
                 val a = it.arguments!!
-                val kind = runCatching { app.parley.common.RuleKind.valueOf(a.getString("kind").orEmpty()) }.getOrDefault(app.parley.common.RuleKind.BLOCK)
-                val type = runCatching { app.parley.common.RuleType.valueOf(a.getString("type").orEmpty()) }.getOrDefault(app.parley.common.RuleType.PREFIX)
-                RuleEditorScreen(vm, a.getLong("id"), newRule(kind, type, android.net.Uri.decode(a.getString("pattern").orEmpty())), back)
+                val kind = runCatching { RuleKind.valueOf(a.getString("kind").orEmpty()) }.getOrDefault(RuleKind.BLOCK)
+                val type = runCatching { RuleType.valueOf(a.getString("type").orEmpty()) }.getOrDefault(RuleType.PREFIX)
+                RuleEditorScreen(vm, a.getLong("id"), newRule(kind, type, Uri.decode(a.getString("pattern").orEmpty())), back)
             }
         }
     }

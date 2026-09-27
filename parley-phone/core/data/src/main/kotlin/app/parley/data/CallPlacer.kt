@@ -7,6 +7,7 @@ import android.os.Bundle
 import android.telecom.TelecomManager
 import android.telephony.TelephonyManager
 import app.parley.common.PhoneNumbers
+import app.parley.common.calls.DialCodes
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -66,7 +67,7 @@ class CallPlacer(private val context: Context, private val sims: SimRepository, 
 
     /** *#*#1234#*#* style codes are broadcast to the owning app (allowed for the default dialer). */
     private fun handleSecretCode(number: String): Boolean {
-        val code = app.parley.common.calls.DialCodes.secretCode(number) ?: return false
+        val code = DialCodes.secretCode(number) ?: return false
         return try {
             context.getSystemService(TelephonyManager::class.java).sendDialerSpecialCode(code)
             true

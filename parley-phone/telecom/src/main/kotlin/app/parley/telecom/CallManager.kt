@@ -1,8 +1,21 @@
 package app.parley.telecom
 
 import android.annotation.SuppressLint
+import android.app.NotificationManager
 import android.content.Context
+import android.content.Intent
+import android.media.AudioAttributes
+import android.media.AudioManager
+import android.media.Ringtone
+import android.media.RingtoneManager
+import android.net.Uri
 import android.os.Build
+import android.os.SystemClock
+import android.os.VibrationAttributes
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
+import android.provider.Settings
 import android.telecom.Call
 import android.telecom.Connection
 import android.telecom.DisconnectCause
@@ -25,6 +38,7 @@ import app.parley.common.calls.KeyPressTracker
 import app.parley.common.calls.RingFacts
 import app.parley.common.calls.RingOutcome
 import app.parley.common.calls.RingtoneSource
+import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -54,7 +68,7 @@ object CallManager {
     private val screening = HashSet<String>()
     private val unknownCallers = HashSet<String>()
     private val locations = HashMap<String, String>()
-    private var customRinger: android.media.Ringtone? = null
+    private var customRinger: Ringtone? = null
     private var customRingerFor: String? = null
     /** Screening outcome per call: verdict for the caller card and ringer plan. */
     private val outcomes = HashMap<String, ScreenOutcome>()
@@ -132,7 +146,7 @@ object CallManager {
 
     private val postDial = HashMap<String, String>()
 
-    private val idPrefix = "c" + android.os.SystemClock.elapsedRealtime().toString(36) + "_"
+    private val idPrefix = "c" + SystemClock.elapsedRealtime().toString(36) + "_"
 
     fun idOf(call: Call): String = ids.getOrPut(call) { idPrefix + (++counter) }
 
@@ -266,15 +280,15 @@ object CallManager {
             ?: return
         if (id in screening || customRingerFor == id) return // played once screening allows the call
         if (!::appContext.isInitialized || id in silenced || !calls.contains(call) || call.stateCompat() != Call.STATE_RINGING) return
-        val am = appContext.getSystemService(android.media.AudioManager::class.java)
-        val nm = appContext.getSystemService(android.app.NotificationManager::class.java)
-        if (am.ringerMode != android.media.AudioManager.RINGER_MODE_NORMAL) return
-        if (nm.currentInterruptionFilter != android.app.NotificationManager.INTERRUPTION_FILTER_ALL) return
+        val am = appContext.getSystemService(AudioManager::class.java)
+        val nm = appContext.getSystemService(NotificationManager::class.java)
+        if (am.ringerMode != AudioManager.RINGER_MODE_NORMAL) return
+        if (nm.currentInterruptionFilter != NotificationManager.INTERRUPTION_FILTER_ALL) return
         if (calls.any { it != call && mapState(it.stateCompat()) == CallState.ACTIVE }) return
-        val tone = runCatching { android.media.RingtoneManager.getRingtone(appContext, android.net.Uri.parse(uri)) }.getOrNull() ?: return
-        tone.audioAttributes = android.media.AudioAttributes.Builder()
-            .setUsage(android.media.AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
-            .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
+        val tone = runCatching { RingtoneManager.getRingtone(appContext, Uri.parse(uri)) }.getOrNull() ?: return
+        tone.audioAttributes = AudioAttributes.Builder()
+            .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
+            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
             .build()
         if (Build.VERSION.SDK_INT >= 28) tone.isLooping = true
         // Claimed now so a second lookup/screening result doesn't start another tone while we wait.
@@ -284,14 +298,14 @@ object CallManager {
         // overlap. Everything is re-checked afterwards: the call may have been answered, silenced or ended meanwhile.
         silenceRinger()
         scope.launch {
-            val waitedUntil = android.os.SystemClock.elapsedRealtime() + RINGER_STOP_MAX_MS
+            val waitedUntil = SystemClock.elapsedRealtime() + RINGER_STOP_MAX_MS
             delay(RINGER_STOP_MIN_MS)
-            while (systemRingtonePlaying(am) && android.os.SystemClock.elapsedRealtime() < waitedUntil) delay(RINGER_POLL_MS)
+            while (systemRingtonePlaying(am) && SystemClock.elapsedRealtime() < waitedUntil) delay(RINGER_POLL_MS)
             if (customRinger !== tone || id in silenced || !calls.contains(call) || call.stateCompat() != Call.STATE_RINGING) {
                 if (customRinger === tone) { customRinger = null; customRingerFor = null }
                 return@launch
             }
-            if (am.ringerMode != android.media.AudioManager.RINGER_MODE_NORMAL) {
+            if (am.ringerMode != AudioManager.RINGER_MODE_NORMAL) {
                 customRinger = null
                 customRingerFor = null
                 return@launch
@@ -304,38 +318,38 @@ object CallManager {
     }
 
     /** Another player (Telecom's ringer) is still playing a ringtone. Our own tone isn't playing yet at this point. */
-    private fun systemRingtonePlaying(am: android.media.AudioManager): Boolean = runCatching {
-        am.activePlaybackConfigurations.any { it.audioAttributes.usage == android.media.AudioAttributes.USAGE_NOTIFICATION_RINGTONE }
+    private fun systemRingtonePlaying(am: AudioManager): Boolean = runCatching {
+        am.activePlaybackConfigurations.any { it.audioAttributes.usage == AudioAttributes.USAGE_NOTIFICATION_RINGTONE }
     }.getOrDefault(false)
 
-    private var ringVibrator: android.os.Vibrator? = null
+    private var ringVibrator: Vibrator? = null
 
     /**
      * Silencing Telecom also stops its vibration, so vibrate like it would: only when the system's "Vibrate for calls"
      * is on (the tone only plays in normal ringer mode, where that setting decides).
      */
-    private fun startRingVibration(am: android.media.AudioManager) {
-        if (am.ringerMode == android.media.AudioManager.RINGER_MODE_SILENT) return
+    private fun startRingVibration(am: AudioManager) {
+        if (am.ringerMode == AudioManager.RINGER_MODE_SILENT) return
         val cr = appContext.contentResolver
-        val vibrateWhenRinging = am.ringerMode == android.media.AudioManager.RINGER_MODE_VIBRATE ||
-            runCatching { android.provider.Settings.System.getInt(cr, android.provider.Settings.System.VIBRATE_WHEN_RINGING, 0) != 0 }.getOrDefault(false)
+        val vibrateWhenRinging = am.ringerMode == AudioManager.RINGER_MODE_VIBRATE ||
+            runCatching { Settings.System.getInt(cr, Settings.System.VIBRATE_WHEN_RINGING, 0) != 0 }.getOrDefault(false)
         // Android 13+ also has a ring vibration intensity; 0 means off.
-        val intensityOff = runCatching { android.provider.Settings.System.getInt(cr, "ring_vibration_intensity", -1) == 0 }.getOrDefault(false)
+        val intensityOff = runCatching { Settings.System.getInt(cr, "ring_vibration_intensity", -1) == 0 }.getOrDefault(false)
         if (!vibrateWhenRinging || intensityOff) return
         val v = if (Build.VERSION.SDK_INT >= 31) {
-            appContext.getSystemService(android.os.VibratorManager::class.java)?.defaultVibrator
+            appContext.getSystemService(VibratorManager::class.java)?.defaultVibrator
         } else {
             @Suppress("DEPRECATION")
-            appContext.getSystemService(android.os.Vibrator::class.java)
+            appContext.getSystemService(Vibrator::class.java)
         } ?: return
         if (!v.hasVibrator()) return
-        val effect = android.os.VibrationEffect.createWaveform(RING_VIBRATION, 0)
+        val effect = VibrationEffect.createWaveform(RING_VIBRATION, 0)
         runCatching {
             if (Build.VERSION.SDK_INT >= 33) {
-                v.vibrate(effect, android.os.VibrationAttributes.createForUsage(android.os.VibrationAttributes.USAGE_RINGTONE))
+                v.vibrate(effect, VibrationAttributes.createForUsage(VibrationAttributes.USAGE_RINGTONE))
             } else {
                 @Suppress("DEPRECATION")
-                v.vibrate(effect, android.media.AudioAttributes.Builder().setUsage(android.media.AudioAttributes.USAGE_NOTIFICATION_RINGTONE).build())
+                v.vibrate(effect, AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE).build())
             }
             ringVibrator = v
         }
@@ -440,7 +454,7 @@ object CallManager {
 
     /** Called when Parley places a call, so the UI can say "Calling via Work SIM…" before the call exists. */
     fun expectOutgoing(number: String, simLabel: String?) {
-        val p = PendingOutgoing(number, simLabel, android.os.SystemClock.elapsedRealtime())
+        val p = PendingOutgoing(number, simLabel, SystemClock.elapsedRealtime())
         _pendingOutgoing.value = p
         scope.launch {
             delay(PENDING_OUTGOING_MS)
@@ -491,7 +505,7 @@ object CallManager {
             val c = calls.firstOrNull { idOf(it) == rid }
             if (c == null || c.stateCompat() != Call.STATE_RINGING || rid in silenced) restoreBoost()
         }
-        val now = android.os.SystemClock.elapsedRealtime()
+        val now = SystemClock.elapsedRealtime()
         calls.filter { it.parent == null }.forEach { c ->
             val id = idOf(c)
             val st = mapState(c.stateCompat())
@@ -619,7 +633,7 @@ object CallManager {
     private fun str(res: Int): String? = if (::appContext.isInitialized) appContext.getString(res) else null
 
     /** Platform answers per number, while calls exist (the list depends on the SIM and network, so not for longer). */
-    private val emergencyNumbers = java.util.concurrent.ConcurrentHashMap<String, Boolean>()
+    private val emergencyNumbers = ConcurrentHashMap<String, Boolean>()
 
     private fun isEmergency(number: String?): Boolean {
         if (number.isNullOrBlank()) return false
@@ -817,9 +831,9 @@ object CallManager {
         if (message != null && !number.isNullOrBlank()) {
             try {
                 appContext.startActivity(
-                    android.content.Intent(android.content.Intent.ACTION_SENDTO, android.net.Uri.fromParts("smsto", number, null))
+                    Intent(Intent.ACTION_SENDTO, Uri.fromParts("smsto", number, null))
                         .putExtra("sms_body", message)
-                        .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
                 )
             } catch (_: Exception) {
             }
@@ -905,7 +919,7 @@ object CallManager {
         endedInSimPicker = book.lastLiveState(id) == CallState.SELECT_ACCOUNT,
         userEnded = id in userEnded,
         airplaneMode = ::appContext.isInitialized &&
-            runCatching { android.provider.Settings.Global.getInt(appContext.contentResolver, android.provider.Settings.Global.AIRPLANE_MODE_ON, 0) != 0 }.getOrDefault(false),
+            runCatching { Settings.Global.getInt(appContext.contentResolver, Settings.Global.AIRPLANE_MODE_ON, 0) != 0 }.getOrDefault(false),
         emergency = ended.isEmergency,
         hasNumber = !ended.hidden && !ended.number.isNullOrBlank(),
     )

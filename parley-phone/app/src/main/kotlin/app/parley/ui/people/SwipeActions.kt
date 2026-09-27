@@ -1,5 +1,6 @@
 package app.parley.ui.people
 
+import android.app.Application
 import android.content.res.Resources
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
@@ -44,6 +45,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalResources
@@ -211,7 +213,7 @@ private fun SwipeBackground(o: Float, right: SwipeAction, left: SwipeAction, arm
     val onContainer by animateColorAsState(if (armed) fg else MaterialTheme.colorScheme.onSurfaceVariant, label = "swipe_fg")
     val pop by animateFloatAsState(if (armed) 1.15f else 1f, spring(dampingRatio = 0.35f, stiffness = Spring.StiffnessMedium), label = "swipe_pop")
     if (action == SwipeAction.NONE || o == 0f) return
-    val density = androidx.compose.ui.platform.LocalDensity.current.density
+    val density = LocalDensity.current.density
     val progress = (abs(o) / SwipeGesture.threshold(width.toFloat().coerceAtLeast(1f), density)).coerceIn(0f, 1f)
     Row(
         modifier.background(container).padding(horizontal = 24.dp),
@@ -236,7 +238,7 @@ private fun SwipeBackground(o: Float, right: SwipeAction, left: SwipeAction, arm
 
 /** Block from a swipe, with Undo on the snackbar (a swipe is easy to make by mistake). */
 fun blockWithUndo(vm: AppViewModel, numbers: List<String>) {
-    val res = vm.getApplication<android.app.Application>().resources
+    val res = vm.getApplication<Application>().resources
     vm.viewModelScope.launch {
         // Only numbers this swipe newly blocked go into Undo, so Undo never lifts an earlier block.
         val (already, fresh) = numbers.distinct().partition { runCatching { vm.c.blocks.isSystemBlocked(it) }.getOrDefault(false) }

@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -51,7 +52,7 @@ fun EmptyState(icon: ImageVector, title: String, body: String? = null, modifier:
             )
         }
         if (action != null && onAction != null) {
-            androidx.compose.material3.FilledTonalButton(onAction, Modifier.padding(top = 16.dp)) { Text(action) }
+            FilledTonalButton(onAction, Modifier.padding(top = 16.dp)) { Text(action) }
         }
     }
 }

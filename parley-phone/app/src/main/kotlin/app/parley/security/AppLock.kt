@@ -1,6 +1,7 @@
 package app.parley.security
 
 import android.net.Uri
+import android.util.Log
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.OutlinedTextField
@@ -154,7 +155,7 @@ object AppLock {
                 onResult(true)
                 return
             }
-            android.util.Log.w("AppLock", "Biometric prompt unavailable ($status); confirming the screen lock instead")
+            Log.w("AppLock", "Biometric prompt unavailable ($status); confirming the screen lock instead")
             return confirmCredential(activity, title ?: activity.getString(R.string.lock_unlock_parley)) { ok ->
                 if (ok) {
                     unlocked()

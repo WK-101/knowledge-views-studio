@@ -1,5 +1,6 @@
 package app.parley.data.db
 
+import android.content.Context
 import androidx.room.Room
 import androidx.room.testing.MigrationTestHelper
 import androidx.test.core.app.ApplicationProvider
@@ -60,7 +61,7 @@ class AppDatabaseMigrationTest {
         helper.createDatabase(NAME, 1).use { db ->
             db.execSQL("INSERT INTO speed_dial (`key`, number, label) VALUES (3, '+15550000003', NULL)")
         }
-        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val context = ApplicationProvider.getApplicationContext<Context>()
         val room = Room.databaseBuilder(context, AppDatabase::class.java, NAME).allowMainThreadQueries().build()
         try {
             assertEquals("+15550000003", room.prefsDao().speedDial(3)?.number)

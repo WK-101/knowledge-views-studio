@@ -1,5 +1,7 @@
 package app.parley.ui.settings
 
+import android.content.Context
+import android.os.Build
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
@@ -8,6 +10,7 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -48,6 +51,7 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
@@ -72,6 +76,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import app.parley.R
@@ -94,6 +99,15 @@ import app.parley.ui.EmptyState
 import app.parley.ui.LocalHighlightKey
 import app.parley.ui.Routes
 import app.parley.ui.SegmentedGroup
+import app.parley.ui.backup.BackupReminderBanner
+import app.parley.ui.calls.rememberDialerRoleRequest
+import app.parley.ui.common.unmappedLabel
+import app.parley.ui.contact.ContactPageRoutes
+import app.parley.ui.extras.ExtrasRoutes
+import app.parley.ui.history.HistoryRoutes
+import app.parley.ui.journal.HistoryTab
+import app.parley.ui.people.hasSeveralAccounts
+import app.parley.ui.qr.QrRoutes
 import app.parley.ui.segmentShape
 
 val SettingsCategory.icon: ImageVector
@@ -131,7 +145,7 @@ fun SettingsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
     var searching by rememberSaveable { mutableStateOf(false) }
     var query by rememberSaveable { mutableStateOf("") }
     // The role request, with the by-hand guide when Android refuses without asking.
-    val requestRole = app.parley.ui.calls.rememberDialerRoleRequest { vm.refreshEnvironment() }
+    val requestRole = rememberDialerRoleRequest { vm.refreshEnvironment() }
     BackHandler(searching) { searching = false; query = "" }
     val scroll = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
 
@@ -179,7 +193,7 @@ fun SettingsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
                 }
             }
             // A quiet reminder once a backup is overdue (Not now snoozes it for a week).
-            app.parley.ui.backup.BackupReminderBanner(vm, Modifier.padding(vertical = 0.dp))
+            BackupReminderBanner(vm, Modifier.padding(vertical = 0.dp))
             // Tools (birthdays, blocking, backups, History & undo…) are also here, not only in the tabs' ⋮ menus.
             SegmentedGroup {
                 item("tools") {
@@ -259,10 +273,10 @@ private fun SearchResults(query: String, modifier: Modifier, onClear: () -> Unit
         )
         return
     }
-    LazyColumn(modifier.fillMaxSize(), contentPadding = androidx.compose.foundation.layout.PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp)) {
+    LazyColumn(modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp)) {
         items(results, key = { it.key }) { e ->
             val i = results.indexOf(e)
-            androidx.compose.material3.Surface(
+            Surface(
                 shape = segmentShape(i, results.size),
                 color = MaterialTheme.colorScheme.surfaceContainer,
                 modifier = Modifier.fillMaxWidth().padding(bottom = 2.dp),
@@ -284,7 +298,7 @@ private fun SearchResults(query: String, modifier: Modifier, onClear: () -> Unit
 @Composable
 fun SettingsPageScreen(vm: AppViewModel, category: SettingsCategory, focus: String?, back: () -> Unit, open: (String) -> Unit) {
     val s by vm.settings.collectAsStateWithLifecycle()
-    val severalAccounts = app.parley.ui.people.hasSeveralAccounts(vm)
+    val severalAccounts = hasSeveralAccounts(vm)
     // A setting found by search that is shown only when another one is on: point at that one instead.
     val shown = when {
         focus == "lock_after" && !s.appLock -> "app_lock"
@@ -331,7 +345,7 @@ internal fun QuickRepliesDialog(current: List<String>, onDismiss: () -> Unit, on
     )
 }
 
-internal fun exportMessage(context: android.content.Context, r: VCardIO.ExportResult): String {
+internal fun exportMessage(context: Context, r: VCardIO.ExportResult): String {
     val res = context.resources
     val done = res.getQuantityString(R.plurals.set_exported_contacts, r.exported, r.exported)
     return if (r.failures.isEmpty()) done else
@@ -351,7 +365,7 @@ internal fun importSummary(report: ImportReport): String = buildList {
 /** What an import did: counts, then every failed card with its reason, then fields that had no place. */
 @Composable
 internal fun ImportReportDialog(report: ImportReport, onDismiss: () -> Unit) {
-    val res = androidx.compose.ui.platform.LocalResources.current
+    val res = LocalResources.current
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.set_import_finished)) },
@@ -373,7 +387,7 @@ internal fun ImportReportDialog(report: ImportReport, onDismiss: () -> Unit) {
                 }
                 if (report.unmappedProperties.isNotEmpty()) {
                     Text(stringResource(R.string.set_unmapped_fields), style = MaterialTheme.typography.titleSmall)
-                    Text(report.unmappedProperties.entries.joinToString("\n") { app.parley.ui.common.unmappedLabel(res, it.key) + " × ${it.value}" }, style = MaterialTheme.typography.bodySmall)
+                    Text(report.unmappedProperties.entries.joinToString("\n") { unmappedLabel(res, it.key) + " × ${it.value}" }, style = MaterialTheme.typography.bodySmall)
                 }
             }
         },
@@ -386,12 +400,12 @@ private const val MAX_REPORT_ITEMS = 50
 /** Where Settings search takes you for [e]: its category page scrolled to it, or the screen it lives on. */
 internal fun settingRoute(e: SettingEntry): String = when (e.place) {
     null -> Routes.settingsPage(e.category, e.key)
-    SettingPlace.TOOLS -> if (e.key == "scan_qr") app.parley.ui.qr.QrRoutes.SCAN else Routes.TOOLS
+    SettingPlace.TOOLS -> if (e.key == "scan_qr") QrRoutes.SCAN else Routes.TOOLS
     SettingPlace.BLOCKING -> Routes.BLOCKING
-    SettingPlace.DELETED_CALLS -> Routes.journal(app.parley.ui.journal.HistoryTab.CALLS)
-    SettingPlace.SIMS -> app.parley.ui.history.HistoryRoutes.SIMS
-    SettingPlace.CONTACT_PAGE -> app.parley.ui.contact.ContactPageRoutes.SECTIONS
-    SettingPlace.SIMPLE_MODE -> app.parley.ui.extras.ExtrasRoutes.SIMPLE_SETUP
+    SettingPlace.DELETED_CALLS -> Routes.journal(HistoryTab.CALLS)
+    SettingPlace.SIMS -> HistoryRoutes.SIMS
+    SettingPlace.CONTACT_PAGE -> ContactPageRoutes.SECTIONS
+    SettingPlace.SIMPLE_MODE -> ExtrasRoutes.SIMPLE_SETUP
     SettingPlace.CALL_TIME -> Routes.CALL_TIME
     SettingPlace.BACKUP -> Routes.BACKUP
     SettingPlace.SYNC -> Routes.SYNC
@@ -399,6 +413,6 @@ internal fun settingRoute(e: SettingEntry): String = when (e.place) {
 
 /** Settings that don't exist on this phone, left out of search. */
 private val unavailableHere: Set<String> = buildSet {
-    if (android.os.Build.VERSION.SDK_INT < 31) add("dynamic_color")
-    if (listOf("Xiaomi", "Redmi", "POCO").none { android.os.Build.MANUFACTURER.equals(it, true) }) add("xiaomi")
+    if (Build.VERSION.SDK_INT < 31) add("dynamic_color")
+    if (listOf("Xiaomi", "Redmi", "POCO").none { Build.MANUFACTURER.equals(it, true) }) add("xiaomi")
 }

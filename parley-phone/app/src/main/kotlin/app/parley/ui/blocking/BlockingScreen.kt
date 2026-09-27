@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -65,6 +66,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -79,6 +81,9 @@ import app.parley.blocking.ExpectingCallTileService
 import app.parley.common.AppSettings
 import app.parley.common.BlockAction
 import app.parley.common.BlockRule
+import app.parley.common.CallPolicy
+import app.parley.common.LabelRefs
+import app.parley.common.NotifyLevel
 import app.parley.common.OffHours
 import app.parley.common.OffHoursAllow
 import app.parley.common.RuleKind
@@ -91,9 +96,13 @@ import app.parley.common.blocking.PersonalReputation
 import app.parley.common.spam.BuiltInPacks
 import app.parley.data.GroupInfo
 import app.parley.data.Permissions
+import app.parley.data.PhoneEnv
 import app.parley.data.db.BlockedCallEntity
 import app.parley.telecom.ScreeningGuard
+import app.parley.ui.calls.RingFactsFor
 import app.parley.ui.common.Format
+import app.parley.ui.contact.Section
+import app.parley.ui.segmentShape
 import app.parley.ui.settings.bidiLtr
 import app.parley.ui.settings.settingTitle
 import kotlinx.coroutines.Dispatchers
@@ -124,7 +133,7 @@ private val PRESETS = listOf(
 @Composable
 fun BlockingScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit = {}) {
     val context = LocalContext.current
-    val res = androidx.compose.ui.platform.LocalResources.current
+    val res = LocalResources.current
     val scope = rememberCoroutineScope()
     val settings by vm.settings.collectAsStateWithLifecycle()
     val rules by vm.c.blocks.rules.collectAsStateWithLifecycle()
@@ -158,13 +167,13 @@ fun BlockingScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit = 
     val blockRules = rules.filter { it.kind == RuleKind.BLOCK }
     val dismissed = remember { mutableStateOf(setOf<String>()) }
     val suggestions = remember(calls, rules, s.reputationSuggestions, dismissed.value) {
-        if (!s.reputationSuggestions) emptyList() else PersonalReputation.suggestions(calls.orEmpty().take(1500), System.currentTimeMillis(), countryOf = { e -> app.parley.data.PhoneEnv.countryIso(context, e.accountId) }) { n ->
-            n in dismissed.value || vm.contactFor(n) != null || rules.any { r -> r.type.isNumberRule && app.parley.common.CallPolicy.ruleMatches(r, n, vm.countryIso) }
+        if (!s.reputationSuggestions) emptyList() else PersonalReputation.suggestions(calls.orEmpty().take(1500), System.currentTimeMillis(), countryOf = { e -> PhoneEnv.countryIso(context, e.accountId) }) { n ->
+            n in dismissed.value || vm.contactFor(n) != null || rules.any { r -> r.type.isNumberRule && CallPolicy.ruleMatches(r, n, vm.countryIso) }
         }.take(5)
     }
 
     // Scroll-linked top-bar tint.
-    val barScroll = androidx.compose.material3.TopAppBarDefaults.pinnedScrollBehavior()
+    val barScroll = TopAppBarDefaults.pinnedScrollBehavior()
     Scaffold(modifier = Modifier.nestedScroll(barScroll.nestedScrollConnection), topBar = {
         TopAppBar(title = { Text(stringResource(R.string.blk_title)) }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.set_back)) } }, scrollBehavior = barScroll)
     }) { p ->
@@ -429,7 +438,7 @@ fun BlockingScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit = 
 
             // ---- Blocked log ----
             item(key = "log-head") {
-                app.parley.ui.contact.Section(stringResource(R.string.blk_recent))
+                Section(stringResource(R.string.blk_recent))
                 Text(stringResource(Help.LOG), Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (suggestions.isNotEmpty()) {
                     Text(stringResource(R.string.blk_likely_spam_for_you), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(start = 16.dp, top = 12.dp))
@@ -457,7 +466,7 @@ fun BlockingScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit = 
             val shown = log.take(100)
             itemsIndexed(shown, key = { _, e -> "l" + e.id }) { i, e ->
                 // The log as one segmented group.
-                BlockingCard(app.parley.ui.segmentShape(i, shown.size), vertical = 1.dp) { BlockedLogRow(vm, e) }
+                BlockingCard(segmentShape(i, shown.size), vertical = 1.dp) { BlockedLogRow(vm, e) }
             }
         }
     }
@@ -520,8 +529,8 @@ private fun OffHoursWho(vm: AppViewModel, oh: OffHours, onChange: (OffHours) -> 
             FilterChip(oh.allow == OffHoursAllow.CONTACTS, { onChange(oh.copy(allow = OffHoursAllow.CONTACTS)) }, label = { Text(stringResource(R.string.blk_all_contacts)) })
             FilterChip(oh.allow == OffHoursAllow.FAVOURITES, { onChange(oh.copy(allow = OffHoursAllow.FAVOURITES)) }, label = { Text(stringResource(R.string.blk_favourites)) })
             // By title: the label in every account.
-            groups.map { app.parley.common.LabelRefs.key(it.title) }.distinct().forEach { t ->
-                val on = oh.allow == OffHoursAllow.LABEL && oh.labelTitle?.let { app.parley.common.LabelRefs.key(it) } == t
+            groups.map { LabelRefs.key(it.title) }.distinct().forEach { t ->
+                val on = oh.allow == OffHoursAllow.LABEL && oh.labelTitle?.let { LabelRefs.key(it) } == t
                 FilterChip(on, { onChange(oh.copy(allow = OffHoursAllow.LABEL, labelId = null, labelTitle = t)) }, label = { Text(t) })
             }
         }
@@ -551,13 +560,13 @@ private fun SoundsSection(vm: AppViewModel, s: ScreeningSettings, set: ((Screeni
     Text(stringResource(R.string.blk_label_ringtones_help), Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     Text(stringResource(R.string.blk_notifications), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(start = 16.dp, top = 12.dp))
     listOf(
-        Triple(stringResource(R.string.blk_notify_blocked), s.notifyBlocked) { n: app.parley.common.NotifyLevel -> set { it.copy(notifyBlocked = n) } },
-        Triple(stringResource(R.string.blk_notify_reported), s.notifyReported) { n: app.parley.common.NotifyLevel -> set { it.copy(notifyReported = n) } },
-        Triple(stringResource(R.string.blk_notify_likely), s.notifyLikelySpam) { n: app.parley.common.NotifyLevel -> set { it.copy(notifyLikelySpam = n) } },
+        Triple(stringResource(R.string.blk_notify_blocked), s.notifyBlocked) { n: NotifyLevel -> set { it.copy(notifyBlocked = n) } },
+        Triple(stringResource(R.string.blk_notify_reported), s.notifyReported) { n: NotifyLevel -> set { it.copy(notifyReported = n) } },
+        Triple(stringResource(R.string.blk_notify_likely), s.notifyLikelySpam) { n: NotifyLevel -> set { it.copy(notifyLikelySpam = n) } },
     ).forEach { (title, v, change) ->
         ListItem(headlineContent = { Text(title) }, supportingContent = { NotifyChoice(v, allowDefault = false, change) })
     }
-    if (s.notifyBlocked == app.parley.common.NotifyLevel.NONE) {
+    if (s.notifyBlocked == NotifyLevel.NONE) {
         Text(stringResource(R.string.blk_notify_off_warning), Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
     }
     TextButton({
@@ -627,7 +636,7 @@ private fun RuleRow(vm: AppViewModel, r: BlockRule, now: Long, onClick: () -> Un
 @Composable
 private fun BlockedLogRow(vm: AppViewModel, e: BlockedCallEntity) {
     val context = LocalContext.current
-    val res = androidx.compose.ui.platform.LocalResources.current
+    val res = LocalResources.current
     val scope = rememberCoroutineScope()
     var open by rememberSaveable { mutableStateOf(false) }
     Column {
@@ -650,7 +659,7 @@ private fun BlockedLogRow(vm: AppViewModel, e: BlockedCallEntity) {
                 val steps = TraceCodec.decode(e.trace)
                 if (steps.isEmpty()) Text(stringResource(R.string.blk_no_details), style = MaterialTheme.typography.bodySmall)
                 else TraceList(steps)
-                e.number?.let { app.parley.ui.calls.RingFactsFor(vm, it, e.time, Modifier.padding(top = 8.dp)) }
+                e.number?.let { RingFactsFor(vm, it, e.time, Modifier.padding(top = 8.dp)) }
                 val n = e.number
                 if (n != null) {
                     Row(Modifier.horizontalScroll(rememberScrollState()).padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {

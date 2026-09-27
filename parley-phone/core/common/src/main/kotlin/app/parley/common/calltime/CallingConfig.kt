@@ -1,6 +1,7 @@
 package app.parley.common.calltime
 
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 
 /** What a limit rule applies to. The most specific matching scope wins: contact › label › SIM › all calls. */
@@ -105,8 +106,8 @@ object CallingJson {
     fun decode(text: String?): CallingConfig =
         if (text.isNullOrBlank()) CallingConfig() else runCatching { json.decodeFromString(CallingConfig.serializer(), text) }.getOrDefault(CallingConfig())
 
-    fun encodeUssd(list: List<UssdEntry>): String = json.encodeToString(kotlinx.serialization.builtins.ListSerializer(UssdEntry.serializer()), list)
+    fun encodeUssd(list: List<UssdEntry>): String = json.encodeToString(ListSerializer(UssdEntry.serializer()), list)
 
     fun decodeUssd(text: String?): List<UssdEntry> =
-        if (text.isNullOrBlank()) emptyList() else runCatching { json.decodeFromString(kotlinx.serialization.builtins.ListSerializer(UssdEntry.serializer()), text) }.getOrDefault(emptyList())
+        if (text.isNullOrBlank()) emptyList() else runCatching { json.decodeFromString(ListSerializer(UssdEntry.serializer()), text) }.getOrDefault(emptyList())
 }

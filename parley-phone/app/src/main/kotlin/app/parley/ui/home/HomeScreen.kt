@@ -75,7 +75,22 @@ import app.parley.RecentFilter
 import app.parley.common.SettingsCategory
 import app.parley.common.StartTab
 import app.parley.common.homeLayout
+import app.parley.common.ux.Tips
+import app.parley.messaging.MessagingRoutes
+import app.parley.security.AppLock
 import app.parley.ui.Routes
+import app.parley.ui.activityViewModel
+import app.parley.ui.calltime.NotificationHealthBanner
+import app.parley.ui.calltime.ReturnToCallChip
+import app.parley.ui.circle.CircleTab
+import app.parley.ui.common.CoachMarkAnchor
+import app.parley.ui.extras.ExtrasRoutes
+import app.parley.ui.history.ClearHistoryMenuItem
+import app.parley.ui.history.RecentsExportMenuItem
+import app.parley.ui.history.RecentsInsightsAction
+import app.parley.ui.history.RecentsLayoutMenuItem
+import app.parley.ui.people.PeopleRoutes
+import app.parley.ui.qr.QrRoutes
 
 /**
  * Home: one tab at a time under a shared header ([HomeHeader]), with a bottom bar on phones and a navigation rail on
@@ -100,8 +115,8 @@ fun HomeScreen(
     var keypadQuery by rememberSaveable { mutableStateOf("") }
     var circleQuery by rememberSaveable { mutableStateOf("") }
     val missed by vm.missedCount.collectAsStateWithLifecycle()
-    val recents: RecentsViewModel = app.parley.ui.activityViewModel()
-    val keypad: KeypadViewModel = app.parley.ui.activityViewModel()
+    val recents: RecentsViewModel = activityViewModel()
+    val keypad: KeypadViewModel = activityViewModel()
     val selection by vm.selection.collectAsStateWithLifecycle()
     val scroll = TopAppBarDefaults.pinnedScrollBehavior()
     // Which tabs the bar shows and where the keypad and the favourites live.
@@ -198,8 +213,8 @@ fun HomeScreen(
         },
         bottomBar = {
             Column(if (wide) Modifier.navigationBarsPadding() else Modifier) {
-                app.parley.ui.calltime.NotificationHealthBanner(vm)
-                app.parley.ui.calltime.ReturnToCallChip()
+                NotificationHealthBanner(vm)
+                ReturnToCallChip()
                 if (!wide && showBar) NavigationBar {
                     barTabs.forEach { t ->
                         NavigationBarItem(
@@ -244,7 +259,7 @@ fun HomeScreen(
                             StartTab.RECENTS -> if (layout.keypadDocked) CallsSurface(vm, open, searching, dockOpen) { dockOpen = it } else RecentsTab(vm, open)
                             StartTab.CONTACTS -> ContactsTab(vm, open, onReorderFavorites = { reorderFavorites = true })
                             StartTab.KEYPAD -> KeypadTab(vm, open, keypadQuery.takeIf { searching })
-                            StartTab.CIRCLE -> app.parley.ui.circle.CircleTab(vm, open, circleQuery)
+                            StartTab.CIRCLE -> CircleTab(vm, open, circleQuery)
                         }
                     }
                 }
@@ -267,15 +282,15 @@ private fun TabIcon(t: StartTab, missed: Int) {
 @Composable
 private fun TabActions(vm: AppViewModel, tab: StartTab, appLock: Boolean, open: (String) -> Unit) {
     when (tab) {
-        StartTab.RECENTS -> app.parley.ui.history.RecentsInsightsAction(open)
+        StartTab.RECENTS -> RecentsInsightsAction(open)
         StartTab.CONTACTS -> {
             // Scan QR, with a one-time tip.
-            app.parley.ui.common.CoachMarkAnchor(app.parley.common.ux.Tips.CONTACTS_SCAN_QR, stringResource(R.string.qs_tip_contacts)) {
-                IconButton({ open(app.parley.ui.qr.QrRoutes.SCAN) }) { Icon(Icons.Rounded.QrCodeScanner, stringResource(R.string.qs_menu)) }
+            CoachMarkAnchor(Tips.CONTACTS_SCAN_QR, stringResource(R.string.qs_tip_contacts)) {
+                IconButton({ open(QrRoutes.SCAN) }) { Icon(Icons.Rounded.QrCodeScanner, stringResource(R.string.qs_menu)) }
             }
-            IconButton({ open(app.parley.ui.people.PeopleRoutes.LABELS) }) { Icon(Icons.AutoMirrored.Rounded.Label, stringResource(R.string.home_labels)) }
+            IconButton({ open(PeopleRoutes.LABELS) }) { Icon(Icons.AutoMirrored.Rounded.Label, stringResource(R.string.home_labels)) }
             // Lock Parley now, without waiting for the timeout.
-            if (appLock) IconButton({ app.parley.security.AppLock.lockNowByUser() }) { Icon(Icons.Rounded.Lock, stringResource(R.string.home_lock_now)) }
+            if (appLock) IconButton({ AppLock.lockNowByUser() }) { Icon(Icons.Rounded.Lock, stringResource(R.string.home_lock_now)) }
         }
         StartTab.KEYPAD -> IconButton({ open(Routes.SPEED_DIAL) }) { Icon(Icons.Rounded.Speed, stringResource(R.string.home_speed_dial)) }
         StartTab.FAVORITES, StartTab.CIRCLE -> Unit
@@ -300,10 +315,10 @@ private fun ColumnScope.TabMenu(vm: AppViewModel, tab: StartTab, appLock: Boolea
         StartTab.RECENTS -> {
             // With the keypad docked here, its header's Speed dial comes along.
             if (layout.keypadDocked) MenuItem(stringResource(R.string.home_speed_dial), Icons.Rounded.Speed) { go(Routes.SPEED_DIAL) }
-            app.parley.ui.history.RecentsExportMenuItem(close)
+            RecentsExportMenuItem(close)
             // Call-list layout (quick toggle) and clear call history.
-            app.parley.ui.history.RecentsLayoutMenuItem(vm, close)
-            app.parley.ui.history.ClearHistoryMenuItem(close)
+            RecentsLayoutMenuItem(vm, close)
+            ClearHistoryMenuItem(close)
             // What the call shapes and colours mean.
             RecentsLegendMenuItem(close)
         }
@@ -312,21 +327,21 @@ private fun ColumnScope.TabMenu(vm: AppViewModel, tab: StartTab, appLock: Boolea
                 close()
                 vm.selection.value = vm.people.filtered.value.orEmpty().map { it.id }.toSet()
             }
-            MenuItem(stringResource(R.string.home_add_several), Icons.Rounded.GroupAdd) { go(app.parley.messaging.MessagingRoutes.BULK_ADD) }
+            MenuItem(stringResource(R.string.home_add_several), Icons.Rounded.GroupAdd) { go(MessagingRoutes.BULK_ADD) }
             MenuItem(stringResource(R.string.home_duplicates), Icons.AutoMirrored.Rounded.CallMerge) { go(Routes.DUPLICATES) }
             // Favourites shown in Contacts are reordered from here too.
             if (layout.favoritesInContacts) MenuItem(stringResource(R.string.home_reorder_title), Icons.Rounded.Star) { close(); onReorderFavorites() }
             // "Who's in…" (trip mode).
-            MenuItem(stringResource(R.string.trip_menu), Icons.Rounded.TravelExplore) { go(app.parley.ui.extras.ExtrasRoutes.TRIP) }
+            MenuItem(stringResource(R.string.trip_menu), Icons.Rounded.TravelExplore) { go(ExtrasRoutes.TRIP) }
         }
         StartTab.KEYPAD -> Unit
         StartTab.CIRCLE -> {
-            MenuItem(stringResource(R.string.trip_menu), Icons.Rounded.TravelExplore) { go(app.parley.ui.extras.ExtrasRoutes.TRIP) }
+            MenuItem(stringResource(R.string.trip_menu), Icons.Rounded.TravelExplore) { go(ExtrasRoutes.TRIP) }
             MenuItem(stringResource(R.string.circle_settings), Icons.Rounded.Tune) { go(Routes.settingsPage(SettingsCategory.CONTACTS, "circle_delivery")) }
         }
         // While the Circle tab is hidden, its section sits in Favourites and "Who's in…" comes with it.
         StartTab.FAVORITES -> if (StartTab.CIRCLE !in settings.navTabs.visible) {
-            MenuItem(stringResource(R.string.trip_menu), Icons.Rounded.TravelExplore) { go(app.parley.ui.extras.ExtrasRoutes.TRIP) }
+            MenuItem(stringResource(R.string.trip_menu), Icons.Rounded.TravelExplore) { go(ExtrasRoutes.TRIP) }
         }
     }
     if (tab == StartTab.RECENTS || tab == StartTab.CONTACTS || tab == StartTab.CIRCLE || (tab == StartTab.FAVORITES && StartTab.CIRCLE !in settings.navTabs.visible)) {

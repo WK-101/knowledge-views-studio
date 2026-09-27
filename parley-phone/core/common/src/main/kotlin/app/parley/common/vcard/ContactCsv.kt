@@ -5,6 +5,7 @@ import app.parley.common.record.ContactRecord
 import app.parley.common.record.DataRow
 import app.parley.common.record.Mime
 import app.parley.common.record.RawRecord
+import java.io.BufferedReader
 import java.io.Reader
 
 /**
@@ -174,7 +175,7 @@ object ContactCsv {
 
     /** Reads a one-number-per-line list: each number becomes a contact that shows the number as its name. */
     fun readNumberList(input: Reader, report: ImportReportBuilder, onRecord: (ParsedCard) -> Unit) {
-        val r = if (input is java.io.BufferedReader) input else java.io.BufferedReader(input)
+        val r = if (input is BufferedReader) input else BufferedReader(input)
         var line = 0
         r.lineSequence().forEach { raw ->
             line++
@@ -195,7 +196,7 @@ object ContactCsv {
      * Looks at the start of [input] and says how to read it: the separator, and whether it is a plain list of
      * numbers. The reader is reset to where it was.
      */
-    fun sniff(input: java.io.BufferedReader): Pair<Char, Boolean> {
+    fun sniff(input: BufferedReader): Pair<Char, Boolean> {
         input.mark(SNIFF_CHARS)
         val buf = CharArray(SNIFF_CHARS - 1)
         var n = 0
@@ -216,7 +217,7 @@ object ContactCsv {
 
     /** RFC 4180 parser: quoted cells may hold [delimiter]s, quotes and line breaks. Returns rows of cells. */
     fun parse(input: Reader, delimiter: Char = ','): Sequence<List<String>> = sequence {
-        val r = if (input is java.io.BufferedReader) input else java.io.BufferedReader(input)
+        val r = if (input is BufferedReader) input else BufferedReader(input)
         val row = ArrayList<String>()
         val cell = StringBuilder()
         var quoted = false
@@ -259,7 +260,7 @@ object ContactCsv {
      * Unknown columns are counted in [report] as unmapped; each non-empty line becomes one record.
      */
     fun read(input: Reader, report: ImportReportBuilder, onRecord: (ParsedCard) -> Unit) {
-        val buffered = if (input is java.io.BufferedReader) input else java.io.BufferedReader(input)
+        val buffered = if (input is BufferedReader) input else BufferedReader(input)
         val (delimiter, numberList) = sniff(buffered)
         if (numberList) return readNumberList(buffered, report, onRecord)
         val lines = parse(buffered, delimiter).iterator()

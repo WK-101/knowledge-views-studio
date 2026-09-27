@@ -8,6 +8,9 @@ import android.content.Intent
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import app.parley.MainActivity
+import app.parley.R
+import app.parley.common.NotificationChannels
+import app.parley.common.NotificationIds
 import app.parley.common.ux.BackupNudge
 import app.parley.data.DataContainer
 
@@ -17,8 +20,8 @@ import app.parley.data.DataContainer
  * screen like Parley's other reminders.
  */
 object BackupReminder {
-    private const val CHANNEL = app.parley.common.NotificationChannels.BACKUPS
-    private const val TAG = app.parley.common.NotificationIds.TAG_BACKUP_REMINDER
+    private const val CHANNEL = NotificationChannels.BACKUPS
+    private const val TAG = NotificationIds.TAG_BACKUP_REMINDER
 
     fun maybeNotify(context: Context, c: DataContainer, now: Long = System.currentTimeMillis()) {
         val state = c.backup.prefs.state.value
@@ -28,16 +31,16 @@ object BackupReminder {
         // Notifications off: nothing is recorded, and the banners in Settings and Backup still show.
         if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) return
         val nm = context.getSystemService(NotificationManager::class.java)
-        nm.createNotificationChannel(NotificationChannel(CHANNEL, context.getString(app.parley.R.string.work_channel_backups), NotificationManager.IMPORTANCE_DEFAULT))
+        nm.createNotificationChannel(NotificationChannel(CHANNEL, context.getString(R.string.work_channel_backups), NotificationManager.IMPORTANCE_DEFAULT))
         val open = PendingIntent.getActivity(
             context, 78, Intent(context, MainActivity::class.java).setAction(MainActivity.ACTION_OPEN_BACKUP).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
             PendingIntent.FLAG_IMMUTABLE,
         )
-        val title = context.getString(app.parley.R.string.ux_backup_notify_title)
-        val text = context.getString(if (state.lastBackupAt > 0) app.parley.R.string.ux_backup_notify_text else app.parley.R.string.ux_backup_notify_text_never)
+        val title = context.getString(R.string.ux_backup_notify_title)
+        val text = context.getString(if (state.lastBackupAt > 0) R.string.ux_backup_notify_text else R.string.ux_backup_notify_text_never)
         val public = NotificationCompat.Builder(context, CHANNEL)
             .setSmallIcon(app.parley.ui.R.drawable.ic_stat_block)
-            .setContentTitle(context.getString(app.parley.R.string.work_backup_title))
+            .setContentTitle(context.getString(R.string.work_backup_title))
             .build()
         val n = NotificationCompat.Builder(context, CHANNEL)
             .setSmallIcon(app.parley.ui.R.drawable.ic_stat_block)
@@ -52,7 +55,7 @@ object BackupReminder {
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .build()
         try {
-            NotificationManagerCompat.from(context).notify(TAG, app.parley.common.NotificationIds.BACKUP_ID, n)
+            NotificationManagerCompat.from(context).notify(TAG, NotificationIds.BACKUP_ID, n)
             c.ux.setBackupNotified(now)
         } catch (_: SecurityException) {
             // Notifications not allowed: the banners in Settings and Backup still show.

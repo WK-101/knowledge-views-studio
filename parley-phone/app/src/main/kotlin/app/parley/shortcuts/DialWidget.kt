@@ -6,10 +6,12 @@ import android.appwidget.AppWidgetProvider
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.BitmapShader
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Shader
+import android.net.Uri
 import android.os.Bundle
 import android.widget.RemoteViews
 import androidx.activity.compose.setContent
@@ -22,6 +24,9 @@ import app.parley.R
 import app.parley.container
 import app.parley.picker.PickKind
 import app.parley.picker.PickerScreen
+import app.parley.security.AppLock
+import app.parley.security.LockScreen
+import app.parley.ui.AppLocale
 import app.parley.ui.ParleyTheme
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Dispatchers
@@ -62,10 +67,10 @@ class DialWidget : AppWidgetProvider() {
             val photo = p.getString("$id.photo", null)
             val views = RemoteViews(context.packageName, R.layout.widget_dial)
             views.setTextViewText(R.id.widget_name, name.substringBefore(' '))
-            val icon = photo?.let { runCatching { context.contentResolver.openInputStream(android.net.Uri.parse(it))?.use { s -> android.graphics.BitmapFactory.decodeStream(s) } }.getOrNull() }
+            val icon = photo?.let { runCatching { context.contentResolver.openInputStream(Uri.parse(it))?.use { s -> BitmapFactory.decodeStream(s) } }.getOrNull() }
                 ?: Shortcuts.monogram(name, 160)
             views.setImageViewBitmap(R.id.widget_photo, circle(icon))
-            views.setContentDescription(R.id.widget_root, context.getString(app.parley.R.string.widget_call_name, name))
+            views.setContentDescription(R.id.widget_root, context.getString(R.string.widget_call_name, name))
             val pi = PendingIntent.getActivity(
                 context, id, Shortcuts.intent(context, Shortcuts.Kind.CALL, number, p.getLong("$id.contact", -1)),
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
@@ -88,9 +93,9 @@ class DialWidget : AppWidgetProvider() {
 /** Chooses the phone number for a new direct-dial widget. */
 class DialWidgetConfigActivity : FragmentActivity() {
     // The in-app language on Android 10-12 (Android 13+ applies per-app languages itself).
-    override fun attachBaseContext(newBase: android.content.Context) {
+    override fun attachBaseContext(newBase: Context) {
         super.attachBaseContext(newBase)
-        app.parley.ui.AppLocale.override(this, newBase)
+        AppLocale.override(this, newBase)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -110,15 +115,15 @@ class DialWidgetConfigActivity : FragmentActivity() {
         setContent {
             val s by container.settings.settings.collectAsStateWithLifecycle()
             val loaded by container.settings.loaded.collectAsStateWithLifecycle()
-            val locked by app.parley.security.AppLock.locked.collectAsStateWithLifecycle()
+            val locked by AppLock.locked.collectAsStateWithLifecycle()
             ParleyTheme(s.themeMode, s.amoledBlack, s.dynamicColor, s.density) {
                 if (!loaded) return@ParleyTheme
                 if (locked && s.appLock) {
-                    app.parley.security.LockScreen { app.parley.security.AppLock.authenticate(this@DialWidgetConfigActivity) }
+                    LockScreen { AppLock.authenticate(this@DialWidgetConfigActivity) }
                     return@ParleyTheme
                 }
                 PickerScreen(
-                    kind = PickKind.PHONE, multiple = false, title = getString(app.parley.R.string.widget_pick_title), excludeContactId = null,
+                    kind = PickKind.PHONE, multiple = false, title = getString(R.string.widget_pick_title), excludeContactId = null,
                     onCancel = { finish() },
                     onPicked = { picks ->
                         val pick = picks.firstOrNull() ?: return@PickerScreen finish()
@@ -137,11 +142,11 @@ class DialWidgetConfigActivity : FragmentActivity() {
 
     override fun onStart() {
         super.onStart()
-        lifecycleScope.launch { app.parley.security.AppLock.onStart(container.settings.current()) }
+        lifecycleScope.launch { AppLock.onStart(container.settings.current()) }
     }
 
     override fun onStop() {
-        app.parley.security.AppLock.onStop()
+        AppLock.onStop()
         super.onStop()
     }
 }

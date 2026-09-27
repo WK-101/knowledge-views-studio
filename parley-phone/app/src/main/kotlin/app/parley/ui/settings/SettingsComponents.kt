@@ -1,5 +1,6 @@
 package app.parley.ui.settings
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -7,6 +8,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.ExpandMore
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.layout.ColumnScope
@@ -59,6 +62,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
 import app.parley.R
+import app.parley.ui.LocalHighlightKey
+import app.parley.ui.SegmentedGroup
 import app.parley.ui.SegmentedGroupScope
 
 /** Rows sit on the segmented card's surface, so their own container is transparent. */
@@ -195,7 +200,7 @@ fun SettingsScaffold(
             )
         },
     ) { p ->
-        val dir = androidx.compose.ui.platform.LocalLayoutDirection.current
+        val dir = LocalLayoutDirection.current
         Column(
             Modifier.fillMaxSize()
                 .padding(top = p.calculateTopPadding(), start = p.calculateStartPadding(dir), end = p.calculateEndPadding(dir))
@@ -224,8 +229,8 @@ fun TonalIcon(icon: ImageVector, container: Color, content: Color) {
  */
 @Composable
 fun AdvancedGroup(keys: Set<String>, content: app.parley.ui.SegmentedGroupScope.() -> Unit) {
-    val highlight = app.parley.ui.LocalHighlightKey.current
-    var open by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(highlight != null && highlight in keys) }
+    val highlight = LocalHighlightKey.current
+    var open by rememberSaveable { mutableStateOf(highlight != null && highlight in keys) }
     Column {
         Row(
             Modifier.fillMaxWidth()
@@ -244,8 +249,8 @@ fun AdvancedGroup(keys: Set<String>, content: app.parley.ui.SegmentedGroupScope.
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        androidx.compose.animation.AnimatedVisibility(open) {
-            Column { app.parley.ui.SegmentedGroup(content = content) }
+        AnimatedVisibility(open) {
+            Column { SegmentedGroup(content = content) }
         }
     }
 }

@@ -1,5 +1,13 @@
 package app.parley.ui.history
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
+import androidx.compose.ui.platform.LocalResources
 import app.parley.common.PhoneIdentity
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -42,10 +50,23 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.common.PhoneNumbers
+import app.parley.common.ux.CallClass
+import app.parley.data.NumberInfo
+import app.parley.messaging.LastMessagedNote
+import app.parley.messaging.ReachSheet
+import app.parley.messaging.ReachTarget
 import app.parley.ui.Avatar
 import app.parley.ui.Routes
+import app.parley.ui.blocking.ScreeningHistorySection
+import app.parley.ui.calls.RingFactsHistorySection
 import app.parley.ui.common.Format
 import app.parley.ui.common.Intents
+import app.parley.ui.common.rememberNumberLocation
+import app.parley.ui.contact.Section
+import app.parley.ui.home.CallLengthGlance
+import app.parley.ui.home.CallTypeIcon
+import app.parley.ui.home.callClassLabel
+import app.parley.ui.home.richCalls
 import kotlinx.coroutines.launch
 import androidx.compose.ui.res.stringResource
 import app.parley.R
@@ -55,7 +76,7 @@ import app.parley.ui.DataL10n
 @Composable
 fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open: (String) -> Unit) {
     val context = LocalContext.current
-    val res = androidx.compose.ui.platform.LocalResources.current
+    val res = LocalResources.current
     val scope = rememberCoroutineScope()
     val calls by vm.c.history.calls.collectAsStateWithLifecycle()
     val sims by vm.sims.collectAsStateWithLifecycle()
@@ -64,7 +85,7 @@ fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open
     val history = calls.orEmpty().filter { PhoneNumbers.same(it.number, number, vm.countryIso) }
     var blocked by remember { mutableStateOf(false) }
     var messageOn by remember { mutableStateOf(false) }
-    if (messageOn) app.parley.messaging.ReachSheet(app.parley.messaging.ReachTarget.Number(number), onDismiss = { messageOn = false }, onCall = { n -> vm.requestCall(n, contact?.displayName) })
+    if (messageOn) ReachSheet(ReachTarget.Number(number), onDismiss = { messageOn = false }, onCall = { n -> vm.requestCall(n, contact?.displayName) })
     val notes by vm.c.meta.callNotesAny(PhoneIdentity.lookupKeys(number, vm.countryIso)).collectAsStateWithLifecycle(emptyList())
     LaunchedEffect(number) { blocked = vm.c.blocks.isSystemBlocked(number) }
     val simLabels = sims.associate { it.id to it.label }.takeIf { sims.size > 1 }.orEmpty()
@@ -72,27 +93,27 @@ fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open
     var menu by remember { mutableStateOf(false) }
     var exporting by remember { mutableStateOf(false) }
     var rangeDelete by remember { mutableStateOf(false) }
-    val snackbar = remember { androidx.compose.material3.SnackbarHostState() }
+    val snackbar = remember { SnackbarHostState() }
     if (exporting) ExportSheet(vm, history, subject = title) { exporting = false }
     if (rangeDelete) {
         RangeDeleteDialog(vm, number, onDismiss = { rangeDelete = false }, onDeleted = { batch, n ->
             scope.launch {
-                val r = snackbar.showSnackbar(res.getQuantityString(R.plurals.hist_deleted_calls, n, n), actionLabel = res.getString(R.string.dc_undo), duration = androidx.compose.material3.SnackbarDuration.Long)
-                if (r == androidx.compose.material3.SnackbarResult.ActionPerformed) vm.c.history.undoDelete(batch)
+                val r = snackbar.showSnackbar(res.getQuantityString(R.plurals.hist_deleted_calls, n, n), actionLabel = res.getString(R.string.dc_undo), duration = SnackbarDuration.Long)
+                if (r == SnackbarResult.ActionPerformed) vm.c.history.undoDelete(batch)
             }
         })
     }
 
-    Scaffold(snackbarHost = { androidx.compose.material3.SnackbarHost(snackbar) }, topBar = {
+    Scaffold(snackbarHost = { SnackbarHost(snackbar) }, topBar = {
         TopAppBar(
             title = { Text(stringResource(R.string.hist_settings_title)) },
             navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.dc_back)) } },
             actions = {
-                androidx.compose.foundation.layout.Box {
+                Box {
                     IconButton({ menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.dc_more_options)) }
-                    androidx.compose.material3.DropdownMenu(menu, { menu = false }) {
-                        androidx.compose.material3.DropdownMenuItem({ Text(stringResource(R.string.hist_export_menu)) }, leadingIcon = { Icon(Icons.Rounded.FileDownload, null) }, onClick = { menu = false; exporting = true }, enabled = history.isNotEmpty())
-                        androidx.compose.material3.DropdownMenuItem({ Text(stringResource(R.string.hist_delete_calls_menu)) }, leadingIcon = { Icon(Icons.Rounded.Delete, null) }, onClick = { menu = false; rangeDelete = true }, enabled = history.isNotEmpty())
+                    DropdownMenu(menu, { menu = false }) {
+                        DropdownMenuItem({ Text(stringResource(R.string.hist_export_menu)) }, leadingIcon = { Icon(Icons.Rounded.FileDownload, null) }, onClick = { menu = false; exporting = true }, enabled = history.isNotEmpty())
+                        DropdownMenuItem({ Text(stringResource(R.string.hist_delete_calls_menu)) }, leadingIcon = { Icon(Icons.Rounded.Delete, null) }, onClick = { menu = false; rangeDelete = true }, enabled = history.isNotEmpty())
                     }
                 }
             },
@@ -104,10 +125,10 @@ fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open
                     Avatar(title, contact?.photoUri, 96.dp)
                     Text(title, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(top = 12.dp))
                     if (contact != null) Text(DataL10n.ltr(Format.number(number, vm.countryIso)), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    val where = app.parley.ui.common.rememberNumberLocation(number, vm.countryIso)
-                    val flag = remember(number) { app.parley.data.NumberInfo.flag(app.parley.data.NumberInfo.region(number, vm.countryIso)) }
+                    val where = rememberNumberLocation(number, vm.countryIso)
+                    val flag = remember(number) { NumberInfo.flag(NumberInfo.region(number, vm.countryIso)) }
                     if (where != null || flag != null) Text(listOfNotNull(flag, where).joinToString(" "), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    app.parley.messaging.LastMessagedNote(number)
+                    LastMessagedNote(number)
                     Row(Modifier.padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         AssistChip({ vm.requestCall(number, contact?.displayName) }, { Text(stringResource(R.string.hist_action_call)) }, leadingIcon = { Icon(Icons.Rounded.Call, null) })
                         AssistChip({ Intents.sms(context, number) }, { Text(stringResource(R.string.hist_action_message)) }, leadingIcon = { Icon(Icons.AutoMirrored.Rounded.Message, null) })
@@ -132,10 +153,10 @@ fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open
                 }
             }
             item { CallInsightsSection(vm, listOf(number) + contact?.phones?.map { it.number }.orEmpty(), title = stringResource(R.string.hist_insights_title)) }
-            item { app.parley.ui.blocking.ScreeningHistorySection(vm, number, contact?.displayName) }
-            item { app.parley.ui.calls.RingFactsHistorySection(vm, number) }
+            item { ScreeningHistorySection(vm, number, contact?.displayName) }
+            item { RingFactsHistorySection(vm, number) }
             if (notes.isNotEmpty()) {
-                item { app.parley.ui.contact.Section(stringResource(R.string.hist_call_notes)) }
+                item { Section(stringResource(R.string.hist_call_notes)) }
                 items(notes, key = { "n" + it.id }) { n ->
                     ListItem(
                         headlineContent = { Text(n.text) },
@@ -144,17 +165,17 @@ fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open
                     )
                 }
             }
-            if (history.isNotEmpty()) item { app.parley.ui.contact.Section(stringResource(R.string.hist_calls_section)) }
+            if (history.isNotEmpty()) item { Section(stringResource(R.string.hist_calls_section)) }
             items(history, key = { it.id }) { e ->
                 ListItem(
-                    leadingContent = { app.parley.ui.home.CallTypeIcon(e.type, describe = false, durationSec = e.durationSec) },
+                    leadingContent = { CallTypeIcon(e.type, describe = false, durationSec = e.durationSec) },
                     headlineContent = { Text(Format.fullDate(context, e.date)) },
                     supportingContent = {
                         // The rich style names the call class ("No answer" for an outgoing call nobody took).
-                        val typeText = if (app.parley.ui.home.richCalls()) app.parley.ui.home.callClassLabel(app.parley.common.ux.CallClass.of(e)) else HistoryText.callType(e.type)
+                        val typeText = if (richCalls()) callClassLabel(CallClass.of(e)) else HistoryText.callType(e.type)
                         Text(listOfNotNull(stringResource(typeText), Format.duration(e.durationSec).ifBlank { null }, e.accountId?.let { simLabels[it] }).joinToString(" · "))
                     },
-                    trailingContent = { app.parley.ui.home.CallLengthGlance(e) },
+                    trailingContent = { CallLengthGlance(e) },
                 )
             }
         }

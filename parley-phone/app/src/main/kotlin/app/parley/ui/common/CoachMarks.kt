@@ -1,5 +1,6 @@
 package app.parley.ui.common
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -99,7 +100,7 @@ private fun MarkContent(id: String, text: String, marks: CoachMarks, action: Str
                 Spacer(Modifier.width(12.dp))
                 Text(text, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(end = 8.dp))
             }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = androidx.compose.foundation.layout.Arrangement.End) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                 if (action != null && onAction != null) {
                     TextButton({ marks.dismiss(id); onAction() }) { Text(action, color = MaterialTheme.colorScheme.inversePrimary) }
                 }

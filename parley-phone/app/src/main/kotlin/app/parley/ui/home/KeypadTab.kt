@@ -4,6 +4,7 @@ import android.content.ClipDescription
 import android.content.ClipboardManager
 import android.content.Intent
 import android.content.res.Configuration
+import android.content.res.Resources
 import android.media.AudioManager
 import android.media.ToneGenerator
 import android.os.Build
@@ -16,15 +17,34 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.ripple
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.Dp
 import app.parley.R
+import app.parley.common.KeypadFeedback
+import app.parley.common.KeypadKeys
+import app.parley.common.T9
+import app.parley.common.calls.CallPill
+import app.parley.common.calls.DialTarget
+import app.parley.common.ux.Tips
+import app.parley.messaging.TemporaryContact
 import app.parley.ui.Bidi
+import app.parley.ui.EmptyState
 import app.parley.ui.ForceLtr
+import app.parley.ui.activityViewModel
+import app.parley.ui.avatarSize
+import app.parley.ui.common.CoachMark
+import app.parley.ui.temporary.SaveTemporaryDialog
+import java.util.concurrent.atomic.AtomicInteger
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.focusable
@@ -168,7 +188,7 @@ private val NUMBER_ACTIONS_HEIGHT = 56.dp
 fun KeypadTab(vm: AppViewModel, open: (String) -> Unit, searchQuery: String? = null, dock: KeypadDock? = null) {
     // Search from the header: contacts by name or number, in place of the keypad until the search closes.
     // What's typed, its results, the SIM and the keypad's actions live in KeypadViewModel; this draws the keypad.
-    val keypad: KeypadViewModel = app.parley.ui.activityViewModel()
+    val keypad: KeypadViewModel = activityViewModel()
     if (searchQuery != null) {
         KeypadContactSearch(vm, keypad, searchQuery, open)
         return
@@ -185,7 +205,7 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit, searchQuery: String? = n
     var messageOn by remember { mutableStateOf<String?>(null) }
     var imeiSheet by remember { mutableStateOf(false) }
     var saveTemporary by remember { mutableStateOf<String?>(null) }
-    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val scope = rememberCoroutineScope()
     val res = LocalResources.current
     /** Result row focused with the D-pad; Call/Enter calls it. */
     var focusedResult by remember { mutableStateOf<DialResult?>(null) }
@@ -202,7 +222,7 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit, searchQuery: String? = n
     DisposableEffect(Unit) { onDispose { tone?.release() } }
     val audioManager = remember { context.getSystemService(AudioManager::class.java) }
     /** The system "Dial pad tones" setting and the ringer mode, read on every press (they can change any time). */
-    fun toneAllowed(): Boolean = app.parley.common.KeypadFeedback.playTone(
+    fun toneAllowed(): Boolean = KeypadFeedback.playTone(
         appSetting = settings.dialpadTones,
         systemDialpadTones = runCatching { Settings.System.getInt(context.contentResolver, Settings.System.DTMF_TONE_WHEN_DIALING, 1) == 1 }.getOrDefault(true),
         ringerNormal = audioManager?.ringerMode?.let { it == AudioManager.RINGER_MODE_NORMAL } ?: true,
@@ -228,7 +248,7 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit, searchQuery: String? = n
 
     // On-screen keys start their tone on touch and hold it until release (at least 150 ms). Only the key that
     // started the current tone may stop it, so rolling over to the next key doesn't cut that key's tone.
-    val toneToken = remember { java.util.concurrent.atomic.AtomicInteger() }
+    val toneToken = remember { AtomicInteger() }
     fun keyDown(c: Char): Int {
         insert(c.toString())
         if (settings.dialpadHaptics) haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
@@ -237,7 +257,7 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit, searchQuery: String? = n
     }
     fun keyUp(token: Int, afterMs: Long) {
         scope.launch {
-            if (afterMs > 0) kotlinx.coroutines.delay(afterMs)
+            if (afterMs > 0) delay(afterMs)
             if (token == toneToken.get()) tone?.stopTone()
         }
     }
@@ -269,7 +289,7 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit, searchQuery: String? = n
             return
         }
         // The typed number exactly as typed ('#' codes included), never the top match.
-        val target = app.parley.common.calls.DialTarget.pick(n, results.firstOrNull()?.number) ?: return
+        val target = DialTarget.pick(n, results.firstOrNull()?.number) ?: return
         vm.requestCall(target, results.firstOrNull { it.contact != null && PhoneNumbers.same(it.number, target, vm.countryIso) }?.contact?.displayName)
     }
 
@@ -283,7 +303,7 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit, searchQuery: String? = n
             results.firstOrNull()?.let { vm.requestCall(it.number, it.contact?.displayName, simId = simId) }
             return
         }
-        val target = app.parley.common.calls.DialTarget.pick(input, results.firstOrNull()?.number)
+        val target = DialTarget.pick(input, results.firstOrNull()?.number)
         // Same checks as any call (dial guard, allowance, confirm), just without the SIM question.
         if (!target.isNullOrEmpty()) vm.requestCall(target, results.firstOrNull { it.contact != null && PhoneNumbers.same(it.number, target, vm.countryIso) }?.contact?.displayName, simId = simId)
     }
@@ -293,7 +313,7 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit, searchQuery: String? = n
     // Typing replaces the list, and its focus goes with it.
     val typed = input.isNotEmpty()
     LaunchedEffect(typed) { if (typed) recentsHasFocus = false }
-    fun keypadTakes(key: app.parley.common.KeypadKeys.Key) = app.parley.common.KeypadKeys.keypadTakes(
+    fun keypadTakes(key: KeypadKeys.Key) = KeypadKeys.keypadTakes(
         key, docked = dock != null, expanded = dock?.expanded ?: true, recentsFocused = recentsHasFocus && input.isEmpty(),
     )
 
@@ -303,13 +323,13 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit, searchQuery: String? = n
         if (native.isCtrlPressed || native.isMetaPressed) return false
         when (native.keyCode) {
             AndroidKeyEvent.KEYCODE_CALL -> {
-                if (!keypadTakes(app.parley.common.KeypadKeys.Key.CALL)) return false
+                if (!keypadTakes(KeypadKeys.Key.CALL)) return false
                 if (down) focusedResult?.let(::callResult) ?: callNow()
                 return true
             }
             AndroidKeyEvent.KEYCODE_ENTER, AndroidKeyEvent.KEYCODE_NUMPAD_ENTER -> {
                 // Docked: Enter on a focused Recents row (or with the keypad folded) belongs to that row.
-                if (!keypadTakes(app.parley.common.KeypadKeys.Key.ENTER)) return false
+                if (!keypadTakes(KeypadKeys.Key.ENTER)) return false
                 if (down) focusedResult?.let(::callResult) ?: callNow()
                 return true
             }
@@ -324,7 +344,7 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit, searchQuery: String? = n
             }
         }
         val ch = native.getUnicodeChar(native.metaState).takeIf { it > 0 }?.toChar() ?: return false
-        val digit = app.parley.common.T9.asciiDigit(ch)
+        val digit = T9.asciiDigit(ch)
         return when {
             digit != null || ch == '*' || ch == '#' || ch == '+' -> { if (down) press(digit ?: ch); true }
             // QWERTY: letters search names as text; space separates words.
@@ -345,7 +365,7 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit, searchQuery: String? = n
     // The fold follows the finger and springs open or folded (see DockFoldState).
     val density = LocalDensity.current
     val fold = remember { DockFoldState(dock?.expanded ?: true, scope, density) }
-    val latestDock by androidx.compose.runtime.rememberUpdatedState(dock)
+    val latestDock by rememberUpdatedState(dock)
     fold.onSettle = { open -> latestDock?.let { if (it.expanded != open) it.onExpandedChange(open) } }
     // The home screen's state (Back, dial intents, typing on a hardware keypad) moves the fold too.
     LaunchedEffect(dock?.expanded) { dock?.let { if (fold.target != it.expanded) fold.animateTo(it.expanded) } }
@@ -360,7 +380,7 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit, searchQuery: String? = n
             if (input.isEmpty() && dock != null) {
                 // Nothing typed: the recent calls, as on the Recents tab.
                 Column(Modifier.fillMaxSize()) {
-                    app.parley.ui.common.CoachMark(app.parley.common.ux.Tips.DOCKED_KEYPAD, stringResource(R.string.home_tip_docked_keypad), enabled = panelOpen)
+                    CoachMark(Tips.DOCKED_KEYPAD, stringResource(R.string.home_tip_docked_keypad), enabled = panelOpen)
                     Box(Modifier.weight(1f).onFocusChanged { recentsHasFocus = it.hasFocus }) { dock.idle() }
                 }
             } else if (input.isEmpty()) {
@@ -373,8 +393,8 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit, searchQuery: String? = n
                     )
                     PasteChip(vm.countryIso) { text -> field.setTextAndPlaceCursorAtEnd(text) }
                     // Long-press 2-9 for speed dial, told once.
-                    app.parley.ui.common.CoachMark(
-                        app.parley.common.ux.Tips.KEYPAD_SPEED_DIAL, stringResource(R.string.ux_tip_speed_dial),
+                    CoachMark(
+                        Tips.KEYPAD_SPEED_DIAL, stringResource(R.string.ux_tip_speed_dial),
                         enabled = showKeypad, action = stringResource(R.string.ux_tip_set_up), onAction = { open(Routes.SPEED_DIAL) },
                     )
                 }
@@ -505,10 +525,10 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit, searchQuery: String? = n
         }
     }
 
-    androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize().focusRequester(rootFocus).onPreviewKeyEvent(::onKey).focusable()) {
+    BoxWithConstraints(Modifier.fillMaxSize().focusRequester(rootFocus).onPreviewKeyEvent(::onKey).focusable()) {
         // Docked on a wide landscape screen, the keypad sits beside the list instead of under it.
         val beside = dock != null && maxWidth > maxHeight && maxWidth >= 560.dp
-        val maxPanel = if (dock != null) maxHeight * (if (beside) 1f else 0.62f) else androidx.compose.ui.unit.Dp.Unspecified
+        val maxPanel = if (dock != null) maxHeight * (if (beside) 1f else 0.62f) else Dp.Unspecified
         if (beside) {
             Row(Modifier.fillMaxSize()) {
                 resultsArea(Modifier.weight(1f).fillMaxSize())
@@ -528,7 +548,7 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit, searchQuery: String? = n
                 visible = !fold.target || (fold.dragging && fold.value < 0.35f),
                 fold = fold,
                 number = fabNumber?.let { Bidi.ltr(Format.number(it, vm.countryIso)) },
-                badge = fabNumber?.let { app.parley.common.calls.CallPill.badge(it) },
+                badge = fabNumber?.let { CallPill.badge(it) },
                 modifier = Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = 16.dp + if (showNumberActions) NUMBER_ACTIONS_HEIGHT else 0.dp),
             ) { dock.onExpandedChange(true) }
         }
@@ -545,9 +565,9 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit, searchQuery: String? = n
     }
     messageOn?.let { n -> ReachSheet(ReachTarget.Number(n), onDismiss = { messageOn = null }, onCall = { num -> vm.requestCall(num) }) }
     saveTemporary?.let { n ->
-        app.parley.ui.temporary.SaveTemporaryDialog(
+        SaveTemporaryDialog(
             number = Format.number(n, vm.countryIso),
-            suggestedName = app.parley.messaging.TemporaryContact.suggestedName(n, null, vm.countryIso.uppercase()),
+            suggestedName = TemporaryContact.suggestedName(n, null, vm.countryIso.uppercase()),
             onDismiss = { saveTemporary = null },
         ) { name, days, deleteHistory, visible ->
             saveTemporary = null
@@ -776,9 +796,9 @@ private fun DialKey(
 }
 
 /** The keys' press feedback: a round ripple, a little wider than the digit and its letters. */
-private val keyRipple = androidx.compose.material3.ripple(bounded = false, radius = 38.dp)
+private val keyRipple = ripple(bounded = false, radius = 38.dp)
 
-private fun longPressLabel(res: android.content.res.Resources, digit: String): String? = when (digit) {
+private fun longPressLabel(res: Resources, digit: String): String? = when (digit) {
     "0" -> res.getString(R.string.keypad_long_plus)
     "1" -> res.getString(R.string.keypad_long_voicemail)
     "*" -> res.getString(R.string.keypad_long_pause)
@@ -787,7 +807,7 @@ private fun longPressLabel(res: android.content.res.Resources, digit: String): S
 }
 
 /** What TalkBack reads for a key: "2, A B C", "1, voicemail", "star", "pound". */
-private fun keyDescription(res: android.content.res.Resources, digit: String, letters: String): String = when (digit) {
+private fun keyDescription(res: Resources, digit: String, letters: String): String = when (digit) {
     "*" -> res.getString(app.parley.ui.R.string.ui_key_star)
     "#" -> res.getString(app.parley.ui.R.string.ui_key_pound)
     "1" -> res.getString(R.string.keypad_key_voicemail)
@@ -856,7 +876,7 @@ private fun KeypadContactSearch(vm: AppViewModel, keypad: KeypadViewModel, query
     // Searched in the view model over names folded once per contacts change, off the main thread.
     LaunchedEffect(query) { keypad.searchQuery.value = query }
     if (q.isEmpty()) {
-        app.parley.ui.EmptyState(Icons.Rounded.Search, stringResource(R.string.home_search_contacts), stringResource(R.string.keypad_search_body))
+        EmptyState(Icons.Rounded.Search, stringResource(R.string.home_search_contacts), stringResource(R.string.keypad_search_body))
         return
     }
     val result by keypad.search.collectAsStateWithLifecycle()
@@ -866,7 +886,7 @@ private fun KeypadContactSearch(vm: AppViewModel, keypad: KeypadViewModel, query
     // The results of the query before this one stay up while the new search runs.
     if (found.isEmpty() && foundVault.isEmpty() && r.query == q) {
         // No match: offer to save what was typed as a new contact.
-        app.parley.ui.EmptyState(
+        EmptyState(
             Icons.Rounded.Search, stringResource(R.string.keypad_no_match, q),
             action = stringResource(R.string.keypad_create_contact),
             onAction = { open(if (q.any { it.isLetter() }) Routes.edit(name = q) else Routes.edit(phone = q)) },
@@ -877,7 +897,7 @@ private fun KeypadContactSearch(vm: AppViewModel, keypad: KeypadViewModel, query
         items(foundVault, key = { "v" + it.id }) { v ->
             ListItem(
                 modifier = Modifier.clickable { open(Routes.vault(v.id)) },
-                leadingContent = { app.parley.ui.Avatar(v.name, null, app.parley.ui.avatarSize()) },
+                leadingContent = { Avatar(v.name, null, avatarSize()) },
                 headlineContent = { Text("\uD83D\uDD12 " + v.name) },
                 supportingContent = v.numbers.firstOrNull()?.let { n -> { Text(Bidi.ltr(Format.number(n, vm.countryIso))) } },
                 trailingContent = v.numbers.firstOrNull()?.let { n ->

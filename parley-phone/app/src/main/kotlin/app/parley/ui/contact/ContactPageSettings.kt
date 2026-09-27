@@ -1,5 +1,6 @@
 package app.parley.ui.contact
 
+import android.content.res.Resources
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -215,7 +216,7 @@ private fun SectionsEditor(layout: ContactPageLayout, onChange: (ContactPageLayo
     }
 }
 
-private fun modeLabel(res: android.content.res.Resources, m: SectionMode): String = res.getString(
+private fun modeLabel(res: Resources, m: SectionMode): String = res.getString(
     when (m) {
         SectionMode.OPEN -> R.string.contact_page_mode_open
         SectionMode.FOLDED -> R.string.contact_page_mode_folded

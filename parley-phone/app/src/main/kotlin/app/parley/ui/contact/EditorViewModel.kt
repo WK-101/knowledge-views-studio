@@ -11,6 +11,7 @@ import androidx.core.os.bundleOf
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import app.parley.InsertPrefill
 import app.parley.R
 import app.parley.common.people.EditorForm
 import app.parley.common.people.RelationLinks
@@ -171,7 +172,7 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
             val loaded = withPhoneRow(d ?: ContactDetails())
             var e = d ?: ContactDetails()
             if (a.addPhone.isNotBlank()) e = e.copy(phones = e.phones + DataItem(value = a.addPhone, type = Phone.TYPE_MOBILE))
-            if (a.prefill != null) e = app.parley.InsertPrefill.appendTo(e, a.prefill)
+            if (a.prefill != null) e = InsertPrefill.appendTo(e, a.prefill)
             draft = withPhoneRow(e)
             // An added number or appended details count as a change, so Save is ready for them.
             start = loaded

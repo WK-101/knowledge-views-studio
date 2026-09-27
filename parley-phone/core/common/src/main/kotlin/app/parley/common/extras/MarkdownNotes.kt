@@ -1,5 +1,7 @@
 package app.parley.common.extras
 
+import app.parley.common.backup.RecordJson
+import app.parley.common.circle.Promises
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -36,7 +38,7 @@ object MarkdownNotes {
         val keepInTouchDays: Int? = null,
         val timeline: List<Entry> = emptyList(),
         /** Promises from all of this person's notes, as Markdown tasks (Obsidian renders them as checkboxes). */
-        val promises: List<app.parley.common.circle.Promises.Item> = emptyList(),
+        val promises: List<Promises.Item> = emptyList(),
     )
 
     data class Headings(
@@ -96,7 +98,7 @@ object MarkdownNotes {
             t.substring(0, end).split('\n').filterNot { it.startsWith("$MARKER:") }
                 .joinToString("\n") { if (it.startsWith("exported:")) "exported:" else it } + t.substring(end)
         }
-        return app.parley.common.backup.RecordJson.sha256Hex(normalised.toByteArray(Charsets.UTF_8))
+        return RecordJson.sha256Hex(normalised.toByteArray(Charsets.UTF_8))
     }
 
     /** The fingerprint a file says it has, or null without one. */

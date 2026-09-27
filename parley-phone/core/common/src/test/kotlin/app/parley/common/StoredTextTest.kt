@@ -1,5 +1,6 @@
 package app.parley.common
 
+import app.parley.common.vcard.ImportReport
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -15,9 +16,9 @@ class StoredTextTest {
     }
 
     @Test fun csv_columns_are_keys_not_text() {
-        val k = app.parley.common.vcard.ImportReport.csvColumn("Shoe size")
-        assertEquals("Shoe size", app.parley.common.vcard.ImportReport.csvColumnName(k))
-        assertEquals(null, app.parley.common.vcard.ImportReport.csvColumnName("X-SHOE"))
+        val k = ImportReport.csvColumn("Shoe size")
+        assertEquals("Shoe size", ImportReport.csvColumnName(k))
+        assertEquals(null, ImportReport.csvColumnName("X-SHOE"))
     }
 
     @Test fun vault_label_is_a_marker() {

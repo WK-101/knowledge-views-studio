@@ -1,5 +1,7 @@
 package app.parley.data.history
 
+import android.security.keystore.KeyPermanentlyInvalidatedException
+import java.security.UnrecoverableKeyException
 import java.util.Locale
 import android.content.Context
 import android.security.keystore.KeyGenParameterSpec
@@ -7,6 +9,7 @@ import android.security.keystore.KeyProperties
 import java.io.File
 import java.security.KeyStore
 import java.security.SecureRandom
+import javax.crypto.AEADBadTagException
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.Mac
@@ -133,8 +136,8 @@ internal class HistoryCrypto(context: Context) {
         fun isPermanent(e: Throwable): Boolean {
             var t: Throwable? = e
             while (t != null) {
-                if (t is android.security.keystore.KeyPermanentlyInvalidatedException || t is java.security.UnrecoverableKeyException ||
-                    t is javax.crypto.AEADBadTagException
+                if (t is KeyPermanentlyInvalidatedException || t is UnrecoverableKeyException ||
+                    t is AEADBadTagException
                 ) {
                     return true
                 }

@@ -2,6 +2,7 @@ package app.parley.common.history
 
 import app.parley.common.CallEntry
 import app.parley.common.CallType
+import java.time.LocalDate
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
@@ -108,7 +109,7 @@ class CallLogIndexTest {
             ),
             emptyList(), "FR", UTC,
         )
-        val day = idx.day(java.time.LocalDate.of(2026, 3, 2))
+        val day = idx.day(LocalDate.of(2026, 3, 2))
         assertEquals(1, day.incoming); assertEquals(1, day.outgoing); assertEquals(1, day.missed); assertEquals(1, day.blocked)
         assertEquals(0, day.rejected)
         assertEquals(180, day.talkSec)
@@ -131,7 +132,7 @@ class CallLogIndexTest {
         assertEquals(2, h[DayOfWeek.MONDAY, 19])
         assertEquals(1, h[DayOfWeek.TUESDAY, 8])
         assertEquals(DayOfWeek.MONDAY to 19, h.peak())
-        val weeks = idx.weeklyTalk(Period.between(java.time.LocalDate.of(2026, 3, 2), java.time.LocalDate.of(2026, 3, 23), UTC))
+        val weeks = idx.weeklyTalk(Period.between(LocalDate.of(2026, 3, 2), LocalDate.of(2026, 3, 23), UTC))
         assertEquals(3, weeks.size)
         assertEquals(100, weeks[0].talkInSec)
         assertEquals(60, weeks[1].talkOutSec)
@@ -225,7 +226,7 @@ class CallLogIndexTest {
         assertEquals(Long.MIN_VALUE, DeleteRange.ALL.since(now, UTC))
         assertEquals(at(2026, 6, 8, 12), DeleteRange.LAST_WEEK.since(now, UTC))
         assertEquals(at(2025, 6, 15, 12), DeleteRange.LAST_YEAR.since(now, UTC))
-        assertEquals(at(2026, 6, 1, 0), DeleteRange.SINCE_DATE.since(now, UTC, java.time.LocalDate.of(2026, 6, 1)))
+        assertEquals(at(2026, 6, 1, 0), DeleteRange.SINCE_DATE.since(now, UTC, LocalDate.of(2026, 6, 1)))
         val calls = listOf(call("1", CallType.INCOMING, at(2026, 6, 14)), call("1", CallType.INCOMING, at(2026, 1, 1)))
         assertEquals(1, DeleteRange.select(calls, DeleteRange.LAST_MONTH.since(now, UTC)).size)
     }

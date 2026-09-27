@@ -1,8 +1,11 @@
 package app.parley
 
 import android.Manifest
+import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
+import android.os.SystemClock
 import android.provider.ContactsContract
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -11,21 +14,48 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
+import app.parley.blocking.TemplateInbox
+import app.parley.common.AppSettings
+import app.parley.common.HomeLayout
+import app.parley.common.RuleKind
+import app.parley.common.RuleType
+import app.parley.common.calls.EmergencyPolicy
+import app.parley.data.DataItem
+import app.parley.data.EmergencyNumbers
+import app.parley.messaging.MessagingRoutes
+import app.parley.security.AppLock
+import app.parley.security.LockScreen
+import app.parley.shortcuts.CircleWidget
+import app.parley.ui.AppLocale
+import app.parley.ui.Routes
+import app.parley.ui.blocking.BlockingDialog
+import app.parley.ui.blocking.BlockingDialogs
+import app.parley.ui.blocking.BlockingRoutes
+import app.parley.ui.extras.ExtrasRoutes
+import app.parley.ui.extras.SimpleInbox
+import app.parley.ui.qr.QrInbox
+import app.parley.ui.qr.QrRoutes
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import app.parley.common.StartTab
 import app.parley.ui.ParleyRoot
 import app.parley.ui.ParleyTheme
+import kotlinx.coroutines.withContext
 
-class MainActivity : androidx.fragment.app.FragmentActivity() {
+class MainActivity : FragmentActivity() {
     // The in-app language on Android 10-12 (Android 13+ applies per-app languages itself).
-    override fun attachBaseContext(newBase: android.content.Context) {
+    override fun attachBaseContext(newBase: Context) {
         super.attachBaseContext(newBase)
-        app.parley.ui.AppLocale.override(this, newBase)
+        AppLocale.override(this, newBase)
     }
 
     private val vm: AppViewModel by viewModels()
@@ -44,16 +74,16 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
                     if (e is UiEvent.RequestCallPermission) callPermission.launch(Manifest.permission.CALL_PHONE)
                 }
             }
-            val locked by app.parley.security.AppLock.locked.collectAsStateWithLifecycle()
+            val locked by AppLock.locked.collectAsStateWithLifecycle()
             val settingsLoaded by vm.c.settings.loaded.collectAsStateWithLifecycle()
             LaunchedEffect(settings.secureScreen, settings.appLock, locked, settingsLoaded) { protectWindow() }
             ParleyTheme(settings.themeMode, settings.amoledBlack, settings.dynamicColor, settings.density) {
                 if (!settingsLoaded) {
                     // Until we know whether the app lock is on, show nothing rather than flash the contacts.
-                    androidx.compose.material3.Surface(androidx.compose.ui.Modifier.fillMaxSize()) {}
+                    Surface(Modifier.fillMaxSize()) {}
                 } else if (locked && settings.appLock) {
-                    app.parley.security.LockScreen(lockEmergencyNumber, checkingEmergency) {
-                        app.parley.security.AppLock.authenticate(this@MainActivity) { ok -> if (ok) lockEmergencyNumber = null }
+                    LockScreen(lockEmergencyNumber, checkingEmergency) {
+                        AppLock.authenticate(this@MainActivity) { ok -> if (ok) lockEmergencyNumber = null }
                     }
                 } else {
                     ParleyRoot(vm)
@@ -63,8 +93,8 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
     }
 
     /** An emergency number handed over while Parley may be locked: the lock screen offers the call with it at once. */
-    private var lockEmergencyNumber by androidx.compose.runtime.mutableStateOf<String?>(null)
-    private var checkingEmergency by androidx.compose.runtime.mutableStateOf(false)
+    private var lockEmergencyNumber by mutableStateOf<String?>(null)
+    private var checkingEmergency by mutableStateOf(false)
 
     /**
      * Android turns another app's emergency call into a dial request for the phone app. The number still goes to the
@@ -78,33 +108,33 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
         checkingEmergency = true
         lifecycleScope.launch {
             val emergency = try {
-                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { app.parley.data.EmergencyNumbers.isEmergency(applicationContext, number) }
+                withContext(Dispatchers.IO) { EmergencyNumbers.isEmergency(applicationContext, number) }
             } finally {
                 checkingEmergency = false
             }
-            if (emergency) lockEmergencyNumber = app.parley.common.calls.EmergencyPolicy.asciiDigits(number)
+            if (emergency) lockEmergencyNumber = EmergencyPolicy.asciiDigits(number)
         }
     }
 
     /** The settings, once loaded; null before (the UI shows nothing until then). */
-    private fun loadedSettings(): app.parley.common.AppSettings? = vm.c.settings.takeIf { it.loaded.value }?.settings?.value
+    private fun loadedSettings(): AppSettings? = vm.c.settings.takeIf { it.loaded.value }?.settings?.value
 
     private fun protectWindow(leaving: Boolean = false) {
-        loadedSettings()?.let { app.parley.security.AppLock.protectWindow(this, it, leaving) }
+        loadedSettings()?.let { AppLock.protectWindow(this, it, leaving) }
     }
 
     override fun onStart() {
         super.onStart()
         // Decide the lock before the first frame when the settings are in memory, so content never flashes.
-        val known = loadedSettings()?.also { app.parley.security.AppLock.onStart(it) }
+        val known = loadedSettings()?.also { AppLock.onStart(it) }
         lifecycleScope.launch {
             val s = vm.c.settings.current()
-            if (known == null) app.parley.security.AppLock.onStart(s)
+            if (known == null) AppLock.onStart(s)
             // The phone is unlocked now: a Circle widget drawn while it was locked shows names again.
-            if (s.appLock) launch { runCatching { app.parley.shortcuts.CircleWidget.refreshIfShownLocked(applicationContext) } }
+            if (s.appLock) launch { runCatching { CircleWidget.refreshIfShownLocked(applicationContext) } }
             // After a longer break, open on the preferred tab again; a quick app switch keeps your place.
-            if (stoppedAt > 0 && android.os.SystemClock.elapsedRealtime() - stoppedAt > 5 * 60_000L && intent?.action == android.content.Intent.ACTION_MAIN) {
-                vm.navigate(NavEvent.Tab(app.parley.common.HomeLayout(s.navTabs, s.surfaces).startRequest(s.startTab)))
+            if (stoppedAt > 0 && SystemClock.elapsedRealtime() - stoppedAt > 5 * 60_000L && intent?.action == Intent.ACTION_MAIN) {
+                vm.navigate(NavEvent.Tab(HomeLayout(s.navTabs, s.surfaces).startRequest(s.startTab)))
             }
         }
     }
@@ -112,10 +142,10 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
     private var stoppedAt = 0L
 
     override fun onStop() {
-        stoppedAt = android.os.SystemClock.elapsedRealtime()
+        stoppedAt = SystemClock.elapsedRealtime()
         // Placed or put aside: coming back shows the ordinary lock screen.
         lockEmergencyNumber = null
-        app.parley.security.AppLock.onStop(loadedSettings())
+        AppLock.onStop(loadedSettings())
         protectWindow(leaving = true)
         super.onStop()
     }
@@ -139,9 +169,9 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
     }
 
     /** Resolves a contacts URI off the main thread (it queries the provider), then opens the contact. */
-    private fun openResolved(uri: android.net.Uri) {
+    private fun openResolved(uri: Uri) {
         lifecycleScope.launch {
-            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { vm.c.contacts.resolveContactId(uri) }?.let { vm.navigate(NavEvent.Contact(it)) }
+            withContext(Dispatchers.IO) { vm.c.contacts.resolveContactId(uri) }?.let { vm.navigate(NavEvent.Contact(it)) }
         }
     }
 
@@ -152,12 +182,12 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
         when (intent.action) {
             Intent.ACTION_SEND -> {
                 @Suppress("DEPRECATION")
-                val stream = intent.getParcelableExtra<android.net.Uri>(Intent.EXTRA_STREAM)
+                val stream = intent.getParcelableExtra<Uri>(Intent.EXTRA_STREAM)
                 if (stream != null && isVcard(intent.type)) vm.navigate(NavEvent.ImportVcf(stream))
                 // A picture shared to Parley is searched for QR codes.
                 if (stream != null && intent.type?.startsWith("image/") == true) {
-                    app.parley.ui.qr.QrInbox.image.value = stream
-                    vm.navigate(NavEvent.Route(app.parley.ui.qr.QrRoutes.SCAN))
+                    QrInbox.image.value = stream
+                    vm.navigate(NavEvent.Route(QrRoutes.SCAN))
                 }
             }
             QUICK_CONTACT, QUICK_CONTACT_LEGACY -> data?.let(::openResolved)
@@ -166,12 +196,12 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
                 data?.scheme == "parley" && data.host == "qr" -> vm.navigate(NavEvent.SecureQr(data))
                 // A simple-mode setup shared as a QR code.
                 data?.scheme == "parley" && data.host == "simple" -> {
-                    app.parley.ui.extras.SimpleInbox.qr.value = data
-                    vm.navigate(NavEvent.Route(app.parley.ui.extras.ExtrasRoutes.SIMPLE_IMPORT))
+                    SimpleInbox.qr.value = data
+                    vm.navigate(NavEvent.Route(ExtrasRoutes.SIMPLE_IMPORT))
                 }
                 data?.scheme == "parley" && data.host == "template" -> {
-                    app.parley.blocking.TemplateInbox.pending.value = data
-                    vm.navigate(NavEvent.Route(app.parley.ui.blocking.BlockingRoutes.TEMPLATES))
+                    TemplateInbox.pending.value = data
+                    vm.navigate(NavEvent.Route(BlockingRoutes.TEMPLATES))
                 }
                 data != null && data.scheme == "content" && isVcard(intent.type ?: contentResolver.getType(data)) -> vm.navigate(NavEvent.ImportVcf(data))
                 data?.scheme == "tel" -> vm.navigate(NavEvent.Tab(StartTab.KEYPAD, dial = data.schemeSpecificPart.orEmpty()))
@@ -180,13 +210,13 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
                 data != null -> openResolved(data)
             }
             Intent.ACTION_CALL_BUTTON -> vm.navigate(NavEvent.Tab(StartTab.RECENTS))
-            Intent.ACTION_APPLICATION_PREFERENCES -> vm.navigate(NavEvent.Route(app.parley.ui.Routes.SETTINGS))
-            ACTION_OPEN_BACKUP ->vm.navigate(NavEvent.Route(app.parley.ui.Routes.BACKUP))
-            ACTION_OPEN_BLOCKING -> vm.navigate(NavEvent.Route(app.parley.ui.Routes.BLOCKING))
+            Intent.ACTION_APPLICATION_PREFERENCES -> vm.navigate(NavEvent.Route(Routes.SETTINGS))
+            ACTION_OPEN_BACKUP ->vm.navigate(NavEvent.Route(Routes.BACKUP))
+            ACTION_OPEN_BLOCKING -> vm.navigate(NavEvent.Route(Routes.BLOCKING))
             ACTION_ADD_CALL -> vm.navigate(NavEvent.Tab(StartTab.KEYPAD, dial = ""))
-            ACTION_BULK_ADD -> vm.navigate(NavEvent.Route(app.parley.messaging.MessagingRoutes.BULK_ADD))
+            ACTION_BULK_ADD -> vm.navigate(NavEvent.Route(MessagingRoutes.BULK_ADD))
             // Launcher shortcut and Quick Settings tile.
-            ACTION_SCAN_QR -> vm.navigate(NavEvent.Route(app.parley.ui.qr.QrRoutes.SCAN))
+            ACTION_SCAN_QR -> vm.navigate(NavEvent.Route(QrRoutes.SCAN))
             // The keep-in-touch digest opens the Circle (as the bar's extra tab while it's hidden).
             ACTION_SHOW_CIRCLE -> vm.navigate(NavEvent.Tab(StartTab.CIRCLE))
             ACTION_SHOW_MISSED -> {
@@ -205,9 +235,9 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
             ACTION_POST_CALL -> intent.getStringExtra(EXTRA_NUMBER)?.takeIf { it.isNotBlank() }?.let { number ->
                 when (intent.getStringExtra(EXTRA_POST_CALL_ACTION)) {
                     "BLOCK" -> vm.navigate(
-                        NavEvent.Route(app.parley.ui.blocking.BlockingRoutes.rule(0, app.parley.common.RuleKind.BLOCK, app.parley.common.RuleType.EXACT, number)),
+                        NavEvent.Route(BlockingRoutes.rule(0, RuleKind.BLOCK, RuleType.EXACT, number)),
                     )
-                    "REPORT" -> app.parley.ui.blocking.BlockingDialogs.show(app.parley.ui.blocking.BlockingDialog.Report(number))
+                    "REPORT" -> BlockingDialogs.show(BlockingDialog.Report(number))
                 }
             }
             Intent.ACTION_INSERT -> vm.navigate(NavEvent.NewContact(InsertPrefill.from(intent)))
@@ -218,21 +248,21 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
     private fun isVcard(type: String?) = type != null && (type.contains("vcard") || type == "text/directory")
 
     /** SHOW_OR_CREATE_CONTACT: open the matching contact, or offer to create one. */
-    private fun showOrCreate(data: android.net.Uri?) {
+    private fun showOrCreate(data: Uri?) {
         data ?: return
         val intent = intent
         lifecycleScope.launch { showOrCreate(data, intent) }
     }
 
     /** The provider lookups run off the main thread; navigation happens back on it. */
-    private suspend fun showOrCreate(data: android.net.Uri, intent: Intent) {
+    private suspend fun showOrCreate(data: Uri, intent: Intent) {
         val value = data.schemeSpecificPart.orEmpty()
-        val id: Long? = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        val id: Long? = withContext(Dispatchers.IO) {
             when (data.scheme) {
                 "tel" -> runCatching { vm.c.contacts.lookup(value)?.contactId }.getOrNull()
                 "mailto" -> runCatching {
                     contentResolver.query(
-                        android.net.Uri.withAppendedPath(ContactsContract.CommonDataKinds.Email.CONTENT_LOOKUP_URI, android.net.Uri.encode(value)),
+                        Uri.withAppendedPath(ContactsContract.CommonDataKinds.Email.CONTENT_LOOKUP_URI, Uri.encode(value)),
                         arrayOf(ContactsContract.Data.CONTACT_ID), null, null, null,
                     )?.use { c -> if (c.moveToFirst()) c.getLong(0) else null }
                 }.getOrNull()
@@ -243,8 +273,8 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
             vm.navigate(NavEvent.Contact(id))
         } else {
             val prefill = InsertPrefill.from(intent).let { p ->
-                if (data.scheme == "tel") p.copy(phones = listOf(app.parley.data.DataItem(value = value, type = ContactsContract.CommonDataKinds.Phone.TYPE_MOBILE)))
-                else p.copy(emails = listOf(app.parley.data.DataItem(value = value, type = ContactsContract.CommonDataKinds.Email.TYPE_HOME)))
+                if (data.scheme == "tel") p.copy(phones = listOf(DataItem(value = value, type = ContactsContract.CommonDataKinds.Phone.TYPE_MOBILE)))
+                else p.copy(emails = listOf(DataItem(value = value, type = ContactsContract.CommonDataKinds.Email.TYPE_HOME)))
             }
             vm.navigate(NavEvent.InsertOrEdit(prefill))
         }

@@ -42,6 +42,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -50,6 +51,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.R
 import app.parley.blocking.BlockingText
+import app.parley.blocking.ListsUpdaterClient
 import app.parley.common.ListMode
 import app.parley.common.spam.BuiltInPacks
 import app.parley.common.spam.PackOrigin
@@ -59,6 +61,7 @@ import app.parley.common.spam.SignatureStatus
 import app.parley.data.DryRun
 import app.parley.data.SpamListStore
 import app.parley.ui.common.Format
+import app.parley.ui.contact.Section
 import app.parley.ui.settings.bidiLtr
 import app.parley.ui.settings.settingTitle
 import kotlinx.coroutines.launch
@@ -73,7 +76,7 @@ import kotlinx.coroutines.launch
 fun SpamListsScreen(vm: AppViewModel, back: () -> Unit) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
-    val res = androidx.compose.ui.platform.LocalResources.current
+    val res = LocalResources.current
     val state by vm.c.lists.state.collectAsStateWithLifecycle()
     var pending by remember { mutableStateOf<ParsedPack?>(null) }
     var pendingDry by remember { mutableStateOf<DryRun?>(null) }
@@ -166,7 +169,7 @@ fun SpamListsScreen(vm: AppViewModel, back: () -> Unit) {
             item(key = "updater") { ListsUpdaterSection(vm) }
             val suggested = BuiltInPacks.all.filter { b -> state.packs.none { it.id == b.id } }
             if (suggested.isNotEmpty()) {
-                item { app.parley.ui.contact.Section(stringResource(R.string.blk_built_in_section)) }
+                item { Section(stringResource(R.string.blk_built_in_section)) }
                 items(suggested, key = { "b" + it.id }) { b ->
                     ListItem(
                         headlineContent = {
@@ -178,7 +181,7 @@ fun SpamListsScreen(vm: AppViewModel, back: () -> Unit) {
                     )
                 }
             }
-            if (state.packs.isNotEmpty()) item { app.parley.ui.contact.Section(stringResource(R.string.blk_your_lists)) }
+            if (state.packs.isNotEmpty()) item { Section(stringResource(R.string.blk_your_lists)) }
             items(state.packs, key = { "p" + it.id }) { pk -> PackCard(vm, pk, now) }
         }
     }
@@ -310,11 +313,11 @@ private fun PackCard(vm: AppViewModel, pk: PackState, now: Long) {
             onDismissRequest = { confirmRemove = false },
             title = { Text(stringResource(R.string.blk_remove_list_q, name)) },
             confirmButton = {
-                val ctx = androidx.compose.ui.platform.LocalContext.current
+                val ctx = LocalContext.current
                 TextButton({
                     scope.launch {
                         // A list from Parley Lists would come back tomorrow: stop its updates too.
-                        if (pk.origin == PackOrigin.UPDATER) app.parley.blocking.ListsUpdaterClient.unsubscribe(ctx, vm.c.lists, pk.id) else vm.c.lists.remove(pk.id)
+                        if (pk.origin == PackOrigin.UPDATER) ListsUpdaterClient.unsubscribe(ctx, vm.c.lists, pk.id) else vm.c.lists.remove(pk.id)
                     }
                     confirmRemove = false
                 }) { Text(stringResource(R.string.ct_remove)) }

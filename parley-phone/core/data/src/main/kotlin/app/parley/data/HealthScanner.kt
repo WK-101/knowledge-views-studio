@@ -61,7 +61,7 @@ class HealthScanner(private val context: Context) {
                 val clean = PhoneNumbers.clean(n)
                 if (clean.startsWith("+") || clean.startsWith("00") || clean.length < 7 || PhoneNumbers.isServiceCode(n)) continue
                 val e164 = PhoneNumbers.toE164(n, countryIso) ?: continue
-                out += HealthIssue(HealthKind.NO_COUNTRY_CODE, q.getLong(1), q.getString(4).orEmpty(), q.getString(3) ?: n, context.getString(R.string.data_health_country_code, app.parley.data.DataBidi.ltr(n), app.parley.data.DataBidi.ltr(e164)), q.getLong(0), e164)
+                out += HealthIssue(HealthKind.NO_COUNTRY_CODE, q.getLong(1), q.getString(4).orEmpty(), q.getString(3) ?: n, context.getString(R.string.data_health_country_code, DataBidi.ltr(n), DataBidi.ltr(e164)), q.getLong(0), e164)
             }
         }
         // Job title identical to the company (a common import bug).

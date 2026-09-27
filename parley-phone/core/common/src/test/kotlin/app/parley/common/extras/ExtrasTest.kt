@@ -3,6 +3,8 @@ package app.parley.common.extras
 import app.parley.common.ContactSummary
 import app.parley.common.PhoneEntry
 import app.parley.common.SettingsCatalog
+import app.parley.common.circle.Promises
+import java.util.Locale
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -117,7 +119,7 @@ class ExtrasTest {
     }
 
     @Test fun simple_setup_keeps_nine_distinct_people() {
-        val people = (1..12).map { SimplePerson("P$it", "+3519123456%02d".format(java.util.Locale.ROOT, it)) } + SimplePerson("Dup", "+351 912 345 601")
+        val people = (1..12).map { SimplePerson("P$it", "+3519123456%02d".format(Locale.ROOT, it)) } + SimplePerson("Dup", "+351 912 345 601")
         val c = with(SimpleSetup) { SimpleConfig(people = people).normalised() }
         assertEquals(9, c.people.size)
         assertEquals("P1", c.people.first().name)
@@ -226,8 +228,8 @@ class ExtrasTest {
     }
 
     @Test fun markdown_lists_promises_as_tasks() {
-        val promises = app.parley.common.circle.Promises.parse("[ ] send the book\nhello\n[x] call mum") +
-            app.parley.common.circle.Promises.parse("- [ ] send the book")
+        val promises = Promises.parse("[ ] send the book\nhello\n[x] call mum") +
+            Promises.parse("- [ ] send the book")
         val md = MarkdownNotes.render(MarkdownNotes.Person(name = "Ana", promises = promises), ZoneOffset.UTC, 0)
         assertTrue(md.contains("## Promises\n\n- [ ] send the book\n- [x] call mum\n"))
         assertFalse(MarkdownNotes.render(MarkdownNotes.Person(name = "Ana"), ZoneOffset.UTC, 0).contains("## Promises"))

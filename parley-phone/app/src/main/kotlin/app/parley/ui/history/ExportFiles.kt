@@ -3,6 +3,7 @@ package app.parley.ui.history
 import android.content.ClipData
 import android.content.Context
 import android.content.Intent
+import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Typeface
@@ -145,7 +146,7 @@ object ExportFiles {
             return pages
         }
 
-        fun draw(canvas: android.graphics.Canvas, title: String, rows: List<ExportRow>, range: IntRange, page: Int, pageCount: Int, zone: ZoneId) {
+        fun draw(canvas: Canvas, title: String, rows: List<ExportRow>, range: IntRange, page: Int, pageCount: Int, zone: ZoneId) {
             val fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
             var y = margin + 14f
             canvas.drawText(title, margin, y, titleP)

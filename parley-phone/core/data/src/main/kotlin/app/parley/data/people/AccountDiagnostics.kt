@@ -4,14 +4,17 @@ import android.accounts.Account
 import android.accounts.AccountManager
 import android.content.ContentResolver
 import android.content.ContentUris
+import android.content.ContentValues
 import android.content.Context
 import android.provider.ContactsContract
 import android.provider.ContactsContract.RawContacts
 import app.parley.common.people.AccountCheck
 import app.parley.common.people.AccountFinding
 import app.parley.common.people.AccountKey
+import app.parley.common.record.AccountKinds
 import app.parley.common.record.Messengers
 import app.parley.data.AccountRef
+import app.parley.data.DeviceAccounts
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -75,7 +78,7 @@ class AccountDiagnostics(private val context: Context) {
         val counts = owning.mapValues { it.value.size }
         // Samsung/Xiaomi (before Android 15) and other OEMs keep phone-only contacts under their own type.
         val localPresent = fixed() || (counts[AccountKey(null, null)] ?: 0) > 0 || (local.type != null && (counts[AccountKey(local.type, local.name)] ?: 0) > 0) ||
-            counts.any { (k, n) -> n > 0 && app.parley.common.record.AccountKinds.isLocalType(k.type) }
+            counts.any { (k, n) -> n > 0 && AccountKinds.isLocalType(k.type) }
         val signedInKeys = accounts.map { AccountKey(it.type, it.name) }.toSet()
         val findings = AccountCheck.check(
             signedIn = signedInKeys,
@@ -84,7 +87,7 @@ class AccountDiagnostics(private val context: Context) {
             masterSyncOn = master,
             localAccountPresent = localPresent,
             // Phone-only storage, SIM and OEM device accounts don't sync, so they are never "orphaned".
-            unsyncedTypes = setOf(null, local.type) + app.parley.common.record.AccountKinds.OEM_LOCAL_TYPES +
+            unsyncedTypes = setOf(null, local.type) + AccountKinds.OEM_LOCAL_TYPES +
                 counts.keys.map { it.type }.filter { t -> t != null && t !in contactTypes },
         )
         AccountReport(
@@ -104,7 +107,7 @@ class AccountDiagnostics(private val context: Context) {
         try {
             val uri = cr.insert(
                 RawContacts.CONTENT_URI,
-                android.content.ContentValues().apply {
+                ContentValues().apply {
                     put(RawContacts.ACCOUNT_TYPE, local.type)
                     put(RawContacts.ACCOUNT_NAME, local.name)
                 },
@@ -129,5 +132,5 @@ class AccountDiagnostics(private val context: Context) {
         const val KEY_FIXED = "local_account_created"
     }
 
-    private fun localAccount(): AccountRef = app.parley.data.DeviceAccounts.localAccount(context)
+    private fun localAccount(): AccountRef = DeviceAccounts.localAccount(context)
 }

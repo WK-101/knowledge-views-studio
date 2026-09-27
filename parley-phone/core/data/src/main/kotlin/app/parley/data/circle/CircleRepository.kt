@@ -1,5 +1,9 @@
 package app.parley.data.circle
 
+import androidx.room.RoomDatabase
+import app.parley.common.ContactSummary
+import app.parley.common.circle.DateReminders
+import app.parley.common.circle.RhythmMode
 import app.parley.common.storage.PersistentStores
 import app.parley.common.PhoneIdentity
 import android.content.Context
@@ -22,6 +26,7 @@ import app.parley.common.history.CallLogIndex
 import app.parley.data.backup.BackupExtras
 import app.parley.data.db.ContactMetaEntity
 import app.parley.data.db.MetaDao
+import java.util.UUID
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -48,11 +53,11 @@ class CircleRepository(
     private val meta: MetaDao,
     val interactions: InteractionStore,
     private val index: () -> StateFlow<CallLogIndex?>,
-    private val contactsFlow: () -> StateFlow<List<app.parley.common.ContactSummary>?>,
+    private val contactsFlow: () -> StateFlow<List<ContactSummary>?>,
     /** The contact list read now (not the possibly stale [contactsFlow] snapshot); null when unavailable. */
-    private val freshContacts: suspend () -> List<app.parley.common.ContactSummary>? = { null },
+    private val freshContacts: suspend () -> List<ContactSummary>? = { null },
     /** Read-modify-write of contact_meta rows runs in one transaction here, so no newer edit is overwritten. */
-    private val db: androidx.room.RoomDatabase? = null,
+    private val db: RoomDatabase? = null,
 ) {
     private val prefs = context.applicationContext.getSharedPreferences(FILE, Context.MODE_PRIVATE)
 
@@ -100,7 +105,7 @@ class CircleRepository(
             val old = KeepRhythm.decode(m.rhythm)
             val rhythm = when {
                 everyDays == null -> KeepRhythm()
-                natural -> NaturalRhythm.relearn(old.copy(mode = app.parley.common.circle.RhythmMode.NATURAL, learnedAt = null, snoozedUntil = null), times, System.currentTimeMillis(), ZoneId.systemDefault())
+                natural -> NaturalRhythm.relearn(old.copy(mode = RhythmMode.NATURAL, learnedAt = null, snoozedUntil = null), times, System.currentTimeMillis(), ZoneId.systemDefault())
                 else -> KeepRhythm()
             }
             m.copy(contactId = contactId ?: m.contactId, reachOutDays = everyDays, lastNudgedAt = null, rhythm = rhythm.encode())
@@ -231,12 +236,12 @@ class CircleRepository(
 
     /** "Mark as wished": records an interaction for the occasion (once) and closes it. */
     suspend fun markWished(lookupKey: String, contactId: Long?, occurrence: String, now: Long = System.currentTimeMillis()): Boolean {
-        setStateSet(S_WISHED, app.parley.common.circle.DateReminders.prune(stateSet(S_WISHED), now) + "$occurrence|$now")
+        setStateSet(S_WISHED, DateReminders.prune(stateSet(S_WISHED), now) + "$occurrence|$now")
         if (lookupKey.isEmpty()) return false
         return runCatching { interactions.log(lookupKey, contactId, InteractionType.MESSAGE, null, now, null, Interactions.wishedKey(occurrence)) != null }.getOrDefault(false)
     }
 
-    fun isWished(occurrence: String): Boolean = app.parley.common.circle.DateReminders.has(stateSet(S_WISHED), occurrence)
+    fun isWished(occurrence: String): Boolean = DateReminders.has(stateSet(S_WISHED), occurrence)
 
     // --- Notes and promises about a person ---
 
@@ -322,7 +327,7 @@ class CircleRepository(
         override val sections = setOf(PersistentStores.Sections.CIRCLE)
 
         /** Contacts read fresh (a restore has just inserted some), else the snapshot. */
-        private suspend fun contactsNow(): List<app.parley.common.ContactSummary> =
+        private suspend fun contactsNow(): List<ContactSummary> =
             runCatching { freshContacts() }.getOrNull() ?: withTimeoutOrNull(30_000) { contactsFlow().filterNotNull().first() }.orEmpty()
 
         override suspend fun export(): Map<String, String> {
@@ -362,7 +367,7 @@ class CircleRepository(
             val byKey = contacts.associateBy { it.lookupKey }
             var unmatched = 0
             // Lookup keys differ on another phone: fall back to a shared number, then to the same name.
-            fun resolve(o: JSONObject): app.parley.common.ContactSummary? {
+            fun resolve(o: JSONObject): ContactSummary? {
                 byKey[o.optString("k")]?.let { return it }
                 val phones = o.optJSONArray("p")?.let { a -> (0 until a.length()).map { a.getString(it) } }.orEmpty().toSet()
                 val name = o.optString("n")
@@ -392,7 +397,7 @@ class CircleRepository(
                         val channel = if (o.isNull("c")) null else InteractionChannel.decode(o.optString("c"))
                         val note = if (o.isNull("note")) null else o.optString("note")
                         // The unique key makes a second restore of the same backup add nothing.
-                        runCatching { interactions.log(c.lookupKey, c.id, type, channel, o.optLong("at"), note, o.optString("u").ifEmpty { Interactions.manualKey(java.util.UUID.randomUUID().toString()) }) }
+                        runCatching { interactions.log(c.lookupKey, c.id, type, channel, o.optLong("at"), note, o.optString("u").ifEmpty { Interactions.manualKey(UUID.randomUUID().toString()) }) }
                     }
                 }
                 values[X_YEARLY]?.let { json ->

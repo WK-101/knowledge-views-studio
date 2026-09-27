@@ -1,5 +1,10 @@
 package app.parley.data
 
+import app.parley.common.people.ContactText
+import app.parley.common.people.Handle
+import app.parley.common.people.HandleService
+import app.parley.common.record.AccountKinds
+
 /** One editable multi-value row (phone, e-mail, website). [id] is null for rows not yet saved. */
 data class DataItem(
     val id: Long? = null,
@@ -24,7 +29,7 @@ data class PostalItem(
     val neighborhood: String = "",
 ) {
     val formatted: String
-        get() = app.parley.common.people.ContactText.postal(street, poBox, neighborhood, postcode, city, region, country)
+        get() = ContactText.postal(street, poBox, neighborhood, postcode, city, region, country)
     val isBlank: Boolean get() = listOf(street, poBox, neighborhood, city, region, postcode, country).all { it.isBlank() }
 }
 
@@ -42,16 +47,16 @@ data class EventItem(
  */
 data class HandleItem(
     val id: Long? = null,
-    val service: app.parley.common.people.HandleService = app.parley.common.people.HandleService.SIGNAL,
+    val service: HandleService = HandleService.SIGNAL,
     val value: String = "",
     val customProtocol: String? = null,
 ) {
-    val handle: app.parley.common.people.Handle get() = app.parley.common.people.Handle(service, value, customProtocol)
+    val handle: Handle get() = Handle(service, value, customProtocol)
 }
 
 data class AccountRef(val type: String?, val name: String?) {
     /** Phone-only storage: no account, or an OEM phone account such as Samsung's `vnd.sec.contact.phone`. */
-    val isLocal: Boolean get() = app.parley.common.record.AccountKinds.isLocalType(type)
+    val isLocal: Boolean get() = AccountKinds.isLocalType(type)
     val displayLabel: String
         get() = when {
             type == null || isLocal -> "Phone only (not synced)"

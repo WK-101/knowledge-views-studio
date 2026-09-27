@@ -12,6 +12,7 @@ import androidx.compose.material.icons.automirrored.rounded.Chat
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Call
 import androidx.compose.foundation.layout.Row
+import app.parley.NavEvent
 import app.parley.ui.CallColors
 import androidx.compose.material.icons.rounded.DeleteSweep
 import androidx.compose.material.icons.rounded.Timer
@@ -165,7 +166,7 @@ fun MessagedNumbersScreen(vm: AppViewModel, back: () -> Unit) {
             items(entries, key = { it.key }) { e ->
                 RecordRow(
                     e, region,
-                    onOpen = e.number?.let { n -> { vm.navigate(app.parley.NavEvent.History(n)) } },
+                    onOpen = e.number?.let { n -> { vm.navigate(NavEvent.History(n)) } },
                     onCall = e.number?.let { n -> { vm.requestCall(n) } },
                 ) {
                     scope.launch { e.number?.let { store.forget(it) } ?: store.forgetKey(e.key) }

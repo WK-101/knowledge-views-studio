@@ -1,21 +1,30 @@
 package app.parley.ui
 
+import android.content.ContextWrapper
 import android.os.Build
+import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ColorScheme
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.MaterialExpressiveTheme
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MotionScheme
 import androidx.compose.material3.Shapes
+import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
 import app.parley.common.ListDensity
 import app.parley.common.ThemeMode
@@ -70,7 +79,7 @@ object CallColors {
 
 val LocalDensityPref = staticCompositionLocalOf { ListDensity.COMFORTABLE }
 
-@OptIn(androidx.compose.material3.ExperimentalMaterial3ExpressiveApi::class)
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun ParleyTheme(
     mode: ThemeMode = ThemeMode.SYSTEM,
@@ -93,9 +102,9 @@ fun ParleyTheme(
     if (dark && amoled) scheme = scheme.amoled()
     SystemBarsFollowTheme(dark)
     CompositionLocalProvider(LocalDensityPref provides density) {
-        androidx.compose.material3.MaterialExpressiveTheme(
+        MaterialExpressiveTheme(
             colorScheme = scheme,
-            motionScheme = androidx.compose.material3.MotionScheme.expressive(),
+            motionScheme = MotionScheme.expressive(),
             shapes = Shapes(
                 extraSmall = RoundedCornerShape(8.dp),
                 small = RoundedCornerShape(12.dp),
@@ -103,7 +112,7 @@ fun ParleyTheme(
                 large = RoundedCornerShape(24.dp),
                 extraLarge = RoundedCornerShape(32.dp),
             ),
-            typography = androidx.compose.material3.Typography(),
+            typography = Typography(),
             content = content,
         )
     }
@@ -118,14 +127,14 @@ private val DarkScrim = android.graphics.Color.argb(0x80, 0x1b, 0x1b, 0x1b)
  */
 @Composable
 private fun SystemBarsFollowTheme(dark: Boolean) {
-    val view = androidx.compose.ui.platform.LocalView.current
+    val view = LocalView.current
     if (view.isInEditMode) return
-    androidx.compose.runtime.DisposableEffect(dark) {
+    DisposableEffect(dark) {
         var ctx = view.context
-        while (ctx is android.content.ContextWrapper && ctx !is androidx.activity.ComponentActivity) ctx = ctx.baseContext
-        (ctx as? androidx.activity.ComponentActivity)?.enableEdgeToEdge(
-            statusBarStyle = androidx.activity.SystemBarStyle.auto(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT) { dark },
-            navigationBarStyle = androidx.activity.SystemBarStyle.auto(LightScrim, DarkScrim) { dark },
+        while (ctx is ContextWrapper && ctx !is ComponentActivity) ctx = ctx.baseContext
+        (ctx as? ComponentActivity)?.enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.auto(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT) { dark },
+            navigationBarStyle = SystemBarStyle.auto(LightScrim, DarkScrim) { dark },
         )
         onDispose {}
     }

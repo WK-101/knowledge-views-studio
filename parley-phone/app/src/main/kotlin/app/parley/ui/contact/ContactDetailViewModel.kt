@@ -7,6 +7,8 @@ import app.parley.R
 import app.parley.common.CallEntry
 import app.parley.common.ContactSummary
 import app.parley.common.PhoneIdentity
+import app.parley.common.circle.InteractionType
+import app.parley.common.circle.Interactions
 import app.parley.common.people.MessengerPrefs
 import app.parley.common.people.OtherFields
 import app.parley.common.people.RelationLinks
@@ -17,11 +19,13 @@ import app.parley.data.DataItem
 import app.parley.data.MessengerAction
 import app.parley.data.Messengers
 import app.parley.data.circle.Interaction
+import app.parley.data.circle.InteractionStore
 import app.parley.data.db.CallNoteEntity
 import app.parley.data.db.ContactMetaEntity
 import app.parley.data.db.NumberSimEntity
 import app.parley.data.db.TemporaryContactEntity
 import app.parley.ui.circle.PersonMemory
+import java.util.UUID
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
@@ -234,16 +238,16 @@ class ContactDetailViewModel(private val c: DataContainer) : ViewModel() {
     }
 
     /** Logs a new interaction (or edits [initial]); a note that can't be encrypted isn't saved. */
-    fun saveInteraction(initial: Interaction?, type: app.parley.common.circle.InteractionType, note: String?, time: Long) = launch {
+    fun saveInteraction(initial: Interaction?, type: InteractionType, note: String?, time: Long) = launch {
         val d = current ?: return@launch
         try {
             if (initial == null) {
-                c.circle.interactions.log(d.lookupKey, id, type, null, time, note, app.parley.common.circle.Interactions.manualKey(java.util.UUID.randomUUID().toString()))
+                c.circle.interactions.log(d.lookupKey, id, type, null, time, note, Interactions.manualKey(UUID.randomUUID().toString()))
                 say(R.string.circle_logged, d.given.ifBlank { d.displayName })
             } else {
                 c.circle.interactions.edit(initial.id, type, note, time.takeIf { it != initial.time })
             }
-        } catch (_: app.parley.data.circle.InteractionStore.SealException) {
+        } catch (_: InteractionStore.SealException) {
             say(R.string.circle_note_failed)
         }
     }

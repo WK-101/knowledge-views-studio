@@ -2,6 +2,7 @@ package app.parley.common.extras
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.MapSerializer
+import kotlinx.serialization.builtins.SetSerializer
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
 
@@ -64,7 +65,7 @@ object LabelPolicies {
  */
 object DndStars {
     private val json = Json { ignoreUnknownKeys = true }
-    private val serializer = MapSerializer(String.serializer(), kotlinx.serialization.builtins.SetSerializer(String.serializer()))
+    private val serializer = MapSerializer(String.serializer(), SetSerializer(String.serializer()))
 
     /** A new ledger and the contacts no label asks for any more (to unstar). */
     data class Release(val ledger: Map<String, Set<String>>, val unstar: Set<String>)

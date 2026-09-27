@@ -1,5 +1,10 @@
 package app.parley
 
+import android.net.Uri
+import app.parley.blocking.DialText
+import app.parley.common.DialHit
+import app.parley.common.StartTab
+import app.parley.data.ContactDetails
 import app.parley.ui.circle.CircleUi
 import android.annotation.SuppressLint
 import android.Manifest
@@ -65,7 +70,7 @@ data class RecentGroup(
 }
 
 /** One keypad result row (see [app.parley.common.DialHit]). */
-typealias DialResult = app.parley.common.DialHit
+typealias DialResult = DialHit
 
 data class PendingCall(
     val number: String,
@@ -76,7 +81,7 @@ data class PendingCall(
     val note: String? = null,
     val simId: String? = null,
     /** Shown first in the shared dial-guard sheet (premium line, one-ring scam, listed number). */
-    val warnings: List<app.parley.data.DialWarning> = emptyList(),
+    val warnings: List<DialWarning> = emptyList(),
 )
 
 sealed interface UiEvent {
@@ -90,13 +95,13 @@ sealed interface UiEvent {
 sealed interface NavEvent {
     data class Contact(val id: Long) : NavEvent
     data class History(val number: String) : NavEvent
-    data class NewContact(val prefill: app.parley.data.ContactDetails) : NavEvent
-    data class InsertOrEdit(val prefill: app.parley.data.ContactDetails) : NavEvent
-    data class ImportVcf(val uri: android.net.Uri) : NavEvent
-    data class SecureQr(val uri: android.net.Uri) : NavEvent
+    data class NewContact(val prefill: ContactDetails) : NavEvent
+    data class InsertOrEdit(val prefill: ContactDetails) : NavEvent
+    data class ImportVcf(val uri: Uri) : NavEvent
+    data class SecureQr(val uri: Uri) : NavEvent
     data class Vault(val id: Long) : NavEvent
     data class Route(val route: String) : NavEvent
-    data class Tab(val tab: app.parley.common.StartTab, val dial: String? = null, val missedOnly: Boolean = false) : NavEvent
+    data class Tab(val tab: StartTab, val dial: String? = null, val missedOnly: Boolean = false) : NavEvent
 }
 
 // Telephony calls here are covered by the default-dialer role and each one handles SecurityException.
@@ -119,7 +124,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val pendingCall = MutableStateFlow<PendingCall?>(null)
 
     /** Draft handed to the editor by other apps (Insert extras) or "add to contact" flows. */
-    var pendingPrefill: app.parley.data.ContactDetails? = null
+    var pendingPrefill: ContactDetails? = null
 
     private var hasCallLogPermission = false
 
@@ -283,14 +288,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             when (val r = gate.place(number, simId, contactFor(number)?.displayName, sims.value, remember, confirmed)) {
                 is CallGate.Placed.Ask -> pendingCall.value = r.pending
-                is CallGate.Placed.Done -> (r.result as? PlaceResult.Failed)?.let { toast(app.parley.blocking.DialText.placeFailure(getApplication(), it.reason)) }
+                is CallGate.Placed.Done -> (r.result as? PlaceResult.Failed)?.let { toast(DialText.placeFailure(getApplication(), it.reason)) }
             }
         }
     }
 
     fun callVoicemail() {
         when (val r = c.placer.callVoicemail()) {
-            is PlaceResult.Failed -> toast(app.parley.blocking.DialText.placeFailure(getApplication(), r.reason))
+            is PlaceResult.Failed -> toast(DialText.placeFailure(getApplication(), r.reason))
             else -> Unit
         }
     }
@@ -299,7 +304,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
      * Moves a phone contact into the vault, leaving no readable copy in Parley: no journal entry, and its
      * time-machine versions are purged. Throws [app.parley.data.vault.VaultCrypto.LockedException] if locked.
      */
-    suspend fun moveToVault(contactId: Long, d: app.parley.data.ContactDetails): Long {
+    suspend fun moveToVault(contactId: Long, d: ContactDetails): Long {
         // The pinned note moves into the vault entry (it's shown on the call screen from there).
         val note = d.pinnedNote.ifBlank { d.lookupKey.takeIf { it.isNotEmpty() }?.let { c.meta.meta(it)?.pinnedNote }.orEmpty() }
         // Lossless: the vault keeps the full contact record (photo included); local copies are purged at once.

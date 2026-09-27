@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -31,6 +32,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import android.content.res.Resources
@@ -113,8 +116,8 @@ internal fun CallTimeRing(timing: CallTiming?, size: Dp, content: @Composable ()
         Canvas(Modifier.size(size + 16.dp)) {
             val stroke = 5.dp.toPx()
             val inset = stroke / 2
-            val arcSize = androidx.compose.ui.geometry.Size(this.size.width - stroke, this.size.height - stroke)
-            val topLeft = androidx.compose.ui.geometry.Offset(inset, inset)
+            val arcSize = Size(this.size.width - stroke, this.size.height - stroke)
+            val topLeft = Offset(inset, inset)
             drawArc(track, 0f, 360f, false, topLeft, arcSize, style = Stroke(stroke))
             drawArc(color, -90f, 360f * left / total, false, topLeft, arcSize, style = Stroke(stroke, cap = StrokeCap.Round))
         }
@@ -165,7 +168,7 @@ internal fun RemainingLine(timing: CallTiming?) {
  * The in-call "More" sheet: wrap-up controls (+2 / +5 min, End in 1 min, Don't end) and call notes.
  * In supervised mode a limit can only be shortened.
  */
-@OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 internal fun CallMoreSheet(call: CallUi, timing: CallTiming?, onDismiss: () -> Unit, onNote: () -> Unit, onOpenContact: (() -> Unit)?) {
     val cd = timing?.countdown

@@ -1,5 +1,6 @@
 package app.parley.data
 
+import app.parley.common.people.HandleService
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -34,7 +35,7 @@ object ContactDetailsJson {
             handles = o.optJSONArray("im")?.let { a ->
                 (0 until a.length()).map { i ->
                     a.getJSONObject(i).let {
-                        HandleItem(null, app.parley.common.people.HandleService.byKey(it.optString("s")) ?: app.parley.common.people.HandleService.OTHER, it.optString("v"), it.optString("c").ifEmpty { null })
+                        HandleItem(null, HandleService.byKey(it.optString("s")) ?: HandleService.OTHER, it.optString("v"), it.optString("c").ifEmpty { null })
                     }
                 }
             }.orEmpty(),

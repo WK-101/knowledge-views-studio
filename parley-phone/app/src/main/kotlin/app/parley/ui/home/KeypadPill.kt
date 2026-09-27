@@ -63,6 +63,7 @@ import app.parley.common.DockFold
 import app.parley.common.SimAccount
 import app.parley.common.calls.CallPill
 import app.parley.ui.CallColors
+import app.parley.ui.history.SimPlanBadge
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -202,7 +203,7 @@ private fun PillSegment(vm: AppViewModel, s: CallPill.Segment, modifier: Modifie
         horizontalArrangement = Arrangement.Center,
     ) {
         // The plan badge stays a small dot on the icon.
-        app.parley.ui.history.SimPlanBadge(vm, s.simId) { Icon(Icons.Rounded.Call, null, tint = Color.White, modifier = Modifier.size(22.dp)) }
+        SimPlanBadge(vm, s.simId) { Icon(Icons.Rounded.Call, null, tint = Color.White, modifier = Modifier.size(22.dp)) }
         Spacer(Modifier.width(6.dp))
         Text(
             shown, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis,

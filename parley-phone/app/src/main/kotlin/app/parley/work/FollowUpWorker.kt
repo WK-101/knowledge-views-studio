@@ -1,5 +1,6 @@
 package app.parley.work
 
+import app.parley.common.NotificationIds
 import app.parley.data.PhoneEnv
 import app.parley.common.PhoneIdentity
 import android.app.NotificationChannel
@@ -48,7 +49,7 @@ class FollowUpWorker(context: Context, params: WorkerParameters) : CoroutineWork
         val promises = runCatching {
             c.circle.notesFor(key, contact.phones.flatMap { PhoneIdentity.lookupKeys(it.number, PhoneEnv.countryIso(c.appContext)) }).flatMap { n -> Promises.open(n.text).map { it.text } }
         }.getOrDefault(emptyList())
-        val tag = app.parley.common.NotificationIds.followUp(contact.id)
+        val tag = NotificationIds.followUp(contact.id)
         val code = tag.hashCode()
         val public = NotificationCompat.Builder(ctx, RemindersWorker.CHANNEL)
             .setSmallIcon(R.drawable.ic_stat_cake)

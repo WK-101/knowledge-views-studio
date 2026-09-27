@@ -53,6 +53,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -61,6 +62,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
@@ -75,8 +77,10 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.R
+import app.parley.common.TextSearch
 import app.parley.common.people.RelationType
 import app.parley.ui.Avatar
+import app.parley.ui.people.RelationText
 
 // Building blocks of the redesigned contact editor.
 
@@ -143,7 +147,7 @@ internal fun RemoveButton(description: String, onClick: () -> Unit) {
 }
 
 /** Fields whose Data row the provider marks read-only: shown, but locked. */
-internal val LocalLocked = androidx.compose.runtime.staticCompositionLocalOf<Set<Long>> { emptySet() }
+internal val LocalLocked = staticCompositionLocalOf<Set<Long>> { emptySet() }
 
 @Composable
 internal fun LockIcon() = Icon(Icons.Rounded.Lock, stringResource(R.string.edit_locked))
@@ -288,8 +292,8 @@ internal fun MoreInfoSheet(entries: List<MoreEntry>, onDismiss: () -> Unit) {
 internal fun RelationTypeDialog(onDismiss: () -> Unit, onPick: (RelationType?) -> Unit) {
     var query by remember { mutableStateOf("") }
     var custom by remember { mutableStateOf(false) }
-    val res = androidx.compose.ui.platform.LocalResources.current
-    val shown = remember(query, res) { app.parley.ui.people.RelationText.search(res, query) }
+    val res = LocalResources.current
+    val shown = remember(query, res) { RelationText.search(res, query) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.edit_relation)) },
@@ -299,8 +303,8 @@ internal fun RelationTypeDialog(onDismiss: () -> Unit, onPick: (RelationType?) -
                 LazyColumn(Modifier.heightIn(max = 360.dp)) {
                     items(shown, key = { it.key }) { t ->
                         ListItem(
-                            headlineContent = { Text(app.parley.ui.people.RelationText.label(res, t)) },
-                            supportingContent = { Text(app.parley.ui.people.RelationText.group(res, t.group)) },
+                            headlineContent = { Text(RelationText.label(res, t)) },
+                            supportingContent = { Text(RelationText.group(res, t.group)) },
                             colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                             modifier = Modifier.clickable { onPick(t) },
                         )
@@ -326,7 +330,7 @@ internal fun RelationTypeDialog(onDismiss: () -> Unit, onPick: (RelationType?) -
 fun ContactChooserDialog(vm: AppViewModel, onDismiss: () -> Unit, onPick: (id: Long, name: String, lookupKey: String) -> Unit) {
     val all by vm.contacts.collectAsStateWithLifecycle()
     var query by remember { mutableStateOf("") }
-    val shown = remember(all, query) { all.orEmpty().filter { app.parley.common.TextSearch.matches(query, it.displayName, it.phones.map { p -> p.number }) }.take(200) }
+    val shown = remember(all, query) { all.orEmpty().filter { TextSearch.matches(query, it.displayName, it.phones.map { p -> p.number }) }.take(200) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.edit_choose_contact)) },

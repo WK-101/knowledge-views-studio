@@ -18,6 +18,7 @@ import app.parley.MainActivity
 import app.parley.R
 import app.parley.common.ContactSummary
 import app.parley.common.EventDate
+import app.parley.common.NotificationChannels
 import app.parley.common.circle.CircleConfig
 import app.parley.common.circle.CircleDigest
 import app.parley.common.circle.CirclePlanner
@@ -29,6 +30,8 @@ import app.parley.common.people.LifeEvents
 import app.parley.container
 import app.parley.data.ContactEvent
 import app.parley.data.DataContainer
+import app.parley.data.circle.CircleRepository
+import app.parley.shortcuts.CircleWidget
 import app.parley.shortcuts.Shortcuts
 import app.parley.ui.circle.CircleText
 import kotlinx.coroutines.flow.filterNotNull
@@ -61,7 +64,7 @@ class RemindersWorker(context: Context, params: WorkerParameters) : CoroutineWor
         if (s.birthdayReminders) runCatching { dates(c, cfg, today, now) }
         if (s.reachOutNudges) keepInTouch(c, cfg, today, now)
         // The Circle widget's dates and people move on daily.
-        runCatching { app.parley.shortcuts.CircleWidget.refresh(applicationContext) }
+        runCatching { CircleWidget.refresh(applicationContext) }
         return Result.success()
     }
 
@@ -110,7 +113,7 @@ class RemindersWorker(context: Context, params: WorkerParameters) : CoroutineWor
         // In a cold worker process the flows start empty (null): wait for the first real load.
         val contacts = withTimeoutOrNull(30_000) { c.contacts.contacts.filterNotNull().first() }?.associateBy { it.lookupKey } ?: return
         val idx = c.history.awaitIndex()
-        data class Known(val m: app.parley.data.circle.CircleRepository.Member, val contact: ContactSummary, val last: LastContact?, val planned: CirclePlanner.Member)
+        data class Known(val m: CircleRepository.Member, val contact: ContactSummary, val last: LastContact?, val planned: CirclePlanner.Member)
         // Only people who are still system contacts: private (vault) contacts are never named here.
         val known = members.mapNotNull { m ->
             val contact = contacts[m.lookupKey] ?: return@mapNotNull null
@@ -246,7 +249,7 @@ class RemindersWorker(context: Context, params: WorkerParameters) : CoroutineWor
 
     companion object {
         private const val NAME = "parley-reminders"
-        const val CHANNEL = app.parley.common.NotificationChannels.REMINDERS
+        const val CHANNEL = NotificationChannels.REMINDERS
         private const val S_FIRED = "fired"
         private const val S_LAST_DIGEST = "lastDigest"
         private const val S_LAST_QUIET = "lastQuiet"

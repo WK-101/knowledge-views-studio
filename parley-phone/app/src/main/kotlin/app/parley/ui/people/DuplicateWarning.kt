@@ -22,6 +22,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
+import app.parley.NavEvent
+import app.parley.common.ContactSummary
+import app.parley.common.PhoneEntry
 import app.parley.common.people.DuplicateHit
 import app.parley.common.people.DuplicateLookup
 import app.parley.common.people.DuplicateReason
@@ -46,7 +49,7 @@ fun DuplicateWarning(vm: AppViewModel, draft: ContactDetails, onOpen: (Long) -> 
     val vault by vm.c.vault.contacts.collectAsStateWithLifecycle()
     val settings by vm.settings.collectAsStateWithLifecycle()
     val vaultLookup = remember(vault, settings.hideVault) {
-        if (settings.hideVault) null else DuplicateLookup(vault.map { v -> app.parley.common.ContactSummary(-v.id, "", v.name, null, false, v.numbers.map { app.parley.common.PhoneEntry(it, 2, null) }) })
+        if (settings.hideVault) null else DuplicateLookup(vault.map { v -> ContactSummary(-v.id, "", v.name, null, false, v.numbers.map { PhoneEntry(it, 2, null) }) })
     }
     var hit by remember { mutableStateOf<DuplicateHit?>(null) }
     var dismissed by remember { mutableStateOf<Long?>(null) }
@@ -75,7 +78,7 @@ fun DuplicateWarning(vm: AppViewModel, draft: ContactDetails, onOpen: (Long) -> 
             }
             Row {
                 if (private) {
-                    TextButton({ vm.navigate(app.parley.NavEvent.Vault(-h.contact.id)) }) { Text(stringResource(R.string.dup_open)) }
+                    TextButton({ vm.navigate(NavEvent.Vault(-h.contact.id)) }) { Text(stringResource(R.string.dup_open)) }
                 } else {
                     TextButton({ onOpen(h.contact.id) }) { Text(stringResource(R.string.dup_open)) }
                     TextButton({ onAddTo(h.contact.id) }) { Text(stringResource(R.string.dup_add_to, h.contact.displayName.substringBefore(' '))) }

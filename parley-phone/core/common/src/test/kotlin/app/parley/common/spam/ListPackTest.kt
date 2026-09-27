@@ -1,5 +1,6 @@
 package app.parley.common.spam
 
+import java.util.Base64
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -117,7 +118,7 @@ class ListPackTest {
 
     @Test fun replacement_compares_the_full_publisher_key() {
         val sk = Ed25519.newSecret()
-        val key = java.util.Base64.getEncoder().encodeToString(Ed25519.publicKey(sk))
+        val key = Base64.getEncoder().encodeToString(Ed25519.publicKey(sk))
         val same = ListPack.parse(PackBuilder(PackManifest(id = "p", name = "P", version = 2)).build(sk)).manifest
         val other = ListPack.parse(PackBuilder(PackManifest(id = "p", name = "P", version = 2)).build(Ed25519.newSecret())).manifest
         assertTrue(ListPack.sameKey(key, same))

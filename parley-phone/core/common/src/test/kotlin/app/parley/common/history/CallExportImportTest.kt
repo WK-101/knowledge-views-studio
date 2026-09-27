@@ -1,6 +1,8 @@
 package app.parley.common.history
 
 import app.parley.common.CallType
+import app.parley.common.PhoneNumbers
+import java.time.LocalDate
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -127,8 +129,8 @@ class CallExportImportTest {
         val rows = CallExport.rows(
             listOf(c), names = { null }, simLabel = { null },
             notes = listOf(
-                ExportNote(app.parley.common.PhoneNumbers.matchKey("+33612345678"), c.date + 5_000, "Invoice"),
-                ExportNote(app.parley.common.PhoneNumbers.matchKey("+33612345678"), c.date + 86_400_000, "Other day"),
+                ExportNote(PhoneNumbers.matchKey("+33612345678"), c.date + 5_000, "Invoice"),
+                ExportNote(PhoneNumbers.matchKey("+33612345678"), c.date + 86_400_000, "Other day"),
             ),
         )
         assertEquals(listOf("Invoice"), rows.single().notes)
@@ -245,8 +247,8 @@ class CallExportImportTest {
         val u = PlanMeter.usage(cfg, calls, cat, at(2026, 4, 5), UTC)
         assertEquals(10, u.usedMinutes)
         assertEquals(1, u.callsCounted)
-        assertEquals(java.time.LocalDate.of(2026, 3, 15), u.cycleStart)
-        assertEquals(java.time.LocalDate.of(2026, 4, 15), u.cycleEnd)
+        assertEquals(LocalDate.of(2026, 3, 15), u.cycleStart)
+        assertEquals(LocalDate.of(2026, 4, 15), u.cycleEnd)
         assertEquals(10, u.daysLeft)
         assertEquals(300, u.config.allowanceMinutes)
         assertFalse(u.isNear)
@@ -256,8 +258,8 @@ class CallExportImportTest {
     }
 
     @Test fun cycle_start_clamps_to_month_end() {
-        assertEquals(java.time.LocalDate.of(2026, 2, 28) to java.time.LocalDate.of(2026, 3, 31), PlanMeter.cycle(java.time.LocalDate.of(2026, 3, 5), 31))
-        assertEquals(java.time.LocalDate.of(2026, 3, 1) to java.time.LocalDate.of(2026, 4, 1), PlanMeter.cycle(java.time.LocalDate.of(2026, 3, 1), 1))
+        assertEquals(LocalDate.of(2026, 2, 28) to LocalDate.of(2026, 3, 31), PlanMeter.cycle(LocalDate.of(2026, 3, 5), 31))
+        assertEquals(LocalDate.of(2026, 3, 1) to LocalDate.of(2026, 4, 1), PlanMeter.cycle(LocalDate.of(2026, 3, 1), 1))
         val list = listOf(PlanConfig("a"), PlanConfig("b", increment = BillingIncrement.HALF_MINUTE))
         assertEquals(list, PlanConfig.decodeList(PlanConfig.encodeList(list)))
     }

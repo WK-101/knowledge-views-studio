@@ -4,6 +4,7 @@ import app.parley.common.LabelRefs
 import app.parley.common.OffHoursAllow
 import app.parley.common.RuleType
 import app.parley.data.DataContainer
+import app.parley.data.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -64,7 +65,7 @@ class LabelReferences(private val c: DataContainer, private val prefs: PeoplePre
         val oh = c.settings.current().screening.offHours
         if (oh.allow == OffHoursAllow.LABEL && LabelRefs.refersTo(oh.labelTitle, titles)) {
             c.settings.update { s -> s.copy(screening = s.screening.copy(offHours = LabelRefs.labelGone(s.screening.offHours))) }
-            if (oh.enabled) c.appContext.getString(app.parley.data.R.string.data_label_offhours_off, oh.labelTitle?.trim().toString()) else null
+            if (oh.enabled) c.appContext.getString(R.string.data_label_offhours_off, oh.labelTitle?.trim().toString()) else null
         } else {
             null
         }

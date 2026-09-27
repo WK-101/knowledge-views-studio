@@ -1,6 +1,7 @@
 package app.parley.common.people
 
 import app.parley.common.MessengerApp
+import app.parley.common.MessengerCatalog
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -23,7 +24,7 @@ class MessageRoutesTest {
         val wa = MessengerPrefs(message = "com.whatsapp")
         // WhatsApp hasn't linked the person (no data row) but is installed: open it by number.
         assertEquals(
-            MessageRoute.MessengerLink(MessengerApp.of(app.parley.common.MessengerCatalog.WHATSAPP), "+447700900123"),
+            MessageRoute.MessengerLink(MessengerApp.of(MessengerCatalog.WHATSAPP), "+447700900123"),
             MessageRoutes.plan(wa, linked = emptySet(), installed = setOf("com.whatsapp"), numbers = numbers, defaultNumber = numbers[0]),
         )
         assertEquals(MessageRoute.MessengerRow("com.whatsapp"), MessageRoutes.plan(wa, setOf("com.whatsapp"), setOf("com.whatsapp"), numbers, numbers[0]))

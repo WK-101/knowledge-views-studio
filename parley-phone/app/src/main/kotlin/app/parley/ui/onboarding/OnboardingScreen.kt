@@ -64,6 +64,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -74,6 +75,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.R
 import app.parley.common.ux.InstallSource
+import app.parley.ui.calls.rememberDialerRoleRequest
 import kotlinx.coroutines.launch
 
 /**
@@ -139,7 +141,7 @@ private fun appInfo(context: Context) {
 @Composable
 private fun ColumnScope.DefaultDialerStep(vm: AppViewModel, next: () -> Unit) {
     val context = LocalContext.current
-    val res = androidx.compose.ui.platform.LocalResources.current
+    val res = LocalResources.current
     val isDefault by vm.isDefaultDialer.collectAsStateWithLifecycle()
     val rm = remember { context.getSystemService(RoleManager::class.java) }
     val available = rm != null && rm.isRoleAvailable(RoleManager.ROLE_DIALER)
@@ -148,7 +150,7 @@ private fun ColumnScope.DefaultDialerStep(vm: AppViewModel, next: () -> Unit) {
     val sideloaded = remember { InstallSource.needsRestrictedSettingsHelp(installerOf(context), Build.VERSION.SDK_INT) }
     var failed by remember { mutableStateOf(false) }
     // The shared role request; it opens the by-hand guide itself when Android refuses without asking.
-    val requestRole = app.parley.ui.calls.rememberDialerRoleRequest { granted ->
+    val requestRole = rememberDialerRoleRequest { granted ->
         vm.refreshEnvironment()
         if (granted || vm.isDefaultDialer.value) {
             next()

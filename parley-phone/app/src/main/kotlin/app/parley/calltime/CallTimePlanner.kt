@@ -1,6 +1,7 @@
 package app.parley.calltime
 
 import android.content.Context
+import android.util.Log
 import app.parley.R
 import app.parley.common.CallType
 import app.parley.common.PhoneIdentity
@@ -20,6 +21,7 @@ import app.parley.data.DataContainer
 import app.parley.data.EmergencyNumbers
 import app.parley.data.PhoneEnv
 import app.parley.telecom.ScreeningGuard
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
@@ -83,10 +85,10 @@ class CallTimePlanner(private val c: DataContainer) {
         val since = minOf(Quotas.periodStart(now, zone, QuotaPeriod.DAY), Quotas.periodStart(now, zone, QuotaPeriod.WEEK, firstDay))
         val ledger = try {
             c.callUsage.since(since - Quotas.SAME_CALL_WINDOW_MS)
-        } catch (e: kotlinx.coroutines.CancellationException) {
+        } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            android.util.Log.w("CallTimePlanner", "Call-usage ledger unreadable", e)
+            Log.w("CallTimePlanner", "Call-usage ledger unreadable", e)
             null
         }
         if (calls == null && ledger == null) return if (config.supervised) Quotas.unknownUsage(rule) else emptyList()

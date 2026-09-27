@@ -6,6 +6,7 @@ import android.content.Context
 import android.provider.ContactsContract
 import android.provider.ContactsContract.CommonDataKinds.Phone
 import androidx.core.content.edit
+import app.parley.common.messaging.BulkAdd
 import app.parley.common.people.Batches
 import app.parley.common.record.Col
 import app.parley.common.record.ContactRecord
@@ -16,6 +17,7 @@ import app.parley.data.AccountRef
 import app.parley.data.ContactDetails
 import app.parley.data.DataContainer
 import app.parley.data.DataItem
+import app.parley.data.R
 import app.parley.data.TemporaryContacts
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
@@ -80,7 +82,7 @@ class BulkAddStore(private val c: DataContainer) {
         val keys = ArrayList<String>()
         val vaultIds = ArrayList<Long>()
         val failed = ArrayList<String>()
-        val notSaved = c.appContext.getString(app.parley.data.R.string.data_write_failed)
+        val notSaved = c.appContext.getString(R.string.data_write_failed)
         var done = 0
         when (destination) {
             is BulkDestination.Label -> {
@@ -125,7 +127,7 @@ class BulkAddStore(private val c: DataContainer) {
                 progress(done, items.size)
             }
         }
-        val batch = BulkBatch(app.parley.common.messaging.BulkAdd.batchTag(now), now, where, items.size - failed.size, rawIds, keys, vaultIds)
+        val batch = BulkBatch(BulkAdd.batchTag(now), now, where, items.size - failed.size, rawIds, keys, vaultIds)
         if (batch.count > 0) remember(batch)
         Result(batch, batch.count, failed)
     }

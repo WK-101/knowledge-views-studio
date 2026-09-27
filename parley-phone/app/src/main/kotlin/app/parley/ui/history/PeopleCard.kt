@@ -40,6 +40,7 @@ import app.parley.common.ContactSummary
 import app.parley.common.circle.PeopleInsights
 import app.parley.common.history.CallLogIndex
 import app.parley.ui.Avatar
+import app.parley.ui.Bidi
 import app.parley.ui.Routes
 import app.parley.ui.common.Format
 
@@ -146,7 +147,7 @@ fun PeopleCard(vm: AppViewModel, idx: CallLogIndex, open: (String) -> Unit) {
         }
         d.review?.let { r ->
             SubHeader(stringResource(R.string.circle_year_review))
-            val most = r.most.mapNotNull { (k, n) -> contacts[k]?.let { stringResource(R.string.circle_review_person_count, PeopleInsights.shortName(d.given[k], it.displayName), app.parley.ui.Bidi.ltr(n.toString())) } }
+            val most = r.most.mapNotNull { (k, n) -> contacts[k]?.let { stringResource(R.string.circle_review_person_count, PeopleInsights.shortName(d.given[k], it.displayName), Bidi.ltr(n.toString())) } }
             if (most.isNotEmpty()) ListItem(headlineContent = { Text(stringResource(R.string.circle_review_most, most.joinToString(stringResource(R.string.dc_list_separator)))) })
             r.longestGap?.let { (k, days) ->
                 contacts[k]?.let { ct -> ListItem(headlineContent = { Text(pluralStringResource(R.plurals.circle_review_gap, days, days, ct.displayName)) }) }

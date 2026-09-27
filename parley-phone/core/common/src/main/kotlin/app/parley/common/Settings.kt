@@ -1,5 +1,8 @@
 package app.parley.common
 
+import app.parley.common.calls.RecentsLayout
+import app.parley.common.ux.RecentsStyle
+
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
 
 enum class ListDensity { COMFORTABLE, COMPACT }
@@ -53,9 +56,9 @@ data class AppSettings(
     /** Order and visibility of the home tabs (bottom bar and navigation rail). */
     val navTabs: NavTabs = NavTabs(),
     /** Grouped (as before), every call on its own row, or one row per number per day. */
-    val recentsLayout: app.parley.common.calls.RecentsLayout = app.parley.common.calls.RecentsLayout.GROUPED,
+    val recentsLayout: RecentsLayout = RecentsLayout.GROUPED,
     /** Rich call rows (shapes, tints, sequence dots, Call back pill) or the simple icons. */
-    val recentsStyle: app.parley.common.ux.RecentsStyle = app.parley.common.ux.RecentsStyle.RICH,
+    val recentsStyle: RecentsStyle = RecentsStyle.RICH,
     /** Optional combined surfaces (keypad in Recents, favourites in Contacts) and the Recents row tap. */
     val surfaces: SurfaceLayout = SurfaceLayout(),
 ) {

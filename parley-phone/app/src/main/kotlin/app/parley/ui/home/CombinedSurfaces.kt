@@ -57,10 +57,12 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
@@ -86,6 +88,7 @@ import app.parley.common.ContactSummary
 import app.parley.common.FavoritesPlacement
 import app.parley.common.calls.CallSource
 import app.parley.ui.Avatar
+import app.parley.ui.ForceLtr
 import app.parley.ui.Routes
 import kotlinx.coroutines.launch
 
@@ -174,7 +177,7 @@ internal fun DockedKeypadButton(
             BadgedBox(badge = {
                 if (badge != null) {
                     Badge(containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary) {
-                        app.parley.ui.ForceLtr { Text(badge, maxLines = 1) }
+                        ForceLtr { Text(badge, maxLines = 1) }
                     }
                 }
             }) { Icon(Icons.Rounded.Dialpad, null) }
@@ -197,7 +200,7 @@ fun ContactsFavorites(vm: AppViewModel, open: (String) -> Unit, onReorder: () ->
     val ps by vm.people.settings.collectAsStateWithLifecycle()
     val surfaces = settings.surfaces
     val collapsed = surfaces.favoritesCollapsed
-    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val scope = rememberCoroutineScope()
     fun toggle() {
         scope.launch { vm.c.settings.update { it.copy(surfaces = it.surfaces.copy(favoritesCollapsed = !it.surfaces.favoritesCollapsed)) } }
     }
@@ -339,7 +342,7 @@ fun ReorderFavoritesSheet(vm: AppViewModel, onDismiss: () -> Unit) {
                             Modifier.fillMaxWidth()
                                 .zIndex(if (lifted) 1f else 0f)
                                 .graphicsLayer { translationY = if (lifted) dragOffset else 0f }
-                                .background(if (lifted) MaterialTheme.colorScheme.surfaceContainerHighest else androidx.compose.ui.graphics.Color.Transparent)
+                                .background(if (lifted) MaterialTheme.colorScheme.surfaceContainerHighest else Color.Transparent)
                                 .onSizeChanged { rowHeight = it.height }
                                 .heightIn(min = 56.dp)
                                 .semantics {

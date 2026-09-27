@@ -33,6 +33,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.unit.dp
 import app.parley.AppViewModel
 import app.parley.common.backup.ContactVersion
@@ -41,7 +42,9 @@ import app.parley.common.backup.Snapshots
 import app.parley.common.record.ContactRecord
 import app.parley.common.record.DataRow
 import app.parley.common.record.Mime
+import app.parley.data.backup.TimeMachine
 import app.parley.ui.Avatar
+import app.parley.ui.DataL10n
 import app.parley.ui.EmptyState
 import app.parley.ui.Routes
 import app.parley.ui.common.Format
@@ -59,7 +62,7 @@ fun describe(res: Resources, row: DataRow): String? {
     val v = row["data1"]?.takeIf { it.isNotBlank() }
     return when (row.mimeType) {
         Mime.NAME -> v?.let { res.getString(R.string.tm_row_name, it) }
-        Mime.PHONE -> v?.let { res.getString(R.string.tm_row_phone, app.parley.ui.DataL10n.ltr(it)) }
+        Mime.PHONE -> v?.let { res.getString(R.string.tm_row_phone, DataL10n.ltr(it)) }
         Mime.EMAIL -> v?.let { res.getString(R.string.tm_row_email, it) }
         Mime.POSTAL -> v?.let { res.getString(R.string.tm_row_address, it) }
         Mime.ORG -> listOfNotNull(v, row["data4"]).joinToString(", ").takeIf { it.isNotBlank() }?.let { res.getString(R.string.tm_row_work, it) }
@@ -89,7 +92,7 @@ private fun fieldLabel(res: Resources, field: String): String = when (field) {
 @Composable
 fun VersionHistoryScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, open: (String) -> Unit) {
     val context = LocalContext.current
-    val res = androidx.compose.ui.platform.LocalResources.current
+    val res = LocalResources.current
     val scope = rememberCoroutineScope()
     val versions by produceState<List<ContactVersion>?>(null, contactId) {
         value = withContext(Dispatchers.IO) {
@@ -107,7 +110,7 @@ fun VersionHistoryScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, op
             list == null -> CircularProgressIndicator(Modifier.padding(p).padding(32.dp))
             list.size <= 1 -> EmptyState(
                 Icons.Rounded.History, stringResource(R.string.tm_no_versions),
-                app.parley.data.backup.TimeMachine.KEEP_DAYS.toInt().let { pluralStringResource(R.plurals.tm_no_versions_text, it, it) }, Modifier.padding(p),
+                TimeMachine.KEEP_DAYS.toInt().let { pluralStringResource(R.plurals.tm_no_versions_text, it, it) }, Modifier.padding(p),
                 action = stringResource(R.string.ux_empty_back), onAction = back,
             )
             else -> LazyColumn(Modifier.padding(p)) {
@@ -172,7 +175,7 @@ fun VersionHistoryScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, op
 fun SnapshotChanges(vm: AppViewModel, open: (String) -> Unit, modifier: Modifier = Modifier) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
-    val res = androidx.compose.ui.platform.LocalResources.current
+    val res = LocalResources.current
     var days by remember { mutableLongStateOf(7L) }
     var round by remember { mutableLongStateOf(0L) }
     val diff by produceState<SnapshotDiff?>(null, days, round) {

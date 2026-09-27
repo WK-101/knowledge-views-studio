@@ -9,6 +9,7 @@ import android.provider.SimPhonebookContract
 import android.telephony.SubscriptionManager
 import app.parley.common.people.SimEntry
 import app.parley.common.people.SimFit
+import app.parley.data.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -38,7 +39,7 @@ class SimContacts(private val context: Context) {
             emptyList()
         }
         subs.map { info ->
-            val label = info.displayName?.toString()?.ifBlank { null } ?: context.getString(app.parley.data.R.string.data_sim_slot, info.simSlotIndex + 1)
+            val label = info.displayName?.toString()?.ifBlank { null } ?: context.getString(R.string.data_sim_slot, info.simSlotIndex + 1)
             if (Build.VERSION.SDK_INT >= 31) limits(info.subscriptionId, label) else SimCard(info.subscriptionId, label)
         }
     }
@@ -113,11 +114,11 @@ class SimContacts(private val context: Context) {
             } else {
                 cr.insert(legacyUri(card.subscriptionId), ContentValues().apply { put("tag", e.name); put("number", e.number) })
             }
-            if (uri == null) context.getString(app.parley.data.R.string.data_sim_full) else null
+            if (uri == null) context.getString(R.string.data_sim_full) else null
         } catch (ex: SecurityException) {
-            context.getString(app.parley.data.R.string.data_sim_not_allowed)
+            context.getString(R.string.data_sim_not_allowed)
         } catch (ex: Exception) {
-            ex.message ?: context.getString(app.parley.data.R.string.data_sim_rejected)
+            ex.message ?: context.getString(R.string.data_sim_rejected)
         }
     }
 

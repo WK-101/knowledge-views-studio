@@ -6,6 +6,7 @@ import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
 import app.parley.R
 import app.parley.container
+import app.parley.ui.AppLocale
 import kotlinx.coroutines.launch
 
 /**
@@ -14,8 +15,8 @@ import kotlinx.coroutines.launch
  */
 class ExpectingCallTileService : TileService() {
     // The in-app language on Android 10-12 (Android 13+ applies per-app languages itself).
-    override fun attachBaseContext(newBase: android.content.Context) {
-        super.attachBaseContext(app.parley.ui.AppLocale.wrap(newBase))
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(AppLocale.wrap(newBase))
     }
 
     override fun onStartListening() {

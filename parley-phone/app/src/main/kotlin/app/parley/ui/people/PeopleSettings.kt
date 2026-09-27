@@ -15,6 +15,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalResources
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.NavEvent
@@ -22,7 +24,9 @@ import app.parley.common.people.SecondLineMode
 import app.parley.data.AccountRef
 import app.parley.ui.contact.Section
 import app.parley.ui.settings.LinkRow
+import app.parley.ui.settings.MenuRow
 import app.parley.ui.settings.SwitchRow
+import app.parley.ui.settings.settingTitle
 import kotlinx.coroutines.launch
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
@@ -31,10 +35,10 @@ import app.parley.R
 
 /** Settings › Appearance: second line under names. */
 @Composable
-fun SecondLineRow(vm: AppViewModel, icon: androidx.compose.ui.graphics.vector.ImageVector? = null) {
+fun SecondLineRow(vm: AppViewModel, icon: ImageVector? = null) {
     val s by vm.people.settings.collectAsStateWithLifecycle()
-    app.parley.ui.settings.MenuRow(
-        app.parley.ui.settings.settingTitle("second_line"),
+    MenuRow(
+        settingTitle("second_line"),
         SecondLineMode.entries.map { m ->
             stringResource(
                 when (m) {
@@ -53,18 +57,18 @@ fun SecondLineRow(vm: AppViewModel, icon: androidx.compose.ui.graphics.vector.Im
 
 /** Settings › Appearance: prefer nicknames. */
 @Composable
-fun PreferNicknameRow(vm: AppViewModel, icon: androidx.compose.ui.graphics.vector.ImageVector? = null) {
+fun PreferNicknameRow(vm: AppViewModel, icon: ImageVector? = null) {
     val s by vm.people.settings.collectAsStateWithLifecycle()
-    SwitchRow(app.parley.ui.settings.settingTitle("prefer_nickname"), stringResource(R.string.prefer_nickname_summary), s.preferNickname, icon) { v ->
+    SwitchRow(settingTitle("prefer_nickname"), stringResource(R.string.prefer_nickname_summary), s.preferNickname, icon) { v ->
         vm.people.update { it.copy(preferNickname = v) }
     }
 }
 
 /** Settings › Contacts: labels. */
 @Composable
-fun LabelsRow(vm: AppViewModel, open: (String) -> Unit, icon: androidx.compose.ui.graphics.vector.ImageVector? = null) {
+fun LabelsRow(vm: AppViewModel, open: (String) -> Unit, icon: ImageVector? = null) {
     val idx by vm.people.index.collectAsStateWithLifecycle()
-    LinkRow(app.parley.ui.settings.settingTitle("labels"), pluralStringResource(R.plurals.labels_row_summary, idx.labelCounts.size, idx.labelCounts.size), icon) { open(PeopleRoutes.LABELS) }
+    LinkRow(settingTitle("labels"), pluralStringResource(R.plurals.labels_row_summary, idx.labelCounts.size, idx.labelCounts.size), icon) { open(PeopleRoutes.LABELS) }
 }
 
 /** Whether "Export one account" applies (more than one account has contacts). */
@@ -73,10 +77,10 @@ fun hasSeveralAccounts(vm: AppViewModel): Boolean = vm.people.index.collectAsSta
 
 /** Settings › Contacts: export the contacts of one account (with per-account counts). */
 @Composable
-fun ExportAccountRow(vm: AppViewModel, icon: androidx.compose.ui.graphics.vector.ImageVector? = null) {
+fun ExportAccountRow(vm: AppViewModel, icon: ImageVector? = null) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
-    val res = androidx.compose.ui.platform.LocalResources.current
+    val res = LocalResources.current
     val idx by vm.people.index.collectAsStateWithLifecycle()
     var chooseAccount by remember { mutableStateOf(false) }
     var exportAccount by remember { mutableStateOf<AccountRef?>(null) }
@@ -89,7 +93,7 @@ fun ExportAccountRow(vm: AppViewModel, icon: androidx.compose.ui.graphics.vector
             vm.toast(if (r.failures.isEmpty()) done else res.getQuantityString(R.plurals.export_account_failed, r.failures.size, done, r.failures.size))
         }
     }
-    LinkRow(app.parley.ui.settings.settingTitle("export_account"), idx.accountCounts.entries.joinToString(" · ") { res.getString(R.string.ppl_account_count, it.key.displayLabel, it.value) }, icon) { chooseAccount = true }
+    LinkRow(settingTitle("export_account"), idx.accountCounts.entries.joinToString(" · ") { res.getString(R.string.ppl_account_count, it.key.displayLabel, it.value) }, icon) { chooseAccount = true }
     if (chooseAccount) {
         AlertDialog(
             onDismissRequest = { chooseAccount = false },

@@ -1,5 +1,6 @@
 package app.parley.ui.contact
 
+import android.content.res.Resources
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
@@ -145,7 +146,7 @@ fun PinnedContactBar(actions: List<QuickAction>, jumps: List<Pair<String, () -> 
 }
 
 /** A section's name, as the page and Settings › Contact page sections show it. */
-fun sectionTitle(res: android.content.res.Resources, s: ContactSection): String = res.getString(
+fun sectionTitle(res: Resources, s: ContactSection): String = res.getString(
     when (s) {
         ContactSection.STAY -> R.string.contact_page_sec_stay
         ContactSection.DATES -> R.string.contact_page_sec_dates

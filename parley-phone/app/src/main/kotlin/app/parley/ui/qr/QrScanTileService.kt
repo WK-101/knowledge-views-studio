@@ -2,12 +2,14 @@ package app.parley.ui.qr
 
 import android.annotation.SuppressLint
 import android.app.PendingIntent
+import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
 import app.parley.MainActivity
 import app.parley.R
+import app.parley.ui.AppLocale
 
 /**
  * Quick Settings tile "Scan QR". Opens Parley's scan screen (after unlocking, like any app); the photo is taken
@@ -15,8 +17,8 @@ import app.parley.R
  */
 class QrScanTileService : TileService() {
     // The in-app language on Android 10-12 (Android 13+ applies per-app languages itself).
-    override fun attachBaseContext(newBase: android.content.Context) {
-        super.attachBaseContext(app.parley.ui.AppLocale.wrap(newBase))
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(AppLocale.wrap(newBase))
     }
 
     override fun onStartListening() {

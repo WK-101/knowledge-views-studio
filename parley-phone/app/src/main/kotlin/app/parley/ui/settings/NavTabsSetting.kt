@@ -27,10 +27,12 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
@@ -65,8 +67,8 @@ fun NavTabsEditor(
     LaunchedEffect(tabs.order) { if (dragging == null) order = tabs.order }
     var dragOffset by remember { mutableFloatStateOf(0f) }
     var rowHeight by remember { mutableIntStateOf(1) }
-    val latestTabs by androidx.compose.runtime.rememberUpdatedState(tabs)
-    val latestOnChange by androidx.compose.runtime.rememberUpdatedState(onChange)
+    val latestTabs by rememberUpdatedState(tabs)
+    val latestOnChange by rememberUpdatedState(onChange)
     val shownText = stringResource(R.string.set_tab_shown)
     val hiddenText = stringResource(R.string.set_tab_hidden)
     val moveUp = stringResource(R.string.set_move_up)
@@ -83,7 +85,7 @@ fun NavTabsEditor(
                         .zIndex(if (lifted) 1f else 0f)
                         .graphicsLayer { translationY = if (lifted) dragOffset else 0f }
                         .clip(MaterialTheme.shapes.medium)
-                        .background(if (lifted) MaterialTheme.colorScheme.surfaceContainerHighest else androidx.compose.ui.graphics.Color.Transparent)
+                        .background(if (lifted) MaterialTheme.colorScheme.surfaceContainerHighest else Color.Transparent)
                         .onSizeChanged { rowHeight = it.height }
                         .heightIn(min = 56.dp)
                         .toggleable(shown, enabled = shown.not() || tabs.canHide(t), role = Role.Switch) { v -> onChange(tabs.copy(order = order).setVisible(t, v)) }

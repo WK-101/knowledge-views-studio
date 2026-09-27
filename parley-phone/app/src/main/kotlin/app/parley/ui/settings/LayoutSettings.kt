@@ -50,6 +50,7 @@ import app.parley.R
 import app.parley.common.AppSettings
 import app.parley.common.CallsLayout
 import app.parley.common.FavoritesPlacement
+import app.parley.common.HomeLayout
 import app.parley.common.RecentTap
 import app.parley.common.StartTab
 import app.parley.ui.SegmentedGroup
@@ -183,7 +184,7 @@ internal fun LayoutSettingsGroup(vm: AppViewModel) {
     }
 }
 
-private fun AppSettings.homeLayout() = app.parley.common.HomeLayout(navTabs, surfaces)
+private fun AppSettings.homeLayout() = HomeLayout(navTabs, surfaces)
 
 /** Asks whether the absorbed tab also stays in the bar; dismissing changes nothing. */
 @Composable

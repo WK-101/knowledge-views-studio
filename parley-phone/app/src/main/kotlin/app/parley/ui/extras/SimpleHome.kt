@@ -1,5 +1,6 @@
 package app.parley.ui.extras
 
+import android.text.format.DateFormat
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -54,6 +55,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.NavEvent
@@ -62,10 +64,13 @@ import app.parley.UiEvent
 import app.parley.common.StartTab
 import app.parley.common.calls.CallSource
 import app.parley.common.extras.SimpleSetup
+import app.parley.common.ux.Tips
+import app.parley.security.AppLock
 import app.parley.ui.Avatar
 import app.parley.ui.Bidi
 import app.parley.ui.CallColors
 import app.parley.ui.ForceLtr
+import app.parley.ui.common.CoachMarkAnchor
 
 /**
  * The simple home, shown instead of the tabs while simple mode is on. Big photo tiles (up to 3 × 3), each asks
@@ -106,12 +111,12 @@ fun SimpleHome(vm: AppViewModel) {
             Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(12.dp)) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        android.text.format.DateFormat.format(android.text.format.DateFormat.getBestDateTimePattern(res.configuration.locales[0], "EEEEdMMMM"), System.currentTimeMillis()).toString(),
+                        DateFormat.format(DateFormat.getBestDateTimePattern(res.configuration.locales[0], "EEEEdMMMM"), System.currentTimeMillis()).toString(),
                         style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f),
                     )
                     // Press and hold, so a stray tap never leaves simple mode.
                     val leave = stringResource(R.string.simple_leave)
-                    app.parley.ui.common.CoachMarkAnchor(app.parley.common.ux.Tips.SIMPLE_LEAVE, stringResource(R.string.simple_leave_hold)) {
+                    CoachMarkAnchor(Tips.SIMPLE_LEAVE, stringResource(R.string.simple_leave_hold)) {
                     Text(
                         leave,
                         style = MaterialTheme.typography.labelLarge,
@@ -170,9 +175,9 @@ fun SimpleHome(vm: AppViewModel) {
         confirmButton = {
             TextButton({
                 askExit = false
-                val act = context as? androidx.fragment.app.FragmentActivity
+                val act = context as? FragmentActivity
                 if (settings.appLock && act != null) {
-                    app.parley.security.AppLock.authenticate(act, res.getString(R.string.simple_leave_q)) { ok -> if (ok) vm.c.extras.updateSimple { it.copy(enabled = false) } }
+                    AppLock.authenticate(act, res.getString(R.string.simple_leave_q)) { ok -> if (ok) vm.c.extras.updateSimple { it.copy(enabled = false) } }
                 } else {
                     vm.c.extras.updateSimple { it.copy(enabled = false) }
                 }

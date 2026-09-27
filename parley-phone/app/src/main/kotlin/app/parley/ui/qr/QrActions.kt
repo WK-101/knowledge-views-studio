@@ -2,6 +2,7 @@ package app.parley.ui.qr
 
 import android.content.ActivityNotFoundException
 import android.content.ClipData
+import android.content.ClipDescription
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
@@ -9,6 +10,7 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.net.wifi.WifiNetworkSuggestion
 import android.os.Build
+import android.os.PersistableBundle
 import android.provider.CalendarContract
 import android.provider.Settings
 import android.widget.Toast
@@ -16,6 +18,7 @@ import app.parley.R
 import app.parley.common.qr.QrApp
 import app.parley.common.qr.QrPayload
 import app.parley.common.qr.WifiSecurity
+import java.time.ZoneId
 
 /**
  * What the result sheet's buttons do. Every one runs only on the user's tap. Intents name their target app
@@ -27,7 +30,7 @@ object QrActions {
     fun copy(context: Context, text: String, sensitive: Boolean = false) {
         val clip = ClipData.newPlainText(context.getString(R.string.qs_clip_label), text)
         if (sensitive && Build.VERSION.SDK_INT >= 33) {
-            clip.description.extras = android.os.PersistableBundle().apply { putBoolean(android.content.ClipDescription.EXTRA_IS_SENSITIVE, true) }
+            clip.description.extras = PersistableBundle().apply { putBoolean(ClipDescription.EXTRA_IS_SENSITIVE, true) }
         }
         runCatching { context.getSystemService(ClipboardManager::class.java).setPrimaryClip(clip) }
         // Android 13+ confirms copies itself.
@@ -138,7 +141,7 @@ object QrActions {
 
     /** The calendar app's "new event" screen, filled in. Needs no calendar permission: the user saves it there. */
     fun calendar(context: Context, e: QrPayload.Event) {
-        val zone = java.time.ZoneId.systemDefault()
+        val zone = ZoneId.systemDefault()
         val i = Intent(Intent.ACTION_INSERT, CalendarContract.Events.CONTENT_URI)
             .putExtra(CalendarContract.Events.TITLE, e.summary)
         e.start?.let { s ->

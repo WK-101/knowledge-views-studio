@@ -1,9 +1,11 @@
 package app.parley.ui.history
 
+import android.text.format.DateUtils
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -42,6 +44,7 @@ import app.parley.common.history.NumberKeys
 import app.parley.common.history.TrendDirection
 import app.parley.ui.common.Format
 import app.parley.ui.contact.Section
+import app.parley.ui.home.CallTypeIcon
 import kotlinx.coroutines.launch
 import java.time.DayOfWeek
 import java.time.format.TextStyle
@@ -78,8 +81,8 @@ fun CallInsightsSection(vm: AppViewModel, numbers: List<String>, title: String =
         }
         ins.lastCall?.let { last ->
             ListItem(
-                leadingContent = { app.parley.ui.home.CallTypeIcon(last.type, durationSec = last.durationSec) },
-                headlineContent = { Text(stringResource(R.string.hist_last_call, android.text.format.DateUtils.getRelativeTimeSpanString(last.date, System.currentTimeMillis(), android.text.format.DateUtils.MINUTE_IN_MILLIS))) },
+                leadingContent = { CallTypeIcon(last.type, durationSec = last.durationSec) },
+                headlineContent = { Text(stringResource(R.string.hist_last_call, DateUtils.getRelativeTimeSpanString(last.date, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS))) },
                 supportingContent = {
                     Text(
                         listOfNotNull(Format.fullDate(context, last.date), Format.duration(last.durationSec).ifBlank { null }).joinToString(" · ") +
@@ -193,7 +196,7 @@ fun HeatmapGrid(h: Heatmap, modifier: Modifier = Modifier) {
         Row(Modifier.fillMaxWidth().padding(start = 28.dp)) {
             listOf("0", "6", "12", "18", "24").forEachIndexed { i, s ->
                 Text(s, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                if (i < 4) androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
+                if (i < 4) Spacer(Modifier.weight(1f))
             }
         }
     }

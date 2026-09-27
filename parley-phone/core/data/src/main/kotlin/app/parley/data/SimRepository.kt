@@ -2,6 +2,7 @@ package app.parley.data
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.os.Build
 import android.telecom.PhoneAccountHandle
 import android.telecom.TelecomManager
 import android.telephony.SubscriptionManager
@@ -53,7 +54,7 @@ class SimRepository(private val context: Context) {
         val sm = context.getSystemService(SubscriptionManager::class.java)
         val subs = sm.activeSubscriptionInfoList.orEmpty()
         subs.mapNotNull { info ->
-            if (android.os.Build.VERSION.SDK_INT >= 33) sm.getPhoneNumber(info.subscriptionId).ifBlank { null }
+            if (Build.VERSION.SDK_INT >= 33) sm.getPhoneNumber(info.subscriptionId).ifBlank { null }
             else @Suppress("DEPRECATION") info.number?.ifBlank { null }
         }
     } catch (_: SecurityException) {
@@ -76,7 +77,7 @@ class SimRepository(private val context: Context) {
     }
 
     private fun subIdFor(h: PhoneAccountHandle): Int = try {
-        if (android.os.Build.VERSION.SDK_INT >= 30) {
+        if (Build.VERSION.SDK_INT >= 30) {
             context.getSystemService(TelephonyManager::class.java).getSubscriptionId(h)
         } else {
             -1

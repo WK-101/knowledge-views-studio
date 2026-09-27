@@ -2,6 +2,7 @@ package app.parley.common.blocking
 
 import app.parley.common.RuleKind
 import app.parley.common.RuleType
+import javax.crypto.AEADBadTagException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -225,7 +226,7 @@ object ListImport {
             val c = Cipher.getInstance("AES/GCM/NoPadding")
             c.init(Cipher.DECRYPT_MODE, SecretKeySpec(key, "AES"), GCMParameterSpec(128, iv))
             c.doFinal(ct).decodeToString()
-        } catch (e: javax.crypto.AEADBadTagException) {
+        } catch (e: AEADBadTagException) {
             throw IllegalArgumentException("Wrong password, or the file is damaged")
         } finally {
             key.fill(0)

@@ -41,6 +41,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -51,6 +52,7 @@ import app.parley.AppViewModel
 import app.parley.R
 import app.parley.common.calls.CallSource
 import app.parley.common.extras.TripMatch
+import app.parley.data.PhoneEnv
 import app.parley.data.extras.ExtrasStore
 import app.parley.ui.Avatar
 import app.parley.ui.EmptyState
@@ -72,7 +74,7 @@ fun TripScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
     var city by rememberSaveable { mutableStateOf(store.lastTripCity.orEmpty()) }
     val contacts by vm.contacts.collectAsStateWithLifecycle()
     val data by produceState<ExtrasStore.TripData?>(null, contacts) {
-        value = runCatching { store.tripData(app.parley.data.PhoneEnv.countryIso(context)) }.getOrElse { ExtrasStore.TripData(emptyList(), emptyList()) }
+        value = runCatching { store.tripData(PhoneEnv.countryIso(context)) }.getOrElse { ExtrasStore.TripData(emptyList(), emptyList()) }
     }
     val choices = remember(data) { data?.let { TripMatch.cityChoices(it.cities, store.lastTripCity) }.orEmpty() }
     val hits = remember(data, city) { data?.let { TripMatch.match(city, it.people) }.orEmpty() }
@@ -126,7 +128,7 @@ fun TripScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
                         val names = hits.take(3).joinToString(stringResource(R.string.trip_list_separator)) { it.person.name }
                         val more = hits.size - 3
                         Text(
-                            if (more > 0) androidx.compose.ui.res.pluralStringResource(R.plurals.trip_summary_more, more, city.trim(), names, more)
+                            if (more > 0) pluralStringResource(R.plurals.trip_summary_more, more, city.trim(), names, more)
                             else stringResource(R.string.trip_summary, city.trim(), names),
                             style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(16.dp),
                         )

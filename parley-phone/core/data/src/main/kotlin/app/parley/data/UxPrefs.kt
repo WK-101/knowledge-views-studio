@@ -1,6 +1,7 @@
 package app.parley.data
 
 import android.content.Context
+import android.content.SharedPreferences
 import app.parley.common.ux.BackupNudge
 import app.parley.common.ux.Tips
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -37,7 +38,7 @@ class UxPrefs(context: Context) {
         backupNotifiedAt = prefs.getLong(K_NOTIFIED, 0),
     )
 
-    private fun edit(f: (android.content.SharedPreferences.Editor) -> Unit) {
+    private fun edit(f: (SharedPreferences.Editor) -> Unit) {
         prefs.edit().also(f).apply()
         _state.value = load()
     }

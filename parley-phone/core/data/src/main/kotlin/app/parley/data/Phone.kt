@@ -2,9 +2,14 @@ package app.parley.data
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.res.Resources
+import android.os.Build
+import android.os.LocaleList
+import android.os.SystemClock
 import android.telecom.TelecomManager
 import android.telephony.SubscriptionManager
 import android.telephony.TelephonyManager
+import app.parley.common.RegionPick
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 
@@ -16,10 +21,10 @@ object PhoneEnv {
     fun countryIso(context: Context): String {
         val tm = context.getSystemService(TelephonyManager::class.java)
         val system = runCatching {
-            val list = android.content.res.Resources.getSystem().configuration.locales
-            (0 until list.size()).map { list[it].country } + android.os.LocaleList.getAdjustedDefault().let { l -> (0 until l.size()).map { l[it].country } }
+            val list = Resources.getSystem().configuration.locales
+            (0 until list.size()).map { list[it].country } + LocaleList.getAdjustedDefault().let { l -> (0 until l.size()).map { l[it].country } }
         }.getOrDefault(emptyList())
-        return app.parley.common.RegionPick.pick(
+        return RegionPick.pick(
             runCatching { tm?.simCountryIso }.getOrNull(), runCatching { tm?.networkCountryIso }.getOrNull(), system, Locale.getDefault().country,
         )
     }
@@ -39,11 +44,11 @@ object PhoneEnv {
     fun simCountry(context: Context, accountId: String?): String? {
         if (accountId.isNullOrBlank()) return null
         simCountries[accountId]?.let { return it }
-        misses[accountId]?.let { at -> if (android.os.SystemClock.elapsedRealtime() - at < MISS_TTL_MS) return null }
+        misses[accountId]?.let { at -> if (SystemClock.elapsedRealtime() - at < MISS_TTL_MS) return null }
         val found = try {
             val sm = context.getSystemService(SubscriptionManager::class.java)
             val subs = sm?.activeSubscriptionInfoList.orEmpty()
-            val subId = if (android.os.Build.VERSION.SDK_INT >= 30) {
+            val subId = if (Build.VERSION.SDK_INT >= 30) {
                 val tm = context.getSystemService(TelephonyManager::class.java)
                 context.getSystemService(TelecomManager::class.java)?.callCapablePhoneAccounts
                     ?.firstOrNull { it.id == accountId }?.let { h -> runCatching { tm?.getSubscriptionId(h) }.getOrNull() }
@@ -61,7 +66,7 @@ object PhoneEnv {
             null
         }
         // Unknown accounts aren't cached as "none" for long: a SIM may be read once permissions arrive.
-        if (found != null) simCountries[accountId] = found else misses[accountId] = android.os.SystemClock.elapsedRealtime()
+        if (found != null) simCountries[accountId] = found else misses[accountId] = SystemClock.elapsedRealtime()
         return found
     }
 }

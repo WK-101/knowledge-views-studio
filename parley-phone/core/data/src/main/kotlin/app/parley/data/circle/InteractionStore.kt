@@ -4,6 +4,7 @@ import app.parley.common.circle.InteractionChannel
 import app.parley.common.circle.InteractionType
 import app.parley.data.db.InteractionDao
 import app.parley.data.db.InteractionEntity
+import app.parley.data.db.InteractionTouchRow
 import app.parley.data.vault.VaultCrypto
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -105,7 +106,7 @@ class InteractionStore(private val dao: InteractionDao) {
     suspend fun noteOf(id: Long): String? = withContext(Dispatchers.IO) { dao.get(id)?.let { open(it.noteBlob) } }
 
     /** (lookup key, time, dedupe key) of every interaction since [since]; notes stay sealed. */
-    suspend fun touchesSince(since: Long): List<app.parley.data.db.InteractionTouchRow> = withContext(Dispatchers.IO) { dao.touchesSince(since) }
+    suspend fun touchesSince(since: Long): List<InteractionTouchRow> = withContext(Dispatchers.IO) { dao.touchesSince(since) }
 
     /** Changes whenever any interaction is added, edited or deleted (R7 widget refresh). */
     val changes: Flow<Int> get() = dao.countFlow()

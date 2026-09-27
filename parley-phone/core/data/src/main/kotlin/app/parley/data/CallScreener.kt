@@ -1,5 +1,9 @@
 package app.parley.data
 
+import android.Manifest
+import app.parley.common.AllowReason
+import app.parley.common.CallEntry
+import app.parley.common.LabelRefs
 import app.parley.common.PhoneIdentity
 import android.content.Context
 import android.net.Uri
@@ -22,6 +26,7 @@ import app.parley.common.blocking.ReplayReport
 import app.parley.common.blocking.ScreeningEffects
 import app.parley.common.blocking.ScreeningPipeline
 import app.parley.common.spam.ParsedPack
+import app.parley.data.vault.VaultRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -60,7 +65,7 @@ class CallScreener(
     private val blocks: BlockRepository,
     private val sims: SimRepository,
     private val settings: SettingsRepository,
-    private val vault: app.parley.data.vault.VaultRepository,
+    private val vault: VaultRepository,
     /** Logging happens here, after the decision is returned, so it never delays Telecom's answer. */
     private val scope: CoroutineScope,
     private val lists: SpamListStore? = null,
@@ -123,9 +128,9 @@ class CallScreener(
             when {
                 it.blocked -> it
                 // A contact's own ringtone is played by the system, so no label tone then.
-                g.contactHasRingtone && it.allowedBy == app.parley.common.AllowReason.CONTACT -> it.copy(ringtone = null)
+                g.contactHasRingtone && it.allowedBy == AllowReason.CONTACT -> it.copy(ringtone = null)
                 it.ringtone == null && g.facts.isContact && !g.contactHasRingtone ->
-                    it.copy(ringtone = app.parley.common.LabelRefs.ringtoneFor(g.facts.contactLabels, tones))
+                    it.copy(ringtone = LabelRefs.ringtoneFor(g.facts.contactLabels, tones))
                 else -> it
             }
         }
@@ -146,7 +151,7 @@ class CallScreener(
      * rate-limit state are touched. With a [candidateRule] or [candidatePack], also reports what it would add.
      */
     suspend fun dryRun(
-        calls: List<app.parley.common.CallEntry>,
+        calls: List<CallEntry>,
         days: Int = 7,
         candidateRule: BlockRule? = null,
         candidatePack: ParsedPack? = null,
@@ -205,7 +210,7 @@ class CallScreener(
         req: ScreenRequest,
         s: ScreeningSettings,
         at: Long,
-        replayHistory: List<app.parley.common.CallEntry>?,
+        replayHistory: List<CallEntry>?,
         knownContact: Boolean? = null,
         rules: List<BlockRule>,
         tones: Map<String, String> = emptyMap(),
@@ -285,7 +290,7 @@ class CallScreener(
     }
 
     /** Earlier calls with [number] before [at], newest first. */
-    private fun history(number: String, at: Long, replay: List<app.parley.common.CallEntry>?, iso: String): List<PastCall> {
+    private fun history(number: String, at: Long, replay: List<CallEntry>?, iso: String): List<PastCall> {
         if (replay != null) {
             return replay.asSequence()
                 .filter { it.date < at && !it.presentationHidden && PhoneNumbers.same(it.number, number, iso) }
@@ -299,7 +304,7 @@ class CallScreener(
     private class ContactBits(val id: Long, val name: String?, val starred: Boolean, val ringtone: String?)
 
     private fun contactDetails(number: String): ContactBits? {
-        if (!Permissions.has(context, android.Manifest.permission.READ_CONTACTS)) return null
+        if (!Permissions.has(context, Manifest.permission.READ_CONTACTS)) return null
         val uri = Uri.withAppendedPath(ContactsContract.PhoneLookup.CONTENT_FILTER_URI, Uri.encode(number))
         return context.contentResolver.query(
             uri, arrayOf(ContactsContract.PhoneLookup._ID, ContactsContract.PhoneLookup.DISPLAY_NAME, ContactsContract.PhoneLookup.STARRED, ContactsContract.PhoneLookup.CUSTOM_RINGTONE),
@@ -324,7 +329,7 @@ class CallScreener(
         committed.entries.removeAll { now - it.value.at > RESCREEN_WINDOW_MS }
         val prev = committed[key]
         val entry = prev ?: Committed(now, null, HashSet(), HashSet()).also { committed[key] = it }
-        val shouldLog = result.blocked || (!g.facts.isContact && result.allowedBy != app.parley.common.AllowReason.EMERGENCY)
+        val shouldLog = result.blocked || (!g.facts.isContact && result.allowedBy != AllowReason.EMERGENCY)
         var logId: Long? = null
         if (shouldLog) {
             entry.logId?.let { blocks.deleteScreened(it) }

@@ -39,6 +39,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
@@ -58,7 +59,7 @@ import app.parley.R
 @Composable
 fun ImportCallsScreen(vm: AppViewModel, back: () -> Unit) {
     val context = LocalContext.current
-    val res = androidx.compose.ui.platform.LocalResources.current
+    val res = LocalResources.current
     val scope = rememberCoroutineScope()
     val isDefault by vm.isDefaultDialer.collectAsStateWithLifecycle()
     var uri by remember { mutableStateOf<Uri?>(null) }
@@ -177,7 +178,7 @@ fun ImportCallsScreen(vm: AppViewModel, back: () -> Unit) {
                 if (pl.problems.isNotEmpty()) {
                     item { Section(stringResource(R.string.hist_import_problems)) }
                     pl.problems.take(50).forEach { pr ->
-                        item { Text(stringResource(R.string.hist_import_line, pr.line, HistoryText.problem(androidx.compose.ui.platform.LocalResources.current, pr)), Modifier.padding(horizontal = 16.dp, vertical = 2.dp), style = MaterialTheme.typography.bodySmall) }
+                        item { Text(stringResource(R.string.hist_import_line, pr.line, HistoryText.problem(LocalResources.current, pr)), Modifier.padding(horizontal = 16.dp, vertical = 2.dp), style = MaterialTheme.typography.bodySmall) }
                     }
                     if (pl.problems.size > 50) item { Text(stringResource(R.string.hist_import_more, pl.problems.size - 50), Modifier.padding(16.dp), style = MaterialTheme.typography.bodySmall) }
                 }

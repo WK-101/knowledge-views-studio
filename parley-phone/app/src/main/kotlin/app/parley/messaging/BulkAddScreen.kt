@@ -1,6 +1,7 @@
 package app.parley.messaging
 
 import android.content.ClipboardManager
+import android.content.res.Resources
 import android.text.format.DateUtils
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -12,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.toggleable
@@ -75,12 +77,14 @@ import app.parley.common.messaging.BulkAdd
 import app.parley.common.messaging.IntroQueue
 import app.parley.data.AccountRef
 import app.parley.data.GroupInfo
+import app.parley.data.NumberInfo
 import app.parley.data.PhoneEnv
 import app.parley.data.messaging.BulkAddStore
 import app.parley.data.messaging.BulkBatch
 import app.parley.data.messaging.BulkDestination
 import app.parley.data.messaging.BulkItem
 import app.parley.ui.Bidi
+import app.parley.ui.CallColors
 import app.parley.ui.people.accountLabel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -380,7 +384,7 @@ private val BulkAdd.Pattern.labelRes: Int
     }
 
 /** "3 new · 1 already a contact · 1 repeated" ([BulkAdd.summary]). */
-private fun bulkSummary(res: android.content.res.Resources, list: List<BulkAdd.Candidate>): String =
+private fun bulkSummary(res: Resources, list: List<BulkAdd.Candidate>): String =
     BulkAdd.Status.entries.mapNotNull { s -> list.count { it.status == s }.takeIf { it > 0 }?.let { n -> res.getString(R.string.bulk_summary_item, n, res.getString(s.labelRes).lowercase()) } }
         .joinToString(res.getString(R.string.main_separator))
 
@@ -400,16 +404,16 @@ private fun CandidateRow(c: BulkAdd.Candidate, checked: Boolean, region: String,
     ListItem(
         headlineContent = { Text(Bidi.ltr(shown)) },
         supportingContent = {
-            val where = c.e164?.let { app.parley.data.NumberInfo.location(it, region) }
+            val where = c.e164?.let { NumberInfo.location(it, region) }
             Text(listOfNotNull(status, where, c.raw.takeIf { it != shown }?.let { "“$it”" }).joinToString(stringResource(R.string.main_separator)), maxLines = 2, overflow = TextOverflow.Ellipsis)
         },
         leadingContent = { Checkbox(checked, onCheckedChange = null, enabled = c.selectable) },
         // Any number found can be called before (or instead of) saving it.
         trailingContent = {
             IconButton({ onCall(c.e164 ?: c.raw) }) {
-                androidx.compose.material3.Icon(
-                    androidx.compose.material.icons.Icons.Rounded.Call, stringResource(R.string.reach_call_number, Bidi.ltr(shown)),
-                    tint = app.parley.ui.CallColors.Accept,
+                Icon(
+                    Icons.Rounded.Call, stringResource(R.string.reach_call_number, Bidi.ltr(shown)),
+                    tint = CallColors.Accept,
                 )
             }
         },
@@ -493,7 +497,7 @@ private fun DestinationPicker(
     }
 }
 
-private fun androidx.compose.foundation.lazy.LazyListScope.resultItems(
+private fun LazyListScope.resultItems(
     r: BulkAddStore.Result,
     items: List<BulkItem>,
     removable: Boolean,

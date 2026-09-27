@@ -34,6 +34,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -54,6 +55,7 @@ import app.parley.common.TraceCodec
 import app.parley.common.TraceMark
 import app.parley.common.TraceStep
 import app.parley.data.db.BlockedCallEntity
+import app.parley.ui.calls.RingFactsFor
 import app.parley.ui.common.Format
 import app.parley.ui.settings.bidiLtr
 import app.parley.ui.settings.settingTitle
@@ -155,7 +157,7 @@ private fun WhyDialog(vm: AppViewModel, number: String, live: Boolean, onDismiss
                         val v = BlockingText.verdict(context, e.verdict) ?: stringResource(if (e.allowed) R.string.blk_rang else R.string.blk_blocked)
                         Text(stringResource(R.string.blk_joined, Format.fullDate(context, e.time), v), color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
                         TraceList(TraceCodec.decode(e.trace))
-                        app.parley.ui.calls.RingFactsFor(vm, number, e.time, Modifier.padding(top = 8.dp))
+                        RingFactsFor(vm, number, e.time, Modifier.padding(top = 8.dp))
                         if (e.failedOpen) Text(stringResource(R.string.blk_failed_open_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 8.dp))
                     }
                     test != null -> {
@@ -247,7 +249,7 @@ private fun PrefixAllowDialog(vm: AppViewModel, d: BlockingDialog.PrefixAllow, o
     val e164 = remember(chosen) { PhoneNumbers.toE164(chosen, vm.countryIso) ?: PhoneNumbers.clean(chosen) }
     val prefix = e164.dropLast(drop)
     val context = LocalContext.current
-    val res = androidx.compose.ui.platform.LocalResources.current
+    val res = LocalResources.current
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.blk_prefix_title)) },
@@ -285,7 +287,7 @@ private fun LabelRuleDialog(vm: AppViewModel, d: BlockingDialog.LabelRule, onDis
     val scope = rememberCoroutineScope()
     var choice by remember { mutableIntStateOf(0) }
     val context = LocalContext.current
-    val res = androidx.compose.ui.platform.LocalResources.current
+    val res = LocalResources.current
     val options = listOf(
         stringResource(R.string.blk_label_block_all, d.title) to stringResource(R.string.blk_label_block_all_help),
         stringResource(R.string.blk_label_only_off_hours, d.title) to stringResource(R.string.blk_label_only_off_hours_help),
@@ -337,7 +339,7 @@ private fun LabelRuleDialog(vm: AppViewModel, d: BlockingDialog.LabelRule, onDis
 private fun SnoozeDialog(vm: AppViewModel, onDismiss: () -> Unit) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
-    val res = androidx.compose.ui.platform.LocalResources.current
+    val res = LocalResources.current
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.blk_expecting_question)) },

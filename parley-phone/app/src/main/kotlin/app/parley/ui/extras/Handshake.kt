@@ -1,15 +1,18 @@
 package app.parley.ui.extras
 
 import android.content.res.Resources
+import android.text.format.DateFormat
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
@@ -21,11 +24,17 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
+import app.parley.NavEvent
 import app.parley.R
 import app.parley.common.circle.InteractionType
 import app.parley.common.extras.Handshake
+import app.parley.common.extras.PendingSlot
 import app.parley.common.people.MeCard
 import app.parley.common.people.MeCards
+import app.parley.ui.people.MeQrDialog
+import app.parley.ui.people.PeopleRoutes
+import java.text.SimpleDateFormat
+import java.util.Date
 import kotlinx.coroutines.launch
 import java.util.Locale
 
@@ -39,7 +48,7 @@ object HandshakeInbox {
     data class Pending(val line: String, val time: Long, val nonce: String)
 
     /** Bound to the one editor opened for it (its route carries [Pending.nonce]), and it expires. */
-    private val slot = app.parley.common.extras.PendingSlot<Pending>()
+    private val slot = PendingSlot<Pending>()
 
     /** Holds [p] for the editor about to be opened with `Routes.edit(handshake = p.nonce)`. */
     fun hold(p: Pending) = slot.put(p.nonce, System.currentTimeMillis(), p)
@@ -60,8 +69,8 @@ object HandshakeInbox {
     /** "Met at [place] on 25 Sep" in the app's language (without a place: "Met on 25 Sep"). */
     fun line(res: Resources, place: String, time: Long): String {
         val locale = res.configuration.locales[0] ?: Locale.getDefault()
-        val pattern = android.text.format.DateFormat.getBestDateTimePattern(locale, "d MMM yyyy")
-        val date = java.text.SimpleDateFormat(pattern, locale).format(java.util.Date(time))
+        val pattern = DateFormat.getBestDateTimePattern(locale, "d MMM yyyy")
+        val date = SimpleDateFormat(pattern, locale).format(Date(time))
         val p = Handshake.cleanPlace(place)
         return if (p.isEmpty()) res.getString(R.string.handshake_met_on, date) else res.getString(R.string.handshake_met_at, p, date)
     }
@@ -99,18 +108,18 @@ fun MyCardQrDialog(vm: AppViewModel, onDismiss: () -> Unit) {
     val profile by produceState<MeCard?>(null) { value = runCatching { vm.c.people.me.profile() }.getOrNull() }
     val merged = MeCards.merge(own, profile)
     if (merged.isEmpty) {
-        androidx.compose.material3.AlertDialog(
+        AlertDialog(
             onDismissRequest = onDismiss,
             title = { Text(stringResource(R.string.me_title)) },
             text = { Text(stringResource(R.string.handshake_no_card)) },
             confirmButton = {
-                androidx.compose.material3.TextButton({ onDismiss(); vm.navigate(app.parley.NavEvent.Route(app.parley.ui.people.PeopleRoutes.ME)) }) {
+                TextButton({ onDismiss(); vm.navigate(NavEvent.Route(PeopleRoutes.ME)) }) {
                     Text(stringResource(R.string.handshake_make_card))
                 }
             },
-            dismissButton = { androidx.compose.material3.TextButton(onDismiss) { Text(stringResource(R.string.dc_cancel)) } },
+            dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dc_cancel)) } },
         )
     } else {
-        app.parley.ui.people.MeQrDialog(merged, onDismiss = onDismiss)
+        MeQrDialog(merged, onDismiss = onDismiss)
     }
 }

@@ -21,9 +21,16 @@ import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.R
+import app.parley.blocking.BlockingActions
 import app.parley.common.SettingsCategory
+import app.parley.messaging.MessagingRoutes
+import app.parley.security.AppLock
 import app.parley.ui.Routes
 import app.parley.ui.SegmentedGroup
+import app.parley.ui.blocking.BlockingDialog
+import app.parley.ui.blocking.BlockingDialogs
+import app.parley.ui.qr.QrRoutes
+import app.parley.ui.temporary.rememberTemporaryItems
 import kotlinx.coroutines.launch
 
 /**
@@ -34,7 +41,7 @@ import kotlinx.coroutines.launch
 fun ToolsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
     val s by vm.settings.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
-    val tempCount = app.parley.ui.temporary.rememberTemporaryItems(vm).size
+    val tempCount = rememberTemporaryItems(vm).size
     val tempSub = if (tempCount == 0) null else pluralStringResource(R.plurals.set_temporary_count, tempCount, tempCount)
     val snoozing = s.screening.snoozeActive(System.currentTimeMillis())
     val snoozeOn = stringResource(R.string.set_expecting_call_on)
@@ -43,7 +50,7 @@ fun ToolsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
             linkRow("birthdays", Icons.Rounded.Cake) { open(Routes.BIRTHDAYS) }
             linkRow("temporary_contacts", Icons.Rounded.AutoDelete, sub = tempSub) { open(Routes.TEMPORARY) }
             linkRow("health", Icons.Rounded.HealthAndSafety) { open(Routes.HEALTH) }
-            linkRow("scan_qr", Icons.Rounded.QrCodeScanner) { open(app.parley.ui.qr.QrRoutes.SCAN) }
+            linkRow("scan_qr", Icons.Rounded.QrCodeScanner) { open(QrRoutes.SCAN) }
             item("import_export") {
                 LinkRow(stringResource(R.string.tools_import_export), stringResource(R.string.tools_import_export_sub), Icons.Rounded.ImportExport) {
                     open(Routes.settingsPage(SettingsCategory.CONTACTS, "import_file"))
@@ -53,10 +60,10 @@ fun ToolsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
         SegmentedGroup(stringResource(R.string.tools_group_calls)) {
             linkRow("blocking", Icons.Rounded.Block) { open(Routes.BLOCKING) }
             switchRow("expecting_call", snoozing, Icons.Rounded.HourglassTop, sub = if (snoozing) snoozeOn else null) { v ->
-                if (v) app.parley.ui.blocking.BlockingDialogs.show(app.parley.ui.blocking.BlockingDialog.Snooze)
-                else scope.launch { app.parley.blocking.BlockingActions.snooze(vm.c, 0) }
+                if (v) BlockingDialogs.show(BlockingDialog.Snooze)
+                else scope.launch { BlockingActions.snooze(vm.c, 0) }
             }
-            linkRow("messaged_numbers", Icons.AutoMirrored.Rounded.Chat) { open(app.parley.messaging.MessagingRoutes.MESSAGED) }
+            linkRow("messaged_numbers", Icons.AutoMirrored.Rounded.Chat) { open(MessagingRoutes.MESSAGED) }
         }
         SegmentedGroup(stringResource(R.string.tools_group_data)) {
             linkRow("journal", Icons.Rounded.RestoreFromTrash) { open(Routes.journal()) }
@@ -65,7 +72,7 @@ fun ToolsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
             // Lock Parley now, without waiting for the timeout.
             if (s.appLock) item("lock_now") {
                 LinkRow(stringResource(R.string.home_lock_now), stringResource(R.string.tools_lock_now_sub), Icons.Rounded.Lock) {
-                    app.parley.security.AppLock.lockNowByUser()
+                    AppLock.lockNowByUser()
                 }
             }
         }

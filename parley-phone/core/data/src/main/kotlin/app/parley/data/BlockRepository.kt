@@ -1,5 +1,7 @@
 package app.parley.data
 
+import app.parley.common.CallPolicy
+import app.parley.common.Decision
 import app.parley.common.PhoneIdentity
 import android.content.ContentValues
 import android.content.Context
@@ -108,7 +110,7 @@ class BlockRepository(private val context: Context, db: AppDatabase, scope: Coro
 
     /** Stores a screened call with its trace. */
     suspend fun logScreened(number: String?, result: ScreeningResult, callerName: String?, simId: String?, time: Long = System.currentTimeMillis()): Long {
-        val block = result.decision as? app.parley.common.Decision.Block
+        val block = result.decision as? Decision.Block
         return dao.logScreened(
             BlockedCallEntity(
                 number = number,
@@ -117,7 +119,7 @@ class BlockRepository(private val context: Context, db: AppDatabase, scope: Coro
                 time = time,
                 allowed = block == null,
                 trace = TraceCodec.encode(result.trace),
-                verdict = result.verdict?.text ?: block?.let { "Blocked: " + app.parley.common.CallPolicy.reasonLabel(it.reason) },
+                verdict = result.verdict?.text ?: block?.let { "Blocked: " + CallPolicy.reasonLabel(it.reason) },
                 verdictKind = result.verdict?.kind?.name,
                 ruleId = result.rule?.id?.takeIf { it > 0 },
                 packId = result.listHit?.packId,

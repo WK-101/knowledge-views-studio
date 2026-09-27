@@ -36,6 +36,7 @@ import app.parley.common.circle.CircleConfig
 import app.parley.common.circle.InteractionChannel
 import app.parley.common.circle.LogMode
 import app.parley.common.circle.ReminderDelivery
+import app.parley.ui.Bidi
 import app.parley.ui.SegmentedGroup
 import app.parley.ui.SegmentedGroupScope
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -60,7 +61,7 @@ fun SegmentedGroupScope.circleSettingRows(vm: AppViewModel, cfg: CircleConfig, b
             }
         }
         if (cfg.delivery == ReminderDelivery.AS_DUE) item("circle_weekly_cap") {
-            MenuRow(settingTitle("circle_weekly_cap"), CircleConfig.CAP_CHOICES.map { app.parley.ui.Bidi.ltr(it.toString()) }, CircleConfig.CAP_CHOICES.indexOf(cfg.weeklyCap).coerceAtLeast(0), Icons.Rounded.Speed, settingSummary("circle_weekly_cap")) { i ->
+            MenuRow(settingTitle("circle_weekly_cap"), CircleConfig.CAP_CHOICES.map { Bidi.ltr(it.toString()) }, CircleConfig.CAP_CHOICES.indexOf(cfg.weeklyCap).coerceAtLeast(0), Icons.Rounded.Speed, settingSummary("circle_weekly_cap")) { i ->
                 vm.c.circle.updateConfig { it.copy(weeklyCap = CircleConfig.CAP_CHOICES[i]) }
             }
         }

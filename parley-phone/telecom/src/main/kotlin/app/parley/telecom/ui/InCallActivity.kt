@@ -30,9 +30,11 @@ import app.parley.telecom.CallManager
 import app.parley.telecom.CallState
 import app.parley.telecom.CallUi
 import app.parley.telecom.InCallAppearance
+import app.parley.telecom.R
 import app.parley.telecom.live
 import app.parley.telecom.PostCallAction
 import app.parley.telecom.TelecomGraph
+import app.parley.ui.AppLocale
 import app.parley.ui.ParleyTheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -42,9 +44,9 @@ import app.parley.common.calls.CallWaiting
 
 class InCallActivity : ComponentActivity() {
     // The in-app language on Android 10-12 (Android 13+ applies per-app languages itself).
-    override fun attachBaseContext(newBase: android.content.Context) {
+    override fun attachBaseContext(newBase: Context) {
         super.attachBaseContext(newBase)
-        app.parley.ui.AppLocale.override(this, newBase)
+        AppLocale.override(this, newBase)
     }
 
     private var showDialpad by mutableStateOf(false)
@@ -207,11 +209,11 @@ class InCallActivity : ComponentActivity() {
             ),
         )
         val mute = action(
-            if (muted) app.parley.telecom.R.drawable.ic_pip_mic_off else app.parley.telecom.R.drawable.ic_pip_mic,
-            getString(if (muted) app.parley.telecom.R.string.incall_unmute else app.parley.telecom.R.string.incall_mute),
+            if (muted) R.drawable.ic_pip_mic_off else R.drawable.ic_pip_mic,
+            getString(if (muted) R.string.incall_unmute else R.string.incall_mute),
             CallActionReceiver.ACTION_MUTE, PIP_MUTE_REQUEST,
         ).apply { isEnabled = call.canMute }
-        val hangUp = action(app.parley.telecom.R.drawable.ic_tile_hangup, getString(app.parley.telecom.R.string.incall_end_call), CallActionReceiver.ACTION_HANGUP, PIP_HANGUP_REQUEST)
+        val hangUp = action(R.drawable.ic_tile_hangup, getString(R.string.incall_end_call), CallActionReceiver.ACTION_HANGUP, PIP_HANGUP_REQUEST)
         return listOf(mute, hangUp)
     }
 
@@ -248,13 +250,13 @@ class InCallActivity : ComponentActivity() {
             // Saved without unlocking (like a note during the call); nothing is shown back.
             is PostCallChoice.Remember -> {
                 runCatching { deps.rememberAfterCall(choice.number, choice.connectTimeMillis, choice.note, choice.followUpDays) }
-                Toast.makeText(this, getString(app.parley.telecom.R.string.memory_saved), Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, getString(R.string.memory_saved), Toast.LENGTH_SHORT).show()
                 if (CallManager.state.value.isEmpty()) finishAndRemoveTask()
             }
             is PostCallChoice.SavePrivately -> unlockThen {
                 lifecycleScope.launch {
                     val said = runCatching { deps.savePrivately(choice.number, choice.name) }.getOrNull()
-                    Toast.makeText(this@InCallActivity, said ?: getString(app.parley.telecom.R.string.incall_save_failed), Toast.LENGTH_LONG).show()
+                    Toast.makeText(this@InCallActivity, said ?: getString(R.string.incall_save_failed), Toast.LENGTH_LONG).show()
                     if (said != null && CallManager.state.value.isEmpty()) finishAndRemoveTask()
                 }
             }

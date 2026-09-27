@@ -98,7 +98,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -116,9 +118,11 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
+import app.parley.NavEvent
 import app.parley.R
 import app.parley.common.people.EditorForm
 import app.parley.common.people.HandleService
@@ -132,8 +136,14 @@ import app.parley.data.ContactDetails
 import app.parley.data.DataItem
 import app.parley.data.EventItem
 import app.parley.data.HandleItem
+import app.parley.data.NumberInfo
 import app.parley.data.PostalItem
+import app.parley.ui.Routes
+import app.parley.ui.people.CallBackgroundEditor
+import app.parley.ui.people.DuplicateWarning
 import app.parley.ui.people.HandleText
+import app.parley.ui.people.RelationText
+import app.parley.ui.people.eventLabel
 import app.parley.ui.screenViewModel
 import kotlinx.coroutines.launch
 
@@ -144,7 +154,7 @@ private val webTypes = listOf(Website.TYPE_HOMEPAGE, Website.TYPE_WORK, Website.
 private val eventTypes = listOf(Event.TYPE_BIRTHDAY, Event.TYPE_ANNIVERSARY, Event.TYPE_OTHER)
 
 /** Country used to interpret phone numbers typed in the editor. */
-val LocalCountryIso = androidx.compose.runtime.staticCompositionLocalOf { "US" }
+val LocalCountryIso = staticCompositionLocalOf { "US" }
 
 // Focus keys of the fixed fields (row keys from RowKeys are positive).
 private const val KEY_FIRST = -1L
@@ -208,7 +218,7 @@ fun ContactEditScreen(
     // and process death keep it; this composable only draws it.
     val editor: EditorViewModel = screenViewModel()
     LaunchedEffect(Unit) { editor.start(EditorArgs(contactId, prefillName, prefillPhone, prefillEmail, addPhone, prefill, vaultId, rawId)) }
-    val latestDone by androidx.compose.runtime.rememberUpdatedState(done)
+    val latestDone by rememberUpdatedState(done)
     LaunchedEffect(editor) {
         editor.events.collect { e ->
             when (e) {
@@ -386,11 +396,11 @@ fun ContactEditScreen(
                     )
                 }
                 if (contactId == null && vaultId == null) {
-                    app.parley.ui.people.DuplicateWarning(vm, d, onOpen = { id -> vm.navigate(app.parley.NavEvent.Contact(id)) }) { id ->
+                    DuplicateWarning(vm, d, onOpen = { id -> vm.navigate(NavEvent.Contact(id)) }) { id ->
                         // "Add these details to her": continue in the existing contact's editor with this draft appended.
                         vm.pendingPrefill = d
                         done(null)
-                        vm.navigate(app.parley.NavEvent.Route(app.parley.ui.Routes.edit(id = id, prefill = true)))
+                        vm.navigate(NavEvent.Route(Routes.edit(id = id, prefill = true)))
                     }
                 }
                 NameCard(
@@ -558,7 +568,7 @@ fun ContactEditScreen(
 
             val lookup = original?.lookupKey
             if (!isVault && !lookup.isNullOrEmpty()) {
-                put("bg") { Segment(SegPos.Single, Modifier.animateItem()) { Box(Modifier.padding(end = 8.dp, bottom = 8.dp)) { app.parley.ui.people.CallBackgroundEditor(vm, lookup, bgChange, editor::changeBackground) } } }
+                put("bg") { Segment(SegPos.Single, Modifier.animateItem()) { Box(Modifier.padding(end = 8.dp, bottom = 8.dp)) { CallBackgroundEditor(vm, lookup, bgChange, editor::changeBackground) } } }
                 put("bg:gap") { Spacer(Modifier.height(12.dp)) }
             }
 
@@ -715,7 +725,7 @@ private fun NameCard(
 ) {
     val locked = lockedRow(d.nameId)
     val words = KeyboardCapitalization.Words
-    val spec = spring<androidx.compose.ui.unit.IntSize>(stiffness = Spring.StiffnessMediumLow)
+    val spec = spring<IntSize>(stiffness = Spring.StiffnessMediumLow)
     Segment(SegPos.Single) {
         GroupHead(Icons.Rounded.Person, stringResource(R.string.edit_name))
         Column(Modifier.padding(end = 0.dp)) {
@@ -761,7 +771,7 @@ private fun MultiRow(kind: MultiKind, item: DataItem, focus: FocusRequester, onC
     val res = LocalResources.current
     val locked = item.id != null && item.id in LocalLocked.current
     val iso = LocalCountryIso.current
-    val flag = if (kind === PHONES && item.value.length >= 6) remember(item.value, iso) { app.parley.data.NumberInfo.flag(app.parley.data.NumberInfo.region(item.value, iso)) } else null
+    val flag = if (kind === PHONES && item.value.length >= 6) remember(item.value, iso) { NumberInfo.flag(NumberInfo.region(item.value, iso)) } else null
     val current = if (item.type == 0) item.label ?: stringResource(R.string.edit_custom) else kind.typeLabel(res, item.type)
     Column {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -806,7 +816,7 @@ private fun DateRow(ev: EventItem, openPicker: Boolean, onPickerClosed: () -> Un
         if (!locked) {
             var custom by remember { mutableStateOf(false) }
             TypeChip(
-                app.parley.ui.people.eventLabel(res, ev),
+                eventLabel(res, ev),
                 eventTypes.map { res.getString(Event.getTypeResource(it)) } + stringResource(R.string.edit_event_death) + stringResource(R.string.edit_custom_more),
             ) { t ->
                 when (t) {
@@ -817,7 +827,7 @@ private fun DateRow(ev: EventItem, openPicker: Boolean, onPickerClosed: () -> Un
             }
             if (custom) CustomLabelDialog(ev.label.takeIf { ev.type == Event.TYPE_CUSTOM }, { custom = false }) { onChange(ev.copy(type = Event.TYPE_CUSTOM, label = it)) }
         } else {
-            Text(app.parley.ui.people.eventLabel(res, ev), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
+            Text(eventLabel(res, ev), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
         }
     }
     if (picking || openPicker) {
@@ -904,7 +914,7 @@ private fun RelationRow(
     val locked = item.id != null && item.id in LocalLocked.current
     var typing by remember { mutableStateOf(false) }
     var picking by remember { mutableStateOf(false) }
-    val label = RelationTypes.fromAndroid(item.type, item.label)?.let { app.parley.ui.people.RelationText.label(res, it) }
+    val label = RelationTypes.fromAndroid(item.type, item.label)?.let { RelationText.label(res, it) }
         ?: if (item.type == 0) item.label ?: stringResource(R.string.edit_custom) else Relation.getTypeLabel(res, item.type, null).toString()
     Column {
         Row(verticalAlignment = Alignment.CenterVertically) {

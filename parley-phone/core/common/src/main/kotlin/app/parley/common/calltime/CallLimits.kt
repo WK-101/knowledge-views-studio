@@ -1,9 +1,11 @@
 package app.parley.common.calltime
 
+import app.parley.common.LabelRefs
 import java.time.DayOfWeek
 import java.time.Instant
 import java.time.ZoneId
 import java.time.temporal.TemporalAdjusters
+import kotlin.math.abs
 
 /** What the policy needs to know about a call. Filled in by the app (contact lookup, labels, SIM). */
 data class CallFacts(
@@ -83,7 +85,7 @@ object CallLimits {
 
     private fun matches(rule: LimitRule, facts: CallFacts): Boolean = when (rule.scope) {
         LimitScope.CONTACT -> facts.contactKey != null && rule.key == facts.contactKey
-        LimitScope.LABEL -> facts.labelTitles.any { app.parley.common.LabelRefs.key(it) == app.parley.common.LabelRefs.limitTitle(rule) }
+        LimitScope.LABEL -> facts.labelTitles.any { LabelRefs.key(it) == LabelRefs.limitTitle(rule) }
         LimitScope.SIM -> facts.accountId != null && rule.key == facts.accountId
         LimitScope.GLOBAL -> true
     }
@@ -191,7 +193,7 @@ object Quotas {
             val i = sorted.indices.firstOrNull { i ->
                 val l = sorted[i]
                 !used[i] && l.incoming == h.incoming && l.dateMillis - h.dateMillis in -SAME_CALL_SLACK_MS..SAME_CALL_WINDOW_MS &&
-                    kotlin.math.abs(l.durationSec - h.durationSec) <= SAME_CALL_DURATION_SLACK_SEC
+                    abs(l.durationSec - h.durationSec) <= SAME_CALL_DURATION_SLACK_SEC
             }
             if (i != null) used[i] = true
             i == null

@@ -3,6 +3,7 @@ package app.parley.common.qr
 import app.parley.common.record.Col
 import app.parley.common.record.ContactRecord
 import app.parley.common.record.Mime
+import java.time.Instant
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -216,7 +217,7 @@ class QrParserTest {
         assertEquals(10, e.end!!.hour)
         assertEquals(30, e.end!!.minute)
         // 09:00 in Berlin (summer) is 07:00 UTC, whatever the phone's zone.
-        assertEquals(java.time.Instant.parse("2025-07-01T07:00:00Z").toEpochMilli(), e.start!!.toEpochMillis(ZoneOffset.UTC))
+        assertEquals(Instant.parse("2025-07-01T07:00:00Z").toEpochMilli(), e.start!!.toEpochMillis(ZoneOffset.UTC))
     }
 
     @Test fun vevent_with_a_date_that_does_not_exist_is_text() {

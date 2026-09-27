@@ -12,6 +12,10 @@ import app.parley.AppViewModel
 import app.parley.common.ContactSummary
 import app.parley.common.people.MessageRoute
 import app.parley.common.people.MessengerPrefs
+import app.parley.data.Messengers
+import app.parley.data.db.ContactMetaEntity
+import app.parley.messaging.ReachSheet
+import app.parley.messaging.ReachTarget
 import app.parley.ui.common.Format
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -37,7 +41,7 @@ fun rememberQuickMessenger(vm: AppViewModel): Pair<QuickMessenger, @Composable (
     val messenger = remember(vm) {
         QuickMessenger { c, number, ask ->
             scope.launch {
-                val messengers = withContext(Dispatchers.IO) { app.parley.data.Messengers.actions(context, c.id) }
+                val messengers = withContext(Dispatchers.IO) { Messengers.actions(context, c.id) }
                 val meta = vm.c.meta.meta(c.lookupKey)
                 val phones = c.phones
                 val default = number ?: (phones.firstOrNull { it.isPrimary } ?: phones.firstOrNull())?.number
@@ -54,13 +58,13 @@ fun rememberQuickMessenger(vm: AppViewModel): Pair<QuickMessenger, @Composable (
     }
     val host: @Composable () -> Unit = {
         pending?.let { p ->
-            val target = app.parley.messaging.ReachTarget.Person(p.reach) { prefs ->
+            val target = ReachTarget.Person(p.reach) { prefs ->
                 scope.launch {
-                    val m = vm.c.meta.meta(p.lookupKey) ?: app.parley.data.db.ContactMetaEntity(p.lookupKey)
+                    val m = vm.c.meta.meta(p.lookupKey) ?: ContactMetaEntity(p.lookupKey)
                     vm.c.meta.setMeta(m.copy(contactId = p.contactId, preferredMessenger = MessengerPrefs.decode(m.preferredMessenger).copy(message = prefs.message, number = prefs.number, call = prefs.call, video = prefs.video).encode()))
                 }
             }
-            app.parley.messaging.ReachSheet(target, onDismiss = { pending = null }, onCall = { n -> vm.requestCall(n, p.reach.name) })
+            ReachSheet(target, onDismiss = { pending = null }, onCall = { n -> vm.requestCall(n, p.reach.name) })
         }
     }
     return messenger to host

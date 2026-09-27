@@ -1,7 +1,9 @@
 package app.parley.ui.people
 
+import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
+import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -46,18 +48,22 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
+import app.parley.NavEvent
 import app.parley.common.people.MeCard
 import app.parley.common.people.MeCards
 import app.parley.data.messaging.MyDetails
 import app.parley.ui.Avatar
 import app.parley.ui.CallColors
 import app.parley.ui.SegmentedGroup
+import app.parley.ui.avatarSize
+import app.parley.ui.qr.QrRoutes
 import app.parley.ui.settings.SettingsScaffold
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.EncodeHintType
@@ -66,6 +72,8 @@ import java.io.File
 import androidx.compose.ui.res.stringResource
 import app.parley.R
 import app.parley.ui.DataL10n
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /** Imports the old "My details" once, so the card starts with what was typed there. */
 @Composable
@@ -92,7 +100,7 @@ fun MeCardRow(vm: AppViewModel, open: (String) -> Unit) {
     val edit = { open(PeopleRoutes.ME) }
     ListItem(
         modifier = Modifier.clickable(onClickLabel = stringResource(R.string.me_edit), onClick = edit),
-        leadingContent = { Avatar(card.name.ifBlank { me }, null, app.parley.ui.avatarSize()) },
+        leadingContent = { Avatar(card.name.ifBlank { me }, null, avatarSize()) },
         headlineContent = { Text(card.name.ifBlank { myCard }) },
         supportingContent = {
             Text(
@@ -105,7 +113,7 @@ fun MeCardRow(vm: AppViewModel, open: (String) -> Unit) {
             IconButton({ showQr = true }) { Icon(Icons.Rounded.QrCode2, stringResource(R.string.me_show_qr), tint = MaterialTheme.colorScheme.primary) }
         }),
     )
-    if (showQr) MeQrDialog(card, onDismiss = { showQr = false }, onEdit = { showQr = false; edit() }, onScan = { showQr = false; vm.navigate(app.parley.NavEvent.Route(app.parley.ui.qr.QrRoutes.SCAN)) })
+    if (showQr) MeQrDialog(card, onDismiss = { showQr = false }, onEdit = { showQr = false; edit() }, onScan = { showQr = false; vm.navigate(NavEvent.Route(QrRoutes.SCAN)) })
 }
 
 /**
@@ -117,7 +125,7 @@ fun MeCardRow(vm: AppViewModel, open: (String) -> Unit) {
 fun MeCardScreen(vm: AppViewModel, back: () -> Unit) {
     MigrateMyDetails(vm)
     val context = LocalContext.current
-    val res = androidx.compose.ui.platform.LocalResources.current
+    val res = LocalResources.current
     val store = vm.c.people.me
     val own by store.card.collectAsStateWithLifecycle()
     val profile by produceState<MeCard?>(null) { value = store.profile() }
@@ -171,7 +179,7 @@ fun MeCardScreen(vm: AppViewModel, back: () -> Unit) {
             item { Box16 { OutlinedTextField(draft.company, { draft = draft.copy(company = it) }, label = { Text(stringResource(R.string.me_company)) }, singleLine = true, modifier = Modifier.fillMaxWidth()) } }
             item { Box16 { OutlinedTextField(draft.title, { draft = draft.copy(title = it) }, label = { Text(stringResource(R.string.me_job_title)) }, singleLine = true, modifier = Modifier.fillMaxWidth()) } }
         }
-        ListEditor(stringResource(R.string.me_numbers), stringResource(R.string.me_number), stringResource(R.string.me_add_number), draft.phones, KeyboardType.Phone, suggest = { kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { vm.c.sims.ownNumbers().firstOrNull() } }) { draft = draft.copy(phones = it) }
+        ListEditor(stringResource(R.string.me_numbers), stringResource(R.string.me_number), stringResource(R.string.me_add_number), draft.phones, KeyboardType.Phone, suggest = { withContext(Dispatchers.IO) { vm.c.sims.ownNumbers().firstOrNull() } }) { draft = draft.copy(phones = it) }
         ListEditor(stringResource(R.string.me_email), stringResource(R.string.me_email_address), stringResource(R.string.me_add_email), draft.emails, KeyboardType.Email) { draft = draft.copy(emails = it) }
         ListEditor(stringResource(R.string.me_websites), stringResource(R.string.me_website), stringResource(R.string.me_add_website), draft.websites, KeyboardType.Uri) { draft = draft.copy(websites = it) }
         SegmentedGroup(stringResource(R.string.me_more)) {
@@ -191,7 +199,7 @@ fun MeCardScreen(vm: AppViewModel, back: () -> Unit) {
         )
     }
     // "Scan theirs" right from your own code.
-    if (showQr) MeQrDialog(merged, onDismiss = { showQr = false }, onScan = { showQr = false; vm.navigate(app.parley.NavEvent.Route(app.parley.ui.qr.QrRoutes.SCAN)) })
+    if (showQr) MeQrDialog(merged, onDismiss = { showQr = false }, onScan = { showQr = false; vm.navigate(NavEvent.Route(QrRoutes.SCAN)) })
 }
 
 @Composable
@@ -227,7 +235,7 @@ private fun ListEditor(title: String, label: String, addLabel: String, values: L
 }
 
 /** Writes the vCard to Parley's share folder and hands it to the app you choose. */
-private fun shareVcard(context: android.content.Context, card: MeCard, parts: Set<MeCards.Part>) {
+private fun shareVcard(context: Context, card: MeCard, parts: Set<MeCards.Part>) {
     runCatching {
         val dir = File(context.cacheDir, "share").apply { mkdirs() }
         val file = File(dir, "my-card.vcf")
@@ -236,7 +244,7 @@ private fun shareVcard(context: android.content.Context, card: MeCard, parts: Se
         val send = Intent(Intent.ACTION_SEND).setType("text/x-vcard").putExtra(Intent.EXTRA_STREAM, uri)
             .putExtra(Intent.EXTRA_SUBJECT, card.name.ifBlank { context.getString(R.string.me_title) }).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         context.startActivity(Intent.createChooser(send, context.getString(R.string.me_share_chooser)))
-    }.onFailure { android.widget.Toast.makeText(context, context.getString(R.string.me_share_failed), android.widget.Toast.LENGTH_SHORT).show() }
+    }.onFailure { Toast.makeText(context, context.getString(R.string.me_share_failed), Toast.LENGTH_SHORT).show() }
 }
 
 /** The card as a QR code (made on the phone), with the parts to include. [onEdit]: Q3, an Edit button to the editor. */
@@ -264,7 +272,7 @@ internal fun MeQrDialog(card: MeCard, onDismiss: () -> Unit, onEdit: (() -> Unit
                 bitmap?.let { Image(it.asImageBitmap(), stringResource(R.string.me_qr_desc), Modifier.size(240.dp).background(Color.White).padding(8.dp)) }
                 Text(stringResource(R.string.me_scan), modifier = Modifier.padding(vertical = 8.dp))
                 if (onScan != null) {
-                    androidx.compose.material3.OutlinedButton(onScan) {
+                    OutlinedButton(onScan) {
                         Icon(Icons.Rounded.QrCodeScanner, null, Modifier.size(18.dp))
                         Text("  " + stringResource(R.string.qs_scan_theirs))
                     }

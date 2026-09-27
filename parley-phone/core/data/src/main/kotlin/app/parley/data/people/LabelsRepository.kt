@@ -2,6 +2,7 @@ package app.parley.data.people
 
 import android.content.ContentProviderOperation
 import android.content.ContentUris
+import android.content.Context
 import android.provider.ContactsContract
 import android.provider.ContactsContract.CommonDataKinds.GroupMembership
 import android.provider.ContactsContract.Data
@@ -23,7 +24,7 @@ data class Label(val title: String, val groups: List<GroupInfo>) {
  * accounts are handled together, the way the Contacts tab shows them. Contacts are never deleted here.
  */
 class LabelsRepository(
-    context: android.content.Context,
+    context: Context,
     private val contacts: ContactsRepository,
     /** Rules, off hours, limits and ringtones that name labels follow renames, merges and deletes. */
     private val refs: LabelReferences? = null,

@@ -1,17 +1,27 @@
 package app.parley.data.backup
 
 import android.content.ContentProviderOperation
+import android.content.ContentUris
 import android.content.ContentValues
 import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.provider.CallLog
 import android.provider.ContactsContract
 import android.provider.DocumentsContract
+import android.util.Base64
+import android.util.Log
+import app.parley.common.LabelRefs
+import app.parley.common.NotifyLevel
+import app.parley.common.RuleKind
+import app.parley.common.Schedule
+import app.parley.common.StoredStatus
 import app.parley.common.backup.BackupArchiveReader
 import app.parley.common.backup.BackupArchiveWriter
 import app.parley.common.backup.ArchiveMeta
 import app.parley.common.backup.BackupCrypto
+import app.parley.common.backup.BackupFile
 import app.parley.common.backup.BlockRuleRecord
 import app.parley.common.backup.BlockedCallRecord
 import app.parley.common.backup.BlockingSnapshot
@@ -21,6 +31,7 @@ import app.parley.common.backup.MergePlan
 import app.parley.common.backup.MergePlanner
 import app.parley.common.backup.NumberSimRecord
 import app.parley.common.backup.Recipient
+import app.parley.common.backup.RecordJson
 import app.parley.common.backup.RecoveryKey
 import app.parley.common.backup.RestoreMode
 import app.parley.common.backup.RetentionDecider
@@ -29,6 +40,7 @@ import app.parley.common.backup.Unlock
 import app.parley.common.BlockAction
 import app.parley.common.BlockRule
 import app.parley.common.RuleType
+import app.parley.common.record.Messengers
 import app.parley.common.suspendRunCatching
 import app.parley.common.record.ContactRecord
 import app.parley.common.record.DataRow
@@ -42,6 +54,8 @@ import app.parley.data.ContactsRepository
 import app.parley.data.PrefsRepository
 import app.parley.data.SettingsRepository
 import app.parley.data.db.AppDatabase
+import app.parley.data.db.BlockedCallEntity
+import app.parley.data.db.NumberSimEntity
 import app.parley.data.records.ContactRecordStore
 import app.parley.data.vault.VaultCrypto
 import app.parley.data.vault.VaultRepository
@@ -153,12 +167,12 @@ class BackupRepository(
         val parts = extras()
         val covered = BUILT_IN_SECTIONS + parts.flatMap { it.sections }
         (PersistentStores.requiredSections - covered).forEach { missing ->
-            android.util.Log.w("BackupRepository", "No backup part writes section $missing")
+            Log.w("BackupRepository", "No backup part writes section $missing")
             failed += missing
         }
         return parts.fold(emptyMap()) { acc, x ->
             acc + suspendRunCatching { x.export() }.getOrElse { e ->
-                android.util.Log.w("BackupRepository", "Backup section ${x.section} failed", e)
+                Log.w("BackupRepository", "Backup section ${x.section} failed", e)
                 failed += x.section
                 emptyMap()
             }
@@ -197,7 +211,7 @@ class BackupRepository(
     }
 
     fun setFolder(uri: Uri, name: String?) {
-        runCatching { cr.takePersistableUriPermission(uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION) }
+        runCatching { cr.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION) }
         prefs.update { it.putString("folder", uri.toString()).putString("folderName", name) }
     }
 
@@ -223,7 +237,7 @@ class BackupRepository(
             DocumentsContract.createDocument(cr, parent, "application/octet-stream", "$finalName.partial")
         } catch (e: Exception) {
             null
-        } ?: return@withContext fail(context.getString(R.string.data_bkp_folder_gone), app.parley.common.StoredStatus.of(BackupState.FOLDER_GONE))
+        } ?: return@withContext fail(context.getString(R.string.data_bkp_folder_gone), StoredStatus.of(BackupState.FOLDER_GONE))
 
         var contactCount = 0
         var callCount = 0
@@ -256,7 +270,7 @@ class BackupRepository(
             }
         } catch (e: Exception) {
             runCatching { DocumentsContract.deleteDocument(cr, doc) }
-            return@withContext fail(context.getString(R.string.data_bkp_failed, e.message.toString()), app.parley.common.StoredStatus.of(BackupState.FAILED, e.message.toString()))
+            return@withContext fail(context.getString(R.string.data_bkp_failed, e.message.toString()), StoredStatus.of(BackupState.FAILED, e.message.toString()))
         }
 
         // Verify: decrypt with this archive's key and check every entry's hash.
@@ -268,7 +282,7 @@ class BackupRepository(
         }
         if (!verified) {
             runCatching { DocumentsContract.deleteDocument(cr, doc) }
-            return@withContext fail(context.getString(R.string.data_bkp_not_verified), app.parley.common.StoredStatus.of(BackupState.NOT_VERIFIED))
+            return@withContext fail(context.getString(R.string.data_bkp_not_verified), StoredStatus.of(BackupState.NOT_VERIFIED))
         }
         if (target != null) {
             return@withContext gaps(BackupOutcome(true, null, contactCount, callCount, verified = true, vaultIncluded = vaultIncluded, message = context.resources.getQuantityString(R.plurals.data_bkp_ready, contactCount, contactCount)))
@@ -280,8 +294,8 @@ class BackupRepository(
         val incomplete = failedSections.isNotEmpty()
         if (scheduled && hash == (if (incomplete) state.lastIncompleteHash else state.lastContentHash)) {
             runCatching { DocumentsContract.deleteDocument(cr, doc) }
-            val status = if (incomplete) app.parley.common.StoredStatus.of(BackupState.INCOMPLETE, failedSections.joinToString(", "), contactCount, callCount)
-            else app.parley.common.StoredStatus.of(BackupState.UNCHANGED)
+            val status = if (incomplete) StoredStatus.of(BackupState.INCOMPLETE, failedSections.joinToString(", "), contactCount, callCount)
+            else StoredStatus.of(BackupState.UNCHANGED)
             prefs.update { it.putLong("verifiedAt", System.currentTimeMillis()).putString("lastResult", status.encode()) }
             return@withContext gaps(BackupOutcome(true, state.lastBackupName, contactCount, callCount, unchanged = true, verified = true, message = context.getString(R.string.data_bkp_nothing_changed)))
         }
@@ -294,8 +308,8 @@ class BackupRepository(
         if (!paused && !safety && !incomplete) rotate(protect = if (vaultIncluded) finalName else state.lastVaultBackupName)
         val res = context.resources
         // Stored as what happened, rendered in the current language when shown (BackupState.resultText).
-        val result = if (incomplete) app.parley.common.StoredStatus.of(BackupState.INCOMPLETE, failedSections.joinToString(", "), contactCount, callCount).encode()
-        else app.parley.common.StoredStatus.of(BackupState.RESULT, if (vaultMissing) 1 else 0, contactCount, callCount).encode()
+        val result = if (incomplete) StoredStatus.of(BackupState.INCOMPLETE, failedSections.joinToString(", "), contactCount, callCount).encode()
+        else StoredStatus.of(BackupState.RESULT, if (vaultMissing) 1 else 0, contactCount, callCount).encode()
         prefs.update {
             it.putLong("lastAt", System.currentTimeMillis()).putString("lastName", finalName).putLong("verifiedAt", System.currentTimeMillis())
                 .putBoolean("paused", paused)
@@ -310,7 +324,7 @@ class BackupRepository(
     /** Accepts the current contact count after a rotation pause, so old backups rotate again. */
     fun resumeRotation() = prefs.update { it.putInt("lastCount", -1).putBoolean("paused", false) }
 
-    private fun fail(msg: String, status: app.parley.common.StoredStatus): BackupOutcome {
+    private fun fail(msg: String, status: StoredStatus): BackupOutcome {
         prefs.update { it.putString("lastResult", status.encode()) }
         return BackupOutcome(false, message = msg)
     }
@@ -344,7 +358,7 @@ class BackupRepository(
             // Parley versions ignore it (and only wrote it for unedited entries, which is what a missing hash means).
             runCatching { vault.storedRecord(v.id) }.getOrNull()?.let { s ->
                 val blobs = JSONObject()
-                o.put("record", app.parley.common.backup.RecordJson.encode(s.record) { h, b -> blobs.put(h, android.util.Base64.encodeToString(b, android.util.Base64.NO_WRAP)) })
+                o.put("record", RecordJson.encode(s.record) { h, b -> blobs.put(h, Base64.encodeToString(b, Base64.NO_WRAP)) })
                 o.put("recordBlobs", blobs)
                 if (s.recordOf.isNotEmpty()) o.put("recordOf", s.recordOf)
             }
@@ -355,7 +369,7 @@ class BackupRepository(
             vault.privateCallsOf(v.id).forEach { c -> calls.put(JSONObject().put("n", c.number).put("name", c.name).put("d", c.date).put("s", c.durationSec).put("t", c.type)) }
             if (calls.length() > 0) o.put("calls", calls)
             // The caller photo (kept encrypted apart from the details); inside the archive it is under the archive key.
-            vault.photoBytes(v.id)?.let { o.put("photo", android.util.Base64.encodeToString(it, android.util.Base64.NO_WRAP)) }
+            vault.photoBytes(v.id)?.let { o.put("photo", Base64.encodeToString(it, Base64.NO_WRAP)) }
             arr.put(o)
         }
         return JSONObject().put("contacts", arr).toString().toByteArray()
@@ -396,7 +410,7 @@ class BackupRepository(
 
     private fun rotate(protect: String?) {
         val files = listBackups().filter { it.name != protect }
-        val decision = RetentionDecider.decide(files.map { app.parley.common.backup.BackupFile(it.name, it.time) }, prefs.state.value.policy, Instant.now(), zone)
+        val decision = RetentionDecider.decide(files.map { BackupFile(it.name, it.time) }, prefs.state.value.policy, Instant.now(), zone)
         val toDelete = decision.delete.map { it.name }.toSet()
         files.filter { it.name in toDelete }.forEach { runCatching { DocumentsContract.deleteDocument(cr, it.uri) } }
     }
@@ -486,14 +500,14 @@ class BackupRepository(
         if (o.blocking) features(RestorePart.BLOCKING)
         if (o.speedDial) part(context.getString(R.string.data_rst_part_speed_dial)) {
             opened.reader.speedDial()?.forEach { prefsRepo.setSpeedDial(it.slot, it.number, it.label) }
-            opened.reader.numberSims()?.forEach { db.prefsDao().setSim(app.parley.data.db.NumberSimEntity(it.matchKey, it.phoneAccountId)) }
+            opened.reader.numberSims()?.forEach { db.prefsDao().setSim(NumberSimEntity(it.matchKey, it.phoneAccountId)) }
         }
         if (o.settings) part(context.getString(R.string.data_rst_part_settings)) {
             opened.reader.settings()?.let { all ->
                 settings.importMap(all.filterKeys { !it.startsWith(BackupExtras.PREFIX) })
                 // Off hours' "only this label" names a label of the old phone: keep it only if that title exists here.
                 val titles = labelTitlesHere()
-                settings.update { s -> s.copy(screening = s.screening.copy(offHours = app.parley.common.LabelRefs.restoreOffHours(s.screening.offHours, titles))) }
+                settings.update { s -> s.copy(screening = s.screening.copy(offHours = LabelRefs.restoreOffHours(s.screening.offHours, titles))) }
             }
             features(RestorePart.SETTINGS)
         }
@@ -512,7 +526,7 @@ class BackupRepository(
     suspend fun undoLastRestore(): Int = withContext(Dispatchers.IO + NonCancellable) {
         val ids = prefs.state.value.lastRestoreIds
         ids.chunked(200).forEach { chunk ->
-            val ops = chunk.map { ContentProviderOperation.newDelete(android.content.ContentUris.withAppendedId(ContactsContract.RawContacts.CONTENT_URI, it)).build() }
+            val ops = chunk.map { ContentProviderOperation.newDelete(ContentUris.withAppendedId(ContactsContract.RawContacts.CONTENT_URI, it)).build() }
             runCatching { cr.applyBatch(ContactsContract.AUTHORITY, ArrayList(ops)) }
         }
         prefs.update { it.putString("restoreRawIds", "") }
@@ -526,7 +540,7 @@ class BackupRepository(
     }
 
     private fun idForKey(key: String): Long? = runCatching {
-        ContactsContract.Contacts.lookupContact(cr, Uri.withAppendedPath(ContactsContract.Contacts.CONTENT_LOOKUP_URI, key))?.let { android.content.ContentUris.parseId(it) }
+        ContactsContract.Contacts.lookupContact(cr, Uri.withAppendedPath(ContactsContract.Contacts.CONTENT_LOOKUP_URI, key))?.let { ContentUris.parseId(it) }
     }.getOrNull()
 
     /** Adds rows (never removes) to the first writable raw contact of [existing]. */
@@ -537,7 +551,7 @@ class BackupRepository(
             var pick: Long? = null
             while (c.moveToNext()) {
                 val type = c.getString(1)
-                if (type == null || type == "com.google" || !app.parley.common.record.Messengers.isMessengerAccount(type)) { pick = c.getLong(0); break }
+                if (type == null || type == "com.google" || !Messengers.isMessengerAccount(type)) { pick = c.getLong(0); break }
             }
             pick
         } ?: return 0
@@ -568,7 +582,7 @@ class BackupRepository(
     }
 
     /** Label titles on this phone (the way label references are keyed; group row ids differ between phones). */
-    private fun labelTitlesHere(): Set<String> = runCatching { contacts.groups().map { app.parley.common.LabelRefs.key(it.title) }.toSet() }.getOrDefault(emptySet())
+    private fun labelTitlesHere(): Set<String> = runCatching { contacts.groups().map { LabelRefs.key(it.title) }.toSet() }.getOrDefault(emptySet())
 
     /** Rules (deduplicated) and the blocked-call log (entries this phone doesn't have). Returns both counts. */
     private suspend fun restoreBlocking(opened: OpenedBackup): Pair<Int, Int> {
@@ -582,13 +596,13 @@ class BackupRepository(
                 type = runCatching { RuleType.valueOf(r.type) }.getOrDefault(RuleType.EXACT),
                 action = runCatching { BlockAction.valueOf(r.action) }.getOrDefault(BlockAction.REJECT),
                 enabled = r.enabled, note = r.note,
-                kind = runCatching { app.parley.common.RuleKind.valueOf(r.kind) }.getOrDefault(app.parley.common.RuleKind.BLOCK),
-                simId = r.simId, schedule = app.parley.common.Schedule.decode(r.schedule),
-                notify = runCatching { app.parley.common.NotifyLevel.valueOf(r.notify) }.getOrDefault(app.parley.common.NotifyLevel.DEFAULT),
+                kind = runCatching { RuleKind.valueOf(r.kind) }.getOrDefault(RuleKind.BLOCK),
+                simId = r.simId, schedule = Schedule.decode(r.schedule),
+                notify = runCatching { NotifyLevel.valueOf(r.notify) }.getOrDefault(NotifyLevel.DEFAULT),
                 ringtone = r.ringtone, expiresAt = r.expiresAt, label = r.label,
             )
             // Label rules are remapped by title; a rule for a label that doesn't exist here is dropped.
-            val mapped = app.parley.common.LabelRefs.restoreRule(rule, titles) ?: return@forEach
+            val mapped = LabelRefs.restoreRule(rule, titles) ?: return@forEach
             if (!existing.add(mapped.kind.name + "|" + mapped.pattern.trim() + "|" + mapped.type.name)) return@forEach
             blocks.saveRule(mapped)
             n++
@@ -599,7 +613,7 @@ class BackupRepository(
         db.withTransaction {
             for (e in snap.blockedCalls) {
                 if (dao.countBlocked(e.number, e.time) > 0) continue
-                dao.logBlocked(app.parley.data.db.BlockedCallEntity(number = e.number, reason = e.reason, action = e.action, time = e.time))
+                dao.logBlocked(BlockedCallEntity(number = e.number, reason = e.reason, action = e.action, time = e.time))
                 logged++
             }
         }
@@ -630,8 +644,8 @@ class BackupRepository(
             val blobs = o.optJSONObject("recordBlobs")
             val record = o.optString("record").takeIf { it.isNotEmpty() }?.let { line ->
                 runCatching {
-                    app.parley.common.backup.RecordJson.decode(line) { h ->
-                        blobs?.optString(h)?.takeIf { it.isNotEmpty() }?.let { android.util.Base64.decode(it, android.util.Base64.NO_WRAP) }
+                    RecordJson.decode(line) { h ->
+                        blobs?.optString(h)?.takeIf { it.isNotEmpty() }?.let { Base64.decode(it, Base64.NO_WRAP) }
                     }
                 }.getOrNull()
             }
@@ -643,7 +657,7 @@ class BackupRepository(
                 interactions = o.optString("interactions").takeIf { it.isNotEmpty() },
             )
             o.optString("photo").takeIf { it.isNotEmpty() }?.let { p ->
-                runCatching { vault.setPhoto(id, android.util.Base64.decode(p, android.util.Base64.NO_WRAP)) }
+                runCatching { vault.setPhoto(id, Base64.decode(p, Base64.NO_WRAP)) }
             }
             restoreCalls(id, o)
             n++

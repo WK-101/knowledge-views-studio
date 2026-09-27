@@ -30,6 +30,7 @@ import app.parley.AppViewModel
 import app.parley.BuildConfigInfo
 import app.parley.R
 import app.parley.common.SettingsCategory
+import app.parley.common.ux.Tips
 import app.parley.common.ux.WhatsNew
 import app.parley.ui.Routes
 
@@ -55,10 +56,10 @@ fun WhatsNewCard(vm: AppViewModel, open: (String) -> Unit, modifier: Modifier = 
     if (decision != WhatsNew.Decision.SHOW) return
     // The combine options are offered once, here, and only switched on from Settings (never automatically).
     val settings by vm.settings.collectAsStateWithLifecycle()
-    val offerLayout = app.parley.common.ux.Tips.LAYOUT_OFFER !in ux.seenTips && !settings.surfaces.merged
+    val offerLayout = Tips.LAYOUT_OFFER !in ux.seenTips && !settings.surfaces.merged
     fun seen() {
         vm.c.ux.setWhatsNewSeen(version)
-        if (offerLayout) vm.c.ux.dismissTip(app.parley.common.ux.Tips.LAYOUT_OFFER)
+        if (offerLayout) vm.c.ux.dismissTip(Tips.LAYOUT_OFFER)
     }
     Card(
         modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),

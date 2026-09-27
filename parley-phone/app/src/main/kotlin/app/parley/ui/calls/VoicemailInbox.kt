@@ -81,8 +81,10 @@ import app.parley.data.calls.VoicemailState
 import app.parley.ui.Avatar
 import app.parley.ui.Bidi
 import app.parley.ui.EmptyState
+import app.parley.ui.activityViewModel
 import app.parley.ui.avatarSize
 import app.parley.ui.common.Format
+import app.parley.ui.home.RecentsViewModel
 import kotlinx.coroutines.launch
 
 /**
@@ -93,7 +95,7 @@ import kotlinx.coroutines.launch
 fun VoicemailInbox(vm: AppViewModel, query: String) {
     val context = LocalContext.current
     val state by vm.c.voicemail.state.collectAsStateWithLifecycle()
-    val recents: app.parley.ui.home.RecentsViewModel = app.parley.ui.activityViewModel()
+    val recents: RecentsViewModel = activityViewModel()
     val scope = rememberCoroutineScope()
     val player = remember { VoicemailPlayer(context) { v -> if (!v.heard) scope.launch { vm.c.voicemail.markHeard(listOf(v.id)) } } }
     DisposableEffect(player) { onDispose { player.release() } }

@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.ExpandMore
@@ -27,15 +28,18 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
@@ -44,11 +48,15 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.TextDirection
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import app.parley.R
 import app.parley.blocking.BlockingText
 import app.parley.common.BlockAction
 import app.parley.common.NotifyLevel
+import app.parley.ui.OnGroupSurface
 import app.parley.ui.settings.bidiLtr
 import app.parley.ui.settings.settingTitle
 
@@ -92,11 +100,11 @@ fun CollapsibleSection(title: String, help: String, summary: List<String>, expan
 
 /** An inset rounded card for a group of Blocking rows; shared rows blend into it. */
 @Composable
-fun BlockingCard(shape: androidx.compose.ui.graphics.Shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp), vertical: androidx.compose.ui.unit.Dp = 6.dp, content: @Composable () -> Unit) {
-    androidx.compose.material3.Surface(
+fun BlockingCard(shape: Shape = RoundedCornerShape(20.dp), vertical: Dp = 6.dp, content: @Composable () -> Unit) {
+    Surface(
         shape = shape, color = MaterialTheme.colorScheme.surfaceContainer,
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = vertical),
-    ) { app.parley.ui.OnGroupSurface { Column { content() } } }
+    ) { OnGroupSurface { Column { content() } } }
 }
 
 @Composable
@@ -191,8 +199,8 @@ fun leftText(context: Context, ms: Long): String {
 
 /** Text style for number fields: digits stay left-to-right in Arabic and Urdu. */
 @Composable
-fun ltrTextStyle(): androidx.compose.ui.text.TextStyle =
-    androidx.compose.material3.LocalTextStyle.current.copy(textDirection = androidx.compose.ui.text.style.TextDirection.Ltr)
+fun ltrTextStyle(): TextStyle =
+    LocalTextStyle.current.copy(textDirection = TextDirection.Ltr)
 
 /** A count for a plural resource. */
 fun Long.toPluralCount(): Int = coerceIn(0, Int.MAX_VALUE.toLong()).toInt()

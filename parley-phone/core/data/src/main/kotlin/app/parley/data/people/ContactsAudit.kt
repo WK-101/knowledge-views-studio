@@ -6,6 +6,7 @@ import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import app.parley.common.record.Messengers
+import app.parley.data.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -61,9 +62,9 @@ class ContactsAudit(private val context: Context) {
     }
 
     private fun noteFor(pkg: String): String? = when {
-        pkg in Messengers.PACKAGES || pkg in MESSAGING -> context.getString(app.parley.data.R.string.data_audit_messaging)
-        pkg in EMAIL -> context.getString(app.parley.data.R.string.data_audit_email)
-        pkg in DIALERS -> context.getString(app.parley.data.R.string.data_audit_phone)
+        pkg in Messengers.PACKAGES || pkg in MESSAGING -> context.getString(R.string.data_audit_messaging)
+        pkg in EMAIL -> context.getString(R.string.data_audit_email)
+        pkg in DIALERS -> context.getString(R.string.data_audit_phone)
         else -> null
     }
 

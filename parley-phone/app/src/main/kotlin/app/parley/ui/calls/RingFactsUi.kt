@@ -28,6 +28,7 @@ import app.parley.AppViewModel
 import app.parley.common.calls.RingExplainer
 import app.parley.common.calls.RingFacts
 import app.parley.ui.common.Format
+import app.parley.ui.contact.Section
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -52,7 +53,7 @@ fun RingFactsHistorySection(vm: AppViewModel, number: String) {
     val context = LocalContext.current
     val res = LocalResources.current
     Column {
-        app.parley.ui.contact.Section(stringResource(R.string.ring_section_title))
+        Section(stringResource(R.string.ring_section_title))
         facts.take(MAX_SHOWN).forEach { f ->
             var open by remember(f.startedAt) { mutableStateOf(false) }
             val why = RingText.whyNoRing(res, f)

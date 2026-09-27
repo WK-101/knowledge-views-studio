@@ -23,7 +23,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.unit.dp
 import app.parley.AppViewModel
 import app.parley.NavEvent
@@ -42,7 +44,7 @@ import app.parley.R
 @Composable
 fun AccountDiagnosticsSection(vm: AppViewModel) {
     val context = LocalContext.current
-    val res = androidx.compose.ui.platform.LocalResources.current
+    val res = LocalResources.current
     val scope = rememberCoroutineScope()
     var report by remember { mutableStateOf<AccountReport?>(null) }
     var round by remember { mutableIntStateOf(0) }
@@ -108,7 +110,7 @@ fun AccountDiagnosticsSection(vm: AppViewModel) {
 }
 
 @Composable
-private fun Finding(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, body: String, action: String?, onAction: (() -> Unit)?) {
+private fun Finding(icon: ImageVector, title: String, body: String, action: String?, onAction: (() -> Unit)?) {
     ListItem(
         leadingContent = { Icon(icon, null, tint = MaterialTheme.colorScheme.error) },
         headlineContent = { Text(title) },

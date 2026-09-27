@@ -11,13 +11,13 @@ class TelegramIntroTest {
     // ---- Telegram profile ----
 
     @Test fun telegram_profile_link() {
-        val l = MessengerLinks.telegramProfile(MessengerApp.of(app.parley.common.MessengerCatalog.TELEGRAM), "+923001234567")
+        val l = MessengerLinks.telegramProfile(MessengerApp.of(MessengerCatalog.TELEGRAM), "+923001234567")
         assertNotNull(l)
         assertEquals("tg://resolve?phone=923001234567&profile", l!!.uri)
         assertEquals("org.telegram.messenger", l.packageName)
-        assertEquals("org.thunderdog.challegram", MessengerLinks.telegramProfile(MessengerApp.of(app.parley.common.MessengerCatalog.TELEGRAM_X), "+923001234567")!!.packageName)
-        assertNull(MessengerLinks.telegramProfile(MessengerApp.of(app.parley.common.MessengerCatalog.WHATSAPP), "+923001234567"))
-        assertNull(MessengerLinks.telegramProfile(MessengerApp.of(app.parley.common.MessengerCatalog.TELEGRAM), "03001234567"))
+        assertEquals("org.thunderdog.challegram", MessengerLinks.telegramProfile(MessengerApp.of(MessengerCatalog.TELEGRAM_X), "+923001234567")!!.packageName)
+        assertNull(MessengerLinks.telegramProfile(MessengerApp.of(MessengerCatalog.WHATSAPP), "+923001234567"))
+        assertNull(MessengerLinks.telegramProfile(MessengerApp.of(MessengerCatalog.TELEGRAM), "03001234567"))
     }
 
     // ---- Introduction queue ----

@@ -56,6 +56,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -321,7 +322,7 @@ fun SimpleImportScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Uni
                     code, { code = it; error = null }, singleLine = true, isError = error != null,
                     label = { Text(stringResource(if (qr != null) R.string.sqr_passcode else R.string.simple_pass)) },
                     supportingText = error?.let { e -> { Text(e) } },
-                    visualTransformation = if (qr != null) androidx.compose.ui.text.input.VisualTransformation.None else PasswordVisualTransformation(),
+                    visualTransformation = if (qr != null) VisualTransformation.None else PasswordVisualTransformation(),
                     keyboardOptions = KeyboardOptions(capitalization = if (qr != null) KeyboardCapitalization.Characters else KeyboardCapitalization.None),
                     modifier = Modifier.fillMaxWidth(),
                 )

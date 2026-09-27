@@ -13,6 +13,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import app.parley.common.ContactSummary
 import app.parley.common.people.Reports
 import app.parley.ui.common.Format
@@ -26,7 +27,7 @@ import app.parley.R
 @Composable
 fun CopyAsTextMenuItem(chosen: List<ContactSummary>, close: () -> Unit) {
     val context = LocalContext.current
-    val res = androidx.compose.ui.platform.LocalResources.current
+    val res = LocalResources.current
     DropdownMenuItem({ Text(stringResource(R.string.ppl_copy_as_text)) }, leadingIcon = { Icon(Icons.Rounded.ContentCopy, null) }, onClick = {
         close()
         val text = Reports.contactsAsText(

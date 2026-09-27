@@ -1,9 +1,14 @@
 package app.parley.common
 
+import app.parley.common.backup.RetentionDecider
+import app.parley.common.calls.VoicemailFiles
 import app.parley.common.history.CallExport
 import app.parley.common.record.Col
 import app.parley.common.record.Mime
+import app.parley.common.spam.ListPack
 import app.parley.common.vcard.VCardStream
+import java.time.Instant
+import java.time.ZoneOffset
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -44,9 +49,9 @@ class LocaleFormattingTest {
     }
 
     @Test fun file_names_and_fingerprints_are_ascii() {
-        ascii(app.parley.common.calls.VoicemailFiles.shareName(2026, 9, 24, 14, 32, "audio/amr"))
-        assertEquals("voicemail-2026-09-24-1432.amr", app.parley.common.calls.VoicemailFiles.shareName(2026, 9, 24, 14, 32, "audio/amr"))
-        ascii(app.parley.common.spam.ListPack.sha256Hex(byteArrayOf(1, 2, 3)))
-        ascii(app.parley.common.backup.RetentionDecider.fileName(java.time.Instant.ofEpochSecond(1_790_000_000), java.time.ZoneOffset.UTC))
+        ascii(VoicemailFiles.shareName(2026, 9, 24, 14, 32, "audio/amr"))
+        assertEquals("voicemail-2026-09-24-1432.amr", VoicemailFiles.shareName(2026, 9, 24, 14, 32, "audio/amr"))
+        ascii(ListPack.sha256Hex(byteArrayOf(1, 2, 3)))
+        ascii(RetentionDecider.fileName(Instant.ofEpochSecond(1_790_000_000), ZoneOffset.UTC))
     }
 }

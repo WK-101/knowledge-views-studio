@@ -1,6 +1,8 @@
 package app.parley.messaging
 
 import android.Manifest
+import android.content.ClipboardManager
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -17,11 +19,15 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Chat
 import androidx.compose.material.icons.rounded.ContentPaste
 import androidx.compose.material.icons.rounded.GroupAdd
+import androidx.compose.material3.AssistChip
+import androidx.compose.runtime.key
+import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.material.icons.rounded.PersonAdd
 import androidx.compose.material.icons.rounded.Public
@@ -52,18 +58,34 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.lifecycleScope
+import app.parley.CallGate
 import app.parley.MainActivity
+import app.parley.PendingCall
 import app.parley.R
+import app.parley.blocking.DialText
+import app.parley.common.AppSettings
+import app.parley.common.MessengerLinks
 import app.parley.common.NumberText
+import app.parley.common.PhoneNumbers
+import app.parley.common.SimAccount
+import app.parley.common.calls.EmergencyPolicy
 import app.parley.container
+import app.parley.data.EmergencyNumbers
 import app.parley.security.AppLock
 import app.parley.data.PhoneEnv
 import app.parley.data.PlaceResult
+import app.parley.telecom.CallManager
+import app.parley.telecom.CallState
+import app.parley.ui.AppLocale
 import app.parley.ui.Bidi
 import app.parley.ui.ParleyTheme
+import app.parley.ui.common.CallQuestions
 import app.parley.ui.common.Format
+import app.parley.ui.common.rememberNumberLocation
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -76,11 +98,11 @@ import kotlinx.coroutines.withContext
  * Nothing starts without a tap: several numbers show a picker, and every action is a button. The text is only used
  * to find numbers and is never stored. This activity doesn't handle `tel:` links (the keypad does).
  */
-class NumberActionActivity : androidx.fragment.app.FragmentActivity() {
+class NumberActionActivity : FragmentActivity() {
     // The in-app language on Android 10-12 (Android 13+ applies per-app languages itself).
-    override fun attachBaseContext(newBase: android.content.Context) {
+    override fun attachBaseContext(newBase: Context) {
         super.attachBaseContext(newBase)
-        app.parley.ui.AppLocale.override(this, newBase)
+        AppLocale.override(this, newBase)
     }
 
     private sealed interface Stage {
@@ -99,12 +121,12 @@ class NumberActionActivity : androidx.fragment.app.FragmentActivity() {
 
     private var stage by mutableStateOf<Stage>(Stage.NoNumber)
     /** The call's open questions (dial guard, allowance, confirm, SIM), as in Parley itself. */
-    private var pendingCall by mutableStateOf<app.parley.PendingCall?>(null)
-    private var callSims by mutableStateOf<List<app.parley.common.SimAccount>>(emptyList())
-    private val gate by lazy { app.parley.CallGate(container) }
+    private var pendingCall by mutableStateOf<PendingCall?>(null)
+    private var callSims by mutableStateOf<List<SimAccount>>(emptyList())
+    private val gate by lazy { CallGate(container) }
     /** Names stay hidden while this is true; read from disk before anything is shown, then cleared by unlocking. */
     private var appLock = true
-    private var settingsSnapshot: app.parley.common.AppSettings? = null
+    private var settingsSnapshot: AppSettings? = null
     /** A chat with an unknown number was opened from here; offer a temporary contact when the user comes back. */
     private var awaitingReturn = false
     /** The selected, shared or pasted text, kept only while the sheet is open, for "Save all…". */
@@ -142,7 +164,7 @@ class NumberActionActivity : androidx.fragment.app.FragmentActivity() {
      * engages while the sheet is open (it stays behind a chat opened from here). An emergency number is the
      * exception: it is offered alone, with nothing but its Call action, so no prompt stands before the call.
      */
-    private fun reveal(settings: app.parley.common.AppSettings) {
+    private fun reveal(settings: AppSettings) {
         AppLock.onStart(settings)
         if (!settings.appLock || !AppLock.locked.value) {
             appLock = false
@@ -159,11 +181,11 @@ class NumberActionActivity : androidx.fragment.app.FragmentActivity() {
         if (s is Stage.Actions) {
             lifecycleScope.launch {
                 val emergency = withContext(Dispatchers.IO) {
-                    listOfNotNull(s.raw, s.number).firstOrNull { app.parley.data.EmergencyNumbers.isEmergency(this@NumberActionActivity, it) }
+                    listOfNotNull(s.raw, s.number).firstOrNull { EmergencyNumbers.isEmergency(this@NumberActionActivity, it) }
                 }
                 if (stage != s || !appLock) return@launch
                 if (emergency != null) {
-                    stage = Stage.Emergency(app.parley.common.calls.EmergencyPolicy.asciiDigits(emergency))
+                    stage = Stage.Emergency(EmergencyPolicy.asciiDigits(emergency))
                     hidden = false
                 } else {
                     askUnlock()
@@ -251,7 +273,7 @@ class NumberActionActivity : androidx.fragment.app.FragmentActivity() {
     private fun Sheet() {
         val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
         pendingCall?.let { p ->
-            app.parley.ui.common.CallQuestions(
+            CallQuestions(
                 p, callSims, PhoneEnv.countryIso(this),
                 onUpdate = { next -> pendingCall = next; if (next == null) finish() },
                 onPlace = { number, simId, remember, confirmed -> place(number, simId, remember, confirmed, p.name) },
@@ -332,13 +354,13 @@ class NumberActionActivity : androidx.fragment.app.FragmentActivity() {
         var pickCountry by remember { mutableStateOf(false) }
         val region = regionOverride ?: defaultRegion
         val e164 = remember(typed, region) { NumberText.toE164(typed, region) }
-        val ready = e164 != null && app.parley.common.MessengerLinks.unavailable(e164) == null
-        val focus = remember { androidx.compose.ui.focus.FocusRequester() }
+        val ready = e164 != null && MessengerLinks.unavailable(e164) == null
+        val focus = remember { FocusRequester() }
         LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
 
         fun paste() {
             val clip = runCatching {
-                getSystemService(android.content.ClipboardManager::class.java).primaryClip?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.coerceToText(this)?.toString()
+                getSystemService(ClipboardManager::class.java).primaryClip?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.coerceToText(this)?.toString()
             }.getOrNull()?.take(MAX_TEXT)
             if (clip.isNullOrBlank()) {
                 Toast.makeText(this, getString(R.string.num_nothing_to_paste), Toast.LENGTH_SHORT).show()
@@ -361,23 +383,23 @@ class NumberActionActivity : androidx.fragment.app.FragmentActivity() {
                 typed, { typed = it.take(40) },
                 label = { Text(stringResource(R.string.num_phone_number)) },
                 singleLine = true,
-                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Phone),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp).focusRequester(focus),
             )
             Row(Modifier.padding(horizontal = 24.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                androidx.compose.material3.AssistChip(
+                AssistChip(
                     onClick = { paste() },
                     label = { Text(stringResource(R.string.keypad_paste)) },
                     leadingIcon = { Icon(Icons.Rounded.ContentPaste, null) },
                 )
-                androidx.compose.material3.AssistChip(
+                AssistChip(
                     onClick = { pickCountry = true },
                     label = { Text(countryLabel(region)) },
                     leadingIcon = { Icon(Icons.Rounded.Public, null) },
                 )
             }
             if (ready) {
-                androidx.compose.runtime.key(e164) {
+                key(e164) {
                     ReachSheetContent(ReachTarget.Number(e164!!), onCall = callAction()) { app -> afterLaunch(app != null) }
                 }
             } else {
@@ -416,7 +438,7 @@ class NumberActionActivity : androidx.fragment.app.FragmentActivity() {
         var regionOverride by rememberSaveable(raw) { mutableStateOf<String?>(null) }
         var pickCountry by remember { mutableStateOf(false) }
         val region = regionOverride ?: defaultRegion
-        val national = raw != null && !app.parley.common.PhoneNumbers.clean(raw).startsWith("+")
+        val national = raw != null && !PhoneNumbers.clean(raw).startsWith("+")
         val number = if (national && regionOverride != null) NumberText.toE164(raw, region) ?: found else found
         val e164 = remember(number, region) { NumberText.toE164(number, region) }
         var contactName by remember { mutableStateOf<String?>(null) }
@@ -433,13 +455,13 @@ class NumberActionActivity : androidx.fragment.app.FragmentActivity() {
             // With the app lock on, don't reveal who this is over another app.
             if (!locked) contactName = name
         }
-        val where = app.parley.ui.common.rememberNumberLocation(number, region)
+        val where = rememberNumberLocation(number, region)
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = 16.dp)) {
             Text(contactName ?: Bidi.ltr(e164?.let(NumberText::formatInternational) ?: Format.number(number, region)), style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 24.dp))
             val sub = listOfNotNull(if (contactName != null) Bidi.ltr(e164?.let(NumberText::formatInternational) ?: number) else null, where).joinToString(stringResource(R.string.main_separator))
             if (sub.isNotEmpty()) Text(sub, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp))
             if (national) {
-                androidx.compose.material3.AssistChip(
+                AssistChip(
                     onClick = { pickCountry = true },
                     label = { Text(stringResource(R.string.num_country, countryLabel(region))) },
                     leadingIcon = { Icon(Icons.Rounded.Public, null) },
@@ -522,7 +544,7 @@ class NumberActionActivity : androidx.fragment.app.FragmentActivity() {
      * second call to the same person from there would only put the first on hold).
      */
     private fun callAction(): ((String) -> Unit)? =
-        if (app.parley.telecom.CallManager.state.value.any { it.state != app.parley.telecom.CallState.DISCONNECTED && it.state != app.parley.telecom.CallState.DISCONNECTING }) {
+        if (CallManager.state.value.any { it.state != CallState.DISCONNECTED && it.state != CallState.DISCONNECTING }) {
             null
         } else {
             { n -> call(n, null) }
@@ -548,9 +570,9 @@ class NumberActionActivity : androidx.fragment.app.FragmentActivity() {
         pendingCall = null
         lifecycleScope.launch {
             when (val r = gate.place(number, simId, name, callSims, remember, confirmed)) {
-                is app.parley.CallGate.Placed.Ask -> pendingCall = r.pending
-                is app.parley.CallGate.Placed.Done -> {
-                    (r.result as? PlaceResult.Failed)?.let { Toast.makeText(this@NumberActionActivity, app.parley.blocking.DialText.placeFailure(this@NumberActionActivity, it.reason), Toast.LENGTH_LONG).show() }
+                is CallGate.Placed.Ask -> pendingCall = r.pending
+                is CallGate.Placed.Done -> {
+                    (r.result as? PlaceResult.Failed)?.let { Toast.makeText(this@NumberActionActivity, DialText.placeFailure(this@NumberActionActivity, it.reason), Toast.LENGTH_LONG).show() }
                     finish()
                 }
             }

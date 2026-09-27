@@ -7,6 +7,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.rememberScrollState
@@ -54,7 +55,7 @@ fun LanguageRow() {
     if (picker) LanguagePickerDialog(current) { picker = false }
 }
 
-@androidx.annotation.RequiresApi(33)
+@RequiresApi(33)
 private fun openSystemSettings(context: Context): Boolean = runCatching {
     context.startActivity(Intent(Settings.ACTION_APP_LOCALE_SETTINGS, Uri.fromParts("package", context.packageName, null)))
 }.isSuccess

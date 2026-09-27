@@ -1,6 +1,7 @@
 package app.parley.ui.people
 
 import android.provider.ContactsContract.CommonDataKinds.Event
+import android.text.format.DateFormat
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -34,6 +35,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.unit.dp
 import app.parley.AppViewModel
 import app.parley.common.EventDate
@@ -47,6 +49,8 @@ import app.parley.data.people.ContactMover
 import app.parley.ui.Routes
 import app.parley.ui.common.Format
 import app.parley.ui.contact.describeEvent
+import java.time.MonthDay
+import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -67,7 +71,7 @@ import app.parley.common.people.ProvenanceKind
 fun AccountChips(vm: AppViewModel, d: ContactDetails, open: (String) -> Unit, onChanged: (Long?) -> Unit) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
-    val res = androidx.compose.ui.platform.LocalResources.current
+    val res = LocalResources.current
     var moving by remember { mutableStateOf<RawContactRef?>(null) }
     var unlinking by remember { mutableStateOf<RawContactRef?>(null) }
     val writable = d.writableRawIds.toSet()
@@ -150,7 +154,7 @@ fun AccountChips(vm: AppViewModel, d: ContactDetails, open: (String) -> Unit, on
 @Composable
 fun ProvenanceRow(vm: AppViewModel, contactId: Long, refreshKey: Any?, open: (String) -> Unit) {
     val context = LocalContext.current
-    val res = androidx.compose.ui.platform.LocalResources.current
+    val res = LocalResources.current
     val verdict by produceState<ProvenanceVerdict?>(null, contactId, refreshKey) {
         value = vm.c.people.provenance.verdict(contactId)
     }
@@ -213,8 +217,8 @@ fun describeLifeEvent(res: Resources, d: ContactDetails, ev: EventItem, today: L
     val parsed = EventDate.parse(ev.date)
     if (death == null || parsed == null) return describeEvent(ev.date, ev.type == Event.TYPE_BIRTHDAY, res = res)
     fun shown(e: EventDate) = if (e.year != null) LocalDate.of(e.year!!, e.month, e.day).format(DateTimeFormatter.ofLocalizedDate(FormatStyle.LONG))
-    else java.time.MonthDay.of(e.month, e.day).format(
-        DateTimeFormatter.ofPattern(android.text.format.DateFormat.getBestDateTimePattern(java.util.Locale.getDefault(), "dMMMM")),
+    else MonthDay.of(e.month, e.day).format(
+        DateTimeFormatter.ofPattern(DateFormat.getBestDateTimePattern(Locale.getDefault(), "dMMMM")),
     )
     return when {
         isDeath -> {
@@ -233,7 +237,7 @@ private fun dayText(res: Resources, e: EventDate, today: LocalDate): String = wh
 }
 
 /** Label for an event row: "Date of death" (stored in English, shown translated) and other custom labels as typed. */
-fun eventLabel(res: android.content.res.Resources, ev: EventItem): String = when {
+fun eventLabel(res: Resources, ev: EventItem): String = when {
     LifeEvents.isDeath(ev.type, ev.label) -> res.getString(R.string.life_date_of_death)
     ev.type == Event.TYPE_CUSTOM && !ev.label.isNullOrBlank() -> ev.label!!
     else -> res.getString(Event.getTypeResource(ev.type))

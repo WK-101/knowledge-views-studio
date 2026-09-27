@@ -15,11 +15,13 @@ import app.parley.common.RuleType
 import app.parley.common.TextSearch
 import app.parley.common.calls.RecentsGrouping
 import app.parley.common.calls.RecentsLayout
+import app.parley.common.history.HistoryFilter
 import app.parley.common.ux.CallGlance
 import app.parley.common.ux.ListSections
 import app.parley.data.DataContainer
 import app.parley.data.NumberInfo
 import app.parley.data.history.CallHistory
+import java.time.ZoneId
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.delay
@@ -95,7 +97,7 @@ class RecentsViewModel(private val c: DataContainer) : ViewModel() {
     /** "Show all calls": clears the chips and the call-history filter. */
     fun showAll() {
         filter.value = RecentFilter.ALL
-        c.history.activeFilter.value = app.parley.common.history.HistoryFilter()
+        c.history.activeFilter.value = HistoryFilter()
     }
 
     val historyFilter get() = c.history.activeFilter
@@ -117,7 +119,7 @@ class RecentsViewModel(private val c: DataContainer) : ViewModel() {
 
     /** [allCalls] with the filter chips of the call history applied (SIM, type, period, duration). */
     private val filteredCalls = combine(allCalls, c.history.activeFilter) { calls, f ->
-        if (calls == null || f.isEmpty) calls else calls.filter(f.matcher(System.currentTimeMillis(), java.time.ZoneId.systemDefault()))
+        if (calls == null || f.isEmpty) calls else calls.filter(f.matcher(System.currentTimeMillis(), ZoneId.systemDefault()))
     }
 
     // The call-list layout travels with the calls, so Recents regroups when it changes.

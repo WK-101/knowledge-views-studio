@@ -35,10 +35,14 @@ import app.parley.common.circle.CirclePlanner
 import app.parley.common.circle.Interactions
 import app.parley.common.circle.KeepRhythm
 import app.parley.common.circle.RhythmMode
+import app.parley.common.people.LifeEvents
 import app.parley.data.ContactDetails
 import app.parley.data.circle.Interaction
 import app.parley.data.db.ContactMetaEntity
 import app.parley.ui.SegmentedGroup
+import app.parley.ui.extras.LabelRhythmSuggestion
+import app.parley.ui.history.RhythmSuggestion
+import app.parley.ui.people.eventLabel
 import java.time.LocalDate
 import kotlinx.coroutines.launch
 
@@ -69,7 +73,7 @@ fun StayInTouchCard(
     val now = System.currentTimeMillis()
     val today = LocalDate.now()
     val next = d.events.mapNotNull { ev -> EventDate.parse(ev.date)?.let { ev to it.daysUntil(today) } }
-        .filter { it.second <= 60 && !app.parley.common.people.LifeEvents.isDeath(it.first.type, it.first.label) }
+        .filter { it.second <= 60 && !LifeEvents.isDeath(it.first.type, it.first.label) }
         .minByOrNull { it.second }
     SegmentedGroup(title) {
         if (every == null) {
@@ -101,7 +105,7 @@ fun StayInTouchCard(
         }
         if (next != null) item("next") {
             val (ev, days) = next
-            val label = app.parley.ui.people.eventLabel(res, ev)
+            val label = eventLabel(res, ev)
             ListItem(
                 colors = rowColors,
                 leadingContent = { Icon(if (ev.type == Event.TYPE_BIRTHDAY) Icons.Rounded.Cake else Icons.Rounded.Event, null) },
@@ -137,8 +141,8 @@ fun RhythmDialog(vm: AppViewModel, d: ContactDetails, contactId: Long, meta: Con
         text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
                 // A label's rhythm for people joining the Circle.
-                if (current == null) app.parley.ui.extras.LabelRhythmSuggestion(vm, contactId) { days -> set(days) }
-                app.parley.ui.history.RhythmSuggestion(vm, d.phones.map { it.value }) { days -> set(days) }
+                if (current == null) LabelRhythmSuggestion(vm, contactId) { days -> set(days) }
+                RhythmSuggestion(vm, d.phones.map { it.value }) { days -> set(days) }
                 ListItem(
                     modifier = Modifier.clickable { set(current ?: CirclePlannerDefaults.DAYS, natural = true) },
                     colors = rowColors,

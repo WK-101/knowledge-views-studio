@@ -25,6 +25,7 @@ import androidx.compose.ui.semantics.semantics
 import app.parley.common.calls.KeyAction
 import app.parley.common.calls.KeyPressTracker
 import app.parley.common.calls.PressOrder
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -125,7 +126,7 @@ fun Modifier.keypadKey(
                         }
                         run(tracker.move(inside, SystemClock.uptimeMillis(), scrolled))
                     }
-                } catch (e: kotlinx.coroutines.CancellationException) {
+                } catch (e: CancellationException) {
                     taken = true
                     throw e
                 } finally {

@@ -1,14 +1,17 @@
 package app.parley.ui.vault
 
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.Message
@@ -33,33 +36,52 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.unit.dp
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
+import app.parley.common.MessengerApp
+import app.parley.common.people.HandleLink
+import app.parley.common.people.MessageRoute
+import app.parley.common.people.MessengerPrefs
+import app.parley.data.AccountRef
+import app.parley.data.CallLogRepository
 import app.parley.data.ContactDetails
+import app.parley.data.db.ContactMetaEntity
+import app.parley.data.vault.VaultCallerCard
 import app.parley.data.vault.VaultCrypto
+import app.parley.messaging.ReachSheet
+import app.parley.messaging.ReachTarget
 import app.parley.security.AppLock
 import app.parley.security.launchVault
 import app.parley.ui.Avatar
 import app.parley.ui.Routes
 import app.parley.ui.common.Format
 import app.parley.ui.common.Intents
+import app.parley.ui.contact.ConfirmWebLink
+import app.parley.ui.contact.ContactMessaging
+import app.parley.ui.contact.GroupDataRow
 import app.parley.ui.contact.LinkifiedText
+import app.parley.ui.contact.Reach
 import app.parley.ui.contact.Section
 import app.parley.ui.SegmentedGroup
 import app.parley.ui.contact.ActionTile
+import app.parley.ui.contact.SecureQrDialog
+import app.parley.ui.contact.groupRowColors
 import app.parley.ui.contact.handleRows
 import androidx.compose.material.icons.automirrored.rounded.Chat
 import androidx.compose.material.icons.automirrored.rounded.Notes
@@ -67,6 +89,7 @@ import androidx.compose.material.icons.rounded.Forum
 import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.LocationOn
 import androidx.compose.material.icons.rounded.PushPin
+import app.parley.ui.home.CallTypeIcon
 import kotlinx.coroutines.launch
 import androidx.compose.ui.res.stringResource
 import app.parley.R
@@ -76,7 +99,7 @@ import app.parley.ui.DataL10n
 @Composable
 fun VaultDetailScreen(vm: AppViewModel, id: Long, back: () -> Unit, open: (String) -> Unit) {
     val context = LocalContext.current
-    val res = androidx.compose.ui.platform.LocalResources.current
+    val res = LocalResources.current
     val scope = rememberCoroutineScope()
     val summaries by vm.c.vault.contacts.collectAsStateWithLifecycle()
     val calls by vm.c.vault.privateCalls.collectAsStateWithLifecycle()
@@ -99,26 +122,26 @@ fun VaultDetailScreen(vm: AppViewModel, id: Long, back: () -> Unit, open: (Strin
     }
     fun unlock() = (context as? FragmentActivity)?.let { AppLock.authenticateForVault(it) { ok -> if (ok) attempt++ } }
 
-    val card by androidx.compose.runtime.produceState<app.parley.data.vault.VaultCallerCard?>(null, id, summaries) { value = vm.c.vault.callerCard(id) }
+    val card by produceState<VaultCallerCard?>(null, id, summaries) { value = vm.c.vault.callerCard(id) }
     var messageSheet by remember { mutableStateOf<String?>(null) }
-    var webLink by remember { mutableStateOf<app.parley.common.people.HandleLink?>(null) }
-    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    var webLink by remember { mutableStateOf<HandleLink?>(null) }
+    val listState = rememberLazyListState()
     // Scroll-linked tint.
-    val barColor by androidx.compose.animation.animateColorAsState(
+    val barColor by animateColorAsState(
         if (listState.canScrollBackward) MaterialTheme.colorScheme.surfaceContainer else MaterialTheme.colorScheme.surface, label = "bar",
     )
-    val prefs = remember(details) { app.parley.common.people.MessengerPrefs.decode(details?.messengerPrefs) }
-    fun reach(): app.parley.ui.contact.Reach {
+    val prefs = remember(details) { MessengerPrefs.decode(details?.messengerPrefs) }
+    fun reach(): Reach {
         val d = details
         val numbers = d?.phones?.filter { it.value.isNotBlank() }?.map { it.value to Format.phoneType(context.resources, it.type, it.label) }
             ?: summary?.numbers.orEmpty().map { it to "" }
-        return app.parley.ui.contact.Reach(
+        return Reach(
             name = d?.given?.ifBlank { null } ?: summary?.name.orEmpty(), numbers = numbers,
             defaultNumber = numbers.firstOrNull()?.first, messengers = emptyList(), prefs = prefs, isPrivate = true,
         )
     }
     // For private contacts: the choice is kept in their encrypted record (needs the unlocked details).
-    fun savePrefs(p: app.parley.common.people.MessengerPrefs) {
+    fun savePrefs(p: MessengerPrefs) {
         val d = details ?: return vm.toast(res.getString(R.string.vault_unlock_to_remember))
         val next = d.copy(messengerPrefs = p.encode().orEmpty())
         details = next
@@ -126,16 +149,16 @@ fun VaultDetailScreen(vm: AppViewModel, id: Long, back: () -> Unit, open: (Strin
     }
     fun message(number: String? = null) {
         val r = reach().let { if (number != null) it.copy(defaultNumber = number, prefs = it.prefs.copy(number = null)) else it }
-        when (val route = app.parley.ui.contact.ContactMessaging.route(context, r)) {
-            app.parley.common.people.MessageRoute.Ask -> messageSheet = number ?: r.defaultNumber.orEmpty()
-            else -> app.parley.ui.contact.ContactMessaging.open(context, route, r)?.let { vm.toast(it) }
+        when (val route = ContactMessaging.route(context, r)) {
+            MessageRoute.Ask -> messageSheet = number ?: r.defaultNumber.orEmpty()
+            else -> ContactMessaging.open(context, route, r)?.let { vm.toast(it) }
         }
     }
 
     Scaffold(topBar = {
         TopAppBar(
             title = { Row(verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Rounded.Lock, null); Text("  " + stringResource(R.string.vault_title)) } },
-            colors = androidx.compose.material3.TopAppBarDefaults.topAppBarColors(containerColor = barColor, scrolledContainerColor = barColor),
+            colors = TopAppBarDefaults.topAppBarColors(containerColor = barColor, scrolledContainerColor = barColor),
             navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.dc_back)) } },
             actions = {
                 if (details != null) {
@@ -147,14 +170,14 @@ fun VaultDetailScreen(vm: AppViewModel, id: Long, back: () -> Unit, open: (Strin
                             scope.launchVault(context as? FragmentActivity, { e -> vm.toast(res.getString(R.string.vault_move_failed, e.message.orEmpty())) }) {
                                 val d = details ?: return@launchVault
                                 val s = vm.settings.value
-                                val account = app.parley.data.AccountRef(s.defaultAccountType, s.defaultAccountName)
+                                val account = AccountRef(s.defaultAccountType, s.defaultAccountName)
                                 // Restores the original contact losslessly when the vault kept its record.
                                 val newId = vm.c.vaultMoves.moveOut(id, d, account)
                                 if (newId != null) {
                                     // The note for calls and the messaging choice follow them into Parley's metadata.
                                     if (d.pinnedNote.isNotBlank() || d.messengerPrefs.isNotBlank()) {
                                         vm.c.contacts.lookupKeyOf(newId)?.let { key ->
-                                            val m = vm.c.meta.meta(key) ?: app.parley.data.db.ContactMetaEntity(key)
+                                            val m = vm.c.meta.meta(key) ?: ContactMetaEntity(key)
                                             vm.c.meta.setMeta(
                                                 m.copy(
                                                     contactId = newId,
@@ -178,7 +201,7 @@ fun VaultDetailScreen(vm: AppViewModel, id: Long, back: () -> Unit, open: (Strin
             },
         )
     }) { p ->
-        LazyColumn(state = listState, contentPadding = androidx.compose.foundation.layout.PaddingValues(top = p.calculateTopPadding(), bottom = p.calculateBottomPadding() + 32.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        LazyColumn(state = listState, contentPadding = PaddingValues(top = p.calculateTopPadding(), bottom = p.calculateBottomPadding() + 32.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             item {
                 Column(Modifier.fillMaxWidth().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     Avatar(summary?.name ?: "?", card?.photoUri, 112.dp)
@@ -193,7 +216,7 @@ fun VaultDetailScreen(vm: AppViewModel, id: Long, back: () -> Unit, open: (Strin
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         ActionTile(Icons.Rounded.Call, stringResource(R.string.vault_call), first != null) { first?.let { vm.requestCall(it, summary.name) } }
                         val sms = stringResource(R.string.vault_sms)
-                        val usual = prefs.message?.let { m -> if (m == app.parley.common.people.MessengerPrefs.SMS) sms else app.parley.common.MessengerApp.forPackage(m)?.label }
+                        val usual = prefs.message?.let { m -> if (m == MessengerPrefs.SMS) sms else MessengerApp.forPackage(m)?.label }
                         ActionTile(Icons.AutoMirrored.Rounded.Message, usual ?: stringResource(R.string.vault_message), first != null, onLongClick = { messageSheet = first.orEmpty() }, longClickLabel = stringResource(R.string.vault_choose_message)) { message() }
                         val email = details?.emails?.firstOrNull()?.value
                         ActionTile(Icons.Rounded.Email, stringResource(R.string.vault_email), email != null) { email?.let { Intents.email(context, it) } }
@@ -205,7 +228,7 @@ fun VaultDetailScreen(vm: AppViewModel, id: Long, back: () -> Unit, open: (Strin
                     SegmentedGroup {
                         item {
                             ListItem(
-                                colors = app.parley.ui.contact.groupRowColors(),
+                                colors = groupRowColors(),
                                 leadingContent = { Icon(Icons.Rounded.PushPin, null, tint = MaterialTheme.colorScheme.primary) },
                                 headlineContent = { Text(note) },
                                 supportingContent = { Text(stringResource(R.string.vault_shown_when_call)) },
@@ -222,7 +245,7 @@ fun VaultDetailScreen(vm: AppViewModel, id: Long, back: () -> Unit, open: (Strin
                                 headlineContent = { Text(stringResource(R.string.vault_unlock_all)) },
                                 supportingContent = { Text(stringResource(R.string.vault_unlock_all_summary)) },
                                 leadingContent = { Icon(Icons.Rounded.Lock, null) },
-                                colors = app.parley.ui.contact.groupRowColors(),
+                                colors = groupRowColors(),
                                 modifier = Modifier.clickable { unlock() },
                             )
                         }
@@ -236,7 +259,7 @@ fun VaultDetailScreen(vm: AppViewModel, id: Long, back: () -> Unit, open: (Strin
                     SegmentedGroup(stringResource(R.string.vault_phone)) {
                         phones.forEachIndexed { i, ph ->
                             item {
-                                app.parley.ui.contact.GroupDataRow(
+                                GroupDataRow(
                                     Icons.Rounded.Call, i == 0, ph.value, Format.phoneType(context.resources, ph.type, ph.label),
                                     onClick = { vm.requestCall(ph.value, d.displayName) },
                                     headline = { Text(DataL10n.ltr(Format.number(ph.value, vm.countryIso))) },
@@ -251,7 +274,7 @@ fun VaultDetailScreen(vm: AppViewModel, id: Long, back: () -> Unit, open: (Strin
                 }
                 if (d.emails.isNotEmpty()) item {
                     SegmentedGroup(stringResource(R.string.vault_email)) {
-                        d.emails.forEachIndexed { i, e -> item { app.parley.ui.contact.GroupDataRow(Icons.Rounded.Email, i == 0, e.value, null, onClick = { Intents.email(context, e.value) }) } }
+                        d.emails.forEachIndexed { i, e -> item { GroupDataRow(Icons.Rounded.Email, i == 0, e.value, null, onClick = { Intents.email(context, e.value) }) } }
                     }
                 }
                 if (d.handles.isNotEmpty()) item {
@@ -264,9 +287,9 @@ fun VaultDetailScreen(vm: AppViewModel, id: Long, back: () -> Unit, open: (Strin
                     val websiteLabel = stringResource(R.string.vault_website)
                     val noteLabel = stringResource(R.string.vault_note)
                     SegmentedGroup(stringResource(R.string.vault_about)) {
-                        d.addresses.forEachIndexed { i, a -> item { app.parley.ui.contact.GroupDataRow(Icons.Rounded.LocationOn, i == 0, a.formatted, addressLabel, onClick = { Intents.map(context, a.formatted) }) } }
-                        d.websites.forEachIndexed { i, w -> item { app.parley.ui.contact.GroupDataRow(Icons.Rounded.Language, i == 0, w.value, websiteLabel, onClick = { Intents.web(context, w.value) }) } }
-                        if (d.note.isNotBlank()) item { app.parley.ui.contact.GroupDataRow(Icons.AutoMirrored.Rounded.Notes, true, d.note, noteLabel, onClick = {}, headline = { LinkifiedText(d.note) }) }
+                        d.addresses.forEachIndexed { i, a -> item { GroupDataRow(Icons.Rounded.LocationOn, i == 0, a.formatted, addressLabel, onClick = { Intents.map(context, a.formatted) }) } }
+                        d.websites.forEachIndexed { i, w -> item { GroupDataRow(Icons.Rounded.Language, i == 0, w.value, websiteLabel, onClick = { Intents.web(context, w.value) }) } }
+                        if (d.note.isNotBlank()) item { GroupDataRow(Icons.AutoMirrored.Rounded.Notes, true, d.note, noteLabel, onClick = {}, headline = { LinkifiedText(d.note) }) }
                     }
                 }
             }
@@ -276,10 +299,10 @@ fun VaultDetailScreen(vm: AppViewModel, id: Long, back: () -> Unit, open: (Strin
                     SegmentedGroup(stringResource(R.string.vault_call_history)) {
                         mine.forEach { c ->
                             item {
-                                val type = app.parley.data.CallLogRepository.mapType(c.type)
+                                val type = CallLogRepository.mapType(c.type)
                                 ListItem(
-                                    colors = app.parley.ui.contact.groupRowColors(),
-                                    leadingContent = { app.parley.ui.home.CallTypeIcon(type, durationSec = c.durationSec) },
+                                    colors = groupRowColors(),
+                                    leadingContent = { CallTypeIcon(type, durationSec = c.durationSec) },
                                     headlineContent = { Text(Format.fullDate(context, c.date)) },
                                     supportingContent = { Text(listOf(DataL10n.ltr(Format.number(c.number, vm.countryIso)), Format.duration(c.durationSec)).filter { it.isNotBlank() }.joinToString(" · ")) },
                                 )
@@ -293,14 +316,14 @@ fun VaultDetailScreen(vm: AppViewModel, id: Long, back: () -> Unit, open: (Strin
 
     messageSheet?.let { n ->
         val r = reach()
-        app.parley.messaging.ReachSheet(
-            app.parley.messaging.ReachTarget.Person(r.copy(defaultNumber = n.ifEmpty { r.defaultNumber })) { p -> savePrefs(p) },
+        ReachSheet(
+            ReachTarget.Person(r.copy(defaultNumber = n.ifEmpty { r.defaultNumber })) { p -> savePrefs(p) },
             onDismiss = { messageSheet = null },
             onCall = { num -> vm.requestCall(num, summary?.name ?: r.name) },
         )
     }
-    webLink?.let { l -> app.parley.ui.contact.ConfirmWebLink(l) { webLink = null } }
-    if (shareQr) details?.let { app.parley.ui.contact.SecureQrDialog(it) { shareQr = false } }
+    webLink?.let { l -> ConfirmWebLink(l) { webLink = null } }
+    if (shareQr) details?.let { SecureQrDialog(it) { shareQr = false } }
     if (confirmDelete) {
         AlertDialog(
             onDismissRequest = { confirmDelete = false },

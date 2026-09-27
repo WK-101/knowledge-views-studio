@@ -4,6 +4,7 @@ import android.content.Context
 import android.provider.CallLog
 import android.util.Base64
 import app.parley.common.backup.RecordJson
+import app.parley.common.people.CallerCard
 import app.parley.common.record.ContactRecord
 import app.parley.common.PhoneNumbers
 import app.parley.common.NotificationPrivacy
@@ -12,12 +13,15 @@ import androidx.room.withTransaction
 import app.parley.data.CallerInfo
 import app.parley.data.ContactDetails
 import app.parley.data.ContactDetailsJson
+import app.parley.data.ContactPhotoProcessor
 import app.parley.data.DataItem
 import app.parley.data.PhoneEnv
+import app.parley.data.R
 import app.parley.data.db.AppDatabase
 import app.parley.data.db.PrivateCallEntity
 import app.parley.data.db.VaultContactEntity
 import app.parley.data.db.VaultNumberEntity
+import java.io.File
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharingStarted
@@ -145,7 +149,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
         recordOf: String? = null,
         interactions: String? = null,
     ): Long = withContext(Dispatchers.IO) {
-        val name = d.composedName.ifBlank { d.company.ifBlank { d.phones.firstOrNull()?.value ?: context.getString(app.parley.data.R.string.data_vault_fallback_name) } }
+        val name = d.composedName.ifBlank { d.company.ifBlank { d.phones.firstOrNull()?.value ?: context.getString(R.string.data_vault_fallback_name) } }
         val region = region()
         val numbers = d.phones.map { it.value }.filter { it.isNotBlank() }
         val existing = id?.let { dao.get(it) }
@@ -154,7 +158,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
             .put("labels", JSONArray(d.phones.filter { it.value.isNotBlank() }.map { it.type }))
             // The caller card's extra lines, readable while the phone is locked like the name.
             .apply {
-                app.parley.common.people.CallerCard.subtitle(d.title, d.company)?.let { put("sub", it) }
+                CallerCard.subtitle(d.title, d.company)?.let { put("sub", it) }
                 // Kept apart too, so a lost detail key can restore them (see rebuiltFromCallerId).
                 d.title.trim().ifEmpty { null }?.let { put(C_TITLE, it) }
                 d.company.trim().ifEmpty { null }?.let { put(C_COMPANY, it) }
@@ -312,8 +316,8 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
 
     // ---- Encrypted photo (the caller-ID key, so the call screen can show it while the phone is locked) ----
 
-    private fun photoDir() = java.io.File(context.filesDir, "vault_photos").apply { mkdirs() }
-    private fun photoFile(id: Long) = java.io.File(photoDir(), "$id.bin")
+    private fun photoDir() = File(context.filesDir, "vault_photos").apply { mkdirs() }
+    private fun photoFile(id: Long) = File(photoDir(), "$id.bin")
 
     /**
      * The in-app URI of entry [id]'s photo (served decrypted only inside Parley by the non-exported vault photo
@@ -333,8 +337,8 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
     /** Stores [image] (any format Android decodes) as entry [id]'s photo, scaled down and encrypted. */
     suspend fun setPhoto(id: Long, image: ByteArray): Boolean = withContext(Dispatchers.IO) {
         // Bounded decode, upright, centre square (512 px is plenty for a caller photo).
-        val jpeg = app.parley.data.ContactPhotoProcessor.process(image, PHOTO_PX) ?: return@withContext false
-        val tmp = java.io.File(photoDir(), "$id.tmp")
+        val jpeg = ContactPhotoProcessor.process(image, PHOTO_PX) ?: return@withContext false
+        val tmp = File(photoDir(), "$id.tmp")
         tmp.writeBytes(VaultCrypto.sealCallerId(jpeg))
         tmp.renameTo(photoFile(id))
     }

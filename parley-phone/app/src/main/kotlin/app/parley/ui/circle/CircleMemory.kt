@@ -1,9 +1,12 @@
 package app.parley.ui.circle
 
+import android.app.Application
 import android.content.res.Resources
+import android.text.format.DateFormat
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -52,6 +55,7 @@ import app.parley.data.circle.CircleRepository.PersonNote
 import app.parley.ui.SegmentedGroup
 import app.parley.ui.common.Format
 import java.time.Instant
+import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -99,7 +103,7 @@ fun PromiseNoteField(value: TextFieldValue, onChange: (TextFieldValue) -> Unit, 
 
 /** Ticks a promise off (or back on), with Undo. */
 suspend fun tickPromise(vm: AppViewModel, lookupKey: String, note: PersonNote, item: Promises.Item, done: Boolean) {
-    val res = vm.getApplication<android.app.Application>().resources
+    val res = vm.getApplication<Application>().resources
     if (!vm.c.circle.setPromiseDone(lookupKey, note, item.line, done)) return
     if (done) {
         val after = note.copy(text = Promises.setDone(note.text, item.line, true))
@@ -144,9 +148,9 @@ fun goodTimeText(res: Resources, calls: List<CallEntry>, number: String?, countr
     val theirs = NumberInfo.timeZone(number, countryIso, now)
     val w = GoodTime.window(calls, theirs ?: mine, now) ?: return null
     val locale = Locale.getDefault()
-    val hour = DateTimeFormatter.ofPattern(android.text.format.DateFormat.getBestDateTimePattern(locale, "j"), locale)
-    val time = DateTimeFormatter.ofPattern(android.text.format.DateFormat.getBestDateTimePattern(locale, "jmm"), locale)
-    val day = java.time.LocalDate.now()
+    val hour = DateTimeFormatter.ofPattern(DateFormat.getBestDateTimePattern(locale, "j"), locale)
+    val time = DateTimeFormatter.ofPattern(DateFormat.getBestDateTimePattern(locale, "jmm"), locale)
+    val day = LocalDate.now()
     val range = res.getString(R.string.circle_good_time_range, day.atTime(w.startHour, 0).format(hour), day.atTime(w.endOfDay, 0).format(hour))
     val free = res.getString(R.string.circle_good_time, range)
     if (!GoodTime.differs(theirs, mine, now)) return free
@@ -195,7 +199,7 @@ fun PreCallPeekSheet(vm: AppViewModel, lookupKey: String, name: String, memory: 
                     vm.toast(res.getString(R.string.circle_peek_off))
                     onCall()
                 }) { Text(stringResource(R.string.circle_peek_dont_show)) }
-                androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
+                Spacer(Modifier.weight(1f))
                 TextButton(onDismiss) { Text(stringResource(R.string.main_cancel)) }
                 Button(onCall) {
                     Icon(Icons.Rounded.Call, null, Modifier.padding(end = 6.dp))

@@ -1,5 +1,6 @@
 package app.parley.common.calls
 
+import kotlin.math.abs
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
@@ -205,7 +206,7 @@ object RingExplainer {
 
     /** The facts stored for a call at [time] (the call log's date), within [windowMs]. Newest match wins. */
     fun matchFor(all: List<RingFacts>, time: Long, windowMs: Long = MATCH_WINDOW_MS): RingFacts? =
-        all.filter { kotlin.math.abs(it.startedAt - time) <= windowMs }.minByOrNull { kotlin.math.abs(it.startedAt - time) }
+        all.filter { abs(it.startedAt - time) <= windowMs }.minByOrNull { abs(it.startedAt - time) }
 
     private fun seconds(ms: Long): String {
         val s = (ms + 500) / 1000

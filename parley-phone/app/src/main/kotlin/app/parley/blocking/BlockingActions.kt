@@ -13,6 +13,7 @@ import app.parley.common.RuleTools
 import app.parley.common.RuleType
 import app.parley.data.DataContainer
 import app.parley.data.PhoneEnv
+import app.parley.ui.common.Intents
 
 /** Blocking actions shared by the Blocking screen, Recents, number history, notifications and the QS tile. */
 object BlockingActions {
@@ -102,7 +103,7 @@ object BlockingActions {
     }
 
     fun openRegulator(context: Context, r: Regulator, number: String) {
-        app.parley.ui.common.Intents.copy(context, number)
+        Intents.copy(context, number)
         launch(context, Intent(Intent.ACTION_VIEW, Uri.parse(r.url)).addCategory(Intent.CATEGORY_BROWSABLE))
     }
 

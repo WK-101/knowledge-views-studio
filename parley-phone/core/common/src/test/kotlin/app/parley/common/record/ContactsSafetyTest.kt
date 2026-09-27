@@ -6,6 +6,7 @@ import app.parley.common.people.MetaRekey
 import app.parley.common.people.RelationLinks
 import app.parley.common.people.TemporaryExpiry
 import app.parley.common.vcard.ContactCsv
+import app.parley.common.vcard.ImportReport
 import app.parley.common.vcard.ImportReportBuilder
 import app.parley.common.vcard.ParsedCard
 import app.parley.common.vcard.VCardMapper
@@ -263,7 +264,7 @@ class ContactsSafetyTest {
 
     // ------------------------------------------------------------ CSV separators and number lists
 
-    private fun readCsv(text: String): Pair<List<ContactRecord>, app.parley.common.vcard.ImportReport> {
+    private fun readCsv(text: String): Pair<List<ContactRecord>, ImportReport> {
         val report = ImportReportBuilder()
         val out = ArrayList<ContactRecord>()
         ContactCsv.read(text.reader(), report) { c: ParsedCard -> out += c.record }

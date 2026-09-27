@@ -1,6 +1,7 @@
 package app.parley.ui.qr
 
 import android.content.ActivityNotFoundException
+import android.content.ClipboardManager
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -41,6 +42,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
@@ -57,6 +59,7 @@ import app.parley.common.qr.QrPayload
 import app.parley.common.qr.QrText
 import app.parley.ui.SegmentedGroup
 import app.parley.ui.settings.SettingsScaffold
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -88,7 +91,7 @@ private sealed interface ScanState {
 @Composable
 fun QrScanScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
     val context = LocalContext.current
-    val res = androidx.compose.ui.platform.LocalResources.current
+    val res = LocalResources.current
     val scope = rememberCoroutineScope()
     var state by remember { mutableStateOf<ScanState>(ScanState.Idle) }
     var payload by remember { mutableStateOf<QrPayload?>(null) }
@@ -109,7 +112,7 @@ fun QrScanScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
         scope.launch {
             val outcome = try {
                 QrScanner.scan(context, uri)
-            } catch (e: kotlinx.coroutines.CancellationException) {
+            } catch (e: CancellationException) {
                 throw e
             } catch (_: Exception) {
                 QrScanner.Outcome.Unreadable
@@ -164,7 +167,7 @@ fun QrScanScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
     }
 
     fun paste() {
-        val clip = runCatching { context.getSystemService(android.content.ClipboardManager::class.java).primaryClip }.getOrNull()
+        val clip = runCatching { context.getSystemService(ClipboardManager::class.java).primaryClip }.getOrNull()
         val text = clip?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.coerceToText(context)?.toString()
         if (text.isNullOrBlank()) {
             vm.toast(res.getString(R.string.qs_clipboard_empty))

@@ -1,5 +1,6 @@
 package app.parley.common.calltime
 
+import java.time.DayOfWeek
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -63,7 +64,7 @@ class QuotasTest {
     }
 
     @Test fun week_start_is_configurable() {
-        val sunday = java.time.DayOfWeek.SUNDAY
+        val sunday = DayOfWeek.SUNDAY
         assertEquals(at(2026, 9, 20, 0), Quotas.periodStart(at(2026, 9, 23, 20), zone, QuotaPeriod.WEEK, sunday))
     }
 

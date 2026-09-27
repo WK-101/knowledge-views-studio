@@ -1,5 +1,7 @@
 package app.parley.common.vcard
 
+import java.io.ByteArrayOutputStream
+import java.util.IdentityHashMap
 import java.util.Locale
 import app.parley.common.record.Col
 import app.parley.common.record.ContactRecord
@@ -551,7 +553,7 @@ object VCardMapper {
         fun labelOf(p: VCardProperty) = p.group?.let { labels[it.lowercase()] }
 
         val rows = ArrayList<Pair<DataRow, Int>>() // row with preference rank (lower = more preferred)
-        val slots = java.util.IdentityHashMap<DataRow, Int>()
+        val slots = IdentityHashMap<DataRow, Int>()
         var birthdaySlot = false
         var anniversarySlot = false
         var fnDerived = false
@@ -876,7 +878,7 @@ object VCardMapper {
     }
 
     private fun decodeParam(s: String): String {
-        val out = java.io.ByteArrayOutputStream()
+        val out = ByteArrayOutputStream()
         var i = 0
         while (i < s.length) {
             val c = s[i]

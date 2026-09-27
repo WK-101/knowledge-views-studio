@@ -1,18 +1,25 @@
 package app.parley.security
 
+import android.annotation.SuppressLint
 import android.app.PendingIntent
+import android.content.ComponentName
+import android.content.Context
 import android.content.Intent
 import android.os.Build
+import android.os.Bundle
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
+import androidx.fragment.app.FragmentActivity
+import app.parley.R
 import app.parley.container
+import app.parley.ui.AppLocale
 import kotlinx.coroutines.launch
 
 /** Quick Settings tile: hide/show private contacts instantly (discreet mode). */
 class VaultTileService : TileService() {
     // The in-app language on Android 10-12 (Android 13+ applies per-app languages itself).
-    override fun attachBaseContext(newBase: android.content.Context) {
-        super.attachBaseContext(app.parley.ui.AppLocale.wrap(newBase))
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(AppLocale.wrap(newBase))
     }
 
     override fun onStartListening() {
@@ -30,7 +37,7 @@ class VaultTileService : TileService() {
     }
 
     // The Intent overload only runs below Android 14, where it is the only one.
-    @android.annotation.SuppressLint("StartActivityAndCollapseDeprecated")
+    @SuppressLint("StartActivityAndCollapseDeprecated")
     private fun reveal(appLock: Boolean) {
         if (!appLock) return toggle()
         val intent = Intent(this, DiscreetRevealActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -54,20 +61,20 @@ class VaultTileService : TileService() {
     private fun render(hidden: Boolean) {
         val tile = qsTile ?: return
         tile.state = if (hidden) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
-        tile.label = getString(if (hidden) app.parley.R.string.tile_private_hidden else app.parley.R.string.tile_private_shown)
-        if (android.os.Build.VERSION.SDK_INT >= 29) tile.subtitle = getString(app.parley.R.string.app_name)
+        tile.label = getString(if (hidden) R.string.tile_private_hidden else R.string.tile_private_shown)
+        if (Build.VERSION.SDK_INT >= 29) tile.subtitle = getString(R.string.app_name)
         tile.updateTile()
     }
 }
 
 /** Asks for Parley's unlock, then turns discreet mode off. Invisible apart from the system prompt. Not exported. */
-class DiscreetRevealActivity : androidx.fragment.app.FragmentActivity() {
-    override fun attachBaseContext(newBase: android.content.Context) {
+class DiscreetRevealActivity : FragmentActivity() {
+    override fun attachBaseContext(newBase: Context) {
         super.attachBaseContext(newBase)
-        app.parley.ui.AppLocale.override(this, newBase)
+        AppLocale.override(this, newBase)
     }
 
-    override fun onCreate(savedInstanceState: android.os.Bundle?) {
+    override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         AppLock.applySecureFlag(this, true)
         // Configuration changes are handled in place (manifest), so the prompt and its callback stay with this
@@ -77,12 +84,12 @@ class DiscreetRevealActivity : androidx.fragment.app.FragmentActivity() {
             finish()
             return
         }
-        AppLock.authenticate(this, getString(app.parley.R.string.lock_unlock_private)) { ok ->
+        AppLock.authenticate(this, getString(R.string.lock_unlock_private)) { ok ->
             if (ok) {
                 val c = container
                 c.scope.launch {
                     c.settings.update { it.copy(hideVault = false) }
-                    android.service.quicksettings.TileService.requestListeningState(applicationContext, android.content.ComponentName(applicationContext, VaultTileService::class.java))
+                    TileService.requestListeningState(applicationContext, ComponentName(applicationContext, VaultTileService::class.java))
                 }
             }
             finish()

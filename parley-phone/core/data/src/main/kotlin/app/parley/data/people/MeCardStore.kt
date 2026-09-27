@@ -1,6 +1,8 @@
 package app.parley.data.people
 
+import android.Manifest
 import android.content.Context
+import android.net.Uri
 import android.provider.ContactsContract
 import android.provider.ContactsContract.CommonDataKinds.Email
 import android.provider.ContactsContract.CommonDataKinds.Organization
@@ -68,8 +70,8 @@ class MeCardStore(context: Context) {
 
     /** Android's profile contact, or null when there is none (or contacts can't be read). */
     suspend fun profile(): MeCard? = withContext(Dispatchers.IO) {
-        if (!Permissions.has(app, android.Manifest.permission.READ_CONTACTS)) return@withContext null
-        val uri = android.net.Uri.withAppendedPath(ContactsContract.Profile.CONTENT_URI, ContactsContract.Contacts.Data.CONTENT_DIRECTORY)
+        if (!Permissions.has(app, Manifest.permission.READ_CONTACTS)) return@withContext null
+        val uri = Uri.withAppendedPath(ContactsContract.Profile.CONTENT_URI, ContactsContract.Contacts.Data.CONTENT_DIRECTORY)
         var name = ""
         val phones = ArrayList<String>()
         val emails = ArrayList<String>()

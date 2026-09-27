@@ -1,5 +1,6 @@
 package app.parley.common.backup
 
+import java.security.interfaces.RSAPublicKey
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -218,7 +219,7 @@ class BackupCryptoTest {
         assertArrayEquals(a.encoded, b.encoded)
         assertThrows<WrongKeyException> { BackupCrypto.unlockPrivateKey(restored, "bad".toCharArray()) }
         assertThrows<WrongKeyException> { BackupCrypto.unlockPrivateKey(restored, RecoveryKey.generate()) }
-        assertEquals(3072, (BUNDLE.publicKey as java.security.interfaces.RSAPublicKey).modulus.bitLength())
+        assertEquals(3072, (BUNDLE.publicKey as RSAPublicKey).modulus.bitLength())
     }
 
     @Test fun changePassphraseRewrapsOnly() {

@@ -9,8 +9,12 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import app.parley.common.people.AvatarStyle
+import app.parley.common.people.ContactPageLayout
 import app.parley.common.people.FavoriteSort
 import app.parley.common.people.SecondLineMode
+import app.parley.common.people.SwipeAction
+import app.parley.common.people.SwipeConfig
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -38,11 +42,11 @@ data class PeopleSettings(
     /** Ringtone URI per label title. */
     val labelRingtones: Map<String, String> = emptyMap(),
     /** Swipe actions on contact and Recents rows (off by default). */
-    val swipe: app.parley.common.people.SwipeConfig = app.parley.common.people.SwipeConfig(),
+    val swipe: SwipeConfig = SwipeConfig(),
     /** How avatars without a photo look. */
-    val avatarStyle: app.parley.common.people.AvatarStyle = app.parley.common.people.AvatarStyle.COLOURFUL,
+    val avatarStyle: AvatarStyle = AvatarStyle.COLOURFUL,
     /** The contact page's section order, start modes and remembered folds. */
-    val contactPage: app.parley.common.people.ContactPageLayout = app.parley.common.people.ContactPageLayout(),
+    val contactPage: ContactPageLayout = ContactPageLayout(),
     /** "jump to section" chips under a contact page's pinned header. */
     val sectionChips: Boolean = true,
 )
@@ -95,13 +99,13 @@ class PeoplePrefs(context: Context, scope: CoroutineScope) {
             labelRingtones = this[K.ringtones]?.let { raw ->
                 runCatching { JSONObject(raw).let { o -> o.keys().asSequence().associateWith { o.getString(it) } } }.getOrNull()
             } ?: d.labelRingtones,
-            swipe = app.parley.common.people.SwipeConfig(
+            swipe = SwipeConfig(
                 enabled = this[K.swipeOn] ?: d.swipe.enabled,
-                right = app.parley.common.people.SwipeAction.parse(this[K.swipeRight], d.swipe.right),
-                left = app.parley.common.people.SwipeAction.parse(this[K.swipeLeft], d.swipe.left),
+                right = SwipeAction.parse(this[K.swipeRight], d.swipe.right),
+                left = SwipeAction.parse(this[K.swipeLeft], d.swipe.left),
             ),
-            avatarStyle = this[K.avatar]?.let { v -> app.parley.common.people.AvatarStyle.entries.firstOrNull { it.name == v } } ?: d.avatarStyle,
-            contactPage = app.parley.common.people.ContactPageLayout.decode(this[K.contactPage]),
+            avatarStyle = this[K.avatar]?.let { v -> AvatarStyle.entries.firstOrNull { it.name == v } } ?: d.avatarStyle,
+            contactPage = ContactPageLayout.decode(this[K.contactPage]),
             sectionChips = this[K.sectionChips] ?: d.sectionChips,
         )
     }

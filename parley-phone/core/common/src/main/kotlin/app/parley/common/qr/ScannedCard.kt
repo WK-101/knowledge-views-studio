@@ -2,6 +2,7 @@ package app.parley.common.qr
 
 import app.parley.common.record.Col
 import app.parley.common.record.ContactRecord
+import app.parley.common.record.DataRow
 import app.parley.common.record.Mime
 import app.parley.common.vcard.VCardStream
 
@@ -60,5 +61,5 @@ object ScannedCard {
 
     private fun labelRows(record: ContactRecord) = record.raws.flatMap { it.rows }.filter { it.mimeType == Mime.GROUP }
 
-    private fun isStarredLabel(row: app.parley.common.record.DataRow) = row[Col.GROUP_TITLE].equals(STARRED_LABEL, ignoreCase = true)
+    private fun isStarredLabel(row: DataRow) = row[Col.GROUP_TITLE].equals(STARRED_LABEL, ignoreCase = true)
 }

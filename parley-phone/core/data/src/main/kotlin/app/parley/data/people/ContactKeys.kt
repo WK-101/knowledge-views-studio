@@ -5,9 +5,11 @@ import app.parley.common.people.RelationLinks
 import app.parley.common.people.TemporaryExpiry
 import androidx.room.withTransaction
 import app.parley.data.ContactsRepository
+import app.parley.data.circle.InteractionStore
 import app.parley.data.db.AppDatabase
 import app.parley.data.db.ContactMetaEntity
 import app.parley.data.db.MetaDao
+import app.parley.data.extras.ExtrasStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -28,9 +30,9 @@ class ContactKeys(
     private val meta: MetaDao,
     private val backgrounds: () -> CallBackgrounds,
     /** Interactions are keyed like contact_meta and follow the same moves. */
-    private val interactions: () -> app.parley.data.circle.InteractionStore? = { null },
+    private val interactions: () -> InteractionStore? = { null },
     /** The record of contacts Parley starred for a label's Do Not Disturb choice follows the same moves. */
-    private val extras: () -> app.parley.data.extras.ExtrasStore? = { null },
+    private val extras: () -> ExtrasStore? = { null },
     /** The database behind [meta] and the interactions: each re-key's rows move in one transaction. */
     private val db: AppDatabase? = null,
 ) {

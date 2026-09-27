@@ -5,12 +5,13 @@ import app.parley.common.backup.Fixtures.email
 import app.parley.common.backup.Fixtures.note
 import app.parley.common.backup.Fixtures.phone
 import app.parley.common.backup.Fixtures.photo
+import app.parley.common.record.ContactRecord
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class MergePlannerTest {
-    private fun single(existing: List<app.parley.common.record.ContactRecord>, b: app.parley.common.record.ContactRecord) =
+    private fun single(existing: List<ContactRecord>, b: ContactRecord) =
         MergePlanner.plan(existing, listOf(b)).actions.single()
 
     @Test fun unmatchedIsNew() {

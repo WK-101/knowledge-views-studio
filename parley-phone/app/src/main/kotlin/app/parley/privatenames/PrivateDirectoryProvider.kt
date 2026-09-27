@@ -12,6 +12,7 @@ import android.provider.ContactsContract
 import android.provider.ContactsContract.Directory
 import android.provider.ContactsContract.PhoneLookup
 import app.parley.ParleyApp
+import app.parley.R
 import app.parley.common.people.DirectoryPolicy
 import app.parley.data.DataContainer
 import app.parley.common.people.LookupApproval
@@ -61,7 +62,7 @@ class PrivateDirectoryProvider : ContentProvider() {
             when (col) {
                 Directory.ACCOUNT_NAME -> "Parley"
                 Directory.ACCOUNT_TYPE -> ctx.packageName
-                Directory.DISPLAY_NAME -> ctx.getString(app.parley.R.string.privnames_directory)
+                Directory.DISPLAY_NAME -> ctx.getString(R.string.privnames_directory)
                 Directory.EXPORT_SUPPORT -> Directory.EXPORT_SUPPORT_NONE
                 Directory.SHORTCUT_SUPPORT -> Directory.SHORTCUT_SUPPORT_NONE
                 Directory.PHOTO_SUPPORT -> Directory.PHOTO_SUPPORT_NONE

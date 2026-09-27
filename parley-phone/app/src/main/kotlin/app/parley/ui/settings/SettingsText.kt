@@ -1,6 +1,8 @@
 package app.parley.ui.settings
 
 import android.content.Context
+import android.text.BidiFormatter
+import android.text.TextDirectionHeuristics
 import androidx.annotation.StringRes
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
@@ -209,7 +211,7 @@ object SettingsText {
  * Keeps a phone number, code or other digits left-to-right inside right-to-left text (Arabic, Urdu), without
  * forcing the direction of the text around it. For display only: never store the result.
  */
-fun bidiLtr(s: String): String = android.text.BidiFormatter.getInstance().unicodeWrap(s, android.text.TextDirectionHeuristics.LTR)
+fun bidiLtr(s: String): String = BidiFormatter.getInstance().unicodeWrap(s, TextDirectionHeuristics.LTR)
 
 /** [bidiLtr] when [s] is a phone number (a title that fell back to the number), else [s] unchanged. */
 fun bidiLtrIfNumber(s: String): String = if (s.isNotEmpty() && s.all { it.isDigit() || it in "+-() .#*" }) bidiLtr(s) else s

@@ -47,6 +47,8 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.parley.R
+import app.parley.common.ux.Tips
+import app.parley.ui.common.CoachMarkAnchor
 
 /**
  * The header of every home tab: the tab's title, its own actions, a search icon that turns the bar into a search
@@ -84,7 +86,7 @@ fun HomeHeader(
                 title = { Text(title, style = MaterialTheme.typography.headlineSmall, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 actions = {
                     // A one-time tip under the search icon.
-                    app.parley.ui.common.CoachMarkAnchor(app.parley.common.ux.Tips.HEADER_SEARCH, stringResource(R.string.ux_tip_search)) {
+                    CoachMarkAnchor(Tips.HEADER_SEARCH, stringResource(R.string.ux_tip_search)) {
                         IconButton({ onSearch(true) }) { Icon(Icons.Rounded.Search, searchHint) }
                     }
                     actions()

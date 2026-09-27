@@ -1,6 +1,7 @@
 package app.parley.data.people
 
 import android.content.ContentResolver
+import android.content.ContentUris
 import android.content.Context
 import android.provider.ContactsContract
 import android.provider.ContactsContract.Contacts
@@ -9,6 +10,7 @@ import app.parley.common.people.ParleyWrite
 import app.parley.common.people.Provenance
 import app.parley.common.people.ProvenanceVerdict
 import app.parley.common.people.RawState
+import app.parley.common.record.Messengers
 import app.parley.data.AccountRef
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -57,7 +59,7 @@ class ParleyWriteLog(context: Context) {
 
     /** Reads RawContacts.VERSION (after a save). */
     fun version(cr: ContentResolver, rawId: Long): Long? = try {
-        cr.query(android.content.ContentUris.withAppendedId(RawContacts.CONTENT_URI, rawId), arrayOf(RawContacts.VERSION), null, null, null)
+        cr.query(ContentUris.withAppendedId(RawContacts.CONTENT_URI, rawId), arrayOf(RawContacts.VERSION), null, null, null)
             ?.use { c -> if (c.moveToFirst()) c.getLong(0) else null }
     } catch (_: Exception) {
         null
@@ -88,14 +90,14 @@ class ProvenanceReader(private val context: Context, private val log: ParleyWrit
             )?.use { c ->
                 while (c.moveToNext()) {
                     val type = c.getString(1)
-                    if (app.parley.common.record.Messengers.isMessengerAccount(type)) continue
+                    if (Messengers.isMessengerAccount(type)) continue
                     raws += RawState(c.getLong(0), AccountRef(type, c.getString(2)).displayLabel, type != null && type in synced, c.getLong(3), c.getInt(4) != 0)
                 }
             }
         } catch (_: Exception) {
         }
         val updated = try {
-            cr.query(android.content.ContentUris.withAppendedId(Contacts.CONTENT_URI, contactId), arrayOf(Contacts.CONTACT_LAST_UPDATED_TIMESTAMP), null, null, null)
+            cr.query(ContentUris.withAppendedId(Contacts.CONTENT_URI, contactId), arrayOf(Contacts.CONTACT_LAST_UPDATED_TIMESTAMP), null, null, null)
                 ?.use { c -> if (c.moveToFirst()) c.getLong(0) else null }
         } catch (_: Exception) {
             null

@@ -11,6 +11,7 @@ import app.parley.data.AccountRef
 import app.parley.data.ContactDetails
 import app.parley.data.ContactsRepository
 import app.parley.data.DataItem
+import app.parley.data.circle.InteractionStore
 import app.parley.data.records.ContactRecordStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -32,7 +33,7 @@ class VaultMoves(
     private val vault: VaultRepository,
     private val contacts: ContactsRepository,
     private val records: ContactRecordStore,
-    private val interactions: () -> app.parley.data.circle.InteractionStore? = { null },
+    private val interactions: () -> InteractionStore? = { null },
 ) {
     /** [messengerCopies]: WhatsApp, Signal… copies stay until that app resyncs its contacts. */
     data class MovedIn(val vaultId: Long, val removedAfterSync: Boolean, val messengerCopies: Boolean = false)

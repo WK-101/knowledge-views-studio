@@ -1,6 +1,9 @@
 package app.parley.picker
 
 import android.content.ContentUris
+import android.content.Context
+import android.content.res.Resources
+import android.net.Uri
 import android.provider.ContactsContract
 import android.provider.ContactsContract.CommonDataKinds.Email
 import android.provider.ContactsContract.CommonDataKinds.Phone
@@ -135,7 +138,7 @@ fun PickerScreen(
     }
 }
 
-private fun loadPicks(context: android.content.Context, kind: PickKind, res: android.content.res.Resources): List<Pick> {
+private fun loadPicks(context: Context, kind: PickKind, res: Resources): List<Pick> {
     val cr = context.contentResolver
     val out = ArrayList<Pick>()
     try {
@@ -157,7 +160,7 @@ private fun loadPicks(context: android.content.Context, kind: PickKind, res: and
                     PickKind.EMAIL -> listOf(Email.CONTENT_URI.toString(), Email.ADDRESS, Email.TYPE, Email.LABEL)
                     else -> listOf(StructuredPostal.CONTENT_URI.toString(), StructuredPostal.FORMATTED_ADDRESS, StructuredPostal.TYPE, StructuredPostal.LABEL)
                 }
-                val base = android.net.Uri.parse(uri)
+                val base = Uri.parse(uri)
                 cr.query(
                     base,
                     arrayOf(ContactsContract.Data._ID, ContactsContract.Data.CONTACT_ID, ContactsContract.Data.DISPLAY_NAME_PRIMARY, valueCol, typeCol, labelCol, ContactsContract.Data.PHOTO_THUMBNAIL_URI),

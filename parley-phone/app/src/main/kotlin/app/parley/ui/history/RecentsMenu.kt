@@ -30,6 +30,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.R
 import app.parley.common.calls.RecentsLayout
+import app.parley.ui.home.RecentsViewModel
 import app.parley.ui.settings.settingTitle
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
@@ -77,7 +78,7 @@ fun RecentsMenuDialogs(vm: AppViewModel, open: (String) -> Unit) {
     val clear by clearRequested.collectAsStateWithLifecycle()
     if (layout) RecentsLayoutDialog(vm) { layoutRequested.value = false }
     if (clear) {
-        val groups by activityViewModel<app.parley.ui.home.RecentsViewModel>().groups.collectAsStateWithLifecycle()
+        val groups by activityViewModel<RecentsViewModel>().groups.collectAsStateWithLifecycle()
         val shown = remember(groups) { groups.orEmpty().flatMap { it.calls } }
         ClearHistoryDialog(vm, shown, open) { clearRequested.value = false }
     }

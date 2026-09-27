@@ -1,6 +1,8 @@
 package app.parley.telecom
 
 import app.parley.common.Verification
+import app.parley.common.calls.FailureKind
+import app.parley.common.calls.LiveCallState
 
 enum class CallState { NEW, RINGING, DIALING, CONNECTING, ACTIVE, HOLDING, DISCONNECTING, DISCONNECTED, SELECT_ACCOUNT, OTHER }
 
@@ -58,7 +60,7 @@ data class CallUi(
     /** Localised "Private number" / "Unknown", shown when there is neither a name nor a number. */
     val fallbackTitle: String = "",
     /** Why an outgoing call didn't go through (set on the ended call only), and the reason to show. */
-    val failure: app.parley.common.calls.FailureKind? = null,
+    val failure: FailureKind? = null,
     val failureText: String? = null,
     /** The last note and open promises of the caller. */
     val memory: CallerMemory? = null,
@@ -90,12 +92,12 @@ data class CallUi(
 }
 
 /** The state as the pure call-waiting logic in core:common sees it. */
-fun CallState.live(): app.parley.common.calls.LiveCallState = when (this) {
-    CallState.RINGING -> app.parley.common.calls.LiveCallState.RINGING
-    CallState.ACTIVE -> app.parley.common.calls.LiveCallState.ACTIVE
-    CallState.HOLDING -> app.parley.common.calls.LiveCallState.HOLDING
-    CallState.DIALING, CallState.CONNECTING, CallState.SELECT_ACCOUNT -> app.parley.common.calls.LiveCallState.DIALING
-    else -> app.parley.common.calls.LiveCallState.OTHER
+fun CallState.live(): LiveCallState = when (this) {
+    CallState.RINGING -> LiveCallState.RINGING
+    CallState.ACTIVE -> LiveCallState.ACTIVE
+    CallState.HOLDING -> LiveCallState.HOLDING
+    CallState.DIALING, CallState.CONNECTING, CallState.SELECT_ACCOUNT -> LiveCallState.DIALING
+    else -> LiveCallState.OTHER
 }
 
 enum class RouteType { EARPIECE, SPEAKER, BLUETOOTH, WIRED, STREAMING }

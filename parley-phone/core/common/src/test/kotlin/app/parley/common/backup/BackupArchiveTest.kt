@@ -7,6 +7,8 @@ import app.parley.common.backup.Fixtures.photo
 import app.parley.common.record.ContactRecord
 import app.parley.common.record.DataRow
 import app.parley.common.record.RawRecord
+import java.io.IOException
+import java.time.LocalDateTime
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
@@ -135,7 +137,7 @@ class BackupArchiveTest {
         )
         assertEquals("manifest.json", names.last())
         val z = ZipInputStream(ByteArrayInputStream(build().first))
-        generateSequence { z.nextEntry }.forEach { assertEquals(java.time.LocalDateTime.of(1980, 1, 1, 0, 0), it.timeLocal) }
+        generateSequence { z.nextEntry }.forEach { assertEquals(LocalDateTime.of(1980, 1, 1, 0, 0), it.timeLocal) }
     }
 
     @Test fun deterministicOutputAndContentHash() {
@@ -253,7 +255,7 @@ class BackupArchiveTest {
         try {
             BackupArchiveReader.open({ BackupCrypto.decrypt(ByteArrayInputStream(cut), key) })
             fail()
-        } catch (_: java.io.IOException) {
+        } catch (_: IOException) {
         }
     }
 

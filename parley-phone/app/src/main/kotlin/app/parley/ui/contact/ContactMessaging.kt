@@ -61,6 +61,7 @@ import app.parley.common.people.MessageRoute
 import app.parley.common.people.MessageRoutes
 import app.parley.common.people.MessengerPrefs
 import app.parley.common.circle.InteractionChannel
+import app.parley.messaging.MessagingText
 import kotlinx.coroutines.launch
 import app.parley.container
 import app.parley.data.MessengerAction
@@ -116,7 +117,7 @@ object ContactMessaging {
             val e164 = NumberText.toE164(route.number, PhoneEnv.countryIso(context))
             val link = e164?.let { MessengerLinks.build(route.app, it) }
             if (link == null) {
-                app.parley.messaging.MessagingText.unavailable(context.resources, e164)
+                MessagingText.unavailable(context.resources, e164)
             } else {
                 MessengerLauncher.open(context, link, route.app).also { if (it == null) record(context, route.number, route.app, route.app.label) }
                     .also { if (it == null) offerLog(context, r, InteractionChannel.forMessenger(route.app.messenger)) }

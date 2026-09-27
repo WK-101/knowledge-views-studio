@@ -27,6 +27,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.unit.dp
 import androidx.fragment.app.FragmentActivity
 import app.parley.AppViewModel
@@ -57,7 +58,7 @@ private sealed interface Step {
 @Composable
 fun RestoreFlow(vm: AppViewModel, uri: Uri, onDone: () -> Unit) {
     val context = LocalContext.current
-    val res = androidx.compose.ui.platform.LocalResources.current
+    val res = LocalResources.current
     val scope = rememberCoroutineScope()
     var step by remember { mutableStateOf<Step>(Step.Unlock) }
     var secret by remember { mutableStateOf("") }

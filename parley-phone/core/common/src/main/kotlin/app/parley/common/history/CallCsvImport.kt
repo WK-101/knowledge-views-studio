@@ -1,6 +1,7 @@
 package app.parley.common.history
 
 import app.parley.common.CallType
+import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
@@ -8,6 +9,7 @@ import java.time.OffsetDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
+import java.util.Locale
 
 /** RFC 4180 reader that also accepts LF-only and CR-only files, a BOM, and `;` or tab separators. */
 object Csv {
@@ -307,13 +309,13 @@ object CallCsvImport {
         val d = date?.trim() ?: return null
         parseEpoch(d)?.let { return it }
         runCatching { return OffsetDateTime.parse(d).toInstant().toEpochMilli() }
-        runCatching { return java.time.Instant.parse(d).toEpochMilli() }
+        runCatching { return Instant.parse(d).toEpochMilli() }
         runCatching { return LocalDateTime.parse(d).atZone(zone).toInstant().toEpochMilli() }
         val full = if (time != null) "$d ${time.trim()}" else d
         val patterns = dateTimePatterns + if (dayFirst) dayFirstPatterns + monthFirstPatterns else monthFirstPatterns + dayFirstPatterns
         for (p in patterns) {
             try {
-                return LocalDateTime.parse(full, DateTimeFormatter.ofPattern(p, java.util.Locale.ROOT)).atZone(zone).toInstant().toEpochMilli()
+                return LocalDateTime.parse(full, DateTimeFormatter.ofPattern(p, Locale.ROOT)).atZone(zone).toInstant().toEpochMilli()
             } catch (_: DateTimeParseException) {
             }
         }

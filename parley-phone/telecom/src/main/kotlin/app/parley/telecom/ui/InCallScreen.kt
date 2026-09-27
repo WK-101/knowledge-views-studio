@@ -1,9 +1,19 @@
 package app.parley.telecom.ui
 
 import android.annotation.SuppressLint
+import android.app.KeyguardManager
+import android.content.res.Resources
+import android.graphics.BitmapFactory
+import android.net.Uri
 import android.telecom.TelecomManager
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.produceState
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -66,9 +76,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
+import app.parley.common.AppSettings
+import app.parley.common.NotificationPrivacy
+import app.parley.telecom.CallerMemory
 import app.parley.telecom.R
 import app.parley.ui.Bidi
 import app.parley.ui.ForceLtr
@@ -101,6 +116,9 @@ import app.parley.telecom.RouteType
 import app.parley.ui.Avatar
 import app.parley.ui.CallColors
 import app.parley.ui.keypadKey
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -294,7 +312,7 @@ fun InCallScreen(
         AlertDialog(
             onDismissRequest = { noteFor = null },
             title = { Text(stringResource(R.string.incall_note_title)) },
-            text = { androidx.compose.material3.OutlinedTextField(text, { text = it }, minLines = 3, placeholder = { Text(stringResource(R.string.incall_note_placeholder)) }) },
+            text = { OutlinedTextField(text, { text = it }, minLines = 3, placeholder = { Text(stringResource(R.string.incall_note_placeholder)) }) },
             confirmButton = { TextButton({ if (text.isNotBlank()) CallManager.saveNote(id, text.trim()); noteFor = null }) { Text(stringResource(R.string.tc_save)) } },
             dismissButton = { TextButton({ noteFor = null }) { Text(stringResource(R.string.tc_cancel)) } },
         )
@@ -336,8 +354,8 @@ fun InCallScreen(
         ModalBottomSheet(onDismissRequest = { replyFor = null }) {
             Text(stringResource(R.string.incall_reply_sheet_title), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
             // The defaults live in core/common in English: while unedited, send them in the user's language.
-            val replies = if (quickReplies == app.parley.common.AppSettings.DEFAULT_QUICK_REPLIES) {
-                androidx.compose.ui.res.stringArrayResource(R.array.incall_default_quick_replies).toList()
+            val replies = if (quickReplies == AppSettings.DEFAULT_QUICK_REPLIES) {
+                stringArrayResource(R.array.incall_default_quick_replies).toList()
             } else {
                 quickReplies
             }
@@ -375,7 +393,7 @@ fun InCallScreen(
 
 /** One half of the two-pane layout: centred, and scrollable when it doesn't fit. */
 @Composable
-private fun androidx.compose.foundation.layout.RowScope.Pane(content: @Composable ColumnScope.() -> Unit) {
+private fun RowScope.Pane(content: @Composable ColumnScope.() -> Unit) {
     Box(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.Center) {
         Column(Modifier.verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally, content = content)
     }
@@ -421,7 +439,7 @@ private fun CallerHeader(
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
         )
-        val sub = listOfNotNull(call.label?.let { l -> if (app.parley.common.NotificationPrivacy.isVaultLabel(l)) stringResource(R.string.tc_private_label) else l }, call.number?.takeIf { call.name != null }?.let(Bidi::ltr)).joinToString(stringResource(R.string.tc_separator))
+        val sub = listOfNotNull(call.label?.let { l -> if (NotificationPrivacy.isVaultLabel(l)) stringResource(R.string.tc_private_label) else l }, call.number?.takeIf { call.name != null }?.let(Bidi::ltr)).joinToString(stringResource(R.string.tc_separator))
         if (sub.isNotEmpty()) {
             Text(sub, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
         }
@@ -714,7 +732,7 @@ private fun DtmfKeypad(callId: String, onClose: () -> Unit, scroll: Boolean = tr
     }
 }
 
-private fun dtmfName(res: android.content.res.Resources, c: Char): String = when (c) {
+private fun dtmfName(res: Resources, c: Char): String = when (c) {
     '*' -> res.getString(app.parley.ui.R.string.ui_key_star)
     '#' -> res.getString(app.parley.ui.R.string.ui_key_pound)
     else -> c.toString()
@@ -729,38 +747,38 @@ fun routeIcon(r: AudioRoute): ImageVector = when (r.type) {
 }
 
 @Composable
-private fun CallBackground(uri: String?, scrim: androidx.compose.ui.graphics.Color) {
+private fun CallBackground(uri: String?, scrim: Color) {
     if (uri == null) return
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val image by androidx.compose.runtime.produceState<androidx.compose.ui.graphics.ImageBitmap?>(null, uri) {
-        value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+    val context = LocalContext.current
+    val image by produceState<ImageBitmap?>(null, uri) {
+        value = withContext(Dispatchers.IO) {
             runCatching {
-                val u = android.net.Uri.parse(uri)
-                val opts = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
-                context.contentResolver.openInputStream(u)?.use { android.graphics.BitmapFactory.decodeStream(it, null, opts) }
+                val u = Uri.parse(uri)
+                val opts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                context.contentResolver.openInputStream(u)?.use { BitmapFactory.decodeStream(it, null, opts) }
                 var sample = 1
                 while (opts.outWidth / (sample * 2) >= 1080 && opts.outHeight / (sample * 2) >= 1080) sample *= 2
                 context.contentResolver.openInputStream(u)?.use {
-                    android.graphics.BitmapFactory.decodeStream(it, null, android.graphics.BitmapFactory.Options().apply { inSampleSize = sample })
+                    BitmapFactory.decodeStream(it, null, BitmapFactory.Options().apply { inSampleSize = sample })
                 }?.asImageBitmap()
             }.getOrNull()
         }
     }
     val bmp = image ?: return
-    androidx.compose.foundation.Image(bmp, null, Modifier.fillMaxSize(), contentScale = androidx.compose.ui.layout.ContentScale.Crop)
+    Image(bmp, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
     Box(Modifier.fillMaxSize().background(scrim.copy(alpha = 0.72f)))
 }
 
 /** Whether the keyguard is showing, re-checked every second (the user may unlock with the call screen up). */
 @Composable
 private fun rememberKeyguardLocked(): Boolean {
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val km = remember { context.getSystemService(android.app.KeyguardManager::class.java) }
+    val context = LocalContext.current
+    val km = remember { context.getSystemService(KeyguardManager::class.java) }
     var locked by remember { mutableStateOf(km?.isKeyguardLocked ?: true) }
-    androidx.compose.runtime.LaunchedEffect(km) {
+    LaunchedEffect(km) {
         while (true) {
             locked = km?.isKeyguardLocked ?: true
-            kotlinx.coroutines.delay(1000)
+            delay(1000)
         }
     }
     return locked
@@ -768,7 +786,7 @@ private fun rememberKeyguardLocked(): Boolean {
 
 /** "Last note: …" and up to three open promises. */
 @Composable
-private fun MemoryLines(m: app.parley.telecom.CallerMemory) {
+private fun MemoryLines(m: CallerMemory) {
     m.lastNote?.takeIf { it.isNotBlank() }?.let {
         Text(stringResource(R.string.memory_last_note, it), style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
     }

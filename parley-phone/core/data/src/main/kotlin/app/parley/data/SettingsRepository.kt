@@ -7,16 +7,20 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import app.parley.common.AnswerGesture
 import app.parley.common.AppSettings
 import app.parley.common.BlockAction
 import app.parley.common.ListDensity
+import app.parley.common.NavTabs
 import app.parley.common.ScreeningSettings
 import app.parley.common.StartTab
+import app.parley.common.SurfaceLayout
 import app.parley.common.ThemeMode
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
@@ -29,7 +33,7 @@ private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(na
 class SettingsRepository(context: Context, scope: CoroutineScope) {
     private val store = context.applicationContext.dataStore
 
-    private val _loaded = kotlinx.coroutines.flow.MutableStateFlow(false)
+    private val _loaded = MutableStateFlow(false)
     /** False until the stored settings have been read once (avoids flashing first-run UI). */
     val loaded: StateFlow<Boolean> = _loaded
 
@@ -44,7 +48,7 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
             runCatching {
                 store.edit { prefs ->
                     val existing = prefs.asMap().keys.any { it.name != K.surfaces.name }
-                    app.parley.common.SurfaceLayout.migrate(prefs[K.surfaces], existingUser = existing)?.let { prefs[K.surfaces] = it }
+                    SurfaceLayout.migrate(prefs[K.surfaces], existingUser = existing)?.let { prefs[K.surfaces] = it }
                 }
             }
         }
@@ -74,7 +78,7 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
                 when (v.substringBefore(':')) {
                     "b" -> prefs[booleanPreferencesKey(k)] = body.toBoolean()
                     "i" -> body.toIntOrNull()?.let { prefs[intPreferencesKey(k)] = it }
-                    "l" -> body.toLongOrNull()?.let { prefs[androidx.datastore.preferences.core.longPreferencesKey(k)] = it }
+                    "l" -> body.toLongOrNull()?.let { prefs[longPreferencesKey(k)] = it }
                     "s" -> prefs[stringPreferencesKey(k)] = body
                 }
             }
@@ -127,10 +131,10 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
             reachOutNudges = this[K.nudges] ?: d.reachOutNudges,
             callLogRetentionDays = this[K.retention] ?: d.callLogRetentionDays,
             contactRowActions = this[K.rowActions] ?: d.contactRowActions,
-            navTabs = app.parley.common.NavTabs.decode(this[K.navTabs]),
+            navTabs = NavTabs.decode(this[K.navTabs]),
             recentsLayout = enumOr(this[K.recentsLayout], d.recentsLayout),
             recentsStyle = enumOr(this[K.recentsStyle], d.recentsStyle),
-            surfaces = app.parley.common.SurfaceLayout.decode(this[K.surfaces]),
+            surfaces = SurfaceLayout.decode(this[K.surfaces]),
         )
     }
 

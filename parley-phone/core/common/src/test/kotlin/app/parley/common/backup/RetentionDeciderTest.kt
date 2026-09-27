@@ -1,5 +1,6 @@
 package app.parley.common.backup
 
+import java.time.YearMonth
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -55,7 +56,7 @@ class RetentionDeciderTest {
         for (i in 0L until 7) assertFalse("older same-day copy $i", file(daysAgo(i, 3)) in d.keep)
         // Monthly: newest backup of each of the last 12 months is kept.
         val months = keptTimes.map { it.year * 100 + it.monthValue }.toSet()
-        var ym = java.time.YearMonth.from(LocalDateTime.ofInstant(now, zone))
+        var ym = YearMonth.from(LocalDateTime.ofInstant(now, zone))
         repeat(12) { assertTrue("month $ym", ym.year * 100 + ym.monthValue in months); ym = ym.minusMonths(1) }
         // Yearly: 2026, 2025, 2024 present; the oldest kept is the newest backup of 2024 (Dec 31).
         assertEquals(setOf(2024, 2025, 2026), keptTimes.map { it.year }.toSet())

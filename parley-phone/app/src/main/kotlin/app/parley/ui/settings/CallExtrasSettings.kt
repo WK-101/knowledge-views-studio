@@ -24,6 +24,8 @@ import app.parley.RecentFilter
 import app.parley.common.StartTab
 import app.parley.common.calls.MissedReAlert
 import app.parley.ui.SegmentedGroup
+import app.parley.ui.activityViewModel
+import app.parley.ui.home.RecentsViewModel
 
 /**
  * Settings › Calls additions of v3.1: the pocket-dial guard, missed-call re-alert and voicemail. The
@@ -32,7 +34,7 @@ import app.parley.ui.SegmentedGroup
 @Composable
 internal fun CallExtrasGroups(vm: AppViewModel) {
     val cfg by vm.c.callExtras.config.collectAsStateWithLifecycle()
-    val recents: app.parley.ui.home.RecentsViewModel = app.parley.ui.activityViewModel()
+    val recents: RecentsViewModel = activityViewModel()
     val choices = MissedReAlert.CHOICES
     val choiceLabels = choices.map { if (it == 0) stringResource(R.string.set_off) else pluralStringResource(R.plurals.set_every_minutes, it, it) }
     val reAlertSub = if (cfg.missedReAlertMinutes == 0) null else stringResource(R.string.set_missed_realert_on, cfg.missedReAlertMinutes)

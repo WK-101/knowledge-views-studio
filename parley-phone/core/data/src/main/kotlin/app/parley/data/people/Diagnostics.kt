@@ -4,10 +4,14 @@ import android.app.ActivityManager
 import android.app.ApplicationExitInfo
 import android.content.Context
 import android.content.pm.ApplicationInfo
+import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
+import android.database.Cursor
 import android.os.Build
+import android.provider.ContactsContract
 import app.parley.common.AppSettings
 import app.parley.common.people.Masking
+import app.parley.common.people.Reports
 import org.json.JSONArray
 import org.json.JSONObject
 import java.time.Instant
@@ -54,7 +58,7 @@ class Diagnostics(private val context: Context) {
         appendLine()
         appendLine("== Permissions")
         pkg?.requestedPermissions.orEmpty().forEachIndexed { i, p ->
-            val granted = (pkg?.requestedPermissionsFlags?.getOrNull(i) ?: 0) and android.content.pm.PackageInfo.REQUESTED_PERMISSION_GRANTED != 0
+            val granted = (pkg?.requestedPermissionsFlags?.getOrNull(i) ?: 0) and PackageInfo.REQUESTED_PERMISSION_GRANTED != 0
             appendLine("${p.removePrefix("android.permission.")}: ${if (granted) "granted" else "not granted"}")
         }
         appendLine()
@@ -99,11 +103,11 @@ class Diagnostics(private val context: Context) {
      */
     fun rawDump(maxRows: Int = 3000): String = buildString {
         val cr = context.contentResolver
-        fun shape(v: String?) = app.parley.common.people.Reports.shape(v)
+        fun shape(v: String?) = Reports.shape(v)
         appendLine("== Raw contacts (values masked: letters a/A, digits 9, only their shape is kept)")
         try {
             cr.query(
-                android.provider.ContactsContract.RawContacts.CONTENT_URI,
+                ContactsContract.RawContacts.CONTENT_URI,
                 arrayOf("_id", "contact_id", "account_type", "account_name", "deleted", "dirty", "version", "sourceid", "starred", "data_set"),
                 null, null, "_id",
             )?.use { c ->
@@ -122,7 +126,7 @@ class Diagnostics(private val context: Context) {
         val cols = (1..15).map { "data$it" }
         try {
             cr.query(
-                android.provider.ContactsContract.Data.CONTENT_URI,
+                ContactsContract.Data.CONTENT_URI,
                 arrayOf("_id", "raw_contact_id", "mimetype", "is_primary", "is_super_primary", "data_version") + cols,
                 null, null, "raw_contact_id, _id",
             )?.use { c ->
@@ -136,7 +140,7 @@ class Diagnostics(private val context: Context) {
                         val idx = 6 + i
                         when {
                             c.isNull(idx) -> null
-                            c.getType(idx) == android.database.Cursor.FIELD_TYPE_BLOB -> "${cols[i]}=<${c.getBlob(idx)?.size ?: 0} bytes>"
+                            c.getType(idx) == Cursor.FIELD_TYPE_BLOB -> "${cols[i]}=<${c.getBlob(idx)?.size ?: 0} bytes>"
                             else -> "${cols[i]}=${shape(c.getString(idx))}"
                         }
                     }

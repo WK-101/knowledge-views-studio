@@ -1,8 +1,11 @@
 package app.parley.telecom
 
+import android.app.NotificationManager
 import android.content.Context
 import android.media.AudioManager
 import app.parley.common.Decision
+import app.parley.common.calls.RingtoneSource
+import java.util.concurrent.Executors
 
 /**
  * What screening decided for one call, as the call path needs it: the decision, a one-line verdict for the
@@ -23,7 +26,7 @@ data class ScreenOutcome(
      */
     val deferredToSim: Boolean = false,
     /** Where [ringtone] comes from, for "Why did my phone ring?". */
-    val ringtoneSource: app.parley.common.calls.RingtoneSource? = null,
+    val ringtoneSource: RingtoneSource? = null,
     /** The rule or label named by [ringtoneSource]. */
     val ringtoneName: String? = null,
 )
@@ -40,7 +43,7 @@ object RingBoost {
     private const val PREFS = "parley_ring_boost"
     private const val KEY = "saved_ring_volume"
     private const val KEY_BOOSTED = "boosted_ring_volume"
-    private val io = java.util.concurrent.Executors.newSingleThreadExecutor { r -> Thread(r, "parley-ring-boost").apply { isDaemon = true } }
+    private val io = Executors.newSingleThreadExecutor { r -> Thread(r, "parley-ring-boost").apply { isDaemon = true } }
 
     fun boostAsync(context: Context) {
         val app = context.applicationContext
@@ -54,10 +57,10 @@ object RingBoost {
 
     fun boost(context: Context) {
         val am = context.getSystemService(AudioManager::class.java) ?: return
-        val nm = context.getSystemService(android.app.NotificationManager::class.java)
+        val nm = context.getSystemService(NotificationManager::class.java)
         // Never make a silenced phone ring, and leave Do Not Disturb alone.
         if (am.ringerMode != AudioManager.RINGER_MODE_NORMAL) return
-        if (nm != null && nm.currentInterruptionFilter != android.app.NotificationManager.INTERRUPTION_FILTER_ALL) return
+        if (nm != null && nm.currentInterruptionFilter != NotificationManager.INTERRUPTION_FILTER_ALL) return
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         if (prefs.contains(KEY)) return
         val current = am.getStreamVolume(AudioManager.STREAM_RING)

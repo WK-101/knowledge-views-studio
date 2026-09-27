@@ -20,8 +20,11 @@ import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import app.parley.AppViewModel
 import app.parley.R
+import app.parley.common.ux.BackupNudge
 import app.parley.data.AccountRef
+import app.parley.ui.backup.rememberBackupFirst
 import app.parley.ui.people.accountLabel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -37,13 +40,13 @@ fun ImportVcfDialog(vm: AppViewModel, uri: Uri, onDone: () -> Unit) {
     LaunchedEffect(uri) { accounts = withContext(Dispatchers.IO) { vm.c.contacts.accounts() } }
     val res = LocalResources.current
     // A large file offers "Back up first?" before the import starts.
-    val backupFirst = app.parley.ui.backup.rememberBackupFirst(vm)
+    val backupFirst = rememberBackupFirst(vm)
     // The decision waits for the count (the rows can't be tapped before it's in); a count that can't be taken asks.
     var count by remember { mutableStateOf<Int?>(null) }
     LaunchedEffect(uri) {
         count = runCatching { vm.c.vcards.estimateCount(uri) }.getOrElse { e ->
-            if (e is kotlinx.coroutines.CancellationException) throw e
-            app.parley.common.ux.BackupNudge.LARGE_IMPORT
+            if (e is CancellationException) throw e
+            BackupNudge.LARGE_IMPORT
         }
     }
 
@@ -65,7 +68,7 @@ fun ImportVcfDialog(vm: AppViewModel, uri: Uri, onDone: () -> Unit) {
                             ListItem(
                                 headlineContent = { Text(vm.accountLabel(a)) },
                                 modifier = Modifier.clickable(enabled = known != null) {
-                                    backupFirst.ask(known ?: return@clickable, app.parley.common.ux.BackupNudge.LARGE_IMPORT) {
+                                    backupFirst.ask(known ?: return@clickable, BackupNudge.LARGE_IMPORT) {
                                         running = true
                                         scope.launch {
                                             result = try {

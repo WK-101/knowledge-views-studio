@@ -71,6 +71,7 @@ import app.parley.container
 import app.parley.data.PhoneEnv
 import app.parley.data.messaging.MyDetails
 import app.parley.ui.Bidi
+import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -99,7 +100,7 @@ object MessageOn {
 }
 
 internal fun countryLabel(code: String): String {
-    val name = java.util.Locale("", code).displayCountry.ifBlank { code }
+    val name = Locale("", code).displayCountry.ifBlank { code }
     return "$name ($code)"
 }
 

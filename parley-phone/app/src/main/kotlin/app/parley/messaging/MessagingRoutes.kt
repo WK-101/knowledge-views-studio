@@ -7,6 +7,7 @@ import androidx.navigation.compose.composable
 import app.parley.AppViewModel
 import app.parley.common.messaging.IntroQueue
 import app.parley.data.AccountRef
+import app.parley.ui.people.CsvMappingScreen
 
 /** Screens of the messaging round and the contact CSV mapping. */
 object MessagingRoutes {
@@ -35,5 +36,5 @@ fun NavGraphBuilder.messagingRoutes(vm: AppViewModel, nav: NavController) {
         BulkAddScreen(vm, back = { nav.popBackStack() }, open = { r -> nav.navigate(r) })
     }
     composable(MessagingRoutes.INTRODUCE) { IntroduceScreen(vm, back = { nav.popBackStack() }) }
-    composable(MessagingRoutes.CSV_MAPPING) { app.parley.ui.people.CsvMappingScreen(vm, back = { nav.popBackStack() }) }
+    composable(MessagingRoutes.CSV_MAPPING) { CsvMappingScreen(vm, back = { nav.popBackStack() }) }
 }

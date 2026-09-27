@@ -1,6 +1,7 @@
 package app.parley.common.people
 
 import app.parley.common.MessengerCatalog
+import app.parley.common.MessengerLinks
 import app.parley.common.qr.QrApp
 import app.parley.common.record.Mime
 
@@ -210,5 +211,5 @@ object Handles {
     val TELEGRAM_APPS: List<String> get() = QrApp.TELEGRAM.packages
     val XMPP_APPS: List<String> get() = MessengerCatalog.XMPP.packages
 
-    private fun encode(s: String): String = app.parley.common.MessengerLinks.encode(s, keep = "@:")
+    private fun encode(s: String): String = MessengerLinks.encode(s, keep = "@:")
 }

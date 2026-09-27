@@ -22,6 +22,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -33,12 +34,15 @@ import app.parley.blocking.BlockingText
 import app.parley.common.Schedule
 import app.parley.ui.settings.bidiLtr
 import app.parley.ui.settings.bidiLtrIfNumber
+import java.time.DayOfWeek
+import java.time.format.TextStyle
+import java.util.Locale
 
 /** Day letters and names from the app's locale, Monday first (the order of [Schedule.days] bits). */
 @Composable
-private fun dayNames(style: java.time.format.TextStyle): List<String> {
-    val locale = androidx.compose.ui.platform.LocalConfiguration.current.locales.get(0) ?: java.util.Locale.getDefault()
-    return java.time.DayOfWeek.entries.map { it.getDisplayName(style, locale) }
+private fun dayNames(style: TextStyle): List<String> {
+    val locale = LocalConfiguration.current.locales.get(0) ?: Locale.getDefault()
+    return DayOfWeek.entries.map { it.getDisplayName(style, locale) }
 }
 
 /**
@@ -66,9 +70,9 @@ fun ScheduleField(value: Schedule?, onChange: (Schedule?) -> Unit, alwaysLabel: 
 @Composable
 private fun ScheduleDetails(value: Schedule, onChange: (Schedule) -> Unit) {
     var editing by remember { mutableStateOf<Int?>(null) } // 0 = start, 1 = end
-    val letters = dayNames(java.time.format.TextStyle.NARROW)
-    val names = dayNames(java.time.format.TextStyle.FULL)
-    val context = androidx.compose.ui.platform.LocalContext.current
+    val letters = dayNames(TextStyle.NARROW)
+    val names = dayNames(TextStyle.FULL)
+    val context = LocalContext.current
     Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
         letters.forEachIndexed { i, d ->
             val on = value.days and (1 shl i) != 0

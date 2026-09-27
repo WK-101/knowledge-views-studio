@@ -33,6 +33,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -45,14 +46,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toBitmap
+import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.NavEvent
 import app.parley.common.StartTab
 import app.parley.common.people.LookupApproval
 import app.parley.data.people.ContactsAccessApp
+import app.parley.messaging.WhatsAppNotice
+import app.parley.privatenames.PrivateDirectoryProvider
+import app.parley.privatenames.PrivateNameProvider
 import app.parley.security.launchVault
 import app.parley.ui.common.Format
 import app.parley.ui.contact.Section
@@ -62,6 +68,7 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import app.parley.R
 import app.parley.common.people.LookupOutcome
+import app.parley.ui.settings.settingTitle
 
 /** Honest wording from the design notes (COMPETITIVE_ANALYSIS_2 §5.4). Parley never claims to control other apps. */
 private object Wording {
@@ -76,7 +83,7 @@ private object Wording {
 @Composable
 fun WhoCanSeeScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
     val context = LocalContext.current
-    val res = androidx.compose.ui.platform.LocalResources.current
+    val res = LocalResources.current
     val s by vm.people.settings.collectAsStateWithLifecycle()
     val apps by produceState<List<ContactsAccessApp>?>(null) { value = vm.c.people.audit.appsWithAccess() }
     val graphene = remember { vm.c.people.audit.isGrapheneOs() }
@@ -85,7 +92,7 @@ fun WhoCanSeeScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) 
     }.onFailure { vm.toast(res.getString(R.string.who_settings_failed)) }
 
     // Scroll-linked top-bar tint.
-    val barTint = androidx.compose.material3.TopAppBarDefaults.pinnedScrollBehavior()
+    val barTint = TopAppBarDefaults.pinnedScrollBehavior()
     Scaffold(modifier = Modifier.nestedScroll(barTint.nestedScrollConnection), topBar = {
         TopAppBar(title = { Text(stringResource(R.string.privacy_who_can_see)) }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.dc_back)) } }, scrollBehavior = barTint)
     }) { p ->
@@ -150,7 +157,7 @@ fun WhoCanSeeScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) 
                 ListItem(
                     leadingContent = { Icon(Icons.Rounded.Info, null) },
                     headlineContent = { Text(stringResource(R.string.who_messengers)) },
-                    supportingContent = { Text(stringResource(app.parley.messaging.WhatsAppNotice.REVOKE_TEXT_RES)) },
+                    supportingContent = { Text(stringResource(WhatsAppNotice.REVOKE_TEXT_RES)) },
                 )
             }
 
@@ -242,7 +249,7 @@ fun PrivateNamesScreen(vm: AppViewModel, back: () -> Unit) {
     fun label(pkg: String) = runCatching { pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString() }.getOrDefault(pkg)
 
     // Scroll-linked top-bar tint.
-    val barTint = androidx.compose.material3.TopAppBarDefaults.pinnedScrollBehavior()
+    val barTint = TopAppBarDefaults.pinnedScrollBehavior()
     Scaffold(modifier = Modifier.nestedScroll(barTint.nestedScrollConnection), topBar = {
         TopAppBar(title = { Text(stringResource(R.string.pn_title)) }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.dc_back)) } }, scrollBehavior = barTint)
     }) { p ->
@@ -258,10 +265,10 @@ fun PrivateNamesScreen(vm: AppViewModel, back: () -> Unit) {
                 // The opt-in contacts Directory (same approvals, limit and log as the lookup above).
                 Section(stringResource(R.string.pn_directory_section))
                 SwitchRow(
-                    app.parley.ui.settings.settingTitle("private_directory"),
+                    settingTitle("private_directory"),
                     stringResource(R.string.pn_directory_summary),
                     st.directory,
-                ) { on -> app.parley.privatenames.PrivateDirectoryProvider.setEnabled(context, vm.c, on) }
+                ) { on -> PrivateDirectoryProvider.setEnabled(context, vm.c, on) }
                 Text(
                     stringResource(R.string.pn_directory_text),
                     Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodyMedium,
@@ -294,7 +301,7 @@ fun PrivateNamesScreen(vm: AppViewModel, back: () -> Unit) {
             if (st.log.isNotEmpty()) item { TextButton({ access.clearLog() }, Modifier.padding(horizontal = 8.dp)) { Text(stringResource(R.string.pn_clear_log)) } }
             item {
                 Text(
-                    stringResource(R.string.pn_developers, app.parley.privatenames.PrivateNameProvider.authority(context), app.parley.privatenames.PrivateNameProvider.permission(context)),
+                    stringResource(R.string.pn_developers, PrivateNameProvider.authority(context), PrivateNameProvider.permission(context)),
                     Modifier.padding(16.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
@@ -316,7 +323,7 @@ private fun outcomeText(o: LookupOutcome): Int = when (o) {
 @Composable
 fun MoveToPrivateDialog(vm: AppViewModel, ids: List<Long>, onDismiss: () -> Unit, onDone: () -> Unit) {
     val context = LocalContext.current
-    val res = androidx.compose.ui.platform.LocalResources.current
+    val res = LocalResources.current
     val scope = rememberCoroutineScope()
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -325,7 +332,7 @@ fun MoveToPrivateDialog(vm: AppViewModel, ids: List<Long>, onDismiss: () -> Unit
         confirmButton = {
             TextButton({
                 onDismiss()
-                scope.launchVault(context as? androidx.fragment.app.FragmentActivity, { e -> vm.toast(res.getString(R.string.vault_move_failed, e.message.orEmpty())) }) {
+                scope.launchVault(context as? FragmentActivity, { e -> vm.toast(res.getString(R.string.vault_move_failed, e.message.orEmpty())) }) {
                     var moved = 0
                     for (id in ids) {
                         val d = vm.c.contacts.details(id) ?: continue

@@ -1,5 +1,7 @@
 package app.parley
 
+import android.text.format.DateUtils
+import android.util.Log
 import app.parley.common.PhoneIdentity
 import android.content.Context
 import android.content.Intent
@@ -42,6 +44,7 @@ import app.parley.common.calls.RingtoneSource
 import app.parley.data.ScreenRequest
 import app.parley.common.VerdictKind
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -52,7 +55,7 @@ import kotlinx.coroutines.withContext
 
 class AppTelecomDependencies(private val app: Context, private val c: DataContainer) : TelecomDependencies {
 
-    override val appearance: StateFlow<InCallAppearance> = kotlinx.coroutines.flow.combine(c.settings.settings, c.settings.loaded) { s, loaded ->
+    override val appearance: StateFlow<InCallAppearance> = combine(c.settings.settings, c.settings.loaded) { s, loaded ->
         // "Hide screen content" reaches the call screen; it stays secure until the settings are read.
         InCallAppearance(s.themeMode, s.amoledBlack, s.dynamicColor, s.density, s.answerGesture, s.quickReplies, secureScreen = s.secureScreen, loaded = loaded)
     }.combine(c.extras.simple) { look, simple ->
@@ -96,7 +99,7 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
     /** "Last call 3 days ago · 4 min", from the call history (archive included). */
     private fun lastCallSummary(number: String, region: String): String? {
         val prev = c.history.lastCallWith(number, region) ?: return null
-        val ago = android.text.format.DateUtils.getRelativeTimeSpanString(prev.date, System.currentTimeMillis(), android.text.format.DateUtils.MINUTE_IN_MILLIS)
+        val ago = DateUtils.getRelativeTimeSpanString(prev.date, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS)
         val kind = when (prev.type) {
             CallType.MISSED -> R.string.caller_last_missed
             CallType.OUTGOING -> R.string.caller_last_outgoing
@@ -155,7 +158,7 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
             if (c.vault.lookup(number) == null) return@launch
             // Telecom writes the call log shortly after the call ends; sweep a few times.
             repeat(3) {
-                kotlinx.coroutines.delay(2500)
+                delay(2500)
                 c.vault.sweepCallLog(System.currentTimeMillis() - 6 * 60 * 60 * 1000L)
             }
         }
@@ -174,7 +177,7 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
                         contactKey = found?.lookupKey?.takeIf { !found.work }, accountId = accountId,
                     ),
                 )
-            }.onFailure { android.util.Log.w("Parley", "Call-usage ledger write failed", it) }
+            }.onFailure { Log.w("Parley", "Call-usage ledger write failed", it) }
         }
     }
 

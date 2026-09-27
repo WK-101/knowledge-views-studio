@@ -5,13 +5,14 @@ import app.parley.common.NumberValidity
 import app.parley.common.PhoneNumbers
 import com.google.i18n.phonenumbers.PhoneNumberUtil
 import java.util.Locale
+import java.util.concurrent.ConcurrentHashMap
 
 /** Offline libphonenumber facts that screening rules use: region, line type, validity. */
 data class NumberFactsResult(val region: String?, val lineType: LineType, val validity: NumberValidity)
 
 object NumberFacts {
     private val util by lazy { PhoneNumberUtil.getInstance() }
-    private val cache = java.util.concurrent.ConcurrentHashMap<String, NumberFactsResult>()
+    private val cache = ConcurrentHashMap<String, NumberFactsResult>()
     private val UNKNOWN = NumberFactsResult(null, LineType.UNKNOWN, NumberValidity.UNKNOWN)
 
     fun of(number: String?, countryIso: String): NumberFactsResult {

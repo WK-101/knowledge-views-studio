@@ -1,7 +1,10 @@
 package app.parley.ui.settings
 
+import android.app.Activity
 import android.app.NotificationManager
+import android.content.Context
 import android.content.Intent
+import android.media.RingtoneManager
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
@@ -80,6 +83,7 @@ import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.AccountCircle
 import androidx.compose.material.icons.automirrored.rounded.CallSplit
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
@@ -92,35 +96,74 @@ import androidx.compose.material.icons.automirrored.rounded.HelpOutline
 import androidx.compose.material.icons.automirrored.rounded.ViewList
 import androidx.compose.material.icons.rounded.DeleteSweep
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.unit.dp
+import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import app.parley.AppViewModel
 import app.parley.R
 import app.parley.BuildConfigInfo
+import app.parley.blocking.BlockingActions
 import app.parley.common.AnswerGesture
 import app.parley.common.AppSettings
+import app.parley.common.HomeLayout
 import app.parley.common.ListDensity
+import app.parley.common.MessagedRecord
 import app.parley.common.ThemeMode
+import app.parley.common.calls.RecentsLayout
+import app.parley.common.ux.BackupNudge
+import app.parley.common.ux.RecentsStyle
 import app.parley.common.vcard.ImportReport
 import app.parley.data.AccountRef
 import app.parley.data.VCardIO
+import app.parley.messaging.CsvImportRequest
+import app.parley.messaging.MessagingInbox
+import app.parley.messaging.MessagingRoutes
+import app.parley.security.AppLock
 import app.parley.ui.CallColors
 import app.parley.ui.Routes
 import app.parley.ui.SegmentedGroup
+import app.parley.ui.backup.BackupReminderBanner
+import app.parley.ui.backup.rememberBackupFirst
+import app.parley.ui.blocking.BlockingDialog
+import app.parley.ui.blocking.BlockingDialogs
+import app.parley.ui.calls.DialerRoleGuide
+import app.parley.ui.calls.rememberDialerRoleRequest
+import app.parley.ui.calltime.NotificationHealthCard
+import app.parley.ui.common.Format
+import app.parley.ui.contact.ContactPageRoutes
+import app.parley.ui.extras.ExtrasRoutes
+import app.parley.ui.history.CallHistoryNotes
+import app.parley.ui.history.ClearHistoryRow
+import app.parley.ui.history.KeepFullHistoryRow
 import app.parley.ui.history.csvBomRow
 import app.parley.ui.history.keptForeverRow
 import app.parley.ui.blocking.BlockingRoutes
 import app.parley.ui.history.HistoryRoutes
+import app.parley.ui.history.recentsLayoutLabels
 import app.parley.ui.home.label
+import app.parley.ui.home.recentsStyleLabels
+import app.parley.ui.journal.HistoryTab
+import app.parley.ui.people.AvatarStyleSetting
+import app.parley.ui.people.CrashReportsRow
+import app.parley.ui.people.ExportAccountRow
+import app.parley.ui.people.LabelsRow
 import app.parley.ui.people.PeopleRoutes
+import app.parley.ui.people.PreferNicknameRow
+import app.parley.ui.people.SecondLineRow
+import app.parley.ui.people.SwipeSettings
 import app.parley.ui.people.accountLabel
+import app.parley.ui.people.hasSeveralAccounts
+import app.parley.ui.temporary.rememberTemporaryItems
+import app.parley.work.RemindersWorker
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -132,7 +175,7 @@ private fun rememberSettingsSetter(vm: AppViewModel): ((AppSettings) -> AppSetti
     return remember(vm) { { f -> scope.launch { vm.c.settings.update(f) } } }
 }
 
-private fun android.content.Context.startSafely(intent: Intent) {
+private fun Context.startSafely(intent: Intent) {
     runCatching { startActivity(intent) }
 }
 
@@ -154,12 +197,12 @@ internal fun AppearancePage(vm: AppViewModel, open: (String) -> Unit = {}) {
     SegmentedGroup(stringResource(R.string.lang_title)) { item("language") { LanguageRow() } }
     SegmentedGroup(stringResource(R.string.set_group_lists)) {
         choiceRow("density", densities, s.density.ordinal, Icons.Rounded.DensityMedium) { i -> set { it.copy(density = ListDensity.entries[i]) } }
-        item("avatar_style") { app.parley.ui.people.AvatarStyleSetting(vm) }
+        item("avatar_style") { AvatarStyleSetting(vm) }
     }
     SegmentedGroup(stringResource(R.string.set_group_names)) {
         menuRow("sort_names", sortOptions, if (s.sortByFirstName) 0 else 1, Icons.Rounded.SortByAlpha) { i -> set { it.copy(sortByFirstName = i == 0) } }
-        item("second_line") { app.parley.ui.people.SecondLineRow(vm, Icons.AutoMirrored.Rounded.ShortText) }
-        item("prefer_nickname") { app.parley.ui.people.PreferNicknameRow(vm, Icons.Rounded.Badge) }
+        item("second_line") { SecondLineRow(vm, Icons.AutoMirrored.Rounded.ShortText) }
+        item("prefer_nickname") { PreferNicknameRow(vm, Icons.Rounded.Badge) }
     }
     // Every one-time tip shows again.
     val tipsReset = stringResource(R.string.ux_tips_reset_done)
@@ -180,7 +223,7 @@ internal fun LayoutPage(vm: AppViewModel, open: (String) -> Unit) {
     val navTabsTitle = settingTitle("nav_tabs")
     val navTabsHelp = stringResource(R.string.set_nav_tabs_help)
     // "Open on" offers the tabs actually in the bar (a combined option can take one out).
-    val layout = app.parley.common.HomeLayout(s.navTabs, s.surfaces)
+    val layout = HomeLayout(s.navTabs, s.surfaces)
     val tabLabels = layout.visible.map { it.label }
     SegmentedGroup(stringResource(R.string.set_group_navigation_bar)) {
         item("nav_tabs") {
@@ -202,11 +245,11 @@ internal fun LayoutPage(vm: AppViewModel, open: (String) -> Unit) {
     LayoutSettingsGroup(vm)
     SegmentedGroup(stringResource(R.string.set_group_gestures)) {
         switchRow("row_actions", s.contactRowActions, Icons.Rounded.TouchApp) { v -> set { it.copy(contactRowActions = v) } }
-        item("swipe_actions") { app.parley.ui.people.SwipeSettings(vm) }
+        item("swipe_actions") { SwipeSettings(vm) }
     }
     // Simple mode, set up here (for someone else, or for yourself).
     SegmentedGroup {
-        linkRow("simple_mode", Icons.Rounded.Accessibility) { open(app.parley.ui.extras.ExtrasRoutes.SIMPLE_SETUP) }
+        linkRow("simple_mode", Icons.Rounded.Accessibility) { open(ExtrasRoutes.SIMPLE_SETUP) }
     }
 }
 
@@ -219,21 +262,21 @@ internal fun CallsPage(vm: AppViewModel, open: (String) -> Unit) {
     val isDefault by vm.isDefaultDialer.collectAsStateWithLifecycle()
     val set = rememberSettingsSetter(vm)
     // The role request, with the by-hand guide when Android refuses without asking.
-    val requestRole = app.parley.ui.calls.rememberDialerRoleRequest { vm.refreshEnvironment() }
+    val requestRole = rememberDialerRoleRequest { vm.refreshEnvironment() }
     val unknownTonePicker = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { res ->
-        if (res.resultCode == android.app.Activity.RESULT_OK) {
+        if (res.resultCode == Activity.RESULT_OK) {
             @Suppress("DEPRECATION")
-            val uri = res.data?.getParcelableExtra<Uri>(android.media.RingtoneManager.EXTRA_RINGTONE_PICKED_URI)
+            val uri = res.data?.getParcelableExtra<Uri>(RingtoneManager.EXTRA_RINGTONE_PICKED_URI)
             set { it.copy(unknownRingtone = uri?.toString()) }
         }
     }
     val gestures = listOf(stringResource(R.string.set_answer_swipe), stringResource(R.string.set_answer_tap))
     val sameAsUsual = stringResource(R.string.set_same_as_usual)
     // The ringtone's title comes from the media provider: read it off the main thread.
-    val toneName by androidx.compose.runtime.produceState<String?>(null, s.unknownRingtone) {
+    val toneName by produceState<String?>(null, s.unknownRingtone) {
         value = s.unknownRingtone?.let { u ->
-            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                runCatching { android.media.RingtoneManager.getRingtone(context, Uri.parse(u))?.getTitle(context) }.getOrNull()
+            withContext(Dispatchers.IO) {
+                runCatching { RingtoneManager.getRingtone(context, Uri.parse(u))?.getTitle(context) }.getOrNull()
             }
         }
     }
@@ -252,7 +295,7 @@ internal fun CallsPage(vm: AppViewModel, open: (String) -> Unit) {
         if (!isDefault) item("default_dialer_help") {
             var guide by remember { mutableStateOf(false) }
             LinkRow(settingTitle("default_dialer_help"), settingSummary("default_dialer_help"), Icons.AutoMirrored.Rounded.HelpOutline) { guide = true }
-            if (guide) app.parley.ui.calls.DialerRoleGuide { guide = false }
+            if (guide) DialerRoleGuide { guide = false }
         }
     }
     SegmentedGroup(stringResource(R.string.set_group_answering)) {
@@ -261,11 +304,11 @@ internal fun CallsPage(vm: AppViewModel, open: (String) -> Unit) {
         item("call_haptics") { CallHapticsRow(vm, Icons.Rounded.Vibration) }
         linkRow("unknown_ringtone", Icons.Rounded.MusicNote, sub = toneName ?: sameAsUsual) {
             unknownTonePicker.launch(
-                Intent(android.media.RingtoneManager.ACTION_RINGTONE_PICKER)
-                    .putExtra(android.media.RingtoneManager.EXTRA_RINGTONE_TYPE, android.media.RingtoneManager.TYPE_RINGTONE)
-                    .putExtra(android.media.RingtoneManager.EXTRA_RINGTONE_SHOW_DEFAULT, true)
-                    .putExtra(android.media.RingtoneManager.EXTRA_RINGTONE_SHOW_SILENT, false)
-                    .putExtra(android.media.RingtoneManager.EXTRA_RINGTONE_EXISTING_URI, s.unknownRingtone?.let(Uri::parse)),
+                Intent(RingtoneManager.ACTION_RINGTONE_PICKER)
+                    .putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_RINGTONE)
+                    .putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_DEFAULT, true)
+                    .putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_SILENT, false)
+                    .putExtra(RingtoneManager.EXTRA_RINGTONE_EXISTING_URI, s.unknownRingtone?.let(Uri::parse)),
             )
         }
     }
@@ -321,8 +364,8 @@ internal fun BlockingPage(vm: AppViewModel, open: (String) -> Unit) {
         linkRow("blocking", Icons.Rounded.Block) { open(Routes.BLOCKING) }
         switchRow("repeat_callers", s.repeatCallerRingsThrough, Icons.Rounded.Repeat) { v -> set { it.copy(repeatCallerRingsThrough = v) } }
         switchRow("expecting_call", snoozing, Icons.Rounded.HourglassTop, sub = if (snoozing) snoozeOn else null) { v ->
-            if (v) app.parley.ui.blocking.BlockingDialogs.show(app.parley.ui.blocking.BlockingDialog.Snooze)
-            else scope.launch { app.parley.blocking.BlockingActions.snooze(vm.c, 0) }
+            if (v) BlockingDialogs.show(BlockingDialog.Snooze)
+            else scope.launch { BlockingActions.snooze(vm.c, 0) }
         }
     }
     SegmentedGroup(stringResource(R.string.set_group_lists_rules)) {
@@ -338,7 +381,7 @@ internal fun BlockingPage(vm: AppViewModel, open: (String) -> Unit) {
 @Composable
 internal fun ContactsPage(vm: AppViewModel, open: (String) -> Unit) {
     val context = LocalContext.current
-    val res = androidx.compose.ui.platform.LocalResources.current
+    val res = LocalResources.current
     val scope = rememberCoroutineScope()
     val s by vm.settings.collectAsStateWithLifecycle()
     val set = rememberSettingsSetter(vm)
@@ -347,7 +390,7 @@ internal fun ContactsPage(vm: AppViewModel, open: (String) -> Unit) {
     var skipDuplicates by remember { mutableStateOf(true) }
     var importReport by remember { mutableStateOf<ImportReport?>(null) }
     var progress by remember { mutableStateOf<String?>(null) }
-    val tempCount = app.parley.ui.temporary.rememberTemporaryItems(vm).size
+    val tempCount = rememberTemporaryItems(vm).size
     LaunchedEffect(Unit) { accounts = withContext(Dispatchers.IO) { vm.c.contacts.accounts() } }
     val exporting = stringResource(R.string.set_exporting)
     val importing = stringResource(R.string.set_importing)
@@ -369,11 +412,11 @@ internal fun ContactsPage(vm: AppViewModel, open: (String) -> Unit) {
         }
     }
     // A large import offers "Back up first?" before anything is written.
-    val backupFirst = app.parley.ui.backup.rememberBackupFirst(vm)
+    val backupFirst = rememberBackupFirst(vm)
     val importer = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) scope.launch {
             val count = vm.c.vcards.estimateCount(uri)
-            backupFirst.ask(count, app.parley.common.ux.BackupNudge.LARGE_IMPORT) {
+            backupFirst.ask(count, BackupNudge.LARGE_IMPORT) {
                 scope.launch { importAccounts = uri to withContext(Dispatchers.IO) { vm.c.contacts.accounts() } }
             }
         }
@@ -396,16 +439,16 @@ internal fun ContactsPage(vm: AppViewModel, open: (String) -> Unit) {
                 set { it.copy(defaultAccountType = a.type, defaultAccountName = a.name) }
             }
         }
-        item("labels") { app.parley.ui.people.LabelsRow(vm, open, Icons.AutoMirrored.Rounded.Label) }
+        item("labels") { LabelsRow(vm, open, Icons.AutoMirrored.Rounded.Label) }
         linkRow("temporary_contacts", Icons.Rounded.AutoDelete, sub = tempSub) {
             open(Routes.TEMPORARY)
         }
-        linkRow("bulk_add", Icons.Rounded.GroupAdd) { open(app.parley.messaging.MessagingRoutes.BULK_ADD) }
+        linkRow("bulk_add", Icons.Rounded.GroupAdd) { open(MessagingRoutes.BULK_ADD) }
         linkRow("duplicates", Icons.AutoMirrored.Rounded.CallMerge) { open(Routes.DUPLICATES) }
         linkRow("health", Icons.Rounded.HealthAndSafety) { open(Routes.HEALTH) }
-        linkRow("contact_page", Icons.Rounded.ViewAgenda) { open(app.parley.ui.contact.ContactPageRoutes.SECTIONS) }
+        linkRow("contact_page", Icons.Rounded.ViewAgenda) { open(ContactPageRoutes.SECTIONS) }
     }
-    val severalAccounts = app.parley.ui.people.hasSeveralAccounts(vm)
+    val severalAccounts = hasSeveralAccounts(vm)
     SegmentedGroup(stringResource(R.string.set_group_import_export)) {
         linkRow("import_file", Icons.Rounded.FileUpload) {
             importer.launch(arrayOf("text/x-vcard", "text/vcard", "text/directory", "text/csv", "text/comma-separated-values", "application/octet-stream", "*/*"))
@@ -421,7 +464,7 @@ internal fun ContactsPage(vm: AppViewModel, open: (String) -> Unit) {
         if (s.birthdayReminders) {
             menuRow("reminder_time", (6..22).map { "$it:00" }, (s.birthdayReminderHour - 6).coerceIn(0, 16), Icons.Rounded.Timer) { i ->
                 set { it.copy(birthdayReminderHour = i + 6) }
-                app.parley.work.RemindersWorker.schedule(context, i + 6)
+                RemindersWorker.schedule(context, i + 6)
             }
         }
     }
@@ -432,7 +475,7 @@ internal fun ContactsPage(vm: AppViewModel, open: (String) -> Unit) {
     }
     AdvancedGroup(setOf("import_sim", "export_account")) {
         linkRow("import_sim", Icons.Rounded.SimCardDownload) { open(PeopleRoutes.SIM_IMPORT) }
-        if (severalAccounts) item("export_account") { app.parley.ui.people.ExportAccountRow(vm, Icons.AutoMirrored.Rounded.CallSplit) }
+        if (severalAccounts) item("export_account") { ExportAccountRow(vm, Icons.AutoMirrored.Rounded.CallSplit) }
     }
 
     importAccounts?.let { (uri, accs) ->
@@ -449,8 +492,8 @@ internal fun ContactsPage(vm: AppViewModel, open: (String) -> Unit) {
                                 // A CSV in another layout (Google, Outlook, any columns) goes to the column mapping first.
                                 val preview = runCatching { vm.c.vcards.csvPreview(uri) }.getOrNull()
                                 if (preview != null && !preview.parley) {
-                                    app.parley.messaging.MessagingInbox.csvImport = app.parley.messaging.CsvImportRequest(uri, a, skipDuplicates)
-                                    open(app.parley.messaging.MessagingRoutes.CSV_MAPPING)
+                                    MessagingInbox.csvImport = CsvImportRequest(uri, a, skipDuplicates)
+                                    open(MessagingRoutes.CSV_MAPPING)
                                     return@launch
                                 }
                                 progress = importing
@@ -491,27 +534,27 @@ internal fun HistoryPage(vm: AppViewModel, open: (String) -> Unit) {
     )
     // The former "Call history" sub-screen lives here now: the archive, what's kept forever and the CSV option.
     SegmentedGroup(stringResource(R.string.set_group_call_history)) {
-        item("archive") { app.parley.ui.history.KeepFullHistoryRow(vm, Icons.Rounded.ManageHistory) }
+        item("archive") { KeepFullHistoryRow(vm, Icons.Rounded.ManageHistory) }
         menuRow("retention", retentionLabels, retention.indexOf(s.callLogRetentionDays).coerceAtLeast(0), Icons.Rounded.AutoDelete) { i ->
             set { it.copy(callLogRetentionDays = retention[i]) }
         }
         if (archiveOn) keptForeverRow(vm)
         // Clear everything, unknown numbers or missed calls, with an export first.
-        item("clear_history") { app.parley.ui.history.ClearHistoryRow(vm, open, Icons.Rounded.DeleteSweep) }
+        item("clear_history") { ClearHistoryRow(vm, open, Icons.Rounded.DeleteSweep) }
         // Deleted calls are restored where everything else is: History & undo › Calls.
-        linkRow("history_details", Icons.Rounded.RestoreFromTrash) { open(Routes.journal(app.parley.ui.journal.HistoryTab.CALLS)) }
+        linkRow("history_details", Icons.Rounded.RestoreFromTrash) { open(Routes.journal(HistoryTab.CALLS)) }
     }
-    val layoutLabels = app.parley.ui.history.recentsLayoutLabels()
-    val styleLabels = app.parley.ui.home.recentsStyleLabels()
+    val layoutLabels = recentsLayoutLabels()
+    val styleLabels = recentsStyleLabels()
     val circleCfg by vm.c.circle.config.collectAsStateWithLifecycle()
     SegmentedGroup(stringResource(R.string.set_group_recents)) {
         // Grouped, chronological or by day (also in Recents ⋮).
         menuRow("recents_layout", layoutLabels, s.recentsLayout.ordinal, Icons.AutoMirrored.Rounded.ViewList) { i ->
-            set { it.copy(recentsLayout = app.parley.common.calls.RecentsLayout.entries[i]) }
+            set { it.copy(recentsLayout = RecentsLayout.entries[i]) }
         }
         // Rich or simple call rows.
         menuRow("recents_style", styleLabels, s.recentsStyle.ordinal, Icons.Rounded.Palette) { i ->
-            set { it.copy(recentsStyle = app.parley.common.ux.RecentsStyle.entries[i]) }
+            set { it.copy(recentsStyle = RecentsStyle.entries[i]) }
         }
         linkRow("insights", Icons.Rounded.Insights) { open(HistoryRoutes.INSIGHTS) }
         // The People card in Call insights.
@@ -524,7 +567,7 @@ internal fun HistoryPage(vm: AppViewModel, open: (String) -> Unit) {
     AdvancedGroup(setOf("sim_labels")) {
         switchRow("sim_labels", s.showSimLabels, Icons.Rounded.SimCard) { v -> set { it.copy(showSimLabels = v) } }
     }
-    app.parley.ui.history.CallHistoryNotes(vm)
+    CallHistoryNotes(vm)
 }
 
 // ---------------------------------------------------------------- Messaging
@@ -547,9 +590,9 @@ internal fun MessagingPage(vm: AppViewModel, open: (String) -> Unit) {
     val messagedSub = if (recording) pluralStringResource(R.plurals.set_numbers_count, recorded.size, recorded.size) else stringResource(R.string.set_not_kept)
     SegmentedGroup(stringResource(R.string.set_group_messaged)) {
         linkRow("messaged_numbers", Icons.AutoMirrored.Rounded.Chat, sub = messagedSub) {
-            open(app.parley.messaging.MessagingRoutes.MESSAGED)
+            open(MessagingRoutes.MESSAGED)
         }
-        val choices = app.parley.common.MessagedRecord.EXPIRY_CHOICES
+        val choices = MessagedRecord.EXPIRY_CHOICES
         menuRow("messaged_expiry", choices.map { expiryLabel(context, it) }, choices.indexOf(expiry).coerceAtLeast(0), Icons.Rounded.Timer) { i ->
             scope.launch { vm.c.messaging.setExpiryDays(choices[i]) }
         }
@@ -567,7 +610,7 @@ internal fun MessagingPage(vm: AppViewModel, open: (String) -> Unit) {
 @Composable
 internal fun PrivacyPage(vm: AppViewModel, open: (String) -> Unit) {
     val context = LocalContext.current
-    val res = androidx.compose.ui.platform.LocalResources.current
+    val res = LocalResources.current
     val s by vm.settings.collectAsStateWithLifecycle()
     val set = rememberSettingsSetter(vm)
     val pn by vm.c.people.privateNames.state.collectAsStateWithLifecycle()
@@ -584,8 +627,8 @@ internal fun PrivacyPage(vm: AppViewModel, open: (String) -> Unit) {
     val off = stringResource(R.string.set_off)
     SegmentedGroup(stringResource(R.string.set_group_app_lock)) {
         switchRow("app_lock", s.appLock, Icons.Rounded.Lock) { v ->
-            val act = context as? androidx.fragment.app.FragmentActivity
-            if (act != null) app.parley.security.AppLock.authenticate(act, res.getString(if (v) R.string.set_app_lock_turn_on else R.string.set_app_lock_turn_off)) { ok -> if (ok) set { it.copy(appLock = v) } }
+            val act = context as? FragmentActivity
+            if (act != null) AppLock.authenticate(act, res.getString(if (v) R.string.set_app_lock_turn_on else R.string.set_app_lock_turn_off)) { ok -> if (ok) set { it.copy(appLock = v) } }
         }
         if (s.appLock) {
             menuRow("lock_after", lockLabels, lockTimes.indexOf(s.lockAfterMinutes).coerceAtLeast(0), Icons.Rounded.LockClock) { i ->
@@ -619,26 +662,26 @@ internal fun PrivacyPage(vm: AppViewModel, open: (String) -> Unit) {
 internal fun BackupPage(vm: AppViewModel, open: (String) -> Unit) {
     val context = LocalContext.current
     val b by vm.c.backup.prefs.state.collectAsStateWithLifecycle()
-    val lastBackup = if (b.lastBackupAt > 0) stringResource(R.string.set_last_backup, app.parley.ui.common.Format.shortWhen(context, b.lastBackupAt)) else null
+    val lastBackup = if (b.lastBackupAt > 0) stringResource(R.string.set_last_backup, Format.shortWhen(context, b.lastBackupAt)) else null
     // The overdue reminder and its threshold.
-    app.parley.ui.backup.BackupReminderBanner(vm)
+    BackupReminderBanner(vm)
     val ux by vm.c.ux.state.collectAsStateWithLifecycle()
-    val reminderOptions = app.parley.common.ux.BackupNudge.REMINDER_DAYS.map { pluralStringResource(R.plurals.ux_backup_after_days, it, it) }
+    val reminderOptions = BackupNudge.REMINDER_DAYS.map { pluralStringResource(R.plurals.ux_backup_after_days, it, it) }
     SegmentedGroup(stringResource(R.string.set_group_backups)) {
         linkRow(
             "backup", Icons.Rounded.Backup,
             sub = lastBackup,
         ) { open(Routes.BACKUP) }
         menuRow(
-            "backup_reminder", reminderOptions, app.parley.common.ux.BackupNudge.REMINDER_DAYS.indexOf(ux.backupReminderDays).coerceAtLeast(0),
+            "backup_reminder", reminderOptions, BackupNudge.REMINDER_DAYS.indexOf(ux.backupReminderDays).coerceAtLeast(0),
             Icons.Rounded.NotificationsActive,
-        ) { i -> vm.c.ux.setBackupReminderDays(app.parley.common.ux.BackupNudge.REMINDER_DAYS[i]) }
+        ) { i -> vm.c.ux.setBackupReminderDays(BackupNudge.REMINDER_DAYS[i]) }
         linkRow("sync", Icons.Rounded.Sync) { open(Routes.SYNC) }
         linkRow("markdown_export", Icons.Rounded.Description) { open(Routes.SYNC) }
     }
     SegmentedGroup(stringResource(R.string.set_group_undo)) {
         linkRow("journal", Icons.Rounded.RestoreFromTrash) { open(Routes.journal()) }
-        linkRow("time_machine", Icons.Rounded.ManageHistory) { open(Routes.journal(app.parley.ui.journal.HistoryTab.SNAPSHOTS)) }
+        linkRow("time_machine", Icons.Rounded.ManageHistory) { open(Routes.journal(HistoryTab.SNAPSHOTS)) }
     }
 }
 
@@ -647,7 +690,7 @@ internal fun BackupPage(vm: AppViewModel, open: (String) -> Unit) {
 @Composable
 internal fun NotificationsPage(vm: AppViewModel) {
     val context = LocalContext.current
-    app.parley.ui.calltime.NotificationHealthCard(vm)
+    NotificationHealthCard(vm)
     val fullScreenOffText = stringResource(R.string.set_full_screen_off)
     val fullScreenOnText = stringResource(R.string.set_full_screen_on)
     val batterySub = stringResource(R.string.set_battery_sub)
@@ -691,13 +734,13 @@ internal fun AboutPage(open: (String) -> Unit, vm: AppViewModel? = null) {
     SegmentedGroup {
         item("version") {
             InfoRow(stringResource(R.string.set_version_row, BuildConfigInfo.versionName(context)), settingSummary("version"), Icons.Rounded.Info, trailing = {
-                androidx.compose.material3.Icon(Icons.Rounded.CheckCircle, stringResource(R.string.set_no_internet), tint = CallColors.Accept)
+                Icon(Icons.Rounded.CheckCircle, stringResource(R.string.set_no_internet), tint = CallColors.Accept)
             })
         }
         linkRow("diagnostics", Icons.Rounded.BugReport, sub = diagnosticsSub) {
             open(PeopleRoutes.DIAGNOSTICS)
         }
-        if (vm != null) item("crash_reports") { app.parley.ui.people.CrashReportsRow(vm) }
+        if (vm != null) item("crash_reports") { CrashReportsRow(vm) }
     }
     Text(
         stringResource(R.string.set_no_internet_note),
@@ -708,5 +751,5 @@ internal fun AboutPage(open: (String) -> Unit, vm: AppViewModel? = null) {
 }
 
 /** [app.parley.common.MessagedRecord.expiryLabel] in the current language. */
-internal fun expiryLabel(context: android.content.Context, days: Int): String =
+internal fun expiryLabel(context: Context, days: Int): String =
     if (days <= 0) context.getString(R.string.set_expiry_never) else context.resources.getQuantityString(R.plurals.set_expiry_after_days, days, days)

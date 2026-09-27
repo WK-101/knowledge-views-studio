@@ -1,5 +1,6 @@
 package app.parley.ui.history
 
+import androidx.compose.ui.platform.LocalResources
 import app.parley.common.PhoneIdentity
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
@@ -61,7 +62,7 @@ private enum class ClearStep { SCOPE, EXPORT, CONFIRM }
 @Composable
 fun ClearHistoryDialog(vm: AppViewModel, shown: List<CallEntry>?, open: (String) -> Unit, onDismiss: () -> Unit) {
     val context = LocalContext.current
-    val res = androidx.compose.ui.platform.LocalResources.current
+    val res = LocalResources.current
     val scope = rememberCoroutineScope()
     val all by vm.c.history.calls.collectAsStateWithLifecycle()
     val vault by vm.c.vault.contacts.collectAsStateWithLifecycle()

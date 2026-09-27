@@ -6,6 +6,7 @@ import app.parley.common.CallEntry
 import app.parley.common.CallType
 import app.parley.common.PhoneNumbers
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
@@ -140,7 +141,7 @@ object CallExport {
                 )
             }
         }
-        return prettyJson.encodeToString(kotlinx.serialization.json.JsonArray.serializer(), arr) + "\n"
+        return prettyJson.encodeToString(JsonArray.serializer(), arr) + "\n"
     }
 
     // ------------------------------------------------------------------ ICS (RFC 5545)

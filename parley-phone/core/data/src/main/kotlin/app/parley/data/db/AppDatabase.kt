@@ -13,6 +13,7 @@ import androidx.room.PrimaryKey
 import androidx.room.Query
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.Update
 import androidx.room.Upsert
 import kotlinx.coroutines.flow.Flow
 
@@ -440,7 +441,7 @@ interface InteractionDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insert(e: InteractionEntity): Long
 
-    @androidx.room.Update
+    @Update
     suspend fun update(e: InteractionEntity)
 
     @Query("DELETE FROM interactions WHERE id = :id")

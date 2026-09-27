@@ -1,9 +1,13 @@
 package app.parley.data.backup
 
 import android.content.Context
+import android.content.SharedPreferences
+import android.content.res.Resources
 import android.util.Base64
+import app.parley.common.StoredStatus
 import app.parley.common.backup.KeyBundle
 import app.parley.common.backup.RetentionPolicy
+import app.parley.data.R
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
@@ -35,22 +39,22 @@ data class BackupState(
     val policy: RetentionPolicy get() = if (keepLast > 0) RetentionPolicy.Simple(keepLast) else RetentionPolicy.Periodic(daily = 7, weekly = 5, monthly = 12, yearly = 3)
 
     /** The last result in the current language (rendered now, not when it was stored). */
-    fun resultText(res: android.content.res.Resources): String? {
-        val s = app.parley.common.StoredStatus.decode(lastResult) ?: return lastResult
+    fun resultText(res: Resources): String? {
+        val s = StoredStatus.decode(lastResult) ?: return lastResult
         return when (s.kind) {
-            UNCHANGED -> res.getString(app.parley.data.R.string.data_bkp_unchanged)
-            FOLDER_GONE -> res.getString(app.parley.data.R.string.data_bkp_folder_gone)
-            NOT_VERIFIED -> res.getString(app.parley.data.R.string.data_bkp_not_verified)
-            FAILED -> res.getString(app.parley.data.R.string.data_bkp_failed, s.args.getOrNull(0).orEmpty())
+            UNCHANGED -> res.getString(R.string.data_bkp_unchanged)
+            FOLDER_GONE -> res.getString(R.string.data_bkp_folder_gone)
+            NOT_VERIFIED -> res.getString(R.string.data_bkp_not_verified)
+            FAILED -> res.getString(R.string.data_bkp_failed, s.args.getOrNull(0).orEmpty())
             RESULT -> res.getString(
-                if (s.args.getOrNull(0) == "1") app.parley.data.R.string.data_bkp_result_vault_missing else app.parley.data.R.string.data_bkp_result,
-                res.getQuantityString(app.parley.data.R.plurals.data_contacts_count, s.int(1), s.int(1)),
-                res.getQuantityString(app.parley.data.R.plurals.data_calls_count, s.int(2), s.int(2)),
+                if (s.args.getOrNull(0) == "1") R.string.data_bkp_result_vault_missing else R.string.data_bkp_result,
+                res.getQuantityString(R.plurals.data_contacts_count, s.int(1), s.int(1)),
+                res.getQuantityString(R.plurals.data_calls_count, s.int(2), s.int(2)),
             )
             INCOMPLETE -> res.getString(
-                app.parley.data.R.string.data_bkp_result_incomplete,
-                res.getQuantityString(app.parley.data.R.plurals.data_contacts_count, s.int(1), s.int(1)),
-                res.getQuantityString(app.parley.data.R.plurals.data_calls_count, s.int(2), s.int(2)),
+                R.string.data_bkp_result_incomplete,
+                res.getQuantityString(R.plurals.data_contacts_count, s.int(1), s.int(1)),
+                res.getQuantityString(R.plurals.data_calls_count, s.int(2), s.int(2)),
                 s.args.getOrNull(0).orEmpty(),
             )
             else -> null
@@ -92,7 +96,7 @@ class BackupPrefs(context: Context) {
         lastVaultBackupName = prefs.getString("vaultName", null),
     )
 
-    fun update(f: (android.content.SharedPreferences.Editor) -> Unit) {
+    fun update(f: (SharedPreferences.Editor) -> Unit) {
         prefs.edit().also(f).apply()
         _state.value = load()
     }

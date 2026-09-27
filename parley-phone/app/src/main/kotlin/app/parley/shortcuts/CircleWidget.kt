@@ -12,6 +12,7 @@ import android.content.IntentFilter
 import android.os.Bundle
 import android.view.View
 import android.widget.RemoteViews
+import androidx.core.content.ContextCompat
 import app.parley.MainActivity
 import app.parley.R
 import app.parley.common.ContactSummary
@@ -23,6 +24,8 @@ import app.parley.container
 import app.parley.data.DataContainer
 import app.parley.data.EventItem
 import app.parley.ui.circle.CircleText
+import app.parley.ui.people.eventLabel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
@@ -31,6 +34,7 @@ import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import java.time.LocalDate
 
@@ -97,7 +101,7 @@ class CircleWidget : AppWidgetProvider() {
             val ids = ids(ctx)
             if (ids.isEmpty()) return
             val c = ctx.container
-            val content = runCatching { kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { load(ctx, c) } }.getOrNull() ?: Content(emptyList(), emptyList())
+            val content = runCatching { withContext(Dispatchers.IO) { load(ctx, c) } }.getOrNull() ?: Content(emptyList(), emptyList())
             val locked = c.settings.current().appLock && ctx.getSystemService(KeyguardManager::class.java)?.isDeviceLocked != false
             val manager = AppWidgetManager.getInstance(ctx)
             ids.forEach { id -> runCatching { manager.updateAppWidget(id, views(ctx, id, manager, content, locked)) } }
@@ -115,7 +119,7 @@ class CircleWidget : AppWidgetProvider() {
                 .filter { it.second in 0..DATE_DAYS }
                 .sortedWith(compareBy({ it.second }, { it.first.name }))
             val dates = events.map { (e, days) ->
-                val label = app.parley.ui.people.eventLabel(res, EventItem(date = e.date, type = e.type, label = e.label))
+                val label = eventLabel(res, EventItem(date = e.date, type = e.type, label = e.label))
                 Row(e.contactId, e.name, whenText(ctx, days) + res.getString(R.string.main_separator) + label, e.phone)
             }
             // The digest's people, worked out the same way (the serendipity pick stays in the Sunday notification).
@@ -130,7 +134,7 @@ class CircleWidget : AppWidgetProvider() {
                 val ct: ContactSummary = contacts[p.lookupKey] ?: return@mapNotNull null
                 val line = when (p.reason) {
                     CircleDigest.Reason.DATE -> events.firstOrNull { it.first.lookupKey == p.lookupKey }?.let { (e, days) ->
-                        whenText(ctx, days) + res.getString(R.string.main_separator) + app.parley.ui.people.eventLabel(res, EventItem(date = e.date, type = e.type, label = e.label))
+                        whenText(ctx, days) + res.getString(R.string.main_separator) + eventLabel(res, EventItem(date = e.date, type = e.type, label = e.label))
                     } ?: res.getString(R.string.circle_widget_date_soon)
                     else -> CircleText.last(res, lasts[p.lookupKey], now)
                 }
@@ -259,7 +263,7 @@ class CircleWidget : AppWidgetProvider() {
                 addAction(Intent.ACTION_SCREEN_OFF)
             }
             // System broadcasts only; not exported to other apps.
-            runCatching { androidx.core.content.ContextCompat.registerReceiver(ctx, receiver, filter, androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED) }
+            runCatching { ContextCompat.registerReceiver(ctx, receiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED) }
         }
     }
 }

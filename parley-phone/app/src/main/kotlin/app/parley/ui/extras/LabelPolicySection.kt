@@ -1,5 +1,6 @@
 package app.parley.ui.extras
 
+import android.content.Context
 import android.content.Intent
 import android.provider.Settings
 import androidx.compose.foundation.clickable
@@ -16,6 +17,7 @@ import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Switch
@@ -29,6 +31,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.pluralStringResource
@@ -172,7 +175,7 @@ fun LabelPolicySection(vm: AppViewModel, title: String, members: List<ContactSum
                         ListItem(
                             leadingContent = { Icon(Icons.Rounded.Star, null, tint = MaterialTheme.colorScheme.primary) },
                             headlineContent = { Text(m.displayName) },
-                            colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
+                            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                         )
                     }
                 }
@@ -216,7 +219,7 @@ private fun turnOffDnd(vm: AppViewModel, title: String, done: (Int) -> Unit) {
 }
 
 /** Android's "people who can interrupt" (priority) page; the general Do Not Disturb page or sound settings as fallbacks. */
-fun openDndSettings(context: android.content.Context) {
+fun openDndSettings(context: Context) {
     val tries = listOf(Intent(ACTION_ZEN_PRIORITY), Intent(ACTION_ZEN), Intent(Settings.ACTION_SOUND_SETTINGS))
     for (i in tries) {
         if (runCatching { context.startActivity(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }.isSuccess) return
@@ -234,7 +237,7 @@ fun LabelRhythmSuggestion(vm: AppViewModel, contactId: Long, pick: (Int) -> Unit
     val (label, days) = suggestion ?: return
     ListItem(
         modifier = Modifier.clickable { pick(days) },
-        colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
+        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
         leadingContent = { Icon(Icons.AutoMirrored.Rounded.Label, null, tint = MaterialTheme.colorScheme.primary) },
         headlineContent = { Text(stringResource(R.string.label_policy_rhythm_suggest, label, pluralStringResource(R.plurals.circle_every_days, days, days))) },
     )

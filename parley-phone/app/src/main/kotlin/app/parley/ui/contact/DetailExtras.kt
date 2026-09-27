@@ -1,5 +1,6 @@
 package app.parley.ui.contact
 
+import android.content.res.Resources
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -38,6 +39,7 @@ import app.parley.R
 import app.parley.common.EventDate
 import app.parley.ui.PhotoCache
 import java.time.LocalDate
+import java.time.MonthDay
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 
@@ -45,13 +47,13 @@ import java.time.format.FormatStyle
  * "12 March 1990 · 35 years · in 6 days" for birthdays, shorter for other dates. With [res] the words are in the
  * user's language; without, English. The parts are always joined with " · ".
  */
-fun describeEvent(raw: String, birthday: Boolean, today: LocalDate = LocalDate.now(), res: android.content.res.Resources? = null): String {
+fun describeEvent(raw: String, birthday: Boolean, today: LocalDate = LocalDate.now(), res: Resources? = null): String {
     val e = EventDate.parse(raw) ?: return raw
     val y = e.year
     val shown = if (y != null) {
         LocalDate.of(y, e.month, e.day).format(DateTimeFormatter.ofLocalizedDate(FormatStyle.LONG))
     } else {
-        java.time.MonthDay.of(e.month, e.day).format(DateTimeFormatter.ofPattern("d MMMM"))
+        MonthDay.of(e.month, e.day).format(DateTimeFormatter.ofPattern("d MMMM"))
     }
     val days = e.daysUntil(today)
     val whenText = when {

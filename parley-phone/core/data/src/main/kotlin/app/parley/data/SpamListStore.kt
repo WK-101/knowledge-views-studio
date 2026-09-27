@@ -28,6 +28,10 @@ import app.parley.common.spam.ParsedPack
 import app.parley.common.spam.SignatureStatus
 import app.parley.common.templates.RuleTemplate
 import app.parley.common.templates.RuleTemplates
+import java.io.ByteArrayOutputStream
+import java.nio.ByteBuffer
+import java.util.zip.ZipEntry
+import java.util.zip.ZipOutputStream
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -134,7 +138,7 @@ class SpamListStore(context: Context) {
         val buffer = if (numbers.exists() && numbers.length() > 0) {
             RandomAccessFile(numbers, "r").use { f -> f.channel.map(FileChannel.MapMode.READ_ONLY, 0, f.length()).order(ByteOrder.BIG_ENDIAN) }
         } else {
-            java.nio.ByteBuffer.allocate(0)
+            ByteBuffer.allocate(0)
         }
         val idx = PackIndex(buffer, if (ranges.exists()) ListPack.parseRanges(ranges.readText()) else emptyList())
         indexes[id] = idx
@@ -160,7 +164,7 @@ class SpamListStore(context: Context) {
     private fun readBytes(uri: Uri): ByteArray {
         val input = app.contentResolver.openInputStream(uri) ?: throw PackException("Couldn't open the file")
         return input.use { s ->
-            val out = java.io.ByteArrayOutputStream()
+            val out = ByteArrayOutputStream()
             val buf = ByteArray(64 * 1024)
             var total = 0L
             while (true) {
@@ -260,11 +264,11 @@ class SpamListStore(context: Context) {
         var total = 0
         _state.value.packs.filter { it.origin == PackOrigin.FILE }.mapNotNull { p ->
             val pd = packDir(p.id)
-            val out = java.io.ByteArrayOutputStream()
-            java.util.zip.ZipOutputStream(out).use { z ->
+            val out = ByteArrayOutputStream()
+            ZipOutputStream(out).use { z ->
                 for (name in listOf(ListPack.MANIFEST, ListPack.NUMBERS, ListPack.RANGES)) {
                     val f = File(pd, name).takeIf { it.isFile } ?: continue
-                    z.putNextEntry(java.util.zip.ZipEntry(name).apply { time = 0 })
+                    z.putNextEntry(ZipEntry(name).apply { time = 0 })
                     f.inputStream().use { it.copyTo(z) }
                     z.closeEntry()
                 }

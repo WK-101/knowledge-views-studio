@@ -1,5 +1,8 @@
 package app.parley.ui.circle
 
+import android.app.Application
+import android.provider.ContactsContract
+import android.text.format.DateFormat
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -46,6 +49,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import app.parley.AppViewModel
 import app.parley.R
@@ -55,6 +59,7 @@ import app.parley.common.circle.InteractionType
 import app.parley.common.circle.Interactions
 import app.parley.common.circle.Timeline
 import app.parley.common.circle.TimelineEntry
+import app.parley.common.people.LifeEvents
 import app.parley.data.ContactDetails
 import app.parley.data.EventItem
 import app.parley.data.circle.Interaction
@@ -63,11 +68,16 @@ import app.parley.data.db.CallNoteEntity
 import app.parley.ui.Bidi
 import app.parley.ui.SegmentedGroup
 import app.parley.ui.common.Format
+import app.parley.ui.contact.LinkifiedText
+import app.parley.ui.home.CallLengthGlance
+import app.parley.ui.home.CallTypeIcon
+import app.parley.ui.people.eventLabel
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
 import java.util.Locale
 import java.util.UUID
 import kotlinx.coroutines.launch
@@ -84,7 +94,7 @@ fun LogInteractionDialog(name: String, initial: Interaction?, onDismiss: () -> U
     val context = LocalContext.current
     val res = LocalResources.current
     var type by rememberSaveable { mutableStateOf(initial?.type ?: InteractionType.MEET) }
-    var note by rememberSaveable(stateSaver = androidx.compose.ui.text.input.TextFieldValue.Saver) { mutableStateOf(androidx.compose.ui.text.input.TextFieldValue(initial?.note.orEmpty())) }
+    var note by rememberSaveable(stateSaver = TextFieldValue.Saver) { mutableStateOf(TextFieldValue(initial?.note.orEmpty())) }
     var time by rememberSaveable { mutableLongStateOf(initial?.time ?: System.currentTimeMillis()) }
     var picking by remember { mutableStateOf(false) }
     val zone = ZoneId.systemDefault()
@@ -140,7 +150,7 @@ fun LogInteractionDialog(name: String, initial: Interaction?, onDismiss: () -> U
 
 /** Saves a new entry (or an edit) and says so; a note that can't be encrypted isn't saved. */
 suspend fun saveInteraction(vm: AppViewModel, d: ContactDetails, contactId: Long, initial: Interaction?, type: InteractionType, note: String?, time: Long) {
-    val res = vm.getApplication<android.app.Application>().resources
+    val res = vm.getApplication<Application>().resources
     try {
         if (initial == null) {
             vm.c.circle.interactions.log(d.lookupKey, contactId, type, null, time, note, Interactions.manualKey(UUID.randomUUID().toString()))
@@ -159,7 +169,7 @@ fun timelineEntries(d: ContactDetails, history: List<CallEntry>, interactions: L
         interactions.map { TimelineEntry.Logged(it.id, it.time, it.type, it.channel, it.note) } +
         notes.map { TimelineEntry.Note(it.id, it.callDate, it.text) }
     val dates = Timeline.dates(
-        d.events.filterNot { app.parley.common.people.LifeEvents.isDeath(it.type, it.label) }.mapNotNull { e -> EventDate.parse(e.date)?.let { Triple(e.type, e.label, it) } },
+        d.events.filterNot { LifeEvents.isDeath(it.type, it.label) }.mapNotNull { e -> EventDate.parse(e.date)?.let { Triple(e.type, e.label, it) } },
         entries, LocalDate.now(), zone,
     )
     return entries + dates
@@ -168,7 +178,7 @@ fun timelineEntries(d: ContactDetails, history: List<CallEntry>, interactions: L
 /** The "January 2026" heading of a timeline month. */
 @Composable
 internal fun rememberMonthFormat(): DateTimeFormatter =
-    remember { DateTimeFormatter.ofPattern(android.text.format.DateFormat.getBestDateTimePattern(Locale.getDefault(), "MMMMyyyy")) }
+    remember { DateTimeFormatter.ofPattern(DateFormat.getBestDateTimePattern(Locale.getDefault(), "MMMMyyyy")) }
 
 /**
  * The contact's timeline: calls, logged interactions, call notes and dates, newest first, one group per month.
@@ -232,8 +242,8 @@ internal fun TimelineEntryRow(vm: AppViewModel, e: TimelineEntry, interactions: 
         is TimelineEntry.Call -> {
             ListItem(
                 colors = clearRow,
-                leadingContent = { app.parley.ui.home.CallTypeIcon(e.call.type, durationSec = e.call.durationSec) },
-                trailingContent = { app.parley.ui.home.CallLengthGlance(e.call) },
+                leadingContent = { CallTypeIcon(e.call.type, durationSec = e.call.durationSec) },
+                trailingContent = { CallLengthGlance(e.call) },
                 headlineContent = { Text(Format.fullDate(context, e.time)) },
                 supportingContent = {
                     Text(listOf(Bidi.ltr(Format.number(e.call.number, vm.countryIso)), Format.duration(e.call.durationSec)).filter { it.isNotBlank() }.joinToString(stringResource(R.string.main_separator)))
@@ -249,14 +259,14 @@ internal fun TimelineEntryRow(vm: AppViewModel, e: TimelineEntry, interactions: 
         is TimelineEntry.Note -> ListItem(
             colors = clearRow,
             leadingContent = { Icon(Icons.AutoMirrored.Rounded.Notes, null) },
-            headlineContent = { app.parley.ui.contact.LinkifiedText(e.text) },
+            headlineContent = { LinkifiedText(e.text) },
             supportingContent = { Text(stringResource(R.string.circle_call_note) + stringResource(R.string.main_separator) + Format.fullDate(context, e.time)) },
         )
         is TimelineEntry.Date -> ListItem(
             colors = clearRow,
-            leadingContent = { Icon(if (e.type == android.provider.ContactsContract.CommonDataKinds.Event.TYPE_BIRTHDAY) Icons.Rounded.Cake else Icons.Rounded.Event, null) },
-            headlineContent = { Text(app.parley.ui.people.eventLabel(res, EventItem(date = e.date.format(), type = e.type, label = e.label))) },
-            supportingContent = { Text(Instant.ofEpochMilli(e.time).atZone(zone).toLocalDate().format(DateTimeFormatter.ofLocalizedDate(java.time.format.FormatStyle.LONG))) },
+            leadingContent = { Icon(if (e.type == ContactsContract.CommonDataKinds.Event.TYPE_BIRTHDAY) Icons.Rounded.Cake else Icons.Rounded.Event, null) },
+            headlineContent = { Text(eventLabel(res, EventItem(date = e.date.format(), type = e.type, label = e.label))) },
+            supportingContent = { Text(Instant.ofEpochMilli(e.time).atZone(zone).toLocalDate().format(DateTimeFormatter.ofLocalizedDate(FormatStyle.LONG))) },
         )
     }
 }
@@ -276,7 +286,7 @@ private fun LoggedRow(e: TimelineEntry.Logged, item: Interaction?, onEdit: (Inte
         supportingContent = {
             Column {
                 Text(Format.fullDate(context, e.time))
-                e.note?.let { app.parley.ui.contact.LinkifiedText(it) }
+                e.note?.let { LinkifiedText(it) }
             }
         },
         trailingContent = if (item == null) null else ({

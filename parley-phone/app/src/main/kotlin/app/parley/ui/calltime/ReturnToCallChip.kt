@@ -1,5 +1,6 @@
 package app.parley.ui.calltime
 
+import android.content.Context
 import android.os.SystemClock
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
@@ -96,7 +97,7 @@ fun ReturnToCallChip(modifier: Modifier = Modifier) {
     }
 }
 
-private fun describe(context: android.content.Context, call: CallUi, count: Int, remainingMs: Long?): Pair<String, String> {
+private fun describe(context: Context, call: CallUi, count: Int, remainingMs: Long?): Pair<String, String> {
     val who = call.title
     val more = if (count > 1) " +${count - 1}" else ""
     val status = when (call.state) {

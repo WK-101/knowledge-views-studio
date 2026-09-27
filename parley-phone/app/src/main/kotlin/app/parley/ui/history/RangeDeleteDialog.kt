@@ -17,13 +17,16 @@ import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.viewModelScope
 import app.parley.AppViewModel
+import app.parley.common.CallEntry
 import app.parley.common.history.DeleteRange
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.LocalDate
@@ -34,6 +37,7 @@ import java.time.format.FormatStyle
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import app.parley.R
+import kotlinx.coroutines.withContext
 
 /**
  * Delete one number's calls from a point in time until now. Deleted calls are kept sealed for 30 days;
@@ -48,8 +52,8 @@ fun RangeDeleteDialog(vm: AppViewModel, number: String, onDeleted: (batchId: Lon
     var picking by remember { mutableStateOf(false) }
     val now = remember { System.currentTimeMillis() }
     // Matching every call's number is real work: done off the main thread, counts appear when ready.
-    val all by androidx.compose.runtime.produceState<List<app.parley.common.CallEntry>?>(null, number) {
-        value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { vm.c.history.callsFor(number) }
+    val all by produceState<List<CallEntry>?>(null, number) {
+        value = withContext(Dispatchers.Default) { vm.c.history.callsFor(number) }
     }
     fun count(r: DeleteRange): Int? {
         if (r == DeleteRange.SINCE_DATE && picked == null) return null

@@ -20,9 +20,11 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import app.parley.R
+import app.parley.blocking.DialText
 import app.parley.data.DialWarning
 
 /**
@@ -34,8 +36,8 @@ import app.parley.data.DialWarning
 @Composable
 fun DialGuardSheet(who: String, warnings: List<DialWarning>, note: String? = null, onCall: () -> Unit, onCancel: () -> Unit) {
     // A used-up call-time allowance is one more reason to think, shown with the others (one question, not two).
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val all = warnings.map { app.parley.blocking.DialText.warning(context, it) } + listOfNotNull(note?.let { DialWarning(stringResource(R.string.call_time_used_up), it) })
+    val context = LocalContext.current
+    val all = warnings.map { DialText.warning(context, it) } + listOfNotNull(note?.let { DialWarning(stringResource(R.string.call_time_used_up), it) })
     val severe = all.any { it.severe }
     ModalBottomSheet(onDismissRequest = onCancel) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp).navigationBarsPadding().padding(bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
