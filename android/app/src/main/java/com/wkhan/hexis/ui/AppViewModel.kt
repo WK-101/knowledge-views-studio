@@ -2375,7 +2375,7 @@ class AppViewModel internal constructor(
         val sub = "Last 7 days · " + java.time.LocalDate.now(zone).format(java.time.format.DateTimeFormatter.ofPattern("MMM d"))
         val res = withContext(Dispatchers.IO) {
             val bmp = com.wkhan.hexis.util.ProgressCard.renderStatsCard("Your week", sub, stats)
-            com.wkhan.hexis.util.ProgressCard.saveAndShareUri(appCtx, bmp, "todo-companion-week.png")
+            com.wkhan.hexis.util.ProgressCard.saveAndShareUri(appCtx, bmp, "hexis-week.png")
         }
         res.shareUri?.let { com.wkhan.hexis.util.ProgressCard.share(appCtx, it) }
         onDone(res.savedLocation)
@@ -2391,7 +2391,7 @@ class AppViewModel internal constructor(
         val pd = weekPeriodShareData(startDay, endDay, label)
         val res = withContext(Dispatchers.IO) {
             val bmp = com.wkhan.hexis.util.DayCard.renderPeriodShare(pd, cfg, com.wkhan.hexis.util.DayCard.PeriodKind.WEEK)
-            com.wkhan.hexis.util.ProgressCard.saveAndShareUri(appCtx, bmp, "todo-companion-momentum.png")
+            com.wkhan.hexis.util.ProgressCard.saveAndShareUri(appCtx, bmp, "hexis-momentum.png")
         }
         res.shareUri?.let { com.wkhan.hexis.util.ProgressCard.share(appCtx, it) }
         onDone(res.savedLocation)
@@ -2408,7 +2408,7 @@ class AppViewModel internal constructor(
         val pd = weekPeriodShareData(startDay, endDay, label)
         val res = withContext(Dispatchers.IO) {
             val bmp = com.wkhan.hexis.util.DayCard.renderPeriodShare(pd, cfg, com.wkhan.hexis.util.DayCard.PeriodKind.WEEK)
-            com.wkhan.hexis.util.ProgressCard.saveAndShareUri(appCtx, bmp, "todo-companion-recap.png")
+            com.wkhan.hexis.util.ProgressCard.saveAndShareUri(appCtx, bmp, "hexis-recap.png")
         }
         res.shareUri?.let { com.wkhan.hexis.util.ProgressCard.share(appCtx, it) }
         onDone(res.savedLocation)

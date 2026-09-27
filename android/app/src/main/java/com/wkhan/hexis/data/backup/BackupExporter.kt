@@ -62,17 +62,17 @@ class BackupExporter(
     /**
      * SAF-free export fallback: write the chosen export straight into the public Downloads folder
      * (or the app's files dir on older devices). Returns a user-facing location like
-     * "Downloads/todo-companion-backup.json", or null on failure / an unknown [kind].
+     * "Downloads/hexis-backup.json", or null on failure / an unknown [kind].
      */
     suspend fun downloadExport(kind: String): String? = runCatching {
         val (content, name, mime) = when (kind) {
             // Only the full JSON backup is passphrase-protected; md/csv/ics are interop formats the user
             // deliberately exports to read in other apps, so they stay plaintext.
-            "json" -> Triple(protect(repo.exportJson()), "todo-companion-backup.json", "application/json")
-            "md" -> Triple(repo.exportMarkdown(true), "todo-companion.md", "text/markdown")
-            "csv" -> Triple(repo.exportCsv(true), "todo-companion.csv", "text/csv")
-            "ics" -> Triple(repo.exportIcs(false), "todo-companion.ics", "text/calendar")
-            "habits" -> Triple(repo.exportHabitsCsv(), "todo-companion-habits.csv", "text/csv")
+            "json" -> Triple(protect(repo.exportJson()), "hexis-backup.json", "application/json")
+            "md" -> Triple(repo.exportMarkdown(true), "hexis.md", "text/markdown")
+            "csv" -> Triple(repo.exportCsv(true), "hexis.csv", "text/csv")
+            "ics" -> Triple(repo.exportIcs(false), "hexis.ics", "text/calendar")
+            "habits" -> Triple(repo.exportHabitsCsv(), "hexis-habits.csv", "text/csv")
             else -> return@runCatching null
         }
         FileExport.saveToDownloads(context, name, mime, content.toByteArray())

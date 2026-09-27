@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Window theme used before Compose draws. Compose handles light/dark at runtime. -->
-    <style name="Theme.ToDoCompanion" parent="android:Theme.Material.Light.NoActionBar">
+    <style name="Theme.Hexis" parent="android:Theme.Material.Light.NoActionBar">
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
     </style>
@@ -9,7 +9,7 @@
     <!-- Branded launch window: shows the app icon on the brand colour instantly, so the user
          never sees a blank frame while Compose + the database warm up. Swapped for the plain
          theme in MainActivity.onCreate before the first frame. -->
-    <style name="Theme.ToDoCompanion.Splash" parent="Theme.ToDoCompanion">
+    <style name="Theme.Hexis.Splash" parent="Theme.Hexis">
         <item name="android:windowBackground">@drawable/splash_bg</item>
     </style>
 
@@ -17,7 +17,7 @@
          Compose QuickCapturePanel paints its own scrim + bottom card directly into THIS window (no
          ModalBottomSheet, so no second Dialog window), and a tap on the dimmed launcher dismisses it.
          This MUST NOT be a Dialog / windowIsFloating theme. -->
-    <style name="Theme.ToDoCompanion.QuickCapture" parent="android:Theme.Material.Light.NoActionBar">
+    <style name="Theme.Hexis.QuickCapture" parent="android:Theme.Material.Light.NoActionBar">
         <item name="android:windowIsTranslucent">true</item>
         <item name="android:windowBackground">@android:color/transparent</item>
         <item name="android:windowContentOverlay">@null</item>

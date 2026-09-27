@@ -47,7 +47,7 @@ object EventIcs {
 
     // ── export ──────────────────────────────────────────────────────────────────────────────────
     fun export(events: List<EventEntity>, zone: ZoneId = ZoneId.systemDefault()): String = buildString {
-        append("BEGIN:VCALENDAR\r\n").append("VERSION:2.0\r\n").append("PRODID:-//ToDoCompanion//Calendar//EN\r\n").append("CALSCALE:GREGORIAN\r\n")
+        append("BEGIN:VCALENDAR\r\n").append("VERSION:2.0\r\n").append("PRODID:-//Hexis//Calendar//EN\r\n").append("CALSCALE:GREGORIAN\r\n")
         events.filter { it.recurrenceParentId == null }.forEach { e ->
             append("BEGIN:VEVENT\r\n")
             append("UID:").append(e.uid.ifBlank { e.id }).append("\r\n")
@@ -168,6 +168,7 @@ object EventIcs {
         val bydayTokens = parts["BYDAY"]?.split(",")?.map { it.trim().uppercase() }?.filter { it.isNotBlank() } ?: emptyList()
         val plainDays = bydayTokens.mapNotNull { BYDAY_ISO[it.takeLast(2)] }.toSet()
         val setpos = parts["BYSETPOS"]?.toIntOrNull()
+        val byMonthDay = parts["BYMONTHDAY"]?.split(",")?.firstOrNull()?.trim()?.toIntOrNull()
         val weekdaySet = setOf(1, 2, 3, 4, 5)
         // R59 (Wave 4) — parse exotic RRULEs into the model that can hold them, so an imported "3rd Tuesday"
         // or "first working day" survives the round-trip instead of degrading to a plain monthly.
@@ -186,7 +187,7 @@ object EventIcs {
                     ordWd != null && ordPos != null -> Recurrence.encode(Recur(Freq.MONTHLY, interval, bySetPos = ordPos, byWeekday = ordWd, untilEpochDay = until, count = count))
                     // Single weekday plus a set position, e.g. BYDAY=FR;BYSETPOS=-1 (last Friday).
                     plainDays.size == 1 && setpos != null -> Recurrence.encode(Recur(Freq.MONTHLY, interval, bySetPos = setpos, byWeekday = plainDays.first(), untilEpochDay = until, count = count))
-                    else -> Recurrence.encode(Recur(Freq.MONTHLY, interval, untilEpochDay = until, count = count))
+                    else -> Recurrence.encode(Recur(Freq.MONTHLY, interval, byMonthDay = byMonthDay, untilEpochDay = until, count = count))
                 }
             }
             "YEARLY" -> Recurrence.encode(Recur(Freq.YEARLY, interval, untilEpochDay = until, count = count))
@@ -243,7 +244,7 @@ object EventIcs {
             else -> "NEEDS-ACTION"
         }
         return buildString {
-            append("BEGIN:VCALENDAR\r\n").append("VERSION:2.0\r\n").append("PRODID:-//ToDoCompanion//Calendar//EN\r\n")
+            append("BEGIN:VCALENDAR\r\n").append("VERSION:2.0\r\n").append("PRODID:-//Hexis//Calendar//EN\r\n")
             append("METHOD:REPLY\r\n").append("BEGIN:VEVENT\r\n")
             append("UID:").append(e.uid.ifBlank { e.id }).append("\r\n")
             if (e.sequence > 0) append("SEQUENCE:").append(e.sequence).append("\r\n")

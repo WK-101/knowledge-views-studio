@@ -23,6 +23,10 @@ data class Recur(
     // Monthly "nth weekday" (e.g. 3rd Tuesday, last Friday): pos 1..4 or -1 for last, + ISO weekday.
     val bySetPos: Int? = null,
     val byWeekday: Int? = null,
+    // Monthly plain day-of-month anchor (1..31): keeps "monthly on the 31st" on the 31st / last day of each
+    // month instead of clamping to 28 in February and then re-basing on 28 forever. null = derive from the
+    // source date (last-day-aware); captured on the first advance() of a plain monthly rule.
+    val byMonthDay: Int? = null,
     // Regenerate the next occurrence from the completion date rather than the fixed schedule.
     val fromCompletion: Boolean = false,
     // Monthly "first working day of the month" (Mon–Fri), overriding day-of-month.
@@ -51,6 +55,7 @@ object Recurrence {
         if (r.byDays.isNotEmpty()) append(";DAYS=").append(r.byDays.sorted().joinToString(","))
         r.bySetPos?.let { append(";POS=").append(it) }
         r.byWeekday?.let { append(";WD=").append(it) }
+        r.byMonthDay?.let { append(";MD=").append(it) }
         if (r.firstWorkday) append(";FWD=1")
         if (r.subtaskReset != "all") append(";SR=").append(r.subtaskReset)
         if (r.fromCompletion) append(";COMP=1")
@@ -74,6 +79,7 @@ object Recurrence {
             byDays = m["DAYS"]?.split(",")?.mapNotNull { it.toIntOrNull() }?.toSet() ?: emptySet(),
             bySetPos = m["POS"]?.toIntOrNull(),
             byWeekday = m["WD"]?.toIntOrNull(),
+            byMonthDay = m["MD"]?.toIntOrNull(),
             firstWorkday = m["FWD"] == "1",
             subtaskReset = m["SR"] ?: "all",
             fromCompletion = m["COMP"] == "1",
@@ -155,7 +161,17 @@ object Recurrence {
                 when {
                     r.firstWorkday -> firstWorkdayOf(ym).atTime(dt.toLocalTime()).atZone(zone)
                     r.bySetPos != null && r.byWeekday != null -> nthWeekdayOf(ym, r.bySetPos, r.byWeekday).atTime(dt.toLocalTime()).atZone(zone)
-                    else -> dt.plusMonths(r.interval.toLong())
+                    else -> {
+                        // Anchor the day-of-month so it doesn't clamp-and-drift: use the stored anchor if
+                        // present; else if the source is its month's last day keep the last day every month
+                        // (stable); otherwise clamp the source day to the target month's length.
+                        val dom = when {
+                            r.byMonthDay != null -> minOf(r.byMonthDay, ym.lengthOfMonth())
+                            dt.dayOfMonth == java.time.YearMonth.from(dt).lengthOfMonth() -> ym.lengthOfMonth()
+                            else -> minOf(dt.dayOfMonth, ym.lengthOfMonth())
+                        }
+                        ym.atDay(dom).atTime(dt.toLocalTime()).atZone(zone)
+                    }
                 }
             }
             Freq.YEARLY -> dt.plusYears(r.interval.toLong())
@@ -192,7 +208,13 @@ object Recurrence {
      * updated) rule, or `null` next when the recurrence has ended and the task should just complete.
      */
     fun advance(rule: String, fromMillis: Long, zone: ZoneId, completionMillis: Long? = null): Pair<Long?, String?> {
-        val r = parse(rule) ?: return null to null
+        val parsed = parse(rule) ?: return null to null
+        // Capture the day-of-month anchor on the first advance of a plain monthly rule (from the current due
+        // date, before any short month can clamp it), so every subsequent roll clamps to the intended day
+        // instead of drifting inward. The augmented rule is returned below so the anchor persists.
+        val r = if (parsed.freq == Freq.MONTHLY && parsed.byMonthDay == null && parsed.bySetPos == null &&
+            parsed.byWeekday == null && !parsed.firstWorkday
+        ) parsed.copy(byMonthDay = Instant.ofEpochMilli(fromMillis).atZone(zone).dayOfMonth) else parsed
         // "After completion": count the interval from when it was actually completed, keeping the
         // original time-of-day. Otherwise roll forward on the fixed schedule from the due date.
         val base = if (r.fromCompletion && completionMillis != null) {
@@ -200,14 +222,14 @@ object Recurrence {
             val compDate = Instant.ofEpochMilli(completionMillis).atZone(zone).toLocalDate()
             compDate.atTime(dueTime).atZone(zone).toInstant().toEpochMilli()
         } else fromMillis
-        val nextMs = next(rule, base, zone)
+        val nextMs = next(r, base, zone)
         val nextDay = Instant.ofEpochMilli(nextMs).atZone(zone).toLocalDate().toEpochDay()
         if (r.untilEpochDay != null && nextDay > r.untilEpochDay) return null to null
         if (r.count != null) {
             if (r.count <= 1) return null to null
             return nextMs to encode(r.copy(count = r.count - 1))
         }
-        return nextMs to rule
+        return nextMs to encode(r)
     }
 
     /**

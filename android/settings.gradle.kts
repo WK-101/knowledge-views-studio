@@ -13,5 +13,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "TaskTree"
+rootProject.name = "Hexis"
 include(":app")

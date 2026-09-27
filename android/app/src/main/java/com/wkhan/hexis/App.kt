@@ -18,6 +18,11 @@ class App : Application() {
     val repository by lazy { AppRepository(database, this) }
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
+    /** Completes once the DB has been opened — and any pending SQLCipher plaintext<->encrypted migration has
+     *  run — on a background thread. MainActivity gates its first UI frame on this so that heavy DB-open work
+     *  never happens on the main thread (a pending migration on the main thread would ANR the launch). */
+    val dbReady = kotlinx.coroutines.CompletableDeferred<Unit>()
+
     override fun onCreate() {
         super.onCreate()
         // R71 / SEC (R2-C) — mirror ANY uncaught crash to logcat (tag "HexisCrash"), then defer to the
@@ -43,6 +48,9 @@ class App : Application() {
             // would crash EVERY launch and the user could never reach Settings to import a JSON backup — the
             // documented recovery path. Degrade to defaults instead of crashing.
             val s0 = runCatching { repository.settingsSnapshot() }.getOrDefault(com.wkhan.hexis.domain.AppSettings())
+            // The DB is now open (this ran on the IO thread, including any pending encryption migration) —
+            // release the UI, which is gated on this in MainActivity so it never opens the DB on the main thread.
+            dbReady.complete(Unit)
             runCatching { repository.ensureSeed() }
             // W3 (goals→Room, Increment 2) — one-time, idempotent safety net for the JSON→table flip: adopt any
             // goal/review still living only in the legacy settings-JSON into the table (e.g. one created on an

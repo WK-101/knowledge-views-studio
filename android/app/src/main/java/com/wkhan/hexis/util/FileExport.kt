@@ -15,7 +15,7 @@ import java.io.File
  * delegates all "pick any file" flows to the system document picker (SAF) instead. No network, no INTERNET.
  */
 object FileExport {
-    /** Returns a human-facing location (e.g. "Downloads/todo-companion-backup.json"), or null if all targets fail. */
+    /** Returns a human-facing location (e.g. "Downloads/hexis-backup.json"), or null if all targets fail. */
     fun saveToDownloads(context: Context, displayName: String, mime: String, bytes: ByteArray): String? {
         // 1) Public Downloads via MediaStore (visible to file managers, no permission) — API 29+.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -78,7 +78,8 @@ object FileExport {
             val ext = name.substringAfterLast('.', "").lowercase()
             if (ext !in exts) return false
             if (broad) return true
-            return name.contains("todo-companion") || name.contains("backup") || name.endsWith(".json")
+            // Recognise both the current "hexis-*" export names and the legacy "todo-companion-*" ones.
+            return name.contains("hexis") || name.contains("todo-companion") || name.contains("backup") || name.endsWith(".json")
         }
         // MediaStore Downloads (API 29+) — app-created entries are always readable here, no permission.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) runCatching {

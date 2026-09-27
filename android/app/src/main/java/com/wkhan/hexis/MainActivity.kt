@@ -31,17 +31,20 @@ class MainActivity : FragmentActivity() {
     private var cameraOutputUri: Uri? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        // Swap the branded splash window for the plain (transparent) theme before the first frame,
-        // so the launch icon shows instantly but doesn't linger behind Compose.
-        setTheme(R.style.Theme_ToDoCompanion)
-        super.onCreate(savedInstanceState)
+        super.onCreate(savedInstanceState)   // the manifest splash theme (Theme.Hexis.Splash) stays up until the DB is warm
         launchAction.value = resolveAction(intent)
         importUri.value = resolveImport(intent)
         enableEdgeToEdge()
+        // R45 — route every file/photo/document pick through the classic Activity result API.
+        SystemPicker.launcher = { req -> launchPicker(req) }
+        val app = application as App
         // Security: apply the "secure screen" flag reactively — when on, it blocks screenshots, screen
         // recording, and the recents-thumbnail from capturing task content. Off by default; fully local.
+        // Gated on dbReady so the first repository touch (which opens the encrypted DB) happens only after
+        // the background warm-up in App.onCreate — never on the main thread.
         lifecycleScope.launch {
-            (application as App).repository.allSettings.collect { rows ->
+            app.dbReady.await()
+            app.repository.allSettings.collect { rows ->
                 fun flag(key: String) = rows.firstOrNull { it.key == key }?.value?.toBooleanStrictOrNull() ?: false
                 // SEC (Batch 4) — mark the window secure when the user has EITHER the explicit "block
                 // screenshots" setting on OR app-lock enabled. Tying it to app-lock means a locked app never
@@ -60,9 +63,15 @@ class MainActivity : FragmentActivity() {
                 rows.firstOrNull { it.key == com.wkhan.hexis.domain.AppSettings.Keys.QUIET_END }?.value?.toIntOrNull()?.let { com.wkhan.hexis.reminders.AlarmScheduler.quietEndHour = it.coerceIn(0, 23) }
             }
         }
-        // R45 — route every file/photo/document pick through the classic Activity result API.
-        SystemPicker.launcher = { req -> launchPicker(req) }
-        setContent { AppRoot(launchAction = launchAction, importUri = importUri) }
+        // Gate the first UI frame on the DB being opened off the main thread. AppRoot creates the ViewModel,
+        // which touches the repository; drawing it before the warm-up could open the DB (and run a pending
+        // SQLCipher migration) on the main thread and ANR. Instant unless a migration is actually pending.
+        lifecycleScope.launch {
+            app.dbReady.await()
+            // Swap the branded splash for the plain app theme, then draw Compose.
+            setTheme(R.style.Theme_Hexis)
+            setContent { AppRoot(launchAction = launchAction, importUri = importUri) }
+        }
     }
 
     /**

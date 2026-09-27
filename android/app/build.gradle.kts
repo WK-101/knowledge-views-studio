@@ -32,8 +32,10 @@ android {
 
     defaultConfig {
         // The app is fully rebranded to Hexis: the code namespace and the installed applicationId are
-        // now both com.wkhan.hexis (no Kairo / todocompanion identifiers remain). FileProvider
-        // authorities are built from the runtime packageName, so they follow this automatically.
+        // now both com.wkhan.hexis. No user-facing old-brand identifiers remain; the only retained legacy
+        // tokens are deliberate wire-compat constants — Backup.FORMAT ("todo-companion", the backup-file
+        // discriminator) and NoteVault's legacy vault verifier — kept so older backups still restore.
+        // FileProvider authorities are built from the runtime packageName, so they follow this automatically.
         applicationId = "com.wkhan.hexis"
         minSdk = 26
         targetSdk = 35

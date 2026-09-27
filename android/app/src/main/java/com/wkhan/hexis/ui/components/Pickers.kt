@@ -106,7 +106,7 @@ fun DateReminderSheet(
     initialReminderAnchor: String = "due",
     initialReminderPlace: String? = null,
 ) {
-    val zone = ZoneId.systemDefault()
+    val zone = com.wkhan.hexis.domain.AppClock.zone
     val initialDt = initialDue?.let { Instant.ofEpochMilli(it).atZone(zone) }
     var date by remember { mutableStateOf(initialDt?.toLocalDate() ?: java.time.LocalDate.now(zone)) }
     var hasDate by remember { mutableStateOf(initialDue != null) }
@@ -348,7 +348,7 @@ fun DateTimeOptionalDialog(
     title: String = "Select date",
     onConfirm: (Long, Boolean) -> Unit,
 ) {
-    val zone = ZoneId.systemDefault()
+    val zone = com.wkhan.hexis.domain.AppClock.zone
     val initDt = initial?.let { Instant.ofEpochMilli(it).atZone(zone) }
     var date by remember { mutableStateOf(initDt?.toLocalDate() ?: java.time.LocalDate.now(zone)) }
     var time by remember { mutableStateOf(if (initialHasTime && initDt != null) LocalTime.of(initDt.hour, initDt.minute) else null) }
@@ -521,7 +521,7 @@ fun DateTimePickerDialog(
 ) {
     var pickedDateUtc by remember { mutableStateOf<Long?>(null) }
     var duration by remember { mutableStateOf(initialDurationMin) }
-    val initialDt = initial?.let { Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()) }
+    val initialDt = initial?.let { Instant.ofEpochMilli(it).atZone(com.wkhan.hexis.domain.AppClock.zone) }
 
     if (pickedDateUtc == null) {
         val dateState = rememberDatePickerState(initialSelectedDateMillis = initial)
@@ -562,7 +562,7 @@ fun DateTimePickerDialog(
                                 val dateUtc = pickedDateUtc ?: System.currentTimeMillis()
                                 val localDate = Instant.ofEpochMilli(dateUtc).atZone(ZoneOffset.UTC).toLocalDate()
                                 val dt = LocalDateTime.of(localDate, LocalTime.of(timeState.hour, timeState.minute))
-                                val millis = dt.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+                                val millis = dt.atZone(com.wkhan.hexis.domain.AppClock.zone).toInstant().toEpochMilli()
                                 onDuration?.invoke(duration)
                                 onConfirm(millis)
                             }) { Text("OK") }
@@ -584,7 +584,7 @@ fun DateTimePickerDialog(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DateOnlyPickerDialog(initial: Long?, onDismiss: () -> Unit, allowFuture: Boolean = true, onConfirm: (Long) -> Unit) {
-    val today = java.time.LocalDate.now(ZoneId.systemDefault())
+    val today = java.time.LocalDate.now(com.wkhan.hexis.domain.AppClock.zone)
     val endExclusive = today.plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
     val selectable = if (allowFuture) androidx.compose.material3.DatePickerDefaults.AllDates else object : androidx.compose.material3.SelectableDates {
         override fun isSelectableDate(utcTimeMillis: Long): Boolean = utcTimeMillis < endExclusive
@@ -597,7 +597,7 @@ fun DateOnlyPickerDialog(initial: Long?, onDismiss: () -> Unit, allowFuture: Boo
             TextButton(onClick = {
                 dateState.selectedDateMillis?.let { utc ->
                     val ld = Instant.ofEpochMilli(utc).atZone(ZoneOffset.UTC).toLocalDate()
-                    onConfirm(ld.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli())
+                    onConfirm(ld.atStartOfDay(com.wkhan.hexis.domain.AppClock.zone).toInstant().toEpochMilli())
                 } ?: onDismiss()
             }) { Text("OK") }
         },

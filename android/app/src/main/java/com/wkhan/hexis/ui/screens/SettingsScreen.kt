@@ -1500,7 +1500,7 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             // R28 #11 — one clear back-up-and-restore flow, then two choosers for everything else, instead of
             // 15 flat rows. Restore opens the in-app browser first (no system picker needed).
             Sub("Back up & restore")
-            Action("Back up everything") { safeExport("json") { exportLauncher("todo-companion-backup.json") } }
+            Action("Back up everything") { safeExport("json") { exportLauncher("hexis-backup.json") } }
             // Restore uses the SYSTEM file picker (ACTION_GET_CONTENT) first — no storage permission, and it
             // shows your files straight away. The in-app browser is only the fallback (offered below, and
             // reached automatically if the device has no system picker at all).
@@ -1786,10 +1786,10 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
         title = { Text("Export a copy as…") },
         text = {
             Column {
-                ChooserRow("Markdown (.md)", "A readable outline of your lists and tasks") { showExportChooser = false; safeExport("md") { exportMdLauncher("todo-companion.md") } }
-                ChooserRow("Spreadsheet (CSV)", "Open in any spreadsheet app") { showExportChooser = false; safeExport("csv") { exportCsvLauncher("todo-companion.csv") } }
-                ChooserRow("Calendar (.ics)", "Your dated tasks, for any calendar app") { showExportChooser = false; safeExport("ics") { exportIcsLauncher("todo-companion.ics") } }
-                ChooserRow("Habits (CSV)", "Habit check-ins as a spreadsheet") { showExportChooser = false; safeExport("habits") { exportHabitsLauncher("todo-companion-habits.csv") } }
+                ChooserRow("Markdown (.md)", "A readable outline of your lists and tasks") { showExportChooser = false; safeExport("md") { exportMdLauncher("hexis.md") } }
+                ChooserRow("Spreadsheet (CSV)", "Open in any spreadsheet app") { showExportChooser = false; safeExport("csv") { exportCsvLauncher("hexis.csv") } }
+                ChooserRow("Calendar (.ics)", "Your dated tasks, for any calendar app") { showExportChooser = false; safeExport("ics") { exportIcsLauncher("hexis.ics") } }
+                ChooserRow("Habits (CSV)", "Habit check-ins as a spreadsheet") { showExportChooser = false; safeExport("habits") { exportHabitsLauncher("hexis-habits.csv") } }
             }
         },
     )

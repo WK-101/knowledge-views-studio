@@ -70,7 +70,7 @@ fun PlanYourDayScreen(vm: AppViewModel, onOpenTask: (String) -> Unit, onBack: ()
     val lists by vm.lists.collectAsStateWithLifecycle()
     val allHabits by vm.habits.collectAsStateWithLifecycle()
     val allCheckins by vm.habitCheckins.collectAsStateWithLifecycle()
-    val zone = ZoneId.systemDefault()
+    val zone = vm.zoneId   // honour the configured timeZone override, not just the device default
     val today = LocalDate.now(zone)
     val endToday = today.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
     fun at9(d: LocalDate) = d.atStartOfDay(zone).plusHours(9).toInstant().toEpochMilli()

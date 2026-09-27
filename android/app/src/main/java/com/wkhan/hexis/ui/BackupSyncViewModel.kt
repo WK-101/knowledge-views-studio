@@ -73,7 +73,7 @@ class BackupSyncViewModel(
     /**
      * SAF-free export fallback: write the chosen export straight into the public Downloads folder (or the
      * app's files dir on older devices). Used when the device has no system document picker. [onDone] receives
-     * a user-facing location like "Downloads/todo-companion-backup.json", or null.
+     * a user-facing location like "Downloads/hexis-backup.json", or null.
      */
     fun exportToDownloads(kind: String, onDone: (String?) -> Unit) = scope.launch {
         val loc = backup.downloadExport(kind)

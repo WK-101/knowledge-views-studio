@@ -238,7 +238,7 @@ private fun CompactBottomBar(
 ) {
     androidx.compose.material3.Surface(color = MaterialTheme.colorScheme.surface, shadowElevation = 10.dp, tonalElevation = 2.dp) {
         Row(
-            Modifier.fillMaxWidth().navigationBarsPadding().height(64.dp),
+            Modifier.fillMaxWidth().navigationBarsPadding().heightIn(min = 64.dp),
             horizontalArrangement = Arrangement.SpaceAround,
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -406,6 +406,9 @@ fun AppRoot(
     // (not just the calendar). Explicit and always up to date; the calendar re-affirms it on its own too.
     com.wkhan.hexis.domain.AppClock.use24 = com.wkhan.hexis.domain.AppClock.is24(
         settings.timeFormat, android.text.format.DateFormat.is24HourFormat(androidx.compose.ui.platform.LocalContext.current))
+    // N7 — also publish the resolved clock zone app-wide so the shared date/time pickers build instants in
+    // the user's configured timeZone, not the device default (picking a time no longer shifts by the offset).
+    com.wkhan.hexis.domain.AppClock.zone = vm.zoneId
 
     AppTheme(themeMode = settings.themeMode, dynamicColor = settings.dynamicColor, accentArgb = settings.accentArgb) {
       // R58 — provide the app-wide recent-colours host so every unified colour picker shares recents.

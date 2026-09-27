@@ -71,7 +71,7 @@ import java.util.Locale
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class, ExperimentalFoundationApi::class)
 @Composable
 fun AvailabilitySheet(vm: AppViewModel, anchorDay: Long, onDismiss: () -> Unit) {
-    val zone = ZoneId.systemDefault()
+    val zone = vm.zoneId   // honour the configured timeZone override, not just the device default
     val events by vm.events.collectAsStateWithLifecycle()
     val tasks by vm.tasks.collectAsStateWithLifecycle()
     val s by vm.settings.collectAsStateWithLifecycle()

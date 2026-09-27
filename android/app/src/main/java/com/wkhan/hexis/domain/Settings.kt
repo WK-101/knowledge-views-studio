@@ -30,6 +30,11 @@ fun smartTitle(settings: AppSettings, k: SmartKind): String = settings.smartList
 object AppClock {
     /** Effective 12/24-hour flag, set from the UI (see resolveClock) before any formatter runs. */
     @Volatile var use24: Boolean = false
+
+    /** The app-wide clock zone (settings.timeZone resolved), set once from the composition root so every
+     *  surface — including the shared date/time pickers — builds and reads instants in the user's chosen
+     *  zone rather than the device default. Defaults to the device zone until set. */
+    @Volatile var zone: java.time.ZoneId = java.time.ZoneId.systemDefault()
     fun is24(fmt: TimeFormat, system24: Boolean): Boolean = when (fmt) {
         TimeFormat.H24 -> true; TimeFormat.H12 -> false; TimeFormat.SYSTEM -> system24
     }

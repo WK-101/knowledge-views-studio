@@ -80,7 +80,7 @@
         android:supportsRtl="true"
         android:enableOnBackInvokedCallback="true"
         tools:targetApi="33"
-        android:theme="@style/Theme.ToDoCompanion">
+        android:theme="@style/Theme.Hexis">
 
         <activity
             android:name=".MainActivity"
@@ -88,7 +88,7 @@
             android:launchMode="singleTop"
             android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden|uiMode|density|fontScale"
             android:label="@string/app_name"
-            android:theme="@style/Theme.ToDoCompanion.Splash">
+            android:theme="@style/Theme.Hexis.Splash">
             <!-- The MAIN/LAUNCHER role AND the static long-press shortcuts live on the
                  <activity-alias> set declared right after this activity. Shipping one alias per icon
                  colour (only one enabled at a time) lets the user recolour the home-screen icon by
@@ -366,7 +366,7 @@
         <activity
             android:name=".widget.WidgetConfigActivity"
             android:exported="false"
-            android:theme="@style/Theme.ToDoCompanion">
+            android:theme="@style/Theme.Hexis">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
             </intent-filter>
@@ -377,7 +377,7 @@
         <activity
             android:name=".widget.QuickCaptureActivity"
             android:exported="true"
-            android:theme="@style/Theme.ToDoCompanion.QuickCapture"
+            android:theme="@style/Theme.Hexis.QuickCapture"
             android:excludeFromRecents="true"
             android:taskAffinity=""
             android:launchMode="singleTask"
@@ -396,7 +396,7 @@
         <activity
             android:name=".widget.HabitQuickLogActivity"
             android:exported="false"
-            android:theme="@style/Theme.ToDoCompanion.QuickCapture"
+            android:theme="@style/Theme.Hexis.QuickCapture"
             android:excludeFromRecents="true"
             android:taskAffinity=""
             android:launchMode="singleTask" />
@@ -407,7 +407,7 @@
         <activity
             android:name=".widget.QuickNoteActivity"
             android:exported="false"
-            android:theme="@style/Theme.ToDoCompanion.QuickCapture"
+            android:theme="@style/Theme.Hexis.QuickCapture"
             android:excludeFromRecents="true"
             android:taskAffinity=""
             android:launchMode="singleTask"
@@ -415,21 +415,21 @@
         <activity
             android:name=".widget.QuickHabitsActivity"
             android:exported="false"
-            android:theme="@style/Theme.ToDoCompanion.QuickCapture"
+            android:theme="@style/Theme.Hexis.QuickCapture"
             android:excludeFromRecents="true"
             android:taskAffinity=""
             android:launchMode="singleTask" />
         <activity
             android:name=".widget.QuickTimeActivity"
             android:exported="false"
-            android:theme="@style/Theme.ToDoCompanion.QuickCapture"
+            android:theme="@style/Theme.Hexis.QuickCapture"
             android:excludeFromRecents="true"
             android:taskAffinity=""
             android:launchMode="singleTask" />
         <activity
             android:name=".widget.QuickSearchActivity"
             android:exported="false"
-            android:theme="@style/Theme.ToDoCompanion.QuickCapture"
+            android:theme="@style/Theme.Hexis.QuickCapture"
             android:excludeFromRecents="true"
             android:taskAffinity=""
             android:launchMode="singleTask"

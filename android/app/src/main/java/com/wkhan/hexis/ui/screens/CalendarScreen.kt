@@ -1512,7 +1512,7 @@ private fun MonthView(anchor: LocalDate, selected: LocalDate, dueByDate: Map<Loc
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Box(Modifier.size(7.dp).clip(CircleShape).background(c)); Spacer(Modifier.size(7.dp))
-                        val t = if (o.event.allDay) "" else com.wkhan.hexis.domain.AppClock.time(o.startMillis, java.time.ZoneId.systemDefault()) + "  "
+                        val t = if (o.event.allDay) "" else com.wkhan.hexis.domain.AppClock.time(o.startMillis, com.wkhan.hexis.domain.AppClock.zone) + "  "
                         Text(t + o.event.title, style = MaterialTheme.typography.labelMedium, maxLines = 1, color = MaterialTheme.colorScheme.onSurface)
                     }
                 }
@@ -2415,7 +2415,7 @@ private fun calSwipeVisual(action: SwipeAction): Pair<Color, androidx.compose.ui
  *  full, per direction) driven by the same global swipe settings as the task list. */
 @Composable
 private fun TaskLine(task: TaskEntity, onOpenTask: (String) -> Unit, swipe: CalSwipe) {
-    val zone = ZoneId.systemDefault()
+    val zone = com.wkhan.hexis.domain.AppClock.zone   // configured clock zone (set at the composition root)
     val level = PriorityLevel.from(task.importance, task.urgency)
     val accent = if (level == PriorityLevel.NONE) MaterialTheme.colorScheme.primary else priorityColor(level)
     val scope = rememberCoroutineScope()

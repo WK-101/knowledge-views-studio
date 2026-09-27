@@ -113,10 +113,14 @@ object PriorityEngine {
             val daysToDue = (due - now) / DAY_MS
             t += cfg.dueWeight * dueUrgency(daysToDue, lead, cfg.overdueBoost)
         }
-        // A hard deadline pulls harder than a soft plan-date as it nears (×1.3).
+        // A hard deadline pulls harder than a soft plan-date as it nears (×1.3). Skip it when it coincides
+        // with the due date, so a task with deadline == due isn't scored ~2.3× (the due term already counts
+        // that day's urgency/overdue spike once).
         task.deadlineDate?.let { dl ->
-            val daysToDeadline = (dl - now) / DAY_MS
-            t += cfg.dueWeight * 1.3 * dueUrgency(daysToDeadline, lead, cfg.overdueBoost)
+            if (dl != task.dueDate) {
+                val daysToDeadline = (dl - now) / DAY_MS
+                t += cfg.dueWeight * 1.3 * dueUrgency(daysToDeadline, lead, cfg.overdueBoost)
+            }
         }
         task.startDate?.let { start ->
             val daysSinceStart = (now - start) / DAY_MS

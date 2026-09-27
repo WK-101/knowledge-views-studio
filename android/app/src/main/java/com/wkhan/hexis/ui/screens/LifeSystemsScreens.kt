@@ -942,12 +942,12 @@ private fun GroundingScreen(vm: AppViewModel, onBack: () -> Unit) {
             }
         }
     }
-    active?.let { GroundingExercise(it, onClose = { active = null }) }
+    active?.let { GroundingExercise(it, reduceMotion = vm.settings.value.reduceMotion, onClose = { active = null }) }
 }
 
 // A full-screen guided exercise: an animated breathing pacer, or a calm shrinking-circle countdown.
 @Composable
-private fun GroundingExercise(g: FourthWave.Grounding, onClose: () -> Unit) {
+private fun GroundingExercise(g: FourthWave.Grounding, reduceMotion: Boolean, onClose: () -> Unit) {
     androidx.activity.compose.BackHandler { onClose() }
     androidx.compose.material3.Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
         Column(Modifier.fillMaxSize().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -956,7 +956,7 @@ private fun GroundingExercise(g: FourthWave.Grounding, onClose: () -> Unit) {
                 androidx.compose.material3.TextButton(onClick = onClose) { Text("Done") }
             }
             Spacer(Modifier.weight(1f))
-            if (g.breath.isNotEmpty()) BreathingPacer(g.breath) else CountdownCircle(g.timerSeconds)
+            if (g.breath.isNotEmpty()) BreathingPacer(g.breath, reduceMotion) else CountdownCircle(g.timerSeconds)
             Spacer(Modifier.weight(1f))
             Text(g.steps, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
         }
@@ -964,7 +964,7 @@ private fun GroundingExercise(g: FourthWave.Grounding, onClose: () -> Unit) {
 }
 
 @Composable
-private fun BreathingPacer(phases: List<Pair<String, Int>>) {
+private fun BreathingPacer(phases: List<Pair<String, Int>>, reduceMotion: Boolean = false) {
     var idx by remember { mutableIntStateOf(0) }
     var round by remember { mutableIntStateOf(1) }
     var target by remember { mutableFloatStateOf(0.35f) }
@@ -985,7 +985,9 @@ private fun BreathingPacer(phases: List<Pair<String, Int>>) {
             round += 1
         }
     }
-    val size = androidx.compose.ui.unit.lerp(120.dp, 264.dp, scale)
+    // Reduce-motion: hold a static disc (the expand/contract is a vestibular trigger) — the phase label +
+    // timing loop still pace the breathing without the animated size change.
+    val size = if (reduceMotion) 200.dp else androidx.compose.ui.unit.lerp(120.dp, 264.dp, scale)
     Box(Modifier.size(264.dp), contentAlignment = Alignment.Center) {
         Box(Modifier.size(size).clip(CircleShape).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)), contentAlignment = Alignment.Center) {
             Text(label, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)

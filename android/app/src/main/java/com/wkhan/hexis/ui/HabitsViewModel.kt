@@ -513,7 +513,7 @@ class HabitsViewModel(
         val safe = h.name.filter { it.isLetterOrDigit() }.take(20).ifBlank { "habit" }
         val res = withContext(Dispatchers.IO) {
             val bmp = com.wkhan.hexis.util.ProgressCard.render(h.emoji, h.name, h.colorArgb, strength, cur, best, h.unit, total, done, skip, today)
-            com.wkhan.hexis.util.ProgressCard.saveAndShareUri(app.appCtx, bmp, "todo-companion-$safe-progress.png")
+            com.wkhan.hexis.util.ProgressCard.saveAndShareUri(app.appCtx, bmp, "hexis-$safe-progress.png")
         }
         res.shareUri?.let { com.wkhan.hexis.util.ProgressCard.share(app.appCtx, it) }
         onDone(res.savedLocation)
@@ -577,7 +577,7 @@ class HabitsViewModel(
                     com.wkhan.hexis.util.ProgressCard.render(h.emoji, h.name, h.colorArgb, strength, cur, best, h.unit, total, done, skip, today)
                 }
             }
-            com.wkhan.hexis.util.ProgressCard.saveAndShareUri(app.appCtx, bmp, "todo-companion-$safe-$variant.png")
+            com.wkhan.hexis.util.ProgressCard.saveAndShareUri(app.appCtx, bmp, "hexis-$safe-$variant.png")
         }
         res.shareUri?.let { com.wkhan.hexis.util.ProgressCard.share(app.appCtx, it) }
         onDone(res.savedLocation)
