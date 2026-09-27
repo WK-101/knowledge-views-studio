@@ -2187,7 +2187,7 @@ private fun IconPickerDialog(current: String, onDismiss: () -> Unit, onPick: (St
                     com.wkhan.hexis.ui.components.AppIconVariants.ALL.forEach { v ->
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
-                            modifier = Modifier.clip(RoundedCornerShape(12.dp)).clickable { onPick(v.id) }.padding(4.dp),
+                            modifier = Modifier.clip(com.wkhan.hexis.ui.theme.HexisShapes.Card).clickable { onPick(v.id) }.padding(4.dp),
                         ) {
                             IconVariantSwatch(v, 46.dp, selected = v.id == current)
                             Spacer(Modifier.height(4.dp))

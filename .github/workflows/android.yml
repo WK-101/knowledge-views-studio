@@ -9,13 +9,19 @@ name: Android APK
 # Optional repo secrets for stable release signing:
 #   KEYSTORE_BASE64     base64 of your app-signing.jks
 #   KEYSTORE_PASSWORD   keystore password
-#   KEY_ALIAS           key alias (e.g. tasktree)
+#   KEY_ALIAS           key alias (e.g. hexis)
 #   KEY_PASSWORD        key password
 
 on:
   push:
     branches:
+      - "main"
       - "claude/android-task-management-app-7wrdny"
+    paths:
+      - "android/**"
+      - "!android/docs/**"
+      - ".github/workflows/android.yml"
+  pull_request:
     paths:
       - "android/**"
       - "!android/docs/**"
@@ -71,27 +77,27 @@ jobs:
             echo "The APK is still installable; add the secrets for stable update-in-place."
           fi
 
-      - name: Unit tests
-        # R77 — gate the APK on the JVM unit suite (domain engines, recurrence, priority, quick-add,
-        # backup round-trip, the achievement/coach engines, and the migration-chain assertions). A red
-        # test now fails the build instead of shipping. (Instrumented tests that need a device — the
-        # Room MigrationTest — run in a separate emulator job when one is configured.)
-        # R92/R94 — the suite now also includes the Robolectric integration layer (Room DAO, repository,
-        # backup export→import round-trip) and the pure list-rendering pipeline, all on the JVM.
-        # R97 — run the DEBUG unit tests: they include the debug-only Compose UI tests (createComposeRule
-        # needs ui-test-manifest, which is debugImplementation) alongside every variant-agnostic test.
-        run: ./gradlew testDebugUnitTest --stacktrace
+      - name: Verify — tests, lint, UI-coherence ratchet (./gradlew check)
+        # R109 (Tier-1) — gate on the full `check` task on every push to main and every PR, not just the
+        # feature branch. `check` runs the JVM unit suite (domain engines, recurrence, priority, quick-add,
+        # backup round-trip, achievement/coach engines, migration-chain assertions, and the Robolectric
+        # integration layer — Room DAO, repository cascade/orphan integrity, backup round-trip), the debug
+        # Compose UI tests, AND the `uiCoherenceCheck` ratchet (build.gradle.kts) that fails the build if a
+        # feature screen adds hard-coded shapes/colours/font-sizes beyond the committed baseline. Before,
+        # nothing ran `check`, so the ratchet never gated. (Device-only tests — the Room MigrationTest —
+        # still run in a separate emulator job when one is configured; `check` does not include them.)
+        run: ./gradlew check --stacktrace
 
-      - name: Lint
-        # R95 — Android Lint gates the release the same way. abortOnError is on, so any Error-severity
-        # finding fails the build before an APK is produced. Runs against the release variant it ships.
+      - name: Lint (release variant)
+        # R95 — `check` lints the debug variant; this lints the RELEASE variant that actually ships.
+        # abortOnError is on, so any Error-severity finding fails the build before an APK is produced.
         run: ./gradlew lintRelease --stacktrace
 
       - name: Build release APK
         run: ./gradlew assembleRelease --stacktrace
 
       - name: Verify permissions — 0 INTERNET / location (the privacy invariant)
-        # Kairo is offline-first and permission-free by design: it must never request INTERNET or any
+        # Hexis is offline-first and permission-free by design: it must never request INTERNET or any
         # location permission. This gate reads the *built release APK's* merged manifest with aapt2 and
         # fails the build if any forbidden permission slipped in (a new dependency's manifest, a stray
         # <uses-permission>, etc.) — the same check done by hand every release, now enforced in CI.
@@ -113,6 +119,6 @@ jobs:
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ToDoCompanion-release-apk
+          name: Hexis-release-apk
           path: android/app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
