@@ -5,6 +5,7 @@ import java.io.ByteArrayOutputStream
 import java.io.DataInputStream
 import java.io.DataOutputStream
 import java.io.EOFException
+import java.nio.ByteBuffer
 import java.security.GeneralSecurityException
 import java.security.SecureRandom
 import javax.crypto.Cipher
@@ -19,19 +20,28 @@ import javax.crypto.spec.SecretKeySpec
  * once and keeps it in its Keystore-sealed storage, so syncing needs no passphrase afterwards.
  *
  *   header := "PARLEYS1" | u8 kdfAlg | u32 kdfParam | u8 saltLen | salt | check (nonce[12] | GCM(key, "", aad = "PARLEYS1|check"))
- *   file   := "PARLEYF1" | nonce[12] | GCM(key, vCard bytes, aad = "PARLEYF1|" + file name)
+ *   file   := "PARLEYF2" | nonce[12] | GCM(key, u64 version | vCard bytes, aad = "PARLEYF2|" + file name)
  *
  * The file name is authenticated, so a folder writer can't swap two people's files, and every file is authenticated,
  * so one can't edit or plant a contact without the passphrase. File names are hashes: they say nothing about anyone.
+ *
+ * What authentication alone can't catch is an older copy of a file put back (a rollback) or a deleted contact's
+ * file put back (a resurrection): both are valid ciphertexts. Each write therefore seals a version that only grows
+ * ([app.parley.common.sync.FolderSyncRules.nextVersion]); a phone remembers the last version it saw of each file and
+ * of each deleted one, and ignores anything older. A phone that joins later has no such memory, so it can't tell.
+ *
+ * Files from before versions ("PARLEYF1", the vCard alone) still open, as version 0.
  */
 object SyncCrypto {
     const val HEADER_NAME = ".parley-sync"
     const val EXTENSION = ".parleycard"
     private const val HEADER_MAGIC = "PARLEYS1"
-    private const val FILE_MAGIC = "PARLEYF1"
+    private const val FILE_MAGIC_V1 = "PARLEYF1"
+    private const val FILE_MAGIC = "PARLEYF2"
     private const val NONCE = 12
     private const val TAG_BITS = 128
     private const val MAX_HEADER = 4096
+    private const val VERSION_BYTES = 8
 
     /** A new folder header for [passphrase] and the key it yields (32 bytes, keep it sealed). */
     fun newFolder(passphrase: CharArray, kdf: KdfParams = BackupCrypto.DEFAULT_KDF, random: SecureRandom = SecureRandom()): Pair<ByteArray, ByteArray> {
@@ -79,21 +89,35 @@ object SyncCrypto {
         }
     }
 
-    fun seal(key: ByteArray, fileName: String, plain: ByteArray, random: SecureRandom = SecureRandom()): ByteArray {
+    /** A file's vCard and the [version] it was sealed with (0 for files from before versions). */
+    class Opened(val vcard: ByteArray, val version: Long)
+
+    fun seal(key: ByteArray, fileName: String, plain: ByteArray, version: Long, random: SecureRandom = SecureRandom()): ByteArray {
+        require(version >= 0) { "Negative version" }
         val nonce = ByteArray(NONCE).also(random::nextBytes)
-        return FILE_MAGIC.toByteArray(Charsets.US_ASCII) + nonce + gcm(Cipher.ENCRYPT_MODE, key, nonce, plain, fileAad(fileName))
+        val body = ByteBuffer.allocate(VERSION_BYTES + plain.size).putLong(version).put(plain).array()
+        return FILE_MAGIC.toByteArray(Charsets.US_ASCII) + nonce + gcm(Cipher.ENCRYPT_MODE, key, nonce, body, fileAad(FILE_MAGIC, fileName))
     }
 
     /** The plain file, or null when it isn't sealed with [key] under [fileName] (another key, renamed, or altered). */
-    fun open(key: ByteArray, fileName: String, sealed: ByteArray): ByteArray? {
+    fun open(key: ByteArray, fileName: String, sealed: ByteArray): ByteArray? = openVersioned(key, fileName, sealed)?.vcard
+
+    /** Like [open], with the version the file was sealed with. */
+    fun openVersioned(key: ByteArray, fileName: String, sealed: ByteArray): Opened? {
         val m = FILE_MAGIC.length
         if (sealed.size < m + NONCE + TAG_BITS / 8) return null
-        if (!sealed.copyOf(m).contentEquals(FILE_MAGIC.toByteArray(Charsets.US_ASCII))) return null
-        return try {
-            gcm(Cipher.DECRYPT_MODE, key, sealed.copyOfRange(m, m + NONCE), sealed.copyOfRange(m + NONCE, sealed.size), fileAad(fileName))
+        val magic = String(sealed.copyOf(m), Charsets.US_ASCII)
+        if (magic != FILE_MAGIC && magic != FILE_MAGIC_V1) return null
+        val plain = try {
+            gcm(Cipher.DECRYPT_MODE, key, sealed.copyOfRange(m, m + NONCE), sealed.copyOfRange(m + NONCE, sealed.size), fileAad(magic, fileName))
         } catch (_: GeneralSecurityException) {
-            null
+            return null
         }
+        if (magic == FILE_MAGIC_V1) return Opened(plain, 0)
+        if (plain.size < VERSION_BYTES) return null
+        val version = ByteBuffer.wrap(plain, 0, VERSION_BYTES).long
+        if (version < 0) return null
+        return Opened(plain.copyOfRange(VERSION_BYTES, plain.size), version)
     }
 
     private fun ensure(ok: Boolean, problem: String) {
@@ -102,7 +126,7 @@ object SyncCrypto {
 
     private fun checkAad() = "$HEADER_MAGIC|check".toByteArray(Charsets.US_ASCII)
 
-    private fun fileAad(name: String) = "$FILE_MAGIC|$name".toByteArray(Charsets.UTF_8)
+    private fun fileAad(magic: String, name: String) = "$magic|$name".toByteArray(Charsets.UTF_8)
 
     private fun gcm(mode: Int, key: ByteArray, nonce: ByteArray, data: ByteArray, aad: ByteArray): ByteArray {
         val c = Cipher.getInstance("AES/GCM/NoPadding")

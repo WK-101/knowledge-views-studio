@@ -45,6 +45,9 @@ object IntentRoutes {
     /** Opens the Scan QR screen (launcher shortcut, Quick Settings tile). */
     const val ACTION_SCAN_QR = "app.parley.action.SCAN_QR"
     const val ACTION_OPEN_BLOCKING = "app.parley.OPEN_BLOCKING"
+
+    /** Folder sync paused and waits for the user (its notification). */
+    const val ACTION_OPEN_SYNC = "app.parley.OPEN_SYNC"
     const val QUICK_CONTACT = "android.provider.action.QUICK_CONTACT"
     const val QUICK_CONTACT_LEGACY = "com.android.contacts.action.QUICK_CONTACT"
     const val SHOW_OR_CREATE = "com.android.contacts.action.SHOW_OR_CREATE_CONTACT"
@@ -96,6 +99,7 @@ object IntentRoutes {
             Intent.ACTION_APPLICATION_PREFERENCES -> go(NavEvent.Route(Routes.Settings))
             ACTION_OPEN_BACKUP -> go(NavEvent.Route(Routes.Backup))
             ACTION_OPEN_BLOCKING -> go(NavEvent.Route(Routes.Blocking))
+            ACTION_OPEN_SYNC -> go(NavEvent.Route(Routes.Sync))
             ACTION_ADD_CALL -> go(NavEvent.Tab(StartTab.KEYPAD, dial = ""))
             ACTION_BULK_ADD -> go(NavEvent.Route(MessagingRoutes.BulkAdd))
             ACTION_SCAN_QR -> go(NavEvent.Route(QrRoutes.Scan))

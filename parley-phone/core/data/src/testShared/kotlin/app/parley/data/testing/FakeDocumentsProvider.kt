@@ -24,6 +24,9 @@ class FakeDocumentsProvider : ContentProvider() {
     /** Files opened for reading. */
     var reads = 0
 
+    /** Answer listings as a cloud provider does while it still fetches the folder: EXTRA_LOADING, maybe partial. */
+    var loading = false
+
     override fun onCreate(): Boolean {
         dir = File(context!!.cacheDir, "fake-tree-" + System.nanoTime()).apply { mkdirs() }
         return true
@@ -51,7 +54,10 @@ class FakeDocumentsProvider : ContentProvider() {
             },
         )
         if (uri.pathSegments.lastOrNull() == "children") {
-            dir.listFiles().orEmpty().sortedBy { it.name }.forEach(::row)
+            val all = dir.listFiles().orEmpty().sortedBy { it.name }
+            // Still loading: only the first half is known so far.
+            (if (loading) all.take(all.size / 2) else all).forEach(::row)
+            if (loading) out.extras = Bundle().apply { putBoolean(DocumentsContract.EXTRA_LOADING, true) }
         } else {
             fileOf(DocumentsContract.getDocumentId(uri)).takeIf { it.exists() }?.let(::row)
         }

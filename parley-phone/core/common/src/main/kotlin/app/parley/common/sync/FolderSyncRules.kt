@@ -49,7 +49,30 @@ object FolderSyncRules {
      * [RECENT_EDIT_MS].
      */
     fun mustConfirm(deletions: Int, entries: Int, recentlyEditedDeletions: Int): Boolean =
-        (deletions > 3 && deletions * 4 > entries) || recentlyEditedDeletions > 0
+        isMassDeletion(deletions, entries) || recentlyEditedDeletions > 0
+
+    /** More than 3 deletions making up over a quarter of the synced entries: the whole run waits for the user. */
+    fun isMassDeletion(deletions: Int, entries: Int): Boolean = deletions > 3 && deletions * 4 > entries
+
+    /**
+     * Whether a contact counts as recently edited on this phone: changed in the last [RECENT_EDIT_MS] ([updatedAt]),
+     * and later than Parley's own last write to it ([ownWriteAt], null when the sync never wrote it). A contact that
+     * a sync just imported or updated was not edited by the user, so it doesn't hold up a deletion.
+     */
+    fun recentlyEdited(updatedAt: Long, ownWriteAt: Long?, now: Long): Boolean =
+        updatedAt > 0 && now - updatedAt < RECENT_EDIT_MS && (ownWriteAt == null || updatedAt > ownWriteAt)
+
+    /**
+     * The version to seal a file with: above every version seen for it ([lastSeen]), and at least the clock ([now]),
+     * so a file that is deleted and later written again under the same name still outranks the deleted one.
+     */
+    fun nextVersion(lastSeen: Long, now: Long): Long = maxOf(lastSeen + 1, now)
+
+    /** A file older than the last version this phone saw of it: an old copy put back, ignored. */
+    fun isRollback(version: Long, lastSeen: Long): Boolean = version < lastSeen
+
+    /** A file no newer than the version it had when it was deleted ([deletedAt]): a deleted contact put back. */
+    fun isResurrection(version: Long, deletedAt: Long?): Boolean = deletedAt != null && version <= deletedAt
 
     /**
      * What identifies a file's version without reading it: last-modified time and size. Null when the folder's

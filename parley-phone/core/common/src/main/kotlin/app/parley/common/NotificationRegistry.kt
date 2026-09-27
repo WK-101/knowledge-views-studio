@@ -38,6 +38,10 @@ object NotificationIds {
     // Tagged, with a fixed id.
     const val TAG_BACKUP_FAILED = "backup_failed"
     const val TAG_BACKUP_REMINDER = "backup_reminder"
+
+    /** Folder sync paused until the user confirms its deletions. */
+    const val TAG_FOLDER_SYNC = "folder_sync"
+    const val FOLDER_SYNC_ID = 0
     const val BACKUP_ID = 0
 
     /** Plan usage warnings: tag "plan", id = base plus 16 bits of the SIM id. */
@@ -79,7 +83,7 @@ object NotificationIds {
 
     /** Fixed tags, and prefixes of per-item tags (prefix ends with ':'). */
     val tags: List<String> = listOf(
-        TAG_BACKUP_FAILED, TAG_BACKUP_REMINDER, TAG_PLAN, TAG_TEMPORARY, TAG_PRIVATE_NAME,
+        TAG_BACKUP_FAILED, TAG_BACKUP_REMINDER, TAG_FOLDER_SYNC, TAG_PLAN, TAG_TEMPORARY, TAG_PRIVATE_NAME,
         PREFIX_BIRTHDAY, PREFIX_NUDGE, PREFIX_FOLLOW_UP, TAG_CIRCLE_DIGEST,
     )
 

@@ -111,6 +111,7 @@ class NavigationRoutesTest {
             Intent.ACTION_APPLICATION_PREFERENCES to Routes.Settings,
             IntentRoutes.ACTION_OPEN_BACKUP to Routes.Backup,
             IntentRoutes.ACTION_OPEN_BLOCKING to Routes.Blocking,
+            IntentRoutes.ACTION_OPEN_SYNC to Routes.Sync,
             IntentRoutes.ACTION_BULK_ADD to MessagingRoutes.BulkAdd,
             IntentRoutes.ACTION_SCAN_QR to QrRoutes.Scan,
         )

@@ -2,6 +2,7 @@ package app.parley.data.sync
 
 import org.junit.Assert.assertFalse
 import app.parley.data.testing.FakeAndroidKeyStore
+import app.parley.common.backup.RecordJson
 import app.parley.common.backup.SyncCrypto
 import android.Manifest
 import android.app.Application
@@ -129,10 +130,10 @@ class FolderSyncTest {
         val header = File(folder.dir, SyncCrypto.HEADER_NAME).readBytes()
         val key = SyncCrypto.unlock(header, "harbour lantern quiet mosaic".toCharArray())!!
         val grace = "BEGIN:VCARD\r\nVERSION:4.0\r\nFN:Grace Hopper\r\nN:Hopper;Grace;;;\r\nTEL:+1 555 0100\r\nEND:VCARD\r\n"
-        File(folder.dir, "g.parleycard").writeBytes(SyncCrypto.seal(key, "g.parleycard", grace.toByteArray()))
+        File(folder.dir, "g.parleycard").writeBytes(SyncCrypto.seal(key, "g.parleycard", grace.toByteArray(), 1))
         folder.put("planted.vcf", grace.replace("Grace", "Mallory"))
         // A sealed file renamed to another name doesn't open.
-        File(folder.dir, "swapped.parleycard").writeBytes(SyncCrypto.seal(key, "other.parleycard", grace.toByteArray()))
+        File(folder.dir, "swapped.parleycard").writeBytes(SyncCrypto.seal(key, "other.parleycard", grace.toByteArray(), 1))
         val rep = sync.syncNow()
         assertEquals(1, rep.imported)
         val names = repo.loadNow().map { it.displayName }
@@ -208,5 +209,168 @@ class FolderSyncTest {
         sync.syncNow()
         assertEquals(0, sync.lastRun.contactsRead)
         assertEquals(0, sync.lastRun.filesRead)
+    }
+
+    private val pass = "harbour lantern quiet mosaic"
+
+    /** The folder as a version before encrypted sync left it: plain files, a sync state, and no mode chosen. */
+    private fun asUpgradedFolder(): FolderSync {
+        app.getSharedPreferences("folder_sync", android.content.Context.MODE_PRIVATE).edit().remove("mode").commit()
+        return FolderSync(app, repo, ContactRecordStore(app)).also { assertEquals(SyncMode.UNSET, it.status.value.mode) }
+    }
+
+    private fun nameOnly(given: String): Long =
+        runBlocking { repo.save(null, ContactDetails(given = given, note = "No number"), null, null, false)!!.contactId }
+
+    private fun sealedKey(): ByteArray = SyncCrypto.unlock(File(folder.dir, SyncCrypto.HEADER_NAME).readBytes(), pass.toCharArray())!!
+
+    private fun rewrite(name: String, bytes: ByteArray) {
+        val f = File(folder.dir, name)
+        val before = f.lastModified()
+        f.writeBytes(bytes)
+        f.setLastModified(maxOf(System.currentTimeMillis(), before + 2_000))
+    }
+
+    @Test fun encryptingAnUpgradedFolderMovesEveryPlainFileParleyWroteAndNothingElse() = runBlocking {
+        FakeAndroidKeyStore.install()
+        add("Ada", "+44 20 7946 0000")
+        nameOnly("Grace")
+        sync.syncNow()
+        assertEquals(2, folder.names().count { it.endsWith(".vcf") })
+        // Another phone's plain file this phone hasn't seen yet, and a vCard that isn't Parley's.
+        val uid = "other-phone-key"
+        val otherName = RecordJson.sha256Hex(uid.toByteArray()).take(32) + ".vcf"
+        folder.put(otherName, "BEGIN:VCARD\r\nVERSION:4.0\r\nUID:$uid\r\nFN:Alan Turing\r\nN:Turing;Alan;;;\r\nEND:VCARD\r\n")
+        folder.put("my-own-card.vcf", "BEGIN:VCARD\r\nVERSION:4.0\r\nFN:Not Parley\r\nEND:VCARD\r\n")
+
+        val upgraded = asUpgradedFolder()
+        assertEquals(FolderSync.EncryptionSetup.READY, upgraded.useEncryption(pass.toCharArray()))
+        assertEquals(listOf("my-own-card.vcf"), folder.names().filter { it.endsWith(".vcf") })
+        assertEquals(0, upgraded.status.value.plainLeft)
+        assertFalse(folder.names().filter { it.endsWith(SyncCrypto.EXTENSION) }.any { File(folder.dir, it).readText(Charsets.ISO_8859_1).contains("Grace") })
+
+        // The state followed the new names: nothing of this phone's is imported again or written twice.
+        val rep = upgraded.syncNow()
+        assertEquals(0, rep.written + rep.linked + rep.updatedFromFolder)
+        assertEquals(1, rep.imported) // the other phone's contact
+        assertEquals(listOf("Ada", "Alan Turing", "Grace"), repo.loadNow().map { it.displayName }.sorted())
+    }
+
+    @Test fun choosingPlainForAnUpgradedFolderKeepsItsSyncState() = runBlocking {
+        add("Ada", "+44 20 7946 0000")
+        nameOnly("Grace")
+        sync.syncNow()
+        val upgraded = asUpgradedFolder()
+        upgraded.usePlain()
+        val rep = upgraded.syncNow()
+        assertEquals(0, rep.written + rep.imported + rep.linked)
+        assertEquals(2, repo.loadNow().size)
+    }
+
+    @Test fun withoutASyncStateThisPhonesOwnFilesAreLinkedByTheirUidEvenWithoutANumber() = runBlocking {
+        add("Ada", "+44 20 7946 0000")
+        nameOnly("Grace")
+        sync.syncNow()
+        File(app.filesDir, "folder_sync_state.json").delete()
+        val rep = sync.syncNow()
+        assertEquals(2, rep.linked)
+        assertEquals(0, rep.imported + rep.written)
+        assertEquals(2, repo.loadNow().size)
+    }
+
+    @Test fun anOlderEncryptedFilePutBackIsIgnoredAndOverwritten() = runBlocking {
+        FakeAndroidKeyStore.install()
+        val ada = add("Ada", "+44 20 7946 0000")
+        sync.setFolder(folder.treeUri, "Sync")
+        sync.useEncryption(pass.toCharArray())
+        sync.syncNow()
+        val name = folder.names().single { it.endsWith(SyncCrypto.EXTENSION) }
+        val old = File(folder.dir, name).readBytes()
+        val before = repo.editable(ada)!!
+        repo.save(before, before.copy(note = "Engine"), null, null, false)
+        assertEquals(1, sync.syncNow().written)
+
+        rewrite(name, old)
+        val rep = sync.syncNow()
+        assertEquals(0, rep.updatedFromFolder)
+        assertEquals("Engine", repo.details(ada)!!.note)
+        // The folder holds the current version again.
+        val opened = SyncCrypto.openVersioned(sealedKey(), name, File(folder.dir, name).readBytes())!!
+        assertTrue(String(opened.vcard).contains("Engine"))
+    }
+
+    @Test fun aDeletedContactsFilePutBackIsNotImportedAgain() = runBlocking {
+        FakeAndroidKeyStore.install()
+        add("Ada", "+44 20 7946 0000")
+        val grace = add("Grace", "+1 555 0100")
+        sync.setFolder(folder.treeUri, "Sync")
+        sync.useEncryption(pass.toCharArray())
+        sync.syncNow()
+        val before = folder.names().filter { it.endsWith(SyncCrypto.EXTENSION) }.associateWith { File(folder.dir, it).readBytes() }
+        repo.delete(listOf(grace))
+        assertEquals(1, sync.syncNow().deletedFiles)
+        val (name, bytes) = before.entries.single { it.key !in folder.names() }
+
+        rewrite(name, bytes)
+        val rep = sync.syncNow()
+        assertEquals(0, rep.imported + rep.linked)
+        assertFalse(repo.loadNow().any { it.displayName == "Grace" })
+    }
+
+    @Test fun aFolderStillLoadingIsNotSyncedAndNothingIsDeleted() = runBlocking {
+        listOf("Ada", "Grace", "Alan", "Edsger").forEachIndexed { i, n -> add(n, "+1 555 010$i") }
+        sync.syncNow()
+        provider.exec("UPDATE raw_contacts SET last_updated = 1")
+        sync.listingRetryMs = 1
+        folder.loading = true
+        val rep = sync.syncNow()
+        assertEquals(SyncStatus.FOLDER_LOADING, kind())
+        assertEquals(0, rep.deletedLocal)
+        assertEquals(4, repo.loadNow().size)
+        folder.loading = false
+        assertEquals(0, sync.syncNow().deletedLocal)
+    }
+
+    @Test fun aContactTheSyncImportedIsNotHeldAsRecentlyEditedAndAHeldDeletionDoesntStopTheRest() = runBlocking {
+        val ada = add("Ada", "+44 20 7946 0000")
+        sync.syncNow()
+        folder.put("other.vcf", "BEGIN:VCARD\r\nVERSION:4.0\r\nFN:Grace Hopper\r\nN:Hopper;Grace;;;\r\nTEL:+1 555 0100\r\nEND:VCARD\r\n")
+        assertEquals(1, sync.syncNow().imported)
+
+        // Both files deleted elsewhere, and a new one: Grace (imported yesterday by the sync) goes; Ada (edited here) waits.
+        File(folder.dir, "other.vcf").delete()
+        File(folder.dir, folder.names().single()).delete()
+        folder.put("third.vcf", "BEGIN:VCARD\r\nVERSION:4.0\r\nFN:Alan Turing\r\nN:Turing;Alan;;;\r\nTEL:+1 555 0199\r\nEND:VCARD\r\n")
+        val rep = sync.syncNow()
+        assertEquals(1, rep.deletedLocal)
+        assertEquals(1, rep.imported)
+        assertEquals(SyncStatus.PAUSED, kind())
+        assertEquals(1, sync.status.value.pendingDeletions)
+        assertNotNull(repo.details(ada))
+        assertFalse(repo.loadNow().any { it.displayName == "Grace Hopper" })
+    }
+
+    @Test fun renamingALabelRewritesItsMembersFiles() = runBlocking {
+        val ada = add("Ada", "+44 20 7946 0000")
+        val cr = app.contentResolver
+        val group = cr.insert(
+            android.provider.ContactsContract.Groups.CONTENT_URI,
+            android.content.ContentValues().apply { put("title", "Friends"); put("group_visible", 1) },
+        )!!.lastPathSegment!!.toLong()
+        cr.insert(
+            android.provider.ContactsContract.Data.CONTENT_URI,
+            android.content.ContentValues().apply {
+                put("raw_contact_id", repo.rawIds(ada).single())
+                put("mimetype", android.provider.ContactsContract.CommonDataKinds.GroupMembership.CONTENT_ITEM_TYPE)
+                put("data1", group)
+            },
+        )
+        sync.syncNow()
+        val name = folder.names().single()
+        assertTrue(File(folder.dir, name).readText().contains("Friends"))
+
+        provider.exec("UPDATE groups SET title = 'Pals' WHERE _id = $group") // no raw contact's version moves
+        assertEquals(1, sync.syncNow().written)
+        assertTrue(File(folder.dir, name).readText().contains("Pals"))
     }
 }

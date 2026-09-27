@@ -26,7 +26,11 @@ import java.util.concurrent.TimeUnit
 class FolderSyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
         val sync = applicationContext.container.folderSync
-        if (sync.status.value.folderUri != null && sync.status.value.auto) runCatching { sync.syncNow() }
+        if (sync.status.value.folderUri != null && sync.status.value.auto) {
+            runCatching { sync.syncNow() }
+            // A paused run tells the user instead of waiting silently until they open the Sync screen.
+            FolderSyncNotice.update(applicationContext, sync.status.value)
+        }
         // One-way Markdown notes, when a folder is set and "Keep it up to date" is on.
         val md = applicationContext.container.markdown
         if (md.status.value.folderUri != null && md.status.value.auto) runCatching { md.exportNow(MarkdownTexts.build(applicationContext)) }

@@ -38,4 +38,24 @@ class FolderSyncRulesTest {
         assertNull(FolderSyncRules.stamp(0L, 512L))
         assertNull(FolderSyncRules.stamp(1L, null))
     }
+
+    @Test fun a_contact_the_sync_itself_wrote_is_not_recently_edited() {
+        val now = 10L * FolderSyncRules.RECENT_EDIT_MS
+        val yesterday = now - FolderSyncRules.RECENT_EDIT_MS / 3
+        assertTrue(FolderSyncRules.recentlyEdited(yesterday, ownWriteAt = null, now = now))
+        assertFalse("imported or updated by the sync", FolderSyncRules.recentlyEdited(yesterday, ownWriteAt = yesterday, now = now))
+        assertTrue("edited after the sync wrote it", FolderSyncRules.recentlyEdited(yesterday + 1, ownWriteAt = yesterday, now = now))
+        assertFalse("long ago", FolderSyncRules.recentlyEdited(1, ownWriteAt = null, now = now))
+        assertFalse("unknown time", FolderSyncRules.recentlyEdited(0, ownWriteAt = null, now = now))
+    }
+
+    @Test fun versions_only_grow_and_older_copies_are_recognised() {
+        assertEquals(1_000L, FolderSyncRules.nextVersion(lastSeen = 5, now = 1_000))
+        assertEquals(2_001L, FolderSyncRules.nextVersion(lastSeen = 2_000, now = 1_000))
+        assertTrue(FolderSyncRules.isRollback(version = 4, lastSeen = 5))
+        assertFalse(FolderSyncRules.isRollback(version = 5, lastSeen = 5))
+        assertTrue("the deleted version put back", FolderSyncRules.isResurrection(version = 5, deletedAt = 5))
+        assertFalse("written again after the deletion", FolderSyncRules.isResurrection(version = 6, deletedAt = 5))
+        assertFalse("never deleted here", FolderSyncRules.isResurrection(version = 1, deletedAt = null))
+    }
 }

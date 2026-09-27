@@ -105,7 +105,7 @@
     <ID>CyclomaticComplexMethod:ContactRecordStore.kt$ContactRecordStore$fun replaceContent(contactId: Long, record: ContactRecord, targetRaw: Long, writableRaws: List&lt;Long&gt;, groups: GroupResolver = groupResolver()): Boolean</ID>
     <ID>CyclomaticComplexMethod:ContactRecordStore.kt$ContactRecordStore$private fun finish(plan: Plan, rawIds: List&lt;Long&gt;): InsertResult</ID>
     <ID>CyclomaticComplexMethod:ContactRecordStore.kt$ContactRecordStore$private fun plan(r: ContactRecord, target: AccountRef?, available: Set&lt;AccountRef&gt;, groups: GroupResolver, includeReadOnly: Boolean, processPhotos: Boolean = false): Plan</ID>
-    <ID>CyclomaticComplexMethod:ContactRecordStore.kt$ContactRecordStore$private fun readChunk(ids: List&lt;Long&gt;, titles: Map&lt;Long, String&gt;, fullPhoto: Boolean): List&lt;ContactRecord&gt;</ID>
+    <ID>CyclomaticComplexMethod:ContactRecordStore.kt$ContactRecordStore$private fun readChunk(ids: List&lt;Long&gt;, titles: Map&lt;Long, String&gt;, fullPhoto: Boolean): List&lt;Pair&lt;Long, ContactRecord&gt;&gt;</ID>
     <ID>CyclomaticComplexMethod:ContactTimelineScreen.kt$@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class) @Composable fun ContactTimelineScreen(vm: AppViewModel, contactId: Long, back: () -&gt; Unit)</ID>
     <ID>CyclomaticComplexMethod:ContactsChips.kt$@Composable fun ContactsFilterChips(vm: AppViewModel, showVault: Boolean, vaultHidden: Boolean, open: (Destination) -&gt; Unit)</ID>
     <ID>CyclomaticComplexMethod:ContactsRepository.kt$ContactsRepository$private fun summaries(ids: List&lt;Long&gt;?): List&lt;Pair&lt;Long, ContactSummary&gt;&gt;</ID>
@@ -1519,7 +1519,7 @@
     <ID>NestedBlockDepth:CallScreener.kt$CallScreener$private suspend fun gather( req: ScreenRequest, s: ScreeningSettings, at: Long, replayHistory: List&lt;CallEntry&gt;?, knownContact: Boolean? = null, rules: List&lt;BlockRule&gt;, tones: Map&lt;String, String&gt; = emptyMap(), ): Gathered</ID>
     <ID>NestedBlockDepth:ContactCsv.kt$ContactCsv$fun read(input: Reader, report: ImportReportBuilder, onRecord: (ParsedCard) -&gt; Unit)</ID>
     <ID>NestedBlockDepth:ContactRecordStore.kt$ContactRecordStore$fun replaceContent(contactId: Long, record: ContactRecord, targetRaw: Long, writableRaws: List&lt;Long&gt;, groups: GroupResolver = groupResolver()): Boolean</ID>
-    <ID>NestedBlockDepth:ContactRecordStore.kt$ContactRecordStore$private fun readChunk(ids: List&lt;Long&gt;, titles: Map&lt;Long, String&gt;, fullPhoto: Boolean): List&lt;ContactRecord&gt;</ID>
+    <ID>NestedBlockDepth:ContactRecordStore.kt$ContactRecordStore$private fun readChunk(ids: List&lt;Long&gt;, titles: Map&lt;Long, String&gt;, fullPhoto: Boolean): List&lt;Pair&lt;Long, ContactRecord&gt;&gt;</ID>
     <ID>NestedBlockDepth:ContactsRepository.kt$ContactsRepository$fun labelTitlesOrNull(contactId: Long): Set&lt;String&gt;?</ID>
     <ID>NestedBlockDepth:ContactsRepository.kt$ContactsRepository$private fun blankNames(ids: List&lt;Long&gt;): Map&lt;Long, String&gt;</ID>
     <ID>NestedBlockDepth:ContactsRepository.kt$ContactsRepository$private fun summaries(ids: List&lt;Long&gt;?): List&lt;Pair&lt;Long, ContactSummary&gt;&gt;</ID>
