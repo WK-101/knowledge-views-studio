@@ -67,6 +67,8 @@ import app.parley.ui.EmptyState
 import app.parley.ui.Routes
 import app.parley.ui.circle.CircleFavoritesSection
 import app.parley.ui.ParleyShapes
+import app.parley.ui.ListSectionHeader
+import app.parley.ui.Spacing
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -200,7 +202,7 @@ fun FavoritesTab(vm: AppViewModel, open: (String) -> Unit, query: String = "", o
         }
         if (shownFrequents.isNotEmpty() && !reordering) {
             item(span = { GridItemSpan(maxLineSpan) }) {
-                Text(stringResource(R.string.fav_frequent), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(start = 8.dp, top = 16.dp, bottom = 4.dp))
+                ListSectionHeader(stringResource(R.string.fav_frequent), inset = Spacing.s, top = Spacing.l)
             }
             items(shownFrequents, key = { "q" + it.key }) { g ->
                 Tile(g.title, g.contact?.photoUri, onClick = { vm.requestCall(g.number, g.contact?.displayName, source = CallSource.FAVORITE) }, onLong = {

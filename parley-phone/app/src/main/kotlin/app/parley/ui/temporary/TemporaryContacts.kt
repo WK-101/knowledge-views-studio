@@ -29,7 +29,6 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -71,6 +70,8 @@ import app.parley.ui.DataL10n
 import app.parley.ui.ParleyTopBar
 import app.parley.ui.ParleyScaffold
 import app.parley.ui.ConfirmDialog
+import app.parley.ui.ParleyListItem
+import app.parley.ui.avatarSize
 
 private const val DAY_MS = 86_400_000L
 
@@ -248,10 +249,10 @@ fun TemporaryContactsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -
 @Composable
 private fun TemporaryRow(t: TemporaryItem, countryIso: String, onOpen: () -> Unit, onExtend: () -> Unit, onKeep: () -> Unit, onDelete: () -> Unit) {
     var menu by remember { mutableStateOf(false) }
-    ListItem(
+    ParleyListItem(
         modifier = Modifier.clickable(onClick = onOpen),
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-        leadingContent = { Avatar(t.name, null, 40.dp) },
+        leadingContent = { Avatar(t.name, null, avatarSize()) },
         headlineContent = {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (t.vaultId != null) Icon(Icons.Rounded.Lock, stringResource(R.string.temp_private), Modifier.padding(end = 4.dp).padding(top = 1.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)

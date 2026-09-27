@@ -53,6 +53,7 @@ import app.parley.R
 import app.parley.ui.ParleyTopBar
 import app.parley.ui.ParleyScaffold
 import app.parley.ui.ParleyDialog
+import app.parley.ui.ParleyListItem
 
 /** Human-readable one-liner for a stored data row. */
 fun describe(res: Resources, row: DataRow): String? {
@@ -198,7 +199,7 @@ fun SnapshotChanges(vm: AppViewModel, open: (String) -> Unit, modifier: Modifier
                 item { Section(stringResource(R.string.tm_removed, d.removed.size)) }
                 d.removed.forEach { r ->
                     item {
-                        ListItem(
+                        ParleyListItem(
                             leadingContent = { Avatar(r.displayName, null) },
                             headlineContent = { Text(r.displayName) },
                             supportingContent = { Text(lines(res, r).take(2).joinToString(" · ")) },

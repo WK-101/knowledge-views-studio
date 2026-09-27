@@ -23,7 +23,6 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -58,6 +57,8 @@ import app.parley.ui.contact.rememberQuickMessenger
 import kotlinx.coroutines.delay
 import app.parley.ui.ParleyTopBar
 import app.parley.ui.ParleyScaffold
+import app.parley.ui.ParleyListItem
+import app.parley.ui.avatarSize
 
 /**
  * "Who's in…": type a city (or pick one from your contacts' addresses) and see who's linked to it by address,
@@ -132,9 +133,9 @@ fun TripScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
                     items(hits, key = { it.person.id }) { h ->
                         val c = byId[h.person.id]
                         val phone = c?.let { it.phones.firstOrNull { p -> p.isPrimary } ?: it.phones.firstOrNull() }
-                        ListItem(
+                        ParleyListItem(
                             modifier = Modifier.clickable { open(Routes.contact(h.person.id)) },
-                            leadingContent = { Avatar(h.person.name, c?.photoUri, 40.dp) },
+                            leadingContent = { Avatar(h.person.name, c?.photoUri, avatarSize()) },
                             headlineContent = { Text(h.person.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                             supportingContent = { Text(reasonText(h), maxLines = 1, overflow = TextOverflow.Ellipsis) },
                             trailingContent = {

@@ -5,7 +5,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.ui.platform.LocalContext
 import app.parley.common.PhoneIdentity
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -38,8 +37,6 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.heading
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
@@ -68,6 +65,8 @@ import kotlinx.coroutines.launch
 import app.parley.ui.ParleyTopBar
 import app.parley.ui.ParleyScaffold
 import app.parley.ui.ParleyShapes
+import app.parley.ui.ListSectionHeader
+import app.parley.ui.Spacing
 
 /**
  * A contact's whole timeline on its own screen ("Show all" on the contact page): search the notes,
@@ -161,10 +160,7 @@ fun ContactTimelineScreen(vm: AppViewModel, contactId: Long, back: () -> Unit) {
             }
             shown.forEach { m ->
                 stickyHeader(key = "m" + m.month) {
-                    Text(
-                        m.month.atDay(1).format(monthFormat), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).padding(start = 32.dp, top = 12.dp, bottom = 6.dp).semantics { heading() },
-                    )
+                    ListSectionHeader(m.month.atDay(1).format(monthFormat), sticky = true, inset = Spacing.xxl, top = Spacing.m, bottom = 6.dp)
                 }
                 val n = m.entries.size
                 // Keys stay unique even if two entries look alike (a duplicate gets "#k" on its key).

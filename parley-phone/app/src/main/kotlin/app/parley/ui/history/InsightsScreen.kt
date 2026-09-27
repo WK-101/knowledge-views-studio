@@ -29,7 +29,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -71,6 +70,8 @@ import app.parley.R
 import java.util.Locale
 import app.parley.ui.ParleyTopBar
 import app.parley.ui.ParleyScaffold
+import app.parley.ui.ParleyListItem
+import app.parley.ui.avatarSize
 
 private enum class InsightPeriod(@StringRes val label: Int) {
     WEEK(R.string.hist_insight_week), MONTH(R.string.hist_insight_month), QUARTER(R.string.hist_insight_quarter), YEAR(R.string.hist_insight_year), ALL(R.string.hist_insight_all);
@@ -202,12 +203,12 @@ private fun TalkFigure(label: String, sec: Long) {
 @Composable
 internal fun PersonRow(vm: AppViewModel, person: Person, sub: String, open: (String) -> Unit, trailing: (@Composable () -> Unit)? = null) {
     val title = person.name ?: Format.number(person.number, vm.countryIso)
-    ListItem(
+    ParleyListItem(
         modifier = Modifier.clickable {
             val id = person.contactId
             if (id != null) open(Routes.contact(id)) else open(Routes.history(person.number))
         },
-        leadingContent = { Avatar(title, null, 40.dp) },
+        leadingContent = { Avatar(title, null, avatarSize()) },
         headlineContent = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
         supportingContent = { Text(sub) },
         trailingContent = trailing,

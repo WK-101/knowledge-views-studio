@@ -36,6 +36,7 @@ import app.parley.ui.PhotoCache
 import androidx.compose.ui.res.stringResource
 import app.parley.R
 import app.parley.ui.ParleyShapes
+import app.parley.ui.ListSectionHeader
 
 /** What the editor will do with the call-screen background on save. */
 sealed interface BackgroundChange {
@@ -56,7 +57,7 @@ fun CallBackgroundEditor(vm: AppViewModel, lookupKey: String, change: Background
     }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri -> if (uri != null) onChange(BackgroundChange.Set(uri)) }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(stringResource(R.string.ppl_bg_title), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
+        ListSectionHeader(stringResource(R.string.ppl_bg_title), inset = 0.dp, top = 0.dp, bottom = 0.dp)
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Preview(shown, version)
             Column {

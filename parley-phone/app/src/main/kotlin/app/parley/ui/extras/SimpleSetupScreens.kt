@@ -78,6 +78,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import app.parley.ui.ParleyDialog
 import app.parley.ui.ConfirmDialog
+import app.parley.ui.ParleyListItem
+import app.parley.ui.avatarSize
 
 private val clearRow @Composable get() = ListItemDefaults.colors(containerColor = Color.Transparent)
 
@@ -124,9 +126,9 @@ fun SimpleSetupScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit
         SegmentedGroup(pluralStringResource(R.plurals.simple_people_n, cfg.people.size, cfg.people.size, SimpleConfig.MAX_PEOPLE)) {
             resolved.forEachIndexed { i, r ->
                 item("p$i") {
-                    ListItem(
+                    ParleyListItem(
                         colors = clearRow,
-                        leadingContent = { Avatar(r.person.name, r.contact?.photoUri, 40.dp) },
+                        leadingContent = { Avatar(r.person.name, r.contact?.photoUri, avatarSize()) },
                         headlineContent = { Text(r.person.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                         supportingContent = { Text(Bidi.ltr(r.person.number)) },
                         trailingContent = {
@@ -213,7 +215,7 @@ private fun SimplePersonPicker(contacts: List<ContactSummary>, taken: Set<String
                 OutlinedTextField(q, { q = it }, singleLine = true, label = { Text(stringResource(R.string.home_search_contacts)) }, modifier = Modifier.fillMaxWidth())
                 LazyColumn(Modifier.heightIn(max = 360.dp).padding(top = 8.dp)) {
                     items(shown, key = { it.id }) { c ->
-                        ListItem(
+                        ParleyListItem(
                             modifier = Modifier.clickable {
                                 // Only plain numbers can go on a tile (no codes, pauses or extensions).
                                 val numbers = c.phones.map { it.number }.filter { SimpleSetup.dialable(it) != null }.distinct()
@@ -355,9 +357,9 @@ fun SimpleImportScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Uni
             SegmentedGroup(pluralStringResource(R.plurals.simple_people_n, cfg.people.size, cfg.people.size, SimpleConfig.MAX_PEOPLE)) {
                 resolved.forEachIndexed { i, r ->
                     item("r$i") {
-                        ListItem(
+                        ParleyListItem(
                             colors = clearRow,
-                            leadingContent = { Avatar(r.person.name, r.contact?.photoUri, 40.dp) },
+                            leadingContent = { Avatar(r.person.name, r.contact?.photoUri, avatarSize()) },
                             headlineContent = { Text(r.person.name) },
                             // The number this tile will call is always shown; a contact is "found" only when it has that number.
                             supportingContent = {

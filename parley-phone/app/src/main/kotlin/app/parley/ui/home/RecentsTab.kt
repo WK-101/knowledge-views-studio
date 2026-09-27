@@ -114,6 +114,9 @@ import app.parley.ui.activityViewModel
 import app.parley.ui.avatarSize
 import app.parley.ui.common.Format
 import app.parley.ui.ParleySheet
+import app.parley.ui.ListSectionHeader
+import app.parley.ui.Spacing
+import app.parley.ui.ParleyListItem
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -242,10 +245,9 @@ fun RecentsTab(vm: AppViewModel, open: (String) -> Unit, bottomPadding: Dp = 0.d
             when (row) {
                 is RecentsRow.Day -> {
                     val header = remember(row.date, row.today, context) { Format.dayHeader(context, row.date) }
-                    Text(
-                        header, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.fillMaxWidth().clickable(onClickLabel = stringResource(R.string.recents_day_summary)) { daySummary = row.date to header }
-                            .padding(start = 20.dp, top = 12.dp, bottom = 4.dp),
+                    ListSectionHeader(
+                        header, inset = 20.dp, top = Spacing.m,
+                        modifier = Modifier.fillMaxWidth().clickable(onClickLabel = stringResource(R.string.recents_day_summary)) { daySummary = row.date to header },
                     )
                 }
                 is RecentsRow.Call -> {
@@ -311,7 +313,7 @@ fun RecentRow(
     val hue = CallTypeColors.of(cls.hue)
     val attention = rich && unreturned && !g.hidden
     val sequence = if (rich) CallGlance.sequence(g.calls) else emptyList()
-    ListItem(
+    ParleyListItem(
         modifier = Modifier.combinedClickable(
             onClick = if (tapCalls) onCall else onOpen, onLongClick = onLongClick,
             onClickLabel = if (tapCalls) stringResource(R.string.main_call) else null,

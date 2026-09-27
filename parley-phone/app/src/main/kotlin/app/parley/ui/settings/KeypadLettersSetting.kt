@@ -29,6 +29,7 @@ import app.parley.common.KeypadLayout
 import app.parley.ui.people.PeopleRoutes
 import app.parley.ui.LinkRow
 import app.parley.ui.ParleyDialog
+import app.parley.ui.ListSectionHeader
 
 /** Settings › Keypad: "Keypad letters". */
 @Composable
@@ -63,9 +64,9 @@ fun KeypadLettersRow(vm: AppViewModel, icon: ImageVector? = null) {
                     item {
                         LayoutRow(stringResource(R.string.set_kl_same_as_phone), phoneLanguage.localLabel(), choice == null) { store.setKeypadLayout(null); pickLayout = false }
                     }
-                    if (suggested.isNotEmpty()) item { Text(stringResource(R.string.set_kl_suggested), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary) }
+                    if (suggested.isNotEmpty()) item { ListSectionHeader(stringResource(R.string.set_kl_suggested), inset = 0.dp) }
                     items(suggested) { l -> LayoutRow(l.localLabel(), null, choice == l) { store.setKeypadLayout(l); pickLayout = false } }
-                    if (suggested.isNotEmpty()) item { Text(stringResource(R.string.set_kl_all), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary) }
+                    if (suggested.isNotEmpty()) item { ListSectionHeader(stringResource(R.string.set_kl_all), inset = 0.dp) }
                     items(others) { l -> LayoutRow(l.localLabel(), null, choice == l) { store.setKeypadLayout(l); pickLayout = false } }
                 }
             },

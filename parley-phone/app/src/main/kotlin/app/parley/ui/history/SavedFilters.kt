@@ -45,6 +45,8 @@ import kotlinx.coroutines.launch
 import androidx.compose.ui.res.stringResource
 import app.parley.R
 import app.parley.ui.ParleySheet
+import app.parley.ui.ListSectionHeader
+import app.parley.ui.Spacing
 
 /**
  * Saved filter chips for the Recents filter row, plus a "Filter" chip that opens the editor
@@ -165,7 +167,7 @@ private fun FilterEditorSheet(vm: AppViewModel, active: HistoryFilter, onDismiss
 
 @Composable
 private fun Label(text: String) {
-    Text(text, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 16.dp, bottom = 4.dp))
+    ListSectionHeader(text, inset = 0.dp, top = Spacing.l)
 }
 
 private val durations: List<Pair<Int, Pair<Long?, Long?>>> = listOf(

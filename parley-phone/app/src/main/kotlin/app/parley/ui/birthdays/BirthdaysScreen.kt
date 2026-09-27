@@ -12,9 +12,7 @@ import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -24,7 +22,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.NavEvent
@@ -45,6 +42,8 @@ import androidx.compose.ui.res.stringResource
 import app.parley.R
 import app.parley.ui.ParleyTopBar
 import app.parley.ui.ParleyScaffold
+import app.parley.ui.ParleyListItem
+import app.parley.ui.avatarSize
 
 data class UpcomingEvent(val event: ContactEvent, val days: Long, val parsed: EventDate)
 
@@ -90,9 +89,9 @@ fun BirthdaysScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) 
                         item {
                             val e = u.event
                             val kind = if (LifeEvents.isDeath(e.type, e.label)) resources.getString(R.string.life_date_of_death) else if (e.type == Event.TYPE_CUSTOM && !e.label.isNullOrBlank()) e.label!! else resources.getString(Event.getTypeResource(e.type))
-                            ListItem(
+                            ParleyListItem(
                                 modifier = Modifier.clickable { open(Routes.contact(e.contactId)) },
-                                leadingContent = { Avatar(e.name, e.photoUri, 44.dp) },
+                                leadingContent = { Avatar(e.name, e.photoUri, avatarSize()) },
                                 headlineContent = { Text(e.name) },
                                 supportingContent = {
                                     val birth = EventDate.parse(e.date)

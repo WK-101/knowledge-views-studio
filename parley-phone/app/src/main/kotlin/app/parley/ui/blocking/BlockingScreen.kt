@@ -108,6 +108,7 @@ import androidx.compose.ui.semantics.semantics
 import app.parley.ui.ParleyTopBar
 import app.parley.ui.ParleyScaffold
 import app.parley.ui.ConfirmDialog
+import app.parley.ui.ListSectionHeader
 
 /** Situations, not mechanisms: each preset says what it's for and changes a few toggles. */
 private data class Preset(@StringRes val title: Int, @StringRes val help: Int, val apply: (AppSettings) -> AppSettings)
@@ -213,7 +214,7 @@ fun BlockingScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit = 
             }
 
             item(key = "presets") {
-                Text(stringResource(R.string.blk_quick_setups), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(start = 16.dp, top = 8.dp))
+                ListSectionHeader(stringResource(R.string.blk_quick_setups), bottom = 0.dp)
                 Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     PRESETS.forEach { pr -> AssistChip({ presetToApply = pr }, { Text(stringResource(pr.title)) }) }
                 }

@@ -16,7 +16,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -49,6 +48,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import app.parley.ui.ParleyTopBar
 import app.parley.ui.ParleyScaffold
+import app.parley.ui.ParleyListItem
+import app.parley.ui.avatarSize
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -85,8 +86,8 @@ fun DuplicatesScreen(vm: AppViewModel, back: () -> Unit) {
                     Card {
                         Column(Modifier.padding(vertical = 8.dp)) {
                             g.forEach { c ->
-                                ListItem(
-                                    leadingContent = { Avatar(c.displayName, c.photoUri, 40.dp) },
+                                ParleyListItem(
+                                    leadingContent = { Avatar(c.displayName, c.photoUri, avatarSize()) },
                                     headlineContent = { Text(c.displayName) },
                                     supportingContent = { Text((c.phones.map { Bidi.ltr(it.number) } + c.emails).take(2).joinToString(stringResource(R.string.main_separator))) },
                                     colors = ListItemDefaults.colors(containerColor = Color.Transparent),

@@ -20,7 +20,6 @@ import androidx.compose.material.icons.rounded.SearchOff
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -51,6 +50,10 @@ import app.parley.ui.contact.QuickMessenger
 import app.parley.ui.contact.rememberQuickMessenger
 import kotlinx.coroutines.launch
 import app.parley.ui.ParleyShapes
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import app.parley.ui.ParleyListItem
+import app.parley.ui.avatarSize
 
 /**
  * The Circle tab. People with keep-in-touch set, most urgent first, each with a status chip, when you were last
@@ -114,7 +117,10 @@ fun CircleFavoritesSection(vm: AppViewModel, open: (String) -> Unit, query: Stri
             Modifier.fillMaxWidth().clickable { vm.c.circle.updateConfig { it.copy(favoritesSectionCollapsed = !it.favoritesSectionCollapsed) } }.padding(start = 16.dp, end = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(stringResource(R.string.circle_section), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f))
+            Text(
+                stringResource(R.string.circle_section), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.weight(1f).semantics { heading() },
+            )
             Icon(
                 if (collapsed) Icons.Rounded.ExpandMore else Icons.Rounded.ExpandLess,
                 stringResource(if (collapsed) R.string.circle_expand else R.string.circle_collapse),
@@ -134,10 +140,10 @@ fun CircleFavoritesSection(vm: AppViewModel, open: (String) -> Unit, query: Stri
 private fun CircleRowItem(vm: AppViewModel, r: CircleRow, quick: QuickMessenger, open: (String) -> Unit) {
     val res = LocalResources.current
     val phone = r.contact.phones.firstOrNull { it.isPrimary } ?: r.contact.phones.firstOrNull()
-    ListItem(
+    ParleyListItem(
         modifier = Modifier.clickable(onClickLabel = stringResource(R.string.main_open_contact)) { open(Routes.contact(r.contact.id)) },
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-        leadingContent = { Avatar(r.contact.displayName, r.contact.photoUri, 40.dp) },
+        leadingContent = { Avatar(r.contact.displayName, r.contact.photoUri, avatarSize()) },
         headlineContent = {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(r.contact.displayName, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
@@ -178,9 +184,9 @@ private fun SuggestionsGroup(vm: AppViewModel, suggestions: List<CircleSuggestio
         SegmentedGroup(stringResource(R.string.circle_suggested)) {
             suggestions.forEach { s ->
                 item("s:" + s.contact.lookupKey) {
-                    ListItem(
+                    ParleyListItem(
                         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                        leadingContent = { Avatar(s.contact.displayName, s.contact.photoUri, 40.dp) },
+                        leadingContent = { Avatar(s.contact.displayName, s.contact.photoUri, avatarSize()) },
                         headlineContent = { Text(s.contact.displayName, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                         supportingContent = {
                             Text(pluralStringResource(R.plurals.circle_suggest_calls, s.calls, s.calls) + stringResource(R.string.main_separator) + pluralStringResource(R.plurals.circle_every_days, s.days, s.days))

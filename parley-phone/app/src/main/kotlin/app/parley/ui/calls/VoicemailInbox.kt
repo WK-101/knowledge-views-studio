@@ -34,7 +34,6 @@ import androidx.compose.material3.AssistChip
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedButton
@@ -85,6 +84,7 @@ import app.parley.ui.home.RecentsViewModel
 import kotlinx.coroutines.launch
 import app.parley.ui.ConfirmDialog
 import app.parley.ui.ParleyShapes
+import app.parley.ui.ParleyListItem
 
 /**
  * The voicemail inbox, shown in Recents under the "Voicemail" chip: every voicemail Android's voicemail store
@@ -242,7 +242,7 @@ private fun VoicemailRow(
     val contact = remember(v.number) { vm.contactFor(v.number) }
     val title = contact?.displayName ?: v.number.takeIf { it.isNotBlank() }?.let { Bidi.ltr(Format.number(it, vm.countryIso)) } ?: stringResource(R.string.main_private_number)
     Column {
-        ListItem(
+        ParleyListItem(
             modifier = Modifier.clickable(onClickLabel = stringResource(if (expanded) R.string.vmi_collapse else R.string.vmi_show_player), onClick = onToggle),
             colors = if (expanded) ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow) else ListItemDefaults.colors(),
             leadingContent = {

@@ -86,6 +86,7 @@ import app.parley.ui.topOnly
 import app.parley.ui.bottomOnly
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
+import app.parley.ui.ParleyListItem
 
 // Building blocks of the redesigned contact editor.
 
@@ -342,7 +343,7 @@ fun ContactChooserDialog(vm: AppViewModel, onDismiss: () -> Unit, onPick: (id: L
                 OutlinedTextField(query, { query = it }, label = { Text(stringResource(R.string.main_search)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 LazyColumn(Modifier.heightIn(max = 360.dp)) {
                     items(shown, key = { it.id }) { c ->
-                        ListItem(
+                        ParleyListItem(
                             leadingContent = { Avatar(c.displayName, c.photoUri, 36.dp) },
                             headlineContent = { Text(c.displayName) },
                             colors = ListItemDefaults.colors(containerColor = Color.Transparent),

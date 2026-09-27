@@ -89,6 +89,8 @@ import app.parley.ui.Routes
 import kotlinx.coroutines.launch
 import app.parley.ui.ParleySheet
 import app.parley.ui.ParleyShapes
+import app.parley.ui.ListSectionHeader
+import app.parley.ui.Spacing
 
 /**
  * The keypad docked at the foot of Recents. [expanded] is kept by the home screen for the session
@@ -227,10 +229,7 @@ fun ContactsFavorites(vm: AppViewModel, open: (String) -> Unit, onReorder: () ->
             FavoriteGrid(favorites, ps.favoriteColumns, onCall = ::call, onOpen = { open(Routes.contact(it.id)) })
         }
         if (shownFrequents.isNotEmpty()) {
-            Text(
-                stringResource(R.string.fav_frequent), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(start = 24.dp, top = 8.dp, bottom = 4.dp).semantics { heading() },
-            )
+            ListSectionHeader(stringResource(R.string.fav_frequent), inset = Spacing.xl)
             AvatarStrip(shownFrequents.map { g -> g.stripItem(vm, open) })
         }
         HorizontalDivider(Modifier.padding(top = 8.dp, start = 16.dp, end = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))

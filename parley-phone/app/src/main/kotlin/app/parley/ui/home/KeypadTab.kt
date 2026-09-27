@@ -151,6 +151,7 @@ import app.parley.ui.ParleySheet
 import app.parley.ui.ParleyShapes
 import app.parley.ui.topOnly
 import app.parley.ui.showMessage
+import app.parley.ui.ParleyListItem
 
 private val keys = listOf(
     "1" to "", "2" to "ABC", "3" to "DEF",
@@ -827,9 +828,9 @@ private fun DialResultRow(r: DialResult, countryIso: String, modifier: Modifier 
         )
         return
     }
-    ListItem(
+    ParleyListItem(
         modifier = modifier.clickable(onClick = onClick),
-        leadingContent = { Avatar(c?.displayName ?: r.number, c?.photoUri, 40.dp) },
+        leadingContent = { Avatar(c?.displayName ?: r.number, c?.photoUri, avatarSize()) },
         headlineContent = {
             if (c != null) Text(highlight(c.displayName, r.match.nameRanges, MatchStyle), maxLines = 1, overflow = TextOverflow.Ellipsis)
             else Text(Bidi.ltr(Format.number(r.number, countryIso)))
@@ -888,7 +889,7 @@ private fun KeypadContactSearch(vm: AppViewModel, keypad: KeypadViewModel, query
     }
     LazyColumn(Modifier.fillMaxSize()) {
         items(foundVault, key = { "v" + it.id }) { v ->
-            ListItem(
+            ParleyListItem(
                 modifier = Modifier.clickable { open(Routes.vault(v.id)) },
                 leadingContent = { Avatar(v.name, null, avatarSize()) },
                 headlineContent = { Text("\uD83D\uDD12 " + v.name) },

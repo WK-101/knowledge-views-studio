@@ -74,6 +74,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import app.parley.ui.ParleyDialog
 import app.parley.ui.showMessage
+import app.parley.ui.ParleyListItem
 
 /** Imports the old "My details" once, so the card starts with what was typed there. */
 @Composable
@@ -98,7 +99,7 @@ fun MeCardRow(vm: AppViewModel, open: (String) -> Unit) {
     val myCard = stringResource(R.string.me_title)
     var showQr by remember { mutableStateOf(false) }
     val edit = { open(PeopleRoutes.ME) }
-    ListItem(
+    ParleyListItem(
         modifier = Modifier.clickable(onClickLabel = stringResource(R.string.me_edit), onClick = edit),
         leadingContent = { Avatar(card.name.ifBlank { me }, null, avatarSize()) },
         headlineContent = { Text(card.name.ifBlank { myCard }) },

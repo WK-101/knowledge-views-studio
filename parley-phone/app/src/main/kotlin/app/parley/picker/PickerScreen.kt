@@ -25,7 +25,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -50,6 +49,8 @@ import androidx.compose.ui.res.stringResource
 import app.parley.R
 import app.parley.ui.ParleyTopBar
 import app.parley.ui.ParleyScaffold
+import app.parley.ui.ParleyListItem
+import app.parley.ui.avatarSize
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -119,7 +120,7 @@ fun PickerScreen(
                 }
                 items(shown, key = { it.uri.toString() }) { pick ->
                     val checked = pick in selected
-                    ListItem(
+                    ParleyListItem(
                         modifier = Modifier.clickable {
                             if (multiple) {
                                 if (checked) selected.remove(pick) else selected.add(pick)
@@ -127,7 +128,7 @@ fun PickerScreen(
                                 onPicked(listOf(pick))
                             }
                         },
-                        leadingContent = { Avatar(pick.title, pick.photoUri, 40.dp) },
+                        leadingContent = { Avatar(pick.title, pick.photoUri, avatarSize()) },
                         headlineContent = { Text(pick.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                         supportingContent = pick.subtitle?.let { { Text(it, maxLines = 2, overflow = TextOverflow.Ellipsis) } },
                         trailingContent = if (multiple) ({ Checkbox(checked, null) }) else null,

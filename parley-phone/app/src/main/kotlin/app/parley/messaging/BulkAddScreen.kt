@@ -88,6 +88,8 @@ import app.parley.ui.ParleyTopBar
 import app.parley.ui.ParleyScaffold
 import app.parley.ui.LocalSnackbar
 import app.parley.ui.ConfirmDialog
+import app.parley.ui.ListSectionHeader
+import app.parley.ui.Spacing
 
 private enum class Where { CONTACTS, PRIVATE, TEMPORARY }
 
@@ -386,7 +388,7 @@ private fun bulkSummary(res: Resources, list: List<BulkAdd.Candidate>): String =
 
 @Composable
 private fun SectionTitle(text: String) {
-    Text(text, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+    ListSectionHeader(text, bottom = Spacing.s)
 }
 
 @Composable

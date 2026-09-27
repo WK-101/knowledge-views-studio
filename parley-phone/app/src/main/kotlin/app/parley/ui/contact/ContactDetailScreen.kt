@@ -174,6 +174,8 @@ import app.parley.ui.ParleyScaffold
 import app.parley.ui.BackButton
 import app.parley.ui.ParleyDialog
 import app.parley.ui.ConfirmDialog
+import app.parley.ui.ListSectionHeader
+import app.parley.ui.Spacing
 
 /**
  * A contact's page. U1: the photo and name dock into the top bar as you scroll ("last talked" shows there once
@@ -885,7 +887,7 @@ private fun PhoneRow(
 @Composable
 fun Section(title: String) {
     Column {
-        HorizontalDivider(Modifier.padding(top = 8.dp), color = MaterialTheme.colorScheme.surfaceContainerHigh)
-        Text(title, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 4.dp))
+        HorizontalDivider(Modifier.padding(top = Spacing.s), color = MaterialTheme.colorScheme.surfaceContainerHigh)
+        ListSectionHeader(title, top = Spacing.m)
     }
 }
