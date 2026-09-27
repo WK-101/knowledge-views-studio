@@ -162,6 +162,11 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
                 } catch (_: VaultCrypto.LockedException) {
                     leaveLocked()
                     return false
+                } catch (_: VaultCrypto.KeyUnavailableException) {
+                    // Editing from an empty form would save over details that are only unreadable for now.
+                    eventChannel.send(EditorEvent.Message(c.appContext.getString(R.string.vault_details_unavailable)))
+                    eventChannel.send(EditorEvent.Done(null))
+                    return false
                 } ?: ContactDetails()
             } else {
                 a.prefill ?: ContactDetails()

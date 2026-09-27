@@ -95,21 +95,79 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
         )
     }.getOrNull()
 
-    /** Full details; throws [VaultCrypto.LockedException] if the user must unlock first. */
+    /**
+     * Full details; throws [VaultCrypto.LockedException] if the user must unlock first and
+     * [VaultCrypto.KeyUnavailableException] when the Keystore can't open them right now (try again later).
+     *
+     * When the detail key is gone for good (the screen lock was removed or reset), name, numbers, labels and the
+     * caller card survive in the caller-ID copy: they are returned, but nothing is written. The sealed record stays as
+     * it is until the user chooses [keepWhatIsLeft] (see [detailsLost]).
+     */
     suspend fun details(id: Long): ContactDetails? = withContext(Dispatchers.IO) {
         val e = dao.get(id) ?: return@withContext null
         try {
             // The photo is kept apart (encrypted, readable for caller ID); anything older in the record is stale.
             ContactDetailsJson.decode(String(VaultCrypto.openDetail(e.detailBlob))).copy(photoUri = photoUri(id))
         } catch (_: VaultCrypto.KeyLostException) {
-            // The screen lock was removed or reset, which destroys the unlock-bound key. Name, numbers and labels
-            // survive in the caller-ID copy: rebuild from them and re-seal under a new key.
-            val o = JSONObject(String(VaultCrypto.openCallerId(e.callerIdBlob)))
-            val nums = o.optJSONArray("numbers") ?: JSONArray()
-            val labels = o.optJSONArray("labels") ?: JSONArray()
-            val d = rebuiltFromCallerId(id, o)
-            runCatching { save(id, d) }
-            d
+            rebuiltFromCallerId(id, JSONObject(String(VaultCrypto.openCallerId(e.callerIdBlob)))).copy(photoUri = photoUri(id))
+        }
+    }
+
+    /** Whether this entry's full details can no longer be opened (only what the caller-ID copy holds is left). */
+    suspend fun detailsLost(id: Long): Boolean = withContext(Dispatchers.IO) {
+        val e = dao.get(id) ?: return@withContext false
+        try {
+            VaultCrypto.openDetail(e.detailBlob)
+            false
+        } catch (_: VaultCrypto.KeyLostException) {
+            true
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    /**
+     * The user's choice after [detailsLost]: keep the name, numbers and caller card under the current key. The old
+     * sealed record is kept in a file beside the database (a later Keystore recovery could still open it).
+     */
+    suspend fun keepWhatIsLeft(id: Long): Boolean = withContext(Dispatchers.IO) {
+        val e = dao.get(id) ?: return@withContext false
+        if (!detailsLost(id)) return@withContext false
+        save(id, rebuiltFromCallerId(id, JSONObject(String(VaultCrypto.openCallerId(e.callerIdBlob)))))
+        true
+    }
+
+    /** Moves a detail blob that can't be opened any more out of the way, never deleting it. */
+    private fun setAside(id: Long, blob: ByteArray) {
+        val dir = File(context.noBackupFilesDir, "vault-unreadable").apply { mkdirs() }
+        File(dir, "$id-${System.currentTimeMillis()}.bin").writeBytes(blob)
+    }
+
+    /**
+     * Moves every private contact's details to a stronger detail key when the current one is weaker than the phone
+     * allows ([VaultCrypto.detailKeyNeedsUpgrade]): no authentication (made before a screen lock existed) or no
+     * unlocked-device requirement. Runs right after the user authenticated; all entries change in one transaction, or
+     * none do.
+     */
+    suspend fun upgradeDetailKey(): Boolean = withContext(Dispatchers.IO) {
+        if (!VaultCrypto.detailKeyNeedsUpgrade()) return@withContext false
+        keysLock.withLock {
+            VaultCrypto.upgradeDetailKey(
+                reseal = { convert ->
+                    val all = dao.all()
+                    // Entries whose key was already lost stay as they are; everything else must convert.
+                    val converted = all.mapNotNull { e ->
+                        try {
+                            e.copy(detailBlob = convert(e.detailBlob))
+                        } catch (_: VaultCrypto.KeyLostException) {
+                            null
+                        }
+                    }
+                    db.withTransaction { converted.forEach { dao.upsert(it) } }
+                    true
+                },
+                inUse = { dao.all().map { VaultCrypto.generationOf(it.detailBlob) }.toSet() },
+            )
         }
     }
 
@@ -184,9 +242,14 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
             // Keep the original record (the details hash then no longer matches: it was edited) and the carried
             // interactions through edits.
             val keep = (if (record == null) listOf(REC, REC_BLOBS, REC_OF) else emptyList()) + (if (interactions == null) listOf(INTERACTIONS) else emptyList())
-            runCatching { JSONObject(String(VaultCrypto.openDetail(existing.detailBlob))) }.getOrNull()?.let { old ->
-                keep.forEach { k -> if (old.has(k)) detail.put(k, old.get(k)) }
+            val old = try {
+                JSONObject(String(VaultCrypto.openDetail(existing.detailBlob)))
+            } catch (_: VaultCrypto.KeyLostException) {
+                // The user is saving over a record that can't be opened any more: keep the old blob aside first.
+                setAside(existing.id, existing.detailBlob)
+                null
             }
+            old?.let { keep.forEach { k -> if (old.has(k)) detail.put(k, old.get(k)) } }
         }
         val entity = VaultContactEntity(
             id = id ?: 0,

@@ -19,6 +19,7 @@ import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Email
 import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material.icons.rounded.LockOpen
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Timer
@@ -104,6 +105,9 @@ fun VaultDetailScreen(vm: AppViewModel, id: Long, back: () -> Unit, open: (Strin
     val summary = summaries.firstOrNull { it.id == id }
     var details by remember { mutableStateOf<ContactDetails?>(null) }
     var locked by remember { mutableStateOf(false) }
+    // The Keystore couldn't open the details right now, or their key is gone for good: never overwritten on its own.
+    var unavailable by remember { mutableStateOf(false) }
+    var lost by remember { mutableStateOf(false) }
     var attempt by remember { mutableIntStateOf(0) }
     var menu by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
@@ -114,8 +118,12 @@ fun VaultDetailScreen(vm: AppViewModel, id: Long, back: () -> Unit, open: (Strin
         try {
             details = vm.c.vault.details(id)
             locked = false
+            unavailable = false
+            lost = vm.c.vault.detailsLost(id)
         } catch (_: VaultCrypto.LockedException) {
             locked = true
+        } catch (_: VaultCrypto.KeyUnavailableException) {
+            unavailable = true
         }
     }
     fun unlock() = (context as? FragmentActivity)?.let { AppLock.authenticateForVault(it) { ok -> if (ok) attempt++ } }
@@ -245,6 +253,31 @@ fun VaultDetailScreen(vm: AppViewModel, id: Long, back: () -> Unit, open: (Strin
                                 leadingContent = { Icon(Icons.Rounded.Lock, null) },
                                 colors = groupRowColors(),
                                 modifier = Modifier.clickable { unlock() },
+                            )
+                        }
+                    }
+                }
+            }
+            if (unavailable || lost) {
+                item {
+                    SegmentedGroup {
+                        item {
+                            ListItem(
+                                headlineContent = { Text(stringResource(if (lost) R.string.vault_details_lost else R.string.vault_details_unavailable)) },
+                                supportingContent = { Text(stringResource(if (lost) R.string.vault_details_lost_summary else R.string.vault_details_unavailable_summary)) },
+                                leadingContent = { Icon(Icons.Rounded.Warning, null, tint = MaterialTheme.colorScheme.error) },
+                                trailingContent = if (lost) {
+                                    {
+                                        TextButton({
+                                            scope.launch {
+                                                if (vm.c.vault.keepWhatIsLeft(id)) vm.toast(res.getString(R.string.vault_details_kept))
+                                                attempt++
+                                            }
+                                        }) { Text(stringResource(R.string.vault_details_keep)) }
+                                    }
+                                } else null,
+                                colors = groupRowColors(),
+                                modifier = if (lost) Modifier else Modifier.clickable { attempt++ },
                             )
                         }
                     }

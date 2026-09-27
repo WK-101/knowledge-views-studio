@@ -282,8 +282,13 @@ fun CoroutineScope.launchVault(activity: FragmentActivity?, onError: (Exception)
 /** Tracks when the user last proved presence (for vault details). */
 object VaultSession {
     private var authAt = 0L
+
+    /** Runs after each successful authentication: the moment a stronger vault key can be put in place. */
+    @Volatile var onAuthenticated: (() -> Unit)? = null
+
     fun markAuthenticated() {
         authAt = SystemClock.elapsedRealtime()
+        onAuthenticated?.invoke()
     }
     fun recentlyAuthenticated(windowMs: Long = 5 * 60_000L) = authAt > 0 && SystemClock.elapsedRealtime() - authAt < windowMs
 }

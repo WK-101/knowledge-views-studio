@@ -477,6 +477,12 @@
     <string name="vault_shown_when_call">Shown when they call</string>
     <string name="vault_unlock_all">Unlock to see all details</string>
     <string name="vault_unlock_all_summary">Names and numbers work without unlocking so calls still show who\'s calling.</string>
+    <string name="vault_details_lost">Some details can\'t be opened any more</string>
+    <string name="vault_details_lost_summary">Removing or resetting the screen lock also removes the key that protects private details. The name, numbers and the note for calls are safe. Parley keeps the sealed details in case they can be opened again.</string>
+    <string name="vault_details_keep">Keep what\'s left</string>
+    <string name="vault_details_kept">Saved with the name, numbers and note for calls</string>
+    <string name="vault_details_unavailable">Private details can\'t be opened right now</string>
+    <string name="vault_details_unavailable_summary">Nothing has changed. Tap to try again.</string>
     <string name="vault_phone">Phone</string>
     <string name="vault_message_number">Message this number</string>
     <string name="vault_messengers">Message or call on…</string>
