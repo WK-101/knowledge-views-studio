@@ -129,7 +129,8 @@ import app.parley.common.KeypadLayout
 import app.parley.common.NumberText
 import app.parley.common.PhoneNumbers
 import app.parley.common.calls.PressOrder
-import app.parley.messaging.MessageOnSheet
+import app.parley.messaging.ReachSheet
+import app.parley.messaging.ReachTarget
 import app.parley.ui.Avatar
 import app.parley.ui.CallColors
 import app.parley.ui.MatchStyle
@@ -546,7 +547,7 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit, searchQuery: String? = n
             dismissButton = { TextButton({ unassigned = null }) { Text(stringResource(R.string.main_cancel)) } },
         )
     }
-    messageOn?.let { n -> MessageOnSheet(n, onDismiss = { messageOn = null }, onCall = { num -> vm.requestCall(num) }) }
+    messageOn?.let { n -> ReachSheet(ReachTarget.Number(n), onDismiss = { messageOn = null }, onCall = { num -> vm.requestCall(num) }) }
     saveTemporary?.let { n ->
         app.parley.ui.temporary.SaveTemporaryDialog(
             number = Format.number(n, vm.countryIso),

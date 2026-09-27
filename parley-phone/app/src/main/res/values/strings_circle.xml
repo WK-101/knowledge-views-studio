@@ -2,15 +2,15 @@
 <!-- v3.2 Circle: R1–R5, U4 (tab, list, timeline, reminders, "Log this?", settings). -->
 <resources>
     <string name="tab_circle">Circle</string>
-    <string name="circle_search">Search your circle</string>
+    <string name="circle_search">Search your Circle</string>
     <string name="circle_settings">Circle settings</string>
-    <string name="circle_section">Your circle</string>
-    <string name="circle_expand">Show your circle</string>
-    <string name="circle_collapse">Fold your circle away</string>
-    <string name="circle_empty_title">Your circle is empty</string>
+    <string name="circle_section">Your Circle</string>
+    <string name="circle_expand">Show your Circle</string>
+    <string name="circle_collapse">Fold your Circle away</string>
+    <string name="circle_empty_title">Your Circle is empty</string>
     <string name="circle_empty_body">Add the people you want to stay close to. Parley reminds you gently, once a week at most.</string>
     <string name="circle_how_to_add">To add someone, open their contact and choose Stay in touch.</string>
-    <string name="circle_no_match">No one in your circle matches “%1$s”</string>
+    <string name="circle_no_match">No one in your Circle matches “%1$s”</string>
     <string name="circle_status_due">Due</string>
     <string name="circle_status_soon">Soon</string>
     <string name="circle_status_fine">Fine</string>
@@ -32,19 +32,19 @@
     <string name="circle_last_today">In touch today · %1$s</string>
     <string name="circle_suggested">Suggested from your calls</string>
     <string name="circle_add">Add</string>
-    <string name="circle_added">%1$s is in your circle</string>
-    <string name="circle_removed">%1$s is no longer in your circle</string>
+    <string name="circle_added">%1$s is in your Circle</string>
+    <string name="circle_removed">%1$s is no longer in your Circle</string>
     <string name="circle_suggest_dismiss">Hide suggestions</string>
     <string name="circle_call_who">Call %1$s</string>
     <string name="circle_message_who">Message %1$s</string>
     <string name="circle_stay_in_touch">Stay in touch</string>
-    <string name="circle_add_to_circle">Add to your circle</string>
+    <string name="circle_add_to_circle">Add to your Circle</string>
     <string name="circle_add_to_circle_body">A gentle reminder when it’s been a while</string>
     <string name="circle_next_date_today">%1$s today</string>
     <string name="circle_dates">Dates</string>
     <string name="circle_rhythm_natural">Natural rhythm</string>
     <string name="circle_rhythm_natural_body">Learns how often you two usually talk and reminds you only when a gap is unusual for you. Relearned every month.</string>
-    <string name="circle_remove">Remove from your circle</string>
+    <string name="circle_remove">Remove from your Circle</string>
     <string name="circle_log_interaction">Log interaction</string>
     <string name="circle_log_with">Log time with %1$s</string>
     <string name="circle_edit_entry">Edit entry</string>
@@ -63,7 +63,7 @@
     <string name="circle_log_question_video">Log as a video call with %1$s?</string>
     <string name="circle_logged_message">Logged a message with %1$s</string>
     <string name="circle_logged_video">Logged a video call with %1$s</string>
-    <string name="circle_log_prompts_help">When Parley opens a chat or a video call with someone in your circle, it can note that you were in touch. Calls are never logged twice: they come from your call history.</string>
+    <string name="circle_log_prompts_help">When Parley opens a chat or a video call with someone in your Circle, it can note that you were in touch. Calls are never logged twice: they come from your call history.</string>
     <string name="circle_mark_wished">Mark as wished</string>
     <string name="circle_not_now">Not now</string>
     <string name="circle_notif_public">Reminder</string>
@@ -84,7 +84,7 @@
     <string name="set_circle_weekly_cap_summary">Keep-in-touch reminders a week, when they come as due</string>
     <string name="set_circle_weekly_cap_kw">limit, cap, how many, circle, nudge</string>
     <string name="set_log_prompts_title">Log messages you start</string>
-    <string name="set_log_prompts_summary">After Parley opens a chat or video call with someone in your circle</string>
+    <string name="set_log_prompts_summary">After Parley opens a chat or video call with someone in your Circle</string>
     <string name="set_log_prompts_kw">log, interaction, whatsapp, signal, telegram, sms, video, circle, ask</string>
     <plurals name="circle_last_days">
         <item quantity="one">Last in touch %1$d day ago · %2$s</item>

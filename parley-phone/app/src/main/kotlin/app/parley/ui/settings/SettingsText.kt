@@ -125,6 +125,31 @@ object SettingsText {
         "diagnostics" to Triple(R.string.set_diagnostics_title, R.string.set_diagnostics_summary, R.string.set_diagnostics_kw),
         "crash_reports" to Triple(R.string.set_crash_reports_title, R.string.set_crash_reports_summary, R.string.set_crash_reports_kw),
         "contact_page" to Triple(R.string.v34_set_contact_page_title, R.string.v34_set_contact_page_summary, R.string.v34_set_contact_page_kw),
+        // Settings on screens of their own (SettingPlace).
+        "kept_forever" to Triple(R.string.set_kept_forever_title, R.string.set_kept_forever_summary, R.string.set_kept_forever_kw),
+        "blk_hidden_numbers" to Triple(R.string.set_blk_hidden_numbers_title, R.string.set_blk_hidden_numbers_summary, R.string.set_blk_hidden_numbers_kw),
+        "blk_non_contacts" to Triple(R.string.set_blk_non_contacts_title, R.string.set_blk_non_contacts_summary, R.string.set_blk_non_contacts_kw),
+        "blk_off_hours" to Triple(R.string.set_blk_off_hours_title, R.string.set_blk_off_hours_summary, R.string.set_blk_off_hours_kw),
+        "blk_more_checks" to Triple(R.string.set_blk_more_checks_title, R.string.set_blk_more_checks_summary, R.string.set_blk_more_checks_kw),
+        "blk_sounds" to Triple(R.string.set_blk_sounds_title, R.string.set_blk_sounds_summary, R.string.set_blk_sounds_kw),
+        "blk_emergency" to Triple(R.string.set_blk_emergency_title, R.string.set_blk_emergency_summary, R.string.set_blk_emergency_kw),
+        "blk_notifications" to Triple(R.string.set_blk_notifications_title, R.string.set_blk_notifications_summary, R.string.set_blk_notifications_kw),
+        "blk_system_list" to Triple(R.string.set_blk_system_list_title, R.string.set_blk_system_list_summary, R.string.set_blk_system_list_kw),
+        "simple_keypad" to Triple(R.string.set_simple_keypad_title, R.string.set_simple_keypad_summary, R.string.set_simple_keypad_kw),
+        "simple_confirm_decline" to Triple(R.string.set_simple_confirm_decline_title, R.string.set_simple_confirm_decline_summary, R.string.set_simple_confirm_decline_kw),
+        "simple_speak" to Triple(R.string.set_simple_speak_title, R.string.set_simple_speak_summary, R.string.set_simple_speak_kw),
+        "simple_share" to Triple(R.string.set_simple_share_title, R.string.set_simple_share_summary, R.string.set_simple_share_kw),
+        "ct_reminders" to Triple(R.string.set_ct_reminders_title, R.string.set_ct_reminders_summary, R.string.set_ct_reminders_kw),
+        "ct_limits" to Triple(R.string.set_ct_limits_title, R.string.set_ct_limits_summary, R.string.set_ct_limits_kw),
+        "ct_supervised" to Triple(R.string.set_ct_supervised_title, R.string.set_ct_supervised_summary, R.string.set_ct_supervised_kw),
+        "backup_automatic" to Triple(R.string.set_backup_automatic_title, R.string.set_backup_automatic_summary, R.string.set_backup_automatic_kw),
+        "backup_keep" to Triple(R.string.set_backup_keep_title, R.string.set_backup_keep_summary, R.string.set_backup_keep_kw),
+        "backup_restore" to Triple(R.string.set_backup_restore_title, R.string.set_backup_restore_summary, R.string.set_backup_restore_kw),
+        "backup_move_phone" to Triple(R.string.set_backup_move_phone_title, R.string.set_backup_move_phone_summary, R.string.set_backup_move_phone_kw),
+        "sync_auto" to Triple(R.string.set_sync_auto_title, R.string.set_sync_auto_summary, R.string.set_sync_auto_kw),
+        "section_chips" to Triple(R.string.set_section_chips_title, R.string.set_section_chips_summary, R.string.set_section_chips_kw),
+        "sim_billing" to Triple(R.string.set_sim_billing_title, R.string.set_sim_billing_summary, R.string.set_sim_billing_kw),
+        "csv_bom" to Triple(R.string.hist_csv_bom, R.string.hist_csv_bom_summary, R.string.set_csv_bom_kw),
     )
 
     /** Every catalog key has resources (checked by [localizedCatalog], which Settings search calls). */
@@ -136,6 +161,7 @@ object SettingsText {
 
     @StringRes fun title(c: SettingsCategory): Int = when (c) {
         SettingsCategory.APPEARANCE -> R.string.set_cat_appearance_title
+        SettingsCategory.LAYOUT -> R.string.set_cat_layout_title
         SettingsCategory.CALLS -> R.string.set_cat_calls_title
         SettingsCategory.KEYPAD -> R.string.set_cat_keypad_title
         SettingsCategory.CALL_TIME -> R.string.set_cat_call_time_title
@@ -151,6 +177,7 @@ object SettingsText {
 
     @StringRes fun summary(c: SettingsCategory): Int = when (c) {
         SettingsCategory.APPEARANCE -> R.string.set_cat_appearance_summary
+        SettingsCategory.LAYOUT -> R.string.set_cat_layout_summary
         SettingsCategory.CALLS -> R.string.set_cat_calls_summary
         SettingsCategory.KEYPAD -> R.string.set_cat_keypad_summary
         SettingsCategory.CALL_TIME -> R.string.set_cat_call_time_summary

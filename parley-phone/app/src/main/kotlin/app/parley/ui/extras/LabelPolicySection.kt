@@ -46,7 +46,8 @@ import kotlinx.coroutines.launch
 /**
  * X3: a label's policies on its page, under the ringtone: the SIM to call its members on (when they have none of
  * their own), the keep-in-touch rhythm offered when a member joins the Circle, and "Allow through Do Not
- * Disturb", which stars the members and points to Android's setting for starred contacts.
+ * Disturb". Android only lets starred contacts through, so that works by starring the members, which also puts them
+ * in Favourites: the confirmation lists exactly who will be starred before anything changes.
  */
 @Composable
 fun LabelPolicySection(vm: AppViewModel, title: String, members: List<ContactSummary>) {
@@ -59,6 +60,8 @@ fun LabelPolicySection(vm: AppViewModel, title: String, members: List<ContactSum
     var pickSim by remember { mutableStateOf(false) }
     var pickRhythm by remember { mutableStateOf(false) }
     var explainDnd by remember { mutableStateOf(false) }
+    // Only the members not starred yet: "Star N new members" confirms with the same list.
+    var starNewOnly by remember { mutableStateOf(false) }
     val circleKeys by produceState(emptySet<String>(), members, p.rhythmDays) { value = vm.c.circle.members().map { it.lookupKey }.toSet() }
     val outside = members.filter { it.lookupKey !in circleKeys }
     val unstarred = members.filter { !it.starred }
@@ -112,7 +115,7 @@ fun LabelPolicySection(vm: AppViewModel, title: String, members: List<ContactSum
             },
         )
         if (p.allowThroughDnd) {
-            if (unstarred.isNotEmpty()) TextButton({ scope.launch { vm.c.extras.starForDnd(title, unstarred) } }, Modifier.padding(start = 56.dp)) {
+            if (unstarred.isNotEmpty()) TextButton({ starNewOnly = true; explainDnd = true }, Modifier.padding(start = 56.dp)) {
                 Icon(Icons.Rounded.Star, null, Modifier.padding(end = 6.dp))
                 Text(pluralStringResource(R.plurals.x_lp_star_new, unstarred.size, unstarred.size))
             }
@@ -156,22 +159,51 @@ fun LabelPolicySection(vm: AppViewModel, title: String, members: List<ContactSum
         confirmButton = { TextButton({ pickRhythm = false }) { Text(stringResource(R.string.dc_cancel)) } },
     )
     if (explainDnd) AlertDialog(
-        onDismissRequest = { explainDnd = false },
+        onDismissRequest = { explainDnd = false; starNewOnly = false },
         icon = { Icon(Icons.Rounded.DoNotDisturbOn, null) },
         title = { Text(stringResource(R.string.x_lp_dnd_title, title)) },
-        text = { Text(pluralStringResource(R.plurals.x_lp_dnd_explain, unstarred.size, unstarred.size)) },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                if (unstarred.isEmpty()) {
+                    Text(stringResource(R.string.x_lp_dnd_all_starred), style = MaterialTheme.typography.bodyMedium)
+                } else {
+                    Text(pluralStringResource(R.plurals.x_lp_dnd_preview, unstarred.size, unstarred.size), style = MaterialTheme.typography.bodyMedium)
+                    unstarred.forEach { m ->
+                        ListItem(
+                            leadingContent = { Icon(Icons.Rounded.Star, null, tint = MaterialTheme.colorScheme.primary) },
+                            headlineContent = { Text(m.displayName) },
+                            colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
+                        )
+                    }
+                }
+                Text(stringResource(R.string.x_lp_dnd_everyone_note), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp))
+            }
+        },
         confirmButton = {
             TextButton({
+                val newOnly = starNewOnly
                 explainDnd = false
+                starNewOnly = false
                 scope.launch {
-                    vm.c.extras.updatePolicy(title) { it.copy(allowThroughDnd = true) }
-                    // Every member: those Parley starred for another label are recorded under this one too.
-                    vm.c.extras.starForDnd(title, members)
-                    openDndSettings(context)
+                    if (newOnly) {
+                        vm.c.extras.starForDnd(title, unstarred)
+                    } else {
+                        vm.c.extras.updatePolicy(title) { it.copy(allowThroughDnd = true) }
+                        // Every member: those Parley starred for another label are recorded under this one too.
+                        vm.c.extras.starForDnd(title, members)
+                        openDndSettings(context)
+                    }
                 }
-            }) { Text(stringResource(R.string.x_lp_dnd_confirm)) }
+            }) {
+                Text(
+                    when {
+                        unstarred.isEmpty() -> stringResource(R.string.x_lp_dnd_open)
+                        else -> pluralStringResource(R.plurals.x_lp_dnd_star_confirm, unstarred.size, unstarred.size)
+                    },
+                )
+            }
         },
-        dismissButton = { TextButton({ explainDnd = false }) { Text(stringResource(R.string.dc_cancel)) } },
+        dismissButton = { TextButton({ explainDnd = false; starNewOnly = false }) { Text(stringResource(R.string.dc_cancel)) } },
     )
 }
 

@@ -15,6 +15,26 @@ class SettingsSearchTest {
         all.forEach { assertTrue(it.key, it.title.isNotBlank() && it.summary.isNotBlank()) }
     }
 
+    @Test fun settings_on_their_own_screens_are_searchable() {
+        assertEquals("blk_hidden_numbers", keys("withheld").first())
+        assertTrue("blk_off_hours" in keys("bedtime"))
+        assertTrue("ct_supervised" in keys("parental"))
+        assertTrue("backup_keep" in keys("rotation"))
+        assertTrue("history_details" in keys("recently deleted"))
+        assertTrue("journal" in keys("recently deleted"))
+        assertEquals(SettingPlace.BLOCKING, SettingsCatalog["blk_off_hours"].place)
+        assertEquals(SettingPlace.TOOLS, SettingsCatalog["scan_qr"].place)
+        assertEquals(null, SettingsCatalog["theme"].place)
+    }
+
+    @Test fun layout_and_gestures_is_split_from_appearance() {
+        listOf("nav_tabs", "start_tab", "calls_layout", "favorites_in_contacts", "recent_tap", "row_actions", "swipe_actions", "simple_mode")
+            .forEach { assertEquals(it, SettingsCategory.LAYOUT, SettingsCatalog[it].category) }
+        listOf("theme", "amoled", "density", "avatar_style", "sort_names").forEach { assertEquals(it, SettingsCategory.APPEARANCE, SettingsCatalog[it].category) }
+        // No page is overloaded any more.
+        SettingsCategory.entries.forEach { c -> assertTrue(c.name, SettingsCatalog.inCategory(c).count { it.place == null } <= 22) }
+    }
+
     @Test fun empty_query_finds_nothing() {
         assertTrue(keys("").isEmpty())
         assertTrue(keys("   ").isEmpty())

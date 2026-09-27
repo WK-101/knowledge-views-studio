@@ -270,7 +270,7 @@ class NumberActionActivity : androidx.fragment.app.FragmentActivity() {
                     Stage.Enter -> EnterNumber()
                     is Stage.Pick -> PickNumber(s.found)
                     is Stage.Actions -> NumberActions(s.number, s.raw)
-                    is Stage.Message -> MessageOnContent(s.number, s.accountId, onCall = callAction()) { app -> afterLaunch(app != null) }
+                    is Stage.Message -> ReachSheetContent(ReachTarget.Number(s.number, s.accountId), onCall = callAction()) { app -> afterLaunch(app != null) }
                     is Stage.Offer -> Unit
                     is Stage.Emergency -> EmergencyCall(s.number)
                 }
@@ -378,7 +378,7 @@ class NumberActionActivity : androidx.fragment.app.FragmentActivity() {
             }
             if (ready) {
                 androidx.compose.runtime.key(e164) {
-                    MessageOnContent(e164!!, onCall = callAction()) { app -> afterLaunch(app != null) }
+                    ReachSheetContent(ReachTarget.Number(e164!!), onCall = callAction()) { app -> afterLaunch(app != null) }
                 }
             } else {
                 // C2: a number messengers can't open (short or service numbers) can still be called.

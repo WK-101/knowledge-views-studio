@@ -6,7 +6,8 @@ package app.parley.common
  * English words still find a setting in every language.
  */
 enum class SettingsCategory(val title: String, val summary: String) {
-    APPEARANCE("Appearance", "Theme, colours, navigation bar, names"),
+    APPEARANCE("Appearance", "Theme, colours, language, lists, names"),
+    LAYOUT("Layout & gestures", "Navigation bar, combined tabs, taps, swipes, simple mode"),
     CALLS("Calls", "Answering, SIMs, ringtones, carrier settings"),
     KEYPAD("Keypad", "Tones, letters, speed dial, USSD"),
     CALL_TIME("Call time", "Talk-time reminders, limits, plan minutes"),
@@ -21,6 +22,12 @@ enum class SettingsCategory(val title: String, val summary: String) {
 }
 
 /**
+ * Screens outside the category pages that hold settings or tools. Settings search opens them for their entries, so
+ * every setting is searchable wherever it lives.
+ */
+enum class SettingPlace { TOOLS, BLOCKING, DELETED_CALLS, SIMS, CONTACT_PAGE, SIMPLE_MODE, CALL_TIME, BACKUP, SYNC }
+
+/**
  * One searchable setting, identified by its stable [key]. In [SettingsCatalog], [title], [summary] and [keywords]
  * are the English reference texts: the app maps [key] to localised string resources for what the screens show
  * (a screen may replace the summary with a live value such as "Last backup 2 h ago") and builds localised
@@ -33,6 +40,8 @@ data class SettingEntry(
     val category: SettingsCategory,
     val keywords: List<String> = emptyList(),
     val categoryTitles: List<String> = listOf(category.title),
+    /** Where the setting lives when it isn't on its category's page (a screen of its own); null: the page. */
+    val place: SettingPlace? = null,
 ) {
     /**
      * This entry with localised texts, for search. The English title, keywords and category name stay
@@ -55,7 +64,12 @@ object SettingsCatalog {
     private fun e(key: String, title: String, summary: String, category: SettingsCategory, vararg keywords: String) =
         SettingEntry(key, title, summary, category, keywords.toList())
 
+    /** A setting on a screen of its own ([place]), searchable like the others. */
+    private fun at(place: SettingPlace, key: String, title: String, summary: String, category: SettingsCategory, vararg keywords: String) =
+        SettingEntry(key, title, summary, category, keywords.toList(), place = place)
+
     private val A = SettingsCategory.APPEARANCE
+    private val L = SettingsCategory.LAYOUT
     private val C = SettingsCategory.CALLS
     private val K = SettingsCategory.KEYPAD
     private val T = SettingsCategory.CALL_TIME
@@ -75,27 +89,27 @@ object SettingsCatalog {
         e("dynamic_color", "Wallpaper colours", "Material You dynamic colour", A, "color", "material you", "dynamic", "palette", "accent"),
         e("language", "Language", "The language Parley uses", A, "language", "locale", "translation", "app language", "english", "rtl"),
         e("density", "List density", "Comfortable or compact rows", A, "compact", "spacing", "row height", "size"),
-        e("nav_tabs", "Navigation bar", "Show, hide and reorder Favorites, Recents, Contacts and Keypad", A,
+        e("nav_tabs", "Navigation bar", "Show, hide and reorder Favourites, Recents, Contacts and Keypad", L,
             "tabs", "circle", "bottom bar", "bottom navigation", "navigation rail", "reorder", "hide tab", "customise", "customize", "menu"),
-        e("start_tab", "Open on", "The tab Parley opens on", A, "start tab", "default tab", "home screen", "launch", "first screen"),
+        e("start_tab", "Open on", "The tab Parley opens on", L, "start tab", "default tab", "home screen", "launch", "first screen"),
         // S1/S2 (v3.3): optional combined surfaces, and what a tap on a call does (in every layout).
-        e("calls_layout", "Calls layout", "Keypad and Recents as separate tabs, or one screen with the keypad docked at the bottom", A,
+        e("calls_layout", "Calls layout", "Keypad and Recents as separate tabs, or one screen with the keypad docked at the bottom", L,
             "combine", "combined", "merge", "merge tabs", "fewer tabs", "keypad", "dialpad", "dialer", "recents", "one screen", "docked", "unified", "classic", "layout"),
-        e("favorites_in_contacts", "Favourites in Contacts", "Off, a section at the top of Contacts, or a strip of avatars", A,
+        e("favorites_in_contacts", "Favourites in Contacts", "Off, a section at the top of Contacts, or a strip of avatars", L,
             "favorites", "favourites", "starred", "combine", "merge", "merge tabs", "fewer tabs", "strip", "carousel", "section", "frequent", "layout"),
-        e("recent_tap", "Tapping a call in Recents", "Open its details, or call back straight away", A,
+        e("recent_tap", "Tapping a call in Recents", "Open its details, or call back straight away", L,
             "tap", "call back", "details", "accidental", "row", "recents", "tap recents to call", "one tap"),
-        e("row_actions", "Call & message buttons on contacts", "Tapping a contact still opens it", A, "quick actions", "buttons", "sms", "row"),
+        e("row_actions", "Call & message buttons on contacts", "Tapping a contact still opens it", L, "quick actions", "buttons", "sms", "row"),
         e("sort_names", "Sort and show names by", "First name or last name", A, "order", "alphabetical", "surname", "family name", "given name"),
         e("second_line", "Second line under names", "Company, nickname, account or number", A, "subtitle", "company", "account", "details"),
         e("prefer_nickname", "Prefer nicknames", "Show “Bob” instead of “Robert Jones” in lists", A, "nickname", "short name"),
-        e("swipe_actions", "Swipe actions", "Off by default. Swipe a contact or a call right to call, left to message", A,
+        e("swipe_actions", "Swipe actions", "Off by default. Swipe a contact or a call right to call, left to message", L,
             "swipe", "gesture", "slide", "left", "right", "quick actions"),
         e("avatar_style", "Avatars", "Colourful or grey letters; names that start with an emoji show it", A, "avatar", "monogram", "emoji", "picture", "letters", "grey", "gray"),
         // U2
         e("reset_tips", "Reset tips", "Show the one-time tips again (keypad, Recents, search)", A, "tips", "hints", "coach marks", "help", "tutorial", "onboarding"),
         // X4 (v3.2)
-        e("simple_mode", "Simple mode", "Big photo buttons for up to 9 people, a larger keypad and a question before declining. Set it up for someone else", A,
+        e("simple_mode", "Simple mode", "Big photo buttons for up to 9 people, a larger keypad and a question before declining. Set it up for someone else", L,
             "elderly", "senior", "assisted", "easy", "large", "big buttons", "grandparent", "accessibility", "launcher", "text to speech", "speak name"),
 
         // Calls
@@ -125,7 +139,7 @@ object SettingsCatalog {
             "power", "hang up", "end call", "accessibility", "button"),
         e("voicemail", "Voicemail", "Your voicemail inbox and the carrier's voicemail settings", C,
             "visual voicemail", "vvm", "inbox", "mailbox", "voice mail", "messages"),
-        e("sims", "SIMs", "Plan minutes and settings for each SIM", C, "dual sim", "sim card", "esim", "plan"),
+        e("sims", "SIMs & plan minutes", "Plan minutes and settings for each SIM", C, "dual sim", "sim card", "esim", "plan"),
         e("sim_accounts", "SIM & calling accounts", "Default SIM, Wi-Fi calling (system settings)", C, "wifi calling", "wi-fi", "volte", "default sim", "calling account"),
         e("carrier_settings", "Call forwarding, waiting & voicemail", "Carrier settings (system)", C, "forward", "divert", "voicemail", "call waiting", "carrier", "operator"),
 
@@ -140,7 +154,7 @@ object SettingsCatalog {
         // Call time
         e("call_time", "Reminders & limits", "Talk-time reminders, call-length limits and allowances", T,
             "timer", "beep", "duration", "limit", "allowance", "supervised", "parental", "talk time"),
-        e("plan_minutes", "Plan minutes per SIM", "Billing increments and an 80 % warning", T, "billing", "minutes", "plan", "bundle", "tariff"),
+        e("plan_minutes", "Plan minutes per SIM", "Billing increments and an 80 % warning (in SIMs & plan minutes)", C, "billing", "minutes", "plan", "bundle", "tariff"),
 
         // Blocking & spam
         e("blocking", "Blocking & screening", "Allow and block rules, off hours and extra checks", B,
@@ -166,7 +180,7 @@ object SettingsCatalog {
         e("bulk_add", "Add several numbers", "Paste a list of numbers and save them at once, to a label, privately or for a few days", P,
             "bulk", "many", "paste", "list", "batch", "import numbers", "leads"),
         // Q2: Scan QR (search finds it; it opens the scan screen).
-        e("scan_qr", "Scan QR code", "Read a contact, number, chat link, Wi-Fi or web address from a photo, without camera access", P,
+        at(SettingPlace.TOOLS, "scan_qr", "Scan QR code", "Read a contact, number, chat link, Wi-Fi or web address from a photo, without camera access", P,
             "qr", "qr code", "scan", "scanner", "barcode", "vcard", "business card", "wifi", "whatsapp", "signal", "telegram", "camera"),
         e("import_sim", "Import from SIM card", "Copy the SIM's phonebook into your contacts", P, "sim", "phonebook", "copy"),
         e("export_vcf", "Export all to .vcf file", "Plain-text backup you control", P, "vcard", "export", "backup"),
@@ -186,7 +200,10 @@ object SettingsCatalog {
 
         // Recents & history
         e("archive", "Keep full call history", "Parley keeps its own encrypted copy, because Android may drop old calls", H, "archive", "call log", "history", "forever"),
-        e("history_details", "Kept calls & recently deleted", "Numbers kept forever, 30-day undo for deleted calls, export", H, "undo", "restore", "keep forever", "export"),
+        at(SettingPlace.DELETED_CALLS, "history_details", "Deleted calls", "Restore calls deleted in the last 30 days, in History & undo", H,
+            "undo", "restore", "recently deleted", "trash", "bin"),
+        e("kept_forever", "Numbers kept forever", "Calls with these numbers stay, whatever the retention", H, "keep forever", "archive", "retention", "pin"),
+        e("csv_bom", "Excel-friendly CSV", "Adds a byte-order mark so accents show correctly in Excel", H, "excel", "csv", "accents", "byte order mark", "export"),
         e("retention", "Keep call history", "Delete calls from the system call log after a while", H, "retention", "delete old calls", "auto delete", "call log"),
         e("sim_labels", "Show SIM in call history", "Only when two SIMs are active", H, "dual sim", "sim label"),
         e("recents_layout", "Call list layout", "Grouped, every call on its own row, or grouped by day", H,
@@ -198,7 +215,7 @@ object SettingsCatalog {
             "delete", "clear", "wipe", "erase", "unknown numbers", "call log"),
         e("insights", "Call insights", "Talk time, top people, calls you didn't return", H, "statistics", "stats", "charts", "talk time"),
         // R6 (v3.2): the People card.
-        e("people_card", "People card in Insights", "Reach in your circle, open loops and your year, in Call insights", H,
+        e("people_card", "People card in Call insights", "Reach in your circle, open loops and your year, in Call insights", H,
             "people", "reach", "circle", "open loops", "year in review", "insights"),
         e("first_mover", "Who usually reaches out first", "On the People card. Only you see it", H, "first", "reaches out", "initiates", "calls first", "people"),
         e("import_calls", "Import call history from CSV", "From Parley, Logger or a spreadsheet, with a dry run first", H, "csv", "import", "call log"),
@@ -230,8 +247,9 @@ object SettingsCatalog {
         // C3
         e("backup_reminder", "Remind me to back up", "A quiet reminder when there's been no backup for a while", U, "reminder", "overdue", "backup", "notification", "nag"),
         e("sync", "Sync between your phones", "Through a Syncthing / Nextcloud folder, no server", U, "syncthing", "nextcloud", "folder", "second phone"),
-        e("journal", "Recently deleted & changed", "Undo for 30 days", U, "undo", "trash", "restore", "deleted", "bin"),
-        e("time_machine", "What changed (time machine)", "Daily snapshots for 6 months: see and undo changes", U, "snapshots", "history", "versions", "restore"),
+        e("journal", "History & undo", "Deleted contacts and calls, changes and daily snapshots: undo for 30 days", U,
+            "undo", "trash", "restore", "deleted", "bin", "recently deleted", "journal"),
+        e("time_machine", "Daily snapshots (time machine)", "Daily snapshots for 6 months: see and undo changes", U, "snapshots", "history", "versions", "restore"),
         // C5 (v3.2)
         e("markdown_export", "Export notes as Markdown", "One .md file per person with notes and timeline, to a folder you choose", U,
             "markdown", "md", "obsidian", "notes", "logseq", "export", "folder", "timeline"),
@@ -248,6 +266,39 @@ object SettingsCatalog {
         e("diagnostics", "Export diagnostics", "App version, device and settings, with numbers masked", O, "debug", "logs", "bug report", "support", "raw", "dump"),
         e("crash_reports", "Keep crash reports", "Off by default. After a crash, Parley offers the report on the next start; nothing is sent", O,
             "crash", "bug", "error", "report", "stack trace", "debug"),
+
+        // Settings on screens of their own (search opens the screen).
+        at(SettingPlace.BLOCKING, "blk_hidden_numbers", "Silence or block hidden numbers", "Private, unknown and withheld numbers", B,
+            "hidden", "private number", "withheld", "no caller id", "anonymous", "unknown"),
+        at(SettingPlace.BLOCKING, "blk_non_contacts", "Only people I know ring", "Numbers that aren't in your contacts are silenced or blocked", B,
+            "unknown", "strangers", "contacts only", "whitelist", "allow list"),
+        at(SettingPlace.BLOCKING, "blk_off_hours", "Off hours", "Quiet times when only the people you choose ring", B,
+            "schedule", "night", "sleep", "work hours", "weekend", "quiet", "bedtime"),
+        at(SettingPlace.BLOCKING, "blk_more_checks", "More checks", "Neighbour spoofing, failed caller verification, numbers that can't exist", B,
+            "spoofing", "stir shaken", "verification", "invalid", "neighbour", "neighbor"),
+        at(SettingPlace.BLOCKING, "blk_sounds", "Sounds for screened calls", "Favourites ring loud; ringtones for repeat callers and likely spam", B,
+            "ringtone", "loud", "favourites", "favorites", "repeat", "spam sound"),
+        at(SettingPlace.BLOCKING, "blk_emergency", "Emergency numbers", "Emergency numbers always ring through, with extra numbers you add", B,
+            "112", "911", "999", "emergency", "always ring"),
+        at(SettingPlace.BLOCKING, "blk_notifications", "Blocked call notifications", "A notice when a call is blocked, reported or likely spam", B,
+            "notification", "alert", "blocked call"),
+        at(SettingPlace.BLOCKING, "blk_system_list", "Blocked numbers (system list)", "Android's own list, shared with other phone apps", B,
+            "system", "blocked numbers", "shared", "android"),
+        at(SettingPlace.SIMPLE_MODE, "simple_keypad", "Simple mode: keypad button", "A large keypad button on the simple home screen", L, "keypad", "big", "dial"),
+        at(SettingPlace.SIMPLE_MODE, "simple_confirm_decline", "Simple mode: ask before declining", "A question before a call is declined", L, "decline", "accidental", "reject"),
+        at(SettingPlace.SIMPLE_MODE, "simple_speak", "Simple mode: say who is calling", "Reads the caller's name aloud", L, "text to speech", "speak", "announce", "caller name"),
+        at(SettingPlace.SIMPLE_MODE, "simple_share", "Simple mode: set up another phone", "Share the setup as an encrypted file or QR code", L, "share", "qr", "family", "another phone"),
+        at(SettingPlace.CALL_TIME, "ct_reminders", "Talk-time reminders", "A beep or a vibration every few minutes during a call", T, "beep", "vibrate", "reminder", "minutes"),
+        at(SettingPlace.CALL_TIME, "ct_limits", "Call time limits", "A warning, or the call ends, after a set time, for a contact or a label", T, "limit", "maximum", "end call"),
+        at(SettingPlace.CALL_TIME, "ct_supervised", "Supervised mode", "Limits that can't be changed without unlocking", T, "parental", "child", "lock", "supervised"),
+        at(SettingPlace.BACKUP, "backup_automatic", "Automatic backups", "Back up on a schedule to your folder", U, "schedule", "daily", "weekly", "auto"),
+        at(SettingPlace.BACKUP, "backup_keep", "Backups to keep", "How many backups stay in the folder", U, "rotation", "keep", "old backups"),
+        at(SettingPlace.BACKUP, "backup_restore", "Restore a backup", "From a backup file, with an undo afterwards", U, "restore", "import backup"),
+        at(SettingPlace.BACKUP, "backup_move_phone", "Move to a new phone", "Everything to your new phone, step by step", U, "new phone", "transfer", "migrate"),
+        at(SettingPlace.SYNC, "sync_auto", "Sync automatically", "Keep two phones in step through a shared folder", U, "auto sync", "syncthing", "nextcloud"),
+        at(SettingPlace.CONTACT_PAGE, "section_chips", "Jump to a section", "Chips on long contact pages that jump to a section", P, "chips", "jump", "sections"),
+        at(SettingPlace.SIMS, "sim_billing", "Billing increments per SIM", "Per-second or per-minute billing, what counts, and the 80 % warning", C,
+            "billing", "per minute", "per second", "rounding", "plan", "tariff"),
     )
 
     private val byKey = entries.associateBy { it.key }

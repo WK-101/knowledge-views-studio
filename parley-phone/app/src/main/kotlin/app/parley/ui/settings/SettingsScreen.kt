@@ -83,6 +83,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.common.AppSettings
 import app.parley.common.SettingEntry
+import app.parley.common.SettingPlace
+import androidx.compose.material.icons.rounded.Dashboard
+import androidx.compose.material.icons.rounded.Handyman
 import app.parley.common.SettingsCategory
 import app.parley.common.SettingsSearch
 import app.parley.common.vcard.ImportReport
@@ -96,6 +99,7 @@ import app.parley.ui.segmentShape
 val SettingsCategory.icon: ImageVector
     get() = when (this) {
         SettingsCategory.APPEARANCE -> Icons.Rounded.Palette
+        SettingsCategory.LAYOUT -> Icons.Rounded.Dashboard
         SettingsCategory.CALLS -> Icons.Rounded.Call
         SettingsCategory.KEYPAD -> Icons.Rounded.Dialpad
         SettingsCategory.CALL_TIME -> Icons.Rounded.Timer
@@ -111,7 +115,7 @@ val SettingsCategory.icon: ImageVector
 
 /** Categories in groups, so the list reads in chunks rather than as one long pile. */
 private val categoryGroups = listOf(
-    listOf(SettingsCategory.APPEARANCE),
+    listOf(SettingsCategory.APPEARANCE, SettingsCategory.LAYOUT),
     listOf(SettingsCategory.CALLS, SettingsCategory.KEYPAD, SettingsCategory.CALL_TIME, SettingsCategory.BLOCKING),
     listOf(SettingsCategory.CONTACTS, SettingsCategory.HISTORY, SettingsCategory.MESSAGING),
     listOf(SettingsCategory.PRIVACY, SettingsCategory.BACKUP, SettingsCategory.NOTIFICATIONS),
@@ -149,7 +153,7 @@ fun SettingsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
         },
     ) { p ->
         if (searching) {
-            SearchResults(query, Modifier.padding(p), onClear = { query = "" }) { e -> open(Routes.settingsPage(e.category, e.key)) }
+            SearchResults(query, Modifier.padding(p), onClear = { query = "" }) { e -> open(settingRoute(e)) }
             return@Scaffold
         }
         Column(
@@ -176,6 +180,18 @@ fun SettingsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
             }
             // C3: a quiet reminder once a backup is overdue (Not now snoozes it for a week).
             app.parley.ui.backup.BackupReminderBanner(vm, Modifier.padding(vertical = 0.dp))
+            // Tools (birthdays, blocking, backups, History & undo…) are also here, not only in the tabs' ⋮ menus.
+            SegmentedGroup {
+                item("tools") {
+                    ListItem(
+                        modifier = Modifier.clickable { open(Routes.TOOLS) },
+                        leadingContent = { TonalIcon(Icons.Rounded.Handyman, MaterialTheme.colorScheme.tertiaryContainer, MaterialTheme.colorScheme.onTertiaryContainer) },
+                        headlineContent = { Text(stringResource(R.string.set_tools_title)) },
+                        supportingContent = { Text(stringResource(R.string.set_tools_summary), maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                        colors = rowColors(),
+                    )
+                }
+            }
             categoryGroups.forEach { group ->
                 SegmentedGroup {
                     group.forEach { c ->
@@ -274,12 +290,15 @@ fun SettingsPageScreen(vm: AppViewModel, category: SettingsCategory, focus: Stri
         focus == "lock_after" && !s.appLock -> "app_lock"
         focus == "reminder_time" && !s.birthdayReminders -> "birthday_reminders"
         focus == "export_account" && !severalAccounts -> "export_vcf"
+        // One row for SIMs and their plan minutes (search finds it by either name).
+        focus == "plan_minutes" -> "sims"
         else -> focus
     }
     CompositionLocalProvider(LocalHighlightKey provides shown) {
         SettingsScaffold(category.localTitle(), back) {
             when (category) {
                 SettingsCategory.APPEARANCE -> AppearancePage(vm, open)
+                SettingsCategory.LAYOUT -> LayoutPage(vm, open)
                 SettingsCategory.CALLS -> CallsPage(vm, open)
                 SettingsCategory.KEYPAD -> KeypadPage(vm, open)
                 SettingsCategory.CALL_TIME -> CallTimePage(vm, open)
@@ -363,6 +382,20 @@ internal fun ImportReportDialog(report: ImportReport, onDismiss: () -> Unit) {
 }
 
 private const val MAX_REPORT_ITEMS = 50
+
+/** Where Settings search takes you for [e]: its category page scrolled to it, or the screen it lives on. */
+internal fun settingRoute(e: SettingEntry): String = when (e.place) {
+    null -> Routes.settingsPage(e.category, e.key)
+    SettingPlace.TOOLS -> if (e.key == "scan_qr") app.parley.ui.qr.QrRoutes.SCAN else Routes.TOOLS
+    SettingPlace.BLOCKING -> Routes.BLOCKING
+    SettingPlace.DELETED_CALLS -> Routes.journal(app.parley.ui.journal.HistoryTab.CALLS)
+    SettingPlace.SIMS -> app.parley.ui.history.HistoryRoutes.SIMS
+    SettingPlace.CONTACT_PAGE -> app.parley.ui.contact.ContactPageRoutes.SECTIONS
+    SettingPlace.SIMPLE_MODE -> app.parley.ui.extras.ExtrasRoutes.SIMPLE_SETUP
+    SettingPlace.CALL_TIME -> Routes.CALL_TIME
+    SettingPlace.BACKUP -> Routes.BACKUP
+    SettingPlace.SYNC -> Routes.SYNC
+}
 
 /** Settings that don't exist on this phone, left out of search. */
 private val unavailableHere: Set<String> = buildSet {

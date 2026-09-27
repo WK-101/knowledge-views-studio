@@ -84,5 +84,5 @@ object MessageRoutes {
 
     /** "WhatsApp can't see your contacts…" is worth saying when the app is installed but hasn't linked this person. */
     fun showUnlinkedHint(pkg: String, linked: Set<String>, installed: Set<String>): Boolean =
-        pkg in installed && pkg !in linked && (pkg == "com.whatsapp" || pkg == "com.whatsapp.w4b")
+        pkg in installed && pkg !in linked && MessengerApp.forPackage(pkg)?.messenger == app.parley.common.Messenger.WHATSAPP
 }

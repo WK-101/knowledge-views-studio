@@ -2,7 +2,7 @@
 <resources>
     <!-- Settings categories (keyed by SettingsCategory name) -->
     <string name="set_cat_appearance_title">Appearance</string>
-    <string name="set_cat_appearance_summary">Theme, colours, navigation bar, names</string>
+    <string name="set_cat_appearance_summary">Theme, colours, language, lists, names</string>
     <string name="set_cat_calls_title">Calls</string>
     <string name="set_cat_calls_summary">Answering, SIMs, ringtones, carrier settings</string>
     <string name="set_cat_keypad_title">Keypad</string>
@@ -43,7 +43,7 @@
     <string name="set_density_summary">Comfortable or compact rows</string>
     <string name="set_density_kw">compact, spacing, row height, size</string>
     <string name="set_nav_tabs_title">Navigation bar</string>
-    <string name="set_nav_tabs_summary">Show, hide and reorder Favorites, Recents, Contacts and Keypad</string>
+    <string name="set_nav_tabs_summary">Show, hide and reorder Favourites, Recents, Contacts and Keypad</string>
     <string name="set_nav_tabs_kw">tabs, bottom bar, bottom navigation, navigation rail, reorder, hide tab, customise, customize, menu</string>
     <string name="set_start_tab_title">Open on</string>
     <string name="set_start_tab_summary">The tab Parley opens on</string>
@@ -96,7 +96,7 @@
     <string name="set_voicemail_title">Voicemail</string>
     <string name="set_voicemail_summary">Your voicemail inbox and the carrier\'s voicemail settings</string>
     <string name="set_voicemail_kw">visual voicemail, vvm, inbox, mailbox, voice mail, messages</string>
-    <string name="set_sims_title">SIMs</string>
+    <string name="set_sims_title">SIMs &amp; plan minutes</string>
     <string name="set_sims_summary">Plan minutes and settings for each SIM</string>
     <string name="set_sims_kw">dual sim, sim card, esim, plan</string>
     <string name="set_sim_accounts_title">SIM &amp; calling accounts</string>
@@ -124,7 +124,7 @@
     <string name="set_call_time_summary">Talk-time reminders, call-length limits and allowances</string>
     <string name="set_call_time_kw">timer, beep, duration, limit, allowance, supervised, parental, talk time</string>
     <string name="set_plan_minutes_title">Plan minutes per SIM</string>
-    <string name="set_plan_minutes_summary" formatted="false">Billing increments and an 80 % warning</string>
+    <string name="set_plan_minutes_summary" formatted="false">Billing increments and an 80 % warning (in SIMs &amp; plan minutes)</string>
     <string name="set_plan_minutes_kw">billing, minutes, plan, bundle, tariff</string>
     <string name="set_blocking_title">Blocking &amp; screening</string>
     <string name="set_blocking_summary">Allow and block rules, off hours and extra checks</string>
@@ -195,9 +195,9 @@
     <string name="set_archive_title">Keep full call history</string>
     <string name="set_archive_summary">Parley keeps its own encrypted copy, because Android may drop old calls</string>
     <string name="set_archive_kw">archive, call log, history, forever</string>
-    <string name="set_history_details_title">Kept calls &amp; recently deleted</string>
-    <string name="set_history_details_summary">Numbers kept forever, 30-day undo for deleted calls, export</string>
-    <string name="set_history_details_kw">undo, restore, keep forever, export</string>
+    <string name="set_history_details_title">Deleted calls</string>
+    <string name="set_history_details_summary">Restore calls deleted in the last 30 days, in History &amp; undo</string>
+    <string name="set_history_details_kw">undo, restore, recently deleted, trash, bin</string>
     <string name="set_retention_title">Keep call history</string>
     <string name="set_retention_summary">Delete calls from the system call log after a while</string>
     <string name="set_retention_kw">retention, delete old calls, auto delete, call log</string>
@@ -258,10 +258,10 @@
     <string name="set_sync_title">Sync between your phones</string>
     <string name="set_sync_summary">Through a Syncthing / Nextcloud folder, no server</string>
     <string name="set_sync_kw">syncthing, nextcloud, folder, second phone</string>
-    <string name="set_journal_title">Recently deleted &amp; changed</string>
-    <string name="set_journal_summary">Undo for 30 days</string>
-    <string name="set_journal_kw">undo, trash, restore, deleted, bin</string>
-    <string name="set_time_machine_title">What changed (time machine)</string>
+    <string name="set_journal_title">History &amp; undo</string>
+    <string name="set_journal_summary">Deleted contacts and calls, changes and daily snapshots: undo for 30 days</string>
+    <string name="set_journal_kw">undo, trash, restore, deleted, bin, recently deleted, journal</string>
+    <string name="set_time_machine_title">Daily snapshots (time machine)</string>
     <string name="set_time_machine_summary">Daily snapshots for 6 months: see and undo changes</string>
     <string name="set_time_machine_kw">snapshots, history, versions, restore</string>
     <string name="set_notification_settings_title">Notification settings</string>
@@ -382,7 +382,7 @@
     <string name="set_birthday_reminders_at">A notification on the day, at %1$s</string>
     <string name="set_import_into">Import contacts into</string>
     <string name="set_skip_duplicates">Skip contacts I already have</string>
-    <string name="set_skip_duplicates_body">Same number or e-mail</string>
+    <string name="set_skip_duplicates_body">Same number or email</string>
     <string name="set_import_failed_toast">Import failed: %1$s</string>
     <string name="set_forever">Forever</string>
     <plurals name="set_days">
@@ -687,4 +687,94 @@
     <string name="set_reset_tips_kw">tips, hints, coach marks, help, tutorial</string>
     <string name="set_group_tips">Tips</string>
     <string name="ux_tips_reset_done">Tips will show again</string>
+
+    <!-- Settings that live on screens of their own, for Settings search (SettingPlace). -->
+    <string name="set_kept_forever_title">Numbers kept forever</string>
+    <string name="set_kept_forever_summary">Calls with these numbers stay, whatever the retention</string>
+    <string name="set_kept_forever_kw">keep forever, archive, retention, pin</string>
+    <string name="set_blk_hidden_numbers_title">Silence or block hidden numbers</string>
+    <string name="set_blk_hidden_numbers_summary">Private, unknown and withheld numbers</string>
+    <string name="set_blk_hidden_numbers_kw">hidden, private number, withheld, no caller id, anonymous, unknown</string>
+    <string name="set_blk_non_contacts_title">Only people I know ring</string>
+    <string name="set_blk_non_contacts_summary">Numbers that aren\'t in your contacts are silenced or blocked</string>
+    <string name="set_blk_non_contacts_kw">unknown, strangers, contacts only, whitelist, allow list</string>
+    <string name="set_blk_off_hours_title">Off hours</string>
+    <string name="set_blk_off_hours_summary">Quiet times when only the people you choose ring</string>
+    <string name="set_blk_off_hours_kw">schedule, night, sleep, work hours, weekend, quiet, bedtime</string>
+    <string name="set_blk_more_checks_title">More checks</string>
+    <string name="set_blk_more_checks_summary">Neighbour spoofing, failed caller verification, numbers that can\'t exist</string>
+    <string name="set_blk_more_checks_kw">spoofing, stir shaken, verification, invalid, neighbour, neighbor</string>
+    <string name="set_blk_sounds_title">Sounds for screened calls</string>
+    <string name="set_blk_sounds_summary">Favourites ring loud; ringtones for repeat callers and likely spam</string>
+    <string name="set_blk_sounds_kw">ringtone, loud, favourites, favorites, repeat, spam sound</string>
+    <string name="set_blk_emergency_title">Emergency numbers</string>
+    <string name="set_blk_emergency_summary">Emergency numbers always ring through, with extra numbers you add</string>
+    <string name="set_blk_emergency_kw">112, 911, 999, emergency, always ring</string>
+    <string name="set_blk_notifications_title">Blocked call notifications</string>
+    <string name="set_blk_notifications_summary">A notice when a call is blocked, reported or likely spam</string>
+    <string name="set_blk_notifications_kw">notification, alert, blocked call</string>
+    <string name="set_blk_system_list_title">Blocked numbers (system list)</string>
+    <string name="set_blk_system_list_summary">Android\'s own list, shared with other phone apps</string>
+    <string name="set_blk_system_list_kw">system, blocked numbers, shared, android</string>
+    <string name="set_simple_keypad_title">Simple mode: keypad button</string>
+    <string name="set_simple_keypad_summary">A large keypad button on the simple home screen</string>
+    <string name="set_simple_keypad_kw">keypad, big, dial</string>
+    <string name="set_simple_confirm_decline_title">Simple mode: ask before declining</string>
+    <string name="set_simple_confirm_decline_summary">A question before a call is declined</string>
+    <string name="set_simple_confirm_decline_kw">decline, accidental, reject</string>
+    <string name="set_simple_speak_title">Simple mode: say who is calling</string>
+    <string name="set_simple_speak_summary">Reads the caller\'s name aloud</string>
+    <string name="set_simple_speak_kw">text to speech, speak, announce, caller name</string>
+    <string name="set_simple_share_title">Simple mode: set up another phone</string>
+    <string name="set_simple_share_summary">Share the setup as an encrypted file or QR code</string>
+    <string name="set_simple_share_kw">share, qr, family, another phone</string>
+    <string name="set_ct_reminders_title">Talk-time reminders</string>
+    <string name="set_ct_reminders_summary">A beep or a vibration every few minutes during a call</string>
+    <string name="set_ct_reminders_kw">beep, vibrate, reminder, minutes</string>
+    <string name="set_ct_limits_title">Call time limits</string>
+    <string name="set_ct_limits_summary">A warning, or the call ends, after a set time, for a contact or a label</string>
+    <string name="set_ct_limits_kw">limit, maximum, end call</string>
+    <string name="set_ct_supervised_title">Supervised mode</string>
+    <string name="set_ct_supervised_summary">Limits that can\'t be changed without unlocking</string>
+    <string name="set_ct_supervised_kw">parental, child, lock, supervised</string>
+    <string name="set_backup_automatic_title">Automatic backups</string>
+    <string name="set_backup_automatic_summary">Back up on a schedule to your folder</string>
+    <string name="set_backup_automatic_kw">schedule, daily, weekly, auto</string>
+    <string name="set_backup_keep_title">Backups to keep</string>
+    <string name="set_backup_keep_summary">How many backups stay in the folder</string>
+    <string name="set_backup_keep_kw">rotation, keep, old backups</string>
+    <string name="set_backup_restore_title">Restore a backup</string>
+    <string name="set_backup_restore_summary">From a backup file, with an undo afterwards</string>
+    <string name="set_backup_restore_kw">restore, import backup</string>
+    <string name="set_backup_move_phone_title">Move to a new phone</string>
+    <string name="set_backup_move_phone_summary">Everything to your new phone, step by step</string>
+    <string name="set_backup_move_phone_kw">new phone, transfer, migrate</string>
+    <string name="set_sync_auto_title">Sync automatically</string>
+    <string name="set_sync_auto_summary">Keep two phones in step through a shared folder</string>
+    <string name="set_sync_auto_kw">auto sync, syncthing, nextcloud</string>
+    <string name="set_section_chips_title">Jump to a section</string>
+    <string name="set_section_chips_summary">Chips on long contact pages that jump to a section</string>
+    <string name="set_section_chips_kw">chips, jump, sections</string>
+    <string name="set_sim_billing_title">Billing increments per SIM</string>
+    <string name="set_sim_billing_summary" formatted="false">Per-second or per-minute billing, what counts, and the 80 % warning</string>
+    <string name="set_sim_billing_kw">billing, per minute, per second, rounding, plan, tariff</string>
+    <string name="set_csv_bom_kw">excel, csv, accents, byte order mark, export</string>
+
+    <!-- Settings structure: Layout & gestures, Advanced groups, Tools -->
+    <string name="set_cat_layout_title">Layout &amp; gestures</string>
+    <string name="set_cat_layout_summary">Navigation bar, combined tabs, taps, swipes, simple mode</string>
+    <string name="set_group_advanced">Advanced</string>
+    <string name="set_group_gestures">Taps and swipes</string>
+    <string name="set_advanced_show">Show advanced settings</string>
+    <string name="set_advanced_hide">Hide advanced settings</string>
+    <string name="set_group_circle">Circle: keeping in touch</string>
+    <string name="set_group_deleted_calls">Deleted calls</string>
+    <string name="set_tools_title">Tools</string>
+    <string name="set_tools_summary">Birthdays, temporary contacts, blocking, backups, History &amp; undo</string>
+    <string name="tools_group_contacts">Contacts</string>
+    <string name="tools_group_calls">Calls and blocking</string>
+    <string name="tools_group_data">Your data</string>
+    <string name="tools_import_export">Import &amp; export contacts</string>
+    <string name="tools_import_export_sub">vCard and CSV files, the SIM card, one account</string>
+    <string name="tools_lock_now_sub">Lock Parley now, without waiting</string>
 </resources>

@@ -63,7 +63,7 @@ fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open
     val history = calls.orEmpty().filter { PhoneNumbers.same(it.number, number, vm.countryIso) }
     var blocked by remember { mutableStateOf(false) }
     var messageOn by remember { mutableStateOf(false) }
-    if (messageOn) app.parley.messaging.MessageOnSheet(number, onDismiss = { messageOn = false }, onCall = { n -> vm.requestCall(n, contact?.displayName) })
+    if (messageOn) app.parley.messaging.ReachSheet(app.parley.messaging.ReachTarget.Number(number), onDismiss = { messageOn = false }, onCall = { n -> vm.requestCall(n, contact?.displayName) })
     val notes by vm.c.meta.callNotes(PhoneNumbers.matchKey(number)).collectAsStateWithLifecycle(emptyList())
     LaunchedEffect(number) { blocked = vm.c.blocks.isSystemBlocked(number) }
     val simLabels = sims.associate { it.id to it.label }.takeIf { sims.size > 1 }.orEmpty()

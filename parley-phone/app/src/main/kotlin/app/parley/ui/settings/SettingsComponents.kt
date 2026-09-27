@@ -4,6 +4,11 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.material.icons.rounded.ExpandLess
+import androidx.compose.material.icons.rounded.ExpandMore
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -210,5 +215,37 @@ fun SettingsScaffold(
 fun TonalIcon(icon: ImageVector, container: Color, content: Color) {
     Surface(shape = CircleShape, color = container, modifier = Modifier.size(40.dp)) {
         Box(contentAlignment = Alignment.Center) { Icon(icon, null, tint = content, modifier = Modifier.size(22.dp)) }
+    }
+}
+
+/**
+ * Rarely needed settings, folded under "Advanced" at the end of a page. [keys] are the rows inside: the group opens
+ * by itself when Settings search points at one of them.
+ */
+@Composable
+fun AdvancedGroup(keys: Set<String>, content: app.parley.ui.SegmentedGroupScope.() -> Unit) {
+    val highlight = app.parley.ui.LocalHighlightKey.current
+    var open by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(highlight != null && highlight in keys) }
+    Column {
+        Row(
+            Modifier.fillMaxWidth()
+                .clickable(onClickLabel = stringResource(if (open) R.string.set_advanced_hide else R.string.set_advanced_show)) { open = !open }
+                .padding(horizontal = 32.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                stringResource(R.string.set_group_advanced),
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.weight(1f).semantics { heading() },
+            )
+            Icon(
+                if (open) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        androidx.compose.animation.AnimatedVisibility(open) {
+            Column { app.parley.ui.SegmentedGroup(content = content) }
+        }
     }
 }

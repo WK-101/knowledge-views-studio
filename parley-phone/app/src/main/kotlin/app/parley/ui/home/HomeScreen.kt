@@ -31,6 +31,7 @@ import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.ManageHistory
 import androidx.compose.material.icons.rounded.PersonAdd
 import androidx.compose.material.icons.rounded.SelectAll
+import androidx.compose.material.icons.rounded.Handyman
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.SimCard
 import androidx.compose.material.icons.rounded.QrCodeScanner
@@ -284,28 +285,25 @@ private fun MenuItem(text: String, icon: ImageVector, onClick: () -> Unit) {
     DropdownMenuItem({ Text(text) }, leadingIcon = { Icon(icon, null) }, onClick = onClick)
 }
 
-/** "More options": the tab's own items first, then the ones every tab shares. */
+/**
+ * "More options": at most seven items, the tab's own first, then Tools (the app-wide destinations: birthdays,
+ * temporary contacts, blocking, History & undo, backups…) and Settings. Settings pages aren't repeated here.
+ */
 @Composable
 private fun ColumnScope.TabMenu(vm: AppViewModel, tab: StartTab, appLock: Boolean, open: (String) -> Unit, close: () -> Unit, onReorderFavorites: () -> Unit = {}) {
     fun go(route: String) { close(); open(route) }
-    val layout = vm.settings.collectAsStateWithLifecycle().value.homeLayout
+    val settings = vm.settings.collectAsStateWithLifecycle().value
+    val layout = settings.homeLayout
     when (tab) {
         StartTab.RECENTS -> {
-            // S1: with the keypad docked here, the Keypad tab's own items come along.
-            if (layout.keypadDocked) {
-                MenuItem(stringResource(R.string.home_speed_dial), Icons.Rounded.Speed) { go(Routes.SPEED_DIAL) }
-                MenuItem(stringResource(R.string.home_sims), Icons.Rounded.SimCard) { go(app.parley.ui.history.HistoryRoutes.SIMS) }
-                MenuItem(stringResource(R.string.home_keypad_settings), Icons.Rounded.Tune) { go(Routes.settingsPage(SettingsCategory.KEYPAD)) }
-                HorizontalDivider()
-            }
+            // S1: with the keypad docked here, its header's Speed dial comes along.
+            if (layout.keypadDocked) MenuItem(stringResource(R.string.home_speed_dial), Icons.Rounded.Speed) { go(Routes.SPEED_DIAL) }
             app.parley.ui.history.RecentsExportMenuItem(close)
             // P8, P5: call-list layout (quick toggle) and clear call history.
             app.parley.ui.history.RecentsLayoutMenuItem(vm, close)
             app.parley.ui.history.ClearHistoryMenuItem(close)
             // R4 (v3.3): what the call shapes and colours mean.
             RecentsLegendMenuItem(close)
-            MenuItem(stringResource(R.string.home_messaged_numbers), Icons.AutoMirrored.Rounded.Chat) { go(app.parley.messaging.MessagingRoutes.MESSAGED) }
-            MenuItem(stringResource(R.string.home_history_settings), Icons.Rounded.ManageHistory) { go(Routes.settingsPage(SettingsCategory.HISTORY)) }
         }
         StartTab.CONTACTS -> {
             MenuItem(stringResource(R.string.home_select_all), Icons.Rounded.SelectAll) {
@@ -313,37 +311,25 @@ private fun ColumnScope.TabMenu(vm: AppViewModel, tab: StartTab, appLock: Boolea
                 vm.selection.value = vm.people.filtered.value.orEmpty().map { it.id }.toSet()
             }
             MenuItem(stringResource(R.string.home_add_several), Icons.Rounded.GroupAdd) { go(app.parley.messaging.MessagingRoutes.BULK_ADD) }
-            MenuItem(stringResource(R.string.qs_menu), Icons.Rounded.QrCodeScanner) { go(app.parley.ui.qr.QrRoutes.SCAN) }
             MenuItem(stringResource(R.string.home_duplicates), Icons.AutoMirrored.Rounded.CallMerge) { go(Routes.DUPLICATES) }
             // S2: favourites shown in Contacts are reordered from here too.
             if (layout.favoritesInContacts) MenuItem(stringResource(R.string.surf_reorder_title), Icons.Rounded.Star) { close(); onReorderFavorites() }
             // X2: "Who's in…" (trip mode).
             MenuItem(stringResource(R.string.x_trip_menu), Icons.Rounded.TravelExplore) { go(app.parley.ui.extras.ExtrasRoutes.TRIP) }
-            MenuItem(stringResource(R.string.home_contacts_settings), Icons.Rounded.Tune) { go(Routes.settingsPage(SettingsCategory.CONTACTS)) }
         }
-        StartTab.KEYPAD -> {
-            MenuItem(stringResource(R.string.home_speed_dial), Icons.Rounded.Speed) { go(Routes.SPEED_DIAL) }
-            MenuItem(stringResource(R.string.home_sims), Icons.Rounded.SimCard) { go(app.parley.ui.history.HistoryRoutes.SIMS) }
-            MenuItem(stringResource(R.string.qs_menu), Icons.Rounded.QrCodeScanner) { go(app.parley.ui.qr.QrRoutes.SCAN) }
-            MenuItem(stringResource(R.string.home_keypad_settings), Icons.Rounded.Tune) { go(Routes.settingsPage(SettingsCategory.KEYPAD)) }
-        }
+        StartTab.KEYPAD -> Unit
         StartTab.CIRCLE -> {
             MenuItem(stringResource(R.string.x_trip_menu), Icons.Rounded.TravelExplore) { go(app.parley.ui.extras.ExtrasRoutes.TRIP) }
             MenuItem(stringResource(R.string.circle_settings), Icons.Rounded.Tune) { go(Routes.settingsPage(SettingsCategory.CONTACTS, "circle_delivery")) }
         }
         // X2: while the Circle tab is hidden, its section sits in Favourites and "Who's in…" comes with it.
-        StartTab.FAVORITES -> if (StartTab.CIRCLE !in vm.settings.collectAsStateWithLifecycle().value.navTabs.visible) {
+        StartTab.FAVORITES -> if (StartTab.CIRCLE !in settings.navTabs.visible) {
             MenuItem(stringResource(R.string.x_trip_menu), Icons.Rounded.TravelExplore) { go(app.parley.ui.extras.ExtrasRoutes.TRIP) }
-            HorizontalDivider()
         }
     }
-    if (tab != StartTab.FAVORITES) HorizontalDivider()
-    MenuItem(stringResource(R.string.home_birthdays), Icons.Rounded.Cake) { go(Routes.BIRTHDAYS) }
-    MenuItem(stringResource(R.string.home_temporary), Icons.Rounded.AutoDelete) { go(Routes.TEMPORARY) }
-    MenuItem(stringResource(R.string.home_recently_deleted), Icons.Rounded.History) { go(Routes.JOURNAL) }
-    MenuItem(stringResource(R.string.home_tidy_up), Icons.Rounded.HealthAndSafety) { go(Routes.HEALTH) }
-    MenuItem(stringResource(R.string.home_blocked_numbers), Icons.Rounded.Block) { go(Routes.BLOCKING) }
-    app.parley.ui.blocking.ExpectingCallMenuItem(close)
-    if (appLock) MenuItem(stringResource(R.string.home_lock_now), Icons.Rounded.Lock) { close(); app.parley.security.AppLock.lockNowByUser() }
+    if (tab == StartTab.RECENTS || tab == StartTab.CONTACTS || tab == StartTab.CIRCLE || (tab == StartTab.FAVORITES && StartTab.CIRCLE !in settings.navTabs.visible)) {
+        HorizontalDivider()
+    }
+    MenuItem(stringResource(R.string.home_tools), Icons.Rounded.Handyman) { go(Routes.TOOLS) }
     MenuItem(stringResource(R.string.home_settings), Icons.Rounded.Settings) { go(Routes.SETTINGS) }
 }

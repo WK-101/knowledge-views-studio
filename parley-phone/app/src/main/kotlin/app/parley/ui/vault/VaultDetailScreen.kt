@@ -293,11 +293,11 @@ fun VaultDetailScreen(vm: AppViewModel, id: Long, back: () -> Unit, open: (Strin
 
     messageSheet?.let { n ->
         val r = reach()
-        app.parley.ui.contact.ContactMessageSheet(
-            r.copy(defaultNumber = n.ifEmpty { r.defaultNumber }),
+        app.parley.messaging.ReachSheet(
+            app.parley.messaging.ReachTarget.Person(r.copy(defaultNumber = n.ifEmpty { r.defaultNumber })) { p -> savePrefs(p) },
             onDismiss = { messageSheet = null },
             onCall = { num -> vm.requestCall(num, summary?.name ?: r.name) },
-        ) { p -> savePrefs(p) }
+        )
     }
     webLink?.let { l -> app.parley.ui.contact.ConfirmWebLink(l) { webLink = null } }
     if (shareQr) details?.let { app.parley.ui.contact.SecureQrDialog(it) { shareQr = false } }

@@ -66,7 +66,8 @@
             <action android:name="android.intent.action.VIEW" />
             <data android:scheme="https" />
         </intent>
-        <!-- "Message on…" lists only these chat apps, and only when installed. -->
+        <!-- Messenger apps: exactly the packages of MessengerCatalog (core/common), checked by MessengerCatalogTest.
+             "Message or call on…" lists only these chat apps, and only when installed. -->
         <package android:name="com.whatsapp" />
         <package android:name="com.whatsapp.w4b" />
         <package android:name="org.thoughtcrime.securesms" />

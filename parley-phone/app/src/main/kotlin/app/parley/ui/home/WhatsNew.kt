@@ -73,10 +73,10 @@ fun WhatsNewCard(vm: AppViewModel, open: (String) -> Unit, modifier: Modifier = 
             Text(stringResource(R.string.ux_whats_new_body), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(end = 8.dp))
             if (offerLayout) {
                 Text(stringResource(R.string.surf_whats_new_layout), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 4.dp, end = 8.dp))
-                TextButton({ seen(); open(Routes.settingsPage(SettingsCategory.APPEARANCE, "calls_layout")) }) { Text(stringResource(R.string.surf_whats_new_layout_action)) }
+                TextButton({ seen(); open(Routes.settingsPage(SettingsCategory.LAYOUT, "calls_layout")) }) { Text(stringResource(R.string.surf_whats_new_layout_action)) }
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                TextButton({ seen(); open(Routes.settingsPage(SettingsCategory.APPEARANCE, "nav_tabs")) }) { Text(stringResource(R.string.ux_whats_new_try)) }
+                TextButton({ seen(); open(Routes.settingsPage(SettingsCategory.LAYOUT, "nav_tabs")) }) { Text(stringResource(R.string.ux_whats_new_try)) }
                 TextButton(::seen) { Text(stringResource(R.string.ux_tip_got_it)) }
             }
         }

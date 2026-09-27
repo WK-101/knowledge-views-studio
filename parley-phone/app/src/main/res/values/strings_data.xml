@@ -279,7 +279,7 @@
     <string name="hist_insight_quarter">90 days</string>
     <string name="hist_insight_year">This year</string>
     <string name="hist_insight_all">All time</string>
-    <string name="hist_insights_title">Insights</string>
+    <string name="hist_insights_title">Call insights</string>
     <string name="hist_talk_time_label">Talk time</string>
     <string name="hist_calls_you_made">Calls you made</string>
     <string name="hist_calls_you_received">Calls you received</string>
@@ -325,7 +325,7 @@
     <string name="hist_action_call">Call</string>
     <string name="hist_action_message">Message</string>
     <string name="hist_action_copy">Copy</string>
-    <string name="hist_action_message_on">Message on…</string>
+    <string name="hist_action_message_on">Message or call on…</string>
     <string name="hist_action_new_contact">New contact</string>
     <string name="hist_action_add_to_contact">Add to contact</string>
     <string name="hist_action_view_contact">View contact</string>
@@ -341,7 +341,7 @@
         <item quantity="one">%1$d call</item>
         <item quantity="other">%1$d calls</item>
     </plurals>
-    <string name="hist_range_undo_hint">You can undo this for 30 days (Settings › Recents &amp; history › Kept calls &amp; recently deleted).</string>
+    <string name="hist_range_undo_hint">You can undo this for 30 days (History &amp; undo › Calls).</string>
     <string name="hist_range_delete_n">Delete %1$d</string>
 
     <!-- Saved filters -->
@@ -445,7 +445,7 @@
     <string name="temp_delete_now_title">Delete %1$s now?</string>
     <string name="temp_delete_with_history">The contact and its call history are deleted.</string>
     <string name="temp_delete_keep_history">The contact is deleted; its call history stays.</string>
-    <string name="temp_delete_restore_hint">You can restore the contact from Recently deleted for 30 days.</string>
+    <string name="temp_delete_restore_hint">You can restore the contact from History &amp; undo for 30 days.</string>
     <string name="temp_private">Private</string>
     <string name="temp_keep_longer">Keep %1$s longer</string>
     <string name="temp_more_actions">More actions for %1$s</string>
@@ -489,8 +489,8 @@
     <string name="vault_unlock_all_summary">Names and numbers work without unlocking so calls still show who\'s calling.</string>
     <string name="vault_phone">Phone</string>
     <string name="vault_message_number">Message this number</string>
-    <string name="vault_message_on">Message on…</string>
-    <string name="vault_messengers">Messengers</string>
+    <string name="vault_message_on">Message or call on…</string>
+    <string name="vault_messengers">Message or call on…</string>
     <string name="vault_about">About</string>
     <string name="vault_address">Address</string>
     <string name="vault_website">Website</string>
@@ -545,8 +545,8 @@
     </plurals>
     <string name="bkp_undo_restore">Undo last restore</string>
     <plurals name="bkp_undo_restore_summary">
-        <item quantity="one">Removes the %1$d contact it added (it stays in Recently deleted)</item>
-        <item quantity="other">Removes the %1$d contacts it added (they stay in Recently deleted)</item>
+        <item quantity="one">Removes the %1$d contact it added (it stays in History &amp; undo)</item>
+        <item quantity="other">Removes the %1$d contacts it added (they stay in History &amp; undo)</item>
     </plurals>
     <string name="bkp_in_folder">Backups in the folder</string>
     <string name="bkp_pass_changed">Passphrase changed</string>
@@ -605,8 +605,8 @@
     </plurals>
     <string name="rst_apply_conflicts">Add their missing details anyway</string>
     <plurals name="rst_to_delete">
-        <item quantity="one">%1$d current contact will be replaced (kept in Recently deleted for 30 days)</item>
-        <item quantity="other">%1$d current contacts will be replaced (kept in Recently deleted for 30 days)</item>
+        <item quantity="one">%1$d current contact will be replaced (kept in History &amp; undo for 30 days)</item>
+        <item quantity="other">%1$d current contacts will be replaced (kept in History &amp; undo for 30 days)</item>
     </plurals>
     <string name="rst_merge_note">Nothing is deleted in Merge mode, and you can undo the added contacts afterwards.</string>
     <string name="rst_restoring">Restoring…</string>
@@ -633,7 +633,7 @@
     <!-- Time machine (version history, what changed) -->
     <string name="tm_row_name">Name: %1$s</string>
     <string name="tm_row_phone">Phone: %1$s</string>
-    <string name="tm_row_email">E-mail: %1$s</string>
+    <string name="tm_row_email">Email: %1$s</string>
     <string name="tm_row_address">Address: %1$s</string>
     <string name="tm_row_work">Work: %1$s</string>
     <string name="tm_row_note">Note: %1$s</string>
@@ -656,7 +656,7 @@
     <string name="tm_restore_version">Restore this version</string>
     <string name="tm_saved_copy">Saved as a separate contact</string>
     <string name="tm_save_copy">Save as copy</string>
-    <string name="tm_changes_title">What changed</string>
+    <string name="tm_changes_title">Daily snapshots</string>
     <string name="tm_since_yesterday">Since yesterday</string>
     <string name="tm_last_week">Last week</string>
     <string name="tm_last_month">Last month</string>
@@ -679,7 +679,10 @@
     <string name="jr_edited">Edited (version before the change)</string>
     <string name="jr_merged">Merged (version before merging)</string>
     <string name="jr_separated">Separated</string>
-    <string name="jr_title">Recently deleted &amp; changed</string>
+    <string name="jr_title">History &amp; undo</string>
+    <string name="jr_tab_contacts">Contacts</string>
+    <string name="jr_tab_calls">Calls</string>
+    <string name="jr_tab_snapshots">Snapshots</string>
     <string name="jr_empty_title">Nothing here</string>
     <string name="jr_empty_text">Contacts you delete, edit or merge in Parley are kept here for 30 days, so you can undo.</string>
     <string name="jr_restored_suffix">%1$s · restored</string>
@@ -754,7 +757,7 @@
     <string name="picker_choose_contacts">Choose contacts</string>
     <string name="picker_choose_contact">Choose a contact</string>
     <string name="picker_choose_phone">Choose a phone number</string>
-    <string name="picker_choose_email">Choose an e-mail</string>
+    <string name="picker_choose_email">Choose an email</string>
     <string name="picker_choose_address">Choose an address</string>
     <string name="picker_done_n">Done (%1$d)</string>
     <string name="picker_search">Search</string>
@@ -853,7 +856,7 @@
         <item quantity="other">%1$d contacts copied</item>
     </plurals>
     <string name="ppl_crash_title">Parley stopped last time</string>
-    <string name="ppl_crash_text">A report was kept on this phone. Numbers and e-mail addresses in it are masked. Send it if you\'d like the problem fixed; Parley can\'t send anything itself.</string>
+    <string name="ppl_crash_text">A report was kept on this phone. Numbers and email addresses in it are masked. Send it if you\'d like the problem fixed; Parley can\'t send anything itself.</string>
     <string name="ppl_crash_subject">Parley crash report</string>
     <string name="ppl_crash_send_chooser">Send crash report</string>
     <string name="ppl_crash_send">Send…</string>
@@ -884,7 +887,7 @@
     <string name="csv_into_skip">Into %1$s · contacts you already have are skipped</string>
     <string name="csv_import_failed">Import failed: %1$s</string>
     <string name="csv_import">Import</string>
-    <string name="csv_need_column">Choose at least a name, phone, e-mail or company column.</string>
+    <string name="csv_need_column">Choose at least a name, phone, email or company column.</string>
     <string name="csv_change_column">Change what “%1$s” holds</string>
     <string name="csv_no_name">(no name)</string>
     <string name="csv_labels">Labels: %1$s</string>
@@ -899,8 +902,8 @@
     <string name="csv_field_nickname">Nickname</string>
     <string name="csv_field_phone">Phone</string>
     <string name="csv_field_phone_label">Phone type (for the phone next to it)</string>
-    <string name="csv_field_email">E-mail</string>
-    <string name="csv_field_email_label">E-mail type (for the e-mail next to it)</string>
+    <string name="csv_field_email">Email</string>
+    <string name="csv_field_email_label">Email type (for the email next to it)</string>
     <string name="csv_field_org">Company</string>
     <string name="csv_field_title">Job title</string>
     <string name="csv_field_address">Address</string>
@@ -915,7 +918,7 @@
     <string name="ppl_read_only">Managed by its app (read-only)</string>
     <string name="ppl_unlink">Unlink</string>
     <string name="ppl_move_title">Move this copy to</string>
-    <string name="ppl_move_text">Everything in the %1$s copy (numbers, photo, labels…) is written to the new account first; only then is the old copy removed. You can undo from Recently deleted &amp; changed.</string>
+    <string name="ppl_move_text">Everything in the %1$s copy (numbers, photo, labels…) is written to the new account first; only then is the old copy removed. You can undo from History &amp; undo.</string>
     <string name="ppl_moved_to">Moved to %1$s</string>
     <string name="ppl_unlink_title">Unlink the %1$s copy?</string>
     <string name="ppl_unlink_text">It becomes a separate contact. Nothing is deleted.</string>
@@ -964,7 +967,7 @@
     <string name="diag_save_failed">Couldn\'t save the file</string>
     <string name="diag_title">Export diagnostics</string>
     <string name="diag_intro">This report helps find a problem. It has no contacts and no call history. Parley has no internet access, so nothing is sent: you save it or share it with whoever you choose.</string>
-    <string name="diag_mask">Mask numbers and e-mail addresses</string>
+    <string name="diag_mask">Mask numbers and email addresses</string>
     <string name="diag_mask_summary">Keeps only the last two digits of numbers in error messages</string>
     <string name="diag_tables">Include the contacts tables (masked)</string>
     <string name="diag_tables_summary">How accounts stored each contact, with every name, number and text replaced by its shape (Aaaa 99 9923)</string>
@@ -1031,8 +1034,8 @@
     <string name="lbl_no_numbers">No phone numbers in this label</string>
     <string name="lbl_no_sms_app">No messaging app available</string>
     <string name="lbl_message_all">Message all</string>
-    <string name="lbl_no_emails">No e-mail addresses in this label</string>
-    <string name="lbl_no_email_app">No e-mail app available</string>
+    <string name="lbl_no_emails">No email addresses in this label</string>
+    <string name="lbl_no_email_app">No email app available</string>
     <string name="lbl_email_all">Email all</string>
     <string name="lbl_ringtone">Ringtone for this label</string>
     <string name="lbl_custom_ringtone">Custom ringtone</string>
@@ -1050,7 +1053,7 @@
     <string name="swipe_none">Nothing</string>
     <string name="swipe_call">Call</string>
     <string name="swipe_message">Message</string>
-    <string name="swipe_message_on">Message on…</string>
+    <string name="swipe_message_on">Message or call on…</string>
     <string name="swipe_block">Block</string>
     <string name="swipe_delete">Delete (with undo)</string>
     <string name="swipe_delete_short">Delete</string>
@@ -1060,7 +1063,7 @@
     <string name="swipe_tried">%1$s: that\'s what a swipe would do</string>
     <string name="swipe_example_name">Alex Example</string>
     <string name="swipe_try_hint">Swipe this row left or right</string>
-    <string name="swipe_note">Delete always offers Undo. A swipe on Recents deletes that row\'s calls; on Contacts, the contact (restorable from Recently deleted).</string>
+    <string name="swipe_note">Delete always offers Undo. A swipe on Recents deletes that row\'s calls; on Contacts, the contact (restorable from History &amp; undo).</string>
     <string name="avatar_colourful">Colourful letters</string>
     <string name="avatar_grey">Grey monogram</string>
     <string name="avatar_emoji_hint">Names starting with an emoji show it</string>
@@ -1082,8 +1085,8 @@
     <string name="me_job_title">Job title</string>
     <string name="me_numbers">Numbers</string>
     <string name="me_number">Number</string>
-    <string name="me_email">E-mail</string>
-    <string name="me_email_address">E-mail address</string>
+    <string name="me_email">Email</string>
+    <string name="me_email_address">Email address</string>
     <string name="me_websites">Websites</string>
     <string name="me_website">Website</string>
     <string name="me_more">More</string>
@@ -1093,7 +1096,7 @@
     <string name="me_footer">Your card is stored on this phone only, inside Parley. “Send my details” uses its name and first number.</string>
     <string name="me_remove">Remove</string>
     <string name="me_add_number">Add number</string>
-    <string name="me_add_email">Add e-mail address</string>
+    <string name="me_add_email">Add email address</string>
     <string name="me_add_website">Add website</string>
     <string name="me_share_chooser">Share my card</string>
     <string name="me_share_failed">Couldn\'t share the card</string>
@@ -1203,7 +1206,7 @@
 
     <!-- People: contacts search hints -->
     <string name="search_matched">Matched: %1$s</string>
-    <string name="search_field_email">e-mail</string>
+    <string name="search_field_email">email</string>
     <string name="search_field_nickname">nickname</string>
     <string name="search_field_company">company</string>
     <string name="search_field_address">address</string>
@@ -1233,7 +1236,7 @@
         <item quantity="other">Only one number fits on a SIM: %1$d other numbers are left out.</item>
     </plurals>
     <string name="sim_issue_shortened">The name is shortened to “%1$s”.</string>
-    <string name="sim_issue_details">E-mails, addresses, photos and other details stay on the phone only.</string>
+    <string name="sim_issue_details">Emails, addresses, photos and other details stay on the phone only.</string>
     <string name="sim_import_title">Import from SIM</string>
     <string name="sim_import_n">Import %1$d</string>
     <string name="sim_import_intro">A SIM card stores only a name (about 14 letters) and one number per entry. Entries you already have are unticked.</string>
@@ -1372,7 +1375,7 @@
     <string name="ux_backup_first_last">This changes many contacts at once. Your last backup was %1$s.</string>
     <string name="ux_backup_first_never">This changes many contacts at once, and there\'s no backup yet.</string>
     <string name="ux_backup_first_quick">A quick encrypted backup takes a moment, so you can always go back.</string>
-    <string name="ux_backup_first_setup">You can set up encrypted backups first, or carry on: Recently deleted keeps changes for 30 days either way.</string>
+    <string name="ux_backup_first_setup">You can set up encrypted backups first, or carry on: History &amp; undo keeps changes for 30 days either way.</string>
     <string name="ux_backup_first_now">Back up now</string>
     <string name="ux_backup_set_up">Set up backup</string>
     <string name="ux_backup_first_skip">Continue without</string>
@@ -1405,7 +1408,7 @@
     <string name="ux_perm_in_app_info">Android won\'t ask again. You can turn it on in App info.</string>
     <string name="ux_perm_contacts">Contacts</string>
     <string name="ux_perm_contacts_why">See, add and edit your contacts.</string>
-    <string name="ux_perm_contacts_without">you can still dial numbers, but Contacts and Favorites stay empty</string>
+    <string name="ux_perm_contacts_without">you can still dial numbers, but Contacts and Favourites stay empty</string>
     <string name="ux_perm_call_log">Call history</string>
     <string name="ux_perm_call_log_why">Show Recents, missed calls and who called.</string>
     <string name="ux_perm_call_log_without">you can still call, but Recents stays empty</string>

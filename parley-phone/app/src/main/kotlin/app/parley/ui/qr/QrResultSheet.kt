@@ -96,7 +96,8 @@ import app.parley.common.record.ContactRecord
 import app.parley.data.ContactDetails
 import app.parley.data.DataItem
 import app.parley.data.RecordDetails
-import app.parley.messaging.MessageOnSheet
+import app.parley.messaging.ReachSheet
+import app.parley.messaging.ReachTarget
 import app.parley.messaging.MessengerLauncher
 import app.parley.security.launchVault
 import app.parley.ui.Bidi
@@ -441,7 +442,7 @@ private fun ColumnScope.NumberActions(vm: AppViewModel, number: String, onDismis
         onDismiss()
         vm.navigate(NavEvent.NewContact(ContactDetails(phones = listOf(DataItem(value = number, type = ContactsContract.CommonDataKinds.Phone.TYPE_MOBILE)))))
     }
-    if (messageOn) MessageOnSheet(number, onDismiss = { messageOn = false })
+    if (messageOn) ReachSheet(ReachTarget.Number(number), onDismiss = { messageOn = false })
 }
 
 @Composable
