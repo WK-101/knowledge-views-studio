@@ -9,6 +9,7 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import com.wkhan.hexis.MainActivity
+import com.wkhan.hexis.util.runCatchingLogged
 import java.time.LocalDate
 import java.time.ZoneId
 
@@ -21,35 +22,35 @@ import java.time.ZoneId
 object Widgets {
     /** Re-render every placed widget. Safe to call from any thread; each is guarded. */
     fun refreshAll(context: Context) {
-        runCatching { AgendaWidget.refresh(context) }
-        runCatching { DayWidget.refresh(context) }
-        runCatching { DoNextWidget.refresh(context) }
-        runCatching { Next7Widget.refresh(context) }
-        runCatching { RecordWidget.refresh(context) }
-        runCatching { MatrixWidget.refresh(context) }
-        runCatching { MomentumWidget.refresh(context) }
-        runCatching { CountdownWidget.refresh(context) }
-        runCatching { HabitsWidget.refresh(context) }
-        runCatching { HabitZeroWidget.refresh(context) }
-        runCatching { WeekRowWidget.refresh(context) }
-        runCatching { HabitInsightWidget.refresh(context) }
-        runCatching { TimeWidget.refresh(context) }
-        runCatching { GoalWidget.refresh(context) }
-        runCatching { CloseDayWidget.refresh(context) }
-        runCatching { FocusWidget.refresh(context) }
-        runCatching { FreeTimeWidget.refresh(context) }
-        runCatching { RoutineWidget.refresh(context) }
-        runCatching { TimeSummaryWidget.refresh(context) }
-        runCatching { WeekReviewWidget.refresh(context) }
+        runCatchingLogged("widget:AgendaWidget") { AgendaWidget.refresh(context) }
+        runCatchingLogged("widget:DayWidget") { DayWidget.refresh(context) }
+        runCatchingLogged("widget:DoNextWidget") { DoNextWidget.refresh(context) }
+        runCatchingLogged("widget:Next7Widget") { Next7Widget.refresh(context) }
+        runCatchingLogged("widget:RecordWidget") { RecordWidget.refresh(context) }
+        runCatchingLogged("widget:MatrixWidget") { MatrixWidget.refresh(context) }
+        runCatchingLogged("widget:MomentumWidget") { MomentumWidget.refresh(context) }
+        runCatchingLogged("widget:CountdownWidget") { CountdownWidget.refresh(context) }
+        runCatchingLogged("widget:HabitsWidget") { HabitsWidget.refresh(context) }
+        runCatchingLogged("widget:HabitZeroWidget") { HabitZeroWidget.refresh(context) }
+        runCatchingLogged("widget:WeekRowWidget") { WeekRowWidget.refresh(context) }
+        runCatchingLogged("widget:HabitInsightWidget") { HabitInsightWidget.refresh(context) }
+        runCatchingLogged("widget:TimeWidget") { TimeWidget.refresh(context) }
+        runCatchingLogged("widget:GoalWidget") { GoalWidget.refresh(context) }
+        runCatchingLogged("widget:CloseDayWidget") { CloseDayWidget.refresh(context) }
+        runCatchingLogged("widget:FocusWidget") { FocusWidget.refresh(context) }
+        runCatchingLogged("widget:FreeTimeWidget") { FreeTimeWidget.refresh(context) }
+        runCatchingLogged("widget:RoutineWidget") { RoutineWidget.refresh(context) }
+        runCatchingLogged("widget:TimeSummaryWidget") { TimeSummaryWidget.refresh(context) }
+        runCatchingLogged("widget:WeekReviewWidget") { WeekReviewWidget.refresh(context) }
     }
 
     /** Re-render every habit widget after a check-in / habit change. Safe from any thread. */
     fun refreshHabitWidgets(context: Context) {
-        runCatching { HabitsWidget.refresh(context) }
-        runCatching { HabitZeroWidget.refresh(context) }
-        runCatching { WeekRowWidget.refresh(context) }
-        runCatching { HabitInsightWidget.refresh(context) }
-        runCatching { MomentumWidget.refresh(context) }
+        runCatchingLogged("widget:HabitsWidget") { HabitsWidget.refresh(context) }
+        runCatchingLogged("widget:HabitZeroWidget") { HabitZeroWidget.refresh(context) }
+        runCatchingLogged("widget:WeekRowWidget") { WeekRowWidget.refresh(context) }
+        runCatchingLogged("widget:HabitInsightWidget") { HabitInsightWidget.refresh(context) }
+        runCatchingLogged("widget:MomentumWidget") { MomentumWidget.refresh(context) }
     }
 
     // ---- shared plumbing (used by providers/receivers instead of copy-pasting) ----
@@ -97,7 +98,7 @@ object Widgets {
         )
         // Inexact, non-wakeup: a rollover a few minutes late (or when the device next wakes) is
         // invisible, and it costs no battery overnight.
-        runCatching { am.set(AlarmManager.RTC, nextMidnight, pi) }
+        runCatchingLogged("widget:scheduleMidnight") { am.set(AlarmManager.RTC, nextMidnight, pi) }
     }
 }
 

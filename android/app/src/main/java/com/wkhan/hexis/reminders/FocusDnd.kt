@@ -1,6 +1,7 @@
 package com.wkhan.hexis.reminders
 
 import android.app.NotificationManager
+import com.wkhan.hexis.util.runCatchingLogged
 import android.content.Context
 
 /**
@@ -17,13 +18,13 @@ object FocusDnd {
     fun enter(context: Context) {
         val nm = context.getSystemService(NotificationManager::class.java) ?: return
         if (nm.isNotificationPolicyAccessGranted)
-            runCatching { nm.setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_PRIORITY) }
+            runCatchingLogged("dnd:on") { nm.setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_PRIORITY) }
     }
 
     /** Restore normal notifications. */
     fun exit(context: Context) {
         val nm = context.getSystemService(NotificationManager::class.java) ?: return
         if (nm.isNotificationPolicyAccessGranted)
-            runCatching { nm.setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_ALL) }
+            runCatchingLogged("dnd:off") { nm.setInterruptionFilter(NotificationManager.INTERRUPTION_FILTER_ALL) }
     }
 }

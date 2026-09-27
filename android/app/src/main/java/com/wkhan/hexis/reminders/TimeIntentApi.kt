@@ -3,6 +3,7 @@ package com.wkhan.hexis.reminders
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import com.wkhan.hexis.util.runCatchingLogged
 import com.wkhan.hexis.App
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -38,11 +39,11 @@ object TimeIntentApi {
      *  means we emit nothing rather than world-broadcast the activity name to every registered receiver. */
     fun broadcastStarted(context: Context, activityName: String, targetPackage: String) {
         if (targetPackage.isBlank()) return
-        runCatching { context.sendBroadcast(Intent(EVENT_STARTED).setPackage(targetPackage).putExtra(EXTRA_NAME, activityName)) }
+        runCatchingLogged("timeIntent:started") { context.sendBroadcast(Intent(EVENT_STARTED).setPackage(targetPackage).putExtra(EXTRA_NAME, activityName)) }
     }
     fun broadcastStopped(context: Context, activityName: String, targetPackage: String) {
         if (targetPackage.isBlank()) return
-        runCatching { context.sendBroadcast(Intent(EVENT_STOPPED).setPackage(targetPackage).putExtra(EXTRA_NAME, activityName)) }
+        runCatchingLogged("timeIntent:stopped") { context.sendBroadcast(Intent(EVENT_STOPPED).setPackage(targetPackage).putExtra(EXTRA_NAME, activityName)) }
     }
 }
 

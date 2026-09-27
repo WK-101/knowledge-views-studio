@@ -11,6 +11,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import com.wkhan.hexis.util.runCatchingLogged
 import androidx.core.content.ContextCompat
 import com.wkhan.hexis.MainActivity
 
@@ -86,7 +87,7 @@ object Notifications {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
         ) return
-        runCatching { NotificationManagerCompat.from(context).notify(id, notification) }
+        runCatchingLogged("notif:post") { NotificationManagerCompat.from(context).notify(id, notification) }
     }
 
     fun ensureChannel(context: Context) {
@@ -109,7 +110,7 @@ object Notifications {
                     }
                 isSoundUri(reminderSoundSpec) ->
                     if (appliedCustomUri != reminderSoundSpec || mgr.getNotificationChannel(CHANNEL_CUSTOM) == null) {
-                        runCatching { mgr.deleteNotificationChannel(CHANNEL_CUSTOM) }
+                        runCatchingLogged("notif:deleteChannel") { mgr.deleteNotificationChannel(CHANNEL_CUSTOM) }
                         val attrs = android.media.AudioAttributes.Builder()
                             .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
                             .setUsage(android.media.AudioAttributes.USAGE_NOTIFICATION)
@@ -117,7 +118,7 @@ object Notifications {
                         mgr.createNotificationChannel(
                             NotificationChannel(CHANNEL_CUSTOM, "Reminders (custom sound)", NotificationManager.IMPORTANCE_HIGH).apply {
                                 description = "Reminders with your chosen sound"
-                                runCatching { setSound(android.net.Uri.parse(reminderSoundSpec), attrs) }
+                                runCatchingLogged("notif:setSound") { setSound(android.net.Uri.parse(reminderSoundSpec), attrs) }
                             }
                         )
                         appliedCustomUri = reminderSoundSpec
@@ -208,7 +209,7 @@ object Notifications {
             .map { it to com.wkhan.hexis.domain.LifeEvent.daysUntil(it, today) }
             .filter { it.second >= 0 }
             .minByOrNull { it.second }
-        if (next == null) { runCatching { NotificationManagerCompat.from(context).cancel(OCCASION_LIVE_ID) }; return }
+        if (next == null) { runCatchingLogged("notif:cancelOccasion") { NotificationManagerCompat.from(context).cancel(OCCASION_LIVE_ID) }; return }
         val (c, days) = next
         val who = c.personName.ifBlank { c.title }
         val label = com.wkhan.hexis.domain.LifeEvent.daysLabel(days)
@@ -274,7 +275,7 @@ object Notifications {
     }
 
     fun cancel(context: Context, taskId: String) {
-        runCatching { NotificationManagerCompat.from(context).cancel(taskId.hashCode()) }
+        runCatchingLogged("notif:cancelTask") { NotificationManagerCompat.from(context).cancel(taskId.hashCode()) }
     }
 
     const val EVENT_ALERT_BASE = 424300
@@ -471,7 +472,7 @@ object Notifications {
     }
 
     fun cancelNote(context: Context, noteId: String) {
-        runCatching { NotificationManagerCompat.from(context).cancel(noteNotifId(noteId)) }
+        runCatchingLogged("notif:cancelNote") { NotificationManagerCompat.from(context).cancel(noteNotifId(noteId)) }
     }
 
     /** N2: celebrate a habit reaching its self-chosen reward streak. */
