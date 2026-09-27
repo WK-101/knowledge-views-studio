@@ -21,8 +21,8 @@ sealed interface KeyAction {
  *
  * [deferPress] (a key inside a scrolling container, such as the in-call keypad): the press waits until the touch
  * has settled ([settle], after the tap timeout without scrolling) or is lifted as a tap, so a finger that starts a
- * scroll on a key never sends a DTMF digit. A scroll that takes over ([cancel]) or a move past the touch slop
- * ([move] with `scrolled`) before then drops the press entirely.
+ * scroll on a key never sends a DTMF digit. A scroll that takes over ([cancel]) or a cancelling drag ([move] with
+ * `scrolled`, see [cancelsPending]) before then drops the press entirely; sliding off the key otherwise types it.
  * Times are any monotonic clock in milliseconds.
  */
 class KeyPressTracker(
@@ -71,10 +71,15 @@ class KeyPressTracker(
      */
     fun move(inside: Boolean, now: Long, scrolled: Boolean = false): List<KeyAction> {
         if (!pressed || left) return emptyList()
-        if (pending && (scrolled || !inside)) {
+        if (pending && scrolled) {
             pending = false
             left = true
             return emptyList()
+        }
+        // v3.4 review #4: slid off the key without a cancelling drag (sideways or up): the tap still counts.
+        if (pending && !inside) {
+            left = true
+            return press(now) + stopTone(now)
         }
         if (inside) return emptyList()
         left = true
@@ -123,9 +128,51 @@ class KeyPressTracker(
     }
 
     companion object {
+        /**
+         * v3.4 review #4: whether a move of ([dx], [dy]) from the down position cancels a deferred press. With
+         * [downOnly] (the docked keypad, which only folds on a downward drag) only a downward move past [slop]
+         * does; sideways and upward slides still type. Otherwise any move past [slop] does (a scroll either way).
+         */
+        fun cancelsPending(dx: Float, dy: Float, slop: Float, downOnly: Boolean): Boolean =
+            if (downOnly) dy > slop else dx * dx + dy * dy > slop * slop
+
         const val LONG_PRESS_MS = 500L
         const val MIN_TONE_MS = 150L
         /** How long a deferred press waits for the touch to settle (Android's tap timeout). */
         const val TAP_TIMEOUT_MS = 100L
     }
+}
+
+/**
+ * v3.4 review #4: keeps deferred key presses in the order the keys went down. A key whose press waits for the touch
+ * to settle registers with [waiting]; when another key goes down first, every earlier waiting press is committed
+ * (oldest first) before the new one waits, so rolling from one key to the next never swaps digits. A commit for a
+ * press that was already typed or dropped does nothing (the tracker ignores it). Not thread-safe: one UI thread.
+ */
+class PressOrder {
+    private val pending = ArrayList<Pair<Long, () -> Unit>>()
+    private var next = 0L
+
+    /** Commits earlier waiting presses, then registers [commit]; returns the token for [done]. */
+    fun waiting(commit: () -> Unit): Long {
+        flush()
+        val id = next++
+        pending += id to commit
+        return id
+    }
+
+    /** The press for [token] was typed, dropped or lifted: forget it. */
+    fun done(token: Long) {
+        pending.removeAll { it.first == token }
+    }
+
+    /** Commits every waiting press, oldest first. */
+    fun flush() {
+        if (pending.isEmpty()) return
+        val all = pending.toList()
+        pending.clear()
+        all.forEach { it.second() }
+    }
+
+    val waitingCount: Int get() = pending.size
 }

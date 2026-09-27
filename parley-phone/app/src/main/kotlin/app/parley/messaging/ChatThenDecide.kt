@@ -69,8 +69,11 @@ fun ChatThenDecideHost(snackbar: SnackbarHostState, openPrivate: (Long) -> Unit 
 
 object ChatThenDecide {
     /** The number is still not a contact (nor a private one), so the offer makes sense. */
-    suspend fun stillUnknown(c: DataContainer, chat: OpenedChat): Boolean =
-        c.contacts.lookup(chat.number) == null && c.vault.lookup(chat.number) == null
+    suspend fun stillUnknown(c: DataContainer, chat: OpenedChat): Boolean = stillUnknown(c, chat.number)
+
+    /** [number] is neither a contact nor a private one. */
+    suspend fun stillUnknown(c: DataContainer, number: String): Boolean =
+        c.contacts.lookup(number) == null && c.vault.lookup(number) == null
 
     suspend fun save(c: DataContainer, chat: OpenedChat, region: String, private: Boolean = true): TemporaryContacts.Saved? = withContext(Dispatchers.IO) {
         runCatching { TemporaryContact.save(c, chat.number, TemporaryContact.suggestedName(chat.number, chat.appLabel, region), private = private) }.getOrNull()

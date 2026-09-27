@@ -287,3 +287,21 @@ object CallRoutes {
         Messenger.WHATSAPP, Messenger.SIGNAL, Messenger.TELEGRAM, Messenger.VIBER -> true
     }
 }
+
+/**
+ * v3.4 review #5: which messenger rows belong to a person. Numbers are compared with [PhoneNumbers.sameExact] (never
+ * the last-digits fallback), so on a phone without a SIM country another person's messenger rows can't match.
+ */
+object MessengerRowMatch {
+    /** A row from a messenger-only contact: kept only when it carries one of the person's [ownPhones]. */
+    fun extraRow(rowNumber: String?, ownPhones: List<String>, region: String?): Boolean =
+        rowNumber != null && ownPhones.any { PhoneNumbers.sameExact(it, rowNumber, region) }
+
+    /**
+     * A row found for [number]: a row with a number must carry [number]; a row without one is kept only when the
+     * contact it came from ([contactPhones]) has [number] itself.
+     */
+    fun forNumber(rowNumber: String?, contactPhones: List<String>, number: String, region: String?): Boolean =
+        if (rowNumber != null) PhoneNumbers.sameExact(rowNumber, number, region)
+        else contactPhones.any { PhoneNumbers.sameExact(it, number, region) }
+}

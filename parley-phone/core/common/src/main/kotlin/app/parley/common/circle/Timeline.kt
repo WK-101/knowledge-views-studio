@@ -74,12 +74,15 @@ object Timeline {
         return out
     }
 
-    /** Dates to show beside [others]: occurrences from the oldest other entry up to [today] (none without entries). */
+    /**
+     * Dates to show beside [others]: occurrences from the oldest other entry up to [today] (none without entries).
+     * The same occasion stored twice (linked accounts, or "1990-05-01" beside "--05-01") shows once.
+     */
     fun dates(events: List<Triple<Int, String?, EventDate>>, others: List<TimelineEntry>, today: LocalDate, zone: ZoneId): List<TimelineEntry.Date> {
         val oldest = others.minOfOrNull { it.time } ?: return emptyList()
         val from = Instant.ofEpochMilli(oldest).atZone(zone).toLocalDate()
         return events.flatMap { (type, label, d) ->
             occurrences(d, from, today).map { day -> TimelineEntry.Date(day.atStartOfDay(zone).toInstant().toEpochMilli(), type, label, d) }
-        }
+        }.distinctBy { Triple(it.time, it.type, it.label) }
     }
 }

@@ -171,4 +171,23 @@ class ReachAppsTest {
         assertEquals(CallRoute.ViaChat(MessengerApp.MOLLY), CallRoutes.forApp(MessengerApp.MOLLY, video = false, rows))
         assertNotNull(ReachApp.forMessengerApp(MessengerApp.TELEGRAM_WEB))
     }
+
+    // ---- v3.4 review #5: messenger-only contacts match exact numbers only ----
+
+    @Test fun messenger_only_rows_need_an_exact_number() {
+        // No SIM country: national numbers don't parse, and the last nine digits are the same.
+        val mine = listOf("0300 1234567")
+        assertTrue(PhoneNumbers.same("0300 1234567", "0400 1234567", ""))
+        assertFalse(MessengerRowMatch.extraRow("0400 1234567", mine, ""))
+        assertTrue(MessengerRowMatch.extraRow("03001234567", mine, ""))
+        assertFalse(MessengerRowMatch.extraRow(null, mine, ""))
+        assertTrue(MessengerRowMatch.extraRow("+923001234567", listOf("0300 1234567"), "PK"))
+    }
+
+    @Test fun rows_for_a_number_without_a_number_need_the_contact_to_have_it() {
+        assertTrue(MessengerRowMatch.forNumber(null, listOf("0300 1234567"), "03001234567", ""))
+        assertFalse(MessengerRowMatch.forNumber(null, listOf("0400 1234567"), "03001234567", ""))
+        assertFalse(MessengerRowMatch.forNumber("0400 1234567", listOf("0300 1234567"), "03001234567", ""))
+        assertTrue(MessengerRowMatch.forNumber("+923001234567", emptyList(), "0300 1234567", "PK"))
+    }
 }

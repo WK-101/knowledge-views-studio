@@ -238,9 +238,11 @@ private fun SwipeBackground(o: Float, right: SwipeAction, left: SwipeAction, arm
 fun blockWithUndo(vm: AppViewModel, numbers: List<String>) {
     val res = vm.getApplication<android.app.Application>().resources
     vm.viewModelScope.launch {
-        val done = numbers.distinct().filter { runCatching { vm.c.blocks.blockNumber(it) }.getOrDefault(false) }
+        // Only numbers this swipe newly blocked go into Undo, so Undo never lifts an earlier block.
+        val (already, fresh) = numbers.distinct().partition { runCatching { vm.c.blocks.isSystemBlocked(it) }.getOrDefault(false) }
+        val done = fresh.filter { runCatching { vm.c.blocks.blockNumber(it) }.getOrDefault(false) }
         if (done.isEmpty()) {
-            vm.toast(res.getString(R.string.vm_couldnt_block))
+            vm.toast(res.getString(if (already.isNotEmpty() && fresh.isEmpty()) R.string.v34_swipe_already_blocked else R.string.vm_couldnt_block))
             return@launch
         }
         CircleSnacks.show(

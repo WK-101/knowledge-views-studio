@@ -128,6 +128,7 @@ import app.parley.common.DialText
 import app.parley.common.KeypadLayout
 import app.parley.common.NumberText
 import app.parley.common.PhoneNumbers
+import app.parley.common.calls.PressOrder
 import app.parley.messaging.MessageOnSheet
 import app.parley.ui.Avatar
 import app.parley.ui.CallColors
@@ -437,6 +438,8 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit, searchQuery: String? = n
     // K1: the keypad button left of the pill: folds the docked keypad; hides the keys on the Keypad tab (and with a
     // hardware keypad, where typing goes on without them).
     val onToggle: () -> Unit = if (dock != null && !hasHardwareKeys) ({ dock.onExpandedChange(false) }) else ({ showKeypad = !showKeypad })
+    // v3.4 review #4: the docked keys share one press order, so rolling between keys never swaps digits.
+    val pressOrder = remember { PressOrder() }
     val panel: @Composable (Modifier) -> Unit = { panelModifier ->
         Surface(
             color = MaterialTheme.colorScheme.surfaceContainer, shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
@@ -469,8 +472,9 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit, searchQuery: String? = n
                                         digit, letters, localLetters(layout, d),
                                         modifier = Modifier.weight(1f),
                                         // K3: in the docked panel a drag on a key folds the keypad, so a key waits for
-                                        // the touch to settle (100 ms) and a swipe never types a digit.
+                                        // the touch to settle (100 ms) and a downward swipe never types a digit.
                                         deferPress = dock != null,
+                                        pressOrder = pressOrder,
                                         onPress = { token[0] = keyDown(d) },
                                         onRelease = { after -> keyUp(token[0], after) },
                                         onLong = when (d) {
@@ -732,6 +736,7 @@ private fun ImeiSheet(onDismiss: () -> Unit) {
 @Composable
 private fun DialKey(
     digit: String, letters: String, local: String, modifier: Modifier = Modifier, deferPress: Boolean = false,
+    pressOrder: PressOrder? = null,
     onPress: () -> Unit, onRelease: (afterMs: Long) -> Unit, onLong: ((typedThisTouch: Boolean) -> Unit)?,
 ) {
     val fontScale = LocalDensity.current.fontScale
@@ -753,6 +758,8 @@ private fun DialKey(
             .keypadKey(
                 onPress = onPress, onToneStop = onRelease, onLongPress = onLong, longPressLabel = longPressLabel(res, digit),
                 deferPress = deferPress, indication = keyRipple,
+                // v3.4 review #4: digits keep their order, and only a downward drag (a fold) drops a waiting press.
+                pressOrder = pressOrder, foldDownOnly = deferPress,
             )
             .padding(vertical = 2.dp)
             .semantics { contentDescription = keyDescription(res, digit, letters) },

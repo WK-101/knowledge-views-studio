@@ -24,6 +24,7 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import app.parley.common.calls.KeyAction
 import app.parley.common.calls.KeyPressTracker
+import app.parley.common.calls.PressOrder
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -38,6 +39,9 @@ import kotlinx.coroutines.launch
  *   this same touch typed the key first (so the long-press may replace that digit); TalkBack's long click passes
  *   false, since nothing was typed;
  * - each key follows its own finger, so a second key can be pressed before the first is released (roll-over).
+ * [pressOrder] (shared by the keys of one keypad with [deferPress]): a key going down first types any earlier key
+ * still waiting, so digits keep their order. [foldDownOnly]: only a downward drag cancels a waiting press (the
+ * docked keypad folds only downward); otherwise any move past the touch slop does.
  * TalkBack gets a normal click (and long click) action. [indication]: the press feedback (a bounded ripple unless
  * the key asks for another, e.g. the dialer's round, unbounded one).
  */
@@ -49,6 +53,8 @@ fun Modifier.keypadKey(
     longPressLabel: String? = null,
     deferPress: Boolean = false,
     indication: Indication? = null,
+    pressOrder: PressOrder? = null,
+    foldDownOnly: Boolean = false,
 ): Modifier {
     val source = remember { MutableInteractionSource() }
     val scope = rememberCoroutineScope()
@@ -68,7 +74,7 @@ fun Modifier.keypadKey(
             if (hasLong) onLongClick(longPressLabel) { long?.invoke(false); true }
         }
         .indication(source, indication ?: ripple())
-        .pointerInput(hasLong, deferPress) {
+        .pointerInput(hasLong, deferPress, pressOrder, foldDownOnly) {
             val longMs = viewConfiguration.longPressTimeoutMillis
             val slop = viewConfiguration.touchSlop
             awaitEachGesture {
@@ -86,8 +92,10 @@ fun Modifier.keypadKey(
                 var timer: Job? = null
                 var settleTimer: Job? = null
                 var taken = false
+                var orderToken = -1L
                 try {
                     run(tracker.down(SystemClock.uptimeMillis()))
+                    if (deferPress && pressOrder != null) orderToken = pressOrder.waiting { run(tracker.settle(SystemClock.uptimeMillis())) }
                     if (deferPress) {
                         settleTimer = scope.launch {
                             delay(KeyPressTracker.TAP_TIMEOUT_MS)
@@ -108,7 +116,8 @@ fun Modifier.keypadKey(
                         // Taken over by a scrolling parent: the press is over, and a deferred one never happens.
                         if (change.isConsumed) { taken = true; break }
                         val inside = !change.isOutOfBounds(size, extendedTouchPadding)
-                        val scrolled = (change.position - down.position).getDistance() > slop
+                        val delta = change.position - down.position
+                        val scrolled = KeyPressTracker.cancelsPending(delta.x, delta.y, slop, foldDownOnly)
                         if (!inside || (deferPress && scrolled && !tracker.typedThisTouch)) {
                             timer?.cancel()
                             timer = null
@@ -123,6 +132,7 @@ fun Modifier.keypadKey(
                     // Always, also when the gesture is cancelled (the key left the screen): no tone keeps playing.
                     timer?.cancel()
                     settleTimer?.cancel()
+                    if (orderToken >= 0) pressOrder?.done(orderToken)
                     val now = SystemClock.uptimeMillis()
                     run(if (taken) tracker.cancel(now) else tracker.up(now))
                     scope.launch { source.emit(PressInteraction.Release(interaction)) }
