@@ -1,6 +1,5 @@
 package app.parley.ui.blocking
 
-import android.net.Uri
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -31,15 +30,9 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.navigation.NavGraphBuilder
-import androidx.navigation.NavType
-import androidx.navigation.compose.composable
-import androidx.navigation.navArgument
 import app.parley.AppViewModel
 import app.parley.R
 import app.parley.blocking.BlockingText
-import app.parley.common.RuleKind
-import app.parley.common.RuleType
 import app.parley.data.DryRun
 import app.parley.ui.common.Format
 import androidx.compose.foundation.layout.Arrangement
@@ -106,42 +99,6 @@ fun DryRunScreen(vm: AppViewModel, back: () -> Unit) {
                     )
                     if (open) TraceList(r.result.trace, Modifier.padding(start = 56.dp, end = 16.dp, bottom = 8.dp))
                 }
-            }
-        }
-    }
-}
-
-/** Blocking sub-screens. Registered in the app's NavHost. */
-object BlockingRoutes {
-    const val LISTS = "blocking/lists"
-    const val TRANSFER = "blocking/transfer"
-    const val DRY_RUN = "blocking/dryrun"
-    const val TEMPLATES = "blocking/templates"
-    const val RULE = "blocking/rule/{id}?kind={kind}&type={type}&pattern={pattern}"
-
-    fun rule(id: Long, kind: RuleKind = RuleKind.BLOCK, type: RuleType = RuleType.PREFIX, pattern: String = "") =
-        "blocking/rule/$id?kind=${kind.name}&type=${type.name}&pattern=${android.net.Uri.encode(pattern)}"
-
-    /** Adds every blocking destination to a NavGraph. */
-    fun register(builder: NavGraphBuilder, vm: AppViewModel, back: () -> Unit) {
-        with(builder) {
-            composable(LISTS) { SpamListsScreen(vm, back) }
-            composable(TRANSFER) { TransferScreen(vm, back) }
-            composable(DRY_RUN) { DryRunScreen(vm, back) }
-            composable(TEMPLATES) { TemplatesScreen(vm, back) }
-            composable(
-                RULE,
-                arguments = listOf(
-                    navArgument("id") { type = NavType.LongType },
-                    navArgument("kind") { defaultValue = "BLOCK" },
-                    navArgument("type") { defaultValue = "PREFIX" },
-                    navArgument("pattern") { defaultValue = "" },
-                ),
-            ) {
-                val a = it.arguments!!
-                val kind = runCatching { RuleKind.valueOf(a.getString("kind").orEmpty()) }.getOrDefault(RuleKind.BLOCK)
-                val type = runCatching { RuleType.valueOf(a.getString("type").orEmpty()) }.getOrDefault(RuleType.PREFIX)
-                RuleEditorScreen(vm, a.getLong("id"), newRule(kind, type, Uri.decode(a.getString("pattern").orEmpty())), back)
             }
         }
     }

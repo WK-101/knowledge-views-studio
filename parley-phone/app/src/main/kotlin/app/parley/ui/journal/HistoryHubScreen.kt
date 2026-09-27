@@ -1,5 +1,6 @@
 package app.parley.ui.journal
 
+import app.parley.ui.Destination
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -39,7 +40,7 @@ enum class HistoryTab(val key: String) {
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HistoryHubScreen(vm: AppViewModel, initial: HistoryTab, back: () -> Unit, open: (String) -> Unit) {
+fun HistoryHubScreen(vm: AppViewModel, initial: HistoryTab, back: () -> Unit, open: (Destination) -> Unit) {
     var tab by rememberSaveable { mutableIntStateOf(initial.ordinal) }
     ParleyScaffold(topBar = {
         ParleyTopBar(stringResource(R.string.jr_title), onBack = back)

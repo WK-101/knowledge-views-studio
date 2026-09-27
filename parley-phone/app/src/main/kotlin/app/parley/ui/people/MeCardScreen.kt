@@ -1,5 +1,6 @@
 package app.parley.ui.people
 
+import app.parley.ui.Destination
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
@@ -40,6 +41,7 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -90,15 +92,15 @@ private fun MigrateMyDetails(vm: AppViewModel) {
  * end shows the QR code (with Share and Edit in it). An empty card has no QR button, as there is nothing to show.
  */
 @Composable
-fun MeCardRow(vm: AppViewModel, open: (String) -> Unit) {
+fun MeCardRow(vm: AppViewModel, open: (Destination) -> Unit) {
     MigrateMyDetails(vm)
     val own by vm.c.people.me.card.collectAsStateWithLifecycle()
     val profile by produceState<MeCard?>(null) { value = vm.c.people.me.profile() }
     val card = remember(own, profile) { MeCards.merge(own, profile) }
     val me = stringResource(R.string.me_short)
     val myCard = stringResource(R.string.me_title)
-    var showQr by remember { mutableStateOf(false) }
-    val edit = { open(PeopleRoutes.ME) }
+    var showQr by rememberSaveable { mutableStateOf(false) }
+    val edit = { open(PeopleRoutes.Me) }
     ParleyListItem(
         modifier = Modifier.clickable(onClickLabel = stringResource(R.string.me_edit), onClick = edit),
         leadingContent = { Avatar(card.name.ifBlank { me }, null, avatarSize()) },
@@ -114,7 +116,7 @@ fun MeCardRow(vm: AppViewModel, open: (String) -> Unit) {
             IconButton({ showQr = true }) { Icon(Icons.Rounded.QrCode2, stringResource(R.string.me_show_qr), tint = MaterialTheme.colorScheme.primary) }
         }),
     )
-    if (showQr) MeQrDialog(card, onDismiss = { showQr = false }, onEdit = { showQr = false; edit() }, onScan = { showQr = false; vm.navigate(NavEvent.Route(QrRoutes.SCAN)) })
+    if (showQr) MeQrDialog(card, onDismiss = { showQr = false }, onEdit = { showQr = false; edit() }, onScan = { showQr = false; vm.navigate(NavEvent.Route(QrRoutes.Scan)) })
 }
 
 /**
@@ -131,7 +133,7 @@ fun MeCardScreen(vm: AppViewModel, back: () -> Unit) {
     val own by store.card.collectAsStateWithLifecycle()
     val profile by produceState<MeCard?>(null) { value = store.profile() }
     var draft by remember(own) { mutableStateOf(own) }
-    var showQr by remember { mutableStateOf(false) }
+    var showQr by rememberSaveable { mutableStateOf(false) }
     val merged = remember(draft, profile) { MeCards.merge(draft, profile) }
     val dirty = draft.cleaned() != own
 
@@ -200,7 +202,7 @@ fun MeCardScreen(vm: AppViewModel, back: () -> Unit) {
         )
     }
     // "Scan theirs" right from your own code.
-    if (showQr) MeQrDialog(merged, onDismiss = { showQr = false }, onScan = { showQr = false; vm.navigate(NavEvent.Route(QrRoutes.SCAN)) })
+    if (showQr) MeQrDialog(merged, onDismiss = { showQr = false }, onScan = { showQr = false; vm.navigate(NavEvent.Route(QrRoutes.Scan)) })
 }
 
 @Composable

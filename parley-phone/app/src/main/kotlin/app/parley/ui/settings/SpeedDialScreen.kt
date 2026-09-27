@@ -16,7 +16,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -36,7 +36,7 @@ fun SpeedDialScreen(vm: AppViewModel, back: () -> Unit) {
     val scope = rememberCoroutineScope()
     val entries by vm.c.prefs.speedDials.collectAsStateWithLifecycle(emptyList())
     val contacts by vm.contacts.collectAsStateWithLifecycle()
-    var editing by remember { mutableStateOf<Int?>(null) }
+    var editing by rememberSaveable { mutableStateOf<Int?>(null) }
     ParleyScaffold(topBar = {
         ParleyTopBar(settingTitle("speed_dial"), onBack = back)
     }) { p ->
@@ -54,7 +54,7 @@ fun SpeedDialScreen(vm: AppViewModel, back: () -> Unit) {
         }
     }
     editing?.let { key ->
-        var q by remember { mutableStateOf("") }
+        var q by rememberSaveable { mutableStateOf("") }
         val matches = contacts.orEmpty().filter { q.length >= 2 && it.phones.isNotEmpty() && TextSearch.matches(q, it.displayName, it.phones.map { p -> p.number }) }.take(5)
         ConfirmDialog(
             title = stringResource(R.string.set_speed_dial_key, key),

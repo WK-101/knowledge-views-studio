@@ -100,7 +100,7 @@ fun SimpleHome(vm: AppViewModel) {
         vm.navEvents.collect { e ->
             when {
                 e is NavEvent.Tab && e.tab == StartTab.KEYPAD -> { keypad = true; e.dial?.let { d -> digits = d } }
-                e is NavEvent.Route && e.route == ExtrasRoutes.SIMPLE_IMPORT -> snackbar.showSnackbar(res.getString(R.string.simple_leave_to_import))
+                e is NavEvent.Route && e.route == ExtrasRoutes.SimpleImport -> snackbar.showSnackbar(res.getString(R.string.simple_leave_to_import))
                 else -> Unit
             }
         }

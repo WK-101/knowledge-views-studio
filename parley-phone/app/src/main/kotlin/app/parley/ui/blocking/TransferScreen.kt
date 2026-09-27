@@ -26,6 +26,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -106,7 +107,7 @@ fun TransferScreen(vm: AppViewModel, back: () -> Unit) {
     var cbbk by remember { mutableStateOf<ByteArray?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     val defaultShareName = stringResource(R.string.blk_share_default_name)
-    var shareName by remember { mutableStateOf(defaultShareName) }
+    var shareName by rememberSaveable { mutableStateOf(defaultShareName) }
 
     suspend fun read(uri: Uri): ByteArray = withContext(Dispatchers.IO) {
         context.contentResolver.openInputStream(uri)?.use { s ->

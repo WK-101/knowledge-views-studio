@@ -14,15 +14,11 @@
     <ID>ComplexCondition:CallFailure.kt$CallFailure$!f.outgoing || f.connected || f.emergency || !f.hasNumber || f.userEnded</ID>
     <ID>ComplexCondition:CallGate.kt$CallGate$confirm || chooseSim || warnings.isNotEmpty() || note != null</ID>
     <ID>ComplexCondition:CallLogIndex.kt$CallLogIndex$c.type == CallType.OUTGOING || (c.type == CallType.INCOMING &amp;&amp; c.durationSec &gt; 0) || c.type == CallType.ANSWERED_EXTERNALLY</ID>
-    <ID>ComplexCondition:CallManager.kt$CallManager$!::appContext.isInitialized || id in silenced || !calls.contains(call) || call.stateCompat() != Call.STATE_RINGING</ID>
-    <ID>ComplexCondition:CallManager.kt$CallManager$customRinger !== tone || id in silenced || !calls.contains(call) || call.stateCompat() != Call.STATE_RINGING</ID>
-    <ID>ComplexCondition:CallManager.kt$CallManager$incoming &amp;&amp; !EmergencyPolicy.bypasses(Safeguard.SCREENING, emergency) &amp;&amp; (earlier != null || earlierOutcome != null || hidden || active)</ID>
-    <ID>ComplexCondition:CallManager.kt$CallManager$incoming &amp;&amp; number != null &amp;&amp; !hidden &amp;&amp; !EmergencyPolicy.bypasses(Safeguard.CALL_TIME_ALLOWANCE, emergency)</ID>
-    <ID>ComplexCondition:CallManager.kt$CallManager$silence &amp;&amp; calls.contains(call) &amp;&amp; call.stateCompat() == Call.STATE_RINGING &amp;&amp; id !in silenced</ID>
     <ID>ComplexCondition:CallManager.kt$CallManager$waited &lt; 3000 &amp;&amp; calls.any { it != waiting &amp;&amp; it.parent == null &amp;&amp; mapState(it.stateCompat()) == CallState.ACTIVE }</ID>
     <ID>ComplexCondition:CallNotifier.kt$CallNotifier$id != null &amp;&amp; id &gt; 0 &amp;&amp; !key.isNullOrBlank() &amp;&amp; !ContactsContract.Contacts.isEnterpriseContactId(id)</ID>
     <ID>ComplexCondition:CallNotifier.kt$CallNotifier$ongoing == null &amp;&amp; ringing.id !in directlyLaunched &amp;&amp; (!canUseFullScreen() || !notificationsAllowed() || !incomingChannelAlerts(context))</ID>
     <ID>ComplexCondition:CallPolicy.kt$CallPolicy.Evaluation$s.blockInvalid &amp;&amp; active(s.invalidSchedule) &amp;&amp; (f.validity == NumberValidity.INVALID || f.validity == NumberValidity.IMPOSSIBLE)</ID>
+    <ID>ComplexCondition:CallRinger.kt$CallRinger$tone !== t || session.silenced || !stillRinging() || am.ringerMode != AudioManager.RINGER_MODE_NORMAL</ID>
     <ID>ComplexCondition:CallScreener.kt$CallScreener$!isContact &amp;&amp; (s.allowDialled || s.allowAnswered || s.repeatCallers)</ID>
     <ID>ComplexCondition:CircleTab.kt$q.isEmpty() &amp;&amp; suggestions.isNotEmpty() &amp;&amp; (all.isEmpty() || !config.suggestionsDismissed)</ID>
     <ID>ComplexCondition:ContactCsv.kt$ContactCsv$c == '=' || c == '+' || c == '-' || c == '@' || c == '\t' || c == '\r' || c == '\''</ID>
@@ -32,6 +28,7 @@
     <ID>ComplexCondition:CsvColumnMapping.kt$CsvColumnMapping$Regex("^(website|web|address|relation|event|im|organization|customfield|externalid|location)\\d*(type|label|\\d)").containsMatchIn(n) &amp;&amp; !n.startsWith("organization1name") &amp;&amp; !n.startsWith("organization1title") &amp;&amp; !n.startsWith("address1formatted")</ID>
     <ID>ComplexCondition:DialSearch.kt$DialText$ch.isDigit() || ch == '+' || ch == '*' || ch == '#'</ID>
     <ID>ComplexCondition:EditorViewModel.kt$EditorViewModel$empty &amp;&amp; photo == null &amp;&amp; (orig == null || orig.rawContacts.size &lt; 2 || orig.editRawId == null)</ID>
+    <ID>ComplexCondition:EditorViewModel.kt$EditorViewModel$o != null &amp;&amp; sameCopy &amp;&amp; savedVersion &gt;= 0 &amp;&amp; savedVersion != o.editRawVersion</ID>
     <ID>ComplexCondition:HealthScanner.kt$HealthScanner$clean.startsWith("+") || clean.startsWith("00") || clean.length &lt; 7 || PhoneNumbers.isServiceCode(n)</ID>
     <ID>ComplexCondition:HomeScreen.kt$tab == StartTab.RECENTS || tab == StartTab.CONTACTS || tab == StartTab.CIRCLE || (tab == StartTab.FAVORITES &amp;&amp; StartTab.CIRCLE !in settings.navTabs.visible)</ID>
     <ID>ComplexCondition:InCallScreen.kt$!compact &amp;&amp; (call.note != null || call.lastCall != null || memory != null)</ID>
@@ -65,14 +62,14 @@
     <ID>CyclomaticComplexMethod:BackupRepository.kt$BackupRepository$suspend fun backupNow(scheduled: Boolean, target: Uri? = null, safety: Boolean = false): BackupOutcome</ID>
     <ID>CyclomaticComplexMethod:BackupRepository.kt$BackupRepository$suspend fun restore(opened: OpenedBackup, plan: MergePlan, o: RestoreOptions): RestoreReport</ID>
     <ID>CyclomaticComplexMethod:BackupScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun BackupScreen(vm: AppViewModel, back: () -&gt; Unit)</ID>
-    <ID>CyclomaticComplexMethod:BirthdaysScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun BirthdaysScreen(vm: AppViewModel, back: () -&gt; Unit, open: (String) -&gt; Unit)</ID>
+    <ID>CyclomaticComplexMethod:BirthdaysScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun BirthdaysScreen(vm: AppViewModel, back: () -&gt; Unit, open: (Destination) -&gt; Unit)</ID>
     <ID>CyclomaticComplexMethod:BlockingDialogs.kt$@Composable private fun WhyDialog(vm: AppViewModel, number: String, live: Boolean, onDismiss: () -&gt; Unit)</ID>
     <ID>CyclomaticComplexMethod:BlockingNotifier.kt$BlockingNotifier$private fun post(context: Context, e: ScreenedCall)</ID>
     <ID>CyclomaticComplexMethod:BlockingScreen.kt$@Composable private fun RuleRow(vm: AppViewModel, r: BlockRule, now: Long, onClick: () -&gt; Unit)</ID>
-    <ID>CyclomaticComplexMethod:BlockingScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun BlockingScreen(vm: AppViewModel, back: () -&gt; Unit, open: (String) -&gt; Unit = {})</ID>
+    <ID>CyclomaticComplexMethod:BlockingScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun BlockingScreen(vm: AppViewModel, back: () -&gt; Unit, open: (Destination) -&gt; Unit = {})</ID>
     <ID>CyclomaticComplexMethod:BlockingText.kt$BlockingText$fun result(context: Context, check: String, result: String): String</ID>
     <ID>CyclomaticComplexMethod:BroadSearch.kt$BroadSearch$fun match(query: String, name: String, numbers: List&lt;String&gt;, emails: List&lt;String&gt;, extra: Extra?): Field?</ID>
-    <ID>CyclomaticComplexMethod:BulkAddScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun BulkAddScreen(vm: AppViewModel, back: () -&gt; Unit, open: (String) -&gt; Unit)</ID>
+    <ID>CyclomaticComplexMethod:BulkAddScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun BulkAddScreen(vm: AppViewModel, back: () -&gt; Unit, open: (Destination) -&gt; Unit)</ID>
     <ID>CyclomaticComplexMethod:BulkAddStore.kt$BulkAddStore$suspend fun save( items: List&lt;BulkItem&gt;, destination: BulkDestination, where: String, progress: (Int, Int) -&gt; Unit = { _, _ -&gt; }, now: Long = System.currentTimeMillis(), ): Result</ID>
     <ID>CyclomaticComplexMethod:CallClock.kt$CallClock$internal fun onCallsChanged(top: List&lt;CallUi&gt;)</ID>
     <ID>CyclomaticComplexMethod:CallCsvImport.kt$CallCsvImport$fun parseType(raw: String?): Int?</ID>
@@ -84,9 +81,6 @@
     <ID>CyclomaticComplexMethod:CallLogIndex.kt$CallLogIndex.Companion$fun build(calls: List&lt;CallEntry&gt;, contacts: List&lt;IndexContact&gt;?, countryIso: String?, zone: ZoneId = ZoneId.systemDefault()): CallLogIndex</ID>
     <ID>CyclomaticComplexMethod:CallManager.kt$CallManager$internal fun add(context: Context, call: Call)</ID>
     <ID>CyclomaticComplexMethod:CallManager.kt$CallManager$internal fun remove(call: Call)</ID>
-    <ID>CyclomaticComplexMethod:CallManager.kt$CallManager$private fun finishRingFacts(id: String, call: Call, f: RingFacts, rang: Long, connected: Boolean): RingFacts</ID>
-    <ID>CyclomaticComplexMethod:CallManager.kt$CallManager$private fun maybePlayUnknownRingtone(call: Call, id: String)</ID>
-    <ID>CyclomaticComplexMethod:CallManager.kt$CallManager$private fun publish()</ID>
     <ID>CyclomaticComplexMethod:CallPolicy.kt$CallPolicy.Evaluation$fun run(): ScreeningResult</ID>
     <ID>CyclomaticComplexMethod:CallScreener.kt$CallScreener$fun isActive(): Boolean</ID>
     <ID>CyclomaticComplexMethod:CallScreener.kt$CallScreener$private suspend fun gather( req: ScreenRequest, s: ScreeningSettings, at: Long, replayHistory: List&lt;CallEntry&gt;?, knownContact: Boolean? = null, rules: List&lt;BlockRule&gt;, tones: Map&lt;String, String&gt; = emptyMap(), ): Gathered</ID>
@@ -95,11 +89,12 @@
     <ID>CyclomaticComplexMethod:CallTimeScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun CallTimeScreen(vm: AppViewModel, back: () -&gt; Unit)</ID>
     <ID>CyclomaticComplexMethod:CallWaiting.kt$@Composable internal fun CallWaitingSheet(ringing: CallUi, current: CallUi?, heldCount: Int, confirmDecline: Boolean = false, onReply: () -&gt; Unit)</ID>
     <ID>CyclomaticComplexMethod:CircleSnackHost.kt$@Composable fun CircleSnackHost(vm: AppViewModel, snackbar: SnackbarHostState)</ID>
-    <ID>CyclomaticComplexMethod:ClearHistoryDialog.kt$@Composable fun ClearHistoryDialog(vm: AppViewModel, shown: List&lt;CallEntry&gt;?, open: (String) -&gt; Unit, onDismiss: () -&gt; Unit)</ID>
+    <ID>CyclomaticComplexMethod:ClearHistoryDialog.kt$@Composable fun ClearHistoryDialog(vm: AppViewModel, shown: List&lt;CallEntry&gt;?, open: (Destination) -&gt; Unit, onDismiss: () -&gt; Unit)</ID>
     <ID>CyclomaticComplexMethod:ContactCsv.kt$ContactCsv$fun parse(input: Reader, delimiter: Char = ','): Sequence&lt;List&lt;String&gt;&gt;</ID>
     <ID>CyclomaticComplexMethod:ContactCsv.kt$ContactCsv$fun read(input: Reader, report: ImportReportBuilder, onRecord: (ParsedCard) -&gt; Unit)</ID>
-    <ID>CyclomaticComplexMethod:ContactDetailScreen.kt$@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class) @Composable fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -&gt; Unit, open: (String) -&gt; Unit)</ID>
+    <ID>CyclomaticComplexMethod:ContactDetailScreen.kt$@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class) @Composable fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -&gt; Unit, open: (Destination) -&gt; Unit)</ID>
     <ID>CyclomaticComplexMethod:ContactDetailsJson.kt$ContactDetailsJson$fun encode(d: ContactDetails): String</ID>
+    <ID>CyclomaticComplexMethod:ContactEditRebase.kt$ContactEditRebase$fun rebase(base: ContactDetails?, mine: ContactDetails, theirs: ContactDetails, picks: Map&lt;Field, Side&gt;, fallback: Side = Side.MINE): ContactDetails</ID>
     <ID>CyclomaticComplexMethod:ContactEditScreen.kt$@Composable private fun AccountLine( vaultId: Long?, isExisting: Boolean, privateNew: Boolean, account: AccountRef?, accounts: List&lt;AccountRef&gt;, label: (AccountRef) -&gt; String, onPick: (AccountRef?) -&gt; Unit, )</ID>
     <ID>CyclomaticComplexMethod:ContactEditScreen.kt$@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class) @Composable fun ContactEditScreen( vm: AppViewModel, contactId: Long?, prefillName: String, prefillPhone: String, prefillEmail: String, addPhone: String, prefill: ContactDetails? = null, /** Private vault mode: 0 = new vault contact, &gt; 0 = edit that vault contact. */ vaultId: Long? = null, /** Edit one specific copy (raw contact) of the contact ("Edit this copy" on the contact page). */ rawId: Long? = null, done: (Long?) -&gt; Unit, )</ID>
     <ID>CyclomaticComplexMethod:ContactKeys.kt$ContactKeys$suspend fun sweep(): Int</ID>
@@ -112,11 +107,11 @@
     <ID>CyclomaticComplexMethod:ContactRecordStore.kt$ContactRecordStore$private fun plan(r: ContactRecord, target: AccountRef?, available: Set&lt;AccountRef&gt;, groups: GroupResolver, includeReadOnly: Boolean, processPhotos: Boolean = false): Plan</ID>
     <ID>CyclomaticComplexMethod:ContactRecordStore.kt$ContactRecordStore$private fun readChunk(ids: List&lt;Long&gt;, titles: Map&lt;Long, String&gt;, fullPhoto: Boolean): List&lt;ContactRecord&gt;</ID>
     <ID>CyclomaticComplexMethod:ContactTimelineScreen.kt$@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class) @Composable fun ContactTimelineScreen(vm: AppViewModel, contactId: Long, back: () -&gt; Unit)</ID>
-    <ID>CyclomaticComplexMethod:ContactsChips.kt$@Composable fun ContactsFilterChips(vm: AppViewModel, showVault: Boolean, vaultHidden: Boolean, open: (String) -&gt; Unit)</ID>
-    <ID>CyclomaticComplexMethod:ContactsRepository.kt$ContactsRepository$private fun loadAll(): List&lt;ContactSummary&gt;</ID>
+    <ID>CyclomaticComplexMethod:ContactsChips.kt$@Composable fun ContactsFilterChips(vm: AppViewModel, showVault: Boolean, vaultHidden: Boolean, open: (Destination) -&gt; Unit)</ID>
+    <ID>CyclomaticComplexMethod:ContactsRepository.kt$ContactsRepository$private fun summaries(ids: List&lt;Long&gt;?): List&lt;Pair&lt;Long, ContactSummary&gt;&gt;</ID>
     <ID>CyclomaticComplexMethod:ContactsRepository.kt$ContactsRepository$private suspend fun load(contactId: Long, forEdit: Boolean, preferRaw: Long? = null): ContactDetails?</ID>
     <ID>CyclomaticComplexMethod:ContactsRepository.kt$ContactsRepository$suspend fun save(original: ContactDetails?, edited: ContactDetails, account: AccountRef?, photo: Uri?, removePhoto: Boolean): SaveResult?</ID>
-    <ID>CyclomaticComplexMethod:ContactsTab.kt$@OptIn(ExperimentalFoundationApi::class) @Composable fun ContactsTab(vm: AppViewModel, open: (String) -&gt; Unit, onReorderFavorites: () -&gt; Unit = {})</ID>
+    <ID>CyclomaticComplexMethod:ContactsTab.kt$@OptIn(ExperimentalFoundationApi::class) @Composable fun ContactsTab(vm: AppViewModel, open: (Destination) -&gt; Unit, onReorderFavorites: () -&gt; Unit = {})</ID>
     <ID>CyclomaticComplexMethod:ContentDiff.kt$ContentDiff$fun plan(current: List&lt;Existing&gt;, desired: List&lt;DataRow&gt;, userGroupIds: Set&lt;Long&gt;): Plan</ID>
     <ID>CyclomaticComplexMethod:CsvColumnMapping.kt$CsvColumnMapping$fun guess(header: List&lt;String&gt;?, sample: List&lt;List&lt;String&gt;&gt;): List&lt;ColumnTarget&gt;</ID>
     <ID>CyclomaticComplexMethod:CsvColumnMapping.kt$CsvColumnMapping$fun toRecord(cells: List&lt;String&gt;, mapping: List&lt;ColumnTarget&gt;): ContactRecord?</ID>
@@ -133,39 +128,41 @@
     <ID>CyclomaticComplexMethod:DialGuard.kt$DialGuard$private suspend fun checkInternal(number: String): List&lt;DialWarning&gt;</ID>
     <ID>CyclomaticComplexMethod:DialSearch.kt$DialSearch$fun search(input: String, entries: List&lt;Entry&gt;, calls: List&lt;CallEntry&gt;?, now: Long = System.currentTimeMillis(), limit: Int = 50): List&lt;DialHit&gt;</ID>
     <ID>CyclomaticComplexMethod:Downloader.kt$Downloader$fun get(res: Resources, url: String, maxBytes: Long, etag: String? = null, lastModified: String? = null): Result</ID>
+    <ID>CyclomaticComplexMethod:EditorViewModel.kt$EditorViewModel$fun save()</ID>
     <ID>CyclomaticComplexMethod:EditorViewModel.kt$EditorViewModel$private suspend fun load(a: EditorArgs): Boolean</ID>
+    <ID>CyclomaticComplexMethod:EditorViewModel.kt$EditorViewModel$private suspend fun restore(b: Bundle)</ID>
     <ID>CyclomaticComplexMethod:EventDateDialog.kt$@Composable fun EventDateDialog(initial: String, onDismiss: () -&gt; Unit, onPick: (String) -&gt; Unit)</ID>
     <ID>CyclomaticComplexMethod:FakeContactsProvider.kt$FakeContactsProvider$override fun query(uri: Uri, projection: Array&lt;out String&gt;?, selection: String?, selectionArgs: Array&lt;out String&gt;?, sortOrder: String?): Cursor?</ID>
+    <ID>CyclomaticComplexMethod:FakeContactsProvider.kt$FakeContactsProvider$override fun update(uri: Uri, values: ContentValues?, selection: String?, selectionArgs: Array&lt;out String&gt;?): Int</ID>
     <ID>CyclomaticComplexMethod:FakeContactsProvider.kt$FakeContactsProvider$private fun phoneLookup(number: String, projection: Array&lt;out String&gt;?, work: Boolean): Cursor</ID>
     <ID>CyclomaticComplexMethod:FastScrollRail.kt$@Composable fun FastScrollRail(letters: List&lt;String&gt;, current: Int, modifier: Modifier = Modifier, onPick: (Int) -&gt; Unit)</ID>
-    <ID>CyclomaticComplexMethod:FavoritesTab.kt$@OptIn(ExperimentalFoundationApi::class) @Composable fun FavoritesTab(vm: AppViewModel, open: (String) -&gt; Unit, query: String = "", onClearQuery: (() -&gt; Unit)? = null)</ID>
-    <ID>CyclomaticComplexMethod:FolderSync.kt$FolderSync$suspend fun syncNow(allowMassDelete: Boolean = false): SyncReport</ID>
+    <ID>CyclomaticComplexMethod:FavoritesTab.kt$@OptIn(ExperimentalFoundationApi::class) @Composable fun FavoritesTab(vm: AppViewModel, open: (Destination) -&gt; Unit, query: String = "", onClearQuery: (() -&gt; Unit)? = null)</ID>
+    <ID>CyclomaticComplexMethod:FolderSync.kt$FolderSync$private suspend fun run(allowMassDelete: Boolean): SyncReport</ID>
     <ID>CyclomaticComplexMethod:HandleText.kt$HandleText$fun hint(res: Resources, s: HandleService): String</ID>
     <ID>CyclomaticComplexMethod:Handles.kt$Handles$fun fromIm(protocol: Int?, customProtocol: String?): HandleService</ID>
     <ID>CyclomaticComplexMethod:Handles.kt$Handles$fun link(h: Handle): HandleLink?</ID>
     <ID>CyclomaticComplexMethod:HealthScanner.kt$HealthScanner$suspend fun scan(contacts: List&lt;ContactSummary&gt;, calls: List&lt;CallEntry&gt;, countryIso: String): List&lt;HealthIssue&gt;</ID>
-    <ID>CyclomaticComplexMethod:HomeScreen.kt$@Composable private fun ColumnScope.TabMenu(vm: AppViewModel, tab: StartTab, appLock: Boolean, open: (String) -&gt; Unit, close: () -&gt; Unit, onReorderFavorites: () -&gt; Unit = {})</ID>
-    <ID>CyclomaticComplexMethod:HomeScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun HomeScreen( vm: AppViewModel, tabRequest: NavEvent.Tab?, onTabRequestHandled: () -&gt; Unit, initialTab: StartTab, open: (String) -&gt; Unit, )</ID>
+    <ID>CyclomaticComplexMethod:HomeScreen.kt$@Composable private fun ColumnScope.TabMenu(vm: AppViewModel, tab: StartTab, appLock: Boolean, open: (Destination) -&gt; Unit, close: () -&gt; Unit, onReorderFavorites: () -&gt; Unit = {})</ID>
+    <ID>CyclomaticComplexMethod:HomeScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun HomeScreen( vm: AppViewModel, tabRequest: NavEvent.Tab?, onTabRequestHandled: () -&gt; Unit, initialTab: StartTab, open: (Destination) -&gt; Unit, )</ID>
     <ID>CyclomaticComplexMethod:ImportCallsScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun ImportCallsScreen(vm: AppViewModel, back: () -&gt; Unit)</ID>
     <ID>CyclomaticComplexMethod:InCallActivity.kt$InCallActivity$override fun onCreate(savedInstanceState: Bundle?)</ID>
     <ID>CyclomaticComplexMethod:InCallScreen.kt$@Composable private fun CallerHeader( call: CallUi, ended: Boolean, onOpenContact: (CallUi) -&gt; Unit, compact: Boolean, timing: CallTiming?, avatarSize: Dp, onReply: () -&gt; Unit, )</ID>
     <ID>CyclomaticComplexMethod:InCallScreen.kt$@Composable private fun StatusLine(call: CallUi, ended: Boolean)</ID>
     <ID>CyclomaticComplexMethod:InCallScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun InCallScreen( calls: List&lt;CallUi&gt;, audio: AudioUi, ended: CallUi?, answerGesture: AnswerGesture, quickReplies: List&lt;String&gt;, keypadOpen: Boolean, onKeypad: (Boolean) -&gt; Unit, onAddCall: () -&gt; Unit, onOpenContact: (CallUi) -&gt; Unit, /** What the user did on the post-call card (touching it at all keeps the screen up). */ onPostCall: (PostCallChoice) -&gt; Unit = {}, /** An outgoing call that didn't go through, with its reason, until dismissed. */ failed: CallUi? = null, onRetry: (CallUi) -&gt; Unit = {}, onDismissFailure: (CallUi) -&gt; Unit = {}, /** The call just declined with "Block &amp; decline" (Undo). */ declineBlock: DeclineBlock? = null, onUndoBlock: () -&gt; Unit = {}, /** Simple mode: large buttons and (optionally) a question before declining. */ simple: Boolean = false, confirmDecline: Boolean = false, /** A call declined from the notification while "Confirm before declining" is on: ask first. */ askDeclineFor: String? = null, onAskDeclineDone: () -&gt; Unit = {}, )</ID>
     <ID>CyclomaticComplexMethod:InsertPrefill.kt$InsertPrefill$fun from(intent: Intent): ContactDetails</ID>
-    <ID>CyclomaticComplexMethod:InsightsScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun InsightsScreen(vm: AppViewModel, back: () -&gt; Unit, open: (String) -&gt; Unit)</ID>
+    <ID>CyclomaticComplexMethod:InsightsScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun InsightsScreen(vm: AppViewModel, back: () -&gt; Unit, open: (Destination) -&gt; Unit)</ID>
     <ID>CyclomaticComplexMethod:IntroduceScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun IntroduceScreen(vm: AppViewModel, back: () -&gt; Unit)</ID>
     <ID>CyclomaticComplexMethod:KeypadKey.kt$@Composable fun Modifier.keypadKey( onPress: () -&gt; Unit, onToneStop: (afterMs: Long) -&gt; Unit, onLongPress: ((typedThisTouch: Boolean) -&gt; Unit)? = null, longPressLabel: String? = null, deferPress: Boolean = false, indication: Indication? = null, pressOrder: PressOrder? = null, foldDownOnly: Boolean = false, ): Modifier</ID>
-    <ID>CyclomaticComplexMethod:KeypadTab.kt$@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class) @Composable fun KeypadTab(vm: AppViewModel, open: (String) -&gt; Unit, searchQuery: String? = null, dock: KeypadDock? = null)</ID>
+    <ID>CyclomaticComplexMethod:KeypadTab.kt$@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class) @Composable fun KeypadTab(vm: AppViewModel, open: (Destination) -&gt; Unit, searchQuery: String? = null, dock: KeypadDock? = null)</ID>
     <ID>CyclomaticComplexMethod:LabelPolicySection.kt$@Composable fun LabelPolicySection(vm: AppViewModel, title: String, members: List&lt;ContactSummary&gt;)</ID>
-    <ID>CyclomaticComplexMethod:LabelScreens.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun LabelScreen(vm: AppViewModel, title: String, back: () -&gt; Unit, open: (String) -&gt; Unit)</ID>
-    <ID>CyclomaticComplexMethod:LabelScreens.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun ManageLabelsScreen(vm: AppViewModel, back: () -&gt; Unit, open: (String) -&gt; Unit)</ID>
+    <ID>CyclomaticComplexMethod:LabelScreens.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun LabelScreen(vm: AppViewModel, title: String, back: () -&gt; Unit, open: (Destination) -&gt; Unit)</ID>
+    <ID>CyclomaticComplexMethod:LabelScreens.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun ManageLabelsScreen(vm: AppViewModel, back: () -&gt; Unit, open: (Destination) -&gt; Unit)</ID>
     <ID>CyclomaticComplexMethod:LayoutSettings.kt$@Composable internal fun LayoutSettingsGroup(vm: AppViewModel)</ID>
     <ID>CyclomaticComplexMethod:ListImport.kt$Csv$fun parse(text: String, separator: Char = detectSeparator(text)): List&lt;List&lt;String&gt;&gt;</ID>
     <ID>CyclomaticComplexMethod:ListImport.kt$ListImport$private fun walk(e: JsonElement, context: String?, out: MutableList&lt;ImportedRule&gt;)</ID>
     <ID>CyclomaticComplexMethod:ListLook.kt$AvatarText$private fun isEmoji(cp: Int): Boolean</ID>
     <ID>CyclomaticComplexMethod:ListPack.kt$ListPack$fun parse(zip: ByteArray): ParsedPack</ID>
     <ID>CyclomaticComplexMethod:ListsUpdaterSection.kt$@Composable fun ListsUpdaterSection(vm: AppViewModel)</ID>
-    <ID>CyclomaticComplexMethod:MainActivity.kt$MainActivity$private fun handleIntent(intent: Intent?)</ID>
     <ID>CyclomaticComplexMethod:MarkdownExport.kt$MarkdownExport$suspend fun exportNow(texts: Texts): Int</ID>
     <ID>CyclomaticComplexMethod:MarkdownExportSection.kt$@Composable fun MarkdownExportSection(vm: AppViewModel)</ID>
     <ID>CyclomaticComplexMethod:MeCardScreen.kt$@Composable internal fun MeQrDialog(card: MeCard, onDismiss: () -&gt; Unit, onEdit: (() -&gt; Unit)? = null, onScan: (() -&gt; Unit)? = null)</ID>
@@ -178,14 +175,14 @@
     <ID>CyclomaticComplexMethod:MissedCallNotifier.kt$MissedCallNotifier$suspend fun show(context: Context, telecomCount: Int, latestNumber: String?, reAlert: Boolean = false)</ID>
     <ID>CyclomaticComplexMethod:NavTabsSetting.kt$@Composable fun NavTabsEditor( tabs: NavTabs, /** Tabs a combined surface shows instead of the bar (Keypad → Recents, Favorites → Contacts). */ inside: Map&lt;StartTab, StartTab&gt; = emptyMap(), onChange: (NavTabs) -&gt; Unit, )</ID>
     <ID>CyclomaticComplexMethod:NumberActionActivity.kt$NumberActionActivity$@Composable private fun NumberActions(found: String, raw: String?)</ID>
-    <ID>CyclomaticComplexMethod:NumberHistoryScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -&gt; Unit, open: (String) -&gt; Unit)</ID>
+    <ID>CyclomaticComplexMethod:NumberHistoryScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -&gt; Unit, open: (Destination) -&gt; Unit)</ID>
     <ID>CyclomaticComplexMethod:OtherFields.kt$OtherFields$fun describe(r: DataRow): Field?</ID>
     <ID>CyclomaticComplexMethod:PackTool.kt$FtcCsv$fun addTo(builder: PackBuilder, csv: String): Int</ID>
     <ID>CyclomaticComplexMethod:PackTool.kt$PackTool$@JvmStatic fun main(args: Array&lt;String&gt;)</ID>
     <ID>CyclomaticComplexMethod:ParleyCallScreeningService.kt$ParleyCallScreeningService$override fun onScreenCall(details: Call.Details)</ID>
     <ID>CyclomaticComplexMethod:ParleyInCallService.kt$ParleyInCallService$@Deprecated("Replaced by CallEndpoint APIs on 34+") override fun onCallAudioStateChanged(audioState: CallAudioState)</ID>
     <ID>CyclomaticComplexMethod:ParleyRoot.kt$@OptIn(ExperimentalSharedTransitionApi::class) @Composable private fun ParleyRootContent(vm: AppViewModel, appSnackbar: ParleySnackbar)</ID>
-    <ID>CyclomaticComplexMethod:PeopleCard.kt$@Composable fun PeopleCard(vm: AppViewModel, idx: CallLogIndex, open: (String) -&gt; Unit)</ID>
+    <ID>CyclomaticComplexMethod:PeopleCard.kt$@Composable fun PeopleCard(vm: AppViewModel, idx: CallLogIndex, open: (Destination) -&gt; Unit)</ID>
     <ID>CyclomaticComplexMethod:PeopleContainer.kt$PeopleBackupExtras$override suspend fun import(values: Map&lt;String, String&gt;)</ID>
     <ID>CyclomaticComplexMethod:PeopleIndex.kt$PeopleIndex$private fun load(): PeopleIndexData</ID>
     <ID>CyclomaticComplexMethod:PeoplePrefs.kt$PeoplePrefs$private fun Preferences.read(): PeopleSettings</ID>
@@ -199,16 +196,16 @@
     <ID>CyclomaticComplexMethod:QrParser.kt$QrParser$private fun event(raw: String, t: String): QrPayload.Event?</ID>
     <ID>CyclomaticComplexMethod:QrParser.kt$QrParser$private fun mecard(raw: String, t: String): QrPayload.Contact?</ID>
     <ID>CyclomaticComplexMethod:QrParser.kt$QrParser$private fun wifi(raw: String, t: String): QrPayload.Wifi?</ID>
-    <ID>CyclomaticComplexMethod:QrResultSheet.kt$@Composable private fun ColumnScope.ContactCard(vm: AppViewModel, record: ContactRecord, onDismiss: () -&gt; Unit, open: (String) -&gt; Unit, allCardsVcard: String?)</ID>
+    <ID>CyclomaticComplexMethod:QrResultSheet.kt$@Composable private fun ColumnScope.ContactCard(vm: AppViewModel, record: ContactRecord, onDismiss: () -&gt; Unit, open: (Destination) -&gt; Unit, allCardsVcard: String?)</ID>
     <ID>CyclomaticComplexMethod:QrResultSheet.kt$@Composable private fun ColumnScope.WifiResult(p: QrPayload.Wifi)</ID>
     <ID>CyclomaticComplexMethod:QrResultSheet.kt$QrLabels$fun kind(res: Resources, p: QrPayload): String</ID>
-    <ID>CyclomaticComplexMethod:QrScanScreen.kt$@Composable fun QrScanScreen(vm: AppViewModel, back: () -&gt; Unit, open: (String) -&gt; Unit)</ID>
+    <ID>CyclomaticComplexMethod:QrScanScreen.kt$@Composable fun QrScanScreen(vm: AppViewModel, back: () -&gt; Unit, open: (Destination) -&gt; Unit)</ID>
     <ID>CyclomaticComplexMethod:RangeDeleteDialog.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun RangeDeleteDialog(vm: AppViewModel, number: String, onDeleted: (batchId: Long, count: Int) -&gt; Unit, onDismiss: () -&gt; Unit)</ID>
     <ID>CyclomaticComplexMethod:ReachApps.kt$MessengerMimes$fun kind(mime: String): ReachKind?</ID>
     <ID>CyclomaticComplexMethod:ReachSheet.kt$@Composable private fun NumberReach(number: String, accountId: String?, onCall: ((String) -&gt; Unit)?, onLaunched: (MessengerApp?) -&gt; Unit)</ID>
     <ID>CyclomaticComplexMethod:ReachSheet.kt$@Composable private fun PersonReach(r: Reach, onRemember: (MessengerPrefs) -&gt; Unit, onCall: ((String) -&gt; Unit)?, onLaunched: (MessengerApp?) -&gt; Unit)</ID>
     <ID>CyclomaticComplexMethod:RecentsTab.kt$@OptIn(ExperimentalFoundationApi::class) @Composable fun RecentRow( g: RecentGroup, countryIso: String, simLabels: Map&lt;String, String&gt;, onLongClick: (() -&gt; Unit)? = null, badge: RecentBadge? = null, selected: Boolean = false, unreturned: Boolean = false, /** A tap calls back; the trailing button then opens the details instead. */ tapCalls: Boolean = false, onOpen: () -&gt; Unit, onCall: () -&gt; Unit, )</ID>
-    <ID>CyclomaticComplexMethod:RecentsTab.kt$@OptIn(ExperimentalFoundationApi::class) @Composable fun RecentsTab(vm: AppViewModel, open: (String) -&gt; Unit, bottomPadding: Dp = 0.dp)</ID>
+    <ID>CyclomaticComplexMethod:RecentsTab.kt$@OptIn(ExperimentalFoundationApi::class) @Composable fun RecentsTab(vm: AppViewModel, open: (Destination) -&gt; Unit, bottomPadding: Dp = 0.dp)</ID>
     <ID>CyclomaticComplexMethod:RecentsViewModel.kt$RecentsViewModel$private fun group( calls: List&lt;CallEntry&gt;, index: PhoneIdentity.LineMap&lt;ContactSummary&gt;, filter: RecentFilter, q: String, layout: RecentsLayout = RecentsLayout.GROUPED, ): List&lt;RecentGroup&gt;</ID>
     <ID>CyclomaticComplexMethod:RecordDetails.kt$RecordDetails$fun toDetails(record: ContactRecord): ContactDetails</ID>
     <ID>CyclomaticComplexMethod:RelationText.kt$RelationText$private fun labelRes(t: RelationType): Int?</ID>
@@ -230,13 +227,13 @@
     <ID>CyclomaticComplexMethod:ScreeningStatusCard.kt$@Composable fun ScreeningStatusCard(vm: AppViewModel)</ID>
     <ID>CyclomaticComplexMethod:SecondLine.kt$SecondLines$fun compute( contacts: List&lt;ContactSummary&gt;, extras: Map&lt;Long, PersonExtra&gt;, mode: SecondLineMode, formatNumber: (String) -&gt; String = { it }, ): Map&lt;Long, String&gt;</ID>
     <ID>CyclomaticComplexMethod:SelectionBar.kt$@Composable fun SelectionBar(vm: AppViewModel)</ID>
-    <ID>CyclomaticComplexMethod:SettingsPages.kt$@Composable internal fun ContactsPage(vm: AppViewModel, open: (String) -&gt; Unit)</ID>
+    <ID>CyclomaticComplexMethod:SettingsPages.kt$@Composable internal fun ContactsPage(vm: AppViewModel, open: (Destination) -&gt; Unit)</ID>
     <ID>CyclomaticComplexMethod:SettingsRepository.kt$SettingsRepository$private fun Preferences.toSettings(): AppSettings</ID>
-    <ID>CyclomaticComplexMethod:SettingsScreen.kt$@Composable fun SettingsPageScreen(vm: AppViewModel, category: SettingsCategory, focus: String?, back: () -&gt; Unit, open: (String) -&gt; Unit)</ID>
+    <ID>CyclomaticComplexMethod:SettingsScreen.kt$@Composable fun SettingsPageScreen(vm: AppViewModel, category: SettingsCategory, focus: String?, back: () -&gt; Unit, open: (Destination) -&gt; Unit)</ID>
     <ID>CyclomaticComplexMethod:SimScreens.kt$@Composable fun CopyToSimDialog(vm: AppViewModel, d: ContactDetails, onDismiss: () -&gt; Unit)</ID>
     <ID>CyclomaticComplexMethod:SimScreens.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun SimImportScreen(vm: AppViewModel, back: () -&gt; Unit)</ID>
     <ID>CyclomaticComplexMethod:SimpleHome.kt$@OptIn(ExperimentalFoundationApi::class) @Composable fun SimpleHome(vm: AppViewModel)</ID>
-    <ID>CyclomaticComplexMethod:SimpleSetupScreens.kt$@Composable fun SimpleImportScreen(vm: AppViewModel, back: () -&gt; Unit, open: (String) -&gt; Unit)</ID>
+    <ID>CyclomaticComplexMethod:SimpleSetupScreens.kt$@Composable fun SimpleImportScreen(vm: AppViewModel, back: () -&gt; Unit, open: (Destination) -&gt; Unit)</ID>
     <ID>CyclomaticComplexMethod:SpamListStore.kt$SpamListStore$private fun installLocked(p: ParsedPack, origin: PackOrigin, force: Boolean): InstallResult</ID>
     <ID>CyclomaticComplexMethod:SpamListStore.kt$SpamListStore$suspend fun refreshFolder(): Int</ID>
     <ID>CyclomaticComplexMethod:SpamListsScreen.kt$@Composable private fun PackCard(vm: AppViewModel, pk: PackState, now: Long)</ID>
@@ -249,10 +246,10 @@
     <ID>CyclomaticComplexMethod:TemplateGallery.kt$TemplateText$fun describe(context: Context, t: RuleTemplate): List&lt;String&gt;</ID>
     <ID>CyclomaticComplexMethod:TemplatesScreen.kt$@Composable private fun TemplateCard(vm: AppViewModel, gallery: TemplateGallery, e: TemplateGallery.Entry, installed: Boolean, onShare: () -&gt; Unit, onQr: () -&gt; Unit)</ID>
     <ID>CyclomaticComplexMethod:TemplatesScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun TemplatesScreen(vm: AppViewModel, back: () -&gt; Unit)</ID>
-    <ID>CyclomaticComplexMethod:TimeMachineScreens.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun VersionHistoryScreen(vm: AppViewModel, contactId: Long, back: () -&gt; Unit, open: (String) -&gt; Unit)</ID>
+    <ID>CyclomaticComplexMethod:TimeMachineScreens.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun VersionHistoryScreen(vm: AppViewModel, contactId: Long, back: () -&gt; Unit, open: (Destination) -&gt; Unit)</ID>
     <ID>CyclomaticComplexMethod:TimeMachineScreens.kt$fun describe(res: Resources, row: DataRow): String?</ID>
     <ID>CyclomaticComplexMethod:TransferScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun TransferScreen(vm: AppViewModel, back: () -&gt; Unit)</ID>
-    <ID>CyclomaticComplexMethod:TripScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun TripScreen(vm: AppViewModel, back: () -&gt; Unit, open: (String) -&gt; Unit)</ID>
+    <ID>CyclomaticComplexMethod:TripScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun TripScreen(vm: AppViewModel, back: () -&gt; Unit, open: (Destination) -&gt; Unit)</ID>
     <ID>CyclomaticComplexMethod:Updater.kt$Updater$private fun community(repo: ListsRepo, cfg: UpdaterConfig): Boolean</ID>
     <ID>CyclomaticComplexMethod:Updater.kt$Updater$private fun ftc(repo: ListsRepo, cfg: UpdaterConfig): Boolean</ID>
     <ID>CyclomaticComplexMethod:UpdaterScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun UpdaterScreen(repo: ListsRepo)</ID>
@@ -262,7 +259,7 @@
     <ID>CyclomaticComplexMethod:VCardMapper.kt$VCardMapper$fun toVCard(record: ContactRecord, groupTitles: Map&lt;Long, String&gt; = emptyMap()): VCard</ID>
     <ID>CyclomaticComplexMethod:VCardMapper.kt$VCardMapper$private fun normalizeRow(r: DataRow, groupTitles: Map&lt;Long, String&gt;): DataRow?</ID>
     <ID>CyclomaticComplexMethod:VCardStream.kt$VCardStream$fun read(input: Reader, report: ImportReportBuilder, onCard: (ParsedCard) -&gt; Unit)</ID>
-    <ID>CyclomaticComplexMethod:VaultDetailScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun VaultDetailScreen(vm: AppViewModel, id: Long, back: () -&gt; Unit, open: (String) -&gt; Unit)</ID>
+    <ID>CyclomaticComplexMethod:VaultDetailScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun VaultDetailScreen(vm: AppViewModel, id: Long, back: () -&gt; Unit, open: (Destination) -&gt; Unit)</ID>
     <ID>CyclomaticComplexMethod:VaultMoves.kt$VaultMoves$suspend fun moveOut(vaultId: Long, d: ContactDetails, account: AccountRef): Long?</ID>
     <ID>CyclomaticComplexMethod:VaultRepository.kt$VaultRepository$suspend fun save( id: Long?, d: ContactDetails, expiresAt: Long? = null, purgeHistory: Boolean? = null, record: ContactRecord? = null, recordOf: String? = null, interactions: String? = null, ): Long</ID>
     <ID>CyclomaticComplexMethod:VoicemailInbox.kt$@Composable fun VoicemailInbox(vm: AppViewModel, query: String)</ID>
@@ -306,36 +303,35 @@
     <ID>LongMethod:BackupArchive.kt$BackupArchiveReader.Companion$fun open(source: () -&gt; InputStream, limits: ArchiveLimits = ArchiveLimits()): BackupArchiveReader</ID>
     <ID>LongMethod:BackupRepository.kt$BackupRepository$suspend fun backupNow(scheduled: Boolean, target: Uri? = null, safety: Boolean = false): BackupOutcome</ID>
     <ID>LongMethod:BackupScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun BackupScreen(vm: AppViewModel, back: () -&gt; Unit)</ID>
-    <ID>LongMethod:BlockingScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun BlockingScreen(vm: AppViewModel, back: () -&gt; Unit, open: (String) -&gt; Unit = {})</ID>
-    <ID>LongMethod:BulkAddScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun BulkAddScreen(vm: AppViewModel, back: () -&gt; Unit, open: (String) -&gt; Unit)</ID>
-    <ID>LongMethod:CallManager.kt$CallManager$internal fun add(context: Context, call: Call)</ID>
+    <ID>LongMethod:BlockingScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun BlockingScreen(vm: AppViewModel, back: () -&gt; Unit, open: (Destination) -&gt; Unit = {})</ID>
+    <ID>LongMethod:BulkAddScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun BulkAddScreen(vm: AppViewModel, back: () -&gt; Unit, open: (Destination) -&gt; Unit)</ID>
     <ID>LongMethod:CallPolicy.kt$CallPolicy.Evaluation$fun run(): ScreeningResult</ID>
     <ID>LongMethod:CallTimeScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun CallTimeScreen(vm: AppViewModel, back: () -&gt; Unit)</ID>
-    <ID>LongMethod:ClearHistoryDialog.kt$@Composable fun ClearHistoryDialog(vm: AppViewModel, shown: List&lt;CallEntry&gt;?, open: (String) -&gt; Unit, onDismiss: () -&gt; Unit)</ID>
-    <ID>LongMethod:ContactDetailScreen.kt$@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class) @Composable fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -&gt; Unit, open: (String) -&gt; Unit)</ID>
+    <ID>LongMethod:ClearHistoryDialog.kt$@Composable fun ClearHistoryDialog(vm: AppViewModel, shown: List&lt;CallEntry&gt;?, open: (Destination) -&gt; Unit, onDismiss: () -&gt; Unit)</ID>
+    <ID>LongMethod:ContactDetailScreen.kt$@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class) @Composable fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -&gt; Unit, open: (Destination) -&gt; Unit)</ID>
     <ID>LongMethod:ContactEditScreen.kt$@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class) @Composable fun ContactEditScreen( vm: AppViewModel, contactId: Long?, prefillName: String, prefillPhone: String, prefillEmail: String, addPhone: String, prefill: ContactDetails? = null, /** Private vault mode: 0 = new vault contact, &gt; 0 = edit that vault contact. */ vaultId: Long? = null, /** Edit one specific copy (raw contact) of the contact ("Edit this copy" on the contact page). */ rawId: Long? = null, done: (Long?) -&gt; Unit, )</ID>
     <ID>LongMethod:ContactEditScreen.kt$fun LazyListScope.fields(base: Int)</ID>
     <ID>LongMethod:ContactPageSettings.kt$@Composable private fun SectionsEditor(layout: ContactPageLayout, onChange: (ContactPageLayout) -&gt; Unit)</ID>
     <ID>LongMethod:ContactTimelineScreen.kt$@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class) @Composable fun ContactTimelineScreen(vm: AppViewModel, contactId: Long, back: () -&gt; Unit)</ID>
     <ID>LongMethod:ContactsRepository.kt$ContactsRepository$private suspend fun load(contactId: Long, forEdit: Boolean, preferRaw: Long? = null): ContactDetails?</ID>
     <ID>LongMethod:ContactsRepository.kt$ContactsRepository$suspend fun save(original: ContactDetails?, edited: ContactDetails, account: AccountRef?, photo: Uri?, removePhoto: Boolean): SaveResult?</ID>
-    <ID>LongMethod:ContactsTab.kt$@OptIn(ExperimentalFoundationApi::class) @Composable fun ContactsTab(vm: AppViewModel, open: (String) -&gt; Unit, onReorderFavorites: () -&gt; Unit = {})</ID>
+    <ID>LongMethod:ContactsTab.kt$@OptIn(ExperimentalFoundationApi::class) @Composable fun ContactsTab(vm: AppViewModel, open: (Destination) -&gt; Unit, onReorderFavorites: () -&gt; Unit = {})</ID>
     <ID>LongMethod:CsvMappingScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun CsvMappingScreen(vm: AppViewModel, back: () -&gt; Unit)</ID>
-    <ID>LongMethod:DetailPeople.kt$@OptIn(ExperimentalLayoutApi::class) @Composable fun AccountChips(vm: AppViewModel, d: ContactDetails, open: (String) -&gt; Unit, onChanged: (Long?) -&gt; Unit)</ID>
+    <ID>LongMethod:DetailPeople.kt$@OptIn(ExperimentalLayoutApi::class) @Composable fun AccountChips(vm: AppViewModel, d: ContactDetails, open: (Destination) -&gt; Unit, onChanged: (Long?) -&gt; Unit)</ID>
     <ID>LongMethod:FastScrollRail.kt$@Composable fun FastScrollRail(letters: List&lt;String&gt;, current: Int, modifier: Modifier = Modifier, onPick: (Int) -&gt; Unit)</ID>
-    <ID>LongMethod:FavoritesTab.kt$@OptIn(ExperimentalFoundationApi::class) @Composable fun FavoritesTab(vm: AppViewModel, open: (String) -&gt; Unit, query: String = "", onClearQuery: (() -&gt; Unit)? = null)</ID>
-    <ID>LongMethod:FolderSync.kt$FolderSync$suspend fun syncNow(allowMassDelete: Boolean = false): SyncReport</ID>
-    <ID>LongMethod:HealthScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun HealthScreen(vm: AppViewModel, back: () -&gt; Unit, open: (String) -&gt; Unit)</ID>
-    <ID>LongMethod:HomeScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun HomeScreen( vm: AppViewModel, tabRequest: NavEvent.Tab?, onTabRequestHandled: () -&gt; Unit, initialTab: StartTab, open: (String) -&gt; Unit, )</ID>
+    <ID>LongMethod:FavoritesTab.kt$@OptIn(ExperimentalFoundationApi::class) @Composable fun FavoritesTab(vm: AppViewModel, open: (Destination) -&gt; Unit, query: String = "", onClearQuery: (() -&gt; Unit)? = null)</ID>
+    <ID>LongMethod:FolderSync.kt$FolderSync$private suspend fun run(allowMassDelete: Boolean): SyncReport</ID>
+    <ID>LongMethod:HealthScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun HealthScreen(vm: AppViewModel, back: () -&gt; Unit, open: (Destination) -&gt; Unit)</ID>
+    <ID>LongMethod:HomeScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun HomeScreen( vm: AppViewModel, tabRequest: NavEvent.Tab?, onTabRequestHandled: () -&gt; Unit, initialTab: StartTab, open: (Destination) -&gt; Unit, )</ID>
     <ID>LongMethod:ImportCallsScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun ImportCallsScreen(vm: AppViewModel, back: () -&gt; Unit)</ID>
     <ID>LongMethod:InCallScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun InCallScreen( calls: List&lt;CallUi&gt;, audio: AudioUi, ended: CallUi?, answerGesture: AnswerGesture, quickReplies: List&lt;String&gt;, keypadOpen: Boolean, onKeypad: (Boolean) -&gt; Unit, onAddCall: () -&gt; Unit, onOpenContact: (CallUi) -&gt; Unit, /** What the user did on the post-call card (touching it at all keeps the screen up). */ onPostCall: (PostCallChoice) -&gt; Unit = {}, /** An outgoing call that didn't go through, with its reason, until dismissed. */ failed: CallUi? = null, onRetry: (CallUi) -&gt; Unit = {}, onDismissFailure: (CallUi) -&gt; Unit = {}, /** The call just declined with "Block &amp; decline" (Undo). */ declineBlock: DeclineBlock? = null, onUndoBlock: () -&gt; Unit = {}, /** Simple mode: large buttons and (optionally) a question before declining. */ simple: Boolean = false, confirmDecline: Boolean = false, /** A call declined from the notification while "Confirm before declining" is on: ask first. */ askDeclineFor: String? = null, onAskDeclineDone: () -&gt; Unit = {}, )</ID>
     <ID>LongMethod:IncomingControls.kt$@Composable private fun AnswerSlider(sim: String?, onAnswer: () -&gt; Unit, onDecline: () -&gt; Unit)</ID>
-    <ID>LongMethod:InsightsScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun InsightsScreen(vm: AppViewModel, back: () -&gt; Unit, open: (String) -&gt; Unit)</ID>
+    <ID>LongMethod:InsightsScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun InsightsScreen(vm: AppViewModel, back: () -&gt; Unit, open: (Destination) -&gt; Unit)</ID>
     <ID>LongMethod:IntroduceScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun IntroduceScreen(vm: AppViewModel, back: () -&gt; Unit)</ID>
-    <ID>LongMethod:KeypadTab.kt$@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class) @Composable fun KeypadTab(vm: AppViewModel, open: (String) -&gt; Unit, searchQuery: String? = null, dock: KeypadDock? = null)</ID>
+    <ID>LongMethod:KeypadTab.kt$@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class) @Composable fun KeypadTab(vm: AppViewModel, open: (Destination) -&gt; Unit, searchQuery: String? = null, dock: KeypadDock? = null)</ID>
     <ID>LongMethod:LabelPolicySection.kt$@Composable fun LabelPolicySection(vm: AppViewModel, title: String, members: List&lt;ContactSummary&gt;)</ID>
-    <ID>LongMethod:LabelScreens.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun LabelScreen(vm: AppViewModel, title: String, back: () -&gt; Unit, open: (String) -&gt; Unit)</ID>
-    <ID>LongMethod:LabelScreens.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun ManageLabelsScreen(vm: AppViewModel, back: () -&gt; Unit, open: (String) -&gt; Unit)</ID>
+    <ID>LongMethod:LabelScreens.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun LabelScreen(vm: AppViewModel, title: String, back: () -&gt; Unit, open: (Destination) -&gt; Unit)</ID>
+    <ID>LongMethod:LabelScreens.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun ManageLabelsScreen(vm: AppViewModel, back: () -&gt; Unit, open: (Destination) -&gt; Unit)</ID>
     <ID>LongMethod:LayoutSettings.kt$@Composable internal fun LayoutSettingsGroup(vm: AppViewModel)</ID>
     <ID>LongMethod:ListsUpdaterSection.kt$@Composable fun ListsUpdaterSection(vm: AppViewModel)</ID>
     <ID>LongMethod:MarkdownExport.kt$MarkdownExport$suspend fun exportNow(texts: Texts): Int</ID>
@@ -343,35 +339,35 @@
     <ID>LongMethod:MessengerQr.kt$MessengerQr$private fun web(url: String): QrPayload.Messenger?</ID>
     <ID>LongMethod:MissedCallNotifier.kt$MissedCallNotifier$suspend fun show(context: Context, telecomCount: Int, latestNumber: String?, reAlert: Boolean = false)</ID>
     <ID>LongMethod:NavTabsSetting.kt$@Composable fun NavTabsEditor( tabs: NavTabs, /** Tabs a combined surface shows instead of the bar (Keypad → Recents, Favorites → Contacts). */ inside: Map&lt;StartTab, StartTab&gt; = emptyMap(), onChange: (NavTabs) -&gt; Unit, )</ID>
-    <ID>LongMethod:NumberHistoryScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -&gt; Unit, open: (String) -&gt; Unit)</ID>
+    <ID>LongMethod:NumberHistoryScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -&gt; Unit, open: (Destination) -&gt; Unit)</ID>
     <ID>LongMethod:ParleyRoot.kt$@OptIn(ExperimentalSharedTransitionApi::class) @Composable private fun ParleyRootContent(vm: AppViewModel, appSnackbar: ParleySnackbar)</ID>
-    <ID>LongMethod:PeopleCard.kt$@Composable fun PeopleCard(vm: AppViewModel, idx: CallLogIndex, open: (String) -&gt; Unit)</ID>
+    <ID>LongMethod:PeopleCard.kt$@Composable fun PeopleCard(vm: AppViewModel, idx: CallLogIndex, open: (Destination) -&gt; Unit)</ID>
     <ID>LongMethod:PrivacyScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun PrivacyScreen(vm: AppViewModel, back: () -&gt; Unit)</ID>
-    <ID>LongMethod:PrivacyScreens.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun WhoCanSeeScreen(vm: AppViewModel, back: () -&gt; Unit, open: (String) -&gt; Unit)</ID>
-    <ID>LongMethod:QrScanScreen.kt$@Composable fun QrScanScreen(vm: AppViewModel, back: () -&gt; Unit, open: (String) -&gt; Unit)</ID>
+    <ID>LongMethod:PrivacyScreens.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun WhoCanSeeScreen(vm: AppViewModel, back: () -&gt; Unit, open: (Destination) -&gt; Unit)</ID>
+    <ID>LongMethod:QrScanScreen.kt$@Composable fun QrScanScreen(vm: AppViewModel, back: () -&gt; Unit, open: (Destination) -&gt; Unit)</ID>
     <ID>LongMethod:ReachSheet.kt$@Composable private fun NumberReach(number: String, accountId: String?, onCall: ((String) -&gt; Unit)?, onLaunched: (MessengerApp?) -&gt; Unit)</ID>
     <ID>LongMethod:ReachSheet.kt$@Composable private fun PersonReach(r: Reach, onRemember: (MessengerPrefs) -&gt; Unit, onCall: ((String) -&gt; Unit)?, onLaunched: (MessengerApp?) -&gt; Unit)</ID>
     <ID>LongMethod:RecentsTab.kt$@OptIn(ExperimentalFoundationApi::class) @Composable fun RecentRow( g: RecentGroup, countryIso: String, simLabels: Map&lt;String, String&gt;, onLongClick: (() -&gt; Unit)? = null, badge: RecentBadge? = null, selected: Boolean = false, unreturned: Boolean = false, /** A tap calls back; the trailing button then opens the details instead. */ tapCalls: Boolean = false, onOpen: () -&gt; Unit, onCall: () -&gt; Unit, )</ID>
-    <ID>LongMethod:RecentsTab.kt$@OptIn(ExperimentalFoundationApi::class) @Composable fun RecentsTab(vm: AppViewModel, open: (String) -&gt; Unit, bottomPadding: Dp = 0.dp)</ID>
+    <ID>LongMethod:RecentsTab.kt$@OptIn(ExperimentalFoundationApi::class) @Composable fun RecentsTab(vm: AppViewModel, open: (Destination) -&gt; Unit, bottomPadding: Dp = 0.dp)</ID>
     <ID>LongMethod:RelationText.kt$RelationText$private fun labelRes(t: RelationType): Int?</ID>
     <ID>LongMethod:RestoreFlow.kt$@Composable fun RestoreFlow(vm: AppViewModel, uri: Uri, onDone: () -&gt; Unit)</ID>
     <ID>LongMethod:RuleEditorScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun RuleEditorScreen(vm: AppViewModel, ruleId: Long, initial: BlockRule, back: () -&gt; Unit)</ID>
     <ID>LongMethod:SelectionBar.kt$@Composable fun SelectionBar(vm: AppViewModel)</ID>
-    <ID>LongMethod:SettingsPages.kt$@Composable internal fun ContactsPage(vm: AppViewModel, open: (String) -&gt; Unit)</ID>
-    <ID>LongMethod:SettingsScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun SettingsScreen(vm: AppViewModel, back: () -&gt; Unit, open: (String) -&gt; Unit)</ID>
+    <ID>LongMethod:SettingsPages.kt$@Composable internal fun ContactsPage(vm: AppViewModel, open: (Destination) -&gt; Unit)</ID>
+    <ID>LongMethod:SettingsScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun SettingsScreen(vm: AppViewModel, back: () -&gt; Unit, open: (Destination) -&gt; Unit)</ID>
     <ID>LongMethod:SimScreens.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun SimImportScreen(vm: AppViewModel, back: () -&gt; Unit)</ID>
     <ID>LongMethod:SimpleHome.kt$@OptIn(ExperimentalFoundationApi::class) @Composable fun SimpleHome(vm: AppViewModel)</ID>
-    <ID>LongMethod:SimpleSetupScreens.kt$@Composable fun SimpleImportScreen(vm: AppViewModel, back: () -&gt; Unit, open: (String) -&gt; Unit)</ID>
-    <ID>LongMethod:SimpleSetupScreens.kt$@Composable fun SimpleSetupScreen(vm: AppViewModel, back: () -&gt; Unit, open: (String) -&gt; Unit)</ID>
+    <ID>LongMethod:SimpleSetupScreens.kt$@Composable fun SimpleImportScreen(vm: AppViewModel, back: () -&gt; Unit, open: (Destination) -&gt; Unit)</ID>
+    <ID>LongMethod:SimpleSetupScreens.kt$@Composable fun SimpleSetupScreen(vm: AppViewModel, back: () -&gt; Unit, open: (Destination) -&gt; Unit)</ID>
     <ID>LongMethod:SpamListsScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun SpamListsScreen(vm: AppViewModel, back: () -&gt; Unit)</ID>
     <ID>LongMethod:SwipeActions.kt$@Composable fun SwipeActionRow( config: SwipeConfig, hasNumber: Boolean, canDelete: Boolean, onAction: (SwipeAction) -&gt; Unit, listState: ScrollableState? = null, content: @Composable () -&gt; Unit, )</ID>
     <ID>LongMethod:TemplatesScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun TemplatesScreen(vm: AppViewModel, back: () -&gt; Unit)</ID>
     <ID>LongMethod:TransferScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun TransferScreen(vm: AppViewModel, back: () -&gt; Unit)</ID>
-    <ID>LongMethod:TripScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun TripScreen(vm: AppViewModel, back: () -&gt; Unit, open: (String) -&gt; Unit)</ID>
+    <ID>LongMethod:TripScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun TripScreen(vm: AppViewModel, back: () -&gt; Unit, open: (Destination) -&gt; Unit)</ID>
     <ID>LongMethod:UpdaterScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun UpdaterScreen(repo: ListsRepo)</ID>
     <ID>LongMethod:VCardMapper.kt$VCardMapper$fun fromVCard(card: VCard, unmapped: MutableMap&lt;String, Int&gt;? = null): ContactRecord</ID>
     <ID>LongMethod:VCardMapper.kt$VCardMapper$fun toVCard(record: ContactRecord, groupTitles: Map&lt;Long, String&gt; = emptyMap()): VCard</ID>
-    <ID>LongMethod:VaultDetailScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun VaultDetailScreen(vm: AppViewModel, id: Long, back: () -&gt; Unit, open: (String) -&gt; Unit)</ID>
+    <ID>LongMethod:VaultDetailScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun VaultDetailScreen(vm: AppViewModel, id: Long, back: () -&gt; Unit, open: (Destination) -&gt; Unit)</ID>
     <ID>LongMethod:VoicemailInbox.kt$@Composable private fun VoicemailRow( vm: AppViewModel, v: Voicemail, sim: String?, expanded: Boolean, playing: PlayerState?, speaker: Boolean, onToggle: () -&gt; Unit, onPlay: () -&gt; Unit, onSeek: (Long) -&gt; Unit, onSpeaker: (Boolean) -&gt; Unit, onHeard: () -&gt; Unit, onShare: () -&gt; Unit, onDelete: () -&gt; Unit, onDownload: () -&gt; Unit, )</ID>
     <ID>LongParameterList:BackupRepository.kt$BackupRepository$( private val context: Context, private val contacts: ContactsRepository, private val records: ContactRecordStore, private val blocks: BlockRepository, private val prefsRepo: PrefsRepository, private val db: AppDatabase, private val settings: SettingsRepository, private val vault: VaultRepository, val prefs: BackupPrefs, /** The system call log: the history layer's own reads and writes. */ private val callLog: CallLogRepository, )</ID>
     <ID>LongParameterList:BulkAddScreen.kt$( r: BulkAddStore.Result, items: List&lt;BulkItem&gt;, removable: Boolean, onUndo: () -&gt; Unit, onDelete: () -&gt; Unit, onIntroduce: () -&gt; Unit, onMore: () -&gt; Unit, onDone: () -&gt; Unit, )</ID>
@@ -428,18 +424,14 @@
     <ID>MatchingDeclarationName:BirthdaysScreen.kt$UpcomingEvent</ID>
     <ID>MatchingDeclarationName:CallBackground.kt$BackgroundChange</ID>
     <ID>MatchingDeclarationName:CombinedSurfaces.kt$KeypadDock</ID>
-    <ID>MatchingDeclarationName:ContactPageSettings.kt$ContactPageRoutes</ID>
     <ID>MatchingDeclarationName:Handshake.kt$HandshakeInbox</ID>
     <ID>MatchingDeclarationName:HistoryHubScreen.kt$HistoryTab</ID>
     <ID>MatchingDeclarationName:IntroduceScreen.kt$IntroduceStart</ID>
     <ID>MatchingDeclarationName:MarkdownExportSection.kt$MarkdownTexts</ID>
     <ID>MatchingDeclarationName:MessagingDialogs.kt$MessageOn</ID>
-    <ID>MatchingDeclarationName:ParleyRoot.kt$Routes</ID>
-    <ID>MatchingDeclarationName:PeopleNav.kt$PeopleRoutes</ID>
     <ID>MatchingDeclarationName:Phone.kt$PhoneEnv</ID>
     <ID>MatchingDeclarationName:PostCallCard.kt$PostCallChoice</ID>
     <ID>MatchingDeclarationName:QrResultSheet.kt$QrLabels</ID>
-    <ID>MatchingDeclarationName:QrScanScreen.kt$QrRoutes</ID>
     <ID>MatchingDeclarationName:QuickMessage.kt$QuickMessenger</ID>
     <ID>MatchingDeclarationName:ReachSheet.kt$ReachTarget</ID>
     <ID>MatchingDeclarationName:ViewModels.kt$ParleyViewModels</ID>
@@ -457,7 +449,6 @@
     <ID>MaxLineLength:AppTelecomDependencies.kt$AppTelecomDependencies$numberKey = PhoneIdentity.key(number, PhoneEnv.countryIso(app))</ID>
     <ID>MaxLineLength:AppTelecomDependencies.kt$AppTelecomDependencies$return@withContext CallerDisplay(it.name, it.photoUri, it.numberLabel, null, null, null, last, subtitle = app.getString(R.string.caller_work_profile))</ID>
     <ID>MaxLineLength:AppViewModel.kt$AppViewModel$(p ?: PendingCall(number, name, needConfirm = true, chooseSim = false, simId = simId)).let { it.copy(needConfirm = true, warnings = listOf(covered) + it.warnings) }</ID>
-    <ID>MaxLineLength:AudioRoutes.kt$Text(res.getString(R.string.audio_output), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))</ID>
     <ID>MaxLineLength:BackupArchive.kt$BackupArchiveReader.Companion$val</ID>
     <ID>MaxLineLength:BackupArchive.kt$BackupArchiveReader.Companion$val countLines = name == BackupArchive.CONTACTS || name == BackupArchive.CALLLOG || name == BackupArchive.CALLHISTORY || name == BackupArchive.JOURNAL</ID>
     <ID>MaxLineLength:BackupArchiveTest.kt$BackupArchiveTest$val newer = rezip(zip) { n, b -&gt; if (n == BackupArchive.MANIFEST) b.decodeToString().replace("\"formatVersion\":1", "\"formatVersion\":2").toByteArray() else b }</ID>
@@ -477,7 +468,6 @@
     <ID>MaxLineLength:BackupScreen.kt$Button(::runBackup, enabled = ready &amp;&amp; busy == null, modifier = Modifier.padding(top = 4.dp)) { Text(stringResource(R.string.bkp_back_up_now)) }</ID>
     <ID>MaxLineLength:BackupScreen.kt$Row { Icon(if (state.lastBackupAt &gt; 0) Icons.Rounded.CheckCircle else Icons.Rounded.Backup, null); Text(" " + if (state.lastBackupAt &gt; 0) stringResource(R.string.bkp_last_backup, Format.shortWhen(context, state.lastBackupAt)) else stringResource(R.string.bkp_no_backup), style = MaterialTheme.typography.titleMedium) }</ID>
     <ID>MaxLineLength:BackupScreen.kt$SegmentedButton(state.keepLast == n, { repo.prefs.update { it.putInt("keepLast", n) } }, SegmentedButtonDefaults.itemShape(i, opts.size)) { Text(label) }</ID>
-    <ID>MaxLineLength:BackupScreen.kt$TopAppBar(title = { Text(stringResource(R.string.bkp_title)) }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.dc_back)) } })</ID>
     <ID>MaxLineLength:BackupScreen.kt$colors = CardDefaults.cardColors(containerColor = if (ready) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh)</ID>
     <ID>MaxLineLength:BackupScreen.kt$if (state.keepLast == 0) Text(stringResource(R.string.bkp_keep_smart_summary), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(horizontal = 16.dp))</ID>
     <ID>MaxLineLength:BackupScreen.kt$if (state.rotationPaused) Row { Icon(Icons.Rounded.Warning, null, tint = MaterialTheme.colorScheme.error); Text(" " + stringResource(R.string.bkp_rotation_paused), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }</ID>
@@ -490,7 +480,6 @@
     <ID>MaxLineLength:BirthdaysScreen.kt$(LifeEvents.wouldHaveTurned(birth, LocalDate.now())?.let { " · " + resources.getString(R.string.bday_would_have_turned, it) } ?: "")</ID>
     <ID>MaxLineLength:BirthdaysScreen.kt$IconButton({ Intents.sms(context, n) }) { Icon(Icons.AutoMirrored.Rounded.Message, stringResource(R.string.bday_message, e.name)) }</ID>
     <ID>MaxLineLength:BirthdaysScreen.kt$IconButton({ vm.requestCall(n, e.name) }) { Icon(Icons.Rounded.Call, stringResource(R.string.bday_call, e.name), tint = MaterialTheme.colorScheme.primary) }</ID>
-    <ID>MaxLineLength:BirthdaysScreen.kt$TopAppBar(title = { Text(stringResource(R.string.bday_title)) }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.dc_back)) } }, scrollBehavior = barTint)</ID>
     <ID>MaxLineLength:BirthdaysScreen.kt$val kind = if (LifeEvents.isDeath(e.type, e.label)) resources.getString(R.string.life_date_of_death) else if (e.type == Event.TYPE_CUSTOM &amp;&amp; !e.label.isNullOrBlank()) e.label!! else resources.getString(Event.getTypeResource(e.type))</ID>
     <ID>MaxLineLength:BlockingActions.kt$BlockingActions$c.blocks.saveRule(BlockRule(pattern = prefix, type = RuleType.PREFIX, kind = RuleKind.ALLOW, note = name?.let { c.appContext.getString(R.string.blk_note_other_lines, it) } ?: c.appContext.getString(R.string.blk_note_office_lines)))</ID>
     <ID>MaxLineLength:BlockingDialogs.kt$Text((if (s.mark == TraceMark.FAILED_OPEN) "! " else "") + BlockingText.check(context, s.check), style = MaterialTheme.typography.labelLarge)</ID>
@@ -498,8 +487,6 @@
     <ID>MaxLineLength:BlockingDialogs.kt$Text(stringResource(R.string.blk_joined, Format.fullDate(context, e.time), v), color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 8.dp))</ID>
     <ID>MaxLineLength:BlockingDialogs.kt$Text(stringResource(R.string.blk_prefix_will_allow, bidiLtr(prefix + "X".repeat(drop))), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)</ID>
     <ID>MaxLineLength:BlockingDialogs.kt$TextButton({ onDismiss(); BlockingActions.reportToCarrier(context, number) }) { Text(stringResource(R.string.blk_text_code, bidiLtr(BlockingActions.CARRIER_SPAM_SHORT_CODE))) }</ID>
-    <ID>MaxLineLength:BlockingDialogs.kt$confirmButton = { TextButton({ onDismiss(); BlockingActions.openRegulator(context, regulator, number) }) { Text(stringResource(R.string.blk_open)) } }</ID>
-    <ID>MaxLineLength:BlockingDialogs.kt$confirmButton = { TextButton({ onDismiss(); BlockingActions.searchWeb(context, d.number, url) }) { Text(stringResource(if (d.contactName != null) R.string.blk_search_anyway else R.string.blk_search)) } }</ID>
     <ID>MaxLineLength:BlockingDialogs.kt$dismissButton = if (!live &amp;&amp; stored != null) ({ TextButton({ BlockingDialogs.show(BlockingDialog.Test(number)) }) { Text(stringResource(R.string.blk_test_today)) } }) else null</ID>
     <ID>MaxLineLength:BlockingDialogs.kt$if (choice == 2) TextButton({ pickTone(tone) }) { Text(ringtoneTitle(LocalContext.current, tone) ?: stringResource(R.string.blk_choose_ringtone)) }</ID>
     <ID>MaxLineLength:BlockingDialogs.kt$if (e.failedOpen) Text(stringResource(R.string.blk_failed_open_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 8.dp))</ID>
@@ -536,7 +523,6 @@
     <ID>MaxLineLength:BlockingScreen.kt$Text(stringResource(R.string.blk_likely_spam_for_you), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(start = 16.dp, top = 12.dp))</ID>
     <ID>MaxLineLength:BlockingScreen.kt$Text(stringResource(R.string.blk_notify_off_warning), Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)</ID>
     <ID>MaxLineLength:BlockingScreen.kt$Text(stringResource(R.string.blk_off_hours_still_through), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)</ID>
-    <ID>MaxLineLength:BlockingScreen.kt$Text(stringResource(R.string.blk_quick_setups), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(start = 16.dp, top = 8.dp))</ID>
     <ID>MaxLineLength:BlockingScreen.kt$Text(stringResource(R.string.blk_suggested_for_sim, suggestion.name), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)</ID>
     <ID>MaxLineLength:BlockingScreen.kt$TextButton({ BlockingDialogs.show(BlockingDialog.Test(testNumber.trim())) }, enabled = testNumber.isNotBlank()) { Text(stringResource(R.string.blk_test)) }</ID>
     <ID>MaxLineLength:BlockingScreen.kt$TextButton({ ScreeningGuard.clearEmergencyWindow(context); now = System.currentTimeMillis() }) { Text(stringResource(R.string.set_reset)) }</ID>
@@ -544,26 +530,13 @@
     <ID>MaxLineLength:BlockingScreen.kt$TextButton({ open(BlockingRoutes.rule(0, RuleKind.ALLOW)) }, Modifier.padding(horizontal = 8.dp)) { Icon(Icons.Rounded.Add, null); Text(" " + stringResource(R.string.blk_allow_number_or_range)) }</ID>
     <ID>MaxLineLength:BlockingScreen.kt$TextButton({ open(BlockingRoutes.rule(0, RuleKind.BLOCK)) }) { Icon(Icons.Rounded.Add, null); Text(" " + stringResource(R.string.blk_add_rule)) }</ID>
     <ID>MaxLineLength:BlockingScreen.kt$TextButton({ scope.launch { vm.c.lists.installBuiltIn(suggestion); vm.toast(res.getString(R.string.blk_added, suggestion.name)) } }) { Text(stringResource(R.string.blk_add)) }</ID>
-    <ID>MaxLineLength:BlockingScreen.kt$ToggleRow</ID>
-    <ID>MaxLineLength:BlockingScreen.kt$ToggleRow(stringResource(R.string.blk_cant_exist), stringResource(R.string.blk_cant_exist_help), s.blockInvalid) { v -&gt; setScreening { it.copy(blockInvalid = v) } }</ID>
-    <ID>MaxLineLength:BlockingScreen.kt$ToggleRow(stringResource(R.string.blk_failed_verification), stringResource(R.string.blk_failed_verification_help), s.blockFailedVerification) { v -&gt; setScreening { it.copy(blockFailedVerification = v) } }</ID>
-    <ID>MaxLineLength:BlockingScreen.kt$ToggleRow(stringResource(R.string.blk_hidden), stringResource(R.string.blk_hidden_help) + (s.hiddenSchedule?.let { " · ${BlockingText.schedule(context, it)}" } ?: ""), s.blockHidden, enabled = isDefault) { v -&gt; setScreening { it.copy(blockHidden = v) } }</ID>
-    <ID>MaxLineLength:BlockingScreen.kt$ToggleRow(stringResource(R.string.blk_loud_favourites), stringResource(R.string.blk_loud_favourites_help), s.ringLoudFavourites) { v -&gt; set { it.copy(ringLoudFavourites = v) } }</ID>
-    <ID>MaxLineLength:BlockingScreen.kt$ToggleRow(stringResource(R.string.blk_loud_repeat), stringResource(R.string.blk_loud_repeat_help, s.repeatWindowMinutes), s.ringLoudRepeat) { v -&gt; set { it.copy(ringLoudRepeat = v) } }</ID>
-    <ID>MaxLineLength:BlockingScreen.kt$ToggleRow(stringResource(R.string.blk_non_contacts), stringResource(R.string.blk_non_contacts_help) + (s.nonContactsSchedule?.let { " · ${BlockingText.schedule(context, it)}" } ?: ""), s.blockNonContacts) { v -&gt; setScreening { it.copy(blockNonContacts = v) } }</ID>
-    <ID>MaxLineLength:BlockingScreen.kt$ToggleRow(stringResource(R.string.blk_numbers_you_called), pluralStringResource(R.plurals.blk_numbers_you_called_help, s.dialledDays, s.dialledDays), s.allowDialled) { v -&gt; setScreening { it.copy(allowDialled = v) } }</ID>
-    <ID>MaxLineLength:BlockingScreen.kt$ToggleRow(stringResource(R.string.blk_offer_reply), stringResource(R.string.blk_offer_reply_help, s.busyReplyText), s.busyReply) { v -&gt; setScreening { it.copy(busyReply = v) } }</ID>
-    <ID>MaxLineLength:BlockingScreen.kt$ToggleRow(stringResource(R.string.blk_people_you_talked_to), pluralStringResource(R.plurals.blk_people_you_talked_to_help, s.answeredDays, s.answeredMinSeconds, s.answeredDays), s.allowAnswered) { v -&gt; setScreening { it.copy(allowAnswered = v) } }</ID>
-    <ID>MaxLineLength:BlockingScreen.kt$ToggleRow(stringResource(R.string.blk_use_off_hours), null, oh.enabled) { v -&gt; setScreening { it.copy(offHours = it.offHours.copy(enabled = v)) } }</ID>
     <ID>MaxLineLength:BlockingScreen.kt$ToggleScheduleRow(stringResource(R.string.blk_preset_known), s.nonContactsSchedule) { sc -&gt; setScreening { it.copy(nonContactsSchedule = sc) } }</ID>
     <ID>MaxLineLength:BlockingScreen.kt$ToggleScheduleRow(stringResource(R.string.blk_verification), s.verificationSchedule) { sc -&gt; setScreening { it.copy(verificationSchedule = sc) } }</ID>
-    <ID>MaxLineLength:BlockingScreen.kt$TopAppBar(title = { Text(stringResource(R.string.blk_title)) }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.set_back)) } }, scrollBehavior = barScroll)</ID>
     <ID>MaxLineLength:BlockingScreen.kt$a.copy(repeatCallerRingsThrough = true, screening = a.screening.copy(blockNonContacts = true, blockHidden = true, defaultAction = BlockAction.SILENCE, allowDialled = true, allowAnswered = true))</ID>
     <ID>MaxLineLength:BlockingScreen.kt$a.copy(screening = a.screening.copy(blockNonContacts = false, blockHidden = false, blockInvalid = false, blockFailedVerification = false, blockNeighbourSpoofing = false, offHours = a.screening.offHours.copy(enabled = false)))</ID>
     <ID>MaxLineLength:BlockingScreen.kt$a.copy(screening = a.screening.copy(offHours = OffHours(enabled = true, schedule = Schedule(Schedule.ALL_DAYS, 22 * 60, 7 * 60), allow = OffHoursAllow.CONTACTS)))</ID>
     <ID>MaxLineLength:BlockingScreen.kt$blockRules.count { it.schedule != null }.let { n -&gt; pluralStringResource(R.plurals.blk_sum_scheduled, n, n) }.takeIf { blockRules.any { it.schedule != null } }</ID>
     <ID>MaxLineLength:BlockingScreen.kt$blockRules.sumOf { it.hitCount }.let { n -&gt; pluralStringResource(R.plurals.blk_sum_calls_stopped, n, n) }.takeIf { blockRules.any { it.hitCount &gt; 0 } }</ID>
-    <ID>MaxLineLength:BlockingScreen.kt$confirmButton = { TextButton({ scope.launch { vm.c.settings.update(pr.apply) }; presetToApply = null }) { Text(stringResource(R.string.blk_use_this)) } }</ID>
     <ID>MaxLineLength:BlockingScreen.kt$else</ID>
     <ID>MaxLineLength:BlockingScreen.kt$expiresAt?.let { if (expired) stringResource(R.string.blk_expired) else stringResource(R.string.blk_for_duration, leftText(context, it - now)) }</ID>
     <ID>MaxLineLength:BlockingScreen.kt$headlineContent = { Text((if (e.failedOpen) "! " else "") + (e.number?.let { bidiLtr(Format.number(it, vm.countryIso)) } ?: stringResource(R.string.blk_private_number))) }</ID>
@@ -579,10 +552,8 @@
     <ID>MaxLineLength:BlockingScreen.kt$pluralStringResource(R.plurals.blk_calls, r.hitCount, r.hitCount) + (r.lastHitAt?.let { ", " + stringResource(R.string.blk_last_ago, ago(it, now)) } ?: "")</ID>
     <ID>MaxLineLength:BlockingScreen.kt$supportingContent = { Column { ActionChoice(s.defaultAction, { a -&gt; setScreening { it.copy(defaultAction = a) } }, Modifier.padding(top = 8.dp)) } }</ID>
     <ID>MaxLineLength:BlockingScreen.kt$supportingContent = { Text(stringResource(R.string.blk_sugg_line, BlockingText.suggestionReason(context, sg), ago(sg.lastAt, now))) }</ID>
-    <ID>MaxLineLength:BlockingScreen.kt$text = { OutlinedTextField(n, { n = it }, label = { Text(stringResource(R.string.blk_phone_number)) }, singleLine = true, textStyle = ltrTextStyle()) }</ID>
     <ID>MaxLineLength:BlockingScreen.kt$trailingContent = { IconButton({ set { it.copy(emergencyExtras = it.emergencyExtras - x) } }) { Icon(Icons.Rounded.Delete, stringResource(R.string.ct_remove)) } }</ID>
     <ID>MaxLineLength:BlockingScreen.kt$trailingContent = { IconButton({ vm.unblockNumber(b.number) }) { Icon(Icons.Rounded.Delete, stringResource(R.string.blk_unblock)) } }</ID>
-    <ID>MaxLineLength:BlockingScreen.kt$trailingContent = { Switch(r.enabled &amp;&amp; !expired, { v -&gt; scope.launch { vm.c.blocks.saveRule(r.copy(enabled = v, expiresAt = if (expired &amp;&amp; v) null else r.expiresAt)) } }) }</ID>
     <ID>MaxLineLength:BlockingScreen.kt$trailingContent = { if (s.likelySpamRingtone != null) TextButton({ set { it.copy(likelySpamRingtone = null) } }) { Text(stringResource(R.string.set_reset)) } }</ID>
     <ID>MaxLineLength:BlockingScreen.kt$trailingIcon = { if (text != s.busyReplyText &amp;&amp; text.isNotBlank()) TextButton({ setScreening { it.copy(busyReplyText = text.trim()) } }) { Text(stringResource(R.string.set_save)) } }</ID>
     <ID>MaxLineLength:BlockingScreen.kt$val suggestion = BuiltInPacks.suggestedFor(vm.countryIso).firstOrNull { b -&gt; lists.packs.none { it.id == b.id } &amp;&amp; b.id !in lists.dismissedSuggestions }</ID>
@@ -599,7 +570,6 @@
     <ID>MaxLineLength:BulkAddScreen.kt$Row</ID>
     <ID>MaxLineLength:BulkAddScreen.kt$Text(listOfNotNull(status, where, c.raw.takeIf { it != shown }?.let { "“$it”" }).joinToString(stringResource(R.string.main_separator)), maxLines = 2, overflow = TextOverflow.Ellipsis)</ID>
     <ID>MaxLineLength:BulkAddScreen.kt$Text(stringResource(pt.labelRes) + if (pt.template.isNotEmpty()) " (${pt.template})" else "", Modifier.padding(start = 8.dp))</ID>
-    <ID>MaxLineLength:BulkAddScreen.kt$Text(text, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))</ID>
     <ID>MaxLineLength:BulkAddScreen.kt$Where.TEMPORARY -&gt; BulkDestination.Temporary(days, tempPrivate) to rs.getQuantityString(if (tempPrivate) R.plurals.bulk_where_temp_private else R.plurals.bulk_where_temp, days, days)</ID>
     <ID>MaxLineLength:BulkAddScreen.kt$context.getSystemService(ClipboardManager::class.java).primaryClip?.takeIf { it.itemCount &gt; 0 }?.getItemAt(0)?.coerceToText(context)?.toString()</ID>
     <ID>MaxLineLength:BulkAddScreen.kt$headlineContent = { Text("${b.count}" + stringResource(R.string.main_separator) + b.where, maxLines = 1, overflow = TextOverflow.Ellipsis) }</ID>
@@ -615,8 +585,6 @@
     <ID>MaxLineLength:CallCsvImport.kt$CallCsvImport$if (rows.isEmpty()) return ImportPlan(ImportSource.GENERIC, emptyList(), ColumnMapping(), emptyList(), 0, listOf(RowProblem(1, RowProblemKind.EMPTY_FILE)), 0)</ID>
     <ID>MaxLineLength:CallCsvImport.kt$CallCsvImport$private val dayFirstPatterns = listOf("dd/MM/yyyy HH:mm:ss", "dd/MM/yyyy HH:mm", "dd.MM.yyyy HH:mm:ss", "dd.MM.yyyy HH:mm", "dd-MM-yyyy HH:mm:ss", "dd-MM-yyyy HH:mm", "d/M/yyyy H:mm:ss", "d/M/yyyy H:mm", "d.M.yyyy H:mm:ss", "d.M.yyyy H:mm")</ID>
     <ID>MaxLineLength:CallCsvImport.kt$CallCsvImport$private val monthFirstPatterns = listOf("MM/dd/yyyy HH:mm:ss", "MM/dd/yyyy HH:mm", "M/d/yyyy H:mm:ss", "M/d/yyyy H:mm", "M/d/yyyy h:mm:ss a", "M/d/yyyy h:mm a")</ID>
-    <ID>MaxLineLength:CallDialogs.kt$confirmButton = { TextButton({ onPlace(p.number, p.simId, false, true) }) { Text(stringResource(if (p.note != null) R.string.call_anyway else R.string.main_call)) } }</ID>
-    <ID>MaxLineLength:CallExport.kt$CallExport$fun</ID>
     <ID>MaxLineLength:CallExportImportTest.kt$CallExportImportTest$"name,duration,number,phone_account_id,call_type,formatted_number,sim_display_name,timestamp,cached_number_label,cached_number_type,cached_matched_number\n"</ID>
     <ID>MaxLineLength:CallExportImportTest.kt$CallExportImportTest$val cat = { n: String -&gt; if (n.startsWith("+800")) NumberCategory.TOLL_FREE else if (n.startsWith("+1")) NumberCategory.INTERNATIONAL else NumberCategory.MOBILE }</ID>
     <ID>MaxLineLength:CallExportImportTest.kt$CallExportImportTest$val csv = "Phone;Direction;Start;Seconds;Contact\r\n+4915112345678;Outgoing;2026-03-04 14:05:00;1:05;Max\r\n\"+4915112345679\";missed;04/03/2026 15:00;0;\r\n"</ID>
@@ -627,7 +595,6 @@
     <ID>MaxLineLength:CallHistory.kt$CallHistory$else -&gt; HistoryMerge.merge(sys, arch.asSequence().take(ARCHIVE_UI_WINDOW).map { it.toEntry() }.filter { it.number !in vk || it.number.isBlank() }.toList())</ID>
     <ID>MaxLineLength:CallHistory.kt$CallHistory$out += CallLogRecord(c.getString(0), c.getLong(1), c.getLong(2), c.getInt(3), c.getInt(4), c.getString(5), c.getString(6), c.getString(7), isNew = false, isRead = true)</ID>
     <ID>MaxLineLength:CallHistory.kt$CallHistory$return CallLogRecord(str("n"), o.getLong("d"), o.optLong("s"), o.optInt("t"), o.optInt("p", 1), str("a"), str("c"), str("m"), isNew = false, isRead = true)</ID>
-    <ID>MaxLineLength:CallHistory.kt$CallHistory$val other = _archive.value.orEmpty().filter { !it.record.number.isNullOrBlank() &amp;&amp; PhoneNumbers.sameExact(it.record.number, number, iso) }.map { it.rowId }</ID>
     <ID>MaxLineLength:CallHistorySectionTest.kt$CallHistorySectionTest$private</ID>
     <ID>MaxLineLength:CallHistorySectionTest.kt$CallHistorySectionTest$val m = if (listInManifest) manifest.copy(entries = manifest.entries + ManifestEntry(name, body.size.toLong(), RecordJson.sha256Hex(body))) else manifest</ID>
     <ID>MaxLineLength:CallHistorySettings.kt$(</ID>
@@ -643,15 +610,11 @@
     <ID>MaxLineLength:CallLimitsTest.kt$CallLimitsTest$private</ID>
     <ID>MaxLineLength:CallLimitsTest.kt$CallLimitsTest$val config = CallingConfig(rules = listOf(ana), warnSeconds = 30, supervised = true, reminders = ReminderSettings(everyMinutes = 15, perContact = mapOf("ana" to 5)))</ID>
     <ID>MaxLineLength:CallLogIndex.kt$CallLogIndex$.</ID>
-    <ID>MaxLineLength:CallLogIndex.kt$CallLogIndex.Companion$else -&gt; contactByNumber[nk] ?: PhoneIdentity.portableKey(e.number)?.let { contactByMatch[it] }?.takeIf { it != AMBIGUOUS } ?: numberPersonKey(nk)</ID>
     <ID>MaxLineLength:CallLogRepository.kt$CallLogRepository$arrayOf(Calls.NUMBER, Calls.DATE, Calls.DURATION, Calls.TYPE, Calls.NUMBER_PRESENTATION, Calls.PHONE_ACCOUNT_ID, Calls.PHONE_ACCOUNT_COMPONENT_NAME, Calls.CACHED_NAME, Calls.NEW, Calls.IS_READ)</ID>
     <ID>MaxLineLength:CallLogRepository.kt$CallLogRepository$arrayOf(Calls._ID, Calls.NUMBER, Calls.CACHED_NAME, Calls.TYPE, Calls.DATE, Calls.DURATION, Calls.PHONE_ACCOUNT_ID, Calls.NEW, Calls.NUMBER_PRESENTATION)</ID>
     <ID>MaxLineLength:CallLogRepository.kt$CallLogRepository$yield(CallLogRecord(it.getString(0), it.getLong(1), it.getLong(2), it.getInt(3), it.getInt(4), it.getString(5), it.getString(6), it.getString(7), it.getInt(8) != 0, it.getInt(9) != 0))</ID>
     <ID>MaxLineLength:CallManager.kt$CallManager$private</ID>
-    <ID>MaxLineLength:CallManager.kt$CallManager$runCatching { TelecomGraph.dependencies.onRingFacts(ended.number.takeIf { !ended.hidden }, finishRingFacts(id, call, f, rang.coerceAtLeast(0), connected)) }</ID>
-    <ID>MaxLineLength:CallManager.kt$CallManager$val found = withTimeoutOrNull(LOOKUP_TIMEOUT_MS) { runCatching { TelecomGraph.dependencies.callerInfo(number, ended.accountId) }.getOrNull() } ?: return@launch</ID>
     <ID>MaxLineLength:CallManager.kt$CallManager$val found = withTimeoutOrNull(LOOKUP_TIMEOUT_MS) { runCatching { deps.callerInfo(number, accountId) }.also { looked = it.isSuccess }.getOrNull() }</ID>
-    <ID>MaxLineLength:CallManager.kt$CallManager$val silence = withTimeoutOrNull(SCREEN_TIMEOUT_MS) { runCatching { deps.silenceOverQuota(number, call.details.accountHandle?.id) }.getOrDefault(false) } == true</ID>
     <ID>MaxLineLength:CallModels.kt$CallUi$get() = accountLabel?.let { l -&gt; listOfNotNull(l, accountNumber?.filter { it.isDigit() }?.takeLast(4)?.takeIf { it.length == 4 }?.let { "…$it" }).joinToString(" · ") }</ID>
     <ID>MaxLineLength:CallNotifier.kt$CallNotifier$.</ID>
     <ID>MaxLineLength:CallNotifier.kt$CallNotifier$NotificationChannel(CH_SILENCED, context.getString(R.string.channel_silenced_calls), NotificationManager.IMPORTANCE_LOW).apply { setSound(null, null) }</ID>
@@ -673,11 +636,9 @@
     <ID>MaxLineLength:CallTimePlanner.kt$CallTimePlanner$userListed = !number.isNullOrBlank() &amp;&amp; c.settings.current().screening.emergencyExtras.any { PhoneNumbers.same(it, number, PhoneEnv.countryIso(c.appContext)) }</ID>
     <ID>MaxLineLength:CallTimePlanner.kt$CallTimePlanner.Companion$LimitScope.LABEL -&gt; if (rule.title.isBlank()) context.getString(R.string.ct_limit_for_a_label) else context.getString(R.string.ct_limit_for_label, rule.title)</ID>
     <ID>MaxLineLength:CallTimeScreen.kt$AppLock.authenticate(act, res.getString(if (v) R.string.ct_supervised_turn_on else R.string.ct_supervised_turn_off)) { ok -&gt; if (ok) set { it.copy(supervised = v) } }</ID>
-    <ID>MaxLineLength:CallTimeScreen.kt$ChoiceRow</ID>
     <ID>MaxLineLength:CallTimeScreen.kt$SwitchRow(stringResource(R.string.ct_beep), stringResource(R.string.ct_beep_body), config.reminders.beep) { v -&gt; set { it.copy(reminders = it.reminders.copy(beep = v)) } }</ID>
     <ID>MaxLineLength:CallTimeScreen.kt$SwitchRow(stringResource(R.string.ct_vibrate), stringResource(R.string.ct_vibrate_body), config.reminders.vibrate) { v -&gt; set { it.copy(reminders = it.reminders.copy(vibrate = v)) } }</ID>
     <ID>MaxLineLength:CallTimeScreen.kt$Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))</ID>
-    <ID>MaxLineLength:CallTimeScreen.kt$TopAppBar(title = { Text(stringResource(R.string.ct_title)) }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.set_back)) } })</ID>
     <ID>MaxLineLength:CallTimeUi.kt$AssistChip(onClick = { CallClock.endIn(call.id, 1); onDismiss() }, label = { Text(stringResource(R.string.calltime_end_in_1)) }, leadingIcon = { Icon(Icons.Rounded.Timer, null) })</ID>
     <ID>MaxLineLength:CallTimeUi.kt$AssistChip(onClick = { CallClock.extend(call.id, 2) }, label = { Text(stringResource(R.string.calltime_plus_2)) }, leadingIcon = { Icon(Icons.Rounded.Timer, null) })</ID>
     <ID>MaxLineLength:CallTimeUi.kt$AssistChip(onClick = { CallClock.extend(call.id, 5) }, label = { Text(stringResource(R.string.calltime_plus_5)) }, leadingIcon = { Icon(Icons.Rounded.Timer, null) })</ID>
@@ -704,7 +665,6 @@
     <ID>MaxLineLength:CircleContact.kt$headlineContent = { Text(if (days == 0L) stringResource(R.string.circle_next_date_today, label) else pluralStringResource(R.plurals.circle_next_date_days, days.toInt(), days.toInt(), label)) }</ID>
     <ID>MaxLineLength:CircleContact.kt$leadingContent = { Icon(Icons.Rounded.Update, null, tint = if (rhythm.mode == RhythmMode.NATURAL &amp;&amp; current != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant) }</ID>
     <ID>MaxLineLength:CircleMemory.kt$Row</ID>
-    <ID>MaxLineLength:CircleMemory.kt$Text(stringResource(R.string.circle_peek_title, name), style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))</ID>
     <ID>MaxLineLength:CircleMemory.kt$fun</ID>
     <ID>MaxLineLength:CirclePart2Test.kt$CirclePart2Test$assertEquals(PeopleInsights.FirstMover.THEM, PeopleInsights.firstMover(them + at(1.0, PeopleInsights.TouchKind.CALL_IN) + at(0.5, PeopleInsights.TouchKind.CALL_IN)))</ID>
     <ID>MaxLineLength:CirclePart2Test.kt$CirclePart2Test$val quiet = listOf(CircleDigest.Quiet("old1", now - 400 * day), CircleDigest.Quiet("old2", now - 500 * day), CircleDigest.Quiet("recent", now - 200 * day))</ID>
@@ -727,7 +687,6 @@
     <ID>MaxLineLength:CircleTab.kt$IconButton({ quick.message(r.contact) }) { Icon(Icons.AutoMirrored.Rounded.Message, stringResource(R.string.circle_message_who, r.contact.displayName)) }</ID>
     <ID>MaxLineLength:CircleTab.kt$Modifier.fillMaxWidth().clickable { vm.c.circle.updateConfig { it.copy(favoritesSectionCollapsed = !it.favoritesSectionCollapsed) } }.padding(start = 16.dp, end = 4.dp)</ID>
     <ID>MaxLineLength:CircleTab.kt$Text(pluralStringResource(R.plurals.circle_suggest_calls, s.calls, s.calls) + stringResource(R.string.main_separator) + pluralStringResource(R.plurals.circle_every_days, s.days, s.days))</ID>
-    <ID>MaxLineLength:CircleTab.kt$Text(stringResource(R.string.circle_section), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f))</ID>
     <ID>MaxLineLength:CircleTab.kt$if (shown.isNotEmpty()) SegmentedGroup(modifier = Modifier.padding(horizontal = 0.dp)) { shown.forEach { r -&gt; item(r.contact.lookupKey) { CircleRowItem(vm, r, quick, open) } } }</ID>
     <ID>MaxLineLength:CircleTest.kt$CircleTest$assertNull(KeepRhythm.decode(KeepRhythm.merge(KeepRhythm(RhythmMode.NATURAL, snoozedUntil = 50).encode(), KeepRhythm(RhythmMode.NATURAL).encode())).snoozedUntil)</ID>
     <ID>MaxLineLength:CircleTest.kt$CircleTest$listOf(CircleDigest.Pick("due", CircleDigest.Reason.DUE), CircleDigest.Pick("bday", CircleDigest.Reason.DATE), CircleDigest.Pick("quiet", CircleDigest.Reason.QUIET))</ID>
@@ -768,8 +727,6 @@
     <ID>MaxLineLength:ContactDetailScreen.kt$Modifier.shared("avatar-$contactId").clickable(enabled = d.photoUri != null, onClickLabel = stringResource(R.string.detail_view_photo)) { showPhoto = true }</ID>
     <ID>MaxLineLength:ContactDetailScreen.kt$Text(d.displayName, style = MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 16.dp).shared("name-$contactId", bounds = true))</ID>
     <ID>MaxLineLength:ContactDetailScreen.kt$Text(lastTalked, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))</ID>
-    <ID>MaxLineLength:ContactDetailScreen.kt$Text(title, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 4.dp))</ID>
-    <ID>MaxLineLength:ContactDetailScreen.kt$confirmButton = { TextButton({ confirmDelete = false; vm.deleteContacts(listOf(contactId)); back() }) { Text(stringResource(R.string.main_delete)) } }</ID>
     <ID>MaxLineLength:ContactDetailScreen.kt$d.websites.forEachIndexed { i, w -&gt; item { GroupDataRow(Icons.Rounded.Language, i == 0, w.value, resources.getString(R.string.detail_website), onClick = { Intents.web(context, w.value) }) } }</ID>
     <ID>MaxLineLength:ContactDetailScreen.kt$eventLabel(resources, ev) + (if (on) resources.getString(R.string.main_separator) + resources.getString(R.string.circle_yearly_label) else "")</ID>
     <ID>MaxLineLength:ContactDetailScreen.kt$if</ID>
@@ -846,29 +803,24 @@
     <ID>MaxLineLength:ContactMessaging.kt$ContactMessaging$if (err == null &amp;&amp; m.kind != ReachKind.VOICE) offerLog(context, r, if (m.isVideo) InteractionChannel.VIDEO else InteractionChannel.forPackage(m.accountType))</ID>
     <ID>MaxLineLength:ContactMessaging.kt$ContactMessaging$if (row == null) context.getString(R.string.msg_app_lost_contact) else start(context, row.intent(), row.appName).also { if (it == null) offerLog(context, r, InteractionChannel.forPackage(route.accountType)) }</ID>
     <ID>MaxLineLength:ContactMessaging.kt$ContactMessaging$is MessageRoute.Sms</ID>
-    <ID>MaxLineLength:ContactMessaging.kt$confirmButton = { TextButton({ onDismiss(); ContactMessaging.openHandle(context, link, confirmedWeb = true) }) { Text(stringResource(R.string.msg_open)) } }</ID>
     <ID>MaxLineLength:ContactMover.kt$ContactMover$if (AccountRef(raw.accountType, raw.accountName).isLocal &amp;&amp; target.isLocal) return@withContext Result.Failed(context.getString(R.string.data_move_already_phone))</ID>
     <ID>MaxLineLength:ContactMover.kt$ContactMover$if (raw.accountType == target.type &amp;&amp; raw.accountName == target.name) return@withContext Result.Failed(context.getString(R.string.data_move_already_there))</ID>
-    <ID>MaxLineLength:ContactPageSections.kt$val turn by animateFloatAsState(if (folded) 0f else 180f, spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMediumLow), label = "chevron")</ID>
     <ID>MaxLineLength:ContactPageSettings.kt$SwitchRow</ID>
     <ID>MaxLineLength:ContactPageSettings.kt$Text(modeText, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(start = 6.dp))</ID>
     <ID>MaxLineLength:ContactPageSettings.kt$if (i &lt; order.size - 1) HorizontalDivider(Modifier.padding(start = 64.dp, end = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))</ID>
     <ID>MaxLineLength:ContactPageSettings.kt$onDragStart = { dragging = sec; dragOffset = 0f; haptics.performHapticFeedback(HapticFeedbackType.GestureThresholdActivate) }</ID>
     <ID>MaxLineLength:ContactPhotoProcessor.kt$ContactPhotoProcessor$val</ID>
     <ID>MaxLineLength:ContactPickerScreen.kt$OutlinedTextField(q, { q = it }, placeholder = { Text(stringResource(R.string.main_search)) }, singleLine = true, modifier = Modifier.padding(16.dp))</ID>
-    <ID>MaxLineLength:ContactPickerScreen.kt$TopAppBar(title = { Text(stringResource(R.string.picker_add_to_contact)) }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.main_back)) } })</ID>
     <ID>MaxLineLength:ContactRecordStore.kt$ContactRecordStore$arrayOf(Groups._ID, Groups.TITLE, Groups.ACCOUNT_TYPE, Groups.ACCOUNT_NAME, Groups.SYSTEM_ID, Groups.AUTO_ADD, Groups.GROUP_IS_READ_ONLY, Groups.FAVORITES)</ID>
     <ID>MaxLineLength:ContactRecordStore.kt$ContactRecordStore$private</ID>
     <ID>MaxLineLength:ContactRecordStore.kt$ContactRecordStore$raw.rows.forEach { v -&gt; ops += ContentProviderOperation.newInsert(Data.CONTENT_URI).withValues(v).withValueBackReference(Data.RAW_CONTACT_ID, base).build() }</ID>
     <ID>MaxLineLength:ContactRecordStore.kt$ContactRecordStore$return finish(plan, rawIds).let { if (failed &gt; 0 &amp;&amp; it.error == null) it.copy(error = context.resources.getQuantityString(R.plurals.data_write_fields_failed, failed, failed)) else it }</ID>
     <ID>MaxLineLength:ContactRecordStore.kt$ContactRecordStore$while (c.moveToNext()) if (ContentDiff.isUserGroup(c.getString(1), c.getString(2), c.getInt(3) != 0, c.getInt(4) != 0, c.getInt(5) != 0)) out += c.getLong(0)</ID>
-    <ID>MaxLineLength:ContactTimelineScreen.kt$modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).padding(start = 32.dp, top = 12.dp, bottom = 6.dp).semantics { heading() }</ID>
     <ID>MaxLineLength:ContactTimelineScreen.kt$pluralStringResource(R.plurals.contact_page_entries, n, n)</ID>
-    <ID>MaxLineLength:ContactTimelineScreen.kt$title = { Text(dd?.let { stringResource(R.string.contact_page_timeline_of, it.given.ifBlank { it.displayName }) } ?: stringResource(R.string.contact_page_sec_timeline)) }</ID>
     <ID>MaxLineLength:ContactTimelineScreen.kt$trailingIcon = if (query.isEmpty()) null else ({ IconButton({ query = "" }) { Icon(Icons.Rounded.Clear, stringResource(R.string.contact_page_clear_search)) } })</ID>
     <ID>MaxLineLength:ContactTimelineScreen.kt$val</ID>
     <ID>MaxLineLength:ContactsAudit.kt$ContactsAudit.Companion$val GRAPHENE_PACKAGES = listOf("app.grapheneos.apps", "app.grapheneos.info", "app.grapheneos.camera", "app.grapheneos.pdfviewer", "app.grapheneos.gmscompat")</ID>
-    <ID>MaxLineLength:ContactsChips.kt$AssistChip(onClick = { open(PeopleRoutes.LABELS) }, label = { Text(stringResource(R.string.ppl_chip_labels)) }, leadingIcon = { Icon(Icons.AutoMirrored.Rounded.Label, null, Modifier.size(16.dp)) })</ID>
+    <ID>MaxLineLength:ContactsChips.kt$AssistChip(onClick = { open(PeopleRoutes.Labels) }, label = { Text(stringResource(R.string.ppl_chip_labels)) }, leadingIcon = { Icon(Icons.AutoMirrored.Rounded.Label, null, Modifier.size(16.dp)) })</ID>
     <ID>MaxLineLength:ContactsChips.kt$DropdownMenuItem({ Text(stringResource(R.string.ppl_account_count, label, n)) }, onClick = { menu = false; vm.showVault.value = false; vm.people.setAccount(label) })</ID>
     <ID>MaxLineLength:ContactsChips.kt$FilterChip(filter.isEmpty &amp;&amp; !showVault, { vm.showVault.value = false; vm.people.clearFilter() }, label = { Text(stringResource(R.string.ppl_chip_all)) })</ID>
     <ID>MaxLineLength:ContactsChips.kt$FilterChip(filter.unlabelled &amp;&amp; !showVault, { vm.showVault.value = false; vm.people.setUnlabelled(!filter.unlabelled) }, label = { Text(stringResource(R.string.ppl_chip_unlabelled)) })</ID>
@@ -916,7 +868,6 @@
     <ID>MaxLineLength:DetailParts.kt$fun</ID>
     <ID>MaxLineLength:DetailParts.kt$trailing = if (link != null) ({ Icon(Icons.AutoMirrored.Rounded.OpenInNew, stringResource(R.string.detail_open_in_app), tint = MaterialTheme.colorScheme.onSurfaceVariant) }) else null</ID>
     <ID>MaxLineLength:DetailPeople.kt$DropdownMenuItem({ Text(stringResource(R.string.ppl_move_to)) }, leadingIcon = { Icon(Icons.Rounded.DriveFileMove, null) }, onClick = { menu = false; moving = raw })</ID>
-    <ID>MaxLineLength:DetailPeople.kt$DropdownMenuItem({ Text(stringResource(R.string.ppl_unlink)) }, leadingIcon = { Icon(Icons.Rounded.CallSplit, null) }, onClick = { menu = false; unlinking = raw })</ID>
     <ID>MaxLineLength:DetailPeople.kt$ev.type == Event.TYPE_BIRTHDAY -&gt; listOfNotNull(shown(parsed), LifeEvents.wouldHaveTurned(parsed, today)?.let { res.getString(R.string.life_would_have_turned, it) }, dayText(res, parsed, today)).joinToString(" · ")</ID>
     <ID>MaxLineLength:DeviceAccounts.kt$DeviceAccounts$context.contentResolver.safeQuery(RawContacts.CONTENT_URI, arrayOf(RawContacts.ACCOUNT_TYPE, RawContacts.ACCOUNT_NAME), "${RawContacts.DELETED}=0")</ID>
     <ID>MaxLineLength:Diagnostics.kt$Diagnostics$"deleted=${c.getInt(4)} dirty=${c.getInt(5)} v=${c.getInt(6)} synced=${!c.isNull(7)} starred=${c.getInt(8)} dataSet=${c.getString(9) ?: "-"}"</ID>
@@ -927,7 +878,6 @@
     <ID>MaxLineLength:Diagnostics.kt$Diagnostics$appendLine("data ${c.getLong(0)} raw=${c.getLong(1)} ${c.getString(2)} p=${c.getInt(3)}/${c.getInt(4)} v=${c.getInt(5)} ${values.joinToString(" ")}")</ID>
     <ID>MaxLineLength:Diagnostics.kt$Diagnostics$appendLine("secondLine=${people.secondLine} preferNickname=${people.preferNickname} favourites=${people.favoriteSort}/${people.favoriteColumns} privateByDefault=${people.privateByDefault} labelRingtones=${people.labelRingtones.size}")</ID>
     <ID>MaxLineLength:Diagnostics.kt$Diagnostics$appendLine("startTab=${settings.startTab} sortByFirstName=${settings.sortByFirstName} simLabels=${settings.showSimLabels} rowActions=${settings.contactRowActions}")</ID>
-    <ID>MaxLineLength:DiagnosticsScreen.kt$TopAppBar(title = { Text(stringResource(R.string.diag_title)) }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.dc_back)) } }, scrollBehavior = barTint)</ID>
     <ID>MaxLineLength:DiagnosticsScreen.kt$val ok = withContext(Dispatchers.IO) { runCatching { context.contentResolver.openOutputStream(uri, "wt")!!.use { it.write(report.toByteArray()) } }.isSuccess }</ID>
     <ID>MaxLineLength:DialGuard.kt$DialGuard$LineType.PREMIUM_RATE -&gt; out += DialWarning("Premium-rate number", "Calls to this number can cost a lot per minute, on top of your plan.", severe = true)</ID>
     <ID>MaxLineLength:DialGuard.kt$DialGuard$if (hit != null) out += DialWarning("Listed as spam", "${hit.packName}" + (hit.category?.let { ": $it" } ?: "") + ". Scam lines often charge you for calling back.", severe = hit.score &gt;= 70)</ID>
@@ -939,26 +889,20 @@
     <ID>MaxLineLength:DialWidget.kt$DialWidgetConfigActivity$withContext(Dispatchers.IO) { DialWidget.update(this@DialWidgetConfigActivity, AppWidgetManager.getInstance(this@DialWidgetConfigActivity), id) }</ID>
     <ID>MaxLineLength:DialerRoleRescue.kt$Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)</ID>
     <ID>MaxLineLength:DryRunScreen.kt$(BlockingText.verdict(context, r.result.verdict?.text) ?: stringResource(if (r.result.blocked) R.string.blk_would_block else R.string.blk_would_ring))</ID>
-    <ID>MaxLineLength:DryRunScreen.kt$TopAppBar(title = { Text(stringResource(R.string.blk_dry_title)) }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.set_back)) } })</ID>
     <ID>MaxLineLength:DryRunScreen.kt$headlineContent = { Text(if (r.call.hidden) stringResource(R.string.blk_private_number) else bidiLtr(Format.number(r.call.number, vm.countryIso))) }</ID>
     <ID>MaxLineLength:DryRunScreen.kt$leadingContent = { Icon(if (r.result.blocked) Icons.Rounded.Block else Icons.Rounded.Call, stringResource(if (r.result.blocked) R.string.blk_would_block else R.string.blk_would_ring)) }</ID>
     <ID>MaxLineLength:DryRunScreen.kt$listOf(1, 7, 30).forEach { d -&gt; FilterChip(days == d, { days = d }, label = { Text(if (d == 1) stringResource(R.string.blk_dry_today) else pluralStringResource(R.plurals.set_days, d, d)) }) }</ID>
     <ID>MaxLineLength:DuplicateWarning.kt$if (settings.hideVault) null else DuplicateLookup(vault.map { v -&gt; ContactSummary(-v.id, "", v.name, null, false, v.numbers.map { PhoneEntry(it, 2, null) }) })</ID>
-    <ID>MaxLineLength:DuplicatesScreen.kt$TopAppBar(title = { Text(stringResource(R.string.dup_title)) }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.main_back)) } }, scrollBehavior = barTint)</ID>
     <ID>MaxLineLength:DuplicatesScreen.kt$supportingContent = { Text((c.phones.map { Bidi.ltr(it.number) } + c.emails).take(2).joinToString(stringResource(R.string.main_separator))) }</ID>
     <ID>MaxLineLength:EditorParts.kt$OutlinedTextField(query, { query = it }, label = { Text(stringResource(R.string.main_search)) }, singleLine = true, modifier = Modifier.fillMaxWidth())</ID>
     <ID>MaxLineLength:EditorViewModel.kt$EditorViewModel$is SaveContactUseCase.Outcome.Failed -&gt; eventChannel.send(EditorEvent.Message(c.appContext.getString(R.string.edit_save_failed, outcome.message)))</ID>
     <ID>MaxLineLength:EventDateDialog.kt$Picker(stringResource(R.string.date_month), Month.of(month).getDisplayName(TextStyle.FULL, Locale.getDefault()), Month.entries.map { it.getDisplayName(TextStyle.FULL, Locale.getDefault()) }, m) { month = it + 1 }</ID>
-    <ID>MaxLineLength:EventDateDialog.kt$confirmButton = { TextButton({ onPick(EventDate(if (withYear) yearValue else null, month, day).format()) }, enabled = valid) { Text(stringResource(R.string.main_ok)) } }</ID>
     <ID>MaxLineLength:ExpectingCallTileService.kt$ExpectingCallTileService.Companion$return if (min &gt;= 60) context.getString(R.string.blk_tile_hours_minutes, min / 60, (min % 60).toString().padStart(2, '0')) else context.getString(R.string.ct_minutes_short, min)</ID>
     <ID>MaxLineLength:ExportFiles.kt$ExportFiles$pm.print(name, CallPrintAdapter(context.applicationContext, title(context, subject), rows), PrintAttributes.Builder().setMediaSize(PrintAttributes.MediaSize.ISO_A4).build())</ID>
     <ID>MaxLineLength:ExportFiles.kt$ExportFiles.PdfLayout$canvas.drawText(TextUtils.ellipsize(context.getString(R.string.hist_pdf_note, n.replace('\n', ' ')), grey, w - cols[2], TextUtils.TruncateAt.END).toString(), margin + cols[2], y, grey)</ID>
     <ID>MaxLineLength:ExportFiles.kt$ExportFiles.PdfLayout$canvas.drawText(context.resources.getQuantityString(R.plurals.hist_pdf_made_with, rows.size, rows.size, fmt.format(Instant.now().atZone(zone))), margin, y, grey)</ID>
     <ID>MaxLineLength:ExportFiles.kt$ExportFiles.PdfLayout$val heads = listOf(R.string.hist_pdf_col_date, R.string.hist_pdf_col_type, R.string.hist_pdf_col_who, R.string.hist_pdf_col_duration, R.string.hist_pdf_col_sim).map { context.getString(it) }</ID>
     <ID>MaxLineLength:ExportFiles.kt$ExportFiles.PdfLayout$val who = listOfNotNull(r.name, r.number.ifBlank { context.getString(R.string.hist_private_number) }.takeIf { r.name == null || r.number.isNotBlank() }).joinToString(" · ")</ID>
-    <ID>MaxLineLength:ExtrasRoutes.kt$SimpleTransfer$fun</ID>
-    <ID>MaxLineLength:ExtrasRoutes.kt$SimpleTransfer$fun encryptFile(c: SimpleConfig, passphrase: CharArray): ByteArray</ID>
-    <ID>MaxLineLength:ExtrasRoutes.kt$SimpleTransfer$private fun gzip(text: String): ByteArray</ID>
     <ID>MaxLineLength:ExtrasStore.kt$ExtrasStore$listOf(city, cur.getString(4).orEmpty(), cur.getString(5).orEmpty(), cur.getString(2).orEmpty()).filter { it.isNotBlank() }.forEach { list += it }</ID>
     <ID>MaxLineLength:ExtrasStore.kt$ExtrasStore$val wants = ids.mapValues { (_, id) -&gt; if (id == null || dnd.isEmpty()) emptySet() else runCatching { c.contacts.labelTitlesOf(id) }.getOrDefault(emptySet()).intersect(dnd) }</ID>
     <ID>MaxLineLength:FakeContactsProvider.kt$FakeContactsProvider$"data" -&gt; db.update("data", known("data", values), where("_id"), if (s.size &gt; 1) null else selectionArgs).also { bump(where("_id"), selectionArgs.takeIf { s.size == 1 }) }</ID>
@@ -970,20 +914,14 @@
     <ID>MaxLineLength:FavoritesTab.kt$.</ID>
     <ID>MaxLineLength:FavoritesTab.kt$FilterChip(ps.favoriteSort == s, { vm.people.update { it.copy(favoriteSort = s) }; if (s != FavoriteSort.CUSTOM) reordering = false }, label = { Text(stringResource(s.labelRes)) })</ID>
     <ID>MaxLineLength:FavoritesTab.kt$Row</ID>
-    <ID>MaxLineLength:FavoritesTab.kt$Text(stringResource(R.string.fav_frequent), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(start = 8.dp, top = 16.dp, bottom = 4.dp))</ID>
     <ID>MaxLineLength:Fixtures.kt$Fixtures$fun name(display: String)</ID>
     <ID>MaxLineLength:Fixtures.kt$Fixtures$fun phone(n: String, type: String = "2", primary: Boolean = false)</ID>
     <ID>MaxLineLength:Fixtures.kt$appendLine(" ${d.mimeType.substringAfterLast('/')} ${d.values.toSortedMap()} p=${d.isPrimary}/${d.isSuperPrimary}" + (d.blob?.let { " blob=${it.size}#${it.contentHashCode()}" } ?: ""))</ID>
-    <ID>MaxLineLength:FolderSync.kt$FolderSync$cr.query(children, arrayOf(DocumentsContract.Document.COLUMN_DOCUMENT_ID, DocumentsContract.Document.COLUMN_DISPLAY_NAME), null, null, null)</ID>
     <ID>MaxLineLength:FolderSync.kt$FolderSync$finish(StoredStatus.of(SyncStatus.REPORT, rep.written, rep.imported, rep.updatedFromFolder, rep.deletedLocal, rep.deletedFiles, rep.conflicts, rep.linked))</ID>
-    <ID>MaxLineLength:FolderSync.kt$FolderSync$records.read(id, fullPhoto = true)?.let { nr -&gt; state[name] = Entry(nr.key, sha(bytes), localHash(nr)); local[nr.key] = nr; mappedKeys += nr.key }</ID>
-    <ID>MaxLineLength:FolderSync.kt$FolderSync$runCatching { DocumentsContract.createDocument(cr, parentDoc, "text/vcard", name.removeSuffix(".vcf") + ".conflict-" + System.currentTimeMillis() + ".vcf")?.let { u -&gt; cr.openOutputStream(u, "wt")!!.use { it.write(file.bytes!!) } } }</ID>
     <ID>MaxLineLength:FolderSyncScreen.kt$Button({ run() }, enabled = st.folderUri != null &amp;&amp; !running, modifier = Modifier.padding(horizontal = 16.dp)) { Text(stringResource(R.string.sync_now)) }</ID>
     <ID>MaxLineLength:FolderSyncScreen.kt$OutlinedButton({ run(allowMassDelete = true) }, Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) { Text(pluralStringResource(R.plurals.sync_apply_deletions, st.pendingDeletions, st.pendingDeletions)) }</ID>
-    <ID>MaxLineLength:FolderSyncScreen.kt$TopAppBar(title = { Text(stringResource(R.string.sync_title)) }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.dc_back)) } })</ID>
     <ID>MaxLineLength:FolderSyncScreen.kt$headlineContent = { Text(if (st.lastSyncAt &gt; 0) stringResource(R.string.sync_last, Format.shortWhen(context, st.lastSyncAt)) else stringResource(R.string.sync_never)) }</ID>
     <ID>MaxLineLength:FolderSyncScreen.kt$if (st.folderUri != null) TextButton({ sync.setFolder(null, null); FolderSyncWorker.schedule(context, false) }, Modifier.padding(horizontal = 8.dp)) { Text(stringResource(R.string.sync_stop)) }</ID>
-    <ID>MaxLineLength:FolderSyncWorker.kt$FolderSyncWorker.Companion$else</ID>
     <ID>MaxLineLength:FollowUpWorker.kt$FollowUpWorker$.</ID>
     <ID>MaxLineLength:FollowUpWorker.kt$FollowUpWorker$?:</ID>
     <ID>MaxLineLength:FollowUpWorker.kt$FollowUpWorker$Intent(ctx, MainActivity::class.java).setAction(MainActivity.ACTION_SHOW_CALLER).putExtra(MainActivity.EXTRA_CONTACT_ID, contact.id).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)</ID>
@@ -1001,8 +939,7 @@
     <ID>MaxLineLength:HealthScanner.kt$HealthScanner$out += HealthIssue(HealthKind.NO_COUNTRY_CODE, q.getLong(1), q.getString(4).orEmpty(), q.getString(3) ?: n, context.getString(R.string.data_health_country_code, DataBidi.ltr(n), DataBidi.ltr(e164)), q.getLong(0), e164)</ID>
     <ID>MaxLineLength:HealthScanner.kt$HealthScanner$out += HealthIssue(HealthKind.SHARED_NUMBER, c.id, c.lookupKey, c.displayName, context.getString(R.string.data_health_shared, owners.drop(1).joinToString { it.displayName }))</ID>
     <ID>MaxLineLength:HealthScanner.kt$HealthScanner$out += HealthIssue(HealthKind.TITLE_IS_COMPANY, q.getLong(1), q.getString(5).orEmpty(), q.getString(4) ?: company, context.getString(R.string.data_health_title_company, title), q.getLong(0), "")</ID>
-    <ID>MaxLineLength:HealthScreen.kt$HealthKind.SHARED_NUMBER -&gt; TextButton({ open(Routes.DUPLICATES) }, Modifier.padding(horizontal = 8.dp)) { Text(stringResource(R.string.health_review_duplicates)) }</ID>
-    <ID>MaxLineLength:HealthScreen.kt$TopAppBar(title = { Text(stringResource(R.string.health_title)) }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.dc_back)) } }, scrollBehavior = barTint)</ID>
+    <ID>MaxLineLength:HealthScreen.kt$HealthKind.SHARED_NUMBER -&gt; TextButton({ open(Routes.Duplicates) }, Modifier.padding(horizontal = 8.dp)) { Text(stringResource(R.string.health_review_duplicates)) }</ID>
     <ID>MaxLineLength:HealthScreen.kt$modifier = Modifier.clickable { open(if (i.kind == HealthKind.NUMBER_AS_NAME) Routes.edit(id = i.contactId) else Routes.contact(i.contactId)) }</ID>
     <ID>MaxLineLength:HistoryFilter.kt$HistoryFilter.Companion$fun decode(s: String?): HistoryFilter</ID>
     <ID>MaxLineLength:HistoryText.kt$HistoryText$if (f.types.isNotEmpty()) add(f.types.sortedBy { it.ordinal }.joinToString(res.getString(R.string.dc_list_separator)) { res.getString(typeGroup(it)) })</ID>
@@ -1012,7 +949,6 @@
     <ID>MaxLineLength:HomeScreen.kt$private</ID>
     <ID>MaxLineLength:ImportCallsScreen.kt$OutlinedButton</ID>
     <ID>MaxLineLength:ImportCallsScreen.kt$Text(stringResource(R.string.hist_import_dry_run, stringResource(HistoryText.source(pl.source))), style = MaterialTheme.typography.titleMedium)</ID>
-    <ID>MaxLineLength:ImportCallsScreen.kt$TopAppBar(title = { Text(stringResource(R.string.hist_import_title)) }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.dc_back)) } })</ID>
     <ID>MaxLineLength:ImportCallsScreen.kt$header.forEachIndexed { i, h -&gt; DropdownMenuItem({ Text(h.ifBlank { stringResource(R.string.hist_col_n, i + 1) }) }, onClick = { open = false; onChange(set(i)) }) }</ID>
     <ID>MaxLineLength:ImportCallsScreen.kt$headlineContent = { Text(c.name ?: Format.number(c.number, vm.countryIso).ifBlank { stringResource(R.string.hist_private_number) }) }</ID>
     <ID>MaxLineLength:ImportCallsScreen.kt$if (pl.problems.isNotEmpty()) add(pluralStringResource(R.plurals.hist_import_rows_skipped, pl.problems.size, pl.problems.size))</ID>
@@ -1023,8 +959,6 @@
     <ID>MaxLineLength:ImportCallsScreen.kt$supportingContent = { Text(listOf(stringResource(typeName(c.type)), Format.fullDate(context, c.date), Format.duration(c.durationSec)).filter { it.isNotBlank() }.joinToString(" · ")) }</ID>
     <ID>MaxLineLength:ImportVcfDialog.kt$val r = vm.c.vcards.importVCard(uri, a, { done, total -&gt; progress = if (total &gt; 0) done.toFloat() / total else 0f }, skipDuplicates = true)</ID>
     <ID>MaxLineLength:InCallScreen.kt$Text(listOfNotNull(stringResource(R.string.incall_not_in_contacts), call.location).joinToString(stringResource(R.string.tc_separator)), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp))</ID>
-    <ID>MaxLineLength:InCallScreen.kt$Text(stringResource(R.string.incall_conference_call), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))</ID>
-    <ID>MaxLineLength:InCallScreen.kt$Text(stringResource(R.string.incall_reply_sheet_title), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))</ID>
     <ID>MaxLineLength:InCallScreen.kt$Text(txt, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary, modifier = Modifier.semantics { contentDescription = spoken })</ID>
     <ID>MaxLineLength:InCallScreen.kt$TextButton(onClick = { CallManager.hangup(call.id) }, modifier = Modifier.align(Alignment.CenterHorizontally)) { Text(stringResource(R.string.tc_cancel)) }</ID>
     <ID>MaxLineLength:InCallScreen.kt$add(ControlSpec(Icons.Rounded.MicOff, if (audio.muted) stringResource(R.string.incall_muted) else stringResource(R.string.incall_mute), stringResource(R.string.incall_mute), toggle = true, active = audio.muted, enabled = call.canMute) { CallManager.setMuted(!audio.muted) })</ID>
@@ -1033,7 +967,6 @@
     <ID>MaxLineLength:InCallScreen.kt$call.canMerge -&gt; add(ControlSpec(Icons.AutoMirrored.Rounded.CallMerge, stringResource(R.string.incall_merge), stringResource(R.string.incall_merge_calls)) { CallManager.merge(call.id) })</ID>
     <ID>MaxLineLength:InCallScreen.kt$call.subtitle?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis) }</ID>
     <ID>MaxLineLength:InCallScreen.kt$canSwap -&gt; add(ControlSpec(Icons.Rounded.SwapCalls, stringResource(R.string.incall_swap), stringResource(R.string.incall_swap_calls)) { CallManager.swap(call.id) })</ID>
-    <ID>MaxLineLength:InCallScreen.kt$confirmButton = { TextButton({ if (text.isNotBlank()) CallManager.saveNote(id, text.trim()); noteFor = null }) { Text(stringResource(R.string.tc_save)) } }</ID>
     <ID>MaxLineLength:InCallScreen.kt$else</ID>
     <ID>MaxLineLength:InCallScreen.kt$else -&gt; add(ControlSpec(Icons.Rounded.Add, stringResource(R.string.incall_add_call), stringResource(R.string.incall_add_call), enabled = others.isEmpty(), onClick = onAddCall))</ID>
     <ID>MaxLineLength:InCallScreen.kt$if</ID>
@@ -1042,7 +975,6 @@
     <ID>MaxLineLength:InCallScreen.kt$if (call.state != CallState.DIALING &amp;&amp; call.state != CallState.CONNECTING &amp;&amp; call.state != CallState.NEW) call.accountLabel?.let { Chip(Icons.Rounded.SimCard, it) }</ID>
     <ID>MaxLineLength:InCallScreen.kt$if (child.canDisconnectChild) TextButton({ CallManager.hangup(child.id) }) { Text(stringResource(R.string.incall_end), color = CallColors.Decline) }</ID>
     <ID>MaxLineLength:InCallScreen.kt$if (child.canSeparate) TextButton({ CallManager.separate(child.id); manageSheet = false }) { Text(stringResource(R.string.incall_private)) }</ID>
-    <ID>MaxLineLength:InCallScreen.kt$modifier = Modifier.fillMaxWidth().padding(top = 12.dp).clip(RoundedCornerShape(20.dp)).clickable(enabled = call.state == CallState.HOLDING, onClick = onSwap)</ID>
     <ID>MaxLineLength:InCallScreen.kt$val sub = listOfNotNull(call.label?.let { l -&gt; if (NotificationPrivacy.isVaultLabel(l)) stringResource(R.string.tc_private_label) else l }, call.number?.takeIf { call.name != null }?.let(Bidi::ltr)).joinToString(stringResource(R.string.tc_separator))</ID>
     <ID>MaxLineLength:IncomingControls.kt$BigAction(Icons.Rounded.Call, stringResource(R.string.incall_answer), CallColors.Accept, onAnswer, height = 112, a11y = sim?.let { stringResource(R.string.incall_answer_on, it) })</ID>
     <ID>MaxLineLength:IncomingControls.kt$RoundAction(Icons.Rounded.Call, stringResource(R.string.incall_answer), CallColors.Accept, onAnswer, sub = sim, a11y = sim?.let { stringResource(R.string.incall_answer_on, it) })</ID>
@@ -1060,7 +992,6 @@
     <ID>MaxLineLength:InsightsScreen.kt$Row</ID>
     <ID>MaxLineLength:InsightsScreen.kt$Text(pluralStringResource(R.plurals.hist_sim_totals, t.total, t.total, t.outgoing, t.incoming, t.missed, HistoryFormat.talk(t.talkSec)))</ID>
     <ID>MaxLineLength:InsightsScreen.kt$Text(stringResource(R.string.hist_weekly_scale, HistoryFormat.talk(max), HistoryFormat.talk(max / 2)), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)</ID>
-    <ID>MaxLineLength:InsightsScreen.kt$TopAppBar(title = { Text(stringResource(R.string.hist_insights_title)) }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.dc_back)) } })</ID>
     <ID>MaxLineLength:InsightsScreen.kt$byCount.forEach { pt -&gt; item { PersonRow(vm, pt.person, (pt.totals.total - pt.totals.blocked).let { n -&gt; pluralStringResource(R.plurals.hist_calls_and_talk, n, n, HistoryFormat.talk(pt.totals.talkSec)) }, open) } }</ID>
     <ID>MaxLineLength:InsightsScreen.kt$byTime.forEach { pt -&gt; item { PersonRow(vm, pt.person, pluralStringResource(R.plurals.hist_talk_and_calls, pt.totals.total, pt.totals.total, HistoryFormat.talk(pt.totals.talkSec)), open) } }</ID>
     <ID>MaxLineLength:InsightsScreen.kt$headlineContent = { Text(sims.firstOrNull { it.id == id }?.label ?: if (id == null) stringResource(R.string.hist_no_sim) else stringResource(R.string.hist_other_sim)) }</ID>
@@ -1078,8 +1009,6 @@
     <ID>MaxLineLength:JournalScreen.kt$}</ID>
     <ID>MaxLineLength:KeepRhythm.kt$KeepRhythm.Companion$fun decode(text: String?): KeepRhythm</ID>
     <ID>MaxLineLength:KeypadLettersSetting.kt$LayoutRow(stringResource(R.string.set_kl_same_as_phone), phoneLanguage.localLabel(), choice == null) { store.setKeypadLayout(null); pickLayout = false }</ID>
-    <ID>MaxLineLength:KeypadLettersSetting.kt$if (suggested.isNotEmpty()) item { Text(stringResource(R.string.set_kl_all), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary) }</ID>
-    <ID>MaxLineLength:KeypadLettersSetting.kt$if (suggested.isNotEmpty()) item { Text(stringResource(R.string.set_kl_suggested), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary) }</ID>
     <ID>MaxLineLength:KeypadLettersSetting.kt$listOf(details.name, details.number.takeIf { it.isNotBlank() }?.let(::bidiLtr).orEmpty()).filter { it.isNotBlank() }.joinToString(" · ").ifEmpty { settingSummary("my_details") }</ID>
     <ID>MaxLineLength:KeypadTab.kt$AssistChip(onClick = onAdd, label = { Text(stringResource(R.string.keypad_add_to_contacts)) }, leadingIcon = { Icon(Icons.Rounded.PersonAdd, null) })</ID>
     <ID>MaxLineLength:KeypadTab.kt$AssistChip(onClick = onAddToExisting, label = { Text(stringResource(R.string.keypad_add_to_existing)) }, leadingIcon = { Icon(Icons.Rounded.PersonAddAlt, null) })</ID>
@@ -1098,21 +1027,18 @@
     <ID>MaxLineLength:KeypadViewModel.kt$KeypadViewModel$val</ID>
     <ID>MaxLineLength:LabelPolicy.kt$LabelPolicies$labels.mapNotNull { l -&gt; policies[l]?.rhythmDays?.let { l to it } }.minWithOrNull(compareBy&lt;Pair&lt;String, Int&gt;&gt; { it.second }.thenBy { it.first.lowercase() })</ID>
     <ID>MaxLineLength:LabelPolicySection.kt$leadingContent = { RadioButton(p.rhythmDays == d, { vm.c.extras.updatePolicy(title) { it.copy(rhythmDays = d) }; pickRhythm = false }) }</ID>
-    <ID>MaxLineLength:LabelPolicySection.kt$modifier = Modifier.clickable { if (p.allowThroughDnd) turnOffDnd(vm, title) { n -&gt; vm.toast(res.getQuantityString(R.plurals.label_policy_unstarred, n, n)) } else explainDnd = true }</ID>
     <ID>MaxLineLength:LabelRefs.kt$LabelRefs$if (o.allow == OffHoursAllow.LABEL) o.copy(enabled = false, allow = OffHoursAllow.CONTACTS, labelId = null, labelTitle = null) else o.copy(labelId = null)</ID>
     <ID>MaxLineLength:LabelRefsTest.kt$LabelRefsTest$assertEquals(LimitRule(LimitScope.LABEL, "Family &amp; friends", "Family &amp; friends", perCallMinutes = 5), LabelRefs.migrateConfig(config, groups).rules.single())</ID>
     <ID>MaxLineLength:LabelRefsTest.kt$LabelRefsTest$val config = CallingConfig(rules = listOf(LimitRule(LimitScope.LABEL, "A", "A", perCallMinutes = 10), LimitRule(LimitScope.GLOBAL, perCallMinutes = 60)))</ID>
     <ID>MaxLineLength:LabelScreens.kt$DropdownMenuItem({ Text(stringResource(R.string.lbl_delete)) }, leadingIcon = { Icon(Icons.Rounded.Delete, null) }, onClick = { menu = false; confirmDelete = true })</ID>
     <ID>MaxLineLength:LabelScreens.kt$DropdownMenuItem({ Text(stringResource(R.string.lbl_delete)) }, leadingIcon = { Icon(Icons.Rounded.Delete, null) }, onClick = { rowMenu = false; deleting = l.title })</ID>
-    <ID>MaxLineLength:LabelScreens.kt$DropdownMenuItem({ Text(stringResource(R.string.lbl_merge_labels)) }, leadingIcon = { Icon(Icons.Rounded.CallMerge, null) }, onClick = { menu = false; merging = true })</ID>
     <ID>MaxLineLength:LabelScreens.kt$DropdownMenuItem({ Text(stringResource(R.string.lbl_rename)) }, leadingIcon = { Icon(Icons.Rounded.Edit, null) }, onClick = { menu = false; renaming = true })</ID>
     <ID>MaxLineLength:LabelScreens.kt$DropdownMenuItem({ Text(stringResource(R.string.lbl_rename)) }, leadingIcon = { Icon(Icons.Rounded.Edit, null) }, onClick = { rowMenu = false; renaming = l.title })</ID>
     <ID>MaxLineLength:LabelScreens.kt$Icons.AutoMirrored.Rounded.Label</ID>
-    <ID>MaxLineLength:LabelScreens.kt$account = accounts.firstOrNull { it.type == s.defaultAccountType &amp;&amp; it.name == s.defaultAccountName } ?: accounts.firstOrNull { it.type == "com.google" } ?: accounts.firstOrNull()</ID>
     <ID>MaxLineLength:LabelScreens.kt$else</ID>
     <ID>MaxLineLength:LabelScreens.kt$headlineContent = { Text(name ?: if (tone != null) stringResource(R.string.lbl_custom_ringtone) else stringResource(R.string.lbl_default_ringtone)) }</ID>
+    <ID>MaxLineLength:LabelScreens.kt$if (account == null) account = accounts.firstOrNull { it.type == s.defaultAccountType &amp;&amp; it.name == s.defaultAccountName } ?: accounts.firstOrNull { it.type == "com.google" } ?: accounts.firstOrNull()</ID>
     <ID>MaxLineLength:LabelScreens.kt$if (vm.c.people.labels.create(name, a) != null) { vm.toast(res.getString(R.string.lbl_created, name.trim())); onCreated() } else vm.toast(res.getString(R.string.lbl_create_failed))</ID>
-    <ID>MaxLineLength:LabelScreens.kt$runCatching { vm.c.people.labels.rename(old, name) }.onFailure { vm.toast(res.getString(R.string.lbl_rename_failed, it.message.toString())) }</ID>
     <ID>MaxLineLength:LabelScreens.kt$supportingContent = { (idx.labelCounts[l.title] ?: 0).let { n -&gt; Text(pluralStringResource(R.plurals.lbl_count_accounts, n, n, l.accounts.joinToString { it.displayLabel })) } }</ID>
     <ID>MaxLineLength:LabelScreens.kt$trailingContent = { if (tone != null) TextButton({ vm.people.update { it.copy(labelRingtones = it.labelRingtones - current) } }) { Text(stringResource(R.string.lbl_reset)) } }</ID>
     <ID>MaxLineLength:LabelScreens.kt$val n = runCatching { vm.c.people.labels.merge(picked, target) }.getOrElse { vm.toast(res.getString(R.string.lbl_merge_failed, it.message.toString())); return@launch }</ID>
@@ -1143,7 +1069,7 @@
     <ID>MaxLineLength:MeCardScreen.kt$Row</ID>
     <ID>MaxLineLength:MeCardScreen.kt$Text(merged.name.ifBlank { stringResource(R.string.me_your_name) }, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(top = 12.dp))</ID>
     <ID>MaxLineLength:MeCardScreen.kt$draft.note</ID>
-    <ID>MaxLineLength:MeCardScreen.kt$if (showQr) MeQrDialog(card, onDismiss = { showQr = false }, onEdit = { showQr = false; edit() }, onScan = { showQr = false; vm.navigate(NavEvent.Route(QrRoutes.SCAN)) })</ID>
+    <ID>MaxLineLength:MeCardScreen.kt$if (showQr) MeQrDialog(card, onDismiss = { showQr = false }, onEdit = { showQr = false; edit() }, onScan = { showQr = false; vm.navigate(NavEvent.Route(QrRoutes.Scan)) })</ID>
     <ID>MaxLineLength:MeCardScreen.kt$item { Box16 { OutlinedTextField(draft.address, { draft = draft.copy(address = it) }, label = { Text(stringResource(R.string.me_address)) }, modifier = Modifier.fillMaxWidth(), minLines = 2) } }</ID>
     <ID>MaxLineLength:MeCardScreen.kt$item { Box16 { OutlinedTextField(draft.company, { draft = draft.copy(company = it) }, label = { Text(stringResource(R.string.me_company)) }, singleLine = true, modifier = Modifier.fillMaxWidth()) } }</ID>
     <ID>MaxLineLength:MeCardScreen.kt$item { Box16 { OutlinedTextField(draft.name, { draft = draft.copy(name = it) }, label = { Text(stringResource(R.string.me_name)) }, singleLine = true, modifier = Modifier.fillMaxWidth(), keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words)) } }</ID>
@@ -1151,7 +1077,6 @@
     <ID>MaxLineLength:MeCardScreen.kt$private</ID>
     <ID>MaxLineLength:MessagedRecordSection.kt$(if (expiry &gt; 0) pluralStringResource(R.plurals.rec_forgotten_after, expiry, expiry) else stringResource(R.string.rec_follows_retention))</ID>
     <ID>MaxLineLength:MessagingDialogs.kt$OutlinedTextField(query, { query = it }, label = { Text(stringResource(R.string.msg_search_countries)) }, singleLine = true, modifier = Modifier.fillMaxWidth())</ID>
-    <ID>MaxLineLength:MessagingDialogs.kt$confirmButton = { TextButton({ onSave(MyDetails(name, number)) }, enabled = name.isNotBlank() || number.isNotBlank()) { Text(stringResource(R.string.main_save)) } }</ID>
     <ID>MaxLineLength:MessengerCatalog.kt$MessengerCatalog.MOLLY$MOLLY</ID>
     <ID>MaxLineLength:MessengerQr.kt$MessengerQr$if (id != null &amp;&amp; THREEMA_ID.matches(id)) m(t, QrApp.THREEMA, LinkKind.ID, id, uri = "https://threema.id/$id") else m(t, QrApp.THREEMA, LinkKind.LINK, null)</ID>
     <ID>MaxLineLength:Messengers.kt$Messengers$context.contentResolver.safeQuery(RawContacts.CONTENT_URI, arrayOf(RawContacts.ACCOUNT_TYPE), "${RawContacts.CONTACT_ID}=? AND ${RawContacts.DELETED}=0", arrayOf(contactId.toString()))</ID>
@@ -1174,7 +1099,6 @@
     <ID>MaxLineLength:NotificationHealth.kt$colors = CardDefaults.cardColors(containerColor = if (shown.any { it.critical &amp;&amp; !it.ok }) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surfaceContainerHigh)</ID>
     <ID>MaxLineLength:NotificationHealth.kt$first.whyOff + (checks.count { it.critical &amp;&amp; !it.ok }.takeIf { it &gt; 1 }?.let { " " + pluralStringResource(R.plurals.ct_health_more, it - 1, it - 1) } ?: "")</ID>
     <ID>MaxLineLength:NotificationRegistryTest.kt$NotificationRegistryTest$assertTrue(NotificationIds.screenBusy(it) in NotificationIds.SCREEN_BUSY_BASE until NotificationIds.SCREEN_BUSY_BASE + NotificationIds.SCREEN_BUSY_COUNT)</ID>
-    <ID>MaxLineLength:NumberActionActivity.kt$NumberActionActivity$(r.result as? PlaceResult.Failed)?.let { Toast.makeText(this@NumberActionActivity, DialText.placeFailure(this@NumberActionActivity, it.reason), Toast.LENGTH_LONG).show() }</ID>
     <ID>MaxLineLength:NumberActionActivity.kt$NumberActionActivity$ACTION_MESSAGE_ON -&gt; intent.getStringExtra(EXTRA_NUMBER)?.takeIf { it.isNotBlank() }?.let { return Stage.Message(it, intent.getStringExtra(EXTRA_ACCOUNT_ID)) }</ID>
     <ID>MaxLineLength:NumberActionActivity.kt$NumberActionActivity$Stage.NoNumber</ID>
     <ID>MaxLineLength:NumberActionActivity.kt$NumberActionActivity$Text(contactName ?: Bidi.ltr(e164?.let(NumberText::formatInternational) ?: Format.number(number, region)), style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 24.dp))</ID>
@@ -1210,24 +1134,20 @@
     <ID>MaxLineLength:ParleyCallScreeningService.kt$ParleyCallScreeningService$details.hasProperty(Call.Details.PROPERTY_EMERGENCY_CALLBACK_MODE) || details.hasProperty(Call.Details.PROPERTY_NETWORK_IDENTIFIED_EMERGENCY_CALL)</ID>
     <ID>MaxLineLength:ParleyInCallService.kt$ParleyInCallService$proximity.update(calls, CallManager.audio.value, CallManager.uiVisible, runCatching { TelecomGraph.dependencies.proximityEnabled() }.getOrDefault(true))</ID>
     <ID>MaxLineLength:ParleyRoot.kt$ChatThenDecideHost(snackbar, openPrivate = { id -&gt; nav.navigate(Routes.vault(id)) { launchSingleTop = true } }) { id -&gt; nav.navigate(Routes.contact(id)) { launchSingleTop = true } }</ID>
-    <ID>MaxLineLength:ParleyRoot.kt$NumberHistoryScreen(vm, Uri.decode(it.arguments!!.getString("number").orEmpty()), back = { nav.popBackStack() }, open = { r -&gt; nav.navigate(r) })</ID>
     <ID>MaxLineLength:PeopleCard.kt$DropdownMenuItem({ Text(stringResource(R.string.circle_hide_people_card)) }, onClick = { menu = false; vm.c.circle.updateConfig { it.copy(peopleCard = false) } })</ID>
     <ID>MaxLineLength:PeopleCard.kt$IconButton({ vm.requestCall(phone, ct.displayName) }) { Icon(Icons.Rounded.Call, stringResource(R.string.hist_call_back), tint = MaterialTheme.colorScheme.primary) }</ID>
     <ID>MaxLineLength:PeopleCard.kt$PeopleInsights.LoopKind.THEIR_CALL -&gt; pluralStringResource(R.plurals.circle_loop_their_call, l.count, l.count, Format.shortWhen(context, l.time))</ID>
     <ID>MaxLineLength:PeopleCard.kt$Text(stringResource(R.string.circle_first_mover_private), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))</ID>
-    <ID>MaxLineLength:PeopleCard.kt$Text(stringResource(R.string.circle_people_title), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f))</ID>
-    <ID>MaxLineLength:PeopleCard.kt$Text(text, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 16.dp, top = 8.dp))</ID>
     <ID>MaxLineLength:PeopleCard.kt$if (most.isNotEmpty()) ListItem(headlineContent = { Text(stringResource(R.string.circle_review_most, most.joinToString(stringResource(R.string.dc_list_separator)))) })</ID>
     <ID>MaxLineLength:PeopleCard.kt$val</ID>
     <ID>MaxLineLength:PeopleCard.kt$val most = r.most.mapNotNull { (k, n) -&gt; contacts[k]?.let { stringResource(R.string.circle_review_person_count, PeopleInsights.shortName(d.given[k], it.displayName), Bidi.ltr(n.toString())) } }</ID>
     <ID>MaxLineLength:PeopleLogicTest.kt$PeopleLogicTest$assertEquals(listOf("Adam", "Mia", "Zoe"), FavoriteOrder.sort(favs, FavoriteSort.NAME, emptyList(), collator = Comparator { x, y -&gt; x.compareTo(y) }).map { it.displayName })</ID>
     <ID>MaxLineLength:PeopleLogicTest.kt$PeopleLogicTest$val f = AccountCheck.check(setOf(g, dav), mapOf(g to 10, old to 4, local to 2), syncOff = setOf(dav), masterSyncOn = true, localAccountPresent = false, unsyncedTypes = setOf(null))</ID>
-    <ID>MaxLineLength:PeopleNav.kt$if (saved != null &amp;&amp; saved &gt; 0 &amp;&amp; nav.currentDestination?.route != Routes.CONTACT) nav.navigate(Routes.contact(saved)) { launchSingleTop = true }</ID>
     <ID>MaxLineLength:PeoplePrefs.kt$PeoplePrefs$K.nickname.name, K.matchAll.name, K.privateDefault.name, K.pickerOne.name, K.swipeOn.name, K.sectionChips.name -&gt; p[booleanPreferencesKey(k)] = v.toBoolean()</ID>
     <ID>MaxLineLength:PeoplePrefs.kt$PeoplePrefs$K.secondLine.name</ID>
     <ID>MaxLineLength:PeopleSettings.kt$LinkRow(settingTitle("export_account"), idx.accountCounts.entries.joinToString(" · ") { res.getString(R.string.ppl_account_count, it.key.displayLabel, it.value) }, icon) { chooseAccount = true }</ID>
-    <ID>MaxLineLength:PeopleSettings.kt$LinkRow(settingTitle("labels"), pluralStringResource(R.plurals.labels_row_summary, idx.labelCounts.size, idx.labelCounts.size), icon) { open(PeopleRoutes.LABELS) }</ID>
-    <ID>MaxLineLength:PeopleSettings.kt$LinkRow(stringResource(R.string.privacy_private_names), if (pn.enabled) stringResource(R.string.dc_on) else stringResource(R.string.dc_off)) { vm.navigate(NavEvent.Route(PeopleRoutes.PRIVATE_NAMES)) }</ID>
+    <ID>MaxLineLength:PeopleSettings.kt$LinkRow(settingTitle("labels"), pluralStringResource(R.plurals.labels_row_summary, idx.labelCounts.size, idx.labelCounts.size), icon) { open(PeopleRoutes.Labels) }</ID>
+    <ID>MaxLineLength:PeopleSettings.kt$LinkRow(stringResource(R.string.privacy_private_names), if (pn.enabled) stringResource(R.string.dc_on) else stringResource(R.string.dc_off)) { vm.navigate(NavEvent.Route(PeopleRoutes.PrivateNames)) }</ID>
     <ID>MaxLineLength:PeopleSettings.kt$ListItem</ID>
     <ID>MaxLineLength:PeopleUi.kt$PeopleUi$private</ID>
     <ID>MaxLineLength:PeopleUi.kt$PeopleUi$val favs = list.orEmpty().filter { it.starred }.map { ct -&gt; if (s.preferNickname) ct.copy(displayName = SecondLines.displayName(ct, idx.extras[ct.id], true)) else ct }</ID>
@@ -1237,19 +1157,15 @@
     <ID>MaxLineLength:PickerScreen.kt$PickKind.CONTACT -&gt; if (multiple) stringResource(R.string.picker_choose_contacts) else stringResource(R.string.picker_choose_contact)</ID>
     <ID>MaxLineLength:PickerScreen.kt$arrayOf(ContactsContract.Contacts._ID, ContactsContract.Contacts.LOOKUP_KEY, ContactsContract.Contacts.DISPLAY_NAME_PRIMARY, ContactsContract.Contacts.PHOTO_THUMBNAIL_URI)</ID>
     <ID>MaxLineLength:PickerScreen.kt$arrayOf(ContactsContract.Data._ID, ContactsContract.Data.CONTACT_ID, ContactsContract.Data.DISPLAY_NAME_PRIMARY, valueCol, typeCol, labelCol, ContactsContract.Data.PHOTO_THUMBNAIL_URI)</ID>
-    <ID>MaxLineLength:PipCallCard.kt$Modifier.padding(top = 2.dp).clip(RoundedCornerShape(8.dp)).background(scheme.errorContainer).padding(horizontal = 6.dp, vertical = 1.dp)</ID>
     <ID>MaxLineLength:PlanMeter.kt$PlanConfig.Companion$fun decodeList(s: String?): List&lt;PlanConfig&gt;</ID>
     <ID>MaxLineLength:PostCallCard.kt$Action(Icons.AutoMirrored.Rounded.Chat, stringResource(R.string.postcall_message_or_call)) { onChoice(PostCallChoice.MessageOn(number, call.accountId)) }</ID>
     <ID>MaxLineLength:PrivacyScreen.kt$Text(stringResource(if (hasInternet) R.string.set_privacy_internet_present else R.string.set_no_internet), style = MaterialTheme.typography.titleMedium)</ID>
-    <ID>MaxLineLength:PrivacyScreen.kt$TopAppBar(title = { Text(settingTitle("privacy_dashboard")) }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.set_back)) } })</ID>
     <ID>MaxLineLength:PrivacyScreen.kt$colors = CardDefaults.cardColors(containerColor = if (hasInternet) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.primaryContainer)</ID>
     <ID>MaxLineLength:PrivacyScreen.kt$if</ID>
     <ID>MaxLineLength:PrivacyScreen.kt$leadingContent = { Icon(if (granted) Icons.Rounded.CheckCircle else Icons.Rounded.RadioButtonUnchecked, null, tint = if (granted) CallColors.Accept else MaterialTheme.colorScheme.outline) }</ID>
     <ID>MaxLineLength:PrivacyScreen.kt$supportingContent = { Text(stringResource(if (s.secureScreen) R.string.set_privacy_screenshots_hidden else R.string.set_privacy_screenshots_allowed)) }</ID>
     <ID>MaxLineLength:PrivacyScreens.kt$LinkRow</ID>
     <ID>MaxLineLength:PrivacyScreens.kt$Text((if (e.viaDirectory) stringResource(R.string.pn_directory_suffix, outcome) else outcome) + " · " + Format.shortWhen(context, e.time))</ID>
-    <ID>MaxLineLength:PrivacyScreens.kt$TopAppBar(title = { Text(stringResource(R.string.pn_title)) }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.dc_back)) } }, scrollBehavior = barTint)</ID>
-    <ID>MaxLineLength:PrivacyScreens.kt$TopAppBar(title = { Text(stringResource(R.string.privacy_who_can_see)) }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.dc_back)) } }, scrollBehavior = barTint)</ID>
     <ID>MaxLineLength:PrivacyScreens.kt$if (st.log.isNotEmpty()) item { TextButton({ access.clearLog() }, Modifier.padding(horizontal = 8.dp)) { Text(stringResource(R.string.pn_clear_log)) } }</ID>
     <ID>MaxLineLength:PrivateNameAccess.kt$PrivateNameAccess$LookupOutcome.entries.firstOrNull { it.name == o.optString("o") }?.let { LookupLogEntry(o.getString("p"), o.getLong("t"), it, o.optBoolean("d")) }</ID>
     <ID>MaxLineLength:PrivateNameAccess.kt$PrivateNameAccess$list.forEach { arr.put(JSONObject().put("p", it.packageName).put("t", it.time).put("o", it.outcome.name).apply { if (it.viaDirectory) put("d", true) }) }</ID>
@@ -1307,7 +1223,6 @@
     <ID>MaxLineLength:RecentsTab.kt$SwipeAction.MESSAGE_ON -&gt; g.contact?.let { quick.message(it, g.number, ask = true) } ?: run { messageFor = g.number to g.latest.accountId }</ID>
     <ID>MaxLineLength:RecentsTab.kt$Text(parts.joinToString(stringResource(R.string.main_separator)), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))</ID>
     <ID>MaxLineLength:RecentsTab.kt$if (enabled) ListItem(headlineContent = { Text(stringResource(label)) }, leadingContent = { Icon(icon, null) }, modifier = Modifier.clickable(onClick = onClick))</ID>
-    <ID>MaxLineLength:RecentsTab.kt$modifier</ID>
     <ID>MaxLineLength:RecentsTab.kt$private</ID>
     <ID>MaxLineLength:RecentsTab.kt$row(R.string.home_create_contact, Icons.Rounded.PersonAdd, hasNumber &amp;&amp; g.contact == null &amp;&amp; g.vaultId == null) { act { open(Routes.edit(phone = g.number)) } }</ID>
     <ID>MaxLineLength:RecentsTab.kt$row(R.string.recents_add_to_contact, Icons.Rounded.PersonAdd, hasNumber &amp;&amp; g.contact == null &amp;&amp; g.vaultId == null) { act { open(Routes.pick(g.number)) } }</ID>
@@ -1333,10 +1248,8 @@
     <ID>MaxLineLength:RestoreFlow.kt$Row(verticalAlignment = Alignment.CenterVertically) { Checkbox(applyConflicts, { applyConflicts = it }); Text(stringResource(R.string.rst_apply_conflicts)) }</ID>
     <ID>MaxLineLength:RestoreFlow.kt$dismissButton = { TextButton({ scope.launch { repo.discardPendingRestore(); repo.undoLastRestore(); vm.toast(res.getString(R.string.rst_undone)); onDone() } }) { Text(stringResource(R.string.dc_undo)) } }</ID>
     <ID>MaxLineLength:RestoreFlow.kt$if (sum.toDelete &gt; 0) Text(pluralStringResource(R.plurals.rst_to_delete, sum.toDelete, sum.toDelete), color = MaterialTheme.colorScheme.error)</ID>
-    <ID>MaxLineLength:RestoreFlow.kt$runCatching { Unlock.Recovery(RecoveryKey.parse(secret)) }.getOrElse { error = res.getString(R.string.rst_not_recovery); return@TextButton }</ID>
     <ID>MaxLineLength:RestoreFlow.kt$val blockedLog = if (report.blockedLog &gt; 0) res.getString(R.string.main_separator) + res.getQuantityString(R.plurals.rst_blocked_log, report.blockedLog, report.blockedLog) else ""</ID>
     <ID>MaxLineLength:RestoreFlow.kt$val unmatched = if (report.unmatched &gt; 0) res.getString(R.string.main_separator) + res.getQuantityString(R.plurals.circle_restore_unmatched, report.unmatched, report.unmatched) else ""</ID>
-    <ID>MaxLineLength:ReturnToCallChip.kt$Text(text, color = Color.White, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))</ID>
     <ID>MaxLineLength:RingFacts.kt$RingExplainer$is NoRing.Silenced -&gt; r.reason.let { s -&gt; if (s.startsWith("Silenced", ignoreCase = true) || s.startsWith("Blocked", ignoreCase = true)) s else "Silenced: ${lower(s)}" }</ID>
     <ID>MaxLineLength:RingFactsTest.kt$RingFactsTest$base.copy(vibrate = true, ringtone = RingtoneSource.LABEL, ringtoneDetail = "Family", ringMillis = 8_000, outcome = RingOutcome.ANSWERED, answeredRoute = AnswerRoute.BLUETOOTH, answeredDevice = "Car kit", ringLoud = true)</ID>
     <ID>MaxLineLength:RingFactsTest.kt$RingFactsTest$val list = listOf(base, base.copy(startedAt = 2_000, ringtone = RingtoneSource.RULE, ringtoneDetail = "Plumber", outcome = RingOutcome.ANSWERED, answeredRoute = AnswerRoute.BLUETOOTH, answeredDevice = "Car"))</ID>
@@ -1440,8 +1353,6 @@
     <ID>MaxLineLength:SimSettingsScreen.kt$SegmentedButton</ID>
     <ID>MaxLineLength:SimSettingsScreen.kt$Toggle(stringResource(R.string.hist_plan_incoming), stringResource(R.string.hist_plan_incoming_summary), plan.countIncoming) { save(plan.copy(countIncoming = it)) }</ID>
     <ID>MaxLineLength:SimSettingsScreen.kt$Toggle(stringResource(R.string.hist_plan_international), stringResource(R.string.hist_plan_international_summary), plan.countInternational) { save(plan.copy(countInternational = it)) }</ID>
-    <ID>MaxLineLength:SimSettingsScreen.kt$TopAppBar(title = { Text(sim?.label ?: stringResource(R.string.hist_filter_sim)) }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.dc_back)) } })</ID>
-    <ID>MaxLineLength:SimSettingsScreen.kt$TopAppBar(title = { Text(stringResource(R.string.hist_sims_title)) }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.dc_back)) } })</ID>
     <ID>MaxLineLength:SimSettingsScreen.kt$colors = CardDefaults.cardColors(containerColor = if (u.isNear) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.secondaryContainer)</ID>
     <ID>MaxLineLength:SimSettingsScreen.kt$listOf(50, 70, 80, 90, 100).forEach { pc -&gt; DropdownMenuItem({ Text(stringResource(R.string.hist_percent, pc)) }, onClick = { warnMenu = false; save(plan.copy(warnAtPercent = pc)) }) }</ID>
     <ID>MaxLineLength:SimSettingsScreen.kt$supportingContent = { Text(stringResource(if (plan.cycleStartDay &gt; 28) R.string.hist_plan_renews_day_last else R.string.hist_plan_renews_day, plan.cycleStartDay)) }</ID>
@@ -1454,10 +1365,12 @@
     <ID>MaxLineLength:SimpleSetupScreens.kt$Text(r.contact?.let { stringResource(R.string.simple_matched, it.displayName) } ?: stringResource(R.string.simple_not_in_contacts))</ID>
     <ID>MaxLineLength:SimpleSetupScreens.kt$Text(stringResource(R.string.simple_import_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)</ID>
     <ID>MaxLineLength:SimpleSetupScreens.kt$if</ID>
-    <ID>MaxLineLength:SimpleSetupScreens.kt$item("decline") { SwitchRow(stringResource(R.string.simple_confirm_decline), stringResource(R.string.simple_confirm_decline_body), cfg.confirmDecline, Icons.Rounded.HelpOutline) { v -&gt; store.updateSimple { it.copy(confirmDecline = v) } } }</ID>
     <ID>MaxLineLength:SimpleSetupScreens.kt$item("keypad") { SwitchRow(stringResource(R.string.simple_keypad), stringResource(R.string.simple_keypad_body), cfg.showKeypad, Icons.Rounded.Dialpad) { v -&gt; store.updateSimple { it.copy(showKeypad = v) } } }</ID>
     <ID>MaxLineLength:SimpleSetupScreens.kt$item("speak") { SwitchRow(stringResource(R.string.simple_speak), stringResource(R.string.simple_speak_body), cfg.speakName, Icons.Rounded.RecordVoiceOver) { v -&gt; store.updateSimple { it.copy(speakName = v) } } }</ID>
     <ID>MaxLineLength:SimpleSetupScreens.kt$val shown = remember(q, contacts) { contacts.filter { c -&gt; c.phones.any { SimpleSetup.dialable(it.number) != null } &amp;&amp; TextSearch.matches(q, c.displayName, c.phones.map { p -&gt; p.number }) }.take(200) }</ID>
+    <ID>MaxLineLength:SimpleTransfer.kt$SimpleTransfer$fun</ID>
+    <ID>MaxLineLength:SimpleTransfer.kt$SimpleTransfer$fun encryptFile(c: SimpleConfig, passphrase: CharArray): ByteArray</ID>
+    <ID>MaxLineLength:SimpleTransfer.kt$SimpleTransfer$private fun gzip(text: String): ByteArray</ID>
     <ID>MaxLineLength:SpamListStore.kt$SpamListStore$arrayOf(DocumentsContract.Document.COLUMN_DOCUMENT_ID, DocumentsContract.Document.COLUMN_DISPLAY_NAME, DocumentsContract.Document.COLUMN_LAST_MODIFIED)</ID>
     <ID>MaxLineLength:SpamListStore.kt$SpamListStore$existing?.let { fresh.copy(enabled = it.enabled, mode = it.mode, threshold = it.threshold, action = it.action, useRanges = it.useRanges, notify = it.notify, suppressed = it.suppressed) } ?: fresh</ID>
     <ID>MaxLineLength:SpamListStore.kt$SpamListStore$return InstallResult.Failed("This update is signed by a different key (${p.fingerprint ?: "unsigned"}) than the installed list (${existing.fingerprint})")</ID>
@@ -1475,7 +1388,6 @@
     <ID>MaxLineLength:SpamListsScreen.kt$if (added.isNotEmpty()) " (" + added.take(3).joinToString { bidiLtr(Format.number(it.call.number, vm.countryIso)) } + if (added.size &gt; 3) "…)" else ")" else ""</ID>
     <ID>MaxLineLength:SpamListsScreen.kt$if (m.publisher.isNotBlank()) Text(stringResource(R.string.blk_from, m.publisher) + (m.licence.takeIf { it.isNotBlank() }?.let { " · $it" } ?: ""))</ID>
     <ID>MaxLineLength:SpamListsScreen.kt$if (pk.publisher.isNotBlank() || pk.licence.isNotBlank()) Text(listOf(pk.publisher, pk.licence).filter { it.isNotBlank() }.joinToString(" · "), style = MaterialTheme.typography.bodySmall)</ID>
-    <ID>MaxLineLength:SpamListsScreen.kt$if (pk.ranges &gt; 0) ToggleRow(stringResource(R.string.blk_match_ranges), stringResource(R.string.blk_match_ranges_help), pk.useRanges) { v -&gt; scope.launch { vm.c.lists.setPack(pk.id) { it.copy(useRanges = v) } } }</ID>
     <ID>MaxLineLength:SpamListsScreen.kt$if (stale) Text(pluralStringResource(R.plurals.blk_out_of_date_days, pk.ttlDays, pk.ttlDays), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)</ID>
     <ID>MaxLineLength:SpamListsScreen.kt$is SpamListStore.InstallResult.Installed -&gt; vm.toast(res.getString(if (r.replaced) R.string.blk_updated_toast else R.string.blk_added_toast))</ID>
     <ID>MaxLineLength:SpamListsScreen.kt$stringResource(R.string.blk_checked_ago, if (state.folderCheckedAt &gt; 0) ago(state.folderCheckedAt, now) else stringResource(R.string.blk_never))</ID>
@@ -1484,7 +1396,6 @@
     <ID>MaxLineLength:SpeakCallerName.kt$(nm == null || nm.currentInterruptionFilter == NotificationManager.INTERRUPTION_FILTER_ALL || nm.currentInterruptionFilter == NotificationManager.INTERRUPTION_FILTER_UNKNOWN)</ID>
     <ID>MaxLineLength:SpeakCallerName.kt$AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE).setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build()</ID>
     <ID>MaxLineLength:SpeedDialScreen.kt$ListItem</ID>
-    <ID>MaxLineLength:SpeedDialScreen.kt$TopAppBar(title = { Text(settingTitle("speed_dial")) }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.set_back)) } })</ID>
     <ID>MaxLineLength:SpeedDialScreen.kt$trailingContent = { if (e != null) IconButton({ scope.launch { vm.c.prefs.clearSpeedDial(key) } }) { Icon(Icons.Rounded.Delete, stringResource(R.string.set_clear)) } }</ID>
     <ID>MaxLineLength:SpeedDialScreen.kt$val matches = contacts.orEmpty().filter { q.length &gt;= 2 &amp;&amp; it.phones.isNotEmpty() &amp;&amp; TextSearch.matches(q, it.displayName, it.phones.map { p -&gt; p.number }) }.take(5)</ID>
     <ID>MaxLineLength:StoreSections.kt$ContactNotesBackup$if (meta.countCallNote(key, date, text) == 0) meta.addCallNote(CallNoteEntity(numberKey = key, callDate = date, text = text, createdAt = o.optLong("c", date)))</ID>
@@ -1513,14 +1424,11 @@
     <ID>MaxLineLength:TemporaryContacts.kt$Surface</ID>
     <ID>MaxLineLength:TemporaryContacts.kt$TemporaryItem(c?.displayName ?: t.name ?: fallback, c?.phones?.firstOrNull()?.number, t.expiresAt, c?.id ?: t.contactId, t.lookupKey, null, t.purgeHistory)</ID>
     <ID>MaxLineLength:TemporaryContacts.kt$Text(listOfNotNull(timeLeft(LocalResources.current, t.expiresAt), t.number?.let { DataL10n.ltr(Format.number(it, countryIso)) }).joinToString(" · "))</ID>
-    <ID>MaxLineLength:TemporaryContacts.kt$confirmButton = { TextButton({ chosen?.let { onSave(name, it, deleteHistory, visible) } }, enabled = chosen != null) { Text(if (visible) stringResource(R.string.dc_save) else stringResource(R.string.temp_save_privately)) } }</ID>
-    <ID>MaxLineLength:TemporaryContacts.kt$confirmButton = { TextButton({ deleteFor = null; scope.launch { TemporaryContactActions.deleteNow(vm, t) } }) { Text(stringResource(R.string.dc_delete)) } }</ID>
     <ID>MaxLineLength:TemporaryContacts.kt$fun</ID>
     <ID>MaxLineLength:TemporaryContacts.kt$if (t.vaultId != null) Icon(Icons.Rounded.Lock, stringResource(R.string.temp_private), Modifier.padding(end = 4.dp).padding(top = 1.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)</ID>
     <ID>MaxLineLength:TimeMachine.kt$TimeMachine$keep.forEach { idx -&gt; idx.contacts.values.forEach { h -&gt; runCatching { Snapshots.load(store, h) }.getOrNull()?.let { r -&gt; photoHashes(r).forEach { referenced += it } } } }</ID>
     <ID>MaxLineLength:TimeMachineScreens.kt$(ch.addedRows.mapNotNull { describe(res, it) }.map { "+ $it" } + ch.removedRows.mapNotNull { describe(res, it) }.map { "− $it" }).take(4).joinToString("\n")</ID>
     <ID>MaxLineLength:TimeMachineScreens.kt$TextButton({ scope.launch { withContext(Dispatchers.IO) { vm.c.records.insert(r, target = null) }; vm.toast(res.getString(R.string.tm_restored_name, r.displayName)); round++ } }) { Text(stringResource(R.string.dc_restore)) }</ID>
-    <ID>MaxLineLength:TimeMachineScreens.kt$TopAppBar(title = { Text(stringResource(R.string.tm_history_title)) }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.dc_back)) } })</ID>
     <ID>MaxLineLength:TimeMachineScreens.kt$d.added.forEach { r -&gt; item { ListItem(headlineContent = { Text(r.displayName) }, supportingContent = { Text(lines(res, r).take(1).joinToString()) }) } }</ID>
     <ID>MaxLineLength:TimeMachineScreens.kt$listOf(1L to R.string.tm_since_yesterday, 7L to R.string.tm_last_week, 30L to R.string.tm_last_month, 180L to R.string.tm_6_months)</ID>
     <ID>MaxLineLength:TimeMachineScreens.kt$val id = withContext(Dispatchers.IO) { vm.c.contacts.contacts.value.orEmpty().firstOrNull { it.lookupKey == ch.after.key }?.id }</ID>
@@ -1528,12 +1436,10 @@
     <ID>MaxLineLength:TransferScreen.kt$File(dir, shareName.filter { it.isLetterOrDigit() || it == ' ' }.trim().ifBlank { "list" }.replace(' ', '-') + ".parleylist").apply { writeBytes(ex.bytes) }</ID>
     <ID>MaxLineLength:TransferScreen.kt$ImportDraft$private</ID>
     <ID>MaxLineLength:TransferScreen.kt$OutlinedTextField(shareName, { shareName = it }, label = { Text(stringResource(R.string.blk_list_name)) }, singleLine = true, modifier = Modifier.fillMaxWidth())</ID>
-    <ID>MaxLineLength:TransferScreen.kt$TopAppBar(title = { Text(stringResource(R.string.blk_transfer_title)) }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.set_back)) } })</ID>
     <ID>MaxLineLength:TransferScreen.kt$checked.take(5).forEach { Text("• ${bidiLtrIfNumber(it.pattern)} (${typeLabel(it.type)})", style = MaterialTheme.typography.bodySmall) }</ID>
     <ID>MaxLineLength:TransferScreen.kt$header.forEachIndexed { i, h -&gt; FilterChip(selected == i, { onPick(i) }, label = { Text(h.take(16).ifBlank { stringResource(R.string.blk_column_n, i + 1) }) }) }</ID>
     <ID>MaxLineLength:TransferScreen.kt$if (c.error != null) null else BlockRule(pattern = c.pattern, type = r.type, kind = r.kind, note = r.note ?: res.getString(R.string.blk_imported_from, d.source))</ID>
     <ID>MaxLineLength:TransferScreen.kt$if (parsed.size &gt; checked.size) " · " + (parsed.size - checked.size).let { n -&gt; pluralStringResource(R.plurals.blk_skipped_n, n, n) } else ""</ID>
-    <ID>MaxLineLength:TransferScreen.kt$text = { OutlinedTextField(pw, { pw = it }, label = { Text(stringResource(R.string.blk_password)) }, singleLine = true, visualTransformation = PasswordVisualTransformation()) }</ID>
     <ID>MaxLineLength:TransferScreen.kt$val send = Intent(Intent.ACTION_SEND).setType("application/octet-stream").putExtra(Intent.EXTRA_STREAM, uri).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)</ID>
     <ID>MaxLineLength:TripScreen.kt$EmptyState(Icons.Rounded.TravelExplore, stringResource(R.string.trip_empty_title), stringResource(R.string.trip_empty_body), Modifier.padding(top = 16.dp))</ID>
     <ID>MaxLineLength:TripScreen.kt$EmptyState(Icons.Rounded.TravelExplore, stringResource(R.string.trip_none, city.trim()), stringResource(R.string.trip_none_body), Modifier.padding(top = 16.dp))</ID>
@@ -1575,7 +1481,6 @@
     <ID>MaxLineLength:VaultDetailScreen.kt$DropdownMenuItem({ Text(stringResource(R.string.vault_share_qr)) }, leadingIcon = { Icon(Icons.Rounded.Lock, null) }, onClick = { menu = false; shareQr = true })</ID>
     <ID>MaxLineLength:VaultDetailScreen.kt$LazyColumn</ID>
     <ID>MaxLineLength:VaultDetailScreen.kt$Text(stringResource(R.string.vault_only_in_parley), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)</ID>
-    <ID>MaxLineLength:VaultDetailScreen.kt$confirmButton = { TextButton({ confirmDelete = false; scope.launch { vm.c.vault.delete(id); back() } }) { Text(stringResource(R.string.dc_delete)) } }</ID>
     <ID>MaxLineLength:VaultDetailScreen.kt$d.addresses.forEachIndexed { i, a -&gt; item { GroupDataRow(Icons.Rounded.LocationOn, i == 0, a.formatted, addressLabel, onClick = { Intents.map(context, a.formatted) }) } }</ID>
     <ID>MaxLineLength:VaultDetailScreen.kt$d.emails.forEachIndexed { i, e -&gt; item { GroupDataRow(Icons.Rounded.Email, i == 0, e.value, null, onClick = { Intents.email(context, e.value) }) } }</ID>
     <ID>MaxLineLength:VaultDetailScreen.kt$d.websites.forEachIndexed { i, w -&gt; item { GroupDataRow(Icons.Rounded.Language, i == 0, w.value, websiteLabel, onClick = { Intents.web(context, w.value) }) } }</ID>
@@ -1617,9 +1522,10 @@
     <ID>NestedBlockDepth:ContactRecordStore.kt$ContactRecordStore$private fun readChunk(ids: List&lt;Long&gt;, titles: Map&lt;Long, String&gt;, fullPhoto: Boolean): List&lt;ContactRecord&gt;</ID>
     <ID>NestedBlockDepth:ContactsRepository.kt$ContactsRepository$fun labelTitlesOrNull(contactId: Long): Set&lt;String&gt;?</ID>
     <ID>NestedBlockDepth:ContactsRepository.kt$ContactsRepository$private fun blankNames(ids: List&lt;Long&gt;): Map&lt;Long, String&gt;</ID>
-    <ID>NestedBlockDepth:ContactsRepository.kt$ContactsRepository$private fun loadAll(): List&lt;ContactSummary&gt;</ID>
+    <ID>NestedBlockDepth:ContactsRepository.kt$ContactsRepository$private fun summaries(ids: List&lt;Long&gt;?): List&lt;Pair&lt;Long, ContactSummary&gt;&gt;</ID>
     <ID>NestedBlockDepth:CsvColumnMapping.kt$CsvColumnMapping$fun read( input: Reader, delimiter: Char, mapping: List&lt;ColumnTarget&gt;, hasHeader: Boolean, report: ImportReportBuilder, onRecord: (ParsedCard) -&gt; Unit, )</ID>
     <ID>NestedBlockDepth:FakeContactsProvider.kt$FakeContactsProvider$private fun phoneLookup(number: String, projection: Array&lt;out String&gt;?, work: Boolean): Cursor</ID>
+    <ID>NestedBlockDepth:FolderSync.kt$FolderSync$private suspend fun run(allowMassDelete: Boolean): SyncReport</ID>
     <ID>NestedBlockDepth:ListImport.kt$Csv$fun parse(text: String, separator: Char = detectSeparator(text)): List&lt;List&lt;String&gt;&gt;</ID>
     <ID>NestedBlockDepth:ListImport.kt$ListImport$private fun walk(e: JsonElement, context: String?, out: MutableList&lt;ImportedRule&gt;)</ID>
     <ID>NestedBlockDepth:ListPack.kt$ListPack$fun parse(zip: ByteArray): ParsedPack</ID>
@@ -1646,77 +1552,35 @@
     <ID>NoConsecutiveBlankLines:HistoryFilter.kt$HistoryFilter$ </ID>
     <ID>NoConsecutiveBlankLines:KeypadLettersSetting.kt$ </ID>
     <ID>NoConsecutiveBlankLines:PeopleLogicTest.kt$PeopleLogicTest$ </ID>
-    <ID>NoConsecutiveBlankLines:PeopleNav.kt$ </ID>
     <ID>NoConsecutiveBlankLines:RecentsTab.kt$ </ID>
     <ID>NoConsecutiveBlankLines:VoicemailInbox.kt$ </ID>
     <ID>NoEmptyClassBody:CallCsvImport.kt$ImportPlan${ }</ID>
     <ID>NoUnusedImports:AppViewModel.kt$app.parley.AppViewModel.kt</ID>
     <ID>NoUnusedImports:BackupRepository.kt$app.parley.data.backup.BackupRepository.kt</ID>
-    <ID>NoUnusedImports:BlockingDialogs.kt$app.parley.ui.blocking.BlockingDialogs.kt</ID>
     <ID>NoUnusedImports:BlockingNotifier.kt$app.parley.blocking.BlockingNotifier.kt</ID>
-    <ID>NoUnusedImports:BlockingScreen.kt$app.parley.ui.blocking.BlockingScreen.kt</ID>
-    <ID>NoUnusedImports:BlockingUi.kt$app.parley.ui.blocking.BlockingUi.kt</ID>
     <ID>NoUnusedImports:CallExport.kt$app.parley.common.history.CallExport.kt</ID>
-    <ID>NoUnusedImports:CallGlance.kt$app.parley.ui.home.CallGlance.kt</ID>
-    <ID>NoUnusedImports:CallHistorySettings.kt$app.parley.ui.history.CallHistorySettings.kt</ID>
     <ID>NoUnusedImports:CallLogIndex.kt$app.parley.common.history.CallLogIndex.kt</ID>
     <ID>NoUnusedImports:CallScreener.kt$app.parley.data.CallScreener.kt</ID>
-    <ID>NoUnusedImports:CallTimeEditors.kt$app.parley.ui.calltime.CallTimeEditors.kt</ID>
-    <ID>NoUnusedImports:CallTimeScreen.kt$app.parley.ui.calltime.CallTimeScreen.kt</ID>
-    <ID>NoUnusedImports:CallsSettings.kt$app.parley.ui.settings.CallsSettings.kt</ID>
     <ID>NoUnusedImports:CircleRepository.kt$app.parley.data.circle.CircleRepository.kt</ID>
-    <ID>NoUnusedImports:CombinedSurfaces.kt$app.parley.ui.home.CombinedSurfaces.kt</ID>
-    <ID>NoUnusedImports:ContactCallTimeRows.kt$app.parley.ui.calltime.ContactCallTimeRows.kt</ID>
-    <ID>NoUnusedImports:ContactMessaging.kt$app.parley.ui.contact.ContactMessaging.kt</ID>
-    <ID>NoUnusedImports:ContactTimelineScreen.kt$app.parley.ui.contact.ContactTimelineScreen.kt</ID>
     <ID>NoUnusedImports:ContactsRepository.kt$app.parley.data.ContactsRepository.kt</ID>
-    <ID>NoUnusedImports:ContactsTab.kt$app.parley.ui.home.ContactsTab.kt</ID>
     <ID>NoUnusedImports:DeletedCalls.kt$app.parley.ui.history.DeletedCalls.kt</ID>
-    <ID>NoUnusedImports:EventDateDialog.kt$app.parley.ui.contact.EventDateDialog.kt</ID>
     <ID>NoUnusedImports:FollowUpWorker.kt$app.parley.work.FollowUpWorker.kt</ID>
-    <ID>NoUnusedImports:HomeScreen.kt$app.parley.ui.home.HomeScreen.kt</ID>
-    <ID>NoUnusedImports:IntroduceScreen.kt$app.parley.messaging.IntroduceScreen.kt</ID>
-    <ID>NoUnusedImports:JournalScreen.kt$app.parley.ui.journal.JournalScreen.kt</ID>
-    <ID>NoUnusedImports:KeypadLettersSetting.kt$app.parley.ui.settings.KeypadLettersSetting.kt</ID>
-    <ID>NoUnusedImports:KeypadPill.kt$app.parley.ui.home.KeypadPill.kt</ID>
-    <ID>NoUnusedImports:KeypadTab.kt$app.parley.ui.home.KeypadTab.kt</ID>
-    <ID>NoUnusedImports:LabelScreens.kt$app.parley.ui.people.LabelScreens.kt</ID>
-    <ID>NoUnusedImports:LookSettings.kt$app.parley.ui.people.LookSettings.kt</ID>
     <ID>NoUnusedImports:MainActivity.kt$app.parley.MainActivity.kt</ID>
     <ID>NoUnusedImports:MarkdownExport.kt$app.parley.data.extras.MarkdownExport.kt</ID>
     <ID>NoUnusedImports:MergePlanner.kt$app.parley.common.backup.MergePlanner.kt</ID>
-    <ID>NoUnusedImports:MessagedRecordSection.kt$app.parley.messaging.MessagedRecordSection.kt</ID>
-    <ID>NoUnusedImports:MessagingDialogs.kt$app.parley.messaging.MessagingDialogs.kt</ID>
     <ID>NoUnusedImports:Messengers.kt$app.parley.data.Messengers.kt</ID>
-    <ID>NoUnusedImports:NotificationHealth.kt$app.parley.ui.calltime.NotificationHealth.kt</ID>
     <ID>NoUnusedImports:ParleyRoot.kt$app.parley.ui.ParleyRoot.kt</ID>
     <ID>NoUnusedImports:PeopleContainer.kt$app.parley.data.people.PeopleContainer.kt</ID>
-    <ID>NoUnusedImports:PeopleNav.kt$app.parley.ui.people.PeopleNav.kt</ID>
     <ID>NoUnusedImports:PeopleUi.kt$app.parley.ui.people.PeopleUi.kt</ID>
-    <ID>NoUnusedImports:PickerActivity.kt$app.parley.picker.PickerActivity.kt</ID>
-    <ID>NoUnusedImports:QrResultSheet.kt$app.parley.ui.qr.QrResultSheet.kt</ID>
-    <ID>NoUnusedImports:RecentsTab.kt$app.parley.ui.home.RecentsTab.kt</ID>
-    <ID>NoUnusedImports:ReturnToCallChip.kt$app.parley.ui.calltime.ReturnToCallChip.kt</ID>
-    <ID>NoUnusedImports:RuleEditorScreen.kt$app.parley.ui.blocking.RuleEditorScreen.kt</ID>
-    <ID>NoUnusedImports:SavedFilters.kt$app.parley.ui.history.SavedFilters.kt</ID>
-    <ID>NoUnusedImports:ScheduleEditor.kt$app.parley.ui.blocking.ScheduleEditor.kt</ID>
     <ID>NoUnusedImports:ScreeningStatusCard.kt$app.parley.ui.blocking.ScreeningStatusCard.kt</ID>
-    <ID>NoUnusedImports:SettingsPages.kt$app.parley.ui.settings.SettingsPages.kt</ID>
     <ID>NoUnusedImports:SettingsRepository.kt$app.parley.data.SettingsRepository.kt</ID>
-    <ID>NoUnusedImports:SimSettingsScreen.kt$app.parley.ui.history.SimSettingsScreen.kt</ID>
-    <ID>NoUnusedImports:Theme.kt$app.parley.ui.Theme.kt</ID>
-    <ID>NoUnusedImports:UssdDialogs.kt$app.parley.ui.calltime.UssdDialogs.kt</ID>
     <ID>NoUnusedImports:VCardRegressionTest.kt$app.parley.common.vcard.VCardRegressionTest.kt</ID>
-    <ID>NoUnusedImports:VaultDetailScreen.kt$app.parley.ui.vault.VaultDetailScreen.kt</ID>
     <ID>NoUnusedImports:VaultRepository.kt$app.parley.data.vault.VaultRepository.kt</ID>
     <ID>SpacingAroundDot:IntroduceScreen.kt$.</ID>
     <ID>SpacingAroundKeyword:ContactDetailScreen.kt$else</ID>
     <ID>SpacingAroundOperators:BlockingText.kt$BlockingText$=</ID>
-    <ID>SpacingAroundOperators:MainActivity.kt$MainActivity$-&gt;</ID>
     <ID>SpacingBetweenDeclarationsWithAnnotations:BlockingHooks.kt$@Composable fun row(label: String, icon: ImageVector, onClick: () -&gt; Unit)</ID>
     <ID>SpacingBetweenDeclarationsWithAnnotations:CallHistory.kt$CallHistory$@Volatile private var dbRef: HistoryDatabase? = null</ID>
-    <ID>SpacingBetweenDeclarationsWithAnnotations:MessagingRoutes.kt$MessagingInbox$@Volatile var csvImport: CsvImportRequest? = null</ID>
-    <ID>SpacingBetweenDeclarationsWithAnnotations:MessagingRoutes.kt$MessagingInbox$@Volatile var introTargets: List&lt;IntroQueue.Target&gt; = emptyList()</ID>
     <ID>SpacingBetweenDeclarationsWithAnnotations:Phone.kt$PhoneEnv$@Suppress("DEPRECATION") val info = subs.firstOrNull { subId != null &amp;&amp; it.subscriptionId == subId } // Android 10 and some OEMs: the handle id is the ICCID or the subscription id itself. ?: subs.firstOrNull { it.iccId == accountId || it.subscriptionId.toString() == accountId }</ID>
     <ID>SpacingBetweenDeclarationsWithAnnotations:QrImageDecoder.kt$QrImageDecoder$@Suppress("UNCHECKED_CAST") val segments = r.resultMetadata?.get(ResultMetadataType.BYTE_SEGMENTS) as? List&lt;ByteArray&gt; ?: return text</ID>
     <ID>SpacingBetweenDeclarationsWithAnnotations:RecentsTab.kt$@Composable fun row(label: Int, icon: ImageVector, enabled: Boolean = true, onClick: () -&gt; Unit)</ID>
@@ -1744,18 +1608,6 @@
     <ID>SpacingBetweenDeclarationsWithComments:CallClass.kt$CallClass.NO_ANSWER$/** Outgoing, nobody answered: dashed outline ("No answer"). */</ID>
     <ID>SpacingBetweenDeclarationsWithComments:CallClass.kt$CallClass.OUTGOING$/** Outgoing calls are outlined: you started them, nothing to act on. */</ID>
     <ID>SpacingBetweenDeclarationsWithComments:CallClock.kt$CallClock$/** Calls a limit has ended: never timed again while they finish disconnecting. */</ID>
-    <ID>SpacingBetweenDeclarationsWithComments:CallManager.kt$CallManager$/** After silencing Telecom, wait at least this long, and at most the max for its ringtone to stop. */</ID>
-    <ID>SpacingBetweenDeclarationsWithComments:CallManager.kt$CallManager$/** Calls answered from Parley (the answer buzz already confirmed them, so no connect buzz). */</ID>
-    <ID>SpacingBetweenDeclarationsWithComments:CallManager.kt$CallManager$/** Calls the user ended or cancelled themselves (never a "failure"). */</ID>
-    <ID>SpacingBetweenDeclarationsWithComments:CallManager.kt$CallManager$/** Calls whose "Block &amp; decline" is still writing the rule (no answering from Parley meanwhile). */</ID>
-    <ID>SpacingBetweenDeclarationsWithComments:CallManager.kt$CallManager$/** Calls whose caller lookup found no contact or private contact (V4 post-call card). */</ID>
-    <ID>SpacingBetweenDeclarationsWithComments:CallManager.kt$CallManager$/** How long "Block &amp; decline" waits for the rule before declining anyway. */</ID>
-    <ID>SpacingBetweenDeclarationsWithComments:CallManager.kt$CallManager$/** Last live state of each top-level call, to know whether the call that ended was the one in front. */</ID>
-    <ID>SpacingBetweenDeclarationsWithComments:CallManager.kt$CallManager$/** Like the platform ringer: 1 s on, 1 s off, repeated. */</ID>
-    <ID>SpacingBetweenDeclarationsWithComments:CallManager.kt$CallManager$/** Per call: the token of the tone playing now (a stop for another call's tone never touches it). */</ID>
-    <ID>SpacingBetweenDeclarationsWithComments:CallManager.kt$CallManager$/** Ringer state when each incoming call started ringing, completed when it ends. */</ID>
-    <ID>SpacingBetweenDeclarationsWithComments:CallManager.kt$CallManager$/** Ringing calls the user silenced with a hardware key (volume, power): the spoken name stops too. */</ID>
-    <ID>SpacingBetweenDeclarationsWithComments:CallManager.kt$CallManager$/** Screening outcome per call: verdict for the caller card and ringer plan. */</ID>
     <ID>SpacingBetweenDeclarationsWithComments:CircleRepository.kt$CircleRepository.&lt;no name provided&gt;$// Entries whose key isn't a current contact (not re-keyed yet, or the list couldn't be read) still go in,</ID>
     <ID>SpacingBetweenDeclarationsWithComments:CircleRepository.kt$CircleRepository.&lt;no name provided&gt;$// Lookup keys differ on another phone: fall back to a shared number, then to the same name.</ID>
     <ID>SpacingBetweenDeclarationsWithComments:ContactDetailScreen.kt$/** Calls [number], through the pre-call peek when there's something to remember and it's on. */</ID>
@@ -1775,8 +1627,6 @@
     <ID>SpacingBetweenDeclarationsWithComments:LookupPolicy.kt$LookupOutcome.OFF$/** Blocked: sharing private names is off. */</ID>
     <ID>SpacingBetweenDeclarationsWithComments:LookupPolicy.kt$LookupOutcome.RATE_LIMITED$/** Blocked: too many lookups. */</ID>
     <ID>SpacingBetweenDeclarationsWithComments:LookupPolicy.kt$LookupOutcome.REJECTED$/** Rejected: not a single phone number. */</ID>
-    <ID>SpacingBetweenDeclarationsWithComments:MainActivity.kt$MainActivity.Companion$/** "Save all…" from the number sheet; the text waits in [app.parley.messaging.MessagingInbox]. */</ID>
-    <ID>SpacingBetweenDeclarationsWithComments:MainActivity.kt$MainActivity.Companion$/** Opens the Scan QR screen (launcher shortcut, Quick Settings tile). */</ID>
     <ID>SpacingBetweenDeclarationsWithComments:MergePlanner.kt$RestoreMode.ADD_ALL$/** Insert every backup contact as new, no matching. */</ID>
     <ID>SpacingBetweenDeclarationsWithComments:MergePlanner.kt$RestoreMode.REPLACE$/** Delete existing contacts (after an automatic safety backup) and insert the backup. */</ID>
     <ID>SpacingBetweenDeclarationsWithComments:MessagingStore.kt$MessagingStore$/** "Forget messaged numbers after" N days (0 = never; call-history retention applies as well). */</ID>
@@ -1805,8 +1655,6 @@
     <ID>SpacingBetweenDeclarationsWithComments:NumberActionActivity.kt$NumberActionActivity.Stage.Emergency$/** An emergency number while Parley is locked: only its Call action, without asking for the unlock first. */</ID>
     <ID>SpacingBetweenDeclarationsWithComments:NumberActionActivity.kt$NumberActionActivity.Stage.Enter$/** "Message a number" (tile, launcher shortcut): an empty field with Paste and the country. */</ID>
     <ID>SpacingBetweenDeclarationsWithComments:NumberActionActivity.kt$NumberActionActivity.Stage.Message$/** [accountId]: the SIM of the call the number comes from (missed-call notification), for its country. */</ID>
-    <ID>SpacingBetweenDeclarationsWithComments:ParleyRoot.kt$Routes$/** History &amp; undo; [journal] opens it on one tab. */</ID>
-    <ID>SpacingBetweenDeclarationsWithComments:ParleyRoot.kt$Routes$/** [handshake]: X5, the id of the received card this editor was opened for (see HandshakeInbox). */</ID>
     <ID>SpacingBetweenDeclarationsWithComments:PeopleContainer.kt$PeopleContainer$/** Opt-in local crash capture. */</ID>
     <ID>SpacingBetweenDeclarationsWithComments:PeopleContainer.kt$PeopleContainer$/** Your own card. */</ID>
     <ID>SpacingBetweenDeclarationsWithComments:PhoneNumbers.kt$PhoneNumbers.LineSet$/** Fallback keys of every number (compared when the probe itself has no E.164 form). */</ID>
@@ -1836,8 +1684,6 @@
     <ID>SpacingBetweenDeclarationsWithComments:StoreSections.kt$SpamListsBackup.Companion$/** User packs are small hand-made lists; a huge one stays out rather than bloat every backup. */</ID>
     <ID>SpacingBetweenDeclarationsWithComments:SwipeGesture.kt$SwipeIntent.HORIZONTAL$/** Clearly sideways: the row takes the gesture. */</ID>
     <ID>SpacingBetweenDeclarationsWithComments:SwipeGesture.kt$SwipeIntent.VERTICAL$/** Up, down or diagonal: the list scrolls and the row leaves the gesture alone. */</ID>
-    <ID>SpacingBetweenDeclarationsWithComments:TelecomGraph.kt$TelecomDependencies$/** * Screening with everything the call path knows: the SIM's phone-account id (null on the * screening service, which never gets one) and the network caller name. */</ID>
-    <ID>SpacingBetweenDeclarationsWithComments:TelecomGraph.kt$TelecomDependencies$/** Intent for the main app: [dialpad] opens the keypad (used by "Add call"). */</ID>
     <ID>SpacingBetweenDeclarationsWithComments:VCardMapper.kt$VCardMapper$/** Writes TYPE tokens or an X-ABLabel for [spec]; returns the columns represented. */</ID>
     <ID>SpacingBetweenDeclarationsWithComments:VaultDetailScreen.kt$// For private contacts: the choice is kept in their encrypted record (needs the unlocked details).</ID>
     <ID>SpacingBetweenDeclarationsWithComments:VaultRepository.kt$VaultRepository.Companion$/** * 1: last 9 digits (before F7); 2: E.164 with the last digits only as a fallback; 3: E.164 plus the last * digits as an extra fallback for every number, with the region stored at save time. */</ID>
@@ -1927,7 +1773,7 @@
     <ID>UnusedParameter:BlockingScreen.kt$vm: AppViewModel</ID>
     <ID>UnusedParameter:HomeScreen.kt$appLock: Boolean</ID>
     <ID>UnusedParameter:HomeScreen.kt$vm: AppViewModel</ID>
-    <ID>UnusedParameter:SettingsPages.kt$open: (String) -&gt; Unit = {}</ID>
+    <ID>UnusedParameter:SettingsPages.kt$open: (Destination) -&gt; Unit = {}</ID>
     <ID>UnusedPrivateProperty:BackupRepository.kt$BackupRepository$val renamed = runCatching { DocumentsContract.renameDocument(cr, doc, finalName) }.getOrNull() ?: doc</ID>
     <ID>UnusedPrivateProperty:TemporaryContactStore.kt$TemporaryContactStore$attempt</ID>
     <ID>UseCheckOrError:BackupCryptoTest.kt$BackupCryptoTest$throw IllegalStateException()</ID>

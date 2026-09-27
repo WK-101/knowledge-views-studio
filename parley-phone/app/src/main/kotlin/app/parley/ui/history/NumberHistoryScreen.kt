@@ -1,5 +1,6 @@
 package app.parley.ui.history
 
+import app.parley.ui.Destination
 import androidx.compose.foundation.layout.Box
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -73,7 +74,7 @@ import app.parley.ui.LocalSnackbar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open: (String) -> Unit) {
+fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open: (Destination) -> Unit) {
     val context = LocalContext.current
     val res = LocalResources.current
     val scope = rememberCoroutineScope()

@@ -1,5 +1,6 @@
 package app.parley.ui.blocking
 
+import app.parley.ui.Destination
 import android.Manifest
 import android.content.Intent
 import android.provider.Settings
@@ -130,7 +131,7 @@ private val PRESETS = listOf(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun BlockingScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit = {}) {
+fun BlockingScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit = {}) {
     val context = LocalContext.current
     val res = LocalResources.current
     val scope = rememberCoroutineScope()
@@ -146,9 +147,9 @@ fun BlockingScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit = 
     fun toggle(k: String) {
         expanded = if (k in expanded) expanded - k else expanded + k
     }
-    var addNumber by remember { mutableStateOf(false) }
+    var addNumber by rememberSaveable { mutableStateOf(false) }
     var presetToApply by remember { mutableStateOf<Preset?>(null) }
-    var testNumber by remember { mutableStateOf("") }
+    var testNumber by rememberSaveable { mutableStateOf("") }
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Unit) {
         while (true) {
@@ -300,7 +301,7 @@ fun BlockingScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit = 
             item(key = "lists") {
                 val sum = vm.c.lists.summarize(lists, now)
                 val suggestion = BuiltInPacks.suggestedFor(vm.countryIso).firstOrNull { b -> lists.packs.none { it.id == b.id } && b.id !in lists.dismissedSuggestions }
-                Card(Modifier.fillMaxWidth().padding(16.dp).clickable { open(BlockingRoutes.LISTS) }) {
+                Card(Modifier.fillMaxWidth().padding(16.dp).clickable { open(BlockingRoutes.Lists) }) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.AutoMirrored.Rounded.PlaylistAddCheck, null)
@@ -434,19 +435,19 @@ fun BlockingScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit = 
                         TextButton({ BlockingDialogs.show(BlockingDialog.Test(testNumber.trim())) }, enabled = testNumber.isNotBlank()) { Text(stringResource(R.string.blk_test)) }
                     }
                     ListItem(
-                        modifier = Modifier.clickable { open(BlockingRoutes.DRY_RUN) },
+                        modifier = Modifier.clickable { open(BlockingRoutes.DryRun) },
                         leadingContent = { Icon(Icons.Rounded.History, null) },
                         headlineContent = { Text(stringResource(R.string.blk_tools_dry_run)) },
                         supportingContent = { Text(stringResource(R.string.blk_tools_dry_run_help)) },
                     )
                     ListItem(
-                        modifier = Modifier.clickable { open(BlockingRoutes.TEMPLATES) },
+                        modifier = Modifier.clickable { open(BlockingRoutes.Templates) },
                         leadingContent = { Icon(Icons.AutoMirrored.Rounded.PlaylistAddCheck, null) },
                         headlineContent = { Text(stringResource(R.string.blk_templates)) },
                         supportingContent = { Text(stringResource(R.string.blk_tools_templates_help)) },
                     )
                     ListItem(
-                        modifier = Modifier.clickable { open(BlockingRoutes.TRANSFER) },
+                        modifier = Modifier.clickable { open(BlockingRoutes.Transfer) },
                         leadingContent = { Icon(Icons.AutoMirrored.Rounded.PlaylistAddCheck, null) },
                         headlineContent = { Text(stringResource(R.string.blk_tools_transfer)) },
                         supportingContent = { Text(stringResource(R.string.blk_tools_transfer_help)) },
@@ -518,7 +519,7 @@ fun BlockingScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit = 
         )
     }
     if (addNumber) {
-        var n by remember { mutableStateOf("") }
+        var n by rememberSaveable { mutableStateOf("") }
         ConfirmDialog(
             title = stringResource(R.string.blk_block_a_number),
             text = null,
@@ -586,7 +587,7 @@ private fun OffHoursWho(vm: AppViewModel, oh: OffHours, onChange: (OffHours) -> 
 @Composable
 private fun SoundsSection(vm: AppViewModel, s: ScreeningSettings, set: ((ScreeningSettings) -> ScreeningSettings) -> Unit) {
     val context = LocalContext.current
-    var target by remember { mutableStateOf("") }
+    var target by rememberSaveable { mutableStateOf("") }
     val pick = rememberRingtonePicker { uri -> if (target == "repeat") set { it.copy(repeatRingtone = uri) } else set { it.copy(likelySpamRingtone = uri) } }
     SwitchRow(
         stringResource(R.string.blk_loud_favourites),
@@ -633,7 +634,7 @@ private fun SoundsSection(vm: AppViewModel, s: ScreeningSettings, set: ((Screeni
 
 @Composable
 private fun EmergencySection(vm: AppViewModel, s: ScreeningSettings, set: ((ScreeningSettings) -> ScreeningSettings) -> Unit) {
-    var n by remember { mutableStateOf("") }
+    var n by rememberSaveable { mutableStateOf("") }
     Text(
         stringResource(R.string.blk_emergency_extras_help),
         Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodySmall,

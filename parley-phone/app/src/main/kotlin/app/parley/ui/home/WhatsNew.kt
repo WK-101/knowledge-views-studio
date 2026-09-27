@@ -1,5 +1,6 @@
 package app.parley.ui.home
 
+import app.parley.ui.Destination
 import android.content.Context
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -46,7 +47,7 @@ private fun versionInfo(context: Context): Pair<Int, Boolean> = runCatching {
  * anything new arrives switched off and "Try it" opens where it can be turned on.
  */
 @Composable
-fun WhatsNewCard(vm: AppViewModel, open: (String) -> Unit, modifier: Modifier = Modifier) {
+fun WhatsNewCard(vm: AppViewModel, open: (Destination) -> Unit, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val ux by vm.c.ux.state.collectAsStateWithLifecycle()
     val (version, fresh) = remember { versionInfo(context) }

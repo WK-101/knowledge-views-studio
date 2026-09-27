@@ -90,7 +90,9 @@ class DataContainer(context: Context) {
     val peoplePrefs by lazy { PeoplePrefs(appContext, scope) }
     /** Spam-list packs (device-protected storage). */
     val lists by lazy { SpamListStore(appContext) }
-    val dialGuard by lazy { DialGuard(appContext, blocks, lists, { history.calls.value }, contacts) }
+    val dialGuard by lazy {
+        DialGuard(appContext, blocks, lists, { history.calls.value }, contacts) { n -> callLog.pastCalls(n, System.currentTimeMillis(), limit = 10) }
+    }
     // A label's SIM for people without a remembered SIM of their own.
     val placer by lazy { CallPlacer(appContext, sims, prefs).also { p -> p.fallbackSim = { n -> extras.labelSimFor(n) } } }
     val records by lazy { ContactRecordStore(appContext) }

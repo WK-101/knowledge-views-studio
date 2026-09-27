@@ -27,9 +27,15 @@ class DialGuard(
     private val context: Context,
     private val blocks: BlockRepository,
     private val lists: SpamListStore,
-    /** The call history (archive included), for "they called you once and hung up". */
+    /** The call history (archive included), for "they called you once and hung up"; null while it isn't loaded. */
     private val calls: () -> List<CallEntry>?,
     private val contacts: ContactsRepository,
+    /**
+     * Recent calls with one number, newest first, read straight from the call log. Used while [calls] isn't loaded:
+     * a process started for a call keeps the history closed, and that is exactly when a one-ring caller's missed-call
+     * notification and its "Call back" are built.
+     */
+    private val recentCallsWith: (String) -> List<CallEntry> = { emptyList() },
 ) {
     suspend fun check(number: String): List<DialWarning> = withContext(Dispatchers.IO) {
         runCatching { checkInternal(number) }.getOrDefault(emptyList())
@@ -58,7 +64,8 @@ class DialGuard(
     }
 
     private suspend fun wangiri(number: String, iso: String, type: LineType, region: String?): DialWarning? {
-        val lastIncoming = calls().orEmpty().firstOrNull { it.type != CallType.OUTGOING && PhoneNumbers.same(it.number, number, iso) } ?: return null
+        val history = calls() ?: recentCallsWith(number)
+        val lastIncoming = history.firstOrNull { it.type != CallType.OUTGOING && PhoneNumbers.same(it.number, number, iso) } ?: return null
         if (System.currentTimeMillis() - lastIncoming.date > 14 * 86_400_000L) return null
         val ring = blocks.ringsFor(number).firstOrNull { abs(it.startedAt - lastIncoming.date) < 120_000 }
         if (!WangiriGuard.isSuspect(lastIncoming.type, ring?.ringMs, type, region, iso)) return null

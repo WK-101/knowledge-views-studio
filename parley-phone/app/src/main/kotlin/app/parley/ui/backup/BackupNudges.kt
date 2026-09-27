@@ -118,7 +118,7 @@ fun rememberBackupFirst(vm: AppViewModel): BackupFirstGate {
                     enabled = !busy,
                 ) { Text(stringResource(R.string.ux_backup_first_now)) }
             } else {
-                TextButton({ gate.pending = null; vm.navigate(NavEvent.Route(Routes.BACKUP)) }) { Text(stringResource(R.string.ux_backup_set_up)) }
+                TextButton({ gate.pending = null; vm.navigate(NavEvent.Route(Routes.Backup)) }) { Text(stringResource(R.string.ux_backup_set_up)) }
             }
         },
         dismissButton = {
@@ -181,7 +181,7 @@ fun BackupReminderBanner(vm: AppViewModel, modifier: Modifier = Modifier) {
                         enabled = !busy,
                     ) { Text(stringResource(R.string.ux_backup_first_now)) }
                 } else {
-                    TextButton({ vm.navigate(NavEvent.Route(Routes.BACKUP)) }) { Text(stringResource(R.string.ux_backup_set_up)) }
+                    TextButton({ vm.navigate(NavEvent.Route(Routes.Backup)) }) { Text(stringResource(R.string.ux_backup_set_up)) }
                 }
             }
         }

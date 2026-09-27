@@ -26,7 +26,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -63,11 +63,11 @@ fun LabelPolicySection(vm: AppViewModel, title: String, members: List<ContactSum
     val policies by vm.c.extras.policies.collectAsStateWithLifecycle()
     val sims by vm.sims.collectAsStateWithLifecycle()
     val p = policies[title] ?: LabelPolicy()
-    var pickSim by remember { mutableStateOf(false) }
-    var pickRhythm by remember { mutableStateOf(false) }
-    var explainDnd by remember { mutableStateOf(false) }
+    var pickSim by rememberSaveable { mutableStateOf(false) }
+    var pickRhythm by rememberSaveable { mutableStateOf(false) }
+    var explainDnd by rememberSaveable { mutableStateOf(false) }
     // Only the members not starred yet: "Star N new members" confirms with the same list.
-    var starNewOnly by remember { mutableStateOf(false) }
+    var starNewOnly by rememberSaveable { mutableStateOf(false) }
     val circleKeys by produceState(emptySet<String>(), members, p.rhythmDays) { value = vm.c.circle.members().map { it.lookupKey }.toSet() }
     val outside = members.filter { it.lookupKey !in circleKeys }
     val unstarred = members.filter { !it.starred }

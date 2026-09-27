@@ -1039,7 +1039,7 @@ Theme and density
 ### 20.3 Performance
 
 Start-up and the call path (a phone with a few hundred contacts and calls; Perfetto or `adb shell atrace` for the trace sections)
-- [ ] With Parley closed (swipe it from Recents, or `adb shell am kill app.parley.phone`), ring the phone. The call screen or heads-up shows at once, or within half a second a quiet "Checking…" notification with Answer and Decline appears and turns into the normal incoming-call alert once screening decides. A call a block rule rejects never pops up the call screen.
+- [ ] With Parley closed (swipe it from Recents, or `adb shell am kill app.parley.phone`), ring the phone. The call screen or heads-up shows once screening decides (at most about 1.5 s; nothing is shown before that). A call a block rule or a spam list rejects never shows any notification, name, number or Answer button, not even briefly.
 - [ ] In a trace of that call: `Parley.screenToRespond` (screening service), `Parley.screenCall` and `Parley.addToNotification` (in-call service) are there; no contacts or call-log scan runs in the process while the phone rings (no `ContactsRepository` / `CallLogRepository` loads; the "Last call …" line still shows for someone you called before).
 - [ ] About ten seconds after that call ends, the process loads the rest (a trace shows the contacts and call-log reads then). Opening Parley right away works as before.
 - [ ] Open Parley from the launcher: the system splash (the icon on Parley's window colour, dark in dark mode) stays until the app is ready; there is no blank white or dark frame before Recents. With the app lock on, the lock screen follows the splash directly and no contact flashes.
@@ -1054,7 +1054,15 @@ Data flow
 Background work
 - [ ] `adb shell dumpsys jobscheduler | grep -A3 app.parley.phone`: one daily maintenance job (battery not low), the reminders job at the chosen hour, and no separate daily housekeeping, history or screening jobs.
 - [ ] Temporary contact expiry, call-log retention, the backup reminder, plan warnings and spam-list refreshes still happen (run the maintenance job with `adb shell cmd jobscheduler run -f app.parley.phone <id>`).
-- [ ] Folder sync on with "Keep up to date": edit a contact; the folder is updated within a few minutes (not only hourly). Turning folder sync and the Markdown export off cancels both jobs.
+- [ ] Folder sync on with "Keep up to date": edit a contact; the folder is updated within a few minutes. Change a contact on the other phone: this phone picks it up within the hour, and about 30 s after opening Parley. Turning folder sync and the Markdown export off cancels all its jobs.
+- [ ] Make one maintenance step fail (e.g. a vault entry that can't be read): logcat shows `ParleyMaintenance` "Maintenance step failed", and the other steps (archive retention, journal, snapshot) still run.
+- [ ] Circle widget after a reboot (Parley not opened): someone in your Circle you called yesterday is not listed as due.
+
+Missed calls and the archive
+- [ ] Missed-call "Call back" with "Confirm before calling" on, or with two SIMs and no default: a small window asks first, as in Parley. Without questions the call starts at once. With the app lock on, the unlock is asked only when there is a question.
+- [ ] With Parley closed, let a shared-cost or premium number from abroad ring once: its missed-call notification has no "Call back", and opening it from Parley shows the one-ring warning.
+- [ ] Delete calls with a number, make that number private, then Undo: its calls don't come back into the archive (Recents and the number's history). Restoring a backup likewise leaves private numbers' calls out.
+- [ ] Settings, Call history, turn off the full history: "Turn off and delete" is drawn in the error colour.
 
 App lock and size
 - [ ] App lock on Android 11+: unlock with a fingerprint, and with the PIN from the same prompt; on Android 10: fingerprint through the system prompt, and with no fingerprint enrolled the screen-lock confirmation. Cancelling keeps Parley locked. The private vault still asks and unlocks as before.
@@ -1109,3 +1117,38 @@ Entry points and build
 - [ ] `./gradlew :app:testDebugUnitTest --tests '*ExportedComponents*'` passes; add `android:exported="true"` to any activity or service without a permission and it fails naming it.
 - [ ] Change one byte of a cached dependency jar under `~/.gradle/caches/modules-2` (or edit a checksum in `gradle/verification-metadata.xml`): the build fails with a verification error.
 - [ ] Spam lists: install a list from Parley Lists, then a list with the same id signed by another key: refused. Removing every Parley Lists list unpins its key.
+
+### 21.2 Robustness
+
+Contact saves changed elsewhere
+- [ ] Open a synced (Google or CardDAV) contact in Parley's editor and change the note. Meanwhile, on the web or in another contacts app, change the same contact's phone number and let it sync. Save in Parley: "Changed elsewhere" opens and nothing is written yet.
+- [ ] "Merge field by field" with those two changes (different fields): both are kept without a question; the editor says "Merged. Check the result, then save." and saving keeps their number and your note.
+- [ ] Change the same field on both sides (the phone number): "Merge field by field" lists "Phone numbers" with Theirs / Mine and both values; the pick is what gets saved. Rotate the phone while the list shows: the picks stay.
+- [ ] "Show their version" shows the contact as it is now, with your edits set aside; "Keep mine" saves what the editor shows over their change.
+- [ ] Delete the contact in another app while editing it, then save: the sheet says it was removed and "Keep mine" saves your edits as a new contact.
+- [ ] Put Parley in the background while editing (with "Don't keep activities" on in Developer options), change the contact elsewhere, come back and save: the change is still caught.
+- [ ] An ordinary edit (nothing changed elsewhere) saves straight away as before.
+
+Folder sync and indexing at scale
+- [ ] Folder sync with a large address book (a few thousand contacts, some with photos): the first sync writes every file without running out of memory; the second run with nothing changed finishes in seconds and the folder's files keep their modified times.
+- [ ] Edit one contact: the next sync rewrites only its file. Edit one file on another device: only that contact changes here.
+- [ ] Move a contact to another account (or let a first Google sync give it a new key): its file stays and no deletion spreads to other devices.
+- [ ] Delete a file (on another device) for a contact you edited here in the last three days: the sync pauses and asks; confirming deletes it (journaled). An older contact is deleted without the question (unless many go at once).
+- [ ] After updating from 3.x with folder sync on, the first sync reads each contact once and writes nothing it didn't need to; the one after reads nothing.
+- [ ] With a long call history, a new call shows in Recents and Insights at once; the insights numbers equal those after reopening the app.
+- [ ] While a Google account syncs thousands of contacts, the Contacts list stays responsive and settles once the sync ends.
+
+Calls (no visible change expected)
+- [ ] Incoming call from an unknown number: the unknown-caller tone plays (if set), "Ignore" silences it, "Block & decline" blocks and declines with Undo; a rule's own ringtone and "Ring loud" still apply; a call over its allowance rings silently; a limit still ends an outgoing call; nothing of the above ever touches an emergency call.
+- [ ] Two calls: hold, swap, merge; the held call resumes when the other ends. Post-dial "Send 1234?" still asks. "Why didn't it ring?" on a missed call shows the same reasons as before.
+- [ ] Swap a SIM between calls on a dual-SIM phone: the call screen shows the new SIM's own number.
+
+Links and navigation
+- [ ] Each of these still opens the same place: a `parley://qr`, `parley://simple` and `parley://template` QR code scanned with another app; a `tel:` link; the launcher shortcuts (Scan QR, Message a number); the Quick Settings tiles; a missed-call notification (Recents, missed only), "Call back" and a caller's notification (their contact or number history); the post-call card's Block (the rule editor with the number) and Report; Settings' search results; another app's "Add to contacts" and Quick Contact.
+- [ ] Numbers, names and labels with `+`, `/`, `&`, `%`, `#` or spaces open correctly (number history, a label's page, the editor prefilled from another app).
+- [ ] Rotate on every screen reached from Tools and Settings, then press Back: the back stack is the same.
+
+Forms keep their input
+- [ ] Rotate, or switch dark mode, while typing in: the blocking rule editor (pattern, note, schedule, SIM), the new-label and rename-label dialogs, a label page's SIM and rhythm choices, Simple mode setup (the person picker's search), "Add several numbers" (text, ticks after "Review", naming, account), "Choose columns" for a CSV (changed columns and the header switch), the call-time rule editor, speed dial's search, the date dialog, the blocking screen's test number and "Add number", saved filters' name. Everything stays.
+- [ ] With "Don't keep activities" on, leave and return to those screens: the same holds.
+- [ ] Passphrases and passcodes (backup, Simple mode file and QR, shared list import) are empty again after the activity is recreated: they are never kept in saved state.

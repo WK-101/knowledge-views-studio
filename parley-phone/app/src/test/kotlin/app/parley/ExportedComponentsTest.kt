@@ -95,6 +95,18 @@ class ExportedComponentsTest {
         }
     }
 
+    /**
+     * The missed-call "Call back" alias opens the number sheet from Parley's own notification only: it stays unexported,
+     * and the activity behind it is a [LockedActivity] like every entry point.
+     */
+    @Test fun the_missed_call_back_alias_is_private_and_locked() {
+        val alias = packageInfo().activities.orEmpty().firstOrNull { it.name == "app.parley.messaging.MissedCallBack" }
+            ?: context.packageManager.getActivityInfo(ComponentName(context, "app.parley.messaging.MissedCallBack"), PackageManager.MATCH_DISABLED_COMPONENTS)
+        assertTrue("MissedCallBack must not be exported", !alias.exported)
+        val target = alias.targetActivity ?: alias.name
+        assertTrue(LockedActivity::class.java.isAssignableFrom(Class.forName(target)))
+    }
+
     @Test fun parleys_own_providers_are_not_readable_by_other_apps() {
         for (name in listOf("app.parley.privatenames.VaultPhotoProvider", "androidx.core.content.FileProvider")) {
             val info = packageInfo().providers.orEmpty().firstOrNull { it.name == name } ?: continue

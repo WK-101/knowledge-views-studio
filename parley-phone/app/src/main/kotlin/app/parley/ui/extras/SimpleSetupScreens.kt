@@ -1,6 +1,7 @@
 package app.parley.ui.extras
 
 import app.parley.common.security.Bounded
+import app.parley.ui.Destination
 import android.graphics.Bitmap
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -42,6 +43,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -89,7 +91,7 @@ private val clearRow @Composable get() = ListItemDefaults.colors(containerColor 
  * it on here or hand the setup to another phone as an encrypted file or QR code (and import one).
  */
 @Composable
-fun SimpleSetupScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
+fun SimpleSetupScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit) {
     val context = LocalContext.current
     val res = LocalResources.current
     val scope = rememberCoroutineScope()
@@ -97,9 +99,11 @@ fun SimpleSetupScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit
     val cfg by store.simple.collectAsStateWithLifecycle()
     val contacts by vm.contacts.collectAsStateWithLifecycle()
     val resolved = remember(cfg, contacts) { SimpleSetup.resolve(cfg.people, contacts.orEmpty()) }
-    var picking by remember { mutableStateOf(false) }
-    var askFilePass by remember { mutableStateOf(false) }
-    var showQr by remember { mutableStateOf(false) }
+    var picking by rememberSaveable { mutableStateOf(false) }
+    var askFilePass by rememberSaveable { mutableStateOf(false) }
+    var showQr by rememberSaveable { mutableStateOf(false) }
+    // Never in saved state: a passphrase is kept only while this screen lives (the save is dropped if Android
+    // recreates it while the file picker is open).
     var filePass by remember { mutableStateOf<CharArray?>(null) }
     val saver = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
         val pass = filePass
@@ -115,7 +119,7 @@ fun SimpleSetupScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit
     val loader = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
             SimpleInbox.file.value = uri
-            open(ExtrasRoutes.SIMPLE_IMPORT)
+            open(ExtrasRoutes.SimpleImport)
         }
     }
 
@@ -210,7 +214,7 @@ fun SimpleSetupScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit
 /** Contacts with a number, searchable; a contact with several numbers asks which one. */
 @Composable
 private fun SimplePersonPicker(contacts: List<ContactSummary>, taken: Set<String>, onDismiss: () -> Unit, onPick: (ContactSummary, String) -> Unit) {
-    var q by remember { mutableStateOf("") }
+    var q by rememberSaveable { mutableStateOf("") }
     var numbersOf by remember { mutableStateOf<ContactSummary?>(null) }
     val shown = remember(q, contacts) { contacts.filter { c -> c.phones.any { SimpleSetup.dialable(it.number) != null } && TextSearch.matches(q, c.displayName, c.phones.map { p -> p.number }) }.take(200) }
     ParleyDialog(
@@ -260,6 +264,7 @@ private fun SimplePersonPicker(contacts: List<ContactSummary>, taken: Set<String
 /** Asks for a passphrase ([confirm]: typed twice, at least 8 characters). */
 @Composable
 private fun PassphraseDialog(title: String, confirm: Boolean, onDismiss: () -> Unit, onDone: (CharArray) -> Unit) {
+    // Passphrases are never put in saved state.
     var a by remember { mutableStateOf("") }
     var b by remember { mutableStateOf("") }
     val ok = if (confirm) a.length >= 8 && a == b else a.isNotEmpty()
@@ -313,7 +318,7 @@ private fun SimpleQrDialog(cfg: SimpleConfig, onDismiss: () -> Unit) {
  * create the missing ones, then use it and turn simple mode on.
  */
 @Composable
-fun SimpleImportScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
+fun SimpleImportScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit) {
     val context = LocalContext.current
     val res = LocalResources.current
     val scope = rememberCoroutineScope()
@@ -328,6 +333,7 @@ fun SimpleImportScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Uni
         val cfg = imported?.config
         if (cfg == null) {
             Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                // A passcode is never put in saved state.
                 var code by remember { mutableStateOf("") }
                 Text(stringResource(if (qr != null) R.string.simple_enter_passcode else R.string.simple_pass_enter))
                 OutlinedTextField(

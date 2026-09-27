@@ -1,7 +1,6 @@
 package app.parley.picker
 
 import app.parley.security.LockedActivity
-import android.content.Context
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -9,7 +8,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.res.stringResource
-import androidx.fragment.app.FragmentActivity
 import app.parley.R
 import app.parley.common.PhoneIdentity
 import android.app.Activity
@@ -31,7 +29,6 @@ import androidx.lifecycle.lifecycleScope
 import app.parley.container
 import app.parley.security.AppLock
 import app.parley.security.LockScreen
-import app.parley.ui.AppLocale
 import app.parley.ui.DataL10n
 import app.parley.ui.ParleyTheme
 import kotlinx.coroutines.Dispatchers

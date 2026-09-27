@@ -311,6 +311,12 @@
                 <data android:mimeType="text/plain" />
             </intent-filter>
         </activity>
+        <!-- The missed-call notification's "Call back": the sheet above, reachable only by Parley's own pending intent,
+             so no other app can place a call through it. -->
+        <activity-alias
+            android:name=".messaging.MissedCallBack"
+            android:exported="false"
+            android:targetActivity=".messaging.NumberActionActivity" />
 
         <!-- Home-screen shortcuts and widget trampoline (not exported; launchers start it for us). -->
         <activity

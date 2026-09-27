@@ -31,6 +31,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -93,8 +94,9 @@ fun RuleEditorScreen(vm: AppViewModel, ruleId: Long, initial: BlockRule, back: (
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val existing = remember(rules) { rules.firstOrNull { it.id == ruleId } }
-    var loadedFrom by remember { mutableStateOf<Long?>(null) }
-    var r by remember { mutableStateOf(initial) }
+    // The draft and which rule it was loaded from survive rotation and process death, so a restored edit is kept.
+    var loadedFrom by rememberSaveable { mutableStateOf<Long?>(null) }
+    var r by rememberSaveable(stateSaver = RuleDraftSaver) { mutableStateOf(initial) }
     LaunchedEffect(existing) {
         if (existing != null && loadedFrom != existing.id) {
             r = existing
@@ -107,7 +109,7 @@ fun RuleEditorScreen(vm: AppViewModel, ruleId: Long, initial: BlockRule, back: (
     val preview = remember(checked.pattern, r.type) { if (checked.error == null && r.type.isNumberRule) RuleTools.preview(r.copy(pattern = checked.pattern), vm.countryIso) else emptyList() }
     var dry by remember { mutableStateOf<DryRun?>(null) }
     var dryRunning by remember { mutableStateOf(false) }
-    var confirmDelete by remember { mutableStateOf(false) }
+    var confirmDelete by rememberSaveable { mutableStateOf(false) }
     val pickTone = rememberRingtonePicker { r = r.copy(ringtone = it) }
     val allow = r.kind == RuleKind.ALLOW
 

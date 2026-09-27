@@ -22,6 +22,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -49,8 +50,8 @@ fun EventDateDialog(initial: String, onDismiss: () -> Unit, onPick: (String) -> 
     val parsed = EventDate.parse(initial)
     var month by remember { mutableIntStateOf(parsed?.month ?: LocalDate.now().monthValue) }
     var day by remember { mutableIntStateOf(parsed?.day ?: LocalDate.now().dayOfMonth) }
-    var withYear by remember { mutableStateOf(parsed?.year != null || parsed == null) }
-    var year by remember { mutableStateOf((parsed?.year ?: (LocalDate.now().year - 30)).toString()) }
+    var withYear by rememberSaveable { mutableStateOf(parsed?.year != null || parsed == null) }
+    var year by rememberSaveable { mutableStateOf((parsed?.year ?: (LocalDate.now().year - 30)).toString()) }
     val maxDay = Month.of(month).maxLength()
     if (day > maxDay) day = maxDay
     val yearValue = year.toIntOrNull()?.takeIf { it in 1800..LocalDate.now().year + 1 }

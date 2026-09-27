@@ -1,5 +1,6 @@
 package app.parley.ui.contact
 
+import app.parley.ui.Destination
 import android.provider.ContactsContract
 import android.text.format.DateUtils
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -188,7 +189,7 @@ import androidx.compose.material.icons.rounded.LinkOff
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
-fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, open: (String) -> Unit) {
+fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, open: (Destination) -> Unit) {
     val context = LocalContext.current
     val resources = LocalResources.current
     val scope = rememberCoroutineScope()

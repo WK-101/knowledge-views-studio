@@ -1,5 +1,6 @@
 package app.parley.ui.home
 
+import app.parley.ui.Destination
 import android.content.ClipDescription
 import android.content.ClipboardManager
 import android.content.Intent
@@ -179,7 +180,7 @@ private val NUMBER_ACTIONS_HEIGHT = 56.dp
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
-fun KeypadTab(vm: AppViewModel, open: (String) -> Unit, searchQuery: String? = null, dock: KeypadDock? = null) {
+fun KeypadTab(vm: AppViewModel, open: (Destination) -> Unit, searchQuery: String? = null, dock: KeypadDock? = null) {
     // Search from the header: contacts by name or number, in place of the keypad until the search closes.
     // What's typed, its results, the SIM and the keypad's actions live in KeypadViewModel; this draws the keypad.
     val keypad: KeypadViewModel = activityViewModel()
@@ -389,7 +390,7 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit, searchQuery: String? = n
                     // Long-press 2-9 for speed dial, told once.
                     CoachMark(
                         Tips.KEYPAD_SPEED_DIAL, stringResource(R.string.ux_tip_speed_dial),
-                        enabled = showKeypad, action = stringResource(R.string.ux_tip_set_up), onAction = { open(Routes.SPEED_DIAL) },
+                        enabled = showKeypad, action = stringResource(R.string.ux_tip_set_up), onAction = { open(Routes.SpeedDial) },
                     )
                 }
             } else {
@@ -553,7 +554,7 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit, searchQuery: String? = n
             title = stringResource(R.string.keypad_speed_empty_title, key),
             text = stringResource(R.string.keypad_speed_empty_body, key),
             confirmLabel = stringResource(R.string.keypad_set_up),
-            onConfirm = { unassigned = null; open(Routes.SPEED_DIAL) },
+            onConfirm = { unassigned = null; open(Routes.SpeedDial) },
             onDismiss = { unassigned = null },
             dismissLabel = stringResource(R.string.main_cancel),
         )
@@ -866,7 +867,7 @@ private fun NumberActionChips(canSave: Boolean, onMessage: () -> Unit, onAdd: ()
 
 /** Keypad search from the header: every contact (and visible private contact) matching a name or number. */
 @Composable
-private fun KeypadContactSearch(vm: AppViewModel, keypad: KeypadViewModel, query: String, open: (String) -> Unit) {
+private fun KeypadContactSearch(vm: AppViewModel, keypad: KeypadViewModel, query: String, open: (Destination) -> Unit) {
     val q = query.trim()
     // Searched in the view model over names folded once per contacts change, off the main thread.
     LaunchedEffect(query) { keypad.searchQuery.value = query }

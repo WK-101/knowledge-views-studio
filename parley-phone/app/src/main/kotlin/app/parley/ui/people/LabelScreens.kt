@@ -1,5 +1,6 @@
 package app.parley.ui.people
 
+import app.parley.ui.Destination
 import android.app.Activity
 import android.content.Intent
 import android.media.RingtoneManager
@@ -45,6 +46,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -57,6 +59,8 @@ import app.parley.AppViewModel
 import app.parley.NavEvent
 import app.parley.common.StartTab
 import app.parley.data.AccountRef
+import app.parley.ui.common.AccountRefSaver
+import app.parley.ui.common.StringSetSaver
 import app.parley.data.people.Label
 import app.parley.ui.EmptyState
 import app.parley.ui.Routes
@@ -78,7 +82,7 @@ import app.parley.ui.ConfirmDialog
 /** Settings-like screen listing every label: open, create, rename, delete and merge. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ManageLabelsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
+fun ManageLabelsScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val res = LocalResources.current
@@ -87,12 +91,12 @@ fun ManageLabelsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Uni
     var labels by remember { mutableStateOf<List<Label>?>(null) }
     var round by remember { mutableIntStateOf(0) }
     LaunchedEffect(all, round) { labels = vm.c.people.labels.labels() }
-    var merging by remember { mutableStateOf(false) }
-    var picked by remember { mutableStateOf<Set<String>>(emptySet()) }
-    var mergeTarget by remember { mutableStateOf(false) }
-    var creating by remember { mutableStateOf(false) }
-    var renaming by remember { mutableStateOf<String?>(null) }
-    var deleting by remember { mutableStateOf<String?>(null) }
+    var merging by rememberSaveable { mutableStateOf(false) }
+    var picked by rememberSaveable(stateSaver = StringSetSaver) { mutableStateOf<Set<String>>(emptySet()) }
+    var mergeTarget by rememberSaveable { mutableStateOf(false) }
+    var creating by rememberSaveable { mutableStateOf(false) }
+    var renaming by rememberSaveable { mutableStateOf<String?>(null) }
+    var deleting by rememberSaveable { mutableStateOf<String?>(null) }
     var menu by remember { mutableStateOf(false) }
 
     // Scroll-linked top-bar tint.
@@ -178,7 +182,7 @@ fun ManageLabelsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Uni
     }
 
     if (mergeTarget) {
-        var target by remember { mutableStateOf(picked.first()) }
+        var target by rememberSaveable { mutableStateOf(picked.first()) }
         ConfirmDialog(
             title = stringResource(R.string.lbl_merge_into),
             text = null,
@@ -238,14 +242,14 @@ private fun CreateLabelDialog(vm: AppViewModel, onDismiss: () -> Unit, onCreated
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val res = LocalResources.current
-    var name by remember { mutableStateOf("") }
+    var name by rememberSaveable { mutableStateOf("") }
     var accounts by remember { mutableStateOf<List<AccountRef>>(emptyList()) }
-    var account by remember { mutableStateOf<AccountRef?>(null) }
+    var account by rememberSaveable(stateSaver = AccountRefSaver) { mutableStateOf<AccountRef?>(null) }
     val idx by vm.people.index.collectAsStateWithLifecycle()
     LaunchedEffect(Unit) {
         accounts = withContext(Dispatchers.IO) { vm.c.contacts.accounts() }
         val s = vm.settings.value
-        account = accounts.firstOrNull { it.type == s.defaultAccountType && it.name == s.defaultAccountName } ?: accounts.firstOrNull { it.type == "com.google" } ?: accounts.firstOrNull()
+        if (account == null) account = accounts.firstOrNull { it.type == s.defaultAccountType && it.name == s.defaultAccountName } ?: accounts.firstOrNull { it.type == "com.google" } ?: accounts.firstOrNull()
     }
     ConfirmDialog(
         title = stringResource(R.string.lbl_new),
@@ -282,7 +286,7 @@ private fun RenameLabelDialog(vm: AppViewModel, old: String, onDismiss: () -> Un
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val res = LocalResources.current
-    var name by remember { mutableStateOf(old) }
+    var name by rememberSaveable { mutableStateOf(old) }
     ConfirmDialog(
         title = stringResource(R.string.lbl_rename_title),
         text = null,
@@ -311,18 +315,18 @@ private fun RenameLabelDialog(vm: AppViewModel, old: String, onDismiss: () -> Un
 /** One label: its members and group actions (message all, e-mail all, ringtone, blocking). */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun LabelScreen(vm: AppViewModel, title: String, back: () -> Unit, open: (String) -> Unit) {
+fun LabelScreen(vm: AppViewModel, title: String, back: () -> Unit, open: (Destination) -> Unit) {
     val context = LocalContext.current
     val res = LocalResources.current
     val scope = rememberCoroutineScope()
-    var current by remember { mutableStateOf(title) }
+    var current by rememberSaveable { mutableStateOf(title) }
     val idx by vm.people.index.collectAsStateWithLifecycle()
     val all by vm.contacts.collectAsStateWithLifecycle()
     val s by vm.people.settings.collectAsStateWithLifecycle()
     val members = all.orEmpty().filter { current in idx.extras[it.id]?.labels.orEmpty() }
     var menu by remember { mutableStateOf(false) }
-    var renaming by remember { mutableStateOf(false) }
-    var confirmDelete by remember { mutableStateOf(false) }
+    var renaming by rememberSaveable { mutableStateOf(false) }
+    var confirmDelete by rememberSaveable { mutableStateOf(false) }
     val tone = s.labelRingtones[current]
     val tonePicker = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { res ->
         if (res.resultCode == Activity.RESULT_OK) {

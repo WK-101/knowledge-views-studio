@@ -3,7 +3,6 @@ package app.parley.telecom
 import android.content.Context
 import android.content.Intent
 import app.parley.common.AnswerGesture
-import app.parley.common.Decision
 import app.parley.common.ListDensity
 import app.parley.common.ThemeMode
 import app.parley.common.Verification
@@ -67,90 +66,40 @@ data class InCallAppearance(
     val speakCallerName: Boolean = false,
 )
 
-/**
- * What the call path needs from the rest of the app. Implemented by the app module so that this
- * module never depends on data or feature code.
- */
-interface TelecomDependencies {
-    val appearance: StateFlow<InCallAppearance>
-    suspend fun callerInfo(number: String): CallerDisplay?
-
+/** Who is calling: the caller card and the post-call card's name suggestion. */
+interface CallerInfoSource {
     /** Caller info with the call's phone account (SIM), so national numbers are read with its country. */
-    suspend fun callerInfo(number: String, accountId: String?): CallerDisplay? = callerInfo(number)
-    fun screeningActive(): Boolean
-    suspend fun screen(number: String?, hidden: Boolean, verification: Verification): Decision
-    suspend fun preferredAccountId(number: String): String?
-    /** Intent for the main app: [dialpad] opens the keypad (used by "Add call"). */
-    fun mainIntent(context: Context, dialpad: Boolean): Intent
-    fun contactIntent(context: Context, contactId: Long?, number: String?): Intent
-
-    /** Called when a call leaves Telecom (for private-history sweeps and call notes). */
-    fun onCallEnded(number: String?, incoming: Boolean, connectTimeMillis: Long) {}
-
-    /**
-     * A connected, non-emergency call ended after [durationSec] seconds of talk: recorded in the call-usage ledger that
-     * allowances count (it survives a cleared call log and includes private contacts' calls).
-     */
-    fun onCallUsage(number: String?, accountId: String?, incoming: Boolean, connectTimeMillis: Long, durationSec: Long) {}
-
-    /** Ringtone to play for callers who aren't contacts, or null to let the system ring. */
-    fun unknownRingtone(): String? = null
-
-    fun saveCallNote(number: String?, connectTimeMillis: Long, text: String) {}
-
-    /**
-     * "Anything to remember?" after a call with a contact: saves [note] as a call note (it shows on the contact's
-     * timeline) and, with [followUpDays], sets a one-off reminder to follow up.
-     */
-    fun rememberAfterCall(number: String, connectTimeMillis: Long, note: String?, followUpDays: Int?) {}
+    suspend fun callerInfo(number: String, accountId: String?): CallerDisplay?
 
     /** Offline "where is this number from" for unknown callers. */
     fun describeNumber(number: String): String? = null
 
-    /** Talk-time reminders, limit and allowance for a new call. Never called for emergency calls. */
-    suspend fun callTimePlan(number: String?, accountId: String?, incoming: Boolean): CallTimePlan = CallTimePlan.NONE
+    /** A name to suggest when saving an unknown number ("Caller from Lyon"). */
+    fun suggestedName(number: String): String = number
 
-    /** True when this caller's allowance is used up and the user wants such calls to ring silently. */
-    suspend fun silenceOverQuota(number: String, accountId: String?): Boolean = false
+    /** Ringtone to play for callers who aren't contacts, or null to let the system ring. */
+    fun unknownRingtone(): String? = null
+}
 
-    /** Vibrate on connect, disconnect, swap, merge and limit warnings. */
-    fun callHaptics(): Boolean = true
+/** Blocking and screening as the call path uses them, and the emergency checks that override them. */
+interface ScreeningHooks {
+    /** Whether any screening could act on a call now (read from memory: the call path runs on the main thread). */
+    fun screeningActive(): Boolean
+
     /**
-     * Screening with everything the call path knows: the SIM's phone-account id (null on the
-     * screening service, which never gets one) and the network caller name.
+     * Screening with everything the call path knows: the SIM's phone-account id (null on the screening service,
+     * which never gets one) and the network caller name.
      */
-    suspend fun screenCall(number: String?, hidden: Boolean, verification: Verification, accountId: String?, callerName: String?): ScreenOutcome =
-        ScreenOutcome(screen(number, hidden, verification))
+    suspend fun screenCall(number: String?, hidden: Boolean, verification: Verification, accountId: String?, callerName: String?): ScreenOutcome
 
     /** Rules limited to one SIM exist, so an earlier decision made without the SIM must be re-checked. */
     fun simRulesActive(): Boolean = false
 
-    /** Calling this number starts the emergency window, like an emergency number (B23: a GP, a school). */
+    /** Calling this number starts the emergency window, like an emergency number (a GP, a school). */
     fun startsEmergencyWindow(number: String): Boolean = false
 
     /** The platform's emergency-number check (see [EmergencyPolicy]); the fallback list until the app answers. */
     fun isEmergencyNumber(number: String): Boolean = EmergencyPolicy.isFallbackEmergencyNumber(number)
-
-    /** An incoming call stopped ringing: how long it rang and whether it was answered (B10 one-ring guard). */
-    fun onRingFinished(number: String?, startedAt: Long, ringMillis: Long, answered: Boolean) {}
-
-    /** Turn the screen off near the ear during earpiece calls (Settings › Calls). Read from memory. */
-    fun proximityEnabled(): Boolean = true
-
-    /** Ring-side facts of an incoming call that has ended ("Why did my phone ring, or not?"). Off the call path. */
-    fun onRingFacts(number: String?, facts: RingFacts) {}
-
-    /** An intent into the app for a post-call action on an unknown number, or null when not available. */
-    fun postCallIntent(context: Context, action: PostCallAction, number: String): Intent? = null
-
-    /** Saves [number] as a private temporary contact; returns what to tell the user, or null on failure. */
-    suspend fun savePrivately(number: String, name: String): String? = null
-
-    /** A name to suggest when saving an unknown number ("Caller from Lyon"). */
-    fun suggestedName(number: String): String = number
-
-    /** The buzz when a call connects (only with [callHaptics] on). */
-    fun connectHaptic(): Boolean = true
 
     /**
      * Writes a block rule for [number] before "Block & decline" declines the call. Returns the new rule's id (for
@@ -160,10 +109,77 @@ interface TelecomDependencies {
 
     /** Undo on the call-ended screen: removes the rule [blockForDecline] wrote. */
     suspend fun undoBlockForDecline(ruleId: Long) {}
+}
+
+/** Call time, SIM choice and placing calls again. */
+interface CallPolicyHooks {
+    suspend fun preferredAccountId(number: String): String?
+
+    /** Talk-time reminders, limit and allowance for a new call. Never called for emergency calls. */
+    suspend fun callTimePlan(number: String?, accountId: String?, incoming: Boolean): CallTimePlan = CallTimePlan.NONE
+
+    /** True when this caller's allowance is used up and the user wants such calls to ring silently. */
+    suspend fun silenceOverQuota(number: String, accountId: String?): Boolean = false
 
     /** Retry on the failure banner. Returns what to tell the user when the call couldn't be placed, else null. */
     suspend fun redial(number: String, accountId: String?): String? = null
 }
+
+/** What the call path hands back once a call has rung or ended: history, the ledger, notes. Off the call path. */
+interface CallRecordHooks {
+    /** Called when a call leaves Telecom (for private-history sweeps and call notes). */
+    fun onCallEnded(number: String?, incoming: Boolean, connectTimeMillis: Long) {}
+
+    /**
+     * A connected, non-emergency call ended after [durationSec] seconds of talk: recorded in the call-usage ledger that
+     * allowances count (it survives a cleared call log and includes private contacts' calls).
+     */
+    fun onCallUsage(number: String?, accountId: String?, incoming: Boolean, connectTimeMillis: Long, durationSec: Long) {}
+
+    /** An incoming call stopped ringing: how long it rang and whether it was answered (one-ring guard). */
+    fun onRingFinished(number: String?, startedAt: Long, ringMillis: Long, answered: Boolean) {}
+
+    /** Ring-side facts of an incoming call that has ended ("Why did my phone ring, or not?"). */
+    fun onRingFacts(number: String?, facts: RingFacts) {}
+
+    fun saveCallNote(number: String?, connectTimeMillis: Long, text: String) {}
+
+    /**
+     * "Anything to remember?" after a call with a contact: saves [note] as a call note (it shows on the contact's
+     * timeline) and, with [followUpDays], sets a one-off reminder to follow up.
+     */
+    fun rememberAfterCall(number: String, connectTimeMillis: Long, note: String?, followUpDays: Int?) {}
+
+    /** Saves [number] as a private temporary contact; returns what to tell the user, or null on failure. */
+    suspend fun savePrivately(number: String, name: String): String? = null
+}
+
+/** The call screen's look and feel, and the ways out of it into the app. */
+interface UiHooks {
+    val appearance: StateFlow<InCallAppearance>
+
+    /** Intent for the main app: [dialpad] opens the keypad (used by "Add call"). */
+    fun mainIntent(context: Context, dialpad: Boolean): Intent
+    fun contactIntent(context: Context, contactId: Long?, number: String?): Intent
+
+    /** An intent into the app for a post-call action on an unknown number, or null when not available. */
+    fun postCallIntent(context: Context, action: PostCallAction, number: String): Intent? = null
+
+    /** Vibrate on connect, disconnect, swap, merge and limit warnings. */
+    fun callHaptics(): Boolean = true
+
+    /** The buzz when a call connects (only with [callHaptics] on). */
+    fun connectHaptic(): Boolean = true
+
+    /** Turn the screen off near the ear during earpiece calls (Settings › Calls). Read from memory. */
+    fun proximityEnabled(): Boolean = true
+}
+
+/**
+ * What the call path needs from the rest of the app, as cohesive parts (each collaborator of the call path asks only
+ * for its part). Implemented by the app module so that this module never depends on data or feature code.
+ */
+interface TelecomDependencies : CallerInfoSource, ScreeningHooks, CallPolicyHooks, CallRecordHooks, UiHooks
 
 /** Post-call card actions handled by the app. */
 enum class PostCallAction { BLOCK, REPORT }

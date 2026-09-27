@@ -166,11 +166,25 @@ class CallHistory(
         .flowOn(Dispatchers.Default)
         .stateIn(scope, SharingStarted.WhileSubscribed(60_000), null)
 
+    /** The last index and what it was built with, so new calls alone are appended rather than indexed again. */
+    private class Built(val contacts: List<ContactSummary>?, val permitted: Boolean, val country: String, val zone: ZoneId, val index: CallLogIndex) {
+        fun sameInputs(ct: List<ContactSummary>?, p: Boolean, c: String, z: ZoneId) = contacts === ct && permitted == p && country == c && zone == z
+    }
+
+    @Volatile private var built: Built? = null
+
     private fun buildIndex(calls: List<CallEntry>, ct: List<ContactSummary>?): CallLogIndex {
         // Without the permission the list is empty but that means "unknown", not "nobody is a contact".
-        val known = if (ct == null || !Permissions.has(context, Manifest.permission.READ_CONTACTS)) null
-        else ct.map { IndexContact(it.id, it.lookupKey, it.displayName, it.phones.map { p -> p.number }) }
-        return CallLogIndex.build(calls, known, countryIso, zone)
+        val permitted = ct != null && Permissions.has(context, Manifest.permission.READ_CONTACTS)
+        val country = countryIso
+        val z = zone
+        built?.let { b ->
+            if (b.sameInputs(ct, permitted, country, z)) {
+                b.index.appending(calls)?.let { idx -> return idx.also { built = Built(ct, permitted, country, z, it) } }
+            }
+        }
+        val known = if (!permitted) null else ct.orEmpty().map { IndexContact(it.id, it.lookupKey, it.displayName, it.phones.map { p -> p.number }) }
+        return CallLogIndex.build(calls, known, country, z).also { built = Built(ct, permitted, country, z, it) }
     }
 
     /** Closes the archive database so "Delete all Parley data" can remove its file (the process restarts after). */
@@ -351,6 +365,15 @@ class CallHistory(
         knownKeys = null
         return true
     }
+
+    /**
+     * The private numbers, read from the vault itself, for paths that put old calls back into the archive (undo,
+     * restore). Only the newest window is checked again after them, so a private call that got past this filter
+     * outside it would stay for good.
+     */
+    private suspend fun privateLines(): PhoneIdentity.LineSet = PhoneIdentity.LineSet(vault.allNumbers(), countryIso)
+
+    private fun isPrivate(rec: CallLogRecord, vk: PhoneIdentity.LineSet) = !rec.number.isNullOrBlank() && rec.number in vk
 
     /**
      * Every archived call, newest first, decrypted a page at a time so the whole archive is never held in memory.
@@ -590,7 +613,9 @@ class CallHistory(
             val known = keys()
             val iso = countryIso
             val now = System.currentTimeMillis()
+            val vk = privateLines()
             val fresh = trashed.mapNotNull { rec ->
+                if (isPrivate(rec, vk)) return@mapNotNull null
                 val key = crypto.mac(HistoryMerge.key(rec.toEntry(0)))
                 if (known.add(key)) entity(rec, key, iso, now) else null
             }
@@ -706,7 +731,9 @@ class CallHistory(
             val known = keys()
             val iso = countryIso
             val now = System.currentTimeMillis()
+            val vk = privateLines()
             val fresh = calls.mapNotNull { rec ->
+                if (isPrivate(rec, vk)) return@mapNotNull null
                 val key = crypto.mac(HistoryMerge.key(rec.toEntry(0)))
                 if (known.add(key)) entity(rec, key, iso, now) else null
             }

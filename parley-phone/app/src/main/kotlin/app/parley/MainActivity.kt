@@ -26,27 +26,19 @@ import androidx.lifecycle.lifecycleScope
 import app.parley.blocking.TemplateInbox
 import app.parley.common.AppSettings
 import app.parley.common.HomeLayout
-import app.parley.common.RuleKind
-import app.parley.common.RuleType
 import app.parley.common.calls.EmergencyPolicy
 import app.parley.data.DataItem
 import app.parley.data.EmergencyNumbers
-import app.parley.messaging.MessagingRoutes
 import app.parley.security.AppLock
 import app.parley.security.LockScreen
 import app.parley.shortcuts.CircleWidget
 import app.parley.ui.AppLocale
-import app.parley.ui.Routes
 import app.parley.ui.blocking.BlockingDialog
 import app.parley.ui.blocking.BlockingDialogs
-import app.parley.ui.blocking.BlockingRoutes
-import app.parley.ui.extras.ExtrasRoutes
 import app.parley.ui.extras.SimpleInbox
 import app.parley.ui.qr.QrInbox
-import app.parley.ui.qr.QrRoutes
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import app.parley.common.StartTab
 import app.parley.ui.ParleyRoot
 import app.parley.ui.ParleyTheme
 import kotlinx.coroutines.withContext
@@ -158,76 +150,16 @@ class MainActivity : LockedActivity() {
     private fun handleIntent(intent: Intent?) {
         intent ?: return
         checkEmergencyDial(intent)
-        val data = intent.data
-        when (intent.action) {
-            Intent.ACTION_SEND -> {
-                @Suppress("DEPRECATION")
-                val stream = intent.getParcelableExtra<Uri>(Intent.EXTRA_STREAM)
-                    ?.takeIf { SharedUris.acceptable(this, it) }
-                if (stream != null && isVcard(intent.type)) vm.navigate(NavEvent.ImportVcf(stream))
-                // A picture shared to Parley is searched for QR codes.
-                if (stream != null && intent.type?.startsWith("image/") == true) {
-                    QrInbox.image.value = stream
-                    vm.navigate(NavEvent.Route(QrRoutes.SCAN))
-                }
-            }
-            QUICK_CONTACT, QUICK_CONTACT_LEGACY -> data?.let(::openResolved)
-            SHOW_OR_CREATE -> showOrCreate(data)
-            Intent.ACTION_DIAL, Intent.ACTION_VIEW -> when {
-                data?.scheme == "parley" && data.host == "qr" -> vm.navigate(NavEvent.SecureQr(data))
-                // A simple-mode setup shared as a QR code.
-                data?.scheme == "parley" && data.host == "simple" -> {
-                    SimpleInbox.qr.value = data
-                    vm.navigate(NavEvent.Route(ExtrasRoutes.SIMPLE_IMPORT))
-                }
-                data?.scheme == "parley" && data.host == "template" -> {
-                    TemplateInbox.pending.value = data
-                    vm.navigate(NavEvent.Route(BlockingRoutes.TEMPLATES))
-                }
-                data != null && SharedUris.acceptable(this, data) && isVcard(intent.type ?: contentResolver.getType(data)) ->
-                    vm.navigate(NavEvent.ImportVcf(data))
-                data?.scheme == "tel" -> vm.navigate(NavEvent.Tab(StartTab.KEYPAD, dial = data.schemeSpecificPart.orEmpty()))
-                intent.type == "vnd.android.cursor.dir/calls" -> vm.navigate(NavEvent.Tab(StartTab.RECENTS))
-                intent.action == Intent.ACTION_DIAL -> vm.navigate(NavEvent.Tab(StartTab.KEYPAD, dial = ""))
-                data != null -> openResolved(data)
-            }
-            Intent.ACTION_CALL_BUTTON -> vm.navigate(NavEvent.Tab(StartTab.RECENTS))
-            Intent.ACTION_APPLICATION_PREFERENCES -> vm.navigate(NavEvent.Route(Routes.SETTINGS))
-            ACTION_OPEN_BACKUP ->vm.navigate(NavEvent.Route(Routes.BACKUP))
-            ACTION_OPEN_BLOCKING -> vm.navigate(NavEvent.Route(Routes.BLOCKING))
-            ACTION_ADD_CALL -> vm.navigate(NavEvent.Tab(StartTab.KEYPAD, dial = ""))
-            ACTION_BULK_ADD -> vm.navigate(NavEvent.Route(MessagingRoutes.BULK_ADD))
-            // Launcher shortcut and Quick Settings tile.
-            ACTION_SCAN_QR -> vm.navigate(NavEvent.Route(QrRoutes.SCAN))
-            // The keep-in-touch digest opens the Circle (as the bar's extra tab while it's hidden).
-            ACTION_SHOW_CIRCLE -> vm.navigate(NavEvent.Tab(StartTab.CIRCLE))
-            ACTION_SHOW_MISSED -> {
-                vm.navigate(NavEvent.Tab(StartTab.RECENTS, missedOnly = true))
-                vm.markMissedSeen()
-            }
-            ACTION_SHOW_CALLER -> {
-                val id = intent.getLongExtra(EXTRA_CONTACT_ID, -1)
-                val number = intent.getStringExtra(EXTRA_NUMBER)
-                when {
-                    id > 0 -> vm.navigate(NavEvent.Contact(id))
-                    !number.isNullOrBlank() -> vm.navigate(NavEvent.History(number))
-                }
-            }
-            // The post-call card's "Block" and "Report" for an unknown number.
-            ACTION_POST_CALL -> intent.getStringExtra(EXTRA_NUMBER)?.takeIf { it.isNotBlank() }?.let { number ->
-                when (intent.getStringExtra(EXTRA_POST_CALL_ACTION)) {
-                    "BLOCK" -> vm.navigate(
-                        NavEvent.Route(BlockingRoutes.rule(0, RuleKind.BLOCK, RuleType.EXACT, number)),
-                    )
-                    "REPORT" -> BlockingDialogs.show(BlockingDialog.Report(number))
-                }
-            }
-            Intent.ACTION_INSERT -> vm.navigate(NavEvent.NewContact(InsertPrefill.from(intent)))
-            Intent.ACTION_INSERT_OR_EDIT -> vm.navigate(NavEvent.InsertOrEdit(InsertPrefill.from(intent)))
-        }
+        val t = IntentRoutes.resolve(intent, readable = { SharedUris.acceptable(this, it) }) { contentResolver.getType(it) } ?: return
+        t.qrImage?.let { QrInbox.image.value = it }
+        t.simpleSetup?.let { SimpleInbox.qr.value = it }
+        t.template?.let { TemplateInbox.pending.value = it }
+        t.resolveContact?.let(::openResolved)
+        t.showOrCreate?.let(::showOrCreate)
+        t.report?.let { BlockingDialogs.show(BlockingDialog.Report(it)) }
+        t.event?.let { vm.navigate(it) }
+        if (t.missedSeen) vm.markMissedSeen()
     }
-
-    private fun isVcard(type: String?) = type != null && (type.contains("vcard") || type == "text/directory")
 
     /** SHOW_OR_CREATE_CONTACT: open the matching contact, or offer to create one. */
     private fun showOrCreate(data: Uri?) {
@@ -263,22 +195,20 @@ class MainActivity : LockedActivity() {
     }
 
     companion object {
-        const val ACTION_ADD_CALL = "app.parley.ADD_CALL"
-        /** "Save all…" from the number sheet; the text waits in [app.parley.messaging.MessagingInbox]. */
-        const val ACTION_BULK_ADD = "app.parley.BULK_ADD"
-        const val ACTION_OPEN_BACKUP = "app.parley.OPEN_BACKUP"
-        /** Opens the Scan QR screen (launcher shortcut, Quick Settings tile). */
-        const val ACTION_SCAN_QR = "app.parley.action.SCAN_QR"
-        const val ACTION_OPEN_BLOCKING = "app.parley.OPEN_BLOCKING"
-        const val QUICK_CONTACT = "android.provider.action.QUICK_CONTACT"
-        const val QUICK_CONTACT_LEGACY = "com.android.contacts.action.QUICK_CONTACT"
-        const val SHOW_OR_CREATE = "com.android.contacts.action.SHOW_OR_CREATE_CONTACT"
-        const val ACTION_SHOW_MISSED = "app.parley.SHOW_MISSED"
-        const val ACTION_SHOW_CIRCLE = "app.parley.SHOW_CIRCLE"
-        const val ACTION_SHOW_CALLER = "app.parley.SHOW_CALLER"
-        const val ACTION_POST_CALL = "app.parley.POST_CALL"
-        const val EXTRA_POST_CALL_ACTION = "post_call_action"
-        const val EXTRA_CONTACT_ID = "contact_id"
-        const val EXTRA_NUMBER = "number"
+        const val ACTION_ADD_CALL = IntentRoutes.ACTION_ADD_CALL
+        const val ACTION_BULK_ADD = IntentRoutes.ACTION_BULK_ADD
+        const val ACTION_OPEN_BACKUP = IntentRoutes.ACTION_OPEN_BACKUP
+        const val ACTION_SCAN_QR = IntentRoutes.ACTION_SCAN_QR
+        const val ACTION_OPEN_BLOCKING = IntentRoutes.ACTION_OPEN_BLOCKING
+        const val QUICK_CONTACT = IntentRoutes.QUICK_CONTACT
+        const val QUICK_CONTACT_LEGACY = IntentRoutes.QUICK_CONTACT_LEGACY
+        const val SHOW_OR_CREATE = IntentRoutes.SHOW_OR_CREATE
+        const val ACTION_SHOW_MISSED = IntentRoutes.ACTION_SHOW_MISSED
+        const val ACTION_SHOW_CIRCLE = IntentRoutes.ACTION_SHOW_CIRCLE
+        const val ACTION_SHOW_CALLER = IntentRoutes.ACTION_SHOW_CALLER
+        const val ACTION_POST_CALL = IntentRoutes.ACTION_POST_CALL
+        const val EXTRA_POST_CALL_ACTION = IntentRoutes.EXTRA_POST_CALL_ACTION
+        const val EXTRA_CONTACT_ID = IntentRoutes.EXTRA_CONTACT_ID
+        const val EXTRA_NUMBER = IntentRoutes.EXTRA_NUMBER
     }
 }

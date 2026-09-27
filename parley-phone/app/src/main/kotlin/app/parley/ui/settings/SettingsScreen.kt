@@ -1,5 +1,6 @@
 package app.parley.ui.settings
 
+import app.parley.ui.Destination
 import android.content.Context
 import android.os.Build
 import androidx.activity.compose.BackHandler
@@ -142,7 +143,7 @@ private val categoryGroups = listOf(
 /** Settings: categories with a one-line summary each, and a search over every setting. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
+fun SettingsScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit) {
     val context = LocalContext.current
     val isDefault by vm.isDefaultDialer.collectAsStateWithLifecycle()
     var searching by rememberSaveable { mutableStateOf(false) }
@@ -202,7 +203,7 @@ fun SettingsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
             SegmentedGroup {
                 item("tools") {
                     ListItem(
-                        modifier = Modifier.clickable { open(Routes.TOOLS) },
+                        modifier = Modifier.clickable { open(Routes.Tools) },
                         leadingContent = { TonalIcon(Icons.Rounded.Handyman, MaterialTheme.colorScheme.tertiaryContainer, MaterialTheme.colorScheme.onTertiaryContainer) },
                         headlineContent = { Text(stringResource(R.string.set_tools_title)) },
                         supportingContent = { Text(stringResource(R.string.set_tools_summary), maxLines = 1, overflow = TextOverflow.Ellipsis) },
@@ -300,7 +301,7 @@ private fun SearchResults(query: String, modifier: Modifier, onClear: () -> Unit
 
 /** One category of Settings; [focus] is a setting to scroll to and highlight (from search). */
 @Composable
-fun SettingsPageScreen(vm: AppViewModel, category: SettingsCategory, focus: String?, back: () -> Unit, open: (String) -> Unit) {
+fun SettingsPageScreen(vm: AppViewModel, category: SettingsCategory, focus: String?, back: () -> Unit, open: (Destination) -> Unit) {
     val s by vm.settings.collectAsStateWithLifecycle()
     val severalAccounts = hasSeveralAccounts(vm)
     val archiveOn = vm.c.history.prefs.state.collectAsStateWithLifecycle().value.archiveEnabled
@@ -422,17 +423,17 @@ internal fun ImportReportDialog(report: ImportReport, onDismiss: () -> Unit) {
 private const val MAX_REPORT_ITEMS = 50
 
 /** Where Settings search takes you for [e]: its category page scrolled to it, or the screen it lives on. */
-internal fun settingRoute(e: SettingEntry): String = when (e.place) {
+internal fun settingRoute(e: SettingEntry): Destination = when (e.place) {
     null -> Routes.settingsPage(e.category, e.key)
-    SettingPlace.TOOLS -> if (e.key == "scan_qr") QrRoutes.SCAN else Routes.TOOLS
-    SettingPlace.BLOCKING -> Routes.BLOCKING
+    SettingPlace.TOOLS -> if (e.key == "scan_qr") QrRoutes.Scan else Routes.Tools
+    SettingPlace.BLOCKING -> Routes.Blocking
     SettingPlace.DELETED_CALLS -> Routes.journal(HistoryTab.CALLS)
-    SettingPlace.SIMS -> HistoryRoutes.SIMS
-    SettingPlace.CONTACT_PAGE -> ContactPageRoutes.SECTIONS
-    SettingPlace.SIMPLE_MODE -> ExtrasRoutes.SIMPLE_SETUP
-    SettingPlace.CALL_TIME -> Routes.CALL_TIME
-    SettingPlace.BACKUP -> Routes.BACKUP
-    SettingPlace.SYNC -> Routes.SYNC
+    SettingPlace.SIMS -> HistoryRoutes.Sims
+    SettingPlace.CONTACT_PAGE -> ContactPageRoutes.Sections
+    SettingPlace.SIMPLE_MODE -> ExtrasRoutes.SimpleSetup
+    SettingPlace.CALL_TIME -> Routes.CallTime
+    SettingPlace.BACKUP -> Routes.Backup
+    SettingPlace.SYNC -> Routes.Sync
 }
 
 /** Settings that don't exist on this phone, left out of search. */

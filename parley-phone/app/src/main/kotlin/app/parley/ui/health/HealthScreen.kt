@@ -1,5 +1,6 @@
 package app.parley.ui.health
 
+import app.parley.ui.Destination
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.rememberScrollState
@@ -61,7 +62,7 @@ private val titles = mapOf(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HealthScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
+fun HealthScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit) {
     val scope = rememberCoroutineScope()
     val res = LocalResources.current
     val contacts by vm.contacts.collectAsStateWithLifecycle()
@@ -134,7 +135,7 @@ fun HealthScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
                             onClick = { scope.launch { val n = scanner.fix(group); vm.toast(res.getQuantityString(R.plurals.health_fixed, n, n)); round++ } },
                             modifier = Modifier.padding(horizontal = 16.dp),
                         ) { Text(stringResource(R.string.health_fix_all, group.size)) }
-                        HealthKind.SHARED_NUMBER -> TextButton({ open(Routes.DUPLICATES) }, Modifier.padding(horizontal = 8.dp)) { Text(stringResource(R.string.health_review_duplicates)) }
+                        HealthKind.SHARED_NUMBER -> TextButton({ open(Routes.Duplicates) }, Modifier.padding(horizontal = 8.dp)) { Text(stringResource(R.string.health_review_duplicates)) }
                         HealthKind.STALE -> TextButton({
                             val phoneLabel = res.getString(R.string.health_phone)
                             // Never with one tap: list who and where first.

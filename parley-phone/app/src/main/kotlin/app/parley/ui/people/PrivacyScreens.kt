@@ -1,6 +1,7 @@
 package app.parley.ui.people
 
 import app.parley.security.SensitiveScreen
+import app.parley.ui.Destination
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -80,7 +81,7 @@ private object Wording {
 /** Settings › Privacy › "Who can see your contacts". */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun WhoCanSeeScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
+fun WhoCanSeeScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit) {
     val context = LocalContext.current
     val res = LocalResources.current
     val s by vm.people.settings.collectAsStateWithLifecycle()
@@ -196,7 +197,7 @@ fun WhoCanSeeScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) 
                 val pn by vm.c.people.privateNames.state.collectAsStateWithLifecycle()
                 val allowed = pn.approvals.count { it.value == LookupApproval.ALLOWED }
                 LinkRow(stringResource(R.string.privacy_private_names), if (pn.enabled) pluralStringResource(R.plurals.who_private_names_on, allowed, allowed) else stringResource(R.string.dc_off)) {
-                    open(PeopleRoutes.PRIVATE_NAMES)
+                    open(PeopleRoutes.PrivateNames)
                 }
             }
         }

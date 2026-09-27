@@ -1,5 +1,6 @@
 package app.parley.ui.history
 
+import app.parley.ui.Destination
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -26,7 +27,7 @@ import app.parley.R
  * - when the archive's key was lost and a new archive started (the old one is kept aside, not deleted).
  */
 @Composable
-fun ArchiveNotices(vm: AppViewModel, open: (String) -> Unit) {
+fun ArchiveNotices(vm: AppViewModel, open: (Destination) -> Unit) {
     val prefs by vm.c.history.prefs.state.collectAsStateWithLifecycle()
     val archive by vm.c.history.archive.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
@@ -36,7 +37,7 @@ fun ArchiveNotices(vm: AppViewModel, open: (String) -> Unit) {
             stringResource(R.string.hist_archive_reset_text),
             onSettings = {
                 scope.launch { vm.c.history.prefs.setArchiveResetSeen() }
-                open(HistoryRoutes.SETTINGS)
+                open(HistoryRoutes.Settings)
             },
             onDismiss = { scope.launch { vm.c.history.prefs.setArchiveResetSeen() } },
         )
@@ -45,7 +46,7 @@ fun ArchiveNotices(vm: AppViewModel, open: (String) -> Unit) {
             stringResource(R.string.hist_archive_intro_text),
             onSettings = {
                 scope.launch { vm.c.history.prefs.setArchiveIntroSeen() }
-                open(HistoryRoutes.SETTINGS)
+                open(HistoryRoutes.Settings)
             },
             onDismiss = { scope.launch { vm.c.history.prefs.setArchiveIntroSeen() } },
         )

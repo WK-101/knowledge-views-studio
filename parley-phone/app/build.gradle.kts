@@ -6,6 +6,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.androidx.baselineprofile)
 }
 
@@ -30,8 +31,8 @@ android {
         targetSdk = 36
         // Keep these two plain literals. F-Droid's update check reads them line by line with a regex and can't
         // follow a variable or an expression. Bump both for a release, then tag v<versionName> (docs/RELEASING.md).
-        versionCode = 9
-        versionName = "3.5.0"
+        versionCode = 10
+        versionName = "3.6.0"
         // Custom permission guarding the private-name lookup provider (differs in debug so both builds can be installed).
         manifestPlaceholders["lookupPermission"] = "app.parley.permission.LOOKUP_PRIVATE_NAME"
         // Optional "Parley Lists" companion (B4c, module :lists-updater): its package and signature permission.
@@ -132,6 +133,7 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.navigation.compose)
+    implementation(libs.kotlinx.serialization.json)
     implementation(libs.zxing.core)
     implementation(libs.androidx.fragment)
     implementation(libs.androidx.work)
