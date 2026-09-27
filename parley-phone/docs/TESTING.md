@@ -551,7 +551,7 @@ Call the phone from another phone in each state below. For each one, check that 
 - [ ] Settings › Backup & sync › Export notes as Markdown (or Sync between your phones, below the sync card): pick a folder (e.g. an Obsidian vault). One `Name.md` per contact appears: YAML front-matter (name, company, phones with labels, emails, dates, labels, keep_in_touch_days, exported), then Pinned note, Note, Circle and Timeline (calls with minutes, Met/Message entries with notes, call notes), newest first. Obsidian shows the properties.
 - [ ] Names with `/ : ? #` make safe file names; two "Ana Silva" become "Ana Silva.md" and "Ana Silva (2).md". A note of your own already named "Ana Silva.md" in the folder is never overwritten (Parley's file gets "(2)").
 - [ ] "Only people in your circle" on: files of people outside the Circle that Parley wrote are removed; your own files stay. Export again without changes: "0 files updated". Change a note: only that file is rewritten.
-- [ ] Private (vault) contacts never get a file. "Keep it up to date" on: the hourly folder-sync run exports again (even with contact sync off). "Stop exporting to this folder" leaves the files where they are.
+- [ ] Private (vault) contacts never get a file. "Keep it up to date" on: the folder-sync run (a minute after contacts change, and daily) exports again (even with contact sync off). "Stop exporting to this folder" leaves the files where they are.
 
 ### 15.7 Review fixes: simple mode, Markdown, Do Not Disturb, handshake, import
 

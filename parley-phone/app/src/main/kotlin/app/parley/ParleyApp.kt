@@ -11,8 +11,7 @@ import app.parley.telecom.TelecomGraph
 import app.parley.ui.AppLocale
 import app.parley.ui.history.ExportFiles
 import app.parley.work.FolderSyncWorker
-import app.parley.work.HistoryWorker
-import app.parley.work.HousekeepingWorker
+import app.parley.work.MaintenanceWorker
 import app.parley.work.RemindersWorker
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -63,11 +62,9 @@ class ParleyApp : Application() {
         container.scope.launch(container.warmDispatcher) {
             container.fullStart.await()
             BlockingSetup.warmLater(this@ParleyApp, container)
-            HousekeepingWorker.schedule(this@ParleyApp)
-            HistoryWorker.schedule(this@ParleyApp)
-            // Sync later, off the call path (the daily housekeeping run takes the time-machine snapshot).
-            val st = container.folderSync.status.value
-            if (st.folderUri != null && st.auto) FolderSyncWorker.runSoon(this@ParleyApp)
+            MaintenanceWorker.schedule(this@ParleyApp)
+            // Folder sync follows contact changes (and runs daily); the maintenance run takes the time-machine snapshot.
+            FolderSyncWorker.reschedule(this@ParleyApp)
             RemindersWorker.schedule(this@ParleyApp, container.settings.current().birthdayReminderHour)
             // Well after that: stored number keys move to the line key once.
             delay(30_000)

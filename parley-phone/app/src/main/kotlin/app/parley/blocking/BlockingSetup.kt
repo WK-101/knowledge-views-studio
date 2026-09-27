@@ -37,7 +37,6 @@ object BlockingSetup {
      */
     suspend fun warmLater(context: Context, c: DataContainer) {
         val appContext = context.applicationContext
-        SpamListWorker.schedule(appContext)
         c.lists.watchFolder { SpamListWorker.runSoon(appContext) }
         // Label references saved by older versions (group ids) are rewritten by title.
         runCatching { c.people.labelRefs.migrate() }
