@@ -77,15 +77,17 @@ jobs:
             echo "The APK is still installable; add the secrets for stable update-in-place."
           fi
 
-      - name: Verify — tests, lint, UI-coherence ratchet (./gradlew check)
+      - name: Verify — tests, lint, detekt, UI-coherence ratchet (./gradlew check)
         # R109 (Tier-1) — gate on the full `check` task on every push to main and every PR, not just the
         # feature branch. `check` runs the JVM unit suite (domain engines, recurrence, priority, quick-add,
         # backup round-trip, achievement/coach engines, migration-chain assertions, and the Robolectric
         # integration layer — Room DAO, repository cascade/orphan integrity, backup round-trip), the debug
-        # Compose UI tests, AND the `uiCoherenceCheck` ratchet (build.gradle.kts) that fails the build if a
-        # feature screen adds hard-coded shapes/colours/font-sizes beyond the committed baseline. Before,
-        # nothing ran `check`, so the ratchet never gated. (Device-only tests — the Room MigrationTest —
-        # still run in a separate emulator job when one is configured; `check` does not include them.)
+        # Compose UI tests, the `detekt` static-analysis ratchet (smells / complexity / potential bugs +
+        # ktlint formatting, gated against config/detekt-baseline.xml), AND the `uiCoherenceCheck` ratchet
+        # (build.gradle.kts) that fails the build if a feature screen adds hard-coded shapes/colours/font-
+        # sizes beyond the committed baseline. Before, nothing ran `check`, so neither ratchet gated.
+        # (Device-only tests — the Room MigrationTest — still run in a separate emulator job when one is
+        # configured; `check` does not include them.)
         run: ./gradlew check --stacktrace
 
       - name: Lint (release variant)

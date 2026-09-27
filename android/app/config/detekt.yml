@@ -1,0 +1,61 @@
+# detekt configuration for Hexis — overrides layered on detekt's defaults (buildUponDefaultConfig = true).
+#
+# Philosophy: a RATCHET focused on SIGNAL, the same stance as the uiCoherenceCheck guard. A committed
+# baseline (config/detekt-baseline.xml) grandfathers every pre-existing finding, so the gate fires ONLY on
+# a NEW finding the baseline does not list; it never rewrites existing code. What the baseline captures is
+# tuned to be MEANINGFUL — real complexity, smells and potential bugs — rather than a wall of cosmetic
+# noise. The rules turned off below are the ones that are pure noise for THIS codebase (its intentional
+# dense style, its Compose UI), so that a new finding is a signal worth acting on, not a false alarm.
+
+config:
+  validation: true
+  warningsAsErrors: false
+
+naming:
+  # Jetpack Compose @Composable functions are PascalCase BY CONVENTION — that is not a naming smell. Skip
+  # them so FunctionNaming still catches genuinely mis-named ordinary functions.
+  FunctionNaming:
+    ignoreAnnotated: ['Composable']
+
+style:
+  # Off — flags every numeric literal; for a Compose/UI codebase full of sizes, weights and durations this
+  # is thousands of false alarms with near-zero bug-catching value.
+  MagicNumber:
+    active: false
+  # Off — the codebase has an intentional long-line style (see also formatting:MaximumLineLength).
+  MaxLineLength:
+    active: false
+
+# ktlint-backed formatting rules (from detekt-formatting on the classpath). Kept for real hygiene
+# (unused/wildcard imports, trailing space, final newline, blank-line discipline), but every rule that
+# merely fights the intentional dense/hand-aligned style — line length, wrapping, forced braces,
+# per-declaration blank lines, strict indentation, import ordering — is turned OFF so it neither floods the
+# baseline nor forces new code away from the house style.
+formatting:
+  active: true
+  MaximumLineLength:
+    active: false
+  ArgumentListWrapping:
+    active: false
+  ParameterListWrapping:
+    active: false
+  Wrapping:
+    active: false
+  MultiLineIfElse:
+    active: false
+  Indentation:
+    active: false
+  ImportOrdering:
+    active: false
+  NoMultipleSpaces:
+    active: false
+  SpacingBetweenDeclarationsWithComments:
+    active: false
+  SpacingBetweenDeclarationsWithAnnotations:
+    active: false
+  AnnotationOnSeparateLine:
+    active: false
+  PropertyWrapping:
+    active: false
+  NoConsecutiveBlankLines:
+    active: false

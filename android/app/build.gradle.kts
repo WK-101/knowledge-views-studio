@@ -7,6 +7,7 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
     id("org.jetbrains.kotlin.plugin.serialization")
     id("com.google.devtools.ksp")
+    id("io.gitlab.arturbosch.detekt")
 }
 
 // Signing credentials come from either a local `keystore.properties` file (developer machine)
@@ -317,4 +318,38 @@ gradle.taskGraph.whenReady {
                 "For an intentional throwaway build, pass -PallowInsecureSigning."
         )
     }
+}
+
+// ── R109 (Tier-1) · detekt static analysis ───────────────────────────────────────────────────────
+// detekt gates NEW code smells / complexity / potential bugs — and, via detekt-formatting, ktlint
+// formatting hygiene — the same way uiCoherenceCheck gates NEW token bypasses: a committed baseline
+// (config/detekt-baseline.xml) grandfathers every pre-existing finding, so detekt fails the build ONLY on
+// a finding the baseline does not list. It never rewrites or reformats existing code, so the app's
+// intentional dense style is preserved (config/detekt.yml turns off the line-length rules that would fight
+// it). The detekt plugin wires its `detekt` task into `check`, so the CI `./gradlew check` gate runs it.
+detekt {
+    buildUponDefaultConfig = true
+    config.setFrom(files("config/detekt.yml"))
+    baseline = file("config/detekt-baseline.xml")
+    parallel = true
+    autoCorrect = false
+    // The app's own Kotlin (main + unit tests). Generated KSP/Room output lives under build/ and is not scanned.
+    source.setFrom(files("src/main/java", "src/test/java"))
+}
+dependencies {
+    // ktlint-backed formatting rules, run through detekt (no separate plugin / no mass reformat).
+    detektPlugins("io.gitlab.arturbosch.detekt:detekt-formatting:1.23.8")
+}
+tasks.withType<io.gitlab.arturbosch.detekt.Detekt>().configureEach {
+    jvmTarget = "17"
+    reports {
+        html.required.set(true)
+        xml.required.set(false)
+        sarif.required.set(false)
+        md.required.set(false)
+        txt.required.set(false)
+    }
+}
+tasks.withType<io.gitlab.arturbosch.detekt.DetektCreateBaselineTask>().configureEach {
+    jvmTarget = "17"
 }

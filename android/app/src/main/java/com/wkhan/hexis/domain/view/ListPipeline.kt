@@ -201,13 +201,13 @@ object ListPipeline {
             val orderById = ordered.mapIndexed { i, f -> f.id to i }.toMap()
             val buckets = LinkedHashMap<String, MutableList<TaskEntity>>()
             sorted.forEach { t ->
-                val key = t.flagId?.takeIf { it in nameById } ?: "￿No flag"
+                val key = t.flagId?.takeIf { it in nameById } ?: "\uFFFFNo flag"
                 buckets.getOrPut(key) { mutableListOf() }.add(t)
             }
             buckets.entries
-                .sortedBy { (k, _) -> if (k.startsWith("￿")) Int.MAX_VALUE else (orderById[k] ?: Int.MAX_VALUE - 1) }
+                .sortedBy { (k, _) -> if (k.startsWith("\uFFFF")) Int.MAX_VALUE else (orderById[k] ?: Int.MAX_VALUE - 1) }
                 .map { (k, ts) ->
-                    val label = if (k.startsWith("￿")) "No flag" else (nameById[k] ?: "Flag")
+                    val label = if (k.startsWith("\uFFFF")) "No flag" else (nameById[k] ?: "Flag")
                     TaskGroup("flag:$k", label, ts)
                 }
         } else if (gm == GroupMode.CONTEXT) {
@@ -217,11 +217,11 @@ object ListPipeline {
             val buckets = LinkedHashMap<String, MutableList<TaskEntity>>()
             sorted.forEach { t ->
                 val cids = ctxByTask[t.id].orEmpty()
-                if (cids.isEmpty()) buckets.getOrPut("￿No context") { mutableListOf() }.add(t)
+                if (cids.isEmpty()) buckets.getOrPut("\uFFFFNo context") { mutableListOf() }.add(t)
                 else cids.forEach { cid -> buckets.getOrPut(ctxNameById[cid] ?: "?") { mutableListOf() }.add(t) }
             }
             buckets.entries.sortedBy { it.key }.map { (name, ts) ->
-                val label = if (name.startsWith("￿")) "No context" else "@$name"
+                val label = if (name.startsWith("\uFFFF")) "No context" else "@$name"
                 TaskGroup("ctx:$name", label, ts)
             }
         } else {

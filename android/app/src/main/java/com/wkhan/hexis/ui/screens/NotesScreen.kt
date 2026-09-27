@@ -220,7 +220,7 @@ fun NotesScreen(
             compareByDescending<NoteEntity> { it.pinned }.then(
                 when (settings.notesSort) {
                     "created" -> compareByDescending { it.createdAt }
-                    "titleAsc" -> compareBy(String.CASE_INSENSITIVE_ORDER) { it.title.ifBlank { "￿" } }
+                    "titleAsc" -> compareBy(String.CASE_INSENSITIVE_ORDER) { it.title.ifBlank { "\uFFFF" } }
                     "titleDesc" -> compareByDescending(String.CASE_INSENSITIVE_ORDER) { it.title.ifBlank { "" } }
                     else -> compareByDescending { it.updatedAt }
                 }

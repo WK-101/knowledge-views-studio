@@ -5,4 +5,6 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose") version "2.0.20" apply false
     id("org.jetbrains.kotlin.plugin.serialization") version "2.0.20" apply false
     id("com.google.devtools.ksp") version "2.0.20-1.0.24" apply false
+    // R109 (Tier-1) — static analysis: code smells, complexity and ktlint-backed formatting hygiene.
+    id("io.gitlab.arturbosch.detekt") version "1.23.8" apply false
 }
