@@ -2,6 +2,8 @@ package app.parley.blocking
 
 import android.content.Context
 import app.parley.data.DataContainer
+import app.parley.data.NumberInfo
+import app.parley.data.PhoneEnv
 import app.parley.telecom.RingBoost
 import app.parley.telecom.ScreeningGuard
 
@@ -23,6 +25,8 @@ object BlockingSetup {
         runCatching { RingBoost.restore(appContext) }
         runCatching { ScreeningGuard.inEmergencyWindow(appContext) }
         runCatching { c.screener.warm() }
+        // Caller location for unknown callers (the call screen) and Recents.
+        runCatching { NumberInfo.warm(PhoneEnv.countryIso(appContext)) }
         runCatching { c.calling.config.value }
         runCatching { c.peoplePrefs.current() }
         SpamListWorker.schedule(appContext)

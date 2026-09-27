@@ -33,6 +33,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import java.util.WeakHashMap
 
@@ -236,6 +237,10 @@ object CallManager {
                     if (incoming) {
                         unknownCallers += id
                         maybePlayUnknownRingtone(call, id)
+                        // "Where is this number from": the geocoder loads large data files the first time, so never
+                        // on the main thread while the phone rings.
+                        val where = withContext(Dispatchers.IO) { runCatching { deps.describeNumber(number) }.getOrNull().orEmpty() }
+                        if (calls.contains(call)) locations[id] = where
                     }
                 }
                 publish()
@@ -551,7 +556,7 @@ object CallManager {
             memory = found?.memory,
             memoryPrompt = found?.memoryPrompt == true,
             unknown = id in unknownCallers,
-            location = if (id in unknownCallers && number != null) locations.getOrPut(id) { runCatching { TelecomGraph.dependencies.describeNumber(number) }.getOrNull().orEmpty() }.ifEmpty { null } else null,
+            location = if (id in unknownCallers) locations[id]?.ifEmpty { null } else null,
             verdict = outcomes[id]?.verdict,
             verdictWarn = outcomes[id]?.warn == true,
             noContact = id in noContact && found == null,
