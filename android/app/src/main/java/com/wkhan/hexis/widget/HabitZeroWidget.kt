@@ -317,8 +317,12 @@ class HabitZeroWidget : BaseWidgetProvider() {
     companion object {
         fun refresh(context: Context) = Widgets.broadcastUpdate(context, HabitZeroWidget::class.java, R.id.hz_list)
         fun updateOne(context: Context, id: Int) {
-            val m = AppWidgetManager.getInstance(context) ?: return
-            HabitZeroWidget().render(context, m, intArrayOf(id))
+            // Broadcast a targeted update (see HabitsWidget.updateOne) rather than calling render() directly,
+            // whose goAsync() NPEs when invoked outside a receiver dispatch (WidgetConfigActivity Save).
+            context.sendBroadcast(Intent(context, HabitZeroWidget::class.java).apply {
+                action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
+                putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, intArrayOf(id))
+            })
         }
     }
 }

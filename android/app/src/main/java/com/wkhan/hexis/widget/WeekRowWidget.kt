@@ -117,8 +117,12 @@ class WeekRowWidget : BaseWidgetProvider() {
         fun refresh(context: Context) = Widgets.broadcastUpdate(context, WeekRowWidget::class.java)
 
         fun updateOne(context: Context, id: Int) {
-            val m = AppWidgetManager.getInstance(context) ?: return
-            WeekRowWidget().render(context, m, id)
+            // Broadcast a targeted update (see HabitsWidget.updateOne) rather than calling render() directly,
+            // whose goAsync() NPEs when invoked outside a receiver dispatch (WidgetConfigActivity Save).
+            context.sendBroadcast(Intent(context, WeekRowWidget::class.java).apply {
+                action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
+                putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, intArrayOf(id))
+            })
         }
     }
 }

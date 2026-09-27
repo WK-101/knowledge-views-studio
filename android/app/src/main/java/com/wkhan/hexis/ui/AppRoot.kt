@@ -577,6 +577,7 @@ fun AppRoot(
             val eventsForNotif by vm.events.collectAsStateWithLifecycle()
             val needsNotif = settings.dailySummaryEnabled || settings.eveningReviewEnabled ||
                 settings.morningBriefEnabled || settings.occasionLiveNotif || settings.occasionNudge ||
+                settings.goalReviewReminder ||
                 taskReminders.isNotEmpty() ||
                 habitsForNotif.any { it.reminderTimes.isNotBlank() } ||
                 eventsForNotif.any { it.alertsMinutes.isNotBlank() }

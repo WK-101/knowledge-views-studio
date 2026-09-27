@@ -141,11 +141,12 @@ class GoalsRoutinesViewModel(
             val inList = app.tasks.value.filter { it.listId == g.listId && !it.trashed && !it.isNote && !it.abandoned }
             tTotal = inList.size; tDone = inList.count { it.completed }
         }
-        var streak = 0; var strength = 0
+        var streak = 0; var strength = 0; var habitExists = false
         // Archived-inclusive: an archived lead habit's strength/streak should freeze at its last value (its
         // check-ins simply stop growing), not drop to 0 — otherwise the goal reads as failing the moment the
         // supporting practice is retired. habits.value strips archived, so use the archived-inclusive flow.
         if (g.hasHabit) app.habitsWithArchived.value.firstOrNull { it.id == g.habitId }?.let { h ->
+            habitExists = true
             val (done, skip, relapse) = hs.daySets(h, app.habitCheckins.value)   // R108 audit C2
             val today = java.time.LocalDate.now(zone).toEpochDay()
             streak = hs.displayStreak(h, done, skip, relapse, today, app.settings.value.forgivingStreaks)
@@ -159,7 +160,7 @@ class GoalsRoutinesViewModel(
         // activity poured in — but a lead-only or lag-only goal still uses its own arms at full weight.
         val lead = ArrayList<Double>()
         val lag = ArrayList<Double>()
-        if (g.hasHabit) lead += strength / 100.0
+        if (g.hasHabit && habitExists) lead += strength / 100.0   // drop the arm if the habit row is gone (don't add a hard 0)
         if (g.hasBudget && g.budgetMinutes > 0) lead += (mins.toDouble() / g.budgetMinutes).coerceAtMost(1.0)
         if (g.hasTasks && tTotal > 0) lag += tDone.toDouble() / tTotal
         // A goal's outcomes count toward its health too — a KR-only or milestone-only goal must not read 0%.

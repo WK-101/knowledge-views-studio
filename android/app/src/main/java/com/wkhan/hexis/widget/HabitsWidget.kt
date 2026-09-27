@@ -104,8 +104,13 @@ class HabitsWidget : BaseWidgetProvider() {
         fun refresh(context: Context) = Widgets.broadcastUpdate(context, HabitsWidget::class.java, R.id.hb_list)
 
         fun updateOne(context: Context, id: Int) {
-            val m = AppWidgetManager.getInstance(context) ?: return
-            HabitsWidget().render(context, m, id)
+            // Re-render via a targeted broadcast (like DayWidget.updateOne) instead of calling render()
+            // directly: render() calls goAsync(), which returns null when invoked OUTSIDE a BroadcastReceiver
+            // dispatch (e.g. from WidgetConfigActivity's Save) and then NPEs in its finally → app crash.
+            context.sendBroadcast(Intent(context, HabitsWidget::class.java).apply {
+                action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
+                putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, intArrayOf(id))
+            })
         }
     }
 }

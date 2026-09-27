@@ -1814,6 +1814,10 @@ class AppViewModel internal constructor(
                     repo.saveSettings(settings.value.copy(firstWinCelebrated = true))
                     if (goalCelebration.value == null) goalCelebration.value = "Your first one, done 🎉 Small wins compound — you're off."
                 }
+                // V3 — a completing task whose activity is linked to a habit auto-checks that habit; refresh
+                // the habit widgets so they don't disagree with the task / Momentum widgets until the next
+                // habit action or midnight (the task observer only refreshes the task-side widgets).
+                if (t.defaultActivityId != null) refreshHabitWidgets()
             }
         }
     }

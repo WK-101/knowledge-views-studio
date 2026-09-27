@@ -143,9 +143,19 @@ class CalendarViewModel(
             e.rrule.isBlank() || delScope == "series" -> { com.wkhan.hexis.reminders.AlarmScheduler.cancelEventAlerts(app.appCtx, e); repo.deleteEvent(id) }
             delScope == "this" -> {
                 val ex = (e.exDates.split(",").mapNotNull { it.trim().toLongOrNull() } + instanceDay).distinct().joinToString(",")
-                repo.upsertEvent(e.copy(exDates = ex, updatedAt = System.currentTimeMillis()))
+                val updated = e.copy(exDates = ex, updatedAt = System.currentTimeMillis())
+                // Cancel + re-arm: the armed alert is for the NEXT occurrence — exactly the one being excluded
+                // here — and the alert receiver doesn't re-check exDates/until, so it would fire a ghost alert.
+                com.wkhan.hexis.reminders.AlarmScheduler.cancelEventAlerts(app.appCtx, e)
+                repo.upsertEvent(updated)
+                com.wkhan.hexis.reminders.AlarmScheduler.scheduleEventAlerts(app.appCtx, updated)
             }
-            delScope == "following" -> repo.upsertEvent(e.copy(rrule = capUntil(e.rrule, instanceDay - 1), updatedAt = System.currentTimeMillis()))
+            delScope == "following" -> {
+                val updated = e.copy(rrule = capUntil(e.rrule, instanceDay - 1), updatedAt = System.currentTimeMillis())
+                com.wkhan.hexis.reminders.AlarmScheduler.cancelEventAlerts(app.appCtx, e)
+                repo.upsertEvent(updated)
+                com.wkhan.hexis.reminders.AlarmScheduler.scheduleEventAlerts(app.appCtx, updated)
+            }
         }
     }
     private fun capUntil(rule: String, untilDay: Long): String {

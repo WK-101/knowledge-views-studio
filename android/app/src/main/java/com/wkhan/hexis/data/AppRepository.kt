@@ -478,8 +478,25 @@ class AppRepository(private val db: AppDatabase, private val appContext: android
         val byId = habits.getAll().associateBy { it.id }
         orderedIds.forEachIndexed { i, id -> byId[id]?.let { habits.upsert(it.copy(sortOrder = i.toDouble())) } }
     }
-    /** Permanent removal (check-ins + habit row). Only reachable from the habits Trash. */
-    suspend fun deleteHabit(id: String) { habits.clearHabit(id); habits.deleteById(id) }
+    /** Permanent removal (check-ins + habit row). Only reachable from the habits Trash. Like
+     *  deleteTimeActivity, it also clears every cross-module back-reference (no FK cascades): tracked time
+     *  tagged to the habit, habit-stack anchors on other habits, and any goal arm pointing at it. */
+    suspend fun deleteHabit(id: String) {
+        db.withTransaction {
+            timeTrack.getEntries().filter { it.habitId == id }.forEach { timeTrack.upsertEntry(it.copy(habitId = null)) }
+            habits.getAll().filter { it.anchorHabitId == id || it.replacementHabitId == id }.forEach {
+                habits.upsert(it.copy(
+                    anchorHabitId = if (it.anchorHabitId == id) null else it.anchorHabitId,
+                    replacementHabitId = if (it.replacementHabitId == id) null else it.replacementHabitId,
+                ))
+            }
+            goals.getAll().filter { it.habitId == id }.forEach { goals.upsert(it.copy(habitId = "")) }
+            habits.clearHabit(id); habits.deleteById(id)
+        }
+        // Drop the stale per-habit time-planning config entry (a settings-side map, like timeActivityParents).
+        val s = settingsSnapshot()
+        if (s.habitTimeCfg.containsKey(id)) saveSettings(s.copy(habitTimeCfg = s.habitTimeCfg - id))
+    }
     /** Soft-delete: move a habit to Trash (recoverable) or restore it. Check-ins are preserved either way. */
     suspend fun setHabitTrashed(id: String, trashed: Boolean) {
         habits.getById(id)?.let {
@@ -620,6 +637,9 @@ class AppRepository(private val db: AppDatabase, private val appContext: android
             timeActivityParents = newParents,
             automationRulesJson = com.wkhan.hexis.domain.AutomationRules.encode(rules),
         ))
+        // Blank any goal time-arm pointing at this activity so a deleted target doesn't drag goal health
+        // to zero (the arm drops out instead of contributing a hard 0).
+        goals.getAll().filter { it.activityId == id }.forEach { goals.upsert(it.copy(activityId = "")) }
         timeTrack.deleteActivity(id)
     }
 
@@ -1397,6 +1417,7 @@ class AppRepository(private val db: AppDatabase, private val appContext: android
         for (id in ids) reminders.forTask(id).forEach { onCancelReminder?.invoke(it.id) }
         // D1 — delete the task rows and all their child rows atomically; a mid-cascade kill can't orphan
         // checklist items / tags / contexts / dependencies under an already-deleted task.
+        val idSet = ids.toHashSet()
         db.withTransaction {
             for (id in ids) {
                 tags.unlinkAllForTask(id)
@@ -1407,6 +1428,14 @@ class AppRepository(private val db: AppDatabase, private val appContext: android
                 activity.clearForTask(id)
                 tasks.deleteById(id)
             }
+            // No FK cascades exist — null the cross-module back-references to the deleted tasks so nothing
+            // dangles (the same null-out convention deleteTimeActivity uses): a linked calendar block,
+            // tracked time entry, focus session or linked note loses its pointer rather than its row/history,
+            // and the stale link no longer suppresses the (now-gone) task from availability or resolves to null.
+            events.getAll().filter { it.linkedTaskId in idSet }.forEach { events.upsert(it.copy(linkedTaskId = null)) }
+            timeTrack.getEntries().filter { it.taskId in idSet }.forEach { timeTrack.upsertEntry(it.copy(taskId = null)) }
+            focus.getAll().filter { it.taskId in idSet }.forEach { focus.upsert(it.copy(taskId = null)) }
+            notes.getAll().filter { it.linkedTaskId in idSet }.forEach { notes.upsert(it.copy(linkedTaskId = null)) }
         }
         // R54 — keep the search index aligned AFTER the txn commits (FTS is raw-SQL, outside Room's txn).
         runCatching { val sdb = ftsDb(); for (id in ids) deleteTaskFts(sdb, id) }

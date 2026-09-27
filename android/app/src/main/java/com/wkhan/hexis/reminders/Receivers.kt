@@ -503,7 +503,10 @@ class ReminderReceiver : BroadcastReceiver() {
 /** Re-schedules reminders and the daily summary after a device reboot. */
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action != Intent.ACTION_BOOT_COMPLETED) return
+        // Also re-arm after an app UPDATE (MY_PACKAGE_REPLACED): Android clears all of an app's alarms on a
+        // package replace, so without this every task/note/summary alarm would silently stay dead until the
+        // next device reboot. The re-arm block below already covers every alarm type.
+        if (intent.action != Intent.ACTION_BOOT_COMPLETED && intent.action != Intent.ACTION_MY_PACKAGE_REPLACED) return
         val app = context.applicationContext as? App ?: return
         val pending = goAsync()
         CoroutineScope(Dispatchers.IO).launch {

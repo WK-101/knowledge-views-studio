@@ -421,7 +421,10 @@ object Notifications {
         post(context, ("trackprompt:$taskId").hashCode(), n)
     }
 
-    const val SEALED_LETTER_BASE = 424400
+    // Bases are spaced >1024 apart because each is combined with (id.hashCode() and 0x3FF), a 0..1023 span.
+    // At only 100 apart the three ranges overlapped, so an event alert, a sealed-letter reveal and a note
+    // reminder could collide on one id and silently replace each other in the shade.
+    const val SEALED_LETTER_BASE = 425400
 
     /** Track 3.4 — a letter you sealed for the future is ready to open. Opens The Record (where the sealed
      *  letters live) so you can read it beside the "what's changed since you sealed this" diff. */
@@ -444,7 +447,7 @@ object Notifications {
         post(context, SEALED_LETTER_BASE + (id.hashCode() and 0x3FF), n)
     }
 
-    const val NOTE_REMINDER_BASE = 424500
+    const val NOTE_REMINDER_BASE = 426500
     private fun noteNotifId(noteId: String): Int = NOTE_REMINDER_BASE + (noteId.hashCode() and 0x3FF)
 
     /** Wave F/H — a note's reminder fired. Tapping opens that note (open_note:<id>). Snooze re-arms it a

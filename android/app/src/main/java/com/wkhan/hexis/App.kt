@@ -56,6 +56,11 @@ class App : Application() {
             com.wkhan.hexis.reminders.AlarmScheduler.quietEnabled = s0.quietHoursEnabled
             com.wkhan.hexis.reminders.AlarmScheduler.quietStartHour = s0.quietStartHour
             com.wkhan.hexis.reminders.AlarmScheduler.quietEndHour = s0.quietEndHour
+            // Self-heal the two biggest reminder categories on every app start, not just on reboot/update:
+            // a force-stop (or an OEM "clear all") drops pending alarms without firing BOOT/MY_PACKAGE_REPLACED,
+            // and task + note reminders were previously re-armed only from those receivers.
+            runCatching { com.wkhan.hexis.reminders.AlarmScheduler.rescheduleAll(this@App, repository) }
+            runCatching { com.wkhan.hexis.reminders.AlarmScheduler.rescheduleAllNoteReminders(this@App, repository) }
             // (Re)arm per-habit reminder alarms for this device's current day. Cheap; self-healing.
             runCatching { com.wkhan.hexis.reminders.AlarmScheduler.scheduleHabitReminders(this@App, repository) }
             // (Re)arm press-play routine daily nudges the same way.

@@ -380,8 +380,10 @@ object WidgetBitmaps {
         areaColor: Int,
         dotColor: Int,
     ): Bitmap {
-        val w = cap(widthPx)
-        val h = cap(heightPx, 700)
+        // Byte-cap like weekStrip/quickCluster: a 300x90dp ARGB_8888 bitmap exceeds the ~1MB Binder limit on
+        // xxxhdpi devices (density 3.5-4), throwing TransactionTooLargeException on updateAppWidget. cap()
+        // only clamps each edge; capBytes scales both down to fit the transaction budget.
+        val (w, h) = capBytes(cap(widthPx), cap(heightPx, 700))
         val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
         val c = Canvas(bmp)
         if (values.isEmpty()) return bmp
