@@ -48,7 +48,10 @@ class CallTimePlanner(private val c: DataContainer) {
         // Label titles in every account (label limits are keyed by title).
         val labels = if (info == null || labelRules.isEmpty()) emptySet() else runCatching { c.people.labelsOf(info.contactId) }.getOrDefault(emptySet())
         val contact = key?.let { k -> c.contacts.contacts.value?.firstOrNull { it.lookupKey == k } }
-        val numbers = contact?.phones?.map { it.number } ?: listOfNotNull(number?.takeIf { it.isNotBlank() })
+        // In a process started for the call the list isn't loaded: the contact's numbers come from the provider.
+        val numbers = contact?.phones?.map { it.number }
+            ?: info?.takeIf { !it.work }?.let { runCatching { c.contacts.numbersOf(it.contactId) }.getOrNull()?.takeIf { n -> n.isNotEmpty() } }
+            ?: listOfNotNull(number?.takeIf { it.isNotBlank() })
         // The hour after an emergency call, and numbers listed as starting it: never limited or silenced.
         val emergency = EmergencyPolicy.Facts(
             emergencyNumber = EmergencyNumbers.isEmergency(c.appContext, number),

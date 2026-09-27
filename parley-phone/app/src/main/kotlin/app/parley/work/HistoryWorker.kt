@@ -8,10 +8,8 @@ import android.content.Intent
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.work.CoroutineWorker
-import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
-import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
@@ -26,10 +24,8 @@ import app.parley.ui.history.HistoryText
 import java.util.concurrent.TimeUnit
 
 /**
- * Call history upkeep, entirely local:
- * - daily: full archive catch-up, archive retention (numbers kept forever are exempt), trash pruning,
- *   old export files removed, plan-meter check;
- * - shortly after each call: incremental archive sync and plan-meter check (80% warning).
+ * Call history upkeep shortly after each call, entirely local: incremental archive sync and plan-meter check (80%
+ * warning). The daily catch-up, retention and export cleanup run in [MaintenanceWorker].
  */
 class HistoryWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
@@ -45,17 +41,9 @@ class HistoryWorker(context: Context, params: WorkerParameters) : CoroutineWorke
     }
 
     companion object {
-        private const val NAME = "parley-history"
         private const val NAME_SOON = "parley-history-after-call"
         private const val KEY_FULL = "full"
         const val CHANNEL = NotificationChannels.PLAN
-
-        fun schedule(context: Context) {
-            WorkManager.getInstance(context).enqueueUniquePeriodicWork(
-                NAME, ExistingPeriodicWorkPolicy.KEEP,
-                PeriodicWorkRequestBuilder<HistoryWorker>(1, TimeUnit.DAYS).setInputData(workDataOf(KEY_FULL to true)).build(),
-            )
-        }
 
         /** After a call ends: the call log is written a moment later, so check in half a minute. */
         fun checkSoon(context: Context) {

@@ -19,6 +19,18 @@ object PhoneEnv {
      * per-app language, which may carry no country), then the default locale.
      */
     fun countryIso(context: Context): String {
+        // Two TelephonyManager calls and the locale lists: cached briefly, since callers evaluate it in loops and
+        // per row. A SIM swap or roaming change is picked up within [ISO_TTL_MS].
+        val now = SystemClock.elapsedRealtime()
+        isoCache?.let { (at, iso) -> if (now - at in 0 until ISO_TTL_MS) return iso }
+        return readCountryIso(context).also { isoCache = now to it }
+    }
+
+    @Volatile
+    private var isoCache: Pair<Long, String>? = null
+    private const val ISO_TTL_MS = 15_000L
+
+    private fun readCountryIso(context: Context): String {
         val tm = context.getSystemService(TelephonyManager::class.java)
         val system = runCatching {
             val list = Resources.getSystem().configuration.locales

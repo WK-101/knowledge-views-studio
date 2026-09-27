@@ -8,6 +8,7 @@ import android.content.Intent
 import android.provider.CallLog
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.work.Constraints
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
@@ -19,20 +20,43 @@ import app.parley.common.NotificationChannels
 import app.parley.common.NotificationIds
 import app.parley.container
 import app.parley.data.DataContainer
+import app.parley.blocking.ListsUpdaterClient
+import app.parley.blocking.SpamListWorker
 import app.parley.data.people.TemporaryContactStore
+import app.parley.ui.history.ExportFiles
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
 import java.util.concurrent.TimeUnit
 
 /**
- * Daily local housekeeping (no network):
- * temporary contacts that expired, vault entries that expired, call-log retention,
- * moving private (vault) calls out of the system log, and pruning the 30-day journal.
+ * The daily upkeep, in one run while the battery isn't low (entirely local, no network):
+ * - housekeeping: temporary contacts and vault entries that expired, lookup keys that moved, private (vault) calls
+ *   out of the system log, call-log retention, the 30-day journal and the time-machine snapshot;
+ * - call history: the full archive catch-up, retention, old export files and the plan-meter check;
+ * - screening: expired temporary allow rules, old screening traces, and the subscribed spam lists.
+ *
+ * One wake instead of three, each job with its own notifications as before. It doesn't wait for the phone to be idle:
+ * expired temporary contacts and retention are promises that shouldn't slip by days. Reminders stay separate
+ * (they fire at the hour the user chose), and so does the check shortly after each call ([HistoryWorker.checkSoon]).
  */
-class HousekeepingWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
+class MaintenanceWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
-        val notices = runHousekeeping(applicationContext.container)
-        notices.forEachIndexed { i, n -> notify(applicationContext, i, n) }
+        val ctx = applicationContext
+        val c = ctx.container
+        // A worker process starts lean: expiry notices name people and the key sweep indexes backgrounds, so wait for
+        // the address book (bounded) as a running app would have it.
+        withTimeoutOrNull(30_000) { c.contacts.contacts.filterNotNull().first() }
+        val notices = runCatching { runHousekeeping(c) }.getOrDefault(emptyList())
+        notices.forEachIndexed { i, n -> notify(ctx, i, n) }
         // At most one backup reminder a month while a backup is overdue.
-        runCatching { BackupReminder.maybeNotify(applicationContext, applicationContext.container) }
+        runCatching { BackupReminder.maybeNotify(ctx, c) }
+        // Call history: the full catch-up ran above (before retention); old exports and plan warnings.
+        runCatching { ExportFiles.cleanup(ctx, olderThanMillis = TimeUnit.HOURS.toMillis(1)) }
+        runCatching { HistoryWorker.warnPlans(ctx) }
+        // Screening upkeep and lists from the optional "Parley Lists" app (read through its provider).
+        runCatching { SpamListWorker.run(c) }
+        runCatching { ListsUpdaterClient.refresh(ctx, c.lists) }
         return Result.success()
     }
 
@@ -60,13 +84,20 @@ class HousekeepingWorker(context: Context, params: WorkerParameters) : Coroutine
     }
 
     companion object {
-        private const val NAME = "parley-housekeeping"
+        private const val NAME = "parley-maintenance"
         private const val CHANNEL = NotificationChannels.HOUSEKEEPING
 
+        /** The daily jobs this worker replaced; cancelled so they don't run twice. */
+        private val REPLACED = listOf("parley-housekeeping", "parley-history", "parley-screening-daily")
+
         fun schedule(context: Context) {
-            WorkManager.getInstance(context).enqueueUniquePeriodicWork(
+            val wm = WorkManager.getInstance(context)
+            REPLACED.forEach { wm.cancelUniqueWork(it) }
+            wm.enqueueUniquePeriodicWork(
                 NAME, ExistingPeriodicWorkPolicy.KEEP,
-                PeriodicWorkRequestBuilder<HousekeepingWorker>(1, TimeUnit.DAYS).build(),
+                PeriodicWorkRequestBuilder<MaintenanceWorker>(1, TimeUnit.DAYS)
+                    .setConstraints(Constraints.Builder().setRequiresBatteryNotLow(true).build())
+                    .build(),
             )
         }
 
@@ -98,9 +129,9 @@ class HousekeepingWorker(context: Context, params: WorkerParameters) : Coroutine
                 // after their calls rang included).
                 runCatching { c.vault.allNumbers().forEach { n -> c.ringFacts.forget(n) } }
             }
-            // 4. Call-log retention (the archive copies new calls first and then follows the same setting,
-            //    except numbers kept forever)
-            runCatching { c.history.sync(full = false) }
+            // 4. Call-log retention (the archive catches up on the whole log first and then follows the same
+            //    setting, except numbers kept forever)
+            runCatching { c.history.sync(full = true) }
             runCatching { c.history.applyRetention(settings.callLogRetentionDays) }
             if (settings.callLogRetentionDays > 0) {
                 val before = now - TimeUnit.DAYS.toMillis(settings.callLogRetentionDays.toLong())

@@ -6,6 +6,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.androidx.baselineprofile)
 }
 
 val keystoreProps = Properties().apply {
@@ -89,6 +90,13 @@ android {
 
     packaging {
         resources.excludes += setOf("META-INF/*.version", "META-INF/**/LICENSE*", "kotlin/**", "DebugProbesKt.bin")
+        // "Where is this number from" place names: only English and the app's other languages the geocoder has
+        // data for (German, Spanish, French, Portuguese, Arabic; none for Hindi or Urdu). The Chinese set alone was
+        // 790 KB. NumberInfo asks in English for any other language (GeoLanguages), so a dropped file is never read.
+        resources.excludes += listOf(
+            "be", "bg", "bs", "el", "fa", "fi", "hr", "hu", "hy", "id", "it", "iw", "ja", "kk", "ko", "nl", "pl", "ro",
+            "ru", "sq", "sr", "sv", "th", "tr", "uk", "vi", "zh", "zh_Hant",
+        ).map { "com/google/i18n/phonenumbers/geocoding/data/*_$it" }
     }
 
     lint {
@@ -107,6 +115,13 @@ kotlin {
     compilerOptions { jvmTarget.set(JvmTarget.JVM_17) }
 }
 
+// `./gradlew :app:generateBaselineProfile` with a device connected writes src/release/generated/baselineProfiles/;
+// never during an ordinary build (F-Droid builds without a device).
+baselineProfile {
+    automaticGenerationDuringBuild = false
+    saveInSrc = true
+}
+
 dependencies {
     implementation(project(":core:common"))
     implementation(project(":core:data"))
@@ -118,9 +133,13 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.zxing.core)
-    implementation(libs.androidx.biometric)
     implementation(libs.androidx.fragment)
     implementation(libs.androidx.work)
+    // Installs the baseline profile (app/src/main/baseline-prof.txt plus the generated one) on sideloaded and F-Droid
+    // installs, which get no cloud profiles.
+    implementation(libs.androidx.profileinstaller)
+    implementation(libs.androidx.core.splashscreen)
+    baselineProfile(project(":baselineprofile"))
     debugImplementation(libs.compose.ui.tooling.preview)
 
     testImplementation(libs.junit)

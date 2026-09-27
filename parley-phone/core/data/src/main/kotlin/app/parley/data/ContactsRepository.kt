@@ -48,6 +48,7 @@ import app.parley.data.people.ParleyWriteLog
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -56,6 +57,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.conflate
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
@@ -99,7 +103,30 @@ fun ContentResolver.changes(uri: Uri, retry: Flow<*>? = null): Flow<Unit> = call
     }
 }.onStart { emit(Unit) }.conflate()
 
-class ContactsRepository(private val context: Context, scope: CoroutineScope) {
+/** How long the address book must be quiet after a change before it is read again. */
+private const val CHANGE_QUIET_MS = 750L
+
+/** Like [debounce], except that the first value passes at once (a first load shouldn't wait). */
+@OptIn(FlowPreview::class)
+fun <T> Flow<T>.debounceAfterFirst(timeoutMillis: Long): Flow<T> = flow {
+    var first = true
+    emitAll(
+        debounce {
+            if (first) {
+                first = false
+                0L
+            } else {
+                timeoutMillis
+            }
+        },
+    )
+}
+
+/**
+ * [started]: when the shared [contacts] list starts loading (the container defers it in processes started for a call,
+ * a worker or a widget; see [StartGate]).
+ */
+class ContactsRepository(private val context: Context, scope: CoroutineScope, started: SharingStarted = SharingStarted.Eagerly) {
     private val cr: ContentResolver = context.contentResolver
 
     /** Called before Parley changes existing contacts (set by the container to journal them). */
@@ -125,10 +152,14 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope) {
     /** Bumped after permission changes so observers reload. */
     private val reload = MutableStateFlow(0)
 
-    val contacts: StateFlow<List<ContactSummary>?> = combine(cr.changes(Contacts.CONTENT_URI, retry = reload), reload) { _, _ -> }
+    // A sync adapter or a bulk edit sends a burst of change notifications: the first load is immediate, later ones
+    // wait until the burst has been quiet for a moment, so one sync means one reload rather than dozens.
+    private val contactChanges = cr.changes(Contacts.CONTENT_URI, retry = reload).debounceAfterFirst(CHANGE_QUIET_MS)
+
+    val contacts: StateFlow<List<ContactSummary>?> = combine(contactChanges, reload) { _, _ -> }
         .map { loadAll() }
         .flowOn(Dispatchers.IO)
-        .stateIn(scope, SharingStarted.Eagerly, null)
+        .stateIn(scope, started, null)
 
     fun refresh() {
         reload.value++
@@ -871,6 +902,24 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope) {
     }
 
     /** Current lookup key of [contactId], or null. */
+    /** [contactId]'s phone numbers, straight from the provider (the call path doesn't load the whole list). */
+    fun numbersOf(contactId: Long): List<String> =
+        cr.safeQuery(Phone.CONTENT_URI, arrayOf(Phone.NUMBER), "${Phone.CONTACT_ID} = ?", arrayOf(contactId.toString()))
+            ?.use { c -> buildList { while (c.moveToNext()) c.getString(0)?.let(::add) } }.orEmpty()
+
+    /** Every contact's lookup key → contact id, in one query (the key sweep's listing); null when contacts can't be read. */
+    fun lookupKeys(): Map<String, Long>? = try {
+        cr.safeQuery(Contacts.CONTENT_URI, arrayOf(Contacts._ID, Contacts.LOOKUP_KEY))?.use(::keyIdMap)
+    } catch (_: Exception) {
+        null
+    }
+
+    private fun keyIdMap(c: Cursor): Map<String, Long> {
+        val out = HashMap<String, Long>(c.count)
+        while (c.moveToNext()) c.getString(1)?.let { out[it] = c.getLong(0) }
+        return out
+    }
+
     fun lookupKeyOf(contactId: Long): String? =
         cr.safeQuery(ContentUris.withAppendedId(Contacts.CONTENT_URI, contactId), arrayOf(Contacts.LOOKUP_KEY))?.use { c -> if (c.moveToFirst()) c.getString(0) else null }
 

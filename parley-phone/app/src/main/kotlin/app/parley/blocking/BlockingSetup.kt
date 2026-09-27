@@ -29,7 +29,14 @@ object BlockingSetup {
         runCatching { NumberInfo.warm(PhoneEnv.countryIso(appContext)) }
         runCatching { c.calling.config.value }
         runCatching { c.peoplePrefs.current() }
-        SpamListWorker.schedule(appContext)
+    }
+
+    /**
+     * Once the full app starts (the UI, or after a call): upkeep the call path doesn't need. Label references reach
+     * the people graph, which a process started for a call shouldn't build.
+     */
+    suspend fun warmLater(context: Context, c: DataContainer) {
+        val appContext = context.applicationContext
         c.lists.watchFolder { SpamListWorker.runSoon(appContext) }
         // Label references saved by older versions (group ids) are rewritten by title.
         runCatching { c.people.labelRefs.migrate() }

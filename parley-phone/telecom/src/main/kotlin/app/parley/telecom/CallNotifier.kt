@@ -74,7 +74,7 @@ class CallNotifier(private val context: Context) {
         }
         // Incoming (ringing) and ongoing calls use separate notifications, so a call-waiting call
         // is a *new* notification that pops up (heads-up / full-screen) rather than a silent update.
-        val ringing = live.firstOrNull { it.state == CallState.RINGING && !CallManager.isScreening(it.id) }
+        val ringing = live.firstOrNull { it.state == CallState.RINGING && !CallManager.holdsNotification(it.id) }
         val ongoing = live.firstOrNull { it.state == CallState.ACTIVE }
             ?: live.firstOrNull { it.state != CallState.RINGING }
 
@@ -86,16 +86,8 @@ class CallNotifier(private val context: Context) {
             cancel(INCOMING_ID)
         } else if (ringing.id == dismissedIncoming) {
             // The user swiped this call's ringing/"Ringing silently" notification away: it stays away.
-        } else if (ringing.silenced) {
-            post(INCOMING_ID, ringing, "s") { buildSilenced(ringing) }
         } else {
-            // Without a full-screen alert (permission, notifications, or the channel turned down) the call screen is
-            // opened directly, so a ringing call always has a way to answer.
-            if (ongoing == null && ringing.id !in directlyLaunched && (!canUseFullScreen() || !notificationsAllowed() || !incomingChannelAlerts(context))) {
-                directlyLaunched += ringing.id
-                context.startActivity(InCallActivity.intent(context, false).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-            }
-            post(INCOMING_ID, ringing, "i") { buildIncoming(ringing) }
+            postRinging(ringing, ongoing)
         }
 
         if (ongoing == null) {
@@ -106,6 +98,27 @@ class CallNotifier(private val context: Context) {
             // The chronometer counts by itself: the signature changes when the end time changes, not every second.
             val chrono = CallChronometer.display(ongoing.connectTimeMillis, timing?.countdown, SystemClock.elapsedRealtime(), System.currentTimeMillis())
             post(ONGOING_ID, ongoing, "o${a.muted}${a.current?.type}${chrono.signature}${timing?.canExtend}") { buildOngoing(ongoing, timing, chrono) }
+        }
+    }
+
+    /** The notification of a ringing call nobody dismissed: silenced, still being screened, or ringing. */
+    private fun postRinging(ringing: CallUi, ongoing: CallUi?) {
+        if (ringing.silenced) {
+            post(INCOMING_ID, ringing, "s") { buildSilenced(ringing) }
+        } else if (CallManager.isScreening(ringing.id)) {
+            // Screening takes longer than usual (a cold start): a quiet "Checking…" with Answer and Decline, not the
+            // heads-up and full-screen call screen, which a rejected spam call must never pop up.
+            post(INCOMING_ID, ringing, "c") { buildSilenced(ringing) }
+        } else {
+            // Replacing the quiet "Checking…" notification: posted fresh, so it alerts like any incoming call.
+            if (lastPosted[INCOMING_ID]?.startsWith("c|") == true) cancel(INCOMING_ID)
+            // Without a full-screen alert (permission, notifications, or the channel turned down) the call screen is
+            // opened directly, so a ringing call always has a way to answer.
+            if (ongoing == null && ringing.id !in directlyLaunched && (!canUseFullScreen() || !notificationsAllowed() || !incomingChannelAlerts(context))) {
+                directlyLaunched += ringing.id
+                context.startActivity(InCallActivity.intent(context, false).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            }
+            post(INCOMING_ID, ringing, "i") { buildIncoming(ringing) }
         }
     }
 
@@ -147,6 +160,7 @@ class CallNotifier(private val context: Context) {
         val nmc = NotificationManagerCompat.from(context)
         try {
             nmc.notify(id, build())
+            if (id == INCOMING_ID) CallManager.onNotificationShown(call.id)
         } catch (_: SecurityException) {
         } catch (_: IllegalArgumentException) {
             // Some Android versions reject CallStyle outside a foreground service: fall back to a plain notification.

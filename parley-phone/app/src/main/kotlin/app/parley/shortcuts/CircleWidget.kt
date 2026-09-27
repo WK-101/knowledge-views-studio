@@ -26,7 +26,11 @@ import app.parley.data.EventItem
 import app.parley.ui.circle.CircleText
 import app.parley.ui.people.eventLabel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.drop
@@ -50,7 +54,14 @@ import java.time.LocalDate
  *   the reminders worker. Resizable: smaller sizes show fewer rows.
  */
 class CircleWidget : AppWidgetProvider() {
-    override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) = refreshAsync(context)
+    override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
+        if (ids.isNotEmpty()) present.value = true
+        refreshAsync(context)
+    }
+
+    override fun onDisabled(context: Context) {
+        present.value = false
+    }
 
     override fun onAppWidgetOptionsChanged(context: Context, manager: AppWidgetManager, id: Int, options: Bundle) = refreshAsync(context)
 
@@ -76,6 +87,9 @@ class CircleWidget : AppWidgetProvider() {
     private data class Content(val people: List<Row>, val dates: List<Row>)
 
     companion object {
+        /** Whether any Circle widget is placed; null until first asked. */
+        private val present = MutableStateFlow<Boolean?>(null)
+
         /** Dates this many days ahead. */
         const val DATE_DAYS = 14
 
@@ -237,20 +251,29 @@ class CircleWidget : AppWidgetProvider() {
          * call history, the contacts or the app-lock setting, and when the screen turns off (names hide) or the phone
          * is unlocked (names return). Called once from the Application.
          */
-        @OptIn(FlowPreview::class)
+        @OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
         fun observe(context: Context, c: DataContainer) {
             val ctx = context.applicationContext
+            // Only in a running app, and only while a widget exists: following the history index keeps the call log,
+            // the archive and the contacts loaded, which a process started for a call must not pay for.
             c.scope.launch {
-                combine(
-                    c.meta.allMeta().map { rows -> rows.map { Triple(it.lookupKey, it.reachOutDays, it.rhythm) } },
-                    c.circle.interactions.changes,
-                    c.history.index,
-                    c.contacts.contacts,
-                    c.settings.settings.map { it.appLock },
-                ) { a, b, idx, contacts, lock -> listOf(a, b, idx?.calls?.size, contacts?.size, lock) }
-                    .drop(1)
-                    .debounce(3_000)
-                    .collect { if (ids(ctx).isNotEmpty()) runCatching { refresh(ctx) } }
+                c.fullStart.await()
+                if (present.value == null) present.value = ids(ctx).isNotEmpty()
+                present.flatMapLatest { shown ->
+                    if (shown != true) {
+                        emptyFlow()
+                    } else {
+                        combine(
+                            c.meta.allMeta().map { rows -> rows.map { Triple(it.lookupKey, it.reachOutDays, it.rhythm) } },
+                            c.circle.interactions.changes,
+                            c.history.index,
+                            c.contacts.contacts,
+                            c.settings.settings.map { it.appLock },
+                        ) { a, b, idx, contacts, lock -> listOf(a, b, idx?.calls?.size, contacts?.size, lock) }
+                            .drop(1)
+                            .debounce(3_000)
+                    }
+                }.collect { if (ids(ctx).isNotEmpty()) runCatching { refresh(ctx) } }
             }
             val receiver = object : BroadcastReceiver() {
                 override fun onReceive(context: Context, intent: Intent) {

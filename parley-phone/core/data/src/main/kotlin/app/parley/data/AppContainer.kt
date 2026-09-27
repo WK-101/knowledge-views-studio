@@ -32,6 +32,7 @@ import app.parley.data.sync.FolderSync
 import app.parley.data.vault.VaultMoves
 import app.parley.data.vault.VaultRepository
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.SupervisorJob
@@ -44,10 +45,23 @@ import kotlinx.coroutines.launch
 class DataContainer(context: Context) {
     val appContext: Context = context.applicationContext
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+    /**
+     * Opens when the UI starts or a call has settled. Until then the process runs lean: what call screening and the
+     * call screen need (settings, rules, lists, lookups) and nothing that scans the address book or the call log.
+     */
+    val fullStart = StartGate()
+
+    /**
+     * Warm-up and upkeep that isn't urgent run here: at most two at a time, so they never take every IO thread from
+     * call screening or the UI.
+     */
+    val warmDispatcher: CoroutineDispatcher = Dispatchers.IO.limitedParallelism(2)
+
     val db: AppDatabase by lazy { AppDatabase.create(appContext) }
     val settings = SettingsRepository(appContext, scope)
-    val contacts = ContactsRepository(appContext, scope)
-    val callLog = CallLogRepository(appContext, scope)
+    val contacts = ContactsRepository(appContext, scope, fullStart.sharing)
+    val callLog = CallLogRepository(appContext, scope, fullStart.sharing)
     val sims = SimRepository(appContext)
     val blocks by lazy { BlockRepository(appContext, db, scope) }
     val prefs by lazy { PrefsRepository(db) { PhoneEnv.countryIso(appContext) } }
@@ -113,7 +127,7 @@ class DataContainer(context: Context) {
     }
 
     val history: CallHistory by lazy {
-        CallHistory(appContext, callLog, contacts, vault, scope).also { h ->
+        CallHistory(appContext, callLog, contacts, vault, scope, fullStart).also { h ->
             h.onForget = { n, dates -> ringFacts.forget(n, dates) }
         }
     }
@@ -155,8 +169,10 @@ class DataContainer(context: Context) {
             val movedTo = kind.removePrefix("MOVE:").takeIf { kind.startsWith("MOVE:") }?.toLongOrNull()
             if (movedTo != null) before.forEach { (_, key) -> contactKeys.moveTo(key, movedTo) } else contactKeys.carry(before)
         }
-        // Changes made by other apps and sync adapters: re-resolve stored keys once contacts settle.
-        scope.launch {
+        // Changes made by other apps and sync adapters: re-resolve stored keys once contacts settle. Not in a process
+        // started for a call or a worker (the daily maintenance run sweeps too).
+        scope.launch(warmDispatcher) {
+            fullStart.await()
             contacts.contacts.filterNotNull().debounce(15_000).collect {
                 try {
                     contactKeys.sweep()
@@ -168,6 +184,27 @@ class DataContainer(context: Context) {
             }
         }
     }
+
+    /**
+     * Builds the preference-backed stores on the calling thread (IO, at start-up). Their constructors read
+     * SharedPreferences, which blocks until the file is parsed; built here, the call screen's appearance and the first
+     * screens never pay for that on the main thread. Construction only: nothing here scans contacts or calls.
+     */
+    fun warmStores() {
+        runCatching { extras }
+        runCatching { callExtras }
+        runCatching { calling }
+        runCatching { ux }
+        runCatching { circle }
+        runCatching { messaging }
+        runCatching { vault }
+        runCatching { history }
+        runCatching { people }
+        runCatching { directory }
+    }
+
+    /** The UI started, or a call settled: load and follow everything. Idempotent. */
+    fun startFull() = fullStart.open()
 
     init {
         // Every delete/edit/merge made through Parley is journaled first (30-day undo).

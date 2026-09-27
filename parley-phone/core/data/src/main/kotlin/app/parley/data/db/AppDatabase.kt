@@ -202,7 +202,7 @@ data class VaultContactEntity(
 )
 
 /** HMAC of each vault phone number (E.164 / last digits) so caller ID can match without decrypting. */
-@Entity(tableName = "vault_numbers", primaryKeys = ["vaultId", "hmac"])
+@Entity(tableName = "vault_numbers", primaryKeys = ["vaultId", "hmac"], indices = [Index(value = ["hmac"])])
 data class VaultNumberEntity(val vaultId: Long, val hmac: String)
 
 /**
@@ -573,6 +573,13 @@ interface BlockDao {
     @Query("DELETE FROM blocked_calls WHERE allowed = 1 AND time < :before")
     suspend fun pruneAllowed(before: Long)
 
+    /** Blocked-call history older than [before], and anything beyond the newest [keep] rows. */
+    @Query(
+        "DELETE FROM blocked_calls WHERE allowed = 0 AND (time < :before OR id NOT IN " +
+            "(SELECT id FROM blocked_calls WHERE allowed = 0 ORDER BY time DESC LIMIT :keep))",
+    )
+    suspend fun pruneBlocked(before: Long, keep: Int)
+
     @Insert
     suspend fun addRing(r: CallRingEntity)
 
@@ -635,7 +642,7 @@ interface PrefsDao {
         VaultContactEntity::class, VaultNumberEntity::class, PrivateCallEntity::class, CallNoteEntity::class,
         CallRingEntity::class, InteractionEntity::class, CallUsageEntity::class,
     ],
-    version = 7,
+    version = 8,
     exportSchema = true,
     // v3: allow rules, schedules, SIM, hit counters, decision traces, ring lengths (blocking roadmap).
     // v4: temporary contacts remember their raw contact ids; contact metadata remembers the contact id and relation
@@ -646,9 +653,10 @@ interface PrefsDao {
     //     rows keep NULL, which never conflicts), and indexes on the number columns that are looked up. Additive only.
     //     Stored number keys move to PhoneIdentity.key afterwards, in the app (PhoneKeyMigrator): that needs the
     //     phone's contacts and calls, which a schema migration can't read.
+    // v8: an index on vault_numbers.hmac (caller ID looks private numbers up by it while the phone rings). Additive.
     autoMigrations = [
         AutoMigration(from = 1, to = 2), AutoMigration(from = 2, to = 3), AutoMigration(from = 3, to = 4), AutoMigration(from = 4, to = 5),
-        AutoMigration(from = 5, to = 6), AutoMigration(from = 6, to = 7),
+        AutoMigration(from = 5, to = 6), AutoMigration(from = 6, to = 7), AutoMigration(from = 7, to = 8),
     ],
 )
 abstract class AppDatabase : RoomDatabase() {

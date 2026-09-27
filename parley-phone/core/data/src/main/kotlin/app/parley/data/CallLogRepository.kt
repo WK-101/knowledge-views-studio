@@ -20,7 +20,8 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.withContext
 
-class CallLogRepository(private val context: Context, scope: CoroutineScope) {
+/** [started]: when the shared [calls] list starts loading (deferred in processes started for a call; see [StartGate]). */
+class CallLogRepository(private val context: Context, scope: CoroutineScope, started: SharingStarted = SharingStarted.Eagerly) {
     private val cr = context.contentResolver
     private val reload = MutableStateFlow(0)
 
@@ -43,7 +44,7 @@ class CallLogRepository(private val context: Context, scope: CoroutineScope) {
             load().also { fullLoaded = true }
         }
         .flowOn(Dispatchers.IO)
-        .stateIn(scope, SharingStarted.Eagerly, null)
+        .stateIn(scope, started, null)
 
     fun refresh() {
         reload.value++
@@ -109,6 +110,14 @@ class CallLogRepository(private val context: Context, scope: CoroutineScope) {
         }
         return out.sortedByDescending { it.date }
     }
+
+    /**
+     * The newest earlier call with [number]'s line, straight from the provider: for the call screen's "last call" line
+     * in a process that hasn't loaded [calls] (and shouldn't, while the phone rings).
+     */
+    fun lastCallWith(number: String, region: String?): CallEntry? =
+        pastCalls(number, System.currentTimeMillis(), limit = LAST_CALL_ROWS)
+            .firstOrNull { !it.presentationHidden && PhoneNumbers.same(it.number, number, region) }
 
     /** Unseen missed calls, newest first (what Telecom counts: missed, new and not read). */
     fun unseenMissed(limit: Int = 50): List<CallEntry> {
@@ -193,6 +202,9 @@ class CallLogRepository(private val context: Context, scope: CoroutineScope) {
 
     companion object {
         const val PREVIEW_ROWS = 100
+
+        /** Rows read for [lastCallWith] (the filter URI matches loosely, so a few candidates). */
+        private const val LAST_CALL_ROWS = 10
 
         fun signature(number: String?, date: Long, duration: Long, type: Int) = "$number|$date|$duration|$type"
 

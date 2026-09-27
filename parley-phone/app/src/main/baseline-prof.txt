@@ -1,0 +1,65 @@
+# Parley's hand-written baseline profile: the code people wait on, compiled ahead of time at install (Play, or the
+# profile installer for sideloaded and F-Droid installs) instead of running interpreted until background dexopt.
+# Covers start-up to Recents, the keypad, Contacts, and the incoming-call path (call screening, the call screen and its
+# notification). `./gradlew :app:generateBaselineProfile` on a device writes a measured profile next to this one
+# (src/release/generated/baselineProfiles); both are merged. See docs/PERFORMANCE_BENCHMARKS.md.
+#
+# Format: H hot, S startup, P post-startup; `**` matches any classes or members. Names are pre-R8 (AGP maps them).
+
+# Process start and the data graph
+Lapp/parley/ParleyApp;
+HSPLapp/parley/ParleyApp;->**(**)**
+HSPLapp/parley/ParleyAppKt;->**(**)**
+HSPLapp/parley/DebugStrictMode;->**(**)**
+HSPLapp/parley/AppTelecomDependencies**->**(**)**
+HSPLapp/parley/blocking/BlockingSetup;->**(**)**
+HSPLapp/parley/data/DataContainer**->**(**)**
+HSPLapp/parley/data/StartGate**->**(**)**
+HSPLapp/parley/data/SettingsRepository**->**(**)**
+HSPLapp/parley/data/ContactsRepository**->**(**)**
+HSPLapp/parley/data/ContactsRepositoryKt**->**(**)**
+HSPLapp/parley/data/CallLogRepository**->**(**)**
+HSPLapp/parley/data/ContactDirectory**->**(**)**
+HSPLapp/parley/data/PhoneEnv;->**(**)**
+HSPLapp/parley/data/NumberInfo;->**(**)**
+HSPLapp/parley/data/history/CallHistory**->**(**)**
+HSPLapp/parley/data/history/HistoryPrefs**->**(**)**
+HSPLapp/parley/common/AppSettings**->**(**)**
+HSPLapp/parley/common/PhoneNumbers**->**(**)**
+HSPLapp/parley/common/PhoneIdentity**->**(**)**
+HSPLapp/parley/common/history/HistoryMerge;->**(**)**
+HSPLapp/parley/common/history/CallLogIndex**->**(**)**
+
+# The main activity, the view model and the home screen (Recents, keypad, Contacts, Favourites)
+Lapp/parley/MainActivity;
+HSPLapp/parley/MainActivity**->**(**)**
+HSPLapp/parley/AppViewModel**->**(**)**
+HSPLapp/parley/security/AppLock**->**(**)**
+HSPLapp/parley/ui/ParleyRootKt**->**(**)**
+HSPLapp/parley/ui/ThemeKt**->**(**)**
+HSPLapp/parley/ui/AvatarKt**->**(**)**
+HSPLapp/parley/ui/PhotoCache**->**(**)**
+HSPLapp/parley/ui/home/**->**(**)**
+HSPLapp/parley/ui/common/**->**(**)**
+HSPLapp/parley/ui/people/PeopleUi**->**(**)**
+HSPLapp/parley/common/DialSearch**->**(**)**
+HSPLapp/parley/common/T9**->**(**)**
+HSPLapp/parley/common/TextSearch;->**(**)**
+HSPLapp/parley/common/Initials;->**(**)**
+
+# The incoming-call path: screening, the in-call service, the call screen and its notification
+Lapp/parley/telecom/CallManager;
+HSPLapp/parley/telecom/CallManager**->**(**)**
+HSPLapp/parley/telecom/CallNotifier**->**(**)**
+HSPLapp/parley/telecom/ParleyInCallService**->**(**)**
+HSPLapp/parley/telecom/ParleyCallScreeningService**->**(**)**
+HSPLapp/parley/telecom/ScreeningGuard**->**(**)**
+HSPLapp/parley/telecom/RingSnapshot**->**(**)**
+HSPLapp/parley/telecom/CallClock**->**(**)**
+HSPLapp/parley/telecom/TelecomGraph;->**(**)**
+HSPLapp/parley/telecom/ui/**->**(**)**
+HSPLapp/parley/data/CallScreener**->**(**)**
+HSPLapp/parley/data/BlockRepository**->**(**)**
+HSPLapp/parley/data/SpamListStore**->**(**)**
+HSPLapp/parley/common/CallPolicy**->**(**)**
+HSPLapp/parley/common/calls/**->**(**)**

@@ -10,16 +10,14 @@ import android.provider.ContactsContract
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.activity.enableEdgeToEdge
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
-import androidx.compose.material3.Surface
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
@@ -61,8 +59,13 @@ class MainActivity : FragmentActivity() {
     private val vm: AppViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // The system splash stays up until the settings are read: whether the app lock is on decides what may show, so
+        // there is no blank first frame and contacts never flash before the lock.
+        installSplashScreen().setKeepOnScreenCondition { !container.settings.loaded.value }
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+        // The UI is starting: load contacts, calls and the rest (a process started for a call or a worker doesn't).
+        container.startFull()
         if (savedInstanceState == null) handleIntent(intent)
         setContent {
             val settings by vm.settings.collectAsStateWithLifecycle()
@@ -79,8 +82,7 @@ class MainActivity : FragmentActivity() {
             LaunchedEffect(settings.secureScreen, settings.appLock, locked, settingsLoaded) { protectWindow() }
             ParleyTheme(settings.themeMode, settings.amoledBlack, settings.dynamicColor, settings.density) {
                 if (!settingsLoaded) {
-                    // Until we know whether the app lock is on, show nothing rather than flash the contacts.
-                    Surface(Modifier.fillMaxSize()) {}
+                    // Behind the splash screen (kept until the settings load): nothing that could flash the contacts.
                 } else if (locked && settings.appLock) {
                     LockScreen(lockEmergencyNumber, checkingEmergency) {
                         AppLock.authenticate(this@MainActivity) { ok -> if (ok) lockEmergencyNumber = null }

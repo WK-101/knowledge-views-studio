@@ -47,7 +47,7 @@ class PhoneKeyMigrator(
         val calls = withTimeoutOrNull(WAIT_MS) { history().calls.filterNotNull().first() } ?: return@withContext 0
         val region = PhoneEnv.countryIso(context)
         val known = people.flatMap { c -> c.phones.map { it.number } } + calls.map { it.number } +
-            runCatching { history().archive.value.orEmpty().mapNotNull { it.record.number } }.getOrDefault(emptyList())
+            runCatching { history().archivedNumbers() }.getOrDefault(emptyList())
         val meta = db.metaDao()
         val blocks = db.blockDao()
         val sims = db.prefsDao()

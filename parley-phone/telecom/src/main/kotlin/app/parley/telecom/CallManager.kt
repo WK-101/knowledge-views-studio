@@ -11,6 +11,7 @@ import android.media.RingtoneManager
 import android.net.Uri
 import android.os.Build
 import android.os.SystemClock
+import android.os.Trace
 import android.os.VibrationAttributes
 import android.os.VibrationEffect
 import android.os.Vibrator
@@ -66,6 +67,13 @@ object CallManager {
     private val info = HashMap<String, CallerDisplay>()
     private val silenced = HashSet<String>()
     private val screening = HashSet<String>()
+
+    /** Ringing calls whose notification waits a moment for the verdict (see [holdsNotification]). */
+    private val noticeHeld = HashSet<String>()
+
+    /** Incoming calls whose first notification is still being timed (add → notification). */
+    private val noticeTraced = HashSet<String>()
+
     private val unknownCallers = HashSet<String>()
     private val locations = HashMap<String, String>()
     private var customRinger: Ringtone? = null
@@ -165,6 +173,8 @@ object CallManager {
         val incoming = call.stateCompat() == Call.STATE_RINGING
         if (calls.size == 1) RingBoost.restoreAsync(appContext) // a boost left behind by a crash
         if (incoming) {
+            // Timed until the first notification for this call is posted (Perfetto / systrace).
+            if (noticeTraced.add(id)) Trace.beginAsyncSection(TRACE_NOTIFY, traceCookie(id))
             val now = System.currentTimeMillis()
             ringStartedAt[id] = now
             ringFacts[id] = runCatching { RingSnapshot.capture(appContext, now) }.getOrElse { RingFacts(now) }
@@ -187,15 +197,25 @@ object CallManager {
         val active = runCatching { deps.screeningActive() }.getOrDefault(true)
         if (incoming && !EmergencyPolicy.bypasses(Safeguard.SCREENING, emergency) && (earlier != null || earlierOutcome != null || hidden || active)) {
             screening += id
+            // The heads-up waits briefly for the verdict, so a call that is about to be rejected doesn't pop up the
+            // call screen; after that a quiet "Checking…" notification lets the user answer while screening finishes.
+            noticeHeld += id
+            scope.launch {
+                delay(NOTICE_HOLD_MS)
+                if (noticeHeld.remove(id)) publish()
+            }
             scope.launch {
                 val callerName = call.details.callerDisplayName?.takeIf { it.isNotBlank() }
+                Trace.beginAsyncSection(TRACE_SCREEN, traceCookie(id))
                 // Any failure lets the call ring (fail open), like a timeout.
                 val outcome = earlier ?: withTimeoutOrNull(SCREEN_TIMEOUT_MS) {
                     runCatching { deps.screenCall(number, hidden, verificationOf(call), accountId, callerName) }.getOrNull()
                 } ?: earlierOutcome
+                Trace.endAsyncSection(TRACE_SCREEN, traceCookie(id))
                 val decision = outcome?.decision
                 outcome?.let { outcomes[id] = it }
                 screening -= id
+                noticeHeld -= id
                 if (decision is Decision.Block && calls.contains(call)) {
                     when (decision.action) {
                         BlockAction.REJECT -> rejectUnwanted(call)
@@ -416,6 +436,8 @@ object CallManager {
         info.remove(id)
         silenced -= id
         screening -= id
+        noticeHeld -= id
+        if (noticeTraced.remove(id)) Trace.endAsyncSection(TRACE_NOTIFY, traceCookie(id))
         postDial.remove(id)
         quotaSilenced -= id
         endedByLimit -= id
@@ -487,6 +509,9 @@ object CallManager {
         blockingDecline.clear()
         silenced.clear()
         screening.clear()
+        noticeHeld.clear()
+        noticeTraced.forEach { Trace.endAsyncSection(TRACE_NOTIFY, traceCookie(it)) }
+        noticeTraced.clear()
         unknownCallers.clear()
         info.clear()
         locations.clear()
@@ -495,6 +520,16 @@ object CallManager {
     }
 
     fun isScreening(id: String) = id in screening
+
+    /** The ringing notification waits for the screening verdict a moment longer (at most [NOTICE_HOLD_MS]). */
+    fun holdsNotification(id: String) = id in noticeHeld
+
+    /** The first notification for an incoming call was posted: ends its add → notification trace section. */
+    internal fun onNotificationShown(id: String) {
+        if (noticeTraced.remove(id)) Trace.endAsyncSection(TRACE_NOTIFY, traceCookie(id))
+    }
+
+    private fun traceCookie(id: String) = id.hashCode()
 
     private fun publish() {
         customRingerFor?.let { rid ->
@@ -1097,6 +1132,14 @@ object CallManager {
     private const val ROUTE_SETTLE_MS = 1500L
     private const val PENDING_OUTGOING_MS = 8000L
     private const val SCREEN_TIMEOUT_MS = 1500L
+
+    /**
+     * How long a ringing call's notification waits for the screening verdict. Verdicts from memory (rules, the
+     * screening service's earlier answer) arrive well within it; a slow one shows "Checking…" instead of nothing.
+     */
+    private const val NOTICE_HOLD_MS = 500L
+    private const val TRACE_SCREEN = "Parley.screenCall"
+    private const val TRACE_NOTIFY = "Parley.addToNotification"
     private const val LOOKUP_TIMEOUT_MS = 2000L
     /** How long "Block & decline" waits for the rule before declining anyway. */
     private const val BLOCK_TIMEOUT_MS = 1500L

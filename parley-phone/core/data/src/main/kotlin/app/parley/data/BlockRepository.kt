@@ -35,6 +35,9 @@ data class SystemBlockedNumber(val id: Long, val number: String)
 /** What Recents and the caller card show for a number that was screened. */
 data class VerdictSummary(val text: String, val kind: String?, val blocked: Boolean, val time: Long, val entryId: Long)
 
+/** Blocked calls kept at most (the newest ones). */
+private const val BLOCKED_KEEP = 5_000
+
 class BlockRepository(private val context: Context, db: AppDatabase, scope: CoroutineScope) {
     private val dao = db.blockDao()
     private val cr = context.contentResolver
@@ -137,6 +140,8 @@ class BlockRepository(private val context: Context, db: AppDatabase, scope: Coro
     suspend fun pruneScreened(now: Long = System.currentTimeMillis()) {
         dao.pruneAllowed(now - 30L * 86_400_000L)
         dao.pruneRings(now - 60L * 86_400_000L)
+        // The blocked-calls list shows the newest 500; a year (at most 5000 rows) keeps the table small.
+        dao.pruneBlocked(now - 365L * 86_400_000L, BLOCKED_KEEP)
     }
 
     /** Times Parley blocked this number recently (repeat-caller check), in every stored form. */

@@ -23,3 +23,5 @@ include(":app", ":core:common", ":core:data", ":core:ui", ":telecom")
 include(":lists-updater")
 // detekt rules that keep screens on the shared components of core/ui.
 include(":tools:detekt-rules")
+// Baseline profile generator and macrobenchmarks (needs a device; see docs/PERFORMANCE_BENCHMARKS.md).
+include(":baselineprofile")

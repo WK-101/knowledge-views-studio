@@ -1,5 +1,6 @@
 package app.parley.data
 
+import app.parley.common.GeoLanguages
 import app.parley.common.circle.GoodTime
 import com.google.i18n.phonenumbers.PhoneNumberToTimeZonesMapper
 import com.google.i18n.phonenumbers.PhoneNumberUtil
@@ -26,7 +27,9 @@ object NumberInfo {
             if (!util.isValidNumber(parsed)) null
             else {
                 val sameCountry = util.getRegionCodeForNumber(parsed) == countryIso.uppercase(Locale.ROOT)
-                geocoder.getDescriptionForNumber(parsed, locale, if (sameCountry) countryIso.uppercase(Locale.ROOT) else null).ifBlank { null }
+                // Only some languages' place names ship (see GeoLanguages); others ask in English.
+                val lang = Locale.forLanguageTag(GeoLanguages.forLanguage(locale.language))
+                geocoder.getDescriptionForNumber(parsed, lang, if (sameCountry) countryIso.uppercase(Locale.ROOT) else null).ifBlank { null }
             }
         } catch (_: Exception) {
             null
