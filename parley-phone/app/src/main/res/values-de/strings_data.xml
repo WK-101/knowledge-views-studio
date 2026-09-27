@@ -4,7 +4,6 @@
     <!-- Shared actions (data area: history, people, backup, vault and friends) -->
     <string name="dc_cancel">Abbrechen</string>
     <string name="dc_back">Zurück</string>
-    <string name="dc_close">Schließen</string>
     <string name="dc_ok">OK</string>
     <string name="dc_got_it">Verstanden</string>
     <string name="dc_restore">Wiederherstellen</string>
@@ -29,7 +28,6 @@
     <string name="hist_archive_off_text">Parley löscht seine verschlüsselte Kopie deiner Anrufe. Die Anrufliste des Telefons bleibt unverändert, aber Anrufe, die Android bereits verworfen hat, sind endgültig weg.</string>
     <string name="hist_archive_off_confirm">Ausschalten und löschen</string>
     <string name="hist_settings_title">Anrufliste</string>
-    <string name="hist_keep_full">Vollständige Anrufliste behalten</string>
     <plurals name="hist_archive_count">
         <item quantity="one">%1$d Anruf in Parleys Archiv</item>
         <item quantity="other">%1$d Anrufe in Parleys Archiv</item>
@@ -40,7 +38,6 @@
         <item quantity="other">Deine Einstellung behält die Anrufliste %1$d Tage; ältere Anrufe werden aus beiden gelöscht, außer Nummern, die du für immer behältst.</item>
     </plurals>
     <string name="hist_retention_forever">Deine Einstellung behält die Anrufliste für immer.</string>
-    <string name="hist_kept_forever">Für immer behalten</string>
     <string name="hist_kept_forever_empty">Öffne einen Kontakt oder den Verlauf einer Nummer und schalte „Diese Anrufliste für immer behalten“ ein, damit sie unabhängig von der Aufbewahrungsdauer bleibt.</string>
     <string name="hist_stop_keeping">Nicht mehr für immer behalten</string>
     <string name="hist_recently_deleted">Kürzlich gelöschte Anrufe</string>
@@ -57,8 +54,6 @@
     <string name="hist_export_import">Export &amp; Import</string>
     <string name="hist_csv_bom">Excel-freundliches CSV</string>
     <string name="hist_csv_bom_summary">Fügt eine Byte-Order-Mark hinzu, damit Umlaute in Excel richtig angezeigt werden</string>
-    <string name="hist_import_csv">Anrufliste aus CSV importieren</string>
-    <string name="hist_import_csv_summary">Aus Parley, Logger oder einer Tabelle</string>
     <string name="hist_export_hint">Zum Exportieren öffne Verlauf › ⋮ › Exportieren, oder den Verlauf einer Nummer.</string>
     <string name="dc_joined_dot">%1$s · %2$s</string>
     <string name="dc_list_separator">", "</string>
@@ -326,7 +321,6 @@
     <string name="hist_action_call">Anrufen</string>
     <string name="hist_action_message">Nachricht</string>
     <string name="hist_action_copy">Kopieren</string>
-    <string name="hist_action_message_on">Nachricht über…</string>
     <string name="hist_action_new_contact">Neuer Kontakt</string>
     <string name="hist_action_add_to_contact">Zu Kontakt hinzufügen</string>
     <string name="hist_action_view_contact">Kontakt ansehen</string>
@@ -413,11 +407,6 @@
     <string name="work_anniversary_today">%1$s hat heute Jahrestag</string>
     <string name="work_special_date">besonderes Datum</string>
     <string name="work_event_today">%1$s: %2$s heute</string>
-    <string name="work_catch_up">Melde dich mal bei %1$s</string>
-    <plurals name="work_catch_up_days">
-        <item quantity="one">Melde dich mal bei %2$s — zuletzt vor %1$d Tag gesprochen</item>
-        <item quantity="other">Melde dich mal bei %2$s — zuletzt vor %1$d Tagen gesprochen</item>
-    </plurals>
     <string name="work_action_call">Anrufen</string>
     <string name="work_action_message">Nachricht</string>
 
@@ -490,7 +479,6 @@
     <string name="vault_unlock_all_summary">Namen und Nummern funktionieren ohne Entsperren, damit Anrufe weiterhin zeigen, wer anruft.</string>
     <string name="vault_phone">Telefon</string>
     <string name="vault_message_number">Diese Nummer anschreiben</string>
-    <string name="vault_message_on">Nachricht über…</string>
     <string name="vault_messengers">Messenger</string>
     <string name="vault_about">Info</string>
     <string name="vault_address">Adresse</string>
@@ -657,7 +645,6 @@
     <string name="tm_restore_version">Diese Version wiederherstellen</string>
     <string name="tm_saved_copy">Als separater Kontakt gespeichert</string>
     <string name="tm_save_copy">Als Kopie speichern</string>
-    <string name="tm_changes_title">Was sich geändert hat</string>
     <string name="tm_since_yesterday">Seit gestern</string>
     <string name="tm_last_week">Letzte Woche</string>
     <string name="tm_last_month">Letzter Monat</string>
@@ -741,10 +728,8 @@
     <string name="onb_spam_text">Blockiere unterdrückte Nummern, Vorwahlen und Muster – entschieden auf deinem Telefon.</string>
     <string name="onb_open_title">Open Source, keine Werbung, keine Konten</string>
     <string name="onb_open_text">Freie Software unter GPL-3.0. Keine Tracker, niemals.</string>
-    <string name="onb_prompt_title">Eine einzige Systemabfrage</string>
     <string name="onb_prompt_text">Wenn Parley deine Telefon-App ist, bekommt es alles, was es braucht – kein Berechtigungs-Labyrinth.</string>
     <string name="onb_set_default">Als Standard-Telefon-App festlegen</string>
-    <string name="onb_not_now">Jetzt nicht – nur Kontakte und Anrufe nutzen</string>
 
     <!-- Contact picker -->
     <string name="picker_link_with">Verknüpfen mit…</string>
@@ -1048,7 +1033,6 @@
     <string name="swipe_none">Nichts</string>
     <string name="swipe_call">Anrufen</string>
     <string name="swipe_message">Nachricht</string>
-    <string name="swipe_message_on">Nachricht über…</string>
     <string name="swipe_block">Blockieren</string>
     <string name="swipe_delete">Löschen (mit Rückgängig)</string>
     <string name="swipe_delete_short">Löschen</string>
@@ -1064,7 +1048,6 @@
     <string name="avatar_emoji_hint">Namen, die mit einem Emoji beginnen, zeigen es an</string>
 
     <!-- People: my card -->
-    <string name="me_open">Meine Karte öffnen</string>
     <string name="me_short">Ich</string>
     <string name="me_title">Meine Karte</string>
     <string name="me_empty">Füge deine Angaben hinzu, um sie als QR-Code zu teilen</string>

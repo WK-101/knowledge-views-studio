@@ -73,7 +73,6 @@ import androidx.compose.material.icons.rounded.LocationOn
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.MusicNote
-import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material.icons.rounded.People
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.PushPin
@@ -116,7 +115,6 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalResources
-import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -124,12 +122,10 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.R
-import app.parley.common.PhoneNumbers
 import app.parley.common.people.HandleLink
 import app.parley.common.people.LifeEvents
 import app.parley.common.people.MessageRoute
 import app.parley.common.people.MessengerPrefs
-import app.parley.common.people.OtherFields
 import app.parley.common.people.RelationTypes
 import app.parley.common.ux.Tips
 import app.parley.data.ContactDetails
@@ -174,9 +170,7 @@ import app.parley.security.launchVault
 import app.parley.ui.vault.ExpiryDialog
 import java.time.LocalDate
 import java.time.ZoneId
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 /**
  * A contact's page. U1: the photo and name dock into the top bar as you scroll ("last talked" shows there once
@@ -405,7 +399,6 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
         }
         val email = d.emails.firstOrNull { it.isPrimary } ?: d.emails.firstOrNull()
         val sections = PageSections()
-        val sep = resources.getString(R.string.main_separator)
         val today = remember { LocalDate.now() }
         // Stay in touch right under the actions (R4: rhythm, last in touch, next date); R9: open promises.
         if (d.lookupKey.isNotEmpty()) sections.add(ContactSection.STAY, sectionTitle(resources, ContactSection.STAY), lastTalked) {

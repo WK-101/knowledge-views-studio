@@ -28,7 +28,6 @@ import app.parley.ui.settings.MenuRow
 import app.parley.ui.settings.SwitchRow
 import app.parley.ui.settings.settingTitle
 import kotlinx.coroutines.launch
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import app.parley.R
@@ -79,7 +78,6 @@ fun hasSeveralAccounts(vm: AppViewModel): Boolean = vm.people.index.collectAsSta
 @Composable
 fun ExportAccountRow(vm: AppViewModel, icon: ImageVector? = null) {
     val scope = rememberCoroutineScope()
-    val context = LocalContext.current
     val res = LocalResources.current
     val idx by vm.people.index.collectAsStateWithLifecycle()
     var chooseAccount by remember { mutableStateOf(false) }

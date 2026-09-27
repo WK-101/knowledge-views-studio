@@ -15,7 +15,6 @@
     <string name="main_message">پیغام</string>
     <string name="main_more">مزید</string>
     <string name="main_search">تلاش کریں</string>
-    <string name="main_remove">ہٹائیں</string>
     <string name="main_block">بلاک کریں</string>
     <string name="main_private_number">نجی نمبر</string>
     <string name="main_unknown">نامعلوم</string>
@@ -123,7 +122,6 @@
     </plurals>
     <string name="missed_channel">چھوٹی ہوئی کالیں</string>
     <string name="missed_call_back">واپس کال کریں</string>
-    <string name="missed_message_on">اس پر پیغام…</string>
     <string name="missed_more">+%1$d مزید</string>
     <string name="missed_title_one">مس کال</string>
     <plurals name="missed_title_many">
@@ -175,18 +173,10 @@
     <string name="home_lock_now">ابھی لاک کریں</string>
     <string name="home_speed_dial">اسپیڈ ڈائل</string>
     <string name="home_messaged_numbers">پیغام بھیجے گئے نمبر</string>
-    <string name="home_history_settings">کال ہسٹری کی ترتیبات</string>
     <string name="home_select_all">سبھی منتخب کریں</string>
     <string name="home_add_several">کئی نمبر شامل کریں…</string>
     <string name="home_duplicates">ڈپلیکیٹ تلاش کریں اور ضم کریں</string>
-    <string name="home_contacts_settings">رابطوں کی ترتیبات</string>
-    <string name="home_sims">سمز اور پلان منٹس</string>
-    <string name="home_keypad_settings">کی پیڈ کی ترتیبات</string>
-    <string name="home_birthdays">سالگرہ اور تاریخیں</string>
     <string name="home_temporary">عارضی رابطے</string>
-    <string name="home_recently_deleted">حال ہی میں حذف شدہ</string>
-    <string name="home_tidy_up">رابطے ترتیب دیں</string>
-    <string name="home_blocked_numbers">بلاک شدہ نمبر</string>
     <string name="home_settings">ترتیبات</string>
     <string name="home_more_options">مزید اختیارات</string>
     <string name="home_close_search">تلاش بند کریں</string>
@@ -273,7 +263,6 @@
     <string name="keypad_hint_qwerty">نمبر یا نام کے حروف لکھیں</string>
     <string name="keypad_hint_t9">نمبر یا نام کے حروف ٹائپ کریں (T9)</string>
     <string name="keypad_create_contact">نیا رابطہ بنائیں</string>
-    <string name="keypad_message_apps">SMS، WhatsApp، Signal، Telegram، Viber</string>
     <string name="keypad_hide">اسکرین کی پیڈ چھپائیں</string>
     <string name="keypad_show">اسکرین کی پیڈ دکھائیں</string>
     <string name="keypad_speed_empty_title">اسپیڈ ڈائل %1$d خالی ہے</string>
@@ -363,24 +352,13 @@
     <string name="detail_always_sim">ہمیشہ %1$s</string>
     <string name="detail_default_email">ڈیفالٹ ای میل</string>
     <string name="detail_address">پتہ</string>
-    <string name="detail_messengers">میسنجرز</string>
-    <string name="detail_usual_choice">%1$s · آپ کا معمول کا انتخاب</string>
     <string name="detail_usual">معمول</string>
-    <string name="detail_dont_use_default">بطور ڈیفالٹ استعمال نہ کریں</string>
-    <string name="detail_use_default">بطور ڈیفالٹ استعمال کریں</string>
     <string name="detail_about">%1$s کے بارے میں</string>
     <string name="detail_website">ویب سائٹ</string>
     <string name="detail_no_contact_named">%1$s نام کا کوئی رابطہ نہیں</string>
     <string name="detail_note">نوٹ</string>
-    <string name="detail_other_fields">دیگر فیلڈز</string>
     <string name="detail_other_fields_note">کسی اور ایپ یا اکاؤنٹ نے محفوظ کیے۔ Parley انہیں جیسے ہیں ویسے دکھاتا ہے اور کبھی نہیں بدلتا۔</string>
     <string name="detail_send_to_voicemail">کالیں وائس میل پر بھیجیں</string>
-    <string name="detail_keep_in_touch">رابطے میں رہنے کی یاد دہانی کرائیں</string>
-    <plurals name="detail_not_talked_days">
-        <item quantity="one">اگر %d دن سے بات نہیں ہوئی</item>
-        <item quantity="other">اگر %d دن سے بات نہیں ہوئی</item>
-    </plurals>
-    <string name="detail_off">بند</string>
     <string name="detail_default_ringtone">ڈیفالٹ رنگ ٹون</string>
     <string name="detail_ringtone">رنگ ٹون</string>
     <plurals name="detail_linked_from">
@@ -388,12 +366,6 @@
         <item quantity="other">%d ذرائع سے منسلک</item>
     </plurals>
     <string name="detail_saved_in">یہاں محفوظ ہے</string>
-    <string name="detail_call_notes">کال کے نوٹس</string>
-    <string name="detail_recent_calls">حالیہ کالیں</string>
-    <plurals name="detail_see_all_calls">
-        <item quantity="one">%d کال دیکھیں</item>
-        <item quantity="other">تمام %d کالیں دیکھیں</item>
-    </plurals>
     <string name="detail_note_title">کالوں کے لیے نوٹ</string>
     <string name="detail_note_placeholder">مثلاً انوائس کے بارے میں پوچھیں</string>
     <string name="detail_keep_in_touch_title">رابطے میں رہیں</string>
@@ -424,7 +396,6 @@
     <string name="detail_choose_sim">سم منتخب کریں</string>
     <string name="edit_date">تاریخ</string>
     <string name="edit_relation">رشتہ</string>
-    <string name="edit_handle">میسنجر ہینڈل</string>
     <string name="edit_notes">نوٹس</string>
     <string name="edit_name_details">نام کی تفصیلات</string>
     <string name="edit_unlock_first">پہلے نجی رابطہ غیر مقفل کریں</string>
@@ -439,7 +410,6 @@
     <string name="edit_title_edit">رابطے میں ترمیم کریں</string>
     <string name="edit_private_note">نجی رابطہ: صرف Parley کے اندر خفیہ کر کے محفوظ ہوتا ہے۔ دوسری ایپس اسے نہیں دیکھ سکتیں؛ اس کی کالوں پر پھر بھی اس کا نام دکھائی دیتا ہے۔</string>
     <string name="edit_choose_photo">تصویر منتخب کریں</string>
-    <string name="edit_change_photo">تصویر تبدیل کریں</string>
     <string name="edit_remove_photo">تصویر ہٹائیں</string>
     <string name="edit_private_photo">تصویر خفیہ کردہ ہے اور صرف Parley میں دکھتی ہے، کال اسکرین پر بھی۔</string>
     <string name="edit_private_only">نجی (صرف Parley میں)</string>
@@ -461,7 +431,6 @@
     <string name="edit_add_phone">فون شامل کریں</string>
     <string name="edit_add_email">ای میل شامل کریں</string>
     <string name="edit_add_website">ویب سائٹ شامل کریں</string>
-    <string name="edit_type">قسم</string>
     <string name="edit_remove_address">پتہ ہٹائیں</string>
     <string name="edit_street">گلی</string>
     <string name="edit_po_box">پی او باکس</string>
@@ -485,7 +454,6 @@
     <string name="edit_who_placeholder">مثلاً پلمبر، مئی میں بوائلر ٹھیک کیا</string>
     <string name="edit_who_support">جب وہ کال کریں تو ان کے نام کے نیچے ایک لائن</string>
     <string name="edit_private_call_note">نام سے ملازمت اور کمپنی بھی دکھائی جاتی ہیں۔ یہ خفیہ کردہ ہیں اور فون لاک ہونے پر بھی کال اسکرین پر پڑھی جا سکتی ہیں، نام کی طرح۔</string>
-    <string name="edit_more_fields">مزید فیلڈز</string>
     <string name="edit_keep_title">یہ رابطہ رکھیں؟</string>
     <string name="edit_keep_body">اسے عارضی رابطے کے طور پر محفوظ کیا گیا تھا اور یہ جلد حذف ہو جائے گا۔ اب جب آپ نے اس میں اضافہ کیا ہے تو اسے رکھیں؟</string>
     <string name="edit_keep">رکھیں</string>
@@ -495,7 +463,6 @@
     <string name="edit_keep_editing">ترمیم جاری رکھیں</string>
     <string name="edit_locked">یہاں تبدیل نہیں ہو سکتا: اس فیلڈ کا مالک اکاؤنٹ اسے صرف پڑھنے کے لیے رکھتا ہے</string>
     <string name="edit_handles">میسنجر ہینڈلز</string>
-    <string name="edit_service">سروس</string>
     <string name="edit_remove_handle">ہینڈل ہٹائیں</string>
     <string name="edit_service_name">سروس کا نام</string>
     <string name="edit_service_placeholder">مثلاً Jami، Briar</string>
@@ -503,7 +470,6 @@
     <string name="edit_relations">رشتے</string>
     <string name="edit_choose_contact">ایک رابطہ منتخب کریں</string>
     <string name="edit_remove_relation">رشتہ ہٹائیں</string>
-    <string name="edit_relation_type">رشتہ: %1$s</string>
     <string name="edit_add_relation">رشتہ شامل کریں</string>
     <string name="edit_custom_label">حسب ضرورت لیبل</string>
     <string name="edit_custom_placeholder">مثلاً کشتی، نام کا دن</string>
@@ -525,14 +491,11 @@
     <string name="msg_no_app_opens">کوئی ایپ اسے نہیں کھول سکتی</string>
     <string name="msg_app_has_contact">%1$s میں یہ رابطہ ہے</string>
     <string name="msg_app_cant_see">%1$s آپ کے رابطے نہیں دیکھ سکتی؛ آپ پھر بھی پیغام بھیج سکتے ہیں</string>
-    <string name="msg_message_on_title">%1$s کو اس پر پیغام…</string>
     <string name="msg_no_chat_apps">کوئی چیٹ ایپ نہیں ملی۔ یہاں سے پیغام بھیجنے کے لیے WhatsApp، Signal، Telegram یا Viber انسٹال یا فعال کریں۔</string>
     <string name="msg_sms">ٹیکسٹ میسج (SMS)</string>
     <string name="msg_always_use">%1$s کے لیے ہمیشہ یہی استعمال کریں</string>
     <string name="msg_note_private">چیٹس نمبر سے سیدھے ایپ میں کھلتی ہیں۔ میسنجر آپ کے نجی رابطے نہیں دیکھ سکتا۔</string>
     <string name="msg_note_contact">چیٹس سیدھے ایپ میں کھلتی ہیں، کبھی براؤزر سے نہیں۔ دوبارہ منتخب کرنے کے لیے پیغام کو دیر تک دبائیں۔</string>
-    <string name="msg_video_with">اس کے ساتھ ویڈیو کال…</string>
-    <string name="msg_video_note">Parley آپ کا انتخاب یاد رکھتا ہے۔ دوبارہ منتخب کرنے کے لیے ویڈیو کو دیر تک دبائیں۔</string>
     <string name="msg_open_browser_title">براؤزر میں کھولیں؟</string>
     <string name="msg_open_browser_body">اس فون پر کوئی ایپ %1$s کو براہ راست نہیں کھولتی۔ براؤزر میں کھولنے سے وہ ویب سائٹ جان جاتی ہے کہ آپ کون سی پروفائل دیکھ رہے ہیں۔</string>
     <string name="msg_this_link">یہ لنک</string>
@@ -588,7 +551,6 @@
     <string name="num_type_or_paste">نمبر لکھیں یا پیسٹ کریں۔ Parley کلپ بورڈ صرف تب پڑھتا ہے جب آپ پیسٹ پر ٹیپ کریں۔</string>
     <string name="num_keep_typing">لکھتے رہیں، یا نمبر کا ملک منتخب کریں۔</string>
     <string name="num_country">ملک: %1$s</string>
-    <string name="num_message_apps">WhatsApp، Signal، Telegram، Viber یا SMS</string>
     <string name="num_save_temporary">عارضی رابطے کے طور پر محفوظ کریں</string>
     <string name="num_save_temporary_question">عارضی رابطے کے طور پر محفوظ کریں؟</string>
     <plurals name="num_private_deletes">
@@ -612,15 +574,11 @@
     <string name="msg_optional">پیغام (اختیاری)</string>
     <string name="msg_send_details">میری تفصیلات بھیجیں</string>
     <string name="msg_edit_details">میری تفصیلات میں ترمیم کریں</string>
-    <string name="msg_long_press_change">%1$s · بدلنے کے لیے دیر تک دبائیں</string>
     <string name="msg_will_copy">آپ کا پیغام پیسٹ کرنے کے لیے کاپی ہوگا</string>
     <string name="msg_more_actions_for">%1$s کی مزید کارروائیاں</string>
     <string name="msg_open_chat">چیٹ کھولیں</string>
     <string name="msg_open_profile">پروفائل کھولیں</string>
-    <string name="msg_choose_whatsapp">WhatsApp یا WhatsApp Business منتخب کریں</string>
     <string name="msg_chat_or_profile">چیٹ یا پروفائل کھولیں</string>
-    <string name="msg_open_with">اس سے کھولیں</string>
-    <string name="msg_remember_whatsapp">Parley آپ کا انتخاب یاد رکھے گا۔ بدلنے کے لیے WhatsApp کو دیر تک دبائیں۔</string>
     <string name="msg_country_title">اس نمبر کا ملک</string>
     <string name="msg_search_countries">ملک یا +کوڈ تلاش کریں</string>
     <string name="msg_my_details">میری تفصیلات</string>

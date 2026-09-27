@@ -41,7 +41,6 @@
     <string name="circle_add_to_circle">Add to your Circle</string>
     <string name="circle_add_to_circle_body">A gentle reminder when it’s been a while</string>
     <string name="circle_next_date_today">%1$s today</string>
-    <string name="circle_dates">Dates</string>
     <string name="circle_rhythm_natural">Natural rhythm</string>
     <string name="circle_rhythm_natural_body">Learns how often you two usually talk and reminds you only when a gap is unusual for you. Relearned every month.</string>
     <string name="circle_remove">Remove from your Circle</string>
@@ -70,7 +69,6 @@
     <string name="circle_might_enjoy">%1$s might enjoy hearing from you</string>
     <string name="circle_digest_title">People you might like to hear from</string>
     <string name="circle_digest_date">%1$s has a date coming up</string>
-    <string name="circle_digest_quiet">It’s been a while since you and %1$s talked</string>
     <string name="circle_lead_on_day">Only on the day</string>
     <string name="circle_delivery_digest">Weekly digest (Sunday)</string>
     <string name="circle_delivery_as_due">As they come due</string>

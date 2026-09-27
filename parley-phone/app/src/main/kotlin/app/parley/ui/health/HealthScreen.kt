@@ -48,7 +48,6 @@ import app.parley.ui.contact.Section
 import app.parley.ui.people.AccountDiagnosticsSection
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import app.parley.R
@@ -67,7 +66,6 @@ private val titles = mapOf(
 @Composable
 fun HealthScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
     val scope = rememberCoroutineScope()
-    val context = LocalContext.current
     val res = LocalResources.current
     val contacts by vm.contacts.collectAsStateWithLifecycle()
     val calls by vm.c.history.calls.collectAsStateWithLifecycle()

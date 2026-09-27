@@ -3,7 +3,6 @@
     <!-- Shared actions (data area: history, people, backup, vault and friends) -->
     <string name="dc_cancel">Cancel</string>
     <string name="dc_back">Back</string>
-    <string name="dc_close">Close</string>
     <string name="dc_ok">OK</string>
     <string name="dc_got_it">Got it</string>
     <string name="dc_restore">Restore</string>
@@ -28,7 +27,6 @@
     <string name="hist_archive_off_text">Parley deletes its encrypted copy of your calls. Your phone\'s own call history is not changed, but calls Android already dropped are gone for good.</string>
     <string name="hist_archive_off_confirm">Turn off and delete</string>
     <string name="hist_settings_title">Call history</string>
-    <string name="hist_keep_full">Keep full call history</string>
     <plurals name="hist_archive_count">
         <item quantity="one">%1$d call in Parley\'s archive</item>
         <item quantity="other">%1$d calls in Parley\'s archive</item>
@@ -39,7 +37,6 @@
         <item quantity="other">Your setting keeps call history for %1$d days; older calls are deleted from both, except numbers you keep forever.</item>
     </plurals>
     <string name="hist_retention_forever">Your setting keeps call history forever.</string>
-    <string name="hist_kept_forever">Kept forever</string>
     <string name="hist_kept_forever_empty">Open a contact or a number\'s history and turn on “Keep this call history forever” to keep it whatever the retention setting.</string>
     <string name="hist_stop_keeping">Stop keeping forever</string>
     <string name="hist_recently_deleted">Recently deleted calls</string>
@@ -56,8 +53,6 @@
     <string name="hist_export_import">Export &amp; import</string>
     <string name="hist_csv_bom">Excel-friendly CSV</string>
     <string name="hist_csv_bom_summary">Adds a byte-order mark so accents show correctly in Excel</string>
-    <string name="hist_import_csv">Import call history from CSV</string>
-    <string name="hist_import_csv_summary">From Parley, Logger or a spreadsheet</string>
     <string name="hist_export_hint">To export, open Recents › ⋮ › Export, or a number\'s history.</string>
     <string name="dc_joined_dot">%1$s · %2$s</string>
     <string name="dc_list_separator">", "</string>
@@ -325,7 +320,6 @@
     <string name="hist_action_call">Call</string>
     <string name="hist_action_message">Message</string>
     <string name="hist_action_copy">Copy</string>
-    <string name="hist_action_message_on">Message or call on…</string>
     <string name="hist_action_new_contact">New contact</string>
     <string name="hist_action_add_to_contact">Add to contact</string>
     <string name="hist_action_view_contact">View contact</string>
@@ -412,11 +406,6 @@
     <string name="work_anniversary_today">%1$s anniversary today</string>
     <string name="work_special_date">special date</string>
     <string name="work_event_today">%1$s %2$s today</string>
-    <string name="work_catch_up">Catch up with %1$s</string>
-    <plurals name="work_catch_up_days">
-        <item quantity="one">Catch up with %2$s — last talked %1$d day ago</item>
-        <item quantity="other">Catch up with %2$s — last talked %1$d days ago</item>
-    </plurals>
     <string name="work_action_call">Call</string>
     <string name="work_action_message">Message</string>
 
@@ -489,7 +478,6 @@
     <string name="vault_unlock_all_summary">Names and numbers work without unlocking so calls still show who\'s calling.</string>
     <string name="vault_phone">Phone</string>
     <string name="vault_message_number">Message this number</string>
-    <string name="vault_message_on">Message or call on…</string>
     <string name="vault_messengers">Message or call on…</string>
     <string name="vault_about">About</string>
     <string name="vault_address">Address</string>
@@ -656,7 +644,6 @@
     <string name="tm_restore_version">Restore this version</string>
     <string name="tm_saved_copy">Saved as a separate contact</string>
     <string name="tm_save_copy">Save as copy</string>
-    <string name="tm_changes_title">Daily snapshots</string>
     <string name="tm_since_yesterday">Since yesterday</string>
     <string name="tm_last_week">Last week</string>
     <string name="tm_last_month">Last month</string>
@@ -743,10 +730,8 @@
     <string name="onb_spam_text">Block hidden numbers, prefixes and patterns — decided on your phone.</string>
     <string name="onb_open_title">Open source, no ads, no accounts</string>
     <string name="onb_open_text">Free software under GPL-3.0. No trackers, ever.</string>
-    <string name="onb_prompt_title">One system prompt</string>
     <string name="onb_prompt_text">Setting Parley as your phone app gives it everything it needs — no permission maze.</string>
     <string name="onb_set_default">Set as default phone app</string>
-    <string name="onb_not_now">Not now — just use contacts and calling</string>
 
     <!-- Contact picker -->
     <string name="picker_link_with">Link with…</string>
@@ -1053,7 +1038,6 @@
     <string name="swipe_none">Nothing</string>
     <string name="swipe_call">Call</string>
     <string name="swipe_message">Message</string>
-    <string name="swipe_message_on">Message or call on…</string>
     <string name="swipe_block">Block</string>
     <string name="swipe_delete">Delete (with undo)</string>
     <string name="swipe_delete_short">Delete</string>
@@ -1069,7 +1053,6 @@
     <string name="avatar_emoji_hint">Names starting with an emoji show it</string>
 
     <!-- People: my card -->
-    <string name="me_open">Open my card</string>
     <string name="me_short">Me</string>
     <string name="me_title">My card</string>
     <string name="me_empty">Add your details to share them as a QR code</string>

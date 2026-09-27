@@ -119,7 +119,6 @@
 
     <!-- Numbers, messages, email -->
     <string name="qs_call">Call</string>
-    <string name="qs_message_on">Message or call on…</string>
     <string name="qs_put_on_keypad">Put on the keypad</string>
     <string name="qs_code_warning">This is a phone code (it has * or #). Codes like this can change phone settings, for example forward your calls. Parley never dials it from here: check it on the keypad first.</string>
     <string name="qs_sms_note">Nothing is sent until you press Send in your messaging app.</string>

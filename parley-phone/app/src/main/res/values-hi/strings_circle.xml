@@ -42,7 +42,6 @@
     <string name="circle_add_to_circle">अपने सर्कल में जोड़ें</string>
     <string name="circle_add_to_circle_body">जब काफ़ी समय हो जाए तो हल्की-सी याद</string>
     <string name="circle_next_date_today">%1$s आज</string>
-    <string name="circle_dates">तारीख़ें</string>
     <string name="circle_rhythm_natural">स्वाभाविक लय</string>
     <string name="circle_rhythm_natural_body">सीखता है कि आप दोनों आम तौर पर कितनी बार बात करते हैं, और तभी याद दिलाता है जब अंतराल असामान्य हो। हर महीने दोबारा सीखता है।</string>
     <string name="circle_remove">अपने सर्कल से हटाएँ</string>
@@ -71,7 +70,6 @@
     <string name="circle_might_enjoy">%1$s को शायद आपसे बात करके अच्छा लगे</string>
     <string name="circle_digest_title">वे लोग जिनसे आप शायद बात करना चाहें</string>
     <string name="circle_digest_date">%1$s की कोई ख़ास तारीख़ आने वाली है</string>
-    <string name="circle_digest_quiet">आपको और %1$s को बात किए कुछ समय हो गया</string>
     <string name="circle_lead_on_day">सिर्फ़ उसी दिन</string>
     <string name="circle_delivery_digest">साप्ताहिक सार (रविवार)</string>
     <string name="circle_delivery_as_due">जब समय हो</string>

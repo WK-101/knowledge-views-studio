@@ -52,7 +52,6 @@ import kotlinx.coroutines.launch
 import android.content.res.Resources
 import android.provider.ContactsContract.CommonDataKinds.Email
 import android.provider.ContactsContract.CommonDataKinds.Phone
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import app.parley.R
 
@@ -66,7 +65,6 @@ import app.parley.R
 fun CsvMappingScreen(vm: AppViewModel, back: () -> Unit) {
     val request = remember { MessagingInbox.csvImport }
     val scope = rememberCoroutineScope()
-    val context = LocalContext.current
     val res = LocalResources.current
     var preview by remember { mutableStateOf<VCardIO.CsvPreview?>(null) }
     var error by remember { mutableStateOf<String?>(null) }

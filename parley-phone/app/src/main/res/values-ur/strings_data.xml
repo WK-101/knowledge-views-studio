@@ -4,7 +4,6 @@
     <!-- Shared actions (data area: history, people, backup, vault and friends) -->
     <string name="dc_cancel">منسوخ کریں</string>
     <string name="dc_back">واپس</string>
-    <string name="dc_close">بند کریں</string>
     <string name="dc_ok">ٹھیک ہے</string>
     <string name="dc_got_it">سمجھ گیا</string>
     <string name="dc_restore">بحال کریں</string>
@@ -29,7 +28,6 @@
     <string name="hist_archive_off_text">Parley آپ کی کالز کی اپنی انکرپٹڈ کاپی حذف کر دیتا ہے۔ فون کی اپنی کال ہسٹری نہیں بدلتی، لیکن جو کالز Android پہلے ہی ہٹا چکا ہے وہ ہمیشہ کے لیے ختم ہو جاتی ہیں۔</string>
     <string name="hist_archive_off_confirm">بند کریں اور حذف کریں</string>
     <string name="hist_settings_title">کال کی سرگزشت</string>
-    <string name="hist_keep_full">مکمل کال ہسٹری رکھیں</string>
     <plurals name="hist_archive_count">
         <item quantity="one">Parley کے آرکائیو میں %1$d کال</item>
         <item quantity="other">Parley کے آرکائیو میں %1$d کالز</item>
@@ -40,7 +38,6 @@
         <item quantity="other">آپ کی ترتیب کال ہسٹری %1$d دن تک رکھتی ہے؛ پرانی کالز دونوں سے حذف ہو جاتی ہیں، سوائے ان نمبروں کے جنہیں آپ ہمیشہ رکھتے ہیں۔</item>
     </plurals>
     <string name="hist_retention_forever">آپ کی ترتیب کال ہسٹری ہمیشہ رکھتی ہے۔</string>
-    <string name="hist_kept_forever">ہمیشہ کے لیے رکھی گئی</string>
     <string name="hist_kept_forever_empty">کسی رابطے یا نمبر کی ہسٹری کھولیں اور “یہ کال ہسٹری ہمیشہ رکھیں” آن کریں، تاکہ وہ برقراری کی ترتیب سے ہٹ کر محفوظ رہے۔</string>
     <string name="hist_stop_keeping">ہمیشہ رکھنا بند کریں</string>
     <string name="hist_recently_deleted">حال ہی میں حذف کی گئی کالز</string>
@@ -57,8 +54,6 @@
     <string name="hist_export_import">برآمد اور درآمد</string>
     <string name="hist_csv_bom">Excel کے موافق CSV</string>
     <string name="hist_csv_bom_summary">ایک بائٹ آرڈر مارک شامل کرتا ہے تاکہ Excel میں حروف درست دکھیں</string>
-    <string name="hist_import_csv">CSV سے کال ہسٹری درآمد کریں</string>
-    <string name="hist_import_csv_summary">Parley، Logger یا کسی اسپریڈشیٹ سے</string>
     <string name="hist_export_hint">برآمد کرنے کے لیے حالیہ › ⋮ › برآمد کھولیں، یا کسی نمبر کی ہسٹری۔</string>
     <string name="dc_joined_dot">%1$s · %2$s</string>
     <string name="dc_list_separator">"، "</string>
@@ -326,7 +321,6 @@
     <string name="hist_action_call">کال کریں</string>
     <string name="hist_action_message">پیغام</string>
     <string name="hist_action_copy">کاپی کریں</string>
-    <string name="hist_action_message_on">اس سے پیغام بھیجیں…</string>
     <string name="hist_action_new_contact">نیا رابطہ</string>
     <string name="hist_action_add_to_contact">رابطے میں شامل کریں</string>
     <string name="hist_action_view_contact">رابطہ دیکھیں</string>
@@ -413,11 +407,6 @@
     <string name="work_anniversary_today">آج %1$s کا یادگار دن ہے</string>
     <string name="work_special_date">خاص دن</string>
     <string name="work_event_today">%1$s: آج %2$s</string>
-    <string name="work_catch_up">%1$s سے رابطہ کریں</string>
-    <plurals name="work_catch_up_days">
-        <item quantity="one">%2$s سے بات کریں — آخری بات %1$d دن پہلے</item>
-        <item quantity="other">%2$s سے بات کریں — آخری بات %1$d دن پہلے</item>
-    </plurals>
     <string name="work_action_call">کال کریں</string>
     <string name="work_action_message">پیغام</string>
 
@@ -490,7 +479,6 @@
     <string name="vault_unlock_all_summary">نام اور نمبر غیر مقفل کیے بغیر کام کرتے ہیں تاکہ کالوں پر پتا چلتا رہے کہ کون کال کر رہا ہے۔</string>
     <string name="vault_phone">فون</string>
     <string name="vault_message_number">اس نمبر پر پیغام بھیجیں</string>
-    <string name="vault_message_on">اس سے پیغام بھیجیں…</string>
     <string name="vault_messengers">میسنجرز</string>
     <string name="vault_about">تعارف</string>
     <string name="vault_address">پتہ</string>
@@ -657,7 +645,6 @@
     <string name="tm_restore_version">یہ ورژن بحال کریں</string>
     <string name="tm_saved_copy">الگ رابطے کے طور پر محفوظ ہو گیا</string>
     <string name="tm_save_copy">کاپی کے طور پر محفوظ کریں</string>
-    <string name="tm_changes_title">کیا بدلا</string>
     <string name="tm_since_yesterday">کل سے</string>
     <string name="tm_last_week">پچھلا ہفتہ</string>
     <string name="tm_last_month">پچھلا مہینہ</string>
@@ -741,10 +728,8 @@
     <string name="onb_spam_text">چھپے ہوئے نمبر، سابقے اور پیٹرن بلاک کریں — فیصلہ آپ کے فون پر ہی ہوتا ہے۔</string>
     <string name="onb_open_title">اوپن سورس، کوئی اشتہار نہیں، کوئی اکاؤنٹ نہیں</string>
     <string name="onb_open_text">GPL-3.0 کے تحت مفت سافٹ ویئر۔ کوئی ٹریکر نہیں، کبھی نہیں۔</string>
-    <string name="onb_prompt_title">بس ایک سسٹم درخواست</string>
     <string name="onb_prompt_text">Parley کو اپنی فون ایپ بنانے سے اسے ضرورت کی ہر چیز مل جاتی ہے — اجازتوں کی بھول بھلیاں نہیں۔</string>
     <string name="onb_set_default">ڈیفالٹ فون ایپ بنائیں</string>
-    <string name="onb_not_now">ابھی نہیں — صرف رابطے اور کالنگ استعمال کریں</string>
 
     <!-- Contact picker -->
     <string name="picker_link_with">اس سے منسلک کریں…</string>
@@ -1048,7 +1033,6 @@
     <string name="swipe_none">کچھ نہیں</string>
     <string name="swipe_call">کال کریں</string>
     <string name="swipe_message">پیغام</string>
-    <string name="swipe_message_on">اس سے پیغام بھیجیں…</string>
     <string name="swipe_block">بلاک کریں</string>
     <string name="swipe_delete">حذف کریں (واپس لینے کے ساتھ)</string>
     <string name="swipe_delete_short">حذف کریں</string>
@@ -1064,7 +1048,6 @@
     <string name="avatar_emoji_hint">ایموجی سے شروع ہونے والے نام اسے دکھاتے ہیں</string>
 
     <!-- People: my card -->
-    <string name="me_open">میرا کارڈ کھولیں</string>
     <string name="me_short">میں</string>
     <string name="me_title">میرا کارڈ</string>
     <string name="me_empty">QR کوڈ کے طور پر شیئر کرنے کے لیے اپنی تفصیلات شامل کریں</string>

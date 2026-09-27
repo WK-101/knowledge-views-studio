@@ -42,7 +42,6 @@
     <string name="circle_add_to_circle">Zu deinem Kreis hinzufügen</string>
     <string name="circle_add_to_circle_body">Eine sanfte Erinnerung, wenn es länger her ist</string>
     <string name="circle_next_date_today">%1$s ist heute</string>
-    <string name="circle_dates">Daten</string>
     <string name="circle_rhythm_natural">Natürlicher Rhythmus</string>
     <string name="circle_rhythm_natural_body">Lernt, wie oft ihr normalerweise sprecht, und erinnert nur, wenn eine Pause für euch ungewöhnlich ist. Wird jeden Monat neu gelernt.</string>
     <string name="circle_remove">Aus deinem Kreis entfernen</string>
@@ -71,7 +70,6 @@
     <string name="circle_might_enjoy">%1$s freut sich vielleicht, von dir zu hören</string>
     <string name="circle_digest_title">Menschen, von denen du vielleicht hören möchtest</string>
     <string name="circle_digest_date">Bei %1$s steht ein Datum an</string>
-    <string name="circle_digest_quiet">Du und %1$s habt schon eine Weile nicht gesprochen</string>
     <string name="circle_lead_on_day">Nur am Tag selbst</string>
     <string name="circle_delivery_digest">Wöchentliche Übersicht (Sonntag)</string>
     <string name="circle_delivery_as_due">Wenn es so weit ist</string>

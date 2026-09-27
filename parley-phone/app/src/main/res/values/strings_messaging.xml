@@ -8,7 +8,6 @@
     <string name="reach_message_or_call_on">Message or call on…</string>
     <string name="reach_message_or_call">Message or call</string>
     <string name="reach_apps_line">WhatsApp, Signal, Telegram, Viber or SMS</string>
-    <string name="reach_title_contact">Message or call %1$s</string>
 
     <!-- Sheet sections -->
     <string name="reach_section_message">Message on</string>

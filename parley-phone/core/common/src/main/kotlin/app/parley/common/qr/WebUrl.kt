@@ -168,7 +168,5 @@ data class WebUrl(
         }
 
         private const val HEX = "0123456789ABCDEF"
-
-        private fun isHex(c: Char) = c in '0'..'9' || c in 'a'..'f' || c in 'A'..'F'
     }
 }

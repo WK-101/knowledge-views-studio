@@ -13,7 +13,6 @@
     <string name="label_policy_dnd_summary">Ajoute tout le monde aux favoris, pour qu\'Android laisse sonner les contacts favoris</string>
     <string name="label_policy_dnd_open">Ouvrir les réglages Ne pas déranger</string>
     <string name="label_policy_dnd_title">Laisser sonner « %1$s » en mode Ne pas déranger ?</string>
-    <string name="label_policy_dnd_confirm">Les ajouter aux favoris et ouvrir les réglages</string>
     <string name="label_policy_rhythm_suggest">Comme votre libellé « %1$s » : %2$s</string>
     <plurals name="label_policy_added">
         <item quantity="one">%d personne ajoutée à votre cercle</item>
@@ -34,10 +33,5 @@
         <item quantity="one">Ajouter %d nouveau membre aux favoris</item>
         <item quantity="many">Ajouter %d nouveaux membres aux favoris</item>
         <item quantity="other">Ajouter %d nouveaux membres aux favoris</item>
-    </plurals>
-    <plurals name="label_policy_dnd_explain">
-        <item quantity="one">Parley ajoute %d personne de ce libellé aux favoris. Les contacts favoris apparaissent aussi dans Favoris et dans d\'autres applis. Ensuite, dans les réglages Ne pas déranger d\'Android, autorisez les appels des contacts favoris : tous les favoris pourront sonner, pas seulement ce libellé.</item>
-        <item quantity="many">Parley ajoute %d personnes de ce libellé aux favoris. Les contacts favoris apparaissent aussi dans Favoris et dans d\'autres applis. Ensuite, dans les réglages Ne pas déranger d\'Android, autorisez les appels des contacts favoris : tous les favoris pourront sonner, pas seulement ce libellé.</item>
-        <item quantity="other">Parley ajoute %d personnes de ce libellé aux favoris. Les contacts favoris apparaissent aussi dans Favoris et dans d\'autres applis. Ensuite, dans les réglages Ne pas déranger d\'Android, autorisez les appels des contacts favoris : tous les favoris pourront sonner, pas seulement ce libellé.</item>
     </plurals>
 </resources>

@@ -13,7 +13,6 @@
     <string name="label_policy_dnd_summary">یہاں سب کو ستارہ لگاتا ہے، تاکہ Android ستارے والے رابطوں کی گھنٹی بجنے دے</string>
     <string name="label_policy_dnd_open">ڈسٹرب نہ کریں کی ترتیبات کھولیں</string>
     <string name="label_policy_dnd_title">ڈسٹرب نہ کریں کے دوران “%1$s” کی گھنٹی بجنے دیں؟</string>
-    <string name="label_policy_dnd_confirm">ستارہ لگائیں اور ترتیبات کھولیں</string>
     <string name="label_policy_rhythm_suggest">آپ کے “%1$s” لیبل کی طرح: %2$s</string>
     <plurals name="label_policy_added">
         <item quantity="one">%d شخص آپ کے حلقے میں شامل ہوا</item>
@@ -30,9 +29,5 @@
     <plurals name="label_policy_star_new">
         <item quantity="one">%d نئے رکن کو ستارہ لگائیں</item>
         <item quantity="other">%d نئے ارکان کو ستارہ لگائیں</item>
-    </plurals>
-    <plurals name="label_policy_dnd_explain">
-        <item quantity="one">Parley اس لیبل کے %d شخص کو ستارہ لگاتا ہے۔ ستارے والے رابطے پسندیدہ اور دوسری ایپس میں بھی دکھتے ہیں۔ پھر Android کی ڈسٹرب نہ کریں ترتیبات میں ستارے والے رابطوں کی کالز کی اجازت دیں: صرف یہ لیبل نہیں، ستارے والے سب لوگوں کی گھنٹی بجے گی۔</item>
-        <item quantity="other">Parley اس لیبل کے %d لوگوں کو ستارہ لگاتا ہے۔ ستارے والے رابطے پسندیدہ اور دوسری ایپس میں بھی دکھتے ہیں۔ پھر Android کی ڈسٹرب نہ کریں ترتیبات میں ستارے والے رابطوں کی کالز کی اجازت دیں: صرف یہ لیبل نہیں، ستارے والے سب لوگوں کی گھنٹی بجے گی۔</item>
     </plurals>
 </resources>

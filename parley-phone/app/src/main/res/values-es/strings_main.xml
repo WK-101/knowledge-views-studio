@@ -15,7 +15,6 @@
     <string name="main_message">Mensaje</string>
     <string name="main_more">Más</string>
     <string name="main_search">Buscar</string>
-    <string name="main_remove">Quitar</string>
     <string name="main_block">Bloquear</string>
     <string name="main_private_number">Número privado</string>
     <string name="main_unknown">Desconocida</string>
@@ -129,7 +128,6 @@
     </plurals>
     <string name="missed_channel">Llamadas perdidas</string>
     <string name="missed_call_back">Devolver llamada</string>
-    <string name="missed_message_on">Enviar mensaje por…</string>
     <string name="missed_more">+%1$d más</string>
     <string name="missed_title_one">Llamada perdida</string>
     <plurals name="missed_title_many">
@@ -186,18 +184,10 @@
     <string name="home_lock_now">Bloquear ahora</string>
     <string name="home_speed_dial">Marcación rápida</string>
     <string name="home_messaged_numbers">Números a los que escribiste</string>
-    <string name="home_history_settings">Ajustes del historial de llamadas</string>
     <string name="home_select_all">Seleccionar todo</string>
     <string name="home_add_several">Añadir varios números…</string>
     <string name="home_duplicates">Buscar y combinar duplicados</string>
-    <string name="home_contacts_settings">Ajustes de contactos</string>
-    <string name="home_sims">SIM y minutos del plan</string>
-    <string name="home_keypad_settings">Ajustes del teclado</string>
-    <string name="home_birthdays">Cumpleaños y fechas</string>
     <string name="home_temporary">Contactos temporales</string>
-    <string name="home_recently_deleted">Eliminados recientemente</string>
-    <string name="home_tidy_up">Ordenar contactos</string>
-    <string name="home_blocked_numbers">Números bloqueados</string>
     <string name="home_settings">Ajustes</string>
     <string name="home_more_options">Más opciones</string>
     <string name="home_close_search">Cerrar búsqueda</string>
@@ -291,7 +281,6 @@
     <string name="keypad_hint_qwerty">Escribe un número o letras de un nombre</string>
     <string name="keypad_hint_t9">Escribe un número o letras de un nombre (T9)</string>
     <string name="keypad_create_contact">Crear contacto nuevo</string>
-    <string name="keypad_message_apps">SMS, WhatsApp, Signal, Telegram, Viber</string>
     <string name="keypad_hide">Ocultar teclado en pantalla</string>
     <string name="keypad_show">Mostrar teclado en pantalla</string>
     <string name="keypad_speed_empty_title">La marcación rápida %1$d está vacía</string>
@@ -382,25 +371,13 @@
     <string name="detail_always_sim">Siempre %1$s</string>
     <string name="detail_default_email">Correo predeterminado</string>
     <string name="detail_address">Dirección</string>
-    <string name="detail_messengers">Mensajería</string>
-    <string name="detail_usual_choice">%1$s · tu opción habitual</string>
     <string name="detail_usual">Habitual</string>
-    <string name="detail_dont_use_default">No usar de forma predeterminada</string>
-    <string name="detail_use_default">Usar de forma predeterminada</string>
     <string name="detail_about">Sobre %1$s</string>
     <string name="detail_website">Sitio web</string>
     <string name="detail_no_contact_named">No hay ningún contacto llamado %1$s</string>
     <string name="detail_note">Nota</string>
-    <string name="detail_other_fields">Otros campos</string>
     <string name="detail_other_fields_note">Guardados por otra app o cuenta. Parley los muestra tal cual y nunca los cambia.</string>
     <string name="detail_send_to_voicemail">Enviar llamadas al buzón de voz</string>
-    <string name="detail_keep_in_touch">Recordarme mantener el contacto</string>
-    <plurals name="detail_not_talked_days">
-        <item quantity="one">Si no habéis hablado en %d día</item>
-        <item quantity="many">Si no habéis hablado en %d días</item>
-        <item quantity="other">Si no habéis hablado en %d días</item>
-    </plurals>
-    <string name="detail_off">Desactivado</string>
     <string name="detail_default_ringtone">Tono predeterminado</string>
     <string name="detail_ringtone">Tono</string>
     <plurals name="detail_linked_from">
@@ -409,13 +386,6 @@
         <item quantity="other">Vinculado desde %d fuentes</item>
     </plurals>
     <string name="detail_saved_in">Guardado en</string>
-    <string name="detail_call_notes">Notas de llamadas</string>
-    <string name="detail_recent_calls">Llamadas recientes</string>
-    <plurals name="detail_see_all_calls">
-        <item quantity="one">Ver %d llamada</item>
-        <item quantity="many">Ver las %d llamadas</item>
-        <item quantity="other">Ver las %d llamadas</item>
-    </plurals>
     <string name="detail_note_title">Nota para las llamadas</string>
     <string name="detail_note_placeholder">p. ej., Preguntar por la factura</string>
     <string name="detail_keep_in_touch_title">Mantener el contacto</string>
@@ -447,7 +417,6 @@
     <string name="detail_choose_sim">Elegir SIM</string>
     <string name="edit_date">Fecha</string>
     <string name="edit_relation">Relación</string>
-    <string name="edit_handle">Usuario de mensajería</string>
     <string name="edit_notes">Notas</string>
     <string name="edit_name_details">Detalles del nombre</string>
     <string name="edit_unlock_first">Primero desbloquea el contacto privado</string>
@@ -462,7 +431,6 @@
     <string name="edit_title_edit">Editar contacto</string>
     <string name="edit_private_note">Contacto privado: se guarda cifrado solo dentro de Parley. Otras apps no pueden verlo; sus llamadas siguen mostrando su nombre.</string>
     <string name="edit_choose_photo">Elegir una foto</string>
-    <string name="edit_change_photo">Cambiar foto</string>
     <string name="edit_remove_photo">Quitar foto</string>
     <string name="edit_private_photo">La foto está cifrada y solo se muestra dentro de Parley, también en la pantalla de llamada.</string>
     <string name="edit_private_only">Privado (solo en Parley)</string>
@@ -484,7 +452,6 @@
     <string name="edit_add_phone">Añadir teléfono</string>
     <string name="edit_add_email">Añadir correo</string>
     <string name="edit_add_website">Añadir sitio web</string>
-    <string name="edit_type">Tipo</string>
     <string name="edit_remove_address">Quitar dirección</string>
     <string name="edit_street">Calle</string>
     <string name="edit_po_box">Apartado de correos</string>
@@ -508,7 +475,6 @@
     <string name="edit_who_placeholder">p. ej., fontanero, arregló la caldera en mayo</string>
     <string name="edit_who_support">Una línea bajo su nombre cuando llamen</string>
     <string name="edit_private_call_note">También se muestran el puesto y la empresa de Nombre. Están cifrados y se pueden leer en la pantalla de llamada con el teléfono bloqueado, como el nombre.</string>
-    <string name="edit_more_fields">Más campos</string>
     <string name="edit_keep_title">¿Conservar este contacto?</string>
     <string name="edit_keep_body">Se guardó como contacto temporal y se borrará pronto. ¿Conservarlo ahora que le has añadido datos?</string>
     <string name="edit_keep">Conservar</string>
@@ -518,7 +484,6 @@
     <string name="edit_keep_editing">Seguir editando</string>
     <string name="edit_locked">No se puede cambiar aquí: la cuenta propietaria de este campo lo mantiene de solo lectura</string>
     <string name="edit_handles">Usuarios de mensajería</string>
-    <string name="edit_service">Servicio</string>
     <string name="edit_remove_handle">Quitar usuario</string>
     <string name="edit_service_name">Nombre del servicio</string>
     <string name="edit_service_placeholder">p. ej., Jami, Briar</string>
@@ -526,7 +491,6 @@
     <string name="edit_relations">Relaciones</string>
     <string name="edit_choose_contact">Elegir un contacto</string>
     <string name="edit_remove_relation">Quitar relación</string>
-    <string name="edit_relation_type">Relación: %1$s</string>
     <string name="edit_add_relation">Añadir relación</string>
     <string name="edit_custom_label">Etiqueta personalizada</string>
     <string name="edit_custom_placeholder">p. ej., barco, santo</string>
@@ -550,14 +514,11 @@
     <string name="msg_no_app_opens">Ninguna app puede abrir esto</string>
     <string name="msg_app_has_contact">%1$s tiene este contacto</string>
     <string name="msg_app_cant_see">%1$s no ve tus contactos; aun así puedes escribirles</string>
-    <string name="msg_message_on_title">Escribir a %1$s por…</string>
     <string name="msg_no_chat_apps">No se encontraron apps de chat. Instala o activa WhatsApp, Signal, Telegram o Viber para escribir desde aquí.</string>
     <string name="msg_sms">Mensaje de texto (SMS)</string>
     <string name="msg_always_use">Usar siempre para %1$s</string>
     <string name="msg_note_private">Los chats se abren por número, directamente en la app. La app de mensajería no ve tus contactos privados.</string>
     <string name="msg_note_contact">Los chats se abren directamente en la app, nunca en un navegador. Mantén pulsado Mensaje para volver a elegir.</string>
-    <string name="msg_video_with">Videollamada con…</string>
-    <string name="msg_video_note">Parley recuerda tu elección. Mantén pulsado Vídeo para volver a elegir.</string>
     <string name="msg_open_browser_title">¿Abrir en un navegador?</string>
     <string name="msg_open_browser_body">Ninguna app de este teléfono abre %1$s directamente. Si lo abres en un navegador, ese sitio web sabrá qué perfil estás mirando.</string>
     <string name="msg_this_link">este enlace</string>
@@ -615,7 +576,6 @@
     <string name="num_type_or_paste">Escribe o pega un número. Parley solo lee el portapapeles cuando tocas Pegar.</string>
     <string name="num_keep_typing">Sigue escribiendo o elige el país del número.</string>
     <string name="num_country">País: %1$s</string>
-    <string name="num_message_apps">WhatsApp, Signal, Telegram, Viber o SMS</string>
     <string name="num_save_temporary">Guardar como contacto temporal</string>
     <string name="num_save_temporary_question">¿Guardar como contacto temporal?</string>
     <plurals name="num_private_deletes">
@@ -642,15 +602,11 @@
     <string name="msg_optional">Mensaje (opcional)</string>
     <string name="msg_send_details">Enviar mis datos</string>
     <string name="msg_edit_details">Editar mis datos</string>
-    <string name="msg_long_press_change">%1$s · mantén pulsado para cambiar</string>
     <string name="msg_will_copy">Tu mensaje se copiará para pegarlo</string>
     <string name="msg_more_actions_for">Más acciones de %1$s</string>
     <string name="msg_open_chat">Abrir chat</string>
     <string name="msg_open_profile">Abrir perfil</string>
-    <string name="msg_choose_whatsapp">Elegir WhatsApp o WhatsApp Business</string>
     <string name="msg_chat_or_profile">Abrir chat o perfil</string>
-    <string name="msg_open_with">Abrir con</string>
-    <string name="msg_remember_whatsapp">Parley recordará tu elección. Mantén pulsado WhatsApp para cambiarla.</string>
     <string name="msg_country_title">País de este número</string>
     <string name="msg_search_countries">Buscar países o +prefijo</string>
     <string name="msg_my_details">Mis datos</string>

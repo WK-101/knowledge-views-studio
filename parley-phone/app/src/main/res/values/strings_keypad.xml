@@ -6,7 +6,6 @@
     <string name="keypad_call_with_sim">Call with SIM %1$d</string>
     <string name="keypad_call_with_sim_carrier">Call with SIM %1$d (%2$s)</string>
     <string name="keypad_sim_usual">Usual SIM for this call</string>
-    <string name="keypad_sim_near_plan">Plan minutes nearly used</string>
     <!-- Bottom row -->
     <string name="keypad_clear_number">Clear number</string>
 </resources>

@@ -42,7 +42,6 @@
     <string name="circle_add_to_circle">Añadir a tu círculo</string>
     <string name="circle_add_to_circle_body">Un recordatorio amable cuando haga tiempo</string>
     <string name="circle_next_date_today">%1$s: hoy</string>
-    <string name="circle_dates">Fechas</string>
     <string name="circle_rhythm_natural">Ritmo natural</string>
     <string name="circle_rhythm_natural_body">Aprende cada cuánto soléis hablar y solo te avisa cuando una pausa es inusual para vosotros. Se reaprende cada mes.</string>
     <string name="circle_remove">Quitar de tu círculo</string>
@@ -71,7 +70,6 @@
     <string name="circle_might_enjoy">A %1$s quizá le guste saber de ti</string>
     <string name="circle_digest_title">Personas de las que quizá quieras saber</string>
     <string name="circle_digest_date">%1$s tiene una fecha próxima</string>
-    <string name="circle_digest_quiet">Hace tiempo que %1$s y tú no habláis</string>
     <string name="circle_lead_on_day">Solo el mismo día</string>
     <string name="circle_delivery_digest">Resumen semanal (domingo)</string>
     <string name="circle_delivery_as_due">Cuando toque</string>

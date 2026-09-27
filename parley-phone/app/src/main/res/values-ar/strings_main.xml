@@ -15,7 +15,6 @@
     <string name="main_message">رسالة</string>
     <string name="main_more">المزيد</string>
     <string name="main_search">بحث</string>
-    <string name="main_remove">إزالة</string>
     <string name="main_block">حظر</string>
     <string name="main_private_number">رقم خاص</string>
     <string name="main_unknown">غير معروف</string>
@@ -147,7 +146,6 @@
     </plurals>
     <string name="missed_channel">المكالمات الفائتة</string>
     <string name="missed_call_back">معاودة الاتصال</string>
-    <string name="missed_message_on">مراسلة عبر…</string>
     <string name="missed_more">+%1$d أخرى</string>
     <string name="missed_title_one">مكالمة فائتة</string>
     <plurals name="missed_title_many">
@@ -219,18 +217,10 @@
     <string name="home_lock_now">القفل الآن</string>
     <string name="home_speed_dial">الاتصال السريع</string>
     <string name="home_messaged_numbers">الأرقام التي راسلتها</string>
-    <string name="home_history_settings">إعدادات سجل المكالمات</string>
     <string name="home_select_all">تحديد الكل</string>
     <string name="home_add_several">إضافة عدة أرقام…</string>
     <string name="home_duplicates">البحث عن المكرّرات ودمجها</string>
-    <string name="home_contacts_settings">إعدادات جهات الاتصال</string>
-    <string name="home_sims">شرائح SIM ودقائق الباقة</string>
-    <string name="home_keypad_settings">إعدادات لوحة المفاتيح</string>
-    <string name="home_birthdays">أعياد الميلاد والتواريخ</string>
     <string name="home_temporary">جهات الاتصال المؤقتة</string>
-    <string name="home_recently_deleted">المحذوفة مؤخرًا</string>
-    <string name="home_tidy_up">ترتيب جهات الاتصال</string>
-    <string name="home_blocked_numbers">الأرقام المحظورة</string>
     <string name="home_settings">الإعدادات</string>
     <string name="home_more_options">مزيد من الخيارات</string>
     <string name="home_close_search">إغلاق البحث</string>
@@ -345,7 +335,6 @@
     <string name="keypad_hint_qwerty">اكتب رقمًا أو أحرفًا من اسم</string>
     <string name="keypad_hint_t9">اكتب رقمًا أو أحرفًا من اسم (T9)</string>
     <string name="keypad_create_contact">إنشاء جهة اتصال جديدة</string>
-    <string name="keypad_message_apps">SMS وWhatsApp وSignal وTelegram وViber</string>
     <string name="keypad_hide">إخفاء لوحة المفاتيح على الشاشة</string>
     <string name="keypad_show">عرض لوحة المفاتيح على الشاشة</string>
     <string name="keypad_speed_empty_title">الاتصال السريع %1$d فارغ</string>
@@ -439,28 +428,13 @@
     <string name="detail_always_sim">دائمًا %1$s</string>
     <string name="detail_default_email">البريد الإلكتروني الافتراضي</string>
     <string name="detail_address">العنوان</string>
-    <string name="detail_messengers">تطبيقات المراسلة</string>
-    <string name="detail_usual_choice">%1$s · خيارك المعتاد</string>
     <string name="detail_usual">المعتاد</string>
-    <string name="detail_dont_use_default">عدم الاستخدام افتراضيًا</string>
-    <string name="detail_use_default">الاستخدام افتراضيًا</string>
     <string name="detail_about">حول %1$s</string>
     <string name="detail_website">الموقع الإلكتروني</string>
     <string name="detail_no_contact_named">لا توجد جهة اتصال باسم %1$s</string>
     <string name="detail_note">ملاحظة</string>
-    <string name="detail_other_fields">حقول أخرى</string>
     <string name="detail_other_fields_note">حفظها تطبيق أو حساب آخر. يعرضها Parley كما هي ولا يغيّرها أبدًا.</string>
     <string name="detail_send_to_voicemail">تحويل المكالمات إلى البريد الصوتي</string>
-    <string name="detail_keep_in_touch">ذكّرني بالبقاء على تواصل</string>
-    <plurals name="detail_not_talked_days">
-        <item quantity="zero">إذا لم تتحدثا منذ %d يوم</item>
-        <item quantity="one">إذا لم تتحدثا منذ يوم</item>
-        <item quantity="two">إذا لم تتحدثا منذ يومين</item>
-        <item quantity="few">إذا لم تتحدثا منذ %d أيام</item>
-        <item quantity="many">إذا لم تتحدثا منذ %d يومًا</item>
-        <item quantity="other">إذا لم تتحدثا منذ %d يوم</item>
-    </plurals>
-    <string name="detail_off">متوقف</string>
     <string name="detail_default_ringtone">نغمة الرنين الافتراضية</string>
     <string name="detail_ringtone">نغمة الرنين</string>
     <plurals name="detail_linked_from">
@@ -472,16 +446,6 @@
         <item quantity="other">مرتبطة من %d مصدر</item>
     </plurals>
     <string name="detail_saved_in">محفوظة في</string>
-    <string name="detail_call_notes">ملاحظات المكالمات</string>
-    <string name="detail_recent_calls">المكالمات الأخيرة</string>
-    <plurals name="detail_see_all_calls">
-        <item quantity="zero">عرض كل المكالمات (%d)</item>
-        <item quantity="one">عرض كل المكالمات (%d)</item>
-        <item quantity="two">عرض كل المكالمات (%d)</item>
-        <item quantity="few">عرض كل المكالمات (%d)</item>
-        <item quantity="many">عرض كل المكالمات (%d)</item>
-        <item quantity="other">عرض كل المكالمات (%d)</item>
-    </plurals>
     <string name="detail_note_title">ملاحظة للمكالمات</string>
     <string name="detail_note_placeholder">مثل: اسأل عن الفاتورة</string>
     <string name="detail_keep_in_touch_title">البقاء على تواصل</string>
@@ -516,7 +480,6 @@
     <string name="detail_choose_sim">اختيار شريحة SIM</string>
     <string name="edit_date">التاريخ</string>
     <string name="edit_relation">العلاقة</string>
-    <string name="edit_handle">معرّف المراسلة</string>
     <string name="edit_notes">ملاحظات</string>
     <string name="edit_name_details">تفاصيل الاسم</string>
     <string name="edit_unlock_first">افتح قفل جهة الاتصال الخاصة أولًا</string>
@@ -531,7 +494,6 @@
     <string name="edit_title_edit">تعديل جهة الاتصال</string>
     <string name="edit_private_note">جهة اتصال خاصة: تُحفظ مشفّرة داخل Parley فقط. لا تراها التطبيقات الأخرى؛ ويظل اسمها ظاهرًا عند اتصالها.</string>
     <string name="edit_choose_photo">اختيار صورة</string>
-    <string name="edit_change_photo">تغيير الصورة</string>
     <string name="edit_remove_photo">إزالة الصورة</string>
     <string name="edit_private_photo">الصورة مشفّرة ولا تظهر إلا داخل Parley، بما في ذلك شاشة المكالمة.</string>
     <string name="edit_private_only">خاص (في Parley فقط)</string>
@@ -553,7 +515,6 @@
     <string name="edit_add_phone">إضافة هاتف</string>
     <string name="edit_add_email">إضافة بريد إلكتروني</string>
     <string name="edit_add_website">إضافة موقع إلكتروني</string>
-    <string name="edit_type">النوع</string>
     <string name="edit_remove_address">إزالة العنوان</string>
     <string name="edit_street">الشارع</string>
     <string name="edit_po_box">صندوق البريد</string>
@@ -577,7 +538,6 @@
     <string name="edit_who_placeholder">مثل: سبّاك، أصلح السخّان في مايو</string>
     <string name="edit_who_support">سطر واحد تحت الاسم عند الاتصال</string>
     <string name="edit_private_call_note">يظهر أيضًا المسمّى الوظيفي والشركة من «الاسم». هذه البيانات مشفّرة، ومقروءة على شاشة المكالمة أثناء قفل الهاتف، مثل الاسم.</string>
-    <string name="edit_more_fields">مزيد من الحقول</string>
     <string name="edit_keep_title">الاحتفاظ بجهة الاتصال هذه؟</string>
     <string name="edit_keep_body">حُفظت كجهة اتصال مؤقتة وستُحذف قريبًا. هل تحتفظ بها الآن بعد أن أضفت إليها؟</string>
     <string name="edit_keep">احتفاظ</string>
@@ -587,7 +547,6 @@
     <string name="edit_keep_editing">متابعة التعديل</string>
     <string name="edit_locked">لا يمكن تغييره هنا: الحساب المالك لهذا الحقل يبقيه للقراءة فقط</string>
     <string name="edit_handles">معرّفات المراسلة</string>
-    <string name="edit_service">الخدمة</string>
     <string name="edit_remove_handle">إزالة المعرّف</string>
     <string name="edit_service_name">اسم الخدمة</string>
     <string name="edit_service_placeholder">مثل: Jami أو Briar</string>
@@ -595,7 +554,6 @@
     <string name="edit_relations">العلاقات</string>
     <string name="edit_choose_contact">اختيار جهة اتصال</string>
     <string name="edit_remove_relation">إزالة العلاقة</string>
-    <string name="edit_relation_type">العلاقة: %1$s</string>
     <string name="edit_add_relation">إضافة علاقة</string>
     <string name="edit_custom_label">تسمية مخصصة</string>
     <string name="edit_custom_placeholder">مثل: قارب، يوم الاسم</string>
@@ -625,14 +583,11 @@
     <string name="msg_no_app_opens">لا يوجد تطبيق يمكنه فتح هذا</string>
     <string name="msg_app_has_contact">لدى %1$s جهة الاتصال هذه</string>
     <string name="msg_app_cant_see">لا يرى %1$s جهات اتصالك؛ ولا يزال بإمكانك مراسلتهم</string>
-    <string name="msg_message_on_title">مراسلة %1$s عبر…</string>
     <string name="msg_no_chat_apps">لم يُعثر على تطبيقات دردشة. ثبّت أو فعّل WhatsApp أو Signal أو Telegram أو Viber للمراسلة من هنا.</string>
     <string name="msg_sms">رسالة نصية (SMS)</string>
     <string name="msg_always_use">استخدام هذا دائمًا مع %1$s</string>
     <string name="msg_note_private">تُفتح المحادثات بالرقم مباشرة في التطبيق. لا يرى تطبيق المراسلة جهات اتصالك الخاصة.</string>
     <string name="msg_note_contact">تُفتح المحادثات مباشرة في التطبيق، ولا تمرّ أبدًا بمتصفح. اضغط مطولًا على «رسالة» للاختيار من جديد.</string>
-    <string name="msg_video_with">مكالمة فيديو عبر…</string>
-    <string name="msg_video_note">يتذكّر Parley اختيارك. اضغط مطولًا على «فيديو» للاختيار من جديد.</string>
     <string name="msg_open_browser_title">الفتح في متصفح؟</string>
     <string name="msg_open_browser_body">لا يوجد تطبيق على هذا الهاتف يفتح %1$s مباشرة. فتحه في متصفح يُعلم ذلك الموقع بالملف الشخصي الذي تنظر إليه.</string>
     <string name="msg_this_link">هذا الرابط</string>
@@ -696,7 +651,6 @@
     <string name="num_type_or_paste">اكتب رقمًا أو الصقه. لا يقرأ Parley الحافظة إلا عند الضغط على «لصق».</string>
     <string name="num_keep_typing">تابع الكتابة أو اختر بلد الرقم.</string>
     <string name="num_country">البلد: %1$s</string>
-    <string name="num_message_apps">WhatsApp أو Signal أو Telegram أو Viber أو SMS</string>
     <string name="num_save_temporary">الحفظ كجهة اتصال مؤقتة</string>
     <string name="num_save_temporary_question">الحفظ كجهة اتصال مؤقتة؟</string>
     <plurals name="num_private_deletes">
@@ -732,15 +686,11 @@
     <string name="msg_optional">رسالة (اختيارية)</string>
     <string name="msg_send_details">إرسال بياناتي</string>
     <string name="msg_edit_details">تعديل بياناتي</string>
-    <string name="msg_long_press_change">%1$s · اضغط مطولًا للتغيير</string>
     <string name="msg_will_copy">ستُنسخ رسالتك للصقها</string>
     <string name="msg_more_actions_for">مزيد من إجراءات %1$s</string>
     <string name="msg_open_chat">فتح المحادثة</string>
     <string name="msg_open_profile">فتح الملف الشخصي</string>
-    <string name="msg_choose_whatsapp">اختر WhatsApp أو WhatsApp Business</string>
     <string name="msg_chat_or_profile">فتح المحادثة أو الملف الشخصي</string>
-    <string name="msg_open_with">فتح باستخدام</string>
-    <string name="msg_remember_whatsapp">سيتذكر Parley اختيارك. اضغط مطولًا على WhatsApp لتغييره.</string>
     <string name="msg_country_title">بلد هذا الرقم</string>
     <string name="msg_search_countries">ابحث عن بلد أو +رمز</string>
     <string name="msg_my_details">بياناتي</string>

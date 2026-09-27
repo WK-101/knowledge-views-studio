@@ -39,7 +39,6 @@ enum class QrApp(val label: String, val scanInside: Boolean = false, val legacy:
 object MessengerQr {
     private val SESSION_ID = Regex("^05[0-9a-fA-F]{64}$")
     private val THREEMA_ID = Regex("^[0-9A-Z*][0-9A-Z]{7}$")
-    private val DIGITS = Regex("^\\+?[0-9]{6,15}$")
 
     /** The messenger link in [text] (one line, already trimmed), or null when it isn't one. */
     fun classify(text: String): QrPayload.Messenger? {

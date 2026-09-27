@@ -13,7 +13,6 @@
     <string name="label_policy_dnd_summary">Marca todos com estrela, para o Android deixar tocar os contatos marcados</string>
     <string name="label_policy_dnd_open">Abrir as configurações do Não perturbe</string>
     <string name="label_policy_dnd_title">Deixar “%1$s” tocar durante o Não perturbe?</string>
-    <string name="label_policy_dnd_confirm">Marcar com estrela e abrir configurações</string>
     <string name="label_policy_rhythm_suggest">Como o seu marcador “%1$s”: %2$s</string>
     <plurals name="label_policy_added">
         <item quantity="one">%d pessoa adicionada ao seu círculo</item>
@@ -34,10 +33,5 @@
         <item quantity="one">Marcar %d novo membro com estrela</item>
         <item quantity="many">Marcar %d novos membros com estrela</item>
         <item quantity="other">Marcar %d novos membros com estrela</item>
-    </plurals>
-    <plurals name="label_policy_dnd_explain">
-        <item quantity="one">O Parley marca com estrela %d pessoa deste marcador. Contatos marcados também aparecem em Favoritos e em outros apps. Depois, nas configurações do Não perturbe do Android, permita ligações de contatos marcados: todos os marcados poderão tocar, não só este marcador.</item>
-        <item quantity="many">O Parley marca com estrela %d pessoas deste marcador. Contatos marcados também aparecem em Favoritos e em outros apps. Depois, nas configurações do Não perturbe do Android, permita ligações de contatos marcados: todos os marcados poderão tocar, não só este marcador.</item>
-        <item quantity="other">O Parley marca com estrela %d pessoas deste marcador. Contatos marcados também aparecem em Favoritos e em outros apps. Depois, nas configurações do Não perturbe do Android, permita ligações de contatos marcados: todos os marcados poderão tocar, não só este marcador.</item>
     </plurals>
 </resources>

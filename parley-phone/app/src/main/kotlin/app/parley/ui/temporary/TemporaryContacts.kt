@@ -69,7 +69,6 @@ import app.parley.ui.common.Format
 import app.parley.ui.segmentShape
 import kotlinx.coroutines.launch
 import android.content.res.Resources
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import app.parley.R
@@ -184,7 +183,6 @@ fun timeLeft(res: Resources, expiresAt: Long, now: Long = System.currentTimeMill
 fun TemporaryContactsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
     val items = rememberTemporaryItems(vm)
     val scope = rememberCoroutineScope()
-    val context = LocalContext.current
     val res = LocalResources.current
     var extendFor by remember { mutableStateOf<TemporaryItem?>(null) }
     var deleteFor by remember { mutableStateOf<TemporaryItem?>(null) }

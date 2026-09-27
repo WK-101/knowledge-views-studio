@@ -13,7 +13,6 @@
     <string name="label_policy_dnd_summary">Markiert alle hier mit Stern, damit Android markierte Kontakte klingeln lassen kann</string>
     <string name="label_policy_dnd_open">Einstellungen für „Bitte nicht stören“ öffnen</string>
     <string name="label_policy_dnd_title">„%1$s“ bei „Bitte nicht stören“ klingeln lassen?</string>
-    <string name="label_policy_dnd_confirm">Mit Stern markieren und Einstellungen öffnen</string>
     <string name="label_policy_rhythm_suggest">Wie dein Label „%1$s“: %2$s</string>
     <plurals name="label_policy_added">
         <item quantity="one">%d Person zu deinem Kreis hinzugefügt</item>
@@ -30,9 +29,5 @@
     <plurals name="label_policy_star_new">
         <item quantity="one">%d neues Mitglied mit Stern markieren</item>
         <item quantity="other">%d neue Mitglieder mit Stern markieren</item>
-    </plurals>
-    <plurals name="label_policy_dnd_explain">
-        <item quantity="one">Parley markiert %d Person mit diesem Label mit Stern. Markierte Kontakte erscheinen auch in den Favoriten und in anderen Apps. Erlaube dann in Androids „Bitte nicht stören“-Einstellungen Anrufe von markierten Kontakten: Alle mit Stern können klingeln, nicht nur dieses Label.</item>
-        <item quantity="other">Parley markiert %d Personen mit diesem Label mit Stern. Markierte Kontakte erscheinen auch in den Favoriten und in anderen Apps. Erlaube dann in Androids „Bitte nicht stören“-Einstellungen Anrufe von markierten Kontakten: Alle mit Stern können klingeln, nicht nur dieses Label.</item>
     </plurals>
 </resources>

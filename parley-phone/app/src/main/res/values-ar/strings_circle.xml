@@ -42,7 +42,6 @@
     <string name="circle_add_to_circle">إضافة إلى دائرتك</string>
     <string name="circle_add_to_circle_body">تذكير لطيف عندما يمر وقت طويل</string>
     <string name="circle_next_date_today">%1$s اليوم</string>
-    <string name="circle_dates">التواريخ</string>
     <string name="circle_rhythm_natural">إيقاع طبيعي</string>
     <string name="circle_rhythm_natural_body">يتعلّم كم مرة تتحدثان عادةً، ولا يذكّرك إلا عندما تكون الفجوة غير معتادة. يُعاد التعلّم كل شهر.</string>
     <string name="circle_remove">إزالة من دائرتك</string>
@@ -71,7 +70,6 @@
     <string name="circle_might_enjoy">ربما يسعد %1$s بسماع أخبارك</string>
     <string name="circle_digest_title">أشخاص قد تودّ التواصل معهم</string>
     <string name="circle_digest_date">لدى %1$s مناسبة قريبة</string>
-    <string name="circle_digest_quiet">مرّ وقت منذ تحدثت مع %1$s</string>
     <string name="circle_lead_on_day">في اليوم نفسه فقط</string>
     <string name="circle_delivery_digest">ملخص أسبوعي (الأحد)</string>
     <string name="circle_delivery_as_due">عند حلول الوقت</string>

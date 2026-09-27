@@ -13,7 +13,6 @@
     <string name="label_policy_dnd_summary">यहाँ सभी को स्टार करता है, ताकि Android स्टार वाले संपर्कों की घंटी बजने दे</string>
     <string name="label_policy_dnd_open">परेशान न करें की सेटिंग खोलें</string>
     <string name="label_policy_dnd_title">परेशान न करें के दौरान “%1$s” की घंटी बजने दें?</string>
-    <string name="label_policy_dnd_confirm">स्टार करें और सेटिंग खोलें</string>
     <string name="label_policy_rhythm_suggest">आपके “%1$s” लेबल की तरह: %2$s</string>
     <plurals name="label_policy_added">
         <item quantity="one">%d व्यक्ति आपके सर्कल में जोड़ा गया</item>
@@ -30,9 +29,5 @@
     <plurals name="label_policy_star_new">
         <item quantity="one">%d नए सदस्य को स्टार करें</item>
         <item quantity="other">%d नए सदस्यों को स्टार करें</item>
-    </plurals>
-    <plurals name="label_policy_dnd_explain">
-        <item quantity="one">Parley इस लेबल के %d व्यक्ति को स्टार करता है। स्टार वाले संपर्क पसंदीदा और दूसरे ऐप में भी दिखते हैं। फिर Android की परेशान न करें सेटिंग में स्टार वाले संपर्कों की कॉल की अनुमति दें: सिर्फ़ यह लेबल नहीं, स्टार वाले सभी लोगों की घंटी बजेगी।</item>
-        <item quantity="other">Parley इस लेबल के %d लोगों को स्टार करता है। स्टार वाले संपर्क पसंदीदा और दूसरे ऐप में भी दिखते हैं। फिर Android की परेशान न करें सेटिंग में स्टार वाले संपर्कों की कॉल की अनुमति दें: सिर्फ़ यह लेबल नहीं, स्टार वाले सभी लोगों की घंटी बजेगी।</item>
     </plurals>
 </resources>

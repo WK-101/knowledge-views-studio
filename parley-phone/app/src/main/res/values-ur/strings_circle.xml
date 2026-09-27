@@ -42,7 +42,6 @@
     <string name="circle_add_to_circle">اپنے حلقے میں شامل کریں</string>
     <string name="circle_add_to_circle_body">جب کافی وقت ہو جائے تو ہلکی سی یاد دہانی</string>
     <string name="circle_next_date_today">%1$s آج</string>
-    <string name="circle_dates">تاریخیں</string>
     <string name="circle_rhythm_natural">قدرتی ردھم</string>
     <string name="circle_rhythm_natural_body">سیکھتا ہے کہ آپ دونوں عام طور پر کتنی بار بات کرتے ہیں، اور صرف تب یاد دلاتا ہے جب وقفہ غیر معمولی ہو۔ ہر مہینے دوبارہ سیکھتا ہے۔</string>
     <string name="circle_remove">اپنے حلقے سے ہٹائیں</string>
@@ -71,7 +70,6 @@
     <string name="circle_might_enjoy">%1$s کو شاید آپ سے بات کر کے اچھا لگے</string>
     <string name="circle_digest_title">وہ لوگ جن سے آپ شاید بات کرنا چاہیں</string>
     <string name="circle_digest_date">%1$s کی کوئی خاص تاریخ آنے والی ہے</string>
-    <string name="circle_digest_quiet">آپ اور %1$s کو بات کیے کچھ وقت ہو گیا</string>
     <string name="circle_lead_on_day">صرف اسی دن</string>
     <string name="circle_delivery_digest">ہفتہ وار خلاصہ (اتوار)</string>
     <string name="circle_delivery_as_due">جب وقت ہو</string>
