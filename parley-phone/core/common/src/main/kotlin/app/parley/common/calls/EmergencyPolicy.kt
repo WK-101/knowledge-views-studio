@@ -90,8 +90,24 @@ object EmergencyPolicy {
 
     fun isFallbackEmergencyNumber(number: String?): Boolean {
         if (number.isNullOrBlank()) return false
+        val n = asciiDigits(number)
         // Only separators may surround the digits: "112", "1 1 2", "(112)". "+112" or "*112#" are not dialled as such.
-        if (number.any { !it.isDigit() && it !in " -(). " }) return false
-        return number.filter { it.isDigit() } in FALLBACK
+        if (n.any { it !in '0'..'9' && it !in " -(). " }) return false
+        return n.filter { it in '0'..'9' } in FALLBACK
+    }
+
+    /**
+     * [number] with every decimal digit in ASCII: keyboards and texts may use native digits (Arabic-Indic "١١٢",
+     * Persian "۱۱۲", Devanagari "११२"), which neither the platform's emergency check nor the call path reads.
+     * Everything else is kept as it is.
+     */
+    fun asciiDigits(number: String): String {
+        if (number.all { it < '\u0080' }) return number
+        val sb = StringBuilder(number.length)
+        for (c in number) {
+            val d = if (Character.isDigit(c)) Character.digit(c, 10) else -1
+            sb.append(if (d >= 0) '0' + d else c)
+        }
+        return sb.toString()
     }
 }

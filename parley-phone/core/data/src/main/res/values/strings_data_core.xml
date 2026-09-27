@@ -23,6 +23,8 @@
         <item quantity="other">%1$d calls</item>
     </plurals>
     <string name="data_bkp_result">Backed up %1$s and %2$s</string>
+    <!-- %1$s contacts, %2$s calls, %3$s internal names of the parts left out. -->
+    <string name="data_bkp_result_incomplete">Backed up %1$s and %2$s, but some parts couldn\'t be included (%3$s). Older complete backups are kept until a complete one succeeds.</string>
     <string name="data_bkp_result_vault_missing">Backed up %1$s and %2$s. Private contacts were not included: open Parley and unlock them, then back up again.</string>
     <plurals name="data_bkp_backed_up">
         <item quantity="one">Backed up %1$d contact</item>

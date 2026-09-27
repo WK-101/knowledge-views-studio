@@ -56,7 +56,7 @@ class CallGate(private val c: DataContainer) {
             // Only a SIM the user picked for this call; otherwise the platform routes it over whichever network can
             // carry it (a remembered or label SIM may have no service).
             CallManager.expectOutgoing(number, null)
-            return Placed.Done(c.placer.call(number, simId, simResolved = true))
+            return Placed.Done(c.placer.call(EmergencyPolicy.asciiDigits(number), simId, simResolved = true))
         }
         if (remember && simId != null) c.prefs.setSimFor(number, simId)
         // Resolved once, off the main thread, and handed to the placer (which would otherwise look it up again).

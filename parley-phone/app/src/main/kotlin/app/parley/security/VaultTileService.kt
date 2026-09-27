@@ -70,7 +70,13 @@ class DiscreetRevealActivity : androidx.fragment.app.FragmentActivity() {
     override fun onCreate(savedInstanceState: android.os.Bundle?) {
         super.onCreate(savedInstanceState)
         AppLock.applySecureFlag(this, true)
-        if (savedInstanceState != null) return
+        // Configuration changes are handled in place (manifest), so the prompt and its callback stay with this
+        // instance. Anything that still recreates it (process death, a change not listed there) leaves a prompt that
+        // belongs to the old instance: close rather than stay as an invisible window over everything.
+        if (savedInstanceState != null) {
+            finish()
+            return
+        }
         AppLock.authenticate(this, getString(app.parley.R.string.lock_unlock_private)) { ok ->
             if (ok) {
                 val c = container

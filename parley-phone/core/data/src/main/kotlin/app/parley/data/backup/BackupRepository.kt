@@ -247,9 +247,14 @@ class BackupRepository(
         }
 
         val hash = manifest.contentHash()
-        if (scheduled && hash == state.lastContentHash) {
+        // A backup missing a feature section is kept, but it must not become the reference: rotation would otherwise
+        // delete the older complete backups one by one, and later runs would compare against the incomplete content.
+        val incomplete = failedSections.isNotEmpty()
+        if (scheduled && hash == (if (incomplete) state.lastIncompleteHash else state.lastContentHash)) {
             runCatching { DocumentsContract.deleteDocument(cr, doc) }
-            prefs.update { it.putLong("verifiedAt", System.currentTimeMillis()).putString("lastResult", app.parley.common.StoredStatus.of(BackupState.UNCHANGED).encode()) }
+            val status = if (incomplete) app.parley.common.StoredStatus.of(BackupState.INCOMPLETE, failedSections.joinToString(", "), contactCount, callCount)
+            else app.parley.common.StoredStatus.of(BackupState.UNCHANGED)
+            prefs.update { it.putLong("verifiedAt", System.currentTimeMillis()).putString("lastResult", status.encode()) }
             return@withContext gaps(BackupOutcome(true, state.lastBackupName, contactCount, callCount, unchanged = true, verified = true, message = context.getString(R.string.data_bkp_nothing_changed)))
         }
         val renamed = runCatching { DocumentsContract.renameDocument(cr, doc, finalName) }.getOrNull() ?: doc
@@ -258,16 +263,18 @@ class BackupRepository(
         // a high-water mark: it only moves while rotation runs, so the pause lasts until the user resumes it.
         val paused = !safety && state.lastContactCount >= 0 && RetentionDecider.mustPauseRotation(state.lastContactCount, contactCount)
         val vaultMissing = !vaultIncluded && vault.contacts.value.isNotEmpty()
-        if (!paused && !safety) rotate(protect = if (vaultIncluded) finalName else state.lastVaultBackupName)
+        if (!paused && !safety && !incomplete) rotate(protect = if (vaultIncluded) finalName else state.lastVaultBackupName)
         val res = context.resources
         // Stored as what happened, rendered in the current language when shown (BackupState.resultText).
-        val result = app.parley.common.StoredStatus.of(BackupState.RESULT, if (vaultMissing) 1 else 0, contactCount, callCount).encode()
+        val result = if (incomplete) app.parley.common.StoredStatus.of(BackupState.INCOMPLETE, failedSections.joinToString(", "), contactCount, callCount).encode()
+        else app.parley.common.StoredStatus.of(BackupState.RESULT, if (vaultMissing) 1 else 0, contactCount, callCount).encode()
         prefs.update {
             it.putLong("lastAt", System.currentTimeMillis()).putString("lastName", finalName).putLong("verifiedAt", System.currentTimeMillis())
-                .putString("lastHash", hash).putBoolean("paused", paused)
+                .putBoolean("paused", paused)
                 .putString("lastResult", result)
-            if (!paused && !safety) it.putInt("lastCount", contactCount)
-            if (vaultIncluded) it.putString("vaultName", finalName)
+            if (incomplete) it.putString("gapHash", hash) else it.putString("lastHash", hash).remove("gapHash")
+            if (!paused && !safety && !incomplete) it.putInt("lastCount", contactCount)
+            if (vaultIncluded && !incomplete) it.putString("vaultName", finalName)
         }
         gaps(BackupOutcome(true, finalName, contactCount, callCount, verified = true, rotationPaused = paused, vaultIncluded = vaultIncluded, message = res.getQuantityString(if (paused) R.plurals.data_bkp_backed_up_paused else R.plurals.data_bkp_backed_up, contactCount, contactCount)))
     }

@@ -18,10 +18,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.lifecycle.viewModelScope
 import app.parley.AppViewModel
 import app.parley.common.history.DeleteRange
 import kotlinx.coroutines.launch
@@ -42,7 +42,6 @@ import app.parley.R
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RangeDeleteDialog(vm: AppViewModel, number: String, onDeleted: (batchId: Long, count: Int) -> Unit, onDismiss: () -> Unit) {
-    val scope = rememberCoroutineScope()
     val zone = ZoneId.systemDefault()
     var range by remember { mutableStateOf(DeleteRange.ALL) }
     var picked by remember { mutableStateOf<LocalDate?>(null) }
@@ -91,12 +90,14 @@ fun RangeDeleteDialog(vm: AppViewModel, number: String, onDeleted: (batchId: Lon
                 onClick = {
                     val r = range
                     val p = picked
-                    onDismiss()
-                    scope.launch {
-                        val n = count(r) ?: 0
+                    val n = count(r) ?: 0
+                    // The dialog leaves composition on dismiss, taking its own scope with it; the delete and the
+                    // Undo hand-off must outlive it, so they run in the view model's scope.
+                    vm.viewModelScope.launch {
                         val batch = vm.c.history.deleteRange(number, r, p)
                         if (batch != null) onDeleted(batch, n)
                     }
+                    onDismiss()
                 },
                 enabled = selected != null && selected > 0,
             ) { Text(if (selected != null && selected > 0) stringResource(R.string.hist_range_delete_n, selected) else stringResource(R.string.dc_delete)) }

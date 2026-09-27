@@ -22,6 +22,8 @@ data class BackupState(
     val lastVerifiedAt: Long = 0,
     val lastContactCount: Int = -1,
     val lastContentHash: String? = null,
+    /** Content hash of the newest backup that lacked a section; never the reference for rotation or "unchanged". */
+    val lastIncompleteHash: String? = null,
     /** Stored as a [app.parley.common.StoredStatus] (older versions: text); shown with [resultText]. */
     val lastResult: String? = null,
     val rotationPaused: Boolean = false,
@@ -45,6 +47,12 @@ data class BackupState(
                 res.getQuantityString(app.parley.data.R.plurals.data_contacts_count, s.int(1), s.int(1)),
                 res.getQuantityString(app.parley.data.R.plurals.data_calls_count, s.int(2), s.int(2)),
             )
+            INCOMPLETE -> res.getString(
+                app.parley.data.R.string.data_bkp_result_incomplete,
+                res.getQuantityString(app.parley.data.R.plurals.data_contacts_count, s.int(1), s.int(1)),
+                res.getQuantityString(app.parley.data.R.plurals.data_calls_count, s.int(2), s.int(2)),
+                s.args.getOrNull(0).orEmpty(),
+            )
             else -> null
         }
     }
@@ -55,6 +63,7 @@ data class BackupState(
         const val NOT_VERIFIED = "not_verified"
         const val FAILED = "failed"
         const val RESULT = "result"
+        const val INCOMPLETE = "incomplete"
     }
 }
 
@@ -76,6 +85,7 @@ class BackupPrefs(context: Context) {
         lastVerifiedAt = prefs.getLong("verifiedAt", 0),
         lastContactCount = prefs.getInt("lastCount", -1),
         lastContentHash = prefs.getString("lastHash", null),
+        lastIncompleteHash = prefs.getString("gapHash", null),
         lastResult = prefs.getString("lastResult", null),
         rotationPaused = prefs.getBoolean("paused", false),
         lastRestoreIds = prefs.getString("restoreRawIds", "").orEmpty().split(',').mapNotNull { it.toLongOrNull() },

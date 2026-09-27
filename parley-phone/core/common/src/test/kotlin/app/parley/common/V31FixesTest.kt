@@ -80,6 +80,18 @@ class ExactPurgeTest {
         assertTrue(PhoneNumbers.sameExact("1234", "1234", null))
         assertFalse(PhoneNumbers.sameExact("", "", null))
     }
+
+    @Test fun delete_by_number_never_reaches_a_last_digits_collision() {
+        // A call-log row with no E.164 form (no country to read it with) against another country's number with the
+        // same last 9 digits: the loose match joins them, the one deletions use does not.
+        val row = "0612345678"
+        val other = "+44 612345678"
+        assertTrue(PhoneNumbers.same(row, other, null))
+        assertFalse(PhoneNumbers.sameExact(row, other, null))
+        // The same line in another format still matches.
+        assertTrue(PhoneNumbers.sameExact("06 12 34 56 78", row, null))
+        assertTrue(PhoneNumbers.sameExact("+33612345678", "06 12 34 56 78", "FR"))
+    }
 }
 
 class VaultKeysFallbackTest {

@@ -13,6 +13,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
@@ -51,11 +52,37 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
                     // Until we know whether the app lock is on, show nothing rather than flash the contacts.
                     androidx.compose.material3.Surface(androidx.compose.ui.Modifier.fillMaxSize()) {}
                 } else if (locked && settings.appLock) {
-                    app.parley.security.LockScreen { app.parley.security.AppLock.authenticate(this@MainActivity) }
+                    app.parley.security.LockScreen(lockEmergencyNumber, checkingEmergency) {
+                        app.parley.security.AppLock.authenticate(this@MainActivity) { ok -> if (ok) lockEmergencyNumber = null }
+                    }
                 } else {
                     ParleyRoot(vm)
                 }
             }
+        }
+    }
+
+    /** An emergency number handed over while Parley may be locked: the lock screen offers the call with it at once. */
+    private var lockEmergencyNumber by androidx.compose.runtime.mutableStateOf<String?>(null)
+    private var checkingEmergency by androidx.compose.runtime.mutableStateOf(false)
+
+    /**
+     * Android turns another app's emergency call into a dial request for the phone app. The number still goes to the
+     * keypad as usual; the platform check runs off the main thread, and the lock screen's prompt waits for it.
+     */
+    private fun checkEmergencyDial(intent: Intent) {
+        lockEmergencyNumber = null
+        checkingEmergency = false
+        if (intent.action != Intent.ACTION_DIAL && intent.action != Intent.ACTION_VIEW && intent.action != Intent.ACTION_CALL) return
+        val number = intent.data?.takeIf { it.scheme == "tel" }?.schemeSpecificPart?.takeIf { it.isNotBlank() } ?: return
+        checkingEmergency = true
+        lifecycleScope.launch {
+            val emergency = try {
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { app.parley.data.EmergencyNumbers.isEmergency(applicationContext, number) }
+            } finally {
+                checkingEmergency = false
+            }
+            if (emergency) lockEmergencyNumber = app.parley.common.calls.EmergencyPolicy.asciiDigits(number)
         }
     }
 
@@ -86,6 +113,8 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
 
     override fun onStop() {
         stoppedAt = android.os.SystemClock.elapsedRealtime()
+        // Placed or put aside: coming back shows the ordinary lock screen.
+        lockEmergencyNumber = null
         app.parley.security.AppLock.onStop(loadedSettings())
         protectWindow(leaving = true)
         super.onStop()
@@ -118,6 +147,7 @@ class MainActivity : androidx.fragment.app.FragmentActivity() {
 
     private fun handleIntent(intent: Intent?) {
         intent ?: return
+        checkEmergencyDial(intent)
         val data = intent.data
         when (intent.action) {
             Intent.ACTION_SEND -> {

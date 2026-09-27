@@ -372,6 +372,7 @@
         <!-- Turning discreet mode off from the tile asks for the app lock first. -->
         <activity
             android:name=".security.DiscreetRevealActivity"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|density|fontScale|uiMode|keyboard|keyboardHidden|navigation|locale|layoutDirection"
             android:excludeFromRecents="true"
             android:exported="false"
             android:taskAffinity=""
