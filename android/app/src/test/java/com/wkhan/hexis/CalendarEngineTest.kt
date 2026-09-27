@@ -30,6 +30,10 @@ class CalendarEngineTest {
 
     private fun ld(ms: Long): LocalDate = java.time.Instant.ofEpochMilli(ms).atZone(zone).toLocalDate()
 
+    /** The floating storage convention for an all-day event: UTC-midnight of the calendar date (a pure
+     *  epoch-day marker), independent of any device zone. */
+    private fun allDayMs(y: Int, mo: Int, d: Int): Long = LocalDate.of(y, mo, d).toEpochDay() * 86_400_000L
+
     @Suppress("LongParameterList")   // intentional test-fixture builder — all but id/start/end are optional
     private fun ev(
         id: String,
@@ -177,6 +181,34 @@ class CalendarEngineTest {
     }
 
     // ── heat-map ────────────────────────────────────────────────────────────────────────────────────
+
+    // ── all-day events are FLOATING dates (R109 Tier-3, surfaced #3) ─────────────────────────────────
+    // An all-day event stored at UTC-midnight of its date must land on that same calendar date in EVERY
+    // viewing zone — a holiday on the 10th is the 10th in Tokyo and in Honolulu alike, never drifting a day.
+
+    @Test fun allDayEvent_landsOnItsDate_inEveryViewingZone() {
+        val e = ev("holiday", allDayMs(2024, 6, 10), allDayMs(2024, 6, 10), allDay = true)
+        for (z in listOf("UTC", "America/New_York", "Asia/Tokyo", "Pacific/Honolulu", "Pacific/Kiritimati")) {
+            val zoneX = ZoneId.of(z)
+            assertEquals("shows on the 10th in $z", 1, CalendarEngine.onDay(listOf(e), epochDay(2024, 6, 10), zoneX).size)
+            assertTrue("not on the 9th in $z", CalendarEngine.onDay(listOf(e), epochDay(2024, 6, 9), zoneX).isEmpty())
+            assertTrue("not on the 11th in $z", CalendarEngine.onDay(listOf(e), epochDay(2024, 6, 11), zoneX).isEmpty())
+        }
+    }
+
+    @Test fun allDayRecurringWeekly_landsOnEachDate_inWesternZone() {
+        // A weekly all-day event viewed in a far-west zone must still fall on its own weekdays, not the day before.
+        val e = ev(
+            "weekly-allday", allDayMs(2024, 6, 10), allDayMs(2024, 6, 10),
+            rrule = Recurrence.encode(Recur(Freq.DAILY, interval = 7)), allDay = true,
+        )
+        val hono = ZoneId.of("Pacific/Honolulu")
+        val start = LocalDate.of(2024, 6, 10).atStartOfDay(hono).toInstant().toEpochMilli()
+        val end = LocalDate.of(2024, 6, 25).atStartOfDay(hono).toInstant().toEpochMilli()
+        val occ = CalendarEngine.expand(listOf(e), start, end, hono)
+        val days = occ.map { java.time.Instant.ofEpochMilli(it.startMillis).atZone(hono).toLocalDate() }
+        assertEquals(listOf(LocalDate.of(2024, 6, 10), LocalDate.of(2024, 6, 17), LocalDate.of(2024, 6, 24)), days)
+    }
 
     @Test fun busyMinutesByDay_splitsAcrossMidnight() {
         // 23:00 → 01:00 next day: 60 minutes fall on each of the two local days.

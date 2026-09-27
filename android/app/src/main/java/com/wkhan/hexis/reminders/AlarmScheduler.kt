@@ -489,7 +489,33 @@ object AlarmScheduler {
         (("ev:$eventId:$minutesBefore").hashCode() and 0x3FFFFFFF) + 3_000_000
 
     /** First occurrence start strictly after [after] (honouring EXDATE, UNTIL and COUNT), or null. */
+    // Surfaced #3 — an all-day event is a floating date (UTC-midnight epoch-day marker); its alert must fire
+    // relative to the viewing zone's LOCAL midnight of that date, exactly as CalendarEngine renders it, not
+    // relative to the raw UTC marker (which would drift a day west of UTC).
+    @Suppress("ReturnCount")   // loop with early exits, mirroring the timed nextOccurrenceStart below
+    private fun nextAllDayStart(e: EventEntity, after: Long, zone: ZoneId): Long? {
+        val dayMs = 86_400_000L
+        val r = if (e.rrule.isBlank()) null else com.wkhan.hexis.domain.recurrence.Recurrence.parse(e.rrule)
+        val ex = e.exDates.split(",").mapNotNull { it.trim().toLongOrNull() }.toSet()
+        var day = Math.floorDiv(e.startMillis, dayMs)
+        var emitted = 0
+        var guard = 0
+        while (guard++ < 3000) {
+            r?.untilEpochDay?.let { if (day > it) return null }
+            if (r?.count != null && emitted >= r.count) return null
+            val startMs = java.time.LocalDate.ofEpochDay(day).atStartOfDay(zone).toInstant().toEpochMilli()
+            if (day !in ex && startMs > after) return startMs
+            emitted++
+            if (r == null) return null
+            val nxt = Math.floorDiv(com.wkhan.hexis.domain.recurrence.Recurrence.next(r, day * dayMs, java.time.ZoneOffset.UTC), dayMs)
+            if (nxt <= day) return null
+            day = nxt
+        }
+        return null
+    }
+
     private fun nextOccurrenceStart(e: EventEntity, after: Long, zone: ZoneId): Long? {
+        if (e.allDay) return nextAllDayStart(e, after, zone)
         if (e.rrule.isBlank()) return e.startMillis.takeIf { it > after }
         val r = com.wkhan.hexis.domain.recurrence.Recurrence.parse(e.rrule)
         val ex = e.exDates.split(",").mapNotNull { it.trim().toLongOrNull() }.toSet()

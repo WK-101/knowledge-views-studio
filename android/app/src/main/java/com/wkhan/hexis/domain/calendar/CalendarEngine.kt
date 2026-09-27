@@ -1,6 +1,7 @@
 package com.wkhan.hexis.domain.calendar
 
 import com.wkhan.hexis.data.entity.EventEntity
+import com.wkhan.hexis.domain.recurrence.Recur
 import com.wkhan.hexis.domain.recurrence.Recurrence
 import java.time.Instant
 import java.time.LocalDate
@@ -11,6 +12,7 @@ import java.time.ZoneId
  * skips + per-instance overrides honoured), and computes the on-device analytics a dedicated calendar
  * needs: free-slot / gap finding, conflict detection, and a real-load heat-map. Pure functions, offline.
  */
+@Suppress("TooManyFunctions")   // one cohesive engine; the all-day (surfaced #3) helpers push it past the default
 object CalendarEngine {
 
     data class Occurrence(
@@ -24,15 +26,34 @@ object CalendarEngine {
 
     private fun epochDay(millis: Long, zone: ZoneId) = Instant.ofEpochMilli(millis).atZone(zone).toLocalDate().toEpochDay()
 
+    private const val DAY_MS = 86_400_000L
+    private fun localMidnight(epochDay: Long, zone: ZoneId) =
+        LocalDate.ofEpochDay(epochDay).atStartOfDay(zone).toInstant().toEpochMilli()
+
+    // Surfaced #3 — an all-day event is a FLOATING date: [startMillis] stores UTC-midnight of its calendar
+    // date (a pure epoch-day marker), so the date never drifts with the device timezone. Its start-day and
+    // inclusive day-span come straight from that marker, and it is realised at LOCAL midnight of the viewing
+    // zone so it lands on the same calendar date everywhere.
+    private fun allDayStartDay(ev: EventEntity) = Math.floorDiv(ev.startMillis, DAY_MS)
+    private fun allDaySpanDays(ev: EventEntity) = Math.floorDiv((ev.endMillis - ev.startMillis).coerceAtLeast(0), DAY_MS)
+    private fun allDayBounds(ev: EventEntity, day: Long, zone: ZoneId): Pair<Long, Long> =
+        localMidnight(day, zone) to (localMidnight(day + allDaySpanDays(ev) + 1, zone) - 1)
+    private fun nextAllDay(r: Recur, day: Long): Long =
+        Math.floorDiv(Recurrence.next(r, day * DAY_MS, java.time.ZoneOffset.UTC), DAY_MS)
+
     /** Every occurrence of every (visible) event that intersects [windowStart, windowEnd]. */
     fun expand(events: List<EventEntity>, windowStart: Long, windowEnd: Long, zone: ZoneId = ZoneId.systemDefault()): List<Occurrence> {
         val out = ArrayList<Occurrence>()
         val overrides = events.filter { it.recurrenceParentId != null }
         val overrideKey = overrides.associateBy { it.recurrenceParentId!! + "@" + it.recurrenceDate }
-        // Standalone override events show at their own moved time.
-        overrides.forEach { ov -> if (ov.endMillis >= windowStart && ov.startMillis <= windowEnd) out += Occurrence(ov, ov.startMillis, ov.endMillis, isOverride = true) }
+        // Standalone override events show at their own moved time (all-day overrides float, like any all-day event).
+        overrides.forEach { ov ->
+            val (s, e) = if (ov.allDay) allDayBounds(ov, allDayStartDay(ov), zone) else ov.startMillis to ov.endMillis
+            if (e >= windowStart && s <= windowEnd) out += Occurrence(ov, s, e, isOverride = true)
+        }
 
         events.filter { it.recurrenceParentId == null }.forEach { ev ->
+            if (ev.allDay) { expandAllDay(ev, windowStart, windowEnd, zone, overrideKey, out); return@forEach }
             val dur = (ev.endMillis - ev.startMillis).coerceAtLeast(0)
             if (ev.rrule.isBlank()) {
                 if (ev.endMillis >= windowStart && ev.startMillis <= windowEnd) out += Occurrence(ev, ev.startMillis, ev.endMillis)
@@ -77,6 +98,56 @@ object CalendarEngine {
             }
         }
         return out.sortedBy { it.startMillis }
+    }
+
+    /** Surfaced #3 — all-day expansion runs in EPOCH-DAY space (the floating date is zone-independent) and
+     *  realises each occurrence at the viewing zone's local midnight, so the event lands on the same calendar
+     *  date in every timezone. Mirrors the timed loop's EXDATE / override / COUNT / UNTIL / fast-forward
+     *  semantics, just over days instead of instants. */
+    @Suppress("LongParameterList", "CyclomaticComplexMethod")   // deliberately mirrors the timed expand() loop's shape
+    private fun expandAllDay(
+        ev: EventEntity,
+        windowStart: Long,
+        windowEnd: Long,
+        zone: ZoneId,
+        overrideKey: Map<String, EventEntity>,
+        out: ArrayList<Occurrence>,
+    ) {
+        val startDay = allDayStartDay(ev)
+        val spanDays = allDaySpanDays(ev)
+        val winStartDay = epochDay(windowStart, zone)
+        val winEndDay = epochDay(windowEnd, zone)
+        val exDays = ev.exDates.split(",").mapNotNull { it.trim().toLongOrNull() }.toSet()
+        fun emit(day: Long) {
+            if (day > winEndDay || day + spanDays < winStartDay) return
+            if (day in exDays || overrideKey[ev.id + "@" + day] != null) return
+            val (s, e) = allDayBounds(ev, day, zone)
+            out += Occurrence(ev, s, e)
+        }
+        val r = if (ev.rrule.isBlank()) null else Recurrence.parse(ev.rrule)
+        if (r == null) { emit(startDay); return }
+        var day = startDay
+        // Fast-forward an open-ended series up to the window (same guard as the timed path).
+        if (r.count == null) {
+            var skip = 0
+            while (day + spanDays < winStartDay && skip++ < 750_000) {
+                val nxt = nextAllDay(r, day)
+                if (nxt <= day) break
+                day = nxt
+            }
+        }
+        var emitted = 0
+        var guard = 0
+        while (guard++ < 4000 && day <= winEndDay) {
+            val untilDay = r.untilEpochDay
+            if (untilDay != null && day > untilDay) break
+            if (r.count != null && emitted >= r.count) break
+            emit(day)
+            emitted++
+            val nxt = nextAllDay(r, day)
+            if (nxt <= day) break
+            day = nxt
+        }
     }
 
     /** Occurrences intersecting the local day [day] (epoch-day). */

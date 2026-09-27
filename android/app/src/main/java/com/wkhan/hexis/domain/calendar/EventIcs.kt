@@ -59,7 +59,10 @@ object EventIcs {
             if (e.organizer.isNotBlank()) append("ORGANIZER;CN=").append(esc(e.organizer)).append(":mailto:unknown@local\r\n")
             e.attendees.split("\n", ",").map { it.trim() }.filter { it.isNotBlank() }.forEach { append("ATTENDEE;CN=").append(esc(it)).append(":mailto:unknown@local\r\n") }
             if (e.allDay) {
-                val d = Instant.ofEpochMilli(e.startMillis).atZone(zone).toLocalDate()
+                // Surfaced #3 — an all-day event is a FLOATING date stored as a UTC-midnight epoch-day marker,
+                // so derive the calendar date from that marker (Math.floorDiv), NOT via the device zone (which
+                // would shift it a day west of UTC).
+                val d = LocalDate.ofEpochDay(Math.floorDiv(e.startMillis, 86_400_000L))
                 append("DTSTART;VALUE=DATE:").append(d.format(DATE)).append("\r\n")
                 append("DTEND;VALUE=DATE:").append(d.plusDays(1).format(DATE)).append("\r\n")
             } else {
@@ -118,7 +121,9 @@ object EventIcs {
                 line.equals("BEGIN:VEVENT", true) -> { inEvent = true; reset() }
                 line.equals("END:VEVENT", true) -> {
                     if (inEvent && summary.isNotBlank() && start != null) {
-                        val s = start!!.toInstant().toEpochMilli()
+                        // Surfaced #3 — an all-day (VALUE=DATE) event is stored as a floating UTC-midnight
+                        // epoch-day marker, so its instant never drifts a day across timezones.
+                        val s = if (allDay) start!!.toLocalDate().toEpochDay() * 86_400_000L else start!!.toInstant().toEpochMilli()
                         val e = (end ?: start!!.plusHours(1)).toInstant().toEpochMilli()
                         // A meeting invite scatters its join link across URL / CONFERENCE / X-props / LOCATION /
                         // DESCRIPTION; take the first that looks like one so the event gets a working "Join".

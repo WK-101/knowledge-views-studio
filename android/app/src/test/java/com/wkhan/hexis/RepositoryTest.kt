@@ -268,4 +268,35 @@ class RepositoryTest {
         assertEquals("a1 = 30 + 45 min, floored from SQL SUM", 75L, totals[a1])
         assertEquals("a2 = 20 min (running 'run' has no end → not summed)", 20L, totals[a2])
     }
+
+    // ── Surfaced #3: the all-day floating-date storage migration ─────────────────────────────────────
+
+    @Test fun normalizeAllDayEvents_freezesLegacyDateAsFloatingMarker() = runBlocking {
+        val dayMs = 86_400_000L
+        val ny = java.time.ZoneId.of("America/New_York")
+        val prevZone = com.wkhan.hexis.domain.AppClock.zone
+        com.wkhan.hexis.domain.AppClock.zone = ny
+        try {
+            // A legacy all-day event stored at LOCAL midnight in NY (carries the -4h offset → not a clean marker).
+            val localMid = java.time.LocalDate.of(2024, 6, 10).atStartOfDay(ny).toInstant().toEpochMilli()
+            db.eventDao().upsert(
+                com.wkhan.hexis.data.entity.EventEntity(
+                    id = "ad", calendarId = "c", title = "Holiday",
+                    startMillis = localMid, endMillis = localMid, allDay = true, createdAt = 0L, updatedAt = 0L,
+                ),
+            )
+            assertTrue("precondition: legacy value carries a zone offset", localMid % dayMs != 0L)
+
+            repo.normalizeAllDayEventsToFloating()
+
+            val e = db.eventDao().getById("ad")!!
+            assertEquals("now a UTC-midnight epoch-day marker", 0L, e.startMillis % dayMs)
+            assertEquals("same calendar date it read as", java.time.LocalDate.of(2024, 6, 10).toEpochDay(), e.startMillis / dayMs)
+            // Idempotent: a second sweep leaves the already-floating value untouched.
+            repo.normalizeAllDayEventsToFloating()
+            assertEquals(e.startMillis, db.eventDao().getById("ad")!!.startMillis)
+        } finally {
+            com.wkhan.hexis.domain.AppClock.zone = prevZone
+        }
+    }
 }

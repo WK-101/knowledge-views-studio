@@ -451,8 +451,38 @@ class AppRepository(private val db: AppDatabase, private val appContext: android
     val allEvents: Flow<List<com.wkhan.hexis.data.entity.EventEntity>> = events.observeAll()
     suspend fun eventById(id: String): com.wkhan.hexis.data.entity.EventEntity? = events.getById(id)
     suspend fun eventsOnce(): List<com.wkhan.hexis.data.entity.EventEntity> = events.getAll()
-    suspend fun upsertEvent(e: com.wkhan.hexis.data.entity.EventEntity) = events.upsert(e)
-    suspend fun upsertEvents(e: List<com.wkhan.hexis.data.entity.EventEntity>) = events.upsertAll(e)
+    suspend fun upsertEvent(e: com.wkhan.hexis.data.entity.EventEntity) = events.upsert(normalizeAllDayFloating(e))
+    suspend fun upsertEvents(e: List<com.wkhan.hexis.data.entity.EventEntity>) = events.upsertAll(e.map { normalizeAllDayFloating(it) })
+
+    /**
+     * Surfaced #3 — store an all-day event as a FLOATING date: [startMillis]/[endMillis] at UTC-midnight of
+     * its calendar date (a pure epoch-day marker), so the day never drifts with the device timezone. This is
+     * the single normalization applied on every write path; [CalendarEngine] realises the marker at the
+     * viewing zone's local midnight so the event lands on the same date everywhere.
+     *
+     * IDEMPOTENT by construction: a value already at UTC-midnight is exactly divisible by a day, while a
+     * legacy local-midnight value carries its creation-zone offset and is not — so an already-floating event
+     * is left untouched (safe to apply on every write and to re-run at startup), and a legacy one is mapped
+     * through the date it currently reads as in [AppClock.zone] (what the user sees today), then frozen.
+     */
+    private fun normalizeAllDayFloating(e: com.wkhan.hexis.data.entity.EventEntity): com.wkhan.hexis.data.entity.EventEntity {
+        val dayMs = 86_400_000L
+        // Not all-day, or already a clean UTC-midnight marker → leave untouched (this is what makes the sweep idempotent).
+        if (!e.allDay || (e.startMillis % dayMs == 0L && e.endMillis % dayMs == 0L)) return e
+        val zone = com.wkhan.hexis.domain.AppClock.zone
+        fun dayOf(ms: Long) = java.time.Instant.ofEpochMilli(ms).atZone(zone).toLocalDate().toEpochDay()
+        val startDay = dayOf(e.startMillis)
+        val endDay = maxOf(startDay, dayOf(e.endMillis))
+        return e.copy(startMillis = startDay * dayMs, endMillis = endDay * dayMs)
+    }
+
+    /** One-time (idempotent) sweep that migrates any pre-existing all-day event to the floating storage
+     *  convention above. Cheap on steady state — only rows still carrying a zone offset are rewritten. */
+    suspend fun normalizeAllDayEventsToFloating() {
+        val all = events.getAll()
+        val fixed = all.mapNotNull { e -> normalizeAllDayFloating(e).takeIf { it != e } }
+        if (fixed.isNotEmpty()) events.upsertAll(fixed)
+    }
     suspend fun deleteEvent(id: String) { events.deleteOverridesOf(id); events.deleteById(id) }
     val allSettings: Flow<List<SettingEntity>> = settings.observeAll().shared()
     private val habits = db.habitDao()
@@ -2219,7 +2249,7 @@ class AppRepository(private val db: AppDatabase, private val appContext: android
         buddies.upsertAll(b.buddySnapshots); integrityReviews.upsertAll(b.integrityReviews)
         experiments.upsertAll(b.experiments); activation.upsertAll(b.activationItems); dayLogs.upsertAll(b.dayLogs)
         escrows.upsertAll(b.escrows); nudgeEvents.upsertAll(b.nudgeEvents); revisions.upsertAll(b.revisions)
-        eventCalendars.upsertAll(b.eventCalendars); events.upsertAll(b.events)
+        eventCalendars.upsertAll(b.eventCalendars); events.upsertAll(b.events.map { normalizeAllDayFloating(it) })
         notebooks.upsertAll(b.notebooks); notes.upsertAll(b.notes)
         notes.linkTags(b.noteTags); notes.linkContexts(b.noteContexts)
         noteRevisions.insertAll(b.noteRevisions)
@@ -2277,7 +2307,7 @@ class AppRepository(private val db: AppDatabase, private val appContext: android
         nudgeEvents.upsertAll(missing(nudgeEvents.getAll(), b.nudgeEvents) { it.id })
         revisions.upsertAll(missing(revisions.getAll(), b.revisions) { it.id })
         eventCalendars.upsertAll(missing(eventCalendars.getAll(), b.eventCalendars) { it.id })
-        events.upsertAll(missing(events.getAll(), b.events) { it.id })
+        events.upsertAll(missing(events.getAll(), b.events) { it.id }.map { normalizeAllDayFloating(it) })
         if (includeAttachments) attachments.upsertAll(missing(attachments.getAll(), b.attachments) { it.id })
         notebooks.upsertAll(missing(notebooks.getAll(), b.notebooks) { it.id })
         notes.upsertAll(missing(notes.getAll(), b.notes) { it.id })

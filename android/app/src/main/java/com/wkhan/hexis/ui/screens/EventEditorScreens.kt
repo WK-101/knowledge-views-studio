@@ -271,8 +271,15 @@ internal fun EventEditor(
     var title by remember { mutableStateOf(existing?.title ?: "") }
     var calId by remember { mutableStateOf(existing?.calendarId ?: defaultCal?.id ?: "") }
     var allDay by remember { mutableStateOf(existing?.allDay ?: false) }
-    var start by remember { mutableLongStateOf(existing?.startMillis ?: seedStart) }
-    var end by remember { mutableLongStateOf(existing?.endMillis ?: seedEnd) }
+    // Surfaced #3 — an existing all-day event is stored as a floating UTC-midnight epoch-day marker; load it
+    // as this zone's local midnight so the editor's (zone-based) date display and save round-trip cleanly
+    // (saving re-normalizes back to the marker). A timed event, or a fresh seed, is used as-is.
+    fun loadStart(ev: EventEntity): Long =
+        if (ev.allDay) java.time.LocalDate.ofEpochDay(Math.floorDiv(ev.startMillis, 86_400_000L)).atStartOfDay(zone).toInstant().toEpochMilli() else ev.startMillis
+    fun loadEnd(ev: EventEntity): Long =
+        if (ev.allDay) java.time.LocalDate.ofEpochDay(Math.floorDiv(ev.endMillis, 86_400_000L)).atStartOfDay(zone).toInstant().toEpochMilli() else ev.endMillis
+    var start by remember { mutableLongStateOf(existing?.let { loadStart(it) } ?: seedStart) }
+    var end by remember { mutableLongStateOf(existing?.let { loadEnd(it) } ?: seedEnd) }
     var location by remember { mutableStateOf(existing?.location ?: "") }
     var notes by remember { mutableStateOf(existing?.notes ?: "") }
     var url by remember { mutableStateOf(existing?.url ?: "") }

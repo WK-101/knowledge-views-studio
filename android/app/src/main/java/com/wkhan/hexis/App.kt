@@ -59,6 +59,9 @@ class App : Application() {
             runCatchingLogged("reconcileGoals") { repository.reconcileGoalsFromLegacyJson(s0.goalsJson, s0.goalReviewsJson) }
             // W3 (routines→Room, Increment 2) — same idempotent safety net for the routines flip.
             runCatchingLogged("reconcileRoutines") { repository.reconcileRoutinesFromLegacyJson(s0.routinesJson, s0.routineRunsJson) }
+            // Surfaced #3 — migrate any legacy all-day event to the floating (UTC-midnight epoch-day) storage
+            // convention so it no longer drifts a day across timezones. Idempotent; a no-op once migrated.
+            runCatchingLogged("normalizeAllDayEvents") { repository.normalizeAllDayEventsToFloating() }
             // Seed the lock-screen-privacy flag so background notifications honour it even before any UI.
             Notifications.lockscreenPrivate = s0.lockscreenPrivacy
             // R59 — seed the snooze duration every notification's Snooze action uses.
