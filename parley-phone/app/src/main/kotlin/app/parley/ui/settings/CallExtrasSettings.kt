@@ -8,6 +8,7 @@ import androidx.compose.material.icons.rounded.Accessibility
 import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material.icons.rounded.PhonelinkLock
 import androidx.compose.material.icons.rounded.Sensors
+import androidx.compose.material.icons.rounded.Vibration
 import androidx.compose.material.icons.rounded.Voicemail
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -25,29 +26,17 @@ import app.parley.common.calls.MissedReAlert
 import app.parley.ui.SegmentedGroup
 
 /**
- * Settings › Calls additions of v3.1: the pocket-dial guard (V8), missed-call re-alert (V3), voicemail (V1), the
- * proximity sensor switch (V6) and the link to Android's "Power button ends call" (V10).
+ * Settings › Calls additions of v3.1: the pocket-dial guard (V8), missed-call re-alert (V3) and voicemail (V1). The
+ * proximity sensor switch and "Power button ends call" are under Advanced ([CallsAdvancedGroup]).
  */
 @Composable
 internal fun CallExtrasGroups(vm: AppViewModel) {
-    val context = LocalContext.current
     val cfg by vm.c.callExtras.config.collectAsStateWithLifecycle()
-    // Android has no intent for "Power button ends call" alone: the Accessibility page opens and the row says where to look.
-    val powerEnds = remember { powerButtonEndsCall(context) }
     val choices = MissedReAlert.CHOICES
     val choiceLabels = choices.map { if (it == 0) stringResource(R.string.set_off) else pluralStringResource(R.plurals.set_every_minutes, it, it) }
     val reAlertSub = if (cfg.missedReAlertMinutes == 0) null else stringResource(R.string.set_missed_realert_on, cfg.missedReAlertMinutes)
     val voicemailSub = stringResource(R.string.set_voicemail_sub)
     val pocketSub = stringResource(R.string.set_pocket_guard_sub)
-    val proximitySub = stringResource(if (cfg.proximitySensor) R.string.set_proximity_on else R.string.set_proximity_off)
-    val powerSub = listOfNotNull(
-        when (powerEnds) {
-            true -> stringResource(R.string.set_on)
-            false -> stringResource(R.string.set_off)
-            null -> null
-        },
-        stringResource(R.string.set_power_button_sub),
-    ).joinToString(". ")
     SegmentedGroup(stringResource(R.string.set_group_missed_voicemail)) {
         menuRow(
             "missed_realert", choiceLabels, choices.indexOf(cfg.missedReAlertMinutes).coerceAtLeast(0),
@@ -64,6 +53,30 @@ internal fun CallExtrasGroups(vm: AppViewModel) {
             "pocket_guard", cfg.pocketGuard, Icons.Rounded.PhonelinkLock,
             sub = pocketSub,
         ) { v -> vm.c.callExtras.update { it.copy(pocketGuard = v) } }
+    }
+}
+
+/**
+ * Calls › Advanced: the connect buzz, the proximity sensor (only for broken sensors) and Android's "Power button
+ * ends call".
+ */
+@Composable
+internal fun CallsAdvancedGroup(vm: AppViewModel) {
+    val context = LocalContext.current
+    val cfg by vm.c.callExtras.config.collectAsStateWithLifecycle()
+    // Android has no intent for "Power button ends call" alone: the Accessibility page opens and the row says where to look.
+    val powerEnds = remember { powerButtonEndsCall(context) }
+    val proximitySub = stringResource(if (cfg.proximitySensor) R.string.set_proximity_on else R.string.set_proximity_off)
+    val powerSub = listOfNotNull(
+        when (powerEnds) {
+            true -> stringResource(R.string.set_on)
+            false -> stringResource(R.string.set_off)
+            null -> null
+        },
+        stringResource(R.string.set_power_button_sub),
+    ).joinToString(". ")
+    AdvancedGroup(setOf("connect_haptic", "proximity_sensor", "power_button_ends_call")) {
+        item("connect_haptic") { ConnectHapticRow(vm, Icons.Rounded.Vibration) }
         switchRow(
             "proximity_sensor", cfg.proximitySensor, Icons.Rounded.Sensors,
             sub = proximitySub,

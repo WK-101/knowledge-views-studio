@@ -167,7 +167,7 @@ fun RecentsTab(vm: AppViewModel, open: (String) -> Unit, bottomPadding: androidx
                 app.parley.common.ux.Tips.RECENTS_SWIPE,
                 stringResource(if (swipe.enabled) R.string.ux_tip_recents_swipe else R.string.ux_tip_recents_long_press),
                 action = if (swipe.enabled) null else stringResource(R.string.ux_tip_turn_on),
-                onAction = { open(Routes.settingsPage(app.parley.common.SettingsCategory.APPEARANCE, "swipe_actions")) },
+                onAction = { open(Routes.settingsPage(app.parley.common.SettingsCategory.LAYOUT, "swipe_actions")) },
             )
         }
         if (list != null && list.isEmpty()) {

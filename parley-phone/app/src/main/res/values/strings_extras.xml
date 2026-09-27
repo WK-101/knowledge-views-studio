@@ -19,11 +19,11 @@
     <string name="x_lp_sim_missing">A SIM that isn\'t in this phone</string>
     <string name="x_lp_sim_on">Calls go out on %1$s</string>
     <string name="x_lp_sim_body">Used for people in this label who don\'t have a SIM of their own.</string>
-    <string name="x_lp_rhythm">Keep in touch when they join your circle</string>
+    <string name="x_lp_rhythm">Keep in touch when they join your Circle</string>
     <string name="x_lp_rhythm_none">Not set</string>
-    <string name="x_lp_rhythm_body">When you add someone from “%1$s” to your circle, Parley suggests this rhythm first.</string>
+    <string name="x_lp_rhythm_body">When you add someone from “%1$s” to your Circle, Parley suggests this rhythm first.</string>
     <string name="x_lp_dnd">Allow through Do Not Disturb</string>
-    <string name="x_lp_dnd_summary">Stars everyone here, so Android can let starred contacts ring</string>
+    <string name="x_lp_dnd_summary">Works by starring everyone here, which also puts them in Favourites: Android lets starred contacts ring</string>
     <string name="x_lp_dnd_open">Open Do Not Disturb settings</string>
     <string name="x_lp_dnd_title">Let “%1$s” ring during Do Not Disturb?</string>
     <string name="x_lp_dnd_confirm">Star them and open settings</string>
@@ -51,7 +51,7 @@
     <string name="x_md_title">Notes as Markdown</string>
     <string name="x_md_text">One .md file per person: their numbers, dates and labels, then your notes and the timeline. For Obsidian and other note apps. One way only: Parley writes the files and never takes anything back from them.</string>
     <string name="x_md_folder">Markdown folder</string>
-    <string name="x_md_only_circle">Only people in your circle</string>
+    <string name="x_md_only_circle">Only people in your Circle</string>
     <string name="x_md_only_circle_body">Off: everyone in your contacts</string>
     <string name="x_md_auto">Keep it up to date</string>
     <string name="x_md_auto_body">Export again every hour, with folder sync</string>
@@ -122,12 +122,12 @@
         <item quantity="other">You\'re in %1$s: %2$s and %3$d more</item>
     </plurals>
     <plurals name="x_lp_added">
-        <item quantity="one">%d person added to your circle</item>
-        <item quantity="other">%d people added to your circle</item>
+        <item quantity="one">%d person added to your Circle</item>
+        <item quantity="other">%d people added to your Circle</item>
     </plurals>
     <plurals name="x_lp_add_members">
-        <item quantity="one">Add %d member to your circle</item>
-        <item quantity="other">Add %d members to your circle</item>
+        <item quantity="one">Add %d member to your Circle</item>
+        <item quantity="other">Add %d members to your Circle</item>
     </plurals>
     <plurals name="x_lp_unstarred">
         <item quantity="one">%d contact unstarred</item>
@@ -136,6 +136,16 @@
     <plurals name="x_lp_star_new">
         <item quantity="one">Star %d new member</item>
         <item quantity="other">Star %d new members</item>
+    </plurals>
+    <string name="x_lp_dnd_all_starred">Everyone in this label is already starred, so they are already in Favourites.</string>
+    <string name="x_lp_dnd_everyone_note">Then, in Android\'s Do Not Disturb settings, allow calls from starred contacts. Everyone starred can ring, not only this label. Turning this off unstars only the people Parley starred for it.</string>
+    <plurals name="x_lp_dnd_preview">
+        <item quantity="one">This person will be starred and appear in Favourites (and as starred in other apps):</item>
+        <item quantity="other">These %d people will be starred and appear in Favourites (and as starred in other apps):</item>
+    </plurals>
+    <plurals name="x_lp_dnd_star_confirm">
+        <item quantity="one">Star %d and open settings</item>
+        <item quantity="other">Star %d and open settings</item>
     </plurals>
     <plurals name="x_lp_dnd_explain">
         <item quantity="one">Parley stars %d person in this label. Starred contacts also show in Favourites and in other apps. Then, in Android\'s Do Not Disturb settings, allow calls from starred contacts: everyone starred can ring, not only this label.</item>

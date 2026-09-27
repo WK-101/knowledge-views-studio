@@ -167,9 +167,9 @@ fun VersionHistoryScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, op
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+/** The snapshots tab of History & undo: what changed since a day, a week, a month or 6 months ago, from the daily snapshots. */
 @Composable
-fun ChangesScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
+fun SnapshotChanges(vm: AppViewModel, open: (String) -> Unit, modifier: Modifier = Modifier) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val res = androidx.compose.ui.platform.LocalResources.current
@@ -179,10 +179,8 @@ fun ChangesScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
         value = null
         value = vm.c.timeMachine.changesSince(System.currentTimeMillis() - days * 86_400_000L)
     }
-    Scaffold(topBar = {
-        TopAppBar(title = { Text(stringResource(R.string.tm_changes_title)) }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.dc_back)) } })
-    }) { p ->
-        LazyColumn(Modifier.padding(p)) {
+    run {
+        LazyColumn(modifier) {
             item {
                 Row(Modifier.horizontalScroll(rememberScrollState()).padding(12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     listOf(1L to R.string.tm_since_yesterday, 7L to R.string.tm_last_week, 30L to R.string.tm_last_month, 180L to R.string.tm_6_months).forEach { (d, label) ->

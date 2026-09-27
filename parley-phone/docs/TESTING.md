@@ -879,3 +879,41 @@ Companion app
 Save and backup errors
 - [ ] Edit a contact, tap Save and immediately press Back: no "Save failed" message appears.
 - [ ] A backup where one feature section fails (e.g. debugger-injected exception in Circle export): the backup completes and its message names the part left out ("Some parts couldn't be included this time (circle)…"); scheduled backups post the notification.
+
+## 19. Consolidation (3.5)
+
+### 19.2 Concepts, menus and settings
+
+Messenger catalog
+- [ ] `./gradlew :core:common:test`: `MessengerCatalogTest` passes. Remove one messenger `<package>` from the manifest's `<queries>` (or add a package to `MessengerCatalog` only): the test fails and names the package.
+- [ ] With Molly's UnifiedPush build (`im.molly.app.unifiedpush`) or Telegram Plus/Beta installed and nothing else of theirs: they show under "Message or call on…" › Message on, and a scanned Signal or Telegram link opens in them.
+
+One "Message or call on…" sheet
+- [ ] Open it from Recents (a call's ⋮ or swipe), the keypad (type a number › Message), a missed-call notification, a scanned QR number, the "Message a number" tile, a saved contact's long-pressed Message tile, a private contact's Message, and the list row's message button with no usual app: every time the same layout, titled "Message or call on…": the name (for a person) and number, green **Call**, then **Message on** (apps with their icons, SMS), then **Call on**.
+- [ ] Saved contact with several numbers: the number chips switch Message on and Call on to that number. With "Always use this" ticked, picking an app marks it "Usual" next time and the Message tile shows its name.
+- [ ] Long-press the contact page's Video tile (or tap it with two video apps and no usual one): the same sheet opens, not a dialog; a video button there starts the call and becomes the usual video app.
+- [ ] Unsaved number: the country chip, "Optional message" and "Send my details" are there; Telegram's ⋮ still offers Open chat / Open profile; WhatsApp and WhatsApp Business are two rows (no "which one?" dialog). "Save for 7 days so apps can offer calls" shows only for a number that isn't saved.
+- [ ] Contact page: the section is called "Message or call on…" and shows the same app icons and round Message / Voice / Video buttons as the sheet.
+
+Names
+- [ ] English: the tab bar and empty states say "Favourites"; the Recents header action and the Insights screen say "Call insights"; the ⋮ › Tools, the Settings row and the screen all say "Blocking & screening"; "email" is never hyphenated; "your Circle" is capitalised. See docs/GLOSSARY.md.
+
+Allow through Do Not Disturb (label page)
+- [ ] A label with 3 members, 1 already starred: turn on "Allow through Do Not Disturb": the dialog lists the 2 people who will be starred "and appear in Favourites", and the button says "Star 2 and open settings". Cancel: nothing is starred and the switch stays off. Confirm: both appear in Favourites and Android's Do Not Disturb page opens.
+- [ ] Add a new member to the label: "Star 1 new member" opens the same dialog with that one name; nothing changes until you confirm.
+- [ ] Turn it off: the toast counts the contacts unstarred; the one starred before stays starred.
+
+Menus and Tools
+- [ ] Every tab's ⋮ has at most 7 items and ends with Tools and Settings. Recents: Export…, Call list layout, Clear call history, What the icons mean (+ Speed dial with the keypad docked). Contacts: Select all, Add several numbers…, Find & merge duplicates, (Reorder favourites), Who's in…. Keypad: only Tools and Settings. Circle: Who's in…, Circle settings.
+- [ ] ⋮ › Tools and Settings › Tools (top of the list) open the same page: Birthdays & dates, Temporary contacts (with the count), Contact health check, Scan QR code, Import & export contacts, Blocking & screening, Expecting a call (switch), Messaged numbers, History & undo, Backup & restore, Privacy dashboard, and Lock now with the app lock on. Each opens its screen.
+
+History & undo
+- [ ] ⋮ › Tools › History & undo: tabs Contacts, Calls, Snapshots. Delete a contact: it's under Contacts with Restore. Delete a call in Recents: it's under Calls with Restore. Snapshots shows the "since yesterday / week / month / 6 months" chips.
+- [ ] Settings › Backup & sync › Daily snapshots opens History & undo on Snapshots; Settings › Recents & history › Deleted calls opens it on Calls. The contact empty state's action switches to Snapshots.
+
+Settings
+- [ ] Settings lists "Layout & gestures" under Appearance: Navigation bar, Open on, the combined layouts, Tapping a call in Recents, Call & message buttons, Swipe actions, Simple mode. Appearance keeps theme, language, lists, names and tips.
+- [ ] Recents & history: "Keep full call history" appears once, with the number of calls kept; with it on, "Numbers kept forever" lists them with a remove button; Excel-friendly CSV and Import call history are in "Export & import"; Show SIM in call history is under Advanced. A notice that used to open "Call history" (archive off / Android dropped calls) now opens this page.
+- [ ] Calls, Contacts, Recents & history and Privacy end with a folded "Advanced" group. Search "proximity": the result opens Calls with Advanced unfolded and the row highlighted.
+- [ ] Search "withheld", "bedtime", "parental", "rotation", "billing" and "recently deleted": each finds a setting; tapping it opens Blocking & screening, Call time, Backup & restore, the SIM list or History & undo › Calls. Search "plan minutes": it opens Calls on "SIMs & plan minutes". Search "scan qr": it opens the scan screen.
+- [ ] Every setting you had before keeps its value after updating (theme, layouts, swipe actions, archive, retention, app lock…).

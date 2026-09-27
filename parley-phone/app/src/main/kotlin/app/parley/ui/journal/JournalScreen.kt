@@ -40,51 +40,44 @@ import app.parley.R
     else -> null
 }
 
-/** "Recently deleted & changed": 30 days of undo for anything Parley changed. */
-@OptIn(ExperimentalMaterial3Api::class)
+/** The contacts tab of History & undo: 30 days of undo for any contact Parley deleted, edited, merged or separated. */
 @Composable
-fun JournalScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
+fun JournalList(vm: AppViewModel, open: (String) -> Unit, onShowSnapshots: () -> Unit, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val res = androidx.compose.ui.platform.LocalResources.current
     val scope = rememberCoroutineScope()
     val entries by vm.c.journal.recent().collectAsStateWithLifecycle(emptyList())
-    // U7: scroll-linked top-bar tint.
-    val barTint = androidx.compose.material3.TopAppBarDefaults.pinnedScrollBehavior()
-    Scaffold(modifier = Modifier.nestedScroll(barTint.nestedScrollConnection), topBar = {
-        TopAppBar(title = { Text(stringResource(R.string.jr_title)) }, navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.dc_back)) } }, scrollBehavior = barTint)
-    }) { p ->
-        if (entries.isEmpty()) {
-            // U5: nothing to undo yet; the daily snapshots are the other way back.
-            EmptyState(
-                Icons.Rounded.History, stringResource(R.string.jr_empty_title), stringResource(R.string.jr_empty_text), Modifier.padding(p),
-                action = stringResource(R.string.ux_empty_what_changed), onAction = { vm.navigate(app.parley.NavEvent.Route(app.parley.ui.Routes.CHANGES)) },
-            )
-            return@Scaffold
-        }
-        LazyColumn(Modifier.padding(p)) {
-            items(entries, key = { it.id }) { e ->
-                ListItem(
-                    leadingContent = { Avatar(e.displayName, null) },
-                    headlineContent = { Text(e.displayName) },
-                    supportingContent = {
-                        val line = "${actionText(e.action)?.let { stringResource(it) } ?: e.action.lowercase()} · ${Format.fullDate(context, e.time)}"
-                        Text(if (e.restored) stringResource(R.string.jr_restored_suffix, line) else line)
-                    },
-                    trailingContent = {
-                        TextButton(onClick = {
-                            scope.launch {
-                                val id = vm.c.journal.restore(e.id)
-                                if (id != null) {
-                                    vm.toast(if (e.action == "DELETE") res.getString(R.string.jr_restored_name, e.displayName) else res.getString(R.string.jr_restored_copy))
-                                    open(Routes.contact(id))
-                                } else {
-                                    vm.toast(res.getString(R.string.jr_restore_failed))
-                                }
+    if (entries.isEmpty()) {
+        // U5: nothing to undo yet; the daily snapshots are the other way back.
+        EmptyState(
+            Icons.Rounded.History, stringResource(R.string.jr_empty_title), stringResource(R.string.jr_empty_text), modifier,
+            action = stringResource(R.string.ux_empty_what_changed), onAction = onShowSnapshots,
+        )
+        return
+    }
+    LazyColumn(modifier) {
+        items(entries, key = { it.id }) { e ->
+            ListItem(
+                leadingContent = { Avatar(e.displayName, null) },
+                headlineContent = { Text(e.displayName) },
+                supportingContent = {
+                    val line = "${actionText(e.action)?.let { stringResource(it) } ?: e.action.lowercase()} · ${Format.fullDate(context, e.time)}"
+                    Text(if (e.restored) stringResource(R.string.jr_restored_suffix, line) else line)
+                },
+                trailingContent = {
+                    TextButton(onClick = {
+                        scope.launch {
+                            val id = vm.c.journal.restore(e.id)
+                            if (id != null) {
+                                vm.toast(if (e.action == "DELETE") res.getString(R.string.jr_restored_name, e.displayName) else res.getString(R.string.jr_restored_copy))
+                                open(Routes.contact(id))
+                            } else {
+                                vm.toast(res.getString(R.string.jr_restore_failed))
                             }
-                        }) { Text(if (e.action == "DELETE") stringResource(R.string.dc_restore) else stringResource(R.string.jr_restore_copy), color = MaterialTheme.colorScheme.primary) }
-                    },
-                )
-            }
+                        }
+                    }) { Text(if (e.action == "DELETE") stringResource(R.string.dc_restore) else stringResource(R.string.jr_restore_copy), color = MaterialTheme.colorScheme.primary) }
+                },
+            )
         }
     }
 }

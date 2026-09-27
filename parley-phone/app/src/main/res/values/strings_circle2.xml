@@ -64,8 +64,8 @@
     <string name="c2_set_peek_title">Peek before calling</string>
     <string name="c2_set_peek_summary">The last note, promises and a good time to call, before you call from a contact\'s page</string>
     <string name="c2_set_peek_kw">peek, before calling, note, promise, good time, local time, time zone</string>
-    <string name="c2_set_people_card_title">People card in Insights</string>
-    <string name="c2_set_people_card_summary">Reach in your circle, open loops and your year, in Call insights</string>
+    <string name="c2_set_people_card_title">People card in Call insights</string>
+    <string name="c2_set_people_card_summary">Reach in your Circle, open loops and your year, in Call insights</string>
     <string name="c2_set_people_card_kw">people, reach, circle, open loops, year in review, insights</string>
     <string name="c2_set_first_mover_title">Who usually reaches out first</string>
     <string name="c2_set_first_mover_summary">On the People card. Only you see it</string>
@@ -83,8 +83,8 @@
         <item quantity="other">Your %1$d calls, not answered yet · last %2$s</item>
     </plurals>
     <plurals name="c2_reach">
-        <item quantity="one">You were in touch with %1$d of %2$d person in your circle this month</item>
-        <item quantity="other">You were in touch with %1$d of %2$d people in your circle this month</item>
+        <item quantity="one">You were in touch with %1$d of %2$d person in your Circle this month</item>
+        <item quantity="other">You were in touch with %1$d of %2$d people in your Circle this month</item>
     </plurals>
     <plurals name="c2_review_gap">
         <item quantity="one">Longest gap: %1$d day, with %2$s</item>

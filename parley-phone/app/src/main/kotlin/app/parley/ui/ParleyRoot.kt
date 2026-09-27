@@ -72,9 +72,11 @@ object Routes {
     const val SPEED_DIAL = "speeddial"
     const val BIRTHDAYS = "birthdays"
     const val HEALTH = "health"
-    const val JOURNAL = "journal"
+    /** History & undo; [journal] opens it on one tab. */
+    const val JOURNAL = "journal?tab={tab}"
+    fun journal(tab: app.parley.ui.journal.HistoryTab = app.parley.ui.journal.HistoryTab.CONTACTS) = "journal?tab=" + tab.key
+    const val TOOLS = "tools"
     const val BACKUP = "backup"
-    const val CHANGES = "changes"
     const val SYNC = "sync"
     const val CALL_TIME = "calltime"
     const val VERSIONS = "versions/{id}"
@@ -273,12 +275,16 @@ fun ParleyRoot(vm: AppViewModel) {
             composable(Routes.DUPLICATES) { DuplicatesScreen(vm, back = { nav.popBackStack() }) }
             composable(Routes.PRIVACY) { PrivacyScreen(vm, back = { nav.popBackStack() }) }
             composable(Routes.SYNC) { app.parley.ui.sync.FolderSyncScreen(vm, back = { nav.popBackStack() }) }
-            composable(Routes.CHANGES) { app.parley.ui.timemachine.ChangesScreen(vm, back = { nav.popBackStack() }, open = { r -> nav.navigate(r) }) }
             composable(Routes.VERSIONS, arguments = listOf(navArgument("id") { type = NavType.LongType })) {
                 app.parley.ui.timemachine.VersionHistoryScreen(vm, it.arguments!!.getLong("id"), back = { nav.popBackStack() }, open = { r -> nav.navigate(r) })
             }
             composable(Routes.BACKUP) { app.parley.ui.backup.BackupScreen(vm, back = { nav.popBackStack() }) }
-            composable(Routes.JOURNAL) { app.parley.ui.journal.JournalScreen(vm, back = { nav.popBackStack() }, open = { r -> nav.navigate(r) }) }
+            composable(Routes.JOURNAL, arguments = listOf(navArgument("tab") { type = NavType.StringType; nullable = true; defaultValue = null })) {
+                app.parley.ui.journal.HistoryHubScreen(
+                    vm, app.parley.ui.journal.HistoryTab.of(it.arguments?.getString("tab")), back = { nav.popBackStack() }, open = { r -> nav.navigate(r) },
+                )
+            }
+            composable(Routes.TOOLS) { app.parley.ui.settings.ToolsScreen(vm, back = { nav.popBackStack() }, open = { r -> nav.navigate(r) }) }
             composable(Routes.HEALTH) { app.parley.ui.health.HealthScreen(vm, back = { nav.popBackStack() }, open = { r -> nav.navigate(r) }) }
             composable(Routes.BIRTHDAYS) { app.parley.ui.birthdays.BirthdaysScreen(vm, back = { nav.popBackStack() }, open = { r -> nav.navigate(r) }) }
             composable(Routes.SPEED_DIAL) { SpeedDialScreen(vm, back = { nav.popBackStack() }) }

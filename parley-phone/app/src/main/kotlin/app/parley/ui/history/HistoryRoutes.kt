@@ -33,7 +33,10 @@ object HistoryRoutes {
 /** Registers the call-history screens in the app's NavHost. */
 fun NavGraphBuilder.historyDestinations(vm: AppViewModel, nav: NavController) {
     composable(HistoryRoutes.INSIGHTS) { InsightsScreen(vm, back = { nav.popBackStack() }, open = { r -> nav.navigate(r) }) }
-    composable(HistoryRoutes.SETTINGS) { CallHistorySettingsScreen(vm, back = { nav.popBackStack() }, open = { r -> nav.navigate(r) }) }
+    // The former "Call history" sub-screen is part of Settings › Recents & history now; old links land there.
+    composable(HistoryRoutes.SETTINGS) {
+        app.parley.ui.settings.SettingsPageScreen(vm, app.parley.common.SettingsCategory.HISTORY, "archive", back = { nav.popBackStack() }, open = { r -> nav.navigate(r) })
+    }
     composable(HistoryRoutes.IMPORT) { ImportCallsScreen(vm, back = { nav.popBackStack() }) }
     composable(HistoryRoutes.SIMS) { SimListScreen(vm, back = { nav.popBackStack() }, open = { r -> nav.navigate(r) }) }
     composable(HistoryRoutes.SIM) { SimSettingsScreen(vm, Uri.decode(it.arguments?.getString("id").orEmpty()), back = { nav.popBackStack() }) }

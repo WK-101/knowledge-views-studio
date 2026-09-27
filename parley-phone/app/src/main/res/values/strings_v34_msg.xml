@@ -33,7 +33,7 @@
     <string name="v34msg_stop_usual">Stop using by default</string>
 
     <!-- "Reach via apps" on the contact page -->
-    <string name="v34msg_reach_title">Reach via apps</string>
+    <string name="v34msg_reach_title">Message or call on…</string>
     <string name="v34msg_can_message">Message</string>
     <string name="v34msg_can_voice">Voice</string>
     <string name="v34msg_can_video">Video</string>
