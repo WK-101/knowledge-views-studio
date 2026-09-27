@@ -37,6 +37,7 @@ import androidx.compose.material.icons.rounded.FileDownload
 import androidx.compose.material.icons.rounded.FileUpload
 import androidx.compose.material.icons.rounded.Fullscreen
 import androidx.compose.material.icons.rounded.HealthAndSafety
+import androidx.compose.material.icons.rounded.ViewAgenda
 import androidx.compose.material.icons.rounded.HourglassTop
 import androidx.compose.material.icons.rounded.ImportExport
 import androidx.compose.material.icons.rounded.Info
@@ -388,6 +389,8 @@ internal fun ContactsPage(vm: AppViewModel, open: (String) -> Unit) {
         linkRow("bulk_add", Icons.Rounded.GroupAdd) { open(app.parley.messaging.MessagingRoutes.BULK_ADD) }
         linkRow("duplicates", Icons.AutoMirrored.Rounded.CallMerge) { open(Routes.DUPLICATES) }
         linkRow("health", Icons.Rounded.HealthAndSafety) { open(Routes.HEALTH) }
+        // P1 (v3.4)
+        linkRow("contact_page", Icons.Rounded.ViewAgenda) { open(app.parley.ui.contact.ContactPageRoutes.SECTIONS) }
     }
     val severalAccounts = app.parley.ui.people.hasSeveralAccounts(vm)
     SegmentedGroup(stringResource(R.string.set_group_import_export)) {

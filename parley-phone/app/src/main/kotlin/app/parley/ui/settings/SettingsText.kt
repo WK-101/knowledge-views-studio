@@ -124,6 +124,7 @@ object SettingsText {
         "version" to Triple(R.string.set_version_title, R.string.set_version_summary, R.string.set_version_kw),
         "diagnostics" to Triple(R.string.set_diagnostics_title, R.string.set_diagnostics_summary, R.string.set_diagnostics_kw),
         "crash_reports" to Triple(R.string.set_crash_reports_title, R.string.set_crash_reports_summary, R.string.set_crash_reports_kw),
+        "contact_page" to Triple(R.string.v34_set_contact_page_title, R.string.v34_set_contact_page_summary, R.string.v34_set_contact_page_kw),
     )
 
     /** Every catalog key has resources (checked by [localizedCatalog], which Settings search calls). */

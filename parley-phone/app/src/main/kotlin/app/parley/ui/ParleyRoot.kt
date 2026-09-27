@@ -45,6 +45,7 @@ import app.parley.ui.history.historyDestinations
 import app.parley.ui.home.HomeScreen
 import app.parley.ui.onboarding.OnboardingScreen
 import app.parley.ui.people.peopleRoutes
+import app.parley.ui.contact.contactPageRoutes
 import app.parley.messaging.messagingRoutes
 import app.parley.ui.extras.extrasRoutes
 import app.parley.ui.qr.qrRoutes
@@ -284,6 +285,8 @@ fun ParleyRoot(vm: AppViewModel) {
             historyDestinations(vm, nav)
             composable(Routes.CALL_TIME) { app.parley.ui.calltime.CallTimeScreen(vm, back = { nav.popBackStack() }) }
             peopleRoutes(vm, nav)
+            // P1 (v3.4): full timeline, contact page sections.
+            contactPageRoutes(vm, nav)
             messagingRoutes(vm, nav)
             // X2, X4
             extrasRoutes(vm, nav)

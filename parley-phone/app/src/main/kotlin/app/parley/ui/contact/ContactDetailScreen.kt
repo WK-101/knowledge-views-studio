@@ -13,6 +13,18 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.gestures.animateScrollBy
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material.icons.rounded.MoreHoriz
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.ui.layout.onSizeChanged
+import app.parley.common.people.ContactPage
+import app.parley.common.people.ContactSection
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -126,6 +138,9 @@ import kotlinx.coroutines.withContext
  * remembered choice per person; I1 handles, I3 default number or e-mail, I4 other fields, I5 relation types.
  * U4 (v3.2): header, actions, Stay in touch, dates, numbers, timeline (R2), notes; "Log interaction" is the FAB for
  * Circle contacts and a ⋮ item for everyone else.
+ * P1 (v3.4): every section folds (its summary shows while folded), in the order and start state chosen in Settings;
+ * a compact bar with the quick actions (and jump chips on long pages) stays under the top bar once scrolled; the
+ * timeline shows the latest few entries with "Show all" opening the full, searchable one.
  */
 @OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
@@ -239,6 +254,21 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
     val headerFraction by remember {
         derivedStateOf { if (listState.firstVisibleItemIndex > 0) 1f else (listState.firstVisibleItemScrollOffset / collapseAt).coerceIn(0f, 1f) }
     }
+    // P1 (v3.4): the page's sections (order, start modes, remembered folds); a fold shows at once, then is stored.
+    val peopleSettings by vm.people.settings.collectAsStateWithLifecycle()
+    var layout by remember { mutableStateOf(peopleSettings.contactPage) }
+    LaunchedEffect(peopleSettings.contactPage) { layout = peopleSettings.contactPage }
+    fun fold(s: ContactSection, folded: Boolean) {
+        layout = layout.withFold(s, folded)
+        vm.people.update { it.copy(contactPage = it.contactPage.withFold(s, folded)) }
+    }
+    // P1: the compact action bar is pinned once the big tiles have scrolled under the top bar.
+    var headerHeight by remember { mutableIntStateOf(0) }
+    var pinnedHeight by remember { mutableIntStateOf(0) }
+    val pinAt = with(density) { 48.dp.toPx() }
+    val pinned by remember {
+        derivedStateOf { listState.firstVisibleItemIndex > 0 || (headerHeight > 0 && listState.firstVisibleItemScrollOffset > headerHeight - pinAt) }
+    }
     // U7: the bar takes the scrolled-content tint once content passes under it.
     val barColor by animateColorAsState(
         if (listState.canScrollBackward) MaterialTheme.colorScheme.surfaceContainer else MaterialTheme.colorScheme.surface, label = "bar",
@@ -350,108 +380,86 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
         }
         val primary = d.phones.firstOrNull { it.isPrimary } ?: d.phones.firstOrNull()
         val r = reach(d)
-        LazyColumn(state = listState, contentPadding = PaddingValues(top = padding.calculateTopPadding(), bottom = padding.calculateBottomPadding() + 32.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            item(key = "header") {
-                Column(
-                    Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(top = 8.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    // U1: shrinks and fades as it scrolls under the bar, where the small avatar and name appear.
-                    Column(
-                        Modifier.graphicsLayer {
-                            val s = 1f - 0.25f * headerFraction
-                            scaleX = s
-                            scaleY = s
-                            alpha = 1f - headerFraction
-                        },
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                    ) {
-                        Avatar(
-                            d.displayName, d.photoUri, 120.dp,
-                            Modifier.shared("avatar-$contactId").clickable(enabled = d.photoUri != null, onClickLabel = stringResource(R.string.detail_view_photo)) { showPhoto = true },
-                            isCompany = d.composedName.isBlank() && d.company.isNotBlank(),
-                        )
-                        Text(d.displayName, style = MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 16.dp).shared("name-$contactId", bounds = true))
-                    }
-                    val sub = listOf(d.nickname, listOf(d.title, d.company).filter { it.isNotBlank() }.joinToString(", ")).filter { it.isNotBlank() }
-                    if (sub.isNotEmpty()) Text(sub.joinToString(stringResource(R.string.main_separator)), color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
-                    Text(lastTalked, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
-                    temp?.let { Text(stringResource(R.string.detail_deletes_on, Format.fullDate(context, it.expiresAt)), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
-                    app.parley.ui.people.AccountChips(vm, d, open) { newId ->
-                        if (newId != null && newId != contactId) { back(); open(Routes.contact(newId)) }
-                        else reloads++
-                    }
-                    Spacer(Modifier.height(16.dp))
-                    // U3: labelled tiles.
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        val preferredCall = messengers.firstOrNull { it.accountType == prefs.call && it.isCall && !it.isVideo }
-                        ActionTile(Icons.Rounded.Call, if (preferredCall != null) preferredCall.appName else stringResource(R.string.main_call), primary != null || preferredCall != null) {
-                            if (preferredCall != null) ContactMessaging.start(context, preferredCall.intent(), preferredCall.appName)?.let { vm.toast(it) }
-                            else primary?.let { callPeek(it.value, d.displayName) }
-                        }
-                        val messageApp = prefs.message?.let { p -> if (p == MessengerPrefs.SMS) stringResource(R.string.detail_sms) else messengers.firstOrNull { it.accountType == p }?.appName ?: app.parley.common.MessengerApp.forPackage(p)?.label }
-                        ActionTile(
-                            Icons.AutoMirrored.Rounded.Message, messageApp ?: stringResource(R.string.main_message), primary != null || r.linked.isNotEmpty(),
-                            onLongClick = { messageSheet = primary?.value.orEmpty() }, longClickLabel = stringResource(R.string.detail_choose_message),
-                        ) { message(d) }
-                        if (r.videoRows.isNotEmpty()) {
-                            val preferredVideo = r.videoRows.firstOrNull { it.accountType == prefs.video }
-                            ActionTile(
-                                Icons.Rounded.Videocam, preferredVideo?.appName ?: stringResource(R.string.detail_video), true,
-                                onLongClick = { videoChooser = true }, longClickLabel = stringResource(R.string.detail_choose_video),
-                            ) {
-                                val only = r.videoRows.distinctBy { it.accountType }.singleOrNull()
-                                val target = preferredVideo ?: only
-                                if (target != null) ContactMessaging.startRow(context, r, target)?.let { vm.toast(it) } else videoChooser = true
+        // P1: the quick actions, shared by the big tiles and the pinned bar.
+        val preferredCall = messengers.firstOrNull { it.accountType == prefs.call && it.isCall && !it.isVideo }
+        val canCall = primary != null || preferredCall != null
+        fun doCall() {
+            if (preferredCall != null) ContactMessaging.start(context, preferredCall.intent(), preferredCall.appName)?.let { vm.toast(it) }
+            else primary?.let { callPeek(it.value, d.displayName) }
+        }
+        val canMessage = primary != null || r.linked.isNotEmpty()
+        val preferredVideo = r.videoRows.firstOrNull { it.accountType == prefs.video }
+        fun doVideo() {
+            val only = r.videoRows.distinctBy { it.accountType }.singleOrNull()
+            val target = preferredVideo ?: only
+            if (target != null) ContactMessaging.startRow(context, r, target)?.let { vm.toast(it) } else videoChooser = true
+        }
+        val email = d.emails.firstOrNull { it.isPrimary } ?: d.emails.firstOrNull()
+        val sections = PageSections()
+        val sep = resources.getString(R.string.main_separator)
+        val today = remember { java.time.LocalDate.now() }
+        // U4: Stay in touch right under the actions (R4: rhythm, last in touch, next date); R9: open promises.
+        if (d.lookupKey.isNotEmpty()) sections.add(ContactSection.STAY, sectionTitle(resources, ContactSection.STAY), lastTalked) {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                app.parley.ui.circle.StayInTouchCard(meta, d, history, interactions, goodTime = goodTime, title = null) { reachOut = true }
+                if (memory.promises.isNotEmpty()) app.parley.ui.circle.PromisesCard(vm, d.lookupKey, memory)
+            }
+        }
+        // C4: empty birthday / anniversary slots, saved straight to the system contact.
+        if (d.events.isNotEmpty() || hasMissingDates(d)) {
+            val dated = d.events.mapIndexedNotNull { i, ev ->
+                app.parley.common.EventDate.parse(ev.date)?.takeUnless { app.parley.common.people.LifeEvents.isDeath(ev.type, ev.label) }?.let { i to it }
+            }
+            val next = ContactPage.nextDate(dated.map { it.second }, today)?.let { (j, days) -> dated[j].first to days }
+            val summary = next?.let { (i, days) ->
+                val label = app.parley.ui.people.eventLabel(resources, d.events[i])
+                when (days) {
+                    0L -> resources.getString(R.string.v34_cp_date_today, label)
+                    1L -> resources.getString(R.string.v34_cp_date_tomorrow, label)
+                    else -> resources.getQuantityString(R.plurals.v34_cp_date_in, days.toInt(), label, days.toInt())
+                }
+            } ?: resources.getQuantityString(R.plurals.v34_cp_count_dates, d.events.size, d.events.size)
+            sections.add(ContactSection.DATES, sectionTitle(resources, ContactSection.DATES), summary) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SegmentedGroup {
+                        val yearly = app.parley.common.circle.YearlyEvents.decode(meta?.yearlyEvents)
+                        d.events.forEachIndexed { i, ev ->
+                            item {
+                                // R10: a life event (new job, moved…) can be remembered yearly in the digest.
+                                val date = app.parley.common.EventDate.parse(ev.date)
+                                val canYearly = date != null && d.lookupKey.isNotEmpty() && app.parley.common.circle.YearlyEvents.eligible(ev.type) &&
+                                    !app.parley.common.people.LifeEvents.isDeath(ev.type, ev.label)
+                                val key = if (canYearly) app.parley.common.circle.YearlyEvents.key(ev.type, ev.label, date!!) else null
+                                val on = key != null && key in yearly
+                                fun toggle() {
+                                    key ?: return
+                                    scope.launch { vm.c.circle.setYearly(d.lookupKey, contactId, key, !on) }
+                                    vm.toast(resources.getString(if (on) R.string.c2_yearly_off else R.string.c2_yearly_on))
+                                }
+                                GroupDataRow(
+                                    Icons.Rounded.Cake, i == 0, app.parley.ui.people.describeLifeEvent(resources, d, ev),
+                                    app.parley.ui.people.eventLabel(resources, ev) + (if (on) resources.getString(R.string.main_separator) + resources.getString(R.string.c2_yearly_label) else ""),
+                                    onClick = {},
+                                    trailing = if (key == null) null else ({
+                                        IconButton(::toggle) {
+                                            Icon(
+                                                Icons.Rounded.EventRepeat, stringResource(if (on) R.string.c2_yearly_stop else R.string.c2_yearly_remember),
+                                                tint = if (on) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                            )
+                                        }
+                                    }),
+                                )
                             }
                         }
-                        ActionTile(Icons.Rounded.Email, stringResource(R.string.detail_email), d.emails.isNotEmpty()) {
-                            (d.emails.firstOrNull { it.isPrimary } ?: d.emails.firstOrNull())?.let { Intents.email(context, it.value) }
-                        }
                     }
+                    if (hasMissingDates(d)) MissingDateChips(vm, d, onSaved = { reloads++ })
                 }
             }
-            // U4: Stay in touch right under the actions (R4: rhythm, last in touch, next date).
-            if (d.lookupKey.isNotEmpty()) item(key = "stay") { app.parley.ui.circle.StayInTouchCard(meta, d, history, interactions, goodTime = goodTime) { reachOut = true } }
-            // R9: open promises from notes, ticked off here.
-            if (d.lookupKey.isNotEmpty() && memory.promises.isNotEmpty()) item(key = "promises") { app.parley.ui.circle.PromisesCard(vm, d.lookupKey, memory) }
-            if (d.events.isNotEmpty()) item(key = "dates") {
-                SegmentedGroup(stringResource(R.string.circle_dates)) {
-                    val yearly = app.parley.common.circle.YearlyEvents.decode(meta?.yearlyEvents)
-                    d.events.forEachIndexed { i, ev ->
-                        item {
-                            // R10: a life event (new job, moved…) can be remembered yearly in the digest.
-                            val date = app.parley.common.EventDate.parse(ev.date)
-                            val canYearly = date != null && d.lookupKey.isNotEmpty() && app.parley.common.circle.YearlyEvents.eligible(ev.type) &&
-                                !app.parley.common.people.LifeEvents.isDeath(ev.type, ev.label)
-                            val key = if (canYearly) app.parley.common.circle.YearlyEvents.key(ev.type, ev.label, date!!) else null
-                            val on = key != null && key in yearly
-                            fun toggle() {
-                                key ?: return
-                                scope.launch { vm.c.circle.setYearly(d.lookupKey, contactId, key, !on) }
-                                vm.toast(resources.getString(if (on) R.string.c2_yearly_off else R.string.c2_yearly_on))
-                            }
-                            GroupDataRow(
-                                Icons.Rounded.Cake, i == 0, app.parley.ui.people.describeLifeEvent(resources, d, ev),
-                                app.parley.ui.people.eventLabel(resources, ev) + (if (on) resources.getString(R.string.main_separator) + resources.getString(R.string.c2_yearly_label) else ""),
-                                onClick = {},
-                                trailing = if (key == null) null else ({
-                                    IconButton(::toggle) {
-                                        Icon(
-                                            Icons.Rounded.EventRepeat, stringResource(if (on) R.string.c2_yearly_stop else R.string.c2_yearly_remember),
-                                            tint = if (on) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                        )
-                                    }
-                                }),
-                            )
-                        }
-                    }
-                }
-            }
-            // C4: empty birthday / anniversary slots, saved straight to the system contact.
-            if (hasMissingDates(d)) item(key = "missing_dates") { MissingDateChips(vm, d, onSaved = { reloads++ }) }
-            if (d.phones.isNotEmpty()) item(key = "phones") {
-                SegmentedGroup(stringResource(R.string.detail_phone)) {
+        }
+        if (d.phones.isNotEmpty()) {
+            val summary = if (d.phones.size == 1) Bidi.ltr(Format.number(d.phones[0].value, vm.countryIso)) else resources.getQuantityString(R.plurals.v34_cp_count_numbers, d.phones.size, d.phones.size)
+            sections.add(ContactSection.PHONES, sectionTitle(resources, ContactSection.PHONES), summary) {
+                SegmentedGroup {
                     d.phones.forEachIndexed { i, p ->
                         item {
                             val pinned = simPrefs.firstOrNull { it.matchKey == PhoneNumbers.matchKey(p.value) }?.phoneAccountId
@@ -470,8 +478,11 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                     }
                 }
             }
-            if (d.emails.isNotEmpty()) item(key = "emails") {
-                SegmentedGroup(stringResource(R.string.detail_email)) {
+        }
+        if (d.emails.isNotEmpty()) {
+            val summary = if (d.emails.size == 1) d.emails[0].value else resources.getQuantityString(R.plurals.v34_cp_count_emails, d.emails.size, d.emails.size)
+            sections.add(ContactSection.EMAILS, sectionTitle(resources, ContactSection.EMAILS), summary) {
+                SegmentedGroup {
                     d.emails.forEachIndexed { i, e ->
                         item {
                             GroupDataRow(
@@ -485,16 +496,23 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                     }
                 }
             }
-            if (d.addresses.isNotEmpty()) item(key = "addresses") {
-                SegmentedGroup(stringResource(R.string.detail_address)) {
+        }
+        if (d.addresses.isNotEmpty()) {
+            val summary = if (d.addresses.size == 1) d.addresses[0].formatted.lines().joinToString(", ") { it.trim() } else resources.getQuantityString(R.plurals.v34_cp_count_addresses, d.addresses.size, d.addresses.size)
+            sections.add(ContactSection.ADDRESSES, sectionTitle(resources, ContactSection.ADDRESSES), summary) {
+                SegmentedGroup {
                     d.addresses.forEachIndexed { i, a ->
                         item { GroupDataRow(Icons.Rounded.LocationOn, i == 0, a.formatted, StructuredPostal.getTypeLabel(resources, a.type, a.label).toString(), onClick = { Intents.map(context, a.formatted) }) }
                     }
                 }
             }
-            val chatRows = messengers
-            if (d.handles.isNotEmpty() || chatRows.isNotEmpty()) item(key = "messengers") {
-                SegmentedGroup(stringResource(R.string.detail_messengers)) {
+        }
+        val chatRows = messengers
+        if (d.handles.isNotEmpty() || chatRows.isNotEmpty()) {
+            val apps = chatRows.map { it.appName }.distinct()
+            val summary = if (apps.isNotEmpty()) apps.joinToString(", ") else resources.getQuantityString(R.plurals.v34_cp_count_items, d.handles.size, d.handles.size)
+            sections.add(ContactSection.MESSENGERS, sectionTitle(resources, ContactSection.MESSENGERS), summary) {
+                SegmentedGroup {
                     // I1: handles typed into the contact (Matrix, Threema, Signal username…).
                     handleRows(d.handles, Icons.Rounded.Forum, onWeb = { webLink = it })
                     // What messenger apps added themselves (WhatsApp, Signal, Telegram…).
@@ -528,8 +546,11 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                     }
                 }
             }
-            if (d.websites.isNotEmpty() || d.note.isNotBlank() || d.relations.isNotEmpty()) item(key = "about") {
-                SegmentedGroup(stringResource(R.string.detail_about, d.given.ifBlank { d.displayName })) {
+        }
+        if (d.websites.isNotEmpty() || d.note.isNotBlank() || d.relations.isNotEmpty()) {
+            val n = d.websites.size + d.relations.size + (if (d.note.isNotBlank()) 1 else 0)
+            sections.add(ContactSection.ABOUT, resources.getString(R.string.detail_about, d.given.ifBlank { d.displayName }), resources.getQuantityString(R.plurals.v34_cp_count_items, n, n)) {
+                SegmentedGroup {
                     d.websites.forEachIndexed { i, w -> item { GroupDataRow(Icons.Rounded.Language, i == 0, w.value, resources.getString(R.string.detail_website), onClick = { Intents.web(context, w.value) }) } }
                     d.relations.forEachIndexed { i, rel ->
                         item {
@@ -559,60 +580,152 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                     }
                 }
             }
-            if (otherFields.isNotEmpty()) item(key = "other") {
-                SegmentedGroup(stringResource(R.string.detail_other_fields)) {
+        }
+        if (otherFields.isNotEmpty()) sections.add(ContactSection.OTHER, sectionTitle(resources, ContactSection.OTHER), resources.getQuantityString(R.plurals.v34_cp_count_items, otherFields.size, otherFields.size)) {
+            Column {
+                SegmentedGroup {
                     otherFields.forEachIndexed { i, f -> item { GroupDataRow(Icons.Rounded.Info, i == 0, f.value, f.label, onClick = {}) } }
                 }
                 GroupNote(stringResource(R.string.detail_other_fields_note))
             }
-            val keys = d.phones.map { PhoneNumbers.matchKey(it.value) }.toSet()
-            val notes = allNotes.filter { it.numberKey in keys }
-            // R2: calls, logged interactions, call notes and dates, by month.
-            item(key = "timeline") {
-                app.parley.ui.circle.ContactTimeline(
-                    vm, d, history, interactions, notes, onEdit = { editEntry = it },
-                    onAllCalls = primary?.takeIf { history.size > 5 }?.let { p -> { open(Routes.history(p.value)) } },
-                )
+        }
+        val keys = d.phones.map { PhoneNumbers.matchKey(it.value) }.toSet()
+        val notes = allNotes.filter { it.numberKey in keys }
+        // R2: calls, logged interactions, call notes and dates, by month. P1: the latest few; "Show all" opens the rest.
+        val timelineCount = remember(history, interactions, notes, d.events) { app.parley.ui.circle.timelineEntries(d, history, interactions, notes, java.time.ZoneId.systemDefault()).size }
+        sections.add(ContactSection.TIMELINE, sectionTitle(resources, ContactSection.TIMELINE), resources.getQuantityString(R.plurals.v34_cp_entries, timelineCount, timelineCount)) {
+            app.parley.ui.circle.ContactTimeline(
+                vm, d, history, interactions, notes, onEdit = { editEntry = it },
+                onAllCalls = primary?.takeIf { history.size > 5 }?.let { p -> { open(Routes.history(p.value)) } },
+                limit = TIMELINE_PREVIEW, onShowAll = { open(ContactPageRoutes.timeline(contactId)) }, showTitle = false,
+            )
+        }
+        if (history.isNotEmpty()) sections.add(ContactSection.INSIGHTS, sectionTitle(resources, ContactSection.INSIGHTS), resources.getQuantityString(R.plurals.v34_cp_count_calls, history.size, history.size)) {
+            OnGroupSurface { app.parley.ui.history.CallInsightsSection(vm, d.phones.map { it.value }, showTitle = false) }
+        }
+        val note = meta?.pinnedNote
+        sections.add(ContactSection.NOTE, sectionTitle(resources, ContactSection.NOTE), note?.lineSequence()?.firstOrNull().orEmpty().ifBlank { resources.getString(R.string.v34_cp_no_note) }) {
+            SegmentedGroup {
+                item {
+                    ListItem(
+                        modifier = Modifier.clickable { editNote = true },
+                        colors = groupRowColors(),
+                        leadingContent = { Icon(Icons.Rounded.PushPin, null, tint = if (note != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant) },
+                        headlineContent = { Text(note ?: stringResource(R.string.detail_add_note)) },
+                        supportingContent = { Text(stringResource(if (note != null) R.string.detail_note_shown else R.string.detail_note_hint)) },
+                    )
+                }
             }
-            item(key = "insights") { OnGroupSurface { app.parley.ui.history.CallInsightsSection(vm, d.phones.map { it.value }) } }
-            item(key = "note") {
-                val note = meta?.pinnedNote
-                SegmentedGroup {
-                    item {
-                        ListItem(
-                            modifier = Modifier.clickable { editNote = true },
-                            colors = groupRowColors(),
-                            leadingContent = { Icon(Icons.Rounded.PushPin, null, tint = if (note != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant) },
-                            headlineContent = { Text(note ?: stringResource(R.string.detail_add_note)) },
-                            supportingContent = { Text(stringResource(if (note != null) R.string.detail_note_shown else R.string.detail_note_hint)) },
+        }
+        sections.add(ContactSection.SETTINGS, sectionTitle(resources, ContactSection.SETTINGS), resources.getString(R.string.v34_cp_settings_summary)) {
+            SegmentedGroup {
+                item {
+                    ListItem(
+                        colors = groupRowColors(),
+                        leadingContent = { Icon(Icons.Rounded.Voicemail, null) },
+                        headlineContent = { Text(stringResource(R.string.detail_send_to_voicemail)) },
+                        trailingContent = { Switch(d.sendToVoicemail, { v -> scope.launch { vm.c.contacts.setSendToVoicemail(contactId, v); reloads++ } }) },
+                    )
+                }
+                blended { app.parley.ui.calltime.ContactCallTimeRows(vm, d.lookupKey, d.displayName, d.starred) }
+                item {
+                    val tone = d.customRingtone?.let { runCatching { RingtoneManager.getRingtone(context, Uri.parse(it))?.getTitle(context) }.getOrNull() }
+                    GroupDataRow(Icons.Rounded.MusicNote, true, tone ?: resources.getString(R.string.detail_default_ringtone), resources.getString(R.string.detail_ringtone), onClick = {
+                        ringtonePicker.launch(Intent(RingtoneManager.ACTION_RINGTONE_PICKER).putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_RINGTONE))
+                    })
+                }
+                item {
+                    GroupDataRow(Icons.Rounded.Sync, true, d.rawContacts.joinToString("\n") { it.account.displayLabel }, if (d.rawContacts.size > 1) resources.getQuantityString(R.plurals.detail_linked_from, d.rawContacts.size, d.rawContacts.size) else resources.getString(R.string.detail_saved_in), onClick = {})
+                }
+                blended { app.parley.ui.people.ProvenanceRow(vm, contactId, d, open) }
+                blended { app.parley.ui.people.CallBackgroundInfoRow(vm, d) { open(Routes.edit(id = contactId)) } }
+            }
+        }
+        val shown = sections.shown(layout)
+
+        Box(Modifier.fillMaxSize()) {
+        LazyColumn(state = listState, contentPadding = PaddingValues(top = padding.calculateTopPadding(), bottom = padding.calculateBottomPadding() + 32.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            item(key = "header") {
+                Column(
+                    Modifier.fillMaxWidth().onSizeChanged { headerHeight = it.height }.padding(horizontal = 16.dp).padding(top = 8.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    // U1: shrinks and fades as it scrolls under the bar, where the small avatar and name appear.
+                    Column(
+                        Modifier.graphicsLayer {
+                            val s = 1f - 0.25f * headerFraction
+                            scaleX = s
+                            scaleY = s
+                            alpha = 1f - headerFraction
+                        },
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Avatar(
+                            d.displayName, d.photoUri, 120.dp,
+                            Modifier.shared("avatar-$contactId").clickable(enabled = d.photoUri != null, onClickLabel = stringResource(R.string.detail_view_photo)) { showPhoto = true },
+                            isCompany = d.composedName.isBlank() && d.company.isNotBlank(),
                         )
+                        Text(d.displayName, style = MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 16.dp).shared("name-$contactId", bounds = true))
+                    }
+                    val sub = listOf(d.nickname, listOf(d.title, d.company).filter { it.isNotBlank() }.joinToString(", ")).filter { it.isNotBlank() }
+                    if (sub.isNotEmpty()) Text(sub.joinToString(stringResource(R.string.main_separator)), color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+                    Text(lastTalked, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
+                    temp?.let { Text(stringResource(R.string.detail_deletes_on, Format.fullDate(context, it.expiresAt)), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+                    app.parley.ui.people.AccountChips(vm, d, open) { newId ->
+                        if (newId != null && newId != contactId) { back(); open(Routes.contact(newId)) }
+                        else reloads++
+                    }
+                    Spacer(Modifier.height(16.dp))
+                    // U3: labelled tiles.
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        ActionTile(Icons.Rounded.Call, if (preferredCall != null) preferredCall.appName else stringResource(R.string.main_call), canCall) { doCall() }
+                        val messageApp = prefs.message?.let { p -> if (p == MessengerPrefs.SMS) stringResource(R.string.detail_sms) else messengers.firstOrNull { it.accountType == p }?.appName ?: app.parley.common.MessengerApp.forPackage(p)?.label }
+                        ActionTile(
+                            Icons.AutoMirrored.Rounded.Message, messageApp ?: stringResource(R.string.main_message), canMessage,
+                            onLongClick = { messageSheet = primary?.value.orEmpty() }, longClickLabel = stringResource(R.string.detail_choose_message),
+                        ) { message(d) }
+                        if (r.videoRows.isNotEmpty()) {
+                            ActionTile(
+                                Icons.Rounded.Videocam, preferredVideo?.appName ?: stringResource(R.string.detail_video), true,
+                                onLongClick = { videoChooser = true }, longClickLabel = stringResource(R.string.detail_choose_video),
+                            ) { doVideo() }
+                        }
+                        ActionTile(Icons.Rounded.Email, stringResource(R.string.detail_email), email != null) {
+                            email?.let { Intents.email(context, it.value) }
+                        }
                     }
                 }
             }
-            item(key = "settings") {
-                SegmentedGroup(stringResource(R.string.home_settings)) {
-                    item {
-                        ListItem(
-                            colors = groupRowColors(),
-                            leadingContent = { Icon(Icons.Rounded.Voicemail, null) },
-                            headlineContent = { Text(stringResource(R.string.detail_send_to_voicemail)) },
-                            trailingContent = { Switch(d.sendToVoicemail, { v -> scope.launch { vm.c.contacts.setSendToVoicemail(contactId, v); reloads++ } }) },
-                        )
+            // P1: every section folds; order, start modes and hidden ones come from Settings › Contacts › Contact page sections.
+            foldableSections(sections, layout, ::fold)
+        }
+        // P1: once the big header has gone, a compact bar keeps the actions (and, on long pages, jumps to a section).
+        AnimatedVisibility(
+            pinned, Modifier.align(Alignment.TopCenter).padding(top = padding.calculateTopPadding()),
+            enter = expandVertically(spring(stiffness = Spring.StiffnessMediumLow), expandFrom = Alignment.Top) + fadeIn(),
+            exit = shrinkVertically(spring(stiffness = Spring.StiffnessMedium), shrinkTowards = Alignment.Top) + fadeOut(),
+        ) {
+            val actions = listOfNotNull(
+                QuickAction(Icons.Rounded.Call, stringResource(R.string.main_call_who, d.displayName), canCall) { doCall() },
+                QuickAction(Icons.AutoMirrored.Rounded.Message, stringResource(R.string.main_message_who, d.displayName), canMessage) { message(d) },
+                if (r.videoRows.isNotEmpty()) QuickAction(Icons.Rounded.Videocam, stringResource(R.string.detail_video), true) { doVideo() } else null,
+                if (email != null) QuickAction(Icons.Rounded.Email, stringResource(R.string.detail_email), true) { Intents.email(context, email.value) } else null,
+                QuickAction(Icons.Rounded.MoreHoriz, stringResource(R.string.main_more), true) { menu = true },
+            )
+            val jumps = if (peopleSettings.sectionChips && shown.size >= JUMP_CHIPS_FROM) shown.map { s ->
+                sections.titleOf(s) to {
+                    if (layout.isFolded(s)) fold(s, false)
+                    scope.launch {
+                        listState.animateScrollToItem(1 + shown.indexOf(s))
+                        listState.animateScrollBy(-pinnedHeight.toFloat())
                     }
-                    blended { app.parley.ui.calltime.ContactCallTimeRows(vm, d.lookupKey, d.displayName, d.starred) }
-                    item {
-                        val tone = d.customRingtone?.let { runCatching { RingtoneManager.getRingtone(context, Uri.parse(it))?.getTitle(context) }.getOrNull() }
-                        GroupDataRow(Icons.Rounded.MusicNote, true, tone ?: resources.getString(R.string.detail_default_ringtone), resources.getString(R.string.detail_ringtone), onClick = {
-                            ringtonePicker.launch(Intent(RingtoneManager.ACTION_RINGTONE_PICKER).putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_RINGTONE))
-                        })
-                    }
-                    item {
-                        GroupDataRow(Icons.Rounded.Sync, true, d.rawContacts.joinToString("\n") { it.account.displayLabel }, if (d.rawContacts.size > 1) resources.getQuantityString(R.plurals.detail_linked_from, d.rawContacts.size, d.rawContacts.size) else resources.getString(R.string.detail_saved_in), onClick = {})
-                    }
-                    blended { app.parley.ui.people.ProvenanceRow(vm, contactId, d, open) }
-                    blended { app.parley.ui.people.CallBackgroundInfoRow(vm, d) { open(Routes.edit(id = contactId)) } }
+                    Unit
                 }
+            } else emptyList()
+            androidx.compose.material3.Surface(color = barColor, modifier = Modifier.onSizeChanged { pinnedHeight = it.height }) {
+                PinnedContactBar(actions, jumps)
             }
+        }
         }
 
         messageSheet?.let { n ->
@@ -741,6 +854,12 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
         }
     }
 }
+
+/** P1: timeline entries shown on the page before "Show all". */
+private const val TIMELINE_PREVIEW = 5
+
+/** P1: jump chips appear from this many shown sections. */
+private const val JUMP_CHIPS_FROM = 4
 
 /** I3: makes [item] the default of its kind, or clears the default. */
 private suspend fun setDefault(vm: AppViewModel, contactId: Long, item: DataItem, mime: String, on: Boolean) {
