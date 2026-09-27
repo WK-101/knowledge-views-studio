@@ -49,20 +49,24 @@ object PassphraseStrength {
         }
         // An attacker also has to guess how the pieces combine.
         log += log10(factorial(tokens).toDouble())
-        val score = when {
-            log < 3 -> 0
-            log < 6 -> 1
-            log < 8 -> 2
-            log < 10 -> 3
-            else -> 4
-        }
-        val hint = when {
-            passphrase.length < MIN_LENGTH -> Hint.TOO_SHORT
-            worst != Hint.NONE && score < 4 -> worst
-            score < MIN_BACKUP_SCORE -> Hint.ADD_WORDS
-            else -> Hint.NONE
-        }
+        val score = scoreOf(log)
+        val hint = hintOf(passphrase.length, score, worst)
         return Estimate(score, log, hint)
+    }
+
+    private fun scoreOf(log: Double): Int = when {
+        log < 3 -> 0
+        log < 6 -> 1
+        log < 8 -> 2
+        log < 10 -> 3
+        else -> 4
+    }
+
+    private fun hintOf(length: Int, score: Int, worst: Hint): Hint = when {
+        length < MIN_LENGTH -> Hint.TOO_SHORT
+        worst != Hint.NONE && score < 4 -> worst
+        score < MIN_BACKUP_SCORE -> Hint.ADD_WORDS
+        else -> Hint.NONE
     }
 
     private class Match(val length: Int, val log10: Double, val hint: Hint)

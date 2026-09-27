@@ -71,6 +71,7 @@ import app.parley.ui.ConfirmDialog
  */
 object SecureQr {
     private const val ALPHABET = "ABCDEFGHJKMNPQRSTVWXYZ23456789"
+
     /** The passcode's cost; a scanned code must use exactly this, so a crafted code can't stall the phone. */
     private val KDF = KdfParams.Pbkdf2(200_000)
 

@@ -45,7 +45,7 @@ class BoundedTest {
             cbuf.fill(c, off, off + len)
             return len
         }
-        override fun close() {}
+        override fun close() = Unit
     }
 
     @Test fun reads_up_to_the_cap_and_refuses_more() {
@@ -71,7 +71,8 @@ class BoundedTest {
     }
 
     @Test fun unzip_caps_entries_sizes_and_ratio() {
-        val ok = Bounded.unzip(zip("a.txt" to "hello".encodeToByteArray(), "dir/b.txt" to "x".encodeToByteArray()).inputStream(), { it == "a.txt" }, 10, 1000, 1000)
+        val two = zip("a.txt" to "hello".encodeToByteArray(), "dir/b.txt" to "x".encodeToByteArray())
+        val ok = Bounded.unzip(two.inputStream(), { it == "a.txt" }, 10, 1000, 1000)
         assertEquals(setOf("a.txt"), ok.keys)
         val many = zip(*Array(20) { "f$it" to ByteArray(1) })
         assertThrows(LimitExceededException::class.java) { Bounded.unzip(many.inputStream(), { true }, 10, 1000, 1000) }
@@ -99,7 +100,7 @@ class BoundedTest {
                 text.toCharArray(0, n).copyInto(cbuf, off)
                 return n
             }
-            override fun close() {}
+            override fun close() = Unit
         }
         assertThrows(LimitExceededException::class.java) { VCardStream.read(card, ImportReportBuilder()) {} }
         // An ordinary file still reads.
@@ -115,7 +116,7 @@ class BoundedTest {
                 cbuf.fill('z', off, off + len)
                 return len
             }
-            override fun close() {}
+            override fun close() = Unit
         }
         assertThrows(LimitExceededException::class.java) { ContactCsv.parse(endlessQuoted).toList() }
         assertEquals(listOf(listOf("a", "b"), listOf("c", "d")), ContactCsv.parse("a,b\nc,d\n".reader()).toList())

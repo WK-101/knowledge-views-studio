@@ -291,16 +291,8 @@ object BackupCrypto {
             rsaOpenOrNull(pk, ct)?.also { bundle = b; privateKey = pk }
         }
         val dek: ByteArray? = when (unlock) {
-            is Unlock.Passphrase -> {
-                var found: ByteArray? = null
-                if (header.wraps.any { it.type == WrapType.PASSPHRASE }) {
-                    val kek = Kdf.derive(unlock.passphrase, header.salt, header.kdf)
-                    found = header.wraps.filter { it.type == WrapType.PASSPHRASE }.firstNotNullOfOrNull {
-                        gcmOpenOrNull(kek, it.payload, wrapAad(WrapType.PASSPHRASE))
-                    }
-                }
-                found ?: viaBundles { b -> try { unlockPrivateKey(b, unlock.passphrase) } catch (_: WrongKeyException) { null } }
-            }
+            is Unlock.Passphrase -> openPassphraseWrap(header, unlock.passphrase)
+                ?: viaBundles { b -> try { unlockPrivateKey(b, unlock.passphrase) } catch (_: WrongKeyException) { null } }
             is Unlock.Recovery -> {
                 val kek = hkdf(unlock.key.bytes(), header.salt, "parley/v1/archive-recovery")
                 header.wraps.filter { it.type == WrapType.RECOVERY }.firstNotNullOfOrNull {
@@ -312,6 +304,14 @@ object BackupCrypto {
         }
         if (dek == null || dek.size != 32) throw WrongKeyException("Wrong passphrase or key")
         return Opened(SecretKeySpec(dek, "AES").also { dek.fill(0) }, bundle, privateKey)
+    }
+
+    /** The data key from a direct PASSPHRASE wrap (derived only when the archive has one), or null. */
+    private fun openPassphraseWrap(header: EnvelopeHeader, passphrase: CharArray): ByteArray? {
+        val wraps = header.wraps.filter { it.type == WrapType.PASSPHRASE }
+        if (wraps.isEmpty()) return null
+        val kek = Kdf.derive(passphrase, header.salt, header.kdf)
+        return wraps.firstNotNullOfOrNull { gcmOpenOrNull(kek, it.payload, wrapAad(WrapType.PASSPHRASE)) }
     }
 
     /** Reads the header from [input], unwraps the data key and returns the plaintext stream. */

@@ -107,6 +107,7 @@ class DataContainer(context: Context) {
     /** Lossless moves into and out of the private vault. */
     val vaultMoves by lazy { VaultMoves(vault, contacts, records) { circle.interactions } }
     val vault by lazy { VaultRepository(appContext, db, scope) }
+
     /** Pinned notes, call notes and journal payloads are sealed at rest behind this DAO. */
     val meta: MetaDao by lazy { SealedMetaDao(db.metaDao(), RecordCrypto.get(appContext)) }
     val journal by lazy { JournalRepository(meta, records) }

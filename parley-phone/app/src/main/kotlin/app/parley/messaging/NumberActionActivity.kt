@@ -3,7 +3,6 @@ package app.parley.messaging
 import app.parley.security.LockedActivity
 import android.Manifest
 import android.content.ClipboardManager
-import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -58,7 +57,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.lifecycleScope
 import app.parley.CallGate
 import app.parley.MainActivity
@@ -78,7 +76,6 @@ import app.parley.data.PhoneEnv
 import app.parley.data.PlaceResult
 import app.parley.telecom.CallManager
 import app.parley.telecom.CallState
-import app.parley.ui.AppLocale
 import app.parley.ui.Bidi
 import app.parley.ui.ParleyTheme
 import app.parley.ui.common.CallQuestions

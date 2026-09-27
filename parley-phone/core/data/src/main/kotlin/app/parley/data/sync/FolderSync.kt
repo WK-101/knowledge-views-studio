@@ -134,7 +134,8 @@ class FolderSync(private val context: Context, private val contacts: ContactsRep
     private fun headerUri(): Uri? {
         val (folder, treeId) = folderDoc() ?: return null
         val children = DocumentsContract.buildChildDocumentsUriUsingTree(folder, treeId)
-        return cr.query(children, arrayOf(DocumentsContract.Document.COLUMN_DOCUMENT_ID, DocumentsContract.Document.COLUMN_DISPLAY_NAME), null, null, null)?.use { c ->
+        val columns = arrayOf(DocumentsContract.Document.COLUMN_DOCUMENT_ID, DocumentsContract.Document.COLUMN_DISPLAY_NAME)
+        return cr.query(children, columns, null, null, null)?.use { c ->
             var found: Uri? = null
             while (c.moveToNext()) if (c.getString(1) == SyncCrypto.HEADER_NAME) found = DocumentsContract.buildDocumentUriUsingTree(folder, c.getString(0))
             found
@@ -162,7 +163,8 @@ class FolderSync(private val context: Context, private val contacts: ContactsRep
                 } else {
                     val (header, k) = SyncCrypto.newFolder(passphrase)
                     val parent = DocumentsContract.buildDocumentUriUsingTree(folder, treeId)
-                    val uri = DocumentsContract.createDocument(cr, parent, "application/octet-stream", SyncCrypto.HEADER_NAME) ?: return@withContext EncryptionSetup.FAILED
+                    val uri = DocumentsContract.createDocument(cr, parent, "application/octet-stream", SyncCrypto.HEADER_NAME)
+                        ?: return@withContext EncryptionSetup.FAILED
                     cr.openOutputStream(uri, "wt")!!.use { it.write(header) }
                     k
                 }
@@ -175,7 +177,8 @@ class FolderSync(private val context: Context, private val contacts: ContactsRep
             // The key is only ever stored sealed by the Keystore.
             if (!crypto.isSealed(sealed)) return@withContext EncryptionSetup.FAILED
             if (status.value.mode == SyncMode.PLAIN) removePlainFiles()
-            prefs.edit().putString("mode", SyncMode.ENCRYPTED.name).putString("folderKey", Base64.encodeToString(sealed, Base64.NO_WRAP)).remove("lastResult").apply()
+            prefs.edit().putString("mode", SyncMode.ENCRYPTED.name).putString("folderKey", Base64.encodeToString(sealed, Base64.NO_WRAP))
+                .remove("lastResult").apply()
             stateFile.delete() // new file names and format: the first run links matching contacts instead of duplicating
             _status.value = load()
             EncryptionSetup.READY
@@ -293,7 +296,8 @@ class FolderSync(private val context: Context, private val contacts: ContactsRep
                         val uri = DocumentsContract.buildDocumentUriUsingTree(folder, c.getString(0))
                         // Unreadable (bytes == null: too large, another key, altered) is not the same as missing: such
                         // files are left alone this run.
-                        files[name] = F(uri, runCatching { cr.openInputStream(uri)?.use { codec.decode(name, Bounded.readBytes(it, Bounded.Caps.SYNC_FILE)) } }.getOrNull())
+                        val bytes = runCatching { cr.openInputStream(uri)?.use { codec.decode(name, Bounded.readBytes(it, Bounded.Caps.SYNC_FILE)) } }
+                        files[name] = F(uri, bytes.getOrNull())
                     }
                     true
                 } ?: false
@@ -370,7 +374,11 @@ class FolderSync(private val context: Context, private val contacts: ContactsRep
                     else -> { // both changed
                         if (file != null && rec != null) {
                             val copy = codec.conflictName(name, System.currentTimeMillis())
-                            runCatching { DocumentsContract.createDocument(cr, parentDoc, codec.mime, copy)?.let { u -> cr.openOutputStream(u, "wt")!!.use { it.write(codec.encode(copy, file.bytes!!)) } } }
+                            runCatching {
+                                DocumentsContract.createDocument(cr, parentDoc, codec.mime, copy)?.let { u ->
+                                    cr.openOutputStream(u, "wt")!!.use { it.write(codec.encode(copy, file.bytes!!)) }
+                                }
+                            }
                             val bytes = render(rec, e.contactKey)
                             if (writeFile(name, bytes)) state[name] = Entry(rec.key, sha(bytes), localHash(rec))
                             rep = rep.copy(conflicts = rep.conflicts + 1)

@@ -345,7 +345,10 @@ fun SimpleImportScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Uni
                         imported = withContext(Dispatchers.IO) {
                             runCatching {
                                 if (q != null) SimpleTransfer.fromQr(q, code)
-                                else SimpleTransfer.decryptFile(context.contentResolver.openInputStream(f!!)!!.use { Bounded.readBytes(it, Bounded.Caps.SETUP_FILE, "setup") }, code.toCharArray())
+                                else SimpleTransfer.decryptFile(
+                                    context.contentResolver.openInputStream(f!!)!!.use { Bounded.readBytes(it, Bounded.Caps.SETUP_FILE, "setup") },
+                                    code.toCharArray(),
+                                )
                             }.getOrNull()
                         }
                         if (imported == null) error = res.getString(R.string.simple_wrong_pass)

@@ -3,6 +3,7 @@ package app.parley.data.security
 import android.content.Context
 import android.util.Base64
 import android.util.Log
+import java.io.File
 import app.parley.data.history.HistoryCrypto
 
 /**
@@ -16,15 +17,16 @@ import app.parley.data.history.HistoryCrypto
  * stored plain rather than lost, and re-sealed later.
  */
 class RecordCrypto private constructor(context: Context) {
-    private val crypto = HistoryCrypto(context.applicationContext, FILE, ALIAS)
+    private val crypto = HistoryCrypto(context, File(context.noBackupFilesDir, "records.keys"), ALIAS)
 
     /** [text] sealed (as text), or [text] itself when empty or when sealing isn't possible right now. */
     fun sealText(text: String?): String? {
         if (text.isNullOrEmpty() || isSealed(text)) return text
         return try {
             TEXT_PREFIX + Base64.encodeToString(seal(text.toByteArray(Charsets.UTF_8)), Base64.NO_WRAP)
-        } catch (e: Exception) {
-            Log.w(TAG, "Kept a record unsealed for now: ${e.javaClass.simpleName}")
+        } catch (ignored: Exception) {
+            // Never lose the value: it stays plain and is sealed on a later run.
+            Log.w(TAG, "Kept a record unsealed for now: ${ignored.javaClass.simpleName}")
             text
         }
     }
@@ -34,8 +36,8 @@ class RecordCrypto private constructor(context: Context) {
         if (stored == null || !isSealed(stored)) return stored
         return try {
             String(crypto.open(Base64.decode(stored.substring(TEXT_PREFIX.length), Base64.NO_WRAP)), Charsets.UTF_8)
-        } catch (e: Exception) {
-            Log.w(TAG, "A sealed record couldn't be opened: ${e.javaClass.simpleName}")
+        } catch (ignored: Exception) {
+            Log.w(TAG, "A sealed record couldn't be opened: ${ignored.javaClass.simpleName}")
             null
         }
     }
@@ -45,8 +47,8 @@ class RecordCrypto private constructor(context: Context) {
     /** [plain] sealed, marked so [openBytes] tells it from older plain payloads; [plain] itself if sealing fails. */
     fun sealBytes(plain: ByteArray): ByteArray = try {
         BYTES_MAGIC + seal(plain)
-    } catch (e: Exception) {
-        Log.w(TAG, "Kept a payload unsealed for now: ${e.javaClass.simpleName}")
+    } catch (ignored: Exception) {
+        Log.w(TAG, "Kept a payload unsealed for now: ${ignored.javaClass.simpleName}")
         plain
     }
 
@@ -66,7 +68,6 @@ class RecordCrypto private constructor(context: Context) {
 
     companion object {
         private const val TAG = "RecordCrypto"
-        private const val FILE = "records.keys"
         private const val ALIAS = "parley_records_wrap_v1"
 
         /** Marks a sealed text value; a control character no typed note starts with. */
@@ -76,7 +77,7 @@ class RecordCrypto private constructor(context: Context) {
         @Volatile private var instance: RecordCrypto? = null
 
         fun get(context: Context): RecordCrypto = instance ?: synchronized(this) {
-            instance ?: RecordCrypto(context).also { instance = it }
+            instance ?: RecordCrypto(context.applicationContext).also { instance = it }
         }
     }
 }

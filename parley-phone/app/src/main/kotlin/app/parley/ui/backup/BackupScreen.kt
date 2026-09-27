@@ -343,7 +343,8 @@ private fun PassphraseDialog(change: Boolean, onDismiss: () -> Unit, onSave: (St
                     StrengthMeter(estimate.score, stringResource(strengthLabel(estimate.score)), strengthHint(estimate.hint)?.let { stringResource(it) })
                 }
                 PassField(stringResource(R.string.bkp_repeat), confirm) { confirm = it }
-                Text(stringResource(if (new.isNotEmpty() && !strongEnough) R.string.bkp_strength_needed else R.string.bkp_pass_hint), style = MaterialTheme.typography.bodySmall)
+                val hint = if (new.isNotEmpty() && !strongEnough) R.string.bkp_strength_needed else R.string.bkp_pass_hint
+                Text(stringResource(hint), style = MaterialTheme.typography.bodySmall)
             }
         },
     )

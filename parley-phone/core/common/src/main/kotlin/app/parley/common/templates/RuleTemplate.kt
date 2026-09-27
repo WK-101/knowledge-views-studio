@@ -295,7 +295,7 @@ object RuleTemplates {
         if (bytes.size > 64 * 1024) throw TemplateException("The code is too large")
         val text = try {
             Bounded.gunzip(bytes, 512L * 1024).decodeToString()
-        } catch (e: LimitExceededException) {
+        } catch (_: LimitExceededException) {
             throw TemplateException("The code is too large")
         } catch (e: Exception) {
             throw TemplateException("The code is damaged")

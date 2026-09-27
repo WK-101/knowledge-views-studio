@@ -1,5 +1,7 @@
 package app.parley.data.vault
 
+import kotlinx.coroutines.CancellationException
+import java.security.GeneralSecurityException
 import android.app.KeyguardManager
 import android.content.Context
 import android.content.pm.PackageManager
@@ -145,10 +147,13 @@ object VaultCrypto {
         throw KeyUnavailableException(last)
     }
 
+    /** Throws [KeyLostException] when the Keystore can't recover the key, [KeyUnavailableException] for other failures. */
     private fun detailKey(gen: Int): SecretKey? = try {
         ks.getKey(detailAlias(gen), null) as? SecretKey
-    } catch (e: UnrecoverableKeyException) {
+    } catch (_: UnrecoverableKeyException) {
         throw KeyLostException()
+    } catch (e: GeneralSecurityException) {
+        throw KeyUnavailableException(e)
     }
 
     /** The key new detail blobs are sealed with (created on first use). */
@@ -195,15 +200,13 @@ object VaultCrypto {
         val key = detailKey(gen) ?: throw KeyLostException()
         val sealed = try {
             gcmSeal(key, plain)
-        } catch (_: UserNotAuthenticatedException) {
-            throw LockedException()
         } catch (_: KeyPermanentlyInvalidatedException) {
             // New data goes under a new generation; blobs of the invalidated key stay as they are (never deleted here).
             val next = maxOf(gen, highestGenerationEver()) + 1
             createDetailKey(next)
             return sealDetail(next, plain)
         } catch (e: InvalidKeyException) {
-            throw KeyUnavailableException(e)
+            throw classify(e)
         }
         return if (gen == 0) sealed else byteArrayOf(GEN_MARK, gen.toByte()) + sealed
     }
@@ -218,28 +221,28 @@ object VaultCrypto {
      */
     fun openDetail(blob: ByteArray): ByteArray {
         val gen = generationOf(blob)
-        val key = try {
-            detailKey(gen)
-        } catch (e: KeyLostException) {
-            throw e
-        } catch (e: Exception) {
-            throw KeyUnavailableException(e)
-        } ?: throw if (!ks.containsAlias(detailAlias(gen))) KeyLostException() else KeyUnavailableException(null)
+        val key = presentDetailKey(gen)
         return try {
             gcmOpen(key, blob, if (gen == 0) 0 else 2)
-        } catch (_: UserNotAuthenticatedException) {
-            throw LockedException()
-        } catch (_: KeyPermanentlyInvalidatedException) {
-            throw KeyLostException()
-        } catch (_: AEADBadTagException) {
-            // This key can't open the blob (it isn't the key that sealed it, or the blob is damaged).
-            throw KeyLostException()
-        } catch (e: InvalidKeyException) {
-            // Some OEM Keystores report transient failures this way: keep the data, it may open next time.
-            throw KeyUnavailableException(e)
+        } catch (e: GeneralSecurityException) {
+            throw classify(e)
         } catch (e: ProviderException) {
             throw KeyUnavailableException(e)
         }
+    }
+
+    /** The detail key of [gen]; lost only when the Keystore loaded and provably has no such alias. */
+    private fun presentDetailKey(gen: Int): SecretKey =
+        detailKey(gen) ?: throw if (!ks.containsAlias(detailAlias(gen))) KeyLostException() else KeyUnavailableException(null)
+
+    /** What a Keystore failure means for the data: locked for now, lost for good, or only unavailable right now. */
+    private fun classify(e: GeneralSecurityException): Exception = when (e) {
+        is UserNotAuthenticatedException -> LockedException()
+        is KeyPermanentlyInvalidatedException -> KeyLostException()
+        // This key can't open the blob (it isn't the key that sealed it, or the blob is damaged).
+        is AEADBadTagException -> KeyLostException()
+        // Some OEM Keystores report transient failures as InvalidKeyException: keep the data, it may open next time.
+        else -> KeyUnavailableException(e)
     }
 
     /** Whether the detail key currently needs a fresh unlock. */
@@ -261,6 +264,7 @@ object VaultCrypto {
         val info = runCatching { SecretKeyFactory.getInstance(key.algorithm, STORE).getKeySpec(key, KeyInfo::class.java) as KeyInfo }.getOrNull()
             ?: return KeyAudit(gen, true, false, false, false, false)
         val level = if (Build.VERSION.SDK_INT >= 31) info.securityLevel else null
+
         @Suppress("DEPRECATION")
         val secure = if (level != null) level != KeyProperties.SECURITY_LEVEL_SOFTWARE else info.isInsideSecureHardware
         return KeyAudit(
@@ -306,8 +310,12 @@ object VaultCrypto {
                 plain.fill(0)
                 sealed
             }
-        } catch (e: Exception) {
-            Log.w("VaultCrypto", "Key upgrade postponed: ${e.javaClass.simpleName}")
+        } catch (e: CancellationException) {
+            ks.deleteEntry(detailAlias(next))
+            throw e
+        } catch (ignored: Exception) {
+            // Anything (locked, unavailable, a failed check): nothing was written; the next authentication tries again.
+            Log.w("VaultCrypto", "Key upgrade postponed: ${ignored.javaClass.simpleName}")
             false
         }
         if (!ok) {

@@ -121,38 +121,52 @@ object Bounded {
         what: String = "file",
     ): Map<String, ByteArray> {
         val guard = RatioGuard(input)
-        val files = LinkedHashMap<String, ByteArray>()
-        var entries = 0
-        var total = 0L
-        try {
-            ZipInputStream(guard.compressed).use { z ->
-                val buf = ByteArray(64 shl 10)
-                while (true) {
-                    val e = z.nextEntry ?: break
-                    if (++entries > maxEntries) throw LimitExceededException("The $what has too many parts")
-                    val name = e.name.substringAfterLast('/')
-                    val keep = !e.isDirectory && want(name)
-                    val out = if (keep) ByteArrayOutputStream() else null
-                    var size = 0L
-                    while (true) {
-                        val n = z.read(buf)
-                        if (n < 0) break
-                        size += n
-                        total += n
-                        if (size > maxEntryBytes || total > maxTotalBytes) throw LimitExceededException("The $what is too large")
-                        guard.check(total)
-                        out?.write(buf, 0, n)
-                    }
-                    if (out != null) {
-                        if (name in files) throw IOException("The $what has $name twice")
-                        files[name] = out.toByteArray()
-                    }
-                }
-            }
+        val budget = ZipBudget(guard, maxEntries, maxEntryBytes, maxTotalBytes, what)
+        return try {
+            ZipInputStream(guard.compressed).use { z -> entries(z, want, budget, what) }
         } catch (e: ZipException) {
             throw IOException("The $what is damaged", e)
         }
+    }
+
+    private fun entries(z: ZipInputStream, want: (String) -> Boolean, budget: ZipBudget, what: String): Map<String, ByteArray> {
+        val files = LinkedHashMap<String, ByteArray>()
+        for (e in generateSequence { z.nextEntry }) {
+            val name = e.name.substringAfterLast('/')
+            val bytes = budget.read(z, keep = !e.isDirectory && want(name))
+            if (bytes != null && files.put(name, bytes) != null) throw IOException("The $what has $name twice")
+        }
         return files
+    }
+
+    /** Counts one ZIP's expanded bytes against its caps while entries are read. */
+    private class ZipBudget(
+        private val guard: RatioGuard,
+        private val maxEntries: Int,
+        private val maxEntry: Long,
+        private val maxTotal: Long,
+        private val what: String,
+    ) {
+        private val buf = ByteArray(64 shl 10)
+        private var total = 0L
+        private var entries = 0
+
+        /** Reads the current entry to its end; returns its bytes when [keep], null otherwise. */
+        fun read(z: ZipInputStream, keep: Boolean): ByteArray? {
+            if (++entries > maxEntries) throw LimitExceededException("The $what has too many parts")
+            val out = if (keep) ByteArrayOutputStream() else null
+            var size = 0L
+            while (true) {
+                val n = z.read(buf)
+                if (n < 0) break
+                size += n
+                total += n
+                if (size > maxEntry || total > maxTotal) throw LimitExceededException("The $what is too large")
+                guard.check(total)
+                out?.write(buf, 0, n)
+            }
+            return out?.toByteArray()
+        }
     }
 
     /**

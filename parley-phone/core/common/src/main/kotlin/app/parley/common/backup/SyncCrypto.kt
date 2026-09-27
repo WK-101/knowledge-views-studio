@@ -54,18 +54,18 @@ object SyncCrypto {
      * header that isn't one, or whose KDF cost is outside [KdfPolicy.BACKUP].
      */
     fun unlock(header: ByteArray, passphrase: CharArray): ByteArray? {
-        if (header.size > MAX_HEADER) throw BackupIntegrityException("Sync header too large")
+        ensure(header.size <= MAX_HEADER, "Sync header too large")
         val d = DataInputStream(ByteArrayInputStream(header))
         try {
             val magic = ByteArray(8).also(d::readFully)
-            if (!magic.contentEquals(HEADER_MAGIC.toByteArray(Charsets.US_ASCII))) throw BackupIntegrityException("Not a Parley sync folder")
+            ensure(magic.contentEquals(HEADER_MAGIC.toByteArray(Charsets.US_ASCII)), "Not a Parley sync folder")
             val kdf = KdfParams.of(d.readUnsignedByte(), d.readInt())
-            if (!KdfPolicy.BACKUP.accepts(kdf)) throw BackupIntegrityException("KDF parameters out of range")
+            ensure(KdfPolicy.BACKUP.accepts(kdf), "KDF parameters out of range")
             val saltLen = d.readUnsignedByte()
-            if (saltLen != BackupCrypto.SALT_SIZE) throw BackupIntegrityException("Bad salt length")
+            ensure(saltLen == BackupCrypto.SALT_SIZE, "Bad salt length")
             val salt = ByteArray(saltLen).also(d::readFully)
             val check = d.readBytes()
-            if (check.size != NONCE + TAG_BITS / 8) throw BackupIntegrityException("Bad sync header")
+            ensure(check.size == NONCE + TAG_BITS / 8, "Bad sync header")
             val key = Kdf.derive(passphrase, salt, kdf)
             return try {
                 gcm(Cipher.DECRYPT_MODE, key, check.copyOf(NONCE), check.copyOfRange(NONCE, check.size), checkAad())
@@ -94,6 +94,10 @@ object SyncCrypto {
         } catch (_: GeneralSecurityException) {
             null
         }
+    }
+
+    private fun ensure(ok: Boolean, problem: String) {
+        if (!ok) throw BackupIntegrityException(problem)
     }
 
     private fun checkAad() = "$HEADER_MAGIC|check".toByteArray(Charsets.US_ASCII)

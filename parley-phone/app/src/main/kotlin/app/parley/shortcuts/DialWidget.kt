@@ -19,7 +19,6 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.getValue
 import androidx.core.graphics.createBitmap
-import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.R
 import app.parley.container
@@ -27,7 +26,6 @@ import app.parley.picker.PickKind
 import app.parley.picker.PickerScreen
 import app.parley.security.AppLock
 import app.parley.security.LockScreen
-import app.parley.ui.AppLocale
 import app.parley.ui.ParleyTheme
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Dispatchers

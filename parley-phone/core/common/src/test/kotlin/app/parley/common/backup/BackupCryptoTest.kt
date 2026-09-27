@@ -243,7 +243,9 @@ class BackupCryptoTest {
         assertThrows<BackupIntegrityException> { BackupCrypto.readHeader(ByteArrayInputStream(withIterations(999))) }
         assertThrows<BackupIntegrityException> { BackupCrypto.readHeader(ByteArrayInputStream(withIterations(2_000_001))) }
         assertThrows<BackupIntegrityException> { BackupCrypto.readHeader(ByteArrayInputStream(withIterations(-1))) }
-        assertThrows<IllegalArgumentException> { enc(data(1), listOf(Recipient.Passphrase(PASS))).let { BackupCrypto.encryptBytes(it, listOf(Recipient.Passphrase(PASS)), KdfParams.Pbkdf2(999)) } }
+        assertThrows<IllegalArgumentException> {
+            BackupCrypto.encryptBytes(enc(data(1)), listOf(Recipient.Passphrase(PASS)), KdfParams.Pbkdf2(999))
+        }
         assertThrows<IllegalArgumentException> { BackupCrypto.encryptBytes(ByteArray(1), listOf(Recipient.Passphrase(CharArray(0))), KdfParams.Pbkdf2(IT)) }
         assertThrows<IllegalArgumentException> { BackupCrypto.encryptBytes(ByteArray(1), emptyList(), KdfParams.Pbkdf2(IT)) }
     }

@@ -28,7 +28,8 @@ class BackupSignatureTest {
     private class Phone(bundle: KeyBundle?, pass: CharArray?) : ArchiveSigner {
         val pair: KeyPair = KeyPairGenerator.getInstance("EC").apply { initialize(ECGenParameterSpec("secp256r1")) }.generateKeyPair()
         override val publicKey: ByteArray = pair.public.encoded
-        override val endorsement: ByteArray? = if (bundle != null && pass != null) ArchiveSignatures.endorse(BackupCrypto.unlockPrivateKey(bundle, pass), publicKey) else null
+        override val endorsement: ByteArray? =
+            if (bundle != null && pass != null) ArchiveSignatures.endorse(BackupCrypto.unlockPrivateKey(bundle, pass), publicKey) else null
         override fun sign(data: ByteArray): ByteArray = Signature.getInstance("SHA256withECDSA").run { initSign(pair.private); update(data); sign() }
     }
 
@@ -70,7 +71,8 @@ class BackupSignatureTest {
         // The attacker saw one backup: they have the bundle (public) but not the passphrase. Their archive opens with
         // the user's passphrase, but their own key can't carry an endorsement by the user's bundle.
         val attacker = object : ArchiveSigner by Phone(null, null) {
-            override val endorsement: ByteArray = ArchiveSignatures.endorse(BackupCrypto.unlockPrivateKey(OTHER_BUNDLE, "someone else entirely".toCharArray()), publicKey)
+            override val endorsement: ByteArray =
+                ArchiveSignatures.endorse(BackupCrypto.unlockPrivateKey(OTHER_BUNDLE, "someone else entirely".toCharArray()), publicKey)
         }
         val forged = archive(BUNDLE, attacker)
         assertEquals(ArchiveOrigin.UNKNOWN_SIGNER, origin(forged, Unlock.Passphrase(PASS), Phone(null, null).publicKey))
@@ -128,7 +130,10 @@ class BackupSignatureTest {
     }
 
     @Test fun attacker_chosen_kdf_costs_are_refused_before_deriving() {
-        for ((alg, param) in listOf(1 to 10_000_000, 2 to KdfParams.Scrypt(20, 8, 1).param, 2 to KdfParams.Scrypt(16, 16, 1).param, 2 to KdfParams.Scrypt(12, 8, 64).param, 9 to 1)) {
+        val crafted = listOf(
+            1 to 10_000_000, 2 to KdfParams.Scrypt(20, 8, 1).param, 2 to KdfParams.Scrypt(16, 16, 1).param, 2 to KdfParams.Scrypt(12, 8, 64).param, 9 to 1,
+        )
+        for ((alg, param) in crafted) {
             try {
                 BackupCrypto.readHeader(ByteArrayInputStream(craftedHeader(alg, param)))
                 fail("accepted $alg/$param")

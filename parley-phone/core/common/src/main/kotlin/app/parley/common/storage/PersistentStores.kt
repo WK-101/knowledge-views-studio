@@ -142,6 +142,8 @@ object PersistentStores {
         PersistentStore("parley_migrations", StoreKind.PREFS, local("Which one-time data migrations ran here")),
         PersistentStore("vault", StoreKind.PREFS, local("Private-contact fingerprint migration state")),
         PersistentStore("backup", StoreKind.PREFS, StorePolicy.Secret("The backup keys and the backup folder of this phone")),
+        PersistentStore("vault_keys", StoreKind.PREFS, local("Which vault key generations this phone has used")),
+        PersistentStore("record_sealing", StoreKind.PREFS, local("Whether older notes were sealed on this phone")),
         // ---- files
         PersistentStore("timemachine", StoreKind.FILES, local("Contact history of this phone, kept 180 days"), location = PersistentStore.FILES),
         PersistentStore("vault_photos", StoreKind.FILES, StorePolicy.BackedUpWithVault, Sections.VAULT, PersistentStore.FILES),
@@ -152,6 +154,8 @@ object PersistentStores {
         PersistentStore("folder_sync_state.json", StoreKind.FILES, local("Sync bookkeeping for a folder picked here"), location = PersistentStore.FILES),
         PersistentStore("lists", StoreKind.FILES, backedUp, Sections.SPAM_LISTS, PersistentStore.DEVICE_PROTECTED_FILES),
         PersistentStore("history.keys", StoreKind.FILES, StorePolicy.Secret("Wrapped call-history key"), location = PersistentStore.NO_BACKUP_FILES),
+        PersistentStore("records.keys", StoreKind.FILES, StorePolicy.Secret("Wrapped small-records key"), location = PersistentStore.NO_BACKUP_FILES),
+        PersistentStore("vault-unreadable", StoreKind.FILES, StorePolicy.Secret("Unreadable private details"), location = PersistentStore.NO_BACKUP_FILES),
         // ---- Keystore
         PersistentStore("AndroidKeyStore", StoreKind.KEYSTORE, StorePolicy.Secret("Hardware-backed keys never leave the phone")),
     )

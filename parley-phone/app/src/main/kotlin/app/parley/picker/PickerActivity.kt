@@ -91,16 +91,7 @@ class PickerActivity : LockedActivity() {
                     LockScreen { AppLock.authenticate(this@PickerActivity) }
                     return@ParleyTheme
                 }
-                joinConfirm?.let { other ->
-                    ConfirmDialog(
-                        title = stringResource(R.string.picker_join_title),
-                        text = stringResource(R.string.picker_join_text, callerLabel(), joinTargetName.orEmpty(), other.title),
-                        confirmLabel = stringResource(R.string.picker_join_confirm),
-                        onConfirm = { joinConfirm = null; if (joinTarget != null) join(joinTarget, listOf(other)) },
-                        onDismiss = { joinConfirm = null },
-                        dismissLabel = stringResource(R.string.dc_cancel),
-                    )
-                }
+                if (joinTarget != null) JoinConfirm(joinTarget)
                 oneField?.let { (pick, phones) ->
                     OneFieldDialog(pick, phones, onWhole = { oneField = null; deliver(listOf(pick), ask = false) }, onNumber = { uri ->
                         oneField = null
@@ -111,7 +102,7 @@ class PickerActivity : LockedActivity() {
                     PickerScreen(
                         kind = if (joinTarget != null) PickKind.CONTACT else kind,
                         multiple = multiple && joinTarget == null,
-                        title = if (joinTarget != null) joinTargetName?.let { getString(R.string.picker_link_name_with, it) } ?: getString(R.string.picker_link_with) else null,
+                        title = joinTarget?.let { joinTitle() },
                         excludeContactId = joinTarget,
                         onCancel = { setResult(Activity.RESULT_CANCELED); finish() },
                         onPicked = { picks -> if (joinTarget != null) joinConfirm = picks.firstOrNull() else deliver(picks) },
@@ -121,13 +112,30 @@ class PickerActivity : LockedActivity() {
         }
     }
 
+    /** "Link these contacts?", naming the asking app and both contacts, before another app's join goes ahead. */
+    @Composable
+    private fun JoinConfirm(target: Long) {
+        val other = joinConfirm ?: return
+        ConfirmDialog(
+            title = stringResource(R.string.picker_join_title),
+            text = stringResource(R.string.picker_join_text, callerLabel(), joinTargetName.orEmpty(), other.title),
+            confirmLabel = stringResource(R.string.picker_join_confirm),
+            onConfirm = { joinConfirm = null; join(target, listOf(other)) },
+            onDismiss = { joinConfirm = null },
+            dismissLabel = stringResource(R.string.dc_cancel),
+        )
+    }
+
     private var joinTargetName by mutableStateOf<String?>(null)
     private var joinConfirm by mutableStateOf<Pick?>(null)
 
     private fun nameOf(contactId: Long): String? = runCatching {
-        contentResolver.query(ContentUris.withAppendedId(ContactsContract.Contacts.CONTENT_URI, contactId), arrayOf(ContactsContract.Contacts.DISPLAY_NAME), null, null, null)
+        val uri = ContentUris.withAppendedId(ContactsContract.Contacts.CONTENT_URI, contactId)
+        contentResolver.query(uri, arrayOf(ContactsContract.Contacts.DISPLAY_NAME), null, null, null)
             ?.use { c -> if (c.moveToFirst()) c.getString(0) else null }
     }.getOrNull()
+
+    private fun joinTitle(): String = joinTargetName?.let { getString(R.string.picker_link_name_with, it) } ?: getString(R.string.picker_link_with)
 
     /** The app that asked, by its label (the package name when it has none). */
     private fun callerLabel(): String {

@@ -48,7 +48,8 @@ class ScryptTest {
         )
     }
 
-    @Test(expected = IllegalArgumentException::class) fun rejects_n_that_is_not_a_power_of_two() {
+    @Test(expected = IllegalArgumentException::class)
+    fun rejects_n_that_is_not_a_power_of_two() {
         Scrypt.derive(ByteArray(1), ByteArray(1), 1000, 8, 1, 32)
     }
 }

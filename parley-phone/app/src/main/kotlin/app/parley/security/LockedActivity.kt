@@ -8,7 +8,7 @@ import android.os.Build
 import android.view.View
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.ui.platform.LocalContext
+import androidx.activity.compose.LocalActivity
 import androidx.compose.ui.platform.LocalView
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.lifecycleScope
@@ -113,7 +113,7 @@ object OverlayGuard {
  */
 @Composable
 fun SensitiveScreen() {
-    val activity = LocalContext.current as? Activity ?: return
+    val activity = LocalActivity.current ?: return
     val view: View = LocalView.current
     DisposableEffect(activity, view) {
         OverlayGuard.acquire(activity)

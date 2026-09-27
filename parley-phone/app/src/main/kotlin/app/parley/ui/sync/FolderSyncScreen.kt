@@ -50,6 +50,7 @@ import app.parley.ui.backup.PassField
 import app.parley.common.security.PassphraseStrength
 import app.parley.data.sync.FolderSync
 import app.parley.data.sync.SyncMode
+import app.parley.data.sync.SyncStatus
 import androidx.compose.foundation.layout.Row
 import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.Lock
@@ -124,66 +125,85 @@ fun FolderSyncScreen(vm: AppViewModel, back: () -> Unit) {
                     leadingContent = { Icon(Icons.Rounded.Sync, null) },
                 )
                 if (st.folderUri != null) SyncModeRows(st.mode, onEncrypted = ::chooseEncrypted, onPlain = { askPlain = true })
-                if (st.pendingDeletions > 0 && !running) {
-                    OutlinedButton({ run(allowMassDelete = true) }, Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) { Text(pluralStringResource(R.plurals.sync_apply_deletions, st.pendingDeletions, st.pendingDeletions)) }
-                }
-                Button({ run() }, enabled = st.folderUri != null && st.mode != SyncMode.UNSET && !running, modifier = Modifier.padding(horizontal = 16.dp)) { Text(stringResource(R.string.sync_now)) }
-                if (running) LinearProgressIndicator(Modifier.fillMaxWidth().padding(16.dp))
-                if (st.folderUri != null) TextButton({ sync.setFolder(null, null); FolderSyncWorker.schedule(context, false) }, Modifier.padding(horizontal = 8.dp)) { Text(stringResource(R.string.sync_stop)) }
+                SyncActions(st, running, onRun = ::run, onStop = { sync.setFolder(null, null); FolderSyncWorker.schedule(context, false) })
             }
             // One-way Markdown notes, to a folder of their own.
             item { MarkdownExportSection(vm) }
         }
     }
 
-    askPass?.let { existing ->
-        var pass by remember { mutableStateOf("") }
-        var error by remember { mutableStateOf<String?>(null) }
-        val estimate = remember(pass) { PassphraseStrength.estimate(pass) }
-        ConfirmDialog(
-            title = stringResource(if (existing) R.string.sync_pass_existing_title else R.string.sync_pass_new_title),
-            text = stringResource(if (existing) R.string.sync_pass_existing_text else R.string.sync_pass_new_text),
-            confirmLabel = stringResource(R.string.dc_ok),
-            onConfirm = {
-                scope.launch {
-                    when (sync.useEncryption(pass.toCharArray())) {
-                        FolderSync.EncryptionSetup.READY -> { askPass = null; run() }
-                        FolderSync.EncryptionSetup.WRONG_PASSPHRASE -> error = res.getString(R.string.sync_pass_wrong)
-                        FolderSync.EncryptionSetup.FAILED -> error = res.getString(R.string.sync_setup_failed)
-                    }
-                }
-            },
-            onDismiss = { askPass = null },
-            dismissLabel = stringResource(R.string.dc_cancel),
-            // A new folder key must stand up to offline guessing, like a backup passphrase.
-            confirmEnabled = if (existing) pass.isNotEmpty() else PassphraseStrength.acceptableForBackup(pass),
-            content = {
-                Column {
-                    PassField(stringResource(R.string.bkp_pass_title), pass) { pass = it; error = null }
-                    if (!existing && pass.isNotEmpty()) StrengthMeter(estimate.score, strengthName(estimate.score), modifier = Modifier.padding(top = 8.dp))
-                    error?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 8.dp)) }
-                }
-            },
-        )
+    askPass?.let { existing -> SyncPassphraseDialog(sync, existing, onReady = { askPass = null; run() }, onDismiss = { askPass = null }) }
+    if (askPlain) PlainFilesConsent(onUse = { askPlain = false; sync.usePlain(); run() }, onDismiss = { askPlain = false })
+}
+
+/** Apply paused deletions, Sync now (once a mode is chosen), progress, and Stop syncing. */
+@Composable
+private fun SyncActions(st: SyncStatus, running: Boolean, onRun: (allowMassDelete: Boolean) -> Unit, onStop: () -> Unit) {
+    if (st.pendingDeletions > 0 && !running) {
+        OutlinedButton({ onRun(true) }, Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+            Text(pluralStringResource(R.plurals.sync_apply_deletions, st.pendingDeletions, st.pendingDeletions))
+        }
     }
-    if (askPlain) {
-        var understood by remember { mutableStateOf(false) }
-        ConfirmDialog(
-            title = stringResource(R.string.sync_plain_title),
-            text = stringResource(R.string.sync_plain_text),
-            confirmLabel = stringResource(R.string.sync_plain_use),
-            onConfirm = { askPlain = false; sync.usePlain(); run() },
-            onDismiss = { askPlain = false },
-            dismissLabel = stringResource(R.string.dc_cancel),
-            confirmEnabled = understood,
-            content = {
-                Row(Modifier.fillMaxWidth().toggleable(understood, role = Role.Checkbox) { understood = it }, verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(understood, onCheckedChange = null)
-                    Text(stringResource(R.string.sync_plain_check), modifier = Modifier.padding(start = 8.dp))
+    val canSync = st.folderUri != null && st.mode != SyncMode.UNSET && !running
+    Button({ onRun(false) }, enabled = canSync, modifier = Modifier.padding(horizontal = 16.dp)) { Text(stringResource(R.string.sync_now)) }
+    if (running) LinearProgressIndicator(Modifier.fillMaxWidth().padding(16.dp))
+    if (st.folderUri != null) TextButton(onStop, Modifier.padding(horizontal = 8.dp)) { Text(stringResource(R.string.sync_stop)) }
+}
+
+/** The shared sync passphrase: the folder's existing one (checked), or a new one that must be Strong. */
+@Composable
+private fun SyncPassphraseDialog(sync: FolderSync, existing: Boolean, onReady: () -> Unit, onDismiss: () -> Unit) {
+    val res = LocalResources.current
+    val scope = rememberCoroutineScope()
+    var pass by remember { mutableStateOf("") }
+    var error by remember { mutableStateOf<String?>(null) }
+    val estimate = remember(pass) { PassphraseStrength.estimate(pass) }
+    ConfirmDialog(
+        title = stringResource(if (existing) R.string.sync_pass_existing_title else R.string.sync_pass_new_title),
+        text = stringResource(if (existing) R.string.sync_pass_existing_text else R.string.sync_pass_new_text),
+        confirmLabel = stringResource(R.string.dc_ok),
+        onConfirm = {
+            scope.launch {
+                when (sync.useEncryption(pass.toCharArray())) {
+                    FolderSync.EncryptionSetup.READY -> onReady()
+                    FolderSync.EncryptionSetup.WRONG_PASSPHRASE -> error = res.getString(R.string.sync_pass_wrong)
+                    FolderSync.EncryptionSetup.FAILED -> error = res.getString(R.string.sync_setup_failed)
                 }
-            },
-        )
-    }
+            }
+        },
+        onDismiss = onDismiss,
+        dismissLabel = stringResource(R.string.dc_cancel),
+        // A new folder key must stand up to offline guessing, like a backup passphrase.
+        confirmEnabled = if (existing) pass.isNotEmpty() else PassphraseStrength.acceptableForBackup(pass),
+        content = {
+            Column {
+                PassField(stringResource(R.string.bkp_pass_title), pass) { pass = it; error = null }
+                if (!existing && pass.isNotEmpty()) StrengthMeter(estimate.score, strengthName(estimate.score), modifier = Modifier.padding(top = 8.dp))
+                error?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 8.dp)) }
+            }
+        },
+    )
+}
+
+/** Plain vCard files only after the user ticked that anyone with the folder can read them. */
+@Composable
+private fun PlainFilesConsent(onUse: () -> Unit, onDismiss: () -> Unit) {
+    var understood by remember { mutableStateOf(false) }
+    ConfirmDialog(
+        title = stringResource(R.string.sync_plain_title),
+        text = stringResource(R.string.sync_plain_text),
+        confirmLabel = stringResource(R.string.sync_plain_use),
+        onConfirm = onUse,
+        onDismiss = onDismiss,
+        dismissLabel = stringResource(R.string.dc_cancel),
+        confirmEnabled = understood,
+        content = {
+            Row(Modifier.fillMaxWidth().toggleable(understood, role = Role.Checkbox) { understood = it }, verticalAlignment = Alignment.CenterVertically) {
+                Checkbox(understood, onCheckedChange = null)
+                Text(stringResource(R.string.sync_plain_check), modifier = Modifier.padding(start = 8.dp))
+            }
+        },
+    )
 }
 
 /** The folder's storage: a choice while unset (encrypted first), otherwise what it is, with a way to encrypt plain files. */
@@ -191,7 +211,10 @@ fun FolderSyncScreen(vm: AppViewModel, back: () -> Unit) {
 private fun SyncModeRows(mode: SyncMode, onEncrypted: () -> Unit, onPlain: () -> Unit) {
     when (mode) {
         SyncMode.UNSET -> {
-            Text(stringResource(R.string.sync_mode_title), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+            Text(
+                stringResource(R.string.sync_mode_title), style = MaterialTheme.typography.titleSmall,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            )
             ListItem(
                 modifier = Modifier.clickable(onClick = onEncrypted),
                 leadingContent = { Icon(Icons.Rounded.Lock, null, tint = MaterialTheme.colorScheme.primary) },

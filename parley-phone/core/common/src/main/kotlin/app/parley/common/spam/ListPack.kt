@@ -113,7 +113,8 @@ object ListPack {
         if (existing?.origin == PackOrigin.BUILTIN && origin != PackOrigin.BUILTIN) return "A built-in list can't be replaced by another list with the same id"
         if (existing?.fingerprint != null && origin != PackOrigin.BUILTIN) {
             val same = candidate.signature == SignatureStatus.SIGNED && sameKey(installedKey, candidate.manifest)
-            if (!same) return "This update is signed by a different key (${candidate.fingerprint ?: "unsigned"}) than the installed list (${existing.fingerprint})"
+            val got = candidate.fingerprint ?: "unsigned"
+            if (!same) return "This update is signed by a different key ($got) than the installed list (${existing.fingerprint})"
         }
         if (origin == PackOrigin.UPDATER) {
             if (candidate.signature != SignatureStatus.SIGNED) return "Lists from Parley Lists must be signed"

@@ -64,7 +64,10 @@ class VaultKeyLifecycleTest {
 
     @Test fun a_lost_key_keeps_the_sealed_details_until_the_user_decides() = runBlocking {
         val vault = VaultRepository(context, db, scope)
-        val id = vault.save(null, ContactDetails(given = "Grace", family = "Hopper", phones = listOf(DataItem(null, "+1 202 555 0100", 2)), note = "Admiral", pinnedNote = "Call after 6"))
+        val grace = ContactDetails(
+            given = "Grace", family = "Hopper", phones = listOf(DataItem(null, "+1 202 555 0100", 2)), note = "Admiral", pinnedNote = "Call after 6",
+        )
+        val id = vault.save(null, grace)
         val before = db.vaultDao().get(id)!!.detailBlob
         FakeAndroidKeyStore.delete(currentDetailAlias())
 

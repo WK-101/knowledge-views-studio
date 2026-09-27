@@ -413,7 +413,4 @@ class SpamListStore(context: Context) {
         }
         Export(b.build(shareKey()), numbers, ranges, skipped)
     }
-
-    companion object {
-    }
 }

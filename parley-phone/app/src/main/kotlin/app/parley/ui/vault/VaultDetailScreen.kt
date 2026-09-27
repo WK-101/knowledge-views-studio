@@ -266,7 +266,9 @@ fun VaultDetailScreen(vm: AppViewModel, id: Long, back: () -> Unit, open: (Strin
                         item {
                             ListItem(
                                 headlineContent = { Text(stringResource(if (lost) R.string.vault_details_lost else R.string.vault_details_unavailable)) },
-                                supportingContent = { Text(stringResource(if (lost) R.string.vault_details_lost_summary else R.string.vault_details_unavailable_summary)) },
+                                supportingContent = {
+                                    Text(stringResource(if (lost) R.string.vault_details_lost_summary else R.string.vault_details_unavailable_summary))
+                                },
                                 leadingContent = { Icon(Icons.Rounded.Warning, null, tint = MaterialTheme.colorScheme.error) },
                                 trailingContent = if (lost) {
                                     {

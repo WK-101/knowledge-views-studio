@@ -70,7 +70,9 @@ class TimeMachine(context: Context, private val records: ContactRecordStore) {
     private val store = FileBlobStore(File(root, "blobs"), RecordCrypto.get(context))
 
     /** Re-seals snapshot blobs written before sealing existed; returns how many. */
-    suspend fun resealOld(): Int = mutex.withLock { withContext(Dispatchers.IO) { store.all().count { runCatching { store.resealIfPlain(it) }.getOrDefault(false) } } }
+    suspend fun resealOld(): Int = mutex.withLock {
+        withContext(Dispatchers.IO) { store.all().count { runCatching { store.resealIfPlain(it) }.getOrDefault(false) } }
+    }
     private val indexDir = File(root, "index").apply { mkdirs() }
 
     private val mutex = Mutex()

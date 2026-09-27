@@ -18,7 +18,11 @@ import java.security.spec.ECGenParameterSpec
  * the phone may be locked, so it needs no user authentication; what it proves is "made on this phone", not "made by
  * you right now". [endorsement] is the key bundle vouching for this key (kept in [BackupPrefs]).
  */
-internal class DeviceSigner private constructor(private val key: PrivateKey, override val publicKey: ByteArray, override val endorsement: ByteArray?) : ArchiveSigner {
+internal class DeviceSigner private constructor(
+    private val key: PrivateKey,
+    override val publicKey: ByteArray,
+    override val endorsement: ByteArray?,
+) : ArchiveSigner {
     /** The same key carrying [e] as its endorsement. */
     fun endorsed(e: ByteArray?) = DeviceSigner(key, publicKey, e)
 
@@ -40,8 +44,9 @@ internal class DeviceSigner private constructor(private val key: PrivateKey, ove
                 ks.getEntry(ALIAS, null) as KeyStore.PrivateKeyEntry
             }
             DeviceSigner(entry.privateKey, entry.certificate.publicKey.encoded, null)
-        } catch (e: Exception) {
-            Log.w("DeviceSigner", "No archive signing key: ${e.javaClass.simpleName}")
+        } catch (ignored: Exception) {
+            // Any Keystore failure only means backups stay unsigned; they are never blocked by it.
+            Log.w("DeviceSigner", "No archive signing key: ${ignored.javaClass.simpleName}")
             null
         }
 

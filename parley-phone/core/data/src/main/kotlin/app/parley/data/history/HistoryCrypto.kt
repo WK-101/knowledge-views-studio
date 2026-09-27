@@ -27,7 +27,8 @@ import javax.crypto.spec.SecretKeySpec
  */
 internal class HistoryCrypto(
     context: Context,
-    fileName: String = "history.keys",
+    /** Where the wrapped key is kept (no-backup storage). */
+    private val file: File = File(context.noBackupFilesDir, "history.keys"),
     /** The Keystore alias of the wrapping key (other small-record stores use the same envelope under their own). */
     private val alias: String = ALIAS,
 ) {
@@ -37,7 +38,6 @@ internal class HistoryCrypto(
     /** The key couldn't be used right now (Keystore busy, not ready, I/O). Nothing is lost: try again later. */
     class KeyUnavailableException(cause: Throwable?) : Exception("Call-history archive key is temporarily unavailable", cause)
 
-    private val file = File(context.noBackupFilesDir, fileName)
     private val random = SecureRandom()
 
     @Volatile private var keys: Pair<SecretKeySpec, SecretKeySpec>? = null

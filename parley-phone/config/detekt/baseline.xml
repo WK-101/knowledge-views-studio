@@ -1867,9 +1867,9 @@
     <ID>ThrowingExceptionsWithoutMessageOrCause:BackupCrypto.kt$EncryptingOutputStream$IndexOutOfBoundsException()</ID>
     <ID>ThrowsCount:BackupArchive.kt$BackupArchiveReader$private fun &lt;R&gt; stream(name: String, block: (InputStream) -&gt; R): R</ID>
     <ID>ThrowsCount:BackupArchive.kt$BackupArchiveReader.Companion$fun open(source: () -&gt; InputStream, limits: ArchiveLimits = ArchiveLimits()): BackupArchiveReader</ID>
-    <ID>ThrowsCount:BackupCrypto.kt$BackupCrypto$fun readHeader(input: InputStream): EnvelopeHeader</ID>
+    <ID>ThrowsCount:BackupCrypto.kt$BackupCrypto$fun readHeader(input: InputStream, policy: KdfPolicy = KdfPolicy.BACKUP): EnvelopeHeader</ID>
     <ID>ThrowsCount:BackupCrypto.kt$BackupCrypto$internal fun splitPublicWrap(payload: ByteArray): Pair&lt;KeyBundle, ByteArray&gt;</ID>
-    <ID>ThrowsCount:BackupCrypto.kt$BackupCrypto$private fun parseBody(version: Int, body: ByteArray, headerBytes: ByteArray): EnvelopeHeader</ID>
+    <ID>ThrowsCount:BackupCrypto.kt$BackupCrypto$private fun parseBody(version: Int, body: ByteArray, headerBytes: ByteArray, policy: KdfPolicy): EnvelopeHeader</ID>
     <ID>ThrowsCount:BackupCrypto.kt$DecryptingInputStream$private fun fill(): Boolean</ID>
     <ID>ThrowsCount:BackupCrypto.kt$KeyBundle.Companion$fun fromBytes(bytes: ByteArray): KeyBundle</ID>
     <ID>ThrowsCount:CallCsvImport.kt$CallCsvImport$internal fun parseRow(r: List&lt;String&gt;, m: ColumnMapping, zone: ZoneId, dayFirst: Boolean): ImportedCall</ID>

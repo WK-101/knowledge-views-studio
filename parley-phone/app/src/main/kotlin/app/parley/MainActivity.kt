@@ -184,7 +184,8 @@ class MainActivity : LockedActivity() {
                     TemplateInbox.pending.value = data
                     vm.navigate(NavEvent.Route(BlockingRoutes.TEMPLATES))
                 }
-                data != null && SharedUris.acceptable(this, data) && isVcard(intent.type ?: contentResolver.getType(data)) -> vm.navigate(NavEvent.ImportVcf(data))
+                data != null && SharedUris.acceptable(this, data) && isVcard(intent.type ?: contentResolver.getType(data)) ->
+                    vm.navigate(NavEvent.ImportVcf(data))
                 data?.scheme == "tel" -> vm.navigate(NavEvent.Tab(StartTab.KEYPAD, dial = data.schemeSpecificPart.orEmpty()))
                 intent.type == "vnd.android.cursor.dir/calls" -> vm.navigate(NavEvent.Tab(StartTab.RECENTS))
                 intent.action == Intent.ACTION_DIAL -> vm.navigate(NavEvent.Tab(StartTab.KEYPAD, dial = ""))

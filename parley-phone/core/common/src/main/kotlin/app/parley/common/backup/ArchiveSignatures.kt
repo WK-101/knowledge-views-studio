@@ -88,7 +88,11 @@ object ArchiveSignatures {
     }
 
     fun sign(signer: ArchiveSigner, header: ByteArray, m: Manifest): ArchiveSignature =
-        ArchiveSignature(key = b64.encodeToString(signer.publicKey), endorsement = signer.endorsement?.let(b64::encodeToString), sig = b64.encodeToString(signer.sign(signedBytes(header, m))))
+        ArchiveSignature(
+            key = b64.encodeToString(signer.publicKey),
+            endorsement = signer.endorsement?.let(b64::encodeToString),
+            sig = b64.encodeToString(signer.sign(signedBytes(header, m))),
+        )
 
     /** The key bundle's private key vouches for a device's signing key (RSA-PSS). */
     fun endorse(bundlePrivateKey: PrivateKey, deviceKey: ByteArray): ByteArray = pss().run {
