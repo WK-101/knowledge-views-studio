@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
@@ -34,6 +33,7 @@ import app.parley.common.calltime.CallingConfig
 import app.parley.common.calltime.LimitRule
 import app.parley.security.AppLock
 import app.parley.security.VaultSession
+import app.parley.ui.ParleyDialog
 
 /**
  * Supervised mode: limits can only be changed after proving presence with the app lock (fingerprint,
@@ -68,7 +68,7 @@ fun LimitRuleDialog(
     var incoming by remember { mutableStateOf(rule.incoming) }
     var outgoing by remember { mutableStateOf(rule.outgoing) }
     fun minutes(s: String) = s.trim().toIntOrNull()?.coerceIn(0, MAX_MINUTES) ?: 0
-    AlertDialog(
+    ParleyDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
         text = {

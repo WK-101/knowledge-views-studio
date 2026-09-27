@@ -16,7 +16,6 @@ import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Verified
 import androidx.compose.material.icons.rounded.Warning
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -67,6 +66,9 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import app.parley.ui.ParleyTopBar
 import app.parley.ui.ParleyScaffold
+import app.parley.ui.ParleyDialog
+import app.parley.ui.ConfirmDialog
+import app.parley.ui.InfoDialog
 
 /**
  * Spam lists: add a `.parleylist` file or subscribe to a folder (Syncthing, Nextcloud,
@@ -188,10 +190,24 @@ fun SpamListsScreen(vm: AppViewModel, back: () -> Unit) {
     pending?.let { pk ->
         val m = pk.manifest
         val existing = state.packs.firstOrNull { it.id == m.id }
-        AlertDialog(
-            onDismissRequest = { pending = null; pendingDry = null },
-            title = { Text(stringResource(if (existing != null) R.string.blk_update_list_q else R.string.blk_add_list_q, m.name)) },
-            text = {
+        ConfirmDialog(
+            title = stringResource(if (existing != null) R.string.blk_update_list_q else R.string.blk_add_list_q, m.name),
+            text = null,
+            confirmLabel = stringResource(if (existing != null) R.string.blk_update else R.string.blk_add),
+            onConfirm = {
+                scope.launch {
+                    when (val r = vm.c.lists.install(pk, PackOrigin.FILE)) {
+                        is SpamListStore.InstallResult.Installed -> vm.toast(res.getString(if (r.replaced) R.string.blk_updated_toast else R.string.blk_added_toast))
+                        is SpamListStore.InstallResult.Older -> vm.toast(res.getString(R.string.blk_list_newer_version, r.installed.toString()))
+                        is SpamListStore.InstallResult.Failed -> error = BlockingText.installFailure(context, r.reason)
+                    }
+                }
+                pending = null
+                pendingDry = null
+            },
+            onDismiss = { pending = null; pendingDry = null },
+            dismissLabel = stringResource(R.string.set_cancel),
+            content = {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     val count = pk.numbers.size / 10
                     Text(
@@ -221,28 +237,14 @@ fun SpamListsScreen(vm: AppViewModel, back: () -> Unit) {
                     Text(stringResource(R.string.blk_new_lists_warn), style = MaterialTheme.typography.bodySmall)
                 }
             },
-            confirmButton = {
-                TextButton({
-                    scope.launch {
-                        when (val r = vm.c.lists.install(pk, PackOrigin.FILE)) {
-                            is SpamListStore.InstallResult.Installed -> vm.toast(res.getString(if (r.replaced) R.string.blk_updated_toast else R.string.blk_added_toast))
-                            is SpamListStore.InstallResult.Older -> vm.toast(res.getString(R.string.blk_list_newer_version, r.installed.toString()))
-                            is SpamListStore.InstallResult.Failed -> error = BlockingText.installFailure(context, r.reason)
-                        }
-                    }
-                    pending = null
-                    pendingDry = null
-                }) { Text(stringResource(if (existing != null) R.string.blk_update else R.string.blk_add)) }
-            },
-            dismissButton = { TextButton({ pending = null; pendingDry = null }) { Text(stringResource(R.string.set_cancel)) } },
         )
     }
     error?.let { e ->
-        AlertDialog(
-            onDismissRequest = { error = null },
-            title = { Text(stringResource(R.string.blk_cant_add_list)) },
-            text = { Text(e) },
-            confirmButton = { TextButton({ error = null }) { Text(stringResource(R.string.set_ok)) } },
+        InfoDialog(
+            title = stringResource(R.string.blk_cant_add_list),
+            text = e,
+            onDismiss = { error = null },
+            closeLabel = stringResource(R.string.set_ok),
         )
     }
 }
@@ -308,7 +310,7 @@ private fun PackCard(vm: AppViewModel, pk: PackState, now: Long) {
         }
     }
     if (confirmRemove) {
-        AlertDialog(
+        ParleyDialog(
             onDismissRequest = { confirmRemove = false },
             title = { Text(stringResource(R.string.blk_remove_list_q, name)) },
             confirmButton = {

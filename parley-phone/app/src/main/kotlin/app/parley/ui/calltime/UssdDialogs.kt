@@ -15,7 +15,6 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.SimCard
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
@@ -43,6 +42,7 @@ import app.parley.ui.settings.bidiLtr
 import app.parley.ui.settings.settingTitle
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberCoroutineScope
+import app.parley.ui.ParleyDialog
 
 /** The carrier's reply to a USSD code. Shown from the root, like the call dialogs. */
 @Composable
@@ -52,7 +52,7 @@ fun UssdDialog(vm: AppViewModel) {
     val context = LocalContext.current
     when (val s = state) {
         null -> Unit
-        is UssdState.ChooseSim -> AlertDialog(
+        is UssdState.ChooseSim -> ParleyDialog(
             onDismissRequest = vm.ussd::dismiss,
             title = { Text(stringResource(R.string.ct_ussd_send_with, bidiLtr(s.code))) },
             text = {
@@ -70,7 +70,7 @@ fun UssdDialog(vm: AppViewModel) {
             confirmButton = {},
             dismissButton = { TextButton(vm.ussd::dismiss) { Text(stringResource(R.string.set_cancel)) } },
         )
-        is UssdState.Sending -> AlertDialog(
+        is UssdState.Sending -> ParleyDialog(
             onDismissRequest = vm.ussd::dismiss,
             title = { Text(bidiLtr(s.code)) },
             text = {
@@ -82,7 +82,7 @@ fun UssdDialog(vm: AppViewModel) {
             confirmButton = {},
             dismissButton = { TextButton(vm.ussd::dismiss) { Text(stringResource(R.string.set_cancel)) } },
         )
-        is UssdState.Reply -> AlertDialog(
+        is UssdState.Reply -> ParleyDialog(
             onDismissRequest = vm.ussd::dismiss,
             title = { Text(listOfNotNull(bidiLtr(s.code), s.simLabel).joinToString(" · ")) },
             text = {
@@ -119,7 +119,7 @@ fun UssdDialog(vm: AppViewModel) {
 fun UssdHistoryDialog(vm: AppViewModel, onDismiss: () -> Unit) {
     val history by vm.c.calling.ussdHistory.collectAsStateWithLifecycle()
     val context = LocalContext.current
-    AlertDialog(
+    ParleyDialog(
         onDismissRequest = onDismiss,
         title = { Text(settingTitle("ussd")) },
         text = {

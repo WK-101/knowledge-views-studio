@@ -23,7 +23,6 @@ import androidx.compose.material.icons.rounded.QrCode2
 import androidx.compose.material.icons.rounded.QrCodeScanner
 import androidx.compose.material.icons.rounded.RemoveCircle
 import androidx.compose.material.icons.rounded.Share
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
@@ -74,6 +73,7 @@ import app.parley.R
 import app.parley.ui.DataL10n
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import app.parley.ui.ParleyDialog
 
 /** Imports the old "My details" once, so the card starts with what was typed there. */
 @Composable
@@ -264,7 +264,7 @@ internal fun MeQrDialog(card: MeCard, onDismiss: () -> Unit, onEdit: (() -> Unit
     }
     val text = MeCards.vcard(card, parts.toSet())
     val bitmap = remember(text) { qr(text, 720) }
-    AlertDialog(
+    ParleyDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.me_title)) },
         text = {

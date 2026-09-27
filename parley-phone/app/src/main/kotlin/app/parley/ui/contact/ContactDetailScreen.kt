@@ -85,7 +85,6 @@ import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material.icons.rounded.Videocam
 import androidx.compose.material.icons.rounded.Voicemail
 import androidx.compose.material.icons.rounded.Info
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -94,7 +93,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -174,6 +172,8 @@ import androidx.compose.foundation.selection.toggleable
 import app.parley.ui.ParleyTopBar
 import app.parley.ui.ParleyScaffold
 import app.parley.ui.BackButton
+import app.parley.ui.ParleyDialog
+import app.parley.ui.ConfirmDialog
 
 /**
  * A contact's page. U1: the photo and name dock into the top bar as you scroll ("last talked" shows there once
@@ -719,13 +719,14 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
         if (copyToSim) CopyToSimDialog(vm, d) { copyToSim = false }
         if (editNote) {
             var text by remember { mutableStateOf(TextFieldValue(meta?.pinnedNote.orEmpty())) }
-            AlertDialog(
-                onDismissRequest = { editNote = false },
-                title = { Text(stringResource(R.string.detail_note_title)) },
-                // The checkbox button starts a promise line.
-                text = { PromiseNoteField(text, { text = it }, placeholder = stringResource(R.string.detail_note_placeholder)) },
-                confirmButton = { TextButton({ editNote = false; page.setPinnedNote(text.text) }) { Text(stringResource(R.string.main_save)) } },
-                dismissButton = { TextButton({ editNote = false }) { Text(stringResource(R.string.main_cancel)) } },
+            ConfirmDialog(
+                title = stringResource(R.string.detail_note_title),
+                text = null,
+                confirmLabel = stringResource(R.string.main_save),
+                onConfirm = { editNote = false; page.setPinnedNote(text.text) },
+                onDismiss = { editNote = false },
+                dismissLabel = stringResource(R.string.main_cancel),
+                content = { PromiseNoteField(text, { text = it }, placeholder = stringResource(R.string.detail_note_placeholder)) },
             )
         }
         if (reachOut) RhythmDialog(vm, d, contactId, meta) { reachOut = false }
@@ -745,7 +746,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
             }
         }
         if (pinDialog) {
-            AlertDialog(
+            ParleyDialog(
                 onDismissRequest = { pinDialog = false },
                 title = { Text(stringResource(R.string.detail_add_home)) },
                 text = {
@@ -771,7 +772,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
             )
         }
         relationChoice?.let { ids ->
-            AlertDialog(
+            ParleyDialog(
                 onDismissRequest = { relationChoice = null },
                 title = { Text(stringResource(R.string.detail_which_contact)) },
                 text = {
@@ -799,16 +800,18 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
         }
         d.photoUri?.takeIf { showPhoto }?.let { PhotoViewer(it) { showPhoto = false } }
         if (confirmDelete) {
-            AlertDialog(
-                onDismissRequest = { confirmDelete = false },
-                title = { Text(stringResource(R.string.detail_delete_title, d.displayName)) },
-                text = { Text(stringResource(R.string.detail_delete_body)) },
-                confirmButton = { TextButton({ confirmDelete = false; vm.deleteContacts(listOf(contactId)); back() }) { Text(stringResource(R.string.main_delete)) } },
-                dismissButton = { TextButton({ confirmDelete = false }) { Text(stringResource(R.string.main_cancel)) } },
+            ConfirmDialog(
+                title = stringResource(R.string.detail_delete_title, d.displayName),
+                text = stringResource(R.string.detail_delete_body),
+                confirmLabel = stringResource(R.string.main_delete),
+                onConfirm = { confirmDelete = false; vm.deleteContacts(listOf(contactId)); back() },
+                onDismiss = { confirmDelete = false },
+                destructive = true,
+                dismissLabel = stringResource(R.string.main_cancel),
             )
         }
         simFor?.let { number ->
-            AlertDialog(
+            ParleyDialog(
                 onDismissRequest = { simFor = null },
                 title = { Text(stringResource(R.string.detail_sim_for, Bidi.ltr(Format.number(number, vm.countryIso)))) },
                 text = {

@@ -23,7 +23,6 @@ import androidx.compose.material.icons.rounded.ArrowDropDown
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.ContentPaste
 import androidx.compose.material.icons.rounded.DeleteOutline
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
@@ -88,6 +87,7 @@ import kotlinx.coroutines.withContext
 import app.parley.ui.ParleyTopBar
 import app.parley.ui.ParleyScaffold
 import app.parley.ui.LocalSnackbar
+import app.parley.ui.ConfirmDialog
 
 private enum class Where { CONTACTS, PRIVATE, TEMPORARY }
 
@@ -345,17 +345,17 @@ fun BulkAddScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
         }
     }
     deleteBatch?.let { b ->
-        AlertDialog(
-            onDismissRequest = { deleteBatch = null },
-            title = { Text(stringResource(R.string.bulk_delete_title)) },
-            text = { Text(pluralStringResource(R.plurals.bulk_delete_body, b.count, b.count, b.where)) },
-            confirmButton = {
-                TextButton({
-                    deleteBatch = null
-                    removeBatch(b, journal = true)
-                }) { Text(stringResource(R.string.main_delete)) }
+        ConfirmDialog(
+            title = stringResource(R.string.bulk_delete_title),
+            text = pluralStringResource(R.plurals.bulk_delete_body, b.count, b.count, b.where),
+            confirmLabel = stringResource(R.string.main_delete),
+            onConfirm = {
+                deleteBatch = null
+                removeBatch(b, journal = true)
             },
-            dismissButton = { TextButton({ deleteBatch = null }) { Text(stringResource(R.string.main_cancel)) } },
+            onDismiss = { deleteBatch = null },
+            destructive = true,
+            dismissLabel = stringResource(R.string.main_cancel),
         )
     }
 }

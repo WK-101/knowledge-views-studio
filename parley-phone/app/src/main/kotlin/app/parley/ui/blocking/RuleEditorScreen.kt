@@ -12,7 +12,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Info
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -63,6 +62,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import app.parley.ui.ParleyTopBar
 import app.parley.ui.ParleyScaffold
+import app.parley.ui.ConfirmDialog
 
 @Composable
 internal fun typeLabel(t: RuleType) = stringResource(
@@ -295,11 +295,14 @@ fun RuleEditorScreen(vm: AppViewModel, ruleId: Long, initial: BlockRule, back: (
         }
     }
     if (confirmDelete) {
-        AlertDialog(
-            onDismissRequest = { confirmDelete = false },
-            title = { Text(stringResource(R.string.blk_delete_rule_q)) },
-            confirmButton = { TextButton({ scope.launch { vm.c.blocks.deleteRule(ruleId); back() } }) { Text(stringResource(R.string.blk_delete)) } },
-            dismissButton = { TextButton({ confirmDelete = false }) { Text(stringResource(R.string.set_cancel)) } },
+        ConfirmDialog(
+            title = stringResource(R.string.blk_delete_rule_q),
+            text = null,
+            confirmLabel = stringResource(R.string.blk_delete),
+            onConfirm = { scope.launch { vm.c.blocks.deleteRule(ruleId); back() } },
+            onDismiss = { confirmDelete = false },
+            destructive = true,
+            dismissLabel = stringResource(R.string.set_cancel),
         )
     }
 }

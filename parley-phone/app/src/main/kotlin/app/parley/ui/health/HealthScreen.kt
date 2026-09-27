@@ -8,13 +8,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.HealthAndSafety
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
@@ -50,6 +48,7 @@ import app.parley.R
 import kotlinx.coroutines.withContext
 import app.parley.ui.ParleyTopBar
 import app.parley.ui.ParleyScaffold
+import app.parley.ui.ConfirmDialog
 
 private val titles = mapOf(
     HealthKind.NO_COUNTRY_CODE to R.string.health_no_country,
@@ -73,10 +72,21 @@ fun HealthScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
     LaunchedEffect(contacts, round) { issues = scanner.scan(contacts.orEmpty(), calls.orEmpty(), vm.countryIso) }
     var confirmStale by remember { mutableStateOf<List<Triple<HealthIssue, String, String>>?>(null) }
     confirmStale?.let { list ->
-        AlertDialog(
-            onDismissRequest = { confirmStale = null },
-            title = { Text(pluralStringResource(R.plurals.health_stale_confirm_title, list.size, list.size)) },
-            text = {
+        ConfirmDialog(
+            title = pluralStringResource(R.plurals.health_stale_confirm_title, list.size, list.size),
+            text = null,
+            confirmLabel = stringResource(R.string.health_delete_in_30),
+            onConfirm = {
+                confirmStale = null
+                scope.launch {
+                    list.forEach { (i, _, _) -> vm.c.temporaries.mark(i.contactId, 30, purgeHistory = false) }
+                    vm.toast(res.getQuantityString(R.plurals.health_stale_done, list.size, list.size))
+                }
+            },
+            onDismiss = { confirmStale = null },
+            destructive = true,
+            dismissLabel = stringResource(R.string.dc_cancel),
+            content = {
                 Column {
                     Text(stringResource(R.string.health_stale_confirm_text))
                     LazyColumn(Modifier.padding(top = 8.dp).heightIn(max = 320.dp)) {
@@ -87,16 +97,6 @@ fun HealthScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
                     }
                 }
             },
-            confirmButton = {
-                TextButton({
-                    confirmStale = null
-                    scope.launch {
-                        list.forEach { (i, _, _) -> vm.c.temporaries.mark(i.contactId, 30, purgeHistory = false) }
-                        vm.toast(res.getQuantityString(R.plurals.health_stale_done, list.size, list.size))
-                    }
-                }) { Text(stringResource(R.string.health_delete_in_30)) }
-            },
-            dismissButton = { TextButton({ confirmStale = null }) { Text(stringResource(R.string.dc_cancel)) } },
         )
     }
 

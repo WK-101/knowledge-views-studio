@@ -7,14 +7,12 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Delete
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -30,6 +28,7 @@ import app.parley.common.TextSearch
 import kotlinx.coroutines.launch
 import app.parley.ui.ParleyTopBar
 import app.parley.ui.ParleyScaffold
+import app.parley.ui.ConfirmDialog
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -57,10 +56,17 @@ fun SpeedDialScreen(vm: AppViewModel, back: () -> Unit) {
     editing?.let { key ->
         var q by remember { mutableStateOf("") }
         val matches = contacts.orEmpty().filter { q.length >= 2 && it.phones.isNotEmpty() && TextSearch.matches(q, it.displayName, it.phones.map { p -> p.number }) }.take(5)
-        AlertDialog(
-            onDismissRequest = { editing = null },
-            title = { Text(stringResource(R.string.set_speed_dial_key, key)) },
-            text = {
+        ConfirmDialog(
+            title = stringResource(R.string.set_speed_dial_key, key),
+            text = null,
+            confirmLabel = stringResource(R.string.set_use_number),
+            onConfirm = {
+                if (q.isNotBlank()) scope.launch { vm.c.prefs.setSpeedDial(key, q.trim(), null) }
+                editing = null
+            },
+            onDismiss = { editing = null },
+            dismissLabel = stringResource(R.string.set_cancel),
+            content = {
                 Column {
                     OutlinedTextField(q, { q = it }, label = { Text(stringResource(R.string.set_name_or_number)) }, singleLine = true)
                     matches.forEach { c ->
@@ -73,13 +79,6 @@ fun SpeedDialScreen(vm: AppViewModel, back: () -> Unit) {
                     }
                 }
             },
-            confirmButton = {
-                TextButton({
-                    if (q.isNotBlank()) scope.launch { vm.c.prefs.setSpeedDial(key, q.trim(), null) }
-                    editing = null
-                }) { Text(stringResource(R.string.set_use_number)) }
-            },
-            dismissButton = { TextButton({ editing = null }) { Text(stringResource(R.string.set_cancel)) } },
         )
     }
 }

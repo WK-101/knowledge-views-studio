@@ -1,47 +1,21 @@
 package app.parley.messaging
 
-import android.content.ClipData
-import android.content.ClipDescription
-import android.os.Build
-import android.os.PersistableBundle
-import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.text.format.DateUtils
-import android.widget.Toast
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.material.icons.rounded.MoreVert
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.IconButton
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.Public
-import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.Message
-import androidx.compose.material.icons.rounded.Badge
-import androidx.compose.material.icons.automirrored.rounded.Chat
-import androidx.compose.material.icons.rounded.Lock
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.AssistChip
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -55,25 +29,19 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.R
-import app.parley.common.MessageDrafts
-import app.parley.common.MessengerApp
-import app.parley.common.MessengerLinks
 import app.parley.common.NumberText
-import app.parley.common.PhoneNumbers
 import app.parley.container
-import app.parley.data.PhoneEnv
 import app.parley.data.messaging.MyDetails
 import app.parley.ui.Bidi
 import java.util.Locale
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import app.parley.ui.ParleyDialog
+import app.parley.ui.ConfirmDialog
 
 /**
  * Entry points for "Message or call on…". In-app screens show [ReachSheet]; code outside the app's UI (the
@@ -110,7 +78,7 @@ fun CountryPickerDialog(selected: String?, onDismiss: () -> Unit, onPick: (Strin
     val all = remember { NumberText.regions() }
     var query by rememberSaveable { mutableStateOf("") }
     val shown = remember(query) { NumberText.searchRegions(all, query) }
-    AlertDialog(
+    ParleyDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.msg_country_title)) },
         text = {
@@ -142,18 +110,21 @@ fun MyDetailsDialog(initial: MyDetails, suggestNumber: suspend () -> String?, on
     LaunchedEffect(Unit) {
         if (number.isEmpty()) suggestNumber()?.let { if (number.isEmpty()) number = it }
     }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.msg_my_details)) },
-        text = {
+    ConfirmDialog(
+        title = stringResource(R.string.msg_my_details),
+        text = null,
+        confirmLabel = stringResource(R.string.main_save),
+        onConfirm = { onSave(MyDetails(name, number)) },
+        onDismiss = onDismiss,
+        dismissLabel = stringResource(R.string.main_cancel),
+        confirmEnabled = name.isNotBlank() || number.isNotBlank(),
+        content = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(stringResource(R.string.msg_my_details_body), style = MaterialTheme.typography.bodyMedium)
                 OutlinedTextField(name, { name = it }, label = { Text(stringResource(R.string.msg_your_name)) }, singleLine = true)
                 OutlinedTextField(number, { number = it }, label = { Text(stringResource(R.string.msg_your_number)) }, singleLine = true)
             }
         },
-        confirmButton = { TextButton({ onSave(MyDetails(name, number)) }, enabled = name.isNotBlank() || number.isNotBlank()) { Text(stringResource(R.string.main_save)) } },
-        dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.main_cancel)) } },
     )
 }
 

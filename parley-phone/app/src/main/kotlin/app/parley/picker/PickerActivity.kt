@@ -2,7 +2,6 @@ package app.parley.picker
 
 import android.content.Context
 import androidx.compose.foundation.layout.Column
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -22,7 +21,6 @@ import android.provider.ContactsContract
 import android.provider.ContactsContract.CommonDataKinds.Email
 import android.provider.ContactsContract.CommonDataKinds.Phone
 import android.provider.ContactsContract.CommonDataKinds.StructuredPostal
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.getValue
@@ -39,6 +37,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import app.parley.ui.common.ProvideAppKit
+import app.parley.ui.ConfirmDialog
 
 /** What another app asked us to pick. */
 enum class PickKind(val mime: String) {
@@ -181,10 +180,14 @@ data class Pick(val contactId: Long, val uri: Uri, val title: String, val subtit
 
 @Composable
 private fun OneFieldDialog(pick: Pick, phones: List<Pair<String, Uri>>, onWhole: () -> Unit, onNumber: (Uri) -> Unit, onDismiss: () -> Unit) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.picker_share_title, pick.title)) },
-        text = {
+    ConfirmDialog(
+        title = stringResource(R.string.picker_share_title, pick.title),
+        text = null,
+        confirmLabel = stringResource(R.string.picker_whole),
+        onConfirm = onWhole,
+        onDismiss = onDismiss,
+        dismissLabel = stringResource(R.string.dc_cancel),
+        content = {
             Column {
                 Text(stringResource(R.string.picker_share_one))
                 phones.forEach { (n, uri) ->
@@ -192,7 +195,5 @@ private fun OneFieldDialog(pick: Pick, phones: List<Pair<String, Uri>>, onWhole:
                 }
             }
         },
-        confirmButton = { TextButton(onWhole) { Text(stringResource(R.string.picker_whole)) } },
-        dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dc_cancel)) } },
     )
 }

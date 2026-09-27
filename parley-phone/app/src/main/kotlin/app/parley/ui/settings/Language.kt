@@ -14,7 +14,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Language
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.RadioButton
@@ -33,6 +32,7 @@ import app.parley.R
 import app.parley.ui.AppLocale
 import java.util.Locale
 import app.parley.ui.LinkRow
+import app.parley.ui.ParleyDialog
 
 /**
  * Settings › Appearance › Language. Android 13+ opens the system's per-app language screen (the list comes from
@@ -75,7 +75,7 @@ private fun LanguagePickerDialog(current: Locale?, onDismiss: () -> Unit) {
     val context = LocalContext.current
     val options = listOf<Pair<String?, String>>(null to stringResource(R.string.lang_system)) +
         AppLocale.supported.map { it to displayName(Locale.forLanguageTag(it)) }
-    AlertDialog(
+    ParleyDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.lang_title)) },
         text = {

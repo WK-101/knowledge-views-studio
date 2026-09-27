@@ -54,7 +54,6 @@ import androidx.compose.material.icons.rounded.SimCard
 import androidx.compose.material.icons.rounded.SwapCalls
 import androidx.compose.material.icons.rounded.Verified
 import androidx.compose.material.icons.rounded.Warning
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
@@ -119,6 +118,7 @@ import app.parley.ui.keypadKey
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import app.parley.ui.ConfirmDialog
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -309,23 +309,26 @@ fun InCallScreen(
 
     noteFor?.let { id ->
         var text by remember { mutableStateOf("") }
-        AlertDialog(
-            onDismissRequest = { noteFor = null },
-            title = { Text(stringResource(R.string.incall_note_title)) },
-            text = { OutlinedTextField(text, { text = it }, minLines = 3, placeholder = { Text(stringResource(R.string.incall_note_placeholder)) }) },
-            confirmButton = { TextButton({ if (text.isNotBlank()) CallManager.saveNote(id, text.trim()); noteFor = null }) { Text(stringResource(R.string.tc_save)) } },
-            dismissButton = { TextButton({ noteFor = null }) { Text(stringResource(R.string.tc_cancel)) } },
+        ConfirmDialog(
+            title = stringResource(R.string.incall_note_title),
+            text = null,
+            confirmLabel = stringResource(R.string.tc_save),
+            onConfirm = { if (text.isNotBlank()) CallManager.saveNote(id, text.trim()); noteFor = null },
+            onDismiss = { noteFor = null },
+            dismissLabel = stringResource(R.string.tc_cancel),
+            content = { OutlinedTextField(text, { text = it }, minLines = 3, placeholder = { Text(stringResource(R.string.incall_note_placeholder)) }) },
         )
     }
 
     val postDial = primary?.postDialWait
     if (postDial != null) {
-        AlertDialog(
-            onDismissRequest = { CallManager.postDialContinue(primary.id, false) },
-            title = { Text(stringResource(R.string.incall_send_tones_title)) },
-            text = { Text(Bidi.ltr(postDial)) },
-            confirmButton = { TextButton({ CallManager.postDialContinue(primary.id, true) }) { Text(stringResource(R.string.incall_send)) } },
-            dismissButton = { TextButton({ CallManager.postDialContinue(primary.id, false) }) { Text(stringResource(R.string.tc_cancel)) } },
+        ConfirmDialog(
+            title = stringResource(R.string.incall_send_tones_title),
+            text = Bidi.ltr(postDial),
+            confirmLabel = stringResource(R.string.incall_send),
+            onConfirm = { CallManager.postDialContinue(primary.id, true) },
+            onDismiss = { CallManager.postDialContinue(primary.id, false) },
+            dismissLabel = stringResource(R.string.tc_cancel),
         )
     }
 

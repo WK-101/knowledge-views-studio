@@ -32,7 +32,6 @@ import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.RemoveCircle
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.DropdownMenu
@@ -81,6 +80,8 @@ import app.parley.common.TextSearch
 import app.parley.common.people.RelationType
 import app.parley.ui.Avatar
 import app.parley.ui.people.RelationText
+import app.parley.ui.ParleyDialog
+import app.parley.ui.ConfirmDialog
 
 // Building blocks of the redesigned contact editor.
 
@@ -294,7 +295,7 @@ internal fun RelationTypeDialog(onDismiss: () -> Unit, onPick: (RelationType?) -
     var custom by remember { mutableStateOf(false) }
     val res = LocalResources.current
     val shown = remember(query, res) { RelationText.search(res, query) }
-    AlertDialog(
+    ParleyDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.edit_relation)) },
         text = {
@@ -331,7 +332,7 @@ fun ContactChooserDialog(vm: AppViewModel, onDismiss: () -> Unit, onPick: (id: L
     val all by vm.contacts.collectAsStateWithLifecycle()
     var query by remember { mutableStateOf("") }
     val shown = remember(all, query) { all.orEmpty().filter { TextSearch.matches(query, it.displayName, it.phones.map { p -> p.number }) }.take(200) }
-    AlertDialog(
+    ParleyDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.edit_choose_contact)) },
         text = {
@@ -358,11 +359,14 @@ fun ContactChooserDialog(vm: AppViewModel, onDismiss: () -> Unit, onPick: (id: L
 @Composable
 internal fun CustomLabelDialog(initial: String?, onDismiss: () -> Unit, onDone: (String) -> Unit) {
     var text by remember { mutableStateOf(initial.orEmpty()) }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.edit_custom_label)) },
-        text = { OutlinedTextField(text, { text = it }, singleLine = true, placeholder = { Text(stringResource(R.string.edit_custom_placeholder)) }) },
-        confirmButton = { TextButton({ onDismiss(); onDone(text.trim()) }, enabled = text.isNotBlank()) { Text(stringResource(R.string.main_ok)) } },
-        dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.main_cancel)) } },
+    ConfirmDialog(
+        title = stringResource(R.string.edit_custom_label),
+        text = null,
+        confirmLabel = stringResource(R.string.main_ok),
+        onConfirm = { onDismiss(); onDone(text.trim()) },
+        onDismiss = onDismiss,
+        dismissLabel = stringResource(R.string.main_cancel),
+        confirmEnabled = text.isNotBlank(),
+        content = { OutlinedTextField(text, { text = it }, singleLine = true, placeholder = { Text(stringResource(R.string.edit_custom_placeholder)) }) },
     )
 }

@@ -10,7 +10,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.History
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -53,6 +52,7 @@ import androidx.compose.ui.res.stringResource
 import app.parley.R
 import app.parley.ui.ParleyTopBar
 import app.parley.ui.ParleyScaffold
+import app.parley.ui.ParleyDialog
 
 /** Human-readable one-liner for a stored data row. */
 fun describe(res: Resources, row: DataRow): String? {
@@ -137,7 +137,7 @@ fun VersionHistoryScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, op
         }
     }
     chosen?.record?.let { rec ->
-        AlertDialog(
+        ParleyDialog(
             onDismissRequest = { chosen = null },
             title = { Text(rec.displayName) },
             text = { Column { lines(res, rec).forEach { Text(it) } } },

@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.selection.selectable
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
@@ -27,11 +26,9 @@ import app.parley.NavEvent
 import app.parley.R
 import app.parley.AppViewModel
 import app.parley.common.KeypadLayout
-import app.parley.messaging.MyDetailsDialog
 import app.parley.ui.people.PeopleRoutes
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import app.parley.ui.LinkRow
+import app.parley.ui.ParleyDialog
 
 /** Settings › Keypad: "Keypad letters". */
 @Composable
@@ -52,7 +49,7 @@ fun KeypadLettersRow(vm: AppViewModel, icon: ImageVector? = null) {
         // Scripts found in your contacts' names, most common first.
         val suggested = remember(contacts) { KeypadLayout.suggest(contacts.orEmpty().asSequence().map { it.displayName }, minNames = 1) }
         val others = KeypadLayout.entries.filter { it !in suggested }
-        AlertDialog(
+        ParleyDialog(
             onDismissRequest = { pickLayout = false },
             title = { Text(settingTitle("keypad_letters")) },
             text = {

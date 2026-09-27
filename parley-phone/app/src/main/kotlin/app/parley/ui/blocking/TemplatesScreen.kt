@@ -21,7 +21,6 @@ import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.FileOpen
 import androidx.compose.material.icons.rounded.QrCode
 import androidx.compose.material.icons.rounded.Share
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -75,6 +74,9 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import app.parley.ui.ParleyTopBar
 import app.parley.ui.ParleyScaffold
+import app.parley.ui.ParleyDialog
+import app.parley.ui.ConfirmDialog
+import app.parley.ui.InfoDialog
 
 /**
  * Blocking › Templates (v3): curated offline rule sets that install and uninstall as a group, each previewed
@@ -182,10 +184,17 @@ fun TemplatesScreen(vm: AppViewModel, back: () -> Unit) {
 
     incoming?.let { op ->
         val t = op.template
-        AlertDialog(
-            onDismissRequest = { incoming = null },
-            title = { Text(stringResource(R.string.blk_tpl_incoming_title, t.name)) },
-            text = {
+        ConfirmDialog(
+            title = stringResource(R.string.blk_tpl_incoming_title, t.name),
+            text = null,
+            confirmLabel = stringResource(R.string.blk_tpl_add),
+            onConfirm = {
+                scope.launch { vm.toast(gallery.import(op)) }
+                incoming = null
+            },
+            onDismiss = { incoming = null },
+            dismissLabel = stringResource(R.string.set_cancel),
+            content = {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     val mine = op.fingerprint == remember { vm.c.lists.shareFingerprint() }
                     Text(stringResource(if (mine) R.string.blk_tpl_signed_by_you else R.string.blk_tpl_signed_by, op.fingerprint), fontWeight = FontWeight.Medium)
@@ -196,21 +205,14 @@ fun TemplatesScreen(vm: AppViewModel, back: () -> Unit) {
                     if (lines.size > 12) Text(pluralStringResource(R.plurals.set_and_more, lines.size - 12, lines.size - 12), style = MaterialTheme.typography.bodySmall)
                 }
             },
-            confirmButton = {
-                TextButton({
-                    scope.launch { vm.toast(gallery.import(op)) }
-                    incoming = null
-                }) { Text(stringResource(R.string.blk_tpl_add)) }
-            },
-            dismissButton = { TextButton({ incoming = null }) { Text(stringResource(R.string.set_cancel)) } },
         )
     }
     error?.let { e ->
-        AlertDialog(
-            onDismissRequest = { error = null },
-            title = { Text(stringResource(R.string.blk_tpl_cant_open)) },
-            text = { Text(e) },
-            confirmButton = { TextButton({ error = null }) { Text(stringResource(R.string.set_ok)) } },
+        InfoDialog(
+            title = stringResource(R.string.blk_tpl_cant_open),
+            text = e,
+            onDismiss = { error = null },
+            closeLabel = stringResource(R.string.set_ok),
         )
     }
     qrFor?.let { t -> TemplateQrDialog(vm, t) { qrFor = null } }
@@ -303,7 +305,7 @@ private fun TemplateQrDialog(vm: AppViewModel, t: RuleTemplate, onDismiss: () ->
             if (RuleTemplates.fitsInQr(link)) SecureQr.qr(link) to true else null to false
         }
     }
-    AlertDialog(
+    ParleyDialog(
         onDismissRequest = onDismiss,
         title = { Text(TemplateText.name(LocalContext.current, t)) },
         text = {
@@ -332,7 +334,7 @@ private fun ShareMyRulesDialog(vm: AppViewModel, onDismiss: () -> Unit, onFile: 
     val template = remember(rules, name) {
         RuleTemplates.fromRules("shared.r" + (System.currentTimeMillis() / 1000), name.trim().ifBlank { defaultName }.take(120), "", rules, System.currentTimeMillis() / 1000)
     }
-    AlertDialog(
+    ParleyDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.blk_tpl_share_my_rules)) },
         text = {

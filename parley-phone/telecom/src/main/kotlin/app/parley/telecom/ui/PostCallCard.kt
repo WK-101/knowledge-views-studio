@@ -15,7 +15,6 @@ import androidx.compose.material.icons.automirrored.rounded.Chat
 import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.Flag
 import androidx.compose.material.icons.rounded.Lock
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -39,6 +38,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import app.parley.telecom.CallUi
 import app.parley.telecom.TelecomGraph
+import app.parley.ui.ConfirmDialog
 
 /** What the user did on the post-call card. */
 sealed interface PostCallChoice {
@@ -96,10 +96,17 @@ internal fun PostCallCard(call: CallUi, onChoice: (PostCallChoice) -> Unit) {
     }
     if (saving) {
         var name by remember { mutableStateOf(runCatching { TelecomGraph.dependencies.suggestedName(number) }.getOrDefault(number)) }
-        AlertDialog(
-            onDismissRequest = { saving = false },
-            title = { Text(stringResource(R.string.postcall_save_title)) },
-            text = {
+        ConfirmDialog(
+            title = stringResource(R.string.postcall_save_title),
+            text = null,
+            confirmLabel = stringResource(R.string.tc_save),
+            onConfirm = {
+                saving = false
+                onChoice(PostCallChoice.SavePrivately(number, name.trim().ifEmpty { number }))
+            },
+            onDismiss = { saving = false },
+            dismissLabel = stringResource(R.string.tc_cancel),
+            content = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(name, { name = it }, label = { Text(stringResource(R.string.postcall_name)) }, singleLine = true)
                     Text(
@@ -108,13 +115,6 @@ internal fun PostCallCard(call: CallUi, onChoice: (PostCallChoice) -> Unit) {
                     )
                 }
             },
-            confirmButton = {
-                TextButton({
-                    saving = false
-                    onChoice(PostCallChoice.SavePrivately(number, name.trim().ifEmpty { number }))
-                }) { Text(stringResource(R.string.tc_save)) }
-            },
-            dismissButton = { TextButton({ saving = false }) { Text(stringResource(R.string.tc_cancel)) } },
         )
     }
 }

@@ -25,7 +25,6 @@ import androidx.compose.material.icons.rounded.SelectAll
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.StarOutline
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -62,6 +61,8 @@ import app.parley.ui.people.MoveToPrivateDialog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import app.parley.ui.ParleyDialog
+import app.parley.ui.ConfirmDialog
 
 /** Top bar shown while contacts are selected: bulk actions. */
 @Composable
@@ -152,25 +153,25 @@ fun SelectionBar(vm: AppViewModel) {
         MoveToPrivateDialog(vm, chosen.map { it.id }, onDismiss = { confirmPrivate = false }) { vm.selection.value = emptySet() }
     }
     if (confirmDelete) {
-        AlertDialog(
-            onDismissRequest = { confirmDelete = false },
-            title = { Text(pluralStringResource(R.plurals.sel_delete_title, chosen.size, chosen.size)) },
-            text = { Text(stringResource(R.string.sel_delete_body)) },
-            confirmButton = {
-                TextButton({
-                    confirmDelete = false
-                    val ids = chosen.map { it.id }
-                    backupFirst.ask(ids.size, BackupNudge.LARGE_DELETE) {
-                        vm.deleteContacts(ids)
-                        vm.selection.value = emptySet()
-                    }
-                }) { Text(stringResource(R.string.main_delete)) }
+        ConfirmDialog(
+            title = pluralStringResource(R.plurals.sel_delete_title, chosen.size, chosen.size),
+            text = stringResource(R.string.sel_delete_body),
+            confirmLabel = stringResource(R.string.main_delete),
+            onConfirm = {
+                confirmDelete = false
+                val ids = chosen.map { it.id }
+                backupFirst.ask(ids.size, BackupNudge.LARGE_DELETE) {
+                    vm.deleteContacts(ids)
+                    vm.selection.value = emptySet()
+                }
             },
-            dismissButton = { TextButton({ confirmDelete = false }) { Text(stringResource(R.string.main_cancel)) } },
+            onDismiss = { confirmDelete = false },
+            destructive = true,
+            dismissLabel = stringResource(R.string.main_cancel),
         )
     }
     labelPicker?.let { groups ->
-        AlertDialog(
+        ParleyDialog(
             onDismissRequest = { labelPicker = null },
             title = { Text(stringResource(R.string.sel_add_to_label)) },
             text = {

@@ -22,7 +22,6 @@ import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.LockOpen
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Timer
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -91,6 +90,8 @@ import app.parley.ui.DataL10n
 import app.parley.ui.ParleyTopBar
 import app.parley.ui.ParleyScaffold
 import app.parley.ui.BackButton
+import app.parley.ui.ParleyDialog
+import app.parley.ui.ConfirmDialog
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -322,12 +323,14 @@ fun VaultDetailScreen(vm: AppViewModel, id: Long, back: () -> Unit, open: (Strin
     webLink?.let { l -> ConfirmWebLink(l) { webLink = null } }
     if (shareQr) details?.let { SecureQrDialog(it) { shareQr = false } }
     if (confirmDelete) {
-        AlertDialog(
-            onDismissRequest = { confirmDelete = false },
-            title = { Text(stringResource(R.string.vault_delete_title)) },
-            text = { Text(stringResource(R.string.vault_delete_text)) },
-            confirmButton = { TextButton({ confirmDelete = false; scope.launch { vm.c.vault.delete(id); back() } }) { Text(stringResource(R.string.dc_delete)) } },
-            dismissButton = { TextButton({ confirmDelete = false }) { Text(stringResource(R.string.dc_cancel)) } },
+        ConfirmDialog(
+            title = stringResource(R.string.vault_delete_title),
+            text = stringResource(R.string.vault_delete_text),
+            confirmLabel = stringResource(R.string.dc_delete),
+            onConfirm = { confirmDelete = false; scope.launch { vm.c.vault.delete(id); back() } },
+            onDismiss = { confirmDelete = false },
+            destructive = true,
+            dismissLabel = stringResource(R.string.dc_cancel),
         )
     }
     if (expiry) {
@@ -341,7 +344,7 @@ fun VaultDetailScreen(vm: AppViewModel, id: Long, back: () -> Unit, open: (Strin
 /** "Delete after…" choice used for temporary contacts and vault entries. */
 @Composable
 fun ExpiryDialog(onDismiss: () -> Unit, onPick: (Int?) -> Unit) {
-    AlertDialog(
+    ParleyDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.vault_expiry_title)) },
         text = {

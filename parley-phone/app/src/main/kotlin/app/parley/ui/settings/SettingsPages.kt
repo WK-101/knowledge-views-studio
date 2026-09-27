@@ -64,7 +64,6 @@ import androidx.compose.material.icons.rounded.Science
 import androidx.compose.material.icons.rounded.SettingsPhone
 import androidx.compose.material.icons.rounded.SimCard
 import androidx.compose.material.icons.rounded.SimCardDownload
-import androidx.compose.material.icons.rounded.QrCodeScanner
 import androidx.compose.material.icons.rounded.SortByAlpha
 import androidx.compose.material.icons.rounded.Sync
 import androidx.compose.material.icons.rounded.Timer
@@ -82,7 +81,6 @@ import androidx.compose.material.icons.rounded.Style
 import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.AccountCircle
 import androidx.compose.material.icons.automirrored.rounded.CallSplit
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
@@ -171,6 +169,7 @@ import app.parley.ui.LinkRow
 import app.parley.ui.InfoRow
 import app.parley.ui.rowColors
 import app.parley.ui.SwitchRow
+import app.parley.ui.ParleyDialog
 
 /** Saves a settings change. */
 @Composable
@@ -483,7 +482,7 @@ internal fun ContactsPage(vm: AppViewModel, open: (String) -> Unit) {
     }
 
     importAccounts?.let { (uri, accs) ->
-        AlertDialog(
+        ParleyDialog(
             onDismissRequest = { importAccounts = null },
             title = { Text(stringResource(R.string.set_import_into)) },
             text = {

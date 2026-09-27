@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
@@ -43,6 +42,7 @@ import app.parley.ui.LinkRow
 import app.parley.ui.settings.settingSummary
 import app.parley.ui.settings.settingTitle
 import kotlinx.coroutines.launch
+import app.parley.ui.ParleyDialog
 
 /** Settings › Recents & history › Clear call history. */
 @Composable
@@ -102,7 +102,7 @@ fun ClearHistoryDialog(vm: AppViewModel, shown: List<CallEntry>?, open: (String)
     fun selected() = ClearHistory.select(all.orEmpty(), picked, isKnown, shownIds, isPrivate, contactsReady)
     val count = if (step == ClearStep.SCOPE) counts[picked] ?: 0 else chosen.size
 
-    AlertDialog(
+    ParleyDialog(
         onDismissRequest = { if (!busy) onDismiss() },
         title = {
             Text(

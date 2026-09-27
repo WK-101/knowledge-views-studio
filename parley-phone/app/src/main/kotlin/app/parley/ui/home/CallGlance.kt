@@ -1,7 +1,6 @@
 package app.parley.ui.home
 
 import androidx.annotation.StringRes
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -16,7 +15,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.HelpOutline
 import androidx.compose.material.icons.rounded.Call
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledTonalButton
@@ -52,6 +50,7 @@ import app.parley.ui.CallClassBadge
 import app.parley.ui.CallDurationBar
 import app.parley.ui.CallTypeColors
 import kotlinx.coroutines.flow.MutableStateFlow
+import app.parley.ui.ParleyDialog
 
 /** Rich or Simple call rows, from Settings › Recents style (provided by ParleyRoot). */
 val LocalRecentsStyle = staticCompositionLocalOf { RecentsStyle.RICH }
@@ -185,7 +184,7 @@ fun RecentsLegendMenuItem(closeMenu: () -> Unit) {
 fun RecentsLegendHost() {
     val shown by legendRequested.collectAsStateWithLifecycle()
     if (!shown) return
-    AlertDialog(
+    ParleyDialog(
         onDismissRequest = { legendRequested.value = false },
         title = { Text(stringResource(R.string.recents_legend_title)) },
         text = {

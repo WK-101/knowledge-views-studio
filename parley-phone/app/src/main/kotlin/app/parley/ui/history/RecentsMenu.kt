@@ -8,7 +8,6 @@ import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ViewList
 import androidx.compose.material.icons.rounded.DeleteSweep
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
@@ -34,6 +33,7 @@ import app.parley.ui.home.RecentsViewModel
 import app.parley.ui.settings.settingTitle
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
+import app.parley.ui.ParleyDialog
 
 // ---------------------------------------------------------------- Call-list layout
 
@@ -94,7 +94,7 @@ private fun RecentsLayoutDialog(vm: AppViewModel, onDismiss: () -> Unit) {
         stringResource(R.string.recents_layout_by_day_hint),
     )
     val scope = rememberCoroutineScope()
-    AlertDialog(
+    ParleyDialog(
         onDismissRequest = onDismiss,
         title = { Text(settingTitle("recents_layout")) },
         text = {

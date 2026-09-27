@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.FileOpen
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.DropdownMenu
@@ -53,6 +52,7 @@ import androidx.compose.foundation.selection.toggleable
 import androidx.compose.ui.semantics.Role
 import app.parley.ui.ParleyTopBar
 import app.parley.ui.ParleyScaffold
+import app.parley.ui.ParleyDialog
 
 /** Import call history from a CSV (Parley, Logger or any spreadsheet) with a dry run first. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -186,7 +186,7 @@ fun ImportCallsScreen(vm: AppViewModel, back: () -> Unit) {
         }
     }
     report?.let { r ->
-        AlertDialog(
+        ParleyDialog(
             onDismissRequest = { report = null },
             title = { Text(stringResource(R.string.hist_import_finished)) },
             text = { Text(r) },

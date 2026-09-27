@@ -25,7 +25,6 @@ import androidx.compose.material.icons.rounded.RecordVoiceOver
 import androidx.compose.material.icons.rounded.RemoveCircle
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.HelpOutline
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -77,6 +76,8 @@ import app.parley.ui.SwitchRow
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import app.parley.ui.ParleyDialog
+import app.parley.ui.ConfirmDialog
 
 private val clearRow @Composable get() = ListItemDefaults.colors(containerColor = Color.Transparent)
 
@@ -204,7 +205,7 @@ private fun SimplePersonPicker(contacts: List<ContactSummary>, taken: Set<String
     var q by remember { mutableStateOf("") }
     var numbersOf by remember { mutableStateOf<ContactSummary?>(null) }
     val shown = remember(q, contacts) { contacts.filter { c -> c.phones.any { SimpleSetup.dialable(it.number) != null } && TextSearch.matches(q, c.displayName, c.phones.map { p -> p.number }) }.take(200) }
-    AlertDialog(
+    ParleyDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.simple_add)) },
         text = {
@@ -229,7 +230,7 @@ private fun SimplePersonPicker(contacts: List<ContactSummary>, taken: Set<String
         confirmButton = { TextButton(onDismiss) { Text(stringResource(R.string.dc_cancel)) } },
     )
     numbersOf?.let { c ->
-        AlertDialog(
+        ParleyDialog(
             onDismissRequest = { numbersOf = null },
             title = { Text(c.displayName) },
             text = {
@@ -254,10 +255,15 @@ private fun PassphraseDialog(title: String, confirm: Boolean, onDismiss: () -> U
     var a by remember { mutableStateOf("") }
     var b by remember { mutableStateOf("") }
     val ok = if (confirm) a.length >= 8 && a == b else a.isNotEmpty()
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(title) },
-        text = {
+    ConfirmDialog(
+        title = title,
+        text = null,
+        confirmLabel = stringResource(R.string.main_ok),
+        onConfirm = { onDone(a.toCharArray()) },
+        onDismiss = onDismiss,
+        dismissLabel = stringResource(R.string.dc_cancel),
+        confirmEnabled = ok,
+        content = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(stringResource(if (confirm) R.string.simple_pass_new else R.string.simple_pass_enter))
                 OutlinedTextField(
@@ -271,8 +277,6 @@ private fun PassphraseDialog(title: String, confirm: Boolean, onDismiss: () -> U
                 )
             }
         },
-        confirmButton = { TextButton({ onDone(a.toCharArray()) }, enabled = ok) { Text(stringResource(R.string.main_ok)) } },
-        dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dc_cancel)) } },
     )
 }
 
@@ -281,7 +285,7 @@ private fun PassphraseDialog(title: String, confirm: Boolean, onDismiss: () -> U
 private fun SimpleQrDialog(cfg: SimpleConfig, onDismiss: () -> Unit) {
     val passcode = remember { SecureQr.newPasscode() }
     val bitmap by produceState<Bitmap?>(null, cfg) { value = withContext(Dispatchers.Default) { SecureQr.qr(SimpleTransfer.qrLink(cfg, passcode)) } }
-    AlertDialog(
+    ParleyDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.simple_show_qr)) },
         text = {

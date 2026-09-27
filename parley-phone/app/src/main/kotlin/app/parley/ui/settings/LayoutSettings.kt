@@ -17,7 +17,6 @@ import androidx.compose.material.icons.rounded.Dialpad
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.TouchApp
 import androidx.compose.material.icons.rounded.ViewAgenda
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
@@ -58,6 +57,7 @@ import kotlinx.coroutines.launch
 import app.parley.ui.SwitchRow
 import app.parley.ui.InfoRow
 import app.parley.ui.rowColors
+import app.parley.ui.ParleyDialog
 
 /**
  * Settings › Appearance › Layout. Both combine options with small previews, the question whether to
@@ -192,7 +192,7 @@ private fun AppSettings.homeLayout() = HomeLayout(navTabs, surfaces)
 /** Asks whether the absorbed tab also stays in the bar; dismissing changes nothing. */
 @Composable
 private fun KeepTabDialog(title: String, body: String, onDismiss: () -> Unit, onPick: (keep: Boolean) -> Unit) {
-    AlertDialog(
+    ParleyDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
         text = { Text(body) },

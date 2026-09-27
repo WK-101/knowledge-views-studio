@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.SimCard
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
@@ -31,6 +30,8 @@ import app.parley.R
 import app.parley.common.SimAccount
 import app.parley.ui.Bidi
 import app.parley.ui.history.simPlanSummary
+import app.parley.ui.ParleyDialog
+import app.parley.ui.ConfirmDialog
 
 /** Confirm-before-call and SIM chooser. Shown from the root so every screen can place calls. */
 @Composable
@@ -74,7 +75,7 @@ fun CallQuestions(
     }
 
     if (p.chooseSim) {
-        AlertDialog(
+        ParleyDialog(
             onDismissRequest = { onUpdate(null) },
             title = { Text(stringResource(R.string.call_who_with, who)) },
             text = {
@@ -99,12 +100,14 @@ fun CallQuestions(
             dismissButton = { TextButton({ onUpdate(null) }) { Text(stringResource(R.string.main_cancel)) } },
         )
     } else {
-        AlertDialog(
-            onDismissRequest = { onUpdate(null) },
-            title = { Text(stringResource(R.string.call_who_question, who)) },
-            text = p.note?.let { { Text(stringResource(R.string.call_note_anyway, it)) } },
-            confirmButton = { TextButton({ onPlace(p.number, p.simId, false, true) }) { Text(stringResource(if (p.note != null) R.string.call_anyway else R.string.main_call)) } },
-            dismissButton = { TextButton({ onUpdate(null) }) { Text(stringResource(R.string.main_cancel)) } },
+        ConfirmDialog(
+            title = stringResource(R.string.call_who_question, who),
+            text = null,
+            confirmLabel = stringResource(if (p.note != null) R.string.call_anyway else R.string.main_call),
+            onConfirm = { onPlace(p.number, p.simId, false, true) },
+            onDismiss = { onUpdate(null) },
+            dismissLabel = stringResource(R.string.main_cancel),
+            content = p.note?.let { { Text(stringResource(R.string.call_note_anyway, it)) } },
         )
     }
 }

@@ -32,7 +32,6 @@ import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Rule
 import androidx.compose.material.icons.rounded.Security
 import androidx.compose.material.icons.rounded.VerifiedUser
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -108,6 +107,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import app.parley.ui.ParleyTopBar
 import app.parley.ui.ParleyScaffold
+import app.parley.ui.ConfirmDialog
 
 /** Situations, not mechanisms: each preset says what it's for and changes a few toggles. */
 private data class Preset(@StringRes val title: Int, @StringRes val help: Int, val apply: (AppSettings) -> AppSettings)
@@ -470,22 +470,25 @@ fun BlockingScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit = 
     }
 
     presetToApply?.let { pr ->
-        AlertDialog(
-            onDismissRequest = { presetToApply = null },
-            title = { Text(stringResource(pr.title)) },
-            text = { Text(stringResource(pr.help)) },
-            confirmButton = { TextButton({ scope.launch { vm.c.settings.update(pr.apply) }; presetToApply = null }) { Text(stringResource(R.string.blk_use_this)) } },
-            dismissButton = { TextButton({ presetToApply = null }) { Text(stringResource(R.string.set_cancel)) } },
+        ConfirmDialog(
+            title = stringResource(pr.title),
+            text = stringResource(pr.help),
+            confirmLabel = stringResource(R.string.blk_use_this),
+            onConfirm = { scope.launch { vm.c.settings.update(pr.apply) }; presetToApply = null },
+            onDismiss = { presetToApply = null },
+            dismissLabel = stringResource(R.string.set_cancel),
         )
     }
     if (addNumber) {
         var n by remember { mutableStateOf("") }
-        AlertDialog(
-            onDismissRequest = { addNumber = false },
-            title = { Text(stringResource(R.string.blk_block_a_number)) },
-            text = { OutlinedTextField(n, { n = it }, label = { Text(stringResource(R.string.blk_phone_number)) }, singleLine = true, textStyle = ltrTextStyle()) },
-            confirmButton = { TextButton({ if (n.isNotBlank()) vm.blockNumber(n.trim()); addNumber = false }) { Text(stringResource(R.string.blk_block)) } },
-            dismissButton = { TextButton({ addNumber = false }) { Text(stringResource(R.string.set_cancel)) } },
+        ConfirmDialog(
+            title = stringResource(R.string.blk_block_a_number),
+            text = null,
+            confirmLabel = stringResource(R.string.blk_block),
+            onConfirm = { if (n.isNotBlank()) vm.blockNumber(n.trim()); addNumber = false },
+            onDismiss = { addNumber = false },
+            dismissLabel = stringResource(R.string.set_cancel),
+            content = { OutlinedTextField(n, { n = it }, label = { Text(stringResource(R.string.blk_phone_number)) }, singleLine = true, textStyle = ltrTextStyle()) },
         )
     }
 }

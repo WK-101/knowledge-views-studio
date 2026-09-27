@@ -1,6 +1,5 @@
 package app.parley.ui.blocking
 
-import androidx.compose.material3.AlertDialog
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.platform.LocalResources
@@ -66,6 +65,7 @@ import kotlin.math.abs
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import app.parley.ui.ConfirmDialog
 
 /*
  * Small entry points other screens drop in with one line. Each opens a dialog through [BlockingDialogs], so
@@ -159,10 +159,22 @@ fun RecentsSelectionBar(vm: AppViewModel, groups: List<RecentGroup>) {
     }
     if (confirming) {
         val res = LocalResources.current
-        AlertDialog(
-            onDismissRequest = { confirming = false },
-            title = { Text(pluralStringResource(R.plurals.blk_block_numbers_q, numbers.size, numbers.size)) },
-            text = {
+        ConfirmDialog(
+            title = pluralStringResource(R.plurals.blk_block_numbers_q, numbers.size, numbers.size),
+            text = null,
+            confirmLabel = stringResource(R.string.blk_block),
+            onConfirm = {
+                confirming = false
+                scope.launch {
+                    // Without the phone-app role the system list is unavailable: rules do the job instead.
+                    numbers.forEach { n -> if (!vm.c.blocks.blockNumber(n)) BlockingActions.blockNumberRule(vm.c, n) }
+                    vm.toast(res.getQuantityString(R.plurals.blk_blocked_numbers, numbers.size, numbers.size))
+                    recents.clearSelection()
+                }
+            },
+            onDismiss = { confirming = false },
+            dismissLabel = stringResource(R.string.set_cancel),
+            content = {
                 Column(Modifier.verticalScroll(rememberScrollState())) {
                     unknown.take(MAX_LISTED).forEach { g -> Text("• " + bidiLtrIfNumber(g.title) + if (g.title != g.number) " (${bidiLtr(g.number)})" else "") }
                     if (unknown.size > MAX_LISTED) (unknown.size - MAX_LISTED).let { Text(pluralStringResource(R.plurals.set_and_more, it, it)) }
@@ -175,18 +187,6 @@ fun RecentsSelectionBar(vm: AppViewModel, groups: List<RecentGroup>) {
                     }
                 }
             },
-            confirmButton = {
-                TextButton({
-                    confirming = false
-                    scope.launch {
-                        // Without the phone-app role the system list is unavailable: rules do the job instead.
-                        numbers.forEach { n -> if (!vm.c.blocks.blockNumber(n)) BlockingActions.blockNumberRule(vm.c, n) }
-                        vm.toast(res.getQuantityString(R.plurals.blk_blocked_numbers, numbers.size, numbers.size))
-                        recents.clearSelection()
-                    }
-                }) { Text(stringResource(R.string.blk_block)) }
-            },
-            dismissButton = { TextButton({ confirming = false }) { Text(stringResource(R.string.set_cancel)) } },
         )
     }
 }

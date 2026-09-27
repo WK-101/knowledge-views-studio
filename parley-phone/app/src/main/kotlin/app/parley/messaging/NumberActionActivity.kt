@@ -39,7 +39,6 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.material.icons.rounded.Timer
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
@@ -90,6 +89,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import app.parley.ui.common.ProvideAppKit
+import app.parley.ui.ConfirmDialog
 
 /**
  * A small sheet over the current app for a phone number found in text: "Call / Message with Parley" in text
@@ -607,10 +607,14 @@ fun TemporaryNameDialog(
     var name by rememberSaveable { mutableStateOf(suggested) }
     var visible by rememberSaveable { mutableStateOf(initialVisible) }
     val days = TemporaryContact.DEFAULT_DAYS
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(title ?: stringResource(R.string.num_save_temporary)) },
-        text = {
+    ConfirmDialog(
+        title = title ?: stringResource(R.string.num_save_temporary),
+        text = null,
+        confirmLabel = stringResource(if (visible) R.string.main_save else R.string.sqr_save_privately),
+        onConfirm = { onSave(name, visible) },
+        onDismiss = onDismiss,
+        dismissLabel = stringResource(R.string.num_not_now),
+        content = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 notice?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary) }
                 Text(pluralStringResource(if (visible) R.plurals.num_temp_visible_body else R.plurals.num_temp_private_body, days, days))
@@ -624,7 +628,5 @@ fun TemporaryNameDialog(
                 }
             }
         },
-        confirmButton = { TextButton({ onSave(name, visible) }) { Text(stringResource(if (visible) R.string.main_save else R.string.sqr_save_privately)) } },
-        dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.num_not_now)) } },
     )
 }

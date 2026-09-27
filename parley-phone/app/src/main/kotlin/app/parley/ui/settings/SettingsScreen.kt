@@ -38,7 +38,6 @@ import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material.icons.rounded.Warning
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -48,7 +47,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -113,6 +111,7 @@ import app.parley.ui.rowColors
 import app.parley.ui.ParleyTopBar
 import app.parley.ui.ParleyScaffold
 import app.parley.ui.BackButton
+import app.parley.ui.ParleyDialog
 
 val SettingsCategory.icon: ImageVector
     get() = when (this) {
@@ -357,7 +356,7 @@ fun SettingsPageScreen(vm: AppViewModel, category: SettingsCategory, focus: Stri
 @Composable
 internal fun QuickRepliesDialog(current: List<String>, onDismiss: () -> Unit, onSave: (List<String>) -> Unit) {
     val items = remember { mutableStateListOf<String>().apply { addAll(current) } }
-    AlertDialog(
+    ParleyDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.set_quick_replies_dialog)) },
         text = {
@@ -391,7 +390,7 @@ internal fun importSummary(report: ImportReport): String = buildList {
 @Composable
 internal fun ImportReportDialog(report: ImportReport, onDismiss: () -> Unit) {
     val res = LocalResources.current
-    AlertDialog(
+    ParleyDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.set_import_finished)) },
         text = {

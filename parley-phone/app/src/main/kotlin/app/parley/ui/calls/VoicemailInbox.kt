@@ -31,7 +31,6 @@ import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.Voicemail
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
@@ -45,7 +44,6 @@ import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -86,6 +84,7 @@ import app.parley.ui.avatarSize
 import app.parley.ui.common.Format
 import app.parley.ui.home.RecentsViewModel
 import kotlinx.coroutines.launch
+import app.parley.ui.ConfirmDialog
 
 /**
  * The voicemail inbox, shown in Recents under the "Voicemail" chip: every voicemail Android's voicemail store
@@ -158,18 +157,18 @@ fun VoicemailInbox(vm: AppViewModel, query: String) {
     }
 
     confirmDelete?.let { v ->
-        AlertDialog(
-            onDismissRequest = { confirmDelete = null },
-            title = { Text(stringResource(R.string.vmi_delete_title)) },
-            text = { Text(stringResource(R.string.vmi_delete_body)) },
-            confirmButton = {
-                TextButton({
-                    confirmDelete = null
-                    if (playing.id == v.id) player.stop()
-                    scope.launch { vm.toast(res.getString(if (vm.c.voicemail.delete(v)) R.string.vmi_deleted else R.string.vmi_delete_failed)) }
-                }) { Text(stringResource(R.string.main_delete)) }
+        ConfirmDialog(
+            title = stringResource(R.string.vmi_delete_title),
+            text = stringResource(R.string.vmi_delete_body),
+            confirmLabel = stringResource(R.string.main_delete),
+            onConfirm = {
+                confirmDelete = null
+                if (playing.id == v.id) player.stop()
+                scope.launch { vm.toast(res.getString(if (vm.c.voicemail.delete(v)) R.string.vmi_deleted else R.string.vmi_delete_failed)) }
             },
-            dismissButton = { TextButton({ confirmDelete = null }) { Text(stringResource(R.string.main_cancel)) } },
+            onDismiss = { confirmDelete = null },
+            destructive = true,
+            dismissLabel = stringResource(R.string.main_cancel),
         )
     }
 }

@@ -22,7 +22,6 @@ import androidx.compose.material.icons.rounded.Key
 import androidx.compose.material.icons.rounded.PhoneAndroid
 import androidx.compose.material.icons.rounded.Restore
 import androidx.compose.material.icons.rounded.Warning
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -70,6 +69,8 @@ import androidx.compose.ui.res.stringResource
 import app.parley.R
 import app.parley.ui.ParleyTopBar
 import app.parley.ui.ParleyScaffold
+import app.parley.ui.ParleyDialog
+import app.parley.ui.ConfirmDialog
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -269,7 +270,7 @@ fun BackupScreen(vm: AppViewModel, back: () -> Unit) {
         }
     }
     recovery?.let { key ->
-        AlertDialog(
+        ParleyDialog(
             onDismissRequest = {},
             title = { Text(stringResource(R.string.bkp_recovery_title)) },
             text = {
@@ -291,10 +292,15 @@ private fun PassphraseDialog(change: Boolean, onDismiss: () -> Unit, onSave: (St
     var new by remember { mutableStateOf("") }
     var confirm by remember { mutableStateOf("") }
     val ok = new.length >= 10 && new == confirm && (!change || old.isNotEmpty())
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(if (change) stringResource(R.string.bkp_change_pass_title) else stringResource(R.string.bkp_pass_title)) },
-        text = {
+    ConfirmDialog(
+        title = if (change) stringResource(R.string.bkp_change_pass_title) else stringResource(R.string.bkp_pass_title),
+        text = null,
+        confirmLabel = stringResource(R.string.dc_save),
+        onConfirm = { onSave(old.takeIf { change }, new) },
+        onDismiss = onDismiss,
+        dismissLabel = stringResource(R.string.dc_cancel),
+        confirmEnabled = ok,
+        content = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (change) PassField(stringResource(R.string.bkp_current_pass), old) { old = it }
                 PassField(stringResource(R.string.bkp_new_pass), new) { new = it }
@@ -302,8 +308,6 @@ private fun PassphraseDialog(change: Boolean, onDismiss: () -> Unit, onSave: (St
                 Text(stringResource(R.string.bkp_pass_hint), style = MaterialTheme.typography.bodySmall)
             }
         },
-        confirmButton = { TextButton({ onSave(old.takeIf { change }, new) }, enabled = ok) { Text(stringResource(R.string.dc_save)) } },
-        dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dc_cancel)) } },
     )
 }
 

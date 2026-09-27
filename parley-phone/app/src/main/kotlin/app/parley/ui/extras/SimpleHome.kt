@@ -24,7 +24,6 @@ import androidx.compose.material.icons.automirrored.rounded.Backspace
 import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Dialpad
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -72,6 +71,8 @@ import app.parley.ui.ForceLtr
 import app.parley.ui.common.CoachMarkAnchor
 import app.parley.ui.LocalSnackbar
 import app.parley.ui.ScreenSnackbarHost
+import app.parley.ui.ParleyDialog
+import app.parley.ui.ConfirmDialog
 
 /**
  * The simple home, shown instead of the tabs while simple mode is on. Big photo tiles (up to 3 × 3), each asks
@@ -152,7 +153,7 @@ fun SimpleHome(vm: AppViewModel) {
     }
 
     calling?.let { (name, number) ->
-        AlertDialog(
+        ParleyDialog(
             onDismissRequest = { calling = null },
             title = { Text(stringResource(R.string.simple_call_q, name), style = MaterialTheme.typography.headlineMedium) },
             confirmButton = {
@@ -169,22 +170,21 @@ fun SimpleHome(vm: AppViewModel) {
             dismissButton = { TextButton({ calling = null }, Modifier.height(64.dp)) { Text(stringResource(R.string.dc_cancel), fontSize = 20.sp) } },
         )
     }
-    if (askExit) AlertDialog(
-        onDismissRequest = { askExit = false },
-        title = { Text(stringResource(R.string.simple_leave_q)) },
-        text = { Text(stringResource(R.string.simple_leave_body)) },
-        confirmButton = {
-            TextButton({
-                askExit = false
-                val act = context as? FragmentActivity
-                if (settings.appLock && act != null) {
-                    AppLock.authenticate(act, res.getString(R.string.simple_leave_q)) { ok -> if (ok) vm.c.extras.updateSimple { it.copy(enabled = false) } }
-                } else {
-                    vm.c.extras.updateSimple { it.copy(enabled = false) }
-                }
-            }) { Text(stringResource(R.string.simple_leave)) }
+    if (askExit) ConfirmDialog(
+        title = stringResource(R.string.simple_leave_q),
+        text = stringResource(R.string.simple_leave_body),
+        confirmLabel = stringResource(R.string.simple_leave),
+        onConfirm = {
+            askExit = false
+            val act = context as? FragmentActivity
+            if (settings.appLock && act != null) {
+                AppLock.authenticate(act, res.getString(R.string.simple_leave_q)) { ok -> if (ok) vm.c.extras.updateSimple { it.copy(enabled = false) } }
+            } else {
+                vm.c.extras.updateSimple { it.copy(enabled = false) }
+            }
         },
-        dismissButton = { TextButton({ askExit = false }) { Text(stringResource(R.string.dc_cancel)) } },
+        onDismiss = { askExit = false },
+        dismissLabel = stringResource(R.string.dc_cancel),
     )
 }
 

@@ -7,12 +7,10 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
@@ -37,6 +35,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import kotlinx.coroutines.launch
 import java.util.Locale
+import app.parley.ui.ConfirmDialog
 
 /**
  * Handshake: a contact received by QR remembers where and when you met ("Met at the conference on 25 Sep"), as
@@ -108,16 +107,13 @@ fun MyCardQrDialog(vm: AppViewModel, onDismiss: () -> Unit) {
     val profile by produceState<MeCard?>(null) { value = runCatching { vm.c.people.me.profile() }.getOrNull() }
     val merged = MeCards.merge(own, profile)
     if (merged.isEmpty) {
-        AlertDialog(
-            onDismissRequest = onDismiss,
-            title = { Text(stringResource(R.string.me_title)) },
-            text = { Text(stringResource(R.string.handshake_no_card)) },
-            confirmButton = {
-                TextButton({ onDismiss(); vm.navigate(NavEvent.Route(PeopleRoutes.ME)) }) {
-                    Text(stringResource(R.string.handshake_make_card))
-                }
-            },
-            dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dc_cancel)) } },
+        ConfirmDialog(
+            title = stringResource(R.string.me_title),
+            text = stringResource(R.string.handshake_no_card),
+            confirmLabel = stringResource(R.string.handshake_make_card),
+            onConfirm = { onDismiss(); vm.navigate(NavEvent.Route(PeopleRoutes.ME)) },
+            onDismiss = onDismiss,
+            dismissLabel = stringResource(R.string.dc_cancel),
         )
     } else {
         MeQrDialog(merged, onDismiss = onDismiss)

@@ -14,7 +14,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -60,6 +59,8 @@ import java.io.ByteArrayOutputStream
 import java.security.SecureRandom
 import java.util.zip.GZIPInputStream
 import java.util.zip.GZIPOutputStream
+import app.parley.ui.ParleyDialog
+import app.parley.ui.ConfirmDialog
 
 /**
  * Parley-to-Parley encrypted contact QR. The QR holds `parley://qr?d=…` (AES-GCM, key from a
@@ -106,7 +107,7 @@ fun SecureQrDialog(details: ContactDetails, onDismiss: () -> Unit) {
     val bitmap by produceState<Bitmap?>(null, details) {
         value = withContext(Dispatchers.Default) { SecureQr.qr(SecureQr.encode(details, passcode)) }
     }
-    AlertDialog(
+    ParleyDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.sqr_title)) },
         text = {
@@ -135,10 +136,23 @@ fun ReceiveSecureQrDialog(vm: AppViewModel, uri: Uri, onDone: () -> Unit, openEd
     val r = result
     val res = LocalResources.current
     if (r == null) {
-        AlertDialog(
-            onDismissRequest = onDone,
-            title = { Text(stringResource(R.string.sqr_encrypted_contact)) },
-            text = {
+        ConfirmDialog(
+            title = stringResource(R.string.sqr_encrypted_contact),
+            text = null,
+            confirmLabel = stringResource(R.string.msg_open),
+            onConfirm = {
+                scope.launch {
+                    result = try {
+                        withContext(Dispatchers.Default) { SecureQr.decode(uri, code) }
+                    } catch (_: Exception) {
+                        error = res.getString(R.string.sqr_wrong_passcode)
+                        null
+                    }
+                }
+            },
+            onDismiss = onDone,
+            dismissLabel = stringResource(R.string.main_cancel),
+            content = {
                 Column {
                     Text(stringResource(R.string.sqr_enter_passcode))
                     OutlinedTextField(
@@ -149,19 +163,6 @@ fun ReceiveSecureQrDialog(vm: AppViewModel, uri: Uri, onDone: () -> Unit, openEd
                     )
                 }
             },
-            confirmButton = {
-                TextButton({
-                    scope.launch {
-                        result = try {
-                            withContext(Dispatchers.Default) { SecureQr.decode(uri, code) }
-                        } catch (_: Exception) {
-                            error = res.getString(R.string.sqr_wrong_passcode)
-                            null
-                        }
-                    }
-                }) { Text(stringResource(R.string.msg_open)) }
-            },
-            dismissButton = { TextButton(onDone) { Text(stringResource(R.string.main_cancel)) } },
         )
     } else {
         // Handshake: where you met (a MEET entry, and optionally the note), and "Swap" shows your own card.
@@ -175,7 +176,7 @@ fun ReceiveSecureQrDialog(vm: AppViewModel, uri: Uri, onDone: () -> Unit, openEd
             val line = HandshakeInbox.line(res, place, received)
             return (if (toNote) r.copy(note = Handshake.appendToNote(r.note, line)) else r) to line
         }
-        AlertDialog(
+        ParleyDialog(
             onDismissRequest = onDone,
             title = { Text(r.displayName.ifBlank { stringResource(R.string.sqr_contact) }) },
             text = {

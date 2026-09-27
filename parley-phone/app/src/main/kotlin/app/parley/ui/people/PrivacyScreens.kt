@@ -17,7 +17,6 @@ import androidx.compose.material.icons.rounded.Android
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Shield
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -67,6 +66,7 @@ import app.parley.common.people.LookupOutcome
 import app.parley.ui.settings.settingTitle
 import app.parley.ui.ParleyTopBar
 import app.parley.ui.ParleyScaffold
+import app.parley.ui.ConfirmDialog
 
 /** Honest wording from the design notes (COMPETITIVE_ANALYSIS_2 §5.4). Parley never claims to control other apps. */
 private object Wording {
@@ -323,25 +323,24 @@ fun MoveToPrivateDialog(vm: AppViewModel, ids: List<Long>, onDismiss: () -> Unit
     val context = LocalContext.current
     val res = LocalResources.current
     val scope = rememberCoroutineScope()
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(pluralStringResource(R.plurals.move_private_title, ids.size, ids.size)) },
-        text = { Text(stringResource(R.string.move_private_text)) },
-        confirmButton = {
-            TextButton({
-                onDismiss()
-                scope.launchVault(context as? FragmentActivity, { e -> vm.toast(res.getString(R.string.vault_move_failed, e.message.orEmpty())) }) {
-                    var moved = 0
-                    for (id in ids) {
-                        val d = vm.c.contacts.details(id) ?: continue
-                        vm.moveToVault(id, d)
-                        moved++
-                    }
-                    vm.toast(res.getQuantityString(R.plurals.move_private_done, moved, moved))
-                    onDone()
+    ConfirmDialog(
+        title = pluralStringResource(R.plurals.move_private_title, ids.size, ids.size),
+        text = stringResource(R.string.move_private_text),
+        confirmLabel = stringResource(R.string.move_private_move),
+        onConfirm = {
+            onDismiss()
+            scope.launchVault(context as? FragmentActivity, { e -> vm.toast(res.getString(R.string.vault_move_failed, e.message.orEmpty())) }) {
+                var moved = 0
+                for (id in ids) {
+                    val d = vm.c.contacts.details(id) ?: continue
+                    vm.moveToVault(id, d)
+                    moved++
                 }
-            }) { Text(stringResource(R.string.move_private_move)) }
+                vm.toast(res.getQuantityString(R.plurals.move_private_done, moved, moved))
+                onDone()
+            }
         },
-        dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.dc_cancel)) } },
+        onDismiss = onDismiss,
+        dismissLabel = stringResource(R.string.dc_cancel),
     )
 }

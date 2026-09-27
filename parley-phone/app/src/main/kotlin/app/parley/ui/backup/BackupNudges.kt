@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Backup
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -43,6 +42,7 @@ import app.parley.common.ux.BackupNudge
 import app.parley.data.backup.BackupState
 import app.parley.ui.Routes
 import kotlinx.coroutines.launch
+import app.parley.ui.ParleyDialog
 
 /** Backups are set up enough for a one-tap backup: a passphrase (public key) and a folder. */
 private val BackupState.ready get() = hasKeys && folderUri != null
@@ -80,7 +80,7 @@ fun rememberBackupFirst(vm: AppViewModel): BackupFirstGate {
         failed = null
         proceed()
     }
-    AlertDialog(
+    ParleyDialog(
         onDismissRequest = { if (!busy) { gate.pending = null; failed = null } },
         icon = { Icon(Icons.Rounded.Backup, null) },
         title = { Text(stringResource(R.string.ux_backup_first_title)) },

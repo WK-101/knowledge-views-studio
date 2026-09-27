@@ -13,7 +13,6 @@ import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Public
 import androidx.compose.material.icons.rounded.SimCard
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
@@ -54,6 +53,8 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import app.parley.ui.ParleyTopBar
 import app.parley.ui.ParleyScaffold
+import app.parley.ui.ParleyDialog
+import app.parley.ui.InfoDialog
 
 /**
  * Settings › Calls › Call time: talk-time reminders, hard limits and allowances per contact, label, SIM
@@ -179,7 +180,7 @@ fun CallTimeScreen(vm: AppViewModel, back: () -> Unit) {
         LimitRuleDialog(title, rule, onSave = { r -> set { it.withRule(r) } }, onDismiss = { editing = null })
     }
     if (pickLabel) {
-        AlertDialog(
+        ParleyDialog(
             onDismissRequest = { pickLabel = false },
             title = { Text(stringResource(R.string.ct_limit_label_title)) },
             text = {
@@ -204,11 +205,11 @@ fun CallTimeScreen(vm: AppViewModel, back: () -> Unit) {
         )
     }
     if (noLock) {
-        AlertDialog(
-            onDismissRequest = { noLock = false },
-            title = { Text(stringResource(R.string.ct_no_lock_title)) },
-            text = { Text(stringResource(R.string.ct_no_lock_body)) },
-            confirmButton = { TextButton({ noLock = false }) { Text(stringResource(R.string.set_ok)) } },
+        InfoDialog(
+            title = stringResource(R.string.ct_no_lock_title),
+            text = stringResource(R.string.ct_no_lock_body),
+            onDismiss = { noLock = false },
+            closeLabel = stringResource(R.string.set_ok),
         )
     }
 }

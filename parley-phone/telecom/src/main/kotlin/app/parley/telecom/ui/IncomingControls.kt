@@ -29,7 +29,6 @@ import androidx.compose.material.icons.rounded.CallEnd
 import androidx.compose.material.icons.rounded.SimCard
 import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.MoreVert
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.IconButton
@@ -71,6 +70,7 @@ import app.parley.ui.CallColors
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.roundToInt
+import app.parley.ui.ParleyDialog
 
 @Composable
 fun IncomingControls(
@@ -118,7 +118,7 @@ fun IncomingControls(
 /** "Decline this call?" (simple mode). */
 @Composable
 internal fun DeclineQuestion(onDecline: () -> Unit, onDismiss: () -> Unit) {
-    AlertDialog(
+    ParleyDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.incall_decline_q)) },
         text = { Text(stringResource(R.string.incall_decline_body)) },

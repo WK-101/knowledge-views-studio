@@ -2,7 +2,6 @@ package app.parley.ui
 
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionLayout
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
@@ -372,7 +371,7 @@ private fun ParleyRootContent(vm: AppViewModel, appSnackbar: ParleySnackbar) {
     BlockingDialogHost(vm)
 
     insertOrEdit?.let { p ->
-        AlertDialog(
+        ParleyDialog(
             onDismissRequest = { insertOrEdit = null },
             title = { Text(stringResource(R.string.save_contact_details)) },
             text = {

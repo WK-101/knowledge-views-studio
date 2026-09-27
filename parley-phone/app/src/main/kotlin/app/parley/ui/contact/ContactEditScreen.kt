@@ -72,7 +72,6 @@ import androidx.compose.material.icons.rounded.Phone
 import androidx.compose.material.icons.rounded.PhoneAndroid
 import androidx.compose.material.icons.rounded.PhoneInTalk
 import androidx.compose.material.icons.rounded.Place
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -86,7 +85,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
@@ -147,6 +145,8 @@ import app.parley.ui.screenViewModel
 import kotlinx.coroutines.launch
 import app.parley.ui.ParleyTopBar
 import app.parley.ui.ParleyScaffold
+import app.parley.ui.ParleyDialog
+import app.parley.ui.ConfirmDialog
 
 private val phoneTypes = listOf(Phone.TYPE_MOBILE, Phone.TYPE_HOME, Phone.TYPE_WORK, Phone.TYPE_MAIN, Phone.TYPE_FAX_WORK, Phone.TYPE_OTHER)
 private val emailTypes = listOf(Email.TYPE_HOME, Email.TYPE_WORK, Email.TYPE_MOBILE, Email.TYPE_OTHER)
@@ -626,7 +626,7 @@ fun ContactEditScreen(
     }
 
     if (askKeep != null) {
-        AlertDialog(
+        ParleyDialog(
             onDismissRequest = {},
             title = { Text(stringResource(R.string.edit_keep_title)) },
             text = { Text(stringResource(R.string.edit_keep_body)) },
@@ -635,12 +635,14 @@ fun ContactEditScreen(
         )
     }
     if (confirmDiscard) {
-        AlertDialog(
-            onDismissRequest = { confirmDiscard = false },
-            title = { Text(stringResource(R.string.edit_discard_title)) },
-            text = { Text(stringResource(R.string.editor_discard_body)) },
-            confirmButton = { TextButton({ confirmDiscard = false; done(null) }) { Text(stringResource(R.string.edit_discard)) } },
-            dismissButton = { TextButton({ confirmDiscard = false }) { Text(stringResource(R.string.edit_keep_editing)) } },
+        ConfirmDialog(
+            title = stringResource(R.string.edit_discard_title),
+            text = stringResource(R.string.editor_discard_body),
+            confirmLabel = stringResource(R.string.edit_discard),
+            onConfirm = { confirmDiscard = false; done(null) },
+            onDismiss = { confirmDiscard = false },
+            destructive = true,
+            dismissLabel = stringResource(R.string.edit_keep_editing),
         )
     }
 }

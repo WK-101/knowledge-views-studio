@@ -5,53 +5,16 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.Chat
-import androidx.compose.material.icons.automirrored.rounded.Message
-import androidx.compose.material.icons.rounded.Info
-import androidx.compose.material.icons.rounded.Link
-import androidx.compose.material.icons.rounded.Lock
-import androidx.compose.material.icons.rounded.Videocam
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
-import androidx.compose.material3.ListItemDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import app.parley.R
 import app.parley.common.MessengerApp
 import app.parley.common.MessengerLinks
 import app.parley.common.NumberText
 import app.parley.common.PhoneNumbers
-import app.parley.common.ReachApp
 import app.parley.common.ReachGroup
 import app.parley.common.ReachGroups
 import app.parley.common.ReachKind
@@ -67,7 +30,7 @@ import app.parley.container
 import app.parley.data.MessengerAction
 import app.parley.data.PhoneEnv
 import app.parley.messaging.MessengerLauncher
-import app.parley.ui.Bidi
+import app.parley.ui.ConfirmDialog
 
 /**
  * How to reach one person by message: their numbers, the messenger rows apps added for them (none for
@@ -187,11 +150,12 @@ object ContactMessaging {
 @Composable
 fun ConfirmWebLink(link: HandleLink, onDismiss: () -> Unit) {
     val context = LocalContext.current
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.msg_open_browser_title)) },
-        text = { Text(stringResource(R.string.msg_open_browser_body, Uri.parse(link.uri).host ?: stringResource(R.string.msg_this_link))) },
-        confirmButton = { TextButton({ onDismiss(); ContactMessaging.openHandle(context, link, confirmedWeb = true) }) { Text(stringResource(R.string.msg_open)) } },
-        dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.main_cancel)) } },
+    ConfirmDialog(
+        title = stringResource(R.string.msg_open_browser_title),
+        text = stringResource(R.string.msg_open_browser_body, Uri.parse(link.uri).host ?: stringResource(R.string.msg_this_link)),
+        confirmLabel = stringResource(R.string.msg_open),
+        onConfirm = { onDismiss(); ContactMessaging.openHandle(context, link, confirmedWeb = true) },
+        onDismiss = onDismiss,
+        dismissLabel = stringResource(R.string.main_cancel),
     )
 }
