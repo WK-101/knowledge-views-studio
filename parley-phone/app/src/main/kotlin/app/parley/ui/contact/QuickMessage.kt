@@ -13,7 +13,6 @@ import app.parley.common.ContactSummary
 import app.parley.common.people.MessageRoute
 import app.parley.common.people.MessengerPrefs
 import app.parley.data.Messengers
-import app.parley.data.db.ContactMetaEntity
 import app.parley.messaging.ReachSheet
 import app.parley.messaging.ReachTarget
 import app.parley.ui.common.Format
@@ -60,7 +59,7 @@ fun rememberQuickMessenger(vm: AppViewModel): Pair<QuickMessenger, @Composable (
         pending?.let { p ->
             val target = ReachTarget.Person(p.reach) { prefs ->
                 scope.launch {
-                    val m = vm.c.meta.meta(p.lookupKey) ?: ContactMetaEntity(p.lookupKey)
+                    val m = vm.c.meta.meta(p.lookupKey) ?: app.parley.data.db.ContactMetaEntity(p.lookupKey)
                     vm.c.meta.setMeta(m.copy(contactId = p.contactId, preferredMessenger = MessengerPrefs.decode(m.preferredMessenger).copy(message = prefs.message, number = prefs.number, call = prefs.call, video = prefs.video).encode()))
                 }
             }

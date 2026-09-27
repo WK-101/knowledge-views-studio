@@ -24,7 +24,6 @@ class CirclePart2Test {
     private fun call(type: CallType, at: Long, sec: Long = 60) = CallEntry(0, "+491701234567", null, type, at, sec, null, false, false)
     private fun t(key: String, daysAgo: Double, kind: PeopleInsights.TouchKind) = PeopleInsights.Touch(key, now - (daysAgo * day).toLong(), kind)
 
-
     @Test fun promises_are_lines_with_a_box() {
         val note = "Met at the café\n[ ] send the photos\n- [x] book the table\n  [ ]   call Mum on Sunday\n[] not a promise\n[ ]"
         val all = Promises.parse(note)
@@ -53,7 +52,6 @@ class CirclePart2Test {
         assertEquals("[ ] x" to 3, Promises.insertBox("[ ] x", 3))
         assertEquals("Hi · ☐ photos · ☑ table", Promises.preview("Hi\n\n[ ] photos\n[x] table"))
     }
-
 
     @Test fun reach_counts_people_in_touch_this_month_against_the_month_before() {
         val circle = setOf("a", "b", "c")
@@ -128,7 +126,6 @@ class CirclePart2Test {
         assertNull(PeopleInsights.touchOf("a", call(CallType.BLOCKED, now, 0)))
     }
 
-
     @Test fun good_time_needs_eight_answered_calls_and_a_clear_window() {
         val evenings = (1..8).map { call(if (it % 2 == 0) CallType.INCOMING else CallType.OUTGOING, now - it * day + 7 * hour) } // 19:00 UTC
         assertNull(GoodTime.window(evenings.take(7), zone, now))
@@ -158,7 +155,6 @@ class CirclePart2Test {
         assertFalse(GoodTime.differs(ZoneId.of("Europe/Paris"), ZoneId.of("Europe/Berlin"), now))
         assertFalse(GoodTime.differs(null, ZoneId.of("Europe/Berlin"), now))
     }
-
 
     @Test fun yearly_flags_are_keyed_by_type_label_and_day_and_merge_on_rekey() {
         val d = EventDate(2025, 10, 1)

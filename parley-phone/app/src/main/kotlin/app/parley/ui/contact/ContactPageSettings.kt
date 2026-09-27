@@ -97,7 +97,8 @@ fun ContactPageSettingsScreen(vm: AppViewModel, back: () -> Unit) {
         TextButton({ set { it.reset() } }, enabled = !layout.isDefault) { Text(stringResource(R.string.contact_page_reset)) }
     }) {
         Text(
-            stringResource(R.string.contact_page_settings_body), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            stringResource(R.string.contact_page_settings_body), style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = 32.dp),
         )
         SegmentedGroup(stringResource(R.string.contact_page_sections)) {

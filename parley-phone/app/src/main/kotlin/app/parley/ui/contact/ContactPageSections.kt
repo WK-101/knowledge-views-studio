@@ -94,7 +94,10 @@ fun FoldHeader(title: String, summary: String, folded: Boolean, onToggle: () -> 
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
             .clip(RoundedCornerShape(16.dp))
-            .clickable(role = Role.Button, onClickLabel = stringResource(if (folded) R.string.contact_page_unfold else R.string.contact_page_fold), onClick = onToggle)
+            .clickable(
+                role = Role.Button, onClickLabel = stringResource(if (folded) R.string.contact_page_unfold else R.string.contact_page_fold),
+                onClick = onToggle,
+            )
             .heightIn(min = 48.dp)
             .semantics(mergeDescendants = true) {
                 heading()

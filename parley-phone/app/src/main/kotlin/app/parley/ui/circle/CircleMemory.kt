@@ -107,7 +107,9 @@ suspend fun tickPromise(vm: AppViewModel, lookupKey: String, note: PersonNote, i
     if (!vm.c.circle.setPromiseDone(lookupKey, note, item.line, done)) return
     if (done) {
         val after = note.copy(text = Promises.setDone(note.text, item.line, true))
-        CircleSnacks.show(CircleSnack(res.getString(R.string.circle_promise_done, item.text)) { vm.c.circle.setPromiseDone(lookupKey, after, item.line, false) })
+        CircleSnacks.show(CircleSnack(res.getString(R.string.circle_promise_done, item.text)) {
+            vm.c.circle.setPromiseDone(lookupKey, after, item.line, false)
+        })
     }
 }
 

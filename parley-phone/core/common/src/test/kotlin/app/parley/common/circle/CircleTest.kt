@@ -17,7 +17,6 @@ class CircleTest {
     private val zone = ZoneOffset.UTC
     private val now = LocalDate.of(2026, 9, 25).atStartOfDay(zone).toInstant().toEpochMilli() + 12 * 3_600_000L
 
-
     @Test fun prompt_key_buckets_ten_minutes_per_channel_and_person() {
         val t = 1_000_000_000_000L - (1_000_000_000_000L % Interactions.BUCKET_MS)
         val a = Interactions.promptKey(InteractionChannel.WHATSAPP, "k1", t + 1_000)
@@ -51,7 +50,6 @@ class CircleTest {
         val last = Interactions.lastContact(now - 40 * day, (now - day) to InteractionType.VIDEO)!!.time
         assertEquals(CircleStatus.FINE, CirclePlanner.status(overdue.copy(last = last), now))
     }
-
 
     @Test fun natural_rhythm_is_median_gap_times_one_and_a_half_at_least_a_week() {
         // Every 10 days -> 15.
@@ -180,7 +178,6 @@ class CircleTest {
         assertEquals(0, bad.dateLeadDays)
     }
 
-
     @Test fun date_reminders_fire_on_the_lead_day_and_the_day_only() {
         val bday = EventDate(1990, 10, 2)
         val today = LocalDate.of(2026, 9, 25)
@@ -211,7 +208,6 @@ class CircleTest {
         assertTrue(DateReminders.has(kept, "a"))
         assertFalse(DateReminders.has(kept, "b"))
     }
-
 
     @Test fun suggestions_are_the_most_called_outside_the_circle() {
         val cands = (1..15).map { CircleSuggestions.Candidate("k$it", it, if (it % 2 == 0) it * 2 else null) } +

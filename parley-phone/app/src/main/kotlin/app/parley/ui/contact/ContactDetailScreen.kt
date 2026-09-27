@@ -444,7 +444,8 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                                     trailing = if (key == null) null else ({
                                         IconButton(::toggle) {
                                             Icon(
-                                                Icons.Rounded.EventRepeat, stringResource(if (on) R.string.circle_yearly_stop else R.string.circle_yearly_remember),
+                                                Icons.Rounded.EventRepeat,
+                                                stringResource(if (on) R.string.circle_yearly_stop else R.string.circle_yearly_remember),
                                                 tint = if (on) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                                             )
                                         }

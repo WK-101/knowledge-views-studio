@@ -61,7 +61,6 @@ import app.parley.common.people.MessengerPrefs
 import app.parley.data.AccountRef
 import app.parley.data.CallLogRepository
 import app.parley.data.ContactDetails
-import app.parley.data.db.ContactMetaEntity
 import app.parley.data.vault.VaultCallerCard
 import app.parley.data.vault.VaultCrypto
 import app.parley.messaging.ReachSheet
@@ -177,7 +176,7 @@ fun VaultDetailScreen(vm: AppViewModel, id: Long, back: () -> Unit, open: (Strin
                                     // The note for calls and the messaging choice follow them into Parley's metadata.
                                     if (d.pinnedNote.isNotBlank() || d.messengerPrefs.isNotBlank()) {
                                         vm.c.contacts.lookupKeyOf(newId)?.let { key ->
-                                            val m = vm.c.meta.meta(key) ?: ContactMetaEntity(key)
+                                            val m = vm.c.meta.meta(key) ?: app.parley.data.db.ContactMetaEntity(key)
                                             vm.c.meta.setMeta(
                                                 m.copy(
                                                     contactId = newId,

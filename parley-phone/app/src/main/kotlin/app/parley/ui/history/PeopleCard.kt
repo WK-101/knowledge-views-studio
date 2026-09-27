@@ -123,7 +123,8 @@ fun PeopleCard(vm: AppViewModel, idx: CallLogIndex, open: (String) -> Unit) {
                 val ct = contacts[l.key] ?: return@forEach
                 val line = when (l.kind) {
                     PeopleInsights.LoopKind.THEIR_CALL -> pluralStringResource(R.plurals.circle_loop_their_call, l.count, l.count, Format.shortWhen(context, l.time))
-                    PeopleInsights.LoopKind.YOUR_TRY -> pluralStringResource(R.plurals.circle_loop_your_try, l.count, l.count, Format.shortWhen(context, l.time))
+                    PeopleInsights.LoopKind.YOUR_TRY ->
+                        pluralStringResource(R.plurals.circle_loop_your_try, l.count, l.count, Format.shortWhen(context, l.time))
                 }
                 ContactLine(vm, ct, line, open)
             }

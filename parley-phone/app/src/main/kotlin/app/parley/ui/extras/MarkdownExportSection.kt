@@ -134,7 +134,10 @@ fun MarkdownExportSection(vm: AppViewModel) {
         ListItem(
             leadingContent = { Icon(Icons.Rounded.Description, null) },
             headlineContent = {
-                Text(if (st.lastAt > 0) stringResource(R.string.md_export_last, Format.shortWhen(context, st.lastAt)) else stringResource(R.string.md_export_never))
+                Text(
+                    if (st.lastAt > 0) stringResource(R.string.md_export_last, Format.shortWhen(context, st.lastAt))
+                    else stringResource(R.string.md_export_never),
+                )
             },
             supportingContent = {
                 Column {

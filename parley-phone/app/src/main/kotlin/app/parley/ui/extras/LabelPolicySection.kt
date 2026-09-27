@@ -132,7 +132,8 @@ fun LabelPolicySection(vm: AppViewModel, title: String, members: List<ContactSum
         text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
                 Text(stringResource(R.string.label_policy_sim_body), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(bottom = 8.dp))
-                (listOf<Pair<String?, String>>(null to stringResource(R.string.label_policy_sim_none)) + sims.map { it.id to it.label }).forEach { (id, label) ->
+                val choices = listOf<Pair<String?, String>>(null to stringResource(R.string.label_policy_sim_none)) + sims.map { it.id to it.label }
+                choices.forEach { (id, label) ->
                     ListItem(
                         modifier = Modifier.clickable { vm.c.extras.updatePolicy(title) { it.copy(simId = id) }; pickSim = false },
                         leadingContent = { RadioButton(p.simId == id, { vm.c.extras.updatePolicy(title) { it.copy(simId = id) }; pickSim = false }) },
@@ -148,7 +149,10 @@ fun LabelPolicySection(vm: AppViewModel, title: String, members: List<ContactSum
         title = { Text(stringResource(R.string.label_policy_rhythm)) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
-                Text(stringResource(R.string.label_policy_rhythm_body, title), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(bottom = 8.dp))
+                Text(
+                    stringResource(R.string.label_policy_rhythm_body, title), style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(bottom = 8.dp),
+                )
                 (listOf<Int?>(null) + LabelPolicies.RHYTHM_CHOICES).forEach { d ->
                     val label = d?.let { pluralStringResource(R.plurals.circle_every_days, it, it) } ?: stringResource(R.string.label_policy_rhythm_none)
                     ListItem(
@@ -179,7 +183,10 @@ fun LabelPolicySection(vm: AppViewModel, title: String, members: List<ContactSum
                         )
                     }
                 }
-                Text(stringResource(R.string.label_policy_dnd_everyone_note), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp))
+                Text(
+                    stringResource(R.string.label_policy_dnd_everyone_note), style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
             }
         },
         confirmButton = {
