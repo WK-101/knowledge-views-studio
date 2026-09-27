@@ -289,13 +289,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
      */
     private fun notWorthReturning() = combine(c.blocks.systemList, c.blocks.rules, c.blocks.verdictIndex) { system, rules, verdicts ->
         val iso = countryIso
-        // Verdicts are filed under line keys (E.164, or the digits after "~"): as numbers they match the same lines.
-        val keys = PhoneIdentity.LineSet(
-            system.map { it.number } + verdicts.filter { (_, v) -> v.blocked || v.kind == "LIKELY_SPAM" || v.kind == "REPORTED" }.keys,
-            iso,
-        )
+        // Verdicts are filed under line keys; system block-list entries are numbers.
+        val listed = PhoneIdentity.LineSet(system.map { it.number }, iso)
+        val flagged = PhoneIdentity.KeySet(verdicts.filter { (_, v) -> v.blocked || v.kind == "LIKELY_SPAM" || v.kind == "REPORTED" }.keys, iso)
         val blockRules = rules.filter { it.enabled && it.kind == RuleKind.BLOCK && it.type in numberRules }
-        val test: (String) -> Boolean = { n -> n in keys || blockRules.any { r -> CallPolicy.ruleMatches(r, n, iso) } }
+        val test: (String) -> Boolean = { n -> n in listed || n in flagged || blockRules.any { r -> CallPolicy.ruleMatches(r, n, iso) } }
         test
     }
 

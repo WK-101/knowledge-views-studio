@@ -39,7 +39,9 @@ import app.parley.R
 import app.parley.data.DataWipe
 import app.parley.security.AppLock
 import app.parley.telecom.CallManager
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 private sealed interface WipeStep {
     data object Ask : WipeStep
@@ -82,9 +84,11 @@ fun DeleteAllDataDialog(vm: AppViewModel, onDismiss: () -> Unit) {
             }
             step = WipeStep.Working(res.getString(R.string.wipe_deleting))
             val app = context.applicationContext
-            runCatching { WorkManager.getInstance(app).cancelAllWork().result.get() }
-            runCatching { app.getSystemService(NotificationManager::class.java).cancelAll() }
-            runCatching { app.getSystemService(ShortcutManager::class.java).removeAllDynamicShortcuts() }
+            withContext(Dispatchers.IO) {
+                runCatching { WorkManager.getInstance(app).cancelAllWork().result.get() }
+                runCatching { app.getSystemService(NotificationManager::class.java).cancelAll() }
+                runCatching { app.getSystemService(ShortcutManager::class.java).removeAllDynamicShortcuts() }
+            }
             vm.c.wipe.wipe(DataWipe.Options(callLog = callLog, phoneContacts = phoneContacts))
             restart(app)
         }

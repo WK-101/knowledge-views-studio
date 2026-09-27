@@ -70,9 +70,11 @@ class CallTimePlanner(private val c: DataContainer) {
         val firstDay = WeekFields.of(Locale.getDefault()).firstDayOfWeek
         val region = PhoneEnv.countryIso(c.appContext)
         val line = PhoneIdentity.LineSet(s.numbers, region)
-        fun counts(number: String?, contactKey: String?, accountId: String?): Boolean = when (rule.scope) {
+        // The ledger stores line keys, not numbers.
+        val lineKeys = s.numbers.map { PhoneIdentity.key(it, region) }.filter { it.isNotEmpty() }.toSet()
+        fun counts(number: String?, lineKey: String?, contactKey: String?, accountId: String?): Boolean = when (rule.scope) {
             LimitScope.CONTACT, LimitScope.LABEL ->
-                (contactKey != null && contactKey == s.facts.contactKey) || (!number.isNullOrBlank() && number in line)
+                (contactKey != null && contactKey == s.facts.contactKey) || (!number.isNullOrBlank() && number in line) || (lineKey != null && lineKey in lineKeys)
             LimitScope.SIM -> accountId == rule.key
             LimitScope.GLOBAL -> true
         }
@@ -90,11 +92,11 @@ class CallTimePlanner(private val c: DataContainer) {
         if (calls == null && ledger == null) return if (config.supervised) Quotas.unknownUsage(rule) else emptyList()
         val fromHistory = calls.orEmpty().asSequence()
             .filter { it.type == CallType.INCOMING || it.type == CallType.OUTGOING }
-            .filter { e -> counts(e.number, null, e.accountId) }
+            .filter { e -> counts(e.number, null, null, e.accountId) }
             .map { UsageEntry(it.date, it.durationSec, it.type == CallType.INCOMING) }
             .toList()
         val fromLedger = ledger.orEmpty()
-            .filter { u -> counts(u.lineKey, u.contactKey, u.accountId) }
+            .filter { u -> counts(null, u.lineKey, u.contactKey, u.accountId) }
             .map { UsageEntry(it.startedAt, it.durationSec, it.incoming) }
         return Quotas.status(rule, Quotas.mergeUsage(fromLedger, fromHistory), now, zone, firstDay)
     }

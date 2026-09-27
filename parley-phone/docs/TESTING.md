@@ -879,3 +879,38 @@ Companion app
 Save and backup errors
 - [ ] Edit a contact, tap Save and immediately press Back: no "Save failed" message appears.
 - [ ] A backup where one feature section fails (e.g. debugger-injected exception in Circle export): the backup completes and its message names the part left out ("Some parts couldn't be included this time (circle)…"); scheduled backups post the notification.
+
+## 19. Consolidation (3.5)
+
+### 19.1 Data model
+
+Phone-number identity and the key migration
+- [ ] Before updating (on the previous version): add a call note to a contact whose number is saved in national form ("06 12 34 56 78"), pick a SIM for that number (contact › number › SIM), and let that number ring once and hang up. Update, keep Parley open for a minute (the migration waits about 30 s after start): the note still shows on the contact page, in the timeline, in the number's history and on the incoming-call screen; the SIM choice is still used when calling; "Why it rang" still lists the ring.
+- [ ] Two contacts in different countries whose numbers end in the same 9 digits (for example +33 6 12 34 56 78 and +34 6 12 34 56 78): a call from one is named correctly in Recents, the keypad, the missed-call notification and the call screen; a note taken during the call shows only on that contact. Notes from before the update that the migration couldn't attribute keep showing on both (the old key can't tell them apart); new notes never do.
+- [ ] Settings › Messaging › Messaged numbers: entries from before F7 (no number shown) now show under the right number when that number is a contact or in the call history.
+
+One source for calls
+- [ ] With "Keep full call history" on, clear the system call log from another dialer: Recents, the Favourites tab's frequent row, the keypad's "last called" ranking, the missed-call badge, the caller's "Last call …" line on the call screen, Contact health's "not called in 2 years", "Most called" favourites sort and the blocking "Test a call" dry run all still see the archived calls.
+- [ ] Call a private (vault) contact: the private call shows in Recents (unless discreet mode) and counts towards a call-time allowance.
+
+Allowances and supervision
+- [ ] Call time › add a daily allowance for a contact (e.g. 2 min), supervised mode on. Talk for 3 minutes, then clear the call log from another dialer: calling that contact again still says the allowance is used up (the call-usage ledger counts it). Calls from before the rule existed still count from the call history, and a call is never counted twice.
+- [ ] Emergency calls are never counted and never held back by an allowance.
+
+Backup and restore (new parts)
+- [ ] Set up on phone A: a pinned note, a preferred messenger, a relation link ("Spouse: Anna" pointing to Anna), a call note, a temporary contact (7 days), a call-time rule with an allowance and "Never limit" for a favourite, the proximity / pocket-guard / re-alert switches, a saved Recents filter and plan minutes for a SIM, a spam list installed from a .parleylist file, a few blocked calls, and a private contact with calls (vault unlocked when backing up). Back up, restore on phone B (all options on, settings too): every item above is back, the temporary contact still expires on its date, the relation link opens Anna, the blocked-call log shows the old entries, the private contact shows its calls.
+- [ ] Restore the same backup a second time: nothing is duplicated (notes, blocked-log entries, private calls, spam list).
+- [ ] On phone B turn supervised call time on, then restore: the report says the backup's limits weren't applied and offers "Apply the backup's limits"; it asks for the app lock and only then replaces them. Closing the dialog leaves the current limits untouched.
+- [ ] A scheduled backup run right after a reboot (before opening Parley) contains the block rules (restore it with "Blocking" only: the rules come back) and warns about private contacts left out when the vault is locked.
+
+Delete all Parley data
+- [ ] Settings › Privacy & security › Delete all Parley data (also found by searching "wipe" or "reset"): the button stays disabled until DELETE is typed; with the app lock on it asks to unlock.
+- [ ] With backups set up and "Make a backup first" ticked: a backup is written first; with the backup folder removed, the backup fails and nothing is deleted.
+- [ ] Without the extra ticks: Parley restarts as new (onboarding, no private contacts, no notes, no rules, no Circle, default settings); Android's call log and contacts are unchanged in another app.
+- [ ] Tick "Also delete Android's call history": the system call log is empty afterwards. Tick "Also delete the contacts stored on this phone": phone-only contacts are gone, Google contacts stay (check on contacts.google.com that nothing was deleted there).
+- [ ] During a call the wipe refuses ("Finish the call first").
+
+Safety of multi-step changes
+- [ ] Move a contact to private while its full record can't be read (e.g. revoke contacts permission right before, from Settings): the move is refused and the phone contact stays.
+- [ ] "Recently deleted & changed" › Restore: tap Restore twice quickly: one contact comes back, not two.
+- [ ] With "Private call history" on, move a contact with calls from months ago into the vault: all their calls leave the system call log and appear as private calls.

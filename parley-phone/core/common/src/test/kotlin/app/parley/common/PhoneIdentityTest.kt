@@ -88,6 +88,23 @@ class PhoneIdentityTest {
         assertEquals(NumberKeys.dedupe("0612345678", 5_000), PhoneIdentity.callRowKey("0612345678", 5_000))
     }
 
+    @Test fun key_set_reads_stored_keys_as_lines() {
+        val set = PhoneIdentity.KeySet(listOf("+33612345678", PhoneIdentity.key("0700 000", null), "511122233"), "FR")
+        assertTrue("06 12 34 56 78" in set)
+        assertTrue("0033 6 12 34 56 78" in set)
+        assertFalse("+34612345678" in set)
+        // A fallback key ("~d…"/"~k…") holds letters: it matches by the digits, never as a dialled word.
+        assertTrue("0700000" in set)
+        // An old last-digits key still finds its number.
+        assertTrue("+44 511 122 233" in set)
+        assertFalse(null in set)
+        // A fallback key of a long number: "~k" plus its last digits.
+        val long = PhoneIdentity.KeySet(listOf(PhoneIdentity.key("612345678", null)), null)
+        assertTrue("612345678" in long)
+        assertTrue("+33612345678" in long)
+        assertFalse("+33612345679" in long)
+    }
+
     @Test fun line_map_first_value_wins() {
         val m = PhoneIdentity.LineMap<Int>("FR")
         m.putIfAbsent("06 12 34 56 78", 1)

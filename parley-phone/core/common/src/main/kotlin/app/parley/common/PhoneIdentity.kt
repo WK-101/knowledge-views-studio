@@ -57,9 +57,8 @@ object PhoneIdentity {
     /** Every key a row about [raw] may be stored under: [key] first, then [legacyKey]. */
     fun lookupKeys(raw: String?, region: String?): List<String> = listOf(key(raw, region), legacyKey(raw)).filter { it.isNotEmpty() }.distinct()
 
-    /** Whether a stored key (current or legacy) belongs to [raw]. */
-    fun matchesStored(stored: String, raw: String?, region: String?): Boolean =
-        stored.isNotEmpty() && (stored == key(raw, region) || (isLegacyKey(stored) && stored == legacyKey(raw)))
+    /** Whether a stored key (current or legacy) belongs to [raw]'s line, with [same]'s rules. */
+    fun matchesStored(stored: String, raw: String?, region: String?): Boolean = raw in KeySet(listOf(stored), region)
 
     /**
      * Identity of a call row across the system call log, Parley's archive and backups: the number's last digits plus
@@ -72,6 +71,42 @@ object PhoneIdentity {
         private val inner = PhoneNumbers.LineSet(numbers, region)
         val isEmpty: Boolean get() = inner.isEmpty
         operator fun contains(raw: String?): Boolean = raw in inner
+    }
+
+    /**
+     * Stored keys ([key], or the older [legacyKey]) answering "is this number one of them?" with [same]'s rules. A key
+     * is never read back as a number: "~k612345678" has letters that would dial as digits.
+     */
+    class KeySet(keys: Iterable<String>, private val region: String?) {
+        private val e164 = HashSet<String>()
+        private val looseOfE164 = HashSet<String>()
+        private val fallback = HashSet<String>()
+        private val legacy = HashSet<String>()
+
+        init {
+            for (k in keys) when {
+                k.startsWith("+") -> {
+                    e164 += k
+                    looseOf(k)?.let { looseOfE164 += it }
+                }
+                k.startsWith("~") -> fallback += k.substring(1)
+                isLegacyKey(k) -> legacy += k
+            }
+        }
+
+        operator fun contains(raw: String?): Boolean {
+            val loose = looseOf(raw) ?: return false
+            if (loose in fallback || legacyKey(raw) in legacy) return true
+            val e = e164(raw, region)
+            return if (e != null) e in e164 else loose in looseOfE164
+        }
+    }
+
+    /** "d" plus every digit of a short number, "k" plus the last digits of a longer one (the `~` part of [key]). */
+    private fun looseOf(raw: String?): String? {
+        val d = PhoneNumbers.digits(raw)
+        if (d.isEmpty()) return null
+        return if (d.length < 7) "d$d" else "k" + PhoneNumbers.matchKey(d)
     }
 
     /**
@@ -100,11 +135,6 @@ object PhoneIdentity {
 
         operator fun contains(raw: String?): Boolean = get(raw) != null
 
-        private fun looseOf(raw: String?): String? {
-            val d = PhoneNumbers.digits(raw)
-            if (d.isEmpty()) return null
-            return if (d.length < 7) "d$d" else "k" + PhoneNumbers.matchKey(d)
-        }
     }
 
     const val PORTABLE_MIN_DIGITS = 7
