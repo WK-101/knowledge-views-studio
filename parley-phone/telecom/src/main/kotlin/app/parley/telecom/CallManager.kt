@@ -68,9 +68,6 @@ object CallManager {
     private val silenced = HashSet<String>()
     private val screening = HashSet<String>()
 
-    /** Ringing calls whose notification waits a moment for the verdict (see [holdsNotification]). */
-    private val noticeHeld = HashSet<String>()
-
     /** Incoming calls whose first notification is still being timed (add → notification). */
     private val noticeTraced = HashSet<String>()
 
@@ -197,13 +194,6 @@ object CallManager {
         val active = runCatching { deps.screeningActive() }.getOrDefault(true)
         if (incoming && !EmergencyPolicy.bypasses(Safeguard.SCREENING, emergency) && (earlier != null || earlierOutcome != null || hidden || active)) {
             screening += id
-            // The heads-up waits briefly for the verdict, so a call that is about to be rejected doesn't pop up the
-            // call screen; after that a quiet "Checking…" notification lets the user answer while screening finishes.
-            noticeHeld += id
-            scope.launch {
-                delay(NOTICE_HOLD_MS)
-                if (noticeHeld.remove(id)) publish()
-            }
             scope.launch {
                 val callerName = call.details.callerDisplayName?.takeIf { it.isNotBlank() }
                 Trace.beginAsyncSection(TRACE_SCREEN, traceCookie(id))
@@ -215,7 +205,6 @@ object CallManager {
                 val decision = outcome?.decision
                 outcome?.let { outcomes[id] = it }
                 screening -= id
-                noticeHeld -= id
                 if (decision is Decision.Block && calls.contains(call)) {
                     when (decision.action) {
                         BlockAction.REJECT -> rejectUnwanted(call)
@@ -436,7 +425,6 @@ object CallManager {
         info.remove(id)
         silenced -= id
         screening -= id
-        noticeHeld -= id
         if (noticeTraced.remove(id)) Trace.endAsyncSection(TRACE_NOTIFY, traceCookie(id))
         postDial.remove(id)
         quotaSilenced -= id
@@ -509,7 +497,6 @@ object CallManager {
         blockingDecline.clear()
         silenced.clear()
         screening.clear()
-        noticeHeld.clear()
         noticeTraced.forEach { Trace.endAsyncSection(TRACE_NOTIFY, traceCookie(it)) }
         noticeTraced.clear()
         unknownCallers.clear()
@@ -520,9 +507,6 @@ object CallManager {
     }
 
     fun isScreening(id: String) = id in screening
-
-    /** The ringing notification waits for the screening verdict a moment longer (at most [NOTICE_HOLD_MS]). */
-    fun holdsNotification(id: String) = id in noticeHeld
 
     /** The first notification for an incoming call was posted: ends its add → notification trace section. */
     internal fun onNotificationShown(id: String) {
@@ -1132,12 +1116,6 @@ object CallManager {
     private const val ROUTE_SETTLE_MS = 1500L
     private const val PENDING_OUTGOING_MS = 8000L
     private const val SCREEN_TIMEOUT_MS = 1500L
-
-    /**
-     * How long a ringing call's notification waits for the screening verdict. Verdicts from memory (rules, the
-     * screening service's earlier answer) arrive well within it; a slow one shows "Checking…" instead of nothing.
-     */
-    private const val NOTICE_HOLD_MS = 500L
     private const val TRACE_SCREEN = "Parley.screenCall"
     private const val TRACE_NOTIFY = "Parley.addToNotification"
     private const val LOOKUP_TIMEOUT_MS = 2000L

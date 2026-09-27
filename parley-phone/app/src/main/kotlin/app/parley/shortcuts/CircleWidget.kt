@@ -95,6 +95,9 @@ class CircleWidget : AppWidgetProvider() {
 
         private const val MAX_DATES = 3
 
+        /** Within the few seconds a widget broadcast may take; past that the widget shows what it has. */
+        private const val INDEX_WAIT_MS = 8_000L
+
         private fun ids(context: Context): IntArray =
             runCatching { AppWidgetManager.getInstance(context).getAppWidgetIds(ComponentName(context, CircleWidget::class.java)) }.getOrDefault(IntArray(0))
 
@@ -137,7 +140,9 @@ class CircleWidget : AppWidgetProvider() {
                 Row(e.contactId, e.name, whenText(ctx, days) + res.getString(R.string.main_separator) + label, e.phone)
             }
             // The digest's people, worked out the same way (the serendipity pick stays in the Sunday notification).
-            val idx = c.history.index.value
+            // The index follows its subscribers, and none may be running in a process started for the widget or a
+            // worker: wait for it (bounded), or calls made yesterday would count for nothing and show people as due.
+            val idx = c.history.index.value ?: withTimeoutOrNull(INDEX_WAIT_MS) { c.history.awaitIndex() }
             val members = c.circle.members().filter { it.lookupKey in contacts }
             val lasts = members.associate { m -> m.lookupKey to c.circle.lastContact(m.lookupKey, idx) }
             val planned = members.map { m -> CirclePlanner.Member(m.lookupKey, m.days, lasts[m.lookupKey]?.time, m.rhythm.snoozedUntil) }

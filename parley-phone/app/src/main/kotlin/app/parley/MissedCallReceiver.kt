@@ -8,7 +8,6 @@ import android.content.Intent
 import android.telecom.TelecomManager
 import app.parley.blocking.BlockingActions
 import app.parley.calls.MissedCallNotifier
-import app.parley.data.PlaceResult
 import kotlinx.coroutines.launch
 
 /** Shows our own missed-call notifications (Telecom delegates them to the default dialer). See [MissedCallNotifier]. */
@@ -43,11 +42,6 @@ class MissedCallActionReceiver : BroadcastReceiver() {
             try {
                 val nm = context.getSystemService(NotificationManager::class.java)
                 when (intent.action) {
-                    ACTION_CALL_BACK -> {
-                        intent.getStringExtra("number")?.let { c.placer.call(it) as PlaceResult }
-                        MissedCallNotifier.cancelAll(context)
-                        seen(context)
-                    }
                     // Block from the notification (only after unlocking, see MissedCallNotifier.blockAction).
                     ACTION_BLOCK -> {
                         intent.getStringExtra("number")?.takeIf { it.isNotBlank() }?.let { n ->
@@ -72,18 +66,17 @@ class MissedCallActionReceiver : BroadcastReceiver() {
         }
     }
 
-    /** Marks missed calls seen: clears Telecom's count and stops the re-alert. */
-    private suspend fun seen(context: Context) {
-        MissedCallNotifier.stopReAlert(context)
-        context.container.callLog.markMissedRead()
-        try {
-            context.getSystemService(TelecomManager::class.java).cancelMissedCallsNotification()
-        } catch (_: SecurityException) {
-        }
-    }
-
     companion object {
-        const val ACTION_CALL_BACK = "app.parley.CALL_BACK"
+        /** Marks missed calls seen: clears Telecom's count and stops the re-alert. */
+        suspend fun seen(context: Context) {
+            MissedCallNotifier.stopReAlert(context)
+            context.container.callLog.markMissedRead()
+            try {
+                context.getSystemService(TelecomManager::class.java).cancelMissedCallsNotification()
+            } catch (_: SecurityException) {
+            }
+        }
+
         const val ACTION_CLEAR = "app.parley.CLEAR_MISSED"
         const val ACTION_BLOCK = "app.parley.BLOCK_MISSED"
         const val ACTION_DISMISSED_ONE = "app.parley.DISMISSED_ONE_MISSED"

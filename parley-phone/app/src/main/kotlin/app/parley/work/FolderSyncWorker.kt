@@ -17,9 +17,11 @@ import java.time.Duration
 import java.util.concurrent.TimeUnit
 
 /**
- * Folder sync (when a sync folder is set and auto-sync is on) and the Markdown export with it. Driven by changes: a
- * run follows a minute after the address book settles (a content-URI trigger, which works while Parley isn't
- * running), plus one daily run for changes it can't observe (the folder's own files, notes).
+ * Folder sync (when a sync folder is set and auto-sync is on) and the Markdown export with it, on three triggers
+ * (what the auto-sync switch's summary promises):
+ * - shortly after Parley starts ([runSoon]);
+ * - a minute after this phone's address book settles (a content-URI trigger, which works while Parley isn't running);
+ * - every hour, for what no trigger can observe: the other phone's writes into the shared folder, and notes.
  */
 class FolderSyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
@@ -34,7 +36,8 @@ class FolderSyncWorker(context: Context, params: WorkerParameters) : CoroutineWo
     }
 
     companion object {
-        private const val DAILY = "parley-folder-sync"
+        private const val PERIODIC = "parley-folder-sync"
+        private const val ONCE = "parley-folder-sync-once"
         private const val ON_CHANGE = "parley-folder-sync-change"
         private const val KEY_CHANGE = "change"
 
@@ -42,6 +45,15 @@ class FolderSyncWorker(context: Context, params: WorkerParameters) : CoroutineWo
         fun reschedule(context: Context) {
             val st = context.container.folderSync.status.value
             schedule(context, st.folderUri != null && st.auto)
+        }
+
+        /** One run shortly after start-up, when anything wants runs. */
+        fun runSoon(context: Context) {
+            if (!wanted(context, null)) return
+            WorkManager.getInstance(context).enqueueUniqueWork(
+                ONCE, ExistingWorkPolicy.KEEP,
+                OneTimeWorkRequestBuilder<FolderSyncWorker>().setInitialDelay(30, TimeUnit.SECONDS).build(),
+            )
         }
 
         /** Folder sync ([on]) or the Markdown export wants runs. */
@@ -56,12 +68,14 @@ class FolderSyncWorker(context: Context, params: WorkerParameters) : CoroutineWo
         fun schedule(context: Context, on: Boolean) {
             val wm = WorkManager.getInstance(context)
             if (!wanted(context, on)) {
-                wm.cancelUniqueWork(DAILY)
+                wm.cancelUniqueWork(PERIODIC)
                 wm.cancelUniqueWork(ON_CHANGE)
+                wm.cancelUniqueWork(ONCE)
                 return
             }
-            // UPDATE turns the hourly job of earlier versions into the daily one.
-            wm.enqueueUniquePeriodicWork(DAILY, ExistingPeriodicWorkPolicy.UPDATE, PeriodicWorkRequestBuilder<FolderSyncWorker>(1, TimeUnit.DAYS).build())
+            // Hourly: the other phone's changes arrive only through the folder. UPDATE brings back the hourly period on
+            // installs that had the briefly daily one.
+            wm.enqueueUniquePeriodicWork(PERIODIC, ExistingPeriodicWorkPolicy.UPDATE, PeriodicWorkRequestBuilder<FolderSyncWorker>(1, TimeUnit.HOURS).build())
             watchChanges(context, ExistingWorkPolicy.KEEP)
         }
 

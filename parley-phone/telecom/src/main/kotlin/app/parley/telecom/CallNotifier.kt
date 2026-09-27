@@ -74,7 +74,10 @@ class CallNotifier(private val context: Context) {
         }
         // Incoming (ringing) and ongoing calls use separate notifications, so a call-waiting call
         // is a *new* notification that pops up (heads-up / full-screen) rather than a silent update.
-        val ringing = live.firstOrNull { it.state == CallState.RINGING && !CallManager.holdsNotification(it.id) }
+        // Nothing is shown for a call still being screened (at most SCREEN_TIMEOUT_MS, then it fails open): a call
+        // that is then blocked must never have had a notification, a name or an Answer button. The platform needs no
+        // notification from an in-call service meanwhile.
+        val ringing = live.firstOrNull { it.state == CallState.RINGING && !CallManager.isScreening(it.id) }
         val ongoing = live.firstOrNull { it.state == CallState.ACTIVE }
             ?: live.firstOrNull { it.state != CallState.RINGING }
 
@@ -105,13 +108,7 @@ class CallNotifier(private val context: Context) {
     private fun postRinging(ringing: CallUi, ongoing: CallUi?) {
         if (ringing.silenced) {
             post(INCOMING_ID, ringing, "s") { buildSilenced(ringing) }
-        } else if (CallManager.isScreening(ringing.id)) {
-            // Screening takes longer than usual (a cold start): a quiet "Checking…" with Answer and Decline, not the
-            // heads-up and full-screen call screen, which a rejected spam call must never pop up.
-            post(INCOMING_ID, ringing, "c") { buildSilenced(ringing) }
         } else {
-            // Replacing the quiet "Checking…" notification: posted fresh, so it alerts like any incoming call.
-            if (lastPosted[INCOMING_ID]?.startsWith("c|") == true) cancel(INCOMING_ID)
             // Without a full-screen alert (permission, notifications, or the channel turned down) the call screen is
             // opened directly, so a ringing call always has a way to answer.
             if (ongoing == null && ringing.id !in directlyLaunched && (!canUseFullScreen() || !notificationsAllowed() || !incomingChannelAlerts(context))) {

@@ -1039,7 +1039,7 @@ Theme and density
 ### 20.3 Performance
 
 Start-up and the call path (a phone with a few hundred contacts and calls; Perfetto or `adb shell atrace` for the trace sections)
-- [ ] With Parley closed (swipe it from Recents, or `adb shell am kill app.parley.phone`), ring the phone. The call screen or heads-up shows at once, or within half a second a quiet "Checking…" notification with Answer and Decline appears and turns into the normal incoming-call alert once screening decides. A call a block rule rejects never pops up the call screen.
+- [ ] With Parley closed (swipe it from Recents, or `adb shell am kill app.parley.phone`), ring the phone. The call screen or heads-up shows once screening decides (at most about 1.5 s; nothing is shown before that). A call a block rule or a spam list rejects never shows any notification, name, number or Answer button, not even briefly.
 - [ ] In a trace of that call: `Parley.screenToRespond` (screening service), `Parley.screenCall` and `Parley.addToNotification` (in-call service) are there; no contacts or call-log scan runs in the process while the phone rings (no `ContactsRepository` / `CallLogRepository` loads; the "Last call …" line still shows for someone you called before).
 - [ ] About ten seconds after that call ends, the process loads the rest (a trace shows the contacts and call-log reads then). Opening Parley right away works as before.
 - [ ] Open Parley from the launcher: the system splash (the icon on Parley's window colour, dark in dark mode) stays until the app is ready; there is no blank white or dark frame before Recents. With the app lock on, the lock screen follows the splash directly and no contact flashes.
@@ -1054,7 +1054,15 @@ Data flow
 Background work
 - [ ] `adb shell dumpsys jobscheduler | grep -A3 app.parley.phone`: one daily maintenance job (battery not low), the reminders job at the chosen hour, and no separate daily housekeeping, history or screening jobs.
 - [ ] Temporary contact expiry, call-log retention, the backup reminder, plan warnings and spam-list refreshes still happen (run the maintenance job with `adb shell cmd jobscheduler run -f app.parley.phone <id>`).
-- [ ] Folder sync on with "Keep up to date": edit a contact; the folder is updated within a few minutes (not only hourly). Turning folder sync and the Markdown export off cancels both jobs.
+- [ ] Folder sync on with "Keep up to date": edit a contact; the folder is updated within a few minutes. Change a contact on the other phone: this phone picks it up within the hour, and about 30 s after opening Parley. Turning folder sync and the Markdown export off cancels all its jobs.
+- [ ] Make one maintenance step fail (e.g. a vault entry that can't be read): logcat shows `ParleyMaintenance` "Maintenance step failed", and the other steps (archive retention, journal, snapshot) still run.
+- [ ] Circle widget after a reboot (Parley not opened): someone in your Circle you called yesterday is not listed as due.
+
+Missed calls and the archive
+- [ ] Missed-call "Call back" with "Confirm before calling" on, or with two SIMs and no default: a small window asks first, as in Parley. Without questions the call starts at once. With the app lock on, the unlock is asked only when there is a question.
+- [ ] With Parley closed, let a shared-cost or premium number from abroad ring once: its missed-call notification has no "Call back", and opening it from Parley shows the one-ring warning.
+- [ ] Delete calls with a number, make that number private, then Undo: its calls don't come back into the archive (Recents and the number's history). Restoring a backup likewise leaves private numbers' calls out.
+- [ ] Settings, Call history, turn off the full history: "Turn off and delete" is drawn in the error colour.
 
 App lock and size
 - [ ] App lock on Android 11+: unlock with a fingerprint, and with the PIN from the same prompt; on Android 10: fingerprint through the system prompt, and with no fingerprint enrolled the screen-lock confirmation. Cancelling keeps Parley locked. The private vault still asks and unlocks as before.

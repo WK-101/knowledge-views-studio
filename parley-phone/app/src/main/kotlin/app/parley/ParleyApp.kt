@@ -63,8 +63,10 @@ class ParleyApp : Application() {
             container.fullStart.await()
             BlockingSetup.warmLater(this@ParleyApp, container)
             MaintenanceWorker.schedule(this@ParleyApp)
-            // Folder sync follows contact changes (and runs daily); the maintenance run takes the time-machine snapshot.
+            // Folder sync runs soon after start, after contact changes and hourly; the maintenance run takes the
+            // time-machine snapshot.
             FolderSyncWorker.reschedule(this@ParleyApp)
+            FolderSyncWorker.runSoon(this@ParleyApp)
             RemindersWorker.schedule(this@ParleyApp, container.settings.current().birthdayReminderHour)
             // Well after that: stored number keys move to the line key once.
             delay(30_000)
