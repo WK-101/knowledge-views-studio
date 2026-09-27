@@ -1,5 +1,6 @@
 package app.parley.ui.history
 
+import app.parley.ui.activityViewModel
 import app.parley.common.PhoneIdentity
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
@@ -97,7 +98,7 @@ fun RecentsV32Host(vm: AppViewModel, open: (String) -> Unit) {
     val clear by clearRequested.collectAsStateWithLifecycle()
     if (layout) RecentsLayoutDialog(vm) { layoutRequested.value = false }
     if (clear) {
-        val groups by vm.recentGroups.collectAsStateWithLifecycle()
+        val groups by activityViewModel<app.parley.ui.home.RecentsViewModel>().groups.collectAsStateWithLifecycle()
         val shown = remember(groups) { groups.orEmpty().flatMap { it.calls } }
         ClearHistoryDialog(vm, shown, open) { clearRequested.value = false }
     }

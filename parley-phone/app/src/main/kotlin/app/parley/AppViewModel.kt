@@ -1,6 +1,5 @@
 package app.parley
 
-import app.parley.common.ux.CallGlance
 import app.parley.ui.circle.CircleUi
 import android.annotation.SuppressLint
 import android.Manifest
@@ -9,24 +8,13 @@ import android.telecom.TelecomManager
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import app.parley.common.CallEntry
-import app.parley.common.CallPolicy
 import app.parley.common.CallType
-import app.parley.common.RuleKind
-import app.parley.common.RuleType
-import app.parley.common.DialSearch
-import app.parley.common.KeypadLayout
 import app.parley.common.ContactSummary
 import app.parley.common.PhoneIdentity
 import app.parley.common.PhoneNumbers
-import app.parley.data.history.CallHistory
-import app.parley.common.PhoneEntry
 import app.parley.common.SimAccount
-import app.parley.common.T9
-import app.parley.common.TextSearch
 import app.parley.data.Permissions
-import app.parley.data.PhoneEnv
 import app.parley.data.PlaceResult
-import app.parley.data.messaging.Romanizer
 import app.parley.shortcuts.Shortcuts
 import app.parley.calltime.CallTimePlanner
 import app.parley.calltime.UssdSession
@@ -55,7 +43,6 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.text.Collator
 import java.util.concurrent.TimeUnit
 
 /** Recents filter chips. VOICEMAIL shows the voicemail inbox (V1) instead of the call list. */
@@ -118,7 +105,7 @@ sealed interface NavEvent {
 class AppViewModel(app: Application) : AndroidViewModel(app) {
     val c = app.container
     val settings = c.settings.settings
-    val countryIso: String = PhoneEnv.countryIso(app)
+    val countryIso: String = c.directory.countryIso
 
     val isDefaultDialer = MutableStateFlow(Permissions.isDefaultDialer(app))
     val hasContactsPermission = MutableStateFlow(Permissions.has(app, Manifest.permission.READ_CONTACTS))
@@ -172,22 +159,16 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     // ---------- Contacts ----------
 
-    private val collator = Collator.getInstance().apply { strength = Collator.PRIMARY }
-
-    val contacts: StateFlow<List<ContactSummary>?> = combine(c.contacts.contacts, settings.map { it.sortByFirstName }.distinctUntilChanged()) { list, first ->
-        when {
-            list == null -> null
-            first -> list
-            else -> list.map { it.copy(displayName = it.displayNameAlt) }.sortedWith { a, b -> collator.compare(a.displayName, b.displayName) }
-        }
-    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, null)
+    /**
+     * The contacts as shown (sorted by first or last name) and the number → contact index, from the shared
+     * [app.parley.data.ContactDirectory]. Kept running while this view model lives: [contactFor] reads the index
+     * synchronously when a call is placed.
+     */
+    val contacts: StateFlow<List<ContactSummary>?> = c.directory.contacts.stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     /** Number → contact by line ([PhoneIdentity]), for naming call-log entries. */
-    val numberIndex: StateFlow<PhoneIdentity.LineMap<ContactSummary>> = contacts.map { list ->
-        val m = PhoneIdentity.LineMap<ContactSummary>(countryIso)
-        list.orEmpty().forEach { ct -> ct.phones.forEach { p -> m.putIfAbsent(p.number, ct) } }
-        m
-    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, PhoneIdentity.LineMap(countryIso))
+    val numberIndex: StateFlow<PhoneIdentity.LineMap<ContactSummary>> = c.directory.numberIndex
+        .stateIn(viewModelScope, SharingStarted.Eagerly, PhoneIdentity.LineMap(countryIso))
 
     fun contactFor(number: String?): ContactSummary? {
         if (number.isNullOrBlank() || PhoneNumbers.digits(number).length < 3) return null
@@ -205,24 +186,6 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun toggleSelection(id: Long) {
         selection.value = selection.value.let { if (id in it) it - id else it + id }
     }
-    val selectedGroup = MutableStateFlow<Long?>(null)
-    private val groupMembers = MutableStateFlow<Set<Long>?>(null)
-
-    fun selectGroup(id: Long?) {
-        selectedGroup.value = id
-        if (id == null) {
-            groupMembers.value = null
-        } else {
-            viewModelScope.launch(Dispatchers.IO) { groupMembers.value = c.contacts.contactIdsInGroup(id) }
-        }
-    }
-
-    val filteredContacts: StateFlow<List<ContactSummary>?> = combine(contacts, contactQuery.debounce(80), groupMembers) { list, q, members ->
-        list?.filter { ct ->
-            (members == null || ct.id in members) &&
-                (q.isBlank() || TextSearch.matches(q, ct.displayName, ct.phones.map { it.number }, ct.emails))
-        }
-    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     /** Contacts-feature state: label and account filters, second line, favourites order. */
     val people = PeopleUi(c, viewModelScope, contacts, contactQuery, countryIso)
@@ -233,99 +196,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val favorites: StateFlow<List<ContactSummary>> = contacts.map { it.orEmpty().filter { c -> c.starred } }
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
-    // ---------- Recents ----------
-
-    val recentFilter = MutableStateFlow(RecentFilter.ALL)
-
-    /** Recents rows selected for bulk actions (keys of [RecentGroup]). */
-    val recentSelection = MutableStateFlow<Set<String>>(emptySet())
-    val recentQuery = MutableStateFlow("")
-
-    /** System call log (plus Parley's archive) + private (vault) calls, newest first. */
-    // V11: until the full log (and the archive) have loaded, the first page of the call log is shown.
-    private val allCalls = combine(c.history.calls, c.callLog.preview, c.vault.privateCalls, settings.map { it.hideVault }.distinctUntilChanged()) { full, preview, priv, hidden ->
-        val sys = full ?: preview ?: return@combine null
-        if (hidden || priv.isEmpty()) return@combine sys
-        (sys + priv.map(CallHistory::privateEntry)).sortedByDescending { it.date }
-    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, null) // R4: merged once, shared by Recents and the unreturned count.
-
-    // F7: keyed by line (E.164 with this phone's country), so a foreign number sharing the last 9 digits isn't shown as private.
-    private val vaultByKey = c.vault.contacts.map { list -> list.flatMap { v -> v.numbers.map { PhoneIdentity.key(it, countryIso) to v.id } }.toMap() }
-
-    /** [allCalls] with the Recents filter chips applied (SIM, type, period, duration). */
-    private val filteredCalls = combine(allCalls, c.history.activeFilter) { calls, f ->
-        if (calls == null || f.isEmpty) calls else calls.filter(f.matcher(System.currentTimeMillis(), java.time.ZoneId.systemDefault()))
-    }
-
-    // P8: the call-list layout travels with the calls, so Recents regroups when it changes.
-    private val callsAndLayout = combine(filteredCalls, settings.map { it.recentsLayout }.distinctUntilChanged()) { calls, layout -> calls to layout }
-
-    val recentGroups: StateFlow<List<RecentGroup>?> = combine(callsAndLayout, numberIndex, recentFilter, recentQuery.debounce(80), vaultByKey) { (calls, layout), index, filter, q, vaults ->
-        calls?.let { group(it, index, filter, q, layout).map { g -> if (g.calls.first().id < 0) g.copy(vaultId = vaults[PhoneIdentity.key(g.number, countryIso)]) else g } }
-    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, null)
-
-    /** R4: the time the 7-day window of [unreturnedMissed] is measured from, moved on hourly. */
-    private val unreturnedClock = kotlinx.coroutines.flow.flow {
-        while (true) {
-            emit(System.currentTimeMillis())
-            kotlinx.coroutines.delay(60 * 60 * 1000L)
-        }
-    }
-
-    /** R4: block rules that name numbers (the others go by name, region or line type). */
-    private val numberRules = setOf(RuleType.EXACT, RuleType.PREFIX, RuleType.WILDCARD)
-
-    /**
-     * R4 (v3.3): ids of missed calls not returned yet, over every call (whatever the filters show), for the Recents
-     * tint, the Call back pill and the Missed chip's count.
-     */
-    val unreturnedMissed: StateFlow<Set<Long>> = combine(allCalls, notWorthReturning(), unreturnedClock) { calls, excluded, now ->
-        calls?.let { CallGlance.unreturnedMissed(it, { n -> PhoneIdentity.key(n, countryIso) }, now, excluded = excluded) } ?: emptySet()
-    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, emptySet())
-
-    /**
-     * R4: numbers whose missed calls aren't worth a "call back": on the system block list, caught by a block rule, or
-     * last screened as blocked, reported or likely spam.
-     */
-    private fun notWorthReturning() = combine(c.blocks.systemList, c.blocks.rules, c.blocks.verdictIndex) { system, rules, verdicts ->
-        val iso = countryIso
-        // Verdicts are filed under line keys; system block-list entries are numbers.
-        val listed = PhoneIdentity.LineSet(system.map { it.number }, iso)
-        val flagged = PhoneIdentity.KeySet(verdicts.filter { (_, v) -> v.blocked || v.kind == "LIKELY_SPAM" || v.kind == "REPORTED" }.keys, iso)
-        val blockRules = rules.filter { it.enabled && it.kind == RuleKind.BLOCK && it.type in numberRules }
-        val test: (String) -> Boolean = { n -> n in listed || n in flagged || blockRules.any { r -> CallPolicy.ruleMatches(r, n, iso) } }
-        test
-    }
-
-    private fun group(
-        calls: List<CallEntry>, index: PhoneIdentity.LineMap<ContactSummary>, filter: RecentFilter, q: String,
-        layout: app.parley.common.calls.RecentsLayout = app.parley.common.calls.RecentsLayout.GROUPED,
-    ): List<RecentGroup> {
-        val filtered = calls.filter {
-            when (filter) {
-                RecentFilter.ALL -> true
-                RecentFilter.MISSED -> it.type == CallType.MISSED || it.type == CallType.REJECTED
-                RecentFilter.INCOMING -> it.type == CallType.INCOMING || it.type == CallType.ANSWERED_EXTERNALLY
-                RecentFilter.OUTGOING -> it.type == CallType.OUTGOING
-                RecentFilter.BLOCKED -> it.type == CallType.BLOCKED
-                RecentFilter.VOICEMAIL -> it.type == CallType.VOICEMAIL
-            }
-        }
-        fun keyOf(e: CallEntry) = if (e.presentationHidden || e.number.isBlank()) "hidden" else PhoneIdentity.key(e.number, countryIso).ifEmpty { "hidden" }
-        val tz = java.util.TimeZone.getDefault()
-        // P8: grouped (consecutive calls on one day), chronological (one row per call) or one row per number per day.
-        val rows = app.parley.common.calls.RecentsGrouping.group(filtered, layout, ::keyOf) { e -> TimeUnit.MILLISECONDS.toDays(e.date + tz.getOffset(e.date)) }
-        val grouped = rows.map { list ->
-            val e = list.first()
-            val key = keyOf(e)
-            RecentGroup(
-                key + ":" + e.id, e.number, if (key == "hidden") null else index[e.number], e.cachedName, list, key == "hidden",
-                fallbackTitle = str(if (key == "hidden") R.string.main_private_number else R.string.main_unknown),
-            )
-        }
-        if (q.isBlank()) return grouped
-        return grouped.filter { TextSearch.matches(q, it.title, listOf(it.number)) }
-    }
+    // ---------- Recents (the list itself lives in ui.home.RecentsViewModel) ----------
 
     /** Most-called numbers in the last 60 days that aren't favourites (from the call history, archive included). */
     val frequents: StateFlow<List<RecentGroup>> = combine(c.history.calls, numberIndex) { calls, index ->
@@ -338,7 +209,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             .map { (k, v) -> RecentGroup(k, v.first().number, index[v.first().number], v.first().cachedName, v, false) }
             .filter { it.contact?.starred != true }
             .take(8)
-    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     val missedCount: StateFlow<Int> = c.history.calls.map { list -> list.orEmpty().count { it.type == CallType.MISSED && it.isNew } }
         .stateIn(viewModelScope, SharingStarted.Eagerly, 0)
@@ -362,42 +233,6 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             } catch (_: Exception) {
             }
         }
-    }
-
-    // ---------- Dialer ----------
-
-    val dialInput = MutableStateFlow("")
-
-    /** Keypad alphabet in use: the one chosen in settings, or the phone language's. */
-    val keypadLayout: StateFlow<KeypadLayout> = c.messaging.keypadLayoutChoice.map { c.messaging.effectiveLayout(it) }
-        .stateIn(viewModelScope, SharingStarted.Eagerly, c.messaging.effectiveLayout())
-
-    private fun keypadEntry(contact: ContactSummary, layout: KeypadLayout) = DialSearch.Entry(
-        contact,
-        T9.Encoded(contact.displayName, layout, Romanizer.syllables(contact.displayName), Romanizer.phonetic(contact.phoneticName)),
-    )
-
-    private val encoded = combine(contacts, keypadLayout) { list, layout -> list.orEmpty().map { keypadEntry(it, layout) } }
-        .flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
-
-    private val encodedVault = combine(c.vault.contacts, settings.map { it.hideVault }.distinctUntilChanged(), keypadLayout) { list, hidden, layout ->
-        if (hidden) emptyList() else list.map { v ->
-            keypadEntry(ContactSummary(id = -v.id, lookupKey = "", displayName = v.name, photoUri = null, starred = false, phones = v.numbers.map { PhoneEntry(it, 2, null) }), layout)
-        }
-    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
-
-    private val dialSearch = DialSearch(countryIso)
-
-    /** Keypad results; narrows the previous results while you type (see [DialSearch]). */
-    val dialResults: StateFlow<List<DialResult>> = combine(dialInput, combine(encoded, encodedVault) { a, b -> a + b }, c.history.calls) { input, entries, calls ->
-        dialSearch.search(input, entries, calls)
-    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
-
-    /** Call pressed with nothing typed: the last number you called goes back on the keypad (like most dialers). */
-    fun recallLastNumber(): Boolean {
-        val n = DialSearch.lastOutgoing(c.history.calls.value) ?: return false
-        dialInput.value = n
-        return true
     }
 
     // ---------- Calling ----------
@@ -457,13 +292,6 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         when (val r = c.placer.callVoicemail()) {
             is PlaceResult.Failed -> toast(app.parley.blocking.DialText.placeFailure(getApplication(), r.reason))
             else -> Unit
-        }
-    }
-
-    fun speedDial(key: Int, onUnassigned: () -> Unit) {
-        viewModelScope.launch {
-            val e = c.prefs.speedDial(key)
-            if (e == null) onUnassigned() else requestCall(e.number, e.label)
         }
     }
 

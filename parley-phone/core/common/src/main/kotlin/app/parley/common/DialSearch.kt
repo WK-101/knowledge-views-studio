@@ -23,7 +23,10 @@ data class DialHit(
  */
 /** [region]: the SIM country, so numbers are matched as lines ([PhoneIdentity]). */
 class DialSearch(private val region: String? = null) {
-    class Entry(val contact: ContactSummary, val encoded: T9.Encoded)
+    class Entry(val contact: ContactSummary, val encoded: T9.Encoded) {
+        /** The name as [TextSearch] compares it, worked out once per contacts change rather than per keystroke. */
+        val folded: String = TextSearch.normalize(contact.displayName)
+    }
 
     private var lastEntries: List<Entry>? = null
     private var lastQuery = ""
@@ -90,16 +93,17 @@ class DialSearch(private val region: String? = null) {
 
     /** Letters typed on a QWERTY keyboard: plain accent- and case-insensitive name search. */
     private fun textSearch(text: String, entries: List<Entry>, calls: List<CallEntry>?, now: Long, limit: Int): List<DialHit> {
-        val q = TextSearch.normalize(text)
+        val query = TextSearch.Query(text)
+        val q = query.folded
         val lastCalled = recencyMap(calls)
         val scored = ArrayList<Pair<Entry, T9.Match>>()
         for (e in entries) {
             val name = e.contact.displayName
-            val norm = TextSearch.normalize(name)
+            val norm = e.folded
             // Normalising can drop combining marks; only highlight when the lengths still line up.
             val at = norm.indexOf(q)
             if (at < 0) {
-                if (!TextSearch.matches(text, name)) continue
+                if (!query.matchesPrepared(norm, emptyList())) continue
                 scored += e to T9.Match(600 + recencyBonus(e.contact, lastCalled, now), emptyList(), null)
                 continue
             }

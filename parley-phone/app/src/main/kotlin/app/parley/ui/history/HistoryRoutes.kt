@@ -1,5 +1,6 @@
 package app.parley.ui.history
 
+import app.parley.ui.activityViewModel
 import android.net.Uri
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.FileDownload
@@ -64,7 +65,7 @@ private val exportRequested = MutableStateFlow(false)
 fun RecentsExportHost(vm: AppViewModel) {
     val show by exportRequested.collectAsStateWithLifecycle()
     if (!show) return
-    val groups by vm.recentGroups.collectAsStateWithLifecycle()
+    val groups by activityViewModel<app.parley.ui.home.RecentsViewModel>().groups.collectAsStateWithLifecycle()
     val calls = remember(groups) { groups.orEmpty().flatMap { it.calls } }
     ExportSheet(vm, calls, subject = null) { exportRequested.value = false }
 }

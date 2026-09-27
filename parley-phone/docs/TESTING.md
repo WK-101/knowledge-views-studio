@@ -950,3 +950,39 @@ Settings
 - [ ] Calls, Contacts, Recents & history and Privacy end with a folded "Advanced" group. Search "proximity": the result opens Calls with Advanced unfolded and the row highlighted.
 - [ ] Search "withheld", "bedtime", "parental", "rotation", "billing" and "recently deleted": each finds a setting; tapping it opens Blocking & screening, Call time, Backup & restore, the SIM list or History & undo › Calls. Search "plan minutes": it opens Calls on "SIMs & plan minutes". Search "scan qr": it opens the scan screen.
 - [ ] Every setting you had before keeps its value after updating (theme, layouts, swipe actions, archive, retention, app lock…).
+
+### 19.3 Screens keep their state
+
+Contact editor (use Developer options › "Don't keep activities" for the process-death cases, or `adb shell am kill app.parley` while Parley is in the background)
+- [ ] Edit a contact: change the first name, add a phone row, pick a photo, turn on a label, add a relation with the contact picker. Rotate the phone: every change is still there, the Save button is still ready, and Save writes all of it (the relation opens the picked person).
+- [ ] Same edit, then switch dark mode, change the font size and change the app language (Settings › Appearance › Language) one after the other: the edit is still there each time.
+- [ ] New contact: type a name and number, tap the photo and, in the photo picker, press Home; kill Parley; come back to it: the editor shows the name and number, and choosing a photo sets it. The "Save to" choice (Private, or an account) is kept too.
+- [ ] Edit a private (vault) contact: change "Who is this?" and rotate: the text stays.
+- [ ] Edit an existing contact, add a blank phone row only, rotate: Save stays disabled (a blank new row isn't a change). Cancel (×) closes without asking.
+- [ ] Save a big contact and press Back straight away: the contact is saved completely (open it: every field, the call-screen background and relation links are there), and no "Save failed" message appears.
+- [ ] Edit a temporary contact and save: "Keep this contact?" appears; rotate while it's open: it's still there; each answer closes the editor and opens the contact.
+- [ ] Save failures still say so (for example make the contact's account read-only or remove the contacts permission while editing): "Save failed: …" and the edit stays.
+
+Contact page
+- [ ] Open a contact with calls, a pinned note, a messenger and a Circle rhythm: every section shows as before. Edit the pinned note: it shows at once. Set a Circle rhythm from its dialog, then change the pinned note: both stay (neither overwrites the other).
+- [ ] Choose "Message on…" › Always: the choice is kept after leaving and reopening the page.
+- [ ] Set a default number, send to voicemail, star/unstar, set the ringtone, change "Delete after…": each takes effect and shows its message; rotate: the page keeps its data without a blank flash.
+- [ ] Log an interaction (FAB or ⋮): it shows in the timeline; a relation opens that person (or asks which one when several share the name).
+- [ ] Rotate while scrolled half way: the page stays where it was.
+
+Recents
+- [ ] 1000+ calls: fling Recents top to bottom: smooth; day headers ("Today", "Yesterday", weekday dates) are right, and tapping one opens the day summary.
+- [ ] Leave Parley open on Recents over midnight (or change the phone's date): "Today" becomes "Yesterday" without reopening.
+- [ ] Filters (Missed with its count, Incoming, Voicemail), the search, multi-select and "Block N" work as before, also in the docked keypad's list (combined layout).
+- [ ] Settings › Calls › Voicemail still opens Recents on the Voicemail chip; a missed-call notification's "Call back list" opens Recents on Missed.
+- [ ] Unknown numbers show their place ("Paris, France") under the name without the rows jumping while scrolling.
+
+Keypad
+- [ ] Type 3–4 digits quickly with 3000 contacts: results follow every key without lag; keys never swap order when rolling between them (docked and on the Keypad tab), and the number field never loses a digit.
+- [ ] Header search on the Keypad tab: "jose" finds "José"; a number fragment finds its contact; a private contact appears (not when private contacts are hidden); no match offers "Create contact".
+- [ ] Nothing typed, Call: the last number you called comes back. Long-press 2–9: speed dial (or the "not set up" dialog). Two SIMs: the SIM pill shows the SIM a Call would use for the typed number.
+- [ ] Save for a while from the chips: saved, the field clears and the message says for how many days.
+- [ ] Open a tel: link or a missed-call "Call back" with the app closed: the number is on the keypad.
+
+Contacts list
+- [ ] 1000+ contacts: letter headers are right (accents under their base letter, digits under #), the fast-scroll rail jumps to each letter (and ★ to the favourites), select, swipe and search work as before.

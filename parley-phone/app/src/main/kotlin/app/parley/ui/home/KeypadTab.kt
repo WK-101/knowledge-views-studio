@@ -167,16 +167,19 @@ private val NUMBER_ACTIONS_HEIGHT = 56.dp
 @Composable
 fun KeypadTab(vm: AppViewModel, open: (String) -> Unit, searchQuery: String? = null, dock: KeypadDock? = null) {
     // Search from the header: contacts by name or number, in place of the keypad until the search closes.
+    // What's typed, its results, the SIM and the keypad's actions live in KeypadViewModel; this draws the keypad.
+    val keypad: KeypadViewModel = app.parley.ui.activityViewModel()
     if (searchQuery != null) {
-        KeypadContactSearch(vm, searchQuery, open)
+        KeypadContactSearch(vm, keypad, searchQuery, open)
         return
     }
     val context = LocalContext.current
-    val input by vm.dialInput.collectAsStateWithLifecycle()
-    val results by vm.dialResults.collectAsStateWithLifecycle()
+    val input by keypad.input.collectAsStateWithLifecycle()
+    val results by keypad.results.collectAsStateWithLifecycle()
     val settings by vm.settings.collectAsStateWithLifecycle()
     val sims by vm.sims.collectAsStateWithLifecycle()
-    val layout by vm.keypadLayout.collectAsStateWithLifecycle()
+    LaunchedEffect(sims.size) { keypad.simCount.value = sims.size }
+    val layout by keypad.layout.collectAsStateWithLifecycle()
     val haptics = LocalHapticFeedback.current
     var unassigned by remember { mutableStateOf<Int?>(null) }
     var messageOn by remember { mutableStateOf<String?>(null) }
@@ -208,7 +211,7 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit, searchQuery: String? = n
     // K4: the number is an editable field (cursor, selection, paste) that never opens the on-screen keyboard.
     val field = rememberTextFieldState(input)
     LaunchedEffect(input) { if (field.text.toString() != input) field.setTextAndPlaceCursorAtEnd(input) }
-    LaunchedEffect(field) { snapshotFlow { field.text.toString() }.collect { if (it != vm.dialInput.value) vm.dialInput.value = it } }
+    LaunchedEffect(field) { snapshotFlow { field.text.toString() }.collect { if (it != keypad.input.value) keypad.input.value = it } }
     LaunchedEffect(input) { if (input == IMEI_CODE) imeiSheet = true }
 
     fun insert(text: String) = field.insertAtCursor(text)
@@ -258,7 +261,7 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit, searchQuery: String? = n
         val n = input.trim()
         if (n.isEmpty()) {
             // A7: recall the last dialled number, like most dialers.
-            vm.recallLastNumber()
+            keypad.recallLastNumber()
             return
         }
         if (isTextSearch()) {
@@ -273,7 +276,7 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit, searchQuery: String? = n
     fun callWithSim(simId: String) {
         // K1: a SIM segment with nothing typed recalls the last number, like the plain Call pill.
         if (input.isBlank()) {
-            vm.recallLastNumber()
+            keypad.recallLastNumber()
             return
         }
         if (isTextSearch()) {
@@ -350,14 +353,7 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit, searchQuery: String? = n
     val panelOpen = dock?.expanded ?: true
 
     // K1: the SIM a plain Call would use for what's typed (remembered, a label's, else the default), shown on its segment.
-    var preferredSim by remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(input, sims.size) {
-        if (sims.size !in 2..app.parley.common.calls.CallPill.MAX_SEGMENTS) return@LaunchedEffect
-        kotlinx.coroutines.delay(150)
-        val n = input.trim()
-        preferredSim = (if (n.isNotEmpty() && !isTextSearch()) vm.c.placer.resolveSim(n) else null)
-            ?: kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { vm.c.sims.defaultOutgoing() }
-    }
+    val preferredSim by keypad.preferredSim.collectAsStateWithLifecycle()
 
     val resultsArea: @Composable (Modifier) -> Unit = { areaModifier ->
         Box(if (dock != null) areaModifier.nestedScroll(fold.listConnection) else areaModifier) {
@@ -481,7 +477,7 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit, searchQuery: String? = n
                                         onLong = when (d) {
                                             '0' -> ({ typed -> longPress(typed) { insert("+") } })
                                             '1' -> ({ typed -> longPress(typed) { vm.callVoicemail() } })
-                                            in '2'..'9' -> ({ typed -> longPress(typed) { vm.speedDial(d - '0') { unassigned = d - '0' } } })
+                                            in '2'..'9' -> ({ typed -> longPress(typed) { keypad.speedDial(d - '0', onCall = { n, label -> vm.requestCall(n, label) }) { unassigned = d - '0' } } })
                                             '*' -> ({ typed -> longPress(typed) { insert(",") } })
                                             '#' -> ({ typed -> longPress(typed) { insert(";") } })
                                             else -> null
@@ -555,8 +551,7 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit, searchQuery: String? = n
             onDismiss = { saveTemporary = null },
         ) { name, days, deleteHistory, visible ->
             saveTemporary = null
-            scope.launch {
-                val saved = app.parley.ui.temporary.TemporaryContactActions.save(vm, n, name, days, deleteHistory, visible)
+            keypad.saveTemporary(n, name, days, deleteHistory, visible) { saved ->
                 if (saved != null) {
                     field.clearText()
                     vm.toast(res.getQuantityString(if (saved.private) R.plurals.caller_saved_private_days else R.plurals.caller_saved_days, days, days))
@@ -856,20 +851,20 @@ private fun NumberActionChips(canSave: Boolean, onMessage: () -> Unit, onAdd: ()
 
 /** Keypad search from the header: every contact (and visible private contact) matching a name or number. */
 @Composable
-private fun KeypadContactSearch(vm: AppViewModel, query: String, open: (String) -> Unit) {
-    val contacts by vm.contacts.collectAsStateWithLifecycle()
-    val vault by vm.c.vault.contacts.collectAsStateWithLifecycle()
-    val settings by vm.settings.collectAsStateWithLifecycle()
+private fun KeypadContactSearch(vm: AppViewModel, keypad: KeypadViewModel, query: String, open: (String) -> Unit) {
     val q = query.trim()
+    // P8: searched in the view model over names folded once per contacts change, off the main thread.
+    LaunchedEffect(query) { keypad.searchQuery.value = query }
     if (q.isEmpty()) {
         app.parley.ui.EmptyState(Icons.Rounded.Search, stringResource(R.string.home_search_contacts), stringResource(R.string.keypad_search_body))
         return
     }
-    val found = remember(contacts, q) { contacts.orEmpty().filter { app.parley.common.TextSearch.matches(q, it.displayName, it.phones.map { p -> p.number }) } }
-    val foundVault = remember(vault, q, settings.hideVault) {
-        if (settings.hideVault) emptyList() else vault.filter { app.parley.common.TextSearch.matches(q, it.name, it.numbers) }
-    }
-    if (found.isEmpty() && foundVault.isEmpty()) {
+    val result by keypad.search.collectAsStateWithLifecycle()
+    val r = result ?: return
+    val found = r.contacts
+    val foundVault = r.vault
+    // The results of the query before this one stay up while the new search runs.
+    if (found.isEmpty() && foundVault.isEmpty() && r.query == q) {
         // U5: no match: offer to save what was typed as a new contact.
         app.parley.ui.EmptyState(
             Icons.Rounded.Search, stringResource(R.string.keypad_no_match, q),

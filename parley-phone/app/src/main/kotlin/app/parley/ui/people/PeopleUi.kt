@@ -9,6 +9,7 @@ import app.parley.common.people.BroadSearch
 import app.parley.common.people.LabelFilter
 import app.parley.common.people.PersonExtra
 import app.parley.common.people.SecondLines
+import app.parley.common.ux.ListSections
 import app.parley.data.DataContainer
 import app.parley.data.people.PeopleIndexData
 import app.parley.data.people.PeopleSettings
@@ -73,17 +74,25 @@ class PeopleUi(
                 .sortedWith { a, b -> filteredCollator.compare(a.displayName, b.displayName) }
         }
         shown to (hints as Map<Long, String>)
-    }.flowOn(Dispatchers.Default).stateIn(scope, SharingStarted.Eagerly, null)
+    }.flowOn(Dispatchers.Default).stateIn(scope, SharingStarted.WhileSubscribed(5_000), null)
 
-    val filtered: StateFlow<List<ContactSummary>?> = searched.map { it?.first }.stateIn(scope, SharingStarted.Eagerly, null)
+    val filtered: StateFlow<List<ContactSummary>?> = searched.map { it?.first }.stateIn(scope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /**
+     * [filtered] with its letter headers, worked out once per list change here instead of in the list's builder
+     * (which runs again on selection, hint and settings changes).
+     */
+    val listing: StateFlow<List<ListSections.Row<String, ContactSummary>>?> = filtered.map { list ->
+        list?.let { ListSections.interleave(it) { c -> ListSections.letterOf(c.displayName) } }
+    }.flowOn(Dispatchers.Default).stateIn(scope, SharingStarted.WhileSubscribed(5_000), null)
 
     /** I8: "Matched: address" for contacts the search found by another field than the name or number. */
-    val searchHints: StateFlow<Map<Long, String>> = searched.map { it?.second.orEmpty() }.stateIn(scope, SharingStarted.Eagerly, emptyMap())
+    val searchHints: StateFlow<Map<Long, String>> = searched.map { it?.second.orEmpty() }.stateIn(scope, SharingStarted.WhileSubscribed(5_000), emptyMap())
 
     /** Second line for each visible contact (collisions among visible names are resolved automatically). */
     val secondLines: StateFlow<Map<Long, String>> = combine(filtered, index, settings) { list, idx, s ->
         SecondLines.compute(list.orEmpty(), idx.extras, s.secondLine) { Format.number(it, countryIso) }
-    }.flowOn(Dispatchers.Default).stateIn(scope, SharingStarted.Eagerly, emptyMap())
+    }.flowOn(Dispatchers.Default).stateIn(scope, SharingStarted.WhileSubscribed(5_000), emptyMap())
 
     /** Calls per contact over the loaded call history (for "Most called"). */
     private val callCounts: StateFlow<Map<Long, Int>> = combine(contacts, c.history.calls) { list, calls ->
@@ -92,12 +101,12 @@ class PeopleUi(
         val counts = HashMap<Long, Int>()
         calls.orEmpty().forEach { e -> byKey[e.number]?.let { counts[it] = (counts[it] ?: 0) + 1 } }
         counts as Map<Long, Int>
-    }.flowOn(Dispatchers.Default).stateIn(scope, SharingStarted.Eagerly, emptyMap())
+    }.flowOn(Dispatchers.Default).stateIn(scope, SharingStarted.WhileSubscribed(5_000), emptyMap())
 
     val favorites: StateFlow<List<ContactSummary>> = combine(contacts, settings, callCounts, index) { list, s, counts, idx ->
         val favs = list.orEmpty().filter { it.starred }.map { ct -> if (s.preferNickname) ct.copy(displayName = SecondLines.displayName(ct, idx.extras[ct.id], true)) else ct }
         FavoriteOrder.sort(favs, s.favoriteSort, s.favoriteOrder, counts) { a, b -> favoritesCollator.compare(a, b) }
-    }.flowOn(Dispatchers.Default).stateIn(scope, SharingStarted.Eagerly, emptyList())
+    }.flowOn(Dispatchers.Default).stateIn(scope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     fun extra(id: Long): PersonExtra? = index.value.extras[id]
 
@@ -132,5 +141,5 @@ class PeopleUi(
     /** Account labels that hold contacts, with counts ("Google · me@x (212)"). */
     val accountChoices: StateFlow<List<Pair<String, Int>>> = index.map { idx ->
         idx.accountCounts.entries.sortedByDescending { it.value }.map { it.key.displayLabel to it.value }
-    }.stateIn(scope, SharingStarted.Eagerly, emptyList())
+    }.stateIn(scope, SharingStarted.WhileSubscribed(5_000), emptyList())
 }

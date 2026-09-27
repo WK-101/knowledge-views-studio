@@ -108,6 +108,9 @@ class DataContainer(context: Context) {
         )
     }
 
+    /** Contacts as the screens show them and the number → contact index, shared by the view models. */
+    val directory by lazy { ContactDirectory(contacts, settings, PhoneEnv.countryIso(appContext), scope) }
+
     /** v3.2 extras: trip mode city (X2), label policies (X3), simple mode (X4). */
     val extras by lazy { app.parley.data.extras.ExtrasStore(this) }
 

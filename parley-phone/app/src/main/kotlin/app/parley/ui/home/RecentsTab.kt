@@ -70,14 +70,18 @@ import app.parley.ui.CallColors
 import app.parley.ui.EmptyState
 import app.parley.ui.MonoAvatar
 import app.parley.ui.Routes
+import app.parley.ui.activityViewModel
 import app.parley.ui.avatarSize
 import app.parley.ui.common.Format
 
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun RecentsTab(vm: AppViewModel, open: (String) -> Unit, bottomPadding: androidx.compose.ui.unit.Dp = 0.dp) {
-    val groups by vm.recentGroups.collectAsStateWithLifecycle()
-    val filter by vm.recentFilter.collectAsStateWithLifecycle()
+    // The list, its day headers and the chips' state come from RecentsViewModel; this only draws them.
+    val recents: RecentsViewModel = activityViewModel()
+    val model by recents.list.collectAsStateWithLifecycle()
+    val groups = model?.groups
+    val filter by recents.filter.collectAsStateWithLifecycle()
     val sims by vm.sims.collectAsStateWithLifecycle()
     val settings by vm.settings.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -85,7 +89,7 @@ fun RecentsTab(vm: AppViewModel, open: (String) -> Unit, bottomPadding: androidx
     var menuFor by remember { mutableStateOf<RecentGroup?>(null) }
     // F19: the number with the SIM of its latest call, so a national number is read with that SIM's country.
     var messageFor by remember { mutableStateOf<Pair<String, String?>?>(null) }
-    menuFor?.let { g -> RecentActionsSheet(vm, g, open, onMessageOn = { messageFor = it to g.latest.accountId }) { menuFor = null } }
+    menuFor?.let { g -> RecentActionsSheet(vm, recents, g, open, onMessageOn = { messageFor = it to g.latest.accountId }) { menuFor = null } }
     messageFor?.let { (n, account) -> app.parley.messaging.ReachSheet(app.parley.messaging.ReachTarget.Number(n, account), onDismiss = { messageFor = null }, onCall = { num -> vm.requestCall(num) }) }
     var daySummary by remember { mutableStateOf<Pair<Long, String>?>(null) }
     daySummary?.let { (day, title) -> app.parley.ui.history.DaySummarySheet(vm, day, title) { daySummary = null } }
@@ -93,15 +97,13 @@ fun RecentsTab(vm: AppViewModel, open: (String) -> Unit, bottomPadding: androidx
     app.parley.ui.history.RecentsV32Host(vm, open)
     // Blocking: verdict / "Don't call back" badges and multi-select block (B2, B8, B10).
     val badgeFor = app.parley.ui.blocking.rememberRecentBadges(vm)
-    val selected by vm.recentSelection.collectAsStateWithLifecycle()
+    val selected by recents.selection.collectAsStateWithLifecycle()
     // U4: opt-in swipe actions; M7: "Message" uses a contact's usual way to message.
     val swipe = vm.people.settings.collectAsStateWithLifecycle().value.swipe
     val (quick, quickHost) = app.parley.ui.contact.rememberQuickMessenger(vm)
     quickHost()
-    androidx.activity.compose.BackHandler(enabled = selected.isNotEmpty()) { vm.recentSelection.value = emptySet() }
-    fun toggleSelected(g: RecentGroup) {
-        vm.recentSelection.value = selected.let { if (g.key in it) it - g.key else it + g.key }
-    }
+    androidx.activity.compose.BackHandler(enabled = selected.isNotEmpty()) { recents.clearSelection() }
+    fun toggleSelected(g: RecentGroup) = recents.toggleSelected(g)
     // V11: opening Recents (or coming back to it) clears Telecom's missed-call count and stops the re-alert.
     androidx.lifecycle.compose.LifecycleResumeEffect(Unit) {
         vm.onRecentsShown()
@@ -109,10 +111,10 @@ fun RecentsTab(vm: AppViewModel, open: (String) -> Unit, bottomPadding: androidx
     }
     // V1: the Voicemail chip, with the number of unheard voicemails, while Parley can read them (default phone app).
     val isDefault by vm.isDefaultDialer.collectAsStateWithLifecycle()
-    val voicemail by vm.c.voicemail.state.collectAsStateWithLifecycle()
-    val query by vm.recentQuery.collectAsStateWithLifecycle()
+    val voicemail by recents.voicemail.collectAsStateWithLifecycle()
+    val query by recents.query.collectAsStateWithLifecycle()
     // R4 (v3.3): missed calls not returned yet (tint, Call back pill, the Missed chip's count) and the legend.
-    val unreturned by vm.unreturnedMissed.collectAsStateWithLifecycle()
+    val unreturned by recents.unreturnedMissed.collectAsStateWithLifecycle()
     val rich = settings.recentsStyle == app.parley.common.ux.RecentsStyle.RICH
     val toReturn = unreturned.size
     RecentsLegendHost()
@@ -129,7 +131,7 @@ fun RecentsTab(vm: AppViewModel, open: (String) -> Unit, bottomPadding: androidx
                     if (f == RecentFilter.VOICEMAIL && !isDefault && filter != f) return@forEach
                     FilterChip(
                         selected = filter == f,
-                        onClick = { vm.recentFilter.value = f },
+                        onClick = { recents.filter.value = f },
                         label = {
                             Text(stringResource(f.labelRes))
                             // R4 (v3.3): the Missed chip counts the people still to call back.
@@ -162,6 +164,7 @@ fun RecentsTab(vm: AppViewModel, open: (String) -> Unit, bottomPadding: androidx
         }
         item(key = "archive-notes") { app.parley.ui.history.ArchiveNotices(vm, open) }
         val list = groups
+        val rows = model?.rows.orEmpty()
         // U2: swipe and long-press actions on calls, told once (only when there are calls to try them on).
         if (!list.isNullOrEmpty()) item(key = "tip") {
             app.parley.ui.common.CoachMark(
@@ -174,16 +177,16 @@ fun RecentsTab(vm: AppViewModel, open: (String) -> Unit, bottomPadding: androidx
         if (list != null && list.isEmpty()) {
             item(key = "empty") {
                 // U5: "no matches" (clear the search), a filter that shows nothing (show all), or no calls yet (keypad).
-                val activeSaved by vm.c.history.activeFilter.collectAsStateWithLifecycle()
+                val activeSaved by recents.historyFilter.collectAsStateWithLifecycle()
                 when {
                     query.isNotBlank() -> EmptyState(
                         Icons.Rounded.AccessTime, stringResource(R.string.ux_empty_calls_no_match, query), modifier = Modifier.padding(top = 48.dp),
-                        action = stringResource(R.string.ux_empty_clear_search), onAction = { vm.recentQuery.value = "" },
+                        action = stringResource(R.string.ux_empty_clear_search), onAction = { recents.query.value = "" },
                     )
                     filter != RecentFilter.ALL || !activeSaved.isEmpty -> EmptyState(
                         Icons.Rounded.AccessTime, stringResource(R.string.recents_nothing_here), stringResource(R.string.ux_empty_calls_filter), Modifier.padding(top = 48.dp),
                         action = stringResource(R.string.ux_empty_show_all_calls),
-                        onAction = { vm.recentFilter.value = RecentFilter.ALL; vm.c.history.activeFilter.value = app.parley.common.history.HistoryFilter() },
+                        onAction = recents::showAll,
                     )
                     else -> EmptyState(
                         Icons.Rounded.AccessTime, stringResource(R.string.recents_empty), stringResource(R.string.ux_empty_calls_none), Modifier.padding(top = 48.dp),
@@ -192,20 +195,20 @@ fun RecentsTab(vm: AppViewModel, open: (String) -> Unit, bottomPadding: androidx
                 }
             }
         }
-        var lastHeader: String? = null
-        list.orEmpty().forEach { g ->
-            val header = Format.dayHeader(context, g.latest.date)
-            if (header != lastHeader) {
-                lastHeader = header
-                item(key = "h" + g.key) {
+        // P1: the day headers are worked out once per list change in the view model; a header's text is formatted
+        // only when it is on screen.
+        items(rows, key = { it.key }, contentType = { if (it is RecentsRow.Day) RecentsRow.TYPE_DAY else RecentsRow.TYPE_CALL }) { row ->
+            when (row) {
+                is RecentsRow.Day -> {
+                    val header = remember(row.date, row.today, context) { Format.dayHeader(context, row.date) }
                     Text(
                         header, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.fillMaxWidth().clickable(onClickLabel = stringResource(R.string.recents_day_summary)) { daySummary = g.latest.date to header }
+                        modifier = Modifier.fillMaxWidth().clickable(onClickLabel = stringResource(R.string.recents_day_summary)) { daySummary = row.date to header }
                             .padding(start = 20.dp, top = 12.dp, bottom = 4.dp),
                     )
                 }
-            }
-            item(key = g.key) {
+                is RecentsRow.Call -> {
+                    val g = row.group
               val hasNumber = !g.hidden && g.number.isNotBlank()
               app.parley.ui.people.SwipeActionRow(
                   if (selected.isEmpty()) swipe else swipe.copy(enabled = false), hasNumber = hasNumber,
@@ -242,6 +245,7 @@ fun RecentsTab(vm: AppViewModel, open: (String) -> Unit, bottomPadding: androidx
                     onCall = { vm.requestCall(g.number, g.contact?.displayName) },
                 )
               }
+                }
             }
         }
     }
@@ -411,9 +415,8 @@ fun CallTypeIcon(type: CallType, modifier: Modifier = Modifier, size: androidx.c
 /** Long-press actions for a Recents row. */
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
-private fun RecentActionsSheet(vm: AppViewModel, g: RecentGroup, open: (String) -> Unit, onMessageOn: (String) -> Unit, onDismiss: () -> Unit) {
+private fun RecentActionsSheet(vm: AppViewModel, recents: RecentsViewModel, g: RecentGroup, open: (String) -> Unit, onMessageOn: (String) -> Unit, onDismiss: () -> Unit) {
     val context = LocalContext.current
-    val scope = androidx.compose.runtime.rememberCoroutineScope()
     fun act(block: () -> Unit) { onDismiss(); block() }
     androidx.compose.material3.ModalBottomSheet(onDismissRequest = onDismiss) {
         Text(g.shownTitle, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
@@ -432,15 +435,10 @@ private fun RecentActionsSheet(vm: AppViewModel, g: RecentGroup, open: (String) 
         row(R.string.home_create_contact, Icons.Rounded.PersonAdd, hasNumber && g.contact == null && g.vaultId == null) { act { open(Routes.edit(phone = g.number)) } }
         row(R.string.recents_add_to_contact, Icons.Rounded.PersonAdd, hasNumber && g.contact == null && g.vaultId == null) { act { open(Routes.pick(g.number)) } }
         row(R.string.recents_block_number, Icons.Rounded.Block, hasNumber) { act { vm.blockNumber(g.number) } }
-        row(R.string.recents_select, Icons.Rounded.Block, true) { act { vm.recentSelection.value = setOf(g.key) } }
+        row(R.string.recents_select, Icons.Rounded.Block, true) { act { recents.selection.value = setOf(g.key) } }
         if (hasNumber) app.parley.ui.blocking.RecentBlockingActions(vm, g.number, g.contact?.displayName, g.latest.type == CallType.BLOCKED, onDismiss)
         row(R.string.recents_delete_from_history, Icons.Rounded.Delete) {
-            act {
-                scope.launch {
-                    vm.c.history.delete(g.calls.filter { it.id > 0 })
-                    g.calls.filter { it.id < 0 }.forEach { vm.c.vault.deletePrivateCall(-it.id) }
-                }
-            }
+            act { recents.delete(g) }
         }
         androidx.compose.foundation.layout.Spacer(Modifier.padding(bottom = 24.dp))
     }

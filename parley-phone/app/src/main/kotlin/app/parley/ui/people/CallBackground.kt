@@ -44,16 +44,6 @@ sealed interface BackgroundChange {
     data class Set(val uri: Uri) : BackgroundChange
 }
 
-/** Applies an editor's pending background change once the contact is saved. */
-suspend fun AppViewModel.applyBackground(lookupKey: String, change: BackgroundChange) {
-    if (lookupKey.isEmpty()) return
-    when (change) {
-        BackgroundChange.None -> Unit
-        BackgroundChange.Remove -> c.people.backgrounds.clear(lookupKey)
-        is BackgroundChange.Set -> if (!c.people.backgrounds.set(lookupKey, change.uri)) toast(c.appContext.getString(R.string.ppl_bg_failed))
-    }
-}
-
 /** Editor › "Call screen": pick, change or remove the picture shown behind this person's calls. */
 @Composable
 fun CallBackgroundEditor(vm: AppViewModel, lookupKey: String, change: BackgroundChange, onChange: (BackgroundChange) -> Unit) {

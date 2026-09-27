@@ -319,6 +319,23 @@ interface MetaDao {
     @Query("SELECT * FROM contact_meta WHERE lookupKey = :key")
     suspend fun meta(key: String): ContactMetaEntity?
 
+    /** One person's row, for a screen that shows it (instead of watching the whole table). */
+    @Query("SELECT * FROM contact_meta WHERE lookupKey = :key")
+    fun metaFlow(key: String): Flow<ContactMetaEntity?>
+
+    @Query("SELECT * FROM temporary_contacts WHERE lookupKey = :key")
+    fun temporaryFlow(key: String): Flow<TemporaryContactEntity?>
+
+    /** Creates the row if missing, so the targeted updates below have one to change. */
+    @Query("INSERT OR IGNORE INTO contact_meta (lookupKey, contactId) VALUES (:key, :contactId)")
+    suspend fun ensureMeta(key: String, contactId: Long)
+
+    @Query("UPDATE contact_meta SET pinnedNote = :note, contactId = :contactId WHERE lookupKey = :key")
+    suspend fun setPinnedNote(key: String, contactId: Long, note: String?)
+
+    @Query("UPDATE contact_meta SET preferredMessenger = :value, contactId = :contactId WHERE lookupKey = :key")
+    suspend fun setPreferredMessenger(key: String, contactId: Long, value: String?)
+
     @Query("SELECT * FROM contact_meta")
     fun allMeta(): Flow<List<ContactMetaEntity>>
 

@@ -100,6 +100,8 @@ fun HomeScreen(
     var keypadQuery by rememberSaveable { mutableStateOf("") }
     var circleQuery by rememberSaveable { mutableStateOf("") }
     val missed by vm.missedCount.collectAsStateWithLifecycle()
+    val recents: RecentsViewModel = app.parley.ui.activityViewModel()
+    val keypad: KeypadViewModel = app.parley.ui.activityViewModel()
     val selection by vm.selection.collectAsStateWithLifecycle()
     val scroll = TopAppBarDefaults.pinnedScrollBehavior()
     // S1/S2 (v3.3): which tabs the bar shows and where the keypad and the favourites live.
@@ -112,7 +114,7 @@ fun HomeScreen(
     fun closeSearch() {
         searching = false
         vm.contactQuery.value = ""
-        vm.recentQuery.value = ""
+        recents.query.value = ""
         favoriteQuery = ""
         keypadQuery = ""
         circleQuery = ""
@@ -128,8 +130,8 @@ fun HomeScreen(
             if (searching) closeSearch()
             dockOpen = true
         }
-        r.dial?.let { vm.dialInput.value = it }
-        if (r.missedOnly) vm.recentFilter.value = RecentFilter.MISSED
+        r.dial?.let { keypad.input.value = it }
+        if (r.missedOnly) recents.filter.value = RecentFilter.MISSED
         onTabRequestHandled()
     }
     var lastTab by rememberSaveable { mutableStateOf(tab) }
@@ -162,7 +164,7 @@ fun HomeScreen(
             } else {
                 val query = when (tab) {
                     StartTab.CONTACTS -> vm.contactQuery.collectAsStateWithLifecycle().value
-                    StartTab.RECENTS -> vm.recentQuery.collectAsStateWithLifecycle().value
+                    StartTab.RECENTS -> recents.query.collectAsStateWithLifecycle().value
                     StartTab.FAVORITES -> favoriteQuery
                     StartTab.KEYPAD -> keypadQuery
                     StartTab.CIRCLE -> circleQuery
@@ -181,7 +183,7 @@ fun HomeScreen(
                     onQuery = { q ->
                         when (tab) {
                             StartTab.CONTACTS -> vm.contactQuery.value = q
-                            StartTab.RECENTS -> vm.recentQuery.value = q
+                            StartTab.RECENTS -> recents.query.value = q
                             StartTab.FAVORITES -> favoriteQuery = q
                             StartTab.KEYPAD -> keypadQuery = q
                             StartTab.CIRCLE -> circleQuery = q

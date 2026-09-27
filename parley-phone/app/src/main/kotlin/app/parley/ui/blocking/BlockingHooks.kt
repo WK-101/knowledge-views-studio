@@ -1,5 +1,6 @@
 package app.parley.ui.blocking
 
+import app.parley.ui.activityViewModel
 import app.parley.common.PhoneIdentity
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -96,7 +97,7 @@ data class RecentBadge(val text: String, val warn: Boolean)
 fun rememberRecentBadges(vm: AppViewModel): (RecentGroup) -> RecentBadge? {
     val verdicts by vm.c.blocks.verdictIndex.collectAsStateWithLifecycle()
     val rings by vm.c.blocks.rings.collectAsStateWithLifecycle()
-    val groups by vm.recentGroups.collectAsStateWithLifecycle()
+    val groups by activityViewModel<app.parley.ui.home.RecentsViewModel>().groups.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val res = androidx.compose.ui.platform.LocalResources.current
     val badges by androidx.compose.runtime.produceState(emptyMap<String, RecentBadge>(), groups, verdicts, rings) {
@@ -127,7 +128,8 @@ fun rememberRecentBadges(vm: AppViewModel): (RecentGroup) -> RecentBadge? {
  */
 @Composable
 fun RecentsSelectionBar(vm: AppViewModel, groups: List<RecentGroup>) {
-    val selected by vm.recentSelection.collectAsStateWithLifecycle()
+    val recents: app.parley.ui.home.RecentsViewModel = activityViewModel()
+    val selected by recents.selection.collectAsStateWithLifecycle()
     if (selected.isEmpty()) return
     val scope = rememberCoroutineScope()
     var confirming by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
@@ -137,7 +139,7 @@ fun RecentsSelectionBar(vm: AppViewModel, groups: List<RecentGroup>) {
     val numbers = unknown.map { it.number }
     Surface(color = MaterialTheme.colorScheme.secondaryContainer) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton({ vm.recentSelection.value = emptySet() }) { Icon(Icons.Rounded.Close, stringResource(R.string.blk_clear_selection)) }
+            IconButton({ recents.clearSelection() }) { Icon(Icons.Rounded.Close, stringResource(R.string.blk_clear_selection)) }
             Text(pluralStringResource(R.plurals.blk_selected, selected.size, selected.size), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
             TextButton({ confirming = true }, enabled = numbers.isNotEmpty()) {
                 Icon(Icons.Rounded.Block, null)
@@ -170,7 +172,7 @@ fun RecentsSelectionBar(vm: AppViewModel, groups: List<RecentGroup>) {
                         // Without the phone-app role the system list is unavailable: rules do the job instead.
                         numbers.forEach { n -> if (!vm.c.blocks.blockNumber(n)) BlockingActions.blockNumberRule(vm.c, n) }
                         vm.toast(res.getQuantityString(R.plurals.blk_blocked_numbers, numbers.size, numbers.size))
-                        vm.recentSelection.value = emptySet()
+                        recents.clearSelection()
                     }
                 }) { Text(stringResource(R.string.blk_block)) }
             },

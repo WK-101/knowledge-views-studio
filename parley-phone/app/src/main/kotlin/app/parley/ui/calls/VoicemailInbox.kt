@@ -93,6 +93,7 @@ import kotlinx.coroutines.launch
 fun VoicemailInbox(vm: AppViewModel, query: String) {
     val context = LocalContext.current
     val state by vm.c.voicemail.state.collectAsStateWithLifecycle()
+    val recents: app.parley.ui.home.RecentsViewModel = app.parley.ui.activityViewModel()
     val scope = rememberCoroutineScope()
     val player = remember { VoicemailPlayer(context) { v -> if (!v.heard) scope.launch { vm.c.voicemail.markHeard(listOf(v.id)) } } }
     DisposableEffect(player) { onDispose { player.release() } }
@@ -120,7 +121,7 @@ fun VoicemailInbox(vm: AppViewModel, query: String) {
             } else {
                 EmptyState(
                     Icons.Rounded.Voicemail, stringResource(R.string.ux_empty_voicemail_no_match, query), modifier = Modifier.padding(top = 32.dp),
-                    action = stringResource(R.string.ux_empty_clear_search), onAction = { vm.recentQuery.value = "" },
+                    action = stringResource(R.string.ux_empty_clear_search), onAction = { recents.query.value = "" },
                 )
             }
         }

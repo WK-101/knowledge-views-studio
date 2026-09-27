@@ -63,19 +63,18 @@ import app.parley.ui.avatarSize
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.text.Normalizer
+import app.parley.common.ux.ListSections
 
-fun sectionOf(name: String): String {
-    val c = name.firstOrNull { it.isLetterOrDigit() } ?: return "#"
-    if (c.isDigit()) return "#"
-    val base = Normalizer.normalize(c.toString(), Normalizer.Form.NFD).first().uppercaseChar()
-    return base.toString()
-}
+fun sectionOf(name: String): String = ListSections.letterOf(name)
+
+private const val CONTENT_LETTER = "letter"
+private const val CONTENT_CONTACT = "contact"
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ContactsTab(vm: AppViewModel, open: (String) -> Unit, onReorderFavorites: () -> Unit = {}) {
-    val list by vm.people.filtered.collectAsStateWithLifecycle()
+    // P9: the rows with their letter headers, worked out once per list change (PeopleUi.listing).
+    val listing by vm.people.listing.collectAsStateWithLifecycle()
     val query by vm.contactQuery.collectAsStateWithLifecycle()
     val selection by vm.selection.collectAsStateWithLifecycle()
     val secondLines by vm.people.secondLines.collectAsStateWithLifecycle()
@@ -126,8 +125,8 @@ fun ContactsTab(vm: AppViewModel, open: (String) -> Unit, onReorderFavorites: ()
         return
     }
 
-    val contacts = list
-    if (contacts == null) {
+    val rows = listing
+    if (rows == null) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
         return
     }
@@ -141,19 +140,9 @@ fun ContactsTab(vm: AppViewModel, open: (String) -> Unit, onReorderFavorites: ()
     val showFavorites = showMe && layout.favoritesInContacts
     val showCircle = showFavorites && layout.circleHost == app.parley.common.StartTab.CONTACTS
     val leading = listOf(showMe, showFavorites, showCircle).count { it }
-    val sections = remember(contacts, leading) {
-        val map = LinkedHashMap<String, Int>()
-        var idx = 1 + leading // item 0 is the group chips row, then "My card", the favourites and the Circle
-        contacts.forEachIndexed { i, c ->
-            val s = sectionOf(c.displayName)
-            if (s !in map) {
-                map[s] = idx
-                idx++
-            }
-            idx++
-        }
-        map
-    }
+    // Item 0 is the group chips row, then "My card", the favourites and the Circle.
+    val sections = remember(rows, leading) { ListSections.firstRows(rows, 1 + leading) }
+    val count = remember(rows) { rows.count { it is ListSections.Row.Item } }
 
     Box(Modifier.fillMaxSize()) {
         LazyColumn(state = state, modifier = Modifier.fillMaxSize()) {
@@ -161,7 +150,7 @@ fun ContactsTab(vm: AppViewModel, open: (String) -> Unit, onReorderFavorites: ()
             if (showMe) item(key = "me") { app.parley.ui.people.MeCardRow(vm, open) }
             if (showFavorites) item(key = "favorites") { ContactsFavorites(vm, open, onReorder = onReorderFavorites) }
             if (showCircle) item(key = "circle") { app.parley.ui.circle.CircleFavoritesSection(vm, open, "") }
-            if (contacts.isEmpty()) {
+            if (count == 0) {
                 item(key = "empty") {
                     EmptyState(
                         Icons.Rounded.People,
@@ -189,19 +178,19 @@ fun ContactsTab(vm: AppViewModel, open: (String) -> Unit, onReorderFavorites: ()
                     )
                 }
             }
-            var last: String? = null
-            contacts.forEach { c ->
-                val s = sectionOf(c.displayName)
-                if (s != last) {
-                    last = s
-                    stickyHeader(key = "s$s") {
+            rows.forEach { row ->
+                if (row is ListSections.Row.Header) {
+                    val s = row.section
+                    stickyHeader(key = "s$s", contentType = CONTENT_LETTER) {
                         Text(
                             s, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).padding(start = 24.dp, top = 8.dp, bottom = 4.dp),
                         )
                     }
+                    return@forEach
                 }
-                item(key = c.id) {
+                val c = (row as ListSections.Row.Item).item
+                item(key = c.id, contentType = CONTENT_CONTACT) {
                     val number = (c.phones.firstOrNull { it.isPrimary } ?: c.phones.firstOrNull())?.number
                     // U4: opt-in swipe actions (never while selecting).
                     app.parley.ui.people.SwipeActionRow(
@@ -233,7 +222,7 @@ fun ContactsTab(vm: AppViewModel, open: (String) -> Unit, onReorderFavorites: ()
                 }
             }
         }
-        if (query.isBlank() && contacts.size > 30) {
+        if (query.isBlank() && count > 30) {
             // A4 (v3.4): "★" jumps to the favourites when they're at the top of Contacts.
             val favIndex = 1 + (if (showMe) 1 else 0)
             val letters = remember(sections, showFavorites) { (if (showFavorites) listOf(FAVOURITES_MARK) else emptyList()) + sections.keys }

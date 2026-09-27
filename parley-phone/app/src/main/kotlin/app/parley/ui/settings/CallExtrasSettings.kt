@@ -32,6 +32,7 @@ import app.parley.ui.SegmentedGroup
 @Composable
 internal fun CallExtrasGroups(vm: AppViewModel) {
     val cfg by vm.c.callExtras.config.collectAsStateWithLifecycle()
+    val recents: app.parley.ui.home.RecentsViewModel = app.parley.ui.activityViewModel()
     val choices = MissedReAlert.CHOICES
     val choiceLabels = choices.map { if (it == 0) stringResource(R.string.set_off) else pluralStringResource(R.plurals.set_every_minutes, it, it) }
     val reAlertSub = if (cfg.missedReAlertMinutes == 0) null else stringResource(R.string.set_missed_realert_on, cfg.missedReAlertMinutes)
@@ -44,7 +45,7 @@ internal fun CallExtrasGroups(vm: AppViewModel) {
             sub = reAlertSub,
         ) { i -> vm.c.callExtras.update { it.copy(missedReAlertMinutes = choices[i]) } }
         linkRow("voicemail", Icons.Rounded.Voicemail, sub = voicemailSub) {
-            vm.recentFilter.value = RecentFilter.VOICEMAIL
+            recents.filter.value = RecentFilter.VOICEMAIL
             vm.navigate(NavEvent.Tab(StartTab.RECENTS))
         }
     }

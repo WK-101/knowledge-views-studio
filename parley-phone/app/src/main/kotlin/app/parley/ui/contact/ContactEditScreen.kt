@@ -138,7 +138,7 @@ import app.parley.data.HandleItem
 import app.parley.data.PostalItem
 import app.parley.ui.people.BackgroundChange
 import app.parley.ui.people.HandleText
-import app.parley.ui.people.applyBackground
+import app.parley.ui.screenViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -194,23 +194,6 @@ private const val G_DATE = "date"
 private const val G_HANDLE = "handle"
 private const val G_REL = "rel"
 
-/** E1: the draft without never-saved blank rows, so an added-and-left-empty row isn't a change. */
-private fun ContactDetails.meaningful(): ContactDetails {
-    fun m(l: List<DataItem>) = EditorForm.meaningful(l, { it.id == null }, { it.value.isBlank() })
-    return copy(
-        phones = m(phones), emails = m(emails), websites = m(websites), relations = m(relations),
-        addresses = EditorForm.meaningful(addresses, { it.id == null }, { it.isBlank }),
-        events = EditorForm.meaningful(events, { it.id == null }, { it.date.isBlank() }),
-        handles = EditorForm.meaningful(handles, { it.id == null }, { it.value.isBlank() }),
-    )
-}
-
-/** Every text of the draft (a contact holding only an address, a note or a website is fine, F24). */
-private fun ContactDetails.texts(): List<String> =
-    listOf(prefix, given, middle, family, suffix, nickname, company, title, note, phoneticGiven, phoneticFamily, context, pinnedNote) +
-        (phones + emails + websites + relations).map { it.value } + events.map { it.date } + handles.map { it.value } +
-        addresses.flatMap { listOf(it.street, it.poBox, it.neighborhood, it.city, it.region, it.postcode, it.country) }
-
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun ContactEditScreen(
@@ -227,98 +210,49 @@ fun ContactEditScreen(
     rawId: Long? = null,
     done: (Long?) -> Unit,
 ) {
-    val context = LocalContext.current
-    val res = LocalResources.current
-    val scope = rememberCoroutineScope()
-    var original by remember { mutableStateOf<ContactDetails?>(null) }
-    var draft by remember { mutableStateOf<ContactDetails?>(null) }
-    var accounts by remember { mutableStateOf<List<AccountRef>>(emptyList()) }
-    var account by remember { mutableStateOf<AccountRef?>(null) }
-    var groups by remember { mutableStateOf<List<GroupInfo>>(emptyList()) }
-    var photo by remember { mutableStateOf<Uri?>(null) }
-    var removePhoto by remember { mutableStateOf(false) }
-    var moreName by remember { mutableStateOf(false) }
-    var saving by remember { mutableStateOf(false) }
+    // The edit lives in the screen's view model (and its saved state), so rotation, a theme, font or language change
+    // and process death keep it; this composable only draws it.
+    val editor: EditorViewModel = screenViewModel()
+    LaunchedEffect(Unit) { editor.start(EditorArgs(contactId, prefillName, prefillPhone, prefillEmail, addPhone, prefill, vaultId, rawId)) }
+    val latestDone by androidx.compose.runtime.rememberUpdatedState(done)
+    LaunchedEffect(editor) {
+        editor.events.collect { e ->
+            when (e) {
+                is EditorEvent.Message -> vm.toast(e.text)
+                is EditorEvent.Done -> latestDone(e.savedId)
+            }
+        }
+    }
+    val original = editor.original
+    val account = editor.account
+    val accounts = editor.accounts
+    val groups = editor.groups
+    val photo = editor.photo
+    val removePhoto = editor.removePhoto
+    val privateNew = editor.privateNew
+    val saving = editor.saving
+    val askKeep = editor.askKeep
+    val moreName = editor.moreName
+    val revealed = editor.revealed
     var confirmDiscard by remember { mutableStateOf(false) }
-    var askKeep by remember { mutableStateOf<Pair<String, Long>?>(null) }
-    var start by remember { mutableStateOf<ContactDetails?>(null) }
-    var revealed by remember { mutableStateOf(emptySet<EditorForm.Kind>()) }
     var moreSheet by remember { mutableStateOf(false) }
-    // I5: relations whose contact was chosen with the picker (name key → that contact).
-    var pickedLinks by remember { mutableStateOf(emptyMap<String, RelationLinks.Link>()) }
-    // New contacts go to the private vault when "Private by default" is on (the Save-to menu can change it).
-    var privateNew by remember { mutableStateOf(false) }
-    val isVault = vaultId != null || privateNew
-    var bgChange by remember { mutableStateOf<BackgroundChange>(BackgroundChange.None) }
+    val isVault = editor.isVault
+    val bgChange = editor.background
     val idx by vm.people.index.collectAsStateWithLifecycle()
     // E1: stable row keys (animations, focus) and the field to focus next.
-    val keys = remember { RowKeys() }
+    val keys = editor.keys
     val requesters = remember { HashMap<Long, FocusRequester>() }
     fun fr(key: Long) = requesters.getOrPut(key) { FocusRequester() }
     var focusKey by remember { mutableStateOf<Long?>(null) }
     var pickDateFor by remember { mutableStateOf<Long?>(null) }
 
-    LaunchedEffect(contactId) {
-        if (contactId == null && vaultId == null) privateNew = vm.c.people.prefs.current().privateByDefault
-        accounts = withContext(Dispatchers.IO) { vm.c.contacts.accounts() }
-        groups = withContext(Dispatchers.IO) { vm.c.contacts.groups() }
-        val s = vm.settings.value
-        account = accounts.firstOrNull { it.type == s.defaultAccountType && it.name == s.defaultAccountName }
-            ?: accounts.firstOrNull { it.type == "com.google" } ?: accounts.firstOrNull()
-        fun withPhoneRow(e: ContactDetails) = if (e.phones.isEmpty()) e.copy(phones = listOf(DataItem(type = Phone.TYPE_MOBILE))) else e
-        if (vaultId != null) {
-            val e = if (vaultId > 0) {
-                try {
-                    vm.c.vault.details(vaultId)
-                } catch (_: app.parley.data.vault.VaultCrypto.LockedException) {
-                    vm.toast(res.getString(R.string.edit_unlock_first))
-                    done(null)
-                    return@LaunchedEffect
-                } ?: ContactDetails()
-            } else {
-                prefill ?: ContactDetails()
-            }
-            draft = withPhoneRow(e)
-            start = draft
-            return@LaunchedEffect
-        }
-        if (contactId != null) {
-            val d = if (rawId != null) vm.c.contacts.editableRaw(contactId, rawId) else vm.c.contacts.editable(contactId)
-            original = d
-            val loaded = withPhoneRow(d ?: ContactDetails())
-            var e = d ?: ContactDetails()
-            if (addPhone.isNotBlank()) e = e.copy(phones = e.phones + DataItem(value = addPhone, type = Phone.TYPE_MOBILE))
-            if (prefill != null) e = app.parley.InsertPrefill.appendTo(e, prefill)
-            draft = withPhoneRow(e)
-            // E1: an added number or appended details count as a change, so Save is ready for them.
-            start = loaded
-            account = d?.rawContacts?.firstOrNull { it.id == d.editRawId }?.account ?: AccountRef(null, null)
-        } else {
-            if (prefill != null) {
-                draft = withPhoneRow(prefill)
-                start = null
-                return@LaunchedEffect
-            }
-            val parts = prefillName.trim().split(Regex("\\s+"), limit = 2)
-            draft = ContactDetails(
-                given = parts.getOrElse(0) { "" },
-                family = parts.getOrElse(1) { "" },
-                phones = listOf(DataItem(value = prefillPhone, type = Phone.TYPE_MOBILE)),
-                emails = if (prefillEmail.isNotBlank()) listOf(DataItem(value = prefillEmail, type = Email.TYPE_HOME)) else emptyList(),
-            )
-            start = draft
-        }
-    }
-
     // The system photo picker needs no storage permission (also for private contacts' encrypted photos, I6).
     val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        if (uri != null) { photo = uri; removePhoto = false }
+        if (uri != null) editor.pickPhoto(uri)
     }
-    val d = draft
-    val isNew = original == null && (vaultId ?: 0L) <= 0L
-    val changed = d != null && (start == null || d.meaningful() != start?.meaningful()) ||
-        photo != null || removePhoto || bgChange != BackgroundChange.None
-    val canSave = d != null && EditorForm.canSave(isNew, changed, EditorForm.hasContent(d.texts()) || photo != null, saving)
+    val d = editor.draft
+    val changed = editor.changed
+    val canSave = editor.canSave
 
     // E1: unsaved-changes guard with predictive back: the editor shrinks with the gesture, then asks.
     var backProgress by remember { mutableFloatStateOf(0f) }
@@ -332,51 +266,7 @@ fun ContactEditScreen(
     }
     val shrink by animateFloatAsState(backProgress, spring(stiffness = Spring.StiffnessMediumLow), label = "back")
 
-    fun save() {
-        val e = draft ?: return
-        // A contact holding only an address, a note or a website is fine (F24); a completely empty one is not.
-        val empty = !EditorForm.hasContent(e.texts())
-        // Clearing one copy of a linked contact is allowed: that empty copy is removed and the others stay.
-        val orig = original
-        if (empty && photo == null && (orig == null || orig.rawContacts.size < 2 || orig.editRawId == null)) {
-            vm.toast(res.getString(if (original == null) R.string.edit_add_name_first else R.string.edit_nothing_left))
-            return
-        }
-        saving = true
-        scope.launch {
-            // Leaving the editor cancels this; only a real error says "Save failed".
-            val id = app.parley.common.suspendRunCatching {
-                if (isVault) {
-                    val existing = vaultId?.takeIf { it > 0 }
-                    val cleaned = e.copy(handles = e.handles.filter { it.value.isNotBlank() })
-                    val id = vm.c.vault.save(existing, cleaned)
-                    // I6: the encrypted caller photo.
-                    val picked = photo
-                    if (picked != null) {
-                        // C1: decoded reduced and upright from the picked file, never read whole.
-                        val bytes = withContext(Dispatchers.IO) { app.parley.data.ContactPhotoProcessor.process(context.contentResolver, picked) }
-                        if (bytes == null || !vm.c.vault.setPhoto(id, bytes)) vm.toast(res.getString(R.string.edit_photo_failed))
-                    } else if (removePhoto) {
-                        vm.c.vault.removePhoto(id)
-                    }
-                    -id // negative ids mark vault contacts for the caller
-                } else {
-                    vm.c.contacts.save(original, e, account, photo, removePhoto)?.contactId.also { saved ->
-                        original?.lookupKey?.let { key -> vm.applyBackground(key, bgChange) }
-                        if (saved != null) rememberRelations(vm, saved, e, pickedLinks)
-                    }
-                }
-            }.getOrElse { ex ->
-                vm.toast(res.getString(R.string.edit_save_failed, ex.message.orEmpty()))
-                null
-            }
-            saving = false
-            if (id == null) return@launch
-            // A temporary contact the user just edited for real: ask once whether to keep it (F2).
-            val key = original?.lookupKey
-            if (!isVault && !key.isNullOrEmpty() && vm.c.temporaries.needsKeepPrompt(key)) askKeep = key to id else done(id)
-        }
-    }
+    fun save() = editor.save()
 
     val scroll = TopAppBarDefaults.pinnedScrollBehavior()
     Scaffold(
@@ -425,7 +315,7 @@ fun ContactEditScreen(
             }
             return@Scaffold
         }
-        fun update(f: (ContactDetails) -> ContactDetails) { draft = f(draft ?: d) }
+        fun update(f: (ContactDetails) -> ContactDetails) = editor.update(f)
         fun shown(k: EditorForm.Kind, has: Boolean) = has || k in revealed
         val nameDetailsFilled = listOf(d.prefix, d.middle, d.suffix, d.phoneticGiven, d.phoneticFamily, d.nickname).any { it.isNotBlank() }
         val shownKinds = buildSet {
@@ -450,11 +340,11 @@ fun ContactEditScreen(
             update(change)
         }
         fun addKind(k: EditorForm.Kind) {
-            revealed = revealed + k
+            editor.revealed = revealed + k
             moreSheet = false
-            val cur = draft ?: d
+            val cur = editor.draft ?: d
             when (k) {
-                EditorForm.Kind.NAME_DETAILS -> { moreName = true; focusKey = KEY_NICK }
+                EditorForm.Kind.NAME_DETAILS -> { editor.moreName = true; focusKey = KEY_NICK }
                 EditorForm.Kind.DATE -> pickDateFor = addRow(G_DATE, cur.events.size) { it.copy(events = it.events + EventItem(type = Event.TYPE_BIRTHDAY)) }
                 EditorForm.Kind.ADDRESS -> addRow(G_ADDR, cur.addresses.size) { it.copy(addresses = it.addresses + PostalItem(type = StructuredPostal.TYPE_HOME)) }
                 EditorForm.Kind.WEBSITE -> addRow(WEBSITES.group, cur.websites.size) { it.copy(websites = it.websites + DataItem(type = Website.TYPE_HOMEPAGE)) }
@@ -482,7 +372,7 @@ fun ContactEditScreen(
                 PhotoHeader(
                     d.composedName.ifBlank { d.nickname.ifBlank { d.company } }, shownPhoto,
                     onPick = { photoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
-                    onRemove = { photo = null; removePhoto = true },
+                    onRemove = editor::clearPhoto,
                 )
                 if (isVault && shownPhoto != null) {
                     Text(
@@ -493,7 +383,7 @@ fun ContactEditScreen(
                 AccountLine(
                     vaultId = vaultId, isExisting = original != null, privateNew = privateNew, account = account, accounts = accounts,
                     label = { a -> idx.labelWithCount(a) },
-                    onPick = { a -> if (a == null) privateNew = true else { privateNew = false; account = a } },
+                    onPick = editor::chooseAccount,
                 )
                 if (isVault) {
                     Text(
@@ -511,7 +401,7 @@ fun ContactEditScreen(
                 }
                 NameCard(
                     d, expanded = moreName || nameDetailsFilled, canCollapse = !nameDetailsFilled,
-                    onToggle = { moreName = !moreName }, first = fr(KEY_FIRST), nick = fr(KEY_NICK), update = ::update,
+                    onToggle = { editor.moreName = !moreName }, first = fr(KEY_FIRST), nick = fr(KEY_NICK), update = ::update,
                 )
                 Segment(SegPos.Single) {
                     GroupHead(Icons.Rounded.Business, stringResource(R.string.v34e_work))
@@ -607,7 +497,7 @@ fun ContactEditScreen(
                     RelationRow(
                         vm, item, fr(k),
                         onChange = { n2 -> update { it.copy(relations = it.relations.toMutableList().also { l -> if (i in l.indices) l[i] = n2 }) } },
-                        onPicked = { name, link -> pickedLinks = pickedLinks + (RelationLinks.nameKey(name) to link) },
+                        onPicked = editor::linkRelation,
                         onRemove = { removeRow(G_REL, i) { it.copy(relations = it.relations.filterIndexed { j, _ -> j != i }) } },
                     )
                 }
@@ -674,7 +564,7 @@ fun ContactEditScreen(
 
             val lookup = original?.lookupKey
             if (!isVault && !lookup.isNullOrEmpty()) {
-                put("bg") { Segment(SegPos.Single, Modifier.animateItem()) { Box(Modifier.padding(end = 8.dp, bottom = 8.dp)) { app.parley.ui.people.CallBackgroundEditor(vm, lookup, bgChange) { bgChange = it } } } }
+                put("bg") { Segment(SegPos.Single, Modifier.animateItem()) { Box(Modifier.padding(end = 8.dp, bottom = 8.dp)) { app.parley.ui.people.CallBackgroundEditor(vm, lookup, bgChange, editor::changeBackground) } } }
                 put("bg:gap") { Spacer(Modifier.height(12.dp)) }
             }
 
@@ -728,13 +618,13 @@ fun ContactEditScreen(
         }
     }
 
-    askKeep?.let { (key, id) ->
+    if (askKeep != null) {
         AlertDialog(
             onDismissRequest = {},
             title = { Text(stringResource(R.string.edit_keep_title)) },
             text = { Text(stringResource(R.string.edit_keep_body)) },
-            confirmButton = { TextButton({ askKeep = null; scope.launch { vm.c.temporaries.answerKeep(key, true); done(id) } }) { Text(stringResource(R.string.edit_keep)) } },
-            dismissButton = { TextButton({ askKeep = null; scope.launch { vm.c.temporaries.answerKeep(key, false); done(id) } }) { Text(stringResource(R.string.edit_still_delete)) } },
+            confirmButton = { TextButton({ editor.answerKeep(true) }) { Text(stringResource(R.string.edit_keep)) } },
+            dismissButton = { TextButton({ editor.answerKeep(false) }) { Text(stringResource(R.string.edit_still_delete)) } },
         )
     }
     if (confirmDiscard) {
@@ -746,19 +636,6 @@ fun ContactEditScreen(
             dismissButton = { TextButton({ confirmDiscard = false }) { Text(stringResource(R.string.edit_keep_editing)) } },
         )
     }
-}
-
-/** Remembers which contact each relation names, by lookup key, beside the name-only Data row (F23, I5). */
-private suspend fun rememberRelations(vm: AppViewModel, contactId: Long, e: ContactDetails, picked: Map<String, RelationLinks.Link>) = withContext(Dispatchers.IO) {
-    val key = vm.c.contacts.lookupKeyOf(contactId) ?: return@withContext
-    val m = vm.c.meta.meta(key)
-    val existing = RelationLinks.decode(m?.relationLinks)
-    val names = e.relations.map { it.value }.filter { it.isNotBlank() }
-    if (names.isEmpty() && existing.isEmpty()) return@withContext
-    val people = vm.c.contacts.snapshot().map { Triple(it.id, it.displayName, it.lookupKey) }
-    val links = RelationLinks.update(names, existing, people, self = contactId, picked = picked)
-    if (links == existing) return@withContext
-    vm.c.meta.setMeta((m ?: app.parley.data.db.ContactMetaEntity(key)).copy(contactId = contactId, relationLinks = RelationLinks.encode(links).ifEmpty { null }))
 }
 
 /** E1: "Save to" chip for new contacts (private or an account), or where an existing contact lives. */

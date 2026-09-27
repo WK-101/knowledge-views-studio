@@ -123,6 +123,7 @@ import app.parley.ui.Avatar
 import app.parley.ui.Bidi
 import app.parley.ui.OnGroupSurface
 import app.parley.ui.Routes
+import app.parley.ui.screenViewModel
 import app.parley.ui.SegmentedGroup
 import app.parley.ui.blended
 import app.parley.ui.common.Format
@@ -149,93 +150,54 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
     val context = LocalContext.current
     val resources = androidx.compose.ui.platform.LocalResources.current
     val scope = rememberCoroutineScope()
-    val all by vm.contacts.collectAsStateWithLifecycle()
-    val calls by vm.c.history.calls.collectAsStateWithLifecycle()
+    val page: ContactDetailViewModel = screenViewModel()
+    LaunchedEffect(contactId) { page.start(contactId) }
+    LaunchedEffect(page) { page.events.collect { vm.toast(it) } }
+    val ui by page.state.collectAsStateWithLifecycle()
     val sims by vm.sims.collectAsStateWithLifecycle()
-    val simPrefs by vm.c.prefs.numberSims.collectAsStateWithLifecycle(emptyList())
-    var details by remember { mutableStateOf<ContactDetails?>(null) }
-    var loaded by remember { mutableStateOf(false) }
-    var reloads by remember { mutableStateOf(0) }
+    val simPrefs = ui.simPrefs
+    val details = ui.details
+    val loaded = ui.loaded
     var menu by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
     var showQr by remember { mutableStateOf(false) }
     var simFor by remember { mutableStateOf<String?>(null) }
     var showPhoto by remember { mutableStateOf(false) }
     var askExpiry by remember { mutableStateOf(false) }
-    var relationChoice by remember { mutableStateOf<List<Long>?>(null) }
+    var relationChoice by remember { mutableStateOf<List<app.parley.common.ContactSummary>?>(null) }
     var pinDialog by remember { mutableStateOf(false) }
     var reachOut by remember { mutableStateOf(false) }
     var secureQr by remember { mutableStateOf(false) }
     var copyToSim by remember { mutableStateOf(false) }
     var messageSheet by remember { mutableStateOf<String?>(null) }
     var webLink by remember { mutableStateOf<HandleLink?>(null) }
-    val allNotes by vm.c.meta.allCallNotes().collectAsStateWithLifecycle(emptyList())
     var editNote by remember { mutableStateOf(false) }
-    var messengers by remember { mutableStateOf<List<app.parley.data.MessengerAction>>(emptyList()) }
-    var meta by remember { mutableStateOf<app.parley.data.db.ContactMetaEntity?>(null) }
-    var otherFields by remember { mutableStateOf<List<OtherFields.Field>>(emptyList()) }
-    LaunchedEffect(contactId, all) {
-        messengers = withContext(Dispatchers.IO) { app.parley.data.Messengers.actions(context, contactId) }
-    }
-    // Re-read when any metadata changes (the Circle's rhythm is also set from its own dialog and from Undo).
-    val metaRows by vm.c.meta.allMeta().collectAsStateWithLifecycle(emptyList())
-    LaunchedEffect(details, metaRows) { details?.lookupKey?.let { meta = vm.c.meta.meta(it) } }
-    // R2: logged interactions for the timeline and the Stay in touch card.
-    val interactions by remember(details?.lookupKey) { details?.lookupKey?.takeIf { it.isNotEmpty() }?.let { vm.c.circle.interactions.interactions(it) } ?: kotlinx.coroutines.flow.flowOf(emptyList()) }
-        .collectAsStateWithLifecycle(emptyList())
+    // The page's data comes from its view model, read for this person only (ContactDetailViewModel).
+    val messengers = ui.messengers
+    val meta = ui.meta
+    val otherFields = ui.otherFields
+    val interactions = ui.interactions
     var logDialog by remember { mutableStateOf(false) }
     // R8/R9/X1: the pre-call peek (the number about to be called).
-    val circleCfg by vm.c.circle.config.collectAsStateWithLifecycle()
+    val circleCfg by page.circleConfig.collectAsStateWithLifecycle()
     var peekNumber by remember { mutableStateOf<String?>(null) }
     var editEntry by remember { mutableStateOf<app.parley.data.circle.Interaction?>(null) }
-    fun saveMeta(f: (app.parley.data.db.ContactMetaEntity) -> app.parley.data.db.ContactMetaEntity) {
-        val key = details?.lookupKey ?: return
-        // The contact id is kept beside the key so the row can follow a key change (F8).
-        val next = f(meta ?: app.parley.data.db.ContactMetaEntity(key)).copy(contactId = contactId)
-        meta = next
-        scope.launch { vm.c.meta.setMeta(next) }
-    }
-    val prefs = remember(meta) { MessengerPrefs.decode(meta?.preferredMessenger) }
-    fun savePrefs(p: MessengerPrefs) = saveMeta { it.copy(preferredMessenger = p.encode()) }
-    val temps by vm.c.meta.temporaryContacts().collectAsStateWithLifecycle(emptyList())
-    val temp = details?.lookupKey?.let { k -> temps.firstOrNull { it.lookupKey == k } }
+    val prefs = ui.prefs
+    fun savePrefs(p: MessengerPrefs) = page.setMessengerPrefs(p)
+    val temp = ui.temporary
 
-    LaunchedEffect(contactId, all, reloads) {
-        details = vm.c.contacts.details(contactId)
-        loaded = true
-    }
-    // I4: kinds Parley doesn't edit, read-only, from the lossless record (messenger rows are shown as Messengers).
-    LaunchedEffect(contactId, all) {
-        otherFields = withContext(Dispatchers.IO) {
-            runCatching {
-                vm.c.records.read(contactId, fullPhoto = false)?.raws.orEmpty().flatMap { raw ->
-                    val messenger = app.parley.common.record.Messengers.isMessengerAccount(raw.accountType)
-                    OtherFields.describe(raw.rows) { messenger }
-                }.distinctBy { it.label to it.value }
-            }.getOrDefault(emptyList())
-        }
-    }
     val ringtonePicker = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { res ->
         if (res.resultCode == Activity.RESULT_OK) {
             @Suppress("DEPRECATION")
             val uri = res.data?.getParcelableExtra<Uri>(RingtoneManager.EXTRA_RINGTONE_PICKED_URI)
-            scope.launch { vm.c.contacts.setRingtone(contactId, uri?.toString()) }
+            page.setRingtone(uri)
         }
     }
 
     val d = details
-    // F7: same line by E.164 (read with this phone's country), not by the last 9 digits.
-    val history = remember(calls, d?.phones) {
-        val phones = d?.phones.orEmpty()
-        if (phones.isEmpty()) emptyList() else {
-            val mine = PhoneIdentity.LineSet(phones.map { it.value }, app.parley.data.PhoneEnv.countryIso(context))
-            calls.orEmpty().filter { e -> e.number in mine }
-        }
-    }
+    val history = ui.history
     // R8/R9: every note about this person (call notes, interaction notes, pinned note), and its open promises.
-    // Call notes are stored under each line's key, or under the old last-digits key until migrated.
-    val numberKeys = remember(d?.phones) { d?.phones.orEmpty().flatMap { PhoneIdentity.lookupKeys(it.value, vm.countryIso) }.toSet() }
-    val memory by app.parley.ui.circle.rememberPersonMemory(vm, d?.lookupKey.orEmpty(), numberKeys, allNotes, interactions, meta)
+    val memory = ui.memory
     // X1: a good time to call, from the calls with them and their local time.
     val goodTime = remember(history, d?.phones) {
         val p = d?.phones?.let { ps -> ps.firstOrNull { it.isPrimary } ?: ps.firstOrNull() }?.value
@@ -310,7 +272,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                 navigationIcon = { IconButton(back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.main_back)) } },
                 actions = {
                     if (d != null) {
-                        IconButton({ scope.launch { vm.c.contacts.setStarred(contactId, !d.starred) } }) {
+                        IconButton({ page.setStarred(!d.starred) }) {
                             Icon(if (d.starred) Icons.Rounded.Star else Icons.Rounded.StarOutline, stringResource(if (d.starred) R.string.sel_unstar else R.string.sel_star))
                         }
                         IconButton({ open(Routes.edit(id = contactId)) }) { Icon(Icons.Rounded.Edit, stringResource(R.string.main_edit)) }
@@ -319,7 +281,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                             // U4: "Log interaction" is the FAB for Circle contacts; for everyone else it's here.
                             if (meta?.reachOutDays == null) DropdownMenuItem({ Text(stringResource(R.string.circle_log_interaction)) }, leadingIcon = { Icon(Icons.Rounded.Handshake, null) }, onClick = { menu = false; logDialog = true })
                             DropdownMenuItem({ Text(stringResource(R.string.detail_share_file)) }, leadingIcon = { Icon(Icons.Rounded.Share, null) }, onClick = {
-                                menu = false; Intents.shareVcard(context, vm.c.contacts.vcardUri(d.lookupKey), d.displayName)
+                                menu = false; Intents.shareVcard(context, page.vcardUri(d.lookupKey), d.displayName)
                             })
                             DropdownMenuItem({ Text(stringResource(R.string.detail_show_qr)) }, leadingIcon = { Icon(Icons.Rounded.QrCode2, null) }, onClick = { menu = false; showQr = true })
                             DropdownMenuItem({ Text(stringResource(R.string.detail_share_private)) }, leadingIcon = { Icon(Icons.Rounded.Lock, null) }, onClick = { menu = false; secureQr = true })
@@ -343,7 +305,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                             app.parley.ui.blocking.ContactPrefixAllowMenuItem(d.composedName.ifBlank { null }, d.phones.map { it.value }) { menu = false }
                             if (d.rawContacts.size > 1) {
                                 DropdownMenuItem({ Text(stringResource(R.string.detail_separate)) }, leadingIcon = { Icon(Icons.AutoMirrored.Rounded.CallSplit, null) }, onClick = {
-                                    menu = false; scope.launch { vm.c.contacts.separate(contactId); back() }
+                                    menu = false; page.separate(back)
                                 })
                             }
                             DropdownMenuItem({ Text(stringResource(R.string.detail_move_vault)) }, leadingIcon = { Icon(Icons.Rounded.Lock, null) }, onClick = {
@@ -352,7 +314,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                                     // I6: the note for calls and the messaging choice go with them (encrypted).
                                     val id = vm.moveToVault(contactId, d.copy(pinnedNote = meta?.pinnedNote.orEmpty(), messengerPrefs = prefs.encode().orEmpty()))
                                     // Now kept encrypted with them: no plaintext copy stays in Parley's metadata.
-                                    if (meta != null) vm.c.meta.deleteMeta(d.lookupKey)
+                                    page.forgetMeta(d.lookupKey)
                                     vm.toast(resources.getString(R.string.detail_moved_private))
                                     back()
                                     open(Routes.vault(id))
@@ -436,8 +398,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                                 val on = key != null && key in yearly
                                 fun toggle() {
                                     key ?: return
-                                    scope.launch { vm.c.circle.setYearly(d.lookupKey, contactId, key, !on) }
-                                    vm.toast(resources.getString(if (on) R.string.c2_yearly_off else R.string.c2_yearly_on))
+                                    page.setYearly(key, !on)
                                 }
                                 GroupDataRow(
                                     Icons.Rounded.Cake, i == 0, app.parley.ui.people.describeLifeEvent(resources, d, ev),
@@ -455,7 +416,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                             }
                         }
                     }
-                    if (hasMissingDates(d)) MissingDateChips(vm, d, onSaved = { reloads++ })
+                    if (hasMissingDates(d)) MissingDateChips(vm, d, onSaved = page::reload)
                 }
             }
         }
@@ -475,7 +436,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                                 onMessage = { message(d, p.value) },
                                 onMessageOn = { messageSheet = p.value },
                                 onSim = { simFor = p.value },
-                                onDefault = { on -> scope.launch { setDefault(vm, contactId, p, Phone.CONTENT_ITEM_TYPE, on); reloads++ } },
+                                onDefault = { on -> page.setDefault(p, Phone.CONTENT_ITEM_TYPE, on) },
                             )
                         }
                     }
@@ -492,7 +453,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                                 Icons.Rounded.Email, i == 0, e.value, Format.emailType(resources, e.type, e.label), onClick = { Intents.email(context, e.value) },
                                 trailing = if (e.isPrimary && d.emails.size > 1) ({ Icon(Icons.Rounded.Star, stringResource(R.string.detail_default_email), tint = MaterialTheme.colorScheme.primary) }) else null,
                                 menu = if (d.emails.size > 1 && e.id != null) ({ close ->
-                                    DefaultMenuItem(e.isPrimary) { on -> close(); scope.launch { setDefault(vm, contactId, e, Email.CONTENT_ITEM_TYPE, on); reloads++ } }
+                                    DefaultMenuItem(e.isPrimary) { on -> close(); page.setDefault(e, Email.CONTENT_ITEM_TYPE, on) }
                                 }) else null,
                             )
                         }
@@ -541,18 +502,11 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                                 ?: android.provider.ContactsContract.CommonDataKinds.Relation.getTypeLabel(resources, rel.type, rel.label).toString()
                             GroupDataRow(Icons.Rounded.People, i == 0, rel.value, label, onClick = {
                                 // By the remembered lookup key first, then by name; several namesakes: ask (F23).
-                                scope.launch {
-                                    val link = app.parley.common.people.RelationLinks.decode(meta?.relationLinks)[app.parley.common.people.RelationLinks.nameKey(rel.value)]
-                                    val target = withContext(Dispatchers.IO) {
-                                        app.parley.common.people.RelationLinks.resolve(
-                                            rel.value, link, { l -> vm.c.contacts.currentOf(l.lookupKey, l.contactId)?.first },
-                                            all.orEmpty().map { it.id to it.displayName }, self = contactId,
-                                        )
-                                    }
+                                page.openRelation(rel.value) { target ->
                                     when (target) {
-                                        is app.parley.common.people.RelationLinks.Target.Contact -> open(Routes.contact(target.id))
-                                        is app.parley.common.people.RelationLinks.Target.Choose -> relationChoice = target.ids
-                                        app.parley.common.people.RelationLinks.Target.None -> vm.toast(resources.getString(R.string.detail_no_contact_named, rel.value))
+                                        is RelationTarget.Contact -> open(Routes.contact(target.id))
+                                        is RelationTarget.Choose -> relationChoice = target.people
+                                        is RelationTarget.None -> vm.toast(resources.getString(R.string.detail_no_contact_named, target.name))
                                     }
                                 }
                             })
@@ -572,7 +526,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                 GroupNote(stringResource(R.string.detail_other_fields_note))
             }
         }
-        val notes = allNotes.filter { it.numberKey in numberKeys }
+        val notes = ui.notes
         // R2: calls, logged interactions, call notes and dates, by month. P1: the latest few; "Show all" opens the rest.
         val timelineCount = remember(history, interactions, notes, d.events) { app.parley.ui.circle.timelineEntries(d, history, interactions, notes, java.time.ZoneId.systemDefault()).size }
         sections.add(ContactSection.TIMELINE, sectionTitle(resources, ContactSection.TIMELINE), resources.getQuantityString(R.plurals.v34_cp_entries, timelineCount, timelineCount)) {
@@ -606,7 +560,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                         colors = groupRowColors(),
                         leadingContent = { Icon(Icons.Rounded.Voicemail, null) },
                         headlineContent = { Text(stringResource(R.string.detail_send_to_voicemail)) },
-                        trailingContent = { Switch(d.sendToVoicemail, { v -> scope.launch { vm.c.contacts.setSendToVoicemail(contactId, v); reloads++ } }) },
+                        trailingContent = { Switch(d.sendToVoicemail, { v -> page.setSendToVoicemail(v) }) },
                     )
                 }
                 blended { app.parley.ui.calltime.ContactCallTimeRows(vm, d.lookupKey, d.displayName, d.starred) }
@@ -655,7 +609,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                     temp?.let { Text(stringResource(R.string.detail_deletes_on, Format.fullDate(context, it.expiresAt)), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
                     app.parley.ui.people.AccountChips(vm, d, open) { newId ->
                         if (newId != null && newId != contactId) { back(); open(Routes.contact(newId)) }
-                        else reloads++
+                        else page.reload()
                     }
                     Spacer(Modifier.height(16.dp))
                     // U3: labelled tiles.
@@ -728,7 +682,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                 title = { Text(stringResource(R.string.detail_note_title)) },
                 // R9: the checkbox button starts a promise line.
                 text = { app.parley.ui.circle.PromiseNoteField(text, { text = it }, placeholder = stringResource(R.string.detail_note_placeholder)) },
-                confirmButton = { TextButton({ editNote = false; saveMeta { it.copy(pinnedNote = text.text.trim().ifEmpty { null }) } }) { Text(stringResource(R.string.main_save)) } },
+                confirmButton = { TextButton({ editNote = false; page.setPinnedNote(text.text) }) { Text(stringResource(R.string.main_save)) } },
                 dismissButton = { TextButton({ editNote = false }) { Text(stringResource(R.string.main_cancel)) } },
             )
         }
@@ -745,7 +699,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
             app.parley.ui.circle.LogInteractionDialog(d.given.ifBlank { d.displayName }, initial, onDismiss = { logDialog = false; editEntry = null }) { type, note, time ->
                 logDialog = false
                 editEntry = null
-                scope.launch { app.parley.ui.circle.saveInteraction(vm, d, contactId, initial, type, note, time) }
+                page.saveInteraction(initial, type, note, time)
             }
         }
         if (pinDialog) {
@@ -780,8 +734,8 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                 title = { Text(stringResource(R.string.detail_which_contact)) },
                 text = {
                     Column {
-                        ids.forEach { id ->
-                            val ct = all.orEmpty().firstOrNull { it.id == id } ?: return@forEach
+                        ids.forEach { ct ->
+                            val id = ct.id
                             ListItem(
                                 modifier = Modifier.clickable {
                                     relationChoice = null
@@ -799,10 +753,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
         }
         if (askExpiry) app.parley.ui.vault.ExpiryDialog(onDismiss = { askExpiry = false }) { days ->
             askExpiry = false
-            scope.launch {
-                if (days == null) vm.c.temporaries.clear(d.lookupKey) else vm.c.temporaries.mark(contactId, days, purgeHistory = true)
-                vm.toast(if (days == null) resources.getString(R.string.detail_kept) else resources.getQuantityString(R.plurals.detail_deletes_in_days, days, days))
-            }
+            page.setExpiry(days)
         }
         d.photoUri?.takeIf { showPhoto }?.let { PhotoViewer(it) { showPhoto = false } }
         if (confirmDelete) {
@@ -820,10 +771,10 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                 title = { Text(stringResource(R.string.detail_sim_for, Bidi.ltr(Format.number(number, vm.countryIso)))) },
                 text = {
                     Column {
-                        ListItem(headlineContent = { Text(stringResource(R.string.detail_sim_ask)) }, modifier = Modifier.clickable { scope.launch { vm.c.prefs.setSimFor(number, null) }; simFor = null })
+                        ListItem(headlineContent = { Text(stringResource(R.string.detail_sim_ask)) }, modifier = Modifier.clickable { page.setSimFor(number, null); simFor = null })
                         sims.forEach { s ->
                             ListItem(headlineContent = { Text(stringResource(R.string.detail_always_sim, s.label)) }, leadingContent = { Icon(Icons.Rounded.SimCard, null) }, modifier = Modifier.clickable {
-                                scope.launch { vm.c.prefs.setSimFor(number, s.id) }; simFor = null
+                                page.setSimFor(number, s.id); simFor = null
                             })
                         }
                     }
@@ -840,20 +791,6 @@ private const val TIMELINE_PREVIEW = 5
 
 /** P1: jump chips appear from this many shown sections. */
 private const val JUMP_CHIPS_FROM = 4
-
-/** I3: makes [item] the default of its kind, or clears the default. */
-private suspend fun setDefault(vm: AppViewModel, contactId: Long, item: DataItem, mime: String, on: Boolean) {
-    val id = item.id ?: return
-    val ok = if (on) vm.c.contacts.setDefault(id) else vm.c.contacts.clearDefault(contactId, mime)
-    val app = vm.getApplication<android.app.Application>()
-    vm.toast(
-        when {
-            !ok -> app.getString(R.string.detail_default_failed)
-            on -> app.getString(R.string.detail_default_set)
-            else -> app.getString(R.string.detail_default_removed)
-        },
-    )
-}
 
 @Composable
 private fun DefaultMenuItem(isDefault: Boolean, onSet: (Boolean) -> Unit) {
