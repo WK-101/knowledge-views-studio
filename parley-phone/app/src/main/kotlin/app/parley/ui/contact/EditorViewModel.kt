@@ -14,11 +14,13 @@ import androidx.lifecycle.viewModelScope
 import app.parley.InsertPrefill
 import app.parley.R
 import app.parley.common.people.EditorForm
+import app.parley.common.people.ThreeWayMerge
 import app.parley.common.people.RelationLinks
 import app.parley.common.people.RowKeys
 import app.parley.data.AccountRef
 import app.parley.data.ContactDetails
 import app.parley.data.ContactDraftJson
+import app.parley.data.ContactEditRebase
 import app.parley.data.DataContainer
 import app.parley.data.DataItem
 import app.parley.data.GroupInfo
@@ -44,6 +46,18 @@ data class EditorArgs(
     val vaultId: Long? = null,
     /** Edit one specific copy (raw contact) of the contact. */
     val rawId: Long? = null,
+)
+
+/**
+ * A save found the contact changed elsewhere. [base] is the contact as the editor loaded it (null when that wasn't
+ * kept, after the process was stopped), [mine] the draft, [theirs] the contact now (null: it was removed), and
+ * [conflicts] the fields both sides changed.
+ */
+data class EditConflict(
+    val base: ContactDetails?,
+    val mine: ContactDetails,
+    val theirs: ContactDetails?,
+    val conflicts: List<ContactEditRebase.Conflict>,
 )
 
 sealed interface EditorEvent {
@@ -103,6 +117,13 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
     /** A temporary contact just saved: (its lookup key, the saved id) until the user answers the keep question. */
     var askKeep by mutableStateOf<Pair<String, Long>?>(null)
         private set
+
+    /** The contact was changed elsewhere since it was loaded: the choices to offer. */
+    var conflict by mutableStateOf<EditConflict?>(null)
+        private set
+
+    /** The loaded contact the draft started from, for merging; null when a restored draft's base wasn't kept. */
+    private var base: ContactDetails? = null
 
     /** Stable row keys (animations, focus). */
     val keys = RowKeys()
@@ -173,6 +194,7 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
         if (a.contactId != null) {
             val d = if (a.rawId != null) c.contacts.editableRaw(a.contactId, a.rawId) else c.contacts.editable(a.contactId)
             original = d
+            base = d
             val loaded = withPhoneRow(d ?: ContactDetails())
             var e = d ?: ContactDetails()
             if (a.addPhone.isNotBlank()) e = e.copy(phones = e.phones + DataItem(value = a.addPhone, type = Phone.TYPE_MOBILE))
@@ -260,6 +282,10 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
             }
             when (outcome) {
                 is SaveContactUseCase.Outcome.Failed -> eventChannel.send(EditorEvent.Message(c.appContext.getString(R.string.edit_save_failed, outcome.message)))
+                is SaveContactUseCase.Outcome.ChangedElsewhere -> {
+                    val theirs = outcome.theirs
+                    conflict = EditConflict(base, e, theirs, theirs?.let { ContactEditRebase.conflicts(base, e, it) }.orEmpty())
+                }
                 SaveContactUseCase.Outcome.NotSaved -> Unit
                 is SaveContactUseCase.Outcome.Saved -> {
                     outcome.notes.forEach { message(it) }
@@ -268,6 +294,53 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
                 }
             }
         }
+    }
+
+    /** "Show their version": the edit is set aside and the editor shows the contact as it is now. */
+    fun useTheirs() {
+        val k = conflict ?: return
+        conflict = null
+        val theirs = k.theirs ?: return
+        original = theirs
+        base = theirs
+        draft = if (theirs.phones.isEmpty()) theirs.copy(phones = listOf(DataItem(type = Phone.TYPE_MOBILE))) else theirs
+        start = draft
+        message(R.string.edit_changed_reloaded)
+    }
+
+    /** "Keep mine": everything the editor shows is saved over their version (or as a new contact when it's gone). */
+    fun keepMine() {
+        val k = conflict ?: return
+        conflict = null
+        val theirs = k.theirs
+        if (theirs == null) {
+            original = null
+            base = null
+            draft = k.mine.copy(id = 0, lookupKey = "", nameId = null, nicknameId = null, orgId = null, noteId = null).withoutRowIds()
+        } else {
+            rebaseOnto(theirs, ContactEditRebase.rebase(null, k.mine, theirs, emptyMap(), ThreeWayMerge.Side.MINE))
+        }
+        save()
+    }
+
+    /** "Merge field by field": fields only one side changed merge by themselves; [picks] settle the others. */
+    fun merge(picks: Map<ContactEditRebase.Field, ThreeWayMerge.Side>) {
+        val k = conflict ?: return
+        val theirs = k.theirs ?: return
+        conflict = null
+        rebaseOnto(theirs, ContactEditRebase.rebase(k.base, k.mine, theirs, picks, ThreeWayMerge.Side.MINE))
+        message(R.string.edit_changed_merged)
+    }
+
+    /** Closes the choices without deciding (the draft stays; a later save asks again). */
+    fun dismissConflict() {
+        conflict = null
+    }
+
+    private fun rebaseOnto(theirs: ContactDetails, merged: ContactDetails) {
+        original = theirs
+        base = theirs
+        draft = merged
     }
 
     /** The answer to "Keep this contact?" after saving a temporary contact. */
@@ -305,6 +378,9 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
             K_REVEALED to revealed.map { it.name }.toTypedArray(),
             K_ASK_KEEP_KEY to askKeep?.first,
             K_ASK_KEEP_ID to (askKeep?.second ?: 0L),
+            // The version the draft was based on, so a change made elsewhere while Parley was stopped is still caught.
+            K_BASE_RAW to (original?.editRawId ?: 0L),
+            K_BASE_VERSION to (original?.editRawVersion ?: -1L),
         )
         // A draft too large for the saved-state transaction is left out: the contact is loaded again instead.
         val json = ContactDraftJson.encode(d).takeIf { it.length <= MAX_DRAFT_CHARS } ?: return b
@@ -333,6 +409,14 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
             b.getString(K_DRAFT)
         }
         json?.let { runCatching { ContactDraftJson.decode(it) }.getOrNull() }?.let { draft = it }
+        val o = original
+        val savedVersion = b.getLong(K_BASE_VERSION, -1L)
+        val sameCopy = o?.editRawId != null && o.editRawId == b.getLong(K_BASE_RAW)
+        if (o != null && sameCopy && savedVersion >= 0 && savedVersion != o.editRawVersion) {
+            // The contact changed while Parley was stopped: keep asserting the old version, and merge without a base.
+            original = o.copy(editRawVersion = savedVersion)
+            base = null
+        }
         account = if (b.getBoolean(K_HAS_ACCOUNT)) AccountRef(b.getString(K_ACCOUNT_TYPE), b.getString(K_ACCOUNT_NAME)) else null
         @Suppress("DEPRECATION")
         photo = b.getParcelable(K_PHOTO)
@@ -374,12 +458,22 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
         const val K_REVEALED = "revealed"
         const val K_ASK_KEEP_KEY = "askKeepKey"
         const val K_ASK_KEEP_ID = "askKeepId"
+        const val K_BASE_RAW = "baseRaw"
+        const val K_BASE_VERSION = "baseVersion"
         const val BG_REMOVE = "remove"
 
         /** About 200 KB in the parcel (UTF-16), well under the binder transaction limit with the rest of the state. */
         const val MAX_DRAFT_CHARS = 100_000
     }
 }
+
+/** The draft as new rows only (for saving it as a new contact). */
+private fun ContactDetails.withoutRowIds(): ContactDetails = copy(
+    phones = phones.map { it.copy(id = null) }, emails = emails.map { it.copy(id = null) }, websites = websites.map { it.copy(id = null) },
+    relations = relations.map { it.copy(id = null) }, addresses = addresses.map { it.copy(id = null) }, events = events.map { it.copy(id = null) },
+    handles = handles.map { it.copy(id = null) }, editRawId = null, editRawVersion = null,
+    rawContacts = emptyList(), writableRawIds = emptyList(), readOnlyDataIds = emptySet(),
+)
 
 /** What counts as content and as a change in an editor draft. */
 internal object EditorDrafts {

@@ -1,5 +1,6 @@
 package app.parley.ui.temporary
 
+import app.parley.ui.Destination
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -179,7 +180,7 @@ fun timeLeft(res: Resources, expiresAt: Long, now: Long = System.currentTimeMill
 /** Contacts › Temporary contacts: time left, extend, keep permanently or delete now. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TemporaryContactsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
+fun TemporaryContactsScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit) {
     val items = rememberTemporaryItems(vm)
     val scope = rememberCoroutineScope()
     val res = LocalResources.current

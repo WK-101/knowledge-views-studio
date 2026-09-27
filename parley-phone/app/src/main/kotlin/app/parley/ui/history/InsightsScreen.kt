@@ -1,5 +1,6 @@
 package app.parley.ui.history
 
+import app.parley.ui.Destination
 import android.text.format.DateFormat
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -88,7 +89,7 @@ private enum class InsightPeriod(@StringRes val label: Int) {
 /** Offline call insights, opened from the Recents top bar. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun InsightsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
+fun InsightsScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit) {
     val index by vm.c.history.index.collectAsStateWithLifecycle()
     val sims by vm.sims.collectAsStateWithLifecycle()
     var choice by rememberSaveable { mutableStateOf(InsightPeriod.MONTH) }
@@ -201,7 +202,7 @@ private fun TalkFigure(label: String, sec: Long) {
 }
 
 @Composable
-internal fun PersonRow(vm: AppViewModel, person: Person, sub: String, open: (String) -> Unit, trailing: (@Composable () -> Unit)? = null) {
+internal fun PersonRow(vm: AppViewModel, person: Person, sub: String, open: (Destination) -> Unit, trailing: (@Composable () -> Unit)? = null) {
     val title = person.name ?: Format.number(person.number, vm.countryIso)
     ParleyListItem(
         modifier = Modifier.clickable {

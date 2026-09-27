@@ -1,5 +1,6 @@
 package app.parley.ui.people
 
+import app.parley.ui.Destination
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -40,7 +41,7 @@ import app.parley.ui.temporary.rememberTemporaryItems
  * to the selected label's page and to label management.
  */
 @Composable
-fun ContactsFilterChips(vm: AppViewModel, showVault: Boolean, vaultHidden: Boolean, open: (String) -> Unit) {
+fun ContactsFilterChips(vm: AppViewModel, showVault: Boolean, vaultHidden: Boolean, open: (Destination) -> Unit) {
     val filter by vm.people.filter.collectAsStateWithLifecycle()
     val idx by vm.people.index.collectAsStateWithLifecycle()
     val s by vm.people.settings.collectAsStateWithLifecycle()
@@ -99,12 +100,12 @@ fun ContactsFilterChips(vm: AppViewModel, showVault: Boolean, vaultHidden: Boole
                 leadingIcon = { Icon(Icons.AutoMirrored.Rounded.OpenInNew, null, Modifier.size(16.dp)) },
             )
         }
-        AssistChip(onClick = { open(PeopleRoutes.LABELS) }, label = { Text(stringResource(R.string.ppl_chip_labels)) }, leadingIcon = { Icon(Icons.AutoMirrored.Rounded.Label, null, Modifier.size(16.dp)) })
+        AssistChip(onClick = { open(PeopleRoutes.Labels) }, label = { Text(stringResource(R.string.ppl_chip_labels)) }, leadingIcon = { Icon(Icons.AutoMirrored.Rounded.Label, null, Modifier.size(16.dp)) })
         // Contacts that delete themselves: shown only when there are some.
         val temporary = rememberTemporaryItems(vm).size
         if (temporary > 0) {
             AssistChip(
-                onClick = { open(Routes.TEMPORARY) },
+                onClick = { open(Routes.Temporary) },
                 label = { Text(stringResource(R.string.ppl_chip_temporary, temporary)) },
                 leadingIcon = { Icon(Icons.Rounded.AutoDelete, null, Modifier.size(16.dp)) },
             )

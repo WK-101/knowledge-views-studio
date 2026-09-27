@@ -1,5 +1,6 @@
 package app.parley
 
+import app.parley.ui.Destination
 import android.net.Uri
 import app.parley.blocking.DialText
 import app.parley.common.DialHit
@@ -100,7 +101,7 @@ sealed interface NavEvent {
     data class ImportVcf(val uri: Uri) : NavEvent
     data class SecureQr(val uri: Uri) : NavEvent
     data class Vault(val id: Long) : NavEvent
-    data class Route(val route: String) : NavEvent
+    data class Route(val route: Destination) : NavEvent
     data class Tab(val tab: StartTab, val dial: String? = null, val missedOnly: Boolean = false) : NavEvent
 }
 

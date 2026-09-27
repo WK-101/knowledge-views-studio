@@ -1,5 +1,6 @@
 package app.parley.ui.settings
 
+import app.parley.ui.Destination
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Chat
 import androidx.compose.material.icons.rounded.AutoDelete
@@ -40,7 +41,7 @@ import app.parley.ui.SettingsScaffold
  * and from the top of Settings. Rows use the same names (and catalog keys) as their Settings rows.
  */
 @Composable
-fun ToolsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
+fun ToolsScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit) {
     val s by vm.settings.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
     val tempCount = rememberTemporaryItems(vm).size
@@ -49,10 +50,10 @@ fun ToolsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
     val snoozeOn = stringResource(R.string.set_expecting_call_on)
     SettingsScaffold(stringResource(R.string.set_tools_title), back) {
         SegmentedGroup(stringResource(R.string.tools_group_contacts)) {
-            linkRow("birthdays", Icons.Rounded.Cake) { open(Routes.BIRTHDAYS) }
-            linkRow("temporary_contacts", Icons.Rounded.AutoDelete, sub = tempSub) { open(Routes.TEMPORARY) }
-            linkRow("health", Icons.Rounded.HealthAndSafety) { open(Routes.HEALTH) }
-            linkRow("scan_qr", Icons.Rounded.QrCodeScanner) { open(QrRoutes.SCAN) }
+            linkRow("birthdays", Icons.Rounded.Cake) { open(Routes.Birthdays) }
+            linkRow("temporary_contacts", Icons.Rounded.AutoDelete, sub = tempSub) { open(Routes.Temporary) }
+            linkRow("health", Icons.Rounded.HealthAndSafety) { open(Routes.Health) }
+            linkRow("scan_qr", Icons.Rounded.QrCodeScanner) { open(QrRoutes.Scan) }
             item("import_export") {
                 LinkRow(stringResource(R.string.tools_import_export), stringResource(R.string.tools_import_export_sub), Icons.Rounded.ImportExport) {
                     open(Routes.settingsPage(SettingsCategory.CONTACTS, "import_file"))
@@ -60,17 +61,17 @@ fun ToolsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
             }
         }
         SegmentedGroup(stringResource(R.string.tools_group_calls)) {
-            linkRow("blocking", Icons.Rounded.Block) { open(Routes.BLOCKING) }
+            linkRow("blocking", Icons.Rounded.Block) { open(Routes.Blocking) }
             switchRow("expecting_call", snoozing, Icons.Rounded.HourglassTop, sub = if (snoozing) snoozeOn else null) { v ->
                 if (v) BlockingDialogs.show(BlockingDialog.Snooze)
                 else scope.launch { BlockingActions.snooze(vm.c, 0) }
             }
-            linkRow("messaged_numbers", Icons.AutoMirrored.Rounded.Chat) { open(MessagingRoutes.MESSAGED) }
+            linkRow("messaged_numbers", Icons.AutoMirrored.Rounded.Chat) { open(MessagingRoutes.Messaged) }
         }
         SegmentedGroup(stringResource(R.string.tools_group_data)) {
             linkRow("journal", Icons.Rounded.RestoreFromTrash) { open(Routes.journal()) }
-            linkRow("backup", Icons.Rounded.Backup) { open(Routes.BACKUP) }
-            linkRow("privacy_dashboard", Icons.Rounded.PrivacyTip) { open(Routes.PRIVACY) }
+            linkRow("backup", Icons.Rounded.Backup) { open(Routes.Backup) }
+            linkRow("privacy_dashboard", Icons.Rounded.PrivacyTip) { open(Routes.Privacy) }
             // Lock Parley now, without waiting for the timeout.
             if (s.appLock) item("lock_now") {
                 LinkRow(stringResource(R.string.home_lock_now), stringResource(R.string.tools_lock_now_sub), Icons.Rounded.Lock) {

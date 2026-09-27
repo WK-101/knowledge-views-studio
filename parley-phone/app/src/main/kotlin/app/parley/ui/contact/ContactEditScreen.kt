@@ -263,7 +263,7 @@ fun ContactEditScreen(
 
     // Unsaved-changes guard with predictive back: the editor shrinks with the gesture, then asks.
     var backProgress by remember { mutableFloatStateOf(0f) }
-    PredictiveBackHandler(enabled = changed && !saving && !confirmDiscard && askKeep == null) { events ->
+    PredictiveBackHandler(enabled = changed && !saving && !confirmDiscard && askKeep == null && editor.conflict == null) { events ->
         try {
             events.collect { backProgress = it.progress }
             confirmDiscard = true
@@ -625,6 +625,11 @@ fun ContactEditScreen(
         }
     }
 
+    editor.conflict?.let { k ->
+        ChangedElsewhereSheet(
+            k, onTheirs = editor::useTheirs, onMine = editor::keepMine, onMerge = editor::merge, onDismiss = editor::dismissConflict,
+        )
+    }
     if (askKeep != null) {
         ParleyDialog(
             onDismissRequest = {},

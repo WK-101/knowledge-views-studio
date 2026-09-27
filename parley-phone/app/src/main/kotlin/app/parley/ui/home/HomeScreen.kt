@@ -1,5 +1,6 @@
 package app.parley.ui.home
 
+import app.parley.ui.Destination
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
@@ -96,7 +97,7 @@ fun HomeScreen(
     tabRequest: NavEvent.Tab?,
     onTabRequestHandled: () -> Unit,
     initialTab: StartTab,
-    open: (String) -> Unit,
+    open: (Destination) -> Unit,
 ) {
     val settings by vm.settings.collectAsStateWithLifecycle()
     var tab by rememberSaveable { mutableStateOf(initialTab) }
@@ -272,19 +273,19 @@ private fun TabIcon(t: StartTab, missed: Int) {
 
 /** Icons next to the search icon: the tab's most used actions. */
 @Composable
-private fun TabActions(vm: AppViewModel, tab: StartTab, appLock: Boolean, open: (String) -> Unit) {
+private fun TabActions(vm: AppViewModel, tab: StartTab, appLock: Boolean, open: (Destination) -> Unit) {
     when (tab) {
         StartTab.RECENTS -> RecentsInsightsAction(open)
         StartTab.CONTACTS -> {
             // Scan QR, with a one-time tip.
             CoachMarkAnchor(Tips.CONTACTS_SCAN_QR, stringResource(R.string.qs_tip_contacts)) {
-                IconButton({ open(QrRoutes.SCAN) }) { Icon(Icons.Rounded.QrCodeScanner, stringResource(R.string.qs_menu)) }
+                IconButton({ open(QrRoutes.Scan) }) { Icon(Icons.Rounded.QrCodeScanner, stringResource(R.string.qs_menu)) }
             }
-            IconButton({ open(PeopleRoutes.LABELS) }) { Icon(Icons.AutoMirrored.Rounded.Label, stringResource(R.string.home_labels)) }
+            IconButton({ open(PeopleRoutes.Labels) }) { Icon(Icons.AutoMirrored.Rounded.Label, stringResource(R.string.home_labels)) }
             // Lock Parley now, without waiting for the timeout.
             if (appLock) IconButton({ AppLock.lockNowByUser() }) { Icon(Icons.Rounded.Lock, stringResource(R.string.home_lock_now)) }
         }
-        StartTab.KEYPAD -> IconButton({ open(Routes.SPEED_DIAL) }) { Icon(Icons.Rounded.Speed, stringResource(R.string.home_speed_dial)) }
+        StartTab.KEYPAD -> IconButton({ open(Routes.SpeedDial) }) { Icon(Icons.Rounded.Speed, stringResource(R.string.home_speed_dial)) }
         StartTab.FAVORITES, StartTab.CIRCLE -> Unit
     }
 }
@@ -299,14 +300,14 @@ private fun MenuItem(text: String, icon: ImageVector, onClick: () -> Unit) {
  * temporary contacts, blocking, History & undo, backups…) and Settings. Settings pages aren't repeated here.
  */
 @Composable
-private fun ColumnScope.TabMenu(vm: AppViewModel, tab: StartTab, appLock: Boolean, open: (String) -> Unit, close: () -> Unit, onReorderFavorites: () -> Unit = {}) {
-    fun go(route: String) { close(); open(route) }
+private fun ColumnScope.TabMenu(vm: AppViewModel, tab: StartTab, appLock: Boolean, open: (Destination) -> Unit, close: () -> Unit, onReorderFavorites: () -> Unit = {}) {
+    fun go(route: Destination) { close(); open(route) }
     val settings = vm.settings.collectAsStateWithLifecycle().value
     val layout = settings.homeLayout
     when (tab) {
         StartTab.RECENTS -> {
             // With the keypad docked here, its header's Speed dial comes along.
-            if (layout.keypadDocked) MenuItem(stringResource(R.string.home_speed_dial), Icons.Rounded.Speed) { go(Routes.SPEED_DIAL) }
+            if (layout.keypadDocked) MenuItem(stringResource(R.string.home_speed_dial), Icons.Rounded.Speed) { go(Routes.SpeedDial) }
             RecentsExportMenuItem(close)
             // Call-list layout (quick toggle) and clear call history.
             RecentsLayoutMenuItem(vm, close)
@@ -319,26 +320,26 @@ private fun ColumnScope.TabMenu(vm: AppViewModel, tab: StartTab, appLock: Boolea
                 close()
                 vm.selection.value = vm.people.filtered.value.orEmpty().map { it.id }.toSet()
             }
-            MenuItem(stringResource(R.string.home_add_several), Icons.Rounded.GroupAdd) { go(MessagingRoutes.BULK_ADD) }
-            MenuItem(stringResource(R.string.home_duplicates), Icons.AutoMirrored.Rounded.MergeType) { go(Routes.DUPLICATES) }
+            MenuItem(stringResource(R.string.home_add_several), Icons.Rounded.GroupAdd) { go(MessagingRoutes.BulkAdd) }
+            MenuItem(stringResource(R.string.home_duplicates), Icons.AutoMirrored.Rounded.MergeType) { go(Routes.Duplicates) }
             // Favourites shown in Contacts are reordered from here too.
             if (layout.favoritesInContacts) MenuItem(stringResource(R.string.home_reorder_title), Icons.Rounded.Star) { close(); onReorderFavorites() }
             // "Who's in…" (trip mode).
-            MenuItem(stringResource(R.string.trip_menu), Icons.Rounded.TravelExplore) { go(ExtrasRoutes.TRIP) }
+            MenuItem(stringResource(R.string.trip_menu), Icons.Rounded.TravelExplore) { go(ExtrasRoutes.Trip) }
         }
         StartTab.KEYPAD -> Unit
         StartTab.CIRCLE -> {
-            MenuItem(stringResource(R.string.trip_menu), Icons.Rounded.TravelExplore) { go(ExtrasRoutes.TRIP) }
+            MenuItem(stringResource(R.string.trip_menu), Icons.Rounded.TravelExplore) { go(ExtrasRoutes.Trip) }
             MenuItem(stringResource(R.string.circle_settings), Icons.Rounded.Tune) { go(Routes.settingsPage(SettingsCategory.CONTACTS, "circle_delivery")) }
         }
         // While the Circle tab is hidden, its section sits in Favourites and "Who's in…" comes with it.
         StartTab.FAVORITES -> if (StartTab.CIRCLE !in settings.navTabs.visible) {
-            MenuItem(stringResource(R.string.trip_menu), Icons.Rounded.TravelExplore) { go(ExtrasRoutes.TRIP) }
+            MenuItem(stringResource(R.string.trip_menu), Icons.Rounded.TravelExplore) { go(ExtrasRoutes.Trip) }
         }
     }
     if (tab == StartTab.RECENTS || tab == StartTab.CONTACTS || tab == StartTab.CIRCLE || (tab == StartTab.FAVORITES && StartTab.CIRCLE !in settings.navTabs.visible)) {
         HorizontalDivider()
     }
-    MenuItem(stringResource(R.string.home_tools), Icons.Rounded.Handyman) { go(Routes.TOOLS) }
-    MenuItem(stringResource(R.string.home_settings), Icons.Rounded.Settings) { go(Routes.SETTINGS) }
+    MenuItem(stringResource(R.string.home_tools), Icons.Rounded.Handyman) { go(Routes.Tools) }
+    MenuItem(stringResource(R.string.home_settings), Icons.Rounded.Settings) { go(Routes.Settings) }
 }

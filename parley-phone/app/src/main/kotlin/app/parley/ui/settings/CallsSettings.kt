@@ -1,5 +1,6 @@
 package app.parley.ui.settings
 
+import app.parley.ui.Destination
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -43,7 +44,7 @@ fun ConnectHapticRow(vm: AppViewModel, icon: ImageVector? = null) {
 
 /** Settings › Call time: reminders and limits, with a one-line summary of what's on. */
 @Composable
-fun CallTimeRow(vm: AppViewModel, open: (String) -> Unit, icon: ImageVector? = null) {
+fun CallTimeRow(vm: AppViewModel, open: (Destination) -> Unit, icon: ImageVector? = null) {
     val config by vm.c.calling.config.collectAsStateWithLifecycle()
     val global = config.rule(LimitScope.GLOBAL, "")
     val context = LocalContext.current
@@ -56,7 +57,7 @@ fun CallTimeRow(vm: AppViewModel, open: (String) -> Unit, icon: ImageVector? = n
         },
         stringResource(R.string.set_call_time_supervised).takeIf { config.supervised },
     ).joinToString(" · ")
-    LinkRow(settingTitle("call_time"), summary, icon) { open(Routes.CALL_TIME) }
+    LinkRow(settingTitle("call_time"), summary, icon) { open(Routes.CallTime) }
 }
 
 /** Settings › Keypad: saved USSD replies. */

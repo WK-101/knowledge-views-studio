@@ -1,5 +1,6 @@
 package app.parley.ui.history
 
+import app.parley.ui.Destination
 import androidx.compose.ui.platform.LocalResources
 import app.parley.common.PhoneIdentity
 import androidx.compose.foundation.clickable
@@ -46,7 +47,7 @@ import app.parley.ui.ParleyDialog
 
 /** Settings › Recents & history › Clear call history. */
 @Composable
-fun ClearHistoryRow(vm: AppViewModel, open: (String) -> Unit, icon: ImageVector? = null) {
+fun ClearHistoryRow(vm: AppViewModel, open: (Destination) -> Unit, icon: ImageVector? = null) {
     var show by remember { mutableStateOf(false) }
     LinkRow(settingTitle("clear_history"), settingSummary("clear_history"), icon) { show = true }
     if (show) ClearHistoryDialog(vm, shown = null, open = open) { show = false }
@@ -60,7 +61,7 @@ private enum class ClearStep { SCOPE, EXPORT, CONFIRM }
  * Calls with private contacts live in the vault and are never touched here.
  */
 @Composable
-fun ClearHistoryDialog(vm: AppViewModel, shown: List<CallEntry>?, open: (String) -> Unit, onDismiss: () -> Unit) {
+fun ClearHistoryDialog(vm: AppViewModel, shown: List<CallEntry>?, open: (Destination) -> Unit, onDismiss: () -> Unit) {
     val context = LocalContext.current
     val res = LocalResources.current
     val scope = rememberCoroutineScope()
@@ -156,7 +157,7 @@ fun ClearHistoryDialog(vm: AppViewModel, shown: List<CallEntry>?, open: (String)
                             colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                             modifier = Modifier.clickable(enabled = !busy) {
                                 onDismiss()
-                                open(Routes.BACKUP)
+                                open(Routes.Backup)
                             },
                         )
                     }

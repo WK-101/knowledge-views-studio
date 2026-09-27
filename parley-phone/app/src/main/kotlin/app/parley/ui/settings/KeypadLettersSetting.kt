@@ -84,7 +84,7 @@ fun MyDetailsRow(vm: AppViewModel, icon: ImageVector? = null) {
         settingTitle("my_details"),
         listOf(details.name, details.number.takeIf { it.isNotBlank() }?.let(::bidiLtr).orEmpty()).filter { it.isNotBlank() }.joinToString(" · ").ifEmpty { settingSummary("my_details") },
         icon,
-    ) { vm.navigate(NavEvent.Route(PeopleRoutes.ME)) }
+    ) { vm.navigate(NavEvent.Route(PeopleRoutes.Me)) }
 }
 
 /** [KeypadLayout.label] in the current language (the alphabet sample in brackets stays as it is). */

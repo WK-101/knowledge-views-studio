@@ -1,5 +1,6 @@
 package app.parley.ui.home
 
+import app.parley.ui.Destination
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -73,7 +74,7 @@ import androidx.compose.ui.unit.IntOffset
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun FavoritesTab(vm: AppViewModel, open: (String) -> Unit, query: String = "", onClearQuery: (() -> Unit)? = null) {
+fun FavoritesTab(vm: AppViewModel, open: (Destination) -> Unit, query: String = "", onClearQuery: (() -> Unit)? = null) {
     val favorites by vm.people.favorites.collectAsStateWithLifecycle()
     val frequents by vm.frequents.collectAsStateWithLifecycle()
     val ps by vm.people.settings.collectAsStateWithLifecycle()

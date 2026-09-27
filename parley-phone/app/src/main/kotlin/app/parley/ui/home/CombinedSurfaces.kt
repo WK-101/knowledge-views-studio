@@ -1,5 +1,6 @@
 package app.parley.ui.home
 
+import app.parley.ui.Destination
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.fadeIn
@@ -103,7 +104,7 @@ class KeypadDock(val expanded: Boolean, val onExpandedChange: (Boolean) -> Unit,
  * keypad's matches in place; the header search searches the calls as on the Recents tab (the keypad folds away).
  */
 @Composable
-fun CallsSurface(vm: AppViewModel, open: (String) -> Unit, searching: Boolean, expanded: Boolean, onExpandedChange: (Boolean) -> Unit) {
+fun CallsSurface(vm: AppViewModel, open: (Destination) -> Unit, searching: Boolean, expanded: Boolean, onExpandedChange: (Boolean) -> Unit) {
     if (searching) {
         RecentsTab(vm, open)
         return
@@ -193,7 +194,7 @@ internal fun DockedKeypadButton(
  * Favourites tab. The folded state is remembered (it's the user's choice).
  */
 @Composable
-fun ContactsFavorites(vm: AppViewModel, open: (String) -> Unit, onReorder: () -> Unit) {
+fun ContactsFavorites(vm: AppViewModel, open: (Destination) -> Unit, onReorder: () -> Unit) {
     val settings by vm.settings.collectAsStateWithLifecycle()
     val favorites by vm.people.favorites.collectAsStateWithLifecycle()
     val frequents by vm.frequents.collectAsStateWithLifecycle()
@@ -236,7 +237,7 @@ fun ContactsFavorites(vm: AppViewModel, open: (String) -> Unit, onReorder: () ->
     }
 }
 
-private fun RecentGroup.stripItem(vm: AppViewModel, open: (String) -> Unit) = StripItem(
+private fun RecentGroup.stripItem(vm: AppViewModel, open: (Destination) -> Unit) = StripItem(
     "q$key", title, contact?.photoUri,
     onClick = { vm.requestCall(number, contact?.displayName, source = CallSource.FAVORITE) },
     onLong = { contact?.let { open(Routes.contact(it.id)) } ?: open(Routes.history(number)) },

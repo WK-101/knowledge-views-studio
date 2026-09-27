@@ -30,6 +30,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -61,7 +62,7 @@ fun SavedFilterChips(vm: AppViewModel) {
     val active by vm.c.history.activeFilter.collectAsStateWithLifecycle()
     val prefs by vm.c.history.prefs.state.collectAsStateWithLifecycle()
     val sims by vm.sims.collectAsStateWithLifecycle()
-    var editing by remember { mutableStateOf(false) }
+    var editing by rememberSaveable { mutableStateOf(false) }
     val res = LocalResources.current
     val simFallback = stringResource(R.string.hist_filter_sim)
     val simLabel = { id: String -> sims.firstOrNull { it.id == id }?.label ?: simFallback }
@@ -106,7 +107,7 @@ private fun FilterEditorSheet(vm: AppViewModel, active: HistoryFilter, onDismiss
     val sims by vm.sims.collectAsStateWithLifecycle()
     val prefs by vm.c.history.prefs.state.collectAsStateWithLifecycle()
     var draft by remember { mutableStateOf(active) }
-    var name by remember { mutableStateOf(active.name) }
+    var name by rememberSaveable { mutableStateOf(active.name) }
 
     ParleySheet(onDismissRequest = onDismiss) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp).padding(bottom = 24.dp)) {

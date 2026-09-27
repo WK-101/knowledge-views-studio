@@ -1,5 +1,6 @@
 package app.parley.ui.vault
 
+import app.parley.ui.Destination
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -95,7 +96,7 @@ import app.parley.ui.ConfirmDialog
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun VaultDetailScreen(vm: AppViewModel, id: Long, back: () -> Unit, open: (String) -> Unit) {
+fun VaultDetailScreen(vm: AppViewModel, id: Long, back: () -> Unit, open: (Destination) -> Unit) {
     val context = LocalContext.current
     val res = LocalResources.current
     val scope = rememberCoroutineScope()

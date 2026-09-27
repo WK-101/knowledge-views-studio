@@ -28,6 +28,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.listSaver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -68,8 +71,9 @@ fun CsvMappingScreen(vm: AppViewModel, back: () -> Unit) {
     val res = LocalResources.current
     var preview by remember { mutableStateOf<VCardIO.CsvPreview?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
-    var hasHeader by remember { mutableStateOf(true) }
-    var mapping by remember { mutableStateOf<List<ColumnTarget>>(emptyList()) }
+    // The user's column choices survive rotation and process death; the file itself is read again.
+    var hasHeader by rememberSaveable { mutableStateOf(true) }
+    var mapping by rememberSaveable(stateSaver = ColumnMappingSaver) { mutableStateOf<List<ColumnTarget>>(emptyList()) }
     var progress by remember { mutableStateOf<Float?>(null) }
     var report by remember { mutableStateOf<ImportReport?>(null) }
 
@@ -86,8 +90,11 @@ fun CsvMappingScreen(vm: AppViewModel, back: () -> Unit) {
                 error = res.getString(R.string.csv_no_table)
             } else {
                 preview = p
-                hasHeader = CsvColumnMapping.hasHeader(p.rows.first())
-                remap(p, hasHeader)
+                // Choices made before a rotation or process death are kept while they still fit the file.
+                if (mapping.size != p.rows.maxOf { it.size }) {
+                    hasHeader = CsvColumnMapping.hasHeader(p.rows.first())
+                    remap(p, hasHeader)
+                }
             }
         } catch (e: Exception) {
             error = e.message ?: res.getString(R.string.csv_read_failed)
@@ -260,3 +267,15 @@ private fun targetLabel(res: Resources, t: ColumnTarget): String {
         else -> field
     }
 }
+
+/** Column choices in saved state: "FIELD" or "FIELD:type" per column; an unknown field is ignored. */
+internal val ColumnMappingSaver: Saver<List<ColumnTarget>, Any> = listSaver(
+    save = { l -> l.map { t -> t.field.name + (t.type?.let { ":$it" }.orEmpty()) } },
+    restore = { l ->
+        l.map { s ->
+            val parts = s.split(':')
+            val field = CsvField.entries.firstOrNull { it.name == parts[0] } ?: CsvField.IGNORE
+            ColumnTarget(field, parts.getOrNull(1)?.toIntOrNull())
+        }
+    },
+)

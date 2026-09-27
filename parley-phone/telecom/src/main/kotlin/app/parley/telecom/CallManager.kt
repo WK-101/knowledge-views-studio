@@ -1,21 +1,11 @@
 package app.parley.telecom
 
 import android.annotation.SuppressLint
-import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
-import android.media.AudioAttributes
-import android.media.AudioManager
-import android.media.Ringtone
-import android.media.RingtoneManager
 import android.net.Uri
 import android.os.Build
 import android.os.SystemClock
-import android.os.Trace
-import android.os.VibrationAttributes
-import android.os.VibrationEffect
-import android.os.Vibrator
-import android.os.VibratorManager
 import android.provider.Settings
 import android.telecom.Call
 import android.telecom.Connection
@@ -26,9 +16,8 @@ import android.telecom.VideoProfile
 import app.parley.common.BlockAction
 import app.parley.common.Decision
 import app.parley.common.Verification
-import app.parley.common.calls.CallBook
-import app.parley.common.calltime.CallHaptic
 import app.parley.common.calls.AnswerRoute
+import app.parley.common.calls.CallBook
 import app.parley.common.calls.CallFailure
 import app.parley.common.calls.EmergencyPolicy
 import app.parley.common.calls.EmergencyPolicy.Safeguard
@@ -36,9 +25,11 @@ import app.parley.common.calls.EndCode
 import app.parley.common.calls.EndFacts
 import app.parley.common.calls.FailureKind
 import app.parley.common.calls.KeyPressTracker
+import app.parley.common.calls.RingEnd
 import app.parley.common.calls.RingFacts
-import app.parley.common.calls.RingOutcome
 import app.parley.common.calls.RingtoneSource
+import app.parley.common.calltime.CallHaptic
+import java.util.WeakHashMap
 import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -51,11 +42,15 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
-import java.util.WeakHashMap
 
 /**
- * Single source of truth for live calls. Fed by [ParleyInCallService] on the main thread and
- * observed by the in-call UI, notifications and the main app's "return to call" banner.
+ * Single source of truth for live calls. Fed by [ParleyInCallService] on the main thread and observed by the in-call
+ * UI, notifications and the main app's "return to call" banner.
+ *
+ * What it knows about each call lives in one [CallSession], dropped as a whole when the call leaves Telecom. The
+ * work around a call is done by collaborators: [ScreeningCoordinator] (the verdict), [CallRinger] (Parley's own
+ * tone and "Ring loud"), [CallLimitsGate] (allowances and limits), [NotifierBridge] (observers) and the pure
+ * [CallBook] (hold timers, which held call to resume).
  */
 // Telephony calls here are covered by the default-dialer role and each one handles SecurityException.
 @SuppressLint("MissingPermission")
@@ -64,29 +59,15 @@ object CallManager {
     private val calls = ArrayList<Call>()
     private val ids = WeakHashMap<Call, String>()
     private var counter = 0
-    private val info = HashMap<String, CallerDisplay>()
-    private val silenced = HashSet<String>()
-    private val screening = HashSet<String>()
 
-    /** Incoming calls whose first notification is still being timed (add → notification). */
-    private val noticeTraced = HashSet<String>()
+    /** One session per call id, for every call Telecom reported (children of a conference too). */
+    private val sessions = HashMap<String, CallSession>()
 
-    private val unknownCallers = HashSet<String>()
-    private val locations = HashMap<String, String>()
-    private var customRinger: Ringtone? = null
-    private var customRingerFor: String? = null
-    /** Screening outcome per call: verdict for the caller card and ringer plan. */
-    private val outcomes = HashMap<String, ScreenOutcome>()
-    private val ringStartedAt = HashMap<String, Long>()
-    private var boostedFor: String? = null
-    /** Calls whose caller lookup found no contact or private contact (V4 post-call card). */
-    private val noContact = HashSet<String>()
-    /** Ringer state when each incoming call started ringing, completed when it ends. */
-    private val ringFacts = HashMap<String, RingFacts>()
-    private val ignoredByUser = HashSet<String>()
-    private val loudFor = HashSet<String>()
-    private val tonePlayed = HashMap<String, Pair<RingtoneSource, String?>>()
-    private val answeredRoute = HashMap<String, Pair<AnswerRoute, String?>>()
+    private val deps: TelecomDependencies get() = TelecomGraph.dependencies
+    private val ringer = CallRinger(scope) { silenceRinger() }
+    private val screening = ScreeningCoordinator(scope) { deps }
+    private val limits = CallLimitsGate(scope) { deps }
+    private val notifier = NotifierBridge()
 
     private val _calls = MutableStateFlow<List<CallUi>>(emptyList())
     val state: StateFlow<List<CallUi>> = _calls.asStateFlow()
@@ -102,20 +83,8 @@ object CallManager {
     private val _pendingOutgoing = MutableStateFlow<PendingOutgoing?>(null)
     val pendingOutgoing: StateFlow<PendingOutgoing?> = _pendingOutgoing.asStateFlow()
 
-    /** When each held call was put on hold. */
     /** Hold timers, last live states and which held call to resume (lazy: the state sets are declared below). */
     private val book by lazy { CallBook(CallState.HOLDING, FRONT_STATES, BUSY_STATES, setOf(CallState.DISCONNECTING, CallState.DISCONNECTED)) }
-    /** Last live state of each top-level call, to know whether the call that ended was the one in front. */
-    private val quotaSilenced = HashSet<String>()
-    private val endedByLimit = HashSet<String>()
-    /** Calls the user ended or cancelled themselves (never a "failure"). */
-    private val userEnded = HashSet<String>()
-    /** Calls answered from Parley (the answer buzz already confirmed them, so no connect buzz). */
-    private val answeredByUser = HashSet<String>()
-    /** Ringing calls the user silenced with a hardware key (volume, power): the spoken name stops too. */
-    private val systemSilenced = HashSet<String>()
-    /** Calls whose "Block & decline" is still writing the rule (no answering from Parley meanwhile). */
-    private val blockingDecline = HashSet<String>()
 
     /** The last call declined with "Block & decline", for Undo on the call-ended screen. */
     private val _declineBlock = MutableStateFlow<DeclineBlock?>(null)
@@ -124,15 +93,19 @@ object CallManager {
     internal var service: ParleyInCallService? = null
 
     /** Whether the in-call screen is in the foreground (proximity screen-off only applies then). */
-    @Volatile
-    var uiVisible: Boolean = false
-        private set
+    val uiVisible: Boolean get() = notifier.uiVisible
 
     fun setUiVisible(visible: Boolean) {
-        uiVisible = visible
-        onChanged?.invoke(_calls.value)
+        notifier.uiVisible = visible
+        notifier.send(_calls.value)
     }
-    internal var onChanged: ((List<CallUi>) -> Unit)? = null
+
+    internal var onChanged: ((List<CallUi>) -> Unit)?
+        get() = notifier.onChanged
+        set(value) {
+            notifier.onChanged = value
+        }
+
     private lateinit var appContext: Context
 
     private val callback = object : Call.Callback() {
@@ -142,22 +115,48 @@ object CallManager {
         override fun onParentChanged(call: Call, parent: Call?) = publish()
         override fun onConferenceableCallsChanged(call: Call, conferenceableCalls: MutableList<Call>) = publish()
         override fun onPostDialWait(call: Call, remainingPostDialSequence: String?) {
-            // One callback per call, unregistered in remove()/clear() (F28: a second, anonymous callback leaked).
-            val id = idOf(call)
-            if (remainingPostDialSequence.isNullOrEmpty()) postDial.remove(id) else postDial[id] = remainingPostDialSequence
+            // One callback per call, unregistered in remove()/clear() (a second, anonymous callback leaked).
+            session(idOf(call)).postDial = remainingPostDialSequence?.takeIf { it.isNotEmpty() }
             publish()
         }
     }
-
-    private val postDial = HashMap<String, String>()
 
     private val idPrefix = "c" + SystemClock.elapsedRealtime().toString(36) + "_"
 
     fun idOf(call: Call): String = ids.getOrPut(call) { idPrefix + (++counter) }
 
+    private fun session(id: String): CallSession = sessions.getOrPut(id) { CallSession(id) }
+
+    private fun callOf(session: CallSession): Call? = calls.firstOrNull { idOf(it) == session.id }
+
+    private fun ringing(call: Call): Boolean = calls.contains(call) && call.stateCompat() == Call.STATE_RINGING
+
+    /** What the screening verdict does to a call. */
+    private val screeningHost = object : ScreeningCoordinator.Host {
+        override fun stillPresent(session: CallSession) = callOf(session) != null
+        override fun rejectUnwanted(session: CallSession) {
+            callOf(session)?.let { rejectUnwanted(it) }
+        }
+        override fun silence(session: CallSession) {
+            session.silenced = true
+            silenceRinger()
+        }
+        override fun ringLoud(session: CallSession) {
+            val call = callOf(session) ?: return
+            if (!ringing(call)) return
+            ringer.boost(appContext, session.id)
+            session.loud = true
+        }
+        override fun playTone(session: CallSession) {
+            callOf(session)?.let { maybePlayUnknownRingtone(it, session) }
+        }
+        override fun changed() = publish()
+    }
+
     internal fun add(context: Context, call: Call) {
         appContext = context.applicationContext
         val id = idOf(call)
+        val s = session(id)
         // A new call starts: an earlier call's failure banner (and its Retry) or "Blocked · Undo" card is stale.
         _lastEnded.value = null
         _declineBlock.value?.let { b -> if (calls.none { idOf(it) == b.callId }) _declineBlock.value = null }
@@ -166,15 +165,13 @@ object CallManager {
 
         val number = call.details.handle?.schemeSpecificPart
         val hidden = call.details.handlePresentation != TelecomManager.PRESENTATION_ALLOWED
-        val deps = TelecomGraph.dependencies
         val incoming = call.stateCompat() == Call.STATE_RINGING
         if (calls.size == 1) RingBoost.restoreAsync(appContext) // a boost left behind by a crash
         if (incoming) {
-            // Timed until the first notification for this call is posted (Perfetto / systrace).
-            if (noticeTraced.add(id)) Trace.beginAsyncSection(TRACE_NOTIFY, traceCookie(id))
+            notifier.traceIncoming(s)
             val now = System.currentTimeMillis()
-            ringStartedAt[id] = now
-            ringFacts[id] = runCatching { RingSnapshot.capture(appContext, now) }.getOrElse { RingFacts(now) }
+            s.ringStartedAt = now
+            s.ringFacts = runCatching { RingSnapshot.capture(appContext, now) }.getOrElse { RingFacts(now) }
         }
 
         // An emergency call opens the emergency window as soon as it exists, so a call-back arriving during it, or
@@ -182,47 +179,13 @@ object CallManager {
         val emergency = emergencyFacts(call, number, incoming)
         if (EmergencyPolicy.startsWindow(emergency, incoming)) runCatching { ScreeningGuard.noteEmergencyCall(appContext) }
 
-        // Screening runs before we show any UI, bounded by a hard timeout so ringing is never held up.
-        // Never screen an emergency call or right after one (call-backs must get through).
-        val earlierOutcome = if (incoming) ScreeningGuard.recallOutcome(number) else null
+        // Screening runs before we show any UI. Never an emergency call or right after one (call-backs must get through).
         val accountId = call.details.accountHandle?.id
-        // The screening service decided without knowing the SIM: re-check when per-SIM rules exist, always when
-        // it only let the call through because a SIM-limited allow rule might apply.
-        val earlier = earlierOutcome?.takeIf {
-            !(it.decision == Decision.Allow && accountId != null && (it.deferredToSim || runCatching { deps.simRulesActive() }.getOrDefault(true)))
-        }
-        val active = runCatching { deps.screeningActive() }.getOrDefault(true)
-        if (incoming && !EmergencyPolicy.bypasses(Safeguard.SCREENING, emergency) && (earlier != null || earlierOutcome != null || hidden || active)) {
-            screening += id
-            scope.launch {
+        if (incoming && !EmergencyPolicy.bypasses(Safeguard.SCREENING, emergency)) {
+            val earlier = ScreeningCoordinator.Earlier(ScreeningGuard.recallOutcome(number), accountId)
+            if (screening.applies(earlier, hidden)) {
                 val callerName = call.details.callerDisplayName?.takeIf { it.isNotBlank() }
-                Trace.beginAsyncSection(TRACE_SCREEN, traceCookie(id))
-                // Any failure lets the call ring (fail open), like a timeout.
-                val outcome = earlier ?: withTimeoutOrNull(SCREEN_TIMEOUT_MS) {
-                    runCatching { deps.screenCall(number, hidden, verificationOf(call), accountId, callerName) }.getOrNull()
-                } ?: earlierOutcome
-                Trace.endAsyncSection(TRACE_SCREEN, traceCookie(id))
-                val decision = outcome?.decision
-                outcome?.let { outcomes[id] = it }
-                screening -= id
-                if (decision is Decision.Block && calls.contains(call)) {
-                    when (decision.action) {
-                        BlockAction.REJECT -> rejectUnwanted(call)
-                        BlockAction.SILENCE -> {
-                            silenced += id
-                            silenceRinger()
-                        }
-                    }
-                } else {
-                    if (outcome?.ringLoud == true && calls.contains(call) && call.stateCompat() == Call.STATE_RINGING) {
-                        RingBoost.boostAsync(appContext)
-                        boostedFor = id
-                        loudFor += id
-                    }
-                    // The caller lookup may have finished first and held the custom tone back until screening allowed the call.
-                    if (id in unknownCallers || outcome?.ringtone != null) maybePlayUnknownRingtone(call, id)
-                }
-                publish()
+                screening.start(s, number, hidden, verificationOf(call), callerName, earlier, screeningHost)
             }
         }
 
@@ -236,16 +199,11 @@ object CallManager {
         }
 
         // An incoming call whose allowance is used up rings silently when the user asked for that.
-        if (incoming && number != null && !hidden && !EmergencyPolicy.bypasses(Safeguard.CALL_TIME_ALLOWANCE, emergency)) {
-            scope.launch {
-                val silence = withTimeoutOrNull(SCREEN_TIMEOUT_MS) { runCatching { deps.silenceOverQuota(number, call.details.accountHandle?.id) }.getOrDefault(false) } == true
-                if (silence && calls.contains(call) && call.stateCompat() == Call.STATE_RINGING && id !in silenced) {
-                    silenced += id
-                    quotaSilenced += id
-                    silenceRinger()
-                    stopCustomRinger()
-                    publish()
-                }
+        if (incoming && number != null && !hidden) {
+            limits.checkAllowance(s, number, accountId, emergency, stillRinging = { ringing(call) }) {
+                silenceRinger()
+                ringer.stop()
+                publish()
             }
         }
 
@@ -254,158 +212,82 @@ object CallManager {
                 var looked = false
                 val found = withTimeoutOrNull(LOOKUP_TIMEOUT_MS) { runCatching { deps.callerInfo(number, accountId) }.also { looked = it.isSuccess }.getOrNull() }
                 if (found != null) {
-                    info[id] = found
+                    s.info = found
                 } else {
                     // Only a lookup that finished and found nobody: a timeout or a failure must never offer "Block" for a contact.
-                    if (looked && calls.contains(call)) noContact += id
+                    if (looked && calls.contains(call)) s.noContact = true
                     if (incoming) {
-                        unknownCallers += id
-                        maybePlayUnknownRingtone(call, id)
+                        s.unknownCaller = true
+                        maybePlayUnknownRingtone(call, s)
                         // Show "unknown caller" with Block and Save now; the place fills in when the geocoder answers.
                         publish()
                         // "Where is this number from": the geocoder loads large data files the first time, so never
                         // on the main thread while the phone rings.
                         val where = withContext(Dispatchers.IO) { runCatching { deps.describeNumber(number) }.getOrNull().orEmpty() }
-                        if (calls.contains(call)) locations[id] = where
+                        if (calls.contains(call)) s.location = where
                     }
                 }
                 publish()
             }
         } else if (incoming) {
-            unknownCallers += id
-            scope.launch { maybePlayUnknownRingtone(call, id) }
+            s.unknownCaller = true
+            scope.launch { maybePlayUnknownRingtone(call, s) }
         }
         publish()
     }
 
     /**
-     * Distinct ringtone for unknown callers: silence Telecom's ringer and play our own, only in
-     * normal ringer mode with Do Not Disturb off (so we never ring when the system wouldn't).
+     * Distinct ringtone for unknown callers (or the one screening chose): silence Telecom's ringer and play our own,
+     * only in normal ringer mode with Do Not Disturb off (so we never ring when the system wouldn't).
      */
-    private fun maybePlayUnknownRingtone(call: Call, id: String) {
+    private fun maybePlayUnknownRingtone(call: Call, s: CallSession) {
         // A ringtone chosen by screening (rule, label, repeat caller, likely spam) wins over the unknown-caller tone.
-        val uri = outcomes[id]?.ringtone
-            ?: (if (id in unknownCallers) runCatching { TelecomGraph.dependencies.unknownRingtone() }.getOrNull() else null)
+        val uri = s.outcome?.ringtone
+            ?: (if (s.unknownCaller) runCatching { deps.unknownRingtone() }.getOrNull() else null)
             ?: return
-        if (id in screening || customRingerFor == id) return // played once screening allows the call
-        if (!::appContext.isInitialized || id in silenced || !calls.contains(call) || call.stateCompat() != Call.STATE_RINGING) return
-        val am = appContext.getSystemService(AudioManager::class.java)
-        val nm = appContext.getSystemService(NotificationManager::class.java)
-        if (am.ringerMode != AudioManager.RINGER_MODE_NORMAL) return
-        if (nm.currentInterruptionFilter != NotificationManager.INTERRUPTION_FILTER_ALL) return
-        if (calls.any { it != call && mapState(it.stateCompat()) == CallState.ACTIVE }) return
-        val tone = runCatching { RingtoneManager.getRingtone(appContext, Uri.parse(uri)) }.getOrNull() ?: return
-        tone.audioAttributes = AudioAttributes.Builder()
-            .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
-            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-            .build()
-        if (Build.VERSION.SDK_INT >= 28) tone.isLooping = true
-        // Claimed now so a second lookup/screening result doesn't start another tone while we wait.
-        customRinger = tone
-        customRingerFor = id
-        // Silence Telecom first and wait until its ringtone has actually stopped (bounded), so the two never
-        // overlap. Everything is re-checked afterwards: the call may have been answered, silenced or ended meanwhile.
-        silenceRinger()
-        scope.launch {
-            val waitedUntil = SystemClock.elapsedRealtime() + RINGER_STOP_MAX_MS
-            delay(RINGER_STOP_MIN_MS)
-            while (systemRingtonePlaying(am) && SystemClock.elapsedRealtime() < waitedUntil) delay(RINGER_POLL_MS)
-            if (customRinger !== tone || id in silenced || !calls.contains(call) || call.stateCompat() != Call.STATE_RINGING) {
-                if (customRinger === tone) { customRinger = null; customRingerFor = null }
-                return@launch
-            }
-            if (am.ringerMode != AudioManager.RINGER_MODE_NORMAL) {
-                customRinger = null
-                customRingerFor = null
-                return@launch
-            }
-            runCatching { tone.play() }
-            val o = outcomes[id]
-            tonePlayed[id] = if (o?.ringtone != null) (o.ringtoneSource ?: RingtoneSource.RULE) to o.ringtoneName else RingtoneSource.UNKNOWN_CALLER to null
-            startRingVibration(am)
-        }
-    }
-
-    /** Another player (Telecom's ringer) is still playing a ringtone. Our own tone isn't playing yet at this point. */
-    private fun systemRingtonePlaying(am: AudioManager): Boolean = runCatching {
-        am.activePlaybackConfigurations.any { it.audioAttributes.usage == AudioAttributes.USAGE_NOTIFICATION_RINGTONE }
-    }.getOrDefault(false)
-
-    private var ringVibrator: Vibrator? = null
-
-    /**
-     * Silencing Telecom also stops its vibration, so vibrate like it would: only when the system's "Vibrate for calls"
-     * is on (the tone only plays in normal ringer mode, where that setting decides).
-     */
-    private fun startRingVibration(am: AudioManager) {
-        if (am.ringerMode == AudioManager.RINGER_MODE_SILENT) return
-        val cr = appContext.contentResolver
-        val vibrateWhenRinging = am.ringerMode == AudioManager.RINGER_MODE_VIBRATE ||
-            runCatching { Settings.System.getInt(cr, Settings.System.VIBRATE_WHEN_RINGING, 0) != 0 }.getOrDefault(false)
-        // Android 13+ also has a ring vibration intensity; 0 means off.
-        val intensityOff = runCatching { Settings.System.getInt(cr, "ring_vibration_intensity", -1) == 0 }.getOrDefault(false)
-        if (!vibrateWhenRinging || intensityOff) return
-        val v = if (Build.VERSION.SDK_INT >= 31) {
-            appContext.getSystemService(VibratorManager::class.java)?.defaultVibrator
-        } else {
-            @Suppress("DEPRECATION")
-            appContext.getSystemService(Vibrator::class.java)
-        } ?: return
-        if (!v.hasVibrator()) return
-        val effect = VibrationEffect.createWaveform(RING_VIBRATION, 0)
-        runCatching {
-            if (Build.VERSION.SDK_INT >= 33) {
-                v.vibrate(effect, VibrationAttributes.createForUsage(VibrationAttributes.USAGE_RINGTONE))
-            } else {
-                @Suppress("DEPRECATION")
-                v.vibrate(effect, AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE).build())
-            }
-            ringVibrator = v
+        if (s.screening || ringer.toneFor == s.id) return // played once screening allows the call
+        if (!::appContext.isInitialized || s.silenced || !ringing(call)) return
+        val otherActive = calls.any { it != call && mapState(it.stateCompat()) == CallState.ACTIVE }
+        ringer.play(appContext, s, uri, otherActive, stillRinging = { ringing(call) }) {
+            val o = s.outcome
+            s.tonePlayed = if (o?.ringtone != null) (o.ringtoneSource ?: RingtoneSource.RULE) to o.ringtoneName else RingtoneSource.UNKNOWN_CALLER to null
         }
     }
 
     internal fun onSystemSilence() {
-        stopCustomRinger()
+        ringer.stop()
         restoreBoost()
         // A silent phone stays silent: the spoken caller name stops with the ringer.
-        calls.filter { it.stateCompat() == Call.STATE_RINGING }.forEach { systemSilenced += idOf(it) }
+        calls.filter { it.stateCompat() == Call.STATE_RINGING }.forEach { session(idOf(it)).systemSilenced = true }
         publish()
     }
 
     private fun restoreBoost() {
-        boostedFor = null
-        if (::appContext.isInitialized) RingBoost.restoreAsync(appContext)
-    }
-
-    private fun stopCustomRinger() {
-        runCatching { customRinger?.stop() }
-        customRinger = null
-        customRingerFor = null
-        ringVibrator?.let { runCatching { it.cancel() } }
-        ringVibrator = null
+        ringer.restoreBoost(if (::appContext.isInitialized) appContext else null)
     }
 
     internal fun remove(call: Call) {
         val id = idOf(call)
-        if (customRingerFor == id) stopCustomRinger()
-        if (boostedFor == id) restoreBoost()
-        unknownCallers -= id
+        val s = session(id)
+        if (ringer.toneFor == id) ringer.stop()
+        if (ringer.boostedFor == id) restoreBoost()
         val base = toUi(call)
         // An outgoing call that never went through: the reason and Retry stay on the call-ended screen.
-        val failure = CallFailure.classify(endFacts(call, base, id))
-        val ended = if (failure == null) base else base.copy(failure = failure, failureText = failureText(failure, call))
+        val failure = CallFailure.classify(endFacts(call, base, s))
+        // The unknown-caller extras (tone, "where from") end with the ringing.
+        val shown = base.copy(unknown = false, location = null)
+        val ended = if (failure == null) shown else shown.copy(failure = failure, failureText = failureText(failure, call))
         _lastEnded.value = ended
         // A call that failed before the caller lookup finished still shows the name on "Call ended".
         if (ended.name == null && !ended.hidden && !ended.number.isNullOrBlank()) lookUpEndedName(ended)
-        ringStartedAt.remove(id)?.let { started ->
+        s.ringStartedAt?.let { started ->
             val connected = ended.connectTimeMillis > 0
-            val rang = (if (connected) ended.connectTimeMillis else System.currentTimeMillis()) - started
-            runCatching { TelecomGraph.dependencies.onRingFinished(ended.number, started, rang.coerceAtLeast(0), connected) }
-            ringFacts.remove(id)?.let { f ->
-                runCatching { TelecomGraph.dependencies.onRingFacts(ended.number.takeIf { !ended.hidden }, finishRingFacts(id, call, f, rang.coerceAtLeast(0), connected)) }
+            val rang = ((if (connected) ended.connectTimeMillis else System.currentTimeMillis()) - started).coerceAtLeast(0)
+            runCatching { deps.onRingFinished(ended.number, started, rang, connected) }
+            s.ringFacts?.let { f ->
+                runCatching { deps.onRingFacts(ended.number.takeIf { !ended.hidden }, finishRingFacts(s, call, f, rang, connected)) }
             }
         }
-        outcomes.remove(id)
         // The window started when the call was added; it runs for its full length from the end of the call too.
         if (::appContext.isInitialized && EmergencyPolicy.startsWindow(emergencyFacts(call, ended.number, ended.incoming), ended.incoming)) {
             runCatching { ScreeningGuard.noteEmergencyCall(appContext) }
@@ -414,32 +296,15 @@ object CallManager {
         if (ended.connectTimeMillis > 0 && !ended.isEmergency && !ended.isConference) {
             val talkedSec = ((System.currentTimeMillis() - ended.connectTimeMillis) / 1000).coerceAtLeast(0)
             runCatching {
-                TelecomGraph.dependencies.onCallUsage(
-                    ended.number.takeIf { !ended.hidden }, call.details.accountHandle?.id, ended.incoming, ended.connectTimeMillis, talkedSec,
-                )
+                deps.onCallUsage(ended.number.takeIf { !ended.hidden }, call.details.accountHandle?.id, ended.incoming, ended.connectTimeMillis, talkedSec)
             }
         }
-        runCatching { TelecomGraph.dependencies.onCallEnded(ended.number, ended.incoming, ended.connectTimeMillis) }
+        runCatching { deps.onCallEnded(ended.number, ended.incoming, ended.connectTimeMillis) }
         call.unregisterCallback(callback)
         calls -= call
-        info.remove(id)
-        silenced -= id
-        screening -= id
-        if (noticeTraced.remove(id)) Trace.endAsyncSection(TRACE_NOTIFY, traceCookie(id))
-        postDial.remove(id)
-        quotaSilenced -= id
-        endedByLimit -= id
-        noContact -= id
-        ringFacts.remove(id)
-        dtmfPlaying.remove(id)
-        ignoredByUser -= id
-        loudFor -= id
-        tonePlayed.remove(id)
-        answeredRoute.remove(id)
-        userEnded -= id
-        answeredByUser -= id
-        systemSilenced -= id
-        blockingDecline -= id
+        notifier.endTrace(s)
+        // Everything known about the call goes at once.
+        sessions.remove(id)
         if (calls.isEmpty()) emergencyNumbers.clear()
         val wasInFront = book.remove(id)
         publish()
@@ -459,7 +324,7 @@ object CallManager {
 
     /** Re-sends the current state to the notification and proximity observers (e.g. a countdown changed). */
     internal fun notifyObservers() {
-        onChanged?.invoke(_calls.value)
+        notifier.send(_calls.value)
     }
 
     /** Called when Parley places a call, so the UI can say "Calling via Work SIM…" before the call exists. */
@@ -472,69 +337,44 @@ object CallManager {
         }
     }
 
-    /** The InCallService unbound: no call is left, so nothing may keep ringing, stay boosted or linger in the maps. */
+    /** The InCallService unbound: no call is left, so nothing may keep ringing, stay boosted or linger. */
     internal fun clear() {
-        stopCustomRinger()
-        if (boostedFor != null) restoreBoost()
+        ringer.stop()
+        if (ringer.boostedFor != null) restoreBoost()
         calls.toList().forEach { it.unregisterCallback(callback) }
         calls.clear()
         accountLabels.clear()
+        // A SIM swapped while no call was up: its own number is read again.
+        accountNumbers.clear()
         book.clear()
-        outcomes.clear()
-        quotaSilenced.clear()
-        endedByLimit.clear()
-        ringStartedAt.clear()
-        noContact.clear()
-        ringFacts.clear()
-        dtmfPlaying.clear()
-        ignoredByUser.clear()
-        loudFor.clear()
-        tonePlayed.clear()
-        answeredRoute.clear()
-        userEnded.clear()
-        answeredByUser.clear()
-        systemSilenced.clear()
-        blockingDecline.clear()
-        silenced.clear()
-        screening.clear()
-        noticeTraced.forEach { Trace.endAsyncSection(TRACE_NOTIFY, traceCookie(it)) }
-        noticeTraced.clear()
-        unknownCallers.clear()
-        info.clear()
-        locations.clear()
-        postDial.clear()
+        sessions.values.forEach { notifier.endTrace(it) }
+        sessions.clear()
         publish()
     }
 
-    fun isScreening(id: String) = id in screening
+    fun isScreening(id: String) = sessions[id]?.screening == true
 
     /** The first notification for an incoming call was posted: ends its add → notification trace section. */
     internal fun onNotificationShown(id: String) {
-        if (noticeTraced.remove(id)) Trace.endAsyncSection(TRACE_NOTIFY, traceCookie(id))
+        sessions[id]?.let { notifier.endTrace(it) }
     }
 
-    private fun traceCookie(id: String) = id.hashCode()
-
     private fun publish() {
-        customRingerFor?.let { rid ->
+        ringer.follow(if (::appContext.isInitialized) appContext else null) { rid ->
             val c = calls.firstOrNull { idOf(it) == rid }
-            if (c == null || c.stateCompat() != Call.STATE_RINGING || rid in silenced) stopCustomRinger()
-        }
-        boostedFor?.let { rid ->
-            val c = calls.firstOrNull { idOf(it) == rid }
-            if (c == null || c.stateCompat() != Call.STATE_RINGING || rid in silenced) restoreBoost()
+            c != null && c.stateCompat() == Call.STATE_RINGING && sessions[rid]?.silenced != true
         }
         val now = SystemClock.elapsedRealtime()
         calls.filter { it.parent == null }.forEach { c ->
-            val id = idOf(c)
+            val s = session(idOf(c))
             val st = mapState(c.stateCompat())
-            book.update(id, st, now)
+            book.update(s.id, st, now)
             // Where an incoming call was answered, read again a moment later once the audio route has settled.
-            if (st == CallState.ACTIVE && id in ringFacts && id !in answeredRoute) {
-                answeredRoute[id] = RingSnapshot.route(_audio.value) ?: (AnswerRoute.EARPIECE to null)
+            if (st == CallState.ACTIVE && s.ringFacts != null && s.answeredRoute == null) {
+                s.answeredRoute = RingSnapshot.route(_audio.value) ?: (AnswerRoute.EARPIECE to null)
                 scope.launch {
                     delay(ROUTE_SETTLE_MS)
-                    if (id in answeredRoute) RingSnapshot.route(_audio.value)?.let { answeredRoute[id] = it }
+                    if (s.answeredRoute != null) RingSnapshot.route(_audio.value)?.let { s.answeredRoute = it }
                 }
             }
         }
@@ -542,13 +382,14 @@ object CallManager {
         if (top.isNotEmpty()) _pendingOutgoing.value = null
         _calls.value = top
         CallClock.onCallsChanged(top)
-        onChanged?.invoke(top)
+        notifier.send(top)
     }
 
     private fun toUi(call: Call): CallUi {
         val d = call.details
         val id = idOf(call)
-        val found = info[id]
+        val s = sessions[id] ?: CallSession(id)
+        val found = s.info
         val number = d.handle?.schemeSpecificPart
         val hidden = d.handlePresentation != TelecomManager.PRESENTATION_ALLOWED
         val caps = d.callCapabilities
@@ -581,10 +422,10 @@ object CallManager {
             canRespondViaText = can(Call.Details.CAPABILITY_RESPOND_VIA_TEXT),
             accountLabel = accountLabel(account),
             verification = verificationOf(call),
-            disconnectReason = if (id in endedByLimit) str(R.string.call_limit_reached) else d.disconnectCause?.let { disconnectText(it) },
-            postDialWait = postDial[id],
-            silenced = id in silenced,
-            silenceReason = if (id in quotaSilenced) str(R.string.call_silenced_quota) else null,
+            disconnectReason = if (s.endedByLimit) str(R.string.call_limit_reached) else d.disconnectCause?.let { disconnectText(it) },
+            postDialWait = s.postDial,
+            silenced = s.silenced,
+            silenceReason = if (s.quotaSilenced) str(R.string.call_silenced_quota) else null,
             accountId = account?.id,
             heldSinceElapsed = book.heldSince(id),
             isEmergency = isEmergencyCall(call, number),
@@ -594,15 +435,15 @@ object CallManager {
             context = found?.context,
             memory = found?.memory,
             memoryPrompt = found?.memoryPrompt == true,
-            unknown = id in unknownCallers,
-            location = if (id in unknownCallers) locations[id]?.ifEmpty { null } else null,
-            verdict = outcomes[id]?.verdict,
-            verdictWarn = outcomes[id]?.warn == true,
-            noContact = id in noContact && found == null,
+            unknown = s.unknownCaller,
+            location = if (s.unknownCaller) s.location?.ifEmpty { null } else null,
+            verdict = s.outcome?.verdict,
+            verdictWarn = s.outcome?.warn == true,
+            noContact = s.noContact && found == null,
             accountNumber = accountNumber(account),
             fallbackTitle = str(if (hidden) R.string.call_private_number else R.string.call_unknown).orEmpty(),
-            systemSilenced = id in systemSilenced,
-            blockingDecline = id in blockingDecline,
+            systemSilenced = s.systemSilenced,
+            blockingDecline = s.blockingDecline,
         )
     }
 
@@ -648,7 +489,7 @@ object CallManager {
         else -> c.label?.toString()?.ifBlank { null }
     }
 
-    /** A UI text in the user's language; null before [init] (calls only arrive after it). */
+    /** A UI text in the user's language; null before [add] (calls only arrive after it). */
     private fun str(res: Int): String? = if (::appContext.isInitialized) appContext.getString(res) else null
 
     /** Platform answers per number, while calls exist (the list depends on the SIM and network, so not for longer). */
@@ -657,7 +498,7 @@ object CallManager {
     private fun isEmergency(number: String?): Boolean {
         if (number.isNullOrBlank()) return false
         return emergencyNumbers.getOrPut(number) {
-            runCatching { TelecomGraph.dependencies.isEmergencyNumber(number) }.getOrElse { EmergencyPolicy.isFallbackEmergencyNumber(number) }
+            runCatching { deps.isEmergencyNumber(number) }.getOrElse { EmergencyPolicy.isFallbackEmergencyNumber(number) }
         }
     }
 
@@ -675,7 +516,7 @@ object CallManager {
         emergencyNumber = isEmergency(number),
         emergencyCallProperty = hasEmergencyProperty(call),
         inWindow = ::appContext.isInitialized && runCatching { ScreeningGuard.inEmergencyWindow(appContext) }.getOrDefault(false),
-        userListed = !incoming && !number.isNullOrBlank() && runCatching { TelecomGraph.dependencies.startsEmergencyWindow(number) }.getOrDefault(false),
+        userListed = !incoming && !number.isNullOrBlank() && runCatching { deps.startsEmergencyWindow(number) }.getOrDefault(false),
     )
 
     private val accountLabels = HashMap<PhoneAccountHandle, String?>()
@@ -708,42 +549,44 @@ object CallManager {
     }
 
     /**
-     * Completes the ring facts captured when [call] started ringing: which tone played, whether Parley kept it
-     * quiet and why, and how the call ended.
+     * Completes the ring facts captured when the call started ringing: which tone played, whether Parley kept it
+     * quiet and why, and how the call ended (the rules are [RingEnd]'s).
      */
-    private fun finishRingFacts(id: String, call: Call, f: RingFacts, rang: Long, connected: Boolean): RingFacts {
-        val o = outcomes[id]
+    private fun finishRingFacts(s: CallSession, call: Call, f: RingFacts, rang: Long, connected: Boolean): RingFacts {
+        val o = s.outcome
         val block = o?.decision as? Decision.Block
-        val silenceReason = when {
-            id !in silenced -> null
-            id in quotaSilenced -> str(R.string.call_silenced_quota)
-            block?.action == BlockAction.SILENCE -> o.verdict?.takeIf { it.isNotBlank() } ?: str(R.string.call_silenced_rules)
-            id in ignoredByUser -> str(R.string.call_silenced_ignored)
-            else -> str(R.string.call_silenced)
-        }
-        val tone = when {
-            block != null -> RingtoneSource.NONE to null
-            // "Ignore" after the tone started: the tone that played still counts.
-            tonePlayed[id] != null -> tonePlayed.getValue(id)
-            silenceReason != null && id !in ignoredByUser -> RingtoneSource.NONE to null
-            else -> RingtoneSource.SYSTEM to null
-        }
         val cause = call.details.disconnectCause?.code
-        val outcome = when {
-            connected -> RingOutcome.ANSWERED
-            block?.action == BlockAction.REJECT -> RingOutcome.BLOCKED
-            cause == DisconnectCause.ANSWERED_ELSEWHERE || cause == DisconnectCause.CALL_PULLED -> RingOutcome.ANSWERED_ELSEWHERE
-            cause == DisconnectCause.REJECTED -> RingOutcome.DECLINED
-            else -> RingOutcome.MISSED
+        val end = RingEnd.of(
+            RingEnd.Facts(
+                silenced = s.silenced,
+                quotaSilenced = s.quotaSilenced,
+                ignoredByUser = s.ignoredByUser,
+                blocked = block != null,
+                blockedReject = block?.action == BlockAction.REJECT,
+                tonePlayed = s.tonePlayed,
+                connected = connected,
+                disconnect = when (cause) {
+                    DisconnectCause.ANSWERED_ELSEWHERE, DisconnectCause.CALL_PULLED -> RingEnd.Disconnect.ANSWERED_ELSEWHERE
+                    DisconnectCause.REJECTED -> RingEnd.Disconnect.REJECTED
+                    else -> RingEnd.Disconnect.OTHER
+                },
+            ),
+        )
+        val silencedBy = when (end.silence) {
+            null -> null
+            RingEnd.SilenceReason.QUOTA -> str(R.string.call_silenced_quota)
+            RingEnd.SilenceReason.RULES -> o?.verdict?.takeIf { it.isNotBlank() } ?: str(R.string.call_silenced_rules)
+            RingEnd.SilenceReason.IGNORED -> str(R.string.call_silenced_ignored)
+            RingEnd.SilenceReason.OTHER -> str(R.string.call_silenced)
         }
-        val route = if (connected) answeredRoute[id] else null
+        val route = if (connected) s.answeredRoute else null
         return f.copy(
             ringMillis = rang,
-            ringtone = tone.first,
-            ringtoneDetail = tone.second,
-            silencedBy = silenceReason,
-            ringLoud = id in loudFor,
-            outcome = outcome,
+            ringtone = end.ringtone,
+            ringtoneDetail = end.ringtoneDetail,
+            silencedBy = silencedBy,
+            ringLoud = s.loud,
+            outcome = end.outcome,
             answeredRoute = route?.first,
             answeredDevice = route?.second,
         )
@@ -760,7 +603,7 @@ object CallManager {
     // ---- Actions ----
 
     fun answer(id: String) {
-        if (id in blockingDecline) return
+        if (sessions[id]?.blockingDecline == true) return
         val call = find(id) ?: return
         call.answer(VideoProfile.STATE_AUDIO_ONLY)
         answered(id)
@@ -768,18 +611,18 @@ object CallManager {
 
     /** The answer buzz, and no connect buzz right after it. */
     private fun answered(id: String) {
-        answeredByUser += id
+        session(id).answeredByUser = true
         CallClock.haptic(CallHaptic.ANSWER)
     }
 
-    internal fun wasAnsweredByUser(id: String) = id in answeredByUser
+    internal fun wasAnsweredByUser(id: String) = sessions[id]?.answeredByUser == true
 
     /**
      * Puts the active call on hold and answers the waiting one. Telecom would end an active call that
      * can't be held, so the UI only offers this when holding is possible.
      */
     fun holdAndAnswer(id: String) {
-        if (id in blockingDecline) return
+        if (sessions[id]?.blockingDecline == true) return
         val waiting = find(id) ?: return
         calls.filter { it != waiting && it.parent == null && mapState(it.stateCompat()) == CallState.ACTIVE }
             .forEach { if ((it.details.callCapabilities and Call.Details.CAPABILITY_HOLD) != 0) it.hold() }
@@ -793,12 +636,9 @@ object CallManager {
      */
     internal fun endForLimit(id: String) {
         val call = find(id) ?: return
-        val st = mapState(call.stateCompat())
-        if (st == CallState.RINGING || st == CallState.DISCONNECTED || st == CallState.DISCONNECTING) return
-        // Never an emergency call, nor during the emergency window: this may be the operator calling back.
         val incoming = call.details.callDirection == Call.Details.DIRECTION_INCOMING
-        if (EmergencyPolicy.bypasses(Safeguard.CALL_LIMITS, emergencyFacts(call, call.details.handle?.schemeSpecificPart, incoming))) return
-        endedByLimit += id
+        if (!limits.mayEnd(mapState(call.stateCompat()), emergencyFacts(call, call.details.handle?.schemeSpecificPart, incoming))) return
+        session(id).endedByLimit = true
         call.disconnect()
     }
 
@@ -809,16 +649,19 @@ object CallManager {
             ?: top.firstOrNull { mapState(it.stateCompat()) in DIALLING_STATES }
             ?: top.firstOrNull { mapState(it.stateCompat()) == CallState.HOLDING }
             ?: return false
-        userEnded += idOf(pick)
+        session(idOf(pick)).userEnded = true
         pick.disconnect()
         return true
     }
 
     /** Ends the current active call, then answers the waiting one. */
     fun endAndAnswer(id: String) {
-        if (id in blockingDecline) return
+        if (sessions[id]?.blockingDecline == true) return
         val waiting = find(id) ?: return
-        calls.filter { it != waiting && it.parent == null && mapState(it.stateCompat()) == CallState.ACTIVE }.forEach { userEnded += idOf(it); it.disconnect() }
+        calls.filter { it != waiting && it.parent == null && mapState(it.stateCompat()) == CallState.ACTIVE }.forEach {
+            session(idOf(it)).userEnded = true
+            it.disconnect()
+        }
         answered(id)
         scope.launch {
             // Answer once the ended call is really gone (or after 3 s at most).
@@ -837,7 +680,7 @@ object CallManager {
      */
     fun reject(id: String, message: String? = null) {
         val call = find(id) ?: return
-        userEnded += id
+        session(id).userEnded = true
         // Declining has its own buzz, different from answering.
         CallClock.haptic(CallHaptic.DECLINE)
         val canText = (call.details.callCapabilities and Call.Details.CAPABILITY_RESPOND_VIA_TEXT) != 0
@@ -873,26 +716,27 @@ object CallManager {
         val call = find(id) ?: return
         val number = call.details.handle?.schemeSpecificPart?.takeIf { it.isNotBlank() } ?: return
         if (call.details.handlePresentation != TelecomManager.PRESENTATION_ALLOWED || isEmergencyCall(call, number)) return
-        if (id in blockingDecline) return
-        blockingDecline += id
-        userEnded += id
-        silenced += id
+        val s = session(id)
+        if (s.blockingDecline) return
+        s.blockingDecline = true
+        s.userEnded = true
+        s.silenced = true
         silenceRinger()
-        stopCustomRinger()
+        ringer.stop()
         restoreBoost()
         CallClock.haptic(CallHaptic.DECLINE)
         publish()
         // Its own job in the long-lived scope: the timeout below only stops waiting for it.
-        val write = scope.async { runCatching { TelecomGraph.dependencies.blockForDecline(number) }.getOrNull() }
+        val write = scope.async { runCatching { deps.blockForDecline(number) }.getOrNull() }
         scope.launch {
             withTimeoutOrNull(BLOCK_TIMEOUT_MS) { write.join() }
-            val stillRinging = calls.contains(call) && call.stateCompat() == Call.STATE_RINGING
+            val stillRinging = ringing(call)
             // Answered anyway (a headset button goes straight to Telecom): blocked for next time, but not declined.
             val answered = calls.contains(call) && !stillRinging && mapState(call.stateCompat()) in ANSWERED_STATES
             val done = write.isCompleted
             _declineBlock.value = DeclineBlock(id, number, if (done) write.await() else null, pending = !done, answered = answered)
             if (stillRinging) rejectUnwanted(call)
-            blockingDecline -= id
+            s.blockingDecline = false
             publish()
             if (!done) {
                 val ruleId = write.await()
@@ -907,7 +751,7 @@ object CallManager {
         val rule = b.ruleId?.takeIf { it > 0 } ?: return
         if (b.undone || b.pending) return
         _declineBlock.value = b.copy(undone = true)
-        scope.launch { runCatching { TelecomGraph.dependencies.undoBlockForDecline(rule) } }
+        scope.launch { runCatching { deps.undoBlockForDecline(rule) } }
     }
 
     /** Done on the "Blocked · Undo" card shown above a call that goes on. */
@@ -928,15 +772,15 @@ object CallManager {
 
     /** Retry on the failure banner. The reason it still failed, or null. */
     suspend fun redial(number: String, accountId: String?): String? =
-        runCatching { TelecomGraph.dependencies.redial(number, accountId) }.getOrElse { it.message ?: str(R.string.call_disconnect_failed) }
+        runCatching { deps.redial(number, accountId) }.getOrElse { it.message ?: str(R.string.call_disconnect_failed) }
 
     /** What's known about a call that just left Telecom. */
-    private fun endFacts(call: Call, ended: CallUi, id: String): EndFacts = EndFacts(
+    private fun endFacts(call: Call, ended: CallUi, s: CallSession): EndFacts = EndFacts(
         outgoing = !ended.incoming,
         connected = ended.connectTimeMillis > 0,
         code = endCode(call.details.disconnectCause),
-        endedInSimPicker = book.lastLiveState(id) == CallState.SELECT_ACCOUNT,
-        userEnded = id in userEnded,
+        endedInSimPicker = book.lastLiveState(s.id) == CallState.SELECT_ACCOUNT,
+        userEnded = s.userEnded,
         airplaneMode = ::appContext.isInitialized &&
             runCatching { Settings.Global.getInt(appContext.contentResolver, Settings.Global.AIRPLANE_MODE_ON, 0) != 0 }.getOrDefault(false),
         emergency = ended.isEmergency,
@@ -970,7 +814,7 @@ object CallManager {
     private fun lookUpEndedName(ended: CallUi) {
         val number = ended.number ?: return
         scope.launch {
-            val found = withTimeoutOrNull(LOOKUP_TIMEOUT_MS) { runCatching { TelecomGraph.dependencies.callerInfo(number, ended.accountId) }.getOrNull() } ?: return@launch
+            val found = withTimeoutOrNull(LOOKUP_TIMEOUT_MS) { runCatching { deps.callerInfo(number, ended.accountId) }.getOrNull() } ?: return@launch
             val now = _lastEnded.value
             if (now?.id == ended.id) {
                 _lastEnded.value = now.copy(name = found.name, label = found.label, photoUri = found.photoUri, contactId = found.contactId, noContact = false)
@@ -987,22 +831,23 @@ object CallManager {
 
     /** Stop ringing but leave the call waiting (the caller hears it ring until they give up). */
     fun ignore(id: String) {
-        silenced += id
-        ignoredByUser += id
+        val s = session(id)
+        s.silenced = true
+        s.ignoredByUser = true
         silenceRinger()
-        stopCustomRinger()
+        ringer.stop()
         restoreBoost()
         publish()
     }
 
     fun saveNote(id: String, text: String) {
         val call = find(id) ?: return
-        runCatching { TelecomGraph.dependencies.saveCallNote(call.details.handle?.schemeSpecificPart, call.details.connectTimeMillis, text) }
+        runCatching { deps.saveCallNote(call.details.handle?.schemeSpecificPart, call.details.connectTimeMillis, text) }
     }
 
     fun hangup(id: String) {
         val call = find(id) ?: return
-        userEnded += id
+        session(id).userEnded = true
         if (mapState(call.stateCompat()) == CallState.RINGING) call.reject(false, null) else call.disconnect()
     }
 
@@ -1046,20 +891,19 @@ object CallManager {
     }
 
     private var dtmfToken = 0L
-    /** Per call: the token of the tone playing now (a stop for another call's tone never touches it). */
-    private val dtmfPlaying = HashMap<String, Long>()
 
     /**
-     * Starts the DTMF tone for [c] and keeps it playing until [stopDtmf] (V7: held while the key is pressed, for phone
+     * Starts the DTMF tone for [c] and keeps it playing until [stopDtmf] (held while the key is pressed, for phone
      * menus that want a long tone). A tone still playing from another key is stopped first (key roll-over).
      * Returns a token for [stopDtmf], or null when the call is gone.
      */
     fun startDtmf(id: String, c: Char): Long? {
         val call = find(id) ?: return null
-        if (dtmfPlaying.containsKey(id)) runCatching { call.stopDtmfTone() }
+        val s = session(id)
+        if (s.dtmfToken != null) runCatching { call.stopDtmfTone() }
         runCatching { call.playDtmfTone(c) }
         val token = ++dtmfToken
-        dtmfPlaying[id] = token
+        s.dtmfToken = token
         return token
     }
 
@@ -1067,15 +911,16 @@ object CallManager {
     fun stopDtmf(id: String, token: Long, afterMs: Long = 0) {
         scope.launch {
             if (afterMs > 0) delay(afterMs)
-            if (dtmfPlaying[id] != token) return@launch
-            dtmfPlaying.remove(id)
+            val s = sessions[id] ?: return@launch
+            if (s.dtmfToken != token) return@launch
+            s.dtmfToken = null
             find(id)?.let { runCatching { it.stopDtmfTone() } }
         }
     }
 
     fun postDialContinue(id: String, proceed: Boolean) {
         find(id)?.postDialContinue(proceed)
-        postDial.remove(id)
+        sessions[id]?.postDial = null
         publish()
     }
 
@@ -1105,7 +950,7 @@ object CallManager {
 
     internal fun updateAudio(audio: AudioUi) {
         _audio.value = audio
-        onChanged?.invoke(_calls.value)
+        notifier.send(_calls.value)
     }
 
     private val DIALLING_STATES = setOf(CallState.NEW, CallState.DIALING, CallState.CONNECTING)
@@ -1115,16 +960,8 @@ object CallManager {
     private const val RESUME_DELAY_MS = 600L
     private const val ROUTE_SETTLE_MS = 1500L
     private const val PENDING_OUTGOING_MS = 8000L
-    private const val SCREEN_TIMEOUT_MS = 1500L
-    private const val TRACE_SCREEN = "Parley.screenCall"
-    private const val TRACE_NOTIFY = "Parley.addToNotification"
     private const val LOOKUP_TIMEOUT_MS = 2000L
+
     /** How long "Block & decline" waits for the rule before declining anyway. */
     private const val BLOCK_TIMEOUT_MS = 1500L
-    /** After silencing Telecom, wait at least this long, and at most the max for its ringtone to stop. */
-    private const val RINGER_STOP_MIN_MS = 120L
-    private const val RINGER_STOP_MAX_MS = 700L
-    private const val RINGER_POLL_MS = 40L
-    /** Like the platform ringer: 1 s on, 1 s off, repeated. */
-    private val RING_VIBRATION = longArrayOf(0, 1000, 1000)
 }

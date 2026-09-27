@@ -1,5 +1,6 @@
 package app.parley.ui.home
 
+import app.parley.ui.Destination
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -72,7 +73,7 @@ private const val CONTENT_CONTACT = "contact"
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun ContactsTab(vm: AppViewModel, open: (String) -> Unit, onReorderFavorites: () -> Unit = {}) {
+fun ContactsTab(vm: AppViewModel, open: (Destination) -> Unit, onReorderFavorites: () -> Unit = {}) {
     // The rows with their letter headers, worked out once per list change (PeopleUi.listing).
     val listing by vm.people.listing.collectAsStateWithLifecycle()
     val query by vm.contactQuery.collectAsStateWithLifecycle()

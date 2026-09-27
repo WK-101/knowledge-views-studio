@@ -2,6 +2,7 @@ package app.parley.data
 
 import android.Manifest
 import android.content.ContentProviderResult
+import android.content.OperationApplicationException
 import android.util.Log
 import app.parley.common.PhoneIdentity
 import android.content.ContentProviderOperation
@@ -106,6 +107,12 @@ fun ContentResolver.changes(uri: Uri, retry: Flow<*>? = null): Flow<Unit> = call
 /** How long the address book must be quiet after a change before it is read again. */
 private const val CHANGE_QUIET_MS = 750L
 
+/** More changed contacts than this (a first account sync, a restore) reload the whole list instead of patching it. */
+private const val INCREMENTAL_MAX = 500
+
+/** Ids per `IN (…)` selection. */
+private const val IN_CHUNK = 500
+
 /** Like [debounce], except that the first value passes at once (a first load shouldn't wait). */
 @OptIn(FlowPreview::class)
 fun <T> Flow<T>.debounceAfterFirst(timeoutMillis: Long): Flow<T> = flow {
@@ -171,14 +178,74 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
      */
     suspend fun loadNow(): List<ContactSummary> = withContext(Dispatchers.IO) { loadAll() }
 
+    /** The last list, by id, with each contact's last-updated time: the base an incremental reload patches. */
+    private class Loaded(val region: String?, val byId: Map<Long, Pair<Long, ContactSummary>>)
+
+    @Volatile private var loaded: Loaded? = null
+
+    /** How the last load went, for tests: whether it patched the previous list, and how many contacts it read. */
+    internal data class LoadStats(val incremental: Boolean, val read: Int)
+
+    @Volatile internal var lastLoad = LoadStats(false, 0)
+        private set
+
+    /**
+     * The contact list. After the first load only contacts whose last-updated time moved are read again (a light
+     * query of ids and times finds them, and gives the display order); a large change, such as a first account
+     * sync, reads everything as before.
+     */
     private fun loadAll(): List<ContactSummary> {
-        if (!Permissions.has(context, Manifest.permission.READ_CONTACTS)) return emptyList()
+        if (!Permissions.has(context, Manifest.permission.READ_CONTACTS)) {
+            loaded = null
+            return emptyList()
+        }
+        val region = PhoneEnv.countryIso(context)
+        val prev = loaded?.takeIf { it.region == region }
+        if (prev != null) {
+            val order = ArrayList<Long>(prev.byId.size + 16)
+            val stamps = HashMap<Long, Long>(prev.byId.size + 16)
+            val listed = cr.safeQuery(
+                Contacts.CONTENT_URI, arrayOf(Contacts._ID, Contacts.CONTACT_LAST_UPDATED_TIMESTAMP),
+                sort = Contacts.SORT_KEY_PRIMARY + " COLLATE LOCALIZED ASC",
+            )?.use { c ->
+                while (c.moveToNext()) {
+                    order += c.getLong(0)
+                    stamps[c.getLong(0)] = c.getLong(1)
+                }
+                true
+            } ?: false
+            val changed = order.filter { id -> prev.byId[id]?.first != stamps[id] }
+            if (listed && changed.size <= INCREMENTAL_MAX) {
+                val fresh = if (changed.isEmpty()) emptyMap() else changed.chunked(IN_CHUNK).flatMap { summaries(it) }.associateBy { it.second.id }
+                val byId = HashMap<Long, Pair<Long, ContactSummary>>(order.size)
+                val out = ArrayList<ContactSummary>(order.size)
+                for (id in order) {
+                    // A contact that vanished between the two queries is left out.
+                    val s = fresh[id] ?: prev.byId[id]?.takeIf { id !in fresh && stamps[id] == it.first } ?: continue
+                    byId[id] = s
+                    out += s.second
+                }
+                loaded = Loaded(region, byId)
+                lastLoad = LoadStats(incremental = true, read = fresh.size)
+                return out
+            }
+        }
+        val all = summaries(null)
+        loaded = Loaded(region, all.associateBy { it.second.id })
+        lastLoad = LoadStats(incremental = false, read = all.size)
+        return all.map { it.second }
+    }
+
+    /** [ids]' summaries (or everyone's), in display order, each with its last-updated time. */
+    private fun summaries(ids: List<Long>?): List<Pair<Long, ContactSummary>> {
         val phones = HashMap<Long, MutableList<PhoneEntry>>()
         val seen = HashMap<Long, MutableSet<String>>()
         val region = PhoneEnv.countryIso(context)
+        val byContact = ids?.let { "${Data.CONTACT_ID} IN (${it.joinToString(",")})" }
         cr.safeQuery(
             Phone.CONTENT_URI,
             arrayOf(Phone.CONTACT_ID, Phone.NUMBER, Phone.TYPE, Phone.LABEL, Phone.IS_SUPER_PRIMARY, Phone.IS_PRIMARY),
+            byContact,
         )?.use { c ->
             while (c.moveToNext()) {
                 val id = c.getLong(0)
@@ -190,20 +257,21 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
             }
         }
         val emails = HashMap<Long, MutableList<String>>()
-        cr.safeQuery(Email.CONTENT_URI, arrayOf(Email.CONTACT_ID, Email.ADDRESS))?.use { c ->
+        cr.safeQuery(Email.CONTENT_URI, arrayOf(Email.CONTACT_ID, Email.ADDRESS), byContact)?.use { c ->
             while (c.moveToNext()) {
                 val a = c.getString(1) ?: continue
                 emails.getOrPut(c.getLong(0)) { ArrayList(1) } += a
             }
         }
-        val out = ArrayList<ContactSummary>()
+        val out = ArrayList<Pair<Long, ContactSummary>>()
         val blank = ArrayList<Int>()
         cr.safeQuery(
             Contacts.CONTENT_URI,
             arrayOf(
                 Contacts._ID, Contacts.LOOKUP_KEY, Contacts.DISPLAY_NAME_PRIMARY, Contacts.DISPLAY_NAME_ALTERNATIVE,
-                Contacts.PHOTO_THUMBNAIL_URI, Contacts.STARRED, Contacts.PHONETIC_NAME,
+                Contacts.PHOTO_THUMBNAIL_URI, Contacts.STARRED, Contacts.PHONETIC_NAME, Contacts.CONTACT_LAST_UPDATED_TIMESTAMP,
             ),
+            ids?.let { "${Contacts._ID} IN (${it.joinToString(",")})" },
             sort = Contacts.SORT_KEY_PRIMARY + " COLLATE LOCALIZED ASC",
         )?.use { c ->
             while (c.moveToNext()) {
@@ -213,7 +281,7 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
                     ?: phones[id]?.firstOrNull()?.number
                     ?: emails[id]?.firstOrNull()
                     ?: "".also { blank += out.size }
-                out += ContactSummary(
+                out += c.getLong(7) to ContactSummary(
                     id = id,
                     lookupKey = c.getString(1) ?: "",
                     displayName = name,
@@ -227,8 +295,10 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
             }
         }
         if (blank.isNotEmpty()) {
-            val names = blankNames(blank.map { out[it].id })
-            blank.forEach { i -> out[i] = out[i].let { s -> (names[s.id] ?: ContactText.NO_NAME).let { n -> s.copy(displayName = n, displayNameAlt = n) } } }
+            val names = blankNames(blank.map { out[it].second.id })
+            blank.forEach { i ->
+                out[i] = out[i].let { (t, s) -> t to (names[s.id] ?: ContactText.NO_NAME).let { n -> s.copy(displayName = n, displayNameAlt = n) } }
+            }
         }
         return out
     }
@@ -404,20 +474,24 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
         } ?: return@withContext null
 
         val raws = ArrayList<RawContactRef>()
+        val versions = HashMap<Long, Long>()
         cr.safeQuery(
             RawContacts.CONTENT_URI,
-            arrayOf(RawContacts._ID, RawContacts.ACCOUNT_TYPE, RawContacts.ACCOUNT_NAME),
+            arrayOf(RawContacts._ID, RawContacts.ACCOUNT_TYPE, RawContacts.ACCOUNT_NAME, RawContacts.VERSION),
             "${RawContacts.CONTACT_ID}=? AND ${RawContacts.DELETED}=0",
             arrayOf(contactId.toString()),
         )?.use { c ->
-            while (c.moveToNext()) raws += RawContactRef(c.getLong(0), AccountRef(c.getString(1), c.getString(2)))
+            while (c.moveToNext()) {
+                raws += RawContactRef(c.getLong(0), AccountRef(c.getString(1), c.getString(2)))
+                versions[c.getLong(0)] = c.getLong(3)
+            }
         }
         val types = writableTypes()
         val local = localAccount()
         val writable = raws.filter { isWritable(it.account, types, local) }
         val target = preferRaw?.let { p -> writable.firstOrNull { it.id == p } }
             ?: writable.firstOrNull { it.account.type == "com.google" } ?: writable.firstOrNull { !it.account.isLocal } ?: writable.firstOrNull()
-        base = base.copy(rawContacts = raws, editRawId = target?.id, writableRawIds = writable.map { it.id })
+        base = base.copy(rawContacts = raws, editRawId = target?.id, editRawVersion = target?.let { versions[it.id] }, writableRawIds = writable.map { it.id })
         if (forEdit && target == null) {
             // Nothing writable: start from the aggregated name only; save() adds a linked device entry.
             val shown = load(contactId, forEdit = false) ?: return@withContext null
@@ -603,8 +677,20 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
      */
     suspend fun save(original: ContactDetails?, edited: ContactDetails, account: AccountRef?, photo: Uri?, removePhoto: Boolean): SaveResult? =
         withContext(Dispatchers.IO) {
+            val expected = original?.editRawVersion
+            val versioned = original?.editRawId?.takeIf { expected != null }
+            // Cheap early check, so a stale edit isn't journaled; the batch's assertion below closes the race.
+            if (versioned != null && rawVersion(versioned) != expected) throw ContactChangedElsewhereException(original?.id ?: 0L)
             if (original != null && original.id > 0) journal(listOf(original.id), "EDIT")
             val ops = ArrayList<ContentProviderOperation>()
+            if (versioned != null && expected != null) {
+                // The whole batch fails when the raw contact was changed (or deleted) since the editor loaded it.
+                ops += ContentProviderOperation.newAssertQuery(ContentUris.withAppendedId(RawContacts.CONTENT_URI, versioned))
+                    .withSelection("${RawContacts.DELETED}=0", null)
+                    .withValue(RawContacts.VERSION, expected)
+                    .withExpectedCount(1)
+                    .build()
+            }
             val rawId: Long?
             val insertTarget: (ContentProviderOperation.Builder) -> ContentProviderOperation.Builder
             val linkTo: List<Long> = if (original != null && original.editRawId == null) original.rawContacts.map { it.id } else emptyList()
@@ -775,8 +861,18 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
                 }
             }
 
-            val results = if (ops.isEmpty()) emptyArray<ContentProviderResult>() else cr.applyBatch(ContactsContract.AUTHORITY, ops)
-            val finalRawId = rawId ?: results.firstOrNull()?.uri?.let { ContentUris.parseId(it) } ?: return@withContext null
+            val onlyAssert = ops.size == 1 && versioned != null
+            val results = if (ops.isEmpty() || onlyAssert) {
+                emptyArray<ContentProviderResult>()
+            } else {
+                try {
+                    cr.applyBatch(ContactsContract.AUTHORITY, ops)
+                } catch (e: OperationApplicationException) {
+                    if (versioned != null && rawVersion(versioned) != expected) throw ContactChangedElsewhereException(original?.id ?: 0L)
+                    throw e
+                }
+            }
+            val finalRawId = rawId ?: results.firstOrNull { it.uri != null }?.uri?.let { ContentUris.parseId(it) } ?: return@withContext null
             // Every field of this copy was cleared: remove the empty raw contact instead of leaving a blank behind
             // (AOSP does the same, F24). The person stays if another copy has details.
             if (rawId != null && changed.isNotEmpty() && photo == null && isBlankRaw(rawId)) {
@@ -822,6 +918,12 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
             Data.CONTENT_URI, arrayOf(Data._ID),
             "${Data.RAW_CONTACT_ID}=? AND ${Data.MIMETYPE}<>?", arrayOf(rawId.toString(), GroupMembership.CONTENT_ITEM_TYPE),
         )?.use { it.count == 0 } ?: false
+
+    /** The raw contact's current RawContacts.VERSION; null when it is gone (or marked deleted). */
+    private fun rawVersion(rawId: Long): Long? =
+        cr.safeQuery(ContentUris.withAppendedId(RawContacts.CONTENT_URI, rawId), arrayOf(RawContacts.VERSION), "${RawContacts.DELETED}=0")?.use { c ->
+            if (c.moveToFirst()) c.getLong(0) else null
+        }
 
     private fun contactIdForRaw(rawId: Long): Long? =
         cr.safeQuery(ContentUris.withAppendedId(RawContacts.CONTENT_URI, rawId), arrayOf(RawContacts.CONTACT_ID))?.use { c ->

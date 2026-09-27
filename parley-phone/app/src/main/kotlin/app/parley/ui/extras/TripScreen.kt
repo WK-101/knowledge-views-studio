@@ -1,5 +1,6 @@
 package app.parley.ui.extras
 
+import app.parley.ui.Destination
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -67,7 +68,7 @@ import app.parley.ui.avatarSize
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TripScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit) {
+fun TripScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit) {
     val context = LocalContext.current
     val keyboard = LocalSoftwareKeyboardController.current
     val store = vm.c.extras

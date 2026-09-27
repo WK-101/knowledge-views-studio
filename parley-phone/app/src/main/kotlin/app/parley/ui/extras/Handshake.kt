@@ -111,7 +111,7 @@ fun MyCardQrDialog(vm: AppViewModel, onDismiss: () -> Unit) {
             title = stringResource(R.string.me_title),
             text = stringResource(R.string.handshake_no_card),
             confirmLabel = stringResource(R.string.handshake_make_card),
-            onConfirm = { onDismiss(); vm.navigate(NavEvent.Route(PeopleRoutes.ME)) },
+            onConfirm = { onDismiss(); vm.navigate(NavEvent.Route(PeopleRoutes.Me)) },
             onDismiss = onDismiss,
             dismissLabel = stringResource(R.string.dc_cancel),
         )

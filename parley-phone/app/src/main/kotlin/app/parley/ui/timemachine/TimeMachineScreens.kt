@@ -1,5 +1,6 @@
 package app.parley.ui.timemachine
 
+import app.parley.ui.Destination
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -88,7 +89,7 @@ private fun fieldLabel(res: Resources, field: String): String = when (field) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun VersionHistoryScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, open: (String) -> Unit) {
+fun VersionHistoryScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, open: (Destination) -> Unit) {
     val context = LocalContext.current
     val res = LocalResources.current
     val scope = rememberCoroutineScope()
@@ -170,7 +171,7 @@ fun VersionHistoryScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, op
 
 /** The snapshots tab of History & undo: what changed since a day, a week, a month or 6 months ago, from the daily snapshots. */
 @Composable
-fun SnapshotChanges(vm: AppViewModel, open: (String) -> Unit, modifier: Modifier = Modifier) {
+fun SnapshotChanges(vm: AppViewModel, open: (Destination) -> Unit, modifier: Modifier = Modifier) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val res = LocalResources.current

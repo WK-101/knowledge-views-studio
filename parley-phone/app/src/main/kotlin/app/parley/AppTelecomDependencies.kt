@@ -5,7 +5,6 @@ import android.util.Log
 import app.parley.common.PhoneIdentity
 import android.content.Context
 import android.content.Intent
-import app.parley.common.Decision
 import app.parley.common.BlockRule
 import app.parley.common.RuleKind
 import app.parley.common.RuleTools
@@ -70,8 +69,6 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
         // Simple mode's incoming screen (large buttons, ask before declining, the caller's name spoken).
         if (!simple.enabled) look else look.copy(simpleMode = true, confirmDecline = simple.confirmDecline, speakCallerName = simple.speakName)
     }.stateIn(c.scope, SharingStarted.Eagerly, InCallAppearance())
-
-    override suspend fun callerInfo(number: String): CallerDisplay? = callerInfo(number, null)
 
     override suspend fun callerInfo(number: String, accountId: String?): CallerDisplay? = withContext(Dispatchers.IO) {
         val last = lastCallSummary(number, PhoneEnv.countryIso(app, accountId))
@@ -255,9 +252,6 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
     // Memory only (the call path runs on the main thread): settings, rules and label ringtones are warmed at app
     // start, and anything not read yet counts as "on".
     override fun screeningActive(): Boolean = c.screener.isActive() || !c.peoplePrefs.loaded || c.peoplePrefs.settings.value.labelRingtones.isNotEmpty()
-
-    override suspend fun screen(number: String?, hidden: Boolean, verification: Verification): Decision =
-        withContext(Dispatchers.IO) { c.screener.screen(number, hidden, verification) }
 
     // ---- Blocking & screening ----
 

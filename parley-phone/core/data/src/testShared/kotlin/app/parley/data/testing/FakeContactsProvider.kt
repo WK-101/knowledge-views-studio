@@ -16,7 +16,8 @@ import org.robolectric.Robolectric
  * A small Contacts Provider for Robolectric tests, backed by an in-memory SQLite database with the provider's own
  * column names, so Parley's real queries, selections and batches run unchanged. It keeps one aggregate per raw
  * contact (the contact id is the first raw contact's id unless a test sets another), ignores aggregation exceptions
- * and photos, and records every write in [writes] so a test can check exactly which rows a save touched.
+ * and photos, and records every write in [writes] so a test can check exactly which rows a save touched. Like the
+ * real provider, every change bumps the raw contact's version and the contact's last-updated time.
  *
  * Two behaviours of the real provider that Parley must cope with are kept:
  * - Lookup keys change ([changeLookupKey], as after a first sync or a rename), and an old key still resolves to the
@@ -43,7 +44,7 @@ class FakeContactsProvider : ContentProvider() {
             "CREATE TABLE raw_contacts (_id INTEGER PRIMARY KEY AUTOINCREMENT, contact_id INTEGER, account_type TEXT, account_name TEXT, " +
                 "data_set TEXT, sourceid TEXT, deleted INTEGER NOT NULL DEFAULT 0, version INTEGER NOT NULL DEFAULT 1, dirty INTEGER NOT NULL DEFAULT 0, " +
                 "starred INTEGER NOT NULL DEFAULT 0, custom_ringtone TEXT, send_to_voicemail INTEGER NOT NULL DEFAULT 0, " +
-                "aggregation_mode INTEGER NOT NULL DEFAULT 0, sync1 TEXT, sync2 TEXT, sync3 TEXT, sync4 TEXT)",
+                "aggregation_mode INTEGER NOT NULL DEFAULT 0, sync1 TEXT, sync2 TEXT, sync3 TEXT, sync4 TEXT, last_updated INTEGER NOT NULL DEFAULT 0)",
         )
         db.execSQL(
             "CREATE TABLE data (_id INTEGER PRIMARY KEY AUTOINCREMENT, raw_contact_id INTEGER NOT NULL, mimetype TEXT NOT NULL, " +
@@ -56,6 +57,10 @@ class FakeContactsProvider : ContentProvider() {
                 "favorites INTEGER NOT NULL DEFAULT 0, deleted INTEGER NOT NULL DEFAULT 0, group_visible INTEGER NOT NULL DEFAULT 0, " +
                 "should_sync INTEGER NOT NULL DEFAULT 1, dirty INTEGER NOT NULL DEFAULT 0, version INTEGER NOT NULL DEFAULT 1)",
         )
+        // Indexes like the real provider's, so tests with thousands of contacts stay fast.
+        db.execSQL("CREATE INDEX data_raw ON data (raw_contact_id)")
+        db.execSQL("CREATE INDEX data_raw_mime ON data (raw_contact_id, mimetype)")
+        db.execSQL("CREATE INDEX raw_contact ON raw_contacts (contact_id)")
         // The current key a test gave a contact, and the raw contacts each earlier key stood for.
         db.execSQL("CREATE TABLE lookup_override (contact_id INTEGER PRIMARY KEY, lookup TEXT NOT NULL)")
         db.execSQL("CREATE TABLE lookup_history (lookup TEXT NOT NULL, raw_contact_id INTEGER NOT NULL)")
@@ -68,15 +73,17 @@ class FakeContactsProvider : ContentProvider() {
                 "NULL AS phonetic_name, NULL AS photo_uri, NULL AS photo_thumb_uri, 0 AS photo_id, MAX(r.starred) AS starred, " +
                 "MAX(r.custom_ringtone) AS custom_ringtone, MAX(r.send_to_voicemail) AS send_to_voicemail, $name AS sort_key, $name AS sort_key_alt, " +
                 "MIN(r._id) AS name_raw_contact_id, 0 AS pinned, 0 AS times_contacted, 0 AS last_time_contacted, 1 AS in_visible_group, " +
-                "0 AS contact_last_updated_timestamp, " +
+                "MAX(r.last_updated) AS contact_last_updated_timestamp, " +
                 "EXISTS(SELECT 1 FROM data p JOIN raw_contacts pr ON p.raw_contact_id = pr._id WHERE pr.contact_id = r.contact_id " +
                 "AND p.mimetype = '${Phone.CONTENT_ITEM_TYPE}') AS has_phone_number " +
                 "FROM raw_contacts r WHERE r.deleted = 0 GROUP BY r.contact_id",
         )
+        // Per-row subqueries rather than a join with the grouped contacts view, which SQLite would rebuild per row.
         db.execSQL(
             "CREATE VIEW data_view AS SELECT d.*, r.contact_id AS contact_id, r.account_type AS account_type, r.account_name AS account_name, " +
-                "r.data_set AS data_set, r.starred AS starred, c.display_name AS display_name, c.lookup AS lookup, NULL AS photo_uri " +
-                "FROM data d JOIN raw_contacts r ON d.raw_contact_id = r._id LEFT JOIN contacts c ON c._id = r.contact_id WHERE r.deleted = 0",
+                "r.data_set AS data_set, r.starred AS starred, $name AS display_name, " +
+                "COALESCE((SELECT o.lookup FROM lookup_override o WHERE o.contact_id = r.contact_id), 'lk' || r.contact_id) AS lookup, NULL AS photo_uri " +
+                "FROM data d JOIN raw_contacts r ON d.raw_contact_id = r._id WHERE r.deleted = 0",
         )
         for (t in listOf("raw_contacts", "data", "groups")) {
             columns[t] = db.rawQuery("PRAGMA table_info($t)", null).use { c -> buildSet { while (c.moveToNext()) add(c.getString(1)) } }
@@ -196,9 +203,14 @@ class FakeContactsProvider : ContentProvider() {
             "raw_contacts" -> {
                 val id = db.insertOrThrow("raw_contacts", null, known("raw_contacts", values))
                 if (values?.containsKey("contact_id") != true) db.execSQL("UPDATE raw_contacts SET contact_id = _id WHERE _id = $id")
+                touchRaw(id)
                 ContentUris.withAppendedId(ContactsContract.RawContacts.CONTENT_URI, id)
             }
-            "data" -> ContentUris.withAppendedId(ContactsContract.Data.CONTENT_URI, db.insertOrThrow("data", null, known("data", values)))
+            "data" -> {
+                val id = db.insertOrThrow("data", null, known("data", values))
+                touchRaw(values?.getAsLong("raw_contact_id"))
+                ContentUris.withAppendedId(ContactsContract.Data.CONTENT_URI, id)
+            }
             "groups" -> ContentUris.withAppendedId(ContactsContract.Groups.CONTENT_URI, db.insertOrThrow("groups", null, known("groups", values)))
             else -> null
         }
@@ -211,18 +223,35 @@ class FakeContactsProvider : ContentProvider() {
         return when (s.firstOrNull()) {
             "data" -> db.update("data", known("data", values), where("_id"), if (s.size > 1) null else selectionArgs).also { bump(where("_id"), selectionArgs.takeIf { s.size == 1 }) }
             "raw_contacts" -> db.update("raw_contacts", known("raw_contacts", values), where("_id"), if (s.size > 1) null else selectionArgs)
+                .also { n -> if (n > 0 && values?.containsKey("version") != true) touchWhere(where("_id"), selectionArgs.takeIf { s.size == 1 }) }
             "contacts" -> db.update("raw_contacts", known("raw_contacts", values), where("contact_id"), if (s.size > 1) null else selectionArgs)
+                .also { n -> if (n > 0) touchWhere(where("contact_id"), selectionArgs.takeIf { s.size == 1 }) }
             "groups" -> db.update("groups", known("groups", values), where("_id"), if (s.size > 1) null else selectionArgs)
             else -> 1 // aggregation exceptions and the like: recorded only
         }
     }
 
-    /** Editing a data row bumps its raw contact's version, as the real provider does. */
+    /**
+     * Editing a data row bumps its raw contact's version and the contact's last-updated time, as the real provider
+     * does (so do inserting and deleting rows, and changing the raw contact itself).
+     */
     private fun bump(where: String?, args: Array<out String>?) {
-        db.execSQL(
-            "UPDATE raw_contacts SET version = version + 1 WHERE _id IN (SELECT raw_contact_id FROM data" + (where?.let { " WHERE $it" } ?: "") + ")",
-            args?.toList()?.toTypedArray() ?: emptyArray(),
-        )
+        touchWhere("_id IN (SELECT raw_contact_id FROM data" + (where?.let { " WHERE $it" } ?: "") + ")", args)
+    }
+
+    private fun touchWhere(where: String?, args: Array<out String>?) {
+        touch("UPDATE raw_contacts SET version = version + 1, last_updated = ? WHERE " + (where ?: "1"), args)
+    }
+
+    private fun touchRaw(rawId: Long?) {
+        if (rawId != null) touch("UPDATE raw_contacts SET version = version + 1, last_updated = ? WHERE _id = $rawId", null)
+    }
+
+    /** A strictly increasing "now", so two changes in the same millisecond still differ. */
+    private var clock = System.currentTimeMillis()
+
+    private fun touch(sql: String, args: Array<out String>?) {
+        db.execSQL(sql, (listOf<Any>(++clock) + args.orEmpty()).toTypedArray())
     }
 
     override fun delete(uri: Uri, selection: String?, selectionArgs: Array<out String>?): Int {
@@ -230,7 +259,12 @@ class FakeContactsProvider : ContentProvider() {
         val s = segments(uri)
         val syncAdapter = uri.getBooleanQueryParameter(ContactsContract.CALLER_IS_SYNCADAPTER, false)
         return when (s.firstOrNull()) {
-            "data" -> if (s.size > 1) db.delete("data", "_id = ${s[1].toLong()}", null) else db.delete("data", selection, selectionArgs)
+            "data" -> {
+                val where = if (s.size > 1) "_id = ${s[1].toLong()}" else selection
+                val args = if (s.size > 1) null else selectionArgs
+                bump(where, args)
+                db.delete("data", where, args)
+            }
             "raw_contacts" -> {
                 val raw = s.getOrNull(1)?.toLong()
                 val where = if (raw != null) "_id = $raw" else selection
