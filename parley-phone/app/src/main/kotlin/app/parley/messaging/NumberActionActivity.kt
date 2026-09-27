@@ -93,6 +93,8 @@ class NumberActionActivity : androidx.fragment.app.FragmentActivity() {
         /** [accountId]: the SIM of the call the number comes from (missed-call notification), for its country. */
         data class Message(val number: String, val accountId: String? = null) : Stage
         data class Offer(val number: String, val via: String) : Stage
+        /** An emergency number while Parley is locked: only its Call action, without asking for the unlock first. */
+        data class Emergency(val number: String) : Stage
     }
 
     private var stage by mutableStateOf<Stage>(Stage.NoNumber)
@@ -108,6 +110,10 @@ class NumberActionActivity : androidx.fragment.app.FragmentActivity() {
     /** The selected, shared or pasted text, kept only while the sheet is open, for "Save all…" (M11). */
     private var sourceText: String? = null
     private var leftForChat = false
+    /** Nothing shows while this is true: the lock engaged again while the sheet was open. */
+    private var hidden by mutableStateOf(false)
+    private var authenticating = false
+    private var stopped = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
@@ -117,32 +123,77 @@ class NumberActionActivity : androidx.fragment.app.FragmentActivity() {
         window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
         lifecycleScope.launch {
             val settings = container.settings.current()
-            settingsSnapshot = settings
             appLock = settings.appLock
-            fun show() {
-                if (!settings.secureScreen) window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
-                setContent {
-                    ParleyTheme(settings.themeMode, settings.amoledBlack, settings.dynamicColor, settings.density) {
-                        Sheet()
-                    }
+            hidden = true
+            if (!settings.secureScreen) window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+            setContent {
+                ParleyTheme(settings.themeMode, settings.amoledBlack, settings.dynamicColor, settings.density) {
+                    if (!hidden) Sheet()
                 }
             }
-            // Any app can open this sheet. While Parley is locked it would tell whether a number is a (private)
-            // contact and let "My details" be edited, so it asks for the unlock first, as Parley itself does.
-            AppLock.onStart(settings)
-            if (!settings.appLock || !AppLock.locked.value) {
-                appLock = false
-                return@launch show()
-            }
-            AppLock.authenticate(this@NumberActionActivity) { ok ->
-                if (!ok) return@authenticate finish()
-                appLock = false
-                show()
-            }
+            reveal(settings)
+            settingsSnapshot = settings
         }
     }
 
+    /**
+     * Any app can open this sheet. While Parley is locked it would tell whether a number is a (private) contact and
+     * let "My details" be edited, so it asks for the unlock first, as Parley itself does, and again whenever the lock
+     * engages while the sheet is open (it stays behind a chat opened from here). An emergency number is the
+     * exception: it is offered alone, with nothing but its Call action, so no prompt stands before the call.
+     */
+    private fun reveal(settings: app.parley.common.AppSettings) {
+        AppLock.onStart(settings)
+        if (!settings.appLock || !AppLock.locked.value) {
+            appLock = false
+            hidden = false
+            return
+        }
+        appLock = true
+        hidden = true
+        val s = stage
+        if (s is Stage.Emergency) {
+            hidden = false
+            return
+        }
+        if (s is Stage.Actions) {
+            lifecycleScope.launch {
+                val emergency = withContext(Dispatchers.IO) {
+                    listOfNotNull(s.raw, s.number).firstOrNull { app.parley.data.EmergencyNumbers.isEmergency(this@NumberActionActivity, it) }
+                }
+                if (stage != s || !appLock) return@launch
+                if (emergency != null) {
+                    stage = Stage.Emergency(app.parley.common.calls.EmergencyPolicy.asciiDigits(emergency))
+                    hidden = false
+                } else {
+                    askUnlock()
+                }
+            }
+            return
+        }
+        askUnlock()
+    }
+
+    private fun askUnlock() {
+        if (authenticating) return
+        authenticating = true
+        AppLock.authenticate(this) { ok ->
+            authenticating = false
+            if (!ok) return@authenticate finish()
+            appLock = false
+            hidden = false
+        }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        // Back from a chat (or anywhere) after the lock engaged: hidden again until unlocked.
+        if (stopped) settingsSnapshot?.let(::reveal)
+        stopped = false
+    }
+
     override fun onStop() {
+        stopped = true
         AppLock.onStop(settingsSnapshot)
         super.onStop()
     }
@@ -152,6 +203,8 @@ class NumberActionActivity : androidx.fragment.app.FragmentActivity() {
         setIntent(intent)
         awaitingReturn = false
         stage = initialStage(intent)
+        // Still locked (e.g. showing an emergency number): the new text goes through the same gate.
+        if (appLock) settingsSnapshot?.let(::reveal)
     }
 
     override fun onPause() {
@@ -219,6 +272,7 @@ class NumberActionActivity : androidx.fragment.app.FragmentActivity() {
                     is Stage.Actions -> NumberActions(s.number, s.raw)
                     is Stage.Message -> MessageOnContent(s.number, s.accountId, onCall = callAction()) { app -> afterLaunch(app != null) }
                     is Stage.Offer -> Unit
+                    is Stage.Emergency -> EmergencyCall(s.number)
                 }
             }
         }
@@ -342,6 +396,15 @@ class NumberActionActivity : androidx.fragment.app.FragmentActivity() {
                 pickCountry = false
                 regionOverride = code.takeUnless { it == defaultRegion }
             }
+        }
+    }
+
+    /** Only the number and its Call action: nothing about who it is, nothing else to do while Parley is locked. */
+    @Composable
+    private fun EmergencyCall(number: String) {
+        Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(bottom = 16.dp)) {
+            Text(Bidi.ltr(number), style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 24.dp))
+            callAction()?.let { call -> CallFirstButton(number) { call(number) } }
         }
     }
 

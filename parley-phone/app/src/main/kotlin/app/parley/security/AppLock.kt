@@ -9,6 +9,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.snapshotFlow
+import app.parley.common.calls.EmergencyPolicy
+import kotlinx.coroutines.flow.first
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.text.input.KeyboardType
@@ -269,9 +273,19 @@ object VaultSession {
     fun recentlyAuthenticated(windowMs: Long = 5 * 60_000L) = authAt > 0 && SystemClock.elapsedRealtime() - authAt < windowMs
 }
 
+/**
+ * [emergencyNumber]: an emergency number another app handed to Parley (Android turns a third-party emergency call
+ * into a dial request for the phone app). The emergency keypad then opens with it and the unlock prompt doesn't
+ * start on its own; while [checkingEmergency], the prompt waits for that answer.
+ */
 @Composable
-fun LockScreen(onUnlock: () -> Unit) {
-    LaunchedEffect(Unit) { if (AppLock.promptOnShow) onUnlock() }
+fun LockScreen(emergencyNumber: String? = null, checkingEmergency: Boolean = false, onUnlock: () -> Unit) {
+    val handedOver by rememberUpdatedState(emergencyNumber)
+    val checking by rememberUpdatedState(checkingEmergency)
+    LaunchedEffect(Unit) {
+        snapshotFlow { checking }.first { !it }
+        if (AppLock.promptOnShow && handedOver == null) onUnlock()
+    }
     Surface(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize().padding(32.dp), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
             Icon(Icons.Rounded.Lock, null, Modifier.size(64.dp), tint = MaterialTheme.colorScheme.primary)
@@ -284,12 +298,12 @@ fun LockScreen(onUnlock: () -> Unit) {
             Spacer(Modifier.height(24.dp))
             Button(onUnlock) { Text(stringResource(R.string.lock_unlock)) }
             // Parley is the phone app: its lock must never stand between the user and an emergency call.
-            var emergency by remember { mutableStateOf(false) }
+            var emergency by remember(emergencyNumber) { mutableStateOf(emergencyNumber != null) }
             TextButton({ emergency = true }, Modifier.padding(top = 8.dp)) {
                 Icon(Icons.Rounded.Emergency, null, Modifier.size(18.dp))
                 Text("  " + stringResource(R.string.lock_emergency_call))
             }
-            if (emergency) EmergencyDialog { emergency = false }
+            if (emergency) EmergencyDialog(emergencyNumber.orEmpty()) { emergency = false }
         }
     }
 }
@@ -299,10 +313,10 @@ fun LockScreen(onUnlock: () -> Unit) {
  * the system's emergency dialer). The call goes through Telecom on whichever SIM or network can carry it.
  */
 @Composable
-private fun EmergencyDialog(onDismiss: () -> Unit) {
+private fun EmergencyDialog(initial: String, onDismiss: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    var number by remember { mutableStateOf("") }
+    var number by remember { mutableStateOf(keypadDigits(initial)) }
     var isEmergency by remember { mutableStateOf(false) }
     LaunchedEffect(number) { isEmergency = withContext(Dispatchers.IO) { EmergencyNumbers.isEmergency(context, number.trim()) } }
     val focus = remember { FocusRequester() }
@@ -314,7 +328,7 @@ private fun EmergencyDialog(onDismiss: () -> Unit) {
         text = {
             Column {
                 OutlinedTextField(
-                    number, { v -> number = v.filter { it.isDigit() || it in "+*#" } },
+                    number, { v -> number = keypadDigits(v) },
                     Modifier.focusRequester(focus),
                     singleLine = true,
                     label = { Text(stringResource(R.string.lock_emergency_number)) },
@@ -344,6 +358,9 @@ private fun EmergencyDialog(onDismiss: () -> Unit) {
         dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.main_cancel)) } },
     )
 }
+
+/** What the emergency keypad accepts, with native digits (e.g. "١١٢") read as ASCII so the check and the call see them. */
+private fun keypadDigits(v: String): String = EmergencyPolicy.asciiDigits(v).filter { it in '0'..'9' || it in "+*#" }
 
 object EmergencyDialer {
     /** When Parley can't place the call itself: the system dialer (never Parley's own keypad, which is behind the lock). */

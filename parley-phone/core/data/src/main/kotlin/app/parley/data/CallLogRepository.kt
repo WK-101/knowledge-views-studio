@@ -79,7 +79,8 @@ class CallLogRepository(private val context: Context, scope: CoroutineScope) {
     /**
      * Every system call-log row for [number] since [since], read from the provider rather than the newest-3000
      * window [calls] shows, so destructive actions reach old calls too. The filter URI matches loosely (trailing
-     * digits); only rows that are the same number are returned.
+     * digits); only rows that are exactly this line are returned ([PhoneNumbers.sameExact]): a delete built from this
+     * list must never reach another number that merely ends the same way.
      */
     fun queryForNumber(number: String, since: Long = Long.MIN_VALUE): List<CallEntry> {
         if (number.isBlank() || !Permissions.has(context, android.Manifest.permission.READ_CALL_LOG)) return emptyList()
@@ -87,7 +88,7 @@ class CallLogRepository(private val context: Context, scope: CoroutineScope) {
         val uri = android.net.Uri.withAppendedPath(Calls.CONTENT_FILTER_URI, android.net.Uri.encode(number))
         val bounded = since != Long.MIN_VALUE
         return query(uri, if (bounded) "${Calls.DATE} >= ?" else null, if (bounded) arrayOf(since.toString()) else null)
-            .filter { !it.presentationHidden && PhoneNumbers.same(it.number, number, iso) }
+            .filter { !it.presentationHidden && PhoneNumbers.sameExact(it.number, number, iso) }
     }
 
     suspend fun delete(ids: Collection<Long>) = withContext(Dispatchers.IO) {

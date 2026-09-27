@@ -3,7 +3,6 @@ package app.parley.shortcuts
 import android.app.Activity
 import app.parley.calls.ProximityProbe
 import app.parley.common.calls.CallSource
-import app.parley.common.calls.EmergencyPolicy
 import app.parley.common.calls.PocketGuard
 import kotlinx.coroutines.Dispatchers
 import android.content.Intent
@@ -12,7 +11,7 @@ import android.os.Bundle
 import androidx.core.content.pm.ShortcutManagerCompat
 import app.parley.MainActivity
 import app.parley.container
-import app.parley.data.EmergencyNumbers
+import app.parley.CallGate
 import kotlinx.coroutines.launch
 
 /** Invisible trampoline for home-screen shortcuts and the direct-dial widget. Not exported. */
@@ -31,14 +30,8 @@ class ShortcutActivity : Activity() {
         when (kind) {
             Shortcuts.Kind.CALL -> if (!number.isNullOrBlank()) {
                 if (contactId > 0) ShortcutManagerCompat.reportShortcutUsed(this, "fav-$contactId")
-                // V8: one tap on a widget or shortcut in a pocket shouldn't call anyone; ask while the sensor is covered.
-                if (container.callExtras.config.value.pocketGuard &&
-                    !EmergencyPolicy.bypasses(EmergencyPolicy.Safeguard.POCKET_GUARD, EmergencyNumbers.facts(this, number))
-                ) {
-                    guardThenCall(number)
-                    return
-                }
-                container.scope.launch { container.placer.call(number) }
+                call(number)
+                return
             }
             Shortcuts.Kind.MESSAGE -> if (!number.isNullOrBlank()) runCatching {
                 startActivity(Intent(Intent.ACTION_SENDTO, Uri.fromParts("smsto", number, null)))
@@ -50,6 +43,27 @@ class ShortcutActivity : Activity() {
             null -> Unit
         }
         finish()
+    }
+
+    /**
+     * An emergency number takes the same path as calls made in Parley ([CallGate]): no pocket guard and no remembered
+     * or label SIM, which may have no service. The platform check crosses into the phone process, so it runs off the
+     * main thread; the activity stays (invisible) until it answers.
+     */
+    private fun call(number: String) {
+        val c = container
+        c.scope.launch(Dispatchers.Main) {
+            val gate = CallGate(c)
+            if (gate.isEmergency(number)) {
+                c.scope.launch { gate.place(number, null, null, emptyList()) }
+                return@launch finish()
+            }
+            if (isFinishing || isDestroyed) return@launch
+            // V8: one tap on a widget or shortcut in a pocket shouldn't call anyone; ask while the sensor is covered.
+            if (c.callExtras.config.value.pocketGuard) return@launch guardThenCall(number)
+            c.scope.launch { c.placer.call(number) }
+            finish()
+        }
     }
 
     private fun guardThenCall(number: String) {

@@ -237,6 +237,8 @@ object CallManager {
                     if (incoming) {
                         unknownCallers += id
                         maybePlayUnknownRingtone(call, id)
+                        // Show "unknown caller" with Block and Save now; the place fills in when the geocoder answers.
+                        publish()
                         // "Where is this number from": the geocoder loads large data files the first time, so never
                         // on the main thread while the phone rings.
                         val where = withContext(Dispatchers.IO) { runCatching { deps.describeNumber(number) }.getOrNull().orEmpty() }

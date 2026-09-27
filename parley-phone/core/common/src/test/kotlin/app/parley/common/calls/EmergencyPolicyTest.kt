@@ -75,4 +75,15 @@ class EmergencyPolicyTest {
         for (n in listOf("112", "911", "999", "000", "08", "110", "118", "119", "1 1 2", "(911)")) assertTrue(n, EmergencyPolicy.isFallbackEmergencyNumber(n))
         for (n in listOf(null, "", "1120", "+112", "*112#", "0612345678", "15", "17")) assertFalse("$n", EmergencyPolicy.isFallbackEmergencyNumber(n))
     }
+
+    @Test fun native_digits_are_read_as_ascii() {
+        assertEquals("112", EmergencyPolicy.asciiDigits("١١٢"))
+        assertEquals("911", EmergencyPolicy.asciiDigits("۹۱۱"))
+        assertEquals("112", EmergencyPolicy.asciiDigits("११२"))
+        assertEquals("999", EmergencyPolicy.asciiDigits("９９９"))
+        assertEquals("+49 30 1234", EmergencyPolicy.asciiDigits("+٤٩ ٣٠ ١٢٣٤"))
+        assertEquals("*#12", EmergencyPolicy.asciiDigits("*#١2"))
+        for (n in listOf("١١٢", "۹۱۱", "११२", "(٩١١)")) assertTrue(n, EmergencyPolicy.isFallbackEmergencyNumber(n))
+        assertFalse(EmergencyPolicy.isFallbackEmergencyNumber("١١٢٠"))
+    }
 }

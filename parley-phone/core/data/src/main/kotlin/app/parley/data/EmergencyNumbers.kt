@@ -10,8 +10,10 @@ import app.parley.common.calls.EmergencyPolicy
  * every handset must accept when telephony can't answer (no telephony service, an OEM exception).
  */
 object EmergencyNumbers {
-    fun isEmergency(context: Context, number: String?): Boolean {
-        if (number.isNullOrBlank()) return false
+    fun isEmergency(context: Context, raw: String?): Boolean {
+        if (raw.isNullOrBlank()) return false
+        // The platform reads ASCII digits only; "١١٢" typed on a native keyboard is still 112.
+        val number = EmergencyPolicy.asciiDigits(raw)
         return try {
             val tm = context.getSystemService(TelephonyManager::class.java) ?: return EmergencyPolicy.isFallbackEmergencyNumber(number)
             tm.isEmergencyNumber(number)

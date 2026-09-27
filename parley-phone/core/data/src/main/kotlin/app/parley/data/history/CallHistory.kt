@@ -400,7 +400,8 @@ class CallHistory(
     /**
      * Every call with [number] (any format), optionally only since [since]: all of its system call-log rows (read
      * from the provider, not the newest-3000 window Recents shows) plus every archived call, so a delete built from
-     * this list leaves nothing behind for the next sync to bring back.
+     * this list leaves nothing behind for the next sync to bring back. Matched exactly ([PhoneNumbers.sameExact]):
+     * the list is deleted from, and a loose match (last digits) would reach other people's calls.
      */
     suspend fun callsFor(number: String, since: Long = Long.MIN_VALUE): List<CallEntry> = withContext(Dispatchers.IO) {
         val iso = countryIso
@@ -409,7 +410,7 @@ class CallHistory(
         if (_archive.value == null) mutex.withLock { reload() }
         val seen = system.map { HistoryMerge.key(it) }.toHashSet()
         val archived = _archive.value.orEmpty().asSequence().map { it.toEntry() }
-            .filter { it.date >= since && !it.presentationHidden && PhoneNumbers.same(it.number, number, iso) && seen.add(HistoryMerge.key(it)) }
+            .filter { it.date >= since && !it.presentationHidden && PhoneNumbers.sameExact(it.number, number, iso) && seen.add(HistoryMerge.key(it)) }
             .toList()
         (system + archived).sortedByDescending { it.date }
     }
