@@ -136,6 +136,8 @@ androidComponents {
                 logger.lifecycle("Updater permission check passed for ${variant.name}: $used")
             }
         }
-        afterEvaluate { tasks.findByName("assemble$cap")?.dependsOn(task) }
+        // As in the app: run with every build of the variant (preBuild), and before packaging.
+        tasks.matching { it.name == "pre${cap}Build" }.configureEach { finalizedBy(task) }
+        afterEvaluate { listOf("assemble$cap", "bundle$cap").forEach { tasks.findByName(it)?.dependsOn(task) } }
     }
 }

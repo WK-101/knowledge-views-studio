@@ -23,6 +23,7 @@ class ParleyApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        DebugStrictMode.install(this)
         // U10: stores the last crash on this phone when "Keep crash reports" is on (it reads that flag at crash time).
         app.parley.data.people.CrashStore(this).install()
         container = DataContainer(this)
