@@ -5,6 +5,7 @@ import app.parley.R
 import app.parley.common.people.RelationLinks
 import app.parley.common.suspendRunCatching
 import app.parley.data.AccountRef
+import app.parley.data.ContactChangedElsewhereException
 import app.parley.data.ContactDetails
 import app.parley.data.ContactPhotoProcessor
 import app.parley.data.DataContainer
@@ -46,6 +47,12 @@ class SaveContactUseCase(private val c: DataContainer) {
         data object NotSaved : Outcome
 
         data class Failed(val message: String) : Outcome
+
+        /**
+         * Another app or a sync changed the contact since the editor loaded it, so nothing was written. [theirs] is
+         * the contact as it is now (null when it is gone).
+         */
+        data class ChangedElsewhere(val theirs: ContactDetails?) : Outcome
     }
 
     suspend operator fun invoke(r: Request): Outcome = c.scope.async { run(r) }.await()
@@ -54,11 +61,26 @@ class SaveContactUseCase(private val c: DataContainer) {
         val notes = ArrayList<Int>()
         val id = suspendRunCatching {
             if (r.toVault) saveVault(r, notes) else saveContact(r, notes)
-        }.getOrElse { return Outcome.Failed(it.message.orEmpty()) } ?: return Outcome.NotSaved
+        }.getOrElse { e ->
+            if (e is ContactChangedElsewhereException) return Outcome.ChangedElsewhere(reload(r.original))
+            return Outcome.Failed(e.message.orEmpty())
+        } ?: return Outcome.NotSaved
         // A temporary contact the user just edited for real is asked once whether to keep it.
         val key = r.original?.lookupKey
         val askKeep = !r.toVault && !key.isNullOrEmpty() && c.temporaries.needsKeepPrompt(key)
         return Outcome.Saved(id, key.takeIf { askKeep }, notes)
+    }
+
+    /** The copy the editor was editing, as it is now. */
+    private suspend fun reload(original: ContactDetails?): ContactDetails? {
+        val o = original ?: return null
+        val raw = o.editRawId
+        val id = withContext(Dispatchers.IO) {
+            raw?.let { c.contacts.contactsOfRaws(listOf(it))[it] } ?: c.contacts.currentOf(o.lookupKey, o.id)?.first
+        } ?: return null
+        val now = suspendRunCatching { if (raw != null) c.contacts.editableRaw(id, raw) else c.contacts.editable(id) }.getOrNull()
+        // The edited copy itself is gone (only another copy is left): treat it as removed.
+        return now?.takeIf { raw == null || it.editRawId == raw }
     }
 
     private suspend fun saveVault(r: Request, notes: MutableList<Int>): Long {

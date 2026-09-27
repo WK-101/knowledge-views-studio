@@ -2,6 +2,7 @@ package app.parley.data
 
 import android.Manifest
 import android.content.ContentProviderResult
+import android.content.OperationApplicationException
 import android.util.Log
 import app.parley.common.PhoneIdentity
 import android.content.ContentProviderOperation
@@ -404,20 +405,24 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
         } ?: return@withContext null
 
         val raws = ArrayList<RawContactRef>()
+        val versions = HashMap<Long, Long>()
         cr.safeQuery(
             RawContacts.CONTENT_URI,
-            arrayOf(RawContacts._ID, RawContacts.ACCOUNT_TYPE, RawContacts.ACCOUNT_NAME),
+            arrayOf(RawContacts._ID, RawContacts.ACCOUNT_TYPE, RawContacts.ACCOUNT_NAME, RawContacts.VERSION),
             "${RawContacts.CONTACT_ID}=? AND ${RawContacts.DELETED}=0",
             arrayOf(contactId.toString()),
         )?.use { c ->
-            while (c.moveToNext()) raws += RawContactRef(c.getLong(0), AccountRef(c.getString(1), c.getString(2)))
+            while (c.moveToNext()) {
+                raws += RawContactRef(c.getLong(0), AccountRef(c.getString(1), c.getString(2)))
+                versions[c.getLong(0)] = c.getLong(3)
+            }
         }
         val types = writableTypes()
         val local = localAccount()
         val writable = raws.filter { isWritable(it.account, types, local) }
         val target = preferRaw?.let { p -> writable.firstOrNull { it.id == p } }
             ?: writable.firstOrNull { it.account.type == "com.google" } ?: writable.firstOrNull { !it.account.isLocal } ?: writable.firstOrNull()
-        base = base.copy(rawContacts = raws, editRawId = target?.id, writableRawIds = writable.map { it.id })
+        base = base.copy(rawContacts = raws, editRawId = target?.id, editRawVersion = target?.let { versions[it.id] }, writableRawIds = writable.map { it.id })
         if (forEdit && target == null) {
             // Nothing writable: start from the aggregated name only; save() adds a linked device entry.
             val shown = load(contactId, forEdit = false) ?: return@withContext null
@@ -603,8 +608,20 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
      */
     suspend fun save(original: ContactDetails?, edited: ContactDetails, account: AccountRef?, photo: Uri?, removePhoto: Boolean): SaveResult? =
         withContext(Dispatchers.IO) {
+            val expected = original?.editRawVersion
+            val versioned = original?.editRawId?.takeIf { expected != null }
+            // Cheap early check, so a stale edit isn't journaled; the batch's assertion below closes the race.
+            if (versioned != null && rawVersion(versioned) != expected) throw ContactChangedElsewhereException(original?.id ?: 0L)
             if (original != null && original.id > 0) journal(listOf(original.id), "EDIT")
             val ops = ArrayList<ContentProviderOperation>()
+            if (versioned != null && expected != null) {
+                // The whole batch fails when the raw contact was changed (or deleted) since the editor loaded it.
+                ops += ContentProviderOperation.newAssertQuery(ContentUris.withAppendedId(RawContacts.CONTENT_URI, versioned))
+                    .withSelection("${RawContacts.DELETED}=0", null)
+                    .withValue(RawContacts.VERSION, expected)
+                    .withExpectedCount(1)
+                    .build()
+            }
             val rawId: Long?
             val insertTarget: (ContentProviderOperation.Builder) -> ContentProviderOperation.Builder
             val linkTo: List<Long> = if (original != null && original.editRawId == null) original.rawContacts.map { it.id } else emptyList()
@@ -775,8 +792,18 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
                 }
             }
 
-            val results = if (ops.isEmpty()) emptyArray<ContentProviderResult>() else cr.applyBatch(ContactsContract.AUTHORITY, ops)
-            val finalRawId = rawId ?: results.firstOrNull()?.uri?.let { ContentUris.parseId(it) } ?: return@withContext null
+            val onlyAssert = ops.size == 1 && versioned != null
+            val results = if (ops.isEmpty() || onlyAssert) {
+                emptyArray<ContentProviderResult>()
+            } else {
+                try {
+                    cr.applyBatch(ContactsContract.AUTHORITY, ops)
+                } catch (e: OperationApplicationException) {
+                    if (versioned != null && rawVersion(versioned) != expected) throw ContactChangedElsewhereException(original?.id ?: 0L)
+                    throw e
+                }
+            }
+            val finalRawId = rawId ?: results.firstOrNull { it.uri != null }?.uri?.let { ContentUris.parseId(it) } ?: return@withContext null
             // Every field of this copy was cleared: remove the empty raw contact instead of leaving a blank behind
             // (AOSP does the same, F24). The person stays if another copy has details.
             if (rawId != null && changed.isNotEmpty() && photo == null && isBlankRaw(rawId)) {
@@ -822,6 +849,12 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
             Data.CONTENT_URI, arrayOf(Data._ID),
             "${Data.RAW_CONTACT_ID}=? AND ${Data.MIMETYPE}<>?", arrayOf(rawId.toString(), GroupMembership.CONTENT_ITEM_TYPE),
         )?.use { it.count == 0 } ?: false
+
+    /** The raw contact's current RawContacts.VERSION; null when it is gone (or marked deleted). */
+    private fun rawVersion(rawId: Long): Long? =
+        cr.safeQuery(ContentUris.withAppendedId(RawContacts.CONTENT_URI, rawId), arrayOf(RawContacts.VERSION), "${RawContacts.DELETED}=0")?.use { c ->
+            if (c.moveToFirst()) c.getLong(0) else null
+        }
 
     private fun contactIdForRaw(rawId: Long): Long? =
         cr.safeQuery(ContentUris.withAppendedId(RawContacts.CONTENT_URI, rawId), arrayOf(RawContacts.CONTACT_ID))?.use { c ->

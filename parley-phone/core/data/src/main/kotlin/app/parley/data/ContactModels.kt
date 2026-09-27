@@ -107,6 +107,11 @@ data class ContactDetails(
      * every source is read-only (e.g. messenger apps); saving then creates a linked device entry.
      */
     val editRawId: Long? = null,
+    /**
+     * RawContacts.VERSION of [editRawId] when the editor loaded it. The save asserts it is unchanged, so an edit made
+     * meanwhile by a sync adapter or another app is never overwritten silently.
+     */
+    val editRawVersion: Long? = null,
     /** All raw contacts in writable accounts (used to remove a photo everywhere). */
     val writableRawIds: List<Long> = emptyList(),
     /**
@@ -128,6 +133,12 @@ data class ContactDetails(
     val composedName: String
         get() = listOf(prefix, given, middle, family, suffix).filter { it.isNotBlank() }.joinToString(" ").trim()
 }
+
+/**
+ * The raw contact being saved was changed elsewhere (a sync, another app) after the editor loaded it, or it is gone.
+ * Nothing was written.
+ */
+class ContactChangedElsewhereException(val contactId: Long) : IllegalStateException("The contact changed elsewhere since it was opened")
 
 data class CallerInfo(
     val contactId: Long,
