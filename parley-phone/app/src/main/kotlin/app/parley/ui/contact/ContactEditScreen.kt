@@ -14,9 +14,7 @@ import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -148,6 +146,7 @@ import app.parley.ui.ParleyDialog
 import app.parley.ui.ConfirmDialog
 import app.parley.ui.ParleyShapes
 import app.parley.ui.animatedCorners
+import app.parley.ui.ParleyMotion
 
 private val phoneTypes = listOf(Phone.TYPE_MOBILE, Phone.TYPE_HOME, Phone.TYPE_WORK, Phone.TYPE_MAIN, Phone.TYPE_FAX_WORK, Phone.TYPE_OTHER)
 private val emailTypes = listOf(Email.TYPE_HOME, Email.TYPE_WORK, Email.TYPE_MOBILE, Email.TYPE_OTHER)
@@ -272,7 +271,7 @@ fun ContactEditScreen(
             backProgress = 0f
         }
     }
-    val shrink by animateFloatAsState(backProgress, spring(stiffness = Spring.StiffnessMediumLow), label = "back")
+    val shrink by animateFloatAsState(backProgress, ParleyMotion.spatial(), label = "back")
 
     fun save() = editor.save()
 
@@ -731,7 +730,7 @@ private fun NameCard(
 ) {
     val locked = lockedRow(d.nameId)
     val words = KeyboardCapitalization.Words
-    val spec = spring<IntSize>(stiffness = Spring.StiffnessMediumLow)
+    val spec = ParleyMotion.spatial<IntSize>()
     Segment(SegPos.Single) {
         GroupHead(Icons.Rounded.Person, stringResource(R.string.edit_name))
         Column(Modifier.padding(end = 0.dp)) {

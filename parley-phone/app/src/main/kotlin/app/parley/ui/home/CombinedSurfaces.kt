@@ -1,7 +1,6 @@
 package app.parley.ui.home
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -91,6 +90,7 @@ import app.parley.ui.ParleySheet
 import app.parley.ui.ParleyShapes
 import app.parley.ui.ListSectionHeader
 import app.parley.ui.Spacing
+import app.parley.ui.ParleyMotion
 
 /**
  * The keypad docked at the foot of Recents. [expanded] is kept by the home screen for the session
@@ -153,7 +153,7 @@ internal fun DockedKeypadButton(
     visible: Boolean, fold: DockFoldState, number: String?, badge: String?, modifier: Modifier = Modifier, onExpand: () -> Unit,
 ) {
     val label = if (number == null) stringResource(R.string.keypad_show) else stringResource(R.string.home_show_keypad_with, number)
-    val spring = spring<Float>(dampingRatio = 0.7f, stiffness = Spring.StiffnessMedium)
+    val spring = ParleyMotion.fastSpatial<Float>()
     AnimatedVisibility(
         visible = visible,
         modifier = modifier,
@@ -324,7 +324,7 @@ fun ReorderFavoritesSheet(vm: AppViewModel, onDismiss: () -> Unit) {
     ParleySheet(onDismissRequest = onDismiss) {
         Column(Modifier.fillMaxWidth().navigationBarsPadding()) {
             Row(Modifier.fillMaxWidth().padding(start = 24.dp, end = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(stringResource(R.string.home_reorder_title), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                Text(stringResource(R.string.home_reorder_title), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f).semantics { heading() })
                 TextButton(onDismiss) { Text(stringResource(R.string.main_done)) }
             }
             Text(

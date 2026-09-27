@@ -33,6 +33,8 @@ import android.icu.util.Measure
 import android.icu.util.MeasureUnit
 import java.util.Locale
 import app.parley.ui.ParleySheet
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 
 /** Tap a Recents day header → that day's made / received / missed / rejected calls and talk time. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -41,7 +43,7 @@ fun DaySummarySheet(vm: AppViewModel, dayMillis: Long, title: String, onDismiss:
     val index by vm.c.history.index.collectAsStateWithLifecycle()
     ParleySheet(onDismissRequest = onDismiss) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 32.dp)) {
-            Text(title, style = MaterialTheme.typography.titleLarge)
+            Text(title, style = MaterialTheme.typography.titleLarge, modifier = Modifier.semantics { heading() })
             val idx = index
             if (idx == null) {
                 CircularProgressIndicator(Modifier.padding(24.dp).align(Alignment.CenterHorizontally))

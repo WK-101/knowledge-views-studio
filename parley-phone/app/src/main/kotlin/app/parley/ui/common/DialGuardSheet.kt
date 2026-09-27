@@ -26,6 +26,8 @@ import app.parley.R
 import app.parley.blocking.DialText
 import app.parley.data.DialWarning
 import app.parley.ui.ParleySheet
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 
 /**
  * The shared "think before you dial" sheet. Any feature that wants the user to confirm an
@@ -41,7 +43,7 @@ fun DialGuardSheet(who: String, warnings: List<DialWarning>, note: String? = nul
     val severe = all.any { it.severe }
     ParleySheet(onDismissRequest = onCancel) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp).navigationBarsPadding().padding(bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(stringResource(R.string.call_who_question, who), style = MaterialTheme.typography.titleLarge)
+            Text(stringResource(R.string.call_who_question, who), style = MaterialTheme.typography.titleLarge, modifier = Modifier.semantics { heading() })
             all.forEach { w ->
                 Row(verticalAlignment = Alignment.Top) {
                     Icon(

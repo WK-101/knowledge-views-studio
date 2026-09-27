@@ -35,6 +35,8 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import app.parley.R
 import app.parley.ui.ParleySheet
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 
 /**
  * "Export…" for the current Recents view or one person: CSV, JSON, calendar (.ics) or PDF to share, or print.
@@ -68,7 +70,7 @@ fun ExportSheet(vm: AppViewModel, calls: List<CallEntry>, subject: String?, onDi
     ParleySheet(onDismissRequest = onDismiss) {
         Text(
             pluralStringResource(R.plurals.hist_export_count, calls.size, calls.size),
-            style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
+            style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp).semantics { heading() },
         )
         Text(
             stringResource(R.string.hist_export_explain),

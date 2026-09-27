@@ -72,7 +72,10 @@ fun ReturnToCallChip(modifier: Modifier = Modifier) {
                 t to t
             }
         }
-        val color = if (call?.state == CallState.RINGING) MaterialTheme.colorScheme.tertiary else CallColors.Accept
+        // Both pairs reach 4.5:1: onTertiary on tertiary (in every scheme), white on the call green.
+        val ringing = call?.state == CallState.RINGING
+        val color = if (ringing) MaterialTheme.colorScheme.tertiary else CallColors.Accept
+        val ink = if (ringing) MaterialTheme.colorScheme.onTertiary else Color.White
         Surface(
             color = color,
             shape = ParleyShapes.card,
@@ -84,11 +87,11 @@ fun ReturnToCallChip(modifier: Modifier = Modifier) {
                 .semantics(mergeDescendants = true) { contentDescription = spoken },
         ) {
             Row(Modifier.padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(8.dp).clip(CircleShape).background(Color.White))
+                Box(Modifier.size(8.dp).clip(CircleShape).background(ink))
                 Spacer(Modifier.width(10.dp))
-                Text(text, color = Color.White, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                Text(text, color = ink, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
                 Spacer(Modifier.width(8.dp))
-                Text(stringResource(R.string.ct_chip_return), color = Color.White, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.ct_chip_return), color = ink, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
             }
         }
     }

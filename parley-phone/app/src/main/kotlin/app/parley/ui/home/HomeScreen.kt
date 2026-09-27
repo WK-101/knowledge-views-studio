@@ -18,7 +18,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.CallMerge
 import androidx.compose.material.icons.rounded.GroupAdd
 import androidx.compose.material.icons.automirrored.rounded.Label
 import androidx.compose.material.icons.rounded.Lock
@@ -83,6 +82,7 @@ import app.parley.ui.history.RecentsLayoutMenuItem
 import app.parley.ui.people.PeopleRoutes
 import app.parley.ui.qr.QrRoutes
 import app.parley.ui.ParleyScaffold
+import androidx.compose.material.icons.automirrored.rounded.MergeType
 
 /**
  * Home: one tab at a time under a shared header ([HomeHeader]), with a bottom bar on phones and a navigation rail on
@@ -320,7 +320,7 @@ private fun ColumnScope.TabMenu(vm: AppViewModel, tab: StartTab, appLock: Boolea
                 vm.selection.value = vm.people.filtered.value.orEmpty().map { it.id }.toSet()
             }
             MenuItem(stringResource(R.string.home_add_several), Icons.Rounded.GroupAdd) { go(MessagingRoutes.BULK_ADD) }
-            MenuItem(stringResource(R.string.home_duplicates), Icons.AutoMirrored.Rounded.CallMerge) { go(Routes.DUPLICATES) }
+            MenuItem(stringResource(R.string.home_duplicates), Icons.AutoMirrored.Rounded.MergeType) { go(Routes.DUPLICATES) }
             // Favourites shown in Contacts are reordered from here too.
             if (layout.favoritesInContacts) MenuItem(stringResource(R.string.home_reorder_title), Icons.Rounded.Star) { close(); onReorderFavorites() }
             // "Who's in…" (trip mode).

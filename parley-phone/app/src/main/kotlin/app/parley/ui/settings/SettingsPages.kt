@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.CallMerge
 import androidx.compose.material.icons.automirrored.rounded.Label
 import androidx.compose.material.icons.automirrored.rounded.PhoneForwarded
 import androidx.compose.material.icons.automirrored.rounded.ShortText
@@ -170,6 +169,7 @@ import app.parley.ui.InfoRow
 import app.parley.ui.rowColors
 import app.parley.ui.SwitchRow
 import app.parley.ui.ParleyDialog
+import androidx.compose.material.icons.automirrored.rounded.MergeType
 
 /** Saves a settings change. */
 @Composable
@@ -447,7 +447,7 @@ internal fun ContactsPage(vm: AppViewModel, open: (String) -> Unit) {
             open(Routes.TEMPORARY)
         }
         linkRow("bulk_add", Icons.Rounded.GroupAdd) { open(MessagingRoutes.BULK_ADD) }
-        linkRow("duplicates", Icons.AutoMirrored.Rounded.CallMerge) { open(Routes.DUPLICATES) }
+        linkRow("duplicates", Icons.AutoMirrored.Rounded.MergeType) { open(Routes.DUPLICATES) }
         linkRow("health", Icons.Rounded.HealthAndSafety) { open(Routes.HEALTH) }
         linkRow("contact_page", Icons.Rounded.ViewAgenda) { open(ContactPageRoutes.SECTIONS) }
     }

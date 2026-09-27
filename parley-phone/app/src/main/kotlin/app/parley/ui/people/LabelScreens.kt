@@ -19,7 +19,7 @@ import androidx.compose.material.icons.automirrored.rounded.Label
 import androidx.compose.material.icons.automirrored.rounded.LabelOff
 import androidx.compose.material.icons.automirrored.rounded.Message
 import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.CallMerge
+import androidx.compose.material.icons.automirrored.rounded.MergeType
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Edit
@@ -113,7 +113,7 @@ fun ManageLabelsScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Uni
                     Box {
                         IconButton({ menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.dc_more)) }
                         DropdownMenu(menu, { menu = false }) {
-                            DropdownMenuItem({ Text(stringResource(R.string.lbl_merge_labels)) }, leadingIcon = { Icon(Icons.Rounded.CallMerge, null) }, onClick = { menu = false; merging = true })
+                            DropdownMenuItem({ Text(stringResource(R.string.lbl_merge_labels)) }, leadingIcon = { Icon(Icons.AutoMirrored.Rounded.MergeType, null) }, onClick = { menu = false; merging = true })
                         }
                     }
                 }

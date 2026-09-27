@@ -4,9 +4,7 @@ import android.app.Application
 import android.content.res.Resources
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.ScrollableState
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -71,6 +69,7 @@ import kotlin.math.roundToInt
 import kotlin.math.sign
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import app.parley.ui.ParleyMotion
 
 fun SwipeAction.icon(): ImageVector = when (this) {
     SwipeAction.CALL -> Icons.Rounded.Call
@@ -125,6 +124,8 @@ fun SwipeActionRow(
     val latestAction by rememberUpdatedState(onAction)
     val latestList by rememberUpdatedState(listState)
 
+    val springBack = ParleyMotion.spatial<Float>()
+    val slideOut = ParleyMotion.fastSpatial<Float>()
     Box(
         Modifier
             .fillMaxWidth()
@@ -180,11 +181,10 @@ fun SwipeActionRow(
                     val commit = SwipeGesture.commits(shown, velocity, threshold, flick, action != SwipeAction.NONE)
                     // A flick that commits before the threshold still gets its tick.
                     if (commit && !armed) haptics.performHapticFeedback(HapticFeedbackType.GestureThresholdActivate)
-                    val springBack = spring<Float>(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMediumLow)
                     scope.launch {
                         if (commit && action == SwipeAction.DELETE) {
                             // The row slides out; the list removes it (with Undo). If it's still there, it comes back.
-                            offset.animateTo(sign(shown) * w, spring(stiffness = Spring.StiffnessMedium), initialVelocity = velocity)
+                            offset.animateTo(sign(shown) * w, slideOut, initialVelocity = velocity)
                             latestAction(action)
                             delay(900)
                             armed = false
@@ -211,7 +211,7 @@ private fun SwipeBackground(o: Float, right: SwipeAction, left: SwipeAction, arm
     val (bg, fg) = (if (action == SwipeAction.NONE) SwipeAction.MESSAGE else action).colors()
     val container by animateColorAsState(if (armed) bg else MaterialTheme.colorScheme.surfaceContainerHighest, label = "swipe_bg")
     val onContainer by animateColorAsState(if (armed) fg else MaterialTheme.colorScheme.onSurfaceVariant, label = "swipe_fg")
-    val pop by animateFloatAsState(if (armed) 1.15f else 1f, spring(dampingRatio = 0.35f, stiffness = Spring.StiffnessMedium), label = "swipe_pop")
+    val pop by animateFloatAsState(if (armed) 1.15f else 1f, ParleyMotion.fastSpatial(), label = "swipe_pop")
     if (action == SwipeAction.NONE || o == 0f) return
     val density = LocalDensity.current.density
     val progress = (abs(o) / SwipeGesture.threshold(width.toFloat().coerceAtLeast(1f), density)).coerceIn(0f, 1f)

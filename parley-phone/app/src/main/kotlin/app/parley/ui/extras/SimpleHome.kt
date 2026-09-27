@@ -118,6 +118,7 @@ fun SimpleHome(vm: AppViewModel) {
                     )
                     // Press and hold, so a stray tap never leaves simple mode.
                     val leave = stringResource(R.string.simple_leave)
+                    val hold = stringResource(R.string.simple_leave_hold)
                     CoachMarkAnchor(Tips.SIMPLE_LEAVE, stringResource(R.string.simple_leave_hold)) {
                     Text(
                         leave,
@@ -125,8 +126,10 @@ fun SimpleHome(vm: AppViewModel) {
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.clip(ParleyShapes.control)
                             .combinedClickable(
-                                onClickLabel = leave,
-                                onClick = { vm.toast(res.getString(R.string.simple_leave_hold)) },
+                                // A tap only explains; the long press leaves, and TalkBack says so.
+                                onClickLabel = hold,
+                                onClick = { vm.toast(hold) },
+                                onLongClickLabel = leave,
                                 onLongClick = { askExit = true },
                             )
                             .padding(horizontal = 12.dp, vertical = 8.dp),

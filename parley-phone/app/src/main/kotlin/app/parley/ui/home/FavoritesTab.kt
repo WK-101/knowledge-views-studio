@@ -1,6 +1,5 @@
 package app.parley.ui.home
 
-import androidx.compose.animation.core.spring
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -69,6 +68,8 @@ import app.parley.ui.circle.CircleFavoritesSection
 import app.parley.ui.ParleyShapes
 import app.parley.ui.ListSectionHeader
 import app.parley.ui.Spacing
+import app.parley.ui.ParleyMotion
+import androidx.compose.ui.unit.IntOffset
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -155,7 +156,8 @@ fun FavoritesTab(vm: AppViewModel, open: (String) -> Unit, query: String = "", o
             val dragging = dragKey == c.lookupKey
             val moveEarlier = stringResource(R.string.fav_move_earlier)
             val moveLater = stringResource(R.string.fav_move_later)
-            val base = Modifier.animateItem(placementSpec = if (dragging) null else spring())
+            val placement = ParleyMotion.fastSpatial<IntOffset>()
+            val base = Modifier.animateItem(placementSpec = if (dragging) null else placement)
             if (reordering) {
                 Tile(
                     c.displayName, c.photoUri, onClick = {}, onLong = {}, reorder = true,

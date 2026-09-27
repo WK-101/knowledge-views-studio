@@ -47,6 +47,10 @@ import app.parley.R
 import app.parley.ui.ParleySheet
 import app.parley.ui.ListSectionHeader
 import app.parley.ui.Spacing
+import app.parley.ui.LocalSnackbar
+import androidx.lifecycle.viewModelScope
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 
 /**
  * Saved filter chips for the Recents filter row, plus a "Filter" chip that opens the editor
@@ -84,6 +88,9 @@ fun SavedFilterChips(vm: AppViewModel) {
 @Composable
 private fun FilterEditorSheet(vm: AppViewModel, active: HistoryFilter, onDismiss: () -> Unit) {
     val scope = rememberCoroutineScope()
+    val snackbar = LocalSnackbar.current
+    val res = LocalResources.current
+    val undo = stringResource(R.string.dc_undo)
     val sims by vm.sims.collectAsStateWithLifecycle()
     val prefs by vm.c.history.prefs.state.collectAsStateWithLifecycle()
     var draft by remember { mutableStateOf(active) }
@@ -91,7 +98,7 @@ private fun FilterEditorSheet(vm: AppViewModel, active: HistoryFilter, onDismiss
 
     ParleySheet(onDismissRequest = onDismiss) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp).padding(bottom = 24.dp)) {
-            Text(stringResource(R.string.hist_filter_title), style = MaterialTheme.typography.titleLarge)
+            Text(stringResource(R.string.hist_filter_title), style = MaterialTheme.typography.titleLarge, modifier = Modifier.semantics { heading() })
 
             Label(stringResource(R.string.hist_filter_type))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -153,7 +160,14 @@ private fun FilterEditorSheet(vm: AppViewModel, active: HistoryFilter, onDismiss
                             onClick = { draft = f; name = f.name },
                             label = { Text(f.name) },
                             trailingIcon = {
-                                IconButton({ scope.launch { vm.c.history.prefs.setSavedFilters(prefs.savedFilters - f) } }, Modifier.size(24.dp)) {
+                                // A full-size touch target; the filter can be brought back from the snackbar.
+                                IconButton({
+                                    val before = prefs.savedFilters
+                                    scope.launch { vm.c.history.prefs.setSavedFilters(before - f) }
+                                    snackbar?.show(res.getString(R.string.hist_filter_deleted, f.name), undo) {
+                                        vm.viewModelScope.launch { vm.c.history.prefs.setSavedFilters(before) }
+                                    }
+                                }) {
                                     Icon(Icons.Rounded.Close, stringResource(R.string.hist_filter_delete, f.name), Modifier.size(16.dp))
                                 }
                             },

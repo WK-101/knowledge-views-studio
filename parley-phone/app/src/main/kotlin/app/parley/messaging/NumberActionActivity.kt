@@ -90,6 +90,8 @@ import app.parley.ui.common.ProvideAppKit
 import app.parley.ui.ConfirmDialog
 import app.parley.ui.ParleySheet
 import app.parley.ui.showMessage
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 
 /**
  * A small sheet over the current app for a phone number found in text: "Call / Message with Parley" in text
@@ -286,7 +288,7 @@ class NumberActionActivity : FragmentActivity() {
             else -> ParleySheet(onDismissRequest = { finish() }, sheetState = sheetState) {
                 when (s) {
                     Stage.NoNumber -> Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text(stringResource(R.string.num_none_title), style = MaterialTheme.typography.titleLarge)
+                        Text(stringResource(R.string.num_none_title), style = MaterialTheme.typography.titleLarge, modifier = Modifier.semantics { heading() })
                         Text(stringResource(R.string.num_none_body), style = MaterialTheme.typography.bodyMedium)
                         TextButton({ finish() }) { Text(stringResource(R.string.main_close)) }
                     }

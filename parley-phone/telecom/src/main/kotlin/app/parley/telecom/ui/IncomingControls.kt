@@ -71,6 +71,7 @@ import kotlin.math.abs
 import kotlin.math.roundToInt
 import app.parley.ui.ParleyDialog
 import app.parley.ui.ParleyShapes
+import app.parley.ui.ParleyMotion
 
 @Composable
 fun IncomingControls(
@@ -220,6 +221,7 @@ private fun AnswerSlider(sim: String?, onAnswer: () -> Unit, onDecline: () -> Un
     val description = if (sim != null) stringResource(R.string.incall_slider_description_sim, sim) else stringResource(R.string.incall_slider_description)
     val haptics = LocalHapticFeedback.current
     val offset = remember { Animatable(0f) }
+    val still = ParleyMotion.reducedMotion()
     val pulse by rememberInfiniteTransition(label = "pulse").animateFloat(
         0f, 1f, infiniteRepeatable(tween(1400), RepeatMode.Restart), label = "p",
     )
@@ -289,7 +291,8 @@ private fun AnswerSlider(sim: String?, onAnswer: () -> Unit, onDecline: () -> Un
                 },
             contentAlignment = Alignment.Center,
         ) {
-            val scale = if (abs(progress) < 0.05f) 1f + 0.12f * pulse else 1f
+            // With animations removed (Accessibility settings) the thumb stays still.
+            val scale = if (!still && abs(progress) < 0.05f) 1f + 0.12f * pulse else 1f
             Icon(Icons.Rounded.Call, null, tint = Color.White, modifier = Modifier.size((32 * scale).dp))
         }
     }

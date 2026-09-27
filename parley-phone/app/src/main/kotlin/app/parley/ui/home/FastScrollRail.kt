@@ -2,10 +2,7 @@ package app.parley.ui.home
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
@@ -59,6 +56,7 @@ import app.parley.R
 import app.parley.common.people.FastScroll
 import kotlin.math.roundToInt
 import app.parley.ui.ParleyShapes
+import app.parley.ui.ParleyMotion
 
 /**
  * The Contacts A–Z rail. Like Google Contacts and Samsung's phonebook, dragging along it shows a large
@@ -86,7 +84,7 @@ fun FastScrollRail(letters: List<String>, current: Int, modifier: Modifier = Mod
     val bubble = 72.dp
     val bubblePx = with(density) { bubble.toPx() }
     val gapPx = with(density) { 8.dp.toPx() }
-    val railAlpha by animateFloatAsState(if (dragging) 1f else 0f, spring(stiffness = Spring.StiffnessMediumLow), label = "rail")
+    val railAlpha by animateFloatAsState(if (dragging) 1f else 0f, ParleyMotion.fastEffects(), label = "rail")
     val indexLabel = stringResource(R.string.contacts_alphabet_index)
     // The bubble grows from its pointed corner, which is on the rail's side.
     val corner = if (LocalLayoutDirection.current == LayoutDirection.Rtl) TransformOrigin(0f, 1f) else TransformOrigin(1f, 1f)
@@ -158,11 +156,12 @@ fun FastScrollRail(letters: List<String>, current: Int, modifier: Modifier = Mod
         }
         // The bubble: its bottom corner at the finger, on the rail's inner side (offset follows the layout direction).
         val top = FastScroll.bubbleTop(touchY + with(density) { 8.dp.toPx() }, height.toFloat() + with(density) { 16.dp.toPx() }, bubblePx)
+        val letterFade = ParleyMotion.fastEffects<Float>()
         AnimatedVisibility(
             dragging && touched >= 0,
             modifier = Modifier.offset { IntOffset(-(bubblePx + gapPx).roundToInt(), top.roundToInt()) },
-            enter = scaleIn(spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium), transformOrigin = corner) + fadeIn(),
-            exit = scaleOut(tween(150), transformOrigin = corner) + fadeOut(tween(150)),
+            enter = scaleIn(ParleyMotion.fastSpatial(), transformOrigin = corner) + fadeIn(ParleyMotion.fastEffects()),
+            exit = scaleOut(ParleyMotion.fastEffects(), transformOrigin = corner) + fadeOut(ParleyMotion.fastEffects()),
         ) {
             Surface(
                 shape = ParleyShapes.bubble,
@@ -172,7 +171,7 @@ fun FastScrollRail(letters: List<String>, current: Int, modifier: Modifier = Mod
                 modifier = Modifier.size(bubble).clearAndSetSemantics { },
             ) {
                 Box(contentAlignment = Alignment.Center) {
-                    AnimatedContent(letters.getOrNull(touched).orEmpty(), transitionSpec = { fadeIn(tween(90)) togetherWith fadeOut(tween(90)) }, label = "letter") { l ->
+                    AnimatedContent(letters.getOrNull(touched).orEmpty(), transitionSpec = { fadeIn(letterFade) togetherWith fadeOut(letterFade) }, label = "letter") { l ->
                         Text(l, style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Medium, maxLines = 1)
                     }
                 }

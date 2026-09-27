@@ -25,8 +25,6 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.gestures.animateScrollBy
@@ -58,7 +56,6 @@ import androidx.compose.material.icons.rounded.AddToHomeScreen
 import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.Cake
 import androidx.compose.material.icons.rounded.Call
-import androidx.compose.material.icons.automirrored.rounded.CallSplit
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Dialpad
 import androidx.compose.material.icons.rounded.Edit
@@ -176,6 +173,8 @@ import app.parley.ui.ParleyDialog
 import app.parley.ui.ConfirmDialog
 import app.parley.ui.ListSectionHeader
 import app.parley.ui.Spacing
+import app.parley.ui.ParleyMotion
+import androidx.compose.material.icons.rounded.LinkOff
 
 /**
  * A contact's page. U1: the photo and name dock into the top bar as you scroll ("last talked" shows there once
@@ -347,7 +346,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                             }
                             ContactPrefixAllowMenuItem(d.composedName.ifBlank { null }, d.phones.map { it.value }) { menu = false }
                             if (d.rawContacts.size > 1) {
-                                DropdownMenuItem({ Text(stringResource(R.string.detail_separate)) }, leadingIcon = { Icon(Icons.AutoMirrored.Rounded.CallSplit, null) }, onClick = {
+                                DropdownMenuItem({ Text(stringResource(R.string.detail_separate)) }, leadingIcon = { Icon(Icons.Rounded.LinkOff, null) }, onClick = {
                                     menu = false; page.separate(back)
                                 })
                             }
@@ -682,8 +681,8 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
         // Once the big header has gone, a compact bar keeps the actions (and, on long pages, jumps to a section).
         AnimatedVisibility(
             pinned, Modifier.align(Alignment.TopCenter).padding(top = padding.calculateTopPadding()),
-            enter = expandVertically(spring(stiffness = Spring.StiffnessMediumLow), expandFrom = Alignment.Top) + fadeIn(),
-            exit = shrinkVertically(spring(stiffness = Spring.StiffnessMedium), shrinkTowards = Alignment.Top) + fadeOut(),
+            enter = expandVertically(ParleyMotion.spatial(), expandFrom = Alignment.Top) + fadeIn(ParleyMotion.effects()),
+            exit = shrinkVertically(ParleyMotion.fastSpatial(), shrinkTowards = Alignment.Top) + fadeOut(ParleyMotion.fastEffects()),
         ) {
             val actions = listOfNotNull(
                 QuickAction(Icons.Rounded.Call, stringResource(R.string.main_call_who, d.displayName), canCall) { doCall() },
@@ -843,7 +842,8 @@ private const val JUMP_CHIPS_FROM = 4
 private fun DefaultMenuItem(isDefault: Boolean, onSet: (Boolean) -> Unit) {
     DropdownMenuItem(
         { Text(stringResource(if (isDefault) R.string.detail_remove_default else R.string.detail_set_default)) },
-        leadingIcon = { Icon(if (isDefault) Icons.Rounded.StarOutline else Icons.Rounded.Star, null) },
+        // The icon shows the current state, like the star on the number itself.
+        leadingIcon = { Icon(if (isDefault) Icons.Rounded.Star else Icons.Rounded.StarOutline, null) },
         onClick = { onSet(!isDefault) },
     )
 }

@@ -1,8 +1,6 @@
 package app.parley.ui.contact
 
 import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.spring
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -87,6 +85,7 @@ import app.parley.ui.bottomOnly
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
 import app.parley.ui.ParleyListItem
+import app.parley.ui.ParleyMotion
 
 // Building blocks of the redesigned contact editor.
 
@@ -255,7 +254,7 @@ internal fun PhotoHeader(name: String, photo: String?, onPick: () -> Unit, onRem
         if (name.isNotBlank()) {
             Text(
                 name, style = MaterialTheme.typography.headlineSmall, textAlign = TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(horizontal = 16.dp).animateContentSize(spring(stiffness = Spring.StiffnessMediumLow)),
+                modifier = Modifier.padding(horizontal = 16.dp).animateContentSize(ParleyMotion.spatial()),
             )
         }
     }

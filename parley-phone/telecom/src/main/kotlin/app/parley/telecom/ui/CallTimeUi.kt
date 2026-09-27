@@ -50,6 +50,7 @@ import app.parley.telecom.CallUi
 import app.parley.ui.Bidi
 import kotlinx.coroutines.delay
 import app.parley.ui.ParleySheet
+import androidx.compose.ui.semantics.heading
 
 /** The caller's name, or their number kept left to right in right-to-left languages. */
 internal val CallUi.displayTitle: String get() = if (name == null) Bidi.ltr(title) else title
@@ -175,7 +176,7 @@ internal fun CallMoreSheet(call: CallUi, timing: CallTiming?, onDismiss: () -> U
     val now by rememberElapsedNow()
     ParleySheet(onDismissRequest = onDismiss) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
-            Text(stringResource(R.string.calltime_title), style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.calltime_title), style = MaterialTheme.typography.titleMedium, modifier = Modifier.semantics { heading() })
             val sep = stringResource(R.string.tc_separator)
             val status = when {
                 cd?.endAt != null -> stringResource(R.string.calltime_ends_in, clockText((cd.remainingMs(now) ?: 0) / 1000)) + (timing.source?.let { sep + it } ?: "")

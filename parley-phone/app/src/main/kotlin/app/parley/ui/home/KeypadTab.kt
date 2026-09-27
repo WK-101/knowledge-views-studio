@@ -152,6 +152,7 @@ import app.parley.ui.ParleyShapes
 import app.parley.ui.topOnly
 import app.parley.ui.showMessage
 import app.parley.ui.ParleyListItem
+import androidx.compose.ui.semantics.heading
 
 private val keys = listOf(
     "1" to "", "2" to "ABC", "3" to "DEF",
@@ -723,7 +724,7 @@ private fun ImeiSheet(onDismiss: () -> Unit) {
     val context = LocalContext.current
     ParleySheet(onDismissRequest = onDismiss) {
         Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 24.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(stringResource(R.string.keypad_imei_title), style = MaterialTheme.typography.titleLarge)
+            Text(stringResource(R.string.keypad_imei_title), style = MaterialTheme.typography.titleLarge, modifier = Modifier.semantics { heading() })
             Text(
                 stringResource(R.string.keypad_imei_body),
                 style = MaterialTheme.typography.bodyMedium,

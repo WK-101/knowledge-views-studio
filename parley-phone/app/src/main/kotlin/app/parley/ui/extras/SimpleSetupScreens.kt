@@ -24,7 +24,7 @@ import androidx.compose.material.icons.rounded.QrCode2
 import androidx.compose.material.icons.rounded.RecordVoiceOver
 import androidx.compose.material.icons.rounded.RemoveCircle
 import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.HelpOutline
+import androidx.compose.material.icons.automirrored.rounded.HelpOutline
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -150,7 +150,7 @@ fun SimpleSetupScreen(vm: AppViewModel, back: () -> Unit, open: (String) -> Unit
         }
         SegmentedGroup(stringResource(R.string.simple_options)) {
             item("keypad") { SwitchRow(stringResource(R.string.simple_keypad), stringResource(R.string.simple_keypad_body), cfg.showKeypad, Icons.Rounded.Dialpad) { v -> store.updateSimple { it.copy(showKeypad = v) } } }
-            item("decline") { SwitchRow(stringResource(R.string.simple_confirm_decline), stringResource(R.string.simple_confirm_decline_body), cfg.confirmDecline, Icons.Rounded.HelpOutline) { v -> store.updateSimple { it.copy(confirmDecline = v) } } }
+            item("decline") { SwitchRow(stringResource(R.string.simple_confirm_decline), stringResource(R.string.simple_confirm_decline_body), cfg.confirmDecline, Icons.AutoMirrored.Rounded.HelpOutline) { v -> store.updateSimple { it.copy(confirmDecline = v) } } }
             item("speak") { SwitchRow(stringResource(R.string.simple_speak), stringResource(R.string.simple_speak_body), cfg.speakName, Icons.Rounded.RecordVoiceOver) { v -> store.updateSimple { it.copy(speakName = v) } } }
         }
         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {

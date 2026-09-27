@@ -117,6 +117,7 @@ import app.parley.ui.ParleySheet
 import app.parley.ui.ListSectionHeader
 import app.parley.ui.Spacing
 import app.parley.ui.ParleyListItem
+import androidx.compose.ui.semantics.heading
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -462,7 +463,7 @@ private fun RecentActionsSheet(vm: AppViewModel, recents: RecentsViewModel, g: R
     val context = LocalContext.current
     fun act(block: () -> Unit) { onDismiss(); block() }
     ParleySheet(onDismissRequest = onDismiss) {
-        Text(g.shownTitle, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
+        Text(g.shownTitle, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp).semantics { heading() })
         val hasNumber = !g.hidden && g.number.isNotBlank()
         @Composable
         fun row(label: Int, icon: ImageVector, enabled: Boolean = true, onClick: () -> Unit) {

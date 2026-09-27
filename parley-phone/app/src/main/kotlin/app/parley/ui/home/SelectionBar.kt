@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Label
 import androidx.compose.material.icons.automirrored.rounded.Message
-import androidx.compose.material.icons.automirrored.rounded.CallMerge
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Lock
@@ -63,6 +62,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import app.parley.ui.ParleyDialog
 import app.parley.ui.ConfirmDialog
+import androidx.compose.material.icons.automirrored.rounded.MergeType
 
 /** Top bar shown while contacts are selected: bulk actions. */
 @Composable
@@ -126,7 +126,7 @@ fun SelectionBar(vm: AppViewModel) {
                         if (!IntroduceStart.fromContacts(vm, chosen)) vm.toast(res.getString(R.string.sel_no_numbers))
                     })
                     if (chosen.size >= 2) {
-                        DropdownMenuItem({ Text(stringResource(R.string.sel_merge)) }, leadingIcon = { Icon(Icons.AutoMirrored.Rounded.CallMerge, null) }, onClick = {
+                        DropdownMenuItem({ Text(stringResource(R.string.sel_merge)) }, leadingIcon = { Icon(Icons.AutoMirrored.Rounded.MergeType, null) }, onClick = {
                             menu = false
                             backupFirst.ask(chosen.size, 1) {
                                 scope.launch {

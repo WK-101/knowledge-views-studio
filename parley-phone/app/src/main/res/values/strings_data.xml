@@ -352,6 +352,7 @@
     <string name="hist_filter_apply">Apply</string>
     <string name="hist_filter_saved">Saved chips</string>
     <string name="hist_filter_delete">Delete %1$s</string>
+    <string name="hist_filter_deleted">Filter “%1$s” deleted</string>
     <string name="hist_dur_not_answered">Not answered</string>
     <string name="hist_dur_under_1">Under 1 min</string>
     <string name="hist_dur_1_plus">1 min or more</string>
