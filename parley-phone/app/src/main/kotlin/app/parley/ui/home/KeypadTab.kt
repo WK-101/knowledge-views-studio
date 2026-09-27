@@ -161,9 +161,6 @@ private const val IMEI_CODE = "*#06#"
 /** C1: height of the typed number's action chips at the foot of the results (outside the keypad panel). */
 private val NUMBER_ACTIONS_HEIGHT = 56.dp
 
-/** C1: the Call row keeps one height whether it holds one Call button or a button per SIM. */
-private val CALL_ROW_HEIGHT = 64.dp
-
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun KeypadTab(vm: AppViewModel, open: (String) -> Unit, searchQuery: String? = null, dock: KeypadDock? = null) {
@@ -272,6 +269,15 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit, searchQuery: String? = n
     }
 
     fun callWithSim(simId: String) {
+        // K1: a SIM segment with nothing typed recalls the last number, like the plain Call pill.
+        if (input.isBlank()) {
+            vm.recallLastNumber()
+            return
+        }
+        if (isTextSearch()) {
+            results.firstOrNull()?.let { vm.requestCall(it.number, it.contact?.displayName, simId = simId) }
+            return
+        }
         val target = app.parley.common.calls.DialTarget.pick(input, results.firstOrNull()?.number)
         // Same checks as any call (dial guard, allowance, confirm), just without the SIM question.
         if (!target.isNullOrEmpty()) vm.requestCall(target, results.firstOrNull { it.contact != null && PhoneNumbers.same(it.number, target, vm.countryIso) }?.contact?.displayName, simId = simId)
@@ -331,24 +337,32 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit, searchQuery: String? = n
 
     // S1: docked at the foot of Recents, the panel folds away (scrolling the list, a swipe down on its handle) and a
     // keypad button brings it back; the panel's height still never changes while typing (C1).
-    val panelShown = dock?.expanded ?: true
+    // K3 (v3.4): the fold follows the finger and springs open or folded (see DockFoldState).
+    val density = LocalDensity.current
+    val fold = remember { DockFoldState(dock?.expanded ?: true, scope, density) }
     val latestDock by androidx.compose.runtime.rememberUpdatedState(dock)
-    val foldOnScroll = remember {
-        object : androidx.compose.ui.input.nestedscroll.NestedScrollConnection {
-            override fun onPreScroll(available: androidx.compose.ui.geometry.Offset, source: androidx.compose.ui.input.nestedscroll.NestedScrollSource): androidx.compose.ui.geometry.Offset {
-                val d = latestDock
-                if (d != null && d.expanded && source == androidx.compose.ui.input.nestedscroll.NestedScrollSource.UserInput && kotlin.math.abs(available.y) > 4f) d.onExpandedChange(false)
-                return androidx.compose.ui.geometry.Offset.Zero
-            }
-        }
+    fold.onSettle = { open -> latestDock?.let { if (it.expanded != open) it.onExpandedChange(open) } }
+    // The home screen's state (Back, dial intents, typing on a hardware keypad) moves the fold too.
+    LaunchedEffect(dock?.expanded) { dock?.let { if (fold.target != it.expanded) fold.animateTo(it.expanded) } }
+    val panelShown = dock == null || fold.value > 0f || fold.dragging
+    val panelOpen = dock?.expanded ?: true
+
+    // K1: the SIM a plain Call would use for what's typed (remembered, a label's, else the default), shown on its segment.
+    var preferredSim by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(input, sims.size) {
+        if (sims.size !in 2..app.parley.common.calls.CallPill.MAX_SEGMENTS) return@LaunchedEffect
+        kotlinx.coroutines.delay(150)
+        val n = input.trim()
+        preferredSim = (if (n.isNotEmpty() && !isTextSearch()) vm.c.placer.resolveSim(n) else null)
+            ?: kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { vm.c.sims.defaultOutgoing() }
     }
 
     val resultsArea: @Composable (Modifier) -> Unit = { areaModifier ->
-        Box(if (dock != null) areaModifier.nestedScroll(foldOnScroll) else areaModifier) {
+        Box(if (dock != null) areaModifier.nestedScroll(fold.listConnection) else areaModifier) {
             if (input.isEmpty() && dock != null) {
                 // S1: nothing typed: the recent calls, as on the Recents tab.
                 Column(Modifier.fillMaxSize()) {
-                    app.parley.ui.common.CoachMark(app.parley.common.ux.Tips.DOCKED_KEYPAD, stringResource(R.string.surf_tip_docked_keypad), enabled = panelShown)
+                    app.parley.ui.common.CoachMark(app.parley.common.ux.Tips.DOCKED_KEYPAD, stringResource(R.string.surf_tip_docked_keypad), enabled = panelOpen)
                     Box(Modifier.weight(1f).onFocusChanged { recentsHasFocus = it.hasFocus }) { dock.idle() }
                 }
             } else if (input.isEmpty()) {
@@ -419,71 +433,72 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit, searchQuery: String? = n
     }
 
     val hideKeypadLabel = stringResource(R.string.keypad_hide)
+    val toggleLabel = stringResource(if (showKeypad) R.string.keypad_hide else R.string.keypad_show)
+    // K1: the keypad button left of the pill: folds the docked keypad; hides the keys on the Keypad tab (and with a
+    // hardware keypad, where typing goes on without them).
+    val onToggle: () -> Unit = if (dock != null && !hasHardwareKeys) ({ dock.onExpandedChange(false) }) else ({ showKeypad = !showKeypad })
     val panel: @Composable (Modifier) -> Unit = { panelModifier ->
         Surface(
             color = MaterialTheme.colorScheme.surfaceContainer, shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
             // S1: TalkBack users fold the docked keypad with an action (the handle is also a button).
             modifier = if (dock != null) panelModifier.semantics { customActions = listOf(CustomAccessibilityAction(hideKeypadLabel) { dock.onExpandedChange(false); true }) } else panelModifier,
         ) {
-            Column(
-                // S1: with large text or a short screen the docked panel scrolls inside its own height, so it never covers the list.
-                Modifier.fillMaxWidth().then(if (dock != null) Modifier.verticalScroll(rememberScrollState()) else Modifier).padding(bottom = 12.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                if (dock != null) DockHandle(hideKeypadLabel) { dock.onExpandedChange(false) }
-                // Number display
-                Row(Modifier.fillMaxWidth().heightIn(min = 72.dp).padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    if (hasHardwareKeys) {
-                        IconButton({ showKeypad = !showKeypad }) {
-                            Icon(Icons.Rounded.Dialpad, stringResource(if (showKeypad) R.string.keypad_hide else R.string.keypad_show))
-                        }
-                    } else {
-                        Spacer(Modifier.width(48.dp))
+            Column(Modifier.fillMaxWidth()) {
+                // K3: the handle stays on top (outside the panel's own scroll) and drags the fold.
+                if (dock != null) DockHandle(hideKeypadLabel, fold) { dock.onExpandedChange(false) }
+                Column(
+                    // S1: with large text or a short screen the docked panel scrolls inside its own height, so it never
+                    // covers the list. K3: a drag down past its top folds the keypad (panelConnection).
+                    Modifier.fillMaxWidth()
+                        .then(if (dock != null) Modifier.nestedScroll(fold.panelConnection).verticalScroll(rememberScrollState()) else Modifier)
+                        .padding(bottom = 8.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    // Number display. K1: only the number; backspace moved to the bottom row, beside the Call pill.
+                    Box(Modifier.fillMaxWidth().heightIn(min = 72.dp).padding(horizontal = 24.dp), contentAlignment = Alignment.Center) {
+                        // L3: the number reads left to right in every language.
+                        ForceLtr { NumberField(field, vm.countryIso, Modifier.fillMaxWidth()) }
                     }
-                    // L3: the number reads left to right in every language.
-                    ForceLtr { NumberField(field, vm.countryIso, Modifier.weight(1f)) }
-                    val deleteLabel = stringResource(R.string.main_delete)
-                    Box(
-                        Modifier.size(48.dp).clip(CircleShape).combinedClickable(
-                            enabled = input.isNotEmpty(),
-                            onClick = { field.deleteBeforeCursor() },
-                            onLongClick = { field.clearText() },
-                        ).semantics { contentDescription = deleteLabel },
-                        contentAlignment = Alignment.Center,
-                    ) { if (input.isNotEmpty()) Icon(Icons.AutoMirrored.Rounded.Backspace, null) }
-                }
-                // L3: 1 2 3 stays left to right in right-to-left languages, like every phone keypad.
-                if (showKeypad) ForceLtr { Column { keys.chunked(3).forEach { row ->
-                        Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
-                            row.forEach { (digit, letters) ->
-                                val d = digit[0]
-                                val token = remember { intArrayOf(0) }
-                                DialKey(
-                                    digit, letters, localLetters(layout, d),
-                                    modifier = Modifier.weight(1f),
-                                    onPress = { token[0] = keyDown(d) },
-                                    onRelease = { after -> keyUp(token[0], after) },
-                                    onLong = when (d) {
-                                        '0' -> ({ typed -> longPress(typed) { insert("+") } })
-                                        '1' -> ({ typed -> longPress(typed) { vm.callVoicemail() } })
-                                        in '2'..'9' -> ({ typed -> longPress(typed) { vm.speedDial(d - '0') { unassigned = d - '0' } } })
-                                        '*' -> ({ typed -> longPress(typed) { insert(",") } })
-                                        '#' -> ({ typed -> longPress(typed) { insert(";") } })
-                                        else -> null
-                                    },
-                                )
+                    // L3: 1 2 3 stays left to right in right-to-left languages, like every phone keypad.
+                    if (showKeypad) ForceLtr { Column { keys.chunked(3).forEach { row ->
+                            Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
+                                row.forEach { (digit, letters) ->
+                                    val d = digit[0]
+                                    val token = remember { intArrayOf(0) }
+                                    DialKey(
+                                        digit, letters, localLetters(layout, d),
+                                        modifier = Modifier.weight(1f),
+                                        // K3: in the docked panel a drag on a key folds the keypad, so a key waits for
+                                        // the touch to settle (100 ms) and a swipe never types a digit.
+                                        deferPress = dock != null,
+                                        onPress = { token[0] = keyDown(d) },
+                                        onRelease = { after -> keyUp(token[0], after) },
+                                        onLong = when (d) {
+                                            '0' -> ({ typed -> longPress(typed) { insert("+") } })
+                                            '1' -> ({ typed -> longPress(typed) { vm.callVoicemail() } })
+                                            in '2'..'9' -> ({ typed -> longPress(typed) { vm.speedDial(d - '0') { unassigned = d - '0' } } })
+                                            '*' -> ({ typed -> longPress(typed) { insert(",") } })
+                                            '#' -> ({ typed -> longPress(typed) { insert(";") } })
+                                            else -> null
+                                        },
+                                    )
+                                }
                             }
                         }
-                    }
-                } }
-                Spacer(Modifier.height(8.dp))
-                // C1: a fixed-height row, so one Call button or two SIM buttons never change the panel's height.
-                Row(Modifier.height(CALL_ROW_HEIGHT), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    if (sims.size >= 2 && input.isNotEmpty()) {
-                        sims.take(2).forEach { sim -> app.parley.ui.history.SimPlanBadge(vm, sim.id) { CallButton(label = sim.label) { callWithSim(sim.id) } } }
-                    } else {
-                        CallButton(label = null, onClick = ::callNow)
-                    }
+                    } }
+                    Spacer(Modifier.height(4.dp))
+                    // K1 / C1: a fixed-height row whose pill depends only on the SIMs, never on what is typed.
+                    KeypadBottomRow(
+                        vm, sims, preferredSim,
+                        hasInput = input.isNotEmpty(),
+                        keypadShown = showKeypad,
+                        toggleLabel = if (dock != null && !hasHardwareKeys) hideKeypadLabel else toggleLabel,
+                        onToggle = onToggle,
+                        onCall = ::callNow,
+                        onCallWith = ::callWithSim,
+                        onDelete = { field.deleteBeforeCursor() },
+                        onClear = { field.clearText() },
+                    )
                 }
             }
         }
@@ -496,17 +511,23 @@ fun KeypadTab(vm: AppViewModel, open: (String) -> Unit, searchQuery: String? = n
         if (beside) {
             Row(Modifier.fillMaxSize()) {
                 resultsArea(Modifier.weight(1f).fillMaxSize())
-                if (panelShown) panel(Modifier.width(360.dp).heightIn(max = maxPanel).align(Alignment.Bottom))
+                // K3: side by side, the panel slides aside as it folds.
+                if (panelShown) panel(Modifier.align(Alignment.Bottom).foldable(fold, horizontal = true).width(360.dp).heightIn(max = maxPanel))
             }
         } else {
             Column(Modifier.fillMaxSize()) {
                 resultsArea(Modifier.weight(1f).fillMaxWidth())
-                if (panelShown) panel(if (dock != null) Modifier.heightIn(max = maxPanel) else Modifier)
+                // K3: the panel keeps its full layout and slides down behind the edge as it folds (no squeezed keys).
+                if (panelShown) panel(if (dock != null) Modifier.foldable(fold, horizontal = false).heightIn(max = maxPanel) else Modifier)
             }
         }
-        if (dock != null && !panelShown) {
+        if (dock != null) {
+            val fabNumber = input.takeIf { it.isNotEmpty() && !isTextSearch() }
             DockedKeypadButton(
-                number = input.takeIf { it.isNotEmpty() && !isTextSearch() }?.let { Bidi.ltr(Format.number(it, vm.countryIso)) },
+                visible = !fold.target || (fold.dragging && fold.value < 0.35f),
+                fold = fold,
+                number = fabNumber?.let { Bidi.ltr(Format.number(it, vm.countryIso)) },
+                badge = fabNumber?.let { app.parley.common.calls.CallPill.badge(it) },
                 modifier = Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = 16.dp + if (showNumberActions) NUMBER_ACTIONS_HEIGHT else 0.dp),
             ) { dock.onExpandedChange(true) }
         }
@@ -710,35 +731,49 @@ private fun ImeiSheet(onDismiss: () -> Unit) {
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun DialKey(
-    digit: String, letters: String, local: String, modifier: Modifier = Modifier,
+    digit: String, letters: String, local: String, modifier: Modifier = Modifier, deferPress: Boolean = false,
     onPress: () -> Unit, onRelease: (afterMs: Long) -> Unit, onLong: ((typedThisTouch: Boolean) -> Unit)?,
 ) {
     val fontScale = LocalDensity.current.fontScale
-    val digitSize = (30f * minOf(fontScale, 1.5f) / fontScale).sp
+    // K2 (v3.4): large, light digits with the letters (or the long-press character) beneath, no key backgrounds.
+    val digitSize = ((if (digit == "*") 38f else 34f) * minOf(fontScale, 1.5f) / fontScale).sp
     val res = LocalResources.current
+    // K2: what shows under the digit: the Latin letters, or the key's long-press character (",", "+", ";").
+    val under = when (digit) {
+        "*" -> ","
+        "#" -> ";"
+        else -> letters
+    }
     Column(
         modifier
             .padding(horizontal = 4.dp)
-            .heightIn(min = 64.dp)
-            .clip(RoundedCornerShape(32.dp))
+            .heightIn(min = 66.dp)
             // V7: typed and sounded on touch; slide off to cancel the long-press; keys roll over.
-            .keypadKey(onPress = onPress, onToneStop = onRelease, onLongPress = onLong, longPressLabel = longPressLabel(res, digit))
-            .padding(vertical = 4.dp)
+            // K2: a soft round ripple around the key's centre instead of a filled key shape.
+            .keypadKey(
+                onPress = onPress, onToneStop = onRelease, onLongPress = onLong, longPressLabel = longPressLabel(res, digit),
+                deferPress = deferPress, indication = keyRipple,
+            )
+            .padding(vertical = 2.dp)
             .semantics { contentDescription = keyDescription(res, digit, letters) },
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        Text(digit, fontSize = digitSize, lineHeight = digitSize, fontWeight = FontWeight.Normal)
+        Text(digit, fontSize = digitSize, lineHeight = digitSize, fontWeight = FontWeight.Light, color = MaterialTheme.colorScheme.onSurface)
+        val subStyle = MaterialTheme.typography.labelMedium.copy(letterSpacing = 0.8.sp)
         if (digit == "1") {
-            Icon(Icons.Rounded.Voicemail, null, Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-        } else if (letters.isNotEmpty() || local.isEmpty()) {
-            Text(letters, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, softWrap = false)
+            Icon(Icons.Rounded.Voicemail, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        } else if (under.isNotEmpty() || local.isEmpty()) {
+            Text(under, style = subStyle, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, softWrap = false)
         }
         if (local.isNotEmpty()) {
             Text(local, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, maxLines = 1, softWrap = false)
         }
     }
 }
+
+/** K2: the keys' press feedback: a round ripple, a little wider than the digit and its letters. */
+private val keyRipple = androidx.compose.material3.ripple(bounded = false, radius = 38.dp)
 
 private fun longPressLabel(res: android.content.res.Resources, digit: String): String? = when (digit) {
     "0" -> res.getString(R.string.keypad_long_plus)
@@ -754,23 +789,6 @@ private fun keyDescription(res: android.content.res.Resources, digit: String, le
     "#" -> res.getString(app.parley.ui.R.string.ui_key_pound)
     "1" -> res.getString(R.string.keypad_key_voicemail)
     else -> if (letters.isEmpty()) digit else res.getString(R.string.keypad_key_letters, digit, letters.toList().joinToString(" "))
-}
-
-@Composable
-private fun CallButton(label: String?, onClick: () -> Unit) {
-    val callLabel = if (label != null) stringResource(R.string.keypad_call_with, label) else stringResource(R.string.main_call)
-    Row(
-        Modifier.height(64.dp).clip(RoundedCornerShape(32.dp)).background(CallColors.Accept).clickable(onClick = onClick)
-            .padding(horizontal = if (label != null) 20.dp else 40.dp)
-            .semantics { contentDescription = callLabel },
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(if (label != null) Icons.Rounded.SimCard else Icons.Rounded.Call, null, tint = Color.White)
-        if (label != null) {
-            Spacer(Modifier.width(8.dp))
-            Text(label, color = Color.White, style = MaterialTheme.typography.labelLarge, maxLines = 1)
-        }
-    }
 }
 
 /**

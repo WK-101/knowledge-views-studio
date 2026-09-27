@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- K1-K3 (v3.4): keypad Call pill, keypad polish, docked keypad folding. English only for now. -->
+<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
+    <!-- Call pill segments -->
+    <string name="k34_sim_slot">SIM %1$d</string>
+    <string name="k34_call_with_sim">Call with SIM %1$d</string>
+    <string name="k34_call_with_sim_carrier">Call with SIM %1$d (%2$s)</string>
+    <string name="k34_sim_usual">Usual SIM for this call</string>
+    <string name="k34_sim_near_plan">Plan minutes nearly used</string>
+    <!-- Bottom row -->
+    <string name="k34_clear_number">Clear number</string>
+</resources>

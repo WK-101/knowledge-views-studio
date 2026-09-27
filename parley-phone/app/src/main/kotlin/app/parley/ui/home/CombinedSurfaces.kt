@@ -1,5 +1,12 @@
 package app.parley.ui.home
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -34,7 +41,8 @@ import androidx.compose.material.icons.rounded.DragHandle
 import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -106,57 +114,71 @@ fun CallsSurface(vm: AppViewModel, open: (String) -> Unit, searching: Boolean, e
     )
 }
 
-/** S1: the grab handle on top of the docked keypad: tap it, or swipe it down, to fold the keypad away. */
+/**
+ * S1: the grab handle on top of the docked keypad: tap it, or swipe it down, to fold the keypad away. K3 (v3.4): the
+ * keypad follows the finger and settles by distance and speed ([DockFoldState]).
+ */
 @Composable
-internal fun DockHandle(label: String, onCollapse: () -> Unit) {
-    val threshold = with(LocalDensity.current) { 32.dp.toPx() }
-    var drag by remember { mutableFloatStateOf(0f) }
+internal fun DockHandle(label: String, fold: DockFoldState, onCollapse: () -> Unit) {
     Box(
         Modifier
             .fillMaxWidth()
-            .heightIn(min = 24.dp)
+            .heightIn(min = 28.dp)
             .draggable(
-                rememberDraggableState { drag += it },
+                rememberDraggableState { fold.drag(it) },
                 Orientation.Vertical,
-                onDragStarted = { drag = 0f },
-                onDragStopped = { if (drag > threshold) onCollapse() },
+                onDragStopped = { v -> fold.release(v) },
             )
             .clickable(onClickLabel = label, role = Role.Button, onClick = onCollapse)
             .semantics { contentDescription = label },
         contentAlignment = Alignment.Center,
     ) {
         Box(
-            Modifier.padding(vertical = 10.dp).size(width = 32.dp, height = 4.dp).clip(RoundedCornerShape(2.dp))
+            Modifier.padding(top = 10.dp, bottom = 6.dp).size(width = 36.dp, height = 4.dp).clip(RoundedCornerShape(2.dp))
                 .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)),
         )
     }
 }
 
 /**
- * S1: the folded keypad: a round keypad button (with the typed number, if any). Tap it or swipe it up to bring the
- * keypad back.
+ * S1: the folded keypad: a keypad button. K3 (v3.4): a Material 3 FAB with the keypad icon that springs in as the
+ * keypad folds, with the typed number's last digits as a badge; tap it, or drag it up (the keypad follows), to bring
+ * the keypad back.
  */
 @Composable
-internal fun DockedKeypadButton(number: String?, modifier: Modifier = Modifier, onExpand: () -> Unit) {
-    val threshold = with(LocalDensity.current) { 24.dp.toPx() }
-    var drag by remember { mutableFloatStateOf(0f) }
-    val label = stringResource(R.string.keypad_show)
-    val swipe = Modifier.draggable(
-        rememberDraggableState { drag += it },
-        Orientation.Vertical,
-        onDragStarted = { drag = 0f },
-        onDragStopped = { if (drag < -threshold) onExpand() },
-    )
-    if (number == null) {
-        FloatingActionButton(onClick = onExpand, modifier = modifier.then(swipe), shape = CircleShape) { Icon(Icons.Rounded.Dialpad, label) }
-    } else {
-        val spoken = stringResource(R.string.surf_show_keypad_with, number)
-        ExtendedFloatingActionButton(
+internal fun DockedKeypadButton(
+    visible: Boolean, fold: DockFoldState, number: String?, badge: String?, modifier: Modifier = Modifier, onExpand: () -> Unit,
+) {
+    val label = if (number == null) stringResource(R.string.keypad_show) else stringResource(R.string.surf_show_keypad_with, number)
+    val spring = spring<Float>(dampingRatio = 0.7f, stiffness = Spring.StiffnessMedium)
+    AnimatedVisibility(
+        visible = visible,
+        modifier = modifier,
+        enter = scaleIn(spring, initialScale = 0.4f) + fadeIn(spring),
+        exit = scaleOut(spring, targetScale = 0.4f) + fadeOut(spring),
+    ) {
+        FloatingActionButton(
             onClick = onExpand,
-            modifier = modifier.then(swipe).semantics { contentDescription = spoken },
-            icon = { Icon(Icons.Rounded.Dialpad, null) },
-            text = { Text(number, maxLines = 1) },
-        )
+            modifier = Modifier
+                // Fades as a drag up brings the keypad in.
+                .graphicsLayer { alpha = 1f - (fold.value * 1.5f).coerceIn(0f, 1f) }
+                .draggable(
+                    rememberDraggableState { fold.drag(it) },
+                    Orientation.Vertical,
+                    onDragStopped = { v -> fold.release(v) },
+                )
+                .semantics { contentDescription = label },
+            containerColor = MaterialTheme.colorScheme.primaryContainer,
+            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+        ) {
+            BadgedBox(badge = {
+                if (badge != null) {
+                    Badge(containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary) {
+                        app.parley.ui.ForceLtr { Text(badge, maxLines = 1) }
+                    }
+                }
+            }) { Icon(Icons.Rounded.Dialpad, null) }
+        }
     }
 }
 
