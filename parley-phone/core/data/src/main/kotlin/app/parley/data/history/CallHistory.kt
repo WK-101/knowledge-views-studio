@@ -397,16 +397,21 @@ class CallHistory(
         }
     }
 
-    /** Every call with [number] (any format), optionally only since [since], including archived calls Recents doesn't show. */
-    fun callsFor(number: String, since: Long = Long.MIN_VALUE): List<CallEntry> {
+    /**
+     * Every call with [number] (any format), optionally only since [since]: all of its system call-log rows (read
+     * from the provider, not the newest-3000 window Recents shows) plus every archived call, so a delete built from
+     * this list leaves nothing behind for the next sync to bring back.
+     */
+    suspend fun callsFor(number: String, since: Long = Long.MIN_VALUE): List<CallEntry> = withContext(Dispatchers.IO) {
         val iso = countryIso
-        fun matches(e: CallEntry) = e.date >= since && !e.presentationHidden && PhoneNumbers.same(e.number, number, iso)
-        val shown = calls.value.orEmpty().filter(::matches)
-        if (!prefs.state.value.archiveEnabled) return shown
-        val seen = shown.map { HistoryMerge.key(it) }.toHashSet()
-        val older = _archive.value.orEmpty().asSequence().drop(ARCHIVE_UI_WINDOW).map { it.toEntry() }
-            .filter { matches(it) && seen.add(HistoryMerge.key(it)) }.toList()
-        return shown + older
+        val system = callLog.queryForNumber(number, since)
+        if (!prefs.current().archiveEnabled) return@withContext system
+        if (_archive.value == null) mutex.withLock { reload() }
+        val seen = system.map { HistoryMerge.key(it) }.toHashSet()
+        val archived = _archive.value.orEmpty().asSequence().map { it.toEntry() }
+            .filter { it.date >= since && !it.presentationHidden && PhoneNumbers.same(it.number, number, iso) && seen.add(HistoryMerge.key(it)) }
+            .toList()
+        (system + archived).sortedByDescending { it.date }
     }
 
     /**
@@ -444,10 +449,22 @@ class CallHistory(
         n
     }
 
-    suspend fun deleteForNumber(number: String): Long? = delete(callsFor(number))
+    suspend fun deleteForNumber(number: String): Long? = deleteRange(number, DeleteRange.ALL)
 
-    suspend fun deleteRange(number: String, range: DeleteRange, picked: java.time.LocalDate? = null): Long? =
-        delete(callsFor(number, range.since(System.currentTimeMillis(), zone, picked)))
+    suspend fun deleteRange(number: String, range: DeleteRange, picked: java.time.LocalDate? = null): Long? = withContext(Dispatchers.IO + NonCancellable) {
+        val since = range.since(System.currentTimeMillis(), zone, picked)
+        val batch = delete(callsFor(number, since))
+        // Everything for this number: archive rows filed under its key that couldn't be read into the list go too.
+        if (since == Long.MIN_VALUE && prefs.current().archiveEnabled) mutex.withLock {
+            runCatching {
+                if (dao.deleteByPerson(personMac(number)) > 0) {
+                    knownKeys = null
+                    reload()
+                }
+            }
+        }
+        batch
+    }
 
     suspend fun trashBatches(): List<TrashBatch> = withContext(Dispatchers.IO) { dao.trashBatches() }
 
