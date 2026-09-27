@@ -83,4 +83,9 @@
     <string name="v34_set_contact_page_title">Contact page sections</string>
     <string name="v34_set_contact_page_summary">Order, fold or hide the sections of a contact\'s page</string>
     <string name="v34_set_contact_page_kw">contact page, sections, order, reorder, fold, collapse, expand, hide, timeline, layout, jump</string>
+    <!-- S1: Block from a swipe, with Undo -->
+    <plurals name="v34_swipe_blocked">
+        <item quantity="one">Blocked %1$s</item>
+        <item quantity="other">Blocked %2$d numbers</item>
+    </plurals>
 </resources>

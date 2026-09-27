@@ -695,3 +695,45 @@ Settings › Appearance › Layout (search "combine", "keypad", "favourites", "m
 - [ ] `mailto:a@example.com?bcc=b@example.com`: the sheet shows "Hidden copy to (Bcc)" and a warning.
 - [ ] Hardware keyboard, Combined layout, nothing typed: D-pad to a Recents row and press Enter: that row opens (the last number isn't recalled). With the keypad unfolded and focus on it, Enter still recalls the last number; digits always go to the keypad.
 - [ ] Missed chip: missed calls older than 7 days, from blocked or spam-marked numbers, or withheld numbers don't count as "to call back".
+
+## 17. v3.4
+
+### 17.3 Contact page and list
+
+**Contact page (P1)**
+- [ ] Open a contact with a long history: under the header, every section (Stay in touch, Dates, Phone, Email, Address, Messengers, About, Other fields, Timeline, Call insights, Note for calls, Settings for this contact) has a header row with a chevron. Tap it: the section folds or unfolds with a spring; folded headers show a summary ("Timeline · 124 entries", "Dates · Birthday in 12 days", "Phone · 3 numbers").
+- [ ] Fold Timeline on one contact, open another: it's folded there too (folds are remembered for every contact). Kill and reopen Parley: still folded.
+- [ ] Defaults on a fresh install: the details are open; Other fields, Call insights and Settings for this contact start folded.
+- [ ] Timeline shows only the latest 5 entries; "Show all (n)" opens the full timeline with a search box and Calls / Missed / Logged / Notes / Dates chips. Search "missed", a note word (accents ignored) or 3+ digits of a number; combine with chips; "Clear search and filters" when nothing matches. Month headings stay pinned while scrolling. Edit a logged entry there (tap it) and delete one (⋮ › Delete, then Undo on the snackbar).
+- [ ] Scroll the page down: once the big Call / Message / Video / Email tiles have gone, a compact bar with the same buttons (and ⋮ "More") stays under the top bar; each button works and TalkBack reads "Call <name>", "Message <name>"… Scroll back to the top: the bar goes away.
+- [ ] With 4 or more sections shown, the pinned bar has "jump to" chips; tapping one unfolds that section if needed and scrolls it just under the bar. Settings › Contacts › Contact page sections › "Jump to a section" off: no chips.
+- [ ] TalkBack on a section header: reads the title, "heading", "Folded"/"Open" and the action "Unfold"/"Fold".
+- [ ] Landscape, largest font, dark theme and Arabic (RTL): headers, chevrons, the pinned bar and chips lay out correctly.
+
+**Contact page sections (P1)**
+- [ ] Settings › Contacts › "Contact page sections" (also found by searching "fold", "sections" or "reorder"): drag a section by its handle (a tick on each step); the new order shows on every contact page.
+- [ ] Tap a section: choose Open / Folded / Hidden. Hidden sections disappear from contact pages but nothing is deleted: show it again and it's back in the same place with its data. Choosing a start mode forgets the fold remembered for that section.
+- [ ] TalkBack: each row offers "Move up" / "Move down" and reads its start mode.
+- [ ] "Reset" (enabled only after a change): default order, modes and folds.
+- [ ] Backup and restore: the order and modes come back.
+
+**My card (M1)**
+- [ ] Contacts › My card row has no pencil. Tapping the row opens the editor; tapping the QR button on its end shows the QR code (Share, Edit, Scan theirs inside). An empty card has no QR button and opens the editor.
+- [ ] TalkBack: the row reads "Edit my card" as its action; the QR button reads "Show my QR code".
+
+**Swipe actions (S1)** (Settings › Appearance › Swipe actions on)
+- [ ] In Contacts and Recents, scroll up and down quickly, including slightly diagonal flicks: rows never start sliding. A clearly sideways drag (at least twice as sideways as vertical) slides the row.
+- [ ] Touch the list while it's still flinging and drag sideways: the fling stops, the row doesn't slide. Drag again: now it slides.
+- [ ] Drag slowly: the background is grey with a small icon; at about a third of the row it turns the action's colour, the icon pops and you feel a tick; drag back under it: grey again with a lighter tick. Let go below the threshold: the row springs back, nothing happens.
+- [ ] A short, quick flick (a quarter of the threshold) runs the action; flicking back towards the start cancels.
+- [ ] Delete: the row slides out and the snackbar offers Undo. Block: the snackbar says "Blocked <number>" with Undo, which unblocks it.
+- [ ] A side without an action only gives a little rubber band.
+- [ ] Arabic (RTL): "Swipe right" is still a rightwards swipe and the icon shows on the side being uncovered.
+- [ ] TalkBack: the actions are in the row's custom actions; the preview row in Settings still works.
+
+**A–Z fast scroll (A4)** (more than 30 contacts)
+- [ ] Drag along the A–Z rail: a large rounded bubble with a pointed corner towards the finger follows it, showing the current letter (also "#", other scripts and "★" when favourites are at the top of Contacts); the rail gets a light background and the letter under the finger is highlighted; each new letter gives a light tick and the list jumps to it. Let go: the bubble shrinks away.
+- [ ] Without dragging, the rail highlights the letter of the section at the top of the list while you scroll.
+- [ ] Tap a single letter: the list jumps there (bubble shows briefly).
+- [ ] RTL: the rail is on the left and the bubble appears to its right, pointing at the finger.
+- [ ] TalkBack: the rail is one adjustable control ("Alphabet index", current letter); swipe up/down (or volume keys) moves letter by letter and the list follows.
