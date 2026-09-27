@@ -28,8 +28,8 @@ android {
         targetSdk = 36
         // D4: keep these two plain literals. F-Droid's update check reads them line by line with a regex and can't
         // follow a variable or an expression. Bump both for a release, then tag v<versionName> (docs/RELEASING.md).
-        versionCode = 7
-        versionName = "3.4.0"
+        versionCode = 8
+        versionName = "3.4.1"
         // Custom permission guarding the private-name lookup provider (differs in debug so both builds can be installed).
         manifestPlaceholders["lookupPermission"] = "app.parley.permission.LOOKUP_PRIVATE_NAME"
         // Optional "Parley Lists" companion (B4c, module :lists-updater): its package and signature permission.
