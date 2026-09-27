@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- v3.4 "Message or call on…" (telecom module). English only for now: translations follow in a later pass. -->
+<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
+    <string name="v34msg_postcall_message_or_call">Message or call on…</string>
+</resources>

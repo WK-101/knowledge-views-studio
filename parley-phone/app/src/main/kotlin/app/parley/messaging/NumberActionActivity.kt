@@ -366,8 +366,8 @@ class NumberActionActivity : ComponentActivity() {
             // C2: Call is the primary action, above the messengers.
             if (callAction() != null) CallFirstButton(number) { call(number, contactName) }
             ListItem(
-                headlineContent = { Text(stringResource(R.string.missed_message_on)) },
-                supportingContent = { Text(stringResource(R.string.num_message_apps)) },
+                headlineContent = { Text(stringResource(R.string.v34msg_message_or_call_on)) },
+                supportingContent = { Text(stringResource(R.string.v34msg_apps_line)) },
                 leadingContent = { Icon(Icons.AutoMirrored.Rounded.Chat, null) },
                 modifier = Modifier.clickable { stage = Stage.Message(number) },
             )
@@ -494,11 +494,12 @@ fun TemporaryNameDialog(
     suggested: String,
     title: String? = null,
     notice: String? = null,
+    initialVisible: Boolean = false,
     onDismiss: () -> Unit,
     onSave: (name: String, visible: Boolean) -> Unit,
 ) {
     var name by rememberSaveable { mutableStateOf(suggested) }
-    var visible by rememberSaveable { mutableStateOf(false) }
+    var visible by rememberSaveable { mutableStateOf(initialVisible) }
     val days = TemporaryContact.DEFAULT_DAYS
     AlertDialog(
         onDismissRequest = onDismiss,

@@ -50,6 +50,12 @@ import app.parley.R
 import app.parley.common.MessengerApp
 import app.parley.common.MessengerLinks
 import app.parley.common.NumberText
+import app.parley.common.PhoneNumbers
+import app.parley.common.ReachApp
+import app.parley.common.ReachGroup
+import app.parley.common.ReachGroups
+import app.parley.common.ReachKind
+import app.parley.common.ReachRow
 import app.parley.common.people.HandleLink
 import app.parley.common.people.MessageRoute
 import app.parley.common.people.MessageRoutes
@@ -80,8 +86,14 @@ data class Reach(
     val contactId: Long? = null,
 ) {
     /** Account types of messengers with a chat row for this person. */
-    val linked: Set<String> get() = messengers.filter { !it.isCall && !it.isVideo }.map { it.accountType }.toSet()
-    val videoRows: List<MessengerAction> get() = messengers.filter { it.isVideo }
+    val linked: Set<String> get() = messengers.filter { it.kind == ReachKind.MESSAGE }.map { it.accountType }.toSet()
+    val videoRows: List<MessengerAction> get() = messengers.filter { it.kind == ReachKind.VIDEO }
+
+    /** V34: the messenger rows per app and number, for "Reach via apps" and the sheet's "Call on". */
+    fun groups(region: String?): List<ReachGroup> = ReachGroups.group(messengers.map { it.row }) { a, b -> PhoneNumbers.same(a, b, region) }
+
+    /** The action behind [row] (a row of [groups]). */
+    fun action(row: ReachRow): MessengerAction? = messengers.firstOrNull { it.dataId == row.dataId }
 }
 
 object ContactMessaging {
@@ -97,7 +109,7 @@ object ContactMessaging {
             .also { if (it == null) record(context, route.number, null, "SMS") }
             .also { if (it == null) offerLog(context, r, InteractionChannel.SMS) }
         is MessageRoute.MessengerRow -> {
-            val row = r.messengers.firstOrNull { it.accountType == route.accountType && !it.isCall && !it.isVideo }
+            val row = r.messengers.firstOrNull { it.accountType == route.accountType && it.kind == ReachKind.MESSAGE }
             if (row == null) context.getString(R.string.msg_app_lost_contact) else start(context, row.intent(), row.appName).also { if (it == null) offerLog(context, r, InteractionChannel.forPackage(route.accountType)) }
         }
         is MessageRoute.MessengerLink -> {
@@ -126,7 +138,7 @@ object ContactMessaging {
 
     /** [start] for a messenger row of [r] (chat or video), then R3's "Log this?". */
     fun startRow(context: Context, r: Reach, m: MessengerAction): String? = start(context, m.intent(), m.appName).also { err ->
-        if (err == null && !(m.isCall && !m.isVideo)) offerLog(context, r, if (m.isVideo) InteractionChannel.VIDEO else InteractionChannel.forPackage(m.accountType))
+        if (err == null && m.kind != ReachKind.VOICE) offerLog(context, r, if (m.isVideo) InteractionChannel.VIDEO else InteractionChannel.forPackage(m.accountType))
     }
 
     /** "Last messaged via…" for the number (private numbers are never recorded, see MessagingStore). */
@@ -172,11 +184,19 @@ object ContactMessaging {
 
 private data class SheetRow(val key: String, val label: String, val sub: String?, val enabled: Boolean, val launch: () -> String?, val remember: MessengerPrefs.() -> MessengerPrefs)
 
+/** V34: one app under "Call on": its own call rows for this number, or its chat (where the call button is). */
+private data class CallEntry(val key: String, val label: String, val voice: MessengerAction?, val video: MessengerAction?, val viaChat: MessengerApp?)
+
 /**
  * M6: "Message on…" for a saved or private contact: pick the number, then an installed messenger (opened directly
  * by number, or by the app's own row when it has linked the person), another messenger's row, or SMS. The choice is
  * remembered for this person when "Always use this" stays ticked ([onRemember]). C2: [onCall] adds a direct Call of
  * the chosen number, shown first.
+ *
+ * V34: "Message or call on…": a second section, "Call on", lists the voice and video calls apps added for this
+ * number (Signal, WhatsApp, Telegram, Viber, Threema, Meet…), and for installed chat apps that didn't, "Open chat on
+ * WhatsApp to call" (no app offers a link that starts a call to a number). A call choice is remembered separately
+ * from the message choice (MessengerPrefs.call / video).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -190,10 +210,11 @@ fun ContactMessageSheet(r: Reach, onDismiss: () -> Unit, onCall: ((String) -> Un
     val e164 = remember(number) { number?.let { NumberText.toE164(it, region) } }
     val unavailable = remember(e164) { app.parley.messaging.MessagingText.unavailable(res, e164) }
     val linked = r.linked
+    val chatApps = installed.filter { it != MessengerApp.TELEGRAM_WEB || MessengerApp.TELEGRAM !in installed }
 
     val rows = buildList {
         // One row per installed messenger app that opens chats by number.
-        installed.filter { it != MessengerApp.TELEGRAM_WEB || MessengerApp.TELEGRAM !in installed }.forEach { app ->
+        chatApps.forEach { app ->
             val isLinked = app.packageName in linked
             val hint = when {
                 isLinked -> res.getString(R.string.msg_app_has_contact, app.label)
@@ -213,14 +234,25 @@ fun ContactMessageSheet(r: Reach, onDismiss: () -> Unit, onCall: ((String) -> Un
             )
         }
         // Chat rows of other messengers (Threema, Wire, Element…) that registered this person.
-        r.messengers.filter { !it.isCall && !it.isVideo && MessengerApp.forPackage(it.accountType) == null }.distinctBy { it.accountType }.forEach { m ->
+        r.messengers.filter { it.kind == ReachKind.MESSAGE && MessengerApp.forPackage(it.accountType) == null }.distinctBy { it.accountType }.forEach { m ->
             add(SheetRow(m.accountType, m.appName, m.label.takeIf { it != m.appName }, true, launch = { ContactMessaging.startRow(context, r, m) }, remember = { copy(message = m.accountType) }))
         }
     }
 
+    // V34: calls for the chosen number: the apps' own rows first, then installed chat apps through their chat.
+    val calls = remember(number, r.messengers, chatApps) {
+        val same = { a: String, b: String -> PhoneNumbers.same(a, b, region) }
+        val groups = ReachGroups.forNumber(r.groups(region), number, same).filter { it.canCall }
+        val direct = groups.map { g -> CallEntry(g.appKey + (g.number ?: ""), g.appLabel, g.voice?.let(r::action), g.video?.let(r::action), null) }
+            .distinctBy { it.key }
+        val covered = groups.map { it.appKey }.toSet()
+        direct + chatApps.filter { it.packageName !in covered && (ReachApp.forMessengerApp(it)?.accountTypes.orEmpty().none { t -> t in covered }) }
+            .map { CallEntry(it.packageName, it.label, null, null, it) }
+    }
+
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = 16.dp)) {
-            Text(stringResource(R.string.msg_message_on_title, r.name), style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 24.dp))
+            Text(stringResource(R.string.v34msg_title_contact, r.name), style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 24.dp))
             if (r.numbers.size > 1) {
                 Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     r.numbers.forEach { (n, label) ->
@@ -235,19 +267,20 @@ fun ContactMessageSheet(r: Reach, onDismiss: () -> Unit, onCall: ((String) -> Un
             if (onCall != null && callNumber != null) {
                 app.parley.messaging.CallFirstButton(callNumber) { onDismiss(); onCall(callNumber) }
             }
+            fun done(err: String?, prefs: MessengerPrefs, withNumber: Boolean = true) {
+                if (err != null) {
+                    Toast.makeText(context, err, Toast.LENGTH_LONG).show()
+                    return
+                }
+                if (remember) onRemember(if (withNumber) prefs.copy(number = number?.takeIf { it != r.defaultNumber }) else prefs)
+                onDismiss()
+            }
+            app.parley.messaging.SheetSection(stringResource(R.string.v34msg_section_message))
             if (installed.isEmpty() && rows.isEmpty()) {
                 Text(
                     stringResource(R.string.msg_no_chat_apps),
                     style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
                 )
-            }
-            fun done(err: String?, prefs: MessengerPrefs) {
-                if (err != null) {
-                    Toast.makeText(context, err, Toast.LENGTH_LONG).show()
-                    return
-                }
-                if (remember) onRemember(prefs.copy(number = number?.takeIf { it != r.defaultNumber }))
-                onDismiss()
             }
             rows.forEach { row ->
                 val chosen = r.prefs.message == row.key
@@ -270,6 +303,30 @@ fun ContactMessageSheet(r: Reach, onDismiss: () -> Unit, onCall: ((String) -> Un
                     done(number?.let { ContactMessaging.open(context, MessageRoute.Sms(it), r) }, r.prefs.copy(message = MessengerPrefs.SMS))
                 },
             )
+            // V34: Call on…
+            app.parley.messaging.SheetSection(stringResource(R.string.v34msg_section_call))
+            if (calls.isEmpty()) {
+                Text(stringResource(R.string.v34msg_no_call_apps), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
+            }
+            calls.forEach { c ->
+                val via = c.viaChat
+                if (via != null) {
+                    val enabled = (via.packageName in linked) || unavailable == null
+                    app.parley.messaging.ViaChatCallItem(via.label, enabled = enabled, sub = if (enabled) null else unavailable) {
+                        val route = if (via.packageName in linked) MessageRoute.MessengerRow(via.packageName) else number?.let { MessageRoute.MessengerLink(via, it) } ?: MessageRoute.Ask
+                        val err = ContactMessaging.open(context, route, r)
+                        if (err == null) Toast.makeText(context, res.getString(R.string.v34msg_call_via_chat_hint), Toast.LENGTH_LONG).show()
+                        done(err, r.prefs, withNumber = false)
+                    }
+                } else {
+                    app.parley.messaging.DirectCallItem(
+                        c.label, voice = c.voice != null, video = c.video != null,
+                        voiceUsual = c.voice?.let { r.prefs.call == it.accountType } == true, videoUsual = c.video?.let { r.prefs.video == it.accountType } == true,
+                        onVoice = { c.voice?.let { m -> done(ContactMessaging.startRow(context, r, m), r.prefs.copy(call = m.accountType), withNumber = false) } },
+                        onVideo = { c.video?.let { m -> done(ContactMessaging.startRow(context, r, m), r.prefs.copy(video = m.accountType), withNumber = false) } },
+                    )
+                }
+            }
             Row(Modifier.fillMaxWidth().clickable { remember = !remember }.padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                 Checkbox(remember, { remember = it })
                 Text(stringResource(R.string.msg_always_use, r.name), style = MaterialTheme.typography.bodyMedium)

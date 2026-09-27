@@ -107,7 +107,7 @@ object MissedCallNotifier {
                 val risky = runCatching { c.dialGuard.check(caller.number).any { it.severe } }.getOrDefault(false)
                 if (!risky) b.addAction(0, context.getString(R.string.missed_call_back), broadcast(context, MissedCallActionReceiver.ACTION_CALL_BACK, caller.number, 30 + i, id))
                 b.addAction(
-                    0, context.getString(R.string.missed_message_on),
+                    0, context.getString(R.string.v34msg_message_or_call),
                     PendingIntent.getActivity(
                         context, 40 + i, app.parley.messaging.MessageOn.intent(context, caller.number, caller.accountId),
                         PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,

@@ -380,6 +380,8 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
         }
         val primary = d.phones.firstOrNull { it.isPrimary } ?: d.phones.firstOrNull()
         val r = reach(d)
+        // V34: messenger rows grouped per app and number (Reach via apps).
+        val reachGroups = remember(messengers) { r.groups(app.parley.data.PhoneEnv.countryIso(context)) }
         // P1: the quick actions, shared by the big tiles and the pinned bar.
         val preferredCall = messengers.firstOrNull { it.accountType == prefs.call && it.isCall && !it.isVideo }
         val canCall = primary != null || preferredCall != null
@@ -508,41 +510,21 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
             }
         }
         val chatRows = messengers
-        if (d.handles.isNotEmpty() || chatRows.isNotEmpty()) {
+        if (d.handles.isNotEmpty() || reachGroups.isNotEmpty()) {
             val apps = chatRows.map { it.appName }.distinct()
             val summary = if (apps.isNotEmpty()) apps.joinToString(", ") else resources.getQuantityString(R.plurals.v34_cp_count_items, d.handles.size, d.handles.size)
             sections.add(ContactSection.MESSENGERS, sectionTitle(resources, ContactSection.MESSENGERS), summary) {
-                SegmentedGroup {
-                    // I1: handles typed into the contact (Matrix, Threema, Signal username…).
-                    handleRows(d.handles, Icons.Rounded.Forum, onWeb = { webLink = it })
-                    // What messenger apps added themselves (WhatsApp, Signal, Telegram…).
-                    chatRows.forEachIndexed { i, m ->
-                        item {
-                            val preferred = (m.isCall && prefs.call == m.accountType && !m.isVideo) || (m.isVideo && prefs.video == m.accountType) ||
-                                (!m.isCall && !m.isVideo && prefs.message == m.accountType)
-                            GroupDataRow(
-                                if (m.isVideo) Icons.Rounded.Videocam else if (m.isCall) Icons.Rounded.Call else Icons.AutoMirrored.Rounded.Chat,
-                                showIcon = true, text = m.label, label = if (preferred) resources.getString(R.string.detail_usual_choice, m.appName) else m.appName,
-                                onClick = { ContactMessaging.startRow(context, r, m)?.let { vm.toast(it) } },
-                                trailing = if (preferred) ({ Icon(Icons.Rounded.Star, stringResource(R.string.detail_usual), tint = MaterialTheme.colorScheme.primary) }) else null,
-                                menu = { close ->
-                                    DropdownMenuItem(
-                                        { Text(stringResource(if (preferred) R.string.detail_dont_use_default else R.string.detail_use_default)) },
-                                        leadingIcon = { Icon(if (preferred) Icons.Rounded.StarOutline else Icons.Rounded.Star, null) },
-                                        onClick = {
-                                            close()
-                                            savePrefs(
-                                                when {
-                                                    m.isVideo -> prefs.copy(video = m.accountType.takeUnless { preferred })
-                                                    m.isCall -> prefs.copy(call = m.accountType.takeUnless { preferred })
-                                                    else -> prefs.copy(message = m.accountType.takeUnless { preferred })
-                                                },
-                                            )
-                                        },
-                                    )
-                                },
-                            )
-                        }
+                Column {
+                    app.parley.ui.common.CoachMark(app.parley.common.ux.Tips.REACH_USUAL, stringResource(R.string.v34msg_reach_hint), enabled = reachGroups.isNotEmpty())
+                    SegmentedGroup {
+                        // I1: handles typed into the contact (Matrix, Threema, Signal username…).
+                        handleRows(d.handles, Icons.Rounded.Forum, onWeb = { webLink = it })
+                        // V34: "Reach via apps": each messenger's Message / Voice / Video for this person, per number.
+                        reachViaAppsRows(
+                            reachGroups, prefs, showNumbers = d.phones.size > 1,
+                            onOpen = { row -> r.action(row)?.let { m -> ContactMessaging.startRow(context, r, m)?.let { vm.toast(it) } } },
+                            onToggleUsual = { row -> savePrefs(prefs.toggleUsual(row)) },
+                        )
                     }
                 }
             }
@@ -911,7 +893,7 @@ private fun PhoneRow(
         },
         menu = { close ->
             if (canDefault) DefaultMenuItem(p.isPrimary) { on -> close(); onDefault(on) }
-            DropdownMenuItem({ Text(stringResource(R.string.missed_message_on)) }, leadingIcon = { Icon(Icons.AutoMirrored.Rounded.Message, null) }, onClick = { close(); onMessageOn() })
+            DropdownMenuItem({ Text(stringResource(R.string.v34msg_message_or_call_on)) }, leadingIcon = { Icon(Icons.AutoMirrored.Rounded.Message, null) }, onClick = { close(); onMessageOn() })
             DropdownMenuItem({ Text(stringResource(R.string.detail_edit_before_call)) }, leadingIcon = { Icon(Icons.Rounded.Dialpad, null) }, onClick = {
                 close(); vm.navigate(app.parley.NavEvent.Tab(app.parley.common.StartTab.KEYPAD, dial = p.value))
             })

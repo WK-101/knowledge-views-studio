@@ -423,7 +423,7 @@ private fun RecentActionsSheet(vm: AppViewModel, g: RecentGroup, open: (String) 
         }
         row(R.string.main_call, Icons.Rounded.Call, hasNumber) { act { vm.requestCall(g.number, g.contact?.displayName) } }
         row(R.string.recents_send_message, Icons.AutoMirrored.Rounded.Message, hasNumber) { act { app.parley.ui.common.Intents.sms(context, g.number) } }
-        row(R.string.missed_message_on, Icons.AutoMirrored.Rounded.Chat, hasNumber) { act { onMessageOn(g.number) } }
+        row(R.string.v34msg_message_or_call_on, Icons.AutoMirrored.Rounded.Chat, hasNumber) { act { onMessageOn(g.number) } }
         row(R.string.recents_edit_before_call, Icons.Rounded.Dialpad, hasNumber) {
             act { vm.navigate(app.parley.NavEvent.Tab(app.parley.common.StartTab.KEYPAD, dial = g.number)) }
         }
