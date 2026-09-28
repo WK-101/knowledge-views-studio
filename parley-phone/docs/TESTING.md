@@ -1166,3 +1166,31 @@ Forms keep their input
 3. **Passphrase strength.** Type `password123`, `Summer2026!` and a common word repeated: each is rated weak. Four random words are rated strong.
 4. **Backup origin.** Restore a backup made on this phone: it is shown as from this phone. Restore one made on another phone, or with the signature stripped: it is shown as unconfirmed, and the restore still works after you confirm.
 5. **Overlay protection.** With a screen-overlay app running (for example a floating-bubble app), open the backup passphrase and "Delete all Parley data" dialogs. Taps through the overlay are ignored.
+
+## 22. Corrections (4.1)
+
+### 22.2 Contact page and contact list
+
+Map links for addresses
+- [ ] Edit a contact › Add more info › Address › "Add from map link". Paste each and check the line under the field before tapping Add: a Google Maps place link (`google.com/maps/place/NAME/@lat,lon…`, shows the name and the spot), `geo:48.8584,2.2945?q=48.8584,2.2945(Eiffel Tower)`, an OpenStreetMap link and an `osm.org/go/…` short link, an Organic Maps or CoMaps share (`omaps.app/…`, `comaps.at/…`), an OsmAnd link, a Magic Earth link, an Apple Maps link, a full Plus Code (`849VCWC8+R9`) and plain coordinates. Each shows "Found the exact spot: …". Nothing asks for internet access, and Airplane mode changes nothing.
+- [ ] Paste a `maps.app.goo.gl/…` short link: the dialog says it will be saved as a link and why. Paste "hello": "No map link, Plus Code or coordinates found", and Add stays off. Paste works only when tapped.
+- [ ] With the address empty, Add fills the street with the place's name (or the coordinates); with an address typed, the text stays. The row then says "Exact spot saved from a map link" (or "Map link saved"), with Change and Remove. The Websites group shows the link, labelled "Map (Home)".
+- [ ] Save, then open the contact: the address has a pin and "Home · exact spot". Tapping it asks which map app to use and opens that exact spot, named after the address (Google Maps, Organic Maps, OsmAnd, CoMaps, Magic Earth). Long-press: Copy, "Open the exact spot", "Search the address in maps" (the old behaviour) and "Open the saved map link". The link isn't listed again under About.
+- [ ] An address with only a short link: tapping opens that link. An address without a link: tapping searches the address as before.
+- [ ] Two addresses (Home, Work), a link on each: each opens its own spot. Remove the Work address in the editor: its link goes too.
+- [ ] Open the contact in Google Contacts (after sync) and export it as a .vcf from Parley: the link is there as a website labelled "Map (Home)" (`X-ABLabel:Map (Home)`), and importing the file into Parley brings back the pinned address.
+- [ ] From Organic Maps or Google Maps, share a place and pick Parley's "Call or message a number": the sheet shows "A place" with its name or coordinates and "Add to a contact…", which opens "Save contact details" (create, or add to an existing contact) with the address and its map link filled in.
+
+Call screen picture
+- [ ] Contact page › Settings › "Default call screen": tapping it opens the photo picker; after choosing, "Call screen picture set" appears, the row shows the picture and "Custom call screen picture", and a call from that contact shows it. The ✕ removes it ("Call screen picture removed").
+- [ ] Choose a second, different picture: the row and the call screen show the new one, not the old.
+- [ ] In the editor, the "Call screen" section at the bottom still works; with "Don't keep activities" on, choose a picture there (and a contact photo), come back and Save: both are kept.
+- [ ] Rename a phone-only (device) contact and choose a call screen picture in the same edit: after saving, the page shows "Custom call screen picture" and calls show it.
+- [ ] Choose a picture from a cloud album that fails to download: a message says Parley couldn't open it, instead of nothing happening.
+
+Contact list buttons
+- [ ] Settings › Contacts › Contact list › "Call and message buttons in the list": off (the default) shows names only; on shows Message and Call on each row; off again hides them. Search Settings for "call button", "hide buttons" and "clean list": each finds it. It is no longer under Layout & gestures.
+
+Contact page photo
+- [ ] A contact with a photo shows it large (168 dp) at the top; one without shows a large monogram (136 dp). Scrolling up shrinks it towards the top bar while the small avatar and name fade in there; scrolling back reverses it smoothly. Tapping the photo opens the photo viewer.
+- [ ] Landscape on a phone: the photo is smaller (104 dp) and the name and action tiles still fit. On a tablet it is larger. With the largest font size, nothing overlaps.

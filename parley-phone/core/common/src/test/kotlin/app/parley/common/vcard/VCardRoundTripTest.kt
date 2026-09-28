@@ -27,6 +27,24 @@ class VCardRoundTripTest {
         assertArrayEquals(Rich.photo, back.rows(Mime.PHOTO).single().blob)
     }
 
+    @Test fun an_address_map_link_round_trips_with_its_label() {
+        // How Parley keeps an address's map link: a website row labelled "Map (Home)" beside the address.
+        val r = record(
+            "Ana Silva",
+            row(Mime.NAME, Col.D1 to "Ana Silva", Col.D2 to "Ana", Col.D3 to "Silva"),
+            row(Mime.POSTAL, Col.D1 to "Rua Augusta 1, Lisboa", Col.D2 to "1", Col.D4 to "Rua Augusta 1", Col.D7 to "Lisboa"),
+            row(
+                Mime.WEBSITE, Col.D1 to "https://www.openstreetmap.org/?mlat=38.7101&mlon=-9.1366#map=17/38.7101/-9.1366",
+                Col.D2 to "0", Col.D3 to "Map (Home)",
+            ),
+        )
+        val text = unfolded(r)
+        assertTrue(text, text.contains("X-ABLabel:Map (Home)"))
+        val site = roundTrip(r).rows(Mime.WEBSITE).single()
+        assertEquals("https://www.openstreetmap.org/?mlat=38.7101&mlon=-9.1366#map=17/38.7101/-9.1366", site[Col.D1])
+        assertEquals("Map (Home)", site[Col.D3])
+    }
+
     @Test fun canonical_drops_only_provider_computed_columns() {
         val c = VCardMapper.canonical(Rich.record(), Rich.groupTitles).rows()
         val name = c.single { it.mimeType == Mime.NAME }

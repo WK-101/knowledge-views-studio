@@ -99,7 +99,6 @@ object SettingsCatalog {
             "favorites", "favourites", "starred", "combine", "merge", "merge tabs", "fewer tabs", "strip", "carousel", "section", "frequent", "layout"),
         e("recent_tap", "Tapping a call in Recents", "Open its details, or call back straight away", L,
             "tap", "call back", "details", "accidental", "row", "recents", "tap recents to call", "one tap"),
-        e("row_actions", "Call & message buttons on contacts", "Tapping a contact still opens it", L, "quick actions", "buttons", "sms", "row"),
         e("sort_names", "Sort and show names by", "First name or last name", A, "order", "alphabetical", "surname", "family name", "given name"),
         e("second_line", "Second line under names", "Company, nickname, account or number", A, "subtitle", "company", "account", "details"),
         e("prefer_nickname", "Prefer nicknames", "Show “Bob” instead of “Robert Jones” in lists", A, "nickname", "short name"),
@@ -165,6 +164,10 @@ object SettingsCatalog {
         e("transfer", "Import & share rules", "From Call Blocker, YACB, NoPhoneSpam or CSV", B, "import", "export", "share", "csv"),
 
         // Contacts
+        // Settings › Contacts, where people look for how their contact list looks (it used to be under Layout & gestures).
+        e("row_actions", "Call and message buttons in the list", "On each contact. Turn off for a clean list; tapping a contact still opens it.", P,
+            "quick actions", "buttons", "call button", "message button", "sms", "row", "clean list", "hide buttons", "contact list",
+            "Call & message buttons on contacts"),
         e("default_account", "Save new contacts to", "The account new contacts go to", P, "account", "google", "phone", "default account"),
         e("labels", "Labels", "Rename, merge, label ringtones", P, "groups", "tags", "categories"),
         e("temporary_contacts", "Temporary contacts", "Contacts that delete themselves after a while", P, "temp", "expire", "expiry", "self-destruct", "delete automatically"),

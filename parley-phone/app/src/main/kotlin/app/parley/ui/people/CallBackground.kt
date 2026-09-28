@@ -11,7 +11,15 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Wallpaper
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItemDefaults
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalResources
+import androidx.lifecycle.viewModelScope
+import app.parley.data.people.CallBackgrounds
+import kotlinx.coroutines.launch
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
@@ -74,23 +82,57 @@ fun CallBackgroundEditor(vm: AppViewModel, lookupKey: String, change: Background
 }
 
 @Composable
-private fun Preview(uri: String?, version: Int) {
+private fun Preview(uri: String?, version: Int, size: Modifier = Modifier.size(64.dp, 96.dp)) {
     val context = LocalContext.current
     val img by produceState<ImageBitmap?>(null, uri, version) { value = uri?.let { PhotoCache.load(context, it, 256)?.asImageBitmap() } }
-    val m = Modifier.size(64.dp, 96.dp).clip(ParleyShapes.control)
+    val m = size.clip(ParleyShapes.control)
     val b = img
     if (b != null) Image(b, stringResource(R.string.ppl_bg_desc), m, contentScale = ContentScale.Crop) else Icon(Icons.Rounded.Wallpaper, null, Modifier.size(64.dp))
 }
 
-/** Contact page › Settings: shows whether a call-screen background is set; tapping opens the editor. */
+/** The message for a picture that couldn't be used, by what went wrong. */
+object CallBackgroundText {
+    fun failure(r: CallBackgrounds.SetResult): Int = when (r) {
+        CallBackgrounds.SetResult.UNREADABLE -> R.string.ppl_bg_unreadable
+        CallBackgrounds.SetResult.NOT_A_PICTURE -> R.string.ppl_bg_not_picture
+        CallBackgrounds.SetResult.OK, CallBackgrounds.SetResult.NOT_SAVED -> R.string.ppl_bg_failed
+    }
+}
+
+/**
+ * Contact page › Settings: the call-screen picture. Tapping opens the photo picker and the picture is set at once
+ * (no trip through the editor and its Save); the row says whether that worked, and Remove takes it off again.
+ */
 @Composable
-fun CallBackgroundInfoRow(vm: AppViewModel, d: ContactDetails, onEdit: () -> Unit) {
+fun CallBackgroundInfoRow(vm: AppViewModel, d: ContactDetails) {
+    val res = LocalResources.current
     val version by vm.c.people.backgrounds.version.collectAsStateWithLifecycle()
-    val set = remember(d.lookupKey, version) { vm.c.people.backgrounds.forLookupKey(d.lookupKey) != null }
+    val current = remember(d.lookupKey, version) { vm.c.people.backgrounds.forLookupKey(d.lookupKey) }
+    val key = d.lookupKey
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        if (uri != null && key.isNotEmpty()) {
+            vm.viewModelScope.launch {
+                val r = vm.c.people.backgrounds.set(key, uri)
+                vm.toast(res.getString(if (r == CallBackgrounds.SetResult.OK) R.string.ppl_bg_set else CallBackgroundText.failure(r)))
+            }
+        }
+    }
+    val choose = stringResource(if (current == null) R.string.ppl_bg_choose else R.string.ppl_bg_change)
     ListItem(
-        modifier = Modifier.clickable(onClick = onEdit),
-        leadingContent = { Icon(Icons.Rounded.Wallpaper, null) },
-        headlineContent = { Text(if (set) stringResource(R.string.ppl_bg_custom) else stringResource(R.string.ppl_bg_default)) },
-        supportingContent = { Text(stringResource(R.string.ppl_bg_info)) },
+        modifier = Modifier.clickable(enabled = key.isNotEmpty(), onClickLabel = choose) {
+            picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+        },
+        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+        leadingContent = { if (current != null) Preview(current, version, Modifier.size(40.dp, 56.dp)) else Icon(Icons.Rounded.Wallpaper, null) },
+        headlineContent = { Text(if (current != null) stringResource(R.string.ppl_bg_custom) else stringResource(R.string.ppl_bg_default)) },
+        supportingContent = { Text(stringResource(if (current != null) R.string.ppl_bg_info_set else R.string.ppl_bg_info_none)) },
+        trailingContent = if (current != null) ({
+            IconButton({
+                vm.viewModelScope.launch {
+                    vm.c.people.backgrounds.clear(key)
+                    vm.toast(res.getString(R.string.ppl_bg_removed))
+                }
+            }) { Icon(Icons.Rounded.Close, stringResource(R.string.ppl_bg_remove_desc)) }
+        }) else null,
     )
 }

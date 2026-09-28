@@ -10,7 +10,9 @@ import app.parley.data.ContactDetails
 import app.parley.data.ContactPhotoProcessor
 import app.parley.data.DataContainer
 import app.parley.data.db.ContactMetaEntity
+import app.parley.data.people.CallBackgrounds
 import app.parley.ui.people.BackgroundChange
+import app.parley.ui.people.CallBackgroundText
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.withContext
@@ -100,15 +102,30 @@ class SaveContactUseCase(private val c: DataContainer) {
 
     private suspend fun saveContact(r: Request, notes: MutableList<Int>): Long? {
         val saved = c.contacts.save(r.original, r.draft, r.account, r.photo, r.removePhoto)?.contactId
-        r.original?.lookupKey?.takeIf { it.isNotEmpty() }?.let { key ->
-            when (val b = r.background) {
-                BackgroundChange.None -> Unit
-                BackgroundChange.Remove -> c.people.backgrounds.clear(key)
-                is BackgroundChange.Set -> if (!c.people.backgrounds.set(key, b.uri)) notes += R.string.ppl_bg_failed
-            }
-        }
+        val before = r.original?.lookupKey?.takeIf { it.isNotEmpty() }
+        if (before != null && r.background != BackgroundChange.None) saveBackground(r.background, before, saved, notes)
         if (saved != null) rememberRelations(saved, r.draft, r.pickedLinks)
         return saved
+    }
+
+    /**
+     * The call-screen picture. The save itself can give the contact a new lookup key (a phone-only contact's key holds
+     * its name; a contact with no writable copy gets a linked device copy), so the picture goes under the key it has now.
+     */
+    private suspend fun saveBackground(change: BackgroundChange, before: String, saved: Long?, notes: MutableList<Int>) {
+        val now = saved?.let { id -> withContext(Dispatchers.IO) { c.contacts.lookupKeyOf(id) } }?.takeIf { it.isNotEmpty() } ?: before
+        val bg = c.people.backgrounds
+        when (change) {
+            BackgroundChange.None -> Unit
+            BackgroundChange.Remove -> {
+                bg.clear(now)
+                if (now != before) bg.clear(before)
+            }
+            is BackgroundChange.Set -> {
+                val result = bg.set(now, change.uri)
+                if (result != CallBackgrounds.SetResult.OK) notes += CallBackgroundText.failure(result) else if (now != before) bg.clear(before)
+            }
+        }
     }
 
     /** Remembers which contact each relation names, by lookup key, beside the name-only Data row. */

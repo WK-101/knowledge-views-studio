@@ -434,14 +434,20 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
             if (args.vaultId == null && args.contactId != null) reconcile(restored, b.getLong(K_BASE_RAW), b.getLong(K_BASE_VERSION, -1L)) else draft = restored
         }
         account = if (b.getBoolean(K_HAS_ACCOUNT)) AccountRef(b.getString(K_ACCOUNT_TYPE), b.getString(K_ACCOUNT_NAME)) else null
-        @Suppress("DEPRECATION")
-        photo = b.getParcelable(K_PHOTO)
-        removePhoto = b.getBoolean(K_REMOVE_PHOTO)
+        // A picture chosen in the photo picker while the process was stopped arrives as soon as the screen is drawn
+        // again, before this restore finishes loading: the saved state is older than it and must not undo it.
+        if (photo == null && !removePhoto) {
+            @Suppress("DEPRECATION")
+            photo = b.getParcelable(K_PHOTO)
+            removePhoto = b.getBoolean(K_REMOVE_PHOTO)
+        }
         privateNew = b.getBoolean(K_PRIVATE_NEW)
-        background = when (val bg = b.getString(K_BACKGROUND)) {
-            null -> BackgroundChange.None
-            BG_REMOVE -> BackgroundChange.Remove
-            else -> BackgroundChange.Set(Uri.parse(bg))
+        if (background == BackgroundChange.None) {
+            background = when (val bg = b.getString(K_BACKGROUND)) {
+                null -> BackgroundChange.None
+                BG_REMOVE -> BackgroundChange.Remove
+                else -> BackgroundChange.Set(Uri.parse(bg))
+            }
         }
         pickedLinks = decodeLinks(b.getString(K_LINKS))
         moreName = b.getBoolean(K_MORE_NAME)

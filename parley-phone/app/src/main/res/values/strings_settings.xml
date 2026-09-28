@@ -48,9 +48,9 @@
     <string name="set_start_tab_title">Open on</string>
     <string name="set_start_tab_summary">The tab Parley opens on</string>
     <string name="set_start_tab_kw">start tab, default tab, home screen, launch, first screen</string>
-    <string name="set_row_actions_title">Call &amp; message buttons on contacts</string>
-    <string name="set_row_actions_summary">Tapping a contact still opens it</string>
-    <string name="set_row_actions_kw">quick actions, buttons, sms, row</string>
+    <string name="set_row_actions_title">Call and message buttons in the list</string>
+    <string name="set_row_actions_summary">On each contact. Turn off for a clean list; tapping a contact still opens it.</string>
+    <string name="set_row_actions_kw">quick actions, buttons, call button, message button, sms, row, clean list, hide buttons, contact list</string>
     <string name="set_sort_names_title">Sort and show names by</string>
     <string name="set_sort_names_summary">First name or last name</string>
     <string name="set_sort_names_kw">order, alphabetical, surname, family name, given name</string>
@@ -766,6 +766,7 @@
     <string name="set_cat_layout_summary">Navigation bar, combined tabs, taps, swipes, simple mode</string>
     <string name="set_group_advanced">Advanced</string>
     <string name="set_group_gestures">Taps and swipes</string>
+    <string name="set_group_contact_list">Contact list</string>
     <string name="set_advanced_show">Show advanced settings</string>
     <string name="set_advanced_hide">Hide advanced settings</string>
     <string name="set_group_circle">Circle: keeping in touch</string>

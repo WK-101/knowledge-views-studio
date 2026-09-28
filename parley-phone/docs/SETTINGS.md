@@ -22,7 +22,7 @@ The Settings list starts with **Tools** (the same page as ⋮ › Tools; see the
 |---|---|
 | Navigation bar | Navigation bar `nav_tabs` · Open on `start_tab` |
 | Layout | Calls layout `calls_layout` (+ keep the Keypad tab) · Favourites in Contacts `favorites_in_contacts` (+ keep the tab, Frequent row) · Tapping a call in Recents `recent_tap` · Back to separate tabs |
-| Taps and swipes | Call & message buttons on contacts `row_actions` · Swipe actions `swipe_actions` |
+| Taps and swipes | Swipe actions `swipe_actions` |
 | — | Simple mode `simple_mode` ↗ (in it: keypad button `simple_keypad`, ask before declining `simple_confirm_decline`, say who is calling `simple_speak`, set up another phone `simple_share`) |
 
 ## Calls
@@ -57,6 +57,7 @@ The Settings list starts with **Tools** (the same page as ⋮ › Tools; see the
 ## Contacts
 | Group | Settings |
 |---|---|
+| Contact list | Call and message buttons in the list `row_actions` (off by default) |
 | Organise | Save new contacts to `default_account` · Labels `labels` · Temporary contacts `temporary_contacts` · Add several numbers `bulk_add` · Find & merge duplicates `duplicates` · Contact health check `health` · Contact page sections `contact_page` ↗ (in it: Jump to a section `section_chips`) |
 | Import and export | Import from .vcf or .csv file `import_file` · Export all to .vcf file `export_vcf` · Export all to .csv file `export_csv` |
 | Birthdays and reminders | Birthdays & dates `birthdays` · Birthday reminders `birthday_reminders` · Reminder time `reminder_time` |
@@ -101,6 +102,10 @@ The Settings list starts with **Tools** (the same page as ⋮ › Tools; see the
 | Group | Settings |
 |---|---|
 | — | Parley version `version` · Export diagnostics `diagnostics` · Keep crash reports `crash_reports` |
+
+## Changes in 4.1
+
+- **Call and message buttons in the list** moved from Layout & gestures to Settings › Contacts › Contact list, where people look for how the list looks. The setting and its default (off) are unchanged; search finds it under both names.
 
 ## Changes in 3.5
 

@@ -66,7 +66,6 @@ import androidx.compose.material.icons.rounded.Forum
 import androidx.compose.material.icons.rounded.Handshake
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Language
-import androidx.compose.material.icons.rounded.LocationOn
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.MusicNote
@@ -106,12 +105,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
@@ -254,10 +256,13 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
     val lastTalked = if (talked != null) stringResource(R.string.detail_last_talked, DateUtils.getRelativeTimeSpanString(talked.date, System.currentTimeMillis(), DateUtils.DAY_IN_MILLIS)) else stringResource(R.string.recents_empty)
     val listState = rememberLazyListState()
     val density = LocalDensity.current
+    // A large header photo, like the phone's own contacts apps: a real photo gets the most room, a monogram a little
+    // less, and a landscape phone keeps it small enough to leave the actions in view.
+    val heroSize = heroPhotoSize(details?.photoUri != null)
     // The header has scrolled away once the name is under the top bar.
-    val collapseAt = with(density) { 190.dp.toPx() }
-    val collapsed by remember { derivedStateOf { listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > collapseAt } }
-    val headerFraction by remember {
+    val collapseAt = with(density) { (heroSize + 72.dp).toPx() }
+    val collapsed by remember(collapseAt) { derivedStateOf { listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > collapseAt } }
+    val headerFraction by remember(collapseAt) {
         derivedStateOf { if (listState.firstVisibleItemIndex > 0) 1f else (listState.firstVisibleItemScrollOffset / collapseAt).coerceIn(0f, 1f) }
     }
     // The page's sections (order, start modes, remembered folds); a fold shows at once, then is stored.
@@ -504,12 +509,14 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                 }
             }
         }
+        val mapLinks = remember(d.addresses, d.websites) { AddressMapLinks.matches(d) }
         if (d.addresses.isNotEmpty()) {
             val summary = if (d.addresses.size == 1) d.addresses[0].formatted.lines().joinToString(", ") { it.trim() } else resources.getQuantityString(R.plurals.contact_page_count_addresses, d.addresses.size, d.addresses.size)
             sections.add(ContactSection.ADDRESSES, sectionTitle(resources, ContactSection.ADDRESSES), summary) {
                 SegmentedGroup {
                     d.addresses.forEachIndexed { i, a ->
-                        item { GroupDataRow(Icons.Rounded.LocationOn, i == 0, a.formatted, StructuredPostal.getTypeLabel(resources, a.type, a.label).toString(), onClick = { Intents.map(context, a.formatted) }) }
+                        val link = mapLinks[i]?.let { d.websites.getOrNull(it)?.value }
+                        item { AddressDetailRow(a, i == 0, StructuredPostal.getTypeLabel(resources, a.type, a.label).toString(), link) }
                     }
                 }
             }
@@ -534,11 +541,18 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                 }
             }
         }
-        if (d.websites.isNotEmpty() || d.note.isNotBlank() || d.relations.isNotEmpty()) {
-            val n = d.websites.size + d.relations.size + (if (d.note.isNotBlank()) 1 else 0)
+        // An address's map link opens from the address itself, so it isn't listed again as a website.
+        val sites = d.websites.filterIndexed { i, _ -> i !in mapLinks.values }
+        if (sites.isNotEmpty() || d.note.isNotBlank() || d.relations.isNotEmpty()) {
+            val n = sites.size + d.relations.size + (if (d.note.isNotBlank()) 1 else 0)
             sections.add(ContactSection.ABOUT, resources.getString(R.string.detail_about, d.given.ifBlank { d.displayName }), resources.getQuantityString(R.plurals.contact_page_count_items, n, n)) {
                 SegmentedGroup {
-                    d.websites.forEachIndexed { i, w -> item { GroupDataRow(Icons.Rounded.Language, i == 0, w.value, resources.getString(R.string.detail_website), onClick = { Intents.web(context, w.value) }) } }
+                    sites.forEachIndexed { i, w ->
+                        item {
+                            val label = resources.getString(R.string.detail_website)
+                            GroupDataRow(Icons.Rounded.Language, i == 0, w.value, label, onClick = { Intents.web(context, w.value) })
+                        }
+                    }
                     d.relations.forEachIndexed { i, rel ->
                         item {
                             val label = RelationTypes.fromAndroid(rel.type, rel.label)?.let { RelationText.label(resources, it) }
@@ -618,7 +632,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                     GroupDataRow(Icons.Rounded.Sync, true, d.rawContacts.joinToString("\n") { it.account.displayLabel }, if (d.rawContacts.size > 1) resources.getQuantityString(R.plurals.detail_linked_from, d.rawContacts.size, d.rawContacts.size) else resources.getString(R.string.detail_saved_in), onClick = {})
                 }
                 blended { ProvenanceRow(vm, contactId, d, open) }
-                blended { CallBackgroundInfoRow(vm, d) { open(Routes.edit(id = contactId)) } }
+                blended { CallBackgroundInfoRow(vm, d) }
             }
         }
         val shown = sections.shown(layout)
@@ -630,18 +644,19 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                     Modifier.fillMaxWidth().onSizeChanged { headerHeight = it.height }.padding(horizontal = 16.dp).padding(top = 8.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    // Shrinks and fades as it scrolls under the bar, where the small avatar and name appear.
+                    // Shrinks towards the bar and fades as it scrolls under it, where the small avatar and name appear.
                     Column(
                         Modifier.graphicsLayer {
-                            val s = 1f - 0.25f * headerFraction
+                            val s = 1f - 0.45f * headerFraction
                             scaleX = s
                             scaleY = s
+                            transformOrigin = TransformOrigin(0.5f, 0f)
                             alpha = 1f - headerFraction
                         },
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
                         Avatar(
-                            d.displayName, d.photoUri, 120.dp,
+                            d.displayName, d.photoUri, heroSize,
                             Modifier.shared("avatar-$contactId").clickable(enabled = d.photoUri != null, onClickLabel = stringResource(R.string.detail_view_photo)) { showPhoto = true },
                             isCompany = d.composedName.isBlank() && d.company.isNotBlank(),
                         )
@@ -838,6 +853,21 @@ private const val TIMELINE_PREVIEW = 5
 
 /** Jump chips appear from this many shown sections. */
 private const val JUMP_CHIPS_FROM = 4
+
+/**
+ * The contact page's header photo: 168 dp for a real photo and 136 dp for a monogram on a phone held upright, more
+ * on tablets, and 104 / 96 dp when the screen is short (a phone in landscape), so the name and the action tiles still
+ * fit under it. The sizes are in dp, so large fonts don't crowd the photo.
+ */
+@Composable
+private fun heroPhotoSize(hasPhoto: Boolean): Dp {
+    val conf = LocalConfiguration.current
+    return when {
+        conf.screenHeightDp < 480 -> if (hasPhoto) 104.dp else 96.dp
+        conf.screenWidthDp >= 600 && conf.screenHeightDp >= 700 -> if (hasPhoto) 192.dp else 152.dp
+        else -> if (hasPhoto) 168.dp else 136.dp
+    }
+}
 
 @Composable
 private fun DefaultMenuItem(isDefault: Boolean, onSet: (Boolean) -> Unit) {

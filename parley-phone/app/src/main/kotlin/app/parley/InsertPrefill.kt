@@ -65,7 +65,11 @@ object InsertPrefill {
             when (cv.getAsString(Data.MIMETYPE)) {
                 Phone.CONTENT_ITEM_TYPE -> cv.getAsString(Phone.NUMBER)?.let { phones += DataItem(value = it, type = cv.getAsInteger(Phone.TYPE) ?: Phone.TYPE_MOBILE, label = cv.getAsString(Phone.LABEL)) }
                 Email.CONTENT_ITEM_TYPE -> cv.getAsString(Email.ADDRESS)?.let { emails += DataItem(value = it, type = cv.getAsInteger(Email.TYPE) ?: Email.TYPE_OTHER, label = cv.getAsString(Email.LABEL)) }
-                Website.CONTENT_ITEM_TYPE -> cv.getAsString(Website.URL)?.let { sites += DataItem(value = it, type = cv.getAsInteger(Website.TYPE) ?: Website.TYPE_OTHER) }
+                // The label too: a custom one ("Map (Home)") is how an address's map link is recognised.
+                Website.CONTENT_ITEM_TYPE -> cv.getAsString(Website.URL)?.let {
+                    val type = cv.getAsInteger(Website.TYPE) ?: Website.TYPE_OTHER
+                    sites += DataItem(value = it, type = type, label = cv.getAsString(Website.LABEL).takeIf { type == 0 })
+                }
                 Event.CONTENT_ITEM_TYPE -> cv.getAsString(Event.START_DATE)?.let { events += EventItem(date = it, type = cv.getAsInteger(Event.TYPE) ?: Event.TYPE_OTHER, label = cv.getAsString(Event.LABEL)) }
                 StructuredPostal.CONTENT_ITEM_TYPE -> addresses += PostalItem(
                     street = cv.getAsString(StructuredPostal.STREET) ?: cv.getAsString(StructuredPostal.FORMATTED_ADDRESS).orEmpty(),
