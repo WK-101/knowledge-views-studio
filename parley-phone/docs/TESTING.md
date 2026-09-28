@@ -1186,3 +1186,25 @@ One keypad panel:
 2. Docked: swipe down on the number or on the keys to fold the keypad; scroll Recents to fold it; tap the keypad button left of the Call pill to fold it; tap the floating keypad button to bring it back.
 3. TalkBack, docked: the panel offers the "Hide on-screen keypad" action; the keypad button beside the Call pill folds it.
 4. Large font (200 %) and landscape: the docked panel still scrolls inside its height and never covers the whole list; side by side on a wide screen it folds aside.
+
+### 22.3 Call screen redesign
+
+Design and spec: [CALL_SCREEN_DESIGN.md](CALL_SCREEN_DESIGN.md). Check each step in light, dark and black (AMOLED) themes; with dynamic colour on and off.
+
+1. **Ongoing call.** Call a contact. The photo, name, "Mobile · number", the SIM and (on a verified number) "Verified number" tags, then the running time in a pill; the caller card (pinned note, last call) below. At the bottom, two rows of three buttons: Mute, Keypad, Speaker / Hold, Add call, More; then the red End call pill, centred.
+2. **Toggles.** Tap Mute: the button fills with the primary colour, its corners square off with a small spring, the icon becomes a crossed microphone and the label "Muted". Same for Speaker and Hold (label "Resume", play icon). TalkBack reads "Mute, switch, on/off".
+3. **Disabled buttons.** On a call that can't be held (some VoLTE/VoIP calls), Hold stays in its place, greyed out; nothing shifts.
+4. **Audio route.** Connect a Bluetooth headset: the third button names the device and opens "Audio output" with each route; without a headset it's a Speaker toggle.
+5. **Keypad.** Tap Keypad: the grid fades and springs into the keypad, the caller shrinks to name and time, and a "Hide keypad" button appears beside End call. Tones play while a key is held. Hide it again.
+6. **More.** Tap More: the sheet lists Add a note, Open contact (not for a hidden number) and the Call time card (+2 / +5 min, End in 1 min, Don't end, as before). With two calls that can be merged and swapped, Merge is in the grid and Swap, Add call (and Manage conference) are at the top of More.
+7. **Two calls.** Add a second call: the first shows as the on-hold strip with Swap, Merge and End. Merge: the fifth button becomes Manage (or Merge/Swap first when available); Manage lists each person with Private and End.
+8. **Incoming, slide.** With "Answer incoming calls by: Swipe", ring the phone: "Incoming call" pill, the photo with a slow halo, Reply · Silence · ⋮ pills, then the slider (right answers, left declines). Silence stops the ringer and the pill disappears; ⋮ › Block & decline declines with Undo on the next screen.
+9. **Incoming, tap.** With "Tap", Decline (red) and Answer (green, with a halo) circles; on a dual-SIM phone the SIM tag sits under Answer. A spam verdict shows as a red tag and tints the top of the screen red.
+10. **Call waiting.** During a call, receive a second: the current call dims at the top, the waiting call rises as a sheet with Hold & answer / End & answer / Decline / Reply round buttons and a Silence pill.
+11. **Background.** Set a call-screen picture on a contact (contact editor), then have them call: the picture fills the screen under a scrim; every line of text stays readable over a white and over a black picture. Without a picture the top is tinted with the contact's avatar colour; an unknown number uses the theme colour.
+12. **Ended.** Hang up: the status pill says "Call ended" (or the reason); an unknown number gets the post-call card, a contact with "Anything to remember?" on gets the memory card; a failed call shows the reason and Retry.
+13. **Layouts.** Rotate a phone during a call (caller left, controls right), and try a tablet or unfolded foldable. Set the largest font and display size: labels wrap, the caller scrolls, End call stays reachable. Switch to Arabic or Urdu: the grid mirrors, the keypad and the slider stay left to right.
+14. **Reduced motion.** Settings › Accessibility › Remove animations: halos and the slider pulse stand still; buttons still change state.
+15. **Picture-in-picture.** Press Home during a call: the small window carries the same caller tint, name, time and Muted tag; Mute and Hang up still work.
+16. **Ring latency.** Cold-start the phone app and ring it (or run the IncomingCallBenchmark): the incoming screen appears as fast as before; a large call-screen picture fades in after the screen is up.
+17. **Emergency.** (Test number where available.) An emergency call shows the "Emergency call" tag; nothing about limits, screening or prompts changed.

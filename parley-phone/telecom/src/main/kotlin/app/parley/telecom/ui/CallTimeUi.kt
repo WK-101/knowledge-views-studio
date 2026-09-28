@@ -9,6 +9,13 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.Surface
+import app.parley.ui.ParleyListItem
+import app.parley.ui.ParleyShapes
+import app.parley.ui.Spacing
+import app.parley.ui.rowColors
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -21,8 +28,6 @@ import androidx.compose.material.icons.rounded.TimerOff
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
-import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -166,34 +171,92 @@ internal fun RemainingLine(timing: CallTiming?) {
 }
 
 /**
- * The in-call "More" sheet: wrap-up controls (+2 / +5 min, End in 1 min, Don't end) and call notes.
- * In supervised mode a limit can only be shortened.
+ * The in-call "More" sheet: the call controls that didn't fit the grid (same icons and names), Add a note and Open
+ * contact, then the call's time: wrap-up chips (+2 / +5 min, End in 1 min, Don't end). In supervised mode a limit
+ * can only be shortened.
  */
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun CallMoreSheet(call: CallUi, timing: CallTiming?, onDismiss: () -> Unit, onNote: () -> Unit, onOpenContact: (() -> Unit)?) {
+internal fun CallMoreSheet(
+    call: CallUi,
+    timing: CallTiming?,
+    controls: List<ControlSpec>,
+    onDismiss: () -> Unit,
+    onNote: () -> Unit,
+    onOpenContact: (() -> Unit)?,
+) {
+    ParleySheet(onDismissRequest = onDismiss, title = stringResource(R.string.incall_more_options)) {
+        controls.forEach { c ->
+            ParleyListItem(
+                headlineContent = { Text(c.spoken) },
+                leadingContent = { Icon(c.icon, null) },
+                colors = rowColors(),
+                modifier = Modifier.clickable(enabled = c.enabled) { onDismiss(); c.onClick() },
+            )
+        }
+        ParleyListItem(
+            headlineContent = { Text(stringResource(R.string.incall_add_note)) },
+            supportingContent = { Text(stringResource(R.string.calltime_note_saved)) },
+            leadingContent = { Icon(Icons.AutoMirrored.Rounded.Notes, null) },
+            colors = rowColors(),
+            modifier = Modifier.clickable { onDismiss(); onNote() },
+        )
+        if (onOpenContact != null) {
+            ParleyListItem(
+                headlineContent = { Text(stringResource(R.string.incall_open_contact)) },
+                leadingContent = { Icon(Icons.Rounded.Person, null) },
+                colors = rowColors(),
+                modifier = Modifier.clickable { onDismiss(); onOpenContact() },
+            )
+        }
+        CallTimeSection(call, timing, onDismiss)
+        Spacer(Modifier.height(Spacing.xl))
+    }
+}
+
+/** The call's limit and the wrap-up chips, as one card at the bottom of the More sheet. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun CallTimeSection(call: CallUi, timing: CallTiming?, onDismiss: () -> Unit) {
     val cd = timing?.countdown
     val now by rememberElapsedNow()
-    ParleySheet(onDismissRequest = onDismiss) {
-        Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
-            Text(stringResource(R.string.calltime_title), style = MaterialTheme.typography.titleMedium, modifier = Modifier.semantics { heading() })
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        shape = ParleyShapes.card,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.l, vertical = Spacing.s),
+    ) {
+        Column(Modifier.padding(Spacing.l)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Rounded.Timer, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.width(Spacing.m))
+                Text(stringResource(R.string.calltime_title), style = MaterialTheme.typography.titleMedium, modifier = Modifier.semantics { heading() })
+            }
             val sep = stringResource(R.string.tc_separator)
             val status = when {
                 cd?.endAt != null -> stringResource(R.string.calltime_ends_in, clockText((cd.remainingMs(now) ?: 0) / 1000)) + (timing.source?.let { sep + it } ?: "")
                 cd?.dontEnd == true -> stringResource(R.string.calltime_wont_end)
                 else -> stringResource(R.string.calltime_no_limit)
             }
-            Text(status, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
-            Spacer(Modifier.height(12.dp))
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                status, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = Spacing.xs),
+            )
+            Spacer(Modifier.height(Spacing.m))
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
                 val canExtend = cd?.endAt != null && cd.canExtend
                 if (canExtend) {
                     AssistChip(onClick = { CallClock.extend(call.id, 2) }, label = { Text(stringResource(R.string.calltime_plus_2)) }, leadingIcon = { Icon(Icons.Rounded.Timer, null) })
                     AssistChip(onClick = { CallClock.extend(call.id, 5) }, label = { Text(stringResource(R.string.calltime_plus_5)) }, leadingIcon = { Icon(Icons.Rounded.Timer, null) })
                 }
-                AssistChip(onClick = { CallClock.endIn(call.id, 1); onDismiss() }, label = { Text(stringResource(R.string.calltime_end_in_1)) }, leadingIcon = { Icon(Icons.Rounded.Timer, null) })
+                AssistChip(
+                    onClick = { CallClock.endIn(call.id, 1); onDismiss() },
+                    label = { Text(stringResource(R.string.calltime_end_in_1)) }, leadingIcon = { Icon(Icons.Rounded.Timer, null) },
+                )
                 if (canExtend) {
-                    AssistChip(onClick = { CallClock.keepGoing(call.id); onDismiss() }, label = { Text(stringResource(R.string.calltime_dont_end)) }, leadingIcon = { Icon(Icons.Rounded.TimerOff, null) })
+                    AssistChip(
+                        onClick = { CallClock.keepGoing(call.id); onDismiss() },
+                        label = { Text(stringResource(R.string.calltime_dont_end)) }, leadingIcon = { Icon(Icons.Rounded.TimerOff, null) },
+                    )
                 }
             }
             if (cd?.endAt != null && !cd.canExtend) {
@@ -201,26 +264,9 @@ internal fun CallMoreSheet(call: CallUi, timing: CallTiming?, onDismiss: () -> U
                     stringResource(R.string.calltime_supervised),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 8.dp),
+                    modifier = Modifier.padding(top = Spacing.s),
                 )
             }
         }
-        Spacer(Modifier.height(8.dp))
-        ListItem(
-            headlineContent = { Text(stringResource(R.string.incall_add_note)) },
-            supportingContent = { Text(stringResource(R.string.calltime_note_saved)) },
-            leadingContent = { Icon(Icons.AutoMirrored.Rounded.Notes, null) },
-            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-            modifier = Modifier.clickable { onDismiss(); onNote() },
-        )
-        if (onOpenContact != null) {
-            ListItem(
-                headlineContent = { Text(stringResource(R.string.incall_open_contact)) },
-                leadingContent = { Icon(Icons.Rounded.Person, null) },
-                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                modifier = Modifier.clickable { onDismiss(); onOpenContact() },
-            )
-        }
-        Spacer(Modifier.height(24.dp))
     }
 }

@@ -30,10 +30,8 @@ import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.IconButton
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -72,7 +70,19 @@ import kotlin.math.roundToInt
 import app.parley.ui.ParleyDialog
 import app.parley.ui.ParleyShapes
 import app.parley.ui.ParleyMotion
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.material.icons.rounded.NotificationsOff
+import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.IconButtonDefaults
+import app.parley.ui.Spacing
 
+/**
+ * The incoming screen's controls (docs/CALL_SCREEN_DESIGN.md): a quiet row of secondary actions (Reply, Silence,
+ * ⋮ with Block & decline), then answer and decline as the chosen gesture (a slider or two round buttons), then
+ * "End current call and answer" while another call is going.
+ */
 @Composable
 fun IncomingControls(
     call: CallUi, gesture: AnswerGesture, hasActiveCall: Boolean, onMessage: () -> Unit, onBlockAndDecline: (() -> Unit)? = null,
@@ -86,33 +96,40 @@ fun IncomingControls(
         SimpleAnswerButtons(call.simHint, onAnswer = { CallManager.answer(call.id) }, onDecline = decline)
         return
     }
-    Column(Modifier.fillMaxWidth().padding(bottom = 40.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        if (!call.hidden && !call.number.isNullOrBlank()) {
-            FilledTonalButton(onClick = onMessage) {
-                Icon(Icons.AutoMirrored.Rounded.Message, null, Modifier.size(18.dp))
-                Spacer(Modifier.size(8.dp))
-                Text(stringResource(R.string.incall_reply_with_message))
-            }
-            Spacer(Modifier.height(28.dp))
-        }
+    Column(Modifier.widthIn(max = 480.dp).fillMaxWidth().padding(bottom = Spacing.xl), horizontalAlignment = Alignment.CenterHorizontally) {
+        IncomingSecondaryRow(call, onMessage, onBlockAndDecline)
+        Spacer(Modifier.height(Spacing.xl))
         // On dual-SIM phones, which SIM the call came in on ("Work · …4567"), right on the answer control.
         val sim = call.simHint
         when (gesture) {
             AnswerGesture.SWIPE -> AnswerSlider(sim, onAnswer = { CallManager.answer(call.id) }, onDecline = decline)
             AnswerGesture.TAP -> AnswerButtons(sim, onAnswer = { CallManager.answer(call.id) }, onDecline = decline)
         }
-        if (!call.silenced || onBlockAndDecline != null) {
-            Spacer(Modifier.height(8.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                if (!call.silenced) TextButton(onClick = { CallManager.ignore(call.id) }) { Text(stringResource(R.string.incall_ignore_stop_ringing)) }
-                // "Block & decline" sits behind ⋮, two deliberate taps, so it can't happen by accident.
-                if (onBlockAndDecline != null) BlockAndDeclineMenu(onBlockAndDecline)
-            }
-        }
         if (hasActiveCall) {
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(Spacing.m))
             TextButton(onClick = { CallManager.endAndAnswer(call.id) }) { Text(stringResource(R.string.incall_end_and_answer)) }
         }
+    }
+}
+
+/** Reply with a message, Silence (stop ringing) and ⋮ (Block & decline), all the same quiet pill. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun IncomingSecondaryRow(call: CallUi, onMessage: () -> Unit, onBlockAndDecline: (() -> Unit)?) {
+    val canReply = !call.hidden && !call.number.isNullOrBlank()
+    if (!canReply && call.silenced && onBlockAndDecline == null) return
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(Spacing.s, Alignment.CenterHorizontally),
+        verticalArrangement = Arrangement.spacedBy(Spacing.s),
+    ) {
+        if (canReply) {
+            SecondaryAction(
+                Icons.AutoMirrored.Rounded.Message, stringResource(R.string.incall_reply), onMessage, spoken = stringResource(R.string.incall_reply_a11y),
+            )
+        }
+        if (!call.silenced) SecondaryAction(Icons.Rounded.NotificationsOff, stringResource(R.string.incall_silence), { CallManager.ignore(call.id) })
+        // "Block & decline" sits behind ⋮, two deliberate taps, so it can't happen by accident.
+        if (onBlockAndDecline != null) BlockAndDeclineMenu(onBlockAndDecline)
     }
 }
 
@@ -156,7 +173,11 @@ private fun BigAction(icon: ImageVector, label: String, color: Color, onClick: (
 private fun BlockAndDeclineMenu(onBlockAndDecline: () -> Unit) {
     var open by remember { mutableStateOf(false) }
     Box {
-        IconButton(onClick = { open = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.incall_incoming_more)) }
+        FilledTonalIconButton(
+            onClick = { open = true },
+            modifier = Modifier.size(CallButtonSize.secondaryHeight),
+            colors = IconButtonDefaults.filledTonalIconButtonColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHighest),
+        ) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.incall_incoming_more)) }
         DropdownMenu(open, onDismissRequest = { open = false }) {
             DropdownMenuItem(
                 text = { Text(stringResource(R.string.incall_block_decline)) },
@@ -170,28 +191,24 @@ private fun BlockAndDeclineMenu(onBlockAndDecline: () -> Unit) {
     }
 }
 
+/** Tap to answer: Decline and Answer as two 80 dp circles, Answer with a slow halo while it rings. */
 @Composable
 private fun AnswerButtons(sim: String?, onAnswer: () -> Unit, onDecline: () -> Unit) {
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-        RoundAction(Icons.Rounded.CallEnd, stringResource(R.string.incall_decline), CallColors.Decline, onDecline)
-        RoundAction(Icons.Rounded.Call, stringResource(R.string.incall_answer), CallColors.Accept, onAnswer, sub = sim, a11y = sim?.let { stringResource(R.string.incall_answer_on, it) })
+    val still = ParleyMotion.reducedMotion()
+    // Read only while drawing, so the halo redraws without recomposing the buttons.
+    val halo = if (still) {
+        null
+    } else {
+        rememberInfiniteTransition(label = "halo").animateFloat(0f, 1f, infiniteRepeatable(tween(1600), RepeatMode.Restart), label = "t")
     }
-}
-
-@Composable
-private fun RoundAction(
-    icon: ImageVector, label: String, color: Color, onClick: () -> Unit,
-    sub: String? = null, a11y: String? = null,
-) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(
-            Modifier.size(80.dp).clip(CircleShape).background(color)
-                .clickable(role = Role.Button, onClick = onClick)
-                .semantics { contentDescription = a11y ?: label },
-            contentAlignment = Alignment.Center,
-        ) { Icon(icon, null, tint = Color.White, modifier = Modifier.size(36.dp)) }
-        Text(label, style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 8.dp))
-        if (sub != null) SimTag(sub, Modifier.padding(top = 4.dp))
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.Top) {
+        CallActionButton(Icons.Rounded.CallEnd, stringResource(R.string.incall_decline), CallColors.Decline, onDecline)
+        CallActionButton(
+            Icons.Rounded.Call, stringResource(R.string.incall_answer), CallColors.Accept, onAnswer,
+            spoken = sim?.let { stringResource(R.string.incall_answer_on, it) } ?: stringResource(R.string.incall_answer),
+            halo = halo?.let { h -> { h.value } },
+            below = sim?.let { { SimTag(it, Modifier.padding(top = Spacing.xs)) } },
+        )
     }
 }
 
@@ -228,9 +245,9 @@ private fun AnswerSlider(sim: String?, onAnswer: () -> Unit, onDecline: () -> Un
     BoxWithConstraints(
         Modifier
             .fillMaxWidth()
-            .height(88.dp)
+            .height(80.dp)
             .clip(ParleyShapes.pill)
-            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+            .background(MaterialTheme.colorScheme.surfaceContainerHighest)
             .semantics {
                 contentDescription = description
                 customActions = listOf(
@@ -241,7 +258,7 @@ private fun AnswerSlider(sim: String?, onAnswer: () -> Unit, onDecline: () -> Un
         contentAlignment = Alignment.Center,
     ) {
         val density = LocalDensity.current
-        val thumb = 72.dp
+        val thumb = 64.dp
         val maxPx = with(density) { ((maxWidth - thumb) / 2 - 8.dp).toPx() }
         val progress = (offset.value / maxPx).coerceIn(-1f, 1f)
 

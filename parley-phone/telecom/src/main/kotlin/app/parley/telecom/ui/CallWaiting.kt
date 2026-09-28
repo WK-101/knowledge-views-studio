@@ -4,10 +4,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -16,18 +13,15 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Message
 import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.CallEnd
 import androidx.compose.material.icons.rounded.PauseCircle
 import androidx.compose.material.icons.rounded.PhoneInTalk
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -40,16 +34,12 @@ import androidx.compose.ui.res.stringResource
 import app.parley.telecom.R
 import app.parley.ui.Bidi
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.CustomAccessibilityAction
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.parley.telecom.CallManager
@@ -59,6 +49,9 @@ import app.parley.ui.Avatar
 import app.parley.ui.CallColors
 import app.parley.ui.ParleyShapes
 import app.parley.ui.topOnly
+import app.parley.ui.Spacing
+import androidx.compose.material3.contentColorFor
+import androidx.compose.material.icons.rounded.NotificationsOff
 
 /**
  * The call you're on, dimmed at the top while another call is waiting. It stays readable: the name and
@@ -125,8 +118,6 @@ internal fun CallWaitingSheet(ringing: CallUi, current: CallUi?, heldCount: Int,
                     .padding(horizontal = 20.dp, vertical = 16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Box(Modifier.size(width = 32.dp, height = 4.dp).clip(CircleShape).background(MaterialTheme.colorScheme.outlineVariant))
-                Spacer(Modifier.size(12.dp))
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.fillMaxWidth().semantics(mergeDescendants = true) {
@@ -148,7 +139,7 @@ internal fun CallWaitingSheet(ringing: CallUi, current: CallUi?, heldCount: Int,
                         if (sub.isNotEmpty()) Text(sub, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
-                Spacer(Modifier.size(20.dp))
+                Spacer(Modifier.size(Spacing.xl))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                     when {
                         canHoldAnswer -> WaitingAction(Icons.Rounded.PauseCircle, stringResource(R.string.incall_hold_answer_short), stringResource(R.string.incall_hold_and_answer), CallColors.Accept) { CallManager.holdAndAnswer(ringing.id) }
@@ -163,25 +154,20 @@ internal fun CallWaitingSheet(ringing: CallUi, current: CallUi?, heldCount: Int,
                     }
                 }
                 if (!ringing.silenced) {
-                    TextButton(onClick = { CallManager.ignore(ringing.id) }, modifier = Modifier.padding(top = 8.dp)) { Text(stringResource(R.string.incall_ignore_waiting_tone)) }
+                    SecondaryAction(
+                        Icons.Rounded.NotificationsOff, stringResource(R.string.incall_silence), { CallManager.ignore(ringing.id) },
+                        modifier = Modifier.padding(top = Spacing.l),
+                    )
                 }
             }
         }
     }
 }
 
+/** A call-waiting choice: the same round, morphing action as the incoming screen, a little smaller. */
 @Composable
 private fun WaitingAction(icon: ImageVector, label: String, spoken: String, color: Color, onClick: () -> Unit) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(80.dp)) {
-        Box(
-            Modifier
-                .size(64.dp)
-                .clip(CircleShape)
-                .background(color)
-                .clickable(role = Role.Button, onClick = onClick)
-                .semantics { contentDescription = spoken },
-            contentAlignment = Alignment.Center,
-        ) { Icon(icon, null, tint = Color.White, modifier = Modifier.size(30.dp)) }
-        Text(label, style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 6.dp), maxLines = 2)
-    }
+    // Theme colours (End & answer, Reply) take their own "on" colour; white only on the fixed call colours.
+    val ink = if (color == CallColors.Accept || color == CallColors.Decline) Color.White else contentColorFor(color)
+    CallActionButton(icon, label, color, onClick, size = CallButtonSize.small, spoken = spoken, ink = ink, modifier = Modifier.width(88.dp))
 }

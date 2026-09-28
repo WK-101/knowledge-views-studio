@@ -39,14 +39,25 @@ internal fun PipCallCard(calls: List<CallUi>, audio: AudioUi, ended: CallUi?) {
     val live = calls.filter { it.isLive }
     val call = live.firstOrNull { it.state == CallState.ACTIVE } ?: live.firstOrNull() ?: ended ?: calls.firstOrNull()
     val scheme = MaterialTheme.colorScheme
-    Box(Modifier.fillMaxSize().background(scheme.surface).padding(10.dp), contentAlignment = Alignment.CenterStart) {
+    Box(Modifier.fillMaxSize().background(scheme.surface)) {
+        // The same caller tint as the full call screen, so the small window reads as the same call.
+        CallBackground(call, picture = false)
+        PipContent(call, live.size, audio)
+    }
+}
+
+@Composable
+private fun PipContent(call: CallUi?, liveCount: Int, audio: AudioUi) {
+    val scheme = MaterialTheme.colorScheme
+    val live = liveCount
+    Box(Modifier.fillMaxSize().padding(10.dp), contentAlignment = Alignment.CenterStart) {
         if (call == null) return@Box
         Row(verticalAlignment = Alignment.CenterVertically) {
             Avatar(call.title, call.photoUri, 40.dp)
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
                 Text(
-                    call.displayTitle + if (live.size > 1) " +${live.size - 1}" else "",
+                    call.displayTitle + if (live > 1) " +${live - 1}" else "",
                     style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis,
                 )
                 val status = when {
