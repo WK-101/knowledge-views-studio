@@ -17,7 +17,6 @@ import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -65,11 +64,9 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.heading
-import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextAlign
@@ -116,32 +113,6 @@ fun CallsSurface(vm: AppViewModel, open: (Destination) -> Unit, searching: Boole
             RecentsTab(vm, open, bottomPadding = if (expanded) 0.dp else 88.dp)
         },
     )
-}
-
-/**
- * The grab handle on top of the docked keypad: tap it, or swipe it down, to fold the keypad away. K3: the
- * keypad follows the finger and settles by distance and speed ([DockFoldState]).
- */
-@Composable
-internal fun DockHandle(label: String, fold: DockFoldState, onCollapse: () -> Unit) {
-    Box(
-        Modifier
-            .fillMaxWidth()
-            .heightIn(min = 28.dp)
-            .draggable(
-                rememberDraggableState { fold.drag(it) },
-                Orientation.Vertical,
-                onDragStopped = { v -> fold.release(v) },
-            )
-            .clickable(onClickLabel = label, role = Role.Button, onClick = onCollapse)
-            .semantics { contentDescription = label },
-        contentAlignment = Alignment.Center,
-    ) {
-        Box(
-            Modifier.padding(top = 10.dp, bottom = 6.dp).size(width = 36.dp, height = 4.dp).clip(ParleyShapes.pill)
-                .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)),
-        )
-    }
 }
 
 /**
