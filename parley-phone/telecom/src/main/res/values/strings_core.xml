@@ -70,6 +70,8 @@
     <!-- Incoming call controls -->
     <string name="incall_reply_with_message">Reply with message</string>
     <string name="incall_ignore_stop_ringing">Ignore — stop ringing</string>
+    <!-- The incoming screen's quiet pill that stops the ringer (the call keeps ringing silently). -->
+    <string name="incall_silence">Silence</string>
     <string name="incall_end_and_answer">End current call and answer</string>
     <string name="incall_hold_and_answer">Hold current call and answer</string>
     <string name="incall_answer">Answer</string>
