@@ -30,6 +30,8 @@ import androidx.compose.ui.unit.Dp
 import app.parley.R
 import app.parley.common.KeypadFeedback
 import app.parley.common.KeypadKeys
+import app.parley.common.KeypadNumberActions
+import androidx.compose.ui.graphics.vector.ImageVector
 import app.parley.common.T9
 import app.parley.common.calls.CallPill
 import app.parley.common.calls.DialTarget
@@ -351,11 +353,27 @@ fun KeypadTab(vm: AppViewModel, open: (Destination) -> Unit, searchQuery: String
     val rootFocus = remember { FocusRequester() }
     LaunchedEffect(Unit) { runCatching { rootFocus.requestFocus() } }
 
-    // Actions for the typed number: message it, or save it (as a contact, into one, or for a while).
+    // Actions for the typed number: message it, or save it (as a contact, into one, or for a while). Each shows in
+    // one place only: rows in the results when no contact matches, else the chip row at the results' foot.
     val typedNumber = input.trim()
-    val showNumberActions = typedNumber.isNotEmpty() && !isTextSearch() && !PhoneNumbers.isServiceCode(typedNumber)
+    val numberActions = KeypadNumberActions.place(
+        typed = typedNumber,
+        textSearch = isTextSearch(),
+        serviceCode = PhoneNumbers.isServiceCode(typedNumber),
+        contactMatches = results.any { it.contact != null },
+        known = results.any { it.contact != null && PhoneNumbers.same(it.number, typedNumber, vm.countryIso) },
+    )
+    val showNumberActions = numberActions.chips.isNotEmpty()
+    fun runNumberAction(action: KeypadNumberActions.Action) {
+        when (action) {
+            KeypadNumberActions.Action.MESSAGE_OR_CALL -> messageOn = typedNumber
+            KeypadNumberActions.Action.CREATE_CONTACT -> open(Routes.edit(phone = typedNumber))
+            KeypadNumberActions.Action.ADD_TO_CONTACT -> open(Routes.pick(typedNumber))
+            KeypadNumberActions.Action.SAVE_TEMPORARY -> saveTemporary = typedNumber
+        }
+    }
 
-    // Docked at the foot of Recents, the panel folds away (scrolling the list, a swipe down on its handle) and a
+    // Docked at the foot of Recents, the panel folds away (scrolling the list, a swipe down on the panel) and a
     // keypad button brings it back; the panel's height still never changes while typing.
     // The fold follows the finger and springs open or folded (see DockFoldState).
     val density = LocalDensity.current
@@ -403,42 +421,21 @@ fun KeypadTab(vm: AppViewModel, open: (Destination) -> Unit, searchQuery: String
                             },
                         ) { callResult(r) }
                     }
-                    if (results.none { it.contact != null } && input.length >= 3 && !isTextSearch()) {
-                        item {
-                            ListItem(
-                                headlineContent = { Text(stringResource(R.string.keypad_create_contact)) },
-                                leadingContent = { Icon(Icons.Rounded.PersonAdd, null) },
-                                modifier = Modifier.clickable { open(Routes.edit(phone = input)) },
-                            )
-                            ListItem(
-                                headlineContent = { Text(stringResource(R.string.recents_add_to_contact)) },
-                                leadingContent = { Icon(Icons.Rounded.PersonAdd, null) },
-                                modifier = Modifier.clickable { open(Routes.pick(input)) },
-                            )
-                            ListItem(
-                                headlineContent = { Text(stringResource(R.string.reach_message_or_call_on)) },
-                                supportingContent = { Text(stringResource(R.string.reach_apps_line)) },
-                                leadingContent = { Icon(Icons.AutoMirrored.Rounded.Chat, null) },
-                                modifier = Modifier.clickable { messageOn = input },
-                            )
-                        }
+                    // No contact matches: the list is free, so the actions are full rows (as in most dialers) and
+                    // the chip row stays hidden.
+                    items(numberActions.rows, key = { "action-" + it.name }) { action ->
+                        NumberActionRow(action) { runNumberAction(action) }
                     }
                 }
             }
-            // The number's actions sit at the foot of the results, above the keypad panel, never inside it: the
-            // panel is anchored to the bottom, so anything appearing in it while typing would push the keys up under
-            // the user's finger. The panel's height now never changes while typing (portrait, landscape, hardware keys).
+            // With contacts matching, the actions sit at the foot of the results, above the keypad panel, never
+            // inside it: the panel is anchored to the bottom, so anything appearing in it while typing would push the
+            // keys up under the user's finger. The panel's height never changes while typing (portrait, landscape,
+            // hardware keys).
             if (showNumberActions) {
-                val known = results.any { it.contact != null && PhoneNumbers.same(it.number, typedNumber, vm.countryIso) }
                 Surface(color = MaterialTheme.colorScheme.surface, modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(NUMBER_ACTIONS_HEIGHT)) {
                     Box(contentAlignment = Alignment.Center) {
-                        NumberActionChips(
-                            canSave = !known && typedNumber.count { it.isDigit() } >= 3,
-                            onMessage = { messageOn = typedNumber },
-                            onAdd = { open(Routes.edit(phone = typedNumber)) },
-                            onTemporary = { saveTemporary = typedNumber },
-                            onAddToExisting = { open(Routes.pick(typedNumber)) },
-                        )
+                        NumberActionChips(numberActions.chips, ::runNumberAction)
                     }
                 }
             }
@@ -455,12 +452,13 @@ fun KeypadTab(vm: AppViewModel, open: (Destination) -> Unit, searchQuery: String
     val panel: @Composable (Modifier) -> Unit = { panelModifier ->
         Surface(
             color = MaterialTheme.colorScheme.surfaceContainer, shape = ParleyShapes.sheet.topOnly(),
-            // TalkBack users fold the docked keypad with an action (the handle is also a button).
+            // TalkBack users fold the docked keypad with an action; the keypad button beside the Call pill folds it too.
             modifier = if (dock != null) panelModifier.semantics { customActions = listOf(CustomAccessibilityAction(hideKeypadLabel) { dock.onExpandedChange(false); true }) } else panelModifier,
         ) {
+            // One panel for the Keypad tab and the keypad docked in Recents: same padding, number field, keys and
+            // Call row, so the number and keys sit at the same place in both. The docked one has no grab handle
+            // (it would add height above the number): a swipe down anywhere on the panel folds it instead.
             Column(Modifier.fillMaxWidth()) {
-                // The handle stays on top (outside the panel's own scroll) and drags the fold.
-                if (dock != null) DockHandle(hideKeypadLabel, fold) { dock.onExpandedChange(false) }
                 Column(
                     // With large text or a short screen the docked panel scrolls inside its own height, so it never
                     // covers the list. K3: a drag down past its top folds the keypad (panelConnection).
@@ -848,19 +846,46 @@ private fun DialResultRow(r: DialResult, countryIso: String, modifier: Modifier 
     )
 }
 
-/** Chips under the number: Message, and when the number isn't saved yet, the ways to save it. */
+/** One name and icon per number action, the same in the results rows and the chips. */
+private fun numberActionLabel(action: KeypadNumberActions.Action): Int = when (action) {
+    KeypadNumberActions.Action.MESSAGE_OR_CALL -> R.string.reach_message_or_call_on
+    KeypadNumberActions.Action.CREATE_CONTACT -> R.string.keypad_create_contact
+    KeypadNumberActions.Action.ADD_TO_CONTACT -> R.string.recents_add_to_contact
+    KeypadNumberActions.Action.SAVE_TEMPORARY -> R.string.keypad_save_temporary
+}
+
+private fun numberActionIcon(action: KeypadNumberActions.Action): ImageVector = when (action) {
+    KeypadNumberActions.Action.MESSAGE_OR_CALL -> Icons.AutoMirrored.Rounded.Chat
+    KeypadNumberActions.Action.CREATE_CONTACT -> Icons.Rounded.PersonAdd
+    KeypadNumberActions.Action.ADD_TO_CONTACT -> Icons.Rounded.PersonAddAlt
+    KeypadNumberActions.Action.SAVE_TEMPORARY -> Icons.Rounded.AutoDelete
+}
+
+/** A number action as a results row (no contact matches); "Message or call on…" names the apps it reaches. */
 @Composable
-private fun NumberActionChips(canSave: Boolean, onMessage: () -> Unit, onAdd: () -> Unit, onTemporary: () -> Unit, onAddToExisting: () -> Unit) {
+private fun NumberActionRow(action: KeypadNumberActions.Action, onClick: () -> Unit) {
+    ParleyListItem(
+        modifier = Modifier.clickable(onClick = onClick),
+        headlineContent = { Text(stringResource(numberActionLabel(action))) },
+        supportingContent = if (action == KeypadNumberActions.Action.MESSAGE_OR_CALL) ({ Text(stringResource(R.string.reach_apps_line)) }) else null,
+        leadingContent = { Icon(numberActionIcon(action), null) },
+    )
+}
+
+/** The number actions as a compact chip row, shown while contacts fill the results. */
+@Composable
+private fun NumberActionChips(actions: List<KeypadNumberActions.Action>, onAction: (KeypadNumberActions.Action) -> Unit) {
     Row(
         Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        AssistChip(onClick = onMessage, label = { Text(stringResource(R.string.reach_message_or_call)) }, leadingIcon = { Icon(Icons.AutoMirrored.Rounded.Chat, null) })
-        if (canSave) {
-            AssistChip(onClick = onAdd, label = { Text(stringResource(R.string.keypad_add_to_contacts)) }, leadingIcon = { Icon(Icons.Rounded.PersonAdd, null) })
-            AssistChip(onClick = onTemporary, label = { Text(stringResource(R.string.keypad_save_temporary)) }, leadingIcon = { Icon(Icons.Rounded.AutoDelete, null) })
-            AssistChip(onClick = onAddToExisting, label = { Text(stringResource(R.string.keypad_add_to_existing)) }, leadingIcon = { Icon(Icons.Rounded.PersonAddAlt, null) })
+        actions.forEach { action ->
+            AssistChip(
+                onClick = { onAction(action) },
+                label = { Text(stringResource(numberActionLabel(action))) },
+                leadingIcon = { Icon(numberActionIcon(action), null) },
+            )
         }
     }
 }

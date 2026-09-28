@@ -219,7 +219,7 @@ private fun foldSpring() = spring<Float>(dampingRatio = 0.85f, stiffness = Sprin
 
 /**
  * The docked keypad's fold, 1 = unfolded, 0 = folded. It follows the finger while dragged (panel,
- * handle, folded button, list scroll) and otherwise springs to the state the home screen keeps ([open]).
+ * folded button, list scroll) and otherwise springs to the state the home screen keeps ([open]).
  */
 @Stable
 internal class DockFoldState(open: Boolean, private val scope: CoroutineScope, private val density: Density) {
@@ -296,7 +296,7 @@ internal class DockFoldState(open: Boolean, private val scope: CoroutineScope, p
         }
     }
 
-    /** Drags on the panel (its keys, number and handle) move the fold once the panel's own scroll has had its turn. */
+    /** Drags on the panel (its keys, number and Call row) move the fold once the panel's own scroll has had its turn. */
     val panelConnection = object : NestedScrollConnection {
         override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
             // Moving back up during a fold drag unfolds again before the panel's content scrolls.

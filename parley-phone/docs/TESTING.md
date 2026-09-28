@@ -1166,3 +1166,23 @@ Forms keep their input
 3. **Passphrase strength.** Type `password123`, `Summer2026!` and a common word repeated: each is rated weak. Four random words are rated strong.
 4. **Backup origin.** Restore a backup made on this phone: it is shown as from this phone. Restore one made on another phone, or with the signature stripped: it is shown as unconfirmed, and the restore still works after you confirm.
 5. **Overlay protection.** With a screen-overlay app running (for example a floating-bubble app), open the backup passphrase and "Delete all Parley data" dialogs. Taps through the overlay are ignored.
+
+## 22. Corrections (4.1)
+
+### 22.1 Keypad: one place per number action, one keypad panel
+
+Number actions (Keypad tab, and Recents with the keypad docked):
+1. Type a number that matches no contact, e.g. `0000`. The results show, once each and in this order: **Message or call on…** (with "WhatsApp, Signal, Telegram, Viber or SMS" under it), **Create new contact**, **Add to a contact**, **Save temporary contact**. No chip row shows above the keypad.
+2. Tap each row: the apps sheet opens; the contact editor opens with the number; the contact picker opens; the temporary contact dialog opens.
+3. Type `06` (two digits, no contact match): only **Message or call on…** shows, as a row.
+4. Type digits that match contacts (e.g. the first digits of a saved number). The contacts fill the list and the chip row above the keypad offers **Message or call on…**, **Create new contact**, **Add to a contact**, **Save temporary contact**. None of these appear as rows in the list.
+5. Type a saved contact's full number: the chip row offers only **Message or call on…**.
+6. Type `*#06#` or a USSD code such as `*100#`: no rows and no chips.
+7. Type letters on a hardware keyboard (name search): no rows and no chips.
+8. In Recents with the keypad docked, fold the keypad (keypad button left of the Call pill) with `0000` typed: the rows stay in the list and the keypad button sits in the corner; with contacts matching, it sits above the chip row.
+
+One keypad panel:
+1. Switch **Calls layout** between separate Keypad tab and Combined. Type `0000` in each: the panel's top edge, the number and every key sit at the same height in both (no grab handle above the docked number).
+2. Docked: swipe down on the number or on the keys to fold the keypad; scroll Recents to fold it; tap the keypad button left of the Call pill to fold it; tap the floating keypad button to bring it back.
+3. TalkBack, docked: the panel offers the "Hide on-screen keypad" action; the keypad button beside the Call pill folds it.
+4. Large font (200 %) and landscape: the docked panel still scrolls inside its height and never covers the whole list; side by side on a wide screen it folds aside.
