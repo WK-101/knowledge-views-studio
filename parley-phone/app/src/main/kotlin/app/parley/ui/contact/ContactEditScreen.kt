@@ -10,6 +10,7 @@ import android.provider.ContactsContract.CommonDataKinds.StructuredPostal
 import android.provider.ContactsContract.CommonDataKinds.Website
 import androidx.activity.compose.PredictiveBackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
@@ -252,6 +253,8 @@ fun ContactEditScreen(
     fun fr(key: Long) = requesters.getOrPut(key) { FocusRequester() }
     var focusKey by remember { mutableStateOf<Long?>(null) }
     var pickDateFor by remember { mutableStateOf<Long?>(null) }
+    // The address whose "Add from map link" dialog is open.
+    var mapLinkFor by rememberSaveable { mutableStateOf<Int?>(null) }
 
     // The system photo picker needs no storage permission (also for private contacts' encrypted photos, I6).
     val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
@@ -468,6 +471,7 @@ fun ContactEditScreen(
                 }
             }
 
+            val addressLinks = AddressMapLinks.matches(d)
             if (d.addresses.isNotEmpty()) {
                 group(G_ADDR, Icons.Rounded.Place, R.string.detail_address, keys.keys(G_ADDR, d.addresses.size), R.string.edit_add_address, {
                     addRow(G_ADDR, d.addresses.size) { it.copy(addresses = it.addresses + PostalItem(type = StructuredPostal.TYPE_HOME)) }
@@ -475,8 +479,20 @@ fun ContactEditScreen(
                     val a = d.addresses.getOrNull(i) ?: return@group
                     AddressRow(
                         a, fr(k),
+                        mapLink = addressLinks[i]?.let { d.websites.getOrNull(it)?.value },
+                        onMapLink = { mapLinkFor = i },
+                        onRemoveMapLink = {
+                            addressLinks[i]?.let { w -> keys.removed(WEBSITES.group, w) }
+                            update { AddressMapLinks.withoutLink(it, i) }
+                        },
                         onChange = { n2 -> update { it.copy(addresses = it.addresses.toMutableList().also { l -> if (i in l.indices) l[i] = n2 }) } },
-                        onRemove = { removeRow(G_ADDR, i) { it.copy(addresses = it.addresses.filterIndexed { j, _ -> j != i }) } },
+                        // The address's map link goes with it.
+                        onRemove = {
+                            addressLinks[i]?.let { w -> keys.removed(WEBSITES.group, w) }
+                            removeRow(G_ADDR, i) {
+                                AddressMapLinks.withoutLink(it, i).let { c -> c.copy(addresses = c.addresses.filterIndexed { j, _ -> j != i }) }
+                            }
+                        },
                     )
                 }
             }
@@ -606,6 +622,13 @@ fun ContactEditScreen(
                         fields(1)
                     }
                 }
+            }
+        }
+
+        mapLinkFor?.let { i ->
+            MapLinkDialog(onDismiss = { mapLinkFor = null }) { place ->
+                mapLinkFor = null
+                update { AddressMapLinks.withLink(it, i, place) }
             }
         }
 
@@ -845,9 +868,20 @@ private fun DateRow(ev: EventItem, openPicker: Boolean, onPickerClosed: () -> Un
     }
 }
 
-/** One address: type chip and "−" on top, then the parts (PO box and neighbourhood when it has them, F25). */
+/**
+ * One address: type chip and "−" on top, then the parts (PO box and neighbourhood when it has them, F25), then its
+ * map link ("Add from map link").
+ */
 @Composable
-private fun AddressRow(a: PostalItem, focus: FocusRequester, onChange: (PostalItem) -> Unit, onRemove: () -> Unit) {
+private fun AddressRow(
+    a: PostalItem,
+    focus: FocusRequester,
+    mapLink: String?,
+    onMapLink: () -> Unit,
+    onRemoveMapLink: () -> Unit,
+    onChange: (PostalItem) -> Unit,
+    onRemove: () -> Unit,
+) {
     val res = LocalResources.current
     val locked = a.id != null && a.id in LocalLocked.current
     val words = KeyboardCapitalization.Words
@@ -877,6 +911,7 @@ private fun AddressRow(a: PostalItem, focus: FocusRequester, onChange: (PostalIt
             EditorField(stringResource(R.string.edit_region), a.region, Modifier.weight(1f), cap = words, locked = locked) { onChange(a.copy(region = it)) }
             EditorField(stringResource(R.string.edit_country), a.country, Modifier.weight(1f), cap = words, locked = locked) { onChange(a.copy(country = it)) }
         }
+        if (!locked) AddressMapLinkRow(mapLink, onMapLink, onRemoveMapLink)
         Spacer(Modifier.height(6.dp))
     }
 }

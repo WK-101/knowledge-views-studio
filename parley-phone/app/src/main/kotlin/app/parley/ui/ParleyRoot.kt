@@ -200,7 +200,10 @@ private fun ParleyRootContent(vm: AppViewModel, appSnackbar: ParleySnackbar) {
             title = { Text(stringResource(R.string.save_contact_details)) },
             text = {
                 Text(
-                    listOfNotNull(p.composedName.ifBlank { null }, p.phones.firstOrNull()?.value, p.emails.firstOrNull()?.value).joinToString(" · "),
+                    listOfNotNull(
+                        p.composedName.ifBlank { null }, p.phones.firstOrNull()?.value, p.emails.firstOrNull()?.value,
+                        p.addresses.firstOrNull()?.formatted?.ifBlank { null },
+                    ).joinToString(" · "),
                 )
             },
             confirmButton = {

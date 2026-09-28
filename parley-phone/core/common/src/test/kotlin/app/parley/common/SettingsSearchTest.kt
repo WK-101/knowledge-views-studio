@@ -28,11 +28,19 @@ class SettingsSearchTest {
     }
 
     @Test fun layout_and_gestures_is_split_from_appearance() {
-        listOf("nav_tabs", "start_tab", "calls_layout", "favorites_in_contacts", "recent_tap", "row_actions", "swipe_actions", "simple_mode")
+        listOf("nav_tabs", "start_tab", "calls_layout", "favorites_in_contacts", "recent_tap", "swipe_actions", "simple_mode")
             .forEach { assertEquals(it, SettingsCategory.LAYOUT, SettingsCatalog[it].category) }
         listOf("theme", "amoled", "density", "avatar_style", "sort_names").forEach { assertEquals(it, SettingsCategory.APPEARANCE, SettingsCatalog[it].category) }
         // No page is overloaded any more.
         SettingsCategory.entries.forEach { c -> assertTrue(c.name, SettingsCatalog.inCategory(c).count { it.place == null } <= 22) }
+    }
+
+    @Test fun contact_list_buttons_live_in_contacts_and_are_found() {
+        assertEquals(SettingsCategory.CONTACTS, SettingsCatalog["row_actions"].category)
+        assertEquals(null, SettingsCatalog["row_actions"].place)
+        listOf("call button", "hide buttons", "clean list", "message button", "Call & message buttons").forEach { q ->
+            assertTrue(q, "row_actions" in keys(q))
+        }
     }
 
     @Test fun empty_query_finds_nothing() {

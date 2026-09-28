@@ -3,6 +3,7 @@ package app.parley.messaging
 import app.parley.security.LockedActivity
 import android.Manifest
 import android.content.ClipboardManager
+import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -72,6 +73,7 @@ import app.parley.common.NumberText
 import app.parley.common.PhoneNumbers
 import app.parley.common.SimAccount
 import app.parley.common.calls.EmergencyPolicy
+import app.parley.common.people.MapLinks
 import app.parley.container
 import app.parley.data.EmergencyNumbers
 import app.parley.security.AppLock
@@ -108,6 +110,10 @@ class NumberActionActivity : LockedActivity() {
 
     private sealed interface Stage {
         data object NoNumber : Stage
+
+        /** No number, but a map link (read on the phone): offer to save it as a contact's address. */
+        data class Place(val place: MapLinks.Place) : Stage
+
         /** "Message a number" (tile, launcher shortcut): an empty field with Paste and the country. */
         data object Enter : Stage
         data class Pick(val found: List<NumberText.Found>) : Stage
@@ -271,10 +277,16 @@ class NumberActionActivity : LockedActivity() {
             ACTION_MESSAGE_ON -> intent.getStringExtra(EXTRA_NUMBER)?.takeIf { it.isNotBlank() }?.let { return Stage.Message(it, intent.getStringExtra(EXTRA_ACCOUNT_ID)) }
             else -> null
         }.orEmpty().take(MAX_TEXT)
+        return stageFor(text)
+    }
+
+    /** What text holds: one number, several, none but a map link (an unknown web link isn't one), or nothing. */
+    private fun stageFor(text: String): Stage {
         val found = NumberText.find(text, PhoneEnv.countryIso(this))
         if (found.size > 1) sourceText = text
         return when (found.size) {
-            0 -> Stage.NoNumber
+            0 -> MapLinks.parse(text)?.takeIf { it.hasCoordinates || it.needsNetwork || it.service != MapLinks.Service.OTHER }?.let { Stage.Place(it) }
+                ?: Stage.NoNumber
             1 -> Stage.Actions(found[0].e164 ?: found[0].raw, found[0].raw)
             else -> Stage.Pick(found)
         }
@@ -307,6 +319,7 @@ class NumberActionActivity : LockedActivity() {
                         Text(stringResource(R.string.num_none_body), style = MaterialTheme.typography.bodyMedium)
                         TextButton({ finish() }) { Text(stringResource(R.string.main_close)) }
                     }
+                    is Stage.Place -> PlaceActions(s.place)
                     Stage.Enter -> EnterNumber()
                     is Stage.Pick -> PickNumber(s.found)
                     is Stage.Actions -> NumberActions(s.number, s.raw)
@@ -349,6 +362,51 @@ class NumberActionActivity : LockedActivity() {
                 )
             }
         }
+    }
+
+    /** A shared map link: what Parley read from it, and "Add to a contact…" (a new contact or an existing one). */
+    @Composable
+    private fun PlaceActions(p: MapLinks.Place) {
+        val lat = p.lat
+        val lon = p.lon
+        val what = listOfNotNull(p.name, if (lat != null && lon != null) MapLinks.formatPair(lat, lon) else null).joinToString(" · ").ifEmpty { p.link }
+        Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(stringResource(R.string.map_link_place_title), style = MaterialTheme.typography.titleLarge, modifier = Modifier.semantics { heading() })
+            Text(what, style = MaterialTheme.typography.bodyLarge)
+            if (p.needsNetwork) {
+                Text(stringResource(R.string.map_link_short), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Text(stringResource(R.string.map_link_share_body), style = MaterialTheme.typography.bodyMedium)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                TextButton({ finish() }) { Text(stringResource(R.string.main_close)) }
+                TextButton({ addPlace(p) }) { Text(stringResource(R.string.map_link_add_to_contact)) }
+            }
+        }
+    }
+
+    /**
+     * Opens Parley's "Save contact details" choice (new contact, or add to an existing one) with the place as a home
+     * address and its map link as the address's "Map (Home)" website row, through the standard insert-or-edit extras.
+     */
+    private fun addPlace(p: MapLinks.Place) {
+        val lat = p.lat
+        val lon = p.lon
+        val address = p.name ?: if (lat != null && lon != null) MapLinks.formatPair(lat, lon) else ""
+        val site = ContentValues().apply {
+            put(ContactsContract.Data.MIMETYPE, ContactsContract.CommonDataKinds.Website.CONTENT_ITEM_TYPE)
+            put(ContactsContract.CommonDataKinds.Website.URL, MapLinks.storedLink(p))
+            put(ContactsContract.CommonDataKinds.Website.TYPE, ContactsContract.CommonDataKinds.Website.TYPE_CUSTOM)
+            put(ContactsContract.CommonDataKinds.Website.LABEL, MapLinks.label("Home"))
+        }
+        startActivity(
+            Intent(this, MainActivity::class.java).setAction(Intent.ACTION_INSERT_OR_EDIT)
+                .setType(ContactsContract.Contacts.CONTENT_ITEM_TYPE)
+                .putExtra(ContactsContract.Intents.Insert.POSTAL, address)
+                .putExtra(ContactsContract.Intents.Insert.POSTAL_TYPE, ContactsContract.CommonDataKinds.StructuredPostal.TYPE_HOME)
+                .putParcelableArrayListExtra(ContactsContract.Intents.Insert.DATA, arrayListOf(site))
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+        )
+        finish()
     }
 
     /** Hands the text to Parley's "Add several numbers" screen (in memory only) and closes the sheet. */

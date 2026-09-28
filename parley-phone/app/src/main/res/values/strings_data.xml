@@ -880,6 +880,13 @@
     <string name="ppl_bg_custom">Custom call screen picture</string>
     <string name="ppl_bg_default">Default call screen</string>
     <string name="ppl_bg_info">Call screen background · change it in Edit</string>
+    <string name="ppl_bg_info_none">Choose a picture to show when they call</string>
+    <string name="ppl_bg_info_set">Shown when they call. Tap to change it.</string>
+    <string name="ppl_bg_set">Call screen picture set</string>
+    <string name="ppl_bg_removed">Call screen picture removed</string>
+    <string name="ppl_bg_remove_desc">Remove call screen picture</string>
+    <string name="ppl_bg_unreadable">Parley couldn\'t open that picture. Please choose it again.</string>
+    <string name="ppl_bg_not_picture">That file isn\'t a picture Parley can use. Try another one.</string>
 
     <!-- People: contacts filter chips -->
     <string name="ppl_chip_all">All</string>

@@ -248,7 +248,6 @@ internal fun LayoutPage(vm: AppViewModel, open: (Destination) -> Unit) {
     // Combine Keypad + Recents and Favourites + Contacts (optional), and the Recents row tap.
     LayoutSettingsGroup(vm)
     SegmentedGroup(stringResource(R.string.set_group_gestures)) {
-        switchRow("row_actions", s.contactRowActions, Icons.Rounded.TouchApp) { v -> set { it.copy(contactRowActions = v) } }
         item("swipe_actions") { SwipeSettings(vm) }
     }
     // Simple mode, set up here (for someone else, or for yourself).
@@ -435,6 +434,9 @@ internal fun ContactsPage(vm: AppViewModel, open: (Destination) -> Unit) {
     val tempSub = if (tempCount == 0) null else pluralStringResource(R.plurals.set_temporary_count, tempCount, tempCount)
     val reminderSub = stringResource(R.string.set_birthday_reminders_at, "${s.birthdayReminderHour}:00")
     val circleCfg by vm.c.circle.config.collectAsStateWithLifecycle()
+    SegmentedGroup(stringResource(R.string.set_group_contact_list)) {
+        switchRow("row_actions", s.contactRowActions, Icons.Rounded.TouchApp) { v -> set { it.copy(contactRowActions = v) } }
+    }
     SegmentedGroup(stringResource(R.string.set_group_organise)) {
         if (accounts.isNotEmpty()) {
             val current = accounts.indexOfFirst { it.type == s.defaultAccountType && it.name == s.defaultAccountName }.coerceAtLeast(0)

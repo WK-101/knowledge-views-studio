@@ -12,7 +12,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.withContext
+import android.util.Log
 import java.io.File
+import java.io.IOException
 import java.security.MessageDigest
 
 /**
@@ -30,9 +32,14 @@ class CallBackgrounds(context: Context, private val contacts: ContactsRepository
 
     private fun fileFor(lookupKey: String): File = File(dir, sha256(lookupKey) + ".jpg")
 
-    /** The background of a contact, as a file URI string, or null. */
+    /**
+     * The background of a contact, as a file URI string, or null. The file keeps its name when the picture is
+     * replaced, so the URI carries the file's time: image caches keyed by URI (the preview, the call screen) then
+     * load the new picture instead of showing the old one. Opening a `file:` URI ignores the query.
+     */
     fun forLookupKey(lookupKey: String?): String? =
-        lookupKey?.takeIf { it.isNotEmpty() }?.let(::fileFor)?.takeIf { it.isFile }?.let { Uri.fromFile(it).toString() }
+        lookupKey?.takeIf { it.isNotEmpty() }?.let(::fileFor)?.takeIf { it.isFile }
+            ?.let { Uri.fromFile(it).buildUpon().appendQueryParameter("v", it.lastModified().toString()).build().toString() }
 
     /**
      * Hook for the in-call screen: the background for a caller's number, or null. Blocking (a contacts lookup);
@@ -44,11 +51,35 @@ class CallBackgrounds(context: Context, private val contacts: ContactsRepository
         return forLookupKey(info.lookupKey)
     }
 
-    /** Copies [source] into app storage for [lookupKey]; returns false if it isn't a readable image. */
-    suspend fun set(lookupKey: String, source: Uri): Boolean = withContext(Dispatchers.IO) {
-        val bytes = runCatching { encode(source) }.getOrNull() ?: return@withContext false
-        write(lookupKey, bytes)
-        true
+    /** How [set] went, so the screen can say what to do next instead of doing nothing. */
+    enum class SetResult { OK, UNREADABLE, NOT_A_PICTURE, NOT_SAVED }
+
+    /** Copies [source] into app storage for [lookupKey]. */
+    suspend fun set(lookupKey: String, source: Uri): SetResult = withContext(Dispatchers.IO) {
+        if (lookupKey.isEmpty()) return@withContext SetResult.NOT_SAVED
+        val bytes = try {
+            encode(source) ?: return@withContext SetResult.NOT_A_PICTURE
+        } catch (e: SecurityException) {
+            // The picker's permission to read the picture is gone (for example after Parley was stopped meanwhile).
+            Log.w(TAG, "No access to the chosen picture", e)
+            return@withContext SetResult.UNREADABLE
+        } catch (e: IOException) {
+            Log.w(TAG, "Couldn't read the chosen picture", e)
+            return@withContext SetResult.UNREADABLE
+        } catch (e: OutOfMemoryError) {
+            Log.w(TAG, "The chosen picture is too large", e)
+            return@withContext SetResult.NOT_A_PICTURE
+        } catch (e: IllegalArgumentException) {
+            Log.w(TAG, "Couldn't decode the chosen picture", e)
+            return@withContext SetResult.NOT_A_PICTURE
+        }
+        try {
+            write(lookupKey, bytes)
+            SetResult.OK
+        } catch (e: IOException) {
+            Log.w(TAG, "Couldn't store the call screen picture", e)
+            SetResult.NOT_SAVED
+        }
     }
 
     suspend fun clear(lookupKey: String) = withContext(Dispatchers.IO) {
@@ -61,7 +92,10 @@ class CallBackgrounds(context: Context, private val contacts: ContactsRepository
         val target = fileFor(lookupKey)
         val tmp = File(dir, target.name + ".tmp")
         tmp.writeBytes(jpeg)
-        tmp.renameTo(target)
+        if (!tmp.renameTo(target)) {
+            tmp.delete()
+            throw IOException("Couldn't move the call screen picture into place")
+        }
         remember(lookupKey)
         _version.value++
     }
@@ -110,10 +144,13 @@ class CallBackgrounds(context: Context, private val contacts: ContactsRepository
 
     internal fun hashOf(lookupKey: String) = sha256(lookupKey)
 
-    /** Decodes, downsamples to at most [MAX_SIDE] px and re-encodes as JPEG (drops EXIF, including location). */
+    /**
+     * Decodes, downsamples to at most [MAX_SIDE] px and re-encodes as JPEG (drops EXIF, including location).
+     * Throws [SecurityException] or [IOException] when the picture can't be opened; null when it isn't a picture.
+     */
     private fun encode(source: Uri): ByteArray? {
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        app.contentResolver.openInputStream(source)?.use { BitmapFactory.decodeStream(it, null, bounds) } ?: return null
+        (app.contentResolver.openInputStream(source) ?: throw IOException("No stream for the picture")).use { BitmapFactory.decodeStream(it, null, bounds) }
         if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
         var sample = 1
         while (maxOf(bounds.outWidth, bounds.outHeight) / (sample * 2) >= MAX_SIDE) sample *= 2
@@ -127,5 +164,6 @@ class CallBackgrounds(context: Context, private val contacts: ContactsRepository
 
     companion object {
         const val MAX_SIDE = 1280
+        private const val TAG = "CallBackgrounds"
     }
 }
