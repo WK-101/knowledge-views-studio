@@ -56,4 +56,35 @@
     <!-- What's new -->
     <string name="home_whats_new_layout">New, if you like: fewer tabs. The keypad can sit in Recents, and your favourites at the top of Contacts. Nothing changes unless you choose it.</string>
     <string name="home_whats_new_layout_action">Layout options</string>
+    <!-- The quiet count at the end of the Contacts list. -->
+    <plurals name="contacts_footer_count">
+        <item quantity="one">%1$d contact</item>
+        <item quantity="other">%1$d contacts</item>
+    </plurals>
+    <plurals name="contacts_footer_private">
+        <item quantity="one">%1$d private</item>
+        <item quantity="other">%1$d private</item>
+    </plurals>
+    <!-- "120 contacts · 3 private" -->
+    <string name="contacts_footer_with_private">%1$s · %2$s</string>
+    <plurals name="contacts_footer_results">
+        <item quantity="one">%1$d result</item>
+        <item quantity="other">%1$d results</item>
+    </plurals>
+    <plurals name="contacts_footer_in">
+        <item quantity="one">%1$d contact in %2$s</item>
+        <item quantity="other">%1$d contacts in %2$s</item>
+    </plurals>
+    <plurals name="contacts_footer_unlabelled">
+        <item quantity="one">%1$d unlabelled contact</item>
+        <item quantity="other">%1$d unlabelled contacts</item>
+    </plurals>
+    <plurals name="contacts_footer_filtered">
+        <item quantity="one">%1$d contact matches the filter</item>
+        <item quantity="other">%1$d contacts match the filter</item>
+    </plurals>
+    <plurals name="contacts_footer_private_list">
+        <item quantity="one">%1$d private contact</item>
+        <item quantity="other">%1$d private contacts</item>
+    </plurals>
 </resources>

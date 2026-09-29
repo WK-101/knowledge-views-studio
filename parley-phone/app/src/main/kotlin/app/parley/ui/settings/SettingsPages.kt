@@ -21,6 +21,7 @@ import androidx.compose.material.icons.automirrored.rounded.Label
 import androidx.compose.material.icons.automirrored.rounded.PhoneForwarded
 import androidx.compose.material.icons.automirrored.rounded.ShortText
 import androidx.compose.material.icons.rounded.Palette
+import androidx.compose.material.icons.rounded.SyncAlt
 import androidx.compose.material.icons.rounded.AdminPanelSettings
 import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.AutoDelete
@@ -452,6 +453,7 @@ internal fun ContactsPage(vm: AppViewModel, open: (Destination) -> Unit) {
             }
         }
         item("labels") { LabelsRow(vm, open, Icons.AutoMirrored.Rounded.Label) }
+        switchRow("mirror_relations", s.mirrorRelations, Icons.Rounded.SyncAlt) { v -> set { it.copy(mirrorRelations = v) } }
         linkRow("temporary_contacts", Icons.Rounded.AutoDelete, sub = tempSub) {
             open(Routes.Temporary)
         }

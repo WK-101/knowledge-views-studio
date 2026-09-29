@@ -1362,3 +1362,31 @@ Design: [CONTACT_MODEL.md](CONTACT_MODEL.md). Use a phone with a screen lock and
 9. **Discreet mode.** Settings › Privacy › Hide private contacts: they leave Contacts, Favourites, the Circle and keypad results, and calls from them show only the number, as before.
 10. **Old links.** A missed-call notification, "Chat, then decide", Recents or Temporary contacts that open a private contact all land on the same page.
 11. **Backup.** With the vault unlocked, back up and restore on another phone (or after "Delete all Parley data"): the private contact comes back with its Circle rhythm, moments and call-screen picture. A backup made while the vault was locked holds none of them.
+
+### 24.5 Two-way relations, whole contact photos, contact count
+
+Relations:
+
+1. **Mirror.** Edit Sam, add a relation, pick Ana with the contact picker and choose "Mother". Save: a snackbar "Also added to Ana Lee: Mother → Child" with Undo. Open Ana: About lists "Child: Sam …"; tap it: Sam's page opens (and on Sam's page, tapping "Mother: Ana" opens Ana).
+2. **Types.** Spouse → Spouse, Partner → Partner, Sister/Brother → Sibling, Friend → Friend, Manager → Assistant (and back), Father/Parent → Child, Child/Son → Parent, Aunt → Relative. A custom label ("Fishing buddy") is mirrored as written. "Doctor" or "Met" add nothing on the other side.
+3. **Undo.** Tap Undo on the snackbar: Ana's "Child" row goes. History & undo › Contacts lists Ana as edited.
+4. **Retype and remove.** Change Sam's relation to "Friend": Ana's row becomes "Friend" ("Also changed on Ana Lee: Friend → Friend"). Remove it: Ana's row goes ("Also removed from Ana Lee").
+5. **User rows win.** On Ana, change the added row to "Son" by hand; then remove Sam's relation: Ana keeps "Son". If Ana already calls Sam something ("Brother: Sam Lee") before you add the relation on Sam, no second row is added.
+6. **Read-only.** Pick a contact whose only copy is in a read-only account (a messenger's): the snackbar says it's in a read-only account and the relation is saved only on Sam. Nothing is written to that contact.
+7. **Setting.** Settings › Contacts › Organise › "Add relations to both contacts" (on by default; search "reciprocal" finds it). Turn it off: relations are saved only on the contact you edit.
+8. **Private contacts.** Relations on private contacts are never mirrored to phone contacts (their names would leave Parley).
+
+Photos:
+
+9. **Whole photo.** Edit a contact, add a landscape 4:3 (or portrait) photo, save. The contact page shows it uncropped as a rounded rectangle (wider or taller than the old circle); a square photo is still a circle. Scroll: it shrinks and docks into the top bar as before. The Contacts list keeps round avatars.
+10. **Full resolution.** Tap the photo: the viewer shows it whole; pinch or double-tap and zoom in on fine detail: after a moment it sharpens (only the part in view is decoded). A 50 MP photo opens without stutter or a crash.
+11. **Orientation.** A phone photo stored rotated (EXIF orientation 6 or 8, most portraits) shows upright on the page and in the viewer, also when zoomed in.
+12. **Formats.** HEIC works (kept as a high-quality JPEG). A photo over 20 MB works too.
+13. **Other apps.** The photo menu in the editor says "Parley keeps the whole photo. Other apps see Android's smaller copy." Google Contacts shows the same picture, uncropped but at Android's size (720 px at most).
+14. **Replaced elsewhere.** Change the photo in another contacts app: Parley's page shows the new photo (its own copy of the old one is dropped). Remove the photo in Parley: the page shows the monogram.
+15. **Private contact.** Add a photo to a private contact: its page shows it whole and the viewer opens it; the file on disk is sealed. Make it visible again (and private again): the whole photo comes along each time. Delete the private contact: its original goes too.
+16. **Backup.** Back up and restore on a fresh install: originals up to 4 MB in total come back; the others show Android's copy.
+
+Count:
+
+17. **Footer.** Scroll to the end of Contacts: "120 contacts" in small grey text. Pick one label: "12 contacts in Family"; one account: "30 contacts in Google · …"; Unlabelled: "5 unlabelled contacts"; two labels: "7 contacts match the filter". Search: "4 results". With private contacts in the list: "120 contacts · 3 private". The Private chip: "3 private contacts". One contact reads "1 contact". TalkBack reads the line.

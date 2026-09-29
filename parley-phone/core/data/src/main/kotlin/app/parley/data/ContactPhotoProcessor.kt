@@ -5,7 +5,6 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.ImageDecoder
 import android.graphics.Matrix
-import android.graphics.Rect
 import android.net.Uri
 import android.util.Log
 import androidx.exifinterface.media.ExifInterface
@@ -18,7 +17,9 @@ import java.nio.ByteBuffer
 /**
  * Turns any picture into a contact photo with bounded memory. The size is read first and the image is
  * decoded already reduced (a 50 MP photo never sits in memory at full size), turned upright from its EXIF
- * orientation, cropped to the centre square and written as a [PhotoMath.TARGET] px JPEG.
+ * orientation and written whole (never cropped) as a JPEG whose longer side is at most [PhotoMath.TARGET] px, the most
+ * Android's contacts provider keeps (it scales and re-encodes whatever it is given; see
+ * [app.parley.common.photo.OriginalPhoto]). Parley keeps the picture as picked in [app.parley.data.people.OriginalPhotos].
  *
  * [ImageDecoder] (Android 9+, so always here) reads JPEG, PNG, WebP, GIF and HEIF/HEIC and applies EXIF orientation
  * itself. When it can't read a file, [BitmapFactory] with `inSampleSize` and [ExifInterface] do the same job.
@@ -99,11 +100,9 @@ object ContactPhotoProcessor {
             decoder.isMutableRequired = false
             val w = info.size.width
             val h = info.size.height
-            val (tw, th) = PhotoMath.scaledSize(w, h, target)
+            // The whole picture, its longer side at the target: rectangular photos stay rectangular.
+            val (tw, th) = PhotoMath.fitLongSide(w, h, target)
             if (tw != w || th != h) decoder.setTargetSize(tw, th)
-            // The crop is in the scaled (and already upright) image's coordinates.
-            val c = PhotoMath.centerSquare(tw, th)
-            if (c.width != tw || c.height != th) decoder.crop = Rect(c.left, c.top, c.right, c.bottom)
         }
         encode(bitmap, target)
     } catch (e: Exception) {
@@ -114,7 +113,7 @@ object ContactPhotoProcessor {
         null
     }
 
-    /** BitmapFactory path: bounds first, then a sampled decode, EXIF rotation and the square crop. */
+    /** BitmapFactory path: bounds first, then a sampled decode and EXIF rotation. */
     private fun fallback(target: Int, open: () -> InputStream?): ByteArray? = try {
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         open()?.use { BitmapFactory.decodeStream(it, null, bounds) }
@@ -123,7 +122,9 @@ object ContactPhotoProcessor {
         } else {
             val orientation = open()?.use { runCatching { ExifInterface(it).getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL) }.getOrNull() }
                 ?: ExifInterface.ORIENTATION_NORMAL
-            val opts = BitmapFactory.Options().apply { inSampleSize = PhotoMath.sampleSize(bounds.outWidth, bounds.outHeight, target) }
+            var sample = 1
+            while (maxOf(bounds.outWidth, bounds.outHeight) / (sample * 2) >= target) sample *= 2
+            val opts = BitmapFactory.Options().apply { inSampleSize = sample }
             val sampled = open()?.use { BitmapFactory.decodeStream(it, null, opts) }
             sampled?.let { encode(upright(it, orientation), target) }
         }
@@ -145,11 +146,10 @@ object ContactPhotoProcessor {
         return Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, m, true).also { if (it !== bitmap) bitmap.recycle() }
     }
 
-    /** Centre square, scaled to at most [target] px, as JPEG. */
+    /** The whole picture, its longer side at most [target] px, as JPEG. */
     private fun encode(bitmap: Bitmap, target: Int): ByteArray {
-        val c = PhotoMath.centerSquare(bitmap.width, bitmap.height)
-        var square = if (c.width == bitmap.width && c.height == bitmap.height) bitmap else Bitmap.createBitmap(bitmap, c.left, c.top, c.width, c.height)
-        if (square.width > target) square = Bitmap.createScaledBitmap(square, target, target, true)
-        return ByteArrayOutputStream().also { square.compress(Bitmap.CompressFormat.JPEG, PhotoMath.QUALITY, it) }.toByteArray()
+        val (tw, th) = PhotoMath.fitLongSide(bitmap.width, bitmap.height, target)
+        val scaled = if (tw != bitmap.width || th != bitmap.height) Bitmap.createScaledBitmap(bitmap, tw, th, true) else bitmap
+        return ByteArrayOutputStream().also { scaled.compress(Bitmap.CompressFormat.JPEG, PhotoMath.QUALITY, it) }.toByteArray()
     }
 }

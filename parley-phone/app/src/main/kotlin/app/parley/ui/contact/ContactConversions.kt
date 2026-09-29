@@ -74,10 +74,13 @@ class ContactConversions(private val c: DataContainer) {
         // Read before the entry goes: the private call history is deleted with it.
         val calls = runCatching { c.vault.privateCallsOf(vaultId) }.getOrDefault(emptyList())
         val clean = d.copy(id = 0, lookupKey = "", photoUri = null)
+        // The photo as picked, opened now: the entry (and its sealed original) is deleted by the move.
+        val original = withContext(Dispatchers.IO) { c.people.originals.take(ContactRef.privateKey(vaultId)) }
         val newId = c.vaultMoves.moveOut(vaultId, clean, account) ?: return@inApp null
         val key = withContext(Dispatchers.IO) { c.contacts.lookupKeyOf(newId) }?.takeIf { it.isNotEmpty() }
         if (key != null) {
             c.contactKeys.rekey(ContactRef.privateKey(vaultId), key, newId)
+            original?.let { o -> withContext(Dispatchers.IO) { c.people.originals.put(key, o) } }
             // The note for calls and the usual app go back to Parley's row for them (only fields the vault carried).
             if (clean.pinnedNote.isNotBlank() || clean.messengerPrefs.isNotBlank()) {
                 c.meta.ensureMeta(key, newId)

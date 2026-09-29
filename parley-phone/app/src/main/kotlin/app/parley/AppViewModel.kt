@@ -5,6 +5,7 @@ import app.parley.ui.Destination
 import android.net.Uri
 import app.parley.blocking.DialText
 import app.parley.common.DialHit
+import app.parley.common.suspendRunCatching
 import app.parley.common.StartTab
 import app.parley.data.ContactDetails
 import app.parley.ui.circle.CircleUi
@@ -91,6 +92,10 @@ sealed interface UiEvent {
     data class Undo(val text: String, val journalIds: List<Long>) : UiEvent
     /** Calls deleted from history (a swipe), with Undo from the archive's deleted-calls batch. */
     data class UndoCalls(val text: String, val batchId: Long) : UiEvent
+
+    /** A change with its own way back (e.g. relations added to other contacts). */
+    data class UndoAction(val text: String, val undo: suspend () -> Unit) : UiEvent
+
     data object RequestCallPermission : UiEvent
 }
 
@@ -157,6 +162,16 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun toast(text: String) {
         events.trySend(UiEvent.Message(text))
+    }
+
+    /** [text] with Undo, which runs [undo]. */
+    fun offerUndo(text: String, undo: suspend () -> Unit) {
+        events.trySend(UiEvent.UndoAction(text, undo))
+    }
+
+    /** Runs an Undo from [offerUndo] here, so leaving the screen doesn't stop it half way. */
+    fun runUndo(undo: suspend () -> Unit) {
+        viewModelScope.launch { suspendRunCatching { undo() } }
     }
 
     /** A text in the app's language, for toasts and messages built here. */

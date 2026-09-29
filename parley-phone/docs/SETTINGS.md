@@ -60,7 +60,7 @@ The Settings list starts with **Tools** (the same page as ⋮ › Tools; see the
 | Group | Settings |
 |---|---|
 | Contact list | Call and message buttons in the list `row_actions` (off by default) |
-| Organise | Save new contacts to `default_account` · Labels `labels` · Temporary contacts `temporary_contacts` · Add several numbers `bulk_add` · Find & merge duplicates `duplicates` · Contact health check `health` · Contact page sections `contact_page` ↗ (in it: Jump to a section `section_chips`) |
+| Organise | Save new contacts to `default_account` · Labels `labels` · Add relations to both contacts `mirror_relations` (on by default) · Temporary contacts `temporary_contacts` · Add several numbers `bulk_add` · Find & merge duplicates `duplicates` · Contact health check `health` · Contact page sections `contact_page` ↗ (in it: Jump to a section `section_chips`) |
 | Import and export | Import from .vcf or .csv file `import_file` · Export all to .vcf file `export_vcf` · Export all to .csv file `export_csv` |
 | Birthdays and reminders | Birthdays & dates `birthdays` · Birthday reminders `birthday_reminders` · Reminder time `reminder_time` |
 | Circle: keeping in touch | Keep-in-touch nudges `nudges` · Remind me before dates `date_lead` · How keep-in-touch reminders arrive `circle_delivery` · At most per week `circle_weekly_cap` · Log messages you start `log_prompts` |

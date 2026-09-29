@@ -29,6 +29,7 @@ object SettingsText {
         "favorites_in_contacts" to Triple(R.string.set_home_fav_contacts_title, R.string.set_home_fav_contacts_summary, R.string.set_home_fav_contacts_kw),
         "recent_tap" to Triple(R.string.set_home_recent_tap_title, R.string.set_home_recent_tap_summary, R.string.set_home_recent_tap_kw),
         "row_actions" to Triple(R.string.set_row_actions_title, R.string.set_row_actions_summary, R.string.set_row_actions_kw),
+        "mirror_relations" to Triple(R.string.set_mirror_relations_title, R.string.set_mirror_relations_summary, R.string.set_mirror_relations_kw),
         "sort_names" to Triple(R.string.set_sort_names_title, R.string.set_sort_names_summary, R.string.set_sort_names_kw),
         "second_line" to Triple(R.string.set_second_line_title, R.string.set_second_line_summary, R.string.set_second_line_kw),
         "prefer_nickname" to Triple(R.string.set_prefer_nickname_title, R.string.set_prefer_nickname_summary, R.string.set_prefer_nickname_kw),

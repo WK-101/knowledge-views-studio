@@ -19,6 +19,7 @@ import app.parley.common.people.ExpiryChange
 import app.parley.common.people.TemporaryChoice
 import app.parley.common.people.ThreeWayMerge
 import app.parley.common.people.RelationLinks
+import app.parley.ui.people.RelationMirrorText
 import app.parley.common.people.RowKeys
 import app.parley.data.AccountRef
 import app.parley.data.ContactDetails
@@ -68,6 +69,9 @@ sealed interface EditorEvent {
 
     /** Leave the editor; [savedId] is the saved contact (negative: a private one), or null when nothing was saved. */
     data class Done(val savedId: Long?) : EditorEvent
+
+    /** Saving changed relations on other contacts too: say so, with Undo when [undo] is set. */
+    data class Mirrored(val text: String, val undo: (suspend () -> Unit)?) : EditorEvent
 }
 
 /**
@@ -342,6 +346,13 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
                 SaveContactUseCase.Outcome.NotSaved -> Unit
                 is SaveContactUseCase.Outcome.Saved -> {
                     outcome.notes.forEach { message(it) }
+                    outcome.mirrors?.let { report ->
+                        RelationMirrorText.summary(c.appContext.resources, report)?.let { text ->
+                            val undo: (suspend () -> Unit)? =
+                                if (report.done.isEmpty()) null else { { c.people.relationMirrors.undo(outcome.id, report.done) } }
+                            eventChannel.send(EditorEvent.Mirrored(text, undo))
+                        }
+                    }
                     val key = outcome.keepPromptKey
                     if (key != null) askKeep = key to outcome.id else eventChannel.send(EditorEvent.Done(outcome.id))
                     if (key == null && request.temporary != null) {

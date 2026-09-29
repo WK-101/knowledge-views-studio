@@ -51,6 +51,9 @@
     <string name="set_row_actions_title">Call and message buttons in the list</string>
     <string name="set_row_actions_summary">On each contact. Turn off for a clean list; tapping a contact still opens it.</string>
     <string name="set_row_actions_kw">quick actions, buttons, call button, message button, sms, row, clean list, hide buttons, contact list</string>
+    <string name="set_mirror_relations_title">Add relations to both contacts</string>
+    <string name="set_mirror_relations_summary">“Mother: Ana” here adds “Child” on Ana’s contact</string>
+    <string name="set_mirror_relations_kw">relation, relationship, two-way, both ways, reciprocal, family, mirror, spouse, parent, child</string>
     <string name="set_sort_names_title">Sort and show names by</string>
     <string name="set_sort_names_summary">First name or last name</string>
     <string name="set_sort_names_kw">order, alphabetical, surname, family name, given name</string>

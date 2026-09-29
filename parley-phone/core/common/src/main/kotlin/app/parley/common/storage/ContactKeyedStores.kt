@@ -17,6 +17,8 @@ object ContactKeyedStores {
         StoreKind.ROOM_TABLE to "temporary_contacts",
         // The call-screen picture.
         StoreKind.FILES to "call_backgrounds",
+        // The contact photo as picked (sealed while the contact is private, in vault_photo_originals).
+        StoreKind.FILES to "contact_photos",
         // Who Parley starred for a label's Do Not Disturb choice.
         StoreKind.PREFS to "parley_extras",
     )

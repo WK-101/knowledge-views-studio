@@ -138,6 +138,10 @@ private fun ParleyRootContent(vm: AppViewModel, appSnackbar: ParleySnackbar) {
                     val r = snackbar.showSnackbar(e.text, actionLabel = undoLabel, duration = SnackbarDuration.Long)
                     if (r == SnackbarResult.ActionPerformed) vm.c.history.undoDelete(e.batchId)
                 }
+                is UiEvent.UndoAction -> {
+                    val r = snackbar.showSnackbar(e.text, actionLabel = undoLabel, duration = SnackbarDuration.Long)
+                    if (r == SnackbarResult.ActionPerformed) vm.runUndo(e.undo)
+                }
                 else -> Unit
             }
         }

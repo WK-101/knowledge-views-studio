@@ -43,6 +43,8 @@ class ContactKeys(
     private val extras: () -> ExtrasStore? = { null },
     /** The database behind [meta] and the interactions: each re-key's rows move in one transaction. */
     private val db: AppDatabase? = null,
+    /** Original contact photos are keyed by lookup key too. */
+    private val originals: () -> OriginalPhotos? = { null },
 ) {
     private val mutex = Mutex()
 
@@ -142,6 +144,7 @@ class ContactKeys(
                 }
             }
             runCatching { backgrounds().clear(key) }
+            runCatching { originals()?.clear(key) }
             runCatching { extras()?.dndForget(key) }
         }
     }
@@ -169,6 +172,7 @@ class ContactKeys(
             // phone-only contact, a first sync) is still followed for contacts that have no contact_meta row.
             runCatching { interactions()?.keys() }.getOrNull()?.forEach { (k, id) -> if (keys[k] == null && !ContactRef.isPrivateKey(k)) keys[k] = id }
             runCatching { extras()?.dndKeys() }.getOrNull()?.forEach { if (!ContactRef.isPrivateKey(it)) keys.putIfAbsent(it, null) }
+            runCatching { originals()?.keys() }.getOrNull()?.forEach { if (!ContactRef.isPrivateKey(it)) keys.putIfAbsent(it, null) }
             val temporaries = meta.allTemporary()
             val snapshot = KeySweep.Snapshot(current, keys + temporaries.associate { "t:" + it.lookupKey + ":" + it.rawIds to it.contactId })
             if (snapshot == lastSweep) return@withLock 0
@@ -226,6 +230,7 @@ class ContactKeys(
         }
         // Files and preferences: outside the database, and self-healing on the next sweep.
         runCatching { backgrounds().move(from, to) }
+        runCatching { originals()?.move(from, to) }
         runCatching { extras()?.dndRekey(from, to) }
     }
 

@@ -125,6 +125,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.R
+import app.parley.common.photo.OriginalPhoto
 import app.parley.common.people.HandleLink
 import app.parley.common.people.LifeEvents
 import app.parley.common.people.MessageRoute
@@ -288,8 +289,11 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
     // enough to leave the actions in view. Photo, name, the at-a-glance line and the tiles fit in about a third
     // of an upright phone's screen.
     val heroSize = heroPhotoSize(details?.photoUri != null)
+    // The photo as picked (whole, in its own shape) when Parley kept it; a tall one makes the header taller.
+    val original = rememberOriginalPhoto(vm, details?.lookupKey, details?.photoUri)
+    val heroHeight = heroSize * (original?.let { OriginalPhoto.hero(it.width, it.height).height } ?: 1f)
     // The header has scrolled away once the name is under the top bar.
-    val collapseAt = with(density) { (heroSize + 56.dp).toPx() }
+    val collapseAt = with(density) { (heroHeight + 56.dp).toPx() }
     val collapsed by remember(collapseAt) { derivedStateOf { listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > collapseAt } }
     val headerFraction by remember(collapseAt) {
         derivedStateOf { if (listState.firstVisibleItemIndex > 0) 1f else (listState.firstVisibleItemScrollOffset / collapseAt).coerceIn(0f, 1f) }
@@ -786,11 +790,10 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                         },
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
-                        Avatar(
-                            d.displayName, d.photoUri, heroSize,
-                            Modifier.shared("avatar-$contactId").clickable(enabled = d.photoUri != null, onClickLabel = stringResource(R.string.detail_view_photo)) { showPhoto = true },
+                        HeroPhoto(
+                            vm, d.displayName, d.photoUri, original, heroSize, Modifier.shared("avatar-$contactId"),
                             isCompany = d.composedName.isBlank() && d.company.isNotBlank(),
-                        )
+                        ) { showPhoto = true }
                         Text(
                             d.displayName, style = MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center,
                             modifier = Modifier.padding(top = Spacing.m).shared("name-$contactId", bounds = true),
@@ -962,7 +965,9 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
             askExpiry = false
             page.setExpiry(days)
         }
-        d.photoUri?.takeIf { showPhoto }?.let { PhotoViewer(it) { showPhoto = false } }
+        d.photoUri?.takeIf { showPhoto }?.let { uri ->
+            original?.let { OriginalPhotoViewer(vm, it) { showPhoto = false } } ?: PhotoViewer(uri) { showPhoto = false }
+        }
         if (confirmDelete) {
             ConfirmDialog(
                 title = if (isPrivate) stringResource(R.string.vault_delete_title) else stringResource(R.string.detail_delete_title, d.displayName),
