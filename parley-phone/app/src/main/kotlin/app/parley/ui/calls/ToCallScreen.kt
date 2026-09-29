@@ -45,6 +45,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -189,6 +190,7 @@ private fun Header(text: String) {
 private fun ToCallRowItem(vm: AppViewModel, model: ToCallModel, r: ToCallRow, open: (Destination) -> Unit) {
     val context = LocalContext.current
     val snackbar = LocalSnackbar.current
+    val res = LocalResources.current
     val title = titleOf(r)
     val e = r.entry
     ParleyListItem(
@@ -216,7 +218,7 @@ private fun ToCallRowItem(vm: AppViewModel, model: ToCallModel, r: ToCallRow, op
                     Icon(Icons.Rounded.Call, stringResource(R.string.to_call_call_who, title), tint = MaterialTheme.colorScheme.primary)
                 }
                 RowMenu(model, r, title) { undoText, before ->
-                    snackbar?.show(context.getString(undoText), context.getString(R.string.to_call_undo)) { model.undoDone(e, before) }
+                    snackbar?.show(res.getString(undoText), res.getString(R.string.to_call_undo)) { model.undoDone(e, before) }
                 }
             }
         },

@@ -24,6 +24,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -73,13 +74,14 @@ internal fun offersDeclineFollowUp(call: CallUi): Boolean = !call.hidden && !cal
 internal fun DeclineFollowUpItems(call: CallUi, close: () -> Unit) {
     val number = call.number?.takeIf { offersDeclineFollowUp(call) } ?: return
     val context = LocalContext.current
+    val res = LocalResources.current
     val activity = LocalActivity.current
     var times by remember { mutableStateOf(false) }
     DropdownMenuItem(
         text = { Text(stringResource(R.string.remind_decline)) },
         leadingIcon = { Icon(Icons.Rounded.AlarmAdd, null) },
         onClick = { times = !times },
-        modifier = Modifier.semantics { contentDescription = context.getString(R.string.remind_decline_a11y) },
+        modifier = Modifier.semantics { contentDescription = res.getString(R.string.remind_decline_a11y) },
     )
     if (times) {
         RemindTimes.choices().forEach { (choice, at) ->
@@ -89,7 +91,7 @@ internal fun DeclineFollowUpItems(call: CallUi, close: () -> Unit) {
                     close()
                     CallManager.reject(call.id)
                     runCatching { TelecomGraph.dependencies.remindToCall(number, call.accountId, at) }
-                    systemMessage(context, context.getString(R.string.remind_declined_set, RemindTimes.whenText(context, at)))
+                    systemMessage(context, res.getString(R.string.remind_declined_set, RemindTimes.whenText(context, at)))
                 },
                 // Indented under "Decline & remind", where the menu's icons line up.
                 modifier = Modifier.padding(start = Spacing.xl),
@@ -134,6 +136,7 @@ private const val MESSAGE_ON_ACTIVITY = "app.parley.messaging.NumberActionActivi
 @Composable
 internal fun RemindMeAction(number: String, accountId: String?, onDone: () -> Unit) {
     val context = LocalContext.current
+    val res = LocalResources.current
     var open by remember { mutableStateOf(false) }
     Box {
         FilledTonalButton({ open = true }) {
@@ -148,7 +151,7 @@ internal fun RemindMeAction(number: String, accountId: String?, onDone: () -> Un
                     onClick = {
                         open = false
                         runCatching { TelecomGraph.dependencies.remindToCall(number, accountId, at) }
-                        systemMessage(context, context.getString(R.string.remind_set, RemindTimes.whenText(context, at)))
+                        systemMessage(context, res.getString(R.string.remind_set, RemindTimes.whenText(context, at)))
                         onDone()
                     },
                 )
