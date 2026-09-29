@@ -24,6 +24,9 @@ object Tips {
     /** Long-press an app's Message / Voice / Video button in "Reach via apps" to make it the usual way. */
     const val REACH_USUAL = "reach_usual"
 
+    /** Press and hold Speaker on the call screen for the list of audio outputs. */
+    const val CALL_AUDIO_ROUTES = "call_audio_routes"
+
     /** Ids are stored comma-separated; anything that isn't a plain id is dropped. */
     private val ID = Regex("[a-z0-9_]{1,40}")
 

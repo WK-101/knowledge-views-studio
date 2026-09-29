@@ -66,6 +66,8 @@ data class AppSettings(
     val surfaces: SurfaceLayout = SurfaceLayout(),
     /** The call screen's background: the caller's colour, or the theme's plain background. */
     val callBackground: CallScreenBackground = CallScreenBackground.CALLER_COLOUR,
+    /** Show contact photos (and call-screen pictures) on the call screen; a contact can override it either way. */
+    val showCallerPhoto: Boolean = true,
 ) {
     companion object {
         val DEFAULT_QUICK_REPLIES = listOf(

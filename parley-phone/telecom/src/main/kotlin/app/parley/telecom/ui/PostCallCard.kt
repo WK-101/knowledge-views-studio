@@ -14,6 +14,7 @@ import androidx.compose.material.icons.automirrored.rounded.Chat
 import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.Flag
 import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.VerifiedUser
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -50,14 +51,17 @@ sealed interface PostCallChoice {
     data class MessageOn(val number: String, val accountId: String?) : PostCallChoice
     data class Report(val number: String) : PostCallChoice
 
+    /** I3: call a saved number instead ("was that really the bank?"). */
+    data class Verify(val number: String) : PostCallChoice
+
     /** "Anything to remember?" was saved (note and/or a follow-up in [followUpDays]). */
     data class Remember(val number: String, val connectTimeMillis: Long, val note: String?, val followUpDays: Int?) : PostCallChoice
 }
 
 /**
  * Shown on the call-ended screen after a call with a number that isn't in your contacts: block it (opens the
- * rule editor), save it privately for a week, message it on a chat app, or report it. Each opens only after the
- * phone is unlocked.
+ * rule editor), save it privately for a week, message it on a chat app, report it, or call a saved number instead (a
+ * caller who claimed to be your bank). Each opens only after the phone is unlocked.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -90,6 +94,7 @@ internal fun PostCallCard(call: CallUi, onChoice: (PostCallChoice) -> Unit) {
                 Action(Icons.Rounded.Lock, stringResource(R.string.postcall_save_privately)) { saving = true }
                 Action(Icons.AutoMirrored.Rounded.Chat, stringResource(R.string.postcall_message_or_call)) { onChoice(PostCallChoice.MessageOn(number, call.accountId)) }
                 Action(Icons.Rounded.Flag, stringResource(R.string.postcall_report)) { onChoice(PostCallChoice.Report(number)) }
+                Action(Icons.Rounded.VerifiedUser, stringResource(R.string.verify_postcall)) { onChoice(PostCallChoice.Verify(number)) }
             }
             TextButton({ onChoice(PostCallChoice.Done) }, modifier = Modifier.align(Alignment.End)) { Text(stringResource(R.string.tc_done)) }
         }

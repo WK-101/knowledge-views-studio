@@ -136,6 +136,7 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
             recentsLayout = enumOr(this[K.recentsLayout], d.recentsLayout),
             recentsStyle = enumOr(this[K.recentsStyle], d.recentsStyle),
             callBackground = enumOr(this[K.callBackground], d.callBackground),
+            showCallerPhoto = this[K.showCallerPhoto] ?: d.showCallerPhoto,
             surfaces = SurfaceLayout.decode(this[K.surfaces]),
         )
     }
@@ -179,6 +180,7 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
         this[K.recentsLayout] = s.recentsLayout.name
         this[K.recentsStyle] = s.recentsStyle.name
         this[K.callBackground] = s.callBackground.name
+        this[K.showCallerPhoto] = s.showCallerPhoto
         this[K.surfaces] = s.surfaces.encode()
     }
 
@@ -224,6 +226,7 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
         val recentsLayout = stringPreferencesKey("recents_layout")
         val recentsStyle = stringPreferencesKey("recents_style")
         val callBackground = stringPreferencesKey("call_background")
+        val showCallerPhoto = booleanPreferencesKey("show_caller_photo")
         val surfaces = stringPreferencesKey("surface_layout")
     }
 

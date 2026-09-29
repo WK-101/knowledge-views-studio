@@ -7,8 +7,10 @@ import app.parley.common.ListDensity
 import app.parley.common.ThemeMode
 import app.parley.common.Verification
 import app.parley.common.calltime.CallTimePlan
+import app.parley.common.calls.CallQualityFacts
 import app.parley.common.calls.EmergencyPolicy
 import app.parley.common.calls.RingFacts
+import app.parley.common.calls.VerifyCallBack
 import app.parley.common.ux.CallScreenBackground
 import kotlinx.coroutines.flow.StateFlow
 
@@ -88,6 +90,18 @@ interface CallerInfoSource {
 
     /** Ringtone to play for callers who aren't contacts, or null to let the system ring. */
     fun unknownRingtone(): String? = null
+
+    /**
+     * I3 "Check it's really them": the numbers saved for the person or organisation [number] belongs to (a contact or,
+     * unless discreet mode hides them, a private contact), or empty for an unknown number.
+     */
+    suspend fun savedNumbersFor(number: String, accountId: String?): List<VerifyCallBack.Saved> = emptyList()
+
+    /**
+     * Saved organisations with a number, for a caller who claims to be one of them. Null while Parley's app lock is
+     * locked (the call screen then opens Parley instead of listing contacts).
+     */
+    suspend fun savedOrganisations(): List<VerifyCallBack.Saved>? = emptyList()
 }
 
 /** Blocking and screening as the call path uses them, and the emergency checks that override them. */
@@ -151,6 +165,9 @@ interface CallRecordHooks {
     /** Ring-side facts of an incoming call that has ended ("Why did my phone ring, or not?"). */
     fun onRingFacts(number: String?, facts: RingFacts) {}
 
+    /** Quality facts of a call that has ended (SIM, Wi-Fi calling, HD voice, why it ended, the caller's subject). */
+    fun onCallQuality(number: String?, facts: CallQualityFacts) {}
+
     fun saveCallNote(number: String?, connectTimeMillis: Long, text: String) {}
 
     /**
@@ -182,6 +199,11 @@ interface UiHooks {
 
     /** Turn the screen off near the ear during earpiece calls (Settings › Calls). Read from memory. */
     fun proximityEnabled(): Boolean = true
+
+    /** Whether the one-time tip [id] ([app.parley.common.ux.Tips]) was already seen. Read from memory. */
+    fun tipSeen(id: String): Boolean = true
+
+    fun markTipSeen(id: String) {}
 }
 
 /**

@@ -310,6 +310,7 @@ internal fun CallsPage(vm: AppViewModel, open: (Destination) -> Unit) {
         choiceRow("call_background", backgrounds, s.callBackground.ordinal, Icons.Rounded.Palette) { i ->
             set { it.copy(callBackground = CallScreenBackground.entries[i]) }
         }
+        switchRow("caller_photo", s.showCallerPhoto, Icons.Rounded.AccountCircle) { v -> set { it.copy(showCallerPhoto = v) } }
         switchRow("confirm_call", s.confirmBeforeCall, Icons.Rounded.CheckCircle) { v -> set { it.copy(confirmBeforeCall = v) } }
         item("call_haptics") { CallHapticsRow(vm, Icons.Rounded.Vibration) }
         linkRow("unknown_ringtone", Icons.Rounded.MusicNote, sub = toneName ?: sameAsUsual) {

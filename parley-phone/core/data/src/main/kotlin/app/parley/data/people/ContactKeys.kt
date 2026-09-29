@@ -230,6 +230,7 @@ class ContactKeys(
             }
         }
         runCatching { backgrounds().clear(key) }
+        runCatching { backgrounds().forgetPhotoChoice(key) }
         runCatching { originals()?.clear(key) }
         runCatching { extras()?.dndForget(key) }
         runCatching { calling()?.update { it.withoutContact(key) } }
@@ -255,6 +256,7 @@ class ContactKeys(
             // Private contacts' keys are never looked up in the address book (a namesake must not take their data).
             rows.forEach { if (!ContactRef.isPrivateKey(it.lookupKey)) keys[it.lookupKey] = it.contactId }
             bg?.indexedKeys()?.forEach { if (!ContactRef.isPrivateKey(it)) keys.putIfAbsent(it, null) }
+            bg?.photoChoiceKeys()?.forEach { if (!ContactRef.isPrivateKey(it)) keys.putIfAbsent(it, null) }
             // With the contact id they were logged with, so a key change without a shared segment (a rename of a
             // phone-only contact, a first sync) is still followed for contacts that have no contact_meta row.
             runCatching { interactions()?.keys() }.getOrNull()?.forEach { (k, id) -> if (keys[k] == null && !ContactRef.isPrivateKey(k)) keys[k] = id }

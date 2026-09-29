@@ -83,4 +83,30 @@ internal class CallSession(val id: String) {
 
     /** The token of the DTMF tone playing now (a stop for another key's tone never touches it). */
     var dtmfToken: Long? = null
+
+    // ---- Call facts (L2, L10) ----
+
+    /** Wall-clock time the call was first seen (rang or was placed), for its quality facts. */
+    var startedAt: Long = 0
+
+    /** The subject the caller sent with the call, cleaned (null when none). */
+    var subject: String? = null
+
+    /** The caller marked the call urgent (Call Composer priority). */
+    var urgent = false
+
+    /** Went over Wi-Fi calling / was in HD voice at some point while connected (the flags clear as the call ends). */
+    var wifiSeen = false
+    var hdSeen = false
+
+    /** The SIM's name, remembered while connected. */
+    var simLabel: String? = null
+
+    // ---- Hold mode (I10) ----
+
+    /** `elapsedRealtime` when "I'm on hold" started, or 0. */
+    var holdModeSince = 0L
+
+    /** The audio route before hold mode turned the speaker on, restored when it ends. */
+    var routeBeforeHold: AudioRoute? = null
 }

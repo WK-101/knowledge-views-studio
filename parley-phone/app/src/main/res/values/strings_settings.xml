@@ -80,6 +80,9 @@
     <string name="set_call_background_kw">tint, colour, color, plain, background, call screen, incoming screen, wallpaper</string>
     <string name="set_call_background_caller">Caller\'s colour</string>
     <string name="set_call_background_plain">Plain</string>
+    <string name="set_caller_photo_title">Show contact photo on the call screen</string>
+    <string name="set_caller_photo_summary">The photo and call-screen picture. Each contact can override it in Settings for this contact.</string>
+    <string name="set_caller_photo_kw">photo, picture, avatar, image, caller, call screen, incoming screen, hide photo</string>
     <string name="set_confirm_call_title">Confirm before calling</string>
     <string name="set_confirm_call_summary">Avoids accidental calls from lists and search</string>
     <string name="set_confirm_call_kw">accidental, ask before, pocket dial</string>

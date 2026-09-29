@@ -7,6 +7,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.SystemClock
 import android.provider.Settings
+import android.text.format.DateUtils
 import android.telecom.Call
 import app.parley.common.BlockReason
 import android.telecom.Connection
@@ -16,9 +17,18 @@ import android.telecom.TelecomManager
 import android.telecom.VideoProfile
 import app.parley.common.BlockAction
 import app.parley.common.Decision
+import app.parley.common.RangThrough
+import app.parley.common.RangThroughKind
 import app.parley.common.Verification
 import app.parley.common.calls.AnswerRoute
 import app.parley.common.calls.CallBook
+import app.parley.common.calls.CallDrop
+import app.parley.common.calls.CallQualityCodec
+import app.parley.common.calls.CallQualityFacts
+import app.parley.common.calls.CallSubject
+import app.parley.common.calls.DropFacts
+import app.parley.common.calls.DropKind
+import app.parley.common.calls.HoldMode
 import app.parley.common.calls.CallFailure
 import app.parley.common.calls.EmergencyPolicy
 import app.parley.common.calls.EmergencyPolicy.Safeguard
@@ -34,6 +44,7 @@ import java.util.WeakHashMap
 import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
@@ -169,6 +180,7 @@ object CallManager {
         val number = call.details.handle?.schemeSpecificPart
         val hidden = call.details.handlePresentation != TelecomManager.PRESENTATION_ALLOWED
         val incoming = call.stateCompat() == Call.STATE_RINGING
+        s.startedAt = System.currentTimeMillis()
         if (calls.size == 1) RingBoost.restoreAsync(appContext) // a boost left behind by a crash
         if (incoming) {
             notifier.traceIncoming(s)
@@ -278,8 +290,22 @@ object CallManager {
         // An outgoing call that never went through: the reason and Retry stay on the call-ended screen.
         val failure = CallFailure.classify(endFacts(call, base, s))
         // The unknown-caller extras (tone, "where from") end with the ringing.
-        val shown = base.copy(unknown = false, location = null)
-        val ended = if (failure == null) shown else shown.copy(failure = failure, failureText = failureText(failure, call))
+        val shown = base.copy(unknown = false, location = null, holdModeSince = 0)
+        // A connected call the network dropped: the reason in plain words, and "Call again" on the call-ended screen.
+        val cause = call.details.disconnectCause
+        val drop = CallDrop.classify(
+            DropFacts(
+                connected = base.connectTimeMillis > 0, userEnded = s.userEnded, emergency = base.isEmergency,
+                code = endCode(cause), reason = cause?.reason, endedByLimit = s.endedByLimit,
+            ),
+        )
+        val ended = when {
+            failure != null -> shown.copy(failure = failure, failureText = failureText(failure, call))
+            drop != null -> shown.copy(drop = drop, dropText = dropText(drop, s), disconnectReason = str(R.string.call_drop_title))
+            else -> shown
+        }
+        stopHoldReminders(id)
+        recordQuality(ended, s, drop, cause)
         _lastEnded.value = ended
         // A call that failed before the caller lookup finished still shows the name on "Call ended".
         if (ended.name == null && !ended.hidden && !ended.number.isNullOrBlank()) lookUpEndedName(ended)
@@ -372,6 +398,7 @@ object CallManager {
             val s = session(idOf(c))
             val st = mapState(c.stateCompat())
             book.update(s.id, st, now)
+            noteFacts(c, s, st)
             // Where an incoming call was answered, read again a moment later once the audio route has settled.
             if (st == CallState.ACTIVE && s.ringFacts != null && s.answeredRoute == null) {
                 s.answeredRoute = RingSnapshot.route(_audio.value) ?: (AnswerRoute.EARPIECE to null)
@@ -449,7 +476,98 @@ object CallManager {
             blockingDecline = s.blockingDecline,
             hdAudio = d.hasProperty(Call.Details.PROPERTY_HIGH_DEF_AUDIO),
             wifi = d.hasProperty(Call.Details.PROPERTY_WIFI),
+            subject = s.subject,
+            urgent = s.urgent,
+            holdModeSince = s.holdModeSince,
+        ).withRangThrough(s)
+    }
+
+    /** P1 while it rings; the "rang through" line says it better than the quiet "Allowed by …" tag (a warning stays). */
+    private fun CallUi.withRangThrough(s: CallSession): CallUi {
+        if (state != CallState.RINGING || s.silenced) return this
+        val text = rangThroughText(s.outcome?.rangThrough) ?: return this
+        return copy(rangThrough = text, verdict = verdict.takeIf { verdictWarn })
+    }
+
+    /**
+     * What a call reports while it goes on, kept for its facts: Wi-Fi calling, HD voice and the SIM while connected
+     * (Telecom clears them as the call ends), and the caller's subject and priority, which some networks send late.
+     */
+    private fun noteFacts(c: Call, s: CallSession, st: CallState) {
+        val d = c.details
+        if (st == CallState.ACTIVE || st == CallState.HOLDING) {
+            if (d.hasProperty(Call.Details.PROPERTY_WIFI)) s.wifiSeen = true
+            if (d.hasProperty(Call.Details.PROPERTY_HIGH_DEF_AUDIO)) s.hdSeen = true
+            if (s.simLabel == null) s.simLabel = accountLabel(d.accountHandle)
+        }
+        if (s.subject == null) s.subject = CallSubject.clean(runCatching { d.extras?.getCharSequence(TelecomManager.EXTRA_CALL_SUBJECT) }.getOrNull())
+            ?: CallSubject.clean(runCatching { d.intentExtras?.getCharSequence(TelecomManager.EXTRA_CALL_SUBJECT) }.getOrNull())
+        if (!s.urgent && Build.VERSION.SDK_INT >= 31) {
+            s.urgent = runCatching { d.extras?.getInt(TelecomManager.EXTRA_PRIORITY, TelecomManager.PRIORITY_NORMAL) == TelecomManager.PRIORITY_URGENT }
+                .getOrDefault(false)
+        }
+    }
+
+    /** P1: "Rang through: called twice in 3 min", "Rang through: expecting a call", … */
+    private fun rangThroughText(r: RangThrough?): String? {
+        if (r == null || !::appContext.isInitialized) return null
+        val res = appContext.resources
+        return when (r.kind) {
+            RangThroughKind.REPEAT_CALLER ->
+                if (r.calls <= 2) res.getString(R.string.call_rang_repeat_twice, r.minutes) else res.getString(R.string.call_rang_repeat, r.calls, r.minutes)
+            RangThroughKind.EXPECTING -> res.getString(R.string.call_rang_expecting)
+            RangThroughKind.ALLOW_RULE -> allowRuleText(r)
+            RangThroughKind.LABEL -> r.name?.let { res.getString(R.string.call_rang_label, it) } ?: res.getString(R.string.call_rang_allowed)
+            RangThroughKind.DIALLED -> res.getString(R.string.call_rang_dialled)
+            RangThroughKind.ANSWERED -> res.getString(R.string.call_rang_answered)
+        }
+    }
+
+    /** "Rang through: allowed until 18:40" for a temporary rule, else the rule's name. */
+    private fun allowRuleText(r: RangThrough): String {
+        val res = appContext.resources
+        val until = r.until
+        val name = r.name
+        return when {
+            until != null -> {
+                val flags = DateUtils.FORMAT_SHOW_TIME or if (DateUtils.isToday(until)) 0 else DateUtils.FORMAT_SHOW_WEEKDAY
+                res.getString(R.string.call_rang_until, DateUtils.formatDateTime(appContext, until, flags))
+            }
+            name != null -> res.getString(R.string.call_rang_rule, name)
+            else -> res.getString(R.string.call_rang_allowed)
+        }
+    }
+
+    /** "Lost signal · Wi-Fi calling · Work": why a call dropped and what it was on. */
+    private fun dropText(kind: DropKind, s: CallSession): String? {
+        val reason = when (kind) {
+            DropKind.LOST_SIGNAL -> str(R.string.call_drop_lost_signal)
+            DropKind.WIFI_LOST -> str(R.string.call_drop_wifi_lost)
+            DropKind.NO_SERVICE -> str(R.string.call_drop_no_service)
+            DropKind.NETWORK -> str(R.string.call_drop_network)
+        }
+        val wifi = str(R.string.incall_wifi_calling)?.takeIf { s.wifiSeen && kind != DropKind.WIFI_LOST }
+        return listOfNotNull(reason, wifi, s.simLabel).joinToString(str(R.string.tc_separator) ?: " · ").ifBlank { null }
+    }
+
+    /** L2: the call's quality facts, for the number history (and a quality diary later). Never for emergency calls. */
+    private fun recordQuality(ended: CallUi, s: CallSession, drop: DropKind?, cause: DisconnectCause?) {
+        if (ended.isEmergency || ended.isConference || s.startedAt == 0L) return
+        val talked = if (ended.connectTimeMillis > 0) ((System.currentTimeMillis() - ended.connectTimeMillis) / 1000).coerceAtLeast(0) else 0
+        val facts = CallQualityFacts(
+            startedAt = s.startedAt,
+            incoming = ended.incoming,
+            durationSec = talked,
+            connected = ended.connectTimeMillis > 0,
+            sim = s.simLabel ?: ended.accountLabel,
+            wifi = s.wifiSeen,
+            hd = s.hdSeen,
+            end = endCode(cause),
+            cause = CallQualityCodec.causeName(cause?.reason)?.takeIf { drop != null },
+            drop = drop,
+            subject = s.subject,
         )
+        runCatching { deps.onCallQuality(ended.number.takeIf { !ended.hidden }, facts) }
     }
 
     @Suppress("DEPRECATION")
@@ -845,6 +963,81 @@ object CallManager {
         publish()
     }
 
+    // ---- Hold mode (I10) ----
+
+    private val holdReminders = HashMap<String, Job>()
+
+    /**
+     * "I'm on hold": the speaker comes on (so the phone can lie on the table), the screen shows a hold timer, and the
+     * phone buzzes at [HoldMode.REMINDER_MINUTES]. Parley can't hear the call, so it never guesses when someone is back.
+     */
+    fun startHoldMode(id: String) {
+        val call = find(id) ?: return
+        if (mapState(call.stateCompat()) != CallState.ACTIVE || isEmergencyCall(call, call.details.handle?.schemeSpecificPart)) return
+        val s = session(id)
+        if (s.holdModeSince != 0L) return
+        val since = SystemClock.elapsedRealtime()
+        s.holdModeSince = since
+        val a = _audio.value
+        if (a.current?.type != RouteType.SPEAKER) {
+            s.routeBeforeHold = a.current
+            a.routes.firstOrNull { it.type == RouteType.SPEAKER }?.let { setRoute(it) }
+        }
+        stopHoldReminders(id)
+        holdReminders[id] = scope.launch {
+            var at = HoldMode.nextReminderAt(since, SystemClock.elapsedRealtime())
+            // Cancelled when hold mode ends or the call goes; the check covers a restart of hold mode meanwhile.
+            while (at != null && sessions[id]?.holdModeSince == since) {
+                delay((at - SystemClock.elapsedRealtime()).coerceAtLeast(0))
+                if (sessions[id]?.holdModeSince == since) CallClock.remind(CallHaptic.WARN)
+                at = HoldMode.nextReminderAt(since, SystemClock.elapsedRealtime())
+            }
+        }
+        publish()
+    }
+
+    /** Leaves hold mode: the audio goes back where it was, unless the user moved it meanwhile. */
+    fun stopHoldMode(id: String) {
+        val s = sessions[id] ?: return
+        if (s.holdModeSince == 0L) return
+        s.holdModeSince = 0
+        stopHoldReminders(id)
+        val back = s.routeBeforeHold
+        s.routeBeforeHold = null
+        val a = _audio.value
+        if (back != null && a.current?.type == RouteType.SPEAKER) a.routes.firstOrNull { it.key == back.key }?.let { setRoute(it) }
+        publish()
+    }
+
+    private fun stopHoldReminders(id: String) {
+        holdReminders.remove(id)?.cancel()
+    }
+
+    // ---- Call again, and calling a saved number back (P5, I3) ----
+
+    /** Dismiss (or Call again) on the "Call dropped" card: it stays gone. */
+    fun dismissDrop(id: String) {
+        _lastEnded.value?.takeIf { it.id == id && it.drop != null }?.let { _lastEnded.value = it.copy(drop = null, dropText = null) }
+    }
+
+    /**
+     * I3 "Check it's really them": ends the call [id] (declines it while it rings) and, once it's gone, dials [number],
+     * the number saved for who the caller said they were. Runs here rather than on the screen, which closes as the
+     * call ends. [onProblem] hears why the new call couldn't be placed.
+     */
+    fun hangUpAndCall(id: String, number: String, accountId: String?, onProblem: (String) -> Unit) {
+        find(id)?.let { call ->
+            session(id).userEnded = true
+            if (mapState(call.stateCompat()) == CallState.RINGING) call.reject(false, null) else call.disconnect()
+        }
+        scope.launch {
+            withTimeoutOrNull(HANG_UP_WAIT_MS) {
+                while (find(id) != null) delay(100)
+            }
+            redial(number, accountId)?.let(onProblem)
+        }
+    }
+
     fun saveNote(id: String, text: String) {
         val call = find(id) ?: return
         runCatching { deps.saveCallNote(call.details.handle?.schemeSpecificPart, call.details.connectTimeMillis, text) }
@@ -966,6 +1159,9 @@ object CallManager {
     private const val ROUTE_SETTLE_MS = 1500L
     private const val PENDING_OUTGOING_MS = 8000L
     private const val LOOKUP_TIMEOUT_MS = 2000L
+
+    /** How long "Check it's really them" waits for the call to end before dialling. */
+    private const val HANG_UP_WAIT_MS = 3000L
 
     /** How long "Block & decline" waits for the rule before declining anyway. */
     private const val BLOCK_TIMEOUT_MS = 1500L

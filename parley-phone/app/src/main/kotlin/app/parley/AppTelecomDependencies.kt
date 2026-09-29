@@ -36,7 +36,13 @@ import app.parley.ui.common.Format
 import app.parley.work.HistoryWorker
 import app.parley.telecom.ScreenOutcome
 import app.parley.telecom.PostCallAction
+import app.parley.common.calls.CallQualityFacts
+import app.parley.common.calls.CallerPhoto
+import app.parley.common.people.ContactRef
 import app.parley.common.calls.RingFacts
+import app.parley.common.calls.VerifyCallBack
+import app.parley.security.AppLock
+import android.provider.ContactsContract.CommonDataKinds.Phone
 import app.parley.common.AllowReason
 import app.parley.common.ScreeningResult
 import app.parley.data.TemporaryContacts
@@ -78,14 +84,18 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
         c.contacts.lookup(number)?.let {
             if (it.work) {
                 // A work-profile contact: its name and photo only (it can't be opened or noted from here).
-                return@withContext CallerDisplay(it.name, it.photoUri, it.numberLabel, null, null, null, last, subtitle = app.getString(R.string.caller_work_profile))
+                val photo = it.photoUri.takeIf { c.settings.settings.value.showCallerPhoto }
+                return@withContext CallerDisplay(it.name, photo, it.numberLabel, null, null, null, last, subtitle = app.getString(R.string.caller_work_profile))
             }
             val note = it.lookupKey?.let { k -> c.meta.meta(k)?.pinnedNote }
             // Job and company under the name.
             val org = c.contacts.organization(it.contactId)
             val cfg = c.circle.config.value
+            // Settings › Calls › "Show contact photo on the call screen", or the contact's own choice.
+            val photo = showsPhoto(it.lookupKey)
             CallerDisplay(
-                it.name, it.photoUri, it.numberLabel, it.contactId, it.lookupKey, note, last, backgroundUri = c.people.backgrounds.forLookupKey(it.lookupKey),
+                it.name, it.photoUri.takeIf { photo }, it.numberLabel, it.contactId, it.lookupKey, note, last,
+                backgroundUri = if (photo) c.people.backgrounds.forLookupKey(it.lookupKey) else null,
                 subtitle = CallerCard.subtitle(org?.second, org?.first),
                 // The last note and open promises; the call screen decides whether the lock screen may show them.
                 memory = it.lookupKey?.let { k -> runCatching { memoryFor(k, it.contactId, number, cfg.memoryOnLockScreen) }.getOrNull() },
@@ -98,11 +108,15 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
             // A private contact's card comes from its caller-ID copy, so it shows while the phone is locked.
             val card = c.vault.callerCard(id)
             CallerDisplay(
-                info.name, card?.photoUri, info.numberLabel, null, null, card?.note, last,
+                info.name, card?.photoUri?.takeIf { showsPhoto(ContactRef.privateKey(id)) }, info.numberLabel, null, null, card?.note, last,
                 subtitle = card?.subtitle, context = CallerCard.context(card?.context),
             )
         }
     }
+
+    /** Whether the call screen shows this contact's photo and call-screen picture (read from memory). */
+    private fun showsPhoto(key: String?): Boolean =
+        CallerPhoto.shows(c.settings.settings.value.showCallerPhoto, runCatching { c.people.backgrounds.photoChoice(key) }.getOrNull())
 
     /**
      * "Last call 3 days ago · 4 min", from the call history (archive included) once it is loaded; in a process started
@@ -275,6 +289,7 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
                 ringLoud = r.ringLoud,
                 deferredToSim = r.deferredToSim,
                 ringtoneSource = ringtoneSource(r),
+                rangThrough = r.rangThrough,
                 ringtoneName = when {
                     r.ringtone == null || r.contactTone -> null
                     r.allowedBy == AllowReason.RULE && r.rule?.ringtone != null -> r.rule?.title
@@ -298,6 +313,64 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
     // ---- Calls ----
 
     override fun proximityEnabled(): Boolean = c.callExtras.config.value.proximitySensor
+
+    override fun tipSeen(id: String): Boolean = id in c.ux.state.value.seenTips
+
+    override fun markTipSeen(id: String) {
+        c.scope.launch(Dispatchers.IO) { runCatching { c.ux.dismissTip(id) } }
+    }
+
+    override fun onCallQuality(number: String?, facts: CallQualityFacts) {
+        c.scope.launch(Dispatchers.IO) {
+            runCatching {
+                // Like ring facts: calls with private contacts leave no trace outside the vault with "Private call history" on.
+                if (number != null && c.settings.current().privateVaultHistory && c.vault.lookup(number) != null) return@runCatching
+                c.callQuality.add(number, facts)
+            }
+        }
+    }
+
+    // ---- "Check it's really them" (I3) ----
+
+    /** Parley's app lock is on and locked: the call screen lists no contacts then. */
+    private fun appLocked(): Boolean = AppLock.locked.value && c.settings.settings.value.appLock
+
+    override suspend fun savedNumbersFor(number: String, accountId: String?): List<VerifyCallBack.Saved> = withContext(Dispatchers.IO) {
+        val iso = PhoneEnv.countryIso(app, accountId)
+        val res = app.resources
+        c.contacts.lookup(number)?.takeIf { !it.work }?.let { info ->
+            // While Parley is locked, only the number the call screen already shows.
+            if (appLocked()) return@withContext listOf(VerifyCallBack.Saved(info.name, number, info.numberLabel))
+            val summary = c.contacts.contacts.value?.firstOrNull { it.id == info.contactId } ?: c.contacts.loadNow().firstOrNull { it.id == info.contactId }
+            val org = c.contacts.organization(info.contactId)?.first?.isNotBlank() == true
+            val phones = summary?.phones.orEmpty().map { p ->
+                VerifyCallBack.Saved(info.name, p.number, Phone.getTypeLabel(res, p.type, p.label).toString(), organisation = org)
+            }
+            return@withContext phones.ifEmpty { listOf(VerifyCallBack.Saved(info.name, number, info.numberLabel)) }
+        }
+        // A private contact (never in discreet mode, where it shows as a plain number).
+        if (c.settings.current().hideVault) return@withContext emptyList()
+        c.vault.lookup(number, iso)?.let { (id, info) ->
+            if (appLocked()) return@withContext listOf(VerifyCallBack.Saved(info.name, number, info.numberLabel))
+            val numbers = c.vault.summary(id)?.numbers.orEmpty()
+            return@withContext numbers.map { VerifyCallBack.Saved(info.name, it) }.ifEmpty { listOf(VerifyCallBack.Saved(info.name, number, info.numberLabel)) }
+        }
+        emptyList()
+    }
+
+    override suspend fun savedOrganisations(): List<VerifyCallBack.Saved>? = withContext(Dispatchers.IO) {
+        if (appLocked()) return@withContext null
+        val companies = c.contacts.organizations()
+        if (companies.isEmpty()) return@withContext emptyList()
+        val res = app.resources
+        val all = c.contacts.contacts.value ?: c.contacts.loadNow()
+        all.filter { it.id in companies }.flatMap { s ->
+            val company = companies.getValue(s.id)
+            // "My bank" saved as a company, or a person at one: the company's name leads when it's the contact's name.
+            val name = if (s.displayName.equals(company, ignoreCase = true)) company else s.displayName + app.getString(R.string.main_separator) + company
+            s.phones.map { p -> VerifyCallBack.Saved(name, p.number, Phone.getTypeLabel(res, p.type, p.label).toString(), organisation = true) }
+        }
+    }
 
     override fun onRingFacts(number: String?, facts: RingFacts) {
         c.scope.launch(Dispatchers.IO) {

@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Call facts and trust on the call screen: why a call dropped, why it rang through, the caller's subject,
+     hold mode and "Check it's really them". -->
+<resources>
+    <!-- A connected call the network dropped -->
+    <string name="call_drop_title">Call dropped</string>
+    <string name="call_drop_lost_signal">Lost signal</string>
+    <string name="call_drop_wifi_lost">Wi-Fi connection lost</string>
+    <string name="call_drop_no_service">No mobile service</string>
+    <string name="call_drop_network">Network problem</string>
+    <string name="call_drop_call_again">Call again</string>
+
+    <!-- Under the status pill of a ringing call that screening would otherwise have kept quiet -->
+    <string name="call_rang_repeat_twice">Rang through: called twice in %1$d min</string>
+    <string name="call_rang_repeat">Rang through: called %1$d times in %2$d min</string>
+    <string name="call_rang_expecting">Rang through: expecting a call</string>
+    <string name="call_rang_until">Rang through: allowed until %1$s</string>
+    <string name="call_rang_rule">Rang through: allowed by ‘%1$s’</string>
+    <string name="call_rang_allowed">Rang through: allowed by your rules</string>
+    <string name="call_rang_label">Rang through: in %1$s (allowed during off hours)</string>
+    <string name="call_rang_dialled">Rang through: you called this number recently</string>
+    <string name="call_rang_answered">Rang through: you talked to this number recently</string>
+
+    <!-- The caller's subject (their own words) and priority -->
+    <string name="incall_subject">“%1$s”</string>
+    <string name="incall_urgent">Urgent</string>
+    <string name="incall_choose_audio_output">Choose audio output</string>
+    <string name="call_tip_audio_routes">Touch and hold Speaker to choose where the sound goes.</string>
+    <string name="call_tip_dismiss">Got it</string>
+
+    <!-- Hold mode -->
+    <string name="holdmode_start">I\'m on hold</string>
+    <string name="holdmode_start_explainer">Speaker on, screen dimmed, a buzz at 15 and 30 minutes</string>
+    <string name="holdmode_title">On hold</string>
+    <string name="holdmode_waited">Waiting for %1$s</string>
+    <string name="holdmode_honest">The speaker is on. Parley can\'t hear the call, so listen for someone to come back.</string>
+    <string name="holdmode_end">They\'re back</string>
+    <string name="holdmode_pip">On hold · %1$s</string>
+
+    <!-- Check it's really them -->
+    <string name="verify_title">Check it\'s really them</string>
+    <string name="verify_explainer">Hang up and call the number you saved</string>
+    <string name="verify_sheet_body">Caller ID can be faked. Parley ends this call and calls the number you saved, which reaches the real one.</string>
+    <string name="verify_sheet_body_ended">Caller ID can be faked. Call the number you saved instead, which reaches the real one.</string>
+    <string name="verify_pick_organisation">Pick a saved organisation</string>
+    <string name="verify_pick_organisation_hint">When they said they were your bank, a shop or an office</string>
+    <string name="verify_locked">Parley is locked. Open Parley and call them from Contacts.</string>
+    <string name="verify_no_organisations">No saved organisations with a number yet.</string>
+    <string name="verify_call_saved">Call %1$s</string>
+    <string name="verify_postcall">Call a saved number</string>
+</resources>

@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Call facts in the app: the number history's call details, and the contact's photo on the call screen. -->
+<resources>
+    <string name="callfacts_section_title">Call details</string>
+    <string name="callfacts_subject">“%1$s”</string>
+    <string name="callfacts_dropped">Call dropped</string>
+    <string name="callfacts_incoming">Incoming call</string>
+    <string name="callfacts_outgoing">Outgoing call</string>
+    <string name="callfacts_drop_lost_signal">Dropped: lost signal</string>
+    <string name="callfacts_drop_wifi_lost">Dropped: Wi-Fi connection lost</string>
+    <string name="callfacts_drop_no_service">Dropped: no mobile service</string>
+    <string name="callfacts_wifi">Wi-Fi calling</string>
+    <string name="callfacts_hd">HD voice</string>
+
+    <!-- Contact page › Settings for this contact: the photo on the call screen -->
+    <string name="callphoto_title">Photo on the call screen</string>
+    <string name="callphoto_change">Change</string>
+    <string name="callphoto_default">Default</string>
+    <string name="callphoto_default_shown">Default (shown)</string>
+    <string name="callphoto_default_hidden">Default (hidden)</string>
+    <string name="callphoto_show">Show</string>
+    <string name="callphoto_hide">Hide, show the initial</string>
+</resources>

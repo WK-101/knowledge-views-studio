@@ -22,6 +22,7 @@ class CallActionReceiver : BroadcastReceiver() {
             ACTION_SPEAKER -> CallManager.toggleSpeaker()
             ACTION_EXTEND -> CallClock.extend(id, 5)
             ACTION_KEEP_GOING -> CallClock.keepGoing(id)
+            ACTION_HOLD_MODE_END -> CallManager.stopHoldMode(id)
         }
     }
 
@@ -34,6 +35,9 @@ class CallActionReceiver : BroadcastReceiver() {
         const val ACTION_SPEAKER = "app.parley.telecom.SPEAKER"
         const val ACTION_EXTEND = "app.parley.telecom.EXTEND"
         const val ACTION_KEEP_GOING = "app.parley.telecom.KEEP_GOING"
+
+        /** Leave "I'm on hold" (the picture-in-picture window's action). */
+        const val ACTION_HOLD_MODE_END = "app.parley.telecom.HOLD_MODE_END"
         /** A call notification was swiped away (its delete intent). */
         const val ACTION_DISMISSED = "app.parley.telecom.DISMISSED"
         const val EXTRA_ID = "call_id"

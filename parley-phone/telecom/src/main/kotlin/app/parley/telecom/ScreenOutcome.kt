@@ -4,6 +4,7 @@ import android.app.NotificationManager
 import android.content.Context
 import android.media.AudioManager
 import app.parley.common.Decision
+import app.parley.common.RangThrough
 import app.parley.common.calls.RingtoneSource
 import java.util.concurrent.Executors
 
@@ -29,6 +30,8 @@ data class ScreenOutcome(
     val ringtoneSource: RingtoneSource? = null,
     /** The rule or label named by [ringtoneSource]. */
     val ringtoneName: String? = null,
+    /** P1: why it rings although screening would otherwise have kept it quiet ("called twice in 3 min"). */
+    val rangThrough: RangThrough? = null,
 )
 
 /**

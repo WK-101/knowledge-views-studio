@@ -7,6 +7,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
 import app.parley.common.PhoneNumbers
+import app.parley.common.calls.CallerPhoto
 import app.parley.data.ContactsRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -125,15 +126,64 @@ class CallBackgrounds(context: Context, private val contacts: ContactsRepository
         if (lookupKey !in keys) writeIndex(keys + lookupKey)
     }
 
-    /** Moves the background of [from] to [to]; an existing background of [to] wins. */
+    /** Moves the background (and the photo choice) of [from] to [to]; what [to] already has wins. */
     @Synchronized
     fun move(from: String, to: String) {
         if (from == to) return
+        movePhotoChoice(from, to)
         val src = fileFor(from)
         if (!src.isFile) return
         val dst = fileFor(to)
         if (dst.isFile) src.delete() else src.renameTo(dst)
         writeIndex(indexedKeys() - from + to)
+        _version.value++
+    }
+
+    // ---- Photo on the call screen: a contact's Show / Hide over Settings › Calls ([app.parley.common.calls.CallerPhoto]).
+    // Kept here with the call-screen picture, under the same Parley key (a private contact's too), so it follows the
+    // contact through links, key changes and conversions between device and private.
+
+    private val choicesFile = File(dir, "photo_choices.txt")
+    private var choices: Map<String, Boolean>? = null
+
+    @Synchronized
+    private fun choices(): Map<String, Boolean> =
+        choices ?: CallerPhoto.decode(runCatching { choicesFile.takeIf { it.isFile }?.readText() }.getOrNull()).also { choices = it }
+
+    /** The contact's own choice: true (show), false (hide) or null (follow the setting). */
+    fun photoChoice(key: String?): Boolean? = key?.takeIf { it.isNotEmpty() }?.let { choices()[it] }
+
+    @Synchronized
+    fun setPhotoChoice(key: String, show: Boolean?) {
+        if (key.isEmpty()) return
+        val now = choices()
+        val next = if (show == null) now - key else now + (key to show)
+        if (next == now) return
+        writeChoices(next)
+    }
+
+    /** Keys with a choice, for the key sweep. */
+    fun photoChoiceKeys(): Set<String> = choices().keys
+
+    /** The contact is gone: its choice goes too. */
+    fun forgetPhotoChoice(key: String) = setPhotoChoice(key, null)
+
+    @Synchronized
+    private fun movePhotoChoice(from: String, to: String) {
+        val now = choices()
+        val v = now[from] ?: return
+        writeChoices(if (to in now) now - from else now - from + (to to v))
+    }
+
+    @Synchronized
+    private fun writeChoices(next: Map<String, Boolean>) {
+        dir.mkdirs()
+        val tmp = File(dir, choicesFile.name + ".tmp")
+        runCatching {
+            tmp.writeText(CallerPhoto.encode(next))
+            if (!tmp.renameTo(choicesFile)) tmp.delete()
+        }
+        choices = next
         _version.value++
     }
 

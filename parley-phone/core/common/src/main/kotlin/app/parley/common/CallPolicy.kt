@@ -278,10 +278,42 @@ data class ScreeningResult(
      * screening service). The InCallService, which knows the SIM, must screen the call again.
      */
     val deferredToSim: Boolean = false,
+    /** Why the call rings although screening would otherwise have blocked or silenced it (null when nothing would have). */
+    val rangThrough: RangThrough? = null,
 ) {
     val failedOpen: Boolean get() = trace.any { it.mark == TraceMark.FAILED_OPEN }
     val blocked: Boolean get() = decision is Decision.Block
 }
+
+/** What let a call ring that screening would otherwise have blocked or silenced. */
+enum class RangThroughKind {
+    /** A repeat caller overrode a soft reason; [RangThrough.calls] calls within [RangThrough.minutes] minutes. */
+    REPEAT_CALLER,
+
+    /** "Expecting a call" is on. */
+    EXPECTING,
+
+    /** An allow rule ([RangThrough.name]); temporary ones end at [RangThrough.until]. */
+    ALLOW_RULE,
+
+    /** An allow rule for the contact's label [RangThrough.name], during off hours. */
+    LABEL,
+
+    /** You called this number recently. */
+    DIALLED,
+
+    /** You talked to this number recently. */
+    ANSWERED,
+}
+
+/** Why a call rang through (the incoming screen words it: "Rang through: called twice in 3 min"). */
+data class RangThrough(
+    val kind: RangThroughKind,
+    val calls: Int = 0,
+    val minutes: Int = 0,
+    val name: String? = null,
+    val until: Long? = null,
+)
 
 /** "Now" for the policy: injected so schedules are testable and replays use the call's own time. */
 data class PolicyClock(val millis: Long, val day: DayOfWeek, val minuteOfDay: Int) {
@@ -306,10 +338,57 @@ object CallPolicy {
     fun evaluate(facts: IncomingCallFacts, rules: List<BlockRule>, settings: ScreeningSettings, clock: PolicyClock = PolicyClock.of(System.currentTimeMillis())): Decision =
         decide(facts, rules, settings, clock).decision
 
-    fun decide(facts: IncomingCallFacts, rules: List<BlockRule>, settings: ScreeningSettings, clock: PolicyClock): ScreeningResult =
-        Evaluation(facts, rules, settings, clock).run()
+    fun decide(facts: IncomingCallFacts, rules: List<BlockRule>, settings: ScreeningSettings, clock: PolicyClock): ScreeningResult {
+        val e = Evaluation(facts, rules, settings, clock)
+        val r = e.run()
+        val why = rangThrough(r, e) { Evaluation(facts, rules, settings, clock, withoutExceptions = true).run() } ?: return r
+        return r.copy(rangThrough = why)
+    }
 
-    private class Evaluation(val f: IncomingCallFacts, val rules: List<BlockRule>, val s: ScreeningSettings, val clock: PolicyClock) {
+    /**
+     * P1: why an allowed call rang although screening would otherwise have kept it quiet. A repeat caller always
+     * overrode a block; for the other exceptions (allow rules, "Expecting a call", numbers you called or talked to,
+     * a label allowed in off hours) the call is screened again [without] them, and only a block there counts.
+     */
+    private fun rangThrough(r: ScreeningResult, e: Evaluation, without: () -> ScreeningResult): RangThrough? {
+        if (r.decision != Decision.Allow || r.deferredToSim) return null
+        if (r.allowedBy == AllowReason.REPEAT) return RangThrough(RangThroughKind.REPEAT_CALLER, calls = e.repeatCalls, minutes = e.repeatMinutes)
+        val kind = exceptionKind(r) ?: return null
+        if (without().decision !is Decision.Block) return null
+        val rule = r.rule
+        return when (kind) {
+            RangThroughKind.ALLOW_RULE -> RangThrough(kind, name = rule?.title, until = rule?.expiresAt)
+            RangThroughKind.LABEL -> RangThrough(kind, name = rule?.label?.takeIf { it.isNotBlank() } ?: rule?.title)
+            else -> RangThrough(kind)
+        }
+    }
+
+    /** The exception that let an allowed call through, or null when it rang for no special reason. */
+    private fun exceptionKind(r: ScreeningResult): RangThroughKind? = when (r.allowedBy) {
+        AllowReason.SNOOZE -> RangThroughKind.EXPECTING
+        AllowReason.RULE -> RangThroughKind.ALLOW_RULE
+        AllowReason.DIALLED -> RangThroughKind.DIALLED
+        AllowReason.ANSWERED -> RangThroughKind.ANSWERED
+        AllowReason.CONTACT -> if (r.rule != null) RangThroughKind.LABEL else null
+        else -> null
+    }
+
+    /**
+     * One screening run. [withoutExceptions] leaves out what lets a call through that would otherwise be blocked (allow
+     * rules, label allow rules, "Expecting a call", numbers you called or talked to, repeat callers), to tell whether
+     * one of them made the difference.
+     */
+    private class Evaluation(
+        val f: IncomingCallFacts,
+        val rules: List<BlockRule>,
+        val s: ScreeningSettings,
+        val clock: PolicyClock,
+        val withoutExceptions: Boolean = false,
+    ) {
+        /** The repeat caller's calls within the window (this one included) and the minutes they span. */
+        var repeatCalls = 0
+        var repeatMinutes = 0
+
         val steps = ArrayList<TraceStep>()
 
         fun step(check: String, result: String, mark: TraceMark = TraceMark.PASS) {
@@ -345,7 +424,7 @@ object CallPolicy {
             val snooze = s.snoozeActive(clock.millis)
             if (number == null) {
                 step("Number", "hidden")
-                if (snooze) {
+                if (snooze && !withoutExceptions) {
                     step("Expecting a call", "on", TraceMark.MATCH)
                     return allow(AllowReason.SNOOZE)
                 }
@@ -377,7 +456,8 @@ object CallPolicy {
                 val labelRules = rules.filter { it.type == RuleType.LABEL && live(it) }
                 if (labelRules.isNotEmpty() && f.labelLookupFailed) step("Labels", "couldn't check, label rules skipped", TraceMark.FAILED_OPEN)
                 val titles = f.contactLabels.map { LabelRefs.key(it) }.toSet()
-                val inLabel = if (f.labelLookupFailed) emptyList() else labelRules.filter { it.labelKey in titles }
+                val inLabel = if (f.labelLookupFailed) emptyList()
+                else labelRules.filter { it.labelKey in titles && !(withoutExceptions && it.kind == RuleKind.ALLOW) }
                 inLabel.firstOrNull { it.kind == RuleKind.BLOCK }?.let { r ->
                     step("Label rule", r.title, TraceMark.MATCH)
                     return block(r.action, BlockReason.RULE, r, notify = r.notify)
@@ -406,25 +486,26 @@ object CallPolicy {
             step("Contact?", "no")
 
             // 3. Allow rules, snooze, numbers you called or talked to.
-            val allowRule = rules.firstOrNull { it.kind == RuleKind.ALLOW && it.type != RuleType.LABEL && live(it) && factMatches(it, number) }
+            val allowRule = if (withoutExceptions) null
+            else rules.firstOrNull { it.kind == RuleKind.ALLOW && it.type != RuleType.LABEL && live(it) && factMatches(it, number) }
             if (allowRule != null) {
                 step("Allow rule", allowRule.title + if (allowRule.expiresAt != null) " (temporary)" else "", TraceMark.MATCH)
                 return allow(AllowReason.RULE, allowRule, allowRule.ringtone, verdict = Verdict(VerdictKind.ALLOWED, "Allowed by '${allowRule.title}'"))
             }
             // The screening service never knows the SIM: an allow rule limited to one SIM is decided when the call rings.
             simPending { it.type != RuleType.LABEL && factMatches(it, number) }?.let { return deferToSim(it) }
-            if (snooze) {
+            if (snooze && !withoutExceptions) {
                 step("Expecting a call", "on", TraceMark.MATCH)
                 return allow(AllowReason.SNOOZE, verdict = Verdict(VerdictKind.ALLOWED, "Let through: expecting a call"))
             }
-            if (s.allowDialled) {
+            if (s.allowDialled && !withoutExceptions) {
                 val since = clock.millis - s.dialledDays * DAY
                 if (f.history.any { it.outgoing && it.time >= since }) {
                     step("You called this number", "within ${s.dialledDays} days", TraceMark.MATCH)
                     return allow(AllowReason.DIALLED, verdict = Verdict(VerdictKind.ALLOWED, "You called this number recently"))
                 }
             }
-            if (s.allowAnswered) {
+            if (s.allowAnswered && !withoutExceptions) {
                 val since = clock.millis - s.answeredDays * DAY
                 if (f.history.any { !it.outgoing && it.time >= since && it.durationSec >= s.answeredMinSeconds }) {
                     step("You talked to this number", "≥ ${s.answeredMinSeconds} s within ${s.answeredDays} days", TraceMark.MATCH)
@@ -510,13 +591,16 @@ object CallPolicy {
 
         fun repeatCaller(): Boolean {
             repeatChecked?.let { return it }
-            if (!s.repeatCallers) return false.also { repeatChecked = it }
+            if (!s.repeatCallers || withoutExceptions) return false.also { repeatChecked = it }
             val window = s.repeatWindowMinutes * 60_000L
             val min = s.repeatMinIntervalSeconds * 1000L
             val attempts = f.blockedAttempts + f.history.filter { !it.outgoing }.map { it.time }
             val gaps = attempts.map { clock.millis - it }.filter { it in 0..window }
             val counted = gaps.any { it >= min }
             if (counted) {
+                val spans = gaps.filter { it >= min }
+                repeatCalls = spans.size + 1
+                repeatMinutes = ((spans.max() + 59_999) / 60_000).toInt().coerceAtLeast(1)
                 step("Repeat caller", "called again within ${s.repeatWindowMinutes} min", TraceMark.MATCH)
             } else if (gaps.isNotEmpty()) {
                 step("Repeat caller", "redialled too fast (under ${s.repeatMinIntervalSeconds} s), doesn't count")

@@ -388,6 +388,20 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
         }
     }
 
+    /** Company names by contact id, for every contact with one (an empty map when they can't be read). */
+    fun organizations(): Map<Long, String> =
+        cr.safeQuery(
+            Data.CONTENT_URI, arrayOf(Data.CONTACT_ID, Organization.COMPANY),
+            "${Data.MIMETYPE}=?", arrayOf(Organization.CONTENT_ITEM_TYPE),
+        )?.use { c ->
+            val out = HashMap<Long, String>()
+            while (c.moveToNext()) {
+                val company = c.getString(1)?.trim().orEmpty()
+                if (company.isNotEmpty()) out.putIfAbsent(c.getLong(0), company)
+            }
+            out
+        }.orEmpty()
+
     /** (company, job title) of [contactId]'s first organization row, or null. */
     fun organization(contactId: Long): Pair<String, String>? =
         cr.safeQuery(

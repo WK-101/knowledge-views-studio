@@ -66,7 +66,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -93,6 +95,7 @@ import app.parley.common.calls.CallControl
 import app.parley.common.calls.CallControls
 import app.parley.common.calls.CallWaiting
 import app.parley.common.ux.CallScreenBackground
+import app.parley.common.ux.Tips
 import app.parley.telecom.AudioRoute
 import app.parley.telecom.AudioUi
 import app.parley.telecom.CallClock
@@ -102,6 +105,7 @@ import app.parley.telecom.CallUi
 import app.parley.telecom.DeclineBlock
 import app.parley.telecom.R
 import app.parley.telecom.RouteType
+import app.parley.telecom.TelecomGraph
 import app.parley.telecom.live
 import app.parley.ui.Avatar
 import app.parley.ui.Bidi
@@ -124,6 +128,9 @@ private class InCallSheets {
     var manage by mutableStateOf(false)
     var more by mutableStateOf(false)
     var noteFor by mutableStateOf<String?>(null)
+
+    /** "Check it's really them" for this call (live, or just ended from the post-call card). */
+    var verifyFor by mutableStateOf<CallUi?>(null)
 }
 
 /**
@@ -160,6 +167,10 @@ fun InCallScreen(
     onAskDeclineDone: () -> Unit = {},
     /** Settings › Calls › "Call screen background". */
     background: CallScreenBackground = CallScreenBackground.CALLER_COLOUR,
+    /** A connected call dropped: "Call again" (true) or dismissing the card (false). */
+    onDrop: (CallUi, Boolean) -> Unit = { _, _ -> },
+    /** Runs the block once the phone is unlocked (saved numbers never show on the lock screen). */
+    onUnlock: (() -> Unit) -> Unit = { it() },
 ) {
     val live = calls.filter { it.isLive }
     // Which call is in front and whether a second one is waiting (pure logic in core:common).
@@ -179,8 +190,9 @@ fun InCallScreen(
         val short = maxHeight < 480.dp
         val insets = Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().displayCutoutPadding()
         val actions = ScreenActions(
-            onKeypad = onKeypad, onAddCall = onAddCall, onOpenContact = onOpenContact, onPostCall = onPostCall,
-            onRetry = onRetry, onDismissFailure = onDismissFailure, onUndoBlock = onUndoBlock,
+            onKeypad = onKeypad, onAddCall = onAddCall, onOpenContact = onOpenContact,
+            onPostCall = withVerify(onPostCall, shown, sheets, onUnlock),
+            onRetry = onRetry, onDismissFailure = onDismissFailure, onUndoBlock = onUndoBlock, onDrop = onDrop,
         )
         if (slots.waiting && slots.current != null && primary != null) {
             CallWaitingLayout(primary, slots.current!!, slots.held, twoPane, confirmDecline, insets) { sheets.replyFor = primary.id }
@@ -204,7 +216,18 @@ fun InCallScreen(
             }
         }
     }
-    InCallDialogs(screen, sheets, quickReplies, onOpenContact, onAddCall, askDeclineFor, onAskDeclineDone)
+    InCallDialogs(screen, sheets, quickReplies, onOpenContact, onAddCall, askDeclineFor, onAskDeclineDone, onUnlock)
+}
+
+/** "Call a saved number" on the post-call card opens the same sheet as during the call, once unlocked. */
+private fun withVerify(
+    onPostCall: (PostCallChoice) -> Unit,
+    shown: CallUi?,
+    sheets: InCallSheets,
+    onUnlock: (() -> Unit) -> Unit,
+): (PostCallChoice) -> Unit = { choice ->
+    onPostCall(choice)
+    if (choice is PostCallChoice.Verify && shown != null) onUnlock { sheets.verifyFor = shown }
 }
 
 /** Where the ringing caller sits in the space above the controls (-1 top, 0 middle). */
@@ -243,6 +266,7 @@ private class ScreenActions(
     val onRetry: (CallUi) -> Unit,
     val onDismissFailure: (CallUi) -> Unit,
     val onUndoBlock: () -> Unit,
+    val onDrop: (CallUi, Boolean) -> Unit,
 )
 
 /** A ringing call while another call is going: the current call(s) at the top, the waiting call as a sheet. */
@@ -334,6 +358,9 @@ private fun EndedCards(s: ScreenState, a: ScreenActions) {
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.widthIn(max = 560.dp).padding(bottom = Spacing.l)) {
         when {
             s.failed != null -> FailureBanner(s.failed, { a.onRetry(s.failed) }, { a.onDismissFailure(s.failed) }, Modifier.padding(bottom = Spacing.xl))
+            // A connected call the network dropped: why, and a big Call again.
+            ended != null && ended.drop != null ->
+                DropCard(ended, onCallAgain = { a.onDrop(ended, true) }, onDismiss = { a.onDrop(ended, false) }, Modifier.padding(bottom = Spacing.xl))
             // "Blocked and declined", with Undo.
             s.declineBlock != null -> DeclineBlockCard(s.declineBlock, onUndo = a.onUndoBlock, onDone = { a.onPostCall(PostCallChoice.Done) })
             // Block, save, message or report an unknown number right after the call.
@@ -356,19 +383,28 @@ private fun OngoingControls(call: CallUi, s: ScreenState, sheets: InCallSheets, 
         contentAlignment = Alignment.BottomCenter,
         label = "keypad",
     ) { open ->
-        if (open) {
-            DtmfKeypad(callId = call.id, scroll = scrollKeypad)
-        } else {
-            ControlGrid(
-                call = call,
-                others = s.others,
-                audio = s.audio,
-                onKeypad = { a.onKeypad(true) },
-                onAudio = { if (s.audio.hasExternal) sheets.route = true else CallManager.toggleSpeaker() },
-                onAddCall = a.onAddCall,
-                onManage = { sheets.manage = true },
-                onMore = { sheets.more = true },
-            )
+        when {
+            open -> DtmfKeypad(callId = call.id, scroll = scrollKeypad)
+            // I10: "I'm on hold" shows the waiting time and the way out instead of the grid.
+            call.holdModeSince > 0 -> HoldModePanel(call, onKeypad = { a.onKeypad(true) })
+            else -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                AudioRoutesTip(call, s.audio)
+                ControlGrid(
+                    call = call,
+                    others = s.others,
+                    audio = s.audio,
+                    onKeypad = { a.onKeypad(true) },
+                    onAudio = { if (s.audio.hasExternal) sheets.route = true else CallManager.toggleSpeaker() },
+                    // P6: press and hold opens the list of outputs straight away, headset or not.
+                    onAudioList = {
+                        markTipSeen(Tips.CALL_AUDIO_ROUTES)
+                        sheets.route = true
+                    },
+                    onAddCall = a.onAddCall,
+                    onManage = { sheets.manage = true },
+                    onMore = { sheets.more = true },
+                )
+            }
         }
     }
     Spacer(Modifier.height(Spacing.xl))
@@ -385,6 +421,23 @@ private fun OngoingControls(call: CallUi, s: ScreenState, sheets: InCallSheets, 
         }
     }
     Spacer(Modifier.height(Spacing.xl))
+}
+
+/** Tips seen during this call, so a dismissed tip goes at once (the stored flag is read from memory by the app). */
+private val tipsDismissedHere = mutableStateListOf<String>()
+
+private fun markTipSeen(id: String) {
+    if (id !in tipsDismissedHere) tipsDismissedHere += id
+    runCatching { TelecomGraph.dependencies.markTipSeen(id) }
+}
+
+/** P6's tip, once: press and hold Speaker for the list of outputs (only while connected, with somewhere to choose). */
+@Composable
+private fun AudioRoutesTip(call: CallUi, audio: AudioUi) {
+    if (call.state != CallState.ACTIVE || audio.routes.size < 2 || Tips.CALL_AUDIO_ROUTES in tipsDismissedHere) return
+    val seen = remember { runCatching { TelecomGraph.dependencies.tipSeen(Tips.CALL_AUDIO_ROUTES) }.getOrDefault(true) }
+    if (seen) return
+    CallTip(stringResource(R.string.call_tip_audio_routes)) { markTipSeen(Tips.CALL_AUDIO_ROUTES) }
 }
 
 /** One half of the two-pane layout: centred, and scrollable when it doesn't fit. */
@@ -430,6 +483,7 @@ private fun ControlGrid(
     audio: AudioUi,
     onKeypad: () -> Unit,
     onAudio: () -> Unit,
+    onAudioList: () -> Unit,
     onAddCall: () -> Unit,
     onManage: () -> Unit,
     onMore: () -> Unit,
@@ -437,7 +491,7 @@ private fun ControlGrid(
     val layout = CallControls.layout(controlCaps(call, others, audio))
     val res = LocalResources.current
     val specs = layout.grid.map { slot ->
-        controlSpec(res, slot.control, slot.enabled, call, audio) {
+        val spec = controlSpec(res, slot.control, slot.enabled, call, audio) {
             when (slot.control) {
                 CallControl.KEYPAD -> onKeypad()
                 CallControl.AUDIO -> onAudio()
@@ -446,6 +500,11 @@ private fun ControlGrid(
                 CallControl.MORE -> onMore()
                 else -> runControl(slot.control, call, audio)
             }
+        }
+        if (slot.control == CallControl.AUDIO && audio.routes.size >= 2) {
+            spec.copy(onLongClick = onAudioList, longClickLabel = res.getString(R.string.incall_choose_audio_output))
+        } else {
+            spec
         }
     }
     ControlRows(specs, CallControls.COLUMNS)
@@ -648,6 +707,7 @@ private fun InCallDialogs(
     onAddCall: () -> Unit,
     askDeclineFor: String?,
     onAskDeclineDone: () -> Unit,
+    onUnlock: (() -> Unit) -> Unit,
 ) {
     val primary = s.primary
     sheets.noteFor?.let { id -> NoteDialog(id) { sheets.noteFor = null } }
@@ -663,7 +723,8 @@ private fun InCallDialogs(
         )
     }
     if (sheets.route) AudioRouteSheet(s.audio) { sheets.route = false }
-    if (sheets.more && primary != null) MoreSheet(primary, s, sheets, onOpenContact, onAddCall)
+    if (sheets.more && primary != null) MoreSheet(primary, s, sheets, onOpenContact, onAddCall, onUnlock)
+    VerifyDialog(s, sheets)
     // Decline tapped in the notification, with "Confirm before declining" on.
     val askCall = s.live.firstOrNull { it.id == askDeclineFor && it.state == CallState.RINGING }
     if (askCall != null) {
@@ -676,9 +737,29 @@ private fun InCallDialogs(
     if (sheets.manage && conference != null) ConferenceSheet(conference) { sheets.manage = false }
 }
 
+/** "Check it's really them": for the live call while it lasts, or for the call that just ended. */
+@Composable
+private fun VerifyDialog(s: ScreenState, sheets: InCallSheets) {
+    val v = sheets.verifyFor ?: return
+    val live = s.live.firstOrNull { it.id == v.id }
+    if (live != null || s.primary == null) {
+        VerifySheet(live ?: v, live = live != null) { sheets.verifyFor = null }
+    } else {
+        // That call ended while another goes on: nothing left to check.
+        LaunchedEffect(v.id) { sheets.verifyFor = null }
+    }
+}
+
 /** More: the controls that didn't fit the grid, notes, Open contact, Copy number and the call's time. */
 @Composable
-private fun MoreSheet(primary: CallUi, s: ScreenState, sheets: InCallSheets, onOpenContact: (CallUi) -> Unit, onAddCall: () -> Unit) {
+private fun MoreSheet(
+    primary: CallUi,
+    s: ScreenState,
+    sheets: InCallSheets,
+    onOpenContact: (CallUi) -> Unit,
+    onAddCall: () -> Unit,
+    onUnlock: (() -> Unit) -> Unit,
+) {
     val context = LocalContext.current
     val timings by CallClock.timings.collectAsStateWithLifecycle()
     CallMoreSheet(
@@ -689,6 +770,8 @@ private fun MoreSheet(primary: CallUi, s: ScreenState, sheets: InCallSheets, onO
         onNote = { sheets.noteFor = primary.id },
         onOpenContact = if (primary.hidden) null else ({ onOpenContact(primary) }),
         onCopyNumber = primary.number?.takeIf { !primary.hidden && it.isNotBlank() }?.let { n -> { copyNumber(context, n) } },
+        onHoldMode = if (primary.canHoldMode) ({ CallManager.startHoldMode(primary.id) }) else null,
+        onVerify = if (primary.canVerify) ({ onUnlock { sheets.verifyFor = primary } }) else null,
     )
 }
 
