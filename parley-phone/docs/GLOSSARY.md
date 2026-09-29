@@ -42,7 +42,7 @@ A label's **Allow through Do Not Disturb** works by starring its members, becaus
 
 | Term | What it means |
 |---|---|
-| **History & undo** | The one place to get something back. It has three tabs: **Contacts** (contacts deleted, edited, merged or separated in Parley, 30 days), **Calls** (calls deleted in Parley, 30 days) and **Snapshots** (daily snapshots of the address book, 6 months). Messages that say where to restore something name this place ("You can restore it from History & undo"). |
+| **History & undo** | The one place to get something back. It has three tabs: **Contacts** (contacts deleted, edited, merged or separated in Parley, 30 days; deleted private contacts are kept sealed there and listed after unlocking), **Calls** (calls deleted in Parley, 30 days) and **Snapshots** (daily snapshots of the address book, 6 months). Messages that say where to restore something name this place ("You can restore it from History & undo"). |
 | **Version history** | One contact's earlier versions, on its page. |
 
 ## Navigation

@@ -31,6 +31,10 @@
         <item quantity="one">Star %d new member</item>
         <item quantity="other">Star %d new members</item>
     </plurals>
+    <plurals name="label_policy_dnd_private">
+        <item quantity="one">%1$d private contact here can\'t ring through: Android only lets its own contacts through Do Not Disturb</item>
+        <item quantity="other">%1$d private contacts here can\'t ring through: Android only lets its own contacts through Do Not Disturb</item>
+    </plurals>
     <string name="label_policy_dnd_all_starred">Everyone in this label is already starred, so they are already in Favourites.</string>
     <string name="label_policy_dnd_everyone_note">Then, in Android\'s Do Not Disturb settings, allow calls from starred contacts. Everyone starred can ring, not only this label. Turning this off unstars only the people Parley starred for it.</string>
     <plurals name="label_policy_dnd_preview">

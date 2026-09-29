@@ -212,6 +212,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val people = PeopleUi(
         c, viewModelScope, everyone, contactQuery, countryIso,
         privateOnly = combine(showVault, settings) { on, s -> on && !s.hideVault }.stateIn(viewModelScope, SharingStarted.Eagerly, false),
+        includePrivate = settings.map { !it.hideVault }.stateIn(viewModelScope, SharingStarted.Eagerly, !settings.value.hideVault),
     )
 
     /** The Circle (people with keep-in-touch set) and its suggestions. */

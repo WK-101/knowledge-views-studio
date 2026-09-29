@@ -21,6 +21,7 @@ import app.parley.common.calltime.CallTimePlan
 import app.parley.calltime.CallTimePlanner
 import app.parley.data.DataContainer
 import app.parley.data.EmergencyNumbers
+import app.parley.data.vault.VaultCallChoices
 import app.parley.data.NumberInfo
 import app.parley.data.PhoneEnv
 import app.parley.telecom.CallManager
@@ -255,7 +256,9 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
 
     // Memory only (the call path runs on the main thread): settings, rules and label ringtones are warmed at app
     // start, and anything not read yet counts as "on".
-    override fun screeningActive(): Boolean = c.screener.isActive() || !c.peoplePrefs.loaded || c.peoplePrefs.settings.value.labelRingtones.isNotEmpty()
+    // Private contacts' ringtones, "send to voicemail" and labels are applied by screening too (Android never sees them).
+    override fun screeningActive(): Boolean = c.screener.isActive() || !c.peoplePrefs.loaded || c.peoplePrefs.settings.value.labelRingtones.isNotEmpty() ||
+        VaultCallChoices.any
 
     // ---- Blocking & screening ----
 
@@ -272,7 +275,7 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
                 deferredToSim = r.deferredToSim,
                 ringtoneSource = ringtoneSource(r),
                 ringtoneName = when {
-                    r.ringtone == null -> null
+                    r.ringtone == null || r.contactTone -> null
                     r.allowedBy == AllowReason.RULE && r.rule?.ringtone != null -> r.rule?.title
                     r.allowedBy == AllowReason.CONTACT || r.allowedBy == null ->
                         c.peoplePrefs.settings.value.labelRingtones.entries.firstOrNull { it.value == r.ringtone }?.key
@@ -284,6 +287,7 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
     /** Where the screener's ringtone comes from. */
     private fun ringtoneSource(r: ScreeningResult): RingtoneSource? = when {
         r.ringtone == null -> null
+        r.contactTone -> RingtoneSource.CONTACT
         r.allowedBy == AllowReason.RULE && r.rule?.ringtone != null -> RingtoneSource.RULE
         r.allowedBy == AllowReason.REPEAT -> RingtoneSource.REPEAT
         r.allowedBy == AllowReason.DEFAULT -> RingtoneSource.LIKELY_SPAM

@@ -179,11 +179,11 @@ fun ContactsTab(vm: AppViewModel, open: (Destination) -> Unit, onReorderFavorite
                             onCall = { n -> vm.requestCall(n, c.displayName) },
                             selected = c.id in selection,
                             selectionMode = selection.isNotEmpty(),
-                            // Bulk actions are the address book's (labels, accounts, export): private contacts stay out of them.
-                            onLongClick = if (c.id < 0) null else ({ vm.toggleSelection(c.id) }),
+                            // Private contacts are selected like any (SelectionBar leaves them out of what would copy them out).
+                            onLongClick = { vm.toggleSelection(c.id) },
                             onMessage = { n -> quick.message(c, n) },
                             isCompany = index.extras[c.id]?.let { e -> e.company.isNotBlank() && e.company.trim().equals(c.displayName.trim(), ignoreCase = true) } == true,
-                        ) { if (selection.isNotEmpty()) { if (c.id > 0) vm.toggleSelection(c.id) } else open(Routes.contact(c.id)) }
+                        ) { if (selection.isNotEmpty()) vm.toggleSelection(c.id) else open(Routes.contact(c.id)) }
                     }
                 }
             }

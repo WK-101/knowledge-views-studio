@@ -5,6 +5,7 @@ import android.provider.CallLog
 import android.util.Base64
 import app.parley.common.backup.RecordJson
 import app.parley.common.people.CallerCard
+import app.parley.common.people.PrivateLabels
 import app.parley.common.record.ContactRecord
 import app.parley.common.PhoneNumbers
 import app.parley.common.NotificationPrivacy
@@ -48,7 +49,16 @@ data class VaultSummary(
     val purgeHistory: Boolean = false,
     /** A favourite: Parley's own star (private contacts aren't in the address book, whose star other apps read). */
     val starred: Boolean = false,
-)
+    /** Its labels (the address book's groups; only the membership is kept here, see [PrivateLabels]). */
+    val labels: List<PrivateLabels.Membership> = emptyList(),
+    /** Its own ringtone, played by Parley's ringer when it calls. */
+    val ringtone: String? = null,
+    /** Its calls are declined to voicemail by Parley's call screening. */
+    val sendToVoicemail: Boolean = false,
+) {
+    /** Anything the call path must apply for this contact (Parley screens its calls then). */
+    val hasCallChoices: Boolean get() = ringtone != null || sendToVoicemail || labels.isNotEmpty()
+}
 
 /**
  * What the call screen shows for a private contact, readable without unlocking (from the caller-ID copy):
@@ -65,11 +75,50 @@ data class VaultCallerCard(
 data class PrivateCall(val id: Long, val vaultId: Long, val number: String, val name: String, val date: Long, val durationSec: Long, val type: Int)
 
 /**
+ * [VaultRepository.hasCallChoices] without building the vault: false until it has been read. A call in a process
+ * started for it is screened by the call-screening service anyway, which reads the vault itself.
+ */
+object VaultCallChoices {
+    @Volatile var any: Boolean = false
+}
+
+/** A private contact exactly as the vault stores it, every part still sealed ([VaultRepository.sealedCopy]). */
+class SealedEntry(
+    val callerIdBlob: ByteArray,
+    val detailBlob: ByteArray,
+    val expiresAt: Long?,
+    val createdAt: Long,
+    /** The photo file's bytes, sealed with the caller-ID key. */
+    val photo: ByteArray?,
+    val calls: List<SealedCall>,
+)
+
+/** One private call, its number and name still sealed. */
+class SealedCall(val blob: ByteArray, val date: Long, val durationSec: Long, val type: Int)
+
+/**
  * Private contacts stored only inside Parley (encrypted), invisible to every other app.
  * Caller ID uses an HMAC index + the caller-ID key, so it works even while the phone is locked.
  */
 class VaultRepository(private val context: Context, private val db: AppDatabase, scope: CoroutineScope) {
     private val dao = db.vaultDao()
+
+    /**
+     * The address book's labels (id, title), set by the container: a private contact's label membership is stored by
+     * group id and title ([PrivateLabels]) and read back as the labels are now. Empty when contacts can't be read.
+     */
+    @Volatile var labelGroups: () -> List<PrivateLabels.Group> = { emptyList() }
+
+    /**
+     * Whether any private contact has a ringtone, "send to voicemail" or labels, so the call path screens calls even
+     * when no other screening feature is on. Memory only (the call path asks on the main thread, see
+     * [VaultCallChoices]): kept from the last listing and remembered across restarts.
+     */
+    var hasCallChoices: Boolean
+        get() = VaultCallChoices.any
+        private set(v) {
+            VaultCallChoices.any = v
+        }
 
     val contacts: StateFlow<List<VaultSummary>> = dao.contacts()
         .map { list -> list.mapNotNull { summarize(it) }.sortedBy { it.name.lowercase() } }
@@ -94,9 +143,32 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
         VaultSummary(
             e.id, o.optString("name"), (0 until nums.length()).map { nums.getString(it) }, e.expiresAt,
             updatedAt = o.optLong("u", e.createdAt), purgeHistory = o.optBoolean("purge", false),
-            starred = o.optBoolean(C_STAR, false),
+            starred = o.optBoolean(C_STAR, false), labels = labelsOf(o),
+            ringtone = o.optString(C_TONE).ifEmpty { null }, sendToVoicemail = o.optBoolean(C_VOICEMAIL, false),
         )
     }.getOrNull()
+
+    private fun labelsOf(o: JSONObject): List<PrivateLabels.Membership> {
+        val a = o.optJSONArray(C_LABELS) ?: return emptyList()
+        return (0 until a.length()).mapNotNull { i -> a.optJSONObject(i)?.let { PrivateLabels.Membership(it.optLong("i"), it.optString("t")) } }
+            .filter { it.title.isNotBlank() }
+    }
+
+    private fun putLabels(o: JSONObject, labels: List<PrivateLabels.Membership>) {
+        if (labels.isEmpty()) o.remove(C_LABELS) else o.put(C_LABELS, JSONArray(labels.map { JSONObject().put("i", it.groupId).put("t", it.title) }))
+    }
+
+    /**
+     * What the caller-ID copy [o] keeps for the call path and the lists (the star, labels, ringtone and "send to
+     * voicemail") laid over details read from the sealed record: it is the one place they are stored, so they can be
+     * changed without unlocking and are applied to calls while the phone is locked.
+     */
+    private fun withCallerChoices(d: ContactDetails, o: JSONObject): ContactDetails = d.copy(
+        starred = o.optBoolean(C_STAR, false),
+        groupIds = PrivateLabels.ids(labelsOf(o), runCatching { labelGroups() }.getOrDefault(emptyList())),
+        customRingtone = o.optString(C_TONE).ifEmpty { null },
+        sendToVoicemail = o.optBoolean(C_VOICEMAIL, false),
+    )
 
     /**
      * Full details; throws [VaultCrypto.LockedException] if the user must unlock first and
@@ -108,12 +180,14 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
      */
     suspend fun details(id: Long): ContactDetails? = withContext(Dispatchers.IO) {
         val e = dao.get(id) ?: return@withContext null
-        try {
+        val caller = JSONObject(String(VaultCrypto.openCallerId(e.callerIdBlob)))
+        val d = try {
             // The photo is kept apart (encrypted, readable for caller ID); anything older in the record is stale.
             ContactDetailsJson.decode(String(VaultCrypto.openDetail(e.detailBlob))).copy(photoUri = photoUri(id))
         } catch (_: VaultCrypto.KeyLostException) {
-            rebuiltFromCallerId(id, JSONObject(String(VaultCrypto.openCallerId(e.callerIdBlob)))).copy(photoUri = photoUri(id))
+            rebuiltFromCallerId(id, caller).copy(photoUri = photoUri(id))
         }
+        withCallerChoices(d, caller)
     }
 
     /** Whether this entry's full details can no longer be opened (only what the caller-ID copy holds is left). */
@@ -177,7 +251,57 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
         }
     }
 
-    private suspend fun generationsInUse(): Set<Int> = dao.all().map { VaultCrypto.generationOf(it.detailBlob) }.toSet()
+    /** Detail key generations still needed: the entries', and sealed copies kept by "Recently deleted". */
+    private suspend fun generationsInUse(): Set<Int> =
+        dao.all().map { VaultCrypto.generationOf(it.detailBlob) }.toSet() + runCatching { keptGenerations() }.getOrDefault(emptySet())
+
+    /** Generations of detail blobs kept outside the table (set by the container: [PrivateTrash]). */
+    @Volatile var keptGenerations: () -> Set<Int> = { emptySet() }
+
+    /**
+     * Entry [id] exactly as stored, still sealed (its details under the detail key, the rest under the caller-ID key),
+     * with its photo file and private calls: what "Recently deleted" keeps. Nothing is opened, so no unlock is needed.
+     */
+    suspend fun sealedCopy(id: Long): SealedEntry? = withContext(Dispatchers.IO) {
+        keysLock.withLock {
+            val e = dao.get(id) ?: return@withLock null
+            val photo = photoFile(id).takeIf { it.isFile }?.readBytes()
+            val calls = dao.allPrivateCalls().filter { it.vaultId == id }.map { SealedCall(it.blob, it.date, it.durationSec, it.type) }
+            SealedEntry(e.callerIdBlob, e.detailBlob, e.expiresAt, e.createdAt, photo, calls)
+        }
+    }
+
+    /** Puts a [sealedCopy] back as a new entry (its fingerprints rebuilt); returns its id. */
+    suspend fun restoreSealed(s: SealedEntry): Long = withContext(Dispatchers.IO) {
+        val caller = JSONObject(String(VaultCrypto.openCallerId(s.callerIdBlob)))
+        val nums = caller.optJSONArray("numbers") ?: JSONArray()
+        val numbers = (0 until nums.length()).map { nums.getString(it) }
+        val region = caller.optString(C_REGION).ifEmpty { region() }
+        // A temporary contact whose date passed meanwhile would be deleted again at once: it comes back permanent.
+        val expiresAt = s.expiresAt?.takeIf { it > System.currentTimeMillis() }
+        val id = keysLock.withLock {
+            db.withTransaction {
+                val newId = dao.upsert(
+                    VaultContactEntity(callerIdBlob = s.callerIdBlob, detailBlob = s.detailBlob, expiresAt = expiresAt, createdAt = s.createdAt),
+                )
+                dao.addNumbers(numberRows(newId, numbers, region))
+                s.calls.forEach { c ->
+                    val key = PrivateCallEntity.dedupeKey(newId, c.date, c.type)
+                    dao.addPrivateCall(
+                        PrivateCallEntity(vaultId = newId, blob = c.blob, date = c.date, durationSec = c.durationSec, type = c.type, dedupeKey = key),
+                    )
+                }
+                newId
+            }
+        }
+        s.photo?.let { bytes ->
+            val tmp = File(photoDir(), "$id.tmp")
+            tmp.writeBytes(bytes)
+            tmp.renameTo(photoFile(id))
+        }
+        if (caller.optBoolean(C_VOICEMAIL) || caller.has(C_TONE) || caller.has(C_LABELS)) noteCallChoices(true)
+        id
+    }
 
     /**
      * The details that survive a lost detail key, from the caller-ID copy [o]: name, numbers and labels, and the
@@ -222,7 +346,10 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
         // expiry or a re-seal made meanwhile isn't overwritten with what was read before it.
         keysLock.withLock {
             val existing = id?.let { dao.get(it) }
-            val purge = purgeHistory ?: existing?.let { summarize(it)?.purgeHistory } ?: false
+            val existingSummary = existing?.let { summarize(it) }
+            val purge = purgeHistory ?: existingSummary?.purgeHistory ?: false
+            // Labels as the editor chose them, keeping any it couldn't show (a label that isn't there right now).
+            val labels = PrivateLabels.fromIds(d.groupIds, runCatching { labelGroups() }.getOrDefault(emptyList()), existingSummary?.labels.orEmpty())
             val caller = JSONObject().put("name", name).put("numbers", JSONArray(numbers))
                 .put("labels", JSONArray(d.phones.filter { it.value.isNotBlank() }.map { it.type }))
                 // The caller card's extra lines, readable while the phone is locked like the name.
@@ -239,6 +366,12 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
                 .apply { if (purge) put("purge", true) }
                 // In Favourites while the vault is locked, like the name in Contacts.
                 .apply { if (d.starred) put(C_STAR, true) }
+                // Labels, ringtone and "send to voicemail": applied to calls while the phone is locked.
+                .apply {
+                    putLabels(this, labels)
+                    d.customRingtone?.takeIf { it.isNotBlank() }?.let { put(C_TONE, it) }
+                    if (d.sendToVoicemail) put(C_VOICEMAIL, true)
+                }
                 // The region national numbers were read with, so re-fingerprinting later uses the same one.
                 .put(C_REGION, region)
             val detailsJson = ContactDetailsJson.encode(d.copy(photoUri = null))
@@ -277,8 +410,46 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
                 dao.clearNumbers(newId)
                 dao.addNumbers(numberRows(newId, numbers, region))
                 newId
-            }
+            }.also { noteCallChoices(labels.isNotEmpty() || d.sendToVoicemail || !d.customRingtone.isNullOrBlank()) }
         }
+    }
+
+    /**
+     * Changes only entry [id]'s caller-ID copy ([change] edits its JSON): the star, labels, ringtone and "send to
+     * voicemail" live there, so they change without unlocking the vault and the sealed details are never rewritten.
+     * False when the entry is gone or its caller-ID copy can't be opened.
+     */
+    suspend fun updateCallerChoices(id: Long, change: (VaultSummary) -> VaultSummary): Boolean = withContext(Dispatchers.IO) {
+        keysLock.withLock {
+            val e = dao.get(id) ?: return@withLock false
+            val o = runCatching { JSONObject(String(VaultCrypto.openCallerId(e.callerIdBlob))) }.getOrNull() ?: return@withLock false
+            val before = summarize(e) ?: return@withLock false
+            val after = change(before)
+            if (after == before) return@withLock true
+            if (after.starred) o.put(C_STAR, true) else o.remove(C_STAR)
+            putLabels(o, after.labels)
+            if (after.ringtone.isNullOrBlank()) o.remove(C_TONE) else o.put(C_TONE, after.ringtone)
+            if (after.sendToVoicemail) o.put(C_VOICEMAIL, true) else o.remove(C_VOICEMAIL)
+            // "u" stays: which of two entries sharing a number wins follows edits of the contact, not a star or a label.
+            dao.setCallerIdBlob(id, VaultCrypto.sealCallerId(o.toString().toByteArray()))
+            noteCallChoices(after.hasCallChoices)
+            true
+        }
+    }
+
+    /** Entry [id]'s summary (caller-ID copy), read straight from the database; null when gone or unreadable. */
+    suspend fun summary(id: Long): VaultSummary? = withContext(Dispatchers.IO) { dao.get(id)?.let { summarize(it) } }
+
+    /** A save or change gave a private contact something the call path applies. */
+    private fun noteCallChoices(any: Boolean) {
+        if (any) rememberCallChoices(true)
+    }
+
+    /** Set from the full listing; also stored, for a process started for a call before the listing is read. */
+    private fun rememberCallChoices(any: Boolean) {
+        if (hasCallChoices == any) return
+        hasCallChoices = any
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(K_CALL_CHOICES, any).apply()
     }
 
     private fun region(): String = PhoneEnv.countryIso(context)
@@ -330,6 +501,11 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
     }
 
     init {
+        scope.launch(Dispatchers.IO) {
+            runCatching { if (context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(K_CALL_CHOICES, false)) hasCallChoices = true }
+            // Then the listing decides (a stale "yes" costs only a lookup per call; a "no" only once none has any).
+            runCatching { dao.contacts().collect { list -> rememberCallChoices(list.any { e -> summarize(e)?.hasCallChoices == true }) } }
+        }
         scope.launch { runCatching { migrateNumberKeys() } }
         // Settles the key generation from the stored blobs before anything audits it (an interrupted upgrade).
         scope.launch { runCatching { keysLock.withLock { VaultCrypto.reconcileGenerations(generationsInUse()) } } }
@@ -375,7 +551,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
             val s = candidates.first { it.second.id == win.id }.first
             return@withContext win.id to CallerInfo(
                 contactId = -win.id, lookupKey = null, name = s.name, photoUri = null,
-                numberLabel = NotificationPrivacy.VAULT_LABEL, customRingtone = null, sendToVoicemail = false,
+                numberLabel = NotificationPrivacy.VAULT_LABEL, customRingtone = s.ringtone, sendToVoicemail = s.sendToVoicemail,
             )
         }
         null
@@ -543,5 +719,9 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
         const val C_COMPANY = "co"
         const val C_REGION = "rg"
         const val C_STAR = "star"
+        const val C_LABELS = "lb"
+        const val C_TONE = "rt"
+        const val C_VOICEMAIL = "vm"
+        const val K_CALL_CHOICES = "call_choices"
     }
 }

@@ -592,7 +592,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                 }
                 // Empty birthday / anniversary slots, saved straight to the system contact.
                 if (quickDates) item {
-                    MissingDateChips(vm, d, onSaved = page::reload, modifier = Modifier.padding(vertical = Spacing.xs))
+                    MissingDateChips(vm, d, onSaved = page::reload, modifier = Modifier.padding(vertical = Spacing.xs), save = { e -> page.addDate(d, e) })
                 }
             }
         }
@@ -966,7 +966,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
         if (confirmDelete) {
             ConfirmDialog(
                 title = if (isPrivate) stringResource(R.string.vault_delete_title) else stringResource(R.string.detail_delete_title, d.displayName),
-                // A private contact has no copy in History & undo: the vault never leaves one outside it.
+                // A private contact's copy is kept sealed ("Deleted private contacts" in History & undo), never plain.
                 text = stringResource(if (isPrivate) R.string.vault_delete_text else R.string.detail_delete_body),
                 confirmLabel = stringResource(R.string.main_delete),
                 onConfirm = {

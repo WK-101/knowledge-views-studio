@@ -2,6 +2,8 @@ package app.parley.data
 
 import android.Manifest
 import app.parley.common.AllowReason
+import app.parley.common.BlockAction
+import app.parley.common.BlockReason
 import app.parley.common.CallEntry
 import app.parley.common.LabelRefs
 import app.parley.common.PhoneIdentity
@@ -27,6 +29,7 @@ import app.parley.common.blocking.ScreeningEffects
 import app.parley.common.blocking.ScreeningPipeline
 import app.parley.common.spam.ParsedPack
 import app.parley.data.vault.VaultRepository
+import app.parley.common.people.PrivateLabels
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -127,8 +130,13 @@ class CallScreener(
         val result = pipeline.screen(g.facts, rules, s, PolicyClock.of(now)).let {
             when {
                 it.blocked -> it
+                // A private contact's "Send to voicemail" (Android applies a device contact's itself): declined unrung.
+                g.privateVoicemail && it.allowedBy != AllowReason.EMERGENCY ->
+                    it.copy(decision = Decision.Block(BlockAction.REJECT, BlockReason.SEND_TO_VOICEMAIL), ringtone = null, ringLoud = false)
                 // A contact's own ringtone is played by the system, so no label tone then.
                 g.contactHasRingtone && it.allowedBy == AllowReason.CONTACT -> it.copy(ringtone = null)
+                // A private contact's own ringtone: Android never sees it, so Parley's ringer plays it (a rule's wins).
+                g.privateTone != null && it.allowedBy != AllowReason.RULE -> it.copy(ringtone = g.privateTone, contactTone = true)
                 it.ringtone == null && g.facts.isContact && !g.contactHasRingtone ->
                     it.copy(ringtone = LabelRefs.ringtoneFor(g.facts.contactLabels, tones))
                 else -> it
@@ -204,7 +212,14 @@ class CallScreener(
 
     private suspend fun currentSettings(): ScreeningSettings = settings.current().let { it.screening.copy(repeatCallers = it.repeatCallerRingsThrough) }
 
-    private class Gathered(val facts: IncomingCallFacts, val contactName: String?, val contactHasRingtone: Boolean = false)
+    private class Gathered(
+        val facts: IncomingCallFacts,
+        val contactName: String?,
+        val contactHasRingtone: Boolean = false,
+        /** A private contact's own ringtone and "send to voicemail" (sealed in its vault entry). */
+        val privateTone: String? = null,
+        val privateVoicemail: Boolean = false,
+    )
 
     private suspend fun gather(
         req: ScreenRequest,
@@ -237,6 +252,8 @@ class CallScreener(
         var labelFailed = false
         var contactName: String? = null
         var contactRingtone: String? = null
+        var privateTone: String? = null
+        var privateVoicemail = false
         val needLabels = rules.any { it.enabled && it.type == RuleType.LABEL } || (s.offHours.enabled && s.offHours.allow == OffHoursAllow.LABEL) ||
             tones.isNotEmpty()
         if (isContact && !lookupFailed) {
@@ -247,9 +264,12 @@ class CallScreener(
                     contactRingtone = d.ringtone
                     // Titles in every account: label rules, off hours and ringtones name labels by title.
                     if (needLabels) labels = contacts.labelTitlesOrNull(d.id) ?: throw IllegalStateException("contacts unavailable")
-                } ?: run {
-                    // A vault contact: never starred, no labels.
-                    contactName = runCatching { vault.lookup(primary, iso)?.second?.name }.getOrNull()
+                } ?: privateCaller(primary, iso, needLabels)?.let { p ->
+                    contactName = p.name
+                    starred = p.starred
+                    labels = p.labels
+                    privateTone = p.ringtone
+                    privateVoicemail = p.sendToVoicemail
                 }
             } catch (_: Exception) {
                 labelFailed = true
@@ -286,7 +306,7 @@ class CallScreener(
             history = history,
             blockedAttempts = blockedAttempts,
         )
-        return Gathered(facts, contactName, contactRingtone != null)
+        return Gathered(facts, contactName, contactRingtone != null, privateTone, privateVoicemail)
     }
 
     /** Earlier calls with [number] before [at], newest first. */
@@ -302,6 +322,23 @@ class CallScreener(
     }
 
     private class ContactBits(val id: Long, val name: String?, val starred: Boolean, val ringtone: String?)
+
+    private class PrivateCaller(val name: String?, val starred: Boolean, val labels: Set<String>, val ringtone: String?, val sendToVoicemail: Boolean)
+
+    /**
+     * A private caller: Parley's own star, labels, ringtone and "send to voicemail", from its sealed caller-ID copy
+     * (readable while the phone is locked); the address book knows nothing of them. Null when no private contact has it.
+     */
+    private suspend fun privateCaller(number: String, iso: String, needLabels: Boolean): PrivateCaller? {
+        val hit = runCatching { vault.lookup(number, iso) }.getOrNull() ?: return null
+        val p = runCatching { vault.summary(hit.first) }.getOrNull() ?: return PrivateCaller(hit.second.name, false, emptySet(), null, false)
+        val labels = if (needLabels && p.labels.isNotEmpty()) {
+            PrivateLabels.titles(p.labels, runCatching { contacts.groups().map { PrivateLabels.Group(it.id, it.title) } }.getOrDefault(emptyList()))
+        } else {
+            emptySet()
+        }
+        return PrivateCaller(hit.second.name, p.starred, labels, p.ringtone, p.sendToVoicemail)
+    }
 
     private fun contactDetails(number: String): ContactBits? {
         if (!Permissions.has(context, Manifest.permission.READ_CONTACTS)) return null
@@ -324,6 +361,8 @@ class CallScreener(
      * is kept, a rule hit is counted once and the same verdict is notified once.
      */
     private suspend fun commit(req: ScreenRequest, g: Gathered, result: ScreeningResult, s: ScreeningSettings, now: Long) = commitLock.withLock {
+        // A private contact sent to voicemail: the user's own choice for them, not a block, and never logged outside the vault.
+        if ((result.decision as? Decision.Block)?.reason == BlockReason.SEND_TO_VOICEMAIL) return@withLock
         val number = g.facts.number
         val key = if (number == null) "hidden" else PhoneIdentity.key(number, PhoneEnv.countryIso(context, req.simId))
         committed.entries.removeAll { now - it.value.at > RESCREEN_WINDOW_MS }

@@ -20,6 +20,8 @@ object ContactDetailsJson {
         if (d.context.isNotBlank()) put("ctx", d.context)
         if (d.pinnedNote.isNotBlank()) put("pin", d.pinnedNote)
         if (d.messengerPrefs.isNotBlank()) put("mp", d.messengerPrefs)
+        // A private contact's "send to voicemail" (read back only when present, like the lines above).
+        if (d.sendToVoicemail) put("vm", true)
     }.toString()
 
     fun decode(s: String): ContactDetails {
@@ -39,7 +41,7 @@ object ContactDetailsJson {
                     }
                 }
             }.orEmpty(),
-            context = str("ctx"), pinnedNote = str("pin"), messengerPrefs = str("mp"),
+            context = str("ctx"), pinnedNote = str("pin"), messengerPrefs = str("mp"), sendToVoicemail = o.optBoolean("vm"),
         ).let { it.copy(displayName = it.composedName.ifBlank { it.company.ifBlank { it.phones.firstOrNull()?.value.orEmpty() } }) }
     }
 

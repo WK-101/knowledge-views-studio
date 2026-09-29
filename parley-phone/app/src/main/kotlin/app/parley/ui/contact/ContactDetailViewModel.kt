@@ -283,16 +283,42 @@ class ContactDetailViewModel(private val c: DataContainer) : ViewModel() {
         }
     }
 
-    /** Favourites: the address book's star, or Parley's own for a private contact (other apps never see it). */
-    fun setStarred(on: Boolean) = launch {
-        if (vaultId != null) updatePrivate { it.copy(starred = on) } else c.contacts.setStarred(id, on)
+    /**
+     * Changes what a private contact's caller-ID copy keeps (star, ringtone, "send to voicemail"): no unlock needed,
+     * the sealed details aren't rewritten, and the call path applies it while the phone is locked.
+     */
+    private suspend fun updatePrivateChoices(change: (app.parley.data.vault.VaultSummary) -> app.parley.data.vault.VaultSummary) {
+        val v = vaultId ?: return
+        if (!c.vault.updateCallerChoices(v, change)) say(R.string.vault_details_unavailable)
+        reload()
     }
 
-    fun setRingtone(uri: Uri?) = launch { c.contacts.setRingtone(id, uri?.toString()) }
+    /** Favourites: the address book's star, or Parley's own for a private contact (other apps never see it). */
+    fun setStarred(on: Boolean) = launch {
+        if (vaultId != null) updatePrivateChoices { it.copy(starred = on) } else c.contacts.setStarred(id, on)
+    }
 
+    /** The contact's ringtone: the address book's, or for a private contact Parley's own (its ringer plays it). */
+    fun setRingtone(uri: Uri?) = launch {
+        if (vaultId != null) updatePrivateChoices { it.copy(ringtone = uri?.toString()) } else c.contacts.setRingtone(id, uri?.toString())
+    }
+
+    /** "Send to voicemail": Android applies a device contact's; Parley's call screening declines a private contact's calls. */
     fun setSendToVoicemail(on: Boolean) = launch {
+        if (vaultId != null) {
+            updatePrivateChoices { it.copy(sendToVoicemail = on) }
+            return@launch
+        }
         c.contacts.setSendToVoicemail(id, on)
         reload()
+    }
+
+    /** A birthday or anniversary from the page's date chips: into the address book, or a private contact's sealed details. */
+    suspend fun addDate(d: ContactDetails, event: app.parley.data.EventItem): Boolean {
+        if (vaultId != null) return updatePrivate { it.copy(events = it.events + event) }
+        val saved = runCatching { c.contacts.save(d, d.copy(events = d.events + event), account = null, photo = null, removePhoto = false) }.getOrNull()
+        if (saved != null) reload()
+        return saved != null
     }
 
     /** Unlinks the contact's copies; [then] runs once done (the page closes). */

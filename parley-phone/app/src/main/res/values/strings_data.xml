@@ -494,7 +494,7 @@
     <string name="vault_note">Note</string>
     <string name="vault_call_history">Private call history</string>
     <string name="vault_delete_title">Delete this private contact?</string>
-    <string name="vault_delete_text">This also deletes its private call history. It can\'t be undone.</string>
+    <string name="vault_delete_text">This also deletes its private call history. A sealed copy stays in History &amp; undo for 30 days, shown only after you unlock.</string>
     <string name="vault_expiry_title">Delete automatically after</string>
     <string name="vault_expiry_1_day">1 day</string>
     <string name="vault_expiry_1_week">1 week</string>
@@ -789,6 +789,14 @@
     <string name="jr_clear_failed">Couldn\'t clear. Try again.</string>
     <string name="jr_remove_item">Remove from history</string>
     <string name="jr_remove_title">Remove from history?</string>
+    <string name="jr_private_title">Deleted private contacts</string>
+    <plurals name="jr_private_locked">
+        <item quantity="one">%1$d kept sealed for 30 days. Unlock to see it</item>
+        <item quantity="other">%1$d kept sealed for 30 days. Unlock to see them</item>
+    </plurals>
+    <string name="jr_private_open">Kept sealed for 30 days after they were deleted</string>
+    <string name="jr_private_unlock">Unlock</string>
+    <string name="jr_private_remove_text">The sealed copy of %1$s goes for good, and it can\'t be restored.</string>
     <string name="jr_remove_change_text">You won\'t be able to undo this change to %1$s.</string>
     <plurals name="jr_remove_calls_text">
         <item quantity="one">You won\'t be able to restore this call.</item>

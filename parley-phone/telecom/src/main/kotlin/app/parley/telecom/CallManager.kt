@@ -8,6 +8,7 @@ import android.os.Build
 import android.os.SystemClock
 import android.provider.Settings
 import android.telecom.Call
+import app.parley.common.BlockReason
 import android.telecom.Connection
 import android.telecom.DisconnectCause
 import android.telecom.PhoneAccountHandle
@@ -135,7 +136,9 @@ object CallManager {
     private val screeningHost = object : ScreeningCoordinator.Host {
         override fun stillPresent(session: CallSession) = callOf(session) != null
         override fun rejectUnwanted(session: CallSession) {
-            callOf(session)?.let { rejectUnwanted(it) }
+            val call = callOf(session) ?: return
+            // A private contact's "Send to voicemail" is a plain decline (the network sends them to voicemail), not "unwanted".
+            if ((session.outcome?.decision as? Decision.Block)?.reason == BlockReason.SEND_TO_VOICEMAIL) call.reject(false, null) else rejectUnwanted(call)
         }
         override fun silence(session: CallSession) {
             session.silenced = true

@@ -28,7 +28,7 @@ class CallPlacer(private val context: Context, private val sims: SimRepository, 
 
     /** The SIM a label asks for, used when the number has no remembered SIM. Blocking: only called on [Dispatchers.IO]. */
     @Volatile
-    var fallbackSim: ((String) -> String?)? = null
+    var fallbackSim: (suspend (String) -> String?)? = null
 
     /** The SIM for [number] without a choice of its own: the remembered one, else a label's. Off the main thread. */
     suspend fun resolveSim(number: String): String? = withContext(Dispatchers.IO) {

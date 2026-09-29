@@ -35,6 +35,7 @@ object BlockingText {
             BlockReason.LIST -> R.string.blk_reason_list
             BlockReason.INVALID_NUMBER -> R.string.blk_reason_invalid
             BlockReason.OFF_HOURS -> R.string.blk_reason_off_hours
+            BlockReason.SEND_TO_VOICEMAIL -> R.string.blk_reason_voicemail
         },
     )
 

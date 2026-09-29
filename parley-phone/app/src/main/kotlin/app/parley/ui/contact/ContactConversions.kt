@@ -1,7 +1,10 @@
 package app.parley.ui.contact
 
 import app.parley.common.backup.CallLogRecord
+import app.parley.common.calltime.LimitScope
 import app.parley.common.people.ContactRef
+import app.parley.common.people.PrivateLabels
+import app.parley.data.vault.VaultSummary
 import app.parley.data.AccountRef
 import app.parley.data.CallLogRepository
 import app.parley.data.ContactDetails
@@ -75,6 +78,9 @@ class ContactConversions(private val c: DataContainer) {
         val calls = runCatching { c.vault.privateCallsOf(vaultId) }.getOrDefault(emptyList())
         val clean = d.copy(id = 0, lookupKey = "", photoUri = null)
         val newId = c.vaultMoves.moveOut(vaultId, clean, account) ?: return@inApp null
+        // What Parley kept for it while private becomes the address book's again: star, ringtone, "send to
+        // voicemail" and its labels as they are now (the stored record may hold older ones).
+        if (summary != null) toAddressBook(newId, summary)
         val key = withContext(Dispatchers.IO) { c.contacts.lookupKeyOf(newId) }?.takeIf { it.isNotEmpty() }
         if (key != null) {
             c.contactKeys.rekey(ContactRef.privateKey(vaultId), key, newId)
@@ -85,6 +91,8 @@ class ContactConversions(private val c: DataContainer) {
                 if (clean.messengerPrefs.isNotBlank()) c.meta.setPreferredMessenger(key, newId, clean.messengerPrefs)
             }
             summary?.expiresAt?.let { at -> c.temporaries.markAt(newId, at, summary.purgeHistory, summary.name) }
+            // A limit kept no name while private: the address book's contact has one again.
+            c.calling.update { cfg -> cfg.rule(LimitScope.CONTACT, key)?.let { r -> cfg.withRule(r.copy(title = summary?.name ?: d.displayName)) } ?: cfg }
         } else {
             // Not readable back yet: the next key sweep can't find a private key, so forget rather than orphan it.
             c.contactKeys.forget(ContactRef.privateKey(vaultId))
@@ -93,10 +101,30 @@ class ContactConversions(private val c: DataContainer) {
         newId
     }
 
-    /** Deletes private contact [vaultId] with everything Parley kept about it. */
-    suspend fun deletePrivate(vaultId: Long) = inApp {
+    /**
+     * Deletes private contact [vaultId] with everything Parley kept about it. A sealed copy is kept first in "Recently
+     * deleted" for 30 days ([app.parley.data.vault.PrivateTrash]) unless [keepCopy] is false; History & undo never
+     * holds a private contact.
+     */
+    suspend fun deletePrivate(vaultId: Long, keepCopy: Boolean = true) = inApp {
+        if (keepCopy) runCatching { c.privateTrash.keep(vaultId) }
         c.vault.delete(vaultId)
         c.contactKeys.forget(ContactRef.privateKey(vaultId))
+    }
+
+    /** A contact made visible gets what the private one had: star, ringtone, "send to voicemail" and labels. */
+    private suspend fun toAddressBook(contactId: Long, s: VaultSummary) = withContext(Dispatchers.IO) {
+        runCatching { c.contacts.setStarred(contactId, s.starred) }
+        runCatching { c.contacts.setRingtone(contactId, s.ringtone) }
+        runCatching { c.contacts.setSendToVoicemail(contactId, s.sendToVoicemail) }
+        val groups = c.contacts.groups()
+        val wanted = PrivateLabels.titles(s.labels, groups.map { PrivateLabels.Group(it.id, it.title) })
+        val have = c.contacts.labelTitlesOrNull(contactId) ?: return@withContext
+        // Into a group of that label the contact's account can hold (the label may exist in several accounts).
+        for (title in wanted - have) {
+            for (g in groups.filter { it.title.trim() == title }) if (runCatching { c.contacts.addToGroup(listOf(contactId), g) }.getOrDefault(1) == 0) break
+        }
+        (have - wanted).forEach { t -> runCatching { c.people.labels.removeMembers(t, listOf(contactId)) } }
     }
 
     /** Runs [block] in the app's scope: the caller may stop waiting, the conversion still finishes. */

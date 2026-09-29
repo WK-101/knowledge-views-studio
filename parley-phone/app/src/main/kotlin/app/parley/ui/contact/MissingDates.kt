@@ -36,11 +36,18 @@ fun hasMissingDates(d: ContactDetails): Boolean =
 
 /**
  * "Add birthday?" and "Add anniversary?" chips on the contact page when those dates are empty. The date is saved
- * straight into the system contact (an Event row, like the editor writes), so it's never kept only in Parley and
- * other apps, sync and backups see it. [onSaved] reloads the page.
+ * where the contact is: straight into the system contact (an Event row, like the editor writes), so other apps, sync
+ * and backups see it, or into a private contact's sealed details ([save], which asks to unlock when needed).
+ * [onSaved] reloads the page.
  */
 @Composable
-fun MissingDateChips(vm: AppViewModel, d: ContactDetails, onSaved: () -> Unit, modifier: Modifier = Modifier) {
+fun MissingDateChips(
+    vm: AppViewModel,
+    d: ContactDetails,
+    onSaved: () -> Unit,
+    modifier: Modifier = Modifier,
+    save: (suspend (EventItem) -> Boolean)? = null,
+) {
     val scope = rememberCoroutineScope()
     val res = LocalResources.current
     var picking by remember { mutableStateOf<Int?>(null) }
@@ -63,10 +70,14 @@ fun MissingDateChips(vm: AppViewModel, d: ContactDetails, onSaved: () -> Unit, m
         EventDateDialog("", onDismiss = { picking = null }) { date ->
             picking = null
             scope.launch {
-                val saved = runCatching {
-                    vm.c.contacts.save(d, d.copy(events = d.events + EventItem(date = date, type = type)), account = null, photo = null, removePhoto = false)
-                }.getOrNull()
-                if (saved == null) vm.toast(res.getString(R.string.ux_date_not_saved)) else onSaved()
+                val event = EventItem(date = date, type = type)
+                val ok = if (save != null) {
+                    save(event)
+                } else {
+                    val saved = runCatching { vm.c.contacts.save(d, d.copy(events = d.events + event), account = null, photo = null, removePhoto = false) }
+                    saved.getOrNull() != null
+                }
+                if (!ok) vm.toast(res.getString(R.string.ux_date_not_saved)) else onSaved()
             }
         }
     }

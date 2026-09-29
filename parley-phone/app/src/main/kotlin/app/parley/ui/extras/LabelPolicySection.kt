@@ -70,7 +70,9 @@ fun LabelPolicySection(vm: AppViewModel, title: String, members: List<ContactSum
     var starNewOnly by rememberSaveable { mutableStateOf(false) }
     val circleKeys by produceState(emptySet<String>(), members, p.rhythmDays) { value = vm.c.circle.members().map { it.lookupKey }.toSet() }
     val outside = members.filter { it.lookupKey !in circleKeys }
-    val unstarred = members.filter { !it.starred }
+    // Only address-book contacts can be let through Do Not Disturb (Android decides, and never sees private ones).
+    val unstarred = members.filter { !it.starred && it.id > 0 }
+    val privateMembers = members.count { it.id < 0 }
 
     Column {
         Section(stringResource(R.string.label_policy_section))
@@ -115,7 +117,12 @@ fun LabelPolicySection(vm: AppViewModel, title: String, members: List<ContactSum
             },
             leadingContent = { Icon(Icons.Rounded.DoNotDisturbOn, null) },
             headlineContent = { Text(stringResource(R.string.label_policy_dnd)) },
-            supportingContent = { Text(stringResource(R.string.label_policy_dnd_summary)) },
+            supportingContent = {
+                Text(
+                    stringResource(R.string.label_policy_dnd_summary) +
+                        if (privateMembers > 0) "\n" + pluralStringResource(R.plurals.label_policy_dnd_private, privateMembers, privateMembers) else "",
+                )
+            },
             trailingContent = { Switch(p.allowThroughDnd, onCheckedChange = null) },
         )
         if (p.allowThroughDnd) {

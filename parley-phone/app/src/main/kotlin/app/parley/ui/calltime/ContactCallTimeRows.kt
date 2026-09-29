@@ -19,6 +19,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.R
+import app.parley.common.people.ContactRef
 import app.parley.calltime.CallTimePlanner
 import app.parley.common.calltime.CallingConfig
 import app.parley.common.calltime.LimitRule
@@ -72,11 +73,13 @@ fun ContactCallTimeRows(vm: AppViewModel, lookupKey: String, name: String, starr
             modifier = Modifier.clickable { gate(unlockReason) { editLimit = true } },
         )
     }
+    val storedName = limitName(lookupKey, name)
     if (editLimit) {
         var never by remember { mutableStateOf(lookupKey in config.neverLimit) }
         LimitRuleDialog(
             title = stringResource(R.string.ct_call_time_with, name),
-            rule = config.rule(LimitScope.CONTACT, lookupKey)?.copy(title = name) ?: LimitRule(LimitScope.CONTACT, lookupKey, name),
+            // A private contact's rule keeps no name: it would be the only copy of it outside the vault.
+            rule = config.rule(LimitScope.CONTACT, lookupKey)?.copy(title = storedName) ?: LimitRule(LimitScope.CONTACT, lookupKey, storedName),
             onSave = { r ->
                 vm.c.calling.update { c ->
                     c.withRule(r).copy(neverLimit = if (never) c.neverLimit + lookupKey else c.neverLimit - lookupKey)
@@ -91,3 +94,6 @@ fun ContactCallTimeRows(vm: AppViewModel, lookupKey: String, name: String, starr
         )
     }
 }
+
+/** The name a contact's limit is stored with: none for a private contact (it would be the only copy outside the vault). */
+private fun limitName(lookupKey: String, name: String): String = if (ContactRef.isPrivateKey(lookupKey)) "" else name

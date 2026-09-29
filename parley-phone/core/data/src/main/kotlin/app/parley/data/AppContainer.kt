@@ -36,6 +36,8 @@ import app.parley.data.sync.FolderSync
 import app.parley.data.vault.VaultMoves
 import app.parley.data.vault.VaultCrypto
 import app.parley.data.vault.VaultRepository
+import app.parley.data.vault.PrivateLabelStore
+import app.parley.data.vault.PrivateTrash
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -108,7 +110,20 @@ class DataContainer(context: Context) {
 
     /** Lossless moves into and out of the private vault. */
     val vaultMoves by lazy { VaultMoves(vault, contacts, records) { circle.interactions } }
-    val vault by lazy { VaultRepository(appContext, db, scope) }
+    val vault: VaultRepository by lazy {
+        VaultRepository(appContext, db, scope).also { v ->
+            // A private contact's labels are the address book's groups; only who is in them is kept in the vault.
+            v.labelGroups = { contacts.groups().map { app.parley.common.people.PrivateLabels.Group(it.id, it.title) } }
+            // Deleted private contacts kept sealed for 30 days still need their detail key.
+            v.keptGenerations = { privateTrash.generations() }
+        }
+    }
+
+    /** Which private contacts are in which label (sealed in their vault entries, never in the address book). */
+    val privateLabels: PrivateLabelStore by lazy { PrivateLabelStore(vault, contacts, scope) }
+
+    /** "Recently deleted" private contacts: sealed copies kept 30 days (History & undo never holds them). */
+    val privateTrash: PrivateTrash by lazy { PrivateTrash(appContext, vault) { contactKeys } }
 
     /** Pinned notes, call notes and journal payloads are sealed at rest behind this DAO. */
     val meta: MetaDao by lazy { SealedMetaDao(db.metaDao(), RecordCrypto.get(appContext)) }
@@ -163,7 +178,7 @@ class DataContainer(context: Context) {
     val temporaries by lazy { TemporaryContactStore(this) }
 
     /** Keeps notes, backgrounds, relation links and temporary flags attached when lookup keys change. */
-    val contactKeys by lazy { ContactKeys(contacts, meta, { people.backgrounds }, { circle.interactions }, { extras }, db) }
+    val contactKeys by lazy { ContactKeys(contacts, meta, { people.backgrounds }, { circle.interactions }, { extras }, db) { calling } }
 
     /** The Circle (keep-in-touch rhythms, interactions, "Log this?", reminder bookkeeping). */
     val circle by lazy {

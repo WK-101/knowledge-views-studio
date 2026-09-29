@@ -75,7 +75,9 @@ fun UndoStorageSheet(vm: AppViewModel, onDismiss: () -> Unit, onCleared: () -> U
     fun clear(store: UndoStore, keep: SnapshotKeep) = scope.launch {
         val message = runCatching {
             when (store) {
-                UndoStore.CONTACTS -> vm.c.undoStorage.clearContactChanges().let { res.getQuantityString(R.plurals.jr_cleared_contacts, it, it) }
+                // Deleted private contacts' sealed copies are contact changes too.
+                UndoStore.CONTACTS -> (vm.c.undoStorage.clearContactChanges() + vm.c.privateTrash.clear())
+                    .let { res.getQuantityString(R.plurals.jr_cleared_contacts, it, it) }
                 UndoStore.CALLS -> vm.c.undoStorage.clearDeletedCalls().let { res.getQuantityString(R.plurals.jr_cleared_calls, it, it) }
                 UndoStore.SNAPSHOTS -> vm.c.undoStorage.clearSnapshots(keep).let { res.getQuantityString(R.plurals.jr_cleared_snapshots, it, it) }
             }

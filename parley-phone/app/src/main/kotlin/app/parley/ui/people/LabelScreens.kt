@@ -68,6 +68,9 @@ import app.parley.ui.blocking.LabelBlockingMenuItem
 import app.parley.ui.contact.Section
 import app.parley.ui.extras.LabelPolicySection
 import app.parley.ui.home.ContactRow
+import app.parley.data.vault.VaultCrypto
+import app.parley.security.AppLock
+import androidx.fragment.app.FragmentActivity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -87,7 +90,8 @@ fun ManageLabelsScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -
     val context = LocalContext.current
     val res = LocalResources.current
     val idx by vm.people.index.collectAsStateWithLifecycle()
-    val all by vm.contacts.collectAsStateWithLifecycle()
+    // Private contacts too: their labels are in the index (kept by Parley, never in the address book).
+    val all by vm.everyone.collectAsStateWithLifecycle()
     var labels by remember { mutableStateOf<List<Label>?>(null) }
     var round by remember { mutableIntStateOf(0) }
     LaunchedEffect(all, round) { labels = vm.c.people.labels.labels() }
@@ -321,9 +325,39 @@ fun LabelScreen(vm: AppViewModel, title: String, back: () -> Unit, open: (Destin
     val scope = rememberCoroutineScope()
     var current by rememberSaveable { mutableStateOf(title) }
     val idx by vm.people.index.collectAsStateWithLifecycle()
-    val all by vm.contacts.collectAsStateWithLifecycle()
+    // Everyone Parley lists, private contacts among them (with their lock badge).
+    val all by vm.everyone.collectAsStateWithLifecycle()
     val s by vm.people.settings.collectAsStateWithLifecycle()
     val members = all.orEmpty().filter { current in idx.extras[it.id]?.labels.orEmpty() }
+
+    /**
+     * Emails everyone in the label. A private contact's emails are in its sealed details: the vault's own unlock is
+     * asked for first when it is locked ([unlocked] after it succeeded), and a contact that still can't be read is left out.
+     */
+    fun emailAll(unlocked: Boolean = false) {
+        scope.launch {
+            val private = members.filter { it.id < 0 }
+            val privateEmails = ArrayList<String>()
+            var locked = false
+            for (m in private) {
+                val d = runCatching { vm.c.vault.details(-m.id) }
+                if (d.exceptionOrNull() is VaultCrypto.LockedException) {
+                    locked = true
+                    break
+                }
+                d.getOrNull()?.emails?.firstOrNull { it.value.isNotBlank() }?.value?.let { privateEmails += it }
+            }
+            val activity = context as? FragmentActivity
+            if (locked && !unlocked && activity != null) {
+                AppLock.authenticateForVault(activity) { ok -> if (ok) emailAll(unlocked = true) }
+                return@launch
+            }
+            val emails = members.filter { it.id > 0 }.mapNotNull { it.emails.firstOrNull() } + privateEmails
+            if (emails.isEmpty()) vm.toast(res.getString(R.string.lbl_no_emails))
+            else runCatching { context.startActivity(Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:" + emails.joinToString(",") { Uri.encode(it, "@") }))) }
+                .onFailure { vm.toast(res.getString(R.string.lbl_no_email_app)) }
+        }
+    }
     var menu by remember { mutableStateOf(false) }
     var renaming by rememberSaveable { mutableStateOf(false) }
     var confirmDelete by rememberSaveable { mutableStateOf(false) }
@@ -356,12 +390,7 @@ fun LabelScreen(vm: AppViewModel, title: String, back: () -> Unit, open: (Destin
                     else runCatching { context.startActivity(Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:" + numbers.joinToString(";") { Uri.encode(it) }))) }
                         .onFailure { vm.toast(res.getString(R.string.lbl_no_sms_app)) }
                 }) { Icon(Icons.AutoMirrored.Rounded.Message, stringResource(R.string.lbl_message_all)) }
-                IconButton({
-                    val emails = members.mapNotNull { it.emails.firstOrNull() }
-                    if (emails.isEmpty()) vm.toast(res.getString(R.string.lbl_no_emails))
-                    else runCatching { context.startActivity(Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:" + emails.joinToString(",") { Uri.encode(it, "@") }))) }
-                        .onFailure { vm.toast(res.getString(R.string.lbl_no_email_app)) }
-                }) { Icon(Icons.Rounded.Email, stringResource(R.string.lbl_email_all)) }
+                IconButton({ emailAll() }) { Icon(Icons.Rounded.Email, stringResource(R.string.lbl_email_all)) }
                 IconButton(::pickTone) { Icon(Icons.Rounded.MusicNote, stringResource(R.string.lbl_ringtone)) }
                 Box {
                     IconButton({ menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.dc_more)) }

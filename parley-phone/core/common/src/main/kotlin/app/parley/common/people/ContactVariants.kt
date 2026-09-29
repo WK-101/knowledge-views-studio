@@ -68,6 +68,12 @@ enum class ContactCapability(
     CALL_AND_MESSAGE, REACH_VIA_APPS, ABOUT, DATES, MAP_LINKS, RELATIONS, NOTE_FOR_CALLS, TIMELINE, CALL_INSIGHTS,
     CIRCLE, PROMISES, CALL_SCREEN_PICTURE, FAVOURITE, DEFAULT_NUMBER, QR_CODE, SECURE_QR, BLOCK_NUMBERS, TEMPORARY, DELETE,
 
+    // Kept by Parley for a private contact, sealed in its vault entry (the address book keeps them for a device one):
+    // label membership (the labels themselves stay the address book's), the ringtone and "send to voicemail" (applied
+    // by Parley's own call screening and ringer), call time limits (by its Parley key), the page's date chips, and
+    // "Recently deleted" (a sealed copy for 30 days instead of History & undo's plain one).
+    LABELS, RINGTONE, SEND_TO_VOICEMAIL, CALL_TIME, QUICK_DATES, RECENTLY_DELETED,
+
     // ---- Device contacts only
     SHARE_VCARD_FILE("A vCard file is handed to another app, which could keep it"),
     VERSION_HISTORY("Snapshots are copies of the address book; private contacts are never copied out of the vault"),
@@ -76,11 +82,6 @@ enum class ContactCapability(
     OTHER_FIELDS("Rows written by other apps exist only in the address book"),
     COPY_TO_SIM("A SIM card is readable by any phone it is put in"),
     HOME_SCREEN_SHORTCUT("The launcher (another app) would store the name and number"),
-    LABELS("Android's labels are address-book groups that other apps can read"),
-    RINGTONE("Android's own ringer reads the ringtone from the address book"),
-    SEND_TO_VOICEMAIL("Android reads this choice from the address book before Parley sees the call"),
-    CALL_TIME("Call time limits follow address-book contacts"),
-    QUICK_DATES("The date chips write straight into the address book; the editor adds dates to private contacts"),
     ;
 
     val deviceOnly: Boolean get() = deviceOnlyReason != null
