@@ -9,6 +9,7 @@ import app.parley.common.Verification
 import app.parley.common.calltime.CallTimePlan
 import app.parley.common.calls.EmergencyPolicy
 import app.parley.common.calls.RingFacts
+import app.parley.common.ux.CallScreenBackground
 import kotlinx.coroutines.flow.StateFlow
 
 data class CallerDisplay(
@@ -64,6 +65,8 @@ data class InCallAppearance(
     val confirmDecline: Boolean = false,
     /** Say the caller's name aloud (on-device text-to-speech, contacts only, only while the ringer is on). */
     val speakCallerName: Boolean = false,
+    /** Settings › Calls › "Call screen background": the caller's colour or plain. */
+    val callBackground: CallScreenBackground = CallScreenBackground.CALLER_COLOUR,
 )
 
 /** Who is calling: the caller card and the post-call card's name suggestion. */
@@ -73,6 +76,12 @@ interface CallerInfoSource {
 
     /** Offline "where is this number from" for unknown callers. */
     fun describeNumber(number: String): String? = null
+
+    /**
+     * The time-zone id where [number] is (offline, by country and area code), or null when it can't be told. Read by
+     * the call screen off the main thread, after it is up, to show the caller's local time; never on the ring path.
+     */
+    fun callerZone(number: String, accountId: String?): String? = null
 
     /** A name to suggest when saving an unknown number ("Caller from Lyon"). */
     fun suggestedName(number: String): String = number

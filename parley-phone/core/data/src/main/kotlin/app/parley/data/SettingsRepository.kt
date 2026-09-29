@@ -134,6 +134,7 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
             navTabs = NavTabs.decode(this[K.navTabs]),
             recentsLayout = enumOr(this[K.recentsLayout], d.recentsLayout),
             recentsStyle = enumOr(this[K.recentsStyle], d.recentsStyle),
+            callBackground = enumOr(this[K.callBackground], d.callBackground),
             surfaces = SurfaceLayout.decode(this[K.surfaces]),
         )
     }
@@ -175,6 +176,7 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
         this[K.navTabs] = s.navTabs.encode()
         this[K.recentsLayout] = s.recentsLayout.name
         this[K.recentsStyle] = s.recentsStyle.name
+        this[K.callBackground] = s.callBackground.name
         this[K.surfaces] = s.surfaces.encode()
     }
 
@@ -218,6 +220,7 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
         val navTabs = stringPreferencesKey("nav_tabs")
         val recentsLayout = stringPreferencesKey("recents_layout")
         val recentsStyle = stringPreferencesKey("recents_style")
+        val callBackground = stringPreferencesKey("call_background")
         val surfaces = stringPreferencesKey("surface_layout")
     }
 

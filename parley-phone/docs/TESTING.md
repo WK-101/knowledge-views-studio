@@ -1234,3 +1234,27 @@ Design and spec: [CALL_SCREEN_DESIGN.md](CALL_SCREEN_DESIGN.md). Check each step
 15. **Picture-in-picture.** Press Home during a call: the small window carries the same caller tint, name, time and Muted tag; Mute and Hang up still work.
 16. **Ring latency.** Cold-start the phone app and ring it (or run the IncomingCallBenchmark): the incoming screen appears as fast as before; a large call-screen picture fades in after the screen is up.
 17. **Emergency.** (Test number where available.) An emergency call shows the "Emergency call" tag; nothing about limits, screening or prompts changed.
+
+## 23. Corrections (4.2)
+
+### 23.1 Call screen: slide control, quiet actions, background setting, in-call polish
+
+Design: [CALL_SCREEN_DESIGN.md › 4.2 revisions](CALL_SCREEN_DESIGN.md#42-revisions). Check in light, dark and black (AMOLED) themes.
+
+1. **Slide control at rest.** Settings › Calls › Answer incoming calls by: Swipe. Ring the phone. The track has a red Decline circle at the left end, a green Answer circle at the right and the round knob in the middle; no text is inside the track. "Slide right to answer, left to decline" sits under the track and is fully readable. Faint chevrons shimmer outwards and the knob nudges towards Answer every few seconds.
+2. **Dragging.** Drag the knob right slowly: the hint fades out, the knob turns green and the Answer circle fills; at about 60% the phone ticks and the hint reads "Release to answer" in green. Drag back a little: a lighter tick, the hint fades again. Let go before 60%: the knob springs back to the middle. Let go past it: the call is answered. Repeat to the left: the handset tips over, "Release to decline" in red, declined.
+3. **Pocket safety.** Touch the track away from the knob and drag: nothing moves. Brush the knob quickly a short way: it springs back. A quick flick from about a third of the way does answer.
+4. **Dual SIM.** On a dual-SIM phone "Incoming on <SIM> · …1234" shows as a small label above the track (and above the tap buttons), never inside it.
+5. **Quiet actions.** Reply · Silence · More are round buttons with the label under them, lined up over the track's two ends and its middle, and tinted with the background (not dark pills). Tap Silence: the ringer stops and the middle button reads "Silenced". For a hidden number the Reply column stays empty and nothing shifts. More › Block & decline works as before.
+6. **Tap variant.** Switch to Tap: Decline and Answer circles sit in the same columns as the track's ends; Answer has its halo.
+7. **TalkBack.** The track reads "Incoming call. Slide right to answer, left to decline." (with the SIM on dual-SIM phones) and offers Answer and Decline actions; the hint under it is not read again. The quiet buttons read "Reply with a message", "Stop ringing", "More options for this call".
+8. **Reduced motion.** Remove animations: no shimmer, no nudge, no halos; dragging and the ticks still work.
+9. **Arabic / Urdu.** The slide control and the tap buttons stay Decline-left, Answer-right; the quiet row mirrors.
+10. **Background setting.** Settings › Calls › Call screen background: Plain. Ring the phone from a contact without a picture: the screen is the plain theme background (also in the picture-in-picture window). A contact with a call-screen picture still shows it. A likely-spam call still gets the red wash. Search Settings for "tint": the setting is found. Back to Caller's colour: the tint returns.
+11. **HD voice and Wi-Fi calling.** On a VoLTE call that the network marks HD, an "HD voice" tag shows next to the SIM once connected; on Wi-Fi calling, a "Wi-Fi calling" tag.
+12. **Local time.** Call (or be called by) a number in another time zone (e.g. a +1 number from Europe): a "9:40 pm there" tag shows a moment after the screen is up. A number in your own zone shows none.
+13. **Hold.** Put a call on hold: the status pill turns to the tertiary colour with a pause icon, "On hold", and the photo dims; resume restores both. Press Home: the PiP window shows the pause icon.
+14. **Copy number.** More › Copy number (the number under it): the number is on the clipboard; on Android 12 and older a "Number copied" message shows. Not offered for a hidden number.
+15. **Audio output.** With a Bluetooth headset connected, the audio button opens "Audio output" listing the headset by name, Phone and Speaker; the current one is ticked.
+16. **Keypad.** Open the keypad: keys are larger; type more than 20 digits: the line keeps the latest digits with "…" at the start.
+17. **Ring latency.** Cold-start and ring (or run IncomingCallBenchmark): the incoming screen appears as fast as before; the local-time tag, if any, arrives after the screen is up.

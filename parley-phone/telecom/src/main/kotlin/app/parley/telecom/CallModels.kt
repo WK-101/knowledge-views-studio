@@ -70,6 +70,10 @@ data class CallUi(
     val systemSilenced: Boolean = false,
     /** "Block & decline" is writing the rule; the call can't be answered from Parley meanwhile. */
     val blockingDecline: Boolean = false,
+    /** The network carries this call in HD voice (Call.Details.PROPERTY_HIGH_DEF_AUDIO), when it says so. */
+    val hdAudio: Boolean = false,
+    /** The call goes over Wi-Fi calling (Call.Details.PROPERTY_WIFI). */
+    val wifi: Boolean = false,
 ) {
     val title: String get() = name ?: number?.takeIf { it.isNotBlank() } ?: fallbackTitle
     val isLive: Boolean get() = state != CallState.DISCONNECTED && state != CallState.DISCONNECTING

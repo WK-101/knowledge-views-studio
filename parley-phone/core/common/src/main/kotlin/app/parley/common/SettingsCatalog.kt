@@ -115,6 +115,8 @@ object SettingsCatalog {
         e("default_dialer_help", "Can't make Parley the default phone app?", "A step-by-step guide for your Android version, with App info", C,
             "default dialer", "role", "restricted settings", "sideload", "app info", "not asked"),
         e("answer_gesture", "Answer incoming calls by", "Swipe or tap", C, "slide", "swipe", "tap", "pocket", "answer"),
+        e("call_background", "Call screen background", "The caller's colour, or plain", C,
+            "tint", "colour", "color", "plain", "background", "call screen", "incoming screen", "wallpaper"),
         e("confirm_call", "Confirm before calling", "Avoids accidental calls from lists and search", C, "accidental", "ask before", "pocket dial"),
         // Remember what matters.
         e("memory_prompt", "Anything to remember? after calls", "A note and a follow-up reminder after calls with your contacts", C,

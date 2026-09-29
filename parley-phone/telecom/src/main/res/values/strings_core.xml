@@ -219,4 +219,18 @@
     <string name="incall_decline_body">The caller will hear that you\'re not available.</string>
     <string name="incall_keep_ringing">Keep ringing</string>
     <string name="incall_is_calling">%1$s is calling</string>
+
+    <!-- Incoming screen: the slide control's hint sits under the track, never under the knob. -->
+    <string name="incall_slide_hint">Slide right to answer, left to decline</string>
+    <string name="incall_release_to_answer">Release to answer</string>
+    <string name="incall_release_to_decline">Release to decline</string>
+    <string name="incall_silenced">Silenced</string>
+    <!-- Which SIM or line the call came in on, above the answer control on dual-SIM phones. -->
+    <string name="incall_incoming_on">Incoming on %1$s</string>
+    <!-- During the call: what the network reports about it, and the caller's local time when it differs from yours. -->
+    <string name="incall_hd_voice">HD voice</string>
+    <string name="incall_wifi_calling">Wi-Fi calling</string>
+    <string name="incall_time_there">%1$s there</string>
+    <string name="incall_copy_number">Copy number</string>
+    <string name="incall_copied">Number copied</string>
 </resources>

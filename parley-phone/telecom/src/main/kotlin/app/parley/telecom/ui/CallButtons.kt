@@ -6,6 +6,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.indication
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -37,6 +38,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
@@ -74,8 +76,20 @@ internal object CallButtonSize {
     val endWidth: Dp = 136.dp
     val endHeight: Dp = 72.dp
 
-    /** Quiet secondary actions (Reply, Silence, ⋮): the minimum touch height. */
+    /** Quiet secondary pills (Silence on the call-waiting sheet): the minimum touch height. */
     val secondaryHeight: Dp = 48.dp
+
+    /** The incoming controls and the grid share one width, so every row lines up. */
+    val panelMaxWidth: Dp = 420.dp
+
+    /**
+     * A column on the incoming screen: the quiet actions (Reply, Silence, More) and the answer control's two ends
+     * all centre on the same verticals, [slot] / 2 in from each edge.
+     */
+    val slot: Dp = 88.dp
+
+    /** A quiet round action on the incoming screen (icon over label). */
+    val quiet: Dp = 56.dp
 }
 
 /**
@@ -152,7 +166,7 @@ internal fun CallControlButton(spec: ControlSpec, modifier: Modifier = Modifier)
 /** Controls laid out [columns] to a row, every cell the same width, rows [Spacing.l] apart. */
 @Composable
 internal fun ControlRows(specs: List<ControlSpec>, columns: Int, modifier: Modifier = Modifier) {
-    Column(modifier.widthIn(max = 420.dp).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(Spacing.l)) {
+    Column(modifier.widthIn(max = CallButtonSize.panelMaxWidth).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(Spacing.l)) {
         specs.chunked(columns).forEach { row ->
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.m)) {
                 row.forEach { CallControlButton(it, Modifier.weight(1f)) }
@@ -247,4 +261,59 @@ internal fun SecondaryAction(icon: ImageVector, label: String, onClick: () -> Un
     }
 }
 
+/**
+ * A quiet round action on the incoming screen (Reply, Silence, More): a 56 dp circle filled with a light veil of the
+ * text colour, so it takes on whatever background is behind it (the caller's tint, a picture's scrim, plain), and
+ * the label under it. The whole column is the touch target; the circle squares off a little while pressed.
+ * [selected] shows a state that is already on ("Silenced") in the secondary container, not clickable.
+ */
+@Composable
+internal fun QuietAction(
+    icon: ImageVector,
+    label: String,
+    onClick: (() -> Unit)?,
+    modifier: Modifier = Modifier,
+    spoken: String = label,
+    selected: Boolean = false,
+) {
+    val scheme = MaterialTheme.colorScheme
+    val source = remember { MutableInteractionSource() }
+    val pressed by source.collectIsPressedAsState()
+    val corner by animateDpAsState(if (pressed) CallButtonSize.pressedCorner else CallButtonSize.quiet / 2, ParleyMotion.fastSpatial(), label = "corner")
+    val container by animateColorAsState(
+        if (selected) scheme.secondaryContainer else scheme.onSurface.copy(alpha = QUIET_VEIL), ParleyMotion.effects(), label = "container",
+    )
+    val ink = if (selected) scheme.onSecondaryContainer else scheme.onSurface
+    Column(
+        modifier
+            .width(CallButtonSize.slot)
+            .then(if (onClick != null) Modifier.clickable(source, indication = null, role = Role.Button, onClick = onClick) else Modifier)
+            .semantics(mergeDescendants = true) { if (spoken != label) contentDescription = spoken },
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Box(
+            Modifier
+                .size(CallButtonSize.quiet)
+                .clip(animatedCorners(corner))
+                .background(container)
+                .indication(source, LocalIndication.current),
+            contentAlignment = Alignment.Center,
+        ) { Icon(icon, null, tint = ink, modifier = Modifier.size(24.dp)) }
+        Text(
+            label,
+            style = MaterialTheme.typography.labelLarge,
+            color = scheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier
+                .padding(top = Spacing.s)
+                .then(if (spoken != label) Modifier.clearAndSetSemantics { } else Modifier),
+        )
+    }
+}
+
 private const val DISABLED = 0.38f
+
+/** How much of the text colour veils a quiet action: visible on every background, never louder than the answer control. */
+private const val QUIET_VEIL = 0.10f

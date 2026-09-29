@@ -118,6 +118,7 @@ import app.parley.common.MessagedRecord
 import app.parley.common.ThemeMode
 import app.parley.common.calls.RecentsLayout
 import app.parley.common.ux.BackupNudge
+import app.parley.common.ux.CallScreenBackground
 import app.parley.common.ux.RecentsStyle
 import app.parley.common.vcard.ImportReport
 import app.parley.data.AccountRef
@@ -274,6 +275,7 @@ internal fun CallsPage(vm: AppViewModel, open: (Destination) -> Unit) {
         }
     }
     val gestures = listOf(stringResource(R.string.set_answer_swipe), stringResource(R.string.set_answer_tap))
+    val backgrounds = listOf(stringResource(R.string.set_call_background_caller), stringResource(R.string.set_call_background_plain))
     val sameAsUsual = stringResource(R.string.set_same_as_usual)
     // The ringtone's title comes from the media provider: read it off the main thread.
     val toneName by produceState<String?>(null, s.unknownRingtone) {
@@ -303,6 +305,10 @@ internal fun CallsPage(vm: AppViewModel, open: (Destination) -> Unit) {
     }
     SegmentedGroup(stringResource(R.string.set_group_answering)) {
         choiceRow("answer_gesture", gestures, s.answerGesture.ordinal, Icons.Rounded.TouchApp) { i -> set { it.copy(answerGesture = AnswerGesture.entries[i]) } }
+        // The caller's colour at the top of the call screen, or none; a contact's own picture shows either way.
+        choiceRow("call_background", backgrounds, s.callBackground.ordinal, Icons.Rounded.Palette) { i ->
+            set { it.copy(callBackground = CallScreenBackground.entries[i]) }
+        }
         switchRow("confirm_call", s.confirmBeforeCall, Icons.Rounded.CheckCircle) { v -> set { it.copy(confirmBeforeCall = v) } }
         item("call_haptics") { CallHapticsRow(vm, Icons.Rounded.Vibration) }
         linkRow("unknown_ringtone", Icons.Rounded.MusicNote, sub = toneName ?: sameAsUsual) {

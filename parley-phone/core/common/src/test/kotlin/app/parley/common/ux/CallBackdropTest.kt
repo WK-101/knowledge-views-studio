@@ -66,4 +66,23 @@ class CallBackdropTest {
     @Test fun no_tint_when_the_plain_surface_already_fails() {
         assertEquals(0f, CallBackdrop.tintStrength(0xFF777777.toInt(), 0xFF3F51B5.toInt(), intArrayOf(0xFF888888.toInt())), 0f)
     }
+
+    @Test fun caller_colour_tints_and_plain_does_not() {
+        assertEquals(CallBackdrop.Tint.CALLER, CallBackdrop.plan(CallScreenBackground.CALLER_COLOUR, warn = false, hasPicture = false).tint)
+        assertEquals(CallBackdrop.Tint.NONE, CallBackdrop.plan(CallScreenBackground.PLAIN, warn = false, hasPicture = false).tint)
+    }
+
+    @Test fun a_spam_warning_keeps_its_red_wash_with_either_style() {
+        CallScreenBackground.entries.forEach { style ->
+            assertEquals(CallBackdrop.Tint.WARNING, CallBackdrop.plan(style, warn = true, hasPicture = false).tint)
+        }
+    }
+
+    @Test fun a_contacts_picture_shows_with_either_style_but_not_in_the_small_window() {
+        CallScreenBackground.entries.forEach { style ->
+            assertTrue(CallBackdrop.plan(style, warn = false, hasPicture = true).picture)
+            assertEquals(false, CallBackdrop.plan(style, warn = false, hasPicture = true, allowPicture = false).picture)
+            assertEquals(false, CallBackdrop.plan(style, warn = false, hasPicture = false).picture)
+        }
+    }
 }

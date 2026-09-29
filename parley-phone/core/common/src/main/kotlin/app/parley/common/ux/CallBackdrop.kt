@@ -3,6 +3,12 @@ package app.parley.common.ux
 import kotlin.math.roundToInt
 
 /**
+ * Settings › Calls › "Call screen background": the caller's colour as a soft tint at the top (the default), or the
+ * theme's plain background. A contact's own call-screen picture is a separate, per-contact choice and shows either way.
+ */
+enum class CallScreenBackground { CALLER_COLOUR, PLAIN }
+
+/**
  * The call screen's background, kept readable: how strongly the caller's colour may tint the theme's surface, and
  * how opaque the scrim over a call-screen picture must be, so that the screen's text colours keep at least 4.5:1
  * in light, dark and black (AMOLED) themes. Colours are opaque ARGB ints; blending is per sRGB channel, like
@@ -62,5 +68,26 @@ object CallBackdrop {
         // Both extremes on the surface's side of the ink, so no pixel in between can match the ink.
         val sameSide = (Contrast.luminance(light) < inkL) == surfaceDarker && (Contrast.luminance(dark) < inkL) == surfaceDarker
         sameSide && Contrast.ratio(ink, dark) >= minRatio && Contrast.ratio(ink, light) >= minRatio
+    }
+
+    /** What colour the top of the screen takes. */
+    enum class Tint { CALLER, WARNING, NONE }
+
+    /** What the call screen draws behind the caller: a tint, and whether the contact's picture goes over it. */
+    data class Plan(val tint: Tint, val picture: Boolean)
+
+    /**
+     * The background for a call. [warn] is a ringing call screened as likely spam: its red wash is a warning, not
+     * decoration, so it stays with a plain background too. [hasPicture] is the contact's call-screen picture, which
+     * the user set for that person on purpose and which shows whatever the style; [allowPicture] is off where a
+     * picture doesn't fit (the picture-in-picture window).
+     */
+    fun plan(style: CallScreenBackground, warn: Boolean, hasPicture: Boolean, allowPicture: Boolean = true): Plan {
+        val tint = when {
+            warn -> Tint.WARNING
+            style == CallScreenBackground.PLAIN -> Tint.NONE
+            else -> Tint.CALLER
+        }
+        return Plan(tint, picture = hasPicture && allowPicture)
     }
 }

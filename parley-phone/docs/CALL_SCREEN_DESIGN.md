@@ -102,3 +102,63 @@ TalkBack: toggles are `Role.Switch` with a stable name and a state ("Mute, on");
 ### Unchanged underneath
 
 CallSession and its collaborators, Telecom calls (`CallManager`), EmergencyPolicy, StartGate and the ring path, PiP rules and actions, proximity, the notification, post-call and memory cards (restyled only by their surroundings), "Hide screen content" and the lock-screen rules for notes.
+
+## 4.2 revisions
+
+What changed after 4.1 was tried on a phone, and why. Where this section and the 4.1 spec above disagree, this section wins.
+
+### What the top apps do with the answer control (checked again, September 2026)
+
+| App | Answer control |
+|---|---|
+| Phone by Google (2025 redesign) | **Horizontal swipe**: a pill with the phone button in the middle, decline at the left end, answer at the right. Nothing is written under the button: "Swipe to answer" style hints sit outside the pill. The older vertical version was a bouncing answer button with the hint above it. |
+| Samsung One UI | A green circle on the left and a red one on the right; you drag either one outwards. The hint arrows sit beside the circles, not under them. |
+| iOS | "slide to answer": the knob starts at the **left end** and the text sits to its right with a shimmer that runs towards the end; the text fades as you drag. There's only one action on the track, so it can start at one end. |
+
+What they share: the moving part never covers the words; the ends are clear, coloured targets; a gentle motion (shimmer, bounce) says "this moves"; the phone ticks when letting go would act.
+
+### Incoming screen
+
+Top to bottom, one column no wider than the grid (420dp), inside the 24dp gutter:
+
+1. **Caller**, placed a little above the middle of the free space while it rings (it glides to the top once answered), so the screen reads as one composition instead of a header with a gap under it.
+2. **Quiet actions**: Reply · Silence · More, as 56dp round buttons with the label under them (like Phone by Google's Message / Remind me and iOS's Remind Me / Message). The circle is a 10% veil of the text colour, so it takes on the caller's tint, a picture's scrim or the plain background instead of floating over it as a dark pill. The three sit in fixed 88dp columns: **the outer two are right above the answer control's two ends**, and a column whose action doesn't apply stays empty so nothing shifts. After Silence the middle one reads "Silenced" in the secondary container (not clickable). More still holds Block & decline (two deliberate taps).
+3. 32dp, then **the line** the call came in on, on dual-SIM phones: "Incoming on Work · …4567" as a small label above the control (TalkBack hears it with the control).
+4. **Answer control**:
+   - **Slide** (default): an 80dp track (a 8% veil of the text colour) with a red Decline target at the left end and a green Answer target at the right (56dp circles, tinted at rest, filling with their colour and growing 10% as the knob comes near). The 64dp knob rests in the middle; **nothing is written inside the track**. Faint chevrons between the knob and each end shimmer outwards, and every 2.6s the knob gives a small nudge towards Answer; both stand still when animations are off. The knob turns green or red as it moves, and its handset tips over to the hang-up angle towards Decline. Only a drag that starts on the knob moves it.
+   - **Rules** (`AnswerSlide`, core:common, unit-tested): letting go past 60% of the travel answers or declines; a fast flick (≥ 1200dp/s) counts from 30%, only when it keeps going the same way; anything else springs back. A threshold haptic when crossing 60% outwards, a lighter tick when backing off, Confirm on answer and Reject on decline.
+   - **Hint under the track**: "Slide right to answer, left to decline", fading out over the first 30% of the drag; once letting go would act it reads "Release to answer" (green) or "Release to decline" (red).
+   - **Tap**: Decline and Answer circles in the same two columns as the slide control's ends; Answer keeps its halo. Both variants stay left to right in every language (Decline left, Answer right).
+   - TalkBack: the track (or the name) still offers Answer and Decline as actions, and the hint and line label are not read twice.
+5. "End current call and answer" under the control while another call is going.
+
+Simple mode keeps its two very large buttons; the line label moved above them.
+
+### Call screen background (setting)
+
+Settings › Calls › **Call screen background**: *Caller's colour* (default) or *Plain*. Decided by `CallBackdrop.plan` (core:common, unit-tested):
+- *Plain* draws the theme's own surface, no tint. The picture-in-picture window follows the same choice.
+- A **likely spam** call keeps its red wash with either choice: it's a warning, not decoration (the red "Likely spam" tag shows as well).
+- A contact's **call-screen picture** still shows with *Plain*. It's a per-contact choice the user made on purpose, so a global "no tint" shouldn't silently undo it; it's removed from the contact editor. A second switch just to hide pictures would add a setting for a case nobody asked for.
+
+### Polish and new functions in the call
+
+| What | Why |
+|---|---|
+| **HD voice** and **Wi-Fi calling** tags once connected (`Call.Details.PROPERTY_HIGH_DEF_AUDIO`, `PROPERTY_WIFI`) | Samsung and Pixel show both; they explain call quality and why a call works without signal. Shown only when the network reports them. |
+| **Caller's local time** ("9:40 pm there") for callers in another time zone | Worked out offline from the number (libphonenumber's time-zone map, the same one Circle uses) after the screen is up, off the main thread and never on the ring path; only shown when their offset differs from yours. Useful before answering a 3 am call too. |
+| **Copy number** in More (with the number under it) | Common ask ("read me that number"); copied as sensitive so it stays out of the clipboard preview and keyboard history. Not offered for hidden numbers. |
+| **On hold is unmistakable**: the status pill turns tertiary with a pause icon, and the photo dims to 55% | Before, only the word changed. The PiP window shows the pause icon too. |
+| **Audio output sheet** in the kit's sheet and row style, the current route tinted and ticked | The sheet already listed each Bluetooth device by name; it now matches the other sheets. |
+| **Keypad**: keys 88 × 64dp with larger digits; the tones sent so far keep their whole history in one line, trimmed at the start with "…" | Easier to hit held away from the face; checking a long account number no longer loses its beginning. |
+
+Considered and left out: *long-press End call for "End & send message"*: a hidden gesture on the most important button risks an accidental end and isn't discoverable; Reply with a message stays on the incoming screen. *Call recording and anything needing the microphone*: no such permission. *Bigger layout changes to the grid*: its positions are muscle memory and stay.
+
+### Tokens added
+
+| Token | Value |
+|---|---|
+| Incoming / grid column width | `CallButtonSize.panelMaxWidth` 420dp |
+| Incoming column (quiet action, slide end, tap button) | `CallButtonSize.slot` 88dp |
+| Quiet action | 56dp circle, 10% `onSurface` veil, 24dp icon, `labelLarge` label in `onSurfaceVariant`; 14dp corners while pressed |
+| Slide track / knob / ends | 80dp pill (8% `onSurface` veil) / 64dp circle / 56dp circles, 18% of their colour at rest |
