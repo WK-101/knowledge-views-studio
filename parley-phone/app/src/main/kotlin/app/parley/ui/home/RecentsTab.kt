@@ -6,7 +6,6 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material3.Badge
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.ui.unit.Dp
@@ -17,8 +16,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -27,7 +24,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.CallMade
 import androidx.compose.material.icons.automirrored.rounded.CallMissed
@@ -44,7 +40,6 @@ import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.PersonAdd
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Info
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
@@ -58,7 +53,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -95,7 +89,6 @@ import app.parley.ui.history.DaySummarySheet
 import app.parley.ui.history.HistoryText
 import app.parley.ui.history.RecentsExportHost
 import app.parley.ui.history.RecentsMenuDialogs
-import app.parley.ui.history.SavedFilterChips
 import app.parley.ui.people.SwipeActionRow
 import app.parley.ui.people.blockWithUndo
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -172,37 +165,10 @@ fun RecentsTab(vm: AppViewModel, open: (Destination) -> Unit, bottomPadding: Dp 
     LazyColumn(Modifier.fillMaxWidth(), state = listState, contentPadding = PaddingValues(bottom = bottomPadding)) {
         if (selected.isNotEmpty()) stickyHeader(key = "selection") { RecentsSelectionBar(vm, groups.orEmpty()) }
         item(key = "filters") {
-            Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                RecentFilter.entries.forEach { f ->
-                    if (f == RecentFilter.VOICEMAIL && !isDefault && filter != f) return@forEach
-                    FilterChip(
-                        selected = filter == f,
-                        onClick = { recents.filter.value = f },
-                        label = {
-                            Text(stringResource(f.labelRes))
-                            // The Missed chip counts the people still to call back.
-                            if (f == RecentFilter.MISSED && rich && toReturn > 0) {
-                                Spacer(Modifier.width(6.dp))
-                                Badge { Text(toReturn.toString()) }
-                            }
-                            if (f == RecentFilter.VOICEMAIL && voicemail.unheard > 0) {
-                                Spacer(Modifier.width(6.dp))
-                                Badge { Text(voicemail.unheard.toString()) }
-                            }
-                        },
-                        modifier = if (f == RecentFilter.VOICEMAIL && voicemail.unheard > 0) {
-                            val spoken = pluralStringResource(R.plurals.recents_voicemail_new, voicemail.unheard, voicemail.unheard)
-                            Modifier.semantics { contentDescription = spoken }
-                        } else if (f == RecentFilter.MISSED && rich && toReturn > 0) {
-                            val spoken = stringResource(f.labelRes) + stringResource(R.string.main_separator) + pluralStringResource(R.plurals.recents_to_call_back, toReturn, toReturn)
-                            Modifier.semantics { contentDescription = spoken }
-                        } else {
-                            Modifier
-                        },
-                    )
-                }
-                SavedFilterChips(vm)
-            }
+            RecentsFilterRow(
+                vm, filter, onFilter = { recents.filter.value = it }, voicemailChip = isDefault,
+                unheardVoicemail = voicemail.unheard, toReturn = toReturn, rich = rich,
+            )
         }
         if (filter == RecentFilter.VOICEMAIL) {
             item(key = "voicemail") { VoicemailInbox(vm, query) }
@@ -413,17 +379,6 @@ fun RecentRow(
 /** The row's title; a number (no name) stays left to right in right-to-left languages. */
 private val RecentGroup.shownTitle: String
     get() = if (contact == null && cachedName.isNullOrBlank() && number.isNotBlank()) Bidi.ltr(title) else title
-
-/** Chip text of a Recents filter. */
-private val RecentFilter.labelRes: Int
-    get() = when (this) {
-        RecentFilter.ALL -> R.string.recents_filter_all
-        RecentFilter.MISSED -> R.string.recents_filter_missed
-        RecentFilter.INCOMING -> R.string.recents_filter_incoming
-        RecentFilter.OUTGOING -> R.string.recents_filter_outgoing
-        RecentFilter.BLOCKED -> R.string.recents_filter_blocked
-        RecentFilter.VOICEMAIL -> R.string.recents_filter_voicemail
-    }
 
 /** The icon of a call type, in its fixed call colour (never the wallpaper colours). */
 @Composable

@@ -31,7 +31,6 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.ui.layout.onSizeChanged
 import app.parley.common.StartTab
@@ -700,12 +699,15 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
             enter = expandVertically(ParleyMotion.spatial(), expandFrom = Alignment.Top) + fadeIn(ParleyMotion.effects()),
             exit = shrinkVertically(ParleyMotion.fastSpatial(), shrinkTowards = Alignment.Top) + fadeOut(ParleyMotion.fastEffects()),
         ) {
+            // Only the ways to reach them, as on the big tiles: star, edit and ⋮ stay in the top bar above (with the
+            // docked name and photo), so no action shows twice once the page has scrolled.
             val actions = listOfNotNull(
                 QuickAction(Icons.Rounded.Call, stringResource(R.string.main_call_who, d.displayName), canCall) { doCall() },
                 QuickAction(Icons.AutoMirrored.Rounded.Message, stringResource(R.string.main_message_who, d.displayName), canMessage) { message(d) },
-                if (r.videoRows.isNotEmpty()) QuickAction(Icons.Rounded.Videocam, stringResource(R.string.detail_video), true) { doVideo() } else null,
+                if (r.videoRows.isNotEmpty()) {
+                    QuickAction(Icons.Rounded.Videocam, preferredVideo?.appName ?: stringResource(R.string.detail_video), true) { doVideo() }
+                } else null,
                 if (email != null) QuickAction(Icons.Rounded.Email, stringResource(R.string.detail_email), true) { Intents.email(context, email.value) } else null,
-                QuickAction(Icons.Rounded.MoreHoriz, stringResource(R.string.main_more), true) { menu = true },
             )
             val jumps = if (peopleSettings.sectionChips && shown.size >= JUMP_CHIPS_FROM) shown.map { s ->
                 sections.titleOf(s) to {

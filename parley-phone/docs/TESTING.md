@@ -1234,3 +1234,24 @@ Design and spec: [CALL_SCREEN_DESIGN.md](CALL_SCREEN_DESIGN.md). Check each step
 15. **Picture-in-picture.** Press Home during a call: the small window carries the same caller tint, name, time and Muted tag; Mute and Hang up still work.
 16. **Ring latency.** Cold-start the phone app and ring it (or run the IncomingCallBenchmark): the incoming screen appears as fast as before; a large call-screen picture fades in after the screen is up.
 17. **Emergency.** (Test number where available.) An emergency call shows the "Emergency call" tag; nothing about limits, screening or prompts changed.
+
+## 23. Corrections (4.2)
+
+### 23.2 Recents icon filter chips; contact page scrolled bar without repeats
+
+**Recents filter row (Recents style: search Settings for "Recents style")**
+
+1. **Rich style.** With Recents style set to Rich, the chips above the calls are icons: All (history clock), Missed, Incoming, Outgoing and Blocked with the same shape-coded badges as the rows (solid red circle, tonal green circle, outlined blue circle, outlined square), Voicemail (tonal square, as default phone app), one round letter per saved filter, and the Filter (tune) chip. No names on unselected chips.
+2. **Selected chip.** The selected chip is filled (tonal) and, when the row has room, grows with a spring to show its name ("Missed"); picking another chip moves the name across. On a phone around 392 dp wide with Voicemail and a saved filter showing, the row stays icon-only rather than scrolling; on a wide phone, a tablet or in landscape the name shows. On a very narrow screen or with many saved filters the row still scrolls sideways.
+3. **Counts.** A missed call not returned yet puts a count badge on the Missed icon; unheard voicemail puts one on the Voicemail icon.
+4. **Names.** Long-press any chip: a tooltip names it ("Incoming", the saved filter's name, "Filter", or the active filter's description). With TalkBack, each chip reads its name, the selected state, and for Missed and Voicemail the count ("Missed, 2 to call back").
+5. **Saved filters.** Save a filter named "Work": its chip shows "W"; tap it to apply (it fills and shows "Work" when it fits), tap again to clear. A filter set but not saved fills the Filter chip. A name with no letters shows a bookmark icon.
+6. **Simple style.** Switch Recents style to Simple: the row is the text chips as before, with the Voicemail count.
+7. **Themes and RTL.** Light, dark and AMOLED: the badges keep their call colours; outlines stay visible. In Arabic or Urdu the row runs right to left.
+
+**Contact page, scrolled**
+
+8. **Top of the page.** Open a contact: the top bar has Back, the star, Edit and ⋮; the header shows the photo, name and the Call / Message / Video / Email tiles.
+9. **Scrolled.** Scroll down: the name and small photo dock into the top bar (with star, Edit and ⋮ still there), and the pinned strip under it shows only Call, Message, Video (when there's a video app) and Email (when there's an address). There is no second ⋮ / "More" button in the strip. Long-press a strip button: a tooltip names it. The jump chips still appear on long pages.
+10. **Scroll back up.** The strip slides away with the same spring and the big tiles return; the top bar's ⋮ menu opens the same items in both states.
+11. **Layouts.** Landscape, large font, TalkBack (each strip button reads "Call Sam", "Message Sam"…), and Arabic: the strip mirrors and stays within the width.
