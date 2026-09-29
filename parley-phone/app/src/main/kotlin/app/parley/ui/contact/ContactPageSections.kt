@@ -37,6 +37,7 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.parley.R
+import app.parley.ui.ParleyTooltip
 import app.parley.common.people.ContactPageLayout
 import app.parley.common.people.ContactSection
 import app.parley.ui.ParleyShapes
@@ -118,19 +119,19 @@ fun FoldHeader(title: String, summary: String, folded: Boolean, onToggle: () -> 
 class QuickAction(val icon: ImageVector, val label: String, val enabled: Boolean, val onClick: () -> Unit)
 
 /**
- * The compact bar that stays under the top bar once the big header has scrolled away: the quick actions as
- * 48 dp tonal buttons and, on long pages, chips that jump to a section.
+ * The compact bar that stays under the top bar once the big header has scrolled away: the ways to reach the person
+ * as 48 dp tonal buttons and, on long pages, chips that jump to a section. Page actions (star, edit, ⋮) are not
+ * repeated here; they stay in the top bar.
  */
 @Composable
 fun PinnedContactBar(actions: List<QuickAction>, jumps: List<Pair<String, () -> Unit>>, modifier: Modifier = Modifier) {
     Column(modifier.fillMaxWidth().padding(bottom = 8.dp)) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
             actions.forEach { a ->
-                FilledTonalIconButton(
-                    a.onClick, enabled = a.enabled,
-                    modifier = Modifier.padding(horizontal = 4.dp),
-                    colors = IconButtonDefaults.filledTonalIconButtonColors(),
-                ) { Icon(a.icon, a.label) }
+                // Icon-only, so a long-press names the action.
+                ParleyTooltip(a.label, Modifier.padding(horizontal = 4.dp)) {
+                    FilledTonalIconButton(a.onClick, enabled = a.enabled, colors = IconButtonDefaults.filledTonalIconButtonColors()) { Icon(a.icon, a.label) }
+                }
             }
         }
         if (jumps.isNotEmpty()) {

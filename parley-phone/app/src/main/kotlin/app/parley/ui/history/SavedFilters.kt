@@ -15,6 +15,13 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material.icons.rounded.BookmarkBorder
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.ui.draw.clip
+import app.parley.common.ux.CompactChips
+import app.parley.ui.ParleyShapes
+import app.parley.ui.home.CompactFilterChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -55,34 +62,85 @@ import androidx.compose.ui.semantics.semantics
 
 /**
  * Saved filter chips for the Recents filter row, plus a "Filter" chip that opens the editor
- * (SIM + type + period + duration). Put it inside the existing chip Row.
+ * (SIM + type + period + duration). Put it inside the existing chip Row. [compact] (Recents in the Rich style) draws
+ * them as icon chips: a saved filter shows the first letter of its name, the Filter chip its tune icon, and a
+ * selected one also shows its name when [showLabels].
  */
 @Composable
-fun SavedFilterChips(vm: AppViewModel) {
+fun SavedFilterChips(vm: AppViewModel, compact: Boolean = false, showLabels: Boolean = false) {
     val active by vm.c.history.activeFilter.collectAsStateWithLifecycle()
     val prefs by vm.c.history.prefs.state.collectAsStateWithLifecycle()
-    val sims by vm.sims.collectAsStateWithLifecycle()
     var editing by rememberSaveable { mutableStateOf(false) }
-    val res = LocalResources.current
-    val simFallback = stringResource(R.string.hist_filter_sim)
-    val simLabel = { id: String -> sims.firstOrNull { it.id == id }?.label ?: simFallback }
+    val describe = rememberFilterDescriber(vm)
 
     prefs.savedFilters.forEach { f ->
         val on = f.sameCriteria(active) && f.name == active.name
-        FilterChip(
-            selected = on,
-            onClick = { vm.c.history.activeFilter.value = if (on) HistoryFilter() else f },
-            label = { Text(f.name.ifBlank { HistoryText.describe(res, f, simLabel) }) },
-        )
+        val label = f.name.ifBlank { describe(f) }
+        val toggle = { vm.c.history.activeFilter.value = if (on) HistoryFilter() else f }
+        if (compact) {
+            CompactFilterChip(on, label, showLabel = showLabels && on, onClick = toggle) { SavedFilterMonogram(f.name) }
+        } else {
+            FilterChip(selected = on, onClick = toggle, label = { Text(label) })
+        }
     }
     val unsaved = !active.isEmpty && prefs.savedFilters.none { it.sameCriteria(active) && it.name == active.name }
-    FilterChip(
-        selected = unsaved,
-        onClick = { editing = true },
-        leadingIcon = { Icon(Icons.Rounded.Tune, null, Modifier.size(18.dp)) },
-        label = { Text(if (unsaved) HistoryText.describe(res, active, simLabel) else stringResource(R.string.hist_filter)) },
-    )
+    val filterLabel = if (unsaved) describe(active) else stringResource(R.string.hist_filter)
+    if (compact) {
+        CompactFilterChip(unsaved, filterLabel, showLabel = showLabels && unsaved, onClick = { editing = true }) {
+            Icon(Icons.Rounded.Tune, null, Modifier.size(20.dp))
+        }
+    } else {
+        FilterChip(
+            selected = unsaved,
+            onClick = { editing = true },
+            leadingIcon = { Icon(Icons.Rounded.Tune, null, Modifier.size(18.dp)) },
+            label = { Text(filterLabel) },
+        )
+    }
     if (editing) FilterEditorSheet(vm, active) { editing = false }
+}
+
+/** How a filter without a name is described on its chip ("Missed · SIM 2 · This week"). */
+@Composable
+private fun rememberFilterDescriber(vm: AppViewModel): (HistoryFilter) -> String {
+    val sims by vm.sims.collectAsStateWithLifecycle()
+    val res = LocalResources.current
+    val simFallback = stringResource(R.string.hist_filter_sim)
+    return { f -> HistoryText.describe(res, f, { id -> sims.firstOrNull { it.id == id }?.label ?: simFallback }) }
+}
+
+/**
+ * The name the selected saved-filter or Filter chip shows, or null when no call-history filter is on. The Recents
+ * row measures it to decide whether selected chips have room for their names.
+ */
+@Composable
+fun activeFilterChipLabel(vm: AppViewModel): String? {
+    val active by vm.c.history.activeFilter.collectAsStateWithLifecycle()
+    val describe = rememberFilterDescriber(vm)
+    return if (active.isEmpty) null else active.name.ifBlank { describe(active) }
+}
+
+/** Number of chips [SavedFilterChips] draws (the saved filters and the Filter chip). */
+@Composable
+fun savedFilterChipCount(vm: AppViewModel): Int {
+    val prefs by vm.c.history.prefs.state.collectAsStateWithLifecycle()
+    return prefs.savedFilters.size + 1
+}
+
+/** A saved filter's icon: the first letter of its name on a small round tag, or a bookmark when it has none. */
+@Composable
+private fun SavedFilterMonogram(name: String) {
+    val letter = remember(name) { CompactChips.monogram(name) }
+    if (letter.isEmpty()) {
+        Icon(Icons.Rounded.BookmarkBorder, null, Modifier.size(20.dp))
+        return
+    }
+    Box(
+        Modifier.size(24.dp).clip(ParleyShapes.pill).background(MaterialTheme.colorScheme.tertiaryContainer),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(letter, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onTertiaryContainer, maxLines = 1)
+    }
 }
 
 /** Deletes a saved filter at once; the snackbar's Undo puts the list back as it was. */
