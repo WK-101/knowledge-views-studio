@@ -32,4 +32,12 @@
     <string name="set_recents_style_title">Recents style</string>
     <string name="set_recents_style_summary">Rich: shapes, tints and a Call back button for missed calls. Simple: plain icons</string>
     <string name="set_recents_style_kw">rich, simple, colours, colors, icons, missed, call back, style, legend, colour blind</string>
+    <!-- Recents chips by who called, and the quiet line under Unknown. -->
+    <string name="recents_filter_unknown">Unknown</string>
+    <string name="recents_filter_contacts">Contacts</string>
+    <plurals name="recents_unknown_today">
+        <item quantity="one">%1$d unknown caller today</item>
+        <item quantity="other">%1$d unknown callers today</item>
+    </plurals>
+    <string name="recents_unknown_today_none">No unknown callers today</string>
 </resources>

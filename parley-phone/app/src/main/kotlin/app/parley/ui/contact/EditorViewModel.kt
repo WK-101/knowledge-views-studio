@@ -620,7 +620,7 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
 
 /** The draft as a new contact: no contact, name, note or row ids of the one it was made from. */
 private fun ContactDetails.asNewContact(): ContactDetails =
-    copy(id = 0, lookupKey = "", nameId = null, nicknameId = null, orgId = null, noteId = null).withoutRowIds()
+    copy(id = 0, lookupKey = "", nameId = null, nicknameId = null, pronounsId = null, orgId = null, noteId = null).withoutRowIds()
 
 /** The draft as new rows only (for saving it as a new contact). */
 private fun ContactDetails.withoutRowIds(): ContactDetails = copy(
@@ -645,7 +645,7 @@ internal object EditorDrafts {
 
     /** Every text of the draft (a contact holding only an address, a note or a website is fine, F24). */
     fun texts(d: ContactDetails): List<String> = with(d) {
-        listOf(prefix, given, middle, family, suffix, nickname, company, title, note, phoneticGiven, phoneticFamily, context, pinnedNote) +
+        listOf(prefix, given, middle, family, suffix, nickname, pronouns, company, title, note, phoneticGiven, phoneticFamily, context, pinnedNote) +
             (phones + emails + websites + relations).map { it.value } + events.map { it.date } + handles.map { it.value } +
             addresses.flatMap { listOf(it.street, it.poBox, it.neighborhood, it.city, it.region, it.postcode, it.country) }
     }

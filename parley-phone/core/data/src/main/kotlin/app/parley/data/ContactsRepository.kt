@@ -45,6 +45,7 @@ import app.parley.common.people.Handles
 import app.parley.common.people.RowEdits
 import app.parley.common.record.ContentDiff
 import app.parley.common.record.Messengers
+import app.parley.common.record.Mime
 import app.parley.data.people.ParleyWriteLog
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -389,6 +390,12 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
     }
 
     /** (company, job title) of [contactId]'s first organization row, or null. */
+    /** The contact's pronouns (Parley's row, [Mime.PRONOUNS]), for the call screen; null when it has none. */
+    fun pronounsOf(contactId: Long): String? =
+        cr.safeQuery(
+            Data.CONTENT_URI, arrayOf(Data.DATA1), "${Data.CONTACT_ID}=? AND ${Data.MIMETYPE}=?", arrayOf(contactId.toString(), Mime.PRONOUNS), null,
+        )?.use { c -> generateSequence { if (c.moveToNext()) c.getString(0)?.trim() else null }.firstOrNull { it.isNotEmpty() } }
+
     fun organization(contactId: Long): Pair<String, String>? =
         cr.safeQuery(
             Data.CONTENT_URI, arrayOf(Organization.COMPANY, Organization.TITLE),
@@ -526,6 +533,7 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
                         phoneticGiven = s(8), phoneticFamily = s(10),
                     )
                     Nickname.CONTENT_ITEM_TYPE -> if (base.nicknameId == null) base = base.copy(nicknameId = id, nickname = s(2))
+                    Mime.PRONOUNS -> if (base.pronounsId == null) base = base.copy(pronounsId = id, pronouns = s(2))
                     Organization.CONTENT_ITEM_TYPE -> if (base.orgId == null) base = base.copy(orgId = id, company = s(2), title = s(5))
                     Note.CONTENT_ITEM_TYPE -> if (base.noteId == null) base = base.copy(noteId = id, note = s(2))
                     Phone.CONTENT_ITEM_TYPE -> phones += DataItem(id, s(2), c.getInt(3), c.getString(4), c.getInt(12) != 0)
@@ -754,6 +762,11 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
                 original?.nicknameId, Nickname.CONTENT_ITEM_TYPE, edited.nickname.isBlank(), ContentValues().apply { put(Nickname.NAME, edited.nickname.trim()) },
                 o != null && t(o.nickname) == t(edited.nickname),
             )
+            // Pronouns: Parley's own row (Android has no kind for them), written like the nickname.
+            single(
+                original?.pronounsId, Mime.PRONOUNS, edited.pronouns.isBlank(), ContentValues().apply { put(Data.DATA1, edited.pronouns.trim()) },
+                o != null && t(o.pronouns) == t(edited.pronouns),
+            )
             single(
                 original?.orgId, Organization.CONTENT_ITEM_TYPE, edited.company.isBlank() && edited.title.isBlank(),
                 ContentValues().apply {
@@ -894,21 +907,7 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
     /** Parley's own saves, per raw contact ("Why did this change?"). */
     val writeLog by lazy { ParleyWriteLog(context) }
 
-    private fun fieldName(mime: String): String = when (mime) {
-        StructuredName.CONTENT_ITEM_TYPE -> "Name"
-        Nickname.CONTENT_ITEM_TYPE -> "Nickname"
-        Organization.CONTENT_ITEM_TYPE -> "Company"
-        Note.CONTENT_ITEM_TYPE -> "Note"
-        Phone.CONTENT_ITEM_TYPE -> "Phone"
-        Email.CONTENT_ITEM_TYPE -> "Email"
-        Website.CONTENT_ITEM_TYPE -> "Website"
-        Relation.CONTENT_ITEM_TYPE -> "Relation"
-        Im.CONTENT_ITEM_TYPE, SipAddress.CONTENT_ITEM_TYPE -> "Messenger handles"
-        Event.CONTENT_ITEM_TYPE -> "Dates"
-        StructuredPostal.CONTENT_ITEM_TYPE -> "Address"
-        GroupMembership.CONTENT_ITEM_TYPE -> "Labels"
-        else -> "Other"
-    }
+    private fun fieldName(mime: String): String = FIELD_NAMES[mime] ?: "Other"
 
     private fun localAccount(): AccountRef = DeviceAccounts.localAccount(context)
 
@@ -1261,3 +1260,21 @@ internal fun ContentResolver.safeQuery(
 } catch (_: IllegalArgumentException) {
     null
 }
+
+/** The field an edited row belongs to, as History & undo names it. */
+private val FIELD_NAMES: Map<String, String> = mapOf(
+    StructuredName.CONTENT_ITEM_TYPE to "Name",
+    Nickname.CONTENT_ITEM_TYPE to "Nickname",
+    Mime.PRONOUNS to "Pronouns",
+    Organization.CONTENT_ITEM_TYPE to "Company",
+    Note.CONTENT_ITEM_TYPE to "Note",
+    Phone.CONTENT_ITEM_TYPE to "Phone",
+    Email.CONTENT_ITEM_TYPE to "Email",
+    Website.CONTENT_ITEM_TYPE to "Website",
+    Relation.CONTENT_ITEM_TYPE to "Relation",
+    Im.CONTENT_ITEM_TYPE to "Messenger handles",
+    SipAddress.CONTENT_ITEM_TYPE to "Messenger handles",
+    Event.CONTENT_ITEM_TYPE to "Dates",
+    StructuredPostal.CONTENT_ITEM_TYPE to "Address",
+    GroupMembership.CONTENT_ITEM_TYPE to "Labels",
+)

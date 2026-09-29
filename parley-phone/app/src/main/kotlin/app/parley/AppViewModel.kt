@@ -55,7 +55,8 @@ import kotlinx.coroutines.withContext
 import java.util.concurrent.TimeUnit
 
 /** Recents filter chips. VOICEMAIL shows the voicemail inbox instead of the call list. */
-enum class RecentFilter { ALL, MISSED, INCOMING, OUTGOING, BLOCKED, VOICEMAIL }
+/** Recents' chips, in their order: by call type, then by who called (Unknown, Contacts), then Blocked and Voicemail. */
+enum class RecentFilter { ALL, MISSED, INCOMING, OUTGOING, UNKNOWN, CONTACTS, BLOCKED, VOICEMAIL }
 
 data class RecentGroup(
     val key: String,

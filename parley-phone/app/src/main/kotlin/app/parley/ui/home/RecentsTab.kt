@@ -166,7 +166,7 @@ fun RecentsTab(vm: AppViewModel, open: (Destination) -> Unit, bottomPadding: Dp 
         if (selected.isNotEmpty()) stickyHeader(key = "selection") { RecentsSelectionBar(vm, groups.orEmpty()) }
         item(key = "filters") {
             RecentsFilterRow(
-                vm, filter, onFilter = { recents.filter.value = it }, voicemailChip = isDefault,
+                vm, filter, onFilter = { recents.setFilter(it) }, voicemailChip = isDefault,
                 unheardVoicemail = voicemail.unheard, toReturn = toReturn, rich = rich,
             )
         }
@@ -174,6 +174,8 @@ fun RecentsTab(vm: AppViewModel, open: (Destination) -> Unit, bottomPadding: Dp 
             item(key = "voicemail") { VoicemailInbox(vm, query) }
             return@LazyColumn
         }
+        // Unknown: a quiet "3 unknown callers today" under the chips.
+        if (filter == RecentFilter.UNKNOWN) item(key = "unknown-today") { UnknownCallersHeader(recents.unknownToday.collectAsStateWithLifecycle().value) }
         item(key = "archive-notes") { ArchiveNotices(vm, open) }
         val list = groups
         val rows = model?.rows.orEmpty()

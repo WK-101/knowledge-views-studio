@@ -13,6 +13,7 @@ import app.parley.common.PhoneIdentity
 import app.parley.common.RuleKind
 import app.parley.common.RuleType
 import app.parley.common.TextSearch
+import app.parley.common.calls.RecentsCallers
 import app.parley.common.calls.RecentsGrouping
 import app.parley.common.calls.RecentsLayout
 import app.parley.common.history.HistoryFilter
@@ -75,6 +76,22 @@ class RecentsViewModel(private val c: DataContainer) : ViewModel() {
 
     val filter = MutableStateFlow(RecentFilter.ALL)
 
+    /** A chip tapped in Recents: shown now, and remembered for the next launch (Settings › Recents & history). */
+    fun setFilter(f: RecentFilter) {
+        filter.value = f
+        viewModelScope.launch { runCatching { c.settings.update { it.copy(recentsFilter = if (f == RecentFilter.ALL) "" else f.name) } } }
+    }
+
+    init {
+        // Recents opens on the chip used last, unless something (a missed-call notification) already chose one.
+        viewModelScope.launch {
+            val s = c.settings.current()
+            val name = RecentsCallers.restored(s.rememberRecentsFilter, s.recentsFilter, RecentFilter.ALL.name, TRANSIENT_CHIPS)
+            val restored = RecentFilter.entries.firstOrNull { it.name == name } ?: RecentFilter.ALL
+            if (filter.value == RecentFilter.ALL) filter.value = restored
+        }
+    }
+
     /** Rows selected for bulk actions (keys of [RecentGroup]). */
     val selection = MutableStateFlow<Set<String>>(emptySet())
     val query = MutableStateFlow("")
@@ -116,7 +133,10 @@ class RecentsViewModel(private val c: DataContainer) : ViewModel() {
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_AFTER_MS), null) // merged once, shared by the list and the unreturned count
 
     // Keyed by line (E.164 with this phone's country), so a foreign number sharing the last 9 digits isn't shown as private.
-    private val vaultByKey = c.vault.contacts.map { list -> list.flatMap { v -> v.numbers.map { PhoneIdentity.key(it, countryIso) to v.id } }.toMap() }
+    // In discreet mode private contacts count as unknown numbers everywhere, the Contacts chip included.
+    private val vaultByKey = combine(c.vault.contacts, settings.map { it.hideVault }.distinctUntilChanged()) { list, hidden ->
+        if (hidden) emptyMap() else list.flatMap { v -> v.numbers.map { PhoneIdentity.key(it, countryIso) to v.id } }.toMap()
+    }
 
     /** [allCalls] with the filter chips of the call history applied (SIM, type, period, duration). */
     private val filteredCalls = combine(allCalls, c.history.activeFilter) { calls, f ->
@@ -127,7 +147,11 @@ class RecentsViewModel(private val c: DataContainer) : ViewModel() {
     private val callsAndLayout = combine(filteredCalls, settings.map { it.recentsLayout }.distinctUntilChanged()) { calls, layout -> calls to layout }
 
     val groups: StateFlow<List<RecentGroup>?> = combine(callsAndLayout, directory.numberIndex, filter, query.debounce(80), vaultByKey) { (calls, layout), index, filter, q, vaults ->
-        calls?.let { group(it, index, filter, q, layout).map { g -> if (g.calls.first().id < 0) g.copy(vaultId = vaults[PhoneIdentity.key(g.number, countryIso)]) else g } }
+        calls?.let {
+            group(it, index, filter, q, layout, vaults.keys).map { g ->
+                if (g.calls.first().id < 0) g.copy(vaultId = vaults[PhoneIdentity.key(g.number, countryIso)]) else g
+            }
+        }
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_AFTER_MS), null)
 
     /**
@@ -187,20 +211,34 @@ class RecentsViewModel(private val c: DataContainer) : ViewModel() {
         test
     }
 
+    /** Whether the chip [filter] keeps call [e]: by its type, or by who called (Unknown, Contacts). */
+    private fun chipKeeps(filter: RecentFilter, e: CallEntry, index: PhoneIdentity.LineMap<ContactSummary>, vaultKeys: Set<String>): Boolean {
+        // Who called: a contact, a private contact (their calls in Parley's history, or their number), or nobody known.
+        fun isContact() = e.id < 0 || index[e.number] != null || PhoneIdentity.key(e.number, countryIso) in vaultKeys
+        val hidden = e.presentationHidden || e.number.isBlank()
+        return when (filter) {
+            RecentFilter.UNKNOWN -> RecentsCallers.matches(RecentsCallers.Who.UNKNOWN, isContact(), hidden)
+            RecentFilter.CONTACTS -> RecentsCallers.matches(RecentsCallers.Who.CONTACTS, isContact(), hidden)
+            else -> filter.keepsType(e.type)
+        }
+    }
+
+    /** The chips by call type. */
+    private fun RecentFilter.keepsType(type: CallType): Boolean = when (this) {
+        RecentFilter.MISSED -> type == CallType.MISSED || type == CallType.REJECTED
+        RecentFilter.INCOMING -> type == CallType.INCOMING || type == CallType.ANSWERED_EXTERNALLY
+        RecentFilter.OUTGOING -> type == CallType.OUTGOING
+        RecentFilter.BLOCKED -> type == CallType.BLOCKED
+        RecentFilter.VOICEMAIL -> type == CallType.VOICEMAIL
+        else -> true
+    }
+
     private fun group(
         calls: List<CallEntry>, index: PhoneIdentity.LineMap<ContactSummary>, filter: RecentFilter, q: String,
         layout: RecentsLayout = RecentsLayout.GROUPED,
+        vaultKeys: Set<String> = emptySet(),
     ): List<RecentGroup> {
-        val filtered = calls.filter {
-            when (filter) {
-                RecentFilter.ALL -> true
-                RecentFilter.MISSED -> it.type == CallType.MISSED || it.type == CallType.REJECTED
-                RecentFilter.INCOMING -> it.type == CallType.INCOMING || it.type == CallType.ANSWERED_EXTERNALLY
-                RecentFilter.OUTGOING -> it.type == CallType.OUTGOING
-                RecentFilter.BLOCKED -> it.type == CallType.BLOCKED
-                RecentFilter.VOICEMAIL -> it.type == CallType.VOICEMAIL
-            }
-        }
+        val filtered = calls.filter { chipKeeps(filter, it, index, vaultKeys) }
         fun keyOf(e: CallEntry) = if (e.presentationHidden || e.number.isBlank()) "hidden" else PhoneIdentity.key(e.number, countryIso).ifEmpty { "hidden" }
         val tz = TimeZone.getDefault()
         val privateNumber = c.appContext.getString(R.string.main_private_number)
@@ -219,8 +257,22 @@ class RecentsViewModel(private val c: DataContainer) : ViewModel() {
         return grouped.filter { TextSearch.matches(q, it.title, listOf(it.number)) }
     }
 
+    /** "3 unknown callers today", for the quiet line under the Unknown chip (counted over every call, whatever the filters). */
+    val unknownToday: StateFlow<Int> = combine(allCalls, directory.numberIndex, vaultByKey, localDays()) { calls, index, vaults, today ->
+        val tz = TimeZone.getDefault()
+        val since = today * DAY_MS - tz.getOffset(System.currentTimeMillis())
+        calls?.let { list ->
+            RecentsCallers.unknownCallersSince(list, since, { PhoneIdentity.key(it, countryIso) }) { e ->
+                e.id < 0 || index[e.number] != null || PhoneIdentity.key(e.number, countryIso) in vaults
+            }
+        } ?: 0
+    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_AFTER_MS), 0)
+
     private companion object {
         const val STOP_AFTER_MS = 5_000L
+
+        /** Chips for a look now and then: Recents never opens on them (it would look as if the calls had gone). */
+        val TRANSIENT_CHIPS = setOf(RecentFilter.BLOCKED.name, RecentFilter.VOICEMAIL.name)
 
         /** Rows whose place name is looked up ahead of scrolling. */
         const val LOCATIONS_AHEAD = 300

@@ -61,6 +61,10 @@ internal class CallSession(val id: String) {
     /** Rang at full volume ("Ring loud"). */
     var loud = false
 
+    /** When it is answered automatically (`elapsedRealtime`, 0: not armed), and whether the user cancelled that. */
+    var autoAnswerAt: Long = 0
+    var autoAnswerCancelled = false
+
     /** The tone Parley played for it, and what that tone was. */
     var tonePlayed: Pair<RingtoneSource, String?>? = null
 

@@ -119,6 +119,8 @@ internal fun CallerHeader(
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
         )
+        // The caller's pronouns, right under the name.
+        call.pronouns?.let { CallerPronouns(it) }
         SecondaryLine(call)
         call.subtitle?.let {
             Text(

@@ -20,8 +20,8 @@ import kotlinx.coroutines.launch
 
 /**
  * Parley's own ringer: a distinct tone (a rule's, a label's, the unknown-caller tone) played instead of Telecom's,
- * with the vibration Telecom would have made, and "Ring loud". At most one call has the tone and at most one the
- * boost. Main thread only.
+ * with the vibration Telecom would have made (or the caller's own haptic caller ID), and "Ring loud". At most one call
+ * has the tone and at most one the boost. Main thread only.
  */
 internal class CallRinger(private val scope: CoroutineScope, private val silenceTelecom: () -> Unit) {
     private var tone: Ringtone? = null
@@ -41,7 +41,16 @@ internal class CallRinger(private val scope: CoroutineScope, private val silence
      * meanwhile. Only in normal ringer mode with Do Not Disturb off, and never while another call is active, so
      * Parley never rings when the system wouldn't.
      */
-    fun play(context: Context, session: CallSession, uri: String, otherCallActive: Boolean, stillRinging: () -> Boolean, played: () -> Unit) {
+    fun play(
+        context: Context,
+        session: CallSession,
+        uri: String,
+        otherCallActive: Boolean,
+        stillRinging: () -> Boolean,
+        /** The caller's haptic caller ID (repeating waveform), instead of the platform's 1 s on / 1 s off. */
+        pattern: LongArray? = null,
+        played: () -> Unit,
+    ) {
         val am = context.getSystemService(AudioManager::class.java)
         val nm = context.getSystemService(NotificationManager::class.java)
         if (am.ringerMode != AudioManager.RINGER_MODE_NORMAL) return
@@ -67,8 +76,43 @@ internal class CallRinger(private val scope: CoroutineScope, private val silence
             }
             runCatching { t.play() }
             played()
-            startVibration(context, am)
+            startVibration(context, am, pattern)
         }
+    }
+
+    /**
+     * The phone is on vibrate: Telecom's vibration is swapped for the caller's own [pattern] (haptic caller ID). Like
+     * [play], only with Do Not Disturb off and no other call active; silent mode stays silent. Telecom is silenced
+     * first (which stops its vibration), then ours starts once [stillRinging] is still true.
+     */
+    fun vibrateOnly(context: Context, session: CallSession, pattern: LongArray, otherCallActive: Boolean, stillRinging: () -> Boolean, started: () -> Unit) {
+        val am = context.getSystemService(AudioManager::class.java)
+        val nm = context.getSystemService(NotificationManager::class.java)
+        if (am.ringerMode != AudioManager.RINGER_MODE_VIBRATE) return
+        if (nm.currentInterruptionFilter != NotificationManager.INTERRUPTION_FILTER_ALL) return
+        if (otherCallActive) return
+        // Claimed now (no tone), so stop() and follow() end the vibration with the ringing.
+        tone = null
+        toneFor = session.id
+        silenceTelecom()
+        scope.launch {
+            delay(RINGER_STOP_MIN_MS)
+            val stillOurs = toneFor == session.id && !session.silenced
+            if (!stillOurs || !stillRinging() || am.ringerMode != AudioManager.RINGER_MODE_VIBRATE) {
+                if (toneFor == session.id) release()
+                return@launch
+            }
+            startVibration(context, am, pattern)
+            started()
+        }
+    }
+
+    /** The caller turned out to have a haptic caller ID after the tone already started: its vibration takes over. */
+    fun useVibration(context: Context, id: String, pattern: LongArray) {
+        if (toneFor != id || vibrator == null) return
+        vibrator?.let { runCatching { it.cancel() } }
+        vibrator = null
+        startVibration(context, context.getSystemService(AudioManager::class.java), pattern)
     }
 
     /** Another player (Telecom's ringer) is still playing a ringtone. Our own tone isn't playing yet at this point. */
@@ -80,7 +124,7 @@ internal class CallRinger(private val scope: CoroutineScope, private val silence
      * Silencing Telecom also stops its vibration, so vibrate like it would: only when the system's "Vibrate for calls"
      * is on (the tone only plays in normal ringer mode, where that setting decides).
      */
-    private fun startVibration(context: Context, am: AudioManager) {
+    private fun startVibration(context: Context, am: AudioManager, pattern: LongArray? = null) {
         if (am.ringerMode == AudioManager.RINGER_MODE_SILENT) return
         val cr = context.contentResolver
         val vibrateWhenRinging = am.ringerMode == AudioManager.RINGER_MODE_VIBRATE ||
@@ -95,7 +139,7 @@ internal class CallRinger(private val scope: CoroutineScope, private val silence
             context.getSystemService(Vibrator::class.java)
         } ?: return
         if (!v.hasVibrator()) return
-        val effect = VibrationEffect.createWaveform(RING_VIBRATION, 0)
+        val effect = VibrationEffect.createWaveform(pattern?.takeIf { it.size >= 2 } ?: RING_VIBRATION, 0)
         runCatching {
             if (Build.VERSION.SDK_INT >= 33) {
                 v.vibrate(effect, VibrationAttributes.createForUsage(VibrationAttributes.USAGE_RINGTONE))

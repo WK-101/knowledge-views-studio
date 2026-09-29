@@ -99,6 +99,7 @@ private fun fieldLabel(f: Field): String = stringResource(
         Field.EVENTS -> R.string.edit_important_dates
         Field.HANDLES -> R.string.edit_handles
         Field.LABELS -> R.string.edit_field_labels
+        Field.PRONOUNS -> R.string.edit_pronouns
     },
 )
 

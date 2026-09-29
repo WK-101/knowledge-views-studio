@@ -302,6 +302,8 @@ private fun CallerSection(s: ScreenState, sheets: InCallSheets, a: ScreenActions
         avatarSize = avatar,
         onReply = { sheets.replyFor = shown.id },
     )
+    // Auto-answer's countdown with Cancel, between the caller and the answer controls (an overlay of its own).
+    if (shown.state == CallState.RINGING) AutoAnswerCountdown(shown)
     Spacer(Modifier.height(Spacing.l))
 }
 

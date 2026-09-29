@@ -4,7 +4,10 @@ import app.parley.common.storage.PersistentStores
 import android.content.Context
 import android.provider.ContactsContract
 import app.parley.common.ContactSummary
+import app.parley.common.extras.CallerChoice
+import app.parley.common.extras.CallerChoices
 import app.parley.common.extras.DndStars
+import app.parley.common.people.ContactRef
 import app.parley.common.extras.LabelPolicies
 import app.parley.common.extras.LabelPolicy
 import app.parley.common.extras.SimpleConfig
@@ -57,6 +60,83 @@ class ExtrasStore(private val c: DataContainer) {
         updatePolicies { LabelPolicies.deleted(it, titles) }
         applyRelease(DndStars.release(_dndStars.value, titles))
     }
+
+    // --- A person's haptic caller ID and auto-answer ---
+
+    private val _choices = MutableStateFlow(CallerChoices.decode(prefs.getString(K_CALLER_CHOICES, null)))
+
+    /** Device contacts' choices by lookup key (a private contact's are in its sealed caller-ID copy). */
+    val callerChoices: StateFlow<Map<String, CallerChoice>> = _choices.asStateFlow()
+
+    @Synchronized
+    private fun updateChoices(f: (Map<String, CallerChoice>) -> Map<String, CallerChoice>) {
+        val next = f(_choices.value).filter { (k, v) -> k.isNotEmpty() && !v.isEmpty }
+        if (next == _choices.value) return
+        _choices.value = next
+        prefs.edit().putString(K_CALLER_CHOICES, CallerChoices.encode(next)).apply()
+    }
+
+    /** The choices of the contact with Parley key [key]: a device contact's from here, a private one's from the vault. */
+    suspend fun choiceFor(key: String): CallerChoice {
+        val vaultId = ContactRef.vaultIdOf(key) ?: return _choices.value[key] ?: CallerChoice()
+        // Waiting here while a contact just made visible can't be read back yet (see ContactKeys.rekeyLater).
+        _choices.value[key]?.let { return it }
+        val s = runCatching { c.vault.summary(vaultId) }.getOrNull() ?: return CallerChoice()
+        return CallerChoice(s.vibration, s.autoAnswer)
+    }
+
+    /** Changes the choices of [key]; a private contact's are sealed in its caller-ID copy, like its ringtone. */
+    suspend fun setChoice(key: String, f: (CallerChoice) -> CallerChoice) {
+        if (key.isEmpty()) return
+        val vaultId = ContactRef.vaultIdOf(key)
+        if (vaultId == null || key in _choices.value) {
+            updateChoices { m -> m + (key to f(m[key] ?: CallerChoice())) }
+            return
+        }
+        c.vault.updateCallerChoices(vaultId) { s ->
+            val n = f(CallerChoice(s.vibration, s.autoAnswer))
+            s.copy(vibration = n.vibration, autoAnswer = n.autoAnswer)
+        }
+    }
+
+    /**
+     * A contact's key changed (ContactKeys): its choices move with it. Made private: they go into the vault entry's
+     * caller-ID copy and leave this store; made visible: [ContactKeys] finds them here under the private key first.
+     */
+    suspend fun choiceRekey(from: String, to: String) {
+        val moving = _choices.value[from] ?: return
+        val vaultId = ContactRef.vaultIdOf(to)
+        if (vaultId != null) {
+            val written = runCatching {
+                c.vault.updateCallerChoices(vaultId) { s ->
+                    s.copy(vibration = s.vibration ?: moving.vibration, autoAnswer = s.autoAnswer || moving.autoAnswer)
+                }
+            }.getOrDefault(false)
+            if (written) updateChoices { it - from }
+        } else {
+            updateChoices { CallerChoices.rekey(it, from, to) }
+        }
+    }
+
+    /**
+     * A private contact just made visible: its choices (read before its vault entry went) wait here under its private
+     * key until [choiceRekey] moves them to the address-book contact's key.
+     */
+    fun holdForRekey(privateKey: String, choice: CallerChoice) {
+        if (!choice.isEmpty) updateChoices { it + (privateKey to choice) }
+    }
+
+    /** A contact Parley kept choices for was deleted or moved into the vault (its entry keeps them there). */
+    fun choiceForget(key: String) = updateChoices { it - key }
+
+    /** Device keys that have choices, for the key sweep. */
+    fun choiceKeys(): Set<String> = _choices.value.keys
+
+    /**
+     * Labels chosen for auto-answer or given a vibration, for the call path: read from memory. Empty when none, so the
+     * call path doesn't look up a caller's labels for nothing.
+     */
+    fun labelCallChoices(): Map<String, LabelPolicy> = _policies.value.filterValues { it.vibration != null || it.autoAnswer }
 
     // --- Contacts starred for "Allow through Do Not Disturb" ---
 
@@ -240,6 +320,8 @@ class ExtrasStore(private val c: DataContainer) {
             // People by name and number: lookup keys mean nothing on another phone (the simple home resolves them).
             put(X_SIMPLE, SimpleSetup.encode(_simple.value.copy(people = _simple.value.people.map { it.copy(lookupKey = null) })))
             lastTripCity?.let { put(X_TRIP, it) }
+            // Device contacts' vibration and auto-answer (private contacts' travel sealed with them).
+            put(X_CALLER_CHOICES, CallerChoices.encode(_choices.value.filterKeys { !ContactRef.isPrivateKey(it) }))
         }
 
         override suspend fun import(values: Map<String, String>) {
@@ -252,6 +334,7 @@ class ExtrasStore(private val c: DataContainer) {
             values[X_DND_STARS]?.let { v -> updateDndStars { current -> DndStars.merge(current, DndStars.decode(v)) } }
             values[X_SIMPLE]?.let { v -> updateSimple { SimpleSetup.decode(v) } }
             values[X_TRIP]?.let { lastTripCity = it }
+            values[X_CALLER_CHOICES]?.let { v -> updateChoices { current -> CallerChoices.merge(current, CallerChoices.decode(v)) } }
         }
     }
 
@@ -262,6 +345,8 @@ class ExtrasStore(private val c: DataContainer) {
         private const val K_TRIP = "trip_city"
         private const val K_SWAP = "handshake_swap"
         private const val K_DND_STARS = "dnd_stars_v1"
+        private const val K_CALLER_CHOICES = "caller_choices_v1"
+        private const val X_CALLER_CHOICES = "${BackupExtras.PREFIX}extras.callerChoices"
         private const val X_POLICIES = "${BackupExtras.PREFIX}extras.labelPolicies"
         private const val X_SIMPLE = "${BackupExtras.PREFIX}extras.simple"
         private const val X_TRIP = "${BackupExtras.PREFIX}extras.tripCity"

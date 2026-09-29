@@ -42,6 +42,11 @@ import app.parley.common.ScreeningResult
 import app.parley.data.TemporaryContacts
 import app.parley.messaging.TemporaryContact
 import app.parley.common.calls.RingtoneSource
+import app.parley.common.calls.CallExtrasConfig
+import app.parley.common.calls.CallerHaptics
+import app.parley.common.extras.CallerChoice
+import app.parley.common.extras.CallerChoices
+import app.parley.common.people.ContactRef
 import app.parley.data.ScreenRequest
 import app.parley.common.VerdictKind
 import kotlinx.coroutines.Dispatchers
@@ -84,12 +89,15 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
             // Job and company under the name.
             val org = c.contacts.organization(it.contactId)
             val cfg = c.circle.config.value
+            val choices = callerChoices(it.lookupKey) { c.contacts.labelTitlesOf(it.contactId) }
             CallerDisplay(
                 it.name, it.photoUri, it.numberLabel, it.contactId, it.lookupKey, note, last, backgroundUri = c.people.backgrounds.forLookupKey(it.lookupKey),
                 subtitle = CallerCard.subtitle(org?.second, org?.first),
                 // The last note and open promises; the call screen decides whether the lock screen may show them.
                 memory = it.lookupKey?.let { k -> runCatching { memoryFor(k, it.contactId, number, cfg.memoryOnLockScreen) }.getOrNull() },
                 memoryPrompt = cfg.memoryPrompt,
+                pronouns = runCatching { c.contacts.pronounsOf(it.contactId) }.getOrNull(),
+                vibration = choices.vibration, autoAnswerChosen = choices.autoAnswer, ownRingtone = it.customRingtone,
             )
         } ?: c.vault.lookup(number, PhoneEnv.countryIso(app, accountId))?.let { (id, info) ->
             // Discreet mode: a private contact shows as its number only, everywhere (call screen, lock screen and
@@ -97,12 +105,33 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
             if (c.settings.current().hideVault) return@withContext null
             // A private contact's card comes from its caller-ID copy, so it shows while the phone is locked.
             val card = c.vault.callerCard(id)
+            // Its vibration, auto-answer and labels are in the same caller-ID copy (readable while the phone is locked).
+            val choices = callerChoices(ContactRef.privateKey(id)) { c.privateLabels.titlesOf(id) }
             CallerDisplay(
                 info.name, card?.photoUri, info.numberLabel, null, null, card?.note, last,
                 subtitle = card?.subtitle, context = CallerCard.context(card?.context),
+                pronouns = card?.pronouns, vibration = choices.vibration, autoAnswerChosen = choices.autoAnswer,
+                // Its own ringtone reaches Parley's ringer through screening already.
             )
         }
     }
+
+    /**
+     * The caller's haptic caller ID and auto-answer: their own ([key]: their Parley key), else their labels' ([labels]
+     * is read only when a label has either, so most calls never look labels up).
+     */
+    private suspend fun callerChoices(key: String?, labels: suspend () -> Set<String>): CallerChoice {
+        val own = key?.let { runCatching { c.extras.choiceFor(it) }.getOrNull() } ?: CallerChoice()
+        val labelPolicies = c.extras.labelCallChoices()
+        if (labelPolicies.isEmpty()) return own
+        val titles = runCatching { labels() }.getOrDefault(emptySet())
+        return CallerChoice(
+            vibration = CallerHaptics.resolve(own.vibration, titles, labelPolicies.mapNotNull { (t, p) -> p.vibration?.let { t to it } }.toMap()),
+            autoAnswer = own.autoAnswer || CallerChoices.labelAutoAnswer(titles, labelPolicies),
+        )
+    }
+
+    override fun autoAnswer(): CallExtrasConfig = c.callExtras.config.value
 
     /**
      * "Last call 3 days ago · 4 min", from the call history (archive included) once it is loaded; in a process started

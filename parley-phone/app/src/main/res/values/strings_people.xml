@@ -2,4 +2,12 @@
 <resources>
     <string name="permission_lookup_private_name_label">look up names of Parley\'s private contacts</string>
     <string name="permission_lookup_private_name_description">Lets the app ask Parley for the name of one phone number at a time, if that number belongs to one of your private contacts. Parley also asks you to approve each app, and never gives out a list.</string>
+    <!-- My card › In an emergency. -->
+    <string name="me_emergency">In an emergency</string>
+    <string name="me_emergency_info">Emergency information</string>
+    <string name="me_emergency_info_sub">Medical details and emergency contacts, kept by Android. The lock screen\'s Emergency button shows them.</string>
+    <string name="me_emergency_missing">This phone doesn\'t have Android\'s emergency information. Many phones keep it in Settings, under Safety &amp; emergency.</string>
+    <string name="me_emergency_open_settings">Open Settings</string>
+    <string name="me_ice_label">ICE label</string>
+    <string name="me_ice_label_sub">“In case of emergency”: put the people to call in a label named ICE, so anyone helping you can find them</string>
 </resources>

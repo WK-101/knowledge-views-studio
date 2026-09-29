@@ -9,7 +9,7 @@ import app.parley.common.people.ThreeWayMerge.Side
  * merge chose. See [ThreeWayMerge].
  */
 object ContactEditRebase {
-    enum class Field { NAME, NICKNAME, COMPANY, NOTE, PHONES, EMAILS, WEBSITES, RELATIONS, ADDRESSES, EVENTS, HANDLES, LABELS }
+    enum class Field { NAME, NICKNAME, COMPANY, NOTE, PHONES, EMAILS, WEBSITES, RELATIONS, ADDRESSES, EVENTS, HANDLES, LABELS, PRONOUNS }
 
     /** A field both sides changed: what each side holds, as text to show. */
     data class Conflict(val field: Field, val mine: String, val theirs: String)
@@ -32,6 +32,7 @@ object ContactEditRebase {
         Field.EVENTS -> d.events.filter { it.date.isNotBlank() }.map { it.copy(id = null, label = it.label?.takeIf { _ -> it.type == 0 }) }
         Field.HANDLES -> d.handles.filter { it.value.isNotBlank() }.map { it.copy(id = null, value = t(it.value)) }
         Field.LABELS -> d.groupIds
+        Field.PRONOUNS -> t(d.pronouns)
     }
 
     /** A field's content as one line of text for the merge choices. */
@@ -48,6 +49,7 @@ object ContactEditRebase {
         Field.EVENTS -> d.events.map { t(it.date) }.filter { it.isNotEmpty() }.joinToString(", ")
         Field.HANDLES -> d.handles.map { t(it.value) }.filter { it.isNotEmpty() }.joinToString(", ")
         Field.LABELS -> d.groupIds.size.toString()
+        Field.PRONOUNS -> t(d.pronouns)
     }
 
     private fun fields(base: ContactDetails?, mine: ContactDetails, theirs: ContactDetails) =
@@ -92,6 +94,7 @@ object ContactEditRebase {
         if (mineFor(Field.EVENTS)) out = out.copy(events = ids(mine.events, theirs.events, { it.id }) { r, i -> r.copy(id = i) })
         if (mineFor(Field.HANDLES)) out = out.copy(handles = ids(mine.handles, theirs.handles, { it.id }) { r, i -> r.copy(id = i) })
         if (mineFor(Field.LABELS)) out = out.copy(groupIds = mine.groupIds)
+        if (mineFor(Field.PRONOUNS)) out = out.copy(pronouns = mine.pronouns)
         return out
     }
 
@@ -113,7 +116,7 @@ object ContactEditRebase {
         fun rows(mine: List<DataItem>, theirs: List<DataItem>) = ids(mine, theirs, { it.id }, ::item) { r, i -> r.copy(id = i) }
         return draft.copy(
             id = onto.id, lookupKey = onto.lookupKey, displayName = onto.displayName, photoUri = onto.photoUri,
-            nameId = onto.nameId, nicknameId = onto.nicknameId, orgId = onto.orgId, noteId = onto.noteId,
+            nameId = onto.nameId, nicknameId = onto.nicknameId, orgId = onto.orgId, noteId = onto.noteId, pronounsId = onto.pronounsId,
             phones = rows(draft.phones, onto.phones), emails = rows(draft.emails, onto.emails),
             websites = rows(draft.websites, onto.websites), relations = rows(draft.relations, onto.relations),
             addresses = ids(draft.addresses, onto.addresses, { it.id }, { it.copy(id = null) }) { r, i -> r.copy(id = i) },
@@ -128,5 +131,5 @@ object ContactEditRebase {
     fun hasRowIds(d: ContactDetails): Boolean =
         listOf(d.phones, d.emails, d.websites, d.relations).any { l -> l.any { it.id != null } } ||
             d.addresses.any { it.id != null } || d.events.any { it.id != null } || d.handles.any { it.id != null } ||
-            listOf(d.nameId, d.nicknameId, d.orgId, d.noteId, d.editRawId).any { it != null }
+            listOf(d.nameId, d.nicknameId, d.orgId, d.noteId, d.pronounsId, d.editRawId).any { it != null }
 }

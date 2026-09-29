@@ -45,4 +45,5 @@
         <item quantity="one">Star %d and open settings</item>
         <item quantity="other">Star %d and open settings</item>
     </plurals>
+    <string name="label_policy_auto_answer_summary">Calls from people in this label are answered after a few seconds, with Cancel on the call screen</string>
 </resources>

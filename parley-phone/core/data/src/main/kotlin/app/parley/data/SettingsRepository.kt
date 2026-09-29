@@ -137,6 +137,8 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
             recentsStyle = enumOr(this[K.recentsStyle], d.recentsStyle),
             callBackground = enumOr(this[K.callBackground], d.callBackground),
             surfaces = SurfaceLayout.decode(this[K.surfaces]),
+            rememberRecentsFilter = this[K.rememberRecentsFilter] ?: d.rememberRecentsFilter,
+            recentsFilter = this[K.recentsFilter] ?: d.recentsFilter,
         )
     }
 
@@ -180,6 +182,8 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
         this[K.recentsStyle] = s.recentsStyle.name
         this[K.callBackground] = s.callBackground.name
         this[K.surfaces] = s.surfaces.encode()
+        this[K.rememberRecentsFilter] = s.rememberRecentsFilter
+        this[K.recentsFilter] = s.recentsFilter
     }
 
     private inline fun <reified E : Enum<E>> enumOr(value: String?, default: E): E =
@@ -225,6 +229,8 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
         val recentsStyle = stringPreferencesKey("recents_style")
         val callBackground = stringPreferencesKey("call_background")
         val surfaces = stringPreferencesKey("surface_layout")
+        val rememberRecentsFilter = booleanPreferencesKey("remember_recents_filter")
+        val recentsFilter = stringPreferencesKey("recents_filter")
     }
 
     companion object {

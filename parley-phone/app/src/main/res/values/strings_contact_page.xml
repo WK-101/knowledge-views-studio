@@ -131,4 +131,17 @@
     <string name="contact_private_qr_body">Whoever scans this code gets these details as an ordinary contact, which other apps on their phone can see.</string>
     <string name="contact_private_qr_confirm">Show the code</string>
     <string name="contact_unlock_to_change">Unlock to change private details</string>
+    <!-- Haptic caller ID and auto-answer, in "Settings for this contact" and on a label's page. -->
+    <string name="caller_vibration">Vibration</string>
+    <string name="caller_vibration_usual">The phone\'s usual vibration</string>
+    <string name="caller_vibration_generated">A rhythm of their own</string>
+    <string name="caller_vibration_heartbeat">Heartbeat</string>
+    <string name="caller_vibration_double">Double tap</string>
+    <string name="caller_vibration_long">One long buzz</string>
+    <string name="caller_vibration_morse">First letter in Morse code</string>
+    <string name="caller_vibration_morse_letter">“%1$s” in Morse code</string>
+    <string name="caller_vibration_body">Feel who\'s calling with the phone in your pocket or on vibrate. Parley rings for these calls then, as your phone app. Tap play to feel a pattern first.</string>
+    <string name="caller_vibration_preview">Feel %1$s</string>
+    <string name="caller_auto_answer">Answer automatically</string>
+    <string name="caller_auto_answer_summary">Their calls are answered after a few seconds, with Cancel on the call screen</string>
 </resources>

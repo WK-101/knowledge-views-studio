@@ -20,6 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Label
 import androidx.compose.material.icons.automirrored.rounded.PhoneForwarded
 import androidx.compose.material.icons.automirrored.rounded.ShortText
+import androidx.compose.material.icons.rounded.FilterList
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.SyncAlt
 import androidx.compose.material.icons.rounded.AdminPanelSettings
@@ -323,6 +324,8 @@ internal fun CallsPage(vm: AppViewModel, open: (Destination) -> Unit) {
         }
     }
     CallExtrasGroups(vm)
+    // Auto-answer and the haptic caller ID.
+    CallerRingGroup(vm, open)
     // The memory prompt, notes on the lock screen and the pre-call peek.
     MemorySettingsGroup(vm)
     SegmentedGroup(stringResource(R.string.set_group_sims)) {
@@ -570,6 +573,8 @@ internal fun HistoryPage(vm: AppViewModel, open: (Destination) -> Unit) {
         menuRow("recents_style", styleLabels, s.recentsStyle.ordinal, Icons.Rounded.Palette) { i ->
             set { it.copy(recentsStyle = RecentsStyle.entries[i]) }
         }
+        // Recents opens on the chip used last (Blocked and Voicemail aside).
+        switchRow("recents_remember_filter", s.rememberRecentsFilter, Icons.Rounded.FilterList) { v -> set { it.copy(rememberRecentsFilter = v) } }
         linkRow("insights", Icons.Rounded.Insights) { open(HistoryRoutes.Insights) }
         // The People card in Call insights.
         peopleCardRows(vm, circleCfg)

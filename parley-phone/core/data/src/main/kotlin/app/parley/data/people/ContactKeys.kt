@@ -232,6 +232,7 @@ class ContactKeys(
         runCatching { backgrounds().clear(key) }
         runCatching { originals()?.clear(key) }
         runCatching { extras()?.dndForget(key) }
+        runCatching { extras()?.choiceForget(key) }
         runCatching { calling()?.update { it.withoutContact(key) } }
     }
 
@@ -259,6 +260,7 @@ class ContactKeys(
             // phone-only contact, a first sync) is still followed for contacts that have no contact_meta row.
             runCatching { interactions()?.keys() }.getOrNull()?.forEach { (k, id) -> if (keys[k] == null && !ContactRef.isPrivateKey(k)) keys[k] = id }
             runCatching { extras()?.dndKeys() }.getOrNull()?.forEach { if (!ContactRef.isPrivateKey(it)) keys.putIfAbsent(it, null) }
+            runCatching { extras()?.choiceKeys() }.getOrNull()?.forEach { if (!ContactRef.isPrivateKey(it)) keys.putIfAbsent(it, null) }
             runCatching { originals()?.keys() }.getOrNull()?.forEach { if (!ContactRef.isPrivateKey(it)) keys.putIfAbsent(it, null) }
             val temporaries = meta.allTemporary()
             val snapshot = KeySweep.Snapshot(current, keys + temporaries.associate { "t:" + it.lookupKey + ":" + it.rawIds to it.contactId })
@@ -319,6 +321,8 @@ class ContactKeys(
         runCatching { backgrounds().move(from, to) }
         runCatching { originals()?.move(from, to) }
         runCatching { extras()?.dndRekey(from, to) }
+        // The haptic caller ID and auto-answer (into the vault entry when [to] is a private contact's key).
+        runCatching { extras()?.choiceRekey(from, to) }
         // A private contact's limit keeps no name (it would be the only copy of it outside the vault).
         runCatching {
             calling()?.update { cfg ->

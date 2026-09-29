@@ -343,7 +343,7 @@ fun ContactEditScreen(
             editor.temporaryNew -> emptyList()
             else -> groups.filter { it.account.type == account?.type && it.account.name == account?.name }
         }
-        val nameDetailsFilled = listOf(d.prefix, d.middle, d.suffix, d.phoneticGiven, d.phoneticFamily, d.nickname).any { it.isNotBlank() }
+        val nameDetailsFilled = listOf(d.prefix, d.middle, d.suffix, d.phoneticGiven, d.phoneticFamily, d.nickname, d.pronouns).any { it.isNotBlank() }
         // Only what the contact holds is on screen (plus name and a phone); everything else waits in the "Add" chips.
         val shownKinds = shownKinds(d, revealed, moreName || nameDetailsFilled, accountGroups.isNotEmpty(), isVault, lookup, bgChange, vm)
         val allowed = buildSet {
@@ -851,9 +851,9 @@ private fun NameFields(
     val locked = lockedRow(d.nameId)
     val words = KeyboardCapitalization.Words
     val spec = ParleyMotion.spatial<IntSize>()
-    val count = if (expanded) 8 else 2
+    val count = if (expanded) 9 else 2
 
-    // Line positions in the block (for the segment shapes): prefix, first, middle, last, suffix, phonetic ×2, nickname.
+    // Line positions in the block (for the segment shapes): prefix, first, middle, last, suffix, phonetic ×2, nickname, pronouns.
     fun pos(full: Int, short: Int) = formFieldShape(if (expanded) full else short, count)
     val gap = Modifier.padding(top = FormTokens.segmentGap)
     Column {
@@ -889,6 +889,13 @@ private fun NameFields(
                     stringResource(R.string.edit_nickname), d.nickname, gap, shape = pos(7, 1), cap = words, locked = lockedRow(d.nicknameId), focus = nick,
                 ) { v ->
                     update { it.copy(nickname = v) }
+                }
+                // Pronouns (vCard PRONOUNS), shown beside the name on the page and the call screen; typed as people write them.
+                EditorField(
+                    stringResource(R.string.edit_pronouns), d.pronouns, gap, shape = pos(8, 1), cap = KeyboardCapitalization.None,
+                    locked = lockedRow(d.pronounsId),
+                ) { v ->
+                    update { it.copy(pronouns = v) }
                 }
             }
         }
