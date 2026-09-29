@@ -199,7 +199,7 @@ All four phases shipped: 3.4.1 (safety hotfix), 3.5 (consolidation), 3.6 (qualit
 
 **Still open, and why:**
 - **Device verification.** The performance targets in §5 (cold start, ring-to-UI, jank) have Macrobenchmarks but have not been run on a phone. Run them and the TESTING.md checklist (§21) on a real device before calling 4.0 final.
-- **APK size.** 4.0.0 is about 13 MiB against the ≤ 12 MB target; the budget check stops growth but the geocoder data and Compose still need trimming.
+- **APK size.** 4.0.0 is about 13 MiB against the ≤ 12 MB target; the budget check stops growth but the geocoder data and Compose still need trimming. *4.4:* 11.7 MiB after locale filters and resource and ZXing trimming; the budget is now 12 MiB (docs/PERFORMANCE_BENCHMARKS.md).
 - **Call-history archive key loss.** If Android loses the archive key, the archive is still set aside and a new one started (the vault and small records now keep data through transient errors). Old archive entries are not recoverable in that case; a backup is the safety net.
 - **KDF.** scrypt was chosen over Argon2id, because it is available without a native library.
 - **Sync limits.** A phone that joins a sync folder later cannot detect an old file that someone put back before it joined.

@@ -6,7 +6,6 @@ import androidx.benchmark.macro.FrameTimingMetric
 import androidx.benchmark.macro.StartupMode
 import androidx.benchmark.macro.junit4.MacrobenchmarkRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import androidx.test.filters.LargeTest
 import app.parley.baselineprofile.Journeys.grantPermissions
 import app.parley.baselineprofile.Journeys.openKeypad
 import app.parley.baselineprofile.Journeys.typeOnKeypad
@@ -15,7 +14,6 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /** Frame timing while typing a number on the keypad with 3000 contacts to search. */
-@LargeTest
 @RunWith(AndroidJUnit4::class)
 class KeypadTypingBenchmark {
     @get:Rule

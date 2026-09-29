@@ -1,6 +1,6 @@
 # Parley's hand-written baseline profile: the code people wait on, compiled ahead of time at install (Play, or the
 # profile installer for sideloaded and F-Droid installs) instead of running interpreted until background dexopt.
-# Covers start-up to Recents, the keypad, Contacts, and the incoming-call path (call screening, the call screen and its
+# Covers start-up to Recents, the keypad, Contacts, a contact's page, and the incoming-call path (call screening, the call screen and its
 # notification). `./gradlew :app:generateBaselineProfile` on a device writes a measured profile next to this one
 # (src/release/generated/baselineProfiles); both are merged. See docs/PERFORMANCE_BENCHMARKS.md.
 #
@@ -46,6 +46,18 @@ HSPLapp/parley/common/DialSearch**->**(**)**
 HSPLapp/parley/common/T9**->**(**)**
 HSPLapp/parley/common/TextSearch;->**(**)**
 HSPLapp/parley/common/Initials;->**(**)**
+
+# A contact's page (opened from Recents, Contacts, search or another app): its view model, sections, the photo as picked
+HSPLapp/parley/ui/contact/ContactDetailScreenKt**->**(**)**
+HSPLapp/parley/ui/contact/ContactDetailViewModel**->**(**)**
+HSPLapp/parley/ui/contact/ContactPageSections**->**(**)**
+HSPLapp/parley/ui/contact/DetailParts**->**(**)**
+HSPLapp/parley/ui/contact/DetailExtras**->**(**)**
+HSPLapp/parley/ui/contact/OriginalPhotoViews**->**(**)**
+HSPLapp/parley/ui/contact/ContactNavigation**->**(**)**
+HSPLapp/parley/data/people/OriginalPhotos**->**(**)**
+HSPLapp/parley/data/people/CallerCards**->**(**)**
+HSPLapp/parley/common/people/ContactRef**->**(**)**
 
 # The incoming-call path: screening, the in-call service, the call screen and its notification
 Lapp/parley/telecom/CallManager;

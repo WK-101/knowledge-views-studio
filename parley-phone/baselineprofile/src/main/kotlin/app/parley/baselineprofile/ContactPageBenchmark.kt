@@ -2,31 +2,35 @@ package app.parley.baselineprofile
 
 import androidx.benchmark.macro.BaselineProfileMode
 import androidx.benchmark.macro.CompilationMode
+import androidx.benchmark.macro.FrameTimingMetric
 import androidx.benchmark.macro.StartupMode
 import androidx.benchmark.macro.StartupTimingMetric
 import androidx.benchmark.macro.junit4.MacrobenchmarkRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import app.parley.baselineprofile.Journeys.grantPermissions
-import app.parley.baselineprofile.Journeys.openRecents
+import app.parley.baselineprofile.Journeys.openContactPage
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** Cold start to Recents with 3000 calls and 3000 contacts, without and with the baseline profile. */
+/**
+ * A contact's page opened from outside (another app's "view contact"), from a cold process, with 3000 contacts and
+ * 3000 calls: time to the first frame and the page's frames while it loads and scrolls.
+ */
 @RunWith(AndroidJUnit4::class)
-class StartupBenchmark {
+class ContactPageBenchmark {
     @get:Rule
     val rule = MacrobenchmarkRule()
 
-    @Test fun coldStartNoProfile() = start(CompilationMode.None())
+    @Test fun openNoProfile() = open(CompilationMode.None())
 
-    @Test fun coldStartBaselineProfile() = start(CompilationMode.Partial(BaselineProfileMode.Require))
+    @Test fun openBaselineProfile() = open(CompilationMode.Partial(BaselineProfileMode.Require))
 
-    private fun start(mode: CompilationMode) {
+    private fun open(mode: CompilationMode) {
         BenchmarkData.ensure()
         rule.measureRepeated(
             packageName = PARLEY,
-            metrics = listOf(StartupTimingMetric()),
+            metrics = listOf(StartupTimingMetric(), FrameTimingMetric()),
             compilationMode = mode,
             startupMode = StartupMode.COLD,
             iterations = 10,
@@ -35,7 +39,7 @@ class StartupBenchmark {
                 pressHome()
             },
         ) {
-            openRecents()
+            openContactPage()
         }
     }
 }

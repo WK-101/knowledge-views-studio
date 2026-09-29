@@ -6,7 +6,6 @@ import androidx.benchmark.macro.FrameTimingMetric
 import androidx.benchmark.macro.StartupMode
 import androidx.benchmark.macro.junit4.MacrobenchmarkRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import androidx.test.filters.LargeTest
 import app.parley.baselineprofile.Journeys.flingRecents
 import app.parley.baselineprofile.Journeys.grantPermissions
 import app.parley.baselineprofile.Journeys.openRecents
@@ -15,7 +14,6 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /** Frame timing while flinging Recents with 3000 calls. */
-@LargeTest
 @RunWith(AndroidJUnit4::class)
 class RecentsScrollBenchmark {
     @get:Rule

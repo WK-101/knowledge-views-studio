@@ -30,6 +30,19 @@ object BenchmarkData {
         seedCalls(ctx, size)
     }
 
+    /** The family name of the seeded contact the contact-page journey opens (seeded as "Ada Bench 0"). */
+    const val CONTACT_NAME = "Bench 0"
+
+    /** The lookup URI of the first seeded contact ([CONTACT_NAME]); the Contacts root when it isn't there yet. */
+    fun contactUri(): android.net.Uri {
+        val ctx = InstrumentationRegistry.getInstrumentation().targetContext
+        val c = ContactsContract.CommonDataKinds.Phone.CONTENT_URI
+        val cols = arrayOf(ContactsContract.CommonDataKinds.Phone.CONTACT_ID, ContactsContract.CommonDataKinds.Phone.LOOKUP_KEY)
+        return ctx.contentResolver.query(c, cols, "${ContactsContract.CommonDataKinds.Phone.NUMBER} = ?", arrayOf(number(0)), null)?.use {
+            if (it.moveToFirst()) ContactsContract.Contacts.getLookupUri(it.getLong(0), it.getString(1)) else null
+        } ?: ContactsContract.Contacts.CONTENT_URI
+    }
+
     private fun count(ctx: Context, uri: android.net.Uri, column: String): Int =
         ctx.contentResolver.query(uri, arrayOf(column), "$column LIKE ?", arrayOf("$PREFIX%"), null)?.use { it.count } ?: 0
 

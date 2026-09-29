@@ -148,9 +148,12 @@ class OriginalPhotos(context: Context) {
         }
     }
 
-    fun clear(lookupKey: String) {
+    /** Forgets [lookupKey]'s original. Off the main thread: callers include the editor's save, on the main thread. */
+    suspend fun clear(lookupKey: String) = withContext(Dispatchers.IO) { clearNow(lookupKey) }
+
+    private fun clearNow(lookupKey: String) {
         if (lookupKey.isEmpty()) return
-        ContactRef.vaultIdOf(lookupKey)?.let { clearPrivate(it); return }
+        ContactRef.vaultIdOf(lookupKey)?.let { clearPrivateNow(it); return }
         val a = imageFor(lookupKey).delete()
         val b = metaFor(lookupKey).delete()
         if (a || b) _version.value++
@@ -166,13 +169,13 @@ class OriginalPhotos(context: Context) {
         if (ContactRef.isPrivateKey(from) || ContactRef.isPrivateKey(to)) {
             val carried = take(from) ?: return
             if (take(to) == null) put(to, carried)
-            clear(from)
+            clearNow(from)
             return
         }
         val src = imageFor(from)
         if (!src.isFile) return
         if (imageFor(to).isFile) {
-            clear(from)
+            clearNow(from)
             return
         }
         val meta = runCatching { JSONObject(metaFor(from).readText()) }.getOrNull() ?: return
@@ -269,7 +272,10 @@ class OriginalPhotos(context: Context) {
         runCatching { JSONObject(meta.readText()) }.getOrNull()?.let { original(it, image, sealed = true) }
     }
 
-    fun clearPrivate(id: Long) {
+    /** Forgets private contact [id]'s original, off the main thread (see [clear]). */
+    suspend fun clearPrivate(id: Long) = withContext(Dispatchers.IO) { clearPrivateNow(id) }
+
+    private fun clearPrivateNow(id: Long) {
         val a = privateImage(id).delete()
         val b = privateMeta(id).delete()
         if (a || b) _version.value++

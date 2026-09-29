@@ -174,7 +174,9 @@ class ContactDetailViewModel(private val c: DataContainer) : ViewModel() {
     private suspend fun loadPrivate(r: ContactRef.Private): Loaded {
         val summary = c.vault.summariesNow().firstOrNull { it.id == r.vaultId } ?: return Loaded(null, emptyList(), emptyList(), r)
         val expiry = summary.expiresAt?.let { it to summary.purgeHistory }
-        fun forPage(d: ContactDetails) = d.copy(id = r.navId, lookupKey = ContactRef.privateKey(r.vaultId), photoUri = c.vault.photoUri(r.vaultId))
+        // The photo's file is looked at off the main thread (this runs in viewModelScope; StrictMode flags it there).
+        val photo = withContext(Dispatchers.IO) { c.vault.photoUri(r.vaultId) }
+        fun forPage(d: ContactDetails) = d.copy(id = r.navId, lookupKey = ContactRef.privateKey(r.vaultId), photoUri = photo)
         val locked = forPage(
             ContactDetails(
                 displayName = summary.name, given = summary.name, starred = summary.starred,
