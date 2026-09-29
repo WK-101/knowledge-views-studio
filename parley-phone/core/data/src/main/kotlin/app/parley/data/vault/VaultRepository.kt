@@ -345,6 +345,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
             }
         }
         photoFile(id).delete()
+        app.parley.data.people.OriginalPhotos.forgetPrivate(context, id)
     }
 
     /**

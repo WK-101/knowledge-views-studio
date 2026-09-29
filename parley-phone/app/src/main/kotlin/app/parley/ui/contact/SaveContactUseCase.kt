@@ -14,6 +14,7 @@ import app.parley.data.DataContainer
 import app.parley.data.TemporaryContacts
 import app.parley.data.db.ContactMetaEntity
 import app.parley.data.people.CallBackgrounds
+import app.parley.data.people.RelationMirrors
 import app.parley.ui.people.BackgroundChange
 import app.parley.ui.people.CallBackgroundText
 import kotlinx.coroutines.Dispatchers
@@ -49,8 +50,9 @@ class SaveContactUseCase(private val c: DataContainer) {
         /**
          * Saved as [id] (negative for a private contact). [keepPromptKey]: a temporary contact that should now be
          * asked about once. [notes]: string resources for parts that didn't make it (photo, background).
+         * [mirrors]: the relations added to (or taken back from) the other contacts, for "Also added to Ana".
          */
-        data class Saved(val id: Long, val keepPromptKey: String?, val notes: List<Int>) : Outcome
+        data class Saved(val id: Long, val keepPromptKey: String?, val notes: List<Int>, val mirrors: RelationMirrors.Report? = null) : Outcome
 
         /** The provider refused without an error (nothing to show). */
         data object NotSaved : Outcome
@@ -68,12 +70,13 @@ class SaveContactUseCase(private val c: DataContainer) {
 
     private suspend fun run(r: Request): Outcome {
         val notes = ArrayList<Int>()
+        val mirrors = ArrayList<RelationMirrors.Report>()
         val temporary = r.temporary?.takeIf { r.original == null && (r.vaultId ?: 0L) <= 0L }
         val id = suspendRunCatching {
             when {
-                temporary != null -> saveTemporary(r, temporary, notes)
+                temporary != null -> saveTemporary(r, temporary, notes, mirrors)
                 r.toVault -> saveVault(r, notes)
-                else -> saveContact(r, notes)
+                else -> saveContact(r, notes, mirrors)
             }
         }.getOrElse { e ->
             if (e is ContactChangedElsewhereException) return Outcome.ChangedElsewhere(reload(r.original))
@@ -86,7 +89,7 @@ class SaveContactUseCase(private val c: DataContainer) {
         // just chosen here, which answers that already).
         val key = r.original?.lookupKey
         val askKeep = expiry == null && !r.toVault && !key.isNullOrEmpty() && c.temporaries.needsKeepPrompt(key)
-        return Outcome.Saved(id, key.takeIf { askKeep }, notes)
+        return Outcome.Saved(id, key.takeIf { askKeep }, notes, mirrors.firstOrNull()?.takeUnless { it.isEmpty })
     }
 
     /** The copy the editor was editing, as it is now. */
@@ -117,22 +120,59 @@ class SaveContactUseCase(private val c: DataContainer) {
         return -id // negative ids mark vault contacts for the caller
     }
 
-    /** The encrypted caller photo, decoded reduced and upright from the picked file, never read whole. */
+    /**
+     * The encrypted caller photo, decoded reduced and upright from the picked file, never read whole; and the picture
+     * as picked, sealed too, for the contact page and the photo viewer.
+     */
     private suspend fun vaultPhoto(id: Long, r: Request, notes: MutableList<Int>) {
         val picked = r.photo
         if (picked != null) {
             val bytes = withContext(Dispatchers.IO) { ContactPhotoProcessor.process(c.appContext.contentResolver, picked) }
-            if (bytes == null || !c.vault.setPhoto(id, bytes)) notes += R.string.edit_photo_failed
+            if (bytes == null || !c.vault.setPhoto(id, bytes)) {
+                notes += R.string.edit_photo_failed
+                c.people.originals.clearPrivate(id)
+            } else if (!c.people.originals.keepPrivate(id, picked)) {
+                c.people.originals.clearPrivate(id)
+            }
         } else if (r.removePhoto) {
             c.vault.removePhoto(id)
+            c.people.originals.clearPrivate(id)
         }
+    }
+
+    /**
+     * Keeps the picked picture whole for Parley's own contact page (Android keeps a reduced copy for other apps), or
+     * forgets it when the photo was removed. [before]: Android's photo URI before this save.
+     */
+    private suspend fun originalPhoto(r: Request, id: Long, before: String?) {
+        val key = withContext(Dispatchers.IO) { c.contacts.lookupKeyOf(id) }?.takeIf { it.isNotEmpty() } ?: return
+        val old = r.original?.lookupKey?.takeIf { it.isNotEmpty() && it != key }
+        val picked = r.photo
+        when {
+            picked != null -> if (!c.people.originals.keep(key, picked, before)) c.people.originals.clear(key)
+            r.removePhoto -> c.people.originals.clear(key)
+            else -> return
+        }
+        old?.let { c.people.originals.clear(it) }
+    }
+
+    /**
+     * Adds the opposite relation to the saved contacts this one's relations point to, and takes back what Parley added
+     * there for relations removed or changed here ("Add relations to both contacts" in Settings › Contacts).
+     */
+    private suspend fun mirrorRelations(r: Request, id: Long, out: MutableList<RelationMirrors.Report>) {
+        if (r.draft.relations.isEmpty() && r.original?.relations.isNullOrEmpty()) return
+        if (!c.settings.current().mirrorRelations) return
+        val links = withContext(Dispatchers.IO) { c.contacts.lookupKeyOf(id)?.let { c.meta.meta(it) }?.relationLinks }
+        suspendRunCatching { c.people.relationMirrors.mirror(id, r.draft.relations, RelationLinks.decode(links), r.original?.relations.orEmpty()) }
+            .onSuccess { out += it }
     }
 
     /**
      * A new temporary contact, through the same entry point as the keypad's "Save temporary contact": private in the
      * vault (the default) or a phone-only contact that other apps can see; either way it deletes itself in time.
      */
-    private suspend fun saveTemporary(r: Request, t: TemporaryChoice, notes: MutableList<Int>): Long? {
+    private suspend fun saveTemporary(r: Request, t: TemporaryChoice, notes: MutableList<Int>, mirrors: MutableList<RelationMirrors.Report>): Long? {
         val e = r.draft
         val details = if (t.private) e.copy(handles = e.handles.filter { it.value.isNotBlank() }) else e
         val saved = TemporaryContacts.saveDetails(c, details, t.days, t.private, t.purgeHistory, photo = r.photo.takeUnless { t.private })
@@ -142,6 +182,8 @@ class SaveContactUseCase(private val c: DataContainer) {
             return -saved.id
         }
         rememberRelations(saved.id, e, r.pickedLinks)
+        originalPhoto(r, saved.id, null)
+        mirrorRelations(r, saved.id, mirrors)
         return saved.id
     }
 
@@ -164,11 +206,17 @@ class SaveContactUseCase(private val c: DataContainer) {
         }
     }
 
-    private suspend fun saveContact(r: Request, notes: MutableList<Int>): Long? {
+    private suspend fun saveContact(r: Request, notes: MutableList<Int>, mirrors: MutableList<RelationMirrors.Report>): Long? {
+        // Android's photo before this save, so the kept original can tell Android's new copy from the old one.
+        val photoBefore = r.original?.photoUri
         val saved = c.contacts.save(r.original, r.draft, r.account, r.photo, r.removePhoto)?.contactId
         val before = r.original?.lookupKey?.takeIf { it.isNotEmpty() }
         if (before != null && r.background != BackgroundChange.None) saveBackground(r.background, before, saved, notes)
-        if (saved != null) rememberRelations(saved, r.draft, r.pickedLinks)
+        if (saved != null) {
+            rememberRelations(saved, r.draft, r.pickedLinks)
+            suspendRunCatching { originalPhoto(r, saved, photoBefore) }
+            mirrorRelations(r, saved, mirrors)
+        }
         return saved
     }
 

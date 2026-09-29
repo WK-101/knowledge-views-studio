@@ -253,10 +253,18 @@ internal fun TypedLine(pill: (@Composable () -> Unit)?, field: @Composable (trai
 
 /**
  * The contact's photo, small enough to sit beside the name fields, with an edit badge. With no photo a tap opens the
- * picker; with one, a menu offers "Change photo" and a red "Remove photo".
+ * picker; with one, a menu offers "Change photo" and a red "Remove photo", and says that Parley keeps the whole picture
+ * while other apps get Android's reduced copy ([inOtherApps]).
  */
 @Composable
-internal fun CompactPhoto(name: String, photo: String?, onPick: () -> Unit, onRemove: () -> Unit, size: Dp = FormTokens.headerPhoto) {
+internal fun CompactPhoto(
+    name: String,
+    photo: String?,
+    onPick: () -> Unit,
+    onRemove: () -> Unit,
+    size: Dp = FormTokens.headerPhoto,
+    inOtherApps: Boolean = true,
+) {
     val has = photo != null
     var menu by remember { mutableStateOf(false) }
     val pickLabel = stringResource(if (has) R.string.editor_edit_photo else R.string.editor_add_photo)
@@ -283,6 +291,12 @@ internal fun CompactPhoto(name: String, photo: String?, onPick: () -> Unit, onRe
                 leadingIcon = { Icon(Icons.Rounded.Delete, null, tint = MaterialTheme.colorScheme.error) },
                 onClick = { menu = false; onRemove() },
             )
+            if (inOtherApps) {
+                Text(
+                    stringResource(R.string.editor_photo_kept_whole), style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.widthIn(max = 260.dp).padding(horizontal = 16.dp, vertical = 8.dp),
+                )
+            }
         }
     }
 }

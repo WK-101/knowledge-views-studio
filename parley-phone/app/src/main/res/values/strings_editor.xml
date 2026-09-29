@@ -38,4 +38,18 @@
     <string name="editor_make_temporary">Make temporary</string>
     <string name="editor_change_expiry">Change when it deletes itself</string>
     <string name="editor_expiry_failed">Saved, but when it deletes itself couldn\'t be changed</string>
+    <!-- Two-way relations: what saving did on the other contact ("Mother: Ana" here adds "Child" there). -->
+    <string name="rel_mirror_added">Also added to %1$s: %2$s → %3$s</string>
+    <string name="rel_mirror_added_plain">Also added to %1$s</string>
+    <string name="rel_mirror_changed">Also changed on %1$s: %2$s → %3$s</string>
+    <string name="rel_mirror_changed_plain">Also changed on %1$s</string>
+    <string name="rel_mirror_removed">Also removed from %1$s</string>
+    <plurals name="rel_mirror_several">
+        <item quantity="one">Relation also updated on %1$d other contact</item>
+        <item quantity="other">Relations also updated on %1$d other contacts</item>
+    </plurals>
+    <string name="rel_mirror_read_only">%1$s is in a read-only account, so the relation is saved only here</string>
+    <string name="rel_mirror_changed_elsewhere">%1$s changed meanwhile, so the relation is saved only here</string>
+    <!-- The photo menu: Parley keeps the picture whole; other apps get Android's reduced copy. -->
+    <string name="editor_photo_kept_whole">Parley keeps the whole photo. Other apps see Android\'s smaller copy.</string>
 </resources>

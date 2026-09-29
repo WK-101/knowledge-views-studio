@@ -172,6 +172,8 @@ object SettingsCatalog {
             "Call & message buttons on contacts"),
         e("default_account", "Save new contacts to", "The account new contacts go to", P, "account", "google", "phone", "default account"),
         e("labels", "Labels", "Rename, merge, label ringtones", P, "groups", "tags", "categories"),
+        e("mirror_relations", "Add relations to both contacts", "\"Mother: Ana\" here adds \"Child\" on Ana's contact", P,
+            "relation", "relationship", "two-way", "both ways", "reciprocal", "family", "mirror", "spouse", "parent", "child"),
         e("temporary_contacts", "Temporary contacts", "Contacts that delete themselves after a while", P, "temp", "expire", "expiry", "self-destruct", "delete automatically"),
         e("duplicates", "Find & merge duplicates", "Contacts saved twice", P, "merge", "duplicate", "dedupe", "join"),
         e("health", "Contact health check", "Numbers without country code, empty and stale contacts", P, "tidy", "clean up", "fix", "cleanup"),

@@ -3,14 +3,15 @@ package app.parley.common.photo
 /**
  * The arithmetic behind the contact photo processor, kept free of Android types so it can be tested.
  * The processor reads the image size first, decodes at a reduced size ([sampleSize] or [scaledSize]), turns it
- * upright ([ExifTransform]), crops the centre square ([centerSquare]) and writes a [TARGET] px JPEG.
+ * upright ([ExifTransform]) and writes the whole picture as a JPEG at most [TARGET] px on its longer side
+ * ([fitLongSide]). Nothing is cropped: rectangular photos stay rectangular.
  */
 object PhotoMath {
-    /** Edge of the square written to the contact (the size Android's contacts provider keeps as display photo). */
+    /** Longer side of the photo written to the contact (the size Android's contacts provider keeps as display photo). */
     const val TARGET = 720
 
-    /** JPEG quality of the written photo. */
-    const val QUALITY = 88
+    /** JPEG quality of the written photo: high, because the provider re-encodes it once more (at 75). */
+    const val QUALITY = 95
 
     /** A crop rectangle; [right] and [bottom] are exclusive, like android.graphics.Rect. */
     data class Crop(val left: Int, val top: Int, val right: Int, val bottom: Int) {

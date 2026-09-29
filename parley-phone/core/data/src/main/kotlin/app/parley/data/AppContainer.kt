@@ -162,7 +162,7 @@ class DataContainer(context: Context) {
     val temporaries by lazy { TemporaryContactStore(this) }
 
     /** Keeps notes, backgrounds, relation links and temporary flags attached when lookup keys change. */
-    val contactKeys by lazy { ContactKeys(contacts, meta, { people.backgrounds }, { circle.interactions }, { extras }, db) }
+    val contactKeys by lazy { ContactKeys(contacts, meta, { people.backgrounds }, { circle.interactions }, { extras }, db, originals = { people.originals }) }
 
     /** The Circle (keep-in-touch rhythms, interactions, "Log this?", reminder bookkeeping). */
     val circle by lazy {

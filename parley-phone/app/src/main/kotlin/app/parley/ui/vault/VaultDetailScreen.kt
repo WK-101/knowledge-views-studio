@@ -65,7 +65,6 @@ import app.parley.messaging.ReachSheet
 import app.parley.messaging.ReachTarget
 import app.parley.security.AppLock
 import app.parley.security.launchVault
-import app.parley.ui.Avatar
 import app.parley.ui.Routes
 import app.parley.ui.common.Format
 import app.parley.ui.common.Intents
@@ -89,6 +88,10 @@ import app.parley.ui.home.CallTypeIcon
 import kotlinx.coroutines.launch
 import androidx.compose.ui.res.stringResource
 import app.parley.R
+import app.parley.ui.contact.HeroPhoto
+import app.parley.ui.contact.OriginalPhotoViewer
+import app.parley.ui.contact.PhotoViewer
+import app.parley.ui.contact.rememberPrivateOriginalPhoto
 import app.parley.ui.DataL10n
 import app.parley.ui.ParleyTopBar
 import app.parley.ui.ParleyScaffold
@@ -210,7 +213,15 @@ fun VaultDetailScreen(vm: AppViewModel, id: Long, back: () -> Unit, open: (Desti
         LazyColumn(state = listState, contentPadding = PaddingValues(top = p.calculateTopPadding(), bottom = p.calculateBottomPadding() + 32.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             item {
                 Column(Modifier.fillMaxWidth().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Avatar(summary?.name ?: "?", card?.photoUri, 112.dp)
+                    // The photo as picked, sealed like the rest; shown whole and opened full size.
+                    val original = rememberPrivateOriginalPhoto(vm, id, card?.photoUri != null)
+                    var viewing by remember { mutableStateOf(false) }
+                    HeroPhoto(vm, summary?.name ?: "?", card?.photoUri, original, 112.dp) { viewing = true }
+                    if (viewing) {
+                        original?.let { OriginalPhotoViewer(vm, it) { viewing = false } }
+                            ?: card?.photoUri?.let { PhotoViewer(it) { viewing = false } }
+                            ?: run { viewing = false }
+                    }
                     Text(summary?.name ?: "", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(top = 12.dp))
                     card?.subtitle?.let { Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                     card?.context?.let { Text(it, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 2.dp)) }

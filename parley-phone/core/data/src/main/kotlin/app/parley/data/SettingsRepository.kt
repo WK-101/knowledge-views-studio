@@ -131,6 +131,7 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
             reachOutNudges = this[K.nudges] ?: d.reachOutNudges,
             callLogRetentionDays = this[K.retention] ?: d.callLogRetentionDays,
             contactRowActions = this[K.rowActions] ?: d.contactRowActions,
+            mirrorRelations = this[K.mirrorRelations] ?: d.mirrorRelations,
             navTabs = NavTabs.decode(this[K.navTabs]),
             recentsLayout = enumOr(this[K.recentsLayout], d.recentsLayout),
             recentsStyle = enumOr(this[K.recentsStyle], d.recentsStyle),
@@ -173,6 +174,7 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
         this[K.nudges] = s.reachOutNudges
         this[K.retention] = s.callLogRetentionDays
         this[K.rowActions] = s.contactRowActions
+        this[K.mirrorRelations] = s.mirrorRelations
         this[K.navTabs] = s.navTabs.encode()
         this[K.recentsLayout] = s.recentsLayout.name
         this[K.recentsStyle] = s.recentsStyle.name
@@ -217,6 +219,7 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
         val nudges = booleanPreferencesKey("reach_out_nudges")
         val retention = intPreferencesKey("call_log_retention_days")
         val rowActions = booleanPreferencesKey("contact_row_actions")
+        val mirrorRelations = booleanPreferencesKey("mirror_relations")
         val navTabs = stringPreferencesKey("nav_tabs")
         val recentsLayout = stringPreferencesKey("recents_layout")
         val recentsStyle = stringPreferencesKey("recents_style")

@@ -45,7 +45,9 @@ import app.parley.common.ContactSummary
 import app.parley.common.StartTab
 import app.parley.common.TextSearch
 import app.parley.common.homeLayout
+import app.parley.common.people.ContactsFooter
 import app.parley.common.people.FastScroll
+import app.parley.common.people.LabelFilter
 import app.parley.common.people.SwipeAction
 import app.parley.ui.Avatar
 import app.parley.ui.circle.CircleFavoritesSection
@@ -122,6 +124,7 @@ fun ContactsTab(vm: AppViewModel, open: (Destination) -> Unit, onReorderFavorite
                     )
                 }
             }
+            ContactsFooter.line(shown.size, query, LabelFilter(), privateList = true)?.let { line -> item(key = "count") { ContactsCountFooter(line) } }
         }
         return
     }
@@ -144,6 +147,8 @@ fun ContactsTab(vm: AppViewModel, open: (Destination) -> Unit, onReorderFavorite
     // Item 0 is the group chips row, then "My card", the favourites and the Circle.
     val sections = remember(rows, leading) { ListSections.firstRows(rows, 1 + leading) }
     val count = remember(rows) { rows.count { it is ListSections.Row.Item } }
+    // Private contacts listed among the others have negative ids.
+    val privateShown = remember(rows) { rows.count { it is ListSections.Row.Item && it.item.id < 0 } }
 
     Box(Modifier.fillMaxSize()) {
         LazyColumn(state = state, modifier = Modifier.fillMaxSize()) {
@@ -219,6 +224,8 @@ fun ContactsTab(vm: AppViewModel, open: (Destination) -> Unit, onReorderFavorite
                     }
                 }
             }
+            // How many are shown, at the very end.
+            ContactsFooter.line(count, query, filter, private = privateShown)?.let { line -> item(key = "count") { ContactsCountFooter(line) } }
         }
         if (query.isBlank() && count > 30) {
             // "★" jumps to the favourites when they're at the top of Contacts.

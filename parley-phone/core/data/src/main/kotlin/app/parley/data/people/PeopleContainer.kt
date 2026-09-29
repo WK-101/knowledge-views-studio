@@ -33,6 +33,13 @@ class PeopleContainer(private val c: DataContainer) {
     val labelRefs = LabelReferences(c, prefs)
     val labels = LabelsRepository(c.appContext, c.contacts, labelRefs)
     val backgrounds = CallBackgrounds(c.appContext, c.contacts)
+
+    /** Contact photos as picked (full size, uncropped), beside Android's reduced copy. */
+    val originals by lazy { OriginalPhotos(c.appContext) }
+
+    /** Two-way relations between saved contacts. */
+    val relationMirrors by lazy { RelationMirrors(c.appContext, c.contacts, c.meta) }
+
     val mover by lazy { ContactMover(c.appContext, c.contacts, c.records) }
     val accounts by lazy { AccountDiagnostics(c.appContext) }
     val sim by lazy { SimContacts(c.appContext) }
@@ -114,7 +121,48 @@ private class PeopleBackupExtras(private val p: PeopleContainer, private val c: 
                     .toString()
             }
         }
+        exportOriginals(out)
         return out
+    }
+
+    /**
+     * Original photos of phone contacts, matched back like the backgrounds. The section is held in memory on
+     * restore, so they share a budget: the rest keep Android's copy (in the contacts section) after a restore.
+     */
+    private suspend fun exportOriginals(out: MutableMap<String, String>) {
+        val keys = p.originals.keys()
+        if (keys.isEmpty()) return
+        val contacts = withTimeoutOrNull(30_000) { c.contacts.contacts.filterNotNull().first() }.orEmpty()
+        var total = 0L
+        for (ct in contacts) {
+            if (ct.lookupKey !in keys) continue
+            val bytes = p.originals.read(ct.lookupKey) ?: continue
+            if (total + bytes.size > MAX_ORIGINAL_BYTES) continue
+            total += bytes.size
+            out["${BackupExtras.PREFIX}orig.${ct.lookupKey}"] = JSONObject()
+                .put("name", ct.displayName)
+                .put("phones", JSONArray(ct.phones.mapNotNull { PhoneIdentity.portableKey(it.number) }))
+                .put("image", Base64.encodeToString(bytes, Base64.NO_WRAP))
+                .toString()
+        }
+    }
+
+    private suspend fun importOriginals(values: Map<String, String>) {
+        val all = values.filterKeys { it.startsWith("${BackupExtras.PREFIX}orig.") }
+        if (all.isEmpty()) return
+        val contacts = withTimeoutOrNull(30_000) { c.contacts.contacts.filterNotNull().first() }.orEmpty()
+        val byKey = contacts.associateBy { it.lookupKey }
+        for ((k, json) in all) {
+            val o = runCatching { JSONObject(json) }.getOrNull() ?: continue
+            val key = k.removePrefix("${BackupExtras.PREFIX}orig.")
+            val phones = o.optJSONArray("phones")?.let { a -> (0 until a.length()).map { a.getString(it) } }.orEmpty().toSet()
+            val name = o.optString("name")
+            val target = byKey[key] ?: contacts.firstOrNull { ct ->
+                ct.displayName == name && (phones.isEmpty() || ct.phones.any { PhoneIdentity.portableKey(it.number) in phones })
+            } ?: continue
+            val bytes = runCatching { Base64.decode(o.getString("image"), Base64.NO_WRAP) }.getOrNull() ?: continue
+            runCatching { p.originals.restore(target.lookupKey, bytes, target.photoUri) }
+        }
     }
 
     override suspend fun import(values: Map<String, String>) {
@@ -122,6 +170,7 @@ private class PeopleBackupExtras(private val p: PeopleContainer, private val c: 
         p.prefs.importMap(values.filterKeys { it.startsWith(peoplePrefix) }.mapKeys { it.key.removePrefix(peoplePrefix) })
         values["${BackupExtras.PREFIX}privatenames.approvals"]?.let { a -> if (a != p.privateNames.exportApprovals()) pendingApprovals = a }
         values["${BackupExtras.PREFIX}me.card"]?.let { p.me.importJson(it) }
+        importOriginals(values)
         val bgs = values.filterKeys { it.startsWith("${BackupExtras.PREFIX}bg.") }
         if (bgs.isEmpty()) return
         val contacts = withTimeoutOrNull(30_000) { c.contacts.contacts.filterNotNull().first() }.orEmpty()
@@ -143,5 +192,8 @@ private class PeopleBackupExtras(private val p: PeopleContainer, private val c: 
     private companion object {
         /** Keeps the backup's settings section well under its in-memory limit. */
         const val MAX_BACKGROUND_BYTES = 6L shl 20
+
+        /** Original photos' share of the same section (the section is read into memory, at most 16 MB). */
+        const val MAX_ORIGINAL_BYTES = 4L shl 20
     }
 }

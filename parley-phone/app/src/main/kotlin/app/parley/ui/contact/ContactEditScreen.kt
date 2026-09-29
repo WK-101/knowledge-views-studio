@@ -233,6 +233,7 @@ fun ContactEditScreen(
             when (e) {
                 is EditorEvent.Message -> vm.toast(e.text)
                 is EditorEvent.Done -> latestDone(e.savedId)
+                is EditorEvent.Mirrored -> e.undo?.let { vm.offerUndo(e.text, it) } ?: vm.toast(e.text)
             }
         }
     }
@@ -422,7 +423,7 @@ fun ContactEditScreen(
                     d, shownPhoto, expanded = moreName || nameDetailsFilled, canCollapse = !nameDetailsFilled,
                     onToggle = { editor.moreName = !moreName }, first = fr(KEY_FIRST), nick = fr(KEY_NICK), update = ::update,
                     onPickPhoto = { photoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
-                    onRemovePhoto = editor::clearPhoto,
+                    onRemovePhoto = editor::clearPhoto, photoInOtherApps = !isVault,
                 )
                 if (isVault && shownPhoto != null) {
                     Text(
@@ -790,6 +791,8 @@ private fun NameHeader(
     update: ((ContactDetails) -> ContactDetails) -> Unit,
     onPickPhoto: () -> Unit,
     onRemovePhoto: () -> Unit,
+    /** Other apps see Android's copy of the photo (not for private contacts). */
+    photoInOtherApps: Boolean = true,
 ) {
     val fontScale = LocalDensity.current.fontScale
     val shownName = d.composedName.ifBlank { d.nickname.ifBlank { d.company } }
@@ -810,14 +813,14 @@ private fun NameHeader(
             Row(verticalAlignment = Alignment.Top) {
                 // Centred on the two name lines (2 × 48 dp + the 2 dp join).
                 val top = ((FormTokens.fieldHeight * 2 + FormTokens.segmentGap - FormTokens.headerPhoto) / 2).coerceAtLeast(0.dp)
-                Box(Modifier.padding(top = top, end = 12.dp)) { CompactPhoto(shownName, photo, onPickPhoto, onRemovePhoto) }
+                Box(Modifier.padding(top = top, end = 12.dp)) { CompactPhoto(shownName, photo, onPickPhoto, onRemovePhoto, inOtherApps = photoInOtherApps) }
                 Box(Modifier.weight(1f)) { NameFields(d, expanded, first, nick, update) }
                 chevron()
             }
         } else {
             Column {
                 Box(Modifier.fillMaxWidth().padding(bottom = 8.dp), contentAlignment = Alignment.Center) {
-                    CompactPhoto(shownName, photo, onPickPhoto, onRemovePhoto, size = 72.dp)
+                    CompactPhoto(shownName, photo, onPickPhoto, onRemovePhoto, size = 72.dp, inOtherApps = photoInOtherApps)
                 }
                 Row(verticalAlignment = Alignment.Top) {
                     Box(Modifier.weight(1f)) { NameFields(d, expanded, first, nick, update) }

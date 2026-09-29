@@ -54,6 +54,8 @@ data class AppSettings(
     val callLogRetentionDays: Int = 0,
     /** Show message and call buttons on contact rows. */
     val contactRowActions: Boolean = false,
+    /** A relation with another saved contact is added to that contact too, with the opposite type. */
+    val mirrorRelations: Boolean = true,
     /** Order and visibility of the home tabs (bottom bar and navigation rail). */
     val navTabs: NavTabs = NavTabs(),
     /** Grouped (as before), every call on its own row, or one row per number per day. */
