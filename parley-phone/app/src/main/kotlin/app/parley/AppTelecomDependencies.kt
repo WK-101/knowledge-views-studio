@@ -29,7 +29,10 @@ import app.parley.telecom.CallerDisplay
 import app.parley.telecom.CallerMemory
 import app.parley.common.circle.Promises
 import app.parley.data.circle.CircleRepository
-import app.parley.work.FollowUpWorker
+import app.parley.calls.ToCallReminders
+import app.parley.common.calls.ToCall
+import app.parley.common.calls.ToCallSource
+import java.time.ZoneId
 import app.parley.telecom.InCallAppearance
 import app.parley.telecom.TelecomDependencies
 import app.parley.ui.common.Format
@@ -154,16 +157,23 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
         return m.takeUnless { it.isEmpty }
     }
 
-    /** The note becomes a call note (on the contact's timeline); "follow up in" sets a one-off reminder. */
+    /**
+     * The note becomes a call note (on the contact's timeline); "follow up in" puts the person on the To call list for
+     * that morning (one reminder with the other calls due then, instead of a notification of its own).
+     */
     override fun rememberAfterCall(number: String, connectTimeMillis: Long, note: String?, followUpDays: Int?) {
         c.scope.launch {
             if (!note.isNullOrBlank()) saveCallNote(number, connectTimeMillis, note)
             if (followUpDays != null) {
-                val found = withContext(Dispatchers.IO) { runCatching { c.contacts.lookup(number) }.getOrNull() }
-                val key = found?.lookupKey?.takeIf { !found.work } ?: return@launch
-                FollowUpWorker.schedule(app, key, found.contactId, followUpDays)
+                val now = System.currentTimeMillis()
+                ToCallReminders.remind(app, number, null, ToCall.inDays(followUpDays, now, ZoneId.systemDefault()), ToCallSource.FOLLOW_UP, now)
             }
         }
+    }
+
+    /** "Decline & remind" and the post-call card's "Remind me": the To call list (I9). */
+    override fun remindToCall(number: String, accountId: String?, at: Long) {
+        c.scope.launch { runCatching { ToCallReminders.remind(app, number, accountId, at) } }
     }
 
     override fun onCallEnded(number: String?, incoming: Boolean, connectTimeMillis: Long) {

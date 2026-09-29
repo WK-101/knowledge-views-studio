@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- "Remind me" and the To call list's times: shared by the call screen and the app. -->
+<resources>
+    <string name="remind_me">Remind me</string>
+    <string name="remind_in_an_hour">In 1 hour</string>
+    <!-- %1$s: a time, "18:00" -->
+    <string name="remind_this_evening">This evening, %1$s</string>
+    <!-- %1$s: a time, "09:00" -->
+    <string name="remind_tomorrow_morning">Tomorrow morning, %1$s</string>
+    <string name="remind_decline">Decline &amp; remind</string>
+    <string name="remind_decline_a11y">Decline and remind me to call back</string>
+    <string name="remind_decline_message">Decline &amp; message or call on…</string>
+    <!-- %1$s: when, "18:00" or "Wed 09:00" -->
+    <string name="remind_set">Parley will remind you at %1$s</string>
+    <!-- %1$s: when, "18:00" or "Wed 09:00" -->
+    <string name="remind_declined_set">Declined. Parley will remind you at %1$s</string>
+</resources>

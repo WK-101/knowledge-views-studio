@@ -79,6 +79,7 @@ import app.parley.ui.blocking.RecentBadge
 import app.parley.ui.blocking.RecentBlockingActions
 import app.parley.ui.blocking.RecentsSelectionBar
 import app.parley.ui.blocking.rememberRecentBadges
+import app.parley.ui.calls.ToCallStrip
 import app.parley.ui.calls.VoicemailInbox
 import app.parley.ui.common.CoachMark
 import app.parley.ui.common.Intents
@@ -174,6 +175,8 @@ fun RecentsTab(vm: AppViewModel, open: (Destination) -> Unit, bottomPadding: Dp 
             item(key = "voicemail") { VoicemailInbox(vm, query) }
             return@LazyColumn
         }
+        // I9: the calls you owe, as one quiet strip that opens the To call list.
+        item(key = "to-call") { ToCallStrip(open) }
         item(key = "archive-notes") { ArchiveNotices(vm, open) }
         val list = groups
         val rows = model?.rows.orEmpty()

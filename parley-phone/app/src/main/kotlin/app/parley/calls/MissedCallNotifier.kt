@@ -53,7 +53,7 @@ import kotlinx.coroutines.withContext
  * - one notification per caller with a count, grouped under a summary when several people called;
  * - the contact photo, the SIM (dual-SIM phones), the time, and "Why didn't it ring?" from the stored screening
  *   decision and ring facts ("Silenced: off hours", "Didn't ring: phone on silent");
- * - Call back, Message on… and (for numbers that aren't contacts) Block;
+ * - Call back, Message or call on… (contacts) or Block (other numbers), and Remind me (the To call list);
  * - a private contact's name never shows in discreet mode, and the lock screen only gets "Missed call".
  * With "Remind me of missed calls" on, the newest one alerts again every few minutes until it's seen.
  */
@@ -126,13 +126,27 @@ object MissedCallNotifier {
                         ),
                     )
                 }
-                b.addAction(
-                    0, context.getString(R.string.reach_message_or_call),
-                    PendingIntent.getActivity(
-                        context, 40 + i, MessageOn.intent(context, caller.number, caller.accountId),
-                        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
-                    ),
-                )
+                // Android shows three actions. P3: "Remind me" (the To call list) takes the place of "Message or call
+                // on…" for numbers that aren't contacts, where Block matters more; never for a number that looks
+                // like a scam.
+                if (d.isContact || risky) {
+                    b.addAction(
+                        0, context.getString(R.string.reach_message_or_call),
+                        PendingIntent.getActivity(
+                            context, 40 + i, MessageOn.intent(context, caller.number, caller.accountId),
+                            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+                        ),
+                    )
+                }
+                if (!risky) {
+                    b.addAction(
+                        0, context.getString(app.parley.telecom.R.string.remind_me),
+                        PendingIntent.getActivity(
+                            context, 80 + i, RemindMeActivity.intent(context, caller.number, caller.accountId, id),
+                            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+                        ),
+                    )
+                }
                 if (!d.isContact) b.addAction(blockAction(context, caller.number, 50 + i, id))
             }
             try {

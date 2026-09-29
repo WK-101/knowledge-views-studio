@@ -1426,3 +1426,23 @@ Design: [CONTACT_MODEL.md](CONTACT_MODEL.md) ("Conversions", "Ringtone and Send 
 11. **Editor and list together.** Open a private contact's editor, then (split screen) star it from the Contacts list and add it to a label; save the editor with another change: the star and the label stay.
 12. **Original photo.** Open a private contact's photo full screen and pan and zoom for a while: no stutter; closing the viewer frees it. Delete the contact and restore it from History & undo: the photo as picked is back, and a relation on another contact that opened it opens it again.
 13. **Keypad search.** Search a private contact's name from the keypad's search: its row shows its photo, with no delay while typing.
+
+## 25. Follow-through (4.4)
+
+### 25.1 Calls follow-up: Remind me and the To call list
+
+Parley is the phone app; the phone has a screen lock. Use two phones (or a friend) to call in.
+
+1. **Decline & remind.** Let a call ring › ⋮ › Decline & remind: three times open under it (In 1 hour, This evening · 18:00 before 17:00 only, Tomorrow morning · 09:00). Pick one: the call is declined and "Declined. Parley will remind you at …" shows. It works from the lock screen without unlocking. Hidden numbers and emergency call-backs don't offer it; simple mode keeps its two big buttons.
+2. **Decline & message or call on….** ⋮ › Decline & message or call on…: the ringing stops at once; on the lock screen the phone asks to unlock, then the call is declined and the Message or call on… sheet opens for the number.
+3. **Missed-call notification.** Miss a call from a contact: Call back, Message or call on… and Remind me. From an unknown number: Call back, Remind me and Block. From a number the dial guard flags (one-ring scam, premium): no Remind me. Remind me on the lock screen asks to unlock, then a small sheet offers the fixed times; picking one sets it, says so and clears that caller's notification (the missed calls count as seen once none is left).
+4. **Post-call card.** After a call with an unknown number, Remind me on the card offers the same times; picking one sets it and closes the call-ended screen.
+5. **The strip.** Recents shows "1 to call" above the calls, with the name under it; the first time, a tip explains it. With nothing owed the strip isn't there. Fold it with the arrow: one quiet line, kept after restarting. No badge anywhere (app icon, tab).
+6. **The list.** Tap the strip: "To call" lists what is due now (unreturned missed calls from the last week and reminders whose time came), then "Later" by time. Each row says why ("Missed call · 14:05", "Reminder · 18:00", "Follow-up · Mon 09:00") and a contact's first open promise ("☐ send the photos"). Tap a row: the contact (a private one opens its page), or the number's history. Call calls through the usual checks.
+7. **Row menu.** ⋮ › Remind me later › In 1 hour: the row moves to Later. Done and Remove take it off with Undo; a missed call marked done doesn't come back, but a newer missed call from them does.
+8. **Called back settles it.** Call a person on the list (answered or not), or answer their call: within a few seconds they leave the list, and their reminder doesn't show.
+9. **After 6 pm their time.** Miss a call from a number in another time zone (for example +1 212 … while in Europe): the row shows their local time ("14:05 for them") and ⋮ offers "After 6 pm their time". Tick it: the row moves to Later at 18:00 their time; past 21:00 their time it waits for their next evening. Numbers in your own time zone don't offer it.
+10. **One quiet reminder.** Set two reminders for the same minute: one notification "2 calls to make" with both names, a single sound, no badge, no repeat. One reminder: "Call Sam" with Call and Not now; Not now brings it back once, an hour later. The notification can come a few minutes late (no exact-alarm permission).
+11. **Lock screen and private contacts.** On the lock screen the reminder says only "Reminder". Set a reminder for a private contact: after unlocking the notification and the list show its name (🔒 in the list); in discreet mode only the number shows, in both.
+12. **Follow-ups.** With "Anything to remember?" on, after a call with a contact pick "In a week": the contact is under Later as a follow-up for that day's 09:00, and the reminder comes with any other calls due then (no separate notification).
+13. **Survives.** Reboot: the reminders still come. Back up and restore on another phone: the list comes back (reminders for private contacts stay out of the backup). Delete all Parley data: the list is empty and no reminder comes.

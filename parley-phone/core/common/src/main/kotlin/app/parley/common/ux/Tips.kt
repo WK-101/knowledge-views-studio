@@ -24,6 +24,9 @@ object Tips {
     /** Long-press an app's Message / Voice / Video button in "Reach via apps" to make it the usual way. */
     const val REACH_USUAL = "reach_usual"
 
+    /** The "To call" strip at the top of Recents, the first time it shows. */
+    const val TO_CALL = "to_call"
+
     /** Ids are stored comma-separated; anything that isn't a plain id is dropped. */
     private val ID = Regex("[a-z0-9_]{1,40}")
 

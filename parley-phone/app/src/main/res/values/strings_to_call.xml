@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The To call list: calls you said you'd make, and missed calls not returned yet. The times are in the telecom module (strings_to_call.xml there). -->
+<resources>
+    <string name="to_call_title">To call</string>
+    <plurals name="to_call_strip">
+        <item quantity="one">%d to call</item>
+        <item quantity="other">%d to call</item>
+    </plurals>
+    <plurals name="to_call_strip_later">
+        <item quantity="one">%d to call later</item>
+        <item quantity="other">%d to call later</item>
+    </plurals>
+    <string name="to_call_fold">Fold</string>
+    <string name="to_call_unfold">Show more</string>
+    <string name="to_call_tip">Calls you said you\'d make and missed calls you haven\'t returned wait here. Tap to see them.</string>
+    <string name="to_call_now">Now</string>
+    <string name="to_call_later">Later</string>
+    <string name="to_call_empty">Nothing to call</string>
+    <string name="to_call_empty_body">Choose Remind me on a missed call, a declined call or after a call, and it waits here until you call back.</string>
+    <!-- Row lines -->
+    <!-- %1$s: when, "14:05" or "Mon" -->
+    <string name="to_call_missed_at">Missed call · %1$s</string>
+    <!-- %1$s: when -->
+    <string name="to_call_remind_at">Reminder · %1$s</string>
+    <!-- %1$s: when -->
+    <string name="to_call_follow_up_at">Follow-up · %1$s</string>
+    <!-- %1$s: when -->
+    <string name="to_call_missed_again">Missed another call · %1$s</string>
+    <!-- %1$s: a time where they are, "19:30" -->
+    <string name="to_call_their_time">%1$s for them</string>
+    <string name="to_call_their_evening">After 6 pm their time</string>
+    <string name="to_call_their_evening_body">Wait until it\'s evening where they are</string>
+    <!-- Actions -->
+    <string name="to_call_call">Call</string>
+    <!-- %1$s: name or number -->
+    <string name="to_call_call_who">Call %1$s</string>
+    <string name="to_call_later_menu">Remind me later</string>
+    <string name="to_call_done">Done</string>
+    <string name="to_call_remove">Remove</string>
+    <!-- %1$s: name or number -->
+    <string name="to_call_more_for">More for %1$s</string>
+    <string name="to_call_done_undo">Marked as done</string>
+    <string name="to_call_removed_undo">Removed from To call</string>
+    <string name="to_call_undo">Undo</string>
+    <!-- Notification -->
+    <string name="to_call_channel">To call reminders</string>
+    <string name="to_call_notif_public">Reminder</string>
+    <!-- %1$s: name or number -->
+    <string name="to_call_notif_one">Call %1$s</string>
+    <plurals name="to_call_notif_many">
+        <item quantity="one">%d call to make</item>
+        <item quantity="other">%d calls to make</item>
+    </plurals>
+    <string name="to_call_notif_reminder">You asked to be reminded</string>
+    <string name="to_call_notif_follow_up">Time to follow up</string>
+    <string name="to_call_not_now">Not now</string>
+    <!-- The missed-call notification's action and the small sheet it opens -->
+    <string name="to_call_remind_title">Remind me to call back</string>
+</resources>

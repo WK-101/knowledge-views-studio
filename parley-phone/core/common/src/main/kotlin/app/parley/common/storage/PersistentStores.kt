@@ -84,6 +84,7 @@ object PersistentStores {
         const val CALL_TIME = "call_time"
         const val HISTORY_SETTINGS = "history_settings"
         const val SPAM_LISTS = "spam_lists"
+        const val TO_CALL = "to_call"
     }
 
     private fun table(name: String, policy: StorePolicy, section: String? = null, db: String = MAIN_DB) =
@@ -139,6 +140,8 @@ object PersistentStores {
         PersistentStore("parley_screening_guard", StoreKind.PREFS, local("Call-path safety state (emergency window)")),
         PersistentStore("parley_ring_boost", StoreKind.PREFS, local("Ring volume to restore after a crash")),
         PersistentStore("parley_missed_realert", StoreKind.PREFS, local("Missed-call reminder in progress")),
+        // Kept by number, not by contact: it follows a contact made private or visible without re-keying.
+        PersistentStore("to_call", StoreKind.PREFS, backedUp, Sections.TO_CALL),
         PersistentStore("lists_updater", StoreKind.PREFS, local("Link with the companion app installed on this phone")),
         PersistentStore("parley_app_locale", StoreKind.PREFS, local("App language, applied before anything else loads")),
         PersistentStore("dial_widgets", StoreKind.PREFS, local("Home-screen widgets of this launcher")),

@@ -21,6 +21,7 @@ import app.parley.common.ux.ListSections
 import app.parley.data.DataContainer
 import app.parley.data.NumberInfo
 import app.parley.data.history.CallHistory
+import app.parley.ui.calls.ToCallModel
 import java.time.ZoneId
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
@@ -172,6 +173,9 @@ class RecentsViewModel(private val c: DataContainer) : ViewModel() {
     val unreturnedMissed: StateFlow<Set<Long>> = combine(allCalls, notWorthReturning(), hourly()) { calls, excluded, now ->
         calls?.let { CallGlance.unreturnedMissed(it, { n -> PhoneIdentity.key(n, countryIso) }, now, excluded = excluded) } ?: emptySet()
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_AFTER_MS), emptySet())
+
+    /** The To call list (I9): its strip tops Recents; fed by these calls and the missed calls still to return. */
+    val toCall: ToCallModel by lazy { ToCallModel(c, viewModelScope, allCalls, unreturnedMissed) }
 
     /**
      * Numbers whose missed calls aren't worth a "call back": on the system block list, caught by a block rule, or

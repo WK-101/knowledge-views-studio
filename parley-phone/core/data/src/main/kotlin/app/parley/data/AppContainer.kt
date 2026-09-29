@@ -16,6 +16,7 @@ import app.parley.data.backup.SpamListsBackup
 import app.parley.data.backup.TimeMachine
 import app.parley.data.calls.CallExtrasRepository
 import app.parley.data.calls.RingFactsStore
+import app.parley.data.calls.ToCallStore
 import app.parley.data.calls.VoicemailRepository
 import app.parley.data.calltime.CallUsageLedger
 import app.parley.data.calltime.CallingRepository
@@ -106,6 +107,9 @@ class DataContainer(context: Context) {
     val callExtras by lazy { CallExtrasRepository(appContext) }
     val ringFacts: RingFactsStore by lazy { RingFactsStore(appContext) { history } }
     val voicemail by lazy { VoicemailRepository(appContext, scope) }
+
+    /** The "To call" list: reminders to call back and follow-ups (by number, sealed at rest). */
+    val toCall by lazy { ToCallStore(appContext) { n -> vault.lookup(n) != null } }
     val vcards by lazy { VCardIO(appContext, contacts, records) { vault.allNumbers() } }
 
     /** Lossless moves into and out of the private vault. */
@@ -157,6 +161,7 @@ class DataContainer(context: Context) {
             CallTimeBackup(calling, callExtras) { contacts.loadNow() },
             HistorySettingsBackup { history.prefs },
             SpamListsBackup { lists },
+            toCall.backupExtras,
         )
     }
 
