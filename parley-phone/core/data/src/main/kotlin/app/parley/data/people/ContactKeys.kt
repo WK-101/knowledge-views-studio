@@ -1,5 +1,6 @@
 package app.parley.data.people
 
+import android.content.SharedPreferences
 import app.parley.common.circle.CarriedInteraction
 import app.parley.common.circle.InteractionChannel
 import app.parley.common.circle.InteractionType
@@ -51,6 +52,8 @@ class ContactKeys(
     private val originals: () -> OriginalPhotos? = { null },
     /** A contact's own call time limit, reminder and "never limit" follow the same moves. */
     private val calling: () -> CallingRepository? = { null },
+    /** Re-keys waiting for a contact's lookup key ([rekeyLater]); none are kept without it. */
+    private val waiting: () -> SharedPreferences? = { null },
 ) {
     private val mutex = Mutex()
 
@@ -85,6 +88,54 @@ class ContactKeys(
     }
 
     /**
+     * A private contact just made visible (its raw contacts [rawIds], contact [contactId]) whose lookup key the address
+     * book couldn't give yet: what Parley keeps under private key [from] waits (it is never forgotten) and is re-keyed
+     * to the contact by the next [sweep] that finds it ([settleWaiting]). Right away when the key is readable now.
+     */
+    suspend fun rekeyLater(from: String, rawIds: Collection<Long>, contactId: Long) = withContext(Dispatchers.IO) {
+        if (from.isEmpty() || rawIds.isEmpty()) return@withContext
+        val prefs = waiting() ?: return@withContext
+        mutex.withLock {
+            prefs.edit().putString(from, "$contactId;" + TemporaryExpiry.encodeIds(rawIds)).apply()
+            settleWaitingLocked()
+        }
+    }
+
+    /** Private keys still waiting for their contact ([rekeyLater]). */
+    fun waitingKeys(): Set<String> = waiting()?.all?.keys.orEmpty()
+
+    /**
+     * Re-keys what waits under private keys ([rekeyLater]) to the contact now holding their raw contacts, with its
+     * name back on a call-time limit. An entry whose raw contacts are all gone (the contact was deleted meanwhile) is
+     * forgotten with what waited. Returns how many were settled.
+     */
+    @Suppress("CyclomaticComplexMethod") // One pass over the waiting entries: settle, forget or wait.
+    private suspend fun settleWaitingLocked(): Int {
+        val prefs = waiting() ?: return 0
+        var n = 0
+        for ((from, value) in prefs.all) {
+            val v = value as? String ?: continue
+            val raws = TemporaryExpiry.decodeIds(v.substringAfter(';')) ?: continue
+            val owner = contacts.contactsOfRaws(raws).values.firstOrNull()
+            if (owner == null) {
+                // Only when the address book could be read and the contact is really gone.
+                if (contacts.lookupKeys() == null) continue
+                forgetLocked(from)
+            } else {
+                val key = contacts.lookupKeyOf(owner)?.takeIf { it.isNotEmpty() } ?: continue
+                moveLocked(from, key, owner)
+                val title = contacts.details(owner)?.displayName.orEmpty()
+                if (title.isNotEmpty()) {
+                    runCatching { calling()?.update { cfg -> cfg.rule(LimitScope.CONTACT, key)?.let { r -> cfg.withRule(r.copy(title = title)) } ?: cfg } }
+                }
+            }
+            prefs.edit().remove(from).apply()
+            n++
+        }
+        return n
+    }
+
+    /**
      * What Parley keeps about private contact [key] beside its vault entry (Circle rhythm, relation links, dates
      * remembered yearly, logged moments and the call-screen picture), for the private-contacts section of a backup:
      * they are written only with the private contacts themselves, never in the sections every backup has.
@@ -105,6 +156,30 @@ class ContactKeys(
         runCatching { backgrounds().read(key) }.getOrNull()?.let { o.put(X_BACKGROUND, android.util.Base64.encodeToString(it, android.util.Base64.NO_WRAP)) }
         calling()?.config?.value?.contactPart(key)?.takeIf { !it.isEmpty }?.let { o.put(X_CALL_TIME, encodeCallTime(it)) }
         o.takeIf { it.length() > 0 }
+    }
+
+    /**
+     * The relation links other contacts have to [key] (their key, the relation's name key), which [forget] removes
+     * with a deleted contact: "Recently deleted" keeps them so a restore links those relations back.
+     */
+    suspend fun incomingLinks(key: String): List<Pair<String, String>> = withContext(Dispatchers.IO) {
+        meta.allMetaNow().flatMap { r -> RelationLinks.decode(r.relationLinks).filterValues { it.lookupKey == key }.keys.map { r.lookupKey to it } }
+    }
+
+    /** Links [incomingLinks]' relations back to private contact [vaultId], where the other contact hasn't linked them since. */
+    suspend fun restoreIncomingLinks(vaultId: Long, links: List<Pair<String, String>>) = withContext(Dispatchers.IO) {
+        if (links.isEmpty()) return@withContext
+        val key = ContactRef.privateKey(vaultId)
+        mutex.withLock {
+            tx {
+                links.groupBy({ it.first }, { it.second }).forEach { (owner, names) ->
+                    val row = meta.meta(owner) ?: return@forEach
+                    val current = RelationLinks.decode(row.relationLinks)
+                    val added = names.filter { it !in current }.associateWith { RelationLinks.Link(key, -vaultId) }
+                    if (added.isNotEmpty()) meta.setRelationLinks(owner, RelationLinks.encode(current + added))
+                }
+            }
+        }
     }
 
     /** Puts back [exportPrivate]'s [o] under private contact [vaultId] (a restore gives it a new id). */
@@ -139,23 +214,25 @@ class ContactKeys(
      */
     suspend fun forget(key: String) = withContext(Dispatchers.IO) {
         if (key.isEmpty()) return@withContext
-        mutex.withLock {
-            tx {
-                meta.deleteMeta(key)
-                meta.clearTemporary(key)
-                // A private contact's interactions don't stay outside the vault (moveIn copied them into the entry).
-                interactions()?.forget(key)
-                for (r in meta.allMetaNow()) {
-                    val links = RelationLinks.decode(r.relationLinks)
-                    if (links.values.none { it.lookupKey == key }) continue
-                    meta.setRelationLinks(r.lookupKey, RelationLinks.encode(links.filterValues { it.lookupKey != key }))
-                }
+        mutex.withLock { forgetLocked(key) }
+    }
+
+    private suspend fun forgetLocked(key: String) {
+        tx {
+            meta.deleteMeta(key)
+            meta.clearTemporary(key)
+            // A private contact's interactions don't stay outside the vault (moveIn copied them into the entry).
+            interactions()?.forget(key)
+            for (r in meta.allMetaNow()) {
+                val links = RelationLinks.decode(r.relationLinks)
+                if (links.values.none { it.lookupKey == key }) continue
+                meta.setRelationLinks(r.lookupKey, RelationLinks.encode(links.filterValues { it.lookupKey != key }))
             }
-            runCatching { backgrounds().clear(key) }
-            runCatching { originals()?.clear(key) }
-            runCatching { extras()?.dndForget(key) }
-            runCatching { calling()?.update { it.withoutContact(key) } }
         }
+        runCatching { backgrounds().clear(key) }
+        runCatching { originals()?.clear(key) }
+        runCatching { extras()?.dndForget(key) }
+        runCatching { calling()?.update { it.withoutContact(key) } }
     }
 
     /** The state of the last complete sweep, to skip the next one when nothing it depends on changed. */
@@ -170,6 +247,7 @@ class ContactKeys(
         mutex.withLock {
             // Without a listing (no permission) nothing can be resolved: leave everything where it is.
             val current = contacts.lookupKeys() ?: return@withLock 0
+            val settled = runCatching { settleWaitingLocked() }.getOrDefault(0)
             var moved = 0
             val rows = meta.allMetaNow()
             val bg = runCatching { backgrounds() }.getOrNull()
@@ -184,7 +262,7 @@ class ContactKeys(
             runCatching { originals()?.keys() }.getOrNull()?.forEach { if (!ContactRef.isPrivateKey(it)) keys.putIfAbsent(it, null) }
             val temporaries = meta.allTemporary()
             val snapshot = KeySweep.Snapshot(current, keys + temporaries.associate { "t:" + it.lookupKey + ":" + it.rawIds to it.contactId })
-            if (snapshot == lastSweep) return@withLock 0
+            if (snapshot == lastSweep) return@withLock settled
             notesWaiting = false
             val split = KeySweep.split(keys, current)
             // Only moves that are plausibly the same person (no namesake takes over a deleted contact's note).
@@ -208,8 +286,8 @@ class ContactKeys(
             // Index backgrounds made before the index existed (their keys are still current).
             if (bg != null) current.keys.forEach { k -> if (bg.forLookupKey(k) != null) bg.remember(k) }
             // What moved changes the stored keys: the next sweep runs once more, finds nothing and settles.
-            lastSweep = snapshot.takeUnless { notesWaiting }
-            moved
+            lastSweep = snapshot.takeUnless { notesWaiting || waitingKeys().isNotEmpty() }
+            moved + settled
         }
     }
 

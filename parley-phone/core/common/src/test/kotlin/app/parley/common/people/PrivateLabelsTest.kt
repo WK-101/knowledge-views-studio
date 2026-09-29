@@ -73,4 +73,13 @@ class PrivateLabelsTest {
         assertTrue(BulkActions.available(BulkAction.MERGE, mixed))
         assertFalse(BulkActions.available(BulkAction.MAKE_VISIBLE, listOf(10L)))
     }
+
+    @Test fun an_edit_applies_only_what_it_changed() {
+        val groups = listOf(PrivateLabels.Group(1, "Friends"), PrivateLabels.Group(2, "Work"), PrivateLabels.Group(3, "Club"))
+        // Now: Friends and Work (Work added from the list while the editor was open); the editor took Friends off and
+        // added Club.
+        val now = listOf(PrivateLabels.Membership(1, "Friends"), PrivateLabels.Membership(2, "Work"))
+        val out = PrivateLabels.edited(now, added = setOf(3L), removed = setOf(1L), groups = groups)
+        org.junit.Assert.assertEquals(setOf("Work", "Club"), out.map { it.title }.toSet())
+    }
 }

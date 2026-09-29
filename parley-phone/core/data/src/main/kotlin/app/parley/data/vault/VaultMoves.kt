@@ -13,6 +13,7 @@ import app.parley.data.ContactsRepository
 import app.parley.data.DataItem
 import app.parley.data.circle.InteractionStore
 import app.parley.data.records.ContactRecordStore
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -63,28 +64,79 @@ class VaultMoves(
         MovedIn(id, purged.synced, purged.messengerCopies)
     }
 
+    /** What [moveOut] did. */
+    sealed interface MovedOut {
+        /**
+         * Back in the address book as contact [contactId]. [rawIds]: the raw contacts this move inserted, and only
+         * those: Android may join them with other raw contacts of the same person (a copy in another account, the
+         * messenger copies "Make private" left behind), which were never Parley's to delete.
+         */
+        data class Done(val contactId: Long, val rawIds: List<Long>) : MovedOut
+
+        /** Nothing could be written: the entry stays as it was. */
+        data object NotWritten : MovedOut
+
+        /** [moveOut]'s `beforeDelete` failed: what was inserted was taken back, and the entry stays as it was. */
+        data object Undone : MovedOut
+    }
+
     /**
      * Moves vault entry [vaultId] back to the phone contacts; [d] are its current details and [account] the fallback
-     * for entries without a stored record. Returns the new contact id, or null (then the vault entry stays).
+     * for entries without a stored record.
+     *
+     * [beforeDelete] runs once the contact is in the address book and before the entry (with its private calls) is
+     * deleted: putting the private calls back into the phone's call history. When it fails the inserted raw contacts are
+     * taken back and nothing else changes ([MovedOut.Undone]), so the private call history is never lost.
      */
-    suspend fun moveOut(vaultId: Long, d: ContactDetails, account: AccountRef): Long? = withContext(Dispatchers.IO) {
+    // Any failure of beforeDelete takes the move back; insert, hand-back and clean-up are one sequence.
+    @Suppress("TooGenericExceptionCaught", "CyclomaticComplexMethod")
+    suspend fun moveOut(
+        vaultId: Long,
+        d: ContactDetails,
+        account: AccountRef,
+        beforeDelete: suspend (contactId: Long) -> Boolean = { true },
+    ): MovedOut = withContext(Dispatchers.IO) {
         val stored = vault.storedRecord(vaultId)
         // The raw contact the (encrypted) vault photo goes to: the vault photo is the current one; the record's
         // may be older (changed in the vault since) and an entry made in the vault has none at all.
         var photoRaw: Long? = null
+        val inserted = ArrayList<Long>()
         val newId = if (stored == null) {
-            contacts.save(null, d, account, null, false)?.also { photoRaw = it.rawId }?.contactId
+            contacts.save(null, d, account, null, false)?.also { photoRaw = it.rawId; it.rawId?.let(inserted::add) }?.contactId
         } else {
-            val inserted = records.insertAll(listOf(stored.record), target = null).single()
-            val id = inserted.contactId ?: return@withContext null
-            photoRaw = inserted.rawIds.firstOrNull()
-            if (stored.editedSince) {
-                contacts.editable(id)?.let { original -> contacts.save(original, overlay(original, d), null, null, false)?.contactId } ?: id
-            } else {
-                id
+            val result = records.insertAll(listOf(stored.record), target = null).single()
+            inserted += result.rawIds
+            val id = result.contactId
+            photoRaw = result.rawIds.firstOrNull()
+            when {
+                id == null -> null
+                stored.editedSince -> contacts.editable(id)?.let { original ->
+                    contacts.save(original, overlay(original, d), null, null, false)?.contactId
+                } ?: id
+                else -> id
             }
         }
-        if (newId != null) {
+        if (newId == null) {
+            // A partly written record goes again rather than staying beside the private contact.
+            if (inserted.isNotEmpty()) runCatching { contacts.discardInserted(inserted) }
+            contacts.refresh()
+            return@withContext MovedOut.NotWritten
+        }
+        // A sweep of the call log must not take the calls just put back into the private history deleted below.
+        vault.leaving += vaultId
+        try {
+            val ok = try {
+                beforeDelete(newId)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                false
+            }
+            if (!ok) {
+                runCatching { contacts.discardInserted(inserted) }
+                contacts.refresh()
+                return@withContext MovedOut.Undone
+            }
             // The interactions carried in the entry come back under the restored contact.
             val carried = runCatching { Interactions.decodeCarried(vault.storedInteractions(vaultId)) }.getOrDefault(emptyList())
             val store = interactions()
@@ -99,9 +151,11 @@ class VaultMoves(
             val raw = photoRaw ?: contacts.rawIds(newId).firstOrNull()
             if (photo != null && raw != null) runCatching { records.setPhoto(raw, photo) }
             vault.delete(vaultId)
+        } finally {
+            vault.leaving -= vaultId
         }
         contacts.refresh()
-        newId
+        MovedOut.Done(newId, inserted.distinct())
     }
 
     /** A full-resolution photo can be several MB; keep the vault row small by using the thumbnail then. */

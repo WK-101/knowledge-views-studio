@@ -45,7 +45,13 @@ class ParleyApp : Application() {
         // Keeps the Circle widget current while Parley runs (from the full start on, and only while one is placed).
         CircleWidget.observe(this, container)
         // Right after the user authenticates, the vault moves to an authentication-bound key if it isn't on one yet.
-        VaultSession.onAuthenticated = { container.scope.launch(Dispatchers.IO) { suspendRunCatching { container.vault.upgradeDetailKey() } } }
+        VaultSession.onAuthenticated = {
+            container.scope.launch(Dispatchers.IO) {
+                suspendRunCatching { container.vault.upgradeDetailKey() }
+                // Entries from before the caller-ID copy kept the star, labels, ringtone and voicemail get them now.
+                suspendRunCatching { container.vault.migrateCallerChoices() }
+            }
+        }
         // The process often starts for an incoming call: only what the call path reads synchronously is warmed here,
         // off the main thread.
         container.scope.launch(Dispatchers.IO) {

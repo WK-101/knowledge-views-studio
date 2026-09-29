@@ -495,6 +495,14 @@
     <string name="vault_call_history">Private call history</string>
     <string name="vault_delete_title">Delete this private contact?</string>
     <string name="vault_delete_text">This also deletes its private call history. A sealed copy stays in History &amp; undo for 30 days, shown only after you unlock.</string>
+    <string name="vault_delete_no_copy_title">Delete without a copy?</string>
+    <string name="vault_delete_no_copy_text">Parley couldn\'t keep a sealed copy in History &amp; undo, so nothing has been deleted yet. If you delete now, this private contact and its private call history can\'t be brought back.</string>
+    <string name="vault_delete_no_copy_confirm">Delete without a copy</string>
+    <plurals name="vault_delete_no_copy_bulk">
+        <item quantity="one">%1$d private contact wasn\'t deleted: no copy could be kept in History &amp; undo</item>
+        <item quantity="other">%1$d private contacts weren\'t deleted: no copy could be kept in History &amp; undo</item>
+    </plurals>
+    <string name="vault_details_lost_change">Choose “Keep what\'s left” first. Until then nothing here is changed.</string>
     <string name="vault_expiry_title">Delete automatically after</string>
     <string name="vault_expiry_1_day">1 day</string>
     <string name="vault_expiry_1_week">1 week</string>
@@ -740,6 +748,11 @@
         <item quantity="one">%1$d change · %2$s</item>
         <item quantity="other">%1$d changes · %2$s</item>
     </plurals>
+    <string name="jr_storage_private">Deleted private contacts</string>
+    <plurals name="jr_storage_private_sub">
+        <item quantity="one">%1$d contact, sealed</item>
+        <item quantity="other">%1$d contacts, sealed</item>
+    </plurals>
     <string name="jr_storage_calls">Deleted calls</string>
     <plurals name="jr_storage_calls_sub">
         <item quantity="one">%1$d call · %2$s</item>
@@ -756,6 +769,11 @@
     <plurals name="jr_clear_contacts_text">
         <item quantity="one">The saved copy from %1$d contact change will be deleted. You won\'t be able to undo that change or restore that contact.</item>
         <item quantity="other">The saved copies from %1$d contact changes will be deleted. You won\'t be able to undo those changes or restore those contacts.</item>
+    </plurals>
+    <string name="jr_clear_private_title">Clear deleted private contacts?</string>
+    <plurals name="jr_clear_private_text">
+        <item quantity="one">The sealed copy of %1$d deleted private contact will be deleted. You won\'t be able to restore it, or its private calls.</item>
+        <item quantity="other">The sealed copies of %1$d deleted private contacts will be deleted. You won\'t be able to restore them, or their private calls.</item>
     </plurals>
     <string name="jr_clear_calls_title">Clear deleted calls?</string>
     <plurals name="jr_clear_calls_text">
@@ -777,6 +795,10 @@
     <plurals name="jr_cleared_contacts">
         <item quantity="one">Cleared %1$d contact change</item>
         <item quantity="other">Cleared %1$d contact changes</item>
+    </plurals>
+    <plurals name="jr_cleared_private">
+        <item quantity="one">Cleared %1$d deleted private contact</item>
+        <item quantity="other">Cleared %1$d deleted private contacts</item>
     </plurals>
     <plurals name="jr_cleared_calls">
         <item quantity="one">Cleared %1$d deleted call</item>

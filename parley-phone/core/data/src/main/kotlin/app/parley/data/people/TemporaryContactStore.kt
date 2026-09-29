@@ -98,14 +98,17 @@ class TemporaryContactStore(private val c: DataContainer) {
     }
 
     /**
-     * Makes contact [contactId] delete itself at [expiresAt] (a date chosen earlier, e.g. while it was private), with
-     * all of its current raw contacts recorded like [mark].
+     * Makes contact [contactId] delete itself at [expiresAt] (a date chosen earlier, e.g. while it was private).
+     * [rawIds]: the raw contacts that make it up when the caller knows them (the ones it just inserted: Android may
+     * have joined them with someone else's copies, which must never be deleted); null records all of its current raw
+     * contacts, like [mark]. A key that can't be read yet records the entry by its raw contact, like [createPhone].
      */
-    suspend fun markAt(contactId: Long, expiresAt: Long, purgeHistory: Boolean, name: String?) = withContext(Dispatchers.IO) {
-        val key = c.contacts.lookupKeyOf(contactId) ?: return@withContext
+    suspend fun markAt(contactId: Long, expiresAt: Long, purgeHistory: Boolean, name: String?, rawIds: Collection<Long>? = null) = withContext(Dispatchers.IO) {
+        val ids = rawIds?.distinct() ?: c.contacts.rawIds(contactId)
+        val key = c.contacts.lookupKeyOf(contactId)?.takeIf { it.isNotEmpty() } ?: ids.firstOrNull()?.let(TemporaryExpiry::pendingKey) ?: return@withContext
         mutex.withLock {
             c.meta.setTemporary(
-                TemporaryContactEntity(key, contactId, expiresAt, purgeHistory, rawIds = TemporaryExpiry.encodeIds(c.contacts.rawIds(contactId)), name = name),
+                TemporaryContactEntity(key, contactId, expiresAt, purgeHistory, rawIds = TemporaryExpiry.encodeIds(ids), name = name),
             )
         }
     }

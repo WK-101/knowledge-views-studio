@@ -45,6 +45,11 @@ class SaveContactUseCase(private val c: DataContainer) {
         val temporary: TemporaryChoice? = null,
         /** An existing contact made temporary, given a new time, or kept permanently in the editor (null: untouched). */
         val expiry: ExpiryChange? = null,
+        /**
+         * A private contact as the editor loaded it: the star, labels, ringtone and "send to voicemail" are saved only
+         * where the editor changed them, so a change made meanwhile from the list or the page isn't undone.
+         */
+        val vaultLoaded: ContactDetails? = null,
     )
 
     sealed interface Outcome {
@@ -109,12 +114,16 @@ class SaveContactUseCase(private val c: DataContainer) {
         val e = r.draft
         val cleaned = e.copy(handles = e.handles.filter { it.value.isNotBlank() })
         // Made temporary (or given a new time) in the editor: the expiry is saved with it, and like "Delete
-        // automatically" on the contact page its call history goes too; "Keep permanently" clears it afterwards.
+        // automatically" on the contact page its call history goes too, unless it was temporary already with its own
+        // choice; "Keep permanently" clears it afterwards.
         val after = r.expiry as? ExpiryChange.After
+        val existing = r.vaultId?.takeIf { it > 0 }
+        val already = existing?.let { c.vault.summary(it)?.expiresAt } != null
         val id = c.vault.save(
-            r.vaultId?.takeIf { it > 0 }, cleaned,
+            existing, cleaned,
             expiresAt = after?.let { System.currentTimeMillis() + it.days * TemporaryChoice.DAY_MS },
-            purgeHistory = if (after != null) true else null,
+            purgeHistory = if (after != null) TemporaryChoice.purgeOnNewDate(already) else null,
+            loaded = r.vaultLoaded.takeIf { existing != null },
         )
         if (r.expiry == ExpiryChange.Keep) c.vault.setExpiry(id, null)
         vaultPhoto(id, r, notes)
@@ -199,6 +208,8 @@ class SaveContactUseCase(private val c: DataContainer) {
             ?: return null
         if (saved.private) {
             vaultPhoto(saved.id, r, notes)
+            // Relation links picked in the editor and the call-screen picture, as for any private contact.
+            privateExtras(saved.id, r, details, notes)
             return -saved.id
         }
         rememberRelations(saved.id, e, r.pickedLinks)

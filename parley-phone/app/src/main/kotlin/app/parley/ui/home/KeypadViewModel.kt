@@ -14,7 +14,6 @@ import app.parley.common.suspendRunCatching
 import app.parley.data.DataContainer
 import app.parley.data.TemporaryContacts
 import app.parley.data.messaging.Romanizer
-import app.parley.data.vault.VaultSummary
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
@@ -31,8 +30,11 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-/** The header search on the Keypad tab: the query and the contacts and visible private contacts matching it. */
-data class KeypadSearch(val query: String, val contacts: List<ContactSummary>, val vault: List<VaultSummary>)
+/**
+ * The header search on the Keypad tab: the query and the contacts and visible private contacts matching it. [vault]:
+ * the private ones as list rows (negative ids, photo), built here off the main thread (their photo is a file check).
+ */
+data class KeypadSearch(val query: String, val contacts: List<ContactSummary>, val vault: List<ContactSummary>)
 
 /**
  * The keypad: what is typed, the T9 and name results for it, the header's contact search, the SIM a plain Call would
@@ -99,7 +101,11 @@ class KeypadViewModel(private val c: DataContainer) : ViewModel() {
 
     /** Matches for [searchQuery]; null until the first search has run. */
     val search: StateFlow<KeypadSearch?> = combine(searchQuery.map { it.trim() }.distinctUntilChanged().debounce(SEARCH_DEBOUNCE_MS), contactIndex, vaultIndex) { q, people, vault ->
-        if (q.isEmpty()) KeypadSearch(q, emptyList(), emptyList()) else KeypadSearch(q, people.search(q), vault.search(q))
+        if (q.isEmpty()) {
+            KeypadSearch(q, emptyList(), emptyList())
+        } else {
+            KeypadSearch(q, people.search(q), vault.search(q).map { v -> PrivateListing.row(v.id, v.name, v.numbers, v.starred, c.vault.photoUri(v.id)) })
+        }
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_AFTER_MS), null)
 
     // ---------------------------------------------------------------- SIM

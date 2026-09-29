@@ -23,6 +23,7 @@ import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.io.File
 import java.io.IOException
+import java.lang.ref.SoftReference
 import java.nio.ByteBuffer
 import java.security.MessageDigest
 
@@ -58,15 +59,47 @@ class OriginalPhotos(context: Context) {
         /** Identifies this version of the picture (for caches and `remember`). */
         val id: String = file.name + "@" + file.lastModified()
 
-        internal fun bytes(): ByteArray = if (sealed) VaultCrypto.openCallerId(file.readBytes()) else file.readBytes()
+        /**
+         * A sealed original, opened once for as long as it is shown (the viewer decodes a region after every pan and
+         * zoom; opening the whole file each time made tens of MB of garbage). Memory only, dropped by [release] or
+         * under memory pressure.
+         */
+        @Volatile private var opened: SoftReference<ByteArray>? = null
+
+        /** The region decoder over [opened], kept with it (a plain file's is cheap to open each time). */
+        private var decoder: BitmapRegionDecoder? = null
+
+        internal fun bytes(): ByteArray = if (!sealed) {
+            file.readBytes()
+        } else {
+            opened?.get() ?: VaultCrypto.openCallerId(file.readBytes()).also { opened = SoftReference(it) }
+        }
 
         internal fun source(): ImageDecoder.Source = if (sealed) ImageDecoder.createSource(ByteBuffer.wrap(bytes())) else ImageDecoder.createSource(file)
 
+        /** Whether [regionDecoder] hands out a decoder kept for later calls (never recycled by the caller). */
+        internal val keepsDecoder: Boolean get() = sealed
+
         // The (String) and (ByteArray) overloads without the flag are API 31; the flag is ignored anyway.
         @Suppress("DEPRECATION")
-        internal fun regionDecoder(): BitmapRegionDecoder? =
-            if (sealed) bytes().let { BitmapRegionDecoder.newInstance(it, 0, it.size, false) } else BitmapRegionDecoder.newInstance(file.path, false)
+        @Synchronized
+        internal fun regionDecoder(): BitmapRegionDecoder? {
+            if (!sealed) return BitmapRegionDecoder.newInstance(file.path, false)
+            decoder?.takeIf { !it.isRecycled }?.let { return it }
+            return bytes().let { BitmapRegionDecoder.newInstance(it, 0, it.size, false) }.also { decoder = it }
+        }
+
+        /** Drops what [bytes] and [regionDecoder] kept open (the viewer closed). */
+        @Synchronized
+        internal fun release() {
+            decoder?.recycle()
+            decoder = null
+            opened = null
+        }
     }
+
+    /** [o] is no longer shown: what was opened to show it goes. */
+    fun release(o: Original) = o.release()
 
     // ---- Phone contacts
 
@@ -281,7 +314,7 @@ class OriginalPhotos(context: Context) {
             val bmp = try {
                 decoder.decodeRegion(rect, BitmapFactory.Options().apply { inSampleSize = sample })
             } finally {
-                decoder.recycle()
+                if (!o.keepsDecoder) decoder.recycle()
             }
             if (bmp == null || t.isIdentity) return@withContext bmp
             val m = Matrix().apply {
@@ -404,6 +437,24 @@ class OriginalPhotos(context: Context) {
             ExifInterface.TAG_GPS_PROCESSING_METHOD, ExifInterface.TAG_GPS_AREA_INFORMATION, ExifInterface.TAG_GPS_DEST_LATITUDE,
             ExifInterface.TAG_GPS_DEST_LONGITUDE, ExifInterface.TAG_GPS_IMG_DIRECTION, ExifInterface.TAG_GPS_SPEED,
         )
+
+        /** Private entry [id]'s original exactly as stored (still sealed) and its size record, for "Recently deleted". */
+        fun sealedPrivate(context: Context, id: Long): Pair<ByteArray, String>? = runCatching {
+            val d = File(context.filesDir, "vault_photo_originals")
+            val image = File(d, "v$id.bin")
+            val meta = File(d, "v$id.json")
+            if (image.isFile && meta.isFile) image.readBytes() to meta.readText() else null
+        }.getOrNull()
+
+        /** Puts back what [sealedPrivate] gave, under private entry [id] (restored with a new id). */
+        fun restoreSealedPrivate(context: Context, id: Long, image: ByteArray, meta: String): Boolean = runCatching {
+            val d = File(context.filesDir, "vault_photo_originals").apply { mkdirs() }
+            val tmp = File(d, "v$id.tmp")
+            tmp.writeBytes(image)
+            check(tmp.renameTo(File(d, "v$id.bin")))
+            File(d, "v$id.json").writeText(meta)
+            true
+        }.getOrDefault(false)
 
         /** Deletes private entry [id]'s original (the entry itself was deleted). */
         fun forgetPrivate(context: Context, id: Long) {

@@ -157,6 +157,44 @@ class RelationMirrors(context: Context, private val contacts: ContactsRepository
         }
     }
 
+    /**
+     * Contact [selfId] ([selfKey]) is leaving the address book (made private, or deleted): the rows Parley added for it
+     * on other contacts go back where they are still as Parley left them (a row the user changed there is theirs and
+     * stays), and the record forgets every line about it, so neither its name nor its key stays behind in
+     * `relation_mirrors`. Returns how many rows were taken back.
+     */
+    @Suppress("CyclomaticComplexMethod", "LoopWithTooManyJumpStatements") // Resolve, plan, write, record: one pass under the lock.
+    suspend fun takeBack(selfId: Long, selfKey: String): Int = withContext(Dispatchers.IO) {
+        lock.withLock {
+            val all = RelationMirror.decode(prefs.getString(KEY, null))
+            val mine = all.filter { it.from == selfKey || it.fromId == selfId }
+            val about = all.filter { it.target == selfKey || it.targetId == selfId }
+            if (mine.isEmpty() && about.isEmpty()) return@withLock 0
+            val targets = HashMap<String, Target>()
+            val created = LinkedHashMap<String, RelationMirror.Row>()
+            for (c in mine) {
+                val (tid, tkey) = contacts.currentOf(c.target, c.targetId) ?: continue
+                if (tid == selfId || tkey in targets) continue
+                load(tkey, tid)?.let { targets[tkey] = it; created[tkey] = c.row }
+            }
+            fun rowsOf(key: String): List<RelationMirror.Row>? = targets[key]?.takeIf { it.editable?.editRawId != null }?.all?.relations?.map(::rowOf)
+            // Nothing is wanted any more: only Parley's own, unchanged rows are removed.
+            var n = 0
+            for (step in RelationMirror.plan(emptyMap(), created, ::rowsOf)) {
+                val t = targets[step.target] ?: continue
+                if (write(t, step) == null) {
+                    n++
+                    linkBack(t.key, step, selfKey, selfId)
+                }
+            }
+            prefs.edit().putString(KEY, RelationMirror.encode(all - (mine + about).toSet()).ifEmpty { null }).apply()
+            n
+        }
+    }
+
+    /** Whether Parley added any relation rows at all (a cheap check before [takeBack] for many contacts). */
+    fun any(): Boolean = !prefs.getString(KEY, null).isNullOrEmpty()
+
     private suspend fun load(key: String, id: Long): Target? {
         val all = contacts.details(id) ?: return null
         val editable = runCatching { contacts.editable(id) }.getOrNull()

@@ -330,6 +330,7 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
             original = orig, draft = e, account = account, photo = photo, removePhoto = removePhoto,
             toVault = isVault, vaultId = args.vaultId, background = background, pickedLinks = pickedLinks,
             temporary = temporary.takeIf { temporaryNew && isNew }, expiry = expiryChange,
+            vaultLoaded = start.takeIf { (args.vaultId ?: 0L) > 0L },
         )
         viewModelScope.launch {
             val outcome = try {

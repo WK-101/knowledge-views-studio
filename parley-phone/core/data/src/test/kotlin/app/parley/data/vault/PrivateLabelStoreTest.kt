@@ -9,6 +9,7 @@ import app.parley.common.AppSettings
 import app.parley.common.BlockReason
 import app.parley.common.Decision
 import app.parley.common.people.ContactRef
+import app.parley.common.people.RelationLinks
 import app.parley.common.storage.ContactKeyedStores
 import app.parley.common.storage.StoreKind
 import app.parley.data.AccountRef
@@ -18,6 +19,7 @@ import app.parley.data.DataItem
 import app.parley.data.GroupInfo
 import app.parley.data.ScreenRequest
 import app.parley.data.WorkProfile
+import app.parley.data.people.OriginalPhotos
 import app.parley.data.testing.FakeAndroidKeyStore
 import app.parley.data.testing.FakeContactsProvider
 import java.io.File
@@ -189,6 +191,45 @@ class PrivateLabelStoreTest {
         assertEquals("Lovelace", c.vault.details(back)!!.family)
         assertNotNull(c.vault.lookup("+44 20 7946 0000"))
         assertEquals(0, c.privateTrash.count())
+    }
+
+    @Test fun a_restored_contact_gets_its_photo_as_picked_and_the_relations_pointing_at_it() = runBlocking {
+        val id = ada()
+        val key = ContactRef.privateKey(id)
+        // The photo as picked, kept sealed beside the entry.
+        val picture = byteArrayOf(1, 2, 3, 4)
+        assertTrue(OriginalPhotos.restoreSealedPrivate(app, id, VaultCrypto.sealCallerId(picture), """{"w":60,"h":40}"""))
+        // Bob's relation "Sister: Ada" opens her.
+        c.meta.ensureMeta("lk-bob", 7)
+        c.meta.setRelationLinks("lk-bob", RelationLinks.encode(mapOf("ada lovelace" to RelationLinks.Link(key, -id))))
+
+        assertTrue(c.privateTrash.keep(id))
+        c.vault.delete(id)
+        c.contactKeys.forget(key)
+        assertNull(OriginalPhotos.sealedPrivate(app, id))
+        assertTrue(RelationLinks.decode(c.meta.meta("lk-bob")?.relationLinks).isEmpty())
+
+        val back = c.privateTrash.restore(c.privateTrash.list().single().file)!!
+        val (image, meta) = OriginalPhotos.sealedPrivate(app, back)!!
+        assertArrayEquals("the photo as picked comes back", picture, VaultCrypto.openCallerId(image))
+        assertEquals("""{"w":60,"h":40}""", meta)
+        assertEquals(RelationLinks.Link(ContactRef.privateKey(back), -back), RelationLinks.decode(c.meta.meta("lk-bob")?.relationLinks)["ada lovelace"])
+    }
+
+    @Test fun an_editor_save_keeps_a_star_or_label_changed_meanwhile() = runBlocking {
+        val friends = label("Friends")
+        val work = label("Work")
+        val id = ada(setOf(friends.id))
+        val loaded = c.vault.details(id)!!
+        // While the editor is open: starred from the list, and added to Work from the selection bar.
+        c.vault.updateCallerChoices(id) { it.copy(starred = true) }
+        c.people.labels.addMembers(listOf(ContactRef.Private(id).navId), work)
+        // The editor saves: it changed the note and took Friends off, nothing else.
+        c.vault.save(id, loaded.copy(note = "x", groupIds = emptySet()), loaded = loaded)
+        val s = c.vault.summary(id)!!
+        assertTrue("the star stays", s.starred)
+        assertEquals(setOf("Work"), c.privateLabels.titlesOf(id))
+        assertEquals("x", c.vault.details(id)!!.note)
     }
 
     @Test fun kept_copies_go_after_thirty_days() = runBlocking {

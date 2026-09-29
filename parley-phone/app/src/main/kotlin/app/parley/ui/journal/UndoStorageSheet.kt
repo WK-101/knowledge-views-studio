@@ -16,6 +16,7 @@ import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -41,6 +42,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.fragment.app.FragmentActivity
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.R
 import app.parley.common.backup.SnapshotClearing
@@ -51,10 +53,12 @@ import app.parley.ui.ConfirmDialog
 import app.parley.ui.InfoRow
 import app.parley.ui.ParleySheet
 import app.parley.ui.Spacing
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /** One of History & undo's stores. */
-private enum class UndoStore { CONTACTS, CALLS, SNAPSHOTS }
+private enum class UndoStore { CONTACTS, PRIVATE, CALLS, SNAPSHOTS }
 
 /**
  * History & undo › ⋮ › Clear history & undo: how much each undo store holds, and a Clear for each. Every clear is
@@ -70,14 +74,19 @@ fun UndoStorageSheet(vm: AppViewModel, onDismiss: () -> Unit, onCleared: () -> U
     val scope = rememberCoroutineScope()
     var round by remember { mutableIntStateOf(0) }
     val usage by produceState<UndoStorage.Usage?>(null, round) { value = runCatching { vm.c.undoStorage.usage() }.getOrNull() }
+    // Deleted private contacts are counted apart (nothing is opened to count them) and not at all in discreet mode,
+    // where their row is hidden; clearing contact changes never clears them.
+    val hideVault = vm.settings.collectAsStateWithLifecycle().value.hideVault
+    val privateKept by produceState(0, round, hideVault) {
+        value = if (hideVault) 0 else withContext(Dispatchers.IO) { runCatching { vm.c.privateTrash.count() }.getOrDefault(0) }
+    }
     var asking by remember { mutableStateOf<UndoStore?>(null) }
 
     fun clear(store: UndoStore, keep: SnapshotKeep) = scope.launch {
         val message = runCatching {
             when (store) {
-                // Deleted private contacts' sealed copies are contact changes too.
-                UndoStore.CONTACTS -> (vm.c.undoStorage.clearContactChanges() + vm.c.privateTrash.clear())
-                    .let { res.getQuantityString(R.plurals.jr_cleared_contacts, it, it) }
+                UndoStore.CONTACTS -> vm.c.undoStorage.clearContactChanges().let { res.getQuantityString(R.plurals.jr_cleared_contacts, it, it) }
+                UndoStore.PRIVATE -> vm.c.privateTrash.clear().let { res.getQuantityString(R.plurals.jr_cleared_private, it, it) }
                 UndoStore.CALLS -> vm.c.undoStorage.clearDeletedCalls().let { res.getQuantityString(R.plurals.jr_cleared_calls, it, it) }
                 UndoStore.SNAPSHOTS -> vm.c.undoStorage.clearSnapshots(keep).let { res.getQuantityString(R.plurals.jr_cleared_snapshots, it, it) }
             }
@@ -94,11 +103,11 @@ fun UndoStorageSheet(vm: AppViewModel, onDismiss: () -> Unit, onCleared: () -> U
                 Modifier.padding(horizontal = Spacing.xl).padding(bottom = Spacing.s),
                 style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            StoreRows(usage) { asking = it }
+            StoreRows(usage, privateKept.takeUnless { hideVault }) { asking = it }
         }
     }
     asking?.let { store ->
-        ClearDialog(store, usage, onDismiss = { asking = null }) { keep ->
+        ClearDialog(store, usage, privateKept, onDismiss = { asking = null }) { keep ->
             asking = null
             authorize(context, vm) { clear(store, keep) }
         }
@@ -107,7 +116,7 @@ fun UndoStorageSheet(vm: AppViewModel, onDismiss: () -> Unit, onCleared: () -> U
 
 /** One row per store: what it holds (count · size), or "Nothing kept", and its Clear button. */
 @Composable
-private fun StoreRows(u: UndoStorage.Usage?, onClear: (UndoStore) -> Unit) {
+private fun StoreRows(u: UndoStorage.Usage?, privateKept: Int?, onClear: (UndoStore) -> Unit) {
     val context = LocalContext.current
     val contacts = u?.contactChanges ?: 0
     val calls = u?.deletedCalls ?: 0
@@ -116,6 +125,13 @@ private fun StoreRows(u: UndoStorage.Usage?, onClear: (UndoStore) -> Unit) {
         Icons.Rounded.Person, stringResource(R.string.jr_storage_contacts),
         u?.takeIf { contacts > 0 }?.let { pluralStringResource(R.plurals.jr_storage_contacts_sub, contacts, contacts, size(context, it.contactBytes)) },
     ) { onClear(UndoStore.CONTACTS) }
+    // Its own row, so clearing contact changes never takes the only copies of deleted private contacts with it.
+    if (privateKept != null) {
+        StoreRow(
+            Icons.Rounded.Lock, stringResource(R.string.jr_storage_private),
+            privateKept.takeIf { it > 0 }?.let { pluralStringResource(R.plurals.jr_storage_private_sub, it, it) },
+        ) { onClear(UndoStore.PRIVATE) }
+    }
     StoreRow(
         Icons.Rounded.Call, stringResource(R.string.jr_storage_calls),
         u?.takeIf { calls > 0 }?.let { pluralStringResource(R.plurals.jr_storage_calls_sub, calls, calls, size(context, it.callBytes)) },
@@ -130,13 +146,19 @@ private fun StoreRows(u: UndoStorage.Usage?, onClear: (UndoStore) -> Unit) {
 
 /** The confirmation for clearing [store]: exactly what goes, and that it can't be undone. */
 @Composable
-private fun ClearDialog(store: UndoStore, u: UndoStorage.Usage?, onDismiss: () -> Unit, onConfirm: (SnapshotKeep) -> Unit) {
+private fun ClearDialog(store: UndoStore, u: UndoStorage.Usage?, privateKept: Int, onDismiss: () -> Unit, onConfirm: (SnapshotKeep) -> Unit) {
     val contacts = u?.contactChanges ?: 0
     val calls = u?.deletedCalls ?: 0
     when (store) {
         UndoStore.CONTACTS -> ConfirmDialog(
             title = stringResource(R.string.jr_clear_contacts_title),
             text = pluralStringResource(R.plurals.jr_clear_contacts_text, contacts, contacts),
+            confirmLabel = stringResource(R.string.jr_storage_clear), destructive = true,
+            onConfirm = { onConfirm(SnapshotKeep.NONE) }, onDismiss = onDismiss,
+        )
+        UndoStore.PRIVATE -> ConfirmDialog(
+            title = stringResource(R.string.jr_clear_private_title),
+            text = pluralStringResource(R.plurals.jr_clear_private_text, privateKept, privateKept),
             confirmLabel = stringResource(R.string.jr_storage_clear), destructive = true,
             onConfirm = { onConfirm(SnapshotKeep.NONE) }, onDismiss = onDismiss,
         )

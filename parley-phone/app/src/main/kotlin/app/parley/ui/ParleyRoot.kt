@@ -142,6 +142,10 @@ private fun ParleyRootContent(vm: AppViewModel, appSnackbar: ParleySnackbar) {
                     val r = snackbar.showSnackbar(e.text, actionLabel = undoLabel, duration = SnackbarDuration.Long)
                     if (r == SnackbarResult.ActionPerformed) vm.runUndo(e.undo)
                 }
+                is UiEvent.Offer -> {
+                    val r = snackbar.showSnackbar(e.text, actionLabel = e.actionLabel, duration = SnackbarDuration.Long)
+                    if (r == SnackbarResult.ActionPerformed) vm.runUndo(e.action)
+                }
                 else -> Unit
             }
         }

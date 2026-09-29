@@ -4,8 +4,11 @@ import android.Manifest
 import android.app.Application
 import android.provider.ContactsContract.CommonDataKinds.Email
 import android.provider.ContactsContract.CommonDataKinds.Phone
+import android.provider.ContactsContract.CommonDataKinds.Relation
 import androidx.test.core.app.ApplicationProvider
+import app.parley.common.people.ContactRef
 import app.parley.common.people.ExpiryChange
+import app.parley.common.people.RelationLinks
 import app.parley.common.people.TemporaryChoice
 import app.parley.data.ContactDetails
 import app.parley.data.DataContainer
@@ -58,10 +61,12 @@ class EditorTemporarySaveTest {
         toVault: Boolean = false,
         temporary: TemporaryChoice? = null,
         expiry: ExpiryChange? = null,
+        vaultId: Long? = null,
+        picked: Map<String, RelationLinks.Link> = emptyMap(),
     ) =
         SaveContactUseCase.Request(
-            original = original, draft = draft, account = null, photo = null, removePhoto = false, toVault = toVault, vaultId = null,
-            background = BackgroundChange.None, pickedLinks = emptyMap(), temporary = temporary, expiry = expiry,
+            original = original, draft = draft, account = null, photo = null, removePhoto = false, toVault = toVault, vaultId = vaultId,
+            background = BackgroundChange.None, pickedLinks = picked, temporary = temporary, expiry = expiry,
         )
 
     @Test fun a_visible_temporary_contact_keeps_every_field_and_expires() = runBlocking {
@@ -99,5 +104,27 @@ class EditorTemporarySaveTest {
         val again = c.contacts.editable(made.id)!!
         SaveContactUseCase(c)(request(again, again, expiry = ExpiryChange.Keep))
         assertNull(c.temporaries.forKey(c.contacts.lookupKeyOf(made.id)!!))
+    }
+
+    @Test fun a_private_temporary_contact_keeps_the_relations_picked_in_the_editor() = runBlocking {
+        val ana = c.contacts.save(null, ContactDetails(given = "Ana", family = "Lee"), null, null, false)!!.contactId
+        val link = RelationLinks.Link(c.contacts.lookupKeyOf(ana)!!, ana)
+        val draft = plumber.copy(relations = listOf(DataItem(null, "Mum", Relation.TYPE_MOTHER)))
+        val saved = SaveContactUseCase(c)(request(null, draft, toVault = true, temporary = TemporaryChoice(days = 1), picked = mapOf("mum" to link)))
+            as SaveContactUseCase.Outcome.Saved
+        val links = RelationLinks.decode(c.meta.meta(ContactRef.privateKey(-saved.id))?.relationLinks)
+        assertEquals(link, links["mum"])
+    }
+
+    @Test fun a_new_date_in_the_editor_keeps_a_private_contacts_call_history_choice() = runBlocking {
+        val saved = SaveContactUseCase(c)(request(null, plumber, toVault = true, temporary = TemporaryChoice(days = 1, purgeHistory = false)))
+            as SaveContactUseCase.Outcome.Saved
+        val v = -saved.id
+        assertEquals(false, c.vault.summary(v)!!.purgeHistory)
+        val loaded = c.vault.details(v)!!
+        SaveContactUseCase(c)(request(null, loaded, toVault = true, vaultId = v, expiry = ExpiryChange.After(30)))
+        val s = c.vault.summary(v)!!
+        assertEquals(false, s.purgeHistory)
+        assertTrue(s.expiresAt!! > System.currentTimeMillis() + 29 * TemporaryChoice.DAY_MS)
     }
 }

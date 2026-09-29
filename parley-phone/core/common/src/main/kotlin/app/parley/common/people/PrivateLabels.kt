@@ -66,6 +66,19 @@ object PrivateLabels {
         return (chosen + unknown + unresolved(previous, groups)).distinctBy { key(it.title) }
     }
 
+    /**
+     * [stored] (the memberships as they are now) after an edit that started from other ones and selected the groups
+     * [added] and unselected [removed]: only those changes are applied, so a label added or removed elsewhere meanwhile
+     * stays as it is.
+     */
+    fun edited(stored: List<Membership>, added: Set<Long>, removed: Set<Long>, groups: List<Group>): List<Membership> {
+        val byId = groups.associateBy { it.id }
+        var out = stored
+        removed.forEach { id -> byId[id]?.let { g -> out = remove(out, g.title, groups) } ?: run { out = out.filterNot { it.groupId == id } } }
+        added.forEach { id -> byId[id]?.let { g -> out = add(out, g) } }
+        return out
+    }
+
     fun add(stored: List<Membership>, group: Group): List<Membership> =
         if (stored.any { it.groupId == group.id || key(it.title) == key(group.title) }) stored else stored + Membership(group.id, key(group.title))
 

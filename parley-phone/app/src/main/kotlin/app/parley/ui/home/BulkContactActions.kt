@@ -42,13 +42,19 @@ class BulkContactActions(private val c: DataContainer) {
         for (id in ids) {
             if (BulkActions.isPrivate(id)) {
                 val v = -id
-                // The call-history choice is sealed with the details: set it too when they can be opened now.
-                val sealed = if (at != null) suspendRunCatching { c.vault.details(v) }.getOrNull() else null
-                if (sealed != null) c.vault.save(v, sealed, expiresAt = at, purgeHistory = true) else c.vault.setExpiry(v, at)
+                val summary = c.vault.summary(v) ?: continue
+                // Made temporary now: its call history goes with it, like the page's choice. Already temporary: only the
+                // date changes, and the choice it has (maybe "keep the call history") stays.
+                val purge = if (at != null) TemporaryChoice.purgeOnNewDate(summary.expiresAt != null) else null
+                // Only the date and that choice change: the sealed details are never re-sealed from here (so details whose
+                // key is lost keep waiting for the page's "Keep what's left").
+                c.vault.setExpiry(v, at, purge)
             } else if (days == null) {
                 c.contacts.lookupKeyOf(id)?.let { c.temporaries.clear(it) }
             } else {
-                c.temporaries.mark(id, days, purgeHistory = true)
+                // A contact that is temporary already keeps its call-history choice.
+                val purge = c.contacts.lookupKeyOf(id)?.let { c.temporaries.forKey(it) }?.purgeHistory ?: true
+                c.temporaries.mark(id, days, purgeHistory = purge)
             }
         }
         c.contacts.refresh()
@@ -65,6 +71,8 @@ class BulkContactActions(private val c: DataContainer) {
         // Read them all first: a locked vault stops the whole batch rather than half of it.
         val details = vaultIds.associateWith { c.vault.details(it) }
         val conversions = ContactConversions(c)
-        return details.count { (v, d) -> d != null && suspendRunCatching { conversions.makeVisible(v, d, account) }.getOrNull() != null }
+        return details.count { (v, d) ->
+            d != null && suspendRunCatching { conversions.makeVisible(v, d, account) }.getOrNull() is ContactConversions.MadeVisible.Done
+        }
     }
 }

@@ -270,6 +270,12 @@ class ContactDetailViewModel(private val c: DataContainer) : ViewModel() {
     private suspend fun updatePrivate(change: (ContactDetails) -> ContactDetails): Boolean {
         val v = vaultId ?: return false
         return try {
+            // Details whose key is gone come back rebuilt from the caller-ID copy: saving them would replace the sealed
+            // record without the user's "Keep what's left" choice on the page.
+            if (c.vault.detailsLost(v)) {
+                say(R.string.vault_details_lost_change)
+                return false
+            }
             val d = c.vault.details(v) ?: return false
             c.vault.save(v, change(d))
             reload()
@@ -393,11 +399,13 @@ class ContactDetailViewModel(private val c: DataContainer) : ViewModel() {
             v != null && days == null -> c.vault.setExpiry(v, null)
             v != null -> {
                 val at = System.currentTimeMillis() + days!! * app.parley.common.people.TemporaryChoice.DAY_MS
-                val sealed = suspendRunCatching { c.vault.details(v) }.getOrNull()
-                if (sealed != null) c.vault.save(v, sealed, expiresAt = at, purgeHistory = true) else c.vault.setExpiry(v, at)
+                // A new date keeps a temporary contact's call-history choice; only one made temporary now takes the
+                // default. The sealed details aren't re-sealed for this (nor over a lost detail key).
+                val already = c.vault.summary(v)?.expiresAt != null
+                c.vault.setExpiry(v, at, app.parley.common.people.TemporaryChoice.purgeOnNewDate(already))
             }
             days == null -> c.temporaries.clear(d.lookupKey)
-            else -> c.temporaries.mark(id, days, purgeHistory = true)
+            else -> c.temporaries.mark(id, days, purgeHistory = c.temporaries.forKey(d.lookupKey)?.purgeHistory ?: true)
         }
         reload()
         messages.trySend(
@@ -428,20 +436,23 @@ class ContactDetailViewModel(private val c: DataContainer) : ViewModel() {
         reload()
     }
 
-    /** Deletes this private contact with everything Parley kept about it; [then] runs once done. */
-    fun deletePrivate(then: () -> Unit) = launch {
+    /**
+     * Deletes this private contact with everything Parley kept about it; [then] runs once done. [keepCopy] false
+     * deletes it without a copy in History & undo. When the copy couldn't be kept nothing is deleted and [noCopy] runs,
+     * so the page can ask whether to delete without one.
+     */
+    fun deletePrivate(keepCopy: Boolean = true, noCopy: () -> Unit = {}, then: () -> Unit) = launch {
         val v = vaultId ?: return@launch
-        ContactConversions(c).deletePrivate(v)
-        then()
+        if (ContactConversions(c).deletePrivate(v, keepCopy)) then() else noCopy()
     }
 
     /**
      * "Make visible to other apps": back to the address book (lossless, re-keyed). Throws
-     * [VaultCrypto.LockedException] when the vault must be unlocked first. Returns the new contact id, or null.
+     * [VaultCrypto.LockedException] when the vault must be unlocked first. Returns what happened.
      */
-    suspend fun makeVisible(account: app.parley.data.AccountRef): Long? {
-        val v = vaultId ?: return null
-        val d = c.vault.details(v) ?: return null
+    suspend fun makeVisible(account: app.parley.data.AccountRef): ContactConversions.MadeVisible {
+        val v = vaultId ?: return ContactConversions.MadeVisible.NotWritten
+        val d = c.vault.details(v) ?: return ContactConversions.MadeVisible.NotWritten
         return ContactConversions(c).makeVisible(v, d, account)
     }
 

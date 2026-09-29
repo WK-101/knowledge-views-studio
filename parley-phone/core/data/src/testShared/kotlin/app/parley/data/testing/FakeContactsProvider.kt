@@ -31,6 +31,15 @@ class FakeContactsProvider : ContentProvider() {
 
     val writes = ArrayList<Write>()
 
+    /**
+     * When set, a new raw contact (without aggregation disabled) joins this contact, as Android's aggregator joins a
+     * contact with the same name and number: another account's copy, or a messenger's.
+     */
+    @Volatile var joinNewRawsInto: Long? = null
+
+    /** While true, contacts are listed without a lookup key, as right after an insert before aggregation settles. */
+    @Volatile var lookupKeysUnreadable = false
+
     /** Numbers the work profile's contacts hold, answered by the enterprise phone lookup only. */
     val workNumbers = HashSet<String>()
 
@@ -105,7 +114,7 @@ class FakeContactsProvider : ContentProvider() {
                 s.size == 1 -> q("contacts")
                 s[1] == "lookup" -> q("contacts", "_id = ${resolveLookup(s[2], s.getOrNull(3)?.toLongOrNull()) ?: -1}")
                 else -> q("contacts", "_id = ${s[1].toLong()}")
-            }
+            }.let { if (lookupKeysUnreadable) withoutLookup(it) else it }
             "raw_contacts" -> if (s.size == 1) q("raw_contacts") else q("raw_contacts", "_id = ${s[1].toLong()}")
             "data" -> when {
                 s.size == 1 -> q("data_view")
@@ -117,6 +126,15 @@ class FakeContactsProvider : ContentProvider() {
             "phone_lookup" -> phoneLookup(s.getOrNull(1).orEmpty(), projection, work = false)
             "phone_lookup_enterprise" -> phoneLookup(s.getOrNull(1).orEmpty(), projection, work = true)
             else -> MatrixCursor(projection ?: emptyArray())
+        }
+    }
+
+    /** [c] with every "lookup" value null. */
+    private fun withoutLookup(c: Cursor): Cursor = c.use {
+        MatrixCursor(it.columnNames).apply {
+            while (it.moveToNext()) {
+                addRow(Array<Any?>(it.columnCount) { i -> if (it.getColumnName(i) == "lookup" || it.isNull(i)) null else it.getString(i) })
+            }
         }
     }
 
@@ -202,7 +220,8 @@ class FakeContactsProvider : ContentProvider() {
         return when (segments(uri).firstOrNull()) {
             "raw_contacts" -> {
                 val id = db.insertOrThrow("raw_contacts", null, known("raw_contacts", values))
-                if (values?.containsKey("contact_id") != true) db.execSQL("UPDATE raw_contacts SET contact_id = _id WHERE _id = $id")
+                val join = joinNewRawsInto?.takeIf { values?.getAsInteger("aggregation_mode") != ContactsContract.RawContacts.AGGREGATION_MODE_DISABLED }
+                if (values?.containsKey("contact_id") != true) db.execSQL("UPDATE raw_contacts SET contact_id = ${join ?: id} WHERE _id = $id")
                 touchRaw(id)
                 ContentUris.withAppendedId(ContactsContract.RawContacts.CONTENT_URI, id)
             }

@@ -103,4 +103,24 @@ class RelationMirrorsTest {
         assertTrue(report.done.isEmpty())
         assertEquals(listOf(Relation.TYPE_BROTHER), relationsOf(ana).map { it.type })
     }
+
+    @Test fun a_contact_leaving_the_address_book_takes_back_only_unchanged_rows_and_its_name() = runBlocking {
+        val ana = create("Ana")
+        val ben = create("Ben")
+        val family = listOf(DataItem(value = "Ana Lee", type = Relation.TYPE_MOTHER), DataItem(value = "Ben Lee", type = Relation.TYPE_BROTHER))
+        val sam = create("Sam", family)
+        mirrors.mirror(sam, family, mapOf("ana lee" to link(ana), "ben lee" to link(ben)))
+        assertEquals("Sam Lee", relationsOf(ana).single().value)
+        // The user rewrote Ben's row in their own words: it is theirs now.
+        val benNow = repo.editable(ben)!!
+        repo.save(benNow, benNow.copy(relations = listOf(benNow.relations.single().copy(value = "Sammy"))), null, null, false)
+        val prefs = app.getSharedPreferences("relation_mirrors", android.content.Context.MODE_PRIVATE)
+        assertTrue(prefs.getString("created", null).orEmpty().contains("Sam Lee"))
+
+        assertEquals(1, mirrors.takeBack(sam, repo.lookupKeyOf(sam)!!))
+        assertTrue("Parley's own row on Ana goes", relationsOf(ana).isEmpty())
+        assertEquals("the user's row on Ben stays", "Sammy", relationsOf(ben).single().value)
+        assertTrue("no record of Sam's name stays", prefs.getString("created", null).isNullOrEmpty())
+        assertEquals(0, mirrors.takeBack(sam, repo.lookupKeyOf(sam)!!))
+    }
 }

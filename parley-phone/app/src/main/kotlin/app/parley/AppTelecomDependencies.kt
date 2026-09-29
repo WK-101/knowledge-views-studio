@@ -256,9 +256,10 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
 
     // Memory only (the call path runs on the main thread): settings, rules and label ringtones are warmed at app
     // start, and anything not read yet counts as "on".
-    // Private contacts' ringtones, "send to voicemail" and labels are applied by screening too (Android never sees them).
+    // Private contacts' ringtones, "send to voicemail" and labels are applied by screening too (Android never sees them);
+    // until the vault's flag is read (warmed at start, separately from the people settings) it counts as "on" as well.
     override fun screeningActive(): Boolean = c.screener.isActive() || !c.peoplePrefs.loaded || c.peoplePrefs.settings.value.labelRingtones.isNotEmpty() ||
-        VaultCallChoices.any
+        !VaultCallChoices.loaded || VaultCallChoices.any
 
     // ---- Blocking & screening ----
 
