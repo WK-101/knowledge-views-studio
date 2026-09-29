@@ -1,36 +1,28 @@
 package app.parley.ui.contact
 
-import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.AddAPhoto
 import androidx.compose.material.icons.rounded.ArrowDropDown
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Lock
-import androidx.compose.material.icons.rounded.RemoveCircle
-import androidx.compose.material3.AssistChip
-import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -67,7 +59,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -81,92 +72,71 @@ import app.parley.ui.ParleyDialog
 import app.parley.ui.ConfirmDialog
 import app.parley.ui.ParleySheet
 import app.parley.ui.ParleyShapes
-import app.parley.ui.topOnly
-import app.parley.ui.bottomOnly
-import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
 import app.parley.ui.ParleyListItem
-import app.parley.ui.ParleyMotion
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.material.icons.rounded.RemoveCircleOutline
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.input.OffsetMapping
+import androidx.compose.ui.text.input.TransformedText
+import androidx.compose.ui.text.input.VisualTransformation
+import app.parley.common.people.PhoneTyping
+import app.parley.ui.ParleyFormField
+import app.parley.ui.formFieldShape
 
-// Building blocks of the redesigned contact editor.
+// Building blocks of the contact editor (4.2): tonal fields stacked per group, one icon per group in the gutter,
+// the type as a quiet pill at the end of each value. See docs/EDITOR_DESIGN.md.
 
-/** Where a piece sits in its group card: the pieces of one group stack into one rounded card. */
-internal enum class SegPos { Top, Middle, Bottom, Single }
-
-/**
- * One piece of a group card. Groups are split into pieces (head, one per row, the "Add" row) so each row can be
- * its own lazy item and animate in and out on its own, while the pieces still read as one card.
- */
-@Composable
-internal fun Segment(pos: SegPos, modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
-    val shape = when (pos) {
-        SegPos.Top -> ParleyShapes.panel.topOnly()
-        SegPos.Middle -> RectangleShape
-        SegPos.Bottom -> ParleyShapes.panel.bottomOnly()
-        SegPos.Single -> ParleyShapes.panel
-    }
-    Surface(shape = shape, color = MaterialTheme.colorScheme.surfaceContainer, modifier = modifier.fillMaxWidth()) {
-        val top = if (pos == SegPos.Top || pos == SegPos.Single) 12.dp else 4.dp
-        val bottom = if (pos == SegPos.Bottom || pos == SegPos.Single) 8.dp else 4.dp
-        Column(Modifier.padding(start = 16.dp, end = 8.dp, top = top, bottom = bottom), content = content)
-    }
-}
-
-/** A group's title line: its icon in a tinted circle, then the title (a TalkBack heading). */
-@Composable
-internal fun GroupHead(icon: ImageVector, title: String) {
-    Row(
-        Modifier.fillMaxWidth().padding(end = 8.dp, bottom = 4.dp).semantics(mergeDescendants = true) { heading() },
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Box(
-            Modifier.size(36.dp).clip(CircleShape).background(MaterialTheme.colorScheme.secondaryContainer),
-            contentAlignment = Alignment.Center,
-        ) { Icon(icon, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSecondaryContainer) }
-        Spacer(Modifier.width(12.dp))
-        Text(title, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
-    }
-}
-
-/** "+ Add phone": a full-width 48dp row with the + in a tinted circle. */
-@Composable
-internal fun AddRow(label: String, onClick: () -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().heightIn(min = 48.dp).clip(ParleyShapes.control).clickable(onClick = onClick).padding(vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Box(
-            Modifier.size(28.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer),
-            contentAlignment = Alignment.Center,
-        ) { Icon(Icons.Rounded.Add, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer) }
-        Spacer(Modifier.width(12.dp))
-        Text(label, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-    }
-}
-
-/** The red "−" that removes one row (48dp target). */
+/** The quiet "⊖" that removes one row (48 dp target, in the form's end column). */
 @Composable
 internal fun RemoveButton(description: String, onClick: () -> Unit) {
-    IconButton(onClick) { Icon(Icons.Rounded.RemoveCircle, description, tint = MaterialTheme.colorScheme.error) }
+    IconButton(onClick) { Icon(Icons.Rounded.RemoveCircleOutline, description, tint = MaterialTheme.colorScheme.onSurfaceVariant) }
 }
 
 /** Fields whose Data row the provider marks read-only: shown, but locked. */
 internal val LocalLocked = staticCompositionLocalOf<Set<Long>> { emptySet() }
 
+/** The country phone numbers are formatted for while typing. */
+val LocalCountryIso = staticCompositionLocalOf { "US" }
+
 @Composable
 internal fun LockIcon() = Icon(Icons.Rounded.Lock, stringResource(R.string.edit_locked))
 
-internal val FieldShape: Shape @Composable get() = ParleyShapes.control
+/**
+ * Shows a phone number grouped the local way while it's typed ([PhoneTyping]); what's saved stays as typed.
+ * Numbers with their own spaces, dashes or pauses show unchanged.
+ */
+private class PhoneVisual(private val iso: String) : VisualTransformation {
+    override fun filter(text: AnnotatedString): TransformedText {
+        val p = PhoneTyping.of(text.text, iso)
+        if (p.shown == text.text) return TransformedText(text, OffsetMapping.Identity)
+        return TransformedText(
+            AnnotatedString(p.shown),
+            object : OffsetMapping {
+                override fun originalToTransformed(offset: Int) = p.toShown(offset)
+                override fun transformedToOriginal(offset: Int) = p.toTyped(offset)
+            },
+        )
+    }
+
+    override fun equals(other: Any?) = other is PhoneVisual && other.iso == iso
+    override fun hashCode() = iso.hashCode()
+}
 
 /**
- * A single-line editor field: IME "Next" moves on to the following field; [hint] is a gentle note shown once the
- * field was left (never while typing); [locked] rows are read-only with a lock.
+ * A single-line editor field: IME "Next" moves on to the following field ("Done" closes the keyboard where asked);
+ * [hint] is a gentle note shown once the field was left (never while typing); [locked] rows are read-only with a
+ * lock. [phone] formats the number as it's typed.
  */
 @Composable
 internal fun EditorField(
     label: String,
     value: String,
     modifier: Modifier = Modifier,
+    shape: Shape = formFieldShape(0, 1),
     cap: KeyboardCapitalization = KeyboardCapitalization.None,
     keyboard: KeyboardType = KeyboardType.Text,
     locked: Boolean = false,
@@ -176,55 +146,96 @@ internal fun EditorField(
     hint: String? = null,
     support: String? = null,
     error: Boolean = false,
+    phone: Boolean = false,
+    ime: ImeAction = ImeAction.Next,
     trailing: (@Composable () -> Unit)? = null,
     onChange: (String) -> Unit,
 ) {
     var left by remember { mutableStateOf(false) }
     var focused by remember { mutableStateOf(false) }
     val showHint = hint != null && left && !focused
-    OutlinedTextField(
-        value, onChange, label = { Text(label) }, singleLine = true, shape = FieldShape,
+    val focusManager = LocalFocusManager.current
+    val iso = LocalCountryIso.current
+    val ltr = keyboard == KeyboardType.Phone || keyboard == KeyboardType.Email || keyboard == KeyboardType.Uri
+    ParleyFormField(
+        value, onChange, label, shape = shape,
         modifier = modifier.fillMaxWidth()
             .then(if (focus != null) Modifier.focusRequester(focus) else Modifier)
-            .onFocusChanged { s -> if (focused && !s.isFocused) left = true; focused = s.isFocused },
+            .onFocusChanged { s ->
+                if (focused && !s.hasFocus) left = true
+                focused = s.hasFocus
+            },
         readOnly = locked,
-        prefix = prefix?.let { p -> { Text(p) } },
-        placeholder = placeholder?.let { p -> { Text(p) } },
-        trailingIcon = if (locked) { { LockIcon() } } else trailing,
-        supportingText = when {
-            showHint -> { { Text(hint.orEmpty(), color = MaterialTheme.colorScheme.tertiary) } }
-            support != null -> { { Text(support) } }
-            else -> null
-        },
+        prefix = prefix,
+        placeholder = placeholder,
+        trailing = if (locked) { { LockIcon() } } else trailing,
+        supporting = if (showHint) hint else support,
+        supportingColor = if (showHint) MaterialTheme.colorScheme.tertiary else null,
         isError = error,
-        keyboardOptions = KeyboardOptions(capitalization = cap, keyboardType = keyboard, imeAction = ImeAction.Next),
-        keyboardActions = KeyboardActions.Default,
+        forceLtr = ltr,
+        visualTransformation = if (phone) remember(iso) { PhoneVisual(iso) } else VisualTransformation.None,
+        keyboardOptions = KeyboardOptions(
+            capitalization = cap, keyboardType = keyboard, imeAction = ime,
+            autoCorrectEnabled = if (ltr || cap == KeyboardCapitalization.Words) false else null,
+        ),
+        keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
     )
 }
 
-/** The inline type chip under a row ("Mobile ▾"): a quick menu of the usual types plus "Custom…". */
+/**
+ * The type of a value ("Mobile ▾") as a quiet pill: a quick menu of the usual types, the current one ticked, plus
+ * "Custom…". It sits at the end of the value's field, or under it when the line is too narrow ([TypedLine]).
+ */
 @Composable
-internal fun TypeChip(current: String, options: List<String>, enabled: Boolean = true, onPick: (Int) -> Unit) {
+internal fun TypePill(current: String, options: List<String>, enabled: Boolean = true, onOpen: (() -> Unit)? = null, onPick: (Int) -> Unit = {}) {
     var open by remember { mutableStateOf(false) }
     val desc = stringResource(R.string.editor_type, current)
     val change = stringResource(R.string.editor_change_type)
-    Box {
-        AssistChip(
-            onClick = { open = true }, enabled = enabled,
-            label = { Text(current, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-            trailingIcon = if (enabled) { { Icon(Icons.Rounded.ArrowDropDown, null, Modifier.size(AssistChipDefaults.IconSize)) } } else null,
-            shape = ParleyShapes.control,
+    Box(Modifier.padding(end = 8.dp)) {
+        Surface(
+            onClick = { if (onOpen != null) onOpen() else open = true }, enabled = enabled,
+            shape = ParleyShapes.pill, color = MaterialTheme.colorScheme.surfaceContainerHighest,
+            contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.semantics {
                 contentDescription = desc
-                onClick(label = change) { open = true; true }
+                onClick(label = change) { if (onOpen != null) onOpen() else open = true; true }
             },
-        )
-        DropdownMenu(open, { open = false }) {
+        ) {
+            Row(Modifier.heightIn(min = 32.dp).padding(start = 12.dp, end = if (enabled) 6.dp else 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    current, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.widthIn(max = 128.dp),
+                )
+                if (enabled) Icon(Icons.Rounded.ArrowDropDown, null, Modifier.size(20.dp))
+            }
+        }
+        DropdownMenu(open, { open = false }, shape = ParleyShapes.tile) {
             options.forEachIndexed { i, o ->
                 DropdownMenuItem(
                     text = { Text(o) }, onClick = { open = false; onPick(i) },
                     trailingIcon = if (o == current) { { Icon(Icons.Rounded.Check, null) } } else null,
                 )
+            }
+        }
+    }
+}
+
+/**
+ * A value's field with its type [pill] at the field's end, or on its own line under the field when the field would
+ * get too narrow (small screens, large fonts), so the value itself always has room.
+ */
+@Composable
+internal fun TypedLine(pill: (@Composable () -> Unit)?, field: @Composable (trailing: (@Composable () -> Unit)?) -> Unit) {
+    if (pill == null) { field(null); return }
+    val fontScale = LocalDensity.current.fontScale
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        val below = maxWidth < 232.dp || fontScale >= 1.5f
+        if (!below) {
+            field(pill)
+        } else {
+            Column {
+                field(null)
+                Box(Modifier.padding(top = 4.dp, bottom = 2.dp)) { pill() }
             }
         }
     }
@@ -241,22 +252,16 @@ internal fun PhotoHeader(name: String, photo: String?, onPick: () -> Unit, onRem
             Modifier.semantics(mergeDescendants = true) { contentDescription = photoDesc }
                 .clip(CircleShape).clickable(onClickLabel = pickLabel, onClick = onPick),
         ) {
-            Avatar(name.ifBlank { "?" }, photo, 128.dp)
+            Avatar(name.ifBlank { "?" }, photo, 120.dp)
             Surface(
-                shape = CircleShape, color = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary,
+                shape = CircleShape, color = MaterialTheme.colorScheme.primaryContainer, contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                 border = BorderStroke(3.dp, MaterialTheme.colorScheme.surface),
                 modifier = Modifier.align(Alignment.BottomEnd).size(40.dp),
             ) { Box(contentAlignment = Alignment.Center) { Icon(if (has) Icons.Rounded.Edit else Icons.Rounded.AddAPhoto, null, Modifier.size(20.dp)) } }
         }
-        Row(horizontalArrangement = Arrangement.Center) {
+        Row(horizontalArrangement = Arrangement.Center, modifier = Modifier.padding(top = 4.dp)) {
             TextButton(onPick) { Text(stringResource(if (has) R.string.editor_edit_photo else R.string.editor_add_photo)) }
             if (has) TextButton(onRemove) { Text(stringResource(R.string.edit_remove_photo), color = MaterialTheme.colorScheme.error) }
-        }
-        if (name.isNotBlank()) {
-            Text(
-                name, style = MaterialTheme.typography.headlineSmall, textAlign = TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(horizontal = 16.dp).animateContentSize(ParleyMotion.spatial()),
-            )
         }
     }
 }

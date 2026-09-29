@@ -1234,3 +1234,19 @@ Design and spec: [CALL_SCREEN_DESIGN.md](CALL_SCREEN_DESIGN.md). Check each step
 15. **Picture-in-picture.** Press Home during a call: the small window carries the same caller tint, name, time and Muted tag; Mute and Hang up still work.
 16. **Ring latency.** Cold-start the phone app and ring it (or run the IncomingCallBenchmark): the incoming screen appears as fast as before; a large call-screen picture fades in after the screen is up.
 17. **Emergency.** (Test number where available.) An emergency call shows the "Emergency call" tag; nothing about limits, screening or prompts changed.
+
+## 23. Corrections (4.2)
+
+### 23.3 Contact editor redesign
+
+Design: [EDITOR_DESIGN.md](EDITOR_DESIGN.md) ("4.2 redesign"). Check each step in light, dark and black (AMOLED) themes.
+
+1. **New contact.** Contacts › + : the photo with "Add photo", the "Save to" pill, then the name block with no card around it. The keyboard opens on First name. Each group shows its icon once in the start gutter (person, work, phone, email); the fields are soft tonal blocks with thin 2 dp joins, no outlines. Save in the top bar is greyed until you type something, then fills in.
+2. **Focus.** Tap a field: it lifts a shade and gets a 2 dp ring in the primary colour; the label moves up inside the field. IME "Next" walks First name › Last name › Company › Job title › Phone › Email.
+3. **Phone formatting.** Type 2025550134 with a US SIM (or 07700900123 with a UK one): it shows as "(202) 555-0134" / "07700 900123" while typing; the flag appears after six digits. Type your own spaces or dashes: the number shows exactly as typed. Save, reopen: the saved number is what was typed.
+4. **Type pills.** "Mobile ▾" sits at the end of each phone and email. Tap it: the menu ticks the current type and offers "Custom…". With the largest font, or on a very narrow screen, the pill moves under its field so the number keeps its room.
+5. **Rows.** "+ Add phone" adds a row that animates in and takes the focus; the ⊖ at the end removes one. An account-locked row shows a lock instead of ⊖, and its type as text under it.
+6. **Name details.** The chevron at the end of First name opens prefix, middle name, suffix, phonetic names and nickname around it as one block; it can't close while any of them holds text.
+7. **Add more info.** The button opens the sheet with only kinds not on screen. Dates: tap the date field and the year-optional picker opens; the type pill offers Birthday, Anniversary, Other, Death, Custom…. Address: one block per address (street with type pill, postcode + city, region + country) and "Add from map link" under it. Relations: the person-search icon picks a contact, the pill opens the searchable relation types. Handles: service pill; "Other" adds a service-name line in the same block.
+8. **Everything else.** Labels (chips), Notes, the call-screen picture (existing contacts), private contacts' "When they call" fields, the duplicate warning ("already exists") while typing a known name or number, the discard guard (Back or ✕ after a change, predictive back scales the page) and the changed-elsewhere sheet all work as before.
+9. **Layouts.** Landscape or a tablet: photo, account, name and work on the left, the other groups on the right. Arabic or Urdu: the gutter icons and ⊖ mirror; phone numbers, emails and websites stay left to right. TalkBack: each group's icon is read as a heading ("Phone"), pills as "Type: Mobile, double-tap to change type", ⊖ as "Remove number".
