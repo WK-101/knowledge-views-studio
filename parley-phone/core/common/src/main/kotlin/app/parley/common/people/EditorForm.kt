@@ -1,17 +1,46 @@
 package app.parley.common.people
 
 /**
- * The pure rules behind the contact editor: which optional groups "Add more info" still offers,
+ * The pure rules behind the contact editor: which groups the "Add" chips still offer, where the type selector goes,
  * when Save is enabled, what counts as a change, and gentle format checks. The UI (ContactEditScreen) feeds it
  * plain values so it stays testable here.
  */
 object EditorForm {
-    /** Optional groups, in the order the "Add more info" sheet lists them. Phones and e-mails are always shown. */
-    enum class Kind { NAME_DETAILS, DATE, ADDRESS, WEBSITE, HANDLE, RELATION, NOTE }
+    /**
+     * The editor's groups that can be added or hidden. The first seven are the original optional kinds; the rest joined
+     * when the editor started showing only what a contact holds (plus name and phone), so a new contact is short.
+     * Names are kept in saved state, so entries are only ever appended.
+     */
+    enum class Kind { NAME_DETAILS, DATE, ADDRESS, WEBSITE, HANDLE, RELATION, NOTE, PHONE, EMAIL, WORK, LABELS, CALL_BACKGROUND, WHEN_THEY_CALL }
 
-    /** The kinds the sheet still offers: every optional kind not on screen yet ([shown]), in sheet order. */
-    fun addable(shown: Set<Kind>, allowed: Set<Kind> = Kind.entries.toSet()): List<Kind> =
-        Kind.entries.filter { it in allowed && it !in shown }
+    /** The "Add" chips' order: the commonest kinds first, so the ones people want are visible without scrolling. */
+    val chipOrder: List<Kind> = listOf(
+        Kind.PHONE, Kind.EMAIL, Kind.WORK, Kind.DATE, Kind.ADDRESS, Kind.NOTE, Kind.WEBSITE, Kind.RELATION, Kind.HANDLE,
+        Kind.WHEN_THEY_CALL, Kind.LABELS, Kind.CALL_BACKGROUND, Kind.NAME_DETAILS,
+    )
+
+    /** Kinds that hold several rows: their chip stays after the group is shown and adds another row. */
+    val repeatable: Set<Kind> = setOf(Kind.PHONE, Kind.EMAIL, Kind.DATE, Kind.ADDRESS, Kind.WEBSITE, Kind.RELATION, Kind.HANDLE)
+
+    /**
+     * The "Add" chips, the editor's one add control: every [allowed] kind not on screen yet ([shown]), plus the
+     * repeatable ones already shown unless their group still has an empty row to fill ([withBlankRow]).
+     */
+    fun addChoices(shown: Set<Kind>, withBlankRow: Set<Kind> = emptySet(), allowed: Set<Kind> = Kind.entries.toSet()): List<Kind> =
+        chipOrder.filter { it in allowed && (it !in shown || (it in repeatable && it !in withBlankRow)) }
+
+    /**
+     * Where a value's type selector goes: inside the field at its end, or under the field only when the field would
+     * get too narrow for the value ([fieldWidthDp]) or the font is large ([fontScale] ≥ 1.3).
+     */
+    fun typeBelow(fieldWidthDp: Float, fontScale: Float): Boolean = fieldWidthDp < MIN_TYPED_FIELD_DP || fontScale >= LARGE_FONT
+
+    /** The photo sits beside the name fields, or above them on a narrow screen or with a large font. */
+    fun photoBesideName(widthDp: Float, fontScale: Float): Boolean = widthDp >= MIN_BESIDE_DP && fontScale < LARGE_FONT
+
+    private const val MIN_TYPED_FIELD_DP = 232f
+    private const val MIN_BESIDE_DP = 300f
+    private const val LARGE_FONT = 1.3f
 
     /**
      * Rows that count when comparing the draft with where editing started: a row that was never saved ([isNew])

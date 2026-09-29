@@ -2,13 +2,16 @@ package app.parley.ui.contact
 
 import android.net.Uri
 import app.parley.R
+import app.parley.common.people.ExpiryChange
 import app.parley.common.people.RelationLinks
+import app.parley.common.people.TemporaryChoice
 import app.parley.common.suspendRunCatching
 import app.parley.data.AccountRef
 import app.parley.data.ContactChangedElsewhereException
 import app.parley.data.ContactDetails
 import app.parley.data.ContactPhotoProcessor
 import app.parley.data.DataContainer
+import app.parley.data.TemporaryContacts
 import app.parley.data.db.ContactMetaEntity
 import app.parley.data.people.CallBackgrounds
 import app.parley.ui.people.BackgroundChange
@@ -36,6 +39,10 @@ class SaveContactUseCase(private val c: DataContainer) {
         val background: BackgroundChange,
         /** Relations whose contact was chosen with the picker (name key → that contact). */
         val pickedLinks: Map<String, RelationLinks.Link>,
+        /** "Save to: Temporary" for a new contact: it deletes itself after the chosen time (null: an ordinary one). */
+        val temporary: TemporaryChoice? = null,
+        /** An existing contact made temporary, given a new time, or kept permanently in the editor (null: untouched). */
+        val expiry: ExpiryChange? = null,
     )
 
     sealed interface Outcome {
@@ -61,15 +68,24 @@ class SaveContactUseCase(private val c: DataContainer) {
 
     private suspend fun run(r: Request): Outcome {
         val notes = ArrayList<Int>()
+        val temporary = r.temporary?.takeIf { r.original == null && (r.vaultId ?: 0L) <= 0L }
         val id = suspendRunCatching {
-            if (r.toVault) saveVault(r, notes) else saveContact(r, notes)
+            when {
+                temporary != null -> saveTemporary(r, temporary, notes)
+                r.toVault -> saveVault(r, notes)
+                else -> saveContact(r, notes)
+            }
         }.getOrElse { e ->
             if (e is ContactChangedElsewhereException) return Outcome.ChangedElsewhere(reload(r.original))
             return Outcome.Failed(e.message.orEmpty())
         } ?: return Outcome.NotSaved
-        // A temporary contact the user just edited for real is asked once whether to keep it.
+        // The expiry picked in the editor; the vault's was written with the contact itself.
+        val expiry = r.expiry
+        if (expiry != null && !r.toVault && suspendRunCatching { applyExpiry(r, id, expiry) }.isFailure) notes += R.string.editor_expiry_failed
+        // A temporary contact the user just edited for real is asked once whether to keep it (unless its time was
+        // just chosen here, which answers that already).
         val key = r.original?.lookupKey
-        val askKeep = !r.toVault && !key.isNullOrEmpty() && c.temporaries.needsKeepPrompt(key)
+        val askKeep = expiry == null && !r.toVault && !key.isNullOrEmpty() && c.temporaries.needsKeepPrompt(key)
         return Outcome.Saved(id, key.takeIf { askKeep }, notes)
     }
 
@@ -88,8 +104,21 @@ class SaveContactUseCase(private val c: DataContainer) {
     private suspend fun saveVault(r: Request, notes: MutableList<Int>): Long {
         val e = r.draft
         val cleaned = e.copy(handles = e.handles.filter { it.value.isNotBlank() })
-        val id = c.vault.save(r.vaultId?.takeIf { it > 0 }, cleaned)
-        // The encrypted caller photo, decoded reduced and upright from the picked file, never read whole.
+        // Made temporary (or given a new time) in the editor: the expiry is saved with it, and like "Delete
+        // automatically" on the contact page its call history goes too; "Keep permanently" clears it afterwards.
+        val after = r.expiry as? ExpiryChange.After
+        val id = c.vault.save(
+            r.vaultId?.takeIf { it > 0 }, cleaned,
+            expiresAt = after?.let { System.currentTimeMillis() + it.days * TemporaryChoice.DAY_MS },
+            purgeHistory = if (after != null) true else null,
+        )
+        if (r.expiry == ExpiryChange.Keep) c.vault.setExpiry(id, null)
+        vaultPhoto(id, r, notes)
+        return -id // negative ids mark vault contacts for the caller
+    }
+
+    /** The encrypted caller photo, decoded reduced and upright from the picked file, never read whole. */
+    private suspend fun vaultPhoto(id: Long, r: Request, notes: MutableList<Int>) {
         val picked = r.photo
         if (picked != null) {
             val bytes = withContext(Dispatchers.IO) { ContactPhotoProcessor.process(c.appContext.contentResolver, picked) }
@@ -97,7 +126,42 @@ class SaveContactUseCase(private val c: DataContainer) {
         } else if (r.removePhoto) {
             c.vault.removePhoto(id)
         }
-        return -id // negative ids mark vault contacts for the caller
+    }
+
+    /**
+     * A new temporary contact, through the same entry point as the keypad's "Save temporary contact": private in the
+     * vault (the default) or a phone-only contact that other apps can see; either way it deletes itself in time.
+     */
+    private suspend fun saveTemporary(r: Request, t: TemporaryChoice, notes: MutableList<Int>): Long? {
+        val e = r.draft
+        val details = if (t.private) e.copy(handles = e.handles.filter { it.value.isNotBlank() }) else e
+        val saved = TemporaryContacts.saveDetails(c, details, t.days, t.private, t.purgeHistory, photo = r.photo.takeUnless { t.private })
+            ?: return null
+        if (saved.private) {
+            vaultPhoto(saved.id, r, notes)
+            return -saved.id
+        }
+        rememberRelations(saved.id, e, r.pickedLinks)
+        return saved.id
+    }
+
+    /**
+     * An existing phone contact made temporary, given a new time, or kept: the same store the contact page's
+     * "Delete automatically" writes (its raw contacts are recorded; the call history setting it had is kept).
+     */
+    private suspend fun applyExpiry(r: Request, id: Long, e: ExpiryChange) {
+        val before = r.original?.lookupKey?.takeIf { it.isNotEmpty() }
+        when (e) {
+            ExpiryChange.Keep -> {
+                // The save can give the contact a new lookup key; the entry may sit under either.
+                val now = withContext(Dispatchers.IO) { c.contacts.lookupKeyOf(id) }?.takeIf { it.isNotEmpty() }
+                listOfNotNull(before, now).distinct().forEach { c.temporaries.clear(it) }
+            }
+            is ExpiryChange.After -> {
+                val purge = before?.let { c.temporaries.forKey(it) }?.purgeHistory ?: true
+                c.temporaries.mark(id, e.days, purge)
+            }
+        }
     }
 
     private suspend fun saveContact(r: Request, notes: MutableList<Int>): Long? {

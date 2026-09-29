@@ -63,3 +63,59 @@ What makes an editor feel modern rather than boxy, across all of them: **no box 
 - Unchanged: two columns ≥ 720 dp, discard guard with predictive back, draft restore and changed-elsewhere merge, lossless saving, locked rows (lock icon, type shown under the value), relations with the contact picker, year-optional dates, address map links, call-screen picture, labels, private contacts' "When they call", custom labels and services.
 
 Tokens: `FormTokens.gutter` 40 dp, `endColumn` 48 dp, `fieldHeight` 56 dp, `segmentGap` 2 dp, `groupGap` 16 dp, `outerCorner` 16 dp, `innerCorner` 4 dp.
+
+## 4.3 compact editor
+
+Feedback on 4.2: the editor is calmer, but "not properly optimized for efficient space usage and wastes a lot of space leading to a longer page", and "Save to" offers only the device account(s) and Private, not a temporary contact.
+
+### Where 4.2 spent the height (measured from the code, 360 × 800 dp phone)
+
+| Part (new contact) | 4.2 | Why it was waste |
+|---|---|---|
+| Photo header: 8 dp + 120 dp photo + "Add photo" text button row (48 dp) | 176 dp | A hero band for a picture most new contacts never get; the text button repeats what the badge says |
+| "Save to" chip, centred, with 8 dp above | 56 dp | Fine, but on its own line under the photo |
+| Gap before the name (`groupGap` + 8) | 24 dp | |
+| Name: 2 × 56 dp + 2 dp | 114 dp | 56 dp fields where 48 dp dense fields read just as well |
+| Work (company + title), always shown | 130 dp | An empty group on every new contact |
+| Phone: 56 + 2 dp, then "+ Add phone" row 48 dp + 12 dp | 118 dp | One tall add row per kind, even while the only row is still empty |
+| Email: the same | 118 dp | |
+| "Add more info" button, then the sheet | 48 dp | A second add control, and a sheet round trip for the commonest kinds |
+| End spacer | 48 dp | |
+| Type pill wrapping under the field (≥ 1.5 font or < 232 dp) | +40 dp per row when it wraps | |
+| Account labels row (FlowRow, min 56 dp), always shown when the account has labels | 76 dp | Empty for most new contacts |
+| Notes (3 lines), always shown on existing contacts; call-screen picture editor, always | ≈ 120 + 140 dp | Empty for most contacts |
+
+**Typical new contact (name + 1 phone + 1 email): ≈ 848 dp** (924 dp with a Google account's labels): more than one screen, so Save-and-check means scrolling. **A full contact** (name, company, 2 phones, 2 emails, a birthday, an address with its map link, a website, labels, a note, the call-screen picture): **≈ 1780 dp**.
+
+### What the current apps do (checked September 2026)
+
+- **iOS 26 Contacts**: only the fields a contact holds are shown, plus the essentials (name, company, "add phone", "add email"); every other kind is behind one "add field" list at the bottom. Rows are compact (44 pt), the label sits beside the value.
+- **Google Contacts** (M3 Expressive rollout, Aug 2025, version 4.61): the list and the contact page got rounded containers and pill buttons; "Create contact" kept its layout (photo, name, phone, email, "Add fields"). The rarer kinds are already behind one control.
+- **Samsung One UI 8**: storage ("Save to Phone / Samsung account / Google") at the very top as a small control; the rest behind "View more".
+- **Material 3**: dense text fields are 48 dp (4 dp above the label, 4 dp under the value: Compose's `DenseTextFieldContentPadding` sample uses `heightIn(min = 48.dp)` with `contentPaddingWithLabel`); density suits long forms and data-rich screens, as long as targets stay 48 dp. Filled fields and segmented lists (large outer, small inner corners, 2 dp gaps) are what Parley already uses.
+- **Linear / Notion**: properties are one compact line each; empty properties aren't shown until you add them from one "Add property" control.
+
+Common ground: show what is there, keep one add control, keep the type next to the value, keep the save location small and at the top.
+
+### Parley's 4.3 editor
+
+- **Save to line** at the top, start-aligned: a quiet chip "Save to: Google (132) ▾" whose menu lists the accounts, **Private** and **Temporary** ("Deletes itself after a time you choose"). With Temporary a second chip shows the time inline, "After 7 days ▾": 1 day, 7 days, 30 days or Custom… (1–3650 days), plus "Save visible to other apps" (off: private in Parley, like the keypad's "Save temporary contact") and "Also delete its call history" (on). One line of small print says where it goes. Saving goes through `TemporaryContacts.saveDetails`, the same entry point as the keypad (vault entry with an expiry, or a phone-only contact recorded by `TemporaryContactStore`), with the photo and every other field.
+- **Existing contacts**: "Saved in …" plus one chip for its expiry: "Make temporary", or its time left ("3 days left"). The menu offers the same times and "Keep permanently"; the choice is saved with the edit, through the same store the contact page's "Delete automatically" uses (`TemporaryContactStore.mark/clear`, `VaultRepository` expiry for private contacts). Choosing a time here answers "Keep this contact?", so that prompt isn't asked as well. Not offered when editing one copy of a linked contact (the expiry belongs to the whole contact). **"Make private" is not offered in the editor**: moving a contact into the vault deletes the system contact and re-creates it encrypted (with its record, metadata and interactions); that stays on the contact page's "Move to private", with its own confirmation, rather than riding along with a Save.
+- **Photo beside the name**: an 80 dp photo (with a small edit badge) centred on the First/Last name block; tapping it picks a photo, or with one opens "Change photo" / "Remove photo". Above the name (72 dp) on screens narrower than 300 dp or at font scale ≥ 1.3. The chevron at the block's end opens prefix, middle, suffix, phonetic names and nickname.
+- **Dense fields**: `ParleyFormField` is a `BasicTextField` with the filled decoration and Material's dense padding: **48 dp**, label inside. Gutter 36 dp (24 dp icon + 12 dp), end column 48 dp, 2 dp joins, **8 dp between groups**.
+- **Only what the contact holds**: name and phone always; email, work, dates, address, handles, website, relations, labels, notes, "When they call" (private) and the call-screen picture only when they hold something or were just added.
+- **One add control**: a line of small chips at the end, commonest first: Phone, Email, Work, Date, Address, Notes, Website, Relation, Messenger handles, When they call, Labels, Call screen. A repeatable kind stays offered (it adds another row) unless its group still has an empty row. Picking a chip adds the row, scrolls to it and focuses it (dates open the picker). The line scrolls sideways; at font scale ≥ 1.3 it wraps. The per-group "+ Add phone" rows and the "Add more info" sheet are gone.
+- **Type selector inside the field**: "Mobile ▾" as quiet text at the field's end (48 dp target, 96 dp max before it ellipsises). It moves under the field only when the field is narrower than 232 dp or the font scale is ≥ 1.3 (`EditorForm.typeBelow`).
+- Everything else is as before: two columns ≥ 720 dp, discard guard with predictive back, draft restore (the Save-to and expiry choices are in saved state too) and changed-elsewhere merge, duplicate warning, locked rows, map links, relations picker, year-optional dates, call-screen picture, custom labels and services.
+
+Tokens: `FormTokens.gutter` 36 dp, `endColumn` 48 dp, `fieldHeight` 48 dp, `segmentGap` 2 dp, `groupGap` 8 dp, `outerCorner` 16 dp, `innerCorner` 4 dp, `headerPhoto` 80 dp, `typeMaxWidth` 96 dp.
+
+### Height, before and after (360 × 800 dp phone, font scale 1.0)
+
+| | 4.2 | 4.3 | Change |
+|---|---|---|---|
+| New contact, name + 1 phone + 1 email | ≈ 848 dp | ≈ 350 dp (Save to 52, photo + name 98 + 8, phone 56, email 56, add chips 48, end 24; + 12 while the phone is empty) | **−59 %**, fits on one screen with the keyboard closed |
+| Same, Google account with labels | ≈ 924 dp | ≈ 350 dp (labels are a chip until used) | −62 % |
+| Full contact (see above) | ≈ 1780 dp | ≈ 1080 dp (work 106, 2 phones 106, 2 emails 106, date 56, address with map link 204, website 56, labels 56, notes 80, picture 150, add chips 48) | **−39 %** |
+
+At font scale 1.3 fields grow with the text, the type selector moves under the value and the add chips wrap, so the page is longer there by design; nothing is cut off.
