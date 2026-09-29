@@ -5,7 +5,9 @@ import android.os.Trace
 import android.telecom.Call
 import android.telecom.CallScreeningService
 import android.telecom.Connection
+import android.telecom.TelecomManager
 import app.parley.common.BlockAction
+import app.parley.common.BlockReason
 import app.parley.common.Decision
 import app.parley.common.Verification
 import app.parley.common.calls.EmergencyPolicy
@@ -60,9 +62,15 @@ class ParleyCallScreeningService : CallScreeningService() {
                 val decision = outcome?.decision
                 val b = CallResponse.Builder()
                 if (decision is Decision.Block && outcome?.deferredToSim != true) {
-                    when (decision.action) {
-                        BlockAction.REJECT -> b.setDisallowCall(true).setRejectCall(true).setSkipNotification(true)
-                        BlockAction.SILENCE -> if (Build.VERSION.SDK_INT >= 29) b.setSilenceCall(true)
+                    when {
+                        // A private contact's "Send to voicemail" is a plain decline, not a block. Any disallowed call is
+                        // written to the call log by Telecom as blocked (by this service), and setSkipCallLog only drops
+                        // it from the log. So when Parley is the phone app the call is let through silenced, and
+                        // CallManager declines it at once from the remembered verdict: logged as declined, like the
+                        // in-call path. With only the screening role nobody else would decline it: rejected here.
+                        decision.reason == BlockReason.SEND_TO_VOICEMAIL && isPhoneApp() -> b.setSilenceCall(true)
+                        decision.action == BlockAction.REJECT -> b.setDisallowCall(true).setRejectCall(true).setSkipNotification(true)
+                        decision.action == BlockAction.SILENCE -> b.setSilenceCall(true)
                     }
                 }
                 b.build()
@@ -72,6 +80,10 @@ class ParleyCallScreeningService : CallScreeningService() {
     }
 
     private fun allow(details: Call.Details) = respond(details, CallResponse.Builder().build())
+
+    /** Parley is the default phone app, so its in-call service gets every call this service lets through. */
+    private fun isPhoneApp(): Boolean =
+        runCatching { getSystemService(TelecomManager::class.java)?.defaultDialerPackage == packageName }.getOrDefault(false)
 
     private fun respond(details: Call.Details, response: CallResponse) {
         runCatching { respondToCall(details, response) }

@@ -5,16 +5,21 @@ import android.app.Application
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.net.Uri
+import android.provider.CallLog
 import android.provider.ContactsContract.CommonDataKinds.Phone
+import android.provider.ContactsContract.CommonDataKinds.Relation
 import androidx.test.core.app.ApplicationProvider
 import app.parley.common.circle.InteractionType
 import app.parley.common.people.ContactRef
+import app.parley.common.people.RelationLinks
 import app.parley.data.AccountRef
 import app.parley.data.ContactDetails
 import app.parley.data.DataContainer
 import app.parley.data.DataItem
 import app.parley.data.testing.FakeAndroidKeyStore
+import app.parley.data.testing.FakeCallLogProvider
 import app.parley.data.testing.FakeContactsProvider
+import app.parley.data.testing.VaultTesting
 import app.parley.data.vault.VaultCrypto
 import java.io.File
 import kotlinx.coroutines.cancel
@@ -41,10 +46,14 @@ import org.robolectric.annotation.Config
 class ContactConversionsTest {
     private val context: Application = ApplicationProvider.getApplicationContext()
     private lateinit var c: DataContainer
+    private lateinit var provider: FakeContactsProvider
+    private lateinit var callLog: FakeCallLogProvider
 
     @Before fun setUp() {
         FakeAndroidKeyStore.install()
-        FakeContactsProvider.install()
+        provider = FakeContactsProvider.install()
+        callLog = FakeCallLogProvider.install()
+        File(context.noBackupFilesDir, "vault_trash").deleteRecursively()
         shadowOf(context).grantPermissions(Manifest.permission.READ_CONTACTS, Manifest.permission.WRITE_CONTACTS)
         VaultCrypto.appContext = context
         c = DataContainer(context)
@@ -76,6 +85,9 @@ class ContactConversionsTest {
         if (group != null) c.contacts.addToGroup(listOf(id), c.contacts.groups().first { it.id == group })
         return id to key
     }
+
+    private suspend fun visible(conversions: ContactConversions, vaultId: Long): Long =
+        (conversions.makeVisible(vaultId, c.vault.details(vaultId)!!, AccountRef(null, null)) as ContactConversions.MadeVisible.Done).contactId
 
     private fun assertNothingUnder(key: String) = runBlocking {
         assertNull("meta left under $key", c.meta.meta(key))
@@ -109,7 +121,7 @@ class ContactConversionsTest {
         assertEquals(14, c.meta.meta(privateKey)?.reachOutDays)
 
         // ---- Make visible
-        val back = conversions.makeVisible(made.vaultId, c.vault.details(made.vaultId)!!, AccountRef(null, null))!!
+        val back = visible(conversions, made.vaultId)
         val newKey = c.contacts.lookupKeyOf(back)!!
         val restored = c.contacts.details(back)!!
         assertEquals("Ada Lovelace", restored.composedName)
@@ -143,7 +155,7 @@ class ContactConversionsTest {
         c.vault.updateCallerChoices(made.vaultId) { it.copy(sendToVoicemail = false) }
         assertEquals(setOf("Work"), c.privateLabels.titlesOf(made.vaultId))
 
-        val back = conversions.makeVisible(made.vaultId, c.vault.details(made.vaultId)!!, AccountRef(null, null))!!
+        val back = visible(conversions, made.vaultId)
         assertEquals(setOf("Work"), c.contacts.labelTitlesOf(back))
         val restored = c.contacts.details(back)!!
         assertEquals("content://tone/ada", restored.customRingtone)
@@ -162,7 +174,7 @@ class ContactConversionsTest {
         assertEquals(false, entry.purgeHistory)
         assertNothingUnder(key)
 
-        val back = conversions.makeVisible(made.vaultId, c.vault.details(made.vaultId)!!, AccountRef(null, null))!!
+        val back = visible(conversions, made.vaultId)
         val temp = c.meta.temporary(c.contacts.lookupKeyOf(back)!!)!!
         assertEquals(at, temp.expiresAt)
         assertEquals(false, temp.purgeHistory)
@@ -189,5 +201,132 @@ class ContactConversionsTest {
         assertEquals(14, c.meta.meta(key)?.reachOutDays)
         assertEquals("Coffee in town", c.circle.interactions.interactionsFor(key).single().note)
         assertNotNull(c.people.backgrounds.forLookupKey(key))
+    }
+
+    @Test fun an_entry_made_private_before_keeps_its_star_labels_and_ringtone_when_made_visible() = runBlocking {
+        val (id, _) = ada()
+        c.contacts.setStarred(id, true)
+        c.contacts.setRingtone(id, "content://tone/ada")
+        val conversions = ContactConversions(c)
+        val made = conversions.makePrivate(id, c.contacts.details(id)!!)
+        VaultTesting.asBeforeCallerChoices(c.vault, made.vaultId)
+        assertEquals(false, c.vault.summary(made.vaultId)!!.choicesKnown)
+
+        val back = visible(conversions, made.vaultId)
+        val restored = c.contacts.details(back)!!
+        assertTrue("the star isn't taken away", restored.starred)
+        assertEquals("content://tone/ada", restored.customRingtone)
+        assertEquals(setOf("Friends"), c.contacts.labelTitlesOf(back))
+    }
+
+    @Test fun the_migration_seeds_entries_from_before_once() = runBlocking {
+        val (id, _) = ada()
+        c.contacts.setStarred(id, true)
+        c.contacts.setRingtone(id, "content://tone/ada")
+        val made = ContactConversions(c).makePrivate(id, c.contacts.details(id)!!)
+        VaultTesting.asBeforeCallerChoices(c.vault, made.vaultId)
+
+        assertEquals(1, c.vault.migrateCallerChoices())
+        val s = c.vault.summary(made.vaultId)!!
+        assertTrue(s.choicesKnown)
+        assertTrue(s.starred)
+        assertEquals("content://tone/ada", s.ringtone)
+        assertEquals(setOf("Friends"), c.privateLabels.titlesOf(made.vaultId))
+        // Marked done: nothing runs again, and a change made since stays.
+        c.vault.updateCallerChoices(made.vaultId) { it.copy(starred = false) }
+        assertEquals(0, c.vault.migrateCallerChoices())
+        assertEquals(false, c.vault.summary(made.vaultId)!!.starred)
+    }
+
+    @Test fun a_temporary_contact_made_visible_records_only_its_own_raw_contacts() = runBlocking {
+        val (id, _) = ada()
+        val at = System.currentTimeMillis() + 86_400_000L
+        c.temporaries.markAt(id, at, purgeHistory = false, name = "Ada")
+        val conversions = ContactConversions(c)
+        val made = conversions.makePrivate(id, c.contacts.details(id)!!)
+        // The user's own copy of Ada in another account, which Android joins the restored contact with.
+        val own = c.contacts.save(null, ContactDetails(given = "Ada", family = "Lovelace"), AccountRef("com.google", "me@example.com"), null, false)!!
+        provider.joinNewRawsInto = own.contactId
+        val back = visible(conversions, made.vaultId)
+        provider.joinNewRawsInto = null
+        assertEquals("joined with the user's copy", own.contactId, back)
+
+        c.temporaries.expire(at + 1)
+        assertTrue("the user's own copy is never deleted", own.rawId!! in c.contacts.rawIds(own.contactId))
+        assertEquals("only the restored copy went", listOf(own.rawId), c.contacts.rawIds(own.contactId))
+    }
+
+    @Test fun an_unreadable_key_keeps_parleys_data_until_the_sweep_finds_the_contact() = runBlocking {
+        val (id, _) = ada()
+        val conversions = ContactConversions(c)
+        val made = conversions.makePrivate(id, c.contacts.details(id)!!)
+        val privateKey = ContactRef.privateKey(made.vaultId)
+        provider.lookupKeysUnreadable = true
+        val back = visible(conversions, made.vaultId)
+        provider.lookupKeysUnreadable = false
+        // Nothing was forgotten: it waits under the private key.
+        assertEquals(14, c.meta.meta(privateKey)?.reachOutDays)
+        assertEquals("Ask about the engine", c.meta.meta(privateKey)?.pinnedNote)
+        assertEquals(setOf(privateKey), c.contactKeys.waitingKeys())
+
+        c.contactKeys.sweep()
+        val key = c.contacts.lookupKeyOf(back)!!
+        assertEquals(14, c.meta.meta(key)?.reachOutDays)
+        assertEquals("Ask about the engine", c.meta.meta(key)?.pinnedNote)
+        assertEquals("Coffee in town", c.circle.interactions.interactionsFor(key).single().note)
+        assertNotNull(c.people.backgrounds.forLookupKey(key))
+        assertTrue(c.contactKeys.waitingKeys().isEmpty())
+        assertNothingUnder(privateKey)
+    }
+
+    @Test fun private_calls_go_back_before_the_entry_goes_or_nothing_changes() = runBlocking {
+        val (id, _) = ada()
+        val conversions = ContactConversions(c)
+        val made = conversions.makePrivate(id, c.contacts.details(id)!!)
+        c.vault.storePrivateCall(made.vaultId, "+44 20 7946 0000", "Ada Lovelace", 5_000L, 60L, CallLog.Calls.INCOMING_TYPE)
+        val contactsBefore = c.contacts.lookupKeys()!!.size
+
+        // The call log can't be written: the private contact, its call and the address book stay as they were.
+        callLog.failInserts = true
+        assertEquals(ContactConversions.MadeVisible.CallsKept, conversions.makeVisible(made.vaultId, c.vault.details(made.vaultId)!!, AccountRef(null, null)))
+        assertEquals(1, c.vault.privateCallsOf(made.vaultId).size)
+        assertEquals(contactsBefore, c.contacts.lookupKeys()!!.size)
+
+        callLog.failInserts = false
+        visible(conversions, made.vaultId)
+        assertTrue(c.vault.summariesNow().isEmpty())
+        val row = callLog.rows().single()
+        assertEquals("+44 20 7946 0000", row["number"])
+        assertEquals("5000", row["date"])
+    }
+
+    @Test fun a_delete_waits_when_no_copy_can_be_kept() = runBlocking {
+        val (id, _) = ada()
+        val made = ContactConversions(c).makePrivate(id, c.contacts.details(id)!!)
+        // "Recently deleted" can't be written: a file stands where its folder should be.
+        val trash = File(context.noBackupFilesDir, "vault_trash")
+        trash.deleteRecursively()
+        trash.writeText("in the way")
+        try {
+            assertEquals(false, ContactConversions(c).deletePrivate(made.vaultId))
+            assertEquals("nothing was deleted", 1, c.vault.summariesNow().size)
+            assertTrue("deleting without a copy is still possible", ContactConversions(c).deletePrivate(made.vaultId, keepCopy = false))
+            assertTrue(c.vault.summariesNow().isEmpty())
+        } finally {
+            trash.delete()
+        }
+    }
+
+    @Test fun making_a_contact_private_takes_back_the_relations_parley_wrote_for_it() = runBlocking {
+        val ana = c.contacts.save(null, ContactDetails(given = "Ana", family = "Lee"), null, null, false)!!.contactId
+        val mother = listOf(DataItem(value = "Ana Lee", type = Relation.TYPE_MOTHER))
+        val sam = c.contacts.save(null, ContactDetails(given = "Sam", family = "Lee", relations = mother), null, null, false)!!.contactId
+        c.people.relationMirrors.mirror(sam, mother, mapOf("ana lee" to RelationLinks.Link(c.contacts.lookupKeyOf(ana)!!, ana)))
+        assertEquals("Sam Lee", c.contacts.details(ana)!!.relations.single().value)
+
+        ContactConversions(c).makePrivate(sam, c.contacts.details(sam)!!)
+        assertTrue("Ana's contact no longer names Sam", c.contacts.details(ana)!!.relations.isEmpty())
+        val record = context.getSharedPreferences("relation_mirrors", android.content.Context.MODE_PRIVATE).getString("created", null)
+        assertTrue("Parley's record keeps no trace of Sam", record.isNullOrEmpty())
     }
 }

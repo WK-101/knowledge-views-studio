@@ -131,6 +131,7 @@ object PersistentStores {
         PersistentStore("diagnostics", StoreKind.PREFS, local("Diagnostics of this phone")),
         PersistentStore("account_diagnostics", StoreKind.PREFS, local("Account checks of this phone")),
         PersistentStore("parley_writes", StoreKind.PREFS, local("Which contact rows Parley wrote on this phone")),
+        PersistentStore("contact_key_moves", StoreKind.PREFS, local("Contacts just made visible whose lookup key this phone hasn't listed yet")),
         PersistentStore("relation_mirrors", StoreKind.PREFS, local("Which relations Parley added to the other contact, by this phone's lookup keys")),
         PersistentStore("folder_sync", StoreKind.PREFS, local("Sync state with a folder picked on this phone")),
         PersistentStore("folder_sync_notice", StoreKind.PREFS, local("Which folder-sync pause was already notified")),

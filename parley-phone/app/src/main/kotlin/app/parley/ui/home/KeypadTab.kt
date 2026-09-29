@@ -1,6 +1,5 @@
 package app.parley.ui.home
 
-import app.parley.common.people.PrivateListing
 import app.parley.ui.Destination
 import android.content.ClipDescription
 import android.content.ClipboardManager
@@ -916,9 +915,8 @@ private fun KeypadContactSearch(vm: AppViewModel, keypad: KeypadViewModel, query
     }
     LazyColumn(Modifier.fillMaxSize()) {
         // Private contacts look like every contact (a lock on the photo) and open the same page.
-        items(foundVault, key = { "v" + it.id }) { v ->
-            val row = remember(v) { PrivateListing.row(v.id, v.name, v.numbers, v.starred, vm.c.vault.photoUri(v.id)) }
-            ContactRow(row, actions = true, onCall = { n -> vm.requestCall(n, v.name) }) { open(Routes.contact(row.id)) }
+        items(foundVault, key = { "v" + it.id }) { row ->
+            ContactRow(row, actions = true, onCall = { n -> vm.requestCall(n, row.displayName) }) { open(Routes.contact(row.id)) }
         }
         items(found, key = { it.id }) { c ->
             ContactRow(c, actions = true, onCall = { n -> vm.requestCall(n, c.displayName) }) { open(Routes.contact(c.id)) }

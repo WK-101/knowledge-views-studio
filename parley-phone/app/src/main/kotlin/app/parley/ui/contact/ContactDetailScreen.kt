@@ -221,6 +221,8 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
     val loaded = ui.loaded
     var menu by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
+    // The sealed copy of a private contact couldn't be kept: ask before deleting it without one.
+    var confirmDeleteNoCopy by remember { mutableStateOf(false) }
     var showQr by remember { mutableStateOf(false) }
     var simFor by remember { mutableStateOf<String?>(null) }
     var showPhoto by remember { mutableStateOf(false) }
@@ -976,9 +978,28 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                 confirmLabel = stringResource(R.string.main_delete),
                 onConfirm = {
                     confirmDelete = false
-                    if (isPrivate) page.deletePrivate(back) else { vm.deleteContacts(listOf(contactId)); back() }
+                    if (isPrivate) {
+                        page.deletePrivate(noCopy = { confirmDeleteNoCopy = true }, then = back)
+                    } else {
+                        vm.deleteContacts(listOf(contactId))
+                        back()
+                    }
                 },
                 onDismiss = { confirmDelete = false },
+                destructive = true,
+                dismissLabel = stringResource(R.string.main_cancel),
+            )
+        }
+        if (confirmDeleteNoCopy) {
+            ConfirmDialog(
+                title = stringResource(R.string.vault_delete_no_copy_title),
+                text = stringResource(R.string.vault_delete_no_copy_text),
+                confirmLabel = stringResource(R.string.vault_delete_no_copy_confirm),
+                onConfirm = {
+                    confirmDeleteNoCopy = false
+                    page.deletePrivate(keepCopy = false, then = back)
+                },
+                onDismiss = { confirmDeleteNoCopy = false },
                 destructive = true,
                 dismissLabel = stringResource(R.string.main_cancel),
             )
@@ -1014,11 +1035,15 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                     scope.launchVault(context as? FragmentActivity, { e -> vm.toast(resources.getString(R.string.vault_move_failed, e.message.orEmpty())) }) {
                         val s = vm.settings.value
                         // Restores the original contact losslessly when the vault kept its record; else the default account.
-                        val newId = page.makeVisible(AccountRef(s.defaultAccountType, s.defaultAccountName))
-                        if (newId != null) {
-                            vm.toast(resources.getString(R.string.contact_made_visible))
-                            back()
-                            open(Routes.contact(newId))
+                        when (val made = page.makeVisible(AccountRef(s.defaultAccountType, s.defaultAccountName))) {
+                            is ContactConversions.MadeVisible.Done -> {
+                                vm.toast(resources.getString(R.string.contact_made_visible))
+                                back()
+                                open(Routes.contact(made.contactId))
+                            }
+                            // Nothing changed either way; say why, so the tap isn't simply lost.
+                            ContactConversions.MadeVisible.NotWritten -> vm.toast(resources.getString(R.string.contact_make_visible_failed))
+                            ContactConversions.MadeVisible.CallsKept -> vm.toast(resources.getString(R.string.contact_make_visible_calls_kept))
                         }
                     }
                 },

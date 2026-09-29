@@ -1144,6 +1144,20 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
     }
 
     /**
+     * Takes back raw contacts Parley has just inserted (a conversion that couldn't finish): gone at once, as if never
+     * written, with no journal entry (nothing of the user's is lost) and no deletion waiting for a sync. Only these
+     * raw contacts; others the provider joined them with are never touched.
+     */
+    suspend fun discardInserted(rawIds: Collection<Long>) = withContext(Dispatchers.IO) {
+        val ops = rawIds.distinct().map { id ->
+            val uri = ContentUris.withAppendedId(RawContacts.CONTENT_URI, id).buildUpon()
+                .appendQueryParameter(ContactsContract.CALLER_IS_SYNCADAPTER, "true").build()
+            ContentProviderOperation.newDelete(uri).build()
+        }
+        Batches.chunks(ops).forEach { cr.applyBatch(ContactsContract.AUTHORITY, ArrayList(it)) }
+    }
+
+    /**
      * Removes a contact that moved into the private vault, leaving as little readable behind as possible:
      * phone-only and never-synced copies are purged at once (CALLER_IS_SYNCADAPTER, like AccountDiagnostics does);
      * synced copies are deleted normally so their account removes them on the server too. Messenger copies

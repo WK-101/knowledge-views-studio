@@ -20,6 +20,12 @@ data class TemporaryChoice(
 
         /** A typed number of days, or null when it isn't one Parley accepts (1 to 3650). */
         fun parseDays(text: String): Int? = text.trim().toIntOrNull()?.takeIf { it in 1..MAX_DAYS }
+
+        /**
+         * The call-history choice to save when a contact is given a (new) date: one that is temporary already keeps its
+         * own (null: unchanged), since only a new temporary contact is asked; one made temporary now takes the default.
+         */
+        fun purgeOnNewDate(alreadyTemporary: Boolean): Boolean? = if (alreadyTemporary) null else true
     }
 }
 

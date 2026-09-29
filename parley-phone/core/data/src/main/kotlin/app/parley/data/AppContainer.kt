@@ -179,7 +179,10 @@ class DataContainer(context: Context) {
 
     /** Keeps notes, backgrounds, relation links and temporary flags attached when lookup keys change. */
     val contactKeys by lazy {
-        ContactKeys(contacts, meta, { people.backgrounds }, { circle.interactions }, { extras }, db, originals = { people.originals }, calling = { calling })
+        ContactKeys(
+            contacts, meta, { people.backgrounds }, { circle.interactions }, { extras }, db, originals = { people.originals }, calling = { calling },
+            waiting = { appContext.getSharedPreferences("contact_key_moves", Context.MODE_PRIVATE) },
+        )
     }
 
     /** The Circle (keep-in-touch rhythms, interactions, "Log this?", reminder bookkeeping). */

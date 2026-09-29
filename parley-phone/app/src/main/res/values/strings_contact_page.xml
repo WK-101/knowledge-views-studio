@@ -121,6 +121,8 @@
     <string name="contact_make_visible_body">They\'ll move back to the phone\'s contacts, so apps with access to your contacts (messengers, keyboards, sync accounts) can see their name, numbers and other details. Notes, your Circle and logged moments stay in Parley. Calls in the private call history go back to the phone\'s call history.</string>
     <string name="contact_make_visible_confirm">Make visible</string>
     <string name="contact_made_visible">Visible to other apps now</string>
+    <string name="contact_make_visible_failed">Couldn\'t move them to the phone\'s contacts. Nothing has changed.</string>
+    <string name="contact_make_visible_calls_kept">Their private calls couldn\'t go back to the call history, so they stay private for now. Nothing has changed.</string>
     <string name="contact_make_temporary">Delete automatically…</string>
     <string name="contact_make_temporary_summary">They delete themselves on a date you choose</string>
     <string name="contact_keep_permanently">Keep permanently</string>

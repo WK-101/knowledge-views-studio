@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -141,6 +142,8 @@ fun HeroPhoto(
 @Composable
 fun OriginalPhotoViewer(vm: AppViewModel, original: OriginalPhotos.Original, onDismiss: () -> Unit) {
     val originals = vm.c.people.originals
+    // A private contact's original stays opened while shown (see OriginalPhotos.Original), and no longer.
+    DisposableEffect(original) { onDispose { originals.release(original) } }
     Dialog(onDismiss, DialogProperties(usePlatformDefaultWidth = false)) {
         BoxWithConstraints(Modifier.fillMaxSize().background(Color.Black), contentAlignment = Alignment.Center) {
             val density = LocalDensity.current

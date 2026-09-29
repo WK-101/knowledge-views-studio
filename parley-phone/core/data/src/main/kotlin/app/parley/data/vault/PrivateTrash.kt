@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Base64
 import app.parley.common.people.ContactRef
 import app.parley.data.people.ContactKeys
+import app.parley.data.people.OriginalPhotos
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
@@ -16,9 +17,10 @@ import org.json.JSONObject
  * "Recently deleted" for private contacts: History & undo keeps a plain copy of a deleted device contact, which a
  * private contact must never have, so a deleted private contact is kept here instead, for [KEEP_DAYS] days, exactly
  * as the vault stored it: its details still under the detail key, its name, numbers, labels, photo and private calls
- * under the caller-ID key, and what Parley kept about it (Circle, moments, relation links, call-screen picture) in
- * the same sealed file. Nothing is opened to keep it, so deleting works while the vault is locked; the list is shown
- * only after the vault's own unlock, and restoring puts the entry back as it was.
+ * under the caller-ID key, and what Parley kept about it (Circle, moments, relation links, call-screen picture, the
+ * photo as picked, the relation links other contacts had to it) in the same sealed file. Nothing is opened to keep
+ * it, so deleting works while the vault is locked; the list is shown only after the vault's own unlock, and restoring
+ * puts the entry back as it was.
  *
  * Files live in no-backup storage (`vault_trash`); "Delete all Parley data" removes them, and a backup never holds them.
  */
@@ -35,11 +37,14 @@ class PrivateTrash(private val context: Context, private val vault: VaultReposit
 
     /**
      * Keeps a sealed copy of private contact [vaultId] before it is deleted. False when it couldn't be kept (the
-     * delete then goes ahead without an undo, as before).
+     * delete then waits: the user is asked whether to delete without one).
      */
     suspend fun keep(vaultId: Long, now: Long = System.currentTimeMillis()): Boolean = withContext(Dispatchers.IO) {
         val e = vault.sealedCopy(vaultId) ?: return@withContext false
         val extras = runCatching { keys()?.exportPrivate(ContactRef.privateKey(vaultId)) }.getOrNull()
+        // The photo as picked (still sealed) and the relations other contacts link to it: deleting the entry drops both.
+        val original = OriginalPhotos.sealedPrivate(context, vaultId)
+        val incoming = runCatching { keys()?.incomingLinks(ContactRef.privateKey(vaultId)) }.getOrNull().orEmpty()
         val o = JSONObject()
             .put(K_AT, now)
             .put(K_CALLER, b64(e.callerIdBlob))
@@ -52,6 +57,8 @@ class PrivateTrash(private val context: Context, private val vault: VaultReposit
                     put(K_CALLS, JSONArray(e.calls.map { c -> JSONObject().put("b", b64(c.blob)).put("d", c.date).put("s", c.durationSec).put("t", c.type) }))
                 }
                 extras?.let { put(K_EXTRAS, it) }
+                original?.let { (image, meta) -> put(K_ORIGINAL, b64(image)).put(K_ORIGINAL_META, meta) }
+                if (incoming.isNotEmpty()) put(K_INCOMING, JSONArray(incoming.map { (owner, name) -> JSONObject().put("k", owner).put("n", name) }))
             }
         lock.withLock {
             runCatching {
@@ -92,6 +99,14 @@ class PrivateTrash(private val context: Context, private val vault: VaultReposit
             )
             val id = vault.restoreSealed(entry)
             o.optJSONObject(K_EXTRAS)?.let { x -> runCatching { keys()?.importPrivate(id, x) } }
+            o.optString(K_ORIGINAL).ifEmpty { null }?.let { image ->
+                OriginalPhotos.restoreSealedPrivate(context, id, unb64(image), o.optString(K_ORIGINAL_META))
+            }
+            o.optJSONArray(K_INCOMING)?.let { a ->
+                val links = (0 until a.length()).mapNotNull { i -> a.optJSONObject(i)?.let { it.optString("k") to it.optString("n") } }
+                    .filter { (k, n) -> k.isNotEmpty() && n.isNotEmpty() }
+                runCatching { keys()?.restoreIncomingLinks(id, links) }
+            }
             f.delete()
             id
         }
@@ -133,5 +148,8 @@ class PrivateTrash(private val context: Context, private val vault: VaultReposit
         private const val K_PHOTO = "p"
         private const val K_CALLS = "calls"
         private const val K_EXTRAS = "parley"
+        private const val K_ORIGINAL = "o"
+        private const val K_ORIGINAL_META = "om"
+        private const val K_INCOMING = "in"
     }
 }

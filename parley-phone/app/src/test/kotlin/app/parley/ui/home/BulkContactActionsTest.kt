@@ -119,4 +119,25 @@ class BulkContactActionsTest {
         assertEquals(1, c.privateTrash.count())
         assertNull(c.vault.summary(other))
     }
+
+    @Test fun a_new_date_keeps_the_keep_call_history_choice() = runBlocking {
+        val bob = bob()
+        // Both made temporary earlier with "Also delete call history" off.
+        val ada = c.vault.save(
+            null, ContactDetails(given = "Ada", phones = listOf(DataItem(null, "+44 20 7946 0000", Phone.TYPE_MOBILE))),
+            expiresAt = System.currentTimeMillis() + 86_400_000L, purgeHistory = false,
+        )
+        c.temporaries.mark(bob, 1, purgeHistory = false)
+        val ids = listOf(bob, ContactRef.Private(ada).navId)
+
+        bulk.setExpiry(ids, 30)
+        assertEquals(false, c.vault.summary(ada)!!.purgeHistory)
+        assertEquals(false, c.temporaries.forKey(c.contacts.lookupKeyOf(bob)!!)!!.purgeHistory)
+
+        // Made temporary now: the call history goes with them, as the page's choice says.
+        bulk.setExpiry(ids, null)
+        bulk.setExpiry(ids, 7)
+        assertEquals(true, c.vault.summary(ada)!!.purgeHistory)
+        assertEquals(true, c.temporaries.forKey(c.contacts.lookupKeyOf(bob)!!)!!.purgeHistory)
+    }
 }

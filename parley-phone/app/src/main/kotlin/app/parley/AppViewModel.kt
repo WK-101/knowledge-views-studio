@@ -51,6 +51,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.util.concurrent.TimeUnit
 
 /** Recents filter chips. VOICEMAIL shows the voicemail inbox instead of the call list. */
@@ -95,6 +96,9 @@ sealed interface UiEvent {
 
     /** A change with its own way back (e.g. relations added to other contacts). */
     data class UndoAction(val text: String, val undo: suspend () -> Unit) : UiEvent
+
+    /** Something that didn't happen, with one way to do it anyway ([actionLabel]), e.g. "Delete without a copy". */
+    data class Offer(val text: String, val actionLabel: String, val action: suspend () -> Unit) : UiEvent
 
     data object RequestCallPermission : UiEvent
 }
@@ -358,10 +362,26 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             val (private, device) = ids.partition { it < 0 }
             val conversions = app.parley.ui.contact.ContactConversions(c)
-            private.forEach { runCatching { conversions.deletePrivate(-it) } }
+            // A private contact whose sealed copy couldn't be kept isn't deleted: the user is offered to delete it anyway.
+            val notDeleted = private.filterNot { suspendRunCatching { conversions.deletePrivate(-it) }.getOrDefault(false) }
+            if (notDeleted.isNotEmpty()) {
+                events.trySend(
+                    UiEvent.Offer(plural(R.plurals.vault_delete_no_copy_bulk, notDeleted.size, notDeleted.size), str(R.string.vault_delete_no_copy_confirm)) {
+                        notDeleted.forEach { conversions.deletePrivate(-it, keepCopy = false) }
+                    },
+                )
+            }
+            val deleted = ids.size - notDeleted.size
             if (device.isEmpty()) {
-                toast(plural(R.plurals.vm_contacts_deleted, ids.size, ids.size))
+                if (deleted > 0) toast(plural(R.plurals.vm_contacts_deleted, deleted, deleted))
                 return@launch
+            }
+            // Relations Parley wrote on other contacts for these ("Child: Sam" on Ana) go with them.
+            if (c.people.relationMirrors.any()) {
+                device.forEach { id ->
+                    val key = withContext(Dispatchers.IO) { c.contacts.lookupKeyOf(id) } ?: return@forEach
+                    suspendRunCatching { c.people.relationMirrors.takeBack(id, key) }
+                }
             }
             try {
                 c.contacts.delete(device)
@@ -370,7 +390,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 return@launch
             }
             val journal = c.contacts.lastJournalIds
-            val text = plural(R.plurals.vm_contacts_deleted, ids.size, ids.size)
+            val text = plural(R.plurals.vm_contacts_deleted, deleted, deleted)
             if (journal.isNotEmpty()) events.trySend(UiEvent.Undo(text, journal)) else toast(text)
         }
     }
