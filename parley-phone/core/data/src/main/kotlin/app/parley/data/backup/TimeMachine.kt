@@ -6,8 +6,10 @@ import android.content.Context
 import app.parley.common.backup.BlobStore
 import app.parley.common.backup.ContactVersion
 import app.parley.common.backup.RecordJson
+import app.parley.common.backup.SnapshotClearing
 import app.parley.common.backup.SnapshotDiff
 import app.parley.common.backup.SnapshotIndex
+import app.parley.common.backup.SnapshotKeep
 import app.parley.common.backup.SnapshotWriter
 import app.parley.common.backup.Snapshots
 import app.parley.common.record.ContactRecord
@@ -121,6 +123,29 @@ class TimeMachine(context: Context, private val records: ContactRecordStore) {
         drop.forEach { File(indexDir, "${it.timestamp}.idx").delete() }
         collectGarbage(keep)
     }
+
+    /**
+     * Deletes the snapshots a clear from History & undo doesn't [keep], with every blob only they used. Returns how
+     * many snapshots went. With none kept, the whole store goes, including files a crash left half-written.
+     */
+    suspend fun clear(keep: SnapshotKeep, now: Long = System.currentTimeMillis()): Int = mutex.withLock {
+        withContext(Dispatchers.IO) {
+            val all = snapshots()
+            val drop = SnapshotClearing.toDrop(all.map { it.timestamp }, keep, now)
+            if (drop.size == all.size) {
+                // Nothing kept: no record to read for references, so everything under the store goes.
+                indexDir.listFiles().orEmpty().forEach { it.deleteRecursively() }
+                File(root, "blobs").walkBottomUp().filter { it.isFile }.forEach { it.delete() }
+            } else if (drop.isNotEmpty()) {
+                drop.forEach { File(indexDir, "$it.idx").delete() }
+                collectGarbage(all.filter { it.timestamp !in drop })
+            }
+            drop.size
+        }
+    }
+
+    /** Bytes the snapshots take on disk. */
+    suspend fun storageBytes(): Long = withContext(Dispatchers.IO) { root.walkTopDown().filter { it.isFile }.sumOf { it.length() } }
 
     private fun collectGarbage(keep: List<SnapshotIndex>) {
         val live = keep.flatMap { it.contacts.values }.toHashSet()

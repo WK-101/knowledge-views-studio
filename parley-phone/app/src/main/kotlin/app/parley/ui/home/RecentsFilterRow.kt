@@ -47,6 +47,7 @@ import app.parley.ui.CallClassBadge
 import app.parley.ui.ParleyMotion
 import app.parley.ui.ParleyShapes
 import app.parley.ui.ParleyTooltip
+import app.parley.ui.Spacing
 import app.parley.ui.history.SavedFilterChips
 import app.parley.ui.history.activeFilterChipLabel
 import app.parley.ui.history.savedFilterChipCount
@@ -54,7 +55,12 @@ import app.parley.ui.history.savedFilterChipCount
 /** An icon chip's touch target, and so its width in the row while it shows no name. */
 private val ChipTarget = 48.dp
 private val ChipGap = 2.dp
-private val RowInset = 8.dp
+
+/** The visible pill of an icon chip (the rest of its [ChipTarget] is touch area around it). */
+private val ChipPill = 40.dp
+
+/** Row padding that puts the first and last pill's outer edge on the list's own inset, like the rows below. */
+private val RowInset = Spacing.listInset - (ChipTarget - ChipPill) / 2
 
 /** A selected chip's name is cut short beyond this, so one long saved-filter name can't push the rest away. */
 private val MaxLabel = 120.dp
@@ -132,17 +138,25 @@ private fun RichFilterRow(vm: AppViewModel, filters: List<RecentFilter>, filter:
     val density = LocalDensity.current
     val selectedLabels = listOfNotNull(stringResource(filter.labelRes), activeFilterChipLabel(vm))
     val chips = filters.size + savedFilterChipCount(vm)
+    val scroll = rememberScrollState()
     BoxWithConstraints(Modifier.fillMaxWidth()) {
+        val available = constraints.maxWidth - with(density) { 2 * RowInset.roundToPx() }
+        val iconsFit = with(density) { CompactChips.iconsFit(available, chips, ChipTarget.roundToPx(), ChipGap.roundToPx()) }
         val showLabels = with(density) {
             val labelWidths = selectedLabels.map { label ->
                 // The name, capped, plus the room between it and the icon.
                 minOf(measurer.measure(label, style, maxLines = 1).size.width, MaxLabel.roundToPx()) + LabelExtra.roundToPx()
             }
-            CompactChips.labelsFit(constraints.maxWidth - 2 * RowInset.roundToPx(), chips, ChipTarget.roundToPx(), ChipGap.roundToPx(), labelWidths)
+            CompactChips.labelsFit(available, chips, ChipTarget.roundToPx(), ChipGap.roundToPx(), labelWidths)
         }
+        // When every chip fits, they spread over the whole row (first on the start inset, last on the end inset, the
+        // rest evenly between, mirrored in RTL), and a selected chip's name takes its room from the gaps. Packing
+        // them at the start left an empty stretch on the end side (on the left in RTL). Only a row too long for
+        // the screen scrolls sideways, packed.
         Row(
-            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = RowInset, vertical = 4.dp),
-            horizontalArrangement = Arrangement.spacedBy(ChipGap),
+            Modifier.fillMaxWidth().then(if (iconsFit) Modifier else Modifier.horizontalScroll(scroll))
+                .padding(horizontal = RowInset, vertical = 4.dp),
+            horizontalArrangement = if (iconsFit) Arrangement.SpaceBetween else Arrangement.spacedBy(ChipGap),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             filters.forEach { f ->
@@ -192,7 +206,7 @@ fun CompactFilterChip(
             border = if (selected) null else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
             modifier = Modifier.semantics { contentDescription = words },
         ) {
-            Row(Modifier.height(40.dp).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.height(ChipPill).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 icon()
                 AnimatedVisibility(
                     showLabel,

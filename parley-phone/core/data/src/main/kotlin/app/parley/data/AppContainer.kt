@@ -118,6 +118,10 @@ class DataContainer(context: Context) {
     /** "Add several numbers…" batches (one undo per batch). */
     val bulkAdd by lazy { BulkAddStore(this) }
     val timeMachine by lazy { TimeMachine(appContext, records) }
+
+    /** Clearing History & undo's stores (contact changes, deleted calls, snapshots). */
+    val undoStorage by lazy { UndoStorage(db, meta, history, timeMachine) }
+
     /** Tips seen, "What's new" and the backup reminder. */
     val ux by lazy { UxPrefs(appContext) }
     val people by lazy { PeopleContainer(this) }
