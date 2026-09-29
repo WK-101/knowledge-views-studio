@@ -3,14 +3,12 @@ package app.parley.ui.home
 import app.parley.ui.Destination
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.automirrored.rounded.Message
-import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItemDefaults
@@ -43,13 +41,11 @@ import app.parley.AppViewModel
 import app.parley.R
 import app.parley.common.ContactSummary
 import app.parley.common.StartTab
-import app.parley.common.TextSearch
 import app.parley.common.homeLayout
 import app.parley.common.people.FastScroll
 import app.parley.common.people.SwipeAction
 import app.parley.ui.Avatar
 import app.parley.ui.circle.CircleFavoritesSection
-import app.parley.ui.common.Format
 import app.parley.ui.common.Intents
 import app.parley.ui.contact.rememberQuickMessenger
 import app.parley.ui.people.ContactsFilterChips
@@ -59,6 +55,7 @@ import app.parley.ui.people.blockWithUndo
 import app.parley.ui.shared
 import app.parley.ui.EmptyState
 import app.parley.ui.Routes
+import app.parley.ui.contact.PrivateBadge
 import app.parley.ui.avatarSize
 import kotlinx.coroutines.launch
 import app.parley.common.ux.ListSections
@@ -83,48 +80,14 @@ fun ContactsTab(vm: AppViewModel, open: (Destination) -> Unit, onReorderFavorite
 
     val showVault by vm.showVault.collectAsStateWithLifecycle()
     val settings by vm.settings.collectAsStateWithLifecycle()
-    val vaultList by vm.c.vault.contacts.collectAsStateWithLifecycle()
+    // The "Private" chip is a filter of the one list (private contacts are listed with everyone else).
+    val privateOnly = showVault && !settings.hideVault
     val chips: @Composable () -> Unit = { ContactsFilterChips(vm, showVault, settings.hideVault, open) }
     val peopleSettings by vm.people.settings.collectAsStateWithLifecycle()
     val hints by vm.people.searchHints.collectAsStateWithLifecycle()
     val index by vm.people.index.collectAsStateWithLifecycle()
     // The row's message button and a "Message" swipe use each person's usual way to message.
     val (quick, quickHost) = rememberQuickMessenger(vm)
-    if (showVault && !settings.hideVault) {
-        LazyColumn(Modifier.fillMaxSize()) {
-            item { chips() }
-            val shown = vaultList.filter { TextSearch.matches(query, it.name, it.numbers) }
-            if (shown.isEmpty()) {
-                item {
-                    // No match (clear the search) or none yet (create one).
-                    if (query.isNotBlank()) {
-                        EmptyState(
-                            Icons.Rounded.Lock, stringResource(R.string.contacts_no_matches, query), modifier = Modifier.padding(top = 32.dp),
-                            action = stringResource(R.string.ux_empty_clear_search), onAction = { vm.contactQuery.value = "" },
-                        )
-                    } else {
-                        EmptyState(
-                            Icons.Rounded.Lock, stringResource(R.string.contacts_no_private),
-                            stringResource(R.string.contacts_no_private_body),
-                            Modifier.padding(top = 32.dp),
-                            action = stringResource(R.string.ux_empty_add_private), onAction = { open(Routes.edit(vault = 0)) },
-                        )
-                    }
-                }
-            }
-            shown.forEach { v ->
-                item(key = "v" + v.id) {
-                    ParleyListItem(
-                        modifier = Modifier.clickable { open(Routes.vault(v.id)) },
-                        leadingContent = { Avatar(v.name, remember(v.id, v.updatedAt) { vm.c.vault.photoUri(v.id) }, avatarSize()) },
-                        headlineContent = { Text(v.name) },
-                        supportingContent = v.numbers.firstOrNull()?.let { n -> { Text(Format.number(n, vm.countryIso)) } },
-                    )
-                }
-            }
-        }
-        return
-    }
 
     val rows = listing
     if (rows == null) {
@@ -158,6 +121,8 @@ fun ContactsTab(vm: AppViewModel, open: (Destination) -> Unit, onReorderFavorite
                         when {
                             query.isNotBlank() -> stringResource(R.string.contacts_no_matches, query)
                             !filter.isEmpty -> stringResource(R.string.contacts_no_filter_match)
+                            // The "Private" filter with no private contacts yet.
+                            privateOnly -> stringResource(R.string.contacts_no_private)
                             else -> stringResource(R.string.contacts_none)
                         },
                         modifier = Modifier.padding(top = 48.dp),
@@ -166,6 +131,7 @@ fun ContactsTab(vm: AppViewModel, open: (Destination) -> Unit, onReorderFavorite
                             when {
                                 query.isNotBlank() -> R.string.ux_empty_clear_search
                                 !filter.isEmpty -> R.string.ux_empty_clear_filter
+                                privateOnly -> R.string.ux_empty_add_private
                                 else -> R.string.ux_empty_add_contact
                             },
                         ),
@@ -173,6 +139,7 @@ fun ContactsTab(vm: AppViewModel, open: (Destination) -> Unit, onReorderFavorite
                             when {
                                 query.isNotBlank() -> vm.contactQuery.value = ""
                                 !filter.isEmpty -> vm.people.clearFilter()
+                                privateOnly -> open(Routes.edit(vault = 0))
                                 else -> open(Routes.edit())
                             }
                         },
@@ -212,10 +179,11 @@ fun ContactsTab(vm: AppViewModel, open: (Destination) -> Unit, onReorderFavorite
                             onCall = { n -> vm.requestCall(n, c.displayName) },
                             selected = c.id in selection,
                             selectionMode = selection.isNotEmpty(),
-                            onLongClick = { vm.toggleSelection(c.id) },
+                            // Bulk actions are the address book's (labels, accounts, export): private contacts stay out of them.
+                            onLongClick = if (c.id < 0) null else ({ vm.toggleSelection(c.id) }),
                             onMessage = { n -> quick.message(c, n) },
                             isCompany = index.extras[c.id]?.let { e -> e.company.isNotBlank() && e.company.trim().equals(c.displayName.trim(), ignoreCase = true) } == true,
-                        ) { if (selection.isNotEmpty()) vm.toggleSelection(c.id) else open(Routes.contact(c.id)) }
+                        ) { if (selection.isNotEmpty()) { if (c.id > 0) vm.toggleSelection(c.id) } else open(Routes.contact(c.id)) }
                     }
                 }
             }
@@ -263,7 +231,11 @@ fun ContactRow(
                     if (selected) Icon(Icons.Rounded.Check, stringResource(R.string.contacts_selected), tint = MaterialTheme.colorScheme.onPrimary)
                 }
             } else {
-                Avatar(c.displayName, c.photoUri, avatarSize(), Modifier.shared("avatar-${c.id}"), isCompany = isCompany)
+                Box {
+                    Avatar(c.displayName, c.photoUri, avatarSize(), Modifier.shared("avatar-${c.id}"), isCompany = isCompany)
+                    // A private contact: kept only in Parley, hidden from other apps.
+                    if (c.id < 0) PrivateBadge(Modifier.align(Alignment.BottomEnd))
+                }
             }
         },
         headlineContent = { Text(c.displayName, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.shared("name-${c.id}", bounds = true)) },

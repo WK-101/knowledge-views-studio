@@ -1,5 +1,6 @@
 package app.parley.ui.home
 
+import app.parley.common.people.PrivateListing
 import app.parley.ui.Destination
 import android.content.ClipDescription
 import android.content.ClipboardManager
@@ -89,7 +90,6 @@ import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -915,16 +915,10 @@ private fun KeypadContactSearch(vm: AppViewModel, keypad: KeypadViewModel, query
         return
     }
     LazyColumn(Modifier.fillMaxSize()) {
+        // Private contacts look like every contact (a lock on the photo) and open the same page.
         items(foundVault, key = { "v" + it.id }) { v ->
-            ParleyListItem(
-                modifier = Modifier.clickable { open(Routes.vault(v.id)) },
-                leadingContent = { Avatar(v.name, null, avatarSize()) },
-                headlineContent = { Text("\uD83D\uDD12 " + v.name) },
-                supportingContent = v.numbers.firstOrNull()?.let { n -> { Text(Bidi.ltr(Format.number(n, vm.countryIso))) } },
-                trailingContent = v.numbers.firstOrNull()?.let { n ->
-                    { IconButton({ vm.requestCall(n, v.name) }) { Icon(Icons.Rounded.Call, stringResource(R.string.main_call_who, v.name), tint = MaterialTheme.colorScheme.primary) } }
-                },
-            )
+            val row = remember(v) { PrivateListing.row(v.id, v.name, v.numbers, v.starred, vm.c.vault.photoUri(v.id)) }
+            ContactRow(row, actions = true, onCall = { n -> vm.requestCall(n, v.name) }) { open(Routes.contact(row.id)) }
         }
         items(found, key = { it.id }) { c ->
             ContactRow(c, actions = true, onCall = { n -> vm.requestCall(n, c.displayName) }) { open(Routes.contact(c.id)) }

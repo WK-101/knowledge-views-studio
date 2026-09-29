@@ -36,6 +36,7 @@ import app.parley.telecom.CallManager
 import app.parley.ui.Bidi
 import app.parley.ui.people.PeopleUi
 import kotlinx.coroutines.Dispatchers
+import app.parley.common.people.PrivateListing
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -49,7 +50,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import java.util.concurrent.TimeUnit
 
 /** Recents filter chips. VOICEMAIL shows the voicemail inbox instead of the call list. */
@@ -184,8 +184,22 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     val contactQuery = MutableStateFlow("")
 
-    /** Contacts tab shows the private vault instead of phone contacts. */
+    /** The Contacts tab's "Private" filter: only private contacts are listed. */
     val showVault = MutableStateFlow(false)
+
+    /**
+     * The contacts Parley's own lists show (Contacts, Favourites, the Circle): the address book's plus private contacts,
+     * which carry a lock badge, unless discreet mode hides them. Only these screens use it; the list other apps can
+     * query ([app.parley.data.ContactDirectory]) never contains private contacts.
+     */
+    val everyone: StateFlow<List<ContactSummary>?> = combine(
+        contacts, c.vault.contacts, settings.map { it.hideVault }.distinctUntilChanged(),
+    ) { list, vault, hidden ->
+        if (list == null || hidden || vault.isEmpty()) return@combine list
+        val names = java.text.Collator.getInstance().apply { strength = java.text.Collator.PRIMARY }
+        val rows = vault.map { v -> PrivateListing.row(v.id, v.name, v.numbers, v.starred, c.vault.photoUri(v.id)) }
+        PrivateListing.merge(list, rows) { a, b -> names.compare(a, b) }
+    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     /** Contacts selected in the Contacts tab (multi-select mode when non-empty). */
     val selection = MutableStateFlow<Set<Long>>(emptySet())
@@ -195,10 +209,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** Contacts-feature state: label and account filters, second line, favourites order. */
-    val people = PeopleUi(c, viewModelScope, contacts, contactQuery, countryIso)
+    val people = PeopleUi(
+        c, viewModelScope, everyone, contactQuery, countryIso,
+        privateOnly = combine(showVault, settings) { on, s -> on && !s.hideVault }.stateIn(viewModelScope, SharingStarted.Eagerly, false),
+    )
 
     /** The Circle (people with keep-in-touch set) and its suggestions. */
-    val circle = CircleUi(c, viewModelScope, contacts)
+    val circle = CircleUi(c, viewModelScope, everyone)
 
     val favorites: StateFlow<List<ContactSummary>> = contacts.map { it.orEmpty().filter { c -> c.starred } }
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
@@ -303,27 +320,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /**
-     * Moves a phone contact into the vault, leaving no readable copy in Parley: no journal entry, and its
-     * time-machine versions are purged. Throws [app.parley.data.vault.VaultCrypto.LockedException] if locked.
+     * Makes a phone contact private ([app.parley.ui.contact.ContactConversions.makePrivate]): into the vault with
+     * every field, and what Parley keeps about them re-keyed to it; no readable copy stays outside the vault (no
+     * journal entry, snapshots purged). Throws [app.parley.data.vault.VaultCrypto.LockedException] if locked.
      */
     suspend fun moveToVault(contactId: Long, d: ContactDetails): Long {
-        // The pinned note moves into the vault entry (it's shown on the call screen from there).
-        val note = d.pinnedNote.ifBlank { d.lookupKey.takeIf { it.isNotEmpty() }?.let { c.meta.meta(it)?.pinnedNote }.orEmpty() }
-        // Lossless: the vault keeps the full contact record (photo included); local copies are purged at once.
-        val moved = c.vaultMoves.moveIn(contactId, d.copy(pinnedNote = note))
-        if (d.lookupKey.isNotEmpty()) {
-            c.journal.forget(d.lookupKey)
-            c.timeMachine.purge(d.lookupKey)
-            // Nothing about the person stays outside the vault: notes, links, call background, interactions (moveIn
-            // carried those, sealed, into the entry; they come back on "Move out").
-            runCatching { c.contactKeys.forget(d.lookupKey) }
-        }
-        // With "Private call history" on, their ring facts go too (the calls themselves move into the vault).
-        if (c.settings.current().privateVaultHistory) {
-            withContext(Dispatchers.IO) { d.phones.forEach { p -> runCatching { c.ringFacts.forget(p.value) } } }
-            // Their older calls too, not just the recent ones the sweep after each call reaches.
-            runCatching { c.vault.sweepCallLog(0) }
-        }
+        val moved = app.parley.ui.contact.ContactConversions(c).makePrivate(contactId, d)
         when {
             moved.messengerCopies -> toast(str(R.string.vm_messenger_copies_remain))
             moved.removedAfterSync -> toast(str(R.string.vm_removed_after_sync))
@@ -331,11 +333,22 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         return moved.vaultId
     }
 
-    /** Deletes contacts (the journal keeps a copy for 30 days) and offers undo. */
+    /**
+     * Deletes contacts (the journal keeps a copy for 30 days) and offers undo. Private contacts (negative ids, as the
+     * Contacts list shows them) are deleted from the vault with what Parley kept about them; like before, the vault
+     * keeps no copy of them anywhere.
+     */
     fun deleteContacts(ids: List<Long>) {
         viewModelScope.launch {
+            val (private, device) = ids.partition { it < 0 }
+            val conversions = app.parley.ui.contact.ContactConversions(c)
+            private.forEach { runCatching { conversions.deletePrivate(-it) } }
+            if (device.isEmpty()) {
+                toast(plural(R.plurals.vm_contacts_deleted, ids.size, ids.size))
+                return@launch
+            }
             try {
-                c.contacts.delete(ids)
+                c.contacts.delete(device)
             } catch (e: Exception) {
                 toast(e.message ?: str(R.string.vm_couldnt_delete))
                 return@launch

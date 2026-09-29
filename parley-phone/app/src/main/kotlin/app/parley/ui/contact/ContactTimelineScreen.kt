@@ -1,5 +1,6 @@
 package app.parley.ui.contact
 
+import app.parley.common.people.ContactRef
 import android.content.res.Resources
 import androidx.compose.material3.Surface
 import androidx.compose.ui.platform.LocalContext
@@ -79,9 +80,19 @@ fun ContactTimelineScreen(vm: AppViewModel, contactId: Long, back: () -> Unit) {
     val scope = rememberCoroutineScope()
     val all by vm.contacts.collectAsStateWithLifecycle()
     var d by remember { mutableStateOf<ContactDetails?>(null) }
-    LaunchedEffect(contactId, all) { d = vm.c.contacts.details(contactId) }
+    val ref = remember(contactId) { ContactRef.ofNavId(contactId) }
+    val privates by vm.c.vault.contacts.collectAsStateWithLifecycle()
+    LaunchedEffect(contactId, all, privates) {
+        d = when (ref) {
+            // A private contact's timeline, like its page: its details under its Parley key (nothing while locked).
+            is ContactRef.Private -> runCatching { vm.c.vault.details(ref.vaultId) }.getOrNull()
+                ?.copy(id = contactId, lookupKey = ContactRef.privateKey(ref.vaultId))
+            else -> vm.c.contacts.details(contactId)
+        }
+    }
     val dd = d
-    val calls by vm.c.history.calls.collectAsStateWithLifecycle()
+    // A private contact's calls are in the private call history.
+    val calls by (if (ref is ContactRef.Private) vm.c.history.callsWithPrivate else vm.c.history.calls).collectAsStateWithLifecycle()
     val allNotes by vm.c.meta.allCallNotes().collectAsStateWithLifecycle(emptyList())
     val interactions by remember(dd?.lookupKey) { dd?.lookupKey?.takeIf { it.isNotEmpty() }?.let { vm.c.circle.interactions.interactions(it) } ?: flowOf(emptyList()) }
         .collectAsStateWithLifecycle(emptyList())

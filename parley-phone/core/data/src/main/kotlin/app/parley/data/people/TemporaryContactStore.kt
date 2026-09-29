@@ -97,6 +97,19 @@ class TemporaryContactStore(private val c: DataContainer) {
         }
     }
 
+    /**
+     * Makes contact [contactId] delete itself at [expiresAt] (a date chosen earlier, e.g. while it was private), with
+     * all of its current raw contacts recorded like [mark].
+     */
+    suspend fun markAt(contactId: Long, expiresAt: Long, purgeHistory: Boolean, name: String?) = withContext(Dispatchers.IO) {
+        val key = c.contacts.lookupKeyOf(contactId) ?: return@withContext
+        mutex.withLock {
+            c.meta.setTemporary(
+                TemporaryContactEntity(key, contactId, expiresAt, purgeHistory, rawIds = TemporaryExpiry.encodeIds(c.contacts.rawIds(contactId)), name = name),
+            )
+        }
+    }
+
     suspend fun clear(lookupKey: String) = mutex.withLock { c.meta.clearTemporary(lookupKey) }
 
     suspend fun forKey(lookupKey: String): TemporaryContactEntity? = c.meta.temporary(lookupKey)

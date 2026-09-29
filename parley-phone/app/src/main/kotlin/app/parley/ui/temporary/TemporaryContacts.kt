@@ -130,7 +130,7 @@ object TemporaryContactActions {
                     if (item.purgeHistory) runCatching { vm.c.history.purgeNumber(n) }
                     runCatching { vm.c.messaging.forget(n) }
                 }
-                vm.c.vault.delete(item.vaultId)
+                app.parley.ui.contact.ContactConversions(vm.c).deletePrivate(item.vaultId)
             }
             item.contactId != null -> {
                 vm.c.temporaries.mark(item.contactId, 0, item.purgeHistory)

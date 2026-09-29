@@ -166,6 +166,12 @@ class BackupRepository(
     var extras: () -> List<BackupExtras> = { emptyList() }
 
     /**
+     * What Parley keeps beside each private contact (Circle, logged moments, call-screen picture), written only in
+     * the private-contacts section, like the contacts themselves; set by the container.
+     */
+    var privateExtras: app.parley.data.people.ContactKeys? = null
+
+    /**
      * Every feature's extras; a section that fails is left out and named in [failed] rather than dropped silently. So is
      * a backed-up store of [PersistentStores] that no section writes (a store added without its backup part).
      */
@@ -394,6 +400,11 @@ class BackupRepository(
         return BlockingSnapshot(rules, system, log)
     }
 
+    private suspend fun putPrivateExtras(o: JSONObject, vaultId: Long) {
+        val extras = runCatching { privateExtras?.exportPrivate(app.parley.common.people.ContactRef.privateKey(vaultId)) }.getOrNull() ?: return
+        o.put("parley", extras)
+    }
+
     /** Private contacts, re-encrypted under the archive key. Needs the vault unlocked (otherwise skipped). */
     private suspend fun vaultBlob(): ByteArray? {
         val list = vault.summariesNow()
@@ -415,6 +426,8 @@ class BackupRepository(
             }
             // Logged interactions carried in the entry while the contact is private.
             runCatching { vault.storedInteractions(v.id) }.getOrNull()?.let { o.put("interactions", it) }
+            // Parley's own data about them, kept under their private key (never in the sections every backup has).
+            putPrivateExtras(o, v.id)
             // The private call history: removed from the system log, so this is its only copy.
             val calls = JSONArray()
             vault.privateCallsOf(v.id).forEach { c -> calls.put(JSONObject().put("n", c.number).put("name", c.name).put("d", c.date).put("s", c.durationSec).put("t", c.type)) }
@@ -727,6 +740,7 @@ class BackupRepository(
                 runCatching { vault.setPhoto(id, Base64.decode(p, Base64.NO_WRAP)) }
             }
             restoreCalls(id, o)
+            o.optJSONObject("parley")?.let { x -> runCatching { privateExtras?.importPrivate(id, x) } }
             n++
         }
         return n

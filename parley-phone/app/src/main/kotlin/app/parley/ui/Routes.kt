@@ -43,6 +43,7 @@ object Routes {
         val handshake: String = "",
     ) : Destination
 
+    /** A private contact by vault id: kept for old links; it opens the one contact page ([Contact] with -[id]). */
     @Serializable data class Vault(val id: Long) : Destination
 
     @Serializable data class History(val number: String) : Destination
@@ -82,7 +83,9 @@ object Routes {
     @Serializable data class Versions(val id: Long) : Destination
 
     fun contact(id: Long): Destination = Contact(id)
-    fun vault(id: Long): Destination = Vault(id)
+
+    /** Private contact [id] (vault id): the same contact page as every contact, under its negative id. */
+    fun vault(id: Long): Destination = Contact(-id)
     fun history(number: String): Destination = History(number)
     fun pick(number: String): Destination = Pick(number)
     fun versions(id: Long): Destination = Versions(id)
@@ -101,7 +104,7 @@ object Routes {
     fun forEvent(e: NavEvent): Destination? = when (e) {
         is NavEvent.Contact -> Contact(e.id)
         is NavEvent.History -> History(e.number)
-        is NavEvent.Vault -> Vault(e.id)
+        is NavEvent.Vault -> Contact(-e.id)
         is NavEvent.Route -> e.route
         is NavEvent.NewContact -> edit(prefill = true)
         else -> null

@@ -1,5 +1,7 @@
 package app.parley.ui.home
 
+import androidx.compose.foundation.layout.Box
+import app.parley.ui.contact.PrivateBadge
 import app.parley.ui.Destination
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
@@ -198,7 +200,7 @@ fun FavoritesTab(vm: AppViewModel, open: (Destination) -> Unit, query: String = 
                         },
                 )
             } else {
-                Tile(c.displayName, c.photoUri, modifier = base, onClick = {
+                Tile(c.displayName, c.photoUri, modifier = base, isPrivate = c.id < 0, onClick = {
                     c.phones.firstOrNull()?.let { p -> vm.requestCall(p.number, c.displayName, source = CallSource.FAVORITE) } ?: open(Routes.contact(c.id))
                 }, onLong = { open(Routes.contact(c.id)) })
             }
@@ -231,14 +233,26 @@ private fun List<ContactSummary>.moved(from: Int, to: Int): List<ContactSummary>
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-internal fun Tile(name: String, photo: String?, onClick: () -> Unit, onLong: () -> Unit, modifier: Modifier = Modifier, reorder: Boolean = false) {
+internal fun Tile(
+    name: String,
+    photo: String?,
+    onClick: () -> Unit,
+    onLong: () -> Unit,
+    modifier: Modifier = Modifier,
+    reorder: Boolean = false,
+    /** A private contact: the lock on its photo, as in Contacts. */
+    isPrivate: Boolean = false,
+) {
     Column(
         modifier.fillMaxWidth().clip(ParleyShapes.card)
             .then(if (reorder) Modifier else Modifier.combinedClickable(onClick = onClick, onLongClick = onLong, onClickLabel = stringResource(R.string.main_call), onLongClickLabel = stringResource(R.string.main_open_contact)))
             .padding(vertical = 12.dp, horizontal = 4.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Avatar(name, photo, 72.dp)
+        Box {
+            Avatar(name, photo, 72.dp)
+            if (isPrivate) PrivateBadge(Modifier.align(Alignment.BottomEnd))
+        }
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp)) {
             if (reorder) Icon(Icons.Rounded.DragIndicator, null)
             Text(name, style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
