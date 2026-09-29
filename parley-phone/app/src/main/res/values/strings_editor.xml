@@ -18,16 +18,24 @@
     <string name="editor_pick_date">Choose date</string>
     <string name="editor_phone_hint">This doesn\'t look like a phone number yet</string>
     <string name="editor_email_hint">This doesn\'t look like an email address yet</string>
-    <string name="editor_more_info">Add more info</string>
-    <string name="editor_more_info_title">Add to this contact</string>
-    <string name="editor_more_name">Nickname, prefix, middle name, phonetic name</string>
-    <string name="editor_more_date">Birthday, anniversary, other dates</string>
-    <string name="editor_more_address">Home, work or other address</string>
-    <string name="editor_more_website">Homepage, blog, profile</string>
-    <string name="editor_more_handle">Signal, Matrix, Telegram and more</string>
-    <string name="editor_more_relation">Partner, parent, manager…</string>
-    <string name="editor_more_note">Anything you want to remember</string>
     <string name="editor_discard_body">Your changes to this contact haven\'t been saved.</string>
     <string name="editor_saving">Saving</string>
     <string name="editor_loading">Loading contact</string>
+    <!-- The "Add" chips: one line of the kinds of fields a contact can still take. -->
+    <string name="editor_add_field">Add %1$s</string>
+    <string name="editor_add_title">Add a field</string>
+    <!-- Save to: Temporary (a new contact that deletes itself, like the keypad's "Save temporary contact"). -->
+    <string name="editor_temporary">Temporary</string>
+    <string name="editor_temporary_sub">Deletes itself after a time you choose</string>
+    <string name="editor_temporary_private">Temporary · private</string>
+    <string name="editor_temporary_visible">Temporary · visible to other apps</string>
+    <plurals name="editor_temp_after">
+        <item quantity="one">After %1$d day</item>
+        <item quantity="other">After %1$d days</item>
+    </plurals>
+    <string name="editor_temp_note_private">Kept privately in Parley, where other apps can\'t see it, and deletes itself when the time is up.</string>
+    <string name="editor_temp_note_visible">Saved on this phone only, where apps that can read contacts see it, and deletes itself when the time is up.</string>
+    <string name="editor_make_temporary">Make temporary</string>
+    <string name="editor_change_expiry">Change when it deletes itself</string>
+    <string name="editor_expiry_failed">Saved, but when it deletes itself couldn\'t be changed</string>
 </resources>

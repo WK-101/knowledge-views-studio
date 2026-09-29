@@ -4,72 +4,75 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextDirection
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 /**
- * Sizes of Parley's forms (the contact editor and other long forms): tonal fields stacked as one segmented block
- * per group, one icon per group in a start gutter, and an end column for the row's remove or expand button.
+ * Sizes of Parley's forms (the contact editor and other long forms): compact tonal fields stacked as one segmented
+ * block per group, one icon per group in a start gutter, and an end column for the row's remove or expand button.
+ * Dense but not cramped: fields are 48 dp (Material's dense text field) and every control keeps a 48 dp target.
  */
 object FormTokens {
-    /** Width of the start gutter that holds a group's icon (24 dp icon + 16 dp gap). */
-    val gutter: Dp = 40.dp
+    /** Width of the start gutter that holds a group's icon (24 dp icon + 12 dp gap). */
+    val gutter: Dp = 36.dp
 
     /** Width of the end column (a 48 dp icon button). */
     val endColumn: Dp = 48.dp
 
-    /** Height of a single-line field, and so of the gutter icon's line. */
-    val fieldHeight: Dp = 56.dp
+    /** Height of a single-line field (label inside, above the value), and so of the gutter icon's line. */
+    val fieldHeight: Dp = 48.dp
 
     /** Gap between the fields of one group: reads as a hairline divider, not as separate boxes. */
     val segmentGap: Dp = 2.dp
 
-    /** Gap between groups. */
-    val groupGap: Dp = 16.dp
+    /** Gap between groups: the page background shows through, enough to tell groups apart. */
+    val groupGap: Dp = 8.dp
 
     /** Corner of a group's outer edges and of the joins inside it. */
     val outerCorner: Dp = 16.dp
     val innerCorner: Dp = 4.dp
+
+    /** The photo in a form's header, beside the name fields. */
+    val headerPhoto: Dp = 80.dp
+
+    /** Widest a value's type selector ("Mobile ▾") gets inside its field before it ellipsises. */
+    val typeMaxWidth: Dp = 96.dp
 }
 
 /** Which part of a line a field fills: the whole line, or its start or end half when two fields share it. */
@@ -93,9 +96,10 @@ fun formFieldShape(index: Int, count: Int, side: FieldSide = FieldSide.Whole): S
 }
 
 /**
- * A calm, filled-tonal text field: no underline or outline at rest, the label inside, a 2 dp ring while focused (or
- * in error). [supporting] sits under the field in [supportingColor] (the theme's variant colour when null), so a group
- * of fields keeps reading as one block.
+ * A calm, filled-tonal text field, 48 dp high: no underline or outline at rest, the label inside (small, above the
+ * value once there is one), a 2 dp ring while focused (or in error). [supporting] sits under the field in
+ * [supportingColor] (the theme's variant colour when null), so a group of fields keeps reading as one block. It grows
+ * with the font size and with [minLines].
  */
 @Composable
 fun ParleyFormField(
@@ -127,30 +131,53 @@ fun ParleyFormField(
     val ring by animateDpAsState(if (active || isError) 2.dp else 0.dp, ParleyMotion.fastSpatial(), label = "ring")
     val ringColor by animateColorAsState(if (isError) cs.error else cs.primary, ParleyMotion.fastEffects(), label = "ringColor")
     val container = if (active) cs.surfaceContainerHigh else cs.surfaceContainer
+    val colors = tonalColors(container)
+    val base = LocalTextStyle.current.copy(color = cs.onSurface)
+    val style = if (forceLtr) base.copy(textDirection = TextDirection.Ltr) else base
     Column(modifier.animateContentSize(ParleyMotion.fastSpatial())) {
-        TextField(
+        // BasicTextField with the filled decoration, so the padding can be Material's dense one (4 dp above the
+        // label, 4 dp under the value): 48 dp instead of TextField's fixed 56 dp minimum.
+        BasicTextField(
             value = value,
             onValueChange = onValueChange,
-            label = { Text(label) },
             modifier = Modifier.fillMaxWidth().heightIn(min = FormTokens.fieldHeight)
                 .then(if (ring > 0.dp) Modifier.border(ring, ringColor, shape) else Modifier),
             readOnly = readOnly,
-            textStyle = if (forceLtr) LocalTextStyle.current.copy(textDirection = TextDirection.Ltr) else LocalTextStyle.current,
-            singleLine = singleLine,
-            minLines = minLines,
-            prefix = textSlot(prefix),
-            placeholder = textSlot(placeholder),
-            trailingIcon = trailing,
-            isError = isError,
-            shape = shape,
+            textStyle = style,
+            cursorBrush = SolidColor(if (isError) cs.error else cs.primary),
             keyboardOptions = keyboardOptions,
             keyboardActions = keyboardActions,
+            singleLine = singleLine,
+            maxLines = if (singleLine) 1 else Int.MAX_VALUE,
+            minLines = minLines,
             visualTransformation = visualTransformation,
             interactionSource = source,
-            colors = tonalColors(container),
-        )
+        ) { inner ->
+            TextFieldDefaults.DecorationBox(
+                value = value,
+                innerTextField = inner,
+                enabled = true,
+                singleLine = singleLine,
+                visualTransformation = visualTransformation,
+                interactionSource = source,
+                isError = isError,
+                label = { Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                placeholder = textSlot(placeholder),
+                trailingIcon = trailing,
+                prefix = textSlot(prefix),
+                shape = shape,
+                colors = colors,
+                contentPadding = densePadding(minLines),
+            )
+        }
         if (supporting != null) SupportingLine(supporting, supportingColor ?: if (isError) cs.error else cs.onSurfaceVariant)
     }
+}
+
+/** Material's dense padding (4 dp above the label, 4 dp under the value); a little more for multi-line notes. */
+private fun densePadding(minLines: Int): PaddingValues {
+    val v = if (minLines > 1) Spacing.s else Spacing.xs
+    return TextFieldDefaults.contentPaddingWithLabel(start = Spacing.l, end = Spacing.m, top = v, bottom = v)
 }
 
 private fun textSlot(text: String?): (@Composable () -> Unit)? = text?.let { t -> { Text(t) } }
@@ -204,23 +231,6 @@ fun FormRow(
         Column(Modifier.weight(1f), content = content)
         if (end != null || reserveEnd) {
             Box(Modifier.width(FormTokens.endColumn).heightIn(min = FormTokens.fieldHeight), contentAlignment = Alignment.Center) { end?.invoke() }
-        }
-    }
-}
-
-/** "+ Add phone": a quiet 48 dp row under a group's fields, lined up with them. */
-@Composable
-fun FormAddRow(label: String, onClick: () -> Unit, modifier: Modifier = Modifier, icon: ImageVector? = null, groupTitle: String? = null) {
-    FormRow(icon, groupTitle, modifier) {
-        Row(
-            Modifier.fillMaxWidth().heightIn(min = 48.dp).clip(ParleyShapes.pill)
-                .clickable(role = Role.Button, onClick = onClick).padding(horizontal = Spacing.m),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Start,
-        ) {
-            Icon(Icons.Rounded.Add, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
-            Spacer(Modifier.width(Spacing.s))
-            Text(label, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
         }
     }
 }

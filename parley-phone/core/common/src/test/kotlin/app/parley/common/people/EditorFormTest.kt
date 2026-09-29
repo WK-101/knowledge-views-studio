@@ -8,19 +8,46 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class EditorFormTest {
-    // ---------------------------------------------------------------- "Add more info"
+    // ---------------------------------------------------------------- "Add" chips and layout
 
-    @Test fun addable_lists_only_kinds_not_shown_in_sheet_order() {
-        assertEquals(Kind.entries, EditorForm.addable(emptySet()))
-        assertEquals(
-            listOf(Kind.NAME_DETAILS, Kind.ADDRESS, Kind.HANDLE, Kind.NOTE),
-            EditorForm.addable(setOf(Kind.DATE, Kind.WEBSITE, Kind.RELATION)),
-        )
-        assertEquals(emptyList<Kind>(), EditorForm.addable(Kind.entries.toSet()))
+    @Test fun add_choices_offer_hidden_kinds_commonest_first() {
+        // A new contact shows name and a blank phone: the phone chip waits until that row is filled.
+        val fresh = EditorForm.addChoices(setOf(Kind.PHONE), withBlankRow = setOf(Kind.PHONE))
+        assertEquals(Kind.EMAIL, fresh.first())
+        assertFalse(Kind.PHONE in fresh)
+        assertEquals(EditorForm.chipOrder - Kind.PHONE, fresh)
+        // Once filled, "Phone" is offered again (it adds another row) and leads.
+        assertEquals(Kind.PHONE, EditorForm.addChoices(setOf(Kind.PHONE)).first())
     }
 
-    @Test fun addable_respects_allowed_kinds() {
-        assertEquals(listOf(Kind.DATE), EditorForm.addable(setOf(Kind.NOTE), allowed = setOf(Kind.DATE, Kind.NOTE)))
+    @Test fun add_choices_drop_shown_single_kinds_but_keep_repeatable_ones() {
+        val shown = setOf(Kind.PHONE, Kind.EMAIL, Kind.WORK, Kind.NOTE, Kind.ADDRESS)
+        val c = EditorForm.addChoices(shown, withBlankRow = setOf(Kind.EMAIL))
+        assertFalse(Kind.WORK in c)
+        assertFalse(Kind.NOTE in c)
+        assertFalse(Kind.EMAIL in c)
+        assertTrue(Kind.PHONE in c)
+        assertTrue(Kind.ADDRESS in c)
+        assertEquals(emptyList<Kind>(), EditorForm.addChoices(emptySet(), allowed = emptySet()))
+    }
+
+    @Test fun add_choices_respect_allowed_kinds() {
+        assertEquals(listOf(Kind.DATE), EditorForm.addChoices(setOf(Kind.NOTE), allowed = setOf(Kind.DATE, Kind.NOTE)))
+        // Every kind has a place in the chip order.
+        assertEquals(Kind.entries.toSet(), EditorForm.chipOrder.toSet())
+    }
+
+    @Test fun type_selector_moves_under_only_when_narrow_or_large_font() {
+        assertFalse(EditorForm.typeBelow(fieldWidthDp = 252f, fontScale = 1f))
+        assertFalse(EditorForm.typeBelow(fieldWidthDp = 252f, fontScale = 1.15f))
+        assertTrue(EditorForm.typeBelow(fieldWidthDp = 252f, fontScale = 1.3f))
+        assertTrue(EditorForm.typeBelow(fieldWidthDp = 200f, fontScale = 1f))
+    }
+
+    @Test fun photo_beside_name_on_ordinary_phones() {
+        assertTrue(EditorForm.photoBesideName(widthDp = 360f, fontScale = 1f))
+        assertFalse(EditorForm.photoBesideName(widthDp = 280f, fontScale = 1f))
+        assertFalse(EditorForm.photoBesideName(widthDp = 411f, fontScale = 1.5f))
     }
 
     // ---------------------------------------------------------------- dirty state and Save

@@ -1,5 +1,6 @@
 package app.parley.data
 
+import android.net.Uri
 import android.provider.ContactsContract
 
 /**
@@ -36,16 +37,32 @@ object TemporaryContacts {
             given = name.trim().ifEmpty { number },
             phones = listOf(DataItem(value = number, type = ContactsContract.CommonDataKinds.Phone.TYPE_MOBILE)),
         )
+        return saveDetails(c, details, days, private, purgeHistory, now = now)
+    }
+
+    /**
+     * Saves a whole contact as temporary (the contact editor's "Save to: Temporary"). A private one's [photo] is
+     * left to the caller, which encrypts it for the vault; a visible one gets it with the contact.
+     */
+    suspend fun saveDetails(
+        c: DataContainer,
+        details: ContactDetails,
+        days: Int = DEFAULT_DAYS,
+        private: Boolean = true,
+        purgeHistory: Boolean = true,
+        photo: Uri? = null,
+        now: Long = System.currentTimeMillis(),
+    ): Saved? {
         val expiresAt = now + days * 86_400_000L
         if (private) {
             val id = c.vault.save(null, details, expiresAt = expiresAt, purgeHistory = purgeHistory)
             // Vault numbers are never kept in the "last messaged" record.
-            c.messaging.forget(number)
+            details.phones.forEach { p -> if (p.value.isNotBlank()) c.messaging.forget(p.value) }
             return Saved(id, private = true)
         }
         // Kept on this phone only (never synced to an account): it's meant to disappear. The store records the raw
         // contact it created, and only that one is ever deleted (F2; see app.parley.data.people.TemporaryContactStore).
-        val saved = c.temporaries.createPhone(details, expiresAt, purgeHistory) ?: return null
+        val saved = c.temporaries.createPhone(details, expiresAt, purgeHistory, photo) ?: return null
         return Saved(saved.contactId, private = false, rawId = saved.rawId)
     }
 }

@@ -1,5 +1,6 @@
 package app.parley.data.people
 
+import android.net.Uri
 import android.provider.ContactsContract.CommonDataKinds.Phone
 import android.provider.ContactsContract.Data
 import app.parley.common.people.TemporaryExpiry
@@ -44,10 +45,16 @@ class TemporaryContactStore(private val c: DataContainer) {
     /**
      * Saves [details] as a phone-only contact (no account, never synced) that deletes itself at [expiresAt], recording
      * the raw contact it created (and only that one). Returns the contact and raw ids, or null when nothing could be
-     * saved. Use [app.parley.data.TemporaryContacts.save] rather than calling this directly.
+     * saved. [photo]: the contact's picture (the contact editor's "Save to: Temporary"). Use
+     * [app.parley.data.TemporaryContacts.save] rather than calling this directly.
      */
-    suspend fun createPhone(details: ContactDetails, expiresAt: Long, purgeHistory: Boolean = true): ContactsRepository.SaveResult? = mutex.withLock {
-        val saved = c.contacts.save(null, details, null, null, false) ?: return@withLock null
+    suspend fun createPhone(
+        details: ContactDetails,
+        expiresAt: Long,
+        purgeHistory: Boolean = true,
+        photo: Uri? = null,
+    ): ContactsRepository.SaveResult? = mutex.withLock {
+        val saved = c.contacts.save(null, details, null, photo, false) ?: return@withLock null
         val raw = saved.rawId
         // The lookup key can briefly be unreadable right after the insert (aggregation runs asynchronously): retry,
         // and if it still isn't there, record the entry by its raw contact so it is never left without an expiry.

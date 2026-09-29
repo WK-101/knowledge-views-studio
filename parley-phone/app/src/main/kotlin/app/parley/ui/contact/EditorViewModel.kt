@@ -15,6 +15,8 @@ import androidx.lifecycle.viewModelScope
 import app.parley.InsertPrefill
 import app.parley.R
 import app.parley.common.people.EditorForm
+import app.parley.common.people.ExpiryChange
+import app.parley.common.people.TemporaryChoice
 import app.parley.common.people.ThreeWayMerge
 import app.parley.common.people.RelationLinks
 import app.parley.common.people.RowKeys
@@ -105,6 +107,18 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
     /** New contacts go to the private vault when "Private by default" is on (the Save-to menu can change it). */
     var privateNew by mutableStateOf(false)
         private set
+
+    /** "Save to: Temporary" for a new contact, and its time, privacy and call-history choices. */
+    var temporaryNew by mutableStateOf(false)
+        private set
+    var temporary by mutableStateOf(TemporaryChoice())
+        private set
+
+    /** When an existing contact deletes itself now (null: it's kept), and the editor's change to that. */
+    var expiresAt by mutableStateOf<Long?>(null)
+        private set
+    var expiryPick by mutableStateOf<ExpiryChange?>(null)
+        private set
     var background by mutableStateOf<BackgroundChange>(BackgroundChange.None)
         private set
 
@@ -140,7 +154,11 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
 
     private var started = false
 
-    val isVault: Boolean get() = args.vaultId != null || privateNew
+    /** Saved into the private vault: a private contact, or a new temporary one kept private (the default). */
+    val isVault: Boolean get() = args.vaultId != null || if (temporaryNew) temporary.private else privateNew
+
+    /** The expiry change the save will apply (a "Keep permanently" on a contact that isn't temporary is none). */
+    private val expiryChange: ExpiryChange? get() = ExpiryChange.resolve(expiresAt != null, expiryPick)
     val isNew: Boolean get() = original == null && (args.vaultId ?: 0L) <= 0L
 
     /** Something to save: the draft differs from the start (blank new rows aside), or the photo or background changed. */
@@ -148,7 +166,7 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
         get() {
             val d = draft
             return d != null && (start == null || EditorDrafts.meaningful(d) != start?.let(EditorDrafts::meaningful)) ||
-                photo != null || removePhoto || background != BackgroundChange.None
+                photo != null || removePhoto || background != BackgroundChange.None || expiryChange != null
         }
 
     val canSave: Boolean
@@ -201,6 +219,7 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
             }
             draft = withPhoneRow(e)
             start = draft
+            if (vaultId > 0) expiresAt = c.vault.summariesNow().firstOrNull { it.id == vaultId }?.expiresAt
             return true
         }
         if (a.contactId != null) {
@@ -215,6 +234,7 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
             // An added number or appended details count as a change, so Save is ready for them.
             start = loaded
             account = d?.rawContacts?.firstOrNull { it.id == d.editRawId }?.account ?: AccountRef(null, null)
+            expiresAt = d?.lookupKey?.takeIf { it.isNotEmpty() }?.let { withContext(Dispatchers.IO) { c.temporaries.forKey(it) } }?.expiresAt
         } else {
             if (a.prefill != null) {
                 draft = withPhoneRow(a.prefill)
@@ -254,12 +274,28 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
 
     /** The Save-to menu: null = the private vault. */
     fun chooseAccount(a: AccountRef?) {
+        temporaryNew = false
         if (a == null) {
             privateNew = true
         } else {
             privateNew = false
             account = a
         }
+    }
+
+    /** The Save-to menu's "Temporary". */
+    fun chooseTemporary() {
+        temporaryNew = true
+    }
+
+    /** A new temporary contact's time, privacy or call-history choice. */
+    fun changeTemporary(choice: TemporaryChoice) {
+        temporary = choice
+    }
+
+    /** An existing contact: make it temporary, give it a new time, or keep it (applied when saving). */
+    fun pickExpiry(change: ExpiryChange?) {
+        expiryPick = change
     }
 
     fun changeBackground(change: BackgroundChange) {
@@ -289,6 +325,7 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
         val request = SaveContactUseCase.Request(
             original = orig, draft = e, account = account, photo = photo, removePhoto = removePhoto,
             toVault = isVault, vaultId = args.vaultId, background = background, pickedLinks = pickedLinks,
+            temporary = temporary.takeIf { temporaryNew && isNew }, expiry = expiryChange,
         )
         viewModelScope.launch {
             val outcome = try {
@@ -307,6 +344,10 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
                     outcome.notes.forEach { message(it) }
                     val key = outcome.keepPromptKey
                     if (key != null) askKeep = key to outcome.id else eventChannel.send(EditorEvent.Done(outcome.id))
+                    if (key == null && request.temporary != null) {
+                        val t = request.temporary
+                        eventChannel.send(EditorEvent.Message(c.appContext.resources.getQuantityString(R.plurals.temp_deletes_in_days, t.days, t.days)))
+                    }
                 }
             }
         }
@@ -388,6 +429,15 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
             K_PHOTO to photo,
             K_REMOVE_PHOTO to removePhoto,
             K_PRIVATE_NEW to privateNew,
+            K_TEMPORARY to temporaryNew,
+            K_TEMP_DAYS to temporary.days,
+            K_TEMP_PRIVATE to temporary.private,
+            K_TEMP_PURGE to temporary.purgeHistory,
+            K_EXPIRY to when (val p = expiryPick) {
+                null -> EXPIRY_NONE
+                ExpiryChange.Keep -> EXPIRY_KEEP
+                is ExpiryChange.After -> p.days
+            },
             K_BACKGROUND to when (val bg = background) {
                 BackgroundChange.None -> null
                 BackgroundChange.Remove -> BG_REMOVE
@@ -442,6 +492,15 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
             removePhoto = b.getBoolean(K_REMOVE_PHOTO)
         }
         privateNew = b.getBoolean(K_PRIVATE_NEW)
+        temporaryNew = b.getBoolean(K_TEMPORARY)
+        temporary = TemporaryChoice(
+            b.getInt(K_TEMP_DAYS, TemporaryChoice.DEFAULT_DAYS), b.getBoolean(K_TEMP_PRIVATE, true), b.getBoolean(K_TEMP_PURGE, true),
+        )
+        expiryPick = when (val e = b.getInt(K_EXPIRY, EXPIRY_NONE)) {
+            EXPIRY_NONE -> null
+            EXPIRY_KEEP -> ExpiryChange.Keep
+            else -> ExpiryChange.After(e)
+        }
         if (background == BackgroundChange.None) {
             background = when (val bg = b.getString(K_BACKGROUND)) {
                 null -> BackgroundChange.None
@@ -534,6 +593,13 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
         const val K_BASE_VERSION = "baseVersion"
         const val K_RECONCILE = "reconcile"
         const val BG_REMOVE = "remove"
+        const val K_TEMPORARY = "temporary"
+        const val K_TEMP_DAYS = "tempDays"
+        const val K_TEMP_PRIVATE = "tempPrivate"
+        const val K_TEMP_PURGE = "tempPurge"
+        const val K_EXPIRY = "expiry"
+        const val EXPIRY_NONE = -1
+        const val EXPIRY_KEEP = 0
 
         /** About 200 KB in the parcel (UTF-16), well under the binder transaction limit with the rest of the state. */
         const val MAX_DRAFT_CHARS = 100_000
