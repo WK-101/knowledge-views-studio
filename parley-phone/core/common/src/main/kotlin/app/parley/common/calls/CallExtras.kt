@@ -15,6 +15,14 @@ data class CallExtrasConfig(
     val pocketGuard: Boolean = true,
     /** Re-alert for unseen missed calls every N minutes; 0 = off (the default). */
     val missedReAlertMinutes: Int = 0,
+    /** Answer automatically (all off by default; see [AutoAnswer]): while a headset or Bluetooth device is connected… */
+    val autoAnswerHeadset: Boolean = false,
+    /** …in simple mode… */
+    val autoAnswerSimple: Boolean = false,
+    /** …or for the people and labels chosen on their pages… */
+    val autoAnswerChosen: Boolean = false,
+    /** …after this many seconds of ringing, with Cancel on the call screen. */
+    val autoAnswerSeconds: Int = AutoAnswer.DEFAULT_SECONDS,
 ) {
     companion object {
         private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
@@ -23,7 +31,12 @@ data class CallExtrasConfig(
             CallExtrasConfig()
         } else {
             try {
-                json.decodeFromString(serializer(), text).let { it.copy(missedReAlertMinutes = MissedReAlert.normalise(it.missedReAlertMinutes)) }
+                json.decodeFromString(serializer(), text).let {
+                    it.copy(
+                        missedReAlertMinutes = MissedReAlert.normalise(it.missedReAlertMinutes),
+                        autoAnswerSeconds = AutoAnswer.normalise(it.autoAnswerSeconds),
+                    )
+                }
             } catch (_: Exception) {
                 CallExtrasConfig()
             }

@@ -16,6 +16,7 @@ object ContactDraftJson {
         putOpt("nameId", d.nameId); put("prefix", d.prefix); put("given", d.given); put("middle", d.middle); put("family", d.family); put("suffix", d.suffix)
         put("pg", d.phoneticGiven); put("pf", d.phoneticFamily)
         putOpt("nicknameId", d.nicknameId); put("nickname", d.nickname)
+        putOpt("pronounsId", d.pronounsId); put("pronouns", d.pronouns)
         putOpt("orgId", d.orgId); put("company", d.company); put("title", d.title)
         putOpt("noteId", d.noteId); put("note", d.note)
         put("phones", items(d.phones)); put("emails", items(d.emails)); put("websites", items(d.websites)); put("relations", items(d.relations))
@@ -45,6 +46,7 @@ object ContactDraftJson {
             nameId = o.long("nameId"), prefix = o.optString("prefix"), given = o.optString("given"), middle = o.optString("middle"),
             family = o.optString("family"), suffix = o.optString("suffix"), phoneticGiven = o.optString("pg"), phoneticFamily = o.optString("pf"),
             nicknameId = o.long("nicknameId"), nickname = o.optString("nickname"),
+            pronounsId = o.long("pronounsId"), pronouns = o.optString("pronouns"),
             orgId = o.long("orgId"), company = o.optString("company"), title = o.optString("title"),
             noteId = o.long("noteId"), note = o.optString("note"),
             phones = readItems(o.optJSONArray("phones")), emails = readItems(o.optJSONArray("emails")),

@@ -694,6 +694,8 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                     ringtonePicker.launch(Intent(RingtoneManager.ACTION_RINGTONE_PICKER).putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_RINGTONE))
                 })
             }
+            // Haptic caller ID and auto-answer for this person (Parley applies both, private contacts included).
+            if (d.lookupKey.isNotEmpty()) blended { CallerChoiceRows(vm, d.lookupKey, d.displayName) }
             blended { CallBackgroundInfoRow(vm, d) }
             // Where it's saved, as chips with their own actions (edit this copy, move, unlink); a private contact is
             // kept only in Parley.
@@ -801,7 +803,9 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                             modifier = Modifier.padding(top = Spacing.m).shared("name-$contactId", bounds = true),
                         )
                     }
-                    val sub = listOf(d.nickname, listOf(d.title, d.company).filter { it.isNotBlank() }.joinToString(", ")).filter { it.isNotBlank() }
+                    // Pronouns first, right under the name.
+                    val work = listOf(d.title, d.company).filter { it.isNotBlank() }.joinToString(", ")
+                    val sub = listOf(d.pronouns.trim(), d.nickname, work).filter { it.isNotBlank() }
                     if (sub.isNotEmpty()) Text(sub.joinToString(sep), color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
                     Text(
                         glanceText, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,

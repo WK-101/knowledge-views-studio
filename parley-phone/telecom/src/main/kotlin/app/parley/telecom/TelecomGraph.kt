@@ -6,6 +6,7 @@ import app.parley.common.AnswerGesture
 import app.parley.common.ListDensity
 import app.parley.common.ThemeMode
 import app.parley.common.Verification
+import app.parley.common.calls.CallExtrasConfig
 import app.parley.common.calltime.CallTimePlan
 import app.parley.common.calls.EmergencyPolicy
 import app.parley.common.calls.RingFacts
@@ -32,6 +33,17 @@ data class CallerDisplay(
     val memory: CallerMemory? = null,
     /** Offer "Anything to remember?" after the call (a contact, and the setting is on). */
     val memoryPrompt: Boolean = false,
+    /** "she/her", shown beside the name. */
+    val pronouns: String? = null,
+    /** The caller's haptic caller ID ([app.parley.common.calls.CallerHaptics] spec): their own, else a label's. */
+    val vibration: String? = null,
+    /** The person, or one of their labels, is chosen for auto-answer. */
+    val autoAnswerChosen: Boolean = false,
+    /**
+     * The contact's own ringtone (Android plays it), so Parley's ringer can play the same tone when it takes over the
+     * ringing for [vibration]; null: the phone's default.
+     */
+    val ownRingtone: String? = null,
 )
 
 /**
@@ -126,6 +138,9 @@ interface CallPolicyHooks {
 
     /** Talk-time reminders, limit and allowance for a new call. Never called for emergency calls. */
     suspend fun callTimePlan(number: String?, accountId: String?, incoming: Boolean): CallTimePlan = CallTimePlan.NONE
+
+    /** Settings › Calls › Answer automatically, read from memory on the call path (off by default). */
+    fun autoAnswer(): CallExtrasConfig = CallExtrasConfig()
 
     /** True when this caller's allowance is used up and the user wants such calls to ring silently. */
     suspend fun silenceOverQuota(number: String, accountId: String?): Boolean = false

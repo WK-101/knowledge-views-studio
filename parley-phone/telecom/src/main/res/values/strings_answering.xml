@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Auto-answer countdown on the incoming-call screen (Settings › Calls › Answer automatically). -->
+    <plurals name="call_auto_answer_in">
+        <item quantity="one">Answering in %1$d second</item>
+        <item quantity="other">Answering in %1$d seconds</item>
+    </plurals>
+    <string name="call_auto_answer_cancel">Cancel</string>
+    <string name="call_auto_answer_cancel_desc">Don\'t answer automatically</string>
+</resources>

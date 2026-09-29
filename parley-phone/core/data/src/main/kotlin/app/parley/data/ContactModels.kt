@@ -88,6 +88,9 @@ data class ContactDetails(
     val phoneticFamily: String = "",
     val nicknameId: Long? = null,
     val nickname: String = "",
+    /** Parley's pronouns row ([app.parley.common.record.Mime.PRONOUNS]): "she/her", shown beside the name. */
+    val pronounsId: Long? = null,
+    val pronouns: String = "",
     val orgId: Long? = null,
     val company: String = "",
     val title: String = "",

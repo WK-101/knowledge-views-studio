@@ -46,6 +46,8 @@ object SettingsText {
         "unknown_ringtone" to Triple(R.string.set_unknown_ringtone_title, R.string.set_unknown_ringtone_summary, R.string.set_unknown_ringtone_kw),
         "pocket_guard" to Triple(R.string.set_pocket_guard_title, R.string.set_pocket_guard_summary, R.string.set_pocket_guard_kw),
         "missed_realert" to Triple(R.string.set_missed_realert_title, R.string.set_missed_realert_summary, R.string.set_missed_realert_kw),
+        "auto_answer" to Triple(R.string.set_auto_answer_title, R.string.set_auto_answer_summary, R.string.set_auto_answer_kw),
+        "caller_vibration" to Triple(R.string.set_caller_vibration_title, R.string.set_caller_vibration_summary, R.string.set_caller_vibration_kw),
         "proximity_sensor" to Triple(R.string.set_proximity_sensor_title, R.string.set_proximity_sensor_summary, R.string.set_proximity_sensor_kw),
         "power_button_ends_call" to Triple(R.string.set_power_button_ends_call_title, R.string.set_power_button_ends_call_summary, R.string.set_power_button_ends_call_kw),
         "voicemail" to Triple(R.string.set_voicemail_title, R.string.set_voicemail_summary, R.string.set_voicemail_kw),
@@ -97,6 +99,9 @@ object SettingsText {
         "sim_labels" to Triple(R.string.set_sim_labels_title, R.string.set_sim_labels_summary, R.string.set_sim_labels_kw),
         "recents_layout" to Triple(R.string.set_recents_layout_title, R.string.set_recents_layout_summary, R.string.set_recents_layout_kw),
         "recents_style" to Triple(R.string.set_recents_style_title, R.string.set_recents_style_summary, R.string.set_recents_style_kw),
+        "recents_remember_filter" to Triple(
+            R.string.set_recents_remember_filter_title, R.string.set_recents_remember_filter_summary, R.string.set_recents_remember_filter_kw,
+        ),
         "clear_history" to Triple(R.string.set_clear_history_title, R.string.set_clear_history_summary, R.string.set_clear_history_kw),
         "insights" to Triple(R.string.set_insights_title, R.string.set_insights_summary, R.string.set_insights_kw),
         "import_calls" to Triple(R.string.set_import_calls_title, R.string.set_import_calls_summary, R.string.set_import_calls_kw),

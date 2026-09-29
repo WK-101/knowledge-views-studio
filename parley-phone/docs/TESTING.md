@@ -1426,3 +1426,43 @@ Design: [CONTACT_MODEL.md](CONTACT_MODEL.md) ("Conversions", "Ringtone and Send 
 11. **Editor and list together.** Open a private contact's editor, then (split screen) star it from the Contacts list and add it to a label; save the editor with another change: the star and the label stay.
 12. **Original photo.** Open a private contact's photo full screen and pan and zoom for a while: no stutter; closing the viewer frees it. Delete the contact and restore it from History & undo: the photo as picked is back, and a relation on another contact that opened it opens it again.
 13. **Keypad search.** Search a private contact's name from the keypad's search: its row shows its photo, with no delay while typing.
+
+## 25. Follow-through (4.4)
+
+### 25.3 Small wins: auto-answer, haptic caller ID, Recents Unknown and Contacts, pronouns, emergency information
+
+Parley is the phone app. Try light, dark and black themes, a large font, landscape and Arabic or Urdu (RTL) where a screen is named.
+
+**Auto-answer** (Settings › Calls › Know who's calling › Answer automatically)
+
+1. **Off by default.** A fresh install shows "Off". Calls from contacts ring as before.
+2. **Headset.** Turn on "With a headset or Bluetooth", pick 5 seconds. With earbuds or a car kit connected, a contact calls: under the name, "Answering in 5 seconds" counts down with a Cancel button; at 0 the call is answered (the answer buzz). Without a headset nothing happens. TalkBack reads the countdown politely and Cancel as "Don't answer automatically".
+3. **Cancel.** Tap Cancel: the countdown goes and the call rings on; it isn't armed again. Pressing volume down (silence), Ignore or Decline also stops it.
+4. **Simple mode.** Turn on "In simple mode" and switch simple mode on: a contact's call counts down the same way.
+5. **Chosen people and labels.** Turn on "For chosen people and labels". A contact's page › Settings for this contact now has "Answer automatically"; switch it on for Sam. Sam's calls count down; Ana's don't. On the label "Family" switch on "Answer automatically": its members count down too. A private contact (switched on from its page, while the vault is locked or not) counts down as well.
+6. **Never.** An unknown number, a hidden number, a call a rule blocks or silences, a "likely spam" call, or a call that arrives while another call is active or on hold never counts down, whatever is on. When a second call arrives during a countdown, the countdown stops.
+7. **Delay.** 3, 5, 10 and 15 seconds are offered; the summary reads e.g. "With a headset or Bluetooth · After 10 seconds".
+
+**Haptic caller ID** (contact page › Settings for this contact › Vibration; a label's page › Vibration)
+
+8. **Choose and feel.** Open Vibration: the phone's usual vibration, "A rhythm of their own", Heartbeat, Double tap, One long buzz and "“S” in Morse code" (the first letter of the name). The play button vibrates the pattern once; TalkBack reads "Feel Heartbeat". Pick one: the row shows its name.
+9. **Rings with it.** Phone on vibrate: Sam calls and the phone vibrates in Sam's rhythm, a short pause, again. Normal ringer mode with "Vibrate for calls" on: Sam's own ringtone (or the phone's default) plays, with Sam's rhythm. Silent mode, or Do Not Disturb: nothing changes (silent stays silent). "Why did my phone ring?" names the contact's tone or the default.
+10. **Labels.** Give "Family" the Heartbeat; Ana (in Family, no pattern of her own) vibrates with it; Sam's own pattern wins over Family's.
+11. **Stable rhythm.** "A rhythm of their own" feels the same after renaming the contact, making it private and visible again, and after a backup restore; two different contacts feel different.
+12. **Private contacts.** A private contact's pattern is chosen the same way, applies while the phone and the vault are locked, and stays through Make visible / Make private.
+
+**Recents chips** (Recents)
+
+13. **Unknown and Contacts.** New chips after Outgoing: Unknown (a question mark in the Rich style, text in Simple) and Contacts (a person). Unknown lists calls from numbers that aren't contacts or private contacts, and hidden numbers; Contacts the rest. With discreet mode on, private contacts' numbers count as unknown.
+14. **Quiet header.** On Unknown, a line under the chips reads "3 unknown callers today" (each number once, each hidden call once) or "No unknown callers today"; it moves on at midnight.
+15. **Remembered.** Pick Unknown, close Parley (swipe it away) and open it again: Recents opens on Unknown. Blocked and Voicemail aren't remembered (Recents opens on All). Settings › Recents & history › "Remember the Recents filter" off: Recents always opens on All. A missed-call notification still opens on Missed.
+
+**Pronouns**
+
+16. **Editor.** Open the name chevron: a Pronouns field after Nickname. Type "they/them", save: the contact page shows "they/them" first under the name, and an incoming call from them shows it under the name on the call screen (also for a private contact, and while the phone is locked).
+17. **vCard.** Share the contact as a vCard: it has `PRONOUNS:they/them`. Import a card with `PRONOUNS:she/her` from another app: the field is filled. The row isn't listed under "Other fields". Google Contacts keeps the row on the phone (it may not sync it).
+
+**Emergency information** (Contacts › My card)
+
+18. **Emergency information.** My card › In an emergency › Emergency information opens Android's emergency information (medical details, emergency contacts). On a phone without it, a dialog says where it usually is, with Open Settings. The lock screen's Emergency button is unchanged.
+19. **ICE label.** Tap "ICE label": the label "ICE" is made in the default account (or opened when it exists); add the people to call in an emergency there.

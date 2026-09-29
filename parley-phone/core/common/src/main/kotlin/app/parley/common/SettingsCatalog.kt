@@ -132,6 +132,13 @@ object SettingsCatalog {
             "pocket dial", "butt dial", "accidental", "proximity", "widget", "shortcut", "favourite", "favorite"),
         e("missed_realert", "Remind me of missed calls", "Alert again every few minutes until you've seen them", C,
             "re-alert", "repeat", "reminder", "missed call", "nag", "notification"),
+        // Auto-answer: off by default; only known callers, never during another call, always with a countdown and Cancel.
+        e("auto_answer", "Answer automatically", "Off. With a headset or Bluetooth, in simple mode, or for people you choose, after a few seconds", C,
+            "auto answer", "auto-answer", "answer automatically", "headset", "bluetooth", "car", "hands-free", "handsfree", "earbuds",
+            "simple mode", "chosen", "countdown", "seconds"),
+        // Haptic caller ID: set on a contact's or a label's page.
+        e("caller_vibration", "Vibration for callers", "Give a person or a label a rhythm of their own, so you can tell who's calling without looking", C,
+            "vibration pattern", "custom vibration", "haptic", "haptic caller id", "vibrate", "heartbeat", "morse", "pocket", "deaf", "silent"),
         e("proximity_sensor", "Turn the screen off at your ear", "Uses the proximity sensor during earpiece calls", C,
             "proximity", "sensor", "screen off", "black screen", "pocket", "broken sensor"),
         e("power_button_ends_call", "Power button ends call", "Android's accessibility setting", C,
@@ -212,6 +219,8 @@ object SettingsCatalog {
         e("sim_labels", "Show SIM in call history", "Only when two SIMs are active", H, "dual sim", "sim label"),
         e("recents_layout", "Call list layout", "Grouped, every call on its own row, or grouped by day", H,
             "chronological", "grouped", "by day", "ungroup", "list", "call log", "layout"),
+        e("recents_remember_filter", "Remember the Recents filter", "Recents opens on the filter you used last, such as Unknown or Contacts", H,
+            "filter", "chips", "unknown callers", "unknown numbers", "contacts only", "remember", "last filter"),
         e("recents_style", "Recents style", "Rich: shapes, tints and a Call back button for missed calls. Simple: plain icons", H,
             "rich", "simple", "colours", "colors", "icons", "missed", "call back", "style", "legend", "colour blind"),
         e("clear_history", "Clear call history", "All calls, calls from unknown numbers or missed calls, with an export first", H,

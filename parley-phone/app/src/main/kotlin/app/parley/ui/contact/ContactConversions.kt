@@ -2,6 +2,7 @@ package app.parley.ui.contact
 
 import app.parley.common.backup.CallLogRecord
 import app.parley.common.calltime.LimitScope
+import app.parley.common.extras.CallerChoice
 import app.parley.common.people.ContactRef
 import app.parley.common.people.PrivateLabels
 import app.parley.common.suspendRunCatching
@@ -115,6 +116,7 @@ class ContactConversions(private val c: DataContainer) {
         // voicemail" and its labels as they are now (the stored record may hold older ones). An entry whose caller-ID
         // copy doesn't hold them (not seeded: its details couldn't be read) keeps what the record put back.
         if (summary != null && summary.choicesKnown) toAddressBook(newId, summary)
+        holdCallerChoices(privateKey, summary)
         val key = keyOf(newId)
         if (key != null) {
             c.contactKeys.rekey(privateKey, key, newId)
@@ -180,6 +182,11 @@ class ContactConversions(private val c: DataContainer) {
             for (g in groups.filter { it.title.trim() == title }) if (runCatching { c.contacts.addToGroup(listOf(contactId), g) }.getOrDefault(1) == 0) break
         }
         (have - wanted).forEach { t -> runCatching { c.people.labels.removeMembers(t, listOf(contactId)) } }
+    }
+
+    /** Its vibration and auto-answer are Parley's own: they wait under the private key and follow the re-key. */
+    private fun holdCallerChoices(privateKey: String, s: VaultSummary?) {
+        if (s != null) c.extras.holdForRekey(privateKey, CallerChoice(s.vibration, s.autoAnswer))
     }
 
     /** Runs [block] in the app's scope: the caller may stop waiting, the conversion still finishes. */

@@ -196,6 +196,8 @@ fun MeCardScreen(vm: AppViewModel, back: () -> Unit) {
                 }
             }
         }
+        // Android's emergency information and an ICE label (the lock screen's Emergency button stays Android's).
+        EmergencyInfoGroup(vm)
         Text(
             stringResource(R.string.me_footer),
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 32.dp),

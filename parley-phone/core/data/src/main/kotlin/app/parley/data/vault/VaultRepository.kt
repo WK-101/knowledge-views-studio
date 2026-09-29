@@ -56,6 +56,10 @@ data class VaultSummary(
     val ringtone: String? = null,
     /** Its calls are declined to voicemail by Parley's call screening. */
     val sendToVoicemail: Boolean = false,
+    /** Its haptic caller ID ([app.parley.common.calls.CallerHaptics] spec), applied by Parley's ringer. */
+    val vibration: String? = null,
+    /** Its calls are answered automatically when "For chosen people and labels" is on. */
+    val autoAnswer: Boolean = false,
     /**
      * The caller-ID copy holds the star, labels, ringtone and "send to voicemail". False for an entry saved before
      * they were kept there and not seeded yet ([VaultRepository.seedCallerChoices]): the fields above are then only
@@ -77,6 +81,8 @@ data class VaultCallerCard(
     val context: String?,
     val note: String?,
     val photoUri: String?,
+    /** "she/her", shown beside the name. */
+    val pronouns: String? = null,
 )
 
 data class PrivateCall(val id: Long, val vaultId: Long, val number: String, val name: String, val date: Long, val durationSec: Long, val type: Int)
@@ -158,6 +164,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
             updatedAt = o.optLong("u", e.createdAt), purgeHistory = o.optBoolean("purge", false),
             starred = o.optBoolean(C_STAR, false), labels = labelsOf(o),
             ringtone = o.optString(C_TONE).ifEmpty { null }, sendToVoicemail = o.optBoolean(C_VOICEMAIL, false),
+            vibration = o.optString(C_VIBRATION).ifEmpty { null }, autoAnswer = o.optBoolean(C_AUTO_ANSWER, false),
             choicesKnown = o.has(C_SEEDED),
         )
     }.getOrNull()
@@ -394,6 +401,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
                     shown.company.trim().ifEmpty { null }?.let { put(C_COMPANY, it) }
                     shown.context.trim().ifEmpty { null }?.let { put("ctx", it) }
                     shown.pinnedNote.trim().ifEmpty { null }?.let { put("note", it) }
+                    shown.pronouns.trim().ifEmpty { null }?.let { put(C_PRONOUNS, it) }
                 }
                 // When it was last saved, so the newest of two entries sharing a number wins.
                 .put("u", System.currentTimeMillis())
@@ -405,6 +413,9 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
                     putLabels(this, labels)
                     shown.customRingtone?.takeIf { it.isNotBlank() }?.let { put(C_TONE, it) }
                     if (shown.sendToVoicemail) put(C_VOICEMAIL, true)
+                    // The vibration and auto-answer are set from the page only (the editor doesn't show them): kept.
+                    existingSummary?.vibration?.let { put(C_VIBRATION, it) }
+                    if (existingSummary?.autoAnswer == true) put(C_AUTO_ANSWER, true)
                 }
                 // The region national numbers were read with, so re-fingerprinting later uses the same one.
                 .put(C_REGION, region)
@@ -469,6 +480,8 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
             putLabels(o, after.labels)
             if (after.ringtone.isNullOrBlank()) o.remove(C_TONE) else o.put(C_TONE, after.ringtone)
             if (after.sendToVoicemail) o.put(C_VOICEMAIL, true) else o.remove(C_VOICEMAIL)
+            if (after.vibration.isNullOrBlank()) o.remove(C_VIBRATION) else o.put(C_VIBRATION, after.vibration)
+            if (after.autoAnswer) o.put(C_AUTO_ANSWER, true) else o.remove(C_AUTO_ANSWER)
             // "u" stays: which of two entries sharing a number wins follows edits of the contact, not a star or a label.
             dao.setCallerIdBlob(id, VaultCrypto.sealCallerId(o.toString().toByteArray()))
             noteCallChoices(after.hasCallChoices)
@@ -677,7 +690,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
             val o = JSONObject(String(VaultCrypto.openCallerId(e.callerIdBlob)))
             VaultCallerCard(
                 o.optString("name"), o.optString("sub").ifEmpty { null }, o.optString("ctx").ifEmpty { null },
-                o.optString("note").ifEmpty { null }, photoUri(id),
+                o.optString("note").ifEmpty { null }, photoUri(id), pronouns = o.optString(C_PRONOUNS).ifEmpty { null },
             )
         }.getOrNull()
     }
@@ -846,6 +859,9 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
         const val C_LABELS = "lb"
         const val C_TONE = "rt"
         const val C_VOICEMAIL = "vm"
+        const val C_VIBRATION = "vb"
+        const val C_AUTO_ANSWER = "aa"
+        const val C_PRONOUNS = "pn"
         const val K_CALL_CHOICES = "call_choices"
         const val K_CHOICES_SEEDED = "caller_choices_seeded"
 

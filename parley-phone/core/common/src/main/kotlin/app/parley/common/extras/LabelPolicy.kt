@@ -10,15 +10,65 @@ import kotlinx.serialization.json.Json
  * What a label (by title) carries besides its ringtone. [simId]: the SIM its members are called on when they
  * have no SIM of their own; [rhythmDays]: the keep-in-touch gap offered when a member joins the Circle;
  * [allowThroughDnd]: members are starred so Android's "starred contacts" Do Not Disturb exception lets them ring
- * (which contacts Parley starred, and for which labels, is kept apart in [DndStars]).
+ * (which contacts Parley starred, and for which labels, is kept apart in [DndStars]); [vibration]: the members'
+ * haptic caller ID ([app.parley.common.calls.CallerHaptics] spec) when they have none of their own; [autoAnswer]:
+ * members' calls are answered automatically when "For chosen people and labels" is on.
  */
 @Serializable
 data class LabelPolicy(
     val simId: String? = null,
     val rhythmDays: Int? = null,
     val allowThroughDnd: Boolean = false,
+    val vibration: String? = null,
+    val autoAnswer: Boolean = false,
 ) {
-    val isEmpty: Boolean get() = simId == null && rhythmDays == null && !allowThroughDnd
+    val isEmpty: Boolean get() = simId == null && rhythmDays == null && !allowThroughDnd && vibration == null && !autoAnswer
+}
+
+/**
+ * What Parley applies to one person's calls beside their ringtone: their haptic caller ID and whether their calls are
+ * answered automatically. A device contact's are kept by Parley under its key ([CallerChoices]); a private contact's
+ * in its sealed caller-ID copy, like its ringtone, so the call path reads them while the phone is locked.
+ */
+@Serializable
+data class CallerChoice(
+    val vibration: String? = null,
+    val autoAnswer: Boolean = false,
+) {
+    val isEmpty: Boolean get() = vibration == null && !autoAnswer
+}
+
+/** Device contacts' [CallerChoice]s, by lookup key. */
+object CallerChoices {
+    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = false }
+    private val serializer = MapSerializer(String.serializer(), CallerChoice.serializer())
+
+    fun decode(text: String?): Map<String, CallerChoice> = if (text.isNullOrBlank()) {
+        emptyMap()
+    } else {
+        runCatching { json.decodeFromString(serializer, text) }.getOrDefault(emptyMap()).filter { (k, v) -> k.isNotEmpty() && !v.isEmpty }
+    }
+
+    fun encode(map: Map<String, CallerChoice>): String = json.encodeToString(serializer, map.filter { (k, v) -> k.isNotEmpty() && !v.isEmpty })
+
+    /**
+     * A contact's key changed (link, unlink, a first sync, a variant change): its choices move with it. What the new
+     * key already had wins field by field, so a choice made there since is never overwritten.
+     */
+    fun rekey(map: Map<String, CallerChoice>, from: String, to: String): Map<String, CallerChoice> {
+        if (from == to) return map
+        val moving = map[from] ?: return map
+        val there = map[to]
+        val merged = if (there == null) moving else CallerChoice(there.vibration ?: moving.vibration, there.autoAnswer || moving.autoAnswer)
+        return (map - from) + (to to merged)
+    }
+
+    /** A restored map joins the one here; what is here wins. */
+    fun merge(here: Map<String, CallerChoice>, restored: Map<String, CallerChoice>): Map<String, CallerChoice> =
+        restored.keys.fold(here) { acc, k -> if (k in acc) acc else acc + (k to restored.getValue(k)) }
+
+    /** Whether any label chosen for auto-answer is one of [labels]. */
+    fun labelAutoAnswer(labels: Set<String>, policies: Map<String, LabelPolicy>): Boolean = labels.any { policies[it]?.autoAnswer == true }
 }
 
 object LabelPolicies {

@@ -52,4 +52,5 @@
     <string name="rel_mirror_changed_elsewhere">%1$s changed meanwhile, so the relation is saved only here</string>
     <!-- The photo menu: Parley keeps the picture whole; other apps get Android's reduced copy. -->
     <string name="editor_photo_kept_whole">Parley keeps the whole photo. Other apps see Android\'s smaller copy.</string>
+    <string name="edit_pronouns">Pronouns</string>
 </resources>

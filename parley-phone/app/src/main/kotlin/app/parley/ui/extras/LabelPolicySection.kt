@@ -42,7 +42,10 @@ import app.parley.R
 import app.parley.common.ContactSummary
 import app.parley.common.extras.LabelPolicies
 import app.parley.common.extras.LabelPolicy
+import app.parley.ui.contact.AutoAnswerRow
 import app.parley.ui.contact.Section
+import app.parley.ui.contact.VibrationPatternDialog
+import app.parley.ui.contact.VibrationRow
 import kotlinx.coroutines.launch
 import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.selection.toggleable
@@ -66,6 +69,8 @@ fun LabelPolicySection(vm: AppViewModel, title: String, members: List<ContactSum
     var pickSim by rememberSaveable { mutableStateOf(false) }
     var pickRhythm by rememberSaveable { mutableStateOf(false) }
     var explainDnd by rememberSaveable { mutableStateOf(false) }
+    var pickVibration by rememberSaveable { mutableStateOf(false) }
+    val callCfg by vm.c.callExtras.config.collectAsStateWithLifecycle()
     // Only the members not starred yet: "Star N new members" confirms with the same list.
     var starNewOnly by rememberSaveable { mutableStateOf(false) }
     val circleKeys by produceState(emptySet<String>(), members, p.rhythmDays) { value = vm.c.circle.members().map { it.lookupKey }.toSet() }
@@ -132,7 +137,19 @@ fun LabelPolicySection(vm: AppViewModel, title: String, members: List<ContactSum
             }
             TextButton({ openDndSettings(context) }, Modifier.padding(start = 56.dp)) { Text(stringResource(R.string.label_policy_dnd_open)) }
         }
+        // Haptic caller ID for members without one of their own, and auto-answer for the label (when that option is on).
+        VibrationRow(p.vibration, title) { pickVibration = true }
+        if (callCfg.autoAnswerChosen) {
+            AutoAnswerRow(p.autoAnswer, stringResource(R.string.label_policy_auto_answer_summary)) { v ->
+                vm.c.extras.updatePolicy(title) { it.copy(autoAnswer = v) }
+            }
+        }
     }
+    if (pickVibration) VibrationPatternDialog(
+        current = p.vibration, name = title, seedKey = "label:$title",
+        onPick = { spec -> pickVibration = false; vm.c.extras.updatePolicy(title) { it.copy(vibration = spec) } },
+        onDismiss = { pickVibration = false },
+    )
 
     if (pickSim) ParleyDialog(
         onDismissRequest = { pickSim = false },

@@ -404,6 +404,9 @@ class BackupRepository(
     /** A private contact's labels, by title: group ids mean nothing on another phone (optional; older versions ignore it). */
     private fun putLabels(o: JSONObject, v: app.parley.data.vault.VaultSummary) {
         if (v.labels.isNotEmpty()) o.put("labels", JSONArray(v.labels.map { it.title }))
+        // Its vibration and auto-answer, kept in the caller-ID copy like the labels (optional too).
+        v.vibration?.let { o.put("vibration", it) }
+        if (v.autoAnswer) o.put("autoAnswer", true)
     }
 
     private suspend fun putPrivateExtras(o: JSONObject, vaultId: Long) {
@@ -750,6 +753,10 @@ class BackupRepository(
             o.optJSONArray("labels")?.let { a ->
                 val titles = (0 until a.length()).mapNotNull { a.optString(it).takeIf { t -> t.isNotBlank() } }
                 if (titles.isNotEmpty()) runCatching { vault.updateCallerChoices(id) { s -> s.copy(labels = titles.map { PrivateLabels.Membership(0, it) }) } }
+            }
+            val vibration = o.optString("vibration").ifEmpty { null }
+            if (vibration != null || o.optBoolean("autoAnswer")) {
+                runCatching { vault.updateCallerChoices(id) { s -> s.copy(vibration = vibration, autoAnswer = o.optBoolean("autoAnswer")) } }
             }
             restoreCalls(id, o)
             o.optJSONObject("parley")?.let { x -> runCatching { privateExtras?.importPrivate(id, x) } }

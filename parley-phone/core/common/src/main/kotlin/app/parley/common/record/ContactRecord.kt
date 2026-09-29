@@ -76,8 +76,14 @@ object Mime {
     const val GROUP = "vnd.android.cursor.item/group_membership"
     const val IDENTITY = "vnd.android.cursor.item/identity"
 
+    /**
+     * A person's pronouns ("she/her"), in DATA1. Android has no kind for them, so Parley writes its own row (other apps
+     * keep it, and vCard carries it as `PRONOUNS`, RFC 9554).
+     */
+    const val PRONOUNS = "vnd.android.cursor.item/vnd.parley.pronouns"
+
     /** Kinds Parley shows/edits; everything else is preserved but read-only. */
-    val CORE = setOf(NAME, PHONE, EMAIL, POSTAL, ORG, NICKNAME, NOTE, WEBSITE, EVENT, IM, RELATION, SIP, PHOTO, GROUP)
+    val CORE = setOf(NAME, PHONE, EMAIL, POSTAL, ORG, NICKNAME, NOTE, WEBSITE, EVENT, IM, RELATION, SIP, PHOTO, GROUP, PRONOUNS)
 }
 
 /** Column names for readability: Data.DATA1..DATA15. */

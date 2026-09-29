@@ -12,7 +12,7 @@ import app.parley.common.record.Mime
  */
 object RecordDetails {
     /** Kinds the editor shows. */
-    private val EDITABLE = setOf(Mime.NAME, Mime.NICKNAME, Mime.ORG, Mime.NOTE, Mime.PHONE, Mime.EMAIL, Mime.IM, Mime.SIP, Mime.WEBSITE, Mime.RELATION, Mime.POSTAL, Mime.EVENT, Mime.GROUP)
+    private val EDITABLE = setOf(Mime.NAME, Mime.NICKNAME, Mime.PRONOUNS, Mime.ORG, Mime.NOTE, Mime.PHONE, Mime.EMAIL, Mime.IM, Mime.SIP, Mime.WEBSITE, Mime.RELATION, Mime.POSTAL, Mime.EVENT, Mime.GROUP)
 
     fun toDetails(record: ContactRecord): ContactDetails {
         val rows = record.raws.flatMap { it.rows }
@@ -32,6 +32,7 @@ object RecordDetails {
             d = d.copy(given = parts[0], family = parts.getOrElse(1) { "" })
         }
         rows.firstOrNull { it.mimeType == Mime.NICKNAME }?.let { d = d.copy(nickname = s(it[Col.D1])) }
+        rows.firstOrNull { it.mimeType == Mime.PRONOUNS }?.let { d = d.copy(pronouns = s(it[Col.D1])) }
         rows.firstOrNull { it.mimeType == Mime.ORG }?.let { d = d.copy(company = s(it[Col.D1]), title = s(it[Col.D4])) }
         rows.filter { it.mimeType == Mime.NOTE }.map { s(it[Col.D1]) }.filter { it.isNotBlank() }.takeIf { it.isNotEmpty() }?.let { d = d.copy(note = it.joinToString("\n\n")) }
         fun items(mime: String, default: Int) = rows.filter { it.mimeType == mime && !it[Col.D1].isNullOrBlank() }

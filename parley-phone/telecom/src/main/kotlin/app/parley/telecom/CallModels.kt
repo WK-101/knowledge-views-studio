@@ -74,6 +74,10 @@ data class CallUi(
     val hdAudio: Boolean = false,
     /** The call goes over Wi-Fi calling (Call.Details.PROPERTY_WIFI). */
     val wifi: Boolean = false,
+    /** The caller's pronouns ("she/her"), shown beside the name. */
+    val pronouns: String? = null,
+    /** `elapsedRealtime` when this ringing call is answered automatically (0: it isn't); the screen shows Cancel. */
+    val autoAnswerAt: Long = 0,
 ) {
     val title: String get() = name ?: number?.takeIf { it.isNotBlank() } ?: fallbackTitle
     val isLive: Boolean get() = state != CallState.DISCONNECTED && state != CallState.DISCONNECTING

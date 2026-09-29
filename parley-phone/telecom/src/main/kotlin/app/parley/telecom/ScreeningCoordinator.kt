@@ -62,7 +62,8 @@ internal class ScreeningCoordinator(private val scope: CoroutineScope, private v
             } else {
                 if (outcome?.ringLoud == true) host.ringLoud(session)
                 // The caller lookup may have finished first and held the custom tone back until screening allowed it.
-                if (session.unknownCaller || outcome?.ringtone != null) host.playTone(session)
+                // So may a caller's haptic caller ID, which Parley's ringer plays too.
+                if (session.unknownCaller || outcome?.ringtone != null || session.info?.vibration != null) host.playTone(session)
             }
             host.changed()
         }

@@ -76,6 +76,9 @@ object VCardMapper {
     const val X_STARRED = "X-PARLEY-STARRED"
     const val X_RINGTONE = "X-PARLEY-RINGTONE"
     const val X_VOICEMAIL = "X-PARLEY-SEND-TO-VOICEMAIL"
+
+    /** vCard 4.0's pronouns property (RFC 9554), for [Mime.PRONOUNS]. */
+    const val PRONOUNS = "PRONOUNS"
     private const val X_BLOB = "X-PARLEY-BLOB"
     private const val X_DERIVED = "X-PARLEY-DERIVED"
     private const val X_LABEL = "X-ABLabel"
@@ -91,7 +94,7 @@ object VCardMapper {
 
     /** Row order used by [canonical] and import: the order kinds appear in on a contact card. */
     private val MIME_ORDER = listOf(
-        Mime.NAME, Mime.NICKNAME, Mime.PHONE, Mime.EMAIL, Mime.POSTAL, Mime.ORG, Mime.WEBSITE, Mime.EVENT,
+        Mime.NAME, Mime.NICKNAME, Mime.PRONOUNS, Mime.PHONE, Mime.EMAIL, Mime.POSTAL, Mime.ORG, Mime.WEBSITE, Mime.EVENT,
         Mime.IM, Mime.SIP, Mime.RELATION, Mime.NOTE, Mime.GROUP, Mime.PHOTO,
     )
     private val MAPPED = MIME_ORDER.toSet()
@@ -105,7 +108,7 @@ object VCardMapper {
     )
 
     /** Kinds whose primary flags are meaningless once flattened to one raw contact. */
-    private val NO_FLAGS = setOf(Mime.NAME, Mime.PHOTO, Mime.GROUP)
+    private val NO_FLAGS = setOf(Mime.NAME, Mime.PHOTO, Mime.GROUP, Mime.PRONOUNS)
 
     private val DATE_FULL = Regex("""^(\d{4})-(\d{2})-(\d{2})$""")
     private val DATE_BASIC = Regex("""^(\d{4})(\d{2})(\d{2})$""")
@@ -497,6 +500,10 @@ object VCardMapper {
                     finish(p, r, setOf(Col.D1))
                 }
                 Mime.GROUP -> categories += v.getValue(Col.GROUP_TITLE)
+                Mime.PRONOUNS -> {
+                    val p = raw(PRONOUNS, v.getValue(Col.D1))
+                    finish(p, r, setOf(Col.D1))
+                }
                 Mime.PHOTO -> {
                     val bytes = r.blob ?: continue
                     val p = add(Photo(bytes, imageType(bytes)))
@@ -675,6 +682,8 @@ object VCardMapper {
                     when {
                         name == X_LABEL.uppercase() -> Unit
                         name == X_ANDROID_CUSTOM -> importAndroidCustom(p, ::emit) ?: skip(X_ANDROID_CUSTOM)
+                        name == PRONOUNS -> unescapeRaw(value).trim().takeIf { it.isNotEmpty() }
+                            ?.let { emit(Mime.PRONOUNS, mutableMapOf(Col.D1 to it), p) } ?: skip(name)
                         name == X_PHONETIC_FIRST -> phonetic[Col.D7] = unescapeRaw(value)
                         name == X_PHONETIC_MIDDLE -> phonetic[Col.D8] = unescapeRaw(value)
                         name == X_PHONETIC_LAST -> phonetic[Col.D9] = unescapeRaw(value)

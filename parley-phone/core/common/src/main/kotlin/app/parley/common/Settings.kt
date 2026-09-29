@@ -66,6 +66,10 @@ data class AppSettings(
     val surfaces: SurfaceLayout = SurfaceLayout(),
     /** The call screen's background: the caller's colour, or the theme's plain background. */
     val callBackground: CallScreenBackground = CallScreenBackground.CALLER_COLOUR,
+    /** Recents opens on the filter chip used last (see [app.parley.common.calls.RecentsCallers.restored]). */
+    val rememberRecentsFilter: Boolean = true,
+    /** The Recents filter chip used last, by name ("UNKNOWN"); empty for All. */
+    val recentsFilter: String = "",
 ) {
     companion object {
         val DEFAULT_QUICK_REPLIES = listOf(

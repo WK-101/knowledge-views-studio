@@ -18,6 +18,8 @@ import app.parley.common.BlockAction
 import app.parley.common.Decision
 import app.parley.common.Verification
 import app.parley.common.calls.AnswerRoute
+import app.parley.common.calls.AutoAnswer
+import app.parley.common.calls.CallerHaptics
 import app.parley.common.calls.CallBook
 import app.parley.common.calls.CallFailure
 import app.parley.common.calls.EmergencyPolicy
@@ -68,6 +70,7 @@ object CallManager {
     private val ringer = CallRinger(scope) { silenceRinger() }
     private val screening = ScreeningCoordinator(scope) { deps }
     private val limits = CallLimitsGate(scope) { deps }
+    private val autoAnswer = AutoAnswerGate(scope) { deps.autoAnswer() }
     private val notifier = NotifierBridge()
 
     private val _calls = MutableStateFlow<List<CallUi>>(emptyList())
@@ -153,7 +156,43 @@ object CallManager {
         override fun playTone(session: CallSession) {
             callOf(session)?.let { maybePlayUnknownRingtone(it, session) }
         }
+        override fun changed() {
+            // Screening has answered: a known caller's call may now be armed for auto-answer.
+            calls.firstOrNull { sessions[idOf(it)]?.screening == false && ringing(it) }?.let { considerAutoAnswer(it) }
+            publish()
+        }
+    }
+
+    /** What auto-answer needs to know about a ringing call, asked when it is armed and again at its deadline. */
+    private val autoAnswerHost = object : AutoAnswerGate.Host {
+        override fun facts(session: CallSession): AutoAnswer.Facts? {
+            val call = callOf(session)?.takeIf { ringing(it) } ?: return null
+            val number = call.details.handle?.schemeSpecificPart
+            val o = session.outcome
+            return AutoAnswer.Facts(
+                knownCaller = session.info != null && !session.unknownCaller,
+                hidden = call.details.handlePresentation != TelecomManager.PRESENTATION_ALLOWED || number.isNullOrBlank(),
+                blockedOrSpam = session.silenced || o?.decision is Decision.Block || o?.warn == true,
+                otherCall = calls.any { it != call && it.parent == null && mapState(it.stateCompat()) != CallState.DISCONNECTED },
+                emergency = isEmergencyCall(call, number),
+                headsetConnected = AutoAnswerGate.headsetConnected(appContext),
+                simpleMode = runCatching { deps.appearance.value.simpleMode }.getOrDefault(false),
+                chosen = session.info?.autoAnswerChosen == true,
+            )
+        }
+        override fun answer(session: CallSession) = answer(session.id)
         override fun changed() = publish()
+    }
+
+    private fun considerAutoAnswer(call: Call) {
+        if (!::appContext.isInitialized) return
+        autoAnswer.consider(session(idOf(call)), autoAnswerHost)
+    }
+
+    /** Cancel on the call screen's countdown: the call rings on as usual. */
+    fun cancelAutoAnswer(id: String) {
+        sessions[id]?.let { autoAnswer.cancel(it) }
+        publish()
     }
 
     internal fun add(context: Context, call: Call) {
@@ -165,6 +204,8 @@ object CallManager {
         _declineBlock.value?.let { b -> if (calls.none { idOf(it) == b.callId }) _declineBlock.value = null }
         calls += call
         call.registerCallback(callback)
+        // Never answer a call on its own while another one exists.
+        if (calls.size > 1) autoAnswer.cancelAll(sessions.values)
 
         val number = call.details.handle?.schemeSpecificPart
         val hidden = call.details.handlePresentation != TelecomManager.PRESENTATION_ALLOWED
@@ -216,6 +257,11 @@ object CallManager {
                 val found = withTimeoutOrNull(LOOKUP_TIMEOUT_MS) { runCatching { deps.callerInfo(number, accountId) }.also { looked = it.isSuccess }.getOrNull() }
                 if (found != null) {
                     s.info = found
+                    if (incoming) {
+                        // The caller's haptic caller ID: Parley's ringer takes over the ringing (or the tone playing).
+                        applyCallerVibration(call, s)
+                        considerAutoAnswer(call)
+                    }
                 } else {
                     // Only a lookup that finished and found nobody: a timeout or a failure must never offer "Block" for a contact.
                     if (looked && calls.contains(call)) s.noContact = true
@@ -240,25 +286,63 @@ object CallManager {
     }
 
     /**
-     * Distinct ringtone for unknown callers (or the one screening chose): silence Telecom's ringer and play our own,
-     * only in normal ringer mode with Do Not Disturb off (so we never ring when the system wouldn't).
+     * Distinct ringtone for unknown callers (or the one screening chose, or a caller's haptic caller ID): silence
+     * Telecom's ringer and play our own, only in normal ringer mode (on vibrate, only the caller's vibration) with Do Not Disturb off (so we never ring when the system wouldn't).
      */
     private fun maybePlayUnknownRingtone(call: Call, s: CallSession) {
-        // A ringtone chosen by screening (rule, label, repeat caller, likely spam) wins over the unknown-caller tone.
-        val uri = s.outcome?.ringtone
-            ?: (if (s.unknownCaller) runCatching { deps.unknownRingtone() }.getOrNull() else null)
-            ?: return
+        val pattern = vibrationOf(s)
+        val uri = toneFor(s, pattern) ?: return
         if (s.screening || ringer.toneFor == s.id) return // played once screening allows the call
         if (!::appContext.isInitialized || s.silenced || !ringing(call)) return
         val otherActive = calls.any { it != call && mapState(it.stateCompat()) == CallState.ACTIVE }
-        ringer.play(appContext, s, uri, otherActive, stillRinging = { ringing(call) }) {
-            val o = s.outcome
-            s.tonePlayed = if (o?.ringtone != null) (o.ringtoneSource ?: RingtoneSource.RULE) to o.ringtoneName else RingtoneSource.UNKNOWN_CALLER to null
+        // On vibrate, only the vibration is ours: no tone plays.
+        if (pattern != null) {
+            ringer.vibrateOnly(appContext, s, pattern, otherActive, stillRinging = { ringing(call) }) {}
+            if (ringer.toneFor == s.id) return
         }
+        ringer.play(appContext, s, uri, otherActive, stillRinging = { ringing(call) }, pattern = pattern) { s.tonePlayed = playedSource(s) }
+    }
+
+    /**
+     * The tone Parley's ringer plays, or null to leave the ringing to Telecom: a ringtone chosen by screening (rule,
+     * label, repeat caller, likely spam), else the unknown-caller tone, else, for a caller with a haptic caller ID
+     * ([pattern]), their own tone or the phone's default, so the call vibrates their way.
+     */
+    private fun toneFor(s: CallSession, pattern: LongArray?): String? {
+        s.outcome?.ringtone?.let { return it }
+        if (s.unknownCaller) return runCatching { deps.unknownRingtone() }.getOrNull()
+        if (pattern == null) return null
+        return s.info?.ownRingtone ?: Settings.System.DEFAULT_RINGTONE_URI?.toString()
+    }
+
+    /** What "Why did my phone ring?" says about the tone Parley played. */
+    private fun playedSource(s: CallSession): Pair<RingtoneSource, String?> {
+        val o = s.outcome
+        return when {
+            o?.ringtone != null -> (o.ringtoneSource ?: RingtoneSource.RULE) to o.ringtoneName
+            s.unknownCaller -> RingtoneSource.UNKNOWN_CALLER to null
+            s.info?.ownRingtone != null -> RingtoneSource.CONTACT to null
+            else -> RingtoneSource.DEFAULT to null
+        }
+    }
+
+    /** The caller's haptic caller ID as a repeating waveform, or null for the phone's usual vibration. */
+    private fun vibrationOf(s: CallSession): LongArray? {
+        val info = s.info ?: return null
+        val p = CallerHaptics.decode(info.vibration) ?: return null
+        return CallerHaptics.repeating(p, info.name)
+    }
+
+    /** The caller was found with a haptic caller ID: a tone Parley already plays vibrates their way, else Parley rings. */
+    private fun applyCallerVibration(call: Call, s: CallSession) {
+        val pattern = vibrationOf(s) ?: return
+        if (ringer.toneFor == s.id) ringer.useVibration(appContext, s.id, pattern) else maybePlayUnknownRingtone(call, s)
     }
 
     internal fun onSystemSilence() {
         ringer.stop()
+        // Silencing a call says "not now": it isn't answered on its own either.
+        calls.filter { it.stateCompat() == Call.STATE_RINGING }.forEach { autoAnswer.cancel(session(idOf(it))) }
         restoreBoost()
         // A silent phone stays silent: the spoken caller name stops with the ringer.
         calls.filter { it.stateCompat() == Call.STATE_RINGING }.forEach { session(idOf(it)).systemSilenced = true }
@@ -274,6 +358,7 @@ object CallManager {
         val s = session(id)
         if (ringer.toneFor == id) ringer.stop()
         if (ringer.boostedFor == id) restoreBoost()
+        autoAnswer.forget(id)
         val base = toUi(call)
         // An outgoing call that never went through: the reason and Retry stay on the call-ended screen.
         val failure = CallFailure.classify(endFacts(call, base, s))
@@ -449,6 +534,8 @@ object CallManager {
             blockingDecline = s.blockingDecline,
             hdAudio = d.hasProperty(Call.Details.PROPERTY_HIGH_DEF_AUDIO),
             wifi = d.hasProperty(Call.Details.PROPERTY_WIFI),
+            pronouns = found?.pronouns,
+            autoAnswerAt = if (state == CallState.RINGING) s.autoAnswerAt else 0,
         )
     }
 
@@ -839,6 +926,7 @@ object CallManager {
         val s = session(id)
         s.silenced = true
         s.ignoredByUser = true
+        autoAnswer.cancel(s)
         silenceRinger()
         ringer.stop()
         restoreBoost()

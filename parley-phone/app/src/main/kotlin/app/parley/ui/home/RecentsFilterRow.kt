@@ -20,6 +20,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material.icons.rounded.QuestionMark
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.FilterChip
@@ -171,11 +173,29 @@ private fun RichFilterRow(vm: AppViewModel, filters: List<RecentFilter>, filter:
     }
 }
 
-/** A filter's icon: the same call badge as the calls it keeps; All has a history clock. */
+/** A filter's icon: the same call badge as the calls it keeps; All has a history clock, Unknown and Contacts a person. */
 @Composable
 private fun FilterIcon(f: RecentFilter) {
     val cls = f.callClass
-    if (cls != null) CallClassBadge(cls, size = 24.dp) else Icon(Icons.Rounded.History, null, Modifier.size(22.dp))
+    val icon = when (f) {
+        RecentFilter.UNKNOWN -> Icons.Rounded.QuestionMark
+        RecentFilter.CONTACTS -> Icons.Rounded.Person
+        else -> Icons.Rounded.History
+    }
+    if (cls != null) CallClassBadge(cls, size = 24.dp) else Icon(icon, null, Modifier.size(22.dp))
+}
+
+/**
+ * The quiet line under the chips while Unknown is on, like iOS's Unknown Callers list: "3 unknown callers today". A
+ * count of calls that happened, never a warning.
+ */
+@Composable
+internal fun UnknownCallersHeader(today: Int) {
+    val text = if (today == 0) stringResource(R.string.recents_unknown_today_none) else pluralStringResource(R.plurals.recents_unknown_today, today, today)
+    Text(
+        text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.listInset, vertical = Spacing.xs),
+    )
 }
 
 /** Room a shown name adds to an icon chip (the space before the name and after it). */
@@ -232,6 +252,8 @@ internal val RecentFilter.labelRes: Int
         RecentFilter.OUTGOING -> R.string.recents_filter_outgoing
         RecentFilter.BLOCKED -> R.string.recents_filter_blocked
         RecentFilter.VOICEMAIL -> R.string.recents_filter_voicemail
+        RecentFilter.UNKNOWN -> R.string.recents_filter_unknown
+        RecentFilter.CONTACTS -> R.string.recents_filter_contacts
     }
 
 /** The call badge a filter's icon chip shows: the same one as the calls it keeps. All has none (a history icon). */
@@ -243,4 +265,6 @@ private val RecentFilter.callClass: CallClass?
         RecentFilter.OUTGOING -> CallClass.OUTGOING
         RecentFilter.BLOCKED -> CallClass.BLOCKED
         RecentFilter.VOICEMAIL -> CallClass.VOICEMAIL
+        // Who called, not how: icons of their own (below).
+        RecentFilter.UNKNOWN, RecentFilter.CONTACTS -> null
     }

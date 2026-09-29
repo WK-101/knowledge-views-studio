@@ -32,6 +32,7 @@ The Settings list starts with **Tools** (the same page as ⋮ › Tools; see the
 | Answering and calling | Answer incoming calls by `answer_gesture` · Call screen background `call_background` · Confirm before calling `confirm_call` · Vibrate on call events `call_haptics` · Ringtone for unknown callers `unknown_ringtone` |
 | Missed calls and voicemail | Remind me of missed calls `missed_realert` · Voicemail `voicemail` |
 | During calls | Ask before pocket calls `pocket_guard` |
+| Know who's calling | Answer automatically `auto_answer` (off; with a headset or Bluetooth, in simple mode, for chosen people and labels; after 3–15 s with a countdown and Cancel) · Vibration for callers `caller_vibration` (set on a contact's or a label's page) |
 | Remember what matters | Anything to remember? after calls `memory_prompt` · Notes on the lock screen `memory_lock_screen` · Peek before calling `pre_call_peek` |
 | SIMs and carrier | SIMs & plan minutes `sims` ↗ (search also finds it as Plan minutes per SIM `plan_minutes`; in it: Billing increments per SIM `sim_billing`) · SIM & calling accounts `sim_accounts` · Call forwarding, waiting & voicemail `carrier_settings` |
 | Advanced | Vibrate when a call connects `connect_haptic` · Turn the screen off at your ear `proximity_sensor` · Power button ends call `power_button_ends_call` |
@@ -71,7 +72,7 @@ The Settings list starts with **Tools** (the same page as ⋮ › Tools; see the
 | Group | Settings |
 |---|---|
 | Call history | Keep full call history `archive` (with the number of calls kept) · Keep call history `retention` · Numbers kept forever `kept_forever` (while the full history is kept) · Clear call history `clear_history` · Deleted calls `history_details` ↗ (History & undo › Calls) |
-| Recents | Call list layout `recents_layout` · Recents style `recents_style` · Call insights `insights` · People card in Call insights `people_card` · Who usually reaches out first `first_mover` |
+| Recents | Call list layout `recents_layout` · Recents style `recents_style` · Remember the Recents filter `recents_remember_filter` (on; never Blocked or Voicemail) · Call insights `insights` · People card in Call insights `people_card` · Who usually reaches out first `first_mover` |
 | Export & import | Import call history from CSV `import_calls` · Excel-friendly CSV `csv_bom` |
 | Advanced | Show SIM in call history `sim_labels` |
 
