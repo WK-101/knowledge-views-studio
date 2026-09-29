@@ -37,6 +37,14 @@ import app.parley.common.StartTab
 import app.parley.common.circle.YearlyEvents
 import app.parley.common.people.ContactPage
 import app.parley.common.people.ContactSection
+import app.parley.common.PhoneNumbers
+import app.parley.common.ReachGroups
+import app.parley.common.people.ContactGlance
+import app.parley.common.people.GlanceFact
+import app.parley.common.people.PageBlock
+import app.parley.common.people.SectionFamily
+import androidx.compose.material.icons.rounded.Apps
+import androidx.compose.material.icons.rounded.ViewAgenda
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -156,7 +164,6 @@ import app.parley.ui.people.RelationText
 import app.parley.ui.people.describeLifeEvent
 import app.parley.ui.people.eventLabel
 import app.parley.ui.screenViewModel
-import app.parley.ui.SegmentedGroup
 import app.parley.ui.blended
 import app.parley.ui.common.Format
 import app.parley.ui.common.Intents
@@ -180,13 +187,16 @@ import androidx.compose.material.icons.rounded.LinkOff
 
 /**
  * A contact's page. U1: the photo and name dock into the top bar as you scroll ("last talked" shows there once
- * collapsed); U2: grouped sections; U3: labelled Call / Message / Video / Email tiles; M6/M7: "Message on…" with a
- * remembered choice per person; I1 handles, I3 default number or e-mail, I4 other fields, I5 relation types.
- * Header, actions, Stay in touch, dates, numbers, timeline, notes; "Log interaction" is the FAB for
- * Circle contacts and a ⋮ item for everyone else.
- * Every section folds (its summary shows while folded), in the order and start state chosen in Settings;
- * a compact bar with the quick actions (and jump chips on long pages) stays under the top bar once scrolled; the
- * timeline shows the latest few entries with "Show all" opening the full, searchable one.
+ * collapsed); U3: labelled Call / Message / Video / Email tiles; M6/M7: "Message or call on…" with a remembered
+ * choice per person; I1 handles, I3 default number or email, I4 other fields, I5 relation types.
+ *
+ * Laid out to be calm and compact (docs/CONTACT_PAGE_DESIGN.md): a modest photo with an "at a glance" line under
+ * the name (last talked, the next date, open promises); one "Contact info" group where each number says which apps
+ * reach it; one "About" group for dates, websites, relations and notes; the timeline's latest few entries; and
+ * everything that is a setting rather than a fact in one folded "Settings for this contact" group at the bottom.
+ * Every group folds, in the order and start state chosen in Settings (neighbouring sections of one family share
+ * a group); a compact bar with the quick actions (and jump chips on long pages) stays under the top bar once
+ * scrolled. "Log interaction" is the FAB for Circle contacts and a ⋮ item for everyone else.
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -255,11 +265,12 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
     val lastTalked = if (talked != null) stringResource(R.string.detail_last_talked, DateUtils.getRelativeTimeSpanString(talked.date, System.currentTimeMillis(), DateUtils.DAY_IN_MILLIS)) else stringResource(R.string.recents_empty)
     val listState = rememberLazyListState()
     val density = LocalDensity.current
-    // A large header photo, like the phone's own contacts apps: a real photo gets the most room, a monogram a little
-    // less, and a landscape phone keeps it small enough to leave the actions in view.
+    // The header photo: a real photo gets the most room, a monogram less, and a landscape phone keeps it small
+    // enough to leave the actions in view. Photo, name, the at-a-glance line and the tiles fit in about a third
+    // of an upright phone's screen.
     val heroSize = heroPhotoSize(details?.photoUri != null)
     // The header has scrolled away once the name is under the top bar.
-    val collapseAt = with(density) { (heroSize + 72.dp).toPx() }
+    val collapseAt = with(density) { (heroSize + 56.dp).toPx() }
     val collapsed by remember(collapseAt) { derivedStateOf { listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > collapseAt } }
     val headerFraction by remember(collapseAt) {
         derivedStateOf { if (listState.firstVisibleItemIndex > 0) 1f else (listState.firstVisibleItemScrollOffset / collapseAt).coerceIn(0f, 1f) }
@@ -268,9 +279,9 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
     val peopleSettings by vm.people.settings.collectAsStateWithLifecycle()
     var layout by remember { mutableStateOf(peopleSettings.contactPage) }
     LaunchedEffect(peopleSettings.contactPage) { layout = peopleSettings.contactPage }
-    fun fold(s: ContactSection, folded: Boolean) {
-        layout = layout.withFold(s, folded)
-        vm.people.update { it.copy(contactPage = it.contactPage.withFold(s, folded)) }
+    fun fold(b: PageBlock, folded: Boolean) {
+        layout = layout.withFold(b, folded)
+        vm.people.update { it.copy(contactPage = it.contactPage.withFold(b, folded)) }
     }
     // The compact action bar is pinned once the big tiles have scrolled under the top bar.
     var headerHeight by remember { mutableIntStateOf(0) }
@@ -409,101 +420,78 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
         val email = d.emails.firstOrNull { it.isPrimary } ?: d.emails.firstOrNull()
         val sections = PageSections()
         val today = remember { LocalDate.now() }
-        // Stay in touch right under the actions (R4: rhythm, last in touch, next date); R9: open promises.
-        if (d.lookupKey.isNotEmpty()) sections.add(ContactSection.STAY, sectionTitle(resources, ContactSection.STAY), lastTalked) {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                StayInTouchCard(meta, d, history, interactions, goodTime = goodTime, title = null) { reachOut = true }
-                if (memory.promises.isNotEmpty()) PromisesCard(vm, d.lookupKey, memory)
+        val sep = stringResource(R.string.main_separator)
+        val region = PhoneEnv.countryIso(context)
+        val sameLine: (String, String) -> Boolean = { a, b -> PhoneNumbers.same(a, b, region) }
+        // Dates that come round again (a date of death doesn't), with their place in d.events.
+        val dated = remember(d.events) {
+            d.events.mapIndexedNotNull { i, ev -> EventDate.parse(ev.date)?.takeUnless { LifeEvents.isDeath(ev.type, ev.label) }?.let { i to it } }
+        }
+        fun dateText(i: Int, days: Long): String {
+            val label = eventLabel(resources, d.events[i])
+            return when (days) {
+                0L -> resources.getString(R.string.contact_page_date_today, label)
+                1L -> resources.getString(R.string.contact_page_date_tomorrow, label)
+                else -> resources.getQuantityString(R.plurals.contact_page_date_in, days.toInt(), label, days.toInt())
             }
         }
-        // Empty birthday / anniversary slots, saved straight to the system contact.
-        if (d.events.isNotEmpty() || hasMissingDates(d)) {
-            val dated = d.events.mapIndexedNotNull { i, ev ->
-                EventDate.parse(ev.date)?.takeUnless { LifeEvents.isDeath(ev.type, ev.label) }?.let { i to it }
-            }
-            val next = ContactPage.nextDate(dated.map { it.second }, today)?.let { (j, days) -> dated[j].first to days }
-            val summary = next?.let { (i, days) ->
-                val label = eventLabel(resources, d.events[i])
-                when (days) {
-                    0L -> resources.getString(R.string.contact_page_date_today, label)
-                    1L -> resources.getString(R.string.contact_page_date_tomorrow, label)
-                    else -> resources.getQuantityString(R.plurals.contact_page_date_in, days.toInt(), label, days.toInt())
-                }
-            } ?: resources.getQuantityString(R.plurals.contact_page_count_dates, d.events.size, d.events.size)
-            sections.add(ContactSection.DATES, sectionTitle(resources, ContactSection.DATES), summary) {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    SegmentedGroup {
-                        val yearly = YearlyEvents.decode(meta?.yearlyEvents)
-                        d.events.forEachIndexed { i, ev ->
-                            item {
-                                // A life event (new job, moved…) can be remembered yearly in the digest.
-                                val date = EventDate.parse(ev.date)
-                                val canYearly = date != null && d.lookupKey.isNotEmpty() && YearlyEvents.eligible(ev.type) &&
-                                    !LifeEvents.isDeath(ev.type, ev.label)
-                                val key = if (canYearly) YearlyEvents.key(ev.type, ev.label, date!!) else null
-                                val on = key != null && key in yearly
-                                fun toggle() {
-                                    key ?: return
-                                    page.setYearly(key, !on)
-                                }
-                                GroupDataRow(
-                                    Icons.Rounded.Cake, i == 0, describeLifeEvent(resources, d, ev),
-                                    eventLabel(resources, ev) + (if (on) resources.getString(R.string.main_separator) + resources.getString(R.string.circle_yearly_label) else ""),
-                                    onClick = {},
-                                    trailing = if (key == null) null else ({
-                                        IconButton(::toggle) {
-                                            Icon(
-                                                Icons.Rounded.EventRepeat,
-                                                stringResource(if (on) R.string.circle_yearly_stop else R.string.circle_yearly_remember),
-                                                tint = if (on) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                            )
-                                        }
-                                    }),
-                                )
-                            }
-                        }
-                    }
-                    if (hasMissingDates(d)) MissingDateChips(vm, d, onSaved = page::reload)
+        // Stay in touch first when there's something to say: the rhythm (Circle), a good time to call, promises.
+        // Outside the Circle, "Add to your Circle" waits in the settings group and the next date is in the header.
+        val inCircle = meta?.reachOutDays != null
+        val stayHasNews = inCircle || goodTime != null || memory.promises.isNotEmpty()
+        if (d.lookupKey.isNotEmpty() && stayHasNews) {
+            sections.add(ContactSection.STAY, sectionTitle(resources, ContactSection.STAY), lastTalked) {
+                Column(verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
+                    StayInTouchCard(meta, d, history, interactions, goodTime = goodTime, title = null, showNext = false, invite = false) { reachOut = true }
+                    if (memory.promises.isNotEmpty()) PromisesCard(vm, d.lookupKey, memory)
                 }
             }
         }
+        // Contact info: numbers (with the apps that reach each one), emails, addresses, then what's left of
+        // "Message or call on…" (typed-in handles, apps on numbers not saved here).
         if (d.phones.isNotEmpty()) {
             val summary = if (d.phones.size == 1) Bidi.ltr(Format.number(d.phones[0].value, vm.countryIso)) else resources.getQuantityString(R.plurals.contact_page_count_numbers, d.phones.size, d.phones.size)
-            sections.add(ContactSection.PHONES, sectionTitle(resources, ContactSection.PHONES), summary) {
-                SegmentedGroup {
-                    d.phones.forEachIndexed { i, p ->
-                        item {
-                            val pinned = simPrefs.firstOrNull { PhoneIdentity.matchesStored(it.matchKey, p.value, vm.countryIso) }?.phoneAccountId
-                            PhoneRow(
-                                vm, p, first = i == 0,
-                                label = listOfNotNull(Format.phoneType(resources, p.type, p.label), pinned?.let { id -> sims.firstOrNull { it.id == id }?.label?.let { resources.getString(R.string.detail_always_sim, it) } }).joinToString(resources.getString(R.string.main_separator)),
-                                canDefault = d.phones.size > 1 && p.id != null,
-                                multiSim = sims.size > 1,
-                                onCall = { callPeek(p.value, d.displayName) },
-                                onMessage = { message(d, p.value) },
-                                onMessageOn = { messageSheet = p.value },
-                                onSim = { simFor = p.value },
-                                onDefault = { on -> page.setDefault(p, Phone.CONTENT_ITEM_TYPE, on) },
-                            )
-                        }
+            sections.addRows(ContactSection.PHONES, sectionTitle(resources, ContactSection.PHONES), summary) {
+                d.phones.forEachIndexed { i, p ->
+                    item {
+                        val pinned = simPrefs.firstOrNull { PhoneIdentity.matchesStored(it.matchKey, p.value, vm.countryIso) }?.phoneAccountId
+                        val apps = remember(reachGroups, p.value) { ReachGroups.appNamesFor(reachGroups, p.value, sameLine) }
+                        val label = listOfNotNull(
+                            Format.phoneType(resources, p.type, p.label).ifBlank { null },
+                            resources.getString(R.string.contact_page_default).takeIf { p.isPrimary && d.phones.size > 1 },
+                            pinned?.let { id -> sims.firstOrNull { it.id == id }?.label?.let { resources.getString(R.string.detail_always_sim, it) } },
+                            apps.takeIf { it.isNotEmpty() }?.joinToString(resources.getString(R.string.contact_page_list_separator)),
+                        ).joinToString(sep)
+                        PhoneRow(
+                            vm, p, first = i == 0, label = label,
+                            canDefault = d.phones.size > 1 && p.id != null,
+                            multiSim = sims.size > 1,
+                            hasApps = apps.isNotEmpty(),
+                            onCall = { callPeek(p.value, d.displayName) },
+                            onMessage = { message(d, p.value) },
+                            onMessageOn = { messageSheet = p.value },
+                            onSim = { simFor = p.value },
+                            onDefault = { on -> page.setDefault(p, Phone.CONTENT_ITEM_TYPE, on) },
+                        )
                     }
                 }
             }
         }
         if (d.emails.isNotEmpty()) {
             val summary = if (d.emails.size == 1) d.emails[0].value else resources.getQuantityString(R.plurals.contact_page_count_emails, d.emails.size, d.emails.size)
-            sections.add(ContactSection.EMAILS, sectionTitle(resources, ContactSection.EMAILS), summary) {
-                SegmentedGroup {
-                    d.emails.forEachIndexed { i, e ->
-                        item {
-                            GroupDataRow(
-                                Icons.Rounded.Email, i == 0, e.value, Format.emailType(resources, e.type, e.label), onClick = { Intents.email(context, e.value) },
-                                trailing = if (e.isPrimary && d.emails.size > 1) ({ Icon(Icons.Rounded.Star, stringResource(R.string.detail_default_email), tint = MaterialTheme.colorScheme.primary) }) else null,
-                                menu = if (d.emails.size > 1 && e.id != null) ({ close ->
-                                    DefaultMenuItem(e.isPrimary) { on -> close(); page.setDefault(e, Email.CONTENT_ITEM_TYPE, on) }
-                                }) else null,
-                            )
-                        }
+            sections.addRows(ContactSection.EMAILS, sectionTitle(resources, ContactSection.EMAILS), summary) {
+                d.emails.forEachIndexed { i, e ->
+                    item {
+                        val label = listOfNotNull(
+                            Format.emailType(resources, e.type, e.label).ifBlank { null },
+                            resources.getString(R.string.contact_page_default).takeIf { e.isPrimary && d.emails.size > 1 },
+                        ).joinToString(sep)
+                        GroupDataRow(
+                            Icons.Rounded.Email, i == 0, e.value, label, onClick = { Intents.email(context, e.value) },
+                            menu = if (d.emails.size > 1 && e.id != null) ({ close ->
+                                DefaultMenuItem(e.isPrimary) { on -> close(); page.setDefault(e, Email.CONTENT_ITEM_TYPE, on) }
+                            }) else null,
+                        )
                     }
                 }
             }
@@ -511,32 +499,68 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
         val mapLinks = remember(d.addresses, d.websites) { AddressMapLinks.matches(d) }
         if (d.addresses.isNotEmpty()) {
             val summary = if (d.addresses.size == 1) d.addresses[0].formatted.lines().joinToString(", ") { it.trim() } else resources.getQuantityString(R.plurals.contact_page_count_addresses, d.addresses.size, d.addresses.size)
-            sections.add(ContactSection.ADDRESSES, sectionTitle(resources, ContactSection.ADDRESSES), summary) {
-                SegmentedGroup {
-                    d.addresses.forEachIndexed { i, a ->
-                        val link = mapLinks[i]?.let { d.websites.getOrNull(it)?.value }
-                        item { AddressDetailRow(a, i == 0, StructuredPostal.getTypeLabel(resources, a.type, a.label).toString(), link) }
-                    }
+            sections.addRows(ContactSection.ADDRESSES, sectionTitle(resources, ContactSection.ADDRESSES), summary) {
+                d.addresses.forEachIndexed { i, a ->
+                    val link = mapLinks[i]?.let { d.websites.getOrNull(it)?.value }
+                    item { AddressDetailRow(a, i == 0, StructuredPostal.getTypeLabel(resources, a.type, a.label).toString(), link) }
                 }
             }
         }
-        val chatRows = messengers
-        if (d.handles.isNotEmpty() || reachGroups.isNotEmpty()) {
-            val apps = chatRows.map { it.appName }.distinct()
-            val summary = if (apps.isNotEmpty()) apps.joinToString(", ") else resources.getQuantityString(R.plurals.contact_page_count_items, d.handles.size, d.handles.size)
-            sections.add(ContactSection.MESSENGERS, sectionTitle(resources, ContactSection.MESSENGERS), summary) {
-                Column {
-                    CoachMark(Tips.REACH_USUAL, stringResource(R.string.reach_reach_hint), enabled = reachGroups.isNotEmpty())
-                    SegmentedGroup {
-                        // Handles typed into the contact (Matrix, Threema, Signal username…).
-                        handleRows(d.handles, Icons.Rounded.Forum, onWeb = { webLink = it })
-                        // "Reach via apps": each messenger's Message / Voice / Video for this person, per number.
-                        reachViaAppsRows(
-                            reachGroups, prefs, showNumbers = d.phones.size > 1,
-                            onOpen = { row -> r.action(row)?.let { m -> ContactMessaging.startRow(context, r, m)?.let { vm.toast(it) } } },
-                            onToggleUsual = { row -> savePrefs(prefs.toggleUsual(row)) },
+        // Apps on a saved number show on that number's row; only the others get rows of their own here.
+        val looseApps = remember(reachGroups, d.phones) { ReachGroups.notOnNumbers(reachGroups, d.phones.map { it.value }, sameLine) }
+        val handles = d.handles.filter { it.value.isNotBlank() }
+        if (handles.isNotEmpty() || looseApps.isNotEmpty()) {
+            val apps = looseApps.map { it.appLabel }.distinct()
+            val summary = if (apps.isNotEmpty()) apps.joinToString(", ")
+            else resources.getQuantityString(R.plurals.contact_page_count_items, handles.size, handles.size)
+            sections.addRows(
+                ContactSection.MESSENGERS, sectionTitle(resources, ContactSection.MESSENGERS), summary,
+                after = { CoachMark(Tips.REACH_USUAL, stringResource(R.string.reach_reach_hint), enabled = looseApps.isNotEmpty()) },
+            ) {
+                // Handles typed into the contact (Matrix, Threema, Signal username…).
+                handleRows(handles, Icons.Rounded.Forum, onWeb = { webLink = it })
+                // Each remaining app's Message / Voice / Video for this person (long-press: make it the usual way).
+                reachViaAppsRows(
+                    looseApps, prefs, showNumbers = true,
+                    onOpen = { row -> r.action(row)?.let { m -> ContactMessaging.startRow(context, r, m)?.let { vm.toast(it) } } },
+                    onToggleUsual = { row -> savePrefs(prefs.toggleUsual(row)) },
+                )
+            }
+        }
+        // About them: dates, websites, relations, the contact's own note, then Parley's note for calls.
+        if (d.events.isNotEmpty() || hasMissingDates(d)) {
+            val next = ContactPage.nextDate(dated.map { it.second }, today)?.let { (j, days) -> dated[j].first to days }
+            val summary = next?.let { (i, days) -> dateText(i, days) }
+                ?: if (d.events.isNotEmpty()) resources.getQuantityString(R.plurals.contact_page_count_dates, d.events.size, d.events.size) else ""
+            sections.addRows(ContactSection.DATES, sectionTitle(resources, ContactSection.DATES), summary) {
+                val yearly = YearlyEvents.decode(meta?.yearlyEvents)
+                d.events.forEachIndexed { i, ev ->
+                    item {
+                        // A life event (new job, moved…) can be remembered yearly in the digest.
+                        val date = EventDate.parse(ev.date)
+                        val canYearly = date != null && d.lookupKey.isNotEmpty() && YearlyEvents.eligible(ev.type) &&
+                            !LifeEvents.isDeath(ev.type, ev.label)
+                        val key = if (canYearly) YearlyEvents.key(ev.type, ev.label, date!!) else null
+                        val on = key != null && key in yearly
+                        GroupDataRow(
+                            Icons.Rounded.Cake, i == 0, describeLifeEvent(resources, d, ev),
+                            eventLabel(resources, ev) + (if (on) sep + resources.getString(R.string.circle_yearly_label) else ""),
+                            onClick = {},
+                            trailing = if (key == null) null else ({
+                                IconButton({ page.setYearly(key, !on) }) {
+                                    Icon(
+                                        Icons.Rounded.EventRepeat,
+                                        stringResource(if (on) R.string.circle_yearly_stop else R.string.circle_yearly_remember),
+                                        tint = if (on) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }),
                         )
                     }
+                }
+                // Empty birthday / anniversary slots, saved straight to the system contact.
+                if (hasMissingDates(d)) item {
+                    MissingDateChips(vm, d, onSaved = page::reload, modifier = Modifier.padding(vertical = Spacing.xs))
                 }
             }
         }
@@ -544,46 +568,50 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
         val sites = d.websites.filterIndexed { i, _ -> i !in mapLinks.values }
         if (sites.isNotEmpty() || d.note.isNotBlank() || d.relations.isNotEmpty()) {
             val n = sites.size + d.relations.size + (if (d.note.isNotBlank()) 1 else 0)
-            sections.add(ContactSection.ABOUT, resources.getString(R.string.detail_about, d.given.ifBlank { d.displayName }), resources.getQuantityString(R.plurals.contact_page_count_items, n, n)) {
-                SegmentedGroup {
-                    sites.forEachIndexed { i, w ->
-                        item {
-                            val label = resources.getString(R.string.detail_website)
-                            GroupDataRow(Icons.Rounded.Language, i == 0, w.value, label, onClick = { Intents.web(context, w.value) })
-                        }
+            sections.addRows(ContactSection.ABOUT, resources.getString(R.string.detail_about, d.given.ifBlank { d.displayName }), resources.getQuantityString(R.plurals.contact_page_count_items, n, n)) {
+                sites.forEachIndexed { i, w ->
+                    item {
+                        val label = resources.getString(R.string.detail_website)
+                        GroupDataRow(Icons.Rounded.Language, i == 0, w.value, label, onClick = { Intents.web(context, w.value) })
                     }
-                    d.relations.forEachIndexed { i, rel ->
-                        item {
-                            val label = RelationTypes.fromAndroid(rel.type, rel.label)?.let { RelationText.label(resources, it) }
-                                ?: ContactsContract.CommonDataKinds.Relation.getTypeLabel(resources, rel.type, rel.label).toString()
-                            GroupDataRow(Icons.Rounded.People, i == 0, rel.value, label, onClick = {
-                                // By the remembered lookup key first, then by name; several namesakes: ask.
-                                page.openRelation(rel.value) { target ->
-                                    when (target) {
-                                        is RelationTarget.Contact -> open(Routes.contact(target.id))
-                                        is RelationTarget.Choose -> relationChoice = target.people
-                                        is RelationTarget.None -> vm.toast(resources.getString(R.string.detail_no_contact_named, target.name))
-                                    }
+                }
+                d.relations.forEachIndexed { i, rel ->
+                    item {
+                        val label = RelationTypes.fromAndroid(rel.type, rel.label)?.let { RelationText.label(resources, it) }
+                            ?: ContactsContract.CommonDataKinds.Relation.getTypeLabel(resources, rel.type, rel.label).toString()
+                        GroupDataRow(Icons.Rounded.People, i == 0, rel.value, label, onClick = {
+                            // By the remembered lookup key first, then by name; several namesakes: ask.
+                            page.openRelation(rel.value) { target ->
+                                when (target) {
+                                    is RelationTarget.Contact -> open(Routes.contact(target.id))
+                                    is RelationTarget.Choose -> relationChoice = target.people
+                                    is RelationTarget.None -> vm.toast(resources.getString(R.string.detail_no_contact_named, target.name))
                                 }
-                            })
-                        }
+                            }
+                        })
                     }
-                    if (d.note.isNotBlank()) item {
-                        GroupDataRow(Icons.AutoMirrored.Rounded.Notes, true, d.note, resources.getString(R.string.detail_note), onClick = {}, headline = { LinkifiedText(d.note) })
-                    }
+                }
+                if (d.note.isNotBlank()) item {
+                    GroupDataRow(Icons.AutoMirrored.Rounded.Notes, true, d.note, resources.getString(R.string.detail_note), onClick = {}, headline = { LinkifiedText(d.note) })
                 }
             }
         }
-        if (otherFields.isNotEmpty()) sections.add(ContactSection.OTHER, sectionTitle(resources, ContactSection.OTHER), resources.getQuantityString(R.plurals.contact_page_count_items, otherFields.size, otherFields.size)) {
-            Column {
-                SegmentedGroup {
-                    otherFields.forEachIndexed { i, f -> item { GroupDataRow(Icons.Rounded.Info, i == 0, f.value, f.label, onClick = {}) } }
-                }
-                GroupNote(stringResource(R.string.detail_other_fields_note))
+        val note = meta?.pinnedNote
+        sections.addRows(ContactSection.NOTE, sectionTitle(resources, ContactSection.NOTE), note?.lineSequence()?.firstOrNull().orEmpty().ifBlank { resources.getString(R.string.contact_page_no_note) }) {
+            item {
+                InfoRow(
+                    modifier = Modifier.clickable { editNote = true },
+                    leading = {
+                        val cs = MaterialTheme.colorScheme
+                        Icon(Icons.Rounded.PushPin, null, tint = if (note != null) cs.primary else cs.onSurfaceVariant)
+                    },
+                    headline = { Text(note ?: stringResource(R.string.detail_add_note)) },
+                    supporting = { Text(stringResource(if (note != null) R.string.detail_note_shown else R.string.detail_note_hint)) },
+                )
             }
         }
         val notes = ui.notes
-        // Calls, logged interactions, call notes and dates, by month. P1: the latest few; "Show all" opens the rest.
+        // Calls, logged interactions, call notes and dates. P1: the latest few; "Show all" opens the rest.
         val timelineCount = remember(history, interactions, notes, d.events) { timelineEntries(d, history, interactions, notes, ZoneId.systemDefault()).size }
         sections.add(ContactSection.TIMELINE, sectionTitle(resources, ContactSection.TIMELINE), resources.getQuantityString(R.plurals.contact_page_entries, timelineCount, timelineCount)) {
             ContactTimeline(
@@ -595,52 +623,94 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
         if (history.isNotEmpty()) sections.add(ContactSection.INSIGHTS, sectionTitle(resources, ContactSection.INSIGHTS), resources.getQuantityString(R.plurals.contact_page_count_calls, history.size, history.size)) {
             OnGroupSurface { CallInsightsSection(vm, d.phones.map { it.value }, showTitle = false) }
         }
-        val note = meta?.pinnedNote
-        sections.add(ContactSection.NOTE, sectionTitle(resources, ContactSection.NOTE), note?.lineSequence()?.firstOrNull().orEmpty().ifBlank { resources.getString(R.string.contact_page_no_note) }) {
-            SegmentedGroup {
+        if (otherFields.isNotEmpty()) sections.addRows(
+            ContactSection.OTHER, sectionTitle(resources, ContactSection.OTHER),
+            resources.getQuantityString(R.plurals.contact_page_count_items, otherFields.size, otherFields.size),
+            after = { GroupNote(stringResource(R.string.detail_other_fields_note)) },
+        ) {
+            otherFields.forEachIndexed { i, f -> item { GroupDataRow(Icons.Rounded.Info, i == 0, f.value, f.label, onClick = {}) } }
+        }
+        // Everything that changes how Parley and the phone treat this person rather than describing them.
+        sections.addRows(ContactSection.SETTINGS, sectionTitle(resources, ContactSection.SETTINGS), resources.getString(R.string.contact_page_settings_summary)) {
+            if (d.lookupKey.isNotEmpty() && !inCircle) item {
+                InfoRow(
+                    modifier = Modifier.clickable { reachOut = true },
+                    leading = { Icon(Icons.Rounded.Handshake, null) },
+                    headline = { Text(stringResource(R.string.circle_add_to_circle)) },
+                    supporting = { Text(stringResource(R.string.circle_add_to_circle_body)) },
+                )
+            }
+            item {
+                InfoRow(
+                    modifier = Modifier.toggleable(d.sendToVoicemail, role = Role.Switch, onValueChange = { v -> page.setSendToVoicemail(v) }),
+                    leading = { Icon(Icons.Rounded.Voicemail, null) },
+                    headline = { Text(stringResource(R.string.detail_send_to_voicemail)) },
+                    trailing = { Switch(d.sendToVoicemail, onCheckedChange = null, modifier = Modifier.padding(end = Spacing.m)) },
+                )
+            }
+            blended { ContactCallTimeRows(vm, d.lookupKey, d.displayName, d.starred) }
+            item {
+                val tone = d.customRingtone?.let { runCatching { RingtoneManager.getRingtone(context, Uri.parse(it))?.getTitle(context) }.getOrNull() }
+                GroupDataRow(Icons.Rounded.MusicNote, true, tone ?: resources.getString(R.string.detail_default_ringtone), resources.getString(R.string.detail_ringtone), onClick = {
+                    ringtonePicker.launch(Intent(RingtoneManager.ACTION_RINGTONE_PICKER).putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_RINGTONE))
+                })
+            }
+            blended { CallBackgroundInfoRow(vm, d) }
+            // Where it's saved, as chips with their own actions (edit this copy, move, unlink).
+            item {
+                InfoRow(
+                    leading = { Icon(Icons.Rounded.Sync, null) },
+                    headline = {
+                        val n = d.rawContacts.size
+                        Text(if (n > 1) resources.getQuantityString(R.plurals.detail_linked_from, n, n) else resources.getString(R.string.detail_saved_in))
+                    },
+                    supporting = {
+                        AccountChips(vm, d, open) { newId ->
+                            if (newId != null && newId != contactId) { back(); open(Routes.contact(newId)) }
+                            else page.reload()
+                        }
+                    },
+                )
+            }
+            blended { ProvenanceRow(vm, contactId, d, open) }
+            temp?.let { t ->
                 item {
-                    ListItem(
-                        modifier = Modifier.clickable { editNote = true },
-                        colors = groupRowColors(),
-                        leadingContent = { Icon(Icons.Rounded.PushPin, null, tint = if (note != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant) },
-                        headlineContent = { Text(note ?: stringResource(R.string.detail_add_note)) },
-                        supportingContent = { Text(stringResource(if (note != null) R.string.detail_note_shown else R.string.detail_note_hint)) },
+                    GroupDataRow(
+                        Icons.Rounded.Timer, true, resources.getString(R.string.detail_deletes_on, Format.fullDate(context, t.expiresAt)),
+                        resources.getString(R.string.detail_change_expiry), onClick = { askExpiry = true },
                     )
                 }
             }
-        }
-        sections.add(ContactSection.SETTINGS, sectionTitle(resources, ContactSection.SETTINGS), resources.getString(R.string.contact_page_settings_summary)) {
-            SegmentedGroup {
-                item {
-                    ListItem(
-                        modifier = Modifier.toggleable(d.sendToVoicemail, role = Role.Switch, onValueChange = { v -> page.setSendToVoicemail(v) }),
-                        colors = groupRowColors(),
-                        leadingContent = { Icon(Icons.Rounded.Voicemail, null) },
-                        headlineContent = { Text(stringResource(R.string.detail_send_to_voicemail)) },
-                        trailingContent = { Switch(d.sendToVoicemail, onCheckedChange = null) },
-                    )
-                }
-                blended { ContactCallTimeRows(vm, d.lookupKey, d.displayName, d.starred) }
-                item {
-                    val tone = d.customRingtone?.let { runCatching { RingtoneManager.getRingtone(context, Uri.parse(it))?.getTitle(context) }.getOrNull() }
-                    GroupDataRow(Icons.Rounded.MusicNote, true, tone ?: resources.getString(R.string.detail_default_ringtone), resources.getString(R.string.detail_ringtone), onClick = {
-                        ringtonePicker.launch(Intent(RingtoneManager.ACTION_RINGTONE_PICKER).putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_RINGTONE))
-                    })
-                }
-                item {
-                    GroupDataRow(Icons.Rounded.Sync, true, d.rawContacts.joinToString("\n") { it.account.displayLabel }, if (d.rawContacts.size > 1) resources.getQuantityString(R.plurals.detail_linked_from, d.rawContacts.size, d.rawContacts.size) else resources.getString(R.string.detail_saved_in), onClick = {})
-                }
-                blended { ProvenanceRow(vm, contactId, d, open) }
-                blended { CallBackgroundInfoRow(vm, d) }
+            item {
+                GroupDataRow(
+                    Icons.Rounded.ViewAgenda, true, resources.getString(R.string.contact_page_settings_title),
+                    resources.getString(R.string.set_contact_page_summary), onClick = { open(ContactPageRoutes.Sections) },
+                )
             }
         }
-        val shown = sections.shown(layout)
+        val blocks = sections.blocks(layout)
+        fun blockTitle(b: PageBlock): String = when (b.family) {
+            SectionFamily.CONTACT_INFO -> resources.getString(R.string.contact_page_info)
+            SectionFamily.ABOUT -> resources.getString(R.string.detail_about, d.given.ifBlank { d.displayName })
+            null -> sections.titleOf(b.sections.first())
+        }
+        // At a glance under the name: last talked, the next date when it's close, open promises.
+        val glance = remember(talked, dated, memory.promises.size, today) {
+            ContactGlance.facts(talked?.date, dated.map { it.second }, today, memory.promises.size)
+        }
+        val glanceText = glance.joinToString(sep) { f ->
+            when (f) {
+                is GlanceFact.LastTalked, GlanceFact.NoCalls -> lastTalked
+                is GlanceFact.NextDate -> dateText(dated[f.index].first, f.days)
+                is GlanceFact.OpenPromises -> resources.getQuantityString(R.plurals.contact_page_open_promises, f.count, f.count)
+            }
+        }
 
         Box(Modifier.fillMaxSize()) {
-        LazyColumn(state = listState, contentPadding = PaddingValues(top = padding.calculateTopPadding(), bottom = padding.calculateBottomPadding() + 32.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        LazyColumn(state = listState, contentPadding = PaddingValues(top = padding.calculateTopPadding(), bottom = padding.calculateBottomPadding() + Spacing.xxl), verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
             item(key = "header") {
                 Column(
-                    Modifier.fillMaxWidth().onSizeChanged { headerHeight = it.height }.padding(horizontal = 16.dp).padding(top = 8.dp),
+                    Modifier.fillMaxWidth().onSizeChanged { headerHeight = it.height }.padding(horizontal = Spacing.l).padding(top = Spacing.xs),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     // Shrinks towards the bar and fades as it scrolls under it, where the small avatar and name appear.
@@ -659,19 +729,21 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                             Modifier.shared("avatar-$contactId").clickable(enabled = d.photoUri != null, onClickLabel = stringResource(R.string.detail_view_photo)) { showPhoto = true },
                             isCompany = d.composedName.isBlank() && d.company.isNotBlank(),
                         )
-                        Text(d.displayName, style = MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 16.dp).shared("name-$contactId", bounds = true))
+                        Text(
+                            d.displayName, style = MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(top = Spacing.m).shared("name-$contactId", bounds = true),
+                        )
                     }
                     val sub = listOf(d.nickname, listOf(d.title, d.company).filter { it.isNotBlank() }.joinToString(", ")).filter { it.isNotBlank() }
-                    if (sub.isNotEmpty()) Text(sub.joinToString(stringResource(R.string.main_separator)), color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
-                    Text(lastTalked, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
+                    if (sub.isNotEmpty()) Text(sub.joinToString(sep), color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+                    Text(
+                        glanceText, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = Spacing.xxs),
+                    )
                     temp?.let { Text(stringResource(R.string.detail_deletes_on, Format.fullDate(context, it.expiresAt)), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
-                    AccountChips(vm, d, open) { newId ->
-                        if (newId != null && newId != contactId) { back(); open(Routes.contact(newId)) }
-                        else page.reload()
-                    }
-                    Spacer(Modifier.height(16.dp))
+                    Spacer(Modifier.height(Spacing.m))
                     // Labelled tiles.
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
                         ActionTile(Icons.Rounded.Call, if (preferredCall != null) preferredCall.appName else stringResource(R.string.main_call), canCall) { doCall() }
                         val messageApp = prefs.message?.let { p -> if (p == MessengerPrefs.SMS) stringResource(R.string.detail_sms) else messengers.firstOrNull { it.accountType == p }?.appName ?: MessengerApp.forPackage(p)?.label }
                         ActionTile(
@@ -691,7 +763,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                 }
             }
             // Every section folds; order, start modes and hidden ones come from Settings › Contacts › Contact page sections.
-            foldableSections(sections, layout, ::fold)
+            foldableSections(sections, layout, ::blockTitle, ::fold)
         }
         // Once the big header has gone, a compact bar keeps the actions (and, on long pages, jumps to a section).
         AnimatedVisibility(
@@ -709,11 +781,11 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                 } else null,
                 if (email != null) QuickAction(Icons.Rounded.Email, stringResource(R.string.detail_email), true) { Intents.email(context, email.value) } else null,
             )
-            val jumps = if (peopleSettings.sectionChips && shown.size >= JUMP_CHIPS_FROM) shown.map { s ->
-                sections.titleOf(s) to {
-                    if (layout.isFolded(s)) fold(s, false)
+            val jumps = if (peopleSettings.sectionChips && blocks.size >= JUMP_CHIPS_FROM) blocks.map { b ->
+                blockTitle(b) to {
+                    if (layout.isFolded(b)) fold(b, false)
                     scope.launch {
-                        listState.animateScrollToItem(1 + shown.indexOf(s))
+                        listState.animateScrollToItem(1 + blocks.indexOf(b))
                         listState.animateScrollBy(-pinnedHeight.toFloat())
                     }
                     Unit
@@ -850,24 +922,25 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
     }
 }
 
-/** Timeline entries shown on the page before "Show all". */
-private const val TIMELINE_PREVIEW = 5
+/** Timeline entries shown on the page before "Show all" (the full timeline has search and filters). */
+private const val TIMELINE_PREVIEW = 3
 
-/** Jump chips appear from this many shown sections. */
+/** Jump chips appear from this many shown groups. */
 private const val JUMP_CHIPS_FROM = 4
 
 /**
- * The contact page's header photo: 168 dp for a real photo and 136 dp for a monogram on a phone held upright, more
- * on tablets, and 104 / 96 dp when the screen is short (a phone in landscape), so the name and the action tiles still
+ * The contact page's header photo: 128 dp for a real photo and 96 dp for a monogram on a phone held upright
+ * (photo, name, the at-a-glance line and the tiles then take about a third of the screen), 160 / 120 dp on
+ * tablets, and 88 / 72 dp when the screen is short (a phone in landscape), so the name and the action tiles still
  * fit under it. The sizes are in dp, so large fonts don't crowd the photo.
  */
 @Composable
 private fun heroPhotoSize(hasPhoto: Boolean): Dp {
     val conf = LocalConfiguration.current
     return when {
-        conf.screenHeightDp < 480 -> if (hasPhoto) 104.dp else 96.dp
-        conf.screenWidthDp >= 600 && conf.screenHeightDp >= 700 -> if (hasPhoto) 192.dp else 152.dp
-        else -> if (hasPhoto) 168.dp else 136.dp
+        conf.screenHeightDp < 480 -> if (hasPhoto) 88.dp else 72.dp
+        conf.screenWidthDp >= 600 && conf.screenHeightDp >= 700 -> if (hasPhoto) 160.dp else 120.dp
+        else -> if (hasPhoto) 128.dp else 96.dp
     }
 }
 
@@ -881,7 +954,10 @@ private fun DefaultMenuItem(isDefault: Boolean, onSet: (Boolean) -> Unit) {
     )
 }
 
-/** One number: tap calls; the chat icon messages it; long-press: copy, default, message on…, SIM. */
+/**
+ * One number: tap calls. Trailing: "Message or call on…" when apps reach this number (their names are in the
+ * supporting line) and Message. Long-press: copy, default, message or call on…, edit before calling, SIM.
+ */
 @Composable
 private fun PhoneRow(
     vm: AppViewModel,
@@ -890,6 +966,7 @@ private fun PhoneRow(
     label: String,
     canDefault: Boolean,
     multiSim: Boolean,
+    hasApps: Boolean,
     onCall: () -> Unit,
     onMessage: () -> Unit,
     onMessageOn: () -> Unit,
@@ -900,11 +977,8 @@ private fun PhoneRow(
         Icons.Rounded.Call, first, p.value, label, onClick = onCall,
         headline = { Text(Bidi.ltr(Format.number(p.value, vm.countryIso))) },
         trailing = {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                if (p.isPrimary && canDefault) Icon(Icons.Rounded.Star, stringResource(R.string.detail_default_number), tint = MaterialTheme.colorScheme.primary)
-                if (multiSim) IconButton(onSim) { Icon(Icons.Rounded.SimCard, stringResource(R.string.detail_choose_sim_number)) }
-                IconButton(onMessage) { Icon(Icons.AutoMirrored.Rounded.Chat, stringResource(R.string.detail_message_number)) }
-            }
+            if (hasApps) IconButton(onMessageOn) { Icon(Icons.Rounded.Apps, stringResource(R.string.reach_message_or_call_on)) }
+            IconButton(onMessage) { Icon(Icons.AutoMirrored.Rounded.Chat, stringResource(R.string.detail_message_number)) }
         },
         menu = { close ->
             if (canDefault) DefaultMenuItem(p.isPrimary) { on -> close(); onDefault(on) }

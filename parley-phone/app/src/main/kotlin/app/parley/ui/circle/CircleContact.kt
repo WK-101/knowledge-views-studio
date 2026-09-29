@@ -64,6 +64,10 @@ fun StayInTouchCard(
     goodTime: String? = null,
     /** Null where a foldable section header already says "Stay in touch". */
     title: String? = stringResource(R.string.circle_stay_in_touch),
+    /** False where the next date already shows (the contact page's at-a-glance line). */
+    showNext: Boolean = true,
+    /** False where "Add to your Circle" is offered elsewhere (the contact page's settings group). */
+    invite: Boolean = true,
     onEdit: () -> Unit,
 ) {
     val res = LocalResources.current
@@ -77,7 +81,7 @@ fun StayInTouchCard(
         .minByOrNull { it.second }
     SegmentedGroup(title) {
         if (every == null) {
-            item("stay") {
+            if (invite) item("stay") {
                 ListItem(
                     modifier = Modifier.clickable(onClick = onEdit),
                     colors = rowColors,
@@ -103,7 +107,7 @@ fun StayInTouchCard(
         if (goodTime != null) item("good_time") {
             ListItem(colors = rowColors, leadingContent = { Icon(Icons.Rounded.Schedule, null) }, headlineContent = { Text(goodTime) })
         }
-        if (next != null) item("next") {
+        if (showNext && next != null) item("next") {
             val (ev, days) = next
             val label = eventLabel(res, ev)
             ListItem(

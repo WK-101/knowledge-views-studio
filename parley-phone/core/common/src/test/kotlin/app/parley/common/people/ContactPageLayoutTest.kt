@@ -84,7 +84,7 @@ class ContactPageLayoutTest {
         val l = ContactPageLayout()
         assertEquals(l, l.moved(-1, 3))
         assertEquals(l, l.moved(0, 99))
-        assertEquals(ContactSection.DATES, l.moved(1, 0).order[0])
+        assertEquals(ContactSection.entries[1], l.moved(1, 0).order[0])
     }
 
     @Test fun next_date_is_the_soonest() {

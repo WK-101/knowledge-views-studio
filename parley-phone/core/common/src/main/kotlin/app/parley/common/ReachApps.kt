@@ -178,6 +178,18 @@ object ReachGroups {
     /** The groups for [number]: those for that line, and those that didn't say which number they're for. */
     fun forNumber(groups: List<ReachGroup>, number: String?, same: (String, String) -> Boolean): List<ReachGroup> =
         if (number == null) groups else groups.filter { it.number == null || same(it.number, number) }
+
+    /**
+     * The groups no saved number carries: the contact page shows the others as app names on the number's own row,
+     * and only these as rows of their own. Groups that don't say their number go with every number, so they're
+     * left out unless there are no [numbers] at all.
+     */
+    fun notOnNumbers(groups: List<ReachGroup>, numbers: List<String>, same: (String, String) -> Boolean): List<ReachGroup> =
+        if (numbers.isEmpty()) groups else groups.filter { g -> g.number != null && numbers.none { same(g.number, it) } }
+
+    /** The distinct app names reaching [number] ("WhatsApp, Signal"), in the groups' order. */
+    fun appNamesFor(groups: List<ReachGroup>, number: String, same: (String, String) -> Boolean): List<String> =
+        forNumber(groups, number, same).map { it.appLabel }.distinct()
 }
 
 /** How "Call on <app>" works for a number. */

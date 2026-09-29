@@ -12,13 +12,16 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.automirrored.rounded.OpenInNew
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.ProvideTextStyle
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -47,8 +50,9 @@ import app.parley.ui.SegmentedGroupScope
 import app.parley.ui.common.Intents
 import app.parley.ui.people.HandleText
 import app.parley.ui.ParleyShapes
+import app.parley.ui.Spacing
 
-/** A labelled quick-action tile (label ≥ 12 sp); long-press offers the alternative (choose again). */
+/** A labelled quick-action tile (label ≥ 12 sp, 64 dp tall); long-press offers the alternative (choose again). */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun RowScope.ActionTile(icon: ImageVector, label: String, enabled: Boolean, onLongClick: (() -> Unit)? = null, longClickLabel: String? = null, onClick: () -> Unit) {
@@ -56,16 +60,19 @@ fun RowScope.ActionTile(icon: ImageVector, label: String, enabled: Boolean, onLo
         shape = ParleyShapes.card,
         color = if (enabled) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainer,
         contentColor = if (enabled) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
-        modifier = Modifier.weight(1f).heightIn(min = 72.dp),
+        modifier = Modifier.weight(1f).heightIn(min = 64.dp),
     ) {
         Column(
             Modifier.combinedClickable(enabled = enabled, role = Role.Button, onClick = onClick, onLongClick = onLongClick, onLongClickLabel = longClickLabel)
-                .padding(vertical = 12.dp, horizontal = 4.dp),
+                .padding(vertical = 10.dp, horizontal = 4.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
             Icon(icon, null, Modifier.size(24.dp))
-            Text(label, style = MaterialTheme.typography.labelLarge, textAlign = TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 6.dp))
+            Text(
+                label, style = MaterialTheme.typography.labelLarge, textAlign = TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(top = 4.dp),
+            )
         }
     }
 }
@@ -76,7 +83,7 @@ fun groupRowColors() = ListItemDefaults.colors(containerColor = Color.Transparen
 
 /**
  * One row of a grouped section. U2: the section's icon only on the first row ([showIcon]); the others keep the
- * space so the text lines up. [menu] items appear on long-press (copy, set default…).
+ * space so the text lines up. [menu] items appear on long-press (copy, set default…). Drawn as a compact [InfoRow].
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -93,22 +100,66 @@ fun GroupDataRow(
     val context = LocalContext.current
     var open by remember { mutableStateOf(false) }
     Box {
-        ListItem(
+        InfoRow(
             modifier = Modifier.combinedClickable(
                 onClick = onClick,
                 onLongClick = { if (menu != null) open = true else Intents.copy(context, text) },
                 onLongClickLabel = stringResource(if (menu != null) R.string.main_more_actions else R.string.main_copy),
             ),
-            colors = groupRowColors(),
-            leadingContent = { if (showIcon) Icon(icon, null) else Spacer(Modifier.size(24.dp)) },
-            headlineContent = headline ?: { Text(text) },
-            supportingContent = label?.takeIf { it.isNotBlank() }?.let { { Text(it) } },
-            trailingContent = trailing,
+            leading = { if (showIcon) Icon(icon, null) },
+            headline = headline ?: { Text(text) },
+            supporting = label?.takeIf { it.isNotBlank() }?.let { { Text(it) } },
+            trailing = trailing,
         )
         if (menu != null) {
             DropdownMenu(open, { open = false }) {
                 DropdownMenuItem({ Text(stringResource(R.string.main_copy)) }, leadingIcon = { Icon(Icons.Rounded.ContentCopy, null) }, onClick = { open = false; Intents.copy(context, text) })
                 menu { open = false }
+            }
+        }
+    }
+}
+
+/**
+ * The contact page's row: the value, and its label as a supporting line under it ("Mobile · WhatsApp, Signal"),
+ * like the phone's own contacts apps. 56 dp for one line and 60 dp for two, instead of the 72 dp of a Material
+ * two-line list item, because a contact's page is many short facts: the text keeps its size, only the padding
+ * around it shrinks. The leading slot is a 24 dp gutter (empty keeps the text lined up); [trailing] holds 48 dp
+ * icon actions. It grows with large fonts. Put the click in [modifier].
+ */
+@Composable
+fun InfoRow(
+    modifier: Modifier = Modifier,
+    leading: (@Composable () -> Unit)? = null,
+    headline: @Composable () -> Unit,
+    supporting: (@Composable () -> Unit)? = null,
+    trailing: (@Composable () -> Unit)? = null,
+) {
+    val cs = MaterialTheme.colorScheme
+    Row(
+        modifier.fillMaxWidth().heightIn(min = 56.dp).padding(start = Spacing.l, end = if (trailing != null) Spacing.xs else Spacing.l),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (leading != null) {
+            Box(Modifier.size(24.dp), contentAlignment = Alignment.Center) {
+                CompositionLocalProvider(LocalContentColor provides cs.onSurfaceVariant) { leading() }
+            }
+            Spacer(Modifier.width(Spacing.l))
+        }
+        Column(Modifier.weight(1f).padding(vertical = Spacing.s)) {
+            CompositionLocalProvider(LocalContentColor provides cs.onSurface) {
+                ProvideTextStyle(MaterialTheme.typography.bodyLarge, headline)
+            }
+            if (supporting != null) {
+                CompositionLocalProvider(LocalContentColor provides cs.onSurfaceVariant) {
+                    ProvideTextStyle(MaterialTheme.typography.bodyMedium, supporting)
+                }
+            }
+        }
+        if (trailing != null) {
+            Spacer(Modifier.width(Spacing.xs))
+            CompositionLocalProvider(LocalContentColor provides cs.onSurfaceVariant) {
+                Row(verticalAlignment = Alignment.CenterVertically) { trailing() }
             }
         }
     }

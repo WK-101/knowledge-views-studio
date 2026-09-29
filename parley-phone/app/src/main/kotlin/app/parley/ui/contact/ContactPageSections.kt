@@ -40,43 +40,95 @@ import app.parley.R
 import app.parley.ui.ParleyTooltip
 import app.parley.common.people.ContactPageLayout
 import app.parley.common.people.ContactSection
+import app.parley.common.people.PageBlock
+import app.parley.ui.SegmentedGroup
+import app.parley.ui.SegmentedGroupScope
+import app.parley.ui.Spacing
 import app.parley.ui.ParleyShapes
 import app.parley.ui.ParleyMotion
 
 /**
  * The sections a contact's page has, collected in code order with their title, the summary shown while
  * folded, and their content; [foldableSections] draws them in the order chosen in Settings.
+ *
+ * A section is either free content ([add]) or rows of a segmented group ([addRows]). Row sections of one
+ * [SectionFamily][app.parley.common.people.SectionFamily] that sit next to each other share one group and header
+ * ([ContactPageLayout.blocks]), so the phone numbers, emails and addresses read as one "Contact info" card.
  */
 class PageSections {
-    internal class Entry(val title: String, val summary: String, val body: @Composable () -> Unit)
+    internal class Entry(
+        val title: String,
+        val summary: String,
+        val body: (@Composable () -> Unit)? = null,
+        val rows: (SegmentedGroupScope.() -> Unit)? = null,
+        val before: (@Composable () -> Unit)? = null,
+        val after: (@Composable () -> Unit)? = null,
+    )
 
     internal val entries = LinkedHashMap<ContactSection, Entry>()
 
     fun add(section: ContactSection, title: String, summary: String, body: @Composable () -> Unit) {
-        entries[section] = Entry(title, summary, body)
+        entries[section] = Entry(title, summary, body = body)
+    }
+
+    /** A section made of group rows, with an optional line [before] or [after] the group (a hint, a note). */
+    fun addRows(
+        section: ContactSection,
+        title: String,
+        summary: String,
+        before: (@Composable () -> Unit)? = null,
+        after: (@Composable () -> Unit)? = null,
+        rows: SegmentedGroupScope.() -> Unit,
+    ) {
+        entries[section] = Entry(title, summary, rows = rows, before = before, after = after)
     }
 
     fun titleOf(section: ContactSection): String = entries[section]?.title.orEmpty()
+
+    /** The sections that have something to show. */
+    val present: Set<ContactSection> get() = entries.keys
 }
 
-/** The sections this page shows, in order (hidden and empty ones left out). */
-fun PageSections.shown(layout: ContactPageLayout): List<ContactSection> = layout.visible.filter { it in entries }
+/** The blocks this page shows, in order (hidden and empty sections left out, family neighbours joined). */
+fun PageSections.blocks(layout: ContactPageLayout): List<PageBlock> = layout.blocks(present)
 
-/** One list item per shown section: a fold header and its content, which folds with a spring. */
-fun LazyListScope.foldableSections(sections: PageSections, layout: ContactPageLayout, onFold: (ContactSection, Boolean) -> Unit) {
-    sections.shown(layout).forEach { s ->
-        val e = sections.entries.getValue(s)
-        item(key = s.id, contentType = "section") {
-            val folded = layout.isFolded(s)
+/**
+ * One list item per block: a fold header and its content, which folds with a spring. [titleOf] names a joined
+ * block ("Contact info"); a single section keeps its own title. Folding a joined block folds all its sections.
+ */
+fun LazyListScope.foldableSections(
+    sections: PageSections,
+    layout: ContactPageLayout,
+    titleOf: (PageBlock) -> String,
+    onFold: (PageBlock, Boolean) -> Unit,
+) {
+    sections.blocks(layout).forEach { b ->
+        val members = b.sections.map { sections.entries.getValue(it) }
+        item(key = b.key, contentType = "section") {
+            val folded = layout.isFolded(b)
+            val sep = stringResource(R.string.main_separator)
+            val summary = members.map { it.summary }.filter { it.isNotBlank() }.joinToString(sep)
             Column {
-                FoldHeader(e.title, e.summary, folded) { onFold(s, !folded) }
+                FoldHeader(titleOf(b), summary, folded) { onFold(b, !folded) }
                 AnimatedVisibility(
                     !folded,
                     enter = ParleyMotion.expandIn(),
                     exit = ParleyMotion.collapseOut(),
-                ) { e.body() }
+                ) { BlockBody(members) }
             }
         }
+    }
+}
+
+/** A block's content: row sections share one segmented group; free content is drawn as it is. */
+@Composable
+private fun BlockBody(members: List<PageSections.Entry>) {
+    Column(verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
+        members.forEach { e -> e.before?.invoke() }
+        val rows = members.mapNotNull { it.rows }
+        if (rows.isNotEmpty()) SegmentedGroup { rows.forEach { it() } }
+        members.forEach { e -> e.body?.invoke() }
+        members.forEach { e -> e.after?.invoke() }
     }
 }
 
