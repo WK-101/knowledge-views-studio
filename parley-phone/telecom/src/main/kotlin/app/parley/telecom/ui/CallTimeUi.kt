@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Notes
+import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material.icons.rounded.TimerOff
@@ -171,8 +172,8 @@ internal fun RemainingLine(timing: CallTiming?) {
 }
 
 /**
- * The in-call "More" sheet: the call controls that didn't fit the grid (same icons and names), Add a note and Open
- * contact, then the call's time: wrap-up chips (+2 / +5 min, End in 1 min, Don't end). In supervised mode a limit
+ * The in-call "More" sheet: the call controls that didn't fit the grid (same icons and names), Add a note, Open
+ * contact and Copy number, then the call's time: wrap-up chips (+2 / +5 min, End in 1 min, Don't end). In supervised mode a limit
  * can only be shortened.
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -184,6 +185,8 @@ internal fun CallMoreSheet(
     onDismiss: () -> Unit,
     onNote: () -> Unit,
     onOpenContact: (() -> Unit)?,
+    /** Copy the number (not for a hidden number). */
+    onCopyNumber: (() -> Unit)? = null,
 ) {
     ParleySheet(onDismissRequest = onDismiss, title = stringResource(R.string.incall_more_options)) {
         controls.forEach { c ->
@@ -207,6 +210,15 @@ internal fun CallMoreSheet(
                 leadingContent = { Icon(Icons.Rounded.Person, null) },
                 colors = rowColors(),
                 modifier = Modifier.clickable { onDismiss(); onOpenContact() },
+            )
+        }
+        if (onCopyNumber != null) {
+            ParleyListItem(
+                headlineContent = { Text(stringResource(R.string.incall_copy_number)) },
+                supportingContent = call.number?.let { n -> { Text(Bidi.ltr(n)) } },
+                leadingContent = { Icon(Icons.Rounded.ContentCopy, null) },
+                colors = rowColors(),
+                modifier = Modifier.clickable { onDismiss(); onCopyNumber() },
             )
         }
         CallTimeSection(call, timing, onDismiss)

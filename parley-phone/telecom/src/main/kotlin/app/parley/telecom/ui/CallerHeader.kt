@@ -1,7 +1,10 @@
 package app.parley.telecom.ui
 
 import android.app.KeyguardManager
+import android.text.format.DateFormat
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
@@ -9,7 +12,6 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -23,13 +25,17 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Notes
+import androidx.compose.material.icons.rounded.Hd
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PushPin
+import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.SimCard
 import androidx.compose.material.icons.rounded.Verified
 import androidx.compose.material.icons.rounded.Warning
+import androidx.compose.material.icons.rounded.Wifi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -38,13 +44,16 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.pluralStringResource
@@ -61,18 +70,25 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import app.parley.common.NotificationPrivacy
 import app.parley.common.Verification
+import app.parley.common.circle.GoodTime
 import app.parley.telecom.CallManager
 import app.parley.telecom.CallState
 import app.parley.telecom.CallTiming
 import app.parley.telecom.CallUi
 import app.parley.telecom.CallerMemory
 import app.parley.telecom.R
+import app.parley.telecom.TelecomGraph
 import app.parley.ui.Avatar
 import app.parley.ui.Bidi
 import app.parley.ui.ParleyMotion
 import app.parley.ui.ParleyShapes
 import app.parley.ui.Spacing
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
 /**
  * Who is calling, in order of importance (docs/CALL_SCREEN_DESIGN.md): the photo, the name, one calm line with the
@@ -110,7 +126,7 @@ internal fun CallerHeader(
                 textAlign = TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis,
             )
         }
-        CallTags(call)
+        CallTags(call, zone = if (ended) null else rememberCallerZone(call))
         Spacer(Modifier.height(Spacing.m))
         StatusPill(call, ended)
         if (!ended && call.state != CallState.RINGING) RemainingLine(timing)
@@ -148,10 +164,12 @@ private fun CallerAvatar(call: CallUi, ended: Boolean, timing: CallTiming?, size
     } else {
         null
     }
+    val dim by animateFloatAsState(if (!ended && call.state == CallState.HOLDING) HELD_ALPHA else 1f, ParleyMotion.effects(), label = "held")
     CallTimeRing(if (ended) null else timing, size) {
         Avatar(
             call.title, call.photoUri, size = size,
             modifier = Modifier
+                .alpha(dim)
                 .drawBehind {
                     if (ringing) {
                         val r = this.size.minDimension / 2
@@ -184,13 +202,62 @@ private fun SecondaryLine(call: CallUi) {
     )
 }
 
-/** SIM, verification, emergency and the screening verdict: quiet tags, warnings in the error colours. */
+/**
+ * SIM, HD voice and Wi-Fi calling (once connected, when the network says so), verification, emergency, the screening
+ * verdict and the caller's local time when it differs from yours: quiet tags, warnings in the error colours.
+ */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun CallTags(call: CallUi) {
-    val tags = buildList {
+private fun CallTags(call: CallUi, zone: ZoneId?) {
+    val tags = callTagSpecs(call)
+    if (tags.isEmpty() && zone == null) return
+    FlowRow(
+        Modifier.padding(top = Spacing.s),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.s, Alignment.CenterHorizontally),
+        verticalArrangement = Arrangement.spacedBy(Spacing.xs),
+    ) {
+        tags.forEach { Tag(it) }
+        if (zone != null) LocalTimeTag(zone)
+    }
+}
+
+/**
+ * The caller's time zone, when it differs from yours right now (international callers, or across a country's zones),
+ * worked out offline from the number after the screen is up, off the main thread (it reads libphonenumber's map). Null for a hidden number.
+ */
+@Composable
+private fun rememberCallerZone(call: CallUi): ZoneId? {
+    val number = call.number?.takeIf { !call.hidden && it.isNotBlank() }
+    val zone by produceState<ZoneId?>(null, number, call.accountId) {
+        value = if (number == null) null else withContext(Dispatchers.IO) {
+            runCatching { TelecomGraph.dependencies.callerZone(number, call.accountId)?.let(ZoneId::of) }.getOrNull()
+        }
+    }
+    return zone?.takeIf { GoodTime.differs(it, ZoneId.systemDefault(), System.currentTimeMillis()) }
+}
+
+/** "9:40 pm there", refreshed every half minute. */
+@Composable
+private fun LocalTimeTag(zone: ZoneId) {
+    val now by produceState(System.currentTimeMillis(), zone) {
+        while (true) {
+            value = System.currentTimeMillis()
+            delay(LOCAL_TIME_REFRESH_MS)
+        }
+    }
+    val locale = LocalConfiguration.current.locales[0]
+    val format = remember(locale) { DateTimeFormatter.ofPattern(DateFormat.getBestDateTimePattern(locale, "jmm"), locale) }
+    Tag(TagSpec(Icons.Rounded.Schedule, stringResource(R.string.incall_time_there, Instant.ofEpochMilli(now).atZone(zone).format(format))))
+}
+
+@Composable
+private fun callTagSpecs(call: CallUi): List<TagSpec> {
+    val connected = call.state == CallState.ACTIVE || call.state == CallState.HOLDING
+    return buildList {
         // While dialling, the SIM already shows in the status.
         call.accountLabel?.takeIf { !call.state.dialling }?.let { add(TagSpec(Icons.Rounded.SimCard, it)) }
+        if (connected && call.hdAudio) add(TagSpec(Icons.Rounded.Hd, stringResource(R.string.incall_hd_voice)))
+        if (connected && call.wifi) add(TagSpec(Icons.Rounded.Wifi, stringResource(R.string.incall_wifi_calling)))
         when (call.verification) {
             Verification.PASSED -> add(TagSpec(Icons.Rounded.Verified, stringResource(R.string.incall_verified_number)))
             Verification.FAILED -> add(TagSpec(Icons.Rounded.Warning, stringResource(R.string.incall_possibly_spoofed), warn = true))
@@ -201,14 +268,6 @@ private fun CallTags(call: CallUi) {
         call.verdict?.takeIf { call.state == CallState.RINGING }?.let {
             add(TagSpec(if (call.verdictWarn) Icons.Rounded.Warning else Icons.Rounded.Shield, it, warn = call.verdictWarn))
         }
-    }
-    if (tags.isEmpty()) return
-    FlowRow(
-        Modifier.padding(top = Spacing.s),
-        horizontalArrangement = Arrangement.spacedBy(Spacing.s, Alignment.CenterHorizontally),
-        verticalArrangement = Arrangement.spacedBy(Spacing.xs),
-    ) {
-        tags.forEach { Tag(it) }
     }
 }
 
@@ -236,13 +295,24 @@ private fun Tag(spec: TagSpec) {
     }
 }
 
-/** The status ("Incoming call", "Calling via Work…", "On hold") or the running time, in a pill. */
+/**
+ * The status ("Incoming call", "Calling via Work…", "On hold") or the running time, in a pill. On hold is unmistakable:
+ * the pill turns to the tertiary container with a pause icon (and the photo dims), not only the words.
+ */
 @Composable
 private fun StatusPill(call: CallUi, ended: Boolean) {
     val text = statusText(call, ended)
     if (text == "") return
-    Surface(color = MaterialTheme.colorScheme.surfaceContainerHighest, contentColor = MaterialTheme.colorScheme.onSurface, shape = ParleyShapes.pill) {
-        Box(Modifier.padding(horizontal = Spacing.l, vertical = Spacing.xs + Spacing.xxs)) {
+    val held = !ended && call.state == CallState.HOLDING
+    val scheme = MaterialTheme.colorScheme
+    val container by animateColorAsState(if (held) scheme.tertiaryContainer else scheme.surfaceContainerHighest, ParleyMotion.effects(), label = "pill")
+    val ink = if (held) scheme.onTertiaryContainer else scheme.onSurface
+    Surface(color = container, contentColor = ink, shape = ParleyShapes.pill) {
+        Row(Modifier.padding(horizontal = Spacing.l, vertical = Spacing.xs + Spacing.xxs), verticalAlignment = Alignment.CenterVertically) {
+            if (held) {
+                Icon(Icons.Rounded.Pause, null, Modifier.size(20.dp))
+                Spacer(Modifier.width(Spacing.s))
+            }
             if (text != null) {
                 Text(text, style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center)
             } else {
@@ -346,5 +416,7 @@ private fun MemoryLines(m: CallerMemory) {
 }
 
 private const val HALO_MS = 1800
+private const val HELD_ALPHA = 0.55f
+private const val LOCAL_TIME_REFRESH_MS = 30_000L
 private const val HALO_ALPHA = 0.35f
 private const val HALO_GROW = 0.22f

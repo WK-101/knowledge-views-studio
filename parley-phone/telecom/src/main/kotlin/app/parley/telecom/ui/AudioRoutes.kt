@@ -2,13 +2,12 @@ package app.parley.telecom.ui
 
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -17,14 +16,14 @@ import androidx.compose.ui.platform.LocalResources
 import android.content.res.Resources
 import app.parley.telecom.R
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.unit.dp
 import app.parley.telecom.AudioRoute
 import app.parley.telecom.AudioUi
 import app.parley.telecom.CallManager
 import app.parley.telecom.RouteType
+import app.parley.ui.ParleyListItem
 import app.parley.ui.ParleySheet
-import androidx.compose.ui.semantics.heading
-import androidx.compose.ui.semantics.semantics
+import app.parley.ui.Spacing
+import app.parley.ui.rowColors
 
 /**
  * The adaptive audio button: with no headset it is a plain Speaker toggle; with Bluetooth or a wired
@@ -60,28 +59,27 @@ private fun routeKind(res: Resources, r: AudioRoute): String? = when (r.type) {
     RouteType.STREAMING -> res.getString(R.string.audio_route_streaming)
 }
 
-/** Every route the call supports; each Bluetooth device by name (CallEndpoint on Android 14+). */
+/**
+ * Every route the call supports, each Bluetooth device by its own name (CallEndpoint on Android 14+): headsets
+ * first, then the phone's earpiece and speaker. The current one is marked with a tick and read as selected.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun AudioRouteSheet(audio: AudioUi, onDismiss: () -> Unit) {
     val res = LocalResources.current
-    ParleySheet(onDismissRequest = onDismiss) {
-        Text(
-            res.getString(R.string.audio_output),
-            style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp).semantics { heading() },
-        )
+    ParleySheet(onDismissRequest = onDismiss, title = res.getString(R.string.audio_output)) {
         val order = listOf(RouteType.BLUETOOTH, RouteType.WIRED, RouteType.EARPIECE, RouteType.SPEAKER, RouteType.STREAMING)
         audio.routes.sortedBy { order.indexOf(it.type) }.forEach { r ->
             val selected = audio.current?.key == r.key
-            ListItem(
+            ParleyListItem(
                 headlineContent = { Text(routeName(res, r)) },
                 supportingContent = routeKind(res, r)?.let { { Text(it) } },
-                leadingContent = { Icon(routeIcon(r), null) },
+                leadingContent = { Icon(routeIcon(r), null, tint = if (selected) MaterialTheme.colorScheme.primary else LocalContentColor.current) },
                 trailingContent = { if (selected) Icon(Icons.Rounded.CheckCircle, null, tint = MaterialTheme.colorScheme.primary) },
+                colors = rowColors(),
                 modifier = Modifier.selectable(selected = selected, role = Role.RadioButton) { CallManager.setRoute(r); onDismiss() },
             )
         }
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(Spacing.xl))
     }
 }

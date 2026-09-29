@@ -1,6 +1,7 @@
 package app.parley.common
 
 import app.parley.common.calls.RecentsLayout
+import app.parley.common.ux.CallScreenBackground
 import app.parley.common.ux.RecentsStyle
 
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
@@ -61,6 +62,8 @@ data class AppSettings(
     val recentsStyle: RecentsStyle = RecentsStyle.RICH,
     /** Optional combined surfaces (keypad in Recents, favourites in Contacts) and the Recents row tap. */
     val surfaces: SurfaceLayout = SurfaceLayout(),
+    /** The call screen's background: the caller's colour, or the theme's plain background. */
+    val callBackground: CallScreenBackground = CallScreenBackground.CALLER_COLOUR,
 ) {
     companion object {
         val DEFAULT_QUICK_REPLIES = listOf(

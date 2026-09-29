@@ -111,7 +111,7 @@ class InCallActivity : ComponentActivity() {
                 ?.takeIf { r -> !r.silenced && !r.systemSilenced && calls.none { it.id != r.id && it.isLive && it.state != CallState.RINGING } }
             if (look.speakCallerName) SpeakCallerName(ringingCall?.id, ringingCall?.name?.takeIf { ringingCall.contactId != null })
             ParleyTheme(look.themeMode, look.amoled, look.dynamicColor, look.density) {
-                if (inPip) PipCallCard(calls, audio, ended) else InCallScreen(
+                if (inPip) PipCallCard(calls, audio, ended, look.callBackground) else InCallScreen(
                     calls = calls,
                     audio = audio,
                     ended = ended,
@@ -137,6 +137,7 @@ class InCallActivity : ComponentActivity() {
                     confirmDecline = look.confirmDecline,
                     askDeclineFor = askDeclineFor,
                     onAskDeclineDone = { askDeclineFor = null },
+                    background = look.callBackground,
                 )
             }
         }

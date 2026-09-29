@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.MicOff
+import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -23,6 +24,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import app.parley.common.ux.CallScreenBackground
 import app.parley.telecom.AudioUi
 import app.parley.telecom.CallState
 import app.parley.telecom.CallUi
@@ -35,13 +37,13 @@ import app.parley.ui.ParleyShapes
  * the window's own actions.
  */
 @Composable
-internal fun PipCallCard(calls: List<CallUi>, audio: AudioUi, ended: CallUi?) {
+internal fun PipCallCard(calls: List<CallUi>, audio: AudioUi, ended: CallUi?, background: CallScreenBackground = CallScreenBackground.CALLER_COLOUR) {
     val live = calls.filter { it.isLive }
     val call = live.firstOrNull { it.state == CallState.ACTIVE } ?: live.firstOrNull() ?: ended ?: calls.firstOrNull()
     val scheme = MaterialTheme.colorScheme
     Box(Modifier.fillMaxSize().background(scheme.surface)) {
         // The same caller tint as the full call screen, so the small window reads as the same call.
-        CallBackground(call, picture = false)
+        CallBackground(call, background, picture = false)
         PipContent(call, live.size, audio)
     }
 }
@@ -67,7 +69,14 @@ private fun PipContent(call: CallUi?, liveCount: Int, audio: AudioUi) {
                     else -> stringResource(R.string.incall_status_calling)
                 }
                 if (status != null) {
-                    Text(status, style = MaterialTheme.typography.labelMedium, color = scheme.primary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        // On hold reads at a glance in the small window too.
+                        if (call.isLive && call.state == CallState.HOLDING) {
+                            Icon(Icons.Rounded.Pause, null, Modifier.size(12.dp), tint = scheme.primary)
+                            Spacer(Modifier.width(2.dp))
+                        }
+                        Text(status, style = MaterialTheme.typography.labelMedium, color = scheme.primary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
                 } else {
                     val elapsed by rememberCallSeconds(call.connectTimeMillis)
                     Text(clockText(elapsed), style = MaterialTheme.typography.labelMedium, color = scheme.primary, maxLines = 1)

@@ -1,9 +1,16 @@
 package app.parley.telecom.ui
 
 import android.annotation.SuppressLint
+import android.content.ClipData
+import android.content.ClipDescription
+import android.content.ClipboardManager
+import android.content.Context
+import android.os.Build
+import android.os.PersistableBundle
 import android.content.res.Resources
 import android.telecom.TelecomManager
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
@@ -65,6 +72,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -74,6 +82,7 @@ import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -83,6 +92,7 @@ import app.parley.common.AppSettings
 import app.parley.common.calls.CallControl
 import app.parley.common.calls.CallControls
 import app.parley.common.calls.CallWaiting
+import app.parley.common.ux.CallScreenBackground
 import app.parley.telecom.AudioRoute
 import app.parley.telecom.AudioUi
 import app.parley.telecom.CallClock
@@ -105,6 +115,7 @@ import app.parley.ui.ParleyShapes
 import app.parley.ui.Spacing
 import app.parley.ui.keypadKey
 import app.parley.ui.rowColors
+import app.parley.ui.systemMessage
 
 /** Which of the screen's sheets and dialogs is open. */
 private class InCallSheets {
@@ -147,6 +158,8 @@ fun InCallScreen(
     /** A call declined from the notification while "Confirm before declining" is on: ask first. */
     askDeclineFor: String? = null,
     onAskDeclineDone: () -> Unit = {},
+    /** Settings › Calls › "Call screen background". */
+    background: CallScreenBackground = CallScreenBackground.CALLER_COLOUR,
 ) {
     val live = calls.filter { it.isLive }
     // Which call is in front and whether a second one is waiting (pure logic in core:common).
@@ -161,7 +174,7 @@ fun InCallScreen(
         keypadOpen = keypadOpen, incoming = IncomingPrefs(answerGesture, simple, confirmDecline),
     )
     BoxWithConstraints(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
-        CallBackground(primary ?: shown)
+        CallBackground(primary ?: shown, background)
         val twoPane = maxWidth > maxHeight && maxWidth >= 560.dp
         val short = maxHeight < 480.dp
         val insets = Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().displayCutoutPadding()
@@ -177,9 +190,12 @@ fun InCallScreen(
                 Pane { ControlsSection(screen, sheets, actions, scrollKeypad = false) }
             }
         } else {
+            // While it rings, the caller sits in the upper part of the free space rather than against the top, so the
+            // screen reads as one composition (Phone by Google and iOS place the name a little above the middle).
+            val bias = rememberCallerBias(primary, short)
             Column(insets.padding(horizontal = Spacing.xl), horizontalAlignment = Alignment.CenterHorizontally) {
                 // The caller scrolls on small screens and at large font sizes; the controls never move.
-                Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
+                Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = BiasAlignment(0f, bias)) {
                     Column(Modifier.verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
                         CallerSection(screen, sheets, actions, if (short) 88.dp else 128.dp, twoPane = false)
                     }
@@ -189,6 +205,16 @@ fun InCallScreen(
         }
     }
     InCallDialogs(screen, sheets, quickReplies, onOpenContact, onAddCall, askDeclineFor, onAskDeclineDone)
+}
+
+/** Where the ringing caller sits in the space above the controls (-1 top, 0 middle). */
+private const val RINGING_BIAS = -0.45f
+
+@Composable
+private fun rememberCallerBias(primary: CallUi?, short: Boolean): Float {
+    val ringing = primary?.state == CallState.RINGING && !short
+    val bias by animateFloatAsState(if (ringing) RINGING_BIAS else -1f, ParleyMotion.spatial(), label = "bias")
+    return bias
 }
 
 /** Everything the two halves of the screen read. */
@@ -539,7 +565,10 @@ private fun SimPicker(call: CallUi) {
     }
 }
 
-/** Tones during the call, in the same key shape as the grid; the digits typed so far above. */
+/**
+ * Tones during the call, in the same key shape as the grid. The tones sent so far stay above the keys in one line
+ * (the start trimmed with "…" once it no longer fits), so a menu choice or an account number can be checked.
+ */
 @Composable
 private fun DtmfKeypad(callId: String, scroll: Boolean = true) {
     var typed by rememberSaveable { mutableStateOf("") }
@@ -556,9 +585,11 @@ private fun DtmfKeypad(callId: String, scroll: Boolean = true) {
     // In the two-pane layout the whole pane scrolls instead.
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = if (scroll) Modifier.verticalScroll(rememberScrollState()) else Modifier) {
         Text(
-            Bidi.ltr(typed.takeLast(20)), style = MaterialTheme.typography.headlineMedium, maxLines = 1,
-            color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.height(44.dp),
+            Bidi.ltr(typed), style = MaterialTheme.typography.headlineMedium.merge(TextStyle(fontFeatureSettings = "tnum")), maxLines = 1,
+            overflow = TextOverflow.StartEllipsis, color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.widthIn(max = CallButtonSize.panelMaxWidth).padding(horizontal = Spacing.l).height(44.dp),
         )
+        Spacer(Modifier.height(Spacing.s))
         // The keypad reads 1 2 3 left to right in every language.
         ForceLtr {
             Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(Spacing.m)) {
@@ -566,7 +597,8 @@ private fun DtmfKeypad(callId: String, scroll: Boolean = true) {
                     Row(horizontalArrangement = Arrangement.spacedBy(Spacing.l)) {
                         row.forEach { c ->
                             Box(
-                                Modifier.size(width = 80.dp, height = 60.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceContainerHighest)
+                                Modifier.size(width = DTMF_KEY_WIDTH, height = DTMF_KEY_HEIGHT).clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.surfaceContainerHighest)
                                     // The tone plays for as long as the key is held (phone menus that want a long press).
                                     .keypadKey(
                                         onPress = {
@@ -579,7 +611,7 @@ private fun DtmfKeypad(callId: String, scroll: Boolean = true) {
                                     )
                                     .semantics { contentDescription = dtmfName(res, c) },
                                 contentAlignment = Alignment.Center,
-                            ) { Text(c.toString(), style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.onSurface) }
+                            ) { Text(c.toString(), style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.onSurface) }
                         }
                     }
                 }
@@ -587,6 +619,10 @@ private fun DtmfKeypad(callId: String, scroll: Boolean = true) {
         }
     }
 }
+
+/** In-call keys: a little larger than 4.1's, for a thumb held away from the face. */
+private val DTMF_KEY_WIDTH = 88.dp
+private val DTMF_KEY_HEIGHT = 64.dp
 
 private fun dtmfName(res: Resources, c: Char): String = when (c) {
     '*' -> res.getString(app.parley.ui.R.string.ui_key_star)
@@ -627,17 +663,7 @@ private fun InCallDialogs(
         )
     }
     if (sheets.route) AudioRouteSheet(s.audio) { sheets.route = false }
-    if (sheets.more && primary != null) {
-        val timings by CallClock.timings.collectAsStateWithLifecycle()
-        CallMoreSheet(
-            call = primary,
-            timing = timings[primary.id],
-            controls = overflowRows(primary, s.others, s.audio, onAddCall = onAddCall, onManage = { sheets.manage = true }),
-            onDismiss = { sheets.more = false },
-            onNote = { sheets.noteFor = primary.id },
-            onOpenContact = if (primary.hidden) null else ({ onOpenContact(primary) }),
-        )
-    }
+    if (sheets.more && primary != null) MoreSheet(primary, s, sheets, onOpenContact, onAddCall)
     // Decline tapped in the notification, with "Confirm before declining" on.
     val askCall = s.live.firstOrNull { it.id == askDeclineFor && it.state == CallState.RINGING }
     if (askCall != null) {
@@ -648,6 +674,34 @@ private fun InCallDialogs(
     s.live.firstOrNull { it.id == sheets.replyFor && it.state == CallState.RINGING }?.let { ReplySheet(it, quickReplies) { sheets.replyFor = null } }
     val conference = s.live.firstOrNull { it.isConference }
     if (sheets.manage && conference != null) ConferenceSheet(conference) { sheets.manage = false }
+}
+
+/** More: the controls that didn't fit the grid, notes, Open contact, Copy number and the call's time. */
+@Composable
+private fun MoreSheet(primary: CallUi, s: ScreenState, sheets: InCallSheets, onOpenContact: (CallUi) -> Unit, onAddCall: () -> Unit) {
+    val context = LocalContext.current
+    val timings by CallClock.timings.collectAsStateWithLifecycle()
+    CallMoreSheet(
+        call = primary,
+        timing = timings[primary.id],
+        controls = overflowRows(primary, s.others, s.audio, onAddCall = onAddCall, onManage = { sheets.manage = true }),
+        onDismiss = { sheets.more = false },
+        onNote = { sheets.noteFor = primary.id },
+        onOpenContact = if (primary.hidden) null else ({ onOpenContact(primary) }),
+        onCopyNumber = primary.number?.takeIf { !primary.hidden && it.isNotBlank() }?.let { n -> { copyNumber(context, n) } },
+    )
+}
+
+/**
+ * Copies the caller's number, marked sensitive so it stays out of the Android 13+ clipboard preview and keyboard
+ * history. Android 13+ confirms the copy itself; before that, a short message does.
+ */
+private fun copyNumber(context: Context, number: String) {
+    val clip = ClipData.newPlainText("number", number)
+    val key = if (Build.VERSION.SDK_INT >= 33) ClipDescription.EXTRA_IS_SENSITIVE else "android.content.extra.IS_SENSITIVE"
+    clip.description.extras = PersistableBundle().apply { putBoolean(key, true) }
+    runCatching { context.getSystemService(ClipboardManager::class.java).setPrimaryClip(clip) }
+    if (Build.VERSION.SDK_INT < 33) systemMessage(context, context.getString(R.string.incall_copied))
 }
 
 @Composable

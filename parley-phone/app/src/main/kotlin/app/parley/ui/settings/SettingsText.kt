@@ -38,6 +38,7 @@ object SettingsText {
         "default_dialer" to Triple(R.string.set_default_dialer_title, R.string.set_default_dialer_summary, R.string.set_default_dialer_kw),
         "default_dialer_help" to Triple(R.string.set_default_dialer_help_title, R.string.set_default_dialer_help_summary, R.string.set_default_dialer_help_kw),
         "answer_gesture" to Triple(R.string.set_answer_gesture_title, R.string.set_answer_gesture_summary, R.string.set_answer_gesture_kw),
+        "call_background" to Triple(R.string.set_call_background_title, R.string.set_call_background_summary, R.string.set_call_background_kw),
         "confirm_call" to Triple(R.string.set_confirm_call_title, R.string.set_confirm_call_summary, R.string.set_confirm_call_kw),
         "call_haptics" to Triple(R.string.set_call_haptics_title, R.string.set_call_haptics_summary, R.string.set_call_haptics_kw),
         "connect_haptic" to Triple(R.string.set_connect_haptic_title, R.string.set_connect_haptic_summary, R.string.set_connect_haptic_kw),

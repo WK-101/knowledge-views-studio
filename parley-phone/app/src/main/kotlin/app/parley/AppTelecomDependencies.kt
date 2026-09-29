@@ -63,7 +63,9 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
 
     override val appearance: StateFlow<InCallAppearance> = combine(c.settings.settings, c.settings.loaded) { s, loaded ->
         // "Hide screen content" reaches the call screen; it stays secure until the settings are read.
-        InCallAppearance(s.themeMode, s.amoledBlack, s.dynamicColor, s.density, s.answerGesture, s.quickReplies, secureScreen = s.secureScreen, loaded = loaded)
+        InCallAppearance(s.themeMode, s.amoledBlack, s.dynamicColor, s.density, s.answerGesture, s.quickReplies, secureScreen = s.secureScreen, loaded = loaded,
+            callBackground = s.callBackground,
+        )
         // Built inside the flow (on the container's scope), not here on the main thread in Application.onCreate.
     }.combine(flow { emitAll(c.extras.simple) }) { look, simple ->
         // Simple mode's incoming screen (large buttons, ask before declining, the caller's name spoken).
@@ -119,6 +121,8 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
     }
 
     override fun describeNumber(number: String): String? = NumberInfo.location(number, PhoneEnv.countryIso(app))
+
+    override fun callerZone(number: String, accountId: String?): String? = NumberInfo.timeZone(number, PhoneEnv.countryIso(app, accountId))?.id
 
     override fun unknownRingtone(): String? = c.settings.settings.value.unknownRingtone
 

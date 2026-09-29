@@ -444,6 +444,8 @@ object CallManager {
             fallbackTitle = str(if (hidden) R.string.call_private_number else R.string.call_unknown).orEmpty(),
             systemSilenced = s.systemSilenced,
             blockingDecline = s.blockingDecline,
+            hdAudio = d.hasProperty(Call.Details.PROPERTY_HIGH_DEF_AUDIO),
+            wifi = d.hasProperty(Call.Details.PROPERTY_WIFI),
         )
     }
 
