@@ -1,5 +1,10 @@
 package app.parley.data.people
 
+import app.parley.common.circle.CarriedInteraction
+import app.parley.common.circle.InteractionChannel
+import app.parley.common.circle.InteractionType
+import app.parley.common.circle.Interactions
+import app.parley.common.people.ContactRef
 import app.parley.common.people.KeySweep
 import app.parley.common.people.MetaRekey
 import app.parley.common.people.RelationLinks
@@ -16,6 +21,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import org.json.JSONObject
 
 /**
  * Keeps Parley's per-contact data attached to the right person when lookup keys change: pinned notes, the
@@ -62,6 +68,62 @@ class ContactKeys(
     }
 
     /**
+     * Re-keys everything Parley keeps under [from] to [to] (contact [toId]) when a contact changes variant: device →
+     * private ([ContactRef.privateKey]) or back. Every store of [app.parley.common.storage.ContactKeyedStores] follows
+     * (contact_meta, interactions, a temporary flag, relation links pointing at it, the call-screen picture and the Do
+     * Not Disturb record), merged with anything already under [to], so nothing is orphaned.
+     */
+    suspend fun rekey(from: String, to: String, toId: Long?) = withContext(Dispatchers.IO) {
+        if (from.isEmpty() || to.isEmpty()) return@withContext
+        mutex.withLock { moveLocked(from, to, toId) }
+    }
+
+    /**
+     * What Parley keeps about private contact [key] beside its vault entry (Circle rhythm, relation links, dates
+     * remembered yearly, logged moments and the call-screen picture), for the private-contacts section of a backup:
+     * they are written only with the private contacts themselves, never in the sections every backup has.
+     */
+    suspend fun exportPrivate(key: String): JSONObject? = withContext(Dispatchers.IO) {
+        if (!ContactRef.isPrivateKey(key)) return@withContext null
+        val o = JSONObject()
+        meta.meta(key)?.let { m ->
+            m.reachOutDays?.let { o.put(X_DAYS, it) }
+            m.rhythm?.let { o.put(X_RHYTHM, it) }
+            m.lastNudgedAt?.let { o.put(X_NUDGED, it) }
+            m.relationLinks?.let { o.put(X_LINKS, it) }
+            m.yearlyEvents?.let { o.put(X_YEARLY, it) }
+        }
+        val carried = runCatching { interactions()?.interactionsFor(key) }.getOrNull().orEmpty()
+            .map { CarriedInteraction(it.type.name, it.channel?.name, it.time, it.note, it.dedupeKey) }
+        if (carried.isNotEmpty()) o.put(X_INTERACTIONS, Interactions.encodeCarried(carried))
+        runCatching { backgrounds().read(key) }.getOrNull()?.let { o.put(X_BACKGROUND, android.util.Base64.encodeToString(it, android.util.Base64.NO_WRAP)) }
+        o.takeIf { it.length() > 0 }
+    }
+
+    /** Puts back [exportPrivate]'s [o] under private contact [vaultId] (a restore gives it a new id). */
+    suspend fun importPrivate(vaultId: Long, o: JSONObject) = withContext(Dispatchers.IO) {
+        val key = ContactRef.privateKey(vaultId)
+        mutex.withLock {
+            tx {
+                val restored = MetaRekey.Values(
+                    reachOutDays = o.optInt(X_DAYS).takeIf { o.has(X_DAYS) }, lastNudgedAt = o.optLong(X_NUDGED).takeIf { o.has(X_NUDGED) },
+                    relationLinks = o.optString(X_LINKS).ifEmpty { null }, rhythm = o.optString(X_RHYTHM).ifEmpty { null },
+                    yearlyEvents = o.optString(X_YEARLY).ifEmpty { null },
+                )
+                if (restored != MetaRekey.Values()) meta.setMeta(MetaRekey.merge(meta.meta(key)?.values(), restored).toEntity(key, -vaultId))
+            }
+            val store = interactions()
+            if (store != null) Interactions.decodeCarried(o.optString(X_INTERACTIONS).ifEmpty { null }).forEach { i ->
+                val type = InteractionType.entries.firstOrNull { it.name == i.t } ?: InteractionType.OTHER
+                runCatching { store.log(key, -vaultId, type, InteractionChannel.decode(i.c), i.at, i.note, i.u) }
+            }
+            o.optString(X_BACKGROUND).ifEmpty { null }?.let { b ->
+                runCatching { backgrounds().write(key, android.util.Base64.decode(b, android.util.Base64.NO_WRAP)); backgrounds().remember(key) }
+            }
+        }
+    }
+
+    /**
      * Forgets everything Parley kept for [key] outside the contact itself, after it moved into the vault: its
      * contact_meta row (the pinned note travels in the vault entry), its logged interactions (carried, sealed, in the
      * vault entry by [app.parley.data.vault.VaultMoves.moveIn]), its call background, a temporary flag, and the
@@ -103,13 +165,14 @@ class ContactKeys(
             val rows = meta.allMetaNow()
             val bg = runCatching { backgrounds() }.getOrNull()
             val keys = LinkedHashMap<String, Long?>()
-            rows.forEach { keys[it.lookupKey] = it.contactId }
-            bg?.indexedKeys()?.forEach { keys.putIfAbsent(it, null) }
+            // Private contacts' keys are never looked up in the address book (a namesake must not take their data).
+            rows.forEach { if (!ContactRef.isPrivateKey(it.lookupKey)) keys[it.lookupKey] = it.contactId }
+            bg?.indexedKeys()?.forEach { if (!ContactRef.isPrivateKey(it)) keys.putIfAbsent(it, null) }
             // With the contact id they were logged with, so a key change without a shared segment (a rename of a
             // phone-only contact, a first sync) is still followed for contacts that have no contact_meta row.
-            runCatching { interactions()?.keys() }.getOrNull()?.forEach { (k, id) -> if (keys[k] == null) keys[k] = id }
-            runCatching { extras()?.dndKeys() }.getOrNull()?.forEach { keys.putIfAbsent(it, null) }
-            runCatching { originals()?.keys() }.getOrNull()?.forEach { keys.putIfAbsent(it, null) }
+            runCatching { interactions()?.keys() }.getOrNull()?.forEach { (k, id) -> if (keys[k] == null && !ContactRef.isPrivateKey(k)) keys[k] = id }
+            runCatching { extras()?.dndKeys() }.getOrNull()?.forEach { if (!ContactRef.isPrivateKey(it)) keys.putIfAbsent(it, null) }
+            runCatching { originals()?.keys() }.getOrNull()?.forEach { if (!ContactRef.isPrivateKey(it)) keys.putIfAbsent(it, null) }
             val temporaries = meta.allTemporary()
             val snapshot = KeySweep.Snapshot(current, keys + temporaries.associate { "t:" + it.lookupKey + ":" + it.rawIds to it.contactId })
             if (snapshot == lastSweep) return@withLock 0
@@ -226,6 +289,8 @@ class ContactKeys(
             if (links.isEmpty()) continue
             var changed = false
             val updated = links.mapValues { (_, l) ->
+                // A link to a private contact follows it by its own key (re-keyed with it), never through the address book.
+                if (ContactRef.isPrivateKey(l.lookupKey)) return@mapValues l
                 val now = resolve(l.lookupKey, l.contactId, current)
                     ?.takeIf { (id, key) -> key == l.lookupKey || MetaRekey.plausible(l.lookupKey, key, l.contactId, id) }
                 if (now != null && (now.second != l.lookupKey || now.first != l.contactId)) { changed = true; RelationLinks.Link(now.second, now.first) } else l
@@ -234,6 +299,14 @@ class ContactKeys(
         }
     }
 }
+
+private const val X_DAYS = "d"
+private const val X_RHYTHM = "r"
+private const val X_NUDGED = "nudged"
+private const val X_LINKS = "rel"
+private const val X_YEARLY = "y"
+private const val X_INTERACTIONS = "i"
+private const val X_BACKGROUND = "bg"
 
 internal fun ContactMetaEntity.values() = MetaRekey.Values(pinnedNote, preferredMessenger, reachOutDays, lastNudgedAt, relationLinks, rhythm, yearlyEvents)
 

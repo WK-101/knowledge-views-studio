@@ -46,6 +46,8 @@ data class VaultSummary(
     val updatedAt: Long = 0,
     /** A temporary private contact whose call history goes with it when it expires. */
     val purgeHistory: Boolean = false,
+    /** A favourite: Parley's own star (private contacts aren't in the address book, whose star other apps read). */
+    val starred: Boolean = false,
 )
 
 /**
@@ -92,6 +94,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
         VaultSummary(
             e.id, o.optString("name"), (0 until nums.length()).map { nums.getString(it) }, e.expiresAt,
             updatedAt = o.optLong("u", e.createdAt), purgeHistory = o.optBoolean("purge", false),
+            starred = o.optBoolean(C_STAR, false),
         )
     }.getOrNull()
 
@@ -234,6 +237,8 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
                 // When it was last saved, so the newest of two entries sharing a number wins.
                 .put("u", System.currentTimeMillis())
                 .apply { if (purge) put("purge", true) }
+                // In Favourites while the vault is locked, like the name in Contacts.
+                .apply { if (d.starred) put(C_STAR, true) }
                 // The region national numbers were read with, so re-fingerprinting later uses the same one.
                 .put(C_REGION, region)
             val detailsJson = ContactDetailsJson.encode(d.copy(photoUri = null))
@@ -538,5 +543,6 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
         const val C_TITLE = "t"
         const val C_COMPANY = "co"
         const val C_REGION = "rg"
+        const val C_STAR = "star"
     }
 }

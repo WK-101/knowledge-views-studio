@@ -14,7 +14,6 @@ import app.parley.ui.Routes
 import app.parley.ui.appVm
 import app.parley.ui.extras.HandshakeInbox
 import app.parley.ui.timemachine.VersionHistoryScreen
-import app.parley.ui.vault.VaultDetailScreen
 import androidx.compose.runtime.CompositionLocalProvider
 import kotlinx.serialization.Serializable
 
@@ -28,16 +27,15 @@ object ContactPageRoutes {
 }
 
 /**
- * After an edit: back to where the editor was opened from, then to the saved contact (a private one: negative id)
- * unless that is where we already are.
+ * After an edit: back to where the editor was opened from, then to the saved contact (a private one has a negative id,
+ * and the same page) unless that is where we already are.
  */
 internal fun NavController.afterEdit(savedId: Long?) {
     popBackStack()
     val here = currentDestination
     when {
         savedId == null -> Unit
-        savedId < 0 -> if (here?.hasRoute<Routes.Vault>() != true) navigate(Routes.Vault(-savedId)) { launchSingleTop = true }
-        here?.hasRoute<Routes.Contact>() != true -> navigate(Routes.Contact(savedId)) { launchSingleTop = true }
+        here?.hasRoute<Routes.Contact>() != true && here?.hasRoute<Routes.Vault>() != true -> navigate(Routes.Contact(savedId)) { launchSingleTop = true }
     }
 }
 
@@ -69,7 +67,8 @@ fun NavGraphBuilder.contactGraph(nav: NavController) {
             },
         )
     }
-    composable<Routes.Vault> { VaultDetailScreen(appVm(), it.toRoute<Routes.Vault>().id, back = back, open = open) }
+    // Old links to a private contact's own page (shortcuts, notifications, saved back stacks) open the one contact page.
+    composable<Routes.Vault> { ContactDetailScreen(appVm(), -it.toRoute<Routes.Vault>().id, back = back, open = open) }
     composable<Routes.Pick> {
         val number = it.toRoute<Routes.Pick>().number
         ContactPickerScreen(appVm(), back = back, onPick = { id ->

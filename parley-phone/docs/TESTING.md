@@ -1347,6 +1347,22 @@ Design: [CONTACT_PAGE_DESIGN.md](CONTACT_PAGE_DESIGN.md). Check in light, dark a
 12. **Scrolled.** Scroll: the name and photo dock into the top bar, the pinned strip shows Call / Message / Video / Email, and on a long page the jump chips name the groups ("Contact info", "About Sam", "Timeline"…); a chip unfolds and scrolls to its group.
 13. **Layouts.** Landscape (small photo, tiles in view), a tablet, the largest font (rows grow, nothing clipped), TalkBack (each row reads its value and label as one item; group headers are headings with Folded / Open), and Arabic or Urdu (the rows mirror; numbers stay left to right).
 
+### 24.4 One contact, with private and temporary as variants
+
+Design: [CONTACT_MODEL.md](CONTACT_MODEL.md). Use a phone with a screen lock and the app lock off (so the vault asks for its own unlock), and check light, dark and black themes.
+
+1. **One page.** Open a private contact from Contacts. It opens the same page as any contact: photo, name, the at-a-glance line, Call / Message / Email tiles, Contact info, About, Timeline, Call insights (after a few calls) and "Settings for this contact". The only difference in the header is the chip "Private · hidden from other apps". A temporary contact (private or not) also has "Temporary · deletes itself on …"; tap it: the "Delete automatically after" choice opens.
+2. **Locked.** Lock the phone, unlock it, wait past the vault's unlock window and open a private contact: the name, photo and numbers show, with "Unlock to see all details" under the header and no sections. Tap it and authenticate: the full page appears in place. Calls from that contact while the phone is locked still show the name and the note for calls, as before.
+3. **Everything works.** On a private contact: star it (it appears in Favourites with a small lock on the photo), add it to your Circle (it is in the Circle tab, with the lock), log a moment, write a note for calls, set a default number, choose a call-screen picture (it shows when they call), tap a relation, open the full timeline, and use Show QR code (it asks first: whoever scans it gets an ordinary contact). Ringtone, Send to voicemail, labels, Copy to SIM, the home-screen shortcut, version history and "Share" as a file are not offered: they live in Android's address book.
+4. **Editor.** Edit the private contact: every field is there, including dates, relations, a map link on the address, the photo, "When they call" and the call-screen picture. Save: the page shows the change.
+5. **Make private.** On a phone contact with a label, a note for calls, a Circle rhythm, a logged moment and a call-screen picture: Settings for this contact › Make private. The dialog says what other apps won't see and what stays. Confirm: the same page opens with the Private chip, and the note, Circle, moment and picture are all there. Another contacts app (or WhatsApp after its next sync) no longer shows them.
+6. **Make visible.** On that contact: Make visible to other apps. The dialog says what other apps will see. Confirm: the page opens as a phone contact with the label back, and the note, Circle, moment and picture still there. Calls made while it was private are in Recents and in the phone's call history.
+7. **Temporary both ways.** On a phone contact and on a private contact: Settings for this contact › Delete automatically… › 1 week: the Temporary chip shows the date. "Keep permanently": the chip goes. Make a temporary contact private and back: it keeps its date.
+8. **Lists.** Contacts shows private contacts in the one list, in name order, with a small lock on the photo (TalkBack: "Private contact"); there is no separate private section. The "Private" chip filters the list to them; with none, it offers "Add private contact". Search, keypad search and T9 find them with the same rows; a tap opens their page. Long-press doesn't select them (bulk actions are the address book's); swipe to delete works.
+9. **Discreet mode.** Settings › Privacy › Hide private contacts: they leave Contacts, Favourites, the Circle and keypad results, and calls from them show only the number, as before.
+10. **Old links.** A missed-call notification, "Chat, then decide", Recents or Temporary contacts that open a private contact all land on the same page.
+11. **Backup.** With the vault unlocked, back up and restore on another phone (or after "Delete all Parley data"): the private contact comes back with its Circle rhythm, moments and call-screen picture. A backup made while the vault was locked holds none of them.
+
 ### 24.5 Two-way relations, whole contact photos, contact count
 
 Relations:
@@ -1368,9 +1384,9 @@ Photos:
 12. **Formats.** HEIC works (kept as a high-quality JPEG). A photo over 20 MB works too.
 13. **Other apps.** The photo menu in the editor says "Parley keeps the whole photo. Other apps see Android's smaller copy." Google Contacts shows the same picture, uncropped but at Android's size (720 px at most).
 14. **Replaced elsewhere.** Change the photo in another contacts app: Parley's page shows the new photo (its own copy of the old one is dropped). Remove the photo in Parley: the page shows the monogram.
-15. **Private contact.** Add a photo to a private contact: its page shows it whole and the viewer opens it; the file on disk is sealed. Delete the private contact: its original goes too.
+15. **Private contact.** Add a photo to a private contact: its page shows it whole and the viewer opens it; the file on disk is sealed. Make it visible again (and private again): the whole photo comes along each time. Delete the private contact: its original goes too.
 16. **Backup.** Back up and restore on a fresh install: originals up to 4 MB in total come back; the others show Android's copy.
 
 Count:
 
-17. **Footer.** Scroll to the end of Contacts: "120 contacts" in small grey text. Pick one label: "12 contacts in Family"; one account: "30 contacts in Google · …"; Unlabelled: "5 unlabelled contacts"; two labels: "7 contacts match the filter". Search: "4 results". The Private chip: "3 private contacts". One contact reads "1 contact". TalkBack reads the line.
+17. **Footer.** Scroll to the end of Contacts: "120 contacts" in small grey text. Pick one label: "12 contacts in Family"; one account: "30 contacts in Google · …"; Unlabelled: "5 unlabelled contacts"; two labels: "7 contacts match the filter". Search: "4 results". With private contacts in the list: "120 contacts · 3 private". The Private chip: "3 private contacts". One contact reads "1 contact". TalkBack reads the line.

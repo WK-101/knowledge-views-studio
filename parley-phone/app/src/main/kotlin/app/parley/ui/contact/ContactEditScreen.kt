@@ -1,5 +1,6 @@
 package app.parley.ui.contact
 
+import app.parley.common.people.ContactRef
 import android.content.res.Resources
 import android.net.Uri
 import android.provider.ContactsContract.CommonDataKinds.Email
@@ -332,7 +333,9 @@ fun ContactEditScreen(
             return@ParleyScaffold
         }
         fun update(f: (ContactDetails) -> ContactDetails) = editor.update(f)
+        // The key the call-screen picture is kept under: a private contact's is its Parley key, like on its page.
         val lookup = original?.lookupKey?.takeIf { !isVault && it.isNotEmpty() }
+            ?: vaultId?.takeIf { it > 0 }?.let { ContactRef.privateKey(it) }
         val accountGroups = if (isVault || editor.temporaryNew) emptyList()
         else groups.filter { it.account.type == account?.type && it.account.name == account?.name }
         val nameDetailsFilled = listOf(d.prefix, d.middle, d.suffix, d.phoneticGiven, d.phoneticFamily, d.nickname).any { it.isNotBlank() }

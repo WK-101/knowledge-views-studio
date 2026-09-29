@@ -2,6 +2,7 @@ package app.parley.ui.contact
 
 import android.net.Uri
 import app.parley.R
+import app.parley.common.people.ContactRef
 import app.parley.common.people.ExpiryChange
 import app.parley.common.people.RelationLinks
 import app.parley.common.people.TemporaryChoice
@@ -117,7 +118,26 @@ class SaveContactUseCase(private val c: DataContainer) {
         )
         if (r.expiry == ExpiryChange.Keep) c.vault.setExpiry(id, null)
         vaultPhoto(id, r, notes)
+        privateExtras(id, r, cleaned, notes)
         return -id // negative ids mark vault contacts for the caller
+    }
+
+    /**
+     * A private contact's call-screen picture and relation links, kept under its Parley key
+     * ([ContactRef.privateKey]) the same way a device contact's are kept under its lookup key.
+     */
+    private suspend fun privateExtras(id: Long, r: Request, d: ContactDetails, notes: MutableList<Int>) {
+        val key = ContactRef.privateKey(id)
+        if (r.background != BackgroundChange.None) saveBackground(r.background, key, null, notes)
+        val names = d.relations.map { it.value }.filter { it.isNotBlank() }
+        val m = c.meta.meta(key)
+        val existing = RelationLinks.decode(m?.relationLinks)
+        if (names.isEmpty() && existing.isEmpty()) return
+        val people = withContext(Dispatchers.IO) { c.contacts.snapshot() }.map { Triple(it.id, it.displayName, it.lookupKey) }
+        val links = RelationLinks.update(names, existing, people, self = -id, picked = r.pickedLinks)
+        if (links == existing) return
+        c.meta.ensureMeta(key, -id)
+        c.meta.setRelationLinks(key, RelationLinks.encode(links).ifEmpty { null })
     }
 
     /**

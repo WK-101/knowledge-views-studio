@@ -171,6 +171,11 @@ import app.parley.ui.common.Intents
 import app.parley.ui.shared
 import app.parley.security.launchVault
 import app.parley.ui.vault.ExpiryDialog
+import app.parley.common.people.ContactCapabilities
+import app.parley.common.people.ContactCapability
+import app.parley.common.people.VariantChip
+import app.parley.data.AccountRef
+import app.parley.security.AppLock
 import java.time.LocalDate
 import java.time.ZoneId
 import kotlinx.coroutines.launch
@@ -185,6 +190,7 @@ import app.parley.ui.ListSectionHeader
 import app.parley.ui.Spacing
 import app.parley.ui.ParleyMotion
 import androidx.compose.material.icons.rounded.LinkOff
+import androidx.compose.material.icons.rounded.LockOpen
 
 /**
  * A contact's page. U1: the photo and name dock into the top bar as you scroll ("last talked" shows there once
@@ -240,6 +246,19 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
     val prefs = ui.prefs
     fun savePrefs(p: MessengerPrefs) = page.setMessengerPrefs(p)
     val temp = ui.temporary
+    // One page for every contact: a private one differs only by what only the address book can do (ContactCapabilities).
+    val isPrivate = ui.isPrivate
+    val caps = ContactCapabilities.of(ui.storage)
+    fun can(c: ContactCapability) = c in caps
+    val locked = ui.access == PrivateAccess.LOCKED || ui.access == PrivateAccess.UNAVAILABLE
+    var confirmPrivate by remember { mutableStateOf(false) }
+    var confirmVisible by remember { mutableStateOf(false) }
+    var confirmPrivateQr by remember { mutableStateOf(false) }
+
+    /** The vault's unlock, in this page; the details load again once it succeeds. */
+    fun unlock() {
+        (context as? FragmentActivity)?.let { AppLock.authenticateForVault(it) { ok -> if (ok) page.reload() } }
+    }
 
     val ringtonePicker = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { res ->
         if (res.resultCode == Activity.RESULT_OK) {
@@ -305,8 +324,10 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
         defaultNumber = (dd.phones.firstOrNull { it.isPrimary } ?: dd.phones.firstOrNull())?.value,
         messengers = messengers,
         prefs = prefs,
-        lookupKey = dd.lookupKey,
-        contactId = contactId,
+        // A private contact: nothing about reaching them is written outside Parley's encrypted storage.
+        isPrivate = isPrivate,
+        lookupKey = dd.lookupKey.takeUnless { isPrivate },
+        contactId = contactId.takeUnless { isPrivate },
     )
     fun message(dd: ContactDetails, number: String? = null) {
         val r = reach(dd).let { if (number != null) it.copy(defaultNumber = number, prefs = it.prefs.copy(number = null)) else it }
@@ -337,20 +358,36 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                         IconButton({ page.setStarred(!d.starred) }) {
                             Icon(if (d.starred) Icons.Rounded.Star else Icons.Rounded.StarOutline, stringResource(if (d.starred) R.string.sel_unstar else R.string.sel_star))
                         }
-                        IconButton({ open(Routes.edit(id = contactId)) }) { Icon(Icons.Rounded.Edit, stringResource(R.string.main_edit)) }
+                        IconButton({ open(if (isPrivate) Routes.edit(vault = -contactId) else Routes.edit(id = contactId)) }) {
+                            Icon(Icons.Rounded.Edit, stringResource(R.string.main_edit))
+                        }
                         IconButton({ menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.main_more)) }
                         DropdownMenu(menu, { menu = false }) {
                             // "Log interaction" is the FAB for Circle contacts; for everyone else it's here.
                             if (meta?.reachOutDays == null) DropdownMenuItem({ Text(stringResource(R.string.circle_log_interaction)) }, leadingIcon = { Icon(Icons.Rounded.Handshake, null) }, onClick = { menu = false; logDialog = true })
-                            DropdownMenuItem({ Text(stringResource(R.string.detail_share_file)) }, leadingIcon = { Icon(Icons.Rounded.Share, null) }, onClick = {
-                                menu = false; Intents.shareVcard(context, page.vcardUri(d.lookupKey), d.displayName)
+                            if (can(ContactCapability.SHARE_VCARD_FILE)) {
+                                DropdownMenuItem({ Text(stringResource(R.string.detail_share_file)) }, leadingIcon = { Icon(Icons.Rounded.Share, null) }, onClick = {
+                                    menu = false; Intents.shareVcard(context, page.vcardUri(d.lookupKey), d.displayName)
+                                })
+                            }
+                            // A private contact's plain code is shown after saying what the scanner gets.
+                            DropdownMenuItem({ Text(stringResource(R.string.detail_show_qr)) }, leadingIcon = { Icon(Icons.Rounded.QrCode2, null) }, onClick = {
+                                menu = false; if (isPrivate) confirmPrivateQr = true else showQr = true
                             })
-                            DropdownMenuItem({ Text(stringResource(R.string.detail_show_qr)) }, leadingIcon = { Icon(Icons.Rounded.QrCode2, null) }, onClick = { menu = false; showQr = true })
                             DropdownMenuItem({ Text(stringResource(R.string.detail_share_private)) }, leadingIcon = { Icon(Icons.Rounded.Lock, null) }, onClick = { menu = false; secureQr = true })
-                            DropdownMenuItem({ Text(stringResource(R.string.detail_versions)) }, leadingIcon = { Icon(Icons.Rounded.History, null) }, onClick = { menu = false; open(Routes.versions(contactId)) })
-                            DropdownMenuItem({ Text(stringResource(R.string.detail_add_home)) }, leadingIcon = { Icon(Icons.Rounded.AddToHomeScreen, null) }, onClick = { menu = false; pinDialog = true })
-                            if (d.phones.isNotEmpty()) DropdownMenuItem({ Text(stringResource(R.string.detail_copy_sim)) }, leadingIcon = { Icon(Icons.Rounded.SimCard, null) }, onClick = { menu = false; copyToSim = true })
-                            DropdownMenuItem({ Text(stringResource(R.string.detail_set_ringtone)) }, leadingIcon = { Icon(Icons.Rounded.MusicNote, null) }, onClick = {
+                            if (can(ContactCapability.VERSION_HISTORY)) {
+                                DropdownMenuItem({ Text(stringResource(R.string.detail_versions)) }, leadingIcon = { Icon(Icons.Rounded.History, null) }, onClick = { menu = false; open(Routes.versions(contactId)) })
+                            }
+                            if (can(ContactCapability.HOME_SCREEN_SHORTCUT)) {
+                                DropdownMenuItem({ Text(stringResource(R.string.detail_add_home)) }, leadingIcon = { Icon(Icons.Rounded.AddToHomeScreen, null) }, onClick = { menu = false; pinDialog = true })
+                            }
+                            if (d.phones.isNotEmpty() && can(ContactCapability.COPY_TO_SIM)) {
+                                DropdownMenuItem(
+                                    { Text(stringResource(R.string.detail_copy_sim)) }, leadingIcon = { Icon(Icons.Rounded.SimCard, null) },
+                                    onClick = { menu = false; copyToSim = true },
+                                )
+                            }
+                            if (can(ContactCapability.RINGTONE)) DropdownMenuItem({ Text(stringResource(R.string.detail_set_ringtone)) }, leadingIcon = { Icon(Icons.Rounded.MusicNote, null) }, onClick = {
                                 menu = false
                                 ringtonePicker.launch(
                                     Intent(RingtoneManager.ACTION_RINGTONE_PICKER)
@@ -370,18 +407,12 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                                     menu = false; page.separate(back)
                                 })
                             }
-                            DropdownMenuItem({ Text(stringResource(R.string.detail_move_vault)) }, leadingIcon = { Icon(Icons.Rounded.Lock, null) }, onClick = {
-                                menu = false
-                                scope.launchVault(context as? FragmentActivity, { e -> vm.toast(resources.getString(R.string.detail_move_failed, e.message.orEmpty())) }) {
-                                    // The note for calls and the messaging choice go with them (encrypted).
-                                    val id = vm.moveToVault(contactId, d.copy(pinnedNote = meta?.pinnedNote.orEmpty(), messengerPrefs = prefs.encode().orEmpty()))
-                                    // Now kept encrypted with them: no plaintext copy stays in Parley's metadata.
-                                    page.forgetMeta(d.lookupKey)
-                                    vm.toast(resources.getString(R.string.detail_moved_private))
-                                    back()
-                                    open(Routes.vault(id))
-                                }
-                            })
+                            // Make private ⇄ Make visible: the same contact, kept somewhere else (asks first).
+                            DropdownMenuItem(
+                                { Text(stringResource(if (isPrivate) R.string.contact_make_visible else R.string.detail_move_vault)) },
+                                leadingIcon = { Icon(if (isPrivate) Icons.Rounded.LockOpen else Icons.Rounded.Lock, null) },
+                                onClick = { menu = false; if (isPrivate) confirmVisible = true else confirmPrivate = true },
+                            )
                             DropdownMenuItem({ Text(stringResource(if (temp != null) R.string.detail_change_expiry else R.string.detail_delete_after)) }, leadingIcon = { Icon(Icons.Rounded.Timer, null) }, onClick = { menu = false; askExpiry = true })
                             DropdownMenuItem({ Text(stringResource(R.string.main_delete)) }, leadingIcon = { Icon(Icons.Rounded.Delete, null) }, onClick = { menu = false; confirmDelete = true })
                         }
@@ -532,7 +563,8 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
             }
         }
         // About them: dates, websites, relations, the contact's own note, then Parley's note for calls.
-        if (d.events.isNotEmpty() || hasMissingDates(d)) {
+        val quickDates = can(ContactCapability.QUICK_DATES) && hasMissingDates(d)
+        if (d.events.isNotEmpty() || quickDates) {
             val next = ContactPage.nextDate(dated.map { it.second }, today)?.let { (j, days) -> dated[j].first to days }
             val summary = next?.let { (i, days) -> dateText(i, days) }
                 ?: if (d.events.isNotEmpty()) resources.getQuantityString(R.plurals.contact_page_count_dates, d.events.size, d.events.size) else ""
@@ -563,7 +595,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                     }
                 }
                 // Empty birthday / anniversary slots, saved straight to the system contact.
-                if (hasMissingDates(d)) item {
+                if (quickDates) item {
                     MissingDateChips(vm, d, onSaved = page::reload, modifier = Modifier.padding(vertical = Spacing.xs))
                 }
             }
@@ -620,12 +652,13 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
         sections.add(ContactSection.TIMELINE, sectionTitle(resources, ContactSection.TIMELINE), resources.getQuantityString(R.plurals.contact_page_entries, timelineCount, timelineCount)) {
             ContactTimeline(
                 vm, d, history, interactions, notes, onEdit = { editEntry = it },
-                onAllCalls = primary?.takeIf { history.size > 5 }?.let { p -> { open(Routes.history(p.value)) } },
+                // A number's own history screen lists the phone's call history; a private contact's calls are all here.
+                onAllCalls = primary?.takeIf { history.size > 5 && !isPrivate }?.let { p -> { open(Routes.history(p.value)) } },
                 limit = TIMELINE_PREVIEW, onShowAll = { open(ContactPageRoutes.timeline(contactId)) }, showTitle = false,
             )
         }
         if (history.isNotEmpty()) sections.add(ContactSection.INSIGHTS, sectionTitle(resources, ContactSection.INSIGHTS), resources.getQuantityString(R.plurals.contact_page_count_calls, history.size, history.size)) {
-            OnGroupSurface { CallInsightsSection(vm, d.phones.map { it.value }, showTitle = false) }
+            OnGroupSurface { CallInsightsSection(vm, d.phones.map { it.value }, showTitle = false, index = ui.privateIndex) }
         }
         if (otherFields.isNotEmpty()) sections.addRows(
             ContactSection.OTHER, sectionTitle(resources, ContactSection.OTHER),
@@ -644,7 +677,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                     supporting = { Text(stringResource(R.string.circle_add_to_circle_body)) },
                 )
             }
-            item {
+            if (can(ContactCapability.SEND_TO_VOICEMAIL)) item {
                 InfoRow(
                     modifier = Modifier.toggleable(d.sendToVoicemail, role = Role.Switch, onValueChange = { v -> page.setSendToVoicemail(v) }),
                     leading = { Icon(Icons.Rounded.Voicemail, null) },
@@ -652,16 +685,24 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                     trailing = { Switch(d.sendToVoicemail, onCheckedChange = null, modifier = Modifier.padding(end = Spacing.m)) },
                 )
             }
-            blended { ContactCallTimeRows(vm, d.lookupKey, d.displayName, d.starred) }
-            item {
+            if (can(ContactCapability.CALL_TIME)) blended { ContactCallTimeRows(vm, d.lookupKey, d.displayName, d.starred) }
+            if (can(ContactCapability.RINGTONE)) item {
                 val tone = d.customRingtone?.let { runCatching { RingtoneManager.getRingtone(context, Uri.parse(it))?.getTitle(context) }.getOrNull() }
                 GroupDataRow(Icons.Rounded.MusicNote, true, tone ?: resources.getString(R.string.detail_default_ringtone), resources.getString(R.string.detail_ringtone), onClick = {
                     ringtonePicker.launch(Intent(RingtoneManager.ACTION_RINGTONE_PICKER).putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_RINGTONE))
                 })
             }
             blended { CallBackgroundInfoRow(vm, d) }
-            // Where it's saved, as chips with their own actions (edit this copy, move, unlink).
-            item {
+            // Where it's saved, as chips with their own actions (edit this copy, move, unlink); a private contact is
+            // kept only in Parley.
+            if (!can(ContactCapability.ACCOUNTS)) item {
+                InfoRow(
+                    leading = { Icon(Icons.Rounded.Lock, null) },
+                    headline = { Text(stringResource(R.string.detail_saved_in)) },
+                    supporting = { Text(stringResource(R.string.contact_saved_private)) },
+                )
+            }
+            if (can(ContactCapability.ACCOUNTS)) item {
                 InfoRow(
                     leading = { Icon(Icons.Rounded.Sync, null) },
                     headline = {
@@ -676,12 +717,33 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                     },
                 )
             }
-            blended { ProvenanceRow(vm, contactId, d, open) }
+            if (can(ContactCapability.ACCOUNTS)) blended { ProvenanceRow(vm, contactId, d, open) }
+            // The variants, converted both ways from here (and from ⋮): private ⇄ visible, temporary ⇄ permanent.
+            item {
+                GroupDataRow(
+                    if (isPrivate) Icons.Rounded.LockOpen else Icons.Rounded.Lock, true,
+                    resources.getString(if (isPrivate) R.string.contact_make_visible else R.string.detail_move_vault),
+                    resources.getString(if (isPrivate) R.string.contact_make_visible_summary else R.string.contact_make_private_summary),
+                    onClick = { if (isPrivate) confirmVisible = true else confirmPrivate = true },
+                )
+            }
+            if (temp == null) item {
+                GroupDataRow(
+                    Icons.Rounded.Timer, true, resources.getString(R.string.contact_make_temporary),
+                    resources.getString(R.string.contact_make_temporary_summary), onClick = { askExpiry = true },
+                )
+            }
             temp?.let { t ->
                 item {
                     GroupDataRow(
                         Icons.Rounded.Timer, true, resources.getString(R.string.detail_deletes_on, Format.fullDate(context, t.expiresAt)),
                         resources.getString(R.string.detail_change_expiry), onClick = { askExpiry = true },
+                    )
+                }
+                item {
+                    GroupDataRow(
+                        Icons.Rounded.Timer, true, resources.getString(R.string.contact_keep_permanently),
+                        resources.getString(R.string.contact_keep_permanently_summary), onClick = { page.setExpiry(null) },
                     )
                 }
             }
@@ -692,7 +754,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                 )
             }
         }
-        val blocks = sections.blocks(layout)
+        val blocks = if (locked) emptyList() else sections.blocks(layout)
         fun blockTitle(b: PageBlock): String = when (b.family) {
             SectionFamily.CONTACT_INFO -> resources.getString(R.string.contact_page_info)
             SectionFamily.ABOUT -> resources.getString(R.string.detail_about, d.given.ifBlank { d.displayName })
@@ -743,7 +805,13 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                         glanceText, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = Spacing.xxs),
                     )
-                    temp?.let { Text(stringResource(R.string.detail_deletes_on, Format.fullDate(context, it.expiresAt)), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+                    // Private and temporary show as small chips; nothing else on the page looks different.
+                    VariantChips(ui.variants, onClick = { chip ->
+                        when (chip) {
+                            VariantChip.Private -> if (locked) unlock() else confirmVisible = true
+                            is VariantChip.Temporary -> askExpiry = true
+                        }
+                    })
                     Spacer(Modifier.height(Spacing.m))
                     // Labelled tiles.
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
@@ -765,8 +833,12 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                     }
                 }
             }
+            // A private contact while the vault is locked: its name, photo and numbers only, and the unlock right here.
+            if (ui.access != PrivateAccess.OPEN) item(key = "access") {
+                PrivateAccessRow(ui.access, onUnlock = ::unlock, onRetry = page::reload, onKeep = page::keepWhatIsLeft)
+            }
             // Every section folds; order, start modes and hidden ones come from Settings › Contacts › Contact page sections.
-            foldableSections(sections, layout, ::blockTitle, ::fold)
+            if (!locked) foldableSections(sections, layout, ::blockTitle, ::fold)
         }
         // Once the big header has gone, a compact bar keeps the actions (and, on long pages, jumps to a section).
         AnimatedVisibility(
@@ -809,7 +881,8 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
         }
         webLink?.let { l -> ConfirmWebLink(l) { webLink = null } }
         if (showQr) QrDialog(d) { showQr = false }
-        if (secureQr) SecureQrDialog(d) { secureQr = false }
+        // A private contact's Parley key isn't part of what it shares.
+        if (secureQr) SecureQrDialog(if (isPrivate) d.copy(id = 0, lookupKey = "") else d) { secureQr = false }
         if (copyToSim) CopyToSimDialog(vm, d) { copyToSim = false }
         if (editNote) {
             var text by remember { mutableStateOf(TextFieldValue(meta?.pinnedNote.orEmpty())) }
@@ -897,12 +970,70 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
         }
         if (confirmDelete) {
             ConfirmDialog(
-                title = stringResource(R.string.detail_delete_title, d.displayName),
-                text = stringResource(R.string.detail_delete_body),
+                title = if (isPrivate) stringResource(R.string.vault_delete_title) else stringResource(R.string.detail_delete_title, d.displayName),
+                // A private contact has no copy in History & undo: the vault never leaves one outside it.
+                text = stringResource(if (isPrivate) R.string.vault_delete_text else R.string.detail_delete_body),
                 confirmLabel = stringResource(R.string.main_delete),
-                onConfirm = { confirmDelete = false; vm.deleteContacts(listOf(contactId)); back() },
+                onConfirm = {
+                    confirmDelete = false
+                    if (isPrivate) page.deletePrivate(back) else { vm.deleteContacts(listOf(contactId)); back() }
+                },
                 onDismiss = { confirmDelete = false },
                 destructive = true,
+                dismissLabel = stringResource(R.string.main_cancel),
+            )
+        }
+        if (confirmPrivate) {
+            ConfirmDialog(
+                title = stringResource(R.string.contact_make_private_title, d.given.ifBlank { d.displayName }),
+                text = stringResource(R.string.contact_make_private_body),
+                confirmLabel = stringResource(R.string.detail_move_vault),
+                icon = Icons.Rounded.Lock,
+                onConfirm = {
+                    confirmPrivate = false
+                    scope.launchVault(context as? FragmentActivity, { e -> vm.toast(resources.getString(R.string.detail_move_failed, e.message.orEmpty())) }) {
+                        // The note for calls and the messaging choice go with them, sealed; the rest is re-keyed.
+                        val id = vm.moveToVault(contactId, d.copy(pinnedNote = meta?.pinnedNote.orEmpty(), messengerPrefs = prefs.encode().orEmpty()))
+                        vm.toast(resources.getString(R.string.detail_moved_private))
+                        back()
+                        open(Routes.contact(-id))
+                    }
+                },
+                onDismiss = { confirmPrivate = false },
+                dismissLabel = stringResource(R.string.main_cancel),
+            )
+        }
+        if (confirmVisible) {
+            ConfirmDialog(
+                title = stringResource(R.string.contact_make_visible_title, d.given.ifBlank { d.displayName }),
+                text = stringResource(R.string.contact_make_visible_body),
+                confirmLabel = stringResource(R.string.contact_make_visible_confirm),
+                icon = Icons.Rounded.LockOpen,
+                onConfirm = {
+                    confirmVisible = false
+                    scope.launchVault(context as? FragmentActivity, { e -> vm.toast(resources.getString(R.string.vault_move_failed, e.message.orEmpty())) }) {
+                        val s = vm.settings.value
+                        // Restores the original contact losslessly when the vault kept its record; else the default account.
+                        val newId = page.makeVisible(AccountRef(s.defaultAccountType, s.defaultAccountName))
+                        if (newId != null) {
+                            vm.toast(resources.getString(R.string.contact_made_visible))
+                            back()
+                            open(Routes.contact(newId))
+                        }
+                    }
+                },
+                onDismiss = { confirmVisible = false },
+                dismissLabel = stringResource(R.string.main_cancel),
+            )
+        }
+        if (confirmPrivateQr) {
+            ConfirmDialog(
+                title = stringResource(R.string.contact_private_qr_title),
+                text = stringResource(R.string.contact_private_qr_body),
+                confirmLabel = stringResource(R.string.contact_private_qr_confirm),
+                icon = Icons.Rounded.QrCode2,
+                onConfirm = { confirmPrivateQr = false; showQr = true },
+                onDismiss = { confirmPrivateQr = false },
                 dismissLabel = stringResource(R.string.main_cancel),
             )
         }

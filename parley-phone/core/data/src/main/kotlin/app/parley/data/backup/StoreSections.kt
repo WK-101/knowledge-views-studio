@@ -1,5 +1,6 @@
 package app.parley.data.backup
 
+import app.parley.common.people.ContactRef
 import app.parley.data.db.MetaDao
 import android.util.Base64
 import androidx.room.withTransaction
@@ -59,6 +60,8 @@ class ContactNotesBackup(
         val refs = PersonRefs(contactsNow())
         val metas = JSONArray()
         for (m in meta.allMetaNow()) {
+            // Private contacts' rows go only in the private-contacts section (BackupRepository.vaultBlob).
+            if (ContactRef.isPrivateKey(m.lookupKey)) continue
             if (m.pinnedNote == null && m.preferredMessenger == null && m.relationLinks == null && m.lastNudgedAt == null) continue
             val o = refs.ref(m.lookupKey).toJson()
             m.pinnedNote?.let { o.put("note", it) }

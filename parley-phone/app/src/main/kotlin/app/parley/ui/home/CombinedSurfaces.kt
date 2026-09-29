@@ -244,7 +244,9 @@ private fun FavoriteGrid(favorites: List<ContactSummary>, columns: Int, onCall: 
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             favorites.chunked(n).forEach { row ->
                 Row(Modifier.fillMaxWidth()) {
-                    row.forEach { c -> Tile(c.displayName, c.photoUri, onClick = { onCall(c) }, onLong = { onOpen(c) }, modifier = Modifier.weight(1f)) }
+                    row.forEach { c ->
+                        Tile(c.displayName, c.photoUri, onClick = { onCall(c) }, onLong = { onOpen(c) }, modifier = Modifier.weight(1f), isPrivate = c.id < 0)
+                    }
                     repeat(n - row.size) { Spacer(Modifier.weight(1f)) }
                 }
             }

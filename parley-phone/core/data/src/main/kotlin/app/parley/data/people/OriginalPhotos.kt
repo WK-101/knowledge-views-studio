@@ -12,6 +12,7 @@ import android.provider.OpenableColumns
 import android.util.Log
 import androidx.exifinterface.media.ExifInterface
 import app.parley.common.Hex
+import app.parley.common.people.ContactRef
 import app.parley.common.photo.OriginalPhoto
 import app.parley.common.photo.PhotoMath
 import app.parley.data.vault.VaultCrypto
@@ -96,6 +97,8 @@ class OriginalPhotos(context: Context) {
      */
     suspend fun forContact(lookupKey: String?, current: String?): Original? = withContext(Dispatchers.IO) {
         if (lookupKey.isNullOrEmpty()) return@withContext null
+        // A private contact's Parley key: its sealed original (Parley alone writes its photo, so it can't go stale).
+        ContactRef.vaultIdOf(lookupKey)?.let { return@withContext if (current == null) null else forPrivate(it) }
         val metaFile = metaFor(lookupKey)
         val image = imageFor(lookupKey)
         if (!metaFile.isFile || !image.isFile) return@withContext null
@@ -114,15 +117,25 @@ class OriginalPhotos(context: Context) {
 
     fun clear(lookupKey: String) {
         if (lookupKey.isEmpty()) return
+        ContactRef.vaultIdOf(lookupKey)?.let { clearPrivate(it); return }
         val a = imageFor(lookupKey).delete()
         val b = metaFor(lookupKey).delete()
         if (a || b) _version.value++
     }
 
-    /** Moves [from]'s original to [to] (a changed lookup key); one [to] already has wins. */
+    /**
+     * Moves [from]'s original to [to] (a changed lookup key); one [to] already has wins. Between a device contact and a
+     * private one ([ContactRef.privateKey], Make private / Make visible) it is sealed or opened on the way.
+     */
     @Synchronized
     fun move(from: String, to: String) {
         if (from == to || from.isEmpty() || to.isEmpty()) return
+        if (ContactRef.isPrivateKey(from) || ContactRef.isPrivateKey(to)) {
+            val carried = take(from) ?: return
+            if (take(to) == null) put(to, carried)
+            clear(from)
+            return
+        }
         val src = imageFor(from)
         if (!src.isFile) return
         if (imageFor(to).isFile) {
@@ -135,6 +148,39 @@ class OriginalPhotos(context: Context) {
         runCatching { metaFor(to).writeText(meta.put("key", to).toString()) }
         _version.value++
     }
+
+    /** An original taken out of the store (opened when it was sealed), to put back under another key. */
+    class Carried internal constructor(internal val bytes: ByteArray, internal val meta: JSONObject)
+
+    /** [key]'s original, readable, or null. */
+    fun take(key: String): Carried? = runCatching {
+        val id = ContactRef.vaultIdOf(key)
+        val (image, meta) = if (id != null) privateImage(id) to privateMeta(id) else imageFor(key) to metaFor(key)
+        if (!image.isFile || !meta.isFile) return null
+        val bytes = if (id != null) VaultCrypto.openCallerId(image.readBytes()) else image.readBytes()
+        Carried(bytes, JSONObject(meta.readText()))
+    }.getOrNull()
+
+    /** Puts [c] under [key]: sealed for a private contact; for a device contact matched to the next photo it gets. */
+    fun put(key: String, c: Carried): Boolean = runCatching {
+        val size = JSONObject().put("w", c.meta.optInt("w")).put("h", c.meta.optInt("h")).put("o", c.meta.optInt("o", ExifInterface.ORIENTATION_NORMAL))
+        val id = ContactRef.vaultIdOf(key)
+        if (id != null) {
+            privateDir.mkdirs()
+            val tmp = File(privateDir, "v$id.tmp")
+            tmp.writeBytes(VaultCrypto.sealCallerId(c.bytes))
+            check(tmp.renameTo(privateImage(id)))
+            privateMeta(id).writeText(size.toString())
+        } else {
+            dir.mkdirs()
+            val tmp = File(dir, "carry.tmp")
+            tmp.writeBytes(c.bytes)
+            check(tmp.renameTo(imageFor(key)))
+            metaFor(key).writeText(size.put("key", key).put("before", "").put("bound", "").toString())
+        }
+        _version.value++
+        true
+    }.getOrDefault(false)
 
     /** Lookup keys that have an original. */
     fun keys(): Set<String> = dir.listFiles { f -> f.name.endsWith(".json") }.orEmpty()

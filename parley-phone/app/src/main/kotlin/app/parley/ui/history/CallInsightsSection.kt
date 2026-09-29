@@ -39,6 +39,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
+import app.parley.common.history.CallLogIndex
 import app.parley.common.history.Heatmap
 import app.parley.common.history.NumberKeys
 import app.parley.common.history.TrendDirection
@@ -61,14 +62,24 @@ import androidx.compose.foundation.selection.toggleable
 /**
  * Per-person call insights for contact detail and number history: every number (E.164), last call,
  * monthly average, trend, weekday × hour heatmap, "usually answers after 6 pm", call rhythm, and the
- * per-person "Keep forever" switch of the archive. [numbers] are all of the person's numbers.
+ * per-person "Keep forever" switch of the archive. [numbers] are all of the person's numbers. [index]: the calls to
+ * read instead of the shared history (a private contact's private call history); no "Keep forever" then.
  */
+// One screen block of optional rows, each shown only when the history has something to say.
+@Suppress("CyclomaticComplexMethod")
 @Composable
-fun CallInsightsSection(vm: AppViewModel, numbers: List<String>, title: String = stringResource(R.string.hist_calls_section), showTitle: Boolean = true) {
-    val index by vm.c.history.index.collectAsStateWithLifecycle()
+fun CallInsightsSection(
+    vm: AppViewModel,
+    numbers: List<String>,
+    title: String = stringResource(R.string.hist_calls_section),
+    showTitle: Boolean = true,
+    index: CallLogIndex? = null,
+) {
+    val shared by vm.c.history.index.collectAsStateWithLifecycle()
+    val own = index
     val prefs by vm.c.history.prefs.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
-    val idx = index ?: return
+    val idx = own ?: shared ?: return
     val first = numbers.firstOrNull { it.isNotBlank() } ?: return
     val key = remember(idx, first) { idx.personKeyFor(first) }
     val ins = remember(idx, key) { idx.insights(key) } ?: return
@@ -138,7 +149,7 @@ fun CallInsightsSection(vm: AppViewModel, numbers: List<String>, title: String =
             Text(stringResource(R.string.hist_when_you_talk), style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(start = 16.dp, top = 8.dp))
             HeatmapGrid(ins.heatmap, Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
         }
-        if (prefs.archiveEnabled) KeepForeverRow(vm, numbers)
+        if (prefs.archiveEnabled && own == null) KeepForeverRow(vm, numbers)
     }
 }
 
