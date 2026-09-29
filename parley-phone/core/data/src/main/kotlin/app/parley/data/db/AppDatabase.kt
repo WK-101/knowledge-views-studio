@@ -299,6 +299,16 @@ interface MetaDao {
     @Query("SELECT COUNT(*) FROM journal")
     suspend fun journalCount(): Int
 
+    /** Stored size of the undo copies, for History & undo's storage summary. */
+    @Query("SELECT COALESCE(SUM(LENGTH(payload)), 0) FROM journal")
+    suspend fun journalBytes(): Long
+
+    @Query("DELETE FROM journal WHERE id = :id")
+    suspend fun deleteJournalEntry(id: Long): Int
+
+    @Query("DELETE FROM journal")
+    suspend fun clearJournal(): Int
+
     @Query("SELECT * FROM temporary_contacts ORDER BY expiresAt")
     fun temporaryContacts(): Flow<List<TemporaryContactEntity>>
 

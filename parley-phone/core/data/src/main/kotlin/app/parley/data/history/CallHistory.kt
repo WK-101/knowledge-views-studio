@@ -1,6 +1,7 @@
 package app.parley.data.history
 
 import app.parley.common.security.Bounded
+import app.parley.data.compactDatabase
 import app.parley.common.security.LimitExceededException
 import android.Manifest
 import app.parley.common.ContactSummary
@@ -593,6 +594,21 @@ class CallHistory(
     }
 
     suspend fun trashBatches(): List<TrashBatch> = withContext(Dispatchers.IO) { dao.trashBatches() }
+
+    /** How many deleted calls are held for undo, and their stored (sealed) size. */
+    suspend fun trashUsage(): Pair<Int, Long> = withContext(Dispatchers.IO) { dao.trashCount() to dao.trashBytes() }
+
+    /**
+     * Forgets the undo copies of deleted calls (one batch, or all when [batchId] is null); the call log itself is
+     * untouched. Taken under the undo lock so an undo in progress finishes first. Returns the calls forgotten.
+     */
+    suspend fun forgetDeleted(batchId: Long? = null): Int = withContext(Dispatchers.IO + NonCancellable) {
+        undoLock.withLock {
+            val n = if (batchId == null) dao.clearTrash() else dao.trashed(batchId).size.also { dao.deleteBatch(batchId) }
+            if (n > 0) compactDatabase(db.openHelper)
+            n
+        }
+    }
 
     /** Puts a deleted batch back into the system call log (and the archive). Returns calls restored. */
     suspend fun undoDelete(batchId: Long): Int = withContext(Dispatchers.IO + NonCancellable) { undoLock.withLock { undoDeleteLocked(batchId) } }

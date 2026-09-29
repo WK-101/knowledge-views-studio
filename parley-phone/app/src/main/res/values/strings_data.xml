@@ -731,6 +731,73 @@
     <string name="jr_restored_copy">Restored the earlier version as a separate contact</string>
     <string name="jr_restore_failed">Couldn\'t restore</string>
     <string name="jr_restore_copy">Restore copy</string>
+    <!-- History and undo: clearing its undo stores (the contacts and call log themselves are never touched). -->
+    <string name="jr_storage_menu">Clear history &amp; undo…</string>
+    <string name="jr_storage_title">Clear history &amp; undo</string>
+    <string name="jr_storage_intro">Parley keeps these so you can get things back. Clearing one frees space, and what it held can no longer be restored. Your contacts and call log stay as they are.</string>
+    <string name="jr_storage_contacts">Contact changes</string>
+    <plurals name="jr_storage_contacts_sub">
+        <item quantity="one">%1$d change · %2$s</item>
+        <item quantity="other">%1$d changes · %2$s</item>
+    </plurals>
+    <string name="jr_storage_calls">Deleted calls</string>
+    <plurals name="jr_storage_calls_sub">
+        <item quantity="one">%1$d call · %2$s</item>
+        <item quantity="other">%1$d calls · %2$s</item>
+    </plurals>
+    <string name="jr_storage_snapshots">Daily snapshots</string>
+    <plurals name="jr_storage_snapshots_sub">
+        <item quantity="one">%1$d snapshot since %2$s · %3$s</item>
+        <item quantity="other">%1$d snapshots since %2$s · %3$s</item>
+    </plurals>
+    <string name="jr_storage_empty">Nothing kept</string>
+    <string name="jr_storage_clear">Clear</string>
+    <string name="jr_clear_contacts_title">Clear contact changes?</string>
+    <plurals name="jr_clear_contacts_text">
+        <item quantity="one">The saved copy from %1$d contact change will be deleted. You won\'t be able to undo that change or restore that contact.</item>
+        <item quantity="other">The saved copies from %1$d contact changes will be deleted. You won\'t be able to undo those changes or restore those contacts.</item>
+    </plurals>
+    <string name="jr_clear_calls_title">Clear deleted calls?</string>
+    <plurals name="jr_clear_calls_text">
+        <item quantity="one">%1$d call deleted in Parley will be gone for good. You won\'t be able to restore it. Your call log stays as it is.</item>
+        <item quantity="other">%1$d calls deleted in Parley will be gone for good. You won\'t be able to restore them. Your call log stays as it is.</item>
+    </plurals>
+    <string name="jr_clear_snapshots_title">Clear daily snapshots?</string>
+    <string name="jr_clear_snapshots_text">Cleared snapshots can no longer show what changed on those days or bring back contacts from them. Parley still takes a new snapshot each day.</string>
+    <plurals name="jr_keep_recent">
+        <item quantity="one">Older than %1$d day</item>
+        <item quantity="other">Older than %1$d days</item>
+    </plurals>
+    <string name="jr_keep_latest">All but the latest</string>
+    <string name="jr_keep_none">All snapshots</string>
+    <plurals name="jr_snapshots_would_go">
+        <item quantity="one">Clears %1$d snapshot</item>
+        <item quantity="other">Clears %1$d snapshots</item>
+    </plurals>
+    <plurals name="jr_cleared_contacts">
+        <item quantity="one">Cleared %1$d contact change</item>
+        <item quantity="other">Cleared %1$d contact changes</item>
+    </plurals>
+    <plurals name="jr_cleared_calls">
+        <item quantity="one">Cleared %1$d deleted call</item>
+        <item quantity="other">Cleared %1$d deleted calls</item>
+    </plurals>
+    <plurals name="jr_cleared_snapshots">
+        <item quantity="one">Cleared %1$d snapshot</item>
+        <item quantity="other">Cleared %1$d snapshots</item>
+    </plurals>
+    <string name="jr_clear_failed">Couldn\'t clear. Try again.</string>
+    <string name="jr_remove_item">Remove from history</string>
+    <string name="jr_remove_title">Remove from history?</string>
+    <string name="jr_remove_change_text">You won\'t be able to undo this change to %1$s.</string>
+    <plurals name="jr_remove_calls_text">
+        <item quantity="one">You won\'t be able to restore this call.</item>
+        <item quantity="other">You won\'t be able to restore these %1$d calls.</item>
+    </plurals>
+    <string name="jr_remove">Remove</string>
+    <string name="jr_removed">Removed from history</string>
+    <string name="tm_no_snapshots">No snapshots yet</string>
+    <string name="tm_no_snapshots_text">Parley takes a snapshot of your contacts once a day. Check back tomorrow to see what changed.</string>
 
     <!-- Contact health check -->
     <string name="health_no_country">Numbers without country code</string>

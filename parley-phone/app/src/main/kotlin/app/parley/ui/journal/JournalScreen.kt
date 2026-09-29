@@ -1,22 +1,31 @@
 package app.parley.ui.journal
 
 import app.parley.ui.Destination
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.History
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.ui.Avatar
+import app.parley.ui.ConfirmDialog
 import app.parley.ui.EmptyState
 import app.parley.ui.Routes
 import app.parley.ui.common.Format
@@ -34,13 +43,18 @@ import app.parley.ui.ParleyListItem
     else -> null
 }
 
-/** The contacts tab of History & undo: 30 days of undo for any contact Parley deleted, edited, merged or separated. */
+/**
+ * The contacts tab of History & undo: 30 days of undo for any contact Parley deleted, edited, merged or separated.
+ * A row can also be removed for good (its saved copy is deleted).
+ */
 @Composable
 fun JournalList(vm: AppViewModel, open: (Destination) -> Unit, onShowSnapshots: () -> Unit, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val res = LocalResources.current
     val scope = rememberCoroutineScope()
     val entries by vm.c.journal.recent().collectAsStateWithLifecycle(emptyList())
+    // The row asked about: its journal id and name.
+    var removing by remember { mutableStateOf<Pair<Long, String>?>(null) }
     if (entries.isEmpty()) {
         // Nothing to undo yet; the daily snapshots are the other way back.
         EmptyState(
@@ -59,19 +73,34 @@ fun JournalList(vm: AppViewModel, open: (Destination) -> Unit, onShowSnapshots: 
                     Text(if (e.restored) stringResource(R.string.jr_restored_suffix, line) else line)
                 },
                 trailingContent = {
-                    TextButton(onClick = {
-                        scope.launch {
-                            val id = vm.c.journal.restore(e.id)
-                            if (id != null) {
-                                vm.toast(if (e.action == "DELETE") res.getString(R.string.jr_restored_name, e.displayName) else res.getString(R.string.jr_restored_copy))
-                                open(Routes.contact(id))
-                            } else {
-                                vm.toast(res.getString(R.string.jr_restore_failed))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        IconButton({ removing = e.id to e.displayName }) { Icon(Icons.Rounded.DeleteOutline, stringResource(R.string.jr_remove_item)) }
+                        TextButton(onClick = {
+                            scope.launch {
+                                val id = vm.c.journal.restore(e.id)
+                                if (id != null) {
+                                    vm.toast(if (e.action == "DELETE") res.getString(R.string.jr_restored_name, e.displayName) else res.getString(R.string.jr_restored_copy))
+                                    open(Routes.contact(id))
+                                } else {
+                                    vm.toast(res.getString(R.string.jr_restore_failed))
+                                }
                             }
-                        }
-                    }) { Text(if (e.action == "DELETE") stringResource(R.string.dc_restore) else stringResource(R.string.jr_restore_copy), color = MaterialTheme.colorScheme.primary) }
+                        }) { Text(if (e.action == "DELETE") stringResource(R.string.dc_restore) else stringResource(R.string.jr_restore_copy), color = MaterialTheme.colorScheme.primary) }
+                    }
                 },
             )
         }
+    }
+    removing?.let { (id, name) ->
+        ConfirmDialog(
+            title = stringResource(R.string.jr_remove_title),
+            text = stringResource(R.string.jr_remove_change_text, name),
+            confirmLabel = stringResource(R.string.jr_remove), destructive = true,
+            onConfirm = {
+                removing = null
+                scope.launch { if (vm.c.undoStorage.forgetContactChange(id)) vm.toast(res.getString(R.string.jr_removed)) }
+            },
+            onDismiss = { removing = null },
+        )
     }
 }

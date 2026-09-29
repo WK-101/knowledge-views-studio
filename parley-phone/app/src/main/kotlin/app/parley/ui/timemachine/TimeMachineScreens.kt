@@ -169,17 +169,21 @@ fun VersionHistoryScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, op
     }
 }
 
-/** The snapshots tab of History & undo: what changed since a day, a week, a month or 6 months ago, from the daily snapshots. */
+/**
+ * The snapshots tab of History & undo: what changed since a day, a week, a month or 6 months ago, from the daily
+ * snapshots. [reload] changes after the ⋮ menu cleared snapshots.
+ */
 @Composable
-fun SnapshotChanges(vm: AppViewModel, open: (Destination) -> Unit, modifier: Modifier = Modifier) {
+fun SnapshotChanges(vm: AppViewModel, open: (Destination) -> Unit, modifier: Modifier = Modifier, reload: Int = 0) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val res = LocalResources.current
     var days by remember { mutableLongStateOf(7L) }
     var round by remember { mutableLongStateOf(0L) }
-    val diff by produceState<SnapshotDiff?>(null, days, round) {
+    // Loading is null; a loaded null diff means there is no snapshot at all (none taken yet, or all cleared).
+    val loaded by produceState<Loaded?>(null, days, round, reload) {
         value = null
-        value = vm.c.timeMachine.changesSince(System.currentTimeMillis() - days * 86_400_000L)
+        value = Loaded(vm.c.timeMachine.changesSince(System.currentTimeMillis() - days * 86_400_000L))
     }
     run {
         LazyColumn(modifier) {
@@ -190,9 +194,14 @@ fun SnapshotChanges(vm: AppViewModel, open: (Destination) -> Unit, modifier: Mod
                     }
                 }
             }
-            val d = diff
-            if (d == null) {
+            val l = loaded
+            if (l == null) {
                 item { CircularProgressIndicator(Modifier.padding(32.dp)) }
+                return@LazyColumn
+            }
+            val d = l.diff
+            if (d == null) {
+                item { EmptyState(Icons.Rounded.History, stringResource(R.string.tm_no_snapshots), stringResource(R.string.tm_no_snapshots_text)) }
                 return@LazyColumn
             }
             if (d.isEmpty) item { EmptyState(Icons.Rounded.History, stringResource(R.string.tm_no_changes), stringResource(R.string.tm_no_changes_text)) }
@@ -241,3 +250,5 @@ fun SnapshotChanges(vm: AppViewModel, open: (Destination) -> Unit, modifier: Mod
         }
     }
 }
+
+private class Loaded(val diff: SnapshotDiff?)

@@ -123,7 +123,13 @@ interface HistoryDao {
     suspend fun pruneTrash(before: Long)
 
     @Query("DELETE FROM call_trash")
-    suspend fun clearTrash()
+    suspend fun clearTrash(): Int
+
+    @Query("SELECT COUNT(*) FROM call_trash")
+    suspend fun trashCount(): Int
+
+    @Query("SELECT COALESCE(SUM(LENGTH(blob)), 0) FROM call_trash")
+    suspend fun trashBytes(): Long
 }
 
 /** Feature-scoped database for the call-history archive (separate from [app.parley.data.db.AppDatabase]). */

@@ -1291,3 +1291,24 @@ Design: [EDITOR_DESIGN.md](EDITOR_DESIGN.md) ("4.2 redesign"). Check each step i
 7. **Add more info.** The button opens the sheet with only kinds not on screen. Dates: tap the date field and the year-optional picker opens; the type pill offers Birthday, Anniversary, Other, Death, Custom…. Address: one block per address (street with type pill, postcode + city, region + country) and "Add from map link" under it. Relations: the person-search icon picks a contact, the pill opens the searchable relation types. Handles: service pill; "Other" adds a service-name line in the same block.
 8. **Everything else.** Labels (chips), Notes, the call-screen picture (existing contacts), private contacts' "When they call" fields, the duplicate warning ("already exists") while typing a known name or number, the discard guard (Back or ✕ after a change, predictive back scales the page) and the changed-elsewhere sheet all work as before.
 9. **Layouts.** Landscape or a tablet: photo, account, name and work on the left, the other groups on the right. Arabic or Urdu: the gutter icons and ⊖ mirror; phone numbers, emails and websites stay left to right. TalkBack: each group's icon is read as a heading ("Phone"), pills as "Type: Mobile, double-tap to change type", ⊖ as "Remove number".
+
+## 24. Corrections (4.3)
+
+### 24.1 Clearing History & undo; Recents icon chips across the whole row
+
+**History & undo › ⋮ › Clear history & undo…**
+
+1. **Storage sheet.** Delete a contact, delete a few calls from Recents, and let a daily snapshot exist (or open a contact's version history once). Open History & undo › ⋮ › **Clear history & undo…**: a sheet lists Contact changes (count · size), Deleted calls (count · size) and Daily snapshots (count · since date · size). A store with nothing in it reads "Nothing kept" and its Clear button is disabled.
+2. **Contact changes.** Tap Clear: the dialog says how many saved copies go and that those changes can't be undone or the contacts restored. With the app lock on, the lock prompt follows; cancelling it clears nothing. Confirm: a snackbar says "Cleared N contact changes", the sheet's row reads "Nothing kept" and the Contacts tab shows its empty state. Your contacts themselves are unchanged.
+3. **Deleted calls.** Clear: the dialog says the calls deleted in Parley will be gone for good and that the call log stays as it is. After confirming, the Calls tab is empty and Recents is unchanged (no call comes back, none else disappears).
+4. **Snapshots.** Clear: the dialog offers "Older than 30 days", "All but the latest" and "All snapshots", each with how many it clears (an option that clears nothing is disabled). "All snapshots" empties the Snapshots tab to "No snapshots yet" (not an endless spinner); the next daily run takes a new one. "All but the latest" keeps "What changed" working from the newest snapshot.
+5. **Per item.** On the Contacts and Calls tabs each row has a delete icon ("Remove from history" for TalkBack) next to Restore. It asks first, then removes just that row with "Removed from history".
+6. **After "Delete all Parley data" and on a fresh install** the sheet shows every store as "Nothing kept"; the Snapshots tab shows "No snapshots yet" until the first daily snapshot.
+7. **Layouts.** Landscape and large font: the sheet scrolls. Arabic or Urdu: the rows and dialogs mirror; sizes and dates read correctly.
+
+**Recents icon chips (Recents style: Rich)**
+
+8. **Whole row.** On a phone where all the icon chips fit, the first chip's pill starts at the same inset as the call rows below and the last ends at the same inset on the other side, with the rest evenly spaced between; no empty stretch on either side. In Arabic or Urdu the same, mirrored.
+9. **Selected name.** Pick Missed: its name grows in and the other chips close up evenly (the gaps shrink, nothing jumps to one side). Pick All, then a saved filter: the same.
+10. **Too many chips.** On a narrow screen, or with several saved filters, the row falls back to scrolling sideways with the chips packed as before.
+11. **Tablet and landscape.** The chips spread over the full width of the Recents column.
