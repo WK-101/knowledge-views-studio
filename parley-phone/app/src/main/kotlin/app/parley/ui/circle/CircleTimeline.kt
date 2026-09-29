@@ -185,7 +185,7 @@ internal fun rememberMonthFormat(): DateTimeFormatter =
 /**
  * The contact's timeline: calls, logged interactions, call notes and dates, newest first, one group per month.
  * Three months show at first; "Show earlier" adds more. Logged entries can be edited or deleted (with Undo).
- * On the contact page only the latest [limit] entries show (the section header has the title), and
+ * On the contact page only the latest [limit] entries show, in one group (the section header has the title), and
  * "Show all" ([onShowAll]) opens the full timeline with search and filters.
  */
 @Composable
@@ -215,7 +215,9 @@ fun ContactTimeline(
                 item { ListItem(colors = clearRow, headlineContent = { Text(stringResource(R.string.circle_timeline_empty), color = MaterialTheme.colorScheme.onSurfaceVariant) }) }
             }
         }
-        (if (limit == null) grouped.take(months) else grouped).forEachIndexed { i, m ->
+        if (limit != null) {
+            TimelinePreview(vm, grouped.flatMap { it.entries }, interactions, showTitle, onEdit)
+        } else grouped.take(months).forEachIndexed { i, m ->
             val title = m.month.atDay(1).format(monthFormat)
             SegmentedGroup(if (i == 0 && showTitle) stringResource(R.string.circle_timeline) + stringResource(R.string.main_separator) + title else title) {
                 m.entries.forEach { e ->
@@ -230,6 +232,15 @@ fun ContactTimeline(
             }
             onAllCalls?.let { TextButton(it) { Text(stringResource(R.string.circle_all_calls)) } }
         }
+    }
+}
+
+/** The contact page's preview: one calm group, no month headings (each entry carries its own date). */
+@Composable
+private fun TimelinePreview(vm: AppViewModel, latest: List<TimelineEntry>, interactions: List<Interaction>, showTitle: Boolean, onEdit: (Interaction) -> Unit) {
+    if (latest.isEmpty()) return
+    SegmentedGroup(if (showTitle) stringResource(R.string.circle_timeline) else null) {
+        latest.forEach { e -> item { TimelineEntryRow(vm, e, interactions, onEdit) } }
     }
 }
 

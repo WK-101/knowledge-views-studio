@@ -62,7 +62,18 @@
         <item quantity="other">%1$d calls</item>
     </plurals>
     <string name="contact_page_no_note">No note yet</string>
-    <string name="contact_page_settings_summary">Ringtone, voicemail, where it\'s saved</string>
+    <string name="contact_page_settings_summary">Circle, ringtone, voicemail, where it\'s saved</string>
+    <!-- The group that joins numbers, emails, addresses and apps on a contact's page -->
+    <string name="contact_page_info">Contact info</string>
+    <!-- Supporting line of the default number or email: "Mobile · Default" -->
+    <string name="contact_page_default">Default</string>
+    <!-- Joins the apps that reach a number: "WhatsApp, Signal" -->
+    <string name="contact_page_list_separator">,\u0020</string>
+    <!-- Part of the line under a contact's name -->
+    <plurals name="contact_page_open_promises">
+        <item quantity="one">%1$d open promise</item>
+        <item quantity="other">%1$d open promises</item>
+    </plurals>
     <!-- The full timeline -->
     <string name="contact_page_timeline_of">Timeline with %1$s</string>
     <string name="contact_page_timeline_search">Search notes, numbers, kinds</string>
@@ -77,7 +88,7 @@
     <!-- Settings › Contacts › Contact page sections -->
     <string name="contact_page_settings_title">Contact page sections</string>
     <string name="contact_page_reset">Reset</string>
-    <string name="contact_page_settings_body">Drag a section by its handle to move it. Tap it to choose whether it starts open, folded or hidden. Hiding a section never deletes anything. Folding or unfolding a section on a contact\'s page is remembered for every contact.</string>
+    <string name="contact_page_settings_body">Drag a section by its handle to move it. Tap it to choose whether it starts open, folded or hidden. Hiding a section never deletes anything. Phone, Email, Address and Message or call on… share one Contact info group while they sit together, as do Dates, About them and Note for calls. Folding or unfolding a section on a contact\'s page is remembered for every contact.</string>
     <string name="contact_page_sections">Sections</string>
     <string name="contact_page_chips_title">Jump to a section</string>
     <string name="contact_page_chips_summary">Chips under the pinned buttons, on long contact pages</string>

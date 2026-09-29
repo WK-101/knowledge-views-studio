@@ -142,6 +142,24 @@ class ReachAppsTest {
         assertEquals(1, ReachGroups.forNumber(groups, "+15559876543", same).size)
     }
 
+    @Test fun apps_on_a_numbers_row_and_the_ones_left_over() {
+        val t = "org.thoughtcrime.securesms"
+        val rows = listOfNotNull(
+            row("${item}vnd.com.whatsapp.profile", "com.whatsapp", d1 = "15551234567@s.whatsapp.net", id = 1),
+            row("${item}vnd.org.thoughtcrime.securesms.contact", t, "+1 555 123 4567", id = 2),
+            row("${item}vnd.org.thoughtcrime.securesms.contact", t, "+15559876543", id = 5),
+        )
+        val groups = ReachGroups.group(rows)
+        val same = { a: String, b: String -> PhoneNumbers.matchKey(a) == PhoneNumbers.matchKey(b) }
+        assertEquals(listOf("WhatsApp", "Signal"), ReachGroups.appNamesFor(groups, "+15551234567", same))
+        // Signal's second number isn't saved on the contact: it gets a row of its own.
+        val left = ReachGroups.notOnNumbers(groups, listOf("+15551234567"), same)
+        assertEquals(listOf("+15559876543"), left.map { it.number })
+        assertTrue(ReachGroups.notOnNumbers(groups, listOf("+15551234567", "+15559876543"), same).isEmpty())
+        // No numbers at all: every app gets a row.
+        assertEquals(groups, ReachGroups.notOnNumbers(groups, emptyList(), same))
+    }
+
     @Test fun rows_without_a_number_join_the_apps_numbered_rows() {
         val rows = listOfNotNull(
             row("${item}vnd.org.telegram.messenger.android.profile", "org.telegram.messenger", d3 = "Message +44 7700 900123", id = 1),

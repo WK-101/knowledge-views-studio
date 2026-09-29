@@ -18,25 +18,51 @@ enum class SectionMode(val code: Char) {
 /**
  * The sections of a contact's page, in their default order. [id] is what's stored: never rename one. The
  * details are open by default; the rarely used ones start folded.
+ *
+ * The default order puts the ways to reach someone first (the contact info), then the facts about them, then what
+ * happened (timeline, call insights) and the per-contact settings last, like the phone's own contacts apps.
+ * Neighbouring sections of one [family] are drawn as a single group under one header ([ContactPageLayout.blocks]).
  */
-enum class ContactSection(val id: String, val defaultMode: SectionMode) {
+enum class ContactSection(val id: String, val defaultMode: SectionMode, val family: SectionFamily? = null) {
     STAY("stay", SectionMode.OPEN),
-    DATES("dates", SectionMode.OPEN),
-    PHONES("phones", SectionMode.OPEN),
-    EMAILS("emails", SectionMode.OPEN),
-    ADDRESSES("addresses", SectionMode.OPEN),
-    MESSENGERS("messengers", SectionMode.OPEN),
-    ABOUT("about", SectionMode.OPEN),
-    OTHER("other", SectionMode.FOLDED),
+    PHONES("phones", SectionMode.OPEN, SectionFamily.CONTACT_INFO),
+    EMAILS("emails", SectionMode.OPEN, SectionFamily.CONTACT_INFO),
+    ADDRESSES("addresses", SectionMode.OPEN, SectionFamily.CONTACT_INFO),
+    MESSENGERS("messengers", SectionMode.OPEN, SectionFamily.CONTACT_INFO),
+    DATES("dates", SectionMode.OPEN, SectionFamily.ABOUT),
+    ABOUT("about", SectionMode.OPEN, SectionFamily.ABOUT),
+    NOTE("note", SectionMode.OPEN, SectionFamily.ABOUT),
     TIMELINE("timeline", SectionMode.OPEN),
     INSIGHTS("insights", SectionMode.FOLDED),
-    NOTE("note", SectionMode.OPEN),
+    OTHER("other", SectionMode.FOLDED),
     SETTINGS("settings", SectionMode.FOLDED),
     ;
 
     companion object {
         fun byId(id: String): ContactSection? = entries.firstOrNull { it.id == id }
+
+        /**
+         * The default order before the page was made more compact. A stored order equal to it was never chosen by
+         * the user (it's written whenever any section is folded), so it's read as today's default.
+         */
+        internal val LEGACY_DEFAULT: List<String> =
+            listOf("stay", "dates", "phones", "emails", "addresses", "messengers", "about", "other", "timeline", "insights", "note", "settings")
     }
+}
+
+/** Sections that read as one group when they sit next to each other: "Contact info" and "About <name>". */
+enum class SectionFamily { CONTACT_INFO, ABOUT }
+
+/**
+ * Sections drawn together under one header and folded together. A block of one section is that section as it
+ * always was; [family] is set only when several sections of one family were joined.
+ */
+data class PageBlock(val sections: List<ContactSection>) {
+    val merged: Boolean get() = sections.size > 1
+    val family: SectionFamily? get() = if (merged) sections.first().family else null
+
+    /** A stable key for lists: the ids of its sections. */
+    val key: String get() = sections.joinToString("+") { it.id }
 }
 
 /**
@@ -77,6 +103,32 @@ data class ContactPageLayout(
         return copy(order = list)
     }
 
+    /**
+     * The shown sections that have something to show ([present]), in order, joined into blocks: neighbours of one
+     * [SectionFamily] that are folded alike share one header ("Contact info"), so a typical page has a few calm
+     * groups instead of a header and a card per small section. A section the user moved away from its family, or
+     * folded differently, stays on its own.
+     */
+    fun blocks(present: Set<ContactSection>): List<PageBlock> {
+        val out = ArrayList<MutableList<ContactSection>>()
+        for (s in visible.filter { it in present }) {
+            val last = out.lastOrNull()?.last()
+            if (last != null && joins(last, s)) out.last() += s
+            else out += mutableListOf(s)
+        }
+        return out.map { PageBlock(it) }
+    }
+
+    /** Whether [next] joins the group of [prev], its neighbour: same family, folded alike. */
+    private fun joins(prev: ContactSection, next: ContactSection): Boolean =
+        next.family != null && next.family == prev.family && isFolded(next) == isFolded(prev)
+
+    /** Whether [block] is folded (its sections always fold together). */
+    fun isFolded(block: PageBlock): Boolean = block.sections.all { isFolded(it) }
+
+    /** Folds or unfolds every section of [block]. */
+    fun withFold(block: PageBlock, folded: Boolean): ContactPageLayout = block.sections.fold(this) { l, s -> l.withFold(s, folded) }
+
     /** Back to the default order and modes, forgetting remembered folds (unknown ids are kept). */
     fun reset(): ContactPageLayout = ContactPageLayout(unknown = unknown)
 
@@ -111,6 +163,11 @@ data class ContactPageLayout(
                     val m = SectionMode.of(token.substringAfter(':', "").firstOrNull())
                     if (m != null && m != s.defaultMode) modes[s] = m
                 }
+            }
+            // An order nobody chose (the old default, saved along with a fold) follows the new default.
+            if (order.map { it.id } == ContactSection.LEGACY_DEFAULT) {
+                order.clear()
+                order += ContactSection.entries
             }
             for (s in ContactSection.entries) {
                 if (s in order) continue
