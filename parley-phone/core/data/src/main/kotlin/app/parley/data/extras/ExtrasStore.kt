@@ -82,8 +82,11 @@ class ExtrasStore(private val c: DataContainer) {
      */
     suspend fun starForDnd(label: String, members: List<ContactSummary>): Int = withContext(Dispatchers.IO) {
         val ledger = _dndStars.value
-        val starred = members.filter { !it.starred && runCatching { c.contacts.setStarred(it.id, true) }.isSuccess }
-        val shared = members.filter { it.starred && it.lookupKey in ledger }
+        // Android lets only address-book contacts through Do Not Disturb: a private contact is never starred for it
+        // (that would need its name and number in the address book).
+        val device = members.filter { it.id > 0 }
+        val starred = device.filter { !it.starred && runCatching { c.contacts.setStarred(it.id, true) }.isSuccess }
+        val shared = device.filter { it.starred && it.lookupKey in ledger }
         updateDndStars { DndStars.add(it, label, (starred + shared).map { m -> m.lookupKey }) }
         c.contacts.refresh()
         starred.size
@@ -128,23 +131,28 @@ class ExtrasStore(private val c: DataContainer) {
 
     /**
      * The SIM a label asks for when calling [number], for people without a SIM of their own (the remembered SIM
-     * per number wins; callers check it first). Blocking contacts query: call off the main thread. Null = none.
+     * per number wins; callers check it first). A private contact's labels count too (kept by Parley). Null = none.
      */
-    fun labelSimFor(number: String): String? {
+    suspend fun labelSimFor(number: String): String? = withContext(Dispatchers.IO) {
         val p = _policies.value
-        if (p.values.none { it.simId != null }) return null
-        return runCatching {
-            val id = c.contacts.lookup(number)?.contactId ?: return null
+        if (p.values.none { it.simId != null }) return@withContext null
+        runCatching {
+            val titles = c.contacts.lookup(number)?.contactId?.let { c.contacts.labelTitlesOf(it) }
+                ?: c.privateLabels.titlesForNumber(number)
+                ?: return@withContext null
             val available = c.sims.accounts().map { it.id }.toSet()
-            LabelPolicies.simFor(c.contacts.labelTitlesOf(id), p, available)
+            LabelPolicies.simFor(titles, p, available)
         }.getOrNull()
     }
 
-    /** The Circle rhythm the labels of [contactId] suggest, with the label's title. */
+    /** The Circle rhythm the labels of [contactId] (a list id: negative for a private contact) suggest, with the label's title. */
     suspend fun labelRhythmFor(contactId: Long): Pair<String, Int>? {
         val p = _policies.value
         if (p.values.none { it.rhythmDays != null }) return null
-        return withContext(Dispatchers.IO) { LabelPolicies.rhythmFor(c.contacts.labelTitlesOf(contactId), p) }
+        return withContext(Dispatchers.IO) {
+            val titles = if (contactId < 0) c.privateLabels.titlesOf(-contactId) else c.contacts.labelTitlesOf(contactId)
+            LabelPolicies.rhythmFor(titles, p)
+        }
     }
 
     // --- Simple mode ---

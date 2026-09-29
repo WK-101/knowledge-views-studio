@@ -231,6 +231,12 @@ data class IncomingCallFacts(
 enum class BlockReason {
     SYSTEM_LIST, RULE, HIDDEN, NOT_A_CONTACT, NEIGHBOUR_SPOOF, VERIFICATION_FAILED,
     LIST, INVALID_NUMBER, OFF_HOURS,
+
+    /**
+     * A private contact's "Send to voicemail": declined by Parley's screening (Android can't do it, it never sees
+     * private contacts). Not a block: never logged or notified as one.
+     */
+    SEND_TO_VOICEMAIL,
     ;
 
     /** Soft reasons can be overridden by a repeat caller; explicit choices (rules, lists you block) never. */
@@ -265,6 +271,8 @@ data class ScreeningResult(
     val ringtone: String? = null,
     val ringLoud: Boolean = false,
     val notify: NotifyLevel = NotifyLevel.DEFAULT,
+    /** [ringtone] is the caller's own (a private contact's, which Parley's ringer plays since Android can't). */
+    val contactTone: Boolean = false,
     /**
      * Let through only because an allow rule limited to one SIM may apply and the SIM isn't known here (the
      * screening service). The InCallService, which knows the SIM, must screen the call again.
@@ -539,6 +547,7 @@ object CallPolicy {
         BlockReason.LIST -> "spam list"
         BlockReason.INVALID_NUMBER -> "invalid number"
         BlockReason.OFF_HOURS -> "off hours"
+        BlockReason.SEND_TO_VOICEMAIL -> "sent to voicemail"
     }
 
     private fun offHoursWho(o: OffHours) = when (o.allow) {

@@ -7,8 +7,10 @@ import app.parley.common.CallType
 import app.parley.common.PhoneIdentity
 import app.parley.common.PhoneNumbers
 import app.parley.common.calls.EmergencyPolicy
+import app.parley.common.people.ContactRef
 import app.parley.common.calls.EmergencyPolicy.Safeguard
 import app.parley.common.calltime.CallFacts
+import app.parley.common.calltime.CallingConfig
 import app.parley.common.calltime.CallLimits
 import app.parley.common.calltime.CallTimePlan
 import app.parley.common.calltime.LimitRule
@@ -43,14 +45,15 @@ class CallTimePlanner(private val c: DataContainer) {
     private suspend fun subject(number: String?, accountId: String?, incoming: Boolean): Subject = withContext(Dispatchers.IO) {
         val config = c.calling.config.value
         val info = number?.takeIf { it.isNotBlank() }?.let { runCatching { c.contacts.lookup(it) }.getOrNull() }
-        val key = info?.lookupKey?.takeIf { it.isNotBlank() }
-        val labelRules = config.rules.filter { it.scope == LimitScope.LABEL }
-        // Label titles in every account (label limits are keyed by title).
-        val labels = if (info == null || labelRules.isEmpty()) emptySet() else runCatching { c.people.labelsOf(info.contactId) }.getOrDefault(emptySet())
+        // Not in the address book: a private contact is limited by its Parley key, like any contact by its lookup key.
+        val private = if (info == null) privateMatch(number) else null
+        val key = info?.lookupKey?.takeIf { it.isNotBlank() } ?: private?.key
+        val labels = labelsFor(config, info?.contactId, private?.vaultId)
         val contact = key?.let { k -> c.contacts.contacts.value?.firstOrNull { it.lookupKey == k } }
         // In a process started for the call the list isn't loaded: the contact's numbers come from the provider.
         val numbers = contact?.phones?.map { it.number }
             ?: info?.takeIf { !it.work }?.let { runCatching { c.contacts.numbersOf(it.contactId) }.getOrNull()?.takeIf { n -> n.isNotEmpty() } }
+            ?: private?.numbers
             ?: listOfNotNull(number?.takeIf { it.isNotBlank() })
         // The hour after an emergency call, and numbers listed as starting it: never limited or silenced.
         val emergency = EmergencyPolicy.Facts(
@@ -59,7 +62,30 @@ class CallTimePlanner(private val c: DataContainer) {
             userListed = !number.isNullOrBlank() && c.settings.current().screening.emergencyExtras.any { PhoneNumbers.same(it, number, PhoneEnv.countryIso(c.appContext)) },
         )
         val exempt = EmergencyPolicy.bypasses(Safeguard.CALL_LIMITS, emergency)
-        Subject(CallFacts(incoming, emergency.isEmergency, key, labels, accountId, inEmergencyWindow = exempt), numbers, info?.name)
+        Subject(CallFacts(incoming, emergency.isEmergency, key, labels, accountId, inEmergencyWindow = exempt), numbers, info?.name ?: private?.name)
+    }
+
+    private class PrivateMatch(val vaultId: Long, val name: String, val numbers: List<String>?) {
+        val key: String get() = ContactRef.privateKey(vaultId)
+    }
+
+    /** The private contact with [number], with its numbers (they count towards the same allowance), or null. */
+    private suspend fun privateMatch(number: String?): PrivateMatch? {
+        if (number.isNullOrBlank()) return null
+        val hit = runCatching { c.vault.lookup(number) }.getOrNull() ?: return null
+        val numbers = runCatching { c.vault.summary(hit.first) }.getOrNull()?.numbers?.takeIf { it.isNotEmpty() }
+        return PrivateMatch(hit.first, hit.second.name, numbers)
+    }
+
+    /**
+     * Label titles in every account (label limits are keyed by title) of address-book contact [contactId] or private
+     * contact [vaultId]; none when no limit names a label.
+     */
+    private suspend fun labelsFor(config: CallingConfig, contactId: Long?, vaultId: Long?): Set<String> = when {
+        config.rules.none { it.scope == LimitScope.LABEL } -> emptySet()
+        contactId != null -> runCatching { c.people.labelsOf(contactId) }.getOrDefault(emptySet())
+        vaultId != null -> runCatching { c.privateLabels.titlesOf(vaultId) }.getOrDefault(emptySet())
+        else -> emptySet()
     }
 
     /**

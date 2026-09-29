@@ -18,6 +18,15 @@ import androidx.compose.material.icons.automirrored.rounded.Message
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.LockOpen
+import androidx.compose.material.icons.rounded.Timer
+import androidx.fragment.app.FragmentActivity
+import app.parley.common.ContactSummary
+import app.parley.common.people.BulkAction
+import app.parley.common.people.BulkActions
+import app.parley.data.AccountRef
+import app.parley.security.launchVault
+import app.parley.ui.vault.ExpiryDialog
 import androidx.compose.material.icons.rounded.FileDownload
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.SelectAll
@@ -75,15 +84,29 @@ fun SelectionBar(vm: AppViewModel) {
     var menu by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
     var confirmPrivate by remember { mutableStateOf(false) }
+    var confirmVisible by remember { mutableStateOf(false) }
+    var askExpiry by remember { mutableStateOf(false) }
     var labelPicker by remember { mutableStateOf<List<GroupInfo>?>(null) }
     val res = LocalResources.current
     // "Back up first?" before merging or deleting many contacts.
     val backupFirst = rememberBackupFirst(vm)
+    // Device and private contacts mixed: most actions work on both, the few that would copy a private contact out of
+    // Parley act on the device ones and say how many private ones they left out.
+    val bulk = remember(vm) { BulkContactActions(vm.c) }
+    val ids = chosen.map { it.id }
+    fun targets(a: BulkAction): List<ContactSummary> = BulkActions.targets(a, ids).ids.toSet().let { t -> chosen.filter { it.id in t } }
+    fun noteSkipped(a: BulkAction) {
+        val n = BulkActions.targets(a, ids).skippedPrivate
+        if (n > 0) vm.toast(res.getQuantityString(R.plurals.sel_private_skipped, n, n))
+    }
+    val hasPrivate = ids.any { BulkActions.isPrivate(it) }
+    val hasDevice = ids.any { !BulkActions.isPrivate(it) }
 
     val exporter = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/x-vcard")) { uri ->
         if (uri != null) scope.launch {
-            val n = vm.c.vcards.export(uri, chosen).exported
+            val n = vm.c.vcards.export(uri, targets(BulkAction.EXPORT)).exported
             vm.toast(res.getQuantityString(R.plurals.sel_exported, n, n))
+            noteSkipped(BulkAction.EXPORT)
         }
     }
 
@@ -100,19 +123,29 @@ fun SelectionBar(vm: AppViewModel) {
             IconButton({ vm.selection.value = all.orEmpty().map { it.id }.toSet() }) { Icon(Icons.Rounded.SelectAll, stringResource(R.string.home_select_all)) }
             val allStarred = chosen.isNotEmpty() && chosen.all { it.starred }
             IconButton({
-                scope.launch { chosen.forEach { vm.c.contacts.setStarred(it.id, !allStarred) } }
+                scope.launch { bulk.star(ids, !allStarred) }
             }) { Icon(if (allStarred) Icons.Rounded.Star else Icons.Rounded.StarOutline, stringResource(if (allStarred) R.string.sel_unstar else R.string.sel_star)) }
+            // A vCard file is handed to another app: device contacts only.
             IconButton({
-                val uri = vm.c.contacts.multiVcardUri(chosen.map { it.lookupKey }.filter { it.isNotEmpty() })
-                val i = Intent(Intent.ACTION_SEND).setType("text/x-vcard").putExtra(Intent.EXTRA_STREAM, uri).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                runCatching { context.startActivity(Intent.createChooser(i, res.getQuantityString(R.plurals.sel_share_title, chosen.size, chosen.size))) }
+                val shared = targets(BulkAction.SHARE)
+                if (shared.isNotEmpty()) {
+                    val uri = vm.c.contacts.multiVcardUri(shared.map { it.lookupKey }.filter { it.isNotEmpty() })
+                    val i = Intent(Intent.ACTION_SEND).setType("text/x-vcard").putExtra(Intent.EXTRA_STREAM, uri)
+                        .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    runCatching { context.startActivity(Intent.createChooser(i, res.getQuantityString(R.plurals.sel_share_title, shared.size, shared.size))) }
+                }
+                noteSkipped(BulkAction.SHARE)
             }) { Icon(Icons.Rounded.Share, stringResource(R.string.main_share)) }
             Box {
                 IconButton({ menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.main_more_actions)) }
                 DropdownMenu(menu, { menu = false }) {
                     DropdownMenuItem({ Text(stringResource(R.string.sel_add_to_label)) }, leadingIcon = { Icon(Icons.AutoMirrored.Rounded.Label, null) }, onClick = {
                         menu = false
-                        scope.launch { labelPicker = withContext(Dispatchers.IO) { vm.c.contacts.groups() } }
+                        // Private contacts join a label as Parley's own membership (one per label title), device ones by account.
+                        scope.launch {
+                            val groups = withContext(Dispatchers.IO) { vm.c.contacts.groups() }
+                            labelPicker = if (hasDevice) groups else groups.distinctBy { it.title.trim() }
+                        }
                     })
                     DropdownMenuItem({ Text(stringResource(R.string.sel_message_all)) }, leadingIcon = { Icon(Icons.AutoMirrored.Rounded.Message, null) }, onClick = {
                         menu = false
@@ -125,24 +158,43 @@ fun SelectionBar(vm: AppViewModel) {
                         // One prefilled chat at a time; you press Send yourself.
                         if (!IntroduceStart.fromContacts(vm, chosen)) vm.toast(res.getString(R.string.sel_no_numbers))
                     })
-                    if (chosen.size >= 2) {
+                    // Merging makes one address-book contact: only device contacts, and only two or more of them.
+                    if (BulkActions.available(BulkAction.MERGE, ids)) {
+                        val merged = targets(BulkAction.MERGE)
                         DropdownMenuItem({ Text(stringResource(R.string.sel_merge)) }, leadingIcon = { Icon(Icons.AutoMirrored.Rounded.MergeType, null) }, onClick = {
                             menu = false
-                            backupFirst.ask(chosen.size, 1) {
+                            backupFirst.ask(merged.size, 1) {
                                 scope.launch {
-                                    vm.c.contacts.join(chosen.map { it.id })
+                                    vm.c.contacts.join(merged.map { it.id })
                                     vm.selection.value = emptySet()
-                                    vm.toast(res.getQuantityString(R.plurals.sel_merged, chosen.size, chosen.size))
+                                    vm.toast(res.getQuantityString(R.plurals.sel_merged, merged.size, merged.size))
+                                    noteSkipped(BulkAction.MERGE)
                                 }
                             }
                         })
                     }
-                    CopyAsTextMenuItem(chosen) { menu = false }
-                    DropdownMenuItem({ Text(stringResource(R.string.sel_export_vcf)) }, leadingIcon = { Icon(Icons.Rounded.FileDownload, null) }, onClick = {
-                        menu = false
-                        exporter.launch("contacts-${chosen.size}.vcf")
-                    })
-                    DropdownMenuItem({ Text(stringResource(R.string.sel_move_private)) }, leadingIcon = { Icon(Icons.Rounded.Lock, null) }, onClick = { menu = false; confirmPrivate = true })
+                    // The clipboard and a .vcf file are readable by other apps: device contacts only.
+                    if (hasDevice) CopyAsTextMenuItem(targets(BulkAction.COPY_AS_TEXT)) { menu = false; noteSkipped(BulkAction.COPY_AS_TEXT) }
+                    if (hasDevice) DropdownMenuItem(
+                        { Text(stringResource(R.string.sel_export_vcf)) }, leadingIcon = { Icon(Icons.Rounded.FileDownload, null) },
+                        onClick = {
+                            menu = false
+                            exporter.launch("contacts-${targets(BulkAction.EXPORT).size}.vcf")
+                        },
+                    )
+                    DropdownMenuItem(
+                        { Text(stringResource(R.string.contact_make_temporary)) }, leadingIcon = { Icon(Icons.Rounded.Timer, null) },
+                        onClick = { menu = false; askExpiry = true },
+                    )
+                    if (hasDevice) {
+                        DropdownMenuItem({ Text(stringResource(R.string.sel_move_private)) }, leadingIcon = { Icon(Icons.Rounded.Lock, null) }, onClick = { menu = false; confirmPrivate = true })
+                    }
+                    if (hasPrivate) {
+                        DropdownMenuItem(
+                            { Text(stringResource(R.string.contact_make_visible)) }, leadingIcon = { Icon(Icons.Rounded.LockOpen, null) },
+                            onClick = { menu = false; confirmVisible = true },
+                        )
+                    }
                     DropdownMenuItem({ Text(stringResource(R.string.main_delete)) }, leadingIcon = { Icon(Icons.Rounded.Delete, null) }, onClick = { menu = false; confirmDelete = true })
                 }
             }
@@ -150,7 +202,39 @@ fun SelectionBar(vm: AppViewModel) {
     }
 
     if (confirmPrivate) {
-        MoveToPrivateDialog(vm, chosen.map { it.id }, onDismiss = { confirmPrivate = false }) { vm.selection.value = emptySet() }
+        // The private ones already are: only the device contacts move.
+        val moving = BulkActions.targets(BulkAction.MAKE_PRIVATE, ids).ids
+        MoveToPrivateDialog(vm, moving, onDismiss = { confirmPrivate = false }) { vm.selection.value = emptySet() }
+    }
+    if (confirmVisible) {
+        val visible = BulkActions.targets(BulkAction.MAKE_VISIBLE, ids).ids
+        ConfirmDialog(
+            title = pluralStringResource(R.plurals.sel_make_visible_title, visible.size, visible.size),
+            text = stringResource(R.string.contact_make_visible_body),
+            confirmLabel = stringResource(R.string.contact_make_visible_confirm),
+            onConfirm = {
+                confirmVisible = false
+                val s = vm.settings.value
+                // Asks for the vault's unlock first when needed; nothing changes before it succeeds.
+                scope.launchVault(context as? FragmentActivity, { vm.toast(res.getString(R.string.vault_move_failed, it.message.orEmpty())) }) {
+                    val n = bulk.makeVisible(visible, AccountRef(s.defaultAccountType, s.defaultAccountName))
+                    vm.selection.value = emptySet()
+                    vm.toast(res.getQuantityString(R.plurals.sel_made_visible, n, n))
+                }
+            },
+            onDismiss = { confirmVisible = false },
+            dismissLabel = stringResource(R.string.main_cancel),
+        )
+    }
+    if (askExpiry) {
+        ExpiryDialog(onDismiss = { askExpiry = false }) { days ->
+            askExpiry = false
+            scope.launch {
+                bulk.setExpiry(ids, days)
+                vm.selection.value = emptySet()
+                vm.toast(if (days == null) res.getString(R.string.detail_kept) else res.getQuantityString(R.plurals.detail_deletes_in_days, days, days))
+            }
+        }
     }
     if (confirmDelete) {
         ConfirmDialog(
@@ -184,7 +268,7 @@ fun SelectionBar(vm: AppViewModel) {
                             modifier = Modifier.clickable {
                                 labelPicker = null
                                 scope.launch {
-                                    val skipped = vm.c.contacts.addToGroup(chosen.map { it.id }, g)
+                                    val skipped = bulk.addToLabel(ids, g)
                                     vm.toast(if (skipped == 0) res.getString(R.string.sel_added_to, g.title) else res.getQuantityString(R.plurals.sel_added_skipped, skipped, skipped))
                                 }
                             },

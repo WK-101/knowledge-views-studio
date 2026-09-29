@@ -292,6 +292,18 @@
         <item quantity="other">Delete %d contacts?</item>
     </plurals>
     <string name="sel_delete_body">They go to History &amp; undo, where you can restore them for 30 days.</string>
+    <plurals name="sel_private_skipped">
+        <item quantity="one">%1$d private contact left out: it stays only in Parley</item>
+        <item quantity="other">%1$d private contacts left out: they stay only in Parley</item>
+    </plurals>
+    <plurals name="sel_make_visible_title">
+        <item quantity="one">Make %1$d contact visible to other apps?</item>
+        <item quantity="other">Make %1$d contacts visible to other apps?</item>
+    </plurals>
+    <plurals name="sel_made_visible">
+        <item quantity="one">%1$d contact is visible to other apps now</item>
+        <item quantity="other">%1$d contacts are visible to other apps now</item>
+    </plurals>
     <string name="sel_no_labels">No labels yet. Create one from a contact\'s edit screen or in Google/CardDAV.</string>
     <string name="sel_added_to">Added to %1$s</string>
     <plurals name="sel_added_skipped">

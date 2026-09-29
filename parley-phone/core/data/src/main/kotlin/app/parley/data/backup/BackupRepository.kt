@@ -63,6 +63,7 @@ import app.parley.data.db.BlockedCallEntity
 import app.parley.data.db.NumberSimEntity
 import app.parley.data.records.ContactRecordStore
 import app.parley.data.vault.VaultCrypto
+import app.parley.common.people.PrivateLabels
 import app.parley.data.vault.VaultRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
@@ -400,6 +401,11 @@ class BackupRepository(
         return BlockingSnapshot(rules, system, log)
     }
 
+    /** A private contact's labels, by title: group ids mean nothing on another phone (optional; older versions ignore it). */
+    private fun putLabels(o: JSONObject, v: app.parley.data.vault.VaultSummary) {
+        if (v.labels.isNotEmpty()) o.put("labels", JSONArray(v.labels.map { it.title }))
+    }
+
     private suspend fun putPrivateExtras(o: JSONObject, vaultId: Long) {
         val extras = runCatching { privateExtras?.exportPrivate(app.parley.common.people.ContactRef.privateKey(vaultId)) }.getOrNull() ?: return
         o.put("parley", extras)
@@ -415,6 +421,7 @@ class BackupRepository(
             val d = runCatching { vault.details(v.id) }.getOrNull() ?: continue
             val o = JSONObject().put("details", ContactDetailsJson.encode(d.copy(photoUri = null))).put("expiresAt", v.expiresAt ?: 0L)
             if (v.purgeHistory) o.put("purgeHistory", true)
+            putLabels(o, v)
             // The lossless phone-contact image of a moved contact, with the hash that tells whether the details
             // were edited since ("recordOf"), so moving out after a restore behaves as before. Optional: older
             // Parley versions ignore it (and only wrote it for unedited entries, which is what a missing hash means).
@@ -738,6 +745,11 @@ class BackupRepository(
             )
             o.optString("photo").takeIf { it.isNotEmpty() }?.let { p ->
                 runCatching { vault.setPhoto(id, Base64.decode(p, Base64.NO_WRAP)) }
+            }
+            // Labels found again by title on this phone (resolved whenever they are read).
+            o.optJSONArray("labels")?.let { a ->
+                val titles = (0 until a.length()).mapNotNull { a.optString(it).takeIf { t -> t.isNotBlank() } }
+                if (titles.isNotEmpty()) runCatching { vault.updateCallerChoices(id) { s -> s.copy(labels = titles.map { PrivateLabels.Membership(0, it) }) } }
             }
             restoreCalls(id, o)
             o.optJSONObject("parley")?.let { x -> runCatching { privateExtras?.importPrivate(id, x) } }

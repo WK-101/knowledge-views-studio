@@ -125,6 +125,31 @@ class ContactConversionsTest {
         assertNothingUnder(privateKey)
     }
 
+    @Test fun labels_ringtone_and_voicemail_become_parleys_while_private_and_the_address_books_again() = runBlocking {
+        val (id, _) = ada()
+        c.contacts.setRingtone(id, "content://tone/ada")
+        c.contacts.setSendToVoicemail(id, true)
+        val conversions = ContactConversions(c)
+        val made = conversions.makePrivate(id, c.contacts.details(id)!!)
+        // Kept sealed in the vault entry; the address book no longer has any of it.
+        val s = c.vault.summary(made.vaultId)!!
+        assertEquals("content://tone/ada", s.ringtone)
+        assertTrue(s.sendToVoicemail)
+        assertEquals(setOf("Friends"), c.privateLabels.titlesOf(made.vaultId))
+        // Changed while private: out of Friends, into Work, no voicemail.
+        val workId = c.contacts.createGroup("Work", AccountRef(null, null))!!
+        c.people.labels.addMembers(listOf(ContactRef.Private(made.vaultId).navId), c.contacts.groups().first { it.id == workId })
+        c.people.labels.removeMembers("Friends", listOf(ContactRef.Private(made.vaultId).navId))
+        c.vault.updateCallerChoices(made.vaultId) { it.copy(sendToVoicemail = false) }
+        assertEquals(setOf("Work"), c.privateLabels.titlesOf(made.vaultId))
+
+        val back = conversions.makeVisible(made.vaultId, c.vault.details(made.vaultId)!!, AccountRef(null, null))!!
+        assertEquals(setOf("Work"), c.contacts.labelTitlesOf(back))
+        val restored = c.contacts.details(back)!!
+        assertEquals("content://tone/ada", restored.customRingtone)
+        assertEquals(false, restored.sendToVoicemail)
+    }
+
     @Test fun a_temporary_contact_stays_temporary_both_ways() = runBlocking {
         val (id, key) = ada()
         val at = System.currentTimeMillis() + 5 * 86_400_000L

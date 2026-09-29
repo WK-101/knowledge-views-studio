@@ -37,14 +37,52 @@ ContactVariants(storage, expiresAt) (what it is)
 | What | Where | Readable while the vault is locked? |
 |---|---|---|
 | Name, numbers, number labels, job/company line, "who is this" line, note for calls, star | Vault caller-ID copy (`VaultRepository`, caller-ID key) | Yes: caller ID, lists and the lock screen need them (unchanged) |
+| Label membership (group id + title per label), own ringtone, "send to voicemail" | The same caller-ID copy, the only place they are kept (`VaultRepository.updateCallerChoices`; read through `PrivateLabelStore`) | Yes: the call path applies them while the phone is locked, and they change without unlocking |
 | Every other field (emails, addresses, dates, relations, websites, notes, handles…), the usual app, the original address-book record | Vault details (auth-bound detail key) | No: the page asks to unlock, in place |
 | Photo | Vault photo file, sealed with the caller-ID key | Yes (the call screen shows it) |
 | Circle rhythm, relation links, yearly dates, logged moments, call-screen picture | Parley's own stores under `parley-private:<id>` (moments' notes sealed as for every contact) | Parley only; the page shows them after unlock |
 | Calls | Private call history (when "Private call history" is on) | As before |
+| Own call time limit, talk-time reminder, "never limit" | Call-time settings under `parley-private:<id>`, **without a name** (lists show it from the vault) | Parley only |
+| A deleted private contact | `no_backup/vault_trash`: the entry exactly as stored (details still under the detail key), its photo, private calls and Parley data, the whole file sealed with the caller-ID key, 30 days (`PrivateTrash`) | Counted without opening; listed only after the vault's unlock |
 
 Backups: private contacts' Parley data is written only in the private-contacts section of a backup (which needs the
-vault unlocked), never in the Contact notes or Circle sections every backup has; a restore puts it back under the
-restored contact's new key.
+vault unlocked), never in the Contact notes, Circle or Call time sections every backup has; a restore puts it back under
+the restored contact's new key. Their labels travel there by title (group ids mean nothing on another phone) and are
+found again by title. "Recently deleted" copies are never backed up.
+
+### Labels of a private contact
+
+A label stays the address book's group: its name, id and account are the group's, and Parley's label screens (create,
+rename, merge, delete) work on groups as before. Only *who is in it* is Parley's for a private contact
+(`PrivateLabels`, `PrivateLabelStore`): nothing is written to the address book, so no other app can tell that a
+private contact is in a label, or exists.
+
+- A membership keeps the group's id and title. The id follows renames made anywhere; the title finds the label again
+  after a restore or when a label is made again. A label that can't be found is hidden, never dropped by an edit.
+  Labels are one per title across accounts, as the Contacts tab and every rule name them.
+- Renames, merges and deletes made in Parley move or remove private memberships first.
+- Everything that reads labels reads them too: label pages (members, Message all, Email all after the vault's unlock,
+  remove from label), the Contacts filters (any, all, Unlabelled) and counts, the editor's Labels chips, the selection
+  bar's "Add to label", label ringtones, label rules and off hours (`CallScreener`), the label's SIM and Circle rhythm
+  (`ExtrasStore`) and label call-time limits (`CallTimePlanner`).
+- Make private turns the contact's group rows into memberships; Make visible turns the memberships back into group
+  rows (in a group of that label its account can hold) and removes the rows of labels it left while private.
+
+### Ringtone and "Send to voicemail" of a private contact
+
+Android's ringer and Telecom read a contact's ringtone and "send to voicemail" from the address book before any app
+sees the call, and they never see a private contact. Parley applies both itself, the way it already plays a rule's or
+a label's ringtone: its call screening (`CallScreener`, from the screening service and the in-call service) finds the
+caller in the vault, then
+
+- **ringtone**: Parley's own ringer (`CallRinger`) plays it instead of Telecom's, with Telecom's vibration, only in
+  normal ringer mode with Do Not Disturb off, like every Parley tone ("Why did my phone ring?" says the contact's
+  tone). A rule's tone still wins, as for everyone.
+- **send to voicemail**: the call is declined (a plain decline, not "unwanted", so the network sends it to voicemail),
+  with no ring, no missed-call notification, and nothing in the blocked-calls log.
+
+The call path runs screening whenever a private contact has one of these or a label (`VaultCallChoices`). This needs
+Parley as the phone app (or the call-screening role), like every screening feature.
 
 ## Features by storage
 
@@ -63,14 +101,19 @@ restored contact's new key.
 | Circle: add, rhythm, Stay in touch, promises, Log interaction | Yes | No | Yes |
 | Circle list | Yes | No | Yes (with the lock badge). Reminder notifications still never name private contacts |
 | Call-screen picture | Yes | No | Yes (page and editor) |
+| Labels: page, filters, editor chips, Add to label, label ringtone, SIM, rhythm, rules, limits | Yes | No | Yes, membership kept sealed by Parley (see "Labels of a private contact") |
+| Ringtone, Send to voicemail | Yes (Android) | No | Yes, applied by Parley's call screening and ringer |
+| Call time limit, talk-time reminder | Yes | No | Yes (by its Parley key; the limit keeps no name outside the vault) |
+| Date chips on the page ("Add birthday") | Yes | No | Yes (into the sealed details) |
+| Multi-select in Contacts | Yes | No (long-press didn't select) | Yes: star, Add to label, Message all, Introduce, Delete automatically…, Make visible, Delete. Share, Export, Copy as text and Merge act on the device contacts and say how many private ones they left out |
 | Favourites (star) | Address-book star | No | Parley's own star (other apps never see it); in the Favourites tab with the lock badge |
 | Default number/email | Yes | No | Yes (kept in the sealed details) |
 | QR code | Yes | Secure QR only | Yes: plain QR after a privacy confirmation, secure QR as before |
 | Block numbers, "allow by name" | Yes | No | Yes |
 | Temporary: make temporary, change date, keep permanently | Yes | Expiry menu | Yes, same rows |
-| Delete | Yes (History & undo) | Yes | Yes (no undo copy: the vault never leaves one outside it) |
+| Delete | Yes (History & undo) | Yes | Yes, with "Deleted private contacts" in History & undo: a sealed copy for 30 days, listed after the vault's unlock, restored whole |
 | Editor | Full | Full fields, no call-screen picture | Full, plus call-screen picture and relation links |
-| Contacts list, search | Yes | Separate "Private" view | **In the one list** with a lock badge; the "Private" chip is a filter |
+| Contacts list, search | Yes | Separate "Private" view | **In the one list** with a lock badge; the "Private" chip is a filter; selectable |
 | Keypad results, T9 | Yes | Separate rows with an emoji lock | Same rows as contacts with the lock badge |
 | Caller ID, missed calls, lock screen | Yes | Yes | **Unchanged** (caller-ID copy; discreet mode shows only the number) |
 | Other apps (ContactDirectory, private-name lookup for approved apps) | Address book | Approved-app lookup only | **Unchanged** |
@@ -79,15 +122,13 @@ restored contact's new key.
 
 | Only device contacts | Why |
 |---|---|
-| Share as a vCard file | The file is handed to another app, which could keep it (QR codes are offered instead) |
-| Version history, History & undo copies | Snapshots are copies of the address book; private contacts are never copied out of the vault |
+| Share as a vCard file; in multi-select also Export, Copy as text and Merge | The file (or the clipboard) is handed to other apps, which could keep it; merging makes an address-book contact (QR codes are offered instead) |
+| Version history; a copy of each edit in History & undo | Snapshots and edit copies are plain copies of the address book. A private contact's edits keep no copy: only a deleted one is kept, sealed ("Deleted private contacts") |
 | Accounts, linked copies, "other fields" | Accounts, linking and rows written by other apps exist only in the address book |
 | Copy to SIM | A SIM card is readable by any phone it is put in |
 | Home-screen shortcut | The launcher (another app) would store the name and number |
-| Labels | Android's labels are address-book groups that other apps can read. Parley labels for private contacts need a label store of Parley's own and are the next step; a private contact made visible gets its labels back |
-| Ringtone, send to voicemail | Android's own ringer and call handling read them from the address book before Parley sees the call |
-| Call time limits | They follow address-book contacts |
-| Date chips on the page | They write straight into the address book; the editor adds dates to private contacts |
+| A label's "Allow through Do Not Disturb" | Android decides who rings through Do Not Disturb from starred address-book contacts; starring a private contact would put it in the address book. The label page says how many of its members can't ring through |
+| Ringtone and "Send to voicemail" without Parley as the phone app | Android's ringer and Telecom never see a private contact; only Parley's call screening applies them |
 
 ## Conversions
 
@@ -95,15 +136,17 @@ From the page (**Settings for this contact** and ⋮) and, for the expiry, from 
 
 | From → to | How | Lossless |
 |---|---|---|
-| Device → Private ("Make private") | `ContactConversions.makePrivate`: the address-book record (every row, the photo, labels) is sealed into the vault (`VaultMoves.moveIn`); Parley's data is re-keyed to `parley-private:<id>` (`ContactKeys.rekey`); a temporary date moves to the vault entry; no journal entry or snapshot stays | Yes; synced copies disappear from other apps after the account's next sync |
-| Private → Device ("Make visible to other apps") | `ContactConversions.makeVisible`: the stored record goes back (accounts kept when still writable), edits made while private on top (`VaultMoves.moveOut`); Parley's data is re-keyed to the new lookup key; the date becomes the address book's temporary flag; the private call history goes back to the phone's call history | Yes |
+| Device → Private ("Make private") | `ContactConversions.makePrivate`: the address-book record (every row, the photo, labels) is sealed into the vault (`VaultMoves.moveIn`); its labels, ringtone, "send to voicemail" and star become the entry's own; Parley's data is re-keyed to `parley-private:<id>` (`ContactKeys.rekey`, call-time entries included, their name dropped); a temporary date moves to the vault entry; no journal entry or snapshot stays | Yes; synced copies disappear from other apps after the account's next sync |
+| Private → Device ("Make visible to other apps") | `ContactConversions.makeVisible`: the stored record goes back (accounts kept when still writable), edits made while private on top (`VaultMoves.moveOut`); the star, ringtone, "send to voicemail" and labels as they are now become the address book's; Parley's data is re-keyed to the new lookup key (a call-time limit gets the name back); the date becomes the address book's temporary flag; the private call history goes back to the phone's call history | Yes |
 | Permanent → Temporary, date changes, Temporary → Permanent | The vault entry's expiry, or `TemporaryContactStore` | Yes |
 
 Both conversions ask first and say what other apps will or won't see. They run in the app's scope, so leaving the page
 never leaves half a conversion. Undo is the opposite conversion (History & undo can't hold a private contact, by
 design). The Robolectric test `ContactConversionsTest` runs device → private → device and checks the note for calls,
-Circle membership, logged moments, the call-screen picture, labels and a temporary date, and that nothing is left
-under the old key.
+Circle membership, logged moments, the call-screen picture, labels (changed while private too), the ringtone, "send to
+voicemail" and a temporary date, and that nothing is left under the old key. `PrivateLabelStoreTest` covers the label
+membership (sealed, never in the address book, following renames, merges and deletes, kept through edits), the call
+path's ringtone, voicemail and label tones, and "Recently deleted"; `BulkContactActionsTest` the mixed selection.
 
 ## Security (unchanged)
 
@@ -113,3 +156,10 @@ under the old key.
   before; discreet mode ("Hide private contacts") still hides private contacts everywhere, including the merged lists.
 - Private contacts are merged only into Parley's own lists (`AppViewModel.everyone`), never into `ContactDirectory`,
   the widgets, the private-name provider or anything another app can query.
+- Labels, the ringtone, "send to voicemail" and the star are sealed with the caller-ID key like the name; nothing of
+  them is written to the address book, logs or notifications. A private caller sent to voicemail is never logged as a
+  blocked call; a label's "Allow through Do Not Disturb" never stars a private contact.
+- Multi-select never hands a private contact to another app: share, export, copy as text and merge skip them and say so.
+- A deleted private contact's copy is sealed (details still under the detail key, which the vault keeps while a copy
+  needs it), stored where no backup reaches, listed only after the vault's unlock, and gone after 30 days, with
+  "Clear history & undo", or with "Delete all Parley data". Temporary private contacts that expire keep no copy.

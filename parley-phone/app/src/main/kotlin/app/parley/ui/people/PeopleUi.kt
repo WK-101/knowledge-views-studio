@@ -7,6 +7,8 @@ import app.parley.common.people.FavoriteOrder
 import app.parley.common.people.FavoriteSort
 import app.parley.common.people.BroadSearch
 import app.parley.common.people.LabelFilter
+import app.parley.common.people.ContactRef
+import app.parley.common.people.PrivateLabels
 import app.parley.common.people.PersonExtra
 import app.parley.common.people.SecondLines
 import app.parley.common.ux.ListSections
@@ -41,9 +43,23 @@ class PeopleUi(
     private val countryIso: String,
     /** The "Private" filter chip: only private contacts (negative ids) are listed. */
     privateOnly: StateFlow<Boolean> = MutableStateFlow(false),
+    /** Private contacts are in Parley's lists (false in discreet mode): their labels count then too. */
+    includePrivate: StateFlow<Boolean> = MutableStateFlow(true),
 ) {
     val settings: StateFlow<PeopleSettings> = c.people.prefs.settings
-    val index: StateFlow<PeopleIndexData> = c.people.index.data
+
+    /**
+     * The address book's per-contact index with private contacts' labels added under their list ids, so label pages,
+     * the label filters ("any", "all", "Unlabelled") and label counts treat them like everyone else.
+     */
+    val index: StateFlow<PeopleIndexData> = combine(c.people.index.data, c.privateLabels.titles, includePrivate) { idx, private, include ->
+        if (!include || private.isEmpty()) return@combine idx
+        val extras = HashMap(idx.extras)
+        private.forEach { (vaultId, titles) -> extras[ContactRef.Private(vaultId).navId] = PersonExtra(labels = titles) }
+        val counts = HashMap(idx.labelCounts)
+        PrivateLabels.counts(private).forEach { (t, n) -> counts[t] = (counts[t] ?: 0) + n }
+        idx.copy(extras = extras, labelCounts = counts)
+    }.flowOn(Dispatchers.Default).stateIn(scope, SharingStarted.Eagerly, c.people.index.data.value)
 
     /** Label/account filter of the Contacts tab (AND/OR comes from the saved preference). */
     val filter = MutableStateFlow(LabelFilter())

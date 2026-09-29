@@ -37,6 +37,11 @@ data class LimitRule(
     fun appliesTo(incomingCall: Boolean): Boolean = if (incomingCall) incoming else outgoing
 }
 
+/** What call time keeps for one contact alone (see [CallingConfig.contactPart]). */
+data class ContactCallTime(val rule: LimitRule? = null, val reminderMinutes: Int? = null, val neverLimit: Boolean = false) {
+    val isEmpty: Boolean get() = rule == null && reminderMinutes == null && !neverLimit
+}
+
 /** Soft talk-time reminders: a beep in the earpiece and/or a vibration. They never end a call. */
 @Serializable
 data class ReminderSettings(
@@ -80,6 +85,44 @@ data class CallingConfig(
     }
 
     fun withoutRule(scope: LimitScope, key: String): CallingConfig = copy(rules = rules.filterNot { it.scope == scope && it.key == key })
+
+    /** What is set for contact [key] alone: its limit, its reminder and "never limit". */
+    fun contactPart(key: String): ContactCallTime =
+        ContactCallTime(rule(LimitScope.CONTACT, key), reminders.perContact[key], key in neverLimit)
+
+    /** [part] set for contact [key] (named [title] in lists), replacing what it had. */
+    fun withContactPart(key: String, part: ContactCallTime, title: String): CallingConfig {
+        val base = withoutContact(key)
+        return base.copy(
+            rules = base.rules + listOfNotNull(part.rule?.copy(key = key, title = title)),
+            reminders = base.reminders.copy(perContact = base.reminders.perContact + listOfNotNull(part.reminderMinutes?.let { key to it })),
+            neverLimit = if (part.neverLimit) base.neverLimit + key else base.neverLimit,
+        )
+    }
+
+    /** Nothing set for contact [key] any more. */
+    fun withoutContact(key: String): CallingConfig = copy(
+        rules = rules.filterNot { it.scope == LimitScope.CONTACT && it.key == key },
+        reminders = reminders.copy(perContact = reminders.perContact - key),
+        neverLimit = neverLimit - key,
+    )
+
+    /**
+     * Contact [from]'s limit, reminder and "never limit" moved to [to] (a contact made private or visible), named
+     * [title]: a private contact's is empty, so its name is never kept outside the vault.
+     */
+    fun rekeyed(from: String, to: String, title: String): CallingConfig {
+        val part = contactPart(from)
+        if (part.isEmpty) return this
+        return withoutContact(from).withContactPart(to, part, title)
+    }
+
+    /** This config without anything set for contacts whose key [private] says is a private contact's. */
+    fun withoutContacts(private: (String) -> Boolean): CallingConfig = copy(
+        rules = rules.filterNot { it.scope == LimitScope.CONTACT && private(it.key) },
+        reminders = reminders.copy(perContact = reminders.perContact.filterKeys { !private(it) }),
+        neverLimit = neverLimit.filterNot(private).toSet(),
+    )
 
     companion object {
         val WARN_CHOICES = listOf(30, 60, 120)

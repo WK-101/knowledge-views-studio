@@ -140,6 +140,8 @@ class MaintenanceWorker(context: Context, params: WorkerParameters) : CoroutineW
                     runCatching { c.messaging.forget(n) }
                 }
             }
+            // Deleted private contacts are kept sealed for 30 days ("Recently deleted"), then go for good.
+            step("private trash") { c.privateTrash.purge(now); true }
             // 3. Private call history
             if (settings.privateVaultHistory) {
                 step("private call log") { c.vault.sweepCallLog(now - TimeUnit.DAYS.toMillis(30)) }

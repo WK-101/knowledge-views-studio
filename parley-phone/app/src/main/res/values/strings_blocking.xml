@@ -11,6 +11,7 @@
     <string name="blk_reason_list">spam list</string>
     <string name="blk_reason_invalid">invalid number</string>
     <string name="blk_reason_off_hours">off hours</string>
+    <string name="blk_reason_voicemail">sent to voicemail</string>
     <string name="blk_verdict_reported_by">Reported by %1$s</string>
     <string name="blk_verdict_blocked_by_rule">Blocked by rule \'%1$s\'</string>
     <plurals name="blk_calls">

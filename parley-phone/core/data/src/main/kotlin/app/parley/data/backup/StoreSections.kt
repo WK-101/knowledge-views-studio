@@ -11,6 +11,7 @@ import app.parley.common.backup.PersonRefs
 import app.parley.common.calls.CallExtrasConfig
 import app.parley.common.calltime.CallingConfig
 import app.parley.common.calltime.CallingJson
+import app.parley.common.calltime.LimitScope
 import app.parley.common.history.HistoryFilter
 import app.parley.common.history.PlanConfig
 import app.parley.common.people.RelationLinks
@@ -158,7 +159,8 @@ class CallTimeBackup(
     @Volatile private var pending: CallingConfig? = null
 
     override suspend fun export(): Map<String, String> {
-        val config = calling.config.value
+        // A private contact's own limit travels only in the private-contacts section (ContactKeys.exportPrivate).
+        val config = calling.config.value.withoutContacts { ContactRef.isPrivateKey(it) }
         val refs = PersonRefs(contactsNow())
         val people = JSONObject()
         CallTimeRestore.keys(config).forEach { k -> people.put(k, refs.ref(k).toJson()) }
@@ -180,7 +182,18 @@ class CallTimeBackup(
         return mapped.unmatched
     }
 
-    private fun apply(config: CallingConfig) = calling.update { config.copy(healthBannerDismissed = it.healthBannerDismissed) }
+    private fun apply(config: CallingConfig) = calling.update { now ->
+        // Private contacts' own entries aren't in this section (they come back with the private contacts): keep them.
+        val kept = now.rules.filter { it.scope == LimitScope.CONTACT && ContactRef.isPrivateKey(it.key) }
+        config.withoutContacts { ContactRef.isPrivateKey(it) }.let { c ->
+            c.copy(
+                healthBannerDismissed = now.healthBannerDismissed,
+                rules = c.rules + kept,
+                reminders = c.reminders.copy(perContact = c.reminders.perContact + now.reminders.perContact.filterKeys { ContactRef.isPrivateKey(it) }),
+                neverLimit = c.neverLimit + now.neverLimit.filter { ContactRef.isPrivateKey(it) },
+            )
+        }
+    }
 
     override fun hasPending(): Boolean = pending != null
 

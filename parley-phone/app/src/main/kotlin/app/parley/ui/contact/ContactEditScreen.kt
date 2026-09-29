@@ -336,8 +336,13 @@ fun ContactEditScreen(
         // The key the call-screen picture is kept under: a private contact's is its Parley key, like on its page.
         val lookup = original?.lookupKey?.takeIf { !isVault && it.isNotEmpty() }
             ?: vaultId?.takeIf { it > 0 }?.let { ContactRef.privateKey(it) }
-        val accountGroups = if (isVault || editor.temporaryNew) emptyList()
-        else groups.filter { it.account.type == account?.type && it.account.name == account?.name }
+        // A private contact's labels are Parley's own membership of the address book's labels: one chip per label title
+        // (its first group, as PrivateLabels resolves them). A visible temporary contact is phone-only, without labels.
+        val accountGroups = when {
+            isVault -> groups.distinctBy { it.title.trim() }
+            editor.temporaryNew -> emptyList()
+            else -> groups.filter { it.account.type == account?.type && it.account.name == account?.name }
+        }
         val nameDetailsFilled = listOf(d.prefix, d.middle, d.suffix, d.phoneticGiven, d.phoneticFamily, d.nickname).any { it.isNotBlank() }
         // Only what the contact holds is on screen (plus name and a phone); everything else waits in the "Add" chips.
         val shownKinds = shownKinds(d, revealed, moreName || nameDetailsFilled, accountGroups.isNotEmpty(), isVault, lookup, bgChange, vm)

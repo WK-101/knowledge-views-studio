@@ -68,6 +68,8 @@ fun CallTimeScreen(vm: AppViewModel, back: () -> Unit) {
     val config by vm.c.calling.config.collectAsStateWithLifecycle()
     val sims by vm.sims.collectAsStateWithLifecycle()
     val contacts by vm.contacts.collectAsStateWithLifecycle()
+    // A private contact's limit keeps no name outside the vault: it is shown from Parley's own list.
+    val everyone by vm.everyone.collectAsStateWithLifecycle()
     var groups by remember { mutableStateOf<List<GroupInfo>>(emptyList()) }
     var editing by remember { mutableStateOf<Pair<String, LimitRule>?>(null) }
     var pickLabel by remember { mutableStateOf(false) }
@@ -133,7 +135,8 @@ fun CallTimeScreen(vm: AppViewModel, back: () -> Unit) {
             }
             val contactRules = config.rules.filter { it.scope == LimitScope.CONTACT }
             items(contactRules, key = { it.id }) { r ->
-                RuleRow(Icons.Rounded.Person, r.title.ifBlank { contactFallback }, r) { edit(r.title.ifBlank { contactFallback }, r) }
+                val name = r.title.ifBlank { everyone?.firstOrNull { it.lookupKey == r.key }?.displayName ?: contactFallback }
+                RuleRow(Icons.Rounded.Person, name, r) { edit(name, r) }
             }
             item {
                 Help(stringResource(R.string.ct_contact_limit_help))

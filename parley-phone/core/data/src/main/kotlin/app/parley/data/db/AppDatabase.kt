@@ -515,6 +515,10 @@ interface VaultDao {
     @Query("UPDATE vault_contacts SET expiresAt = :expiresAt WHERE id = :id")
     suspend fun setExpiry(id: Long, expiresAt: Long?)
 
+    /** Only the caller-ID copy: a star, a label, a ringtone set without unlocking never rewrites the sealed details. */
+    @Query("UPDATE vault_contacts SET callerIdBlob = :blob WHERE id = :id")
+    suspend fun setCallerIdBlob(id: Long, blob: ByteArray)
+
     @Query("DELETE FROM vault_numbers WHERE vaultId = :id")
     suspend fun clearNumbers(id: Long)
 

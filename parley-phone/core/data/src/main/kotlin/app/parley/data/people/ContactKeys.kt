@@ -11,7 +11,11 @@ import app.parley.common.people.RelationLinks
 import app.parley.common.people.TemporaryExpiry
 import androidx.room.withTransaction
 import app.parley.data.ContactsRepository
+import app.parley.data.calltime.CallingRepository
 import app.parley.data.circle.InteractionStore
+import app.parley.common.calltime.ContactCallTime
+import app.parley.common.calltime.LimitRule
+import app.parley.common.calltime.LimitScope
 import app.parley.data.db.AppDatabase
 import app.parley.data.db.ContactMetaEntity
 import app.parley.data.db.MetaDao
@@ -45,6 +49,8 @@ class ContactKeys(
     private val db: AppDatabase? = null,
     /** Original contact photos are keyed by lookup key too. */
     private val originals: () -> OriginalPhotos? = { null },
+    /** A contact's own call time limit, reminder and "never limit" follow the same moves. */
+    private val calling: () -> CallingRepository? = { null },
 ) {
     private val mutex = Mutex()
 
@@ -97,6 +103,7 @@ class ContactKeys(
             .map { CarriedInteraction(it.type.name, it.channel?.name, it.time, it.note, it.dedupeKey) }
         if (carried.isNotEmpty()) o.put(X_INTERACTIONS, Interactions.encodeCarried(carried))
         runCatching { backgrounds().read(key) }.getOrNull()?.let { o.put(X_BACKGROUND, android.util.Base64.encodeToString(it, android.util.Base64.NO_WRAP)) }
+        calling()?.config?.value?.contactPart(key)?.takeIf { !it.isEmpty }?.let { o.put(X_CALL_TIME, encodeCallTime(it)) }
         o.takeIf { it.length() > 0 }
     }
 
@@ -120,6 +127,7 @@ class ContactKeys(
             o.optString(X_BACKGROUND).ifEmpty { null }?.let { b ->
                 runCatching { backgrounds().write(key, android.util.Base64.decode(b, android.util.Base64.NO_WRAP)); backgrounds().remember(key) }
             }
+            o.optJSONObject(X_CALL_TIME)?.let { t -> runCatching { calling()?.update { it.withContactPart(key, decodeCallTime(t), "") } } }
         }
     }
 
@@ -146,6 +154,7 @@ class ContactKeys(
             runCatching { backgrounds().clear(key) }
             runCatching { originals()?.clear(key) }
             runCatching { extras()?.dndForget(key) }
+            runCatching { calling()?.update { it.withoutContact(key) } }
         }
     }
 
@@ -232,6 +241,12 @@ class ContactKeys(
         runCatching { backgrounds().move(from, to) }
         runCatching { originals()?.move(from, to) }
         runCatching { extras()?.dndRekey(from, to) }
+        // A private contact's limit keeps no name (it would be the only copy of it outside the vault).
+        runCatching {
+            calling()?.update { cfg ->
+                cfg.rekeyed(from, to, if (ContactRef.isPrivateKey(to)) "" else cfg.rule(LimitScope.CONTACT, from)?.title.orEmpty())
+            }
+        }
     }
 
     /**
@@ -307,6 +322,28 @@ private const val X_LINKS = "rel"
 private const val X_YEARLY = "y"
 private const val X_INTERACTIONS = "i"
 private const val X_BACKGROUND = "bg"
+private const val X_CALL_TIME = "ct"
+
+private fun encodeCallTime(p: ContactCallTime): JSONObject = JSONObject().apply {
+    p.rule?.let { r ->
+        put("per", r.perCallMinutes); put("day", r.dailyMinutes); put("week", r.weeklyMinutes); put("in", r.incoming); put("out", r.outgoing)
+    }
+    p.reminderMinutes?.let { put("rem", it) }
+    if (p.neverLimit) put("never", true)
+}
+
+private fun decodeCallTime(o: JSONObject): ContactCallTime = ContactCallTime(
+    rule = if (o.has("per") || o.has("day") || o.has("week")) {
+        LimitRule(
+            LimitScope.CONTACT, perCallMinutes = o.optInt("per"), dailyMinutes = o.optInt("day"), weeklyMinutes = o.optInt("week"),
+            incoming = o.optBoolean("in", true), outgoing = o.optBoolean("out", true),
+        )
+    } else {
+        null
+    },
+    reminderMinutes = if (o.has("rem")) o.optInt("rem") else null,
+    neverLimit = o.optBoolean("never"),
+)
 
 internal fun ContactMetaEntity.values() = MetaRekey.Values(pinnedNote, preferredMessenger, reachOutDays, lastNudgedAt, relationLinks, rhythm, yearlyEvents)
 

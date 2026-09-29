@@ -130,7 +130,8 @@ object TemporaryContactActions {
                     if (item.purgeHistory) runCatching { vm.c.history.purgeNumber(n) }
                     runCatching { vm.c.messaging.forget(n) }
                 }
-                app.parley.ui.contact.ContactConversions(vm.c).deletePrivate(item.vaultId)
+                // As when it expires: a temporary private contact keeps no sealed copy.
+                app.parley.ui.contact.ContactConversions(vm.c).deletePrivate(item.vaultId, keepCopy = false)
             }
             item.contactId != null -> {
                 vm.c.temporaries.mark(item.contactId, 0, item.purgeHistory)
