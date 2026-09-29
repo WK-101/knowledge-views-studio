@@ -147,7 +147,10 @@ class BulkAddStore(private val c: DataContainer) {
                 Batches.chunks(ops).forEach { runCatching { c.appContext.contentResolver.applyBatch(ContactsContract.AUTHORITY, ArrayList(it)) } }
             }
         }
-        batch.vaultIds.forEach { runCatching { c.vault.delete(it) } }
+        batch.vaultIds.forEach {
+            runCatching { c.vault.delete(it) }
+            runCatching { c.contactKeys.forget(app.parley.common.people.ContactRef.privateKey(it)) }
+        }
         c.contacts.refresh()
         forget(batch.tag)
     }

@@ -1,5 +1,6 @@
 package app.parley.data.circle
 
+import app.parley.common.people.ContactRef
 import androidx.room.RoomDatabase
 import app.parley.common.ContactSummary
 import app.parley.common.circle.DateReminders
@@ -346,16 +347,20 @@ class CircleRepository(
                 return o.put("n", c.displayName).put("p", JSONArray(c.phones.mapNotNull { PhoneIdentity.portableKey(it.number) }.distinct()))
             }
             val members = JSONArray()
-            members().forEach { m -> members.put(person(m.lookupKey).put("d", m.meta.reachOutDays).put("r", m.meta.rhythm ?: JSONObject.NULL)) }
+            // Private contacts' Circle data goes only in the private-contacts section (BackupRepository.vaultBlob).
+            members().filterNot { ContactRef.isPrivateKey(it.lookupKey) }.forEach { m ->
+                members.put(person(m.lookupKey).put("d", m.meta.reachOutDays).put("r", m.meta.rhythm ?: JSONObject.NULL))
+            }
             out[X_MEMBERS] = members.toString()
             val items = JSONArray()
             for (i in interactions.all()) {
+                if (ContactRef.isPrivateKey(i.lookupKey)) continue
                 items.put(person(i.lookupKey).put("t", i.type.name).put("c", i.channel?.name ?: JSONObject.NULL).put("at", i.time).put("note", i.note ?: JSONObject.NULL).put("u", i.dedupeKey))
             }
             out[X_INTERACTIONS] = items.toString()
             // Life events remembered yearly.
             val yearly = JSONArray()
-            yearlyFlags().forEach { (key, flags) -> yearly.put(person(key).put("y", JSONArray(flags.toList()))) }
+            yearlyFlags().filterKeys { !ContactRef.isPrivateKey(it) }.forEach { (key, flags) -> yearly.put(person(key).put("y", JSONArray(flags.toList()))) }
             out[X_YEARLY] = yearly.toString()
             return out
         }

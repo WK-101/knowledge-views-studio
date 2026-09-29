@@ -12,8 +12,8 @@ See also [WRITING.md](WRITING.md) for voice and tone, and [SETTINGS.md](SETTINGS
 | **Frequent** | People Parley suggests from your call history. It's automatic, and you don't choose who appears. Shown under Favourites. | Not a list you edit. |
 | **Circle** | People you want to keep in touch with, each with a rhythm ("every 2 weeks") and gentle reminders. Always capitalised: "your Circle", "Add to your Circle". | Not a group and not Favourites: being in the Circle doesn't star anyone. |
 | **Labels** | Groups of contacts you make yourself ("Family", "Work"). Android calls them groups; Parley says labels everywhere. | Not "groups" or "tags". |
-| **Private contacts** | Contacts kept only inside Parley, encrypted, invisible to other apps. | Not "vault" in the interface. |
-| **Temporary contacts** | Contacts that delete themselves after a time you choose. | |
+| **Private contacts** | Contacts kept only inside Parley, encrypted, invisible to other apps. Private is a variant of a contact, not another kind: the same page, editor and features, a lock on the photo in lists, the chip "Private · hidden from other apps" on the page, and **Make private** / **Make visible to other apps** to convert ([CONTACT_MODEL.md](CONTACT_MODEL.md)). | Not "vault" in the interface. |
+| **Temporary contacts** | Contacts, private or not, that delete themselves after a time you choose. Also a variant: the chip "Temporary · deletes itself on …", and **Keep permanently** to undo it. | |
 | **My card** | Your own details (name, number), shared as a QR code or vCard and used for "Send my details". | Not "My details" or "My profile". |
 
 ### Favourites and Do Not Disturb

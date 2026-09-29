@@ -42,12 +42,15 @@ class VaultMoves(
      * Throws [VaultCrypto.LockedException] when the vault must be unlocked first, and [IllegalStateException] when
      * the whole contact can't be read; nothing is deleted then (the phone copy is only removed once the vault holds
      * everything it had: there is no journal copy of a contact moved into the vault).
+     *
+     * [carryInteractions] false: the caller re-keys the logged interactions to the private contact instead
+     * (`ContactKeys.rekey`), so they stay on its page rather than being sealed away until "Make visible".
      */
-    suspend fun moveIn(contactId: Long, shown: ContactDetails): MovedIn = withContext(Dispatchers.IO) {
+    suspend fun moveIn(contactId: Long, shown: ContactDetails, carryInteractions: Boolean = true): MovedIn = withContext(Dispatchers.IO) {
         val record = records.read(contactId, fullPhoto = true)?.let { capPhoto(contactId, it) }?.withoutMessengers()
             ?: throw IllegalStateException("Couldn't read the whole contact, so it wasn't moved")
         // Read before the caller forgets the key (ContactKeys.forget deletes them outside the vault).
-        val carried = shown.lookupKey.takeIf { it.isNotEmpty() }?.let { key ->
+        val carried = shown.lookupKey.takeIf { it.isNotEmpty() && carryInteractions }?.let { key ->
             runCatching { interactions()?.interactionsFor(key) }.getOrNull().orEmpty()
                 .map { CarriedInteraction(it.type.name, it.channel?.name, it.time, it.note, it.dedupeKey) }
         }.orEmpty()

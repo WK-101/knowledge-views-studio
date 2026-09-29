@@ -1,5 +1,7 @@
 package app.parley.ui.circle
 
+import androidx.compose.foundation.layout.Box
+import app.parley.ui.contact.PrivateBadge
 import app.parley.ui.Destination
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.clickable
@@ -144,7 +146,13 @@ private fun CircleRowItem(vm: AppViewModel, r: CircleRow, quick: QuickMessenger,
     ParleyListItem(
         modifier = Modifier.clickable(onClickLabel = stringResource(R.string.main_open_contact)) { open(Routes.contact(r.contact.id)) },
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-        leadingContent = { Avatar(r.contact.displayName, r.contact.photoUri, avatarSize()) },
+        leadingContent = {
+            Box {
+                Avatar(r.contact.displayName, r.contact.photoUri, avatarSize())
+                // A private contact in the Circle: the same lock as in Contacts.
+                if (r.contact.id < 0) PrivateBadge(Modifier.align(Alignment.BottomEnd))
+            }
+        },
         headlineContent = {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(r.contact.displayName, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))

@@ -7,6 +7,11 @@ import app.parley.R
 import app.parley.common.CallEntry
 import app.parley.common.ContactSummary
 import app.parley.common.PhoneIdentity
+import app.parley.common.history.CallLogIndex
+import app.parley.common.people.ContactRef
+import app.parley.common.people.ContactStorage
+import app.parley.common.people.ContactVariants
+import app.parley.common.people.storage
 import app.parley.common.circle.InteractionType
 import app.parley.common.circle.Interactions
 import app.parley.common.people.MessengerPrefs
@@ -24,6 +29,8 @@ import app.parley.data.db.CallNoteEntity
 import app.parley.data.db.ContactMetaEntity
 import app.parley.data.db.NumberSimEntity
 import app.parley.data.db.TemporaryContactEntity
+import app.parley.data.vault.VaultCrypto
+import java.time.ZoneId
 import app.parley.ui.circle.PersonMemory
 import java.util.UUID
 import kotlinx.coroutines.Dispatchers
@@ -67,8 +74,31 @@ data class ContactDetailUiState(
     val simPrefs: List<NumberSimEntity> = emptyList(),
     /** Every note about them (call notes, interaction notes, pinned note). */
     val memory: PersonMemory = PersonMemory(),
+    /** Which contact this is and where it is kept (docs/CONTACT_MODEL.md). */
+    val ref: ContactRef? = null,
+    /** A private contact whose details need the vault unlocked: only its name, photo and numbers are shown. */
+    val access: PrivateAccess = PrivateAccess.OPEN,
+    /** A private contact's call insights, over its private call history (device contacts use the shared index). */
+    val privateIndex: CallLogIndex? = null,
 ) {
     val prefs: MessengerPrefs get() = MessengerPrefs.decode(meta?.preferredMessenger)
+    val storage: ContactStorage get() = ref?.storage ?: ContactStorage.DEVICE
+    val isPrivate: Boolean get() = storage == ContactStorage.PRIVATE
+    val variants: ContactVariants get() = ContactVariants(storage, temporary?.expiresAt)
+}
+
+/** Whether a private contact's details can be read now; a device contact is always [OPEN]. */
+enum class PrivateAccess {
+    OPEN,
+
+    /** The vault must be unlocked first (VaultCrypto.LockedException): the page offers to unlock. */
+    LOCKED,
+
+    /** The Keystore can't open them right now; nothing is overwritten, try again. */
+    UNAVAILABLE,
+
+    /** Their key is gone for good: what the caller-ID copy holds is shown, and "Keep what's left" is offered. */
+    LOST,
 }
 
 /** What a tap on a relation leads to. */
@@ -88,7 +118,8 @@ sealed interface RelationTarget {
 class ContactDetailViewModel(private val c: DataContainer) : ViewModel() {
     val countryIso: String = c.directory.countryIso
 
-    private val contactId = MutableStateFlow<Long?>(null)
+    /** The page's contact: [ContactRef.navId] is what the route carries (negative for a private contact). */
+    private val ref = MutableStateFlow<ContactRef?>(null)
 
     /** Bumped after a write the provider doesn't announce (default number, send to voicemail…). */
     private val reloads = MutableStateFlow(0)
@@ -99,7 +130,7 @@ class ContactDetailViewModel(private val c: DataContainer) : ViewModel() {
     val events: Flow<String> = messages.receiveAsFlow()
 
     fun start(id: Long) {
-        contactId.value = id
+        ref.value = ContactRef.ofNavId(id)
     }
 
     fun reload() {
@@ -107,10 +138,20 @@ class ContactDetailViewModel(private val c: DataContainer) : ViewModel() {
     }
 
     /** The contact (re-read whenever the contacts change), its messenger rows and its other fields. */
-    private data class Loaded(val details: ContactDetails?, val messengers: List<MessengerAction>, val otherFields: List<OtherFields.Field>)
+    private data class Loaded(
+        val details: ContactDetails?,
+        val messengers: List<MessengerAction>,
+        val otherFields: List<OtherFields.Field>,
+        val ref: ContactRef,
+        val access: PrivateAccess = PrivateAccess.OPEN,
+        /** A private contact's expiry and call-history choice (a device contact's is in [TemporaryContactEntity]). */
+        val privateExpiry: Pair<Long, Boolean>? = null,
+    )
 
-    private val loaded: StateFlow<Loaded?> = combine(contactId.filterNotNull(), c.contacts.contacts, reloads) { id, _, _ -> id }
-        .mapLatest { id ->
+    private val loaded: StateFlow<Loaded?> = combine(ref.filterNotNull(), c.contacts.contacts, c.vault.contacts, reloads) { r, _, _, _ -> r }
+        .mapLatest { r ->
+            if (r is ContactRef.Private) return@mapLatest loadPrivate(r)
+            val id = (r as ContactRef.Device).contactId
             val details = c.contacts.details(id)
             val messengers = withContext(Dispatchers.IO) { runCatching { Messengers.actions(c.appContext, id) }.getOrDefault(emptyList()) }
             val other = withContext(Dispatchers.IO) {
@@ -121,8 +162,35 @@ class ContactDetailViewModel(private val c: DataContainer) : ViewModel() {
                     }.distinctBy { it.label to it.value }
                 }.getOrDefault(emptyList())
             }
-            Loaded(details, messengers, other)
+            Loaded(details, messengers, other, r)
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_AFTER_MS), null)
+
+    /**
+     * A private contact from the vault, shaped like a device contact for the page: its Parley key
+     * ([ContactRef.privateKey]) as lookup key, so notes, the Circle, logged moments and the call-screen picture are
+     * found the same way, and its in-app photo. Locked: only what the caller-ID copy holds (name, numbers), which
+     * calls show anyway; everything else waits for the unlock, with VaultCrypto's locking unchanged.
+     */
+    private suspend fun loadPrivate(r: ContactRef.Private): Loaded {
+        val summary = c.vault.summariesNow().firstOrNull { it.id == r.vaultId } ?: return Loaded(null, emptyList(), emptyList(), r)
+        val expiry = summary.expiresAt?.let { it to summary.purgeHistory }
+        fun forPage(d: ContactDetails) = d.copy(id = r.navId, lookupKey = ContactRef.privateKey(r.vaultId), photoUri = c.vault.photoUri(r.vaultId))
+        val locked = forPage(
+            ContactDetails(
+                displayName = summary.name, given = summary.name, starred = summary.starred,
+                phones = summary.numbers.map { DataItem(null, it, android.provider.ContactsContract.CommonDataKinds.Phone.TYPE_MOBILE, null) },
+            ),
+        )
+        return try {
+            val d = c.vault.details(r.vaultId) ?: return Loaded(null, emptyList(), emptyList(), r)
+            val lost = c.vault.detailsLost(r.vaultId)
+            Loaded(forPage(d), emptyList(), emptyList(), r, if (lost) PrivateAccess.LOST else PrivateAccess.OPEN, expiry)
+        } catch (_: VaultCrypto.LockedException) {
+            Loaded(locked, emptyList(), emptyList(), r, PrivateAccess.LOCKED, expiry)
+        } catch (_: VaultCrypto.KeyUnavailableException) {
+            Loaded(locked, emptyList(), emptyList(), r, PrivateAccess.UNAVAILABLE, expiry)
+        }
+    }
 
     private val lookupKey = loaded.map { it?.details?.lookupKey.orEmpty() }.distinctUntilChanged()
     private val phones = loaded.map { it?.details?.phones.orEmpty().map { p -> p.value } }.distinctUntilChanged()
@@ -130,16 +198,34 @@ class ContactDetailViewModel(private val c: DataContainer) : ViewModel() {
     /** Call notes are stored under each line's key, or under the old last-digits key until migrated. */
     private val numberKeys = phones.map { list -> list.flatMap { PhoneIdentity.lookupKeys(it, countryIso) }.toSet() }.distinctUntilChanged()
 
-    private val meta = lookupKey.flatMapLatest { k -> if (k.isEmpty()) flowOf(null) else c.meta.metaFlow(k) }
-    private val temporary = lookupKey.flatMapLatest { k -> if (k.isEmpty()) flowOf(null) else c.meta.temporaryFlow(k) }
+    /**
+     * Parley's row for them. A private contact's note for calls and usual app live in its sealed vault entry (the call
+     * screen reads the note from there while the phone is locked), so they are read from its details instead.
+     */
+    private val meta = combine(lookupKey.flatMapLatest { k -> if (k.isEmpty()) flowOf(null) else c.meta.metaFlow(k) }, loaded) { m, l ->
+        val d = l?.details
+        if (l?.ref !is ContactRef.Private || d == null) return@combine m
+        if (l.access != PrivateAccess.OPEN && l.access != PrivateAccess.LOST) return@combine m
+        (m ?: ContactMetaEntity(d.lookupKey, contactId = d.id)).copy(
+            pinnedNote = d.pinnedNote.ifBlank { null }, preferredMessenger = d.messengerPrefs.ifBlank { null },
+        )
+    }
+
+    /** When they delete themselves: the temporary-contacts table for a device contact, the vault entry for a private one. */
+    private val temporary = combine(lookupKey.flatMapLatest { k -> if (k.isEmpty()) flowOf(null) else c.meta.temporaryFlow(k) }, loaded) { t, l ->
+        val (at, purge) = l?.privateExpiry ?: return@combine t.takeIf { l?.ref !is ContactRef.Private }
+        TemporaryContactEntity(l.details?.lookupKey.orEmpty(), l.ref.navId, at, purge)
+    }
 
     // Logged interactions for the timeline and the Stay in touch card.
     private val interactions = lookupKey.flatMapLatest { k -> if (k.isEmpty()) flowOf(emptyList()) else c.circle.interactions.interactions(k) }
     private val notes = numberKeys.flatMapLatest { keys -> if (keys.isEmpty()) flowOf(emptyList()) else c.meta.callNotesAny(keys.toList()) }
 
     // Same line by E.164 (read with this phone's country), not by the last 9 digits.
-    private val history = combine(phones, c.history.calls) { mine, calls ->
-        if (mine.isEmpty()) emptyList() else PhoneIdentity.LineSet(mine, countryIso).let { set -> calls.orEmpty().filter { e -> e.number in set } }
+    // A private contact's calls are in its private call history (or still in the phone's, before they're moved).
+    private val history = combine(phones, c.history.calls, c.history.callsWithPrivate, ref) { mine, calls, withPrivate, r ->
+        val all = if (r is ContactRef.Private) withPrivate else calls
+        if (mine.isEmpty()) emptyList() else PhoneIdentity.LineSet(mine, countryIso).let { set -> all.orEmpty().filter { e -> e.number in set } }
     }.flowOn(Dispatchers.Default)
 
     private data class Personal(val meta: ContactMetaEntity?, val interactions: List<Interaction>, val notes: List<CallNoteEntity>, val temporary: TemporaryContactEntity?)
@@ -154,17 +240,22 @@ class ContactDetailViewModel(private val c: DataContainer) : ViewModel() {
         if (l == null) {
             ContactDetailUiState()
         } else {
+            val privateIndex = if (l.ref is ContactRef.Private && h.isNotEmpty()) CallLogIndex.build(h, null, countryIso, ZoneId.systemDefault()) else null
             ContactDetailUiState(
                 loaded = true, details = l.details, meta = p.meta, interactions = p.interactions, history = h, notes = p.notes,
                 messengers = l.messengers, otherFields = l.otherFields, temporary = p.temporary, simPrefs = sims, memory = mem,
+                ref = l.ref, access = l.access, privateIndex = privateIndex,
             )
         }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_AFTER_MS), ContactDetailUiState())
+    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_AFTER_MS), ContactDetailUiState())
 
     val circleConfig = c.circle.config
 
     private val current: ContactDetails? get() = state.value.details
-    private val id: Long get() = contactId.value ?: 0L
+
+    /** The route's id: the contact id, or the negated vault id of a private contact. */
+    private val id: Long get() = ref.value?.navId ?: 0L
+    private val vaultId: Long? get() = (ref.value as? ContactRef.Private)?.vaultId
 
     private fun say(res: Int, vararg args: Any) {
         messages.trySend(c.appContext.getString(res, *args))
@@ -172,7 +263,30 @@ class ContactDetailViewModel(private val c: DataContainer) : ViewModel() {
 
     // ---------------------------------------------------------------- actions
 
-    fun setStarred(on: Boolean) = launch { c.contacts.setStarred(id, on) }
+    /**
+     * Changes a private contact's sealed details: read fresh from the vault (never the page's copy, which carries its
+     * Parley key and in-app photo), changed, saved back with its expiry kept. Needs the vault unlocked.
+     */
+    private suspend fun updatePrivate(change: (ContactDetails) -> ContactDetails): Boolean {
+        val v = vaultId ?: return false
+        return try {
+            val d = c.vault.details(v) ?: return false
+            c.vault.save(v, change(d))
+            reload()
+            true
+        } catch (_: VaultCrypto.LockedException) {
+            say(R.string.contact_unlock_to_change)
+            false
+        } catch (_: VaultCrypto.KeyUnavailableException) {
+            say(R.string.vault_details_unavailable)
+            false
+        }
+    }
+
+    /** Favourites: the address book's star, or Parley's own for a private contact (other apps never see it). */
+    fun setStarred(on: Boolean) = launch {
+        if (vaultId != null) updatePrivate { it.copy(starred = on) } else c.contacts.setStarred(id, on)
+    }
 
     fun setRingtone(uri: Uri?) = launch { c.contacts.setRingtone(id, uri?.toString()) }
 
@@ -191,6 +305,14 @@ class ContactDetailViewModel(private val c: DataContainer) : ViewModel() {
 
     /** Makes [item] the default of its kind, or clears the default. */
     fun setDefault(item: DataItem, mime: String, on: Boolean) = launch {
+        if (vaultId != null) {
+            // Kept in the sealed details: the chosen row is marked primary among its kind.
+            fun mark(list: List<DataItem>) = list.map { it.copy(isPrimary = on && it.value == item.value) }
+            val email = mime == android.provider.ContactsContract.CommonDataKinds.Email.CONTENT_ITEM_TYPE
+            val ok = updatePrivate { d -> if (email) d.copy(emails = mark(d.emails)) else d.copy(phones = mark(d.phones)) }
+            if (ok) say(if (on) R.string.detail_default_set else R.string.detail_default_removed)
+            return@launch
+        }
         val dataId = item.id ?: return@launch
         val ok = if (on) c.contacts.setDefault(dataId) else c.contacts.clearDefault(id, mime)
         say(
@@ -205,6 +327,11 @@ class ContactDetailViewModel(private val c: DataContainer) : ViewModel() {
 
     /** The note shown when they call; blank removes it. */
     fun setPinnedNote(text: String) = launch {
+        // A private contact's note is sealed with it and copied for the call screen (VaultRepository.save).
+        if (vaultId != null) {
+            updatePrivate { it.copy(pinnedNote = text.trim()) }
+            return@launch
+        }
         val key = current?.lookupKey?.takeIf { it.isNotEmpty() } ?: return@launch
         // The contact id is kept beside the key so the row can follow a key change. Targeted writes, so the
         // Circle's dialog (which writes the same row) never loses an update.
@@ -213,6 +340,10 @@ class ContactDetailViewModel(private val c: DataContainer) : ViewModel() {
     }
 
     fun setMessengerPrefs(p: MessengerPrefs) = launch {
+        if (vaultId != null) {
+            updatePrivate { it.copy(messengerPrefs = p.encode().orEmpty()) }
+            return@launch
+        }
         val key = current?.lookupKey?.takeIf { it.isNotEmpty() } ?: return@launch
         c.meta.ensureMeta(key, id)
         c.meta.setPreferredMessenger(key, id, p.encode())
@@ -230,7 +361,19 @@ class ContactDetailViewModel(private val c: DataContainer) : ViewModel() {
     /** "Delete after…" (null: keep them). */
     fun setExpiry(days: Int?) = launch {
         val d = current ?: return@launch
-        if (days == null) c.temporaries.clear(d.lookupKey) else c.temporaries.mark(id, days, purgeHistory = true)
+        val v = vaultId
+        when {
+            // A private contact's expiry is its vault entry's own; its call history goes with it, as for others.
+            v != null && days == null -> c.vault.setExpiry(v, null)
+            v != null -> {
+                val at = System.currentTimeMillis() + days!! * app.parley.common.people.TemporaryChoice.DAY_MS
+                val sealed = suspendRunCatching { c.vault.details(v) }.getOrNull()
+                if (sealed != null) c.vault.save(v, sealed, expiresAt = at, purgeHistory = true) else c.vault.setExpiry(v, at)
+            }
+            days == null -> c.temporaries.clear(d.lookupKey)
+            else -> c.temporaries.mark(id, days, purgeHistory = true)
+        }
+        reload()
         messages.trySend(
             if (days == null) c.appContext.getString(R.string.detail_kept)
             else c.appContext.resources.getQuantityString(R.plurals.detail_deletes_in_days, days, days),
@@ -252,14 +395,37 @@ class ContactDetailViewModel(private val c: DataContainer) : ViewModel() {
         }
     }
 
-    /** After a move into the vault: the metadata is kept encrypted with them, so no plaintext copy stays. */
-    suspend fun forgetMeta(lookupKey: String) {
-        if (state.value.meta != null) c.meta.deleteMeta(lookupKey)
+    /** A private contact whose detail key is gone for good: keep the name, numbers and caller card under the new key. */
+    fun keepWhatIsLeft() = launch {
+        val v = vaultId ?: return@launch
+        if (c.vault.keepWhatIsLeft(v)) say(R.string.vault_details_kept)
+        reload()
+    }
+
+    /** Deletes this private contact with everything Parley kept about it; [then] runs once done. */
+    fun deletePrivate(then: () -> Unit) = launch {
+        val v = vaultId ?: return@launch
+        ContactConversions(c).deletePrivate(v)
+        then()
+    }
+
+    /**
+     * "Make visible to other apps": back to the address book (lossless, re-keyed). Throws
+     * [VaultCrypto.LockedException] when the vault must be unlocked first. Returns the new contact id, or null.
+     */
+    suspend fun makeVisible(account: app.parley.data.AccountRef): Long? {
+        val v = vaultId ?: return null
+        val d = c.vault.details(v) ?: return null
+        return ContactConversions(c).makeVisible(v, d, account)
     }
 
     /** A relation's contact: by the remembered lookup key first, then by name; several namesakes: ask. */
     fun openRelation(name: String, onResult: (RelationTarget) -> Unit) = launch {
         val link = RelationLinks.decode(state.value.meta?.relationLinks)[RelationLinks.nameKey(name)]
+        // A link to a private contact follows its private key, never the address book.
+        ContactRef.vaultIdOf(link?.lookupKey)?.let { v ->
+            if (c.vault.summariesNow().any { it.id == v }) return@launch onResult(RelationTarget.Contact(ContactRef.Private(v).navId))
+        }
         val all = c.directory.contacts.value ?: c.contacts.snapshot()
         val target = withContext(Dispatchers.IO) {
             RelationLinks.resolve(name, link, { l -> c.contacts.currentOf(l.lookupKey, l.contactId)?.first }, all.map { it.id to it.displayName }, self = id)

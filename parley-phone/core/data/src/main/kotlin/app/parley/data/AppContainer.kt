@@ -129,6 +129,7 @@ class DataContainer(context: Context) {
         BackupRepository(appContext, contacts, records, blocks, prefs, db, settings, vault, BackupPrefs(appContext), callLog)
             .apply { callHistory = history }
             .also { it.extras = { backupParts } }
+            .also { it.privateExtras = contactKeys }
     }
     /**
      * Every feature part of the backup. Each names the [app.parley.common.storage.PersistentStores] sections it writes;

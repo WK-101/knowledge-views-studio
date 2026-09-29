@@ -131,6 +131,8 @@ class MaintenanceWorker(context: Context, params: WorkerParameters) : CoroutineW
             for (v in step("expired vault entries") { c.vault.expiredEntries(now) }.orEmpty()) {
                 // A failed delete keeps the entry, and with it the history of its numbers.
                 if (step("vault delete") { c.vault.delete(v.id); true } != true) continue
+                // What Parley kept about them (Circle, moments, call-screen picture) goes with them.
+                step("private extras") { c.contactKeys.forget(app.parley.common.people.ContactRef.privateKey(v.id)); true }
                 v.numbers.forEach { n ->
                     val otherOwner = runCatching { c.contacts.isContact(n) != false || c.vault.lookup(n) != null }.getOrDefault(true)
                     if (otherOwner) return@forEach

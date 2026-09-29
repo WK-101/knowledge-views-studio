@@ -39,6 +39,8 @@ class PeopleUi(
     contacts: StateFlow<List<ContactSummary>?>,
     query: StateFlow<String>,
     private val countryIso: String,
+    /** The "Private" filter chip: only private contacts (negative ids) are listed. */
+    privateOnly: StateFlow<Boolean> = MutableStateFlow(false),
 ) {
     val settings: StateFlow<PeopleSettings> = c.people.prefs.settings
     val index: StateFlow<PeopleIndexData> = c.people.index.data
@@ -55,7 +57,7 @@ class PeopleUi(
      * Contacts with nickname display applied, filtered by search, labels and account, with I8's "Matched: address"
      * hints for contacts found by a field other than the name or number.
      */
-    private val searched: StateFlow<Pair<List<ContactSummary>, Map<Long, String>>?> = combine(contacts, query.debounce(80), filter, index, settings) { list, q, f, idx, s ->
+    private val searched: StateFlow<Pair<List<ContactSummary>, Map<Long, String>>?> = combine(contacts.combine(privateOnly) { l, only -> if (only) l?.filter { it.id < 0 } else l }, query.debounce(80), filter, index, settings) { list, q, f, idx, s ->
         list ?: return@combine null
         val f2 = f.copy(matchAll = s.labelMatchAll)
         val hints = HashMap<Long, String>()
