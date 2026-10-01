@@ -68,6 +68,18 @@
         <intent>
             <action android:name="android.provider.action.PICK_IMAGES" />
         </intent>
+        <!-- R110 addon bridge: see satellite addons that expose the Hexis bridge provider + their
+             consent activity, and any installed Open Transcribe-compatible transcriber (Phase 3).
+             All local IPC; no network, no new permission. -->
+        <intent>
+            <action android:name="com.wkhan.hexis.bridge.PROVIDER" />
+        </intent>
+        <intent>
+            <action android:name="com.wkhan.hexis.bridge.CONSENT" />
+        </intent>
+        <intent>
+            <action android:name="org.opentranscribe.api.ITranscriptionService" />
+        </intent>
     </queries>
 
     <application

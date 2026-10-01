@@ -1,3 +1,6 @@
+import java.io.FileInputStream
+import java.util.Properties
+
 // :voice-addon — the Hexis Voice satellite (Phase 1), a separate installable APK.
 //
 // It holds RECORD_AUDIO (which the core never does), captures the mic in its own process, and returns
@@ -11,6 +14,16 @@ plugins {
     id("org.jetbrains.kotlin.plugin.serialization")
 }
 
+// Signing: the addon must ship under the SAME Hexis keyset as the core so the two trust each other
+// in release builds (the core pins that keyset). Credentials come from a local keystore.properties or
+// CI env vars; absent either, release falls back to the debug key so a build always succeeds.
+val keystorePropsFile = rootProject.file("keystore.properties")
+val keystoreProps = Properties().apply {
+    if (keystorePropsFile.exists()) FileInputStream(keystorePropsFile).use { load(it) }
+}
+fun signingValue(propKey: String, envKey: String): String? =
+    keystoreProps.getProperty(propKey) ?: System.getenv(envKey)
+
 android {
     namespace = "com.wkhan.hexis.voice"
     compileSdk = 35
@@ -22,6 +35,26 @@ android {
         versionCode = 1
         versionName = "0.1.0"
         resourceConfigurations += listOf("en")
+    }
+
+    signingConfigs {
+        val storePathValue = signingValue("storeFile", "KEYSTORE_FILE")
+        val storeFileResolved = storePathValue?.let { rootProject.file(it) }
+        if (storeFileResolved != null && storeFileResolved.exists()) {
+            create("release") {
+                storeFile = storeFileResolved
+                storePassword = signingValue("storePassword", "KEYSTORE_PASSWORD")
+                keyAlias = signingValue("keyAlias", "KEY_ALIAS")
+                keyPassword = signingValue("keyPassword", "KEY_PASSWORD")
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            // The addon is tiny; no R8 needed. Sign with the Hexis release key when available, else debug.
+            signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
+        }
     }
 
     buildFeatures {
