@@ -25,7 +25,7 @@ enum class SettingsCategory(val title: String, val summary: String) {
  * Screens outside the category pages that hold settings or tools. Settings search opens them for their entries, so
  * every setting is searchable wherever it lives.
  */
-enum class SettingPlace { TOOLS, BLOCKING, DELETED_CALLS, SIMS, CONTACT_PAGE, SIMPLE_MODE, CALL_TIME, BACKUP, SYNC }
+enum class SettingPlace { TOOLS, BLOCKING, DELETED_CALLS, SIMS, CONTACT_PAGE, SIMPLE_MODE, CALL_TIME, BACKUP, SYNC, TEMPORARY }
 
 /**
  * One searchable setting, identified by its stable [key]. In [SettingsCatalog], [title], [summary] and [keywords]
@@ -175,6 +175,12 @@ object SettingsCatalog {
         e("mirror_relations", "Add relations to both contacts", "\"Mother: Ana\" here adds \"Child\" on Ana's contact", P,
             "relation", "relationship", "two-way", "both ways", "reciprocal", "family", "mirror", "spouse", "parent", "child"),
         e("temporary_contacts", "Temporary contacts", "Contacts that delete themselves after a while", P, "temp", "expire", "expiry", "self-destruct", "delete automatically"),
+        // On the Temporary contacts screen, beside the contacts it's about.
+        at(
+            SettingPlace.TEMPORARY, "temp_ask_first", "Ask before deleting temporary contacts",
+            "When their time is up, one notification asks: delete, keep 7 more days or keep", P,
+            "temporary", "temp", "expire", "expiry", "confirm", "ask", "delete automatically", "keep",
+        ),
         e("duplicates", "Find & merge duplicates", "Contacts saved twice", P, "merge", "duplicate", "dedupe", "join"),
         e("health", "Contact health check", "Numbers without country code, empty and stale contacts", P, "tidy", "clean up", "fix", "cleanup"),
         e("contact_page", "Contact page sections", "Order, fold or hide the sections of a contact's page", P,

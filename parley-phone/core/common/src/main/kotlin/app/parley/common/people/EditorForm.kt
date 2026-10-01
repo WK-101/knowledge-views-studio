@@ -35,11 +35,20 @@ object EditorForm {
      */
     fun typeBelow(fieldWidthDp: Float, fontScale: Float): Boolean = fieldWidthDp < MIN_TYPED_FIELD_DP || fontScale >= LARGE_FONT
 
-    /** The photo sits beside the name fields, or above them on a narrow screen or with a large font. */
-    fun photoBesideName(widthDp: Float, fontScale: Float): Boolean = widthDp >= MIN_BESIDE_DP && fontScale < LARGE_FONT
+    /**
+     * The kinds "My card" can hold (it's your own card, shared as a QR code or vCard): the fields of [MeCard]. Dates,
+     * relations, handles, labels and the call-screen picture belong to other people's contacts.
+     */
+    val meCardKinds: Set<Kind> = setOf(Kind.PHONE, Kind.EMAIL, Kind.WORK, Kind.ADDRESS, Kind.WEBSITE, Kind.NOTE)
+
+    /**
+     * The "Add" chips for My card: [addChoices] within [meCardKinds], and a single address (the card has one address
+     * line) once one is on screen ([hasAddress]).
+     */
+    fun meCardChoices(shown: Set<Kind>, withBlankRow: Set<Kind>, hasAddress: Boolean): List<Kind> =
+        addChoices(shown, withBlankRow, if (hasAddress) meCardKinds - Kind.ADDRESS else meCardKinds)
 
     private const val MIN_TYPED_FIELD_DP = 232f
-    private const val MIN_BESIDE_DP = 300f
     private const val LARGE_FONT = 1.3f
 
     /**

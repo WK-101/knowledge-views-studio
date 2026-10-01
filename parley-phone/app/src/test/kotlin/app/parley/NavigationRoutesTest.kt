@@ -112,6 +112,7 @@ class NavigationRoutesTest {
             IntentRoutes.ACTION_OPEN_BACKUP to Routes.Backup,
             IntentRoutes.ACTION_OPEN_BLOCKING to Routes.Blocking,
             IntentRoutes.ACTION_OPEN_SYNC to Routes.Sync,
+            IntentRoutes.ACTION_OPEN_TEMPORARY to Routes.Temporary,
             IntentRoutes.ACTION_BULK_ADD to MessagingRoutes.BulkAdd,
             IntentRoutes.ACTION_SCAN_QR to QrRoutes.Scan,
         )
@@ -200,7 +201,7 @@ class NavigationRoutesTest {
             HistoryRoutes.Insights, HistoryRoutes.Settings, HistoryRoutes.Import, HistoryRoutes.Sims, HistoryRoutes.sim("sim/1"),
             BlockingRoutes.Lists, BlockingRoutes.Transfer, BlockingRoutes.DryRun, BlockingRoutes.Templates, BlockingRoutes.rule(5),
             PeopleRoutes.Labels, PeopleRoutes.label("Work"), PeopleRoutes.editRaw(6, 7), PeopleRoutes.SimImport, PeopleRoutes.WhoCanSee,
-            PeopleRoutes.PrivateNames, PeopleRoutes.Diagnostics, PeopleRoutes.Me,
+            PeopleRoutes.PrivateNames, PeopleRoutes.Diagnostics, PeopleRoutes.Me, PeopleRoutes.MeEdit,
             MessagingRoutes.Messaged, MessagingRoutes.BulkAdd, MessagingRoutes.Introduce, MessagingRoutes.CsvMapping,
             ExtrasRoutes.Trip, ExtrasRoutes.SimpleSetup, ExtrasRoutes.SimpleImport, QrRoutes.Scan,
         )

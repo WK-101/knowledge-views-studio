@@ -56,6 +56,8 @@ data class AppSettings(
     val contactRowActions: Boolean = false,
     /** A relation with another saved contact is added to that contact too, with the opposite type. */
     val mirrorRelations: Boolean = true,
+    /** A temporary contact whose time is up waits for your "Delete" (one notification asks); off: deleted at once. */
+    val askBeforeDeletingTemporary: Boolean = true,
     /** Order and visibility of the home tabs (bottom bar and navigation rail). */
     val navTabs: NavTabs = NavTabs(),
     /** Grouped (as before), every call on its own row, or one row per number per day. */

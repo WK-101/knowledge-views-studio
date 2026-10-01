@@ -54,6 +54,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
@@ -129,6 +130,10 @@ import app.parley.common.photo.OriginalPhoto
 import app.parley.common.people.HandleLink
 import app.parley.common.people.LifeEvents
 import app.parley.common.people.MessageRoute
+import app.parley.common.people.MessageRoutes
+import androidx.compose.foundation.Image
+import androidx.core.graphics.drawable.toBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import app.parley.common.people.MessengerPrefs
 import app.parley.common.people.RelationTypes
 import app.parley.common.ux.Tips
@@ -339,6 +344,14 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
         }
     }
 
+    // A number's own Message button: a message to that number (the usual chat app, or a text), never the sheet; the
+    // row's "Message or call on…" button is the one that opens it.
+    fun messageNumber(dd: ContactDetails, number: String) {
+        val r = reach(dd).copy(defaultNumber = number)
+        val route = MessageRoutes.forNumber(r.prefs, r.linked, ContactMessaging.installed(context), number)
+        ContactMessaging.open(context, route, r)?.let { vm.toast(it) }
+    }
+
     ParleyScaffold(
         topBar = {
             ParleyTopBar(
@@ -504,8 +517,12 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                             canDefault = d.phones.size > 1 && p.id != null,
                             multiSim = sims.size > 1,
                             hasApps = apps.isNotEmpty(),
+                            // Its icon on the Message button only while it's there to open (else a text is sent).
+                            usualApp = remember(prefs.message) {
+                                prefs.message?.let(MessengerApp::forPackage)?.takeIf { it.packageName in ContactMessaging.installed(context) }
+                            },
                             onCall = { callPeek(p.value, d.displayName) },
-                            onMessage = { message(d, p.value) },
+                            onMessage = { messageNumber(d, p.value) },
                             onMessageOn = { messageSheet = p.value },
                             onSim = { simFor = p.value },
                             onDefault = { on -> page.setDefault(p, Phone.CONTENT_ITEM_TYPE, on) },
@@ -1116,8 +1133,13 @@ private fun DefaultMenuItem(isDefault: Boolean, onSet: (Boolean) -> Unit) {
 }
 
 /**
- * One number: tap calls. Trailing: "Message or call on…" when apps reach this number (their names are in the
- * supporting line) and Message. Long-press: copy, default, message or call on…, edit before calling, SIM.
+ * One number: tap calls. Trailing, each doing one thing: "Message or call on…" (the apps grid, only when apps reach
+ * this number; their names are in the supporting line) opens the sheet of every way to reach it, and Message sends a
+ * message to this number straight away: with the contact's usual chat app ([usualApp], whose icon it then shows), or
+ * as a text. Long-press: copy, default, message or call on…, edit before calling, SIM.
+ *
+ * Google Contacts shows only a message icon on a number; Parley keeps the second button only where apps reach the
+ * number, because that's where the sheet has more to offer than a text (calls and chats in those apps).
  */
 @Composable
 private fun PhoneRow(
@@ -1128,18 +1150,26 @@ private fun PhoneRow(
     canDefault: Boolean,
     multiSim: Boolean,
     hasApps: Boolean,
+    usualApp: MessengerApp?,
     onCall: () -> Unit,
     onMessage: () -> Unit,
     onMessageOn: () -> Unit,
     onSim: () -> Unit,
     onDefault: (Boolean) -> Unit,
 ) {
+    val shown = Bidi.ltr(Format.number(p.value, vm.countryIso))
     GroupDataRow(
         Icons.Rounded.Call, first, p.value, label, onClick = onCall,
-        headline = { Text(Bidi.ltr(Format.number(p.value, vm.countryIso))) },
+        headline = { Text(shown) },
         trailing = {
-            if (hasApps) IconButton(onMessageOn) { Icon(Icons.Rounded.Apps, stringResource(R.string.reach_message_or_call_on)) }
-            IconButton(onMessage) { Icon(Icons.AutoMirrored.Rounded.Chat, stringResource(R.string.detail_message_number)) }
+            if (hasApps) IconButton(onMessageOn) { Icon(Icons.Rounded.Apps, stringResource(R.string.detail_reach_number, shown)) }
+            IconButton(onMessage) {
+                if (usualApp != null) {
+                    UsualAppIcon(usualApp, stringResource(R.string.detail_message_number_on, shown, usualApp.label))
+                } else {
+                    Icon(Icons.AutoMirrored.Rounded.Chat, stringResource(R.string.detail_text_number, shown))
+                }
+            }
         },
         menu = { close ->
             if (canDefault) DefaultMenuItem(p.isPrimary) { on -> close(); onDefault(on) }
@@ -1158,4 +1188,14 @@ fun Section(title: String) {
         HorizontalDivider(Modifier.padding(top = Spacing.s), color = MaterialTheme.colorScheme.surfaceContainerHigh)
         ListSectionHeader(title, top = Spacing.m)
     }
+}
+
+/** The usual chat app's own icon on a number's Message button (the chat bubble when it can't be read). */
+@Composable
+private fun UsualAppIcon(app: MessengerApp, description: String) {
+    val context = LocalContext.current
+    val bmp = remember(app.packageName) {
+        runCatching { context.packageManager.getApplicationIcon(app.packageName).toBitmap(72, 72).asImageBitmap() }.getOrNull()
+    }
+    if (bmp != null) Image(bmp, description, Modifier.size(24.dp)) else Icon(Icons.AutoMirrored.Rounded.Chat, description)
 }

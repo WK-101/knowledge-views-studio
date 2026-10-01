@@ -24,6 +24,8 @@ import androidx.compose.material.icons.rounded.PushPin
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
@@ -46,9 +48,11 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.parley.R
 import app.parley.common.people.ExpiryChange
+import app.parley.common.people.MeCards
 import app.parley.common.people.TemporaryChoice
 import app.parley.data.AccountRef
 import app.parley.ui.ConfirmDialog
@@ -146,7 +150,7 @@ private fun MenuChip(
     Box {
         AssistChip(
             onClick = { open = true },
-            label = { Text(text, maxLines = 2) },
+            label = { Text(text, maxLines = 1, overflow = TextOverflow.Ellipsis) },
             leadingIcon = { Icon(icon, null, Modifier.size(18.dp)) },
             trailingIcon = { Icon(Icons.Rounded.ArrowDropDown, null, Modifier.size(18.dp)) },
             shape = ParleyShapes.pill,
@@ -158,12 +162,21 @@ private fun MenuChip(
     }
 }
 
-/** The Save-to chip's current destination. */
+/**
+ * An account as the Save-to line names it: short and without counts ("Device", "Google · ana@example.com").
+ * How many contacts an account holds is noise while saving one; Settings › Contacts still shows it.
+ */
+internal fun accountName(a: AccountRef, device: String): String = when {
+    a.type == null || a.isLocal -> device
+    else -> a.displayLabel
+}
+
+/** The Save-to chip's current destination: "Device", "Google · ana@…", "Private" or "Temporary". */
 @Composable
 private fun destinationLabel(s: EditorSaveTo, label: (AccountRef) -> String): String = when {
-    s.temporaryNew -> stringResource(if (s.temporary.private) R.string.editor_temporary_private else R.string.editor_temporary_visible)
-    s.privateNew -> stringResource(R.string.edit_private_only)
-    else -> s.account?.let(label) ?: stringResource(R.string.edit_phone_only)
+    s.temporaryNew -> stringResource(R.string.editor_temporary)
+    s.privateNew -> stringResource(R.string.editor_save_private)
+    else -> s.account?.let(label) ?: stringResource(R.string.editor_account_device)
 }
 
 private fun destinationIcon(s: EditorSaveTo): ImageVector = when {
@@ -211,11 +224,11 @@ private fun DestinationChip(s: EditorSaveTo, label: (AccountRef) -> String, onAc
     }
 }
 
-/** A new temporary contact's time ("After 7 days ▾"), with its privacy and call-history choices in the same menu. */
+/** A new temporary contact's time ("7 days ▾"), with its privacy and call-history choices in the same menu. */
 @Composable
 private fun TemporaryChip(t: TemporaryChoice, onChange: (TemporaryChoice) -> Unit) {
     var custom by rememberSaveable { mutableStateOf(false) }
-    val text = pluralStringResource(R.plurals.editor_temp_after, t.days, t.days)
+    val text = pluralStringResource(R.plurals.temp_n_days, t.days, t.days)
     MenuChip(Icons.Rounded.AutoDelete, text, stringResource(R.string.editor_change_expiry)) { close ->
         DurationItems(t.days, onPick = { d -> close(); onChange(t.copy(days = d)) }, onCustom = { close(); custom = true })
         HorizontalDivider()
@@ -309,3 +322,41 @@ private fun CustomDaysDialog(initial: Int, onDismiss: () -> Unit, onDone: (Int) 
         },
     )
 }
+
+/**
+ * My card's own option where a contact's Save-to line is: what its QR code and vCard include. The private note is
+ * never shared, so it isn't offered.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+internal fun MeShareLine(parts: Set<MeCards.Part>, onToggle: (MeCards.Part) -> Unit) {
+    Column {
+        Text(
+            stringResource(R.string.me_share_includes), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(start = 4.dp, top = 4.dp),
+        )
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            MeCards.Part.entries.forEach { p ->
+                val on = p in parts
+                FilterChip(
+                    on, { onToggle(p) }, label = { Text(mePartLabel(p)) },
+                    leadingIcon = if (on) { { Icon(Icons.Rounded.Check, null, Modifier.size(FilterChipDefaults.IconSize)) } } else null,
+                    shape = ParleyShapes.pill,
+                )
+            }
+        }
+    }
+}
+
+/** The name of one part of My card, as the QR dialog and the editor list them. */
+@Composable
+internal fun mePartLabel(p: MeCards.Part): String = stringResource(
+    when (p) {
+        MeCards.Part.NAME -> R.string.me_name
+        MeCards.Part.PHONES -> R.string.me_numbers
+        MeCards.Part.EMAILS -> R.string.me_email
+        MeCards.Part.WORK -> R.string.me_part_work
+        MeCards.Part.WEBSITES -> R.string.me_websites
+        MeCards.Part.ADDRESS -> R.string.me_address
+    },
+)

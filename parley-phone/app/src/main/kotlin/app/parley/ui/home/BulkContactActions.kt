@@ -9,6 +9,7 @@ import app.parley.data.DataContainer
 import app.parley.data.GroupInfo
 import app.parley.data.vault.VaultCrypto
 import app.parley.ui.contact.ContactConversions
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -59,6 +60,65 @@ class BulkContactActions(private val c: DataContainer) {
         }
         c.contacts.refresh()
     }
+
+    /** What a bulk "Move to private" did: how many moved, who couldn't be (by list id and name), and sync notes. */
+    data class MovedPrivate(
+        val moved: Int,
+        val failed: List<Pair<Long, String>>,
+        val removedAfterSync: Boolean = false,
+        val messengerCopies: Boolean = false,
+    )
+
+    /**
+     * "Move to private" for the device contacts among [ids], one at a time, the same conversion as the page's
+     * ([ContactConversions.makePrivate]); [names] names them in the result, [onProgress] gets (done, total).
+     *
+     * A contact that can't be moved (gone, unreadable, a failed write) is listed in the result and the others still
+     * move. A locked vault stops the batch with [BulkLocked] before the contact it was about to move (nothing of it
+     * changed), so the caller can unlock and go on with [BulkLocked.remaining], passing [BulkLocked.soFar] as [already].
+     */
+    suspend fun makePrivate(
+        ids: Collection<Long>,
+        names: Map<Long, String>,
+        already: MovedPrivate = MovedPrivate(0, emptyList()),
+        onProgress: (done: Int, total: Int) -> Unit = { _, _ -> },
+    ): MovedPrivate {
+        val device = BulkActions.targets(BulkAction.MAKE_PRIVATE, ids).ids
+        val conversions = ContactConversions(c)
+        var moved = already.moved
+        val failed = already.failed.toMutableList()
+        var afterSync = already.removedAfterSync
+        var messenger = already.messengerCopies
+        // Progress counts the whole batch, also across an unlock.
+        val base = already.moved + already.failed.size
+        val total = base + device.size
+        for ((i, id) in device.withIndex()) {
+            onProgress(base + i, total)
+            val d = withContext(Dispatchers.IO) { suspendRunCatching { c.contacts.details(id) }.getOrNull() }
+            if (d == null) {
+                failed += id to names[id].orEmpty()
+                continue
+            }
+            try {
+                val r = conversions.makePrivate(id, d)
+                moved++
+                afterSync = afterSync || r.removedAfterSync
+                messenger = messenger || r.messengerCopies
+            } catch (e: VaultCrypto.LockedException) {
+                throw BulkLocked(MovedPrivate(moved, failed.toList(), afterSync, messenger), device.drop(i), e)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                failed += id to (names[id] ?: d.displayName)
+            }
+        }
+        onProgress(total, total)
+        c.contacts.refresh()
+        return MovedPrivate(moved, failed, afterSync, messenger)
+    }
+
+    /** The vault must be unlocked before the batch can go on with [remaining]; [soFar] is what happened until then. */
+    class BulkLocked(val soFar: MovedPrivate, val remaining: List<Long>, cause: VaultCrypto.LockedException) : Exception(cause.message, cause)
 
     /**
      * Makes the private ones among [ids] visible to other apps (lossless, like the page's "Make visible"), into

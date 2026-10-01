@@ -23,6 +23,7 @@ import app.parley.container
 import app.parley.data.DataContainer
 import app.parley.blocking.ListsUpdaterClient
 import app.parley.blocking.SpamListWorker
+import app.parley.common.people.TemporaryDue
 import app.parley.data.people.TemporaryContactStore
 import app.parley.ui.history.ExportFiles
 import kotlinx.coroutines.CancellationException
@@ -114,21 +115,24 @@ class MaintenanceWorker(context: Context, params: WorkerParameters) : CoroutineW
                 Log.w(TAG, "Maintenance step failed: $name", e)
             }.getOrNull()
 
-        /** Returns notices to show about temporary contacts that were merged into someone else. */
-        suspend fun runHousekeeping(c: DataContainer): List<TemporaryContactStore.Notice> {
-            val now = System.currentTimeMillis()
-            val settings = c.settings.current()
-            // 0. Follow lookup-key changes first, so temporary entries and notes point at the right people.
-            step("lookup keys") { c.contactKeys.sweep() }
-            // Values stored plain while the records key couldn't be used are sealed once it can.
-            step("record sealing") { if (!c.recordSealing.done) c.recordSealing.runIfNeeded() }
+        /**
+         * Deletes the temporary contacts whose time is up at [now]: all of them, or only [onlyDevice] (lookup keys) and
+         * [onlyPrivate] (vault ids) when the user confirmed those. Returns notices about ones merged into someone else.
+         */
+        suspend fun expireTemporaries(
+            c: DataContainer,
+            now: Long,
+            onlyDevice: Set<String>? = null,
+            onlyPrivate: Set<Long>? = null,
+        ): List<TemporaryContactStore.Notice> {
             // 1. Temporary contacts: only the raw contacts Parley recorded are deleted; merged details stay.
-            val notices = step("temporary contacts") { c.temporaries.expire(now) }.orEmpty()
+            val notices = if (onlyDevice?.isEmpty() == true) emptyList() else step("temporary contacts") { c.temporaries.expire(now, onlyDevice) }.orEmpty()
             // 2. Expired vault entries
             //    (F5: private temporary contacts take their call history and "last messaged" entry with them)
             //    Only numbers nobody else has: not a phone contact (or unknown, without permission) and no other
             //    private contact; those keep their history.
-            for (v in step("expired vault entries") { c.vault.expiredEntries(now) }.orEmpty()) {
+            val expired = step("expired vault entries") { c.vault.expiredEntries(now) }.orEmpty().filter { onlyPrivate == null || it.id in onlyPrivate }
+            for (v in expired) {
                 // A failed delete keeps the entry, and with it the history of its numbers.
                 if (step("vault delete") { c.vault.delete(v.id); true } != true) continue
                 // What Parley kept about them (Circle, moments, call-screen picture) goes with them.
@@ -139,6 +143,25 @@ class MaintenanceWorker(context: Context, params: WorkerParameters) : CoroutineW
                     if (v.purgeHistory) runCatching { c.history.purgeNumber(n) }
                     runCatching { c.messaging.forget(n) }
                 }
+            }
+            return notices
+        }
+
+        /** Returns notices to show about temporary contacts that were merged into someone else. */
+        suspend fun runHousekeeping(c: DataContainer): List<TemporaryContactStore.Notice> {
+            val now = System.currentTimeMillis()
+            val settings = c.settings.current()
+            // 0. Follow lookup-key changes first, so temporary entries and notes point at the right people.
+            step("lookup keys") { c.contactKeys.sweep() }
+            // Values stored plain while the records key couldn't be used are sealed once it can.
+            step("record sealing") { if (!c.recordSealing.done) c.recordSealing.runIfNeeded() }
+            // 1-2. Temporary contacts whose time is up: with "Ask before deleting temporary contacts" (the default)
+            //      nothing is deleted here; one notification asks (DueTemporaries). Off, they go at once, as before.
+            val notices = if (TemporaryDue.deletesWithoutAsking(settings.askBeforeDeletingTemporary)) {
+                expireTemporaries(c, now)
+            } else {
+                step("due temporary contacts") { DueTemporaries.check(c, now) }
+                emptyList()
             }
             // Deleted private contacts are kept sealed for 30 days ("Recently deleted"), then go for good.
             step("private trash") { c.privateTrash.purge(now); true }

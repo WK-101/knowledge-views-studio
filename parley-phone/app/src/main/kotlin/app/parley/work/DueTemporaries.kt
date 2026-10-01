@@ -1,0 +1,144 @@
+package app.parley.work
+
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.edit
+import app.parley.MainActivity
+import app.parley.R
+import app.parley.common.NotificationChannels
+import app.parley.common.NotificationIds
+import app.parley.common.people.ContactRef
+import app.parley.common.people.TemporaryDue
+import app.parley.container
+import app.parley.data.DataContainer
+import app.parley.IntentRoutes
+import kotlinx.coroutines.launch
+
+/**
+ * Temporary contacts whose time is up, with "Ask before deleting temporary contacts" on (the default): nothing is
+ * deleted until you answer. The daily upkeep calls [check], which posts one notification ("1 temporary contact is
+ * due to be deleted": no name, so it's safe on the lock screen) with Delete, Keep 7 more days and Keep permanently;
+ * the Temporary contacts screen shows the same choice. Unanswered, they stay, and the question comes back every few
+ * days ([TemporaryDue.shouldNotify]). Contacts are named by their Parley key (lookup key, or a private contact's key).
+ */
+object DueTemporaries {
+    private const val PREFS = "temporary_due"
+    private const val K_ASKED = "asked"
+    private const val K_AT = "asked_at"
+    private const val ID = 900
+
+    /** Every due contact at [now], by Parley key. */
+    suspend fun dueKeys(c: DataContainer, now: Long): Set<String> {
+        val device = c.temporaries.due(now).map { it.lookupKey }
+        val private = c.vault.expired(now).map { ContactRef.privateKey(it) }
+        return (device + private).toSet()
+    }
+
+    /** The upkeep's step: asks once about what became due, reminds gently, and clears the question when nothing is due. */
+    suspend fun check(c: DataContainer, now: Long = System.currentTimeMillis()) {
+        val ctx = c.appContext
+        val prefs = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val due = dueKeys(c, now)
+        val asked = prefs.getStringSet(K_ASKED, emptySet()).orEmpty()
+        if (due.isEmpty()) {
+            if (asked.isNotEmpty()) prefs.edit { remove(K_ASKED); remove(K_AT) }
+            cancel(ctx)
+            return
+        }
+        if (!TemporaryDue.shouldNotify(due, asked, prefs.getLong(K_AT, 0L), now)) return
+        prefs.edit { putStringSet(K_ASKED, due); putLong(K_AT, now) }
+        notify(ctx, due.size)
+    }
+
+    /**
+     * Applies [decision] to the due contacts in [keys] (null: the ones the notification asked about). Only those still
+     * due are touched. Returns how many.
+     */
+    suspend fun decide(c: DataContainer, decision: TemporaryDue.Decision, keys: Set<String>? = null, now: Long = System.currentTimeMillis()): Int {
+        val ctx = c.appContext
+        val prefs = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val asked = prefs.getStringSet(K_ASKED, emptySet()).orEmpty()
+        val targets = TemporaryDue.targets(keys ?: asked, dueKeys(c, now))
+        val device = targets.filter { ContactRef.vaultIdOf(it) == null }.toSet()
+        val private = targets.mapNotNull { ContactRef.vaultIdOf(it) }.toSet()
+        when (decision) {
+            TemporaryDue.Decision.DELETE -> MaintenanceWorker.expireTemporaries(c, now, device, private)
+            TemporaryDue.Decision.KEEP_LONGER, TemporaryDue.Decision.KEEP -> {
+                val at = TemporaryDue.newExpiry(decision, now)
+                device.forEach { k -> if (at != null) c.temporaries.extendTo(k, at) else c.temporaries.clear(k) }
+                private.forEach { id -> c.vault.setExpiry(id, at) }
+            }
+        }
+        val waiting = TemporaryDue.stillWaiting(asked, targets)
+        prefs.edit { putStringSet(K_ASKED, waiting) }
+        if (waiting.isEmpty()) cancel(ctx)
+        c.contacts.refresh()
+        return targets.size
+    }
+
+    private fun cancel(ctx: Context) = NotificationManagerCompat.from(ctx).cancel(NotificationIds.TAG_TEMPORARY, ID)
+
+    private fun notify(ctx: Context, count: Int) {
+        val nm = ctx.getSystemService(NotificationManager::class.java)
+        nm.createNotificationChannel(
+            NotificationChannel(NotificationChannels.HOUSEKEEPING, ctx.getString(R.string.work_channel_housekeeping), NotificationManager.IMPORTANCE_LOW),
+        )
+        val title = ctx.resources.getQuantityString(R.plurals.temp_due_title, count, count)
+        val open = PendingIntent.getActivity(
+            ctx, 80, Intent(ctx, MainActivity::class.java).setAction(IntentRoutes.ACTION_OPEN_TEMPORARY).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            PendingIntent.FLAG_IMMUTABLE,
+        )
+        // No names anywhere in it: the same text on the lock screen and after unlocking.
+        val public = NotificationCompat.Builder(ctx, NotificationChannels.HOUSEKEEPING)
+            .setSmallIcon(R.drawable.ic_stat_cake).setContentTitle(title).build()
+        val b = NotificationCompat.Builder(ctx, NotificationChannels.HOUSEKEEPING)
+            .setSmallIcon(R.drawable.ic_stat_cake)
+            .setContentTitle(title)
+            .setContentText(ctx.getString(R.string.temp_due_text))
+            .setStyle(NotificationCompat.BigTextStyle().bigText(ctx.getString(R.string.temp_due_text)))
+            .setContentIntent(open)
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+            .setPublicVersion(public)
+            .setLocalOnly(true)
+            .addAction(0, ctx.getString(R.string.temp_due_delete), DueActionReceiver.pending(ctx, TemporaryDue.Decision.DELETE))
+            .addAction(0, ctx.getString(R.string.temp_due_keep_longer), DueActionReceiver.pending(ctx, TemporaryDue.Decision.KEEP_LONGER))
+            .addAction(0, ctx.getString(R.string.temp_keep_permanently), DueActionReceiver.pending(ctx, TemporaryDue.Decision.KEEP))
+        try {
+            NotificationManagerCompat.from(ctx).notify(NotificationIds.TAG_TEMPORARY, ID, b.build())
+        } catch (_: SecurityException) {
+        }
+    }
+}
+
+/** The due notification's buttons (no screen needed). Not exported; the pending intents are explicit and immutable. */
+class DueActionReceiver : BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: Intent) {
+        val decision = TemporaryDue.Decision.entries.firstOrNull { it.name == intent.getStringExtra(EXTRA_DECISION) } ?: return
+        val pending = goAsync()
+        val c = context.container
+        c.scope.launch {
+            try {
+                DueTemporaries.decide(c, decision)
+            } finally {
+                pending.finish()
+            }
+        }
+    }
+
+    companion object {
+        private const val ACTION = "app.parley.temporary.DUE_DECISION"
+        private const val EXTRA_DECISION = "decision"
+
+        fun pending(context: Context, decision: TemporaryDue.Decision): PendingIntent = PendingIntent.getBroadcast(
+            context, 81 + decision.ordinal,
+            Intent(ACTION).setClass(context, DueActionReceiver::class.java).putExtra(EXTRA_DECISION, decision.name),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+    }
+}

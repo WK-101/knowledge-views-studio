@@ -81,12 +81,8 @@ import androidx.compose.ui.text.input.VisualTransformation
 import app.parley.common.people.PhoneTyping
 import app.parley.ui.ParleyFormField
 import app.parley.ui.formFieldShape
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
@@ -252,9 +248,10 @@ internal fun TypedLine(pill: (@Composable () -> Unit)?, field: @Composable (trai
 }
 
 /**
- * The contact's photo, small enough to sit beside the name fields, with an edit badge. With no photo a tap opens the
- * picker; with one, a menu offers "Change photo" and a red "Remove photo", and says that Parley keeps the whole picture
- * while other apps get Android's reduced copy ([inOtherApps]).
+ * The contact's photo at the top of the form, compact and calm: without a photo a neutral tonal circle with a camera
+ * (not a coloured monogram, which looked like a big placeholder face); with one, the photo with a small edit badge.
+ * With no photo a tap opens the picker; with one, a menu offers "Change photo" and a red "Remove photo", and says that
+ * Parley keeps the whole picture while other apps get Android's reduced copy ([inOtherApps]).
  */
 @Composable
 internal fun CompactPhoto(
@@ -268,18 +265,25 @@ internal fun CompactPhoto(
     val has = photo != null
     var menu by remember { mutableStateOf(false) }
     val pickLabel = stringResource(if (has) R.string.editor_edit_photo else R.string.editor_add_photo)
-    val photoDesc = stringResource(R.string.editor_photo_desc)
+    val photoDesc = stringResource(if (has) R.string.editor_photo_desc else R.string.editor_add_photo)
     Box {
         Box(
             Modifier.semantics(mergeDescendants = true) { contentDescription = photoDesc }
                 .clip(CircleShape).clickable(onClickLabel = pickLabel) { if (has) menu = true else onPick() },
         ) {
-            Avatar(name.ifBlank { "?" }, photo, size)
-            Surface(
-                shape = CircleShape, color = MaterialTheme.colorScheme.primaryContainer, contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                border = BorderStroke(2.dp, MaterialTheme.colorScheme.surface),
-                modifier = Modifier.align(Alignment.BottomEnd).size(28.dp),
-            ) { Box(contentAlignment = Alignment.Center) { Icon(if (has) Icons.Rounded.Edit else Icons.Rounded.AddAPhoto, null, Modifier.size(16.dp)) } }
+            if (has) {
+                Avatar(name.ifBlank { "?" }, photo, size)
+                Surface(
+                    shape = CircleShape, color = MaterialTheme.colorScheme.secondaryContainer, contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                    border = BorderStroke(2.dp, MaterialTheme.colorScheme.surface),
+                    modifier = Modifier.align(Alignment.BottomEnd).size(24.dp),
+                ) { Box(contentAlignment = Alignment.Center) { Icon(Icons.Rounded.Edit, null, Modifier.size(14.dp)) } }
+            } else {
+                Surface(
+                    shape = CircleShape, color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(size),
+                ) { Box(contentAlignment = Alignment.Center) { Icon(Icons.Rounded.AddAPhoto, null, Modifier.size(size * 0.4f)) } }
+            }
         }
         DropdownMenu(menu, { menu = false }, shape = ParleyShapes.tile) {
             DropdownMenuItem(
@@ -305,14 +309,13 @@ internal fun CompactPhoto(
 internal class AddChoice(val icon: ImageVector, val label: String, val onPick: () -> Unit)
 
 /**
- * The editor's one add control: a line of small chips ("+ Email", "Work", "Date"…) for the kinds this contact can
- * still take, commonest first. It scrolls sideways on one line; at large font sizes it wraps instead, so no chip
- * is ever cut off where scrolling is harder to notice.
+ * The editor's one add control: small chips ("Email", "Work", "Date"…) for the kinds this contact can still take,
+ * commonest first. They wrap onto as many lines as they need, so no chip is ever cut off at the screen's edge (a
+ * sideways-scrolling line hid "Address" and gave no hint that more was there).
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun AddChips(choices: List<AddChoice>, modifier: Modifier = Modifier) {
-    val wrap = LocalDensity.current.fontScale >= 1.3f
     val chip: @Composable (AddChoice) -> Unit = { c ->
         val desc = stringResource(R.string.editor_add_field, c.label)
         AssistChip(
@@ -328,14 +331,7 @@ internal fun AddChips(choices: List<AddChoice>, modifier: Modifier = Modifier) {
             modifier = Modifier.semantics { contentDescription = desc },
         )
     }
-    if (wrap) {
-        FlowRow(modifier, horizontalArrangement = Arrangement.spacedBy(8.dp)) { choices.forEach { chip(it) } }
-    } else {
-        Row(modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            choices.forEach { chip(it) }
-            Spacer(Modifier.width(8.dp))
-        }
-    }
+    FlowRow(modifier, horizontalArrangement = Arrangement.spacedBy(8.dp)) { choices.forEach { chip(it) } }
 }
 
 @Composable

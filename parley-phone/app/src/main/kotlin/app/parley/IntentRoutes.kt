@@ -48,6 +48,9 @@ object IntentRoutes {
 
     /** Folder sync paused and waits for the user (its notification). */
     const val ACTION_OPEN_SYNC = "app.parley.OPEN_SYNC"
+
+    /** Temporary contacts are due to be deleted and wait for your answer (its notification). */
+    const val ACTION_OPEN_TEMPORARY = "app.parley.OPEN_TEMPORARY"
     const val QUICK_CONTACT = "android.provider.action.QUICK_CONTACT"
     const val QUICK_CONTACT_LEGACY = "com.android.contacts.action.QUICK_CONTACT"
     const val SHOW_OR_CREATE = "com.android.contacts.action.SHOW_OR_CREATE_CONTACT"
@@ -100,6 +103,7 @@ object IntentRoutes {
             ACTION_OPEN_BACKUP -> go(NavEvent.Route(Routes.Backup))
             ACTION_OPEN_BLOCKING -> go(NavEvent.Route(Routes.Blocking))
             ACTION_OPEN_SYNC -> go(NavEvent.Route(Routes.Sync))
+            ACTION_OPEN_TEMPORARY -> go(NavEvent.Route(Routes.Temporary))
             ACTION_ADD_CALL -> go(NavEvent.Tab(StartTab.KEYPAD, dial = ""))
             ACTION_BULK_ADD -> go(NavEvent.Route(MessagingRoutes.BulkAdd))
             ACTION_SCAN_QR -> go(NavEvent.Route(QrRoutes.Scan))

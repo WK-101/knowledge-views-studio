@@ -36,7 +36,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -46,7 +45,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toBitmap
-import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.NavEvent
@@ -56,7 +54,6 @@ import app.parley.data.people.ContactsAccessApp
 import app.parley.messaging.WhatsAppNotice
 import app.parley.privatenames.PrivateDirectoryProvider
 import app.parley.privatenames.PrivateNameProvider
-import app.parley.security.launchVault
 import app.parley.ui.common.Format
 import app.parley.ui.contact.Section
 import app.parley.ui.LinkRow
@@ -68,7 +65,6 @@ import app.parley.common.people.LookupOutcome
 import app.parley.ui.settings.settingTitle
 import app.parley.ui.ParleyTopBar
 import app.parley.ui.ParleyScaffold
-import app.parley.ui.ConfirmDialog
 
 /** Honest wording from the design notes (COMPETITIVE_ANALYSIS_2 §5.4). Parley never claims to control other apps. */
 private object Wording {
@@ -318,32 +314,4 @@ private fun outcomeText(o: LookupOutcome): Int = when (o) {
     LookupOutcome.OFF -> R.string.pn_out_off
     LookupOutcome.REJECTED -> R.string.pn_out_rejected
     LookupOutcome.RATE_LIMITED -> R.string.pn_out_rate
-}
-
-/** Confirms moving selected contacts into the private vault (bulk "Move to private"). */
-@Composable
-fun MoveToPrivateDialog(vm: AppViewModel, ids: List<Long>, onDismiss: () -> Unit, onDone: () -> Unit) {
-    val context = LocalContext.current
-    val res = LocalResources.current
-    val scope = rememberCoroutineScope()
-    ConfirmDialog(
-        title = pluralStringResource(R.plurals.move_private_title, ids.size, ids.size),
-        text = stringResource(R.string.move_private_text),
-        confirmLabel = stringResource(R.string.move_private_move),
-        onConfirm = {
-            onDismiss()
-            scope.launchVault(context as? FragmentActivity, { e -> vm.toast(res.getString(R.string.vault_move_failed, e.message.orEmpty())) }) {
-                var moved = 0
-                for (id in ids) {
-                    val d = vm.c.contacts.details(id) ?: continue
-                    vm.moveToVault(id, d)
-                    moved++
-                }
-                vm.toast(res.getQuantityString(R.plurals.move_private_done, moved, moved))
-                onDone()
-            }
-        },
-        onDismiss = onDismiss,
-        dismissLabel = stringResource(R.string.dc_cancel),
-    )
 }

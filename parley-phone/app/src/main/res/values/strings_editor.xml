@@ -52,4 +52,13 @@
     <string name="rel_mirror_changed_elsewhere">%1$s changed meanwhile, so the relation is saved only here</string>
     <!-- The photo menu: Parley keeps the picture whole; other apps get Android's reduced copy. -->
     <string name="editor_photo_kept_whole">Parley keeps the whole photo. Other apps see Android\'s smaller copy.</string>
+    <!-- The name block's heading for TalkBack (the person icon in the form's gutter). -->
+    <string name="editor_name_title">Name</string>
+    <!-- Save-to chip: the phone's own storage, without the account's contact count. -->
+    <string name="editor_account_device">Device</string>
+    <string name="editor_save_private">Private</string>
+    <!-- My card: what its QR code and shared vCard include. -->
+    <string name="me_share_includes">Your QR code and shared card include</string>
+    <string name="me_share_nothing">Nothing chosen yet</string>
+    <string name="me_open">Open my card</string>
 </resources>

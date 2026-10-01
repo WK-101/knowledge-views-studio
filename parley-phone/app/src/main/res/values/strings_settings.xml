@@ -807,4 +807,7 @@
     <string name="wipe_private_locked">Private contacts can only go into the backup while they\'re unlocked. Unlock them to include them, or delete without backing them up.</string>
     <string name="wipe_unlock_private">Unlock and back up</string>
     <string name="wipe_without_private">Delete without backing up private contacts</string>
+    <string name="set_temp_ask_first_title">Ask before deleting temporary contacts</string>
+    <string name="set_temp_ask_first_summary">When their time is up, one notification asks: delete, keep 7 more days or keep</string>
+    <string name="set_temp_ask_first_kw">temporary, temp, expire, expiry, confirm, ask, delete automatically, keep</string>
 </resources>

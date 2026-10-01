@@ -37,4 +37,19 @@ class MessageRoutesTest {
         assertTrue(MessageRoutes.showUnlinkedHint("com.whatsapp", emptySet(), setOf("com.whatsapp")))
         assertFalse(MessageRoutes.showUnlinkedHint("com.whatsapp", setOf("com.whatsapp"), setOf("com.whatsapp")))
     }
+
+    @Test fun a_numbers_message_button_never_opens_the_sheet() {
+        val n = "+441234567890"
+        // No usual app: a text message to that number (the sheet has its own button).
+        assertEquals(MessageRoute.Sms(n), MessageRoutes.forNumber(MessengerPrefs(), emptySet(), setOf("com.whatsapp"), n))
+        val sms = MessengerPrefs(message = MessengerPrefs.SMS, number = "+447700900123")
+        assertEquals(MessageRoute.Sms(n), MessageRoutes.forNumber(sms, emptySet(), emptySet(), n))
+        val wa = MessengerPrefs(message = "com.whatsapp")
+        // The usual app, with this number rather than the remembered one.
+        val link = MessageRoute.MessengerLink(MessengerApp.of(MessengerCatalog.WHATSAPP), n)
+        assertEquals(link, MessageRoutes.forNumber(wa, setOf("com.whatsapp"), setOf("com.whatsapp"), n))
+        assertEquals(MessageRoute.MessengerRow("com.whatsapp"), MessageRoutes.forNumber(wa, setOf("com.whatsapp"), emptySet(), n))
+        // A usual app that went away: a text message, still no sheet.
+        assertEquals(MessageRoute.Sms(n), MessageRoutes.forNumber(wa, emptySet(), emptySet(), n))
+    }
 }

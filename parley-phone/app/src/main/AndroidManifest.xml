@@ -460,6 +460,10 @@
         <receiver
             android:name=".work.CircleActionReceiver"
             android:exported="false" />
+        <!-- Delete / Keep 7 more days / Keep permanently on the "temporary contacts are due" notification. -->
+        <receiver
+            android:name=".work.DueActionReceiver"
+            android:exported="false" />
         <!-- "Remind me of missed calls": an inexact alarm, so no exact-alarm permission. -->
         <receiver
             android:name=".calls.MissedReAlertReceiver"

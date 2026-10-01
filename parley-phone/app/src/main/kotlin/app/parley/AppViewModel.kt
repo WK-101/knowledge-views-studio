@@ -1,6 +1,7 @@
 package app.parley
 
 import app.parley.work.FolderSyncNotice
+import app.parley.ui.home.PrivateMoves
 import app.parley.ui.Destination
 import android.net.Uri
 import app.parley.blocking.DialText
@@ -344,6 +345,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
      * every field, and what Parley keeps about them re-keyed to it; no readable copy stays outside the vault (no
      * journal entry, snapshots purged). Throws [app.parley.data.vault.VaultCrypto.LockedException] if locked.
      */
+    /** The Contacts tab's bulk "Move to private": in this scope, so closing its dialog never stops it. */
+    val privateMoves: PrivateMoves by lazy { PrivateMoves(c, viewModelScope) }
+
     suspend fun moveToVault(contactId: Long, d: ContactDetails): Long {
         val moved = app.parley.ui.contact.ContactConversions(c).makePrivate(contactId, d)
         when {

@@ -60,6 +60,7 @@ import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.Forum
 import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.People
+import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.PersonSearch
 import androidx.compose.material.icons.rounded.Phone
 import androidx.compose.material.icons.rounded.PhoneInTalk
@@ -95,6 +96,7 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
@@ -121,7 +123,6 @@ import app.parley.data.NumberInfo
 import app.parley.data.PostalItem
 import app.parley.data.GroupInfo
 import app.parley.ui.people.BackgroundChange
-import androidx.compose.ui.platform.LocalDensity
 import app.parley.ui.Routes
 import app.parley.ui.people.CallBackgroundEditor
 import app.parley.ui.people.DuplicateWarning
@@ -222,12 +223,14 @@ fun ContactEditScreen(
     vaultId: Long? = null,
     /** Edit one specific copy (raw contact) of the contact ("Edit this copy" on the contact page). */
     rawId: Long? = null,
+    /** "My card": your own details with the same form, plus what its QR code and vCard include. */
+    meCard: Boolean = false,
     done: (Long?) -> Unit,
 ) {
     // The edit lives in the screen's view model (and its saved state), so rotation, a theme, font or language change
     // and process death keep it; this composable only draws it.
     val editor: EditorViewModel = screenViewModel()
-    LaunchedEffect(Unit) { editor.start(EditorArgs(contactId, prefillName, prefillPhone, prefillEmail, addPhone, prefill, vaultId, rawId)) }
+    LaunchedEffect(Unit) { editor.start(EditorArgs(contactId, prefillName, prefillPhone, prefillEmail, addPhone, prefill, vaultId, rawId, meCard)) }
     val latestDone by rememberUpdatedState(done)
     LaunchedEffect(editor) {
         editor.events.collect { e ->
@@ -250,7 +253,6 @@ fun ContactEditScreen(
     var confirmDiscard by remember { mutableStateOf(false) }
     val isVault = editor.isVault
     val bgChange = editor.background
-    val idx by vm.people.index.collectAsStateWithLifecycle()
     // Stable row keys (animations, focus) and the field to focus next.
     val keys = editor.keys
     val requesters = remember { HashMap<Long, FocusRequester>() }
@@ -300,7 +302,8 @@ fun ContactEditScreen(
                 title = {
                     Text(
                         stringResource(
-                            if (isVault && !editor.temporaryNew) (if ((vaultId ?: 0) > 0) R.string.edit_title_private else R.string.edit_title_new_private)
+                            if (meCard) R.string.me_title
+                            else if (isVault && !editor.temporaryNew) (if ((vaultId ?: 0) > 0) R.string.edit_title_private else R.string.edit_title_new_private)
                             else if (contactId == null) R.string.edit_title_new else if (rawId != null) R.string.edit_title_copy else R.string.edit_title_edit,
                         ),
                         maxLines = 1,
@@ -339,6 +342,7 @@ fun ContactEditScreen(
         // A private contact's labels are Parley's own membership of the address book's labels: one chip per label title
         // (its first group, as PrivateLabels resolves them). A visible temporary contact is phone-only, without labels.
         val accountGroups = when {
+            meCard -> emptyList()
             isVault -> groups.distinctBy { it.title.trim() }
             editor.temporaryNew -> emptyList()
             else -> groups.filter { it.account.type == account?.type && it.account.name == account?.name }
@@ -354,7 +358,9 @@ fun ContactEditScreen(
             if (lookup == null) remove(EditorForm.Kind.CALL_BACKGROUND)
             if (!isVault) remove(EditorForm.Kind.WHEN_THEY_CALL)
         }
-        val choices = EditorForm.addChoices(shownKinds, blankKinds(d), allowed)
+        // My card holds only its own fields (and one address line).
+        val choices = if (meCard) EditorForm.meCardChoices(shownKinds, blankKinds(d), d.addresses.isNotEmpty())
+        else EditorForm.addChoices(shownKinds, blankKinds(d), allowed)
 
         /** Appends a row to a group, remembers its key and moves the focus there. */
         fun addRow(group: String, size: Int, change: (ContactDetails) -> ContactDetails): Long {
@@ -403,23 +409,41 @@ fun ContactEditScreen(
             }
         }
 
-        // ---------------------------------------------------------------- header: where it's saved, photo and name
+        // ---------------------------------------------------------------- header: photo, where it's saved, and name
+        // The photo sits on top, centred like the contact page's header, so every field below (name, phone, email…)
+        // shares one left edge after the icon gutter. The Save-to line starts on that edge too.
         val header: @Composable () -> Unit = {
+            val deviceName = stringResource(R.string.editor_account_device)
             Column(Modifier.padding(bottom = FormTokens.groupGap)) {
                 val shownPhoto = photo?.toString() ?: d.photoUri.takeUnless { removePhoto }
-                SaveToLine(
-                    EditorSaveTo(
-                        vaultId, original != null, editor.privateNew, editor.temporaryNew, editor.temporary, account, editor.accounts,
-                        // An expiry belongs to the whole contact, so it isn't offered when editing one of its copies.
-                        expiry = ExpiryState(editor.expiresAt, editor.expiryPick)
-                            .takeIf { rawId == null && (original?.lookupKey?.isNotEmpty() == true || (vaultId ?: 0L) > 0L) },
-                    ),
-                    label = { a -> idx.labelWithCount(a) },
-                    onAccount = editor::chooseAccount, onTemporary = editor::chooseTemporary,
-                    onTemporaryChange = editor::changeTemporary, onExpiry = editor::pickExpiry,
-                    modifier = Modifier.padding(bottom = 4.dp),
-                )
-                if (contactId == null && vaultId == null) {
+                // My card has no photo (it isn't shared); every contact has one here.
+                if (!meCard) {
+                    Box(Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 8.dp), contentAlignment = Alignment.Center) {
+                        CompactPhoto(
+                            d.composedName.ifBlank { d.nickname.ifBlank { d.company } }, shownPhoto,
+                            onPick = { photoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+                            onRemove = editor::clearPhoto, inOtherApps = !isVault,
+                        )
+                    }
+                }
+                Box(Modifier.padding(start = FormTokens.gutter, bottom = 4.dp)) {
+                    if (meCard) {
+                        MeShareLine(editor.meParts, editor::toggleMePart)
+                    } else {
+                        SaveToLine(
+                            EditorSaveTo(
+                                vaultId, original != null, editor.privateNew, editor.temporaryNew, editor.temporary, account, editor.accounts,
+                                // An expiry belongs to the whole contact, so it isn't offered when editing one of its copies.
+                                expiry = ExpiryState(editor.expiresAt, editor.expiryPick)
+                                    .takeIf { rawId == null && (original?.lookupKey?.isNotEmpty() == true || (vaultId ?: 0L) > 0L) },
+                            ),
+                            label = { a -> accountName(a, deviceName) },
+                            onAccount = editor::chooseAccount, onTemporary = editor::chooseTemporary,
+                            onTemporaryChange = editor::changeTemporary, onExpiry = editor::pickExpiry,
+                        )
+                    }
+                }
+                if (contactId == null && vaultId == null && !meCard) {
                     DuplicateWarning(vm, d, onOpen = { id -> vm.navigate(NavEvent.Contact(id)) }) { id ->
                         // "Add these details to her": continue in the existing contact's editor with this draft appended.
                         vm.pendingPrefill = d
@@ -427,16 +451,16 @@ fun ContactEditScreen(
                         vm.navigate(NavEvent.Route(Routes.edit(id = id, prefill = true)))
                     }
                 }
-                NameHeader(
-                    d, shownPhoto, expanded = moreName || nameDetailsFilled, canCollapse = !nameDetailsFilled,
+                NameBlock(
+                    d, expanded = moreName || nameDetailsFilled,
+                    // Kept open while a detail holds something; My card keeps one name, so first and last are all it needs.
+                    canToggle = !meCard && !nameDetailsFilled,
                     onToggle = { editor.moreName = !moreName }, first = fr(KEY_FIRST), nick = fr(KEY_NICK), update = ::update,
-                    onPickPhoto = { photoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
-                    onRemovePhoto = editor::clearPhoto, photoInOtherApps = !isVault,
                 )
                 if (isVault && shownPhoto != null) {
                     Text(
                         stringResource(R.string.edit_private_photo), style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 4.dp, top = 4.dp),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = FormTokens.gutter + 16.dp, top = 4.dp),
                     )
                 }
             }
@@ -471,7 +495,7 @@ fun ContactEditScreen(
                 val items = kind.get(d)
                 group(kind.icon, kind.title, keys.keys(kind.group, items.size), FormTokens.segmentGap) { i, k, lead, shape ->
                     val item = items.getOrNull(i) ?: return@group
-                    MultiRow(kind, item, fr(k), lead, shape,
+                    MultiRow(kind, item, fr(k), lead, shape, showType = !meCard,
                         onChange = { n2 -> update { kind.set(it, kind.get(it).toMutableList().also { l -> if (i in l.indices) l[i] = n2 }) } },
                         onRemove = { removeRow(kind.group, i) { kind.set(it, kind.get(it).filterIndexed { j, _ -> j != i }) } },
                     )
@@ -531,6 +555,7 @@ fun ContactEditScreen(
                                 AddressMapLinks.withoutLink(it, i).let { c -> c.copy(addresses = c.addresses.filterIndexed { j, _ -> j != i }) }
                             }
                         },
+                        showType = !meCard,
                     )
                 }
             }
@@ -571,8 +596,10 @@ fun ContactEditScreen(
                         Icons.AutoMirrored.Rounded.Notes, stringResource(R.string.edit_notes), Modifier.animateItem().padding(bottom = FormTokens.groupGap),
                     ) {
                         ParleyFormField(
-                            d.note, { v -> update { it.copy(note = v) } }, stringResource(R.string.edit_notes),
+                            // My card's note is only for you: it's never in the QR code or vCard.
+                            d.note, { v -> update { it.copy(note = v) } }, stringResource(if (meCard) R.string.me_private_note else R.string.edit_notes),
                             modifier = Modifier.fillMaxWidth().focusRequester(fr(KEY_NOTE)), singleLine = false, minLines = 2,
+                            supporting = if (meCard) stringResource(R.string.me_private_note_hint) else null,
                             readOnly = lockedRow(d.noteId),
                             trailing = if (lockedRow(d.noteId)) { { LockIcon() } } else null,
                             keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
@@ -783,56 +810,41 @@ private fun WhenTheyCallRow(d: ContactDetails, focus: FocusRequester, modifier: 
 private fun lockedRow(id: Long?): Boolean = id != null && id in LocalLocked.current
 
 /**
- * The photo and the name together: the photo beside first and last name (above them on a narrow screen or with a
- * large font), and a chevron that adds prefix, middle, suffix, phonetic names and nickname around them (kept open
- * while any of them holds something).
+ * The name as one block of the form, like every other group: the person icon in the gutter, first and last name,
+ * and in the end column (where the other groups have ⊖) a chevron that adds prefix, middle, suffix, phonetic names
+ * and nickname around them. The chevron sits centred on the block, so it reads as the block's own control; it's
+ * hidden while a detail holds something (the block stays open, nothing looks lost) and for My card ([canToggle]).
  */
 @Composable
-private fun NameHeader(
+private fun NameBlock(
     d: ContactDetails,
-    photo: String?,
     expanded: Boolean,
-    canCollapse: Boolean,
+    canToggle: Boolean,
     onToggle: () -> Unit,
     first: FocusRequester,
     nick: FocusRequester,
     update: ((ContactDetails) -> ContactDetails) -> Unit,
-    onPickPhoto: () -> Unit,
-    onRemovePhoto: () -> Unit,
-    /** Other apps see Android's copy of the photo (not for private contacts). */
-    photoInOtherApps: Boolean = true,
 ) {
-    val fontScale = LocalDensity.current.fontScale
-    val shownName = d.composedName.ifBlank { d.nickname.ifBlank { d.company } }
-    val chevron: @Composable () -> Unit = {
-        Box(Modifier.width(FormTokens.endColumn).heightIn(min = FormTokens.fieldHeight), contentAlignment = Alignment.Center) {
-            if (canCollapse || !expanded) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+        val title = stringResource(R.string.editor_name_title)
+        Box(Modifier.width(FormTokens.gutter).heightIn(min = FormTokens.fieldHeight), contentAlignment = Alignment.CenterStart) {
+            Icon(
+                Icons.Rounded.Person, null,
+                Modifier.size(24.dp).semantics { contentDescription = title; heading() },
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Box(Modifier.weight(1f)) { NameFields(d, expanded, first, nick, update) }
+        Box(
+            Modifier.width(FormTokens.endColumn).heightIn(min = FormTokens.fieldHeight).align(Alignment.CenterVertically),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (canToggle) {
                 IconButton(onToggle) {
                     Icon(
                         if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
                         stringResource(if (expanded) R.string.editor_name_less else R.string.editor_name_more),
                     )
-                }
-            }
-        }
-    }
-    BoxWithConstraints(Modifier.fillMaxWidth()) {
-        if (EditorForm.photoBesideName(maxWidth.value, fontScale)) {
-            Row(verticalAlignment = Alignment.Top) {
-                // Centred on the two name lines (2 × 48 dp + the 2 dp join).
-                val top = ((FormTokens.fieldHeight * 2 + FormTokens.segmentGap - FormTokens.headerPhoto) / 2).coerceAtLeast(0.dp)
-                Box(Modifier.padding(top = top, end = 12.dp)) { CompactPhoto(shownName, photo, onPickPhoto, onRemovePhoto, inOtherApps = photoInOtherApps) }
-                Box(Modifier.weight(1f)) { NameFields(d, expanded, first, nick, update) }
-                chevron()
-            }
-        } else {
-            Column {
-                Box(Modifier.fillMaxWidth().padding(bottom = 8.dp), contentAlignment = Alignment.Center) {
-                    CompactPhoto(shownName, photo, onPickPhoto, onRemovePhoto, size = 72.dp, inOtherApps = photoInOtherApps)
-                }
-                Row(verticalAlignment = Alignment.Top) {
-                    Box(Modifier.weight(1f)) { NameFields(d, expanded, first, nick, update) }
-                    chevron()
                 }
             }
         }
@@ -895,9 +907,21 @@ private fun NameFields(
     }
 }
 
-/** One phone, email or website: the value (flag and formatting for numbers), its type selector inside at the end, and "⊖". */
+/**
+ * One phone, email or website: the value (flag and formatting for numbers), its type selector inside at the end, and
+ * "⊖". [showType]: false for My card, whose numbers and addresses have no types.
+ */
 @Composable
-private fun MultiRow(kind: MultiKind, item: DataItem, focus: FocusRequester, lead: Lead, shape: Shape, onChange: (DataItem) -> Unit, onRemove: () -> Unit) {
+private fun MultiRow(
+    kind: MultiKind,
+    item: DataItem,
+    focus: FocusRequester,
+    lead: Lead,
+    shape: Shape,
+    showType: Boolean = true,
+    onChange: (DataItem) -> Unit,
+    onRemove: () -> Unit,
+) {
     val res = LocalResources.current
     val locked = item.id != null && item.id in LocalLocked.current
     val iso = LocalCountryIso.current
@@ -906,7 +930,7 @@ private fun MultiRow(kind: MultiKind, item: DataItem, focus: FocusRequester, lea
     var custom by remember { mutableStateOf(false) }
     FormRow(lead.icon, lead.title, end = if (!locked) { { RemoveButton(stringResource(kind.remove), onRemove) } } else null) {
         TypedLine(
-            pill = if (locked) null else {
+            pill = if (locked || !showType) null else {
                 {
                     TypePill(current, kind.types.map { kind.typeLabel(res, it) } + stringResource(R.string.edit_custom_more)) { t ->
                         if (t in kind.types.indices) onChange(item.copy(type = kind.types[t], label = null)) else custom = true
@@ -990,6 +1014,7 @@ private fun AddressRow(
     onRemoveMapLink: () -> Unit,
     onChange: (PostalItem) -> Unit,
     onRemove: () -> Unit,
+    showType: Boolean = true,
 ) {
     val res = LocalResources.current
     val locked = a.id != null && a.id in LocalLocked.current
@@ -1000,8 +1025,9 @@ private fun AddressRow(
     val current = if (a.type == 0) a.label ?: stringResource(R.string.edit_custom) else StructuredPostal.getTypeLabel(res, a.type, a.label).toString()
     val gap = Modifier.padding(top = FormTokens.segmentGap)
     FormRow(lead.icon, lead.title, end = if (!locked) { { RemoveButton(stringResource(R.string.edit_remove_address), onRemove) } } else null) {
+        val typed = showType and !locked
         TypedLine(
-            pill = if (locked) null else {
+            pill = if (!typed) null else {
                 {
                     TypePill(
                         current, postalTypes.map { StructuredPostal.getTypeLabel(res, it, null).toString() } + stringResource(R.string.edit_custom_more),

@@ -29,6 +29,11 @@ ContactVariants(storage, expiresAt) (what it is)
   `parley-private:<vaultId>` of a private one (`ContactRef.privateKey`). The stores are listed in `ContactKeyedStores`,
   which a unit test keeps in step with `PersistentStores`. A private key is never resolved through the address book,
   so a key sweep can't hand a private contact's notes to a namesake.
+- **Temporary asks first.** With "Ask before deleting temporary contacts" (on by default, on the Temporary contacts
+  screen) a temporary contact whose time is up is *due*, not deleted: the daily upkeep posts one notification without
+  names (Delete / Keep 7 more days / Keep permanently, `DueTemporaries`, rules in `TemporaryDue`), Temporary contacts
+  shows the same choice, and an unanswered one stays, with a reminder every 3 days. Off, expiry deletes as before.
+  While due, a private one isn't named by caller ID (expired vault entries never match, F15).
 - **Variants combine.** A private contact can be temporary and so can a device contact. Future variants (a work-profile
   contact, a SIM contact: read-only) fit the same shape: another storage, or another attribute.
 

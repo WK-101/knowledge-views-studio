@@ -125,6 +125,7 @@ object PersistentStores {
         PersistentStore("me_card", StoreKind.PREFS, backedUp, Sections.PEOPLE),
         PersistentStore("parley_ring_facts", StoreKind.PREFS, local("Sealed with this phone's call-history key; kept 60 days")),
         PersistentStore("messaging", StoreKind.PREFS, local("Which numbers you opened a chat with stays on this phone by design")),
+        PersistentStore("temporary_due", StoreKind.PREFS, local("Which due temporary contacts this phone's notification is asking about")),
         PersistentStore("bulk_add", StoreKind.PREFS, local("Undo for recent \"Add several numbers\" batches")),
         PersistentStore("ux", StoreKind.PREFS, local("Tips already seen on this phone")),
         PersistentStore("crash_capture", StoreKind.PREFS, local("Crash reports of this phone, kept only when asked")),

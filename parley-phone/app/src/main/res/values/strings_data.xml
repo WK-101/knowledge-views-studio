@@ -1581,4 +1581,30 @@
     <string name="rst_origin_unconfirmed">Signed by a phone that was never confirmed with your backup passphrase. Backups from a phone that used Parley before backups were signed look like this until you tap “Mark this phone\'s backups as yours” in its backup settings. Restore it if you made it yourself.</string>
     <string name="rst_origin_unsigned">This backup isn\'t signed (older versions of Parley didn\'t sign backups). Restore it only if you made it yourself.</string>
     <string name="rst_origin_bad">This backup\'s signature doesn\'t match its content, so it may have been changed. Don\'t restore it unless you\'re sure where it came from.</string>
+
+    <!-- Temporary contacts whose time is up wait for an answer (no names: shown on the lock screen too). -->
+    <plurals name="temp_due_title">
+        <item quantity="one">%1$d temporary contact is due to be deleted</item>
+        <item quantity="other">%1$d temporary contacts are due to be deleted</item>
+    </plurals>
+    <string name="temp_due_text">Nothing is deleted until you choose. Open Temporary contacts to see who.</string>
+    <string name="temp_due_delete">Delete</string>
+    <string name="temp_due_keep_longer">Keep 7 more days</string>
+    <plurals name="temp_due_deleted">
+        <item quantity="one">Deleted %1$d temporary contact</item>
+        <item quantity="other">Deleted %1$d temporary contacts</item>
+    </plurals>
+
+    <!-- Bulk "Move to private": progress and outcome. -->
+    <string name="move_private_moving">Moving to private…</string>
+    <string name="move_private_progress">%1$d of %2$d</string>
+    <string name="move_private_unnamed">A contact without a name</string>
+    <plurals name="move_private_result_title">
+        <item quantity="one">Moved %1$d contact to private</item>
+        <item quantity="other">Moved %1$d contacts to private</item>
+    </plurals>
+    <plurals name="move_private_failed">
+        <item quantity="one">This one couldn\'t be moved and is unchanged: %2$s. It\'s still selected, so you can try again.</item>
+        <item quantity="other">These %1$d couldn\'t be moved and are unchanged: %2$s. They\'re still selected, so you can try again.</item>
+    </plurals>
 </resources>

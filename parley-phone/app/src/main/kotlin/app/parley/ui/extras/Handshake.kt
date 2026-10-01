@@ -106,16 +106,17 @@ fun MyCardQrDialog(vm: AppViewModel, onDismiss: () -> Unit) {
     val own by vm.c.people.me.card.collectAsStateWithLifecycle()
     val profile by produceState<MeCard?>(null) { value = runCatching { vm.c.people.me.profile() }.getOrNull() }
     val merged = MeCards.merge(own, profile)
+    val parts by vm.c.people.me.shareParts.collectAsStateWithLifecycle()
     if (merged.isEmpty) {
         ConfirmDialog(
             title = stringResource(R.string.me_title),
             text = stringResource(R.string.handshake_no_card),
             confirmLabel = stringResource(R.string.handshake_make_card),
-            onConfirm = { onDismiss(); vm.navigate(NavEvent.Route(PeopleRoutes.Me)) },
+            onConfirm = { onDismiss(); vm.navigate(NavEvent.Route(PeopleRoutes.MeEdit)) },
             onDismiss = onDismiss,
             dismissLabel = stringResource(R.string.dc_cancel),
         )
     } else {
-        MeQrDialog(merged, onDismiss = onDismiss)
+        MeQrDialog(merged, parts, onDismiss = onDismiss)
     }
 }
