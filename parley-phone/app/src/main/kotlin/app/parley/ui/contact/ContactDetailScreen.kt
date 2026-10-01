@@ -859,7 +859,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                 }
             }
             // A private contact while the vault is locked: its name, photo and numbers only, and the unlock right here.
-            if (ui.access != PrivateAccess.OPEN) item(key = "access") {
+            if (ui.access != PrivateAccess.OPEN && ui.access != PrivateAccess.OPENING) item(key = "access") {
                 PrivateAccessRow(ui.access, onUnlock = ::unlock, onRetry = page::reload, onKeep = page::keepWhatIsLeft)
             }
             // Every section folds; order, start modes and hidden ones come from Settings › Contacts › Contact page sections.

@@ -201,6 +201,18 @@ data class VaultContactEntity(
     val createdAt: Long = System.currentTimeMillis(),
 )
 
+/**
+ * A vault row without its sealed details: what listings, caller ID and the call path read. The details (up to hundreds
+ * of kB for a contact moved in with its photo) are left in the database.
+ */
+data class VaultCallerRow(val id: Long, val callerIdBlob: ByteArray, val expiresAt: Long?, val createdAt: Long) {
+    override fun equals(other: Any?): Boolean =
+        other is VaultCallerRow && id == other.id && expiresAt == other.expiresAt && createdAt == other.createdAt &&
+            callerIdBlob.contentEquals(other.callerIdBlob)
+
+    override fun hashCode(): Int = id.hashCode() * 31 + callerIdBlob.contentHashCode()
+}
+
 /** HMAC of each vault phone number (E.164 / last digits) so caller ID can match without decrypting. */
 @Entity(tableName = "vault_numbers", primaryKeys = ["vaultId", "hmac"], indices = [Index(value = ["hmac"])])
 data class VaultNumberEntity(val vaultId: Long, val hmac: String)
@@ -501,6 +513,19 @@ interface VaultDao {
 
     @Query("SELECT * FROM vault_contacts WHERE id = :id")
     suspend fun get(id: Long): VaultContactEntity?
+
+    @Query("SELECT id, callerIdBlob, expiresAt, createdAt FROM vault_contacts ORDER BY createdAt")
+    fun callerRows(): Flow<List<VaultCallerRow>>
+
+    @Query("SELECT id, callerIdBlob, expiresAt, createdAt FROM vault_contacts")
+    suspend fun callerRowsNow(): List<VaultCallerRow>
+
+    @Query("SELECT id, callerIdBlob, expiresAt, createdAt FROM vault_contacts WHERE id = :id")
+    suspend fun callerRow(id: Long): VaultCallerRow?
+
+    /** Replaces the sealed details only if they are still [old] (a save or a re-seal meanwhile wins). Rows changed. */
+    @Query("UPDATE vault_contacts SET detailBlob = :blob WHERE id = :id AND detailBlob = :old")
+    suspend fun replaceDetailBlob(id: Long, old: ByteArray, blob: ByteArray): Int
 
     @Upsert
     suspend fun upsert(e: VaultContactEntity): Long

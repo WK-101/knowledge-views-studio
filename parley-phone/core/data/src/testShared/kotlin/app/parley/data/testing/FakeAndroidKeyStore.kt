@@ -1,6 +1,7 @@
 package app.parley.data.testing
 
 import android.security.keystore.KeyGenParameterSpec
+import app.parley.data.vault.VaultCrypto
 import java.io.InputStream
 import java.io.OutputStream
 import java.security.Key
@@ -29,10 +30,16 @@ object FakeAndroidKeyStore {
 
     /** When set, every key read throws what it returns: a Keystore that is busy, failing or reports a key unrecoverable. */
     @Volatile var failure: (() -> Exception)? = null
+        set(value) {
+            field = value
+            // A real Keystore fails the operation itself; here only lookups fail, so remembered handles go.
+            VaultCrypto.forgetKeyHandles()
+        }
 
     /** Installs the provider (once per JVM) and forgets every key, so each test starts with an empty Keystore. */
     fun install() {
         keys.clear()
+        VaultCrypto.forgetKeyHandles()
         failure = null
         if (Security.getProvider(NAME) !is FakeProvider) {
             Security.removeProvider(NAME)
@@ -43,6 +50,8 @@ object FakeAndroidKeyStore {
     /** Drops one alias, as the platform does when a key is invalidated or the app data is cleared. */
     fun delete(alias: String) {
         keys.remove(alias)
+        // On a phone the handle of a deleted key fails from then on; this fake's software key wouldn't.
+        VaultCrypto.forgetKeyHandles()
     }
 
     private class FakeProvider : Provider(NAME, 1.0, "Fake Android Keystore for tests") {

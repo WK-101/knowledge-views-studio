@@ -56,6 +56,11 @@ object VaultCrypto {
     /** First byte of a blob sealed by a generation ≥ 1 key (an IV length is never this large). */
     private const val GEN_MARK: Byte = 0x7A
 
+    /** "P2" and the main part's length: a detail blob in two parts. */
+    private const val PARTS_MARK_0: Byte = 0x50
+    private const val PARTS_MARK_1: Byte = 0x32
+    private const val PARTS_HEADER = 6
+
     class LockedException : Exception("Unlock needed")
 
     /** The key was invalidated (screen lock removed or reset); data sealed with it can't be read any more. */
@@ -76,6 +81,38 @@ object VaultCrypto {
 
     private val ks: KeyStore by lazy { KeyStore.getInstance(STORE).apply { load(null) } }
     private val random = SecureRandom()
+
+    /**
+     * Key handles already looked up, by alias. A handle is only a reference (the key never leaves the Keystore), but
+     * each lookup is a call into the Keystore service; the vault opens many blobs in a row (every caller-ID copy of a
+     * listing, a page's details). A handle that fails is dropped and looked up again once ([withKey]), and every key
+     * Parley deletes or replaces is dropped here first, so a stale handle never decides that data is lost.
+     */
+    private val handles = java.util.concurrent.ConcurrentHashMap<String, SecretKey>()
+
+    /** Forgets every looked-up key handle (tests that delete aliases behind the vault's back). */
+    fun forgetKeyHandles() = handles.clear()
+
+    private fun deleteAlias(alias: String) {
+        handles.remove(alias)
+        ks.deleteEntry(alias)
+    }
+
+    /**
+     * What the vault opened and looked up, for the open-cost tests and docs/PERFORMANCE_BENCHMARKS.md. Counting only:
+     * nothing about the data is kept.
+     */
+    object Meter {
+        val keyLookups = java.util.concurrent.atomic.AtomicInteger()
+        val callerOpens = java.util.concurrent.atomic.AtomicInteger()
+        val callerBytes = java.util.concurrent.atomic.AtomicLong()
+        val detailOpens = java.util.concurrent.atomic.AtomicInteger()
+        val detailBytes = java.util.concurrent.atomic.AtomicLong()
+
+        fun reset() {
+            keyLookups.set(0); callerOpens.set(0); callerBytes.set(0); detailOpens.set(0); detailBytes.set(0)
+        }
+    }
 
     /** Set once by the app so key generation can check for a secure lock screen and StrongBox. */
     @Volatile var appContext: Context? = null
@@ -131,7 +168,7 @@ object VaultCrypto {
         for (g in stored) {
             if (g > effective && g !in inUse) {
                 Log.w("VaultCrypto", "Removing detail key generation $g left by an interrupted upgrade")
-                runCatching { ks.deleteEntry(detailAlias(g)) }
+                runCatching { deleteAlias(detailAlias(g)) }
             }
         }
     }
@@ -196,7 +233,7 @@ object VaultCrypto {
 
     /** Throws [KeyLostException] when the Keystore can't recover the key, [KeyUnavailableException] for other failures. */
     private fun detailKey(gen: Int): SecretKey? = try {
-        ks.getKey(detailAlias(gen), null) as? SecretKey
+        lookup(detailAlias(gen))
     } catch (_: UnrecoverableKeyException) {
         throw KeyLostException()
     } catch (e: GeneralSecurityException) {
@@ -219,11 +256,33 @@ object VaultCrypto {
 
     private fun highestGenerationEver(): Int = generationPrefs()?.getInt("maxGeneration", 0) ?: 0
 
+    /** The key of [alias], from [handles] or the Keystore; null when the Keystore has none. */
+    private fun lookup(alias: String): SecretKey? {
+        handles[alias]?.let { return it }
+        Meter.keyLookups.incrementAndGet()
+        return (ks.getKey(alias, null) as? SecretKey)?.also { handles[alias] = it }
+    }
+
     private fun simpleKey(alias: String): SecretKey {
-        (ks.getKey(alias, null) as? SecretKey)?.let { return it }
+        lookup(alias)?.let { return it }
         val gen = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, STORE)
         gen.init(spec(alias, auth = false, strongBox = false))
-        return gen.generateKey()
+        return gen.generateKey().also { handles[alias] = it }
+    }
+
+    /**
+     * Runs [use] with the key of [alias] ([key] finds it); when a remembered handle fails, it is dropped and [use] runs
+     * once more with a fresh lookup, so only the Keystore's own answer counts.
+     */
+    private inline fun <T> withKey(alias: String, key: () -> SecretKey?, use: (SecretKey?) -> T): T {
+        val cached = handles.containsKey(alias)
+        return try {
+            use(key())
+        } catch (e: Exception) {
+            if (!cached) throw e
+            handles.remove(alias)
+            use(key())
+        }
     }
 
     private fun gcmSeal(key: SecretKey, plain: ByteArray): ByteArray {
@@ -240,15 +299,18 @@ object VaultCrypto {
         return c.doFinal(blob, off + 1 + ivLen, blob.size - off - 1 - ivLen)
     }
 
-    fun sealCallerId(plain: ByteArray) = gcmSeal(simpleKey(CALLER_KEY), plain)
-    fun openCallerId(blob: ByteArray) = gcmOpen(simpleKey(CALLER_KEY), blob, 0)
+    fun sealCallerId(plain: ByteArray) = withKey(CALLER_KEY, { simpleKey(CALLER_KEY) }) { gcmSeal(it!!, plain) }
+    fun openCallerId(blob: ByteArray): ByteArray {
+        Meter.callerOpens.incrementAndGet()
+        Meter.callerBytes.addAndGet(blob.size.toLong())
+        return withKey(CALLER_KEY, { simpleKey(CALLER_KEY) }) { gcmOpen(it!!, blob, 0) }
+    }
 
     fun sealDetail(plain: ByteArray): ByteArray = sealDetail(sealingGeneration(), plain)
 
     private fun sealDetail(gen: Int, plain: ByteArray): ByteArray {
-        val key = detailKey(gen) ?: throw KeyLostException()
         val sealed = try {
-            gcmSeal(key, plain)
+            withKey(detailAlias(gen), { detailKey(gen) }) { key -> gcmSeal(key ?: throw KeyLostException(), plain) }
         } catch (_: KeyPermanentlyInvalidatedException) {
             // New data goes under a new generation; blobs of the invalidated key stay as they are (never deleted here).
             val next = maxOf(gen, highestGenerationEver()) + 1
@@ -261,8 +323,58 @@ object VaultCrypto {
         return if (gen == 0) sealed else byteArrayOf(GEN_MARK, gen.toByte()) + sealed
     }
 
-    /** The generation that sealed [blob]. */
-    fun generationOf(blob: ByteArray): Int = if (blob.size > 2 && blob[0] == GEN_MARK) blob[1].toInt() and 0xFF else 0
+    /** The generation that sealed [blob] (both parts of a two-part blob share one). */
+    fun generationOf(blob: ByteArray): Int {
+        val b = if (isParts(blob)) parts(blob).first else blob
+        return if (b.size > 2 && b[0] == GEN_MARK) b[1].toInt() and 0xFF else 0
+    }
+
+    // ---- Details in two parts
+
+    /** Whether [blob] holds two sealed parts ([sealDetailParts]); a single blob starts with an IV length or [GEN_MARK]. */
+    fun isParts(blob: ByteArray): Boolean = blob.size > PARTS_HEADER && blob[0] == PARTS_MARK_0 && blob[1] == PARTS_MARK_1
+
+    /** The two sealed parts of a two-part blob: main, and extra (null when it has none). */
+    private fun parts(blob: ByteArray): Pair<ByteArray, ByteArray?> {
+        val n = java.nio.ByteBuffer.wrap(blob, 2, 4).int
+        require(n > 0 && PARTS_HEADER + n <= blob.size) { "Damaged two-part blob" }
+        val main = blob.copyOfRange(PARTS_HEADER, PARTS_HEADER + n)
+        val extra = blob.copyOfRange(PARTS_HEADER + n, blob.size).takeIf { it.isNotEmpty() }
+        return main to extra
+    }
+
+    private fun pack(main: ByteArray, extra: ByteArray?): ByteArray =
+        java.nio.ByteBuffer.allocate(PARTS_HEADER + main.size + (extra?.size ?: 0))
+            .put(PARTS_MARK_0).put(PARTS_MARK_1).putInt(main.size).put(main).apply { extra?.let { put(it) } }.array()
+
+    /**
+     * Seals a private contact's details as two blobs under the same detail key: [main], what its page and editor show
+     * (a few kB), and [extra], what only "Make visible", backups and the first seeding read: the address-book record
+     * it was moved in with (its photo included, up to hundreds of kB) and its carried interactions. Opening a page then
+     * opens only [main]; on a phone whose detail key is in StrongBox, opening the whole record took seconds.
+     * [keptExtra]: the extra part of the entry's current blob ([extraPart]), kept as sealed when its generation is the
+     * one sealing now, so an edit neither opens nor re-seals it.
+     */
+    fun sealDetailParts(main: ByteArray, extra: ByteArray?, keptExtra: ByteArray? = null): ByteArray {
+        val m = sealDetail(main)
+        val gen = generationOf(m)
+        val x = when {
+            extra != null -> sealDetail(gen, extra)
+            keptExtra == null -> null
+            generationOf(keptExtra) == gen -> keptExtra
+            else -> sealDetail(gen, openDetail(keptExtra))
+        }
+        return pack(m, x)
+    }
+
+    /** The main part of a detail blob, opened (the whole blob for one sealed before details had two parts). */
+    fun openDetailMain(blob: ByteArray): ByteArray = openDetail(if (isParts(blob)) parts(blob).first else blob)
+
+    /** The extra part of a two-part blob, opened; null when it has none or is a single blob (which holds everything). */
+    fun openDetailExtra(blob: ByteArray): ByteArray? = if (isParts(blob)) parts(blob).second?.let(::openDetail) else null
+
+    /** The extra part of a two-part blob, still sealed (to keep it through an edit), or null. */
+    fun extraPart(blob: ByteArray): ByteArray? = if (isParts(blob)) parts(blob).second else null
 
     /**
      * Throws [LockedException] when a fresh unlock is needed, [KeyLostException] only when the key is gone for good
@@ -270,10 +382,12 @@ object VaultCrypto {
      * which callers must treat as "try again", never as a reason to overwrite the blob.
      */
     fun openDetail(blob: ByteArray): ByteArray {
+        require(!isParts(blob)) { "A two-part blob opens with openDetailMain / openDetailExtra" }
         val gen = generationOf(blob)
-        val key = presentDetailKey(gen)
+        Meter.detailOpens.incrementAndGet()
+        Meter.detailBytes.addAndGet(blob.size.toLong())
         return try {
-            gcmOpen(key, blob, if (gen == 0) 0 else 2)
+            withKey(detailAlias(gen), { presentDetailKey(gen) }) { key -> gcmOpen(key!!, blob, if (gen == 0) 0 else 2) }
         } catch (e: GeneralSecurityException) {
             throw classify(e)
         } catch (e: ProviderException) {
@@ -349,20 +463,23 @@ object VaultCrypto {
         val old = currentGeneration() ?: return false
         val next = maxOf(old, highestGenerationEver(), storedGenerations().max()) + 1
         if (!createDetailKey(next)) {
-            ks.deleteEntry(detailAlias(next))
+            deleteAlias(detailAlias(next))
             return false
         }
         val ok = try {
             reseal { blob ->
-                val plain = openDetail(blob)
-                val sealed = sealDetail(next, plain)
-                // Verified before anything is written.
-                check(openDetail(sealed).contentEquals(plain)) { "Re-sealed data didn't read back" }
-                plain.fill(0)
-                sealed
+                fun convert(one: ByteArray): ByteArray {
+                    val plain = openDetail(one)
+                    val sealed = sealDetail(next, plain)
+                    // Verified before anything is written.
+                    check(openDetail(sealed).contentEquals(plain)) { "Re-sealed data didn't read back" }
+                    plain.fill(0)
+                    return sealed
+                }
+                if (isParts(blob)) parts(blob).let { (m, x) -> pack(convert(m), x?.let(::convert)) } else convert(blob)
             }
         } catch (e: CancellationException) {
-            ks.deleteEntry(detailAlias(next))
+            deleteAlias(detailAlias(next))
             throw e
         } catch (ignored: Exception) {
             // Anything (locked, unavailable, a failed check): nothing was written; the next authentication tries again.
@@ -370,23 +487,26 @@ object VaultCrypto {
             false
         }
         if (!ok) {
-            ks.deleteEntry(detailAlias(next))
+            deleteAlias(detailAlias(next))
             return false
         }
         commitGeneration(next)
         val used = inUse()
-        for (g in 0 until next) if (g !in used && ks.containsAlias(detailAlias(g))) ks.deleteEntry(detailAlias(g))
+        for (g in 0 until next) if (g !in used && ks.containsAlias(detailAlias(g))) deleteAlias(detailAlias(g))
         return true
     }
 
     fun hmac(value: String): String {
-        val key = (ks.getKey(HMAC_KEY, null) as? SecretKey) ?: KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_HMAC_SHA256, STORE).run {
-            init(KeyGenParameterSpec.Builder(HMAC_KEY, KeyProperties.PURPOSE_SIGN).build())
-            generateKey()
+        return withKey(HMAC_KEY, {
+            lookup(HMAC_KEY) ?: KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_HMAC_SHA256, STORE).run {
+                init(KeyGenParameterSpec.Builder(HMAC_KEY, KeyProperties.PURPOSE_SIGN).build())
+                generateKey()
+            }.also { handles[HMAC_KEY] = it }
+        }) { key ->
+            val mac = Mac.getInstance("HmacSHA256")
+            mac.init(key)
+            Hex.encode(mac.doFinal(value.toByteArray()))
         }
-        val mac = Mac.getInstance("HmacSHA256")
-        mac.init(key)
-        return Hex.encode(mac.doFinal(value.toByteArray()))
     }
 
     fun randomBytes(n: Int) = ByteArray(n).also { random.nextBytes(it) }

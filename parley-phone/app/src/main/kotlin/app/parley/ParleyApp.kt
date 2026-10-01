@@ -7,6 +7,7 @@ import app.parley.blocking.BlockingSetup
 import app.parley.common.suspendRunCatching
 import app.parley.data.DataContainer
 import app.parley.data.people.CrashStore
+import app.parley.security.AppLock
 import app.parley.security.VaultSession
 import app.parley.shortcuts.CircleWidget
 import app.parley.telecom.TelecomGraph
@@ -50,8 +51,11 @@ class ParleyApp : Application() {
                 suspendRunCatching { container.vault.upgradeDetailKey() }
                 // Entries from before the caller-ID copy kept the star, labels, ringtone and voicemail get them now.
                 suspendRunCatching { container.vault.migrateCallerChoices() }
+                // Entries sealed as one blob are split, so their pages open only the small part (VaultCrypto.sealDetailParts).
+                suspendRunCatching { container.vault.splitDetails() }
             }
         }
+        AppLock.onLock = { container.vault.forgetOpened() }
         // The process often starts for an incoming call: only what the call path reads synchronously is warmed here,
         // off the main thread.
         container.scope.launch(Dispatchers.IO) {

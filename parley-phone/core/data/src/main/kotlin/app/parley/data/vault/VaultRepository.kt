@@ -1,6 +1,8 @@
 package app.parley.data.vault
 
+import android.app.KeyguardManager
 import android.content.Context
+import android.os.SystemClock
 import android.provider.CallLog
 import android.util.Base64
 import app.parley.common.backup.RecordJson
@@ -21,6 +23,7 @@ import app.parley.data.PhoneEnv
 import app.parley.data.R
 import app.parley.data.db.AppDatabase
 import app.parley.data.db.PrivateCallEntity
+import app.parley.data.db.VaultCallerRow
 import app.parley.data.db.VaultContactEntity
 import app.parley.data.db.VaultNumberEntity
 import java.io.File
@@ -139,7 +142,8 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
             VaultCallChoices.any = v
         }
 
-    val contacts: StateFlow<List<VaultSummary>> = dao.contacts()
+    // Caller-ID copies only: the sealed details stay in the database (see VaultCallerRow).
+    val contacts: StateFlow<List<VaultSummary>> = dao.callerRows()
         .map { list -> list.mapNotNull { summarize(it) }.sortedBy { it.name.lowercase() } }
         .flowOn(Dispatchers.IO)
         .stateIn(scope, SharingStarted.Eagerly, emptyList())
@@ -156,7 +160,20 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
         .flowOn(Dispatchers.IO)
         .stateIn(scope, SharingStarted.Eagerly, emptyList())
 
-    private fun summarize(e: VaultContactEntity): VaultSummary? = runCatching {
+    /**
+     * Summaries already opened, by entry, with the caller-ID copy they came from: every change to the table lists the
+     * vault again, and an unchanged copy isn't opened again (it is readable without unlocking anyway).
+     */
+    private val summaries = java.util.concurrent.ConcurrentHashMap<Long, Pair<ByteArray, VaultSummary>>()
+
+    private fun summarize(e: VaultContactEntity): VaultSummary? = summarize(VaultCallerRow(e.id, e.callerIdBlob, e.expiresAt, e.createdAt))
+
+    private fun summarize(e: VaultCallerRow): VaultSummary? {
+        summaries[e.id]?.let { (blob, s) -> if (blob.contentEquals(e.callerIdBlob)) return s.copy(expiresAt = e.expiresAt) }
+        return openSummary(e)?.also { summaries[e.id] = e.callerIdBlob to it }
+    }
+
+    private fun openSummary(e: VaultCallerRow): VaultSummary? = runCatching {
         val o = JSONObject(String(VaultCrypto.openCallerId(e.callerIdBlob)))
         val nums = o.optJSONArray("numbers") ?: JSONArray()
         VaultSummary(
@@ -199,26 +216,130 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
      * caller card survive in the caller-ID copy: they are returned, but nothing is written. The sealed record stays as
      * it is until the user chooses [keepWhatIsLeft] (see [detailsLost]).
      */
-    suspend fun details(id: Long): ContactDetails? = withContext(Dispatchers.IO) {
+    suspend fun details(id: Long): ContactDetails? = open(id)?.details
+
+    /** [details], and whether they had to be rebuilt from the caller-ID copy because the detail key is gone ([detailsLost]). */
+    data class Opened(val details: ContactDetails, val lost: Boolean)
+
+    /**
+     * [details] with [Opened.lost], in one opening: the contact page needs both, and each opening of the sealed details
+     * is a Keystore operation (in StrongBox where the phone has one, where it is slow). Only the main part is opened
+     * (VaultCrypto.sealDetailParts); a blob sealed before details had two parts is split on the way, so this is its
+     * last whole opening. Opened details are kept in memory for [OPENED_MS] while the phone is unlocked.
+     */
+    suspend fun open(id: Long): Opened? = withContext(Dispatchers.IO) {
         // An entry from before the caller-ID copy kept the star, labels, ringtone and voicemail gets them now (the
         // details are being opened anyway), so the page, the editor and "Make visible" see them.
-        if (dao.get(id)?.let { summarize(it)?.choicesKnown } == false) runCatching { seedCallerChoices(id) }
+        if (dao.callerRow(id)?.let { summarize(it)?.choicesKnown } == false) runCatching { seedCallerChoices(id) }
         val e = dao.get(id) ?: return@withContext null
         val caller = JSONObject(String(VaultCrypto.openCallerId(e.callerIdBlob)))
-        val d = try {
+        val (d, lost) = try {
             // The photo is kept apart (encrypted, readable for caller ID); anything older in the record is stale.
-            ContactDetailsJson.decode(String(VaultCrypto.openDetail(e.detailBlob))).copy(photoUri = photoUri(id))
+            openMain(e) to false
         } catch (_: VaultCrypto.KeyLostException) {
-            rebuiltFromCallerId(id, caller).copy(photoUri = photoUri(id))
+            rebuiltFromCallerId(id, caller) to true
         }
-        withCallerChoices(d, caller)
+        Opened(withCallerChoices(d.copy(photoUri = photoUri(id)), caller), lost)
+    }
+
+    /**
+     * What a private contact's page shows before its sealed details are open: name, numbers and their types, job and
+     * company, the "who is this" line, the note for calls, pronouns, star, labels and photo, all from the caller-ID
+     * copy (one small opening with the key that needs no unlock). Null when the entry is gone or unreadable.
+     */
+    suspend fun callerCopy(id: Long): ContactDetails? = withContext(Dispatchers.IO) {
+        val e = dao.callerRow(id) ?: return@withContext null
+        runCatching {
+            val o = JSONObject(String(VaultCrypto.openCallerId(e.callerIdBlob)))
+            withCallerChoices(rebuiltFromCallerId(id, o), o).copy(photoUri = photoUri(id), starred = o.optBoolean(C_STAR, false))
+        }.getOrNull()
+    }
+
+    /** Main parts opened lately, by entry, with the blob they came from (memory only; see [open]). */
+    private class OpenedMain(val blob: ByteArray, val details: ContactDetails, val at: Long)
+
+    private val openedMain = java.util.concurrent.ConcurrentHashMap<Long, OpenedMain>()
+
+    /** Forgets every opened detail (the app lock locked, or a test). */
+    fun forgetOpened() = openedMain.clear()
+
+    private fun deviceLocked(): Boolean = runCatching { context.getSystemService(KeyguardManager::class.java)?.isDeviceLocked == true }.getOrDefault(true)
+
+    /**
+     * Entry [e]'s details from its main part: from memory when opened in the last [OPENED_MS] and unchanged since, and
+     * never while the phone is locked (the detail key couldn't open them then); else opened now. A single (older) blob
+     * is split into two parts once it is open, so its record and photo are never opened again for the page.
+     */
+    private suspend fun openMain(e: VaultContactEntity): ContactDetails {
+        val now = SystemClock.elapsedRealtime()
+        openedMain[e.id]?.let { o -> if (o.blob.contentEquals(e.detailBlob) && now - o.at < OPENED_MS && !deviceLocked()) return o.details }
+        val text = String(VaultCrypto.openDetailMain(e.detailBlob))
+        val d = ContactDetailsJson.decode(text)
+        val blob = if (VaultCrypto.isParts(e.detailBlob)) {
+            e.detailBlob
+        } else {
+            runCatching { split(e.id, e.detailBlob, JSONObject(text)) }.getOrNull() ?: e.detailBlob
+        }
+        openedMain[e.id] = OpenedMain(blob, d, now)
+        return d
+    }
+
+    /**
+     * Re-seals entry [id]'s single detail blob [old] (opened: [whole]) as two parts, its record, photo and carried
+     * interactions in the extra part. Written only if the row still holds [old]; returns the new blob, or null.
+     */
+    private suspend fun split(id: Long, old: ByteArray, whole: JSONObject): ByteArray? = keysLock.withLock {
+        val extra = JSONObject()
+        for (k in EXTRA_KEYS) if (whole.has(k)) extra.put(k, whole.get(k))
+        val main = JSONObject(whole.toString()).apply { EXTRA_KEYS.forEach { remove(it) } }
+        val blob = VaultCrypto.sealDetailParts(main.toString().toByteArray(), extra.takeIf { it.length() > 0 }?.toString()?.toByteArray())
+        if (dao.replaceDetailBlob(id, old, blob) == 1) blob else null
+    }
+
+    /**
+     * Migration, after the vault's unlock: splits every entry still sealed as one blob ([split]), so later page opens
+     * read only the small main part. Stops while the vault is locked and runs again on the next unlock; marked done once
+     * every entry is split. Returns how many were split now.
+     */
+    suspend fun splitDetails(): Int = withContext(Dispatchers.IO) {
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        if (prefs.getBoolean(K_SPLIT, false)) return@withContext 0
+        var done = 0
+        var pending = false
+        for (id in dao.callerRowsNow().map { it.id }) {
+            val e = dao.get(id) ?: continue
+            if (VaultCrypto.isParts(e.detailBlob)) continue
+            try {
+                val whole = JSONObject(String(VaultCrypto.openDetail(e.detailBlob)))
+                if (split(id, e.detailBlob, whole) != null) done++ else pending = true
+            } catch (_: VaultCrypto.LockedException) {
+                return@withContext done
+            } catch (_: VaultCrypto.KeyLostException) {
+                // Its key is gone: it stays as it is until "Keep what's left".
+                continue
+            } catch (_: VaultCrypto.KeyUnavailableException) {
+                pending = true
+            }
+        }
+        if (!pending) prefs.edit().putBoolean(K_SPLIT, true).apply()
+        done
+    }
+
+    /**
+     * What only "Make visible", backups and seeding read (the stored record, its photos, carried interactions): the
+     * extra part of [blob], or for a single blob the whole of it ([main] when that is already open).
+     */
+    private fun extrasOf(blob: ByteArray, main: JSONObject? = null): JSONObject = when {
+        VaultCrypto.isParts(blob) -> VaultCrypto.openDetailExtra(blob)?.let { JSONObject(String(it)) } ?: JSONObject()
+        main != null -> main
+        else -> JSONObject(String(VaultCrypto.openDetail(blob)))
     }
 
     /** Whether this entry's full details can no longer be opened (only what the caller-ID copy holds is left). */
     suspend fun detailsLost(id: Long): Boolean = withContext(Dispatchers.IO) {
         val e = dao.get(id) ?: return@withContext false
         try {
-            VaultCrypto.openDetail(e.detailBlob)
+            VaultCrypto.openDetailMain(e.detailBlob)
             false
         } catch (_: VaultCrypto.KeyLostException) {
             true
@@ -342,7 +463,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
             id = -id, lookupKey = "", displayName = o.optString("name"), given = o.optString("name"),
             phones = (0 until nums.length()).map { i -> DataItem(0, nums.getString(i), labels.optInt(i, 2), null) },
             title = fallbackTitle, company = company,
-            context = o.optString("ctx"), pinnedNote = o.optString("note"),
+            context = o.optString("ctx"), pinnedNote = o.optString("note"), pronouns = o.optString(C_PRONOUNS),
         )
     }
 
@@ -422,33 +543,64 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
                 // The four choices above are this copy's own from now on (see seedCallerChoices).
                 .put(C_SEEDED, 1)
             val detailsJson = ContactDetailsJson.encode(shown.copy(photoUri = null))
-            val detail = JSONObject(detailsJson)
+            // Two parts (VaultCrypto.sealDetailParts): the details the page opens, and what only "Make visible",
+            // backups and seeding read.
+            val extra = JSONObject()
             if (record != null) {
                 val blobs = JSONObject()
-                detail.put(REC, RecordJson.encode(record) { h, b -> blobs.put(h, Base64.encodeToString(b, Base64.NO_WRAP)) })
-                detail.put(REC_BLOBS, blobs)
+                extra.put(REC, RecordJson.encode(record) { h, b -> blobs.put(h, Base64.encodeToString(b, Base64.NO_WRAP)) })
+                extra.put(REC_BLOBS, blobs)
                 // [recordOf] (a restored backup): the hash stored with the record, so "edited since" survives.
-                detail.put(REC_OF, recordOf ?: RecordJson.sha256Hex(ContactDetailsJson.encode(ContactDetailsJson.decode(detailsJson)).toByteArray()))
+                extra.put(REC_OF, recordOf ?: RecordJson.sha256Hex(ContactDetailsJson.encode(ContactDetailsJson.decode(detailsJson)).toByteArray()))
             }
-            if (interactions != null) detail.put(INTERACTIONS, interactions)
+            if (interactions != null) extra.put(INTERACTIONS, interactions)
+            var keptExtra: ByteArray? = null
+            var asideDone = false
             if (existing != null && (record == null || interactions == null)) {
                 // Keep the original record (the details hash then no longer matches: it was edited) and the carried
-                // interactions through edits.
+                // interactions through edits: an extra part as it is sealed, without opening it.
                 val keep = (if (record == null) listOf(REC, REC_BLOBS, REC_OF) else emptyList()) +
                     (if (interactions == null) listOf(INTERACTIONS) else emptyList())
-                val old = try {
-                    JSONObject(String(VaultCrypto.openDetail(existing.detailBlob)))
-                } catch (_: VaultCrypto.KeyLostException) {
-                    // The user is saving over a record that can't be opened any more: keep the old blob aside first.
-                    setAside(existing.id, existing.detailBlob)
-                    null
+                if (record == null && interactions == null && VaultCrypto.isParts(existing.detailBlob)) {
+                    keptExtra = VaultCrypto.extraPart(existing.detailBlob)
+                } else {
+                    val old = try {
+                        extrasOf(existing.detailBlob)
+                    } catch (_: VaultCrypto.KeyLostException) {
+                        // The user is saving over a record that can't be opened any more: keep the old blob aside first.
+                        setAside(existing.id, existing.detailBlob)
+                        asideDone = true
+                        null
+                    }
+                    old?.let { keep.forEach { k -> if (old.has(k)) extra.put(k, old.get(k)) } }
                 }
-                old?.let { keep.forEach { k -> if (old.has(k)) detail.put(k, old.get(k)) } }
+            }
+            val extraBytes = extra.takeIf { it.length() > 0 }?.toString()?.toByteArray()
+            val detailBlob = try {
+                VaultCrypto.sealDetailParts(detailsJson.toByteArray(), extraBytes, keptExtra)
+            } catch (lost: VaultCrypto.KeyLostException) {
+                // The kept part's key is gone (it would have to be re-sealed): keep the old blob aside, save without it.
+                if (keptExtra == null || existing == null) throw lost
+                setAside(existing.id, existing.detailBlob)
+                asideDone = true
+                VaultCrypto.sealDetailParts(detailsJson.toByteArray(), null)
+            }
+            // Saved under another key than before: if the old one is gone for good, the old blob is kept aside too.
+            if (existing != null && !asideDone && VaultCrypto.generationOf(existing.detailBlob) != VaultCrypto.generationOf(detailBlob)) {
+                val lost = try {
+                    VaultCrypto.openDetailMain(existing.detailBlob)
+                    false
+                } catch (_: VaultCrypto.KeyLostException) {
+                    true
+                } catch (_: Exception) {
+                    false
+                }
+                if (lost) setAside(existing.id, existing.detailBlob)
             }
             val entity = VaultContactEntity(
                 id = id ?: 0,
                 callerIdBlob = VaultCrypto.sealCallerId(caller.toString().toByteArray()),
-                detailBlob = VaultCrypto.sealDetail(detail.toString().toByteArray()),
+                detailBlob = detailBlob,
                 expiresAt = expiresAt ?: existing?.expiresAt,
                 createdAt = existing?.createdAt ?: System.currentTimeMillis(),
             )
@@ -457,6 +609,9 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
                 dao.clearNumbers(newId)
                 dao.addNumbers(numberRows(newId, numbers, region))
                 newId
+            }.also { newId ->
+                // The page reopens right after an edit: what was just sealed needn't be opened again.
+                openedMain[newId] = OpenedMain(detailBlob, ContactDetailsJson.decode(detailsJson), SystemClock.elapsedRealtime())
             }.also { noteCallChoices(labels.isNotEmpty() || shown.sendToVoicemail || !shown.customRingtone.isNullOrBlank()) }
         }
     }
@@ -503,13 +658,14 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
             val o = runCatching { JSONObject(String(VaultCrypto.openCallerId(e.callerIdBlob))) }.getOrNull() ?: return@withLock false
             if (o.has(C_SEEDED)) return@withLock true
             val detail = try {
-                JSONObject(String(VaultCrypto.openDetail(e.detailBlob)))
+                JSONObject(String(VaultCrypto.openDetailMain(e.detailBlob)))
             } catch (_: VaultCrypto.KeyLostException) {
                 null
             }
             if (detail != null) {
                 // Photos aren't needed for this: their blobs are left out.
-                val record = detail.optString(REC).takeIf { it.isNotEmpty() }?.let { line -> runCatching { RecordJson.decode(line) { null } }.getOrNull() }
+                val line = runCatching { extrasOf(e.detailBlob, detail) }.getOrNull()?.optString(REC).orEmpty()
+                val record = line.takeIf { it.isNotEmpty() }?.let { runCatching { RecordJson.decode(it) { null } }.getOrNull() }
                 val seed = PrivateCallerChoices.seed(
                     detail.optBoolean("starred"), detail.optString("ringtone").ifEmpty { null }, detail.optBoolean("vm"), record,
                 )
@@ -550,7 +706,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
     }
 
     /** Entry [id]'s summary (caller-ID copy), read straight from the database; null when gone or unreadable. */
-    suspend fun summary(id: Long): VaultSummary? = withContext(Dispatchers.IO) { dao.get(id)?.let { summarize(it) } }
+    suspend fun summary(id: Long): VaultSummary? = withContext(Dispatchers.IO) { dao.callerRow(id)?.let { summarize(it) } }
 
     /** A save or change gave a private contact something the call path applies. */
     private fun noteCallChoices(any: Boolean) {
@@ -617,7 +773,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
             runCatching { if (context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(K_CALL_CHOICES, false)) hasCallChoices = true }
             VaultCallChoices.loaded = true
             // Then the listing decides (a stale "yes" costs only a lookup per call; a "no" only once none has any).
-            runCatching { dao.contacts().collect { list -> rememberCallChoices(list.any { e -> summarize(e)?.hasCallChoices == true }) } }
+            runCatching { dao.callerRows().collect { list -> rememberCallChoices(list.any { e -> summarize(e)?.hasCallChoices == true }) } }
         }
         scope.launch { runCatching { migrateNumberKeys() } }
         // Settles the key generation from the stored blobs before anything audits it (an interrupted upgrade).
@@ -650,6 +806,8 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
                 dao.deletePrivateCalls(id)
             }
         }
+        openedMain.remove(id)
+        summaries.remove(id)
         photoFile(id).delete()
         app.parley.data.people.OriginalPhotos.forgetPrivate(context, id)
     }
@@ -800,13 +958,14 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
      */
     suspend fun storedRecord(id: Long): StoredRecord? = withContext(Dispatchers.IO) {
         val e = dao.get(id) ?: return@withContext null
-        val o = JSONObject(String(VaultCrypto.openDetail(e.detailBlob)))
-        val line = o.optString(REC).takeIf { it.isNotEmpty() } ?: return@withContext null
-        val blobs = o.optJSONObject(REC_BLOBS)
+        val o = JSONObject(String(VaultCrypto.openDetailMain(e.detailBlob)))
+        val x = extrasOf(e.detailBlob, o)
+        val line = x.optString(REC).takeIf { it.isNotEmpty() } ?: return@withContext null
+        val blobs = x.optJSONObject(REC_BLOBS)
         val record = runCatching { RecordJson.decode(line) { h -> blobs?.optString(h)?.takeIf { it.isNotEmpty() }?.let { Base64.decode(it, Base64.NO_WRAP) } } }.getOrNull()
             ?: return@withContext null
         val now = ContactDetailsJson.encode(ContactDetailsJson.decode(o.toString()))
-        StoredRecord(record, RecordJson.sha256Hex(now.toByteArray()) != o.optString(REC_OF), o.optString(REC_OF))
+        StoredRecord(record, RecordJson.sha256Hex(now.toByteArray()) != x.optString(REC_OF), x.optString(REC_OF))
     }
 
     /**
@@ -815,11 +974,11 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
      */
     suspend fun storedInteractions(id: Long): String? = withContext(Dispatchers.IO) {
         val e = dao.get(id) ?: return@withContext null
-        JSONObject(String(VaultCrypto.openDetail(e.detailBlob))).optString(INTERACTIONS).takeIf { it.isNotEmpty() }
+        extrasOf(e.detailBlob).optString(INTERACTIONS).takeIf { it.isNotEmpty() }
     }
 
     /** Every private contact, read straight from the database (not the UI flow, which starts empty). */
-    suspend fun summariesNow(): List<VaultSummary> = withContext(Dispatchers.IO) { dao.all().mapNotNull { summarize(it) } }
+    suspend fun summariesNow(): List<VaultSummary> = withContext(Dispatchers.IO) { dao.callerRowsNow().mapNotNull { summarize(it) } }
 
     /** The private calls of entry [vaultId], read straight from the database (backup). */
     suspend fun privateCallsOf(vaultId: Long): List<PrivateCall> = withContext(Dispatchers.IO) {
@@ -835,7 +994,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
     suspend fun privateCallCount(vaultId: Long): Int = withContext(Dispatchers.IO) { dao.allPrivateCalls().count { it.vaultId == vaultId } }
 
     /** Every private contact's numbers, read straight from the database (import duplicate checks, F17). */
-    suspend fun allNumbers(): List<String> = withContext(Dispatchers.IO) { dao.all().mapNotNull { summarize(it) }.flatMap { it.numbers } }
+    suspend fun allNumbers(): List<String> = withContext(Dispatchers.IO) { dao.callerRowsNow().mapNotNull { summarize(it) }.flatMap { it.numbers } }
 
     private companion object {
         const val PREFS = "vault"
@@ -863,6 +1022,13 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
         const val C_PRONOUNS = "pn"
         const val K_CALL_CHOICES = "call_choices"
         const val K_CHOICES_SEEDED = "caller_choices_seeded"
+        const val K_SPLIT = "details_split"
+
+        /** What goes in the extra part of the sealed details (VaultCrypto.sealDetailParts). */
+        val EXTRA_KEYS = listOf(REC, REC_BLOBS, REC_OF, INTERACTIONS)
+
+        /** How long opened details stay in memory: short, and only while the phone is unlocked (see openMain). */
+        const val OPENED_MS = 60_000L
 
         /** Marks a caller-ID copy that keeps the star, labels, ringtone and voicemail itself. */
         const val C_SEEDED = "cs"

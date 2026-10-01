@@ -51,6 +51,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.transformLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -91,6 +92,12 @@ data class ContactDetailUiState(
 /** Whether a private contact's details can be read now; a device contact is always [OPEN]. */
 enum class PrivateAccess {
     OPEN,
+
+    /**
+     * The page shows what the caller-ID copy holds (name, numbers, photo, job, the note for calls) while the sealed
+     * details are being opened; nothing about it looks locked.
+     */
+    OPENING,
 
     /** The vault must be unlocked first (VaultCrypto.LockedException): the page offers to unlock. */
     LOCKED,
@@ -149,10 +156,13 @@ class ContactDetailViewModel(private val c: DataContainer) : ViewModel() {
         val privateExpiry: Pair<Long, Boolean>? = null,
     )
 
-    private val loaded: StateFlow<Loaded?> = combine(ref.filterNotNull(), c.contacts.contacts, c.vault.contacts, reloads) { r, _, _, _ -> r }
-        .mapLatest { r ->
-            if (r is ContactRef.Private) return@mapLatest loadPrivate(r)
-            val id = (r as ContactRef.Device).contactId
+    private val loaded: StateFlow<Loaded?> = ref.filterNotNull().flatMapLatest { r ->
+        if (r is ContactRef.Private) privateLoads(r) else deviceLoads(r as ContactRef.Device)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_AFTER_MS), null)
+
+    private fun deviceLoads(r: ContactRef.Device): Flow<Loaded> = combine(c.contacts.contacts, c.vault.contacts, reloads) { _, _, _ -> r }
+        .mapLatest {
+            val id = r.contactId
             val details = c.contacts.details(id)
             val messengers = withContext(Dispatchers.IO) { runCatching { Messengers.actions(c.appContext, id) }.getOrDefault(emptyList()) }
             val other = withContext(Dispatchers.IO) {
@@ -164,34 +174,54 @@ class ContactDetailViewModel(private val c: DataContainer) : ViewModel() {
                 }.getOrDefault(emptyList())
             }
             Loaded(details, messengers, other, r)
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_AFTER_MS), null)
+        }
 
     /**
      * A private contact from the vault, shaped like a device contact for the page: its Parley key
      * ([ContactRef.privateKey]) as lookup key, so notes, the Circle, logged moments and the call-screen picture are
-     * found the same way, and its in-app photo. Locked: only what the caller-ID copy holds (name, numbers), which
-     * calls show anyway; everything else waits for the unlock, with VaultCrypto's locking unchanged.
+     * found the same way, and its in-app photo.
+     *
+     * It shows at once from the caller-ID copy (name, numbers, photo, job, the note for calls: [PrivateAccess.OPENING]),
+     * then the sealed details fill in, opened once ([app.parley.data.vault.VaultRepository.open]). Locked: what the
+     * caller-ID copy holds, which calls show anyway; everything else waits for the unlock, with VaultCrypto's locking
+     * unchanged. Read again only when this entry changes (or [reload]), never for another contact's change.
      */
-    private suspend fun loadPrivate(r: ContactRef.Private): Loaded {
-        val summary = c.vault.summariesNow().firstOrNull { it.id == r.vaultId } ?: return Loaded(null, emptyList(), emptyList(), r)
-        val expiry = summary.expiresAt?.let { it to summary.purgeHistory }
-        // The photo's file is looked at off the main thread (this runs in viewModelScope; StrictMode flags it there).
-        val photo = withContext(Dispatchers.IO) { c.vault.photoUri(r.vaultId) }
-        fun forPage(d: ContactDetails) = d.copy(id = r.navId, lookupKey = ContactRef.privateKey(r.vaultId), photoUri = photo)
-        val locked = forPage(
-            ContactDetails(
-                displayName = summary.name, given = summary.name, starred = summary.starred,
-                phones = summary.numbers.map { DataItem(null, it, android.provider.ContactsContract.CommonDataKinds.Phone.TYPE_MOBILE, null) },
-            ),
-        )
-        return try {
-            val d = c.vault.details(r.vaultId) ?: return Loaded(null, emptyList(), emptyList(), r)
-            val lost = c.vault.detailsLost(r.vaultId)
-            Loaded(forPage(d), emptyList(), emptyList(), r, if (lost) PrivateAccess.LOST else PrivateAccess.OPEN, expiry)
-        } catch (_: VaultCrypto.LockedException) {
-            Loaded(locked, emptyList(), emptyList(), r, PrivateAccess.LOCKED, expiry)
-        } catch (_: VaultCrypto.KeyUnavailableException) {
-            Loaded(locked, emptyList(), emptyList(), r, PrivateAccess.UNAVAILABLE, expiry)
+    private fun privateLoads(r: ContactRef.Private): Flow<Loaded> {
+        val entry = c.vault.contacts.map { list -> list.firstOrNull { it.id == r.vaultId } }.distinctUntilChanged()
+        var shown: Loaded? = null
+        return combine(entry, reloads) { s, _ -> s }.transformLatest { listed ->
+            // The listing starts empty: the entry's own row tells "not listed yet" from "gone".
+            val summary = listed ?: c.vault.summary(r.vaultId)
+            if (summary == null) {
+                emit(Loaded(null, emptyList(), emptyList(), r))
+                return@transformLatest
+            }
+            val expiry = summary.expiresAt?.let { it to summary.purgeHistory }
+            // The photo's file is looked at off the main thread (this runs in viewModelScope; StrictMode flags it there).
+            val photo = withContext(Dispatchers.IO) { c.vault.photoUri(r.vaultId) }
+            fun forPage(d: ContactDetails) = d.copy(id = r.navId, lookupKey = ContactRef.privateKey(r.vaultId), photoUri = photo)
+            val quick = forPage(
+                c.vault.callerCopy(r.vaultId) ?: ContactDetails(
+                    displayName = summary.name, given = summary.name, starred = summary.starred,
+                    phones = summary.numbers.map { DataItem(null, it, android.provider.ContactsContract.CommonDataKinds.Phone.TYPE_MOBILE, null) },
+                ),
+            )
+            // First time only: once the details were shown, a refresh keeps them until the new ones are open.
+            if (shown?.access != PrivateAccess.OPEN) emit(Loaded(quick, emptyList(), emptyList(), r, PrivateAccess.OPENING, expiry))
+            val full = try {
+                val o = c.vault.open(r.vaultId)
+                if (o == null) {
+                    Loaded(null, emptyList(), emptyList(), r)
+                } else {
+                    Loaded(forPage(o.details), emptyList(), emptyList(), r, if (o.lost) PrivateAccess.LOST else PrivateAccess.OPEN, expiry)
+                }
+            } catch (_: VaultCrypto.LockedException) {
+                Loaded(quick, emptyList(), emptyList(), r, PrivateAccess.LOCKED, expiry)
+            } catch (_: VaultCrypto.KeyUnavailableException) {
+                Loaded(quick, emptyList(), emptyList(), r, PrivateAccess.UNAVAILABLE, expiry)
+            }
+            shown = full
+            emit(full)
         }
     }
 
@@ -208,7 +238,8 @@ class ContactDetailViewModel(private val c: DataContainer) : ViewModel() {
     private val meta = combine(lookupKey.flatMapLatest { k -> if (k.isEmpty()) flowOf(null) else c.meta.metaFlow(k) }, loaded) { m, l ->
         val d = l?.details
         if (l?.ref !is ContactRef.Private || d == null) return@combine m
-        if (l.access != PrivateAccess.OPEN && l.access != PrivateAccess.LOST) return@combine m
+        // While opening, the note for calls comes from the caller-ID copy (it is kept there for the call screen).
+        if (l.access != PrivateAccess.OPEN && l.access != PrivateAccess.LOST && l.access != PrivateAccess.OPENING) return@combine m
         (m ?: ContactMetaEntity(d.lookupKey, contactId = d.id)).copy(
             pinnedNote = d.pinnedNote.ifBlank { null }, preferredMessenger = d.messengerPrefs.ifBlank { null },
         )

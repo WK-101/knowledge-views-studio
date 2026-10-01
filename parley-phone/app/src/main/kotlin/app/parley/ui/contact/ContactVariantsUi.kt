@@ -121,7 +121,7 @@ private fun VariantChipView(icon: ImageVector, text: String, description: String
  */
 @Composable
 fun PrivateAccessRow(access: PrivateAccess, onUnlock: () -> Unit, onRetry: () -> Unit, onKeep: () -> Unit) {
-    if (access == PrivateAccess.OPEN) return
+    if (access == PrivateAccess.OPEN || access == PrivateAccess.OPENING) return
     SegmentedGroup {
         item {
             when (access) {
@@ -143,7 +143,7 @@ fun PrivateAccessRow(access: PrivateAccess, onUnlock: () -> Unit, onRetry: () ->
                     supporting = { Text(stringResource(R.string.vault_details_lost_summary)) },
                     trailing = { TextButton(onKeep) { Text(stringResource(R.string.vault_details_keep)) } },
                 )
-                PrivateAccess.OPEN -> Unit
+                PrivateAccess.OPEN, PrivateAccess.OPENING -> Unit
             }
         }
     }

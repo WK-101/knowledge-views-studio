@@ -55,7 +55,12 @@ class OriginalPhotos(context: Context) {
         internal val orientation: Int,
         private val file: File,
         private val sealed: Boolean,
+        /** A sealed original's header-size copy ([PREVIEW_PX]), made the first time it is shown; null for a plain file. */
+        internal val preview: File? = null,
     ) {
+        /** [preview] when it exists and is newer than the original it was made from. */
+        internal fun freshPreview(): File? = preview?.takeIf { it.isFile && it.lastModified() >= file.lastModified() }
+
         /** Identifies this version of the picture (for caches and `remember`). */
         val id: String = file.name + "@" + file.lastModified()
 
@@ -276,6 +281,7 @@ class OriginalPhotos(context: Context) {
     suspend fun clearPrivate(id: Long) = withContext(Dispatchers.IO) { clearPrivateNow(id) }
 
     private fun clearPrivateNow(id: Long) {
+        File(privateDir, "v$id$PREVIEW_SUFFIX").delete()
         val a = privateImage(id).delete()
         val b = privateMeta(id).delete()
         if (a || b) _version.value++
@@ -286,7 +292,53 @@ class OriginalPhotos(context: Context) {
     /** [o] upright and whole, its longer side at most [maxLong] px, or null. */
     @Suppress("TooGenericExceptionCaught") // Decoders throw many kinds; the page then shows Android's photo.
     suspend fun decode(o: Original, maxLong: Int): Bitmap? = withContext(Dispatchers.IO) {
+        // A sealed original shown at header size: its small sealed copy, made from the original once.
+        if (o.preview != null && maxLong <= PREVIEW_PX) {
+            o.freshPreview()?.let { f -> decodePreview(f, maxLong)?.let { return@withContext it } }
+            makePreview(o)?.let { pre -> return@withContext if (maxLong >= PREVIEW_PX) pre else scaled(pre, maxLong) }
+        }
+        decodeWhole(o, maxLong)
+    }
+
+    @Suppress("TooGenericExceptionCaught") // Keystore, file or decoder: the original is decoded instead.
+    private fun decodePreview(f: File, maxLong: Int): Bitmap? = try {
+        val bytes = VaultCrypto.openCallerId(f.readBytes())
+        ImageDecoder.decodeBitmap(ImageDecoder.createSource(ByteBuffer.wrap(bytes))) { decoder, info, _ ->
+            decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
+            val (tw, th) = PhotoMath.fitLongSide(info.size.width, info.size.height, maxLong)
+            if (tw != info.size.width || th != info.size.height) decoder.setTargetSize(tw, th)
+        }
+    } catch (e: Exception) {
+        Log.w(TAG, "Couldn't show the photo's preview", e)
+        null
+    }
+
+    /** Decodes [o] at [PREVIEW_PX] and keeps that copy sealed beside it; returns the decoded picture. */
+    @Suppress("TooGenericExceptionCaught") // Keystore or file: the picture still shows, the copy is made next time.
+    private fun makePreview(o: Original): Bitmap? {
+        val pre = decodeWhole(o, PREVIEW_PX) ?: return null
+        val target = o.preview ?: return pre
         try {
+            val out = java.io.ByteArrayOutputStream()
+            pre.compress(Bitmap.CompressFormat.JPEG, PREVIEW_QUALITY, out)
+            val tmp = File(target.parentFile, target.name + ".tmp")
+            tmp.writeBytes(VaultCrypto.sealCallerId(out.toByteArray()))
+            if (!tmp.renameTo(target)) tmp.delete()
+        } catch (e: Exception) {
+            Log.w(TAG, "Couldn't keep the photo's preview", e)
+        }
+        return pre
+    }
+
+    private fun scaled(b: Bitmap, maxLong: Int): Bitmap {
+        val (w, h) = PhotoMath.fitLongSide(b.width, b.height, maxLong)
+        return if (w == b.width && h == b.height) b else Bitmap.createScaledBitmap(b, w, h, true)
+    }
+
+    /** [o] upright and whole, its longer side at most [maxLong] px, or null. */
+    @Suppress("TooGenericExceptionCaught") // Decoders throw many kinds; the page then shows Android's photo.
+    private fun decodeWhole(o: Original, maxLong: Int): Bitmap? {
+        return try {
             ImageDecoder.decodeBitmap(o.source()) { decoder, info, _ ->
                 decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
                 val (tw, th) = PhotoMath.fitLongSide(info.size.width, info.size.height, maxLong)
@@ -347,7 +399,7 @@ class OriginalPhotos(context: Context) {
         if (w <= 0 || h <= 0) return null
         val o = meta.optInt("o", ExifInterface.ORIENTATION_NORMAL)
         val (uw, uh) = PhotoMath.exifTransform(o).uprightSize(w, h)
-        return Original(uw, uh, w, h, o, image, sealed)
+        return Original(uw, uh, w, h, o, image, sealed, preview = if (sealed) File(image.parentFile, image.nameWithoutExtension + PREVIEW_SUFFIX) else null)
     }
 
     private fun writeMeta(file: File, s: Staged, base: JSONObject) {
@@ -437,6 +489,14 @@ class OriginalPhotos(context: Context) {
     companion object {
         private const val TAG = "OriginalPhotos"
 
+        /**
+         * A sealed original's header copy: its longer side in px (the contact page's photo is at most 1.6 × 160 dp).
+         * Opening the whole original (up to 20 MB through the Keystore) for a 128 dp header took seconds.
+         */
+        internal const val PREVIEW_PX = 1024
+        private const val PREVIEW_SUFFIX = ".pre.bin"
+        private const val PREVIEW_QUALITY = 88
+
         private val LOCATION_TAGS = listOf(
             ExifInterface.TAG_GPS_LATITUDE, ExifInterface.TAG_GPS_LATITUDE_REF, ExifInterface.TAG_GPS_LONGITUDE, ExifInterface.TAG_GPS_LONGITUDE_REF,
             ExifInterface.TAG_GPS_ALTITUDE, ExifInterface.TAG_GPS_ALTITUDE_REF, ExifInterface.TAG_GPS_TIMESTAMP, ExifInterface.TAG_GPS_DATESTAMP,
@@ -467,6 +527,7 @@ class OriginalPhotos(context: Context) {
             val d = File(context.filesDir, "vault_photo_originals")
             File(d, "v$id.bin").delete()
             File(d, "v$id.json").delete()
+            File(d, "v$id$PREVIEW_SUFFIX").delete()
         }
     }
 }
