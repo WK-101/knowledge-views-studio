@@ -68,8 +68,12 @@ class ModelImportActivity : Activity() {
     private fun launchPicker() {
         val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
             addCategory(Intent.CATEGORY_OPENABLE)
-            type = "application/zip"
+            type = "*/*"
             putExtra(Intent.EXTRA_MIME_TYPES, arrayOf("application/zip", "application/octet-stream", "*/*"))
+            // Allow picking a model split into parts (e.g. .zip.001 / .002) so a large model can be
+            // transferred to the phone and imported without any network. The parts are concatenated
+            // in filename order before unzipping; a single .zip still works.
+            putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
         }
         runCatching { startActivityForResult(intent, REQUEST_PICK) }
             .onFailure { fail(getString(R.string.import_failed)) }
@@ -79,31 +83,48 @@ class ModelImportActivity : Activity() {
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode != REQUEST_PICK) return
-        val uri = data?.data
-        if (resultCode != RESULT_OK || uri == null) {
+        if (resultCode != RESULT_OK || data == null) {
             // User backed out of the picker; leave the intro visible so they can retry or leave.
             return
         }
-        beginInstall(uri)
+        val uris = collectUris(data)
+        if (uris.isEmpty()) return
+        beginInstall(uris)
     }
 
-    private fun beginInstall(uri: Uri) {
+    /** One file (data.data) or many (data.clipData), returned in filename order so split parts concatenate right. */
+    private fun collectUris(data: Intent): List<Uri> {
+        val clip = data.clipData
+        val uris = if (clip != null) {
+            (0 until clip.itemCount).mapNotNull { clip.getItemAt(it).uri }
+        } else {
+            listOfNotNull(data.data)
+        }
+        return uris.sortedBy { displayName(it) }
+    }
+
+    private fun displayName(uri: Uri): String =
+        runCatching {
+            contentResolver.query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)
+                ?.use { c -> if (c.moveToFirst()) c.getString(0) else null }
+        }.getOrNull() ?: uri.lastPathSegment ?: uri.toString()
+
+    private fun beginInstall(uris: List<Uri>) {
         status.text = getString(R.string.import_working)
         progress.visibility = View.VISIBLE
         action.visibility = View.GONE
-        Thread({ install(uri) }, "model-import").start()
+        Thread({ install(uris) }, "model-import").start()
     }
 
     // The unzip is one cohesive unit (open -> extract -> validate -> swap); any failure must surface as
     // an error state, never crash the addon, hence the broad catch.
     @Suppress("TooGenericExceptionCaught")
-    private fun install(uri: Uri) {
+    private fun install(uris: List<Uri>) {
         val tmp = File(filesDir, "${ModelStore.DIR}.tmp")
         try {
             tmp.deleteRecursively()
             tmp.mkdirs()
-            contentResolver.openInputStream(uri)?.use { extract(it, tmp) }
-                ?: throw IllegalStateException("cannot open $uri")
+            openConcatenated(uris).use { extract(it, tmp) }
 
             if (!isValidModel(tmp)) {
                 tmp.deleteRecursively()
@@ -119,6 +140,15 @@ class ModelImportActivity : Activity() {
             tmp.deleteRecursively()
             main.post { fail(getString(R.string.import_failed)) }
         }
+    }
+
+    /** A single stream over all parts in order — `cat part.001 part.002` reproduces the original zip. */
+    private fun openConcatenated(uris: List<Uri>): InputStream {
+        if (uris.isEmpty()) throw IllegalStateException("no files")
+        val streams = uris.map {
+            contentResolver.openInputStream(it) ?: throw IllegalStateException("cannot open $it")
+        }
+        return java.io.SequenceInputStream(java.util.Collections.enumeration(streams))
     }
 
     /** Flatten each entry to its basename: trivial, and it closes zip-slip (no path separators survive). */
