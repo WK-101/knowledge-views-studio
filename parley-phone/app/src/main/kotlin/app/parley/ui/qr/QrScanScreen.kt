@@ -1,5 +1,6 @@
 package app.parley.ui.qr
 
+import app.parley.calls.ExpectedCallHints
 import app.parley.ui.Destination
 import android.content.ActivityNotFoundException
 import android.content.ClipboardManager
@@ -217,6 +218,8 @@ fun QrScanScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit
         }
     }
     payload?.let { p -> QrResultSheet(vm, p, onDismiss = { payload = null }, open = open) }
+    // I7: a parcel's tracking code can let the courier's call ring (asked once).
+    LaunchedEffect(payload) { payload?.let { p -> runCatching { ExpectedCallHints.qrScanned(vm.c, p.raw) } } }
 }
 
 @Composable

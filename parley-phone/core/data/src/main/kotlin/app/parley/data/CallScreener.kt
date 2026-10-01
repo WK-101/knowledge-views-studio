@@ -2,6 +2,7 @@ package app.parley.data
 
 import android.Manifest
 import app.parley.common.AllowReason
+import app.parley.common.calls.ExpectedWindow
 import app.parley.common.BlockAction
 import app.parley.common.BlockReason
 import app.parley.common.CallEntry
@@ -210,7 +211,13 @@ class CallScreener(
 
     fun currentSettingsNow(): ScreeningSettings = settings.settings.value.let { it.screening.copy(repeatCallers = it.repeatCallerRingsThrough) }
 
-    private suspend fun currentSettings(): ScreeningSettings = settings.current().let { it.screening.copy(repeatCallers = it.repeatCallerRingsThrough) }
+    private suspend fun currentSettings(): ScreeningSettings = settings.current().let {
+        it.screening.copy(repeatCallers = it.repeatCallerRingsThrough, expected = runCatching { expectedWindows() }.getOrDefault(emptyList()))
+    }
+
+    /** I7: the expected-call windows in force (sealed in their own store); none until set at start. */
+    @Volatile
+    var expectedWindows: suspend () -> List<ExpectedWindow> = { emptyList() }
 
     private class Gathered(
         val facts: IncomingCallFacts,

@@ -67,6 +67,7 @@ import app.parley.ui.Routes
 import app.parley.ui.blocking.LabelBlockingMenuItem
 import app.parley.ui.contact.Section
 import app.parley.ui.extras.LabelPolicySection
+import app.parley.ui.family.SafeWordSection
 import app.parley.ui.home.ContactRow
 import app.parley.data.vault.VaultCrypto
 import app.parley.security.AppLock
@@ -418,6 +419,8 @@ fun LabelScreen(vm: AppViewModel, title: String, back: () -> Unit, open: (Destin
             }
             // SIM, Circle rhythm and Do Not Disturb for this label.
             item { LabelPolicySection(vm, current, members) }
+            // I4: the label's safe word (asks who it is before showing or changing it).
+            item { SafeWordSection(vm, current) }
             item { Section(pluralStringResource(R.plurals.lbl_n_contacts, members.size, members.size)) }
             if (members.isEmpty()) item {
                 Text(stringResource(R.string.lbl_nobody), Modifier.padding(16.dp), style = MaterialTheme.typography.bodyMedium)

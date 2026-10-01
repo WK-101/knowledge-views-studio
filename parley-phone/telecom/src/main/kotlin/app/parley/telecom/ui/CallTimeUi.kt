@@ -23,6 +23,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Notes
 import androidx.compose.material.icons.rounded.ContentCopy
+import androidx.compose.material.icons.rounded.FamilyRestroom
+import androidx.compose.material.icons.rounded.GroupAdd
 import androidx.compose.material.icons.rounded.HourglassTop
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Timer
@@ -193,6 +195,10 @@ internal fun CallMoreSheet(
     onHoldMode: (() -> Unit)? = null,
     /** I3 "Check it's really them": hang up and call the saved number (not for an emergency call). */
     onVerify: (() -> Unit)? = null,
+    /** I4 "Says they're family": shows the safe-word card now (a safe word is set; not for an emergency call). */
+    onClaimsFamily: (() -> Unit)? = null,
+    /** I5 "Add my helper": calls a trusted person to join (never during an emergency call). */
+    onAddHelper: (() -> Unit)? = null,
 ) {
     ParleySheet(onDismissRequest = onDismiss, title = stringResource(R.string.incall_more_options)) {
         controls.forEach { c ->
@@ -220,6 +226,24 @@ internal fun CallMoreSheet(
                 leadingContent = { Icon(Icons.Rounded.VerifiedUser, null) },
                 colors = rowColors(),
                 modifier = Modifier.clickable { onDismiss(); onVerify() },
+            )
+        }
+        if (onAddHelper != null) {
+            ParleyListItem(
+                headlineContent = { Text(stringResource(R.string.helper_add)) },
+                supportingContent = { Text(stringResource(R.string.helper_add_explainer)) },
+                leadingContent = { Icon(Icons.Rounded.GroupAdd, null) },
+                colors = rowColors(),
+                modifier = Modifier.clickable { onDismiss(); onAddHelper() },
+            )
+        }
+        if (onClaimsFamily != null) {
+            ParleyListItem(
+                headlineContent = { Text(stringResource(R.string.safeword_claims_family)) },
+                supportingContent = { Text(stringResource(R.string.safeword_claims_family_explainer)) },
+                leadingContent = { Icon(Icons.Rounded.FamilyRestroom, null) },
+                colors = rowColors(),
+                modifier = Modifier.clickable { onDismiss(); onClaimsFamily() },
             )
         }
         ParleyListItem(

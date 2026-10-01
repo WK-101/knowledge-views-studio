@@ -103,6 +103,8 @@ import app.parley.telecom.CallManager
 import app.parley.telecom.CallState
 import app.parley.telecom.CallUi
 import app.parley.telecom.DeclineBlock
+import app.parley.telecom.HelperCalls
+import app.parley.common.calls.SafeWords
 import app.parley.telecom.R
 import app.parley.telecom.RouteType
 import app.parley.telecom.TelecomGraph
@@ -131,6 +133,9 @@ private class InCallSheets {
 
     /** "Check it's really them" for this call (live, or just ended from the post-call card). */
     var verifyFor by mutableStateOf<CallUi?>(null)
+
+    /** Family safety: the safe-word card and "Add my helper" (WP-8). */
+    val family = FamilyCallState()
 }
 
 /**
@@ -180,6 +185,7 @@ fun InCallScreen(
     val endedNow = calls.firstOrNull { !it.isLive }
     val shown = primary ?: endedNow?.let { c -> ended?.takeIf { it.id == c.id } ?: c } ?: ended ?: calls.firstOrNull()
     val sheets = remember { InCallSheets() }
+    LoadFamilyCallState(primary, sheets.family)
     val screen = ScreenState(
         live = live, primary = primary, shown = shown, ended = ended, failed = failed, declineBlock = declineBlock, audio = audio,
         keypadOpen = keypadOpen, incoming = IncomingPrefs(answerGesture, simple, confirmDecline),
@@ -192,7 +198,7 @@ fun InCallScreen(
         val actions = ScreenActions(
             onKeypad = onKeypad, onAddCall = onAddCall, onOpenContact = onOpenContact,
             onPostCall = withVerify(onPostCall, shown, sheets, onUnlock),
-            onRetry = onRetry, onDismissFailure = onDismissFailure, onUndoBlock = onUndoBlock, onDrop = onDrop,
+            onRetry = onRetry, onDismissFailure = onDismissFailure, onUndoBlock = onUndoBlock, onDrop = onDrop, onUnlock = onUnlock,
         )
         if (slots.waiting && slots.current != null && primary != null) {
             CallWaitingLayout(primary, slots.current!!, slots.held, twoPane, confirmDecline, insets) { sheets.replyFor = primary.id }
@@ -267,6 +273,7 @@ private class ScreenActions(
     val onDismissFailure: (CallUi) -> Unit,
     val onUndoBlock: () -> Unit,
     val onDrop: (CallUi, Boolean) -> Unit,
+    val onUnlock: (() -> Unit) -> Unit = { it() },
 )
 
 /** A ringing call while another call is going: the current call(s) at the top, the waiting call as a sheet. */
@@ -328,6 +335,8 @@ private fun CallerSection(s: ScreenState, sheets: InCallSheets, a: ScreenActions
     )
     // Auto-answer's countdown with Cancel, between the caller and the answer controls (an overlay of its own).
     if (shown.state == CallState.RINGING) AutoAnswerCountdown(shown)
+    // WP-8: the helper being brought in, and "Claims to be family? Ask: …".
+    if (primary != null && primary.state != CallState.RINGING) FamilySafetyCards(primary, s.live, sheets.family, a.onUnlock)
     Spacer(Modifier.height(Spacing.l))
 }
 
@@ -390,6 +399,8 @@ private fun OngoingControls(call: CallUi, s: ScreenState, sheets: InCallSheets, 
             // I10: "I'm on hold" shows the waiting time and the way out instead of the grid.
             call.holdModeSince > 0 -> HoldModePanel(call, onKeypad = { a.onKeypad(true) })
             else -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                // Simple mode: "Add my helper" as one big button (I5).
+                if (s.incoming.simple) SimpleHelper(call, s, sheets)
                 AudioRoutesTip(call, s.audio)
                 ControlGrid(
                     call = call,
@@ -726,6 +737,7 @@ private fun InCallDialogs(
     }
     if (sheets.route) AudioRouteSheet(s.audio) { sheets.route = false }
     if (sheets.more && primary != null) MoreSheet(primary, s, sheets, onOpenContact, onAddCall, onUnlock)
+    HelperPick(primary, s, sheets)
     VerifyDialog(s, sheets)
     // Decline tapped in the notification, with "Confirm before declining" on.
     val askCall = s.live.firstOrNull { it.id == askDeclineFor && it.state == CallState.RINGING }
@@ -774,7 +786,41 @@ private fun MoreSheet(
         onCopyNumber = primary.number?.takeIf { !primary.hidden && it.isNotBlank() }?.let { n -> { copyNumber(context, n) } },
         onHoldMode = if (primary.canHoldMode) ({ CallManager.startHoldMode(primary.id) }) else null,
         onVerify = if (primary.canVerify) ({ onUnlock { sheets.verifyFor = primary } }) else null,
+        onClaimsFamily = claimsFamily(primary, sheets.family),
+        onAddHelper = addHelper(context, primary, s, sheets.family),
     )
+}
+
+/** I4: More › "Says they're family", while the safe-word card isn't up yet for this call. */
+private fun claimsFamily(call: CallUi, family: FamilyCallState): (() -> Unit)? {
+    val seconds = if (call.connectTimeMillis > 0) (System.currentTimeMillis() - call.connectTimeMillis) / 1000 else 0
+    if (!SafeWords.claimOffered(family.facts(call, seconds))) return null
+    return { family.claimed[call.id] = true }
+}
+
+/** I5: More › "Add my helper": calls the one helper at once, or lists them. */
+private fun addHelper(context: Context, call: CallUi, s: ScreenState, family: FamilyCallState): (() -> Unit)? {
+    val helpers = family.helpersFor(call, s.others, joining = HelperCalls.join.value != null)
+    if (helpers.isEmpty()) return null
+    return { if (helpers.size == 1) startHelper(context, call, helpers.first()) else family.pickHelper = true }
+}
+
+/** "Add my helper" with several helpers: the list to choose from (I5), while asked for. */
+@Composable
+private fun HelperPick(primary: CallUi?, s: ScreenState, sheets: InCallSheets) {
+    if (!sheets.family.pickHelper || primary == null) return
+    val context = LocalContext.current
+    val helpers = sheets.family.helpersFor(primary, s.others, joining = false)
+    HelperSheet(helpers, onPick = { startHelper(context, primary, it) }) { sheets.family.pickHelper = false }
+}
+
+/** Simple mode's big "Add my helper" (I5), when there's someone to add. */
+@Composable
+private fun SimpleHelper(call: CallUi, s: ScreenState, sheets: InCallSheets) {
+    val context = LocalContext.current
+    val join by HelperCalls.join.collectAsStateWithLifecycle()
+    val helpers = sheets.family.helpersFor(call, s.others, joining = join != null)
+    SimpleHelperButton(helpers) { addHelper(context, call, s, sheets.family)?.invoke() }
 }
 
 /**

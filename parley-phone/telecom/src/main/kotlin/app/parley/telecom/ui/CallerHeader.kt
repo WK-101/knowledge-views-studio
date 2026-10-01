@@ -232,7 +232,8 @@ private fun SubjectLine(call: CallUi) {
  */
 @Composable
 private fun RangThroughLine(call: CallUi) {
-    val text = call.rangThrough?.takeIf { !call.silenced } ?: return
+    // I7: the note it came from is named only while the phone is unlocked.
+    val text = (call.rangThroughUnlocked?.takeIf { !rememberKeyguardLocked() } ?: call.rangThrough)?.takeIf { !call.silenced } ?: return
     Row(Modifier.padding(top = Spacing.s), verticalAlignment = Alignment.CenterVertically) {
         Icon(Icons.Rounded.Shield, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.width(Spacing.xs))
@@ -431,7 +432,7 @@ private fun CardLine(icon: ImageVector, content: @Composable () -> Unit) {
 
 /** Whether the keyguard is showing, re-checked every second (the user may unlock with the call screen up). */
 @Composable
-private fun rememberKeyguardLocked(): Boolean {
+internal fun rememberKeyguardLocked(): Boolean {
     val context = LocalContext.current
     val km = remember { context.getSystemService(KeyguardManager::class.java) }
     var locked by remember { mutableStateOf(km?.isKeyguardLocked ?: true) }

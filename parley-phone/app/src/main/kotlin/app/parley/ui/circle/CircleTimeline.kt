@@ -1,5 +1,6 @@
 package app.parley.ui.circle
 
+import app.parley.calls.ExpectedCallHints
 import android.app.Application
 import android.provider.ContactsContract
 import android.text.format.DateFormat
@@ -160,6 +161,8 @@ suspend fun saveInteraction(vm: AppViewModel, d: ContactDetails, contactId: Long
         } else {
             vm.c.circle.interactions.edit(initial.id, type, note, time.takeIf { it != initial.time })
         }
+        // I7: "will call Tue" in the note can expect that call.
+        runCatching { ExpectedCallHints.noteSaved(vm.c, d.displayName, note, key = "note:" + d.lookupKey) }
     } catch (_: InteractionStore.SealException) {
         vm.toast(res.getString(R.string.circle_note_failed))
     }

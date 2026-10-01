@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Family safety on the call screen: the family safe word, bringing in a helper, and why a call rang through when
+     a note, the To call list or a delivery QR code was expecting it. -->
+<resources>
+    <!-- Family safe word: a discreet card during calls from unknown numbers -->
+    <string name="safeword_card_title">Claims to be family?</string>
+    <!-- %1$s: the question the user saved, e.g. "What's our word?" -->
+    <string name="safeword_ask">Ask: %1$s</string>
+    <string name="safeword_ask_locked">Ask your family question. Unlock to see it.</string>
+    <string name="safeword_hold">Press and hold to see the answer</string>
+    <string name="safeword_show_answer">Show the answer</string>
+    <string name="safeword_close">Close</string>
+    <string name="safeword_confirm_title">Confirm it\'s you to see the answer</string>
+    <string name="safeword_claims_family">Says they\'re family</string>
+    <string name="safeword_claims_family_explainer">Shows the question only your family can answer</string>
+
+    <!-- Bring in my helper -->
+    <string name="helper_add">Add my helper</string>
+    <!-- %1$s: the helper's name -->
+    <string name="helper_add_named">Add %1$s to the call</string>
+    <string name="helper_add_explainer">Calls someone you trust, then adds them to this call</string>
+    <string name="helper_calling">Calling %1$s to join…</string>
+    <string name="helper_calling_body">This call is on hold until they join.</string>
+    <string name="helper_answered">%1$s answered</string>
+    <string name="helper_merge_now">Merge now</string>
+    <string name="helper_cant_merge">Your network can\'t join these calls. Swap to talk to each one.</string>
+    <string name="helper_joined">%1$s joined the call</string>
+    <string name="helper_gone">%1$s didn\'t answer</string>
+    <string name="helper_cancel">Cancel</string>
+
+    <!-- Why a call rang through: "Expecting a call" turned on by a hint -->
+    <string name="call_rang_expecting_notes">Rang through: expecting a call (from your notes)</string>
+    <!-- %1$s: who the note is about, e.g. "Dentist" (shown only while the phone is unlocked) -->
+    <string name="call_rang_expecting_note_on">Rang through: expecting a call (note on %1$s)</string>
+    <string name="call_rang_expecting_to_call">Rang through: expecting a call (on your To call list)</string>
+    <string name="call_rang_expecting_delivery">Rang through: expecting a call (delivery QR code)</string>
+</resources>

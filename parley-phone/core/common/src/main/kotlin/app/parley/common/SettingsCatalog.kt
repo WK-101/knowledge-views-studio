@@ -25,7 +25,7 @@ enum class SettingsCategory(val title: String, val summary: String) {
  * Screens outside the category pages that hold settings or tools. Settings search opens them for their entries, so
  * every setting is searchable wherever it lives.
  */
-enum class SettingPlace { TOOLS, BLOCKING, DELETED_CALLS, SIMS, CONTACT_PAGE, SIMPLE_MODE, CALL_TIME, BACKUP, SYNC, TEMPORARY }
+enum class SettingPlace { TOOLS, BLOCKING, DELETED_CALLS, SIMS, CONTACT_PAGE, SIMPLE_MODE, CALL_TIME, BACKUP, SYNC, TEMPORARY, HELPERS }
 
 /**
  * One searchable setting, identified by its stable [key]. In [SettingsCatalog], [title], [summary] and [keywords]
@@ -141,6 +141,9 @@ object SettingsCatalog {
         // Haptic caller ID: set on a contact's or a label's page.
         e("caller_vibration", "Vibration for callers", "Give a person or a label a rhythm of their own, so you can tell who's calling without looking", C,
             "vibration pattern", "custom vibration", "haptic", "haptic caller id", "vibrate", "heartbeat", "morse", "pocket", "deaf", "silent"),
+        // Bring in my helper: a screen of its own, linked from the Calls page (and simple mode's setup).
+        at(SettingPlace.HELPERS, "call_helpers", "Helpers", "Up to 3 people you trust, added to a call with one tap", C,
+            "helper", "family", "trusted", "add call", "conference", "merge", "scam"),
         e("proximity_sensor", "Turn the screen off at your ear", "Uses the proximity sensor during earpiece calls", C,
             "proximity", "sensor", "screen off", "black screen", "pocket", "broken sensor"),
         e("power_button_ends_call", "Power button ends call", "Android's accessibility setting", C,
@@ -170,6 +173,8 @@ object SettingsCatalog {
             "block", "blocked numbers", "spam", "reject", "silence", "screening", "robocall", "off hours", "do not disturb"),
         e("repeat_callers", "Let repeat callers through", "An unknown number blocked earlier rings if it calls again within 3 minutes", B, "urgent", "twice", "emergency"),
         e("expecting_call", "Expecting a call", "Let unknown callers ring for a while", B, "snooze", "delivery", "courier", "unknown"),
+        e("expected_hints", "Expecting a call from your notes", "Notes, To call items and delivery QR codes can let unknown callers ring for a while", B,
+            "expecting", "delivery", "courier", "parcel", "note", "promise", "to call", "callback"),
         e("spam_lists", "Spam lists", "Offline lists you add yourself, nothing is sent anywhere", B, "lists", "parleylist", "ftc", "arcep", "database"),
         e("templates", "Rule templates", "Ready-made rules for your country", B, "regulator", "presets", "toll free", "premium"),
         e("dry_run", "Test a call", "See what your rules would do, and replay last week", B, "simulate", "dry run", "test", "why"),
@@ -254,6 +259,8 @@ object SettingsCatalog {
             "lock", "biometric", "fingerprint", "face", "pin", "password", "security"),
         e("lock_after", "Lock again after", "How long Parley can stay in the background", S, "timeout", "lock", "delay"),
         e("secure_screen", "Hide screen content", "Blocks screenshots and hides Parley in the recent-apps view", S, "screenshot", "recents", "secure", "flag secure"),
+        e("family_safe_word", "Family safe word", "A private question for callers who say they're family, set on a label's page", S,
+            "safe word", "scam", "grandparent", "impostor", "voice clone", "family", "question"),
         e("hide_vault", "Hide private contacts", "Discreet mode: private contacts and their calls disappear from lists and search", S, "vault", "discreet", "private", "hidden"),
         e("private_history", "Private call history", "Calls with private contacts are moved out of the system call log", S, "vault", "private calls", "call log"),
         e("privacy_dashboard", "Privacy dashboard", "What Parley can access and why", S, "permissions", "data", "internet", "tracking"),
@@ -308,6 +315,7 @@ object SettingsCatalog {
         at(SettingPlace.SIMPLE_MODE, "simple_keypad", "Simple mode: keypad button", "A large keypad button on the simple home screen", L, "keypad", "big", "dial"),
         at(SettingPlace.SIMPLE_MODE, "simple_confirm_decline", "Simple mode: ask before declining", "A question before a call is declined", L, "decline", "accidental", "reject"),
         at(SettingPlace.SIMPLE_MODE, "simple_speak", "Simple mode: say who is calling", "Reads the caller's name aloud", L, "text to speech", "speak", "announce", "caller name"),
+        at(SettingPlace.SIMPLE_MODE, "simple_helpers", "Simple mode: helpers", "A big Add my helper button during calls", L, "helper", "family", "add call"),
         at(SettingPlace.SIMPLE_MODE, "simple_share", "Simple mode: set up another phone", "Share the setup as an encrypted file or QR code", L, "share", "qr", "family", "another phone"),
         at(SettingPlace.CALL_TIME, "ct_reminders", "Talk-time reminders", "A beep or a vibration every few minutes during a call", T, "beep", "vibrate", "reminder", "minutes"),
         at(SettingPlace.CALL_TIME, "ct_limits", "Call time limits", "A warning, or the call ends, after a set time, for a contact or a label", T, "limit", "maximum", "end call"),

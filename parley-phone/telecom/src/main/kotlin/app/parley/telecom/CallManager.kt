@@ -36,6 +36,7 @@ import app.parley.common.calls.CallFailure
 import app.parley.common.calls.EmergencyPolicy
 import app.parley.common.calls.EmergencyPolicy.Safeguard
 import app.parley.common.calls.EndCode
+import app.parley.common.calls.ExpectedSource
 import app.parley.common.calls.EndFacts
 import app.parley.common.calls.FailureKind
 import app.parley.common.calls.KeyPressTracker
@@ -583,7 +584,7 @@ object CallManager {
     private fun CallUi.withRangThrough(s: CallSession): CallUi {
         if (state != CallState.RINGING || s.silenced) return this
         val text = rangThroughText(s.outcome?.rangThrough) ?: return this
-        return copy(rangThrough = text, verdict = verdict.takeIf { verdictWarn })
+        return copy(rangThrough = text, rangThroughUnlocked = expectedNoteText(s.outcome?.rangThrough), verdict = verdict.takeIf { verdictWarn })
     }
 
     /**
@@ -612,12 +613,27 @@ object CallManager {
         return when (r.kind) {
             RangThroughKind.REPEAT_CALLER ->
                 if (r.calls <= 2) res.getString(R.string.call_rang_repeat_twice, r.minutes) else res.getString(R.string.call_rang_repeat, r.calls, r.minutes)
-            RangThroughKind.EXPECTING -> res.getString(R.string.call_rang_expecting)
+            RangThroughKind.EXPECTING -> res.getString(expectingText(r.expected))
             RangThroughKind.ALLOW_RULE -> allowRuleText(r)
             RangThroughKind.LABEL -> r.name?.let { res.getString(R.string.call_rang_label, it) } ?: res.getString(R.string.call_rang_allowed)
             RangThroughKind.DIALLED -> res.getString(R.string.call_rang_dialled)
             RangThroughKind.ANSWERED -> res.getString(R.string.call_rang_answered)
         }
+    }
+
+    /** I7: what turned "Expecting a call" on; the note's name shows only while unlocked (see [expectedNoteText]). */
+    private fun expectingText(source: ExpectedSource?): Int = when (source) {
+        ExpectedSource.NOTE -> R.string.call_rang_expecting_notes
+        ExpectedSource.TO_CALL -> R.string.call_rang_expecting_to_call
+        ExpectedSource.DELIVERY_QR -> R.string.call_rang_expecting_delivery
+        null -> R.string.call_rang_expecting
+    }
+
+    /** I7: "Rang through: expecting a call (note on Dentist)", for the unlocked screen only; null for anything else. */
+    private fun expectedNoteText(r: RangThrough?): String? {
+        if (r?.kind != RangThroughKind.EXPECTING || r.expected != ExpectedSource.NOTE || !::appContext.isInitialized) return null
+        val name = r.name?.takeIf { it.isNotBlank() } ?: return null
+        return appContext.getString(R.string.call_rang_expecting_note_on, name)
     }
 
     /** "Rang through: allowed until 18:40" for a temporary rule, else the rule's name. */
