@@ -20,6 +20,7 @@ import app.parley.messaging.MessagingRoutes
 import app.parley.ui.Destination
 import app.parley.ui.Routes
 import app.parley.ui.blocking.BlockingRoutes
+import app.parley.ui.calls.ToCallRoutes
 import app.parley.ui.contact.ContactPageRoutes
 import app.parley.ui.extras.ExtrasRoutes
 import app.parley.ui.history.HistoryRoutes
@@ -114,6 +115,7 @@ class NavigationRoutesTest {
             IntentRoutes.ACTION_OPEN_SYNC to Routes.Sync,
             IntentRoutes.ACTION_BULK_ADD to MessagingRoutes.BulkAdd,
             IntentRoutes.ACTION_SCAN_QR to QrRoutes.Scan,
+            IntentRoutes.ACTION_SHOW_TO_CALL to ToCallRoutes.List,
         )
         for ((action, dest) in expected) {
             assertEquals(action, dest, routeOf(resolve(action)))

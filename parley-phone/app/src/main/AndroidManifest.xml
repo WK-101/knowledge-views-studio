@@ -464,6 +464,18 @@
         <receiver
             android:name=".calls.MissedReAlertReceiver"
             android:exported="false" />
+        <!-- "Not now" on the To call reminder. -->
+        <receiver
+            android:name=".calls.ToCallActionReceiver"
+            android:exported="false" />
+        <!-- "Remind me" on a missed-call notification: its three fixed times, after unlocking. -->
+        <activity
+            android:name=".calls.RemindMeActivity"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|density|fontScale|uiMode|keyboard|keyboardHidden|navigation|locale|layoutDirection"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:taskAffinity=""
+            android:theme="@style/Theme.Parley.Sheet" />
 
         <!-- Protected private-name lookup: one number per query, only for approved apps holding the permission. -->
         <provider

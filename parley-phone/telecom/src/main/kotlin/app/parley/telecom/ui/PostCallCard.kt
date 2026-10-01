@@ -56,8 +56,8 @@ sealed interface PostCallChoice {
 
 /**
  * Shown on the call-ended screen after a call with a number that isn't in your contacts: block it (opens the
- * rule editor), save it privately for a week, message it on a chat app, or report it. Each opens only after the
- * phone is unlocked.
+ * rule editor), save it privately for a week, message it on a chat app, be reminded to call it back, or report it.
+ * Each opens only after the phone is unlocked, except "Remind me", which only adds to the To call list.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -89,6 +89,8 @@ internal fun PostCallCard(call: CallUi, onChoice: (PostCallChoice) -> Unit) {
                 Action(Icons.Rounded.Block, stringResource(R.string.postcall_block)) { onChoice(PostCallChoice.Block(number)) }
                 Action(Icons.Rounded.Lock, stringResource(R.string.postcall_save_privately)) { saving = true }
                 Action(Icons.AutoMirrored.Rounded.Chat, stringResource(R.string.postcall_message_or_call)) { onChoice(PostCallChoice.MessageOn(number, call.accountId)) }
+                // L1: call them back later, from the To call list (saved without unlocking, like a note).
+                RemindMeAction(number, call.accountId) { onChoice(PostCallChoice.Done) }
                 Action(Icons.Rounded.Flag, stringResource(R.string.postcall_report)) { onChoice(PostCallChoice.Report(number)) }
             }
             TextButton({ onChoice(PostCallChoice.Done) }, modifier = Modifier.align(Alignment.End)) { Text(stringResource(R.string.tc_done)) }

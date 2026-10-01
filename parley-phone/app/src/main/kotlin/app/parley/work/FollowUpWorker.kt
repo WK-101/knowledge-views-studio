@@ -31,6 +31,9 @@ import java.util.concurrent.TimeUnit
  * The one-off "follow up in 1 week / 1 month" reminder from "Anything to remember?". Only the contact's lookup
  * key and id are stored in WorkManager's database; the name is read when it fires. If the contact is gone (or
  * became private) nothing is shown. Private on the lock screen with a neutral public version, and phone-only.
+ *
+ * New follow-ups go on the To call list instead (one reminder with the other calls due then, see
+ * [app.parley.calls.ToCallReminders]); this worker still runs the ones set before, already in WorkManager's queue.
  */
 class FollowUpWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {

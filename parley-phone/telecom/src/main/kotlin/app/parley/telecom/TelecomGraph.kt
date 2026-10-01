@@ -174,6 +174,12 @@ interface CallRecordHooks {
      */
     fun rememberAfterCall(number: String, connectTimeMillis: Long, note: String?, followUpDays: Int?) {}
 
+    /**
+     * "Remind me" ("Decline & remind", the post-call card): puts [number] on the To call list for [at] (epoch ms).
+     * Written in the background, also while the phone is locked; nothing is shown back from here.
+     */
+    fun remindToCall(number: String, accountId: String?, at: Long) {}
+
     /** Saves [number] as a private temporary contact; returns what to tell the user, or null on failure. */
     suspend fun savePrivately(number: String, name: String): String? = null
 }

@@ -171,8 +171,9 @@ private fun IncomingSecondaryRow(call: CallUi, onMessage: () -> Unit, onBlockAnd
                 )
             }
         }
-        // "Block & decline" sits behind More, two deliberate taps, so it can't happen by accident.
-        Slot { if (onBlockAndDecline != null) BlockAndDeclineMenu(onBlockAndDecline) }
+        // "Block & decline" sits behind More, two deliberate taps, so it can't happen by accident; so do the
+        // follow-ups ("Decline & remind", "Decline & message or call on…").
+        Slot { if (onBlockAndDecline != null || offersDeclineFollowUp(call)) BlockAndDeclineMenu(call, onBlockAndDecline) }
     }
 }
 
@@ -230,14 +231,15 @@ private fun BigAction(icon: ImageVector, label: String, color: Color, onClick: (
     }
 }
 
-/** More on the incoming screen, with "Block & decline". */
+/** More on the incoming screen, with the follow-ups ([DeclineFollowUpItems]) and "Block & decline". */
 @Composable
-private fun BlockAndDeclineMenu(onBlockAndDecline: () -> Unit) {
+private fun BlockAndDeclineMenu(call: CallUi, onBlockAndDecline: (() -> Unit)?) {
     var open by remember { mutableStateOf(false) }
     Box {
         QuietAction(Icons.Rounded.MoreVert, stringResource(R.string.incall_more), { open = true }, spoken = stringResource(R.string.incall_incoming_more))
         DropdownMenu(open, onDismissRequest = { open = false }) {
-            DropdownMenuItem(
+            DeclineFollowUpItems(call) { open = false }
+            if (onBlockAndDecline != null) DropdownMenuItem(
                 text = { Text(stringResource(R.string.incall_block_decline)) },
                 leadingIcon = { Icon(Icons.Rounded.Block, null, tint = CallColors.Decline) },
                 onClick = {

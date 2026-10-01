@@ -8,6 +8,7 @@ import app.parley.common.StartTab
 import app.parley.messaging.MessagingRoutes
 import app.parley.ui.Routes
 import app.parley.ui.blocking.BlockingRoutes
+import app.parley.ui.calls.ToCallRoutes
 import app.parley.ui.extras.ExtrasRoutes
 import app.parley.ui.qr.QrRoutes
 
@@ -53,6 +54,9 @@ object IntentRoutes {
     const val SHOW_OR_CREATE = "com.android.contacts.action.SHOW_OR_CREATE_CONTACT"
     const val ACTION_SHOW_MISSED = "app.parley.SHOW_MISSED"
     const val ACTION_SHOW_CIRCLE = "app.parley.SHOW_CIRCLE"
+
+    /** The To call reminder opens the list. */
+    const val ACTION_SHOW_TO_CALL = "app.parley.SHOW_TO_CALL"
     const val ACTION_SHOW_CALLER = "app.parley.SHOW_CALLER"
     const val ACTION_POST_CALL = "app.parley.POST_CALL"
     const val EXTRA_POST_CALL_ACTION = "post_call_action"
@@ -105,6 +109,7 @@ object IntentRoutes {
             ACTION_SCAN_QR -> go(NavEvent.Route(QrRoutes.Scan))
             // The keep-in-touch digest opens the Circle (as the bar's extra tab while it's hidden).
             ACTION_SHOW_CIRCLE -> go(NavEvent.Tab(StartTab.CIRCLE))
+            ACTION_SHOW_TO_CALL -> go(NavEvent.Route(ToCallRoutes.List))
             ACTION_SHOW_MISSED -> IntentTarget(NavEvent.Tab(StartTab.RECENTS, missedOnly = true), missedSeen = true)
             ACTION_SHOW_CALLER -> {
                 val id = intent.getLongExtra(EXTRA_CONTACT_ID, -1)
