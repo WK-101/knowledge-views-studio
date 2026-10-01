@@ -4,4 +4,14 @@
     <string name="consent_title">Hexis Voice</string>
     <string name="capture_channel_name">Voice capture</string>
     <string name="capture_notification_title">Hexis Voice is listening</string>
+
+    <string name="import_title">Install voice model</string>
+    <string name="import_intro">Pick the voice-model file (.zip). It\'s copied into this addon\'s private storage — nothing is sent anywhere.</string>
+    <string name="import_choose">Choose model file</string>
+    <string name="import_working">Installing model…</string>
+    <string name="import_done">Voice model installed.</string>
+    <string name="import_invalid">That file isn\'t a valid voice model (missing encoder/decoder/joiner/tokens).</string>
+    <string name="import_failed">Couldn\'t install the model.</string>
+    <string name="import_retry">Try again</string>
+    <string name="import_finish">Done</string>
 </resources>

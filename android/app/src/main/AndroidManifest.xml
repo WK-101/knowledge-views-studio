@@ -78,6 +78,9 @@
             <action android:name="com.wkhan.hexis.bridge.CONSENT" />
         </intent>
         <intent>
+            <action android:name="com.wkhan.hexis.voice.IMPORT_MODEL" />
+        </intent>
+        <intent>
             <action android:name="org.opentranscribe.api.ITranscriptionService" />
         </intent>
     </queries>

@@ -40,6 +40,20 @@
             android:exported="false"
             android:foregroundServiceType="microphone" />
 
+        <!-- Model-import surface (no launcher). Launched by the core; the user picks a model .zip via
+             SAF and the addon copies it into its own private storage. No network — the addon never
+             downloads a model, which is how it keeps zero network permissions. -->
+        <activity
+            android:name=".model.ModelImportActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:label="@string/import_title">
+            <intent-filter>
+                <action android:name="com.wkhan.hexis.voice.IMPORT_MODEL" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
         <!-- Consent surface (no launcher). Launched by the core to request the mic permission and
              return a scoped grant token. -->
         <activity

@@ -354,6 +354,11 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                 if (uri != null) vm.startFileTranscription(uri)
             }
 
+            val installModel = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+                val ok = result.resultCode == android.app.Activity.RESULT_OK
+                Toast.makeText(context, if (ok) "Voice model installed" else "Model not installed", Toast.LENGTH_SHORT).show()
+            }
+
             Toggle("Enable addon bridges", bridge.enabled) { on -> vm.setBridgeEnabled(on) }
 
             Sub("Voice — speech to text")
@@ -383,6 +388,19 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                             )
                         },
                     )
+                }
+            }
+
+            // Install the on-device STT model into the addon (the addon holds no network permission,
+            // so the core drives the import; the file is copied into the addon's private storage).
+            if (bridge.voiceProviders.isNotEmpty()) {
+                val addonPkg = bridge.grantedVoicePackage ?: bridge.voiceProviders.first().packageName
+                Action("Install voice model") {
+                    runCatching {
+                        installModel.launch(
+                            android.content.Intent("com.wkhan.hexis.voice.IMPORT_MODEL").setPackage(addonPkg),
+                        )
+                    }.onFailure { Toast.makeText(context, "Couldn't open the addon", Toast.LENGTH_SHORT).show() }
                 }
             }
 
