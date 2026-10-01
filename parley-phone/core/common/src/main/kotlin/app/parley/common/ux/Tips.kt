@@ -30,6 +30,9 @@ object Tips {
     /** Press and hold Speaker on the call screen for the list of audio outputs. */
     const val CALL_AUDIO_ROUTES = "call_audio_routes"
 
+    /** The sync watchdog, explained once in the Contact health check. */
+    const val SYNC_WATCHDOG = "sync_watchdog"
+
     /** Ids are stored comma-separated; anything that isn't a plain id is dropped. */
     private val ID = Regex("[a-z0-9_]{1,40}")
 

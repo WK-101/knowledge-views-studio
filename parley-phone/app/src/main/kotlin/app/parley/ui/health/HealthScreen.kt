@@ -41,6 +41,7 @@ import app.parley.ui.Routes
 import app.parley.ui.backup.rememberBackupFirst
 import app.parley.ui.contact.Section
 import app.parley.ui.people.AccountDiagnosticsSection
+import app.parley.ui.timemachine.SyncWatchdogCards
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import androidx.compose.ui.res.pluralStringResource
@@ -115,6 +116,7 @@ fun HealthScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit
         }
         if (list.isEmpty()) {
             Column(Modifier.padding(p).verticalScroll(rememberScrollState())) {
+                SyncWatchdogCards(vm, open)
                 AccountDiagnosticsSection(vm)
                 EmptyState(
                     Icons.Rounded.HealthAndSafety, stringResource(R.string.health_all_tidy), stringResource(R.string.health_all_tidy_text),
@@ -124,6 +126,8 @@ fun HealthScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit
             return@ParleyScaffold
         }
         LazyColumn(Modifier.padding(p)) {
+            // Contacts that went missing come first: the cards wait here until answered.
+            item { SyncWatchdogCards(vm, open) }
             item { AccountDiagnosticsSection(vm) }
             titles.forEach { (kind, title) ->
                 val group = list.filter { it.kind == kind }

@@ -38,6 +38,7 @@ import java.util.concurrent.TimeUnit
  *   out of the system log, call-log retention, the 30-day journal and the time-machine snapshot;
  * - call history: the full archive catch-up, retention, old export files and the plan-meter check;
  * - screening: expired temporary allow rules, old screening traces, and the subscribed spam lists.
+ * - the sync watchdog: contacts that vanished since the last snapshot without being deleted in Parley.
  *
  * One wake instead of three, each job with its own notifications as before. It doesn't wait for the phone to be idle:
  * expired temporary contacts and retention are promises that shouldn't slip by days. Reminders stay separate
@@ -52,6 +53,8 @@ class MaintenanceWorker(context: Context, params: WorkerParameters) : CoroutineW
         withTimeoutOrNull(30_000) { c.contacts.contacts.filterNotNull().first() }
         val notices = step("housekeeping") { runHousekeeping(c) }.orEmpty()
         notices.forEachIndexed { i, n -> notify(ctx, i, n) }
+        // After the day's snapshot (taken in housekeeping): contacts that vanished without the user deleting them.
+        step("sync watchdog") { SyncWatchdogNotice.check(ctx, c) }
         // At most one backup reminder a month while a backup is overdue.
         step("backup reminder") { BackupReminder.maybeNotify(ctx, c) }
         // Call history: the full catch-up ran above (before retention); old exports and plan warnings.

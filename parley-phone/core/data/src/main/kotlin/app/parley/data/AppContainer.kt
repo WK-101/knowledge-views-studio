@@ -13,6 +13,7 @@ import app.parley.data.backup.CallTimeBackup
 import app.parley.data.backup.ContactNotesBackup
 import app.parley.data.backup.HistorySettingsBackup
 import app.parley.data.backup.SpamListsBackup
+import app.parley.data.backup.SyncWatch
 import app.parley.data.backup.TimeMachine
 import app.parley.data.calls.CallExtrasRepository
 import app.parley.data.calls.CallQualityStore
@@ -141,6 +142,9 @@ class DataContainer(context: Context) {
     /** "Add several numbers…" batches (one undo per batch). */
     val bulkAdd by lazy { BulkAddStore(this) }
     val timeMachine by lazy { TimeMachine(appContext, records) }
+
+    /** Notices large unexplained losses in the daily snapshots and account sync (the sync watchdog). */
+    val syncWatch by lazy { SyncWatch(this) }
 
     /** Clearing History & undo's stores (contact changes, deleted calls, snapshots). */
     val undoStorage by lazy { UndoStorage(db, meta, history, timeMachine) }

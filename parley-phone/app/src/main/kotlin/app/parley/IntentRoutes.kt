@@ -52,6 +52,9 @@ object IntentRoutes {
 
     /** Temporary contacts are due to be deleted and wait for your answer (its notification). */
     const val ACTION_OPEN_TEMPORARY = "app.parley.OPEN_TEMPORARY"
+
+    /** Contacts went missing (the sync watchdog's notification): the card waits in the Contact health check. */
+    const val ACTION_OPEN_HEALTH = "app.parley.OPEN_HEALTH"
     const val QUICK_CONTACT = "android.provider.action.QUICK_CONTACT"
     const val QUICK_CONTACT_LEGACY = "com.android.contacts.action.QUICK_CONTACT"
     const val SHOW_OR_CREATE = "com.android.contacts.action.SHOW_OR_CREATE_CONTACT"
@@ -108,6 +111,7 @@ object IntentRoutes {
             ACTION_OPEN_BLOCKING -> go(NavEvent.Route(Routes.Blocking))
             ACTION_OPEN_SYNC -> go(NavEvent.Route(Routes.Sync))
             ACTION_OPEN_TEMPORARY -> go(NavEvent.Route(Routes.Temporary))
+            ACTION_OPEN_HEALTH -> go(NavEvent.Route(Routes.Health))
             ACTION_ADD_CALL -> go(NavEvent.Tab(StartTab.KEYPAD, dial = ""))
             ACTION_BULK_ADD -> go(NavEvent.Route(MessagingRoutes.BulkAdd))
             ACTION_SCAN_QR -> go(NavEvent.Route(QrRoutes.Scan))

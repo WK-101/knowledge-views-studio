@@ -169,6 +169,25 @@ class TimeMachine(context: Context, private val records: ContactRecordStore) {
         Snapshots.diff(store, old, current)
     }
 
+    /** What changed between two stored snapshots (the sync watchdog's daily look; reads no contact). */
+    suspend fun diffBetween(old: SnapshotIndex, new: SnapshotIndex): SnapshotDiff = withContext(Dispatchers.IO) { Snapshots.diff(store, old, new) }
+
+    /**
+     * The newest stored version of each of [keys] taken at or before [atOrBefore]: what a contact looked like before
+     * it vanished or lost numbers. Keys no snapshot holds (or whose blob can't be read) are left out.
+     */
+    suspend fun lastVersions(keys: Collection<String>, atOrBefore: Long = Long.MAX_VALUE): Map<String, ContactRecord> = withContext(Dispatchers.IO) {
+        val wanted = keys.toHashSet()
+        val out = LinkedHashMap<String, ContactRecord>()
+        for (s in snapshots().filter { it.timestamp <= atOrBefore }.asReversed()) {
+            if (out.size == wanted.size) break
+            wanted.filter { it !in out }.forEach { k ->
+                s.contacts[k]?.let { h -> runCatching { Snapshots.load(store, h) }.getOrNull()?.let { out[k] = it } }
+            }
+        }
+        out
+    }
+
     val oldestSnapshot: Long? get() = snapshots().firstOrNull()?.timestamp
 
     companion object {

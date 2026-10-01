@@ -61,6 +61,10 @@ object NotificationIds {
     const val TAG_TO_CALL = "to_call"
     const val TO_CALL_ID = 0
 
+    /** The sync watchdog's one notice about contacts gone missing (a newer one replaces it). */
+    const val TAG_SYNC_WATCHDOG = "sync_watchdog"
+    const val SYNC_WATCHDOG_ID = 0
+
     // Tag prefixes, id 0: one notification per contact or event.
     const val PREFIX_BIRTHDAY = "birthday:"
     const val PREFIX_NUDGE = "nudge:"
@@ -88,7 +92,7 @@ object NotificationIds {
     /** Fixed tags, and prefixes of per-item tags (prefix ends with ':'). */
     val tags: List<String> = listOf(
         TAG_BACKUP_FAILED, TAG_BACKUP_REMINDER, TAG_FOLDER_SYNC, TAG_PLAN, TAG_TEMPORARY, TAG_PRIVATE_NAME, TAG_TO_CALL,
-        PREFIX_BIRTHDAY, PREFIX_NUDGE, PREFIX_FOLLOW_UP, TAG_CIRCLE_DIGEST,
+        TAG_SYNC_WATCHDOG, PREFIX_BIRTHDAY, PREFIX_NUDGE, PREFIX_FOLLOW_UP, TAG_CIRCLE_DIGEST,
     )
 
     /** Pairs of ranges that share an id; empty when the registry is sound. */
@@ -120,8 +124,12 @@ object NotificationChannels {
     /** "To call" reminders: never a badge. */
     const val TO_CALL = "to_call_v1"
 
+    /** Contacts that went missing (the sync watchdog): rare, so it may make a sound where housekeeping doesn't. */
+    const val CONTACTS_SAFETY = "contacts_safety_v1"
+
     val all: List<String> = listOf(
         INCOMING_CALLS, ONGOING_CALLS, SILENCED_CALLS, MISSED_CALLS, SCREEN_BLOCKED, SCREEN_REPORTED, SCREEN_LIKELY_SPAM,
         SCREEN_BUSY_REPLY, PLAN, REMINDERS, HOUSEKEEPING, BACKUPS, PRIVATE_NAMES, TO_CALL,
+        CONTACTS_SAFETY,
     )
 }
