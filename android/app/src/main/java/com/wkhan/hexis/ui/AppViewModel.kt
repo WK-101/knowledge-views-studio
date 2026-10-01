@@ -225,11 +225,19 @@ class AppViewModel internal constructor(
                 return@launch
             }
             _voiceUi.value = VoiceCaptureUi(status = VoiceStatus.LISTENING)
-            // TODO(Phase 2+): pass the user's project/tag/context names as hotwords for on-device biasing.
+            // Bias recognition toward the user's OWN vocabulary — project / tag / context names — sent
+            // ephemerally (NO_PERSIST in the controller) so the engine can recognize "add to Groceries"
+            // without the addon ever seeing or keeping the user's data. This is the accuracy differentiator
+            // over a plain transcriber.
+            val hotwords = (
+                lists.value.map { it.name } +
+                    tags.value.map { it.name } +
+                    contexts.value.map { it.name }
+                ).map { it.trim() }.filter { it.isNotEmpty() }.distinct().take(100)
             voiceController.start(
                 provider = provider,
                 token = token,
-                hotwords = emptyList(),
+                hotwords = hotwords,
                 mode = com.wkhan.hexis.bridge.voice.SttMode.COMMAND,
                 listener = object : com.wkhan.hexis.addon.VoiceCaptureController.Listener {
                     override fun onPartial(text: String) {
