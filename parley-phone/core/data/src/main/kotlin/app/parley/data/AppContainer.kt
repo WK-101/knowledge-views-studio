@@ -1,5 +1,6 @@
 package app.parley.data
 
+import app.parley.common.calls.ExpectedWindow
 import app.parley.data.security.RecordSealing
 import app.parley.data.security.SealedMetaDao
 import app.parley.data.security.RecordCrypto
@@ -90,7 +91,16 @@ class DataContainer(context: Context) {
         )
             .also { s -> s.onScreened = { e -> onScreened?.invoke(e) } }
             // I7: windows from notes, the To call list and delivery QR codes count as "Expecting a call".
-            .also { s -> s.expectedWindows = { familySafety.windows() } }
+            .also { s ->
+                s.expectedWindows = {
+                    // Memory only on the call path (L7): not read yet means none this time, and a read in the background.
+                    val windows = familySafety.windowsNow()
+                        ?: emptyList<ExpectedWindow>().also { scope.launch(warmDispatcher) { runCatching { familySafety.load() } } }
+                    // A private contact's name stays out of "expecting a call (note on …)" in discreet mode.
+                    val discreet = settings.current().hideVault
+                    windows.map { w -> if (w.label != null && w.shownLabel(discreet) == null) w.copy(label = null) else w }
+                }
+            }
     }
 
     /**

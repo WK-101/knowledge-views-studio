@@ -57,6 +57,23 @@ class VaultKeyLifecycleTest {
         assertThrows(VaultCrypto.KeyLostException::class.java) { VaultCrypto.openDetail(blob) }
     }
 
+    @Test fun the_unlock_check_fails_closed() {
+        // No detail key yet: nothing sealed, nothing to unlock.
+        assertFalse(VaultCrypto.detailNeedsUnlock())
+        VaultCrypto.sealDetail("x".toByteArray())
+        assertFalse(VaultCrypto.detailNeedsUnlock())
+        // A Keystore that can't load the key now (a hiccup, an invalidated key) is never taken for an open vault.
+        FakeAndroidKeyStore.failure = { java.security.KeyStoreException("busy") }
+        assertTrue(VaultCrypto.detailNeedsUnlock())
+        assertFalse(VaultCrypto.detailKeyLost())
+        FakeAndroidKeyStore.failure = null
+        assertFalse(VaultCrypto.detailNeedsUnlock())
+        // The key gone for good (the screen lock removed and set again).
+        FakeAndroidKeyStore.delete(currentDetailAlias())
+        assertTrue(VaultCrypto.detailNeedsUnlock())
+        assertTrue(VaultCrypto.detailKeyLost())
+    }
+
     @Test fun legacy_blobs_without_a_marker_still_open() {
         // Blobs of the first detail key (before generations) have no marker: generation 0.
         assertEquals(0, VaultCrypto.generationOf(byteArrayOf(12, 1, 2, 3)))

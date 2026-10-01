@@ -74,7 +74,7 @@ object ToCallReminders {
         val zone = runCatching { NumberInfo.timeZone(number, iso)?.id }.getOrNull()
         update(context) { ToCall.remind(it, key, number, at, now, source, zone = zone, accountId = accountId) }
         // I7: a number nobody saved may call back before then (asked once; off until accepted).
-        runCatching { ExpectedCallHints.toCallAdded(containerOf(context), number, at, now) }
+        runCatching { ExpectedCallHints.toCallAdded(containerOf(context), number, key, at, now) }
         return containerOf(context).toCall.available
     }
 
@@ -83,8 +83,12 @@ object ToCallReminders {
 
     /** Applies [f] to the list, writes it and, when it changed, reschedules the reminder. */
     suspend fun update(context: Context, f: (ToCallState) -> ToCallState): ToCallState {
-        val w = containerOf(context).toCall.write(f)
+        var before: ToCallState? = null
+        val w = containerOf(context).toCall.write { before = it; f(it) }
         if (w.changed && !workerRunning) schedule(context, w.state)
+        // I7: a line that left the list (done, removed, or settled by a call) stops ringing through.
+        val gone = before?.items.orEmpty().map { it.key }.toSet() - w.state.items.map { it.key }.toSet()
+        if (w.changed && gone.isNotEmpty()) runCatching { ExpectedCallHints.toCallGone(containerOf(context), gone) }
         return w.state
     }
 

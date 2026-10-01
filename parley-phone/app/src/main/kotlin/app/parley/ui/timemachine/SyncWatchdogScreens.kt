@@ -3,6 +3,8 @@
 
 package app.parley.ui.timemachine
 
+import app.parley.data.backup.SyncWatch
+import android.app.Application
 import android.content.Context
 import android.content.Intent
 import android.content.res.Resources
@@ -197,6 +199,22 @@ private class RestoreState(val numbers: Boolean) {
 
     /** How many came back, and the raw contact or data row ids written. */
     var done by mutableStateOf<Pair<Int, List<Long>>?>(null)
+
+    /** Contacts of the card that came back by themselves (sync recovered): never restored twice. */
+    var cameBack by mutableStateOf(0)
+}
+
+/** Brings [selected] back; contacts that came back since the screen opened are skipped and said (M2). */
+private suspend fun restoreContacts(vm: AppViewModel, st: RestoreState, event: WatchEvent?, selected: List<Pick>): SyncWatch.Restored {
+    val res = vm.getApplication<Application>().resources
+    val r = vm.c.syncWatch.restore(selected.mapNotNull { it.record })
+    if (r.cameBack > 0) vm.toast(res.getQuantityString(R.plurals.watch_came_back, r.cameBack, r.cameBack))
+    // Every one of them is back: nothing left to restore here, and the card goes.
+    if (r.restored == 0 && r.cameBack > 0 && event != null) {
+        vm.c.syncWatch.expire(event)
+        st.picks = emptyList()
+    }
+    return r
 }
 
 /**
@@ -216,7 +234,9 @@ fun WatchRestoreScreen(vm: AppViewModel, fingerprint: String, back: () -> Unit) 
         val list = if (st.numbers) {
             watch.lostNumbers(e).map { n -> Pick(n.key, n.name, n.rows.mapNotNull { describe(res, it) }, numbers = n) }
         } else {
-            watch.vanished(e).map { r -> Pick(r.key, r.displayName, lines(res, r).take(3), record = r) }
+            val v = watch.vanished(e)
+            st.cameBack = v.cameBack
+            v.records.map { r -> Pick(r.key, r.displayName, lines(res, r).take(3), record = r) }
         }
         st.picks = list
         st.chosen = list.map { it.key }.toSet()
@@ -225,10 +245,14 @@ fun WatchRestoreScreen(vm: AppViewModel, fingerprint: String, back: () -> Unit) 
         val selected = st.picks.orEmpty().filter { it.key in st.chosen }
         st.busy = true
         scope.launch {
-            val ids = if (st.numbers) watch.restoreNumbers(selected.mapNotNull { it.numbers }) else watch.restore(selected.mapNotNull { it.record })
+            val (ids, count) = if (st.numbers) {
+                watch.restoreNumbers(selected.mapNotNull { it.numbers }).let { it to it.size }
+            } else {
+                restoreContacts(vm, st, event, selected).let { it.rawIds to it.restored }
+            }
             st.busy = false
             if (ids.isNotEmpty() && event != null) {
-                st.done = (if (st.numbers) ids.size else selected.size) to ids
+                st.done = count to ids
                 watch.dismiss(event)
             }
         }
@@ -290,7 +314,12 @@ private fun RestoreList(st: RestoreState, list: List<Pick>, undo: () -> Unit, mo
         }
         item(key = "intro") {
             Text(
-                if (st.numbers) stringResource(R.string.watch_numbers_intro) else pluralStringResource(R.plurals.watch_restore_intro, list.size),
+                if (st.numbers) {
+                    stringResource(R.string.watch_numbers_intro)
+                } else {
+                    pluralStringResource(R.plurals.watch_restore_intro, list.size) +
+                        (if (st.cameBack > 0) " " + res.getQuantityString(R.plurals.watch_came_back, st.cameBack, st.cameBack) else "")
+                },
                 style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = Spacing.listInset, vertical = Spacing.s),
             )

@@ -1,5 +1,6 @@
 package app.parley.ui.history
 
+import app.parley.calls.ExpectedCallHints
 import app.parley.ui.Destination
 import androidx.compose.foundation.layout.Box
 import androidx.compose.material3.DropdownMenu
@@ -168,7 +169,15 @@ fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open
                     ListItem(
                         headlineContent = { Text(n.text) },
                         supportingContent = { Text(Format.fullDate(context, n.callDate)) },
-                        trailingContent = { IconButton({ scope.launch { vm.c.meta.deleteCallNote(n.id) } }) { Icon(Icons.Rounded.Delete, stringResource(R.string.hist_delete_note)) } },
+                        trailingContent = {
+                            IconButton({
+                                scope.launch {
+                                    vm.c.meta.deleteCallNote(n.id)
+                                    // I7: a deleted call note no longer expects a call.
+                                    runCatching { ExpectedCallHints.noteGone(vm.c, ExpectedCallHints.callNoteKey(n.id)) }
+                                }
+                            }) { Icon(Icons.Rounded.Delete, stringResource(R.string.hist_delete_note)) }
+                        },
                     )
                 }
             }

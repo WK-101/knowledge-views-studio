@@ -24,10 +24,12 @@ enum class ExpectedSource {
 }
 
 /**
- * A stretch of time in which unknown callers ring through screening, like "Expecting a call" turned on by hand.
- * [number] limits it to one line (a To call item); null lets every unknown caller ring. [label] names where it came
- * from ("Dentist" for a note on Dentist), shown only while the phone is unlocked; [key] tells windows from the same
- * source apart, so saving the same note again replaces its window instead of adding one.
+ * A stretch of time in which unknown callers ring past "who may ring" toggles (never past rules or lists, see
+ * CallPolicy). [number] limits it to one line (a To call item, a call note); null lets every unknown caller ring.
+ * [label] names where it came from ("Dentist" for a note on Dentist), shown only while the phone is unlocked;
+ * [privateName] says it's a private contact's name, hidden in discreet mode. [key] is the source the window came from
+ * (one note, one call note, one To call line), so saving that note again replaces its window, and editing, ticking or
+ * deleting it withdraws it.
  */
 @Serializable
 data class ExpectedWindow(
@@ -37,13 +39,17 @@ data class ExpectedWindow(
     val key: String,
     val label: String? = null,
     val number: String? = null,
+    val privateName: Boolean = false,
 ) {
     fun covers(now: Long): Boolean = now in start until end
+
+    /** [label] as it may show now: none for a private contact's name in discreet mode. */
+    fun shownLabel(discreet: Boolean): String? = label?.takeUnless { privateName && discreet }
 }
 
 /**
  * I7 expected-call hints: windows for "Expecting a call" worked out from notes, the To call list and delivery QR codes.
- * No language model: a note counts when one line has a word for calling and a day in plain English ("today",
+ * No language model: a note counts when one line promises an incoming call ([promisesCall]) and names a day in plain English ("today",
  * "tomorrow", a weekday, "in 3 days", "12 Oct", "2026-10-12"), optionally a time ("at 3pm", "morning").
  */
 object ExpectedCalls {
@@ -69,7 +75,31 @@ object ExpectedCalls {
     private const val DAY = 24 * HOUR
     private val I = setOf(RegexOption.IGNORE_CASE)
 
-    private val callWord = Regex("""\b(call|calls|calling|called back|ring|rings|ringing|phone|phones|callback|call-back)\b""", I)
+    // A promise of an incoming call, never a bare "call", "ring" or "phone": "Ring the plumber Tue" is a call to make
+    // and "Phone bill due Tue" no call at all. Someone else will call ("Dentist will call", "they'll ring", "Sam is
+    // calling"), calls back, a callback, a call expected, or a courier or delivery.
+    private const val VERB = "(?:call|ring|phone)"
+    private const val ING = "(?:calling|ringing|phoning)"
+    private const val GOING = "(?:going\\s+to\\s+$VERB|gonna\\s+$VERB|$ING)"
+    private val willCall = Regex("""\b(\p{L}+)\s+(?:(?:will|shall|should|would)\s+(?:be\s+$ING|$VERB)|(?:is|are|was|were)\s+$GOING)\b""", I)
+    private val willCallShort = Regex("""\b(\p{L}+)['’](?:(?:ll|d)\s+(?:be\s+$ING|$VERB)|(?:s|re)\s+$GOING)\b""", I)
+    private val callsBack = Regex("""\b(?:calls|rings|phones)\s+(?:back|me|us|on|at|in|today|tomorrow|tonight|this|next|between|around|after|before)\b""", I)
+    private val callMeBack = Regex("""\b(?:call|ring|phone)\s+(?:me|us)\s+back\b""", I)
+    private val expectCall = Regex(
+        """\bexpect(?:s|ed|ing)?\s+(?:a|an|the|their|his|her|your|my)?\s*(?:phone\s+)?(?:call|ring)\b|\bcall\s+expected\b|\bcall-?backs?\b""",
+        I,
+    )
+    private val courier = Regex("""\b(?:courier|delivery|deliveries)\b""", I)
+
+    /** Subjects that make "will call" a call to make, not one to expect ("I'll call", "we will ring", "let's phone"). */
+    private val selves = setOf("i", "we", "you", "let")
+
+    /** Whether [line] promises that someone will call (not that the user means to). */
+    internal fun promisesCall(line: String): Boolean {
+        val someone = sequenceOf(willCall, willCallShort).flatMap { it.findAll(line) }.any { it.groupValues[1].lowercase() !in selves }
+        return someone || callsBack.containsMatchIn(line) || callMeBack.containsMatchIn(line) || expectCall.containsMatchIn(line) ||
+            courier.containsMatchIn(line)
+    }
     private val doneBox = Regex("""^\s*(?:[-*]\s+)?\[[xX]]""")
     private val todayWord = Regex("""\b(today|tonight|this (morning|afternoon|evening))\b""", I)
     private val tomorrow = Regex("""\b(tomorrow|tmrw|tmr)\b""", I)
@@ -103,7 +133,7 @@ object ExpectedCalls {
         val nowAt = Instant.ofEpochMilli(now).atZone(zone)
         return note.lines()
             .filterNot { doneBox.containsMatchIn(it) }
-            .filter { callWord.containsMatchIn(it) }
+            .filter { promisesCall(it) }
             .mapNotNull { line -> dayOf(line, nowAt.toLocalDate())?.let { windowOn(it, line, zone) } }
             .filter { (_, end) -> end > now && end - now <= (MAX_DAYS_AHEAD + 1) * DAY }
             .minByOrNull { it.first }
@@ -239,6 +269,14 @@ object ExpectedCalls {
 
     /** Without the windows that have ended. */
     fun prune(windows: List<ExpectedWindow>, now: Long): List<ExpectedWindow> = windows.filter { it.end > now }
+
+    private val trackedNote = Regex("""^(?:note:i|call:n)\d+$""")
+
+    /**
+     * A note window from before windows were tracked per note (keyed by person or line, so editing or deleting the
+     * note couldn't withdraw it): dropped rather than kept for up to [MAX_DAYS_AHEAD] days.
+     */
+    fun untracked(w: ExpectedWindow): Boolean = w.source == ExpectedSource.NOTE && !trackedNote.matches(w.key)
 
     /** Without the windows of [source] (its toggle turned off). */
     fun without(windows: List<ExpectedWindow>, source: ExpectedSource): List<ExpectedWindow> = windows.filterNot { it.source == source }

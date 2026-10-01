@@ -151,6 +151,54 @@ class ExpectedCallsTest {
         assertEquals(ExpectedSource.NOTE, r2.rangThrough?.expected)
     }
 
+    @Test fun only_a_promise_of_an_incoming_call_counts() {
+        val tomorrow = today.plusDays(1)
+        val day = at(tomorrow, 8) to at(tomorrow, 20)
+        // A call to make, or no call at all.
+        assertNull(window("Ring the plumber tomorrow"))
+        assertNull(window("Phone bill due tomorrow"))
+        assertNull(window("Call Ana tomorrow"))
+        assertNull(window("Call back the bank tomorrow"))
+        assertNull(window("I'll call the bank tomorrow"))
+        assertNull(window("We will ring Gran tomorrow"))
+        assertNull(window("Let's phone Sam tomorrow"))
+        assertNull(window("I'm going to call the garage tomorrow"))
+        assertNull(window("Ana's phone broke, new one tomorrow"))
+        // Someone else will call.
+        assertEquals(day, window("Garage is calling tomorrow"))
+        assertEquals(day, window("They're going to ring tomorrow"))
+        assertEquals(day, window("She'll be calling tomorrow"))
+        assertEquals(day, window("Asked them to call me back tomorrow"))
+        assertEquals(day, window("Expecting a call from the bank tomorrow"))
+        assertEquals(day, window("Courier tomorrow"))
+        assertEquals(day, window("Delivery tomorrow"))
+    }
+
+    @Test fun promise_words_on_their_own() {
+        assertTrue(ExpectedCalls.promisesCall("Dentist will call"))
+        assertTrue(ExpectedCalls.promisesCall("callback requested"))
+        assertTrue(ExpectedCalls.promisesCall("Bank calls back"))
+        assertFalse(ExpectedCalls.promisesCall("ring"))
+        assertFalse(ExpectedCalls.promisesCall("phone"))
+        assertFalse(ExpectedCalls.promisesCall("ring the plumber"))
+        assertFalse(ExpectedCalls.promisesCall("you will call the school"))
+    }
+
+    @Test fun note_windows_from_older_versions_are_untracked() {
+        assertTrue(ExpectedCalls.untracked(ExpectedWindow(1, 2, ExpectedSource.NOTE, "note:0r12-ABC")))
+        assertTrue(ExpectedCalls.untracked(ExpectedWindow(1, 2, ExpectedSource.NOTE, "call:+447700900123")))
+        assertFalse(ExpectedCalls.untracked(ExpectedWindow(1, 2, ExpectedSource.NOTE, "note:i42")))
+        assertFalse(ExpectedCalls.untracked(ExpectedWindow(1, 2, ExpectedSource.NOTE, "call:n7")))
+        assertFalse(ExpectedCalls.untracked(ExpectedWindow(1, 2, ExpectedSource.DELIVERY_QR, "delivery")))
+    }
+
+    @Test fun a_private_name_is_hidden_in_discreet_mode() {
+        val w = ExpectedWindow(1, 2, ExpectedSource.NOTE, "note:i1", label = "Ana", privateName = true)
+        assertEquals("Ana", w.shownLabel(discreet = false))
+        assertNull(w.shownLabel(discreet = true))
+        assertEquals("Dentist", w.copy(label = "Dentist", privateName = false).shownLabel(discreet = true))
+    }
+
     @Test fun windows_are_never_stored_with_the_settings() {
         val s = ScreeningSettings(expected = listOf(ExpectedWindow(1, 2, ExpectedSource.NOTE, "n", "Dentist")))
         assertFalse("Dentist" in s.encode())

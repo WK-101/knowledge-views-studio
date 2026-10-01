@@ -3,6 +3,10 @@
 
 package app.parley.telecom.ui
 
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.runtime.DisposableEffect
+import androidx.activity.compose.LocalActivity
+import android.view.WindowManager
 import android.app.Activity
 import android.app.KeyguardManager
 import android.content.Context
@@ -194,7 +198,7 @@ internal fun SafeWordCard(call: CallUi, st: FamilyCallState, onUnlock: (() -> Un
  * Whether a safe word's answer may show: the phone unlocked (unlocking is the check) and, with Parley's app lock
  * locked, the fingerprint or screen lock confirmed once for this card. The answer is read only when first shown.
  */
-private class Reveal(private val label: String, private val appLocked: Boolean) {
+private class Reveal(private val label: String, private val appLocked: () -> Boolean) {
     var confirmed by mutableStateOf(false)
     var revealed by mutableStateOf(false)
     var answer by mutableStateOf<String?>(null)
@@ -203,7 +207,8 @@ private class Reveal(private val label: String, private val appLocked: Boolean) 
     fun mayShow(locked: Boolean, unlock: () -> Unit, ask: () -> Unit): Boolean {
         when {
             locked -> unlock()
-            appLocked && !confirmed -> ask()
+            // Read at each reveal (L4): an app lock that engaged during the call is honoured too.
+            appLocked() && !confirmed -> ask()
             else -> return true
         }
         return false
@@ -219,8 +224,8 @@ private fun SafeWordRow(p: SafeWordPrompt, labelled: Boolean, onUnlock: (() -> U
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val locked by rememberUpdatedState(rememberKeyguardLocked())
-    // Parley's own app lock, read when the card appears (from memory).
-    val reveal = remember(p.label) { Reveal(p.label, runCatching { TelecomGraph.dependencies.appLockLocked() }.getOrDefault(true)) }
+    // Parley's own app lock, read from memory each time the answer is asked for.
+    val reveal = remember(p.label) { Reveal(p.label) { runCatching { TelecomGraph.dependencies.appLockLocked() }.getOrDefault(true) } }
     val confirmTitle = stringResource(R.string.safeword_confirm_title)
     // Android 10 without a fingerprint: the keyguard's own "confirm your PIN" screen.
     val credential = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
@@ -253,7 +258,9 @@ private fun SafeWordRow(p: SafeWordPrompt, labelled: Boolean, onUnlock: (() -> U
 private fun AnswerBox(reveal: Reveal, key: String, mayShow: () -> Boolean, show: () -> Unit) {
     val scheme = MaterialTheme.colorScheme
     val showLabel = stringResource(R.string.safeword_show_answer)
+    val shownState = stringResource(R.string.safeword_answer_shown)
     val shown = reveal.answer?.takeIf { reveal.revealed }
+    SecureWhile(reveal.revealed)
     Surface(
         color = if (reveal.revealed) scheme.primaryContainer else scheme.surfaceContainerHighest,
         contentColor = if (reveal.revealed) scheme.onPrimaryContainer else scheme.onSurfaceVariant,
@@ -274,7 +281,9 @@ private fun AnswerBox(reveal: Reveal, key: String, mayShow: () -> Boolean, show:
                     if (reveal.revealed) reveal.revealed = false else if (mayShow()) show()
                     true
                 }
-                if (shown != null) liveRegion = LiveRegionMode.Polite
+                // L4: never read out by itself (the caller may hear it on speaker): TalkBack says "Answer shown", and
+                // reads the answer only when the user moves to it.
+                if (shown != null) stateDescription = shownState
             },
     ) {
         Row(Modifier.padding(horizontal = Spacing.l, vertical = Spacing.m), verticalAlignment = Alignment.CenterVertically) {
@@ -286,6 +295,20 @@ private fun AnswerBox(reveal: Reveal, key: String, mayShow: () -> Boolean, show:
                 Text(shown, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Medium)
             }
         }
+    }
+}
+
+/**
+ * L4: while [on], the call screen's window is secure (no screenshots, screen recording or casting of the answer); the
+ * window's own setting ("Hide screen content") is put back afterwards.
+ */
+@Composable
+private fun SecureWhile(on: Boolean) {
+    val window = LocalActivity.current?.window ?: return
+    DisposableEffect(on, window) {
+        val had = (window.attributes.flags and WindowManager.LayoutParams.FLAG_SECURE) != 0
+        if (on && !had) window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        onDispose { if (on && !had) window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE) }
     }
 }
 

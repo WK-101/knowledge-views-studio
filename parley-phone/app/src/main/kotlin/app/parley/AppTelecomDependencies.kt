@@ -1,5 +1,6 @@
 package app.parley
 
+import app.parley.common.BlockAction
 import android.text.format.DateUtils
 import android.util.Log
 import app.parley.common.PhoneIdentity
@@ -197,14 +198,19 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
 
     override fun saveCallNote(number: String?, connectTimeMillis: Long, text: String) {
         c.scope.launch {
-            c.meta.addCallNote(
+            val id = c.meta.addCallNote(
                 CallNoteEntity(
                     numberKey = PhoneIdentity.key(number, PhoneEnv.countryIso(app)), callDate = if (connectTimeMillis > 0) connectTimeMillis else System.currentTimeMillis(), text = text,
                 ),
             )
-            // I7: "they'll call back Tue" in a call note can expect that call.
-            val key = "call:" + PhoneIdentity.key(number, PhoneEnv.countryIso(app))
-            runCatching { ExpectedCallHints.noteSaved(c, ExpectedCallHints.callerName(c, number), text, key) }
+            // I7: "they'll call back Tue" in a call note can expect that call, from that number only (a hidden or
+            // unknown line opens nothing: the window would cover everyone).
+            if (!number.isNullOrBlank() && id > 0) {
+                runCatching {
+                    val (name, isPrivate) = ExpectedCallHints.caller(c, number)
+                    ExpectedCallHints.noteSaved(c, name, text, ExpectedCallHints.callNoteKey(id), number = number, privateName = isPrivate)
+                }
+            }
         }
     }
 
@@ -333,8 +339,11 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
         runCatching { ReputationLearner.proposeRange(c, number, accountId) }.getOrNull()
     }
 
-    /** I2: a prefix block rule for the range, written like "Block & decline"'s (its id lets the card undo it). */
-    override suspend fun blockRange(prefix: String): Long? = withContext(Dispatchers.IO) {
+    /**
+     * I2: a prefix rule for the range, written like "Block & decline"'s (its id lets the card undo it). It silences by
+     * default (L8): a range covers a thousand numbers, mostly strangers, and repeat callers never pass a rule.
+     */
+    override suspend fun blockRange(prefix: String, action: BlockAction): Long? = withContext(Dispatchers.IO) {
         val pattern = runCatching { RuleTools.check(prefix, RuleType.PREFIX, PhoneEnv.countryIso(app)).pattern.trim() }.getOrNull()
             ?: return@withContext null
         suspend fun existing() = c.blocks.allRules().any {
@@ -342,7 +351,11 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
         }
         try {
             runCatching {
-                if (existing()) 0L else c.blocks.saveRule(BlockRule(pattern = pattern, type = RuleType.PREFIX, note = app.getString(R.string.blk_note_range)))
+                if (existing()) {
+                    0L
+                } else {
+                    c.blocks.saveRule(BlockRule(pattern = pattern, type = RuleType.PREFIX, action = action, note = app.getString(R.string.blk_note_range)))
+                }
             }.getOrElse { if (runCatching { existing() }.getOrDefault(false)) 0L else null }
         } finally {
             runCatching { c.blocks.enabledRules() }

@@ -1,5 +1,6 @@
 package app.parley.telecom
 
+import app.parley.common.BlockAction
 import android.content.Context
 import android.content.Intent
 import app.parley.common.AnswerGesture
@@ -165,8 +166,11 @@ interface ScreeningHooks {
      */
     suspend fun rangeProposal(number: String, accountId: String?): RangeProposal? = null
 
-    /** Writes a block rule for the numbers starting with [prefix]; its id (for Undo), 0 when already blocked, null on failure. */
-    suspend fun blockRange(prefix: String): Long? = null
+    /**
+     * Writes a rule for the numbers starting with [prefix]: silence (they ring quietly and show as missed) unless the
+     * user picked block. Its id (for Undo), 0 when a rule for that range is already there, null on failure.
+     */
+    suspend fun blockRange(prefix: String, action: BlockAction = BlockAction.SILENCE): Long? = null
 }
 
 /** Call time, SIM choice and placing calls again. */

@@ -1,6 +1,8 @@
 package app.parley.telecom
 
 import app.parley.common.PhoneIdentity
+import android.os.SystemClock
+import app.parley.common.calls.HelperCancel
 import app.parley.common.calls.HelperJoin
 import app.parley.common.calls.HelperStage
 import kotlinx.coroutines.CoroutineScope
@@ -10,7 +12,9 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 /** I5: the helper being brought into the call [fromId] ("Calling Sam to join…", then "Merge now"). */
 data class HelperJoinUi(val fromId: String, val name: String, val number: String, val seen: Boolean = false)
@@ -46,11 +50,37 @@ object HelperCalls {
         }
     }
 
-    /** Stop bringing them in: ends the helper's call while it's still ringing, and forgets it. */
+    /**
+     * Stop bringing them in: ends the helper's call while it's still ringing, and forgets it. Tapped before Telecom has
+     * reported the call (L5), the call is ended as soon as it shows up, so it never keeps dialling behind the card.
+     */
     fun cancel(progress: HelperProgress?) {
-        progress?.call?.takeIf { progress.stage == HelperStage.CALLING }?.let { CallManager.hangup(it.id) }
+        val p = progress
+        if (p != null) {
+            when (HelperJoin.onCancel(p.stage, p.call != null, p.join.seen)) {
+                HelperCancel.HANG_UP -> p.call?.let { CallManager.hangup(it.id) }
+                HelperCancel.WHEN_REPORTED -> endWhenReported(p.join)
+                HelperCancel.FORGET -> Unit
+            }
+        }
         _join.value = null
     }
+
+    private var cancelled: Job? = null
+
+    /** Ends [j]'s outgoing call once it appears (at once if it's already there), for [HelperJoin.CANCEL_WAIT_MS]. */
+    private fun endWhenReported(j: HelperJoinUi) {
+        val at = SystemClock.elapsedRealtime()
+        cancelled?.cancel()
+        cancelled = scope.launch {
+            val list = withTimeoutOrNull(HelperJoin.CANCEL_WAIT_MS) { CallManager.state.first { calls -> calls.any { isHelperCall(j, it) } } }
+            if (list != null && HelperJoin.endsCancelled(SystemClock.elapsedRealtime() - at)) {
+                list.filter { isHelperCall(j, it) }.forEach { CallManager.hangup(it.id) }
+            }
+        }
+    }
+
+    private fun isHelperCall(j: HelperJoinUi, c: CallUi): Boolean = c.isLive && !c.incoming && c.id != j.fromId && same(c.number, j.number)
 
     fun dismiss() {
         _join.value = null
@@ -58,7 +88,7 @@ object HelperCalls {
 
     /** Where [j]'s call is in [calls] (the screen's live list). Pure: [markSeen] records that their call showed up. */
     fun progress(j: HelperJoinUi, calls: List<CallUi>): HelperProgress {
-        val own = calls.firstOrNull { it.isLive && !it.incoming && it.id != j.fromId && same(it.number, j.number) }
+        val own = calls.firstOrNull { isHelperCall(j, it) }
         val merged = calls.any { c -> c.isLive && c.isConference && c.children.any { same(it.number, j.number) } }
         val stage = HelperJoin.stage(own?.state?.live(), merged, j.seen || own != null || merged)
         return HelperProgress(j.copy(seen = j.seen || own != null || merged), stage, own)

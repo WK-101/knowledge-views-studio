@@ -55,7 +55,9 @@
     <string name="helpers_search">Search contacts</string>
 
     <!-- Settings › Blocking & spam › Expecting a call from your notes -->
-    <string name="expected_intro">Let unknown numbers ring through your blocking rules for a while when:</string>
+    <string name="expected_intro">Let unknown numbers ring for a while, even in off hours or with non-contacts blocked, when:</string>
+    <!-- Under the switches: what an expected call never gets past. -->
+    <string name="expected_rules_apply">Your block rules, blocked ranges and spam lists still apply.</string>
     <string name="expected_notes">A note or promise says someone will call</string>
     <string name="expected_notes_body">On the day you wrote, such as \"Dentist will call Tue\" or \"bank rings tomorrow at 3pm\"</string>
     <string name="expected_to_call">A number you haven\'t saved is on your To call list</string>
@@ -80,7 +82,7 @@
     <string name="expected_offer_to_call">%1$s is on your To call list. Let that number ring through until %2$s?</string>
     <!-- %1$s: until when -->
     <string name="expected_offer_delivery">That looks like a delivery. Let unknown numbers ring until %1$s, so the courier gets through?</string>
-    <string name="expected_offer_after">From now on this happens by itself. You can change it in Settings › Blocking &amp; spam.</string>
+    <string name="expected_offer_after">Your block rules and spam lists still apply. From now on this happens by itself. You can change it in Settings › Blocking &amp; spam.</string>
     <string name="expected_offer_yes">Turn on</string>
     <string name="expected_offer_no">No thanks</string>
 </resources>

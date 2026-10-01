@@ -57,6 +57,8 @@ class FamilySafetyStore(context: Context) {
         } else {
             try {
                 FamilySafetyState.decode(String(VaultCrypto.openCallerId(Base64.decode(stored, Base64.NO_WRAP)), Charsets.UTF_8))
+                    // Note windows of older versions can't follow their note: they go (written with the next change).
+                    .let { d -> d.copy(windows = d.windows.filterNot(ExpectedCalls::untracked)) }
             } catch (_: Exception) {
                 // A Keystore hiccup or a damaged value: keep what's stored, try again next time.
                 return false
@@ -127,6 +129,19 @@ class FamilySafetyStore(context: Context) {
         if (!load()) return emptyList()
         return ExpectedCalls.prune(_summary.value.windows, now).filter { _summary.value.consents[it.source] == true }
     }
+
+    /**
+     * The windows in force from memory, for the call path (which must never wait on the Keystore): null while the store
+     * hasn't been read yet (it's read at process start, see BlockingSetup.warm).
+     */
+    fun windowsNow(now: Long = System.currentTimeMillis()): List<ExpectedWindow>? {
+        if (!loaded) return null
+        val s = _summary.value
+        return ExpectedCalls.prune(s.windows, now).filter { s.consents[it.source] == true }
+    }
+
+    /** Whether the document has been read (the call path reads only from memory). */
+    val isLoaded: Boolean get() = loaded
 
     /** The user's answer for [source]; turning it off also drops the windows it made. */
     suspend fun setConsent(source: ExpectedSource, on: Boolean): Boolean = write { s ->

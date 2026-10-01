@@ -1656,3 +1656,85 @@ with StrongBox). Make a contact with a photo private (Make private), and have a 
 13. My card › Edit: a Profile chip; add LinkedIn. In the share line tick "Profiles": the QR code (scanned with another
     phone's camera) and the shared card include the profile as a labelled link; untick it: they don't. My card's page
     lists the profile and opens it like a contact's.
+
+### 26.6 After the review
+
+Unit tests: `ExpectedCallsTest` and `CallPolicyTest` (core:common: which notes expect a call, and what an expected
+call never gets past), `FamilySafetyTest` (helper Cancel), `SyncWatchdogTest` (contacts that came back),
+`VaultKeyLifecycleTest` (core:data: the unlock check fails closed), `MeCardDetailsTest` (app).
+
+**Expecting a call: never past your rules.** Turn on "Expecting a call from your notes" (26.3 step 9).
+
+1. Log a note "Dentist will call today". With "Block calls from numbers not in your contacts" on, an unknown number
+   rings ("Rang through: expecting a call (note on Dentist)"), as before.
+2. In the same window: a number with a block rule of yours, a number covered by a range rule ("Silence this range" or
+   "Block range"), a number a spam list blocks, and (with "Silence numbers that look like sales lines" on) a tagged
+   sales line are all still blocked or silenced as without the note. "Why did my phone ring?" for those shows the rule
+   or list, not "Expecting a call". Turning "Expecting a call" on by hand (the tile) still lets everyone through, as
+   before.
+3. Notes that are not a call to expect open nothing: "Ring the plumber tomorrow", "Phone bill due today", "Call Ana
+   today", "I'll call the bank today". These do: "Garage is calling today", "Asked them to call me back today",
+   "Expecting a call from the bank today", "Courier today".
+4. Edit the note to "Dentist came by" (or delete the entry, or tick "[ ] dentist will call today" done): Settings ›
+   Blocking & spam › Expecting a call from your notes no longer lists its window, and unknown numbers are blocked
+   again. Undo of the delete brings the window back ("A note"). Two notes on one contact each keep their own window.
+5. After a call with a saved or unsaved number, write the call note "They'll call back today": only that number rings
+   through; another unknown number is blocked. Delete the call note in the number's history: the window goes.
+6. A To call item for an unsaved number (26.3 step 11): mark it done, or call the number back: its window goes.
+7. Discreet mode on, a note "will call today" on a private contact: the incoming screen says "(from your notes)" and
+   the windows list says "A note", never the private name. Discreet mode off: "Note on <name>".
+8. Windows made by an older version from notes are dropped on update (re-save the note to get one back).
+9. Cold start: force-stop Parley, then call from an unknown number inside a window. The call is screened at once (no
+   delay); the window applies from the next call at the latest (it is read in the background at start).
+
+**Private data stays locked when the check fails.**
+
+10. With private contacts and a number one of them had in a note: remove the screen lock and set it again (this
+    invalidates the vault key), then type that number on the keypad. No private hint (no name, no note excerpt)
+    shows. A backup made then still saves what's left of the private contacts (name, numbers), as before.
+
+**Restore from snapshot never duplicates.**
+
+11. Make 20 Google contacts vanish (26.4 step 2), let the card appear, then bring them back (undelete on the web
+    within 30 days, or re-sync). Run the upkeep: the card goes by itself. Instead, open Restore from snapshot after
+    they came back: "They're back already" and the card goes. With 5 of the 20 back: 15 are listed, "5 contacts
+    already came back, so they aren't restored again." Restore writes 15, never 20.
+
+**My card keeps every link.**
+
+12. Import a vCard for yourself with `item1.URL:https://www.linkedin.com/pulse/some-article` and
+    `item1.X-ABLabel:LinkedIn`, set it as My card (or give a My card website row that label in Google Contacts), open
+    My card › Edit and save without changes: the article link is still there, as a website.
+
+**Locks forget opened private details.**
+
+13. App lock on with "Lock immediately": open a private contact (vault prompt), leave Parley and come back, unlock the
+    app: opening that contact again asks for the vault once more if its own unlock has run out. Same with a 1-minute
+    timeout after 2 minutes away, and with any timeout after turning the screen off and on.
+
+**Safe word.**
+
+14. Settings › Family safe word › a label: the answer field shows a password keyboard with no suggestions bar, and
+    after saving, typing the first letters of the answer in another app suggests nothing from it (Gboard: also check
+    Settings › Dictionary that it wasn't learned).
+15. During a call, hold the answer: a screenshot or screen recording of that moment shows a black screen (with "Hide
+    screen content" off; the flag is put back when the answer hides). With TalkBack on speaker, a double tap says
+    "Answer shown" and does not read the answer out; moving to it reads it. Lock Parley (Tools › Lock now) during the
+    call after the card showed: the next hold asks for the fingerprint first.
+
+**Add my helper: Cancel right away.**
+
+16. During a call, More › Add my helper, and tap Cancel on the card immediately (before the second call appears):
+    the helper's call, once it appears, is ended within a moment; the first call stays on hold and can be resumed.
+    Cancel while it rings: ended at once, as before.
+
+**Silence this range.**
+
+17. After a call from a tagged number of a range (26.2 step 8), the post-call card asks "Silence this range?" with
+    **Silence range** first and **Block range** beside it. Silence range: "Range silenced. Its calls ring quietly and
+    show as missed…" with Undo; the rule in Blocking & screening is "Range from your calls" with Silence. Block range
+    instead writes it with Reject ("Range blocked…"). Undo removes the rule ("Done. That range rings as before."). A
+    range that already has a rule: "This range already has a rule."
+
+**Downgrades.** Installing a Parley older than 4.5 over this one (`adb install -r -d`) is not supported: clear
+Parley's data first, then restore a backup (docs/CONTACT_MODEL.md, "Downgrades").

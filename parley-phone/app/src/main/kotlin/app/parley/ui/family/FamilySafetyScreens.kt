@@ -1,5 +1,10 @@
 package app.parley.ui.family
 
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.platform.PlatformTextInputMethodRequest
+import androidx.compose.ui.platform.InterceptPlatformTextInput
+import androidx.compose.ui.ExperimentalComposeUiApi
+import android.view.inputmethod.EditorInfo
 import android.content.Context
 import android.text.format.DateUtils
 import androidx.compose.foundation.clickable
@@ -177,20 +182,24 @@ private fun SafeWordDialog(label: String, initial: SafeWord?, onDismiss: () -> U
                     keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
                     modifier = Modifier.fillMaxWidth(),
                 )
-                OutlinedTextField(
-                    answer, { answer = it.take(SafeWords.MAX_ANSWER) }, singleLine = true,
-                    label = { Text(stringResource(R.string.safe_word_answer)) },
-                    visualTransformation = if (shown) VisualTransformation.None else PasswordVisualTransformation(),
-                    trailingIcon = {
-                        IconButton({ shown = !shown }) {
-                            Icon(
-                                if (shown) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility,
-                                stringResource(if (shown) R.string.safe_word_hide_answer else R.string.safe_word_show_answer),
-                            )
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                )
+                // L3: a secret: a password field with no suggestions or autocorrect, and the keyboard told not to learn it.
+                NoKeyboardLearning {
+                    OutlinedTextField(
+                        answer, { answer = it.take(SafeWords.MAX_ANSWER) }, singleLine = true,
+                        label = { Text(stringResource(R.string.safe_word_answer)) },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false),
+                        visualTransformation = if (shown) VisualTransformation.None else PasswordVisualTransformation(),
+                        trailingIcon = {
+                            IconButton({ shown = !shown }) {
+                                Icon(
+                                    if (shown) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility,
+                                    stringResource(if (shown) R.string.safe_word_hide_answer else R.string.safe_word_show_answer),
+                                )
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
                 if (initial != null) {
                     TextButton({ onSave(null) }) { Text(stringResource(R.string.safe_word_remove), color = MaterialTheme.colorScheme.error) }
                 }
@@ -346,16 +355,35 @@ private fun HelperPicker(contacts: List<ContactSummary>, onDismiss: () -> Unit, 
     }
 }
 
+/**
+ * Text fields in [content] ask the keyboard not to learn what is typed (IME_FLAG_NO_PERSONALIZED_LEARNING), so a secret
+ * never reaches its dictionary, suggestions or sync. Compose has no keyboard option for it, so the request is wrapped.
+ */
+@OptIn(ExperimentalComposeUiApi::class)
+@Composable
+private fun NoKeyboardLearning(content: @Composable () -> Unit) {
+    InterceptPlatformTextInput(
+        interceptor = { request, next ->
+            next.startInputMethod(
+                PlatformTextInputMethodRequest { info: EditorInfo ->
+                    request.createInputConnection(info).also { info.imeOptions = info.imeOptions or EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING }
+                },
+            )
+        },
+        content = content,
+    )
+}
+
 /** "Tue 6 Oct, 08:00 – 20:00" in the user's locale. */
 internal fun windowText(context: Context, w: ExpectedWindow): String = DateUtils.formatDateRange(
     context, w.start, w.end,
     DateUtils.FORMAT_SHOW_WEEKDAY or DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_SHOW_TIME or DateUtils.FORMAT_ABBREV_ALL,
 )
 
-/** What turned a window on, in words ("Note on Dentist", "Delivery QR code"). */
+/** What turned a window on, in words ("Note on Dentist", "Delivery QR code"); a private name not in discreet mode. */
 @Composable
-private fun sourceText(w: ExpectedWindow): String = when (w.source) {
-    ExpectedSource.NOTE -> w.label?.let { stringResource(R.string.expected_from_note_on, it) } ?: stringResource(R.string.expected_from_note)
+private fun sourceText(w: ExpectedWindow, discreet: Boolean): String = when (w.source) {
+    ExpectedSource.NOTE -> w.shownLabel(discreet)?.let { stringResource(R.string.expected_from_note_on, it) } ?: stringResource(R.string.expected_from_note)
     ExpectedSource.TO_CALL -> stringResource(R.string.expected_from_to_call) + (w.number?.let { stringResource(R.string.main_separator) + Bidi.ltr(it) } ?: "")
     ExpectedSource.DELIVERY_QR -> stringResource(R.string.expected_from_delivery)
 }
@@ -373,6 +401,7 @@ fun ExpectedHintsDialog(vm: AppViewModel, onDismiss: () -> Unit) {
     LaunchedEffect(Unit) { store.load() }
     val now = remember { System.currentTimeMillis() }
     val upcoming = summary.windows.filter { it.end > now && summary.consents[it.source] == true }.sortedBy { it.start }
+    val discreet = vm.settings.collectAsStateWithLifecycle().value.hideVault
     ParleyDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.set_expected_hints_title)) },
@@ -388,6 +417,10 @@ fun ExpectedHintsDialog(vm: AppViewModel, onDismiss: () -> Unit) {
                         scope.launch { store.setConsent(source, on) }
                     }
                 }
+                Text(
+                    stringResource(R.string.expected_rules_apply), style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = Spacing.xs),
+                )
                 if (upcoming.isNotEmpty()) {
                     Text(
                         stringResource(R.string.expected_windows), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary,
@@ -398,7 +431,7 @@ fun ExpectedHintsDialog(vm: AppViewModel, onDismiss: () -> Unit) {
                             colors = rowColors(),
                             leadingContent = { Icon(Icons.Rounded.HourglassTop, null) },
                             headlineContent = { Text(windowText(context, w)) },
-                            supportingContent = { Text(sourceText(w)) },
+                            supportingContent = { Text(sourceText(w, discreet)) },
                             trailingContent = {
                                 IconButton({ scope.launch { store.removeWindow(w.source, w.key) } }) {
                                     Icon(Icons.Rounded.Close, stringResource(R.string.expected_remove))

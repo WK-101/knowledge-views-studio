@@ -452,14 +452,18 @@ class ContactDetailViewModel(private val c: DataContainer) : ViewModel() {
     fun saveInteraction(initial: Interaction?, type: InteractionType, note: String?, time: Long) = launch {
         val d = current ?: return@launch
         try {
-            if (initial == null) {
+            val entry = if (initial == null) {
                 c.circle.interactions.log(d.lookupKey, id, type, null, time, note, Interactions.manualKey(UUID.randomUUID().toString()))
-                say(R.string.circle_logged, d.given.ifBlank { d.displayName })
+                    .also { say(R.string.circle_logged, d.given.ifBlank { d.displayName }) }
             } else {
                 c.circle.interactions.edit(initial.id, type, note, time.takeIf { it != initial.time })
+                initial.id
             }
-            // I7: "will call Tue" in the note can expect that call.
-            runCatching { ExpectedCallHints.noteSaved(c, d.displayName, note, key = "note:" + d.lookupKey) }
+            // I7: "will call Tue" in the note can expect that call; an edit that drops the promise withdraws it.
+            if (entry != null) {
+                val key = ExpectedCallHints.loggedKey(entry)
+                runCatching { ExpectedCallHints.noteSaved(c, d.displayName, note, key, privateName = ContactRef.isPrivateKey(d.lookupKey)) }
+            }
         } catch (_: InteractionStore.SealException) {
             say(R.string.circle_note_failed)
         }

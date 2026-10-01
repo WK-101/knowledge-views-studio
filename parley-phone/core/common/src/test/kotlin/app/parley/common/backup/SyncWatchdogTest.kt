@@ -198,4 +198,38 @@ class SyncWatchdogTest {
         assertEquals(SyncWatchMemory(), SyncWatchMemory.decode("{not json"))
         assertEquals(SyncWatchMemory(), SyncWatchMemory.decode(null))
     }
+
+    // M2: before a restore, contacts that came back by themselves are left out.
+    @Test fun contactsThatCameBackAreNotRestoredTwice() {
+        val ana = contact("k-ana", "Ana Lima", phone("+44 7700 900001"), sourceId = "src-ana")
+        val bo = contact("k-bo", "Bo Chen", phone("+44 7700 900002"), sourceId = "src-bo")
+        val cy = contact("k-cy", "Cy Park", phone("+44 7700 900003"))
+        val dee = contact("k-dee", "Dee Ray", phone("+44 7700 900004"))
+        val eve = contact("k-eve", "Eve Moss", phone("+44 7700 900005"))
+        val vanished = listOf(ana, bo, cy, dee, eve)
+        val now = listOf(
+            // Same lookup key.
+            ana.copy(displayName = "Ana L."),
+            // Synced back under a new key, same sync source id.
+            bo.copy(key = "k-bo-2"),
+            // Back under a new key with no source id: same account, name and number.
+            cy.copy(key = "k-cy-2"),
+            // In another account now, same name and number.
+            contact("k-dee-2", "Dee Ray", phone("07700 900004"), account = "com.example" to "other"),
+            // A different person with Eve's name only.
+            contact("k-other", "Eve Moss", phone("+44 7700 900999")),
+        )
+        assertEquals(listOf(eve), SyncWatchdog.stillGone(vanished, now))
+        // Matched by raw contact id too.
+        val withRaw = eve.copy(raws = eve.raws.map { it.copy(rawId = 77L) })
+        val back = contact("k-new", "Someone else", phone("+1 555 0100")).let { it.copy(raws = it.raws.map { r -> r.copy(rawId = 77L) }) }
+        assertTrue(SyncWatchdog.stillGone(listOf(withRaw), listOf(back)).isEmpty())
+        assertEquals(vanished, SyncWatchdog.stillGone(vanished, emptyList()))
+    }
+
+    @Test fun aCardWhoseContactsAllCameBackExpires() {
+        val e = WatchEvent(WatchKind.CONTACTS_VANISHED, google.type, google.name, listOf("a", "b"), 2, 10, 1, 2)
+        val m = SyncWatchMemory(pending = listOf(e))
+        assertTrue(m.expire(e).pending.isEmpty())
+    }
 }

@@ -179,6 +179,11 @@ For Parley `X.Y.Z` (and, when needed, Parley Lists `A.B.C`):
     `AutoUpdateMode: Version` notice the new tag, add a build entry, build it, compare it with the `Binaries` APK and
     publish with our signature, usually within a few days.
 
+Never ship a rollback over a newer version. From 4.5 on, private contacts' details are stored in a two-part format
+that builds before 4.5 misread as a lost key (docs/CONTACT_MODEL.md, "Downgrades"). If a release must be pulled, ship
+a new, higher version with the fix; anyone going back to an older APK has to clear Parley's data first (restore from a
+backup afterwards), and the changelog of such a release says so.
+
 If a build-affecting change has to go in after tagging, move the tag (delete the release and the tag, then recreate
 them on the new commit), rebuild and re-upload the signed APK, and update `commit:` in the recipe.
 

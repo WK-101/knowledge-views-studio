@@ -88,6 +88,15 @@ class ReputationStore private constructor(context: Context, private val keySourc
         }.getOrNull()
     }
 
+    /** Whether the stored index has been read (the call path looks up from memory only, see [lookupLoaded]). */
+    val isLoaded: Boolean get() = entries != null
+
+    /**
+     * [lookup] for the call path: from memory only, null while the index hasn't been read (it's read at process start,
+     * see CallScreener.warm), so a ringing call never waits on the Keystore. No tag is the safe default.
+     */
+    fun lookupLoaded(number: String?, countryIso: String?): Reputation? = if (entries == null) null else lookup(number, countryIso)
+
     /** Replaces the whole index with [index]. False when it couldn't be sealed (nothing is ever stored in plain text). */
     @Synchronized
     fun replace(index: ReputationIndex): Boolean {

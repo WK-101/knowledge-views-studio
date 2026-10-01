@@ -68,6 +68,9 @@ data class SyncWatchMemory(
     fun dismiss(e: WatchEvent, at: Long): SyncWatchMemory =
         copy(pending = pending.filter { it.fingerprint != e.fingerprint }, acknowledged = acknowledged + e.keys.map { it to at })
 
+    /** Every contact of [e] came back by itself: its card goes, with nothing more to do. */
+    fun expire(e: WatchEvent): SyncWatchMemory = copy(pending = pending.filter { it.fingerprint != e.fingerprint })
+
     /** A restore was undone: the card comes back (its contacts stay acknowledged, so nothing is notified again). */
     fun reopen(e: WatchEvent): SyncWatchMemory =
         if (pending.any { it.fingerprint == e.fingerprint }) this else copy(pending = (pending + e).takeLast(MAX_PENDING))

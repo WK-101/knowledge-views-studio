@@ -1,5 +1,6 @@
 package app.parley.ui.circle
 
+import app.parley.calls.ExpectedCallHints
 import android.app.Application
 import android.content.res.Resources
 import android.text.format.DateFormat
@@ -107,10 +108,13 @@ fun PromiseNoteField(value: TextFieldValue, onChange: (TextFieldValue) -> Unit, 
 suspend fun tickPromise(vm: AppViewModel, lookupKey: String, note: PersonNote, item: Promises.Item, done: Boolean) {
     val res = vm.getApplication<Application>().resources
     if (!vm.c.circle.setPromiseDone(lookupKey, note, item.line, done)) return
+    // I7: a promise of a call that is done no longer lets anyone ring through.
+    runCatching { ExpectedCallHints.promiseTicked(vm.c, lookupKey, note) }
     if (done) {
         val after = note.copy(text = Promises.setDone(note.text, item.line, true))
         CircleSnacks.show(CircleSnack(res.getString(R.string.circle_promise_done, item.text)) {
             vm.c.circle.setPromiseDone(lookupKey, after, item.line, false)
+            runCatching { ExpectedCallHints.promiseTicked(vm.c, lookupKey, after) }
         })
     }
 }
