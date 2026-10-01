@@ -138,6 +138,7 @@ object PersistentStores {
         PersistentStore("relation_mirrors", StoreKind.PREFS, local("Which relations Parley added to the other contact, by this phone's lookup keys")),
         PersistentStore("folder_sync", StoreKind.PREFS, local("Sync state with a folder picked on this phone")),
         PersistentStore("folder_sync_notice", StoreKind.PREFS, local("Which folder-sync pause was already notified")),
+        PersistentStore("sync_watch", StoreKind.PREFS, local("What the sync watchdog last saw and already said, by this phone's lookup keys and accounts")),
         PersistentStore("markdown_export", StoreKind.PREFS, local("Export folder picked on this phone")),
         PersistentStore("parley_screening_guard", StoreKind.PREFS, local("Call-path safety state (emergency window)")),
         PersistentStore("parley_ring_boost", StoreKind.PREFS, local("Ring volume to restore after a crash")),

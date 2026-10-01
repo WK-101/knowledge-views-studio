@@ -1607,4 +1607,103 @@
         <item quantity="one">This one couldn\'t be moved and is unchanged: %2$s. It\'s still selected, so you can try again.</item>
         <item quantity="other">These %1$d couldn\'t be moved and are unchanged: %2$s. They\'re still selected, so you can try again.</item>
     </plurals>
+
+    <!-- Sync watchdog: contacts that vanished without being deleted in Parley. The lock screen shows only the public line; people are never named. -->
+    <string name="watch_channel">Contacts gone missing</string>
+    <string name="watch_notify_public">Contacts may be missing</string>
+    <plurals name="watch_notify_more">
+        <item quantity="one">And 1 more change. Open Contact health check to see it.</item>
+        <item quantity="other">And %1$d more changes. Open Contact health check to see them.</item>
+    </plurals>
+    <plurals name="watch_vanished_title">
+        <item quantity="one">%1$d contact vanished from %2$s</item>
+        <item quantity="other">%1$d contacts vanished from %2$s</item>
+    </plurals>
+    <plurals name="watch_emptied_title">
+        <item quantity="one">The only contact in %2$s is gone</item>
+        <item quantity="other">All %1$d contacts in %2$s are gone</item>
+    </plurals>
+    <string name="watch_removed_title">%1$s was removed from this phone</string>
+    <plurals name="watch_numbers_title">
+        <item quantity="one">%1$d contact lost its phone numbers</item>
+        <item quantity="other">%1$d contacts lost phone numbers</item>
+    </plurals>
+    <string name="watch_master_off_title">Sync is off for every account</string>
+    <string name="watch_sync_off_title">Contacts sync is off for %1$s</string>
+    <string name="watch_since_yesterday">Since yesterday</string>
+    <string name="watch_since">Since %1$s</string>
+    <string name="watch_vanished_body">%1$s, and not deleted in Parley. The daily snapshots still have them.</string>
+    <plurals name="watch_removed_body">
+        <item quantity="one">Its contact went with it. The daily snapshots still have it.</item>
+        <item quantity="other">Its %1$d contacts went with it. The daily snapshots still have them.</item>
+    </plurals>
+    <string name="watch_removed_body_kept">Its contacts may stop syncing or leave this phone.</string>
+    <string name="watch_numbers_body">%1$s, and not changed in Parley. The daily snapshots still have the numbers.</string>
+    <string name="watch_master_off_body">No account syncs contacts until it\'s back on, so changes made elsewhere won\'t arrive here.</string>
+    <plurals name="watch_sync_off_body">
+        <item quantity="one">Its contact won\'t sync with your other devices until it\'s back on.</item>
+        <item quantity="other">Its %1$d contacts won\'t sync with your other devices until it\'s back on.</item>
+    </plurals>
+    <string name="watch_restore">Restore from snapshot</string>
+    <string name="watch_it_was_me">It was me</string>
+    <string name="watch_it_was_me_done">Got it. Parley won\'t mention these again.</string>
+    <string name="watch_tip">Parley compares the daily snapshots and speaks up once when many contacts vanish without you deleting them.</string>
+    <string name="watch_restore_title">Restore from snapshot</string>
+    <plurals name="watch_restore_intro">
+        <item quantity="one">As it was before it vanished. It goes back to its account, or to the phone if that account is gone.</item>
+        <item quantity="other">As they were before they vanished. They go back to their accounts, or to the phone if an account is gone.</item>
+    </plurals>
+    <string name="watch_numbers_intro">The numbers each contact had before. They\'re added back; nothing else on the contact changes.</string>
+    <string name="watch_select_all">Select all</string>
+    <plurals name="watch_restore_button">
+        <item quantity="one">Restore %1$d contact</item>
+        <item quantity="other">Restore %1$d contacts</item>
+    </plurals>
+    <plurals name="watch_numbers_button">
+        <item quantity="one">Add numbers back to %1$d contact</item>
+        <item quantity="other">Add numbers back to %1$d contacts</item>
+    </plurals>
+    <plurals name="watch_restored">
+        <item quantity="one">%1$d contact restored.</item>
+        <item quantity="other">%1$d contacts restored.</item>
+    </plurals>
+    <plurals name="watch_numbers_restored">
+        <item quantity="one">%1$d number added back.</item>
+        <item quantity="other">%1$d numbers added back.</item>
+    </plurals>
+    <string name="watch_undo">Undo</string>
+    <string name="watch_undone">Undone. The snapshots still have them.</string>
+    <string name="watch_nothing_title">Nothing to restore</string>
+    <string name="watch_nothing_body">They\'re back already, or the snapshots no longer have them. History &amp; undo › Snapshots shows every change.</string>
+    <string name="watch_restoring">Restoring…</string>
+
+    <!-- Backup setup checker: where the backup folder lives (from its location only, no file is read) and how fresh the last backup is. -->
+    <string name="bkp_place_phone">On this phone only</string>
+    <string name="bkp_place_phone_synced">On this phone, in a folder that looks synced</string>
+    <string name="bkp_place_removable">On a memory card or USB drive</string>
+    <string name="bkp_place_cloud">In %1$s</string>
+    <string name="bkp_place_unknown">Kept by another app</string>
+    <string name="bkp_check_no_pass">Backups aren\'t set up yet</string>
+    <string name="bkp_check_no_pass_body">Set a passphrase, then choose a folder.</string>
+    <string name="bkp_check_no_folder">Choose where your backups go</string>
+    <string name="bkp_check_no_folder_body">A Nextcloud or Drive folder, or one Syncthing copies, survives a lost phone.</string>
+    <string name="bkp_check_folder_gone">Parley can\'t reach the backup folder any more</string>
+    <string name="bkp_check_folder_gone_body">It was moved, deleted or its app was removed. Choose it again or pick another.</string>
+    <string name="bkp_check_failed">The last backup didn\'t finish</string>
+    <string name="bkp_check_not_verified">The last backup couldn\'t be checked, so it was removed</string>
+    <string name="bkp_check_retry_body">Your earlier backups are still there. Try again now.</string>
+    <string name="bkp_check_never">No backup yet</string>
+    <string name="bkp_check_never_body">The first one takes a moment and is checked once written.</string>
+    <string name="bkp_check_overdue">Last good backup %1$s</string>
+    <string name="bkp_check_overdue_body">Changes since then aren\'t in any backup yet.</string>
+    <string name="bkp_check_phone_only">Your backup folder is on this phone only; that won\'t survive a lost phone</string>
+    <string name="bkp_check_phone_only_body">Choose a folder in Nextcloud, Drive or one Syncthing copies, or keep a second copy with Move to a new phone.</string>
+    <string name="bkp_check_removable">Your backup folder is on a memory card; it goes with the phone if the phone is lost</string>
+    <string name="bkp_check_removable_body">Choose a cloud or synced folder, or keep a second copy with Move to a new phone.</string>
+    <string name="bkp_check_ok">Backed up %1$s and checked</string>
+    <string name="bkp_check_ok_where">Backed up %1$s and checked · %2$s</string>
+    <string name="bkp_fix_pass">Set passphrase</string>
+    <string name="bkp_fix_folder">Choose folder</string>
+    <string name="bkp_fix_other_folder">Choose another folder</string>
+    <string name="bkp_fix_now">Back up now</string>
 </resources>

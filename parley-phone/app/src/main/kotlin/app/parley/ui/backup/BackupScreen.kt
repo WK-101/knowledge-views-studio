@@ -74,6 +74,8 @@ import app.parley.ui.ParleyDialog
 import app.parley.ui.ConfirmDialog
 import app.parley.ui.StrengthMeter
 import app.parley.common.security.PassphraseStrength
+import app.parley.common.backup.BackupFix
+import app.parley.common.backup.BackupSetupCheck
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -83,6 +85,7 @@ fun BackupScreen(vm: AppViewModel, back: () -> Unit) {
     val scope = rememberCoroutineScope()
     val repo = vm.c.backup
     val state by repo.prefs.state.collectAsStateWithLifecycle()
+    val ux by vm.c.ux.state.collectAsStateWithLifecycle()
     var busy by remember { mutableStateOf<String?>(null) }
     var files by remember { mutableStateOf<List<BackupFileInfo>>(emptyList()) }
     var refresh by remember { mutableIntStateOf(0) }
@@ -135,6 +138,17 @@ fun BackupScreen(vm: AppViewModel, back: () -> Unit) {
         LazyColumn(Modifier.padding(p)) {
             // Overdue reminder (also in Settings); "Not now" snoozes it.
             item { BackupReminderBanner(vm) }
+            // Setup checker: one line saying what most needs doing (or that all is well), with its fix.
+            item {
+                BackupSetupStatus(state, ux.backupReminderDays) { fix ->
+                    when (fix) {
+                        BackupFix.SET_PASSPHRASE -> setPass = true
+                        BackupFix.CHOOSE_FOLDER -> folderPicker.launch(null)
+                        BackupFix.BACK_UP_NOW -> if (state.hasKeys && state.folderUri != null && busy == null) runBackup()
+                        BackupFix.NONE -> Unit
+                    }
+                }
+            }
             item {
                 val ready = state.hasKeys && state.folderUri != null
                 Card(
@@ -180,7 +194,11 @@ fun BackupScreen(vm: AppViewModel, back: () -> Unit) {
                     modifier = Modifier.clickable { folderPicker.launch(null) },
                     leadingContent = { Icon(Icons.Rounded.Folder, null) },
                     headlineContent = { Text(stringResource(R.string.bkp_folder)) },
-                    supportingContent = { Text(state.folderName ?: stringResource(R.string.bkp_folder_none)) },
+                    supportingContent = {
+                        // Where it lives, from its location only (P13): "Parley · On this phone only".
+                        val place = folderPlaceText(res, BackupSetupCheck.locate(state.folderUri))
+                        Text(state.folderName?.let { name -> place?.let { "$name · $it" } ?: name } ?: stringResource(R.string.bkp_folder_none))
+                    },
                 )
                 ListItem(
                     headlineContent = { Text(stringResource(R.string.bkp_automatic)) },

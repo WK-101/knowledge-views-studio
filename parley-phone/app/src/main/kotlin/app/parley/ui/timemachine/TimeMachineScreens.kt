@@ -76,7 +76,7 @@ fun describe(res: Resources, row: DataRow): String? {
     }
 }
 
-private fun lines(res: Resources, r: ContactRecord) = r.raws.flatMap { it.rows }.mapNotNull { describe(res, it) }.distinct()
+internal fun lines(res: Resources, r: ContactRecord) = r.raws.flatMap { it.rows }.mapNotNull { describe(res, it) }.distinct()
 
 private fun fieldLabel(res: Resources, field: String): String = when (field) {
     "displayName" -> res.getString(R.string.tm_field_name)

@@ -11,6 +11,7 @@ import app.parley.ui.history.historyGraph
 import app.parley.ui.people.peopleGraph
 import app.parley.ui.qr.qrGraph
 import app.parley.ui.settings.settingsGraph
+import app.parley.ui.timemachine.watchGraph
 
 /**
  * Every feature's graph. Home is registered by the root, which owns its tab state; the screens get the app's view
@@ -26,4 +27,5 @@ fun NavGraphBuilder.parleyGraph(nav: NavController) {
     extrasGraph(nav)
     qrGraph(nav)
     toCallGraph(nav)
+    watchGraph(nav)
 }
