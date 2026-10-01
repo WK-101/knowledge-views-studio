@@ -31,8 +31,8 @@ android {
         targetSdk = 36
         // Keep these two plain literals. F-Droid's update check reads them line by line with a regex and can't
         // follow a variable or an expression. Bump both for a release, then tag v<versionName> (docs/RELEASING.md).
-        versionCode = 15
-        versionName = "4.4.0"
+        versionCode = 16
+        versionName = "4.5.0"
         // Custom permission guarding the private-name lookup provider (differs in debug so both builds can be installed).
         manifestPlaceholders["lookupPermission"] = "app.parley.permission.LOOKUP_PRIVATE_NAME"
         // Optional "Parley Lists" companion (B4c, module :lists-updater): its package and signature permission.
@@ -210,8 +210,10 @@ val forbiddenPermissions = listOf(
 
 // APK-size budget, the ≤ 12 MiB target (the release APK was 13.3 MiB at 4.3.0 and 11.7 MiB after trimming; see
 // docs/PERFORMANCE_BENCHMARKS.md): `./gradlew :app:checkReleaseApkSize` builds the release APK and fails above the
-// budget, so growth is a decision rather than an accident. CI runs it.
-val apkBudgetBytes = 12L * 1024 * 1024
+// budget, so growth is a decision rather than an accident. CI runs it. 4.5 (number memory, reputation, family safety,
+// profiles) grew it to 12.2 MiB: the budget is 12.5 MiB until the next trim (geocoder data or unused locales, a product
+// decision, see docs/PERFORMANCE_BENCHMARKS.md).
+val apkBudgetBytes = 12L * 1024 * 1024 + 512L * 1024
 
 androidComponents {
     onVariants { variant ->

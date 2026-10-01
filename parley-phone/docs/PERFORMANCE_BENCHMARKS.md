@@ -208,3 +208,10 @@ Measured on the unsigned release build (R8, resource shrinking) before and after
 Where the savings came from: the app lock uses the platform `BiometricPrompt` (API 29+) instead of
 `androidx.biometric`, which pulled in AppCompat; the geocoder keeps English, German, Spanish, French, Portuguese and
 Arabic place names only (no data exists for Hindi or Urdu), and other languages ask in English.
+
+## APK size at 4.5.0
+
+4.5.0 is 12,815,680 bytes (12.22 MiB), 0.22 MiB over the 12 MiB target after 4.5's features (number memory, personal reputation, family safety, sync watchdog, profiles). The budget in `app/build.gradle.kts` is 12.5 MiB until the next trim. The two largest remaining levers are product decisions:
+
+- **Offline caller-location data** (libphonenumber geocoder, English names): China (86) is 0.79 MB and Australia (61) 0.40 MB of the shipped prefix files.
+- **Translations** in `resources.arsc` (2.3 MB with eight locales; Parley is English-only for now and the newest screens aren't translated).
