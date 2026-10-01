@@ -30,6 +30,9 @@ object Tips {
     /** Press and hold Speaker on the call screen for the list of audio outputs. */
     const val CALL_AUDIO_ROUTES = "call_audio_routes"
 
+    /** Number memory: the first remembered line about a number that isn't a contact (keypad, number history). */
+    const val NUMBER_MEMORY = "number_memory"
+
     /** Ids are stored comma-separated; anything that isn't a plain id is dropped. */
     private val ID = Regex("[a-z0-9_]{1,40}")
 

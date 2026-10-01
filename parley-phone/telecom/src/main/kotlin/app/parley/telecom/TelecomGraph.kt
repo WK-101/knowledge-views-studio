@@ -62,6 +62,13 @@ data class CallerMemory(
     val isEmpty: Boolean get() = lastNote.isNullOrBlank() && promises.isEmpty()
 }
 
+/**
+ * I1 number memory: what Parley remembers about a caller who isn't a contact, in one line ("You deleted Plumber Mike in
+ * March with this number"), already in the user's language. The call screen shows [text] only while the phone is
+ * unlocked; on the lock screen it says only that Parley knows the number.
+ */
+data class NumberMemoryLine(val text: String)
+
 data class InCallAppearance(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val amoled: Boolean = false,
@@ -96,6 +103,12 @@ interface CallerInfoSource {
      * the call screen off the main thread, after it is up, to show the caller's local time; never on the ring path.
      */
     fun callerZone(number: String, accountId: String?): String? = null
+
+    /**
+     * I1: what Parley remembers about [number], which isn't a contact (deleted contacts, notes, the call history…), or
+     * null. Asked off the main thread within the caller lookup's time; a failure or a timeout shows nothing.
+     */
+    suspend fun numberMemory(number: String, accountId: String?): NumberMemoryLine? = null
 
     /** A name to suggest when saving an unknown number ("Caller from Lyon"). */
     fun suggestedName(number: String): String = number
@@ -234,7 +247,7 @@ interface UiHooks {
 interface TelecomDependencies : CallerInfoSource, ScreeningHooks, CallPolicyHooks, CallRecordHooks, UiHooks
 
 /** Post-call card actions handled by the app. */
-enum class PostCallAction { BLOCK, REPORT }
+enum class PostCallAction { BLOCK, REPORT, NUMBER_MEMORY }
 
 object TelecomGraph {
     @Volatile

@@ -37,7 +37,8 @@ import java.util.concurrent.TimeUnit
  * - housekeeping: temporary contacts and vault entries that expired, lookup keys that moved, private (vault) calls
  *   out of the system log, call-log retention, the 30-day journal and the time-machine snapshot;
  * - call history: the full archive catch-up, retention, old export files and the plan-meter check;
- * - screening: expired temporary allow rules, old screening traces, and the subscribed spam lists.
+ * - screening: expired temporary allow rules, old screening traces, and the subscribed spam lists;
+ * - number memory: the keyed-hash index of what Parley knows about numbers that aren't contacts.
  *
  * One wake instead of three, each job with its own notifications as before. It doesn't wait for the phone to be idle:
  * expired temporary contacts and retention are promises that shouldn't slip by days. Reminders stay separate
@@ -52,6 +53,8 @@ class MaintenanceWorker(context: Context, params: WorkerParameters) : CoroutineW
         withTimeoutOrNull(30_000) { c.contacts.contacts.filterNotNull().first() }
         val notices = step("housekeeping") { runHousekeeping(c) }.orEmpty()
         notices.forEachIndexed { i, n -> notify(ctx, i, n) }
+        // Number memory (I1): after the journal was pruned and today's snapshot taken; only changed stores are read.
+        step("number memory") { c.numberMemory.rebuild() }
         // At most one backup reminder a month while a backup is overdue.
         step("backup reminder") { BackupReminder.maybeNotify(ctx, c) }
         // Call history: the full catch-up ran above (before retention); old exports and plan warnings.

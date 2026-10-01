@@ -90,6 +90,8 @@ data class CallUi(
     val dropText: String? = null,
     /** I10: `elapsedRealtime` when "I'm on hold" started, or 0 when not in hold mode. */
     val holdModeSince: Long = 0,
+    /** I1: what Parley remembers about this number (not a contact), or null. */
+    val numberMemory: NumberMemoryLine? = null,
 ) {
     val title: String get() = name ?: number?.takeIf { it.isNotBlank() } ?: fallbackTitle
     val isLive: Boolean get() = state != CallState.DISCONNECTED && state != CallState.DISCONNECTING

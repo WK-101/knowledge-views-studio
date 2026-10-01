@@ -2,12 +2,15 @@ package app.parley.data
 
 import android.util.Base64
 import app.parley.common.backup.RecordJson
+import app.parley.common.memory.NumberMemory
+import app.parley.common.record.Mime
 import app.parley.data.db.JournalEntity
 import app.parley.data.db.JournalRow
 import app.parley.data.db.MetaDao
 import app.parley.data.records.ContactRecordStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -36,6 +39,21 @@ class JournalRepository(private val dao: MetaDao, private val records: ContactRe
             val payload = JSONObject().put("record", line).put("blobs", blobs).toString().toByteArray()
             val zipped = ByteArrayOutputStream().also { o -> GZIPOutputStream(o).use { it.write(payload) } }.toByteArray()
             dao.addJournal(JournalEntity(contactKey = record.key, displayName = record.displayName, action = action, time = System.currentTimeMillis(), payload = zipped))
+        }
+    }
+
+    /** Number memory: changes whenever a contact is journaled, restored or forgotten. */
+    suspend fun memoryStamp(): String = recent().first().joinToString(",") { "${it.id}:${it.restored}" }
+
+    /** Number memory: contacts deleted in Parley and not restored, with their numbers (each copy opened once). */
+    suspend fun deletedForMemory(): List<NumberMemory.Deleted> = withContext(Dispatchers.IO) {
+        recent().first().filter { it.action == "DELETE" && !it.restored }.mapNotNull { row ->
+            val e = runCatching { dao.journalEntry(row.id) }.getOrNull() ?: return@mapNotNull null
+            val json = runCatching { JSONObject(String(GZIPInputStream(e.payload.inputStream()).use { it.readBytes() })) }.getOrNull() ?: return@mapNotNull null
+            // Photos aren't needed for the numbers: blobs stay unread.
+            val record = runCatching { RecordJson.decode(json.getString("record")) { null } }.getOrNull() ?: return@mapNotNull null
+            val numbers = record.raws.flatMap { r -> r.rows.filter { it.mimeType == Mime.PHONE }.mapNotNull { it["data1"] } }
+            NumberMemory.Deleted(row.id, row.contactKey, row.displayName, numbers, row.time)
         }
     }
 

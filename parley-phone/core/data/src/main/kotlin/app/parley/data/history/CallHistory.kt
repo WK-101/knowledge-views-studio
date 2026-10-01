@@ -62,6 +62,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONObject
+import app.parley.common.memory.NumberMemory
 import java.time.ZoneId
 import java.util.concurrent.TimeUnit
 
@@ -403,6 +404,22 @@ class CallHistory(
 
     /** A row's call, or null when it can't be read (key problems are passed on, as by [openOrNull]). */
     private fun openRow(r: ArchivedCallEntity): CallLogRecord? = openOrNull(r.blob)?.let { runCatching { decode(it) }.getOrNull() }
+
+    /** Number memory: changes whenever calls are archived or leave the archive. */
+    suspend fun memoryStamp(): String = withContext(Dispatchers.IO) {
+        if (!prefs.current().archiveEnabled) "off" else "${dao.count()}:${dao.newestIds(1).firstOrNull()}"
+    }
+
+    /**
+     * Number memory: every archived call with the name it showed then, read a page at a time. Null when the archive
+     * key can't be used now (the previous memory is kept); empty with the archive off.
+     */
+    suspend fun pastCallsForMemory(): List<NumberMemory.PastCall>? = withContext(Dispatchers.IO) {
+        if (!prefs.current().archiveEnabled) return@withContext emptyList()
+        val out = ArrayList<NumberMemory.PastCall>()
+        val complete = scanArchive { a -> a.record.number?.takeIf { it.isNotBlank() }?.let { out += NumberMemory.PastCall(it, a.record.date, a.record.name) } }
+        out.takeIf { complete }
+    }
 
     /** Every number in the archive (all of it, not only the window), e.g. for a one-off key migration. */
     suspend fun archivedNumbers(): List<String> = withContext(Dispatchers.IO) {

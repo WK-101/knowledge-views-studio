@@ -175,6 +175,11 @@ object PersistentStores {
             "vault_trash", StoreKind.FILES, local("The 30-day undo of deleted private contacts, sealed like the vault"),
             location = PersistentStore.NO_BACKUP_FILES,
         ),
+        PersistentStore(
+            "number_memory", StoreKind.FILES,
+            local("Keyed-hash index of what this phone knows about numbers, rebuilt from the stores it indexes"),
+            location = PersistentStore.NO_BACKUP_FILES,
+        ),
         // ---- Keystore
         PersistentStore("AndroidKeyStore", StoreKind.KEYSTORE, StorePolicy.Secret("Hardware-backed keys never leave the phone")),
     )

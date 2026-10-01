@@ -124,11 +124,13 @@ object IntentRoutes {
                     else -> null
                 }
             }
-            // The post-call card's "Block" and "Report" for an unknown number.
+            // The post-call card's "Block", "Report" and remembered line for an unknown number.
             ACTION_POST_CALL -> intent.getStringExtra(EXTRA_NUMBER)?.takeIf { it.isNotBlank() }?.let { number ->
                 when (intent.getStringExtra(EXTRA_POST_CALL_ACTION)) {
                     "BLOCK" -> go(NavEvent.Route(BlockingRoutes.rule(0, RuleKind.BLOCK, RuleType.EXACT, number)))
                     "REPORT" -> IntentTarget(report = number)
+                    // I1: the number's history, where what Parley remembers about it offers its action.
+                    "NUMBER_MEMORY" -> go(NavEvent.History(number))
                     else -> null
                 }
             }

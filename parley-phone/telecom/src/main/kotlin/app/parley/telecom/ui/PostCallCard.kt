@@ -51,6 +51,9 @@ sealed interface PostCallChoice {
     data class MessageOn(val number: String, val accountId: String?) : PostCallChoice
     data class Report(val number: String) : PostCallChoice
 
+    /** I1: open the number's history in Parley, where what Parley remembers about it has its action. */
+    data class NumberMemory(val number: String) : PostCallChoice
+
     /** I3: call a saved number instead ("was that really the bank?"). */
     data class Verify(val number: String) : PostCallChoice
 
@@ -89,6 +92,7 @@ internal fun PostCallCard(call: CallUi, onChoice: (PostCallChoice) -> Unit) {
                 listOfNotNull(call.location, stringResource(R.string.postcall_what_to_do)).joinToString(stringResource(R.string.tc_separator)),
                 style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            NumberMemoryPostCall(call) { onChoice(PostCallChoice.NumberMemory(number)) }
             Spacer(Modifier.height(12.dp))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Action(Icons.Rounded.Block, stringResource(R.string.postcall_block)) { onChoice(PostCallChoice.Block(number)) }

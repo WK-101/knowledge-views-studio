@@ -12,6 +12,8 @@ import app.parley.common.backup.SnapshotIndex
 import app.parley.common.backup.SnapshotKeep
 import app.parley.common.backup.SnapshotWriter
 import app.parley.common.backup.Snapshots
+import app.parley.common.memory.NumberMemory
+import app.parley.common.record.Mime
 import app.parley.common.record.ContactRecord
 import app.parley.data.records.ContactRecordStore
 import kotlinx.coroutines.Dispatchers
@@ -167,6 +169,30 @@ class TimeMachine(context: Context, private val records: ContactRecordStore) {
         val old = all.lastOrNull { it.timestamp <= since } ?: all.first()
         val current = SnapshotWriter(store).write(System.currentTimeMillis(), records.readAll(fullPhoto = false)).index
         Snapshots.diff(store, old, current)
+    }
+
+    /** Number memory: changes with every snapshot written or dropped. */
+    fun memoryStamp(): String = snapshots().joinToString(",") { it.timestamp.toString() }
+
+    /**
+     * Number memory: who each snapshot had, with their numbers. Each stored version is read once (most contacts don't
+     * change from one day to the next), without its photo.
+     */
+    suspend fun peopleForMemory(): List<NumberMemory.SnapshotPeople> = mutex.withLock {
+        withContext(Dispatchers.IO) {
+            val versions = HashMap<String, NumberMemory.Person?>()
+            snapshots().map { idx ->
+                val people = idx.contacts.mapNotNull { (key, hash) ->
+                    versions.getOrPut(hash) {
+                        runCatching { store.get(hash)?.let { RecordJson.decode(it.decodeToString()) { null } } }.getOrNull()?.let { r ->
+                            val numbers = r.raws.flatMap { raw -> raw.rows.filter { it.mimeType == Mime.PHONE }.mapNotNull { it["data1"] } }
+                            NumberMemory.Person(r.displayName, numbers)
+                        }
+                    }?.let { key to it }
+                }.toMap()
+                NumberMemory.SnapshotPeople(idx.timestamp, people)
+            }
+        }
     }
 
     val oldestSnapshot: Long? get() = snapshots().firstOrNull()?.timestamp

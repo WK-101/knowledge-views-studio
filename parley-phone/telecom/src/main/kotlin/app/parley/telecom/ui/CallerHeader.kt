@@ -131,6 +131,7 @@ internal fun CallerHeader(
             )
         }
         if (!compact) SubjectLine(call)
+        if (!compact && !ended) NumberMemoryHint(call)
         CallTags(call, zone = if (ended) null else rememberCallerZone(call))
         Spacer(Modifier.height(Spacing.m))
         StatusPill(call, ended)
@@ -431,7 +432,7 @@ private fun CardLine(icon: ImageVector, content: @Composable () -> Unit) {
 
 /** Whether the keyguard is showing, re-checked every second (the user may unlock with the call screen up). */
 @Composable
-private fun rememberKeyguardLocked(): Boolean {
+internal fun rememberKeyguardLocked(): Boolean {
     val context = LocalContext.current
     val km = remember { context.getSystemService(KeyguardManager::class.java) }
     var locked by remember { mutableStateOf(km?.isKeyguardLocked ?: true) }
