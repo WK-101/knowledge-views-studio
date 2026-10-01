@@ -17,6 +17,8 @@ class App : Application() {
 
     val database by lazy { AppDatabase.get(this) }
     val repository by lazy { AppRepository(database, this) }
+    /** Core-side registry for satellite addons (discovery, grants, audit, kill switch). */
+    val bridgeRegistry by lazy { com.wkhan.hexis.addon.BridgeRegistry(this, database) }
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     /** Completes once the DB has been opened — and any pending SQLCipher plaintext<->encrypted migration has

@@ -184,6 +184,10 @@ dependencies {
     // JSON export/import
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
 
+    // The Hexis Bridge SDK spine — discovery, the typed envelope/contracts, and the client used by
+    // the Bridge Registry to talk to satellite addons. See docs/design/addon-bridge-and-voice.md.
+    implementation(project(":bridge"))
+
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
 
     // QR encoding for offline proof-of-work verification (pure Java, no network, no extra permission).
