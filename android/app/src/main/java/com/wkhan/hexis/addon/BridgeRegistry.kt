@@ -24,6 +24,7 @@ import java.util.UUID
  * consumes results. Trust is a pinned signing keyset, relaxed in a debuggable build so a debug-signed
  * addon can be exercised before its debug certificate is pinned.
  */
+@Suppress("TooManyFunctions") // cohesive registry facade: discovery + grant + audit + kill switch
 class BridgeRegistry(
     private val context: Context,
     db: AppDatabase,

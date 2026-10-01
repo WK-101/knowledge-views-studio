@@ -137,6 +137,61 @@ class AppViewModel internal constructor(
     // the same framework couplings the VM uses — AlarmScheduler, FileProvider, cache dirs, SecurePrefs.
     internal val appCtx get() = getApplication<App>()
 
+    // ---- Bridge Registry (satellite addons) -----------------------------------------------------
+    // A thin VM surface over App.bridgeRegistry: discover providers, grant/revoke, and expose the
+    // audit log. The core gains no permission; it only governs addons and consumes their results.
+    private val bridgeRegistry get() = appCtx.bridgeRegistry
+
+    data class BridgeSnapshot(
+        val enabled: Boolean = true,
+        val voiceProviders: List<com.wkhan.hexis.bridge.client.DiscoveredProvider> = emptyList(),
+        val grantedVoicePackage: String? = null,
+    )
+
+    private val _bridgeState = kotlinx.coroutines.flow.MutableStateFlow(BridgeSnapshot())
+    val bridgeState: StateFlow<BridgeSnapshot> = _bridgeState
+
+    /** The capped bridge audit log, newest first; query work stays off-main via [state]'s flowOn. */
+    val bridgeAudit: StateFlow<List<com.wkhan.hexis.data.entity.BridgeAuditEntity>> =
+        bridgeRegistry.observeAudit().state(emptyList())
+
+    fun refreshBridge() {
+        viewModelScope.launch {
+            val providers = kotlinx.coroutines.withContext(Dispatchers.IO) { bridgeRegistry.discoverVoice() }
+            _bridgeState.value = BridgeSnapshot(
+                enabled = bridgeRegistry.isEnabled(),
+                voiceProviders = providers,
+                grantedVoicePackage = bridgeRegistry.grantedPackage(com.wkhan.hexis.bridge.Capabilities.VOICE_STT),
+            )
+        }
+    }
+
+    fun setBridgeEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            bridgeRegistry.setEnabled(enabled)
+            refreshBridge()
+        }
+    }
+
+    /** Store the grant an addon's consent activity returned, then refresh. */
+    fun onVoiceConsent(providerPackage: String, token: String) {
+        viewModelScope.launch {
+            bridgeRegistry.grant(com.wkhan.hexis.bridge.Capabilities.VOICE_STT, providerPackage, token)
+            refreshBridge()
+        }
+    }
+
+    fun revokeAllBridges() {
+        viewModelScope.launch {
+            bridgeRegistry.revokeAll()
+            refreshBridge()
+        }
+    }
+
+    fun clearBridgeAudit() {
+        viewModelScope.launch { bridgeRegistry.clearAudit() }
+    }
+
     /** One-shot events for the "Undo" snackbar after a completion / won't-do / trash. */
     val undoEvents = kotlinx.coroutines.flow.MutableSharedFlow<UndoEvent>(extraBufferCapacity = 4)
 

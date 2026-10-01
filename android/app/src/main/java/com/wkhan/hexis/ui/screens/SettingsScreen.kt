@@ -53,6 +53,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.Sync
 import com.wkhan.hexis.ui.components.formatDue
+import androidx.compose.material.icons.filled.Hub
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Flag
@@ -324,6 +325,90 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             }
             Text("The primary module can't be switched off — pick a different primary first.",
                 style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+
+        // R110 — addon bridges: the permission-free core discovers satellite addons, grants/revokes
+        // per-capability access, and keeps an audit log. No core permission is involved; a voice addon
+        // holds the microphone and returns only text.
+        SettingsGroup(Icons.Filled.Hub, "Addon bridges", open["bridges"] == true,
+            { open["bridges"] = open["bridges"] != true },
+            keywords = "addon bridge satellite voice transcribe speech permission grant token kill switch audit log revoke") {
+            val bridge by vm.bridgeState.collectAsStateWithLifecycle()
+            val audit by vm.bridgeAudit.collectAsStateWithLifecycle()
+            LaunchedEffect(Unit) { vm.refreshBridge() }
+            var pendingPkg by remember { mutableStateOf<String?>(null) }
+            var confirmRevoke by remember { mutableStateOf(false) }
+            val consent = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+                val token = result.data?.getStringExtra(com.wkhan.hexis.bridge.BridgeConsent.EXTRA_TOKEN)
+                val pkg = pendingPkg
+                if (result.resultCode == android.app.Activity.RESULT_OK && pkg != null && !token.isNullOrEmpty()) {
+                    vm.onVoiceConsent(pkg, token)
+                    Toast.makeText(context, "Connected", Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(context, "Not connected", Toast.LENGTH_SHORT).show()
+                }
+                pendingPkg = null
+            }
+
+            Toggle("Enable addon bridges", bridge.enabled) { on -> vm.setBridgeEnabled(on) }
+
+            Sub("Voice — speech to text")
+            if (bridge.voiceProviders.isEmpty()) {
+                Text(
+                    "No voice addon found. Install Hexis Voice to add speech capture — the core never holds " +
+                        "the microphone permission; the addon does, and returns only text.",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else {
+                bridge.voiceProviders.forEach { p ->
+                    val granted = p.packageName == bridge.grantedVoicePackage
+                    NavRow(
+                        label = p.packageName + if (p.trusted) "" else "  (untrusted)",
+                        value = if (granted) "Connected" else "Connect",
+                        onClick = {
+                            pendingPkg = p.packageName
+                            consent.launch(
+                                android.content.Intent(com.wkhan.hexis.bridge.BridgeConsent.ACTION)
+                                    .setPackage(p.packageName)
+                                    .putExtra(com.wkhan.hexis.bridge.BridgeConsent.EXTRA_CORE_PACKAGE, context.packageName)
+                                    .putExtra(
+                                        com.wkhan.hexis.bridge.BridgeConsent.EXTRA_CAPABILITY,
+                                        com.wkhan.hexis.bridge.Capabilities.VOICE_STT,
+                                    ),
+                            )
+                        },
+                    )
+                }
+            }
+
+            if (bridge.grantedVoicePackage != null) {
+                Spacer(Modifier.height(8.dp))
+                Action("Revoke all (kill switch)") { confirmRevoke = true }
+            }
+
+            if (audit.isNotEmpty()) {
+                Spacer(Modifier.height(8.dp))
+                Sub("Recent activity")
+                audit.take(8).forEach { e ->
+                    Text(
+                        "${e.capabilityId} · ${e.method} → ${e.outcome}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Action("Clear log") { vm.clearBridgeAudit() }
+            }
+
+            if (confirmRevoke) {
+                ConfirmDialog(
+                    title = "Revoke all addon access?",
+                    body = "This disconnects every addon and deletes its grant. You can reconnect anytime.",
+                    confirmLabel = "Revoke",
+                    onConfirm = { confirmRevoke = false; vm.revokeAllBridges() },
+                    onDismiss = { confirmRevoke = false },
+                )
+            }
         }
 
         if (Modules.isEnabled(s, Modules.NOTES)) {

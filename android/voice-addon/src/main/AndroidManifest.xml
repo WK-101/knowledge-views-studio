@@ -46,6 +46,11 @@
             android:name=".consent.ConsentActivity"
             android:exported="true"
             android:excludeFromRecents="true"
-            android:label="@string/consent_title" />
+            android:label="@string/consent_title">
+            <intent-filter>
+                <action android:name="com.wkhan.hexis.bridge.CONSENT" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
     </application>
 </manifest>

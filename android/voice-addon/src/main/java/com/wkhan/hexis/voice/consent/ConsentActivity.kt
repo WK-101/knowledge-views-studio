@@ -6,6 +6,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
 
+import com.wkhan.hexis.bridge.BridgeConsent
 import com.wkhan.hexis.bridge.BridgeScopes
 import com.wkhan.hexis.voice.VoiceAddon
 
@@ -45,20 +46,18 @@ class ConsentActivity : Activity() {
     }
 
     private fun finishWithGrant() {
-        val core = callingPackage ?: intent.getStringExtra(EXTRA_CORE_PACKAGE)
+        val core = callingPackage ?: intent.getStringExtra(BridgeConsent.EXTRA_CORE_PACKAGE)
         if (core == null) {
             setResult(RESULT_CANCELED)
             finish()
             return
         }
         val token = VoiceAddon.tokenAuthority.mint(core, setOf(BridgeScopes.VOICE_STT_LISTEN))
-        setResult(RESULT_OK, Intent().putExtra(EXTRA_TOKEN, token.value))
+        setResult(RESULT_OK, Intent().putExtra(BridgeConsent.EXTRA_TOKEN, token.value))
         finish()
     }
 
     companion object {
-        const val EXTRA_CORE_PACKAGE = "com.wkhan.hexis.voice.extra.CORE_PACKAGE"
-        const val EXTRA_TOKEN = "com.wkhan.hexis.voice.extra.TOKEN"
         private const val REQUEST_RECORD_AUDIO = 1
     }
 }
