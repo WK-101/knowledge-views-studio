@@ -66,6 +66,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import app.parley.ui.ConfirmDialog
+import androidx.compose.material.icons.rounded.Storefront
+import app.parley.data.PhoneEnv
+import app.parley.data.VerdictSummary
+import app.parley.telecom.R as TR
 
 /*
  * Small entry points other screens drop in with one line. Each opens a dialog through [BlockingDialogs], so
@@ -84,6 +88,11 @@ fun RecentBlockingActions(vm: AppViewModel, number: String, contactName: String?
         ListItem(headlineContent = { Text(label) }, leadingContent = { Icon(icon, null) }, modifier = Modifier.clickable { dismiss(); onClick() })
     row(stringResource(if (blocked) R.string.blk_why_blocked else R.string.blk_why_rang), Icons.AutoMirrored.Rounded.HelpOutline) { BlockingDialogs.show(BlockingDialog.Why(number)) }
     row(stringResource(R.string.blk_why_test), Icons.Rounded.Science) { BlockingDialogs.show(BlockingDialog.Test(number)) }
+    // I2: only when your calls say it looks like a sales line.
+    val salesLine = rememberReputation(vm, number, isContact = contactName != null) != null
+    if (salesLine) {
+        row(stringResource(R.string.blk_rep_menu), Icons.Rounded.Storefront) { BlockingDialogs.show(BlockingDialog.Reputation(number)) }
+    }
     if (contactName == null) {
         row(stringResource(R.string.blk_always_allow), Icons.Rounded.VerifiedUser) {
             scope.launch { BlockingActions.allowNumber(vm.c, number); vm.toast(res.getString(R.string.blk_always_allow_toast)) }
@@ -108,9 +117,13 @@ fun rememberRecentBadges(vm: AppViewModel): (RecentGroup) -> RecentBadge? {
     val verdicts by vm.c.blocks.verdictIndex.collectAsStateWithLifecycle()
     val rings by vm.c.blocks.rings.collectAsStateWithLifecycle()
     val groups by activityViewModel<RecentsViewModel>().groups.collectAsStateWithLifecycle()
+    // I2: the quiet "Looks like a sales line (your calls)" when there's no verdict to show.
+    val repVersion by vm.c.reputation.version.collectAsStateWithLifecycle()
+    val settings by vm.settings.collectAsStateWithLifecycle()
+    val learn = settings.screening.learnFromCalls
     val context = LocalContext.current
     val res = LocalResources.current
-    val badges by produceState(emptyMap<String, RecentBadge>(), groups, verdicts, rings) {
+    val badges by produceState(emptyMap<String, RecentBadge>(), groups, verdicts, rings, repVersion, learn) {
         value = withContext(Dispatchers.Default) {
             val iso = vm.countryIso
             val out = HashMap<String, RecentBadge>()
@@ -120,8 +133,7 @@ fun rememberRecentBadges(vm: AppViewModel): (RecentGroup) -> RecentBadge? {
                 val badge = if (vm.c.dialGuard.isWangiri(e.type, g.number, e.date, rings, iso)) {
                     RecentBadge(res.getString(R.string.blk_dont_call_back), warn = true)
                 } else {
-                    verdicts[vm.c.blocks.verdictKey(g.number, e.accountId)]?.takeIf { abs(it.time - e.date) < 10 * 60_000L || it.time > e.date }
-                        ?.let { v -> RecentBadge(BlockingText.verdict(context, v.text) ?: v.text, warn = v.blocked || v.kind == "LIKELY_SPAM" || v.kind == "REPORTED") }
+                    verdictBadge(context, verdicts[vm.c.blocks.verdictKey(g.number, e.accountId)], e.date) ?: salesBadge(vm, g, res, learn)
                 }
                 if (badge != null) out[g.key] = badge
             }
@@ -129,6 +141,18 @@ fun rememberRecentBadges(vm: AppViewModel): (RecentGroup) -> RecentBadge? {
         }
     }
     return remember(badges) { { g -> badges[g.key] } }
+}
+
+/** The screening verdict for a row's latest call (stored within 10 minutes of it, or later). */
+private fun verdictBadge(context: android.content.Context, v: VerdictSummary?, date: Long): RecentBadge? =
+    v?.takeIf { abs(it.time - date) < 10 * 60_000L || it.time > date }
+        ?.let { RecentBadge(BlockingText.verdict(context, it.text) ?: it.text, warn = it.blocked || it.kind == "LIKELY_SPAM" || it.kind == "REPORTED") }
+
+/** I2: "Looks like a sales line (your calls)", quiet (never a warning), for an unknown number your calls tagged. */
+private fun salesBadge(vm: AppViewModel, g: RecentGroup, res: android.content.res.Resources, learn: Boolean): RecentBadge? {
+    if (!learn || g.vaultId != null) return null
+    return runCatching { vm.c.reputation.lookup(g.number, PhoneEnv.countryIso(vm.c.appContext, g.latest.accountId)) }.getOrNull()
+        ?.let { RecentBadge(res.getString(TR.string.rep_tag), warn = false) }
 }
 
 /**

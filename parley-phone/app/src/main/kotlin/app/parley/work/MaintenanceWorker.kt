@@ -21,6 +21,7 @@ import app.parley.common.NotificationChannels
 import app.parley.common.NotificationIds
 import app.parley.container
 import app.parley.data.DataContainer
+import app.parley.data.calls.ReputationLearner
 import app.parley.blocking.ListsUpdaterClient
 import app.parley.blocking.SpamListWorker
 import app.parley.common.people.TemporaryDue
@@ -37,7 +38,8 @@ import java.util.concurrent.TimeUnit
  * - housekeeping: temporary contacts and vault entries that expired, lookup keys that moved, private (vault) calls
  *   out of the system log, call-log retention, the 30-day journal and the time-machine snapshot;
  * - call history: the full archive catch-up, retention, old export files and the plan-meter check;
- * - screening: expired temporary allow rules, old screening traces, and the subscribed spam lists.
+ * - screening: expired temporary allow rules, old screening traces, the subscribed spam lists, and personal
+ *   reputation (what your own calls say about numbers, for the call path to look up).
  *
  * One wake instead of three, each job with its own notifications as before. It doesn't wait for the phone to be idle:
  * expired temporary contacts and retention are promises that shouldn't slip by days. Reminders stay separate
@@ -60,6 +62,8 @@ class MaintenanceWorker(context: Context, params: WorkerParameters) : CoroutineW
         // Screening upkeep and lists from the optional "Parley Lists" app (read through its provider).
         step("screening upkeep") { SpamListWorker.run(c) }
         step("spam lists") { ListsUpdaterClient.refresh(ctx, c.lists) }
+        // I2: learn again what your own calls say about numbers and ranges (after the archive caught up above).
+        step("personal reputation") { ReputationLearner.learn(c) }
         return Result.success()
     }
 

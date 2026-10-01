@@ -22,7 +22,8 @@ object ScreeningDiagnostics {
         "busyReply=${s.busyReply} busyReplyCustomised=${s.busyReplyText != ScreeningSettings().busyReplyText}",
         "ringLoud=${s.ringLoudFavourites}/${s.ringLoudRepeat}",
         "repeatRingtone=${if (s.repeatRingtone != null) "set" else "default"} likelySpamRingtone=${if (s.likelySpamRingtone != null) "set" else "default"}",
-        "reputationSuggestions=${s.reputationSuggestions} webSearchCustomised=${s.webSearchUrl != ScreeningSettings().webSearchUrl}",
+        "reputationSuggestions=${s.reputationSuggestions} learnFromCalls=${s.learnFromCalls} silenceSalesLines=${s.silenceSalesLines} " +
+            "webSearchCustomised=${s.webSearchUrl != ScreeningSettings().webSearchUrl}",
     ).joinToString(" ")
 
     private fun sched(x: Schedule?) = if (x == null) "" else "(scheduled)"

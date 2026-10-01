@@ -28,6 +28,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -163,6 +164,9 @@ class BlockRepository(private val context: Context, db: AppDatabase, scope: Coro
 
     suspend fun addRing(number: String, startedAt: Long, ringMs: Long, answered: Boolean) =
         dao.addRing(CallRingEntity(numberKey = ringKey(number), startedAt = startedAt, ringMs = ringMs, answered = answered))
+
+    /** Ring lengths recorded since [since] (personal reputation reads them in the daily run). */
+    suspend fun ringsSince(since: Long): List<CallRingEntity> = dao.rings(since).first()
 
     /** Rings of this line; rows written before F7 were keyed by the last 9 digits and are still read. */
     suspend fun ringsFor(number: String) =

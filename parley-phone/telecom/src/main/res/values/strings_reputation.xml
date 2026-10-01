@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Personal reputation: what your own calls say about a number (the call screen, Recents, number history). -->
+<resources>
+    <string name="rep_tag">Looks like a sales line (your calls)</string>
+    <string name="rep_why">Why?</string>
+    <string name="rep_why_hide">Hide</string>
+    <string name="rep_why_title">Why it looks like a sales line</string>
+    <string name="rep_reason_bullet">• %1$s</string>
+    <string name="rep_why_footer">Learned only from your own calls on this phone. Nothing is blocked unless you choose to.</string>
+    <!-- One-time explainer under the tag the first time it shows. -->
+    <string name="rep_tip">Parley noticed this from how calls from this number or its range went. Tap Why? to see.</string>
+
+    <plurals name="rep_reason_short_rings">
+        <item quantity="one">Hung up after ringing for under 5 seconds</item>
+        <item quantity="other">Hung up after ringing for under 5 seconds, %d times</item>
+    </plurals>
+    <plurals name="rep_reason_always_declined">
+        <item quantity="one">You declined its call</item>
+        <item quantity="other">You declined all %d of its calls</item>
+    </plurals>
+    <plurals name="rep_reason_short_hangups">
+        <item quantity="one">You ended a call with it within 3 seconds</item>
+        <item quantity="other">You ended %d calls with it within 3 seconds</item>
+    </plurals>
+    <plurals name="rep_reason_never_answered">
+        <item quantity="one">Its call was never answered</item>
+        <item quantity="other">None of its %d calls was answered</item>
+    </plurals>
+    <string name="rep_reason_no_voicemail">Never left a voicemail</string>
+    <plurals name="rep_reason_odd_hours">
+        <item quantity="one">Called before 8 am or after 9 pm</item>
+        <item quantity="other">Called before 8 am or after 9 pm, %d times</item>
+    </plurals>
+    <plurals name="rep_reason_range_burst">
+        <item quantity="one">Another number from the same range called this week</item>
+        <item quantity="other">%d different numbers from the same range called within a week</item>
+    </plurals>
+    <plurals name="rep_reason_range_unanswered">
+        <item quantity="one">The call from this range went unanswered</item>
+        <item quantity="other">None of the %d calls from this range was answered</item>
+    </plurals>
+    <plurals name="rep_reason_range_blocked">
+        <item quantity="one">You blocked a number from the same range</item>
+        <item quantity="other">You blocked %d numbers from the same range</item>
+    </plurals>
+
+    <!-- Post-call card: block the range a sales line called from. -->
+    <string name="rep_range_title">Block this range?</string>
+    <!-- %1$s: the prefix ("+33 6 12 34 56"), %2$s: "3 numbers", %3$s: "7 past calls". -->
+    <string name="rep_range_text">Numbers starting %1$s… (%2$s) · would have matched %3$s</string>
+    <plurals name="rep_range_numbers">
+        <item quantity="one">%d number</item>
+        <item quantity="other">%d numbers</item>
+    </plurals>
+    <plurals name="rep_range_calls">
+        <item quantity="one">%d past call</item>
+        <item quantity="other">%d past calls</item>
+    </plurals>
+    <string name="rep_range_block">Block range</string>
+    <string name="rep_range_blocked">Range blocked. Contacts and numbers you allow still ring.</string>
+    <string name="rep_range_already">This range is already blocked.</string>
+    <string name="rep_range_failed">Couldn\'t block the range. Try again from Blocking &amp; screening.</string>
+    <string name="rep_range_undone">Range unblocked.</string>
+</resources>

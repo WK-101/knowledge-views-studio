@@ -72,6 +72,9 @@ sealed interface BlockingDialog {
     /** Screening for a label, by title (the label in every account). */
     data class LabelRule(val title: String) : BlockingDialog
     data object Snooze : BlockingDialog
+
+    /** I2: why a number looks like a sales line (your calls). */
+    data class Reputation(val number: String) : BlockingDialog
 }
 
 object BlockingDialogs {
@@ -95,6 +98,7 @@ fun BlockingDialogHost(vm: AppViewModel) {
         is BlockingDialog.PrefixAllow -> PrefixAllowDialog(vm, x, dismiss)
         is BlockingDialog.LabelRule -> LabelRuleDialog(vm, x, dismiss)
         BlockingDialog.Snooze -> SnoozeDialog(vm, dismiss)
+        is BlockingDialog.Reputation -> ReputationDialog(vm, x.number, dismiss)
     }
 }
 

@@ -1,5 +1,6 @@
 package app.parley.common
 
+import app.parley.common.spam.Reputation
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import java.time.DayOfWeek
@@ -154,6 +155,10 @@ data class ScreeningSettings(
     val repeatRingtone: String? = null,
     val likelySpamRingtone: String? = null,
     val reputationSuggestions: Boolean = true,
+    /** I2 "Learn from your calls": tag numbers that look like sales lines from your own history (tags only). */
+    val learnFromCalls: Boolean = true,
+    /** I2: silence numbers that look like sales lines (your calls). Off by default; soft, below lists. */
+    val silenceSalesLines: Boolean = false,
     val webSearchUrl: String = "https://duckduckgo.com/?q=",
 ) {
     fun snoozeActive(nowMillis: Long) = snoozeUntil > nowMillis
@@ -226,11 +231,16 @@ data class IncomingCallFacts(
     /** Earlier incoming attempts from this number that Parley blocked (ms). */
     val blockedAttempts: List<Long> = emptyList(),
     val inEmergencyWindow: Boolean = false,
+    /** I2: what your own calls say about this number or its range (looked up, never worked out on the call path). */
+    val reputation: Reputation? = null,
 )
 
 enum class BlockReason {
     SYSTEM_LIST, RULE, HIDDEN, NOT_A_CONTACT, NEIGHBOUR_SPOOF, VERIFICATION_FAILED,
     LIST, INVALID_NUMBER, OFF_HOURS,
+
+    /** I2: looks like a sales line from your own calls, with "Silence numbers that look like sales lines" on. */
+    PERSONAL_REPUTATION,
 
     /**
      * A private contact's "Send to voicemail": declined by Parley's screening (Android can't do it, it never sees
@@ -240,7 +250,7 @@ enum class BlockReason {
     ;
 
     /** Soft reasons can be overridden by a repeat caller; explicit choices (rules, lists you block) never. */
-    val soft: Boolean get() = this in setOf(NOT_A_CONTACT, NEIGHBOUR_SPOOF, VERIFICATION_FAILED, LIST, INVALID_NUMBER, OFF_HOURS)
+    val soft: Boolean get() = this in setOf(NOT_A_CONTACT, NEIGHBOUR_SPOOF, VERIFICATION_FAILED, LIST, INVALID_NUMBER, OFF_HOURS, PERSONAL_REPUTATION)
 }
 
 sealed interface Decision {
@@ -280,6 +290,8 @@ data class ScreeningResult(
     val deferredToSim: Boolean = false,
     /** Why the call rings although screening would otherwise have blocked or silenced it (null when nothing would have). */
     val rangThrough: RangThrough? = null,
+    /** I2: the caller looks like a sales line from your own calls (the quiet tag and its "Why?"); null otherwise. */
+    val reputation: Reputation? = null,
 ) {
     val failedOpen: Boolean get() = trace.any { it.mark == TraceMark.FAILED_OPEN }
     val blocked: Boolean get() = decision is Decision.Block
@@ -340,9 +352,21 @@ object CallPolicy {
 
     fun decide(facts: IncomingCallFacts, rules: List<BlockRule>, settings: ScreeningSettings, clock: PolicyClock): ScreeningResult {
         val e = Evaluation(facts, rules, settings, clock)
-        val r = e.run()
+        val r = e.run().withReputation(facts, settings)
         val why = rangThrough(r, e) { Evaluation(facts, rules, settings, clock, withoutExceptions = true).run() } ?: return r
         return r.copy(rangThrough = why)
+    }
+
+    /**
+     * I2: the quiet tag rides along with the decision for unknown callers only (never contacts, emergency calls or a
+     * call an allow rule or "Expecting a call" let through), and only while "Learn from your calls" is on.
+     */
+    private fun ScreeningResult.withReputation(f: IncomingCallFacts, s: ScreeningSettings): ScreeningResult {
+        val rep = f.reputation?.takeIf { it.looksLikeSales } ?: return this
+        if (!s.learnFromCalls || f.isContact || f.hidden) return this
+        if (f.isEmergency || f.inEmergencyWindow) return this
+        if (allowedBy == AllowReason.RULE || allowedBy == AllowReason.SNOOZE || allowedBy == AllowReason.EMERGENCY) return this
+        return copy(reputation = rep)
     }
 
     /**
@@ -408,6 +432,7 @@ object CallPolicy {
             val verdict = when {
                 reason == BlockReason.LIST && hit != null -> Verdict(VerdictKind.REPORTED, "Reported by ${hit.packName}" + (hit.category?.let { " · $it" } ?: ""))
                 rule != null -> Verdict(VerdictKind.BLOCKED, "Blocked by rule '${rule.title}'" + if (rule.hitCount > 0) " · ${rule.hitCount + 1} calls" else "")
+                reason == BlockReason.PERSONAL_REPUTATION -> Verdict(VerdictKind.BLOCKED, SALES_LINE_SILENCED)
                 else -> Verdict(VerdictKind.BLOCKED, "Blocked: ${reasonLabel(reason)}")
             }
             step("Decision", (if (action == BlockAction.REJECT) "Reject" else "Silence"), TraceMark.MATCH)
@@ -539,6 +564,15 @@ object CallPolicy {
                 step("Spam lists", "not listed")
             }
 
+            // 5b. I2 personal reputation, below lists (a soft reason: a repeat caller still rings).
+            f.reputation?.takeIf { it.looksLikeSales && s.learnFromCalls }?.let { rep ->
+                if (s.silenceSalesLines) {
+                    step("Your calls", "looks like a sales line: ${rep.describe()}", TraceMark.MATCH)
+                    return softBlock(BlockAction.SILENCE, BlockReason.PERSONAL_REPUTATION, warn = warn)
+                }
+                step("Your calls", "looks like a sales line, tag only")
+            }
+
             // 6. Default toggles.
             if (s.blockFailedVerification && active(s.verificationSchedule) && f.verification == Verification.FAILED) {
                 step("Caller verification", "failed", TraceMark.MATCH)
@@ -621,6 +655,9 @@ object CallPolicy {
 
     private const val DAY = 86_400_000L
 
+    /** I2's verdict ("Why it rang, or not" and Recents show it in the app's language). */
+    const val SALES_LINE_SILENCED = "Silenced: looks like a sales line (your calls)"
+
     fun reasonLabel(r: BlockReason): String = when (r) {
         BlockReason.HIDDEN -> "hidden number"
         BlockReason.NOT_A_CONTACT -> "not a contact"
@@ -632,6 +669,7 @@ object CallPolicy {
         BlockReason.INVALID_NUMBER -> "invalid number"
         BlockReason.OFF_HOURS -> "off hours"
         BlockReason.SEND_TO_VOICEMAIL -> "sent to voicemail"
+        BlockReason.PERSONAL_REPUTATION -> "looks like a sales line (your calls)"
     }
 
     private fun offHoursWho(o: OffHours) = when (o.allow) {

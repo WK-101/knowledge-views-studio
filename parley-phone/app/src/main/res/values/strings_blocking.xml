@@ -831,4 +831,12 @@
     <string name="blk_place_voicemail">Voicemail unavailable</string>
     <!-- Phone -->
     <string name="blk_note_block_decline">Blocked during a call</string>
+    <!-- Personal reputation (learned from your own calls) -->
+    <string name="blk_note_range">Range from your calls</string>
+    <string name="blk_reason_sales_line">looks like a sales line (your calls)</string>
+    <string name="blk_verdict_sales_silenced">Silenced: looks like a sales line (your calls)</string>
+    <string name="blk_check_your_calls">Your calls</string>
+    <string name="blk_res_sales_tag">looks like a sales line, tag only</string>
+    <string name="blk_res_sales_silenced">looks like a sales line: %1$s</string>
+    <string name="blk_rep_menu">Why it looks like a sales line</string>
 </resources>

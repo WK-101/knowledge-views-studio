@@ -28,6 +28,7 @@ import app.parley.common.blocking.ReplayReport
 import app.parley.common.blocking.ScreeningEffects
 import app.parley.common.blocking.ScreeningPipeline
 import app.parley.common.spam.ParsedPack
+import app.parley.data.calls.ReputationStore
 import app.parley.data.vault.VaultRepository
 import app.parley.common.people.PrivateLabels
 import kotlinx.coroutines.CoroutineScope
@@ -76,6 +77,8 @@ class CallScreener(
     private val labelRingtones: suspend () -> Map<String, String> = { emptyMap() },
     /** Earlier calls with the caller (repeat callers, "called back"), read from the system log. */
     private val callLog: CallLogRepository? = null,
+    /** I2: what your own calls say about a number, learned daily; looked up in memory here. */
+    private val reputation: ReputationStore? = null,
 ) {
     /** Set by the app to post per-verdict notifications. Called off the call path. */
     @Volatile
@@ -98,7 +101,8 @@ class CallScreener(
         val s = settings.settings.value.screening
         return s.blockHidden || s.blockNonContacts || s.blockNeighbourSpoofing || s.blockFailedVerification || s.blockInvalid ||
             s.offHours.enabled || s.ringLoudFavourites || s.ringLoudRepeat || s.likelySpamRingtone != null || s.repeatRingtone != null ||
-            s.busyReply || rules.isNotEmpty() || lists?.hasEnabledPacks() == true
+            s.busyReply || rules.isNotEmpty() || lists?.hasEnabledPacks() == true ||
+            (s.learnFromCalls && reputation?.mayHaveEntries == true)
     }
 
     /**
@@ -111,6 +115,7 @@ class CallScreener(
     suspend fun warm() {
         settings.current()
         runCatching { blocks.enabledRules() }
+        runCatching { reputation?.load() }
     }
 
     suspend fun screen(number: String?, hidden: Boolean, verification: Verification): Decision =
@@ -276,6 +281,7 @@ class CallScreener(
             }
         }
         val nf = NumberFacts.of(primary, iso)
+        val emergency = EmergencyNumbers.isEmergency(context, primary)
         val lookup = if (!isContact) lists?.lookup(number, iso) else null
         val history = if (!isContact && (s.allowDialled || s.allowAnswered || s.repeatCallers)) history(number, at, replayHistory, iso) else emptyList()
         val blockedAttempts = if (!isContact && s.repeatCallers && replayHistory == null) {
@@ -291,7 +297,7 @@ class CallScreener(
             countryIso = iso,
             ownNumbers = if (s.blockNeighbourSpoofing) sims.ownNumbers() else emptyList(),
             inSystemBlockList = replayHistory == null && blocks.isSystemBlocked(primary),
-            isEmergency = EmergencyNumbers.isEmergency(context, primary),
+            isEmergency = emergency,
             contactLookupFailed = lookupFailed,
             contactStarred = starred,
             contactLabels = labels,
@@ -305,9 +311,17 @@ class CallScreener(
             listLookupFailed = lookup?.failed == true,
             history = history,
             blockedAttempts = blockedAttempts,
+            reputation = reputationOf(primary, iso, s, unknown = !isContact && !emergency && replayHistory == null),
         )
         return Gathered(facts, contactName, contactRingtone != null, privateTone, privateVoicemail)
     }
+
+    /**
+     * I2: a lookup only (learned in the daily run). Only for [unknown] callers: never contacts or emergency numbers, nor
+     * replays of past calls (today's index was learned from those very calls).
+     */
+    private fun reputationOf(number: String, iso: String, s: ScreeningSettings, unknown: Boolean) =
+        if (unknown && s.learnFromCalls) runCatching { reputation?.lookup(number, iso) }.getOrNull() else null
 
     /** Earlier calls with [number] before [at], newest first. */
     private fun history(number: String, at: Long, replay: List<CallEntry>?, iso: String): List<PastCall> {

@@ -57,6 +57,10 @@ import app.parley.common.extras.CallerChoice
 import app.parley.common.extras.CallerChoices
 import app.parley.data.ScreenRequest
 import app.parley.common.VerdictKind
+import app.parley.common.BlockReason
+import app.parley.common.Decision
+import app.parley.common.spam.RangeProposal
+import app.parley.data.calls.ReputationLearner
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -313,6 +317,28 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
         }
     }
 
+    /** I2: "Block this range?" works from your own calls, gathered now (the call has ended). */
+    override suspend fun rangeProposal(number: String, accountId: String?): RangeProposal? = withContext(Dispatchers.IO) {
+        if (!c.settings.current().screening.learnFromCalls) return@withContext null
+        runCatching { ReputationLearner.proposeRange(c, number, accountId) }.getOrNull()
+    }
+
+    /** I2: a prefix block rule for the range, written like "Block & decline"'s (its id lets the card undo it). */
+    override suspend fun blockRange(prefix: String): Long? = withContext(Dispatchers.IO) {
+        val pattern = runCatching { RuleTools.check(prefix, RuleType.PREFIX, PhoneEnv.countryIso(app)).pattern.trim() }.getOrNull()
+            ?: return@withContext null
+        suspend fun existing() = c.blocks.allRules().any {
+            it.enabled && it.kind == RuleKind.BLOCK && it.type == RuleType.PREFIX && it.pattern.trim() == pattern && it.simId == null && it.schedule == null
+        }
+        try {
+            runCatching {
+                if (existing()) 0L else c.blocks.saveRule(BlockRule(pattern = pattern, type = RuleType.PREFIX, note = app.getString(R.string.blk_note_range)))
+            }.getOrElse { if (runCatching { existing() }.getOrDefault(false)) 0L else null }
+        } finally {
+            runCatching { c.blocks.enabledRules() }
+        }
+    }
+
     /** Retry places the call directly: the user already went through the checks for this number. */
     override suspend fun redial(number: String, accountId: String?): String? = withContext(Dispatchers.IO) {
         (c.placer.call(number, accountId) as? PlaceResult.Failed)?.let { PlaceFailureText.placeFailure(app, it.reason) }
@@ -332,7 +358,8 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
             val r = c.screener.screenCall(ScreenRequest(number, hidden, verification, accountId, callerName))
             ScreenOutcome(
                 decision = r.decision,
-                verdict = r.verdict?.text,
+                // A sales line silenced from your calls: its own quiet line on the call screen says so.
+                verdict = r.verdict?.text?.takeIf { (r.decision as? Decision.Block)?.reason != BlockReason.PERSONAL_REPUTATION },
                 warn = r.verdict?.kind == VerdictKind.LIKELY_SPAM,
                 // Rule, then the label page's ringtone (resolved by the screener from its own contact lookup).
                 ringtone = r.ringtone,
@@ -340,6 +367,7 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
                 deferredToSim = r.deferredToSim,
                 ringtoneSource = ringtoneSource(r),
                 rangThrough = r.rangThrough,
+                reputation = r.reputation,
                 ringtoneName = when {
                     r.ringtone == null || r.contactTone -> null
                     r.allowedBy == AllowReason.RULE && r.rule?.ringtone != null -> r.rule?.title

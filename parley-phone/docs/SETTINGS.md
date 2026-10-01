@@ -55,7 +55,7 @@ The Settings list starts with **Tools** (the same page as ⋮ › Tools; see the
 ## Blocking & spam
 | Group | Settings |
 |---|---|
-| — | Blocking & screening `blocking` ↗ · Let repeat callers through `repeat_callers` · Expecting a call `expecting_call` |
+| — | Blocking & screening `blocking` ↗ · Let repeat callers through `repeat_callers` · Learn from your calls `learn_from_calls` (on: quiet tags only) · Silence numbers that look like sales lines (your calls) `silence_sales_lines` (off) · Expecting a call `expecting_call` |
 | Lists and rules | Spam lists `spam_lists` · Rule templates `templates` · Test a call `dry_run` · Import & share rules `transfer` |
 | On Blocking & screening ↗ | Silence or block hidden numbers `blk_hidden_numbers` · Only people I know ring `blk_non_contacts` · Off hours `blk_off_hours` · More checks `blk_more_checks` · Sounds for screened calls `blk_sounds` · Emergency numbers `blk_emergency` · Blocked call notifications `blk_notifications` · Blocked numbers (system list) `blk_system_list` |
 

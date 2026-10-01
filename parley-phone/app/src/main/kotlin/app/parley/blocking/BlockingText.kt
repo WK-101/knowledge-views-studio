@@ -10,6 +10,9 @@ import app.parley.common.Schedule
 import app.parley.common.TraceMark
 import app.parley.common.TraceStep
 import app.parley.common.blocking.PersonalReputation
+import app.parley.common.spam.RepReason
+import app.parley.common.spam.RepSignal
+import app.parley.telecom.ReputationText
 import app.parley.common.blocking.ReplayReport
 import app.parley.common.lineTypeLabel
 import java.time.DayOfWeek
@@ -36,6 +39,7 @@ object BlockingText {
             BlockReason.INVALID_NUMBER -> R.string.blk_reason_invalid
             BlockReason.OFF_HOURS -> R.string.blk_reason_off_hours
             BlockReason.SEND_TO_VOICEMAIL -> R.string.blk_reason_voicemail
+            BlockReason.PERSONAL_REPUTATION -> R.string.blk_reason_sales_line
         },
     )
 
@@ -62,13 +66,16 @@ object BlockingText {
         blockedReason.matchEntire(text)?.let { m -> return context.getString(R.string.blk_verdict_blocked_reason, reasonFromLabel(context, m.groupValues[1])) }
         allowedBy.matchEntire(text)?.let { m -> return context.getString(R.string.blk_verdict_allowed_by, m.groupValues[1]) }
         likelySpam.matchEntire(text)?.let { m -> return join(context.getString(R.string.blk_verdict_likely_spam, m.groupValues[1]), m.groups[2]?.value) }
-        return when (text) {
-            "Let through: expecting a call" -> context.getString(R.string.blk_verdict_expecting)
-            "You called this number recently" -> context.getString(R.string.blk_verdict_called_recently)
-            "You talked to this number recently" -> context.getString(R.string.blk_verdict_talked_recently)
-            else -> text
-        }
+        return fixedVerdicts[text]?.let { context.getString(it) } ?: text
     }
+
+    /** Verdicts without anything to fill in. */
+    private val fixedVerdicts = mapOf(
+        "Let through: expecting a call" to R.string.blk_verdict_expecting,
+        "You called this number recently" to R.string.blk_verdict_called_recently,
+        "You talked to this number recently" to R.string.blk_verdict_talked_recently,
+        CallPolicy.SALES_LINE_SILENCED to R.string.blk_verdict_sales_silenced,
+    )
 
     private val checks = mapOf(
         "Emergency" to R.string.blk_check_emergency,
@@ -97,6 +104,7 @@ object BlockingText {
         "Decision" to R.string.blk_check_decision,
         "SIM allow rule" to R.string.blk_check_sim_allow_rule,
         "Repeat caller" to R.string.blk_check_repeat,
+        "Your calls" to R.string.blk_check_your_calls,
     )
 
     private val results = mapOf(
@@ -121,6 +129,7 @@ object BlockingText {
         "not assigned" to R.string.blk_res_not_assigned,
         "Reject" to R.string.blk_action_reject,
         "Silence" to R.string.blk_action_silence,
+        "looks like a sales line, tag only" to R.string.blk_res_sales_tag,
     )
 
     private val onlyRing = Regex("^only (.+) ring now$")
@@ -131,6 +140,7 @@ object BlockingText {
     private val repeatOverrides = Regex("^ring \\(repeat caller overrides (.+)\\)$")
     private val simPending = Regex("^(.*): SIM unknown here, checked again when the call rings$")
     private val calledAgain = Regex("^called again within (\\d+) min$")
+    private val salesLine = Regex("^looks like a sales line: (.+)$")
     private val tooFast = Regex("^redialled too fast \\(under (\\d+) s\\), doesn't count$")
 
     /** Steps whose result is the name of your rule, shown as it is. */
@@ -178,7 +188,16 @@ object BlockingText {
             return context.resources.getQuantityString(R.plurals.blk_res_called_again, n, n)
         }
         tooFast.matchEntire(result)?.let { m -> return context.getString(R.string.blk_res_too_fast, m.groupValues[1].toInt()) }
+        salesLine.matchEntire(result)?.let { m -> return context.getString(R.string.blk_res_sales_silenced, salesReasons(context, m.groupValues[1])) }
         return result
+    }
+
+    /** [app.parley.common.spam.Reputation.describe] ("short rings ×2, never answered ×3") in the app's language. */
+    private fun salesReasons(context: Context, text: String): String = text.split(", ").joinToString(", ") { part ->
+        val name = part.substringBefore(" ×").uppercase().replace(' ', '_')
+        val n = part.substringAfter(" ×", "").toIntOrNull()
+        val signal = RepSignal.entries.firstOrNull { it.name == name }
+        if (signal == null || n == null) part else ReputationText.reason(context.resources, RepReason(signal, n, 0)).replaceFirstChar { it.lowercase() }
     }
 
     private fun listedOr(context: Context, category: String) = if (category == "listed") context.getString(R.string.blk_res_listed) else category

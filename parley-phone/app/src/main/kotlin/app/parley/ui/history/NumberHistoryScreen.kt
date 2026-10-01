@@ -54,6 +54,7 @@ import app.parley.messaging.ReachSheet
 import app.parley.messaging.ReachTarget
 import app.parley.ui.Avatar
 import app.parley.ui.Routes
+import app.parley.ui.blocking.ReputationHistoryLine
 import app.parley.ui.blocking.ScreeningHistorySection
 import app.parley.ui.calls.CallFactsHistorySection
 import app.parley.ui.calls.RingFactsHistorySection
@@ -155,6 +156,7 @@ fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open
                 }
             }
             item { CallInsightsSection(vm, listOf(number) + contact?.phones?.map { it.number }.orEmpty(), title = stringResource(R.string.hist_insights_title)) }
+            item { ReputationHistoryLine(vm, number, isContact = contact != null) }
             item { ScreeningHistorySection(vm, number, contact?.displayName) }
             item { RingFactsHistorySection(vm, number) }
             item { CallFactsHistorySection(vm, number) }
