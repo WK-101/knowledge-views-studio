@@ -9,7 +9,6 @@ import androidx.benchmark.macro.StartupMode
 import androidx.benchmark.macro.TraceSectionMetric
 import androidx.benchmark.macro.junit4.MacrobenchmarkRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import androidx.test.filters.LargeTest
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.Until
 import app.parley.baselineprofile.Journeys.grantPermissions
@@ -38,7 +37,6 @@ object IncomingCall {
  * screen. Skipped unless the console token is given (see docs/PERFORMANCE_BENCHMARKS.md).
  */
 @OptIn(ExperimentalMetricApi::class)
-@LargeTest
 @RunWith(AndroidJUnit4::class)
 class IncomingCallBenchmark {
     @get:Rule

@@ -2,6 +2,7 @@ package app.parley.common.qr
 
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.EncodeHintType
+import com.google.zxing.MultiFormatWriter
 import com.google.zxing.qrcode.QRCodeWriter
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -48,6 +49,26 @@ class QrImageDecoderTest {
         draw(c, "first code", 20, 40, 240)
         draw(c, "second code", 420, 40, 240)
         assertEquals(setOf("first code", "second code"), decode(c).toSet())
+    }
+
+    /** A [format] code for [text], [scale] pixels per module, on a white canvas with a quiet zone. */
+    private fun other(format: BarcodeFormat, text: String, scale: Int): Canvas {
+        val m = MultiFormatWriter().encode(text, format, 0, 0)
+        val quiet = 12 * scale
+        val c = Canvas(m.width * scale + 2 * quiet, m.height * scale + 2 * quiet, white)
+        for (y in 0 until m.height * scale) for (x in 0 until m.width * scale) {
+            if (m[x / scale, y / scale]) c.px[(quiet + y) * c.width + quiet + x] = black
+        }
+        return c
+    }
+
+    // The fallback formats (read without MultiFormatReader, see QrImageDecoder.OtherFormats).
+    @Test fun reads_aztec_data_matrix_and_pdf417() {
+        for (format in listOf(BarcodeFormat.AZTEC, BarcodeFormat.DATA_MATRIX, BarcodeFormat.PDF_417)) {
+            val c = other(format, "TEL:+4915112345678", 4)
+            val found = QrImageDecoder.decode(c.px, c.width, c.height)
+            assertEquals(format.name, listOf("TEL:+4915112345678" to format.name), found.map { it.text to it.format })
+        }
     }
 
     @Test fun nothing_in_a_blank_picture() {

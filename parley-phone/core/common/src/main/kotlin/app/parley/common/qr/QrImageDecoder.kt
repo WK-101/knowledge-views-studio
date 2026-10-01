@@ -5,15 +5,19 @@ import com.google.zxing.BinaryBitmap
 import com.google.zxing.DecodeHintType
 import com.google.zxing.InvertedLuminanceSource
 import com.google.zxing.LuminanceSource
-import com.google.zxing.MultiFormatReader
+import com.google.zxing.NotFoundException
 import com.google.zxing.PlanarYUVLuminanceSource
+import com.google.zxing.Reader
 import com.google.zxing.ReaderException
 import com.google.zxing.Result
 import com.google.zxing.ResultMetadataType
+import com.google.zxing.aztec.AztecReader
 import com.google.zxing.common.GlobalHistogramBinarizer
 import com.google.zxing.common.HybridBinarizer
+import com.google.zxing.datamatrix.DataMatrixReader
 import com.google.zxing.multi.GenericMultipleBarcodeReader
 import com.google.zxing.multi.qrcode.QRCodeMultiReader
+import com.google.zxing.pdf417.PDF417Reader
 import java.nio.ByteBuffer
 import java.nio.charset.CharacterCodingException
 import java.nio.charset.CodingErrorAction
@@ -75,8 +79,32 @@ object QrImageDecoder {
         return emptyList()
     }
 
+    /**
+     * The three fallback formats, tried in the order ZXing's MultiFormatReader would try them for [OTHER_HINTS]. Named
+     * readers rather than MultiFormatReader, which references every format's reader (1D barcodes, MaxiCode) and so
+     * kept about 100 KB of code in the APK that the hints never reach.
+     */
+    private object OtherFormats : Reader {
+        private val readers = listOf(DataMatrixReader(), AztecReader(), PDF417Reader())
+
+        override fun decode(image: BinaryBitmap): Result = decode(image, null)
+
+        override fun decode(image: BinaryBitmap, hints: Map<DecodeHintType, *>?): Result {
+            for (r in readers) {
+                try {
+                    return r.decode(image, hints)
+                } catch (_: ReaderException) {
+                    // Not this format: the next one.
+                }
+            }
+            throw NotFoundException.getNotFoundInstance()
+        }
+
+        override fun reset() = readers.forEach { it.reset() }
+    }
+
     private fun other(source: LuminanceSource): List<Found> = try {
-        distinct(GenericMultipleBarcodeReader(MultiFormatReader()).decodeMultiple(BinaryBitmap(HybridBinarizer(source)), OTHER_HINTS).toList())
+        distinct(GenericMultipleBarcodeReader(OtherFormats).decodeMultiple(BinaryBitmap(HybridBinarizer(source)), OTHER_HINTS).toList())
     } catch (_: ReaderException) {
         emptyList()
     } catch (_: RuntimeException) {

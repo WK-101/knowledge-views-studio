@@ -71,6 +71,11 @@ jobs:
       - name: Release build (unsigned) and APK-size budget
         run: ./gradlew :app:assembleRelease :lists-updater:assembleRelease :app:checkReleaseApkSize
 
+      # The macrobenchmarks and the baseline-profile generator need a device, but they must at least build, so they
+      # are ready when one is connected (docs/PERFORMANCE_BENCHMARKS.md).
+      - name: Benchmark module builds (no device)
+        run: ./gradlew :baselineprofile:assembleBenchmarkRelease
+
       - name: F-Droid signing-config strip check
         run: tools/fdroid-strip-check.sh --static
 

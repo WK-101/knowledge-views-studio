@@ -1,6 +1,7 @@
 # Performance: baseline profile, benchmarks and budgets
 
-Parley ships a baseline profile so the code people wait on (start-up to Recents, the keypad, the incoming-call screen)
+Parley ships a baseline profile so the code people wait on (start-up to Recents, a contact's page, the keypad, the
+incoming-call screen)
 is compiled ahead of time at install, rather than interpreted until the phone's background dexopt gets to it. The
 `androidx.profileinstaller` library installs it on sideloaded and F-Droid installs too, which get no cloud profiles.
 
@@ -8,9 +9,9 @@ is compiled ahead of time at install, rather than interpreted until the phone's 
 
 | Path | What |
 |---|---|
-| `app/src/main/baseline-prof.txt` | A hand-written profile covering start-up (`ParleyApp`, the data container, `MainActivity`, `AppViewModel`, the home screen with Recents, the keypad and Contacts) and the call path (`CallManager`, `CallNotifier`, the screening service, the in-call screen). It works without a device, so profile installation works now. |
+| `app/src/main/baseline-prof.txt` | A hand-written profile covering start-up (`ParleyApp`, the data container, `MainActivity`, `AppViewModel`, the home screen with Recents, the keypad and Contacts), a contact's page (its view model, sections and the photo as picked) and the call path (`CallManager`, `CallNotifier`, the screening service, the in-call screen). It works without a device, so profile installation works now. |
 | `app/src/release/generated/baselineProfiles/` | The measured profile and startup profile, once generated on a device (below). Merged with the hand-written one. |
-| `baselineprofile/` | A `com.android.test` module with the `androidx.baselineprofile` plugin: the generator (`BaselineProfileGenerator`) and the macrobenchmarks. |
+| `baselineprofile/` | A `com.android.test` module with the `androidx.baselineprofile` plugin: the generator (`BaselineProfileGenerator`) and the macrobenchmarks. CI compiles and packages it (`:baselineprofile:assembleBenchmarkRelease`), so it can't rot between device runs. |
 
 The benchmarks:
 
@@ -18,6 +19,7 @@ The benchmarks:
 |---|---|
 | `StartupBenchmark` | Cold start to Recents with 3000 calls and 3000 contacts (`StartupTimingMetric`), without a profile and with it. |
 | `RecentsScrollBenchmark` | Frame timing while flinging Recents with 3000 calls. |
+| `ContactPageBenchmark` | A contact's page opened from another app ("view contact"), from a cold process, with 3000 contacts and 3000 calls: time to the first frame (`StartupTimingMetric`) and the page's frames while it loads and scrolls. |
 | `KeypadTypingBenchmark` | Frame timing while typing a number on the keypad with 3000 contacts to search. |
 | `IncomingCallBenchmark` | On an emulator: Parley's `Parley.addToNotification` and `Parley.screenCall` trace sections and the call screen's frames for an incoming call, from a cold process. Skipped without an emulator console token. |
 
@@ -30,8 +32,8 @@ Each test runs twice: `CompilationMode.None()` (what a first launch without a pr
    the benchmarks **add 3000 contacts and 3000 call-log entries** (numbers starting +1 555 01, a range reserved for
    fiction) the first time they run. Don't run them on your own phone.
 2. Install nothing by hand: Gradle builds and installs the `nonMinifiedRelease` / `benchmarkRelease` variants itself.
-   On first launch Parley shows its onboarding; open the app once and finish it (or skip it), and make Parley the
-   default phone app if you want the incoming-call journey.
+   Each journey grants Parley its permissions and makes it the default phone app through the shell (`pm grant`,
+   `cmd role add-role-holder`), so onboarding is skipped and nothing needs tapping.
 3. Generate:
 
    ```sh
@@ -51,6 +53,45 @@ Each test runs twice: `CompilationMode.None()` (what a first launch without a pr
    ```
 
    Add `-Pandroid.testInstrumentationRunnerArguments.consolePort=5556` for a second emulator.
+
+## How to run on a device
+
+One command runs every benchmark, each without and with the profile:
+
+```sh
+cd parley-phone
+./gradlew :baselineprofile:connectedBenchmarkReleaseAndroidTest
+```
+
+What it needs and does:
+
+- **One device connected** over USB or `adb connect` (`adb devices` lists exactly one), Android 10 or later, unlocked,
+  screen on and staying on (Developer options › Stay awake), not in battery saver. It must be a **test device**: the
+  run adds 3000 contacts and 3000 calls, makes Parley the default phone app and replaces an installed Parley (the
+  benchmark build is signed with the debug key, so uninstall a release-signed Parley first).
+- Gradle builds the `benchmarkRelease` variant (R8 like the release, debug-signed), installs it with the test APK, runs
+  the classes above and uninstalls both. A full run takes about 20 to 30 minutes.
+- `IncomingCallBenchmark` runs only on an emulator with the console token (step 4 above); elsewhere it is skipped.
+
+Which devices, and why:
+
+| Class | Example | Use it for |
+|---|---|---|
+| Mid-range, current Android | A Pixel "a" model or a Galaxy A5x | The targets in docs/AUDIT.md §5 (cold start < 400 ms, ring to call screen < 300 ms, < 1% slow frames) are for this class. |
+| Low-end, Android 10 to 12 | A phone with 2 to 3 GB of RAM and eMMC storage (e.g. a Galaxy A0x or Moto E) | The worst case: start-up and the incoming call are slowest here, and the profile helps most. No target; watch for regressions. |
+| Emulator (x86_64, Google APIs image) | Android Studio's Pixel 6 image, Android 14 | The incoming-call benchmark, and before/after comparisons on one machine. Not for absolute numbers. |
+
+Run each class twice and keep the better run of each test (the first run after install also does background dexopt).
+Then fill in the table below with the medians the JSON reports (`timeToInitialDisplayMs`, `frameDurationCpuMs` P50/P90,
+`frameOverrunMs` P90, the trace sections' medians), and the device, Android version and Parley version.
+
+### Results
+
+Not measured yet: no device run has been recorded for 4.4. Fill in one row per device and build.
+
+| Date | Parley | Device (class) | Android | Cold start to Recents, ms (no profile / profile) | Contact page cold, ms | Recents fling, frame P90 ms | Keypad typing, frame P90 ms | Ring to notification, ms | Screening verdict, ms |
+|---|---|---|---|---|---|---|---|---|---|
+| | | | | | | | | | |
 
 ## Running the benchmarks
 
@@ -95,7 +136,36 @@ and look for the sections on Parley's process tracks.
 
 ## Budgets and measurements
 
-The release APK has a size budget of 16 MiB: `./gradlew :app:checkReleaseApkSize` fails above it, and CI runs it.
+The release APK has a size budget of 12 MiB (the ≤ 12 MB target in docs/AUDIT.md §5): `./gradlew :app:checkReleaseApkSize`
+fails above it, and CI runs it.
+
+### 4.4: from 13.3 MiB to 11.7 MiB
+
+Measured on the unsigned release build (`./gradlew :app:assembleRelease`, no keystore), 4.3.0 against 4.4, entry sizes
+as stored in the APK. Nothing Parley does was removed.
+
+| Part | 4.3.0 | 4.4 | Saved | Why |
+|---|---|---|---|---|
+| Release APK | 13,971,162 bytes (13.32 MiB) | 12,256,720 bytes (11.69 MiB) | 1,714,442 | All of the below, plus a smaller zip directory (1,205 files instead of 1,246). |
+| `resources.arsc` (stored uncompressed, as Android requires) | 3,837,564 | 2,290,724 | 1,546,840 | **Locale filters** (`androidResources.localeFilters`, the 8 languages of Parley's own strings). Material 3 and Compose brought 67 strings in 76 more languages and regional variants; each language is a string table with a 4-byte slot for every one of Parley's 4,066 strings, so each cost about 17 KB although it held 67 strings. **R8 resource shrinking** (`android.r8.optimizedResourceShrinking`) also drops 163 resources only removed code used (35 strings, unused notification layouts and the splash variant with an icon background). The two were measured together. |
+| `classes.dex` (stored uncompressed) | 8,446,136 | 8,373,924 | 72,212 | Scanning a picture for Aztec, Data Matrix and PDF417 codes calls those three ZXing readers by name instead of `MultiFormatReader`, which referenced every 1D barcode reader and MaxiCode, so R8 had to keep them though they were never used. |
+| Native libraries | 60,292 | 37,392 | 22,900 | `libdatastore_shared_counter.so` (4 ABIs) is loaded only by multi-process DataStore, which Parley doesn't use. |
+| `res/` files | 27,695 | 15,476 | 12,219 | R8 resource shrinking (41 unused layouts and drawables). |
+| ez-vcard resources | 15,391 | 7,812 | 7,579 | The hCard HTML template and its placeholder picture: Parley never writes HTML (that writer needs FreeMarker, which isn't included). |
+| Geocoder place names | 1,117,302 | 1,117,302 | 0 | Already trimmed to the shipped languages in 4.0 (`GeoLanguages`). The English data (China alone 388 KB) is what names the place for every country, so it stays. |
+
+Looked at and left alone:
+
+- **Kotlin metadata** is already stripped by R8 (no `kotlin.Metadata` in the dex); R8 full mode is the default in AGP 8.
+- **`-repackageclasses`** saved 17 KB of dex; not worth a class-naming change that can only be checked on a device.
+- **Compressed dex** (`packaging.dex.useLegacyPackaging = true`) would take about 4.5 MB off the download, but Android
+  then keeps an uncompressed copy of the dex after install, so Parley would take more space on the phone. Not done.
+- **Material icons**: R8 keeps only the icons used (about 108 KB of code).
+- **Library translations for users of other languages**: with the filters, a phone in (for example) Italian shows the
+  few Material labels (date picker, bottom sheet) in English, like the rest of Parley; Parley's own 8 languages are
+  unchanged and the system's per-app language list still offers exactly those 8.
+
+### Phase 2 (4.0)
 
 Measured on the unsigned release build (R8, resource shrinking) before and after the Phase 2 performance work:
 

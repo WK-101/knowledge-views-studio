@@ -1500,3 +1500,15 @@ Parley is the phone app. Try light, dark and black themes, a large font, landsca
 
 18. **Emergency information.** My card › In an emergency › Emergency information opens Android's emergency information (medical details, emergency contacts). On a phone without it, a dialog says where it usually is, with Open Settings. The lock screen's Emergency button is unchanged.
 19. **ICE label.** Tap "ICE label": the label "ICE" is made in the default account (or opened when it exists); add the people to call in an emergency there.
+
+### 25.4 Quality gate: APK size, benchmarks, main-thread file access
+
+Build: the release APK (`./gradlew :app:assembleRelease`) for 1 to 4; a debug build with logcat open for 6 and 7.
+
+1. **Size.** `./gradlew :app:checkReleaseApkSize` passes and prints about 11.7 MiB (budget 12 MiB).
+2. **Languages.** Set the phone to Portuguese (Brazil), then German, Arabic and Hindi: Parley follows each one. Settings › System › Languages › Parley (Android 13+) lists English, Arabic, German, Spanish, French, Hindi, Portuguese (Brazil) and Urdu, no more. Set the phone to Italian: Parley is in English throughout, including a date picker's buttons and a bottom sheet's drag handle label (TalkBack).
+3. **Scan from a picture.** Import a contact from a screenshot of a QR code, then of an Aztec code (a boarding pass) and of a PDF417 code: each is read as before.
+4. **Start-up and notifications on Android 10 and 11.** Cold start shows Parley's splash (the icon on the window colour), then Recents. An incoming and a missed call show their notifications as before.
+5. **Benchmarks build.** `./gradlew :baselineprofile:assembleBenchmarkRelease` passes without a device (CI runs it). On a test device, `./gradlew :baselineprofile:connectedBenchmarkReleaseAndroidTest` runs without any tapping: Parley opens on Recents (no onboarding), a contact's page opens and scrolls, the keypad types. Record the results in docs/PERFORMANCE_BENCHMARKS.md › Results.
+6. **No main-thread file access when saving photos.** In a debug build, with `adb logcat -s StrictMode` running: edit a contact, remove its photo, save; edit a private contact, remove its photo, save; open a private contact's page with a photo. No `DiskReadViolation` or `DiskWriteViolation` from `OriginalPhotos`, `VaultRepository.removePhoto` or `photoUri`.
+7. **Private contacts' photos still work.** After 6: the private contact's page shows no photo; add one back: it shows on the page and in the list; open it full screen.

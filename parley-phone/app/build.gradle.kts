@@ -74,7 +74,14 @@ android {
 
     // Per-app language. The locale list (android:localeConfig) is generated from the values-* folders, with
     // res/resources.properties naming the language of the default strings.
-    androidResources { generateLocaleConfig = true }
+    androidResources {
+        generateLocaleConfig = true
+        // Only the languages Parley's own strings come in (keep in step with the values-* folders). Libraries
+        // (Material 3, Compose) bring their 67 strings in about 80 more languages; each of those cost a full offset
+        // table in resources.arsc (4 bytes for every string Parley has), about 1.5 MB in all, for a few labels that a
+        // user of such a language now sees in English, like the rest of Parley.
+        localeFilters += listOf("en", "ar", "de", "es", "fr", "hi", "pt-rBR", "ur")
+    }
     // The in-app language picker (Android 10-12) needs every language in the APK, also when built as a bundle.
     bundle { language { enableSplit = false } }
 
@@ -91,6 +98,11 @@ android {
 
     packaging {
         resources.excludes += setOf("META-INF/*.version", "META-INF/**/LICENSE*", "kotlin/**", "DebugProbesKt.bin")
+        // ez-vcard's hCard (HTML) writer template and its placeholder picture: Parley never writes HTML (that writer
+        // needs FreeMarker, which isn't included).
+        resources.excludes += "ezvcard/io/html/**"
+        // DataStore's native counter is loaded only by multi-process DataStore, which Parley doesn't use.
+        jniLibs.excludes += "**/libdatastore_shared_counter.so"
         // "Where is this number from" place names: only English and the app's other languages the geocoder has
         // data for (German, Spanish, French, Portuguese, Arabic; none for Hindi or Urdu). The Chinese set alone was
         // 790 KB. NumberInfo asks in English for any other language (GeoLanguages), so a dropped file is never read.
@@ -194,9 +206,10 @@ val forbiddenPermissions = listOf(
     "com.google.android.gms.permission.AD_ID",
 )
 
-// APK-size budget (the release APK was about 13.8 MiB at 3.4.1): `./gradlew :app:checkReleaseApkSize` builds the
-// release APK and fails above the budget, so growth is a decision rather than an accident. CI runs it.
-val apkBudgetBytes = 16L * 1024 * 1024
+// APK-size budget, the ≤ 12 MiB target (the release APK was 13.3 MiB at 4.3.0 and 11.7 MiB after trimming; see
+// docs/PERFORMANCE_BENCHMARKS.md): `./gradlew :app:checkReleaseApkSize` builds the release APK and fails above the
+// budget, so growth is a decision rather than an accident. CI runs it.
+val apkBudgetBytes = 12L * 1024 * 1024
 
 androidComponents {
     onVariants { variant ->

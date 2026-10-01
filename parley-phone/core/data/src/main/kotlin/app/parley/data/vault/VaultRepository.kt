@@ -724,9 +724,8 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
         tmp.renameTo(photoFile(id))
     }
 
-    fun removePhoto(id: Long) {
-        photoFile(id).delete()
-    }
+    /** Deletes entry [id]'s photo; off the main thread, like [setPhoto] (the editor's save calls it from there). */
+    suspend fun removePhoto(id: Long) = withContext(Dispatchers.IO) { photoFile(id).delete() }
 
     /** Expired entries with what housekeeping needs to clean up after them. */
     suspend fun expiredEntries(now: Long): List<VaultSummary> = withContext(Dispatchers.IO) {
