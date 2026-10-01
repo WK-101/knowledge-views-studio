@@ -63,6 +63,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
@@ -646,6 +647,9 @@ fun AppRoot(
         LaunchedEffect(settings.autoTrackPrompt) { vm.rescheduleTrackPrompts() }
         // U13: keep the per-activity launcher shortcuts fresh.
         LaunchedEffect(Unit) { vm.timeVm.refreshTrackShortcuts() }
+        // Voice addon: discover + load grant state on launch so the mic FAB knows whether a voice
+        // addon is installed and connected (it appears only then).
+        LaunchedEffect(Unit) { vm.refreshBridge() }
         // Account-free folder sync: reconcile once on launch when a sync folder is configured.
         LaunchedEffect(settings.syncEnabled, settings.syncFolder) {
             if (settings.syncEnabled && settings.syncFolder.isNotBlank()) vm.runSyncNow { _, _ -> }
@@ -1083,6 +1087,22 @@ fun AppRoot(
                 },
                 floatingActionButton = {
                     val selecting by vm.selectionActive.collectAsStateWithLifecycle()
+                    val voiceBridge by vm.bridgeState.collectAsStateWithLifecycle()
+                    // Mic FAB — a voice-capture entry point that appears ONLY when a voice addon is
+                    // installed, connected, and the bridge is enabled. It stacks above the per-tab FAB.
+                    val voiceReady = voiceBridge.enabled && voiceBridge.grantedVoicePackage != null &&
+                        !(tab == Tab.TASKS && selecting)
+                    androidx.compose.foundation.layout.Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(12.dp),
+                    ) {
+                    if (voiceReady) {
+                        androidx.compose.material3.SmallFloatingActionButton(
+                            onClick = { vm.startVoiceCapture() },
+                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                        ) { Icon(Icons.Filled.Mic, "Voice capture") }
+                    }
                     if ((tab == Tab.TASKS || tab == Tab.CALENDAR || tab == Tab.MATRIX) && !(tab == Tab.TASKS && selecting)) {
                         if (tab == Tab.TASKS && currentContainerArchived) {
                             // R-archive — an archived list/folder is read-only reference: capturing a new task
@@ -1160,6 +1180,7 @@ fun AppRoot(
                             onClick = { if (!vm.startTimeTrackingSmart()) vm.addTimeEntryRequests.value++ },
                             onLongClick = { vm.addTimeEntryRequests.value++ },
                         )
+                    }
                     }
                 },
             ) { padding ->
