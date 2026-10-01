@@ -9,7 +9,7 @@ A privacy-focused, modern **Contacts + Dialer + In-call** app for Android, all i
 
 This project is independent of the rest of this repository.
 
-## Features (v4.3)
+## Features (v4.4)
 
 | Area | What you get |
 |---|---|
@@ -38,6 +38,7 @@ This project is independent of the rest of this repository.
 | **New in 4.1** | **Redesigned call screen**: caller first with a large photo and one calm detail line, tinted or picture background that always stays readable, a fixed grid of labelled controls (Mute, Keypad, Speaker, Hold, Add call, More) with a wide End call button in thumb reach, less-used options in a **More** sheet, matching incoming, call-waiting and picture-in-picture screens; **map links for addresses** (paste or share Google Maps, OpenStreetMap, Organic Maps, OsmAnd, CoMaps, Apple Maps, geo: or Plus Code links, read offline) that open the exact spot in the map app you choose; keypad number actions shown in one place only; the same keypad in its own tab and docked in Recents; bigger contact photos; the call-screen picture can be set straight from the contact page; **Settings › Contacts › Call and message buttons in the list** for a clean list |
 | **New in 4.2** | **Answer slider** with Decline and Answer circles at the ends, a hint under the track that fades as you drag, and haptic ticks; quiet Reply · Silence · More buttons; **Call screen background: caller's colour or plain**; HD voice and Wi-Fi calling tags; the caller's local time; Copy number; clearer hold; bigger in-call keypad; **redesigned contact editor** (flat tonal fields, one icon per group, type pill beside each value, numbers formatted as you type); **icon filter chips** in Recents (Rich style); no repeated buttons on a scrolled contact page |
 | **New in 4.3** | **One kind of contact**: private and temporary contacts are variants of every contact, with the same page, editor, lists, labels, ringtone, favourites, Circle and timeline; **Make private / Make visible** and **Delete automatically / Keep permanently** without losing anything; private contacts' **Recently deleted** (30 days, sealed); **compact contact page** (at-a-glance line, one Contact info group, settings folded at the bottom) and **compact editor** with **Save to: Temporary**; **two-way relations**; **photos kept whole and at full quality**; clear History & undo (contact changes, deleted calls, snapshots); contact count at the end of the list; full-width Recents icon chips |
+| **New in 4.4** | **Remind me** (decline & remind, from the missed-call notification and after a call) and a quiet **To call** list at the top of Recents; **dropped-call reason with Call again**; the caller's **call subject**; **why a call rang through**; **Check it's really them** (hang up and call the saved number); **I'm on hold** mode; show or hide **contact photos on the call screen** (globally or per contact); **auto-answer** (call-capable headset, simple mode or chosen people, with Cancel); **a vibration of their own** per person or label; Recents **Unknown** and **Contacts** filters; **pronouns**; **emergency information** on My card; My card edited like any contact; bulk **Move to private** that finishes and reports; **ask before deleting temporary contacts**; APK under 12 MiB |
 
 **Not included:**
 
