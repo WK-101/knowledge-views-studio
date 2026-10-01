@@ -22,6 +22,7 @@ import app.parley.common.RangThroughKind
 import app.parley.common.Verification
 import app.parley.common.calls.AnswerRoute
 import app.parley.common.calls.AutoAnswer
+import app.parley.common.calls.SelfSilenceEcho
 import app.parley.common.calls.CallerHaptics
 import app.parley.common.calls.CallBook
 import app.parley.common.calls.CallDrop
@@ -324,6 +325,9 @@ object CallManager {
         s.outcome?.ringtone?.let { return it }
         if (s.unknownCaller) return runCatching { deps.unknownRingtone() }.getOrNull()
         if (pattern == null) return null
+        // Only the vibration would differ, and the call doesn't vibrate now (normal mode with "Vibrate for calls" off):
+        // Telecom keeps ringing, with no gap while Parley's tone starts over.
+        if (!::appContext.isInitialized || !CallRinger.ringVibrates(appContext)) return null
         return s.info?.ownRingtone ?: Settings.System.DEFAULT_RINGTONE_URI?.toString()
     }
 
@@ -351,7 +355,13 @@ object CallManager {
         if (ringer.toneFor == s.id) ringer.useVibration(appContext, s.id, pattern) else maybePlayUnknownRingtone(call, s)
     }
 
+    /** Parley's own silenceRinger() requests, whose onSilenceRinger() echo is not the user's. */
+    private val selfSilence = SelfSilenceEcho()
+
     internal fun onSystemSilence() {
+        // Telecom calls every in-call service back for any silenceRinger(), Parley's own included: that echo would
+        // stop the tone or vibration Parley just took over, and cancel auto-answer. Only the user's silence counts.
+        if (selfSilence.consumed(SystemClock.elapsedRealtime())) return
         ringer.stop()
         // Silencing a call says "not now": it isn't answered on its own either.
         calls.filter { it.stateCompat() == Call.STATE_RINGING }.forEach { autoAnswer.cancel(session(idOf(it))) }
@@ -1035,6 +1045,9 @@ object CallManager {
     fun silenceRinger() {
         try {
             appContext.getSystemService(TelecomManager::class.java).silenceRinger()
+            // Noted once Telecom took it (a refused request echoes nothing). The echo is posted to this main thread,
+            // so it can't arrive before this line.
+            selfSilence.noted(SystemClock.elapsedRealtime())
         } catch (_: Exception) {
         }
     }
@@ -1119,12 +1132,24 @@ object CallManager {
             if (mapState(call.stateCompat()) == CallState.RINGING) call.reject(false, null) else call.disconnect()
         }
         scope.launch {
-            withTimeoutOrNull(HANG_UP_WAIT_MS) {
-                while (find(id) != null) delay(100)
+            // Only once the call is gone: Telecom would hold a call that didn't end and place the new one beside it,
+            // leaving the caller being checked connected. A slow end gets one more disconnect and more time.
+            if (!gone(id, HANG_UP_WAIT_MS)) {
+                find(id)?.disconnect()
+                if (!gone(id, HANG_UP_WAIT_MS)) {
+                    str(R.string.verify_still_connected)?.let(onProblem)
+                    return@launch
+                }
             }
             redial(number, accountId)?.let(onProblem)
         }
     }
+
+    /** Waits up to [timeoutMs] for the call [id] to leave Telecom; true once it has. */
+    private suspend fun gone(id: String, timeoutMs: Long): Boolean = withTimeoutOrNull(timeoutMs) {
+        while (find(id) != null) delay(100)
+        true
+    } ?: false
 
     fun saveNote(id: String, text: String) {
         val call = find(id) ?: return

@@ -8,12 +8,23 @@ import app.parley.data.db.AppDatabase
 
 /**
  * Seals the small records that older versions stored plain: pinned notes, call notes, screened callers' names, journal
- * payloads and time-machine snapshots. Runs in the background until everything is sealed (then it remembers that and
- * stops, until a value has to be stored plain again because the key couldn't be used: [markPending]); values stay
- * readable throughout, since readers accept both forms. Each write applies only if the value is
- * still the plain one it read, so an edit made meanwhile is never lost.
+ * payloads, time-machine snapshots, and the [stores] that seal their own values (the To call list). Runs in the
+ * background until everything is sealed (then it remembers that and stops, until a value has to be stored plain again
+ * because the key couldn't be used: [markPending]); values stay readable throughout, since readers accept both forms.
+ * Each write applies only if the value is still the plain one it read, so an edit made meanwhile is never lost.
  */
-class RecordSealing(context: Context, private val db: AppDatabase, private val timeMachine: () -> TimeMachine) {
+class RecordSealing(
+    context: Context,
+    private val db: AppDatabase,
+    private val timeMachine: () -> TimeMachine,
+    /** Stores kept outside the database that seal their own values (the To call list). */
+    private val stores: () -> List<Resealable> = { emptyList() },
+) {
+    /** A store that seals its own values; [resealPlain] is false while something of it is still plain or unwritten. */
+    interface Resealable {
+        suspend fun resealPlain(): Boolean
+    }
+
     private val crypto = RecordCrypto.get(context)
     private val prefs = context.getSharedPreferences(FILE, Context.MODE_PRIVATE)
 
@@ -44,9 +55,13 @@ class RecordSealing(context: Context, private val db: AppDatabase, private val t
             }
         }
         suspendRunCatching { t.sealed += timeMachine().resealOld() }.onFailure { t.left++ }
+        t.left += resealStores()
         if (t.left == 0) prefs.edit().putBoolean(DONE, true).apply() else Log.w(TAG, "${t.left} records stay plain until the next run")
         return t.sealed
     }
+
+    /** The stores that seal their own values; returns how many still hold something plain or unwritten. */
+    private suspend fun resealStores(): Int = stores().count { !suspendRunCatching { it.resealPlain() }.getOrDefault(false) }
 
     private class Tally(var sealed: Int = 0, var left: Int = 0)
 

@@ -33,7 +33,9 @@ import app.parley.ui.ParleyTheme
 import app.parley.ui.Spacing
 import app.parley.ui.common.ProvideAppKit
 import app.parley.ui.systemMessage
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * "Remind me" on a missed-call notification (P3): a small sheet with the fixed times. It names no one (the
@@ -76,20 +78,32 @@ class RemindMeActivity : LockedActivity() {
         }
     }
 
+    /** A time was picked (once; a second tap while it saves does nothing). */
+    private var picking = false
+
     private fun pick(number: String, accountId: String?, at: Long, notificationId: Int) {
+        if (picking) return
+        picking = true
         val app = applicationContext
-        container.scope.launch {
-            if (ToCallReminders.remind(app, number, accountId, at)) {
-                // That caller's missed-call notification is dealt with; the last one gone means all were seen.
-                if (notificationId != 0) app.getSystemService(NotificationManager::class.java).cancel(notificationId)
-                if (!MissedCallNotifier.anyShowing(app, childrenOnly = true)) {
-                    MissedCallNotifier.cancelAll(app)
-                    MissedCallActionReceiver.seen(app)
+        val whenText = RemindTimes.whenText(this, at)
+        lifecycleScope.launch {
+            // Saved first, then told: "Reminder set" only when it was (no usable number, or a list that can't be read
+            // right now, says so instead). Not cut short if the sheet closes meanwhile.
+            val set = withContext(NonCancellable) {
+                runCatching { ToCallReminders.remind(app, number, accountId, at) }.getOrDefault(false).also { ok ->
+                    if (ok) {
+                        // That caller's missed-call notification is dealt with; the last one gone means all were seen.
+                        if (notificationId != 0) app.getSystemService(NotificationManager::class.java).cancel(notificationId)
+                        if (!MissedCallNotifier.anyShowing(app, childrenOnly = true)) {
+                            MissedCallNotifier.cancelAll(app)
+                            MissedCallActionReceiver.seen(app)
+                        }
+                    }
                 }
             }
+            systemMessage(app, if (set) getString(TelecomR.string.remind_set, whenText) else getString(R.string.to_call_remind_failed))
+            finish()
         }
-        systemMessage(this, getString(TelecomR.string.remind_set, RemindTimes.whenText(this, at)))
-        finish()
     }
 
     companion object {

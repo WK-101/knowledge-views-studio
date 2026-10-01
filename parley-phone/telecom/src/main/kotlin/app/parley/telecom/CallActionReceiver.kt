@@ -23,6 +23,7 @@ class CallActionReceiver : BroadcastReceiver() {
             ACTION_EXTEND -> CallClock.extend(id, 5)
             ACTION_KEEP_GOING -> CallClock.keepGoing(id)
             ACTION_HOLD_MODE_END -> CallManager.stopHoldMode(id)
+            ACTION_CANCEL_AUTO_ANSWER -> CallManager.cancelAutoAnswer(id)
         }
     }
 
@@ -35,6 +36,9 @@ class CallActionReceiver : BroadcastReceiver() {
         const val ACTION_SPEAKER = "app.parley.telecom.SPEAKER"
         const val ACTION_EXTEND = "app.parley.telecom.EXTEND"
         const val ACTION_KEEP_GOING = "app.parley.telecom.KEEP_GOING"
+
+        /** "Don't auto-answer" on the incoming notification's countdown: the call rings on as usual. */
+        const val ACTION_CANCEL_AUTO_ANSWER = "app.parley.telecom.CANCEL_AUTO_ANSWER"
 
         /** Leave "I'm on hold" (the picture-in-picture window's action). */
         const val ACTION_HOLD_MODE_END = "app.parley.telecom.HOLD_MODE_END"

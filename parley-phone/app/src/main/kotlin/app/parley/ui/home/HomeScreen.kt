@@ -164,6 +164,8 @@ fun HomeScreen(
     // With a single tab left there is nothing to switch between: no bar and no rail.
     val showBar = layout.showBar(tab)
 
+    // The bulk Move to private's progress, unlock and outcome: on whichever tab, even once the selection is gone.
+    PrivateMoveProgress(vm)
     ParleyScaffold(
         modifier = Modifier.nestedScroll(scroll.nestedScrollConnection),
         topBar = {

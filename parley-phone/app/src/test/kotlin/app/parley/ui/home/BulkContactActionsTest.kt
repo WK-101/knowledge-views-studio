@@ -147,7 +147,7 @@ class BulkContactActionsTest {
         val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob())
         val moves = PrivateMoves(c, scope)
         val done = kotlinx.coroutines.CompletableDeferred<BulkContactActions.MovedPrivate>()
-        moves.start(null, listOf(bob), mapOf(bob to "Bob"), onFinished = { done.complete(it) }, onError = { done.completeExceptionally(it) })
+        moves.start(listOf(bob), mapOf(bob to "Bob"), onFinished = { done.complete(it) }, onError = { done.completeExceptionally(it) })
         val r = kotlinx.coroutines.withTimeout(20_000) { done.await() }
         assertEquals(1, r.moved)
         assertNull("Nothing left to show when all moved", moves.state.value)

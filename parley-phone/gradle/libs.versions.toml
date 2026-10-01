@@ -57,6 +57,7 @@ ezvcard = { module = "com.googlecode.ez-vcard:ez-vcard", version.ref = "ezvcard"
 zxing-core = { module = "com.google.zxing:core", version.ref = "zxing" }
 junit = { module = "junit:junit", version.ref = "junit" }
 androidx-work = { module = "androidx.work:work-runtime-ktx", version.ref = "work" }
+androidx-work-testing = { module = "androidx.work:work-testing", version.ref = "work" }
 androidx-fragment = { module = "androidx.fragment:fragment-ktx", version.ref = "fragment" }
 libphonenumber = { module = "com.googlecode.libphonenumber:libphonenumber", version.ref = "libphonenumber" }
 phone-geocoder = { module = "com.googlecode.libphonenumber:geocoder", version.ref = "phoneGeocoder" }

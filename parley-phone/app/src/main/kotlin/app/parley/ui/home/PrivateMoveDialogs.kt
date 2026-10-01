@@ -1,5 +1,7 @@
 package app.parley.ui.home
 
+import android.app.Application
+import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -11,16 +13,16 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.R
+import app.parley.security.AppLock
 import app.parley.ui.ConfirmDialog
 import app.parley.ui.ParleyDialog
 import app.parley.ui.Spacing
@@ -31,16 +33,16 @@ import app.parley.ui.Spacing
  */
 @Composable
 fun MoveToPrivateDialog(vm: AppViewModel, ids: List<Long>, names: Map<Long, String>, onDismiss: () -> Unit) {
-    val context = LocalContext.current
-    val res = LocalResources.current
     ConfirmDialog(
         title = pluralStringResource(R.plurals.move_private_title, ids.size, ids.size),
         text = stringResource(R.string.move_private_text),
         confirmLabel = stringResource(R.string.move_private_move),
         onConfirm = {
             onDismiss()
+            // The outcome may arrive after this screen is gone (a rotation, or leaving it): only the app's resources.
+            val res = vm.getApplication<Application>().resources
             vm.privateMoves.start(
-                context as? FragmentActivity, ids, names,
+                ids, names,
                 onFinished = { r ->
                     // The ones that couldn't move stay selected, so they can be tried again or dealt with.
                     vm.selection.value = r.failed.map { it.first }.toSet()
@@ -65,22 +67,21 @@ fun MoveToPrivateDialog(vm: AppViewModel, ids: List<Long>, names: Map<Long, Stri
 @Composable
 fun PrivateMoveProgress(vm: AppViewModel) {
     val state by vm.privateMoves.state.collectAsStateWithLifecycle()
+    val activity = LocalActivity.current as? FragmentActivity
     when (val s = state) {
-        is PrivateMoves.State.Moving -> ParleyDialog(
-            onDismissRequest = {},
-            icon = { Icon(Icons.Rounded.Lock, null) },
-            title = { Text(stringResource(R.string.move_private_moving)) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
-                    LinearProgressIndicator(
-                        progress = { if (s.total == 0) 0f else s.done.toFloat() / s.total },
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    Text(stringResource(R.string.move_private_progress, s.done, s.total), style = MaterialTheme.typography.bodyMedium)
+        is PrivateMoves.State.Moving -> MovingDialog(s.done, s.total)
+        is PrivateMoves.State.NeedsUnlock -> {
+            MovingDialog(s.done, s.total)
+            // The vault locked partway: this screen (the one showing now, never one from before a rotation) asks for
+            // its unlock, once per attempt; the move waits for the answer.
+            LaunchedEffect(s.attempt, activity) {
+                if (activity == null) {
+                    vm.privateMoves.unlocked(s.attempt, false)
+                } else {
+                    AppLock.authenticateForVault(activity) { ok -> vm.privateMoves.unlocked(s.attempt, ok) }
                 }
-            },
-            confirmButton = {},
-        )
+            }
+        }
         is PrivateMoves.State.Done -> {
             val r = s.result
             val names = r.failed.map { it.second.ifBlank { stringResource(R.string.move_private_unnamed) } }
@@ -98,4 +99,23 @@ fun PrivateMoveProgress(vm: AppViewModel) {
         }
         null -> Unit
     }
+}
+
+@Composable
+private fun MovingDialog(done: Int, total: Int) {
+    ParleyDialog(
+        onDismissRequest = {},
+        icon = { Icon(Icons.Rounded.Lock, null) },
+        title = { Text(stringResource(R.string.move_private_moving)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
+                LinearProgressIndicator(
+                    progress = { if (total == 0) 0f else done.toFloat() / total },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Text(stringResource(R.string.move_private_progress, done, total), style = MaterialTheme.typography.bodyMedium)
+            }
+        },
+        confirmButton = {},
+    )
 }

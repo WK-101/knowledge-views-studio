@@ -19,13 +19,16 @@ import androidx.core.graphics.drawable.IconCompat
 import app.parley.common.NotificationChannels
 import app.parley.common.NotificationIds
 import app.parley.common.NotificationPrivacy
+import app.parley.common.calls.AutoAnswer
 import app.parley.common.calltime.CallChronometer
 import app.parley.telecom.ui.InCallActivity
 import app.parley.ui.PhotoCache
 import java.util.Date
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
@@ -81,6 +84,7 @@ class CallNotifier(private val context: Context) {
         val ongoing = live.firstOrNull { it.state == CallState.ACTIVE }
             ?: live.firstOrNull { it.state != CallState.RINGING }
 
+        if (ringing == null || ringing.autoAnswerAt == 0L) autoAnswerTick?.cancel()
         if (ringing == null) {
             cancel(INCOMING_ID)
             dismissedIncoming = null
@@ -115,7 +119,30 @@ class CallNotifier(private val context: Context) {
                 directlyLaunched += ringing.id
                 context.startActivity(InCallActivity.intent(context, false).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             }
-            post(INCOMING_ID, ringing, "i") { buildIncoming(ringing) }
+            val left = autoAnswerLeft(ringing)
+            post(INCOMING_ID, ringing, "i$left") { buildIncoming(ringing, left) }
+            tickAutoAnswer(ringing)
+        }
+    }
+
+    /** Whole seconds before [call] is answered on its own; 0 when it isn't armed (or the moment has come). */
+    private fun autoAnswerLeft(call: CallUi): Int =
+        if (call.autoAnswerAt == 0L) 0 else AutoAnswer.secondsLeft(call.autoAnswerAt, SystemClock.elapsedRealtime())
+
+    private var autoAnswerTick: Job? = null
+
+    /**
+     * While a ringing call is armed for auto-answer, its notification (a heads-up while the phone is in use, with
+     * no call screen showing) counts down once a second, so "Answering in 3 seconds" and its Cancel stay true there
+     * too. Cancel or the answer itself republishes the call list, which posts it without the countdown.
+     */
+    private fun tickAutoAnswer(call: CallUi) {
+        autoAnswerTick?.cancel()
+        if (call.autoAnswerAt == 0L) return
+        val untilNext = ((call.autoAnswerAt - SystemClock.elapsedRealtime()) % 1000).let { if (it <= 0) 1000 else it }
+        autoAnswerTick = scope.launch {
+            delay(untilNext + 20)
+            update(CallManager.state.value)
         }
     }
 
@@ -195,6 +222,7 @@ class CallNotifier(private val context: Context) {
     }
 
     fun cancelAll() {
+        autoAnswerTick?.cancel()
         nm.cancel(INCOMING_ID)
         nm.cancel(ONGOING_ID)
         lastPosted.clear()
@@ -286,12 +314,15 @@ class CallNotifier(private val context: Context) {
             .setCategory(NotificationCompat.CATEGORY_CALL)
             .build()
 
-    private fun buildIncoming(call: CallUi): Notification {
+    private fun buildIncoming(call: CallUi, autoAnswerLeft: Int = 0): Notification {
         val answer = answerIntent(call)
-        return NotificationCompat.Builder(context, CH_INCOMING)
+        // Armed for auto-answer: the countdown replaces the subtitle, and its Cancel comes first among the extra
+        // actions (a call notification shows only a few next to Decline and Answer).
+        val countdown = autoAnswerLeft.takeIf { it > 0 }?.let { context.resources.getQuantityString(R.plurals.call_auto_answer_in, it, it) }
+        val b = NotificationCompat.Builder(context, CH_INCOMING)
             .setSmallIcon(app.parley.ui.R.drawable.ic_stat_call)
             .setContentTitle(call.title)
-            .setContentText(subtitle(call).ifEmpty { context.getString(R.string.notif_incoming_call) })
+            .setContentText(countdown ?: subtitle(call).ifEmpty { context.getString(R.string.notif_incoming_call) })
             .setCategory(NotificationCompat.CATEGORY_CALL)
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setOngoing(true)
@@ -302,7 +333,10 @@ class CallNotifier(private val context: Context) {
             .setFullScreenIntent(contentIntent(), true)
             .setStyle(NotificationCompat.CallStyle.forIncomingCall(person(call), declineIntent(call.id, 3), answer))
             .addPerson(person(call))
-            .addAction(0, context.getString(R.string.notif_ignore), action(CallActionReceiver.ACTION_IGNORE, call.id, 10))
+        if (countdown != null) {
+            b.addAction(0, context.getString(R.string.notif_auto_answer_cancel), action(CallActionReceiver.ACTION_CANCEL_AUTO_ANSWER, call.id, 13))
+        }
+        return b.addAction(0, context.getString(R.string.notif_ignore), action(CallActionReceiver.ACTION_IGNORE, call.id, 10))
             .setDeleteIntent(dismissIntent(INCOMING_ID, call.id))
             .build()
     }

@@ -7,4 +7,6 @@
     </plurals>
     <string name="call_auto_answer_cancel">Cancel</string>
     <string name="call_auto_answer_cancel_desc">Don\'t answer automatically</string>
+    <!-- The incoming-call notification's button while the countdown runs (a heads-up, with no call screen showing). -->
+    <string name="notif_auto_answer_cancel">Don\'t auto-answer</string>
 </resources>

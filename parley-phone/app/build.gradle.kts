@@ -160,6 +160,8 @@ dependencies {
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.test.core)
     testImplementation(libs.kotlinx.coroutines.test)
+    // WorkManager's test helpers (a synchronous WorkManager and its test driver) for the To call reminder's worker.
+    testImplementation(libs.androidx.work.testing)
 }
 
 // Privacy guard, an allow-list: the merged manifest may ask for exactly these permissions (plus the app's own
