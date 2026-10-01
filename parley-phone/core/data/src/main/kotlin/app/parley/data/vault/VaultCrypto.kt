@@ -274,6 +274,7 @@ object VaultCrypto {
      * Runs [use] with the key of [alias] ([key] finds it); when a remembered handle fails, it is dropped and [use] runs
      * once more with a fresh lookup, so only the Keystore's own answer counts.
      */
+    @Suppress("TooGenericExceptionCaught") // Any failure with a remembered handle is retried once; the second is rethrown.
     private inline fun <T> withKey(alias: String, key: () -> SecretKey?, use: (SecretKey?) -> T): T {
         val cached = handles.containsKey(alias)
         return try {

@@ -187,11 +187,11 @@ class ContactDetailViewModel(private val c: DataContainer) : ViewModel() {
      * unchanged. Read again only when this entry changes (or [reload]), never for another contact's change.
      */
     private fun privateLoads(r: ContactRef.Private): Flow<Loaded> {
-        val entry = c.vault.contacts.map { list -> list.firstOrNull { it.id == r.vaultId } }.distinctUntilChanged()
+        // The listing starts empty: the entry's own row tells "not listed yet" from "gone", so the listing arriving
+        // later isn't a change (it would open the details a second time).
+        val entry = c.vault.contacts.map { list -> list.firstOrNull { it.id == r.vaultId } ?: c.vault.summary(r.vaultId) }.distinctUntilChanged()
         var shown: Loaded? = null
-        return combine(entry, reloads) { s, _ -> s }.transformLatest { listed ->
-            // The listing starts empty: the entry's own row tells "not listed yet" from "gone".
-            val summary = listed ?: c.vault.summary(r.vaultId)
+        return combine(entry, reloads) { s, _ -> s }.transformLatest { summary ->
             if (summary == null) {
                 emit(Loaded(null, emptyList(), emptyList(), r))
                 return@transformLatest

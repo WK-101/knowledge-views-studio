@@ -43,13 +43,28 @@ ContactVariants(storage, expiresAt) (what it is)
 |---|---|---|
 | Name, numbers, number labels, job/company line, "who is this" line, note for calls, star | Vault caller-ID copy (`VaultRepository`, caller-ID key) | Yes: caller ID, lists and the lock screen need them (unchanged) |
 | Label membership (group id + title per label), own ringtone, "send to voicemail", vibration pattern and auto-answer (4.4) | The same caller-ID copy, the only place they are kept (`VaultRepository.updateCallerChoices`; read through `PrivateLabelStore`) | Yes: the call path applies them while the phone is locked, and they change without unlocking |
-| Every other field (emails, addresses, dates, relations, websites, notes, handles…), the usual app, the original address-book record | Vault details (auth-bound detail key) | No: the page asks to unlock, in place |
+| Every other field (emails, addresses, dates, relations, websites and profiles, notes, handles…), the usual app | Vault details, main part (auth-bound detail key) | No: the page asks to unlock, in place |
+| The original address-book record it was made private with (photo included) and its carried interactions | Vault details, extra part (same key; opened only by Make visible, backups and the first seeding) | No |
 | Photo | Vault photo file, sealed with the caller-ID key | Yes (the call screen shows it) |
 | Circle rhythm, relation links, yearly dates, logged moments, call-screen picture | Parley's own stores under `parley-private:<id>` (moments' notes sealed as for every contact) | Parley only; the page shows them after unlock |
 | Calls | Private call history (when "Private call history" is on) | As before |
 | Own call time limit, talk-time reminder, "never limit" | Call-time settings under `parley-private:<id>`, **without a name** (lists show it from the vault) | Parley only |
 | A deleted private contact | `no_backup/vault_trash`: the entry exactly as stored (details still under the detail key), its photo, private calls and Parley data, the whole file sealed with the caller-ID key, 30 days (`PrivateTrash`) | Counted without opening; listed only after the vault's unlock |
 | What number memory remembers about a deleted private contact, or a number in a private contact's notes | The number-memory index (`no_backup/number_memory`): keyed hashes of the numbers and sealed hints, rebuilt from the stores above | Never shown then: the line appears only while the vault is unlocked, and never in discreet mode |
+
+### Opening a private contact
+
+Its page shows at once what the caller-ID copy holds (name, numbers and their types, job, the "who is this" line, the
+note for calls, pronouns, star, labels, photo; `VaultRepository.callerCopy`), then the sealed details fill in, opened
+once (`VaultRepository.open`, which also tells a lost key). The details are sealed in two parts
+(`VaultCrypto.sealDetailParts`, a two-part blob in the same column): the main part is what the page and the editor
+show (a few kB); the extra part holds the original record with its photo and the carried interactions, read only by
+Make visible, backups and the first seeding. An edit keeps the extra part sealed as it is. Entries sealed as one blob
+before 4.5 are split the next time they are opened, and by a one-time migration after the vault's unlock
+(`splitDetails`); key upgrades re-seal both parts, and "Recently deleted" keeps the blob as it is. Opened details stay
+in memory for a minute while the phone is unlocked and are forgotten when Parley locks. A kept original photo shows in
+the header from a sealed 1024 px copy (`OriginalPhotos`, made the first time), never by opening the whole original.
+Measurements: docs/PERFORMANCE_BENCHMARKS.md ("4.5: opening a private contact").
 
 Backups: private contacts' Parley data is written only in the private-contacts section of a backup (which needs the
 vault unlocked), never in the Contact notes, Circle or Call time sections every backup has; a restore puts it back under

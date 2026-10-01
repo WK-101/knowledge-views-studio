@@ -543,60 +543,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
                 // The four choices above are this copy's own from now on (see seedCallerChoices).
                 .put(C_SEEDED, 1)
             val detailsJson = ContactDetailsJson.encode(shown.copy(photoUri = null))
-            // Two parts (VaultCrypto.sealDetailParts): the details the page opens, and what only "Make visible",
-            // backups and seeding read.
-            val extra = JSONObject()
-            if (record != null) {
-                val blobs = JSONObject()
-                extra.put(REC, RecordJson.encode(record) { h, b -> blobs.put(h, Base64.encodeToString(b, Base64.NO_WRAP)) })
-                extra.put(REC_BLOBS, blobs)
-                // [recordOf] (a restored backup): the hash stored with the record, so "edited since" survives.
-                extra.put(REC_OF, recordOf ?: RecordJson.sha256Hex(ContactDetailsJson.encode(ContactDetailsJson.decode(detailsJson)).toByteArray()))
-            }
-            if (interactions != null) extra.put(INTERACTIONS, interactions)
-            var keptExtra: ByteArray? = null
-            var asideDone = false
-            if (existing != null && (record == null || interactions == null)) {
-                // Keep the original record (the details hash then no longer matches: it was edited) and the carried
-                // interactions through edits: an extra part as it is sealed, without opening it.
-                val keep = (if (record == null) listOf(REC, REC_BLOBS, REC_OF) else emptyList()) +
-                    (if (interactions == null) listOf(INTERACTIONS) else emptyList())
-                if (record == null && interactions == null && VaultCrypto.isParts(existing.detailBlob)) {
-                    keptExtra = VaultCrypto.extraPart(existing.detailBlob)
-                } else {
-                    val old = try {
-                        extrasOf(existing.detailBlob)
-                    } catch (_: VaultCrypto.KeyLostException) {
-                        // The user is saving over a record that can't be opened any more: keep the old blob aside first.
-                        setAside(existing.id, existing.detailBlob)
-                        asideDone = true
-                        null
-                    }
-                    old?.let { keep.forEach { k -> if (old.has(k)) extra.put(k, old.get(k)) } }
-                }
-            }
-            val extraBytes = extra.takeIf { it.length() > 0 }?.toString()?.toByteArray()
-            val detailBlob = try {
-                VaultCrypto.sealDetailParts(detailsJson.toByteArray(), extraBytes, keptExtra)
-            } catch (lost: VaultCrypto.KeyLostException) {
-                // The kept part's key is gone (it would have to be re-sealed): keep the old blob aside, save without it.
-                if (keptExtra == null || existing == null) throw lost
-                setAside(existing.id, existing.detailBlob)
-                asideDone = true
-                VaultCrypto.sealDetailParts(detailsJson.toByteArray(), null)
-            }
-            // Saved under another key than before: if the old one is gone for good, the old blob is kept aside too.
-            if (existing != null && !asideDone && VaultCrypto.generationOf(existing.detailBlob) != VaultCrypto.generationOf(detailBlob)) {
-                val lost = try {
-                    VaultCrypto.openDetailMain(existing.detailBlob)
-                    false
-                } catch (_: VaultCrypto.KeyLostException) {
-                    true
-                } catch (_: Exception) {
-                    false
-                }
-                if (lost) setAside(existing.id, existing.detailBlob)
-            }
+            val detailBlob = sealDetails(existing, detailsJson, record, recordOf, interactions)
             val entity = VaultContactEntity(
                 id = id ?: 0,
                 callerIdBlob = VaultCrypto.sealCallerId(caller.toString().toByteArray()),
@@ -614,6 +561,74 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
                 openedMain[newId] = OpenedMain(detailBlob, ContactDetailsJson.decode(detailsJson), SystemClock.elapsedRealtime())
             }.also { noteCallChoices(labels.isNotEmpty() || shown.sendToVoicemail || !shown.customRingtone.isNullOrBlank()) }
         }
+    }
+
+    /**
+     * The sealed details of a save, in two parts (VaultCrypto.sealDetailParts): [detailsJson], what the page opens, and
+     * what only "Make visible", backups and seeding read ([record], [interactions], or what [existing] already has).
+     * Call under [keysLock].
+     */
+    @Suppress("CyclomaticComplexMethod", "NestedBlockDepth") // Keeping, re-sealing or setting aside the old part: one decision each.
+    private fun sealDetails(
+        existing: VaultContactEntity?,
+        detailsJson: String,
+        record: ContactRecord?,
+        recordOf: String?,
+        interactions: String?,
+    ): ByteArray {
+        val extra = JSONObject()
+        if (record != null) {
+            val blobs = JSONObject()
+            extra.put(REC, RecordJson.encode(record) { h, b -> blobs.put(h, Base64.encodeToString(b, Base64.NO_WRAP)) })
+            extra.put(REC_BLOBS, blobs)
+            // [recordOf] (a restored backup): the hash stored with the record, so "edited since" survives.
+            extra.put(REC_OF, recordOf ?: RecordJson.sha256Hex(ContactDetailsJson.encode(ContactDetailsJson.decode(detailsJson)).toByteArray()))
+        }
+        if (interactions != null) extra.put(INTERACTIONS, interactions)
+        var keptExtra: ByteArray? = null
+        var asideDone = false
+        if (existing != null && (record == null || interactions == null)) {
+            // Keep the original record (the details hash then no longer matches: it was edited) and the carried
+            // interactions through edits: an extra part as it is sealed, without opening it.
+            val keep = (if (record == null) listOf(REC, REC_BLOBS, REC_OF) else emptyList()) +
+                (if (interactions == null) listOf(INTERACTIONS) else emptyList())
+            if (record == null && interactions == null && VaultCrypto.isParts(existing.detailBlob)) {
+                keptExtra = VaultCrypto.extraPart(existing.detailBlob)
+            } else {
+                val old = try {
+                    extrasOf(existing.detailBlob)
+                } catch (_: VaultCrypto.KeyLostException) {
+                    // The user is saving over a record that can't be opened any more: keep the old blob aside first.
+                    setAside(existing.id, existing.detailBlob)
+                    asideDone = true
+                    null
+                }
+                old?.let { keep.forEach { k -> if (old.has(k)) extra.put(k, old.get(k)) } }
+            }
+        }
+        val extraBytes = extra.takeIf { it.length() > 0 }?.toString()?.toByteArray()
+        val detailBlob = try {
+            VaultCrypto.sealDetailParts(detailsJson.toByteArray(), extraBytes, keptExtra)
+        } catch (lost: VaultCrypto.KeyLostException) {
+            // The kept part's key is gone (it would have to be re-sealed): keep the old blob aside, save without it.
+            if (keptExtra == null || existing == null) throw lost
+            setAside(existing.id, existing.detailBlob)
+            asideDone = true
+            VaultCrypto.sealDetailParts(detailsJson.toByteArray(), null)
+        }
+        // Saved under another key than before: if the old one is gone for good, the old blob is kept aside too.
+        if (existing != null && !asideDone && VaultCrypto.generationOf(existing.detailBlob) != VaultCrypto.generationOf(detailBlob)) {
+            val lost = try {
+                VaultCrypto.openDetailMain(existing.detailBlob)
+                false
+            } catch (_: VaultCrypto.KeyLostException) {
+                true
+            } catch (_: Exception) {
+                false
+            }
+            if (lost) setAside(existing.id, existing.detailBlob)
+        }
+        return detailBlob
     }
 
     /**
