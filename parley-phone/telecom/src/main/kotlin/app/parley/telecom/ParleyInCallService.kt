@@ -67,7 +67,8 @@ class ParleyInCallService : InCallService() {
     }
 
     override fun onSilenceRinger() {
-        // Telecom rings for us; only our optional "unknown caller" ringtone needs stopping.
+        // The user silenced the ringer (volume or power key): Parley's own tone or vibration stops too. Telecom also
+        // calls this back for Parley's own silenceRinger(); CallManager tells those echoes apart.
         CallManager.onSystemSilence()
     }
 

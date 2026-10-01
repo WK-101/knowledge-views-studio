@@ -48,4 +48,6 @@
     <string name="verify_no_organisations">No saved organisations with a number yet.</string>
     <string name="verify_call_saved">Call %1$s</string>
     <string name="verify_postcall">Call a saved number</string>
+    <!-- The call couldn't be ended, so the saved number isn't called (the caller would stay connected on hold). -->
+    <string name="verify_still_connected">That call didn\'t end, so Parley didn\'t call the saved number. End it, then call them from Contacts.</string>
 </resources>

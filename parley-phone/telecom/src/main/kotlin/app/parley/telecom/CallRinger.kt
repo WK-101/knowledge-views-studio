@@ -31,6 +31,12 @@ internal class CallRinger(private val scope: CoroutineScope, private val silence
         private set
     private var vibrator: Vibrator? = null
 
+    /**
+     * The caller's haptic caller ID found after the tone was claimed but before its vibration started: used when it
+     * starts (else the call would vibrate the default way).
+     */
+    private var pendingPattern: LongArray? = null
+
     /** The call whose ring volume is raised. */
     var boostedFor: String? = null
         private set
@@ -65,6 +71,7 @@ internal class CallRinger(private val scope: CoroutineScope, private val silence
         // Claimed now so a second lookup/screening result doesn't start another tone while we wait.
         tone = t
         toneFor = session.id
+        pendingPattern = null
         silenceTelecom()
         scope.launch {
             val waitedUntil = SystemClock.elapsedRealtime() + RINGER_STOP_MAX_MS
@@ -76,7 +83,7 @@ internal class CallRinger(private val scope: CoroutineScope, private val silence
             }
             runCatching { t.play() }
             played()
-            startVibration(context, am, pattern)
+            startVibration(context, am, pendingPattern ?: pattern)
         }
     }
 
@@ -94,6 +101,7 @@ internal class CallRinger(private val scope: CoroutineScope, private val silence
         // Claimed now (no tone), so stop() and follow() end the vibration with the ringing.
         tone = null
         toneFor = session.id
+        pendingPattern = null
         silenceTelecom()
         scope.launch {
             delay(RINGER_STOP_MIN_MS)
@@ -102,14 +110,19 @@ internal class CallRinger(private val scope: CoroutineScope, private val silence
                 if (toneFor == session.id) release()
                 return@launch
             }
-            startVibration(context, am, pattern)
+            startVibration(context, am, pendingPattern ?: pattern)
             started()
         }
     }
 
     /** The caller turned out to have a haptic caller ID after the tone already started: its vibration takes over. */
     fun useVibration(context: Context, id: String, pattern: LongArray) {
-        if (toneFor != id || vibrator == null) return
+        if (toneFor != id) return
+        // Still waiting for Telecom's ringer to stop: the vibration starts with the tone, the caller's way.
+        if (vibrator == null) {
+            pendingPattern = pattern
+            return
+        }
         vibrator?.let { runCatching { it.cancel() } }
         vibrator = null
         startVibration(context, context.getSystemService(AudioManager::class.java), pattern)
@@ -125,13 +138,7 @@ internal class CallRinger(private val scope: CoroutineScope, private val silence
      * is on (the tone only plays in normal ringer mode, where that setting decides).
      */
     private fun startVibration(context: Context, am: AudioManager, pattern: LongArray? = null) {
-        if (am.ringerMode == AudioManager.RINGER_MODE_SILENT) return
-        val cr = context.contentResolver
-        val vibrateWhenRinging = am.ringerMode == AudioManager.RINGER_MODE_VIBRATE ||
-            runCatching { Settings.System.getInt(cr, Settings.System.VIBRATE_WHEN_RINGING, 0) != 0 }.getOrDefault(false)
-        // Android 13+ also has a ring vibration intensity; 0 means off.
-        val intensityOff = runCatching { Settings.System.getInt(cr, "ring_vibration_intensity", -1) == 0 }.getOrDefault(false)
-        if (!vibrateWhenRinging || intensityOff) return
+        if (!ringVibrates(context, am)) return
         val v = if (Build.VERSION.SDK_INT >= 31) {
             context.getSystemService(VibratorManager::class.java)?.defaultVibrator
         } else {
@@ -154,6 +161,7 @@ internal class CallRinger(private val scope: CoroutineScope, private val silence
     private fun release() {
         tone = null
         toneFor = null
+        pendingPattern = null
     }
 
     /** Stops the tone and its vibration. */
@@ -181,13 +189,27 @@ internal class CallRinger(private val scope: CoroutineScope, private val silence
         boostedFor?.let { if (!ringing(it)) restoreBoost(context) }
     }
 
-    private companion object {
+    companion object {
+        /**
+         * Whether a ringing call vibrates now: on vibrate, or in normal mode with the system's "Vibrate for calls" on
+         * (and, on Android 13+, its ring vibration intensity not off). Never in silent mode.
+         */
+        fun ringVibrates(context: Context, am: AudioManager = context.getSystemService(AudioManager::class.java)): Boolean {
+            if (am.ringerMode == AudioManager.RINGER_MODE_SILENT) return false
+            val cr = context.contentResolver
+            val vibrateWhenRinging = am.ringerMode == AudioManager.RINGER_MODE_VIBRATE ||
+                runCatching { Settings.System.getInt(cr, Settings.System.VIBRATE_WHEN_RINGING, 0) != 0 }.getOrDefault(false)
+            // Android 13+ also has a ring vibration intensity; 0 means off.
+            val intensityOff = runCatching { Settings.System.getInt(cr, "ring_vibration_intensity", -1) == 0 }.getOrDefault(false)
+            return vibrateWhenRinging && !intensityOff
+        }
+
         /** After silencing Telecom, wait at least this long, and at most the max for its ringtone to stop. */
-        const val RINGER_STOP_MIN_MS = 120L
-        const val RINGER_STOP_MAX_MS = 700L
-        const val RINGER_POLL_MS = 40L
+        private const val RINGER_STOP_MIN_MS = 120L
+        private const val RINGER_STOP_MAX_MS = 700L
+        private const val RINGER_POLL_MS = 40L
 
         /** Like the platform ringer: 1 s on, 1 s off, repeated. */
-        val RING_VIBRATION = longArrayOf(0, 1000, 1000)
+        private val RING_VIBRATION = longArrayOf(0, 1000, 1000)
     }
 }

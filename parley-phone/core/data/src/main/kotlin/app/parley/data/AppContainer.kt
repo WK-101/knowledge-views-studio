@@ -160,7 +160,7 @@ class DataContainer(context: Context) {
      */
     private val backupParts: List<BackupExtras> by lazy {
         listOf(
-            people.backupExtras, circle.backupExtras, extras.backupExtras,
+            people.backupExtras, circle.backupExtras, extras.backupExtras, extras.callerChoicesBackup,
             ContactNotesBackup(db, { contacts.loadNow() }, metaDao = meta) { id -> contacts.rawIds(id) },
             CallTimeBackup(calling, callExtras) { contacts.loadNow() },
             HistorySettingsBackup { history.prefs },
@@ -183,7 +183,7 @@ class DataContainer(context: Context) {
 
     /** Moves rows stored under the old last-digits number key to the line key, once (see [PhoneKeyMigrator]). */
     /** Seals small records older versions stored plain (runs once in the background). */
-    val recordSealing by lazy { RecordSealing(appContext, db) { timeMachine } }
+    val recordSealing by lazy { RecordSealing(appContext, db, { timeMachine }) { listOf(toCall) } }
     val phoneKeys by lazy { PhoneKeyMigrator(appContext, db, contacts, { history }) { messaging } }
 
     /** Temporary contacts: the one API to create, mark, keep and expire them. */

@@ -1,10 +1,10 @@
 package app.parley.telecom
 
 import android.content.Context
-import android.media.AudioDeviceInfo
 import android.media.AudioManager
 import android.os.SystemClock
 import app.parley.common.calls.AutoAnswer
+import app.parley.common.calls.CallAudioOutputs
 import app.parley.common.calls.CallExtrasConfig
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -66,24 +66,13 @@ internal class AutoAnswerGate(private val scope: CoroutineScope, private val con
     }
 
     companion object {
-        private val HEADSET_TYPES = buildSet {
-            add(AudioDeviceInfo.TYPE_WIRED_HEADSET)
-            add(AudioDeviceInfo.TYPE_WIRED_HEADPHONES)
-            add(AudioDeviceInfo.TYPE_BLUETOOTH_SCO)
-            add(AudioDeviceInfo.TYPE_BLUETOOTH_A2DP)
-            add(AudioDeviceInfo.TYPE_USB_HEADSET)
-            if (android.os.Build.VERSION.SDK_INT >= 31) {
-                add(AudioDeviceInfo.TYPE_BLE_HEADSET)
-                add(AudioDeviceInfo.TYPE_BLE_SPEAKER)
-            }
-        }
-
         /**
-         * A headset, earbuds or a Bluetooth device (a car kit) is connected. Read from the audio outputs, which needs no
-         * permission (Bluetooth's own APIs would).
+         * A headset, earbuds, a car's hands-free or a hearing aid that carries calls is connected ([CallAudioOutputs]: a
+         * media-only Bluetooth speaker doesn't count). Read from the audio outputs, which needs no permission
+         * (Bluetooth's own APIs would).
          */
         fun headsetConnected(context: Context): Boolean = runCatching {
-            context.getSystemService(AudioManager::class.java).getDevices(AudioManager.GET_DEVICES_OUTPUTS).any { it.type in HEADSET_TYPES }
+            CallAudioOutputs.headsetConnected(context.getSystemService(AudioManager::class.java).getDevices(AudioManager.GET_DEVICES_OUTPUTS).map { it.type })
         }.getOrDefault(false)
     }
 }

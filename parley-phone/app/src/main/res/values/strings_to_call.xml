@@ -42,6 +42,8 @@
     <string name="to_call_done_undo">Marked as done</string>
     <string name="to_call_removed_undo">Removed from To call</string>
     <string name="to_call_undo">Undo</string>
+    <!-- Remind me on a missed call, when the reminder couldn't be saved (no number to call, or the list can't be read for a moment). -->
+    <string name="to_call_remind_failed">Couldn\'t set the reminder. Try again in a moment.</string>
     <!-- Notification -->
     <string name="to_call_channel">To call reminders</string>
     <string name="to_call_notif_public">Reminder</string>

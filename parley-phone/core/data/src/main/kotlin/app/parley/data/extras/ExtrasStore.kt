@@ -4,6 +4,9 @@ import app.parley.common.storage.PersistentStores
 import android.content.Context
 import android.provider.ContactsContract
 import app.parley.common.ContactSummary
+import app.parley.common.backup.CallerChoiceRestore
+import app.parley.common.backup.PersonRef
+import app.parley.common.backup.PersonRefs
 import app.parley.common.extras.CallerChoice
 import app.parley.common.extras.CallerChoices
 import app.parley.common.extras.DndStars
@@ -16,11 +19,15 @@ import app.parley.common.extras.TripMatch
 import app.parley.data.DataContainer
 import app.parley.data.NumberInfo
 import app.parley.data.backup.BackupExtras
+import app.parley.data.backup.RestorePart
+import app.parley.data.backup.toJson
+import app.parley.data.backup.toPersonRef
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
 import java.util.Locale
 
 /**
@@ -320,8 +327,7 @@ class ExtrasStore(private val c: DataContainer) {
             // People by name and number: lookup keys mean nothing on another phone (the simple home resolves them).
             put(X_SIMPLE, SimpleSetup.encode(_simple.value.copy(people = _simple.value.people.map { it.copy(lookupKey = null) })))
             lastTripCity?.let { put(X_TRIP, it) }
-            // Device contacts' vibration and auto-answer (private contacts' travel sealed with them).
-            put(X_CALLER_CHOICES, CallerChoices.encode(_choices.value.filterKeys { !ContactRef.isPrivateKey(it) }))
+            // Device contacts' vibration and auto-answer travel with the contacts ([callerChoicesBackup]).
         }
 
         override suspend fun import(values: Map<String, String>) {
@@ -334,7 +340,53 @@ class ExtrasStore(private val c: DataContainer) {
             values[X_DND_STARS]?.let { v -> updateDndStars { current -> DndStars.merge(current, DndStars.decode(v)) } }
             values[X_SIMPLE]?.let { v -> updateSimple { SimpleSetup.decode(v) } }
             values[X_TRIP]?.let { lastTripCity = it }
-            values[X_CALLER_CHOICES]?.let { v -> updateChoices { current -> CallerChoices.merge(current, CallerChoices.decode(v)) } }
+        }
+    }
+
+    /**
+     * Device contacts' vibration and auto-answer, restored with the contacts. Each travels with its contact's name
+     * and numbers ([PersonRef]), since lookup keys differ on another phone, and is matched strictly
+     * ([CallerChoiceRestore]): auto-answer only comes back for a contact found by a number. Private contacts' choices
+     * travel sealed with them. A backup from before this kept them by lookup key only: those bring back the vibration
+     * of a contact with that key here, never auto-answer.
+     */
+    val callerChoicesBackup: BackupExtras = object : BackupExtras {
+        override val section = "caller choices"
+        override val sections = setOf(PersistentStores.Sections.EXTRAS)
+        override val restoreWith = RestorePart.CONTACTS
+
+        override suspend fun export(): Map<String, String> {
+            val device = _choices.value.filterKeys { !ContactRef.isPrivateKey(it) }
+            if (device.isEmpty()) return emptyMap()
+            val refs = PersonRefs(c.contacts.loadNow())
+            val out = JSONArray()
+            device.forEach { (key, choice) ->
+                val o = refs.ref(key).toJson()
+                choice.vibration?.let { o.put("v", it) }
+                if (choice.autoAnswer) o.put("a", true)
+                out.put(o)
+            }
+            return mapOf(X_CALLER_PEOPLE to out.toString())
+        }
+
+        override suspend fun import(values: Map<String, String>) {
+            importCounting(values)
+        }
+
+        override suspend fun importCounting(values: Map<String, String>): Int {
+            val entries = values[X_CALLER_PEOPLE]?.let { v ->
+                val a = runCatching { JSONArray(v) }.getOrNull() ?: return@let emptyList()
+                (0 until a.length()).mapNotNull { i ->
+                    val o = a.optJSONObject(i) ?: return@mapNotNull null
+                    CallerChoiceRestore.Entry(o.toPersonRef(), CallerChoice(o.optString("v").ifEmpty { null }, o.optBoolean("a", false)))
+                }
+            } ?: values[X_CALLER_CHOICES]?.let { v ->
+                CallerChoices.decode(v).filterKeys { !ContactRef.isPrivateKey(it) }.map { (k, choice) -> CallerChoiceRestore.Entry(PersonRef(k), choice) }
+            } ?: return 0
+            if (entries.isEmpty()) return 0
+            val r = CallerChoiceRestore.restore(entries, c.contacts.loadNow())
+            updateChoices { current -> CallerChoices.merge(current, r.choices) }
+            return r.unmatched
         }
     }
 
@@ -346,7 +398,10 @@ class ExtrasStore(private val c: DataContainer) {
         private const val K_SWAP = "handshake_swap"
         private const val K_DND_STARS = "dnd_stars_v1"
         private const val K_CALLER_CHOICES = "caller_choices_v1"
+
+        /** Read from older backups only (choices by lookup key). */
         private const val X_CALLER_CHOICES = "${BackupExtras.PREFIX}extras.callerChoices"
+        private const val X_CALLER_PEOPLE = "${BackupExtras.PREFIX}extras.callerPeople"
         private const val X_POLICIES = "${BackupExtras.PREFIX}extras.labelPolicies"
         private const val X_SIMPLE = "${BackupExtras.PREFIX}extras.simple"
         private const val X_TRIP = "${BackupExtras.PREFIX}extras.tripCity"

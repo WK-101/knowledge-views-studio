@@ -78,7 +78,7 @@ class RecordSealingTest {
         plainStore.put("ab12", "old snapshot".toByteArray())
 
         context.getSharedPreferences("record_sealing", Context.MODE_PRIVATE).edit().clear().commit()
-        val sealing = RecordSealing(context, db) { app.parley.data.backup.TimeMachine(context, app.parley.data.records.ContactRecordStore(context)) }
+        val sealing = RecordSealing(context, db, { app.parley.data.backup.TimeMachine(context, app.parley.data.records.ContactRecordStore(context)) })
         val n = sealing.runIfNeeded()
         assertEquals(5, n)
         assertTrue(sealing.done)

@@ -205,7 +205,6 @@ fun SelectionBar(vm: AppViewModel) {
         val moving = BulkActions.targets(BulkAction.MAKE_PRIVATE, ids).ids
         MoveToPrivateDialog(vm, moving, chosen.associate { it.id to it.displayName }, onDismiss = { confirmPrivate = false })
     }
-    PrivateMoveProgress(vm)
     if (confirmVisible) {
         val visible = BulkActions.targets(BulkAction.MAKE_VISIBLE, ids).ids
         ConfirmDialog(

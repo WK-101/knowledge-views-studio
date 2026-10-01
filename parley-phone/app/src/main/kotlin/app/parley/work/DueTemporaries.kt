@@ -6,6 +6,7 @@ import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.edit
@@ -23,7 +24,8 @@ import kotlinx.coroutines.launch
 /**
  * Temporary contacts whose time is up, with "Ask before deleting temporary contacts" on (the default): nothing is
  * deleted until you answer. The daily upkeep calls [check], which posts one notification ("1 temporary contact is
- * due to be deleted": no name, so it's safe on the lock screen) with Delete, Keep 7 more days and Keep permanently;
+ * due to be deleted": no name, so it's safe on the lock screen) with Delete (only after unlocking), Keep 7 more days
+ * and Keep permanently (harmless, so they work from the lock screen);
  * the Temporary contacts screen shows the same choice. Unanswered, they stay, and the question comes back every few
  * days ([TemporaryDue.shouldNotify]). Contacts are named by their Parley key (lookup key, or a private contact's key).
  */
@@ -82,6 +84,22 @@ object DueTemporaries {
         return targets.size
     }
 
+    /**
+     * Delete can't be pressed on a locked phone (it deletes private contacts too). On Android 12+ the system asks
+     * to unlock before the button runs; before that, it opens the Temporary contacts screen instead (an activity, so
+     * the phone is unlocked, and Parley's app lock applies), where the same choice is shown with the names.
+     */
+    private fun deleteAction(ctx: Context, open: PendingIntent): NotificationCompat.Action {
+        val label = ctx.getString(R.string.temp_due_delete)
+        return if (Build.VERSION.SDK_INT >= 31) {
+            NotificationCompat.Action.Builder(0, label, DueActionReceiver.pending(ctx, TemporaryDue.Decision.DELETE))
+                .setAuthenticationRequired(true)
+                .build()
+        } else {
+            NotificationCompat.Action.Builder(0, label, open).build()
+        }
+    }
+
     private fun cancel(ctx: Context) = NotificationManagerCompat.from(ctx).cancel(NotificationIds.TAG_TEMPORARY, ID)
 
     private fun notify(ctx: Context, count: Int) {
@@ -106,7 +124,7 @@ object DueTemporaries {
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
             .setPublicVersion(public)
             .setLocalOnly(true)
-            .addAction(0, ctx.getString(R.string.temp_due_delete), DueActionReceiver.pending(ctx, TemporaryDue.Decision.DELETE))
+            .addAction(deleteAction(ctx, open))
             .addAction(0, ctx.getString(R.string.temp_due_keep_longer), DueActionReceiver.pending(ctx, TemporaryDue.Decision.KEEP_LONGER))
             .addAction(0, ctx.getString(R.string.temp_keep_permanently), DueActionReceiver.pending(ctx, TemporaryDue.Decision.KEEP))
         try {
@@ -116,7 +134,10 @@ object DueTemporaries {
     }
 }
 
-/** The due notification's buttons (no screen needed). Not exported; the pending intents are explicit and immutable. */
+/**
+ * The due notification's buttons (no screen needed; Delete only after unlocking, see [DueTemporaries]). Not exported;
+ * the pending intents are explicit and immutable.
+ */
 class DueActionReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val decision = TemporaryDue.Decision.entries.firstOrNull { it.name == intent.getStringExtra(EXTRA_DECISION) } ?: return

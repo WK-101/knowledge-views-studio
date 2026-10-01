@@ -6,6 +6,7 @@ import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import androidx.annotation.VisibleForTesting
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.work.CoroutineWorker
@@ -32,12 +33,14 @@ import app.parley.data.PhoneEnv
 import app.parley.data.history.CallHistory
 import app.parley.shortcuts.Shortcuts
 import app.parley.ui.Bidi
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import java.util.concurrent.TimeUnit
 
 /**
  * The "To call" list's writes and its one reminder (L1, P2, P3, I9). Every change goes through [update], which
- * reschedules the reminder: one inexact WorkManager job for the next item due (no exact-alarm permission). When it
+ * reschedules the reminder when the list changed: one inexact WorkManager job for the next item due (no exact-alarm
+ * permission). The worker never replaces itself: it posts, marks the items shown, then schedules the next run. When it
  * runs, every item due then shows in one quiet notification (names only after unlocking; a private contact's name
  * never in discreet mode), with no badge and no repeat.
  */
@@ -46,50 +49,85 @@ object ToCallReminders {
     const val ACTION_NOT_NOW = "app.parley.TO_CALL_NOT_NOW"
     const val EXTRA_KEYS = "keys"
 
-    /** Puts [number] on the list for [at]. False when it has no number to call. */
+    /** Where the reminder finds the app's stores (tests use their own). */
+    @VisibleForTesting
+    internal var containerOf: (Context) -> DataContainer = { it.container }
+
+    /**
+     * True while [ToCallWorker] runs: a change made meanwhile doesn't reschedule (REPLACE would cancel the running
+     * worker before it posts); the worker schedules the next run itself, from the list as it is when it ends.
+     */
+    @Volatile private var workerRunning = false
+
+    /**
+     * Puts [number] on the list for [at]. False when it has no number to call, or the list can't be read right now
+     * (nothing was set then).
+     */
     suspend fun remind(
         context: Context, number: String, accountId: String?, at: Long, source: ToCallSource = ToCallSource.REMINDER,
         now: Long = System.currentTimeMillis(),
     ): Boolean {
         val iso = PhoneEnv.countryIso(context, accountId)
         val key = PhoneIdentity.key(number, iso)
-        if (key.isEmpty() || number.none { it.isDigit() }) return false
+        if (!canRemind(key, number)) return false
         // Their time zone, when the number tells it (offline), for "after 6 pm their time".
         val zone = runCatching { NumberInfo.timeZone(number, iso)?.id }.getOrNull()
         update(context) { ToCall.remind(it, key, number, at, now, source, zone = zone, accountId = accountId) }
-        return true
+        return containerOf(context).toCall.available
     }
 
-    /** Applies [f] to the list, writes it and reschedules the reminder. */
+    /** Whether [number] (its identity [key]) can go on the list: something to call. */
+    fun canRemind(key: String, number: String): Boolean = key.isNotEmpty() && number.any { it.isDigit() }
+
+    /** Applies [f] to the list, writes it and, when it changed, reschedules the reminder. */
     suspend fun update(context: Context, f: (ToCallState) -> ToCallState): ToCallState {
-        val s = context.container.toCall.update(f)
-        schedule(context, s)
-        return s
+        val w = containerOf(context).toCall.write(f)
+        if (w.changed && !workerRunning) schedule(context, w.state)
+        return w.state
     }
 
-    /** The one reminder job, for the next item due; none when nothing waits. */
-    fun schedule(context: Context, state: ToCallState, now: Long = System.currentTimeMillis()) {
+    /**
+     * The one reminder job, for the next item due; none when nothing waits. From outside the worker it replaces the
+     * job waiting; [fromWorker] appends to the running one instead (it starts once that one has finished), so the
+     * worker never cancels itself.
+     */
+    fun schedule(context: Context, state: ToCallState, now: Long = System.currentTimeMillis(), fromWorker: Boolean = false) {
         val wm = runCatching { WorkManager.getInstance(context) }.getOrNull() ?: return
         val next = ToCall.nextAlarm(state, now)
         if (next == null) {
-            wm.cancelUniqueWork(WORK)
+            // The running worker ends by itself; cancelling it here would cut it short.
+            if (!fromWorker) wm.cancelUniqueWork(WORK)
             return
         }
         wm.enqueueUniqueWork(
-            WORK, ExistingWorkPolicy.REPLACE,
-            OneTimeWorkRequestBuilder<ToCallWorker>().setInitialDelay(next - now, TimeUnit.MILLISECONDS).build(),
+            WORK, if (fromWorker) ExistingWorkPolicy.APPEND_OR_REPLACE else ExistingWorkPolicy.REPLACE,
+            OneTimeWorkRequestBuilder<ToCallWorker>().setInitialDelay((next - now).coerceAtLeast(0), TimeUnit.MILLISECONDS).build(),
         )
     }
 
-    /** Settles items already called back, then shows what is due in one notification and schedules the next. */
-    suspend fun notifyDue(context: Context) {
-        val c = context.container
-        val now = System.currentTimeMillis()
-        c.toCall.load()
-        settle(context, c, now)
-        val due = ToCall.toNotify(c.toCall.state.value, now)
-        if (due.isNotEmpty()) post(context, c, due)
-        update(context) { ToCall.markNotified(it, due.map { i -> i.key }.toSet()) }
+    /**
+     * The worker's run: settles items already called back, shows what is due in one notification, marks it shown and
+     * only then schedules the next run, once. False when the list can't be read right now (the worker retries later).
+     */
+    suspend fun notifyDue(context: Context): Boolean {
+        val c = containerOf(context)
+        workerRunning = true
+        try {
+            val now = System.currentTimeMillis()
+            c.toCall.load()
+            if (!c.toCall.available) return false
+            settle(context, c, now)
+            val due = ToCall.toNotify(c.toCall.state.value, now)
+            if (due.isNotEmpty()) {
+                post(context, c, due)
+                c.toCall.write { ToCall.markNotified(it, due.map { i -> i.key }.toSet()) }
+            }
+        } finally {
+            workerRunning = false
+        }
+        // From the list as it is now, so a change made while the worker ran is included.
+        schedule(context, c.toCall.state.value, fromWorker = true)
+        return true
     }
 
     /** Items whose person was called (or talked to) since they were set go. */
@@ -104,7 +142,8 @@ object ToCallReminders {
             val system = loaded ?: runCatching { c.callLog.pastCalls(item.number, now, limit = 20) }.getOrDefault(emptyList())
             (system + private).filter { ToCall.settles(it) && PhoneIdentity.same(it.number, item.number, iso) }.map { SettlingCall(item.key, it.date) }
         }
-        update(context) { ToCall.settle(it, calls, now) }
+        // Inside the worker: the one schedule at its end covers this change.
+        c.toCall.write { ToCall.settle(it, calls, now) }
     }
 
     private suspend fun post(context: Context, c: DataContainer, due: List<ToCallItem>) {
@@ -182,8 +221,15 @@ object ToCallReminders {
 /** Shows the To call reminder when it's due. */
 class ToCallWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
-        runCatching { ToCallReminders.notifyDue(applicationContext) }
-        return Result.success()
+        // A list that can't be read right now (a Keystore hiccup) is tried again later, never taken for an empty one.
+        val done = try {
+            ToCallReminders.notifyDue(applicationContext)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            true
+        }
+        return if (done) Result.success() else Result.retry()
     }
 }
 
@@ -196,7 +242,7 @@ class ToCallActionReceiver : BroadcastReceiver() {
         context.container.scope.launch {
             try {
                 ToCallReminders.cancelNotification(context)
-                ToCallReminders.update(context) { ToCall.notNow(it, keys, System.currentTimeMillis()) }
+                runCatching { ToCallReminders.update(context) { ToCall.notNow(it, keys, System.currentTimeMillis()) } }
             } finally {
                 pending.finish()
             }

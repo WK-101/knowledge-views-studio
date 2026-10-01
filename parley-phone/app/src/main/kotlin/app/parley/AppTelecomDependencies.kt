@@ -58,6 +58,8 @@ import app.parley.common.extras.CallerChoices
 import app.parley.data.ScreenRequest
 import app.parley.common.VerdictKind
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.emitAll
@@ -94,21 +96,28 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
                 val photo = it.photoUri.takeIf { c.settings.settings.value.showCallerPhoto }
                 return@withContext CallerDisplay(it.name, photo, it.numberLabel, null, null, null, last, subtitle = app.getString(R.string.caller_work_profile))
             }
-            val note = it.lookupKey?.let { k -> c.meta.meta(k)?.pinnedNote }
-            // Job and company under the name.
-            val org = c.contacts.organization(it.contactId)
             val cfg = c.circle.config.value
-            val choices = callerChoices(it.lookupKey) { c.contacts.labelTitlesOf(it.contactId) }
+            // The extra reads run side by side, so they stay well inside the call path's lookup time (a timeout there
+            // treats a contact as unknown).
+            val (parts, choices) = coroutineScope {
+                val note = async { it.lookupKey?.let { k -> c.meta.meta(k)?.pinnedNote } }
+                // Job and company under the name.
+                val org = async { c.contacts.organization(it.contactId) }
+                val pronouns = async { runCatching { c.contacts.pronounsOf(it.contactId) }.getOrNull() }
+                // The last note and open promises; the call screen decides whether the lock screen may show them.
+                val memory = async { it.lookupKey?.let { k -> runCatching { memoryFor(k, it.contactId, number, cfg.memoryOnLockScreen) }.getOrNull() } }
+                val choices = async { callerChoices(it.lookupKey) { c.contacts.labelTitlesOf(it.contactId) } }
+                CallerParts(note.await(), org.await(), pronouns.await(), memory.await()) to choices.await()
+            }
             // Settings › Calls › "Show contact photo on the call screen", or the contact's own choice.
             val photo = showsPhoto(it.lookupKey)
             CallerDisplay(
-                it.name, it.photoUri.takeIf { photo }, it.numberLabel, it.contactId, it.lookupKey, note, last,
+                it.name, it.photoUri.takeIf { photo }, it.numberLabel, it.contactId, it.lookupKey, parts.note, last,
                 backgroundUri = if (photo) c.people.backgrounds.forLookupKey(it.lookupKey) else null,
-                subtitle = CallerCard.subtitle(org?.second, org?.first),
-                // The last note and open promises; the call screen decides whether the lock screen may show them.
-                memory = it.lookupKey?.let { k -> runCatching { memoryFor(k, it.contactId, number, cfg.memoryOnLockScreen) }.getOrNull() },
+                subtitle = CallerCard.subtitle(parts.org?.second, parts.org?.first),
+                memory = parts.memory,
                 memoryPrompt = cfg.memoryPrompt,
-                pronouns = runCatching { c.contacts.pronounsOf(it.contactId) }.getOrNull(),
+                pronouns = parts.pronouns,
                 vibration = choices.vibration, autoAnswerChosen = choices.autoAnswer, ownRingtone = it.customRingtone,
             )
         } ?: c.vault.lookup(number, PhoneEnv.countryIso(app, accountId))?.let { (id, info) ->
@@ -127,6 +136,9 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
             )
         }
     }
+
+    /** What [callerInfo] reads beside the contact lookup. */
+    private data class CallerParts(val note: String?, val org: Pair<String, String>?, val pronouns: String?, val memory: CallerMemory?)
 
     /** Whether the call screen shows this contact's photo and call-screen picture (read from memory). */
     private fun showsPhoto(key: String?): Boolean =
