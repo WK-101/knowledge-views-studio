@@ -23,7 +23,7 @@ The Settings list starts with **Tools** (the same page as ⋮ › Tools; see the
 | Navigation bar | Navigation bar `nav_tabs` · Open on `start_tab` |
 | Layout | Calls layout `calls_layout` (+ keep the Keypad tab) · Favourites in Contacts `favorites_in_contacts` (+ keep the tab, Frequent row) · Tapping a call in Recents `recent_tap` · Back to separate tabs |
 | Taps and swipes | Swipe actions `swipe_actions` |
-| — | Simple mode `simple_mode` ↗ (in it: keypad button `simple_keypad`, ask before declining `simple_confirm_decline`, say who is calling `simple_speak`, set up another phone `simple_share`) |
+| — | Simple mode `simple_mode` ↗ (in it: keypad button `simple_keypad`, ask before declining `simple_confirm_decline`, say who is calling `simple_speak`, helpers `simple_helpers`, set up another phone `simple_share`) |
 
 ## Calls
 | Group | Settings |
@@ -34,6 +34,7 @@ The Settings list starts with **Tools** (the same page as ⋮ › Tools; see the
 | During calls | Ask before pocket calls `pocket_guard` |
 | Know who's calling | Answer automatically `auto_answer` (off; with a headset or Bluetooth, in simple mode, for chosen people and labels; after 3–15 s with a countdown and Cancel) · Vibration for callers `caller_vibration` (set on a contact's or a label's page) |
 | Remember what matters | Anything to remember? after calls `memory_prompt` · Notes on the lock screen `memory_lock_screen` · Peek before calling `pre_call_peek` |
+| Family safety | Helpers `call_helpers` ↗ (up to 3 people; none by default) |
 | SIMs and carrier | SIMs & plan minutes `sims` ↗ (search also finds it as Plan minutes per SIM `plan_minutes`; in it: Billing increments per SIM `sim_billing`) · SIM & calling accounts `sim_accounts` · Call forwarding, waiting & voicemail `carrier_settings` |
 | Advanced | Vibrate when a call connects `connect_haptic` · Turn the screen off at your ear `proximity_sensor` · Power button ends call `power_button_ends_call` |
 
@@ -55,7 +56,7 @@ The Settings list starts with **Tools** (the same page as ⋮ › Tools; see the
 ## Blocking & spam
 | Group | Settings |
 |---|---|
-| — | Blocking & screening `blocking` ↗ · Let repeat callers through `repeat_callers` · Learn from your calls `learn_from_calls` (on: quiet tags only) · Silence numbers that look like sales lines (your calls) `silence_sales_lines` (off) · Expecting a call `expecting_call` |
+| — | Blocking & screening `blocking` ↗ · Let repeat callers through `repeat_callers` · Learn from your calls `learn_from_calls` (on: quiet tags only) · Silence numbers that look like sales lines (your calls) `silence_sales_lines` (off) · Expecting a call `expecting_call` · Expecting a call from your notes `expected_hints` (off until accepted) |
 | Lists and rules | Spam lists `spam_lists` · Rule templates `templates` · Test a call `dry_run` · Import & share rules `transfer` |
 | On Blocking & screening ↗ | Silence or block hidden numbers `blk_hidden_numbers` · Only people I know ring `blk_non_contacts` · Off hours `blk_off_hours` · More checks `blk_more_checks` · Sounds for screened calls `blk_sounds` · Emergency numbers `blk_emergency` · Blocked call notifications `blk_notifications` · Blocked numbers (system list) `blk_system_list` |
 
@@ -84,10 +85,16 @@ The Settings list starts with **Tools** (the same page as ⋮ › Tools; see the
 | — | Quick reply messages `quick_replies` · My card `my_details` |
 | Messaged numbers | Messaged numbers `messaged_numbers` · Forget messaged numbers after `messaged_expiry` |
 
+**Family safety** (WP-8, nothing on by default; see [CALL_SCREEN_DESIGN.md](CALL_SCREEN_DESIGN.md#45-family-safety)):
+- **Family safe word** (`family_safe_word`, Privacy & security): a question and answer per label, set on the label's page after the fingerprint or screen lock. The page lists the labels and whether each has one. Kept sealed on this phone only (`family_safety`, never in backups).
+- **Helpers** (`call_helpers`, Calls; also in simple mode's setup as `simple_helpers`): up to 3 contacts, private ones too, that More › Add my helper calls into a call.
+- **Expecting a call from your notes** (`expected_hints`, Blocking & spam): one switch each for notes and promises with a day, To call items for numbers you haven't saved, and delivery QR codes. Each is off until the first hint asks once ("Expecting a call?") and you say yes; "No thanks" keeps it off. The windows coming up are listed and can be removed.
+
 ## Privacy & security
 | Group | Settings |
 |---|---|
 | App lock | App lock `app_lock` · Lock again after `lock_after` · Hide screen content `secure_screen` |
+| Family safety | Family safe word `family_safe_word` ↗ (set on a label's page) |
 | Private contacts | Hide private contacts `hide_vault` · Private call history `private_history` |
 | Your data | Privacy dashboard `privacy_dashboard` · Who can see your contacts `who_can_see` · Let apps show private names `private_names` |
 | Advanced | Private names in other phone apps `private_directory` · App permissions (system) `app_permissions` |

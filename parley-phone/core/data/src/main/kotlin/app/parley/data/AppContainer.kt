@@ -20,6 +20,7 @@ import app.parley.data.calls.CallQualityStore
 import app.parley.data.calls.ReputationStore
 import app.parley.data.calls.RingFactsStore
 import app.parley.data.calls.ToCallStore
+import app.parley.data.calls.FamilySafetyStore
 import app.parley.data.calls.VoicemailRepository
 import app.parley.data.calltime.CallUsageLedger
 import app.parley.data.calltime.CallingRepository
@@ -87,6 +88,8 @@ class DataContainer(context: Context) {
             reputation = reputation,
         )
             .also { s -> s.onScreened = { e -> onScreened?.invoke(e) } }
+            // I7: windows from notes, the To call list and delivery QR codes count as "Expecting a call".
+            .also { s -> s.expectedWindows = { familySafety.windows() } }
     }
 
     /**
@@ -122,6 +125,9 @@ class DataContainer(context: Context) {
 
     /** The "To call" list: reminders to call back and follow-ups (by number, sealed at rest). */
     val toCall by lazy { ToCallStore(appContext) { n -> vault.lookup(n) != null } }
+
+    /** Family safety: safe words per label, helpers, expected-call windows (sealed, this phone only). */
+    val familySafety by lazy { FamilySafetyStore(appContext) }
     val vcards by lazy { VCardIO(appContext, contacts, records) { vault.allNumbers() } }
 
     /** Lossless moves into and out of the private vault. */

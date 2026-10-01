@@ -1,7 +1,11 @@
 package app.parley.common
 
 import app.parley.common.spam.Reputation
+import app.parley.common.calls.ExpectedCalls
+import app.parley.common.calls.ExpectedSource
+import app.parley.common.calls.ExpectedWindow
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
 import kotlinx.serialization.json.Json
 import java.time.DayOfWeek
 import java.time.Instant
@@ -160,6 +164,12 @@ data class ScreeningSettings(
     /** I2: silence numbers that look like sales lines (your calls). Off by default; soft, below lists. */
     val silenceSalesLines: Boolean = false,
     val webSearchUrl: String = "https://duckduckgo.com/?q=",
+    /**
+     * I7: "Expecting a call" windows from notes, the To call list and delivery QR codes. Never stored here: they are
+     * kept sealed in their own store and handed to the policy for each call.
+     */
+    @Transient
+    val expected: List<ExpectedWindow> = emptyList(),
 ) {
     fun snoozeActive(nowMillis: Long) = snoozeUntil > nowMillis
 
@@ -325,6 +335,8 @@ data class RangThrough(
     val minutes: Int = 0,
     val name: String? = null,
     val until: Long? = null,
+    /** I7: for [RangThroughKind.EXPECTING], the hint that turned it on ([name] then names where it came from). */
+    val expected: ExpectedSource? = null,
 )
 
 /** "Now" for the policy: injected so schedules are testable and replays use the call's own time. */
@@ -383,6 +395,9 @@ object CallPolicy {
         return when (kind) {
             RangThroughKind.ALLOW_RULE -> RangThrough(kind, name = rule?.title, until = rule?.expiresAt)
             RangThroughKind.LABEL -> RangThrough(kind, name = rule?.label?.takeIf { it.isNotBlank() } ?: rule?.title)
+            // Turned on by hand wins over a hint: the hint is named only when it alone let the call through.
+            RangThroughKind.EXPECTING -> e.expectedHit?.takeIf { !e.s.snoozeActive(e.clock.millis) }
+                ?.let { RangThrough(kind, name = it.label, expected = it.source) } ?: RangThrough(kind)
             else -> RangThrough(kind)
         }
     }
@@ -409,6 +424,9 @@ object CallPolicy {
         val clock: PolicyClock,
         val withoutExceptions: Boolean = false,
     ) {
+        /** I7: the expected-call window that let the call ring, when one did. */
+        var expectedHit: ExpectedWindow? = null
+
         /** The repeat caller's calls within the window (this one included) and the minutes they span. */
         var repeatCalls = 0
         var repeatMinutes = 0
@@ -446,11 +464,15 @@ object CallPolicy {
                 return allow(AllowReason.EMERGENCY)
             }
             val number = f.number?.takeIf { it.isNotBlank() && !f.hidden }
-            val snooze = s.snoozeActive(clock.millis)
+            // "Expecting a call" by hand, or a window from a note, the To call list or a delivery QR code (I7).
+            val window = ExpectedCalls.covering(s.expected, number, f.countryIso ?: f.region, clock.millis)
+            val snooze = s.snoozeActive(clock.millis) || window != null
+            val snoozeWhy = if (s.snoozeActive(clock.millis)) "on" else "from " + window?.source?.name?.lowercase()?.replace('_', ' ')
             if (number == null) {
                 step("Number", "hidden")
                 if (snooze && !withoutExceptions) {
-                    step("Expecting a call", "on", TraceMark.MATCH)
+                    expectedHit = window
+                    step("Expecting a call", snoozeWhy, TraceMark.MATCH)
                     return allow(AllowReason.SNOOZE)
                 }
                 if (s.blockHidden && active(s.hiddenSchedule)) {
@@ -520,7 +542,8 @@ object CallPolicy {
             // The screening service never knows the SIM: an allow rule limited to one SIM is decided when the call rings.
             simPending { it.type != RuleType.LABEL && factMatches(it, number) }?.let { return deferToSim(it) }
             if (snooze && !withoutExceptions) {
-                step("Expecting a call", "on", TraceMark.MATCH)
+                expectedHit = window
+                step("Expecting a call", snoozeWhy, TraceMark.MATCH)
                 return allow(AllowReason.SNOOZE, verdict = Verdict(VerdictKind.ALLOWED, "Let through: expecting a call"))
             }
             if (s.allowDialled && !withoutExceptions) {

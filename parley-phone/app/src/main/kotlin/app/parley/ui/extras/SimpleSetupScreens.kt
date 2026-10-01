@@ -76,6 +76,9 @@ import app.parley.ui.SegmentedGroup
 import app.parley.ui.contact.SecureQr
 import app.parley.ui.SettingsScaffold
 import app.parley.ui.SwitchRow
+import app.parley.ui.LinkRow
+import app.parley.ui.family.FamilyRoutes
+import androidx.compose.material.icons.rounded.GroupAdd
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -162,6 +165,8 @@ fun SimpleSetupScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) ->
                 Icons.AutoMirrored.Rounded.HelpOutline,
             ) { v -> store.updateSimple { it.copy(confirmDecline = v) } } }
             item("speak") { SwitchRow(stringResource(R.string.simple_speak), stringResource(R.string.simple_speak_body), cfg.speakName, Icons.Rounded.RecordVoiceOver) { v -> store.updateSimple { it.copy(speakName = v) } } }
+            // I5: the people a big "Add my helper" button calls into a call.
+            item("helpers") { SimpleHelpersRow(vm) { open(FamilyRoutes.Helpers) } }
         }
         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Button({ store.updateSimple { it.copy(enabled = true) } }, enabled = cfg.people.isNotEmpty() || cfg.showKeypad, modifier = Modifier.fillMaxWidth()) {
@@ -209,6 +214,20 @@ fun SimpleSetupScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) ->
         saver.launch("parley-simple-mode.parleysimple")
     }
     if (showQr) SimpleQrDialog(cfg) { showQr = false }
+}
+
+/** Simple mode's "Helpers" row: who "Add my helper" calls (the same list as Settings › Calls › Helpers). */
+@Composable
+private fun SimpleHelpersRow(vm: AppViewModel, onOpen: () -> Unit) {
+    val summary by vm.c.familySafety.summary.collectAsStateWithLifecycle()
+    LaunchedEffect(Unit) { vm.c.familySafety.load() }
+    val names = summary.helpers.joinToString(stringResource(R.string.main_separator)) { it.name }
+    LinkRow(
+        stringResource(R.string.set_call_helpers_title),
+        names.ifEmpty { stringResource(R.string.set_simple_helpers_summary) },
+        Icons.Rounded.GroupAdd,
+        onClick = onOpen,
+    )
 }
 
 /** Contacts with a number, searchable; a contact with several numbers asks which one. */

@@ -1,5 +1,6 @@
 package app.parley.ui.contact
 
+import app.parley.calls.ExpectedCallHints
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -426,6 +427,8 @@ class ContactDetailViewModel(private val c: DataContainer) : ViewModel() {
             } else {
                 c.circle.interactions.edit(initial.id, type, note, time.takeIf { it != initial.time })
             }
+            // I7: "will call Tue" in the note can expect that call.
+            runCatching { ExpectedCallHints.noteSaved(c, d.displayName, note, key = "note:" + d.lookupKey) }
         } catch (_: InteractionStore.SealException) {
             say(R.string.circle_note_failed)
         }

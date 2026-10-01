@@ -3,6 +3,8 @@
     <!-- Normal permissions, also declared by the app: call haptics and the bounded call-limit wake lock. -->
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- Normal, also declared by the app (its app lock): confirming it's you before a family safe word shows. -->
+    <uses-permission android:name="android.permission.USE_BIOMETRIC" />
     <application>
         <!-- The in-call UI. Exported (required by Telecom) but protected by BIND_INCALL_SERVICE. -->
         <service

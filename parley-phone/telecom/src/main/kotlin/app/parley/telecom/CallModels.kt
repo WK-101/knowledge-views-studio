@@ -86,6 +86,8 @@ data class CallUi(
     val urgent: Boolean = false,
     /** P1: why a ringing call rings although screening would otherwise have kept it quiet, in words. */
     val rangThrough: String? = null,
+    /** I7: the same line naming the note it came from ("note on Dentist"), shown only while the phone is unlocked. */
+    val rangThroughUnlocked: String? = null,
     /** P5: the connected call dropped (set on the ended call only), and why, in words ("Lost signal · Wi-Fi calling"). */
     val drop: DropKind? = null,
     val dropText: String? = null,

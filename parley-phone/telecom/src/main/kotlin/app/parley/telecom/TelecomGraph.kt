@@ -237,11 +237,35 @@ interface UiHooks {
     fun markTipSeen(id: String) {}
 }
 
+/** Family safety on the call screen (WP-8): safe words (I4) and helpers (I5). Read off the main thread. */
+interface FamilySafetyHooks {
+    /**
+     * I4: the labels whose safe word the call screen may offer for this caller (each label with one, except those
+     * the caller is a saved member of), with their questions. Answers are read only with [safeWordAnswer].
+     */
+    suspend fun safeWordsFor(number: String?, accountId: String?): List<SafeWordPrompt> = emptyList()
+
+    /** I4: the answer of [label]'s safe word, once the user held to see it (and unlocked when needed). */
+    suspend fun safeWordAnswer(label: String): String? = null
+
+    /** Parley's app lock is on and locked: seeing a safe word's answer asks for the fingerprint or screen lock first. */
+    fun appLockLocked(): Boolean = false
+
+    /** I5: the helpers chosen in Settings › Calls › Helpers (names as they may show on this screen). */
+    suspend fun helpers(): List<HelperUi> = emptyList()
+}
+
+/** A label's safe-word question, for the in-call card. */
+data class SafeWordPrompt(val label: String, val question: String)
+
+/** A helper as the call screen shows them: a name (a number in discreet mode for a private contact) and the number. */
+data class HelperUi(val name: String, val number: String)
+
 /**
  * What the call path needs from the rest of the app, as cohesive parts (each collaborator of the call path asks only
  * for its part). Implemented by the app module so that this module never depends on data or feature code.
  */
-interface TelecomDependencies : CallerInfoSource, ScreeningHooks, CallPolicyHooks, CallRecordHooks, UiHooks
+interface TelecomDependencies : CallerInfoSource, ScreeningHooks, CallPolicyHooks, CallRecordHooks, UiHooks, FamilySafetyHooks
 
 /** Post-call card actions handled by the app. */
 enum class PostCallAction { BLOCK, REPORT }

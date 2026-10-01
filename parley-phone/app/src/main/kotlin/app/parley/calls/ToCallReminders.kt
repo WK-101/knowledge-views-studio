@@ -73,6 +73,8 @@ object ToCallReminders {
         // Their time zone, when the number tells it (offline), for "after 6 pm their time".
         val zone = runCatching { NumberInfo.timeZone(number, iso)?.id }.getOrNull()
         update(context) { ToCall.remind(it, key, number, at, now, source, zone = zone, accountId = accountId) }
+        // I7: a number nobody saved may call back before then (asked once; off until accepted).
+        runCatching { ExpectedCallHints.toCallAdded(containerOf(context), number, at, now) }
         return containerOf(context).toCall.available
     }
 

@@ -34,6 +34,10 @@ import app.parley.common.calls.ToCall
 import app.parley.common.calls.ToCallSource
 import java.time.ZoneId
 import app.parley.telecom.InCallAppearance
+import app.parley.telecom.HelperUi
+import app.parley.telecom.SafeWordPrompt
+import app.parley.common.calls.SafeWords
+import app.parley.calls.ExpectedCallHints
 import app.parley.telecom.TelecomDependencies
 import app.parley.ui.common.Format
 import app.parley.work.HistoryWorker
@@ -195,6 +199,9 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
                     numberKey = PhoneIdentity.key(number, PhoneEnv.countryIso(app)), callDate = if (connectTimeMillis > 0) connectTimeMillis else System.currentTimeMillis(), text = text,
                 ),
             )
+            // I7: "they'll call back Tue" in a call note can expect that call.
+            val key = "call:" + PhoneIdentity.key(number, PhoneEnv.countryIso(app))
+            runCatching { ExpectedCallHints.noteSaved(c, ExpectedCallHints.callerName(c, number), text, key) }
         }
     }
 
@@ -467,6 +474,35 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
     }
 
     private fun contactRingtone(number: String): String? = runCatching { c.contacts.lookup(number)?.customRingtone }.getOrNull()
+
+    // ---- Family safety (WP-8)
+
+    override suspend fun safeWordsFor(number: String?, accountId: String?): List<SafeWordPrompt> = withContext(Dispatchers.IO) {
+        val words = runCatching { c.familySafety.safeWords() }.getOrDefault(emptyMap())
+        if (words.isEmpty()) return@withContext emptyList()
+        // A saved member of the label needs no check: their labels, a private contact's too (unless discreet mode
+        // hides it, when it counts as an unknown caller like everywhere else).
+        val labels = number?.let { n -> callerLabels(n, accountId) }.orEmpty()
+        SafeWords.offeredFor(words, labels).mapNotNull { t -> words[t]?.let { SafeWordPrompt(t, it.question) } }
+    }
+
+    /** The labels [number] is a saved member of (a private contact's too, unless discreet mode hides it); null when unknown. */
+    private suspend fun callerLabels(number: String, accountId: String?): Set<String>? {
+        c.contacts.lookup(number)?.takeIf { !it.work }?.let { return runCatching { c.contacts.labelTitlesOf(it.contactId) }.getOrDefault(emptySet()) }
+        if (c.settings.current().hideVault) return null
+        val (id, _) = c.vault.lookup(number, PhoneEnv.countryIso(app, accountId)) ?: return null
+        return runCatching { c.privateLabels.titlesOf(id) }.getOrDefault(emptySet())
+    }
+
+    override suspend fun safeWordAnswer(label: String): String? = withContext(Dispatchers.IO) { c.familySafety.safeWord(label)?.answer }
+
+    override fun appLockLocked(): Boolean = appLocked()
+
+    override suspend fun helpers(): List<HelperUi> = withContext(Dispatchers.IO) {
+        val discreet = c.settings.current().hideVault
+        // A private helper shows as their number in discreet mode, like a private caller.
+        c.familySafety.helpers().map { h -> HelperUi(if (h.private && discreet) h.number else h.name, h.number) }
+    }
 
     override fun postCallIntent(context: Context, action: PostCallAction, number: String): Intent =
         Intent(context, MainActivity::class.java)

@@ -332,6 +332,8 @@ internal fun CallsPage(vm: AppViewModel, open: (Destination) -> Unit) {
     CallerRingGroup(vm, open)
     // The memory prompt, notes on the lock screen and the pre-call peek.
     MemorySettingsGroup(vm)
+    // Helpers to bring into a call (WP-8).
+    FamilySafetyCallsGroup(vm, open)
     SegmentedGroup(stringResource(R.string.set_group_sims)) {
         linkRow("sims", Icons.Rounded.SimCard) { open(HistoryRoutes.Sims) }
         linkRow("sim_accounts", Icons.Rounded.SettingsPhone, external = true) { context.startSafely(Intent(TelecomManager.ACTION_CHANGE_PHONE_ACCOUNTS)) }
@@ -395,6 +397,8 @@ internal fun BlockingPage(vm: AppViewModel, open: (Destination) -> Unit) {
             if (v) BlockingDialogs.show(BlockingDialog.Snooze)
             else scope.launch { BlockingActions.snooze(vm.c, 0) }
         }
+        // I7: notes, To call items and delivery QR codes turning "Expecting a call" on (off until accepted).
+        item("expected_hints") { ExpectedHintsRow(vm) }
     }
     SegmentedGroup(stringResource(R.string.set_group_lists_rules)) {
         linkRow("spam_lists", Icons.Rounded.Inventory2) { open(BlockingRoutes.Lists) }
@@ -671,6 +675,8 @@ internal fun PrivacyPage(vm: AppViewModel, open: (Destination) -> Unit) {
         }
         switchRow("secure_screen", s.secureScreen, Icons.Rounded.VisibilityOff) { v -> set { it.copy(secureScreen = v) } }
     }
+    // The family safe word, by label (WP-8).
+    FamilySafetyPrivacyGroup(open)
     SegmentedGroup(stringResource(R.string.set_group_private_contacts)) {
         switchRow("hide_vault", s.hideVault, Icons.Rounded.VisibilityOff) { v -> set { it.copy(hideVault = v) } }
         switchRow("private_history", s.privateVaultHistory, Icons.Rounded.PhoneLocked) { v -> set { it.copy(privateVaultHistory = v) } }

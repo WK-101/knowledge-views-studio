@@ -101,6 +101,7 @@ import app.parley.ui.calls.rememberDialerRoleRequest
 import app.parley.ui.common.unmappedLabel
 import app.parley.ui.contact.ContactPageRoutes
 import app.parley.ui.extras.ExtrasRoutes
+import app.parley.ui.family.FamilyRoutes
 import app.parley.ui.history.HistoryRoutes
 import app.parley.ui.journal.HistoryTab
 import app.parley.ui.people.hasSeveralAccounts
@@ -435,6 +436,7 @@ internal fun settingRoute(e: SettingEntry): Destination = when (e.place) {
     SettingPlace.BACKUP -> Routes.Backup
     SettingPlace.SYNC -> Routes.Sync
     SettingPlace.TEMPORARY -> Routes.Temporary
+    SettingPlace.HELPERS -> FamilyRoutes.Helpers
 }
 
 /** Settings that don't exist on this phone, left out of search. */

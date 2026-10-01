@@ -45,6 +45,7 @@ import app.parley.ui.LocalSharedScope
 import app.parley.ui.LocalAvatarStyle
 import app.parley.ui.calltime.UssdDialog
 import app.parley.ui.circle.CircleSnackHost
+import app.parley.ui.family.ExpectedCallOfferHost
 import app.parley.ui.common.CallDialogs
 import app.parley.ui.common.CoachMarks
 import app.parley.ui.common.ImportVcfDialog
@@ -201,6 +202,8 @@ private fun ParleyRootContent(vm: AppViewModel, appSnackbar: ParleySnackbar) {
     CallDialogs(vm)
     UssdDialog(vm)
     BlockingDialogHost(vm)
+    // "Expecting a call?" the first time a note, To call item or delivery QR code could turn it on (I7).
+    ExpectedCallOfferHost(vm)
 
     insertOrEdit?.let { p ->
         ParleyDialog(
