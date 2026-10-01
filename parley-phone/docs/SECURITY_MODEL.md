@@ -32,6 +32,7 @@ Parley whenever the phone is on, including while it is locked.
 | Call-history archive, trashed calls | Archive key (`HistoryCrypto`): software AES key wrapped by a Keystore key | None | Kept current while locked |
 | Pinned notes, call notes, screened callers' names, the undo journal, time-machine snapshots | Small-records key (`RecordCrypto`): same envelope as the archive | None | Written by background work and the call screen |
 | Interaction notes (Circle) | Vault caller-ID key | None | Reminders run while locked |
+| Number memory index (what Parley remembers about numbers that aren't contacts) | Numbers: their own HMAC key (`KeystoreMemoryKeys`); hints: the small-records key, each sealed on its own | None | Read while a call rings on a locked phone; the call screen shows only "Parley knows this number" until the phone is unlocked |
 | Settings, rules, speed dial | File-based encryption only | — | Not personal content |
 
 ### The vault's detail key

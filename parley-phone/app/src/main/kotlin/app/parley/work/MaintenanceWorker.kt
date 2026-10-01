@@ -41,6 +41,7 @@ import java.util.concurrent.TimeUnit
  * - screening: expired temporary allow rules, old screening traces, the subscribed spam lists, and personal
  *   reputation (what your own calls say about numbers, for the call path to look up).
  * - the sync watchdog: contacts that vanished since the last snapshot without being deleted in Parley.
+ * - number memory: the keyed-hash index of what Parley knows about numbers that aren't contacts.
  *
  * One wake instead of three, each job with its own notifications as before. It doesn't wait for the phone to be idle:
  * expired temporary contacts and retention are promises that shouldn't slip by days. Reminders stay separate
@@ -57,6 +58,8 @@ class MaintenanceWorker(context: Context, params: WorkerParameters) : CoroutineW
         notices.forEachIndexed { i, n -> notify(ctx, i, n) }
         // After the day's snapshot (taken in housekeeping): contacts that vanished without the user deleting them.
         step("sync watchdog") { SyncWatchdogNotice.check(ctx, c) }
+        // Number memory (I1): after the journal was pruned and today's snapshot taken; only changed stores are read.
+        step("number memory") { c.numberMemory.rebuild() }
         // At most one backup reminder a month while a backup is overdue.
         step("backup reminder") { BackupReminder.maybeNotify(ctx, c) }
         // Call history: the full catch-up ran above (before retention); old exports and plan warnings.

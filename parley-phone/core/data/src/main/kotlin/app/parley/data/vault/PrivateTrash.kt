@@ -83,6 +83,9 @@ class PrivateTrash(private val context: Context, private val vault: VaultReposit
         }.sortedByDescending { it.deletedAt }
     }
 
+    /** Number memory: changes whenever a copy is kept, restored or removed (nothing is opened). */
+    fun memoryStamp(): String = files().map { it.name }.sorted().joinToString(",")
+
     /** Puts [file]'s contact back; returns its new vault id, or null when it can't be read. */
     suspend fun restore(file: String): Long? = withContext(Dispatchers.IO) {
         lock.withLock {

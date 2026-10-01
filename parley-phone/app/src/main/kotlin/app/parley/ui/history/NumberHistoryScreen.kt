@@ -132,6 +132,8 @@ fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open
                     val flag = remember(number) { NumberInfo.flag(NumberInfo.region(number, vm.countryIso)) }
                     if (where != null || flag != null) Text(listOfNotNull(flag, where).joinToString(" "), color = MaterialTheme.colorScheme.onSurfaceVariant)
                     LastMessagedNote(number)
+                    // I1: what Parley remembers about a number that isn't a contact, with its action.
+                    if (contact == null) app.parley.ui.memory.HistoryNumberMemory(vm, number, open)
                     Row(Modifier.padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         AssistChip({ vm.requestCall(number, contact?.displayName) }, { Text(stringResource(R.string.hist_action_call)) }, leadingIcon = { Icon(Icons.Rounded.Call, null) })
                         AssistChip({ Intents.sms(context, number) }, { Text(stringResource(R.string.hist_action_message)) }, leadingIcon = { Icon(Icons.AutoMirrored.Rounded.Message, null) })

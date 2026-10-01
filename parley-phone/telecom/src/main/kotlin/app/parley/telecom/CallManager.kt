@@ -279,6 +279,8 @@ object CallManager {
                 } else {
                     // Only a lookup that finished and found nobody: a timeout or a failure must never offer "Block" for a contact.
                     if (looked && calls.contains(call)) s.noContact = true
+                    // I1: what Parley remembers about the number, after the call is up (never delays the ringing).
+                    if (looked) rememberNumber(call, s, number, accountId)
                     if (incoming) {
                         s.unknownCaller = true
                         maybePlayUnknownRingtone(call, s)
@@ -297,6 +299,18 @@ object CallManager {
             scope.launch { maybePlayUnknownRingtone(call, s) }
         }
         publish()
+    }
+
+    /** I1: looks up number memory off the main thread, within the caller lookup's time; fails open (no line). */
+    private fun rememberNumber(call: Call, s: CallSession, number: String, accountId: String?) {
+        scope.launch {
+            val line = withTimeoutOrNull(LOOKUP_TIMEOUT_MS) {
+                withContext(Dispatchers.IO) { runCatching { deps.numberMemory(number, accountId) }.getOrNull() }
+            } ?: return@launch
+            if (!calls.contains(call)) return@launch
+            s.numberMemory = line
+            publish()
+        }
     }
 
     /**
@@ -578,6 +592,8 @@ object CallManager {
             urgent = s.urgent,
             holdModeSince = s.holdModeSince,
             reputation = reputationTag(s, call, number, hidden),
+            // Only ever set for a number the lookup found no contact for.
+            numberMemory = s.numberMemory,
         ).withRangThrough(s)
     }
 

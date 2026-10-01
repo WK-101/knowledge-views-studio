@@ -32,6 +32,7 @@ import app.parley.data.extras.MarkdownExport
 import app.parley.data.history.CallHistory
 import app.parley.data.messaging.BulkAddStore
 import app.parley.data.messaging.MessagingStore
+import app.parley.data.memory.NumberMemoryStore
 import app.parley.data.people.ContactKeys
 import app.parley.data.people.PeopleContainer
 import app.parley.data.people.PeoplePrefs
@@ -159,6 +160,9 @@ class DataContainer(context: Context) {
     /** Notices large unexplained losses in the daily snapshots and account sync (the sync watchdog). */
     val syncWatch by lazy { SyncWatch(this) }
 
+    /** "Who is this?" for numbers that aren't contacts, from what Parley keeps (keyed-hash index, sealed hints). */
+    val numberMemory by lazy { NumberMemoryStore(this) }
+
     /** Clearing History & undo's stores (contact changes, deleted calls, snapshots). */
     val undoStorage by lazy { UndoStorage(db, meta, history, timeMachine) }
 
@@ -280,5 +284,10 @@ class DataContainer(context: Context) {
         // Every delete/edit/merge made through Parley is journaled first (30-day undo).
         contacts.beforeChange = { ids, action -> journal.snapshot(ids, action) }
         followKeyChanges()
+        // Number memory follows deletes and restores made in Parley, once the full app starts (never on the call path).
+        scope.launch(warmDispatcher) {
+            fullStart.await()
+            numberMemory.follow()
+        }
     }
 }

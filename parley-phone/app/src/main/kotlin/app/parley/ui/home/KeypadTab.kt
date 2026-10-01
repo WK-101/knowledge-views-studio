@@ -422,6 +422,10 @@ fun KeypadTab(vm: AppViewModel, open: (Destination) -> Unit, searchQuery: String
                     }
                     // No contact matches: the list is free, so the actions are full rows (as in most dialers) and
                     // the chip row stays hidden.
+                    // P12: a typed number no contact has, which Parley remembers ("you deleted Plumber Mike in March").
+                    if (numberActions.rows.isNotEmpty()) {
+                        item(key = "memory") { app.parley.ui.memory.KeypadNumberMemory(vm, typedNumber, open) }
+                    }
                     items(numberActions.rows, key = { "action-" + it.name }) { action ->
                         NumberActionRow(action) { runNumberAction(action) }
                     }

@@ -49,6 +49,7 @@ ContactVariants(storage, expiresAt) (what it is)
 | Calls | Private call history (when "Private call history" is on) | As before |
 | Own call time limit, talk-time reminder, "never limit" | Call-time settings under `parley-private:<id>`, **without a name** (lists show it from the vault) | Parley only |
 | A deleted private contact | `no_backup/vault_trash`: the entry exactly as stored (details still under the detail key), its photo, private calls and Parley data, the whole file sealed with the caller-ID key, 30 days (`PrivateTrash`) | Counted without opening; listed only after the vault's unlock |
+| What number memory remembers about a deleted private contact, or a number in a private contact's notes | The number-memory index (`no_backup/number_memory`): keyed hashes of the numbers and sealed hints, rebuilt from the stores above | Never shown then: the line appears only while the vault is unlocked, and never in discreet mode |
 
 Backups: private contacts' Parley data is written only in the private-contacts section of a backup (which needs the
 vault unlocked), never in the Contact notes, Circle or Call time sections every backup has; a restore puts it back under

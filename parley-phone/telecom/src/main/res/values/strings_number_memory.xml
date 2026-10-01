@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Number memory on the call screen: what Parley remembers about a caller who isn't a contact. -->
+<resources>
+    <!-- Shown on the lock screen instead of what Parley remembers (names and notes appear only after unlocking). -->
+    <string name="number_memory_locked">Parley knows this number</string>
+    <!-- Post-call card button: opens the number's history in Parley, where the remembered line has its action. -->
+    <string name="number_memory_open">Open history</string>
+</resources>

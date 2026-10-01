@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Number memory: one quiet line about a number that isn't a contact, from what Parley keeps on this phone (deleted
+  contacts, snapshots, notes, the call history). Shown on the call screen, the keypad and the number's history.
+-->
+<resources>
+    <!-- %1$s: the deleted contact's name; %2$s: a month, "March" or "March 2024" -->
+    <string name="number_memory_deleted">You deleted %1$s in %2$s with this number</string>
+    <!-- %1$s: the deleted contact's name; %2$s: a month; %3$s: the contact whose relations still name them -->
+    <string name="number_memory_deleted_related">You deleted %1$s in %2$s · in %3$s’s relations</string>
+    <!-- %1$s: the name then; %2$s: a day, "12 March" -->
+    <string name="number_memory_snapshot">Was saved as %1$s until %2$s</string>
+    <!-- %1$s: the first line of a note written after a call with this number -->
+    <string name="number_memory_call_note">Your note after a call: “%1$s”</string>
+    <!-- %1$s: whose page the note is on; %2$s: the words around the number in the note -->
+    <string name="number_memory_note">In your note on %1$s: “%2$s”</string>
+    <!-- %1$s: whose page the note is on (the note has nothing but the number) -->
+    <string name="number_memory_note_plain">In your note on %1$s</string>
+    <!-- %1$s: the words around the number in a note whose owner isn't a contact any more -->
+    <string name="number_memory_note_someone">In one of your notes: “%1$s”</string>
+    <string name="number_memory_note_someone_plain">In one of your notes</string>
+    <!-- %1$s: the name the call history showed then; %2$s: a month -->
+    <string name="number_memory_archive_name">Showed as %1$s in your calls in %2$s</string>
+    <!-- %1$s: the chat app; %2$s: a month -->
+    <string name="number_memory_messaged">You messaged this number on %1$s in %2$s</string>
+    <!-- %1$s: when it was added, "14:05" or "Mon" -->
+    <string name="number_memory_to_call">On your To call list since %1$s</string>
+    <!-- %1$d: calls in the history, archive included; %2$s: the month of the newest -->
+    <plurals name="number_memory_calls">
+        <item quantity="one">%1$d call in your history · last in %2$s</item>
+        <item quantity="other">%1$d calls in your history · last in %2$s</item>
+    </plurals>
+    <!-- The keypad's line when a typed number matches no contact but Parley remembers it. -->
+    <string name="number_memory_not_in_contacts">Not in contacts</string>
+    <string name="number_memory_restore">Restore contact</string>
+    <string name="number_memory_open_note">Open note</string>
+    <string name="number_memory_open_snapshot">Open snapshot</string>
+    <string name="number_memory_open_to_call">Open To call</string>
+    <string name="number_memory_open_history">Open history</string>
+    <!-- One-time tip the first time a remembered line shows. -->
+    <string name="number_memory_tip">Parley remembers numbers from deleted contacts, notes and old calls, and shows them here. It stays on this phone.</string>
+</resources>
