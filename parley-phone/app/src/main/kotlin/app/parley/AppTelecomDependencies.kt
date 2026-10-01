@@ -55,7 +55,6 @@ import app.parley.common.calls.CallExtrasConfig
 import app.parley.common.calls.CallerHaptics
 import app.parley.common.extras.CallerChoice
 import app.parley.common.extras.CallerChoices
-import app.parley.common.people.ContactRef
 import app.parley.data.ScreenRequest
 import app.parley.common.VerdictKind
 import kotlinx.coroutines.Dispatchers
