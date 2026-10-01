@@ -32,9 +32,14 @@ android {
         applicationId = "com.wkhan.hexis.voice"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "0.2.0"
         resourceConfigurations += listOf("en")
+        // The sherpa-onnx engine ships native libs; arm64-v8a only keeps the APK small and covers
+        // effectively all modern devices (armeabi-v7a can be added later at a size cost).
+        ndk {
+            abiFilters += listOf("arm64-v8a")
+        }
     }
 
     signingConfigs {
@@ -74,6 +79,11 @@ android {
 dependencies {
     implementation(project(":bridge"))
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
+
+    // sherpa-onnx (k2-fsa) v1.13.8 — the offline streaming STT engine. Slimmed to arm64-v8a; bundles
+    // the Kotlin API (com.k2fsa.sherpa.onnx) + native libs. Apache-2.0. Resolved via the flatDir repo
+    // declared in settings.gradle.kts.
+    implementation(":sherpa-onnx-1.13.8-arm64@aar")
 
     testImplementation("junit:junit:4.13.2")
 }

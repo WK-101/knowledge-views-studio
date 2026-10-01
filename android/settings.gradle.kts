@@ -10,6 +10,8 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        // Local prebuilt AARs (e.g. the sherpa-onnx STT engine for :voice-addon).
+        flatDir { dirs("${rootDir}/voice-addon/libs") }
     }
 }
 
