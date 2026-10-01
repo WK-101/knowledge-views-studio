@@ -24,7 +24,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.widthIn
@@ -249,7 +248,12 @@ private fun CompactBottomBar(
                 // Tapping the active tab re-triggers it (Calendar → jump to today). Long-pressing the FIRST
                 // tab jumps to the configured home shortcut (default Inbox).
                 Box(
-                    Modifier.weight(1f).fillMaxHeight()
+                    // A 48dp min touch target (never fillMaxHeight): the bar lives in the Scaffold's
+                    // bottomBar slot, which offers an UNBOUNDED max height, and fillMaxHeight there makes
+                    // the cell — and the whole bar — expand to the full screen, hiding all content. A
+                    // bounded min keeps the cells tappable while the Row's heightIn(min=64) still lets the
+                    // bar grow for large fonts.
+                    Modifier.weight(1f).heightIn(min = 48.dp)
                         // Expose the active tab to TalkBack (the custom bar replaced NavigationBarItem, which
                         // would have announced this) and merge the icon+label into one Tab node.
                         .semantics(mergeDescendants = true) { this.selected = selected; this.role = Role.Tab }
