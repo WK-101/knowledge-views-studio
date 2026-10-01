@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- The one dangerous permission the core must never hold. Capture happens here, in a separate
+         process; only text crosses the bridge. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <uses-feature android:name="android.hardware.microphone" android:required="false" />
+
+    <!-- No launcher activity: the addon has no launchable surface. It is reached only via the bridge
+         and the consent deep-link from the core. -->
+    <application
+        android:allowBackup="false"
+        android:label="@string/app_name"
+        android:supportsRtl="true">
+
+        <!-- Bridge provider: discovered by the core via queryIntentServices on the PROVIDER action.
+             Verifies the caller itself (BridgeProviderService) before acting. -->
+        <service
+            android:name=".bridge.VoiceBridgeService"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.wkhan.hexis.bridge.PROVIDER" />
+            </intent-filter>
+            <meta-data
+                android:name="com.wkhan.hexis.bridge.capabilities"
+                android:value="voice.stt" />
+            <meta-data
+                android:name="com.wkhan.hexis.bridge.protocolVersion"
+                android:value="1" />
+        </service>
+
+        <!-- Microphone foreground service for push-to-talk capture. Started user-initiated from the
+             core's visible push-to-talk UI (Android 14 compliant). Not used by the echo dev engine. -->
+        <service
+            android:name=".capture.VoiceCaptureService"
+            android:exported="false"
+            android:foregroundServiceType="microphone" />
+
+        <!-- Consent surface (no launcher). Launched by the core to request the mic permission and
+             return a scoped grant token. -->
+        <activity
+            android:name=".consent.ConsentActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:label="@string/consent_title" />
+    </application>
+</manifest>
