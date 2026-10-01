@@ -162,7 +162,8 @@ object SettingsCatalog {
         // Call time
         e("call_time", "Reminders & limits", "Talk-time reminders, call-length limits and allowances", T,
             "timer", "beep", "duration", "limit", "allowance", "supervised", "parental", "talk time"),
-        e("plan_minutes", "Plan minutes per SIM", "Billing increments and an 80 % warning (in SIMs & plan minutes)", C, "billing", "minutes", "plan", "bundle", "tariff"),
+        at(SettingPlace.SIMS, "plan_minutes", "Plan minutes per SIM", "Billing increments and an 80 % warning (in SIMs & plan minutes)", C,
+            "billing", "minutes", "plan", "bundle", "tariff"),
 
         // Blocking & spam
         e("blocking", "Blocking & screening", "Allow and block rules, off hours and extra checks", B,
