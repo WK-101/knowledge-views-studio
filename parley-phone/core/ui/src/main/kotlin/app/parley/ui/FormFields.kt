@@ -44,19 +44,19 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 /**
- * Sizes of Parley's forms (the contact editor and other long forms): compact tonal fields stacked as one segmented
- * block per group, one icon per group in a start gutter, and an end column for the row's remove or expand button.
- * Dense but not cramped: fields are 48 dp (Material's dense text field) and every control keeps a 48 dp target.
+ * Sizes of Parley's forms (the contact editor and My card): tonal fields stacked as one segmented block per group,
+ * one icon per group in a start gutter that every line keeps (so all fields share one left edge), and an end column
+ * for the row's remove or expand button. The fields match the contact page's rows: 56 dp, 20 dp outer corners.
  */
 object FormTokens {
-    /** Width of the start gutter that holds a group's icon (24 dp icon + 12 dp gap). */
-    val gutter: Dp = 36.dp
+    /** Width of the start gutter that holds a group's icon (24 dp icon + 16 dp gap, as on the contact page). */
+    val gutter: Dp = 40.dp
 
     /** Width of the end column (a 48 dp icon button). */
     val endColumn: Dp = 48.dp
 
     /** Height of a single-line field (label inside, above the value), and so of the gutter icon's line. */
-    val fieldHeight: Dp = 48.dp
+    val fieldHeight: Dp = 56.dp
 
     /** Gap between the fields of one group: reads as a hairline divider, not as separate boxes. */
     val segmentGap: Dp = 2.dp
@@ -64,12 +64,12 @@ object FormTokens {
     /** Gap between groups: the page background shows through, enough to tell groups apart. */
     val groupGap: Dp = 8.dp
 
-    /** Corner of a group's outer edges and of the joins inside it. */
-    val outerCorner: Dp = 16.dp
+    /** Corner of a group's outer edges (the contact page's groups) and of the joins inside it. */
+    val outerCorner: Dp = 20.dp
     val innerCorner: Dp = 4.dp
 
-    /** The photo in a form's header, beside the name fields. */
-    val headerPhoto: Dp = 80.dp
+    /** The photo at the top of a form: a compact avatar, centred like the contact page's header. */
+    val headerPhoto: Dp = 64.dp
 
     /** Widest a value's type selector ("Mobile ▾") gets inside its field before it ellipsises. */
     val typeMaxWidth: Dp = 96.dp
@@ -96,7 +96,7 @@ fun formFieldShape(index: Int, count: Int, side: FieldSide = FieldSide.Whole): S
 }
 
 /**
- * A calm, filled-tonal text field, 48 dp high: no underline or outline at rest, the label inside (small, above the
+ * A calm, filled-tonal text field, 56 dp high: no underline or outline at rest, the label inside (small, above the
  * value once there is one), a 2 dp ring while focused (or in error). [supporting] sits under the field in
  * [supportingColor] (the theme's variant colour when null), so a group of fields keeps reading as one block. It grows
  * with the font size and with [minLines].
@@ -135,8 +135,8 @@ fun ParleyFormField(
     val base = LocalTextStyle.current.copy(color = cs.onSurface)
     val style = if (forceLtr) base.copy(textDirection = TextDirection.Ltr) else base
     Column(modifier.animateContentSize(ParleyMotion.fastSpatial())) {
-        // BasicTextField with the filled decoration, so the padding can be Material's dense one (4 dp above the
-        // label, 4 dp under the value): 48 dp instead of TextField's fixed 56 dp minimum.
+        // BasicTextField with the filled decoration, so the padding is ours (8 dp above the label and under the
+        // value): 56 dp like the contact page's rows, and the field still grows with the font.
         BasicTextField(
             value = value,
             onValueChange = onValueChange,
@@ -174,9 +174,9 @@ fun ParleyFormField(
     }
 }
 
-/** Material's dense padding (4 dp above the label, 4 dp under the value); a little more for multi-line notes. */
+/** 8 dp above the label and under the value (56 dp with one line); a little more for multi-line notes. */
 private fun densePadding(minLines: Int): PaddingValues {
-    val v = if (minLines > 1) Spacing.s else Spacing.xs
+    val v = if (minLines > 1) Spacing.m else Spacing.s
     return TextFieldDefaults.contentPaddingWithLabel(start = Spacing.l, end = Spacing.m, top = v, bottom = v)
 }
 

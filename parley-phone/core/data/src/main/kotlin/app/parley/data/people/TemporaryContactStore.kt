@@ -152,12 +152,25 @@ class TemporaryContactStore(private val c: DataContainer) {
     }
 
     /**
-     * Deletes what expired by [now] (see the class rules). Returns notices for contacts that were only partly
-     * deleted, or not at all because they had been merged into someone else.
+     * Gives the temporary contact [lookupKey] a new date ([expiresAt]), keeping everything else it records ("Keep 7
+     * more days" when it was due). Does nothing when it isn't temporary (any more).
      */
-    suspend fun expire(now: Long = System.currentTimeMillis()): List<Notice> = withContext(Dispatchers.IO) {
+    suspend fun extendTo(lookupKey: String, expiresAt: Long) = mutex.withLock {
+        val t = c.meta.temporary(lookupKey) ?: return@withLock
+        c.meta.setTemporary(t.copy(expiresAt = expiresAt))
+    }
+
+    /** The temporary contacts whose time is up at [now], by lookup key, with their names when known. */
+    suspend fun due(now: Long = System.currentTimeMillis()): List<TemporaryContactEntity> = withContext(Dispatchers.IO) { c.meta.expiredContacts(now) }
+
+    /**
+     * Deletes what expired by [now] (see the class rules), or only those of it in [only] (lookup keys: the ones the
+     * user just confirmed). Returns notices for contacts that were only partly deleted, or not at all because they had
+     * been merged into someone else.
+     */
+    suspend fun expire(now: Long = System.currentTimeMillis(), only: Set<String>? = null): List<Notice> = withContext(Dispatchers.IO) {
         val notices = ArrayList<Notice>()
-        for (t in c.meta.expiredContacts(now)) {
+        for (t in c.meta.expiredContacts(now).filter { only == null || it.lookupKey in only }) {
             mutex.withLock {
                 val stored = TemporaryExpiry.decodeIds(t.rawIds)
                 val current: Set<Long> = if (stored != null) {

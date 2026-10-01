@@ -32,6 +32,9 @@ object PeopleRoutes {
 
     @Serializable data object Me : Destination
 
+    /** My card in the contact editor (its My card mode). */
+    @Serializable data object MeEdit : Destination
+
     fun label(title: String): Destination = Label(title)
     fun editRaw(contactId: Long, rawId: Long): Destination = EditRaw(contactId, rawId)
 }
@@ -54,5 +57,8 @@ fun NavGraphBuilder.peopleGraph(nav: NavController) {
     composable<PeopleRoutes.WhoCanSee> { WhoCanSeeScreen(appVm(), back, open) }
     composable<PeopleRoutes.PrivateNames> { PrivateNamesScreen(appVm(), back) }
     composable<PeopleRoutes.Diagnostics> { DiagnosticsScreen(appVm(), back) }
-    composable<PeopleRoutes.Me> { MeCardScreen(appVm(), back) }
+    composable<PeopleRoutes.Me> { MeCardScreen(appVm(), back, open) }
+    composable<PeopleRoutes.MeEdit> {
+        ContactEditScreen(appVm(), contactId = null, prefillName = "", prefillPhone = "", prefillEmail = "", addPhone = "", meCard = true, done = { back() })
+    }
 }

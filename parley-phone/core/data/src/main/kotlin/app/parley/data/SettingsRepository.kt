@@ -132,6 +132,7 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
             callLogRetentionDays = this[K.retention] ?: d.callLogRetentionDays,
             contactRowActions = this[K.rowActions] ?: d.contactRowActions,
             mirrorRelations = this[K.mirrorRelations] ?: d.mirrorRelations,
+            askBeforeDeletingTemporary = this[K.askTempDelete] ?: d.askBeforeDeletingTemporary,
             navTabs = NavTabs.decode(this[K.navTabs]),
             recentsLayout = enumOr(this[K.recentsLayout], d.recentsLayout),
             recentsStyle = enumOr(this[K.recentsStyle], d.recentsStyle),
@@ -178,6 +179,7 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
         this[K.retention] = s.callLogRetentionDays
         this[K.rowActions] = s.contactRowActions
         this[K.mirrorRelations] = s.mirrorRelations
+        this[K.askTempDelete] = s.askBeforeDeletingTemporary
         this[K.navTabs] = s.navTabs.encode()
         this[K.recentsLayout] = s.recentsLayout.name
         this[K.recentsStyle] = s.recentsStyle.name
@@ -226,6 +228,7 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
         val retention = intPreferencesKey("call_log_retention_days")
         val rowActions = booleanPreferencesKey("contact_row_actions")
         val mirrorRelations = booleanPreferencesKey("mirror_relations")
+        val askTempDelete = booleanPreferencesKey("ask_before_deleting_temporary")
         val navTabs = stringPreferencesKey("nav_tabs")
         val recentsLayout = stringPreferencesKey("recents_layout")
         val recentsStyle = stringPreferencesKey("recents_style")

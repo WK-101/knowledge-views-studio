@@ -65,7 +65,6 @@ import app.parley.data.GroupInfo
 import app.parley.messaging.IntroduceStart
 import app.parley.ui.backup.rememberBackupFirst
 import app.parley.ui.people.CopyAsTextMenuItem
-import app.parley.ui.people.MoveToPrivateDialog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -204,8 +203,9 @@ fun SelectionBar(vm: AppViewModel) {
     if (confirmPrivate) {
         // The private ones already are: only the device contacts move.
         val moving = BulkActions.targets(BulkAction.MAKE_PRIVATE, ids).ids
-        MoveToPrivateDialog(vm, moving, onDismiss = { confirmPrivate = false }) { vm.selection.value = emptySet() }
+        MoveToPrivateDialog(vm, moving, chosen.associate { it.id to it.displayName }, onDismiss = { confirmPrivate = false })
     }
+    PrivateMoveProgress(vm)
     if (confirmVisible) {
         val visible = BulkActions.targets(BulkAction.MAKE_VISIBLE, ids).ids
         ConfirmDialog(

@@ -41,6 +41,16 @@ class MeCardStore(context: Context) {
     /** Parley's own copy (empty until you fill it in or it was migrated). */
     val card: StateFlow<MeCard> = _card.asStateFlow()
 
+    private val _shareParts = MutableStateFlow(MeCards.decodeParts(prefs.getString(K_PARTS, null)))
+
+    /** What the QR code and the vCard include, as chosen in My card's editor (name and numbers until then). */
+    val shareParts: StateFlow<Set<MeCards.Part>> = _shareParts.asStateFlow()
+
+    fun setShareParts(parts: Set<MeCards.Part>) {
+        prefs.edit { putString(K_PARTS, MeCards.encodeParts(parts)) }
+        _shareParts.value = parts
+    }
+
     /** One-time import of the old "My details" (name and number). Returns true when something was imported. */
     fun migrateFrom(name: String, number: String): Boolean {
         if (prefs.getBoolean(K_MIGRATED, false)) return false
@@ -119,5 +129,6 @@ class MeCardStore(context: Context) {
     private companion object {
         const val K_CARD = "card"
         const val K_MIGRATED = "migrated_my_details"
+        const val K_PARTS = "share_parts"
     }
 }

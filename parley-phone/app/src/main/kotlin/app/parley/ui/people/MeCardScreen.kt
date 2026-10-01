@@ -12,26 +12,28 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.Notes
 import androidx.compose.material.icons.rounded.AccountCircle
-import androidx.compose.material.icons.rounded.AddCircle
+import androidx.compose.material.icons.rounded.Call
+import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.Email
+import androidx.compose.material.icons.rounded.Language
+import androidx.compose.material.icons.rounded.Place
 import androidx.compose.material.icons.rounded.QrCode2
 import androidx.compose.material.icons.rounded.QrCodeScanner
-import androidx.compose.material.icons.rounded.RemoveCircle
 import androidx.compose.material.icons.rounded.Share
-import androidx.compose.material3.Button
+import androidx.compose.material.icons.rounded.Business
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
-import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -48,9 +50,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalResources
-import androidx.compose.ui.text.input.KeyboardCapitalization
-import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -58,13 +58,11 @@ import app.parley.AppViewModel
 import app.parley.NavEvent
 import app.parley.common.people.MeCard
 import app.parley.common.people.MeCards
-import app.parley.data.messaging.MyDetails
 import app.parley.ui.Avatar
-import app.parley.ui.CallColors
 import app.parley.ui.SegmentedGroup
+import app.parley.ui.Spacing
 import app.parley.ui.avatarSize
 import app.parley.ui.qr.QrRoutes
-import app.parley.ui.SettingsScaffold
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.EncodeHintType
 import com.google.zxing.qrcode.QRCodeWriter
@@ -72,11 +70,16 @@ import java.io.File
 import androidx.compose.ui.res.stringResource
 import app.parley.R
 import app.parley.ui.DataL10n
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import app.parley.ui.ParleyDialog
+import app.parley.ui.ParleyScaffold
+import app.parley.ui.ParleyTopBar
 import app.parley.ui.showMessage
 import app.parley.ui.ParleyListItem
+import app.parley.ui.common.Intents
+import app.parley.ui.contact.ActionTile
+import app.parley.ui.contact.GroupDataRow
+import app.parley.ui.contact.InfoRow
+import app.parley.ui.contact.mePartLabel
 
 /** Imports the old "My details" once, so the card starts with what was typed there. */
 @Composable
@@ -88,21 +91,21 @@ private fun MigrateMyDetails(vm: AppViewModel) {
 }
 
 /**
- * "My card" at the top of Contacts. v3.4: the row opens the editor like any contact; the QR button on its
- * end shows the QR code (with Share and Edit in it). An empty card has no QR button, as there is nothing to show.
+ * "My card" at the top of Contacts. The row opens the card (laid out like a contact's page); the QR button on its end
+ * shows the QR code (with Share and Edit in it). An empty card has no QR button, as there is nothing to show.
  */
 @Composable
 fun MeCardRow(vm: AppViewModel, open: (Destination) -> Unit) {
     MigrateMyDetails(vm)
     val own by vm.c.people.me.card.collectAsStateWithLifecycle()
+    val parts by vm.c.people.me.shareParts.collectAsStateWithLifecycle()
     val profile by produceState<MeCard?>(null) { value = vm.c.people.me.profile() }
     val card = remember(own, profile) { MeCards.merge(own, profile) }
     val me = stringResource(R.string.me_short)
     val myCard = stringResource(R.string.me_title)
     var showQr by rememberSaveable { mutableStateOf(false) }
-    val edit = { open(PeopleRoutes.Me) }
     ParleyListItem(
-        modifier = Modifier.clickable(onClickLabel = stringResource(R.string.me_edit), onClick = edit),
+        modifier = Modifier.clickable(onClickLabel = stringResource(R.string.me_open)) { open(PeopleRoutes.Me) },
         leadingContent = { Avatar(card.name.ifBlank { me }, null, avatarSize()) },
         headlineContent = { Text(card.name.ifBlank { myCard }) },
         supportingContent = {
@@ -112,129 +115,139 @@ fun MeCardRow(vm: AppViewModel, open: (Destination) -> Unit) {
             )
         },
         trailingContent = if (card.isEmpty) null else ({
-            // Its own 48dp target, so a tap on the QR code never opens the editor.
+            // Its own 48dp target, so a tap on the QR code never opens the card.
             IconButton({ showQr = true }) { Icon(Icons.Rounded.QrCode2, stringResource(R.string.me_show_qr), tint = MaterialTheme.colorScheme.primary) }
         }),
     )
-    if (showQr) MeQrDialog(card, onDismiss = { showQr = false }, onEdit = { showQr = false; edit() }, onScan = { showQr = false; vm.navigate(NavEvent.Route(QrRoutes.Scan)) })
+    if (showQr) {
+        MeQrDialog(
+            card, parts, onDismiss = { showQr = false }, onEdit = { showQr = false; open(PeopleRoutes.MeEdit) },
+            onScan = { showQr = false; vm.navigate(NavEvent.Route(QrRoutes.Scan)) },
+        )
+    }
 }
 
 /**
- * Your own card. Parley keeps it (private to Parley, like "My details" before), shows it with the phone's
- * profile ("Me") when there is one, and shares it as a vCard or a QR code with only the parts you choose. Its name
- * and first number also fill in "Send my details".
+ * Your own card, laid out like a contact's page: a compact header (monogram, name, job) with the QR code, Share and
+ * Edit tiles, then Contact info as one group, the private note, and where the details come from. Editing opens the
+ * contact editor in its My card mode ([PeopleRoutes.MeEdit]), the same form as every contact. Parley keeps the card
+ * (private to Parley), shows it with the phone's profile ("Me") when there is one, and shares it as a vCard or a QR
+ * code with the parts chosen in the editor. Its name and first number also fill in "Send my details".
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MeCardScreen(vm: AppViewModel, back: () -> Unit) {
+fun MeCardScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit) {
     MigrateMyDetails(vm)
     val context = LocalContext.current
-    val res = LocalResources.current
     val store = vm.c.people.me
     val own by store.card.collectAsStateWithLifecycle()
+    val parts by store.shareParts.collectAsStateWithLifecycle()
     val profile by produceState<MeCard?>(null) { value = store.profile() }
-    var draft by remember(own) { mutableStateOf(own) }
+    val card = remember(own, profile) { MeCards.merge(own, profile) }
     var showQr by rememberSaveable { mutableStateOf(false) }
-    val merged = remember(draft, profile) { MeCards.merge(draft, profile) }
-    val dirty = draft.cleaned() != own
+    val edit = { open(PeopleRoutes.MeEdit) }
 
-    fun save() {
-        val c = draft.cleaned()
-        store.save(c)
-        // "Send my details" keeps working from the card.
-        vm.c.messaging.setMyDetails(MyDetails(c.name, c.firstNumber.orEmpty()))
-        vm.toast(res.getString(R.string.me_saved))
-    }
-
-    SettingsScaffold(stringResource(R.string.me_title), back, actions = {
-        TextButton(::save, enabled = dirty) { Text(stringResource(R.string.dc_save)) }
-    }) {
-        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Avatar(merged.name.ifBlank { stringResource(R.string.me_short) }, null, 96.dp)
-            Text(merged.name.ifBlank { stringResource(R.string.me_your_name) }, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(top = 12.dp))
-            merged.firstNumber?.let { Text(DataL10n.ltr(it), color = MaterialTheme.colorScheme.onSurfaceVariant) }
-            Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button({ showQr = true }, enabled = !merged.isEmpty) {
-                    Icon(Icons.Rounded.QrCode2, null, Modifier.size(18.dp))
-                    Text("  " + stringResource(R.string.me_qr))
-                }
-                OutlinedButton({ shareVcard(context, merged, MeCards.Part.entries.toSet()) }, enabled = !merged.isEmpty) {
-                    Icon(Icons.Rounded.Share, null, Modifier.size(18.dp))
-                    Text("  " + stringResource(R.string.me_share))
+    ParleyScaffold(
+        topBar = {
+            ParleyTopBar(stringResource(R.string.me_title), onBack = back, actions = {
+                IconButton(edit) { Icon(Icons.Rounded.Edit, stringResource(R.string.me_edit)) }
+            })
+        },
+    ) { p ->
+        Column(
+            Modifier.fillMaxSize().padding(p).verticalScroll(rememberScrollState()).padding(bottom = Spacing.l),
+            verticalArrangement = Arrangement.spacedBy(Spacing.s),
+        ) {
+            MeHeader(card, onQr = { showQr = true }, onShare = { shareVcard(context, card, parts) }, onEdit = edit)
+            if (!card.isEmpty) MeContactInfo(card)
+            if (card.note.isNotBlank()) {
+                SegmentedGroup(stringResource(R.string.me_private_note)) {
+                    item {
+                        InfoRow(
+                            leading = { Icon(Icons.AutoMirrored.Rounded.Notes, null) },
+                            headline = { Text(card.note) },
+                            supporting = { Text(stringResource(R.string.me_private_note_hint)) },
+                        )
+                    }
                 }
             }
-        }
-        if (profile != null) {
-            val profileTitle = stringResource(R.string.me_profile_title)
-            val profileText = stringResource(R.string.me_profile_text)
             SegmentedGroup {
+                // What the QR code and the vCard include; changed in the editor.
                 item {
-                    ListItem(
-                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                        leadingContent = { Icon(Icons.Rounded.AccountCircle, null) },
-                        headlineContent = { Text(profileTitle) },
-                        supportingContent = { Text(profileText) },
+                    val shared = MeCards.Part.entries.filter { it in parts }.map { mePartLabel(it) }
+                    InfoRow(
+                        modifier = Modifier.clickable(onClickLabel = stringResource(R.string.me_edit), onClick = edit),
+                        leading = { Icon(Icons.Rounded.QrCode2, null) },
+                        headline = { Text(stringResource(R.string.me_share_includes)) },
+                        supporting = { Text(shared.ifEmpty { listOf(stringResource(R.string.me_share_nothing)) }.joinToString(", ")) },
                     )
                 }
-            }
-        }
-        SegmentedGroup(stringResource(R.string.me_you)) {
-            item { Box16 { OutlinedTextField(draft.name, { draft = draft.copy(name = it) }, label = { Text(stringResource(R.string.me_name)) }, singleLine = true, modifier = Modifier.fillMaxWidth(), keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words)) } }
-            item { Box16 { OutlinedTextField(draft.company, { draft = draft.copy(company = it) }, label = { Text(stringResource(R.string.me_company)) }, singleLine = true, modifier = Modifier.fillMaxWidth()) } }
-            item { Box16 { OutlinedTextField(draft.title, { draft = draft.copy(title = it) }, label = { Text(stringResource(R.string.me_job_title)) }, singleLine = true, modifier = Modifier.fillMaxWidth()) } }
-        }
-        ListEditor(stringResource(R.string.me_numbers), stringResource(R.string.me_number), stringResource(R.string.me_add_number), draft.phones, KeyboardType.Phone, suggest = { withContext(Dispatchers.IO) { vm.c.sims.ownNumbers().firstOrNull() } }) { draft = draft.copy(phones = it) }
-        ListEditor(stringResource(R.string.me_email), stringResource(R.string.me_email_address), stringResource(R.string.me_add_email), draft.emails, KeyboardType.Email) { draft = draft.copy(emails = it) }
-        ListEditor(stringResource(R.string.me_websites), stringResource(R.string.me_website), stringResource(R.string.me_add_website), draft.websites, KeyboardType.Uri) { draft = draft.copy(websites = it) }
-        SegmentedGroup(stringResource(R.string.me_more)) {
-            item { Box16 { OutlinedTextField(draft.address, { draft = draft.copy(address = it) }, label = { Text(stringResource(R.string.me_address)) }, modifier = Modifier.fillMaxWidth(), minLines = 2) } }
-            item {
-                Box16 {
-                    OutlinedTextField(
-                        draft.note, { draft = draft.copy(note = it) }, label = { Text(stringResource(R.string.me_private_note)) }, modifier = Modifier.fillMaxWidth(), minLines = 2,
-                        supportingText = { Text(stringResource(R.string.me_private_note_hint)) },
-                    )
+                if (profile != null) {
+                    item {
+                        InfoRow(
+                            leading = { Icon(Icons.Rounded.AccountCircle, null) },
+                            headline = { Text(stringResource(R.string.me_profile_title)) },
+                            supporting = { Text(stringResource(R.string.me_profile_text)) },
+                        )
+                    }
                 }
             }
+            // Android's emergency information and an ICE label (the lock screen's Emergency button stays Android's).
+            EmergencyInfoGroup(vm)
+            Text(
+                stringResource(R.string.me_footer),
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = Spacing.xxl),
+            )
         }
-        // Android's emergency information and an ICE label (the lock screen's Emergency button stays Android's).
-        EmergencyInfoGroup(vm)
-        Text(
-            stringResource(R.string.me_footer),
-            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 32.dp),
-        )
     }
     // "Scan theirs" right from your own code.
-    if (showQr) MeQrDialog(merged, onDismiss = { showQr = false }, onScan = { showQr = false; vm.navigate(NavEvent.Route(QrRoutes.Scan)) })
+    if (showQr) MeQrDialog(card, parts, onDismiss = { showQr = false }, onScan = { showQr = false; vm.navigate(NavEvent.Route(QrRoutes.Scan)) })
 }
 
+/** The card's compact header, like a contact page's: monogram, name, job line, then the QR code, Share and Edit tiles. */
 @Composable
-private fun Box16(content: @Composable () -> Unit) {
-    Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) { content() }
-}
-
-@Composable
-private fun ListEditor(title: String, label: String, addLabel: String, values: List<String>, keyboard: KeyboardType, suggest: (suspend () -> String?)? = null, onChange: (List<String>) -> Unit) {
-    val rows = values.ifEmpty { listOf("") }
-    LaunchedEffect(Unit) {
-        if (suggest != null && values.isEmpty()) runCatching { suggest() }.getOrNull()?.takeIf { it.isNotBlank() }?.let { onChange(listOf(it)) }
+private fun MeHeader(card: MeCard, onQr: () -> Unit, onShare: () -> Unit, onEdit: () -> Unit) {
+    Column(Modifier.fillMaxWidth().padding(horizontal = Spacing.l), horizontalAlignment = Alignment.CenterHorizontally) {
+        Avatar(card.name.ifBlank { stringResource(R.string.me_short) }, null, 96.dp, modifier = Modifier.padding(top = Spacing.xs))
+        Text(
+            card.name.ifBlank { stringResource(R.string.me_your_name) }, style = MaterialTheme.typography.headlineSmall,
+            textAlign = TextAlign.Center, modifier = Modifier.padding(top = Spacing.m),
+        )
+        val job = listOf(card.title, card.company).filter { it.isNotBlank() }.joinToString(" · ")
+        val line = if (card.isEmpty) stringResource(R.string.me_empty) else job
+        if (line.isNotEmpty()) {
+            Text(line, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center, modifier = Modifier.padding(top = Spacing.xxs))
+        }
+        Row(Modifier.fillMaxWidth().padding(top = Spacing.m), horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
+            ActionTile(Icons.Rounded.QrCode2, stringResource(R.string.me_qr), enabled = !card.isEmpty, onClick = onQr)
+            ActionTile(Icons.Rounded.Share, stringResource(R.string.me_share), enabled = !card.isEmpty, onClick = onShare)
+            ActionTile(Icons.Rounded.Edit, stringResource(R.string.me_edit_short), enabled = true, onClick = onEdit)
+        }
     }
-    SegmentedGroup(title) {
-        rows.forEachIndexed { i, v ->
+}
+
+/** Numbers, emails, work, websites and the address as one "Contact info" group; a tap copies, like on a contact. */
+@Composable
+private fun MeContactInfo(card: MeCard) {
+    val context = LocalContext.current
+    SegmentedGroup(stringResource(R.string.contact_page_info)) {
+        card.phones.forEachIndexed { i, n ->
             item {
-                Row(Modifier.padding(start = 16.dp, end = 4.dp, top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    OutlinedTextField(
-                        v, { n -> onChange(rows.toMutableList().also { it[i] = n }) }, label = { Text(label) }, singleLine = true,
-                        modifier = Modifier.weight(1f), keyboardOptions = KeyboardOptions(keyboardType = keyboard),
-                    )
-                    IconButton({ onChange(rows.filterIndexed { j, _ -> j != i }) }) { Icon(Icons.Rounded.RemoveCircle, stringResource(R.string.me_remove), tint = MaterialTheme.colorScheme.error) }
-                }
+                val copy = { Intents.copy(context, n, sensitive = false) }
+                GroupDataRow(Icons.Rounded.Call, i == 0, n, null, onClick = copy, headline = { Text(DataL10n.ltr(n)) })
             }
         }
-        item {
-            TextButton({ onChange(rows + "") }, Modifier.padding(horizontal = 8.dp)) {
-                Icon(Icons.Rounded.AddCircle, null, Modifier.size(20.dp), tint = CallColors.Accept)
-                Text("  " + addLabel)
-            }
+        card.emails.forEachIndexed { i, e ->
+            item { GroupDataRow(Icons.Rounded.Email, i == 0, e, null, onClick = { Intents.copy(context, e, sensitive = false) }) }
+        }
+        val job = listOf(card.title, card.company).filter { it.isNotBlank() }.joinToString(" · ")
+        if (job.isNotEmpty()) item { GroupDataRow(Icons.Rounded.Business, true, job, null, onClick = { Intents.copy(context, job, sensitive = false) }) }
+        card.websites.forEachIndexed { i, w ->
+            item { GroupDataRow(Icons.Rounded.Language, i == 0, w, null, onClick = { Intents.copy(context, w, sensitive = false) }) }
+        }
+        if (card.address.isNotBlank()) {
+            item { GroupDataRow(Icons.Rounded.Place, true, card.address, null, onClick = { Intents.copy(context, card.address, sensitive = false) }) }
         }
     }
 }
@@ -252,11 +265,20 @@ private fun shareVcard(context: Context, card: MeCard, parts: Set<MeCards.Part>)
     }.onFailure { showMessage(context, context.getString(R.string.me_share_failed)) }
 }
 
-/** The card as a QR code (made on the phone), with the parts to include. [onEdit]: Q3, an Edit button to the editor. */
+/**
+ * The card as a QR code (made on the phone). It starts with the parts chosen in the editor ([initialParts]); ticking
+ * others here changes only this code. [onEdit]: an Edit button to the editor.
+ */
 @Composable
-internal fun MeQrDialog(card: MeCard, onDismiss: () -> Unit, onEdit: (() -> Unit)? = null, onScan: (() -> Unit)? = null) {
+internal fun MeQrDialog(
+    card: MeCard,
+    initialParts: Set<MeCards.Part>,
+    onDismiss: () -> Unit,
+    onEdit: (() -> Unit)? = null,
+    onScan: (() -> Unit)? = null,
+) {
     val context = LocalContext.current
-    val parts = remember { mutableStateListOf(MeCards.Part.NAME, MeCards.Part.PHONES) }
+    val parts = remember { mutableStateListOf<MeCards.Part>().apply { addAll(MeCards.Part.entries.filter { it in initialParts }) } }
     val available = MeCards.Part.entries.filter { p ->
         when (p) {
             MeCards.Part.NAME -> card.name.isNotBlank()
@@ -285,16 +307,7 @@ internal fun MeQrDialog(card: MeCard, onDismiss: () -> Unit, onEdit: (() -> Unit
                 available.forEach { p ->
                     Row(Modifier.fillMaxWidth().clickable { if (p in parts) parts.remove(p) else parts.add(p) }, verticalAlignment = Alignment.CenterVertically) {
                         Checkbox(p in parts, { if (it) parts.add(p) else parts.remove(p) })
-                        Text(
-                            when (p) {
-                                MeCards.Part.NAME -> stringResource(R.string.me_name)
-                                MeCards.Part.PHONES -> stringResource(R.string.me_numbers)
-                                MeCards.Part.EMAILS -> stringResource(R.string.me_email)
-                                MeCards.Part.WORK -> stringResource(R.string.me_part_work)
-                                MeCards.Part.WEBSITES -> stringResource(R.string.me_websites)
-                                MeCards.Part.ADDRESS -> stringResource(R.string.me_address)
-                            },
-                        )
+                        Text(mePartLabel(p))
                     }
                 }
             }

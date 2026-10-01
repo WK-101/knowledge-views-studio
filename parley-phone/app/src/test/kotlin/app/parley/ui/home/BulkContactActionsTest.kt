@@ -120,6 +120,40 @@ class BulkContactActionsTest {
         assertNull(c.vault.summary(other))
     }
 
+    @Test fun move_to_private_moves_every_device_contact_and_lists_the_ones_it_couldnt() = runBlocking {
+        val bob = bob()
+        val cy = c.contacts.save(
+            null, ContactDetails(given = "Cy", phones = listOf(DataItem(null, "+1 202 555 0199", Phone.TYPE_MOBILE))), null, null, false,
+        )!!.contactId!!
+        val ada = ContactRef.Private(ada()).navId
+        // A contact deleted elsewhere after it was selected.
+        val gone = 9_999L
+        val progress = ArrayList<Pair<Int, Int>>()
+
+        val r = bulk.makePrivate(listOf(bob, cy, ada, gone), mapOf(gone to "Dee")) { d, t -> progress += d to t }
+
+        // Ada was private already; Bob and Cy moved; Dee is listed, the rest went on without her.
+        assertEquals(2, r.moved)
+        assertEquals(listOf(gone to "Dee"), r.failed)
+        assertEquals(setOf("Ada", "Bob", "Cy"), c.vault.summariesNow().map { it.name }.toSet())
+        assertTrue(c.contacts.snapshot().none { it.displayName == "Bob" || it.displayName == "Cy" })
+        assertEquals(3 to 3, progress.last())
+        assertEquals(0 to 3, progress.first())
+    }
+
+    @Test fun a_bulk_move_runs_in_the_apps_scope_after_the_dialog_is_gone() = runBlocking {
+        val bob = bob()
+        // The runner outlives whatever started it (the confirmation dialog used to cancel its own move).
+        val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob())
+        val moves = PrivateMoves(c, scope)
+        val done = kotlinx.coroutines.CompletableDeferred<BulkContactActions.MovedPrivate>()
+        moves.start(null, listOf(bob), mapOf(bob to "Bob"), onFinished = { done.complete(it) }, onError = { done.completeExceptionally(it) })
+        val r = kotlinx.coroutines.withTimeout(20_000) { done.await() }
+        assertEquals(1, r.moved)
+        assertNull("Nothing left to show when all moved", moves.state.value)
+        scope.cancel()
+    }
+
     @Test fun a_new_date_keeps_the_keep_call_history_choice() = runBlocking {
         val bob = bob()
         // Both made temporary earlier with "Also delete call history" off.

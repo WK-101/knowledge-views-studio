@@ -838,4 +838,7 @@
     <string name="set_recents_remember_filter_title">Remember the Recents filter</string>
     <string name="set_recents_remember_filter_summary">Recents opens on the filter you used last, such as Unknown or Contacts</string>
     <string name="set_recents_remember_filter_kw">filter, chips, unknown callers, unknown numbers, contacts only, remember, last filter</string>
+    <string name="set_temp_ask_first_title">Ask before deleting temporary contacts</string>
+    <string name="set_temp_ask_first_summary">When their time is up, one notification asks: delete, keep 7 more days or keep</string>
+    <string name="set_temp_ask_first_kw">temporary, temp, expire, expiry, confirm, ask, delete automatically, keep</string>
 </resources>

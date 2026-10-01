@@ -434,6 +434,7 @@ internal fun settingRoute(e: SettingEntry): Destination = when (e.place) {
     SettingPlace.CALL_TIME -> Routes.CallTime
     SettingPlace.BACKUP -> Routes.Backup
     SettingPlace.SYNC -> Routes.Sync
+    SettingPlace.TEMPORARY -> Routes.Temporary
 }
 
 /** Settings that don't exist on this phone, left out of search. */

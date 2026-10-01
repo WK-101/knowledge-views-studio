@@ -14,8 +14,17 @@ import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.foundation.clickable
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.AssistChip
-import androidx.compose.material3.AssistChipDefaults
+import androidx.compose.material3.Surface
+import androidx.compose.material3.minimumInteractiveComponentSize
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextOverflow
+import app.parley.ui.ParleyShapes
+import app.parley.ui.temporary.timeLeft
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -51,8 +60,11 @@ fun PrivateBadge(modifier: Modifier = Modifier) {
 }
 
 /**
- * The header's status chips: "Private · hidden from other apps" and "Temporary · deletes itself on …". The only
- * place the page looks different for a variant; a tap opens the matching choice in "Settings for this contact".
+ * The header's status chips, each one short line: "Private" and "Temporary · 5 days left". The long form ("hidden from
+ * other apps", "deletes itself on 3 May") is what TalkBack reads and what the options a tap opens say; squeezed into
+ * the chip it wrapped onto two cramped lines. The chips sit side by side and wrap to a second row only when the
+ * header is too narrow for both. The only place the page looks different for a variant; a tap opens the matching
+ * choice in "Settings for this contact".
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -60,17 +72,44 @@ fun VariantChips(variants: ContactVariants, onClick: (VariantChip) -> Unit, modi
     val chips = variants.chips
     if (chips.isEmpty()) return
     val context = LocalContext.current
-    FlowRow(modifier.padding(top = Spacing.xs), horizontalArrangement = Arrangement.spacedBy(Spacing.xs, Alignment.CenterHorizontally)) {
+    val res = LocalResources.current
+    FlowRow(
+        modifier.padding(top = Spacing.s),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.s, Alignment.CenterHorizontally),
+        verticalArrangement = Arrangement.spacedBy(Spacing.xs),
+    ) {
         chips.forEach { chip ->
-            val (icon, text) = when (chip) {
-                VariantChip.Private -> Icons.Rounded.Lock to stringResource(R.string.contact_variant_private)
-                is VariantChip.Temporary -> Icons.Rounded.Timer to stringResource(R.string.contact_variant_temporary, Format.fullDate(context, chip.expiresAt))
+            when (chip) {
+                VariantChip.Private -> VariantChipView(
+                    Icons.Rounded.Lock, stringResource(R.string.contact_variant_private_short), stringResource(R.string.contact_variant_private),
+                ) { onClick(chip) }
+                is VariantChip.Temporary -> VariantChipView(
+                    Icons.Rounded.Timer,
+                    stringResource(R.string.contact_variant_temporary_short, timeLeft(res, chip.expiresAt)),
+                    stringResource(R.string.contact_variant_temporary, Format.fullDate(context, chip.expiresAt)),
+                ) { onClick(chip) }
             }
-            AssistChip(
-                onClick = { onClick(chip) },
-                label = { Text(text, style = MaterialTheme.typography.labelMedium) },
-                leadingIcon = { Icon(icon, null, Modifier.size(AssistChipDefaults.IconSize)) },
-            )
+        }
+    }
+}
+
+/** One compact tonal chip: icon and one line of text, 32 dp tall inside a 48 dp target. */
+@Composable
+private fun VariantChipView(icon: ImageVector, text: String, description: String, onClick: () -> Unit) {
+    Surface(
+        onClick = onClick,
+        shape = ParleyShapes.pill,
+        color = MaterialTheme.colorScheme.secondaryContainer,
+        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+        modifier = Modifier.minimumInteractiveComponentSize().semantics { contentDescription = description },
+    ) {
+        Row(
+            Modifier.heightIn(min = 32.dp).padding(start = Spacing.s, end = Spacing.m),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Icon(icon, null, Modifier.size(18.dp))
+            Text(text, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
 }

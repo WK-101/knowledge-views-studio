@@ -119,3 +119,28 @@ Tokens: `FormTokens.gutter` 36 dp, `endColumn` 48 dp, `fieldHeight` 48 dp, `segm
 | Full contact (see above) | ≈ 1780 dp | ≈ 1080 dp (work 106, 2 phones 106, 2 emails 106, date 56, address with map link 204, website 56, labels 56, notes 80, picture 150, add chips 48) | **−39 %** |
 
 At font scale 1.3 fields grow with the text, the type selector moves under the value and the add chips wrap, so the page is longer there by design; nothing is cut off.
+
+## 4.4 corrections
+
+Feedback on 4.3 (screenshot of a new contact): a big magenta avatar with a tiny camera badge beside the two name
+fields; the name chevron floating outside the fields; the name fields starting further left than the phone field (the
+phone had an icon gutter, the names didn't); "Save to: Device (64)"; the Add chips cut off at the screen's edge.
+
+- **One left edge.** Every line keeps the icon gutter (`FormTokens.gutter` 40 dp: 24 dp icon + 16 dp, as on the
+  contact page): the name block has the person icon, phones the phone icon, and so on. The name block is a form row like
+  every group, with its chevron in the end column (where the others have ⊖), centred on the block.
+- **Photo on top, compact and neutral.** A 64 dp tonal circle with a camera (`FormTokens.headerPhoto`), centred above the
+  form like the contact page's header, or the photo with a small edit badge. Beside the name it pushed the name fields
+  off the common edge and dominated the first screen; on top it costs 76 dp and leaves every field aligned.
+- **Save to without counts.** "Save to: Device", "Google · you@example.com", "Private", or "Temporary" with its time chip
+  ("7 days ▾"); one line, ellipsised. The line starts on the fields' edge.
+- **Fields match the contact page.** 56 dp (`fieldHeight`; 8 dp above the label and under the value), 20 dp outer
+  corners like the page's groups, 2 dp joins, 8 dp between groups.
+- **Add chips wrap** (FlowRow) at every font size, so no kind is hidden past the edge.
+- **My card** uses this editor (`EditorArgs.meCard`, route `PeopleRoutes.MeEdit`): the same name, phone, email, work,
+  website, address and note rows (no photo, no type selectors, one address line, no name details), and in place of
+  Save to, chips for what the QR code and shared vCard include (`MeCardStore.shareParts`). The My card page is laid
+  out like a contact's page (compact header with QR code / Share / Edit tiles, then Contact info).
+
+Tokens now: `gutter` 40 dp, `endColumn` 48 dp, `fieldHeight` 56 dp, `segmentGap` 2 dp, `groupGap` 8 dp,
+`outerCorner` 20 dp, `innerCorner` 4 dp, `headerPhoto` 64 dp, `typeMaxWidth` 96 dp.

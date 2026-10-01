@@ -44,10 +44,14 @@ class EditorFormTest {
         assertTrue(EditorForm.typeBelow(fieldWidthDp = 200f, fontScale = 1f))
     }
 
-    @Test fun photo_beside_name_on_ordinary_phones() {
-        assertTrue(EditorForm.photoBesideName(widthDp = 360f, fontScale = 1f))
-        assertFalse(EditorForm.photoBesideName(widthDp = 280f, fontScale = 1f))
-        assertFalse(EditorForm.photoBesideName(widthDp = 411f, fontScale = 1.5f))
+    @Test fun my_card_offers_only_its_own_fields_and_one_address() {
+        val fresh = EditorForm.meCardChoices(setOf(Kind.PHONE), withBlankRow = setOf(Kind.PHONE), hasAddress = false)
+        assertEquals(listOf(Kind.EMAIL, Kind.WORK, Kind.ADDRESS, Kind.NOTE, Kind.WEBSITE), fresh)
+        assertTrue(fresh.none { it in setOf(Kind.DATE, Kind.RELATION, Kind.HANDLE, Kind.LABELS, Kind.CALL_BACKGROUND, Kind.NAME_DETAILS) })
+        // The card has one address line: once shown, no second one is offered; numbers can still be added.
+        val withAddress = EditorForm.meCardChoices(setOf(Kind.PHONE, Kind.ADDRESS), emptySet(), hasAddress = true)
+        assertFalse(Kind.ADDRESS in withAddress)
+        assertEquals(Kind.PHONE, withAddress.first())
     }
 
     // ---------------------------------------------------------------- dirty state and Save

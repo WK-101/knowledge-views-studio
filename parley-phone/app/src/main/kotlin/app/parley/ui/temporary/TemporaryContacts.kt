@@ -57,6 +57,15 @@ import app.parley.AppViewModel
 import app.parley.NavEvent
 import app.parley.common.StartTab
 import app.parley.data.TemporaryContacts
+import app.parley.common.people.ContactRef
+import app.parley.common.people.TemporaryDue
+import app.parley.work.DueTemporaries
+import app.parley.ui.ParleyShapes
+import app.parley.ui.SwitchRow
+import androidx.compose.material.icons.rounded.QuestionAnswer
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.material3.TextButton
 import app.parley.ui.Avatar
 import app.parley.ui.EmptyState
 import app.parley.ui.Routes
@@ -89,6 +98,55 @@ data class TemporaryItem(
     val purgeHistory: Boolean,
 ) {
     val key: String get() = vaultId?.let { "v$it" } ?: "c$lookupKey"
+
+    /** Its Parley key (the lookup key, or a private contact's key), as the due-contact choice names it. */
+    val parleyKey: String get() = vaultId?.let(ContactRef::privateKey) ?: lookupKey.orEmpty()
+}
+
+/** "Ask before deleting temporary contacts" lives here, beside the contacts it's about (Settings search finds it). */
+@Composable
+private fun AskFirstRow(vm: AppViewModel) {
+    val s by vm.settings.collectAsStateWithLifecycle()
+    val scope = rememberCoroutineScope()
+    Surface(shape = segmentShape(0, 1), color = MaterialTheme.colorScheme.surfaceContainer, modifier = Modifier.fillMaxWidth()) {
+        SwitchRow(
+            stringResource(R.string.set_temp_ask_first_title), stringResource(R.string.set_temp_ask_first_summary),
+            s.askBeforeDeletingTemporary, Icons.Rounded.QuestionAnswer,
+        ) { v -> scope.launch { vm.c.settings.update { it.copy(askBeforeDeletingTemporary = v) } } }
+    }
+}
+
+/** What happened after the due contacts' question was answered, as a short message. */
+private fun decidedText(res: Resources, decision: TemporaryDue.Decision, n: Int): String = when (decision) {
+    TemporaryDue.Decision.DELETE -> res.getQuantityString(R.plurals.temp_due_deleted, n, n)
+    TemporaryDue.Decision.KEEP_LONGER -> res.getQuantityString(R.plurals.temp_deletes_in_days, TemporaryDue.KEEP_LONGER_DAYS, TemporaryDue.KEEP_LONGER_DAYS)
+    TemporaryDue.Decision.KEEP -> res.getString(R.string.detail_kept)
+}
+
+/**
+ * "2 temporary contacts are due to be deleted", with Delete, Keep 7 more days and Keep permanently: the same choice
+ * as the notification, for the due ones listed below it.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun DueCard(count: Int, onDecide: (TemporaryDue.Decision) -> Unit) {
+    Surface(
+        shape = ParleyShapes.card, color = MaterialTheme.colorScheme.secondaryContainer, contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+        modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+    ) {
+        Column(Modifier.padding(start = 16.dp, end = 8.dp, top = 12.dp, bottom = 4.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Rounded.AutoDelete, null, Modifier.padding(end = 12.dp))
+                Text(pluralStringResource(R.plurals.temp_due_title, count, count), style = MaterialTheme.typography.titleSmall)
+            }
+            Text(stringResource(R.string.temp_due_text), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 4.dp, end = 8.dp))
+            FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                TextButton({ onDecide(TemporaryDue.Decision.KEEP) }) { Text(stringResource(R.string.temp_keep_permanently)) }
+                TextButton({ onDecide(TemporaryDue.Decision.KEEP_LONGER) }) { Text(stringResource(R.string.temp_due_keep_longer)) }
+                TextButton({ onDecide(TemporaryDue.Decision.DELETE) }) { Text(stringResource(R.string.temp_due_delete)) }
+            }
+        }
+    }
 }
 
 /**
@@ -136,7 +194,9 @@ object TemporaryContactActions {
             item.contactId != null -> {
                 vm.c.temporaries.mark(item.contactId, 0, item.purgeHistory)
                 val ctx = vm.c.appContext
-                vm.c.temporaries.expire(System.currentTimeMillis() + 1).forEach { n ->
+                // Only this one: others that are due wait for their own answer.
+                val key = vm.c.contacts.lookupKeyOf(item.contactId) ?: item.lookupKey
+                vm.c.temporaries.expire(System.currentTimeMillis() + 1, key?.let { setOf(it) } ?: emptySet()).forEach { n ->
                     val name = n.name ?: ctx.getString(R.string.work_temp_someone)
                     vm.toast(ctx.getString(if (n.keptDetails) R.string.work_temp_expired_kept else R.string.work_temp_expired_merged, name))
                 }
@@ -185,26 +245,38 @@ fun TemporaryContactsScreen(vm: AppViewModel, back: () -> Unit, open: (Destinati
     val items = rememberTemporaryItems(vm)
     val scope = rememberCoroutineScope()
     val res = LocalResources.current
+    val settings by vm.settings.collectAsStateWithLifecycle()
+    val due = remember(items) { System.currentTimeMillis().let { now -> items.filter { it.expiresAt <= now } } }
     var extendFor by remember { mutableStateOf<TemporaryItem?>(null) }
     var deleteFor by remember { mutableStateOf<TemporaryItem?>(null) }
     val scroll = TopAppBarDefaults.pinnedScrollBehavior()
     ParleyScaffold(
         modifier = Modifier.nestedScroll(scroll.nestedScrollConnection),
-        topBar = {
-            ParleyTopBar(stringResource(R.string.temp_title), onBack = back, scrollBehavior = scroll)
-        },
+        topBar = { ParleyTopBar(stringResource(R.string.temp_title), onBack = back, scrollBehavior = scroll) },
     ) { p ->
         if (items.isEmpty()) {
-            EmptyState(
-                Icons.Rounded.AutoDelete, stringResource(R.string.temp_empty_title),
-                stringResource(R.string.temp_empty_text),
-                Modifier.padding(p),
-                // Temporary contacts start on the keypad.
-                action = stringResource(R.string.ux_empty_open_keypad), onAction = { vm.navigate(NavEvent.Tab(StartTab.KEYPAD)) },
-            )
+            Column(Modifier.fillMaxSize().padding(p)) {
+                EmptyState(
+                    Icons.Rounded.AutoDelete, stringResource(R.string.temp_empty_title),
+                    stringResource(R.string.temp_empty_text),
+                    Modifier.weight(1f),
+                    // Temporary contacts start on the keypad.
+                    action = stringResource(R.string.ux_empty_open_keypad), onAction = { vm.navigate(NavEvent.Tab(StartTab.KEYPAD)) },
+                )
+                Column(Modifier.padding(16.dp)) { AskFirstRow(vm) }
+            }
             return@ParleyScaffold
         }
         LazyColumn(Modifier.fillMaxSize().padding(p), contentPadding = PaddingValues(16.dp)) {
+            // Due ones wait for an answer (never deleted without one): the notification's choice, here too.
+            if (settings.askBeforeDeletingTemporary && due.isNotEmpty()) {
+                item(key = "due") {
+                    DueCard(due.size) { decision ->
+                        val keys = due.map { it.parleyKey }.toSet()
+                        scope.launch { vm.toast(decidedText(res, decision, DueTemporaries.decide(vm.c, decision, keys))) }
+                    }
+                }
+            }
             item {
                 Text(
                     stringResource(R.string.temp_intro),
@@ -224,6 +296,7 @@ fun TemporaryContactsScreen(vm: AppViewModel, back: () -> Unit, open: (Destinati
                     )
                 }
             }
+            item(key = "ask_first") { Column(Modifier.padding(top = 16.dp)) { AskFirstRow(vm) } }
         }
     }
     extendFor?.let { t ->

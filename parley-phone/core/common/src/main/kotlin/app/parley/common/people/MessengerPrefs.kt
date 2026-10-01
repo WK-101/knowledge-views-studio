@@ -83,6 +83,21 @@ object MessageRoutes {
         return MessageRoute.Ask
     }
 
+    /**
+     * What a number's own Message button does (the contact page's phone rows): always a message to *that* number,
+     * never the "Message or call on…" sheet, which has its own button. The usual chat app when one is set and can
+     * reach the number (by link first, so the chat is with this number; else the app's own row for the person);
+     * otherwise a text message.
+     */
+    fun forNumber(prefs: MessengerPrefs, linked: Set<String>, installed: Set<String>, number: String): MessageRoute {
+        val pref = prefs.message
+        if (pref == null || pref == MessengerPrefs.SMS) return MessageRoute.Sms(number)
+        val app = MessengerApp.forPackage(pref)
+        if (app != null && pref in installed) return MessageRoute.MessengerLink(app, number)
+        if (pref in linked) return MessageRoute.MessengerRow(pref)
+        return MessageRoute.Sms(number)
+    }
+
     /** "WhatsApp can't see your contacts…" is worth saying when the app is installed but hasn't linked this person. */
     fun showUnlinkedHint(pkg: String, linked: Set<String>, installed: Set<String>): Boolean =
         pkg in installed && pkg !in linked && MessengerApp.forPackage(pkg)?.messenger == Messenger.WHATSAPP

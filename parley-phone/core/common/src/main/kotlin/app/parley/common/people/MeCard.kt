@@ -59,6 +59,37 @@ object MeCards {
     /** Fields that can be left out when sharing. */
     enum class Part { NAME, PHONES, EMAILS, WORK, WEBSITES, ADDRESS }
 
+    /** What the QR code and the vCard include until you choose otherwise: your name and numbers. */
+    val defaultParts: Set<Part> = setOf(Part.NAME, Part.PHONES)
+
+    /** The chosen parts as stored ("NAME,PHONES"); unknown names are skipped, so older or newer values still read. */
+    fun encodeParts(parts: Set<Part>): String = Part.entries.filter { it in parts }.joinToString(",") { it.name }
+
+    fun decodeParts(raw: String?): Set<Part> {
+        if (raw == null) return defaultParts
+        return raw.split(',').mapNotNull { n -> Part.entries.firstOrNull { it.name == n.trim() } }.toSet()
+    }
+
+    /**
+     * The card's one name as the contact editor's first and last name: the last word is the last name, as [vcard]
+     * splits it ("Anna Maria Smith" → "Anna Maria", "Smith"); a single word is a first name.
+     */
+    fun splitName(name: String): Pair<String, String> {
+        val words = name.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }
+        if (words.size < 2) return words.firstOrNull().orEmpty() to ""
+        return words.dropLast(1).joinToString(" ") to words.last()
+    }
+
+    /** The editor's name fields back into the card's one name (blank parts left out). */
+    fun joinName(vararg parts: String): String = parts.map { it.trim() }.filter { it.isNotEmpty() }.joinToString(" ")
+
+    /**
+     * The editor's address lines back into the card's one address line: street, then the rest, comma-separated
+     * ("1 High St, SW1A 1AA London, UK"). An address typed as one line into the street stays exactly as typed.
+     */
+    fun joinAddress(street: String, rest: List<String>): String =
+        (listOf(street) + rest).map { it.trim() }.filter { it.isNotEmpty() }.joinToString(", ")
+
     /**
      * A vCard 3.0 for sharing or a QR code (3.0 is what camera apps read most reliably). [parts] chooses what goes
      * in; the private note never does.

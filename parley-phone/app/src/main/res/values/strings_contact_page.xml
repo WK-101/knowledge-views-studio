@@ -144,4 +144,11 @@
     <string name="caller_vibration_preview">Feel %1$s</string>
     <string name="caller_auto_answer">Answer automatically</string>
     <string name="caller_auto_answer_summary">Their calls are answered after a few seconds, with Cancel on the call screen</string>
+    <!-- A number's two buttons on the contact page, each saying what it does (%1$s: the number). -->
+    <string name="detail_reach_number">Message or call on…, %1$s</string>
+    <string name="detail_message_number_on">Message %1$s on %2$s</string>
+    <string name="detail_text_number">Text message to %1$s</string>
+    <!-- The header's one-line variant chips; TalkBack reads the long forms above. -->
+    <string name="contact_variant_private_short">Private</string>
+    <string name="contact_variant_temporary_short">Temporary · %1$s</string>
 </resources>

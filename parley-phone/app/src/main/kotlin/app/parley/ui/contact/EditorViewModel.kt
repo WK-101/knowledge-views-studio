@@ -16,6 +16,7 @@ import app.parley.InsertPrefill
 import app.parley.R
 import app.parley.common.people.EditorForm
 import app.parley.common.people.ExpiryChange
+import app.parley.common.people.MeCards
 import app.parley.common.people.TemporaryChoice
 import app.parley.common.people.ThreeWayMerge
 import app.parley.common.people.RelationLinks
@@ -28,7 +29,9 @@ import app.parley.data.ContactEditRebase
 import app.parley.data.DataContainer
 import app.parley.data.DataItem
 import app.parley.data.GroupInfo
+import app.parley.data.messaging.MyDetails
 import app.parley.data.vault.VaultCrypto
+import app.parley.ui.people.MeCardDetails
 import app.parley.ui.people.BackgroundChange
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
@@ -50,6 +53,8 @@ data class EditorArgs(
     val vaultId: Long? = null,
     /** Edit one specific copy (raw contact) of the contact. */
     val rawId: Long? = null,
+    /** Edit "My card" (your own details, kept by Parley) with the same form as every contact. */
+    val meCard: Boolean = false,
 )
 
 /**
@@ -126,6 +131,10 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
     var background by mutableStateOf<BackgroundChange>(BackgroundChange.None)
         private set
 
+    /** My card: what its QR code and vCard include (saved with the card). */
+    var meParts by mutableStateOf(MeCards.defaultParts)
+        private set
+
     /** Relations whose contact was chosen with the picker (name key → that contact). */
     private var pickedLinks = emptyMap<String, RelationLinks.Link>()
     var moreName by mutableStateOf(false)
@@ -163,14 +172,15 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
 
     /** The expiry change the save will apply (a "Keep permanently" on a contact that isn't temporary is none). */
     private val expiryChange: ExpiryChange? get() = ExpiryChange.resolve(expiresAt != null, expiryPick)
-    val isNew: Boolean get() = original == null && (args.vaultId ?: 0L) <= 0L
+    val isNew: Boolean get() = !args.meCard && original == null && (args.vaultId ?: 0L) <= 0L
 
     /** Something to save: the draft differs from the start (blank new rows aside), or the photo or background changed. */
     val changed: Boolean
         get() {
             val d = draft
             return d != null && (start == null || EditorDrafts.meaningful(d) != start?.let(EditorDrafts::meaningful)) ||
-                photo != null || removePhoto || background != BackgroundChange.None || expiryChange != null
+                photo != null || removePhoto || background != BackgroundChange.None || expiryChange != null ||
+                args.meCard && meParts != c.people.me.shareParts.value
         }
 
     val canSave: Boolean
@@ -199,6 +209,14 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
 
     /** Loads the contact (or the new one's prefill); false when the editor is leaving (the vault is locked). */
     private suspend fun load(a: EditorArgs): Boolean {
+        if (a.meCard) {
+            // My card: Parley's own copy (never the phone's profile, which Parley doesn't write).
+            val d = MeCardDetails.toDetails(c.people.me.card.value)
+            draft = if (d.phones.isEmpty()) d.copy(phones = listOf(DataItem(type = Phone.TYPE_MOBILE))) else d
+            start = draft
+            meParts = c.people.me.shareParts.value
+            return true
+        }
         if (a.contactId == null && a.vaultId == null) privateNew = c.people.prefs.current().privateByDefault
         val s = c.settings.settings.value
         account = accounts.firstOrNull { it.type == s.defaultAccountType && it.name == s.defaultAccountName }
@@ -306,6 +324,11 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
         background = change
     }
 
+    /** My card: include or leave out one part of the QR code and vCard. */
+    fun toggleMePart(p: MeCards.Part) {
+        meParts = if (p in meParts) meParts - p else meParts + p
+    }
+
     fun linkRelation(name: String, link: RelationLinks.Link) {
         pickedLinks = pickedLinks + (RelationLinks.nameKey(name) to link)
     }
@@ -313,6 +336,7 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
     fun save() {
         val e = draft ?: return
         if (saving) return
+        if (args.meCard) return saveMeCard(e)
         // A contact holding only an address, a note or a website is fine; a completely empty one is not.
         val empty = !EditorForm.hasContent(EditorDrafts.texts(e))
         // Clearing one copy of a linked contact is allowed: that empty copy is removed and the others stay.
@@ -363,6 +387,16 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
                 }
             }
         }
+    }
+
+    /** My card: saved to Parley's own copy (clearing it is allowed); "Send my details" follows its name and number. */
+    private fun saveMeCard(e: ContactDetails) {
+        val card = MeCardDetails.toCard(e)
+        c.people.me.save(card)
+        c.people.me.setShareParts(meParts)
+        c.messaging.setMyDetails(MyDetails(card.name, card.firstNumber.orEmpty()))
+        message(R.string.me_saved)
+        eventChannel.trySend(EditorEvent.Done(null))
     }
 
     /** "Show their version": the edit is set aside and the editor shows the contact as it is now. */
@@ -458,6 +492,7 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
             K_LINKS to encodeLinks(pickedLinks),
             K_MORE_NAME to moreName,
             K_REVEALED to revealed.map { it.name }.toTypedArray(),
+            K_ME_PARTS to MeCards.encodeParts(meParts),
             K_ASK_KEEP_KEY to askKeep?.first,
             K_ASK_KEEP_ID to (askKeep?.second ?: 0L),
             // The version the draft was based on, so a change made elsewhere while Parley was stopped is still caught.
@@ -522,6 +557,7 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
         }
         pickedLinks = decodeLinks(b.getString(K_LINKS))
         moreName = b.getBoolean(K_MORE_NAME)
+        if (args.meCard) meParts = MeCards.decodeParts(b.getString(K_ME_PARTS))
         revealed = b.getStringArray(K_REVEALED).orEmpty().mapNotNull { n -> EditorForm.Kind.entries.firstOrNull { it.name == n } }.toSet()
         askKeep = b.getString(K_ASK_KEEP_KEY)?.let { it to b.getLong(K_ASK_KEEP_ID) }
     }
@@ -599,6 +635,7 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
         const val K_LINKS = "links"
         const val K_MORE_NAME = "moreName"
         const val K_REVEALED = "revealed"
+        const val K_ME_PARTS = "meParts"
         const val K_ASK_KEEP_KEY = "askKeepKey"
         const val K_ASK_KEEP_ID = "askKeepId"
         const val K_BASE_RAW = "baseRaw"
