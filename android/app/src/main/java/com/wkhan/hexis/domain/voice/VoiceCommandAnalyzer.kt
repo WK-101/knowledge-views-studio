@@ -16,7 +16,13 @@ sealed interface VoiceProposal {
     val intent: VoiceIntent
     val transcript: String
 
-    data class AddTask(override val transcript: String, val parsed: ParsedQuickAdd) : VoiceProposal {
+    data class AddTask(
+        override val transcript: String,
+        /** The transcript with the leading trigger removed — a quick-add string the plan card prefills
+         *  and the core re-parses on commit, so a voice task is identical to a typed one. */
+        val quickAddText: String,
+        val parsed: ParsedQuickAdd,
+    ) : VoiceProposal {
         override val intent get() = VoiceIntent.ADD_TASK
         /** True when the title came out empty — the one field the user must fix before committing. */
         val needsReview: Boolean get() = parsed.title.isBlank()
@@ -72,7 +78,10 @@ object VoiceCommandAnalyzer {
             matches(lower, QUERY_PREFIXES) -> VoiceProposal.Query(transcript, text)
             matches(lower, TIMER_TRIGGERS) -> VoiceProposal.StartTimer(transcript, stripLeading(text, TIMER_TRIGGERS))
             matches(lower, NOTE_TRIGGERS) -> VoiceProposal.AddNote(transcript, stripLeading(text, NOTE_TRIGGERS))
-            else -> VoiceProposal.AddTask(transcript, QuickAddParser.parse(stripLeading(text, TASK_TRIGGERS), now))
+            else -> {
+                val quickAddText = stripLeading(text, TASK_TRIGGERS)
+                VoiceProposal.AddTask(transcript, quickAddText, QuickAddParser.parse(quickAddText, now))
+            }
         }
     }
 

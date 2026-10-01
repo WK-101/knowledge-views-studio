@@ -192,6 +192,87 @@ class AppViewModel internal constructor(
         viewModelScope.launch { bridgeRegistry.clearAudit() }
     }
 
+    // ---- Voice capture (Phase 2): live listen -> analyze -> plan card -> commit ------------------
+    enum class VoiceStatus { IDLE, LISTENING, REVIEW, ERROR }
+
+    data class VoiceCaptureUi(
+        val status: VoiceStatus = VoiceStatus.IDLE,
+        val partial: String = "",
+        val draftText: String = "",
+        val intent: com.wkhan.hexis.domain.voice.VoiceIntent = com.wkhan.hexis.domain.voice.VoiceIntent.UNKNOWN,
+        val error: String? = null,
+    )
+
+    private val _voiceUi = kotlinx.coroutines.flow.MutableStateFlow(VoiceCaptureUi())
+    val voiceUi: StateFlow<VoiceCaptureUi> = _voiceUi
+
+    private val voiceController by lazy { com.wkhan.hexis.addon.VoiceCaptureController(appCtx) }
+
+    /** Start a push-to-talk capture against the connected voice addon. */
+    fun startVoiceCapture() {
+        viewModelScope.launch {
+            val cap = com.wkhan.hexis.bridge.Capabilities.VOICE_STT
+            val pkg = kotlinx.coroutines.withContext(Dispatchers.IO) { bridgeRegistry.grantedPackage(cap) }
+            val token = kotlinx.coroutines.withContext(Dispatchers.IO) { bridgeRegistry.grantedToken(cap) }
+            val provider = kotlinx.coroutines.withContext(Dispatchers.IO) {
+                bridgeRegistry.discoverVoice().firstOrNull { it.packageName == pkg }
+            }
+            if (pkg == null || token == null || provider == null) {
+                _voiceUi.value = VoiceCaptureUi(
+                    status = VoiceStatus.ERROR,
+                    error = "No connected voice addon. Connect one in Settings → Addon bridges.",
+                )
+                return@launch
+            }
+            _voiceUi.value = VoiceCaptureUi(status = VoiceStatus.LISTENING)
+            // TODO(Phase 2+): pass the user's project/tag/context names as hotwords for on-device biasing.
+            voiceController.start(
+                provider = provider,
+                token = token,
+                hotwords = emptyList(),
+                mode = com.wkhan.hexis.bridge.voice.SttMode.COMMAND,
+                listener = object : com.wkhan.hexis.addon.VoiceCaptureController.Listener {
+                    override fun onPartial(text: String) {
+                        _voiceUi.value = _voiceUi.value.copy(status = VoiceStatus.LISTENING, partial = text)
+                    }
+                    override fun onFinal(text: String) {
+                        val proposal = com.wkhan.hexis.domain.voice.VoiceCommandAnalyzer.analyze(text)
+                        val draft = (proposal as? com.wkhan.hexis.domain.voice.VoiceProposal.AddTask)?.quickAddText ?: text
+                        _voiceUi.value = _voiceUi.value.copy(
+                            status = VoiceStatus.REVIEW,
+                            partial = text,
+                            draftText = draft,
+                            intent = proposal.intent,
+                        )
+                    }
+                    override fun onError(message: String) {
+                        _voiceUi.value = VoiceCaptureUi(status = VoiceStatus.ERROR, error = message)
+                    }
+                },
+            )
+        }
+    }
+
+    /** User released push-to-talk — ask the addon to finalize the current utterance. */
+    fun stopVoiceListening() = voiceController.stop()
+
+    /** Commit the (possibly edited) plan through the single quick-add funnel, so a voice task is
+     *  identical to a typed one. */
+    fun commitVoiceCapture(text: String) {
+        viewModelScope.launch {
+            val trimmed = text.trim()
+            if (trimmed.isNotEmpty()) quickAddOne(trimmed, QuickAddOptions())
+            voiceController.close()
+            _voiceUi.value = VoiceCaptureUi()
+        }
+    }
+
+    fun cancelVoiceCapture() {
+        voiceController.cancel()
+        voiceController.close()
+        _voiceUi.value = VoiceCaptureUi()
+    }
+
     /** One-shot events for the "Undo" snackbar after a completion / won't-do / trash. */
     val undoEvents = kotlinx.coroutines.flow.MutableSharedFlow<UndoEvent>(extraBufferCapacity = 4)
 

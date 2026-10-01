@@ -382,6 +382,9 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                 }
             }
 
+            Spacer(Modifier.height(4.dp))
+            Action("Try voice capture") { vm.startVoiceCapture() }
+
             if (bridge.grantedVoicePackage != null) {
                 Spacer(Modifier.height(8.dp))
                 Action("Revoke all (kill switch)") { confirmRevoke = true }
@@ -410,6 +413,9 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                 )
             }
         }
+
+        // Push-to-talk capture surface (shown only while a voice session is active / under review).
+        VoiceCaptureSheet(vm)
 
         if (Modules.isEnabled(s, Modules.NOTES)) {
             SettingsGroup(Icons.AutoMirrored.Filled.Article, "Notes", open["notes"] == true, { open["notes"] = open["notes"] != true }, keywords = "notes notebook grid list markdown default view folder tree journal") {
