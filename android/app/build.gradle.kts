@@ -87,6 +87,8 @@ android {
     }
     buildFeatures {
         compose = true
+        // Phase 3 — the Open Transcribe (org.opentranscribe.api) client AIDL contract.
+        aidl = true
     }
     // R92 — let JVM unit tests use Android resources + Robolectric (no emulator/device): this powers
     // the Room DAO/repository integration tests that fill the middle of the pyramid entirely on the JVM.

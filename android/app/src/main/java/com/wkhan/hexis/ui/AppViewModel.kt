@@ -281,6 +281,91 @@ class AppViewModel internal constructor(
         _voiceUi.value = VoiceCaptureUi()
     }
 
+    // ---- File transcription (Phase 3): Open Transcribe client -----------------------------------
+    enum class TranscribeStatus { IDLE, CHOOSING, TRANSCRIBING, RESULT, ERROR }
+
+    data class TranscribeUi(
+        val status: TranscribeStatus = TranscribeStatus.IDLE,
+        val providers: List<com.wkhan.hexis.addon.OpenTranscribeClient.Provider> = emptyList(),
+        val result: String = "",
+        val error: String? = null,
+    )
+
+    private val _transcribeUi = kotlinx.coroutines.flow.MutableStateFlow(TranscribeUi())
+    val transcribeUi: StateFlow<TranscribeUi> = _transcribeUi
+
+    private val transcribeClient by lazy { com.wkhan.hexis.addon.OpenTranscribeClient(appCtx) }
+    @Volatile private var pendingAudioUri: android.net.Uri? = null
+
+    /** Transcribe a user-picked audio file via any installed Open Transcribe provider. The core needs
+     *  no microphone permission — the user brings the file; the transcriber does the privileged work. */
+    fun startFileTranscription(uri: android.net.Uri) {
+        viewModelScope.launch {
+            val providers = kotlinx.coroutines.withContext(Dispatchers.IO) { transcribeClient.providers() }
+            when {
+                providers.isEmpty() -> _transcribeUi.value = TranscribeUi(
+                    status = TranscribeStatus.ERROR,
+                    error = "No transcriber installed. Install one (e.g. Scrib) or the Hexis Voice addon.",
+                )
+                providers.size == 1 -> { pendingAudioUri = uri; runTranscription(providers.first(), uri) }
+                else -> { pendingAudioUri = uri; _transcribeUi.value = TranscribeUi(status = TranscribeStatus.CHOOSING, providers = providers) }
+            }
+        }
+    }
+
+    fun chooseTranscriber(provider: com.wkhan.hexis.addon.OpenTranscribeClient.Provider) {
+        val uri = pendingAudioUri ?: return
+        runTranscription(provider, uri)
+    }
+
+    private fun runTranscription(provider: com.wkhan.hexis.addon.OpenTranscribeClient.Provider, uri: android.net.Uri) {
+        _transcribeUi.value = TranscribeUi(status = TranscribeStatus.TRANSCRIBING)
+        viewModelScope.launch {
+            val pfd = kotlinx.coroutines.withContext(Dispatchers.IO) {
+                runCatching { appCtx.contentResolver.openFileDescriptor(uri, "r") }.getOrNull()
+            }
+            if (pfd == null) {
+                _transcribeUi.value = TranscribeUi(status = TranscribeStatus.ERROR, error = "Couldn't open the audio file.")
+                return@launch
+            }
+            transcribeClient.transcribeFile(
+                provider = provider,
+                audio = pfd,
+                fileName = null,
+                mimeType = appCtx.contentResolver.getType(uri),
+                languageHint = null,
+                listener = object : com.wkhan.hexis.addon.OpenTranscribeClient.Listener {
+                    override fun onProgress(cumulativeText: String) {
+                        _transcribeUi.value = _transcribeUi.value.copy(status = TranscribeStatus.TRANSCRIBING, result = cumulativeText)
+                    }
+                    override fun onResult(text: String) {
+                        _transcribeUi.value = TranscribeUi(status = TranscribeStatus.RESULT, result = text)
+                    }
+                    override fun onError(message: String) {
+                        _transcribeUi.value = TranscribeUi(status = TranscribeStatus.ERROR, error = message)
+                    }
+                },
+            )
+        }
+    }
+
+    /** Add the transcript as a task through the quick-add funnel. */
+    fun commitTranscript(text: String) {
+        viewModelScope.launch {
+            val trimmed = text.trim()
+            if (trimmed.isNotEmpty()) quickAddOne(trimmed, QuickAddOptions())
+            transcribeClient.close()
+            pendingAudioUri = null
+            _transcribeUi.value = TranscribeUi()
+        }
+    }
+
+    fun cancelFileTranscription() {
+        transcribeClient.close()
+        pendingAudioUri = null
+        _transcribeUi.value = TranscribeUi()
+    }
+
     /** One-shot events for the "Undo" snackbar after a completion / won't-do / trash. */
     val undoEvents = kotlinx.coroutines.flow.MutableSharedFlow<UndoEvent>(extraBufferCapacity = 4)
 
