@@ -159,6 +159,7 @@ import app.parley.ui.common.CoachMark
 import app.parley.ui.history.CallInsightsSection
 import app.parley.ui.people.AccountChips
 import app.parley.ui.people.CallBackgroundInfoRow
+import app.parley.ui.people.CallPhotoRow
 import app.parley.ui.people.CopyToSimDialog
 import app.parley.ui.people.ProvenanceRow
 import app.parley.ui.people.RelationText
@@ -697,6 +698,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
             // Haptic caller ID and auto-answer for this person (Parley applies both, private contacts included).
             if (d.lookupKey.isNotEmpty()) blended { CallerChoiceRows(vm, d.lookupKey, d.displayName) }
             blended { CallBackgroundInfoRow(vm, d) }
+            blended { CallPhotoRow(vm, d) }
             // Where it's saved, as chips with their own actions (edit this copy, move, unlink); a private contact is
             // kept only in Parley.
             if (!can(ContactCapability.ACCOUNTS)) item {

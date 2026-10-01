@@ -69,7 +69,7 @@ class ContactConversions(private val c: DataContainer) {
         }
         // With "Private call history" on, their calls and ring facts leave the phone's call history too.
         if (c.settings.current().privateVaultHistory) {
-            d.phones.forEach { p -> runCatching { c.ringFacts.forget(p.value) } }
+            d.phones.forEach { p -> runCatching { c.ringFacts.forget(p.value); c.callQuality.forget(p.value) } }
             runCatching { c.vault.sweepCallLog(0) }
         }
         MadePrivate(id, moved.removedAfterSync, moved.messengerCopies)

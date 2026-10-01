@@ -33,8 +33,8 @@ import app.parley.ui.Avatar
 import app.parley.ui.ParleyShapes
 
 /**
- * The picture-in-picture window: who, the timer (or the call's status) and a Muted tag. Mute and Hang up are
- * the window's own actions.
+ * The picture-in-picture window: who, the timer (or the call's status, or hold mode's wait) and a Muted tag. Mute
+ * and Hang up are the window's own actions, with "They're back" first in hold mode.
  */
 @Composable
 internal fun PipCallCard(calls: List<CallUi>, audio: AudioUi, ended: CallUi?, background: CallScreenBackground = CallScreenBackground.CALLER_COLOUR) {
@@ -62,16 +62,11 @@ private fun PipContent(call: CallUi?, liveCount: Int, audio: AudioUi) {
                     call.displayTitle + if (live > 1) " +${live - 1}" else "",
                     style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis,
                 )
-                val status = when {
-                    !call.isLive -> call.failureText ?: call.disconnectReason ?: stringResource(R.string.incall_call_ended)
-                    call.state == CallState.HOLDING -> stringResource(R.string.incall_status_on_hold)
-                    call.state == CallState.ACTIVE -> null
-                    else -> stringResource(R.string.incall_status_calling)
-                }
+                val status = pipStatus(call)
                 if (status != null) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         // On hold reads at a glance in the small window too.
-                        if (call.isLive && call.state == CallState.HOLDING) {
+                        if (call.isLive && (call.state == CallState.HOLDING || call.holdModeSince > 0)) {
                             Icon(Icons.Rounded.Pause, null, Modifier.size(12.dp), tint = scheme.primary)
                             Spacer(Modifier.width(2.dp))
                         }
@@ -93,5 +88,19 @@ private fun PipContent(call: CallUi?, liveCount: Int, audio: AudioUi) {
                 }
             }
         }
+    }
+}
+
+/** The window's status line: why it ended, hold mode's wait (I10, so the app can be used meanwhile), or null for the timer. */
+@Composable
+private fun pipStatus(call: CallUi): String? {
+    val holdNow = if (call.isLive && call.holdModeSince > 0) rememberElapsedNow().value else 0L
+    return when {
+        !call.isLive -> call.failureText ?: call.dropText?.let { stringResource(R.string.call_drop_title) } ?: call.disconnectReason
+            ?: stringResource(R.string.incall_call_ended)
+        holdNow > 0 -> stringResource(R.string.holdmode_pip, clockText(holdModeSeconds(call, holdNow)))
+        call.state == CallState.HOLDING -> stringResource(R.string.incall_status_on_hold)
+        call.state == CallState.ACTIVE -> null
+        else -> stringResource(R.string.incall_status_calling)
     }
 }

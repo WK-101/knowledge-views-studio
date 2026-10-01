@@ -25,10 +25,12 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Notes
+import androidx.compose.material.icons.automirrored.rounded.Subject
 import androidx.compose.material.icons.rounded.Hd
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Pause
+import androidx.compose.material.icons.rounded.PriorityHigh
 import androidx.compose.material.icons.rounded.PushPin
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.Shield
@@ -128,9 +130,11 @@ internal fun CallerHeader(
                 textAlign = TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis,
             )
         }
+        if (!compact) SubjectLine(call)
         CallTags(call, zone = if (ended) null else rememberCallerZone(call))
         Spacer(Modifier.height(Spacing.m))
         StatusPill(call, ended)
+        if (!ended && call.state == CallState.RINGING) RangThroughLine(call)
         if (!ended && call.state != CallState.RINGING) RemainingLine(timing)
         if (!compact) CallerCard(call, ended)
     }
@@ -205,6 +209,38 @@ private fun SecondaryLine(call: CallUi) {
 }
 
 /**
+ * L10: the subject the caller sent with the call (RCS Call Composer, `EXTRA_CALL_SUBJECT`), in quotes as their own
+ * words. It's plain text that [app.parley.common.calls.CallSubject] already cleaned, never a link.
+ */
+@Composable
+private fun SubjectLine(call: CallUi) {
+    val subject = call.subject ?: return
+    Row(Modifier.padding(top = Spacing.s).widthIn(max = 480.dp), verticalAlignment = Alignment.Top) {
+        Icon(Icons.AutoMirrored.Rounded.Subject, null, Modifier.padding(top = Spacing.xxs).size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.width(Spacing.s))
+        Text(
+            stringResource(R.string.incall_subject, subject), style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurface, maxLines = 3, overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.semantics { contentDescription = subject },
+        )
+    }
+}
+
+/**
+ * P1: why a ringing call gets through although screening would otherwise have kept it quiet ("Rang through: called
+ * twice in 3 min", "Rang through: expecting a call"), under the status pill: it shows the blocking rules at work.
+ */
+@Composable
+private fun RangThroughLine(call: CallUi) {
+    val text = call.rangThrough?.takeIf { !call.silenced } ?: return
+    Row(Modifier.padding(top = Spacing.s), verticalAlignment = Alignment.CenterVertically) {
+        Icon(Icons.Rounded.Shield, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.width(Spacing.xs))
+        Text(text, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+    }
+}
+
+/**
  * SIM, HD voice and Wi-Fi calling (once connected, when the network says so), verification, emergency, the screening
  * verdict and the caller's local time when it differs from yours: quiet tags, warnings in the error colours.
  */
@@ -260,17 +296,23 @@ private fun callTagSpecs(call: CallUi): List<TagSpec> {
         call.accountLabel?.takeIf { !call.state.dialling }?.let { add(TagSpec(Icons.Rounded.SimCard, it)) }
         if (connected && call.hdAudio) add(TagSpec(Icons.Rounded.Hd, stringResource(R.string.incall_hd_voice)))
         if (connected && call.wifi) add(TagSpec(Icons.Rounded.Wifi, stringResource(R.string.incall_wifi_calling)))
-        when (call.verification) {
-            Verification.PASSED -> add(TagSpec(Icons.Rounded.Verified, stringResource(R.string.incall_verified_number)))
-            Verification.FAILED -> add(TagSpec(Icons.Rounded.Warning, stringResource(R.string.incall_possibly_spoofed), warn = true))
-            Verification.NOT_VERIFIED -> Unit
-        }
+        verificationTag(call.verification)?.let(::add)
         if (call.isEmergency) add(TagSpec(Icons.Rounded.Warning, stringResource(R.string.incall_emergency_call), warn = true))
+        // The caller marked it urgent (Call Composer): their claim, shown as information, not as a warning.
+        if (call.urgent && call.state == CallState.RINGING) add(TagSpec(Icons.Rounded.PriorityHigh, stringResource(R.string.incall_urgent)))
         // Screening verdict: "Likely spam · FTC list", "Allowed by 'Plumber'".
         call.verdict?.takeIf { call.state == CallState.RINGING }?.let {
             add(TagSpec(if (call.verdictWarn) Icons.Rounded.Warning else Icons.Rounded.Shield, it, warn = call.verdictWarn))
         }
     }
+}
+
+/** "Verified number", or the "Possibly spoofed" warning. */
+@Composable
+private fun verificationTag(v: Verification): TagSpec? = when (v) {
+    Verification.PASSED -> TagSpec(Icons.Rounded.Verified, stringResource(R.string.incall_verified_number))
+    Verification.FAILED -> TagSpec(Icons.Rounded.Warning, stringResource(R.string.incall_possibly_spoofed), warn = true)
+    Verification.NOT_VERIFIED -> null
 }
 
 private class TagSpec(val icon: ImageVector, val text: String, val warn: Boolean = false)

@@ -147,7 +147,7 @@ class MaintenanceWorker(context: Context, params: WorkerParameters) : CoroutineW
                 step("private call log") { c.vault.sweepCallLog(now - TimeUnit.DAYS.toMillis(30)) }
                 // Ring facts of private numbers leave no trace outside the vault either (numbers saved privately
                 // after their calls rang included).
-                runCatching { c.vault.allNumbers().forEach { n -> c.ringFacts.forget(n) } }
+                runCatching { c.vault.allNumbers().forEach { n -> c.ringFacts.forget(n); c.callQuality.forget(n) } }
             }
             // 4. Call-log retention (the archive catches up on the whole log first and then follows the same
             //    setting, except numbers kept forever)

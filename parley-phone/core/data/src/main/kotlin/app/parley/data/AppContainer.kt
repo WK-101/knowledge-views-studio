@@ -15,6 +15,7 @@ import app.parley.data.backup.HistorySettingsBackup
 import app.parley.data.backup.SpamListsBackup
 import app.parley.data.backup.TimeMachine
 import app.parley.data.calls.CallExtrasRepository
+import app.parley.data.calls.CallQualityStore
 import app.parley.data.calls.RingFactsStore
 import app.parley.data.calls.ToCallStore
 import app.parley.data.calls.VoicemailRepository
@@ -106,6 +107,9 @@ class DataContainer(context: Context) {
     /** Call switches (proximity, pocket guard, missed-call re-alert), ring facts and voicemail. */
     val callExtras by lazy { CallExtrasRepository(appContext) }
     val ringFacts: RingFactsStore by lazy { RingFactsStore(appContext) { history } }
+
+    /** Quality facts per call (SIM, Wi-Fi calling, HD voice, why it ended, the caller's subject). */
+    val callQuality: CallQualityStore by lazy { CallQualityStore(appContext) { history } }
     val voicemail by lazy { VoicemailRepository(appContext, scope) }
 
     /** The "To call" list: reminders to call back and follow-ups (by number, sealed at rest). */
@@ -167,7 +171,10 @@ class DataContainer(context: Context) {
 
     val history: CallHistory by lazy {
         CallHistory(appContext, callLog, contacts, vault, scope, fullStart).also { h ->
-            h.onForget = { n, dates -> ringFacts.forget(n, dates) }
+            h.onForget = { n, dates ->
+                ringFacts.forget(n, dates)
+                callQuality.forget(n, dates)
+            }
         }
     }
 

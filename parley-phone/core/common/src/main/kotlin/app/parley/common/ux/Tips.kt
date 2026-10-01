@@ -26,6 +26,8 @@ object Tips {
 
     /** The "To call" strip at the top of Recents, the first time it shows. */
     const val TO_CALL = "to_call"
+    /** Press and hold Speaker on the call screen for the list of audio outputs. */
+    const val CALL_AUDIO_ROUTES = "call_audio_routes"
 
     /** Ids are stored comma-separated; anything that isn't a plain id is dropped. */
     private val ID = Regex("[a-z0-9_]{1,40}")

@@ -23,9 +23,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Notes
 import androidx.compose.material.icons.rounded.ContentCopy
+import androidx.compose.material.icons.rounded.HourglassTop
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material.icons.rounded.TimerOff
+import androidx.compose.material.icons.rounded.VerifiedUser
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -187,6 +189,10 @@ internal fun CallMoreSheet(
     onOpenContact: (() -> Unit)?,
     /** Copy the number (not for a hidden number). */
     onCopyNumber: (() -> Unit)? = null,
+    /** I10 "I'm on hold" (a connected call not already in hold mode). */
+    onHoldMode: (() -> Unit)? = null,
+    /** I3 "Check it's really them": hang up and call the saved number (not for an emergency call). */
+    onVerify: (() -> Unit)? = null,
 ) {
     ParleySheet(onDismissRequest = onDismiss, title = stringResource(R.string.incall_more_options)) {
         controls.forEach { c ->
@@ -195,6 +201,25 @@ internal fun CallMoreSheet(
                 leadingContent = { Icon(c.icon, null) },
                 colors = rowColors(),
                 modifier = Modifier.clickable(enabled = c.enabled) { onDismiss(); c.onClick() },
+            )
+        }
+        // Each says in one line what it does, the first time and every time (P18).
+        if (onHoldMode != null) {
+            ParleyListItem(
+                headlineContent = { Text(stringResource(R.string.holdmode_start)) },
+                supportingContent = { Text(stringResource(R.string.holdmode_start_explainer)) },
+                leadingContent = { Icon(Icons.Rounded.HourglassTop, null) },
+                colors = rowColors(),
+                modifier = Modifier.clickable { onDismiss(); onHoldMode() },
+            )
+        }
+        if (onVerify != null) {
+            ParleyListItem(
+                headlineContent = { Text(stringResource(R.string.verify_title)) },
+                supportingContent = { Text(stringResource(R.string.verify_explainer)) },
+                leadingContent = { Icon(Icons.Rounded.VerifiedUser, null) },
+                colors = rowColors(),
+                modifier = Modifier.clickable { onDismiss(); onVerify() },
             )
         }
         ParleyListItem(

@@ -19,6 +19,7 @@ import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -90,6 +91,7 @@ class InCallActivity : ComponentActivity() {
                 calls.none { it.id == b.callId && it.isLive } && (b.callId == ended?.id || calls.any { it.isLive })
             }
             LaunchedEffect(calls.isNotEmpty()) { if (calls.isNotEmpty()) keepEnded = false }
+            HoldModeEffects(calls)
             val ringing = calls.any { it.state == CallState.RINGING }
             LaunchedEffect(ringing) {
                 if (ringing) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -101,7 +103,8 @@ class InCallActivity : ComponentActivity() {
                     val last = CallManager.lastEnded.value
                     // So does the "Blocked · Undo" card after Block & decline.
                     val lingers = last?.postCallCard == true || last?.memoryCard == true || (last != null && CallManager.declineBlock.value?.callId == last.id)
-                    delay(if (lingers && !inPip) POST_CALL_CARD_MS else ENDED_MS)
+                    // A dropped call keeps "Call again" at hand for a few seconds.
+                    delay(if (last?.drop != null) DROPPED_MS else if (lingers && !inPip) POST_CALL_CARD_MS else ENDED_MS)
                     if (CallManager.state.value.isEmpty() && !keepEnded) finishAndRemoveTask()
                 }
             }
@@ -138,6 +141,8 @@ class InCallActivity : ComponentActivity() {
                     askDeclineFor = askDeclineFor,
                     onAskDeclineDone = { askDeclineFor = null },
                     background = look.callBackground,
+                    onDrop = ::onDrop,
+                    onUnlock = ::unlockKeepingEnded,
                 )
             }
         }
@@ -164,6 +169,52 @@ class InCallActivity : ComponentActivity() {
                 keepEnded = false
             }
         }
+    }
+
+    /** I10: hold mode dims the screen (the call goes on the speaker, the phone can lie on the table). */
+    @Composable
+    private fun HoldModeEffects(calls: List<CallUi>) {
+        val holdMode = calls.any { it.isLive && it.holdModeSince > 0 }
+        LaunchedEffect(holdMode, inPip) { dim(holdMode && !inPip) }
+        LaunchedEffect(holdMode) { updatePip() }
+    }
+
+    /** Unlocks for the saved-number sheet; on the call-ended screen, it stays up meanwhile. */
+    private fun unlockKeepingEnded(block: () -> Unit) {
+        if (CallManager.state.value.none { it.isLive }) keepEnded = true
+        unlockThen(block)
+    }
+
+    /** The "Call dropped" card: Call again ([again]) or dismissed. */
+    private fun onDrop(c: CallUi, again: Boolean) {
+        if (again) {
+            callAgain(c)
+        } else {
+            CallManager.dismissDrop(c.id)
+            if (CallManager.state.value.none { it.isLive }) finishAndRemoveTask()
+        }
+    }
+
+    /** "Call again" after a drop: the same number, on the same SIM. */
+    private fun callAgain(c: CallUi) {
+        val number = c.number ?: return
+        CallManager.dismissDrop(c.id)
+        keepEnded = true
+        lifecycleScope.launch {
+            val problem = CallManager.redial(number, c.accountId)
+            if (problem != null) systemMessage(this@InCallActivity, problem, long = true)
+            // The new call opens this screen again; if it never comes, the screen closes as usual.
+            keepEnded = false
+        }
+    }
+
+    /** Hold mode's dim screen: the lowest comfortable brightness for this window only; back to normal after. */
+    private fun dim(on: Boolean) {
+        val lp = window.attributes
+        val target = if (on) HOLD_BRIGHTNESS else WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
+        if (lp.screenBrightness == target) return
+        lp.screenBrightness = target
+        window.attributes = lp
     }
 
     /** Like AppLock.applySecureFlag. Until the stored settings are read, the screen stays secure. */
@@ -215,7 +266,14 @@ class InCallActivity : ComponentActivity() {
             CallActionReceiver.ACTION_MUTE, PIP_MUTE_REQUEST,
         ).apply { isEnabled = call.canMute }
         val hangUp = action(R.drawable.ic_tile_hangup, getString(R.string.incall_end_call), CallActionReceiver.ACTION_HANGUP, PIP_HANGUP_REQUEST)
-        return listOf(mute, hangUp)
+        // I10: in hold mode the window offers the way out ("They're back") first.
+        val holdEnd = if (call.holdModeSince > 0) {
+            action(R.drawable.ic_pip_hold_end, getString(R.string.holdmode_end), CallActionReceiver.ACTION_HOLD_MODE_END, PIP_HOLD_END_REQUEST)
+        } else {
+            null
+        }
+        // Android always shows at least three actions.
+        return listOfNotNull(holdEnd, mute, hangUp)
     }
 
     private fun updatePip() {
@@ -239,7 +297,8 @@ class InCallActivity : ComponentActivity() {
     private fun onPostCall(choice: PostCallChoice) {
         val deps = TelecomGraph.dependencies
         when (choice) {
-            PostCallChoice.Touched -> keepEnded = true
+            // Verify is handled on the call screen itself (the saved-number sheet); touching it keeps the screen up.
+            PostCallChoice.Touched, is PostCallChoice.Verify -> keepEnded = true
             PostCallChoice.Done -> finishAndRemoveTask()
             is PostCallChoice.Block -> openApp { deps.postCallIntent(this, PostCallAction.BLOCK, choice.number) }
             is PostCallChoice.Report -> openApp { deps.postCallIntent(this, PostCallAction.REPORT, choice.number) }
@@ -324,6 +383,9 @@ class InCallActivity : ComponentActivity() {
         const val ACTION_ASK_DECLINE = "app.parley.telecom.ui.ASK_DECLINE"
         private const val ENDED_MS = 1200L
         private const val POST_CALL_CARD_MS = 8000L
+        private const val DROPPED_MS = 10_000L
+        private const val HOLD_BRIGHTNESS = 0.05f
+        private const val PIP_HOLD_END_REQUEST = 42
         private const val ACTION_MESSAGE_ON = "app.parley.action.MESSAGE_ON"
         private const val MESSAGE_ON_ACTIVITY = "app.parley.messaging.NumberActionActivity"
         private const val EXTRA_DIALPAD = "dialpad"

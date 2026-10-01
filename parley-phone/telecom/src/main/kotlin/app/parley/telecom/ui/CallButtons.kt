@@ -5,7 +5,9 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.indication
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -103,10 +105,14 @@ internal data class ControlSpec(
     val toggle: Boolean = false,
     val active: Boolean = false,
     val enabled: Boolean = true,
+    /** P6: a press and hold (Speaker opens the audio output list), with what TalkBack says it does. */
+    val onLongClick: (() -> Unit)? = null,
+    val longClickLabel: String? = null,
     val onClick: () -> Unit,
 )
 
 /** A grid control: pill container, morphing to a rounded square while on (filled with the primary colour). */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun CallControlButton(spec: ControlSpec, modifier: Modifier = Modifier) {
     val scheme = MaterialTheme.colorScheme
@@ -139,9 +145,10 @@ internal fun CallControlButton(spec: ControlSpec, modifier: Modifier = Modifier)
                 .height(CallButtonSize.controlHeight)
                 .clip(animatedCorners(corner))
                 .background(if (spec.enabled) container else scheme.surfaceContainerHigh)
-                .clickable(
-                    source, indication = LocalIndication.current, enabled = spec.enabled,
-                    role = if (spec.toggle) Role.Switch else Role.Button, onClick = spec.onClick,
+                .combinedClickable(
+                    interactionSource = source, indication = LocalIndication.current, enabled = spec.enabled,
+                    role = if (spec.toggle) Role.Switch else Role.Button,
+                    onLongClickLabel = spec.longClickLabel, onLongClick = spec.onLongClick, onClick = spec.onClick,
                 )
                 .semantics {
                     contentDescription = spec.spoken

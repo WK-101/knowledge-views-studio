@@ -70,6 +70,8 @@ data class AppSettings(
     val rememberRecentsFilter: Boolean = true,
     /** The Recents filter chip used last, by name ("UNKNOWN"); empty for All. */
     val recentsFilter: String = "",
+    /** Show contact photos (and call-screen pictures) on the call screen; a contact can override it either way. */
+    val showCallerPhoto: Boolean = true,
 ) {
     companion object {
         val DEFAULT_QUICK_REPLIES = listOf(

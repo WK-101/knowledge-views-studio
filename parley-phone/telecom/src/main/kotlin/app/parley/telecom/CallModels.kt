@@ -1,6 +1,7 @@
 package app.parley.telecom
 
 import app.parley.common.Verification
+import app.parley.common.calls.DropKind
 import app.parley.common.calls.FailureKind
 import app.parley.common.calls.LiveCallState
 
@@ -78,6 +79,17 @@ data class CallUi(
     val pronouns: String? = null,
     /** `elapsedRealtime` when this ringing call is answered automatically (0: it isn't); the screen shows Cancel. */
     val autoAnswerAt: Long = 0,
+    /** L10: the subject the caller sent with the call (cleaned, plain text), when the network passes it on. */
+    val subject: String? = null,
+    /** The caller marked the call urgent (Call Composer). */
+    val urgent: Boolean = false,
+    /** P1: why a ringing call rings although screening would otherwise have kept it quiet, in words. */
+    val rangThrough: String? = null,
+    /** P5: the connected call dropped (set on the ended call only), and why, in words ("Lost signal · Wi-Fi calling"). */
+    val drop: DropKind? = null,
+    val dropText: String? = null,
+    /** I10: `elapsedRealtime` when "I'm on hold" started, or 0 when not in hold mode. */
+    val holdModeSince: Long = 0,
 ) {
     val title: String get() = name ?: number?.takeIf { it.isNotBlank() } ?: fallbackTitle
     val isLive: Boolean get() = state != CallState.DISCONNECTED && state != CallState.DISCONNECTING
@@ -93,6 +105,18 @@ data class CallUi(
     /** After a call that connected with a contact, "Anything to remember?" (opt-in). */
     val memoryCard: Boolean
         get() = memoryPrompt && !noContact && !hidden && !isEmergency && connectTimeMillis > 0 && !number.isNullOrBlank()
+
+    /** "Call again" after a drop: a number to call, never an emergency call. */
+    val canCallAgain: Boolean
+        get() = drop != null && !hidden && !isEmergency && !number.isNullOrBlank()
+
+    /** I3 "Check it's really them": a live, connected or ringing call that isn't an emergency call. */
+    val canVerify: Boolean
+        get() = isLive && !isEmergency && !isConference && state != CallState.SELECT_ACCOUNT
+
+    /** I10 "I'm on hold" can start: a connected, active call. */
+    val canHoldMode: Boolean
+        get() = state == CallState.ACTIVE && !isEmergency && holdModeSince == 0L
 
     /** Show the post-call card: an ended call with a number that isn't in contacts. */
     val postCallCard: Boolean

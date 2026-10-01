@@ -258,6 +258,11 @@ object CallClock {
         feedback?.haptic(h)
     }
 
+    /** A buzz the user asked for (hold mode's reminders): not tied to the call-haptics switch, still quiet on silent. */
+    internal fun remind(h: CallHaptic) {
+        feedback?.vibrate(h)
+    }
+
     private const val PLAN_TIMEOUT_MS = 3000L
     private const val MIN_TICK_MS = 50L
     private const val MAX_TICK_MS = 10_000L
