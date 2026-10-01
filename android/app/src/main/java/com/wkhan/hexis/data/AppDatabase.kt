@@ -95,9 +95,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         com.wkhan.hexis.data.entity.GoalReviewEntity::class,
         com.wkhan.hexis.data.entity.RoutineEntity::class,
         com.wkhan.hexis.data.entity.RoutineRunEntity::class,
+        com.wkhan.hexis.data.entity.BridgeAuditEntity::class,
     ],
-    version = 87,
-    // R73 — export the schema JSON (to app/schemas/) on every build. With 82 hand-written migrations (v5→v87)
+    version = 88,
+    // R73 — export the schema JSON (to app/schemas/) on every build. With 83 hand-written migrations (v5→v88)
     // this is the safety net: it lets an instrumented MigrationTest replay the whole chain in CI and
     // fail the build the moment a migration drifts from the entity definitions. Turned on from v59;
     // each future version's schema is committed alongside its migration.
@@ -146,6 +147,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun noteCardDao(): com.wkhan.hexis.data.dao.NoteCardDao
     abstract fun goalDao(): com.wkhan.hexis.data.dao.GoalDao
     abstract fun routineDao(): com.wkhan.hexis.data.dao.RoutineDao
+    abstract fun bridgeAuditDao(): com.wkhan.hexis.data.dao.BridgeAuditDao
 
     companion object {
         @Volatile
@@ -1176,7 +1178,23 @@ abstract class AppDatabase : RoomDatabase() {
         }
 
         /**
-         * The complete, ordered v5→v87 migration chain. Exposed (and used by the builder below) so an
+         * v87→v88 (addon bridge) adds the bridge audit-log table. Purely additive — a new, empty table
+         * for recording calls to/from satellite addons; no existing data is touched. CREATE matches
+         * Room's generated 88.json.
+         */
+        private val MIGRATION_87_88 = object : Migration(87, 88) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `bridge_audit_log` (`id` TEXT NOT NULL, " +
+                        "`atMillis` INTEGER NOT NULL, `providerPackage` TEXT NOT NULL, " +
+                        "`capabilityId` TEXT NOT NULL, `method` TEXT NOT NULL, `outcome` TEXT NOT NULL, " +
+                        "`detail` TEXT NOT NULL, PRIMARY KEY(`id`))",
+                )
+            }
+        }
+
+        /**
+         * The complete, ordered v5→v88 migration chain. Exposed (and used by the builder below) so an
          * instrumented [androidTest] MigrationTest can replay it against a real SQLite DB and assert the
          * result matches the exported schema — turning a silent migration bug into a failing build.
          */
@@ -1195,7 +1213,7 @@ abstract class AppDatabase : RoomDatabase() {
             MIGRATION_70_71, MIGRATION_71_72, MIGRATION_72_73, MIGRATION_73_74, MIGRATION_74_75, MIGRATION_75_76,
             MIGRATION_76_77, MIGRATION_77_78, MIGRATION_78_79, MIGRATION_79_80, MIGRATION_80_81,
             MIGRATION_81_82, MIGRATION_82_83, MIGRATION_83_84, MIGRATION_84_85, MIGRATION_85_86,
-            MIGRATION_86_87,
+            MIGRATION_86_87, MIGRATION_87_88,
         )
 
         fun get(context: Context): AppDatabase =
@@ -1223,7 +1241,7 @@ abstract class AppDatabase : RoomDatabase() {
                         })
                         .addMigrations(*ALL_MIGRATIONS)
                         // R68 — data-safety: NEVER silently wipe a real user's database on a forward upgrade.
-                        // The full v5→v87 migration chain above is exhaustive, so a normal upgrade never needs
+                        // The full v5→v88 migration chain above is exhaustive, so a normal upgrade never needs
                         // a fallback. We keep destructive fallback ONLY for a DOWNGRADE (installing an older
                         // build over a newer schema) — the one case a migration genuinely can't exist for.
                         // A missing FORWARD migration now fails loudly in testing instead of erasing years of
