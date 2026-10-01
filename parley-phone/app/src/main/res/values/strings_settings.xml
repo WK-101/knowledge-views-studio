@@ -143,6 +143,12 @@
     <string name="set_repeat_callers_title">Let repeat callers through</string>
     <string name="set_repeat_callers_summary">An unknown number blocked earlier rings if it calls again within 3 minutes</string>
     <string name="set_repeat_callers_kw">urgent, twice, emergency</string>
+    <string name="set_learn_from_calls_title">Learn from your calls</string>
+    <string name="set_learn_from_calls_summary">Tag numbers that look like sales lines, from how your own calls with them went. Stays on this phone.</string>
+    <string name="set_learn_from_calls_kw">reputation, sales, telemarketing, spam, tag, learn, range</string>
+    <string name="set_silence_sales_lines_title">Silence numbers that look like sales lines (your calls)</string>
+    <string name="set_silence_sales_lines_summary">Contacts, numbers you allow and repeat callers still ring</string>
+    <string name="set_silence_sales_lines_kw">reputation, sales, telemarketing, silence, mute, spam</string>
     <string name="set_expecting_call_title">Expecting a call</string>
     <string name="set_expecting_call_summary">Let unknown callers ring for a while</string>
     <string name="set_expecting_call_kw">snooze, delivery, courier, unknown</string>

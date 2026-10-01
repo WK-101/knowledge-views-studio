@@ -335,6 +335,9 @@ class CallHistory(
     /** The archive's keyed fingerprint of [number]'s line, for small stores kept beside it (ring facts). */
     internal fun lineMac(number: String): String = personMac(number)
 
+    /** The archive's keyed fingerprint of any [value] (personal reputation keys lines and ranges with it). */
+    internal fun auxMac(value: String): String = crypto.mac(value)
+
     /** Seals and opens with the archive key, for small stores kept beside it (ring facts). */
     internal fun sealAux(plain: ByteArray): ByteArray = crypto.seal(plain)
 

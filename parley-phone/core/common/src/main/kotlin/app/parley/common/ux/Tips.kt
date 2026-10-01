@@ -33,6 +33,9 @@ object Tips {
     /** The sync watchdog, explained once in the Contact health check. */
     const val SYNC_WATCHDOG = "sync_watchdog"
 
+    /** I2: the "Looks like a sales line (your calls)" tag on the call screen, the first time it shows. */
+    const val REPUTATION_TAG = "reputation_tag"
+
     /** Ids are stored comma-separated; anything that isn't a plain id is dropped. */
     private val ID = Regex("[a-z0-9_]{1,40}")
 

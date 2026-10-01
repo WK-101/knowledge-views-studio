@@ -12,6 +12,7 @@ import app.parley.common.calls.CallQualityFacts
 import app.parley.common.calls.EmergencyPolicy
 import app.parley.common.calls.RingFacts
 import app.parley.common.calls.VerifyCallBack
+import app.parley.common.spam.RangeProposal
 import app.parley.common.ux.CallScreenBackground
 import kotlinx.coroutines.flow.StateFlow
 
@@ -144,6 +145,15 @@ interface ScreeningHooks {
 
     /** Undo on the call-ended screen: removes the rule [blockForDecline] wrote. */
     suspend fun undoBlockForDecline(ruleId: Long) {}
+
+    /**
+     * I2 "Block this range?" after a call that looked like a sales line: the narrowest prefix covering the related
+     * numbers from your calls and how many past calls it would have matched, or null when there's no range to offer.
+     */
+    suspend fun rangeProposal(number: String, accountId: String?): RangeProposal? = null
+
+    /** Writes a block rule for the numbers starting with [prefix]; its id (for Undo), 0 when already blocked, null on failure. */
+    suspend fun blockRange(prefix: String): Long? = null
 }
 
 /** Call time, SIM choice and placing calls again. */

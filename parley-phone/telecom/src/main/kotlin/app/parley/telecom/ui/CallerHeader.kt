@@ -135,6 +135,8 @@ internal fun CallerHeader(
         Spacer(Modifier.height(Spacing.m))
         StatusPill(call, ended)
         if (!ended && call.state == CallState.RINGING) RangThroughLine(call)
+        // I2: "Looks like a sales line (your calls)", with Why?
+        ReputationLine(call, ended, compact)
         if (!ended && call.state != CallState.RINGING) RemainingLine(timing)
         if (!compact) CallerCard(call, ended)
     }

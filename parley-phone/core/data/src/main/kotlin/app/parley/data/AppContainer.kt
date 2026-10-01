@@ -17,6 +17,7 @@ import app.parley.data.backup.SyncWatch
 import app.parley.data.backup.TimeMachine
 import app.parley.data.calls.CallExtrasRepository
 import app.parley.data.calls.CallQualityStore
+import app.parley.data.calls.ReputationStore
 import app.parley.data.calls.RingFactsStore
 import app.parley.data.calls.ToCallStore
 import app.parley.data.calls.VoicemailRepository
@@ -81,7 +82,10 @@ class DataContainer(context: Context) {
     val blocks by lazy { BlockRepository(appContext, db, scope) }
     val prefs by lazy { PrefsRepository(db) { PhoneEnv.countryIso(appContext) } }
     val screener by lazy {
-        CallScreener(appContext, contacts, blocks, sims, settings, vault, scope, lists, labelRingtones = { peoplePrefs.current().labelRingtones }, callLog = callLog)
+        CallScreener(
+            appContext, contacts, blocks, sims, settings, vault, scope, lists, labelRingtones = { peoplePrefs.current().labelRingtones }, callLog = callLog,
+            reputation = reputation,
+        )
             .also { s -> s.onScreened = { e -> onScreened?.invoke(e) } }
     }
 
@@ -111,6 +115,9 @@ class DataContainer(context: Context) {
 
     /** Quality facts per call (SIM, Wi-Fi calling, HD voice, why it ended, the caller's subject). */
     val callQuality: CallQualityStore by lazy { CallQualityStore(appContext) { history } }
+
+    /** I2 personal reputation: what your own calls say about numbers and ranges (learned daily, sealed). */
+    val reputation: ReputationStore by lazy { ReputationStore(appContext) { history } }
     val voicemail by lazy { VoicemailRepository(appContext, scope) }
 
     /** The "To call" list: reminders to call back and follow-ups (by number, sealed at rest). */

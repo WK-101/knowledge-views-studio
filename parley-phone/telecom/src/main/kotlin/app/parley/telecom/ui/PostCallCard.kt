@@ -99,6 +99,8 @@ internal fun PostCallCard(call: CallUi, onChoice: (PostCallChoice) -> Unit) {
                 Action(Icons.Rounded.Flag, stringResource(R.string.postcall_report)) { onChoice(PostCallChoice.Report(number)) }
                 Action(Icons.Rounded.VerifiedUser, stringResource(R.string.verify_postcall)) { onChoice(PostCallChoice.Verify(number)) }
             }
+            // I2: after a call that looked like a sales line, "Block this range?".
+            BlockRangeOffer(call)
             TextButton({ onChoice(PostCallChoice.Done) }, modifier = Modifier.align(Alignment.End)) { Text(stringResource(R.string.tc_done)) }
         }
     }

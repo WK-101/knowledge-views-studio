@@ -65,6 +65,8 @@ object SettingsText {
         "plan_minutes" to Triple(R.string.set_plan_minutes_title, R.string.set_plan_minutes_summary, R.string.set_plan_minutes_kw),
         "blocking" to Triple(R.string.set_blocking_title, R.string.set_blocking_summary, R.string.set_blocking_kw),
         "repeat_callers" to Triple(R.string.set_repeat_callers_title, R.string.set_repeat_callers_summary, R.string.set_repeat_callers_kw),
+        "learn_from_calls" to Triple(R.string.set_learn_from_calls_title, R.string.set_learn_from_calls_summary, R.string.set_learn_from_calls_kw),
+        "silence_sales_lines" to Triple(R.string.set_silence_sales_lines_title, R.string.set_silence_sales_lines_summary, R.string.set_silence_sales_lines_kw),
         "expecting_call" to Triple(R.string.set_expecting_call_title, R.string.set_expecting_call_summary, R.string.set_expecting_call_kw),
         "spam_lists" to Triple(R.string.set_spam_lists_title, R.string.set_spam_lists_summary, R.string.set_spam_lists_kw),
         "templates" to Triple(R.string.set_templates_title, R.string.set_templates_summary, R.string.set_templates_kw),

@@ -576,8 +576,13 @@ object CallManager {
             subject = s.subject,
             urgent = s.urgent,
             holdModeSince = s.holdModeSince,
+            reputation = reputationTag(s, call, number, hidden),
         ).withRangThrough(s)
     }
+
+    /** I2's tag, for an unknown, visible, non-emergency caller only. */
+    private fun reputationTag(s: CallSession, call: Call, number: String?, hidden: Boolean) =
+        s.outcome?.reputation?.takeIf { !hidden && s.info == null && !isEmergencyCall(call, number) }
 
     /** P1 while it rings; the "rang through" line says it better than the quiet "Allowed by …" tag (a warning stays). */
     private fun CallUi.withRangThrough(s: CallSession): CallUi {

@@ -4,6 +4,7 @@ import app.parley.common.Verification
 import app.parley.common.calls.DropKind
 import app.parley.common.calls.FailureKind
 import app.parley.common.calls.LiveCallState
+import app.parley.common.spam.Reputation
 
 enum class CallState { NEW, RINGING, DIALING, CONNECTING, ACTIVE, HOLDING, DISCONNECTING, DISCONNECTED, SELECT_ACCOUNT, OTHER }
 
@@ -90,6 +91,8 @@ data class CallUi(
     val dropText: String? = null,
     /** I10: `elapsedRealtime` when "I'm on hold" started, or 0 when not in hold mode. */
     val holdModeSince: Long = 0,
+    /** I2: looks like a sales line from your own calls (the quiet tag, "Why?", and "Block this range?" afterwards). */
+    val reputation: Reputation? = null,
 ) {
     val title: String get() = name ?: number?.takeIf { it.isNotBlank() } ?: fallbackTitle
     val isLive: Boolean get() = state != CallState.DISCONNECTED && state != CallState.DISCONNECTING

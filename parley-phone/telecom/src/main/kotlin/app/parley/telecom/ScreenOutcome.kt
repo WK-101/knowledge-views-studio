@@ -6,6 +6,7 @@ import android.media.AudioManager
 import app.parley.common.Decision
 import app.parley.common.RangThrough
 import app.parley.common.calls.RingtoneSource
+import app.parley.common.spam.Reputation
 import java.util.concurrent.Executors
 
 /**
@@ -32,6 +33,8 @@ data class ScreenOutcome(
     val ringtoneName: String? = null,
     /** P1: why it rings although screening would otherwise have kept it quiet ("called twice in 3 min"). */
     val rangThrough: RangThrough? = null,
+    /** I2: the caller looks like a sales line from your own calls (the quiet tag and its "Why?"). */
+    val reputation: Reputation? = null,
 )
 
 /**

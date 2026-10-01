@@ -18,6 +18,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Label
+import androidx.compose.material.icons.automirrored.rounded.VolumeOff
+import androidx.compose.material.icons.rounded.Storefront
+import app.parley.data.calls.ReputationLearner
 import androidx.compose.material.icons.automirrored.rounded.PhoneForwarded
 import androidx.compose.material.icons.automirrored.rounded.ShortText
 import androidx.compose.material.icons.rounded.FilterList
@@ -377,6 +380,17 @@ internal fun BlockingPage(vm: AppViewModel, open: (Destination) -> Unit) {
     SegmentedGroup {
         linkRow("blocking", Icons.Rounded.Block) { open(Routes.Blocking) }
         switchRow("repeat_callers", s.repeatCallerRingsThrough, Icons.Rounded.Repeat) { v -> set { it.copy(repeatCallerRingsThrough = v) } }
+        // I2: tags from your own calls (on), and the optional silence rule (off, only while learning is on).
+        switchRow("learn_from_calls", s.screening.learnFromCalls, Icons.Rounded.Storefront) { v ->
+            // Learns at once (or forgets everything), in the app's scope so leaving the page doesn't stop it.
+            vm.c.scope.launch {
+                vm.c.settings.update { it.copy(screening = it.screening.copy(learnFromCalls = v)) }
+                runCatching { ReputationLearner.learn(vm.c) }
+            }
+        }
+        switchRow("silence_sales_lines", s.screening.silenceSalesLines, Icons.AutoMirrored.Rounded.VolumeOff, enabled = s.screening.learnFromCalls) { v ->
+            set { it.copy(screening = it.screening.copy(silenceSalesLines = v)) }
+        }
         switchRow("expecting_call", snoozing, Icons.Rounded.HourglassTop, sub = if (snoozing) snoozeOn else null) { v ->
             if (v) BlockingDialogs.show(BlockingDialog.Snooze)
             else scope.launch { BlockingActions.snooze(vm.c, 0) }
