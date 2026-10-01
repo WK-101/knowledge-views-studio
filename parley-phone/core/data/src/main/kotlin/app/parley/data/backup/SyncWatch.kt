@@ -92,13 +92,31 @@ class SyncWatch(private val c: DataContainer) {
             ),
         )
         val (next, fresh) = m.afterRun(found, accounts, newest.timestamp, now)
-        save(next)
+        save(expireReturned(next))
         fresh
+    }
+
+    /** [m] without the cards whose contacts have all come back by themselves (sync recovered). */
+    private suspend fun expireReturned(m: SyncWatchMemory): SyncWatchMemory {
+        val cards = m.pending.filter { it.restorable && it.kind != WatchKind.NUMBERS_LOST }
+        if (cards.isEmpty()) return m
+        val now = withContext(Dispatchers.IO) { addressBook() } ?: return m
+        var out = m
+        for (e in cards) {
+            val all = runCatching { c.timeMachine.lastVersions(e.keys).values.toList() }.getOrNull() ?: continue
+            if (all.isNotEmpty() && SyncWatchdog.stillGone(all, now).isEmpty()) out = out.expire(e)
+        }
+        return out
     }
 
     /** "It was me": the card goes and these contacts are never reported again. */
     fun dismiss(e: WatchEvent) {
         save(_memory.value.dismiss(e, System.currentTimeMillis()))
+    }
+
+    /** Every contact of [e] came back by itself: its card goes (they stay remembered as said). */
+    fun expire(e: WatchEvent) {
+        save(_memory.value.expire(e))
     }
 
     /** A restore was undone: its card shows again. */
@@ -108,9 +126,32 @@ class SyncWatch(private val c: DataContainer) {
 
     fun pending(fingerprint: String): WatchEvent? = _memory.value.pending.firstOrNull { it.fingerprint == fingerprint }
 
-    /** The last version of each vanished contact of [e], taken before it went (name order). */
-    suspend fun vanished(e: WatchEvent): List<ContactRecord> =
-        c.timeMachine.lastVersions(e.keys).values.sortedBy { it.displayName.lowercase() }
+    /** What a card can still bring back: the contacts still gone, and how many came back by themselves. */
+    data class Vanished(val records: List<ContactRecord>, val cameBack: Int)
+
+    /**
+     * The last version of each vanished contact of [e], taken before it went (name order), without those that came back
+     * since (re-checked against the address book now, so a restore never duplicates them). When all came back, the
+     * card goes.
+     */
+    suspend fun vanished(e: WatchEvent): Vanished = withContext(Dispatchers.IO) {
+        val all = c.timeMachine.lastVersions(e.keys).values.toList()
+        val gone = stillGone(all) ?: all
+        if (all.isNotEmpty() && gone.isEmpty()) save(_memory.value.expire(e))
+        Vanished(gone.sortedBy { it.displayName.lowercase() }, all.size - gone.size)
+    }
+
+    /** Of [records], those not in the address book now; null when it can't be read (nothing is dropped then). */
+    private fun stillGone(records: List<ContactRecord>): List<ContactRecord>? {
+        if (records.isEmpty()) return records
+        return addressBook()?.let { SyncWatchdog.stillGone(records, it) }
+    }
+
+    /** Every contact as it is now (no photos), or null when the address book can't be read. */
+    private fun addressBook(): List<ContactRecord>? {
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED) return null
+        return runCatching { c.records.readAll(fullPhoto = false).toList() }.onFailure { Log.w(TAG, "Couldn't read contacts", it) }.getOrNull()
+    }
 
     /** The contacts of a NUMBERS_LOST event that still exist and still miss numbers, with what they had. */
     suspend fun lostNumbers(e: WatchEvent): List<LostNumbers> = withContext(Dispatchers.IO) {
@@ -124,11 +165,19 @@ class SyncWatch(private val c: DataContainer) {
         }.sortedBy { it.name.lowercase() }
     }
 
-    /** Brings [records] back as new contacts in their accounts; returns the raw contact ids written (for undo). */
-    suspend fun restore(records: List<ContactRecord>): List<Long> = withContext(Dispatchers.IO) {
-        val ids = c.records.insertAll(records, target = null).flatMap { it.rawIds }
+    /** What a restore wrote: the raw contact ids (for undo), and how many it skipped because they had come back. */
+    data class Restored(val rawIds: List<Long>, val restored: Int, val cameBack: Int)
+
+    /**
+     * Brings [records] back as new contacts in their accounts. The address book is read again first: a contact that came
+     * back since the screen opened is skipped, never written twice. Without a way to check (no permission, an error),
+     * nothing is written.
+     */
+    suspend fun restore(records: List<ContactRecord>): Restored = withContext(Dispatchers.IO) {
+        val gone = stillGone(records) ?: return@withContext Restored(emptyList(), 0, 0)
+        val ids = if (gone.isEmpty()) emptyList() else c.records.insertAll(gone, target = null).flatMap { it.rawIds }
         c.contacts.refresh()
-        ids
+        Restored(ids, gone.size, records.size - gone.size)
     }
 
     /** Undo of [restore]: those raw contacts go again (journaled, so it stays in History & undo). */

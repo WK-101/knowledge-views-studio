@@ -410,13 +410,50 @@ object VaultCrypto {
         else -> KeyUnavailableException(e)
     }
 
-    /** Whether the detail key currently needs a fresh unlock. */
+    /**
+     * Whether the detail key currently needs a fresh unlock. It gates private data (number memory's private hints,
+     * backups of private contacts), so it fails closed: only a key that is there and usable right now counts as open.
+     * A key that is missing, invalidated (the screen lock was changed) or that the Keystore can't load now counts as
+     * locked. No detail key ever made means nothing was sealed with one: open.
+     */
     fun detailNeedsUnlock(): Boolean = try {
-        val gen = currentGeneration() ?: return false
-        val key = detailKey(gen) ?: return false
-        Cipher.getInstance("AES/GCM/NoPadding").init(Cipher.ENCRYPT_MODE, key)
-        false
-    } catch (_: UserNotAuthenticatedException) {
+        val gen = currentGeneration()
+        if (gen == null) {
+            // A committed generation whose key is gone can't open anything.
+            committedGeneration() != null
+        } else {
+            val key = detailKey(gen)
+            if (key == null) {
+                true
+            } else {
+                Cipher.getInstance("AES/GCM/NoPadding").init(Cipher.ENCRYPT_MODE, key)
+                false
+            }
+        }
+    } catch (_: Exception) {
+        true
+    }
+
+    /**
+     * Whether the detail key is gone for good (deleted, or invalidated by a screen-lock change), as opposed to locked or
+     * briefly unavailable. A backup still saves what is left then (the caller-ID copies); a busy Keystore is not lost.
+     */
+    fun detailKeyLost(): Boolean = try {
+        val gen = currentGeneration()
+        if (gen == null) {
+            committedGeneration() != null
+        } else {
+            val key = detailKey(gen)
+            if (key == null) {
+                !ks.containsAlias(detailAlias(gen))
+            } else {
+                Cipher.getInstance("AES/GCM/NoPadding").init(Cipher.ENCRYPT_MODE, key)
+                false
+            }
+        }
+    } catch (_: KeyPermanentlyInvalidatedException) {
+        true
+    } catch (_: KeyLostException) {
         true
     } catch (_: Exception) {
         false

@@ -161,6 +161,39 @@ object SyncWatchdog {
     }
 
     /**
+     * Of the vanished [records], those still gone from the address book as it is [now] (read just before a restore):
+     * a contact that came back (sync recovered, often under a new lookup key) is never written twice. One is back when
+     * its lookup key is there again, one of its raw contacts is, or every raw contact of its is recognised (by sync
+     * source id, or by account, name and numbers), or another contact has its very name and numbers in any account.
+     */
+    fun stillGone(records: List<ContactRecord>, now: List<ContactRecord>): List<ContactRecord> {
+        val keys = now.mapTo(HashSet()) { it.key }
+        val rawIds = now.flatMapTo(HashSet()) { r -> r.raws.mapNotNull { it.rawId } }
+        val alive = HashSet<String>()
+        now.forEach { r -> r.raws.forEach { alive += identities(it) } }
+        val people = now.mapNotNullTo(HashSet()) { person(it) }
+        return records.filter { r ->
+            val raws = r.raws.filter { !Messengers.isMessengerAccount(it.accountType) }
+            val back = r.key in keys ||
+                r.raws.any { it.rawId != null && it.rawId in rawIds } ||
+                (raws.isNotEmpty() && raws.all { raw -> identities(raw).any { it in alive } }) ||
+                person(r)?.let { it in people } == true
+            !back
+        }
+    }
+
+    /**
+     * A contact's name and numbers, whatever the account and however the numbers are written ("ana lima|612345678", the
+     * last 9 digits of each, so +44 7700 900004 and 07700 900004 agree); null without a name or a number.
+     */
+    private fun person(r: ContactRecord): String? {
+        val name = r.displayName.trim().lowercase().takeIf { it.isNotEmpty() } ?: return null
+        val numbers = phones(r).map { digits(it["data1"]).takeLast(9) }.filter { it.isNotEmpty() }.distinct().sorted()
+        if (numbers.isEmpty()) return null
+        return name + "|" + numbers.joinToString(",")
+    }
+
+    /**
      * Contacts that lost numbers without gaining any (a reformatted number is a change, not a loss) and that Parley
      * didn't edit.
      */

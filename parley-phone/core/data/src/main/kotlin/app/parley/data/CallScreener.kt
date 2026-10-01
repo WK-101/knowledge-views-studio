@@ -29,10 +29,12 @@ import app.parley.common.blocking.ReplayReport
 import app.parley.common.blocking.ScreeningEffects
 import app.parley.common.blocking.ScreeningPipeline
 import app.parley.common.spam.ParsedPack
+import app.parley.common.spam.Reputation
 import app.parley.data.calls.ReputationStore
 import app.parley.data.vault.VaultRepository
 import app.parley.common.people.PrivateLabels
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -327,8 +329,13 @@ class CallScreener(
      * I2: a lookup only (learned in the daily run). Only for [unknown] callers: never contacts or emergency numbers, nor
      * replays of past calls (today's index was learned from those very calls).
      */
-    private fun reputationOf(number: String, iso: String, s: ScreeningSettings, unknown: Boolean) =
-        if (unknown && s.learnFromCalls) runCatching { reputation?.lookup(number, iso) }.getOrNull() else null
+    private fun reputationOf(number: String, iso: String, s: ScreeningSettings, unknown: Boolean): Reputation? {
+        if (!unknown || !s.learnFromCalls) return null
+        val store = reputation ?: return null
+        // From memory only (L7): an index not read yet gives no tag this time and is read in the background.
+        if (!store.isLoaded) scope.launch(Dispatchers.IO) { runCatching { store.load() } }
+        return runCatching { store.lookupLoaded(number, iso) }.getOrNull()
+    }
 
     /** Earlier calls with [number] before [at], newest first. */
     private fun history(number: String, at: Long, replay: List<CallEntry>?, iso: String): List<PastCall> {

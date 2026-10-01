@@ -59,6 +59,7 @@ import app.parley.common.circle.InteractionType
 import app.parley.common.circle.Interactions
 import app.parley.common.circle.Timeline
 import app.parley.common.circle.TimelineEntry
+import app.parley.common.people.ContactRef
 import app.parley.common.people.LifeEvents
 import app.parley.data.ContactDetails
 import app.parley.data.EventItem
@@ -155,14 +156,19 @@ fun LogInteractionDialog(name: String, initial: Interaction?, onDismiss: () -> U
 suspend fun saveInteraction(vm: AppViewModel, d: ContactDetails, contactId: Long, initial: Interaction?, type: InteractionType, note: String?, time: Long) {
     val res = vm.getApplication<Application>().resources
     try {
-        if (initial == null) {
+        val entry = if (initial == null) {
             vm.c.circle.interactions.log(d.lookupKey, contactId, type, null, time, note, Interactions.manualKey(UUID.randomUUID().toString()))
-            vm.toast(res.getString(R.string.circle_logged, d.given.ifBlank { d.displayName }))
+                .also { vm.toast(res.getString(R.string.circle_logged, d.given.ifBlank { d.displayName })) }
         } else {
             vm.c.circle.interactions.edit(initial.id, type, note, time.takeIf { it != initial.time })
+            initial.id
         }
-        // I7: "will call Tue" in the note can expect that call.
-        runCatching { ExpectedCallHints.noteSaved(vm.c, d.displayName, note, key = "note:" + d.lookupKey) }
+        // I7: "will call Tue" in the note can expect that call; an edit that drops the promise withdraws it.
+        if (entry != null) {
+            runCatching {
+                ExpectedCallHints.noteSaved(vm.c, d.displayName, note, ExpectedCallHints.loggedKey(entry), privateName = ContactRef.isPrivateKey(d.lookupKey))
+            }
+        }
     } catch (_: InteractionStore.SealException) {
         vm.toast(res.getString(R.string.circle_note_failed))
     }
@@ -269,7 +275,17 @@ internal fun TimelineEntryRow(vm: AppViewModel, e: TimelineEntry, interactions: 
         is TimelineEntry.Logged -> LoggedRow(e, interactions.firstOrNull { it.id == e.id }, onEdit) { item ->
             scope.launch {
                 val gone = vm.c.circle.interactions.delete(item.id) ?: return@launch
-                CircleSnacks.show(CircleSnack(res.getString(R.string.circle_entry_deleted)) { vm.c.circle.interactions.restore(gone) })
+                // I7: a deleted note no longer expects a call (Undo brings the entry back under a new id, and its window).
+                runCatching { ExpectedCallHints.noteGone(vm.c, ExpectedCallHints.loggedKey(item.id)) }
+                CircleSnacks.show(
+                    CircleSnack(res.getString(R.string.circle_entry_deleted)) {
+                        val back = vm.c.circle.interactions.restore(gone)
+                        // Without the page's name at hand: the window comes back unnamed ("from your notes").
+                        if (back != null && gone.note != null) {
+                            runCatching { ExpectedCallHints.noteSaved(vm.c, null, gone.note, ExpectedCallHints.loggedKey(back)) }
+                        }
+                    },
+                )
             }
         }
         is TimelineEntry.Note -> ListItem(

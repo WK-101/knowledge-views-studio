@@ -414,11 +414,17 @@ class BackupRepository(
         o.put("parley", extras)
     }
 
+    /**
+     * Locked or unreadable right now: private contacts are left out (and reported as left out), never half written. A
+     * key lost for good still lets what's left (the caller-ID copies) be saved.
+     */
+    private fun vaultReadable(): Boolean = !VaultCrypto.detailNeedsUnlock() || VaultCrypto.detailKeyLost()
+
     /** Private contacts, re-encrypted under the archive key. Needs the vault unlocked (otherwise skipped). */
     private suspend fun vaultBlob(): ByteArray? {
         val list = vault.summariesNow()
         if (list.isEmpty()) return null
-        if (VaultCrypto.detailNeedsUnlock()) return null
+        if (!vaultReadable()) return null
         val arr = JSONArray()
         for (v in list) {
             val d = runCatching { vault.details(v.id) }.getOrNull() ?: continue

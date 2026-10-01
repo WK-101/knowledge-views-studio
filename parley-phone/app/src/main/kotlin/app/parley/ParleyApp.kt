@@ -1,8 +1,12 @@
 package app.parley
 
 import android.app.Application
+import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.os.Trace
+import androidx.core.content.ContextCompat
 import app.parley.blocking.BlockingSetup
 import app.parley.common.suspendRunCatching
 import app.parley.data.DataContainer
@@ -56,6 +60,14 @@ class ParleyApp : Application() {
             }
         }
         AppLock.onLock = { container.vault.forgetOpened() }
+        // With the app lock on, the screen going off forgets opened private details too (not only a lock).
+        ContextCompat.registerReceiver(
+            this,
+            object : BroadcastReceiver() {
+                override fun onReceive(context: Context, intent: Intent) = AppLock.onScreenOff()
+            },
+            IntentFilter(Intent.ACTION_SCREEN_OFF), ContextCompat.RECEIVER_NOT_EXPORTED,
+        )
         // The process often starts for an incoming call: only what the call path reads synchronously is warmed here,
         // off the main thread.
         container.scope.launch(Dispatchers.IO) {

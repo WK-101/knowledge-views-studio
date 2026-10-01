@@ -261,6 +261,13 @@ enum class BlockReason {
 
     /** Soft reasons can be overridden by a repeat caller; explicit choices (rules, lists you block) never. */
     val soft: Boolean get() = this in setOf(NOT_A_CONTACT, NEIGHBOUR_SPOOF, VERIFICATION_FAILED, LIST, INVALID_NUMBER, OFF_HOURS, PERSONAL_REPUTATION)
+
+    /**
+     * What a window Parley opened by itself (a note, the To call list, a delivery QR code) may override: only "who may
+     * ring" toggles. Never a rule (a "Block this range" rule included), a spam list, the sales-line silence or the scam
+     * signals (spoofing, failed verification, invalid numbers): a loose hint must not open the door to those.
+     */
+    val expectedMayOverride: Boolean get() = this == NOT_A_CONTACT || this == HIDDEN || this == OFF_HOURS
 }
 
 sealed interface Decision {
@@ -353,9 +360,11 @@ data class PolicyClock(val millis: Long, val day: DayOfWeek, val minuteOfDay: In
  * Pure, offline call-screening decision. No I/O: callers gather the facts first.
  *
  * Fixed precedence (never numeric priorities):
- * emergency › contacts & vault › allow rules (incl. snooze, dialled/answered) › block rules › lists › default toggles.
+ * emergency › contacts & vault › allow rules (incl. "Expecting a call" turned on by hand, dialled/answered) › block rules
+ * › lists › sales lines › default toggles.
  * A repeat caller overrides soft reasons only (lists, toggles, off hours), never an explicit rule, and
- * redials faster than the minimum interval don't count.
+ * redials faster than the minimum interval don't count. An automatic expected-call window (I7) comes last: it lets an
+ * unknown caller past "who may ring" toggles only ([BlockReason.expectedMayOverride]), never past a rule or a list.
  */
 object CallPolicy {
 
@@ -464,23 +473,23 @@ object CallPolicy {
                 return allow(AllowReason.EMERGENCY)
             }
             val number = f.number?.takeIf { it.isNotBlank() && !f.hidden }
-            // "Expecting a call" by hand, or a window from a note, the To call list or a delivery QR code (I7).
-            val window = ExpectedCalls.covering(s.expected, number, f.countryIso ?: f.region, clock.millis)
-            val snooze = s.snoozeActive(clock.millis) || window != null
-            val snoozeWhy = if (s.snoozeActive(clock.millis)) "on" else "from " + window?.source?.name?.lowercase()?.replace('_', ' ')
+            callerNumber = number
+            // "Expecting a call" by hand: an allow exception like an allow rule.
+            val snooze = s.snoozeActive(clock.millis)
             if (number == null) {
                 step("Number", "hidden")
                 if (snooze && !withoutExceptions) {
-                    expectedHit = window
-                    step("Expecting a call", snoozeWhy, TraceMark.MATCH)
+                    step("Expecting a call", "on", TraceMark.MATCH)
                     return allow(AllowReason.SNOOZE)
                 }
                 if (s.blockHidden && active(s.hiddenSchedule)) {
                     step("Block hidden numbers", "on", TraceMark.MATCH)
+                    expected(BlockReason.HIDDEN)?.let { return it }
                     return block(s.defaultAction, BlockReason.HIDDEN)
                 }
                 if (s.offHours.enabled && active(s.offHours.schedule)) {
                     step("Off hours", "hidden caller", TraceMark.MATCH)
+                    expected(BlockReason.OFF_HOURS)?.let { return it }
                     return block(s.offHours.action, BlockReason.OFF_HOURS)
                 }
                 step("Default", "ring")
@@ -542,8 +551,7 @@ object CallPolicy {
             // The screening service never knows the SIM: an allow rule limited to one SIM is decided when the call rings.
             simPending { it.type != RuleType.LABEL && factMatches(it, number) }?.let { return deferToSim(it) }
             if (snooze && !withoutExceptions) {
-                expectedHit = window
-                step("Expecting a call", snoozeWhy, TraceMark.MATCH)
+                step("Expecting a call", "on", TraceMark.MATCH)
                 return allow(AllowReason.SNOOZE, verdict = Verdict(VerdictKind.ALLOWED, "Let through: expecting a call"))
             }
             if (s.allowDialled && !withoutExceptions) {
@@ -635,8 +643,24 @@ object CallPolicy {
             return ScreeningResult(Decision.Allow, steps.toList(), null, AllowReason.DEFAULT, deferredToSim = true)
         }
 
-        /** Blocks for a soft reason unless this is a genuine repeat caller, who is let through instead. */
+        /** The caller's number, null when hidden (set at the start of [run]). */
+        var callerNumber: String? = null
+
+        /**
+         * I7: an unknown caller about to be stopped for [reason] rings when an automatic expected-call window covers
+         * them, and [reason] is one such a window may override (never a rule, a list or a scam signal); null otherwise.
+         */
+        fun expected(reason: BlockReason): ScreeningResult? {
+            if (withoutExceptions || f.isContact || !reason.expectedMayOverride) return null
+            val w = ExpectedCalls.covering(s.expected, callerNumber, f.countryIso ?: f.region, clock.millis) ?: return null
+            expectedHit = w
+            step("Expecting a call", "from " + w.source.name.lowercase().replace('_', ' '), TraceMark.MATCH)
+            return allow(AllowReason.SNOOZE, verdict = Verdict(VerdictKind.ALLOWED, "Let through: expecting a call"))
+        }
+
+        /** Blocks for a soft reason unless an expected-call window or a genuine repeat caller lets the call through. */
         fun softBlock(action: BlockAction, reason: BlockReason, hit: ListHit? = null, warn: Verdict? = null): ScreeningResult {
+            expected(reason)?.let { return it }
             if (repeatCaller()) {
                 step("Decision", "ring (repeat caller overrides ${reasonLabel(reason)})", TraceMark.MATCH)
                 return allow(AllowReason.REPEAT, ringtone = s.repeatRingtone, loud = s.ringLoudRepeat || (s.ringLoudFavourites && f.contactStarred), verdict = warn)

@@ -44,8 +44,8 @@
         <item quantity="other">You blocked %d numbers from the same range</item>
     </plurals>
 
-    <!-- Post-call card: block the range a sales line called from. -->
-    <string name="rep_range_title">Block this range?</string>
+    <!-- Post-call card: silence (or, as a second choice, block) the range a sales line called from. -->
+    <string name="rep_range_title">Silence this range?</string>
     <!-- %1$s: the prefix ("+33 6 12 34 56"), %2$s: "3 numbers", %3$s: "7 past calls". -->
     <string name="rep_range_text">Numbers starting %1$s… (%2$s) · would have matched %3$s</string>
     <plurals name="rep_range_numbers">
@@ -56,9 +56,11 @@
         <item quantity="one">%d past call</item>
         <item quantity="other">%d past calls</item>
     </plurals>
+    <string name="rep_range_silence">Silence range</string>
+    <string name="rep_range_silenced">Range silenced. Its calls ring quietly and show as missed. Contacts and numbers you allow still ring.</string>
     <string name="rep_range_block">Block range</string>
     <string name="rep_range_blocked">Range blocked. Contacts and numbers you allow still ring.</string>
-    <string name="rep_range_already">This range is already blocked.</string>
+    <string name="rep_range_already">This range already has a rule.</string>
     <string name="rep_range_failed">Couldn\'t block the range. Try again from Blocking &amp; screening.</string>
-    <string name="rep_range_undone">Range unblocked.</string>
+    <string name="rep_range_undone">Done. That range rings as before.</string>
 </resources>

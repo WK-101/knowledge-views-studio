@@ -37,7 +37,10 @@ object MeCardDetails {
 
     fun toCard(d: ContactDetails): MeCard {
         val a = d.addresses.firstOrNull()
-        val (profiles, sites) = d.websites.partition { SocialProfiles.labelled(it.type, it.label) != null }
+        // A row labelled with a service whose link isn't a profile Parley reads (a LinkedIn article, a link page) stays a
+        // plain website: never dropped on save.
+        val profiles = d.websites.mapNotNull { w -> SocialProfiles.labelled(w.type, w.label)?.let { SocialProfiles.fromWebsite(w.value, w.type, w.label) } }
+        val sites = d.websites.filter { w -> SocialProfiles.labelled(w.type, w.label) == null || SocialProfiles.fromWebsite(w.value, w.type, w.label) == null }
         return MeCard(
             name = MeCards.joinName(d.prefix, d.given, d.middle, d.family, d.suffix),
             phones = d.phones.map { it.value },
@@ -45,7 +48,7 @@ object MeCardDetails {
             company = d.company,
             title = d.title,
             websites = sites.map { it.value },
-            profiles = profiles.mapNotNull { SocialProfiles.fromWebsite(it.value, it.type, it.label) },
+            profiles = profiles,
             address = a?.let { MeCards.joinAddress(it.street, listOf(it.poBox, it.neighborhood, it.postcode, it.city, it.region, it.country)) }.orEmpty(),
             note = d.note,
         ).cleaned()

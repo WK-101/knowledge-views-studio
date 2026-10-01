@@ -80,6 +80,23 @@ class FamilySafetyTest {
         assertEquals(HelperStage.GONE, HelperJoin.stage(null, merged = false, seen = true))
     }
 
+    @Test fun cancel_ends_the_helpers_call_even_before_telecom_reports_it() {
+        // Not reported yet: Cancel waits for the call and ends it.
+        val notYet = HelperJoin.stage(null, merged = false, seen = false)
+        assertEquals(HelperCancel.WHEN_REPORTED, HelperJoin.onCancel(notYet, callKnown = false, seen = false))
+        // Ringing: ended at once.
+        val ringing = HelperJoin.stage(LiveCallState.DIALING, merged = false, seen = true)
+        assertEquals(HelperCancel.HANG_UP, HelperJoin.onCancel(ringing, callKnown = true, seen = true))
+        // Answered, joined or gone: the card only goes.
+        assertEquals(HelperCancel.FORGET, HelperJoin.onCancel(HelperStage.ANSWERED, callKnown = true, seen = true))
+        assertEquals(HelperCancel.FORGET, HelperJoin.onCancel(HelperStage.JOINED, callKnown = false, seen = true))
+        assertEquals(HelperCancel.FORGET, HelperJoin.onCancel(HelperStage.GONE, callKnown = false, seen = true))
+        // A call that shows up after Cancel is ended only within the wait.
+        assertTrue(HelperJoin.endsCancelled(0))
+        assertTrue(HelperJoin.endsCancelled(HelperJoin.CANCEL_WAIT_MS))
+        assertFalse(HelperJoin.endsCancelled(HelperJoin.CANCEL_WAIT_MS + 1))
+    }
+
     @Test fun the_state_round_trips_and_sources_start_undecided() {
         val s = FamilySafetyState(
             safeWords = mapOf("Family" to SafeWord("Q", "A")),

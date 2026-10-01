@@ -137,4 +137,26 @@ object HelperJoin {
         found == LiveCallState.ACTIVE || found == LiveCallState.HOLDING -> HelperStage.ANSWERED
         else -> HelperStage.CALLING
     }
+
+    /**
+     * A helper's call cancelled before Telecom reported it is ended when it shows up within this long (placing a call
+     * takes a moment; after that it was never placed).
+     */
+    const val CANCEL_WAIT_MS = 15_000L
+
+    /**
+     * What "Cancel" does at [stage]: end the helper's call now when it is known ([callKnown]); when it hasn't shown up
+     * yet ([seen] false) end it as soon as Telecom reports it; otherwise (answered, joined, gone) only forget the card.
+     */
+    fun onCancel(stage: HelperStage, callKnown: Boolean, seen: Boolean): HelperCancel = when {
+        stage == HelperStage.CALLING && callKnown -> HelperCancel.HANG_UP
+        stage == HelperStage.CALLING && !seen -> HelperCancel.WHEN_REPORTED
+        else -> HelperCancel.FORGET
+    }
+
+    /** Whether a call to the helper that showed up [sinceCancel] ms after Cancel is the cancelled one, to end. */
+    fun endsCancelled(sinceCancel: Long): Boolean = sinceCancel in 0..CANCEL_WAIT_MS
 }
+
+/** What "Cancel" on the helper card does with the helper's call (see [HelperJoin.onCancel]). */
+enum class HelperCancel { HANG_UP, WHEN_REPORTED, FORGET }

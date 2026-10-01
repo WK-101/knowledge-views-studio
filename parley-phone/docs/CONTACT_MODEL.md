@@ -62,9 +62,17 @@ show (a few kB); the extra part holds the original record with its photo and the
 Make visible, backups and the first seeding. An edit keeps the extra part sealed as it is. Entries sealed as one blob
 before 4.5 are split the next time they are opened, and by a one-time migration after the vault's unlock
 (`splitDetails`); key upgrades re-seal both parts, and "Recently deleted" keeps the blob as it is. Opened details stay
-in memory for a minute while the phone is unlocked and are forgotten when Parley locks. A kept original photo shows in
+in memory for a minute while the phone is unlocked (never while it is locked) and are forgotten whenever Parley's app
+lock engages: "Lock now", "Lock immediately" on leaving the app, the lock timeout on return, and, with the app lock
+on, the screen going off (`AppLock.engage`, `AppLock.onScreenOff`). A kept original photo shows in
 the header from a sealed 1024 px copy (`OriginalPhotos`, made the first time), never by opening the whole original.
 Measurements: docs/PERFORMANCE_BENCHMARKS.md ("4.5: opening a private contact").
+
+**Downgrades.** A Parley older than 4.5 doesn't know the two-part blob: it reads its generation as 0, reports the
+details as lost and, on its next key upgrade, could delete the key that still opens them. The format is not changed to
+hide this (old builds would misread any new marker the same way), so a downgrade must start from a data wipe. Android
+refuses to install an older version over a newer one without one (only `adb install -d` or an OEM rollback can), and
+the release notes say so (docs/RELEASING.md). Make a Parley backup with private contacts before any rollback.
 
 Backups: private contacts' Parley data is written only in the private-contacts section of a backup (which needs the
 vault unlocked), never in the Contact notes, Circle or Call time sections every backup has; a restore puts it back under

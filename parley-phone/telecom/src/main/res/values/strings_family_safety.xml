@@ -9,6 +9,8 @@
     <string name="safeword_ask_locked">Ask your family question. Unlock to see it.</string>
     <string name="safeword_hold">Press and hold to see the answer</string>
     <string name="safeword_show_answer">Show the answer</string>
+    <!-- TalkBack state of the answer box once shown: the answer itself is read only when the user moves to it. -->
+    <string name="safeword_answer_shown">Answer shown</string>
     <string name="safeword_close">Close</string>
     <string name="safeword_confirm_title">Confirm it\'s you to see the answer</string>
     <string name="safeword_claims_family">Says they\'re family</string>

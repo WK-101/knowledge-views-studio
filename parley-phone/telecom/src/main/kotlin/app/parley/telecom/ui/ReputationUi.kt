@@ -1,5 +1,7 @@
 package app.parley.telecom.ui
 
+import androidx.compose.material.icons.rounded.NotificationsOff
+import app.parley.common.BlockAction
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -106,6 +108,7 @@ private fun ReputationReasons(reasons: List<String>) {
 private fun rangeLine(p: RangeProposal, s: RangeBlock): String = when {
     s is RangeBlock.Done && s.ruleId == null -> stringResource(R.string.rep_range_failed)
     s is RangeBlock.Done && s.ruleId == 0L -> stringResource(R.string.rep_range_already)
+    s is RangeBlock.Done && s.action == BlockAction.SILENCE -> stringResource(R.string.rep_range_silenced)
     s is RangeBlock.Done -> stringResource(R.string.rep_range_blocked)
     s is RangeBlock.Undone -> stringResource(R.string.rep_range_undone)
     else -> stringResource(
@@ -119,12 +122,13 @@ private fun rangeLine(p: RangeProposal, s: RangeBlock): String = when {
 private sealed interface RangeBlock {
     data object Idle : RangeBlock
     data object Working : RangeBlock
-    data class Done(val ruleId: Long?) : RangeBlock
+    data class Done(val ruleId: Long?, val action: BlockAction = BlockAction.SILENCE) : RangeBlock
     data object Undone : RangeBlock
 }
 
 /**
- * I2 on the post-call card, after a call that looked like a sales line: "Block this range?" with the narrowest prefix
+ * I2 on the post-call card, after a call that looked like a sales line: "Silence this range?" (L8: blocking is the
+ * explicit second choice, since a range holds strangers who may one day call for real) with the narrowest prefix
  * covering the related numbers from your calls and how many past calls it would have matched, then Undo. Nothing shows
  * when there's no range to offer (one number alone, or someone you know in the range).
  */
@@ -145,13 +149,22 @@ internal fun BlockRangeOffer(call: CallUi) {
         val undoId = (s as? RangeBlock.Done)?.ruleId?.takeIf { it > 0L }
         Row(Modifier.padding(top = Spacing.s), horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
             when {
-                s is RangeBlock.Idle || s is RangeBlock.Undone -> FilledTonalButton({
-                    state = RangeBlock.Working
-                    scope.launch { state = RangeBlock.Done(runCatching { TelecomGraph.dependencies.blockRange(p.prefix) }.getOrNull()) }
-                }) {
-                    Icon(Icons.Rounded.Block, null, Modifier.size(18.dp))
-                    Spacer(Modifier.size(6.dp))
-                    Text(stringResource(R.string.rep_range_block))
+                s is RangeBlock.Idle || s is RangeBlock.Undone -> {
+                    val write = { action: BlockAction ->
+                        state = RangeBlock.Working
+                        scope.launch { state = RangeBlock.Done(runCatching { TelecomGraph.dependencies.blockRange(p.prefix, action) }.getOrNull(), action) }
+                        Unit
+                    }
+                    FilledTonalButton({ write(BlockAction.SILENCE) }) {
+                        Icon(Icons.Rounded.NotificationsOff, null, Modifier.size(18.dp))
+                        Spacer(Modifier.size(6.dp))
+                        Text(stringResource(R.string.rep_range_silence))
+                    }
+                    TextButton({ write(BlockAction.REJECT) }) {
+                        Icon(Icons.Rounded.Block, null, Modifier.size(18.dp))
+                        Spacer(Modifier.size(6.dp))
+                        Text(stringResource(R.string.rep_range_block))
+                    }
                 }
                 // The same removal as "Block & decline"'s Undo: the rule just written goes.
                 undoId != null -> TextButton({

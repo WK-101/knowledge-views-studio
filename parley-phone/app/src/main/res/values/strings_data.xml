@@ -1664,6 +1664,11 @@
         <item quantity="one">Add numbers back to %1$d contact</item>
         <item quantity="other">Add numbers back to %1$d contacts</item>
     </plurals>
+    <!-- Contacts from a watchdog card that synced back by themselves, so they aren't restored twice. -->
+    <plurals name="watch_came_back">
+        <item quantity="one">%1$d contact already came back, so it isn\'t restored again.</item>
+        <item quantity="other">%1$d contacts already came back, so they aren\'t restored again.</item>
+    </plurals>
     <plurals name="watch_restored">
         <item quantity="one">%1$d contact restored.</item>
         <item quantity="other">%1$d contacts restored.</item>

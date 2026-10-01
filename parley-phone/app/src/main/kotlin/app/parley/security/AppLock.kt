@@ -114,7 +114,7 @@ object AppLock {
     fun onStop(settings: AppSettings? = null) {
         backgroundAt = SystemClock.elapsedRealtime()
         val s = settings ?: lastSettings ?: return
-        if (s.appLock && s.lockAfterMinutes <= 0) locked.value = true
+        if (s.appLock && s.lockAfterMinutes <= 0) engage()
     }
 
     /** Call before the first frame of a returning activity (it only reads memory), so content never flashes. */
@@ -126,16 +126,27 @@ object AppLock {
             return
         }
         val away = SystemClock.elapsedRealtime() - backgroundAt
-        if (!everUnlocked || away >= settings.lockAfterMinutes * 60_000L) locked.value = true
+        if (!everUnlocked || away >= settings.lockAfterMinutes * 60_000L) engage()
+    }
+
+    /**
+     * The screen went off. With the app lock on, what was opened for the session (private contacts' details) is
+     * forgotten at once, whatever the timeout: the lock itself still engages as the timeout says.
+     */
+    fun onScreenOff() {
+        if (lastSettings?.appLock == true) onLock?.invoke()
+    }
+
+    /** Every lock goes through here, so what was opened for the session is always forgotten with it. */
+    private fun engage() {
+        locked.value = true
+        onLock?.invoke()
     }
 
     /** Runs whenever Parley locks: what was opened for the session (private contacts' details) is forgotten. */
     @Volatile var onLock: (() -> Unit)? = null
 
-    fun lockNow() {
-        locked.value = true
-        onLock?.invoke()
-    }
+    fun lockNow() = engage()
 
     /**
      * Whether the lock screen asks for the fingerprint as soon as it shows. Off after "Lock now": you locked
@@ -148,8 +159,7 @@ object AppLock {
     /** "Lock now" from Parley's own menu. */
     fun lockNowByUser() {
         promptOnShow = false
-        locked.value = true
-        onLock?.invoke()
+        engage()
     }
 
     private fun unlocked() {
