@@ -129,8 +129,12 @@ object AppLock {
         if (!everUnlocked || away >= settings.lockAfterMinutes * 60_000L) locked.value = true
     }
 
+    /** Runs whenever Parley locks: what was opened for the session (private contacts' details) is forgotten. */
+    @Volatile var onLock: (() -> Unit)? = null
+
     fun lockNow() {
         locked.value = true
+        onLock?.invoke()
     }
 
     /**
@@ -145,6 +149,7 @@ object AppLock {
     fun lockNowByUser() {
         promptOnShow = false
         locked.value = true
+        onLock?.invoke()
     }
 
     private fun unlocked() {

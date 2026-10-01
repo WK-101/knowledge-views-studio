@@ -144,3 +144,29 @@ phone had an icon gutter, the names didn't); "Save to: Device (64)"; the Add chi
 
 Tokens now: `gutter` 40 dp, `endColumn` 48 dp, `fieldHeight` 56 dp, `segmentGap` 2 dp, `groupGap` 8 dp,
 `outerCorner` 20 dp, `innerCorner` 4 dp, `headerPhoto` 64 dp, `typeMaxWidth` 96 dp.
+
+## 4.5 profiles
+
+Feedback: "Give an option to add more details about a contact such as Instagram id or LinkedIn or other popular
+important services (also in My card)."
+
+- **Kept as websites.** A profile is the contact's website row with the profile's https address and the service's name
+  as its custom label ("Instagram"), `SocialProfiles` in core/common. Google Contacts, Samsung and iOS show a labelled
+  website and open it, Google and CardDAV sync it, and the vCard engine round-trips it (`itemN.URL` + `X-ABLabel`). A
+  data row of Parley's own would be dropped by sync adapters and shown by no other app; an Im row is a chat handle,
+  which most apps show as such and Google Contacts doesn't sync for custom services. Rows other apps wrote are
+  recognised by their address (github.com/ana with any label is a GitHub profile).
+- **Services**: Instagram, LinkedIn, X (Twitter), Facebook, TikTok, YouTube, Snapchat, Threads, Bluesky, Mastodon
+  (user@server), GitHub, Reddit, Pinterest, Twitch, Behance, Dribbble, plus "Other link" (an ordinary website with
+  its own label). Messenger handles (Matrix, Threema, Signal…) stay Im/SIP rows as before.
+- **Editor**: a "Profile" chip opens "Add a profile" (the services with their badges, most used first, then Other
+  link). A profile row is the handle field with the service as its selector; a pasted profile link gives its handle
+  (and a link of another service moves the row to that service); a gentle hint says when the handle doesn't look like
+  the service's ("Add the server too" for Mastodon). Which rows are profiles is decided once per row, so a website
+  being typed never jumps between groups.
+- **vCard**: import reads iOS `X-SOCIALPROFILE` and RFC 9554 `SOCIALPROFILE` into labelled website rows (once, when
+  the card also has the URL); export writes the labelled URL, which every reader keeps, rather than `X-SOCIALPROFILE`,
+  which only iPhones read (writing both would show each profile twice there).
+- **My card**: the same rows; the QR code and shared card include them when "Profiles" is chosen among the shared
+  parts. **Private contacts**: the same rows, sealed with the details. **Search**: Contacts search finds a profile by
+  its handle, with or without "@" ("Matched: profile").

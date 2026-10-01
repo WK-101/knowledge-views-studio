@@ -358,5 +358,6 @@ internal fun mePartLabel(p: MeCards.Part): String = stringResource(
         MeCards.Part.WORK -> R.string.me_part_work
         MeCards.Part.WEBSITES -> R.string.me_websites
         MeCards.Part.ADDRESS -> R.string.me_address
+        MeCards.Part.PROFILES -> R.string.me_profiles
     },
 )

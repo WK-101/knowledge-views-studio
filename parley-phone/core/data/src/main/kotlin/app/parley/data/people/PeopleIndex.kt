@@ -19,6 +19,7 @@ import android.provider.ContactsContract.RawContacts
 import app.parley.common.people.BroadSearch
 import app.parley.common.people.LifeEvents
 import app.parley.common.people.PersonExtra
+import app.parley.common.people.SocialProfiles
 import app.parley.common.record.Messengers
 import app.parley.data.AccountRef
 import app.parley.data.ContactsRepository
@@ -79,6 +80,7 @@ class PeopleIndex(
         var note = ""
         val websites = ArrayList<String>(0)
         val handles = ArrayList<String>(0)
+        val profiles = ArrayList<String>(0)
     }
 
     private fun load(): PeopleIndexData {
@@ -122,7 +124,11 @@ class PeopleIndex(
                 // Formatted address, note, website and handles are all DATA1.
                 StructuredPostal.CONTENT_ITEM_TYPE -> c.getString(2)?.takeIf { it.isNotBlank() }?.let { a.addresses += it }
                 Note.CONTENT_ITEM_TYPE -> if (a.note.isEmpty()) a.note = c.getString(2).orEmpty()
-                Website.CONTENT_ITEM_TYPE -> c.getString(2)?.takeIf { it.isNotBlank() }?.let { a.websites += it }
+                Website.CONTENT_ITEM_TYPE -> c.getString(2)?.takeIf { it.isNotBlank() }?.let { url ->
+                    a.websites += url
+                    // Website.TYPE and LABEL are DATA2 and DATA3: a profile's service is in its label.
+                    SocialProfiles.fromWebsite(url, c.getInt(3), c.getString(4))?.let { a.profiles += SocialProfiles.searchTerms(it) }
+                }
                 Im.CONTENT_ITEM_TYPE, SipAddress.CONTENT_ITEM_TYPE -> c.getString(2)?.takeIf { it.isNotBlank() }?.let { a.handles += it }
             }
         }
@@ -132,7 +138,7 @@ class PeopleIndex(
         extras.values.forEach { e -> e.labels.forEach { labelCounts[it] = (labelCounts[it] ?: 0) + 1 } }
         titles.values.forEach { labelCounts.putIfAbsent(it, 0) }
         val search = byId.mapValues { (_, a) ->
-            BroadSearch.Extra(a.nickname, a.company, a.title, a.addresses, a.note, a.websites, a.handles)
+            BroadSearch.Extra(a.nickname, a.company, a.title, a.addresses, a.note, a.websites, a.handles, a.profiles)
         }
         return PeopleIndexData(extras, accountContacts.mapValues { it.value.size }, labelCounts, loaded = true, search = search)
     }

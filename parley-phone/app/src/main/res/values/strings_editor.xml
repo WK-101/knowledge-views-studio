@@ -62,4 +62,16 @@
     <string name="me_share_includes">Your QR code and shared card include</string>
     <string name="me_share_nothing">Nothing chosen yet</string>
     <string name="me_open">Open my card</string>
+    <!-- Social and professional profiles (Instagram, LinkedIn…), kept as labelled website rows. -->
+    <string name="edit_profiles">Profiles</string>
+    <string name="edit_profile">Profile</string>
+    <string name="edit_add_profile_title">Add a profile</string>
+    <string name="edit_profile_other_link">Other link</string>
+    <string name="edit_profile_other_link_summary">Any other website, with your own label</string>
+    <string name="edit_remove_profile">Remove profile</string>
+    <string name="edit_profile_hint">Type the user name or paste a profile link</string>
+    <!-- %1$s: the service, such as Instagram (brand names aren't translated). -->
+    <string name="edit_profile_format">This doesn\'t look like a %1$s user name</string>
+    <string name="edit_profile_needs_server">Add the server too, like name@mastodon.social</string>
+    <string name="me_profiles">Profiles</string>
 </resources>

@@ -1542,6 +1542,21 @@ Fixes from the 4.4 review. Unit tests: `ToCallRemindersTest` (app), `ToCallStore
 
 ## 26. Who is this? (4.5)
 
+### 26.1 Number memory
+
+What Parley remembers about a number that isn't a contact, as one quiet line. Unit tests: `NumberMemoryTest` (core:common: ranking, privacy filter, snapshots, past calls, note excerpts) and `NumberMemoryIndexTest` (core:data, Robolectric: keyed-hash index, nothing stored plain, incremental rebuild, failing stores and keys). Parley is the phone app; the phone has a screen lock. Use a second phone to call in.
+
+1. **Deleted contact.** Save "Plumber Mike" with the second phone's number, then delete him in Parley. Wait about 20 seconds (or run the daily upkeep). Call from the second phone with Parley unlocked: under the number the ringing screen says "You deleted Plumber Mike in <month> with this number". The ringing isn't delayed. Lock the phone and call again: the line says only "Parley knows this number"; unlock while it rings: the full line appears within a second.
+2. **Post-call card.** After that call ends, the post-call card shows the same line with **Open history** (it asks to unlock first). It opens the number's history, whose header shows the line with **Restore contact**; tap it: "Restored Plumber Mike", his page opens, and the number is a contact again (no line any more).
+3. **Keypad.** Delete Mike again. Type his number on the keypad: no contact matches, and the first result row reads "Not in contacts" with "You deleted Plumber Mike in <month> with this number" and **Restore contact**. The row appears once typing pauses; the keys never move. The first time, a tip explains the line; dismissed, it never shows again.
+4. **Note on someone else.** On Ana's page, set the note for calls (or log a moment) to "Dr Lee's office: <a number>". After the daily upkeep (or reopening Parley the next day), type that number on the keypad: "In your note on Ana: “Dr Lee's office”" with **Open note**, which opens Ana's page. A promise ("[ ] call the garage <number>") works the same.
+5. **Call note and old calls.** After a call with an unknown number, write a note in its history. Type the number on the keypad: "Your note after a call: “…”" with **Open history**. A number only in the call history shows "<n> calls in your history · last in <month>"; one that was a contact when it called (and isn't now) shows "Showed as <name> in your calls in <month>". The number's own history doesn't repeat calls, call notes or the last chat.
+6. **Snapshots.** Delete a contact in another app (not Parley). After the next daily snapshot and upkeep, type their number: "Was saved as <name> until <day>" with **Open snapshot** (History & undo › Snapshots).
+7. **To call and chats.** A number on the To call list shows "On your To call list since …" with **Open To call**; a number you messaged from Parley shows "You messaged this number on WhatsApp in <month>". Both appear at once (no upkeep needed).
+8. **Private contacts.** Delete a private contact (it goes to "Deleted private contacts"). With the vault unlocked recently (open a private contact's details), type its number: "You deleted <name> in <month>…" with **Restore contact**, which asks for the vault's unlock and restores it as a private contact. Five minutes after the unlock, or with the phone locked, or in discreet mode: no line at all for it. A number in a private contact's note behaves the same. In discreet mode a private contact who calls shows only the number, with no "Parley knows this number".
+9. **Nothing kept in clear.** `adb shell run-as app.parley ls no_backup/number_memory` shows `index.bin`; `adb shell run-as app.parley cat no_backup/number_memory/index.bin | strings` shows no number, name or note. It isn't in backups. Delete all Parley data: no line anywhere until new data builds up.
+10. **Speed and failure.** With thousands of calls in the history, an unknown caller still rings at once and the line appears within about 2 seconds or not at all. Deleting `index.bin` only makes the line disappear until the next upkeep.
+
 ### 26.2 Personal reputation: "Looks like a sales line (your calls)"
 
 Parley is the phone app. Use a second phone (or two) whose numbers are not in your contacts and that you never called. The tags come from the daily maintenance run; to learn at once after setting up the history below ("Learn" in the steps), turn Settings › Blocking & spam › Learn from your calls off and on again.
@@ -1592,3 +1607,52 @@ The watchdog runs in the daily upkeep, after the day's snapshot. To run it at on
 12. **No contacts permission.** Revoke Contacts and run the upkeep: nothing is reported (snapshots can't be trusted without it).
 13. **Backup status line.** Tools › Backup & restore, top of the list: one line with one fix. No passphrase: "Backups aren't set up yet" › Set passphrase. No folder: "Choose where your backups go" › Choose folder. Folder in the phone's Documents: the folder row reads "Parley · On this phone only" and the line "Your backup folder is on this phone only; that won't survive a lost phone" › Choose another folder. A memory-card folder: "…on a memory card…". A Nextcloud folder (Nextcloud app › its documents provider in the picker) or Google Drive: "Backed up … and checked · In Nextcloud" with no button. A phone folder named Syncthing: "On this phone, in a folder that looks synced", no warning.
 14. **Age and checks first.** Remove the folder in Files: Back up now fails; the line reads "Parley can't reach the backup folder any more" › Choose folder. With the backup reminder at 14 days and the last backup 15 days old (set the clock): "Last good backup 15 days ago" › Back up now runs one. An unchanged backup ("Nothing changed") counts as fresh. No file in the folder is ever opened by the check (it only reads the folder's location).
+
+### 26.5 User corrections
+
+Unit tests: `PrivateOpenCostTest` (core:data: work per open, the split, edits, key upgrades, Recently deleted),
+`PrivatePageOpenTest` (app: the page shows the caller-ID copy first, opens the details once), `SocialProfilesTest`
+(real profile addresses of every service), `VCardImportTest`, `MeCardsTest`, `BroadSearchTest`.
+
+**A private contact opens as fast as a device contact.** Use a phone with a screen lock (ideally a Pixel or Samsung
+with StrongBox). Make a contact with a photo private (Make private), and have a few more private contacts.
+
+1. Unlock the vault (open any private contact's details). Open the contact made private: name, photo, numbers, job
+   line and note for calls appear at once, like a device contact; emails, addresses, dates and the rest fill in a
+   moment later, without the page jumping or showing "Unlock". Go back and open it again: instant. Open a device
+   contact and back: still instant.
+2. The first time each contact made private before this version is opened it may take as long as before (it is
+   reorganised then); every later open is quick. After the next unlock of the vault the rest are reorganised in the
+   background.
+3. While a private contact's page is open, change another contact (star it from the list, or edit a device
+   contact): the page doesn't flicker or reload.
+4. A private contact with a photo picked in Parley (kept whole): the header shows the small photo at once, then the
+   whole picture; the viewer still opens the full picture.
+5. Nothing lost: Make visible on the contact made private brings back every field and its photo as before; edit a
+   private contact, save, Make visible: the edit and the original record are both there. Back up and restore: the
+   private contact comes back whole. Delete it and restore it from History & undo › Deleted private contacts: whole.
+6. Locked: wait more than 5 minutes after the last unlock, open a private contact: name, photo and numbers, and
+   "Unlock to see all details", as before; unlock in place and the rest fills in.
+
+**Profiles (Instagram, LinkedIn…).**
+
+7. Edit a contact › Add › Profile: "Add a profile" lists Instagram, LinkedIn, X (Twitter), Facebook, TikTok, YouTube,
+   GitHub, Bluesky, Mastodon, Threads, then Snapchat, Reddit, Pinterest, Twitch, Behance, Dribbble, then Other link.
+   Pick Instagram: a "Profiles" row with "Instagram ▾" focuses. Type "@ana.lima": saved; paste
+   `https://www.instagram.com/ana.lima/?igsh=abc` instead: the field shows "ana.lima". Paste an X link into an
+   Instagram row: the row becomes X. Type "ana" in a Mastodon row: "Add the server too, like name@mastodon.social";
+   "ana@mastodon.social" is fine. Other link adds an ordinary website row.
+8. Save. The page shows a "Profiles" group in Contact info: "@ana.lima" over "Instagram" with its badge. Tap: the
+   Instagram app opens on the profile when installed, else the browser (Parley has no internet permission; the app or
+   browser does the fetching). Long-press: Copy (the handle) and Copy link. The same address isn't listed again
+   under About.
+9. Google Contacts (web or app) shows the profile as a website labelled "Instagram" after sync; a website another app
+   saved as https://github.com/ana shows in Parley's Profiles as GitHub.
+10. Contacts search "ana.lima" or "@ana.lima": the contact is found, "Matched: profile".
+11. A private contact: the same editor rows and page group; the profiles survive Make visible (as labelled websites).
+12. Import a vCard from an iPhone with `X-SOCIALPROFILE;type=linkedin:http://www.linkedin.com/in/ana-lima` (and
+    `SOCIALPROFILE;SERVICE-TYPE=Mastodon:https://example.town/@ana`): both appear as profiles. Export the contact and
+    import it again: no duplicates.
+13. My card › Edit: a Profile chip; add LinkedIn. In the share line tick "Profiles": the QR code (scanned with another
+    phone's camera) and the shared card include the profile as a labelled link; untick it: they don't. My card's page
+    lists the profile and opens it like a contact's.

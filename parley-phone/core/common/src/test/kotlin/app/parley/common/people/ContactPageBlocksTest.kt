@@ -13,7 +13,7 @@ class ContactPageBlocksTest {
     @Test fun defaults_join_contact_info_and_about_into_one_group_each() {
         val blocks = ContactPageLayout().blocks(all)
         assertEquals(
-            listOf("stay", "phones+emails+addresses+messengers", "dates+about+note", "timeline", "insights", "other", "settings"),
+            listOf("stay", "phones+emails+addresses+messengers+profiles", "dates+about+note", "timeline", "insights", "other", "settings"),
             blocks.map { it.key },
         )
         assertEquals(SectionFamily.CONTACT_INFO, blocks[1].family)
@@ -36,17 +36,20 @@ class ContactPageBlocksTest {
 
     @Test fun a_section_moved_away_from_its_family_stays_apart() {
         val l = ContactPageLayout().let { it.moved(it.order.indexOf(ContactSection.EMAILS), it.order.indexOf(ContactSection.TIMELINE)) }
-        assertEquals(listOf("stay", "phones+addresses+messengers", "dates+about+note", "timeline", "emails", "insights", "other", "settings"), l.keys())
+        assertEquals(
+            listOf("stay", "phones+addresses+messengers+profiles", "dates+about+note", "timeline", "emails", "insights", "other", "settings"),
+            l.keys(),
+        )
     }
 
     @Test fun hidden_sections_are_not_drawn() {
         val l = ContactPageLayout().withMode(ContactSection.MESSENGERS, SectionMode.HIDDEN)
-        assertEquals("phones+emails+addresses", l.keys()[1])
+        assertEquals("phones+emails+addresses+profiles", l.keys()[1])
     }
 
     @Test fun sections_folded_differently_do_not_join_and_a_block_folds_as_one() {
         val split = ContactPageLayout().withFold(ContactSection.ADDRESSES, true)
-        assertEquals(listOf("phones+emails", "addresses", "messengers"), split.keys().subList(1, 4))
+        assertEquals(listOf("phones+emails", "addresses", "messengers+profiles"), split.keys().subList(1, 4))
 
         val info = ContactPageLayout().blocks(all)[1]
         val folded = ContactPageLayout().withFold(info, true)
@@ -70,6 +73,6 @@ class ContactPageBlocksTest {
         assertEquals(ContactSection.TIMELINE, l.order[0])
         assertEquals(ContactSection.DATES, l.order[2])
         // Dates sits before the contact info here, so it isn't joined with About.
-        assertEquals(listOf("timeline", "stay", "dates", "phones+emails+addresses+messengers", "about"), l.keys().take(5))
+        assertEquals(listOf("timeline", "stay", "dates", "phones+emails+addresses+messengers+profiles", "about"), l.keys().take(5))
     }
 }

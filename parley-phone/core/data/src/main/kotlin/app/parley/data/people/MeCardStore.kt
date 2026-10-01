@@ -14,6 +14,8 @@ import android.provider.ContactsContract.Data
 import androidx.core.content.edit
 import app.parley.common.people.MeCard
 import app.parley.common.people.MeCards
+import app.parley.common.people.Profile
+import app.parley.common.people.ProfileService
 import app.parley.data.Permissions
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -115,7 +117,9 @@ class MeCardStore(context: Context) {
     private fun encode(c: MeCard): String = JSONObject()
         .put("name", c.name).put("phones", JSONArray(c.phones)).put("emails", JSONArray(c.emails))
         .put("company", c.company).put("title", c.title).put("sites", JSONArray(c.websites))
-        .put("address", c.address).put("note", c.note).toString()
+        .put("address", c.address).put("note", c.note)
+        .put("profiles", JSONArray(c.profiles.map { JSONObject().put("s", it.service.key).put("h", it.handle) }))
+        .toString()
 
     private fun decode(s: String): MeCard {
         val o = JSONObject(s)
@@ -123,6 +127,11 @@ class MeCardStore(context: Context) {
         return MeCard(
             o.optString("name"), list("phones"), list("emails"), o.optString("company"), o.optString("title"),
             list("sites"), o.optString("address"), o.optString("note"),
+            profiles = o.optJSONArray("profiles")?.let { a ->
+                (0 until a.length()).mapNotNull { i ->
+                    a.optJSONObject(i)?.let { p -> ProfileService.byKey(p.optString("s"))?.let { Profile(it, p.optString("h")) } }
+                }
+            }.orEmpty(),
         )
     }
 

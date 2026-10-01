@@ -139,6 +139,33 @@ and look for the sections on Parley's process tracks.
 The release APK has a size budget of 12 MiB (the ≤ 12 MB target in docs/AUDIT.md §5): `./gradlew :app:checkReleaseApkSize`
 fails above it, and CI runs it.
 
+### 4.5: opening a private contact
+
+Reported on a phone: "a private contact opens slowly and takes a few seconds, a non-private contact opens quickly".
+Measured with `PrivateOpenCostTest` (core:data, Robolectric; the meter counts Keystore operations and the bytes they
+decrypt, `VaultCrypto.Meter`): Ana, made private from an address-book contact with a 400 kB photo, among 31 private
+contacts.
+
+| | Caller-ID key operations | Detail key operations | Bytes the detail key decrypts | Key lookups |
+|---|---|---|---|---|
+| 4.4, every open | 33 (every private contact listed to find this one, then twice for Ana) | 2 (details, then "detailsLost") | 1,119,198 (the whole 559,599-byte blob, twice) | 35 (one per operation) |
+| Now, first open of an entry sealed before 4.5 | 2 | 1 | 559,599 (its last whole opening; it is split then) | 2 |
+| Now, every later open | 2 | 1 | 460 | 2 (none once looked up in the session) |
+| Now, within a minute of the last open | 1 | 0 | 0 | 0 |
+
+Why it was slow: for a contact made private the sealed details carried its whole address-book record, the photo
+(up to 512 kB, base64) and its carried interactions, and the detail key is in StrongBox where the phone has one: a
+secure element on a slow bus, meant for small amounts of data. The page decrypted all of it twice and showed nothing
+until then, after opening every private contact's caller-ID copy (and reading every sealed blob from the database) to
+find this one; any change to the address book or the vault started it all again. A kept original photo (up to 20 MB)
+was also opened whole for the header. Device contacts never touch the Keystore.
+
+What changed (docs/CONTACT_MODEL.md, "Opening a private contact"): the details are sealed in two parts and the page
+opens only the small one; the page shows the caller-ID copy at once and fills in; one opening per page, re-read only
+when that entry changes; a minute's memory of opened details while the phone is unlocked; summaries and key handles
+are reused; listings read only caller-ID copies; the header photo of a private contact comes from a sealed 1024 px
+copy.
+
 ### 4.4: from 13.3 MiB to 11.7 MiB
 
 Measured on the unsigned release build (`./gradlew :app:assembleRelease`, no keystore), 4.3.0 against 4.4, entry sizes

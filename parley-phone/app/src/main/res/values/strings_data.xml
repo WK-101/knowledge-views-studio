@@ -1359,6 +1359,7 @@
     <string name="search_field_note">note</string>
     <string name="search_field_website">website</string>
     <string name="search_field_handle">messenger handle</string>
+    <string name="search_field_profile">profile</string>
 
     <!-- People: SIM -->
     <string name="sim_warning">A SIM card stores only a name (about 14 letters) and one number per entry.</string>

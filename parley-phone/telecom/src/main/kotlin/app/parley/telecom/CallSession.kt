@@ -21,6 +21,9 @@ internal class CallSession(val id: String) {
     /** "Where is this number from", once the geocoder answered. */
     var location: String? = null
 
+    /** I1: what Parley remembers about a number that isn't a contact, once looked up. */
+    var numberMemory: NumberMemoryLine? = null
+
     // ---- Screening ----
 
     /**

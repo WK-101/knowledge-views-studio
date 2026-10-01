@@ -60,7 +60,8 @@ class VCardImportTest {
             """,
         )
         assertTrue(report.failures.isEmpty())
-        assertEquals(mapOf("X-SOCIALPROFILE" to 1), report.unmappedProperties)
+        // The social profile is read as a website row labelled with its service.
+        assertTrue(report.unmappedProperties.isEmpty())
         val r = list.single()
         assertEquals("Johnny Appleseed", r.displayName)
         val name = r.rows(Mime.NAME).single()
@@ -80,7 +81,9 @@ class VCardImportTest {
 
         val org = r.rows(Mime.ORG).single()
         assertEquals("Apple Inc." to "Farmer", org[Col.D1] to org[Col.D4])
-        assertEquals("1", r.rows(Mime.WEBSITE).single()[Col.D2])
+        val sites = r.rows(Mime.WEBSITE)
+        assertEquals("1", sites[0][Col.D2])
+        assertEquals(listOf("https://x.com/johnny", "0", "X (Twitter)"), listOf(sites[1][Col.D1], sites[1][Col.D2], sites[1][Col.D3]))
         assertEquals(setOf("3" to "--03-12", "1" to "2004-06-06"), r.rows(Mime.EVENT).map { it[Col.D2] to it[Col.D1] }.toSet())
         assertEquals(listOf("14" to null, "3" to null, "0" to "Coach"), r.rows(Mime.RELATION).map { it[Col.D2] to it[Col.D3] })
 
@@ -89,6 +92,38 @@ class VCardImportTest {
         assertEquals("johnny.apple", im[0][Col.D1])
         assertEquals("1", im[0][Col.D2])
         assertEquals("Signal" to "+15550100", im[1][Col.D6] to im[1][Col.D1])
+    }
+
+    @Test fun social_profiles_from_ios_and_rfc_9554_become_labelled_websites_once() {
+        val (list, report) = import(
+            """
+            BEGIN:VCARD
+            VERSION:4.0
+            FN:Ana Lima
+            X-SOCIALPROFILE;type=linkedin;x-user=ana-lima:http://www.linkedin.com/in/ana-lima
+            X-SOCIALPROFILE;type=instagram;x-user=ana.lima:x-apple:ana.lima
+            SOCIALPROFILE;SERVICE-TYPE=Mastodon;USERNAME=ana:https://example.town/@ana
+            item1.URL:https://github.com/analima
+            item1.X-ABLabel:GitHub
+            X-SOCIALPROFILE;type=github:https://github.com/analima
+            X-SOCIALPROFILE;type=myspace:x-apple:ana
+            END:VCARD
+            """,
+        )
+        assertEquals(mapOf("X-SOCIALPROFILE" to 1), report.unmappedProperties)
+        val sites = list.single().rows(Mime.WEBSITE).map { Triple(it[Col.D1], it[Col.D2], it[Col.D3]) }
+        assertEquals(
+            listOf(
+                Triple("https://github.com/analima", "0", "GitHub"),
+                Triple("https://www.linkedin.com/in/ana-lima/", "0", "LinkedIn"),
+                Triple("https://www.instagram.com/ana.lima/", "0", "Instagram"),
+                Triple("https://example.town/@ana", "0", "Mastodon"),
+            ),
+            sites,
+        )
+        // Written back as labelled URLs, they read back the same (no second copy from the profile properties).
+        val again = VCardStream.readAll(VCardStream.writeAll(list)).first.single().rows(Mime.WEBSITE).map { Triple(it[Col.D1], it[Col.D2], it[Col.D3]) }
+        assertEquals(sites, again)
     }
 
     @Test fun google_contacts_vcard_3_export() {

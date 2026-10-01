@@ -294,6 +294,7 @@ class InCallActivity : ComponentActivity() {
     /** The call-ended screen stays up while the user uses the post-call card. */
     private var keepEnded by mutableStateOf(false)
 
+    @Suppress("CyclomaticComplexMethod") // One branch per post-call action.
     private fun onPostCall(choice: PostCallChoice) {
         val deps = TelecomGraph.dependencies
         when (choice) {
@@ -302,6 +303,7 @@ class InCallActivity : ComponentActivity() {
             PostCallChoice.Done -> finishAndRemoveTask()
             is PostCallChoice.Block -> openApp { deps.postCallIntent(this, PostCallAction.BLOCK, choice.number) }
             is PostCallChoice.Report -> openApp { deps.postCallIntent(this, PostCallAction.REPORT, choice.number) }
+            is PostCallChoice.NumberMemory -> openApp { deps.postCallIntent(this, PostCallAction.NUMBER_MEMORY, choice.number) }
             // Explicit intent into the app's "Message on…" sheet (this module can't depend on the app).
             is PostCallChoice.MessageOn -> openApp {
                 Intent(ACTION_MESSAGE_ON).setClassName(packageName, MESSAGE_ON_ACTIVITY).putExtra("number", choice.number)

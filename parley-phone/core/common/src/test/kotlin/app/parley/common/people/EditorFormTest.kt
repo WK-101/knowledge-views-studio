@@ -46,7 +46,7 @@ class EditorFormTest {
 
     @Test fun my_card_offers_only_its_own_fields_and_one_address() {
         val fresh = EditorForm.meCardChoices(setOf(Kind.PHONE), withBlankRow = setOf(Kind.PHONE), hasAddress = false)
-        assertEquals(listOf(Kind.EMAIL, Kind.WORK, Kind.ADDRESS, Kind.NOTE, Kind.WEBSITE), fresh)
+        assertEquals(listOf(Kind.EMAIL, Kind.WORK, Kind.ADDRESS, Kind.NOTE, Kind.WEBSITE, Kind.PROFILE), fresh)
         assertTrue(fresh.none { it in setOf(Kind.DATE, Kind.RELATION, Kind.HANDLE, Kind.LABELS, Kind.CALL_BACKGROUND, Kind.NAME_DETAILS) })
         // The card has one address line: once shown, no second one is offered; numbers can still be added.
         val withAddress = EditorForm.meCardChoices(setOf(Kind.PHONE, Kind.ADDRESS), emptySet(), hasAddress = true)

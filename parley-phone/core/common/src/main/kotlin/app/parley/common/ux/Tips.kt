@@ -36,6 +36,9 @@ object Tips {
     /** I2: the "Looks like a sales line (your calls)" tag on the call screen, the first time it shows. */
     const val REPUTATION_TAG = "reputation_tag"
 
+    /** Number memory: the first remembered line about a number that isn't a contact (keypad, number history). */
+    const val NUMBER_MEMORY = "number_memory"
+
     /** Ids are stored comma-separated; anything that isn't a plain id is dropped. */
     private val ID = Regex("[a-z0-9_]{1,40}")
 

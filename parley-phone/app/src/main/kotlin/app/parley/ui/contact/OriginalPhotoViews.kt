@@ -129,6 +129,8 @@ fun HeroPhoto(
             .semantics { contentDescription = desc }
             .clickable(onClickLabel = viewLabel, onClick = onClick),
     ) {
+        // Android's (or the vault's) small photo until the original is decoded, so the header never waits empty.
+        if (image == null) Avatar(name, photoUri, maxOf(w, h), Modifier.align(Alignment.Center), isCompany = isCompany)
         image?.let { Image(it, null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize()) }
     }
 }

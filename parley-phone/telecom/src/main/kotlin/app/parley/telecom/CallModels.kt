@@ -95,6 +95,8 @@ data class CallUi(
     val holdModeSince: Long = 0,
     /** I2: looks like a sales line from your own calls (the quiet tag, "Why?", and "Block this range?" afterwards). */
     val reputation: Reputation? = null,
+    /** I1: what Parley remembers about this number (not a contact), or null. */
+    val numberMemory: NumberMemoryLine? = null,
 ) {
     val title: String get() = name ?: number?.takeIf { it.isNotBlank() } ?: fallbackTitle
     val isLive: Boolean get() = state != CallState.DISCONNECTED && state != CallState.DISCONNECTING

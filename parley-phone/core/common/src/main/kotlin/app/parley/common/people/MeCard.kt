@@ -14,10 +14,12 @@ data class MeCard(
     val websites: List<String> = emptyList(),
     val address: String = "",
     val note: String = "",
+    /** Your social and professional profiles (Instagram, LinkedIn…), shared as labelled links ([SocialProfiles]). */
+    val profiles: List<Profile> = emptyList(),
 ) {
     val isEmpty: Boolean
         get() = name.isBlank() && phones.all { it.isBlank() } && emails.all { it.isBlank() } && company.isBlank() && title.isBlank() &&
-            websites.all { it.isBlank() } && address.isBlank() && note.isBlank()
+            websites.all { it.isBlank() } && address.isBlank() && note.isBlank() && profiles.all { it.handle.isBlank() }
 
     /** The number "Send my details" uses. */
     val firstNumber: String? get() = phones.firstOrNull { it.isNotBlank() }?.trim()
@@ -29,6 +31,7 @@ data class MeCard(
         company.trim(), title.trim(),
         websites.map { it.trim() }.filter { it.isNotEmpty() }.distinct(),
         address.trim(), note.trim(),
+        profiles.map { it.copy(handle = it.handle.trim()) }.filter { it.handle.isNotEmpty() }.distinct(),
     )
 }
 
@@ -53,11 +56,12 @@ object MeCards {
             websites = (a.websites + b.websites).distinct(),
             address = pick(a.address, b.address),
             note = a.note,
+            profiles = a.profiles,
         )
     }
 
     /** Fields that can be left out when sharing. */
-    enum class Part { NAME, PHONES, EMAILS, WORK, WEBSITES, ADDRESS }
+    enum class Part { NAME, PHONES, EMAILS, WORK, WEBSITES, ADDRESS, PROFILES }
 
     /** What the QR code and the vCard include until you choose otherwise: your name and numbers. */
     val defaultParts: Set<Part> = setOf(Part.NAME, Part.PHONES)
@@ -94,6 +98,7 @@ object MeCards {
      * A vCard 3.0 for sharing or a QR code (3.0 is what camera apps read most reliably). [parts] chooses what goes
      * in; the private note never does.
      */
+    @Suppress("CyclomaticComplexMethod") // One check per part the card can share.
     fun vcard(card: MeCard, parts: Set<Part> = Part.entries.toSet()): String = buildString {
         val c = card.cleaned()
         append("BEGIN:VCARD\r\nVERSION:3.0\r\n")
@@ -110,8 +115,19 @@ object MeCards {
             if (c.title.isNotEmpty()) append("TITLE:${esc(c.title)}\r\n")
         }
         if (Part.WEBSITES in parts) c.websites.forEach { append("URL:${esc(it)}\r\n") }
+        if (Part.PROFILES in parts) append(profileLines(c.profiles))
         if (Part.ADDRESS in parts && c.address.isNotEmpty()) append("ADR:;;${esc(c.address)};;;;\r\n")
         append("END:VCARD\r\n")
+    }
+
+    /**
+     * Profiles as labelled links: every contacts app shows and keeps a URL with its label (Apple's itemN.X-ABLabel,
+     * which Google Contacts reads too), where X-SOCIALPROFILE is read by iPhones alone.
+     */
+    private fun profileLines(profiles: List<Profile>): String = buildString {
+        profiles.filter { it.url.isNotEmpty() }.forEachIndexed { i, p ->
+            append("item${i + 1}.URL:${esc(p.url)}\r\nitem${i + 1}.X-ABLabel:${esc(p.service.label)}\r\n")
+        }
     }
 
     /** vCard 3.0 text escaping (backslash, comma, semicolon, newline). */

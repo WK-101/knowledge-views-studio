@@ -23,4 +23,13 @@ class BroadSearchTest {
         assertFalse(BroadSearch.explains(BroadSearch.Field.NAME))
         assertFalse(BroadSearch.explains(null))
     }
+
+    @Test fun profiles_are_found_by_their_handle_with_or_without_at() {
+        val p = Profile(ProfileService.INSTAGRAM, "ana.lima")
+        val extra = BroadSearch.Extra(websites = listOf(p.url), profiles = SocialProfiles.searchTerms(p))
+        fun m(q: String) = BroadSearch.match(q, "Ana", emptyList(), emptyList(), extra)
+        assertEquals(BroadSearch.Field.PROFILE, m("@ana.lima"))
+        assertEquals(BroadSearch.Field.PROFILE, m("ana.li"))
+        assertEquals(BroadSearch.Field.WEBSITE, m("instagram.com"))
+    }
 }

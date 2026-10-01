@@ -14,6 +14,7 @@ internal fun matchHint(res: Resources, field: BroadSearch.Field?): String {
         BroadSearch.Field.NOTE -> R.string.search_field_note
         BroadSearch.Field.WEBSITE -> R.string.search_field_website
         BroadSearch.Field.HANDLE -> R.string.search_field_handle
+        BroadSearch.Field.PROFILE -> R.string.search_field_profile
         BroadSearch.Field.NAME, BroadSearch.Field.NUMBER, null -> return ""
     }
     return res.getString(R.string.search_matched, res.getString(name))

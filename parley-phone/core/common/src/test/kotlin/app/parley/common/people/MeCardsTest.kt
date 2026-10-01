@@ -1,5 +1,7 @@
 package app.parley.common.people
 
+import app.parley.common.record.Col
+import app.parley.common.record.Mime
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -42,5 +44,25 @@ class MeCardsTest {
         assertEquals(setOf(MeCards.Part.NAME), MeCards.decodeParts("NAME,SOMETHING_NEW"))
         // Nothing chosen is a choice too (not the default).
         assertEquals(emptySet<MeCards.Part>(), MeCards.decodeParts(""))
+    }
+
+    @Test fun profiles_are_shared_as_labelled_links_only_when_chosen() {
+        val card = MeCard(
+            name = "Ana Lima",
+            profiles = listOf(
+                Profile(ProfileService.INSTAGRAM, "ana.lima"), Profile(ProfileService.MASTODON, "ana@example.town"), Profile(ProfileService.GITHUB, " "),
+            ),
+        )
+        assertFalse(card.isEmpty)
+        assertEquals("Blank handles are dropped", 2, card.cleaned().profiles.size)
+        val v = MeCards.vcard(card, setOf(MeCards.Part.NAME, MeCards.Part.PROFILES))
+        assertTrue(v.contains("item1.URL:https://www.instagram.com/ana.lima/\r\nitem1.X-ABLabel:Instagram\r\n"))
+        assertTrue(v.contains("item2.URL:https://example.town/@ana\r\nitem2.X-ABLabel:Mastodon\r\n"))
+        assertFalse(MeCards.vcard(card, setOf(MeCards.Part.NAME)).contains("URL"))
+        // A shared card reads back as the same profiles.
+        val read = app.parley.common.vcard.VCardStream.readAll(v).first.single().raws.flatMap { it.rows }
+            .filter { it.mimeType == Mime.WEBSITE }.map { it.values }
+        assertEquals(card.cleaned().profiles, read.mapNotNull { SocialProfiles.fromWebsite(it[Col.D1]!!, it[Col.D2]?.toInt(), it[Col.D3]) })
+        assertEquals(card.cleaned().profiles, MeCards.merge(card, MeCard(name = "x")).profiles)
     }
 }

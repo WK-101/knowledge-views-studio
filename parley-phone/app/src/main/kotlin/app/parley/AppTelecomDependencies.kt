@@ -43,6 +43,9 @@ import app.parley.ui.common.Format
 import app.parley.work.HistoryWorker
 import app.parley.telecom.ScreenOutcome
 import app.parley.telecom.PostCallAction
+import app.parley.telecom.NumberMemoryLine
+import app.parley.common.memory.NumberMemory
+import app.parley.ui.memory.NumberMemoryText
 import app.parley.common.calls.CallQualityFacts
 import app.parley.common.calls.CallerPhoto
 import app.parley.common.people.ContactRef
@@ -515,6 +518,15 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
         val saved = runCatching { TemporaryContacts.save(c, name, number, private = true) }.getOrNull() ?: return@withContext null
         val days = TemporaryContacts.DEFAULT_DAYS
         app.resources.getQuantityString(if (saved.private) R.plurals.caller_saved_private_days else R.plurals.caller_saved_days, days, days)
+    }
+
+    /**
+     * I1: the best thing Parley remembers about [number] (not a contact), in words. The call screen shows it only while
+     * the phone is unlocked; private sources only while the vault is unlocked and never in discreet mode.
+     */
+    override suspend fun numberMemory(number: String, accountId: String?): NumberMemoryLine? = withContext(Dispatchers.IO) {
+        val hint = c.numberMemory.best(number, NumberMemory.Place.CALL, PhoneEnv.countryIso(app, accountId)) ?: return@withContext null
+        NumberMemoryLine(NumberMemoryText.line(app, hint))
     }
 
     override fun suggestedName(number: String): String {

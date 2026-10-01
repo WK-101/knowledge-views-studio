@@ -21,7 +21,7 @@ class ContactPageLayoutTest {
     }
 
     @Test fun encode_and_decode_round_trip() {
-        val l = ContactPageLayout().moved(8, 0).withMode(ContactSection.EMAILS, SectionMode.HIDDEN)
+        val l = ContactPageLayout().moved(ContactSection.entries.indexOf(ContactSection.TIMELINE), 0).withMode(ContactSection.EMAILS, SectionMode.HIDDEN)
             .withMode(ContactSection.STAY, SectionMode.FOLDED).withFold(ContactSection.PHONES, true)
         val back = ContactPageLayout.decode(l.encode())
         assertEquals(l, back)

@@ -205,6 +205,7 @@ fun sectionTitle(res: Resources, s: ContactSection): String = res.getString(
         ContactSection.EMAILS -> R.string.contact_page_sec_emails
         ContactSection.ADDRESSES -> R.string.contact_page_sec_addresses
         ContactSection.MESSENGERS -> R.string.contact_page_sec_messengers
+        ContactSection.PROFILES -> R.string.contact_page_sec_profiles
         ContactSection.ABOUT -> R.string.contact_page_sec_about
         ContactSection.OTHER -> R.string.contact_page_sec_other
         ContactSection.TIMELINE -> R.string.contact_page_sec_timeline

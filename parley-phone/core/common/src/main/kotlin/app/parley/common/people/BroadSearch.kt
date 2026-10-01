@@ -18,6 +18,9 @@ object BroadSearch {
         NOTE,
         WEBSITE,
         HANDLE,
+
+        /** A social or professional profile's handle ("@ana.lima" on Instagram). */
+        PROFILE,
     }
 
     /** The extra searchable text of one contact (everything beyond the summary's name, numbers and e-mails). */
@@ -29,6 +32,8 @@ object BroadSearch {
         val note: String = "",
         val websites: List<String> = emptyList(),
         val handles: List<String> = emptyList(),
+        /** Profile handles as typed and shown ([SocialProfiles.searchTerms]). */
+        val profiles: List<String> = emptyList(),
     )
 
     /** Which field [query] matches first, or null for no match. A blank query matches everything by name. */
@@ -45,6 +50,8 @@ object BroadSearch {
             any(listOf(extra.company, extra.title)) -> Field.COMPANY
             any(extra.addresses) -> Field.ADDRESS
             any(listOf(extra.note)) -> Field.NOTE
+            // Before websites: the handle is in the profile's address too, but "profile" says more.
+            any(extra.profiles) -> Field.PROFILE
             any(extra.websites) -> Field.WEBSITE
             any(extra.handles) -> Field.HANDLE
             else -> null

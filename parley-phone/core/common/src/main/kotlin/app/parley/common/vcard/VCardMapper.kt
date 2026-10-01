@@ -3,6 +3,8 @@ package app.parley.common.vcard
 import java.io.ByteArrayOutputStream
 import java.util.IdentityHashMap
 import java.util.Locale
+import app.parley.common.people.Profile
+import app.parley.common.people.SocialProfiles
 import app.parley.common.record.Col
 import app.parley.common.record.ContactRecord
 import app.parley.common.record.DataRow
@@ -88,6 +90,8 @@ object VCardMapper {
     private const val X_PHONETIC_MIDDLE = "X-PHONETIC-MIDDLE-NAME"
     private const val X_PHONETIC_LAST = "X-PHONETIC-LAST-NAME"
     private const val X_SERVICE = "X-SERVICE-TYPE"
+    private const val X_SOCIAL = "X-SOCIALPROFILE"
+    private const val SOCIAL = "SOCIALPROFILE"
     private const val RESIDUAL_PREFIX = "X-PARLEY-"
     private const val GOOGLE_MY_CONTACTS = "myContacts"
     private const val STARRED_CATEGORY = "starred"
@@ -574,6 +578,7 @@ object VCardMapper {
         val phonetic = HashMap<String, String>()
         var sortAs: List<String> = emptyList()
         var photoDone = false
+        val social = ArrayList<Profile>()
 
         // Organization units: ORG, TITLE and ROLE belong together when they share a group; ungrouped ones pair in order.
         class OrgUnit(val pos: Int, val slot: Int) { var org: Organization? = null; var title: Title? = null; var role: Role? = null }
@@ -710,6 +715,13 @@ object VCardMapper {
                             ?.let { emit(Mime.SIP, mutableMapOf(Col.D1 to it), p, Types.SIP) } ?: skip(name)
                         name in Types.LEGACY_IM -> unescapeRaw(value).takeIf { it.isNotBlank() }
                             ?.let { emit(Mime.IM, mutableMapOf(Col.D1 to it, Col.D5 to Types.LEGACY_IM.getValue(name).toString()), p, Types.IM) } ?: skip(name)
+                        // Social profiles (iOS / vCard 3 X-SOCIALPROFILE, RFC 9554 SOCIALPROFILE): website rows labelled with
+                        // the service, the form Android apps show and sync (SocialProfiles). Added after every URL is read.
+                        name == X_SOCIAL || name == SOCIAL -> {
+                            val type = p.getParameter("SERVICE-TYPE") ?: p.parameters.types.firstOrNull { !it.equals("pref", true) }
+                            val user = p.getParameter("X-USER") ?: p.getParameter("USERNAME")
+                            SocialProfiles.fromSocialProfile(type, user, unescapeRaw(value))?.let { social += it } ?: skip(name)
+                        }
                         name == X_STARRED -> starred = value.trim() == "1" || value.trim().equals("true", true)
                         name == X_VOICEMAIL -> voicemail = value.trim() == "1" || value.trim().equals("true", true)
                         name == X_RINGTONE -> ringtone = unescapeRaw(value).takeIf { it.isNotEmpty() }
@@ -719,6 +731,13 @@ object VCardMapper {
                 }
                 else -> skip(scribes.getPropertyScribe(p)?.propertyName ?: p.javaClass.simpleName)
             }
+        }
+
+        // A social profile that a URL already holds (Parley writes profiles as labelled URLs) isn't added twice.
+        val sites = rows.map { it.first }.filter { it.mimeType == Mime.WEBSITE }
+            .mapNotNull { r -> r.values[Col.D1]?.let { v -> SocialProfiles.fromWebsite(v, r.values[Col.D2]?.toIntOrNull(), r.values[Col.D3]) ?: v } }
+        social.distinct().filter { it !in sites && it.url !in sites }.forEach { pr ->
+            emit(Mime.WEBSITE, mutableMapOf(Col.D1 to pr.url, Col.D2 to SocialProfiles.TYPE_CUSTOM.toString(), Col.D3 to pr.service.label), null)
         }
 
         // Organization units become rows at the position of their first property.
