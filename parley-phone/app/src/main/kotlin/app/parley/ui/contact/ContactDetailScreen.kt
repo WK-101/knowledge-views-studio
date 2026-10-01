@@ -37,6 +37,7 @@ import app.parley.common.StartTab
 import app.parley.common.circle.YearlyEvents
 import app.parley.common.people.ContactPage
 import app.parley.common.people.ContactSection
+import app.parley.common.people.SocialProfiles
 import app.parley.common.PhoneNumbers
 import app.parley.common.ReachGroups
 import app.parley.common.people.ContactGlance
@@ -582,6 +583,14 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                 )
             }
         }
+        // Profiles (Instagram, LinkedIn…): website rows that name a service, each opened in its app or the browser.
+        val profiles = remember(d.websites) {
+            d.websites.mapNotNull { w -> SocialProfiles.fromWebsite(w.value, w.type, w.label)?.takeIf { it.handle.isNotBlank() } }
+        }
+        if (profiles.isNotEmpty()) {
+            val summary = profiles.map { it.service.label }.distinct().joinToString(", ")
+            sections.addRows(ContactSection.PROFILES, sectionTitle(resources, ContactSection.PROFILES), summary) { profileRows(profiles) }
+        }
         // About them: dates, websites, relations, the contact's own note, then Parley's note for calls.
         val quickDates = can(ContactCapability.QUICK_DATES) && hasMissingDates(d)
         if (d.events.isNotEmpty() || quickDates) {
@@ -621,7 +630,8 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
             }
         }
         // An address's map link opens from the address itself, so it isn't listed again as a website.
-        val sites = d.websites.filterIndexed { i, _ -> i !in mapLinks.values }
+        // Profiles have their own group above.
+        val sites = d.websites.filterIndexed { i, w -> i !in mapLinks.values && SocialProfiles.fromWebsite(w.value, w.type, w.label)?.handle.isNullOrBlank() }
         if (sites.isNotEmpty() || d.note.isNotBlank() || d.relations.isNotEmpty()) {
             val n = sites.size + d.relations.size + (if (d.note.isNotBlank()) 1 else 0)
             sections.addRows(ContactSection.ABOUT, resources.getString(R.string.detail_about, d.given.ifBlank { d.displayName }), resources.getQuantityString(R.plurals.contact_page_count_items, n, n)) {

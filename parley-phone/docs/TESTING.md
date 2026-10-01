@@ -1607,3 +1607,52 @@ The watchdog runs in the daily upkeep, after the day's snapshot. To run it at on
 12. **No contacts permission.** Revoke Contacts and run the upkeep: nothing is reported (snapshots can't be trusted without it).
 13. **Backup status line.** Tools › Backup & restore, top of the list: one line with one fix. No passphrase: "Backups aren't set up yet" › Set passphrase. No folder: "Choose where your backups go" › Choose folder. Folder in the phone's Documents: the folder row reads "Parley · On this phone only" and the line "Your backup folder is on this phone only; that won't survive a lost phone" › Choose another folder. A memory-card folder: "…on a memory card…". A Nextcloud folder (Nextcloud app › its documents provider in the picker) or Google Drive: "Backed up … and checked · In Nextcloud" with no button. A phone folder named Syncthing: "On this phone, in a folder that looks synced", no warning.
 14. **Age and checks first.** Remove the folder in Files: Back up now fails; the line reads "Parley can't reach the backup folder any more" › Choose folder. With the backup reminder at 14 days and the last backup 15 days old (set the clock): "Last good backup 15 days ago" › Back up now runs one. An unchanged backup ("Nothing changed") counts as fresh. No file in the folder is ever opened by the check (it only reads the folder's location).
+
+### 26.5 User corrections
+
+Unit tests: `PrivateOpenCostTest` (core:data: work per open, the split, edits, key upgrades, Recently deleted),
+`PrivatePageOpenTest` (app: the page shows the caller-ID copy first, opens the details once), `SocialProfilesTest`
+(real profile addresses of every service), `VCardImportTest`, `MeCardsTest`, `BroadSearchTest`.
+
+**A private contact opens as fast as a device contact.** Use a phone with a screen lock (ideally a Pixel or Samsung
+with StrongBox). Make a contact with a photo private (Make private), and have a few more private contacts.
+
+1. Unlock the vault (open any private contact's details). Open the contact made private: name, photo, numbers, job
+   line and note for calls appear at once, like a device contact; emails, addresses, dates and the rest fill in a
+   moment later, without the page jumping or showing "Unlock". Go back and open it again: instant. Open a device
+   contact and back: still instant.
+2. The first time each contact made private before this version is opened it may take as long as before (it is
+   reorganised then); every later open is quick. After the next unlock of the vault the rest are reorganised in the
+   background.
+3. While a private contact's page is open, change another contact (star it from the list, or edit a device
+   contact): the page doesn't flicker or reload.
+4. A private contact with a photo picked in Parley (kept whole): the header shows the small photo at once, then the
+   whole picture; the viewer still opens the full picture.
+5. Nothing lost: Make visible on the contact made private brings back every field and its photo as before; edit a
+   private contact, save, Make visible: the edit and the original record are both there. Back up and restore: the
+   private contact comes back whole. Delete it and restore it from History & undo › Deleted private contacts: whole.
+6. Locked: wait more than 5 minutes after the last unlock, open a private contact: name, photo and numbers, and
+   "Unlock to see all details", as before; unlock in place and the rest fills in.
+
+**Profiles (Instagram, LinkedIn…).**
+
+7. Edit a contact › Add › Profile: "Add a profile" lists Instagram, LinkedIn, X (Twitter), Facebook, TikTok, YouTube,
+   GitHub, Bluesky, Mastodon, Threads, then Snapchat, Reddit, Pinterest, Twitch, Behance, Dribbble, then Other link.
+   Pick Instagram: a "Profiles" row with "Instagram ▾" focuses. Type "@ana.lima": saved; paste
+   `https://www.instagram.com/ana.lima/?igsh=abc` instead: the field shows "ana.lima". Paste an X link into an
+   Instagram row: the row becomes X. Type "ana" in a Mastodon row: "Add the server too, like name@mastodon.social";
+   "ana@mastodon.social" is fine. Other link adds an ordinary website row.
+8. Save. The page shows a "Profiles" group in Contact info: "@ana.lima" over "Instagram" with its badge. Tap: the
+   Instagram app opens on the profile when installed, else the browser (Parley has no internet permission; the app or
+   browser does the fetching). Long-press: Copy (the handle) and Copy link. The same address isn't listed again
+   under About.
+9. Google Contacts (web or app) shows the profile as a website labelled "Instagram" after sync; a website another app
+   saved as https://github.com/ana shows in Parley's Profiles as GitHub.
+10. Contacts search "ana.lima" or "@ana.lima": the contact is found, "Matched: profile".
+11. A private contact: the same editor rows and page group; the profiles survive Make visible (as labelled websites).
+12. Import a vCard from an iPhone with `X-SOCIALPROFILE;type=linkedin:http://www.linkedin.com/in/ana-lima` (and
+    `SOCIALPROFILE;SERVICE-TYPE=Mastodon:https://example.town/@ana`): both appear as profiles. Export the contact and
+    import it again: no duplicates.
+13. My card › Edit: a Profile chip; add LinkedIn. In the share line tick "Profiles": the QR code (scanned with another
+    phone's camera) and the shared card include the profile as a labelled link; untick it: they don't. My card's page
+    lists the profile and opens it like a contact's.

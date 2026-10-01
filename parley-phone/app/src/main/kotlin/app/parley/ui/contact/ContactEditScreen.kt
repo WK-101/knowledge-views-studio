@@ -148,6 +148,9 @@ import androidx.compose.ui.unit.Dp
 import app.parley.ui.FieldSide
 import app.parley.ui.FormRow
 import app.parley.ui.FormTokens
+import app.parley.common.people.SocialProfiles
+import app.parley.common.people.Profile
+import androidx.compose.material.icons.rounded.AlternateEmail
 import app.parley.ui.ParleyFormField
 import app.parley.ui.formFieldShape
 
@@ -261,6 +264,9 @@ fun ContactEditScreen(
     var pickDateFor by remember { mutableStateOf<Long?>(null) }
     // The address whose "Add from map link" dialog is open.
     var mapLinkFor by rememberSaveable { mutableStateOf<Int?>(null) }
+    // "Add a profile": the service list; and which website rows are profiles, decided once per row.
+    var pickProfile by rememberSaveable { mutableStateOf(false) }
+    val profileRows = remember { HashMap<Long, Boolean>() }
     // A new contact starts with the keyboard on First name, once (not again after rotation).
     var autoFocused by rememberSaveable { mutableStateOf(false) }
 
@@ -347,9 +353,15 @@ fun ContactEditScreen(
             editor.temporaryNew -> emptyList()
             else -> groups.filter { it.account.type == account?.type && it.account.name == account?.name }
         }
+        // Which website rows are profiles (Instagram, LinkedIn…): decided once per row, so a row never jumps to the
+        // other group while its address is being typed (it shows where it belongs from the next opening).
+        val webKeys = keys.keys(WEBSITES.group, d.websites.size)
+        val profileRow = d.websites.mapIndexed { i, w ->
+            profileRows.getOrPut(webKeys[i]) { SocialProfiles.fromWebsite(w.value, w.type, w.label) != null }
+        }
         val nameDetailsFilled = listOf(d.prefix, d.middle, d.suffix, d.phoneticGiven, d.phoneticFamily, d.nickname, d.pronouns).any { it.isNotBlank() }
         // Only what the contact holds is on screen (plus name and a phone); everything else waits in the "Add" chips.
-        val shownKinds = shownKinds(d, revealed, moreName || nameDetailsFilled, accountGroups.isNotEmpty(), isVault, lookup, bgChange, vm)
+        val shownKinds = shownKinds(d, profileRow, revealed, moreName || nameDetailsFilled, accountGroups.isNotEmpty(), isVault, lookup, bgChange, vm)
         val allowed = buildSet {
             addAll(EditorForm.Kind.entries)
             // The chevron beside the name opens its details; the chips don't repeat it.
@@ -359,8 +371,8 @@ fun ContactEditScreen(
             if (!isVault) remove(EditorForm.Kind.WHEN_THEY_CALL)
         }
         // My card holds only its own fields (and one address line).
-        val choices = if (meCard) EditorForm.meCardChoices(shownKinds, blankKinds(d), d.addresses.isNotEmpty())
-        else EditorForm.addChoices(shownKinds, blankKinds(d), allowed)
+        val choices = if (meCard) EditorForm.meCardChoices(shownKinds, blankKinds(d, profileRow), d.addresses.isNotEmpty())
+        else EditorForm.addChoices(shownKinds, blankKinds(d, profileRow), allowed)
 
         /** Appends a row to a group, remembers its key and moves the focus there. */
         fun addRow(group: String, size: Int, change: (ContactDetails) -> ContactDetails): Long {
@@ -384,6 +396,7 @@ fun ContactEditScreen(
                 EditorForm.Kind.DATE -> pickDateFor = addRow(G_DATE, cur.events.size) { it.copy(events = it.events + EventItem(type = Event.TYPE_BIRTHDAY)) }
                 EditorForm.Kind.ADDRESS -> addRow(G_ADDR, cur.addresses.size) { it.copy(addresses = it.addresses + PostalItem(type = StructuredPostal.TYPE_HOME)) }
                 EditorForm.Kind.WEBSITE -> addRow(WEBSITES.group, cur.websites.size) { it.copy(websites = it.websites + DataItem(type = Website.TYPE_HOMEPAGE)) }
+                EditorForm.Kind.PROFILE -> pickProfile = true
                 EditorForm.Kind.HANDLE -> addRow(G_HANDLE, cur.handles.size) { it.copy(handles = it.handles + HandleItem()) }
                 EditorForm.Kind.RELATION -> addRow(G_REL, cur.relations.size) { it.copy(relations = it.relations + DataItem(type = Relation.TYPE_SPOUSE)) }
                 EditorForm.Kind.NOTE -> focusKey = KEY_NOTE
@@ -491,9 +504,14 @@ fun ContactEditScreen(
                     }
                 }
             }
-            fun multi(kind: MultiKind) {
+
+            /** A group of [kind]'s rows; [only] keeps the rows of a shared list that belong to this group. */
+            fun multi(kind: MultiKind, only: (Int) -> Boolean = { true }) {
                 val items = kind.get(d)
-                group(kind.icon, kind.title, keys.keys(kind.group, items.size), FormTokens.segmentGap) { i, k, lead, shape ->
+                val rowKeys = keys.keys(kind.group, items.size)
+                val idx = items.indices.filter(only)
+                group(kind.icon, kind.title, idx.map { rowKeys[it] }, FormTokens.segmentGap) { j, k, lead, shape ->
+                    val i = idx.getOrNull(j) ?: return@group
                     val item = items.getOrNull(i) ?: return@group
                     MultiRow(kind, item, fr(k), lead, shape, showType = !meCard,
                         onChange = { n2 -> update { kind.set(it, kind.get(it).toMutableList().also { l -> if (i in l.indices) l[i] = n2 }) } },
@@ -571,7 +589,21 @@ fun ContactEditScreen(
                 }
             }
 
-            if (d.websites.isNotEmpty()) multi(WEBSITES)
+            // Profiles first (Instagram, LinkedIn…), then the other websites: one list of website rows underneath.
+            val profileIdx = d.websites.indices.filter { profileRow.getOrElse(it) { false } }
+            group(Icons.Rounded.AlternateEmail, R.string.edit_profiles, profileIdx.map { webKeys[it] }, FormTokens.segmentGap) { j, k, lead, shape ->
+                val i = profileIdx.getOrNull(j) ?: return@group
+                val w = d.websites.getOrNull(i) ?: return@group
+                // Never drops out mid-typing: a value that reads as no profile keeps the row's own service.
+                val p = SocialProfiles.fromWebsite(w.value, w.type, w.label)
+                    ?: SocialProfiles.labelled(w.type, w.label)?.let { Profile(it, "") } ?: return@group
+                ProfileRow(
+                    w, p, fr(k), lead.icon, lead.title, shape, locked = lockedRow(w.id),
+                    onChange = { n2 -> update { it.copy(websites = it.websites.toMutableList().also { l -> if (i in l.indices) l[i] = n2 }) } },
+                    onRemove = { removeRow(WEBSITES.group, i) { it.copy(websites = it.websites.filterIndexed { x, _ -> x != i }) } },
+                )
+            }
+            if (profileRow.any { !it }) multi(WEBSITES) { i -> !profileRow.getOrElse(i) { false } }
 
             if (d.relations.isNotEmpty()) {
                 group(Icons.Rounded.People, R.string.edit_relations, keys.keys(G_REL, d.relations.size), FormTokens.segmentGap) { i, k, lead, shape ->
@@ -654,6 +686,20 @@ fun ContactEditScreen(
             }
         }
 
+        if (pickProfile) {
+            ProfilePickerSheet(onDismiss = { pickProfile = false }) { service ->
+                pickProfile = false
+                val cur = editor.draft ?: d
+                if (service == null) {
+                    addKind(EditorForm.Kind.WEBSITE)
+                } else {
+                    editor.revealed = editor.revealed + EditorForm.Kind.PROFILE
+                    addRow(WEBSITES.group, cur.websites.size) {
+                        it.copy(websites = it.websites + DataItem(type = SocialProfiles.TYPE_CUSTOM, label = service.label))
+                    }
+                }
+            }
+        }
         mapLinkFor?.let { i ->
             MapLinkDialog(onDismiss = { mapLinkFor = null }) { place ->
                 mapLinkFor = null
@@ -696,6 +742,7 @@ fun ContactEditScreen(
 @Composable
 private fun shownKinds(
     d: ContactDetails,
+    profileRow: List<Boolean>,
     revealed: Set<EditorForm.Kind>,
     nameDetails: Boolean,
     hasLabels: Boolean,
@@ -714,7 +761,8 @@ private fun shownKinds(
         show(EditorForm.Kind.WORK, d.company.isNotBlank() || d.title.isNotBlank())
         show(EditorForm.Kind.DATE, d.events.isNotEmpty())
         show(EditorForm.Kind.ADDRESS, d.addresses.isNotEmpty())
-        show(EditorForm.Kind.WEBSITE, d.websites.isNotEmpty())
+        show(EditorForm.Kind.WEBSITE, profileRow.any { !it })
+        show(EditorForm.Kind.PROFILE, profileRow.any { it })
         show(EditorForm.Kind.HANDLE, d.handles.isNotEmpty())
         show(EditorForm.Kind.RELATION, d.relations.isNotEmpty())
         show(EditorForm.Kind.NOTE, d.note.isNotBlank())
@@ -725,16 +773,19 @@ private fun shownKinds(
 }
 
 /** Groups whose last row is still empty: their chip waits until it's filled, so empty rows don't pile up. */
-private fun blankKinds(d: ContactDetails): Set<EditorForm.Kind> = buildSet {
+private fun blankKinds(d: ContactDetails, profileRow: List<Boolean>): Set<EditorForm.Kind> = buildSet {
     if (d.phones.any { it.value.isBlank() }) add(EditorForm.Kind.PHONE)
     if (d.emails.any { it.value.isBlank() }) add(EditorForm.Kind.EMAIL)
     if (d.events.any { it.date.isBlank() }) add(EditorForm.Kind.DATE)
     if (d.addresses.any { it.isBlank }) add(EditorForm.Kind.ADDRESS)
-    if (d.websites.any { it.value.isBlank() }) add(EditorForm.Kind.WEBSITE)
+    d.websites.forEachIndexed { i, w ->
+        if (w.value.isBlank()) add(if (profileRow.getOrElse(i) { false }) EditorForm.Kind.PROFILE else EditorForm.Kind.WEBSITE)
+    }
     if (d.handles.any { it.value.isBlank() }) add(EditorForm.Kind.HANDLE)
     if (d.relations.any { it.value.isBlank() }) add(EditorForm.Kind.RELATION)
 }
 
+@Suppress("CyclomaticComplexMethod") // One icon per kind.
 private fun kindIcon(k: EditorForm.Kind): ImageVector = when (k) {
     EditorForm.Kind.PHONE -> Icons.Rounded.Phone
     EditorForm.Kind.EMAIL -> Icons.Rounded.Email
@@ -743,6 +794,7 @@ private fun kindIcon(k: EditorForm.Kind): ImageVector = when (k) {
     EditorForm.Kind.ADDRESS -> Icons.Rounded.Place
     EditorForm.Kind.NOTE -> Icons.AutoMirrored.Rounded.Notes
     EditorForm.Kind.WEBSITE -> Icons.Rounded.Language
+    EditorForm.Kind.PROFILE -> Icons.Rounded.AlternateEmail
     EditorForm.Kind.RELATION -> Icons.Rounded.People
     EditorForm.Kind.HANDLE -> Icons.Rounded.Forum
     EditorForm.Kind.WHEN_THEY_CALL -> Icons.Rounded.PhoneInTalk
@@ -751,6 +803,7 @@ private fun kindIcon(k: EditorForm.Kind): ImageVector = when (k) {
     EditorForm.Kind.NAME_DETAILS -> Icons.Rounded.Badge
 }
 
+@Suppress("CyclomaticComplexMethod") // One label per kind.
 private fun kindLabel(k: EditorForm.Kind): Int = when (k) {
     EditorForm.Kind.PHONE -> R.string.detail_phone
     EditorForm.Kind.EMAIL -> R.string.detail_email
@@ -759,6 +812,7 @@ private fun kindLabel(k: EditorForm.Kind): Int = when (k) {
     EditorForm.Kind.ADDRESS -> R.string.detail_address
     EditorForm.Kind.NOTE -> R.string.edit_notes
     EditorForm.Kind.WEBSITE -> R.string.detail_website
+    EditorForm.Kind.PROFILE -> R.string.edit_profile
     EditorForm.Kind.RELATION -> R.string.edit_relation
     EditorForm.Kind.HANDLE -> R.string.edit_handles
     EditorForm.Kind.WHEN_THEY_CALL -> R.string.edit_when_they_call

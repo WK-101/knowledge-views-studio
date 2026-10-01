@@ -9,18 +9,19 @@ object EditorForm {
     /**
      * The editor's groups that can be added or hidden. The first seven are the original optional kinds; the rest joined
      * when the editor started showing only what a contact holds (plus name and phone), so a new contact is short.
-     * Names are kept in saved state, so entries are only ever appended.
+     * Names are kept in saved state, so entries are only ever appended. PROFILE: social and professional profiles
+     * (Instagram, LinkedIn…), kept as labelled website rows ([SocialProfiles]).
      */
-    enum class Kind { NAME_DETAILS, DATE, ADDRESS, WEBSITE, HANDLE, RELATION, NOTE, PHONE, EMAIL, WORK, LABELS, CALL_BACKGROUND, WHEN_THEY_CALL }
+    enum class Kind { NAME_DETAILS, DATE, ADDRESS, WEBSITE, HANDLE, RELATION, NOTE, PHONE, EMAIL, WORK, LABELS, CALL_BACKGROUND, WHEN_THEY_CALL, PROFILE }
 
     /** The "Add" chips' order: the commonest kinds first, so the ones people want are visible without scrolling. */
     val chipOrder: List<Kind> = listOf(
-        Kind.PHONE, Kind.EMAIL, Kind.WORK, Kind.DATE, Kind.ADDRESS, Kind.NOTE, Kind.WEBSITE, Kind.RELATION, Kind.HANDLE,
+        Kind.PHONE, Kind.EMAIL, Kind.WORK, Kind.DATE, Kind.ADDRESS, Kind.NOTE, Kind.WEBSITE, Kind.PROFILE, Kind.RELATION, Kind.HANDLE,
         Kind.WHEN_THEY_CALL, Kind.LABELS, Kind.CALL_BACKGROUND, Kind.NAME_DETAILS,
     )
 
     /** Kinds that hold several rows: their chip stays after the group is shown and adds another row. */
-    val repeatable: Set<Kind> = setOf(Kind.PHONE, Kind.EMAIL, Kind.DATE, Kind.ADDRESS, Kind.WEBSITE, Kind.RELATION, Kind.HANDLE)
+    val repeatable: Set<Kind> = setOf(Kind.PHONE, Kind.EMAIL, Kind.DATE, Kind.ADDRESS, Kind.WEBSITE, Kind.PROFILE, Kind.RELATION, Kind.HANDLE)
 
     /**
      * The "Add" chips, the editor's one add control: every [allowed] kind not on screen yet ([shown]), plus the
@@ -39,7 +40,7 @@ object EditorForm {
      * The kinds "My card" can hold (it's your own card, shared as a QR code or vCard): the fields of [MeCard]. Dates,
      * relations, handles, labels and the call-screen picture belong to other people's contacts.
      */
-    val meCardKinds: Set<Kind> = setOf(Kind.PHONE, Kind.EMAIL, Kind.WORK, Kind.ADDRESS, Kind.WEBSITE, Kind.NOTE)
+    val meCardKinds: Set<Kind> = setOf(Kind.PHONE, Kind.EMAIL, Kind.WORK, Kind.ADDRESS, Kind.WEBSITE, Kind.PROFILE, Kind.NOTE)
 
     /**
      * The "Add" chips for My card: [addChoices] within [meCardKinds], and a single address (the card has one address

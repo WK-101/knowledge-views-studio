@@ -151,4 +151,8 @@
     <!-- The header's one-line variant chips; TalkBack reads the long forms above. -->
     <string name="contact_variant_private_short">Private</string>
     <string name="contact_variant_temporary_short">Temporary · %1$s</string>
+    <string name="contact_page_sec_profiles">Profiles</string>
+    <!-- A profile's row: the button opens it in the service's app, or in the browser. %1$s: the service. -->
+    <string name="detail_open_profile">Open on %1$s</string>
+    <string name="detail_copy_link">Copy link</string>
 </resources>

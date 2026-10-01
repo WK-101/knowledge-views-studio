@@ -80,6 +80,7 @@ import app.parley.ui.contact.ActionTile
 import app.parley.ui.contact.GroupDataRow
 import app.parley.ui.contact.InfoRow
 import app.parley.ui.contact.mePartLabel
+import app.parley.ui.contact.profileRows
 
 /** Imports the old "My details" once, so the card starts with what was typed there. */
 @Composable
@@ -246,6 +247,8 @@ private fun MeContactInfo(card: MeCard) {
         card.websites.forEachIndexed { i, w ->
             item { GroupDataRow(Icons.Rounded.Language, i == 0, w, null, onClick = { Intents.copy(context, w, sensitive = false) }) }
         }
+        // Profiles open like on a contact's page (in their app or the browser); long-press copies.
+        profileRows(card.profiles)
         if (card.address.isNotBlank()) {
             item { GroupDataRow(Icons.Rounded.Place, true, card.address, null, onClick = { Intents.copy(context, card.address, sensitive = false) }) }
         }
@@ -287,6 +290,7 @@ internal fun MeQrDialog(
             MeCards.Part.WORK -> card.company.isNotBlank() || card.title.isNotBlank()
             MeCards.Part.WEBSITES -> card.websites.isNotEmpty()
             MeCards.Part.ADDRESS -> card.address.isNotBlank()
+            MeCards.Part.PROFILES -> card.profiles.isNotEmpty()
         }
     }
     val text = MeCards.vcard(card, parts.toSet())

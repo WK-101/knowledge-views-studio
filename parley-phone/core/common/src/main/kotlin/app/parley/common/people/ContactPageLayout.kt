@@ -29,6 +29,9 @@ enum class ContactSection(val id: String, val defaultMode: SectionMode, val fami
     EMAILS("emails", SectionMode.OPEN, SectionFamily.CONTACT_INFO),
     ADDRESSES("addresses", SectionMode.OPEN, SectionFamily.CONTACT_INFO),
     MESSENGERS("messengers", SectionMode.OPEN, SectionFamily.CONTACT_INFO),
+
+    /** Social and professional profiles (Instagram, LinkedIn…): website rows that name a service ([SocialProfiles]). */
+    PROFILES("profiles", SectionMode.OPEN, SectionFamily.CONTACT_INFO),
     DATES("dates", SectionMode.OPEN, SectionFamily.ABOUT),
     ABOUT("about", SectionMode.OPEN, SectionFamily.ABOUT),
     NOTE("note", SectionMode.OPEN, SectionFamily.ABOUT),

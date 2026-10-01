@@ -94,6 +94,12 @@ live in one container with the label as a quiet second line, and settings go las
    move / unlink menus), who changed it last, "Deletes itself on…" (temporary contacts) and a link to
    Settings › Contacts › Contact page sections.
 
+**Profiles** (4.5): a contact's Instagram, LinkedIn, X, GitHub… (website rows that name a service, docs/EDITOR_DESIGN.md)
+form their own section in the Contact info family, after "Message or call on…": each row is the handle as the service
+writes it ("@ana.lima") over the service's name, with the service's badge. A tap opens the https profile address, which
+the service's app takes when it is installed (its verified app links) and the browser otherwise; long-press offers
+Copy (the handle) and Copy link. Such rows are no longer listed again under About's websites.
+
 Groups are 8 dp apart, rows inside a group 2 dp apart (the segmented container from `SegmentedGroup`), and there
 is never a card inside a card.
 
