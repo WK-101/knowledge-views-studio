@@ -247,3 +247,18 @@ Principles: quick wins first; each phase ends with a release plus device checks 
 - Open source and privacy: [Fossify Phone issues](https://github.com/FossifyOrg/Phone/issues?q=is%3Aissue+sort%3Areactions-%2B1-desc) · [Fossify Phone releases](https://github.com/FossifyOrg/Phone/releases) · [Fossify Contacts issues](https://github.com/FossifyOrg/Contacts/issues?q=is%3Aissue+sort%3Areactions-%2B1-desc) · [GrapheneOS features](https://grapheneos.org/features) · [Unstore alternatives](https://unstore.io/discover/best-google-contacts-alternatives/)
 - Personal CRM: [Dex guide](https://getdex.com/guides/finding-the-right-personal-crm/) · [Storyflow 2026 roundup](https://storyflow.so/blog/best-personal-crm-tools-2026)
 - Platform: [AOSP RTT](https://source.android.com/docs/core/connect/rtt) · [Android RTT help](https://support.google.com/accessibility/android/answer/9042284?hl=en) · [Android Auto dialer allowlist](https://www.androidauthority.com/android-auto-dialer-app-support-3488295/) · [Call log 500 limit](https://www.techmesto.com/cla-unlimited-call-log-android/) · [Call-log restore failure](https://forums.androidcentral.com/threads/call-log-refuses-to-restore-despite-restored-confirmation.1057652/) · [Contacts disappearing (XDA)](https://www.xda-developers.com/google-contacts-disappear-android-reversible/)
+
+
+## 8. Build status (5.0.0)
+
+The roadmap above shipped as 4.4–5.0 (version numbers shifted by two, since 4.2 and 4.3 were correction releases):
+
+| Release | Phase | Shipped | Left out (needs a decision or a permission) |
+|---|---|---|---|
+| 4.4 | Follow-through | WP-1 to WP-5 | Translations (Parley is English-only since 4.6) |
+| 4.5 | Who is this? | WP-6 to WP-9 | — |
+| 4.6 | Cards that stay current | WP-10, WP-11, WP-13 | WP-12 NFC (needs `android.permission.NFC`) |
+| 4.7 | Everyone can call | WP-14 to WP-18 | — |
+| 5.0 | Household | WP-19, WP-20 | WP-21 companion apps (microphone, OCR), WP-22 VoIP calling accounts and Android Auto (Play distribution), WP-23 translations |
+
+Each release was reviewed independently before shipping; device checks are in TESTING.md §25–§29.

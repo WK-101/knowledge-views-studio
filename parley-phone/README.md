@@ -9,7 +9,7 @@ A privacy-focused, modern **Contacts + Dialer + In-call** app for Android, all i
 
 This project is independent of the rest of this repository.
 
-## Features (v4.7)
+## Features (v5.0)
 
 | Area | What you get |
 |---|---|
@@ -42,6 +42,7 @@ This project is independent of the rest of this repository.
 | **New in 4.5** | **Who is this?** for unknown numbers from what Parley already keeps (deleted contacts, snapshots, old calls, notes, messaged numbers, QR scans), hidden on the lock screen; **"Looks like a sales line (your calls)"** learned only from your own calls, with Why?, an optional silence rule and **Silence this range**; **family safe word** per label, **add my helper** to a call, and **expected calls from your notes** (never above your block rules or lists); **sync watchdog** that notices contacts vanishing from an account and restores them from a snapshot; **backup folder check**; **social and professional profiles** (Instagram, LinkedIn, X, GitHub, Mastodon… in the editor, contact page and My card); **private contacts open instantly** |
 | **New in 4.6** | **Paste details**: make a contact from an email signature, profile or any text, with a preview to tick; **a card that stays current**: My card is signed, contacts you've linked see "Ana sent an updated card" and choose what to apply, **Shared with** and **Changed my number**; **Coming from another phone?** (Google, iPhone, Samsung, call history, block lists); **What Parley can do**, grouped by what you want done; a clearer Blocking screen with your current setup and a weekly line; first-time explainers; **English only**, APK about 10.7 MiB |
 | **New in 4.7** | **RTT** (real-time text) on carriers that support it, with Answer with RTT; a **Call quality** card in Call insights (drops per SIM and network, patterns, Call again); **Drive profile** for your car's Bluetooth (announce callers, auto-answer chosen people, silence unknown callers, driving replies; no location); **calling abroad** (home-format numbers converted, local-SIM suggestion; emergency numbers never touched); **ringtones made from a name**; **menu memory** and **menu shortcuts** (never keeps PIN-like digits; Settings › Calls › Phone menus); **call with a reason** (sent with the call, or Text first); accessibility: spoken call status, Voice Access on the answer slider, contrast checks |
+| **New in 5.0** | **Shared family phonebook**: share a label ("Family", "Doctors & school") with the people you choose through your own encrypted Syncthing/Nextcloud folder, with a passphrase for that label, QR or file invitations that expire, signed changes per member, "changed on two phones" choices, a history of who changed what, and removing a member with a new key (private contacts are never shared); **Parley PIN** and **duress PIN**: under pressure, open Parley with private contacts, notes, safe words and similar hidden, looking exactly as usual; nothing is deleted and a normal unlock brings everything back |
 
 **Not included:**
 
