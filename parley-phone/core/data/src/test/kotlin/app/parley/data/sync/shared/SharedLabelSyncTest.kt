@@ -21,6 +21,7 @@ import app.parley.common.sync.shared.SharedCards
 import app.parley.common.sync.shared.SharedLabelCrypto
 import app.parley.common.sync.shared.SharedLabelFiles
 import app.parley.common.sync.shared.SharedLabelInvites
+import app.parley.common.sync.shared.SharedLabelRules
 import app.parley.common.sync.shared.SharedLabelMembership.State
 import app.parley.data.AccountRef
 import app.parley.data.ContactDetails
@@ -35,7 +36,9 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.runBlocking
 import org.json.JSONObject
 import org.junit.After
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -149,7 +152,7 @@ class SharedLabelSyncTest {
 
         // Ana invites Sam with a QR code; Sam sees Ana and her fingerprint, then joins.
         val link = SharedLabelInvites.qrLink(anaEngine.invitation(a, "Syncthing › Family")!!, "K7Q2-9XMC")
-        val invite = SharedLabelInvites.fromLink(link, "K7Q29XMC")!!
+        val invite = SharedLabelInvites.fromLink(link, "K7Q29XMC", clock)!!
         assertEquals("Syncthing › Family", invite.folderHint)
         assertEquals(Ed25519.fingerprint(ana.publicKey), invite.inviterFingerprint)
         val preview = samEngine.preview(invite) as SharedLabelEngine.Preview.Ready
@@ -320,6 +323,218 @@ class SharedLabelSyncTest {
         assertFalse(File(dir, "${a.labelId}.json").readText().contains("Ada"))
     }
 
+    // ---------------------------------------------------------------- the 5.0 review's findings
+
+    /** Ana and Sam share "Family" (Ada, and [more]); both have run, so each counts the other as a member. */
+    private suspend fun shared(vararg more: Pair<String, String>): Triple<SharedLabelState, SharedLabelState, Long> {
+        val family = c.contacts.createGroup("Family", AccountRef(null, null))!!
+        val ada = anaAdd("Ada", "+44 20 7946 0000", family)
+        more.forEach { (n, p) -> anaAdd(n, p, family) }
+        var a = runAna(anaEngine.create("Family", folder.treeUri.toString(), "Family", "family passphrase".toCharArray(), "Ana", cheap)!!).state
+        var s = samEngine.join(anaEngine.invitation(a, "Family")!!, folder.treeUri.toString(), "Family", "Family", "Sam", null)
+        samContacts.labels += "Family"
+        s = runSam(s).state
+        a = runAna(a).state
+        return Triple(a, s, ada)
+    }
+
+    private fun sidOf(s: SharedLabelState, contactId: Long) = s.entries.entries.single { it.value.contactId == contactId }.key
+
+    /** The contact file [sid] as [s]'s key reads it now (null: it doesn't open, or isn't one). */
+    private fun fileIn(s: SharedLabelState, sid: String) = File(folder.dir, SharedLabelFiles.cardName(sid)).takeIf { it.exists() }?.readBytes()
+        ?.let { SharedLabelCrypto.open(s.key, s.labelId, SharedLabelFiles.cardName(sid), it) }
+        ?.let { SharedLabelFiles.readCard(s.labelId, SharedLabelFiles.cardName(sid), it) }
+
+    private fun cardIn(s: SharedLabelState, sid: String) = fileIn(s, sid)?.card?.let(SharedCards::decode)
+
+    /** Writes a contact file into the folder as someone with [key] and [by]'s signature would. */
+    private fun plant(key: ByteArray, labelId: String, sid: String, by: MemberSigner, version: Long, card: ContactRecord?) {
+        val name = SharedLabelFiles.cardName(sid)
+        val body = SharedLabelFiles.writeCard(by, labelId, sid, version, clock, card?.let { SharedCards.encode(SharedCards.project(it)) })!!
+        File(folder.dir, name).writeBytes(SharedLabelCrypto.seal(key, labelId, name, body))
+    }
+
+    /** Everything the folder's contact files say, in plain text, as [s]'s key opens them. */
+    private fun folderText(s: SharedLabelState): String = folder.dir.listFiles().orEmpty().mapNotNull { f ->
+        SharedLabelFiles.sidOf(f.name)?.let { fileIn(s, it)?.card }
+    }.joinToString("\n")
+
+    @Test fun a_card_matching_a_contact_outside_the_label_never_pulls_it_in() = runBlocking {
+        // H1: Sam writes a phone-only card with the number of a contact Ana keeps outside the label.
+        val (a0, _, _) = shared()
+        val shelter = c.contacts.save(
+            null,
+            ContactDetails(given = "Shelter", phones = listOf(DataItem(null, "+1 555 0177", Phone.TYPE_MOBILE)), note = "Room 4, ask for Jo"),
+            null, null, false,
+        )!!.contactId
+        val sid = SharedLabelFiles.newId()
+        plant(a0.key, a0.labelId, sid, sam, clock, phoneOnly("+1 555 0177"))
+        tick()
+        val a = runAna(a0).state
+        // The shelter stays out of the label, isn't linked, and nothing of it reaches the folder.
+        assertTrue(anaContacts.members("Family").none { it.id == shelter })
+        assertTrue(a.entries.values.none { it.contactId == shelter })
+        val text = folderText(a)
+        assertFalse(text.contains("Shelter"))
+        assertFalse(text.contains("Room 4"))
+        // The card came in as a contact of its own in the label, with just the number.
+        assertNotEquals(shelter, a.entries.getValue(sid).contactId)
+        assertEquals(2, anaContacts.members("Family").size)
+    }
+
+    @Test fun a_key_change_signs_again_only_what_this_phone_accepted() = runBlocking {
+        // H2: Ana removes Sam; the first try is cut short, and meanwhile Sam (who still has the old key) plants a scam
+        // number for Ada and deletes Grace, and Eve, who never joined, adds a contact.
+        val (a0, _, ada) = shared("Grace" to "+1 555 0100")
+        val adaSid = sidOf(a0, ada)
+        val graceSid = a0.entries.keys.single { it != adaSid }
+        val flaky = FlakyFolder(SafLabelFolder(app, folder.treeUri)).apply { failWrites = 1 }
+        var a = SharedLabelEngine(flaky, anaContacts, ana) { clock }.removeMembers(a0, setOf(sam.hex), "new family passphrase".toCharArray(), cheap)!!
+        val old = a.oldKey!!.copyOf()
+        val eve = Signer()
+        val mallory = SharedLabelFiles.newId()
+        plant(old, a.labelId, adaSid, sam, clock + 10, record("Ada", "+1 900 555 0666"))
+        plant(old, a.labelId, graceSid, sam, clock + 10, null)
+        plant(old, a.labelId, mallory, eve, clock, record("Mallory", "+1 555 0666"))
+        tick()
+        a = runAna(a).state
+        assertNull(a.oldKey)
+        assertEquals(SharedRunResult.SYNCED, a.lastResult)
+        // Under the new key: Ada as Ana accepted her, Grace still there, Mallory nowhere; Ana's phone unchanged.
+        assertEquals("+44 20 7946 0000", phones(cardIn(a, adaSid)!!))
+        assertEquals(ana.hex, fileIn(a, adaSid)!!.authorHex)
+        assertFalse(fileIn(a, graceSid)!!.deleted)
+        assertNull(fileIn(a, mallory))
+        assertEquals("+44 20 7946 0000", phones(anaCard("Ada")))
+        assertNotNull(anaContacts.members("Family").firstOrNull { it.card.displayName.startsWith("Grace") })
+        assertTrue(anaContacts.members("Family").none { it.card.displayName == "Mallory" })
+
+        // After the change, Sam overwrites Ada's file with the old key: left alone a while (it may be arriving)...
+        plant(old, a.labelId, adaSid, sam, clock + 20, record("Ada", "+1 900 555 0666"))
+        tick()
+        a = runAna(a).state
+        assertEquals(setOf(adaSid), a.unreadable.keys)
+        assertNull(fileIn(a, adaSid))
+        assertEquals("+44 20 7946 0000", phones(anaCard("Ada")))
+        // ...then Ana's copy goes back (M2), and a later edit of Ana's is published, not frozen.
+        clock += SharedLabelRules.CORRUPT_GRACE_MS
+        anaEdit(ada) { it.copy(note = "Back") }
+        a = runAna(a).state
+        assertTrue(a.unreadable.isEmpty())
+        assertEquals("Back", note(cardIn(a, adaSid)!!))
+        assertEquals("+44 20 7946 0000", phones(cardIn(a, adaSid)!!))
+    }
+
+    @Test fun files_a_member_who_left_wrote_last_stay_readable() = runBlocking {
+        // M1, on a provider that gives no modified time or size (so content hashes stand in for stamps).
+        folder.noStamps = true
+        var (a, s, ada) = shared()
+        val adaSid = sidOf(a, ada)
+        samContacts.edit(samContacts.byName("Ada")) { it.withPhones("+44 20 7946 1111") }
+        s = runSam(s).state
+        a = runAna(a).state
+        assertEquals("+44 20 7946 1111", phones(anaCard("Ada")))
+        assertEquals(sam.hex, fileIn(a, adaSid)!!.authorHex)
+        // Sam leaves: Ana's phone signs again the file it accepted from Sam.
+        assertTrue(samEngine.leave(s))
+        tick()
+        a = runAna(a).state
+        assertTrue(a.members.none { it.keyHex == sam.hex })
+        assertEquals(ana.hex, fileIn(a, adaSid)!!.authorHex)
+        assertEquals("+44 20 7946 1111", phones(cardIn(a, adaSid)!!))
+        // Ana's own edits still go out, and Kim, who joins later, gets Ada.
+        anaEdit(ada) { it.copy(note = "Fridays") }
+        a = runAna(a).state
+        assertEquals("Fridays", note(cardIn(a, adaSid)!!))
+        val kim = Signer()
+        val kimContacts = MemoryLabelContacts().apply { labels += "Family" }
+        val kimEngine = SharedLabelEngine(SafLabelFolder(app, folder.treeUri), kimContacts, kim) { clock }
+        kimEngine.run(kimEngine.join(anaEngine.invitation(a, "Family")!!, folder.treeUri.toString(), "Family", "Family", "Kim", null))
+        assertEquals("Fridays", note(kimContacts.cardOf(kimContacts.byName("Ada"))))
+    }
+
+    @Test fun a_header_swapped_in_without_a_members_signature_is_not_followed() = runBlocking {
+        // M3: someone with folder access writes a header of their own, at a later epoch.
+        val (a0, _, ada) = shared()
+        val (forged, _) = SharedLabelCrypto.newHeader(a0.labelId, 7, "not the label's".toCharArray(), cheap)
+        File(folder.dir, SharedLabelCrypto.HEADER_NAME).writeBytes(forged)
+        tick()
+        anaEdit(ada) { it.copy(note = "Still syncing") }
+        var a = runAna(a0).state
+        assertEquals(SharedRunResult.SYNCED, a.lastResult)
+        assertEquals(State.Active(1), a.membership)
+        assertTrue(a.headerWarning)
+        assertEquals("Still syncing", note(cardIn(a, sidOf(a, ada))!!))
+        assertNotNull(anaEngine.invitation(a, "Family"))
+        // An older or missing header is put back from the last good one, and the warning goes.
+        File(folder.dir, SharedLabelCrypto.HEADER_NAME).delete()
+        tick()
+        a = runAna(a).state
+        assertTrue(a.headerWarning)
+        assertTrue(File(folder.dir, SharedLabelCrypto.HEADER_NAME).exists())
+        tick()
+        a = runAna(a).state
+        assertFalse(a.headerWarning)
+        // A key change a member signed is followed (Sam's phone, after Ana removes someone).
+    }
+
+    @Test fun junk_files_are_read_once_and_versions_far_ahead_never_freeze_a_contact() = runBlocking {
+        // L7: a member writes Ada at the largest version; junk files sit in the folder.
+        var (a, _, ada) = shared()
+        val adaSid = sidOf(a, ada)
+        plant(a.key, a.labelId, adaSid, sam, Long.MAX_VALUE, record("Ada", "+1 900 555 0666"))
+        repeat(5) { File(folder.dir, SharedLabelFiles.cardName(SharedLabelFiles.newId())).writeBytes(ByteArray(64) { 1 }) }
+        tick()
+        a = runAna(a).state
+        assertEquals("+44 20 7946 0000", phones(anaCard("Ada")))
+        val journals = folder.names().count(SharedLabelFiles::isJournalName)
+        val before = folder.reads
+        a = runAna(a).state
+        assertEquals("junk isn't opened again, only journals and the header are", journals + 1, folder.reads - before)
+        // After the grace period Ana's copy goes back with a version that still counts up.
+        clock += SharedLabelRules.STRANGER_GRACE_MS
+        a = runAna(a).state
+        val f = fileIn(a, adaSid)!!
+        assertTrue(f.version in 1 until Long.MAX_VALUE)
+        assertEquals("+44 20 7946 0000", phones(cardIn(a, adaSid)!!))
+    }
+
+    @Test fun a_file_that_arrived_after_the_listing_is_written_in_place() = runBlocking {
+        // L7: creating it again would make "name (1)", which no other phone reads.
+        folder.renameOnCollision = true
+        val f = SafLabelFolder(app, folder.treeUri)
+        f.list()
+        val name = SharedLabelFiles.cardName(SharedLabelFiles.newId())
+        File(folder.dir, name).writeBytes(byteArrayOf(1))
+        assertNotNull(f.write(name, byteArrayOf(2, 3)))
+        assertArrayEquals(byteArrayOf(2, 3), File(folder.dir, name).readBytes())
+        assertTrue(folder.names().none { it.endsWith("(1)") })
+    }
+
+    @Test fun joining_never_lands_in_a_label_of_the_same_name() = runBlocking {
+        // M4: Ana has a "Family" label of her own; Sam shares one also called "Family" and invites her.
+        val family = c.contacts.createGroup("Family", AccountRef(null, null))!!
+        anaAdd("Ada", "+44 20 7946 0000", family)
+        samContacts.labels += "Family"
+        samContacts.import("Family", record("Bob", "+1 555 0123"))
+        val s = runSam(samEngine.create("Family", folder.treeUri.toString(), "Family", "sam passphrase".toCharArray(), "Sam", cheap)!!).state
+        val invite = samEngine.invitation(s, "Family")!!
+        val title = c.sharedLabels.titleForJoin(invite.title) { n -> if (n == 1) "Family (shared)" else "Family (shared $n)" }
+        assertEquals("Family (shared)", title)
+        assertEquals(title, c.sharedLabels.join(invite, folder.treeUri, "Family", "Ana", title, intoExisting = false))
+        // Ana's own Family stays hers: Ada isn't shared, and Bob arrives in the new label.
+        assertFalse(folderText(s).contains("Ada"))
+        assertEquals(1, c.people.labels.members("Family (shared)").size)
+        assertEquals(1, c.people.labels.members("Family").size)
+        // Renaming either onto the other's name would merge them: refused while one is shared.
+        assertTrue(c.sharedLabels.renameWouldMerge("Family", "Family (shared)"))
+        assertTrue(c.sharedLabels.renameWouldMerge("Family (shared)", "Family"))
+        assertFalse(c.sharedLabels.renameWouldMerge("Family (shared)", "Our family"))
+    }
+
+    private fun phoneOnly(phone: String) =
+        ContactRecord("", "", raws = listOf(RawRecord(null, null, rows = listOf(DataRow(Mime.PHONE, mapOf(Col.D1 to phone, Col.D2 to "2"))))))
+
     private fun isTombstone(s: SharedLabelState, name: String): Boolean {
         val body = SharedLabelCrypto.open(s.key, s.labelId, name, File(folder.dir, name).readBytes()) ?: return false
         return SharedLabelFiles.readCard(s.labelId, name, body)?.deleted == true
@@ -334,6 +549,13 @@ class SharedLabelSyncTest {
             ),
         ),
     )
+}
+
+/** A folder whose next [failWrites] writes fail, as a sync run cut short would see. */
+class FlakyFolder(private val inner: LabelFolder) : LabelFolder by inner {
+    var failWrites = 0
+
+    override fun write(name: String, bytes: ByteArray): String? = if (failWrites-- > 0) null else inner.write(name, bytes)
 }
 
 /** Another member's phone: an address book in memory, with labels by title. */
@@ -376,11 +598,6 @@ class MemoryLabelContacts : LabelContacts {
         val id = next++
         contacts[id] = Contact("mem$id", card, mutableSetOf(title))
         return id
-    }
-
-    override suspend fun findMatch(card: ContactRecord, exclude: Set<Long>): Long? {
-        val keys = SharedCards.matchKeys(card)
-        return contacts.entries.firstOrNull { it.key !in exclude && SharedCards.matchKeys(SharedCards.project(it.value.record)).any { k -> k in keys } }?.key
     }
 
     override suspend fun addToLabel(title: String, id: Long): Boolean = contacts[id]?.labels?.add(title) != null

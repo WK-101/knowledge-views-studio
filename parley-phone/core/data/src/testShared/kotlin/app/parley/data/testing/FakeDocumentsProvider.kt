@@ -27,6 +27,12 @@ class FakeDocumentsProvider : ContentProvider() {
     /** Answer listings as a cloud provider does while it still fetches the folder: EXTRA_LOADING, maybe partial. */
     var loading = false
 
+    /** A provider that reports neither modified time nor size (some cloud and USB providers). */
+    var noStamps = false
+
+    /** Creating a document whose name is taken makes "name (1)", as real providers do. */
+    var renameOnCollision = false
+
     override fun onCreate(): Boolean {
         dir = File(context!!.cacheDir, "fake-tree-" + System.nanoTime()).apply { mkdirs() }
         return true
@@ -41,18 +47,7 @@ class FakeDocumentsProvider : ContentProvider() {
     override fun query(uri: Uri, projection: Array<out String>?, selection: String?, selectionArgs: Array<out String>?, sortOrder: String?): Cursor {
         val cols = projection ?: arrayOf(Document.COLUMN_DOCUMENT_ID, Document.COLUMN_DISPLAY_NAME, Document.COLUMN_LAST_MODIFIED, Document.COLUMN_SIZE)
         val out = MatrixCursor(cols)
-        fun row(f: File) = out.addRow(
-            cols.map { c ->
-                when (c) {
-                    Document.COLUMN_DOCUMENT_ID -> "$ROOT/${f.name}"
-                    Document.COLUMN_DISPLAY_NAME -> f.name
-                    Document.COLUMN_LAST_MODIFIED -> f.lastModified()
-                    Document.COLUMN_SIZE -> f.length()
-                    Document.COLUMN_MIME_TYPE -> "text/vcard"
-                    else -> null
-                }
-            },
-        )
+        fun row(f: File) = out.addRow(cols.map { c -> column(c, f) })
         if (uri.pathSegments.lastOrNull() == "children") {
             val all = dir.listFiles().orEmpty().sortedBy { it.name }
             // Still loading: only the first half is known so far.
@@ -64,6 +59,15 @@ class FakeDocumentsProvider : ContentProvider() {
         return out
     }
 
+    private fun column(c: String, f: File): Any? = when (c) {
+        Document.COLUMN_DOCUMENT_ID -> "$ROOT/${f.name}"
+        Document.COLUMN_DISPLAY_NAME -> f.name
+        Document.COLUMN_LAST_MODIFIED -> if (noStamps) null else f.lastModified()
+        Document.COLUMN_SIZE -> if (noStamps) null else f.length()
+        Document.COLUMN_MIME_TYPE -> "text/vcard"
+        else -> null
+    }
+
     override fun openFile(uri: Uri, mode: String): ParcelFileDescriptor {
         val f = fileOf(DocumentsContract.getDocumentId(uri))
         if (mode == "r") reads++
@@ -72,7 +76,8 @@ class FakeDocumentsProvider : ContentProvider() {
 
     override fun call(method: String, arg: String?, extras: Bundle?): Bundle? = when (method) {
         METHOD_CREATE -> {
-            val name = extras!!.getString(Document.COLUMN_DISPLAY_NAME)!!
+            var name = extras!!.getString(Document.COLUMN_DISPLAY_NAME)!!
+            if (renameOnCollision && File(dir, name).exists()) name = "$name (1)"
             File(dir, name).createNewFile()
             Bundle().apply { putParcelable(EXTRA_URI, docUri(name)) }
         }

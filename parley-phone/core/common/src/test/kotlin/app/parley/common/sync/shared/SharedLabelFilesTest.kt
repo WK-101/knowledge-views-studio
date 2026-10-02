@@ -73,7 +73,7 @@ class SharedLabelFilesTest {
     }
 
     @Test fun journals_round_trip_and_must_be_signed_by_their_member() {
-        val ticket = SharedLabelFiles.ticket(ana, label, 1, SharedLabelFiles.newId())!!
+        val ticket = SharedLabelFiles.ticket(ana, label, 1, SharedLabelFiles.newId(), 2_000_000_000_000L)!!
         val sam = TestSigner()
         val j = Journal(
             sam.publicKey, "Sam", 1, ticket, emptyList(), left = false,

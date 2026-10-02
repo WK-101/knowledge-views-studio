@@ -2,7 +2,6 @@ package app.parley.common.security
 
 import app.parley.common.AppSettings
 import app.parley.common.DuressView
-import app.parley.common.SettingEntry
 
 /*
  * Duress unlock (I21). The threat model and the choices behind these rules are in docs/SECURITY_MODEL.md, "Duress
@@ -38,11 +37,13 @@ object DuressMachine {
 
     /**
      * Unlocking another way: the fingerprint or screen lock, or no lock at all. Null when it may not unlock now: with a
-     * duress PIN set, only a PIN opens Parley (otherwise "use your fingerprint" would undo the duress PIN). Without one
-     * nothing can be hidden (a duress PIN is needed to start hiding), so whatever was left is cleared.
+     * Parley PIN set ([pinRequired]), only a PIN opens Parley, whether or not a duress PIN is set too. Otherwise "use
+     * your fingerprint" would undo the duress PIN, and a lock screen that offered it only without one would say which
+     * it is (docs/SECURITY_MODEL.md, "Duress unlock"). Without a PIN nothing can be hidden (a duress PIN is needed to
+     * start hiding), so whatever was left is cleared.
      */
-    fun otherUnlock(s: DuressState, duressConfigured: Boolean): DuressState? =
-        if (duressConfigured) null else s.copy(phase = LockPhase.OPEN, hiding = false, vaultLocked = false)
+    fun otherUnlock(s: DuressState, pinRequired: Boolean): DuressState? =
+        if (pinRequired) null else s.copy(phase = LockPhase.OPEN, hiding = false, vaultLocked = false)
 }
 
 /** What a duress unlock hides, beside what discreet mode already hides. */
@@ -64,7 +65,7 @@ enum class Concealed {
     /** A private contact's own ringtone: it would tell a "number" apart on the next call. */
     PRIVATE_RINGTONES,
 
-    /** The duress PIN's own rows and their search entries. */
+    /** The duress PIN's own setting: shown as off, exactly as on a phone where none was ever set. */
     DURESS_SETTINGS,
 
     /** Private contacts' sealed details refuse to open even after the phone's own unlock (the "lock" option). */
@@ -86,9 +87,6 @@ object DuressPolicy {
         Concealed.PRIVATE_CONTACTS, Concealed.PRIVATE_CALL_HISTORY, Concealed.PRIVATE_NUMBER_MEMORY, Concealed.PRIVATE_TO_CALL,
         Concealed.DELETED_PRIVATE_CONTACTS,
     )
-
-    /** Settings rows (catalog keys) that don't exist during a duress session: not on screen, not in search. */
-    val HIDDEN_SETTING_KEYS: Set<String> = setOf("duress_pin", "duress_lock_vault")
 
     fun hidden(c: Concealed, s: DuressState, discreet: Boolean): Boolean = when {
         c in BY_DISCREET_MODE -> discreet || s.hiding
@@ -144,8 +142,4 @@ object DuressPolicy {
         )
         return toStore to overlay.takeIf { it != SafetyOverlay() }
     }
-
-    /** Settings search during a duress session finds nothing about the duress PIN. */
-    fun searchable(entries: List<SettingEntry>, duress: Boolean): List<SettingEntry> =
-        if (!duress) entries else entries.filter { it.key !in HIDDEN_SETTING_KEYS }
 }

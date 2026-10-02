@@ -185,13 +185,14 @@ object AppLock {
     }
 
     /**
-     * The fingerprint or screen lock succeeded. It opens Parley unless a duress PIN is set: then only a PIN does,
-     * or "use your fingerprint" would undo the duress PIN (I21). [then] runs after the decision either way.
+     * The fingerprint or screen lock succeeded. It opens Parley unless a Parley PIN is set: then only a PIN does, with
+     * or without a duress PIN (I21, M7: "use your fingerprint" would undo the duress PIN, and offering it only without
+     * one would say which). [then] runs after the decision either way: the confirmation itself succeeded.
      */
     private fun unlockedByDevice(activity: FragmentActivity, then: () -> Unit) {
         val pins = activity.container.appPin
         fun decide(summary: AppPinStore.Summary) {
-            DuressMachine.otherUnlock(Concealment.state.value, summary.duressSet)?.let { next ->
+            DuressMachine.otherUnlock(Concealment.state.value, pinRequired = !summary.deviceUnlocks)?.let { next ->
                 Concealment.move(next)
                 unlocked()
             }
@@ -391,7 +392,7 @@ fun LockScreen(emergencyNumber: String? = null, checkingEmergency: Boolean = fal
                 val p = pin
                 when {
                     p == null -> Spacer(Modifier.height(48.dp))
-                    p.pinSet -> PinUnlock(deviceAllowed = p.deviceUnlocks, autoFocus = emergencyNumber == null, onDevice = onUnlock)
+                    p.pinSet -> PinUnlock(autoFocus = emergencyNumber == null)
                     else -> Button(onUnlock) { Text(stringResource(R.string.lock_unlock)) }
                 }
                 // Parley is the phone app: its lock must never stand between the user and an emergency call.

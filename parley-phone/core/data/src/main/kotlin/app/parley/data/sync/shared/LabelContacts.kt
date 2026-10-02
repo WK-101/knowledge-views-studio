@@ -39,9 +39,6 @@ interface LabelContacts {
     /** Adds [card] as a new contact in the label. */
     suspend fun import(title: String, card: ContactRecord): Long?
 
-    /** A contact not in [exclude] with one of [card]'s numbers or e-mails (a contact first received joins it). */
-    suspend fun findMatch(card: ContactRecord, exclude: Set<Long>): Long?
-
     suspend fun addToLabel(title: String, id: Long): Boolean
 
     /** Deletes [id] (History & undo keeps it). */
@@ -108,19 +105,6 @@ class ProviderLabelContacts(
     override suspend fun import(title: String, card: ContactRecord): Long? = withContext(Dispatchers.IO) {
         val account = labels.label(title)?.groups?.firstOrNull()?.account ?: defaultAccount()
         records.insert(SharedCards.forImport(card, title), target = account)
-    }
-
-    override suspend fun findMatch(card: ContactRecord, exclude: Set<Long>): Long? = withContext(Dispatchers.IO) {
-        val wanted = SharedCards.matchKeys(card)
-        if (wanted.isEmpty()) return@withContext null
-        // One pass over the address book, a page at a time; only the keys are kept.
-        val ids = records.contactIds().filter { it !in exclude }
-        for (page in ids.chunked(ContactRecordStore.BATCH)) {
-            for ((id, r) in records.readAllById(page, fullPhoto = false)) {
-                if (SharedCards.matchKeys(SharedCards.project(r)).any { it in wanted }) return@withContext id
-            }
-        }
-        null
     }
 
     override suspend fun addToLabel(title: String, id: Long): Boolean {

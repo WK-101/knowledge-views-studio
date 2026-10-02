@@ -27,6 +27,12 @@ import javax.crypto.spec.SecretKeySpec
  */
 object SharedLabelCrypto {
     const val HEADER_NAME = ".parley-label"
+
+    /**
+     * The signed note of the key change away from epoch [oldEpoch] ([SharedLabelFiles.writeHeaderSig]), sealed with that
+     * epoch's key. One per key change, so a member who missed several still finds the one their key opens.
+     */
+    fun headerSigName(oldEpoch: Int): String = ".parley-label-sig-$oldEpoch"
     const val EXTENSION = ".plabel"
     private const val MAGIC = "PARLEYL1"
     private const val NONCE = 12

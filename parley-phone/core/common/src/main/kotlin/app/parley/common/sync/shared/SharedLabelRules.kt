@@ -82,6 +82,28 @@ object SharedLabelRules {
     fun isNewContact(fileVersion: Long, deleted: Boolean, seenVersion: Long?): Boolean =
         !deleted && (seenVersion == null || fileVersion > seenVersion)
 
+    /**
+     * How long a file this phone syncs may stay unreadable before this phone writes its own copy over it: long enough
+     * for a file still being copied in to arrive whole ([CORRUPT_GRACE_MS]), and, for a file signed by a key this
+     * phone doesn't count as a member yet, for that member's journal to arrive too ([STRANGER_GRACE_MS]).
+     */
+    const val CORRUPT_GRACE_MS: Long = 60L * 60 * 1000
+    const val STRANGER_GRACE_MS: Long = 24L * 60 * 60 * 1000
+
+    /**
+     * A file this phone syncs that it can't use ([Remote.UNREADABLE]): damaged, sealed with another key, signed by
+     * someone who isn't a member. Left alone for a grace period since [since] (when this phone first found it so), then
+     * treated as missing, so this phone's copy is written again: anyone who can write to the folder could otherwise
+     * freeze a contact for good. [stranger]: well formed and signed, by a key that isn't a member.
+     */
+    fun unreadable(since: Long, now: Long, stranger: Boolean): Remote =
+        if (now - since >= if (stranger) STRANGER_GRACE_MS else CORRUPT_GRACE_MS) Remote.MISSING else Remote.UNREADABLE
+
+    /** Versions are times (ms) or just above one: one further ahead than this is not believed (it would freeze a contact). */
+    const val MAX_AHEAD_MS: Long = 366L * 24 * 60 * 60 * 1000
+
+    fun plausibleVersion(version: Long, now: Long): Boolean = version <= now + MAX_AHEAD_MS
+
     /** The version to write: above everything seen for the sid, and at least the clock. */
     fun nextVersion(lastSeen: Long, now: Long): Long = FolderSyncRules.nextVersion(lastSeen, now)
 

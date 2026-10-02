@@ -51,24 +51,47 @@ class InteractionStore(private val dao: InteractionDao) {
      * A note that can't be opened (key reset) reads as none; the entry itself stays. After a duress unlock (I21) every
      * note reads as none too, promises included ([reveal]: the undo copy of a deleted entry, never shown).
      */
-    private fun open(blob: ByteArray?, reveal: Boolean = false): String? {
-        if (blob == null || (!reveal && Concealment.hides(Concealed.CIRCLE_NOTES))) return null
+    private fun open(e: InteractionEntity, reveal: Boolean = false): String? {
+        val blob = e.noteBlob
+        if (!reveal && Concealment.hides(Concealed.CIRCLE_NOTES)) {
+            // L1: a note written while hiding shows as written; one typed over a hidden note shows instead of it.
+            val t = token(e.id)
+            if (Concealment.hasOverlay(t)) return Concealment.overlay(t)
+            if (!Concealment.writtenWhileHiding(t)) return null
+        }
+        if (blob == null) return null
         return runCatching { String(VaultCrypto.openCallerId(blob), Charsets.UTF_8) }.getOrNull()
     }
 
-    /** What an edit stores for [note]: while notes are hidden an existing note is kept as it is, never cleared. */
-    private fun noteToStore(e: InteractionEntity, note: String?): ByteArray? =
-        if (e.noteBlob != null && Concealment.hides(Concealed.CIRCLE_NOTES)) e.noteBlob else seal(note)
+    private fun token(id: Long) = "moment:$id"
+
+    /**
+     * What an edit stores for [note]: while notes are hidden an existing note is kept as it is, never cleared or
+     * replaced unseen ([note] then shows instead of it, in memory, L1); a note written while hiding is stored.
+     */
+    private fun noteToStore(e: InteractionEntity, note: String?): ByteArray? {
+        if (!Concealment.hides(Concealed.CIRCLE_NOTES)) return seal(note)
+        val t = token(e.id)
+        if (e.noteBlob != null && !Concealment.writtenWhileHiding(t)) {
+            if (note != null || Concealment.hasOverlay(t)) Concealment.setOverlay(t, note)
+            return e.noteBlob
+        }
+        if (note != null) Concealment.markWritten(t)
+        return seal(note)
+    }
 
     private fun InteractionEntity.toModel(reveal: Boolean = false) = Interaction(
         id, lookupKey, contactId,
         InteractionType.entries.firstOrNull { it.name == type } ?: InteractionType.OTHER,
-        InteractionChannel.decode(channel), time, open(noteBlob, reveal), dedupeKey,
+        InteractionChannel.decode(channel), time, open(this, reveal), dedupeKey,
     )
+
+    /** Re-emits when the duress hiding starts or ends, or what it shows changes (L1). */
+    private val hiding = combine(Concealment.state.map { it.hiding }.distinctUntilChanged(), Concealment.revisions) { h, r -> h to r }
 
     /** [lookupKey]'s interactions, newest first (again when a duress unlock hides or shows the notes). */
     fun interactions(lookupKey: String): Flow<List<Interaction>> =
-        combine(dao.forKey(lookupKey), Concealment.state.map { it.hiding }.distinctUntilChanged()) { list, _ -> list.map { it.toModel() } }
+        combine(dao.forKey(lookupKey), hiding) { list, _ -> list.map { it.toModel() } }
             .flowOn(Dispatchers.IO)
 
     suspend fun interactionsFor(lookupKey: String): List<Interaction> = withContext(Dispatchers.IO) { dao.forKeyNow(lookupKey).map { it.toModel() } }
@@ -101,8 +124,11 @@ class InteractionStore(private val dao: InteractionDao) {
         time: Long,
         note: String?,
         dedupeKey: String,
+        written: Boolean = true,
     ): Long? = withContext(Dispatchers.IO) {
         val id = dao.insert(InteractionEntity(lookupKey = lookupKey, contactId = contactId, type = type.name, channel = channel?.name, time = time, noteBlob = seal(note), dedupeKey = dedupeKey))
+        // L1: a note written while hiding shows as written (not one put back by Undo: that one was hidden).
+        if (id > 0 && written && !note.isNullOrBlank()) Concealment.markWritten(token(id))
         id.takeIf { it > 0 }
     }
 
@@ -119,7 +145,7 @@ class InteractionStore(private val dao: InteractionDao) {
     }
 
     /** The current (opened) note of entry [id], or null. */
-    suspend fun noteOf(id: Long): String? = withContext(Dispatchers.IO) { dao.get(id)?.let { open(it.noteBlob) } }
+    suspend fun noteOf(id: Long): String? = withContext(Dispatchers.IO) { dao.get(id)?.let { open(it) } }
 
     /** (lookup key, time, dedupe key) of every interaction since [since]; notes stay sealed. */
     suspend fun touchesSince(since: Long): List<InteractionTouchRow> = withContext(Dispatchers.IO) { dao.touchesSince(since) }
@@ -136,7 +162,7 @@ class InteractionStore(private val dao: InteractionDao) {
 
     /** Puts a deleted entry back (Undo), with its original time and key. */
     suspend fun restore(i: Interaction): Long? =
-        runCatching { log(i.lookupKey, i.contactId, i.type, i.channel, i.time, i.note, i.dedupeKey) }.getOrNull()
+        runCatching { log(i.lookupKey, i.contactId, i.type, i.channel, i.time, i.note, i.dedupeKey, written = false) }.getOrNull()
 
     /** Undo of an automatic "Log this?" entry. */
     suspend fun deleteByDedupe(key: String) = withContext(Dispatchers.IO) { dao.deleteByDedupe(key) }

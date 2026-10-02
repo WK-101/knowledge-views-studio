@@ -72,14 +72,24 @@ class FamilySafetyStore(context: Context) {
     }
 
     private fun publish() {
-        _summary.value = Summary(if (wordsHidden) emptySet() else doc.safeWords.keys, doc.helpers, doc.consents, doc.windows)
+        _summary.value = Summary(visibleWords().keys, doc.helpers, doc.consents, doc.windows)
     }
 
     /** I21: after a duress unlock no safe word shows, not even which labels have one. */
     private val wordsHidden: Boolean get() = Concealment.hides(Concealed.SAFE_WORDS)
 
+    /** L1: safe words set over a hidden one while hiding, by label: shown instead of it, in memory, never stored over it. */
+    private val overWords = HashMap<String, SafeWord>()
+
+    private fun token(label: String) = "safeword:${label.trim()}"
+
+    /** The safe words that show now: all, or while hiding only those set since (L1). */
+    private fun visibleWords(): Map<String, SafeWord> =
+        if (!wordsHidden) doc.safeWords else doc.safeWords.filterKeys { Concealment.writtenWhileHiding(token(it)) } + overWords
+
     /** The duress hiding started or ended: the summary follows. */
     fun refresh() {
+        if (!wordsHidden) overWords.clear()
         if (loaded) publish()
     }
 
@@ -103,18 +113,44 @@ class FamilySafetyStore(context: Context) {
 
     /** The safe word of [label] (question and answer), for a screen the user just unlocked; null when none. */
     suspend fun safeWord(label: String): SafeWord? = withContext(Dispatchers.IO) {
-        mutex.withLock { if (loadLocked() && !wordsHidden) doc.safeWords.entries.firstOrNull { it.key.trim() == label.trim() }?.value else null }
+        mutex.withLock { if (loadLocked()) visibleWords().entries.firstOrNull { it.key.trim() == label.trim() }?.value else null }
     }
 
     /** Every safe word, for the call screen: it decides which to offer and shows the answer only on a deliberate hold. */
     suspend fun safeWords(): Map<String, SafeWord> = withContext(Dispatchers.IO) {
-        mutex.withLock { if (loadLocked() && !wordsHidden) doc.safeWords else emptyMap() }
+        mutex.withLock { if (loadLocked()) visibleWords() else emptyMap() }
     }
 
-    /** Refused while safe words are hidden: a new one would replace one the screen can't show. */
-    suspend fun setSafeWord(label: String, word: SafeWord?): Boolean = !wordsHidden && write { s ->
-        val others = s.safeWords.filterKeys { it.trim() != label.trim() }
-        s.copy(safeWords = if (word == null) others else others + (label.trim() to word))
+    /**
+     * Sets or removes [label]'s safe word. L1: while safe words are hidden a new one is stored and shows as set, as on
+     * any phone; one set over a hidden safe word shows instead of it, in memory only, since storing it would replace
+     * one the screen can't show.
+     */
+    suspend fun setSafeWord(label: String, word: SafeWord?): Boolean {
+        if (wordsHidden) {
+            val hiddenOne = withContext(Dispatchers.IO) {
+                mutex.withLock {
+                    if (!loadLocked()) return@withContext null
+                    val l = label.trim()
+                    val stored = doc.safeWords.keys.any { it.trim() == l } && !Concealment.writtenWhileHiding(token(l))
+                    if (stored) {
+                        if (word == null) overWords.remove(l) else overWords[l] = word
+                        publish()
+                    }
+                    stored
+                }
+            } ?: return false
+            if (hiddenOne) return true
+        }
+        val ok = write { s ->
+            val others = s.safeWords.filterKeys { it.trim() != label.trim() }
+            s.copy(safeWords = if (word == null) others else others + (label.trim() to word))
+        }
+        if (ok && word != null && wordsHidden) {
+            Concealment.markWritten(token(label))
+            refresh()
+        }
+        return ok
     }
 
     /** Labels renamed or merged on the labels screen: their safe words follow. */

@@ -10,6 +10,7 @@ import android.os.Bundle
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
 import androidx.fragment.app.FragmentActivity
+import androidx.lifecycle.lifecycleScope
 import app.parley.R
 import app.parley.container
 import kotlinx.coroutines.launch
@@ -76,15 +77,27 @@ class DiscreetRevealActivity : FragmentActivity() {
             finish()
             return
         }
-        AppLock.authenticate(this, getString(R.string.lock_unlock_private)) { ok ->
-            if (ok) {
-                val c = container
-                c.scope.launch {
-                    c.settings.update { it.copy(hideVault = false) }
-                    TileService.requestListeningState(applicationContext, ComponentName(applicationContext, VaultTileService::class.java))
-                }
+        val c = container
+        lifecycleScope.launch {
+            // M6: with a Parley PIN set (a duress PIN or not), the phone's screen lock doesn't stand in for it: while
+            // Parley is locked, it opens on its own lock screen instead, and discreet mode stays on until the user
+            // turns it off from there.
+            if (!c.appPin.load().deviceUnlocks && AppLock.locked.value) {
+                packageManager.getLaunchIntentForPackage(packageName)?.let { runCatching { startActivity(it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } }
+                finish()
+                return@launch
             }
-            finish()
+            AppLock.authenticate(this@DiscreetRevealActivity, getString(R.string.lock_unlock_private)) { ok ->
+                // The prompt confirmed the screen lock; that opens nothing while Parley still wants its PIN.
+                if (ok && !AppLock.locked.value) {
+                    c.scope.launch {
+                        // While a duress unlock hides things this changes only what is shown, never the stored switch.
+                        c.settings.update { it.copy(hideVault = false) }
+                        TileService.requestListeningState(applicationContext, ComponentName(applicationContext, VaultTileService::class.java))
+                    }
+                }
+                finish()
+            }
         }
     }
 }

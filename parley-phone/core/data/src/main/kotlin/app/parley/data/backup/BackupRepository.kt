@@ -363,8 +363,11 @@ class BackupRepository(
         // Rotation, paused if many contacts disappeared (protects the last good backups). The reference count is
         // a high-water mark: it only moves while rotation runs, so the pause lasts until the user resumes it.
         val paused = !safety && state.lastContactCount >= 0 && RetentionDecider.mustPauseRotation(state.lastContactCount, contactCount)
-        val vaultMissing = !vaultIncluded && !Concealment.hiding && runCatching { vault.summariesNow().isNotEmpty() }.getOrDefault(true)
-        if (!paused && !safety && !incomplete) rotate(protect = if (vaultIncluded) finalName else state.lastVaultBackupName)
+        val hiding = Concealment.hiding
+        val vaultMissing = !vaultIncluded && !hiding && runCatching { vault.summariesNow().isNotEmpty() }.getOrDefault(true)
+        // L4: a backup made after a duress unlock never rotates out older ones, nor becomes the count rotation compares with.
+        val rotates = RetentionDecider.rotates(paused, safety, incomplete, hiding)
+        if (rotates) rotate(protect = if (vaultIncluded) finalName else state.lastVaultBackupName)
         val res = context.resources
         // Stored as what happened, rendered in the current language when shown (BackupState.resultText).
         val result = if (incomplete) StoredStatus.of(BackupState.INCOMPLETE, failedSections.joinToString(", "), contactCount, callCount).encode()
@@ -374,7 +377,7 @@ class BackupRepository(
                 .putBoolean("paused", paused)
                 .putString("lastResult", result)
             if (incomplete) it.putString("gapHash", hash) else it.putString("lastHash", hash).remove("gapHash")
-            if (!paused && !safety && !incomplete) it.putInt("lastCount", contactCount)
+            if (rotates) it.putInt("lastCount", contactCount)
             if (vaultIncluded && !incomplete) it.putString("vaultName", finalName)
         }
         gaps(BackupOutcome(true, finalName, contactCount, callCount, verified = true, rotationPaused = paused, vaultIncluded = vaultIncluded, message = res.getQuantityString(if (paused) R.plurals.data_bkp_backed_up_paused else R.plurals.data_bkp_backed_up, contactCount, contactCount)))

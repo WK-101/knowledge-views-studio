@@ -312,6 +312,12 @@ private fun RenameLabelDialog(vm: AppViewModel, old: String, onDismiss: () -> Un
         onConfirm = {
             onDismiss()
             scope.launch {
+                // M4: renaming onto another label's name merges the two; while either is shared, that would share
+                // every contact of the merged label, so it is refused.
+                if (vm.c.sharedLabels.renameWouldMerge(old, name)) {
+                    vm.toast(res.getString(R.string.shl_rename_would_merge, name.trim()))
+                    return@launch
+                }
                 // Its ringtone, rules, limits and off-hours choice follow the label (see LabelReferences).
                 runCatching { vm.c.people.labels.rename(old, name) }
                     // A shared label follows its rename on this phone (the others keep their own label's name).

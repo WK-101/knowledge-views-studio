@@ -8,8 +8,10 @@ import app.parley.common.memory.MemorySource
 import app.parley.common.memory.NumberMemory
 import app.parley.common.people.ContactRef
 import app.parley.common.people.RelationLinks
+import app.parley.common.security.Concealed
 import app.parley.data.DataContainer
 import app.parley.data.PhoneEnv
+import app.parley.data.security.Concealment
 import app.parley.data.vault.VaultCrypto
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.FlowPreview
@@ -38,7 +40,7 @@ class NumberMemoryStore(private val c: DataContainer) {
     /**
      * What to show for [number] at [place], best first; empty for a number that is a private contact (named elsewhere,
      * or hidden by discreet mode, which must not be hinted at either). Private hints only while the vault is
-     * unlocked and discreet mode is off.
+     * unlocked and discreet mode is off. None that quotes a note while a duress unlock hides notes.
      */
     @Suppress("TooGenericExceptionCaught") // Fail open: no line rather than a broken call screen or keypad.
     suspend fun hints(number: String, place: NumberMemory.Place, region: String = this.region): List<MemoryHint> = try {
@@ -46,7 +48,9 @@ class NumberMemoryStore(private val c: DataContainer) {
             emptyList()
         } else {
             val privateAllowed = !c.settings.current().hideVault && !VaultCrypto.detailNeedsUnlock()
-            NumberMemory.rank(index.lookup(number, region) + live(number, region), place, privateAllowed)
+            // H3: the index keeps excerpts of notes from before a duress unlock; they're dropped here while it hides notes.
+            val notesHidden = Concealment.hides(Concealed.NOTES) || Concealment.hides(Concealed.CIRCLE_NOTES)
+            NumberMemory.rank(NumberMemory.concealNotes(index.lookup(number, region) + live(number, region), notesHidden), place, privateAllowed)
         }
     } catch (e: CancellationException) {
         throw e

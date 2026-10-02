@@ -118,6 +118,14 @@ internal object SharedLabelTexts {
         }
     }
 
+    /** A quiet note for a label that syncs, or null: files it can't read (M2), a header it doesn't follow (M3). */
+    fun notice(res: Resources, s: SharedLabelState): String? = when {
+        !SharedLabelMembership.syncs(s.membership) -> null
+        s.headerWarning -> res.getString(R.string.shl_status_header)
+        s.unreadable.isNotEmpty() -> res.getString(R.string.shl_status_unreadable)
+        else -> null
+    }
+
     fun status(res: Resources, s: SharedLabelState): String =
         if (s.lastSyncAt > 0) res.getString(R.string.shl_status_synced, ago(s.lastSyncAt)) else res.getString(R.string.shl_status_never)
 }
@@ -179,7 +187,7 @@ fun SharedLabelSection(vm: AppViewModel, title: String, open: (Destination) -> U
             modifier = Modifier.clickable(enabled = !syncing) { sync() },
             leadingContent = { Icon(Icons.Rounded.Sync, null) },
             headlineContent = { Text(SharedLabelTexts.status(res, s)) },
-            supportingContent = { Text(s.folderName) },
+            supportingContent = { Text(listOfNotNull(s.folderName, SharedLabelTexts.notice(res, s)).joinToString("\n")) },
             trailingContent = { TextButton({ sync() }, enabled = !syncing) { Text(stringResource(R.string.shl_sync_now)) } },
             colors = rowColors(),
         )

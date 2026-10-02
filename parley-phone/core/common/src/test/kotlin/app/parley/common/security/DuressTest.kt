@@ -46,12 +46,13 @@ class DuressTest {
         assertTrue(DuressPolicy.hidden(Concealed.PRIVATE_DETAILS, d.copy(vaultLocked = true), discreet = false))
     }
 
-    @Test fun with_a_duress_pin_only_a_pin_unlocks() {
-        assertNull(DuressMachine.otherUnlock(start, duressConfigured = true))
+    @Test fun with_a_parley_pin_only_a_pin_unlocks() {
+        // M7: the same with or without a duress PIN, so the lock screen can't tell which.
+        assertNull(DuressMachine.otherUnlock(start, pinRequired = true))
         val hidden = DuressMachine.locked(DuressMachine.pinEntered(start, PinVerdict.DURESS, true))
-        assertNull(DuressMachine.otherUnlock(hidden, duressConfigured = true))
+        assertNull(DuressMachine.otherUnlock(hidden, pinRequired = true))
         // Without one (removed after a normal unlock, or data wiped), another unlock opens and nothing stays hidden.
-        assertEquals(DuressState(LockPhase.OPEN), DuressMachine.otherUnlock(hidden, duressConfigured = false))
+        assertEquals(DuressState(LockPhase.OPEN), DuressMachine.otherUnlock(hidden, pinRequired = false))
     }
 
     @Test fun hiding_covers_discreet_mode_and_more() {
@@ -92,12 +93,29 @@ class DuressTest {
         assertNull(DuressPolicy.split(stored, DuressPolicy.shown(toStore, overlay).copy(appLock = true, hideVault = true, privateVaultHistory = true)).second)
     }
 
-    @Test fun search_hides_the_duress_rows_in_a_session() {
-        val all = SettingsCatalog.entries
-        assertTrue(DuressPolicy.HIDDEN_SETTING_KEYS.all { k -> all.any { it.key == k } })
-        assertEquals(all, DuressPolicy.searchable(all, duress = false))
-        val inSession = DuressPolicy.searchable(all, duress = true)
-        assertTrue(inSession.none { it.key in DuressPolicy.HIDDEN_SETTING_KEYS })
-        assertTrue(inSession.any { it.key == "app_lock_method" })
+    @Test fun search_finds_the_duress_pin_whether_or_not_one_is_set() {
+        // M7: the duress PIN's row is always there (shown "Off" in a session), so search always finds it, as on a
+        // phone where none was ever set; a search that came back empty in a session would give it away.
+        assertTrue(SettingsCatalog.entries.any { it.key == "duress_pin" })
+    }
+
+    @Test fun pin_changes_wait_like_wrong_tries_and_only_the_real_pin_clears_them() {
+        // M5: in a duress session a "new PIN" is a way to try PINs; changes count, whatever was typed.
+        var r = PinRecord("c2FsdA==", 10, 1, 1, "aGFzaA==")
+        repeat(PinBackoff.FREE_TRIES) {
+            assertEquals(0L, PinBackoff.changeWait(r, 1_000L))
+            r = PinBackoff.afterChange(r, 1_000L)
+        }
+        assertEquals(PinBackoff.FIRST_WAIT_MS, PinBackoff.changeWait(r, 1_000L))
+        assertEquals(0L, PinBackoff.changeWait(r, 1_000L + PinBackoff.FIRST_WAIT_MS))
+        // A duress unlock doesn't reset them (it would undo the limit); the Parley PIN does.
+        assertEquals(r.changes, PinBackoff.after(r, PinVerdict.DURESS, 2_000L).changes)
+        assertEquals(0, PinBackoff.after(r, PinVerdict.NORMAL, 2_000L).changes)
+        // A restart (elapsed time starts again) starts the wait over.
+        assertEquals(PinBackoff.FIRST_WAIT_MS, PinBackoff.changeWait(PinBackoff.rebased(r, 10L), 10L))
+        // The count survives in the stored record; records from before it still read.
+        assertEquals(r, PinRecord.decode(r.encode()))
+        val old = r.encode().split(";").take(10).joinToString(";")
+        assertEquals(0, PinRecord.decode(old)!!.changes)
     }
 }

@@ -3,6 +3,7 @@
 
 package app.parley.ui.settings
 
+import android.text.format.DateUtils
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
@@ -63,9 +64,10 @@ private enum class PinDialog { SET_PIN, PIN_OFF, DURESS_ABOUT, DURESS_SET, DURES
 
 /**
  * The Parley PIN, and the duress PIN with its option. During a duress session ([app.parley.common.AppSettings.duress])
- * the page looks like one without a duress PIN: its rows aren't there, a new PIN becomes the duress PIN and turning the
- * PIN off lasts until the next lock (see [AppPinStore]). Every change asks for the fingerprint or screen lock first,
- * like turning the app lock on or off.
+ * the page looks exactly like one where no duress PIN was ever set (M7): the same rows, the duress PIN "Off", and
+ * setting one there works for the session's screens only. A new PIN becomes the duress PIN and turning the PIN off
+ * lasts until the next lock (see [AppPinStore]). Every change asks for the fingerprint or screen lock first, like
+ * turning the app lock on or off.
  */
 @Composable
 internal fun UnlockWithScreen(vm: AppViewModel, back: () -> Unit) {
@@ -73,7 +75,8 @@ internal fun UnlockWithScreen(vm: AppViewModel, back: () -> Unit) {
     val res = LocalResources.current
     val store = vm.c.appPin
     val settings by vm.settings.collectAsStateWithLifecycle()
-    val summary by store.summary.collectAsStateWithLifecycle()
+    // In a duress session, the session's view: the duress PIN off unless set in the session (M7).
+    val summary by store.shown.collectAsStateWithLifecycle()
     val shownOff by store.sessionShownOff.collectAsStateWithLifecycle()
     val inDuress = settings.duress != null
     val s = summary ?: AppPinStore.Summary()
@@ -96,8 +99,8 @@ internal fun UnlockWithScreen(vm: AppViewModel, back: () -> Unit) {
                 LinkRow(stringResource(R.string.pin_change), null, Icons.Rounded.Password) { confirmed(R.string.pin_change) { dialog = PinDialog.SET_PIN } }
             }
         }
-        // Not there at all in a duress session: nothing on this page may hint that a second PIN exists.
-        if (!inDuress && s.pinSet) DuressGroup(vm, s, confirmed) { dialog = it }
+        // The same in a duress session, where it shows the session's view: nothing may hint that a second PIN exists.
+        if (s.pinSet) DuressGroup(vm, s, inDuress, confirmed) { dialog = it }
     }
     PinDialogs(vm, dialog, s, inDuress, confirmed) { dialog = it }
 }
@@ -106,7 +109,7 @@ internal fun UnlockWithScreen(vm: AppViewModel, back: () -> Unit) {
 private typealias Confirm = (Int, () -> Unit) -> Unit
 
 @Composable
-private fun DuressGroup(vm: AppViewModel, s: AppPinStore.Summary, confirmed: Confirm, show: (PinDialog) -> Unit) {
+private fun DuressGroup(vm: AppViewModel, s: AppPinStore.Summary, inDuress: Boolean, confirmed: Confirm, show: (PinDialog) -> Unit) {
     val scope = rememberCoroutineScope()
     val duressSub = stringResource(if (s.duressSet) R.string.duress_on_summary else R.string.set_off)
     SegmentedGroup(stringResource(R.string.duress_group)) {
@@ -114,7 +117,7 @@ private fun DuressGroup(vm: AppViewModel, s: AppPinStore.Summary, confirmed: Con
         linkRow("duress_pin", Icons.Rounded.Password, sub = duressSub) { show(if (s.duressSet) PinDialog.DURESS_MENU else PinDialog.DURESS_ABOUT) }
         if (s.duressSet) {
             switchRow("duress_lock_vault", s.lockVaultOnDuress, Icons.Rounded.EnhancedEncryption) { on ->
-                confirmed(R.string.duress_change) { scope.launch { vm.c.appPin.setLockVaultOnDuress(on) } }
+                confirmed(R.string.duress_change) { scope.launch { vm.c.appPin.setLockVaultOnDuress(on, duressSession = inDuress) } }
             }
         }
         item("duress_info") { LinkRow(stringResource(R.string.duress_what_it_hides), null, Icons.Rounded.Info) { show(PinDialog.DURESS_INFO) } }
@@ -139,15 +142,21 @@ private fun PinDialogs(
             title = stringResource(R.string.pin_set_title),
             body = stringResource(R.string.pin_set_body),
             check = { pin ->
-                // The duress PIN can't also be the Parley PIN (outside a session; in one, see AppPinStore.setPin).
-                if (!inDuress && store.duressProblem(pin) == PinProblem.SAME_AS_PIN) res.getString(R.string.pin_same_as_duress) else null
+                // M5: changes wait after a few, the same for any PIN in any session. The duress PIN as this page shows
+                // it can't also be the Parley PIN (in a session: one set there; never compared with the real PIN).
+                val wait = store.changeWait()
+                when {
+                    wait > 0 -> res.getString(R.string.pin_change_wait, DateUtils.formatElapsedTime((wait + 999) / 1000))
+                    store.isShownDuress(pin, inDuress) -> res.getString(R.string.pin_same_as_duress)
+                    else -> null
+                }
             },
             save = { pin -> store.setPin(pin, duressSession = inDuress) },
             onDismiss = { show(null) },
         )
         PinDialog.PIN_OFF -> ConfirmDialog(
             title = stringResource(R.string.pin_off_title),
-            text = stringResource(if (s.duressSet && !inDuress) R.string.pin_off_body_duress else R.string.pin_off_body),
+            text = stringResource(if (s.duressSet) R.string.pin_off_body_duress else R.string.pin_off_body),
             confirmLabel = stringResource(R.string.pin_off_confirm),
             onConfirm = {
                 show(null)
@@ -156,12 +165,12 @@ private fun PinDialogs(
             onDismiss = { show(null) },
         )
         null -> Unit
-        else -> DuressDialogs(vm, dialog, confirmed, show)
+        else -> DuressDialogs(vm, dialog, inDuress, confirmed, show)
     }
 }
 
 @Composable
-private fun DuressDialogs(vm: AppViewModel, dialog: PinDialog, confirmed: Confirm, show: (PinDialog?) -> Unit) {
+private fun DuressDialogs(vm: AppViewModel, dialog: PinDialog, inDuress: Boolean, confirmed: Confirm, show: (PinDialog?) -> Unit) {
     val res = LocalResources.current
     val scope = rememberCoroutineScope()
     val store = vm.c.appPin
@@ -174,8 +183,8 @@ private fun DuressDialogs(vm: AppViewModel, dialog: PinDialog, confirmed: Confir
         PinDialog.DURESS_SET -> NewPinDialog(
             title = stringResource(R.string.duress_set_title),
             body = stringResource(R.string.duress_set_body),
-            check = { pin -> if (store.duressProblem(pin) == PinProblem.SAME_AS_PIN) res.getString(R.string.pin_same_as_pin) else null },
-            save = { pin -> store.setDuress(pin) },
+            check = { pin -> if (store.duressProblem(pin, inDuress) == PinProblem.SAME_AS_PIN) res.getString(R.string.pin_same_as_pin) else null },
+            save = { pin -> store.setDuress(pin, duressSession = inDuress) },
             onDismiss = { show(null) },
         )
         PinDialog.DURESS_MENU -> ParleyDialog(
@@ -196,7 +205,7 @@ private fun DuressDialogs(vm: AppViewModel, dialog: PinDialog, confirmed: Confir
             confirmLabel = stringResource(R.string.pin_off_confirm),
             onConfirm = {
                 show(null)
-                confirmed(R.string.duress_off_title) { scope.launch { store.setDuress(null) } }
+                confirmed(R.string.duress_off_title) { scope.launch { store.setDuress(null, duressSession = inDuress) } }
             },
             onDismiss = { show(null) },
         )

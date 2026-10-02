@@ -53,12 +53,18 @@ data class PinRecord(
     val lockVaultOnDuress: Boolean = true,
     val failures: Int = 0,
     val lastFailureAt: Long = 0L,
+    /**
+     * PIN changes since the last unlock with the Parley PIN, and when the last one was made (elapsed realtime). A change
+     * made in a duress session is a way to try PINs (see [PinBackoff.changeWait]), so it waits like a wrong try does.
+     */
+    val changes: Int = 0,
+    val lastChangeAt: Long = 0L,
 ) {
     val hasDuress: Boolean get() = duress != null
 
     fun encode(): String = listOf(
         VERSION, log2N.toString(), r.toString(), p.toString(), salt, pin, duress.orEmpty(),
-        if (lockVaultOnDuress) "1" else "0", failures.toString(), lastFailureAt.toString(),
+        if (lockVaultOnDuress) "1" else "0", failures.toString(), lastFailureAt.toString(), changes.toString(), lastChangeAt.toString(),
     ).joinToString(SEP)
 
     companion object {
@@ -68,7 +74,8 @@ data class PinRecord(
         /** A stored record, or null when it isn't one (damaged, or from a future version). */
         fun decode(s: String?): PinRecord? {
             val f = s?.split(SEP) ?: return null
-            if (f.size != 10 || f[0] != VERSION) return null
+            // 10 fields before PIN changes were counted, 12 since.
+            if ((f.size != 10 && f.size != 12) || f[0] != VERSION) return null
             return runCatching {
                 PinRecord(
                     salt = f[4].also { Base64.getDecoder().decode(it) },
@@ -80,6 +87,8 @@ data class PinRecord(
                     lockVaultOnDuress = f[7] == "1",
                     failures = f[8].toInt().coerceAtLeast(0),
                     lastFailureAt = f[9].toLong(),
+                    changes = f.getOrNull(10)?.toInt()?.coerceAtLeast(0) ?: 0,
+                    lastChangeAt = f.getOrNull(11)?.toLong() ?: 0L,
                 )
             }.getOrNull()
         }
@@ -158,21 +167,41 @@ object PinBackoff {
     }
 
     /** Milliseconds until the next try is allowed, at elapsed realtime [now]; 0 when it is allowed now. */
-    fun remaining(record: PinRecord, now: Long): Long {
-        val wait = waitAfter(record.failures)
+    fun remaining(record: PinRecord, now: Long): Long = remaining(record.failures, record.lastFailureAt, now)
+
+    private fun remaining(count: Int, at: Long, now: Long): Long {
+        val wait = waitAfter(count)
         if (wait == 0L) return 0L
         // Elapsed time went backwards: the phone restarted. The wait starts over rather than guessing how long it was off.
-        if (now < record.lastFailureAt) return wait
-        return (record.lastFailureAt + wait - now).coerceAtLeast(0L)
+        if (now < at) return wait
+        return (at + wait - now).coerceAtLeast(0L)
     }
 
-    /** [record] after an attempt at [now]: a wrong one counts; either right one (Parley or duress PIN) clears the count. */
+    /**
+     * [record] after an attempt at [now]: a wrong one counts; either right one (Parley or duress PIN) clears the count.
+     * Only the Parley PIN clears the count of PIN changes ([changeWait]): a duress unlock must not reset it, or setting a
+     * guess as the "new PIN" and unlocking with it would try PINs without limit.
+     */
     fun after(record: PinRecord, verdict: PinVerdict, now: Long): PinRecord = when (verdict) {
         PinVerdict.WRONG -> record.copy(failures = record.failures + 1, lastFailureAt = now)
-        else -> record.copy(failures = 0, lastFailureAt = 0L)
+        PinVerdict.DURESS -> record.copy(failures = 0, lastFailureAt = 0L)
+        PinVerdict.NORMAL -> record.copy(failures = 0, lastFailureAt = 0L, changes = 0, lastChangeAt = 0L)
     }
 
     /** [record] with a wait that started before a restart counted again from [now] (see [remaining]). */
-    fun rebased(record: PinRecord, now: Long): PinRecord =
-        if (waitAfter(record.failures) > 0 && now < record.lastFailureAt) record.copy(lastFailureAt = now) else record
+    fun rebased(record: PinRecord, now: Long): PinRecord {
+        var r = record
+        if (waitAfter(r.failures) > 0 && now < r.lastFailureAt) r = r.copy(lastFailureAt = now)
+        if (waitAfter(r.changes) > 0 && now < r.lastChangeAt) r = r.copy(lastChangeAt = now)
+        return r
+    }
+
+    /**
+     * How long before the PIN may be changed again: five changes are free between unlocks with the Parley PIN, then
+     * they wait as wrong tries do. The same for every PIN typed and in every session, so the wait says nothing.
+     */
+    fun changeWait(record: PinRecord, now: Long): Long = remaining(record.changes, record.lastChangeAt, now)
+
+    /** [record] after a PIN change at [now] (counted whatever it did). */
+    fun afterChange(record: PinRecord, now: Long): PinRecord = record.copy(changes = record.changes + 1, lastChangeAt = now)
 }

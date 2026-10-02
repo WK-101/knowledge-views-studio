@@ -97,6 +97,17 @@ object NumberMemory {
 
     private val SHOWN_BY_HISTORY = setOf(MemorySource.CALL_NOTE, MemorySource.CALLS, MemorySource.MESSAGED)
 
+    /** The sources that quote a note (pinned notes, moments, promises, call notes): what a duress unlock hides. */
+    val NOTE_SOURCES: Set<MemorySource> = setOf(MemorySource.NOTE, MemorySource.CALL_NOTE)
+
+    /**
+     * [hints] without the ones that quote a note when [notesHidden] (a duress unlock, I21). The index was built before
+     * the hiding started and keeps its excerpts, so the hiding must apply where the hints are read, not only where
+     * the notes are.
+     */
+    fun concealNotes(hints: List<MemoryHint>, notesHidden: Boolean): List<MemoryHint> =
+        if (notesHidden) hints.filter { it.source !in NOTE_SOURCES } else hints
+
     // ---------------------------------------------------------------- Building hints
 
     /** A number with the hint it gets. */

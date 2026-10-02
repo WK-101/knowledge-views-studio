@@ -91,7 +91,6 @@ import androidx.compose.material.icons.rounded.Dashboard
 import androidx.compose.material.icons.rounded.Handyman
 import app.parley.common.SettingsCategory
 import app.parley.common.SettingsSearch
-import app.parley.common.security.DuressPolicy
 import app.parley.common.circle.ReminderDelivery
 import app.parley.common.vcard.ImportReport
 import app.parley.data.VCardIO
@@ -178,8 +177,7 @@ fun SettingsScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
         },
     ) { p ->
         if (searching) {
-            val duress = vm.settings.collectAsStateWithLifecycle().value.duress != null
-            SearchResults(query, Modifier.padding(p), duress = duress, onClear = { query = "" }) { e -> open(settingRoute(e)) }
+            SearchResults(query, Modifier.padding(p), onClear = { query = "" }) { e -> open(settingRoute(e)) }
             return@ParleyScaffold
         }
         Column(
@@ -279,12 +277,12 @@ private fun SettingsSearchBar(query: String, onQuery: (String) -> Unit, onClose:
 }
 
 @Composable
-private fun SearchResults(query: String, modifier: Modifier, duress: Boolean, onClear: () -> Unit, onPick: (SettingEntry) -> Unit) {
+private fun SearchResults(query: String, modifier: Modifier, onClear: () -> Unit, onPick: (SettingEntry) -> Unit) {
     val context = LocalContext.current
     val locales = LocalConfiguration.current.locales
     // Localised titles, summaries and keywords; English words keep matching (SettingEntry.localized).
-    // In a duress session the duress PIN's own entries don't exist (I21).
-    val catalog = remember(locales, duress) { DuressPolicy.searchable(SettingsText.localizedCatalog(context), duress) }
+    // M7: the same entries in a duress session (the duress PIN's row is there, shown off), so search gives nothing away.
+    val catalog = remember(locales) { SettingsText.localizedCatalog(context) }
     val results = remember(query, catalog) { SettingsSearch.search(query, catalog).filter { it.key !in unavailableHere } }
     if (query.isBlank()) {
         EmptyState(Icons.AutoMirrored.Rounded.ManageSearch, stringResource(R.string.set_search_empty_title), stringResource(R.string.set_search_empty_body), modifier)
