@@ -82,6 +82,10 @@
     <string name="discover_bulk_add_summary">Paste a list and save it at once, privately or for a few days</string>
     <string name="discover_my_card_title">Send my details</string>
     <string name="discover_my_card_summary">Your card as a QR code or vCard</string>
+    <string name="discover_paste_details_title">Make a contact from pasted text</string>
+    <string name="discover_paste_details_summary">Paste a signature or profile, tick what to keep</string>
+    <string name="discover_card_updates_title">A card that stays current</string>
+    <string name="discover_card_updates_summary">Contacts see your new number when you change it</string>
     <string name="discover_quick_replies_title">Reply when you can\'t answer</string>
     <string name="discover_quick_replies_summary">A short message when you decline a call</string>
     <string name="discover_auto_answer_title">Answer automatically</string>

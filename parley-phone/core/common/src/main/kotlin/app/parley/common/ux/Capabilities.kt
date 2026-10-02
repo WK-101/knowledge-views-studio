@@ -25,7 +25,7 @@ enum class AppScreen {
     CIRCLE, BIRTHDAYS, TO_CALL, CALL_INSIGHTS,
     LABELS, SCAN_QR, MY_CARD, HELPERS,
     PRIVACY_DASHBOARD, WHO_CAN_SEE, TEMPORARY,
-    KEYPAD, MESSAGED_NUMBERS, BULK_ADD,
+    KEYPAD, MESSAGED_NUMBERS, BULK_ADD, NEW_CONTACT,
     CALL_TIME, SIMS, SIMPLE_MODE,
 }
 
@@ -147,6 +147,10 @@ object CapabilityCatalog {
             "bulk", "paste", "list"),
         screen("my_card", MSG, "Send my details", "Your card as a QR code or vCard", AppScreen.MY_CARD,
             "my card", "share", "vcard", "qr"),
+        screen("paste_details", MSG, "Make a contact from pasted text", "Paste a signature or profile, tick what to keep", AppScreen.NEW_CONTACT,
+            "paste", "signature", "business card", "copy", "clipboard", since = "4.6"),
+        screen("card_updates", MSG, "A card that stays current", "Contacts see your new number when you change it", AppScreen.MY_CARD,
+            "signed", "update", "new number", "changed my number", "shared with", since = "4.6"),
         setting("quick_replies", MSG, "Reply when you can't answer", "A short message when you decline a call", "quick_replies",
             "sms", "decline", "busy"),
 

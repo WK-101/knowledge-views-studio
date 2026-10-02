@@ -1,5 +1,7 @@
 package app.parley.ui.contact
 
+import app.parley.common.cards.SignedCards
+import app.parley.ui.people.cards.CardArrivalNotes
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.res.Resources
@@ -138,6 +140,10 @@ class PasteViewModel : ViewModel() {
     /** The shared text was read (once, not again after rotation). */
     var sharedRead = false
 
+    /** The last text read, when it may hold a signed Parley card (checked like a scanned or opened card). */
+    var signedText by mutableStateOf<String?>(null)
+        private set
+
     val card: PasteParser.Card? get() = cards.getOrNull(chosen)
     val picked: List<PasteParser.Field> get() = card?.fields?.filterIndexed { i, _ -> i in ticked }.orEmpty()
 
@@ -145,6 +151,7 @@ class PasteViewModel : ViewModel() {
     fun read(context: Context, text: String, region: String, onNone: () -> Unit) {
         if (reading) return
         reading = true
+        if (SignedCards.mayHold(text)) signedText = text
         viewModelScope.launch {
             val hints = PasteHints.of(context.applicationContext, text)
             val found = withContext(Dispatchers.Default) { PasteParser.parse(text, region, hints) }
@@ -209,6 +216,8 @@ internal fun PasteDetailsEntry(
             },
         )
         CoachMark(Tips.PASTE_DETAILS, stringResource(R.string.paste_tip))
+        // A pasted card signed by someone you know: "Ana sent an updated card", as for a scanned or opened one.
+        CardArrivalNotes(vm, paste.signedText)
     }
     if (paste.card != null) PastePreview(vm, paste, onFill, onAddTo)
 }

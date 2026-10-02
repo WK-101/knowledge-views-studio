@@ -44,6 +44,8 @@ object CapabilityText {
         "messaged" to (R.string.discover_messaged_title to R.string.discover_messaged_summary),
         "bulk_add" to (R.string.discover_bulk_add_title to R.string.discover_bulk_add_summary),
         "my_card" to (R.string.discover_my_card_title to R.string.discover_my_card_summary),
+        "paste_details" to (R.string.discover_paste_details_title to R.string.discover_paste_details_summary),
+        "card_updates" to (R.string.discover_card_updates_title to R.string.discover_card_updates_summary),
         "quick_replies" to (R.string.discover_quick_replies_title to R.string.discover_quick_replies_summary),
         "auto_answer" to (R.string.discover_auto_answer_title to R.string.discover_auto_answer_summary),
         "helpers" to (R.string.discover_helpers_title to R.string.discover_helpers_summary),

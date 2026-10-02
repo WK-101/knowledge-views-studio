@@ -80,6 +80,7 @@ private fun screenRoute(s: AppScreen): Destination = when (s) {
     AppScreen.TEMPORARY -> Routes.Temporary
     AppScreen.MESSAGED_NUMBERS -> MessagingRoutes.Messaged
     AppScreen.BULK_ADD -> MessagingRoutes.BulkAdd
+    AppScreen.NEW_CONTACT -> Routes.edit()
     AppScreen.CALL_TIME -> Routes.CallTime
     AppScreen.SIMS -> HistoryRoutes.Sims
     AppScreen.SIMPLE_MODE -> ExtrasRoutes.SimpleSetup
