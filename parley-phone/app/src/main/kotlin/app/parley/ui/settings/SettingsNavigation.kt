@@ -34,7 +34,7 @@ fun NavGraphBuilder.settingsGraph(nav: NavController) {
     composable<Routes.Health> { HealthScreen(appVm(), back = back, open = open) }
     composable<Routes.Birthdays> { BirthdaysScreen(appVm(), back = back, open = open) }
     composable<Routes.Backup> { BackupScreen(appVm(), back = back) }
-    composable<Routes.Sync> { FolderSyncScreen(appVm(), back = back) }
+    composable<Routes.Sync> { FolderSyncScreen(appVm(), back = back, open = open) }
     composable<Routes.CallTime> { CallTimeScreen(appVm(), back = back) }
     composable<CallsRoutes.PhoneMenus> { PhoneMenusScreen(appVm(), back = back) }
     composable<AppLockRoutes.UnlockWith> { UnlockWithScreen(appVm(), back = back) }

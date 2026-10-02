@@ -176,6 +176,8 @@ object SettingsText {
         "backup_restore" to Triple(R.string.set_backup_restore_title, R.string.set_backup_restore_summary, R.string.set_backup_restore_kw),
         "backup_move_phone" to Triple(R.string.set_backup_move_phone_title, R.string.set_backup_move_phone_summary, R.string.set_backup_move_phone_kw),
         "sync_auto" to Triple(R.string.set_sync_auto_title, R.string.set_sync_auto_summary, R.string.set_sync_auto_kw),
+        "shared_labels" to Triple(R.string.set_shared_labels_title, R.string.set_shared_labels_summary, R.string.set_shared_labels_kw),
+        "shared_labels_join" to Triple(R.string.set_shared_labels_join_title, R.string.set_shared_labels_join_summary, R.string.set_shared_labels_join_kw),
         "section_chips" to Triple(R.string.set_section_chips_title, R.string.set_section_chips_summary, R.string.set_section_chips_kw),
         "sim_billing" to Triple(R.string.set_sim_billing_title, R.string.set_sim_billing_summary, R.string.set_sim_billing_kw),
         "csv_bom" to Triple(R.string.hist_csv_bom, R.string.hist_csv_bom_summary, R.string.set_csv_bom_kw),

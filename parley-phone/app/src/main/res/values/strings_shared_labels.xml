@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Shared labels: one label kept the same on several people's phones through a folder (docs/SHARED_LABELS.md). -->
+<resources>
+    <!-- Settings entry (Backup & sync › Sync between your phones › Shared labels; searchable) -->
+    <string name="set_shared_labels_title">Shared labels</string>
+    <string name="set_shared_labels_summary">A family phonebook: one label kept the same on several people\'s phones</string>
+    <string name="set_shared_labels_kw">family phonebook, family, share a label, shared contacts, household, doctors, school, invitation, members, syncthing, nextcloud</string>
+    <string name="set_shared_labels_join_title">Join a shared label</string>
+    <string name="set_shared_labels_join_summary">Open an invitation someone sent you, as a file or a QR code</string>
+    <string name="set_shared_labels_join_kw">join, invitation, invite, family phonebook, shared label, qr code, file</string>
+
+    <!-- The label page -->
+    <string name="shl_share_menu">Share this label…</string>
+    <string name="shl_section">Shared</string>
+    <string name="shl_tip">Everyone in this label sees the same contacts, and each change says who made it.</string>
+    <string name="shl_status_synced">Synced %1$s</string>
+    <string name="shl_status_never">Not synced yet</string>
+    <string name="shl_status_folder_gone">Can\'t open the folder. Check that your sync app still shares it.</string>
+    <string name="shl_status_loading">The folder is still loading. Parley tries again later.</string>
+    <string name="shl_status_no_permission">Parley needs access to your contacts to sync this label.</string>
+    <string name="shl_status_key_changed">This label\'s key was changed. Ask a member for a new invitation. Your contacts stay.</string>
+    <string name="shl_status_cant_sign">Your card key can\'t be read right now. Unlock the phone and try again.</string>
+    <string name="shl_status_not_label">The folder doesn\'t hold this label yet. If it was just shared, give your sync app a minute.</string>
+    <string name="shl_status_label_gone">This label isn\'t on this phone any more. Leave the share, or make the label again.</string>
+    <plurals name="shl_status_paused">
+        <item quantity="one">Waiting: %d contact would be deleted</item>
+        <item quantity="other">Waiting: %d contacts would be deleted at once</item>
+    </plurals>
+    <string name="shl_apply">Apply</string>
+    <plurals name="shl_members_n">
+        <item quantity="one">%d member</item>
+        <item quantity="other">%d members</item>
+    </plurals>
+    <plurals name="shl_private_left">
+        <item quantity="one">%d private contact stays on this phone: private contacts are never shared</item>
+        <item quantity="other">%d private contacts stay on this phone: private contacts are never shared</item>
+    </plurals>
+    <plurals name="shl_conflicts">
+        <item quantity="one">%d contact changed on two phones</item>
+        <item quantity="other">%d contacts changed on two phones</item>
+    </plurals>
+    <string name="shl_choose">Choose</string>
+    <string name="shl_changes">Changes</string>
+    <string name="shl_changes_none">No changes yet</string>
+    <string name="shl_everyone">Everyone</string>
+    <string name="shl_manage">Members &amp; invitations</string>
+    <string name="shl_all_changes">All changes</string>
+    <string name="shl_sync_now">Sync now</string>
+
+    <!-- History lines: "Ana changed Dr Lee's number · 2 days ago" -->
+    <string name="shl_you">You</string>
+    <string name="shl_someone">Someone</string>
+    <string name="shl_h_added">%1$s added %2$s</string>
+    <string name="shl_h_removed">%1$s removed %2$s</string>
+    <string name="shl_h_changed">%1$s changed %2$s\'s %3$s</string>
+    <string name="shl_h_changed_two">%1$s changed %2$s\'s %3$s and %4$s</string>
+    <string name="shl_h_edited">%1$s edited %2$s</string>
+    <string name="shl_h_when">%1$s · %2$s</string>
+    <string name="shl_f_name">name</string>
+    <string name="shl_f_nickname">nickname</string>
+    <string name="shl_f_organisation">work details</string>
+    <string name="shl_f_phones">number</string>
+    <string name="shl_f_emails">e-mail</string>
+    <string name="shl_f_addresses">address</string>
+    <string name="shl_f_websites">website</string>
+    <string name="shl_f_dates">dates</string>
+    <string name="shl_f_relations">relations</string>
+    <string name="shl_f_note">notes</string>
+    <string name="shl_f_chat">chat addresses</string>
+    <string name="shl_f_pronouns">pronouns</string>
+
+    <!-- Changed on two phones -->
+    <string name="shl_conflict_title">Changed on two phones</string>
+    <string name="shl_conflict_body">%1$s and you both changed %2$s. Choose what to keep; everything else is merged already.</string>
+    <string name="shl_conflict_theirs">%1$s\'s</string>
+    <string name="shl_conflict_mine">Yours</string>
+    <string name="shl_conflict_value">%1$s: %2$s</string>
+    <string name="shl_conflict_empty">(empty)</string>
+    <string name="shl_conflict_apply">Keep these</string>
+    <string name="shl_conflict_failed">Couldn\'t save the choice. Try again when the folder is available.</string>
+
+    <!-- Sharing a label -->
+    <string name="shl_share_title">Share %1$s</string>
+    <string name="shl_share_intro">Keep this label the same on the phones of people you choose, such as your family. It travels through a folder your sync app (Syncthing, Nextcloud…) shares with them: no server, no account. Each person signs their changes with their card key.</string>
+    <string name="shl_share_folder">Folder</string>
+    <string name="shl_share_folder_none">An empty folder that your sync app shares with them</string>
+    <string name="shl_share_pass">Passphrase for this label</string>
+    <string name="shl_share_pass_text">Its own passphrase, not your backup\'s or your sync\'s. You need it to send invitation files and to remove someone.</string>
+    <string name="shl_pass_again">Passphrase again</string>
+    <string name="shl_your_name">Your name, as the others see it</string>
+    <string name="shl_share_start">Share</string>
+    <string name="shl_share_done">%1$s is shared. Invite people next.</string>
+    <string name="shl_err_same_as_sync">That\'s the folder of Sync between your phones. Choose a folder of its own.</string>
+    <string name="shl_err_in_use">That folder already holds a shared label. Choose an empty one, or join with an invitation.</string>
+    <string name="shl_err_folder">Can\'t open that folder.</string>
+    <string name="shl_err_permission">Parley needs access to your contacts first.</string>
+    <string name="shl_err_failed">Couldn\'t share the label.</string>
+
+    <!-- Managing a shared label -->
+    <string name="shl_manage_title">Sharing %1$s</string>
+    <string name="shl_invite_qr">Invite with a QR code</string>
+    <string name="shl_invite_qr_sub">For someone next to you: they scan it and type the code under it</string>
+    <string name="shl_invite_file">Invite with a file</string>
+    <string name="shl_invite_file_sub">Send it any way you like; it opens with the label\'s passphrase</string>
+    <string name="shl_invite_qr_desc">Invitation QR code</string>
+    <string name="shl_invite_code">Code</string>
+    <string name="shl_invite_qr_hint">On their phone: Parley › Tools › Scan QR code, from a photo or a screenshot of this code, then the code above. Whoever has both can join.</string>
+    <string name="shl_invite_file_pass">The person joining types this passphrase to open the file. Tell it to them in person or on a call, not with the file.</string>
+    <string name="shl_invite_file_saved">Invitation saved</string>
+    <string name="shl_invite_wrong_pass">That isn\'t this label\'s passphrase</string>
+    <string name="shl_invite_failed">Couldn\'t make the invitation</string>
+    <string name="shl_members">Members</string>
+    <string name="shl_member_you">%1$s (you)</string>
+    <string name="shl_member_invited_by">Invited by %1$s</string>
+    <string name="shl_member_started">Shared the label</string>
+    <string name="shl_member_needs_invite">Needs a new invitation from you</string>
+    <string name="shl_fingerprint">Key %1$s</string>
+    <string name="shl_remove">Remove</string>
+    <string name="shl_remove_desc">Remove %1$s</string>
+    <string name="shl_remove_title">Remove %1$s?</string>
+    <string name="shl_remove_text">The label gets a new key, from a new passphrase. Everyone else needs a new invitation from you. %1$s keeps the contacts they already have but can\'t read anything new. Remove them from the folder in your sync app too.</string>
+    <string name="shl_remove_new_pass">New passphrase</string>
+    <string name="shl_remove_done">%1$s was removed. Invite the others again.</string>
+    <string name="shl_remove_failed">Couldn\'t change the key. Try again when the folder is available.</string>
+    <string name="shl_leave">Leave this label</string>
+    <string name="shl_leave_title">Leave %1$s?</string>
+    <string name="shl_leave_text">The others see that you left. The contacts stay on this phone in the label; changes no longer sync.</string>
+    <string name="shl_left">You left %1$s</string>
+
+    <!-- Joining -->
+    <string name="shl_join_title">Join a shared label</string>
+    <string name="shl_join_passcode">Type the code shown under the QR code.</string>
+    <string name="shl_join_passphrase">Type the label\'s passphrase. The person who sent the file can tell you.</string>
+    <string name="shl_join_pass">Passphrase</string>
+    <string name="shl_join_wrong">That doesn\'t open this invitation</string>
+    <string name="shl_join_open">Open</string>
+    <string name="shl_join_invited">%1$s invited you to %2$s</string>
+    <string name="shl_join_key">Their key: %1$s. It\'s the same as on their My card › Shared with.</string>
+    <string name="shl_join_folder_hint">Their folder: %1$s. Add the same folder in your sync app, then choose it here.</string>
+    <string name="shl_join_pick">Choose the folder</string>
+    <string name="shl_join_wrong_folder">That folder doesn\'t hold this label. Choose the folder your sync app shares with them, and give it a minute to arrive.</string>
+    <string name="shl_join_old">This invitation is for an earlier key. Ask for a new one.</string>
+    <string name="shl_join_button">Join</string>
+    <string name="shl_join_done">You joined %1$s</string>
+    <string name="shl_join_failed">Couldn\'t join. Try again in a moment.</string>
+    <string name="shl_list_empty">No shared labels yet. Open a label and choose ⋮ › Share this label….</string>
+    <string name="shl_join_file">Join from an invitation file</string>
+    <string name="shl_join_file_sub">Someone sent you a .parleyinvite file</string>
+    <string name="shl_join_scan">Join from a QR code</string>
+    <string name="shl_join_scan_sub">Scan the invitation from a photo or a screenshot</string>
+
+    <!-- Contacts selection: Add to label -->
+    <plurals name="shl_private_refused">
+        <item quantity="one">%d private contact wasn\'t added: private contacts aren\'t shared. Make it visible to other apps to share it.</item>
+        <item quantity="other">%d private contacts weren\'t added: private contacts aren\'t shared. Make them visible to other apps to share them.</item>
+    </plurals>
+
+    <!-- A scanned invitation -->
+    <string name="qs_kind_parley_label">Shared label invitation</string>
+    <string name="qs_parley_label_body">An invitation to a label someone shares with you. Parley asks for the code shown with it.</string>
+</resources>

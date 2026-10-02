@@ -23,7 +23,10 @@ sealed interface QrPayload {
         val vcard: String,
     ) : QrPayload
 
-    /** A Parley link: an encrypted contact (`parley://qr`), a simple-mode setup (`parley://simple`), a rule pack (`parley://template`). */
+    /**
+     * A Parley link: an encrypted contact (`parley://qr`), a simple-mode setup (`parley://simple`), a rule pack
+     * (`parley://template`), a shared label invitation (`parley://label`).
+     */
     data class Parley(override val raw: String, val kind: ParleyKind) : QrPayload
 
     /** A `tel:` number. [isMmi]: it has `*` or `#` (a service or MMI code): shown in full, put on the keypad, never dialled from here. */
@@ -97,7 +100,8 @@ sealed interface QrPayload {
 
 enum class ContactFormat { VCARD, MECARD, BIZCARD }
 
-enum class ParleyKind { CONTACT, SIMPLE, TEMPLATE }
+/** [LABEL]: an invitation to a shared label (`parley://label`). */
+enum class ParleyKind { CONTACT, SIMPLE, TEMPLATE, LABEL }
 
 enum class WifiSecurity { OPEN, WEP, WPA, SAE, EAP }
 

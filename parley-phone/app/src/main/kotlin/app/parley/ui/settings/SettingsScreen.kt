@@ -1,5 +1,6 @@
 package app.parley.ui.settings
 
+import app.parley.ui.sync.shared.SharedLabelRoutes
 import app.parley.ui.Destination
 import android.content.Context
 import android.os.Build
@@ -464,6 +465,7 @@ private val placeRoutes: Map<SettingPlace, Destination> by lazy {
         SettingPlace.DRIVE_PROFILE to DriveRoutes.Profile,
         SettingPlace.PHONE_MENUS to CallsRoutes.PhoneMenus,
         SettingPlace.APP_LOCK to AppLockRoutes.UnlockWith,
+        SettingPlace.SHARED_LABELS to SharedLabelRoutes.All,
     )
 }
 

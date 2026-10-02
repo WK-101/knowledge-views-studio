@@ -1,5 +1,7 @@
 package app.parley.ui.qr
 
+import app.parley.ui.sync.shared.SharedLabelInbox
+import app.parley.ui.sync.shared.SharedLabelRoutes
 import app.parley.ui.Destination
 import android.content.Context
 import android.content.res.Resources
@@ -146,6 +148,7 @@ object QrLabels {
                 ParleyKind.CONTACT -> R.string.qs_kind_parley_contact
                 ParleyKind.SIMPLE -> R.string.qs_kind_parley_simple
                 ParleyKind.TEMPLATE -> R.string.qs_kind_parley_template
+                ParleyKind.LABEL -> R.string.qs_kind_parley_label
             },
         )
         is QrPayload.Phone -> res.getString(if (p.isMmi) R.string.qs_kind_code else R.string.qs_kind_phone)
@@ -437,6 +440,7 @@ private fun ColumnScope.ParleyResult(vm: AppViewModel, p: QrPayload.Parley, onDi
                 ParleyKind.CONTACT -> R.string.qs_parley_contact_body
                 ParleyKind.SIMPLE -> R.string.qs_parley_simple_body
                 ParleyKind.TEMPLATE -> R.string.qs_parley_template_body
+                ParleyKind.LABEL -> R.string.qs_parley_label_body
             },
         ),
         style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 8.dp),
@@ -453,6 +457,11 @@ private fun ColumnScope.ParleyResult(vm: AppViewModel, p: QrPayload.Parley, onDi
             ParleyKind.TEMPLATE -> {
                 TemplateInbox.pending.value = uri
                 vm.navigate(NavEvent.Route(BlockingRoutes.Templates))
+            }
+            ParleyKind.LABEL -> {
+                SharedLabelInbox.file.value = null
+                SharedLabelInbox.link.value = p.raw
+                vm.navigate(NavEvent.Route(SharedLabelRoutes.Join))
             }
         }
     }

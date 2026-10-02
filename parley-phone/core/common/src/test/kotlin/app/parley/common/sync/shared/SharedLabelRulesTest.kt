@@ -1,0 +1,61 @@
+package app.parley.common.sync.shared
+
+import app.parley.common.sync.shared.SharedLabelRules.Action
+import app.parley.common.sync.shared.SharedLabelRules.Local
+import app.parley.common.sync.shared.SharedLabelRules.Remote
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+class SharedLabelRulesTest {
+    @Test fun the_decision_table() {
+        val expected = mapOf(
+            (Local.UNCHANGED to Remote.UNCHANGED) to Action.NONE,
+            (Local.CHANGED to Remote.UNCHANGED) to Action.PUBLISH,
+            (Local.GONE to Remote.UNCHANGED) to Action.PUBLISH_TOMBSTONE,
+            (Local.UNCHANGED to Remote.CHANGED) to Action.APPLY,
+            (Local.CHANGED to Remote.CHANGED) to Action.MERGE,
+            (Local.GONE to Remote.CHANGED) to Action.IMPORT_AGAIN,
+            (Local.UNCHANGED to Remote.TOMBSTONE) to Action.DELETE_LOCAL,
+            (Local.CHANGED to Remote.TOMBSTONE) to Action.PUBLISH,
+            (Local.GONE to Remote.TOMBSTONE) to Action.FORGET,
+            (Local.UNCHANGED to Remote.MISSING) to Action.PUBLISH,
+            (Local.CHANGED to Remote.MISSING) to Action.PUBLISH,
+            (Local.GONE to Remote.MISSING) to Action.PUBLISH_TOMBSTONE,
+        )
+        expected.forEach { (k, v) -> assertEquals("$k", v, SharedLabelRules.decide(k.first, k.second)) }
+        Local.entries.forEach { assertEquals(Action.NONE, SharedLabelRules.decide(it, Remote.UNREADABLE)) }
+    }
+
+    @Test fun a_vanished_file_is_never_a_deletion() {
+        assertEquals(Remote.MISSING, SharedLabelRules.remote(null, deleted = false, readable = false, lastVersion = 5, seenVersion = 5))
+        assertTrue(Local.entries.none { SharedLabelRules.decide(it, Remote.MISSING) == Action.DELETE_LOCAL })
+    }
+
+    @Test fun old_copies_put_back_are_ignored() {
+        // Older than what this phone synced or saw: treated as missing, so this phone writes its version over it.
+        assertEquals(Remote.MISSING, SharedLabelRules.remote(3, deleted = false, readable = true, lastVersion = 5, seenVersion = 5))
+        assertEquals(Remote.MISSING, SharedLabelRules.remote(6, deleted = true, readable = true, lastVersion = 5, seenVersion = 7))
+        assertEquals(Remote.UNCHANGED, SharedLabelRules.remote(5, deleted = false, readable = true, lastVersion = 5, seenVersion = 5))
+        assertEquals(Remote.CHANGED, SharedLabelRules.remote(8, deleted = false, readable = true, lastVersion = 5, seenVersion = 5))
+        assertEquals(Remote.TOMBSTONE, SharedLabelRules.remote(8, deleted = true, readable = true, lastVersion = 5, seenVersion = 5))
+        assertEquals(Remote.UNREADABLE, SharedLabelRules.remote(8, deleted = false, readable = false, lastVersion = 5, seenVersion = 5))
+    }
+
+    @Test fun new_contacts_and_resurrections() {
+        assertTrue(SharedLabelRules.isNewContact(10, deleted = false, seenVersion = null))
+        assertFalse(SharedLabelRules.isNewContact(10, deleted = true, seenVersion = null))
+        // A deleted contact's file put back (no newer than its deletion) stays deleted.
+        assertFalse(SharedLabelRules.isNewContact(10, deleted = false, seenVersion = 12))
+        assertTrue(SharedLabelRules.isNewContact(13, deleted = false, seenVersion = 12))
+    }
+
+    @Test fun versions_grow_and_mass_deletions_wait() {
+        assertEquals(1000, SharedLabelRules.nextVersion(5, 1000))
+        assertEquals(1001, SharedLabelRules.nextVersion(1000, 900))
+        assertTrue(SharedLabelRules.mustConfirm(5, 10))
+        assertFalse(SharedLabelRules.mustConfirm(3, 4))
+        assertFalse(SharedLabelRules.mustConfirm(5, 40))
+    }
+}

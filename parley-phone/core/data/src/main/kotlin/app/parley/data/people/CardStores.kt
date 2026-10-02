@@ -106,6 +106,15 @@ class MyCardIdentity(context: Context) : RecordSealing.Resealable {
     /** The version your contacts have of your card at most (0: never signed). */
     val version: Long get() = prefs.getLong(K_VERSION, 0)
 
+    /** The public key, or null while the secret can't be read. */
+    fun publicKey(): ByteArray? = secret()?.let { Ed25519.publicKey(it) }
+
+    /**
+     * Signs [message] with the card key, for shared labels: each member signs their changes with the key their
+     * cards carry. Every caller's message starts with its own fixed header, so it can never pass for a card signature.
+     */
+    fun signMessage(message: ByteArray): ByteArray? = secret()?.let { Ed25519.sign(it, message) }
+
     /** "3F2A 9C1B 0D7E 44A2", for "Shared with" (people can compare it with what their Parley shows). */
     fun fingerprint(): String? = secret()?.let { Ed25519.fingerprint(Ed25519.publicKey(it)) }
 

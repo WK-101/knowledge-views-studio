@@ -181,6 +181,15 @@ class DataContainer(context: Context) {
     val meta: MetaDao by lazy { SealedMetaDao(db.metaDao(), RecordCrypto.get(appContext)) }
     val journal by lazy { JournalRepository(meta, records) }
     val folderSync by lazy { FolderSync(appContext, contacts, records) }
+
+    /** Labels shared with other people's phones through a folder of their own (docs/SHARED_LABELS.md). */
+    val sharedLabels by lazy {
+        app.parley.data.sync.shared.SharedLabels(
+            appContext, contacts, records, people.labels, people.cardIdentity,
+            defaultAccount = { settings.settings.value.let { s -> s.defaultAccountType?.let { AccountRef(it, s.defaultAccountName) } } },
+            syncFolder = { folderSync.status.value.folderUri },
+        )
+    }
     val messaging by lazy { MessagingStore(appContext, scope) { n -> vault.lookup(n) != null } }
     /** "Add several numbers…" batches (one undo per batch). */
     val bulkAdd by lazy { BulkAddStore(this) }

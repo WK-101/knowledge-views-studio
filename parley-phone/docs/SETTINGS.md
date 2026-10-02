@@ -116,8 +116,10 @@ The Settings list starts with **Tools** (the same page as ⋮ › Tools; see the
 ## Backup & sync
 | Group | Settings |
 |---|---|
-| Backups | Backup & restore `backup` ↗ (in it: Automatic backups `backup_automatic`, Backups to keep `backup_keep`, Restore a backup `backup_restore`, Move to a new phone `backup_move_phone`) · Remind me to back up `backup_reminder` · Sync between your phones `sync` ↗ (in it: Sync automatically `sync_auto`) · Export notes as Markdown `markdown_export` |
+| Backups | Backup & restore `backup` ↗ (in it: Automatic backups `backup_automatic`, Backups to keep `backup_keep`, Restore a backup `backup_restore`, Move to a new phone `backup_move_phone`) · Remind me to back up `backup_reminder` · Sync between your phones `sync` ↗ (in it: Sync automatically `sync_auto`, and Shared labels `shared_labels` ↗ with Join a shared label `shared_labels_join`) · Export notes as Markdown `markdown_export` |
 | Undo | History & undo `journal` ↗ · Daily snapshots (time machine) `time_machine` ↗ (History & undo › Snapshots) |
+
+**Shared labels** (`shared_labels`, a screen of its own reached from Sync between your phones, and searchable as "family phonebook"; nothing is shared until you choose a label's ⋮ › Share this label…): every label shared with other people's phones, each with its own folder and passphrase, and **Join a shared label** (`shared_labels_join`) from an invitation file or a QR code. The label page shows each shared label's members, changes ("Ana changed Dr Lee's number · 2 days ago") and contacts changed on two phones. Runs with the folder sync's schedule (shortly after start, after a change to the address book, hourly), whether or not "Sync between your phones" is set up. Kept on this phone only, sealed (`no_backup/shared_labels`: a new phone joins again with an invitation). See [SHARED_LABELS.md](SHARED_LABELS.md).
 
 ## Notifications & device
 | Group | Settings |

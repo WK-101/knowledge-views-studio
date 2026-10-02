@@ -167,6 +167,7 @@ Parley as the phone app (or the call-screening role), like every screening featu
 | Version history; a copy of each edit in History & undo | Snapshots and edit copies are plain copies of the address book. A private contact's edits keep no copy: only a deleted one is kept, sealed ("Deleted private contacts") |
 | Accounts, linked copies, "other fields" | Accounts, linking and rows written by other apps exist only in the address book |
 | Copy to SIM | A SIM card is readable by any phone it is put in |
+| Shared labels (a family phonebook) | The label's contacts go to other people's phones; a private contact in a shared label stays on this phone, and adding one from the Contacts selection is refused ([SHARED_LABELS.md](SHARED_LABELS.md)) |
 | Home-screen shortcut | The launcher (another app) would store the name and number |
 | A label's "Allow through Do Not Disturb" | Android decides who rings through Do Not Disturb from starred address-book contacts; starring a private contact would put it in the address book. The label page says how many of its members can't ring through |
 | Ringtone and "Send to voicemail" without Parley as the phone app | Android's ringer and Telecom never see a private contact; only Parley's call screening applies them |
