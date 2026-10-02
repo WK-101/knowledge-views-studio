@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- What TalkBack says by itself when a call changes state (the call screen's status pill isn't a live region). -->
+<resources>
+    <string name="incall_announce_connected">Call connected</string>
+    <string name="incall_announce_resumed">Call resumed</string>
+</resources>

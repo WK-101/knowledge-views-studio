@@ -93,7 +93,8 @@ fun ReturnToCallChip(modifier: Modifier = Modifier) {
                     text,
                     color = ink,
                     style = MaterialTheme.typography.labelLarge,
-                    maxLines = 1,
+                    // Two lines at large font sizes, so the name and time aren't cut short.
+                    maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f),
                 )

@@ -1861,3 +1861,28 @@ Fixes to signed cards, Shared with, Changed my number, the blocking setups and p
 14. **Weekly line.** A contact who calls from two numbers counts as one contact affected; a contact on the system's blocked numbers list counts as a contact; a busy week with more than 500 stopped calls is counted in full.
 15. **Share sheet and paste.** Share a long text to Parley: the number sheet opens at once and **Make a contact from this text** appears a moment later. Make a contact from shared text, cancel the app lock, then open a new contact from Contacts: the editor doesn't fill in the old text. "Add to Ana" with Ana's own signature adds nothing twice (website, address, birthday) and no empty number row.
 16. **Language reset.** After the first start of this version, later starts don't touch the per-app language again (no extra disk read on the main thread under StrictMode).
+
+## 28. Everyone can call (4.7)
+
+### 28.3 Hear who's calling: ringtones made from a name, and the accessibility sweep
+
+Unit tests: `CallerTuneTest` (core:common: the same name and variant give the same notes and samples; every tune lasts 3–5 s; the peak is exactly 85 % of full scale, never clipped, silent at both ends; notes stay in the pentatonic scale and end on the home note; variants and people sound different; the WAV header; file names never carry the name), `CallAnnouncementsTest` (what TalkBack says on each change), `ThemeContrastTest` (dynamic colour by tone, for any wallpaper) and `ThemeContrastTokensTest` (core:ui: the brand light, dark and AMOLED schemes, AMOLED under dynamic colour, the call colours). See [ACCESSIBILITY.md](ACCESSIBILITY.md) for the full checklist.
+
+**Ringtone made from a name (I17).**
+
+1. Open a device contact "Ana" › Settings: **Make a ringtone for Ana** (with a one-time tip under it the first time). Tap it: "Ringtone for Ana", **Play** plays a 3–5 s tune at ring volume and turns into **Stop** while playing (and back to Play when it ends). **Try another** plays the next one at once and the line above says "Tune 2", "Tune 3"… (TalkBack reads it). Close and open again: Tune 1 is the same tune as before; so is Tune 2.
+2. **Use this tune**: "Ringtone set for Ana"; the Ringtone row says "Tune made for Ana". Call the phone from Ana's number with Parley as the default phone app, and again with another phone app as the default: the tune rings both times, and loops with a short pause. Reboot the phone and call again: it still rings (Telecom reads Parley's file as the system; System UI's grant is renewed when Parley starts).
+3. Open the contact in Google Contacts (or the system Contacts app): its ringtone shows a file name like `parley-tune-1a2b3c4d.wav`, never Ana's name.
+4. A **private contact**: the same row and dialog; the call rings with the tune through Parley's own ringer, also while the phone is locked.
+5. A **label** page (e.g. "Family"): **Make a ringtone for Family** under the ringtone row; after **Use this tune** the ringtone row says "Tune made for Family" and a member without a ringtone of their own rings with it. **Reset** goes back to the default.
+6. A name with no Latin letters ("李小龙", "محمد"), digits only ("0800 123") and an empty name still give a tune. Rotate the phone with the dialog open: the same tune number stays.
+7. No new permission: Settings › Apps › Parley › Permissions lists the same ones as before.
+
+**Accessibility sweep (P16).** TalkBack, Switch Access and Voice Access on; Settings › Display › Font size and Display size at the largest (200 %).
+
+8. **Incoming call, slide to answer:** with Voice Access, say "tap Answer": the call is answered; "tap Decline" declines. Switch Access scanning reaches Decline, the track and Answer, each with a name. With TalkBack, the green and red ends are "Answer" and "Decline" buttons, and the track still has the Answer and Decline actions. Touching an end with a finger does nothing (only a slide does).
+9. **Incoming call, tap to answer** and simple mode: "tap Answer" / "tap Decline" work the same.
+10. **Call announcements:** with TalkBack on and nothing focused on the status, answer a call: TalkBack says "Call connected"; Hold: "On hold"; Resume: "Call resumed"; the other side hangs up: "Call ended" (or the reason, e.g. "Call dropped"). Placing a call: "Call connected" when they answer. The timer is never read out by itself.
+11. **Headings:** TalkBack's heading navigation (swipe up then down, or the reading control set to Headings) jumps between the sections of Blocking & screening, Settings, a contact's page, Recents' days and Contacts' letters.
+12. **200 % font and largest display size:** Recents, Contacts, Favourites, Keypad, a contact's page, Settings, Blocking & screening, the call screen (incoming and in a call) and the "Return to call" bar: nothing is cut off in the middle of a word without a way to read it (lists and pages scroll; the "Return to call" bar wraps to two lines; the caller scrolls on the call screen while the controls stay put).
+13. **Contrast:** in light, dark and dark with Pure black, with dynamic colour on and off, and with a few very different wallpapers (bright yellow, deep blue, grey, a photo), secondary text, text buttons and error text stay readable on every card and sheet.

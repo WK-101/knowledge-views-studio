@@ -65,6 +65,8 @@ import app.parley.data.people.Label
 import app.parley.ui.EmptyState
 import app.parley.ui.Routes
 import app.parley.ui.blocking.LabelBlockingMenuItem
+import app.parley.ui.contact.CallerTuneRow
+import app.parley.ui.contact.CallerTunes
 import app.parley.ui.contact.Section
 import app.parley.ui.extras.LabelPolicySection
 import app.parley.ui.family.SafeWordSection
@@ -416,7 +418,10 @@ fun LabelScreen(vm: AppViewModel, title: String, back: () -> Unit, open: (Destin
     }) { p ->
         LazyColumn(Modifier.padding(p)) {
             item {
-                val name = tone?.let { u -> runCatching { RingtoneManager.getRingtone(context, Uri.parse(u))?.getTitle(context) }.getOrNull() }
+                val name = tone?.let { u ->
+                    if (CallerTunes.isOurs(context, u)) stringResource(R.string.caller_tune_made_for, current)
+                    else runCatching { RingtoneManager.getRingtone(context, Uri.parse(u))?.getTitle(context) }.getOrNull()
+                }
                 ListItem(
                     modifier = Modifier.clickable(onClick = ::pickTone),
                     leadingContent = { Icon(Icons.Rounded.MusicNote, null) },
@@ -424,6 +429,13 @@ fun LabelScreen(vm: AppViewModel, title: String, back: () -> Unit, open: (Destin
                     supportingContent = { Text(stringResource(R.string.lbl_ringtone_summary)) },
                     trailingContent = { if (tone != null) TextButton({ vm.people.update { it.copy(labelRingtones = it.labelRingtones - current) } }) { Text(stringResource(R.string.lbl_reset)) } },
                 )
+            }
+            // Sonic caller ID for the label: Parley's ringer plays label ringtones, so the tune is read from its own files.
+            item {
+                CallerTuneRow(current, stringResource(R.string.caller_tune_label_summary)) { uri ->
+                    vm.people.update { it.copy(labelRingtones = it.labelRingtones + (current to uri.toString())) }
+                    vm.toast(res.getString(R.string.caller_tune_set, current))
+                }
             }
             // SIM, Circle rhythm and Do Not Disturb for this label.
             item { LabelPolicySection(vm, current, members) }

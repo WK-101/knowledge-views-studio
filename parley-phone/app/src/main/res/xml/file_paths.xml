@@ -4,4 +4,6 @@
     <cache-path name="share" path="share/" />
     <!-- The one photo the camera app takes for "Scan QR" (deleted once read). -->
     <cache-path name="qr" path="qr/" />
+    <!-- Ringtones made from a name, read by the phone's ringer (Contacts.CUSTOM_RINGTONE) and Parley's own. -->
+    <files-path name="tunes" path="tunes/" />
 </paths>

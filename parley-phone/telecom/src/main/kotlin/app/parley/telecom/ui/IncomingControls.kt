@@ -79,6 +79,8 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -326,7 +328,7 @@ private fun AnswerSlider(sim: String?, onAnswer: () -> Unit, onDecline: () -> Un
                 }, onRelease = release),
             contentAlignment = Alignment.Center,
         ) {
-            SlideTrackDecor(state.pos)
+            SlideTrackDecor(state.pos, answerLabel, declineLabel, onAnswer, onDecline)
             SlideKnob(state, travel)
         }
         SlideHint(state.pos)
@@ -409,9 +411,13 @@ private fun Modifier.slideGesture(
     }
 }
 
-/** The two ends and the shimmering chevrons (still when animations are off), fading as the knob moves. */
+/**
+ * The two ends and the shimmering chevrons (still when animations are off), fading as the knob moves. The ends are
+ * named buttons for accessibility services only (Voice Access "tap Answer", Switch Access, TalkBack); a finger still
+ * has to slide, so a pocket can't answer by touching an end.
+ */
 @Composable
-private fun BoxScope.SlideTrackDecor(pos: Float) {
+private fun BoxScope.SlideTrackDecor(pos: Float, answerLabel: String, declineLabel: String, onAnswer: () -> Unit, onDecline: () -> Unit) {
     val shimmer = if (ParleyMotion.reducedMotion()) {
         null
     } else {
@@ -419,8 +425,10 @@ private fun BoxScope.SlideTrackDecor(pos: Float) {
     }
     val phase = shimmer?.let { s -> { s.value } }
     val hint = AnswerSlide.hintAlpha(pos)
-    SlideTarget(Icons.Rounded.CallEnd, CallColors.Decline, AnswerSlide.targetFill(pos, -1), Modifier.align(Alignment.CenterStart))
-    SlideTarget(Icons.Rounded.Call, CallColors.Accept, AnswerSlide.targetFill(pos, 1), Modifier.align(Alignment.CenterEnd))
+    val declineEnd = Modifier.align(Alignment.CenterStart).serviceButton(declineLabel, onDecline)
+    val answerEnd = Modifier.align(Alignment.CenterEnd).serviceButton(answerLabel, onAnswer)
+    SlideTarget(Icons.Rounded.CallEnd, CallColors.Decline, AnswerSlide.targetFill(pos, -1), declineEnd)
+    SlideTarget(Icons.Rounded.Call, CallColors.Accept, AnswerSlide.targetFill(pos, 1), answerEnd)
     Chevrons(Icons.Rounded.ChevronLeft, hint, phase, Modifier.align(Alignment.CenterStart), outward = -1)
     Chevrons(Icons.Rounded.ChevronRight, hint, phase, Modifier.align(Alignment.CenterEnd), outward = 1)
 }
@@ -505,6 +513,13 @@ private fun SlideHint(pos: Float) {
             .alpha(if (armed != 0) 1f else AnswerSlide.hintAlpha(pos))
             .clearAndSetSemantics { },
     )
+}
+
+/** A button only accessibility services can press: a name, a role and a click action, but no touch handling. */
+private fun Modifier.serviceButton(label: String, action: () -> Unit): Modifier = semantics {
+    contentDescription = label
+    role = Role.Button
+    onClick(label) { action(); true }
 }
 
 /** An end of the slide track: a tinted circle that fills with its colour as the knob comes near ([fill] 0..1). */

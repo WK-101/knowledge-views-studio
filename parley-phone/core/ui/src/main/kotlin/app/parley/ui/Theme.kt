@@ -30,7 +30,7 @@ import app.parley.common.ThemeMode
 
 // The full brand scheme (Material Theme Builder tones of the brand blue), used when dynamic colour is off or not
 // available: every role is set, so dialogs, sheets, chips and outlines never fall back to Material's baseline purple.
-private val BrandLight = lightColorScheme(
+internal val BrandLight = lightColorScheme(
     primary = Color(0xFF2F5BD3),
     onPrimary = Color.White,
     primaryContainer = Color(0xFFDCE2FF),
@@ -70,7 +70,7 @@ private val BrandLight = lightColorScheme(
     surfaceContainerHighest = Color(0xFFE3E1E9),
 )
 
-private val BrandDark = darkColorScheme(
+internal val BrandDark = darkColorScheme(
     primary = Color(0xFFB6C4FF),
     onPrimary = Color(0xFF00277F),
     primaryContainer = Color(0xFF1841B3),
@@ -110,7 +110,7 @@ private val BrandDark = darkColorScheme(
 )
 
 /** Black surfaces for OLED screens; every surface role, so no grey panel is left over. */
-private fun ColorScheme.amoled(): ColorScheme = copy(
+internal fun ColorScheme.amoled(): ColorScheme = copy(
     background = Color.Black,
     surface = Color.Black,
     surfaceDim = Color.Black,

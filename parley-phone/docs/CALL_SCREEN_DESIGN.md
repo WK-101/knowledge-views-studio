@@ -193,3 +193,8 @@ Three ways to protect people from impostor calls without a server or any new per
 
 Left out: reading the caller's words (needs the microphone), a safe word on the lock screen or in notifications, a helper during an emergency call, and guessing dates in languages other than English (Parley is English-only for now).
 
+
+## 4.7: accessibility
+
+- **Spoken changes**: a polite live region says "Call connected", "On hold", "Call resumed" and "Call ended" (or why it ended) as the call changes; nothing when the screen opens, never the timer (`CallAnnouncements` in core:common, `CallAnnouncer.kt`).
+- **Voice Access on the slide control**: the red and green ends are named buttons for accessibility services only, so "tap Answer" and "tap Decline" work while a finger still has to slide. See [ACCESSIBILITY.md](ACCESSIBILITY.md).
