@@ -92,6 +92,8 @@ internal fun KeypadBottomRow(
     onCallWith: (String) -> Unit,
     onDelete: () -> Unit,
     onClear: () -> Unit,
+    /** I12: press and hold the pill (or a SIM's segment, with its id) for "Call with a reason…"; null: no long-press. */
+    onCallLongPress: ((simId: String?) -> Unit)? = null,
 ) {
     Row(
         Modifier.fillMaxWidth().height(CALL_PILL_HEIGHT + 16.dp).padding(horizontal = 8.dp),
@@ -105,7 +107,7 @@ internal fun KeypadBottomRow(
                 }
             }
         }
-        CallPillView(vm, CallPill.segments(sims, preferredSim), onCall, onCallWith, Modifier.weight(1f, fill = false))
+        CallPillView(vm, CallPill.segments(sims, preferredSim), onCall, onCallWith, Modifier.weight(1f, fill = false), onCallLongPress)
         Box(Modifier.width(SIDE_SLOT), contentAlignment = Alignment.Center) {
             BackspaceButton(hasInput, onDelete, onClear)
         }
@@ -152,16 +154,24 @@ private fun BackspaceButton(enabled: Boolean, onDelete: () -> Unit, onClear: () 
  * The green Call pill. No [segments]: one compact pill that follows the usual SIM rules. Otherwise one pill
  * split into a segment per SIM, each its own touch target ("Call with SIM 1 (Carrier)"), with a thin divider.
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun CallPillView(
     vm: AppViewModel, segments: List<CallPill.Segment>, onCall: () -> Unit, onCallWith: (String) -> Unit, modifier: Modifier,
+    onLongPress: ((String?) -> Unit)? = null,
 ) {
     val shape = ParleyShapes.pill
+    val haptics = LocalHapticFeedback.current
+    val reasonLabel = stringResource(R.string.reason_call_with)
     if (segments.isEmpty()) {
         val label = stringResource(R.string.main_call)
         Box(
             modifier.width(112.dp).height(CALL_PILL_HEIGHT).clip(shape).background(CallColors.Accept)
-                .clickable(role = Role.Button, onClick = onCall)
+                .combinedClickable(
+                    role = Role.Button, onClick = onCall,
+                    onLongClickLabel = reasonLabel.takeIf { onLongPress != null },
+                    onLongClick = onLongPress?.let { f -> { haptics.performHapticFeedback(HapticFeedbackType.LongPress); f(null) } },
+                )
                 .semantics { contentDescription = label },
             contentAlignment = Alignment.Center,
         ) { Icon(Icons.Rounded.Call, null, tint = Color.White, modifier = Modifier.size(28.dp)) }
@@ -173,13 +183,17 @@ private fun CallPillView(
     ) {
         segments.forEachIndexed { i, s ->
             if (i > 0) Box(Modifier.width(1.dp).height(24.dp).background(Color.White.copy(alpha = 0.55f)))
-            PillSegment(vm, s, Modifier.weight(1f)) { onCallWith(s.simId) }
+            val long = onLongPress?.let { f -> { haptics.performHapticFeedback(HapticFeedbackType.LongPress); f(s.simId) } }
+            PillSegment(vm, s, Modifier.weight(1f), long, reasonLabel) { onCallWith(s.simId) }
         }
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun PillSegment(vm: AppViewModel, s: CallPill.Segment, modifier: Modifier, onClick: () -> Unit) {
+private fun PillSegment(
+    vm: AppViewModel, s: CallPill.Segment, modifier: Modifier, onLongClick: (() -> Unit)?, longClickLabel: String, onClick: () -> Unit,
+) {
     val slot = s.slot
     val carrier = s.carrier
     val slotName = slot?.let { stringResource(R.string.keypad_sim_slot, it) }
@@ -192,7 +206,10 @@ private fun PillSegment(vm: AppViewModel, s: CallPill.Segment, modifier: Modifie
     val usual = stringResource(R.string.keypad_sim_usual)
     Row(
         modifier.fillMaxHeight()
-            .clickable(role = Role.Button, onClick = onClick)
+            .combinedClickable(
+                role = Role.Button, onClick = onClick,
+                onLongClickLabel = longClickLabel.takeIf { onLongClick != null }, onLongClick = onLongClick,
+            )
             .semantics {
                 contentDescription = spoken
                 if (s.preferred) stateDescription = usual

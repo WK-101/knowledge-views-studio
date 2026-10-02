@@ -86,6 +86,38 @@ object Shortcuts {
         return ShortcutManagerCompat.requestPinShortcut(context, info, null)
     }
 
+    /** The launcher id of a menu shortcut's pinned copy (I6). */
+    fun menuId(id: String): String = "menu-$id"
+
+    /**
+     * I6: pins a menu shortcut ("Bank › lost card") that calls [dialString] (the number, pauses and digits) through the
+     * same trampoline as a contact's Call shortcut, so the pocket guard and the emergency path apply.
+     */
+    fun pinMenu(context: Context, id: String, name: String, dialString: String, iconName: String, photoUri: String?): Boolean {
+        if (!ShortcutManagerCompat.isRequestPinShortcutSupported(context)) return false
+        val info = ShortcutInfoCompat.Builder(context, menuId(id))
+            .setShortLabel(name.take(24))
+            .setLongLabel(name)
+            .setIcon(icon(context, iconName, photoUri))
+            .setIntent(intent(context, Kind.CALL, dialString, null))
+            .build()
+        return ShortcutManagerCompat.requestPinShortcut(context, info, null)
+    }
+
+    /** A deleted menu shortcut's pinned copy stops working (launchers keep the icon, greyed out). */
+    fun disableMenu(context: Context, id: String, message: String) {
+        runCatching { ShortcutManagerCompat.disableShortcuts(context, listOf(menuId(id)), message) }
+    }
+
+    /** A renamed menu shortcut keeps its pinned copy in step. */
+    fun renameMenu(context: Context, id: String, name: String, dialString: String, iconName: String) {
+        runCatching {
+            val info = ShortcutInfoCompat.Builder(context, menuId(id)).setShortLabel(name.take(24)).setLongLabel(name)
+                .setIcon(icon(context, iconName, null)).setIntent(intent(context, Kind.CALL, dialString, null)).build()
+            ShortcutManagerCompat.updateShortcuts(context, listOf(info))
+        }
+    }
+
     /** Keeps launcher long-press shortcuts in sync with favourites. */
     fun updateDynamic(context: Context, favorites: List<ContactSummary>) {
         runCatching {

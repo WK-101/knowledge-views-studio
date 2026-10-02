@@ -43,7 +43,7 @@ fun CallDialogs(vm: AppViewModel) {
         p, sims, vm.countryIso,
         planSummary = { simPlanSummary(vm, it) },
         onUpdate = { vm.pendingCall.value = it },
-        onPlace = { number, simId, remember, confirmed -> vm.place(number, simId, remember, confirmed) },
+        onPlace = { number, simId, remember, confirmed -> vm.place(number, simId, remember, confirmed, subject = p.subject) },
     )
 }
 

@@ -37,15 +37,17 @@ class CallPlacer(private val context: Context, private val sims: SimRepository, 
 
     /**
      * Places a call to [rawNumber] on [accountId]. Without one, the remembered or label SIM is looked up (off the main
-     * thread) unless [simResolved] says the caller already did that and found none.
+     * thread) unless [simResolved] says the caller already did that and found none. [subject] (I12) goes with the call
+     * as `EXTRA_CALL_SUBJECT`; only offered when the SIM's account has `CAPABILITY_CALL_SUBJECT`.
      */
-    suspend fun call(rawNumber: String, accountId: String? = null, simResolved: Boolean = false): PlaceResult {
+    suspend fun call(rawNumber: String, accountId: String? = null, simResolved: Boolean = false, subject: String? = null): PlaceResult {
         val number = rawNumber.trim()
         if (number.isEmpty()) return PlaceResult.Failed("Empty number")
         if (handleSecretCode(number)) return PlaceResult.Handled
         val extras = Bundle()
         val chosen = accountId ?: if (simResolved) null else resolveSim(number)
         sims.handle(chosen)?.let { extras.putParcelable(TelecomManager.EXTRA_PHONE_ACCOUNT_HANDLE, it) }
+        subject?.takeIf { it.isNotBlank() }?.let { extras.putString(TelecomManager.EXTRA_CALL_SUBJECT, it) }
         return try {
             telecom.placeCall(Uri.fromParts("tel", number, null), extras)
             PlaceResult.Placed

@@ -51,7 +51,10 @@ class CallGate(private val c: DataContainer) {
     }
 
     /** Places the call. [confirmed]: the user already said yes to everything the gate asked, the allowance included. */
-    suspend fun place(number: String, simId: String?, name: String?, sims: List<SimAccount>, remember: Boolean = false, confirmed: Boolean = false): Placed {
+    suspend fun place(
+        number: String, simId: String?, name: String?, sims: List<SimAccount>, remember: Boolean = false, confirmed: Boolean = false,
+        subject: String? = null,
+    ): Placed {
         if (isEmergency(number)) {
             // Only a SIM the user picked for this call; otherwise the platform routes it over whichever network can
             // carry it (a remembered or label SIM may have no service).
@@ -63,11 +66,11 @@ class CallGate(private val c: DataContainer) {
         val resolved = simId ?: c.placer.resolveSim(number)
         val chosen = resolved ?: withContext(Dispatchers.IO) { c.sims.defaultOutgoing() }
         if (!confirmed) {
-            callTime.outgoingWarning(number, chosen)?.let { note -> return Placed.Ask(PendingCall(number, name, true, false, note, simId)) }
+            callTime.outgoingWarning(number, chosen)?.let { note -> return Placed.Ask(PendingCall(number, name, true, false, note, simId, subject = subject)) }
         }
         // "Calling via Work SIM…" until the call exists.
         CallManager.expectOutgoing(number, sims.takeIf { it.size >= 2 }?.firstOrNull { it.id == chosen }?.label)
-        return Placed.Done(c.placer.call(number, resolved, simResolved = true))
+        return Placed.Done(c.placer.call(number, resolved, simResolved = true, subject = subject))
     }
 
     /** Off the main thread: the platform check may cross into the phone process. */

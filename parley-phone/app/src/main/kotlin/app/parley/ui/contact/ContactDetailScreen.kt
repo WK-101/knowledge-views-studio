@@ -1,5 +1,9 @@
 package app.parley.ui.contact
 
+import app.parley.common.calls.CallReason
+import app.parley.ui.menus.CallReasonFlow
+import app.parley.ui.menus.MenuShortcutsBlock
+import app.parley.ui.menus.ReasonTarget
 import app.parley.ui.people.cards.CardUpdateBanner
 import app.parley.ui.Destination
 import android.provider.ContactsContract
@@ -252,6 +256,8 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
     // The pre-call peek (the number about to be called).
     val circleCfg by page.circleConfig.collectAsStateWithLifecycle()
     var peekNumber by remember { mutableStateOf<String?>(null) }
+    // I12: "Call with a reason…" from a long-press on Call.
+    var reasonFor by remember { mutableStateOf<ReasonTarget?>(null) }
     var editEntry by remember { mutableStateOf<Interaction?>(null) }
     val prefs = ui.prefs
     fun savePrefs(p: MessengerPrefs) = page.setMessengerPrefs(p)
@@ -851,7 +857,13 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                     Spacer(Modifier.height(Spacing.m))
                     // Labelled tiles.
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
-                        ActionTile(Icons.Rounded.Call, if (preferredCall != null) preferredCall.appName else stringResource(R.string.main_call), canCall) { doCall() }
+                        // Press and hold Call (through the phone) for "Call with a reason…" (I12).
+                        val reasonNumber = primary?.value?.takeIf { preferredCall == null && CallReason.offered(it) }
+                        ActionTile(
+                            Icons.Rounded.Call, if (preferredCall != null) preferredCall.appName else stringResource(R.string.main_call), canCall,
+                            onLongClick = reasonNumber?.let { n -> { reasonFor = ReasonTarget(n, d.displayName) } },
+                            longClickLabel = stringResource(R.string.reason_call_with),
+                        ) { doCall() }
                         val messageApp = prefs.message?.let { p -> if (p == MessengerPrefs.SMS) stringResource(R.string.detail_sms) else messengers.firstOrNull { it.accountType == p }?.appName ?: MessengerApp.forPackage(p)?.label }
                         ActionTile(
                             Icons.AutoMirrored.Rounded.Message, messageApp ?: stringResource(R.string.main_message), canMessage,
@@ -871,6 +883,8 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
             }
             // I14: a newer signed card from this person, waiting for review (never applied by itself).
             if (ui.access == PrivateAccess.OPEN && d.lookupKey.isNotEmpty()) item(key = "card_update") { CardUpdateBanner(vm, contactId, d.lookupKey, d) }
+            // I6: menu shortcuts saved for this person's numbers (from the call screen's keypad).
+            if (!locked && d.phones.isNotEmpty()) item(key = "menu_shortcuts") { MenuShortcutsBlock(vm, d.phones.map { it.value }, d.displayName, d.photoUri) }
             // A private contact while the vault is locked: its name, photo and numbers only, and the unlock right here.
             if (ui.access != PrivateAccess.OPEN && ui.access != PrivateAccess.OPENING) item(key = "access") {
                 PrivateAccessRow(ui.access, onUnlock = ::unlock, onRetry = page::reload, onKeep = page::keepWhatIsLeft)
@@ -935,6 +949,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
             )
         }
         if (reachOut) RhythmDialog(vm, d, contactId, meta) { reachOut = false }
+        reasonFor?.let { t -> CallReasonFlow(vm, t) { reasonFor = null } }
         peekNumber?.let { n ->
             PreCallPeekSheet(
                 vm, d.lookupKey, d.given.ifBlank { d.displayName }, memory, goodTime,

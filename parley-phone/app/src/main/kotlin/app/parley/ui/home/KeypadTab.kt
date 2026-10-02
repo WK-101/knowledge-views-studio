@@ -35,6 +35,9 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import app.parley.common.T9
 import app.parley.common.calls.CallPill
 import app.parley.common.calls.DialTarget
+import app.parley.common.calls.CallReason
+import app.parley.ui.menus.CallReasonFlow
+import app.parley.ui.menus.ReasonTarget
 import app.parley.common.ux.Tips
 import app.parley.messaging.TemporaryContact
 import app.parley.ui.Bidi
@@ -199,6 +202,8 @@ fun KeypadTab(vm: AppViewModel, open: (Destination) -> Unit, searchQuery: String
     val haptics = LocalHapticFeedback.current
     var unassigned by remember { mutableStateOf<Int?>(null) }
     var messageOn by remember { mutableStateOf<String?>(null) }
+    // I12: "Call with a reason…" from a long-press on the Call pill.
+    var reasonFor by remember { mutableStateOf<ReasonTarget?>(null) }
     var imeiSheet by remember { mutableStateOf(false) }
     var saveTemporary by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
@@ -302,6 +307,19 @@ fun KeypadTab(vm: AppViewModel, open: (Destination) -> Unit, searchQuery: String
         val target = DialTarget.pick(input, results.firstOrNull()?.number)
         // Same checks as any call (dial guard, allowance, confirm), just without the SIM question.
         if (!target.isNullOrEmpty()) vm.requestCall(target, results.firstOrNull { it.contact != null && PhoneNumbers.same(it.number, target, vm.countryIso) }?.contact?.displayName, simId = simId)
+    }
+
+    /** I12: press and hold Call: "Call with a reason…" for what's typed (nothing typed: nothing to call). */
+    fun callWithReason(simId: String?) {
+        if (input.isBlank()) return
+        val r = if (isTextSearch()) results.firstOrNull() else null
+        val target = r?.number ?: DialTarget.pick(input, results.firstOrNull()?.number) ?: return
+        if (!CallReason.offered(target)) return
+        // Found it: the tip about the long-press has done its job.
+        runCatching { vm.c.ux.dismissTip(Tips.CALL_REASON) }
+        val name = r?.contact?.displayName
+            ?: results.firstOrNull { it.contact != null && PhoneNumbers.same(it.number, target, vm.countryIso) }?.contact?.displayName
+        reasonFor = ReasonTarget(target, name, simId)
     }
 
     // A D-pad focus inside the docked Recents list (only shown while nothing is typed).
@@ -409,6 +427,8 @@ fun KeypadTab(vm: AppViewModel, open: (Destination) -> Unit, searchQuery: String
                         Tips.KEYPAD_SPEED_DIAL, stringResource(R.string.ux_tip_speed_dial),
                         enabled = showKeypad, action = stringResource(R.string.ux_tip_set_up), onAction = { open(Routes.SpeedDial) },
                     )
+                    // I12: press and hold Call for a reason, told once (after the speed-dial tip).
+                    CoachMark(Tips.CALL_REASON, stringResource(R.string.reason_tip), enabled = showKeypad)
                 }
             } else {
                 LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = if (showNumberActions) NUMBER_ACTIONS_HEIGHT else 0.dp)) {
@@ -515,6 +535,7 @@ fun KeypadTab(vm: AppViewModel, open: (Destination) -> Unit, searchQuery: String
                         onCallWith = ::callWithSim,
                         onDelete = { field.deleteBeforeCursor() },
                         onClear = { field.clearText() },
+                        onCallLongPress = ::callWithReason,
                     )
                 }
             }
@@ -560,6 +581,7 @@ fun KeypadTab(vm: AppViewModel, open: (Destination) -> Unit, searchQuery: String
             dismissLabel = stringResource(R.string.main_cancel),
         )
     }
+    reasonFor?.let { t -> CallReasonFlow(vm, t) { reasonFor = null } }
     messageOn?.let { n -> ReachSheet(ReachTarget.Number(n), onDismiss = { messageOn = null }, onCall = { num -> vm.requestCall(num) }) }
     saveTemporary?.let { n ->
         SaveTemporaryDialog(

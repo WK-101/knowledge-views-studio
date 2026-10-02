@@ -88,6 +88,8 @@ data class PendingCall(
     val simId: String? = null,
     /** Shown first in the shared dial-guard sheet (premium line, one-ring scam, listed number). */
     val warnings: List<DialWarning> = emptyList(),
+    /** I12: the reason sent with the call (`EXTRA_CALL_SUBJECT`), or null. */
+    val subject: String? = null,
 )
 
 sealed interface UiEvent {
@@ -291,7 +293,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
      * Every call starts here (see [CallGate]): one question for the dial guard, the allowance, confirm-before-call
      * and the SIM, then the call. [simId]: a SIM the user already picked ("call with SIM").
      */
-    fun requestCall(number: String, name: String? = null, skipConfirm: Boolean = false, simId: String? = null, source: CallSource = CallSource.OTHER) {
+    fun requestCall(
+        number: String, name: String? = null, skipConfirm: Boolean = false, simId: String? = null, source: CallSource = CallSource.OTHER,
+        subject: String? = null,
+    ) {
         if (number.isBlank()) return
         if (Ussd.isUssd(number)) {
             ussd.start(number.trim(), sims.value, null)
@@ -315,19 +320,19 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 p
             }
             // Nothing to ask: the allowance was checked too.
-            if (ask != null) pendingCall.value = ask else place(number, simId, confirmed = true)
+            if (ask != null) pendingCall.value = ask.copy(subject = subject) else place(number, simId, confirmed = true, subject = subject)
         }
     }
 
     /** [confirmed]: the user already said yes to a used-up call-time allowance. */
-    fun place(number: String, simId: String?, remember: Boolean = false, confirmed: Boolean = false) {
+    fun place(number: String, simId: String?, remember: Boolean = false, confirmed: Boolean = false, subject: String? = null) {
         pendingCall.value = null
         if (Ussd.isUssd(number)) {
             ussd.start(number.trim(), sims.value, simId)
             return
         }
         viewModelScope.launch {
-            when (val r = gate.place(number, simId, contactFor(number)?.displayName, sims.value, remember, confirmed)) {
+            when (val r = gate.place(number, simId, contactFor(number)?.displayName, sims.value, remember, confirmed, subject)) {
                 is CallGate.Placed.Ask -> pendingCall.value = r.pending
                 is CallGate.Placed.Done -> (r.result as? PlaceResult.Failed)?.let { toast(DialText.placeFailure(getApplication(), it.reason)) }
             }

@@ -85,6 +85,7 @@ object PersistentStores {
         const val HISTORY_SETTINGS = "history_settings"
         const val SPAM_LISTS = "spam_lists"
         const val TO_CALL = "to_call"
+        const val MENUS = "menus"
     }
 
     private fun table(name: String, policy: StorePolicy, section: String? = null, db: String = MAIN_DB) =
@@ -155,6 +156,8 @@ object PersistentStores {
         PersistentStore("parley_missed_realert", StoreKind.PREFS, local("Missed-call reminder in progress")),
         // Kept by number, not by contact: it follows a contact made private or visible without re-keying.
         PersistentStore("to_call", StoreKind.PREFS, backedUp, Sections.TO_CALL),
+        // Menu memory: keys sent per number and menu shortcuts (sealed); kept by number like the To call list.
+        PersistentStore("menu_memory", StoreKind.PREFS, backedUp, Sections.MENUS),
         // A safe word is a secret: it never leaves this phone, not even in an encrypted backup.
         PersistentStore("family_safety", StoreKind.PREFS, local("Family safe words, helpers and expected-call windows, sealed on this phone")),
         PersistentStore("lists_updater", StoreKind.PREFS, local("Link with the companion app installed on this phone")),
