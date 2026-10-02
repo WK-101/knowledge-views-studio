@@ -27,6 +27,7 @@ import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Email
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.MusicNote
+import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -70,6 +71,8 @@ import app.parley.ui.contact.CallerTunes
 import app.parley.ui.contact.Section
 import app.parley.ui.extras.LabelPolicySection
 import app.parley.ui.family.SafeWordSection
+import app.parley.ui.sync.shared.SharedLabelRoutes
+import app.parley.ui.sync.shared.SharedLabelSection
 import app.parley.ui.home.ContactRow
 import app.parley.data.vault.VaultCrypto
 import app.parley.security.AppLock
@@ -310,7 +313,10 @@ private fun RenameLabelDialog(vm: AppViewModel, old: String, onDismiss: () -> Un
             onDismiss()
             scope.launch {
                 // Its ringtone, rules, limits and off-hours choice follow the label (see LabelReferences).
-                runCatching { vm.c.people.labels.rename(old, name) }.onFailure { vm.toast(res.getString(R.string.lbl_rename_failed, it.message.toString())) }
+                runCatching { vm.c.people.labels.rename(old, name) }
+                    // A shared label follows its rename on this phone (the others keep their own label's name).
+                    .onSuccess { vm.c.sharedLabels.renamed(old, name.trim()) }
+                    .onFailure { vm.toast(res.getString(R.string.lbl_rename_failed, it.message.toString())) }
                 vm.c.contacts.refresh()
                 onDone(name.trim())
             }
@@ -370,6 +376,9 @@ fun LabelScreen(vm: AppViewModel, title: String, back: () -> Unit, open: (Destin
         }
     }
     var menu by remember { mutableStateOf(false) }
+    val sharedStates by vm.c.sharedLabels.states.collectAsStateWithLifecycle()
+    val sharedTitles = sharedStates.map { it.title }
+    LaunchedEffect(Unit) { vm.c.sharedLabels.load() }
     var renaming by rememberSaveable { mutableStateOf(false) }
     var confirmDelete by rememberSaveable { mutableStateOf(false) }
     val tone = s.labelRingtones[current]
@@ -415,6 +424,13 @@ fun LabelScreen(vm: AppViewModel, title: String, back: () -> Unit, open: (Destin
                     DropdownMenu(menu, { menu = false }) {
                         // Screening rules for everyone in this label (block, only-they-ring at night, ringtone).
                         LabelBlockingMenuItem(current) { menu = false }
+                        // A family phonebook: this label kept the same on other people's phones.
+                        if (sharedTitles.none { it == current }) {
+                            DropdownMenuItem(
+                                { Text(stringResource(R.string.shl_share_menu)) }, leadingIcon = { Icon(Icons.Rounded.Share, null) },
+                                onClick = { menu = false; open(SharedLabelRoutes.Share(current)) },
+                            )
+                        }
                         DropdownMenuItem({ Text(stringResource(R.string.lbl_rename)) }, leadingIcon = { Icon(Icons.Rounded.Edit, null) }, onClick = { menu = false; renaming = true })
                         DropdownMenuItem({ Text(stringResource(R.string.lbl_delete)) }, leadingIcon = { Icon(Icons.Rounded.Delete, null) }, onClick = { menu = false; confirmDelete = true })
                     }
@@ -448,6 +464,8 @@ fun LabelScreen(vm: AppViewModel, title: String, back: () -> Unit, open: (Destin
             item { LabelPolicySection(vm, current, members) }
             // I4: the label's safe word (asks who it is before showing or changing it).
             item { SafeWordSection(vm, current) }
+            // Shared with other people's phones: status, members and who changed what.
+            item { SharedLabelSection(vm, current, open) }
             item { Section(pluralStringResource(R.plurals.lbl_n_contacts, members.size, members.size)) }
             if (members.isEmpty()) item {
                 Text(stringResource(R.string.lbl_nobody), Modifier.padding(16.dp), style = MaterialTheme.typography.bodyMedium)

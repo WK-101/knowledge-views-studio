@@ -1966,3 +1966,59 @@ Each step names the finding it checks.
 15. **L7 rename keeps the photo.** Pin a contact's menu shortcut to the home screen, then rename it on the contact page: the home-screen icon keeps the contact's photo.
 16. **L8 tunes.** Make a ringtone from a name for a contact, then pick another ringtone (or another tune): Parley's tune file for the old one is deleted once nothing uses it (Files by Google can't see it; check with `adb shell run-as` on a debug build: `files/tunes` holds only tunes in use), and the old file loses System UI's read grant.
 17. **L9 diary.** Call insights › Quality opens without a wait on a phone with a long, busy call history.
+
+## 29. Household (5.0)
+
+### 29.1 Shared family phonebook
+
+Two phones (A: Ana, B: Sam), each with Parley as the phone app, and a folder app (Syncthing, or Nextcloud with
+folder sync) sharing one empty folder `Family` between them. Neither phone needs "Sync between your phones".
+
+1. **Share.** On A: Contacts › Labels › make a label "Family" with three contacts (Ada, Grace, Dr Lee) and one private
+   contact. Open it › ⋮ › **Share this label…**: the screen says one private contact stays on this phone. Choose the
+   `Family` folder, type a passphrase (the meter must reach Strong; "Share" stays off until both fields match), your
+   name "Ana", **Share**: "Family is shared. Invite people next." opens *Sharing Family*. The folder holds
+   `.parley-label`, three `c-….plabel` files and one `j-….plabel`; none of them shows a name or number in a text editor.
+2. **Same folder as the phones' sync refused.** With "Sync between your phones" set to a folder, share another label
+   into that same folder: "That's the folder of Sync between your phones…". Share into a folder that already holds a
+   label: "That folder already holds a shared label…".
+3. **Invite by QR code.** On A: *Sharing Family* › **Invite with a QR code**: a code and an 8-character code under it.
+   On B, take a photo or screenshot of it, Tools › Scan QR code › that picture: "Shared label invitation" › Open in
+   Parley. Type the code: "Ana invited you to Family", Ana's key (compare with A's My card › Shared with: same
+   fingerprint) and "Their folder: Family". A wrong code says "That doesn't open this invitation".
+4. **Join.** On B: **Choose the folder**. Pick a folder that isn't it: "That folder doesn't hold this label…". Pick
+   `Family`: Members lists Ana with her fingerprint and "Shared the label". Type "Sam" › **Join**: "You joined Family";
+   B has a "Family" label (made in the default account) with Ada, Grace and Dr Lee; the private contact isn't there.
+   A contact B already had with Dr Lee's number joins the label instead of being added twice.
+5. **Members.** On A, open the label: the **Shared** part (with its one-time tip) lists "Ana, Sam"; Members &
+   invitations shows Sam, "Invited by You", with Sam's key.
+6. **Edits both ways.** On B change Ada's number; on A, add a note to Ada. Wait for the sync app (or tap **Sync now**
+   on both label pages, B first): both phones show the new number and the note. A's label page says "Sam changed
+   Ada's number · …", B's says "Ana changed Ada's notes · …". The chips filter the list by member.
+7. **Changed on two phones.** Both change Dr Lee's number to different values, sync A then B: B's label page shows
+   "1 contact changed on two phones" › Choose: "Number: Ana's / Yours" with both values. Until you choose, B keeps its
+   value and A keeps Ana's. Choose Ana's › Keep these: B shows Ana's number; History & undo on B has the previous
+   version. Sync A: unchanged.
+8. **Delete.** On A delete Grace. Sync A, then B: Grace is gone from B, and B's History & undo › Contacts lists her
+   (restore works; she is then shared again as a new contact). A contact B had before joining is only taken out of
+   the label, never deleted.
+9. **Many at once.** On A delete 4 of 5 contacts in the label: A's label page says "Waiting: 4 contacts would be
+   deleted at once" › Apply. Same on B.
+10. **A vanished file.** Delete one `c-….plabel` file from the folder by hand: the next sync writes it again; no
+    contact disappears anywhere.
+11. **Private contacts refused.** On A, select the private contact in Contacts › Add to label › Family: "1 private
+    contact wasn't added: private contacts aren't shared…".
+12. **Invite by file.** *Sharing Family* › **Invite with a file**: a wrong passphrase says "That isn't this label's
+    passphrase"; the right one saves `Family.parleyinvite`. On a third phone (or B after leaving), Settings › search
+    "join" › **Join a shared label** › Join from an invitation file: the label's passphrase opens it.
+13. **Remove a member.** On A: Members › Sam › Remove: the dialog says Sam keeps what they have; type a new strong
+    passphrase twice › Remove: "Sam was removed. Invite the others again." On B, Sync now: "This label's key was
+    changed. Ask a member for a new invitation. Your contacts stay." Edits on A no longer reach B.
+14. **Coming back.** Remove someone else instead (a third member) while Sam stays: Sam's row says "Needs a new
+    invitation from you"; a new QR invitation brings B back with its contacts and pending edits, nothing duplicated.
+15. **Leave.** On B: *Sharing Family* › Leave this label: the contacts stay in B's label; A lists Sam no more.
+16. **Rename and delete the label.** Rename "Family" on A: it stays shared (B keeps "Family"). Delete the label on
+    A: its page is gone and Settings › Shared labels shows "This label isn't on this phone any more"; nothing is
+    deleted on B.
+17. **Background.** Leave both phones alone for an hour with the sync app running: changes arrive without opening
+    Parley. Settings › search "family phonebook" opens Shared labels.

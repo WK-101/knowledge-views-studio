@@ -134,6 +134,19 @@ New set-ups encrypt each synced file with the backup envelope under a passphrase
 carry no names or numbers. Plain vCard files (readable by any app or person with access to the folder) need an
 explicit choice. Files from the folder are read with size caps.
 
+## Shared labels
+
+A label shared with other people's phones (docs/SHARED_LABELS.md) has a folder and a key of its own: AES-256-GCM per
+file under a key from the label's passphrase (scrypt, the backup's caps on read), every file bound to the label and its
+name. Each member signs what they write with their My card key (Ed25519, its own signed header, so no signature passes
+for another kind); members are worked out from signed invitation tickets starting at the anchor named in the
+invitation, and files signed by anyone else are ignored. Contact files carry versions that only grow, so a copy put
+back is ignored by a phone that saw a newer one; only a signed tombstone deletes, never a missing file, and a listing
+that is incomplete changes nothing. Invitations travel sealed (a one-time passcode for the QR code, the label's
+passphrase for a file). Removing a member changes the key; what the removed member already had stays theirs. Each
+phone keeps the key and its bookkeeping sealed with the small-records key, outside backups. Private contacts are never
+shared.
+
 ## Input from outside
 
 Every file, link and code from outside is read through `Bounded` (core/common): caps on bytes, entries, line length

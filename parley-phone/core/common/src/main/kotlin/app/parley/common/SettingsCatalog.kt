@@ -26,7 +26,7 @@ enum class SettingsCategory(val title: String, val summary: String) {
  * every setting is searchable wherever it lives.
  */
 enum class SettingPlace {
-    TOOLS, BLOCKING, DELETED_CALLS, SIMS, CONTACT_PAGE, SIMPLE_MODE, CALL_TIME, BACKUP, SYNC, TEMPORARY, HELPERS, DRIVE_PROFILE, PHONE_MENUS,
+    TOOLS, BLOCKING, DELETED_CALLS, SIMS, CONTACT_PAGE, SIMPLE_MODE, CALL_TIME, BACKUP, SYNC, TEMPORARY, HELPERS, DRIVE_PROFILE, PHONE_MENUS, SHARED_LABELS,
 }
 
 /**
@@ -367,6 +367,14 @@ object SettingsCatalog {
         at(SettingPlace.BACKUP, "backup_restore", "Restore a backup", "From a backup file, with an undo afterwards", U, "restore", "import backup"),
         at(SettingPlace.BACKUP, "backup_move_phone", "Move to a new phone", "Everything to your new phone, step by step", U, "new phone", "transfer", "migrate"),
         at(SettingPlace.SYNC, "sync_auto", "Sync automatically", "Keep two phones in step through a shared folder", U, "auto sync", "syncthing", "nextcloud"),
+        at(
+            SettingPlace.SHARED_LABELS, "shared_labels", "Shared labels", "A family phonebook: one label kept the same on several people's phones", U,
+            "family phonebook", "family", "share a label", "shared contacts", "household", "doctors", "school", "members",
+        ),
+        at(
+            SettingPlace.SHARED_LABELS, "shared_labels_join", "Join a shared label", "Open an invitation someone sent you, as a file or a QR code", U,
+            "join", "invitation", "invite", "family phonebook", "qr code",
+        ),
         at(SettingPlace.CONTACT_PAGE, "section_chips", "Jump to a section", "Chips on long contact pages that jump to a section", P, "chips", "jump", "sections"),
         at(SettingPlace.SIMS, "sim_billing", "Billing increments per SIM", "Per-second or per-minute billing, what counts, and the 80 % warning", C,
             "billing", "per minute", "per second", "rounding", "plan", "tariff"),

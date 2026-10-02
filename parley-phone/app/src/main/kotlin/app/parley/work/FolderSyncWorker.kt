@@ -17,11 +17,11 @@ import java.time.Duration
 import java.util.concurrent.TimeUnit
 
 /**
- * Folder sync (when a sync folder is set and auto-sync is on) and the Markdown export with it, on three triggers
+ * Folder sync (when a sync folder is set and auto-sync is on), shared labels and the Markdown export with it, on three triggers
  * (what the auto-sync switch's summary promises):
  * - shortly after Parley starts ([runSoon]);
  * - a minute after this phone's address book settles (a content-URI trigger, which works while Parley isn't running);
- * - every hour, for what no trigger can observe: the other phone's writes into the shared folder, and notes.
+ * - every hour, for what no trigger can observe: the other phones' writes into the shared folders, and notes.
  */
 class FolderSyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
@@ -31,6 +31,9 @@ class FolderSyncWorker(context: Context, params: WorkerParameters) : CoroutineWo
             // A paused run tells the user instead of waiting silently until they open the Sync screen.
             FolderSyncNotice.update(applicationContext, sync.status.value)
         }
+        // Labels shared with other people's phones, each through its own folder (incremental; never deletes on a partial listing).
+        val shared = applicationContext.container.sharedLabels
+        if (shared.wantsRuns()) runCatching { shared.syncAll() }
         // One-way Markdown notes, when a folder is set and "Keep it up to date" is on.
         val md = applicationContext.container.markdown
         if (md.status.value.folderUri != null && md.status.value.auto) runCatching { md.exportNow(MarkdownTexts.build(applicationContext)) }
@@ -65,7 +68,7 @@ class FolderSyncWorker(context: Context, params: WorkerParameters) : CoroutineWo
             val c = context.container
             val sync = on ?: c.folderSync.status.value.let { it.folderUri != null && it.auto }
             val md = c.markdown.status.value
-            return sync || (md.folderUri != null && md.auto)
+            return sync || (md.folderUri != null && md.auto) || c.sharedLabels.wantsRuns()
         }
 
         /** [on]: folder sync wants runs; the Markdown export's own wish is added here. */

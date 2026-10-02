@@ -58,10 +58,14 @@ import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material3.Checkbox
 import androidx.compose.ui.Alignment
+import androidx.compose.material.icons.rounded.Groups
+import app.parley.ui.Destination
+import app.parley.ui.LinkRow
+import app.parley.ui.sync.shared.SharedLabelRoutes
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun FolderSyncScreen(vm: AppViewModel, back: () -> Unit) {
+fun FolderSyncScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit = {}) {
     val context = LocalContext.current
     val res = LocalResources.current
     val scope = rememberCoroutineScope()
@@ -128,6 +132,12 @@ fun FolderSyncScreen(vm: AppViewModel, back: () -> Unit) {
                 )
                 if (st.folderUri != null) SyncModeRows(st.mode, st.plainLeft, onEncrypted = ::chooseEncrypted, onPlain = { askPlain = true })
                 SyncActions(st, running, onRun = ::run, onStop = { sync.setFolder(null, null); FolderSyncWorker.schedule(context, false) })
+            }
+            // Labels shared with other people's phones, each through a folder of its own.
+            item {
+                LinkRow(stringResource(R.string.set_shared_labels_title), stringResource(R.string.set_shared_labels_summary), Icons.Rounded.Groups) {
+                    open(SharedLabelRoutes.All)
+                }
             }
             // One-way Markdown notes, to a folder of their own.
             item { MarkdownExportSection(vm) }
@@ -263,7 +273,7 @@ private fun SyncModeRows(mode: SyncMode, plainLeft: Int, onEncrypted: () -> Unit
 }
 
 @Composable
-private fun strengthName(score: Int) = stringResource(
+internal fun strengthName(score: Int) = stringResource(
     when (score) {
         0 -> R.string.bkp_strength_0
         1 -> R.string.bkp_strength_1

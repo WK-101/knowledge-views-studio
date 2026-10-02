@@ -64,6 +64,7 @@ object QrParser {
             "qr" -> ParleyKind.CONTACT
             "simple" -> ParleyKind.SIMPLE
             "template" -> ParleyKind.TEMPLATE
+            "label" -> ParleyKind.LABEL
             else -> return null
         }
         // The app opens it with the scheme and host lower-cased, as Android's intent filters expect.

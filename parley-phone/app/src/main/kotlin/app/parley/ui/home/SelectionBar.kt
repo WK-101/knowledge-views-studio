@@ -267,8 +267,17 @@ fun SelectionBar(vm: AppViewModel) {
                             modifier = Modifier.clickable {
                                 labelPicker = null
                                 scope.launch {
-                                    val skipped = bulk.addToLabel(ids, g)
-                                    vm.toast(if (skipped == 0) res.getString(R.string.sel_added_to, g.title) else res.getQuantityString(R.plurals.sel_added_skipped, skipped, skipped))
+                                    // Private contacts are never shared: a shared label refuses them, and says why.
+                                    vm.c.sharedLabels.load()
+                                    val refused = vm.c.sharedLabels.refusedPrivate(g.title, ids)
+                                    val skipped = bulk.addToLabel(ids - refused, g)
+                                    vm.toast(
+                                        when {
+                                            refused.isNotEmpty() -> res.getQuantityString(R.plurals.shl_private_refused, refused.size, refused.size)
+                                            skipped == 0 -> res.getString(R.string.sel_added_to, g.title)
+                                            else -> res.getQuantityString(R.plurals.sel_added_skipped, skipped, skipped)
+                                        },
+                                    )
                                 }
                             },
                         )

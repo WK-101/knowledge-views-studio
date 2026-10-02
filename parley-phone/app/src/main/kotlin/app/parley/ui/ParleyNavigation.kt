@@ -1,5 +1,6 @@
 package app.parley.ui
 
+import app.parley.ui.sync.shared.sharedLabelGraph
 import androidx.navigation.NavController
 import androidx.navigation.NavGraphBuilder
 import app.parley.messaging.messagingGraph
@@ -34,4 +35,5 @@ fun NavGraphBuilder.parleyGraph(nav: NavController) {
     familyGraph(nav)
     discoverGraph(nav)
     driveGraph(nav)
+    sharedLabelGraph(nav)
 }

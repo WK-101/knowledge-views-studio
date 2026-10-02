@@ -1,0 +1,271 @@
+package app.parley.common.sync.shared
+
+import app.parley.common.backup.RecordJson
+import app.parley.common.spam.Ed25519
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.buildJsonArray
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.longOrNull
+import kotlinx.serialization.json.put
+import java.security.SecureRandom
+import java.util.Base64
+
+/** Who signs: a member's Ed25519 key (My card's, in the app). [sign] returns null while the key can't be read. */
+interface MemberSigner {
+    val publicKey: ByteArray
+
+    fun sign(message: ByteArray): ByteArray?
+}
+
+/** What a change did to a contact, as members' journals record it. */
+enum class ChangeKind { ADDED, EDITED, REMOVED }
+
+/**
+ * One contact file of a shared label (`c-<sid>.plabel`): the contact's shared fields ([card], a [SharedCards]
+ * encoding; null for a deletion), its [version], when and by whom ([author]) it was written. The signature covers the
+ * file's exact [body] with the label id and file name, so a signed file can't be moved to another name or label.
+ */
+class CardFile(
+    val sid: String,
+    val version: Long,
+    val at: Long,
+    val author: ByteArray,
+    val deleted: Boolean,
+    val card: String?,
+    internal val body: String,
+    internal val signature: ByteArray,
+) {
+    val authorHex: String get() = SharedLabelFiles.keyHex(author)
+}
+
+/** The invitation a member was let in with: [inviter] signed the label, the key's [epoch] and [inviteId]. */
+class Ticket(val inviter: ByteArray, val inviteId: String, val epoch: Int, val signature: ByteArray)
+
+/** A member who stays after a key change, as the new anchor's journal lists them. */
+class Carried(val key: ByteArray, val name: String)
+
+/** One change in a member's journal. [id] is unique within that journal. */
+data class JournalEntry(val id: Long, val sid: String, val kind: ChangeKind, val fields: Set<CardField>, val contactName: String, val at: Long)
+
+/**
+ * A member's journal (`j-<member>.plabel`): who they are ([member], [name]), the [ticket] that let them in (none for
+ * the anchor), the members the anchor carried over a key change ([carried]), whether they [left], and their recent
+ * changes. Only its member writes it; the signature covers the whole [body].
+ */
+class Journal(
+    val member: ByteArray,
+    val name: String,
+    val epoch: Int,
+    val ticket: Ticket?,
+    val carried: List<Carried>,
+    val left: Boolean,
+    val entries: List<JournalEntry>,
+    internal val body: String = "",
+    internal val signature: ByteArray = ByteArray(0),
+) {
+    val memberHex: String get() = SharedLabelFiles.keyHex(member)
+}
+
+/**
+ * The files of a shared label's folder, their signatures and their JSON (docs/SHARED_LABELS.md). Every signed text
+ * starts with its own fixed header, so a label signature can never pass for a signed card's, or the other way round.
+ * Reading is strict and bounded: anything malformed or oversized is null, never half read.
+ */
+object SharedLabelFiles {
+    const val CARD_PREFIX = "c-"
+    const val JOURNAL_PREFIX = "j-"
+    private const val CARD_HEADER = "PARLEY-LABEL-CARD-1"
+    private const val JOURNAL_HEADER = "PARLEY-LABEL-JOURNAL-1"
+    private const val TICKET_HEADER = "PARLEY-LABEL-TICKET-1"
+
+    /** A contact's card is at most this long (no photos travel); a journal keeps at most [MAX_ENTRIES] changes. */
+    const val MAX_CARD_CHARS = 256 * 1024
+    const val MAX_ENTRIES = 300
+    const val MAX_NAME = 80
+    const val MAX_FILE_BYTES = 1L shl 20
+
+    private val json = Json { ignoreUnknownKeys = true }
+    private val b64 = Base64.getEncoder()
+    private val unb64 = Base64.getDecoder()
+    private val SID = Regex("[0-9a-f]{32}")
+
+    fun keyHex(key: ByteArray): String = RecordJson.sha256Hex(key)
+
+    /** A new random contact id (or label id, or invitation id): 128 bits as hex. */
+    fun newId(random: SecureRandom = SecureRandom()): String = RecordJson.sha256Hex(ByteArray(16).also(random::nextBytes)).take(32)
+
+    fun isId(s: String): Boolean = SID.matches(s)
+
+    fun cardName(sid: String) = CARD_PREFIX + sid + SharedLabelCrypto.EXTENSION
+
+    /** A member's journal name: the first 128 bits of their key's hash. */
+    fun journalName(member: ByteArray) = JOURNAL_PREFIX + keyHex(member).take(32) + SharedLabelCrypto.EXTENSION
+
+    /** The sid in a contact file's name, or null when the name isn't one. */
+    fun sidOf(fileName: String): String? =
+        fileName.takeIf { it.startsWith(CARD_PREFIX) && it.endsWith(SharedLabelCrypto.EXTENSION) }
+            ?.removePrefix(CARD_PREFIX)?.removeSuffix(SharedLabelCrypto.EXTENSION)?.takeIf(::isId)
+
+    fun isJournalName(fileName: String) = fileName.startsWith(JOURNAL_PREFIX) && fileName.endsWith(SharedLabelCrypto.EXTENSION)
+
+    private fun payload(header: String, labelId: String, name: String, body: String) = "$header\n$labelId\n$name\n$body".toByteArray(Charsets.UTF_8)
+
+    private fun envelope(body: String, sig: ByteArray): ByteArray =
+        json.encodeToString(JsonElement.serializer(), buildJsonObject { put("body", body); put("sig", b64.encodeToString(sig)) }).toByteArray(Charsets.UTF_8)
+
+    private fun unwrap(bytes: ByteArray): Pair<String, ByteArray>? = runCatching {
+        if (bytes.size > MAX_FILE_BYTES) return null
+        val o = json.parseToJsonElement(String(bytes, Charsets.UTF_8)).jsonObject
+        val body = o.str("body") ?: return null
+        val sig = unb64.decode(o.str("sig") ?: return null)
+        if (sig.size != 64) return null
+        body to sig
+    }.getOrNull()
+
+    // ---------------------------------------------------------------- contact files
+
+    /** A signed contact file's bytes (before sealing), or null when the signer can't sign right now. */
+    fun writeCard(signer: MemberSigner, labelId: String, sid: String, version: Long, at: Long, card: String?): ByteArray? {
+        require(isId(sid)) { "Bad sid" }
+        val body = json.encodeToString(
+            JsonElement.serializer(),
+            buildJsonObject {
+                put("sid", sid); put("v", version); put("at", at); put("by", b64.encodeToString(signer.publicKey))
+                put("del", card == null)
+                if (card != null) put("card", card)
+            },
+        )
+        val sig = signer.sign(payload(CARD_HEADER, labelId, cardName(sid), body)) ?: return null
+        return envelope(body, sig)
+    }
+
+    /**
+     * A contact file read from [fileName], checked: well formed, its sid matching its name, its signature valid for
+     * its author over this label and name. Null otherwise. Whether the author is a member is the caller's question.
+     */
+    @Suppress("CyclomaticComplexMethod")
+    fun readCard(labelId: String, fileName: String, bytes: ByteArray): CardFile? {
+        val (body, sig) = unwrap(bytes) ?: return null
+        val f = runCatching {
+            val o = json.parseToJsonElement(body).jsonObject
+            val sid = o.str("sid") ?: return null
+            val v = o.long("v") ?: return null
+            val at = o.long("at") ?: return null
+            val by = unb64.decode(o.str("by") ?: return null)
+            val del = o.bool("del") ?: return null
+            val card = o.str("card")
+            if (by.size != 32 || v < 0 || del != (card == null)) return null
+            if (card != null && card.length > MAX_CARD_CHARS) return null
+            CardFile(sid, v, at, by, del, card, body, sig)
+        }.getOrNull() ?: return null
+        if (sidOf(fileName) != f.sid) return null
+        if (!Ed25519.verify(f.author, payload(CARD_HEADER, labelId, fileName, body), sig)) return null
+        return f
+    }
+
+    // ---------------------------------------------------------------- tickets
+
+    private fun ticketPayload(labelId: String, epoch: Int, inviteId: String) = "$TICKET_HEADER\n$labelId\n$epoch\n$inviteId".toByteArray(Charsets.UTF_8)
+
+    /** A ticket for one invitation, signed by the member who invites (null when the key can't sign now). */
+    fun ticket(signer: MemberSigner, labelId: String, epoch: Int, inviteId: String): Ticket? =
+        signer.sign(ticketPayload(labelId, epoch, inviteId))?.let { Ticket(signer.publicKey, inviteId, epoch, it) }
+
+    fun verifyTicket(t: Ticket, labelId: String): Boolean = Ed25519.verify(t.inviter, ticketPayload(labelId, t.epoch, t.inviteId), t.signature)
+
+    // ---------------------------------------------------------------- journals
+
+    /** A signed journal's bytes (before sealing), or null when the signer can't sign right now. */
+    fun writeJournal(signer: MemberSigner, labelId: String, j: Journal): ByteArray? {
+        require(j.member.contentEquals(signer.publicKey)) { "A journal is signed by its member" }
+        val body = json.encodeToString(
+            JsonElement.serializer(),
+            buildJsonObject {
+                put("member", b64.encodeToString(j.member)); put("name", j.name.take(MAX_NAME)); put("epoch", j.epoch); put("left", j.left)
+                j.ticket?.let { t ->
+                    put(
+                        "ticket",
+                        buildJsonObject {
+                            put("by", b64.encodeToString(t.inviter)); put("id", t.inviteId); put("epoch", t.epoch); put("sig", b64.encodeToString(t.signature))
+                        },
+                    )
+                }
+                put(
+                    "carried",
+                    buildJsonArray {
+                        j.carried.forEach { c -> add(buildJsonObject { put("key", b64.encodeToString(c.key)); put("name", c.name.take(MAX_NAME)) }) }
+                    },
+                )
+                put(
+                    "entries",
+                    buildJsonArray {
+                        j.entries.takeLast(MAX_ENTRIES).forEach { e ->
+                            add(
+                                buildJsonObject {
+                                    put("id", e.id); put("sid", e.sid); put("kind", e.kind.name); put("at", e.at); put("name", e.contactName.take(MAX_NAME))
+                                    put("fields", buildJsonArray { e.fields.sorted().forEach { add(JsonPrimitive(it.name)) } })
+                                },
+                            )
+                        }
+                    },
+                )
+            },
+        )
+        val sig = signer.sign(payload(JOURNAL_HEADER, labelId, journalName(j.member), body)) ?: return null
+        return envelope(body, sig)
+    }
+
+    /** A journal read from [fileName], checked: well formed, named after its member, signed by them. Null otherwise. */
+    @Suppress("CyclomaticComplexMethod")
+    fun readJournal(labelId: String, fileName: String, bytes: ByteArray): Journal? {
+        val (body, sig) = unwrap(bytes) ?: return null
+        val j = runCatching {
+            val o = json.parseToJsonElement(body).jsonObject
+            val member = unb64.decode(o.str("member") ?: return null)
+            if (member.size != 32) return null
+            val ticket = (o["ticket"] as? JsonObject)?.let { t ->
+                val by = unb64.decode(t.str("by") ?: return null)
+                val s = unb64.decode(t.str("sig") ?: return null)
+                val id = t.str("id")?.takeIf(::isId) ?: return null
+                if (by.size != 32 || s.size != 64) return null
+                Ticket(by, id, t.int("epoch") ?: return null, s)
+            }
+            val carried = (o["carried"] as? JsonArray).orEmpty().take(MAX_MEMBERS).mapNotNull { e ->
+                val c = e as? JsonObject ?: return@mapNotNull null
+                val key = runCatching { unb64.decode(c.str("key")) }.getOrNull()?.takeIf { it.size == 32 } ?: return@mapNotNull null
+                Carried(key, c.str("name").orEmpty().take(MAX_NAME))
+            }
+            val entries = (o["entries"] as? JsonArray).orEmpty().takeLast(MAX_ENTRIES).mapNotNull { e ->
+                val x = e as? JsonObject ?: return@mapNotNull null
+                JournalEntry(
+                    id = x.long("id") ?: return@mapNotNull null,
+                    sid = x.str("sid")?.takeIf(::isId) ?: return@mapNotNull null,
+                    kind = runCatching { ChangeKind.valueOf(x.str("kind")!!) }.getOrNull() ?: return@mapNotNull null,
+                    fields = (x["fields"] as? JsonArray).orEmpty()
+                        .mapNotNull { f -> runCatching { CardField.valueOf((f as JsonPrimitive).content) }.getOrNull() }.toSet(),
+                    contactName = x.str("name").orEmpty().take(MAX_NAME),
+                    at = x.long("at") ?: return@mapNotNull null,
+                )
+            }
+            Journal(member, o.str("name").orEmpty().take(MAX_NAME), o.int("epoch") ?: return null, ticket, carried, o.bool("left") ?: false, entries, body, sig)
+        }.getOrNull() ?: return null
+        if (journalName(j.member) != fileName) return null
+        if (!Ed25519.verify(j.member, payload(JOURNAL_HEADER, labelId, fileName, body), sig)) return null
+        return j
+    }
+
+    const val MAX_MEMBERS = 50
+
+    private fun JsonObject.str(k: String): String? = (this[k] as? JsonPrimitive)?.takeIf { it.isString }?.contentOrNull
+    private fun JsonObject.long(k: String): Long? = (this[k] as? JsonPrimitive)?.takeIf { !it.isString }?.longOrNull
+    private fun JsonObject.int(k: String): Int? = (this[k] as? JsonPrimitive)?.takeIf { !it.isString }?.intOrNull
+    private fun JsonObject.bool(k: String): Boolean? = (this[k] as? JsonPrimitive)?.takeIf { !it.isString }?.booleanOrNull
+}

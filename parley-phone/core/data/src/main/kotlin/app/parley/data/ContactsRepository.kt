@@ -679,9 +679,10 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
     fun contactIdsInGroup(groupId: Long): Set<Long> {
         val ids = HashSet<Long>()
         cr.safeQuery(
+            // The group id as a number (as LabelsRepository.removeMembers does): it matches however the provider typed the column.
             Data.CONTENT_URI, arrayOf(Data.CONTACT_ID),
-            "${Data.MIMETYPE}=? AND ${GroupMembership.GROUP_ROW_ID}=?",
-            arrayOf(GroupMembership.CONTENT_ITEM_TYPE, groupId.toString()),
+            "${Data.MIMETYPE}=? AND ${GroupMembership.GROUP_ROW_ID}=$groupId",
+            arrayOf(GroupMembership.CONTENT_ITEM_TYPE),
         )?.use { c -> while (c.moveToNext()) ids += c.getLong(0) }
         return ids
     }
