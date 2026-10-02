@@ -12,6 +12,7 @@
     <string name="import_done">Voice model installed.</string>
     <string name="import_invalid">That file isn\'t a valid voice model (missing encoder/decoder/joiner/tokens).</string>
     <string name="import_failed">Couldn\'t install the model.</string>
+    <string name="import_no_access">Android wouldn\'t let the addon read that file. It\'s on storage apps can\'t reach (a USB/MTP transfer or an SD card). Save both parts to this phone\'s internal Download folder — e.g. download them again directly on the phone, or in the Files app copy them to Internal storage › Download — then pick them from there.</string>
     <string name="import_retry">Try again</string>
     <string name="import_finish">Done</string>
 </resources>

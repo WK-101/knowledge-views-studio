@@ -74,6 +74,7 @@ class ModelImportActivity : Activity() {
             // transferred to the phone and imported without any network. The parts are concatenated
             // in filename order before unzipping; a single .zip still works.
             putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
         runCatching { startActivityForResult(intent, REQUEST_PICK) }
             .onFailure { fail(getString(R.string.import_failed)) }
@@ -135,6 +136,12 @@ class ModelImportActivity : Activity() {
             }
             swapIntoPlace(tmp)
             main.post { succeed() }
+        } catch (se: SecurityException) {
+            // The picked file lives on storage Android won't let an app read (USB/MTP transfer, SD
+            // card). No code can read those bytes — guide the user to put it on internal storage.
+            Log.w(TAG, "no access to picked file", se)
+            tmp.deleteRecursively()
+            main.post { fail(getString(R.string.import_no_access)) }
         } catch (t: Throwable) {
             Log.w(TAG, "model import failed", t)
             tmp.deleteRecursively()
