@@ -152,7 +152,7 @@ object PersistentStores {
         // A safe word is a secret: it never leaves this phone, not even in an encrypted backup.
         PersistentStore("family_safety", StoreKind.PREFS, local("Family safe words, helpers and expected-call windows, sealed on this phone")),
         PersistentStore("lists_updater", StoreKind.PREFS, local("Link with the companion app installed on this phone")),
-        PersistentStore("parley_app_locale", StoreKind.PREFS, local("App language, applied before anything else loads")),
+        PersistentStore("parley_app_locale", StoreKind.PREFS, local("A language picked before Parley became English-only; deleted at start")),
         PersistentStore("dial_widgets", StoreKind.PREFS, local("Home-screen widgets of this launcher")),
         PersistentStore("parley_migrations", StoreKind.PREFS, local("Which one-time data migrations ran here")),
         PersistentStore("vault", StoreKind.PREFS, local("Private-contact fingerprint migration state")),

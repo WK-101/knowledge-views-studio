@@ -1,9 +1,7 @@
 package app.parley.telecom
 
-import android.content.Context
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
-import app.parley.ui.AppLocale
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -17,10 +15,6 @@ import kotlinx.coroutines.launch
  * and never rejects a ringing call. Unavailable when there is no call.
  */
 class HangUpTileService : TileService() {
-    // The in-app language on Android 10-12 (Android 13+ applies per-app languages itself).
-    override fun attachBaseContext(newBase: Context) {
-        super.attachBaseContext(AppLocale.wrap(newBase))
-    }
 
     private var scope: CoroutineScope? = null
     private var watch: Job? = null

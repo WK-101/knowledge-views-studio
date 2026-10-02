@@ -121,8 +121,6 @@
     </plurals>
 
     <!-- Settings › Appearance › Language -->
-    <string name="lang_title">Language</string>
-    <string name="lang_system">System default</string>
 
     <!-- In-call caller card (last call line, post-call card) -->
     <string name="caller_work_profile">Work profile</string>

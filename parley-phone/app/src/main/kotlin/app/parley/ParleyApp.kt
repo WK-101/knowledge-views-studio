@@ -34,16 +34,13 @@ class ParleyApp : Application() {
      */
     val containerOrNull: DataContainer? get() = if (::container.isInitialized) container else null
 
-    // On Android 10-12 the in-app language also applies to notifications and toasts.
-    override fun attachBaseContext(base: Context) {
-        super.attachBaseContext(AppLocale.wrap(base))
-    }
-
     override fun onCreate() {
         super.onCreate()
         DebugStrictMode.install(this)
         // Stores the last crash on this phone when "Keep crash reports" is on (it reads that flag at crash time).
         CrashStore(this).install()
+        // Parley is English-only: a language picked in an older version is dropped once.
+        AppLocale.reset(this)
         container = DataContainer(this)
         TelecomGraph.install(AppTelecomDependencies(this, container))
         BlockingSetup.install(this, container)

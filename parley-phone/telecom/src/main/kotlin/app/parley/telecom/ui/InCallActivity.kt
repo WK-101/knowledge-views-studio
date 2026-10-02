@@ -35,7 +35,6 @@ import app.parley.telecom.R
 import app.parley.telecom.live
 import app.parley.telecom.PostCallAction
 import app.parley.telecom.TelecomGraph
-import app.parley.ui.AppLocale
 import app.parley.ui.ParleyTheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -44,11 +43,6 @@ import app.parley.common.calls.CallWaiting
 import app.parley.ui.systemMessage
 
 class InCallActivity : ComponentActivity() {
-    // The in-app language on Android 10-12 (Android 13+ applies per-app languages itself).
-    override fun attachBaseContext(newBase: Context) {
-        super.attachBaseContext(newBase)
-        AppLocale.override(this, newBase)
-    }
 
     private var showDialpad by mutableStateOf(false)
 

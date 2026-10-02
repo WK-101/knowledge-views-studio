@@ -3,7 +3,6 @@ package app.parley.security
 import android.annotation.SuppressLint
 import android.app.PendingIntent
 import android.content.ComponentName
-import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
@@ -12,16 +11,10 @@ import android.service.quicksettings.TileService
 import androidx.fragment.app.FragmentActivity
 import app.parley.R
 import app.parley.container
-import app.parley.ui.AppLocale
 import kotlinx.coroutines.launch
 
 /** Quick Settings tile: hide/show private contacts instantly (discreet mode). */
 class VaultTileService : TileService() {
-    // The in-app language on Android 10-12 (Android 13+ applies per-app languages itself).
-    override fun attachBaseContext(newBase: Context) {
-        super.attachBaseContext(AppLocale.wrap(newBase))
-    }
-
     override fun onStartListening() {
         super.onStartListening()
         render(container.settings.settings.value.hideVault)
@@ -69,11 +62,6 @@ class VaultTileService : TileService() {
 
 /** Asks for Parley's unlock, then turns discreet mode off. Invisible apart from the system prompt. Not exported. */
 class DiscreetRevealActivity : FragmentActivity() {
-    override fun attachBaseContext(newBase: Context) {
-        super.attachBaseContext(newBase)
-        AppLocale.override(this, newBase)
-    }
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         AppLock.applySecureFlag(this, true)

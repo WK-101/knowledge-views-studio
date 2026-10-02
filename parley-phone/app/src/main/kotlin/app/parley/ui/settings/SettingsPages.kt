@@ -203,8 +203,6 @@ internal fun AppearancePage(vm: AppViewModel, open: (Destination) -> Unit = {}) 
         switchRow("amoled", s.amoledBlack, Icons.Rounded.Contrast) { v -> set { it.copy(amoledBlack = v) } }
         if (Build.VERSION.SDK_INT >= 31) switchRow("dynamic_color", s.dynamicColor, Icons.Rounded.Wallpaper) { v -> set { it.copy(dynamicColor = v) } }
     }
-    // Per-app language (the system screen on Android 13+, an in-app picker before).
-    SegmentedGroup(stringResource(R.string.lang_title)) { item("language") { LanguageRow() } }
     SegmentedGroup(stringResource(R.string.set_group_lists)) {
         choiceRow("density", densities, s.density.ordinal, Icons.Rounded.DensityMedium) { i -> set { it.copy(density = ListDensity.entries[i]) } }
         item("avatar_style") { AvatarStyleSetting(vm) }

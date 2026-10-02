@@ -3,11 +3,9 @@ package app.parley.shortcuts
 import android.R
 import android.app.Activity
 import android.app.AlertDialog
-import android.content.Context
 import app.parley.calls.ProximityProbe
 import app.parley.common.calls.CallSource
 import app.parley.common.calls.PocketGuard
-import app.parley.ui.AppLocale
 import app.parley.ui.DataL10n
 import kotlinx.coroutines.Dispatchers
 import android.content.Intent
@@ -21,11 +19,6 @@ import kotlinx.coroutines.launch
 
 /** Invisible trampoline for home-screen shortcuts and the direct-dial widget. Not exported. */
 class ShortcutActivity : Activity() {
-    // The in-app language on Android 10-12 (Android 13+ applies per-app languages itself).
-    override fun attachBaseContext(newBase: Context) {
-        super.attachBaseContext(newBase)
-        AppLocale.override(this, newBase)
-    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

@@ -182,7 +182,7 @@ Updates run through WorkManager (by default daily, on unmetered networks, while 
 - [docs/PLAN.md](docs/PLAN.md): product and technical plan
 - [docs/TESTING.md](docs/TESTING.md): device test checklist
 - [docs/RELEASING.md](docs/RELEASING.md): versions and tags, signing, reproducible builds and F-Droid submission for both apps
-- [docs/WRITING.md](docs/WRITING.md): how Parley words things (tone, reminders, empty states, privacy, translation mechanics)
+- [docs/WRITING.md](docs/WRITING.md): how Parley words things (tone, reminders, empty states, privacy, string mechanics)
 - [docs/AUDIT.md](docs/AUDIT.md): full-code audit of v3.4 (UI, code, performance, security, data/telecom) with scorecard and the plan to top level; details in docs/audit/
 - [docs/COMPETITIVE_ANALYSIS.md](docs/COMPETITIVE_ANALYSIS.md): full-code analysis of four open-source apps, and the roadmap
 - [docs/COMPETITIVE_ANALYSIS_2.md](docs/COMPETITIVE_ANALYSIS_2.md) to [_4](docs/COMPETITIVE_ANALYSIS_4.md): rounds 2–4 (dialers, blockers, contacts libraries, private phonebooks)
