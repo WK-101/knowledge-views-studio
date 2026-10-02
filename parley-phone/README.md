@@ -61,7 +61,7 @@ This project is independent of the rest of this repository.
 | Keypad | Search (all contacts), Speed dial | — |
 | Circle | Search | Who's in…, Circle settings |
 
-Every ⋮ ends with **Tools** and **Settings**, and has at most seven items. **Tools** (also at the top of Settings) holds the app-wide destinations: Birthdays & dates, Temporary contacts, Contact health check, Scan QR code, Import & export contacts, Blocking & screening, Expecting a call, Messaged numbers, History & undo, Backup & restore, Privacy dashboard and Lock now (with the app lock). Names are defined in [docs/GLOSSARY.md](docs/GLOSSARY.md).
+Every ⋮ ends with **Tools** and **Settings**, and has at most seven items. **Tools** (also at the top of Settings) holds the app-wide destinations: **What Parley can do** (everything Parley does, by the job you want done, searchable; also under Tools in Settings and in the What's new card), Birthdays & dates, Temporary contacts, Contact health check, Scan QR code, Import & export contacts, **Coming from another phone?** (also onboarding's last, optional step), Blocking & screening, Expecting a call, Messaged numbers, History & undo, Backup & restore, Privacy dashboard and Lock now (with the app lock). Names are defined in [docs/GLOSSARY.md](docs/GLOSSARY.md).
 
 **History & undo** (Tools, Settings › Backup & sync) is the one place to get something back: tabs **Contacts** (deleted, edited, merged or separated in Parley, 30 days), **Calls** (deleted in Parley, 30 days) and **Snapshots** (daily snapshots of the address book, 6 months).
 

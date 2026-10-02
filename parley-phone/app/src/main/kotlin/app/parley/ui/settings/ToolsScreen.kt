@@ -7,10 +7,12 @@ import androidx.compose.material.icons.rounded.AutoDelete
 import androidx.compose.material.icons.rounded.Backup
 import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.Cake
+import androidx.compose.material.icons.rounded.Explore
 import androidx.compose.material.icons.rounded.HealthAndSafety
 import androidx.compose.material.icons.rounded.HourglassTop
 import androidx.compose.material.icons.rounded.ImportExport
 import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.MoveToInbox
 import androidx.compose.material.icons.rounded.PrivacyTip
 import androidx.compose.material.icons.rounded.QrCodeScanner
 import androidx.compose.material.icons.rounded.RestoreFromTrash
@@ -30,6 +32,7 @@ import app.parley.ui.Routes
 import app.parley.ui.SegmentedGroup
 import app.parley.ui.blocking.BlockingDialog
 import app.parley.ui.blocking.BlockingDialogs
+import app.parley.ui.discover.DiscoverRoutes
 import app.parley.ui.qr.QrRoutes
 import app.parley.ui.temporary.rememberTemporaryItems
 import kotlinx.coroutines.launch
@@ -49,6 +52,10 @@ fun ToolsScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit)
     val snoozing = s.screening.snoozeActive(System.currentTimeMillis())
     val snoozeOn = stringResource(R.string.set_expecting_call_on)
     SettingsScaffold(stringResource(R.string.set_tools_title), back) {
+        // P8: the way into everything else, grouped by what people want done.
+        SegmentedGroup {
+            linkRow("what_parley_can_do", Icons.Rounded.Explore) { open(DiscoverRoutes.Capabilities) }
+        }
         SegmentedGroup(stringResource(R.string.tools_group_contacts)) {
             linkRow("birthdays", Icons.Rounded.Cake) { open(Routes.Birthdays) }
             linkRow("temporary_contacts", Icons.Rounded.AutoDelete, sub = tempSub) { open(Routes.Temporary) }
@@ -59,6 +66,8 @@ fun ToolsScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit)
                     open(Routes.settingsPage(SettingsCategory.CONTACTS, "import_file"))
                 }
             }
+            // P7: the same "Coming from…" list as onboarding's last step.
+            linkRow("coming_from", Icons.Rounded.MoveToInbox) { open(DiscoverRoutes.ComingFrom) }
         }
         SegmentedGroup(stringResource(R.string.tools_group_calls)) {
             linkRow("blocking", Icons.Rounded.Block) { open(Routes.Blocking) }

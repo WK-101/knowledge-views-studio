@@ -57,6 +57,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.NavEvent
 import app.parley.R
+import app.parley.common.ux.Tips
+import app.parley.ui.common.tipPending
+import app.parley.ui.common.CoachMark
 import app.parley.common.ContactSummary
 import app.parley.common.StartTab
 import app.parley.common.TextSearch
@@ -109,6 +112,7 @@ fun FavoritesTab(vm: AppViewModel, open: (Destination) -> Unit, query: String = 
     val cells = if (ps.favoriteColumns > 0) GridCells.Fixed(ps.favoriteColumns) else GridCells.Adaptive(104.dp)
     fun commit() = vm.people.setFavoriteOrder(order.map { it.lookupKey })
 
+    val favouritesTip = tipPending(Tips.CONCEPT_FAVOURITES) && favorites.isNotEmpty()
     LazyVerticalGrid(
         cells,
         state = state,
@@ -151,6 +155,10 @@ fun FavoritesTab(vm: AppViewModel, open: (Destination) -> Unit, query: String = 
                     reordering = !reordering
                 }) { Text(stringResource(if (reordering) R.string.main_done else R.string.fav_reorder)) }
             }
+        }
+        // P18: what Favourites are, the first time there are some.
+        if (q.isEmpty() && !reordering && favouritesTip) item(span = { GridItemSpan(maxLineSpan) }, key = "tip") {
+            CoachMark(Tips.CONCEPT_FAVOURITES, stringResource(R.string.tip_concept_favourites))
         }
         if (reordering) item(span = { GridItemSpan(maxLineSpan) }) {
             Text(stringResource(R.string.fav_reorder_hint), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(start = 8.dp))

@@ -3,6 +3,7 @@ package app.parley.ui.contact
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.padding
@@ -36,6 +37,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import app.parley.R
+import app.parley.common.ux.Tips
+import app.parley.ui.common.CoachMark
 import app.parley.common.people.ContactVariants
 import app.parley.common.people.VariantChip
 import app.parley.ui.SegmentedGroup
@@ -73,23 +76,28 @@ fun VariantChips(variants: ContactVariants, onClick: (VariantChip) -> Unit, modi
     if (chips.isEmpty()) return
     val context = LocalContext.current
     val res = LocalResources.current
-    FlowRow(
-        modifier.padding(top = Spacing.s),
-        horizontalArrangement = Arrangement.spacedBy(Spacing.s, Alignment.CenterHorizontally),
-        verticalArrangement = Arrangement.spacedBy(Spacing.xs),
-    ) {
-        chips.forEach { chip ->
-            when (chip) {
-                VariantChip.Private -> VariantChipView(
-                    Icons.Rounded.Lock, stringResource(R.string.contact_variant_private_short), stringResource(R.string.contact_variant_private),
-                ) { onClick(chip) }
-                is VariantChip.Temporary -> VariantChipView(
-                    Icons.Rounded.Timer,
-                    stringResource(R.string.contact_variant_temporary_short, timeLeft(res, chip.expiresAt)),
-                    stringResource(R.string.contact_variant_temporary, Format.fullDate(context, chip.expiresAt)),
-                ) { onClick(chip) }
+    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+        FlowRow(
+            Modifier.padding(top = Spacing.s),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.s, Alignment.CenterHorizontally),
+            verticalArrangement = Arrangement.spacedBy(Spacing.xs),
+        ) {
+            chips.forEach { chip ->
+                when (chip) {
+                    VariantChip.Private -> VariantChipView(
+                        Icons.Rounded.Lock, stringResource(R.string.contact_variant_private_short), stringResource(R.string.contact_variant_private),
+                    ) { onClick(chip) }
+                    is VariantChip.Temporary -> VariantChipView(
+                        Icons.Rounded.Timer,
+                        stringResource(R.string.contact_variant_temporary_short, timeLeft(res, chip.expiresAt)),
+                        stringResource(R.string.contact_variant_temporary, Format.fullDate(context, chip.expiresAt)),
+                    ) { onClick(chip) }
+                }
             }
         }
+        // P18: what the chip means, where it first appears; private first when a contact is both.
+        if (VariantChip.Private in chips) CoachMark(Tips.CONCEPT_PRIVATE, stringResource(R.string.tip_concept_private))
+        else CoachMark(Tips.CONCEPT_TEMPORARY, stringResource(R.string.tip_concept_temporary))
     }
 }
 

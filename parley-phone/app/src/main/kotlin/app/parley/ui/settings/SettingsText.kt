@@ -81,6 +81,8 @@ object SettingsText {
         "import_file" to Triple(R.string.set_import_file_title, R.string.set_import_file_summary, R.string.set_import_file_kw),
         "bulk_add" to Triple(R.string.set_bulk_add_title, R.string.set_bulk_add_summary, R.string.set_bulk_add_kw),
         "scan_qr" to Triple(R.string.qs_set_title, R.string.qs_set_summary, R.string.qs_set_kw),
+        "coming_from" to Triple(R.string.coming_title, R.string.coming_summary, R.string.coming_kw),
+        "what_parley_can_do" to Triple(R.string.discover_title, R.string.discover_summary, R.string.discover_kw),
         "import_sim" to Triple(R.string.set_import_sim_title, R.string.set_import_sim_summary, R.string.set_import_sim_kw),
         "export_vcf" to Triple(R.string.set_export_vcf_title, R.string.set_export_vcf_summary, R.string.set_export_vcf_kw),
         "export_csv" to Triple(R.string.set_export_csv_title, R.string.set_export_csv_summary, R.string.set_export_csv_kw),

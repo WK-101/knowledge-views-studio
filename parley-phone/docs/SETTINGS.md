@@ -6,7 +6,7 @@ Where every setting lives, by page and group. The keys in `code` are the stable 
 
 **Advanced** groups are folded at the end of a page. They open by themselves when search points at a setting inside.
 
-The Settings list starts with **Tools** (the same page as ⋮ › Tools; see the glossary), then the categories below.
+The Settings list starts with **Tools** (the same page as ⋮ › Tools; see the glossary) and **What Parley can do**, then the categories below.
 
 ## Appearance
 | Group | Settings |
@@ -69,7 +69,7 @@ The Settings list starts with **Tools** (the same page as ⋮ › Tools; see the
 | Birthdays and reminders | Birthdays & dates `birthdays` · Birthday reminders `birthday_reminders` · Reminder time `reminder_time` |
 | Circle: keeping in touch | Keep-in-touch nudges `nudges` · Remind me before dates `date_lead` · How keep-in-touch reminders arrive `circle_delivery` · At most per week `circle_weekly_cap` · Log messages you start `log_prompts` |
 | Advanced | Import from SIM card `import_sim` · Export one account to .vcf `export_account` (with several accounts) |
-| In Tools ↗ | Scan QR code `scan_qr` (also the Contacts header) |
+| In Tools ↗ | Scan QR code `scan_qr` (also the Contacts header) · Coming from another phone? `coming_from` (also onboarding's last step) |
 
 ## Recents & history
 | Group | Settings |
@@ -114,6 +114,7 @@ The Settings list starts with **Tools** (the same page as ⋮ › Tools; see the
 | Group | Settings |
 |---|---|
 | — | Parley version `version` · Export diagnostics `diagnostics` · Keep crash reports `crash_reports` |
+| In Tools ↗ | What Parley can do `what_parley_can_do` (also at the top of Settings and in the What's new card) |
 
 ## Changes in 4.1
 

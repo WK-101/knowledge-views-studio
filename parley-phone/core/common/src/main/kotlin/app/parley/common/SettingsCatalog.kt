@@ -212,6 +212,11 @@ object SettingsCatalog {
         // Scan QR (search finds it; it opens the scan screen).
         at(SettingPlace.TOOLS, "scan_qr", "Scan QR code", "Read a contact, number, chat link, Wi-Fi or web address from a photo, without camera access", P,
             "qr", "qr code", "scan", "scanner", "barcode", "vcard", "business card", "wifi", "whatsapp", "signal", "telegram", "camera"),
+        // Finding your way (on Tools; search opens the page itself).
+        at(SettingPlace.TOOLS, "coming_from", "Coming from another phone?", "Bring contacts, call history and block lists from your old phone", P,
+            "import", "switch", "switching", "iphone", "icloud", "samsung", "google", "vcf", "old phone", "move", "call blocker", "yacb"),
+        at(SettingPlace.TOOLS, "what_parley_can_do", "What Parley can do", "Everything Parley does, by what you want done", O,
+            "features", "help", "discover", "what's new", "tour", "guide", "how to", "everything"),
         e("import_sim", "Import from SIM card", "Copy the SIM's phonebook into your contacts", P, "sim", "phonebook", "copy"),
         e("export_vcf", "Export all to .vcf file", "Plain-text backup you control", P, "vcard", "export", "backup"),
         e("export_csv", "Export all to .csv file", "For spreadsheets", P, "spreadsheet", "excel", "export"),

@@ -6,6 +6,7 @@ import app.parley.messaging.messagingGraph
 import app.parley.ui.blocking.blockingGraph
 import app.parley.ui.calls.toCallGraph
 import app.parley.ui.contact.contactGraph
+import app.parley.ui.discover.discoverGraph
 import app.parley.ui.extras.extrasGraph
 import app.parley.ui.family.familyGraph
 import app.parley.ui.history.historyGraph
@@ -30,4 +31,5 @@ fun NavGraphBuilder.parleyGraph(nav: NavController) {
     toCallGraph(nav)
     watchGraph(nav)
     familyGraph(nav)
+    discoverGraph(nav)
 }

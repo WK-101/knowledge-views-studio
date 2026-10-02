@@ -39,6 +39,26 @@ object Tips {
     /** Number memory: the first remembered line about a number that isn't a contact (keypad, number history). */
     const val NUMBER_MEMORY = "number_memory"
 
+    // P18: one line on what a concept means, where it first appears (the names are fixed in docs/GLOSSARY.md).
+
+    /** A private contact's page: hidden from other apps, kept encrypted in Parley. */
+    const val CONCEPT_PRIVATE = "concept_private"
+
+    /** A temporary contact's page, or the Temporary contacts screen: it deletes itself. */
+    const val CONCEPT_TEMPORARY = "concept_temporary"
+
+    /** The Circle tab, once it has people: keep-in-touch, not a group and not Favourites. */
+    const val CONCEPT_CIRCLE = "concept_circle"
+
+    /** The Labels screen: your own groups. */
+    const val CONCEPT_LABELS = "concept_labels"
+
+    /** Favourites with people in it: starred contacts, which other apps see too. */
+    const val CONCEPT_FAVOURITES = "concept_favourites"
+
+    /** History & undo: the one place to get something back. */
+    const val CONCEPT_HISTORY_UNDO = "concept_history_undo"
+
     /** Ids are stored comma-separated; anything that isn't a plain id is dropped. */
     private val ID = Regex("[a-z0-9_]{1,40}")
 

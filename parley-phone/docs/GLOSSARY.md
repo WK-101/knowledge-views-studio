@@ -49,8 +49,11 @@ A label's **Allow through Do Not Disturb** works by starring its members, becaus
 
 | Term | What it means |
 |---|---|
-| **Tools** | The page for app-wide destinations that aren't tied to a tab: Birthdays & dates, Temporary contacts, Contact health check, Scan QR code, Import & export contacts, Blocking & screening, Expecting a call, Messaged numbers, History & undo, Backup & restore, Privacy dashboard, and Lock now when the app lock is on. It's reached from every tab's ⋮ menu and from the top of Settings. |
+| **Tools** | The page for app-wide destinations that aren't tied to a tab: What Parley can do, Birthdays & dates, Temporary contacts, Contact health check, Scan QR code, Import & export contacts, Coming from another phone?, Blocking & screening, Expecting a call, Messaged numbers, History & undo, Backup & restore, Privacy dashboard, and Lock now when the app lock is on. It's reached from every tab's ⋮ menu and from the top of Settings. |
+| **What Parley can do** | The page that lists what Parley does by the job you want done ("Stop spam", "Never lose a contact"…), each row opening the feature; searchable. In Tools, under Tools in Settings, and linked from the What's new card. Its rows come from `CapabilityCatalog`. |
+| **Coming from another phone?** | Where to export contacts, call history and block lists on the old phone, each opening Parley's own importer. Onboarding's optional last step, and in Tools. |
 | **⋮ (More options)** | At most seven items, only the tab's own, then Tools and Settings. |
+| **Explainers** | One-line tips at a concept's first appearance (Private, Temporary, Circle, Labels, Favourites, History & undo, To call), in the words of this glossary; each shows once. |
 | **Contact health check** | The screen that finds numbers without a country code, and empty or stale contacts. Not "Tidy up". |
 
 ## Words to avoid

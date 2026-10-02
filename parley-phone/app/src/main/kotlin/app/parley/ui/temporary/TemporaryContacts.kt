@@ -76,6 +76,9 @@ import android.content.res.Resources
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import app.parley.R
+import app.parley.common.ux.Tips
+import app.parley.ui.common.tipPending
+import app.parley.ui.common.CoachMark
 import app.parley.ui.DataL10n
 import app.parley.ui.ParleyTopBar
 import app.parley.ui.ParleyScaffold
@@ -267,7 +270,10 @@ fun TemporaryContactsScreen(vm: AppViewModel, back: () -> Unit, open: (Destinati
             }
             return@ParleyScaffold
         }
+        val temporaryTip = tipPending(Tips.CONCEPT_TEMPORARY)
         LazyColumn(Modifier.fillMaxSize().padding(p), contentPadding = PaddingValues(16.dp)) {
+            // P18: what temporary means, once.
+            if (temporaryTip) item(key = "tip") { CoachMark(Tips.CONCEPT_TEMPORARY, stringResource(R.string.tip_concept_temporary)) }
             // Due ones wait for an answer (never deleted without one): the notification's choice, here too.
             if (settings.askBeforeDeletingTemporary && due.isNotEmpty()) {
                 item(key = "due") {

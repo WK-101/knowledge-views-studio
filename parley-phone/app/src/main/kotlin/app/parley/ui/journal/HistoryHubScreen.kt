@@ -27,6 +27,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import app.parley.AppViewModel
 import app.parley.R
+import app.parley.common.ux.Tips
+import app.parley.ui.common.CoachMark
 import app.parley.ui.history.DeletedCallsList
 import app.parley.ui.timemachine.SnapshotChanges
 import app.parley.ui.ParleyTopBar
@@ -77,6 +79,8 @@ fun HistoryHubScreen(vm: AppViewModel, initial: HistoryTab, back: () -> Unit, op
                     Tab(tab == t.ordinal, { tab = t.ordinal }, text = { Text(stringResource(t.label)) })
                 }
             }
+            // P18: what History & undo is for, once.
+            CoachMark(Tips.CONCEPT_HISTORY_UNDO, stringResource(R.string.tip_concept_history_undo))
             when (HistoryTab.entries[tab]) {
                 HistoryTab.CONTACTS -> JournalList(vm, open, onShowSnapshots = { tab = HistoryTab.SNAPSHOTS.ordinal }, Modifier.fillMaxSize())
                 HistoryTab.CALLS -> DeletedCallsList(vm, Modifier.fillMaxSize(), reload = cleared)

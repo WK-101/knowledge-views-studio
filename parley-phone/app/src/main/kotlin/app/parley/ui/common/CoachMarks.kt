@@ -110,6 +110,17 @@ private fun MarkContent(id: String, text: String, marks: CoachMarks, action: Str
     }
 }
 
+/**
+ * Whether tip [id] hasn't been dismissed yet. A lazy list uses it to leave out the item that holds the tip once it's
+ * gone, so no empty item (and its spacing) stays behind.
+ */
+@Composable
+fun tipPending(id: String): Boolean {
+    val marks = LocalCoachMarks.current ?: return false
+    val seen by marks.prefs.state.collectAsStateWithLifecycle()
+    return id !in seen.seenTips
+}
+
 /** An inline tip card, shown once until dismissed ([enabled] false keeps it away, e.g. while a list is empty). */
 @Composable
 fun CoachMark(id: String, text: String, modifier: Modifier = Modifier, enabled: Boolean = true, action: String? = null, onAction: (() -> Unit)? = null) {

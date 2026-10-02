@@ -78,6 +78,9 @@ import kotlinx.coroutines.withContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import app.parley.R
+import app.parley.common.ux.Tips
+import app.parley.ui.common.tipPending
+import app.parley.ui.common.CoachMark
 import app.parley.ui.ParleyTopBar
 import app.parley.ui.ParleyScaffold
 import app.parley.ui.BackButton
@@ -135,7 +138,12 @@ fun ManageLabelsScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -
     }) { p ->
         val list = labels ?: return@ParleyScaffold
         val unlabelled = all.orEmpty().count { idx.extras[it.id]?.labels.isNullOrEmpty() }
+        val labelsTip = tipPending(Tips.CONCEPT_LABELS)
         LazyColumn(Modifier.padding(p)) {
+            // P18: what labels are, the first time this screen lists some.
+            if (!merging && list.isNotEmpty() && labelsTip) item(key = "tip") {
+                CoachMark(Tips.CONCEPT_LABELS, stringResource(R.string.tip_concept_labels))
+            }
             if (merging) item {
                 Text(
                     stringResource(R.string.lbl_merge_intro),

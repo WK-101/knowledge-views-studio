@@ -30,6 +30,7 @@ import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Dialpad
+import androidx.compose.material.icons.rounded.Explore
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Notifications
@@ -100,6 +101,7 @@ import app.parley.ui.backup.BackupReminderBanner
 import app.parley.ui.calls.rememberDialerRoleRequest
 import app.parley.ui.common.unmappedLabel
 import app.parley.ui.contact.ContactPageRoutes
+import app.parley.ui.discover.DiscoverRoutes
 import app.parley.ui.extras.ExtrasRoutes
 import app.parley.ui.family.FamilyRoutes
 import app.parley.ui.history.HistoryRoutes
@@ -208,6 +210,18 @@ fun SettingsScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
                         leadingContent = { TonalIcon(Icons.Rounded.Handyman, MaterialTheme.colorScheme.tertiaryContainer, MaterialTheme.colorScheme.onTertiaryContainer) },
                         headlineContent = { Text(stringResource(R.string.set_tools_title)) },
                         supportingContent = { Text(stringResource(R.string.set_tools_summary), maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                        colors = rowColors(),
+                    )
+                }
+                // P8: everything Parley does, by what you want done.
+                item("what_parley_can_do") {
+                    ListItem(
+                        modifier = Modifier.clickable { open(DiscoverRoutes.Capabilities) },
+                        leadingContent = {
+                            TonalIcon(Icons.Rounded.Explore, MaterialTheme.colorScheme.tertiaryContainer, MaterialTheme.colorScheme.onTertiaryContainer)
+                        },
+                        headlineContent = { Text(stringResource(R.string.discover_title)) },
+                        supportingContent = { Text(stringResource(R.string.discover_summary), maxLines = 1, overflow = TextOverflow.Ellipsis) },
                         colors = rowColors(),
                     )
                 }
@@ -426,7 +440,7 @@ private const val MAX_REPORT_ITEMS = 50
 /** Where Settings search takes you for [e]: its category page scrolled to it, or the screen it lives on. */
 internal fun settingRoute(e: SettingEntry): Destination = when (e.place) {
     null -> Routes.settingsPage(e.category, e.key)
-    SettingPlace.TOOLS -> if (e.key == "scan_qr") QrRoutes.Scan else Routes.Tools
+    SettingPlace.TOOLS -> toolsRoute(e.key)
     SettingPlace.BLOCKING -> Routes.Blocking
     SettingPlace.DELETED_CALLS -> Routes.journal(HistoryTab.CALLS)
     SettingPlace.SIMS -> HistoryRoutes.Sims
@@ -437,6 +451,14 @@ internal fun settingRoute(e: SettingEntry): Destination = when (e.place) {
     SettingPlace.SYNC -> Routes.Sync
     SettingPlace.TEMPORARY -> Routes.Temporary
     SettingPlace.HELPERS -> FamilyRoutes.Helpers
+}
+
+/** A Tools entry found by search: the screen itself when it has one, else Tools. */
+private fun toolsRoute(key: String): Destination = when (key) {
+    "scan_qr" -> QrRoutes.Scan
+    "coming_from" -> DiscoverRoutes.ComingFrom
+    "what_parley_can_do" -> DiscoverRoutes.Capabilities
+    else -> Routes.Tools
 }
 
 /** Settings that don't exist on this phone, left out of search. */

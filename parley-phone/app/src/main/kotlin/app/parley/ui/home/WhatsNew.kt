@@ -34,6 +34,7 @@ import app.parley.common.SettingsCategory
 import app.parley.common.ux.Tips
 import app.parley.common.ux.WhatsNew
 import app.parley.ui.Routes
+import app.parley.ui.discover.DiscoverRoutes
 
 /** This build's version code, and whether this version is the first one installed on the device. */
 private fun versionInfo(context: Context): Pair<Int, Boolean> = runCatching {
@@ -44,7 +45,7 @@ private fun versionInfo(context: Context): Pair<Int, Boolean> = runCatching {
 /**
  * "What's new" once per update, as a card at the top of home that the user dismisses (never a screen in the
  * way). The layout promise comes first: an update never changes the tab order, the start tab or the call list;
- * anything new arrives switched off and "Try it" opens where it can be turned on.
+ * anything new arrives switched off. The one link is P8's "What Parley can do", which lists this release's rows first.
  */
 @Composable
 fun WhatsNewCard(vm: AppViewModel, open: (Destination) -> Unit, modifier: Modifier = Modifier) {
@@ -73,12 +74,13 @@ fun WhatsNewCard(vm: AppViewModel, open: (Destination) -> Unit, modifier: Modifi
                 Text(stringResource(R.string.ux_whats_new_title, BuildConfigInfo.versionName(context)), style = MaterialTheme.typography.titleSmall)
             }
             Text(stringResource(R.string.ux_whats_new_body), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(end = 8.dp))
+            Text(stringResource(R.string.discover_whats_new_body), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(end = 8.dp))
             if (offerLayout) {
                 Text(stringResource(R.string.home_whats_new_layout), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 4.dp, end = 8.dp))
                 TextButton({ seen(); open(Routes.settingsPage(SettingsCategory.LAYOUT, "calls_layout")) }) { Text(stringResource(R.string.home_whats_new_layout_action)) }
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                TextButton({ seen(); open(Routes.settingsPage(SettingsCategory.LAYOUT, "nav_tabs")) }) { Text(stringResource(R.string.ux_whats_new_try)) }
+                TextButton({ seen(); open(DiscoverRoutes.Capabilities) }) { Text(stringResource(R.string.discover_title)) }
                 TextButton(::seen) { Text(stringResource(R.string.ux_tip_got_it)) }
             }
         }
