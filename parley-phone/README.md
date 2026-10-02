@@ -9,7 +9,7 @@ A privacy-focused, modern **Contacts + Dialer + In-call** app for Android, all i
 
 This project is independent of the rest of this repository.
 
-## Features (v4.5)
+## Features (v4.6)
 
 | Area | What you get |
 |---|---|
@@ -40,6 +40,7 @@ This project is independent of the rest of this repository.
 | **New in 4.3** | **One kind of contact**: private and temporary contacts are variants of every contact, with the same page, editor, lists, labels, ringtone, favourites, Circle and timeline; **Make private / Make visible** and **Delete automatically / Keep permanently** without losing anything; private contacts' **Recently deleted** (30 days, sealed); **compact contact page** (at-a-glance line, one Contact info group, settings folded at the bottom) and **compact editor** with **Save to: Temporary**; **two-way relations**; **photos kept whole and at full quality**; clear History & undo (contact changes, deleted calls, snapshots); contact count at the end of the list; full-width Recents icon chips |
 | **New in 4.4** | **Remind me** (decline & remind, from the missed-call notification and after a call) and a quiet **To call** list at the top of Recents; **dropped-call reason with Call again**; the caller's **call subject**; **why a call rang through**; **Check it's really them** (hang up and call the saved number); **I'm on hold** mode; show or hide **contact photos on the call screen** (globally or per contact); **auto-answer** (call-capable headset, simple mode or chosen people, with Cancel); **a vibration of their own** per person or label; Recents **Unknown** and **Contacts** filters; **pronouns**; **emergency information** on My card; My card edited like any contact; bulk **Move to private** that finishes and reports; **ask before deleting temporary contacts**; APK under 12 MiB |
 | **New in 4.5** | **Who is this?** for unknown numbers from what Parley already keeps (deleted contacts, snapshots, old calls, notes, messaged numbers, QR scans), hidden on the lock screen; **"Looks like a sales line (your calls)"** learned only from your own calls, with Why?, an optional silence rule and **Silence this range**; **family safe word** per label, **add my helper** to a call, and **expected calls from your notes** (never above your block rules or lists); **sync watchdog** that notices contacts vanishing from an account and restores them from a snapshot; **backup folder check**; **social and professional profiles** (Instagram, LinkedIn, X, GitHub, Mastodon… in the editor, contact page and My card); **private contacts open instantly** |
+| **New in 4.6** | **Paste details**: make a contact from an email signature, profile or any text, with a preview to tick; **a card that stays current**: My card is signed, contacts you've linked see "Ana sent an updated card" and choose what to apply, **Shared with** and **Changed my number**; **Coming from another phone?** (Google, iPhone, Samsung, call history, block lists); **What Parley can do**, grouped by what you want done; a clearer Blocking screen with your current setup and a weekly line; first-time explainers; **English only**, APK about 10.7 MiB |
 
 **Not included:**
 
