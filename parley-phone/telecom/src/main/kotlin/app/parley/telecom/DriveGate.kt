@@ -5,6 +5,8 @@ import android.content.Context
 import android.media.AudioAttributes
 import android.media.AudioDeviceInfo
 import android.media.AudioManager
+import android.net.Uri
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
@@ -18,13 +20,16 @@ import app.parley.common.calls.DriveProfileConfig
 /**
  * The drive profile on the call path (I11; [DriveProfile] decides). Whether a marked car is connected is read from
  * the audio outputs (a car's hands-free and media links are Bluetooth outputs with its address; BLUETOOTH_CONNECT is
- * already held), so nothing runs in the background and the profile is off the moment the car disconnects. While it
+ * already held; without it Android 14+ shows only the last two bytes, see [DriveProfile.connectedCar]), so nothing runs in the background and the profile is off the moment the car disconnects. While it
  * is on: the caller's name is said once through the car, the auto-answer scope is handed to [AutoAnswerGate], and
  * unknown callers may ring silently. Main thread only.
  */
 internal class DriveGate(private val config: () -> DriveProfileConfig) {
     private var checkedAt = -1L
     private var car: CarDevice? = null
+
+    /** M2: the marked car connected through an output that carries calls (hands-free), checked with [car]. */
+    private var callCar: CarDevice? = null
 
     /** Calls the drive profile silenced (the status pill says why). */
     private val silenced = HashSet<String>()
@@ -37,24 +42,34 @@ internal class DriveGate(private val config: () -> DriveProfileConfig) {
         val cfg = config()
         if (!cfg.enabled) {
             car = null
+            callCar = null
             return null
         }
         val now = SystemClock.elapsedRealtime()
         if (checkedAt < 0 || now - checkedAt >= CHECK_MS) {
             checkedAt = now
-            car = DriveProfile.connectedCar(cfg, CarAudio.connected(context))
+            val connected = CarAudio.connected(context)
+            car = DriveProfile.connectedCar(cfg, connected)
+            callCar = DriveProfile.connectedCallCar(cfg, connected)
         }
         return car
     }
 
     fun driving(context: Context): Boolean = car(context) != null
 
-    /** The drive profile's auto-answer scope now, or null. */
-    fun answerScope(context: Context): AutoAnswer.DriveScope? = DriveProfile.answerScope(config(), driving(context))
+    /**
+     * The drive profile's auto-answer scope now, or null. M2: only while the car carries calls (hands-free connected),
+     * never on a media-only link, which would leave the answered call on the phone's earpiece. Asked at arming time and
+     * again at the deadline.
+     */
+    fun answerScope(context: Context): AutoAnswer.DriveScope? {
+        car(context)
+        return DriveProfile.answerScope(config(), callCar != null)
+    }
 
-    /** Says "<name> is calling" once for call [id] when [DriveProfile.announces] lets it. */
-    fun announce(context: Context, id: String, name: String, caller: DriveProfile.Caller) {
-        val c = caller.copy(quiet = caller.quiet || !ringerOn(context))
+    /** Says "<name> is calling" once for call [id] when [DriveProfile.announces] lets it ([handle]: the caller's, for DND). */
+    fun announce(context: Context, id: String, name: String, caller: DriveProfile.Caller, handle: Uri?, starred: Boolean) {
+        val c = caller.copy(quiet = caller.quiet || !ringerOn(context, handle, known = caller.known, starred = starred))
         if (!DriveProfile.announces(config(), driving(context), c)) return
         announcer.say(context, id, context.getString(R.string.incall_is_calling, name))
     }
@@ -136,14 +151,32 @@ internal class DriveGate(private val config: () -> DriveProfileConfig) {
     companion object {
         private const val CHECK_MS = 1_000L
 
-        /** The phone rings aloud: ringer on and Do Not Disturb off (a silent phone stays silent, in the car too). */
-        fun ringerOn(context: Context): Boolean = runCatching {
+        /**
+         * The phone rings aloud for this caller ([DriveProfile.ringsAloud]): ringer on, and Do Not Disturb off or set to
+         * Priority with this caller let through (a silent phone stays silent, in the car too). Whether Priority lets the
+         * caller through is Android's own answer for [handle] on Android 13+, else read from the Priority policy.
+         */
+        fun ringerOn(context: Context, handle: Uri?, known: Boolean, starred: Boolean): Boolean = runCatching {
             val audio = context.getSystemService(AudioManager::class.java)
             val nm = context.getSystemService(NotificationManager::class.java)
-            val filter = nm?.currentInterruptionFilter ?: NotificationManager.INTERRUPTION_FILTER_UNKNOWN
-            audio.ringerMode == AudioManager.RINGER_MODE_NORMAL &&
-                (filter == NotificationManager.INTERRUPTION_FILTER_ALL || filter == NotificationManager.INTERRUPTION_FILTER_UNKNOWN)
+            val dnd = when (nm?.currentInterruptionFilter ?: NotificationManager.INTERRUPTION_FILTER_UNKNOWN) {
+                NotificationManager.INTERRUPTION_FILTER_ALL, NotificationManager.INTERRUPTION_FILTER_UNKNOWN -> DriveProfile.Dnd.OFF
+                NotificationManager.INTERRUPTION_FILTER_PRIORITY -> DriveProfile.Dnd.PRIORITY
+                else -> DriveProfile.Dnd.SILENT
+            }
+            val ringerNormal = audio.ringerMode == AudioManager.RINGER_MODE_NORMAL
+            val allowed = dnd == DriveProfile.Dnd.PRIORITY && ringerNormal && nm != null && priorityLetsThrough(nm, handle, known, starred)
+            DriveProfile.ringsAloud(ringerNormal, dnd, allowed)
         }.getOrDefault(false)
+
+        private fun priorityLetsThrough(nm: NotificationManager, handle: Uri?, known: Boolean, starred: Boolean): Boolean {
+            if (Build.VERSION.SDK_INT >= 33 && handle != null) {
+                runCatching { return nm.matchesCallFilter(handle) }
+            }
+            val policy = runCatching { nm.notificationPolicy }.getOrNull() ?: return false
+            val calls = policy.priorityCategories and NotificationManager.Policy.PRIORITY_CATEGORY_CALLS != 0
+            return DriveProfile.priorityAllows(calls, policy.priorityCallSenders, known, starred)
+        }
     }
 }
 
@@ -163,7 +196,7 @@ object CarAudio {
     fun connected(context: Context): List<DriveProfile.Connected> = runCatching {
         context.getSystemService(AudioManager::class.java).getDevices(AudioManager.GET_DEVICES_OUTPUTS)
             .filter { it.type in CAR_TYPES }
-            .map { DriveProfile.Connected(it.address, it.productName?.toString()) }
+            .map { DriveProfile.Connected(it.address, it.productName?.toString(), it.type) }
             .distinct()
     }.getOrDefault(emptyList())
 }

@@ -42,6 +42,7 @@ import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import app.parley.common.NotificationPrivacy
 import app.parley.common.calls.MenuMemory
 import app.parley.common.calls.MenuPath
 import app.parley.common.ux.Tips
@@ -101,16 +102,18 @@ internal fun MenuMemoryRow(call: CallUi) {
     if (!applies || p == null) return
     if (call.id in stoppedHere) return
     val st = remember(call.id) { MenuRowState() }
+    // The call screen shows over the lock screen: whoever holds the locked phone sees that keys are remembered, not which.
+    val locked = rememberKeyguardLocked()
     Column(Modifier.widthIn(max = CallButtonSize.panelMaxWidth).fillMaxWidth().padding(horizontal = Spacing.l, vertical = Spacing.xs)) {
         MenuTip()
-        MenuRowCard(call, p, st)
+        MenuRowCard(call, p, st, locked)
     }
-    if (st.saving) MenuSaveDialog(call, p, st)
+    if (st.saving && !locked) MenuSaveDialog(call, p, st)
     if (st.askStop) MenuStopDialog(call, st)
 }
 
 @Composable
-private fun MenuRowCard(call: CallUi, p: MenuPath, st: MenuRowState) {
+private fun MenuRowCard(call: CallUi, p: MenuPath, st: MenuRowState, locked: Boolean) {
     val replay by CallManager.menuReplay.collectAsState()
     val sending = replay?.takeIf { it.callId == call.id }
     val label = Bidi.ltr(MenuMemory.label(p.steps))
@@ -120,19 +123,25 @@ private fun MenuRowCard(call: CallUi, p: MenuPath, st: MenuRowState) {
                 Icon(Icons.Rounded.History, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.width(Spacing.m))
                 Column(Modifier.weight(1f).semantics { liveRegion = LiveRegionMode.Polite }) {
-                    Text(
-                        stringResource(if (sending != null) R.string.menu_sending else R.string.menu_last_time, label),
-                        style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis,
-                    )
-                    val note = st.savedAs?.let { stringResource(R.string.menu_saved, it) }
+                    val title = when {
+                        locked && sending != null -> stringResource(R.string.menu_sending_locked)
+                        locked -> stringResource(R.string.menu_remembered)
+                        sending != null -> stringResource(R.string.menu_sending, label)
+                        else -> stringResource(R.string.menu_last_time, label)
+                    }
+                    Text(title, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    val note = if (locked) null else st.savedAs?.let { stringResource(R.string.menu_saved, it) }
                         ?: stringResource(R.string.menu_save_failed).takeIf { st.saveFailed }
                     if (note != null) Text(note, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                if (sending != null) StopButton() else ReplayButton(call, p, label)
+                if (sending != null) StopButton() else ReplayButton(call, p, label.takeUnless { locked })
                 Box {
                     IconButton(onClick = { st.menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.menu_more)) }
                     DropdownMenu(expanded = st.menu, onDismissRequest = { st.menu = false }) {
-                        DropdownMenuItem(text = { Text(stringResource(R.string.menu_save_shortcut)) }, onClick = { st.menu = false; st.saving = true })
+                        // Saving shows the keys and names the shortcut: only once the phone is unlocked.
+                        if (!locked) {
+                            DropdownMenuItem(text = { Text(stringResource(R.string.menu_save_shortcut)) }, onClick = { st.menu = false; st.saving = true })
+                        }
                         DropdownMenuItem(text = { Text(stringResource(R.string.menu_dont_remember)) }, onClick = { st.menu = false; st.askStop = true })
                     }
                 }
@@ -157,8 +166,8 @@ private fun StopButton() {
 }
 
 @Composable
-private fun ReplayButton(call: CallUi, p: MenuPath, label: String) {
-    val spoken = stringResource(R.string.menu_replay_spoken, label)
+private fun ReplayButton(call: CallUi, p: MenuPath, label: String?) {
+    val spoken = if (label == null) stringResource(R.string.menu_replay_spoken_locked) else stringResource(R.string.menu_replay_spoken, label)
     FilledTonalButton(
         onClick = { CallManager.replayMenu(call.id, p.steps) },
         enabled = call.state == CallState.ACTIVE,
@@ -173,7 +182,10 @@ private fun ReplayButton(call: CallUi, p: MenuPath, label: String) {
 @Composable
 private fun MenuSaveDialog(call: CallUi, p: MenuPath, st: MenuRowState) {
     val number = call.number.orEmpty()
-    val who = call.name?.takeIf { it.isNotBlank() } ?: number
+    // L6: a private contact (no device contact behind the name) is suggested by number: the name would reach the
+    // launcher's shortcut store and pages that discreet mode or the vault's lock hide.
+    val private = call.contactId == null || NotificationPrivacy.isVaultLabel(call.label)
+    val who = MenuMemory.shortcutWho(call.name, number, private)
     var name by remember { mutableStateOf(MenuMemory.suggestedName(who, p.steps)) }
     ConfirmDialog(
         title = stringResource(R.string.menu_save_title),

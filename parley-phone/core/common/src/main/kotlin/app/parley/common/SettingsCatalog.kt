@@ -25,7 +25,9 @@ enum class SettingsCategory(val title: String, val summary: String) {
  * Screens outside the category pages that hold settings or tools. Settings search opens them for their entries, so
  * every setting is searchable wherever it lives.
  */
-enum class SettingPlace { TOOLS, BLOCKING, DELETED_CALLS, SIMS, CONTACT_PAGE, SIMPLE_MODE, CALL_TIME, BACKUP, SYNC, TEMPORARY, HELPERS, DRIVE_PROFILE }
+enum class SettingPlace {
+    TOOLS, BLOCKING, DELETED_CALLS, SIMS, CONTACT_PAGE, SIMPLE_MODE, CALL_TIME, BACKUP, SYNC, TEMPORARY, HELPERS, DRIVE_PROFILE, PHONE_MENUS,
+}
 
 /**
  * One searchable setting, identified by its stable [key]. In [SettingsCatalog], [title], [summary] and [keywords]
@@ -154,6 +156,17 @@ object SettingsCatalog {
             "When your car connects: hear who's calling, answer favourites, reply that you're driving", C,
             "car", "driving", "drive", "bluetooth", "android auto", "announce", "say caller name", "hands-free", "handsfree", "auto answer",
             "silence unknown", "driving reply",
+        ),
+        // I6: a screen of its own, linked from the Calls page's "During calls" (the Calls page keeps to its number of rows).
+        at(
+            SettingPlace.PHONE_MENUS, "phone_menus", "Phone menus",
+            "The keys you pressed in a phone menu, offered again next time", C,
+            "phone menu", "ivr", "menu keys", "touch tones", "dtmf", "replay", "direct my call",
+        ),
+        at(
+            SettingPlace.PHONE_MENUS, "menu_memory", "Remember menu keys",
+            "Never 4 or more digits in a row, so PINs and card numbers aren't kept", C,
+            "phone menu", "ivr", "menu keys", "digits", "touch tones", "dtmf", "pin", "replay", "last time",
         ),
         // L6: on SIMs & plan minutes; only ever acts while a SIM is abroad.
         at(

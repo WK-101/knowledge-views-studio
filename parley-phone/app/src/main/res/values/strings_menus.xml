@@ -16,6 +16,18 @@
     <string name="menus_delete_body">The shortcut goes from here and from your home screen. The number stays.</string>
     <string name="menus_deleted">Shortcut deleted</string>
 
+    <!-- Settings › Calls › Phone menus: menu memory's own page. -->
+    <string name="set_phone_menus_title">Phone menus</string>
+    <string name="set_phone_menus_summary">The keys you pressed in a phone menu, offered again next time</string>
+    <string name="set_phone_menus_kw">phone menu, ivr, menu keys, touch tones, dtmf, replay, direct my call</string>
+    <string name="set_menu_memory_title">Remember menu keys</string>
+    <string name="set_menu_memory_summary">Never 4 or more digits in a row, so PINs and card numbers aren\'t kept</string>
+    <string name="set_menu_memory_kw">phone menu, ivr, menu keys, digits, touch tones, dtmf, pin, replay, last time</string>
+    <string name="phone_menus_intro">When you call a number with a phone menu, the keys you pressed show on the keypad next time, so you can send them again with one tap. They stay on this phone and aren\'t in backups. Shortcuts you save stay either way.</string>
+    <!-- Under "Phone menus" on the Calls page. -->
+    <string name="phone_menus_on">Remembering menu keys</string>
+    <string name="phone_menus_off">Not remembering menu keys</string>
+
     <!-- I12: long-press on the keypad's Call pill or a contact's Call. -->
     <string name="reason_call_with">Call with a reason…</string>
     <string name="reason_title">Call with a reason</string>

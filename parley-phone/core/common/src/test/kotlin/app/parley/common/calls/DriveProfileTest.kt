@@ -39,6 +39,59 @@ class DriveProfileTest {
         assertNull(DriveProfile.connectedCar(cfg, listOf(Connected("", ""))))
     }
 
+    @Test fun anonymized_addresses_match_by_last_bytes_and_name() {
+        // Android 14+ without "Nearby devices": only the last two bytes.
+        assertEquals(car, DriveProfile.connectedCar(cfg, listOf(Connected("XX:XX:XX:XX:EE:01", "My Golf"))))
+        assertEquals(car, DriveProfile.connectedCar(cfg, listOf(Connected("xx:xx:xx:xx:ee:01", null))))
+        // Same last bytes, another name: not the car. Other last bytes: not the car.
+        assertNull(DriveProfile.connectedCar(cfg, listOf(Connected("XX:XX:XX:XX:EE:01", "Buds"))))
+        assertNull(DriveProfile.connectedCar(cfg, listOf(Connected("XX:XX:XX:XX:EE:02", "My Golf"))))
+        // A car marked while anonymized still matches once the full address shows.
+        val marked = DriveProfileConfig(cars = listOf(CarDevice("XX:XX:XX:XX:EE:01", "My Golf")))
+        assertEquals(marked.cars.single(), DriveProfile.connectedCar(marked, listOf(Connected("AA:BB:CC:DD:EE:01", "My Golf"))))
+        assertNull(DriveProfile.connectedCar(marked, listOf(Connected("AA:BB:CC:DD:EE:01", "Other"))))
+        // The device list doesn't show the anonymized copy of a paired device as a second row.
+        val rows = DriveProfile.devices(DriveProfileConfig(), listOf(car), listOf(Connected("XX:XX:XX:XX:EE:01", "My Golf")))
+        assertEquals(listOf(car.address), rows.map { it.device.address })
+    }
+
+    @Test fun common_names_are_flagged() {
+        assertTrue(DriveProfile.genericName("Car Multimedia"))
+        assertTrue(DriveProfile.genericName("MY CAR"))
+        assertTrue(DriveProfile.genericName("Bluetooth"))
+        assertTrue(DriveProfile.genericName("BT"))
+        assertTrue(DriveProfile.genericName("Car Audio"))
+        assertFalse(DriveProfile.genericName("My Golf"))
+        assertFalse(DriveProfile.genericName("Ana's Polo"))
+    }
+
+    @Test fun answering_needs_the_car_to_carry_calls() {
+        val media = Connected(car.address, car.name, CallAudioOutputs.BLUETOOTH_A2DP)
+        val handsFree = Connected(car.address, car.name, CallAudioOutputs.BLUETOOTH_SCO)
+        // Media only (cars connect A2DP first; "Phone calls" off for the car): driving, but nothing is answered.
+        assertEquals(car, DriveProfile.connectedCar(cfg, listOf(media)))
+        assertNull(DriveProfile.connectedCallCar(cfg, listOf(media)))
+        assertNull(DriveProfile.connectedCallCar(cfg, listOf(Connected(car.address, car.name, CallAudioOutputs.BLE_SPEAKER))))
+        assertNull(DriveProfile.connectedCallCar(cfg, listOf(Connected(car.address, car.name))))
+        assertEquals(car, DriveProfile.connectedCallCar(cfg, listOf(media, handsFree)))
+        assertEquals(car, DriveProfile.connectedCallCar(cfg, listOf(Connected(car.address, car.name, CallAudioOutputs.BLE_HEADSET))))
+        // Another device's hands-free while the car plays media doesn't count either.
+        assertNull(DriveProfile.connectedCallCar(cfg, listOf(media, Connected("11:22:33:44:55:66", "Buds", CallAudioOutputs.BLUETOOTH_SCO))))
+    }
+
+    @Test fun priority_dnd_announces_callers_it_lets_through() {
+        assertTrue(DriveProfile.ringsAloud(true, DriveProfile.Dnd.OFF, callerAllowed = false))
+        assertTrue(DriveProfile.ringsAloud(true, DriveProfile.Dnd.PRIORITY, callerAllowed = true))
+        assertFalse(DriveProfile.ringsAloud(true, DriveProfile.Dnd.PRIORITY, callerAllowed = false))
+        assertFalse(DriveProfile.ringsAloud(true, DriveProfile.Dnd.SILENT, callerAllowed = true))
+        assertFalse(DriveProfile.ringsAloud(false, DriveProfile.Dnd.OFF, callerAllowed = true))
+        assertTrue(DriveProfile.priorityAllows(true, DriveProfile.SENDERS_STARRED, known = true, starred = true))
+        assertFalse(DriveProfile.priorityAllows(true, DriveProfile.SENDERS_STARRED, known = true, starred = false))
+        assertTrue(DriveProfile.priorityAllows(true, DriveProfile.SENDERS_CONTACTS, known = true, starred = false))
+        assertTrue(DriveProfile.priorityAllows(true, DriveProfile.SENDERS_ANY, known = false, starred = false))
+        assertFalse(DriveProfile.priorityAllows(false, DriveProfile.SENDERS_ANY, known = true, starred = true))
+    }
+
     @Test fun marking_keeps_one_per_address() {
         val twice = DriveProfile.mark(cfg, car.copy(address = "aa:bb:cc:dd:ee:01", name = "Golf"), true)
         assertEquals(1, twice.cars.size)

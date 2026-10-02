@@ -44,6 +44,7 @@ import app.parley.ui.ConfirmDialog
 import app.parley.ui.ParleySheet
 import app.parley.ui.Spacing
 import app.parley.ui.common.Format
+import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * I12 "Call with a reason…" for [target]: a reason, then **Call** with it when the SIM's network carries call subjects,
@@ -58,9 +59,10 @@ fun CallReasonFlow(vm: AppViewModel, target: ReasonTarget, onDone: () -> Unit) {
     var reason by rememberSaveable(target) { mutableStateOf("") }
     var facts by remember(target) { mutableStateOf<CallReasons.Facts?>(null) }
     LaunchedEffect(target) {
-        val f = runCatching { CallReasons.facts(context, vm.c, target.number, target.simId) }.getOrNull()
+        // M4: an emergency number is called at once, checked before anything else is asked of the phone (SIMs, phone
+        // accounts, apps): nothing may stand between the user and the call. Facts that take too long: the usual call.
+        val f = reasonFacts(vm, context, target)
         facts = f
-        // An emergency number is called at once: nothing may stand between the user and the call.
         if (f == null || f.reason.emergency) {
             onDone()
             vm.requestCall(target.number, target.name, simId = target.simId)
@@ -114,6 +116,12 @@ fun CallReasonFlow(vm: AppViewModel, target: ReasonTarget, onDone: () -> Unit) {
             dismissLabel = stringResource(R.string.reason_not_now),
         )
     }
+}
+
+/** M4: the facts for [target], or null to call at once: an emergency number (checked first), or facts that took too long. */
+private suspend fun reasonFacts(vm: AppViewModel, context: android.content.Context, target: ReasonTarget): CallReasons.Facts? {
+    if (CallReasons.emergency(vm.c, target.number)) return null
+    return withTimeoutOrNull(CallReasons.FACTS_MS) { runCatching { CallReasons.facts(context, vm.c, target.number, target.simId) }.getOrNull() }
 }
 
 /** The sheet: the reason, what will happen with it, and the ways it can go (the best one filled). */

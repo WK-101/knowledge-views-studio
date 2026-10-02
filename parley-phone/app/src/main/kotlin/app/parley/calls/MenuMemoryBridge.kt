@@ -17,16 +17,19 @@ import kotlinx.coroutines.withContext
 
 /**
  * I6 menu memory for the call screen ([MenuMemoryHooks]), on [DataContainer.menus]. Every way in checks the number
- * again: never an emergency number (the platform's list, not only the fallback one), never a service code.
+ * again: never an emergency number (the platform's list, not only the fallback one), never a service code, and
+ * nothing at all while Settings › Calls › Phone menus › "Remember menu keys" is off (shortcuts still work).
  */
 class MenuMemoryBridge(private val app: Context, private val c: DataContainer) : MenuMemoryHooks {
+    private val remembering: Boolean get() = runCatching { c.callExtras.config.value.rememberMenuKeys }.getOrDefault(false)
+
     private fun allowed(number: String): Boolean =
         MenuMemory.remembers(number, runCatching { EmergencyNumbers.isEmergency(app, MenuMemory.dialled(number)) }.getOrDefault(true))
 
     private fun key(number: String, accountId: String?): String = MenuMemory.key(number, PhoneEnv.countryIso(app, accountId))
 
     override suspend fun menuPath(number: String, accountId: String?): MenuPath? = withContext(Dispatchers.IO) {
-        if (!allowed(number)) return@withContext null
+        if (!remembering || !allowed(number)) return@withContext null
         val state = c.menus.load()
         if (!c.menus.available) return@withContext null
         MenuMemory.pathFor(state, key(number, accountId))
@@ -35,7 +38,7 @@ class MenuMemoryBridge(private val app: Context, private val c: DataContainer) :
     override fun onMenuKeys(number: String, accountId: String?, presses: List<MenuPress>) {
         c.scope.launch(Dispatchers.IO) {
             runCatching {
-                if (!allowed(number)) return@runCatching
+                if (!remembering || !allowed(number)) return@runCatching
                 val path = MenuMemory.record(presses, System.currentTimeMillis(), number) ?: return@runCatching
                 val k = key(number, accountId)
                 c.menus.update { MenuMemory.remember(it, k, path) }

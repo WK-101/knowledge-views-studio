@@ -5,6 +5,7 @@ import android.content.Intent
 import android.provider.Settings
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Accessibility
+import androidx.compose.material.icons.rounded.Dialpad
 import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material.icons.rounded.PhonelinkLock
 import androidx.compose.material.icons.rounded.Sensors
@@ -23,6 +24,7 @@ import app.parley.NavEvent
 import app.parley.RecentFilter
 import app.parley.common.StartTab
 import app.parley.common.calls.MissedReAlert
+import app.parley.ui.Destination
 import app.parley.ui.SegmentedGroup
 import app.parley.ui.activityViewModel
 import app.parley.ui.home.RecentsViewModel
@@ -32,7 +34,7 @@ import app.parley.ui.home.RecentsViewModel
  * proximity sensor switch and "Power button ends call" are under Advanced ([CallsAdvancedGroup]).
  */
 @Composable
-internal fun CallExtrasGroups(vm: AppViewModel) {
+internal fun CallExtrasGroups(vm: AppViewModel, open: (Destination) -> Unit = {}) {
     val cfg by vm.c.callExtras.config.collectAsStateWithLifecycle()
     val recents: RecentsViewModel = activityViewModel()
     val choices = MissedReAlert.CHOICES
@@ -40,6 +42,7 @@ internal fun CallExtrasGroups(vm: AppViewModel) {
     val reAlertSub = if (cfg.missedReAlertMinutes == 0) null else stringResource(R.string.set_missed_realert_on, cfg.missedReAlertMinutes)
     val voicemailSub = stringResource(R.string.set_voicemail_sub)
     val pocketSub = stringResource(R.string.set_pocket_guard_sub)
+    val menusSub = stringResource(if (cfg.rememberMenuKeys) R.string.phone_menus_on else R.string.phone_menus_off)
     SegmentedGroup(stringResource(R.string.set_group_missed_voicemail)) {
         menuRow(
             "missed_realert", choiceLabels, choices.indexOf(cfg.missedReAlertMinutes).coerceAtLeast(0),
@@ -56,6 +59,8 @@ internal fun CallExtrasGroups(vm: AppViewModel) {
             "pocket_guard", cfg.pocketGuard, Icons.Rounded.PhonelinkLock,
             sub = pocketSub,
         ) { v -> vm.c.callExtras.update { it.copy(pocketGuard = v) } }
+        // I6: menu memory has a page of its own (the Calls page keeps to its number of rows).
+        linkRow("phone_menus", Icons.Rounded.Dialpad, sub = menusSub) { open(CallsRoutes.PhoneMenus) }
     }
 }
 

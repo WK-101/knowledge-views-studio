@@ -57,8 +57,12 @@ class ParleyApp : Application() {
                 suspendRunCatching { container.vault.splitDetails() }
             }
         }
-        // Ringtones made from names: System UI's ringtone player needs its read grant again after a reboot.
-        container.scope.launch(Dispatchers.IO) { suspendRunCatching { CallerTunes.regrant(this@ParleyApp) } }
+        // Ringtones made from names: unused ones go (with their grants), and System UI's ringtone player needs its read
+        // grant again for the rest after a reboot.
+        container.scope.launch(Dispatchers.IO) {
+            suspendRunCatching { CallerTunes.sweep(container) }
+            suspendRunCatching { CallerTunes.regrant(this@ParleyApp) }
+        }
         AppLock.onLock = { container.vault.forgetOpened() }
         // With the app lock on, the screen going off forgets opened private details too (not only a lock).
         ContextCompat.registerReceiver(

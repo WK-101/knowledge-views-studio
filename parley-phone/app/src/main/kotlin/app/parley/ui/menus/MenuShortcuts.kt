@@ -60,7 +60,7 @@ fun MenuShortcutsBlock(vm: AppViewModel, numbers: List<String>, who: String, pho
             item(sc.id) { ShortcutRow(vm, sc, who, photoUri, onRename = { renaming = sc }, onDelete = { deleting = sc }) }
         }
     }
-    renaming?.let { sc -> RenameDialog(vm, sc, who) { renaming = null } }
+    renaming?.let { sc -> RenameDialog(vm, sc, who, photoUri) { renaming = null } }
     deleting?.let { sc -> DeleteDialog(vm, sc) { deleting = null } }
 }
 
@@ -100,7 +100,7 @@ private fun ShortcutRow(vm: AppViewModel, sc: MenuShortcut, who: String, photoUr
 }
 
 @Composable
-private fun RenameDialog(vm: AppViewModel, sc: MenuShortcut, who: String, onDone: () -> Unit) {
+private fun RenameDialog(vm: AppViewModel, sc: MenuShortcut, who: String, photoUri: String?, onDone: () -> Unit) {
     val context = LocalContext.current
     var name by remember(sc.id) { mutableStateOf(sc.name) }
     ConfirmDialog(
@@ -114,7 +114,7 @@ private fun RenameDialog(vm: AppViewModel, sc: MenuShortcut, who: String, onDone
             vm.viewModelScope.launch {
                 vm.c.menus.update { MenuMemory.renameShortcut(it, sc.id, chosen) }
                 val dial = MenuMemory.dialString(sc.number, sc.steps)
-                MenuMemory.cleanName(chosen)?.let { Shortcuts.renameMenu(context.applicationContext, sc.id, it, dial, who) }
+                MenuMemory.cleanName(chosen)?.let { Shortcuts.renameMenu(context.applicationContext, sc.id, it, dial, who, photoUri) }
             }
         },
         onDismiss = onDone,

@@ -43,7 +43,10 @@ class CallGate(private val c: DataContainer) {
         val roam = if (!chooseSim) abroad.questions(number, remembered ?: default) else AbroadCalls.Questions()
         val ask = listOf(confirm, chooseSim, warnings.isNotEmpty(), note != null, roam.any).any { it }
         return if (ask) {
-            PendingCall(number, name, confirm || note != null, chooseSim, note, simId, warnings, abroad = roam.plan, localSim = roam.localSim)
+            PendingCall(
+                number, name, confirm || note != null, chooseSim, note, simId, warnings, abroad = roam.plan, localSim = roam.localSim,
+                abroadWarnings = abroadWarnings(roam),
+            )
         } else {
             null
         }
@@ -74,13 +77,21 @@ class CallGate(private val c: DataContainer) {
             val note = callTime.outgoingWarning(number, chosen)
             val roam = abroad.questions(number, chosen)
             if (note != null || roam.any) {
-                return Placed.Ask(PendingCall(number, name, note != null, false, note, simId, abroad = roam.plan, localSim = roam.localSim, subject = subject))
+                return Placed.Ask(
+                    PendingCall(
+                        number, name, note != null, false, note, simId, abroad = roam.plan, localSim = roam.localSim, subject = subject,
+                        abroadWarnings = abroadWarnings(roam),
+                    ),
+                )
             }
         }
         // "Calling via Work SIM…" until the call exists.
         CallManager.expectOutgoing(number, sims.takeIf { it.size >= 2 }?.firstOrNull { it.id == chosen }?.label)
         return Placed.Done(c.placer.call(number, resolved, simResolved = true, subject = subject))
     }
+
+    /** L5: the dial guard's warnings for the number assisted dialling would call instead (premium, listed numbers). */
+    private suspend fun abroadWarnings(roam: AbroadCalls.Questions) = roam.plan?.let { c.dialGuard.check(it.dial) }.orEmpty()
 
     /** Off the main thread: the platform check may cross into the phone process. */
     suspend fun isEmergency(number: String): Boolean = withContext(Dispatchers.IO) {

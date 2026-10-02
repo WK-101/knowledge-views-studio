@@ -29,10 +29,15 @@ data class ReasonFacts(
  * "Text first" prefills "Calling you about …" in the messaging app. Nothing is sent without the user doing it.
  */
 object CallReason {
-    /** Whether "Call with a reason…" is offered for [number] at all (not for service codes or an empty number). */
+    /**
+     * Whether "Call with a reason…" is offered for [number] at all: not for service codes, an empty number or an emergency
+     * number (M4: nothing, not even a check of the SIMs, may stand before an emergency call; the long-press then does
+     * nothing special). The platform's own emergency list is checked again before the flow gathers anything.
+     */
     fun offered(number: String?): Boolean {
         if (number.isNullOrBlank()) return false
         val n = MenuMemory.dialled(number)
+        if (EmergencyPolicy.isFallbackEmergencyNumber(n)) return false
         return n.isNotEmpty() && !PhoneNumbers.isServiceCode(n) && !n.startsWith("*") && !n.startsWith("#") && n.any { it.isDigit() }
     }
 

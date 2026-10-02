@@ -20,5 +20,9 @@
     <string name="menu_stop_body">Parley forgets the digits it kept for this number and keeps no more. Shortcuts you saved stay.</string>
     <string name="menu_stop_confirm">Don\'t remember</string>
     <!-- One-time tip the first time the "Last time" row shows. -->
-    <string name="menu_tip">Parley remembers the digits you send to phone menus, never ones that look like a PIN or card number.</string>
+    <string name="menu_tip">Parley remembers the keys you press in phone menus, on this phone only. It never keeps 4 or more digits in a row, so PINs and card numbers aren\'t kept. Turn it off in Settings › Calls › Phone menus.</string>
+    <!-- While the phone is locked the remembered keys aren't shown, only that there are some. -->
+    <string name="menu_remembered">Menu keys remembered</string>
+    <string name="menu_sending_locked">Sending menu keys</string>
+    <string name="menu_replay_spoken_locked">Send the remembered menu keys again</string>
 </resources>

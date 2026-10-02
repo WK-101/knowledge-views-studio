@@ -341,6 +341,8 @@ class ContactDetailViewModel(private val c: DataContainer) : ViewModel() {
     /** The contact's ringtone: the address book's, or for a private contact Parley's own (its ringer plays it). */
     fun setRingtone(uri: Uri?) = launch {
         if (vaultId != null) updatePrivateChoices { it.copy(ringtone = uri?.toString()) } else c.contacts.setRingtone(id, uri?.toString())
+        // A tune made from a name that this one replaced goes once nothing else uses it (L8).
+        CallerTunes.sweep(c)
     }
 
     /** "Send to voicemail": Android applies a device contact's; Parley's call screening declines a private contact's calls. */

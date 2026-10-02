@@ -95,6 +95,8 @@ data class PendingCall(
     val abroad: AssistedDial.Plan? = null,
     /** L6: the call's SIM is roaming and another one is local (once per trip). */
     val localSim: AssistedDial.LocalSimHint? = null,
+    /** L5: the dial guard's warnings for [abroad]'s number, shown instead of [warnings] once the user takes it. */
+    val abroadWarnings: List<DialWarning> = emptyList(),
 )
 
 sealed interface UiEvent {

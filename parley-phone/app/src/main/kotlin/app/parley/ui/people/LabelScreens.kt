@@ -373,6 +373,13 @@ fun LabelScreen(vm: AppViewModel, title: String, back: () -> Unit, open: (Destin
     var renaming by rememberSaveable { mutableStateOf(false) }
     var confirmDelete by rememberSaveable { mutableStateOf(false) }
     val tone = s.labelRingtones[current]
+    // A tune made from a name that was replaced or reset here goes once nothing else uses it (its grants with it).
+    var shownTone by remember(current) { mutableStateOf(tone) }
+    LaunchedEffect(tone) {
+        val before = shownTone
+        shownTone = tone
+        if (before != tone && CallerTunes.isOurs(context, before)) CallerTunes.sweep(vm.c)
+    }
     val tonePicker = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { res ->
         if (res.resultCode == Activity.RESULT_OK) {
             @Suppress("DEPRECATION")

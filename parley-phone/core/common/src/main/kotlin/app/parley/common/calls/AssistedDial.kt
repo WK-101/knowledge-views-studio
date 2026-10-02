@@ -96,7 +96,11 @@ object AssistedDial {
         return digits to (if (cut >= 0) raw.substring(cut) else "")
     }
 
-    /** [digits] read as a personal line in [home]'s national format, or null (another form, invalid, a service). */
+    /**
+     * [digits] read as a personal line in [home]'s national format, or null (another form, invalid, a service). L4: also
+     * the home country code typed without "+" ("1 201 555 0123" for the US, "7 912 …" for Russia), which libphonenumber
+     * only reads so when it is unambiguous: the code is the home country's and the rest is a valid home number.
+     */
     private fun homeLine(digits: String, home: String, homeCode: Int): PhoneNumber? {
         val n = try {
             util.parseAndKeepRawInput(digits, home)
@@ -104,9 +108,12 @@ object AssistedDial {
             return null
         }
         // "0044…" or "011…": an international prefix already says where to go.
-        if (n.countryCodeSource != CountryCodeSource.FROM_DEFAULT_COUNTRY || n.countryCode != homeCode) return null
+        if (n.countryCodeSource !in HOME_FORMS || n.countryCode != homeCode) return null
         return n.takeIf { util.isValidNumberForRegion(it, home) && util.getNumberType(it) in LINES }
     }
+
+    /** How a home number may have been written: nationally, or with the home country code but no "+". */
+    private val HOME_FORMS = setOf(CountryCodeSource.FROM_DEFAULT_COUNTRY, CountryCodeSource.FROM_NUMBER_WITHOUT_PLUS_SIGN)
 
     /** An emergency number or a short code (directory enquiries, helplines, the carrier's services) in [region]. */
     private fun shortOrEmergency(digits: String, region: String): Boolean {

@@ -55,6 +55,7 @@ import androidx.core.content.FileProvider
 import app.parley.R
 import app.parley.common.calls.CallerTune
 import app.parley.common.ux.Tips
+import app.parley.data.DataContainer
 import app.parley.ui.ParleyDialog
 import app.parley.ui.Spacing
 import app.parley.ui.common.CoachMark
@@ -72,7 +73,8 @@ import java.io.File
  * system user and may read any provider, exported or not; if its own player fails, Android hands the tone to System
  * UI's ringtone player, which gets a read grant here (re-granted at start, since grants end with a reboot). Private
  * contacts and labels are rung by Parley's own ringer, which reads its own files. The file name is a hash, never the
- * person's name.
+ * person's name. A tune no ringtone uses any more loses its grants and its file ([sweep]: at start and when one is
+ * replaced).
  */
 internal object CallerTunes {
     private const val DIR = "tunes"
@@ -106,6 +108,38 @@ internal object CallerTunes {
     fun regrant(context: Context) {
         val files = File(context.filesDir, DIR).listFiles { f -> f.name.endsWith(".wav") } ?: return
         files.forEach { f -> runCatching { grant(context, FileProvider.getUriForFile(context, authority(context), f)) } }
+    }
+
+    /**
+     * Clears out tunes no ringtone uses any more (one was replaced, a contact or label was deleted): their read grants
+     * are revoked and the files deleted. [inUse]: every ringtone set on device contacts, private contacts and labels;
+     * null when one of those couldn't be read, and then nothing is touched. Returns how many went.
+     */
+    fun prune(context: Context, inUse: Collection<String>?): Int {
+        if (inUse == null) return 0
+        val dir = File(context.filesDir, DIR)
+        val names = dir.list()?.toList() ?: return 0
+        var gone = 0
+        CallerTune.unused(names, inUse).forEach { name ->
+            val file = File(dir, name)
+            // The URI the grants were made for (FileProvider's "tunes" root), built without touching the file.
+            revoke(context, Uri.Builder().scheme("content").authority(authority(context)).appendPath(DIR).appendPath(name).build())
+            if (file.delete()) gone++
+        }
+        return gone
+    }
+
+    /** [prune] with what Parley knows is in use now (device contacts, private contacts, labels). Off the main thread. */
+    suspend fun sweep(c: DataContainer): Int = withContext(Dispatchers.IO) {
+        val contacts = runCatching { c.contacts.customRingtones() }.getOrNull()
+        val private = runCatching { c.vault.ringtonesNow() }.getOrNull()
+        val labels = runCatching { c.peoplePrefs.current().labelRingtones.values }.getOrNull()
+        val inUse = if (contacts == null || private == null || labels == null) null else contacts + private + labels
+        runCatching { prune(c.appContext, inUse) }.getOrDefault(0)
+    }
+
+    private fun revoke(context: Context, uri: Uri) = READERS.forEach { pkg ->
+        runCatching { context.revokeUriPermission(pkg, uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
     }
 
     private fun grant(context: Context, uri: Uri) = READERS.forEach { pkg ->

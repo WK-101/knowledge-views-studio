@@ -1,5 +1,6 @@
 package app.parley.common.calls
 
+import java.security.MessageDigest
 import java.text.Normalizer
 import java.util.Locale
 import java.util.Random
@@ -162,10 +163,28 @@ object CallerTune {
 
     /**
      * The file a tune is kept in. Made from a hash, never the name itself, so the file name (which other apps may
-     * show as the ringtone's title) doesn't say who it is for.
+     * show as the ringtone's title) doesn't say who it is for. L8: 64 bits of SHA-256 over the name's letters and the
+     * variant, so two people's tunes never share a file (a 32-bit hash could, and `save` would hand out the other's).
      */
-    fun fileName(name: String, variant: Int): String =
-        "parley-tune-%08x.wav".format(Locale.ROOT, seed(name) * 31 + variant)
+    fun fileName(name: String, variant: Int): String {
+        val digest = MessageDigest.getInstance("SHA-256").digest((letters(name) + "\u0000" + variant).toByteArray(Charsets.UTF_8))
+        return "parley-tune-" + digest.take(FILE_HASH_BYTES).joinToString("") { "%02x".format(Locale.ROOT, it.toInt() and 0xff) } + ".wav"
+    }
+
+    /** Whether [fileName] is a tune file's name (this form, or the older 32-bit one), for clearing out unused ones. */
+    fun isTuneFile(fileName: String): Boolean = TUNE_FILE.matches(fileName)
+
+    /**
+     * The tune files among [files] that no ringtone uses any more: [inUse] are the ringtones set anywhere (content URIs
+     * or paths; a tune is in use when one ends with its file name).
+     */
+    fun unused(files: List<String>, inUse: Collection<String>): List<String> {
+        val used = inUse.mapNotNullTo(HashSet()) { u -> u.substringAfterLast('/').takeIf(::isTuneFile) }
+        return files.filter { isTuneFile(it) && it !in used }
+    }
+
+    private const val FILE_HASH_BYTES = 8
+    private val TUNE_FILE = Regex("parley-tune-([0-9a-f]{8}|[0-9a-f]{16})\\.wav")
 
     /** The name's letters and digits ("Flat 2" isn't "Flat 3"), accents dropped, lower case; else its other characters. */
     internal fun letters(name: String): String {

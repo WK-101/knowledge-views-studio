@@ -86,8 +86,14 @@ fun DriveProfileScreen(vm: AppViewModel, back: () -> Unit) {
         SegmentedGroup(stringResource(R.string.drive_group_car)) {
             rows.forEach { row -> item("car_${row.device.address}") { DeviceRow(row) { on -> set { DriveProfile.mark(it, row.device, on) } } } }
             if (needsPermission) {
+                // L1: matched by name alone, a common name ("Car Multimedia") could be any car or headphones.
+                val common = cfg.cars.firstOrNull { DriveProfile.genericName(it.name) }
                 item("nearby") {
-                    LinkRow(stringResource(R.string.drive_allow_nearby), stringResource(R.string.drive_allow_nearby_sub), Icons.Rounded.BluetoothSearching) {
+                    LinkRow(
+                        stringResource(if (common != null) R.string.drive_nearby_needed else R.string.drive_allow_nearby),
+                        if (common != null) stringResource(R.string.drive_nearby_needed_sub, common.name) else stringResource(R.string.drive_allow_nearby_sub),
+                        Icons.Rounded.BluetoothSearching,
+                    ) {
                         permission.launch(Manifest.permission.BLUETOOTH_CONNECT)
                     }
                 }

@@ -22,7 +22,8 @@ import kotlinx.coroutines.withContext
  *
  * Like the To call list: a stored document that can't be opened right now is never taken for an empty one (changes are
  * refused until it can be read), and it is never stored as plain text (a change waits in memory until it can be sealed).
- * Private contacts' numbers stay out of the backup ([isPrivate]).
+ * Remembered paths stay on this phone (only shortcuts and opt-outs go into the backup), and private contacts' numbers
+ * stay out of it ([isPrivate]). Paths kept by an older, looser guard are cut to today's on load ([MenuMemory.sanitize]).
  */
 class MenuMemoryStore internal constructor(
     context: Context,
@@ -65,9 +66,11 @@ class MenuMemoryStore internal constructor(
         } catch (_: RecordCrypto.UnreadableException) {
             return false
         }
-        _state.value = MenuMemory.decode(text)
+        val decoded = MenuMemory.decode(text)
+        val clean = MenuMemory.sanitize(decoded)
+        _state.value = clean
         loaded = true
-        if (!stored.isNullOrEmpty() && !crypto.isSealed(stored)) unsaved = true
+        if (clean != decoded || (!stored.isNullOrEmpty() && !crypto.isSealed(stored))) unsaved = true
         return true
     }
 
@@ -105,7 +108,7 @@ class MenuMemoryStore internal constructor(
         mutex.withLock { if (!loadLocked()) true else flushLocked() }
     }
 
-    /** Inside the encrypted backup's settings section; private contacts' numbers stay out. */
+    /** Inside the encrypted backup's settings section: shortcuts and opt-outs, never paths; private contacts' numbers stay out. */
     val backupExtras: BackupExtras = object : BackupExtras {
         override val section = "menu memory"
         override val sections = setOf(PersistentStores.Sections.MENUS)
@@ -115,11 +118,12 @@ class MenuMemoryStore internal constructor(
             check(available) { "Menu memory can't be read right now" }
             val numbers = s.paths.values.map { it.number } + s.shortcuts.map { it.number }
             val leaveOut = numbers.filter { it.isNotEmpty() && runCatching { isPrivate(it) }.getOrDefault(true) }.toSet()
-            return mapOf(X_STATE to MenuMemory.encode(MenuMemory.without(s) { it in leaveOut }))
+            return mapOf(X_STATE to MenuMemory.encode(MenuMemory.forBackup(s) { it in leaveOut }))
         }
 
         override suspend fun import(values: Map<String, String>) {
-            val restored = values[X_STATE]?.let { MenuMemory.decode(it) } ?: return
+            // A backup made before paths stayed on the phone may hold some: they aren't restored.
+            val restored = values[X_STATE]?.let { MenuMemory.decode(it) }?.copy(paths = emptyMap()) ?: return
             update { MenuMemory.merge(it, restored) }
         }
     }

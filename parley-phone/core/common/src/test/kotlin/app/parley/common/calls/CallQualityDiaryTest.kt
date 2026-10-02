@@ -32,6 +32,20 @@ class CallQualityDiaryTest {
         )
     }
 
+    @Test fun a_large_history_is_searched_quickly() {
+        // L9: 60 days of heavy use: 20,000 calls with 2,000 people over two SIMs and Wi-Fi calling, and one real pattern.
+        val calls = (0 until 20_000).map { i ->
+            val who = "p${i % 2_000}"
+            call(who, daysAgo = i % 59, hour = i % 24, sim = if (i % 3 == 0) "Work" else "Home", wifi = i % 5 == 0, drop = who == "p7" || i % 97 == 0)
+        }
+        val started = System.nanoTime()
+        val report = CallQualityDiary.report(calls, zone, now)
+        val ms = (System.nanoTime() - started) / 1_000_000
+        assertNotNull(report)
+        assertTrue("took $ms ms", ms < 5_000)
+        assertEquals("p7", report!!.patterns.first().who)
+    }
+
     @Test fun too_few_calls_say_nothing() {
         assertNull(CallQualityDiary.report(listOf(call("mum", 1), call("mum", 2)), zone, now))
         // Calls that never connected don't count.

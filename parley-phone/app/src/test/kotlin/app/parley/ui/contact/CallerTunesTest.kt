@@ -35,6 +35,21 @@ class CallerTunesTest {
         CallerTunes.regrant(context)
     }
 
+    @Test fun unused_tunes_are_deleted_only_when_every_use_is_known() {
+        // Written directly: FileProvider keeps the first test's files directory for the whole run.
+        val dir = File(context.filesDir, "tunes").apply { mkdirs() }
+        val keptFile = File(dir, CallerTune.fileName("Ana Lima", 0)).apply { writeBytes(byteArrayOf(1)) }
+        val replacedFile = File(dir, CallerTune.fileName("Bo Chen", 0)).apply { writeBytes(byteArrayOf(2)) }
+        val kept = "content://${context.packageName}.files/tunes/${keptFile.name}"
+        // A source that couldn't be read: nothing goes.
+        assertEquals(0, CallerTunes.prune(context, null))
+        assertTrue(replacedFile.exists())
+        // Bo's ringtone was replaced by a system one: his tune (and its grants) go, Ana's stays.
+        assertEquals(1, CallerTunes.prune(context, listOf(kept, "content://media/internal/audio/media/12")))
+        assertTrue(keptFile.exists())
+        assertFalse(replacedFile.exists())
+    }
+
     @Test fun other_ringtones_are_not_ours() {
         assertFalse(CallerTunes.isOurs(context, null))
         assertFalse(CallerTunes.isOurs(context, "content://media/internal/audio/media/12"))

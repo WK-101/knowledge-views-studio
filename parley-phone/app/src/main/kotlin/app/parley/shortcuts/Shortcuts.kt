@@ -95,13 +95,7 @@ object Shortcuts {
      */
     fun pinMenu(context: Context, id: String, name: String, dialString: String, iconName: String, photoUri: String?): Boolean {
         if (!ShortcutManagerCompat.isRequestPinShortcutSupported(context)) return false
-        val info = ShortcutInfoCompat.Builder(context, menuId(id))
-            .setShortLabel(name.take(24))
-            .setLongLabel(name)
-            .setIcon(icon(context, iconName, photoUri))
-            .setIntent(intent(context, Kind.CALL, dialString, null))
-            .build()
-        return ShortcutManagerCompat.requestPinShortcut(context, info, null)
+        return ShortcutManagerCompat.requestPinShortcut(context, menuInfo(context, id, name, dialString, iconName, photoUri), null)
     }
 
     /** A deleted menu shortcut's pinned copy stops working (launchers keep the icon, greyed out). */
@@ -109,14 +103,24 @@ object Shortcuts {
         runCatching { ShortcutManagerCompat.disableShortcuts(context, listOf(menuId(id)), message) }
     }
 
-    /** A renamed menu shortcut keeps its pinned copy in step. */
-    fun renameMenu(context: Context, id: String, name: String, dialString: String, iconName: String) {
-        runCatching {
-            val info = ShortcutInfoCompat.Builder(context, menuId(id)).setShortLabel(name.take(24)).setLongLabel(name)
-                .setIcon(icon(context, iconName, null)).setIntent(intent(context, Kind.CALL, dialString, null)).build()
-            ShortcutManagerCompat.updateShortcuts(context, listOf(info))
-        }
+    /** A renamed menu shortcut keeps its pinned copy in step, its photo included (L7; [iconOf] is replaced in tests). */
+    fun renameMenu(
+        context: Context, id: String, name: String, dialString: String, iconName: String, photoUri: String?,
+        iconOf: (Context, String, String?) -> IconCompat = ::icon,
+    ) {
+        runCatching { ShortcutManagerCompat.updateShortcuts(context, listOf(menuInfo(context, id, name, dialString, iconName, photoUri, iconOf))) }
     }
+
+    /** One menu shortcut as pinned and as renamed, so the two can't drift apart. */
+    internal fun menuInfo(
+        context: Context, id: String, name: String, dialString: String, iconName: String, photoUri: String?,
+        iconOf: (Context, String, String?) -> IconCompat = ::icon,
+    ): ShortcutInfoCompat = ShortcutInfoCompat.Builder(context, menuId(id))
+        .setShortLabel(name.take(24))
+        .setLongLabel(name)
+        .setIcon(iconOf(context, iconName, photoUri))
+        .setIntent(intent(context, Kind.CALL, dialString, null))
+        .build()
 
     /** Keeps launcher long-press shortcuts in sync with favourites. */
     fun updateDynamic(context: Context, favorites: List<ContactSummary>) {

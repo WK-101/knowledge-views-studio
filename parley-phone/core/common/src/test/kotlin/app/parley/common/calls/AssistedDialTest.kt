@@ -85,6 +85,21 @@ class AssistedDialTest {
         assertNull(AssistedDial.convert("011 44 7400 123456", sim("US", "FR")))
     }
 
+    @Test fun home_country_code_without_plus_is_converted() {
+        // L4: US numbers saved as "1 201 555 0123", dialled in Mexico.
+        assertEquals("+12015550123", AssistedDial.convert("1 201 555 0123", sim("US", "MX"))?.dial)
+        assertEquals("+12015550123", AssistedDial.convert("1-201-555-0123", sim("US", "MX"))?.dial)
+        // Russian mobiles saved as "7 912 …" or with the trunk prefix "8 912 …", dialled in Germany.
+        assertEquals("+79123456789", AssistedDial.convert("7 912 345 67 89", sim("RU", "DE"))?.dial)
+        assertEquals("+79123456789", AssistedDial.convert("8 912 345 67 89", sim("RU", "DE"))?.dial)
+        assertEquals("+79123456789", AssistedDial.convert("79123456789", sim("RU", "DE"))?.dial)
+        // Another country's code without "+" is not the home country's: left as typed.
+        assertNull(AssistedDial.convert("44 7400 123456", sim("US", "MX")))
+        assertNull(AssistedDial.convert("1 201 555 0123", sim("RU", "DE")))
+        // An invalid rest is left alone too.
+        assertNull(AssistedDial.convert("1 201 555", sim("US", "MX")))
+    }
+
     @Test fun emergency_numbers_are_never_rewritten() {
         for (n in listOf("112", "999", "911", "000", "110", "119", "08")) {
             assertNull(n, AssistedDial.convert(n, ukInFrance))

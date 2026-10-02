@@ -16,6 +16,8 @@ class CallReasonTest {
         assertFalse(CallReason.offered("#31#"))
         assertFalse(CallReason.offered(" "))
         assertFalse(CallReason.offered(null))
+        // M4: never for an emergency number, however it's written.
+        for (n in listOf("112", "911", "999", "1 1 2", "(911)", "112,,1")) assertFalse(n, CallReason.offered(n))
     }
 
     @Test fun the_subject_goes_with_the_call_when_the_sim_carries_it() {

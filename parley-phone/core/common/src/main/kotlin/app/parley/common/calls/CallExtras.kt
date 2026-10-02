@@ -23,6 +23,8 @@ data class CallExtrasConfig(
     val autoAnswerChosen: Boolean = false,
     /** …after this many seconds of ringing, with Cancel on the call screen. */
     val autoAnswerSeconds: Int = AutoAnswer.DEFAULT_SECONDS,
+    /** I6: remember the keys sent to phone menus ([MenuMemory], with its guard against PINs); off forgets them all. */
+    val rememberMenuKeys: Boolean = true,
 ) {
     companion object {
         private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }

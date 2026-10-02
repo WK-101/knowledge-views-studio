@@ -325,7 +325,7 @@ internal fun CallsPage(vm: AppViewModel, open: (Destination) -> Unit) {
             )
         }
     }
-    CallExtrasGroups(vm)
+    CallExtrasGroups(vm, open)
     // RTT (real-time text): Answer with RTT and Android's TTY and RTT settings.
     RttSettingsGroup(vm)
     // Auto-answer and the haptic caller ID.
