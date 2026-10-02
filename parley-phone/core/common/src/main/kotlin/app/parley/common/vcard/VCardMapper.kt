@@ -818,6 +818,8 @@ object VCardMapper {
     private val SILENT_RAW = setOf(
         "X-ABSHOWAS", "X-ABADR", "X-ABUID", "X-ABORG", "X-ABPERSON", "X-IMAGETYPE", "X-IMAGEHASH", "X-SHARED-PHOTO-DISPLAY-PREF",
         "X-ABCROPRECTANGLE", "X-PARLEY-BLOB", "X-ANDROID-DATA-SET", "X-PHONETIC-ORG", "X-MS-OL-DEFAULT-POSTAL-ADDRESS",
+        // A shared card's signature (app.parley.common.cards.SignedCards): checked when the card arrives, not a field.
+        "X-PARLEY-CARD", "X-PARLEY-SIG",
     )
 
     private fun dateText(p: DateOrTimeProperty): String? {

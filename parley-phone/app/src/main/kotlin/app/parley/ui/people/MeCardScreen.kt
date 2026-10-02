@@ -1,8 +1,6 @@
 package app.parley.ui.people
 
 import app.parley.ui.Destination
-import android.content.Context
-import android.content.Intent
 import android.graphics.Bitmap
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -28,6 +26,13 @@ import androidx.compose.material.icons.rounded.QrCode2
 import androidx.compose.material.icons.rounded.QrCodeScanner
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.Business
+import androidx.compose.material.icons.rounded.People
+import androidx.compose.material.icons.rounded.PhoneForwarded
+import androidx.compose.ui.res.pluralStringResource
+import app.parley.common.cards.ShareLedger
+import app.parley.common.ux.Tips
+import app.parley.ui.Banner
+import app.parley.ui.common.CoachMark
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -52,7 +57,6 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.core.content.FileProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.NavEvent
@@ -66,14 +70,12 @@ import app.parley.ui.qr.QrRoutes
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.EncodeHintType
 import com.google.zxing.qrcode.QRCodeWriter
-import java.io.File
 import androidx.compose.ui.res.stringResource
 import app.parley.R
 import app.parley.ui.DataL10n
 import app.parley.ui.ParleyDialog
 import app.parley.ui.ParleyScaffold
 import app.parley.ui.ParleyTopBar
-import app.parley.ui.showMessage
 import app.parley.ui.ParleyListItem
 import app.parley.ui.common.Intents
 import app.parley.ui.contact.ActionTile
@@ -81,6 +83,9 @@ import app.parley.ui.contact.GroupDataRow
 import app.parley.ui.contact.InfoRow
 import app.parley.ui.contact.mePartLabel
 import app.parley.ui.contact.profileRows
+import app.parley.ui.people.cards.CardSharing
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 
 /** Imports the old "My details" once, so the card starts with what was typed there. */
 @Composable
@@ -122,7 +127,7 @@ fun MeCardRow(vm: AppViewModel, open: (Destination) -> Unit) {
     )
     if (showQr) {
         MeQrDialog(
-            card, parts, onDismiss = { showQr = false }, onEdit = { showQr = false; open(PeopleRoutes.MeEdit) },
+            vm, card, parts, onDismiss = { showQr = false }, onEdit = { showQr = false; open(PeopleRoutes.MeEdit) },
             onScan = { showQr = false; vm.navigate(NavEvent.Route(QrRoutes.Scan)) },
         )
     }
@@ -147,6 +152,12 @@ fun MeCardScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit
     val card = remember(own, profile) { MeCards.merge(own, profile) }
     var showQr by rememberSaveable { mutableStateOf(false) }
     val edit = { open(PeopleRoutes.MeEdit) }
+    val scope = rememberCoroutineScope()
+    val subject = card.name.ifBlank { stringResource(R.string.me_title) }
+    val share = {
+        scope.launch { CardSharing.shareFile(context, CardSharing.vcard(vm.c, card, parts), subject) }
+        Unit
+    }
 
     ParleyScaffold(
         topBar = {
@@ -159,7 +170,9 @@ fun MeCardScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit
             Modifier.fillMaxSize().padding(p).verticalScroll(rememberScrollState()).padding(bottom = Spacing.l),
             verticalArrangement = Arrangement.spacedBy(Spacing.s),
         ) {
-            MeHeader(card, onQr = { showQr = true }, onShare = { shareVcard(context, card, parts) }, onEdit = edit)
+            MeHeader(card, onQr = { showQr = true }, onShare = share, onEdit = edit)
+            // "Changed my number": offered while people you shared with still have an old number.
+            NewNumberBanner(vm, own, open)
             if (!card.isEmpty) MeContactInfo(card)
             if (card.note.isNotBlank()) {
                 SegmentedGroup(stringResource(R.string.me_private_note)) {
@@ -172,6 +185,8 @@ fun MeCardScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit
                     }
                 }
             }
+            // P18: signed cards and "Shared with", explained once.
+            if (!card.isEmpty) CoachMark(Tips.SIGNED_CARD, stringResource(R.string.card_signed_tip))
             SegmentedGroup {
                 // What the QR code and the vCard include; changed in the editor.
                 item {
@@ -183,6 +198,8 @@ fun MeCardScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit
                         supporting = { Text(shared.ifEmpty { listOf(stringResource(R.string.me_share_nothing)) }.joinToString(", ")) },
                     )
                 }
+                // I22: who got your card, when and how.
+                item { SharedWithRow(vm, open) }
                 if (profile != null) {
                     item {
                         InfoRow(
@@ -203,7 +220,7 @@ fun MeCardScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit
         }
     }
     // "Scan theirs" right from your own code.
-    if (showQr) MeQrDialog(card, parts, onDismiss = { showQr = false }, onScan = { showQr = false; vm.navigate(NavEvent.Route(QrRoutes.Scan)) })
+    if (showQr) MeQrDialog(vm, card, parts, onDismiss = { showQr = false }, onScan = { showQr = false; vm.navigate(NavEvent.Route(QrRoutes.Scan)) })
 }
 
 /** The card's compact header, like a contact page's: monogram, name, job line, then the QR code, Share and Edit tiles. */
@@ -255,25 +272,14 @@ private fun MeContactInfo(card: MeCard) {
     }
 }
 
-/** Writes the vCard to Parley's share folder and hands it to the app you choose. */
-private fun shareVcard(context: Context, card: MeCard, parts: Set<MeCards.Part>) {
-    runCatching {
-        val dir = File(context.cacheDir, "share").apply { mkdirs() }
-        val file = File(dir, "my-card.vcf")
-        file.writeText(MeCards.vcard(card, parts))
-        val uri = FileProvider.getUriForFile(context, context.packageName + ".files", file)
-        val send = Intent(Intent.ACTION_SEND).setType("text/x-vcard").putExtra(Intent.EXTRA_STREAM, uri)
-            .putExtra(Intent.EXTRA_SUBJECT, card.name.ifBlank { context.getString(R.string.me_title) }).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        context.startActivity(Intent.createChooser(send, context.getString(R.string.me_share_chooser)))
-    }.onFailure { showMessage(context, context.getString(R.string.me_share_failed)) }
-}
-
 /**
  * The card as a QR code (made on the phone). It starts with the parts chosen in the editor ([initialParts]); ticking
  * others here changes only this code. [onEdit]: an Edit button to the editor.
  */
+@Suppress("CyclomaticComplexMethod") // One check per part the card can share.
 @Composable
 internal fun MeQrDialog(
+    vm: AppViewModel,
     card: MeCard,
     initialParts: Set<MeCards.Part>,
     onDismiss: () -> Unit,
@@ -293,8 +299,9 @@ internal fun MeQrDialog(
             MeCards.Part.PROFILES -> card.profiles.isNotEmpty()
         }
     }
-    val text = MeCards.vcard(card, parts.toSet())
-    val bitmap = remember(text) { qr(text, 720) }
+    // Signed (I14): a contact's Parley can tell a later card from you; camera apps read it like any vCard.
+    val text by CardSharing.rememberVcard(vm, card, parts.toSet())
+    val bitmap = remember(text) { text?.let { qr(it, 720) } }
     ParleyDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.me_title)) },
@@ -303,7 +310,7 @@ internal fun MeQrDialog(
                 bitmap?.let { Image(it.asImageBitmap(), stringResource(R.string.me_qr_desc), Modifier.size(240.dp).background(Color.White).padding(8.dp)) }
                 Text(stringResource(R.string.me_scan), modifier = Modifier.padding(vertical = 8.dp))
                 if (onScan != null) {
-                    OutlinedButton(onScan) {
+                    OutlinedButton({ CardSharing.swapStarted(); onScan() }) {
                         Icon(Icons.Rounded.QrCodeScanner, null, Modifier.size(18.dp))
                         Text("  " + stringResource(R.string.qs_scan_theirs))
                     }
@@ -320,7 +327,10 @@ internal fun MeQrDialog(
         dismissButton = {
             Row {
                 if (onEdit != null) TextButton(onEdit) { Text(stringResource(R.string.me_edit_short)) }
-                TextButton({ shareVcard(context, card, parts.toSet()) }) { Text(stringResource(R.string.me_share_file)) }
+                val subject = card.name.ifBlank { stringResource(R.string.me_title) }
+                TextButton({ text?.let { CardSharing.shareFile(context, it, subject) } }, enabled = text != null) {
+                    Text(stringResource(R.string.me_share_file))
+                }
             }
         },
     )
@@ -332,4 +342,46 @@ private fun qr(text: String, size: Int): Bitmap? = try {
     Bitmap.createBitmap(px, size, size, Bitmap.Config.ARGB_8888)
 } catch (_: Exception) {
     null
+}
+
+/** My card › "Shared with": how many people have your card; opens the list (I22). */
+@Composable
+private fun SharedWithRow(vm: AppViewModel, open: (Destination) -> Unit) {
+    val store = vm.c.people.shareLedger
+    LaunchedEffect(Unit) { store.load() }
+    val receipts by store.receipts.collectAsStateWithLifecycle()
+    val people = remember(receipts) { ShareLedger.people(receipts, vm.countryIso).size }
+    InfoRow(
+        modifier = Modifier.clickable(onClickLabel = stringResource(R.string.card_shared_open)) { open(PeopleRoutes.SharedWith) },
+        leading = { Icon(Icons.Rounded.People, null) },
+        headline = { Text(stringResource(R.string.card_shared_title)) },
+        supporting = {
+            Text(
+                if (people == 0) stringResource(R.string.card_shared_none)
+                else pluralStringResource(R.plurals.card_shared_people, people, people),
+            )
+        },
+    )
+}
+
+/**
+ * After a number change on My card: "You have a new number. Tell the 3 people who have the old one?" until they've
+ * been told or the offer is dismissed for these numbers (I14).
+ */
+@Composable
+private fun NewNumberBanner(vm: AppViewModel, own: MeCard, open: (Destination) -> Unit) {
+    val store = vm.c.people.shareLedger
+    LaunchedEffect(Unit) { store.load() }
+    val receipts by store.receipts.collectAsStateWithLifecycle()
+    val dismissed by store.dismissedNumbers.collectAsStateWithLifecycle()
+    val phones = own.cleaned().phones
+    val key = ShareLedger.numbersKey(phones)
+    val outdated = remember(receipts, phones) { ShareLedger.outdated(receipts, phones, vm.countryIso).size }
+    if (outdated == 0 || dismissed == key) return
+    Banner(
+        pluralStringResource(R.plurals.card_new_number_banner, outdated, outdated),
+        icon = Icons.Rounded.PhoneForwarded,
+        action = stringResource(R.string.card_new_number_tell), onAction = { open(PeopleRoutes.NewNumber) },
+        onDismiss = { store.dismissNumbers(key) }, dismissLabel = stringResource(R.string.card_update_not_now),
+    )
 }

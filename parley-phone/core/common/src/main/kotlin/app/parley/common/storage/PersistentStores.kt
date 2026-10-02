@@ -124,6 +124,12 @@ object PersistentStores {
         PersistentStore("parley_circle", StoreKind.PREFS, backedUp, Sections.CIRCLE),
         PersistentStore("private_names", StoreKind.PREFS, backedUp, Sections.PEOPLE),
         PersistentStore("me_card", StoreKind.PREFS, backedUp, Sections.PEOPLE),
+        // My card's id and signing key (sealed): in the encrypted backup, so your next phone signs your card as you.
+        PersistentStore("my_card_identity", StoreKind.PREFS, backedUp, Sections.PEOPLE),
+        // "Shared with": who got your card (sealed).
+        PersistentStore("card_sharing", StoreKind.PREFS, backedUp, Sections.PEOPLE),
+        // Contacts linked to their signed cards, by Parley key (sealed); private contacts' links travel with them.
+        PersistentStore("card_links", StoreKind.PREFS, backedUp, Sections.PEOPLE),
         PersistentStore("parley_ring_facts", StoreKind.PREFS, local("Sealed with this phone's call-history key; kept 60 days")),
         PersistentStore("parley_call_quality", StoreKind.PREFS, local("Call quality facts, sealed with this phone's call-history key; kept 60 days")),
         PersistentStore(

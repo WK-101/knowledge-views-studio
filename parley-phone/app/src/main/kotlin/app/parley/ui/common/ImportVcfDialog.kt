@@ -28,6 +28,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import app.parley.ui.ParleyDialog
+import app.parley.ui.people.cards.CardArrivalNotes
+import app.parley.ui.people.cards.rememberSignedCardText
 
 /** Import a .vcf opened or shared from another app: choose the account, import, show the result. */
 @Composable
@@ -50,6 +52,9 @@ fun ImportVcfDialog(vm: AppViewModel, uri: Uri, onDone: () -> Unit) {
         }
     }
 
+    // A signed card (I14, e.g. someone's My card sent as a file): an update for the contact who has it, or a warning.
+    val signed by rememberSignedCardText(vm, uri)
+
     ParleyDialog(
         onDismissRequest = { if (!running) onDone() },
         title = { Text(stringResource(if (result != null) R.string.import_finished else R.string.import_into)) },
@@ -62,6 +67,7 @@ fun ImportVcfDialog(vm: AppViewModel, uri: Uri, onDone: () -> Unit) {
                         LinearProgressIndicator(progress = { progress })
                     }
                     else -> {
+                        CardArrivalNotes(vm, signed, onOpen = onDone)
                         val known = count
                         if (known == null) LinearProgressIndicator()
                         accounts.forEach { a ->

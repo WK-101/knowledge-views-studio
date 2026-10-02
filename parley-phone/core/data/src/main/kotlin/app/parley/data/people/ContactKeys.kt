@@ -54,6 +54,8 @@ class ContactKeys(
     private val calling: () -> CallingRepository? = { null },
     /** Re-keys waiting for a contact's lookup key ([rekeyLater]); none are kept without it. */
     private val waiting: () -> SharedPreferences? = { null },
+    /** The signed card a contact is linked to (I14) follows the same moves. */
+    private val cardLinks: () -> CardLinkStore? = { null },
 ) {
     private val mutex = Mutex()
 
@@ -155,6 +157,7 @@ class ContactKeys(
         if (carried.isNotEmpty()) o.put(X_INTERACTIONS, Interactions.encodeCarried(carried))
         runCatching { backgrounds().read(key) }.getOrNull()?.let { o.put(X_BACKGROUND, android.util.Base64.encodeToString(it, android.util.Base64.NO_WRAP)) }
         calling()?.config?.value?.contactPart(key)?.takeIf { !it.isEmpty }?.let { o.put(X_CALL_TIME, encodeCallTime(it)) }
+        runCatching { cardLinks()?.let { s -> s.load(); s.exportOne(key) } }.getOrNull()?.let { o.put(X_CARD, it) }
         o.takeIf { it.length() > 0 }
     }
 
@@ -203,6 +206,7 @@ class ContactKeys(
                 runCatching { backgrounds().write(key, android.util.Base64.decode(b, android.util.Base64.NO_WRAP)); backgrounds().remember(key) }
             }
             o.optJSONObject(X_CALL_TIME)?.let { t -> runCatching { calling()?.update { it.withContactPart(key, decodeCallTime(t), "") } } }
+            o.optString(X_CARD).ifEmpty { null }?.let { j -> runCatching { cardLinks()?.importOne(key, j) } }
         }
     }
 
@@ -235,6 +239,7 @@ class ContactKeys(
         runCatching { extras()?.dndForget(key) }
         runCatching { extras()?.choiceForget(key) }
         runCatching { calling()?.update { it.withoutContact(key) } }
+        runCatching { cardLinks()?.forget(key) }
     }
 
     /** The state of the last complete sweep, to skip the next one when nothing it depends on changed. */
@@ -264,6 +269,7 @@ class ContactKeys(
             runCatching { extras()?.dndKeys() }.getOrNull()?.forEach { if (!ContactRef.isPrivateKey(it)) keys.putIfAbsent(it, null) }
             runCatching { extras()?.choiceKeys() }.getOrNull()?.forEach { if (!ContactRef.isPrivateKey(it)) keys.putIfAbsent(it, null) }
             runCatching { originals()?.keys() }.getOrNull()?.forEach { if (!ContactRef.isPrivateKey(it)) keys.putIfAbsent(it, null) }
+            runCatching { cardLinks()?.let { s -> s.load(); s.keys() } }.getOrNull()?.forEach { if (!ContactRef.isPrivateKey(it)) keys.putIfAbsent(it, null) }
             val temporaries = meta.allTemporary()
             val snapshot = KeySweep.Snapshot(current, keys + temporaries.associate { "t:" + it.lookupKey + ":" + it.rawIds to it.contactId })
             if (snapshot == lastSweep) return@withLock settled
@@ -325,6 +331,7 @@ class ContactKeys(
         runCatching { extras()?.dndRekey(from, to) }
         // The haptic caller ID and auto-answer (into the vault entry when [to] is a private contact's key).
         runCatching { extras()?.choiceRekey(from, to) }
+        runCatching { cardLinks()?.rekey(from, to) }
         // A private contact's limit keeps no name (it would be the only copy of it outside the vault).
         runCatching {
             calling()?.update { cfg ->
@@ -407,6 +414,7 @@ private const val X_YEARLY = "y"
 private const val X_INTERACTIONS = "i"
 private const val X_BACKGROUND = "bg"
 private const val X_CALL_TIME = "ct"
+private const val X_CARD = "card"
 
 private fun encodeCallTime(p: ContactCallTime): JSONObject = JSONObject().apply {
     p.rule?.let { r ->

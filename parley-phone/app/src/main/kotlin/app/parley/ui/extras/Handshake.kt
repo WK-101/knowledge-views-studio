@@ -12,6 +12,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
@@ -30,6 +31,8 @@ import app.parley.common.extras.PendingSlot
 import app.parley.common.people.MeCard
 import app.parley.common.people.MeCards
 import app.parley.ui.people.MeQrDialog
+import app.parley.ui.people.cards.CardSharing
+import app.parley.common.cards.ShareMethod
 import app.parley.ui.people.PeopleRoutes
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -100,9 +103,12 @@ private fun CheckLine(text: String, checked: Boolean, onChange: (Boolean) -> Uni
     }
 }
 
-/** "Swap": your own card as a QR code (the Me card's dialog), shown right after theirs arrived. */
+/**
+ * "Swap": your own card as a QR code (the Me card's dialog), shown right after theirs arrived. [to] is the person whose
+ * card just arrived (name, number): showing them yours goes into "Shared with" (I22).
+ */
 @Composable
-fun MyCardQrDialog(vm: AppViewModel, onDismiss: () -> Unit) {
+fun MyCardQrDialog(vm: AppViewModel, to: Pair<String, String?>? = null, onDismiss: () -> Unit) {
     val own by vm.c.people.me.card.collectAsStateWithLifecycle()
     val profile by produceState<MeCard?>(null) { value = runCatching { vm.c.people.me.profile() }.getOrNull() }
     val merged = MeCards.merge(own, profile)
@@ -117,6 +123,7 @@ fun MyCardQrDialog(vm: AppViewModel, onDismiss: () -> Unit) {
             dismissLabel = stringResource(R.string.dc_cancel),
         )
     } else {
-        MeQrDialog(merged, parts, onDismiss = onDismiss)
+        if (to != null) LaunchedEffect(to) { CardSharing.record(vm.c, to.first, to.second, ShareMethod.QR_SWAP, merged.phones) }
+        MeQrDialog(vm, merged, parts, onDismiss = onDismiss)
     }
 }

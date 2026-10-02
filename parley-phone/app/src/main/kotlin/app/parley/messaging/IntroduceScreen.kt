@@ -46,6 +46,8 @@ import app.parley.R
 import app.parley.common.ContactSummary
 import app.parley.common.NumberText
 import app.parley.common.messaging.IntroQueue
+import app.parley.common.cards.ShareMethod
+import app.parley.ui.people.cards.CardSharing
 import app.parley.ui.Bidi
 import app.parley.ui.EmptyState
 import kotlinx.coroutines.Dispatchers
@@ -124,6 +126,8 @@ fun IntroduceScreen(vm: AppViewModel, back: () -> Unit) {
         if (!a.takesText && draft != null) showMessage(context, res.getString(R.string.intro_copied), long = true)
         store.lastApp = a.packageName
         store.recordOpened(t.number, a, a.label, isContact = true)
+        // My card › Shared with (I22): they now have your details.
+        CardSharing.record(vm.c, t.name, t.number, ShareMethod.INTRODUCE, listOfNotNull(details.number.ifBlank { null }))
         queue = queue.markOpened()
         awaitingReturn = true
     }
