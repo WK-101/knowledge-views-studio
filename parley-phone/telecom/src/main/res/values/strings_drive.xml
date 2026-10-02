@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The drive profile on the call screen: the quiet status line while a car the user marked is connected, why an
+     unknown caller rings silently, and the "Driving" replies. -->
+<resources>
+    <!-- A quiet line under the caller while the marked car is connected -->
+    <string name="drive_status">Drive profile on</string>
+    <!-- One-line explainer the first time the status line shows -->
+    <string name="drive_status_tip">Your car is connected, so Parley says who\'s calling and offers driving replies. Change it in Settings › Calls › Drive profile.</string>
+    <!-- Why an unknown caller rings silently -->
+    <string name="drive_silenced">Silenced while driving</string>
+    <!-- Heading above the driving replies in the reply sheet -->
+    <string name="drive_replies_title">While driving</string>
+    <!-- Sent as SMS to the caller while the drive profile is on -->
+    <string-array name="drive_replies">
+        <item>I\'m driving. I\'ll call you when I stop.</item>
+        <item>Driving now, call you back soon.</item>
+        <item>I\'m on the road. Can you text me?</item>
+    </string-array>
+</resources>

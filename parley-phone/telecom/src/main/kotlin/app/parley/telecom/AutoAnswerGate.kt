@@ -25,16 +25,19 @@ internal class AutoAnswerGate(private val scope: CoroutineScope, private val con
         fun facts(session: CallSession): AutoAnswer.Facts?
         fun answer(session: CallSession)
         fun changed()
+
+        /** I11: the drive profile's car is connected and its auto-answer is on (checked even with the rest off). */
+        fun driving(): Boolean = false
     }
 
     /** Arms [session] when auto-answer applies to it now; nothing when it already was, or the user cancelled it. */
     fun consider(session: CallSession, host: Host) {
         if (session.autoAnswerAt != 0L || session.autoAnswerCancelled || session.screening) return
         val cfg = runCatching { config() }.getOrDefault(CallExtrasConfig())
-        if (!AutoAnswer.enabled(cfg)) return
+        if (!AutoAnswer.enabled(cfg) && !host.driving()) return
         val facts = host.facts(session) ?: return
-        AutoAnswer.reason(cfg, facts) ?: return
-        val waitMs = AutoAnswer.normalise(cfg.autoAnswerSeconds) * 1000L
+        val reason = AutoAnswer.reason(cfg, facts) ?: return
+        val waitMs = AutoAnswer.waitSeconds(cfg, reason, facts) * 1000L
         session.autoAnswerAt = SystemClock.elapsedRealtime() + waitMs
         jobs[session.id]?.cancel()
         jobs[session.id] = scope.launch {

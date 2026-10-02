@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Calling abroad: assisted dialling (adding the country code) and the once-per-trip local SIM suggestion. -->
+<resources>
+    <!-- SIMs & plan minutes: the group with the settings for calling abroad -->
+    <string name="set_group_abroad">Abroad</string>
+    <string name="set_assisted_dialling_title">Assisted dialling abroad</string>
+    <string name="set_assisted_dialling_summary">While you\'re abroad, offers to add the country code to numbers in your home format</string>
+    <string name="set_assisted_dialling_kw">roaming, abroad, travel, country code, international, plus, assisted dialing, holiday</string>
+    <string name="set_local_sim_hint_title">Suggest a local SIM abroad</string>
+    <string name="set_local_sim_hint_summary">Once per trip, when your other SIM is local where you are</string>
+    <string name="set_local_sim_hint_kw">roaming, dual sim, second sim, esim, travel, abroad, cost, holiday</string>
+
+    <!-- %1$s: the number with its country code, e.g. "+44 20 7946 0958" -->
+    <string name="abroad_title">Call %1$s?</string>
+    <!-- %1$s: the SIM's home country, e.g. "United Kingdom" -->
+    <string name="abroad_body">You\'re abroad, so Parley added the country code for %1$s.</string>
+    <!-- %1$s: the number as typed; %2$s: the country the phone is in -->
+    <string name="abroad_also_local">%1$s could also be a local number in %2$s.</string>
+    <string name="abroad_call">Call</string>
+    <string name="abroad_as_typed">Dial as typed</string>
+    <!-- TalkBack for "Dial as typed"; %1$s: the number as typed -->
+    <string name="abroad_as_typed_desc">Dial %1$s as typed</string>
+
+    <!-- %1$s: the local SIM's name, e.g. "SIM 2" -->
+    <string name="local_sim_title">Use %1$s?</string>
+    <!-- %1$s: the roaming SIM; %2$s: the local SIM -->
+    <string name="local_sim_body">%1$s is roaming; %2$s is local here, so calls on it may cost less. Parley asks once per trip.</string>
+    <!-- %1$s: the local SIM -->
+    <string name="local_sim_use">Use %1$s</string>
+    <!-- %1$s: the roaming SIM -->
+    <string name="local_sim_keep">Keep %1$s</string>
+</resources>

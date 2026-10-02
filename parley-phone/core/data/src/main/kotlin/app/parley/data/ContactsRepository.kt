@@ -371,7 +371,7 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
         val projection = arrayOf(
             PhoneLookup._ID, PhoneLookup.LOOKUP_KEY, PhoneLookup.DISPLAY_NAME, PhoneLookup.PHOTO_URI,
             PhoneLookup.TYPE, PhoneLookup.LABEL, PhoneLookup.CUSTOM_RINGTONE, PhoneLookup.SEND_TO_VOICEMAIL,
-        )
+        ) + STAR.takeUnless { strict }.orEmpty() // the drive profile answers favourites; the work profile's lookup isn't asked
         val cursor = if (strict) cr.query(uri, projection, null, null, null) else cr.safeQuery(uri, projection)
         return cursor?.use { c ->
             if (!c.moveToFirst()) return null
@@ -385,6 +385,7 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
                 customRingtone = c.getString(6),
                 sendToVoicemail = c.getInt(7) != 0,
                 work = Contacts.isEnterpriseContactId(id),
+                starred = !strict && c.getInt(8) != 0,
             )
         }
     }
@@ -1292,3 +1293,6 @@ private val FIELD_NAMES: Map<String, String> = mapOf(
     StructuredPostal.CONTENT_ITEM_TYPE to "Address",
     GroupMembership.CONTENT_ITEM_TYPE to "Labels",
 )
+
+/** The caller lookup's extra column for the star (the personal profile only). */
+private val STAR = arrayOf(PhoneLookup.STARRED)

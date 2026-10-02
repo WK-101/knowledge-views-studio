@@ -153,6 +153,8 @@ data class CallerInfo(
     val sendToVoicemail: Boolean,
     /** Found in the work profile (through the enterprise lookup); it can't be opened or edited from here. */
     val work: Boolean = false,
+    /** A favourite (the address book's star, or Parley's own for a private contact): the drive profile may answer it. */
+    val starred: Boolean = false,
 )
 
 /** A birthday / anniversary / other date of a contact, for the timeline and reminders. */

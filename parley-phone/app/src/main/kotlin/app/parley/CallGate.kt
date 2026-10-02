@@ -1,5 +1,6 @@
 package app.parley
 
+import app.parley.calls.AbroadCalls
 import app.parley.calltime.CallTimePlanner
 import app.parley.common.PhoneNumbers
 import app.parley.common.SimAccount
@@ -19,6 +20,7 @@ import kotlinx.coroutines.withContext
  */
 class CallGate(private val c: DataContainer) {
     private val callTime = CallTimePlanner(c)
+    private val abroad = AbroadCalls(c)
 
     /**
      * The question to ask before calling [number], or null to call straight away. [simId]: the SIM the user already
@@ -37,8 +39,11 @@ class CallGate(private val c: DataContainer) {
         val warnings = c.dialGuard.check(number)
         // A SIM still to be chosen changes the allowance: then it's checked once the SIM is known.
         val note = if (!chooseSim) callTime.outgoingWarning(number, remembered ?: default) else null
-        return if (confirm || chooseSim || warnings.isNotEmpty() || note != null) {
-            PendingCall(number, name, confirm || note != null, chooseSim, note, simId, warnings)
+        // L6: abroad, the number with its country code and a local SIM (asked again in [place] once a SIM is chosen).
+        val roam = if (!chooseSim) abroad.questions(number, remembered ?: default) else AbroadCalls.Questions()
+        val ask = listOf(confirm, chooseSim, warnings.isNotEmpty(), note != null, roam.any).any { it }
+        return if (ask) {
+            PendingCall(number, name, confirm || note != null, chooseSim, note, simId, warnings, abroad = roam.plan, localSim = roam.localSim)
         } else {
             null
         }
@@ -63,7 +68,11 @@ class CallGate(private val c: DataContainer) {
         val resolved = simId ?: c.placer.resolveSim(number)
         val chosen = resolved ?: withContext(Dispatchers.IO) { c.sims.defaultOutgoing() }
         if (!confirmed) {
-            callTime.outgoingWarning(number, chosen)?.let { note -> return Placed.Ask(PendingCall(number, name, true, false, note, simId)) }
+            val note = callTime.outgoingWarning(number, chosen)
+            val roam = abroad.questions(number, chosen)
+            if (note != null || roam.any) {
+                return Placed.Ask(PendingCall(number, name, note != null, false, note, simId, abroad = roam.plan, localSim = roam.localSim))
+            }
         }
         // "Calling via Work SIM…" until the call exists.
         CallManager.expectOutgoing(number, sims.takeIf { it.size >= 2 }?.firstOrNull { it.id == chosen }?.label)

@@ -23,6 +23,8 @@ import app.parley.data.calls.RingFactsStore
 import app.parley.data.calls.ToCallStore
 import app.parley.data.calls.FamilySafetyStore
 import app.parley.data.calls.VoicemailRepository
+import app.parley.data.calls.DriveProfileRepository
+import app.parley.data.calls.RoamingRepository
 import app.parley.data.calltime.CallUsageLedger
 import app.parley.data.calltime.CallingRepository
 import app.parley.data.circle.CircleRepository
@@ -139,6 +141,12 @@ class DataContainer(context: Context) {
 
     /** Family safety: safe words per label, helpers, expected-call windows (sealed, this phone only). */
     val familySafety by lazy { FamilySafetyStore(appContext) }
+
+    /** I11 drive profile (the cars and what happens while one is connected), read from memory on the call path. */
+    val driveProfile by lazy { DriveProfileRepository(appContext) }
+
+    /** L6 assisted dialling abroad and the local-SIM hint. */
+    val roaming by lazy { RoamingRepository(appContext, sims) }
     val vcards by lazy { VCardIO(appContext, contacts, records) { vault.allNumbers() } }
 
     /** Lossless moves into and out of the private vault. */

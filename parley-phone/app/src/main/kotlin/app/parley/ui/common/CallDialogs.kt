@@ -66,6 +66,13 @@ fun CallQuestions(
     val shownNumber = Bidi.ltr(Format.number(p.number, countryIso))
     val who = p.name?.let { stringResource(R.string.call_who_with_number, it, shownNumber) } ?: shownNumber
 
+    // L6: abroad, the number with its country code and a local SIM come first: the warnings below are about the
+    // number that will actually be dialled.
+    if (p.abroad != null || p.localSim != null) {
+        AbroadQuestions(p, onUpdate, onPlace)
+        return
+    }
+
     if (p.warnings.isNotEmpty()) {
         // The sheet is the confirmation: it also shows the allowance note, so "Call" means yes to both.
         DialGuardSheet(who, p.warnings, note = p.note, onCall = {

@@ -65,6 +65,9 @@ object Tips {
     /** My card: shared cards are signed, so contacts with Parley get your updates; "Shared with" lists who has it. */
     const val SIGNED_CARD = "signed_card"
 
+    /** I11: "Drive profile on" on the call screen, the first time a marked car is connected during a call. */
+    const val DRIVE_PROFILE = "drive_profile"
+
     /** Ids are stored comma-separated; anything that isn't a plain id is dropped. */
     private val ID = Regex("[a-z0-9_]{1,40}")
 

@@ -33,6 +33,7 @@ import app.parley.common.calls.DropFacts
 import app.parley.common.calls.DropKind
 import app.parley.common.calls.HoldMode
 import app.parley.common.calls.CallFailure
+import app.parley.common.calls.DriveProfile
 import app.parley.common.calls.EmergencyPolicy
 import app.parley.common.calls.EmergencyPolicy.Safeguard
 import app.parley.common.calls.EndCode
@@ -84,6 +85,7 @@ object CallManager {
     private val screening = ScreeningCoordinator(scope) { deps }
     private val limits = CallLimitsGate(scope) { deps }
     private val autoAnswer = AutoAnswerGate(scope) { deps.autoAnswer() }
+    private val drive = DriveGate { deps.driveProfile() }
     private val notifier = NotifierBridge()
 
     private val _calls = MutableStateFlow<List<CallUi>>(emptyList())
@@ -126,7 +128,11 @@ object CallManager {
     private lateinit var appContext: Context
 
     private val callback = object : Call.Callback() {
-        override fun onStateChanged(call: Call, state: Int) = publish()
+        override fun onStateChanged(call: Call, state: Int) {
+            // I11: the caller's name is never said over a call that stopped ringing.
+            if (state != Call.STATE_RINGING) drive.quiet(idOf(call))
+            publish()
+        }
         override fun onDetailsChanged(call: Call, details: Call.Details) = publish()
         override fun onChildrenChanged(call: Call, children: MutableList<Call>) = publish()
         override fun onParentChanged(call: Call, parent: Call?) = publish()
@@ -171,7 +177,12 @@ object CallManager {
         }
         override fun changed() {
             // Screening has answered: a known caller's call may now be armed for auto-answer.
-            calls.firstOrNull { sessions[idOf(it)]?.screening == false && ringing(it) }?.let { considerAutoAnswer(it) }
+            calls.firstOrNull { sessions[idOf(it)]?.screening == false && ringing(it) }?.let { c ->
+                considerAutoAnswer(c)
+                // I11: a contact whose name waited for the verdict.
+                val s = session(idOf(c))
+                s.info?.let { if (::appContext.isInitialized) announceInCar(c, s, it) }
+            }
             publish()
         }
     }
@@ -191,8 +202,11 @@ object CallManager {
                 headsetConnected = AutoAnswerGate.headsetConnected(appContext),
                 simpleMode = runCatching { deps.appearance.value.simpleMode }.getOrDefault(false),
                 chosen = session.info?.autoAnswerChosen == true,
+                favourite = session.info?.favourite == true,
+                drive = drive.answerScope(appContext),
             )
         }
+        override fun driving(): Boolean = ::appContext.isInitialized && drive.answerScope(appContext) != null
         override fun answer(session: CallSession) = answer(session.id)
         override fun changed() = publish()
     }
@@ -275,6 +289,7 @@ object CallManager {
                         // The caller's haptic caller ID: Parley's ringer takes over the ringing (or the tone playing).
                         applyCallerVibration(call, s)
                         considerAutoAnswer(call)
+                        announceInCar(call, s, found)
                     }
                 } else {
                     // Only a lookup that finished and found nobody: a timeout or a failure must never offer "Block" for a contact.
@@ -283,7 +298,7 @@ object CallManager {
                     if (looked) rememberNumber(call, s, number, accountId)
                     if (incoming) {
                         s.unknownCaller = true
-                        maybePlayUnknownRingtone(call, s)
+                        if (!silenceInCar(call, s, number, accountId)) maybePlayUnknownRingtone(call, s)
                         // Show "unknown caller" with Block and Save now; the place fills in when the geocoder answers.
                         publish()
                         // "Where is this number from": the geocoder loads large data files the first time, so never
@@ -296,9 +311,55 @@ object CallManager {
             }
         } else if (incoming) {
             s.unknownCaller = true
-            scope.launch { maybePlayUnknownRingtone(call, s) }
+            scope.launch { if (!silenceInCar(call, s, null, accountId)) maybePlayUnknownRingtone(call, s) }
         }
         publish()
+    }
+
+    /** I11: in the car, the caller's name once through its speakers (a contact, or a private contact discreet mode shows). */
+    private fun announceInCar(call: Call, s: CallSession, found: CallerDisplay) {
+        // Screening first: a blocked or flagged contact isn't announced (the verdict calls this again).
+        if (!ringing(call) || s.screening) return
+        val number = call.details.handle?.schemeSpecificPart
+        val o = s.outcome
+        drive.announce(
+            appContext, s.id, found.name,
+            DriveProfile.Caller(
+                known = true,
+                hidden = call.details.handlePresentation != TelecomManager.PRESENTATION_ALLOWED,
+                blockedOrSpam = o?.decision is Decision.Block || o?.warn == true,
+                otherCall = calls.any { it != call && it.parent == null && mapState(it.stateCompat()) != CallState.DISCONNECTED },
+                emergency = EmergencyPolicy.bypasses(Safeguard.SCREENING, emergencyFacts(call, number, incoming = true)),
+                quiet = s.silenced || s.systemSilenced,
+            ),
+        )
+    }
+
+    /**
+     * I11: in the car, with "Silence unknown callers" on, a caller who is neither a contact nor a private contact rings
+     * silently (still a missed call). Never an emergency call-back or a call screening let through on purpose; a
+     * number that can't be checked in time rings. Returns whether it silenced the call.
+     */
+    private suspend fun silenceInCar(call: Call, s: CallSession, number: String?, accountId: String?): Boolean {
+        if (!::appContext.isInitialized || s.silenced) return false
+        if (!ringing(call) || !drive.mightSilence(appContext)) return false
+        // Screening's verdict first: a repeat caller or an expected call it lets through must ring.
+        withTimeoutOrNull(ScreeningCoordinator.SCREEN_TIMEOUT_MS + SCREEN_GRACE_MS) { while (s.screening && ringing(call)) delay(SCREEN_POLL_MS) }
+        val saved = number != null &&
+            withTimeoutOrNull(LOOKUP_TIMEOUT_MS) { runCatching { deps.isSavedCaller(number, accountId) }.getOrNull() } != false
+        val caller = DriveProfile.Caller(
+            known = false, saved = saved, hidden = number == null,
+            emergency = EmergencyPolicy.bypasses(Safeguard.SCREENING, emergencyFacts(call, number, incoming = true)),
+            rangThrough = s.outcome?.rangThrough != null,
+        )
+        if (!ringing(call) || !drive.silences(appContext, caller)) return false
+        s.silenced = true
+        drive.markSilenced(s.id)
+        ringer.stop()
+        silenceRinger()
+        autoAnswer.cancel(s)
+        publish()
+        return true
     }
 
     /** I1: looks up number memory off the main thread, within the caller lookup's time; fails open (no line). */
@@ -378,6 +439,7 @@ object CallManager {
         // stop the tone or vibration Parley just took over, and cancel auto-answer. Only the user's silence counts.
         if (selfSilence.consumed(SystemClock.elapsedRealtime())) return
         ringer.stop()
+        drive.quiet()
         // Silencing a call says "not now": it isn't answered on its own either.
         calls.filter { it.stateCompat() == Call.STATE_RINGING }.forEach { autoAnswer.cancel(session(idOf(it))) }
         restoreBoost()
@@ -396,6 +458,7 @@ object CallManager {
         if (ringer.toneFor == id) ringer.stop()
         if (ringer.boostedFor == id) restoreBoost()
         autoAnswer.forget(id)
+        drive.forget(id)
         val base = toUi(call)
         // An outgoing call that never went through: the reason and Retry stay on the call-ended screen.
         val failure = CallFailure.classify(endFacts(call, base, s))
@@ -565,7 +628,7 @@ object CallManager {
             disconnectReason = if (s.endedByLimit) str(R.string.call_limit_reached) else d.disconnectCause?.let { disconnectText(it) },
             postDialWait = s.postDial,
             silenced = s.silenced,
-            silenceReason = if (s.quotaSilenced) str(R.string.call_silenced_quota) else null,
+            silenceReason = silenceReasonOf(s),
             accountId = account?.id,
             heldSinceElapsed = book.heldSince(id),
             isEmergency = isEmergencyCall(call, number),
@@ -594,8 +657,20 @@ object CallManager {
             reputation = reputationTag(s, call, number, hidden),
             // Only ever set for a number the lookup found no contact for.
             numberMemory = s.numberMemory,
+            driving = drivingNow(state),
         ).withRangThrough(s)
     }
+
+    /** Why a call rings silently when it isn't a blocking rule: an allowance used up, or the drive profile (I11). */
+    private fun silenceReasonOf(s: CallSession): String? = when {
+        s.quotaSilenced -> str(R.string.call_silenced_quota)
+        drive.silencedHere(s.id) -> str(R.string.drive_silenced)
+        else -> null
+    }
+
+    /** I11: "Drive profile on" for a live call while the marked car is connected. */
+    private fun drivingNow(state: CallState): Boolean =
+        state != CallState.DISCONNECTED && state != CallState.DISCONNECTING && ::appContext.isInitialized && drive.driving(appContext)
 
     /** I2's tag, for an unknown, visible, non-emergency caller only. */
     private fun reputationTag(s: CallSession, call: Call, number: String?, hidden: Boolean) =
@@ -1309,6 +1384,10 @@ object CallManager {
     private const val ROUTE_SETTLE_MS = 1500L
     private const val PENDING_OUTGOING_MS = 8000L
     private const val LOOKUP_TIMEOUT_MS = 2000L
+
+    /** I11: how long silencing an unknown caller in the car waits for screening beyond its own timeout, and how often it looks. */
+    private const val SCREEN_GRACE_MS = 500L
+    private const val SCREEN_POLL_MS = 50L
 
     /** How long "Check it's really them" waits for the call to end before dialling. */
     private const val HANG_UP_WAIT_MS = 3000L

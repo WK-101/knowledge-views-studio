@@ -104,6 +104,7 @@ import app.parley.ui.contact.ContactPageRoutes
 import app.parley.ui.discover.DiscoverRoutes
 import app.parley.ui.extras.ExtrasRoutes
 import app.parley.ui.family.FamilyRoutes
+import app.parley.ui.drive.DriveRoutes
 import app.parley.ui.history.HistoryRoutes
 import app.parley.ui.journal.HistoryTab
 import app.parley.ui.people.hasSeveralAccounts
@@ -451,6 +452,7 @@ internal fun settingRoute(e: SettingEntry): Destination = when (e.place) {
     SettingPlace.SYNC -> Routes.Sync
     SettingPlace.TEMPORARY -> Routes.Temporary
     SettingPlace.HELPERS -> FamilyRoutes.Helpers
+    SettingPlace.DRIVE_PROFILE -> DriveRoutes.Profile
 }
 
 /** A Tools entry found by search: the screen itself when it has one, else Tools. */

@@ -28,6 +28,7 @@ import app.parley.shortcuts.Shortcuts
 import app.parley.calltime.CallTimePlanner
 import app.parley.calltime.UssdSession
 import app.parley.common.calltime.Ussd
+import app.parley.common.calls.AssistedDial
 import app.parley.common.calls.CallSource
 import app.parley.common.calls.EmergencyPolicy
 import app.parley.common.calls.PocketGuard
@@ -88,6 +89,10 @@ data class PendingCall(
     val simId: String? = null,
     /** Shown first in the shared dial-guard sheet (premium line, one-ring scam, listed number). */
     val warnings: List<DialWarning> = emptyList(),
+    /** L6: abroad, the number with its country code (Call, or Dial as typed). */
+    val abroad: AssistedDial.Plan? = null,
+    /** L6: the call's SIM is roaming and another one is local (once per trip). */
+    val localSim: AssistedDial.LocalSimHint? = null,
 )
 
 sealed interface UiEvent {

@@ -851,6 +851,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
             return@withContext win.id to CallerInfo(
                 contactId = -win.id, lookupKey = null, name = s.name, photoUri = null,
                 numberLabel = NotificationPrivacy.VAULT_LABEL, customRingtone = s.ringtone, sendToVoicemail = s.sendToVoicemail,
+                starred = s.starred,
             )
         }
         null

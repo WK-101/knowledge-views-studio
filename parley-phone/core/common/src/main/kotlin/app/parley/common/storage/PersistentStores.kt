@@ -157,6 +157,9 @@ object PersistentStores {
         PersistentStore("to_call", StoreKind.PREFS, backedUp, Sections.TO_CALL),
         // A safe word is a secret: it never leaves this phone, not even in an encrypted backup.
         PersistentStore("family_safety", StoreKind.PREFS, local("Family safe words, helpers and expected-call windows, sealed on this phone")),
+        // The car's Bluetooth address belongs to this phone's pairing; a new phone marks the car again.
+        PersistentStore("parley_drive_profile", StoreKind.PREFS, local("The drive profile's cars (Bluetooth addresses of this phone's pairings) and switches")),
+        PersistentStore("parley_roaming", StoreKind.PREFS, local("Assisted dialling switches and the trip the local-SIM hint was shown for")),
         PersistentStore("lists_updater", StoreKind.PREFS, local("Link with the companion app installed on this phone")),
         PersistentStore("dial_widgets", StoreKind.PREFS, local("Home-screen widgets of this launcher")),
         PersistentStore("parley_migrations", StoreKind.PREFS, local("Which one-time data migrations ran here")),
