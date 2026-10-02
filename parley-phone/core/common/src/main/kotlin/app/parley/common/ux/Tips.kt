@@ -74,6 +74,9 @@ object Tips {
     /** I11: "Drive profile on" on the call screen, the first time a marked car is connected during a call. */
     const val DRIVE_PROFILE = "drive_profile"
 
+    /** Sonic caller ID: "Make a ringtone for …" on a contact's or a label's page, the first time it shows. */
+    const val CALLER_TUNE = "caller_tune"
+
     /** Ids are stored comma-separated; anything that isn't a plain id is dropped. */
     private val ID = Regex("[a-z0-9_]{1,40}")
 

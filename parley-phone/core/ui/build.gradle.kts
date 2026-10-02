@@ -15,6 +15,8 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
+    // Theme.kt's top level touches android.graphics.Color (system-bar scrims); the token tests don't need real values.
+    testOptions { unitTests.isReturnDefaultValues = true }
     lint {
         abortOnError = true
         lintConfig = rootProject.file("lint.xml")
@@ -35,4 +37,6 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     // System-bar icon colours follow the app theme (enableEdgeToEdge with the theme's dark/light).
     implementation(libs.androidx.activity.compose)
+    // Plain JVM tests of the design tokens (contrast of the brand and AMOLED schemes).
+    testImplementation(libs.junit)
 }

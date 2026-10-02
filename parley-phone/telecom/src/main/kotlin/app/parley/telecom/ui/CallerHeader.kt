@@ -135,6 +135,8 @@ internal fun CallerHeader(
         CallTags(call, zone = if (ended) null else rememberCallerZone(call))
         Spacer(Modifier.height(Spacing.m))
         StatusPill(call, ended)
+        // P16: TalkBack hears "Call connected", "On hold" and "Call ended" without looking for the pill.
+        CallStateAnnouncer(call, ended)
         if (!ended && call.state == CallState.RINGING) RangThroughLine(call)
         // I2: "Looks like a sales line (your calls)", with Why?
         ReputationLine(call, ended, compact)

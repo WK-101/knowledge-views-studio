@@ -1,6 +1,7 @@
 package app.parley.ui.contact
 
 import android.content.Context
+import android.net.Uri
 import android.os.Build
 import android.os.VibrationEffect
 import android.os.Vibrator
@@ -49,12 +50,13 @@ import kotlinx.coroutines.launch
 
 /**
  * "Settings for this contact": the person's haptic caller ID (a vibration of their own, so the phone in a pocket says
- * who is calling) and, when Settings › Calls › Answer automatically › "For chosen people and labels" is on, whether
- * their calls are answered on their own. [key] is the Parley key: a private contact's choices are sealed in its
+ * who is calling), a ringtone made from their name ([onTune] sets it; null where the contact can't have one) and,
+ * when Settings › Calls › Answer automatically › "For chosen people and labels" is on, whether their calls are
+ * answered on their own. [key] is the Parley key: a private contact's choices are sealed in its
  * caller-ID copy (read while the phone is locked), a device contact's kept by Parley ([app.parley.data.extras.ExtrasStore]).
  */
 @Composable
-internal fun CallerChoiceRows(vm: AppViewModel, key: String, name: String) {
+internal fun CallerChoiceRows(vm: AppViewModel, key: String, name: String, onTune: ((Uri) -> Unit)? = null) {
     val scope = rememberCoroutineScope()
     val extras = vm.c.extras
     // Re-read when the device contacts' map changes; a private contact's are read from the vault each time.
@@ -70,6 +72,8 @@ internal fun CallerChoiceRows(vm: AppViewModel, key: String, name: String) {
 
     Column {
         VibrationRow(choice.vibration, name, onClick = { picking = true })
+        // Sonic caller ID: a ringtone made from the name (set where the page sets ringtones, so private ones too).
+        if (onTune != null) CallerTuneRow(name, stringResource(R.string.caller_tune_summary), onTune)
         if (cfg.autoAnswerChosen) {
             AutoAnswerRow(choice.autoAnswer, stringResource(R.string.caller_auto_answer_summary)) { v -> set { it.copy(autoAnswer = v) } }
         }

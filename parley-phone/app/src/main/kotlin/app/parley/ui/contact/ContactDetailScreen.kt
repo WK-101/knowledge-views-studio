@@ -724,13 +724,23 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
             }
             if (can(ContactCapability.CALL_TIME)) blended { ContactCallTimeRows(vm, d.lookupKey, d.displayName, d.starred) }
             if (can(ContactCapability.RINGTONE)) item {
-                val tone = d.customRingtone?.let { runCatching { RingtoneManager.getRingtone(context, Uri.parse(it))?.getTitle(context) }.getOrNull() }
+                val tone = d.customRingtone?.let {
+                    // A tune made from the name has a hash for a file name; say whose it is instead.
+                    if (CallerTunes.isOurs(context, it)) resources.getString(R.string.caller_tune_made_for, d.displayName)
+                    else runCatching { RingtoneManager.getRingtone(context, Uri.parse(it))?.getTitle(context) }.getOrNull()
+                }
                 GroupDataRow(Icons.Rounded.MusicNote, true, tone ?: resources.getString(R.string.detail_default_ringtone), resources.getString(R.string.detail_ringtone), onClick = {
                     ringtonePicker.launch(Intent(RingtoneManager.ACTION_RINGTONE_PICKER).putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_RINGTONE))
                 })
             }
             // Haptic caller ID and auto-answer for this person (Parley applies both, private contacts included).
-            if (d.lookupKey.isNotEmpty()) blended { CallerChoiceRows(vm, d.lookupKey, d.displayName) }
+            if (d.lookupKey.isNotEmpty()) blended {
+                val onTune: ((Uri) -> Unit)? = if (can(ContactCapability.RINGTONE)) { uri ->
+                    page.setRingtone(uri)
+                    vm.toast(resources.getString(R.string.caller_tune_set, d.displayName))
+                } else null
+                CallerChoiceRows(vm, d.lookupKey, d.displayName, onTune)
+            }
             blended { CallBackgroundInfoRow(vm, d) }
             blended { CallPhotoRow(vm, d) }
             // Where it's saved, as chips with their own actions (edit this copy, move, unlink); a private contact is

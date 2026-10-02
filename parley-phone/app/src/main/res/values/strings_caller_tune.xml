@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Sonic caller ID: a ringtone made from a name, on a contact's or a label's page. -->
+<resources>
+    <string name="caller_tune_make">Make a ringtone for %1$s</string>
+    <string name="caller_tune_summary">A short tune from their name, so you know who\'s calling without looking</string>
+    <string name="caller_tune_label_summary">A short tune from the label\'s name, so you know it\'s one of them without looking</string>
+    <string name="caller_tune_tip">Parley can make a ringtone from a name. Each person sounds different, even with the screen out of sight.</string>
+    <string name="caller_tune_title">Ringtone for %1$s</string>
+    <string name="caller_tune_body">A short tune made from this name, on this phone. Play it, or try another until one sounds right.</string>
+    <string name="caller_tune_variant">Tune %1$d</string>
+    <string name="caller_tune_play">Play</string>
+    <string name="caller_tune_stop">Stop</string>
+    <string name="caller_tune_another">Try another</string>
+    <string name="caller_tune_use">Use this tune</string>
+    <string name="caller_tune_failed">Couldn\'t save the tune. Try again.</string>
+    <string name="caller_tune_made_for">Tune made for %1$s</string>
+    <string name="caller_tune_set">Ringtone set for %1$s</string>
+</resources>

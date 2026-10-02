@@ -233,3 +233,8 @@ The drive profile and calling abroad (COMPETITIVE_ANALYSIS_6 WP-15: I11, L6), wi
 | **Local SIM** (L6) | Once per trip (per SIM and visited country, forgotten when the SIM is home again): "Use SIM 2? SIM 1 is roaming; SIM 2 is local here, so calls on it may cost less", **Use SIM 2** or **Keep SIM 1**. Asked after the country-code question, so a converted number stays right on either SIM. | Dual-SIM travellers (U12). |
 
 Left out: detecting driving by motion or location (no such permission), announcing callers through Android Auto (no Auto app yet, L15), and backing up the cars (a new phone pairs again).
+
+## 4.7: accessibility
+
+- **Spoken changes**: a polite live region says "Call connected", "On hold", "Call resumed" and "Call ended" (or why it ended) as the call changes; nothing when the screen opens, never the timer (`CallAnnouncements` in core:common, `CallAnnouncer.kt`).
+- **Voice Access on the slide control**: the red and green ends are named buttons for accessibility services only, so "tap Answer" and "tap Decline" work while a finger still has to slide. See [ACCESSIBILITY.md](ACCESSIBILITY.md).

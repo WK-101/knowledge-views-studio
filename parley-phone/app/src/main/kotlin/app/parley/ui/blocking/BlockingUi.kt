@@ -39,6 +39,7 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.TextStyle
@@ -63,7 +64,8 @@ fun CollapsibleSection(title: String, help: String, summary: List<String>, expan
         ListItem(
             modifier = Modifier
                 .clickable(onClick = onToggle)
-                .semantics { stateDescription = state },
+                // A section header: TalkBack's heading navigation jumps between the sections.
+                .semantics { stateDescription = state; heading() },
             leadingContent = icon?.let { { Icon(it, null, tint = MaterialTheme.colorScheme.primary) } },
             headlineContent = { Text(title, style = MaterialTheme.typography.titleMedium) },
             supportingContent = {
