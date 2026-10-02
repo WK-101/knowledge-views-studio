@@ -1738,3 +1738,62 @@ call never gets past), `FamilySafetyTest` (helper Cancel), `SyncWatchdogTest` (c
 
 **Downgrades.** Installing a Parley older than 4.5 over this one (`adb install -r -d`) is not supported: clear
 Parley's data first, then restore a backup (docs/CONTACT_MODEL.md, "Downgrades").
+
+## 27. Cards that stay current (4.6)
+
+### 27.1 Paste anything → contact
+
+Copy each text below in another app (Notes, Gmail, a web page), then in Parley start a new contact (Contacts › +).
+
+1. **Chip and tip.** A new contact shows a **Paste details** chip at the top (not when editing a contact or My card),
+   with the one-time tip under it. Nothing reads the clipboard until the chip is tapped (on Android 12+ the system's
+   "Parley pasted from your clipboard" notice appears only then). Empty clipboard: "Nothing to paste…".
+2. **British signature.** Copy:
+   ```
+   Best regards,
+   Jane Doe
+   Head of Partnerships | Acme Widgets Ltd
+   M: +44 7911 123456 | T: +44 20 7946 0958
+   jane.doe@acmewidgets.co.uk | www.acmewidgets.co.uk
+   12 High Street, London SW1A 1AA, United Kingdom
+   ```
+   Tap Paste details: the sheet "Details found" lists each value with its type above it and a ticked box: Name,
+   Company, Job title, Mobile, Work phone, Work email, Work address, Website. "Best regards" isn't listed. Untick the
+   Work phone, tap **Fill in**: the form has Jane / Doe, Acme Widgets Ltd, the title, one Mobile number, the email, the
+   address split into street, city, postcode and country, the website. Nothing is saved until Save.
+3. **What was typed stays.** New contact, type "Janie" as first name, tap Paste details with the same text, Fill in:
+   the first name stays "Janie", the rest is added; paste again: nothing is added twice.
+4. **German, French, Dutch signatures.** Copy a signature with "Tel.:", "Fax:", "Mobil:", "Tél. :", "Portable :",
+   "T +31…" / "M +31…" lines and a "10115 Berlin" / "75001 Paris" / "1015 CJ Amsterdam" address: the numbers get
+   Work phone / Work fax / Mobile, national numbers are read in the SIM's country (a German SIM reads "0151 23456789"
+   as +49 151…), prefixes such as "Dr." go into the name's prefix (name chevron), "Marie DUPONT" becomes Marie Dupont.
+5. **Extensions.** "Office: (650) 253-0000 ext. 1234" shows as "+1 650-253-0000 ext. 1234"; after Save the number
+   dials the extension after a pause.
+6. **Profiles and map links.** Text with "Instagram @ana.lima", "Twitter: @analima", "https://github.com/analima"
+   and "https://www.google.com/maps/place/Big+Ben/@51.5007292,-0.1268141,17z": the preview says "Instagram profile",
+   "X (Twitter) profile", "GitHub profile" and "Map link"; after Fill in they appear as Profile rows and the address's
+   map link (the address is filled from the link's place when the text had none).
+7. **Birthday only when said.** "Birthday: 12 March 1990" fills a birthday; a date without its word does not.
+8. **Several people.** A team list (two names, each with a title, email and number, with or without a blank line
+   between): "This text has 2 people. Choose one:" with a chip per person; choosing one changes the list below.
+9. **Event badge, RTL.** "HELLO my name is / JANE DOE / ACME CORP / Speaker" gives Jane Doe, ACME CORP, Speaker.
+   An Arabic name with "مدير المبيعات" and a +971 number: the name and title are right-to-left, the number left to
+   right; layout mirrors correctly in Arabic.
+10. **Leftovers.** Opening hours or a slogan come as a ticked Note; a long paragraph comes as an unticked Note.
+    Confidentiality disclaimers and "Sent from my iPhone" are left out.
+11. **Already a contact.** Paste a text whose number or email belongs to an existing contact: the sheet says
+    "<name> already has <number>" and offers **Add to <first name>** (primary) and **New contact**. Add to: the
+    existing contact's editor opens with the new rows appended (Save enabled); a private contact's editor (after the
+    vault's unlock) likewise. With discreet mode ("Hide private contacts") on, private contacts are never named here.
+12. **Save destinations.** Paste and fill, then Save to: Private: the contact is private with every pasted field;
+    Save to: Temporary (7 days): it is temporary with them.
+13. **Share target.** In Chrome, select a "Contact us" block (or share text from another app) › Share › Parley ("Call
+    or message a number"): when the text is more than a number or a map link, the sheet offers **Make a contact from
+    this text** (also in the number picker for several numbers, and on "No phone number found" for an email-only
+    signature). Tapping it opens a new contact with the "Details found" sheet already open. A lone number or a map link
+    doesn't offer it. With the app lock on, Parley asks to unlock first.
+14. **On-device only.** With the network off (airplane mode) everything above works the same. No new permission is
+    asked for.
+15. **Look.** Light, dark and AMOLED; font size 200 % (the type above each value wraps, nothing is cut); landscape
+    and a tablet (sheet width capped); TalkBack reads each row as "Mobile, +44 7911 123456, checkbox, checked" and
+    toggles it with a double tap.

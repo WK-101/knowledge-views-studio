@@ -39,6 +39,9 @@ object Tips {
     /** Number memory: the first remembered line about a number that isn't a contact (keypad, number history). */
     const val NUMBER_MEMORY = "number_memory"
 
+    /** "Paste details" at the top of a new contact, the first time it shows. */
+    const val PASTE_DETAILS = "paste_details"
+
     /** Ids are stored comma-separated; anything that isn't a plain id is dropped. */
     private val ID = Regex("[a-z0-9_]{1,40}")
 

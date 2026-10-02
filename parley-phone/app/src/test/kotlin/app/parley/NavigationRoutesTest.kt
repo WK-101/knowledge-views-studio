@@ -115,6 +115,7 @@ class NavigationRoutesTest {
             IntentRoutes.ACTION_OPEN_SYNC to Routes.Sync,
             IntentRoutes.ACTION_OPEN_TEMPORARY to Routes.Temporary,
             IntentRoutes.ACTION_BULK_ADD to MessagingRoutes.BulkAdd,
+            IntentRoutes.ACTION_PASTE_CONTACT to Routes.edit(paste = true),
             IntentRoutes.ACTION_SCAN_QR to QrRoutes.Scan,
             IntentRoutes.ACTION_SHOW_TO_CALL to ToCallRoutes.List,
         )

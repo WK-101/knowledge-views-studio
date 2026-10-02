@@ -30,6 +30,7 @@ object Routes {
     /**
      * The contact editor. [id] -1: a new contact; [vault] -1: not a private one. [prefill]: the pending details handed
      * over in memory (another app's Insert, "add to contact"). [handshake]: the received card this editor was opened for.
+     * [paste]: a new contact made from shared text ([app.parley.ui.contact.PasteInbox]), whose details are shown to tick.
      */
     @Serializable
     data class Edit(
@@ -41,6 +42,7 @@ object Routes {
         val prefill: Boolean = false,
         val vault: Long = -1,
         val handshake: String = "",
+        val paste: Boolean = false,
     ) : Destination
 
     /** A private contact by vault id: kept for old links; it opens the one contact page ([Contact] with -[id]). */
@@ -94,8 +96,8 @@ object Routes {
 
     fun edit(
         id: Long? = null, name: String? = null, phone: String? = null, email: String? = null, addPhone: String? = null, prefill: Boolean = false,
-        vault: Long? = null, handshake: String? = null,
-    ): Destination = Edit(id ?: -1, name.orEmpty(), phone.orEmpty(), email.orEmpty(), addPhone.orEmpty(), prefill, vault ?: -1, handshake.orEmpty())
+        vault: Long? = null, handshake: String? = null, paste: Boolean = false,
+    ): Destination = Edit(id ?: -1, name.orEmpty(), phone.orEmpty(), email.orEmpty(), addPhone.orEmpty(), prefill, vault ?: -1, handshake.orEmpty(), paste)
 
     /** Picker for "add to existing contact"; the number (or "_" = use the pending prefill). */
     const val PREFILL_MARK = "_"

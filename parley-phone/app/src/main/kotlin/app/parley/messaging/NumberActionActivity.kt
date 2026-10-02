@@ -74,6 +74,10 @@ import app.parley.common.PhoneNumbers
 import app.parley.common.SimAccount
 import app.parley.common.calls.EmergencyPolicy
 import app.parley.common.people.MapLinks
+import app.parley.common.people.PasteParser
+import app.parley.IntentRoutes
+import app.parley.ui.contact.PasteInbox
+import androidx.compose.material.icons.rounded.ContactPage
 import app.parley.container
 import app.parley.data.EmergencyNumbers
 import app.parley.security.AppLock
@@ -144,6 +148,9 @@ class NumberActionActivity : LockedActivity() {
     private var awaitingReturn = false
     /** The selected, shared or pasted text, kept only while the sheet is open, for "Save all…". */
     private var sourceText: String? = null
+
+    /** Shared text that is more than a number or a map link (a signature, a profile): offered as a new contact. */
+    private var contactText by mutableStateOf<String?>(null)
     private var leftForChat = false
     /** Nothing shows while this is true: the lock engaged again while the sheet was open. */
     private var hidden by mutableStateOf(false)
@@ -269,6 +276,7 @@ class NumberActionActivity : LockedActivity() {
 
     private fun initialStage(intent: Intent): Stage {
         sourceText = null
+        contactText = null
         val text = when (intent.action) {
             MessageNumber.ACTION -> return Stage.Enter
             Intent.ACTION_PROCESS_TEXT -> intent.getCharSequenceExtra(Intent.EXTRA_PROCESS_TEXT)?.toString()
@@ -282,8 +290,10 @@ class NumberActionActivity : LockedActivity() {
 
     /** What text holds: one number, several, none but a map link (an unknown web link isn't one), or nothing. */
     private fun stageFor(text: String): Stage {
-        val found = NumberText.find(text, PhoneEnv.countryIso(this))
+        val region = PhoneEnv.countryIso(this)
+        val found = NumberText.find(text, region)
         if (found.size > 1) sourceText = text
+        contactText = text.takeIf { PasteParser.worthOffering(it, region) }
         return when (found.size) {
             0 -> MapLinks.parse(text)?.takeIf { it.hasCoordinates || it.needsNetwork || it.service != MapLinks.Service.OTHER }?.let { Stage.Place(it) }
                 ?: Stage.NoNumber
@@ -317,6 +327,7 @@ class NumberActionActivity : LockedActivity() {
                     Stage.NoNumber -> Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Text(stringResource(R.string.num_none_title), style = MaterialTheme.typography.titleLarge, modifier = Modifier.semantics { heading() })
                         Text(stringResource(R.string.num_none_body), style = MaterialTheme.typography.bodyMedium)
+                        MakeContactRow()
                         TextButton({ finish() }) { Text(stringResource(R.string.main_close)) }
                     }
                     is Stage.Place -> PlaceActions(s.place)
@@ -354,6 +365,7 @@ class NumberActionActivity : LockedActivity() {
                     modifier = Modifier.clickable { saveAll() },
                 )
             }
+            MakeContactRow()
             found.forEach { f ->
                 ListItem(
                     headlineContent = { Text(Bidi.ltr(f.e164?.let(NumberText::formatInternational) ?: f.raw)) },
@@ -406,6 +418,25 @@ class NumberActionActivity : LockedActivity() {
                 .putParcelableArrayListExtra(ContactsContract.Intents.Insert.DATA, arrayListOf(site))
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
         )
+        finish()
+    }
+
+    /** "Make a contact from this text": the details read from the shared text, ticked in a new contact's editor. */
+    @Composable
+    private fun MakeContactRow() {
+        val text = contactText ?: return
+        ListItem(
+            headlineContent = { Text(stringResource(R.string.paste_make_contact)) },
+            supportingContent = { Text(stringResource(R.string.paste_make_contact_body)) },
+            leadingContent = { Icon(Icons.Rounded.ContactPage, null) },
+            modifier = Modifier.clickable { makeContact(text) },
+        )
+    }
+
+    /** Hands the text to a new contact's editor (in memory only, like "Save all…") and closes the sheet. */
+    private fun makeContact(text: String) {
+        PasteInbox.put(text)
+        startActivity(Intent(this, MainActivity::class.java).setAction(IntentRoutes.ACTION_PASTE_CONTACT).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         finish()
     }
 
@@ -573,6 +604,7 @@ class NumberActionActivity : LockedActivity() {
                     modifier = Modifier.clickable { askTemporary = true },
                 )
             }
+            MakeContactRow()
         }
         if (askTemporary) {
             TemporaryNameDialog(TemporaryContact.suggestedName(number, null, region), onDismiss = { askTemporary = false }) { name, visible ->

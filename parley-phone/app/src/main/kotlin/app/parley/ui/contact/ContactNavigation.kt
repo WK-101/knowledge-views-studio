@@ -60,6 +60,7 @@ fun NavGraphBuilder.contactGraph(nav: NavController) {
             addPhone = a.addPhone,
             prefill = if (a.prefill) vm.pendingPrefill.also { vm.pendingPrefill = null } else null,
             vaultId = a.vault.takeIf { v -> v >= 0 },
+            pasteText = if (a.paste) PasteInbox.take() else null,
             done = { savedId ->
                 // A contact received by QR gets its "Met at…" entry once it's saved.
                 HandshakeInbox.onSaved(vm, savedId, a.handshake)

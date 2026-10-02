@@ -170,3 +170,23 @@ important services (also in My card)."
 - **My card**: the same rows; the QR code and shared card include them when "Profiles" is chosen among the shared
   parts. **Private contacts**: the same rows, sealed with the details. **Search**: Contacts search finds a profile by
   its handle, with or without "@" ("Matched: profile").
+
+## 4.6 Paste details
+
+Cardhop's best trick, offline: a **Paste details** chip at the top of a new contact (and "Make a contact from this
+text" on Parley's share sheet) reads a pasted email signature, business profile, "Contact us" block or badge into the
+form. The clipboard is read only when the chip is tapped.
+
+- **Reading**: `PasteParser` (core/common, pure Kotlin, deterministic) splits lines at separators, takes labelled
+  fields ("Tel.:", "Mobil", "Company:"), emails, links (map links through `MapLinks`, profiles through
+  `SocialProfiles`), phone numbers through libphonenumber in the SIM's country (labels before or after the number,
+  extensions kept after a pause), postal addresses (street, postcode and country lines, the city between them), a
+  birthday only after its word, then decides which line is the name (the one the email address names, the first full
+  name), the organisation (legal forms, the email's domain) and the title. Sign-offs, "Sent from…" lines and
+  disclaimers are dropped; anything else is the note. Several people in one text are offered one at a time.
+- **System classifier**: the phone's on-device `TextClassifier` (`generateLinks`, no network) adds where it saw
+  addresses and numbers; the rules use it only where theirs found nothing.
+- **Preview**: a sheet lists every value with its detected type and a checkbox; **Fill in** fills empty fields and
+  empty rows (never replaces what was typed, never adds a value twice). When a ticked number or email already
+  belongs to a contact (or a private contact, unless they are hidden), **Add to <name>** continues in that contact's
+  editor instead. Nothing is saved until Save, so Private and Temporary work as for any new contact.
