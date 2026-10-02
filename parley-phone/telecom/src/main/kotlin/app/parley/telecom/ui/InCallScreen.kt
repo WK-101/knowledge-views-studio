@@ -342,6 +342,8 @@ private fun CallerSection(s: ScreenState, sheets: InCallSheets, a: ScreenActions
     )
     // Auto-answer's countdown with Cancel, between the caller and the answer controls (an overlay of its own).
     if (shown.state == CallState.RINGING) AutoAnswerCountdown(shown)
+    // I11: "Drive profile on" while the marked car is connected.
+    DriveStatusLine(primary, keypadOpen = s.keypadOpen)
     // WP-8: the helper being brought in, and "Claims to be family? Ask: …".
     if (primary != null && primary.state != CallState.RINGING) {
         FamilySafetyCards(primary, s.live, sheets.family, a.onUnlock)
@@ -906,6 +908,8 @@ private fun ReplySheet(call: CallUi, quickReplies: List<String>, onDismiss: () -
         } else {
             quickReplies
         }
+        // I11: in the car, the driving replies come first.
+        DrivingReplies(call, onDismiss)
         replies.forEach { msg ->
             ParleyListItem(
                 headlineContent = { Text(msg) },

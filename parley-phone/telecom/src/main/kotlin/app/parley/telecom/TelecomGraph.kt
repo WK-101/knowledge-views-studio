@@ -10,6 +10,7 @@ import app.parley.common.Verification
 import app.parley.common.calls.CallExtrasConfig
 import app.parley.common.calltime.CallTimePlan
 import app.parley.common.calls.CallQualityFacts
+import app.parley.common.calls.DriveProfileConfig
 import app.parley.common.calls.EmergencyPolicy
 import app.parley.common.calls.MenuPath
 import app.parley.common.calls.MenuPress
@@ -51,6 +52,8 @@ data class CallerDisplay(
      * ringing for [vibration]; null: the phone's default.
      */
     val ownRingtone: String? = null,
+    /** A favourite (starred contact, or a private contact with Parley's star): the drive profile may answer it. */
+    val favourite: Boolean = false,
 )
 
 /**
@@ -185,6 +188,15 @@ interface CallPolicyHooks {
 
     /** Settings › Calls › Answer automatically, read from memory on the call path (off by default). */
     fun autoAnswer(): CallExtrasConfig = CallExtrasConfig()
+
+    /** I11: Settings › Calls › Drive profile, read from memory on the call path (off until a car is marked). */
+    fun driveProfile(): DriveProfileConfig = DriveProfileConfig()
+
+    /**
+     * I11: [number] is a contact or a private contact, also while discreet mode hides private contacts from the call
+     * screen (the drive profile never silences a saved caller as "unknown"). Only a yes or no leaves the app side.
+     */
+    suspend fun isSavedCaller(number: String, accountId: String?): Boolean = false
 
     /** True when this caller's allowance is used up and the user wants such calls to ring silently. */
     suspend fun silenceOverQuota(number: String, accountId: String?): Boolean = false

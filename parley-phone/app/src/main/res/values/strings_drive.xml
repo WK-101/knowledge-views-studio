@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Settings › Calls › Drive profile: the cars the user marks and what Parley does while one is connected. -->
+<resources>
+    <string name="set_drive_profile_title">Drive profile</string>
+    <string name="set_drive_profile_summary">When your car connects: hear who\'s calling, answer favourites, reply that you\'re driving</string>
+    <string name="set_drive_profile_kw">car, driving, drive, bluetooth, android auto, announce, say caller name, hands-free, handsfree, auto answer, silence unknown, driving reply</string>
+    <!-- Settings › Calls: the group holding the drive profile and the settings for abroad -->
+    <string name="set_group_on_the_road">On the road</string>
+    <!-- %1$s: the car's Bluetooth name, or several joined with " · " -->
+    <string name="drive_summary_cars">On for %1$s</string>
+
+    <string name="drive_intro">Mark your car\'s Bluetooth. While it\'s connected, Parley can say who\'s calling, answer favourites for you and offer replies like \"I\'m driving\". It turns off when the car disconnects. No location is used.</string>
+    <string name="drive_group_car">Your car</string>
+    <string name="drive_connected_now">Connected now</string>
+    <!-- A car the user marked that isn't paired with the phone any more -->
+    <string name="drive_not_paired">Not paired now</string>
+    <string name="drive_no_devices">No Bluetooth devices yet. Pair your car in Android\'s Bluetooth settings, or connect to it and come back.</string>
+    <string name="drive_open_bluetooth">Bluetooth settings</string>
+    <string name="drive_open_bluetooth_sub">Pair your car</string>
+    <!-- Android 12+: listing paired devices needs the "Nearby devices" permission -->
+    <string name="drive_allow_nearby">Show paired devices</string>
+    <string name="drive_allow_nearby_sub">Allow \"Nearby devices\" so Parley can list them. Only their names are read.</string>
+    <!-- TalkBack: a device row's checkbox -->
+    <string name="drive_mark_desc">Use %1$s as my car</string>
+
+    <string name="drive_group_while">While the car is connected</string>
+    <string name="drive_announce">Say who\'s calling</string>
+    <string name="drive_announce_sub">Once, through the car, for your contacts. Not while the phone is on silent or Do Not Disturb.</string>
+    <string name="drive_answer_favourites">Answer favourites automatically</string>
+    <string name="drive_answer_chosen">Answer people chosen for auto-answer</string>
+    <string name="drive_answer_chosen_sub">Chosen on their page or their label\'s page</string>
+    <string name="drive_answer_sub">With a countdown and Cancel on the call screen. Never during another call.</string>
+    <string name="drive_answer_after">Answer after</string>
+    <string name="drive_silence_unknown">Silence unknown callers</string>
+    <string name="drive_silence_unknown_sub">Numbers that aren\'t saved ring silently and show as missed calls. Emergency call-backs always ring.</string>
+    <string name="drive_replies_note">When you reply to a call with a message, driving replies come first.</string>
+    <string name="drive_mark_first">Mark your car first.</string>
+</resources>

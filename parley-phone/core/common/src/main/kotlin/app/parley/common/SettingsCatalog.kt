@@ -25,7 +25,7 @@ enum class SettingsCategory(val title: String, val summary: String) {
  * Screens outside the category pages that hold settings or tools. Settings search opens them for their entries, so
  * every setting is searchable wherever it lives.
  */
-enum class SettingPlace { TOOLS, BLOCKING, DELETED_CALLS, SIMS, CONTACT_PAGE, SIMPLE_MODE, CALL_TIME, BACKUP, SYNC, TEMPORARY, HELPERS }
+enum class SettingPlace { TOOLS, BLOCKING, DELETED_CALLS, SIMS, CONTACT_PAGE, SIMPLE_MODE, CALL_TIME, BACKUP, SYNC, TEMPORARY, HELPERS, DRIVE_PROFILE }
 
 /**
  * One searchable setting, identified by its stable [key]. In [SettingsCatalog], [title], [summary] and [keywords]
@@ -148,6 +148,21 @@ object SettingsCatalog {
         // Bring in my helper: a screen of its own, linked from the Calls page (and simple mode's setup).
         at(SettingPlace.HELPERS, "call_helpers", "Helpers", "Up to 3 people you trust, added to a call with one tap", C,
             "helper", "family", "trusted", "add call", "conference", "merge", "scam"),
+        // I11: a screen of its own, linked from the Calls page; off until a car is marked.
+        at(
+            SettingPlace.DRIVE_PROFILE, "drive_profile", "Drive profile",
+            "When your car connects: hear who's calling, answer favourites, reply that you're driving", C,
+            "car", "driving", "drive", "bluetooth", "android auto", "announce", "say caller name", "hands-free", "handsfree", "auto answer",
+            "silence unknown", "driving reply",
+        ),
+        // L6: on SIMs & plan minutes; only ever acts while a SIM is abroad.
+        at(
+            SettingPlace.SIMS, "assisted_dialling", "Assisted dialling abroad",
+            "While you're abroad, offers to add the country code to numbers in your home format", C,
+            "roaming", "abroad", "travel", "country code", "international", "plus", "assisted dialing", "holiday",
+        ),
+        at(SettingPlace.SIMS, "local_sim_hint", "Suggest a local SIM abroad", "Once per trip, when your other SIM is local where you are", C,
+            "roaming", "dual sim", "second sim", "esim", "travel", "abroad", "cost", "holiday"),
         e("proximity_sensor", "Turn the screen off at your ear", "Uses the proximity sensor during earpiece calls", C,
             "proximity", "sensor", "screen off", "black screen", "pocket", "broken sensor"),
         e("power_button_ends_call", "Power button ends call", "Android's accessibility setting", C,

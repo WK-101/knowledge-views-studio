@@ -97,6 +97,8 @@ data class CallUi(
     val reputation: Reputation? = null,
     /** I1: what Parley remembers about this number (not a contact), or null. */
     val numberMemory: NumberMemoryLine? = null,
+    /** I11: a car marked in Settings › Calls › Drive profile is connected ("Drive profile on", "Driving" replies). */
+    val driving: Boolean = false,
 ) {
     val title: String get() = name ?: number?.takeIf { it.isNotBlank() } ?: fallbackTitle
     val isLive: Boolean get() = state != CallState.DISCONNECTED && state != CallState.DISCONNECTING

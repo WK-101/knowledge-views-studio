@@ -62,6 +62,7 @@ import app.parley.data.TemporaryContacts
 import app.parley.messaging.TemporaryContact
 import app.parley.common.calls.RingtoneSource
 import app.parley.common.calls.CallExtrasConfig
+import app.parley.common.calls.DriveProfileConfig
 import app.parley.common.calls.CallerHaptics
 import app.parley.common.extras.CallerChoice
 import app.parley.common.extras.CallerChoices
@@ -136,6 +137,7 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
                 memoryPrompt = cfg.memoryPrompt,
                 pronouns = parts.pronouns,
                 vibration = choices.vibration, autoAnswerChosen = choices.autoAnswer, ownRingtone = it.customRingtone,
+                favourite = it.starred,
             )
         } ?: c.vault.lookup(number, PhoneEnv.countryIso(app, accountId))?.let { (id, info) ->
             // Discreet mode: a private contact shows as its number only, everywhere (call screen, lock screen and
@@ -149,6 +151,7 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
                 info.name, card?.photoUri?.takeIf { showsPhoto(ContactRef.privateKey(id)) }, info.numberLabel, null, null, card?.note, last,
                 subtitle = card?.subtitle, context = CallerCard.context(card?.context),
                 pronouns = card?.pronouns, vibration = choices.vibration, autoAnswerChosen = choices.autoAnswer,
+                favourite = info.starred,
                 // Its own ringtone reaches Parley's ringer through screening already.
             )
         }
@@ -179,6 +182,13 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
     override fun autoAnswer(): CallExtrasConfig = c.callExtras.config.value
 
     override fun answerWithRtt(): Boolean = c.settings.settings.value.answerWithRtt
+
+    override fun driveProfile(): DriveProfileConfig = c.driveProfile.config.value
+
+    /** I11: a contact or a private contact (discreet mode or not); only the yes or no reaches the call path. */
+    override suspend fun isSavedCaller(number: String, accountId: String?): Boolean = withContext(Dispatchers.IO) {
+        c.contacts.lookup(number) != null || c.vault.lookup(number, PhoneEnv.countryIso(app, accountId)) != null
+    }
 
     /**
      * "Last call 3 days ago · 4 min", from the call history (archive included) once it is loaded; in a process started

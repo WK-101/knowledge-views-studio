@@ -44,6 +44,7 @@ import app.parley.common.history.BillingIncrement
 import app.parley.common.history.PlanConfig
 import app.parley.common.history.PlanUsage
 import app.parley.ui.contact.Section
+import app.parley.ui.settings.AbroadSettingsGroup
 import kotlinx.coroutines.launch
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -80,6 +81,8 @@ fun SimListScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Uni
                     )
                 }
             }
+            // L6: assisted dialling and the local-SIM suggestion while abroad.
+            item(key = "abroad") { AbroadSettingsGroup(vm) }
         }
     }
 }

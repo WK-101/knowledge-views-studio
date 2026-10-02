@@ -36,7 +36,8 @@ The Settings list starts with **Tools** (the same page as ⋮ › Tools; see the
 | Know who's calling | Answer automatically `auto_answer` (off; with a headset or Bluetooth, in simple mode, for chosen people and labels; after 3–15 s with a countdown and Cancel) · Vibration for callers `caller_vibration` (set on a contact's or a label's page) |
 | Remember what matters | Anything to remember? after calls `memory_prompt` · Notes on the lock screen `memory_lock_screen` · Peek before calling `pre_call_peek` |
 | Family safety | Helpers `call_helpers` ↗ (up to 3 people; none by default) |
-| SIMs and carrier | SIMs & plan minutes `sims` ↗ (search also finds it as Plan minutes per SIM `plan_minutes`; in it: Billing increments per SIM `sim_billing`) · SIM & calling accounts `sim_accounts` · Call forwarding, waiting & voicemail `carrier_settings` |
+| On the road | Drive profile `drive_profile` ↗ (off until a car is marked) |
+| SIMs and carrier | SIMs & plan minutes `sims` ↗ (search also finds it as Plan minutes per SIM `plan_minutes`; in it: Billing increments per SIM `sim_billing`, and under Abroad: Assisted dialling abroad `assisted_dialling` (on), Suggest a local SIM abroad `local_sim_hint` (on)) · SIM & calling accounts `sim_accounts` · Call forwarding, waiting & voicemail `carrier_settings` |
 | Advanced | Vibrate when a call connects `connect_haptic` · Turn the screen off at your ear `proximity_sensor` · Power button ends call `power_button_ends_call` |
 
 **Show contact photo on the call screen** (`caller_photo`, on by default): off shows the caller's initial on their colour instead of the photo, and no call-screen picture, on the incoming and ongoing screen and in the picture-in-picture window. Each contact (private ones too) can override it in Settings for this contact › Photo on the call screen: *Default*, *Show* or *Hide*.
@@ -87,6 +88,11 @@ The Settings list starts with **Tools** (the same page as ⋮ › Tools; see the
 |---|---|
 | — | Quick reply messages `quick_replies` · My card `my_details` |
 | Messaged numbers | Messaged numbers `messaged_numbers` · Forget messaged numbers after `messaged_expiry` |
+
+**On the road** (WP-15; see [CALL_SCREEN_DESIGN.md](CALL_SCREEN_DESIGN.md#47-on-the-road)):
+- **Drive profile** (`drive_profile`, Calls, a screen of its own): mark one or more Bluetooth devices as your car (paired devices on Android 12+ with "Nearby devices"; the devices connected now on any version). Only while one is connected: Say who's calling (on), Answer favourites automatically and Answer people chosen for auto-answer (off; after 3–15 s, 5 by default), Silence unknown callers (off), and driving replies first in the reply sheet. Kept on this phone only (`parley_drive_profile`; a new phone pairs again).
+- **Assisted dialling abroad** (`assisted_dialling`, SIMs & plan minutes › Abroad, on): while the call's SIM is in another country, a number in the home format asks "Call +44 20 … ?" with Dial as typed. Never emergency numbers, short codes or service numbers.
+- **Suggest a local SIM abroad** (`local_sim_hint`, same place, on): once per trip, when the call's SIM is roaming and the other one is local there. Both are kept in `parley_roaming`.
 
 **Family safety** (WP-8, nothing on by default; see [CALL_SCREEN_DESIGN.md](CALL_SCREEN_DESIGN.md#45-family-safety)):
 - **Family safe word** (`family_safe_word`, Privacy & security): a question and answer per label, set on the label's page after the fingerprint or screen lock. The page lists the labels and whether each has one. Kept sealed on this phone only (`family_safety`, never in backups).

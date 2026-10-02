@@ -334,6 +334,8 @@ internal fun CallsPage(vm: AppViewModel, open: (Destination) -> Unit) {
     MemorySettingsGroup(vm)
     // Helpers to bring into a call (WP-8).
     FamilySafetyCallsGroup(vm, open)
+    // The drive profile and calling abroad (WP-15).
+    OnTheRoadGroup(vm, open)
     SegmentedGroup(stringResource(R.string.set_group_sims)) {
         linkRow("sims", Icons.Rounded.SimCard) { open(HistoryRoutes.Sims) }
         linkRow("sim_accounts", Icons.Rounded.SettingsPhone, external = true) { context.startSafely(Intent(TelecomManager.ACTION_CHANGE_PHONE_ACCOUNTS)) }
