@@ -98,9 +98,10 @@ fun PrivacyScreen(vm: AppViewModel, back: () -> Unit) {
             item { PrivacyLinks(vm) }
             item { Section(stringResource(R.string.set_privacy_keeps_private)) }
             item {
-                val vault by vm.c.vault.contacts.collectAsStateWithLifecycle()
-                val priv by vm.c.vault.privateCalls.collectAsStateWithLifecycle()
                 val s by vm.settings.collectAsStateWithLifecycle()
+                // After a duress unlock there are none to count (I21).
+                val vault = vm.c.vault.contacts.collectAsStateWithLifecycle().value.takeIf { s.duress == null }.orEmpty()
+                val priv = vm.c.vault.privateCalls.collectAsStateWithLifecycle().value.takeIf { s.duress == null }.orEmpty()
                 val journalCount by produceState(0) { value = vm.c.meta.journalCount() }
                 ListItem(
                     headlineContent = { Text(pluralStringResource(R.plurals.set_privacy_private_contacts, vault.size, vault.size)) },

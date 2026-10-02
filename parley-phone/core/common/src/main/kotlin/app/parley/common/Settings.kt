@@ -76,6 +76,11 @@ data class AppSettings(
     val showCallerPhoto: Boolean = true,
     /** L3: ask to switch answered calls to RTT (real-time text) where the SIM supports it. */
     val answerWithRtt: Boolean = false,
+    /**
+     * Never stored. Set only while a duress unlock's hiding is on (see [app.parley.common.security.DuressPolicy]): the
+     * safety switches as the settings screens show them, while [hideVault] above is forced on for everything else.
+     */
+    val duress: DuressView? = null,
 ) {
     companion object {
         val DEFAULT_QUICK_REPLIES = listOf(
@@ -86,3 +91,6 @@ data class AppSettings(
         )
     }
 }
+
+/** What the Privacy page shows for the switches a duress unlock overrides (the values as the user left them). */
+data class DuressView(val hideVault: Boolean, val privateVaultHistory: Boolean)

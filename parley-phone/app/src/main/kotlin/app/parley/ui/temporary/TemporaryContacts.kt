@@ -214,7 +214,9 @@ fun rememberTemporaryItems(vm: AppViewModel): List<TemporaryItem> {
     val tempsFlow = remember(vm) { vm.c.temporaries.all }
     val temps by tempsFlow.collectAsStateWithLifecycle(emptyList())
     val contacts by vm.contacts.collectAsStateWithLifecycle()
-    val vault by vm.c.vault.contacts.collectAsStateWithLifecycle()
+    // Discreet mode (and a duress unlock, which forces it) leaves private contacts out here too.
+    val hidden = vm.settings.collectAsStateWithLifecycle().value.hideVault
+    val vault = vm.c.vault.contacts.collectAsStateWithLifecycle().value.takeUnless { hidden }.orEmpty()
     val fallback = stringResource(R.string.temp_fallback_name)
     return remember(temps, contacts, vault, fallback) {
         val byId = contacts.orEmpty().associateBy { it.id }

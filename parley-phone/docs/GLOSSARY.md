@@ -20,6 +20,13 @@ See also [WRITING.md](WRITING.md) for voice and tone, and [SETTINGS.md](SETTINGS
 
 A label's **Allow through Do Not Disturb** works by starring its members, because Android only lets starred contacts through Do Not Disturb. Starred contacts *are* Favourites, so turning it on adds those people to Favourites. Parley doesn't hide this: the confirmation lists every person who will be starred ("These 4 people will be starred and appear in Favourites") before anything changes. The switch's summary says the same. "Star N new members" asks with the same list. Turning it off unstars only the people Parley starred for that label.
 
+## App lock
+
+| Term | What it means | Not |
+|---|---|---|
+| **Parley PIN** | The app lock's own PIN, used instead of the phone's fingerprint or screen lock (Settings › Privacy & security › App lock › Unlock with). | Not "passcode" or "app password". |
+| **Duress PIN** | A second PIN that opens Parley looking normal, with private contacts and sensitive notes hidden until the Parley PIN is used again. | Not "panic PIN", "decoy" or "fake PIN". |
+
 ## Reaching someone
 
 | Term | What it means | Not |

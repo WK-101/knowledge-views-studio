@@ -1,5 +1,6 @@
 package app.parley.data.extras
 
+import app.parley.data.security.Concealment
 import android.Manifest
 import android.content.Intent
 import app.parley.common.ContactSummary
@@ -126,6 +127,8 @@ class MarkdownExport(private val context: Context, private val c: DataContainer)
     suspend fun exportNow(texts: Texts): Int = mutex.withLock {
         withContext(Dispatchers.IO) {
             val folder = status.value.folderUri?.let(Uri::parse) ?: return@withContext 0
+            // I21: after a duress unlock notes read as none; writing that would empty the files in the folder.
+            if (Concealment.hiding) return@withContext 0
             if (!Permissions.has(context, Manifest.permission.READ_CONTACTS)) {
                 finish(0, 0, NO_PERMISSION)
                 return@withContext 0

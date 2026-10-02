@@ -56,7 +56,7 @@ fun DiagnosticsScreen(vm: AppViewModel, back: () -> Unit) {
             val extra = linkedMapOf(
                 "defaultPhoneApp" to vm.isDefaultDialer.value.toString(),
                 "contacts" to (vm.contacts.value?.size ?: 0).toString(),
-                "privateContacts" to vm.c.vault.contacts.value.size.toString(),
+                "privateContacts" to (if (vm.settings.value.duress != null) 0 else vm.c.vault.contacts.value.size).toString(),
                 "accountsWithContacts" to vm.people.index.value.accountCounts.size.toString(),
                 "labels" to vm.people.index.value.labelCounts.size.toString(),
                 "sims" to vm.sims.value.size.toString(),

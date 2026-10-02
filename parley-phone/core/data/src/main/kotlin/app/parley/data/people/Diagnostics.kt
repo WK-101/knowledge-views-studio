@@ -70,7 +70,11 @@ class Diagnostics(private val context: Context) {
         appendLine("quickReplies=${settings.quickReplies.size} customised=${settings.quickReplies != AppSettings.DEFAULT_QUICK_REPLIES}")
         // Flags and counts only: the screening settings hold phone numbers, a reply text and ringtone URIs.
         appendLine("screening: ${app.parley.common.ScreeningDiagnostics.describe(settings.screening)}")
-        appendLine("appLock=${settings.appLock} lockAfter=${settings.lockAfterMinutes} secureScreen=${settings.secureScreen} hideVault=${settings.hideVault} privateHistory=${settings.privateVaultHistory}")
+        // The switches as the user set them (after a duress unlock, not what Parley enforces).
+        val hideVault = settings.duress?.hideVault ?: settings.hideVault
+        val privateHistory = settings.duress?.privateVaultHistory ?: settings.privateVaultHistory
+        appendLine("appLock=${settings.appLock} lockAfter=${settings.lockAfterMinutes} secureScreen=${settings.secureScreen}")
+        appendLine("hideVault=$hideVault privateHistory=$privateHistory")
         appendLine("unknownRingtone=${if (settings.unknownRingtone != null) "set" else "default"} repeatCaller=${settings.repeatCallerRingsThrough}")
         appendLine("birthdays=${settings.birthdayReminders}@${settings.birthdayReminderHour} nudges=${settings.reachOutNudges} retentionDays=${settings.callLogRetentionDays}")
         appendLine("secondLine=${people.secondLine} preferNickname=${people.preferNickname} favourites=${people.favoriteSort}/${people.favoriteColumns} privateByDefault=${people.privateByDefault} labelRingtones=${people.labelRingtones.size}")

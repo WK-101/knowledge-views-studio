@@ -36,7 +36,12 @@ import androidx.activity.result.contract.ActivityResultContracts
 import android.hardware.biometrics.BiometricManager
 import android.hardware.biometrics.BiometricPrompt
 import android.os.CancellationSignal
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.flow.filterNotNull
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -70,6 +75,11 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import androidx.compose.ui.res.stringResource
 import app.parley.R
 import app.parley.ui.ParleyDialog
+import androidx.lifecycle.lifecycleScope
+import app.parley.common.security.DuressMachine
+import app.parley.data.security.LockTransitions
+import app.parley.data.security.AppPinStore
+import app.parley.data.security.Concealment
 
 /**
  * App lock for Parley's own screens. The in-call screen is a separate activity and is never
@@ -141,10 +151,17 @@ object AppLock {
     private fun engage() {
         locked.value = true
         onLock?.invoke()
+        onEngaged?.invoke()
     }
 
     /** Runs whenever Parley locks: what was opened for the session (private contacts' details) is forgotten. */
     @Volatile var onLock: (() -> Unit)? = null
+
+    /**
+     * Runs when the lock itself engages (not when the screen only goes off): a duress session ends here, while what it
+     * hides stays hidden until the real Parley PIN (I21).
+     */
+    @Volatile var onEngaged: (() -> Unit)? = null
 
     fun lockNow() = engage()
 
@@ -168,6 +185,36 @@ object AppLock {
     }
 
     /**
+     * The fingerprint or screen lock succeeded. It opens Parley unless a duress PIN is set: then only a PIN does,
+     * or "use your fingerprint" would undo the duress PIN (I21). [then] runs after the decision either way.
+     */
+    private fun unlockedByDevice(activity: FragmentActivity, then: () -> Unit) {
+        val pins = activity.container.appPin
+        fun decide(summary: AppPinStore.Summary) {
+            DuressMachine.otherUnlock(Concealment.state.value, summary.duressSet)?.let { next ->
+                Concealment.move(next)
+                unlocked()
+            }
+            then()
+        }
+        val known = pins.summary.value
+        if (known != null) decide(known) else activity.lifecycleScope.launch { decide(pins.load()) }
+    }
+
+    /**
+     * I21: a PIN typed on the lock screen. The Parley PIN opens everything; the duress PIN opens a duress session, which
+     * looks the same. [onResult] gets the attempt (a wrong PIN, or how long to wait) after Parley has opened.
+     */
+    fun unlockWithPin(activity: FragmentActivity, pin: String, onResult: (AppPinStore.Attempt) -> Unit) {
+        val c = activity.container
+        activity.lifecycleScope.launch {
+            val attempt = c.appPin.check(pin)
+            if (LockTransitions.pinEntered(c, attempt)) unlocked()
+            onResult(attempt)
+        }
+    }
+
+    /**
      * Shows the system prompt. Failed attempts are allowed; only cancel/error keeps the lock. It lets the user in
      * without asking only when the phone has no screen lock at all (the app lock can't work then, and mustn't trap
      * anyone). When the biometric stack reports anything else (hardware busy or unknown, an update required), the
@@ -178,17 +225,17 @@ object AppLock {
         if (status != BiometricManager.BIOMETRIC_SUCCESS) {
             val km = activity.getSystemService(KeyguardManager::class.java)
             if (km?.isDeviceSecure != true) {
-                unlocked()
-                onResult(true)
+                unlockedByDevice(activity) { onResult(true) }
                 return
             }
             Log.w("AppLock", "Biometric prompt unavailable ($status); confirming the screen lock instead")
             return confirmCredential(activity, title ?: activity.getString(R.string.lock_unlock_parley)) { ok ->
                 if (ok) {
-                    unlocked()
                     VaultSession.markAuthenticated()
+                    unlockedByDevice(activity) { onResult(true) }
+                } else {
+                    onResult(false)
                 }
-                onResult(ok)
             }
         }
         val prompt = BiometricPrompt.Builder(activity)
@@ -203,9 +250,8 @@ object AppLock {
             CancellationSignal(), ContextCompat.getMainExecutor(activity),
             object : BiometricPrompt.AuthenticationCallback() {
                 override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
-                    unlocked()
                     VaultSession.markAuthenticated()
-                    onResult(true)
+                    unlockedByDevice(activity) { onResult(true) }
                 }
 
                 override fun onAuthenticationError(errorCode: Int, errString: CharSequence) = onResult(false)
@@ -316,30 +362,46 @@ object VaultSession {
 @Composable
 fun LockScreen(emergencyNumber: String? = null, checkingEmergency: Boolean = false, onUnlock: () -> Unit) {
     SensitiveScreen()
+    val pins = LocalContext.current.container.appPin
+    // I21: whether a Parley PIN unlocks (null while the small record is read; nothing is offered until then).
+    val pin by pins.summary.collectAsStateWithLifecycle()
+    LaunchedEffect(Unit) { pins.load() }
     val handedOver by rememberUpdatedState(emergencyNumber)
     val checking by rememberUpdatedState(checkingEmergency)
     LaunchedEffect(Unit) {
         snapshotFlow { checking }.first { !it }
-        if (AppLock.promptOnShow && handedOver == null) onUnlock()
+        // With a Parley PIN its field takes the focus instead of the system prompt.
+        val usesPin = snapshotFlow { pin }.filterNotNull().first().pinSet
+        if (AppLock.promptOnShow && handedOver == null && !usesPin) onUnlock()
     }
     Surface(Modifier.fillMaxSize()) {
-        Column(Modifier.fillMaxSize().padding(32.dp), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(Icons.Rounded.Lock, null, Modifier.size(64.dp), tint = MaterialTheme.colorScheme.primary)
-            Spacer(Modifier.height(16.dp))
-            Text(stringResource(R.string.lock_locked), style = MaterialTheme.typography.headlineSmall)
-            Text(
-                stringResource(R.string.lock_calls_show), style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 8.dp),
-            )
-            Spacer(Modifier.height(24.dp))
-            Button(onUnlock) { Text(stringResource(R.string.lock_unlock)) }
-            // Parley is the phone app: its lock must never stand between the user and an emergency call.
-            var emergency by remember(emergencyNumber) { mutableStateOf(emergencyNumber != null) }
-            TextButton({ emergency = true }, Modifier.padding(top = 8.dp)) {
-                Icon(Icons.Rounded.Emergency, null, Modifier.size(18.dp))
-                Text("  " + stringResource(R.string.lock_emergency_call))
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Column(
+                Modifier.verticalScroll(rememberScrollState()).imePadding().padding(32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Icon(Icons.Rounded.Lock, null, Modifier.size(64.dp), tint = MaterialTheme.colorScheme.primary)
+                Spacer(Modifier.height(16.dp))
+                Text(stringResource(R.string.lock_locked), style = MaterialTheme.typography.headlineSmall, textAlign = TextAlign.Center)
+                Text(
+                    stringResource(R.string.lock_calls_show), style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 8.dp),
+                )
+                Spacer(Modifier.height(24.dp))
+                val p = pin
+                when {
+                    p == null -> Spacer(Modifier.height(48.dp))
+                    p.pinSet -> PinUnlock(deviceAllowed = p.deviceUnlocks, autoFocus = emergencyNumber == null, onDevice = onUnlock)
+                    else -> Button(onUnlock) { Text(stringResource(R.string.lock_unlock)) }
+                }
+                // Parley is the phone app: its lock must never stand between the user and an emergency call.
+                var emergency by remember(emergencyNumber) { mutableStateOf(emergencyNumber != null) }
+                TextButton({ emergency = true }, Modifier.padding(top = 8.dp)) {
+                    Icon(Icons.Rounded.Emergency, null, Modifier.size(18.dp))
+                    Text("  " + stringResource(R.string.lock_emergency_call))
+                }
+                if (emergency) EmergencyDialog(emergencyNumber.orEmpty()) { emergency = false }
             }
-            if (emergency) EmergencyDialog(emergencyNumber.orEmpty()) { emergency = false }
         }
     }
 }

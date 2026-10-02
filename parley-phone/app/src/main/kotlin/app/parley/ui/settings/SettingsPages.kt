@@ -41,6 +41,7 @@ import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.Accessibility
 import androidx.compose.material.icons.rounded.Contrast
 import androidx.compose.material.icons.rounded.DarkMode
+import androidx.compose.material.icons.rounded.Dialpad
 import androidx.compose.material.icons.rounded.DensityMedium
 import androidx.compose.material.icons.rounded.FileDownload
 import androidx.compose.material.icons.rounded.FileUpload
@@ -665,6 +666,7 @@ internal fun PrivacyPage(vm: AppViewModel, open: (Destination) -> Unit) {
     )
     val on = stringResource(R.string.set_on)
     val off = stringResource(R.string.set_off)
+    val unlockWith = unlockWithSummary(vm)
     SegmentedGroup(stringResource(R.string.set_group_app_lock)) {
         switchRow("app_lock", s.appLock, Icons.Rounded.Lock) { v ->
             val act = context as? FragmentActivity
@@ -674,14 +676,19 @@ internal fun PrivacyPage(vm: AppViewModel, open: (Destination) -> Unit) {
             menuRow("lock_after", lockLabels, lockTimes.indexOf(s.lockAfterMinutes).coerceAtLeast(0), Icons.Rounded.LockClock) { i ->
                 set { it.copy(lockAfterMinutes = lockTimes[i]) }
             }
+            // I21: the Parley PIN and the duress PIN, on a page of their own.
+            linkRow("app_lock_method", Icons.Rounded.Dialpad, sub = unlockWith) { open(AppLockRoutes.UnlockWith) }
         }
         switchRow("secure_screen", s.secureScreen, Icons.Rounded.VisibilityOff) { v -> set { it.copy(secureScreen = v) } }
     }
     // The family safe word, by label (WP-8).
     FamilySafetyPrivacyGroup(open)
     SegmentedGroup(stringResource(R.string.set_group_private_contacts)) {
-        switchRow("hide_vault", s.hideVault, Icons.Rounded.VisibilityOff) { v -> set { it.copy(hideVault = v) } }
-        switchRow("private_history", s.privateVaultHistory, Icons.Rounded.PhoneLocked) { v -> set { it.copy(privateVaultHistory = v) } }
+        // After a duress unlock these show the switches as they were left, not what Parley enforces (I21).
+        switchRow("hide_vault", s.duress?.hideVault ?: s.hideVault, Icons.Rounded.VisibilityOff) { v -> set { it.copy(hideVault = v) } }
+        switchRow("private_history", s.duress?.privateVaultHistory ?: s.privateVaultHistory, Icons.Rounded.PhoneLocked) { v ->
+            set { it.copy(privateVaultHistory = v) }
+        }
     }
     SegmentedGroup(stringResource(R.string.set_group_your_data)) {
         linkRow("privacy_dashboard", Icons.Rounded.PrivacyTip) { open(Routes.Privacy) }

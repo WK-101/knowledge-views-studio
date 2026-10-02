@@ -27,6 +27,9 @@ enum class SettingsCategory(val title: String, val summary: String) {
  */
 enum class SettingPlace {
     TOOLS, BLOCKING, DELETED_CALLS, SIMS, CONTACT_PAGE, SIMPLE_MODE, CALL_TIME, BACKUP, SYNC, TEMPORARY, HELPERS, DRIVE_PROFILE, PHONE_MENUS,
+
+    /** Settings › Privacy › App lock › Unlock with: the Parley PIN and the duress PIN (I21). */
+    APP_LOCK,
 }
 
 /**
@@ -300,6 +303,16 @@ object SettingsCatalog {
         e("app_lock", "App lock", "Fingerprint, face or screen lock to open Parley. Incoming calls always show.", S,
             "lock", "biometric", "fingerprint", "face", "pin", "password", "security"),
         e("lock_after", "Lock again after", "How long Parley can stay in the background", S, "timeout", "lock", "delay"),
+        // I21: how Parley unlocks; the PINs live on a screen of their own (the Privacy page keeps to its rows).
+        e("app_lock_method", "Unlock with", "Fingerprint or screen lock, or a Parley PIN", S, "pin", "code", "passcode", "unlock", "lock screen"),
+        at(SettingPlace.APP_LOCK, "parley_pin", "Parley PIN", "A PIN of Parley's own instead of the phone's screen lock", S,
+            "pin", "code", "passcode", "own pin", "app pin", "separate pin", "shared phone"),
+        at(SettingPlace.APP_LOCK, "duress_pin", "Duress PIN", "A second PIN that opens Parley with private contacts and sensitive notes hidden", S,
+            "duress", "coercion", "forced", "made to unlock", "border", "partner", "abuse", "safety", "decoy", "second pin", "hide"),
+        at(
+            SettingPlace.APP_LOCK, "duress_lock_vault", "Keep private details locked",
+            "After the duress PIN, private contacts' details stay locked until your Parley PIN", S,
+            "duress", "vault", "lock", "private contacts", "details"),
         e("secure_screen", "Hide screen content", "Blocks screenshots and hides Parley in the recent-apps view", S, "screenshot", "recents", "secure", "flag secure"),
         e("family_safe_word", "Family safe word", "A private question for callers who say they're family, set on a label's page", S,
             "safe word", "scam", "grandparent", "impostor", "voice clone", "family", "question"),

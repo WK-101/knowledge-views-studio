@@ -19,11 +19,15 @@ import app.parley.common.NotificationChannels
 import app.parley.common.NotificationIds
 import app.parley.container
 import app.parley.data.backup.BackupSchedule
+import app.parley.data.security.Concealment
 import java.util.concurrent.TimeUnit
 
 /** Scheduled encrypted backup to the chosen folder. Uses only the public key: no passphrase stored. */
 class BackupWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
+        // I21: after a duress unlock, notes read as none; a scheduled backup then would be a poorer copy that could
+        // rotate a good one out. The next run after the real Parley PIN backs up as usual.
+        if (Concealment.hiding) return Result.success()
         val out = applicationContext.container.backup.backupNow(scheduled = true)
         if (!out.ok || out.rotationPaused || out.failedSections.isNotEmpty()) notify(applicationContext, out.message)
         return Result.success()

@@ -102,11 +102,16 @@ The Settings list starts with **Tools** (the same page as ⋮ › Tools; see the
 ## Privacy & security
 | Group | Settings |
 |---|---|
-| App lock | App lock `app_lock` · Lock again after `lock_after` · Hide screen content `secure_screen` |
+| App lock | App lock `app_lock` · Lock again after `lock_after` · Unlock with `app_lock_method` ↗ (in it: Parley PIN `parley_pin`, Duress PIN `duress_pin`, Keep private details locked `duress_lock_vault`) · Hide screen content `secure_screen` |
 | Family safety | Family safe word `family_safe_word` ↗ (set on a label's page) |
 | Private contacts | Hide private contacts `hide_vault` · Private call history `private_history` |
 | Your data | Privacy dashboard `privacy_dashboard` · Who can see your contacts `who_can_see` · Let apps show private names `private_names` |
 | Advanced | Private names in other phone apps `private_directory` · App permissions (system) `app_permissions` |
+
+**Duress unlock** (WP-20, nothing on by default; threat model in [SECURITY_MODEL.md](SECURITY_MODEL.md#duress-unlock)):
+- **Unlock with** (`app_lock_method`, with the app lock on): "Fingerprint or screen lock" (as before) or **Parley PIN** (`parley_pin`): 4–12 digits, kept as a sealed scrypt hash in `no_backup/app_pin`, never in backups (a new phone sets its own). Changing either PIN asks for the fingerprint or screen lock first. Wrong PINs: five free tries, then 30 s doubling to an hour.
+- **Duress PIN** (`duress_pin`, needs a Parley PIN): a second PIN that opens Parley as usual with private contacts, their calls, Circle notes and promises, notes for calls, call notes, family safe words and Shared with hidden, until the next unlock with the Parley PIN. While it is set only a PIN opens Parley (not the fingerprint or screen lock), and a forgotten Parley PIN can't be recovered: the screen says so before it asks for the duress PIN. Shown nowhere (rows and search) during a duress session.
+- **Keep private details locked** (`duress_lock_vault`, on): after the duress PIN, private contacts' details refuse to open until the Parley PIN, even right after the phone's own unlock.
 
 ## Backup & sync
 | Group | Settings |
