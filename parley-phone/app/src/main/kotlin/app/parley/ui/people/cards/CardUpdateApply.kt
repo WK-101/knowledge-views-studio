@@ -33,6 +33,9 @@ object CardUpdateApply {
         address = d.addresses.firstOrNull()?.formatted.orEmpty(),
     )
 
+    /** Every address of the contact: an update replaces only the one that is the card's previous address (M2). */
+    fun addressesOf(d: ContactDetails): List<String> = d.addresses.map { it.formatted }.filter { it.isNotBlank() }
+
     /**
      * [d] with [changes] made: a replaced number keeps its row (type, label, default), a removed one goes, a new one is
      * added as a mobile number; the same for email addresses and websites (a profile as a website labelled with its
@@ -81,7 +84,8 @@ object CardUpdateApply {
         return when {
             at >= 0 && new != null -> list.toMutableList().also { it[at] = PostalItem(id = it[at].id, street = new, type = it[at].type, label = it[at].label) }
             at >= 0 -> list.filterIndexed { i, _ -> i != at }
-            new != null -> listOf(PostalItem(street = new, type = StructuredPostal.TYPE_HOME)) + list
+            // Added after the user's own addresses, which keep their place.
+            new != null -> list + PostalItem(street = new, type = StructuredPostal.TYPE_HOME)
             else -> list
         }
     }

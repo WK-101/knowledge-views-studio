@@ -115,7 +115,6 @@ class NavigationRoutesTest {
             IntentRoutes.ACTION_OPEN_SYNC to Routes.Sync,
             IntentRoutes.ACTION_OPEN_TEMPORARY to Routes.Temporary,
             IntentRoutes.ACTION_BULK_ADD to MessagingRoutes.BulkAdd,
-            IntentRoutes.ACTION_PASTE_CONTACT to Routes.edit(paste = true),
             IntentRoutes.ACTION_SCAN_QR to QrRoutes.Scan,
             IntentRoutes.ACTION_SHOW_TO_CALL to ToCallRoutes.List,
         )
@@ -126,6 +125,14 @@ class NavigationRoutesTest {
         // The same actions as MainActivity's constants, which notifications and shortcuts use.
         assertEquals(MainActivity.ACTION_SCAN_QR, IntentRoutes.ACTION_SCAN_QR)
         assertEquals(MainActivity.ACTION_SHOW_CALLER, IntentRoutes.ACTION_SHOW_CALLER)
+    }
+
+    @Test fun pastedTextOpensOnlyTheEditorItWasHandedTo() {
+        // L8: without the id PasteInbox gave the text, the action opens nothing.
+        assertNull(resolve(IntentRoutes.ACTION_PASTE_CONTACT))
+        val dest = Routes.edit(paste = "id-1")
+        assertEquals(dest, routeOf(resolve(IntentRoutes.ACTION_PASTE_CONTACT) { putExtra(IntentRoutes.EXTRA_PASTE_ID, "id-1") }))
+        opens(dest)
     }
 
     @Test fun notificationActionsKeepTheirExtras() {

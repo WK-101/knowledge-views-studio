@@ -93,4 +93,20 @@ class PasteFillTest {
         assertEquals(1, d.addresses.size)
         assertEquals(0, AddressMapLinks.matches(d).keys.single())
     }
+
+    @Test fun add_to_an_existing_contact_skips_what_it_already_has() {
+        // L9: pasting Ana's signature into "Add to Ana" doesn't double her website, address or birthday.
+        val ana = PasteFill.into(ContactDetails(), fields())
+        val draft = PasteFill.into(ContactDetails(phones = listOf(DataItem(value = "", type = Phone.TYPE_MOBILE))), fields())
+            .copy(phones = listOf(DataItem(value = "", type = Phone.TYPE_MOBILE)) + PasteFill.into(ContactDetails(), fields()).phones)
+        val out = app.parley.InsertPrefill.appendTo(ana, draft)
+        assertEquals(ana.phones.map { it.value }, out.phones.map { it.value })
+        assertEquals(ana.websites.size, out.websites.size)
+        assertEquals(ana.addresses.size, out.addresses.size)
+        assertEquals(1, out.events.count { it.type == Event.TYPE_BIRTHDAY })
+        assertTrue(out.phones.none { it.value.isBlank() })
+        // Something new still goes in.
+        val more = app.parley.InsertPrefill.appendTo(ana, ContactDetails(emails = listOf(DataItem(value = "new@example.org", type = Email.TYPE_WORK))))
+        assertEquals(ana.emails.size + 1, more.emails.size)
+    }
 }

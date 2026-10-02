@@ -39,9 +39,9 @@ class ParleyApp : Application() {
         DebugStrictMode.install(this)
         // Stores the last crash on this phone when "Keep crash reports" is on (it reads that flag at crash time).
         CrashStore(this).install()
-        // Parley is English-only: a language picked in an older version is dropped once.
-        AppLocale.reset(this)
         container = DataContainer(this)
+        // Parley is English-only: a language picked in an older version is dropped once, off the main thread (L7).
+        container.scope.launch(Dispatchers.IO) { suspendRunCatching { AppLocale.reset(this@ParleyApp) } }
         TelecomGraph.install(AppTelecomDependencies(this, container))
         BlockingSetup.install(this, container)
         // Keeps the Circle widget current while Parley runs (from the full start on, and only while one is placed).

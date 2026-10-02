@@ -16,11 +16,16 @@ import app.parley.common.TraceStep
 enum class ScreeningPreset {
     KNOWN, TELEMARKETERS, NIGHTS, EVERYONE;
 
-    fun apply(a: AppSettings): AppSettings = when (this) {
+    /**
+     * The settings with this setup applied. "Only people I know" silences strangers at all times, so it replaces a
+     * schedule for unknown callers, unless [keepSchedule] (the confirm dialog says so and offers to keep it, M9).
+     */
+    fun apply(a: AppSettings, keepSchedule: Boolean = false): AppSettings = when (this) {
         KNOWN -> a.copy(
             repeatCallerRingsThrough = true,
             screening = a.screening.copy(
-                blockNonContacts = true, nonContactsSchedule = null, blockHidden = true, defaultAction = BlockAction.SILENCE,
+                blockNonContacts = true, nonContactsSchedule = if (keepSchedule) a.screening.nonContactsSchedule else null,
+                blockHidden = true, defaultAction = BlockAction.SILENCE,
                 allowDialled = true, allowAnswered = true,
             ),
         )
@@ -37,6 +42,9 @@ enum class ScreeningPreset {
             ),
         )
     }
+
+    /** The schedule for unknown callers this setup would remove from [s] (null: none), for the confirm dialog. */
+    fun removedSchedule(s: ScreeningSettings): Schedule? = if (this == KNOWN) s.nonContactsSchedule else null
 
     companion object {
         /**
@@ -57,8 +65,11 @@ enum class ScreeningPreset {
     }
 }
 
-/** One stopped call from the screening log: when, from which number, silenced or declined, and whether a contact. */
-data class StoppedCall(val time: Long, val number: String?, val silenced: Boolean, val fromContact: Boolean)
+/**
+ * One stopped call from the screening log: when, from which number, silenced or declined, and whether a contact.
+ * [person] names the contact (its key) when known, so one person calling from two numbers counts once (L5).
+ */
+data class StoppedCall(val time: Long, val number: String?, val silenced: Boolean, val fromContact: Boolean, val person: String? = null)
 
 /** The weekly line under the presets: "12 calls silenced · 0 contacts affected". */
 data class ScreeningWeek(val silenced: Int, val declined: Int, val contactsAffected: Int) {
@@ -80,7 +91,7 @@ object ScreeningWeekly {
      */
     fun summarize(calls: List<StoppedCall>, now: Long): ScreeningWeek {
         val week = calls.filter { it.time in (now - WEEK_MS)..now }
-        val contacts = week.filter { it.fromContact }.map { it.number ?: "" }.distinct().size
+        val contacts = week.filter { it.fromContact }.map { it.person ?: it.number.orEmpty() }.distinct().size
         return ScreeningWeek(week.count { it.silenced }, week.count { !it.silenced }, contacts)
     }
 }

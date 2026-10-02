@@ -27,6 +27,10 @@ enum class ShareMethod {
 /**
  * I22: one entry of "Shared with": who got your card, when, how, and which numbers it had then ([phones], so the
  * "Changed my number" helper knows who still has an old one). [number] is theirs, when known; [name] may be empty.
+ *
+ * [contactKey] is set for a private contact (`parley-private:<id>`, M7): such a receipt keeps no name or number of
+ * theirs (they are read from the vault when the list is shown, and hidden in discreet mode), is stored sealed with
+ * the vault's key, and travels only in the private-contacts part of a backup.
  */
 @Serializable
 data class ShareReceipt(
@@ -36,6 +40,7 @@ data class ShareReceipt(
     val method: ShareMethod,
     val at: Long,
     val phones: List<String> = emptyList(),
+    val contactKey: String? = null,
 )
 
 /** One person in "Shared with": their latest receipt and every receipt of theirs, newest first. */

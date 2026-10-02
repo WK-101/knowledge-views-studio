@@ -31,7 +31,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.R
 import app.parley.common.NumberText
@@ -76,7 +75,8 @@ object SharedWithText {
 fun SharedWithScreen(vm: AppViewModel, back: () -> Unit) {
     val store = vm.c.people.shareLedger
     val scope = rememberCoroutineScope()
-    val receipts by store.receipts.collectAsStateWithLifecycle()
+    // Private contacts named from the vault, and hidden in discreet mode (M7).
+    val receipts by CardSharing.rememberShownReceipts(vm)
     var loaded by remember { mutableStateOf<Boolean?>(null) }
     LaunchedEffect(Unit) { loaded = store.load() }
     val people = remember(receipts) { ShareLedger.people(receipts, vm.countryIso) }

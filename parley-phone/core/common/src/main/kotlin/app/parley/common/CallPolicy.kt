@@ -498,6 +498,8 @@ object CallPolicy {
 
             // The system block list is the user's explicit choice, even for contacts.
             if (f.inSystemBlockList) {
+                // Noted for the weekly line (L5): a contact stopped by the list is still a contact affected.
+                if (f.isContact && !f.contactLookupFailed) step("Contact?", "yes", TraceMark.MATCH)
                 step("Blocked numbers list", "listed", TraceMark.MATCH)
                 return block(BlockAction.REJECT, BlockReason.SYSTEM_LIST)
             }

@@ -3,6 +3,7 @@
 
 package app.parley.ui.contact
 
+import androidx.compose.runtime.remember
 import androidx.navigation.NavController
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavGraphBuilder
@@ -51,6 +52,7 @@ fun NavGraphBuilder.contactGraph(nav: NavController) {
     composable<Routes.Edit> {
         val a = it.toRoute<Routes.Edit>()
         val vm = appVm()
+        val pasteText = remember(a.paste) { if (a.paste.isNotEmpty()) PasteInbox.take(a.paste) else null }
         ContactEditScreen(
             vm,
             contactId = a.id.takeIf { id -> id > 0 },
@@ -60,7 +62,8 @@ fun NavGraphBuilder.contactGraph(nav: NavController) {
             addPhone = a.addPhone,
             prefill = if (a.prefill) vm.pendingPrefill.also { vm.pendingPrefill = null } else null,
             vaultId = a.vault.takeIf { v -> v >= 0 },
-            pasteText = if (a.paste) PasteInbox.take() else null,
+            // Taken once for this entry (L8), not on every recomposition.
+            pasteText = pasteText,
             done = { savedId ->
                 // A contact received by QR gets its "Met at…" entry once it's saved.
                 HandshakeInbox.onSaved(vm, savedId, a.handshake)

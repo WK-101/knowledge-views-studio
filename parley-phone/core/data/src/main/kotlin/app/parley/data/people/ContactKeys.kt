@@ -56,6 +56,8 @@ class ContactKeys(
     private val waiting: () -> SharedPreferences? = { null },
     /** The signed card a contact is linked to (I14) follows the same moves. */
     private val cardLinks: () -> CardLinkStore? = { null },
+    /** "Shared with" receipts for private contacts (M7) travel and move with them too. */
+    private val shareLedger: () -> ShareLedgerStore? = { null },
 ) {
     private val mutex = Mutex()
 
@@ -142,6 +144,7 @@ class ContactKeys(
      * remembered yearly, logged moments and the call-screen picture), for the private-contacts section of a backup:
      * they are written only with the private contacts themselves, never in the sections every backup has.
      */
+    @Suppress("CyclomaticComplexMethod") // One optional entry per store that keeps something for the contact.
     suspend fun exportPrivate(key: String): JSONObject? = withContext(Dispatchers.IO) {
         if (!ContactRef.isPrivateKey(key)) return@withContext null
         val o = JSONObject()
@@ -158,6 +161,7 @@ class ContactKeys(
         runCatching { backgrounds().read(key) }.getOrNull()?.let { o.put(X_BACKGROUND, android.util.Base64.encodeToString(it, android.util.Base64.NO_WRAP)) }
         calling()?.config?.value?.contactPart(key)?.takeIf { !it.isEmpty }?.let { o.put(X_CALL_TIME, encodeCallTime(it)) }
         runCatching { cardLinks()?.let { s -> s.load(); s.exportOne(key) } }.getOrNull()?.let { o.put(X_CARD, it) }
+        runCatching { shareLedger()?.let { s -> s.load(); s.exportFor(key) } }.getOrNull()?.let { o.put(X_SHARED, it) }
         o.takeIf { it.length() > 0 }
     }
 
@@ -207,6 +211,7 @@ class ContactKeys(
             }
             o.optJSONObject(X_CALL_TIME)?.let { t -> runCatching { calling()?.update { it.withContactPart(key, decodeCallTime(t), "") } } }
             o.optString(X_CARD).ifEmpty { null }?.let { j -> runCatching { cardLinks()?.importOne(key, j) } }
+            o.optString(X_SHARED).ifEmpty { null }?.let { j -> runCatching { shareLedger()?.importFor(key, j) } }
         }
     }
 
@@ -332,6 +337,7 @@ class ContactKeys(
         // The haptic caller ID and auto-answer (into the vault entry when [to] is a private contact's key).
         runCatching { extras()?.choiceRekey(from, to) }
         runCatching { cardLinks()?.rekey(from, to) }
+        runCatching { shareLedger()?.rekey(from, to) }
         // A private contact's limit keeps no name (it would be the only copy of it outside the vault).
         runCatching {
             calling()?.update { cfg ->
@@ -415,6 +421,7 @@ private const val X_INTERACTIONS = "i"
 private const val X_BACKGROUND = "bg"
 private const val X_CALL_TIME = "ct"
 private const val X_CARD = "card"
+private const val X_SHARED = "shared"
 
 private fun encodeCallTime(p: ContactCallTime): JSONObject = JSONObject().apply {
     p.rule?.let { r ->

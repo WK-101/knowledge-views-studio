@@ -91,6 +91,7 @@ import app.parley.ui.common.CallQuestions
 import app.parley.ui.common.Format
 import app.parley.ui.common.rememberNumberLocation
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import app.parley.ui.common.ProvideAppKit
@@ -277,6 +278,7 @@ class NumberActionActivity : LockedActivity() {
     private fun initialStage(intent: Intent): Stage {
         sourceText = null
         contactText = null
+        contactCheck?.cancel()
         val text = when (intent.action) {
             MessageNumber.ACTION -> return Stage.Enter
             Intent.ACTION_PROCESS_TEXT -> intent.getCharSequenceExtra(Intent.EXTRA_PROCESS_TEXT)?.toString()
@@ -293,12 +295,27 @@ class NumberActionActivity : LockedActivity() {
         val region = PhoneEnv.countryIso(this)
         val found = NumberText.find(text, region)
         if (found.size > 1) sourceText = text
-        contactText = text.takeIf { PasteParser.worthOffering(it, region) }
+        offerContactLater(text, region)
         return when (found.size) {
             0 -> MapLinks.parse(text)?.takeIf { it.hasCoordinates || it.needsNetwork || it.service != MapLinks.Service.OTHER }?.let { Stage.Place(it) }
                 ?: Stage.NoNumber
             1 -> Stage.Actions(found[0].e164 ?: found[0].raw, found[0].raw)
             else -> Stage.Pick(found)
+        }
+    }
+
+    /** The text being looked at for "Make a contact from this text"; a newer share replaces it. */
+    private var contactCheck: Job? = null
+
+    /**
+     * L6: whether [text] is worth "Make a contact from this text" is the whole paste parser's work (number search per
+     * line), so it runs off the main thread and the row appears when it's known.
+     */
+    private fun offerContactLater(text: String, region: String?) {
+        contactCheck?.cancel()
+        contactCheck = lifecycleScope.launch {
+            val worth = withContext(Dispatchers.Default) { runCatching { PasteParser.worthOffering(text, region) }.getOrDefault(false) }
+            if (worth) contactText = text
         }
     }
 
@@ -435,8 +452,11 @@ class NumberActionActivity : LockedActivity() {
 
     /** Hands the text to a new contact's editor (in memory only, like "Save all…") and closes the sheet. */
     private fun makeContact(text: String) {
-        PasteInbox.put(text)
-        startActivity(Intent(this, MainActivity::class.java).setAction(IntentRoutes.ACTION_PASTE_CONTACT).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        val id = PasteInbox.put(text)
+        startActivity(
+            Intent(this, MainActivity::class.java).setAction(IntentRoutes.ACTION_PASTE_CONTACT).putExtra(IntentRoutes.EXTRA_PASTE_ID, id)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+        )
         finish()
     }
 

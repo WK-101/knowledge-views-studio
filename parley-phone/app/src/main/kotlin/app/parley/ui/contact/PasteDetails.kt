@@ -78,19 +78,28 @@ import java.time.MonthDay
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.util.Locale
+import java.util.UUID
+import app.parley.common.extras.PendingSlot
 
 /**
  * Text shared to Parley for "Make a contact from this text", handed to the new contact's editor in memory only (like
- * "Save all…" hands its text to Add several numbers) and read once.
+ * "Save all…" hands its text to Add several numbers) and read once. L8: it is bound to the editor it was handed to
+ * (a random id in that route) and expires after a few minutes, so a later "paste" route, from Parley or another app,
+ * never gets stale text.
  */
 object PasteInbox {
-    @Volatile private var text: String? = null
+    private const val TTL_MS = 10 * 60_000L
+    private val slot = PendingSlot<String>(TTL_MS)
 
-    fun put(t: String) {
-        text = t.take(PasteParser.MAX_TEXT)
+    /** Holds [t]; the returned id goes into the editor's route. */
+    fun put(t: String, now: Long = System.currentTimeMillis()): String {
+        val id = UUID.randomUUID().toString()
+        slot.put(id, now, t.take(PasteParser.MAX_TEXT))
+        return id
     }
 
-    fun take(): String? = text.also { text = null }
+    /** The text handed over with [id], once, while it's fresh. */
+    fun take(id: String?, now: Long = System.currentTimeMillis()): String? = slot.take(id, now)
 }
 
 /**

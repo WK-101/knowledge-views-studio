@@ -86,6 +86,8 @@ import app.parley.ui.contact.profileRows
 import app.parley.ui.people.cards.CardSharing
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import androidx.compose.material.icons.rounded.Key
 
 /** Imports the old "My details" once, so the card starts with what was typed there. */
 @Composable
@@ -155,7 +157,7 @@ fun MeCardScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit
     val scope = rememberCoroutineScope()
     val subject = card.name.ifBlank { stringResource(R.string.me_title) }
     val share = {
-        scope.launch { CardSharing.shareFile(context, CardSharing.vcard(vm.c, card, parts), subject) }
+        scope.launch { CardSharing.shareFile(vm.c, context, CardSharing.vcard(vm.c, parts), subject) }
         Unit
     }
 
@@ -173,6 +175,8 @@ fun MeCardScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit
             MeHeader(card, onQr = { showQr = true }, onShare = share, onEdit = edit)
             // "Changed my number": offered while people you shared with still have an old number.
             NewNumberBanner(vm, own, open)
+            // A restored backup brought your earlier card key while this phone's was already shared (M5).
+            CardKeyChoiceBanner(vm)
             if (!card.isEmpty) MeContactInfo(card)
             if (card.note.isNotBlank()) {
                 SegmentedGroup(stringResource(R.string.me_private_note)) {
@@ -300,7 +304,8 @@ internal fun MeQrDialog(
         }
     }
     // Signed (I14): a contact's Parley can tell a later card from you; camera apps read it like any vCard.
-    val text by CardSharing.rememberVcard(vm, card, parts.toSet())
+    // One signature per change (M4): the card is read with the profile inside, whatever [card] shows meanwhile.
+    val text by CardSharing.rememberVcard(vm, parts.toSet())
     val bitmap = remember(text) { text?.let { qr(it, 720) } }
     ParleyDialog(
         onDismissRequest = onDismiss,
@@ -328,7 +333,7 @@ internal fun MeQrDialog(
             Row {
                 if (onEdit != null) TextButton(onEdit) { Text(stringResource(R.string.me_edit_short)) }
                 val subject = card.name.ifBlank { stringResource(R.string.me_title) }
-                TextButton({ text?.let { CardSharing.shareFile(context, it, subject) } }, enabled = text != null) {
+                TextButton({ text?.let { CardSharing.shareFile(vm.c, context, it, subject) } }, enabled = text != null) {
                     Text(stringResource(R.string.me_share_file))
                 }
             }
@@ -344,12 +349,30 @@ private fun qr(text: String, size: Int): Bitmap? = try {
     null
 }
 
+/**
+ * M5: "Use your earlier card key?" after a restore, when this phone had already shared a card with its own key. Either
+ * answer is a choice; until then this phone keeps signing with its own key.
+ */
+@Composable
+private fun CardKeyChoiceBanner(vm: AppViewModel) {
+    val identity = vm.c.people.cardIdentity
+    val asking by identity.restoreChoice.collectAsStateWithLifecycle()
+    if (!asking) return
+    val scope = rememberCoroutineScope()
+    Banner(
+        stringResource(R.string.card_key_restore_question),
+        icon = Icons.Rounded.Key,
+        action = stringResource(R.string.card_key_restore_use_earlier),
+        onAction = { scope.launch(Dispatchers.IO) { runCatching { identity.usePrevious() } } },
+        onDismiss = { scope.launch(Dispatchers.IO) { runCatching { identity.keepThis() } } },
+        dismissLabel = stringResource(R.string.card_key_restore_keep_this),
+    )
+}
+
 /** My card › "Shared with": how many people have your card; opens the list (I22). */
 @Composable
 private fun SharedWithRow(vm: AppViewModel, open: (Destination) -> Unit) {
-    val store = vm.c.people.shareLedger
-    LaunchedEffect(Unit) { store.load() }
-    val receipts by store.receipts.collectAsStateWithLifecycle()
+    val receipts by CardSharing.rememberShownReceipts(vm)
     val people = remember(receipts) { ShareLedger.people(receipts, vm.countryIso).size }
     InfoRow(
         modifier = Modifier.clickable(onClickLabel = stringResource(R.string.card_shared_open)) { open(PeopleRoutes.SharedWith) },
@@ -371,8 +394,7 @@ private fun SharedWithRow(vm: AppViewModel, open: (Destination) -> Unit) {
 @Composable
 private fun NewNumberBanner(vm: AppViewModel, own: MeCard, open: (Destination) -> Unit) {
     val store = vm.c.people.shareLedger
-    LaunchedEffect(Unit) { store.load() }
-    val receipts by store.receipts.collectAsStateWithLifecycle()
+    val receipts by CardSharing.rememberShownReceipts(vm)
     val dismissed by store.dismissedNumbers.collectAsStateWithLifecycle()
     val phones = own.cleaned().phones
     val key = ShareLedger.numbersKey(phones)
