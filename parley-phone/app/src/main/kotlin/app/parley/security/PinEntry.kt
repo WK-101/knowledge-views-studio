@@ -50,10 +50,11 @@ import kotlinx.coroutines.launch
 /**
  * I21: the lock screen's PIN field. The Parley PIN and the duress PIN behave exactly alike here (same wait, same
  * screen after), so nobody watching can tell which was typed. Wrong PINs wait as [app.parley.common.security.PinBackoff]
- * says; the field is never kept in saved state.
+ * says; the field is never kept in saved state. M7: with a Parley PIN only a PIN opens Parley, duress PIN or not, so
+ * this screen is the same either way (no fingerprint button that comes and goes).
  */
 @Composable
-internal fun PinUnlock(deviceAllowed: Boolean, autoFocus: Boolean, onDevice: () -> Unit) {
+internal fun PinUnlock(autoFocus: Boolean) {
     val activity = LocalActivity.current as? FragmentActivity ?: return
     val state = remember { PinUnlockState() }
     LaunchedEffect(Unit) { state.waitFor(activity.container.appPin.waitNow()) }
@@ -77,9 +78,6 @@ internal fun PinUnlock(deviceAllowed: Boolean, autoFocus: Boolean, onDevice: () 
     Spacer(Modifier.height(8.dp))
     Button(submit, enabled = state.canSubmit) {
         if (state.busy) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp) else Text(stringResource(R.string.lock_unlock))
-    }
-    if (deviceAllowed) {
-        TextButton(onDevice, Modifier.padding(top = 4.dp)) { Text(stringResource(R.string.pin_use_device)) }
     }
 }
 

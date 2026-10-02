@@ -25,10 +25,29 @@ data class LabelMember(
  * folder, never from a list anyone could edit: the [anchor] (from the invitation), the members the anchor's journal
  * carried over a key change, and, repeatedly, every journal whose ticket a member signed for this label and epoch. A
  * journal marked left is not a member. Journals must already be checked ([SharedLabelFiles.readJournal]).
+ *
+ * An invitation is a bearer token, so a journal this phone hasn't counted before ([known]) also needs a ticket that
+ * hasn't expired (with [LATE_GRACE_MS] for a phone that was off for days: [now] is this phone's clock) and that no
+ * other journal used: one invitation lets in one member. When two newcomers show the same invitation, neither is let
+ * in (nobody can tell which one it was meant for); a member already counted keeps their place.
  */
 object SharedLabelRoster {
-    fun members(labelId: String, epoch: Int, anchor: ByteArray, anchorName: String, journals: List<Journal>): List<LabelMember> {
+    /** How long after an invitation expires a phone still accepts the member it let in (a phone that was off). */
+    const val LATE_GRACE_MS = 7L * 24 * 60 * 60 * 1000
+
+    @Suppress("LongParameterList") // The label, its key's epoch and anchor, the journals, and what this phone knows.
+    fun members(
+        labelId: String,
+        epoch: Int,
+        anchor: ByteArray,
+        anchorName: String,
+        journals: List<Journal>,
+        now: Long,
+        known: Set<String> = emptySet(),
+    ): List<LabelMember> {
         val current = journals.filter { it.epoch == epoch }.associateBy { it.memberHex }
+        // Invitation ids shown by more than one journal: only a member already counted may keep using theirs.
+        val shared = current.values.mapNotNull { it.ticket?.inviteId }.groupingBy { it }.eachCount().filterValues { it > 1 }.keys
         val anchorHex = SharedLabelFiles.keyHex(anchor)
         val out = LinkedHashMap<String, LabelMember>()
         val anchorJournal = current[anchorHex]
@@ -47,7 +66,9 @@ object SharedLabelRoster {
         val trusted = HashSet(out.keys + anchorHex)
         var grew = true
         while (grew && out.size < SharedLabelFiles.MAX_MEMBERS) {
-            val admitted = current.values.filter { it.memberHex !in trusted && admits(it, labelId, epoch, trusted) }
+            val admitted = current.values.filter { j ->
+                j.memberHex !in trusted && admits(j, labelId, epoch, trusted) && (j.memberHex in known || fresh(j.ticket!!, shared, now))
+            }
             grew = admitted.isNotEmpty()
             admitted.forEach { j ->
                 trusted += j.memberHex
@@ -63,6 +84,10 @@ object SharedLabelRoster {
         val stays = current[hex]?.left != true && hex != anchorHex
         return stays && hex !in out && out.size < SharedLabelFiles.MAX_MEMBERS
     }
+
+    /** A newcomer's ticket: not expired (give or take [LATE_GRACE_MS]) and not shown by anyone else. */
+    private fun fresh(t: Ticket, shared: Set<String>, now: Long): Boolean =
+        t.inviteId !in shared && now <= t.expiresAt.let { if (it > Long.MAX_VALUE - LATE_GRACE_MS) Long.MAX_VALUE else it + LATE_GRACE_MS }
 
     /** Whether [j]'s ticket was signed, for this label and epoch, by someone already [trusted]. */
     private fun admits(j: Journal, labelId: String, epoch: Int, trusted: Set<String>): Boolean {

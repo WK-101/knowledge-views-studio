@@ -120,4 +120,13 @@ class NumberMemoryTest {
         assertEquals("Gas meter", NumberMemory.callNote("+447700900123", "\n  Gas meter \nmore", 3)?.hint?.excerpt)
         assertNull(NumberMemory.callNote("+447700900123", "  \n ", 3))
     }
+
+    @Test fun a_duress_unlock_hides_hints_that_quote_notes() {
+        // H3: the index keeps excerpts of notes written before the duress unlock; reading them drops those sources.
+        val hints = listOf(
+            hint(MemorySource.NOTE, 3).copy(excerpt = "Shelter"), hint(MemorySource.CALL_NOTE, 2).copy(excerpt = "lawyer"), hint(MemorySource.CALLS, 1),
+        )
+        assertEquals(listOf(MemorySource.CALLS), NumberMemory.concealNotes(hints, notesHidden = true).map { it.source })
+        assertEquals(hints, NumberMemory.concealNotes(hints, notesHidden = false))
+    }
 }

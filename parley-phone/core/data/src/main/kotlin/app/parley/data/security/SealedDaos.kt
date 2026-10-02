@@ -22,24 +22,57 @@ import kotlinx.coroutines.flow.map
  * ciphertext stays until the note is explicitly set ([setPinnedNote]).
  */
 class SealedMetaDao(private val dao: MetaDao, private val crypto: RecordCrypto) : MetaDao by dao {
-    /** I21: after a duress unlock, notes for calls and call notes read as none (kept as stored, see [kept]). */
+    /**
+     * I21: after a duress unlock, notes for calls and call notes read as none (kept as stored, see [kept]). L1: except
+     * those written since (shown as written for as long as the hiding lasts), and a note typed over a hidden one,
+     * which shows instead of it, in memory only: the hidden note is never replaced unseen.
+     */
     private val hidden: Boolean get() = Concealment.hides(Concealed.NOTES)
 
-    /** Re-emits when the duress hiding starts or ends. */
-    private val hiding = Concealment.state.map { it.hiding }.distinctUntilChanged()
+    /** Re-emits when the duress hiding starts or ends, or what it shows changes (L1). */
+    private val hiding = combine(Concealment.state.map { it.hiding }.distinctUntilChanged(), Concealment.revisions) { h, r -> h to r }
+
+    private fun noteToken(key: String) = "note:$key"
+
+    private fun callNoteToken(id: Long) = "callnote:$id"
+
+    private fun open(note: String?) = if (crypto.isSealed(note)) crypto.openText(note) else note
 
     private fun ContactMetaEntity.opened() = when {
-        hidden -> copy(pinnedNote = null)
-        crypto.isSealed(pinnedNote) -> copy(pinnedNote = crypto.openText(pinnedNote))
-        else -> this
+        hidden -> copy(pinnedNote = shownWhileHidden(lookupKey, pinnedNote))
+        else -> copy(pinnedNote = open(pinnedNote))
     }
 
-    /** While notes are hidden, [key]'s stored note as it is: a write that passes "no note" back must not clear it. */
-    private suspend fun kept(key: String): String? = if (hidden) dao.meta(key)?.pinnedNote else null
+    /** [key]'s note while notes are hidden: the one typed over a hidden one, one written since, or none. */
+    private fun shownWhileHidden(key: String, stored: String?): String? {
+        val t = noteToken(key)
+        return when {
+            Concealment.hasOverlay(t) -> Concealment.overlay(t)
+            Concealment.writtenWhileHiding(t) -> open(stored)
+            else -> null
+        }
+    }
+
+    /**
+     * While notes are hidden, [key]'s stored note as it is when it is one written before (a write that passes "no
+     * note" back must not clear it, and a new one must not replace it unseen: [note] then shows instead, in memory).
+     * Null when [note] may be stored: no note was stored, or it was written while hiding.
+     */
+    private suspend fun kept(key: String, note: String?): String? {
+        if (!hidden) return null
+        val t = noteToken(key)
+        val stored = dao.meta(key)?.pinnedNote
+        if (stored == null || Concealment.writtenWhileHiding(t)) {
+            if (note != null) Concealment.markWritten(t)
+            return null
+        }
+        if (note != null || Concealment.hasOverlay(t)) Concealment.setOverlay(t, note)
+        return stored
+    }
 
     /** What to store for [key]'s note when a write passes [note]: sealed, or the stored ciphertext kept for null. */
     private suspend fun noteToStore(key: String, note: String?): String? =
-        kept(key) ?: note?.let { crypto.sealText(it) } ?: unreadableNote(key)
+        kept(key, note) ?: note?.let { crypto.sealText(it) } ?: unreadableNote(key)
 
     /** [key]'s stored note as it is (sealed) when it can't be opened right now; null otherwise. */
     suspend fun unreadableNote(key: String): String? = dao.meta(key)?.pinnedNote?.takeIf { crypto.isUnreadable(it) }
@@ -51,8 +84,10 @@ class SealedMetaDao(private val dao: MetaDao, private val crypto: RecordCrypto) 
     }
     private fun CallNoteEntity.opened() = if (crypto.isSealed(text)) copy(text = crypto.openText(text).orEmpty()) else this
 
-    /** Call notes as shown: none while a duress unlock hides notes. */
-    private fun List<CallNoteEntity>.shown() = if (hidden) emptyList() else map { it.opened() }
+    private fun CallNoteEntity.visible() = !hidden || Concealment.writtenWhileHiding(callNoteToken(id))
+
+    /** Call notes as shown: while a duress unlock hides notes, only those written since (L1). */
+    private fun List<CallNoteEntity>.shown() = filter { it.visible() }.map { it.opened() }
 
     override suspend fun addJournal(e: JournalEntity): Long = dao.addJournal(e.copy(payload = crypto.sealBytes(e.payload)))
 
@@ -62,7 +97,8 @@ class SealedMetaDao(private val dao: MetaDao, private val crypto: RecordCrypto) 
 
     override fun metaFlow(key: String): Flow<ContactMetaEntity?> = combine(dao.metaFlow(key), hiding) { m, _ -> m?.opened() }
 
-    override suspend fun setPinnedNote(key: String, contactId: Long, note: String?) = dao.setPinnedNote(key, contactId, kept(key) ?: crypto.sealText(note))
+    override suspend fun setPinnedNote(key: String, contactId: Long, note: String?) =
+        dao.setPinnedNote(key, contactId, kept(key, note) ?: crypto.sealText(note))
 
     override fun allMeta(): Flow<List<ContactMetaEntity>> = combine(dao.allMeta(), hiding) { l, _ -> l.map { it.opened() } }
 
@@ -73,7 +109,8 @@ class SealedMetaDao(private val dao: MetaDao, private val crypto: RecordCrypto) 
 
     override suspend fun setMeta(e: ContactMetaEntity) = dao.setMeta(e.copy(pinnedNote = noteToStore(e.lookupKey, e.pinnedNote)))
 
-    override suspend fun addCallNote(n: CallNoteEntity): Long = dao.addCallNote(n.copy(text = crypto.sealText(n.text).orEmpty()))
+    override suspend fun addCallNote(n: CallNoteEntity): Long =
+        dao.addCallNote(n.copy(text = crypto.sealText(n.text).orEmpty())).also { if (hidden && it > 0) Concealment.markWritten(callNoteToken(it)) }
 
     override fun callNotes(key: String): Flow<List<CallNoteEntity>> = combine(dao.callNotes(key), hiding) { l, _ -> l.shown() }
 
@@ -89,11 +126,11 @@ class SealedMetaDao(private val dao: MetaDao, private val crypto: RecordCrypto) 
 
     override suspend fun callNotesNow(keys: List<String>): List<CallNoteEntity> = dao.callNotesNow(keys).shown()
 
-    override suspend fun callNote(id: Long): CallNoteEntity? = if (hidden) null else dao.callNote(id)?.opened()
+    override suspend fun callNote(id: Long): CallNoteEntity? = dao.callNote(id)?.takeIf { it.visible() }?.opened()
 
     override suspend fun setCallNoteText(id: Long, text: String) {
-        // Hidden notes can't be edited (none is shown); nothing reaches the stored one.
-        if (!hidden) dao.setCallNoteText(id, crypto.sealText(text).orEmpty())
+        // Hidden notes can't be edited (none is shown); nothing reaches the stored one. One written since can (L1).
+        if (!hidden || Concealment.writtenWhileHiding(callNoteToken(id))) dao.setCallNoteText(id, crypto.sealText(text).orEmpty())
     }
 }
 

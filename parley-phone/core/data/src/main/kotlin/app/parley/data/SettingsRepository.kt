@@ -32,8 +32,11 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
+
+private const val PRIVATE_NAMES_TIMEOUT_MS = 1_500L
 
 class SettingsRepository(context: Context, scope: CoroutineScope) {
     private val store = context.applicationContext.dataStore
@@ -118,13 +121,24 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
         }
     }
 
+    /**
+     * M8: whether private names must stay hidden now, for the private-name providers. They can be the first thing to
+     * run in a cold process, before [settings] has loaded (its first value is the defaults, discreet mode off): this
+     * reads the stored settings and the duress hiding itself, and fails closed (hidden) when that takes longer than
+     * [timeoutMs] or fails.
+     */
+    suspend fun hidesPrivateNames(timeoutMs: Long = PRIVATE_NAMES_TIMEOUT_MS): Boolean =
+        runCatching { withTimeoutOrNull(timeoutMs) { current().hideVault } }.getOrNull() ?: true
+
     suspend fun update(transform: (AppSettings) -> AppSettings) {
         store.edit { prefs ->
             val stored = prefs.toSettings()
-            if (duressSession) {
+            // M6: also while hiding outside a session (Parley locked after a duress unlock, the Quick Settings tile):
+            // the user's stored safety switches are never written then; outside a session the change isn't shown either.
+            if (duressSession || Concealment.hiding) {
                 // The screens change what they show; the stored safety switches stay as they are (I21).
                 val (toStore, overlay) = DuressPolicy.split(stored, transform(DuressPolicy.shown(stored, sessionOverlay.value)))
-                sessionOverlay.value = overlay
+                if (duressSession) sessionOverlay.value = overlay
                 prefs.write(toStore)
             } else {
                 prefs.write(transform(stored))

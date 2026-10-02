@@ -64,9 +64,10 @@ object FolderSyncRules {
 
     /**
      * The version to seal a file with: above every version seen for it ([lastSeen]), and at least the clock ([now]),
-     * so a file that is deleted and later written again under the same name still outranks the deleted one.
+     * so a file that is deleted and later written again under the same name still outranks the deleted one. Saturates
+     * at [Long.MAX_VALUE]: a file claiming the largest version must not make every later one wrap negative.
      */
-    fun nextVersion(lastSeen: Long, now: Long): Long = maxOf(lastSeen + 1, now)
+    fun nextVersion(lastSeen: Long, now: Long): Long = maxOf(if (lastSeen == Long.MAX_VALUE) lastSeen else lastSeen + 1, now)
 
     /** A file older than the last version this phone saw of it: an old copy put back, ignored. */
     fun isRollback(version: Long, lastSeen: Long): Boolean = version < lastSeen

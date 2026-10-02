@@ -60,7 +60,8 @@ class PrivateNameProvider : ContentProvider() {
                 askUser(ctx, caller)
             }
             LookupOutcome.ANSWERED -> {
-                val hidden = c.settings.settings.value.hideVault
+                // M8: read from storage, not the settings flow (its first value in a cold process is the defaults); fails closed.
+                val hidden = runBlocking(Dispatchers.IO) { c.settings.hidesPrivateNames() }
                 val hit = if (hidden) null else runBlocking(Dispatchers.IO) { withTimeoutOrNull(2_000) { c.vault.lookup(number!!, exact = true) } }
                 if (hit == null) outcome = if (hidden) LookupOutcome.OFF else LookupOutcome.NOT_FOUND
                 else result.addRow(arrayOf<Any?>(hit.second.name, null))

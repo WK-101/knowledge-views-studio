@@ -6,12 +6,11 @@
     <string name="pin_wrong">That PIN didn\'t work. Try again.</string>
     <!-- %1$s is a countdown such as "0:30". -->
     <string name="pin_wait">Too many tries. Try again in %1$s</string>
-    <string name="pin_use_device">Use fingerprint or screen lock</string>
 
     <!-- Choosing a PIN. -->
     <string name="pin_field_new">PIN</string>
     <string name="pin_set_title">Choose a Parley PIN</string>
-    <string name="pin_set_body">4 to 12 digits. Parley keeps only a scrambled form of it, on this phone.</string>
+    <string name="pin_set_body">4 to 12 digits. Once it\'s set, only the PIN opens Parley, not your fingerprint or screen lock. Parley keeps only a scrambled form of it, on this phone.</string>
     <string name="pin_confirm_title">Type it again</string>
     <string name="pin_invalid">Use 4 to 12 digits</string>
     <string name="pin_mismatch">The PINs didn\'t match. Start again.</string>
@@ -45,7 +44,9 @@
     <string name="duress_about_title">Duress PIN</string>
     <string name="duress_about_continue">Choose a duress PIN</string>
     <string name="duress_about_hides">The duress PIN opens Parley as usual, but hides private contacts and their calls, Circle notes and promises, notes for calls and call notes, family safe words and Shared with. Private contacts who call ring as unknown numbers. Nothing is deleted.</string>
-    <string name="duress_about_until">They stay hidden, also after Parley locks or the phone restarts, until you unlock with your Parley PIN. Settings show the duress PIN as if it didn\'t exist.</string>
-    <string name="duress_about_only_pin">While a duress PIN is set, only a PIN opens Parley, not your fingerprint or screen lock. Parley can\'t recover a forgotten PIN: you would have to clear Parley\'s storage in Android\'s settings, and private contacts not in a backup would be lost.</string>
+    <string name="duress_about_until">They stay hidden, also after Parley locks or the phone restarts, until you unlock with your Parley PIN. Settings show the duress PIN as off, as on a phone without one.</string>
+    <string name="duress_about_only_pin">Parley can\'t recover a forgotten PIN: you would have to clear Parley\'s storage in Android\'s settings, and private contacts not in a backup would be lost.</string>
     <string name="duress_about_limits">It can\'t help against someone who knows about duress PINs, or who copies the phone\'s storage with special tools. It hides nothing outside Parley: other apps, Android\'s own settings and the system call history stay as they are.</string>
+    <!-- PIN changes wait like wrong tries after a few (the same for every PIN and every unlock, so the wait says nothing). -->
+    <string name="pin_change_wait">The PIN was changed a few times just now. Try again in %1$s</string>
 </resources>

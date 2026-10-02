@@ -75,7 +75,9 @@ class SafLabelFolder(private val context: Context, private val tree: Uri) : Labe
     }.getOrNull()
 
     override fun write(name: String, bytes: ByteArray): String? = try {
-        val uri = uris[name] ?: run {
+        // L7: a file that arrived after the listing is written in place: creating it again would make "name (1)", a
+        // write that looks done but that no other phone ever reads.
+        val uri = uris[name] ?: find(name) ?: run {
             val parent = DocumentsContract.buildDocumentUriUsingTree(tree, DocumentsContract.getTreeDocumentId(tree))
             DocumentsContract.createDocument(cr, parent, "application/octet-stream", name)
         } ?: error("Can't create $name")
@@ -90,6 +92,18 @@ class SafLabelFolder(private val context: Context, private val tree: Uri) : Labe
         val uri = uris[name] ?: return false
         return runCatching { DocumentsContract.deleteDocument(cr, uri) }.getOrDefault(false).also { if (it) uris.remove(name) }
     }
+
+    /** The document named [name] in the folder now, or null (one query; only when a write needs it). */
+    private fun find(name: String): Uri? = runCatching {
+        val children = DocumentsContract.buildChildDocumentsUriUsingTree(tree, DocumentsContract.getTreeDocumentId(tree))
+        cr.query(children, arrayOf(Document.COLUMN_DOCUMENT_ID, Document.COLUMN_DISPLAY_NAME), null, null, null)?.use { c ->
+            var found: Uri? = null
+            while (found == null && c.moveToNext()) {
+                if (c.getString(1) == name) found = DocumentsContract.buildDocumentUriUsingTree(tree, c.getString(0))
+            }
+            found
+        }
+    }.getOrNull()
 
     private fun stampOf(uri: Uri): String? = runCatching {
         cr.query(uri, arrayOf(Document.COLUMN_LAST_MODIFIED, Document.COLUMN_SIZE), null, null, null)?.use { c ->

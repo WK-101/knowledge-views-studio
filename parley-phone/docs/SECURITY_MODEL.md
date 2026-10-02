@@ -169,13 +169,13 @@ while they watch. Code: `DuressMachine`, `DuressPolicy`, `PinHasher`, `PinBackof
 |---|---|
 | Someone makes you open Parley and looks through it: lists, Recents, contact pages, Circle, Call insights, My card, Settings and Settings search | **Yes.** You type the duress PIN; Parley opens as usual, with the things below out of sight and nothing on screen that says so |
 | They keep the phone after Parley locks, restart it, or a private contact calls while they hold it | **Yes.** The hiding lasts until the next unlock with the real Parley PIN, across locks and restarts; private callers ring as unknown numbers |
-| They make you change the PIN, turn off the app lock or discreet mode, or turn the PIN off | **Yes, for the session.** The screens show the change; the stored settings are untouched, a "new PIN" becomes the new duress PIN, and the session's changes are forgotten at the next lock |
-| They make you use the fingerprint or the screen lock instead | **Yes.** With a duress PIN set, only a PIN opens Parley |
+| They make you change the PIN, turn off the app lock or discreet mode, or turn the PIN off | **Yes, for the session.** The screens show the change; the stored settings are untouched, a "new PIN" becomes the new duress PIN, and the session's changes are forgotten at the next lock. "Change PIN" answers the same whatever is typed, so it can't be used to test PINs (see below) |
+| They make you use the fingerprint or the screen lock instead | **Yes.** With a Parley PIN set, only a PIN opens Parley, whether or not a duress PIN is set, so the lock screen looks the same either way. That includes the Quick Settings tile: turning discreet mode off while Parley is locked opens Parley's own lock screen |
 | They make a backup, or Parley backs up on its schedule | **Yes.** A backup made after a duress unlock has no private contacts and no hidden notes, and says nothing about leaving them out; scheduled backups and the Markdown export wait until the real PIN |
-| Someone who knows Parley has a duress PIN (or reads this page) and suspects you used it | **No.** Nothing can prove there is no second PIN, but the app on this phone can't hide that the feature exists |
+| Someone who knows Parley has a duress PIN (or reads this page) and suspects you used it | **Partly.** The screens of a session look exactly like those of a Parley with a PIN and no duress PIN: the duress PIN shows "Off" (and can even be "set" there, for the session), Settings search finds the same rows, the lock screen is the same. Nothing can prove there is no second PIN, and the app can't hide that the feature exists; see "What still differs" below |
 | A forensic copy of the phone's storage, a rooted phone, a compromised OS | **No.** The data is all there, encrypted as usual; see [Threats considered](#threats-considered) |
-| Android's own screens and other apps: the system call log, Android's Settings › Apps (storage size), Google Contacts, messaging apps, notifications already posted | **No.** Parley can't change them. "Private call history" keeps private contacts' calls out of the system call log, and private contacts are never in the address book; everything else outside Parley stays as it is |
-| A guess at the PIN | Five tries are free, then each wrong PIN waits 30 s, doubling to an hour (`PinBackoff`, counted in elapsed time so a clock change doesn't help; a restart starts the wait over) |
+| Android's own screens and other apps: the system call log, Android's Settings › Apps (storage size), Google Contacts, messaging apps, other apps' notifications | **No.** Parley can't change them. "Private call history" keeps private contacts' calls out of the system call log, and private contacts are never in the address book; everything else outside Parley stays as it is. Parley's own notifications are cleared at the duress unlock (missed calls, reminders, expected-call hints); a call in progress stays |
+| A guess at the PIN | Five tries are free, then each wrong PIN waits 30 s, doubling to an hour (`PinBackoff`, counted in elapsed time so a clock change doesn't help; a restart starts the wait over). Each try is counted and stored before the PIN is checked; when the count can't be stored, it is kept in memory and Parley fails closed: the first such try isn't checked at all and every wrong one waits, so restarting Parley buys nothing. PIN changes count the same way (five free until the next unlock with the Parley PIN) |
 
 ### What a duress unlock hides
 
@@ -186,7 +186,11 @@ on the call screen. And, beyond discreet mode (`Concealed`):
 
 - **Circle notes and promises**, for everyone (promises are lines of a note). Logged moments stay, without notes.
 - **Notes for calls and call notes**, for everyone: they read as none on the contact page and on the call screen.
-- **Family safe words**: none shows, not even which labels have one, and none can be set (it would replace one unseen).
+- **Number memory's lines that quote a note** (pinned notes, moments, promises, call notes), on the keypad and the
+  call screen: the index was built before the unlock and keeps its excerpts, so they are dropped where the index is
+  read (`NumberMemory.concealNotes`), not only where the notes are.
+- **Family safe words**: none shows, not even which labels have one. One set during the hiding shows as set; one set
+  for a label that already has one shows instead of it, in memory, and never replaces it (see below).
 - **My card › Shared with**: every entry, not only private contacts' (who you gave your number to can matter as much).
 - **Private contacts' own ringtones**: a private caller rings with the ringtone for everyone else. Their "send to
   voicemail", labels and the screening rules still apply, so nobody who was kept out rings through.
@@ -194,31 +198,55 @@ on the call screen. And, beyond discreet mode (`Concealed`):
   open (`VaultCrypto.detailLocked`) even inside the phone's own 5-minute window, so no path the hiding missed (an old
   link, a widget) can open one. Off, they are only out of sight. Backups leave private contacts out either way.
 - **The Privacy dashboard's counts** of private contacts and calls read 0; a link to a private contact's page finds no
-  contact; Settings search finds nothing about the duress PIN.
+  contact.
+- **The duress PIN itself**: Settings › … › Unlock with shows it "Off", as on a phone where none was ever set, and
+  Settings search finds the same rows as always.
 
 Nothing is deleted or rewritten. Stores show the hidden item as absent and, when a screen writes back that absence
 (saving a contact's settings, editing a logged moment), keep what is stored (`SealedMetaDao`, `InteractionStore`).
+What is written during the hiding is kept and shows (`Concealment.markWritten`): a note added to a contact that had
+none, a call note, a moment's note, a safe word for a label without one. A note or safe word typed over a hidden one
+shows instead of it until the real PIN, in memory only, so nothing hidden is ever replaced unseen; it is gone after
+the real PIN (or a restart), like the session's other changes.
 
 ### Design choices
 
 - **A PIN of Parley's own.** The app lock used only the phone's credential through `BiometricPrompt`, which can't
-  tell two credentials apart. The optional **Parley PIN** (4–12 digits) replaces it; with no duress PIN set, "Use
-  fingerprint or screen lock" stays offered beside it.
+  tell two credentials apart. The optional **Parley PIN** (4–12 digits) replaces it: once it is set, only a PIN opens
+  Parley.
 - **Hashes only.** Both PINs are scrypt hashes (N = 2^14, r = 8, p = 1: 16 MB an attempt) with one shared random salt,
   so an attempt costs one derivation whichever PIN it is and both comparisons always run in constant time: the time a
   try takes says nothing about which PIN matched. The record (with the wrong-try count) is sealed with the
   small-records key, so a copy of Parley's files gives nothing to guess against offline without the phone's Keystore;
   it never goes into backups (a restored phone uses the screen lock until a PIN is set there).
 - **The two PINs look the same.** Same field, same wait, same screen after; a right PIN of either kind clears the
-  wrong-try count. Settings › … › Unlock with shows the Parley PIN as on and no duress rows during a duress session;
-  the switches on the Privacy page show what you left them at (`AppSettings.duress`), not the forced discreet mode.
-- **Only a PIN while a duress PIN is set.** Otherwise "use your fingerprint" would undo it. Parley therefore can't
-  recover a forgotten Parley PIN: the only way back is clearing Parley's storage in Android's settings (private
-  contacts not in a backup are lost). Setting a duress PIN says so first.
+  wrong-try count. Settings › … › Unlock with shows the Parley PIN as on and the duress PIN "Off" during a duress
+  session (`AppPinStore.shown`); a duress PIN "set" there shows as on for the session's screens, is never stored, and
+  is gone at the next lock. The switches on the Privacy page show what you left them at (`AppSettings.duress`), not
+  the forced discreet mode.
+- **A configured-but-hidden duress PIN looks exactly like none.** This was the design rule for every screen a session
+  can reach. The lock screen is the hard case: offering "Use fingerprint or screen lock" only when no duress PIN is
+  set would tell anyone who has seen Parley before which phone has one. So the rule is uniform: **with a Parley PIN,
+  only a PIN opens Parley**, duress PIN or not; the fingerprint is not offered. The cost is that a Parley PIN can't be
+  skipped with a fingerprint; the gain is a lock screen that says nothing.
+- **Only a PIN while a Parley PIN is set.** Otherwise "use your fingerprint" would undo a duress PIN. Parley therefore
+  can't recover a forgotten Parley PIN: the only way back is clearing Parley's storage in Android's settings (private
+  contacts not in a backup are lost). Choosing a PIN and setting a duress PIN say so first.
+- **"Change PIN" is no oracle.** In a session, a "new PIN" becomes the duress PIN, with one scrypt run whatever is
+  typed; a new PIN that happens to be the real one leaves the duress PIN as it was and answers the same (the person
+  watching then knows the real PIN anyway). "Can't be your Parley PIN" compares with the duress PIN, the one the
+  person watching knows, never with the real one. Changes count like wrong tries (`PinBackoff.changeWait`) and only
+  the real PIN resets that count, so "set a guess, lock, unlock with it" can't go on without limit either.
 - **Hiding until the real PIN, a session until the next lock.** The duress *session* (the unlocked screens and the
   in-memory settings changes) ends at the next lock; the *hiding* is stored in `no_backup/app_lock_state` and ends
   only with the real PIN, so a lock, a timeout or a restart while someone else holds the phone reveals nothing, and a
-  call that wakes Parley finds it hidden.
+  call that wakes Parley finds it hidden. If that file can't be written, the hiding holds in memory and the write is
+  tried again until it succeeds; a file that is there but can't be read counts as hiding (fail closed).
+- **Failing closed.** A PIN record that can't be opened for a moment keeps the PIN field (the screen lock never opens
+  Parley because of a Keystore hiccup). The private-name providers, which an approved app can start in a cold
+  process, read the stored settings and the hiding themselves, and answer "hidden" when that takes more than 1.5 s
+  (`SettingsRepository.hidesPrivateNames`). While hiding, nothing writes the stored safety switches, inside a session or
+  not (the Quick Settings tile included). A manual backup made while hiding never rotates older backups out.
 - **Changes made during a session don't stick.** Turning off the app lock, discreet mode or private call history only
   changes what the screens show until the next lock (`DuressPolicy.split`); other settings are stored as usual. "Private
   call history" stays as stored either way, so private calls never reach the system call log because of a session.
@@ -226,6 +254,12 @@ Nothing is deleted or rewritten. Stores show the hidden item as absent and, when
   PIN, a curious child or a stressed moment would destroy data for good, the person watching might notice a wipe (a
   longer pause, a changed count elsewhere) and punish it, and a deletion can be undone by nobody, while hiding can be
   undone by you. Everything here hides; nothing destroys.
+
+### What still differs
+
+Kept here so nobody has to find it out the hard way: changes made in a session that the screens show (the PIN off,
+the app lock off, a duress PIN "set") are forgotten at the next lock, and a note typed over a hidden one is gone after
+the real PIN. Someone who changes something, locks Parley and looks again can notice that.
 - **Emergency calls are never in the way.** The lock screen keeps its Emergency call button with the PIN field;
   incoming calls are never locked (the call screen is a separate activity), only shown with less.
 

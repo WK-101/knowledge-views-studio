@@ -49,9 +49,32 @@ data class SharedLabelState(
     /** While a key change this phone started isn't finished in the folder: the old key and the new header to write. */
     val oldKey: ByteArray? = null,
     val newHeader: ByteArray? = null,
+    /** M2: contact files this phone syncs that it couldn't use, by sid: since when (see [SharedLabelRules.unreadable]). */
+    val unreadable: Map<String, Unreadable> = emptyMap(),
+    /** L7: files that couldn't be used, by name → stamp, so the same junk isn't opened every run. */
+    val junk: Map<String, String> = emptyMap(),
+    /** M3: the last header this phone accepted; a header swapped in without a signed key change is not followed. */
+    val header: ByteArray? = null,
+    /** M3: the folder's header isn't the one this phone accepted, and no member signed a key change. */
+    val headerWarning: Boolean = false,
 ) {
-    /** One contact's last synced state: its contact, the version and card ([base]) synced, and how it got here. */
-    data class Entry(val key: String, val contactId: Long, val ver: Long, val base: String, val baseHash: String, val imported: Boolean)
+    /**
+     * One contact's last synced state: its contact, the version and card ([base]) synced, and how it got here.
+     * [fileHash]: the hash of the signed file this phone accepted (or wrote) at [ver] ([CardFile.bodyHash]), so it can
+     * tell later that a file is exactly that one.
+     */
+    data class Entry(
+        val key: String,
+        val contactId: Long,
+        val ver: Long,
+        val base: String,
+        val baseHash: String,
+        val imported: Boolean,
+        val fileHash: String = "",
+    )
+
+    /** A file this phone couldn't use [since] then; [stranger]: well formed and signed, but not by a member. */
+    data class Unreadable(val since: Long, val stranger: Boolean)
 
     /** A contact both this phone and [authorName] changed: [theirs] (at [ver]) waits until the user picks [fields]. */
     data class Pending(val theirs: String, val ver: Long, val authorName: String, val fields: Set<CardField>)
@@ -70,7 +93,10 @@ data class SharedLabelState(
     fun toJson(): JSONObject = JSONObject().apply {
         put("id", labelId); put("title", title); put("folder", folderUri); put("folderName", folderName)
         put("key", b64(key)); put("anchor", b64(anchor)); put("anchorName", anchorName); put("me", myName)
-        ticket?.let { put("ticket", JSONObject().put("by", b64(it.inviter)).put("id", it.inviteId).put("epoch", it.epoch).put("sig", b64(it.signature))) }
+        ticket?.let {
+            val t = JSONObject().put("by", b64(it.inviter)).put("id", it.inviteId).put("epoch", it.epoch).put("sig", b64(it.signature))
+            put("ticket", t.put("exp", it.expiresAt))
+        }
         put("carried", JSONArray().apply { carried.forEach { put(JSONObject().put("key", b64(it.key)).put("name", it.name)) } })
         put(
             "membership",
@@ -84,7 +110,11 @@ data class SharedLabelState(
             "entries",
             JSONObject().apply {
                 entries.forEach { (sid, e) ->
-                    put(sid, JSONObject().put("k", e.key).put("c", e.contactId).put("v", e.ver).put("b", e.base).put("h", e.baseHash).put("i", e.imported))
+                    put(
+                        sid,
+                        JSONObject().put("k", e.key).put("c", e.contactId).put("v", e.ver).put("b", e.base).put("h", e.baseHash).put("i", e.imported)
+                            .put("fh", e.fileHash),
+                    )
                 }
             },
         )
@@ -114,6 +144,10 @@ data class SharedLabelState(
         put("lastAt", lastSyncAt); putOpt("result", lastResult?.name); put("pendingDel", pendingDeletions); put("private", privateLeftOut)
         oldKey?.let { put("oldKey", b64(it)) }
         newHeader?.let { put("newHeader", b64(it)) }
+        put("unreadable", JSONObject().apply { unreadable.forEach { (k, u) -> put(k, JSONObject().put("t", u.since).put("s", u.stranger)) } })
+        put("junk", JSONObject().apply { junk.forEach { (k, v) -> put(k, v) } })
+        header?.let { put("header", b64(it)) }
+        put("headerWarning", headerWarning)
     }
 
     companion object {
@@ -155,12 +189,12 @@ data class SharedLabelState(
                 anchorName = o.optString("anchorName"),
                 myName = o.optString("me"),
                 ticket = o.optJSONObject("ticket")?.let { t ->
-                    Ticket(unb64(t.getString("by")), t.getString("id"), t.getInt("epoch"), unb64(t.getString("sig")))
+                    Ticket(unb64(t.getString("by")), t.getString("id"), t.getInt("epoch"), unb64(t.getString("sig")), t.optLong("exp"))
                 },
                 carried = o.optJSONArray("carried").items { Carried(unb64(it.getString("key")), it.optString("name")) },
                 membership = membership,
                 entries = o.optJSONObject("entries").byKey { _, e ->
-                    Entry(e.getString("k"), e.getLong("c"), e.getLong("v"), e.getString("b"), e.getString("h"), e.optBoolean("i"))
+                    Entry(e.getString("k"), e.getLong("c"), e.getLong("v"), e.getString("b"), e.getString("h"), e.optBoolean("i"), e.optString("fh"))
                 },
                 seen = seen,
                 pending = o.optJSONObject("pending").byKey { _, p -> Pending(p.getString("t"), p.getLong("v"), p.optString("a"), fields(p.optJSONArray("f"))) },
@@ -188,6 +222,10 @@ data class SharedLabelState(
                 privateLeftOut = o.optInt("private"),
                 oldKey = o.optString("oldKey").takeIf { it.isNotEmpty() }?.let(::unb64),
                 newHeader = o.optString("newHeader").takeIf { it.isNotEmpty() }?.let(::unb64),
+                unreadable = o.optJSONObject("unreadable").byKey { _, u -> Unreadable(u.getLong("t"), u.optBoolean("s")) },
+                junk = o.optJSONObject("junk")?.let { s -> s.keys().asSequence().associateWith { s.getString(it) } }.orEmpty(),
+                header = o.optString("header").takeIf { it.isNotEmpty() }?.let(::unb64),
+                headerWarning = o.optBoolean("headerWarning"),
             )
         }
     }

@@ -225,7 +225,7 @@ class NumberActionActivity : LockedActivity() {
         authenticating = true
         AppLock.authenticate(this) { ok ->
             authenticating = false
-            // With a duress PIN set only a PIN opens Parley, and this sheet has no PIN field: open Parley itself (I21).
+            // With a Parley PIN set only a PIN opens Parley (I21, M7), and this sheet has no PIN field: it closes.
             if (!ok || AppLock.locked.value) return@authenticate finish()
             appLock = false
             hidden = false

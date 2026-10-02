@@ -44,10 +44,25 @@ class CardFile(
     internal val signature: ByteArray,
 ) {
     val authorHex: String get() = SharedLabelFiles.keyHex(author)
+
+    /** What exactly was signed: a phone remembers it for the version it accepted (re-signing checks it, see the engine). */
+    val bodyHash: String get() = RecordJson.sha256Hex(body.toByteArray(Charsets.UTF_8))
 }
 
-/** The invitation a member was let in with: [inviter] signed the label, the key's [epoch] and [inviteId]. */
-class Ticket(val inviter: ByteArray, val inviteId: String, val epoch: Int, val signature: ByteArray)
+/**
+ * The invitation a member was let in with: [inviter] signed the label, the key's [epoch], [inviteId] and when the
+ * invitation stops working ([expiresAt], wall-clock ms). One invitation lets in one member ([SharedLabelRoster]).
+ */
+class Ticket(val inviter: ByteArray, val inviteId: String, val epoch: Int, val signature: ByteArray, val expiresAt: Long)
+
+/**
+ * The signature of a new header ([SharedLabelCrypto.headerSigName]): the member who changed the label's key signs the
+ * label, the new [epoch] and the header's hash. It is sealed with the *previous* key, so every member who still holds
+ * that key can tell a real key change from a header someone with folder access swapped in.
+ */
+class HeaderSig(val signer: ByteArray, val epoch: Int, val headerHash: String) {
+    val signerHex: String get() = SharedLabelFiles.keyHex(signer)
+}
 
 /** A member who stays after a key change, as the new anchor's journal lists them. */
 class Carried(val key: ByteArray, val name: String)
@@ -85,6 +100,7 @@ object SharedLabelFiles {
     private const val CARD_HEADER = "PARLEY-LABEL-CARD-1"
     private const val JOURNAL_HEADER = "PARLEY-LABEL-JOURNAL-1"
     private const val TICKET_HEADER = "PARLEY-LABEL-TICKET-1"
+    private const val HEADER_SIG_HEADER = "PARLEY-LABEL-HEADER-1"
 
     /** A contact's card is at most this long (no photos travel); a journal keeps at most [MAX_ENTRIES] changes. */
     const val MAX_CARD_CHARS = 256 * 1024
@@ -120,6 +136,9 @@ object SharedLabelFiles {
 
     private fun envelope(body: String, sig: ByteArray): ByteArray =
         json.encodeToString(JsonElement.serializer(), buildJsonObject { put("body", body); put("sig", b64.encodeToString(sig)) }).toByteArray(Charsets.UTF_8)
+
+    /** The hash of a signed file's body ([CardFile.bodyHash]) without checking its signature; null when it isn't one. */
+    fun bodyHash(signed: ByteArray): String? = unwrap(signed)?.first?.let { RecordJson.sha256Hex(it.toByteArray(Charsets.UTF_8)) }
 
     private fun unwrap(bytes: ByteArray): Pair<String, ByteArray>? = runCatching {
         if (bytes.size > MAX_FILE_BYTES) return null
@@ -173,13 +192,46 @@ object SharedLabelFiles {
 
     // ---------------------------------------------------------------- tickets
 
-    private fun ticketPayload(labelId: String, epoch: Int, inviteId: String) = "$TICKET_HEADER\n$labelId\n$epoch\n$inviteId".toByteArray(Charsets.UTF_8)
+    private fun ticketPayload(labelId: String, epoch: Int, inviteId: String, expiresAt: Long) =
+        "$TICKET_HEADER\n$labelId\n$epoch\n$inviteId\n$expiresAt".toByteArray(Charsets.UTF_8)
 
     /** A ticket for one invitation, signed by the member who invites (null when the key can't sign now). */
-    fun ticket(signer: MemberSigner, labelId: String, epoch: Int, inviteId: String): Ticket? =
-        signer.sign(ticketPayload(labelId, epoch, inviteId))?.let { Ticket(signer.publicKey, inviteId, epoch, it) }
+    fun ticket(signer: MemberSigner, labelId: String, epoch: Int, inviteId: String, expiresAt: Long): Ticket? =
+        signer.sign(ticketPayload(labelId, epoch, inviteId, expiresAt))?.let { Ticket(signer.publicKey, inviteId, epoch, it, expiresAt) }
 
-    fun verifyTicket(t: Ticket, labelId: String): Boolean = Ed25519.verify(t.inviter, ticketPayload(labelId, t.epoch, t.inviteId), t.signature)
+    fun verifyTicket(t: Ticket, labelId: String): Boolean =
+        Ed25519.verify(t.inviter, ticketPayload(labelId, t.epoch, t.inviteId, t.expiresAt), t.signature)
+
+    // ---------------------------------------------------------------- the header's signature
+
+    private fun headerSigPayload(labelId: String, epoch: Int, headerHash: String) =
+        "$HEADER_SIG_HEADER\n$labelId\n$epoch\n$headerHash".toByteArray(Charsets.UTF_8)
+
+    /** Signs a new [header] at [epoch] (bytes before sealing), or null when the key can't sign now. */
+    fun writeHeaderSig(signer: MemberSigner, labelId: String, epoch: Int, header: ByteArray): ByteArray? {
+        val hash = RecordJson.sha256Hex(header)
+        val body = json.encodeToString(
+            JsonElement.serializer(),
+            buildJsonObject { put("by", b64.encodeToString(signer.publicKey)); put("epoch", epoch); put("header", hash) },
+        )
+        val sig = signer.sign(headerSigPayload(labelId, epoch, hash)) ?: return null
+        return envelope(body, sig)
+    }
+
+    /** A header signature, checked: well formed and signed by its signer. Whether the signer may sign is the caller's question. */
+    fun readHeaderSig(labelId: String, bytes: ByteArray): HeaderSig? {
+        val (body, sig) = unwrap(bytes) ?: return null
+        val h = runCatching {
+            val o = json.parseToJsonElement(body).jsonObject
+            val by = unb64.decode(o.str("by") ?: return null)
+            if (by.size != 32) return null
+            HeaderSig(by, o.int("epoch") ?: return null, o.str("header") ?: return null)
+        }.getOrNull() ?: return null
+        if (!Ed25519.verify(h.signer, headerSigPayload(labelId, h.epoch, h.headerHash), sig)) return null
+        return h
+    }
+
+    fun headerHash(header: ByteArray): String = RecordJson.sha256Hex(header)
 
     // ---------------------------------------------------------------- journals
 
@@ -195,6 +247,7 @@ object SharedLabelFiles {
                         "ticket",
                         buildJsonObject {
                             put("by", b64.encodeToString(t.inviter)); put("id", t.inviteId); put("epoch", t.epoch); put("sig", b64.encodeToString(t.signature))
+                            put("exp", t.expiresAt)
                         },
                     )
                 }
@@ -236,7 +289,7 @@ object SharedLabelFiles {
                 val s = unb64.decode(t.str("sig") ?: return null)
                 val id = t.str("id")?.takeIf(::isId) ?: return null
                 if (by.size != 32 || s.size != 64) return null
-                Ticket(by, id, t.int("epoch") ?: return null, s)
+                Ticket(by, id, t.int("epoch") ?: return null, s, t.long("exp") ?: return null)
             }
             val carried = (o["carried"] as? JsonArray).orEmpty().take(MAX_MEMBERS).mapNotNull { e ->
                 val c = e as? JsonObject ?: return@mapNotNull null

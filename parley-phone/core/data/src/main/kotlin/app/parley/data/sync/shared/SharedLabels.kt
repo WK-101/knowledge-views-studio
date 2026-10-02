@@ -10,6 +10,7 @@ import app.parley.common.sync.shared.Invitation
 import app.parley.common.sync.shared.MemberSigner
 import app.parley.common.sync.shared.SharedLabelInvites
 import app.parley.common.sync.shared.SharedLabelMembership
+import app.parley.common.sync.shared.SharedLabelTitles
 import app.parley.data.AccountRef
 import app.parley.data.ContactsRepository
 import app.parley.data.Permissions
@@ -136,25 +137,43 @@ class SharedLabels(
     }
 
     /**
-     * Joins [i] through [folderUri] as [myName]: the label is made on this phone when it has none of that title, then
-     * the first run brings its contacts. A label this phone left or whose key changed comes back with what it synced.
+     * The name a label joined from an invitation titled [base] gets here (M4): [base] when no label has it, else the
+     * first of [suffixed] that is free ("Family (shared)"). Joining never lands in a label because the names match.
      */
-    suspend fun join(i: Invitation, folderUri: Uri, folderName: String, myName: String): Boolean = mutex.withLock {
+    suspend fun titleForJoin(base: String, suffixed: (Int) -> String): String =
+        SharedLabelTitles.fresh(base, labels.labels().map { it.title }, suffixed)
+
+    /** The labels on this phone that a joined label could go into instead (the user's explicit choice). */
+    suspend fun labelTitles(): List<String> = labels.labels().map { it.title }.filter { forTitle(it) == null }.distinct().sorted()
+
+    /** How many of [title]'s contacts the first run would share if the label joined went into it (private ones never). */
+    suspend fun wouldPublish(title: String): Int = labels.members(title).count { ContactRef.ofNavId(it) !is ContactRef.Private }
+
+    /**
+     * Joins [i] through [folderUri] as [myName], as the label [title]: a new label made here, or, with [intoExisting],
+     * the label of that name the user picked (after being told how many contacts the first run shares). Then the first
+     * run brings its contacts. A label this phone left or whose key changed comes back where it was, with what it
+     * synced. The title the label has here, or null when it couldn't be joined.
+     */
+    suspend fun join(i: Invitation, folderUri: Uri, folderName: String, myName: String, title: String, intoExisting: Boolean): String? = mutex.withLock {
         withContext(Dispatchers.IO) {
-            if (!hasContacts()) return@withContext false
-            val signer = signer() ?: return@withContext false
+            if (!hasContacts()) return@withContext null
+            val signer = signer() ?: return@withContext null
             val existing = store.get(i.labelId)
-            val title = existing?.title ?: i.title
-            if (labels.label(title) == null) {
-                val account = defaultAccount() ?: contacts.accounts().firstOrNull() ?: return@withContext false
-                labels.create(title, account) ?: return@withContext false
+            val t = existing?.title ?: title.trim()
+            val there = labels.label(t) != null
+            // M4: a new label's name was free when the screen offered it; taken since, it is not merged into.
+            if (existing == null && there && !intoExisting) return@withContext null
+            if (!there) {
+                val account = defaultAccount() ?: contacts.accounts().firstOrNull() ?: return@withContext null
+                labels.create(t, account) ?: return@withContext null
             }
             val engine = engine(folderUri.toString(), signer)
-            val s = engine.join(i, folderUri.toString(), folderName, title, myName, existing)
-            if (!save(s)) return@withContext false
+            val s = engine.join(i, folderUri.toString(), folderName, t, myName, existing)
+            if (!save(s)) return@withContext null
             identity.markShared()
             save(engine.run(s).state)
-            true
+            t
         }
     }
 
@@ -212,6 +231,17 @@ class SharedLabels(
             _states.value = store.all()
             true
         }
+    }
+
+    /**
+     * M4: whether renaming [old] to [new] would merge it with another label while either is shared: refused, since
+     * the merged label's contacts would all be shared (renaming onto an existing name merges the two).
+     */
+    suspend fun renameWouldMerge(old: String, new: String): Boolean {
+        val t = new.trim()
+        if (t == old || labels.label(t) == null) return false
+        load()
+        return forTitle(old) != null || forTitle(t) != null
     }
 
     /** The label was renamed on this phone: its share follows. */

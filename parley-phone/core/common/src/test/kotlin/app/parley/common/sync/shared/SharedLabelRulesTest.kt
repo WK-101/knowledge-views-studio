@@ -58,4 +58,25 @@ class SharedLabelRulesTest {
         assertFalse(SharedLabelRules.mustConfirm(3, 4))
         assertFalse(SharedLabelRules.mustConfirm(5, 40))
     }
+
+    @Test fun an_unreadable_file_is_written_again_after_a_grace_period() {
+        // M2: a damaged file waits an hour (it may still be arriving), one signed by a stranger a day (their journal may).
+        val t = 1_000_000L
+        assertEquals(Remote.UNREADABLE, SharedLabelRules.unreadable(t, t + SharedLabelRules.CORRUPT_GRACE_MS - 1, stranger = false))
+        assertEquals(Remote.MISSING, SharedLabelRules.unreadable(t, t + SharedLabelRules.CORRUPT_GRACE_MS, stranger = false))
+        assertEquals(Remote.UNREADABLE, SharedLabelRules.unreadable(t, t + SharedLabelRules.CORRUPT_GRACE_MS, stranger = true))
+        assertEquals(Remote.MISSING, SharedLabelRules.unreadable(t, t + SharedLabelRules.STRANGER_GRACE_MS, stranger = true))
+        // Then it is missing: this phone's copy goes back, or its deletion.
+        assertEquals(Action.PUBLISH, SharedLabelRules.decide(Local.UNCHANGED, Remote.MISSING))
+        assertEquals(Action.PUBLISH_TOMBSTONE, SharedLabelRules.decide(Local.GONE, Remote.MISSING))
+    }
+
+    @Test fun versions_far_in_the_future_or_at_the_top_never_freeze_a_contact() {
+        // L7.
+        val now = 1_700_000_000_000L
+        assertTrue(SharedLabelRules.plausibleVersion(now + 1000, now))
+        assertFalse(SharedLabelRules.plausibleVersion(Long.MAX_VALUE, now))
+        assertEquals(Long.MAX_VALUE, SharedLabelRules.nextVersion(Long.MAX_VALUE, now))
+        assertTrue(SharedLabelRules.nextVersion(Long.MAX_VALUE - 1, now) > 0)
+    }
 }

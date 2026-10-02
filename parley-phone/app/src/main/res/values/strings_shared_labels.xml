@@ -158,4 +158,22 @@
     <!-- A scanned invitation -->
     <string name="qs_kind_parley_label">Shared label invitation</string>
     <string name="qs_parley_label_body">An invitation to a label someone shares with you. Parley asks for the code shown with it.</string>
+    <!-- Joining never lands in a label of the same name (its contacts would all be shared): a new label, or one the user picks. -->
+    <string name="shl_join_new_title">%1$s (shared)</string>
+    <string name="shl_join_new_title_n">%1$s (shared %2$d)</string>
+    <string name="shl_join_as_new">It joins as a new label: %1$s</string>
+    <string name="shl_join_into">It joins your label %1$s</string>
+    <string name="shl_join_use_existing">Use a label you already have</string>
+    <string name="shl_join_use_new">Make a new label instead</string>
+    <string name="shl_join_pick_label">Choose a label</string>
+    <string name="shl_join_share_title">Share %1$s?</string>
+    <plurals name="shl_join_share_body">
+        <item quantity="one">%1$d contact in %2$s will be shared with everyone in this label.</item>
+        <item quantity="other">%1$d contacts in %2$s will be shared with everyone in this label.</item>
+    </plurals>
+    <string name="shl_join_share_confirm">Share them</string>
+    <string name="shl_rename_would_merge">There\'s already a label called %1$s. A shared label can\'t be merged with another one, so choose another name.</string>
+    <!-- Quiet notes under the sync status: nothing for the user to do, but something in the folder isn't right. -->
+    <string name="shl_status_unreadable">Some files in the folder couldn\'t be read. If they stay that way, this phone writes its own copies again.</string>
+    <string name="shl_status_header">The folder\'s label file was changed without a member\'s signature. Parley keeps using the one it had.</string>
 </resources>

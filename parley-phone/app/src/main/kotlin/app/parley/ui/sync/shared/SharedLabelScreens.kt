@@ -12,7 +12,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Label
 import androidx.compose.material.icons.automirrored.rounded.Logout
@@ -54,6 +56,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
@@ -211,6 +214,12 @@ fun ManageSharedLabelScreen(vm: AppViewModel, id: String, back: () -> Unit) {
             SharedLabelTexts.status(res, s) + stringResource(R.string.main_separator) + s.folderName, style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = Spacing.xl),
         )
+        SharedLabelTexts.notice(res, s)?.let {
+            Text(
+                it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = Spacing.xl, vertical = Spacing.xs),
+            )
+        }
         if (active) InviteRows(vm, id, s.title)
         SegmentedGroup(stringResource(R.string.shl_members)) {
             s.members.forEach { m ->
@@ -397,7 +406,8 @@ private fun PassphraseDialog(title: String, text: String, onDismiss: () -> Unit,
 @Composable
 private fun InviteQrDialog(vm: AppViewModel, id: String, onDismiss: () -> Unit) {
     val res = LocalResources.current
-    val passcode = remember { SecureQr.newPasscode() }
+    // L3: a longer code than a contact QR's (about 78 bits), since this one holds the label's key.
+    val passcode = remember { SharedLabelInvites.newPasscode() }
     val bitmap by produceState<Bitmap?>(null, id) {
         val link = vm.c.sharedLabels.inviteLink(id, passcode)
         if (link == null) {
@@ -417,7 +427,7 @@ private fun InviteQrDialog(vm: AppViewModel, id: String, onDismiss: () -> Unit) 
                 }
                     ?: LinearProgressIndicator(Modifier.fillMaxWidth())
                 Text(stringResource(R.string.shl_invite_code), style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 12.dp))
-                Text(Bidi.ltr(passcode), style = MaterialTheme.typography.headlineSmall, fontFamily = FontFamily.Monospace)
+                Text(Bidi.ltr(passcode), style = MaterialTheme.typography.titleLarge, fontFamily = FontFamily.Monospace, textAlign = TextAlign.Center)
                 Text(stringResource(R.string.shl_invite_qr_hint), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp))
             }
         },
@@ -456,7 +466,9 @@ fun SharedLabelsScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -
                             modifier = Modifier.clickable { open(SharedLabelRoutes.Manage(s.labelId)) },
                             leadingContent = { Icon(Icons.AutoMirrored.Rounded.Label, null) },
                             headlineContent = { Text(s.title) },
-                            supportingContent = { Text(SharedLabelTexts.problem(res, s) ?: SharedLabelTexts.status(res, s)) },
+                            supportingContent = {
+                                Text(SharedLabelTexts.problem(res, s) ?: SharedLabelTexts.notice(res, s) ?: SharedLabelTexts.status(res, s))
+                            },
                             colors = rowColors(),
                         )
                     }
@@ -584,36 +596,110 @@ private fun JoinInvitation(vm: AppViewModel, i: Invitation, onJoined: () -> Unit
     }
 }
 
-/** The members found in the folder (with their keys), your name, and Join. */
+/**
+ * The members found in the folder (with their keys), the label it joins as, your name, and Join. M4: a joined label is
+ * always a new label here ("Family (shared)" when "Family" exists); going into a label you already have is a choice
+ * you make, after being told how many of its contacts the first sync shares.
+ */
 @Composable
 private fun JoinAs(vm: AppViewModel, i: Invitation, folder: Uri, members: List<LabelMember>, onJoined: () -> Unit) {
     val context = LocalContext.current
     val res = LocalResources.current
     val scope = rememberCoroutineScope()
+    val shared = vm.c.sharedLabels
     var name by rememberSaveable { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
+    var into by rememberSaveable { mutableStateOf<String?>(null) }
+    var picking by remember { mutableStateOf(false) }
+    var confirming by remember { mutableStateOf<Pair<String, Int>?>(null) }
+    // A label this phone left or whose key changed comes back where it was.
+    val rejoining = shared.states.collectAsStateWithLifecycle().value.firstOrNull { it.labelId == i.labelId }?.title
+    val newTitle by produceState<String?>(null, i.title) {
+        value = shared.titleForJoin(i.title) { n ->
+            if (n == 1) res.getString(R.string.shl_join_new_title, i.title) else res.getString(R.string.shl_join_new_title_n, i.title, n)
+        }
+    }
+    val title = rejoining ?: into ?: newTitle
     SegmentedGroup(stringResource(R.string.shl_members)) {
         members.forEach { m -> item(m.keyHex) { MemberRow(m, null, members, canRemove = false) {} } }
     }
     Column(Modifier.padding(horizontal = Spacing.l), verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
+        JoinTarget(title, existing = rejoining != null || into != null, canChoose = rejoining == null) {
+            if (into == null) picking = true else into = null
+        }
         OutlinedTextField(
             name, { name = it }, singleLine = true, label = { Text(stringResource(R.string.shl_your_name)) },
             keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words), modifier = Modifier.fillMaxWidth(),
         )
         Button({
+            val t = title ?: return@Button
             busy = true
             scope.launch {
-                val ok = vm.c.sharedLabels.join(i, folder, folderName(folder), name.trim())
+                val joined = shared.join(i, folder, folderName(folder), name.trim(), t, intoExisting = into != null)
                 busy = false
-                if (ok) {
+                if (joined != null) {
                     FolderSyncWorker.reschedule(context)
-                    vm.toast(res.getString(R.string.shl_join_done, i.title))
+                    vm.toast(res.getString(R.string.shl_join_done, joined))
                     onJoined()
                 } else {
                     vm.toast(res.getString(R.string.shl_join_failed))
                 }
             }
-        }, enabled = name.isNotBlank() && !busy, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.shl_join_button)) }
+        }, enabled = name.isNotBlank() && title != null && !busy, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.shl_join_button)) }
         if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
     }
+    if (picking) {
+        PickLabelDialog(vm, onDismiss = { picking = false }) { t ->
+            picking = false
+            scope.launch { confirming = t to shared.wouldPublish(t) }
+        }
+    }
+    confirming?.let { (t, n) ->
+        ConfirmDialog(
+            title = stringResource(R.string.shl_join_share_title, t),
+            text = pluralStringResource(R.plurals.shl_join_share_body, n, n, t),
+            confirmLabel = stringResource(R.string.shl_join_share_confirm),
+            onConfirm = {
+                into = t
+                confirming = null
+            },
+            onDismiss = { confirming = null },
+        )
+    }
+}
+
+/** Which label it joins as ([existing]: one already here), and the switch between a new one and one of yours. */
+@Composable
+private fun JoinTarget(title: String?, existing: Boolean, canChoose: Boolean, onSwitch: () -> Unit) {
+    if (title != null) {
+        Text(stringResource(if (existing) R.string.shl_join_into else R.string.shl_join_as_new, title), style = MaterialTheme.typography.bodyMedium)
+    }
+    if (canChoose) {
+        TextButton(onSwitch) { Text(stringResource(if (existing) R.string.shl_join_use_new else R.string.shl_join_use_existing)) }
+    }
+}
+
+/** The labels here that a joined label could go into (not ones already shared). */
+@Composable
+private fun PickLabelDialog(vm: AppViewModel, onDismiss: () -> Unit, onPick: (String) -> Unit) {
+    val titles by produceState<List<String>?>(null) { value = vm.c.sharedLabels.labelTitles() }
+    ParleyDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.shl_join_pick_label)) },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                val list = titles
+                if (list == null) LinearProgressIndicator(Modifier.fillMaxWidth())
+                list?.forEach { t ->
+                    ParleyListItem(
+                        modifier = Modifier.clickable { onPick(t) },
+                        leadingContent = { Icon(Icons.AutoMirrored.Rounded.Label, null) },
+                        headlineContent = { Text(t) },
+                        colors = rowColors(),
+                    )
+                }
+            }
+        },
+        confirmButton = { TextButton(onDismiss) { Text(stringResource(R.string.main_cancel)) } },
+    )
 }

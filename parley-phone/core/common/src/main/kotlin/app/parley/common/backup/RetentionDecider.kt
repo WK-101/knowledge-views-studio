@@ -96,6 +96,13 @@ object RetentionDecider {
     }
 
     /**
+     * Whether a finished backup may rotate older ones out: not while rotation is [paused] (see [mustPauseRotation]),
+     * for a [safety] copy, for an [incomplete] backup, or while a duress unlock [hiding] things (L4): a backup made then
+     * lacks the hidden notes and private contacts, and making several must never prune the older ones that have them.
+     */
+    fun rotates(paused: Boolean, safety: Boolean, incomplete: Boolean, hiding: Boolean): Boolean = !paused && !safety && !incomplete && !hiding
+
+    /**
      * Mass-deletion guard: true when rotation must pause because the contact count dropped by more
      * than 20 % or by more than 50 contacts since the previous backup (a sync accident or a wipe
      * shouldn't rotate away the last good backups).

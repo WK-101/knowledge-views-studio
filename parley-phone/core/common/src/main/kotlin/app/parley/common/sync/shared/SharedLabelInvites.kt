@@ -16,6 +16,7 @@ import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.put
 import java.io.ByteArrayOutputStream
+import java.security.SecureRandom
 import java.util.Base64
 import java.util.zip.GZIPOutputStream
 
@@ -44,8 +45,25 @@ object SharedLabelInvites {
     const val LINK_PREFIX = "parley://label?v=1&d="
     const val FILE_EXTENSION = ".parleyinvite"
 
-    /** The QR passcode's cost; a scanned code must use exactly this, so a crafted code can't stall the phone. */
-    val QR_KDF: KdfParams = KdfParams.Pbkdf2(200_000)
+    /**
+     * The QR passcode's cost: the backup's scrypt setting. A QR code is kept as a photo or a screenshot (Parley has no
+     * camera), often backed up somewhere, and it holds the label's key: guessing its passcode offline must stay out of
+     * reach. A scanned code must use exactly this, so a crafted code can't stall the phone.
+     */
+    val QR_KDF: KdfParams = BackupCrypto.DEFAULT_KDF
+
+    /** An invitation works for a week ([Ticket.expiresAt]); after that, ask for a new one. */
+    const val TTL_MS = 7L * 24 * 60 * 60 * 1000
+
+    /** The passcode's letters: no 0/O, 1/I/L or U/V lookalikes, so it can be read out. */
+    private const val ALPHABET = "ABCDEFGHJKMNPQRSTVWXYZ23456789"
+
+    /** 16 letters of 30: about 78 bits, out of reach of offline guessing even with a cheap KDF. */
+    const val PASSCODE_LENGTH = 16
+
+    /** A new one-time passcode for a QR invitation, in groups of four ("K7Q2-9XMC-…"). */
+    fun newPasscode(random: SecureRandom = SecureRandom()): String =
+        (1..PASSCODE_LENGTH).map { ALPHABET[random.nextInt(ALPHABET.length)] }.joinToString("").chunked(4).joinToString("-")
     private const val MAX_TITLE = 80
     private const val MAX_HINT = 200
 
@@ -60,22 +78,25 @@ object SharedLabelInvites {
             put("key", b64.encodeToString(i.key)); put("anchor", b64.encodeToString(i.anchor)); put("anchorName", i.anchorName.take(SharedLabelFiles.MAX_NAME))
             put("inviter", b64.encodeToString(i.inviter)); put("inviterName", i.inviterName.take(SharedLabelFiles.MAX_NAME))
             put("invite", i.ticket.inviteId); put("ticketEpoch", i.ticket.epoch); put("sig", b64.encodeToString(i.ticket.signature))
+            put("exp", i.ticket.expiresAt)
         },
     ).toByteArray(Charsets.UTF_8)
 
     /**
      * An invitation from its JSON, checked: well formed, the key 32 bytes, the ticket the inviter's for this label and
-     * epoch. Null otherwise.
+     * epoch, and not expired at [now]. Null otherwise.
      */
-    fun decode(bytes: ByteArray): Invitation? = runCatching {
+    fun decode(bytes: ByteArray, now: Long = System.currentTimeMillis()): Invitation? = runCatching {
         val o = json.parseToJsonElement(String(bytes, Charsets.UTF_8)).jsonObject
         fun s(k: String) = (o[k] as? JsonPrimitive)?.takeIf { it.isString }?.contentOrNull
         fun key(k: String) = unb64.decode(s(k)!!).takeIf { it.size == 32 }!!
         val labelId = s("label")?.takeIf(SharedLabelFiles::isId)!!
         val epoch = (o["epoch"] as? JsonPrimitive)?.intOrNull?.takeIf { it >= 1 }!!
         val inviter = key("inviter")
-        val ticket = Ticket(inviter, s("invite")?.takeIf(SharedLabelFiles::isId)!!, (o["ticketEpoch"] as? JsonPrimitive)?.intOrNull!!, unb64.decode(s("sig")!!))
-        if (ticket.epoch != epoch || !SharedLabelFiles.verifyTicket(ticket, labelId)) return null
+        val expires = (o["exp"] as? JsonPrimitive)?.takeIf { !it.isString }?.contentOrNull?.toLongOrNull()!!
+        val ticketEpoch = (o["ticketEpoch"] as? JsonPrimitive)?.intOrNull!!
+        val ticket = Ticket(inviter, s("invite")?.takeIf(SharedLabelFiles::isId)!!, ticketEpoch, unb64.decode(s("sig")!!), expires)
+        if (ticket.epoch != epoch || !SharedLabelFiles.verifyTicket(ticket, labelId) || now > expires) return null
         Invitation(
             labelId, s("title").orEmpty().take(MAX_TITLE).trim().ifEmpty { return null }, s("folder").orEmpty().take(MAX_HINT), epoch,
             key("key"), key("anchor"), s("anchorName").orEmpty().take(SharedLabelFiles.MAX_NAME),
@@ -96,11 +117,11 @@ object SharedLabelInvites {
     fun isLink(text: String) = text.trim().startsWith("parley://label?", ignoreCase = true)
 
     /** The invitation in a scanned link; null for a wrong passcode or a code that isn't one. */
-    fun fromLink(link: String, passcode: String): Invitation? = runCatching {
+    fun fromLink(link: String, passcode: String, now: Long = System.currentTimeMillis()): Invitation? = runCatching {
         val d = link.trim().substringAfter("d=", "").substringBefore('&')
         val sealed = Base64.getUrlDecoder().decode(d)
         val plain = BackupCrypto.decryptBytes(sealed, Unlock.Passphrase(normalize(passcode)), KdfPolicy.exactly(QR_KDF))
-        decode(Bounded.gunzip(plain, Bounded.Caps.QR_GUNZIP, "invitation"))
+        decode(Bounded.gunzip(plain, Bounded.Caps.QR_GUNZIP, "invitation"), now)
     }.getOrNull()
 
     /** An invitation file, sealed under [passphrase] (the label's: the person joining types it). [kdf] is for tests. */
@@ -108,7 +129,12 @@ object SharedLabelInvites {
         BackupCrypto.encryptBytes(gzip(encode(i)), listOf(Recipient.Passphrase(passphrase)), kdf)
 
     /** The invitation in a file; null for a wrong passphrase or a file that isn't one. */
-    fun fromFile(bytes: ByteArray, passphrase: CharArray, policy: KdfPolicy = KdfPolicy.exactly(BackupCrypto.DEFAULT_KDF)): Invitation? = runCatching {
-        decode(Bounded.gunzip(BackupCrypto.decryptBytes(bytes, Unlock.Passphrase(passphrase), policy), Bounded.Caps.QR_GUNZIP, "invitation"))
+    fun fromFile(
+        bytes: ByteArray,
+        passphrase: CharArray,
+        policy: KdfPolicy = KdfPolicy.exactly(BackupCrypto.DEFAULT_KDF),
+        now: Long = System.currentTimeMillis(),
+    ): Invitation? = runCatching {
+        decode(Bounded.gunzip(BackupCrypto.decryptBytes(bytes, Unlock.Passphrase(passphrase), policy), Bounded.Caps.QR_GUNZIP, "invitation"), now)
     }.getOrNull()
 }
