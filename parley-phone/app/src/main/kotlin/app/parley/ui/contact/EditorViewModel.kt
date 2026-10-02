@@ -239,8 +239,9 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
             } else {
                 a.prefill ?: ContactDetails()
             }
-            draft = withPhoneRow(e)
-            start = draft
+            // Details added to an existing private contact ("Add to …" from pasted text) count as a change.
+            draft = withPhoneRow(if (vaultId > 0 && a.prefill != null) InsertPrefill.appendTo(e, a.prefill) else e)
+            start = withPhoneRow(e)
             if (vaultId > 0) expiresAt = c.vault.summariesNow().firstOrNull { it.id == vaultId }?.expiresAt
             return true
         }

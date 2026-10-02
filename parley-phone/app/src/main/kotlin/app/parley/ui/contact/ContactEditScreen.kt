@@ -228,6 +228,8 @@ fun ContactEditScreen(
     rawId: Long? = null,
     /** "My card": your own details with the same form, plus what its QR code and vCard include. */
     meCard: Boolean = false,
+    /** Text shared to Parley ("Make a contact from this text"): its details are shown to tick at once. */
+    pasteText: String? = null,
     done: (Long?) -> Unit,
 ) {
     // The edit lives in the screen's view model (and its saved state), so rotation, a theme, font or language change
@@ -428,6 +430,21 @@ fun ContactEditScreen(
         val header: @Composable () -> Unit = {
             val deviceName = stringResource(R.string.editor_account_device)
             Column(Modifier.padding(bottom = FormTokens.groupGap)) {
+                // "Paste details": a new contact filled from a copied signature or shared text, after a preview.
+                if (editor.isNew && !meCard) {
+                    Box(Modifier.padding(start = FormTokens.gutter, top = 4.dp)) {
+                        PasteDetailsEntry(
+                            vm, pasteText,
+                            onFill = { fields -> update { PasteFill.into(it, fields) } },
+                            onAddTo = { id, fields ->
+                                // What was typed goes along with the pasted details.
+                                vm.pendingPrefill = PasteFill.into(editor.draft ?: d, fields)
+                                done(null)
+                                vm.navigate(NavEvent.Route(if (id < 0) Routes.edit(vault = -id, prefill = true) else Routes.edit(id = id, prefill = true)))
+                            },
+                        )
+                    }
+                }
                 val shownPhoto = photo?.toString() ?: d.photoUri.takeUnless { removePhoto }
                 // My card has no photo (it isn't shared); every contact has one here.
                 if (!meCard) {

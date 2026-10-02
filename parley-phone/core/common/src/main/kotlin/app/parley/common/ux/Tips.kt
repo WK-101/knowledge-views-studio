@@ -59,6 +59,9 @@ object Tips {
     /** History & undo: the one place to get something back. */
     const val CONCEPT_HISTORY_UNDO = "concept_history_undo"
 
+    /** "Paste details" at the top of a new contact, the first time it shows. */
+    const val PASTE_DETAILS = "paste_details"
+
     /** Ids are stored comma-separated; anything that isn't a plain id is dropped. */
     private val ID = Regex("[a-z0-9_]{1,40}")
 

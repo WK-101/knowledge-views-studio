@@ -41,6 +41,9 @@ object IntentRoutes {
 
     /** "Save all…" from the number sheet; the text waits in [app.parley.messaging.MessagingInbox]. */
     const val ACTION_BULK_ADD = "app.parley.BULK_ADD"
+
+    /** "Make a contact from this text" from the number sheet; the text waits in [app.parley.ui.contact.PasteInbox]. */
+    const val ACTION_PASTE_CONTACT = "app.parley.PASTE_CONTACT"
     const val ACTION_OPEN_BACKUP = "app.parley.OPEN_BACKUP"
 
     /** Opens the Scan QR screen (launcher shortcut, Quick Settings tile). */
@@ -114,6 +117,7 @@ object IntentRoutes {
             ACTION_OPEN_HEALTH -> go(NavEvent.Route(Routes.Health))
             ACTION_ADD_CALL -> go(NavEvent.Tab(StartTab.KEYPAD, dial = ""))
             ACTION_BULK_ADD -> go(NavEvent.Route(MessagingRoutes.BulkAdd))
+            ACTION_PASTE_CONTACT -> go(NavEvent.Route(Routes.edit(paste = true)))
             ACTION_SCAN_QR -> go(NavEvent.Route(QrRoutes.Scan))
             // The keep-in-touch digest opens the Circle (as the bar's extra tab while it's hidden).
             ACTION_SHOW_CIRCLE -> go(NavEvent.Tab(StartTab.CIRCLE))
