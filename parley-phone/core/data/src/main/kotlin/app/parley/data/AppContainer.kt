@@ -21,6 +21,7 @@ import app.parley.data.calls.CallQualityStore
 import app.parley.data.calls.ReputationStore
 import app.parley.data.calls.RingFactsStore
 import app.parley.data.calls.ToCallStore
+import app.parley.data.calls.MenuMemoryStore
 import app.parley.data.calls.FamilySafetyStore
 import app.parley.data.calls.VoicemailRepository
 import app.parley.data.calltime.CallUsageLedger
@@ -137,6 +138,9 @@ class DataContainer(context: Context) {
     /** The "To call" list: reminders to call back and follow-ups (by number, sealed at rest). */
     val toCall by lazy { ToCallStore(appContext) { n -> vault.lookup(n) != null } }
 
+    /** I6 menu memory: the keys sent per number and menu shortcuts (by number, sealed at rest; never emergency calls). */
+    val menus by lazy { MenuMemoryStore(appContext) { n -> vault.lookup(n) != null } }
+
     /** Family safety: safe words per label, helpers, expected-call windows (sealed, this phone only). */
     val familySafety by lazy { FamilySafetyStore(appContext) }
     val vcards by lazy { VCardIO(appContext, contacts, records) { vault.allNumbers() } }
@@ -197,6 +201,7 @@ class DataContainer(context: Context) {
             HistorySettingsBackup { history.prefs },
             SpamListsBackup { lists },
             toCall.backupExtras,
+            menus.backupExtras,
         )
     }
 
@@ -215,7 +220,7 @@ class DataContainer(context: Context) {
     /** Moves rows stored under the old last-digits number key to the line key, once (see [PhoneKeyMigrator]). */
     /** Seals small records older versions stored plain (runs once in the background). */
     val recordSealing by lazy {
-        RecordSealing(appContext, db, { timeMachine }) { listOf(toCall, people.cardIdentity, people.shareLedger, people.cardLinks) }
+        RecordSealing(appContext, db, { timeMachine }) { listOf(toCall, people.cardIdentity, people.shareLedger, people.cardLinks, menus) }
     }
     val phoneKeys by lazy { PhoneKeyMigrator(appContext, db, contacts, { history }) { messaging } }
 

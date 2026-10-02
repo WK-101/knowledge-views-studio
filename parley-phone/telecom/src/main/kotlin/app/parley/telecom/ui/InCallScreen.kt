@@ -65,6 +65,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -395,7 +396,7 @@ private fun OngoingControls(call: CallUi, s: ScreenState, sheets: InCallSheets, 
         label = "keypad",
     ) { open ->
         when {
-            open -> DtmfKeypad(callId = call.id, scroll = scrollKeypad)
+            open -> DtmfKeypad(call, scroll = scrollKeypad)
             // I10: "I'm on hold" shows the waiting time and the way out instead of the grid.
             call.holdModeSince > 0 -> HoldModePanel(call, onKeypad = { a.onKeypad(true) })
             else -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -642,8 +643,18 @@ private fun SimPicker(call: CallUi) {
  * (the start trimmed with "…" once it no longer fits), so a menu choice or an account number can be checked.
  */
 @Composable
-private fun DtmfKeypad(callId: String, scroll: Boolean = true) {
+private fun DtmfKeypad(call: CallUi, scroll: Boolean = true) {
+    val callId = call.id
     var typed by rememberSaveable { mutableStateOf("") }
+    // Replayed menu digits join the line of tones sent, as if typed.
+    val replay by CallManager.menuReplay.collectAsState()
+    var replayShown by remember { mutableStateOf(0L to 0) }
+    LaunchedEffect(replay) {
+        val r = replay?.takeIf { it.callId == callId } ?: return@LaunchedEffect
+        var shown = if (replayShown.first == r.token) replayShown.second else 0
+        while (shown < r.sent) typed += r.steps[shown++].tone
+        replayShown = r.token to shown
+    }
     // One running tone per key: a key's release only stops its own tone.
     val tokens = remember { HashMap<Char, Long>() }
     // The keypad can close while a key is held (hidden, call ended): stop every tone it started.
@@ -656,6 +667,8 @@ private fun DtmfKeypad(callId: String, scroll: Boolean = true) {
     val res = LocalResources.current
     // In the two-pane layout the whole pane scrolls instead.
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = if (scroll) Modifier.verticalScroll(rememberScrollState()) else Modifier) {
+        // I6: "Last time: 2 › 1 › 4" with Replay, for a number Parley remembers menu digits for.
+        MenuMemoryRow(call)
         Text(
             Bidi.ltr(typed), style = MaterialTheme.typography.headlineMedium.merge(TextStyle(fontFeatureSettings = "tnum")), maxLines = 1,
             overflow = TextOverflow.StartEllipsis, color = MaterialTheme.colorScheme.onSurface,
@@ -675,6 +688,8 @@ private fun DtmfKeypad(callId: String, scroll: Boolean = true) {
                                     .keypadKey(
                                         onPress = {
                                             typed += c
+                                            // A key pressed by hand takes over from a replay.
+                                            if (CallManager.menuReplay.value?.callId == callId) CallManager.stopMenuReplay()
                                             CallManager.startDtmf(callId, c)?.let { tokens[c] = it }
                                         },
                                         onToneStop = { after -> tokens.remove(c)?.let { CallManager.stopDtmf(callId, it, after) } },

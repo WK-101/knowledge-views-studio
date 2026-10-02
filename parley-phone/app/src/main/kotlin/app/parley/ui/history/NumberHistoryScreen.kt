@@ -163,6 +163,8 @@ fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open
             item { ScreeningHistorySection(vm, number, contact?.displayName) }
             item { RingFactsHistorySection(vm, number) }
             item { CallFactsHistorySection(vm, number) }
+            // I6: menu shortcuts for this number (the only place for a number that isn't a contact).
+            item { app.parley.ui.menus.MenuShortcutsBlock(vm, listOf(number), contact?.displayName ?: number, contact?.photoUri) }
             if (notes.isNotEmpty()) {
                 item { Section(stringResource(R.string.hist_call_notes)) }
                 items(notes, key = { "n" + it.id }) { n ->

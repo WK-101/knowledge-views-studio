@@ -11,6 +11,9 @@ import app.parley.common.calls.CallExtrasConfig
 import app.parley.common.calltime.CallTimePlan
 import app.parley.common.calls.CallQualityFacts
 import app.parley.common.calls.EmergencyPolicy
+import app.parley.common.calls.MenuPath
+import app.parley.common.calls.MenuPress
+import app.parley.common.calls.MenuStep
 import app.parley.common.calls.RingFacts
 import app.parley.common.calls.VerifyCallBack
 import app.parley.common.spam.RangeProposal
@@ -272,6 +275,27 @@ interface FamilySafetyHooks {
     suspend fun helpers(): List<HelperUi> = emptyList()
 }
 
+/**
+ * I6 menu memory on the call screen: the digits the user sent in a call to a number, offered again next time ("Last
+ * time: 2 › 1 › 4") and saved as menu shortcuts. Never for emergency calls ([app.parley.common.calls.MenuMemory]).
+ */
+interface MenuMemoryHooks {
+    /** The digits remembered for [number] (null: none, or memory is off for it). Read off the main thread. */
+    suspend fun menuPath(number: String, accountId: String?): MenuPath? = null
+
+    /**
+     * A connected outgoing call to [number] ended after the user sent [presses] (timed from the connect). Kept in the
+     * background, minus anything that looks like a PIN or card number.
+     */
+    fun onMenuKeys(number: String, accountId: String?, presses: List<MenuPress>) {}
+
+    /** "Save as shortcut…": saves [steps] for [number] as [name]; false when it couldn't be saved. */
+    suspend fun saveMenuShortcut(number: String, accountId: String?, name: String, steps: List<MenuStep>): Boolean = false
+
+    /** "Don't remember digits for this number": forgets what was kept and keeps nothing more. */
+    suspend fun stopMenuMemory(number: String, accountId: String?) {}
+}
+
 /** A label's safe-word question, for the in-call card. */
 data class SafeWordPrompt(val label: String, val question: String)
 
@@ -282,7 +306,8 @@ data class HelperUi(val name: String, val number: String)
  * What the call path needs from the rest of the app, as cohesive parts (each collaborator of the call path asks only
  * for its part). Implemented by the app module so that this module never depends on data or feature code.
  */
-interface TelecomDependencies : CallerInfoSource, ScreeningHooks, CallPolicyHooks, CallRecordHooks, UiHooks, FamilySafetyHooks
+interface TelecomDependencies : CallerInfoSource, ScreeningHooks, CallPolicyHooks, CallRecordHooks, UiHooks, FamilySafetyHooks,
+    MenuMemoryHooks
 
 /** Post-call card actions handled by the app. */
 enum class PostCallAction { BLOCK, REPORT, NUMBER_MEMORY }

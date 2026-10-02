@@ -40,6 +40,9 @@ import app.parley.common.calls.ExpectedSource
 import app.parley.common.calls.EndFacts
 import app.parley.common.calls.FailureKind
 import app.parley.common.calls.KeyPressTracker
+import app.parley.common.calls.MenuMemory
+import app.parley.common.calls.MenuPress
+import app.parley.common.calls.MenuStep
 import app.parley.common.calls.RingEnd
 import app.parley.common.calls.RingFacts
 import app.parley.common.calls.RingtoneSource
@@ -416,6 +419,8 @@ object CallManager {
         }
         stopHoldReminders(id)
         recordQuality(ended, s, drop, cause)
+        recordMenuKeys(ended, s)
+        if (_menuReplay.value?.callId == id) stopMenuReplay()
         _lastEnded.value = ended
         // A call that failed before the caller lookup finished still shows the name on "Call ended".
         if (ended.name == null && !ended.hidden && !ended.number.isNullOrBlank()) lookUpEndedName(ended)
@@ -1252,7 +1257,71 @@ object CallManager {
         runCatching { call.playDtmfTone(c) }
         val token = ++dtmfToken
         s.dtmfToken = token
+        noteMenuKey(call, s, c)
         return token
+    }
+
+    // ---- Menu memory (I6) ----
+
+    /** A digit sent in a connected outgoing call, timed from the connect (kept for menu memory when the call ends). */
+    private fun noteMenuKey(call: Call, s: CallSession, c: Char) {
+        val d = call.details
+        if (call.parent != null || d.callDirection != Call.Details.DIRECTION_OUTGOING || d.connectTimeMillis <= 0) return
+        if (s.menuPresses.size >= MENU_PRESS_LIMIT) return
+        s.menuPresses += MenuPress(c, System.currentTimeMillis() - d.connectTimeMillis)
+    }
+
+    /** I6: hands the digits of a connected outgoing call to menu memory. Never for emergency calls or conferences. */
+    private fun recordMenuKeys(ended: CallUi, s: CallSession) {
+        if (s.menuPresses.isEmpty() || ended.connectTimeMillis <= 0) return
+        if (ended.incoming || ended.isConference || ended.hidden) return
+        val number = ended.number?.takeIf { MenuMemory.remembers(it, ended.isEmergency) } ?: return
+        val presses = s.menuPresses.toList()
+        runCatching { deps.onMenuKeys(number, ended.accountId, presses) }
+    }
+
+    /** The digits being replayed: in which call, which, and how many were sent so far. */
+    data class MenuReplay(val callId: String, val steps: List<MenuStep>, val sent: Int, val token: Long)
+
+    private val _menuReplay = MutableStateFlow<MenuReplay?>(null)
+    val menuReplay: StateFlow<MenuReplay?> = _menuReplay.asStateFlow()
+    private var replayJob: Job? = null
+    private var replayToken = 0L
+
+    /**
+     * "Last time: 2 › 1 › 4": sends [steps] again in the call [id], each after its recorded pause
+     * ([MenuMemory.replayDelays]). It stops when the call is no longer active, on [stopMenuReplay], or when the user
+     * presses a key. Never in an emergency call.
+     */
+    fun replayMenu(id: String, steps: List<MenuStep>) {
+        val call = find(id) ?: return
+        if (steps.isEmpty() || mapState(call.stateCompat()) != CallState.ACTIVE || call.details.connectTimeMillis <= 0) return
+        if (isEmergencyCall(call, call.details.handle?.schemeSpecificPart)) return
+        stopMenuReplay()
+        val delays = MenuMemory.replayDelays(steps, (System.currentTimeMillis() - call.details.connectTimeMillis).coerceAtLeast(0))
+        val token = ++replayToken
+        _menuReplay.value = MenuReplay(id, steps, 0, token)
+        replayJob = scope.launch {
+            try {
+                steps.forEachIndexed { i, step ->
+                    delay(delays[i])
+                    val c = find(id) ?: return@launch
+                    if (mapState(c.stateCompat()) != CallState.ACTIVE) return@launch
+                    val tone = startDtmf(id, step.tone) ?: return@launch
+                    stopDtmf(id, tone, MenuMemory.REPLAY_TONE_MS)
+                    _menuReplay.value = MenuReplay(id, steps, i + 1, token)
+                }
+            } finally {
+                if (_menuReplay.value?.token == token) _menuReplay.value = null
+            }
+        }
+    }
+
+    /** Stops a replay (Stop, a key pressed by hand, the call ended). */
+    fun stopMenuReplay() {
+        replayJob?.cancel()
+        replayJob = null
+        _menuReplay.value = null
     }
 
     /** Stops the tone started with [token] after [afterMs], unless another key started a tone since. */
@@ -1309,6 +1378,9 @@ object CallManager {
     private const val ROUTE_SETTLE_MS = 1500L
     private const val PENDING_OUTGOING_MS = 8000L
     private const val LOOKUP_TIMEOUT_MS = 2000L
+
+    /** Digits kept per call for menu memory (it keeps far fewer; this only bounds the memory used). */
+    private const val MENU_PRESS_LIMIT = 64
 
     /** How long "Check it's really them" waits for the call to end before dialling. */
     private const val HANG_UP_WAIT_MS = 3000L

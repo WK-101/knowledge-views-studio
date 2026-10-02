@@ -39,6 +39,12 @@ object Tips {
     /** Number memory: the first remembered line about a number that isn't a contact (keypad, number history). */
     const val NUMBER_MEMORY = "number_memory"
 
+    /** I6: the in-call keypad's "Last time: 2 › 1 › 4" row, the first time it shows. */
+    const val MENU_MEMORY = "menu_memory"
+
+    /** I12: press and hold the keypad's Call pill (or a contact's Call) for "Call with a reason…". */
+    const val CALL_REASON = "call_reason"
+
     // P18: one line on what a concept means, where it first appears (the names are fixed in docs/GLOSSARY.md).
 
     /** A private contact's page: hidden from other apps, kept encrypted in Parley. */

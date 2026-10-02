@@ -40,6 +40,8 @@ import app.parley.telecom.SafeWordPrompt
 import app.parley.common.calls.SafeWords
 import app.parley.calls.ExpectedCallHints
 import app.parley.telecom.TelecomDependencies
+import app.parley.telecom.MenuMemoryHooks
+import app.parley.calls.MenuMemoryBridge
 import app.parley.ui.common.Format
 import app.parley.work.HistoryWorker
 import app.parley.telecom.ScreenOutcome
@@ -83,7 +85,10 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-class AppTelecomDependencies(private val app: Context, private val c: DataContainer) : TelecomDependencies {
+class AppTelecomDependencies(private val app: Context, private val c: DataContainer) :
+    TelecomDependencies,
+    // I6: menu memory lives in its own bridge.
+    MenuMemoryHooks by MenuMemoryBridge(app, c) {
     private companion object {
         /** After the last call ends, this long before the full app loads. */
         const val CALL_SETTLE_MS = 10_000L

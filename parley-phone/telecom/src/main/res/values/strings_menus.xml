@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Menu memory on the in-call keypad: the digits sent in the last call to this number. %1$s is like "2 › 1 › 4". -->
+    <string name="menu_last_time">Last time: %1$s</string>
+    <!-- While the remembered digits are being sent again. %1$s is like "2 › 1 › 4". -->
+    <string name="menu_sending">Sending %1$s</string>
+    <string name="menu_replay">Replay</string>
+    <string name="menu_replay_spoken">Send %1$s again</string>
+    <string name="menu_stop">Stop</string>
+    <string name="menu_more">More for these digits</string>
+    <string name="menu_save_shortcut">Save as shortcut…</string>
+    <string name="menu_dont_remember">Don\'t remember digits for this number</string>
+    <string name="menu_save_title">Save as shortcut</string>
+    <string name="menu_save_body">Calls %1$s and sends %2$s with the same pauses. It\'s on the contact page and can go on your home screen.</string>
+    <string name="menu_save_name">Name</string>
+    <string name="menu_save">Save</string>
+    <string name="menu_saved">Saved as \"%1$s\"</string>
+    <string name="menu_save_failed">Couldn\'t save the shortcut. Try again in a moment.</string>
+    <string name="menu_stop_title">Don\'t remember digits for this number?</string>
+    <string name="menu_stop_body">Parley forgets the digits it kept for this number and keeps no more. Shortcuts you saved stay.</string>
+    <string name="menu_stop_confirm">Don\'t remember</string>
+    <!-- One-time tip the first time the "Last time" row shows. -->
+    <string name="menu_tip">Parley remembers the digits you send to phone menus, never ones that look like a PIN or card number.</string>
+</resources>

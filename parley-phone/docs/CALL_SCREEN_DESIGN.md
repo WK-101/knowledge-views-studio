@@ -193,3 +193,15 @@ Three ways to protect people from impostor calls without a server or any new per
 
 Left out: reading the caller's words (needs the microphone), a safe word on the lock screen or in notifications, a helper during an emergency call, and guessing dates in languages other than English (Parley is English-only for now).
 
+
+## 4.7: menus and call reasons
+
+COMPETITIVE_ANALYSIS_6 WP-17 (I6, I12). Pure rules in `core/common`: `calls/MenuMemory.kt` and `calls/CallReason.kt`, unit-tested. UI: `MenuMemoryUi.kt` (the keypad's top row) and, in the app, `ui/menus/` (Shortcuts, "Call with a reason…").
+
+| What | How it works | Why |
+|---|---|---|
+| **Menu memory** (I6) | Parley sends every DTMF tone itself (`CallManager.startDtmf`), so in a connected call the user placed it notes each digit and its time since the connect. When the call ends, `MenuMemory.record` keeps up to 12 digits for the number (`menu_memory`, sealed with the small-records key, keyed by line key, in the encrypted backup without private contacts' numbers). Everything from a quick run of 6+ digits, or 4+ digits ended with #, on is dropped (a card number or PIN); "Don't remember digits for this number" forgets and stops for good. Never incoming calls, conferences, hidden numbers, service codes or emergency numbers. Next call, the keypad's top row says "Last time: 2 › 1 › 4" with **Replay** (each digit after its recorded pause; Stop, or any key, stops it) and ⋮ (Save as shortcut…, Don't remember…). | Skips phone trees offline; the honest substitute for Direct My Call. |
+| **Menu shortcuts** (I6) | "Save as shortcut…" keeps a name, the number and the digits. The contact page's **Shortcuts** group (and a number history, for numbers that aren't contacts) calls `number,,2,1,4` (one `,` per 3 s of recorded wait, 1–10 each) through the usual call path; ⋮ renames, pins to the home screen (the Call trampoline, with the pocket guard) or deletes (the pinned copy is disabled). | One tap to "Bank › lost card". |
+| **Call with a reason** (I12) | Press and hold the keypad's Call pill (or a SIM's segment) or a contact's Call. When the SIM's phone account has `CAPABILITY_CALL_SUBJECT` (every SIM, while one is still to be chosen), **Call** places the call with `EXTRA_CALL_SUBJECT` (cut to `EXTRA_CALL_SUBJECT_MAX_LENGTH`). Otherwise, or as the second choice, **Text first** opens the messaging app with "Calling you about …" for the user to send; back in Parley, "Call Ana now?". Emergency numbers skip the sheet. | Callers who say why get answered; nothing is sent without the user. |
+
+Left out: hearing the menu's prompts (needs the microphone), so timing is the only clue for secrets; replaying in incoming calls; Capabilities ("What Parley can do") entries, which need a screen or setting to open.

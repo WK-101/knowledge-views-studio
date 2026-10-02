@@ -1,6 +1,7 @@
 package app.parley.telecom
 
 import app.parley.common.calls.AnswerRoute
+import app.parley.common.calls.MenuPress
 import app.parley.common.calls.RingFacts
 import app.parley.common.calls.RingtoneSource
 
@@ -90,6 +91,9 @@ internal class CallSession(val id: String) {
 
     /** The token of the DTMF tone playing now (a stop for another key's tone never touches it). */
     var dtmfToken: Long? = null
+
+    /** I6: the digits sent in this call (outgoing, once connected), for menu memory when it ends. */
+    val menuPresses = ArrayList<MenuPress>()
 
     // ---- Call facts (L2, L10) ----
 
