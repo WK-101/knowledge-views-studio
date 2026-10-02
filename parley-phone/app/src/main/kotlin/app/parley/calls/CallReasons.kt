@@ -7,11 +7,13 @@ import android.net.Uri
 import android.telecom.PhoneAccount
 import android.telecom.TelecomManager
 import app.parley.CallGate
+import app.parley.common.calls.EmergencyPolicy
 import app.parley.common.calls.MenuMemory
 import app.parley.common.calls.ReasonFacts
 import app.parley.data.DataContainer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * I12 "Call with a reason…": what the phone can do with a reason for one call. Whether a SIM's network carries call
@@ -21,13 +23,29 @@ import kotlinx.coroutines.withContext
 // Reading phone accounts is covered by the default-dialer role; each call handles SecurityException.
 @SuppressLint("MissingPermission")
 object CallReasons {
-    /** The facts for calling [number] on [simId] (or the SIM it would use). Off the main thread. */
+    /**
+     * M4: whether [number] is an emergency number, checked first and on its own: the fallback list without any binder
+     * call, then the platform's list, bounded by [EMERGENCY_CHECK_MS]. A check that can't answer in time counts as an
+     * emergency, so the call is placed at once (the call path checks again).
+     */
+    suspend fun emergency(c: DataContainer, number: String): Boolean = emergency(number) { CallGate(c).isEmergency(it) }
+
+    /** [emergency] with the platform's check as [platform] (tests replace it). */
+    internal suspend fun emergency(number: String, platform: suspend (String) -> Boolean): Boolean {
+        val n = MenuMemory.dialled(number)
+        if (EmergencyPolicy.isFallbackEmergencyNumber(n)) return true
+        return withTimeoutOrNull(EMERGENCY_CHECK_MS) { runCatching { platform(n) }.getOrDefault(true) } ?: true
+    }
+
+    /**
+     * The facts for calling [number] on [simId] (or the SIM it would use), for a number [emergency] already said isn't
+     * an emergency one. Off the main thread.
+     */
     suspend fun facts(context: Context, c: DataContainer, number: String, simId: String?): Facts = withContext(Dispatchers.IO) {
-        val emergency = CallGate(c).isEmergency(MenuMemory.dialled(number))
         val chosen = simId ?: c.placer.resolveSim(number) ?: runCatching { c.sims.defaultOutgoing() }.getOrNull()
         val accounts = subjectAccounts(context)
         Facts(
-            ReasonFacts(emergency, chosen, accounts.mapValues { it.value != null }, canText(context, number)),
+            ReasonFacts(emergency = false, simId = chosen, subjectSims = accounts.mapValues { it.value != null }, canText = canText(context, number)),
             // The shortest limit of the SIMs it may go on, so the reason fits whichever is picked.
             maxLength = (if (chosen != null && chosen in accounts) listOf(accounts[chosen]) else accounts.values.toList())
                 .mapNotNull { it?.takeIf { n -> n > 0 } }.minOrNull(),
@@ -35,6 +53,12 @@ object CallReasons {
     }
 
     data class Facts(val reason: ReasonFacts, val maxLength: Int?)
+
+    /** How long the platform's emergency check may take before the call is placed anyway. */
+    const val EMERGENCY_CHECK_MS = 500L
+
+    /** How long the rest of the facts (SIMs, phone accounts, a messaging app) may take before the call goes as usual. */
+    const val FACTS_MS = 2_000L
 
     /** Each call-capable account → null without call subjects, else its length limit (0: none given). */
     private fun subjectAccounts(context: Context): Map<String, Int?> = try {

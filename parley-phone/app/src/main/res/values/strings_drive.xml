@@ -20,6 +20,9 @@
     <!-- Android 12+: listing paired devices needs the "Nearby devices" permission -->
     <string name="drive_allow_nearby">Show paired devices</string>
     <string name="drive_allow_nearby_sub">Allow \"Nearby devices\" so Parley can list them. Only their names are read.</string>
+    <!-- L1: without "Nearby devices" the car is known by its name alone, and this name is one many devices share. -->
+    <string name="drive_nearby_needed">Nearby devices needed</string>
+    <string name="drive_nearby_needed_sub">Other devices may also be called \"%1$s\". Allow \"Nearby devices\" so Parley knows your car by its address, not only its name.</string>
     <!-- TalkBack: a device row's checkbox -->
     <string name="drive_mark_desc">Use %1$s as my car</string>
 

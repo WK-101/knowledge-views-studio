@@ -177,6 +177,24 @@ class ContactsRepositoryWriteTest {
         assertNull("unknown without the permission, so callers fail open", repo.isContact("+1 555 0123"))
     }
 
+    @Test fun favouritesStayStarredWithAWorkProfile() = runBlocking {
+        val id = create()
+        repo.setStarred(id, true)
+        assertEquals(true, repo.lookup("+44 20 7946 0000")?.starred)
+        // M3: with a work profile the enterprise lookup answers (it isn't asked for the star); the star is still read.
+        shadowOf(app.getSystemService(UserManager::class.java)).addProfile(0, 10, "Work", 0x20 /* UserInfo.FLAG_MANAGED_PROFILE */)
+        resetWorkProfileCache()
+        val found = repo.lookup("+44 20 7946 0000")!!
+        assertEquals(id, found.contactId)
+        assertTrue("a personal favourite found by the enterprise lookup", found.starred)
+        repo.setStarred(id, false)
+        assertFalse(repo.lookup("+44 20 7946 0000")!!.starred)
+        // A work contact has no personal row to read: never starred.
+        provider.workNumbers += "+1 555 0123"
+        assertFalse(repo.lookup("+1 555 0123")!!.starred)
+        resetWorkProfileCache()
+    }
+
     private fun resetWorkProfileCache() {
         WorkProfile::class.java.getDeclaredField("cached").apply { isAccessible = true }.set(null, null)
     }

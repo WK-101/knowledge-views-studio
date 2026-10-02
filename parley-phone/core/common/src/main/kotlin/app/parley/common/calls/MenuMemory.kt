@@ -37,23 +37,22 @@ data class MenuState(
  * pressed in a call to a number and when, offer them again next time ("Last time: 2 › 1 › 4", one tap replays them
  * with the same pauses), and save them as a shortcut that dials `number,,2,1,4`.
  *
- * Phone menus also ask for PINs, card and account numbers. Parley can't hear the prompt, so it judges by the typing:
- * a quick run of [SECRET_RUN] or more digits, or of [SECRET_BEFORE_HASH] or more digits ended with #, is taken for a
- * secret, and nothing from it on is kept. Users can also turn memory off per number ([setOptOut]). Never for emergency
- * numbers or service codes ([remembers]).
+ * Phone menus also ask for PINs, card and account numbers, passcodes and their "2nd and 5th digit". Parley can't hear
+ * the prompt and doesn't trust typing speed (TalkBack users and slow typists pause between every digit), so the guard
+ * is conservative ([secretStart]): nothing from the first run of [SECRET_RUN] or more digits on is kept, however
+ * slowly it was typed, nor from digits ended by # or * that add up to [SECRET_AROUND_MARKS]; at most [MAX_STEPS] keys
+ * are kept. Menu choices are single keys, so real menu paths still fit. Users can turn memory off for everything
+ * (Settings) or per number ([setOptOut]). Never for emergency numbers or service codes ([remembers]).
  */
 object MenuMemory {
-    /** A quick run of this many digits is never kept (a card or account number, a long PIN). */
-    const val SECRET_RUN = 6
+    /** This many digits in a row, at any speed, are never kept (a PIN, a card or account number, a passcode). */
+    const val SECRET_RUN = 4
 
-    /** This many quick digits followed by # look like a PIN entry. */
-    const val SECRET_BEFORE_HASH = 4
-
-    /** Keys pressed within this time of each other count as one run of typing; menu choices wait for the next prompt. */
-    const val RUN_GAP_MS = 2_500L
+    /** Digits followed by # or * ("2#", "5#", "12*") that add up to this many look like a PIN or a passcode's digits. */
+    const val SECRET_AROUND_MARKS = 4
 
     /** At most this many keys are remembered per number. */
-    const val MAX_STEPS = 12
+    const val MAX_STEPS = 6
 
     /** At most this many numbers are remembered (the oldest go first). */
     const val MAX_NUMBERS = 200
@@ -113,27 +112,59 @@ object MenuMemory {
         return MenuPath(steps, at, dialled(number))
     }
 
+    /** Where the first secret-looking key is in [presses] (sorted by time), or null; see [secretStartOf]. */
+    fun secretStart(presses: List<MenuPress>): Int? = secretStartOf(presses.map { it.tone })
+
     /**
-     * Where the first secret-looking run starts in [presses] (sorted by time), or null: a run is a stretch of digits
-     * each pressed within [RUN_GAP_MS] of the one before; it looks secret with [SECRET_RUN] digits, or with
-     * [SECRET_BEFORE_HASH] digits followed quickly by #.
+     * Where the first secret-looking key is in [tones], or null: the start of the first run of [SECRET_RUN] or more
+     * digits (timing plays no part), or the first digit followed by # or * once such digits add up to
+     * [SECRET_AROUND_MARKS] ("2# 5# 7# 9#", "12*34#").
      */
-    fun secretStart(presses: List<MenuPress>): Int? {
+    fun secretStartOf(tones: List<Char>): Int? {
+        var run: Int? = null
+        var marked: Int? = null
+        var firstMarked: Int? = null
+        var markedDigits = 0
         var i = 0
-        while (i < presses.size) {
-            if (!presses[i].tone.isDigit()) {
+        while (i < tones.size) {
+            if (!tones[i].isDigit()) {
                 i++
                 continue
             }
             var end = i + 1
-            while (end < presses.size && presses[end].tone.isDigit() && presses[end].sinceConnectMs - presses[end - 1].sinceConnectMs <= RUN_GAP_MS) end++
-            val length = end - i
-            val hashAfter = end < presses.size && presses[end].tone == '#' && presses[end].sinceConnectMs - presses[end - 1].sinceConnectMs <= RUN_GAP_MS
-            if (length >= SECRET_RUN || (length >= SECRET_BEFORE_HASH && hashAfter)) return i
+            while (end < tones.size && tones[end].isDigit()) end++
+            if (run == null && end - i >= SECRET_RUN) run = i
+            if (end < tones.size && tones[end] in MARKS && marked == null) {
+                if (firstMarked == null) firstMarked = i
+                markedDigits += end - i
+                if (markedDigits >= SECRET_AROUND_MARKS) marked = firstMarked
+            }
             i = end
         }
-        return null
+        return listOfNotNull(run, marked).minOrNull()
     }
+
+    /** [path] as the guard keeps it today (paths stored by an older, looser guard are cut on load); null when nothing is left. */
+    fun sanitize(path: MenuPath): MenuPath? {
+        val cut = secretStartOf(path.steps.map { it.tone }) ?: path.steps.size
+        val steps = path.steps.take(cut).take(MAX_STEPS)
+        return if (steps.isEmpty()) null else if (steps == path.steps) path else path.copy(steps = steps)
+    }
+
+    /** [state] with every remembered path through [sanitize] (shortcuts were saved on purpose and stay as they are). */
+    fun sanitize(state: MenuState): MenuState {
+        val paths = state.paths.mapNotNull { (k, p) -> sanitize(p)?.let { k to it } }.toMap()
+        return if (paths == state.paths) state else state.copy(paths = paths)
+    }
+
+    /** Settings › "Remember menu keys" turned off: every remembered path goes (shortcuts and opt-outs stay). */
+    fun forgetPaths(state: MenuState): MenuState = if (state.paths.isEmpty()) state else state.copy(paths = emptyMap())
+
+    /**
+     * Who a suggested shortcut name starts with: the caller's [name], but only the [number] for a private contact, whose
+     * name must not end up in a launcher's shortcut store or on a page that discreet mode or the vault's lock hides.
+     */
+    fun shortcutWho(name: String?, number: String, private: Boolean): String = name?.takeIf { it.isNotBlank() && !private } ?: number
 
     /** "2 › 1 › 4". */
     fun label(steps: List<MenuStep>): String = steps.joinToString(SEPARATOR) { it.tone.toString() }
@@ -162,6 +193,12 @@ object MenuMemory {
         if (i == 0) (s.waitMs - sinceConnectMs).coerceIn(0, MAX_REPLAY_GAP_MS) else s.waitMs.coerceIn(MIN_REPLAY_GAP_MS, MAX_REPLAY_GAP_MS)
     }
 
+    /**
+     * L3: whether a replay may send its next key: the call is still the active one, on its own. Merged into a
+     * conference the keys would reach everyone in it; with another call active they would go to a held call's menu.
+     */
+    fun replayGoesOn(active: Boolean, inConference: Boolean, otherActive: Boolean): Boolean = active && !inConference && !otherActive
+
     // ---------------------------------------------------------------- The state
 
     /** The path remembered for [key], unless memory is off for it. */
@@ -169,8 +206,9 @@ object MenuMemory {
 
     /** Keeps [path] as the last one for [key] (unless it's opted out); the oldest numbers go past [MAX_NUMBERS]. */
     fun remember(state: MenuState, key: String, path: MenuPath): MenuState {
-        if (key.isEmpty() || key in state.optOut || path.steps.isEmpty()) return state
-        val paths = state.paths + (key to path)
+        if (key.isEmpty() || key in state.optOut) return state
+        val clean = sanitize(path) ?: return state
+        val paths = state.paths + (key to clean)
         val kept = if (paths.size <= MAX_NUMBERS) paths else paths.entries.sortedByDescending { it.value.at }.take(MAX_NUMBERS).associate { it.key to it.value }
         return state.copy(paths = kept)
     }
@@ -215,6 +253,12 @@ object MenuMemory {
         return state.shortcuts.filter { it.number in lines }
     }
 
+    /**
+     * The backup's copy of [state]: shortcuts and opt-outs, without anything about the numbers [leaveOut] says (private
+     * contacts' numbers). Remembered paths stay on this phone: they are typed keys, the closest thing to a secret here.
+     */
+    fun forBackup(state: MenuState, leaveOut: (String) -> Boolean): MenuState = without(state, leaveOut).copy(paths = emptyMap())
+
     /** [state] without anything about the numbers [leaveOut] says (private contacts' numbers stay out of a backup). */
     fun without(state: MenuState, leaveOut: (String) -> Boolean): MenuState = MenuState(
         paths = state.paths.filter { (k, p) -> !leaveOut(p.number.ifEmpty { k }) },
@@ -244,4 +288,5 @@ object MenuMemory {
         stored?.takeIf { it.isNotBlank() }?.let { runCatching { json.decodeFromString(MenuState.serializer(), it) }.getOrNull() } ?: MenuState()
 
     private val TONES = "0123456789*#".toSet()
+    private val MARKS = setOf('#', '*')
 }

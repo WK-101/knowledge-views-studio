@@ -91,6 +91,10 @@ fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open
     if (messageOn) ReachSheet(ReachTarget.Number(number), onDismiss = { messageOn = false }, onCall = { n -> vm.requestCall(n, contact?.displayName) })
     val notes by vm.c.meta.callNotesAny(PhoneIdentity.lookupKeys(number, vm.countryIso)).collectAsStateWithLifecycle(emptyList())
     LaunchedEffect(number) { blocked = vm.c.blocks.isSystemBlocked(number) }
+    // L6: a private contact's menu shortcuts are on its own page (which hides them while the vault is locked); their
+    // names may hold the private name, so they never show here. Unknown until checked, so hidden until then.
+    var privateNumber by remember(number) { mutableStateOf<Boolean?>(null) }
+    LaunchedEffect(number) { privateNumber = runCatching { vm.c.vault.lookup(number, vm.countryIso) != null }.getOrDefault(true) }
     val simLabels = sims.associate { it.id to it.label }.takeIf { sims.size > 1 }.orEmpty()
     val title = contact?.displayName ?: Format.number(number, vm.countryIso)
     var menu by remember { mutableStateOf(false) }
@@ -164,7 +168,7 @@ fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open
             item { RingFactsHistorySection(vm, number) }
             item { CallFactsHistorySection(vm, number) }
             // I6: menu shortcuts for this number (the only place for a number that isn't a contact).
-            item { app.parley.ui.menus.MenuShortcutsBlock(vm, listOf(number), contact?.displayName ?: number, contact?.photoUri) }
+            if (privateNumber == false) item { app.parley.ui.menus.MenuShortcutsBlock(vm, listOf(number), contact?.displayName ?: number, contact?.photoUri) }
             if (notes.isNotEmpty()) {
                 item { Section(stringResource(R.string.hist_call_notes)) }
                 items(notes, key = { "n" + it.id }) { n ->

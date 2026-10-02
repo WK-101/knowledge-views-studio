@@ -439,20 +439,28 @@ internal fun ImportReportDialog(report: ImportReport, onDismiss: () -> Unit) {
 private const val MAX_REPORT_ITEMS = 50
 
 /** Where Settings search takes you for [e]: its category page scrolled to it, or the screen it lives on. */
-internal fun settingRoute(e: SettingEntry): Destination = when (e.place) {
+internal fun settingRoute(e: SettingEntry): Destination = when (val place = e.place) {
     null -> Routes.settingsPage(e.category, e.key)
     SettingPlace.TOOLS -> toolsRoute(e.key)
-    SettingPlace.BLOCKING -> Routes.Blocking
     SettingPlace.DELETED_CALLS -> Routes.journal(HistoryTab.CALLS)
-    SettingPlace.SIMS -> HistoryRoutes.Sims
-    SettingPlace.CONTACT_PAGE -> ContactPageRoutes.Sections
-    SettingPlace.SIMPLE_MODE -> ExtrasRoutes.SimpleSetup
-    SettingPlace.CALL_TIME -> Routes.CallTime
-    SettingPlace.BACKUP -> Routes.Backup
-    SettingPlace.SYNC -> Routes.Sync
-    SettingPlace.TEMPORARY -> Routes.Temporary
-    SettingPlace.HELPERS -> FamilyRoutes.Helpers
-    SettingPlace.DRIVE_PROFILE -> DriveRoutes.Profile
+    else -> placeRoutes.getValue(place)
+}
+
+/** The screen each other [SettingPlace] is on (one each, so a new place without a screen fails its test). */
+private val placeRoutes: Map<SettingPlace, Destination> by lazy {
+    mapOf(
+        SettingPlace.BLOCKING to Routes.Blocking,
+        SettingPlace.SIMS to HistoryRoutes.Sims,
+        SettingPlace.CONTACT_PAGE to ContactPageRoutes.Sections,
+        SettingPlace.SIMPLE_MODE to ExtrasRoutes.SimpleSetup,
+        SettingPlace.CALL_TIME to Routes.CallTime,
+        SettingPlace.BACKUP to Routes.Backup,
+        SettingPlace.SYNC to Routes.Sync,
+        SettingPlace.TEMPORARY to Routes.Temporary,
+        SettingPlace.HELPERS to FamilyRoutes.Helpers,
+        SettingPlace.DRIVE_PROFILE to DriveRoutes.Profile,
+        SettingPlace.PHONE_MENUS to CallsRoutes.PhoneMenus,
+    )
 }
 
 /** A Tools entry found by search: the screen itself when it has one, else Tools. */

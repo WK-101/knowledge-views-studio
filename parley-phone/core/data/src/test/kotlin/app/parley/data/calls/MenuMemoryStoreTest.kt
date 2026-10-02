@@ -5,6 +5,7 @@ import androidx.test.core.app.ApplicationProvider
 import app.parley.common.calls.MenuMemory
 import app.parley.common.calls.MenuPath
 import app.parley.common.calls.MenuShortcut
+import app.parley.common.calls.MenuState
 import app.parley.common.calls.MenuStep
 import app.parley.data.security.RecordCrypto
 import app.parley.data.testing.FakeAndroidKeyStore
@@ -60,6 +61,19 @@ class MenuMemoryStoreTest {
         assertEquals(1, store.state.value.paths.size)
     }
 
+    @Test fun paths_from_the_old_guard_are_cut_on_load() = runBlocking {
+        // Stored by the old guard: a slow four-digit PIN, and a menu path.
+        val pin = MenuPath("1234".map { MenuStep(it, 6_000) }, at = 1, number = bank)
+        val old = MenuState(paths = mapOf("pin" to pin, "menu" to path(ana, '2')))
+        prefs.edit().putString("state_v1", crypto.sealText(MenuMemory.encode(old))).commit()
+        val store = MenuMemoryStore(context) { false }
+        assertEquals(setOf("menu"), store.load().paths.keys)
+        // Written back sealed, so the PIN is gone from storage too.
+        val again = MenuMemoryStore(context) { false }
+        assertEquals(setOf("menu"), again.load().paths.keys)
+        assertTrue(crypto.isSealed(prefs.getString("state_v1", null)))
+    }
+
     @Test fun the_backup_leaves_private_numbers_out_and_restores_by_merging() = runBlocking {
         val store = MenuMemoryStore(context) { it == ana }
         store.update {
@@ -71,7 +85,13 @@ class MenuMemoryStoreTest {
         val fresh = MenuMemoryStore(context) { false }
         fresh.backupExtras.import(exported)
         val restored = fresh.state.value
-        assertEquals(setOf("bank"), restored.paths.keys)
+        // Remembered paths stay on the phone they were typed on; the private contact's shortcut stays out.
+        assertTrue(restored.paths.isEmpty())
         assertTrue(restored.shortcuts.isEmpty())
+        // An older backup that still holds paths restores none of them.
+        val olderBackup = mapOf(exported.keys.single() to MenuMemory.encode(MenuState(paths = mapOf("bank" to path(bank, '2')), optOut = setOf("x"))))
+        fresh.backupExtras.import(olderBackup)
+        assertTrue(fresh.state.value.paths.isEmpty())
+        assertEquals(setOf("x"), fresh.state.value.optOut)
     }
 }

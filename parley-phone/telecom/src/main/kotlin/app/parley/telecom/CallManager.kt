@@ -134,11 +134,21 @@ object CallManager {
         override fun onStateChanged(call: Call, state: Int) {
             // I11: the caller's name is never said over a call that stopped ringing.
             if (state != Call.STATE_RINGING) drive.quiet(idOf(call))
+            checkMenuReplay()
             publish()
         }
-        override fun onDetailsChanged(call: Call, details: Call.Details) = publish()
-        override fun onChildrenChanged(call: Call, children: MutableList<Call>) = publish()
-        override fun onParentChanged(call: Call, parent: Call?) = publish()
+        override fun onDetailsChanged(call: Call, details: Call.Details) {
+            checkMenuReplay()
+            publish()
+        }
+        override fun onChildrenChanged(call: Call, children: MutableList<Call>) {
+            checkMenuReplay()
+            publish()
+        }
+        override fun onParentChanged(call: Call, parent: Call?) {
+            checkMenuReplay()
+            publish()
+        }
         override fun onConferenceableCallsChanged(call: Call, conferenceableCalls: MutableList<Call>) = publish()
         override fun onPostDialWait(call: Call, remainingPostDialSequence: String?) {
             // One callback per call, unregistered in remove()/clear() (a second, anonymous callback leaked).
@@ -335,6 +345,9 @@ object CallManager {
                 emergency = EmergencyPolicy.bypasses(Safeguard.SCREENING, emergencyFacts(call, number, incoming = true)),
                 quiet = s.silenced || s.systemSilenced,
             ),
+            // L2: under Do Not Disturb's Priority, a caller it lets through (a favourite) is still announced.
+            handle = call.details.handle,
+            starred = found.favourite,
         )
     }
 
@@ -1372,7 +1385,7 @@ object CallManager {
      */
     fun replayMenu(id: String, steps: List<MenuStep>) {
         val call = find(id) ?: return
-        if (steps.isEmpty() || mapState(call.stateCompat()) != CallState.ACTIVE || call.details.connectTimeMillis <= 0) return
+        if (steps.isEmpty() || !replayMayGoOn(call) || call.details.connectTimeMillis <= 0) return
         if (isEmergencyCall(call, call.details.handle?.schemeSpecificPart)) return
         stopMenuReplay()
         val delays = MenuMemory.replayDelays(steps, (System.currentTimeMillis() - call.details.connectTimeMillis).coerceAtLeast(0))
@@ -1383,7 +1396,7 @@ object CallManager {
                 steps.forEachIndexed { i, step ->
                     delay(delays[i])
                     val c = find(id) ?: return@launch
-                    if (mapState(c.stateCompat()) != CallState.ACTIVE) return@launch
+                    if (!replayMayGoOn(c)) return@launch
                     val tone = startDtmf(id, step.tone) ?: return@launch
                     stopDtmf(id, tone, MenuMemory.REPLAY_TONE_MS)
                     _menuReplay.value = MenuReplay(id, steps, i + 1, token)
@@ -1392,6 +1405,23 @@ object CallManager {
                 if (_menuReplay.value?.token == token) _menuReplay.value = null
             }
         }
+    }
+
+    /**
+     * L3: whether a replay may send its next key into [c]: still active on its own, not merged into a conference (the
+     * keys would go to everyone in it) and no other call became the active one.
+     */
+    private fun replayMayGoOn(c: Call): Boolean = MenuMemory.replayGoesOn(
+        active = mapState(c.stateCompat()) == CallState.ACTIVE,
+        inConference = c.parent != null || c.children.isNotEmpty() || c.details.hasProperty(Call.Details.PROPERTY_CONFERENCE),
+        otherActive = calls.any { it !== c && it.parent == null && mapState(it.stateCompat()) == CallState.ACTIVE },
+    )
+
+    /** L3: a call changed (merged, held, another answered): the replay stops at once if it may not go on. */
+    private fun checkMenuReplay() {
+        val id = _menuReplay.value?.callId ?: return
+        val c = find(id)
+        if (c == null || !replayMayGoOn(c)) stopMenuReplay()
     }
 
     /** Stops a replay (Stop, a key pressed by hand, the call ended). */
@@ -1458,6 +1488,7 @@ object CallManager {
 
     /** Digits kept per call for menu memory (it keeps far fewer; this only bounds the memory used). */
     private const val MENU_PRESS_LIMIT = 64
+
     /** I11: how long silencing an unknown caller in the car waits for screening beyond its own timeout, and how often it looks. */
     private const val SCREEN_GRACE_MS = 500L
     private const val SCREEN_POLL_MS = 50L

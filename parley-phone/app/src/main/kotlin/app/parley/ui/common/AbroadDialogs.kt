@@ -47,7 +47,7 @@ internal fun AbroadQuestions(
     if (plan != null) {
         AbroadDialog(
             typed = p.number, plan = plan,
-            onCall = { next(p.copy(number = plan.dial, abroad = null)) },
+            onCall = { next(p.dialling(plan)) },
             onAsTyped = { next(p.copy(abroad = null)) },
             onCancel = { onUpdate(null) },
         )
@@ -61,6 +61,13 @@ internal fun AbroadQuestions(
         )
     }
 }
+
+/**
+ * L5: [plan]'s number taken: the call now goes to it, so the dial guard's warnings are the ones checked for it
+ * ([PendingCall.abroadWarnings]), not those of the number as typed.
+ */
+internal fun PendingCall.dialling(plan: AssistedDial.Plan): PendingCall =
+    copy(number = plan.dial, abroad = null, warnings = abroadWarnings, abroadWarnings = emptyList())
 
 @Composable
 private fun AbroadDialog(typed: String, plan: AssistedDial.Plan, onCall: () -> Unit, onAsTyped: () -> Unit, onCancel: () -> Unit) {

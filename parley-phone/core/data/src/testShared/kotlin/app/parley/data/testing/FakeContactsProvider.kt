@@ -40,7 +40,7 @@ class FakeContactsProvider : ContentProvider() {
     /** While true, contacts are listed without a lookup key, as right after an insert before aggregation settles. */
     @Volatile var lookupKeysUnreadable = false
 
-    /** Numbers the work profile's contacts hold, answered by the enterprise phone lookup only. */
+    /** Numbers the work profile's contacts hold, answered by the enterprise phone lookup only (after personal ones). */
     val workNumbers = HashSet<String>()
 
     private lateinit var db: SQLiteDatabase
@@ -166,6 +166,9 @@ class FakeContactsProvider : ContentProvider() {
         val cols = projection ?: arrayOf(ContactsContract.PhoneLookup._ID, ContactsContract.PhoneLookup.DISPLAY_NAME)
         val out = MatrixCursor(cols)
         if (work) {
+            // Like the platform: personal contacts come first, then the work profile's.
+            val personal = phoneLookup(number, projection, work = false)
+            if (personal.count > 0) return personal
             if (workNumbers.any { sameLine(it, number) }) out.addRow(cols.map { c -> if (c == "_id") 1_000_000_001L /* past the enterprise id base */ else null })
             return out
         }

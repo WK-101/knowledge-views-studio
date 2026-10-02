@@ -2,6 +2,8 @@ package app.parley.common.calls
 
 import java.time.Instant
 import java.time.ZoneId
+import java.util.Collections
+import java.util.IdentityHashMap
 
 /** How a call was carried, as far as Telecom said: over Wi-Fi calling at some point, or only the mobile network. */
 enum class CallNetwork { WIFI, MOBILE }
@@ -143,7 +145,14 @@ object CallQualityDiary {
 
     private enum class Dim { WHO, SIM, NETWORK, DAY_PART }
 
-    private class Candidate(val key: Key, val calls: List<DiaryCall>, val rate: DropRate, val dims: Int)
+    private class Candidate(val key: Key, val calls: List<DiaryCall>, val rate: DropRate, val dims: Int) {
+        /** The calls by identity (data-class hashing of every call, again and again, made the search slow; L9). */
+        val members: Set<DiaryCall> = identitySet(calls)
+        val drops: List<DiaryCall> = calls.filter { it.facts.drop != null }
+    }
+
+    private fun identitySet(calls: Collection<DiaryCall>): MutableSet<DiaryCall> =
+        Collections.newSetFromMap(IdentityHashMap<DiaryCall, Boolean>(calls.size * 2)).apply { addAll(calls) }
 
     /** The calls grouped by their values along [subset]; calls missing one of them (no person, no SIM) are left out. */
     private fun groups(calls: List<DiaryCall>, subset: Set<Dim>, part: Map<DiaryCall, DayPart>): Map<Key, List<DiaryCall>> {
@@ -189,7 +198,10 @@ object CallQualityDiary {
             if (calls.any { it.facts.wifi }) add(Dim.NETWORK)
             add(Dim.DAY_PART)
         }
-        val part = calls.associateWith { DayPart.of(Instant.ofEpochMilli(it.facts.startedAt).atZone(zone).hour) }
+        val part = IdentityHashMap<DiaryCall, DayPart>(calls.size * 2)
+        calls.forEach { part[it] = DayPart.of(Instant.ofEpochMilli(it.facts.startedAt).atZone(zone).hour) }
+        // L9: the other calls' rate is the total less the group's, never a list rebuilt (and rehashed) per group.
+        val total = rateOf(calls)
         val grouped = subsets(dims).associateWith { groups(calls, it, part) }
 
         // Each part of a pattern has to narrow it: "Calls with Mum in the morning" says nothing more than "Calls with
@@ -202,15 +214,16 @@ object CallQualityDiary {
         val candidates = grouped.flatMap { (subset, groups) ->
             groups.mapNotNull { (key, group) ->
                 val rate = rateOf(group)
-                val fits = dropsOften(rate, rateOf(calls - group.toSet())) && narrows(subset, key, group.size)
+                val rest = DropRate(total.calls - rate.calls, total.drops - rate.drops)
+                val fits = dropsOften(rate, rest) && narrows(subset, key, group.size)
                 if (fits) Candidate(key, group, rate, subset.size) else null
             }
         }
         val ordered = candidates.sortedWith(compareByDescending<Candidate> { it.rate.drops }.thenByDescending { it.rate.rate }.thenBy { it.dims })
         val chosen = ArrayList<Candidate>()
         for (c in ordered) {
-            val drops = c.calls.filter { it.facts.drop != null }.toSet()
-            val repeats = chosen.any { p -> drops.count { it in p.calls } * 2 > drops.size }
+            if (chosen.size >= MAX_PATTERNS) break
+            val repeats = chosen.any { p -> c.drops.count { it in p.members } * 2 > c.drops.size }
             if (!repeats && chosen.size < MAX_PATTERNS) chosen += c
         }
         return chosen.map { c -> c.toPattern(calls) }

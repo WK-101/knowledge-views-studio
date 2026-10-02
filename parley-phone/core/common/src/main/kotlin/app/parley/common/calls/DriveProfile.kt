@@ -55,29 +55,79 @@ object DriveProfile {
     /** What Android reports for a Bluetooth address it won't tell the app; never matched. */
     private const val ANONYMOUS = "02:00:00:00:00:00"
 
-    /** A connected audio device as the call path sees it (a Bluetooth address and product name, either may be missing). */
-    data class Connected(val address: String?, val name: String?)
+    /** Android 14+ without "Nearby devices": the address with all but its last two bytes hidden ("XX:XX:XX:XX:AB:CD"). */
+    private const val ANONYMIZED_PREFIX = "XX:XX:XX:XX:"
+    private const val ADDRESS_LENGTH = 17
+    private const val TAIL_LENGTH = 5
+
+    /**
+     * A connected audio device as the call path sees it (a Bluetooth address and product name, either may be missing),
+     * and its output [type] (android.media.AudioDeviceInfo's TYPE_*, see [CallAudioOutputs]; null when unknown).
+     */
+    data class Connected(val address: String?, val name: String?, val type: Int? = null)
 
     /** [raw] in one form for comparing ("aa:bb:…" and "AA-BB-…" are the same device). */
     fun address(raw: String): String = raw.trim().uppercase(Locale.ROOT).replace('-', ':')
 
+    /** Whether [address] (in [address] form) has only its last two bytes ("XX:XX:XX:XX:AB:CD"). */
+    fun anonymized(address: String): Boolean = address.length == ADDRESS_LENGTH && address.startsWith(ANONYMIZED_PREFIX)
+
     /**
-     * The marked car among the [connected] devices, or null. By address; by name only when Android hides the
-     * connected device's address (then the name the car had when it was marked must match exactly).
+     * Whether [car] is the device at [address] (shown, or with its last two bytes only) called [name]. A full address
+     * must match exactly; when either side has only the last two bytes, those must match and so must the name, when
+     * the connected device gives one.
+     */
+    private fun sameDevice(car: CarDevice, address: String, name: String?): Boolean {
+        val mine = address(car.address)
+        if (!anonymized(mine) && !anonymized(address)) return mine == address
+        if (mine.takeLast(TAIL_LENGTH) != address.takeLast(TAIL_LENGTH)) return false
+        return name == null || car.name.trim() == name
+    }
+
+    /**
+     * The marked car among the [connected] devices, or null. By address (L1: by its last two bytes and the name when
+     * Android shows only those); by name only when Android hides the connected device's address altogether (then the
+     * name the car had when it was marked must match exactly, see [genericName]).
      */
     fun connectedCar(cfg: DriveProfileConfig, connected: List<Connected>): CarDevice? {
         if (!cfg.enabled) return null
         for (d in connected) {
             val a = d.address?.let(::address)?.takeIf { it.isNotEmpty() && it != ANONYMOUS }
+            val n = d.name?.trim()?.takeIf { it.isNotEmpty() }
             val hit = if (a != null) {
-                cfg.cars.firstOrNull { address(it.address) == a }
+                cfg.cars.firstOrNull { sameDevice(it, a, n) }
             } else {
-                d.name?.trim()?.takeIf { it.isNotEmpty() }?.let { n -> cfg.cars.firstOrNull { it.name.trim() == n } }
+                n?.let { cfg.cars.firstOrNull { c -> c.name.trim() == n } }
             }
             if (hit != null) return hit
         }
         return null
     }
+
+    /**
+     * M2: the marked car connected through an output that carries calls (hands-free, LE Audio headset, hearing aid), or
+     * null. A car connected for media only (A2DP, cars connect it first; or "Phone calls" off for it) would leave an
+     * answered call on the phone's earpiece, so the drive profile never answers on it.
+     */
+    fun connectedCallCar(cfg: DriveProfileConfig, connected: List<Connected>): CarDevice? =
+        connectedCar(cfg, connected.filter { d -> d.type?.let(CallAudioOutputs::carriesCalls) == true })
+
+    /**
+     * L1: a name many devices share ("Car Multimedia", "MY CAR", "Bluetooth"): matched by name alone it could be a
+     * friend's car or headphones, so the drive profile asks for "Nearby devices" to tell the car by its address.
+     */
+    fun genericName(name: String): Boolean {
+        val n = name.lowercase(Locale.ROOT).filter { it.isLetterOrDigit() || it == ' ' }.split(' ').filter { it.isNotEmpty() }.joinToString(" ")
+        if (n.replace(" ", "").length <= SHORT_NAME) return true
+        return n in GENERIC_NAMES || n.split(' ').all { it in GENERIC_WORDS }
+    }
+
+    private const val SHORT_NAME = 3
+    private val GENERIC_WORDS = setOf(
+        "my", "car", "cars", "auto", "vehicle", "audio", "media", "multimedia", "stereo", "radio", "kit", "carkit", "handsfree",
+        "hands", "free", "bluetooth", "bt", "hfp", "a2dp", "speaker", "headset", "headphones", "device", "system", "music",
+    )
+    private val GENERIC_NAMES = setOf("car multimedia", "my car", "car kit", "car audio", "car stereo", "hands free")
 
     /** Marks or unmarks [car]; a car is kept once, by address. */
     fun mark(cfg: DriveProfileConfig, car: CarDevice, on: Boolean): DriveProfileConfig {
@@ -98,7 +148,10 @@ object DriveProfile {
         paired.filter { it.address.isNotBlank() }.forEach { seen.putIfAbsent(address(it.address), it) }
         connected.forEach { d ->
             val a = d.address?.let(::address)?.takeIf { it.isNotEmpty() && it != ANONYMOUS } ?: return@forEach
-            seen.putIfAbsent(a, CarDevice(a, d.name?.trim()?.takeIf { it.isNotEmpty() } ?: a))
+            val n = d.name?.trim()?.takeIf { it.isNotEmpty() }
+            // A connected device shown with its last two bytes only is the paired or marked one it matches, not a new row.
+            if (anonymized(a) && (seen.values + cfg.cars).any { sameDevice(it, a, n) }) return@forEach
+            seen.putIfAbsent(a, CarDevice(a, n ?: a))
         }
         val pairedKeys = paired.map { address(it.address) }.toSet()
         cfg.cars.forEach { seen.putIfAbsent(address(it.address), it) }
@@ -137,6 +190,35 @@ object DriveProfile {
         /** The user silenced it (a key, Silence) or the phone is set not to ring (silent, Do Not Disturb). */
         val quiet: Boolean = false,
     )
+
+    /** Do Not Disturb as the announcement sees it: off, Priority only, or alarms only / total silence. */
+    enum class Dnd { OFF, PRIORITY, SILENT }
+
+    /**
+     * L2: whether the phone rings aloud for this caller: the ringer is on, and Do Not Disturb is off, or set to Priority
+     * and lets this caller through ([callerAllowed], e.g. a starred contact): the call the driver most wants to hear about.
+     */
+    fun ringsAloud(ringerNormal: Boolean, dnd: Dnd, callerAllowed: Boolean): Boolean = ringerNormal && when (dnd) {
+        Dnd.OFF -> true
+        Dnd.PRIORITY -> callerAllowed
+        Dnd.SILENT -> false
+    }
+
+    /** NotificationManager.Policy's PRIORITY_SENDERS_ANY / _CONTACTS / _STARRED (stable platform values). */
+    const val SENDERS_ANY = 0
+    const val SENDERS_CONTACTS = 1
+    const val SENDERS_STARRED = 2
+
+    /**
+     * Before Android 13 (no `matchesCallFilter(Uri)`): whether Priority lets the call through, from its policy: calls
+     * allowed at all ([callsAllowed]), and from anyone, any contact ([known]) or starred contacts ([starred]).
+     */
+    fun priorityAllows(callsAllowed: Boolean, senders: Int, known: Boolean, starred: Boolean): Boolean = callsAllowed && when (senders) {
+        SENDERS_ANY -> true
+        SENDERS_CONTACTS -> known
+        SENDERS_STARRED -> starred
+        else -> false
+    }
 
     /** Say the caller's name once through the car: a known, visible caller on a phone that rings. */
     fun announces(cfg: DriveProfileConfig, driving: Boolean, c: Caller): Boolean =

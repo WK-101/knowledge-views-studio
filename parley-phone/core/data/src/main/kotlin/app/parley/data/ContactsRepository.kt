@@ -373,7 +373,7 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
             PhoneLookup.TYPE, PhoneLookup.LABEL, PhoneLookup.CUSTOM_RINGTONE, PhoneLookup.SEND_TO_VOICEMAIL,
         ) + STAR.takeUnless { strict }.orEmpty() // the drive profile answers favourites; the work profile's lookup isn't asked
         val cursor = if (strict) cr.query(uri, projection, null, null, null) else cr.safeQuery(uri, projection)
-        return cursor?.use { c ->
+        val found = cursor?.use { c ->
             if (!c.moveToFirst()) return null
             val id = c.getLong(0)
             CallerInfo(
@@ -387,8 +387,16 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
                 work = Contacts.isEnterpriseContactId(id),
                 starred = !strict && c.getInt(8) != 0,
             )
-        }
+        } ?: return null
+        // M3: the enterprise lookup isn't asked for the star, so a personal contact it found ("personal contacts come
+        // first") reads it from its own row; without this every favourite looks unstarred on a phone with a work profile.
+        return if (strict && !found.work) found.copy(starred = starredOf(found.contactId)) else found
     }
+
+    /** Whether the personal contact [contactId] is a favourite (false when it can't be read). */
+    private fun starredOf(contactId: Long): Boolean =
+        cr.safeQuery(Contacts.CONTENT_URI, arrayOf(Contacts.STARRED), "${Contacts._ID}=?", arrayOf(contactId.toString()), null)
+            ?.use { c -> c.moveToFirst() && c.getInt(0) != 0 } ?: false
 
     /** Company names by contact id, for every contact with one (an empty map when they can't be read). */
     fun organizations(): Map<Long, String> =
@@ -952,6 +960,14 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
     }
 
     suspend fun setStarred(contactId: Long, starred: Boolean) = updateContact(contactId, ContentValues().apply { put(Contacts.STARRED, if (starred) 1 else 0) })
+
+    /** Every ringtone set on a device contact, or null when they can't be read (no permission, provider gone). */
+    suspend fun customRingtones(): List<String>? = withContext(Dispatchers.IO) {
+        if (!Permissions.has(context, Manifest.permission.READ_CONTACTS)) return@withContext null
+        cr.safeQuery(Contacts.CONTENT_URI, arrayOf(Contacts.CUSTOM_RINGTONE), "${Contacts.CUSTOM_RINGTONE} IS NOT NULL", null, null)?.use { c ->
+            generateSequence { if (c.moveToNext()) c.getString(0) else null }.toList()
+        }
+    }
 
     suspend fun setRingtone(contactId: Long, ringtone: String?) = updateContact(contactId, ContentValues().apply { put(Contacts.CUSTOM_RINGTONE, ringtone) })
 

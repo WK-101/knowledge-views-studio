@@ -993,6 +993,10 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
         extrasOf(e.detailBlob).optString(INTERACTIONS).takeIf { it.isNotEmpty() }
     }
 
+    /** Every private contact's own ringtone; null when one can't be read now (then no ringtone file counts as unused). */
+    suspend fun ringtonesNow(): List<String>? =
+        withContext(Dispatchers.IO) { dao.callerRowsNow().map { summarize(it) ?: return@withContext null }.mapNotNull { it.ringtone } }
+
     /** Every private contact, read straight from the database (not the UI flow, which starts empty). */
     suspend fun summariesNow(): List<VaultSummary> = withContext(Dispatchers.IO) { dao.callerRowsNow().mapNotNull { summarize(it) } }
 

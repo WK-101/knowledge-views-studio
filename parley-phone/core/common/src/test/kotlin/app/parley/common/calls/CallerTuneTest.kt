@@ -2,6 +2,7 @@ package app.parley.common.calls
 
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -80,10 +81,31 @@ class CallerTuneTest {
 
     @Test fun file_names_never_carry_the_name() {
         val f = CallerTune.fileName("Ana Lima", 0)
-        assertTrue(f.matches(Regex("parley-tune-[0-9a-f]{8}\\.wav")))
+        assertTrue(f, f.matches(Regex("parley-tune-[0-9a-f]{16}\\.wav")))
         assertTrue(!f.contains("ana", ignoreCase = true))
         assertEquals(f, CallerTune.fileName("ana lima", 0))
         assertNotEquals(f, CallerTune.fileName("Ana Lima", 1))
+    }
+
+    @Test fun names_with_the_same_short_hash_get_their_own_files() {
+        // L8: "aan" and "ac0" share String.hashCode, so the old 32-bit names collided and one got the other's tune.
+        assertEquals("aan".hashCode(), "ac0".hashCode())
+        assertNotEquals(CallerTune.fileName("Aan", 0), CallerTune.fileName("Ac0", 0))
+        // Nor do a name and its variant meet another's (the old name was hash × 31 + variant).
+        val names = (0 until 2_000).map { "Person $it" }
+        val files = names.flatMap { n -> (0..3).map { v -> CallerTune.fileName(n, v) } }
+        assertEquals(files.size, files.toSet().size)
+    }
+
+    @Test fun unused_tune_files_are_found() {
+        val ana = CallerTune.fileName("Ana", 0)
+        val bo = CallerTune.fileName("Bo", 1)
+        val old = "parley-tune-0a1b2c3d.wav"
+        val files = listOf(ana, bo, old, "notes.txt", "$ana.tmp")
+        val inUse = listOf("content://app.parley.files/tunes/$ana", "content://media/internal/audio/media/12")
+        assertEquals(listOf(bo, old), CallerTune.unused(files, inUse))
+        assertTrue(CallerTune.isTuneFile(old))
+        assertFalse(CallerTune.isTuneFile("$ana.tmp"))
     }
 
     @Test fun envelope_rises_and_falls_to_silence() {
