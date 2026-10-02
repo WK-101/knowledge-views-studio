@@ -932,7 +932,6 @@
     <string name="ux_tip_turn_on">Turn on</string>
     <string name="ux_whats_new_title">What\'s new in Parley %1$s</string>
     <string name="ux_whats_new_body">Your tabs, start tab and call list stay just as you set them. New things arrive switched off, so you can try them when you like.</string>
-    <string name="ux_whats_new_try">Try it</string>
     <!-- Empty states -->
     <string name="ux_empty_clear_search">Clear search</string>
     <string name="ux_empty_clear_filter">Clear filter</string>

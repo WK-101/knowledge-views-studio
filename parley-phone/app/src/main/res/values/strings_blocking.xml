@@ -181,7 +181,6 @@
     <string name="blk_stop">Stop</string>
     <string name="blk_expecting_question">Expecting a call?</string>
     <string name="blk_emergency_window">Emergency call-back window: nothing is blocked for %1$s</string>
-    <string name="blk_quick_setups">Quick setups</string>
     <string name="blk_hidden">Silence or block hidden numbers</string>
     <string name="blk_hidden_help">Private and withheld callers</string>
     <string name="blk_hidden_needs_default">Needs Parley as your phone app: Android never shows hidden callers to screening apps.</string>
