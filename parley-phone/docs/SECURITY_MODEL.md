@@ -11,6 +11,7 @@ want to know what "encrypted" means here. The code references are the source of 
 | A malicious file, QR code, vCard, link or list pack | Yes: bounded readers, capped KDF costs, signature checks |
 | A lost or stolen **locked** phone | Yes: Keystore keys, file-based encryption, lock-screen content |
 | Someone holding the **unlocked** phone for a moment | Partly: the app lock and the vault's authentication-bound key |
+| Someone **making you** open Parley in front of them | Partly: the duress PIN (see [Duress unlock](#duress-unlock)) |
 | Someone with a copy of a backup, or write access to the backup or sync folder | Yes: encryption, signatures, KDF cost, passphrase strength |
 | A rooted phone, a compromised OS or Keystore, forensic hardware attacks | No |
 
@@ -34,6 +35,7 @@ Parley whenever the phone is on, including while it is locked.
 | Interaction notes (Circle) | Vault caller-ID key | None | Reminders run while locked |
 | Number memory index (what Parley remembers about numbers that aren't contacts) | Numbers: their own HMAC key (`KeystoreMemoryKeys`); hints: the small-records key, each sealed on its own | None | Read while a call rings on a locked phone; the call screen shows only "Parley knows this number" until the phone is unlocked |
 | My card's signing key, "Shared with", contacts' card links | Small-records key (`RecordCrypto`), each store one sealed document | None | Signing a card you share; the list of who has it; updates arriving while locked |
+| The Parley PIN and the duress PIN | scrypt hashes (`PinRecord`), the file sealed with the small-records key | None | Checked on the lock screen; never in backups |
 | Settings, rules, speed dial | File-based encryption only | — | Not personal content |
 
 ### The vault's detail key
@@ -140,6 +142,79 @@ Every file, link and code from outside is read through `Bounded` (core/common): 
 and decompression ratio for vCard and CSV imports, QR payloads, simple-mode files, list packs and backups. Shares
 from other apps are accepted only as `content://` URIs that don't belong to Parley itself. Links in notes open
 through the same look-alike and shortener checks as scanned codes.
+
+## Duress unlock
+
+For people at risk: a coercive partner, a check at a border, anyone who makes you unlock your phone and open Parley
+while they watch. Code: `DuressMachine`, `DuressPolicy`, `PinHasher`, `PinBackoff` (core/common, `security/`);
+`Concealment`, `AppPinStore`, `LockTransitions` (core/data); `AppLock`, `PinUnlock` and Settings › Privacy & security
+› App lock › Unlock with (app).
+
+### What it protects against, and what it can't
+
+| Situation | Protected? |
+|---|---|
+| Someone makes you open Parley and looks through it: lists, Recents, contact pages, Circle, Call insights, My card, Settings and Settings search | **Yes.** You type the duress PIN; Parley opens as usual, with the things below out of sight and nothing on screen that says so |
+| They keep the phone after Parley locks, restart it, or a private contact calls while they hold it | **Yes.** The hiding lasts until the next unlock with the real Parley PIN, across locks and restarts; private callers ring as unknown numbers |
+| They make you change the PIN, turn off the app lock or discreet mode, or turn the PIN off | **Yes, for the session.** The screens show the change; the stored settings are untouched, a "new PIN" becomes the new duress PIN, and the session's changes are forgotten at the next lock |
+| They make you use the fingerprint or the screen lock instead | **Yes.** With a duress PIN set, only a PIN opens Parley |
+| They make a backup, or Parley backs up on its schedule | **Yes.** A backup made after a duress unlock has no private contacts and no hidden notes, and says nothing about leaving them out; scheduled backups and the Markdown export wait until the real PIN |
+| Someone who knows Parley has a duress PIN (or reads this page) and suspects you used it | **No.** Nothing can prove there is no second PIN, but the app on this phone can't hide that the feature exists |
+| A forensic copy of the phone's storage, a rooted phone, a compromised OS | **No.** The data is all there, encrypted as usual; see [Threats considered](#threats-considered) |
+| Android's own screens and other apps: the system call log, Android's Settings › Apps (storage size), Google Contacts, messaging apps, notifications already posted | **No.** Parley can't change them. "Private call history" keeps private contacts' calls out of the system call log, and private contacts are never in the address book; everything else outside Parley stays as it is |
+| A guess at the PIN | Five tries are free, then each wrong PIN waits 30 s, doubling to an hour (`PinBackoff`, counted in elapsed time so a clock change doesn't help; a restart starts the wait over) |
+
+### What a duress unlock hides
+
+Everything discreet mode ("Hide private contacts") hides, with discreet mode forced on whatever its switch says:
+private contacts in every list and search, the private call history, number memory's lines from private sources,
+To call items about private contacts, deleted private contacts in History & undo, private names in notifications and
+on the call screen. And, beyond discreet mode (`Concealed`):
+
+- **Circle notes and promises**, for everyone (promises are lines of a note). Logged moments stay, without notes.
+- **Notes for calls and call notes**, for everyone: they read as none on the contact page and on the call screen.
+- **Family safe words**: none shows, not even which labels have one, and none can be set (it would replace one unseen).
+- **My card › Shared with**: every entry, not only private contacts' (who you gave your number to can matter as much).
+- **Private contacts' own ringtones**: a private caller rings with the ringtone for everyone else. Their "send to
+  voicemail", labels and the screening rules still apply, so nobody who was kept out rings through.
+- **Private contacts' details**, with "Keep private details locked" (on by default): the vault's detail key refuses to
+  open (`VaultCrypto.detailLocked`) even inside the phone's own 5-minute window, so no path the hiding missed (an old
+  link, a widget) can open one. Off, they are only out of sight. Backups leave private contacts out either way.
+- **The Privacy dashboard's counts** of private contacts and calls read 0; a link to a private contact's page finds no
+  contact; Settings search finds nothing about the duress PIN.
+
+Nothing is deleted or rewritten. Stores show the hidden item as absent and, when a screen writes back that absence
+(saving a contact's settings, editing a logged moment), keep what is stored (`SealedMetaDao`, `InteractionStore`).
+
+### Design choices
+
+- **A PIN of Parley's own.** The app lock used only the phone's credential through `BiometricPrompt`, which can't
+  tell two credentials apart. The optional **Parley PIN** (4–12 digits) replaces it; with no duress PIN set, "Use
+  fingerprint or screen lock" stays offered beside it.
+- **Hashes only.** Both PINs are scrypt hashes (N = 2^14, r = 8, p = 1: 16 MB an attempt) with one shared random salt,
+  so an attempt costs one derivation whichever PIN it is and both comparisons always run in constant time: the time a
+  try takes says nothing about which PIN matched. The record (with the wrong-try count) is sealed with the
+  small-records key, so a copy of Parley's files gives nothing to guess against offline without the phone's Keystore;
+  it never goes into backups (a restored phone uses the screen lock until a PIN is set there).
+- **The two PINs look the same.** Same field, same wait, same screen after; a right PIN of either kind clears the
+  wrong-try count. Settings › … › Unlock with shows the Parley PIN as on and no duress rows during a duress session;
+  the switches on the Privacy page show what you left them at (`AppSettings.duress`), not the forced discreet mode.
+- **Only a PIN while a duress PIN is set.** Otherwise "use your fingerprint" would undo it. Parley therefore can't
+  recover a forgotten Parley PIN: the only way back is clearing Parley's storage in Android's settings (private
+  contacts not in a backup are lost). Setting a duress PIN says so first.
+- **Hiding until the real PIN, a session until the next lock.** The duress *session* (the unlocked screens and the
+  in-memory settings changes) ends at the next lock; the *hiding* is stored in `no_backup/app_lock_state` and ends
+  only with the real PIN, so a lock, a timeout or a restart while someone else holds the phone reveals nothing, and a
+  call that wakes Parley finds it hidden.
+- **Changes made during a session don't stick.** Turning off the app lock, discreet mode or private call history only
+  changes what the screens show until the next lock (`DuressPolicy.split`); other settings are stored as usual. "Private
+  call history" stays as stored either way, so private calls never reach the system call log because of a session.
+- **No "wipe on duress".** An option to delete private contacts on a duress PIN is deliberately not built: a mistyped
+  PIN, a curious child or a stressed moment would destroy data for good, the person watching might notice a wipe (a
+  longer pause, a changed count elsewhere) and punish it, and a deletion can be undone by nobody, while hiding can be
+  undone by you. Everything here hides; nothing destroys.
+- **Emergency calls are never in the way.** The lock screen keeps its Emergency call button with the PIN field;
+  incoming calls are never locked (the call screen is a separate activity), only shown with less.
 
 ## Exported components and the app lock
 

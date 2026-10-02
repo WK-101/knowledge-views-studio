@@ -1,6 +1,8 @@
 package app.parley.data
 
 import app.parley.common.calls.ExpectedWindow
+import app.parley.data.security.AppPinStore
+import app.parley.data.security.Concealment
 import app.parley.data.security.RecordSealing
 import app.parley.data.security.SealedMetaDao
 import app.parley.data.security.RecordCrypto
@@ -66,6 +68,8 @@ class DataContainer(context: Context) {
     init {
         // The vault's key generation checks for a secure lock screen and StrongBox.
         VaultCrypto.appContext = appContext
+        // I21: where a duress unlock's hiding is kept (read on first use, off the main thread).
+        Concealment.init(appContext)
     }
 
     /**
@@ -142,6 +146,9 @@ class DataContainer(context: Context) {
 
     /** I6 menu memory: the keys sent per number and menu shortcuts (by number, sealed at rest; never emergency calls). */
     val menus by lazy { MenuMemoryStore(appContext) { n -> vault.lookup(n) != null } }
+
+    /** I21: the Parley PIN and the duress PIN (hashes only, sealed, this phone only). */
+    val appPin by lazy { AppPinStore(appContext) { RecordCrypto.get(appContext) } }
 
     /** Family safety: safe words per label, helpers, expected-call windows (sealed, this phone only). */
     val familySafety by lazy { FamilySafetyStore(appContext) }

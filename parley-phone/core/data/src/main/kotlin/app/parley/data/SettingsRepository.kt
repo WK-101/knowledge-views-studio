@@ -19,12 +19,17 @@ import app.parley.common.ScreeningSettings
 import app.parley.common.StartTab
 import app.parley.common.SurfaceLayout
 import app.parley.common.ThemeMode
+import app.parley.common.security.DuressPolicy
+import app.parley.common.security.SafetyOverlay
+import app.parley.data.security.Concealment
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -37,9 +42,36 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
     /** False until the stored settings have been read once (avoids flashing first-run UI). */
     val loaded: StateFlow<Boolean> = _loaded
 
-    val settings: StateFlow<AppSettings> = store.data
-        .map { it.toSettings().also { _loaded.value = true } }
+    /**
+     * I21: the safety switches changed during a duress session, in memory only (see [DuressPolicy.split]); null outside
+     * one. Dropped by [endDuressSession] at the next lock.
+     */
+    private val sessionOverlay = MutableStateFlow<SafetyOverlay?>(null)
+
+    @Volatile private var duressSession = false
+
+    /**
+     * The settings Parley runs on: as stored, except while a duress unlock hides things ([Concealment]), when discreet
+     * mode is forced on and [AppSettings.duress] says what the Privacy page shows.
+     */
+    val settings: StateFlow<AppSettings> = combine(store.data.map { it.toSettings() }, Concealment.state, sessionOverlay) { stored, d, overlay ->
+        DuressPolicy.effective(stored, d.hiding, overlay.takeIf { duressSession })
+    }
+        .onStart { Concealment.ensureLoaded() }
+        .map { it.also { _loaded.value = true } }
         .stateIn(scope, SharingStarted.Eagerly, AppSettings())
+
+    /** A duress unlock opened Parley: changes to the safety switches stay in memory from now until [endDuressSession]. */
+    fun beginDuressSession() {
+        duressSession = true
+        sessionOverlay.value = null
+    }
+
+    /** Parley locked: the session's changes are forgotten. */
+    fun endDuressSession() {
+        duressSession = false
+        sessionOverlay.value = null
+    }
 
     init {
         // Pin the layout schema once, before any new default could apply: an existing user keeps
@@ -59,7 +91,8 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
      * [update] that just finished (a call placed right after changing "confirm before calling" must see it).
      * DataStore serves this from memory once loaded, and reads disk when the process was just woken by a call.
      */
-    suspend fun current(): AppSettings = store.data.first().toSettings()
+    suspend fun current(): AppSettings =
+        DuressPolicy.effective(store.data.first().toSettings(), Concealment.hiding, sessionOverlay.value.takeIf { duressSession })
 
     /** All stored preferences as typed strings ("b:true", "i:5", "s:text") for backups. */
     suspend fun exportMap(): Map<String, String> = store.data.first().asMap().mapKeys { it.key.name }.mapValues { (_, v) ->
@@ -87,8 +120,15 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
 
     suspend fun update(transform: (AppSettings) -> AppSettings) {
         store.edit { prefs ->
-            val next = transform(prefs.toSettings())
-            prefs.write(next)
+            val stored = prefs.toSettings()
+            if (duressSession) {
+                // The screens change what they show; the stored safety switches stay as they are (I21).
+                val (toStore, overlay) = DuressPolicy.split(stored, transform(DuressPolicy.shown(stored, sessionOverlay.value)))
+                sessionOverlay.value = overlay
+                prefs.write(toStore)
+            } else {
+                prefs.write(transform(stored))
+            }
         }
     }
 

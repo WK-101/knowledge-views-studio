@@ -9,6 +9,8 @@ import app.parley.common.calls.FamilySafetyState
 import app.parley.common.calls.Helper
 import app.parley.common.calls.SafeWord
 import app.parley.common.calls.SafeWords
+import app.parley.common.security.Concealed
+import app.parley.data.security.Concealment
 import app.parley.data.vault.VaultCrypto
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -70,7 +72,15 @@ class FamilySafetyStore(context: Context) {
     }
 
     private fun publish() {
-        _summary.value = Summary(doc.safeWords.keys, doc.helpers, doc.consents, doc.windows)
+        _summary.value = Summary(if (wordsHidden) emptySet() else doc.safeWords.keys, doc.helpers, doc.consents, doc.windows)
+    }
+
+    /** I21: after a duress unlock no safe word shows, not even which labels have one. */
+    private val wordsHidden: Boolean get() = Concealment.hides(Concealed.SAFE_WORDS)
+
+    /** The duress hiding started or ended: the summary follows. */
+    fun refresh() {
+        if (loaded) publish()
     }
 
     /** Applies [f] and writes the result sealed; false when nothing could be changed or stored. */
@@ -93,13 +103,16 @@ class FamilySafetyStore(context: Context) {
 
     /** The safe word of [label] (question and answer), for a screen the user just unlocked; null when none. */
     suspend fun safeWord(label: String): SafeWord? = withContext(Dispatchers.IO) {
-        mutex.withLock { if (loadLocked()) doc.safeWords.entries.firstOrNull { it.key.trim() == label.trim() }?.value else null }
+        mutex.withLock { if (loadLocked() && !wordsHidden) doc.safeWords.entries.firstOrNull { it.key.trim() == label.trim() }?.value else null }
     }
 
     /** Every safe word, for the call screen: it decides which to offer and shows the answer only on a deliberate hold. */
-    suspend fun safeWords(): Map<String, SafeWord> = withContext(Dispatchers.IO) { mutex.withLock { if (loadLocked()) doc.safeWords else emptyMap() } }
+    suspend fun safeWords(): Map<String, SafeWord> = withContext(Dispatchers.IO) {
+        mutex.withLock { if (loadLocked() && !wordsHidden) doc.safeWords else emptyMap() }
+    }
 
-    suspend fun setSafeWord(label: String, word: SafeWord?): Boolean = write { s ->
+    /** Refused while safe words are hidden: a new one would replace one the screen can't show. */
+    suspend fun setSafeWord(label: String, word: SafeWord?): Boolean = !wordsHidden && write { s ->
         val others = s.safeWords.filterKeys { it.trim() != label.trim() }
         s.copy(safeWords = if (word == null) others else others + (label.trim() to word))
     }

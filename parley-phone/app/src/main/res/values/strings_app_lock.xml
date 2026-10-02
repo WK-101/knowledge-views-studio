@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The app lock's own PIN (the Parley PIN) and the duress PIN: the lock screen's PIN field and Settings › Privacy & security › App lock › Unlock with. -->
+<resources>
+    <!-- Lock screen. -->
+    <string name="pin_field_label">Parley PIN</string>
+    <string name="pin_wrong">That PIN didn\'t work. Try again.</string>
+    <!-- %1$s is a countdown such as "0:30". -->
+    <string name="pin_wait">Too many tries. Try again in %1$s</string>
+    <string name="pin_use_device">Use fingerprint or screen lock</string>
+
+    <!-- Choosing a PIN. -->
+    <string name="pin_field_new">PIN</string>
+    <string name="pin_set_title">Choose a Parley PIN</string>
+    <string name="pin_set_body">4 to 12 digits. Parley keeps only a scrambled form of it, on this phone.</string>
+    <string name="pin_confirm_title">Type it again</string>
+    <string name="pin_invalid">Use 4 to 12 digits</string>
+    <string name="pin_mismatch">The PINs didn\'t match. Start again.</string>
+    <string name="pin_not_saved">Couldn\'t save the PIN. Try again.</string>
+    <string name="pin_same_as_duress">That\'s your duress PIN. Choose another.</string>
+    <string name="pin_same_as_pin">That\'s your Parley PIN. Choose another.</string>
+    <string name="pin_next">Next</string>
+    <string name="pin_save">Save</string>
+
+    <!-- Settings › Privacy & security › App lock › Unlock with. -->
+    <string name="app_lock_method_device">Fingerprint or screen lock</string>
+    <string name="app_lock_method_pin">Parley PIN</string>
+    <string name="app_lock_intro">Parley can ask for your phone\'s fingerprint or screen lock, or for a PIN of its own. Incoming calls and emergency calls never wait for either.</string>
+    <string name="pin_change">Change Parley PIN</string>
+    <string name="pin_off_title">Turn off the Parley PIN?</string>
+    <string name="pin_off_body">Parley will ask for your fingerprint or screen lock again.</string>
+    <string name="pin_off_body_duress">Parley will ask for your fingerprint or screen lock again. Your duress PIN is turned off too.</string>
+    <string name="pin_off_confirm">Turn off</string>
+
+    <!-- The duress PIN. -->
+    <string name="duress_group">If someone makes you unlock</string>
+    <string name="duress_explainer">Type a duress PIN instead of your Parley PIN: Parley opens as usual, with private contacts and sensitive notes out of sight.</string>
+    <string name="duress_on_summary">On. Only your Parley PIN shows everything again.</string>
+    <string name="duress_what_it_hides">What a duress PIN hides, and what it can\'t do</string>
+    <string name="duress_change">Change duress PIN</string>
+    <string name="duress_off">Turn off</string>
+    <string name="duress_off_title">Turn off the duress PIN?</string>
+    <string name="duress_off_body">Your Parley PIN stays. Nothing that was hidden is lost.</string>
+    <string name="duress_set_title">Choose a duress PIN</string>
+    <string name="duress_set_body">Different from your Parley PIN. Pick one you\'ll remember under stress.</string>
+    <string name="duress_about_title">Duress PIN</string>
+    <string name="duress_about_continue">Choose a duress PIN</string>
+    <string name="duress_about_hides">The duress PIN opens Parley as usual, but hides private contacts and their calls, Circle notes and promises, notes for calls and call notes, family safe words and Shared with. Private contacts who call ring as unknown numbers. Nothing is deleted.</string>
+    <string name="duress_about_until">They stay hidden, also after Parley locks or the phone restarts, until you unlock with your Parley PIN. Settings show the duress PIN as if it didn\'t exist.</string>
+    <string name="duress_about_only_pin">While a duress PIN is set, only a PIN opens Parley, not your fingerprint or screen lock. Parley can\'t recover a forgotten PIN: you would have to clear Parley\'s storage in Android\'s settings, and private contacts not in a backup would be lost.</string>
+    <string name="duress_about_limits">It can\'t help against someone who knows about duress PINs, or who copies the phone\'s storage with special tools. It hides nothing outside Parley: other apps, Android\'s own settings and the system call history stay as they are.</string>
+</resources>

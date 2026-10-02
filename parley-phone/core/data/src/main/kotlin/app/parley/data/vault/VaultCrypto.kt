@@ -117,6 +117,17 @@ object VaultCrypto {
     /** Set once by the app so key generation can check for a secure lock screen and StrongBox. */
     @Volatile var appContext: Context? = null
 
+    /**
+     * I21: after a duress unlock (with "Keep private details locked"), details refuse to open as if the key needed a
+     * fresh unlock, until the real Parley PIN ends it ([app.parley.data.security.Concealment]). Nothing is changed in
+     * the Keystore: it is Parley declining to use the key, and every caller already treats "locked" as temporary.
+     */
+    @Volatile var detailLocked = false
+
+    private fun checkNotLocked() {
+        if (detailLocked) throw LockedException()
+    }
+
     private fun detailAlias(gen: Int) = if (gen == 0) LEGACY_DETAIL_KEY else "$DETAIL_PREFIX$gen"
 
     /** Every detail-key generation the Keystore holds. */
@@ -384,6 +395,7 @@ object VaultCrypto {
      */
     fun openDetail(blob: ByteArray): ByteArray {
         require(!isParts(blob)) { "A two-part blob opens with openDetailMain / openDetailExtra" }
+        checkNotLocked()
         val gen = generationOf(blob)
         Meter.detailOpens.incrementAndGet()
         Meter.detailBytes.addAndGet(blob.size.toLong())
@@ -416,7 +428,7 @@ object VaultCrypto {
      * A key that is missing, invalidated (the screen lock was changed) or that the Keystore can't load now counts as
      * locked. No detail key ever made means nothing was sealed with one: open.
      */
-    fun detailNeedsUnlock(): Boolean = try {
+    fun detailNeedsUnlock(): Boolean = detailLocked || try {
         val gen = currentGeneration()
         if (gen == null) {
             // A committed generation whose key is gone can't open anything.
@@ -497,7 +509,7 @@ object VaultCrypto {
      * off every other writer of detail blobs for the whole call. Returns true when the vault now uses the new key.
      */
     suspend fun upgradeDetailKey(reseal: suspend (convert: (ByteArray) -> ByteArray) -> Boolean, inUse: suspend () -> Set<Int>): Boolean {
-        if (!detailKeyNeedsUpgrade()) return false
+        if (detailLocked || !detailKeyNeedsUpgrade()) return false
         val old = currentGeneration() ?: return false
         val next = maxOf(old, highestGenerationEver(), storedGenerations().max()) + 1
         if (!createDetailKey(next)) {

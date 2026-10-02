@@ -6,7 +6,10 @@ import app.parley.data.db.CallNoteEntity
 import app.parley.data.db.ContactMetaEntity
 import app.parley.data.db.JournalEntity
 import app.parley.data.db.MetaDao
+import app.parley.common.security.Concealed
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 
 /**
@@ -19,10 +22,24 @@ import kotlinx.coroutines.flow.map
  * ciphertext stays until the note is explicitly set ([setPinnedNote]).
  */
 class SealedMetaDao(private val dao: MetaDao, private val crypto: RecordCrypto) : MetaDao by dao {
-    private fun ContactMetaEntity.opened() = if (crypto.isSealed(pinnedNote)) copy(pinnedNote = crypto.openText(pinnedNote)) else this
+    /** I21: after a duress unlock, notes for calls and call notes read as none (kept as stored, see [kept]). */
+    private val hidden: Boolean get() = Concealment.hides(Concealed.NOTES)
+
+    /** Re-emits when the duress hiding starts or ends. */
+    private val hiding = Concealment.state.map { it.hiding }.distinctUntilChanged()
+
+    private fun ContactMetaEntity.opened() = when {
+        hidden -> copy(pinnedNote = null)
+        crypto.isSealed(pinnedNote) -> copy(pinnedNote = crypto.openText(pinnedNote))
+        else -> this
+    }
+
+    /** While notes are hidden, [key]'s stored note as it is: a write that passes "no note" back must not clear it. */
+    private suspend fun kept(key: String): String? = if (hidden) dao.meta(key)?.pinnedNote else null
 
     /** What to store for [key]'s note when a write passes [note]: sealed, or the stored ciphertext kept for null. */
-    private suspend fun noteToStore(key: String, note: String?): String? = note?.let { crypto.sealText(it) } ?: unreadableNote(key)
+    private suspend fun noteToStore(key: String, note: String?): String? =
+        kept(key) ?: note?.let { crypto.sealText(it) } ?: unreadableNote(key)
 
     /** [key]'s stored note as it is (sealed) when it can't be opened right now; null otherwise. */
     suspend fun unreadableNote(key: String): String? = dao.meta(key)?.pinnedNote?.takeIf { crypto.isUnreadable(it) }
@@ -34,17 +51,20 @@ class SealedMetaDao(private val dao: MetaDao, private val crypto: RecordCrypto) 
     }
     private fun CallNoteEntity.opened() = if (crypto.isSealed(text)) copy(text = crypto.openText(text).orEmpty()) else this
 
+    /** Call notes as shown: none while a duress unlock hides notes. */
+    private fun List<CallNoteEntity>.shown() = if (hidden) emptyList() else map { it.opened() }
+
     override suspend fun addJournal(e: JournalEntity): Long = dao.addJournal(e.copy(payload = crypto.sealBytes(e.payload)))
 
     override suspend fun journalEntry(id: Long): JournalEntity? = dao.journalEntry(id)?.let { it.copy(payload = crypto.openBytes(it.payload)) }
 
     override suspend fun meta(key: String): ContactMetaEntity? = dao.meta(key)?.opened()
 
-    override fun metaFlow(key: String): Flow<ContactMetaEntity?> = dao.metaFlow(key).map { it?.opened() }
+    override fun metaFlow(key: String): Flow<ContactMetaEntity?> = combine(dao.metaFlow(key), hiding) { m, _ -> m?.opened() }
 
-    override suspend fun setPinnedNote(key: String, contactId: Long, note: String?) = dao.setPinnedNote(key, contactId, crypto.sealText(note))
+    override suspend fun setPinnedNote(key: String, contactId: Long, note: String?) = dao.setPinnedNote(key, contactId, kept(key) ?: crypto.sealText(note))
 
-    override fun allMeta(): Flow<List<ContactMetaEntity>> = dao.allMeta().map { l -> l.map { it.opened() } }
+    override fun allMeta(): Flow<List<ContactMetaEntity>> = combine(dao.allMeta(), hiding) { l, _ -> l.map { it.opened() } }
 
     override suspend fun allMetaNow(): List<ContactMetaEntity> = dao.allMetaNow().map { it.opened() }
 
@@ -55,23 +75,26 @@ class SealedMetaDao(private val dao: MetaDao, private val crypto: RecordCrypto) 
 
     override suspend fun addCallNote(n: CallNoteEntity): Long = dao.addCallNote(n.copy(text = crypto.sealText(n.text).orEmpty()))
 
-    override fun callNotes(key: String): Flow<List<CallNoteEntity>> = dao.callNotes(key).map { l -> l.map { it.opened() } }
+    override fun callNotes(key: String): Flow<List<CallNoteEntity>> = combine(dao.callNotes(key), hiding) { l, _ -> l.shown() }
 
-    override fun callNotesAny(keys: List<String>): Flow<List<CallNoteEntity>> = dao.callNotesAny(keys).map { l -> l.map { it.opened() } }
+    override fun callNotesAny(keys: List<String>): Flow<List<CallNoteEntity>> = combine(dao.callNotesAny(keys), hiding) { l, _ -> l.shown() }
 
-    override suspend fun allCallNotesNow(): List<CallNoteEntity> = dao.allCallNotesNow().map { it.opened() }
+    override suspend fun allCallNotesNow(): List<CallNoteEntity> = dao.allCallNotesNow().shown()
 
     /** Sealed texts can't be compared in SQL (each has its own nonce): compared after opening. */
     override suspend fun countCallNote(key: String, callDate: Long, text: String): Int =
         dao.callNotesNow(listOf(key)).count { it.callDate == callDate && it.opened().text == text }
 
-    override fun allCallNotes(): Flow<List<CallNoteEntity>> = dao.allCallNotes().map { l -> l.map { it.opened() } }
+    override fun allCallNotes(): Flow<List<CallNoteEntity>> = combine(dao.allCallNotes(), hiding) { l, _ -> l.shown() }
 
-    override suspend fun callNotesNow(keys: List<String>): List<CallNoteEntity> = dao.callNotesNow(keys).map { it.opened() }
+    override suspend fun callNotesNow(keys: List<String>): List<CallNoteEntity> = dao.callNotesNow(keys).shown()
 
-    override suspend fun callNote(id: Long): CallNoteEntity? = dao.callNote(id)?.opened()
+    override suspend fun callNote(id: Long): CallNoteEntity? = if (hidden) null else dao.callNote(id)?.opened()
 
-    override suspend fun setCallNoteText(id: Long, text: String) = dao.setCallNoteText(id, crypto.sealText(text).orEmpty())
+    override suspend fun setCallNoteText(id: Long, text: String) {
+        // Hidden notes can't be edited (none is shown); nothing reaches the stored one.
+        if (!hidden) dao.setCallNoteText(id, crypto.sealText(text).orEmpty())
+    }
 }
 
 /** [BlockDao] with screened callers' names (as the network presented them) sealed at rest. */

@@ -1,5 +1,6 @@
 package app.parley.security
 
+import app.parley.common.AppSettings
 import android.annotation.SuppressLint
 import android.app.PendingIntent
 import android.content.ComponentName
@@ -17,7 +18,7 @@ import kotlinx.coroutines.launch
 class VaultTileService : TileService() {
     override fun onStartListening() {
         super.onStartListening()
-        render(container.settings.settings.value.hideVault)
+        render(container.settings.settings.value.shownHidden())
     }
 
     override fun onClick() {
@@ -25,7 +26,7 @@ class VaultTileService : TileService() {
         val s = container.settings.settings.value
         // Hiding is always allowed. Showing again needs the phone unlocked first and, with the app lock on,
         // Parley's own unlock too: an unlocked phone in someone else's hands mustn't reveal private names.
-        if (!s.hideVault) return toggle()
+        if (!s.shownHidden()) return toggle()
         if (isLocked) unlockAndRun { reveal(s.appLock) } else reveal(s.appLock)
     }
 
@@ -44,12 +45,15 @@ class VaultTileService : TileService() {
 
     private fun toggle() {
         container.scope.launch {
-            val next = !container.settings.current().hideVault
+            val next = !container.settings.current().shownHidden()
             container.settings.update { it.copy(hideVault = next) }
             if (next) AppLock.lockNow()
             render(next)
         }
     }
+
+    /** Discreet mode as the switch is set: after a duress unlock the tile looks as it did before (I21). */
+    private fun AppSettings.shownHidden() = duress?.hideVault ?: hideVault
 
     private fun render(hidden: Boolean) {
         val tile = qsTile ?: return

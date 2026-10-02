@@ -193,6 +193,16 @@ object PersistentStores {
             "vault_trash", StoreKind.FILES, local("The 30-day undo of deleted private contacts, sealed like the vault"),
             location = PersistentStore.NO_BACKUP_FILES,
         ),
+        // I21: the app lock's PINs (scrypt hashes, sealed) and whether a duress unlock's hiding is on. Never exported:
+        // a PIN is set again on a new phone, and the hiding is about this phone in someone else's hands.
+        PersistentStore(
+            "app_pin", StoreKind.FILES, StorePolicy.Secret("Hashes of the Parley PIN and the duress PIN"),
+            location = PersistentStore.NO_BACKUP_FILES,
+        ),
+        PersistentStore(
+            "app_lock_state", StoreKind.FILES, StorePolicy.Secret("Whether a duress unlock is hiding things"),
+            location = PersistentStore.NO_BACKUP_FILES,
+        ),
         PersistentStore(
             "number_memory", StoreKind.FILES,
             local("Keyed-hash index of what this phone knows about numbers, rebuilt from the stores it indexes"),

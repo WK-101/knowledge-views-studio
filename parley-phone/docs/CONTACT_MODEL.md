@@ -199,6 +199,9 @@ path's ringtone, voicemail and label tones, and "Recently deleted"; `BulkContact
   editor leaves as before when locked.
 - Caller ID, the private call history, missed-call notifications and the lock screen use the same caller-ID copy as
   before; discreet mode ("Hide private contacts") still hides private contacts everywhere, including the merged lists.
+- After a duress unlock (5.0, [SECURITY_MODEL.md](SECURITY_MODEL.md#duress-unlock)) discreet mode is forced on, a
+  private contact's page finds no contact, its own ringtone isn't played and, by default, its sealed details refuse to
+  open, until the real Parley PIN. Nothing is changed in the vault.
 - Private contacts are merged only into Parley's own lists (`AppViewModel.everyone`), never into `ContactDirectory`,
   the widgets, the private-name provider or anything another app can query.
 - Labels, the ringtone, "send to voicemail" and the star are sealed with the caller-ID key like the name; nothing of

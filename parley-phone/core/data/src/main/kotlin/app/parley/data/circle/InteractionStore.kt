@@ -5,9 +5,13 @@ import app.parley.common.circle.InteractionType
 import app.parley.data.db.InteractionDao
 import app.parley.data.db.InteractionEntity
 import app.parley.data.db.InteractionTouchRow
+import app.parley.common.security.Concealed
+import app.parley.data.security.Concealment
 import app.parley.data.vault.VaultCrypto
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
@@ -43,17 +47,29 @@ class InteractionStore(private val dao: InteractionDao) {
         }
     }
 
-    /** A note that can't be opened (key reset) reads as none; the entry itself stays. */
-    private fun open(blob: ByteArray?): String? = blob?.let { runCatching { String(VaultCrypto.openCallerId(it), Charsets.UTF_8) }.getOrNull() }
+    /**
+     * A note that can't be opened (key reset) reads as none; the entry itself stays. After a duress unlock (I21) every
+     * note reads as none too, promises included ([reveal]: the undo copy of a deleted entry, never shown).
+     */
+    private fun open(blob: ByteArray?, reveal: Boolean = false): String? {
+        if (blob == null || (!reveal && Concealment.hides(Concealed.CIRCLE_NOTES))) return null
+        return runCatching { String(VaultCrypto.openCallerId(blob), Charsets.UTF_8) }.getOrNull()
+    }
 
-    private fun InteractionEntity.toModel() = Interaction(
+    /** What an edit stores for [note]: while notes are hidden an existing note is kept as it is, never cleared. */
+    private fun noteToStore(e: InteractionEntity, note: String?): ByteArray? =
+        if (e.noteBlob != null && Concealment.hides(Concealed.CIRCLE_NOTES)) e.noteBlob else seal(note)
+
+    private fun InteractionEntity.toModel(reveal: Boolean = false) = Interaction(
         id, lookupKey, contactId,
         InteractionType.entries.firstOrNull { it.name == type } ?: InteractionType.OTHER,
-        InteractionChannel.decode(channel), time, open(noteBlob), dedupeKey,
+        InteractionChannel.decode(channel), time, open(noteBlob, reveal), dedupeKey,
     )
 
-    /** [lookupKey]'s interactions, newest first. */
-    fun interactions(lookupKey: String): Flow<List<Interaction>> = dao.forKey(lookupKey).map { list -> list.map { it.toModel() } }.flowOn(Dispatchers.IO)
+    /** [lookupKey]'s interactions, newest first (again when a duress unlock hides or shows the notes). */
+    fun interactions(lookupKey: String): Flow<List<Interaction>> =
+        combine(dao.forKey(lookupKey), Concealment.state.map { it.hiding }.distinctUntilChanged()) { list, _ -> list.map { it.toModel() } }
+            .flowOn(Dispatchers.IO)
 
     suspend fun interactionsFor(lookupKey: String): List<Interaction> = withContext(Dispatchers.IO) { dao.forKeyNow(lookupKey).map { it.toModel() } }
 
@@ -93,13 +109,13 @@ class InteractionStore(private val dao: InteractionDao) {
     /** Changes kind, note and (only if the user picked a new one) time. Throws [SealException]. */
     suspend fun edit(id: Long, type: InteractionType, note: String?, time: Long? = null) = withContext(Dispatchers.IO) {
         val e = dao.get(id) ?: return@withContext
-        dao.update(e.copy(type = type.name, noteBlob = seal(note), time = time ?: e.time))
+        dao.update(e.copy(type = type.name, noteBlob = noteToStore(e, note), time = time ?: e.time))
     }
 
     /** Only the note changes (a promise ticked off). Throws [SealException]. */
     suspend fun setNote(id: Long, note: String?) = withContext(Dispatchers.IO) {
         val e = dao.get(id) ?: return@withContext
-        dao.update(e.copy(noteBlob = seal(note)))
+        dao.update(e.copy(noteBlob = noteToStore(e, note)))
     }
 
     /** The current (opened) note of entry [id], or null. */
@@ -115,7 +131,7 @@ class InteractionStore(private val dao: InteractionDao) {
     suspend fun delete(id: Long): Interaction? = withContext(Dispatchers.IO) {
         val e = dao.get(id) ?: return@withContext null
         dao.delete(id)
-        e.toModel()
+        e.toModel(reveal = true)
     }
 
     /** Puts a deleted entry back (Undo), with its original time and key. */

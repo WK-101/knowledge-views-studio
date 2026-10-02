@@ -1,5 +1,6 @@
 package app.parley.ui.contact
 
+import app.parley.data.security.Concealment
 import app.parley.calls.ExpectedCallHints
 import android.net.Uri
 import androidx.lifecycle.ViewModel
@@ -191,7 +192,9 @@ class ContactDetailViewModel(private val c: DataContainer) : ViewModel() {
         // later isn't a change (it would open the details a second time).
         val entry = c.vault.contacts.map { list -> list.firstOrNull { it.id == r.vaultId } ?: c.vault.summary(r.vaultId) }.distinctUntilChanged()
         var shown: Loaded? = null
-        return combine(entry, reloads) { s, _ -> s }.transformLatest { summary ->
+        // I21: after a duress unlock a private contact doesn't exist, whichever link, widget or notification opens it.
+        val hiding = Concealment.state.map { it.hiding }.distinctUntilChanged()
+        return combine(entry, reloads, hiding) { s, _, hidden -> s.takeUnless { hidden } }.transformLatest { summary ->
             if (summary == null) {
                 emit(Loaded(null, emptyList(), emptyList(), r))
                 return@transformLatest

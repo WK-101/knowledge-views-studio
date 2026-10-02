@@ -63,6 +63,7 @@ import app.parley.data.db.BlockedCallEntity
 import app.parley.data.db.NumberSimEntity
 import app.parley.data.records.ContactRecordStore
 import app.parley.data.vault.VaultCrypto
+import app.parley.data.security.Concealment
 import app.parley.common.people.PrivateLabels
 import app.parley.data.vault.VaultRepository
 import kotlinx.coroutines.Dispatchers
@@ -362,7 +363,7 @@ class BackupRepository(
         // Rotation, paused if many contacts disappeared (protects the last good backups). The reference count is
         // a high-water mark: it only moves while rotation runs, so the pause lasts until the user resumes it.
         val paused = !safety && state.lastContactCount >= 0 && RetentionDecider.mustPauseRotation(state.lastContactCount, contactCount)
-        val vaultMissing = !vaultIncluded && runCatching { vault.summariesNow().isNotEmpty() }.getOrDefault(true)
+        val vaultMissing = !vaultIncluded && !Concealment.hiding && runCatching { vault.summariesNow().isNotEmpty() }.getOrDefault(true)
         if (!paused && !safety && !incomplete) rotate(protect = if (vaultIncluded) finalName else state.lastVaultBackupName)
         val res = context.resources
         // Stored as what happened, rendered in the current language when shown (BackupState.resultText).
@@ -418,7 +419,8 @@ class BackupRepository(
      * Locked or unreadable right now: private contacts are left out (and reported as left out), never half written. A
      * key lost for good still lets what's left (the caller-ID copies) be saved.
      */
-    private fun vaultReadable(): Boolean = !VaultCrypto.detailNeedsUnlock() || VaultCrypto.detailKeyLost()
+    // I21: never after a duress unlock, even when the phone's own unlock left the detail key open.
+    private fun vaultReadable(): Boolean = !Concealment.hiding && (!VaultCrypto.detailNeedsUnlock() || VaultCrypto.detailKeyLost())
 
     /** Private contacts, re-encrypted under the archive key. Needs the vault unlocked (otherwise skipped). */
     private suspend fun vaultBlob(): ByteArray? {

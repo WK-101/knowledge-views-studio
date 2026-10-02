@@ -12,6 +12,7 @@ import app.parley.common.suspendRunCatching
 import app.parley.data.DataContainer
 import app.parley.data.people.CrashStore
 import app.parley.security.AppLock
+import app.parley.data.security.LockTransitions
 import app.parley.security.VaultSession
 import app.parley.shortcuts.CircleWidget
 import app.parley.telecom.TelecomGraph
@@ -64,6 +65,11 @@ class ParleyApp : Application() {
             suspendRunCatching { CallerTunes.regrant(this@ParleyApp) }
         }
         AppLock.onLock = { container.vault.forgetOpened() }
+        // I21: locking ends a duress session (its settings changes are forgotten); what it hides stays hidden until the
+        // real Parley PIN.
+        AppLock.onEngaged = { LockTransitions.locked(container) }
+        // The lock screen asks for a Parley PIN or the fingerprint: which one is read before it shows.
+        container.scope.launch(Dispatchers.IO) { suspendRunCatching { container.appPin.load() } }
         // With the app lock on, the screen going off forgets opened private details too (not only a lock).
         ContextCompat.registerReceiver(
             this,

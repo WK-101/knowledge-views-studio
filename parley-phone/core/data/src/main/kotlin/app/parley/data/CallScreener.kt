@@ -32,6 +32,8 @@ import app.parley.common.spam.ParsedPack
 import app.parley.common.spam.Reputation
 import app.parley.data.calls.ReputationStore
 import app.parley.data.vault.VaultRepository
+import app.parley.common.security.Concealed
+import app.parley.data.security.Concealment
 import app.parley.common.people.PrivateLabels
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -365,7 +367,10 @@ class CallScreener(
         } else {
             emptySet()
         }
-        return PrivateCaller(hit.second.name, p.starred, labels, p.ringtone, p.sendToVoicemail)
+        // I21: after a duress unlock their own ringtone would set the call apart from an unknown number's; rules,
+        // labels and "send to voicemail" still apply, so nobody who was kept out rings through.
+        val ringtone = p.ringtone.takeUnless { Concealment.hides(Concealed.PRIVATE_RINGTONES) }
+        return PrivateCaller(hit.second.name, p.starred, labels, ringtone, p.sendToVoicemail)
     }
 
     private fun contactDetails(number: String): ContactBits? {

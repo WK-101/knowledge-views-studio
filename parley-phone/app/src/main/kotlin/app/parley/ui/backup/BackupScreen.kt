@@ -109,7 +109,9 @@ fun BackupScreen(vm: AppViewModel, back: () -> Unit) {
         scope.launch {
             val out = repo.backupNow(scheduled = false)
             busy = null
-            vm.toast(if (out.ok && !out.vaultIncluded && vm.c.vault.contacts.value.isNotEmpty()) res.getString(R.string.bkp_vault_skipped, out.message) else out.message)
+            // Not after a duress unlock, when private contacts aren't there to skip (I21).
+            val skipped = out.ok && !out.vaultIncluded && vm.settings.value.duress == null && vm.c.vault.contacts.value.isNotEmpty()
+            vm.toast(if (skipped) res.getString(R.string.bkp_vault_skipped, out.message) else out.message)
             refresh++
         }
     }
