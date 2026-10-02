@@ -133,29 +133,42 @@ class SherpaSttEngine(private val context: Context) : SttEngine {
         mode: SttMode,
         listener: SttListener,
     ) {
-        val minBuffer = AudioRecord.getMinBufferSize(
-            SAMPLE_RATE,
-            AudioFormat.CHANNEL_IN_MONO,
-            AudioFormat.ENCODING_PCM_16BIT,
-        )
-        val bufferShorts = maxOf(minBuffer / 2, SAMPLE_RATE / CHUNKS_PER_SECOND)
-        val record = AudioRecord(
-            MediaRecorder.AudioSource.VOICE_RECOGNITION,
-            SAMPLE_RATE,
-            AudioFormat.CHANNEL_IN_MONO,
-            AudioFormat.ENCODING_PCM_16BIT,
-            bufferShorts * 2 * BUFFER_CHUNKS,
-        )
-        val shorts = ShortArray(bufferShorts)
+        var record: AudioRecord? = null
         var lastEmitted = ""
         try {
-            if (record.state != AudioRecord.STATE_INITIALIZED) {
-                listener.onError(SttErrorType.MIC_UNAVAILABLE, "Microphone unavailable.")
+            val minBuffer = AudioRecord.getMinBufferSize(
+                SAMPLE_RATE,
+                AudioFormat.CHANNEL_IN_MONO,
+                AudioFormat.ENCODING_PCM_16BIT,
+            )
+            val bufferShorts = maxOf(minBuffer / 2, SAMPLE_RATE / CHUNKS_PER_SECOND)
+            val mic = AudioRecord(
+                MediaRecorder.AudioSource.VOICE_RECOGNITION,
+                SAMPLE_RATE,
+                AudioFormat.CHANNEL_IN_MONO,
+                AudioFormat.ENCODING_PCM_16BIT,
+                bufferShorts * 2 * BUFFER_CHUNKS,
+            )
+            record = mic
+            val shorts = ShortArray(bufferShorts)
+            if (mic.state != AudioRecord.STATE_INITIALIZED) {
+                listener.onError(SttErrorType.MIC_UNAVAILABLE, "Couldn't open the microphone.")
                 return
             }
-            record.startRecording()
+            try {
+                mic.startRecording()
+            } catch (se: SecurityException) {
+                listener.onError(SttErrorType.PERMISSION_DENIED, "Microphone access was denied.")
+                return
+            }
+            if (mic.recordingState != AudioRecord.RECORDSTATE_RECORDING) {
+                // The device accepted the config but the mic didn't actually start (access not granted
+                // right now, or busy). Report it instead of streaming silence forever.
+                listener.onError(SttErrorType.MIC_UNAVAILABLE, "The microphone didn't start. Try again.")
+                return
+            }
             while (listening.get()) {
-                val read = record.read(shorts, 0, shorts.size)
+                val read = mic.read(shorts, 0, shorts.size)
                 if (read <= 0) continue
                 val samples = FloatArray(read) { shorts[it] / PCM_FULL_SCALE }
                 stream.acceptWaveform(samples, SAMPLE_RATE)
@@ -182,8 +195,7 @@ class SherpaSttEngine(private val context: Context) : SttEngine {
             listener.onError(SttErrorType.INTERNAL, t.message)
         } finally {
             listening.set(false)
-            runCatching { record.stop() }
-            runCatching { record.release() }
+            record?.let { runCatching { it.stop() }; runCatching { it.release() } }
             runCatching { stream.release() }
             stopCaptureForeground()
         }

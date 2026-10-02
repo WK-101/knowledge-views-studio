@@ -58,7 +58,13 @@ class BridgeConnection(private val context: Context) {
         connection = conn
         val intent = Intent(BridgeProtocol.PROVIDER_ACTION)
             .setClassName(provider.packageName, provider.className)
-        val bound = context.bindService(intent, conn, Context.BIND_AUTO_CREATE)
+        // BIND_INCLUDE_CAPABILITIES lets the bound addon inherit THIS (foreground) app's while-in-use
+        // capabilities — notably microphone access — for as long as the core is in the foreground. That
+        // is how a permission-free core lets its voice addon capture during push-to-talk without the
+        // addon having to win its own microphone foreground-service race (the source of flaky mic
+        // activation and crashes). The flag is a no-op below API 29. See android bindService docs.
+        val flags = Context.BIND_AUTO_CREATE or Context.BIND_INCLUDE_CAPABILITIES
+        val bound = context.bindService(intent, conn, flags)
         if (!bound) {
             listener.onError(BridgeError(BridgeErrorType.UNAVAILABLE, "bindService refused"))
         }

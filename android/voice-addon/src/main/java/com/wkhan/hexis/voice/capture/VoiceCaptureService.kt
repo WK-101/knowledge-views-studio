@@ -6,7 +6,10 @@ import android.app.NotificationManager
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo
+import android.os.Build
 import android.os.IBinder
+import android.util.Log
 
 import com.wkhan.hexis.voice.R
 
@@ -22,10 +25,28 @@ class VoiceCaptureService : Service() {
 
     override fun onBind(intent: Intent?): IBinder? = null
 
+    // Best-effort: promote to a microphone foreground service. If the OS refuses the start (Android
+    // 14+ forbids starting a mic FGS while ineligible, throwing from startForeground), we must NOT
+    // crash — swallow it and stop. Capture still proceeds under the microphone capability the core
+    // confers via BIND_INCLUDE_CAPABILITIES while it is in the foreground.
+    @Suppress("TooGenericExceptionCaught")
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         ensureChannel()
-        startForeground(NOTIFICATION_ID, buildNotification())
-        // TODO(sherpa): open AudioRecord and stream PCM to the engine; stop on release / silence.
+        val started = try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                startForeground(NOTIFICATION_ID, buildNotification(), ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE)
+            } else {
+                startForeground(NOTIFICATION_ID, buildNotification())
+            }
+            true
+        } catch (t: Throwable) {
+            Log.w(TAG, "mic foreground service not allowed; relying on bound capability", t)
+            false
+        }
+        if (!started) {
+            stopSelf()
+            return START_NOT_STICKY
+        }
         return START_NOT_STICKY
     }
 
@@ -50,6 +71,7 @@ class VoiceCaptureService : Service() {
             .build()
 
     private companion object {
+        const val TAG = "VoiceCaptureService"
         const val CHANNEL_ID = "voice_capture"
         const val NOTIFICATION_ID = 1001
     }
