@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The call quality diary: the Call insights "Quality" card and the number history's quality line. Patterns name
+     the person, the SIM, Wi-Fi calling and the part of the day; Parley never knows where the phone was. -->
+<resources>
+    <string name="quality_title">Call quality</string>
+    <string name="quality_explainer">From what the network reported for your calls in the last 60 days. Patterns use who, which SIM, Wi-Fi calling and the time of day, never where you were.</string>
+    <string name="quality_none_dropped">No dropped calls</string>
+    <plurals name="quality_dropped_of">
+        <item quantity="one">%1$d of %2$d call dropped</item>
+        <item quantity="other">%1$d of %2$d calls dropped</item>
+    </plurals>
+    <string name="quality_percent">%1$d%% dropped</string>
+    <string name="quality_wifi">Wi-Fi calling</string>
+    <string name="quality_mobile">Mobile network</string>
+
+    <!-- Patterns: "Calls with Mum often drop on SIM 2 in the evening" -->
+    <string name="quality_patterns">Patterns</string>
+    <string name="quality_subject_with">Calls with %1$s</string>
+    <string name="quality_subject_all">Calls</string>
+    <string name="quality_pattern">%1$s often drop %2$s</string>
+    <string name="quality_pattern_plain">%1$s often drop</string>
+    <string name="quality_on_sim">on %1$s</string>
+    <string name="quality_over_wifi">over Wi-Fi calling</string>
+    <string name="quality_on_mobile">on the mobile network</string>
+    <string name="quality_morning">in the morning</string>
+    <string name="quality_afternoon">in the afternoon</string>
+    <string name="quality_evening">in the evening</string>
+    <string name="quality_night">at night</string>
+    <string name="quality_advice_wifi">Try Wi-Fi calling</string>
+    <string name="quality_advice_mobile">Try the mobile network instead of Wi-Fi calling</string>
+    <string name="quality_advice_sim">Try calling on %1$s</string>
+
+    <!-- Recent drops -->
+    <string name="quality_recent">Recent dropped calls</string>
+    <string name="quality_call_again">Call again</string>
+    <string name="quality_call_again_desc">Call %1$s again</string>
+
+    <!-- Number history -->
+    <string name="quality_line_none">%1$s in 60 days, none dropped</string>
+    <string name="quality_line_dropped">%1$s in 60 days, %2$d dropped</string>
+    <string name="quality_line_dropped_sim">%1$s in 60 days, %2$d dropped, all on %3$s</string>
+    <plurals name="quality_line_calls">
+        <item quantity="one">%1$d call</item>
+        <item quantity="other">%1$d calls</item>
+    </plurals>
+    <plurals name="quality_line_wifi">
+        <item quantity="one">%1$d over Wi-Fi calling</item>
+        <item quantity="other">%1$d over Wi-Fi calling</item>
+    </plurals>
+    <plurals name="quality_line_hd">
+        <item quantity="one">%1$d in HD voice</item>
+        <item quantity="other">%1$d in HD voice</item>
+    </plurals>
+</resources>

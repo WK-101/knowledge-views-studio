@@ -173,6 +173,8 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
 
     override fun autoAnswer(): CallExtrasConfig = c.callExtras.config.value
 
+    override fun answerWithRtt(): Boolean = c.settings.settings.value.answerWithRtt
+
     /**
      * "Last call 3 days ago · 4 min", from the call history (archive included) once it is loaded; in a process started
      * for this call, from one small call-log query instead of loading the whole history while the phone rings.

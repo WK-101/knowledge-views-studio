@@ -870,6 +870,8 @@ object CallManager {
     private fun answered(id: String) {
         session(id).answeredByUser = true
         CallClock.haptic(CallHaptic.ANSWER)
+        // L3: "Answer with RTT" asks to switch once the call is up.
+        CallRtt.onAnswered(id)
     }
 
     internal fun wasAnsweredByUser(id: String) = sessions[id]?.answeredByUser == true

@@ -138,6 +138,7 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
             recentsStyle = enumOr(this[K.recentsStyle], d.recentsStyle),
             callBackground = enumOr(this[K.callBackground], d.callBackground),
             showCallerPhoto = this[K.showCallerPhoto] ?: d.showCallerPhoto,
+            answerWithRtt = this[K.answerWithRtt] ?: d.answerWithRtt,
             surfaces = SurfaceLayout.decode(this[K.surfaces]),
             rememberRecentsFilter = this[K.rememberRecentsFilter] ?: d.rememberRecentsFilter,
             recentsFilter = this[K.recentsFilter] ?: d.recentsFilter,
@@ -185,6 +186,7 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
         this[K.recentsStyle] = s.recentsStyle.name
         this[K.callBackground] = s.callBackground.name
         this[K.showCallerPhoto] = s.showCallerPhoto
+        this[K.answerWithRtt] = s.answerWithRtt
         this[K.surfaces] = s.surfaces.encode()
         this[K.rememberRecentsFilter] = s.rememberRecentsFilter
         this[K.recentsFilter] = s.recentsFilter
@@ -234,6 +236,7 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
         val recentsStyle = stringPreferencesKey("recents_style")
         val callBackground = stringPreferencesKey("call_background")
         val showCallerPhoto = booleanPreferencesKey("show_caller_photo")
+        val answerWithRtt = booleanPreferencesKey("answer_with_rtt")
         val surfaces = stringPreferencesKey("surface_layout")
         val rememberRecentsFilter = booleanPreferencesKey("remember_recents_filter")
         val recentsFilter = stringPreferencesKey("recents_filter")

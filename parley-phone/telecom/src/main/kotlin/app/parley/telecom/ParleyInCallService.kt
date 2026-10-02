@@ -43,6 +43,7 @@ class ParleyInCallService : InCallService() {
     override fun onCallAdded(call: Call) {
         super.onCallAdded(call)
         CallManager.add(this, call)
+        CallRtt.attach(this, call, CallManager.idOf(call))
         val state = CallManager.state.value.firstOrNull { it.id == CallManager.idOf(call) }?.state
         // Outgoing calls open the call screen straight away. Incoming calls are shown by
         // CallNotifier (full-screen notification, or a direct launch when that is not allowed).
@@ -53,6 +54,7 @@ class ParleyInCallService : InCallService() {
 
     override fun onCallRemoved(call: Call) {
         super.onCallRemoved(call)
+        CallRtt.detach(call, CallManager.idOf(call))
         CallManager.remove(call)
     }
 
@@ -68,6 +70,7 @@ class ParleyInCallService : InCallService() {
 
     override fun onDestroy() {
         CallManager.clear()
+        CallRtt.release()
         CallClock.detach()
         CallManager.service = null
         CallManager.onChanged = null

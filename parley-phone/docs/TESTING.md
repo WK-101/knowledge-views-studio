@@ -1861,3 +1861,34 @@ Fixes to signed cards, Shared with, Changed my number, the blocking setups and p
 14. **Weekly line.** A contact who calls from two numbers counts as one contact affected; a contact on the system's blocked numbers list counts as a contact; a busy week with more than 500 stopped calls is counted in full.
 15. **Share sheet and paste.** Share a long text to Parley: the number sheet opens at once and **Make a contact from this text** appears a moment later. Make a contact from shared text, cancel the app lock, then open a new contact from Contacts: the editor doesn't fill in the old text. "Add to Ana" with Ana's own signature adds nothing twice (website, address, birthday) and no empty number row.
 16. **Language reset.** After the first start of this version, later starts don't touch the per-app language again (no extra disk read on the main thread under StrictMode).
+
+## 28. Everyone can call (4.7)
+
+### 28.1 RTT and the call quality diary
+
+Unit tests: `RttTextTest` (core:common: streaming into one message, backspace and DEL, an emoji deleted whole, a backspace after a line break reopening the message, both sides typing at once, LF / CR LF / U+2028, keep-alives and control characters dropped, the 20,000-character cap, the typing diff for typed, deleted, autocorrected and pasted text), `CallQualityDiaryTest` (rates per SIM and network, "Calls with Mum on SIM 2 in the evening" with Try calling on SIM 1, a part that narrows nothing left out, Wi-Fi calling and mobile advice, even drops giving no pattern, hidden callers never named, parts of the day, the number line) and `CallQualityStoreTest` (core:data: every row by line key). RTT needs a SIM whose carrier supports it (a US carrier such as Verizon, AT&T or T-Mobile, on 4G or Wi-Fi calling) and a second phone that supports RTT (Google Phone or an iPhone with RTT on).
+
+**RTT.**
+
+1. On the RTT phone, Android's Settings › Accessibility › RTT (or Parley's Settings › Calls › Accessibility › **TTY and RTT settings**, which opens it): set RTT to visible / always available. Parley's **Answer with RTT** row has no "None of your SIMs offers RTT" line once the carrier offers it. On a SIM without RTT (most non-US carriers), the line shows and no RTT row appears in calls.
+2. Call the second phone, answer there. Parley › More: **Switch to RTT** with "Type and read during the call (real-time text), where your carrier supports it". Tap it: "Asking to switch to RTT…" under the caller; when the other phone accepts, the **RTT conversation** sheet opens by itself, and More now says "RTT conversation".
+3. Type "Helo", backspace twice, "llo": the other phone shows "Hello" letter by letter, the corrections too. Tap **Send**: your bubble closes on the end side. On the other phone type "Hi there": it appears on the start side as it's typed, with "typing…", and closes when they send. Type at the same time on both: two open bubbles, nothing mixed up. An emoji and its deletion arrive as one character.
+4. Autocorrect a word (Gboard): the other phone sees the backspaces and the corrected word. Rotate the phone and switch dark mode with the sheet open: the text and what you were typing stay.
+5. TalkBack: a finished message from them is read once ("Sam: Hi there"); letters being typed aren't spelled out; Send, Turn off RTT and Save have labels.
+6. Audio chips: **Listen and type** and **Talk and read** change the audio as Android does (HCO / VCO); **Talk and type** returns to both ways.
+7. Request from the other side: from the second phone, start RTT during a voice call. Parley shows "Sam wants to switch to RTT" under the caller with **Switch to RTT** / **Not now**. **Not now** stays a voice call; asking again and **Switch to RTT** opens the conversation.
+8. A request that fails (call a number whose network doesn't do RTT, then Switch to RTT if offered): "Couldn't switch to RTT. The network or the other phone didn't accept it." with a close button; the call goes on.
+9. **Turn off RTT**: the sheet says "RTT is off. The call goes on as a voice call." and More offers Switch to RTT again.
+10. **Save to the call's note**: the button turns into "Saved to the call's note". After the call, the number history (and the contact's timeline) has a call note "Sam: … / You: …". Without Save, nothing is kept: after the call the sheet says "The call has ended. The conversation isn't kept unless you save it."; Save still works there; after closing the call screen it's gone.
+11. Lock screen: with the phone locked, the call screen shows the conversation and typing works; the call notification and the lock-screen notification never contain any RTT text; the picture-in-picture window shows none either.
+12. **Answer with RTT** on: an incoming voice call answered in Parley (slider, tap, notification, auto-answer) asks to switch once connected and opens the conversation. An incoming RTT call opens the conversation whatever the setting. Off (the default): nothing switches by itself.
+13. Private contact: an RTT call with a private contact shows their name in "wants to switch to RTT" and the saved note goes with their calls; in discreet mode only the number shows, as everywhere on the call screen.
+
+**Call quality diary.**
+
+14. Make or receive about ten calls over a few days, on two SIMs if you have them, some over Wi-Fi calling; let two or three drop (walk out of coverage, or turn on airplane mode during a call on the mobile network). Recents › Call insights: under People, **Call quality** with its explainer; "N of M calls dropped" and the percentage; with two SIMs a row per SIM; once Wi-Fi calling carried a call, "Wi-Fi calling" and "Mobile network" rows. Without drops it says "No dropped calls" with the count.
+15. Patterns: let three calls with one person drop on one SIM in the evening while other calls (that person by day, others in the evening, the other SIM) don't: **Patterns** shows "Calls with Sam often drop on Work in the evening" with "3 of 4 calls dropped · Try calling on Personal" (or "Try Wi-Fi calling" with one SIM). Drops over Wi-Fi calling only: "… over Wi-Fi calling · Try the mobile network instead of Wi-Fi calling". Drops spread across everyone: no pattern.
+16. **Recent dropped calls**: newest first with time, talk time and SIM; **Call again** calls the same number on the same SIM; tapping the row opens the contact (or the number's history). Hidden numbers are counted but never listed.
+17. Private contacts: their dropped calls are named with discreet mode off (and Call again works); with discreet mode on they count in the rates but aren't named or listed.
+18. Number history of someone with two or more connected calls: "Call details" starts with "7 calls in 60 days, 2 dropped, all on Work · 3 over Wi-Fi calling · 1 in HD voice" (the SIM only on dual-SIM phones).
+19. Deleting a call or a number's history (History & undo) removes its quality facts: the card's counts drop accordingly.

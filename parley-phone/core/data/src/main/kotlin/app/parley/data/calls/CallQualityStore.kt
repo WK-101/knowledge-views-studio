@@ -88,6 +88,15 @@ class CallQualityStore private constructor(context: Context, private val keySour
         return rows().filter { it.key == k }.map { it.facts }.sortedByDescending { it.startedAt }
     }
 
+    /**
+     * Every row as (line key, facts), newest first, for the quality diary (I8). The key is the keyed fingerprint of the
+     * line, never the number: [keyOf] gives a known number's key to match it.
+     */
+    fun all(): List<Pair<String, CallQualityFacts>> = rows().map { it.key to it.facts }.sortedByDescending { it.second.startedAt }
+
+    /** The line key [all] uses for [number] (null when the key can't be used now); a hidden number has its own. */
+    fun keyOf(number: String?): String? = key(number)
+
     /** Forgets [number]'s facts: those of the calls at [dates] (call-log dates), or all when [dates] is null. */
     @Synchronized
     fun forget(number: String, dates: List<Long>? = null) {

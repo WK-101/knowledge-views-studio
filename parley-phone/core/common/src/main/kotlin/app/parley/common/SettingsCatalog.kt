@@ -118,6 +118,11 @@ object SettingsCatalog {
             "tint", "colour", "color", "plain", "background", "call screen", "incoming screen", "wallpaper"),
         e("caller_photo", "Show contact photo on the call screen", "The photo and call-screen picture; each contact can override it", C,
             "photo", "picture", "avatar", "image", "caller", "call screen", "incoming screen", "hide photo"),
+        // Accessibility: RTT, where the carrier supports it. Its group also links Android's TTY and RTT settings, which
+        // this entry's words find (the Calls page keeps to its number of searchable rows).
+        e("answer_rtt", "Answer with RTT", "Switch answered calls to real-time text where your carrier supports it", C,
+            "rtt", "real-time text", "real time text", "tty", "teletype", "deaf", "hard of hearing", "hearing", "text call", "type",
+            "accessibility"),
         e("confirm_call", "Confirm before calling", "Avoids accidental calls from lists and search", C, "accidental", "ask before", "pocket dial"),
         // Remember what matters.
         e("memory_prompt", "Anything to remember? after calls", "A note and a follow-up reminder after calls with your contacts", C,

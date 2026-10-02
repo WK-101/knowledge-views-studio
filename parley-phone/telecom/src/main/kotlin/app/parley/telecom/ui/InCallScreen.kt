@@ -100,6 +100,7 @@ import app.parley.telecom.AudioRoute
 import app.parley.telecom.AudioUi
 import app.parley.telecom.CallClock
 import app.parley.telecom.CallManager
+import app.parley.telecom.CallRtt
 import app.parley.telecom.CallState
 import app.parley.telecom.CallUi
 import app.parley.telecom.DeclineBlock
@@ -107,6 +108,7 @@ import app.parley.telecom.HelperCalls
 import app.parley.common.calls.SafeWords
 import app.parley.telecom.R
 import app.parley.telecom.RouteType
+import app.parley.telecom.RttUi
 import app.parley.telecom.TelecomGraph
 import app.parley.telecom.live
 import app.parley.ui.Avatar
@@ -136,6 +138,10 @@ private class InCallSheets {
 
     /** Family safety: the safe-word card and "Add my helper" (WP-8). */
     val family = FamilyCallState()
+
+    /** L3: the RTT conversation sheet for this call, and the calls whose sheet already opened by itself once. */
+    var rttFor by mutableStateOf<String?>(null)
+    val rttOpened = mutableSetOf<String>()
 }
 
 /**
@@ -336,7 +342,11 @@ private fun CallerSection(s: ScreenState, sheets: InCallSheets, a: ScreenActions
     // Auto-answer's countdown with Cancel, between the caller and the answer controls (an overlay of its own).
     if (shown.state == CallState.RINGING) AutoAnswerCountdown(shown)
     // WP-8: the helper being brought in, and "Claims to be family? Ask: …".
-    if (primary != null && primary.state != CallState.RINGING) FamilySafetyCards(primary, s.live, sheets.family, a.onUnlock)
+    if (primary != null && primary.state != CallState.RINGING) {
+        FamilySafetyCards(primary, s.live, sheets.family, a.onUnlock)
+        // L3: an RTT request to answer, or the way back into the RTT conversation.
+        RttCallCard(primary, onOpen = { sheets.rttFor = primary.id }, sheets.rttOpened)
+    }
     Spacer(Modifier.height(Spacing.l))
 }
 
@@ -738,6 +748,7 @@ private fun InCallDialogs(
     if (sheets.route) AudioRouteSheet(s.audio) { sheets.route = false }
     if (sheets.more && primary != null) MoreSheet(primary, s, sheets, onOpenContact, onAddCall, onUnlock)
     HelperPick(primary, s, sheets)
+    RttDialog(s, sheets)
     VerifyDialog(s, sheets)
     // Decline tapped in the notification, with "Confirm before declining" on.
     val askCall = s.live.firstOrNull { it.id == askDeclineFor && it.state == CallState.RINGING }
@@ -749,6 +760,14 @@ private fun InCallDialogs(
     s.live.firstOrNull { it.id == sheets.replyFor && it.state == CallState.RINGING }?.let { ReplySheet(it, quickReplies) { sheets.replyFor = null } }
     val conference = s.live.firstOrNull { it.isConference }
     if (sheets.manage && conference != null) ConferenceSheet(conference) { sheets.manage = false }
+}
+
+/** L3: the RTT conversation; it stays open (and can still be saved) when the call ends under it. */
+@Composable
+private fun RttDialog(s: ScreenState, sheets: InCallSheets) {
+    val id = sheets.rttFor ?: return
+    val call = s.live.firstOrNull { it.id == id } ?: s.shown?.takeIf { it.id == id } ?: return
+    RttSheet(call) { sheets.rttFor = null }
 }
 
 /** "Check it's really them": for the live call while it lasts, or for the call that just ended. */
@@ -776,6 +795,7 @@ private fun MoreSheet(
 ) {
     val context = LocalContext.current
     val timings by CallClock.timings.collectAsStateWithLifecycle()
+    val rtt = rttOf(primary.id)
     CallMoreSheet(
         call = primary,
         timing = timings[primary.id],
@@ -788,7 +808,16 @@ private fun MoreSheet(
         onVerify = if (primary.canVerify) ({ onUnlock { sheets.verifyFor = primary } }) else null,
         onClaimsFamily = claimsFamily(primary, sheets.family),
         onAddHelper = addHelper(context, primary, s, sheets.family),
+        onRtt = rttAction(primary, rtt, sheets),
+        rttActive = rtt.active,
     )
+}
+
+/** L3: More › "Switch to RTT" where the call's SIM supports it, or "RTT conversation" once it's on. */
+private fun rttAction(call: CallUi, rtt: RttUi, sheets: InCallSheets): (() -> Unit)? = when {
+    rtt.active -> ({ sheets.rttFor = call.id })
+    rtt.supported && !rtt.requesting && call.state == CallState.ACTIVE -> ({ CallRtt.request(call.id) })
+    else -> null
 }
 
 /** I4: More › "Says they're family", while the safe-word card isn't up yet for this call. */

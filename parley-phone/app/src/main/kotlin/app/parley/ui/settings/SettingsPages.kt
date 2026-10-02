@@ -326,6 +326,8 @@ internal fun CallsPage(vm: AppViewModel, open: (Destination) -> Unit) {
         }
     }
     CallExtrasGroups(vm)
+    // RTT (real-time text): Answer with RTT and Android's TTY and RTT settings.
+    RttSettingsGroup(vm)
     // Auto-answer and the haptic caller ID.
     CallerRingGroup(vm, open)
     // The memory prompt, notes on the lock screen and the pre-call peek.

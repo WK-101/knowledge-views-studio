@@ -32,6 +32,7 @@ The Settings list starts with **Tools** (the same page as ⋮ › Tools; see the
 | Answering and calling | Answer incoming calls by `answer_gesture` · Call screen background `call_background` · Show contact photo on the call screen `caller_photo` · Confirm before calling `confirm_call` · Vibrate on call events `call_haptics` · Ringtone for unknown callers `unknown_ringtone` |
 | Missed calls and voicemail | Remind me of missed calls `missed_realert` · Voicemail `voicemail` |
 | During calls | Ask before pocket calls `pocket_guard` |
+| Accessibility | Answer with RTT `answer_rtt` (off) · TTY and RTT settings ↗ (Android's call accessibility page; search finds it through `answer_rtt`'s words) |
 | Know who's calling | Answer automatically `auto_answer` (off; with a headset or Bluetooth, in simple mode, for chosen people and labels; after 3–15 s with a countdown and Cancel) · Vibration for callers `caller_vibration` (set on a contact's or a label's page) |
 | Remember what matters | Anything to remember? after calls `memory_prompt` · Notes on the lock screen `memory_lock_screen` · Peek before calling `pre_call_peek` |
 | Family safety | Helpers `call_helpers` ↗ (up to 3 people; none by default) |
@@ -39,6 +40,8 @@ The Settings list starts with **Tools** (the same page as ⋮ › Tools; see the
 | Advanced | Vibrate when a call connects `connect_haptic` · Turn the screen off at your ear `proximity_sensor` · Power button ends call `power_button_ends_call` |
 
 **Show contact photo on the call screen** (`caller_photo`, on by default): off shows the caller's initial on their colour instead of the photo, and no call-screen picture, on the incoming and ongoing screen and in the picture-in-picture window. Each contact (private ones too) can override it in Settings for this contact › Photo on the call screen: *Default*, *Show* or *Hide*.
+
+**Answer with RTT** (`answer_rtt`, off by default): when you answer a call on a SIM that offers RTT (real-time text), Parley asks the network to switch the call to RTT once it's connected and opens the conversation. RTT works only where the carrier supports it (mostly in the US, on 4G and Wi-Fi calling) and the other phone does too; where no SIM offers it, the row says so. Without this setting, More › Switch to RTT does the same during any call that offers it, and a request from the other person always asks first. **TTY and RTT settings** opens Android's call accessibility page (`TelecomManager.ACTION_SHOW_CALL_ACCESSIBILITY_SETTINGS`), where some phones need RTT turned on before carriers offer it. See [CALL_SCREEN_DESIGN.md](CALL_SCREEN_DESIGN.md#47-rtt-and-the-call-quality-diary).
 
 **Call screen background** (`call_background`): *Caller's colour* (the default) tints the top of the call screen with the caller's avatar colour; *Plain* keeps the theme's own background. A contact's call-screen picture is set per contact and still shows with *Plain* (remove it from the contact to hide it), and a likely-spam call keeps its red warning wash with either choice. See [CALL_SCREEN_DESIGN.md](CALL_SCREEN_DESIGN.md#42-revisions).
 

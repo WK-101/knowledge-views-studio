@@ -64,4 +64,18 @@ class CallQualityStoreTest {
         keys.broken = false
         assertTrue(store.forNumber("+12025550100").isEmpty())
     }
+
+    @Test fun the_diary_reads_every_row_by_line_key_never_by_number() {
+        val now = System.currentTimeMillis()
+        val store = CallQualityStore(context, Keys())
+        store.add("+12025550100", facts(now - 3_000), now)
+        store.add(null, facts(now - 2_000), now)
+        store.add("+12025550199", facts(now - 1_000), now)
+        val all = store.all()
+        assertEquals(listOf(now - 1_000, now - 2_000, now - 3_000), all.map { it.second.startedAt })
+        assertEquals(store.keyOf("+12025550199"), all.first().first)
+        assertEquals(store.keyOf(null), all[1].first)
+        // The key is the line's fingerprint (here the stand-in "mac-…"), not the number itself.
+        assertEquals("m:mac-+12025550100", store.keyOf("+12025550100"))
+    }
 }
