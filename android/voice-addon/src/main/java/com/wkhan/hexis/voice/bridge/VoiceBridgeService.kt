@@ -20,7 +20,7 @@ class VoiceBridgeService : BridgeProviderService() {
     override val dispatcher: BridgeDispatcher by lazy {
         BridgeDispatcher(
             handlers = listOf(VoiceSttHandler(SherpaSttEngine(applicationContext))),
-            tokens = VoiceAddon.tokenAuthority,
+            tokens = VoiceAddon.tokenAuthority(applicationContext),
             requireSignatureTrust = VoiceAddonSecurity.requireSignatureTrust,
         )
     }

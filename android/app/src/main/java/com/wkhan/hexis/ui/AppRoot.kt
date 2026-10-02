@@ -1585,6 +1585,10 @@ fun AppRoot(
         }
         if (showQuickAdd) QuickAddSheet(vm, initialDue = quickAddDue, initialHasTime = quickAddWithTime, initialText = quickAddText, onDismiss = { showQuickAdd = false; quickAddDue = null; quickAddWithTime = false; quickAddText = "" })
 
+        // Voice capture surface — global, because the mic FAB fires from any tab (not just Settings).
+        // It only renders while a voice session is active / under review / errored.
+        com.wkhan.hexis.ui.screens.VoiceCaptureSheet(vm)
+
         newReq?.let { req ->
             NewContainerDialog(req, folders, onDismiss = { newReq = null }) { name, isFolder, parentId ->
                 if (isFolder) vm.createFolder(name, parentId) else vm.createList(name, parentId, null)

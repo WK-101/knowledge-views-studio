@@ -52,7 +52,7 @@ class ConsentActivity : Activity() {
             finish()
             return
         }
-        val token = VoiceAddon.tokenAuthority.mint(core, setOf(BridgeScopes.VOICE_STT_LISTEN))
+        val token = VoiceAddon.tokenAuthority(this).mint(core, setOf(BridgeScopes.VOICE_STT_LISTEN))
         setResult(RESULT_OK, Intent().putExtra(BridgeConsent.EXTRA_TOKEN, token.value))
         finish()
     }

@@ -437,8 +437,8 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
             }
         }
 
-        // Push-to-talk capture surface (shown only while a voice session is active / under review).
-        VoiceCaptureSheet(vm)
+        // The push-to-talk capture surface is hosted globally in AppRoot (the mic FAB fires from any
+        // tab), so it is not mounted here.
 
         // File-transcription surface (shown only while a transcription is active / under review).
         FileTranscribeSheet(vm)
