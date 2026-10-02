@@ -1,5 +1,7 @@
 package app.parley
 
+import java.util.Locale
+import app.parley.ui.contact.PasteFill
 import app.parley.common.PhoneIdentity
 import android.content.ContentValues
 import android.content.Intent
@@ -103,15 +105,34 @@ object InsertPrefill {
         }
     }
 
-    /** Adds the prefill's multi-value rows to an existing contact draft ("add to existing"). */
-    fun appendTo(existing: ContactDetails, add: ContactDetails): ContactDetails = existing.copy(
-        phones = existing.phones + add.phones.filter { p -> existing.phones.none { PhoneIdentity.same(it.value, p.value, null) } },
-        emails = existing.emails + add.emails.filter { e -> existing.emails.none { it.value.equals(e.value, true) } },
-        websites = existing.websites + add.websites,
-        addresses = existing.addresses + add.addresses,
-        events = existing.events + add.events,
-        company = existing.company.ifBlank { add.company },
-        title = existing.title.ifBlank { add.title },
-        note = listOf(existing.note, add.note).filter { it.isNotBlank() }.joinToString("\n"),
-    )
+    /**
+     * Adds the prefill's multi-value rows to an existing contact draft ("add to existing", "Add to <name>"). L9: values
+     * the contact already has aren't added twice (numbers, emails, websites, addresses, dates; a second birthday
+     * never), and the prefill's blank rows (a new editor's empty phone row) aren't carried along.
+     */
+    fun appendTo(existing: ContactDetails, add: ContactDetails): ContactDetails {
+        val hasBirthday = existing.events.any { it.type == Event.TYPE_BIRTHDAY && it.date.isNotBlank() }
+        val events = add.events.filter { e -> e.date.isNotBlank() && !(e.type == Event.TYPE_BIRTHDAY && hasBirthday) }
+        val repeated = add.note.isNotBlank() && existing.note.contains(add.note)
+        return existing.copy(
+            phones = merged(existing.phones, add.phones) { a, b -> PhoneIdentity.same(a, b, null) },
+            emails = merged(existing.emails, add.emails) { a, b -> a.equals(b, ignoreCase = true) },
+            websites = merged(existing.websites, add.websites) { a, b -> siteKey(a) == siteKey(b) },
+            addresses = PasteFill.rows(existing.addresses, add.addresses.filterNot { it.isBlank }, { it.isBlank }) { a, b ->
+                addressKey(a.formatted) == addressKey(b.formatted)
+            },
+            events = PasteFill.rows(existing.events, events, { it.date.isBlank() }) { a, b -> a.type == b.type && a.date == b.date },
+            company = existing.company.ifBlank { add.company },
+            title = existing.title.ifBlank { add.title },
+            note = if (repeated) existing.note else listOf(existing.note, add.note).filter { it.isNotBlank() }.joinToString("\n"),
+        )
+    }
+
+    /** [existing] rows with [add]'s non-blank values it doesn't have yet ([same] compares values). */
+    private fun merged(existing: List<DataItem>, add: List<DataItem>, same: (String, String) -> Boolean): List<DataItem> =
+        PasteFill.rows(existing, add.filter { it.value.isNotBlank() }, { it.value.isBlank() }) { a, b -> same(a.value, b.value) }
+
+    private fun siteKey(url: String) = url.trim().lowercase(Locale.ROOT).substringAfter("://").removePrefix("www.").trimEnd('/')
+
+    private fun addressKey(s: String) = s.lowercase(Locale.ROOT).filter { it.isLetterOrDigit() }
 }

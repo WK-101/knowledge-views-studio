@@ -214,7 +214,9 @@ class DataContainer(context: Context) {
 
     /** Moves rows stored under the old last-digits number key to the line key, once (see [PhoneKeyMigrator]). */
     /** Seals small records older versions stored plain (runs once in the background). */
-    val recordSealing by lazy { RecordSealing(appContext, db, { timeMachine }) { listOf(toCall) } }
+    val recordSealing by lazy {
+        RecordSealing(appContext, db, { timeMachine }) { listOf(toCall, people.cardIdentity, people.shareLedger, people.cardLinks) }
+    }
     val phoneKeys by lazy { PhoneKeyMigrator(appContext, db, contacts, { history }) { messaging } }
 
     /** Temporary contacts: the one API to create, mark, keep and expire them. */
@@ -225,7 +227,7 @@ class DataContainer(context: Context) {
         ContactKeys(
             contacts, meta, { people.backgrounds }, { circle.interactions }, { extras }, db, originals = { people.originals }, calling = { calling },
             waiting = { appContext.getSharedPreferences("contact_key_moves", Context.MODE_PRIVATE) },
-            cardLinks = { people.cardLinks },
+            cardLinks = { people.cardLinks }, shareLedger = { people.shareLedger },
         )
     }
 

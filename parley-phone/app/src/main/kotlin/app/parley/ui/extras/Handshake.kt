@@ -123,7 +123,8 @@ fun MyCardQrDialog(vm: AppViewModel, to: Pair<String, String?>? = null, onDismis
             dismissLabel = stringResource(R.string.dc_cancel),
         )
     } else {
-        if (to != null) LaunchedEffect(to) { CardSharing.record(vm.c, to.first, to.second, ShareMethod.QR_SWAP, merged.phones) }
+        // Their card arrived and yours is on screen for them: a swap, so your card's key now counts as shared (M5).
+        if (to != null) LaunchedEffect(to) { CardSharing.record(vm.c, to.first, to.second, ShareMethod.QR_SWAP, merged.phones); CardSharing.markShared(vm.c) }
         MeQrDialog(vm, merged, parts, onDismiss = onDismiss)
     }
 }

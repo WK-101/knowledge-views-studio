@@ -31,6 +31,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.getValue
@@ -93,12 +94,18 @@ fun NewNumberScreen(vm: AppViewModel, back: () -> Unit) {
     val parts by c.people.me.shareParts.collectAsStateWithLifecycle()
     val phones = own.cleaned().phones
     val number = phones.firstOrNull()
-    // Who to tell is read once, so people don't drop out of the list while you go through it.
-    val targets by rememberOutdated(vm, phones)
+    // M8: who to tell is read once and kept in saved state (name and number of each), so nobody drops out of the list
+    // or gets skipped when the screen is recreated while you're in a chat.
+    var saved by rememberSaveable { mutableStateOf<List<String>?>(null) }
+    val read by rememberOutdated(vm, phones)
+    LaunchedEffect(read) { if (saved == null) read?.let { t -> saved = t.flatMap { listOf(it.name, it.number) } } }
+    val targets = saved?.chunked(2)?.map { IntroQueue.Target(it[0], it[1]) }
     var index by rememberSaveable { mutableStateOf(0) }
     var opened by rememberSaveable { mutableStateOf(listOf<Int>()) }
     var skipped by rememberSaveable { mutableStateOf(listOf<Int>()) }
     var stopped by rememberSaveable { mutableStateOf(false) }
+    // How each opened person got the news ("index:METHOD"), recorded when you move on from them.
+    var ways by rememberSaveable { mutableStateOf(listOf<String>()) }
     val queue = IntroQueue(targets.orEmpty(), index, opened.toSet(), skipped.toSet(), stopped)
     fun set(q: IntroQueue) {
         index = q.index; opened = q.opened.toList(); skipped = q.skipped.toList(); stopped = q.stopped
@@ -119,27 +126,41 @@ fun NewNumberScreen(vm: AppViewModel, back: () -> Unit) {
         onPauseOrDispose { }
     }
 
-    fun told(t: IntroQueue.Target, method: ShareMethod) = CardSharing.record(c, t.name, t.number, method, phones)
-
-    fun openCurrent() {
-        val t = queue.current ?: return
-        if (!openNewNumber(context, via, app, t.number, draft ?: return)) return
-        told(t, ShareMethod.NEW_NUMBER)
+    fun opened(method: ShareMethod) {
+        ways = ways.filterNot { it.startsWith("${queue.index}:") } + "${queue.index}:${method.name}"
         set(queue.markOpened())
         awaitingReturn = true
     }
 
-    fun sendCard() {
+    /**
+     * The person on screen counts as told only when you move on with Next (M8): opening a chat alone doesn't mean the
+     * message was sent. Their "Shared with" receipt is written then.
+     */
+    fun next() {
+        val t = queue.current
+        if (t != null && queue.index in queue.opened) {
+            val method = ways.lastOrNull { it.startsWith("${queue.index}:") }?.substringAfter(':')
+                ?.let { m -> ShareMethod.entries.firstOrNull { it.name == m } } ?: ShareMethod.NEW_NUMBER
+            CardSharing.record(c, t.name, t.number, method, phones)
+            set(queue.next())
+        } else {
+            set(queue.skip())
+        }
+    }
+
+    fun openCurrent() {
         val t = queue.current ?: return
+        if (!openNewNumber(context, via, app, t.number, draft ?: return)) return
+        opened(ShareMethod.NEW_NUMBER)
+    }
+
+    fun sendCard() {
+        if (queue.current == null) return
         scope.launch {
-            // Name and numbers at least, so their Parley can match it to you.
+            // Name and numbers at least, so their Parley can match it to you; signed from the one card source (M4).
             val withNumbers = parts + MeCards.Part.NAME + MeCards.Part.PHONES
-            val text = CardSharing.vcard(c, MeCards.merge(own, null), withNumbers)
-            if (CardSharing.shareFile(context, text, subject)) {
-                told(t, ShareMethod.CARD_FILE)
-                set(queue.markOpened())
-                awaitingReturn = true
-            }
+            val text = CardSharing.vcard(c, withNumbers)
+            if (CardSharing.shareFile(c, context, text, subject)) opened(ShareMethod.CARD_FILE)
         }
     }
 
@@ -161,7 +182,7 @@ fun NewNumberScreen(vm: AppViewModel, back: () -> Unit) {
                 queue.finished -> Finished(queue, back)
                 else -> CurrentPerson(
                     queue, app?.label ?: stringResource(R.string.card_new_number_sms), ::openCurrent, ::sendCard,
-                    onNext = { set(if (queue.index in queue.opened) queue.next() else queue.skip()) },
+                    onNext = ::next,
                     onStop = { set(queue.stop()) }, onChangeWay = { via = null },
                 )
             }
@@ -169,12 +190,16 @@ fun NewNumberScreen(vm: AppViewModel, back: () -> Unit) {
     }
 }
 
-/** The people "Shared with" says have an old number of yours (null while it's read). */
+/**
+ * The people "Shared with" says have an old number of yours (null while it's read). Private contacts are named from
+ * the vault, and left out in discreet mode (M7).
+ */
 @Composable
 private fun rememberOutdated(vm: AppViewModel, phones: List<String>): State<List<IntroQueue.Target>?> = produceState<List<IntroQueue.Target>?>(null) {
     val ledger = vm.c.people.shareLedger
     ledger.load()
-    value = ShareLedger.outdated(ledger.receipts.value, phones, vm.countryIso).mapNotNull { p ->
+    val shown = CardSharing.shown(vm.c, ledger.receipts.value, vm.c.settings.settings.value.hideVault)
+    value = ShareLedger.outdated(shown, phones, vm.countryIso).mapNotNull { p ->
         p.number?.let { NumberText.toE164(it, vm.countryIso) }?.let { IntroQueue.Target(p.name, it) }
     }
 }

@@ -62,6 +62,9 @@ class BlockRepository(private val context: Context, db: AppDatabase, scope: Coro
     /** Blocked calls only (the blocked log). */
     val blockedCalls: Flow<List<BlockedCallEntity>> = dao.blockedCalls()
 
+    /** Every stopped call since [since] (the log above shows the latest 500; the weekly line needs them all). */
+    suspend fun blockedSince(since: Long): List<BlockedCallEntity> = dao.blockedCallsSince(since)
+
     /** Blocked calls and unknown callers that were let through, newest first. */
     val screenedCalls: Flow<List<BlockedCallEntity>> = dao.screenedCalls()
 

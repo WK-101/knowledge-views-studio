@@ -3,12 +3,17 @@ package app.parley.ui.people.cards
 import android.content.Context
 import android.content.Intent
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.core.content.FileProvider
 import app.parley.AppViewModel
 import app.parley.R
 import app.parley.common.cards.ShareMethod
+import app.parley.common.cards.ShareReceipt
+import app.parley.common.people.ContactRef
 import app.parley.common.cards.SignedCards
 import app.parley.common.people.MeCard
 import app.parley.common.people.MeCards
@@ -25,24 +30,65 @@ import kotlinx.coroutines.withContext
  */
 object CardSharing {
     /**
-     * [card] with [parts] as a vCard, signed. Signing reads the sealed key, so it runs off the main thread; when the key
-     * can't be read right now the card goes out unsigned, as it did before.
+     * The one card every share signs (M4): My card with the phone's profile filling in what it lacks, read once the
+     * profile has loaded, so the QR code, the file, "Send my card" and the swap all sign the same content.
      */
-    suspend fun vcard(c: DataContainer, card: MeCard, parts: Set<MeCards.Part>): String = withContext(Dispatchers.IO) {
+    suspend fun shareable(c: DataContainer): MeCard =
+        MeCards.merge(c.people.me.card.value, runCatching { c.people.me.profile() }.getOrNull())
+
+    /**
+     * My card with [parts] as a vCard, signed. Signing reads the sealed key, so it runs off the main thread; when the
+     * key can't be read right now the card goes out unsigned, as it did before.
+     */
+    suspend fun vcard(c: DataContainer, parts: Set<MeCards.Part>): String = withContext(Dispatchers.IO) {
+        val card = shareable(c)
         val plain = MeCards.vcard(card, parts)
         if (card.isEmpty) return@withContext plain
         runCatching { c.people.cardIdentity.sign(card, parts) }.getOrNull()?.let { SignedCards.attach(plain, it) } ?: plain
     }
 
-    /** The signed vCard for a composable (null while it is being made). */
+    /** The signed vCard for a composable (null while it is being made; one signature per change of [parts] or the card). */
     @Composable
-    fun rememberVcard(vm: AppViewModel, card: MeCard, parts: Set<MeCards.Part>): State<String?> =
-        produceState<String?>(null, card, parts) { value = vcard(vm.c, card, parts) }
+    fun rememberVcard(vm: AppViewModel, parts: Set<MeCards.Part>): State<String?> {
+        val own by vm.c.people.me.card.collectAsStateWithLifecycle()
+        return produceState<String?>(null, own, parts) { value = vcard(vm.c, parts) }
+    }
 
-    /** Someone got your card: a "Shared with" receipt with the numbers it had. Nothing is recorded for an empty card. */
+    /**
+     * Someone got your card: a "Shared with" receipt with the numbers it had. Nothing is recorded for an empty card.
+     * A private contact's number gets a receipt that names no one (M7): its name and number stay in the vault.
+     */
     fun record(c: DataContainer, name: String, number: String?, method: ShareMethod, phones: List<String>) {
         if (name.isBlank() && number.isNullOrBlank()) return
-        c.scope.launch { runCatching { c.people.shareLedger.record(name, number, method, phones) } }
+        c.scope.launch {
+            runCatching {
+                val private = number?.takeIf { it.isNotBlank() }?.let { n -> runCatching { c.vault.lookup(n) }.getOrNull()?.first }
+                c.people.shareLedger.record(name, number, method, phones, contactKey = private?.let(ContactRef::privateKey))
+            }
+        }
+    }
+
+    /**
+     * "Shared with" as shown: private contacts' receipts get their name and number from the vault, and are left out in
+     * discreet mode or when the contact is gone (M7).
+     */
+    @Composable
+    fun rememberShownReceipts(vm: AppViewModel): State<List<ShareReceipt>> {
+        val store = vm.c.people.shareLedger
+        LaunchedEffect(Unit) { store.load() }
+        val receipts by store.receipts.collectAsStateWithLifecycle()
+        val settings by vm.c.settings.settings.collectAsStateWithLifecycle()
+        val discreet = settings.hideVault
+        return produceState(receipts.filter { it.contactKey == null }, receipts, discreet) {
+            value = withContext(Dispatchers.IO) { shown(vm.c, receipts, discreet) }
+        }
+    }
+
+    /** [receipts] as shown (see [rememberShownReceipts]). */
+    suspend fun shown(c: DataContainer, receipts: List<ShareReceipt>, discreet: Boolean): List<ShareReceipt> = receipts.mapNotNull { r ->
+        val vaultId = ContactRef.vaultIdOf(r.contactKey) ?: return@mapNotNull r.takeIf { r.contactKey == null }
+        if (discreet) return@mapNotNull null
+        runCatching { c.vault.summary(vaultId) }.getOrNull()?.let { s -> r.copy(name = s.name, number = s.numbers.firstOrNull()) }
     }
 
     /** My card's numbers as they are shared now (Parley's copy; the phone's profile only fills in what's missing). */
@@ -62,12 +108,21 @@ object CardSharing {
         if (System.currentTimeMillis() - swapSince > SWAP_WINDOW_MS) return
         swapSince = 0L
         record(c, name, number, ShareMethod.QR_SWAP, currentPhones(c))
+        markShared(c)
+    }
+
+    /** Your signed card reached someone (a swap, a file sent): its key is the one people now know (M5). */
+    fun markShared(c: DataContainer) {
+        c.scope.launch(Dispatchers.IO) { runCatching { c.people.cardIdentity.markShared() } }
     }
 
     private const val SWAP_WINDOW_MS = 10 * 60 * 1000L
 
-    /** Writes [vcard] to Parley's share folder and hands it to the app you choose. */
-    fun shareFile(context: Context, vcard: String, subject: String): Boolean = runCatching {
+    /**
+     * Writes [vcard] to Parley's share folder and hands it to the app you choose. A signed card handed on counts as
+     * shared ([markShared]); showing the QR code alone doesn't.
+     */
+    fun shareFile(c: DataContainer, context: Context, vcard: String, subject: String): Boolean = runCatching {
         val dir = File(context.cacheDir, "share").apply { mkdirs() }
         val file = File(dir, "my-card.vcf")
         file.writeText(vcard)
@@ -75,5 +130,6 @@ object CardSharing {
         val send = Intent(Intent.ACTION_SEND).setType("text/x-vcard").putExtra(Intent.EXTRA_STREAM, uri)
             .putExtra(Intent.EXTRA_SUBJECT, subject).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         context.startActivity(Intent.createChooser(send, context.getString(R.string.me_share_chooser)))
+        if (SignedCards.mayHold(vcard)) markShared(c)
     }.onFailure { showMessage(context, context.getString(R.string.me_share_failed)) }.isSuccess
 }

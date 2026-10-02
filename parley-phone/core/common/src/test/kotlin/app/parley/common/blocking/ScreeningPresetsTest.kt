@@ -41,6 +41,33 @@ class ScreeningPresetsTest {
         assertEquals(emptyList<ScreeningPreset>(), ScreeningPreset.current(ScreeningSettings(blockHidden = true)))
     }
 
+    @Test fun only_people_i_know_says_it_removes_a_schedule_and_can_keep_it() {
+        val weekdays = Schedule(Schedule.WEEKDAYS, 9 * 60, 17 * 60)
+        val a = AppSettings(screening = ScreeningSettings(blockNonContacts = true, nonContactsSchedule = weekdays))
+        assertEquals(weekdays, ScreeningPreset.KNOWN.removedSchedule(a.screening))
+        assertEquals(null, ScreeningPreset.NIGHTS.removedSchedule(a.screening))
+        assertEquals(null, ScreeningPreset.KNOWN.apply(a).screening.nonContactsSchedule)
+        assertEquals(weekdays, ScreeningPreset.KNOWN.apply(a, keepSchedule = true).screening.nonContactsSchedule)
+        assertEquals(null, ScreeningPreset.KNOWN.removedSchedule(ScreeningSettings()))
+    }
+
+    @Test fun one_person_from_two_numbers_counts_once() {
+        val now = 100L * ScreeningWeekly.WEEK_MS
+        val calls = listOf(
+            StoppedCall(now - 1, "+15550199", silenced = true, fromContact = true, person = "ana"),
+            StoppedCall(now - 2, "+15550198", silenced = true, fromContact = true, person = "ana"),
+        )
+        assertEquals(1, ScreeningWeekly.summarize(calls, now).contactsAffected)
+    }
+
+    @Test fun a_contact_stopped_by_the_system_list_counts_as_a_contact() {
+        val clock = PolicyClock(1_000_000L, DayOfWeek.MONDAY, 12 * 60)
+        val facts = IncomingCallFacts("+15550199", hidden = false, isContact = true, inSystemBlockList = true)
+        val d = CallPolicy.decide(facts, emptyList(), ScreeningSettings(), clock)
+        assertTrue(d.blocked)
+        assertTrue(ScreeningWeekly.fromContact(d.trace))
+    }
+
     @Test fun the_week_counts_silenced_declined_and_contacts_once() {
         val now = 100L * ScreeningWeekly.WEEK_MS
         val day = ScreeningWeekly.WEEK_MS / 7

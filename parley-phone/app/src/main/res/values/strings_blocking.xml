@@ -170,6 +170,9 @@
     <string name="blk_help_log">Calls Parley stopped. Tap one to see why; mark mistakes as \"Not spam\".</string>
     <string name="blk_preset_known">Only people I know</string>
     <string name="blk_preset_known_help">Strangers are silenced; they can still get through by calling twice, and numbers you called ring.</string>
+    <!-- In the confirm dialog of "Only people I know". %1$s: the schedule, e.g. "Mon–Fri 09:00–17:00". -->
+    <string name="blk_known_removes_schedule">This replaces your schedule for unknown callers (%1$s): they\'ll be silenced at all times.</string>
+    <string name="blk_known_keep_schedule">Keep my schedule</string>
     <string name="blk_preset_telemarketers">Stop telemarketers</string>
     <string name="blk_preset_telemarketers_help">Blocks spoofed and impossible numbers; strangers still ring.</string>
     <string name="blk_preset_nights">Quiet nights</string>

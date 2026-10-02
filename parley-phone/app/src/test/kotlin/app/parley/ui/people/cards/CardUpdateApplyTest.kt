@@ -46,4 +46,27 @@ class CardUpdateApplyTest {
         assertEquals(emptyList<DataItem>(), out.emails)
         assertEquals(contact.copy(emails = emptyList()), out)
     }
+
+    @Test fun the_users_own_address_is_never_overwritten() {
+        // M2: Bo typed the home address; the work one came from Ana's card.
+        val bo = contact.copy(addresses = listOf(PostalItem(street = "9 Home Lane", type = 1), PostalItem(street = "1 High St", city = "London", type = 2)))
+        val after = before.copy(address = "2 Low St, Leeds")
+        val changes = CardDiff.changes(
+            before, after, CardUpdateApply.fieldsOf(bo), "GB", contactAddresses = CardUpdateApply.addressesOf(bo),
+        )
+        val out = CardUpdateApply.apply(bo, changes.filter { it.preselected }, "GB")
+        assertEquals(listOf("9 Home Lane", "2 Low St, Leeds"), out.addresses.map { it.street })
+        assertEquals(listOf(1, 2), out.addresses.map { it.type })
+        // Bo removed the card's address: the new one is added after his own, which stays.
+        val own = contact.copy(addresses = listOf(PostalItem(street = "9 Home Lane", type = 1)))
+        val add = CardDiff.changes(before, after, CardUpdateApply.fieldsOf(own), "GB", contactAddresses = CardUpdateApply.addressesOf(own))
+        assertEquals(listOf("9 Home Lane", "2 Low St, Leeds"), CardUpdateApply.apply(own, add, "GB").addresses.map { it.street })
+    }
+
+    @Test fun removals_are_offered_but_never_ticked() {
+        val changes = CardDiff.changes(before, before.copy(emails = emptyList()), CardUpdateApply.fieldsOf(contact), "GB")
+        assertEquals(1, changes.size)
+        assertEquals(false, changes.single().preselected)
+        assertEquals(contact, CardUpdateApply.apply(contact, changes.filter { it.preselected }, "GB"))
+    }
 }

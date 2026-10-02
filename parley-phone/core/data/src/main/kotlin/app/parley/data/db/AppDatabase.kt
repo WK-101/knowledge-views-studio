@@ -604,6 +604,10 @@ interface BlockDao {
     @Query("SELECT * FROM blocked_calls WHERE allowed = 0 ORDER BY time DESC LIMIT 500")
     fun blockedCalls(): Flow<List<BlockedCallEntity>>
 
+    /** Every stopped call since [since], uncapped (the weekly line counts them all, L5). */
+    @Query("SELECT * FROM blocked_calls WHERE allowed = 0 AND time >= :since ORDER BY time DESC")
+    suspend fun blockedCallsSince(since: Long): List<BlockedCallEntity>
+
     @Query("DELETE FROM blocked_calls")
     suspend fun clearBlocked()
 

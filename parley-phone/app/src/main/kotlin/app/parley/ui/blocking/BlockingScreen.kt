@@ -51,6 +51,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -71,6 +72,9 @@ import app.parley.R
 import app.parley.blocking.BlockingActions
 import app.parley.blocking.BlockingNotifier
 import app.parley.blocking.BlockingText
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.semantics.Role
+import androidx.compose.material3.Checkbox
 import app.parley.blocking.ExpectingCallTileService
 import app.parley.common.BlockAction
 import app.parley.common.BlockRule
@@ -185,7 +189,14 @@ fun BlockingScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
         LazyColumn(Modifier.padding(p)) {
             // P9: the setups first, with the one you're on named and what the last week looked like.
             item(key = "presets") {
-                val week = remember(log, now) { weekOf(log, now) }
+                // L5: every stopped call of the week (the log shows only the latest 500), contacts counted as people.
+                val shown = remember(log, now) { weekOf(log, now) { vm.contactFor(it)?.lookupKey } }
+                val week by produceState(shown, log.firstOrNull()?.id, log.size, now) {
+                    value = withContext(Dispatchers.IO) {
+                        val all = runCatching { vm.c.blocks.blockedSince(now - ScreeningWeekly.WEEK_MS) }.getOrDefault(log)
+                        weekOf(all, now) { vm.contactFor(it)?.lookupKey }
+                    }
+                }
                 PresetHeader(ScreeningPreset.current(s), week) { presetToApply = it }
             }
 
@@ -516,13 +527,28 @@ fun BlockingScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
     }
 
     presetToApply?.let { pr ->
+        // M9: what the setup would replace is said here, and can be kept.
+        val removed = pr.removedSchedule(s)
+        var keep by remember(pr) { mutableStateOf(false) }
         ConfirmDialog(
             title = stringResource(pr.title),
             text = stringResource(pr.help),
             confirmLabel = stringResource(R.string.blk_use_this),
-            onConfirm = { scope.launch { vm.c.settings.update(pr::apply) }; presetToApply = null },
+            onConfirm = { scope.launch { vm.c.settings.update { pr.apply(it, keepSchedule = keep) } }; presetToApply = null },
             onDismiss = { presetToApply = null },
             dismissLabel = stringResource(R.string.set_cancel),
+            content = removed?.let { sch ->
+                {
+                    Text(stringResource(R.string.blk_known_removes_schedule, BlockingText.schedule(context, sch)), style = MaterialTheme.typography.bodyMedium)
+                    Row(
+                        Modifier.fillMaxWidth().toggleable(keep, role = Role.Checkbox) { keep = it }.padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Checkbox(keep, null)
+                        Text(stringResource(R.string.blk_known_keep_schedule), Modifier.padding(start = 8.dp))
+                    }
+                }
+            },
         )
     }
     if (addNumber) {
@@ -754,10 +780,17 @@ private fun legacyReason(r: String) = stringResource(
     },
 )
 
-/** The stopped calls of the last week, with whether each came from a contact (read from its stored trace). */
-private fun weekOf(log: List<BlockedCallEntity>, now: Long): ScreeningWeek = ScreeningWeekly.summarize(
+/**
+ * The stopped calls of the last week, with whether each came from a contact (read from its stored trace) and which
+ * one ([person]: its key, so one person calling from two numbers counts once).
+ */
+private fun weekOf(log: List<BlockedCallEntity>, now: Long, person: (String) -> String?): ScreeningWeek = ScreeningWeekly.summarize(
     log.filter { it.time >= now - ScreeningWeekly.WEEK_MS }.map { e ->
-        StoppedCall(e.time, e.number, silenced = e.action != BlockAction.REJECT.name, fromContact = ScreeningWeekly.fromContact(TraceCodec.decode(e.trace)))
+        val contact = ScreeningWeekly.fromContact(TraceCodec.decode(e.trace))
+        StoppedCall(
+            e.time, e.number, silenced = e.action != BlockAction.REJECT.name, fromContact = contact,
+            person = if (contact) e.number?.let(person) else null,
+        )
     },
     now,
 )

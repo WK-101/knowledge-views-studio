@@ -80,30 +80,53 @@ until then they stay readable. Backups contain the decrypted text inside the alr
 ## Signed cards (My card)
 
 - **What is signed.** Every My card Parley shares (its QR code, the card file, "Send my card" in Changed my number, the
-  QR swap) is a plain vCard 3.0 with two extra properties, `X-PARLEY-CARD:1;<card id>;<version>;<public key>` and
-  `X-PARLEY-SIG:<signature>` (`SignedCards`). Other apps and camera scanners ignore or keep them like any `X-`
+  QR swap) is a plain vCard 3.0 with two extra properties, `X-PARLEY-CARD:2;<card id>;<version>;<public key>;<parts>`
+  and `X-PARLEY-SIG:<signature>` (`SignedCards`). Other apps and camera scanners ignore or keep them like any `X-`
   property; older Parley versions import the card as before. The Ed25519 signature covers a fixed header, the card id,
-  version and public key, and each field the card shares, one per line with line breaks escaped, so a field can't be
-  stretched into another. The private note is never in it. "Send my details" and Introduce myself send plain text,
-  which carries no signature (it would be noise in every chat app); they only add a "Shared with" entry.
-- **The key.** One random card id (128 bits) and one Ed25519 key per user (`MyCardIdentity`), made on first share.
+  version, public key, the parts the share includes (name, numbers, work…), and each field the card shares, one per
+  line with line breaks and tabs escaped, so a field can't be stretched into another. The private note is never in it.
+  "Send my details" and Introduce myself send plain text, which carries no signature (it would be noise in every chat
+  app); they only add a "Shared with" entry. Every share signs the same card (My card with the phone's profile filled
+  in), once the profile has loaded.
+- **What counts as signed.** A received card shows as signed only when it is exactly what Parley writes: each of N,
+  FN, ORG, TITLE and ADR at most once, only the properties My card uses (no notes, extra rows, `X-ANDROID-CUSTOM`…),
+  only the TYPE parameter, only the name and street parts, canonical escaping, a display name that says what the name
+  says, nothing outside the signed parts, and within the size caps (never cut short). Anything else is reported as
+  changed after signing, so what an importer saves from a card shown as signed is what the signature covers. A file
+  with unsigned cards beside a signed one says so.
+- **The key.** One random card id (128 bits) and one Ed25519 key per user (`MyCardIdentity`), made on first use.
   The Android Keystore can't hold Ed25519 keys on most phones, and a Keystore key could never reach your next phone,
   where your contacts would then see a different signer. So the 32-byte secret is sealed with the small-records key
-  (AES-GCM, wrapped by a Keystore key) and travels only inside the encrypted backup; a restore uses it only on a phone
-  that hasn't signed a card of its own yet. Signing uses the platform's constant-time Ed25519 on Android 13+, the small
-  pure implementation (`Ed25519`, as for rule packs) below that.
-- **Versions.** The version grows whenever anything the card says changes (whatever parts a given share includes). A
-  receiver links the contact to the card id and key (`CardLinkStore`, by the contact's Parley key, sealed; private
-  contacts' links are re-keyed with them and backed up only with the private contacts) and offers a card only when it
-  has a higher version **and** the same key. The same id with another key is shown as "a different key signed it" and
-  ignored; a card whose signature doesn't match its fields is reported as changed after signing. Nothing is ever
-  applied without the user's review: the contact's page lists each change, and Apply goes through the editor's save
-  (History & undo keeps the previous version of a device contact).
-- **What a signature does not say.** It proves the card came from whoever held that key when the contact was first
-  linked, not who that person is: the first card is trusted as much as any vCard (the user saves it). The key's
-  fingerprint is on My card › Shared with and in the update dialog, for people who want to compare.
-- **Received cards are bounded.** At most 50 cards, 400 lines and 2,000 characters a value are read from one text;
-  opened files are checked only up to 2 MB.
+  (AES-GCM, wrapped by a Keystore key) and is never stored plain (while sealing fails, nothing is signed); it travels
+  only inside the encrypted backup. Showing the QR code doesn't count as sharing; a card file sent or a QR swap does.
+  A restore takes the backup's key at once on a phone whose own card never left it; on a phone that already shared its
+  own, My card asks which key to keep. Signing uses the platform's constant-time Ed25519 on Android 13+, the small pure
+  implementation (`Ed25519`, as for rule packs) below that.
+- **Trust: on first explicit link, the key pinned after.** A received card is never linked to a contact by itself.
+  The user links it: "This card says it's Ana. Link it to Ana so their future updates show here?", on the scan,
+  file or paste result, or on Ana's page for a card received earlier (`CardInbox`, `CardIntake`, `CardLinkBook`). From
+  then on, Ana's contact accepts updates only from that card id **and** key (`CardLinkStore`, by the contact's Parley
+  key, sealed). Any other card that claims to be Ana (another card id with her number, or her card id signed by
+  another key) is shown as "a different key signed it", offers nothing, and never replaces her link or a card held for
+  her; the only way to switch is the explicit **Trust the new card**, which shows both keys' fingerprints (also the way
+  to accept a genuinely new key, e.g. after a lost phone). A card received for nobody is held (90 days, apart by card
+  id and key) only so the contact's page can ask; a restored link never replaces one a contact has.
+- **Versions.** The version grows when anything the full card says changes (never on a mere share or view) and never
+  repeats, also across phones and restores (at least the current time in seconds). A receiver offers a card only when
+  it is newer (or shares parts not seen yet) **and** has the linked key. A part a share leaves out is unknown, never a
+  removal. Nothing is ever applied without the user's review: the contact's page lists each change, with removals,
+  the name and replacements of a value the user wrote themselves unticked; addresses are matched by the card's
+  previous address, never "the first one". Apply goes through the editor's save (History & undo keeps the previous
+  version of a device contact).
+- **Private contacts.** Their card links, and "Shared with" entries for them (which keep no name or number: both are
+  read from the vault when shown, and hidden in discreet mode), are sealed with the vault's key in documents of their
+  own and travel only in the private-contacts part of a backup.
+- **What a signature does not say.** It proves the card came from whoever held that key when the user linked the
+  contact, not who that person is: the first card is trusted as much as the user's choice to link it. The key's
+  fingerprint is on My card › Shared with, in the link question and in the update dialog, for people who want to
+  compare.
+- **Received cards are bounded.** At most 50 cards, 400 lines and 2,000 characters a value are read from one text
+  (a card over these is not trusted, never cut short); opened files are checked only up to 2 MB.
 
 ## Sync between your phones
 

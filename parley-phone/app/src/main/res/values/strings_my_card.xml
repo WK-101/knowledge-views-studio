@@ -33,10 +33,35 @@
     <string name="card_in_open">Open</string>
     <string name="card_in_current">%1$s\'s contact already has this card.</string>
     <string name="card_in_linked">Signed card, linked to %1$s: Parley will offer their future updates.</string>
-    <string name="card_in_held">Signed card: once you save this contact, Parley will offer their future updates.</string>
+    <string name="card_in_held">Signed card. Once you save this contact, their page asks whether to link it for future updates.</string>
+    <!-- A first card for a contact who has none linked: nothing is linked until the user taps Link. %1$s: the contact's name; %2$s: the card key's short fingerprint. -->
+    <string name="card_in_offer">This card says it\'s %1$s (key %2$s). Link it to %1$s so their future updates show here?</string>
+    <string name="card_link">Link</string>
+    <string name="card_link_failed">Couldn\'t link the card. Try again in a moment.</string>
+    <string name="card_in_unchecked">Parley couldn\'t check this card\'s signature right now. Open it again in a moment.</string>
+    <!-- The same file or text also holds cards without a signature. -->
+    <plurals name="card_in_unsigned">
+        <item quantity="one">%1$d other card here isn\'t signed. Check its details with the person.</item>
+        <item quantity="other">%1$d other cards here aren\'t signed. Check their details with the person.</item>
+    </plurals>
     <!-- %1$s: the contact's name; %2$s: the other key's short fingerprint. -->
     <string name="card_in_different">This card says it\'s %1$s\'s, but a different key signed it (%2$s). It may not be from them, so nothing was offered.</string>
+    <!-- Accepting a different card for a contact: an explicit choice that shows both keys. -->
+    <string name="card_trust_new">Trust the new card</string>
+    <!-- %1$s: the contact's name. -->
+    <string name="card_trust_title">Trust the new card for %1$s?</string>
+    <!-- %1$s: the contact's name; %2$s: the key of the card linked now; %3$s: the new card's key. -->
+    <string name="card_trust_body">Only do this if %1$s told you they have a new card, for example after changing phones. Their earlier card\'s key: %2$s. This card\'s key: %3$s. From now on, only cards with the new key update %1$s.</string>
+    <!-- On a contact's page, a card received earlier. %1$s: the contact's name; %2$s: the card key's short fingerprint. -->
+    <string name="card_held_offer">A signed card you received says it\'s %1$s (key %2$s). Link it so their future updates show here?</string>
+    <string name="card_held_dont_link">Don\'t link</string>
+    <string name="card_held_different">A different card says it\'s %1$s (key %2$s). It may not be from them, so nothing is offered.</string>
     <string name="card_in_broken">This card\'s signature doesn\'t match: it was changed after it was signed. Check the details with the person.</string>
+
+    <!-- After a restore, when this phone had already shared a card with its own key. -->
+    <string name="card_key_restore_question">Your backup has your earlier card key. Use it, so people with your earlier card keep getting your updates? People who got a card from this phone would then see a different key.</string>
+    <string name="card_key_restore_use_earlier">Use earlier key</string>
+    <string name="card_key_restore_keep_this">Keep this one</string>
 
     <!-- My card › Shared with. -->
     <string name="card_shared_title">Shared with</string>
