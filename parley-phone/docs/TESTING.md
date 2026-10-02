@@ -1738,3 +1738,33 @@ call never gets past), `FamilySafetyTest` (helper Cancel), `SyncWatchdogTest` (c
 
 **Downgrades.** Installing a Parley older than 4.5 over this one (`adb install -r -d`) is not supported: clear
 Parley's data first, then restore a backup (docs/CONTACT_MODEL.md, "Downgrades").
+
+## 27. Cards that stay current (4.6)
+
+### 27.3 Finding your way: Coming from…, What Parley can do, the blocking header, explainers
+
+Unit tests: `CapabilityCatalogTest` (core:common: every settings row names a real setting, unique keys, every job has rows, search, "New in" by release), `ScreeningPresetsTest` (core:common: the setup you're on, the weekly line, contacts read from real traces), `TipsTest` (explainer ids survive dismissal) and `CapabilityRoutesTest` (app, Robolectric: every row and every importer opens a screen registered in the graph, or a tab; every row has its texts).
+
+**Coming from another phone? (P7).**
+
+1. Fresh install (or clear Parley's data) with Parley not yet the phone app: onboarding has a fourth step after permissions, "Coming from another phone?", with Contacts (Google Contacts, iPhone or iCloud, Samsung phone), Call history (from a CSV file) and Block lists (Call Blocker, Yet Another Call Blocker, NoPhoneSpam). Back returns to permissions. **Skip** ends onboarding on the home screen, as before.
+2. Tap a source: it unfolds (TalkBack says "Expanded") to where to export it on the old phone, and one button. Google also says that contacts of a Google account signed in on this phone are already there. Only one source is open at a time; tapping it again folds it.
+3. **Import contacts** ends onboarding and opens Settings › Contacts with "Import from .vcf or .csv file" highlighted; pick a `.vcf` exported from an iPhone and from Google: both import with the usual report. **Import call history** opens "Import call history from CSV"; **Import a block list** opens Blocking & screening › Import & share. Nothing is downloaded at any point (airplane mode changes nothing).
+4. Later: Tools › "Coming from another phone?" opens the same list as a page (intro first); the buttons open the same importers, and Back returns to the list. Settings search "iphone" or "yacb" finds it.
+
+**What Parley can do (P8).**
+
+5. Tools has "What Parley can do" at the top; Settings has it right under Tools; Settings search "features" finds it. The page groups one-line rows under Stop spam, Never lose a contact, Stay in touch, Know who's calling, Keep it private, Message without saving and Calls that work better. With a 4.6 build, "New in 4.6" comes first with "Coming from another phone?".
+6. Tap rows from each group: each opens its feature (Blocking & screening, Spam lists, History & undo on Contacts or Snapshots, Backup, Birthdays & dates, To call, Labels, Scan QR, My card, the privacy dashboard, Call time, SIMs & plan minutes, Simple mode…). Setting rows open their Settings page with the setting highlighted (e.g. "App lock", "Answer automatically"). "Keep in touch with your Circle" opens the Circle tab even when it's hidden from the bar; "Message a number without saving it" opens the Keypad (docked in Recents with the combined layout). Back returns to the page with the search kept.
+7. Search: "whatsapp" shows the message rows; "undo" shows History & undo; "zzz" shows "Nothing here matches “zzz”" with **Clear search**. With a large font (200 %) and in landscape the rows wrap and nothing is cut off; RTL (Arabic) mirrors the page.
+8. After updating from 4.5 (not a fresh install), the What's new card on home has one link, **What Parley can do**, plus **Got it**; neither changes tabs, and the card doesn't come back. A fresh install shows no card.
+
+**Blocking & screening header (P9).**
+
+9. A fresh install: Blocking & screening starts with a card "You're on: Let everyone ring", "Last 7 days: no calls stopped" and the four setups as chips (the current one selected). Tap "Only people I know": its explanation asks first (**Use this**); afterwards the card says "You're on: Only people I know". Add "Quiet nights": "Only people I know · Quiet nights". Turn on only "Silence or block hidden numbers" by hand (after "Let everyone ring"): "You're on: your own mix".
+10. Below the card: the screening status, Expecting a call, the two main switches, Spam lists, then an **Advanced** header over Always let through, Your rules, Off hours, More checks, Sounds, Emergency numbers, Tools and the system block list; the log of recent calls stays last.
+11. Weekly line: with "Only people I know" on, call once each from two unknown numbers, and once from a contact (not a favourite) while Off hours let only Favourites ring and silence the rest: the card says "Last 7 days: 3 calls silenced · 1 contact affected"; the same contact calling again still counts as 1 contact. A rule set to Reject adds "…, 1 declined". Calls older than 7 days drop out.
+
+**One-line explainers (P18).**
+
+12. The first time each concept shows, one tip card explains it, with **Got it**: a private contact's page (under the "Private" chip), a temporary contact's page or Temporary contacts, the Circle tab with people in it, Labels (with labels), Favourites (with favourites), History & undo. To call keeps its own tip. Only one tip shows at a time; dismissed tips never come back (also after restarting Parley) until Settings › Appearance › Reset tips. The wording matches docs/GLOSSARY.md.

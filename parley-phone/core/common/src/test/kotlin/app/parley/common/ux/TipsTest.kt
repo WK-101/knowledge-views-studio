@@ -20,4 +20,15 @@ class TipsTest {
         assertEquals(Tips.RECENTS_SWIPE, Tips.visible(requested, emptySet(), Tips.RECENTS_SWIPE))
         assertNull(Tips.visible(requested, requested.toSet(), null))
     }
+
+    @Test fun concept_explainers_stay_dismissed() {
+        // P18: once dismissed, an explainer's id must survive the stored round trip, or it would come back.
+        val concepts = setOf(
+            Tips.CONCEPT_PRIVATE, Tips.CONCEPT_TEMPORARY, Tips.CONCEPT_CIRCLE, Tips.CONCEPT_LABELS,
+            Tips.CONCEPT_FAVOURITES, Tips.CONCEPT_HISTORY_UNDO, Tips.TO_CALL,
+        )
+        assertEquals(7, concepts.size)
+        assertEquals(concepts, Tips.decode(Tips.encode(concepts)))
+        assertNull(Tips.visible(listOf(Tips.CONCEPT_CIRCLE), Tips.decode(Tips.encode(concepts)), null))
+    }
 }

@@ -32,6 +32,7 @@ import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.Bluetooth
 import androidx.compose.material.icons.rounded.Code
 import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.MoveToInbox
 import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.People
 import androidx.compose.material.icons.rounded.Phone
@@ -63,6 +64,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
@@ -74,14 +76,19 @@ import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.R
+import app.parley.NavEvent
+import app.parley.common.ux.ComingFrom
 import app.parley.common.ux.InstallSource
+import app.parley.ui.discover.ComingFromGroups
+import app.parley.ui.discover.importerRoute
 import app.parley.ui.calls.rememberDialerRoleRequest
 import kotlinx.coroutines.launch
 
 /**
- * First run, in three short steps: what Parley promises, the default phone app (with a word about Android's
+ * First run, in short steps: what Parley promises, the default phone app (with a word about Android's
  * restricted settings first when Parley was installed from a file), then U1's permissions page: one row per
  * permission with why it's asked and what still works without it, a single "Allow all" and a switch per row.
+ * Last, P7's optional "Coming from another phone?": skip it, or pick a source to finish and land in its importer.
  */
 @Composable
 fun OnboardingScreen(vm: AppViewModel, onDone: () -> Unit) {
@@ -103,7 +110,15 @@ fun OnboardingScreen(vm: AppViewModel, onDone: () -> Unit) {
             when (step) {
                 0 -> WelcomeStep { step = 1 }
                 1 -> DefaultDialerStep(vm) { step = 2 }
-                else -> PermissionsStep(vm, ::finish)
+                2 -> PermissionsStep(vm) { step = 3 }
+                else -> ComingFromStep(
+                    onImport = { importer ->
+                        finish()
+                        // Buffered until the navigation host is up, right after onboarding closes.
+                        vm.navigate(NavEvent.Route(importerRoute(importer)))
+                    },
+                    skip = ::finish,
+                )
             }
         }
     }
@@ -289,6 +304,26 @@ private fun ColumnScope.PermissionsStep(vm: AppViewModel, done: () -> Unit) {
     }
     Spacer(Modifier.weight(1f))
     Button(done, Modifier.fillMaxWidth().height(56.dp)) { Text(stringResource(if (allGranted) R.string.main_done else R.string.ux_perm_continue)) }
+}
+
+/** P7: where the person is coming from, each source with where to export it; entirely optional. */
+@Composable
+private fun ColumnScope.ComingFromStep(onImport: (ComingFrom.Importer) -> Unit, skip: () -> Unit) {
+    Spacer(Modifier.height(24.dp))
+    Icon(Icons.Rounded.MoveToInbox, null, Modifier.size(40.dp), tint = MaterialTheme.colorScheme.primary)
+    Text(stringResource(R.string.coming_title), style = MaterialTheme.typography.headlineSmall)
+    Text(stringResource(R.string.coming_onboarding_intro), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Text(stringResource(R.string.coming_intro), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    // The groups bring their own side insets; the step's padding already gives the edge.
+    Column(Modifier.layout { m, c ->
+        val inset = 16.dp.roundToPx()
+        val p = m.measure(c.copy(maxWidth = c.maxWidth + 2 * inset, minWidth = c.minWidth))
+        layout(c.maxWidth, p.height) { p.place(-inset, 0) }
+    }, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        ComingFromGroups(onImport)
+    }
+    Spacer(Modifier.weight(1f))
+    Button(skip, Modifier.fillMaxWidth().height(56.dp)) { Text(stringResource(R.string.intro_skip)) }
 }
 
 @Composable

@@ -72,7 +72,6 @@ import app.parley.blocking.BlockingActions
 import app.parley.blocking.BlockingNotifier
 import app.parley.blocking.BlockingText
 import app.parley.blocking.ExpectingCallTileService
-import app.parley.common.AppSettings
 import app.parley.common.BlockAction
 import app.parley.common.BlockRule
 import app.parley.common.CallPolicy
@@ -87,6 +86,10 @@ import app.parley.common.Schedule
 import app.parley.common.ScreeningSettings
 import app.parley.common.TraceCodec
 import app.parley.common.blocking.PersonalReputation
+import app.parley.common.blocking.ScreeningPreset
+import app.parley.common.blocking.ScreeningWeek
+import app.parley.common.blocking.ScreeningWeekly
+import app.parley.common.blocking.StoppedCall
 import app.parley.common.spam.BuiltInPacks
 import app.parley.data.GroupInfo
 import app.parley.data.Permissions
@@ -105,29 +108,31 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import app.parley.ui.SwitchRow
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import app.parley.ui.ParleyTopBar
 import app.parley.ui.ParleyScaffold
 import app.parley.ui.ConfirmDialog
 import app.parley.ui.ListSectionHeader
 
-/** Situations, not mechanisms: each preset says what it's for and changes a few toggles. */
-private data class Preset(@StringRes val title: Int, @StringRes val help: Int, val apply: (AppSettings) -> AppSettings)
+/** Situations, not mechanisms: each setup says what it's for; [ScreeningPreset] holds the few switches it changes. */
+@get:StringRes
+private val ScreeningPreset.title: Int
+    get() = when (this) {
+        ScreeningPreset.KNOWN -> R.string.blk_preset_known
+        ScreeningPreset.TELEMARKETERS -> R.string.blk_preset_telemarketers
+        ScreeningPreset.NIGHTS -> R.string.blk_preset_nights
+        ScreeningPreset.EVERYONE -> R.string.blk_preset_everyone
+    }
 
-private val PRESETS = listOf(
-    Preset(R.string.blk_preset_known, R.string.blk_preset_known_help) { a ->
-        a.copy(repeatCallerRingsThrough = true, screening = a.screening.copy(blockNonContacts = true, blockHidden = true, defaultAction = BlockAction.SILENCE, allowDialled = true, allowAnswered = true))
-    },
-    Preset(R.string.blk_preset_telemarketers, R.string.blk_preset_telemarketers_help) { a ->
-        a.copy(screening = a.screening.copy(blockFailedVerification = true, blockInvalid = true, blockNonContacts = false))
-    },
-    Preset(R.string.blk_preset_nights, R.string.blk_preset_nights_help) { a ->
-        a.copy(screening = a.screening.copy(offHours = OffHours(enabled = true, schedule = Schedule(Schedule.ALL_DAYS, 22 * 60, 7 * 60), allow = OffHoursAllow.CONTACTS)))
-    },
-    Preset(R.string.blk_preset_everyone, R.string.blk_preset_everyone_help) { a ->
-        a.copy(screening = a.screening.copy(blockNonContacts = false, blockHidden = false, blockInvalid = false, blockFailedVerification = false, blockNeighbourSpoofing = false, offHours = a.screening.offHours.copy(enabled = false)))
-    },
-)
+@get:StringRes
+private val ScreeningPreset.help: Int
+    get() = when (this) {
+        ScreeningPreset.KNOWN -> R.string.blk_preset_known_help
+        ScreeningPreset.TELEMARKETERS -> R.string.blk_preset_telemarketers_help
+        ScreeningPreset.NIGHTS -> R.string.blk_preset_nights_help
+        ScreeningPreset.EVERYONE -> R.string.blk_preset_everyone_help
+    }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -148,7 +153,7 @@ fun BlockingScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
         expanded = if (k in expanded) expanded - k else expanded + k
     }
     var addNumber by rememberSaveable { mutableStateOf(false) }
-    var presetToApply by remember { mutableStateOf<Preset?>(null) }
+    var presetToApply by remember { mutableStateOf<ScreeningPreset?>(null) }
     var testNumber by rememberSaveable { mutableStateOf("") }
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Unit) {
@@ -178,6 +183,12 @@ fun BlockingScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
         ParleyTopBar(stringResource(R.string.blk_title), onBack = back, scrollBehavior = barScroll)
     }) { p ->
         LazyColumn(Modifier.padding(p)) {
+            // P9: the setups first, with the one you're on named and what the last week looked like.
+            item(key = "presets") {
+                val week = remember(log, now) { weekOf(log, now) }
+                PresetHeader(ScreeningPreset.current(s), week) { presetToApply = it }
+            }
+
             item(key = "status") { ScreeningStatusCard(vm) }
 
             // "Expecting a call" chip in the header.
@@ -214,13 +225,6 @@ fun BlockingScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
                 }
             }
 
-            item(key = "presets") {
-                ListSectionHeader(stringResource(R.string.blk_quick_setups), bottom = 0.dp)
-                Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    PRESETS.forEach { pr -> AssistChip({ presetToApply = pr }, { Text(stringResource(pr.title)) }) }
-                }
-            }
-
             item(key = "main") { BlockingCard {
                 SwitchRow(
                     stringResource(R.string.blk_hidden),
@@ -239,6 +243,41 @@ fun BlockingScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
                     supportingContent = { Column { ActionChoice(s.defaultAction, { a -> setScreening { it.copy(defaultAction = a) } }, Modifier.padding(top = 8.dp)) } },
                 )
             } }
+
+            // ---- Spam lists hero card ----
+            item(key = "lists") {
+                val sum = vm.c.lists.summarize(lists, now)
+                val suggestion = BuiltInPacks.suggestedFor(vm.countryIso).firstOrNull { b -> lists.packs.none { it.id == b.id } && b.id !in lists.dismissedSuggestions }
+                Card(Modifier.fillMaxWidth().padding(16.dp).clickable { open(BlockingRoutes.Lists) }) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.AutoMirrored.Rounded.PlaylistAddCheck, null)
+                            Text("  " + settingTitle("spam_lists"), style = MaterialTheme.typography.titleMedium)
+                        }
+                        Text(
+                            if (sum.lists == 0) stringResource(R.string.blk_no_lists) else
+                                listOfNotNull(
+                                    pluralStringResource(R.plurals.blk_lists_count, sum.lists, sum.lists),
+                                    pluralStringResource(R.plurals.blk_numbers_count, sum.numbers.toPluralCount(), "%,d".format(sum.numbers)),
+                                    sum.updatedAt?.let { stringResource(R.string.blk_updated_ago, ago(it, now)) },
+                                ).joinToString(" · "),
+                            style = MaterialTheme.typography.bodyLarge,
+                        )
+                        if (sum.stale > 0) Text(pluralStringResource(R.plurals.blk_out_of_date_count, sum.stale, sum.stale), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                        Text(stringResource(Help.LISTS), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (suggestion != null) {
+                            Text(stringResource(R.string.blk_suggested_for_sim, suggestion.name), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                            Row {
+                                TextButton({ scope.launch { vm.c.lists.installBuiltIn(suggestion); vm.toast(res.getString(R.string.blk_added, suggestion.name)) } }) { Text(stringResource(R.string.blk_add)) }
+                                TextButton({ scope.launch { vm.c.lists.dismissSuggestion(suggestion.id) } }) { Text(stringResource(R.string.blk_no_thanks)) }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // The rule lists and fine-tuning, under the setups and the spam lists.
+            item(key = "advanced") { ListSectionHeader(stringResource(R.string.blk_advanced), top = 16.dp, bottom = 0.dp) }
 
             // ---- Always let through ----
             item(key = "allow") {
@@ -294,38 +333,6 @@ fun BlockingScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
                     }
                     if (blockRules.isEmpty()) Text(stringResource(R.string.blk_no_rules), Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
                     blockRules.forEach { r -> RuleRow(vm, r, now) { open(BlockingRoutes.rule(r.id)) } }
-                }
-            }
-
-            // ---- Spam lists hero card ----
-            item(key = "lists") {
-                val sum = vm.c.lists.summarize(lists, now)
-                val suggestion = BuiltInPacks.suggestedFor(vm.countryIso).firstOrNull { b -> lists.packs.none { it.id == b.id } && b.id !in lists.dismissedSuggestions }
-                Card(Modifier.fillMaxWidth().padding(16.dp).clickable { open(BlockingRoutes.Lists) }) {
-                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.AutoMirrored.Rounded.PlaylistAddCheck, null)
-                            Text("  " + settingTitle("spam_lists"), style = MaterialTheme.typography.titleMedium)
-                        }
-                        Text(
-                            if (sum.lists == 0) stringResource(R.string.blk_no_lists) else
-                                listOfNotNull(
-                                    pluralStringResource(R.plurals.blk_lists_count, sum.lists, sum.lists),
-                                    pluralStringResource(R.plurals.blk_numbers_count, sum.numbers.toPluralCount(), "%,d".format(sum.numbers)),
-                                    sum.updatedAt?.let { stringResource(R.string.blk_updated_ago, ago(it, now)) },
-                                ).joinToString(" · "),
-                            style = MaterialTheme.typography.bodyLarge,
-                        )
-                        if (sum.stale > 0) Text(pluralStringResource(R.plurals.blk_out_of_date_count, sum.stale, sum.stale), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                        Text(stringResource(Help.LISTS), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        if (suggestion != null) {
-                            Text(stringResource(R.string.blk_suggested_for_sim, suggestion.name), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
-                            Row {
-                                TextButton({ scope.launch { vm.c.lists.installBuiltIn(suggestion); vm.toast(res.getString(R.string.blk_added, suggestion.name)) } }) { Text(stringResource(R.string.blk_add)) }
-                                TextButton({ scope.launch { vm.c.lists.dismissSuggestion(suggestion.id) } }) { Text(stringResource(R.string.blk_no_thanks)) }
-                            }
-                        }
-                    }
                 }
             }
 
@@ -513,7 +520,7 @@ fun BlockingScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
             title = stringResource(pr.title),
             text = stringResource(pr.help),
             confirmLabel = stringResource(R.string.blk_use_this),
-            onConfirm = { scope.launch { vm.c.settings.update(pr.apply) }; presetToApply = null },
+            onConfirm = { scope.launch { vm.c.settings.update(pr::apply) }; presetToApply = null },
             onDismiss = { presetToApply = null },
             dismissLabel = stringResource(R.string.set_cancel),
         )
@@ -746,3 +753,62 @@ private fun legacyReason(r: String) = stringResource(
         else -> R.string.blk_legacy_rule
     },
 )
+
+/** The stopped calls of the last week, with whether each came from a contact (read from its stored trace). */
+private fun weekOf(log: List<BlockedCallEntity>, now: Long): ScreeningWeek = ScreeningWeekly.summarize(
+    log.filter { it.time >= now - ScreeningWeekly.WEEK_MS }.map { e ->
+        StoppedCall(e.time, e.number, silenced = e.action != BlockAction.REJECT.name, fromContact = ScreeningWeekly.fromContact(TraceCodec.decode(e.trace)))
+    },
+    now,
+)
+
+/**
+ * P9: "You're on: Only people I know" and the setups to switch to, each opening what it changes before it's applied;
+ * then the week in one quiet line ("12 calls silenced · no contacts affected").
+ */
+@Composable
+private fun PresetHeader(current: List<ScreeningPreset>, week: ScreeningWeek, pick: (ScreeningPreset) -> Unit) {
+    val names = current.map { stringResource(it.title) }
+    val on = if (names.isEmpty()) stringResource(R.string.blk_own_mix) else names.joinToString(" · ")
+    Card(
+        Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 8.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+    ) {
+        Column(Modifier.padding(vertical = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                stringResource(R.string.blk_youre_on, on), style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(horizontal = 16.dp).semantics { heading() },
+            )
+            Text(weekLine(week), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(horizontal = 16.dp))
+            Row(
+                Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                ScreeningPreset.entries.forEach { p ->
+                    FilterChip(p in current, { pick(p) }, label = { Text(stringResource(p.title)) })
+                }
+            }
+            Text(
+                stringResource(R.string.blk_setups_hint), style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSecondaryContainer, modifier = Modifier.padding(horizontal = 16.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun weekLine(w: ScreeningWeek): String {
+    if (w.stopped == 0) return stringResource(R.string.blk_week_none)
+    val calls = when {
+        w.declined == 0 -> pluralStringResource(R.plurals.blk_week_silenced, w.silenced, w.silenced)
+        w.silenced == 0 -> pluralStringResource(R.plurals.blk_week_declined_only, w.declined, w.declined)
+        else -> stringResource(
+            R.string.blk_week_both,
+            pluralStringResource(R.plurals.blk_week_silenced, w.silenced, w.silenced),
+            pluralStringResource(R.plurals.blk_week_declined, w.declined, w.declined),
+        )
+    }
+    val contacts = if (w.contactsAffected == 0) stringResource(R.string.blk_week_no_contacts)
+    else pluralStringResource(R.plurals.blk_week_contacts, w.contactsAffected, w.contactsAffected)
+    return stringResource(R.string.blk_week_line, calls, contacts)
+}

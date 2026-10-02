@@ -42,6 +42,9 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.R
+import app.parley.common.ux.Tips
+import app.parley.ui.common.tipPending
+import app.parley.ui.common.CoachMark
 import app.parley.common.TextSearch
 import app.parley.common.calls.CallSource
 import app.parley.common.circle.CircleStatus
@@ -58,6 +61,9 @@ import androidx.compose.ui.semantics.semantics
 import app.parley.ui.ParleyListItem
 import app.parley.ui.avatarSize
 
+/** The Circle's explainer shows over people, not over the empty state (which explains it) or a search. */
+private fun showCircleTip(pending: Boolean, empty: Boolean, query: String) = pending && !empty && query.isEmpty()
+
 /**
  * The Circle tab. People with keep-in-touch set, most urgent first, each with a status chip, when you were last
  * in touch and one-tap Call / Message. An empty Circle offers "Suggested from your calls"; a search with no match
@@ -73,7 +79,12 @@ fun CircleTab(vm: AppViewModel, open: (Destination) -> Unit, query: String) {
     val all = rows ?: return
     val q = query.trim()
     val shown = if (q.isEmpty()) all else all.filter { TextSearch.matches(q, it.contact.displayName, it.contact.phones.map { p -> p.number }) }
+    val circleTip = showCircleTip(tipPending(Tips.CONCEPT_CIRCLE), all.isEmpty(), q)
     LazyColumn(contentPadding = PaddingValues(vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        // P18: what the Circle is, once it has people in it (the empty state explains it before that).
+        if (circleTip) item(key = "tip") {
+            CoachMark(Tips.CONCEPT_CIRCLE, stringResource(R.string.tip_concept_circle))
+        }
         when {
             all.isEmpty() -> item(key = "empty") {
                 EmptyState(Icons.Rounded.Groups, stringResource(R.string.circle_empty_title), stringResource(R.string.circle_empty_body), modifier = Modifier.padding(top = 8.dp))
