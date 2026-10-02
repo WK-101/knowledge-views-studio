@@ -92,15 +92,14 @@ class ModelImportActivity : Activity() {
         beginInstall(uris)
     }
 
-    /** One file (data.data) or many (data.clipData), returned in filename order so split parts concatenate right. */
+    /** One file (data.data) or many (data.clipData). Ordering is decided later by [orderParts]. */
     private fun collectUris(data: Intent): List<Uri> {
         val clip = data.clipData
-        val uris = if (clip != null) {
+        return if (clip != null) {
             (0 until clip.itemCount).mapNotNull { clip.getItemAt(it).uri }
         } else {
             listOfNotNull(data.data)
         }
-        return uris.sortedBy { displayName(it) }
     }
 
     private fun displayName(uri: Uri): String =
@@ -116,39 +115,81 @@ class ModelImportActivity : Activity() {
         Thread({ install(uris) }, "model-import").start()
     }
 
-    // The unzip is one cohesive unit (open -> extract -> validate -> swap); any failure must surface as
-    // an error state, never crash the addon, hence the broad catch.
+    // The unzip is one cohesive unit (order -> open -> extract -> validate -> swap); any failure must
+    // surface as an error state (with the reason, so a stuck import can be diagnosed), never crash the
+    // addon, hence the broad catch.
     @Suppress("TooGenericExceptionCaught")
     private fun install(uris: List<Uri>) {
         val tmp = File(filesDir, "${ModelStore.DIR}.tmp")
         try {
             tmp.deleteRecursively()
             tmp.mkdirs()
-            openConcatenated(uris).use { extract(it, tmp) }
+            val ordered = orderParts(uris)
+            openConcatenated(ordered).use { extract(it, tmp) }
 
             if (!isValidModel(tmp)) {
+                val found = tmp.listFiles()?.joinToString(", ") { it.name }.orEmpty().ifBlank { "nothing" }
                 tmp.deleteRecursively()
-                main.post { fail(getString(R.string.import_invalid)) }
+                main.post { fail("${getString(R.string.import_invalid)}\nGot: $found") }
                 return
             }
-            val dest = File(filesDir, ModelStore.DIR)
-            dest.deleteRecursively()
-            if (!tmp.renameTo(dest)) throw IllegalStateException("swap failed")
+            swapIntoPlace(tmp)
             main.post { succeed() }
         } catch (t: Throwable) {
             Log.w(TAG, "model import failed", t)
             tmp.deleteRecursively()
-            main.post { fail(getString(R.string.import_failed)) }
+            val detail = "${t.javaClass.simpleName}: ${t.message.orEmpty()}".trim()
+            main.post { fail("${getString(R.string.import_failed)}\n$detail") }
         }
     }
 
-    /** A single stream over all parts in order — `cat part.001 part.002` reproduces the original zip. */
+    /**
+     * Put the part that carries the ZIP header (magic `PK\x03\x04`) first; the rest follow by name.
+     * A raw split only puts that header on the first part, so this reconstructs the right order even
+     * when a download renamed the parts or the picker returned them out of order — the common reason a
+     * two-part import fails. Falls back to name order if no part shows the magic (e.g. a single .zip).
+     */
+    private fun orderParts(uris: List<Uri>): List<Uri> {
+        if (uris.size <= 1) return uris
+        val head = uris.firstOrNull { startsWithZipMagic(it) }
+        return if (head != null) {
+            listOf(head) + uris.filter { it != head }.sortedBy { displayName(it) }
+        } else {
+            uris.sortedBy { displayName(it) }
+        }
+    }
+
+    private fun startsWithZipMagic(uri: Uri): Boolean = runCatching {
+        contentResolver.openInputStream(uri)?.use { s ->
+            val b = ByteArray(4)
+            var off = 0
+            while (off < 4) {
+                val n = s.read(b, off, 4 - off)
+                if (n < 0) break
+                off += n
+            }
+            off == 4 && b[0] == 0x50.toByte() && b[1] == 0x4B.toByte() &&
+                b[2] == 0x03.toByte() && b[3] == 0x04.toByte()
+        } ?: false
+    }.getOrDefault(false)
+
+    /** A single stream over all parts in order — `cat part1 part2` reproduces the original zip. */
     private fun openConcatenated(uris: List<Uri>): InputStream {
-        if (uris.isEmpty()) throw IllegalStateException("no files")
+        if (uris.isEmpty()) throw IllegalStateException("no files selected")
         val streams = uris.map {
             contentResolver.openInputStream(it) ?: throw IllegalStateException("cannot open $it")
         }
         return java.io.SequenceInputStream(java.util.Collections.enumeration(streams))
+    }
+
+    /** rename is instant when it works; some devices refuse to rename a dir, so fall back to a copy. */
+    private fun swapIntoPlace(tmp: File) {
+        val dest = File(filesDir, ModelStore.DIR)
+        dest.deleteRecursively()
+        if (tmp.renameTo(dest)) return
+        dest.mkdirs()
+        tmp.listFiles()?.forEach { f -> f.copyTo(File(dest, f.name), overwrite = true) }
+        tmp.deleteRecursively()
     }
 
     /** Flatten each entry to its basename: trivial, and it closes zip-slip (no path separators survive). */
