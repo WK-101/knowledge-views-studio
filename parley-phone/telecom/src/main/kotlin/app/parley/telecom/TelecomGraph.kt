@@ -188,6 +188,9 @@ interface CallPolicyHooks {
 
     /** Retry on the failure banner. Returns what to tell the user when the call couldn't be placed, else null. */
     suspend fun redial(number: String, accountId: String?): String? = null
+
+    /** L3: Settings › Calls › "Answer with RTT": ask to switch an answered call to RTT where the SIM supports it. */
+    fun answerWithRtt(): Boolean = false
 }
 
 /** What the call path hands back once a call has rung or ended: history, the ledger, notes. Off the call path. */

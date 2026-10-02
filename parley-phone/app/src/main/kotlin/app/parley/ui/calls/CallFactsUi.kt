@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Subject
 import androidx.compose.material.icons.rounded.Hd
+import androidx.compose.material.icons.rounded.SignalCellularAlt
 import androidx.compose.material.icons.rounded.SignalCellularConnectedNoInternet0Bar
 import androidx.compose.material.icons.rounded.Wifi
 import androidx.compose.material3.Icon
@@ -11,13 +12,17 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.R
+import app.parley.common.calls.CallQualityDiary
 import app.parley.common.calls.CallQualityFacts
+import app.parley.common.calls.NumberQuality
 import app.parley.common.calls.DropKind
 import app.parley.ui.ParleyListItem
 import app.parley.ui.common.Format
@@ -27,7 +32,8 @@ import kotlinx.coroutines.withContext
 
 /**
  * Number history: the facts of recent calls worth knowing (L2, L10): the subject the caller sent, a call the network
- * dropped and why, Wi-Fi calling and HD voice, the SIM. Plain calls with nothing to say aren't listed.
+ * dropped and why, Wi-Fi calling and HD voice, the SIM. Plain calls with nothing to say aren't listed. Above them, one
+ * quality line for the number once it has two connected calls (I8).
  */
 @Composable
 fun CallFactsHistorySection(vm: AppViewModel, number: String) {
@@ -36,9 +42,17 @@ fun CallFactsHistorySection(vm: AppViewModel, number: String) {
         value = withContext(Dispatchers.IO) { runCatching { vm.c.callQuality.forNumber(number) }.getOrDefault(emptyList()) }
     }
     val shown = facts.filter { it.subject != null || it.drop != null || it.wifi || it.hd }.take(MAX_SHOWN)
-    if (shown.isEmpty()) return
+    // I8: one quality line for the number ("7 calls in 60 days, 2 dropped, all on Work").
+    val quality = remember(facts) { CallQualityDiary.numberLine(facts) }
+    if (shown.isEmpty() && quality == null) return
     Column {
         Section(stringResource(R.string.callfacts_section_title))
+        quality?.let { q ->
+            ParleyListItem(
+                leadingContent = { Icon(Icons.Rounded.SignalCellularAlt, null) },
+                headlineContent = { Text(qualityLine(q)) },
+            )
+        }
         shown.forEach { f ->
             ParleyListItem(
                 leadingContent = { Icon(factsIcon(f), null) },
@@ -80,6 +94,24 @@ private fun details(f: CallQualityFacts): String {
         if (f.wifi) add(stringResource(R.string.callfacts_wifi))
         if (f.hd) add(stringResource(R.string.callfacts_hd))
         f.sim?.let(::add)
+    }
+    return parts.joinToString(stringResource(R.string.main_separator))
+}
+
+/** "7 calls in 60 days, 2 dropped, all on Work · 3 over Wi-Fi calling · 5 in HD voice". */
+@Composable
+private fun qualityLine(q: NumberQuality): String {
+    val calls = pluralStringResource(R.plurals.quality_line_calls, q.rate.calls, q.rate.calls)
+    val sim = q.dropSim
+    val main = when {
+        q.rate.drops == 0 -> stringResource(R.string.quality_line_none, calls)
+        sim != null -> stringResource(R.string.quality_line_dropped_sim, calls, q.rate.drops, sim)
+        else -> stringResource(R.string.quality_line_dropped, calls, q.rate.drops)
+    }
+    val parts = buildList {
+        add(main)
+        if (q.wifiCalls > 0) add(pluralStringResource(R.plurals.quality_line_wifi, q.wifiCalls, q.wifiCalls))
+        if (q.hdCalls > 0) add(pluralStringResource(R.plurals.quality_line_hd, q.hdCalls, q.hdCalls))
     }
     return parts.joinToString(stringResource(R.string.main_separator))
 }

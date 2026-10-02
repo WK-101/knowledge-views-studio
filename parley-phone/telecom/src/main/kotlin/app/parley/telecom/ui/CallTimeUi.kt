@@ -26,6 +26,7 @@ import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.FamilyRestroom
 import androidx.compose.material.icons.rounded.GroupAdd
 import androidx.compose.material.icons.rounded.HourglassTop
+import androidx.compose.material.icons.rounded.Keyboard
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material.icons.rounded.TimerOff
@@ -175,6 +176,18 @@ internal fun RemainingLine(timing: CallTiming?) {
     )
 }
 
+/** L3: More › "Switch to RTT", or "RTT conversation" once it's on. */
+@Composable
+private fun RttMoreRow(active: Boolean, onClick: () -> Unit) {
+    ParleyListItem(
+        headlineContent = { Text(stringResource(if (active) R.string.rtt_more_open else R.string.rtt_more_start)) },
+        supportingContent = { Text(stringResource(if (active) R.string.rtt_more_open_explainer else R.string.rtt_more_start_explainer)) },
+        leadingContent = { Icon(Icons.Rounded.Keyboard, null) },
+        colors = rowColors(),
+        modifier = Modifier.clickable(onClick = onClick),
+    )
+}
+
 /**
  * The in-call "More" sheet: the call controls that didn't fit the grid (same icons and names), Add a note, Open
  * contact and Copy number, then the call's time: wrap-up chips (+2 / +5 min, End in 1 min, Don't end). In supervised mode a limit
@@ -199,6 +212,9 @@ internal fun CallMoreSheet(
     onClaimsFamily: (() -> Unit)? = null,
     /** I5 "Add my helper": calls a trusted person to join (never during an emergency call). */
     onAddHelper: (() -> Unit)? = null,
+    /** L3: "Switch to RTT" (the SIM supports it), or "RTT conversation" once [rttActive]. */
+    onRtt: (() -> Unit)? = null,
+    rttActive: Boolean = false,
 ) {
     ParleySheet(onDismissRequest = onDismiss, title = stringResource(R.string.incall_more_options)) {
         controls.forEach { c ->
@@ -210,6 +226,7 @@ internal fun CallMoreSheet(
             )
         }
         // Each says in one line what it does, the first time and every time (P18).
+        if (onRtt != null) RttMoreRow(rttActive) { onDismiss(); onRtt() }
         if (onHoldMode != null) {
             ParleyListItem(
                 headlineContent = { Text(stringResource(R.string.holdmode_start)) },

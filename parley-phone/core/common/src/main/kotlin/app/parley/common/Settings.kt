@@ -74,6 +74,8 @@ data class AppSettings(
     val recentsFilter: String = "",
     /** Show contact photos (and call-screen pictures) on the call screen; a contact can override it either way. */
     val showCallerPhoto: Boolean = true,
+    /** L3: ask to switch answered calls to RTT (real-time text) where the SIM supports it. */
+    val answerWithRtt: Boolean = false,
 ) {
     companion object {
         val DEFAULT_QUICK_REPLIES = listOf(

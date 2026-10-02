@@ -844,4 +844,13 @@
     <string name="set_temp_ask_first_title">Ask before deleting temporary contacts</string>
     <string name="set_temp_ask_first_summary">When their time is up, one notification asks: delete, keep 7 more days or keep</string>
     <string name="set_temp_ask_first_kw">temporary, temp, expire, expiry, confirm, ask, delete automatically, keep</string>
+    <!-- Settings › Calls › Accessibility: RTT (real-time text) -->
+    <string name="set_group_call_accessibility">Accessibility</string>
+    <string name="set_answer_rtt_title">Answer with RTT</string>
+    <string name="set_answer_rtt_summary">Switch answered calls to real-time text where your carrier supports it</string>
+    <string name="set_answer_rtt_kw">rtt, real-time text, real time text, tty, teletype, deaf, hard of hearing, hearing, text call, type, accessibility</string>
+    <string name="set_rtt_system_title">TTY and RTT settings</string>
+    <string name="set_rtt_system_summary">Android\'s own call accessibility settings: RTT visibility and TTY mode</string>
+    <string name="set_rtt_about">RTT sends text letter by letter during a call, so you can type and read instead of (or as well as) talking. It works only where your carrier supports it, mostly on 4G and Wi-Fi calling in the US, and the other phone has to support it too. Where it isn\'t offered, Parley doesn\'t show it. Switch to RTT any time from More in a call.</string>
+    <string name="set_rtt_unavailable">None of your SIMs offers RTT right now. Your carrier may not support it, or it may be off in Android\'s TTY and RTT settings.</string>
 </resources>

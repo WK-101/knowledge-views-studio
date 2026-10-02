@@ -45,6 +45,7 @@ object SettingsText {
         "call_haptics" to Triple(R.string.set_call_haptics_title, R.string.set_call_haptics_summary, R.string.set_call_haptics_kw),
         "connect_haptic" to Triple(R.string.set_connect_haptic_title, R.string.set_connect_haptic_summary, R.string.set_connect_haptic_kw),
         "unknown_ringtone" to Triple(R.string.set_unknown_ringtone_title, R.string.set_unknown_ringtone_summary, R.string.set_unknown_ringtone_kw),
+        "answer_rtt" to Triple(R.string.set_answer_rtt_title, R.string.set_answer_rtt_summary, R.string.set_answer_rtt_kw),
         "pocket_guard" to Triple(R.string.set_pocket_guard_title, R.string.set_pocket_guard_summary, R.string.set_pocket_guard_kw),
         "missed_realert" to Triple(R.string.set_missed_realert_title, R.string.set_missed_realert_summary, R.string.set_missed_realert_kw),
         "auto_answer" to Triple(R.string.set_auto_answer_title, R.string.set_auto_answer_summary, R.string.set_auto_answer_kw),

@@ -139,6 +139,8 @@ fun InsightsScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
             }
             // The People card (its own windows: this month, open loops, the last year).
             item(key = "people") { PeopleCard(vm, idx, open) }
+            // I8: drop rates, patterns and recent drops (its own 60-day window, from the calls' quality facts).
+            item(key = "quality") { QualityCard(vm, idx, open) }
             if (weeks.size > 1) {
                 item { Section(stringResource(R.string.hist_talk_per_week)) }
                 item { WeeklyBars(weeks, Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) }
