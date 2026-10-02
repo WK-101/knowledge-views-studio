@@ -1,5 +1,6 @@
 package app.parley.ui.contact
 
+import app.parley.ui.people.cards.CardUpdateBanner
 import app.parley.ui.Destination
 import android.provider.ContactsContract
 import android.text.format.DateUtils
@@ -868,6 +869,8 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                     }
                 }
             }
+            // I14: a newer signed card from this person, waiting for review (never applied by itself).
+            if (ui.access == PrivateAccess.OPEN && d.lookupKey.isNotEmpty()) item(key = "card_update") { CardUpdateBanner(vm, contactId, d.lookupKey, d) }
             // A private contact while the vault is locked: its name, photo and numbers only, and the unlock right here.
             if (ui.access != PrivateAccess.OPEN && ui.access != PrivateAccess.OPENING) item(key = "access") {
                 PrivateAccessRow(ui.access, onUnlock = ::unlock, onRetry = page::reload, onKeep = page::keepWhatIsLeft)

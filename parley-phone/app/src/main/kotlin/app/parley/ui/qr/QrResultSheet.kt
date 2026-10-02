@@ -109,6 +109,10 @@ import app.parley.ui.Routes
 import app.parley.ui.blocking.BlockingRoutes
 import app.parley.ui.extras.ExtrasRoutes
 import app.parley.ui.extras.SimpleInbox
+import app.parley.ui.extras.MyCardQrDialog
+import app.parley.ui.people.cards.CardArrivalNotes
+import app.parley.ui.people.cards.CardSharing
+import androidx.compose.runtime.LaunchedEffect
 import app.parley.ui.temporary.SaveTemporaryDialog
 import app.parley.ui.temporary.TemporaryContactActions
 import java.time.ZoneId
@@ -274,6 +278,15 @@ private fun ColumnScope.ContactResult(vm: AppViewModel, p: QrPayload.Contact, on
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
+    // A signed card (I14): an update for a contact who has it, linked, or a warning when its signature doesn't hold.
+    if (p.format == ContactFormat.VCARD) CardArrivalNotes(vm, p.raw, onOpen = onDismiss)
+    // Scanned right after showing your own code: a QR swap, for "Shared with" (I22).
+    LaunchedEffect(p) {
+        p.records.singleOrNull()?.let { r ->
+            val d = RecordDetails.toDetails(r)
+            CardSharing.swapScanned(vm.c, nameOf(r, d), d.phones.firstOrNull()?.value)
+        }
+    }
     // Favourite, voicemail, ringtone and labels from a stranger's card stay off unless ticked here.
     val asks = remember(p) { ScannedCard.flags(p.records) }
     var allowed by remember(p) { mutableStateOf(emptySet<ScannedCard.Flag>()) }
@@ -401,6 +414,10 @@ private fun ColumnScope.ContactCard(vm: AppViewModel, record: ContactRecord, onD
         vm.pendingPrefill = details
         open(Routes.pick(Routes.PREFILL_MARK))
     }
+    // Swap: show them your card back (it goes into "Shared with").
+    var showMine by remember { mutableStateOf(false) }
+    Action(stringResource(R.string.handshake_show_mine), Icons.Rounded.QrCode2) { showMine = true }
+    if (showMine) MyCardQrDialog(vm, to = name to details.phones.firstOrNull()?.value) { showMine = false }
     if (hidden && allCardsVcard != null) {
         Note(stringResource(R.string.qs_hidden_fields))
         Action(stringResource(R.string.qs_import_as_is), Icons.Rounded.FileDownload) {

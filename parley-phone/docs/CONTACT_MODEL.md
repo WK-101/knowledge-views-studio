@@ -47,6 +47,7 @@ ContactVariants(storage, expiresAt) (what it is)
 | The original address-book record it was made private with (photo included) and its carried interactions | Vault details, extra part (same key; opened only by Make visible, backups and the first seeding) | No |
 | Photo | Vault photo file, sealed with the caller-ID key | Yes (the call screen shows it) |
 | Circle rhythm, relation links, yearly dates, logged moments, call-screen picture | Parley's own stores under `parley-private:<id>` (moments' notes sealed as for every contact) | Parley only; the page shows them after unlock |
+| The signed card it is linked to and an update waiting (4.6) | `card_links` under `parley-private:<id>`, sealed with the small-records key | Parley only; the page offers the update after unlock, Apply asks for it |
 | Calls | Private call history (when "Private call history" is on) | As before |
 | Own call time limit, talk-time reminder, "never limit" | Call-time settings under `parley-private:<id>`, **without a name** (lists show it from the vault) | Parley only |
 | A deleted private contact | `no_backup/vault_trash`: the entry exactly as stored (details still under the detail key), its photo, private calls and Parley data, the whole file sealed with the caller-ID key, 30 days (`PrivateTrash`) | Counted without opening; listed only after the vault's unlock |
@@ -143,6 +144,7 @@ Parley as the phone app (or the call-screening role), like every screening featu
 | Ringtone, Send to voicemail | Yes (Android) | No | Yes, applied by Parley's call screening and ringer |
 | Vibration pattern (haptic caller ID), auto-answer, pronouns (4.4) | Yes (Parley, by lookup key; pronouns in a Parley data row) | No | Yes (caller-ID copy; pronouns sealed in the details and on the caller card), moved both ways by the conversions |
 | Call time limit, talk-time reminder | Yes | No | Yes (by its Parley key; the limit keeps no name outside the vault) |
+| Signed card updates ("Ana sent an updated card", 4.6) | Yes | No | Yes (the link by its Parley key; Apply edits the sealed details; never named in discreet mode) |
 | Date chips on the page ("Add birthday") | Yes | No | Yes (into the sealed details) |
 | Multi-select in Contacts | Yes | No (long-press didn't select) | Yes: star, Add to label, Message all, Introduce, Delete automatically…, Make visible, Delete. Share, Export, Copy as text and Merge act on the device contacts and say how many private ones they left out |
 | Favourites (star) | Address-book star | No | Parley's own star (other apps never see it); in the Favourites tab with the lock badge |

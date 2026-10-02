@@ -11,6 +11,8 @@ import app.parley.ui.Destination
 import app.parley.ui.appVm
 import app.parley.ui.contact.ContactEditScreen
 import app.parley.ui.contact.afterEdit
+import app.parley.ui.people.cards.NewNumberScreen
+import app.parley.ui.people.cards.SharedWithScreen
 import kotlinx.serialization.Serializable
 
 /** Destinations of the contacts and privacy features (registered by [peopleGraph]). */
@@ -35,6 +37,12 @@ object PeopleRoutes {
     /** My card in the contact editor (its My card mode). */
     @Serializable data object MeEdit : Destination
 
+    /** My card › Shared with (I22). */
+    @Serializable data object SharedWith : Destination
+
+    /** My card › "Changed my number" (I14). */
+    @Serializable data object NewNumber : Destination
+
     fun label(title: String): Destination = Label(title)
     fun editRaw(contactId: Long, rawId: Long): Destination = EditRaw(contactId, rawId)
 }
@@ -58,6 +66,8 @@ fun NavGraphBuilder.peopleGraph(nav: NavController) {
     composable<PeopleRoutes.PrivateNames> { PrivateNamesScreen(appVm(), back) }
     composable<PeopleRoutes.Diagnostics> { DiagnosticsScreen(appVm(), back) }
     composable<PeopleRoutes.Me> { MeCardScreen(appVm(), back, open) }
+    composable<PeopleRoutes.SharedWith> { SharedWithScreen(appVm(), back) }
+    composable<PeopleRoutes.NewNumber> { NewNumberScreen(appVm(), back) }
     composable<PeopleRoutes.MeEdit> {
         ContactEditScreen(appVm(), contactId = null, prefillName = "", prefillPhone = "", prefillEmail = "", addPhone = "", meCard = true, done = { back() })
     }

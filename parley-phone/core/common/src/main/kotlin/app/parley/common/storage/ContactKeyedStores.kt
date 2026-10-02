@@ -23,6 +23,8 @@ object ContactKeyedStores {
         StoreKind.PREFS to "parley_extras",
         // The contact's own call time limit, talk-time reminder and "never limit" (by key; a private one keeps no name).
         StoreKind.PREFS to "parley_calling",
+        // The signed card a contact is linked to, and an update waiting for it.
+        StoreKind.PREFS to "card_links",
     )
 
     /** The registry entries, or null for a name the registry doesn't know (the test fails on it). */

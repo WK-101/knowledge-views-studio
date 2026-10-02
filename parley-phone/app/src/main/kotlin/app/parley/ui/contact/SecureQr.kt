@@ -207,6 +207,6 @@ fun ReceiveSecureQrDialog(vm: AppViewModel, uri: Uri, onDone: () -> Unit, openEd
                 }) { Text(stringResource(R.string.sqr_save_phone)) }
             },
         )
-        if (showMine) MyCardQrDialog(vm) { showMine = false }
+        if (showMine) MyCardQrDialog(vm, to = r.displayName to r.phones.firstOrNull()?.value) { showMine = false }
     }
 }

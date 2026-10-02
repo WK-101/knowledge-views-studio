@@ -62,6 +62,9 @@ object Tips {
     /** "Paste details" at the top of a new contact, the first time it shows. */
     const val PASTE_DETAILS = "paste_details"
 
+    /** My card: shared cards are signed, so contacts with Parley get your updates; "Shared with" lists who has it. */
+    const val SIGNED_CARD = "signed_card"
+
     /** Ids are stored comma-separated; anything that isn't a plain id is dropped. */
     private val ID = Regex("[a-z0-9_]{1,40}")
 

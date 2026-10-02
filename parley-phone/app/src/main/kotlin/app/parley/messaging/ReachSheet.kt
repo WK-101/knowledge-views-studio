@@ -71,6 +71,8 @@ import app.parley.common.Messenger
 import app.parley.common.MessageDrafts
 import app.parley.common.MessengerApp
 import app.parley.common.MessengerLinks
+import app.parley.common.cards.ShareMethod
+import app.parley.ui.people.cards.CardSharing
 import app.parley.common.NumberText
 import app.parley.common.PhoneNumbers
 import app.parley.common.ReachGroup
@@ -482,6 +484,12 @@ private fun NumberReach(number: String, accountId: String?, onCall: ((String) ->
     val isContact = known == true
     fun toast(text: String) = showMessage(context, text, long = true)
 
+    /** "Send my details" went out (the draft still carries your number): it goes into My card › Shared with (I22). */
+    fun sharedDetails() {
+        val mine = details.number
+        if (mine.isNotBlank() && draft.contains(mine)) CardSharing.record(c, "", e164 ?: number, ShareMethod.SEND_DETAILS, listOf(mine))
+    }
+
     fun launch(app: MessengerApp) {
         val link = e164?.let { MessengerLinks.build(app, it, draft) } ?: return
         if (draft.isNotBlank() && !app.takesText) {
@@ -497,6 +505,7 @@ private fun NumberReach(number: String, accountId: String?, onCall: ((String) ->
         if (error != null) return toast(error)
         store.lastApp = app.packageName
         store.recordOpened(number, app, app.label, isContact)
+        sharedDetails()
         onLaunched(app)
     }
     fun startRow(g: ReachGroup, video: Boolean) {
@@ -600,6 +609,7 @@ private fun NumberReach(number: String, accountId: String?, onCall: ((String) ->
                     toast(error)
                 } else {
                     store.recordOpened(number, null, "SMS", isContact = true)
+                    sharedDetails()
                     onLaunched(null)
                 }
             }

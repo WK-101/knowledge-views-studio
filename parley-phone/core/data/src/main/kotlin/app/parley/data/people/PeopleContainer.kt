@@ -8,6 +8,7 @@ import android.provider.ContactsContract.Data
 import android.util.Base64
 import app.parley.common.Duplicates
 import app.parley.common.PhoneNumbers
+import app.parley.common.people.ContactRef
 import app.parley.data.DataContainer
 import app.parley.data.backup.BackupExtras
 import app.parley.data.backup.ConfirmedRestore
@@ -50,6 +51,15 @@ class PeopleContainer(private val c: DataContainer) {
     val diagnostics by lazy { Diagnostics(c.appContext) }
     /** Your own card. */
     val me by lazy { MeCardStore(c.appContext) }
+
+    /** My card's id and signing key (I14). */
+    val cardIdentity by lazy { MyCardIdentity(c.appContext) }
+
+    /** "Shared with": who got your card (I22). */
+    val shareLedger by lazy { ShareLedgerStore(c.appContext) }
+
+    /** Contacts linked to their signed cards, and updates waiting (I14). */
+    val cardLinks by lazy { CardLinkStore(c.appContext) }
     /** Opt-in local crash capture. */
     val crashes by lazy { CrashStore(c.appContext) }
     val backupExtras: BackupExtras by lazy { PeopleBackupExtras(this, c) }
@@ -105,6 +115,10 @@ private class PeopleBackupExtras(private val p: PeopleContainer, private val c: 
         p.prefs.exportMap().forEach { (k, v) -> out["${BackupExtras.PREFIX}people.$k"] = v }
         out["${BackupExtras.PREFIX}privatenames.approvals"] = p.privateNames.exportApprovals()
         p.me.exportJson()?.let { out["${BackupExtras.PREFIX}me.card"] = it }
+        p.cardIdentity.exportJson()?.let { out["${BackupExtras.PREFIX}me.identity"] = it }
+        p.shareLedger.exportJson()?.let { out["${BackupExtras.PREFIX}me.shared"] = it }
+        // Private contacts' links travel only in the private-contacts section (ContactKeys.exportPrivate).
+        p.cardLinks.exportDevice(ContactRef::isPrivateKey)?.let { out["${BackupExtras.PREFIX}cards.links"] = it }
         val stored = p.backgrounds.storedHashes()
         if (stored.isNotEmpty()) {
             val contacts = withTimeoutOrNull(30_000) { c.contacts.contacts.filterNotNull().first() }.orEmpty()
@@ -170,6 +184,9 @@ private class PeopleBackupExtras(private val p: PeopleContainer, private val c: 
         p.prefs.importMap(values.filterKeys { it.startsWith(peoplePrefix) }.mapKeys { it.key.removePrefix(peoplePrefix) })
         values["${BackupExtras.PREFIX}privatenames.approvals"]?.let { a -> if (a != p.privateNames.exportApprovals()) pendingApprovals = a }
         values["${BackupExtras.PREFIX}me.card"]?.let { p.me.importJson(it) }
+        values["${BackupExtras.PREFIX}me.identity"]?.let { p.cardIdentity.importJson(it) }
+        values["${BackupExtras.PREFIX}me.shared"]?.let { p.shareLedger.importJson(it) }
+        values["${BackupExtras.PREFIX}cards.links"]?.let { importCardLinks(it) }
         importOriginals(values)
         val bgs = values.filterKeys { it.startsWith("${BackupExtras.PREFIX}bg.") }
         if (bgs.isEmpty()) return
@@ -186,6 +203,16 @@ private class PeopleBackupExtras(private val p: PeopleContainer, private val c: 
             } ?: continue
             val bytes = runCatching { Base64.decode(o.getString("jpeg"), Base64.NO_WRAP) }.getOrNull() ?: continue
             p.backgrounds.write(target.lookupKey, bytes)
+        }
+    }
+
+    /** Device contacts' card links: under the same lookup key when it still exists, else the contact with a card number. */
+    private suspend fun importCardLinks(json: String) {
+        val contacts = withTimeoutOrNull(30_000) { c.contacts.contacts.filterNotNull().first() }.orEmpty()
+        val keys = contacts.map { it.lookupKey }.toSet()
+        p.cardLinks.importDevice(json) { key, fields ->
+            key.takeIf { it in keys } ?: contacts.filter { ct -> ct.phones.any { ph -> fields.phones.any { PhoneNumbers.same(it, ph.number, null) } } }
+                .singleOrNull()?.lookupKey
         }
     }
 
