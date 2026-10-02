@@ -215,3 +215,7 @@ Arabic place names only (no data exists for Hindi or Urdu), and other languages 
 
 - **Offline caller-location data** (libphonenumber geocoder, English names): China (86) is 0.79 MB and Australia (61) 0.40 MB of the shipped prefix files.
 - **Translations** in `resources.arsc` (2.3 MB with eight locales; Parley is English-only for now and the newest screens aren't translated).
+
+## English-only (4.6)
+
+Parley ships English only from 4.6: the eight translation folders and the language picker are gone, `localeFilters` keeps only English, and a language picked in an older version is reset once at start. The budget is back at 12 MiB.

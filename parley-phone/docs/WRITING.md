@@ -1,6 +1,6 @@
 # Writing for Parley
 
-How Parley talks to people (U7, round 5). Every new string follows this guide. Parley is English-only for now; other languages are not a priority. The names of things (Favourites, Circle, Labels, History & undo, "Message or call on…"…) are fixed in [GLOSSARY.md](GLOSSARY.md).
+How Parley talks to people (U7, round 5). Every new string follows this guide. Parley is English-only (since 4.6 the app ships no translations). The names of things (Favourites, Circle, Labels, History & undo, "Message or call on…"…) are fixed in [GLOSSARY.md](GLOSSARY.md).
 
 ## Voice
 
@@ -34,9 +34,7 @@ How Parley talks to people (U7, round 5). Every new string follows this guide. P
 ## Mechanics
 
 - Sentence case for titles and buttons ("Keep in touch", not "Keep In Touch").
-- Use `plurals` for any count, and `%1$s`-style numbered placeholders so translators can reorder them.
+- Use `plurals` for any count, and `%1$s`-style numbered placeholders.
 - Wrap phone numbers in `Bidi.ltr()` so they read correctly in Arabic and Urdu.
 - Store dates, numbers and keys with `Locale.ROOT`. Format them for display with the user's locale.
 - No hard-coded UI text (the `checkHardcodedText` task warns about it).
-- German uses "Sie"; the other languages use the everyday polite form of their platform's system apps.
-- Translations are machine-assisted until a native speaker reviews them. Mark reviewed files in the PR description.

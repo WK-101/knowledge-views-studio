@@ -72,18 +72,9 @@ android {
 
     buildFeatures { compose = true }
 
-    // Per-app language. The locale list (android:localeConfig) is generated from the values-* folders, with
-    // res/resources.properties naming the language of the default strings.
-    androidResources {
-        generateLocaleConfig = true
-        // Only the languages Parley's own strings come in (keep in step with the values-* folders). Libraries
-        // (Material 3, Compose) bring their 67 strings in about 80 more languages; each of those cost a full offset
-        // table in resources.arsc (4 bytes for every string Parley has), about 1.5 MB in all, for a few labels that a
-        // user of such a language now sees in English, like the rest of Parley.
-        localeFilters += listOf("en", "ar", "de", "es", "fr", "hi", "pt-rBR", "ur")
-    }
-    // The in-app language picker (Android 10-12) needs every language in the APK, also when built as a bundle.
-    bundle { language { enableSplit = false } }
+    // Parley is English-only. Libraries (Material 3, Compose) bring their few strings in about 80 languages; each
+    // costs a full offset table in resources.arsc (4 bytes for every string Parley has), so only English is kept.
+    androidResources { localeFilters += listOf("en") }
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -208,12 +199,11 @@ val forbiddenPermissions = listOf(
     "com.google.android.gms.permission.AD_ID",
 )
 
-// APK-size budget, the ≤ 12 MiB target (the release APK was 13.3 MiB at 4.3.0 and 11.7 MiB after trimming; see
-// docs/PERFORMANCE_BENCHMARKS.md): `./gradlew :app:checkReleaseApkSize` builds the release APK and fails above the
-// budget, so growth is a decision rather than an accident. CI runs it. 4.5 (number memory, reputation, family safety,
-// profiles) grew it to 12.2 MiB: the budget is 12.5 MiB until the next trim (geocoder data or unused locales, a product
-// decision, see docs/PERFORMANCE_BENCHMARKS.md).
-val apkBudgetBytes = 12L * 1024 * 1024 + 512L * 1024
+// APK-size budget, the ≤ 12 MiB target (13.3 MiB at 4.3.0, 11.7 MiB after trimming, 12.2 MiB with 4.5's features,
+// back under once Parley became English-only in 4.6; see docs/PERFORMANCE_BENCHMARKS.md): `./gradlew
+// :app:checkReleaseApkSize` builds the release APK and fails above the budget, so growth is a decision rather than an
+// accident. CI runs it.
+val apkBudgetBytes = 12L * 1024 * 1024
 
 androidComponents {
     onVariants { variant ->

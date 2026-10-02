@@ -2,7 +2,6 @@ package app.parley.telecom
 
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothDevice
-import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.OutcomeReceiver
@@ -13,7 +12,6 @@ import android.telecom.CallEndpointException
 import android.telecom.InCallService
 import androidx.annotation.RequiresApi
 import app.parley.telecom.ui.InCallActivity
-import app.parley.ui.AppLocale
 
 /**
  * Bound by Telecom while there are calls. Telecom binds it with foreground/top-app priority, so no
@@ -22,10 +20,6 @@ import app.parley.ui.AppLocale
 // Telephony calls here are covered by the default-dialer role and each one handles SecurityException.
 @SuppressLint("MissingPermission")
 class ParleyInCallService : InCallService() {
-    // The in-app language on Android 10-12 (Android 13+ applies per-app languages itself).
-    override fun attachBaseContext(newBase: Context) {
-        super.attachBaseContext(AppLocale.wrap(newBase))
-    }
 
     private lateinit var notifier: CallNotifier
     private lateinit var proximity: ProximityController

@@ -3,7 +3,6 @@ package app.parley.security
 import java.util.WeakHashMap
 import android.os.Bundle
 import android.app.Activity
-import android.content.Context
 import android.os.Build
 import android.view.View
 import app.parley.ui.SensitiveDialogs
@@ -15,7 +14,6 @@ import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.lifecycleScope
 import app.parley.common.AppSettings
 import app.parley.container
-import app.parley.ui.AppLocale
 import kotlinx.coroutines.launch
 
 /**
@@ -34,12 +32,6 @@ import kotlinx.coroutines.launch
 abstract class LockedActivity : FragmentActivity() {
     /** Whether the whole window hides other apps' overlays (screens that act for another app). */
     protected open val hidesOverlays: Boolean = false
-
-    // The in-app language on Android 10-12 (Android 13+ applies per-app languages itself).
-    override fun attachBaseContext(newBase: Context) {
-        super.attachBaseContext(newBase)
-        AppLocale.override(this, newBase)
-    }
 
     override fun onPostCreate(savedInstanceState: Bundle?) {
         super.onPostCreate(savedInstanceState)

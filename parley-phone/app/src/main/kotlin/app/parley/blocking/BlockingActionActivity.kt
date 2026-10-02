@@ -1,10 +1,8 @@
 package app.parley.blocking
 
 import android.app.Activity
-import android.content.Context
 import android.os.Bundle
 import app.parley.container
-import app.parley.ui.AppLocale
 import kotlinx.coroutines.launch
 
 /**
@@ -13,11 +11,6 @@ import kotlinx.coroutines.launch
  * call" and "Not spam" can't be triggered by someone holding a locked phone.
  */
 class BlockingActionActivity : Activity() {
-    // The in-app language on Android 10-12 (Android 13+ applies per-app languages itself).
-    override fun attachBaseContext(newBase: Context) {
-        super.attachBaseContext(newBase)
-        AppLocale.override(this, newBase)
-    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

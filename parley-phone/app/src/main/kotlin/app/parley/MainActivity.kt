@@ -3,7 +3,6 @@ package app.parley
 import app.parley.security.SharedUris
 import app.parley.security.LockedActivity
 import android.Manifest
-import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -32,7 +31,6 @@ import app.parley.data.EmergencyNumbers
 import app.parley.security.AppLock
 import app.parley.security.LockScreen
 import app.parley.shortcuts.CircleWidget
-import app.parley.ui.AppLocale
 import app.parley.ui.blocking.BlockingDialog
 import app.parley.ui.blocking.BlockingDialogs
 import app.parley.ui.extras.SimpleInbox

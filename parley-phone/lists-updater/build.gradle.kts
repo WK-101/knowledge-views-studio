@@ -68,9 +68,8 @@ android {
 
     buildFeatures { compose = true }
 
-    // Per-app language. The locale list (android:localeConfig) is generated from the values-* folders, with
-    // res/resources.properties naming the language of the default strings.
-    androidResources { generateLocaleConfig = true }
+    // English-only, like Parley.
+    androidResources { localeFilters += listOf("en") }
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
