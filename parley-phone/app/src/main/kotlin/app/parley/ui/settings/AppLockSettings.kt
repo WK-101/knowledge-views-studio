@@ -83,7 +83,7 @@ internal fun UnlockWithScreen(vm: AppViewModel, back: () -> Unit) {
     val pinOn = s.pinSet && !shownOff
     var dialog by rememberSaveable { mutableStateOf<PinDialog?>(null) }
     val confirmed: Confirm = { why, then ->
-        (context as? FragmentActivity)?.let { act -> AppLock.authenticate(act, res.getString(why)) { ok -> if (ok) then() } }
+        (context as? FragmentActivity)?.let { act -> AppLock.confirm(act, res.getString(why)) { ok -> if (ok) then() } }
     }
 
     SettingsScaffold(settingTitle("app_lock_method"), back) {

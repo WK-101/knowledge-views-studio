@@ -230,7 +230,7 @@ fun RestoreFlow(vm: AppViewModel, uri: Uri, onDone: () -> Unit) {
                             Text(stringResource(R.string.rst_safety_waiting), style = MaterialTheme.typography.bodySmall)
                             TextButton({
                                 val act = context as? FragmentActivity ?: return@TextButton
-                                AppLock.authenticate(act, res.getString(R.string.rst_safety_confirm)) { ok ->
+                                AppLock.confirm(act, res.getString(R.string.rst_safety_confirm)) { ok ->
                                     if (ok) scope.launch {
                                         if (repo.applyPendingRestore()) vm.toast(res.getString(R.string.rst_safety_applied))
                                         pending = false

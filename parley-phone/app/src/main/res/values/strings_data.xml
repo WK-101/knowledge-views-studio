@@ -951,6 +951,13 @@
     <string name="privnames_request_text">%1$s asked Parley for the name of a phone number that may belong to one of your private contacts. If you allow it, %1$s can ask for one number\'s name at a time; it never gets a list.</string>
     <string name="privnames_allow">Allow</string>
     <string name="privnames_deny">Don\'t allow</string>
+    <string name="privnames_allow_ask">Allow…</string>
+    <string name="pn_approve_title">Let this app show private names?</string>
+    <string name="pn_approve_title_directory">Let this phone app use the private directory?</string>
+    <string name="pn_approve_package">App (package name)</string>
+    <string name="pn_approve_cert">Signed with (SHA-256 of its certificate)</string>
+    <string name="pn_approve_missing">This app isn\'t installed now, so there\'s nothing to allow.</string>
+    <string name="pn_approve_body">Check that this is the app you expect. An app chooses its own name and icon, so Parley shows the package name and the certificate Android says it is signed with. If you allow it, it can ask for one number\'s name at a time; it never gets a list.</string>
 
     <!-- People: account diagnostics -->
     <string name="ppl_phone">Phone</string>

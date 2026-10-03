@@ -105,8 +105,13 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
         }
     }
 
+    /**
+     * Writes restored settings. While a duress unlock hides things, the safety switches go through the same rule as
+     * [update]: a restore in a duress session changes what the screens show until the next lock, never what is stored.
+     */
     suspend fun importMap(map: Map<String, String>) {
         store.edit { prefs ->
+            val before = prefs.toSettings()
             // A backup from before "Show names as" was a setting of its own has "Sort by" only: names then show the
             // way that phone sorted them, whatever this phone had stored (see NameOrder.showLastFirst).
             if (K.sortFirst.name in map && K.namesLastFirst.name !in map) prefs.remove(K.namesLastFirst)
@@ -119,7 +124,28 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
                     "s" -> prefs[stringPreferencesKey(k)] = body
                 }
             }
+            if (duressSession || Concealment.hiding) keepSafetySwitches(prefs, before, map.keys)
         }
+    }
+
+    /**
+     * A restore while hiding: the safety switches keep their stored values, and the restored ones (or the session's,
+     * where the backup had none) become what the screens show until the next lock, as with [update].
+     */
+    private fun keepSafetySwitches(prefs: MutablePreferences, before: AppSettings, restored: Set<String>) {
+        val shown = DuressPolicy.shown(before, sessionOverlay.value)
+        val after = prefs.toSettings()
+        fun <T> pick(key: Preferences.Key<*>, value: T, kept: T) = if (key.name in restored) value else kept
+        val next = after.copy(
+            appLock = pick(K.appLock, after.appLock, shown.appLock),
+            lockAfterMinutes = pick(K.lockAfter, after.lockAfterMinutes, shown.lockAfterMinutes),
+            secureScreen = pick(K.secure, after.secureScreen, shown.secureScreen),
+            hideVault = pick(K.hideVault, after.hideVault, shown.hideVault),
+            privateVaultHistory = pick(K.privateHistory, after.privateVaultHistory, shown.privateVaultHistory),
+        )
+        val (toStore, overlay) = DuressPolicy.split(before, next)
+        if (duressSession) sessionOverlay.value = overlay
+        prefs.write(toStore)
     }
 
     /**
@@ -312,9 +338,12 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
         private const val SEP = "\u001F"
 
         /**
-         * Settings that protect the phone's content (app lock, its delay, hiding the screen, discreet mode). A backup
-         * never changes them on its own: a restore keeps them waiting until the user confirms with the app lock.
+         * Settings that protect the phone's content (app lock, its delay, hiding the screen, discreet mode, private call
+         * history, what the lock screen shows about a caller). A backup never changes them on its own: a restore keeps
+         * them waiting until the user confirms it's them (the Parley PIN when one is set).
          */
-        val SECURITY_KEYS: Set<String> = setOf(K.appLock.name, K.lockAfter.name, K.secure.name, K.hideVault.name)
+        val SECURITY_KEYS: Set<String> = setOf(
+            K.appLock.name, K.lockAfter.name, K.secure.name, K.hideVault.name, K.privateHistory.name, K.lockScreenCaller.name,
+        )
     }
 }

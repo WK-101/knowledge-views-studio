@@ -101,7 +101,7 @@ internal fun confirmItsYou(context: Context, onOk: () -> Unit) {
         onOk()
         return
     }
-    AppLock.authenticate(activity, activity.getString(R.string.safe_word_confirm)) { ok -> if (ok) onOk() }
+    AppLock.confirm(activity, activity.getString(R.string.safe_word_confirm)) { ok -> if (ok) onOk() }
 }
 
 /**

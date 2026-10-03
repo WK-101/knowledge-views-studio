@@ -4,6 +4,8 @@
     <!-- Lock screen. -->
     <string name="pin_field_label">Parley PIN</string>
     <string name="pin_wrong">That PIN didn\'t work. Try again.</string>
+    <string name="pin_confirm_body">Type your Parley PIN to go on.</string>
+    <string name="pin_confirm_button">Confirm</string>
     <!-- %1$s is a countdown such as "0:30". -->
     <string name="pin_wait">Too many tries. Try again in %1$s</string>
 

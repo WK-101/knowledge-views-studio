@@ -168,7 +168,7 @@ fun CallTimeScreen(vm: AppViewModel, back: () -> Unit) {
                                 noLock = true
                                 return@Switch
                             }
-                            AppLock.authenticate(
+                            AppLock.confirm(
                                 act, res.getString(if (v) R.string.ct_supervised_turn_on else R.string.ct_supervised_turn_off),
                             ) { ok -> if (ok) set { it.copy(supervised = v) } }
                         })
