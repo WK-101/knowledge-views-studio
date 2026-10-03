@@ -35,6 +35,8 @@ data class CallEntry(
     val accountId: String?,
     val isNew: Boolean,
     val presentationHidden: Boolean,
+    /** Android logged it as a video call (`CallLog.Calls.FEATURES_VIDEO`), even if Parley answered it as voice. */
+    val video: Boolean = false,
 )
 
 data class SimAccount(

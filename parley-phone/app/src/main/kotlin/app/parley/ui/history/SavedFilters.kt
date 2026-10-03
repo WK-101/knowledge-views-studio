@@ -129,7 +129,7 @@ fun savedFilterChipCount(vm: AppViewModel): Int {
 
 /** A saved filter's icon: the first letter of its name on a small round tag, or a bookmark when it has none. */
 @Composable
-private fun SavedFilterMonogram(name: String) {
+internal fun SavedFilterMonogram(name: String) {
     val letter = remember(name) { CompactChips.monogram(name) }
     if (letter.isEmpty()) {
         Icon(Icons.Rounded.BookmarkBorder, null, Modifier.size(20.dp))

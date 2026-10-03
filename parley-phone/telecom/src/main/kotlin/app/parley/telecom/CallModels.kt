@@ -3,6 +3,7 @@ package app.parley.telecom
 import app.parley.common.Verification
 import app.parley.common.calls.DropKind
 import app.parley.common.calls.FailureKind
+import app.parley.common.calls.LockScreenCaller
 import app.parley.common.calls.LiveCallState
 import app.parley.common.spam.Reputation
 
@@ -76,6 +77,8 @@ data class CallUi(
     val hdAudio: Boolean = false,
     /** The call goes over Wi-Fi calling (Call.Details.PROPERTY_WIFI). */
     val wifi: Boolean = false,
+    /** It came in as a video call and is (or will be) answered with voice only: Parley has no camera access. */
+    val videoAsVoice: Boolean = false,
     /** The caller's pronouns ("she/her"), shown beside the name. */
     val pronouns: String? = null,
     /** `elapsedRealtime` when this ringing call is answered automatically (0: it isn't); the screen shows Cancel. */
@@ -99,6 +102,8 @@ data class CallUi(
     val numberMemory: NumberMemoryLine? = null,
     /** I11: a car marked in Settings › Calls › Drive profile is connected ("Drive profile on", "Driving" replies). */
     val driving: Boolean = false,
+    /** Shown on the lock screen with less about the caller ([forLockScreen]): [name] stands in, the number stays out of sight. */
+    val lockMasked: Boolean = false,
 ) {
     val title: String get() = name ?: number?.takeIf { it.isNotBlank() } ?: fallbackTitle
     val isLive: Boolean get() = state != CallState.DISCONNECTED && state != CallState.DISCONNECTING
@@ -130,6 +135,35 @@ data class CallUi(
     /** Show the post-call card: an ended call with a number that isn't in contacts. */
     val postCallCard: Boolean
         get() = noContact && !hidden && !isEmergency && !number.isNullOrBlank() && number.count { it.isDigit() } >= 3
+}
+
+/**
+ * This call as the lock screen shows it under [mode] (Settings › Privacy & security › Caller on the lock screen): the
+ * name cut to its initials or replaced by [placeholder] ("Incoming call"), and nothing else that tells who it is: no
+ * number, label, photo, pronouns, notes or subject. Only what is shown changes: the number stays for the actions
+ * (reply, block). An emergency call is left as it is. Private contacts and discreet mode have already taken out
+ * what they hide, so this never shows more than they allow.
+ */
+fun CallUi.forLockScreen(mode: LockScreenCaller, placeholder: String): CallUi {
+    if (lockMasked || isEmergency || !mode.masks(name)) return this
+    return copy(
+        name = mode.shownName(name) ?: placeholder,
+        label = null,
+        photoUri = null,
+        backgroundUri = null,
+        note = null,
+        lastCall = null,
+        subtitle = null,
+        context = null,
+        location = null,
+        memory = null,
+        pronouns = null,
+        subject = null,
+        numberMemory = null,
+        rangThroughUnlocked = null,
+        children = children.map { it.forLockScreen(mode, placeholder) },
+        lockMasked = true,
+    )
 }
 
 /** The state as the pure call-waiting logic in core:common sees it. */

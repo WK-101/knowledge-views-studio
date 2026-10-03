@@ -230,6 +230,9 @@
     <!-- During the call: what the network reports about it, and the caller's local time when it differs from yours. -->
     <string name="incall_hd_voice">HD voice</string>
     <string name="incall_wifi_calling">Wi-Fi calling</string>
+    <string name="incall_video_as_voice_ringing">Video call · you\'ll answer with voice</string>
+    <string name="incall_video_as_voice">Video call · answered as voice</string>
+    <string name="incall_video_as_voice_a11y">Video call. Parley answers with voice only, and your camera stays off.</string>
     <string name="incall_time_there">%1$s there</string>
     <string name="incall_copy_number">Copy number</string>
     <string name="incall_copied">Number copied</string>
