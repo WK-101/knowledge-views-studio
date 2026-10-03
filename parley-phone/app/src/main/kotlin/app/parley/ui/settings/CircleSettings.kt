@@ -44,17 +44,21 @@ import app.parley.ui.LinkRow
 import app.parley.ui.MenuRow
 import app.parley.ui.ParleyDialog
 
-/**
- * Settings › Contacts › Birthdays & dates: the Circle's rows (R3 "Log this?", R4 delivery and weekly cap, R5 lead
- * time). [cfg] is read by the page, so the rows only exist when they apply.
- */
-fun SegmentedGroupScope.circleSettingRows(vm: AppViewModel, cfg: CircleConfig, birthdays: Boolean, nudges: Boolean) {
+/** Settings › Reminders › Birthdays and dates: how early date reminders come (R5), shown while they're on. */
+fun SegmentedGroupScope.dateLeadRow(vm: AppViewModel, cfg: CircleConfig, birthdays: Boolean) {
     if (birthdays) item("date_lead") {
         val options = CircleConfig.LEAD_CHOICES.map { d -> if (d == 0) stringResource(R.string.circle_lead_on_day) else pluralStringResource(R.plurals.circle_lead_days, d, d) }
         MenuRow(settingTitle("date_lead"), options, CircleConfig.LEAD_CHOICES.indexOf(cfg.dateLeadDays).coerceAtLeast(0), Icons.Rounded.Event, settingSummary("date_lead")) { i ->
             vm.c.circle.updateConfig { it.copy(dateLeadDays = CircleConfig.LEAD_CHOICES[i]) }
         }
     }
+}
+
+/**
+ * Settings › Reminders › Keep in touch: how the reminders arrive and the weekly cap (R4). [cfg] is read by the page,
+ * so the rows only exist when they apply.
+ */
+fun SegmentedGroupScope.keepInTouchRows(vm: AppViewModel, cfg: CircleConfig, nudges: Boolean) {
     if (nudges) {
         item("circle_delivery") {
             val options = listOf(stringResource(R.string.circle_delivery_digest), stringResource(R.string.circle_delivery_as_due))
@@ -68,8 +72,10 @@ fun SegmentedGroupScope.circleSettingRows(vm: AppViewModel, cfg: CircleConfig, b
             }
         }
     }
-    item("log_prompts") { LogPromptsRow(vm, cfg) }
 }
+
+/** Settings › Contacts › Circle: "Log this?" after a chat or video call Parley opened (R3). */
+fun SegmentedGroupScope.logPromptsRow(vm: AppViewModel, cfg: CircleConfig) = item("log_prompts") { LogPromptsRow(vm, cfg) }
 
 /** The People card in Insights and its "who reaches out first" part (Settings › Recents & history). */
 fun SegmentedGroupScope.peopleCardRows(vm: AppViewModel, cfg: CircleConfig) {

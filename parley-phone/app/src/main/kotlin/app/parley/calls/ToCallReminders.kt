@@ -1,7 +1,5 @@
 package app.parley.calls
 
-import android.app.NotificationChannel
-import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -33,6 +31,7 @@ import app.parley.data.PhoneEnv
 import app.parley.data.history.CallHistory
 import app.parley.shortcuts.Shortcuts
 import app.parley.ui.Bidi
+import app.parley.work.ReminderChannels
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import java.util.concurrent.TimeUnit
@@ -153,11 +152,7 @@ object ToCallReminders {
     }
 
     private suspend fun post(context: Context, c: DataContainer, due: List<ToCallItem>) {
-        val nm = context.getSystemService(NotificationManager::class.java)
-        nm.createNotificationChannel(
-            NotificationChannel(NotificationChannels.TO_CALL, context.getString(R.string.to_call_channel), NotificationManager.IMPORTANCE_DEFAULT)
-                .apply { setShowBadge(false) },
-        )
+        ReminderChannels.ensure(context, NotificationChannels.TO_CALL)
         val hideVault = c.settings.current().hideVault
         val names = due.map { nameOf(c, it.number, hideVault) }
         val public = NotificationCompat.Builder(context, NotificationChannels.TO_CALL)

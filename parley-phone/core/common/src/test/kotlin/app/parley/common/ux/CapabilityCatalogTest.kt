@@ -23,6 +23,29 @@ class CapabilityCatalogTest {
         assertEquals(rows.size, Job.entries.sumOf { CapabilityCatalog.forJob(it).size })
     }
 
+    @Test fun the_hub_keeps_every_former_tools_row_up_front() {
+        // Tools and "What Parley can do" became one page: what Tools listed stays one tap away, before any "More".
+        val formerTools = listOf(
+            "birthdays", "temporary", "health", "scan_qr", "import_export", "coming_from", "who_rings", "expecting", "messaged",
+            "history_undo", "backup", "privacy_dashboard", "lock_now",
+        )
+        formerTools.forEach { k -> assertTrue("$k is featured", rows.single { it.key == k }.featured) }
+        // Every job shows something before "More", and folds at least part of a long list.
+        Job.entries.forEach { j -> assertTrue("$j has featured rows", CapabilityCatalog.featured(j).isNotEmpty()) }
+        Job.entries.forEach { j -> assertEquals(CapabilityCatalog.forJob(j).size, CapabilityCatalog.featured(j).size + CapabilityCatalog.more(j).size) }
+        assertTrue("the hub starts shorter than the catalog", Job.entries.sumOf { CapabilityCatalog.featured(it).size } < rows.size * 2 / 3)
+    }
+
+    @Test fun actions_run_in_place_and_still_lead_somewhere() {
+        assertEquals(CapabilityAction.LOCK_NOW, rows.single { it.key == "lock_now" }.action)
+        assertEquals(CapabilityAction.EXPECTING_CALL, rows.single { it.key == "expecting" }.action)
+        assertEquals(CapabilityTarget.Setting("app_lock"), rows.single { it.key == "lock_now" }.target)
+        assertEquals(2, rows.count { it.action != null })
+        // The privacy dashboard lives under Settings › Privacy and stays reachable from the privacy job.
+        assertEquals(Job.KEEP_PRIVATE, rows.single { it.target == CapabilityTarget.Screen(AppScreen.PRIVACY_DASHBOARD) }.job)
+        assertEquals(CapabilityTarget.Setting("reminders"), rows.single { it.key == "reminders" }.target)
+    }
+
     @Test fun search_matches_word_starts_in_any_field() {
         fun keys(q: String) = CapabilitySearch.search(q, rows).map { it.key }
         assertTrue("message_number" in keys("whatsapp"))

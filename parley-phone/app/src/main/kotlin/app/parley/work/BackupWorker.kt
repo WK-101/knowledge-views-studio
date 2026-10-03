@@ -1,7 +1,5 @@
 package app.parley.work
 
-import android.app.NotificationChannel
-import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
@@ -52,8 +50,7 @@ class BackupWorker(context: Context, params: WorkerParameters) : CoroutineWorker
         }
 
         fun notify(context: Context, text: String) {
-            val nm = context.getSystemService(NotificationManager::class.java)
-            nm.createNotificationChannel(NotificationChannel(NotificationChannels.BACKUPS, context.getString(R.string.work_channel_backups), NotificationManager.IMPORTANCE_DEFAULT))
+            ReminderChannels.ensure(context, NotificationChannels.BACKUPS)
             val open = PendingIntent.getActivity(
                 context, 77, Intent(context, MainActivity::class.java).setAction(MainActivity.ACTION_OPEN_BACKUP).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
                 PendingIntent.FLAG_IMMUTABLE,

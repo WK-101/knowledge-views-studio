@@ -21,6 +21,7 @@ import app.parley.ui.contact.CallerTunes
 import app.parley.ui.history.ExportFiles
 import app.parley.work.FolderSyncWorker
 import app.parley.work.MaintenanceWorker
+import app.parley.work.ReminderChannels
 import app.parley.work.RemindersWorker
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -104,6 +105,8 @@ class ParleyApp : Application() {
             FolderSyncWorker.reschedule(this@ParleyApp)
             FolderSyncWorker.runSoon(this@ParleyApp)
             RemindersWorker.schedule(this@ParleyApp, container.settings.current().birthdayReminderHour)
+            // Reminder channels made by an older version join the "Reminders" group, keeping their settings.
+            runCatching { ReminderChannels.regroupExisting(this@ParleyApp) }
             // Well after that: stored number keys move to the line key once.
             delay(30_000)
             if (!container.phoneKeys.done) container.phoneKeys.runIfNeeded()

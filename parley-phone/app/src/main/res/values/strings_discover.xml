@@ -1,10 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Finding your way: "What Parley can do", "Coming from another phone?" and the one-line explainers of Parley's concepts. -->
 <resources>
-    <!-- What Parley can do: the page, its search and the jobs it is grouped by. The rows come from CapabilityCatalog. -->
-    <string name="discover_title">What Parley can do</string>
+    <!-- Tools, the one hub (it was called "What Parley can do"): the page, its search and the jobs it is grouped by.
+         The rows come from CapabilityCatalog. -->
+    <string name="discover_title">Tools</string>
     <string name="discover_summary">Everything Parley does, by what you want done</string>
-    <string name="discover_kw">features, help, discover, what\'s new, tour, guide, how to, can it, everything</string>
+    <string name="discover_kw">what Parley can do, features, help, discover, what\'s new, tour, guide, how to, can it, everything, hub, lock now, scan qr, import, export</string>
+    <plurals name="discover_more">
+        <item quantity="one">%1$d more</item>
+        <item quantity="other">%1$d more</item>
+    </plurals>
+    <string name="discover_fewer">Show fewer</string>
+    <string name="discover_whats_new_open">See what\'s new</string>
     <string name="discover_search">Search what Parley can do</string>
     <string name="discover_no_match">Nothing here matches “%1$s”</string>
     <string name="discover_new_in">New in %1$s</string>
@@ -34,6 +41,12 @@
     <string name="discover_history_undo_summary">History &amp; undo keeps 30 days of changes</string>
     <string name="discover_snapshots_title">Daily snapshots</string>
     <string name="discover_snapshots_summary">See what changed in your contacts, and put any version back</string>
+    <string name="discover_import_export_title">Import &amp; export contacts</string>
+    <string name="discover_import_export_summary">vCard and CSV files, the SIM card, one account</string>
+    <string name="discover_reminders_title">All your reminders</string>
+    <string name="discover_reminders_summary">Missed calls, To call, keep in touch, birthdays and backups</string>
+    <string name="discover_lock_now_title">Lock Parley now</string>
+    <string name="discover_lock_now_summary">Without waiting for the app lock\'s timeout</string>
     <string name="discover_backup_title">Encrypted backups</string>
     <string name="discover_backup_summary">To a folder you choose, on a schedule, checked after writing</string>
     <string name="discover_sync_title">Sync between your phones</string>

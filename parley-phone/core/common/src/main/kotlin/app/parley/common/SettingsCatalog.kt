@@ -28,6 +28,12 @@ enum class SettingsCategory(val title: String, val summary: String) {
 enum class SettingPlace {
     TOOLS, BLOCKING, DELETED_CALLS, SIMS, CONTACT_PAGE, SIMPLE_MODE, CALL_TIME, BACKUP, SYNC, TEMPORARY, HELPERS, DRIVE_PROFILE, PHONE_MENUS, SHARED_LABELS,
 
+    /**
+     * Settings › Reminders: every kind of reminder Parley sends, each with its switch and time (missed calls, To call
+     * and follow-ups, keep in touch, birthdays and dates, backups, temporary contacts).
+     */
+    REMINDERS,
+
     /** Settings › Privacy › App lock › Unlock with: the Parley PIN and the duress PIN (I21). */
     APP_LOCK,
 }
@@ -87,6 +93,9 @@ object SettingsCatalog {
     private val N = SettingsCategory.NOTIFICATIONS
     private val O = SettingsCategory.ABOUT
 
+    /** Settings › Reminders. */
+    private val REM = SettingPlace.REMINDERS
+
     val entries: List<SettingEntry> = listOf(
         // Appearance
         e("theme", "Theme", "System, light or dark", A, "dark mode", "night mode", "light mode", "appearance"),
@@ -141,7 +150,7 @@ object SettingsCatalog {
         e("unknown_ringtone", "Ringtone for unknown callers", "A different ringtone for numbers not in your contacts", C, "sound", "ring", "tone", "unknown numbers"),
         e("pocket_guard", "Ask before pocket calls", "A favourite, the widget or a shortcut asks first while the phone is covered", C,
             "pocket dial", "butt dial", "accidental", "proximity", "widget", "shortcut", "favourite", "favorite"),
-        e("missed_realert", "Remind me of missed calls", "Alert again every few minutes until you've seen them", C,
+        at(REM, "missed_realert", "Remind me of missed calls", "Alert again every few minutes until you've seen them", C,
             "re-alert", "repeat", "reminder", "missed call", "nag", "notification"),
         // Auto-answer: off by default; only known callers, never during another call, always with a countdown and Cancel.
         e("auto_answer", "Answer automatically", "Off. With a headset or Bluetooth, in simple mode, or for people you choose, after a few seconds", C,
@@ -250,21 +259,26 @@ object SettingsCatalog {
         // Finding your way (on Tools; search opens the page itself).
         at(SettingPlace.TOOLS, "coming_from", "Coming from another phone?", "Bring contacts, call history and block lists from your old phone", P,
             "import", "switch", "switching", "iphone", "icloud", "samsung", "google", "vcf", "old phone", "move", "call blocker", "yacb"),
-        at(SettingPlace.TOOLS, "what_parley_can_do", "What Parley can do", "Everything Parley does, by what you want done", O,
-            "features", "help", "discover", "what's new", "tour", "guide", "how to", "everything"),
+        // The one hub (it was "What Parley can do" and, separately, Tools): the key stays for old links.
+        at(SettingPlace.TOOLS, "what_parley_can_do", "Tools", "Everything Parley does, by what you want done", O,
+            "what parley can do", "features", "help", "discover", "what's new", "tour", "guide", "how to", "everything", "hub",
+            "lock now", "scan qr", "import", "export"),
         e("import_sim", "Import from SIM card", "Copy the SIM's phonebook into your contacts", P, "sim", "phonebook", "copy"),
         e("export_vcf", "Export all to .vcf file", "Plain-text backup you control", P, "vcard", "export", "backup"),
         e("export_csv", "Export all to .csv file", "For spreadsheets", P, "spreadsheet", "excel", "export"),
         e("export_account", "Export one account to .vcf", "Contacts from one account only", P, "export", "account"),
         e("birthdays", "Birthdays & dates", "Upcoming birthdays and anniversaries", P, "anniversary", "events", "dates"),
-        e("birthday_reminders", "Birthday reminders", "A notification on the day", P, "notification", "remind", "birthday"),
-        e("reminder_time", "Reminder time", "When birthday reminders arrive", P, "hour", "time", "birthday"),
-        e("nudges", "Keep-in-touch nudges", "For contacts where you set a reminder", P, "reach out", "remind", "call back", "keep in touch"),
+        // Reminders of every kind live on one page (Settings › Reminders), linked from Contacts, Recents and Backup.
+        at(REM, "birthday_reminders", "Birthday reminders", "A notification on the day", P, "notification", "remind", "birthday"),
+        at(REM, "reminder_time", "Reminder time", "When birthday reminders arrive", P, "hour", "time", "birthday"),
+        at(REM, "nudges", "Keep-in-touch nudges", "For contacts where you set a reminder", P, "reach out", "remind", "call back", "keep in touch"),
         // The Circle.
-        e("date_lead", "Remind me before dates", "On the day, or also 1, 3 or 7 days before", P, "birthday", "anniversary", "lead time", "days before", "early", "advance"),
-        e("circle_delivery", "How keep-in-touch reminders arrive", "A weekly digest on Sunday, or one at a time as they come due", P,
+        at(REM, "date_lead", "Remind me before dates", "On the day, or also 1, 3 or 7 days before", P,
+            "birthday", "anniversary", "lead time", "days before", "early", "advance"),
+        at(REM, "circle_delivery", "How keep-in-touch reminders arrive", "A weekly digest on Sunday, or one at a time as they come due", P,
             "digest", "weekly", "sunday", "circle", "remind", "keep in touch", "nudge", "notification"),
-        e("circle_weekly_cap", "At most per week", "Keep-in-touch reminders a week, when they come as due", P, "limit", "cap", "how many", "circle", "nudge"),
+        at(REM, "circle_weekly_cap", "At most per week", "Keep-in-touch reminders a week, when they come as due", P,
+            "limit", "cap", "how many", "circle", "nudge"),
         e("log_prompts", "Log messages you start", "After Parley opens a chat or video call with someone in your circle", P,
             "log", "interaction", "whatsapp", "signal", "telegram", "sms", "video", "circle", "ask", "snackbar"),
 
@@ -331,7 +345,8 @@ object SettingsCatalog {
 
         // Backup & sync
         e("backup", "Backup & restore", "Encrypted backups to a folder you choose", U, "restore", "export", "encrypted", "new phone", "move", "transfer"),
-        e("backup_reminder", "Remind me to back up", "A quiet reminder when there's been no backup for a while", U, "reminder", "overdue", "backup", "notification", "nag"),
+        at(REM, "backup_reminder", "Remind me to back up", "A quiet reminder when there's been no backup for a while", U,
+            "reminder", "overdue", "backup", "notification", "nag"),
         e("sync", "Sync between your phones", "Through a Syncthing / Nextcloud folder, no server", U, "syncthing", "nextcloud", "folder", "second phone"),
         e("journal", "History & undo", "Deleted contacts and calls, changes and daily snapshots: undo for 30 days", U,
             "undo", "trash", "restore", "deleted", "bin", "recently deleted", "journal"),
@@ -343,6 +358,14 @@ object SettingsCatalog {
             "markdown", "md", "obsidian", "notes", "logseq", "export", "folder", "timeline"),
 
         // Notifications & device
+        // The one page for every reminder; its rows are searchable by their own words too.
+        at(
+            REM, "reminders", "Reminders",
+            "Missed calls, To call, keep in touch, birthdays, backups and temporary contacts, in one place", N,
+            "remind", "reminder", "reminders", "notification", "nag", "alert", "follow up", "follow-up", "digest", "due",
+        ),
+        at(REM, "to_call", "To call", "Calls you said you'd make and follow-ups after calls, each at the time you chose", H,
+            "remind me", "remind me later", "call back", "callback", "follow up", "follow-up", "later", "promise"),
         e("notification_settings", "Notification settings", "Sounds and importance of Parley's notifications (system)", N, "sound", "missed call", "notification", "alerts"),
         e("full_screen", "Allow full-screen incoming calls", "Show incoming calls over the lock screen", N, "lock screen", "full screen", "incoming", "heads up"),
         e("battery", "Battery optimisation", "Some phones delay calls for optimised apps", N, "battery", "optimization", "doze", "unrestricted", "background"),

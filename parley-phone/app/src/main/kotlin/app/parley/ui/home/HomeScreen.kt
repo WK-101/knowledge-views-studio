@@ -64,6 +64,7 @@ import app.parley.NavEvent
 import app.parley.R
 import app.parley.RecentFilter
 import app.parley.common.SettingsCategory
+import app.parley.ui.discover.DiscoverRoutes
 import app.parley.common.StartTab
 import app.parley.common.homeLayout
 import app.parley.common.ux.Tips
@@ -298,8 +299,8 @@ private fun MenuItem(text: String, icon: ImageVector, onClick: () -> Unit) {
 }
 
 /**
- * "More options": at most seven items, the tab's own first, then Tools (the app-wide destinations: birthdays,
- * temporary contacts, blocking, History & undo, backups…) and Settings. Settings pages aren't repeated here.
+ * "More options": at most seven items, the tab's own first, then Tools (the one hub: everything Parley does, by what
+ * you want done) and Settings. Settings pages aren't repeated here.
  */
 @Composable
 private fun ColumnScope.TabMenu(vm: AppViewModel, tab: StartTab, appLock: Boolean, open: (Destination) -> Unit, close: () -> Unit, onReorderFavorites: () -> Unit = {}) {
@@ -342,6 +343,6 @@ private fun ColumnScope.TabMenu(vm: AppViewModel, tab: StartTab, appLock: Boolea
     if (tab == StartTab.RECENTS || tab == StartTab.CONTACTS || tab == StartTab.CIRCLE || (tab == StartTab.FAVORITES && StartTab.CIRCLE !in settings.navTabs.visible)) {
         HorizontalDivider()
     }
-    MenuItem(stringResource(R.string.home_tools), Icons.Rounded.Handyman) { go(Routes.Tools) }
+    MenuItem(stringResource(R.string.home_tools), Icons.Rounded.Handyman) { go(DiscoverRoutes.Capabilities) }
     MenuItem(stringResource(R.string.home_settings), Icons.Rounded.Settings) { go(Routes.Settings) }
 }

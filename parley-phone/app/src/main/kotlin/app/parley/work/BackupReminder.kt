@@ -1,7 +1,5 @@
 package app.parley.work
 
-import android.app.NotificationChannel
-import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
@@ -30,8 +28,7 @@ object BackupReminder {
         if (!BackupNudge.mayNotify(since, now, ux.backupReminderDays, ux.backupNotifiedAt)) return
         // Notifications off: nothing is recorded, and the banners in Settings and Backup still show.
         if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) return
-        val nm = context.getSystemService(NotificationManager::class.java)
-        nm.createNotificationChannel(NotificationChannel(CHANNEL, context.getString(R.string.work_channel_backups), NotificationManager.IMPORTANCE_DEFAULT))
+        ReminderChannels.ensure(context, CHANNEL)
         val open = PendingIntent.getActivity(
             context, 78, Intent(context, MainActivity::class.java).setAction(MainActivity.ACTION_OPEN_BACKUP).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
             PendingIntent.FLAG_IMMUTABLE,

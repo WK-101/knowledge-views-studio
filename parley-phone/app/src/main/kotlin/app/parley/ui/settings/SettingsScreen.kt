@@ -31,7 +31,6 @@ import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Dialpad
-import androidx.compose.material.icons.rounded.Explore
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Notifications
@@ -91,7 +90,6 @@ import androidx.compose.material.icons.rounded.Dashboard
 import androidx.compose.material.icons.rounded.Handyman
 import app.parley.common.SettingsCategory
 import app.parley.common.SettingsSearch
-import app.parley.common.circle.ReminderDelivery
 import app.parley.common.vcard.ImportReport
 import app.parley.data.VCardIO
 import app.parley.ui.EmptyState
@@ -204,24 +202,12 @@ fun SettingsScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
             }
             // A quiet reminder once a backup is overdue (Not now snoozes it for a week).
             BackupReminderBanner(vm, Modifier.padding(vertical = 0.dp))
-            // Tools (birthdays, blocking, backups, History & undo…) are also here, not only in the tabs' ⋮ menus.
+            // Tools, the one hub (everything Parley does, by what you want done), as in every tab's ⋮ menu.
             SegmentedGroup {
                 item("tools") {
                     ListItem(
-                        modifier = Modifier.clickable { open(Routes.Tools) },
-                        leadingContent = { TonalIcon(Icons.Rounded.Handyman, MaterialTheme.colorScheme.tertiaryContainer, MaterialTheme.colorScheme.onTertiaryContainer) },
-                        headlineContent = { Text(stringResource(R.string.set_tools_title)) },
-                        supportingContent = { Text(stringResource(R.string.set_tools_summary), maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                        colors = rowColors(),
-                    )
-                }
-                // P8: everything Parley does, by what you want done.
-                item("what_parley_can_do") {
-                    ListItem(
                         modifier = Modifier.clickable { open(DiscoverRoutes.Capabilities) },
-                        leadingContent = {
-                            TonalIcon(Icons.Rounded.Explore, MaterialTheme.colorScheme.tertiaryContainer, MaterialTheme.colorScheme.onTertiaryContainer)
-                        },
+                        leadingContent = { TonalIcon(Icons.Rounded.Handyman, MaterialTheme.colorScheme.tertiaryContainer, MaterialTheme.colorScheme.onTertiaryContainer) },
                         headlineContent = { Text(stringResource(R.string.discover_title)) },
                         supportingContent = { Text(stringResource(R.string.discover_summary), maxLines = 1, overflow = TextOverflow.Ellipsis) },
                         colors = rowColors(),
@@ -327,14 +313,7 @@ fun SettingsPageScreen(vm: AppViewModel, category: SettingsCategory, focus: Stri
     // A setting found by search that is shown only when another one is on: point at that one instead, and say why.
     val controller = when (focus) {
         "lock_after" -> "app_lock".takeIf { !s.appLock }
-        "reminder_time", "date_lead" -> "birthday_reminders".takeIf { !s.birthdayReminders }
         "kept_forever" -> "archive".takeIf { !archiveOn }
-        "circle_delivery" -> "nudges".takeIf { !s.reachOutNudges }
-        "circle_weekly_cap" -> when {
-            !s.reachOutNudges -> "nudges"
-            circle.delivery != ReminderDelivery.AS_DUE -> "circle_delivery"
-            else -> null
-        }
         "first_mover" -> "people_card".takeIf { !circle.peopleCard }
         else -> null
     }
@@ -444,6 +423,7 @@ private const val MAX_REPORT_ITEMS = 50
 internal fun settingRoute(e: SettingEntry): Destination = when (val place = e.place) {
     null -> Routes.settingsPage(e.category, e.key)
     SettingPlace.TOOLS -> toolsRoute(e.key)
+    SettingPlace.REMINDERS -> RemindersRoutes.Page(e.key)
     SettingPlace.DELETED_CALLS -> Routes.journal(HistoryTab.CALLS)
     else -> placeRoutes.getValue(place)
 }
@@ -467,12 +447,11 @@ private val placeRoutes: Map<SettingPlace, Destination> by lazy {
     )
 }
 
-/** A Tools entry found by search: the screen itself when it has one, else Tools. */
+/** A Tools entry found by search: the screen itself when it has one, else the Tools hub. */
 private fun toolsRoute(key: String): Destination = when (key) {
     "scan_qr" -> QrRoutes.Scan
     "coming_from" -> DiscoverRoutes.ComingFrom
-    "what_parley_can_do" -> DiscoverRoutes.Capabilities
-    else -> Routes.Tools
+    else -> DiscoverRoutes.Capabilities
 }
 
 /** Settings that don't exist on this phone, left out of search. */
