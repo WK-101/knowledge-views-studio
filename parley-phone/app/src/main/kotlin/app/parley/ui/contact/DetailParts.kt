@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -39,6 +40,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -52,25 +55,40 @@ import app.parley.ui.people.HandleText
 import app.parley.ui.ParleyShapes
 import app.parley.ui.Spacing
 
-/** A labelled quick-action tile (label ≥ 12 sp, 64 dp tall); long-press offers the alternative (choose again). */
+/**
+ * A labelled quick-action tile (label ≥ 12 sp, 64 dp tall); long-press offers the alternative (choose again).
+ * [lines] lets a longer label wrap instead of being cut; put such tiles in a row of `IntrinsicSize.Min` height with
+ * [fillHeight] so the row stays even.
+ */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun RowScope.ActionTile(icon: ImageVector, label: String, enabled: Boolean, onLongClick: (() -> Unit)? = null, longClickLabel: String? = null, onClick: () -> Unit) {
+fun RowScope.ActionTile(
+    icon: ImageVector,
+    label: String,
+    enabled: Boolean,
+    onLongClick: (() -> Unit)? = null,
+    longClickLabel: String? = null,
+    lines: Int = 1,
+    fillHeight: Boolean = false,
+    description: String? = null,
+    onClick: () -> Unit,
+) {
     Surface(
         shape = ParleyShapes.card,
         color = if (enabled) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainer,
         contentColor = if (enabled) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
-        modifier = Modifier.weight(1f).heightIn(min = 64.dp),
+        modifier = Modifier.weight(1f).heightIn(min = 64.dp).then(if (fillHeight) Modifier.fillMaxHeight() else Modifier),
     ) {
         Column(
             Modifier.combinedClickable(enabled = enabled, role = Role.Button, onClick = onClick, onLongClick = onLongClick, onLongClickLabel = longClickLabel)
+                .then(if (description != null) Modifier.semantics { contentDescription = description } else Modifier)
                 .padding(vertical = 10.dp, horizontal = 4.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
             Icon(icon, null, Modifier.size(24.dp))
             Text(
-                label, style = MaterialTheme.typography.labelLarge, textAlign = TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                label, style = MaterialTheme.typography.labelLarge, textAlign = TextAlign.Center, maxLines = lines, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.padding(top = 4.dp),
             )
         }

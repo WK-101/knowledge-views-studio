@@ -3,6 +3,14 @@ package app.parley.ui.history
 import app.parley.calls.ExpectedCallHints
 import app.parley.ui.Destination
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.material.icons.rounded.AccountCircle
+import androidx.compose.material.icons.rounded.Apps
+import androidx.compose.material.icons.rounded.PersonSearch
+import androidx.compose.material.icons.rounded.RemoveModerator
+import androidx.compose.material.icons.rounded.Sms
+import app.parley.ui.contact.ActionTile
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.SnackbarDuration
@@ -18,8 +26,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.Message
-import androidx.compose.material.icons.automirrored.rounded.Chat
 import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.ContentCopy
@@ -27,7 +33,6 @@ import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.FileDownload
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.PersonAdd
-import androidx.compose.material3.AssistChip
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -151,50 +156,47 @@ fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open
                     LastMessagedNote(number)
                     // I1: what Parley remembers about a number that isn't a contact, with its action.
                     if (contact == null) app.parley.ui.memory.HistoryNumberMemory(vm, number, open)
-                    Row(Modifier.padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        AssistChip(
-                            { vm.requestCall(number, contact?.displayName) },
-                            { Text(stringResource(R.string.hist_action_call)) },
-                            leadingIcon = { Icon(Icons.Rounded.Call, null) },
-                        )
-                        AssistChip(
-                            { Intents.sms(context, number) },
-                            { Text(stringResource(R.string.hist_action_message)) },
-                            leadingIcon = { Icon(Icons.AutoMirrored.Rounded.Message, null) },
-                        )
-                        AssistChip(
-                            { Intents.copy(context, number) },
-                            { Text(stringResource(R.string.hist_action_copy)) },
-                            leadingIcon = { Icon(Icons.Rounded.ContentCopy, null) },
-                        )
-                    }
-                    Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        AssistChip(
-                            { messageOn = true },
-                            { Text(stringResource(R.string.reach_message_or_call_on)) },
-                            leadingIcon = { Icon(Icons.AutoMirrored.Rounded.Chat, null) },
-                        )
-                    }
-                    Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        if (contact == null) {
-                            AssistChip(
-                                { open(Routes.edit(phone = number)) },
-                                { Text(stringResource(R.string.hist_action_new_contact)) },
-                                leadingIcon = { Icon(Icons.Rounded.PersonAdd, null) },
-                            )
-                            AssistChip(
-                                { open(Routes.pick(number)) },
-                                { Text(stringResource(R.string.hist_action_add_to_contact)) },
-                                leadingIcon = { Icon(Icons.Rounded.PersonAdd, null) },
-                            )
-                        } else {
-                            AssistChip({ open(Routes.contact(contact.id)) }, { Text(stringResource(R.string.hist_action_view_contact)) })
+                    // The same tiles as a contact's page: one icon per action, even widths, labels that wrap
+                    // rather than break mid-word.
+                    val messageOnLabel = stringResource(R.string.reach_message_or_call_on)
+                    Row(
+                        Modifier.fillMaxWidth().padding(top = 16.dp).height(IntrinsicSize.Min),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        ActionTile(Icons.Rounded.Call, stringResource(R.string.hist_action_call), true, fillHeight = true) {
+                            vm.requestCall(number, contact?.displayName)
                         }
-                        AssistChip(
-                            { if (blocked) vm.unblockNumber(number) else vm.blockNumber(number); blocked = !blocked },
-                            { Text(if (blocked) stringResource(R.string.hist_action_unblock) else stringResource(R.string.hist_action_block)) },
-                            leadingIcon = { Icon(Icons.Rounded.Block, null) },
-                        )
+                        ActionTile(Icons.Rounded.Sms, stringResource(R.string.hist_action_message), true, fillHeight = true) {
+                            Intents.sms(context, number)
+                        }
+                        ActionTile(
+                            Icons.Rounded.Apps, stringResource(R.string.hist_action_other_apps), true, lines = 2, fillHeight = true,
+                            description = messageOnLabel,
+                        ) { messageOn = true }
+                        ActionTile(Icons.Rounded.ContentCopy, stringResource(R.string.hist_action_copy), true, fillHeight = true) {
+                            Intents.copy(context, number)
+                        }
+                    }
+                    Row(
+                        Modifier.fillMaxWidth().padding(top = 8.dp).height(IntrinsicSize.Min),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        if (contact == null) {
+                            ActionTile(Icons.Rounded.PersonAdd, stringResource(R.string.hist_action_new_contact), true, lines = 2, fillHeight = true) {
+                                open(Routes.edit(phone = number))
+                            }
+                            ActionTile(Icons.Rounded.PersonSearch, stringResource(R.string.hist_action_add_to_contact), true, lines = 2, fillHeight = true) {
+                                open(Routes.pick(number))
+                            }
+                        } else {
+                            ActionTile(Icons.Rounded.AccountCircle, stringResource(R.string.hist_action_view_contact), true, lines = 2, fillHeight = true) {
+                                open(Routes.contact(contact.id))
+                            }
+                        }
+                        ActionTile(
+                            if (blocked) Icons.Rounded.RemoveModerator else Icons.Rounded.Block,
+                            stringResource(if (blocked) R.string.hist_action_unblock else R.string.hist_action_block), true, lines = 2, fillHeight = true,
+                        ) { if (blocked) vm.unblockNumber(number) else vm.blockNumber(number); blocked = !blocked }
                     }
                 }
             }

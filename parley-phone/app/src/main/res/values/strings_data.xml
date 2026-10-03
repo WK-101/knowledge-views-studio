@@ -322,6 +322,8 @@
     <string name="hist_action_call">Call</string>
     <string name="hist_action_message">Message</string>
     <string name="hist_action_copy">Copy</string>
+    <!-- Short tile label for "Message or call on…" (TalkBack reads the full name). -->
+    <string name="hist_action_other_apps">Other apps</string>
     <string name="hist_action_new_contact">New contact</string>
     <string name="hist_action_add_to_contact">Add to contact</string>
     <string name="hist_action_view_contact">View contact</string>
