@@ -7,6 +7,7 @@ import android.provider.CallLog
 import android.util.Base64
 import app.parley.common.backup.RecordJson
 import app.parley.common.people.CallerCard
+import app.parley.common.people.NameOrder
 import app.parley.common.people.PrivateCallerChoices
 import app.parley.common.people.PrivateLabels
 import app.parley.common.record.ContactRecord
@@ -69,6 +70,8 @@ data class VaultSummary(
      * defaults, and nothing may be overwritten with them.
      */
     val choicesKnown: Boolean = true,
+    /** The "Family, Given" form of [name], for "Sort by" and "Show names as" last name first. */
+    val nameAlt: String = name,
 ) {
     /** Anything the call path must apply for this contact (Parley screens its calls then). */
     val hasCallChoices: Boolean get() = ringtone != null || sendToVoicemail || labels.isNotEmpty()
@@ -195,8 +198,19 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
             ringtone = o.optString(C_TONE).ifEmpty { null }, sendToVoicemail = o.optBoolean(C_VOICEMAIL, false),
             vibration = o.optString(C_VIBRATION).ifEmpty { null }, autoAnswer = o.optBoolean(C_AUTO_ANSWER, false),
             choicesKnown = o.has(C_SEEDED),
+            nameAlt = alternativeOf(o),
         )
     }.getOrNull()
+
+    /**
+     * The "Family, Given" form kept in the caller-ID copy. Entries saved before it was kept have the whole name only:
+     * it is guessed from that (not for a company name, which has no family name).
+     */
+    private fun alternativeOf(o: JSONObject): String {
+        val name = o.optString("name")
+        o.optString(C_NAME_ALT).takeIf { it.isNotBlank() }?.let { return it }
+        return if (name == o.optString(C_COMPANY)) name else NameOrder.guessAlternative(name)
+    }
 
     private fun labelsOf(o: JSONObject): List<PrivateLabels.Membership> {
         val a = o.optJSONArray(C_LABELS) ?: return emptyList()
@@ -524,7 +538,10 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
             } else {
                 PrivateLabels.edited(base.labels, added = shown.groupIds - loaded.groupIds, removed = loaded.groupIds - shown.groupIds, groups)
             }
-            val caller = JSONObject().put("name", name).put("numbers", JSONArray(numbers))
+            // "Family, Given", from the name parts; a name made from the company or a number stays as it is.
+            val alt = NameOrder.alternative(d.given, d.middle, d.family, d.suffix)
+                ?: if (d.composedName.isBlank()) name else NameOrder.guessAlternative(name)
+            val caller = JSONObject().put("name", name).put(C_NAME_ALT, alt).put("numbers", JSONArray(numbers))
                 .put("labels", JSONArray(shown.phones.filter { it.value.isNotBlank() }.map { it.type }))
                 // The caller card's extra lines, readable while the phone is locked like the name.
                 .apply {
@@ -863,7 +880,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
             return@withContext win.id to CallerInfo(
                 contactId = -win.id, lookupKey = null, name = s.name, photoUri = null,
                 numberLabel = NotificationPrivacy.VAULT_LABEL, customRingtone = s.ringtone, sendToVoicemail = s.sendToVoicemail,
-                starred = s.starred,
+                starred = s.starred, alternativeName = s.nameAlt,
             )
         }
         null
@@ -1048,6 +1065,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
         const val C_VIBRATION = "vb"
         const val C_AUTO_ANSWER = "aa"
         const val C_PRONOUNS = "pn"
+        const val C_NAME_ALT = "alt"
         const val K_CALL_CHOICES = "call_choices"
         const val K_CHOICES_SEEDED = "caller_choices_seeded"
         const val K_SPLIT = "details_split"

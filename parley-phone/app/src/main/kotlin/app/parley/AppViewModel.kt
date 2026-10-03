@@ -40,6 +40,7 @@ import app.parley.telecom.CallManager
 import app.parley.ui.Bidi
 import app.parley.ui.people.PeopleUi
 import kotlinx.coroutines.Dispatchers
+import app.parley.common.people.NameOrder
 import app.parley.common.people.PrivateListing
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.channels.Channel
@@ -224,12 +225,17 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
      * query ([app.parley.data.ContactDirectory]) never contains private contacts.
      */
     val everyone: StateFlow<List<ContactSummary>?> = combine(
-        contacts, c.vault.contacts, settings.map { it.hideVault }.distinctUntilChanged(),
-    ) { list, vault, hidden ->
+        contacts, c.vault.contacts, settings.map { Triple(it.hideVault, it.sortByFirstName, it.showNamesLastFirst) }.distinctUntilChanged(),
+    ) { list, vault, (hidden, byFirst, lastFirst) ->
         if (list == null || hidden || vault.isEmpty()) return@combine list
         val names = java.text.Collator.getInstance().apply { strength = java.text.Collator.PRIMARY }
-        val rows = vault.map { v -> PrivateListing.row(v.id, v.name, v.numbers, v.starred, c.vault.photoUri(v.id)) }
-        PrivateListing.merge(list, rows) { a, b -> names.compare(a, b) }
+        val compare = Comparator<String> { a, b -> names.compare(a, b) }
+        // "Sort by" and "Show names as" apply to private contacts as to the address book's: same headers, same rail.
+        val rows = NameOrder.apply(
+            vault.map { v -> PrivateListing.row(v.id, v.name, v.numbers, v.starred, c.vault.photoUri(v.id), v.nameAlt) },
+            byFirst, lastFirst, compare,
+        )
+        PrivateListing.merge(list, rows, compare)
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     /** Contacts selected in the Contacts tab (multi-select mode when non-empty). */

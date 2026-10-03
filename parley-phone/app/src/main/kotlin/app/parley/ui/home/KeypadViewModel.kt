@@ -1,5 +1,6 @@
 package app.parley.ui.home
 
+import app.parley.common.people.NameOrder
 import app.parley.common.people.PrivateListing
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -14,6 +15,7 @@ import app.parley.common.suspendRunCatching
 import app.parley.data.DataContainer
 import app.parley.data.TemporaryContacts
 import app.parley.data.messaging.Romanizer
+import app.parley.data.vault.VaultSummary
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
@@ -46,6 +48,11 @@ class KeypadViewModel(private val c: DataContainer) : ViewModel() {
     private val directory = c.directory
     val countryIso: String = directory.countryIso
     private val hideVault = c.settings.settings.map { it.hideVault }.distinctUntilChanged()
+    private val lastFirst = c.settings.settings.map { it.showNamesLastFirst }.distinctUntilChanged()
+
+    /** A private contact as a row, its name shown as "Show names as" says (like the address book's in [directory]). */
+    private fun privateRow(v: VaultSummary, lastFirst: Boolean) =
+        PrivateListing.row(v.id, NameOrder.shown(v.name, v.nameAlt, lastFirst), v.numbers, v.starred, c.vault.photoUri(v.id), v.nameAlt)
 
     /** The typed number (or letters typed on a hardware keyboard). */
     val input = MutableStateFlow("")
@@ -62,10 +69,10 @@ class KeypadViewModel(private val c: DataContainer) : ViewModel() {
     private val encoded = combine(directory.contacts, layout) { list, layout -> list.orEmpty().map { keypadEntry(it, layout) } }
         .flowOn(Dispatchers.Default)
 
-    private val encodedVault = combine(c.vault.contacts, hideVault, layout) { list, hidden, layout ->
+    private val encodedVault = combine(c.vault.contacts, hideVault, layout, lastFirst) { list, hidden, layout, lastFirst ->
         if (hidden) emptyList() else list.map { v ->
             // The same row as in Contacts (negative id, photo, lock badge): a tap opens the one contact page.
-            keypadEntry(PrivateListing.row(v.id, v.name, v.numbers, v.starred, c.vault.photoUri(v.id)), layout)
+            keypadEntry(privateRow(v, lastFirst), layout)
         }
     }.flowOn(Dispatchers.Default)
 
@@ -100,11 +107,13 @@ class KeypadViewModel(private val c: DataContainer) : ViewModel() {
         .flowOn(Dispatchers.Default)
 
     /** Matches for [searchQuery]; null until the first search has run. */
-    val search: StateFlow<KeypadSearch?> = combine(searchQuery.map { it.trim() }.distinctUntilChanged().debounce(SEARCH_DEBOUNCE_MS), contactIndex, vaultIndex) { q, people, vault ->
+    val search: StateFlow<KeypadSearch?> = combine(
+        searchQuery.map { it.trim() }.distinctUntilChanged().debounce(SEARCH_DEBOUNCE_MS), contactIndex, vaultIndex, lastFirst,
+    ) { q, people, vault, lastFirst ->
         if (q.isEmpty()) {
             KeypadSearch(q, emptyList(), emptyList())
         } else {
-            KeypadSearch(q, people.search(q), vault.search(q).map { v -> PrivateListing.row(v.id, v.name, v.numbers, v.starred, c.vault.photoUri(v.id)) })
+            KeypadSearch(q, people.search(q), vault.search(q).map { v -> privateRow(v, lastFirst) })
         }
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_AFTER_MS), null)
 

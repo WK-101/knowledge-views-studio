@@ -110,6 +110,9 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
 
     suspend fun importMap(map: Map<String, String>) {
         store.edit { prefs ->
+            // A backup from before "Show names as" was a setting of its own has "Sort by" only: names then show the
+            // way that phone sorted them, whatever this phone had stored (see NameOrder.showLastFirst).
+            if (K.sortFirst.name in map && K.namesLastFirst.name !in map) prefs.remove(K.namesLastFirst)
             map.forEach { (k, v) ->
                 val body = v.substringAfter(':')
                 when (v.substringBefore(':')) {
@@ -213,7 +216,9 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
         this[K.haptics] = s.dialpadHaptics
         this[K.startTab] = s.startTab.name
         this[K.sortFirst] = s.sortByFirstName
-        this[K.namesLastFirst] = s.showNamesLastFirst
+        // Stored only once it differs from what "Sort by" alone gives (or was stored before), so a phone that never
+        // chose it keeps following the old single setting, also when a backup's "Sort by" is restored later.
+        NameOrder.toStore(this[K.namesLastFirst], s.sortByFirstName, s.showNamesLastFirst)?.let { this[K.namesLastFirst] = it }
         this[K.simLabels] = s.showSimLabels
         this[K.accType] = s.defaultAccountType.orEmpty()
         this[K.accName] = s.defaultAccountName.orEmpty()
