@@ -204,6 +204,8 @@ class CircleTest {
         val onDay = DateReminders.occurrence(7, key, d, LocalDate.of(2027, 1, 1))
         assertEquals(lead, onDay)
         assertEquals("7:3-0101:2027", lead)
+        // A date kept by another calendar is one occasion per year of that calendar.
+        assertEquals("7:3-0101:chinese-4723", DateReminders.occurrence(7, key, "chinese-4723"))
         assertEquals("birthday:7:3-0101", DateReminders.tag(7, key))
         assertEquals("nudge:10005", DateReminders.nudgeTag(10005))
         // A birthday and an anniversary of one person have different tags.

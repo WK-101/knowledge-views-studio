@@ -81,6 +81,34 @@ class AltCalendarsTest {
         assertSame(noYear, AltCalendars.effective(noYear, AltCalendar.HIJRI, today, Toy))
     }
 
+    @Test fun a_short_year_brings_the_date_round_twice_in_one_gregorian_year_as_two_occasions() {
+        // Born on day 25 of month 12, year 1 (20 December 2000): in 2004 it falls on 2 January (year 4) and again on
+        // 27 December (year 5).
+        val born = Toy.toGregorian(AltCalendar.HIJRI, AltDay(1, 12, 25))!!
+        val stored = EventDate(born.year, born.monthValue, born.dayOfMonth)
+        val first = Toy.toGregorian(AltCalendar.HIJRI, AltDay(4, 12, 25))!!
+        val second = Toy.toGregorian(AltCalendar.HIJRI, AltDay(5, 12, 25))!!
+        assertEquals(LocalDate.of(2004, 1, 2), first)
+        assertEquals(LocalDate.of(2004, 12, 27), second)
+        val a = AltCalendars.due(stored, AltCalendar.HIJRI, first, Toy)!!
+        val b = AltCalendars.due(stored, AltCalendar.HIJRI, first.plusDays(1), Toy)!!
+        assertEquals(0L, a.date.daysUntil(first))
+        assertEquals(second, b.date.next(first.plusDays(1)))
+        assertEquals("islamic-umalqura-4", a.round)
+        assertEquals("islamic-umalqura-5", b.round)
+        // The age is counted in the calendar: 3 years, then 4, although both fall in 2004.
+        assertEquals(3, a.turning)
+        assertEquals(4, b.turning)
+    }
+
+    @Test fun plain_dates_are_due_by_their_gregorian_year() {
+        val today = LocalDate.of(2026, 1, 1)
+        val due = AltCalendars.due(EventDate(1990, 3, 12), null, today, Toy)!!
+        assertEquals("2026", due.round)
+        assertEquals(36, due.turning)
+        assertNull(AltCalendars.due(EventDate(null, 3, 12), AltCalendar.CHINESE, today, Toy)!!.turning)
+    }
+
     @Test fun calendars_are_read_by_their_cldr_names() {
         assertEquals(AltCalendar.CHINESE, AltCalendar.byKey("Chinese"))
         assertEquals(AltCalendar.HIJRI, AltCalendar.byKey("islamic-civil"))

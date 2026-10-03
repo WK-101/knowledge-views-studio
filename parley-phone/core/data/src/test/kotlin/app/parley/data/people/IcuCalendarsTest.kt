@@ -6,6 +6,8 @@ import app.parley.common.AltDay
 import app.parley.common.EventDate
 import java.time.LocalDate
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -57,6 +59,53 @@ class IcuCalendarsTest {
     @Test fun a_day_a_month_lacks_is_no_day() {
         assertEquals(null, IcuCalendars.toGregorian(AltCalendar.HIJRI, AltDay(1446, 1, 31)))
         assertEquals(null, IcuCalendars.toGregorian(AltCalendar.HEBREW, AltDay(5785, 6, 1)))
+    }
+
+    /**
+     * For [years] after [born] in [calendar]: every occurrence is its own occasion and the age counts that calendar's
+     * years. Returns how many times the Gregorian count ("next year minus birth year") would have been wrong.
+     */
+    private fun checkAges(calendar: AltCalendar, born: AltDay, years: Int): Int {
+        val bornDay = IcuCalendars.toGregorian(calendar, born)!!
+        val stored = EventDate(bornDay.year, bornDay.monthValue, bornDay.dayOfMonth)
+        val rounds = HashSet<String>()
+        var gregorianWrong = 0
+        for (y in born.year + 1..born.year + years) {
+            val day = AltCalendars.occurrence(born, y, calendar, IcuCalendars)!!
+            val due = AltCalendars.due(stored, calendar, day, IcuCalendars)!!
+            assertEquals("$calendar $y", day, due.date.next(day))
+            assertEquals("$calendar $y", y - born.year, due.turning)
+            assertTrue("$calendar $y is its own occasion", rounds.add(due.round))
+            if (stored.turning(day) != due.turning) gregorianWrong++
+        }
+        return gregorianWrong
+    }
+
+    @Test fun a_hijri_birthday_twice_in_2025_is_two_occasions_with_two_ages() {
+        // 5 Rajab falls on 5 January 2025 (1446) and again on 25 December 2025 (1447).
+        val first = IcuCalendars.toGregorian(AltCalendar.HIJRI, AltDay(1446, 7, 5))!!
+        val second = IcuCalendars.toGregorian(AltCalendar.HIJRI, AltDay(1447, 7, 5))!!
+        assertEquals(2025, first.year)
+        assertEquals(2025, second.year)
+        val born = IcuCalendars.toGregorian(AltCalendar.HIJRI, AltDay(1420, 7, 5))!!
+        val stored = EventDate(born.year, born.monthValue, born.dayOfMonth)
+        val a = AltCalendars.due(stored, AltCalendar.HIJRI, first, IcuCalendars)!!
+        val b = AltCalendars.due(stored, AltCalendar.HIJRI, first.plusDays(1), IcuCalendars)!!
+        assertEquals(second, b.date.next(first.plusDays(1)))
+        assertNotEquals(a.round, b.round)
+        assertEquals(26, a.turning)
+        assertEquals(27, b.turning)
+        // Over a lifetime the Hijri age runs ahead of the Gregorian count.
+        assertTrue(checkAges(AltCalendar.HIJRI, AltDay(1400, 7, 5), 60) > 0)
+    }
+
+    @Test fun lunar_new_year_edges_count_the_age_in_the_calendar() {
+        // Late in the Chinese year (month 12) or in Hebrew Tevet, the day moves between December and January.
+        assertTrue(checkAges(AltCalendar.CHINESE, AltDay(4627, 12, 2), 40) > 0)
+        assertTrue(checkAges(AltCalendar.HEBREW, AltDay(5751, 4, 10), 40) > 0)
+        // Near New Year itself (1 Tishri, 1 of month 1) nothing goes wrong either way.
+        checkAges(AltCalendar.HEBREW, AltDay(5751, 1, 1), 40)
+        checkAges(AltCalendar.CHINESE, AltDay(4627, 1, 1), 40)
     }
 
     @Test fun reminders_see_the_moved_date() {

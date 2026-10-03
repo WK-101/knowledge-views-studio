@@ -76,19 +76,21 @@ class RemindersWorker(context: Context, params: WorkerParameters) : CoroutineWor
         val fired = DateReminders.prune(c.circle.stateSet(S_FIRED), now).toMutableSet()
         for (e in events) {
             val stored = EventDate.parse(e.date) ?: continue
-            // A date kept by another calendar (lunar, Hebrew, Hijri) fires on this year's Gregorian day of it.
-            val d = AltCalendars.effective(stored, AltCalendar.byKey(e.calendar), today, IcuCalendars) ?: continue
+            // A date kept by another calendar (lunar, Hebrew, Hijri) fires on its next Gregorian day, as one occasion
+            // per year of that calendar, and its age is counted in that calendar.
+            val due = AltCalendars.due(stored, AltCalendar.byKey(e.calendar), today, IcuCalendars) ?: continue
+            val d = due.date
             if (!LifeEvents.remindBirthday(e.type, e.contactId in deceased)) continue
             val fire = DateReminders.fire(d, today, cfg.dateLeadDays) ?: continue
             val key = DateReminders.eventKey(e.type, stored, e.label)
-            val occasion = DateReminders.occurrence(e.contactId, key, d, today)
+            val occasion = DateReminders.occurrence(e.contactId, key, due.round)
             if (c.circle.isWished(occasion)) continue
             val firedKey = "$occasion:${fire.name}"
             if (DateReminders.has(fired, firedKey)) continue
             val title = when (fire) {
                 DateReminders.Fire.ON_DAY -> when (e.type) {
-                    Event.TYPE_BIRTHDAY -> d.turning(today)?.let { ctx.getString(R.string.work_turns_today, e.name, it) } ?: ctx.getString(R.string.work_birthday_today, e.name)
-                    Event.TYPE_ANNIVERSARY -> d.turning(today)?.let { ctx.getString(R.string.work_anniversary_years, e.name, it) } ?: ctx.getString(R.string.work_anniversary_today, e.name)
+                    Event.TYPE_BIRTHDAY -> due.turning?.let { ctx.getString(R.string.work_turns_today, e.name, it) } ?: ctx.getString(R.string.work_birthday_today, e.name)
+                    Event.TYPE_ANNIVERSARY -> due.turning?.let { ctx.getString(R.string.work_anniversary_years, e.name, it) } ?: ctx.getString(R.string.work_anniversary_today, e.name)
                     else -> ctx.getString(R.string.work_event_today, e.name, e.label ?: ctx.getString(R.string.work_special_date))
                 }
                 DateReminders.Fire.LEAD -> {

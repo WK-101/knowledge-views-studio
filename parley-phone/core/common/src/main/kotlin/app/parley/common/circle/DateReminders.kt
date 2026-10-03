@@ -37,7 +37,11 @@ object DateReminders {
      * One occasion: this event in the year it next falls on. The lead-day and on-the-day reminders share it, also
      * across New Year (a 3-day lead on 29 Dec for 1 Jan).
      */
-    fun occurrence(contactId: Long, eventKey: String, date: EventDate, today: LocalDate): String = "$contactId:$eventKey:${date.next(today).year}"
+    fun occurrence(contactId: Long, eventKey: String, date: EventDate, today: LocalDate): String =
+        occurrence(contactId, eventKey, date.next(today).year.toString())
+
+    /** One occasion, named by its [round] ([app.parley.common.AltCalendars.Due.round]). */
+    fun occurrence(contactId: Long, eventKey: String, round: String): String = "$contactId:$eventKey:$round"
 
     /** Notification tag of one event (id 0), so two dates of one person never replace each other. */
     fun tag(contactId: Long, eventKey: String): String = "${NotificationIds.PREFIX_BIRTHDAY}$contactId:$eventKey"
