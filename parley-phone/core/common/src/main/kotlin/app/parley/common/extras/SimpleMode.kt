@@ -2,7 +2,6 @@ package app.parley.common.extras
 
 import app.parley.common.PhoneIdentity
 import app.parley.common.ContactSummary
-import app.parley.common.PhoneNumbers
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
@@ -109,7 +108,7 @@ object SimpleSetup {
     /** At most [SimpleConfig.MAX_PEOPLE] people, each with a plain dialable number ([dialable]), no number twice. */
     fun SimpleConfig.normalised(): SimpleConfig = copy(
         people = people.mapNotNull { p -> dialable(p.number)?.let { n -> p.copy(name = cleanName(p.name).ifEmpty { n }, number = n) } }
-            .distinctBy { PhoneIdentity.portableKey(it.number) ?: PhoneNumbers.digits(it.number) }.take(SimpleConfig.MAX_PEOPLE),
+            .distinctBy { PhoneIdentity.portableKey(it.number) ?: PhoneIdentity.digits(it.number) }.take(SimpleConfig.MAX_PEOPLE),
     )
 
     /** A tile resolved against this phone's contacts: [contact] null means "not in contacts" (offer to create it). */
@@ -121,7 +120,7 @@ object SimpleSetup {
      * calling someone else's number.
      */
     fun resolve(people: List<SimplePerson>, contacts: List<ContactSummary>): List<Resolved> = people.map { p ->
-        val having = if (PhoneNumbers.digits(p.number).isEmpty()) emptyList() else contacts.filter { c ->
+        val having = if (PhoneIdentity.digits(p.number).isEmpty()) emptyList() else contacts.filter { c ->
             c.phones.any { PhoneIdentity.same(it.number, p.number, null) }
         }
         Resolved(p, having.firstOrNull { p.lookupKey != null && it.lookupKey == p.lookupKey } ?: having.firstOrNull())

@@ -6,7 +6,7 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
-import app.parley.common.PhoneNumbers
+import app.parley.common.PhoneIdentity
 import app.parley.common.calls.CallerPhoto
 import app.parley.data.ContactsRepository
 import kotlinx.coroutines.Dispatchers
@@ -47,7 +47,7 @@ class CallBackgrounds(context: Context, private val contacts: ContactsRepository
      * call it off the main thread, e.g. inside `TelecomDependencies.callerInfo`.
      */
     fun callBackgroundFor(number: String): String? {
-        if (PhoneNumbers.digits(number).length < 3 || !dir.isDirectory) return null
+        if (PhoneIdentity.digits(number).length < 3 || !dir.isDirectory) return null
         val info = contacts.lookup(number) ?: return null
         return forLookupKey(info.lookupKey)
     }

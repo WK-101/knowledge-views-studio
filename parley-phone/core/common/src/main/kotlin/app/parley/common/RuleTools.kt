@@ -55,7 +55,7 @@ object RuleTools {
         }
         val warnings = ArrayList<String>()
         val stored = when (type) {
-            RuleType.EXACT -> PhoneNumbers.toE164(raw, countryIso) ?: PhoneNumbers.clean(raw)
+            RuleType.EXACT -> PhoneIdentity.e164(raw, countryIso) ?: PhoneIdentity.clean(raw)
             RuleType.PREFIX -> canonicalPrefix(raw, countryIso)
             else -> canonicalWildcard(raw, countryIso).filter { it.isDigit() || it == '+' || it == '*' || it == '?' }
         }
@@ -79,7 +79,7 @@ object RuleTools {
      * becomes '+', and Mexico's legacy "+52 1" / "044" / "045" / "01" prefixes fold into today's form.
      */
     fun canonicalPrefix(pattern: String, countryIso: String?): String {
-        var p = PhoneNumbers.clean(pattern).filter { it.isDigit() || it == '+' }
+        var p = PhoneIdentity.clean(pattern).filter { it.isDigit() || it == '+' }
         if (!p.startsWith("+") && countryIso != null) {
             val intl = CountryCodes.internationalPrefixes(countryIso).firstOrNull { p.startsWith(it) && p.length > it.length }
             if (intl != null) p = "+" + p.substring(intl.length)
@@ -116,7 +116,7 @@ object RuleTools {
         val intl = iso?.let { CountryCodes.internationalPrefixes(it).last() } ?: "00"
         return when (rule.type) {
             RuleType.EXACT -> {
-                val e = PhoneNumbers.toE164(rule.pattern, iso) ?: return listOf(rule.pattern)
+                val e = PhoneIdentity.e164(rule.pattern, iso) ?: return listOf(rule.pattern)
                 val out = mutableListOf(e)
                 if (home != null && e.startsWith("+$home")) {
                     val nat = e.substring(home.length + 1)

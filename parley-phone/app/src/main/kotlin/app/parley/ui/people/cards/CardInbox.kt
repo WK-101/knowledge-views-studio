@@ -1,6 +1,6 @@
 package app.parley.ui.people.cards
 
-import app.parley.common.PhoneNumbers
+import app.parley.common.PhoneIdentity
 import app.parley.common.cards.CardCheck
 import app.parley.common.cards.CardFields
 import app.parley.common.cards.CardIntake
@@ -150,7 +150,7 @@ object CardInbox {
         val phones = d.phones.map { it.value }.filter { it.isNotBlank() }
         val emails = d.emails.map { it.value.lowercase() }.filter { it.isNotBlank() }
         return CardLinks.offer(book.links[key], book.held, System.currentTimeMillis()) { f ->
-            f.phones.any { p -> phones.any { PhoneNumbers.same(it, p, region) } } || f.emails.any { it.lowercase() in emails }
+            f.phones.any { p -> phones.any { PhoneIdentity.same(it, p, region) } } || f.emails.any { it.lowercase() in emails }
         }
     }
 }

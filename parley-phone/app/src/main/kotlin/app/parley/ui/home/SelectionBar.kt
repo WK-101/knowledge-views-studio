@@ -60,6 +60,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.R
+import app.parley.jobs.UserErrorText
+import app.parley.jobs.UserJobs
 import app.parley.common.ux.BackupNudge
 import app.parley.data.GroupInfo
 import app.parley.messaging.IntroduceStart
@@ -104,10 +106,17 @@ fun SelectionBar(vm: AppViewModel) {
     val hasDevice = ids.any { !BulkActions.isPrivate(it) }
 
     val exporter = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/x-vcard")) { uri ->
-        if (uri != null) scope.launch {
-            val n = vm.c.vcards.export(uri, targets(BulkAction.EXPORT)).exported
-            vm.toast(res.getQuantityString(R.plurals.sel_exported, n, n))
+        if (uri != null) {
+            val chosen = targets(BulkAction.EXPORT)
             noteSkipped(BulkAction.EXPORT)
+            // An app job: clearing the selection or leaving the tab doesn't stop the file half way.
+            vm.jobs.start(
+                UserJobs.Kind.EXPORT, res.getString(R.string.set_exporting),
+                { e -> res.getString(R.string.hist_export_failed, UserErrorText.of(context, e)) },
+            ) { p ->
+                val n = vm.c.vcards.export(uri, chosen) { done, total -> p.update(done, total) }.exported
+                res.getQuantityString(R.plurals.sel_exported, n, n)
+            }
         }
     }
 
@@ -229,7 +238,7 @@ fun SelectionBar(vm: AppViewModel) {
                 confirmVisible = false
                 val s = vm.settings.value
                 // Asks for the vault's unlock first when needed; nothing changes before it succeeds.
-                scope.launchVault(context as? FragmentActivity, { vm.toast(res.getString(R.string.vault_move_failed, it.message.orEmpty())) }) {
+                scope.launchVault(context as? FragmentActivity, { vm.toast(res.getString(R.string.vault_move_failed, UserErrorText.of(context, it))) }) {
                     val made = bulk.makeVisible(visible, AccountRef(s.defaultAccountType, s.defaultAccountName))
                     vm.selection.value = emptySet()
                     vm.toast(madeVisibleText(res, made.made, made.redirectedTo))

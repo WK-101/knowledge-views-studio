@@ -26,7 +26,6 @@ import app.parley.common.NotificationChannels
 import app.parley.common.NotificationIds
 import app.parley.common.NotificationPrivacy
 import app.parley.common.PhoneIdentity
-import app.parley.common.PhoneNumbers
 import app.parley.common.calls.DndState
 import app.parley.common.calls.MissedCall
 import app.parley.common.calls.MissedCaller
@@ -206,7 +205,7 @@ object MissedCallNotifier {
             val iso = PhoneEnv.countryIso(context, caller.accountId)
             screened.firstOrNull { e ->
                 !e.allowed && e.action == "SILENCE" && e.number != null && abs(e.time - caller.latest) < 5 * 60_000L &&
-                    PhoneNumbers.same(e.number, n, iso)
+                    PhoneIdentity.same(e.number, n, iso)
             }?.verdict?.let { v -> BlockingText.verdict(context, v) }
         }
         val facts = runCatching { c.ringFacts.near(number, caller.latest) }.getOrNull()

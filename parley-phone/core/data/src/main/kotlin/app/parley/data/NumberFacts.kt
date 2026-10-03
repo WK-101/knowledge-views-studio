@@ -2,7 +2,7 @@ package app.parley.data
 
 import app.parley.common.LineType
 import app.parley.common.NumberValidity
-import app.parley.common.PhoneNumbers
+import app.parley.common.PhoneIdentity
 import com.google.i18n.phonenumbers.PhoneNumberUtil
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
@@ -17,13 +17,13 @@ object NumberFacts {
 
     fun of(number: String?, countryIso: String): NumberFactsResult {
         if (number.isNullOrBlank()) return UNKNOWN
-        val first = PhoneNumbers.forwardedParts(number).first()
+        val first = PhoneIdentity.forwardedParts(number).first()
         // Short codes, service numbers and alphanumeric senders are never judged "invalid".
-        if (PhoneNumbers.digits(first).length < 6 || PhoneNumbers.isServiceCode(first)) return UNKNOWN
+        if (PhoneIdentity.digits(first).length < 6 || PhoneIdentity.isServiceCode(first)) return UNKNOWN
         val key = "$first|$countryIso"
         cache[key]?.let { return it }
         val r = try {
-            val parsed = util.parse(PhoneNumbers.toE164(first, countryIso) ?: first, countryIso.uppercase(Locale.ROOT))
+            val parsed = util.parse(PhoneIdentity.e164(first, countryIso) ?: first, countryIso.uppercase(Locale.ROOT))
             val validity = when {
                 !util.isPossibleNumber(parsed) -> NumberValidity.IMPOSSIBLE
                 !util.isValidNumber(parsed) -> NumberValidity.INVALID

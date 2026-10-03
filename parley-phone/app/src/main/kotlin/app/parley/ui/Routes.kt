@@ -82,6 +82,9 @@ object Routes {
 
     @Serializable data object Sync : Destination
 
+    /** Sync, opened at its "Export notes as Markdown" section. */
+    @Serializable data object SyncMarkdown : Destination
+
     @Serializable data object CallTime : Destination
 
     @Serializable data class Versions(val id: Long) : Destination

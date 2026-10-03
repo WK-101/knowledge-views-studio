@@ -30,6 +30,7 @@ import androidx.compose.material.icons.automirrored.rounded.CallMissed
 import androidx.compose.material.icons.automirrored.rounded.CallReceived
 import androidx.compose.material.icons.rounded.AccessTime
 import androidx.compose.material.icons.rounded.Block
+import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.CallEnd
 import androidx.compose.material.icons.rounded.Voicemail
@@ -526,7 +527,7 @@ private fun RecentActionsSheet(vm: AppViewModel, recents: RecentsViewModel, g: R
             R.string.recents_add_to_contact, Icons.Rounded.PersonAdd, hasNumber && g.contact == null && g.vaultId == null,
         ) { act { open(Routes.pick(g.number)) } }
         row(R.string.recents_block_number, Icons.Rounded.Block, hasNumber) { act { vm.blockNumber(g.number) } }
-        row(R.string.recents_select, Icons.Rounded.Block, true) { act { recents.selection.value = setOf(g.key) } }
+        row(R.string.recents_select, Icons.Rounded.CheckCircle, true) { act { recents.selection.value = setOf(g.key) } }
         if (hasNumber) RecentBlockingActions(vm, g.number, g.contact?.displayName, g.latest.type == CallType.BLOCKED, onDismiss)
         row(R.string.recents_delete_from_history, Icons.Rounded.Delete) {
             act { recents.delete(g) }

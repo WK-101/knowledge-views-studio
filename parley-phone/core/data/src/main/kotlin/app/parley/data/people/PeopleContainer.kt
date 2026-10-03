@@ -4,7 +4,6 @@ import app.parley.common.LabelRefs
 import app.parley.common.storage.PersistentStores
 import app.parley.common.PhoneIdentity
 import android.util.Base64
-import app.parley.common.PhoneNumbers
 import app.parley.common.people.ContactRef
 import app.parley.data.DataContainer
 import app.parley.data.backup.BackupExtras
@@ -220,7 +219,7 @@ private class PeopleBackupExtras(private val p: PeopleContainer, private val c: 
         val contacts = withTimeoutOrNull(30_000) { c.contacts.contacts.filterNotNull().first() }.orEmpty()
         val keys = contacts.map { it.lookupKey }.toSet()
         p.cardLinks.importDevice(json) { key, fields ->
-            key.takeIf { it in keys } ?: contacts.filter { ct -> ct.phones.any { ph -> fields.phones.any { PhoneNumbers.same(it, ph.number, null) } } }
+            key.takeIf { it in keys } ?: contacts.filter { ct -> ct.phones.any { ph -> fields.phones.any { PhoneIdentity.same(it, ph.number, null) } } }
                 .singleOrNull()?.lookupKey
         }
     }

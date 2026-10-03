@@ -2,7 +2,7 @@ package app.parley.data.calls
 
 import android.content.Context
 import android.util.Base64
-import app.parley.common.PhoneNumbers
+import app.parley.common.PhoneIdentity
 import app.parley.common.spam.CallReputation
 import app.parley.common.spam.Reputation
 import app.parley.common.spam.ReputationIndex
@@ -78,7 +78,7 @@ class ReputationStore private constructor(context: Context, private val keySourc
 
     /** What your calls say about [number] (read with [countryIso]), or null: never seen, never tagged, or unreadable now. */
     fun lookup(number: String?, countryIso: String?): Reputation? {
-        val line = PhoneNumbers.toE164(number, countryIso) ?: return null
+        val line = PhoneIdentity.e164(number, countryIso) ?: return null
         if (entries == null && !load()) return null
         val map = entries ?: return null
         if (map.isEmpty()) return null

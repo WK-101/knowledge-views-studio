@@ -1,6 +1,7 @@
 package app.parley
 
 import app.parley.work.FolderSyncNotice
+import app.parley.jobs.UserErrorText
 import app.parley.ui.home.PrivateMoves
 import app.parley.ui.Destination
 import android.net.Uri
@@ -21,7 +22,6 @@ import app.parley.common.CallEntry
 import app.parley.common.CallType
 import app.parley.common.ContactSummary
 import app.parley.common.PhoneIdentity
-import app.parley.common.PhoneNumbers
 import app.parley.common.SimAccount
 import app.parley.data.Permissions
 import app.parley.data.PlaceResult
@@ -133,6 +133,9 @@ sealed interface NavEvent {
 @OptIn(FlowPreview::class)
 class AppViewModel(app: Application) : AndroidViewModel(app) {
     val c = app.container
+
+    /** Exports, imports and backups that outlive the screen that started them. */
+    val jobs: app.parley.jobs.UserJobs = (app.applicationContext as ParleyApp).jobs
     val settings = c.settings.settings
     val countryIso: String = c.directory.countryIso
 
@@ -210,7 +213,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         .stateIn(viewModelScope, SharingStarted.Eagerly, PhoneIdentity.LineMap(countryIso))
 
     fun contactFor(number: String?): ContactSummary? {
-        if (number.isNullOrBlank() || PhoneNumbers.digits(number).length < 3) return null
+        if (number.isNullOrBlank() || PhoneIdentity.digits(number).length < 3) return null
         return numberIndex.value[number]
     }
 
@@ -410,7 +413,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             try {
                 c.contacts.delete(device)
             } catch (e: Exception) {
-                toast(e.message ?: str(R.string.vm_couldnt_delete))
+                toast(str(R.string.vm_couldnt_delete_because, UserErrorText.of(getApplication(), e)))
                 return@launch
             }
             val journal = c.contacts.lastJournalIds

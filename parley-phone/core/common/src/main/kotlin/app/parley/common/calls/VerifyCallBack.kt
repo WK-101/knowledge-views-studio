@@ -1,6 +1,6 @@
 package app.parley.common.calls
 
-import app.parley.common.PhoneNumbers
+import app.parley.common.PhoneIdentity
 
 /**
  * I3 "Check it's really them": end the call and dial the number saved for that person or organisation, since caller
@@ -26,5 +26,5 @@ object VerifyCallBack {
         choices(saved.filter { it.organisation }, null, countryIso).sortedBy { it.name.lowercase() }
 
     private fun key(number: String, countryIso: String?): String =
-        PhoneNumbers.toE164(number, countryIso) ?: PhoneNumbers.digits(number)
+        PhoneIdentity.e164(number, countryIso) ?: PhoneIdentity.digits(number)
 }

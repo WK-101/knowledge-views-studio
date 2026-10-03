@@ -6,7 +6,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.telecom.TelecomManager
 import android.telephony.TelephonyManager
-import app.parley.common.PhoneNumbers
+import app.parley.common.PhoneIdentity
 import app.parley.common.calls.DialCodes
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -78,5 +78,5 @@ class CallPlacer(private val context: Context, private val sims: SimRepository, 
         }
     }
 
-    fun isServiceCode(number: String) = PhoneNumbers.isServiceCode(number)
+    fun isServiceCode(number: String) = PhoneIdentity.isServiceCode(number)
 }

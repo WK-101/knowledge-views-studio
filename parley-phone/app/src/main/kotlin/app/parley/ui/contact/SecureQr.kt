@@ -1,6 +1,7 @@
 package app.parley.ui.contact
 
 import app.parley.common.backup.KdfPolicy
+import app.parley.jobs.UserErrorText
 import app.parley.common.backup.KdfParams
 import app.parley.common.security.Bounded
 import android.graphics.Bitmap
@@ -200,7 +201,7 @@ fun ReceiveSecureQrDialog(vm: AppViewModel, uri: Uri, onDone: () -> Unit, openEd
             confirmButton = {
                 TextButton({
                     val (details, _) = withMet()
-                    scope.launchVault(context as? FragmentActivity, { e -> vm.toast(res.getString(R.string.edit_save_failed, e.message.orEmpty())) }) {
+                    scope.launchVault(context as? FragmentActivity, { e -> vm.toast(res.getString(R.string.edit_save_failed, UserErrorText.of(context, e))) }) {
                         val id = vm.c.vault.save(null, details); vm.toast(res.getString(R.string.sqr_saved_private)); onDone(); vm.navigate(NavEvent.Vault(id))
                     }
                 }) { Text(stringResource(R.string.sqr_save_privately)) }

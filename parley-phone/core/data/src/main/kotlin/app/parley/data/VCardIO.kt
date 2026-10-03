@@ -1,5 +1,7 @@
 package app.parley.data
 
+import app.parley.common.ExplainedFailure
+import app.parley.common.catching
 import app.parley.data.people.IcuCalendars
 import android.content.Context
 import android.net.Uri
@@ -19,7 +21,6 @@ import app.parley.common.vcard.ImportReportBuilder
 import app.parley.common.vcard.ParsedCard
 import app.parley.common.vcard.VCardStream
 import app.parley.data.records.ContactRecordStore
-import java.io.FileNotFoundException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
@@ -66,7 +67,8 @@ class VCardIO(
                     n++
                 } catch (e: Exception) {
                     Log.w(TAG, "Export failed for one contact", e)
-                    failures += "${record.displayName.ifBlank { "(no name)" }}: ${e.message ?: e.javaClass.simpleName}"
+                    // The name only: the exception's own text is for the log, never for the person.
+                    failures += record.displayName.ifBlank { "…" }
                 }
                 if (++done % PROGRESS_EVERY == 0) progress(done, ids.size)
             }
@@ -111,7 +113,7 @@ class VCardIO(
         withContext(Dispatchers.IO) {
             val total = countCards(source)
             runImport(account, total, progress, skipDuplicates) { report, sink ->
-                val input = cr.openInputStream(source) ?: throw FileNotFoundException(context.getString(R.string.data_file_read_failed))
+                val input = cr.openInputStream(source) ?: throw ExplainedFailure(context.getString(R.string.data_file_read_failed))
                 VCardStream.reader(input).use { VCardStream.read(it, report, IcuCalendars, sink) }
             }
         }
@@ -119,7 +121,7 @@ class VCardIO(
     suspend fun importCsv(source: Uri, account: AccountRef, progress: (Int, Int) -> Unit = { _, _ -> }, skipDuplicates: Boolean = false): ImportReport =
         withContext(Dispatchers.IO) {
             runImport(account, 0, progress, skipDuplicates) { report, sink ->
-                val input = cr.openInputStream(source) ?: throw FileNotFoundException(context.getString(R.string.data_file_read_failed))
+                val input = cr.openInputStream(source) ?: throw ExplainedFailure(context.getString(R.string.data_file_read_failed))
                 VCardStream.reader(input).use { ContactCsv.read(it, report, sink) }
             }
         }
@@ -132,7 +134,7 @@ class VCardIO(
 
     suspend fun csvPreview(source: Uri, rows: Int = 30): CsvPreview? = withContext(Dispatchers.IO) {
         if (!looksLikeCsv(source)) return@withContext null
-        val input = cr.openInputStream(source) ?: throw FileNotFoundException(context.getString(R.string.data_file_read_failed))
+        val input = cr.openInputStream(source) ?: throw ExplainedFailure(context.getString(R.string.data_file_read_failed))
         VCardStream.reader(input).buffered().use { r ->
             val (delimiter, numberList) = ContactCsv.sniff(r)
             val head = ContactCsv.parse(r, delimiter).take(rows).toList()
@@ -151,7 +153,7 @@ class VCardIO(
         skipDuplicates: Boolean = false,
     ): ImportReport = withContext(Dispatchers.IO) {
         runImport(account, 0, progress, skipDuplicates) { report, sink ->
-            val input = cr.openInputStream(source) ?: throw FileNotFoundException(context.getString(R.string.data_file_read_failed))
+            val input = cr.openInputStream(source) ?: throw ExplainedFailure(context.getString(R.string.data_file_read_failed))
             VCardStream.reader(input).use { CsvColumnMapping.read(it, delimiter, mapping, hasHeader, report, sink) }
         }
     }
@@ -169,7 +171,7 @@ class VCardIO(
         val existing = if (skipDuplicates) {
             DuplicateIndex().apply {
                 contacts.snapshot().forEach { add(it) }
-                val vault = runCatching { vaultNumbers() }.getOrDefault(emptyList())
+                val vault = catching { vaultNumbers() }.getOrDefault(emptyList())
                 if (vault.isNotEmpty()) add(ContactSummary(0, "", "", null, false, vault.map { PhoneEntry(it, 2, null) }))
             }
         } else {

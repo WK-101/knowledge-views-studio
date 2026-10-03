@@ -1,6 +1,6 @@
 package app.parley.common.calls
 
-import app.parley.common.PhoneNumbers
+import app.parley.common.PhoneIdentity
 
 /** How a reason can reach the person called. */
 enum class ReasonWay {
@@ -38,7 +38,7 @@ object CallReason {
         if (number.isNullOrBlank()) return false
         val n = MenuMemory.dialled(number)
         if (EmergencyPolicy.isFallbackEmergencyNumber(n)) return false
-        return n.isNotEmpty() && !PhoneNumbers.isServiceCode(n) && !n.startsWith("*") && !n.startsWith("#") && n.any { it.isDigit() }
+        return n.isNotEmpty() && !PhoneIdentity.isServiceCode(n) && !n.startsWith("*") && !n.startsWith("#") && n.any { it.isDigit() }
     }
 
     /**

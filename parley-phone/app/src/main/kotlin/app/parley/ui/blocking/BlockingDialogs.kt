@@ -42,7 +42,7 @@ import app.parley.blocking.BlockingText
 import app.parley.blocking.ExpectingCallTileService
 import app.parley.common.BlockRule
 import app.parley.common.OffHoursAllow
-import app.parley.common.PhoneNumbers
+import app.parley.common.PhoneIdentity
 import app.parley.common.RuleKind
 import app.parley.common.RuleType
 import app.parley.common.ScreeningResult
@@ -144,7 +144,7 @@ private fun WhyDialog(vm: AppViewModel, number: String, live: Boolean, onDismiss
     var loaded by remember { mutableStateOf(false) }
     LaunchedEffect(number, live) {
         if (!live) {
-            stored = vm.c.blocks.screenedCalls.first().firstOrNull { it.number != null && PhoneNumbers.same(it.number, number, vm.countryIso) }
+            stored = vm.c.blocks.screenedCalls.first().firstOrNull { it.number != null && PhoneIdentity.same(it.number, number, vm.countryIso) }
         }
         if (live || stored == null) test = runCatching { vm.c.screener.test(number) }.getOrNull()
         loaded = true
@@ -267,7 +267,7 @@ private fun PrefixAllowDialog(vm: AppViewModel, d: BlockingDialog.PrefixAllow, o
     val scope = rememberCoroutineScope()
     var chosen by remember { mutableStateOf(d.numbers.firstOrNull().orEmpty()) }
     var drop by remember { mutableIntStateOf(2) }
-    val e164 = remember(chosen) { PhoneNumbers.toE164(chosen, vm.countryIso) ?: PhoneNumbers.clean(chosen) }
+    val e164 = remember(chosen) { PhoneIdentity.e164(chosen, vm.countryIso) ?: PhoneIdentity.clean(chosen) }
     val prefix = e164.dropLast(drop)
     val context = LocalContext.current
     val res = LocalResources.current

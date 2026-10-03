@@ -5,7 +5,6 @@ import android.util.Log
 import app.parley.R
 import app.parley.common.CallType
 import app.parley.common.PhoneIdentity
-import app.parley.common.PhoneNumbers
 import app.parley.common.calls.EmergencyPolicy
 import app.parley.common.people.ContactRef
 import app.parley.common.calls.EmergencyPolicy.Safeguard
@@ -60,7 +59,7 @@ class CallTimePlanner(private val c: DataContainer) {
             emergencyNumber = EmergencyNumbers.isEmergency(c.appContext, number),
             inWindow = runCatching { ScreeningGuard.inEmergencyWindow(c.appContext) }.getOrDefault(false),
             userListed = !number.isNullOrBlank() && c.settings.current().screening.emergencyExtras.any {
-                PhoneNumbers.same(it, number, PhoneEnv.countryIso(c.appContext))
+                PhoneIdentity.same(it, number, PhoneEnv.countryIso(c.appContext))
             },
         )
         val exempt = EmergencyPolicy.bypasses(Safeguard.CALL_LIMITS, emergency)

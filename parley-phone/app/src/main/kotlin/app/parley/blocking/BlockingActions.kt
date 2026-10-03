@@ -6,7 +6,7 @@ import android.content.Intent
 import android.net.Uri
 import app.parley.R
 import app.parley.common.BlockRule
-import app.parley.common.PhoneNumbers
+import app.parley.common.PhoneIdentity
 import app.parley.common.RuleKind
 import app.parley.common.RuleTools
 import app.parley.common.RuleType
@@ -32,7 +32,9 @@ object BlockingActions {
     suspend fun allowNumber(c: DataContainer, number: String, hours: Int? = null, note: String? = null) {
         val iso = PhoneEnv.countryIso(c.appContext)
         val pattern = RuleTools.check(number, RuleType.EXACT, iso).pattern
-        val existing = c.blocks.rules.value.firstOrNull { it.kind == RuleKind.ALLOW && it.type == RuleType.EXACT && PhoneNumbers.same(it.pattern, number, iso) }
+        val existing = c.blocks.rules.value.firstOrNull {
+            it.kind == RuleKind.ALLOW && it.type == RuleType.EXACT && PhoneIdentity.same(it.pattern, number, iso)
+        }
         val rule = (existing ?: BlockRule(pattern = pattern, type = RuleType.EXACT, kind = RuleKind.ALLOW)).copy(
             enabled = true,
             expiresAt = hours?.let { System.currentTimeMillis() + it * 3_600_000L },
@@ -50,7 +52,7 @@ object BlockingActions {
     /** Allow every number that shares all but the last [keepDigits] digits ("the office's other lines"). */
     suspend fun allowPrefix(c: DataContainer, number: String, dropDigits: Int, name: String?) {
         val iso = PhoneEnv.countryIso(c.appContext)
-        val e = PhoneNumbers.toE164(number, iso) ?: PhoneNumbers.clean(number)
+        val e = PhoneIdentity.e164(number, iso) ?: PhoneIdentity.clean(number)
         val prefix = e.dropLast(dropDigits.coerceIn(1, 6))
         c.blocks.saveRule(
             BlockRule(
@@ -79,7 +81,7 @@ object BlockingActions {
 
     /** Opens the browser with the number as a search. Always behind a confirmation (it leaves the phone). */
     fun searchWeb(context: Context, number: String, baseUrl: String) {
-        val q = PhoneNumbers.toE164(number, PhoneEnv.countryIso(context)) ?: number
+        val q = PhoneIdentity.e164(number, PhoneEnv.countryIso(context)) ?: number
         launch(context, Intent(Intent.ACTION_VIEW, Uri.parse(baseUrl + Uri.encode(q))).addCategory(Intent.CATEGORY_BROWSABLE))
     }
 

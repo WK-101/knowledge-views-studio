@@ -142,7 +142,7 @@ import app.parley.DialResult
 import app.parley.common.DialText
 import app.parley.common.KeypadLayout
 import app.parley.common.NumberText
-import app.parley.common.PhoneNumbers
+import app.parley.common.PhoneIdentity
 import app.parley.common.calls.PressOrder
 import app.parley.messaging.ReachSheet
 import app.parley.messaging.ReachTarget
@@ -296,7 +296,7 @@ fun KeypadTab(vm: AppViewModel, open: (Destination) -> Unit, searchQuery: String
         }
         // The typed number exactly as typed ('#' codes included), never the top match.
         val target = DialTarget.pick(n, results.firstOrNull()?.number) ?: return
-        vm.requestCall(target, results.firstOrNull { it.contact != null && PhoneNumbers.same(it.number, target, vm.countryIso) }?.contact?.displayName)
+        vm.requestCall(target, results.firstOrNull { it.contact != null && PhoneIdentity.same(it.number, target, vm.countryIso) }?.contact?.displayName)
     }
 
     fun callWithSim(simId: String) {
@@ -312,7 +312,7 @@ fun KeypadTab(vm: AppViewModel, open: (Destination) -> Unit, searchQuery: String
         val target = DialTarget.pick(input, results.firstOrNull()?.number)
         // Same checks as any call (dial guard, allowance, confirm), just without the SIM question.
         if (!target.isNullOrEmpty()) vm.requestCall(
-            target, results.firstOrNull { it.contact != null && PhoneNumbers.same(it.number, target, vm.countryIso) }?.contact?.displayName, simId = simId,
+            target, results.firstOrNull { it.contact != null && PhoneIdentity.same(it.number, target, vm.countryIso) }?.contact?.displayName, simId = simId,
         )
     }
 
@@ -325,7 +325,7 @@ fun KeypadTab(vm: AppViewModel, open: (Destination) -> Unit, searchQuery: String
         // Found it: the tip about the long-press has done its job.
         runCatching { vm.c.ux.dismissTip(Tips.CALL_REASON) }
         val name = r?.contact?.displayName
-            ?: results.firstOrNull { it.contact != null && PhoneNumbers.same(it.number, target, vm.countryIso) }?.contact?.displayName
+            ?: results.firstOrNull { it.contact != null && PhoneIdentity.same(it.number, target, vm.countryIso) }?.contact?.displayName
         reasonFor = ReasonTarget(target, name, simId)
     }
 
@@ -392,9 +392,9 @@ fun KeypadTab(vm: AppViewModel, open: (Destination) -> Unit, searchQuery: String
     val numberActions = KeypadNumberActions.place(
         typed = typedNumber,
         textSearch = isTextSearch(),
-        serviceCode = PhoneNumbers.isServiceCode(typedNumber),
+        serviceCode = PhoneIdentity.isServiceCode(typedNumber),
         contactMatches = results.any { it.contact != null },
-        known = results.any { it.contact != null && PhoneNumbers.same(it.number, typedNumber, vm.countryIso) },
+        known = results.any { it.contact != null && PhoneIdentity.same(it.number, typedNumber, vm.countryIso) },
     )
     val showNumberActions = numberActions.chips.isNotEmpty()
     fun runNumberAction(action: KeypadNumberActions.Action) {

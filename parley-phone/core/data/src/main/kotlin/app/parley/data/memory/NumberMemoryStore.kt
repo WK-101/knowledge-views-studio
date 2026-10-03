@@ -2,7 +2,6 @@ package app.parley.data.memory
 
 import android.util.Log
 import app.parley.common.PhoneIdentity
-import app.parley.common.PhoneNumbers
 import app.parley.common.memory.MemoryHint
 import app.parley.common.memory.MemorySource
 import app.parley.common.memory.NumberMemory
@@ -68,7 +67,7 @@ class NumberMemoryStore(private val c: DataContainer) {
         }
         runCatching {
             if (!c.toCall.available) c.toCall.load()
-            c.toCall.state.value.items.filter { PhoneNumbers.same(it.number, number, region) }.minByOrNull { it.since }
+            c.toCall.state.value.items.filter { PhoneIdentity.same(it.number, number, region) }.minByOrNull { it.since }
         }.getOrNull()?.let { add(MemoryHint(MemorySource.TO_CALL, at = it.since)) }
     }
 

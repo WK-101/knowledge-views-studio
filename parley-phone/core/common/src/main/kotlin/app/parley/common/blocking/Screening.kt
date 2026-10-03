@@ -6,7 +6,7 @@ import app.parley.common.CallPolicy
 import app.parley.common.CallType
 import app.parley.common.IncomingCallFacts
 import app.parley.common.LineType
-import app.parley.common.PhoneNumbers
+import app.parley.common.PhoneIdentity
 import app.parley.common.PolicyClock
 import app.parley.common.ScreeningResult
 import app.parley.common.ScreeningSettings
@@ -101,7 +101,7 @@ object PersonalReputation {
      */
     fun suggestions(calls: List<CallEntry>, now: Long, countryOf: (CallEntry) -> String? = { null }, exclude: (String) -> Boolean): List<Suggestion> {
         // One line per E.164 number (national numbers read with the country of the call's SIM), not per last 9 digits.
-        val byNumber = calls.filter { it.number.isNotBlank() && !it.presentationHidden }.groupBy { PhoneNumbers.lineKey(it.number, countryOf(it)) }
+        val byNumber = calls.filter { it.number.isNotBlank() && !it.presentationHidden }.groupBy { PhoneIdentity.key(it.number, countryOf(it)) }
         val out = ArrayList<Suggestion>()
         for ((_, list) in byNumber) {
             val number = list.first().number

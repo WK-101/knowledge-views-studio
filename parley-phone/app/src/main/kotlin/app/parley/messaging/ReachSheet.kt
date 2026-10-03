@@ -72,7 +72,7 @@ import app.parley.common.MessengerLinks
 import app.parley.common.cards.ShareMethod
 import app.parley.ui.people.cards.CardSharing
 import app.parley.common.NumberText
-import app.parley.common.PhoneNumbers
+import app.parley.common.PhoneIdentity
 import app.parley.common.ReachGroup
 import app.parley.common.ReachGroups
 import app.parley.common.ReachKind
@@ -342,7 +342,7 @@ private fun PersonReach(r: Reach, onRemember: (MessengerPrefs) -> Unit, onCall: 
     val chatApps = remember(installed) { ReachPlan.chatApps(installed, store.lastApp) }
     val installedPackages = remember(installed) { installed.map { it.packageName }.toSet() }
     val calls = remember(number, r.messengers, chatApps) {
-        val same = { a: String, b: String -> PhoneNumbers.same(a, b, region) }
+        val same = { a: String, b: String -> PhoneIdentity.same(a, b, region) }
         ReachPlan.callOn(chatApps, ReachGroups.forNumber(r.groups(region), number, same))
     }
     // Chat rows of apps that open no chat by number (Threema, Wire, Element…) and registered this person.
@@ -459,7 +459,7 @@ private fun NumberReach(number: String, accountId: String?, onCall: ((String) ->
     val region = regionOverride ?: simRegion
     val e164 = remember(number, region) { NumberText.toE164(number, region) }
     val unavailable = remember(e164) { MessagingText.unavailable(res, e164) }
-    val nationalForm = remember(number) { !PhoneNumbers.clean(number).startsWith("+") }
+    val nationalForm = remember(number) { !PhoneIdentity.clean(number).startsWith("+") }
     val installed = remember { MessengerLauncher.installed(context) }
     val chatApps = remember(installed) { ReachPlan.chatApps(installed, store.lastApp) }
     val callApps = remember(installed) { ReachPlan.chatApps(installed, store.lastCallApp) }
@@ -479,7 +479,7 @@ private fun NumberReach(number: String, accountId: String?, onCall: ((String) ->
         actions = withContext(Dispatchers.IO) { runCatching { Messengers.actionsForNumber(context, e164 ?: number) }.getOrDefault(emptyList()) }
     }
     val calls = remember(actions, callApps, region) {
-        ReachPlan.callOn(callApps, ReachGroups.group(actions.map { it.row }) { a, b -> PhoneNumbers.same(a, b, region) })
+        ReachPlan.callOn(callApps, ReachGroups.group(actions.map { it.row }) { a, b -> PhoneIdentity.same(a, b, region) })
     }
     val isContact = known == true
     fun toast(text: String) = showMessage(context, text, long = true)
