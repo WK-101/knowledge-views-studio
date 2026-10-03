@@ -18,6 +18,7 @@ import app.parley.shortcuts.CircleWidget
 import app.parley.shortcuts.FavoritesWidget
 import app.parley.telecom.TelecomGraph
 import app.parley.ui.AppLocale
+import app.parley.ui.common.ImageExport
 import app.parley.ui.contact.CallerTunes
 import app.parley.ui.contact.ContactCamera
 import app.parley.ui.history.ExportFiles
@@ -68,7 +69,11 @@ class ParleyApp : Application() {
             suspendRunCatching { CallerTunes.sweep(container) }
             suspendRunCatching { CallerTunes.regrant(this@ParleyApp) }
         }
-        AppLock.onLock = { container.vault.forgetOpened() }
+        AppLock.onLock = {
+            container.vault.forgetOpened()
+            // A private contact's picture shared from the cache (decrypted) goes with the rest.
+            container.scope.launch(Dispatchers.IO) { ImageExport.forgetPrivate(this@ParleyApp) }
+        }
         // I21: locking ends a duress session (its settings changes are forgotten); what it hides stays hidden until the
         // real Parley PIN.
         AppLock.onEngaged = { LockTransitions.locked(container) }
@@ -95,6 +100,8 @@ class ParleyApp : Application() {
             ExportFiles.cleanup(this@ParleyApp)
             // Camera shots and framed avatars that a closed editor or an unfinished save left in the cache.
             runCatching { ContactCamera.sweep(this@ParleyApp) }
+            // Pictures shared before: no share from an earlier run is still being read.
+            ImageExport.sweep(this@ParleyApp, all = true)
         }
         // Alongside: the preference-backed stores the call screen and the first screens read, built on IO so their
         // first read never parses a file on the main thread (the view model touches several as it is created).

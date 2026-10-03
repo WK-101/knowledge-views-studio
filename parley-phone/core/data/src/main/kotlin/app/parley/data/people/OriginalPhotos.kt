@@ -114,6 +114,20 @@ class OriginalPhotos(context: Context) {
     /** [o] is no longer shown: what was opened to show it goes. */
     fun release(o: Original) = o.release()
 
+    /**
+     * [o] exactly as kept, for Save and Share: the same bytes (a sealed one opened), never decoded or re-encoded, so
+     * the file keeps its format and its EXIF as stored. Null when it can't be read.
+     */
+    @Suppress("TooGenericExceptionCaught") // Keystore or file: nothing to hand out.
+    suspend fun exportBytes(o: Original): ByteArray? = withContext(Dispatchers.IO) {
+        try {
+            o.bytes()
+        } catch (e: Exception) {
+            Log.w(TAG, "Couldn't read the original to hand it out", e)
+            null
+        }
+    }
+
     // ---- Phone contacts
 
     private fun sha(s: String) = Hex.encode(MessageDigest.getInstance("SHA-256").digest(s.toByteArray()))

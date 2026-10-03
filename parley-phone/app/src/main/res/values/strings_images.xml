@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Save and Share for pictures: the photo viewers, the call-screen picture and Parley's QR codes. -->
+<resources>
+    <string name="img_save">Save</string>
+    <string name="img_share">Share</string>
+    <string name="img_share_title">Share picture</string>
+    <string name="img_saved">Saved</string>
+    <string name="img_save_failed">Couldn\'t save the picture there. Try another place.</string>
+    <string name="img_unreadable">Couldn\'t read this picture</string>
+    <!-- Used as the file name when there is no name to give it. -->
+    <string name="img_file_fallback">Photo</string>
+    <string name="img_note_original">The photo as you picked it, whole and in its own format. Details such as the camera and date stay in the file; its location was removed when Parley kept it.</string>
+    <string name="img_note_android_copy">Parley doesn\'t have this photo\'s original, so you get the largest copy Android keeps.</string>
+    <string name="img_note_private_copy">Parley doesn\'t have this photo\'s original, so you get the copy kept for caller ID.</string>
+    <string name="img_note_call_picture">The picture as Parley keeps it for the call screen.</string>
+    <string name="img_view_call_picture">View call screen picture</string>
+    <!-- File names; %1$s is the person's name. -->
+    <string name="img_name_call_picture">%1$s call screen</string>
+    <string name="img_name_qr">%1$s QR code</string>
+    <string name="img_name_my_card_qr">My card QR code</string>
+    <string name="img_name_secure_qr">%1$s secure QR code</string>
+    <string name="img_name_invite_qr">%1$s invitation QR code</string>
+    <string name="img_name_simple_qr">Simple mode setup QR code</string>
+    <string name="img_name_template_qr">%1$s rules QR code</string>
+    <string name="img_code_apart">The picture holds the code only. Tell the passcode separately, not in the same message.</string>
+</resources>
