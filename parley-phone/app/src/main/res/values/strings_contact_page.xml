@@ -165,4 +165,12 @@
     <string name="detail_generation">Generation</string>
     <string name="detail_address_parts">Address details · %1$s</string>
     <string name="detail_next_by_calendar">%1$s · next %2$s</string>
+    <!-- A relation another contact gives this one, shown here rather than saved (one of the two is private): "Child · From their contact". -->
+    <!-- The relationship status under a contact's name, from its relations; a tap opens that person. -->
+    <string name="detail_married_to">Married to %1$s</string>
+    <string name="detail_partner_of">Partner of %1$s</string>
+    <!-- An ex-spouse relation's row, in place of its type. -->
+    <string name="detail_formerly_married">Formerly married to</string>
+    <string name="detail_open_person">Open</string>
+    <string name="detail_relation_from_them">%1$s · From their contact</string>
 </resources>

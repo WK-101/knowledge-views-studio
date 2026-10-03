@@ -52,6 +52,7 @@ import app.parley.common.people.SectionFamily
 import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.ViewAgenda
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -142,6 +143,8 @@ import androidx.core.graphics.drawable.toBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import app.parley.common.people.MessengerPrefs
 import app.parley.common.people.RelationTypes
+import app.parley.common.people.RelationshipStatus
+import app.parley.data.people.RelationMirrors
 import app.parley.common.ux.Tips
 import app.parley.data.ContactDetails
 import app.parley.data.DataItem
@@ -255,6 +258,16 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
     var logDialog by remember { mutableStateOf(false) }
     // The pre-call peek (the number about to be called).
     val circleCfg by page.circleConfig.collectAsStateWithLifecycle()
+    val relationsFromOthers by page.relationsFromOthers.collectAsStateWithLifecycle()
+
+    /** Opens the contact relation [name] names: by the remembered link first, then by name; several namesakes: ask. */
+    fun openRelation(name: String) = page.openRelation(name) { target ->
+        when (target) {
+            is RelationTarget.Contact -> open(Routes.contact(target.id))
+            is RelationTarget.Choose -> relationChoice = target.people
+            is RelationTarget.None -> vm.toast(resources.getString(R.string.detail_no_contact_named, target.name))
+        }
+    }
     var peekNumber by remember { mutableStateOf<String?>(null) }
     // I12: "Call with a reason…" from a long-press on Call.
     var reasonFor by remember { mutableStateOf<ReasonTarget?>(null) }
@@ -642,8 +655,9 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
         // An address's map link opens from the address itself, so it isn't listed again as a website.
         // Profiles have their own group above.
         val sites = d.websites.filterIndexed { i, w -> i !in mapLinks.values && SocialProfiles.fromWebsite(w.value, w.type, w.label)?.handle.isNullOrBlank() }
-        if (sites.isNotEmpty() || d.note.isNotBlank() || d.relations.isNotEmpty()) {
-            val n = sites.size + d.relations.size + (if (d.note.isNotBlank()) 1 else 0)
+        val relationCount = d.relations.size + relationsFromOthers.size
+        if (sites.isNotEmpty() || d.note.isNotBlank() || relationCount > 0) {
+            val n = sites.size + relationCount + (if (d.note.isNotBlank()) 1 else 0)
             sections.addRows(ContactSection.ABOUT, resources.getString(R.string.detail_about, d.given.ifBlank { d.displayName }), resources.getQuantityString(R.plurals.contact_page_count_items, n, n)) {
                 sites.forEachIndexed { i, w ->
                     item {
@@ -653,18 +667,23 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                 }
                 d.relations.forEachIndexed { i, rel ->
                     item {
-                        val label = RelationTypes.fromAndroid(rel.type, rel.label)?.let { RelationText.label(resources, it) }
+                        val type = RelationTypes.fromAndroid(rel.type, rel.label)
+                        val label = relationLabel(resources, type?.key, type?.let { RelationText.label(resources, it) })
                             ?: ContactsContract.CommonDataKinds.Relation.getTypeLabel(resources, rel.type, rel.label).toString()
-                        GroupDataRow(Icons.Rounded.People, i == 0, rel.value, label, onClick = {
-                            // By the remembered lookup key first, then by name; several namesakes: ask.
-                            page.openRelation(rel.value) { target ->
-                                when (target) {
-                                    is RelationTarget.Contact -> open(Routes.contact(target.id))
-                                    is RelationTarget.Choose -> relationChoice = target.people
-                                    is RelationTarget.None -> vm.toast(resources.getString(R.string.detail_no_contact_named, target.name))
-                                }
-                            }
-                        })
+                        GroupDataRow(Icons.Rounded.People, i == 0, rel.value, label, onClick = { openRelation(rel.value) })
+                    }
+                }
+                // A private contact's relation to this one (or this private contact's from another): shown, never written
+                // where other apps could read it (RelationsFromOthers).
+                relationsFromOthers.forEachIndexed { i, other ->
+                    item {
+                        val known = other.row.typeKey?.let(RelationTypes::byKey)?.let { RelationText.label(resources, it) }
+                        val type = relationLabel(resources, other.row.typeKey, known) ?: other.row.label.orEmpty()
+                        GroupDataRow(
+                            Icons.Rounded.People, d.relations.isEmpty() && i == 0, other.row.name,
+                            resources.getString(R.string.detail_relation_from_them, type),
+                            onClick = { open(Routes.contact(other.navId)) },
+                        )
                     }
                 }
                 if (d.note.isNotBlank()) item {
@@ -683,7 +702,12 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
         sections.addRows(ContactSection.NOTE, sectionTitle(resources, ContactSection.NOTE), note?.lineSequence()?.firstOrNull().orEmpty().ifBlank { resources.getString(R.string.contact_page_no_note) }) {
             item {
                 InfoRow(
-                    modifier = Modifier.clickable { editNote = true },
+                    // Tap edits it; press and hold copies it, like the page's other facts.
+                    modifier = Modifier.combinedClickable(
+                        onClick = { editNote = true },
+                        onLongClick = note?.let { n -> { Intents.copy(context, n) } },
+                        onLongClickLabel = note?.let { stringResource(R.string.main_copy) },
+                    ),
                     leading = {
                         val cs = MaterialTheme.colorScheme
                         Icon(Icons.Rounded.PushPin, null, tint = if (note != null) cs.primary else cs.onSurfaceVariant)
@@ -854,15 +878,22 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                             vm, d.displayName, d.photoUri, original, heroSize, Modifier.shared("avatar-$contactId"),
                             isCompany = d.composedName.isBlank() && d.company.isNotBlank(),
                         ) { showPhoto = true }
-                        Text(
-                            d.displayName, style = MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center,
-                            modifier = Modifier.padding(top = Spacing.m).shared("name-$contactId", bounds = true),
-                        )
+                        // Press and hold the name to copy it (the name only, not the lines under it).
+                        HeaderName(d.displayName, Modifier.padding(top = Spacing.m).shared("name-$contactId", bounds = true))
                     }
-                    // Pronouns first, right under the name.
+                    // Pronouns first, right under the name; each part copies itself when tapped.
                     val work = listOf(d.title, d.department, d.company).filter { it.isNotBlank() }.joinToString(", ")
-                    val sub = listOf(d.pronouns.trim(), d.nickname, work).filter { it.isNotBlank() }
-                    if (sub.isNotEmpty()) Text(sub.joinToString(sep), color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+                    // "Married to Sam" / "Partner of Alex" from the relations (a tap opens them; a former spouse only
+                    // shows on the relation's own row).
+                    val status = remember(d.relations, relationsFromOthers) {
+                        val own = d.relations.map { rel -> RelationMirrors.rowOf(rel) to { openRelation(rel.value) } }
+                        val others = relationsFromOthers.map { o -> o.row to { open(Routes.contact(o.navId)) } }
+                        RelationshipStatus.header(own + others) { it.first }.map { (kind, item) ->
+                            val res = if (kind == RelationshipStatus.Kind.MARRIED) R.string.detail_married_to else R.string.detail_partner_of
+                            HeaderLink(resources.getString(res, item.first.name.trim()), item.second)
+                        }
+                    }
+                    HeaderFacts(listOf(d.pronouns.trim(), d.nickname.trim(), work), sep, status)
                     Text(
                         glanceText, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = Spacing.xxs),

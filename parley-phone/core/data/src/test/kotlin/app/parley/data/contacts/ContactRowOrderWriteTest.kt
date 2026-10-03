@@ -58,7 +58,10 @@ class ContactRowOrderWriteTest {
             DataItem(null, "+44 20 7946 0003", Phone.TYPE_HOME),
         ),
         emails = listOf(DataItem(null, "ana@home.example", Email.TYPE_HOME), DataItem(null, "ana@work.example", Email.TYPE_WORK)),
-        addresses = listOf(PostalItem(street = "1 First St", type = StructuredPostal.TYPE_HOME), PostalItem(street = "2 Second St", type = StructuredPostal.TYPE_WORK)),
+        addresses = listOf(
+            PostalItem(street = "1 First St", type = StructuredPostal.TYPE_HOME),
+            PostalItem(street = "2 Second St", type = StructuredPostal.TYPE_WORK),
+        ),
         events = listOf(EventItem(date = "1990-01-27", type = Event.TYPE_BIRTHDAY), EventItem(date = "2015-06-01", type = Event.TYPE_ANNIVERSARY)),
     )
 
