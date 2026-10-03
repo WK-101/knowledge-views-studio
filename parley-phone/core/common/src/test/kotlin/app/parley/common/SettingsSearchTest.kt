@@ -75,6 +75,33 @@ class SettingsSearchTest {
         )
     }
 
+    @Test fun every_reminder_is_on_reminders_and_found_by_its_old_words() {
+        val onReminders = listOf(
+            "missed_realert", "birthday_reminders", "reminder_time", "date_lead", "nudges", "circle_delivery", "circle_weekly_cap",
+            "backup_reminder", "reminders", "to_call",
+        )
+        onReminders.forEach { assertEquals(it, SettingPlace.REMINDERS, SettingsCatalog[it].place) }
+        // Their category stays, so search still says "Contacts", "Calls" or "Backup & sync" above them.
+        assertEquals(SettingsCategory.CALLS, SettingsCatalog["missed_realert"].category)
+        assertEquals(SettingsCategory.CONTACTS, SettingsCatalog["birthday_reminders"].category)
+        assertEquals(SettingsCategory.BACKUP, SettingsCatalog["backup_reminder"].category)
+        mapOf(
+            "missed_realert" to "re-alert", "birthday_reminders" to "birthday reminders", "reminder_time" to "reminder time",
+            "nudges" to "keep in touch", "circle_delivery" to "digest", "circle_weekly_cap" to "per week", "date_lead" to "days before",
+            "backup_reminder" to "remind me to back up", "temp_ask_first" to "ask before deleting", "to_call" to "remind me",
+            "memory_prompt" to "follow up", "reminders" to "reminders",
+        ).forEach { (key, words) -> assertTrue("$words finds $key", key in keys(words)) }
+        // Call time's "Reminders & limits" ranks with it: both titles start with the word.
+        assertTrue("reminders" in keys("reminders").take(2))
+    }
+
+    @Test fun tools_is_one_hub_found_by_both_names() {
+        assertEquals(SettingPlace.TOOLS, SettingsCatalog["what_parley_can_do"].place)
+        assertEquals("Tools", SettingsCatalog["what_parley_can_do"].title)
+        assertTrue("what_parley_can_do" in keys("tools"))
+        assertTrue("what_parley_can_do" in keys("what parley can do"))
+    }
+
     @Test fun contact_list_buttons_live_in_contacts_and_are_found() {
         assertEquals(SettingsCategory.CONTACTS, SettingsCatalog["row_actions"].category)
         assertEquals(null, SettingsCatalog["row_actions"].place)

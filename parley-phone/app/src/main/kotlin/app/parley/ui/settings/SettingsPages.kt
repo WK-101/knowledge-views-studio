@@ -57,7 +57,6 @@ import androidx.compose.material.icons.rounded.Lightbulb
 import androidx.compose.material.icons.rounded.ManageHistory
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Notifications
-import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material.icons.rounded.PhoneAndroid
 import androidx.compose.material.icons.rounded.PhoneLocked
 import androidx.compose.material.icons.rounded.PrivacyTip
@@ -79,7 +78,6 @@ import androidx.compose.material.icons.rounded.Vibration
 import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material.icons.rounded.Wallpaper
 import androidx.compose.material.icons.rounded.Warning
-import androidx.compose.material.icons.rounded.Handshake
 import androidx.compose.material.icons.rounded.Style
 import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.AccountCircle
@@ -163,7 +161,6 @@ import app.parley.ui.people.SwipeSettings
 import app.parley.ui.people.accountLabel
 import app.parley.ui.people.hasSeveralAccounts
 import app.parley.ui.temporary.rememberTemporaryItems
-import app.parley.work.RemindersWorker
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -290,7 +287,7 @@ internal fun CallsPage(vm: AppViewModel, open: (Destination) -> Unit) {
         }
     }
     CallsSubPageLinks(open)
-    CallExtrasGroups(vm)
+    CallExtrasGroups(vm, open)
     SegmentedGroup(stringResource(R.string.set_group_before_calling)) {
         switchRow("confirm_call", s.confirmBeforeCall, Icons.Rounded.CheckCircle) { v -> set { it.copy(confirmBeforeCall = v) } }
         item("pocket_guard") { PocketGuardRow(vm) }
@@ -420,7 +417,6 @@ internal fun ContactsPage(vm: AppViewModel, open: (Destination) -> Unit) {
         }
     }
     val tempSub = if (tempCount == 0) null else pluralStringResource(R.plurals.set_temporary_count, tempCount, tempCount)
-    val reminderSub = stringResource(R.string.set_birthday_reminders_at, "${s.birthdayReminderHour}:00")
     val circleCfg by vm.c.circle.config.collectAsStateWithLifecycle()
     SegmentedGroup(stringResource(R.string.set_group_contact_list)) {
         switchRow("row_actions", s.contactRowActions, Icons.Rounded.TouchApp) { v -> set { it.copy(contactRowActions = v) } }
@@ -454,20 +450,11 @@ internal fun ContactsPage(vm: AppViewModel, open: (Destination) -> Unit) {
     }
     SegmentedGroup(stringResource(R.string.set_group_birthdays)) {
         linkRow("birthdays", Icons.Rounded.Cake) { open(Routes.Birthdays) }
-        switchRow("birthday_reminders", s.birthdayReminders, Icons.Rounded.NotificationsActive, sub = reminderSub) { v ->
-            set { it.copy(birthdayReminders = v) }
-        }
-        if (s.birthdayReminders) {
-            menuRow("reminder_time", (6..22).map { "$it:00" }, (s.birthdayReminderHour - 6).coerceIn(0, 16), Icons.Rounded.Timer) { i ->
-                set { it.copy(birthdayReminderHour = i + 6) }
-                RemindersWorker.schedule(context, i + 6)
-            }
-        }
+        // Birthday and keep-in-touch reminders are on Reminders, with every other kind.
+        remindersLinkRow(open)
     }
     SegmentedGroup(stringResource(R.string.set_group_circle)) {
-        switchRow("nudges", s.reachOutNudges, Icons.Rounded.Handshake) { v -> set { it.copy(reachOutNudges = v) } }
-        // The Circle's reminder and "Log this?" choices.
-        circleSettingRows(vm, circleCfg, s.birthdayReminders, s.reachOutNudges)
+        logPromptsRow(vm, circleCfg)
     }
     AdvancedGroup(setOf("import_sim", "export_account")) {
         linkRow("import_sim", Icons.Rounded.SimCardDownload) { open(PeopleRoutes.SimImport) }
@@ -554,6 +541,8 @@ internal fun HistoryPage(vm: AppViewModel, open: (Destination) -> Unit) {
         }
         // Recents opens on the chip used last (Blocked and Voicemail aside).
         switchRow("recents_remember_filter", s.rememberRecentsFilter, Icons.Rounded.FilterList) { v -> set { it.copy(rememberRecentsFilter = v) } }
+        // Missed-call re-alerts and To call are on Reminders.
+        remindersLinkRow(open)
         linkRow("insights", Icons.Rounded.Insights) { open(HistoryRoutes.Insights) }
         // The People card in Call insights.
         peopleCardRows(vm, circleCfg)
@@ -680,19 +669,14 @@ internal fun BackupPage(vm: AppViewModel, open: (Destination) -> Unit) {
     val context = LocalContext.current
     val b by vm.c.backup.prefs.state.collectAsStateWithLifecycle()
     val lastBackup = if (b.lastBackupAt > 0) stringResource(R.string.set_last_backup, Format.shortWhen(context, b.lastBackupAt)) else null
-    // The overdue reminder and its threshold.
+    // The overdue reminder (its threshold is on Reminders).
     BackupReminderBanner(vm)
-    val ux by vm.c.ux.state.collectAsStateWithLifecycle()
-    val reminderOptions = BackupNudge.REMINDER_DAYS.map { pluralStringResource(R.plurals.ux_backup_after_days, it, it) }
     SegmentedGroup(stringResource(R.string.set_group_backups)) {
         linkRow(
             "backup", Icons.Rounded.Backup,
             sub = lastBackup,
         ) { open(Routes.Backup) }
-        menuRow(
-            "backup_reminder", reminderOptions, BackupNudge.REMINDER_DAYS.indexOf(ux.backupReminderDays).coerceAtLeast(0),
-            Icons.Rounded.NotificationsActive,
-        ) { i -> vm.c.ux.setBackupReminderDays(BackupNudge.REMINDER_DAYS[i]) }
+        remindersLinkRow(open)
         linkRow("sync", Icons.Rounded.Sync) { open(Routes.Sync) }
         linkRow("markdown_export", Icons.Rounded.Description) { open(Routes.Sync) }
     }

@@ -4,6 +4,8 @@ import androidx.navigation.NavController
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
 import androidx.navigation.toRoute
+import app.parley.common.SettingPlace
+import app.parley.common.SettingsCatalog
 import app.parley.common.SettingsCategory
 import app.parley.ui.Destination
 import app.parley.ui.Routes
@@ -11,6 +13,7 @@ import app.parley.ui.appVm
 import app.parley.ui.backup.BackupScreen
 import app.parley.ui.birthdays.BirthdaysScreen
 import app.parley.ui.calltime.CallTimeScreen
+import app.parley.ui.discover.CapabilitiesScreen
 import app.parley.ui.health.HealthScreen
 import app.parley.ui.journal.HistoryHubScreen
 import app.parley.ui.journal.HistoryTab
@@ -25,9 +28,16 @@ fun NavGraphBuilder.settingsGraph(nav: NavController) {
     composable<Routes.SettingsPage> {
         val a = it.toRoute<Routes.SettingsPage>()
         val category = SettingsCategory.entries.firstOrNull { c -> c.name == a.category } ?: SettingsCategory.APPEARANCE
-        SettingsPageScreen(appVm(), category, a.focus, back = back, open = open)
+        // Old links to a reminder setting on its category page (Circle settings, birthday reminders) open Reminders.
+        if (a.focus != null && SettingsCatalog.entries.any { e -> e.key == a.focus && e.place == SettingPlace.REMINDERS }) {
+            RemindersScreen(appVm(), a.focus, back = back, open = open)
+        } else {
+            SettingsPageScreen(appVm(), category, a.focus, back = back, open = open)
+        }
     }
-    composable<Routes.Tools> { ToolsScreen(appVm(), back = back, open = open) }
+    composable<RemindersRoutes.Page> { RemindersScreen(appVm(), it.toRoute<RemindersRoutes.Page>().focus, back = back, open = open) }
+    // Tools was a page of its own; old links (a restored back stack) open the one hub that replaced it.
+    composable<Routes.Tools> { CapabilitiesScreen(appVm(), back) }
     composable<Routes.Privacy> { PrivacyScreen(appVm(), back = back) }
     composable<Routes.SpeedDial> { SpeedDialScreen(appVm(), back = back) }
     composable<Routes.Temporary> { TemporaryContactsScreen(appVm(), back = back, open = open) }

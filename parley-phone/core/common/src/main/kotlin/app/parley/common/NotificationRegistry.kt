@@ -127,6 +127,16 @@ object NotificationChannels {
     /** Contacts that went missing (the sync watchdog): rare, so it may make a sound where housekeeping doesn't. */
     const val CONTACTS_SAFETY = "contacts_safety_v1"
 
+    /**
+     * The channel group "Reminders" (Settings › Reminders lists the same kinds). Only the group is new: the channels
+     * keep their ids, so whatever someone set for them stays. Missed calls stay with calls, and temporary contacts
+     * with housekeeping (their channels also carry notices that aren't reminders).
+     */
+    const val REMINDERS_GROUP = "reminders"
+
+    /** The channels in [REMINDERS_GROUP]: birthdays, keep in touch and follow-ups; To call; backups. */
+    val reminderChannels: List<String> = listOf(REMINDERS, TO_CALL, BACKUPS)
+
     val all: List<String> = listOf(
         INCOMING_CALLS, ONGOING_CALLS, SILENCED_CALLS, MISSED_CALLS, SCREEN_BLOCKED, SCREEN_REPORTED, SCREEN_LIKELY_SPAM,
         SCREEN_BUSY_REPLY, PLAN, REMINDERS, HOUSEKEEPING, BACKUPS, PRIVATE_NAMES, TO_CALL,

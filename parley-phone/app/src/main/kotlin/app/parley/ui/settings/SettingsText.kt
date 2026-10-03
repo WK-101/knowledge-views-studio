@@ -156,6 +156,8 @@ object SettingsText {
         "crash_reports" to Triple(R.string.set_crash_reports_title, R.string.set_crash_reports_summary, R.string.set_crash_reports_kw),
         "contact_page" to Triple(R.string.set_contact_page_title, R.string.set_contact_page_summary, R.string.set_contact_page_kw),
         // Settings on screens of their own (SettingPlace).
+        "reminders" to Triple(R.string.set_reminders_title, R.string.set_reminders_summary, R.string.set_reminders_kw),
+        "to_call" to Triple(R.string.set_to_call_title, R.string.set_to_call_summary, R.string.set_to_call_kw),
         "kept_forever" to Triple(R.string.set_kept_forever_title, R.string.set_kept_forever_summary, R.string.set_kept_forever_kw),
         "blk_hidden_numbers" to Triple(R.string.set_blk_hidden_numbers_title, R.string.set_blk_hidden_numbers_summary, R.string.set_blk_hidden_numbers_kw),
         "blk_non_contacts" to Triple(R.string.set_blk_non_contacts_title, R.string.set_blk_non_contacts_summary, R.string.set_blk_non_contacts_kw),

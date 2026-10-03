@@ -4,9 +4,10 @@ import app.parley.common.SettingsCatalog
 import app.parley.common.TextSearch
 
 /**
- * "What Parley can do" (P8): a page grouped by what people want done rather than by where a feature lives. Each row
- * is one line and opens the feature. The rows come from [CapabilityCatalog] only, so the page, its search and the
- * What's new card can't disagree, and a test checks that every row still leads somewhere.
+ * Tools (P8, once "What Parley can do"): the one hub, grouped by what people want done rather than by where a feature
+ * lives. Each row is one line and opens the feature; each job shows its [Capability.featured] rows and folds the rest
+ * under "More". The rows come from [CapabilityCatalog] only, so the page, its search and the What's new card can't
+ * disagree, and a test checks that every row still leads somewhere.
  */
 enum class Job(val title: String) {
     STOP_SPAM("Stop spam"),
@@ -29,6 +30,12 @@ enum class AppScreen {
     CALL_TIME, SIMS, SIMPLE_MODE,
 }
 
+/**
+ * A row the hub runs in place instead of opening something: Lock now (only while the app lock is on) and the
+ * Expecting a call switch. The row's [Capability.target] is still where it leads elsewhere (search, tests).
+ */
+enum class CapabilityAction { LOCK_NOW, EXPECTING_CALL }
+
 /** Where a row leads: a screen, or a setting (opened exactly where Settings search would open it). */
 sealed interface CapabilityTarget {
     data class Screen(val screen: AppScreen) : CapabilityTarget
@@ -40,6 +47,7 @@ sealed interface CapabilityTarget {
 /**
  * One row. [title] and [summary] are the English reference texts (the app shows string resources keyed by [key],
  * search keeps matching these as well); [since] is the release that brought it ("4.6"), for the "New" mark.
+ * [featured] rows show without opening "More"; [action] makes the row a control rather than a link.
  */
 data class Capability(
     val key: String,
@@ -49,6 +57,8 @@ data class Capability(
     val target: CapabilityTarget,
     val keywords: List<String> = emptyList(),
     val since: String? = null,
+    val featured: Boolean = false,
+    val action: CapabilityAction? = null,
 )
 
 object CapabilityCatalog {
@@ -57,6 +67,9 @@ object CapabilityCatalog {
 
     private fun setting(key: String, job: Job, title: String, summary: String, setting: String, vararg kw: String, since: String? = null) =
         Capability(key, job, title, summary, CapabilityTarget.Setting(setting), kw.toList(), since)
+
+    /** This row shown before "More", and run in place when [action] is set. */
+    private fun Capability.top(action: CapabilityAction? = null) = copy(featured = true, action = action)
 
     private val SPAM = Job.STOP_SPAM
     private val LOSE = Job.NEVER_LOSE
@@ -69,9 +82,9 @@ object CapabilityCatalog {
     val rows: List<Capability> = listOf(
         // Stop spam
         screen("who_rings", SPAM, "Choose who can ring", "Only people you know, quiet nights or everyone, in one tap", AppScreen.BLOCKING,
-            "block", "silence", "screening", "unknown callers", "strangers", "preset"),
+            "block", "silence", "screening", "unknown callers", "strangers", "preset").top(),
         screen("spam_lists", SPAM, "Offline spam lists", "Lists you add yourself warn or silence known spam numbers", AppScreen.SPAM_LISTS,
-            "spam", "list", "robocall", "ftc", "arcep"),
+            "spam", "list", "robocall", "ftc", "arcep").top(),
         setting("sales_lines", SPAM, "Spot sales lines from your own calls", "A quiet tag, with an optional rule to silence them", "learn_from_calls",
             "telemarketing", "sales", "reputation", since = "4.5"),
         screen("test_call", SPAM, "Test a call", "See what your rules would do, and replay last week", AppScreen.TEST_A_CALL,
@@ -84,31 +97,35 @@ object CapabilityCatalog {
             "import", "yacb", "call blocker", "nophonespam", "csv",
         ),
         setting("expecting", SPAM, "Expecting a call", "Let unknown callers ring for a while, such as a delivery", "expecting_call",
-            "delivery", "courier", "snooze"),
+            "delivery", "courier", "snooze").top(CapabilityAction.EXPECTING_CALL),
 
         // Never lose a contact
         screen("history_undo", LOSE, "Undo a delete, edit or merge", "History & undo keeps 30 days of changes", AppScreen.HISTORY_UNDO,
-            "undo", "restore", "deleted", "trash", "recently deleted"),
+            "undo", "restore", "deleted", "trash", "recently deleted").top(),
         screen("snapshots", LOSE, "Daily snapshots", "See what changed in your contacts, and put any version back", AppScreen.SNAPSHOTS,
             "time machine", "versions", "history"),
         screen("backup", LOSE, "Encrypted backups", "To a folder you choose, on a schedule, checked after writing", AppScreen.BACKUP,
-            "backup", "restore", "new phone", "export"),
+            "backup", "restore", "new phone", "export").top(),
         screen("sync", LOSE, "Sync between your phones", "Through a Syncthing or Nextcloud folder, no server", AppScreen.SYNC,
             "syncthing", "nextcloud", "second phone"),
         screen("coming_from", LOSE, "Coming from another phone?", "Bring contacts, call history and block lists from your old phone", AppScreen.COMING_FROM,
-            "import", "switch", "iphone", "icloud", "samsung", "google", "vcf", "move", since = "4.6"),
+            "import", "switch", "iphone", "icloud", "samsung", "google", "vcf", "move", since = "4.6").top(),
+        setting("import_export", LOSE, "Import & export contacts", "vCard and CSV files, the SIM card, one account", "import_file",
+            "import", "export", "vcf", "vcard", "csv", "sim", "spreadsheet").top(),
         screen("health", LOSE, "Contact health check", "Numbers without a country code, empty and stale contacts", AppScreen.HEALTH_CHECK,
-            "tidy", "clean up", "fix"),
+            "tidy", "clean up", "fix").top(),
         screen("duplicates", LOSE, "Find & merge duplicates", "Contacts saved twice, merged with one undo", AppScreen.DUPLICATES,
             "merge", "duplicate", "dedupe"),
 
         // Stay in touch
+        setting("reminders", TOUCH, "All your reminders", "Missed calls, To call, keep in touch, birthdays and backups", "reminders",
+            "remind", "reminder", "notification", "nudge", "digest", "follow up", "re-alert").top(),
         screen("circle", TOUCH, "Keep in touch with your Circle", "Gentle reminders for the people you want to stay close to", AppScreen.CIRCLE,
-            "circle", "remind", "keep in touch", "friends", "family"),
+            "circle", "remind", "keep in touch", "friends", "family").top(),
         screen("birthdays", TOUCH, "Birthdays & dates", "Upcoming birthdays with a reminder on the day or before", AppScreen.BIRTHDAYS,
-            "birthday", "anniversary", "dates"),
+            "birthday", "anniversary", "dates").top(),
         screen("to_call", TOUCH, "To call", "Calls you said you'd make, and missed calls you haven't returned", AppScreen.TO_CALL,
-            "remind me", "call back", "missed"),
+            "remind me", "call back", "missed").top(),
         setting("remember", TOUCH, "Anything to remember?", "A note and a follow-up after calls with your contacts", "memory_prompt",
             "note", "promise", "follow up"),
         screen("insights", TOUCH, "Call insights", "Talk time, top people and calls you didn't return", AppScreen.CALL_INSIGHTS,
@@ -116,23 +133,25 @@ object CapabilityCatalog {
 
         // Know who's calling
         screen("labels", WHO, "Labels with their own ringtone", "Family, Work or any label, with a ringtone and a vibration", AppScreen.LABELS,
-            "groups", "ringtone", "label"),
+            "groups", "ringtone", "label").top(),
         setting("caller_vibration", WHO, "A vibration of their own", "Tell who's calling without looking", "caller_vibration",
             "haptic", "vibrate", "pattern"),
         setting("unknown_ringtone", WHO, "A different ringtone for unknown callers", "Hear at once that it isn't one of your contacts", "unknown_ringtone",
             "ringtone", "sound", "unknown"),
         screen("scan_qr", WHO, "Scan a contact's QR code", "From a photo, without camera access", AppScreen.SCAN_QR,
-            "qr", "scan", "business card"),
+            "qr", "scan", "business card").top(),
         setting("safe_word", WHO, "Family safe word", "A question only your family can answer, for calls that say they're family", "family_safe_word",
             "scam", "impostor", "voice clone", since = "4.5"),
 
         // Keep it private
+        setting("lock_now", PRIVATE, "Lock Parley now", "Without waiting for the app lock's timeout", "app_lock",
+            "lock", "app lock", "hide", "close").top(CapabilityAction.LOCK_NOW),
         screen("privacy_dashboard", PRIVATE, "Privacy dashboard", "What Parley can see, and why", AppScreen.PRIVACY_DASHBOARD,
-            "permissions", "data", "internet"),
+            "permissions", "data", "internet").top(),
         setting("private_contacts", PRIVATE, "Private contacts", "Kept only in Parley, encrypted, hidden from other apps", "hide_vault",
-            "vault", "hidden", "discreet", "encrypted"),
+            "vault", "hidden", "discreet", "encrypted").top(),
         screen("temporary", PRIVATE, "Temporary contacts", "Contacts that delete themselves after a time you choose", AppScreen.TEMPORARY,
-            "temporary", "expire", "self-destruct"),
+            "temporary", "expire", "self-destruct").top(),
         screen("who_can_see", PRIVATE, "Who can see your contacts", "Which apps can read your address book", AppScreen.WHO_CAN_SEE,
             "apps", "access", "contact scopes"),
         setting("app_lock", PRIVATE, "App lock", "Your fingerprint, face or screen lock to open Parley", "app_lock",
@@ -140,9 +159,9 @@ object CapabilityCatalog {
 
         // Message without saving
         screen("message_number", MSG, "Message a number without saving it", "Type it on the keypad, then Message or call on…", AppScreen.KEYPAD,
-            "whatsapp", "signal", "telegram", "chat", "unsaved"),
+            "whatsapp", "signal", "telegram", "chat", "unsaved").top(),
         screen("messaged", MSG, "Messaged numbers", "The chats you opened from Parley; delete them or stop keeping them", AppScreen.MESSAGED_NUMBERS,
-            "record", "history", "whatsapp"),
+            "record", "history", "whatsapp").top(),
         screen("bulk_add", MSG, "Add several numbers", "Paste a list and save it at once, privately or for a few days", AppScreen.BULK_ADD,
             "bulk", "paste", "list"),
         screen("my_card", MSG, "Send my details", "Your card as a QR code or vCard", AppScreen.MY_CARD,
@@ -156,7 +175,7 @@ object CapabilityCatalog {
 
         // Calls that work better
         setting("auto_answer", CALLS, "Answer automatically", "With a headset, in the car or for people you choose", "auto_answer",
-            "headset", "bluetooth", "car", "hands-free"),
+            "headset", "bluetooth", "car", "hands-free").top(),
         screen("helpers", CALLS, "Add a helper to a call", "Someone you trust, joined in with one tap", AppScreen.HELPERS,
             "helper", "family", "conference", since = "4.5"),
         screen("call_time", CALLS, "Talk-time reminders and limits", "A quiet beep, or a call that ends on time", AppScreen.CALL_TIME,
@@ -168,11 +187,17 @@ object CapabilityCatalog {
         setting("missed_realert", CALLS, "Remind me of missed calls", "Alert again every few minutes until you've seen them", "missed_realert",
             "re-alert", "missed call"),
         screen("simple_mode", CALLS, "Simple mode", "Big photo buttons and a larger keypad, set up for someone else", AppScreen.SIMPLE_MODE,
-            "elderly", "senior", "easy", "large"),
+            "elderly", "senior", "easy", "large").top(),
     )
 
     /** The rows of [job], in catalog order. */
     fun forJob(job: Job): List<Capability> = rows.filter { it.job == job }
+
+    /** The rows of [job] the hub shows before "More". */
+    fun featured(job: Job): List<Capability> = forJob(job).filter { it.featured }
+
+    /** The rows of [job] folded under "More". */
+    fun more(job: Job): List<Capability> = forJob(job).filterNot { it.featured }
 
     /** Rows that arrived in release [version] ("4.6", or "4.6.1": only major.minor counts). */
     fun newIn(version: String): List<Capability> {

@@ -6,7 +6,6 @@ import android.provider.Settings
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Accessibility
 import androidx.compose.material.icons.rounded.Dialpad
-import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material.icons.rounded.PhonelinkLock
 import androidx.compose.material.icons.rounded.Sensors
 import androidx.compose.material.icons.rounded.Vibration
@@ -16,14 +15,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import app.parley.R
 import app.parley.AppViewModel
 import app.parley.NavEvent
 import app.parley.RecentFilter
 import app.parley.common.StartTab
-import app.parley.common.calls.MissedReAlert
 import app.parley.ui.Destination
 import app.parley.ui.LinkRow
 import app.parley.ui.SegmentedGroup
@@ -32,23 +29,16 @@ import app.parley.ui.activityViewModel
 import app.parley.ui.home.RecentsViewModel
 
 /**
- * Settings › Calls: missed-call re-alert and voicemail. The pocket-dial guard is [PocketGuardRow]; the proximity
- * sensor switch and "Power button ends call" are on Calls › During calls ([CallFeedbackGroup]).
+ * Settings › Calls: the way to Reminders (missed-call re-alert) and voicemail. The pocket-dial guard is
+ * [PocketGuardRow]; the proximity sensor switch and "Power button ends call" are on Calls › During calls ([CallFeedbackGroup]).
  */
 @Composable
-internal fun CallExtrasGroups(vm: AppViewModel) {
-    val cfg by vm.c.callExtras.config.collectAsStateWithLifecycle()
+internal fun CallExtrasGroups(vm: AppViewModel, open: (Destination) -> Unit) {
     val recents: RecentsViewModel = activityViewModel()
-    val choices = MissedReAlert.CHOICES
-    val choiceLabels = choices.map { if (it == 0) stringResource(R.string.set_off) else pluralStringResource(R.plurals.set_every_minutes, it, it) }
-    val reAlertSub = if (cfg.missedReAlertMinutes == 0) null else stringResource(R.string.set_missed_realert_on, cfg.missedReAlertMinutes)
     val voicemailSub = stringResource(R.string.set_voicemail_sub)
     SegmentedGroup(stringResource(R.string.set_group_missed_voicemail)) {
-        menuRow(
-            "missed_realert", choiceLabels, choices.indexOf(cfg.missedReAlertMinutes).coerceAtLeast(0),
-            Icons.Rounded.NotificationsActive,
-            sub = reAlertSub,
-        ) { i -> vm.c.callExtras.update { it.copy(missedReAlertMinutes = choices[i]) } }
+        // "Remind me of missed calls" is on Reminders, with every other kind.
+        remindersLinkRow(open)
         linkRow("voicemail", Icons.Rounded.Voicemail, sub = voicemailSub) {
             recents.filter.value = RecentFilter.VOICEMAIL
             vm.navigate(NavEvent.Tab(StartTab.RECENTS))

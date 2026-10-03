@@ -41,7 +41,7 @@ import app.parley.ui.SettingsScaffold
 import app.parley.ui.Spacing
 import app.parley.ui.rowColors
 
-/** P7 "Coming from another phone?" on its own (Tools, What Parley can do): the same list as onboarding's last step. */
+/** P7 "Coming from another phone?" on its own (in Tools): the same list as onboarding's last step. */
 @Composable
 fun ComingFromScreen(vm: AppViewModel, back: () -> Unit) {
     SettingsScaffold(stringResource(R.string.coming_title), back) {

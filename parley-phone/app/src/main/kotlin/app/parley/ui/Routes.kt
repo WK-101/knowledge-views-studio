@@ -75,6 +75,7 @@ object Routes {
     /** History & undo, on one tab ([HistoryTab.key]). */
     @Serializable data class Journal(val tab: String? = null) : Destination
 
+    /** Kept for old links: Tools is now the one hub, `DiscoverRoutes.Capabilities`, which this route also opens. */
     @Serializable data object Tools : Destination
 
     @Serializable data object Backup : Destination

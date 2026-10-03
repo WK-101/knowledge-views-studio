@@ -402,7 +402,9 @@
     <string name="work_temp_someone">A temporary contact</string>
     <string name="work_temp_expired_kept">%1$s expired; the details you merged were kept</string>
     <string name="work_temp_expired_merged">%1$s expired, but it was merged with another contact, so nothing was deleted</string>
-    <string name="work_channel_reminders">Birthdays &amp; reminders</string>
+    <!-- In the "Reminders" channel group: birthdays and dates, keep-in-touch nudges and the digest, follow-ups. -->
+    <string name="work_channel_reminders">Birthdays, keep in touch &amp; follow-ups</string>
+    <string name="notif_group_reminders">Reminders</string>
     <string name="work_turns_today">%1$s turns %2$d today</string>
     <string name="work_birthday_today">%1$s has a birthday today</string>
     <string name="work_anniversary_years">%1$s anniversary: %2$d years</string>

@@ -1,7 +1,5 @@
 package app.parley.work
 
-import android.app.NotificationChannel
-import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
@@ -56,8 +54,7 @@ class RemindersWorker(context: Context, params: WorkerParameters) : CoroutineWor
     override suspend fun doWork(): Result {
         val c = applicationContext.container
         val s = c.settings.current()
-        val nm = applicationContext.getSystemService(NotificationManager::class.java)
-        nm.createNotificationChannel(NotificationChannel(CHANNEL, applicationContext.getString(R.string.work_channel_reminders), NotificationManager.IMPORTANCE_DEFAULT))
+        ReminderChannels.ensure(applicationContext, CHANNEL)
         val cfg = c.circle.config.value
         val today = LocalDate.now()
         val now = System.currentTimeMillis()

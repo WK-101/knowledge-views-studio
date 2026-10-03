@@ -52,7 +52,7 @@ A label's **Allow through Do Not Disturb** works by starring its members, becaus
 | **Recents** | The tab with your calls. |
 | **Call history** | The calls themselves, Android's and Parley's own encrypted copy ("Keep full call history"). |
 | **Call insights** | Talk time, top people and calls you didn't return. Always "Call insights", never plain "Insights". |
-| **Blocking & screening** | The rules that decide which calls ring. The screen, the Tools row and the Settings row all use this name. "Blocking & spam" is the Settings *category* that holds it and the spam lists. |
+| **Blocking & screening** | The rules that decide which calls ring. The screen, its row in Tools and the Settings row all use this name. "Blocking & spam" is the Settings *category* that holds it and the spam lists. |
 | **Expecting a call** | Lets unknown numbers ring for a while (a delivery, a callback). |
 | **SIMs & plan minutes** | The per-SIM screen: plan minutes, billing and each SIM's options. |
 
@@ -67,8 +67,8 @@ A label's **Allow through Do Not Disturb** works by starring its members, becaus
 
 | Term | What it means |
 |---|---|
-| **Tools** | The page for app-wide destinations that aren't tied to a tab: What Parley can do, Birthdays & dates, Temporary contacts, Contact health check, Scan QR code, Import & export contacts, Coming from another phone?, Blocking & screening, Expecting a call, Messaged numbers, History & undo, Backup & restore, Privacy dashboard, and Lock now when the app lock is on. It's reached from every tab's ⋮ menu and from the top of Settings. |
-| **What Parley can do** | The page that lists what Parley does by the job you want done ("Stop spam", "Never lose a contact"…), each row opening the feature; searchable. In Tools, under Tools in Settings, and linked from the What's new card. Its rows come from `CapabilityCatalog`. |
+| **Tools** | The one hub: everything Parley does, grouped by the job you want done ("Stop spam", "Never lose a contact"…), each row opening the feature, the most used first and the rest under "n more"; searchable. Lock now (with the app lock) and Expecting a call work right on it. Reached from every tab's ⋮ menu, the top of Settings and the What's new card. Its rows come from `CapabilityCatalog`. Not "What Parley can do" (its old name, which search still finds). The Privacy dashboard lives under Settings › Privacy & security. |
+| **Reminders** | The Settings page with every kind of reminder Parley sends (missed calls again, To call and follow-ups, keep in touch, birthdays and dates, backups, temporary contacts that are due), each with its switch and time; also the notification channel group that holds their channels. Not "Notifications", which is Settings › Notifications & device. |
 | **Coming from another phone?** | Where to export contacts, call history and block lists on the old phone, each opening Parley's own importer. Onboarding's optional last step, and in Tools. |
 | **⋮ (More options)** | At most seven items, only the tab's own, then Tools and Settings. |
 | **Explainers** | One-line tips at a concept's first appearance (Private, Temporary, Circle, Labels, Favourites with Frequent, History & undo, To call), in the words of this glossary; each shows once. Each says what sets its concept apart from its neighbours (Circle: "doesn't star anyone"; Favourites: Frequent is under them). |

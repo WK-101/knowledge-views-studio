@@ -3,8 +3,6 @@ package app.parley.work
 import app.parley.common.NotificationIds
 import app.parley.data.PhoneEnv
 import app.parley.common.PhoneIdentity
-import android.app.NotificationChannel
-import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
@@ -46,8 +44,7 @@ class FollowUpWorker(context: Context, params: WorkerParameters) : CoroutineWork
         val contact = all.firstOrNull { it.lookupKey == key }
             ?: runCatching { c.contacts.currentOf(key, inputData.getLong(KEY_ID, -1).takeIf { it > 0 }) }.getOrNull()?.let { (_, now) -> all.firstOrNull { it.lookupKey == now } }
             ?: return Result.success()
-        val nm = ctx.getSystemService(NotificationManager::class.java)
-        nm.createNotificationChannel(NotificationChannel(RemindersWorker.CHANNEL, ctx.getString(R.string.work_channel_reminders), NotificationManager.IMPORTANCE_DEFAULT))
+        ReminderChannels.ensure(ctx, RemindersWorker.CHANNEL)
         // The open promises give the reminder its context ("☐ send the photos").
         val promises = runCatching {
             c.circle.notesFor(key, contact.phones.flatMap { PhoneIdentity.lookupKeys(it.number, PhoneEnv.countryIso(c.appContext)) }).flatMap { n -> Promises.open(n.text).map { it.text } }

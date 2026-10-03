@@ -80,7 +80,7 @@ fun WhatsNewCard(vm: AppViewModel, open: (Destination) -> Unit, modifier: Modifi
                 TextButton({ seen(); open(Routes.settingsPage(SettingsCategory.LAYOUT, "calls_layout")) }) { Text(stringResource(R.string.home_whats_new_layout_action)) }
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                TextButton({ seen(); open(DiscoverRoutes.Capabilities) }) { Text(stringResource(R.string.discover_title)) }
+                TextButton({ seen(); open(DiscoverRoutes.Capabilities) }) { Text(stringResource(R.string.discover_whats_new_open)) }
                 TextButton(::seen) { Text(stringResource(R.string.ux_tip_got_it)) }
             }
         }
