@@ -1,0 +1,16 @@
+BEGIN:VCARD
+VERSION:3.0
+N:Lovelace;Ada;Augusta;Lady;
+FN:Ada Lovelace
+ORG:Analytical Engines;Research
+TITLE:Mathematician
+TEL;TYPE=CELL,PREF:+44 20 7946 0000
+TEL;TYPE=WORK:020 7946 0001
+EMAIL;TYPE=INTERNET:ada@example.org
+ADR;TYPE=HOME:;;12 St James Sq;London;;SW1Y 4JH;United Kingdom
+BDAY:1815-12-10
+NOTE:Line one\nLine two\, with comma
+item1.URL:https://example.org/ada
+item1.X-ABLabel:Blog
+CATEGORIES:Family,Work
+END:VCARD

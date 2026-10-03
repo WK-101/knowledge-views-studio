@@ -1,0 +1,1 @@
+BIZCARD:N:Ana;X:Silva;T:CTO;C:Acme;A:Rua 1;B:+351912345678;E:ana@example.com;;

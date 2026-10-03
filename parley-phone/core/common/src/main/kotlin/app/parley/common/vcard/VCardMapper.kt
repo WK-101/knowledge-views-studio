@@ -537,7 +537,11 @@ object VCardMapper {
         ofText: (String) -> P,
     ): P {
         DATE_FULL.matchEntire(date)?.let { val (y, m, d) = it.destructured; runCatching { return ofDate(LocalDate.of(y.toInt(), m.toInt(), d.toInt())) } }
-        DATE_NOYEAR.matchEntire(date)?.let { val (m, d) = it.destructured; return ofPartial(PartialDate.builder().month(m.toInt()).date(d.toInt()).build()) }
+        // An impossible month or day ("--13-45") is written as text, like an impossible full date: never a failed export.
+        DATE_NOYEAR.matchEntire(date)?.let {
+            val (m, d) = it.destructured
+            runCatching { return ofPartial(PartialDate.builder().month(m.toInt()).date(d.toInt()).build()) }
+        }
         return ofText(date)
     }
 
@@ -595,8 +599,15 @@ object VCardMapper {
             return list.getOrNull(i) ?: create()
         }
 
-        fun pref(p: VCardProperty): Int? =
-            p.parameters.pref ?: if (p.parameters.types.any { it.equals("pref", true) }) 1 else null
+        fun pref(p: VCardProperty): Int? {
+            // ez-vcard throws on a malformed PREF ("PREF=1E"); that must not cost the whole card.
+            val stated = try {
+                p.parameters.pref
+            } catch (_: IllegalStateException) {
+                1
+            }
+            return stated ?: if (p.parameters.types.any { it.equals("pref", true) }) 1 else null
+        }
 
         fun emit(mime: String, values: MutableMap<String, String>, p: VCardProperty?, spec: TypeSpec? = null, blob: ByteArray? = null): DataRow {
             if (spec != null) {
