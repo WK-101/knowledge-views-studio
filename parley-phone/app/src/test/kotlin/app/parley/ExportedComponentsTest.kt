@@ -33,6 +33,7 @@ class ExportedComponentsTest {
             "app.parley.picker.PickerActivity",
             "app.parley.messaging.NumberActionActivity",
             "app.parley.shortcuts.DialWidgetConfigActivity",
+            "app.parley.shortcuts.FavoritesWidgetConfigActivity",
         )
 
         /** Exported services, receivers and providers, with the permission a caller must hold. */

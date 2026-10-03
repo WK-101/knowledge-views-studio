@@ -15,6 +15,7 @@ import androidx.core.content.pm.ShortcutManagerCompat
 import app.parley.MainActivity
 import app.parley.container
 import app.parley.CallGate
+import app.parley.messaging.NumberActionActivity
 import kotlinx.coroutines.launch
 
 /** Invisible trampoline for home-screen shortcuts and the direct-dial widget. Not exported. */
@@ -57,6 +58,11 @@ class ShortcutActivity : Activity() {
                 return@launch finish()
             }
             if (isFinishing || isDestroyed) return@launch
+            // "Confirm before calling" asks here too, with the same questions as in Parley (the call gate's sheet).
+            if (c.settings.current().confirmBeforeCall) {
+                startActivity(NumberActionActivity.callBackIntent(this@ShortcutActivity, number))
+                return@launch finish()
+            }
             // One tap on a widget or shortcut in a pocket shouldn't call anyone; ask while the sensor is covered.
             if (c.callExtras.config.value.pocketGuard) return@launch guardThenCall(number)
             c.scope.launch { c.placer.call(number) }

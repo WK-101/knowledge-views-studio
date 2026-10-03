@@ -78,9 +78,13 @@ class DialWidget : AppWidgetProvider() {
             manager.updateAppWidget(id, views)
         }
 
-        private fun circle(src: Bitmap): Bitmap {
-            val size = minOf(src.width, src.height).coerceAtMost(256)
-            val scaled = Bitmap.createScaledBitmap(src, size, size, true)
+        /** [src]'s centre square as a circle, at most [max] px across (also the Favourites widget's photos). */
+        internal fun circle(src: Bitmap, max: Int = 256): Bitmap {
+            val side = minOf(src.width, src.height)
+            val size = side.coerceAtMost(max)
+            // The centre square (a rectangular photo was stretched into the circle before).
+            val square = Bitmap.createBitmap(src, (src.width - side) / 2, (src.height - side) / 2, side, side)
+            val scaled = Bitmap.createScaledBitmap(square, size, size, true)
             val out = createBitmap(size, size)
             val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { shader = BitmapShader(scaled, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP) }
             Canvas(out).drawCircle(size / 2f, size / 2f, size / 2f, paint)

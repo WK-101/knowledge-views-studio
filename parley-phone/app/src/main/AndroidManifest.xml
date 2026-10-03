@@ -366,6 +366,26 @@
                 android:resource="@xml/widget_circle_info" />
         </receiver>
 
+        <!-- The Favourites widget (resizable RemoteViews) and its settings: what a tap does. -->
+        <activity
+            android:name=".shortcuts.FavoritesWidgetConfigActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
+        <receiver
+            android:name=".shortcuts.FavoritesWidget"
+            android:exported="false"
+            android:label="@string/fav_widget_title">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_favorites_info" />
+        </receiver>
+
         <!-- Shares the encrypted "move to a new phone" backup file. -->
         <provider
             android:name="androidx.core.content.FileProvider"
