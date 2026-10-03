@@ -99,8 +99,27 @@ class RepositoryDataSource(private val repo: AppRepository) : DataSource {
                 repo.setTrashed(id, trashed = true, workspaceId = repo.activeWs()) // reversible: moved to Trash
                 ok(id)
             }
+            DataApi.OP_BULK -> bulkTasks(decode<BulkOp>(mutation.payloadJson) ?: return bad("invalid bulk"))
             else -> throw UnsupportedDomainException("tasks.${mutation.op}")
         }
+    }
+
+    @Suppress("ReturnCount")
+    private suspend fun bulkTasks(op: BulkOp): DataResult {
+        val ids = op.ids.distinct().filter { it.isNotBlank() }
+        if (ids.isEmpty()) return bad("empty_ids")
+        var applied = 0
+        for (id in ids) {
+            val task = repo.getTask(id) ?: continue
+            when (op.action) {
+                "complete" -> repo.setCompletedById(id, op.value)
+                "delete" -> repo.setTrashed(id, trashed = true, workspaceId = repo.activeWs())
+                "star" -> repo.saveTask(task.copy(star = op.value))
+                else -> return bad("unknown_action")
+            }
+            applied++
+        }
+        return DataResult(ok = true, payloadJson = BridgeCodec.encodeString(CountResult(applied)))
     }
 
     @Suppress("ReturnCount")
@@ -294,6 +313,13 @@ private data class IdParam(val id: String)
 
 @Serializable
 private data class CompleteParam(val id: String, val completed: Boolean = true)
+
+/** A bulk task op: an [action] (complete / delete / star) applied to many [ids]; [value] is the on/off flag. */
+@Serializable
+private data class BulkOp(val ids: List<String> = emptyList(), val action: String = "", val value: Boolean = true)
+
+@Serializable
+private data class CountResult(val count: Int)
 
 // ---- entity → DTO projections (the only fields that leave the core) ----------------------------------
 

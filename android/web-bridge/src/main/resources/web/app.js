@@ -100,6 +100,8 @@
   ];
   let seen = {}; // last-seen change versions per domain
   let tab = "tasks";
+  let selectMode = false;
+  const selected = new Set();
 
   function setStatus(msg, kind) {
     const s = el("status");
@@ -162,22 +164,50 @@
     return "#" + n.toString(16).padStart(6, "0");
   }
 
-  function renderTasks() {
-    const tasks = state.tasks;
-    const open = tasks.filter((t) => !t.completed);
-    const done = tasks.filter((t) => t.completed);
-    const row = (t) =>
+  function taskRow(t) {
+    if (selectMode) {
+      const on = selected.has(t.id);
+      return (
+        '<li class="row sel' + (on ? " on" : "") + (t.completed ? " done" : "") + '" data-id="' + esc(t.id) + '">' +
+        '<span class="box' + (on ? " checked" : "") + '" aria-hidden="true">' + (on ? "&#x2713;" : "") + "</span>" +
+        '<span class="label">' + (t.star ? '<span class="star">&#x2605;</span> ' : "") + esc(t.title) + "</span>" +
+        (t.dueDate ? '<span class="due">' + esc(fmtDate(t.dueDate)) + "</span>" : "") +
+        "</li>"
+      );
+    }
+    return (
       '<li class="row' + (t.completed ? " done" : "") + '" data-id="' + esc(t.id) + '">' +
       '<button class="box" data-act="toggle" aria-label="Toggle complete">' + (t.completed ? "&#x2713;" : "") + "</button>" +
       '<span class="label" data-act="edit">' + (t.star ? '<span class="star">&#x2605;</span> ' : "") + esc(t.title) + "</span>" +
       (t.dueDate ? '<span class="due">' + esc(fmtDate(t.dueDate)) + "</span>" : "") +
       '<button class="del" data-act="del" aria-label="Delete" title="Move to Trash">&#x2715;</button>' +
-      "</li>";
+      "</li>"
+    );
+  }
+
+  function renderTasks() {
+    const tasks = state.tasks;
+    const open = tasks.filter((t) => !t.completed);
+    const done = tasks.filter((t) => t.completed);
+    const bulkBar =
+      selectMode && selected.size
+        ? '<div class="bulkbar"><span>' + selected.size + " selected</span>" +
+          '<span class="spacer"></span>' +
+          '<button data-bulk="complete">Complete</button>' +
+          '<button data-bulk="star">Star</button>' +
+          '<button data-bulk="delete" class="danger">Delete</button></div>'
+        : "";
     el("tasksView").innerHTML =
-      '<form id="addTask" class="add"><input id="addTaskInput" type="text" placeholder="Add a task…" autocomplete="off" />' +
-      '<button type="submit">Add</button></form>' +
-      (open.length ? '<ul class="list">' + open.map(row).join("") + "</ul>" : '<p class="empty">No open tasks.</p>') +
-      (done.length ? '<h3 class="subhead">Completed</h3><ul class="list">' + done.map(row).join("") + "</ul>" : "");
+      '<div class="tasktools">' +
+      (selectMode
+        ? '<span class="hint">Tap tasks to select</span>'
+        : '<form id="addTask" class="add"><input id="addTaskInput" type="text" placeholder="Add a task…" autocomplete="off" />' +
+          '<button type="submit">Add</button></form>') +
+      '<button id="selectToggle" class="ghost">' + (selectMode ? "Done" : "Select") + "</button>" +
+      "</div>" +
+      bulkBar +
+      (open.length ? '<ul class="list">' + open.map(taskRow).join("") + "</ul>" : '<p class="empty">No open tasks.</p>') +
+      (done.length ? '<h3 class="subhead">Completed</h3><ul class="list">' + done.map(taskRow).join("") + "</ul>" : "");
   }
 
   function renderNotes() {
@@ -374,8 +404,24 @@
       }
     });
     el("tasksView").addEventListener("click", async (e) => {
+      if (e.target.id === "selectToggle") {
+        selectMode = !selectMode;
+        selected.clear();
+        renderTasks();
+        return;
+      }
+      if (e.target.dataset.bulk) {
+        await doBulk(e.target.dataset.bulk);
+        return;
+      }
       const li = e.target.closest(".row");
       if (!li) return;
+      if (selectMode) {
+        if (selected.has(li.dataset.id)) selected.delete(li.dataset.id);
+        else selected.add(li.dataset.id);
+        renderTasks();
+        return;
+      }
       const t = state.tasks.find((x) => x.id === li.dataset.id);
       if (!t) return;
       const act = e.target.dataset.act;
@@ -401,6 +447,20 @@
         if (n) editNote(n);
       }
     });
+  }
+
+  async function doBulk(action) {
+    const ids = [...selected];
+    if (!ids.length) return;
+    if (action === "delete" && !confirm("Move " + ids.length + " task(s) to Trash?")) return;
+    try {
+      await mutate("tasks", "bulk", { ids, action, value: true });
+      selectMode = false;
+      selected.clear();
+      await reload("tasks");
+    } catch (err) {
+      alert(err.message);
+    }
   }
 
   // ---- load + live refresh -----------------------------------------------------------------------

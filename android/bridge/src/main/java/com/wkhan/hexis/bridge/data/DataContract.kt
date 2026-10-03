@@ -41,6 +41,12 @@ object DataApi {
     const val OP_UPSERT = "upsert"
     const val OP_DELETE = "delete"
     const val OP_COMPLETE = "complete"
+
+    /**
+     * Bulk write over many ids (W3), for triage on a wide screen. Payload (tasks):
+     * `{ "ids": [...], "action": "complete"|"delete"|"star", "value": true|false }`.
+     */
+    const val OP_BULK = "bulk"
 }
 
 /** A read request. [params Json] carries op-specific args (e.g. an id, a filter). */

@@ -64,7 +64,9 @@ class WebBridgeDataTest {
         }
 
         override suspend fun mutate(mutation: DataMutation): DataResult =
-            if (mutation.domain == DataApi.DOMAIN_TASKS && mutation.op == DataApi.OP_UPSERT) {
+            if (mutation.domain == DataApi.DOMAIN_TASKS &&
+                mutation.op in setOf(DataApi.OP_UPSERT, DataApi.OP_BULK)
+            ) {
                 DataResult(ok = true, payloadJson = """{"id":"t1"}""")
             } else {
                 DataResult(ok = false, error = "unsupported")
@@ -173,6 +175,27 @@ class WebBridgeDataTest {
         val resp = dispatcher(tokens).dispatchInvoke(upsertTask(t.value), caller)
         assertFalse(resp.ok)
         assertEquals(BridgeErrorType.UNAUTHORIZED, resp.error?.type)
+    }
+
+    @Test fun bulk_requiresWriteScope() {
+        val tokens = InMemoryTokenAuthority()
+        val bulk = RequestEnvelope(
+            header = EnvelopeHeader(capabilityId = Capabilities.DATA, method = DataApi.METHOD_MUTATE, token = null),
+            payloadJson = BridgeCodec.encodeString(DataMutation(domain = DataApi.DOMAIN_TASKS, op = DataApi.OP_BULK)),
+        )
+        // read-only token → denied
+        val readTok = tokens.mint(consumer, setOf(BridgeScopes.DATA_TASKS_READ))
+        val denied = dispatcher(tokens).dispatchInvoke(
+            bulk.copy(header = bulk.header.copy(token = readTok.value)), caller,
+        )
+        assertFalse(denied.ok)
+        assertEquals(BridgeErrorType.UNAUTHORIZED, denied.error?.type)
+        // write token → reaches the facade
+        val writeTok = tokens.mint(consumer, setOf(BridgeScopes.DATA_TASKS_WRITE))
+        val ok = dispatcher(tokens).dispatchInvoke(
+            bulk.copy(header = bulk.header.copy(token = writeTok.value)), caller,
+        )
+        assertTrue(ok.ok)
     }
 
     // ---- live-change stream (W2) --------------------------------------------------------------------
