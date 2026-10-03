@@ -66,6 +66,7 @@ object RelationTypes {
         t("girlfriend", "Girlfriend", P),
         t("boyfriend", "Boyfriend", P),
         t("ex-partner", "Ex-partner", P),
+        t("ex-spouse", "Ex-spouse", P),
         t("son", "Son", F),
         t("daughter", "Daughter", F),
         t("grandparent", "Grandparent", F),
@@ -113,7 +114,8 @@ object RelationTypes {
     private val byKey = all.associateBy { it.key }
     private val byAndroid = all.filter { it.androidType != RelationType.CUSTOM }.associateBy { it.androidType }
     private val byLabel = all.associateBy { norm(it.label) } + all.associateBy { norm(it.key) } +
-        mapOf("neighbour" to byKey.getValue("neighbor"), "fiancee" to byKey.getValue("fiance"), "coworker" to byKey.getValue("co-worker"))
+        mapOf("neighbour" to byKey.getValue("neighbor"), "fiancee" to byKey.getValue("fiance"), "coworker" to byKey.getValue("co-worker"),
+            "ex-wife" to byKey.getValue("ex-spouse"), "ex-husband" to byKey.getValue("ex-spouse"), "former-spouse" to byKey.getValue("ex-spouse"))
 
     fun byKey(key: String?): RelationType? = key?.let { byKey[it] }
 

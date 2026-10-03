@@ -131,4 +131,8 @@
     <string name="addr_part_district">District</string>
     <string name="addr_part_landmark">Landmark</string>
     <string name="addr_part_direction">Direction</string>
+    <!-- Rows of a group with several entries: move one place up or down (the order other apps show too), or remove. -->
+    <string name="editor_row_options">Move or remove</string>
+    <string name="editor_move_up">Move up</string>
+    <string name="editor_move_down">Move down</string>
 </resources>

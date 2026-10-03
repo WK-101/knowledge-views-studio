@@ -2,6 +2,7 @@ package app.parley.data.people
 
 import android.content.Context
 import android.util.Log
+import app.parley.common.people.ContactRef
 import app.parley.common.people.RelationLinks
 import app.parley.common.people.RelationMirror
 import app.parley.common.people.RelationTypes
@@ -75,6 +76,9 @@ class RelationMirrors(context: Context, private val contacts: ContactsRepository
             for (r in relations) {
                 if (r.value.isBlank()) continue
                 val link = links[RelationLinks.nameKey(r.value)] ?: continue
+                // A private contact is never written to from here, nor looked up in the address book: its page shows the
+                // relation from Parley's own links instead (docs/CONTACT_MODEL.md, "Relations with private contacts").
+                if (ContactRef.isPrivateKey(link.lookupKey)) continue
                 val t = target(link.lookupKey, link.contactId) ?: continue
                 if (t.key in wanted) continue
                 val type = RelationTypes.fromAndroid(r.type, r.label)

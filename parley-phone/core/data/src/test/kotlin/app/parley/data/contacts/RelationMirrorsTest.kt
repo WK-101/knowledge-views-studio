@@ -76,6 +76,19 @@ class RelationMirrorsTest {
         assertTrue(relationsOf(ana).isEmpty())
     }
 
+    @Test fun a_relation_to_a_private_contact_is_never_written_to_the_address_book() = runBlocking {
+        // A namesake in the address book must not get the row either: the private key is never resolved there.
+        val namesake = create("Ana")
+        val mother = listOf(DataItem(value = "Ana Lee", type = Relation.TYPE_MOTHER))
+        val sam = create("Sam", mother)
+        journaled.clear()
+        val report = mirrors.mirror(sam, mother, mapOf("ana lee" to RelationLinks.Link("parley-private:7", -7)))
+        assertTrue(report.isEmpty)
+        assertTrue(relationsOf(namesake).isEmpty())
+        assertTrue(journaled.isEmpty())
+        assertTrue("nothing is recorded about the private contact", !mirrors.any())
+    }
+
     @Test fun removing_or_retyping_follows_only_rows_parley_added() = runBlocking {
         val ana = create("Ana")
         val friend = listOf(DataItem(value = "Ana Lee", type = Relation.TYPE_FRIEND))

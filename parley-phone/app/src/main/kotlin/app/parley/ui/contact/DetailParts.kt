@@ -5,6 +5,9 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
@@ -42,12 +45,18 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.onLongClick
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.parley.R
 import app.parley.common.people.HandleLink
 import app.parley.common.people.Handles
+import app.parley.common.people.RelationshipStatus
 import app.parley.data.HandleItem
 import app.parley.ui.SegmentedGroupScope
 import app.parley.ui.common.Intents
@@ -94,6 +103,66 @@ fun RowScope.ActionTile(
         }
     }
 }
+
+/**
+ * The contact's name in the page's header. Press and hold copies it, the name alone (as the page shows it, without
+ * the nickname, pronouns or job under it), marked sensitive like every copy of a contact's details; a tap does
+ * nothing, so a stray tap while scrolling never fills the clipboard.
+ */
+@Composable
+fun HeaderName(name: String, modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    val haptics = LocalHapticFeedback.current
+    val copyLabel = stringResource(R.string.main_copy)
+    Text(
+        name, style = MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center,
+        modifier = modifier
+            .pointerInput(name) {
+                detectTapGestures(onLongPress = {
+                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                    Intents.copy(context, name)
+                })
+            }
+            .semantics { onLongClick(label = copyLabel) { Intents.copy(context, name); true } },
+    )
+}
+
+/** A header line that opens something ("Married to Sam" opens Sam). */
+class HeaderLink(val text: String, val open: () -> Unit)
+
+/**
+ * The lines under the header's name (pronouns, nickname, job · department · company, then the relationship status),
+ * on one centred line that wraps. A fact copies its own text on a tap or a long press, like the page's other facts
+ * that open nothing ([GroupDataRow] without an action); a [links] part opens its person on a tap and copies on a long
+ * press, like a relation's row.
+ */
+@OptIn(ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
+@Composable
+fun HeaderFacts(parts: List<String>, separator: String, links: List<HeaderLink> = emptyList()) {
+    val shown = parts.filter { it.isNotBlank() }.map { HeaderLink(it, open = {}) to false } + links.map { it to true }
+    if (shown.isEmpty()) return
+    val context = LocalContext.current
+    val copyLabel = stringResource(R.string.main_copy)
+    val openLabel = stringResource(R.string.detail_open_person)
+    val color = MaterialTheme.colorScheme.onSurfaceVariant
+    FlowRow(horizontalArrangement = Arrangement.Center, modifier = Modifier.fillMaxWidth()) {
+        shown.forEachIndexed { i, (part, opens) ->
+            Text(
+                part.text, color = color, textAlign = TextAlign.Center,
+                modifier = Modifier.combinedClickable(
+                    onClickLabel = if (opens) openLabel else copyLabel,
+                    onClick = { if (opens) part.open() else Intents.copy(context, part.text) },
+                    onLongClickLabel = copyLabel, onLongClick = { Intents.copy(context, part.text) },
+                ),
+            )
+            if (i < shown.lastIndex) Text(separator, color = color, modifier = Modifier.clearAndSetSemantics { })
+        }
+    }
+}
+
+/** A relation's type as its row says it: an ex-spouse is "Formerly married to"; others keep [known] (null: unknown). */
+fun relationLabel(res: android.content.res.Resources, typeKey: String?, known: String?): String? =
+    if (RelationshipStatus.kindOf(typeKey) == RelationshipStatus.Kind.FORMERLY_MARRIED) res.getString(R.string.detail_formerly_married) else known
 
 /** Transparent rows for grouped cards. */
 @Composable

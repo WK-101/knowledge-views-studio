@@ -39,6 +39,7 @@ object RelationMirror {
         "boyfriend" to Inv("partner", "girlfriend", "boyfriend"),
         "fiance" to same("fiance"),
         "ex-partner" to same("ex-partner"),
+        "ex-spouse" to same("ex-spouse"),
         "date" to same("date"),
         "sweetheart" to same("sweetheart"),
         "mother" to Inv("child", "daughter", "son"),
@@ -211,6 +212,34 @@ object RelationMirror {
         is Step.Add -> Step.Remove(step.target, step.row)
         is Step.Change -> Step.Change(step.target, step.row, step.old)
         is Step.Remove -> Step.Add(step.target, step.old)
+    }
+
+    // ---- Relations with a private contact: shown from Parley's own links, never written to the other contact.
+
+    /**
+     * Another contact's relation to this one: [ownerKey] (its Parley key) names this contact as [row] on its own
+     * contact; [ownerName] is its name as shown; [ownerPrivate]: it is a private contact.
+     */
+    data class Incoming(val ownerKey: String, val ownerName: String, val ownerPrivate: Boolean, val row: Row)
+
+    /** A relation shown on this contact's page for [ownerKey]'s relation to it ([row] names the other contact). */
+    data class Shown(val ownerKey: String, val row: Row)
+
+    /**
+     * The relations a contact's page shows from other contacts' relations to it, where Parley doesn't write the
+     * opposite row because one of the two is private (writing it would put a private contact's name, or a link to it,
+     * where other apps can read it, or add rows to sealed details nobody is editing). Between two contacts of the
+     * address book the opposite row is written instead ([plan]), so those are left out here. [selfPrivate]: this
+     * contact is private; [privateShown]: private contacts may be shown (not in discreet mode). [own]: this contact's
+     * own rows: a person it already names isn't shown twice. Each other contact once.
+     */
+    fun fromOthers(incoming: List<Incoming>, own: List<Row>, selfPrivate: Boolean, privateShown: Boolean): List<Shown> {
+        if (!privateShown) return emptyList()
+        val named = own.map { RelationLinks.nameKey(it.name) }.toMutableSet()
+        val owners = HashSet<String>()
+        return incoming.filter { selfPrivate || it.ownerPrivate }
+            .mapNotNull { i -> reciprocal(i.row.typeKey, i.row.label, i.ownerName)?.let { Shown(i.ownerKey, it) } }
+            .filter { s -> s.ownerKey !in owners && named.add(RelationLinks.nameKey(s.row.name)) && owners.add(s.ownerKey) }
     }
 
     // ---- The record of rows Parley added: one line per (this contact, other contact).

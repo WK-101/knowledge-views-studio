@@ -318,3 +318,43 @@ the rest from the one line of chips.
   Birthdays sorts by it and the birthday reminder fires on it. Other apps see a yearly Gregorian date.
 - **Private and temporary contacts**: every field above is sealed with the details (`ContactDetailsJson`), kept in
   drafts (`ContactDraftJson`) and carried by Make private / Make visible.
+
+## Order of rows (5.3.1)
+
+Feedback: "when a field has multiple entries (for example, multiple numbers) give an option to move it up or down."
+
+- **Control.** A group with one row keeps its quiet ⊖. Once a group has two rows or more, each row's end column holds
+  **⋮** ("Move or remove") instead: **Move up**, **Move down** (greyed at the group's edge) and the row's Remove. The
+  4.4 layout stays as it was: no extra buttons per row, every field's end edge still lines up, and a 48 dp target. A
+  drag handle was left out: rows differ in height (an address is four lines, a custom field two), the list animates
+  rows and keeps the keyboard's focus in them, and a drag that fights the scroll and the keyboard is worse with
+  TalkBack and switch access than two menu items. With TalkBack the row's main field and its ⋮ carry **Move up** and
+  **Move down** as actions.
+- **Groups.** Phones, emails, addresses (a map link follows its address by its label), websites, profiles (profiles
+  move among profiles and websites among websites, though both are website rows), messenger handles (SIP included),
+  relations, dates and custom fields. A swap keeps each row's key (`RowKeys.swapped`), so focus and the row
+  animation follow the row. My card keeps its fixed order.
+- **Saving.** Android's contacts provider has no order column; every app (Google Contacts, Samsung, Android's own,
+  vCard export) lists a kind's rows in the order the provider returns them, which is insertion order (`_ID`). So the
+  save writes again the rows that must now come later (`RowOrder.rewrite`: the longest start of the edited list whose
+  ids already rise stays; every saved row after it is deleted and inserted again, in order) and Parley reads rows
+  sorted by `_ID`. Only rows of the copy being edited are written (the editor holds no others). A rewritten row keeps
+  every column it had (`ContactRowOrder`): `IS_PRIMARY` / `IS_SUPER_PRIMARY` (the default stays the default) and the
+  data columns the editor doesn't show (an email's display name, an address's RFC 9554 parts, a date's calendar),
+  with the edited values on top; Android works a number's matching form out again. The sync adapter's own per-row
+  columns aren't copied: they describe the old row on the server, and the account uploads the contact as changed.
+  Rows unchanged in place are never written, so a save that only edits a note writes nothing else.
+- **Read-only rows** (an Exchange or company account's) can't be written again, so a group holding one offers no
+  moves and keeps the account's order.
+- **Private and temporary contacts, drafts**: their rows are lists in the sealed details (`ContactDetailsJson`) and the
+  draft (`ContactDraftJson`), kept in order as they are.
+- Tests: `RowOrderTest` (which rows are written again), `ContactRowOrderWriteTest` (Robolectric, against the
+  SQLite-backed provider: the order read back, the default and the other columns kept, nothing written for an
+  unchanged order or around a read-only row, export in the same order).
+
+## Relations: private contacts (5.3.1)
+
+The relation's contact picker lists private contacts too, with their lock badge, unless discreet mode hides them
+(`AppViewModel.everyone`). A private contact is linked by its Parley key and negative id, in Parley's own data, as
+every link to a private contact already was; the relation row itself keeps only the name, as for any relation. How
+the other contact shows the relation is in docs/CONTACT_MODEL.md, "Relations with private contacts".

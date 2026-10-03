@@ -48,6 +48,7 @@ object RelationText {
             "girlfriend" -> R.string.rel_girlfriend
             "boyfriend" -> R.string.rel_boyfriend
             "ex-partner" -> R.string.rel_ex_partner
+            "ex-spouse" -> R.string.rel_ex_spouse
             "son" -> R.string.rel_son
             "daughter" -> R.string.rel_daughter
             "grandparent" -> R.string.rel_grandparent

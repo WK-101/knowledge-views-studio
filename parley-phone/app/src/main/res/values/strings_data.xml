@@ -1455,6 +1455,7 @@
     <string name="rel_girlfriend">Girlfriend</string>
     <string name="rel_boyfriend">Boyfriend</string>
     <string name="rel_ex_partner">Ex-partner</string>
+    <string name="rel_ex_spouse">Ex-spouse</string>
     <string name="rel_son">Son</string>
     <string name="rel_daughter">Daughter</string>
     <string name="rel_grandparent">Grandparent</string>

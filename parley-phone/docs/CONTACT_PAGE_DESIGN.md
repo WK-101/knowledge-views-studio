@@ -133,3 +133,39 @@ The same typical contact:
 
 The header is about 35 % of the space under the bars, and the numbers and email are in view without scrolling.
 A sparse contact (one number, no calls, monogram) goes from about 975 dp to about 735 dp (about 25 % shorter).
+
+## Copying (5.3.1)
+
+Feedback: "long press contact name then it should copy the name only and when clicked on its detail below it should
+also get copied."
+
+- **Name**: press and hold copies the name as shown, alone (not the nickname, pronouns or job), with haptic feedback.
+  A tap does nothing, so a stray tap while scrolling or reaching for the photo never fills the clipboard; TalkBack
+  offers "Copy" as the long-press action.
+- **The line under the name** (pronouns, nickname, job · department · company) is now one part per fact on a centred
+  line that wraps. A tap copies that part, and so does a long press: the same rule as the page's other facts with
+  nothing to open (`GroupDataRow` without an action, and More's rows since 5.3), so tap was free to use. The
+  separators aren't read or tapped.
+- Every copy goes through `Intents.copy`: the clip is marked sensitive (`EXTRA_IS_SENSITIVE`, so Android 13+ hides
+  its preview), and before Android 13 Parley says "Copied" (Android shows its own preview after that).
+- **Rows**: numbers, emails, addresses, dates, websites, profiles, handles, relations, the note, More and Other fields
+  already copied on a long press (their menu's Copy, or the copy itself). The note for calls, whose tap opens its
+  editor, now copies on a long press too. Private contacts have the same page, so all of this applies to them.
+
+## Relations from other contacts (5.3.1)
+
+Under About, after the contact's own relations, the page lists relations other contacts give this one when one of
+the two is private ("Ana" over "Child · From their contact"; a tap opens Ana). Parley doesn't write those rows (see
+docs/CONTACT_MODEL.md, "Relations with private contacts"), so they're shown from its own links instead, only with
+"Add relations to both contacts" on, outside discreet mode, and while a private contact's details can be opened. A
+person the contact already names in its own relations isn't listed twice.
+
+## Relationship status (5.3.1)
+
+Android and vCard have no marital-status field, so the page reads one from the relations (`RelationshipStatus`, no
+new field or setting): a spouse (or wife, husband) adds "Married to Sam" and a partner or domestic partner "Partner of
+Alex" to the line under the name, married first, each person once. Relations shown from other contacts (see above)
+count too. A tap opens that person the way the relation's row does (its link, then its name; a private contact only
+outside discreet mode); a long press copies the line. A former spouse ("Ex-spouse", a relation type since 5.3.1; rows
+other apps wrote as "Ex-wife", "Ex-husband" or "Former spouse" are read as it) is never in the header: its row under
+About says "Formerly married to" in place of the type. Girlfriend, boyfriend and fiancé(e) stay relations only.

@@ -68,7 +68,8 @@ class ContactNotesBackup(
             m.pinnedNote?.let { o.put("note", it) }
             m.preferredMessenger?.let { o.put("msg", it) }
             m.lastNudgedAt?.let { o.put("nudged", it) }
-            val links = RelationLinks.decode(m.relationLinks)
+            // A device contact's relation to a private contact names it only by the relation's text here.
+            val links = RelationLinks.decode(m.relationLinks).filterValues { !ContactRef.isPrivateKey(it.lookupKey) }
             if (links.isNotEmpty()) o.put("rel", JSONArray(links.map { (name, l) -> JSONObject().put("name", name).put("to", refs.ref(l.lookupKey).toJson()) }))
             metas.put(o)
         }

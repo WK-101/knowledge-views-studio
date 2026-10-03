@@ -116,4 +116,40 @@ class RelationMirrorTest {
         assertEquals(list, RelationMirror.decode(RelationMirror.encode(list)))
         assertEquals(emptyList<RelationMirror.Created>(), RelationMirror.decode("garbage"))
     }
+
+    // ---- Relations with a private contact
+
+    private val none = emptyList<RelationMirror.Shown>()
+    private val ana = incoming("parley-private:7", "Ana", true, "mother")
+    private val sam = incoming("0r5-abc", "Sam", false, "spouse")
+
+    private fun incoming(owner: String, name: String, private: Boolean, type: String) =
+        RelationMirror.Incoming(owner, name, private, Row("Bob", type, null))
+
+    private fun shown(vararg i: RelationMirror.Incoming, own: List<Row> = emptyList(), selfPrivate: Boolean = false, privateShown: Boolean = true) =
+        RelationMirror.fromOthers(i.toList(), own, selfPrivate, privateShown)
+
+    @Test fun a_private_contacts_relation_shows_on_the_other_page_without_being_written() {
+        // Ana (private) says "Mother: Bob"; Bob's page (a device contact) shows "Child: Ana".
+        assertEquals(listOf(RelationMirror.Shown("parley-private:7", Row("Ana", "child", null))), shown(ana))
+        // And the other way round: a device contact's relation to a private one shows on the private page.
+        assertEquals(listOf(RelationMirror.Shown("0r5-abc", Row("Sam", "spouse", null))), shown(sam, selfPrivate = true))
+    }
+
+    @Test fun relations_between_device_contacts_are_written_so_not_shown_twice() {
+        assertEquals(none, shown(sam))
+    }
+
+    @Test fun discreet_mode_hides_relations_with_private_contacts() {
+        assertEquals(none, shown(ana, privateShown = false))
+        assertEquals(none, shown(sam, selfPrivate = true, privateShown = false))
+    }
+
+    @Test fun a_person_already_named_or_without_an_opposite_is_left_out() {
+        assertEquals(none, shown(ana, own = listOf(Row("ana", "daughter", null))))
+        // A doctor's patient has no fair opposite.
+        assertEquals(none, shown(incoming("parley-private:7", "Ana", true, "doctor")))
+        // The same contact naming this one twice shows once.
+        assertEquals(1, shown(ana, incoming("parley-private:7", "Ana", true, "friend")).size)
+    }
 }

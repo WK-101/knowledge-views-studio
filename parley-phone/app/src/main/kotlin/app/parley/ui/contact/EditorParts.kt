@@ -78,6 +78,11 @@ import app.parley.ui.ParleyListItem
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.rounded.RemoveCircleOutline
+import androidx.compose.material.icons.rounded.ArrowDownward
+import androidx.compose.material.icons.rounded.ArrowUpward
+import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.AnnotatedString
@@ -94,15 +99,64 @@ import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.ui.unit.Dp
 import app.parley.common.people.EditorForm
+import app.parley.common.people.PrivateListing
 import app.parley.ui.FormTokens
 
 // Building blocks of the contact editor: compact 48 dp tonal fields stacked per group, one icon per group in the
 // gutter, the type as a quiet selector inside each value's field, one line of "Add" chips. See docs/EDITOR_DESIGN.md.
 
-/** The quiet "⊖" that removes one row (48 dp target, in the form's end column). */
+/**
+ * Where a row of a group with several rows can move: one place up or down ([up] / [down], null at the group's edge).
+ * Provided per row through [LocalRowMoves]; null where the rows can't be put in another order (a read-only row).
+ */
+internal class RowMoves(val up: (() -> Unit)?, val down: (() -> Unit)?)
+
+/** The current row's [RowMoves] (null: a group's only row, or one that keeps the provider's order). */
+internal val LocalRowMoves = staticCompositionLocalOf<RowMoves?> { null }
+
+/** "Move up" and "Move down" ([labels]) as TalkBack actions, for the row's main field and its end button. */
+internal fun Modifier.rowMoveActions(moves: RowMoves?, labels: Pair<String, String>): Modifier =
+    if (moves == null) this else semantics {
+        customActions = listOfNotNull(
+            moves.up?.let { f -> CustomAccessibilityAction(labels.first) { f(); true } },
+            moves.down?.let { f -> CustomAccessibilityAction(labels.second) { f(); true } },
+        )
+    }
+
+/** The labels of [rowMoveActions]. */
+@Composable
+internal fun rowMoveLabels(): Pair<String, String> = stringResource(R.string.editor_move_up) to stringResource(R.string.editor_move_down)
+
+/**
+ * The end column's control for one row (48 dp target): the quiet "⊖" that removes it while it is its group's only
+ * row; in a group of several, "⋮" with Move up, Move down and Remove ([description]), so the order can be chosen
+ * without giving every row two more buttons. The order is what other apps show too (see ContactRowOrder).
+ */
 @Composable
 internal fun RemoveButton(description: String, onClick: () -> Unit) {
-    IconButton(onClick) { Icon(Icons.Rounded.RemoveCircleOutline, description, tint = MaterialTheme.colorScheme.onSurfaceVariant) }
+    val moves = LocalRowMoves.current
+    val tint = MaterialTheme.colorScheme.onSurfaceVariant
+    if (moves == null) {
+        IconButton(onClick) { Icon(Icons.Rounded.RemoveCircleOutline, description, tint = tint) }
+        return
+    }
+    var open by remember { mutableStateOf(false) }
+    Box {
+        IconButton({ open = true }, Modifier.rowMoveActions(moves, rowMoveLabels())) {
+            Icon(Icons.Rounded.MoreVert, stringResource(R.string.editor_row_options), tint = tint)
+        }
+        DropdownMenu(open, { open = false }, shape = ParleyShapes.tile) {
+            DropdownMenuItem(
+                { Text(stringResource(R.string.editor_move_up)) }, leadingIcon = { Icon(Icons.Rounded.ArrowUpward, null) },
+                enabled = moves.up != null, onClick = { open = false; moves.up?.invoke() },
+            )
+            DropdownMenuItem(
+                { Text(stringResource(R.string.editor_move_down)) }, leadingIcon = { Icon(Icons.Rounded.ArrowDownward, null) },
+                enabled = moves.down != null, onClick = { open = false; moves.down?.invoke() },
+            )
+            DropdownMenuItem({ Text(description) }, leadingIcon = { Icon(Icons.Rounded.RemoveCircleOutline, null) }, onClick = { open = false; onClick() })
+        }
+    }
 }
 
 /** Fields whose Data row the provider marks read-only: shown, but locked. */
@@ -166,10 +220,12 @@ internal fun EditorField(
     val focusManager = LocalFocusManager.current
     val iso = LocalCountryIso.current
     val ltr = keyboard == KeyboardType.Phone || keyboard == KeyboardType.Email || keyboard == KeyboardType.Uri
+    val moves = LocalRowMoves.current
+    val moveLabels = rowMoveLabels()
     ParleyFormField(
         value, onChange, label, shape = shape,
         modifier = modifier.fillMaxWidth()
-            .then(if (focus != null) Modifier.focusRequester(focus) else Modifier)
+            .then(if (focus != null) Modifier.focusRequester(focus).rowMoveActions(moves, moveLabels) else Modifier)
             .onFocusChanged { s ->
                 if (focused && !s.hasFocus) left = true
                 focused = s.hasFocus
@@ -397,10 +453,14 @@ internal fun RelationTypeDialog(onDismiss: () -> Unit, onPick: (RelationType?) -
     if (custom) CustomLabelDialog(query.ifBlank { null }, { custom = false }) { l -> custom = false; onPick(RelationType(key = "custom", label = l)) }
 }
 
-/** Pick the related person from your contacts (their lookup key is remembered, so renames don't break it). */
+/**
+ * Pick the related person from your contacts (their lookup key is remembered, so renames don't break it). Private
+ * contacts are offered too, with their lock badge, unless discreet mode hides them: one of them is remembered by its
+ * Parley key ([app.parley.common.people.ContactRef.privateKey]) and negative id, in Parley's own data only.
+ */
 @Composable
 fun ContactChooserDialog(vm: AppViewModel, onDismiss: () -> Unit, onPick: (id: Long, name: String, lookupKey: String) -> Unit) {
-    val all by vm.contacts.collectAsStateWithLifecycle()
+    val all by vm.everyone.collectAsStateWithLifecycle()
     var query by rememberSaveable { mutableStateOf("") }
     val shown = remember(all, query) { all.orEmpty().filter { TextSearch.matches(query, it.displayName, it.phones.map { p -> p.number }) }.take(200) }
     ParleyDialog(
@@ -412,7 +472,12 @@ fun ContactChooserDialog(vm: AppViewModel, onDismiss: () -> Unit, onPick: (id: L
                 LazyColumn(Modifier.heightIn(max = 360.dp)) {
                     items(shown, key = { it.id }) { c ->
                         ParleyListItem(
-                            leadingContent = { Avatar(c.displayName, c.photoUri, 36.dp) },
+                            leadingContent = {
+                                Box {
+                                    Avatar(c.displayName, c.photoUri, 36.dp)
+                                    if (PrivateListing.isPrivate(c)) PrivateBadge(Modifier.align(Alignment.BottomEnd))
+                                }
+                            },
                             headlineContent = { Text(c.displayName) },
                             colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                             modifier = Modifier.clickable { onPick(c.id, c.displayName, c.lookupKey) },

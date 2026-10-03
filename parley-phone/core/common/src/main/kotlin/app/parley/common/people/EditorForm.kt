@@ -126,4 +126,10 @@ class RowKeys {
         val l = groups[group] ?: return
         if (index in l.indices) l.removeAt(index)
     }
+
+    /** Rows [a] and [b] of [group] swapped places (Move up / Move down): each keeps its key, so focus follows it. */
+    fun swapped(group: String, a: Int, b: Int) {
+        val l = groups[group] ?: return
+        if (a in l.indices && b in l.indices) l[a] = l[b].also { l[b] = l[a] }
+    }
 }
