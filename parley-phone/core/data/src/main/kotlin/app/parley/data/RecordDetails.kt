@@ -1,5 +1,8 @@
 package app.parley.data
 
+import app.parley.common.AltCalendar
+import app.parley.common.people.AddressParts
+import app.parley.common.people.CustomFields
 import app.parley.common.people.Handles
 import app.parley.common.record.Col
 import app.parley.common.record.ContactRecord
@@ -12,7 +15,10 @@ import app.parley.common.record.Mime
  */
 object RecordDetails {
     /** Kinds the editor shows. */
-    private val EDITABLE = setOf(Mime.NAME, Mime.NICKNAME, Mime.PRONOUNS, Mime.ORG, Mime.NOTE, Mime.PHONE, Mime.EMAIL, Mime.IM, Mime.SIP, Mime.WEBSITE, Mime.RELATION, Mime.POSTAL, Mime.EVENT, Mime.GROUP)
+    private val EDITABLE = setOf(
+        Mime.NAME, Mime.NICKNAME, Mime.PRONOUNS, Mime.ORG, Mime.NOTE, Mime.PHONE, Mime.EMAIL, Mime.IM, Mime.SIP, Mime.WEBSITE, Mime.RELATION,
+        Mime.POSTAL, Mime.EVENT, Mime.GROUP, Mime.NAME_PARTS, Mime.LANGUAGE, Mime.CUSTOM_FIELD, Mime.GOOGLE_CUSTOM_FIELD,
+    )
 
     fun toDetails(record: ContactRecord): ContactDetails {
         val rows = record.raws.flatMap { it.rows }
@@ -23,7 +29,7 @@ object RecordDetails {
         if (name != null) {
             d = d.copy(
                 given = s(name[Col.D2]), family = s(name[Col.D3]), prefix = s(name[Col.D4]), middle = s(name[Col.D5]), suffix = s(name[Col.D6]),
-                phoneticGiven = s(name[Col.D7]), phoneticFamily = s(name[Col.D9]),
+                phoneticGiven = s(name[Col.D7]), phoneticFamily = s(name[Col.D9]), phoneticMiddle = s(name[Col.D8]),
             )
         }
         if (d.composedName.isBlank() && record.displayName.isNotBlank() && rows.none { it.mimeType == Mime.ORG }) {
@@ -33,6 +39,12 @@ object RecordDetails {
         }
         rows.firstOrNull { it.mimeType == Mime.NICKNAME }?.let { d = d.copy(nickname = s(it[Col.D1])) }
         rows.firstOrNull { it.mimeType == Mime.PRONOUNS }?.let { d = d.copy(pronouns = s(it[Col.D1])) }
+        rows.firstOrNull { it.mimeType == Mime.NAME_PARTS }?.let { d = d.copy(secondSurname = s(it[Col.D1]), generation = s(it[Col.D2])) }
+        rows.firstOrNull { it.mimeType == Mime.LANGUAGE }?.let { d = d.copy(language = s(it[Col.D1])) }
+        d = d.copy(
+            customFields = rows.filter { CustomFields.isCustomField(it.mimeType) }
+                .map { CustomFieldItem(label = s(it[Col.D1]), value = s(it[Col.D2])) }.filterNot { it.isBlank },
+        )
         rows.firstOrNull { it.mimeType == Mime.ORG }?.let {
             d = d.copy(
                 company = s(it[Col.D1]), title = s(it[Col.D4]), department = s(it[Col.D5]),
@@ -51,11 +63,15 @@ object RecordDetails {
                 var p = PostalItem(
                     street = s(it[Col.D4]), poBox = s(it[Col.D5]), neighborhood = s(it[Col.D6]), city = s(it[Col.D7]), region = s(it[Col.D8]),
                     postcode = s(it[Col.D9]), country = s(it[Col.D10]), type = type(it[Col.D2], 1), label = it[Col.D3],
+                    parts = s(it[AddressParts.COLUMN]),
                 )
                 if (p.isBlank) p = p.copy(street = s(it[Col.D1]))
                 p
             }.filter { !it.isBlank },
-            events = rows.filter { it.mimeType == Mime.EVENT && !it[Col.D1].isNullOrBlank() }.map { EventItem(date = s(it[Col.D1]), type = type(it[Col.D2], 3), label = it[Col.D3]) },
+            events = rows.filter { it.mimeType == Mime.EVENT && !it[Col.D1].isNullOrBlank() }.map {
+                val calendar = it[AltCalendar.COLUMN]?.takeIf { c -> c.isNotBlank() }
+                EventItem(date = s(it[Col.D1]), type = type(it[Col.D2], 3), label = it[Col.D3], calendar = calendar)
+            },
             handles = rows.filter { it.mimeType == Mime.IM || it.mimeType == Mime.SIP }
                 .mapNotNull { Handles.fromRow(it.mimeType, it[Col.D1], it[Col.D5], it[Col.D6]) }
                 .filter { it.value.isNotBlank() }

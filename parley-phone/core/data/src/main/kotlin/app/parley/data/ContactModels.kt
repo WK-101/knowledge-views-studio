@@ -27,10 +27,15 @@ data class PostalItem(
     val poBox: String = "",
     /** StructuredPostal.NEIGHBORHOOD. */
     val neighborhood: String = "",
+    /**
+     * RFC 9554's room, floor, building… ([app.parley.common.people.AddressParts], stored form): shown, not edited, and
+     * written only with a new row (an edit leaves the row's column as it is).
+     */
+    val parts: String = "",
 ) {
     val formatted: String
         get() = ContactText.postal(street, poBox, neighborhood, postcode, city, region, country)
-    val isBlank: Boolean get() = listOf(street, poBox, neighborhood, city, region, postcode, country).all { it.isBlank() }
+    val isBlank: Boolean get() = listOf(street, poBox, neighborhood, city, region, postcode, country, parts).all { it.isBlank() }
 }
 
 data class EventItem(
@@ -39,7 +44,22 @@ data class EventItem(
     val date: String = "",
     val type: Int = 3,
     val label: String? = null,
+    /** The calendar it recurs by ([app.parley.common.AltCalendar.key]); null for Gregorian. */
+    val calendar: String? = null,
 )
+
+/**
+ * A custom field ("Shoe size: 38"). [mime] is the kind it's stored as (Google's in a Google account, Parley's
+ * elsewhere, [app.parley.common.people.CustomFields]); null for one not saved yet, which takes its account's kind.
+ */
+data class CustomFieldItem(
+    val id: Long? = null,
+    val label: String = "",
+    val value: String = "",
+    val mime: String? = null,
+) {
+    val isBlank: Boolean get() = label.isBlank() && value.isBlank()
+}
 
 /**
  * A messenger handle row (Im or SipAddress). [id] is null for rows not yet saved. [customProtocol] keeps an
@@ -86,6 +106,11 @@ data class ContactDetails(
     val suffix: String = "",
     val phoneticGiven: String = "",
     val phoneticFamily: String = "",
+    val phoneticMiddle: String = "",
+    /** Parley's row for RFC 9554's secondary surname and generation ([app.parley.common.record.Mime.NAME_PARTS]). */
+    val namePartsId: Long? = null,
+    val secondSurname: String = "",
+    val generation: String = "",
     val nicknameId: Long? = null,
     val nickname: String = "",
     /** Parley's pronouns row ([app.parley.common.record.Mime.PRONOUNS]): "she/her", shown beside the name. */
@@ -140,6 +165,10 @@ data class ContactDetails(
     val pinnedNote: String = "",
     /** Private contacts only: their [app.parley.common.people.MessengerPrefs], encoded. */
     val messengerPrefs: String = "",
+    /** The language to use with them ([app.parley.common.record.Mime.LANGUAGE]): a BCP 47 tag, or the name as typed. */
+    val languageId: Long? = null,
+    val language: String = "",
+    val customFields: List<CustomFieldItem> = emptyList(),
 ) {
     val composedName: String
         get() = listOf(prefix, given, middle, family, suffix).filter { it.isNotBlank() }.joinToString(" ").trim()
@@ -177,4 +206,6 @@ data class ContactEvent(
     val type: Int,
     val label: String?,
     val phone: String?,
+    /** The calendar it recurs by ([app.parley.common.AltCalendar.key]); null for Gregorian. */
+    val calendar: String? = null,
 )

@@ -9,7 +9,9 @@ import app.parley.common.people.ThreeWayMerge.Side
  * merge chose. See [ThreeWayMerge].
  */
 object ContactEditRebase {
-    enum class Field { NAME, NICKNAME, COMPANY, NOTE, PHONES, EMAILS, WEBSITES, RELATIONS, ADDRESSES, EVENTS, HANDLES, LABELS, PRONOUNS }
+    enum class Field {
+        NAME, NICKNAME, COMPANY, NOTE, PHONES, EMAILS, WEBSITES, RELATIONS, ADDRESSES, EVENTS, HANDLES, LABELS, PRONOUNS, LANGUAGE, CUSTOM_FIELDS,
+    }
 
     /** A field both sides changed: what each side holds, as text to show. */
     data class Conflict(val field: Field, val mine: String, val theirs: String)
@@ -19,8 +21,11 @@ object ContactEditRebase {
     private fun items(l: List<DataItem>) = l.filter { it.value.isNotBlank() }.map { Triple(t(it.value), it.type, it.label?.takeIf { _ -> it.type == 0 }) }
 
     /** A field's content, without ids and blank new rows, for comparing sides. */
+    @Suppress("CyclomaticComplexMethod") // One branch per field.
     private fun content(d: ContactDetails, f: Field): Any = when (f) {
-        Field.NAME -> listOf(d.prefix, d.given, d.middle, d.family, d.suffix, d.phoneticGiven, d.phoneticFamily).map(::t)
+        Field.NAME -> listOf(
+            d.prefix, d.given, d.middle, d.family, d.suffix, d.phoneticGiven, d.phoneticFamily, d.phoneticMiddle, d.secondSurname, d.generation,
+        ).map(::t)
         Field.NICKNAME -> t(d.nickname)
         Field.COMPANY -> listOf(d.company, d.title, d.department).map(::t)
         Field.NOTE -> t(d.note)
@@ -33,9 +38,12 @@ object ContactEditRebase {
         Field.HANDLES -> d.handles.filter { it.value.isNotBlank() }.map { it.copy(id = null, value = t(it.value)) }
         Field.LABELS -> d.groupIds
         Field.PRONOUNS -> t(d.pronouns)
+        Field.LANGUAGE -> t(d.language)
+        Field.CUSTOM_FIELDS -> d.customFields.filterNot { it.isBlank }.map { t(it.label) to t(it.value) }
     }
 
     /** A field's content as one line of text for the merge choices. */
+    @Suppress("CyclomaticComplexMethod") // One branch per field.
     fun text(d: ContactDetails, f: Field): String = when (f) {
         Field.NAME -> d.composedName
         Field.NICKNAME -> t(d.nickname)
@@ -50,6 +58,8 @@ object ContactEditRebase {
         Field.HANDLES -> d.handles.map { t(it.value) }.filter { it.isNotEmpty() }.joinToString(", ")
         Field.LABELS -> d.groupIds.size.toString()
         Field.PRONOUNS -> t(d.pronouns)
+        Field.LANGUAGE -> t(d.language)
+        Field.CUSTOM_FIELDS -> d.customFields.filterNot { it.isBlank }.joinToString(", ") { app.parley.common.people.CustomFields.display(it.label, it.value) }
     }
 
     private fun fields(base: ContactDetails?, mine: ContactDetails, theirs: ContactDetails) =
@@ -80,7 +90,8 @@ object ContactEditRebase {
         if (mineFor(Field.NAME)) {
             out = out.copy(
                 prefix = mine.prefix, given = mine.given, middle = mine.middle, family = mine.family, suffix = mine.suffix,
-                phoneticGiven = mine.phoneticGiven, phoneticFamily = mine.phoneticFamily,
+                phoneticGiven = mine.phoneticGiven, phoneticFamily = mine.phoneticFamily, phoneticMiddle = mine.phoneticMiddle,
+                secondSurname = mine.secondSurname, generation = mine.generation,
             )
         }
         if (mineFor(Field.NICKNAME)) out = out.copy(nickname = mine.nickname)
@@ -95,6 +106,8 @@ object ContactEditRebase {
         if (mineFor(Field.HANDLES)) out = out.copy(handles = ids(mine.handles, theirs.handles, { it.id }) { r, i -> r.copy(id = i) })
         if (mineFor(Field.LABELS)) out = out.copy(groupIds = mine.groupIds)
         if (mineFor(Field.PRONOUNS)) out = out.copy(pronouns = mine.pronouns)
+        if (mineFor(Field.LANGUAGE)) out = out.copy(language = mine.language)
+        if (mineFor(Field.CUSTOM_FIELDS)) out = out.copy(customFields = ids(mine.customFields, theirs.customFields, { it.id }) { r, i -> r.copy(id = i) })
         return out
     }
 
@@ -117,6 +130,10 @@ object ContactEditRebase {
         return draft.copy(
             id = onto.id, lookupKey = onto.lookupKey, displayName = onto.displayName, photoUri = onto.photoUri,
             nameId = onto.nameId, nicknameId = onto.nicknameId, orgId = onto.orgId, noteId = onto.noteId, pronounsId = onto.pronounsId,
+            namePartsId = onto.namePartsId, languageId = onto.languageId,
+            customFields = ids(draft.customFields, onto.customFields, { it.id }, { t(it.label) to t(it.value) }) { r, i ->
+                r.copy(id = i, mime = i?.let { onto.customFields.firstOrNull { f -> f.id == it }?.mime })
+            },
             phones = rows(draft.phones, onto.phones), emails = rows(draft.emails, onto.emails),
             websites = rows(draft.websites, onto.websites), relations = rows(draft.relations, onto.relations),
             addresses = ids(draft.addresses, onto.addresses, { it.id }, { it.copy(id = null) }) { r, i -> r.copy(id = i) },
@@ -131,5 +148,6 @@ object ContactEditRebase {
     fun hasRowIds(d: ContactDetails): Boolean =
         listOf(d.phones, d.emails, d.websites, d.relations).any { l -> l.any { it.id != null } } ||
             d.addresses.any { it.id != null } || d.events.any { it.id != null } || d.handles.any { it.id != null } ||
-            listOf(d.nameId, d.nicknameId, d.orgId, d.noteId, d.pronounsId, d.editRawId).any { it != null }
+            d.customFields.any { it.id != null } ||
+            listOf(d.nameId, d.nicknameId, d.orgId, d.noteId, d.pronounsId, d.namePartsId, d.languageId, d.editRawId).any { it != null }
 }
