@@ -85,7 +85,6 @@ import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -96,6 +95,10 @@ import app.parley.common.calls.CallControl
 import app.parley.common.calls.CallControls
 import app.parley.common.calls.CallWaiting
 import app.parley.common.ux.CallScreenBackground
+import app.parley.common.ux.CallBackdrop
+import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.runtime.mutableFloatStateOf
 import app.parley.common.ux.Tips
 import app.parley.telecom.AudioRoute
 import app.parley.telecom.AudioUi
@@ -122,6 +125,7 @@ import app.parley.ui.ParleyListItem
 import app.parley.ui.ParleyMotion
 import app.parley.ui.ParleySheet
 import app.parley.ui.ParleyShapes
+import app.parley.ui.ParleyType
 import app.parley.ui.Spacing
 import app.parley.ui.keypadKey
 import app.parley.ui.rowColors
@@ -198,10 +202,18 @@ fun InCallScreen(
         live = live, primary = primary, shown = shown, ended = ended, failed = failed, declineBlock = declineBlock, audio = audio,
         keypadOpen = keypadOpen, incoming = IncomingPrefs(answerGesture, simple, confirmDecline),
     )
-    BoxWithConstraints(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
-        CallBackground(primary ?: shown, background)
+    // Where the caller's text starts, for a poster's clear picture above it (window pixels, read only while drawing).
+    val screenTop = remember { mutableFloatStateOf(0f) }
+    val callerTop = remember { mutableFloatStateOf(-1f) }
+    BoxWithConstraints(
+        Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface).onGloballyPositioned { screenTop.floatValue = it.positionInRoot().y },
+    ) {
         val twoPane = maxWidth > maxHeight && maxWidth >= 560.dp
         val short = maxHeight < 480.dp
+        val backdropCall = primary ?: shown
+        // Settings › Calls › Poster, for a caller with a call-screen picture, in the one-column layout.
+        val poster = posterLayout(backdropCall, background, slots, twoPane, short, keypadOpen)
+        CallBackground(backdropCall, background, poster = poster, textTop = { textTop(callerTop.floatValue, screenTop.floatValue) })
         val insets = Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().displayCutoutPadding()
         val actions = ScreenActions(
             onKeypad = onKeypad, onAddCall = onAddCall, onOpenContact = onOpenContact,
@@ -218,12 +230,16 @@ fun InCallScreen(
         } else {
             // While it rings, the caller sits in the upper part of the free space rather than against the top, so the
             // screen reads as one composition (Phone by Google and iOS place the name a little above the middle).
-            val bias = rememberCallerBias(primary, short)
+            // A poster keeps the caller low, just above the controls, so the picture shows above the name.
+            val bias = rememberCallerBias(primary, short, poster)
             Column(insets.padding(horizontal = Spacing.xl), horizontalAlignment = Alignment.CenterHorizontally) {
                 // The caller scrolls on small screens and at large font sizes; the controls never move.
                 Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = BiasAlignment(0f, bias)) {
-                    Column(Modifier.verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
-                        CallerSection(screen, sheets, actions, if (short) 88.dp else 128.dp, twoPane = false)
+                    Column(
+                        Modifier.onGloballyPositioned { callerTop.floatValue = it.positionInRoot().y }.verticalScroll(rememberScrollState()),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        CallerSection(screen, sheets, actions, if (short) 88.dp else 128.dp, twoPane = false, poster = poster)
                     }
                 }
                 ControlsSection(screen, sheets, actions, scrollKeypad = true)
@@ -232,6 +248,25 @@ fun InCallScreen(
     }
     InCallDialogs(screen, sheets, quickReplies, onOpenContact, onAddCall, askDeclineFor, onAskDeclineDone, onUnlock)
 }
+
+/** Whether the caller is laid out as a poster (see [CallBackdrop.posterLayout]). */
+private fun posterLayout(
+    call: CallUi?,
+    background: CallScreenBackground,
+    slots: CallWaiting.Slots<CallUi>,
+    twoPane: Boolean,
+    short: Boolean,
+    keypadOpen: Boolean,
+): Boolean {
+    val primary = slots.primary
+    return CallBackdrop.posterLayout(
+        callBackdropPlan(call, background), twoPane = twoPane, short = short,
+        keypadOpen = keypadOpen && primary?.state != CallState.RINGING, callWaiting = slots.waiting && slots.current != null && primary != null,
+    )
+}
+
+/** The caller's top edge from the top of the screen, or -1 while it hasn't been measured. */
+private fun textTop(callerTop: Float, screenTop: Float): Float = if (callerTop >= 0f) callerTop - screenTop else -1f
 
 /** "Call a saved number" on the post-call card opens the same sheet as during the call, once unlocked. */
 private fun withVerify(
@@ -248,9 +283,14 @@ private fun withVerify(
 private const val RINGING_BIAS = -0.45f
 
 @Composable
-private fun rememberCallerBias(primary: CallUi?, short: Boolean): Float {
+private fun rememberCallerBias(primary: CallUi?, short: Boolean, poster: Boolean): Float {
     val ringing = primary?.state == CallState.RINGING && !short
-    val bias by animateFloatAsState(if (ringing) RINGING_BIAS else -1f, ParleyMotion.spatial(), label = "bias")
+    val target = when {
+        poster -> 1f
+        ringing -> RINGING_BIAS
+        else -> -1f
+    }
+    val bias by animateFloatAsState(target, ParleyMotion.spatial(), label = "bias")
     return bias
 }
 
@@ -315,7 +355,7 @@ private fun CallWaitingLayout(
 
 /** The top half: other calls (on hold, being dialled), a failed second call or Undo, then the caller. */
 @Composable
-private fun CallerSection(s: ScreenState, sheets: InCallSheets, a: ScreenActions, avatar: Dp, twoPane: Boolean) {
+private fun CallerSection(s: ScreenState, sheets: InCallSheets, a: ScreenActions, avatar: Dp, twoPane: Boolean, poster: Boolean = false) {
     val timings by CallClock.timings.collectAsStateWithLifecycle()
     val primary = s.primary
     // A second call that didn't go through ("Add call"), shown above the call that goes on.
@@ -340,6 +380,7 @@ private fun CallerSection(s: ScreenState, sheets: InCallSheets, a: ScreenActions
         timing = timings[shown.id]?.shownFor(shown),
         avatarSize = avatar,
         onReply = { sheets.replyFor = shown.id },
+        poster = poster,
     )
     // Auto-answer's countdown with Cancel, between the caller and the answer controls (an overlay of its own).
     if (shown.state == CallState.RINGING) AutoAnswerCountdown(shown)
@@ -683,7 +724,7 @@ private fun DtmfKeypad(call: CallUi, scroll: Boolean = true) {
         // I6: "Last time: 2 › 1 › 4" with Replay, for a number Parley remembers menu digits for.
         MenuMemoryRow(call)
         Text(
-            Bidi.ltr(typed), style = MaterialTheme.typography.headlineMedium.merge(TextStyle(fontFeatureSettings = "tnum")), maxLines = 1,
+            Bidi.ltr(typed), style = ParleyType.typedDigits, maxLines = 1,
             overflow = TextOverflow.StartEllipsis, color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.widthIn(max = CallButtonSize.panelMaxWidth).padding(horizontal = Spacing.l).height(44.dp),
         )
@@ -711,7 +752,7 @@ private fun DtmfKeypad(call: CallUi, scroll: Boolean = true) {
                                     )
                                     .semantics { contentDescription = dtmfName(res, c) },
                                 contentAlignment = Alignment.Center,
-                            ) { Text(c.toString(), style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.onSurface) }
+                            ) { Text(c.toString(), style = ParleyType.typedDigits, color = MaterialTheme.colorScheme.onSurface) }
                         }
                     }
                 }

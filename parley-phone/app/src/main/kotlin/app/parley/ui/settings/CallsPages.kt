@@ -110,7 +110,10 @@ private fun AnsweringPage(vm: AppViewModel, open: (Destination) -> Unit) {
         }
     }
     val gestures = listOf(stringResource(R.string.set_answer_swipe), stringResource(R.string.set_answer_tap))
-    val backgrounds = listOf(stringResource(R.string.set_call_background_caller), stringResource(R.string.set_call_background_plain))
+    val backgrounds = listOf(
+        stringResource(R.string.set_call_background_caller), stringResource(R.string.set_call_background_plain),
+        stringResource(R.string.set_call_background_poster),
+    )
     val sameAsUsual = stringResource(R.string.set_same_as_usual)
     // The ringtone's title comes from the media provider: read it off the main thread.
     val toneName by produceState<String?>(null, s.unknownRingtone) {
@@ -133,7 +136,8 @@ private fun AnsweringPage(vm: AppViewModel, open: (Destination) -> Unit) {
                     .putExtra(RingtoneManager.EXTRA_RINGTONE_EXISTING_URI, s.unknownRingtone?.let(Uri::parse)),
             )
         }
-        // The caller's colour at the top of the call screen, or none; a contact's own picture shows either way.
+        // The caller's colour at the top of the call screen, none, or a contact's picture as a poster; a contact's own
+        // picture shows with every choice.
         choiceRow("call_background", backgrounds, s.callBackground.ordinal, Icons.Rounded.Palette) { i ->
             set { it.copy(callBackground = CallScreenBackground.entries[i]) }
         }

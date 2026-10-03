@@ -1,6 +1,7 @@
 package app.parley.common.ux
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -84,5 +85,71 @@ class CallBackdropTest {
             assertEquals(false, CallBackdrop.plan(style, warn = false, hasPicture = true, allowPicture = false).picture)
             assertEquals(false, CallBackdrop.plan(style, warn = false, hasPicture = false).picture)
         }
+    }
+
+    @Test fun poster_needs_the_style_and_a_picture() {
+        assertTrue(CallBackdrop.plan(CallScreenBackground.POSTER, warn = false, hasPicture = true).poster)
+        assertEquals(CallBackdrop.Tint.CALLER, CallBackdrop.plan(CallScreenBackground.POSTER, warn = false, hasPicture = false).tint)
+        assertFalse(CallBackdrop.plan(CallScreenBackground.POSTER, warn = false, hasPicture = false).poster)
+        assertFalse(CallBackdrop.plan(CallScreenBackground.CALLER_COLOUR, warn = false, hasPicture = true).poster)
+        assertFalse(CallBackdrop.plan(CallScreenBackground.PLAIN, warn = false, hasPicture = true).poster)
+    }
+
+    @Test fun no_poster_over_a_warning_in_the_small_window_or_on_a_masked_lock_screen() {
+        assertFalse(CallBackdrop.plan(CallScreenBackground.POSTER, warn = true, hasPicture = true).poster)
+        assertFalse(CallBackdrop.plan(CallScreenBackground.POSTER, warn = false, hasPicture = true, allowPicture = false).poster)
+        assertFalse(CallBackdrop.plan(CallScreenBackground.POSTER, warn = false, hasPicture = true, masked = true).poster)
+    }
+
+    @Test fun poster_layout_only_in_one_roomy_column() {
+        val plan = CallBackdrop.plan(CallScreenBackground.POSTER, warn = false, hasPicture = true)
+        assertTrue(CallBackdrop.posterLayout(plan, twoPane = false, short = false, keypadOpen = false, callWaiting = false))
+        assertFalse(CallBackdrop.posterLayout(plan, twoPane = true, short = false, keypadOpen = false, callWaiting = false))
+        assertFalse(CallBackdrop.posterLayout(plan, twoPane = false, short = true, keypadOpen = false, callWaiting = false))
+        assertFalse(CallBackdrop.posterLayout(plan, twoPane = false, short = false, keypadOpen = true, callWaiting = false))
+        assertFalse(CallBackdrop.posterLayout(plan, twoPane = false, short = false, keypadOpen = false, callWaiting = true))
+        val classic = CallBackdrop.plan(CallScreenBackground.CALLER_COLOUR, warn = false, hasPicture = true)
+        assertFalse(CallBackdrop.posterLayout(classic, twoPane = false, short = false, keypadOpen = false, callWaiting = false))
+    }
+
+    @Test fun poster_text_always_sits_on_the_readable_scrim() {
+        val scrim = CallBackdrop.scrimAlpha(light.surface, light.inks)
+        listOf(0f, 0.05f, 0.3f, 0.55f, 0.9f, 1f).forEach { textTop ->
+            val stops = CallBackdrop.posterStops(textTop, guard = 0.08f, fade = 0.06f, scrim = scrim)
+            assertEquals(stops.map { it.first }, stops.map { it.first }.sorted())
+            var y = textTop
+            while (y <= 1f) {
+                assertTrue("$textTop at $y", alphaAt(stops, y) >= scrim - 1e-4f)
+                y += 0.01f
+            }
+            // The status bar's guard at the very top.
+            assertEquals(scrim, alphaAt(stops, 0f), 1e-4f)
+        }
+        // Clear between the guard and the text.
+        assertEquals(0f, alphaAt(CallBackdrop.posterStops(0.6f, guard = 0.08f, fade = 0.06f, scrim = scrim), 0.3f), 1e-4f)
+        assertTrue(alphaAt(CallBackdrop.posterStops(0.6f, guard = 0.08f, fade = 0.06f, scrim = scrim), 1f) >= CallBackdrop.OPAQUE_BOTTOM)
+    }
+
+    @Test fun a_closed_poster_is_the_classic_scrim_all_the_way_down() {
+        val scrim = CallBackdrop.scrimAlpha(dark.surface, dark.inks)
+        val stops = CallBackdrop.posterStops(0.6f, guard = 0.08f, fade = 0.06f, scrim = scrim, open = 0f)
+        var y = 0f
+        while (y <= 1f) {
+            assertTrue("at $y", alphaAt(stops, y) >= scrim - 1e-4f)
+            y += 0.01f
+        }
+        // Half open: half the scrim over the clear part.
+        assertEquals(scrim / 2, alphaAt(CallBackdrop.posterStops(0.6f, guard = 0.08f, fade = 0.06f, scrim = scrim, open = 0.5f), 0.3f), 1e-4f)
+    }
+
+    /** The alpha a vertical gradient through [stops] has at [y], as a Compose brush draws it. */
+    private fun alphaAt(stops: List<Pair<Float, Float>>, y: Float): Float {
+        if (y <= stops.first().first) return stops.first().second
+        for (i in 1 until stops.size) {
+            val (p0, a0) = stops[i - 1]
+            val (p1, a1) = stops[i]
+            if (y <= p1) return if (p1 == p0) a1 else a0 + (a1 - a0) * (y - p0) / (p1 - p0)
+        }
+        return stops.last().second
     }
 }
