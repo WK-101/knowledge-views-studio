@@ -448,6 +448,16 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
+            // Spoken output (Phase 4) — reads your day aloud; uses the platform voice, no addon needed.
+            Spacer(Modifier.height(8.dp))
+            Sub("Spoken briefing")
+            Action("Daily briefing (spoken)") { vm.requestDailyBriefing() }
+            Text(
+                "Hears your tasks due today, what's next, and habits logged — read aloud and shown on screen.",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
             if (bridge.grantedVoicePackage != null) {
                 Spacer(Modifier.height(8.dp))
                 Action("Revoke all (kill switch)") { confirmRevoke = true }

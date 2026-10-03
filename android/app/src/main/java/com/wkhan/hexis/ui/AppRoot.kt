@@ -1399,6 +1399,18 @@ fun AppRoot(
         }
 
 
+        // Spoken answer / daily briefing — shown as well as read aloud (Phase 4).
+        val voiceAnswer by vm.voiceAnswer.collectAsStateWithLifecycle()
+        voiceAnswer?.let { answer ->
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = { vm.dismissVoiceAnswer() },
+                confirmButton = { TextButton(onClick = { vm.dismissVoiceAnswer() }) { Text("Done") } },
+                icon = { Icon(Icons.Filled.Mic, contentDescription = null) },
+                title = { Text("Hexis") },
+                text = { Text(answer) },
+            )
+        }
+
         // ── Tier Ω · command palette, recap overlay, annual-report picker ──────────────────────────
         if (showPalette) CommandPaletteDialog(vm, onDismiss = { showPalette = false; paletteInitial = "" }, initialText = paletteInitial) { cmd ->
             val now = java.time.LocalDate.now()

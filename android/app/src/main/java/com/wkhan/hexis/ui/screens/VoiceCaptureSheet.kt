@@ -100,13 +100,14 @@ private fun voiceActions(vm: AppViewModel, text: String, intent: VoiceIntent): L
     val search = VoiceAction("Search the app") { vm.commitVoiceSearch(text) }
     val timer = VoiceAction("Start timer") { vm.commitVoiceStartTimer(text) }
     val command = VoiceAction("Command palette") { vm.commitVoiceCommand(text) }
+    val speak = VoiceAction("Speak the answer") { vm.commitVoiceQuery(text) }
     return when (intent) {
         VoiceIntent.STOP_TIMER ->
             listOf(VoiceAction("Stop timer") { vm.commitVoiceStopTimer() }, task, note, search, command)
         VoiceIntent.START_TIMER -> listOf(timer, task, note, search, command)
         VoiceIntent.ADD_NOTE -> listOf(note, task, search, timer, command)
         VoiceIntent.SEARCH -> listOf(search, task, note, command, timer)
-        VoiceIntent.QUERY -> listOf(command, search, task, note)
+        VoiceIntent.QUERY -> listOf(speak, search, command, task, note)
         else -> listOf(task, note, search, timer, command) // ADD_TASK / UNKNOWN
     }
 }

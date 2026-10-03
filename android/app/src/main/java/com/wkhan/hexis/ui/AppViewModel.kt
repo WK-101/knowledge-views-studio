@@ -226,6 +226,15 @@ class AppViewModel internal constructor(
 
     private val voiceController by lazy { com.wkhan.hexis.addon.VoiceCaptureController(appCtx) }
 
+    // Spoken output (Phase 4): platform TTS for the daily briefing + spoken answers. Lazily created so
+    // TTS is only spun up for users who actually use it, and shut down in onCleared.
+    @Volatile private var ttsOrNull: com.wkhan.hexis.voice.TtsSpeaker? = null
+    private fun tts(): com.wkhan.hexis.voice.TtsSpeaker =
+        ttsOrNull ?: com.wkhan.hexis.voice.TtsSpeaker(appCtx).also { ttsOrNull = it }
+    private val _voiceAnswer = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
+    /** A spoken answer / daily briefing to also show on screen (null = none). */
+    val voiceAnswer: StateFlow<String?> = _voiceAnswer
+
     /** Push-to-talk capture → the intent router (review sheet with task / note / search / command /
      *  timer actions). */
     fun startVoiceCapture() {
@@ -366,6 +375,52 @@ class AppViewModel internal constructor(
     fun cancelVoiceCapture() {
         voiceController.cancel()
         finishVoice()
+    }
+
+    // ---- Spoken answers + daily briefing (Phase 4), composed on-device from already-computed state ---
+
+    private fun spokenSnapshot(): com.wkhan.hexis.domain.voice.SpokenAnswers.Snapshot {
+        val counts = smartCounts.value
+        val today = java.time.LocalDate.now().toEpochDay()
+        val habitsLogged = habitCheckins.value.filter { it.epochDay == today }.map { it.habitId }.distinct().size
+        val hour = java.time.LocalTime.now().hour
+        val greeting = when {
+            hour < 12 -> "Good morning"
+            hour < 18 -> "Good afternoon"
+            else -> "Good evening"
+        }
+        return com.wkhan.hexis.domain.voice.SpokenAnswers.Snapshot(
+            greeting = greeting,
+            todayCount = counts[SmartKind.TODAY] ?: 0,
+            doNextCount = counts[SmartKind.DO_NEXT] ?: 0,
+            needsAttention = counts[SmartKind.NEEDS_ATTENTION] ?: 0,
+            habitsLoggedToday = habitsLogged,
+        )
+    }
+
+    /** Answer a spoken question over the user's own data, show it, and speak it. */
+    fun commitVoiceQuery(text: String) {
+        val answer = com.wkhan.hexis.domain.voice.SpokenAnswers.answer(text, spokenSnapshot())
+        _voiceAnswer.value = answer
+        tts().speak(answer)
+        finishVoice()
+    }
+
+    /** Speak (and show) a daily briefing stitched from today's tasks / habits. */
+    fun requestDailyBriefing() {
+        val answer = com.wkhan.hexis.domain.voice.SpokenAnswers.briefing(spokenSnapshot())
+        _voiceAnswer.value = answer
+        tts().speak(answer)
+    }
+
+    fun dismissVoiceAnswer() {
+        _voiceAnswer.value = null
+        ttsOrNull?.stop()
+    }
+
+    override fun onCleared() {
+        ttsOrNull?.shutdown()
+        super.onCleared()
     }
 
     // ---- File transcription (Phase 3): Open Transcribe client -----------------------------------
