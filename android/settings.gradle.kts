@@ -23,3 +23,7 @@ include(":whisper")
 // :voice-addon — the Hexis Voice satellite (Phase 1). A separate APK holding RECORD_AUDIO; depends
 // on :bridge and :whisper. Not a dependency of :app.
 include(":voice-addon")
+// :web-bridge — the Hexis Web Bridge satellite. A separate APK holding INTERNET; runs a local web
+// server so the core can be managed from a browser on the LAN. Consumes the core's `data` capability
+// over :bridge; holds no data and not the DB key. Not a dependency of :app.
+include(":web-bridge")

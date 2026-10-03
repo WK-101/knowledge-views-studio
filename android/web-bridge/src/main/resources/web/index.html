@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="color-scheme" content="light dark" />
+  <meta name="referrer" content="no-referrer" />
+  <title>Hexis Web</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="dot" id="statusDot" aria-hidden="true"></span>
+      <h1>Hexis</h1>
+    </div>
+    <nav class="tabs" role="tablist">
+      <button class="tab" id="tabTasks" role="tab" aria-selected="true">Tasks</button>
+      <button class="tab" id="tabNotes" role="tab" aria-selected="false">Notes</button>
+    </nav>
+    <button class="icon-btn" id="refreshBtn" title="Refresh" aria-label="Refresh">&#x21bb;</button>
+  </header>
+
+  <main id="main">
+    <p class="status" id="status">Connecting…</p>
+    <section id="tasksView" class="view"></section>
+    <section id="notesView" class="view" hidden></section>
+  </main>
+
+  <footer class="foot">
+    <span id="footText">End-to-end encrypted · served from your phone</span>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

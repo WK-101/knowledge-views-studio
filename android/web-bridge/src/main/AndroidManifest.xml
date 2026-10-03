@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- The one dangerous permission the core must never hold: network. Everything else the addon does
+         is local. It never gets the core's DB key — only the scoped data the user granted. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- Signature permission the CORE defines on its `data` provider; granted only because this addon is
+         signed with the same Hexis keyset. Harmless (ungranted) if the core isn't installed. -->
+    <uses-permission android:name="com.wkhan.hexis.permission.BIND_DATA_BRIDGE" />
+
+    <!-- Android 11+ package visibility: to discover and bind the core's `data` provider and launch its
+         consent screen, we must be able to see those intents. -->
+    <queries>
+        <intent>
+            <action android:name="com.wkhan.hexis.bridge.PROVIDER" />
+        </intent>
+        <intent>
+            <action android:name="com.wkhan.hexis.bridge.DATA_CONSENT" />
+        </intent>
+    </queries>
+
+    <application
+        android:allowBackup="false"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:theme="@android:style/Theme.Material.Light">
+
+        <!-- The addon's only launchable surface: start/stop the server, show the pairing URL + QR, connect
+             to the core. The web UI itself is served to a browser, not shown here. -->
+        <activity
+            android:name=".ui.ControlActivity"
+            android:exported="true"
+            android:label="@string/app_name">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- The local web server runs as a user-visible data-sync foreground service with a persistent
+             "server running" notification. Not exported. -->
+        <service
+            android:name=".server.WebServerService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+    </application>
+</manifest>
