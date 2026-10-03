@@ -2,14 +2,21 @@ package com.wkhan.hexis.web.bridge
 
 import android.content.Context
 
+import android.util.Log
+
 import com.wkhan.hexis.bridge.BridgeCodec
 import com.wkhan.hexis.bridge.BridgeError
 import com.wkhan.hexis.bridge.Capabilities
 import com.wkhan.hexis.bridge.EnvelopeHeader
+import com.wkhan.hexis.bridge.EventEnvelope
 import com.wkhan.hexis.bridge.HandshakeHello
 import com.wkhan.hexis.bridge.HandshakeResult
 import com.wkhan.hexis.bridge.RequestEnvelope
 import com.wkhan.hexis.bridge.ResponseEnvelope
+import com.wkhan.hexis.bridge.SessionControl
+import com.wkhan.hexis.bridge.SessionHandle
+import com.wkhan.hexis.bridge.SessionOp
+import com.wkhan.hexis.bridge.StreamSink
 import com.wkhan.hexis.bridge.client.BridgeConnection
 import com.wkhan.hexis.bridge.client.BridgeDiscovery
 import com.wkhan.hexis.bridge.data.DataApi
@@ -32,6 +39,7 @@ class DataBridgeClient(private val appContext: Context) {
 
     @Volatile private var connection: BridgeConnection? = null
     @Volatile private var connected = false
+    @Volatile private var changeSession: SessionHandle? = null
 
     /** Is a trusted core `data` provider installed to connect to? */
     fun providerAvailable(): Boolean =
@@ -75,7 +83,34 @@ class DataBridgeClient(private val appContext: Context) {
         return runCatching { conn.invoke(request) }.getOrElse { unavailable() }
     }
 
+    /**
+     * Open the core's `changes` stream, invoking [onTick] with the changed domain on each event. One stream
+     * for the whole addon (the server fans it out to browsers); re-openable. Returns false if not connected.
+     */
+    @Synchronized
+    fun openChanges(onTick: (String) -> Unit): Boolean {
+        val conn = connection ?: if (connect()) connection!! else return false
+        val request = RequestEnvelope(
+            header = EnvelopeHeader(capabilityId = Capabilities.DATA, method = DataApi.METHOD_CHANGES, token = grants.token),
+        )
+        val sink = object : StreamSink {
+            override fun onEvent(event: EventEnvelope) {
+                if (event.kind != DataApi.EVENT_CHANGED) return
+                runCatching { BridgeCodec.decodeString<DomainTick>(event.payloadJson).domain }
+                    .getOrNull()?.takeIf { it.isNotEmpty() }?.let(onTick)
+            }
+            override fun onResult(payloadJson: String) {}
+            override fun onError(error: BridgeError) { Log.w(TAG, "changes stream error: ${error.message}") }
+        }
+        changeSession = runCatching { conn.openStream(request, sink) }.getOrNull()
+        return changeSession?.sessionId?.isNotEmpty() == true
+    }
+
     fun close() {
+        changeSession?.takeIf { it.sessionId.isNotEmpty() }?.let { s ->
+            runCatching { connection?.control(SessionControl(s.sessionId, SessionOp.STOP)) }
+        }
+        changeSession = null
         connection?.close()
         connection = null
         connected = false
@@ -87,6 +122,11 @@ class DataBridgeClient(private val appContext: Context) {
     )
 
     private companion object {
+        const val TAG = "DataBridgeClient"
         const val CONNECT_TIMEOUT_MS = 4000L
     }
 }
+
+/** The payload of a core `changes` tick — mirrors the core's shape, decoded tolerantly. */
+@kotlinx.serialization.Serializable
+private data class DomainTick(val domain: String = "")

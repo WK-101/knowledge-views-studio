@@ -40,9 +40,13 @@ class WebServerService : Service() {
         val aead = PairingStore(this).aeadKey()
         val client = DataBridgeClient(applicationContext).also { dataClient = it }
         runCatching { client.connect() } // best-effort; queries report "not connected" until granted
+        // Live refresh: one core `changes` stream fans out to browser long-polls via the hub. Best-effort —
+        // if it can't open (not yet granted), manual refresh still works and the browser just gets timeouts.
+        val hub = ChangeHub()
+        runCatching { client.openChanges { domain -> hub.publish(domain) } }
 
         val port = PORTS.firstNotNullOfOrNull { candidate ->
-            runCatching { WebServer(applicationContext, candidate, aead, client).also { it.start() } to candidate }
+            runCatching { WebServer(applicationContext, candidate, aead, client, hub).also { it.start() } to candidate }
                 .getOrNull()
         }
         if (port == null) {

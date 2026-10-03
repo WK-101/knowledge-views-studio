@@ -5,8 +5,10 @@ import com.wkhan.hexis.bridge.BridgeError
 import com.wkhan.hexis.bridge.BridgeErrorType
 import com.wkhan.hexis.bridge.BridgeScopes
 import com.wkhan.hexis.bridge.CapabilityHandler
+import com.wkhan.hexis.bridge.EventEnvelope
 import com.wkhan.hexis.bridge.RequestEnvelope
 import com.wkhan.hexis.bridge.ResponseEnvelope
+import com.wkhan.hexis.bridge.SessionControl
 import com.wkhan.hexis.bridge.SessionHandle
 import com.wkhan.hexis.bridge.StreamSink
 import com.wkhan.hexis.bridge.data.DataApi
@@ -14,8 +16,16 @@ import com.wkhan.hexis.bridge.data.DataMutation
 import com.wkhan.hexis.bridge.data.DataQuery
 import com.wkhan.hexis.bridge.security.VerifiedCaller
 
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+
+import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * The core's `data` capability handler. The dispatcher has already verified the caller's signing keyset and
@@ -35,6 +45,11 @@ class DataCapabilityHandler(
     // Authorization depends on the request payload (domain + read/write), so no single gate scope.
     override fun requiredScope(method: String): String? = null
 
+    // One collector per open `changes` stream. Cancelled on control(STOP/CANCEL) — which the provider base
+    // also routes on consumer-process death — so a dropped client never leaves a Flow collecting forever.
+    private val streamScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val sessions = ConcurrentHashMap<String, Job>()
+
     override fun invoke(request: RequestEnvelope, caller: VerifiedCaller, grantedScopes: Set<String>): ResponseEnvelope =
         when (request.header.method) {
             DataApi.METHOD_QUERY -> handleQuery(request, caller, grantedScopes)
@@ -42,15 +57,49 @@ class DataCapabilityHandler(
             else -> ResponseEnvelope(ok = false, error = BridgeError(BridgeErrorType.UNSUPPORTED, request.header.method))
         }
 
-    // W0 has no streaming surface (live updates land in W2 via repository Flows → openStream events).
+    /**
+     * The `changes` stream: emits a [DataApi.EVENT_CHANGED] tick (`{"domain":…}`) whenever a domain the
+     * caller may read changes, so the consumer can live-refresh. Requires at least one read scope; each tick
+     * is additionally filtered to domains in the caller's granted set, so a tasks-only grant never learns
+     * that notes changed. The collector is cancelled on [control] (STOP/CANCEL) or consumer death.
+     */
+    @Suppress("TooGenericExceptionCaught", "ReturnCount")
     override fun openStream(
         request: RequestEnvelope,
         caller: VerifiedCaller,
         sink: StreamSink,
         grantedScopes: Set<String>,
     ): SessionHandle {
-        sink.onError(BridgeError(BridgeErrorType.UNSUPPORTED, "data streaming not available"))
-        return SessionHandle("")
+        if (request.header.method != DataApi.METHOD_CHANGES) {
+            sink.onError(BridgeError(BridgeErrorType.UNSUPPORTED, "no such stream: ${request.header.method}"))
+            return SessionHandle("")
+        }
+        val readable = DOMAINS.filter { readScope(it) in grantedScopes }.toSet()
+        if (readable.isEmpty()) {
+            sink.onError(BridgeError(BridgeErrorType.UNAUTHORIZED, "no readable domain granted"))
+            return SessionHandle("")
+        }
+        val sessionId = UUID.randomUUID().toString()
+        val job = streamScope.launch {
+            try {
+                source.changes().collect { domain ->
+                    if (domain in readable) {
+                        sink.onEvent(EventEnvelope(DataApi.EVENT_CHANGED, BridgeCodec.encodeString(DomainTick(domain))))
+                    }
+                }
+            } catch (t: Throwable) {
+                runCatching { sink.onError(BridgeError(BridgeErrorType.INTERNAL, t.message ?: "stream error")) }
+            } finally {
+                sessions.remove(sessionId)
+            }
+        }
+        sessions[sessionId] = job
+        audit(caller.packageName, "changes:${readable.joinToString("+")}", "OPEN")
+        return SessionHandle(sessionId)
+    }
+
+    override fun control(control: SessionControl, caller: VerifiedCaller) {
+        sessions.remove(control.sessionId)?.cancel()
     }
 
     // Guard-clause returns read clearest here; the broad catch is deliberate — an IPC/facade boundary must
@@ -123,4 +172,13 @@ class DataCapabilityHandler(
         "habits" -> BridgeScopes.DATA_HABITS_WRITE
         else -> null
     }
+
+    private companion object {
+        /** Domains the `changes` stream can tick for (W2). */
+        val DOMAINS = listOf(DataApi.DOMAIN_TASKS, DataApi.DOMAIN_NOTES)
+    }
 }
+
+/** The payload of a [DataApi.EVENT_CHANGED] tick. */
+@kotlinx.serialization.Serializable
+private data class DomainTick(val domain: String)

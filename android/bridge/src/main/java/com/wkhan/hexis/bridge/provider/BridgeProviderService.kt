@@ -16,6 +16,7 @@ import com.wkhan.hexis.bridge.IHexisBridgeCallback
 import com.wkhan.hexis.bridge.RequestEnvelope
 import com.wkhan.hexis.bridge.ResponseEnvelope
 import com.wkhan.hexis.bridge.SessionControl
+import com.wkhan.hexis.bridge.SessionOp
 import com.wkhan.hexis.bridge.StreamSink
 import com.wkhan.hexis.bridge.security.SignatureVerifier
 import com.wkhan.hexis.bridge.security.VerifiedCaller
@@ -57,6 +58,24 @@ abstract class BridgeProviderService : Service() {
             val caller = verifyCaller()
             val request = BridgeCodec.decode<RequestEnvelope>(requestEnvelope)
             val handle = dispatcher.dispatchStream(request, caller, CallbackSink(callback))
+            // If the consumer process dies, the oneway callback silently no-ops forever, so a handler
+            // collecting a Flow would leak. Tie the session's lifetime to the callback binder: on death,
+            // route a CANCEL so the handler tears the collector down. Best-effort (already-dead → ignore).
+            if (handle.sessionId.isNotEmpty()) {
+                runCatching {
+                    val binder = callback.asBinder()
+                    binder.linkToDeath(
+                        object : IBinder.DeathRecipient {
+                            override fun binderDied() {
+                                runCatching {
+                                    dispatcher.dispatchControl(SessionControl(handle.sessionId, SessionOp.CANCEL), caller)
+                                }
+                            }
+                        },
+                        0,
+                    )
+                }
+            }
             return BridgeCodec.encode(handle)
         }
 

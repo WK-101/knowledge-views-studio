@@ -40,6 +40,7 @@ class WebServer(
     private val port: Int,
     private val aeadKey: ByteArray,
     private val dataClient: DataBridgeClient,
+    private val changeHub: ChangeHub,
 ) {
     @Volatile private var engine: ApplicationEngine? = null
     private val seenNonces = ConcurrentHashMap<String, Long>()
@@ -83,9 +84,19 @@ class WebServer(
 
         if (!freshAndUnseen(req.ts, req.nonce)) { respond(HttpStatusCode.Forbidden, "replay"); return }
 
+        // "await" is a long-poll over the live-change hub — it holds the request until a change or timeout,
+        // reusing this same end-to-end-encrypted channel instead of a separate (weaker) SSE socket.
+        if (req.kind == KIND_AWAIT) {
+            val since = decodeVersions(req.paramsJson)
+            val now = changeHub.await(since, AWAIT_MS)
+            val api = ApiResponse(ok = true, dataJson = now?.let { BridgeCodec.encodeString(it) })
+            respondText(CryptoBox.sealText(aeadKey, BridgeCodec.encodeString(api)))
+            return
+        }
+
         val resp = when (req.kind) {
-            "query" -> dataClient.query(DataQuery(req.domain, req.op, req.cursor, req.limit, req.paramsJson))
-            "mutate" -> dataClient.mutate(DataMutation(req.domain, req.op, req.payloadJson))
+            KIND_QUERY -> dataClient.query(DataQuery(req.domain, req.op, req.cursor, req.limit, req.paramsJson))
+            KIND_MUTATE -> dataClient.mutate(DataMutation(req.domain, req.op, req.payloadJson))
             else -> null
         }
         val api = if (resp == null) {
@@ -96,6 +107,9 @@ class WebServer(
         // Encrypt the response with the same key so only the paired browser can read it.
         respondText(CryptoBox.sealText(aeadKey, BridgeCodec.encodeString(api)))
     }
+
+    private fun decodeVersions(json: String): Map<String, Long> =
+        runCatching { BridgeCodec.decodeString<Map<String, Long>>(json) }.getOrDefault(emptyMap())
 
     private fun freshAndUnseen(ts: Long, nonce: String): Boolean {
         val now = System.currentTimeMillis()
@@ -170,5 +184,9 @@ class WebServer(
         const val NONCE_PRUNE_AT = 256
         const val STOP_GRACE_MS = 300L
         const val STOP_TIMEOUT_MS = 1000L
+        const val AWAIT_MS = 25_000L
+        const val KIND_QUERY = "query"
+        const val KIND_MUTATE = "mutate"
+        const val KIND_AWAIT = "await"
     }
 }

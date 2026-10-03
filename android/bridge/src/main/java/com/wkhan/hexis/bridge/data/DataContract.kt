@@ -21,6 +21,12 @@ object DataApi {
     const val METHOD_QUERY = "query"
     const val METHOD_MUTATE = "mutate"
 
+    /** Open a long-lived stream that emits a tick ([EVENT_CHANGED]) whenever a readable domain changes. */
+    const val METHOD_CHANGES = "changes"
+
+    /** The stream event kind the core emits on a data change; payload is `{"domain":"tasks"|"notes"|…}`. */
+    const val EVENT_CHANGED = "changed"
+
     // Domains
     const val DOMAIN_TASKS = "tasks"
     const val DOMAIN_NOTES = "notes"

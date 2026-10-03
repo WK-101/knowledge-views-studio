@@ -140,7 +140,10 @@ class ControlActivity : Activity() {
             toast(getString(R.string.err_core_missing))
             return
         }
-        val scopes = listOf(BridgeScopes.DATA_TASKS_READ, BridgeScopes.DATA_NOTES_READ).joinToString(",")
+        val scopes = listOf(
+            BridgeScopes.DATA_TASKS_READ, BridgeScopes.DATA_TASKS_WRITE,
+            BridgeScopes.DATA_NOTES_READ, BridgeScopes.DATA_NOTES_WRITE,
+        ).joinToString(",")
         val intent = Intent(DataConsent.ACTION).apply {
             setPackage(provider.packageName)
             putExtra(DataConsent.EXTRA_CONSUMER_PACKAGE, packageName)
