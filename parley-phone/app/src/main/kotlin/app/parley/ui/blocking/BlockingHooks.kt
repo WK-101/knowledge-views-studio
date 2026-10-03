@@ -54,7 +54,6 @@ import app.parley.RecentGroup
 import app.parley.blocking.BlockingActions
 import app.parley.blocking.BlockingText
 import app.parley.container
-import app.parley.common.PhoneNumbers
 import app.parley.common.TraceCodec
 import app.parley.ui.common.Format
 import app.parley.ui.contact.Section
@@ -231,7 +230,7 @@ private const val MAX_LISTED = 12
 fun ScreeningHistorySection(vm: AppViewModel, number: String, contactName: String?) {
     val screened by vm.c.blocks.screenedCalls.collectAsStateWithLifecycle(emptyList())
     val context = LocalContext.current
-    val mine = remember(screened, number) { screened.filter { it.number != null && PhoneNumbers.same(it.number, number, vm.countryIso) }.take(10) }
+    val mine = remember(screened, number) { screened.filter { it.number != null && PhoneIdentity.same(it.number, number, vm.countryIso) }.take(10) }
     Column {
         Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             AssistChip(

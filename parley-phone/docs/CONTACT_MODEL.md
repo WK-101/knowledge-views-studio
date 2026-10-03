@@ -249,3 +249,23 @@ path's ringtone, voicemail and label tones, and "Recently deleted"; `BulkContact
   "Clear history & undo" (its own row, "Deleted private contacts", counted apart and hidden in discreet mode, so
   clearing contact changes never takes them), or with "Delete all Parley data". Temporary private contacts that expire
   keep no copy.
+
+## Phone numbers: one identity path
+
+Every "is this the same line?" and "what is this number stored under?" goes through `PhoneIdentity` (core/common). Its international form is `NumberText.toE164`: libphonenumber's reading of the number with the SIM's country as the hint, accepted only when the number is complete on its own, with the older hand-written heuristic as the fallback for numbers libphonenumber can't read. `PhoneNumbers`, which holds the matching machinery and that heuristic, is internal to core/common, and the detekt rule `PhoneNumbersOutsideIdentity` keeps everything else on `PhoneIdentity`.
+
+Unchanged: short codes ("3631", "116000"), emergency numbers (112, 911, 999, 110) and service codes (`*100#`, `*#06#`) have no international form and match by every digit; numbers without a known country only convert when they carry their own country code (+ or a dialling prefix); Mexico's legacy mobile forms fold into one line.
+
+Intentional differences from the old heuristic (`IdentityCorpusTest` checks every example number libphonenumber ships, about 4,100 forms, and fails on any other difference):
+
+| Case | Before | Now |
+|---|---|---|
+| Argentine mobile written nationally, "011 15 2345 6789" | +54 11 15 2345 6789 (never matched the call) | +54 9 11 2345 6789, as calls show it |
+| Brazilian carrier code, "0 21 11 91234 5678" | the carrier code kept as part of the number | +55 11 91234 5678 |
+| Countries where the old table kept or dropped a trunk 0 wrongly (Benin, Côte d'Ivoire, Congo, Gabon, Belarus, Slovakia, Monaco, Uruguay, and toll-free numbers in Botswana, Fiji, New Caledonia, Niger, Eswatini, Tonga) | a wrong international form | the right one |
+| Countries missing from the old table (Åland, Saint Martin, Sint Maarten, the Pacific islands and others) | no international form (matched by the last digits) | an international form |
+| Sender names with no digits ("VODAFONE", "BANK") | the letters dialled as digits and made up a number | no number at all; never a line |
+| A complete international number shorter than 8 characters ("+98 9601") | none | its international form |
+| A number "possible only locally" (a US number without its area code) | none | still none (libphonenumber's local-only answer isn't used) |
+
+Rows stored by earlier versions under the old international form stay readable: `PhoneIdentity.lookupKeys` and `KeySet` also try the old form when it differs, and private-contact caller ID (`VaultNumberKeys.lookup`) does too.

@@ -49,7 +49,7 @@ class DialSearch(private val region: String? = null) {
             reset()
             return textSearch(text, entries, calls, now, limit)
         }
-        val q = PhoneNumbers.clean(input).removePrefix("+")
+        val q = PhoneIdentity.clean(input).removePrefix("+")
         if (q.isEmpty() || q.any { it == '*' || it == '#' }) {
             reset()
             return emptyList()
@@ -142,7 +142,7 @@ class DialSearch(private val region: String? = null) {
         calls.orEmpty().asSequence()
             .filter { it.number.isNotBlank() && !it.presentationHidden }
             .distinctBy { PhoneIdentity.key(it.number, region) }
-            .filter { it.number !in seen && PhoneNumbers.digits(it.number).contains(q) }
+            .filter { it.number !in seen && PhoneIdentity.digits(it.number).contains(q) }
             .take(5)
             .forEach { out += DialHit(null, it.number, T9.Match(400, emptyList(), it.number)) }
     }

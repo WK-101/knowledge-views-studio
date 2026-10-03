@@ -1,7 +1,7 @@
 package app.parley.common.messaging
 
 import app.parley.common.NumberText
-import app.parley.common.PhoneNumbers
+import app.parley.common.PhoneIdentity
 
 /**
  * "Add several numbers…": the pure part. Numbers are found in pasted or shared text, each one is checked against
@@ -41,8 +41,8 @@ object BulkAdd {
     ): List<Candidate> {
         val seen = HashSet<String>()
         return found.take(MAX_NUMBERS).map { f ->
-            val number = f.e164 ?: PhoneNumbers.clean(f.raw)
-            val key = PhoneNumbers.lineKey(number, countryIso).ifEmpty { number }
+            val number = f.e164 ?: PhoneIdentity.clean(f.raw)
+            val key = PhoneIdentity.key(number, countryIso).ifEmpty { number }
             val valid = f.e164 != null && NumberText.isValid(f.e164)
             when {
                 !seen.add(key) -> Candidate(f.raw, number, f.e164, Status.DUPLICATE)

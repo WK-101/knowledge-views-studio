@@ -145,12 +145,15 @@ data class ReachGroup(
 }
 
 object ReachGroups {
+    /** The default "same line" for [group]: the same last digits (callers that know the country pass PhoneIdentity.same). */
+    private fun sameSuffix(a: String, b: String): Boolean = PhoneIdentity.legacyKey(a) == PhoneIdentity.legacyKey(b)
+
     /**
      * Groups [rows] by app and number, known apps in their usual order then others by name. [same] tells whether two
      * numbers are the same line (the caller reads them with the phone's country). A paid row (Viber Out) and
      * "other" rows never make it into a group: they're not a free way to talk.
      */
-    fun group(rows: List<ReachRow>, same: (String, String) -> Boolean = { a, b -> PhoneNumbers.matchKey(a) == PhoneNumbers.matchKey(b) }): List<ReachGroup> {
+    fun group(rows: List<ReachRow>, same: (String, String) -> Boolean = ::sameSuffix): List<ReachGroup> {
         val useful = rows.filter { it.kind == ReachKind.MESSAGE || it.kind == ReachKind.VOICE || it.kind == ReachKind.VIDEO }
         val out = ArrayList<ReachGroup>()
         for ((key, list) in useful.groupBy { it.appKey }) {
@@ -226,21 +229,21 @@ object CallRoutes {
 }
 
 /**
- * Which messenger rows belong to a person. Numbers are compared with [PhoneNumbers.sameExact] (never
+ * Which messenger rows belong to a person. Numbers are compared with [PhoneIdentity.sameExact] (never
  * the last-digits fallback), so on a phone without a SIM country another person's messenger rows can't match.
  */
 object MessengerRowMatch {
     /** A row from a messenger-only contact: kept only when it carries one of the person's [ownPhones]. */
     fun extraRow(rowNumber: String?, ownPhones: List<String>, region: String?): Boolean =
-        rowNumber != null && ownPhones.any { PhoneNumbers.sameExact(it, rowNumber, region) }
+        rowNumber != null && ownPhones.any { PhoneIdentity.sameExact(it, rowNumber, region) }
 
     /**
      * A row found for [number]: a row with a number must carry [number]; a row without one is kept only when the
      * contact it came from ([contactPhones]) has [number] itself.
      */
     fun forNumber(rowNumber: String?, contactPhones: List<String>, number: String, region: String?): Boolean =
-        if (rowNumber != null) PhoneNumbers.sameExact(rowNumber, number, region)
-        else contactPhones.any { PhoneNumbers.sameExact(it, number, region) }
+        if (rowNumber != null) PhoneIdentity.sameExact(rowNumber, number, region)
+        else contactPhones.any { PhoneIdentity.sameExact(it, number, region) }
 }
 
 /** One row under "Call on" in the "Message or call on…" sheet. */

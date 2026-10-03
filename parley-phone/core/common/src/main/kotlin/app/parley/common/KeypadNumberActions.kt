@@ -24,7 +24,7 @@ object KeypadNumberActions {
     /**
      * @param typed what's in the number field.
      * @param textSearch letters typed on a hardware keyboard: a name search, so there's no number to act on.
-     * @param serviceCode a USSD or `*#…#` code (see [PhoneNumbers.isServiceCode]): dialled, never saved or messaged.
+     * @param serviceCode a USSD or `*#…#` code (see [PhoneIdentity.isServiceCode]): dialled, never saved or messaged.
      * @param contactMatches whether any contact is among the results.
      * @param known whether the typed number is a saved contact's number (nothing to save then).
      */

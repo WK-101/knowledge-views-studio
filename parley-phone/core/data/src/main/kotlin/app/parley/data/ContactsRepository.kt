@@ -38,7 +38,6 @@ import android.provider.ContactsContract.PhoneLookup
 import android.provider.ContactsContract.RawContacts
 import app.parley.common.ContactSummary
 import app.parley.common.PhoneEntry
-import app.parley.common.PhoneNumbers
 import app.parley.common.people.Batches
 import app.parley.common.people.ContactText
 import app.parley.common.AltCalendar

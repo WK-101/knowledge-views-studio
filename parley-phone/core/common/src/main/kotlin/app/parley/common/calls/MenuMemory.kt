@@ -1,7 +1,6 @@
 package app.parley.common.calls
 
 import app.parley.common.PhoneIdentity
-import app.parley.common.PhoneNumbers
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlin.math.roundToLong
@@ -88,7 +87,7 @@ object MenuMemory {
     fun remembers(number: String?, emergency: Boolean): Boolean {
         if (emergency || number.isNullOrBlank()) return false
         val n = dialled(number)
-        if (n.isEmpty() || PhoneNumbers.isServiceCode(n)) return false
+        if (n.isEmpty() || PhoneIdentity.isServiceCode(n)) return false
         // Codes typed with * or # (call forwarding, USSD) are settings, not a menu.
         if (n.first() == '*' || n.first() == '#') return false
         if (EmergencyPolicy.isFallbackEmergencyNumber(n)) return false

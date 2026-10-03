@@ -1,7 +1,7 @@
 package app.parley.common.people
 
 import app.parley.common.PhoneEntry
-import app.parley.common.PhoneNumbers
+import app.parley.common.PhoneIdentity
 
 /** One SIM phonebook (ADN) entry: a name and exactly one number. */
 data class SimEntry(val name: String, val number: String)
@@ -52,7 +52,7 @@ object SimFit {
         val warnings = ArrayList<SimWarning>()
         val phone = phones.firstOrNull { it.isPrimary } ?: phones.firstOrNull { it.type == 2 } ?: phones.firstOrNull()
         if (phone == null) return SimFitResult(null, listOf(SimWarning(SimIssue.NO_NUMBER)))
-        val number = PhoneNumbers.clean(phone.number).filter { it.isDigit() || it == '+' || it == '*' || it == '#' }
+        val number = PhoneIdentity.clean(phone.number).filter { it.isDigit() || it == '+' || it == '*' || it == '#' }
         if (number.isEmpty()) return SimFitResult(null, listOf(SimWarning(SimIssue.NUMBER_INVALID)))
         if (number.length > numberMax) return SimFitResult(null, listOf(SimWarning(SimIssue.NUMBER_TOO_LONG, numberMax)))
         if (phones.size > 1) warnings += SimWarning(SimIssue.OTHER_NUMBERS_LEFT_OUT, phones.size - 1)

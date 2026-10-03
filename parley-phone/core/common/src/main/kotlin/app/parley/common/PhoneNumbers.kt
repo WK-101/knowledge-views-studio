@@ -1,10 +1,13 @@
 package app.parley.common
 
 /**
- * Offline phone-number helpers. Deliberately dependency-free: good enough to match and block
- * numbers written as "+33 6 12 34 56 78", "0033612345678" and "06 12 34 56 78" as the same number.
+ * The machinery behind [PhoneIdentity]: digit cleaning, matching keys and the line sets. Internal to this module, and
+ * a detekt rule keeps the rest of the code on [PhoneIdentity], so every feature agrees on which numbers are one line.
+ *
+ * The international form always comes from [NumberText.toE164] (libphonenumber); the hand-written [heuristicE164]
+ * is only its fallback for numbers libphonenumber can't read (no country, unknown regions).
  */
-object PhoneNumbers {
+internal object PhoneNumbers {
 
     /** Keeps digits and a single leading '+'. Letters are converted with the T9 keypad. */
     fun clean(raw: String?): String {
@@ -32,10 +35,16 @@ object PhoneNumbers {
     }
 
     /**
-     * Best-effort E.164 conversion. Returns null when the number is too short or ambiguous
-     * (short codes, service codes).
+     * The international form, with libphonenumber first ([NumberText.toE164]). Returns null when the number is too
+     * short or ambiguous (short codes, service codes, emergency numbers, names of senders).
      */
-    fun toE164(raw: String?, countryIso: String?): String? = toE164Raw(raw, countryIso)?.let { canonicalE164(it) }
+    fun toE164(raw: String?, countryIso: String?): String? = NumberText.toE164(raw, countryIso)
+
+    /**
+     * The offline heuristic that predates libphonenumber here: its own table of calling codes, trunk prefixes and
+     * dialling prefixes. Only [NumberText.toE164]'s fallback, and the reference the identity tests compare against.
+     */
+    fun heuristicE164(raw: String?, countryIso: String?): String? = toE164Raw(raw, countryIso)?.let { canonicalE164(it) }
 
     /**
      * Folds legacy forms of the same line into one E.164 form. Mexico dropped the mobile "1" after +52 in

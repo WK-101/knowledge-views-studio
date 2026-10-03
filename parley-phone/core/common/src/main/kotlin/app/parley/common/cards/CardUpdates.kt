@@ -1,6 +1,6 @@
 package app.parley.common.cards
 
-import app.parley.common.PhoneNumbers
+import app.parley.common.PhoneIdentity
 import app.parley.common.people.MeCards
 import kotlinx.serialization.Serializable
 
@@ -162,7 +162,7 @@ object CardDiff {
         val out = ArrayList<CardChange>()
         if (MeCards.Part.NAME in afterParts) scalar(out, CardField.NAME, known(MeCards.Part.NAME)?.name, a.name, contact.name, removable = false)
         if (MeCards.Part.PHONES in afterParts) {
-            out += list(CardField.PHONE, known(MeCards.Part.PHONES)?.phones, a.phones, contact.phones) { x, y -> PhoneNumbers.same(x, y, region) }
+            out += list(CardField.PHONE, known(MeCards.Part.PHONES)?.phones, a.phones, contact.phones) { x, y -> PhoneIdentity.same(x, y, region) }
         }
         if (MeCards.Part.EMAILS in afterParts) {
             out += list(CardField.EMAIL, known(MeCards.Part.EMAILS)?.emails, a.emails, contact.emails) { x, y -> x.equals(y, ignoreCase = true) }

@@ -13,7 +13,7 @@ object VaultNumberKeys {
 
     /** HMAC inputs stored for one vault number ([countryIso]: the region the number was entered in). */
     fun stored(number: String?, countryIso: String?): List<String> {
-        PhoneNumbers.toE164(number, countryIso)?.let { return listOf(E164_PREFIX + it) }
+        PhoneIdentity.e164(number, countryIso)?.let { return listOf(E164_PREFIX + it) }
         return listOfNotNull(PhoneIdentity.legacyKey(number).takeIf { it.isNotEmpty() })
     }
 
@@ -33,12 +33,14 @@ object VaultNumberKeys {
      * known. [exact] leaves out the last-digits fallback entirely.
      */
     fun lookup(number: String?, countryIso: String?, exact: Boolean = false): List<String> {
-        val e164 = PhoneNumbers.toE164(number, countryIso)
+        val e164 = PhoneIdentity.e164(number, countryIso)
+        // Entries sealed before libphonenumber read every number may sit under the older E.164 form.
+        val previous = PhoneIdentity.previousE164(number, countryIso)?.let { E164_PREFIX + it }
         val suffix = PhoneIdentity.legacyKey(number).takeIf { it.isNotEmpty() }
         return when {
-            e164 != null && exact -> listOf(E164_PREFIX + e164)
+            e164 != null && exact -> listOfNotNull(E164_PREFIX + e164, previous)
             // The E.164 row first; the suffix rows are the fallback (see storedWithFallback).
-            e164 != null -> listOfNotNull(E164_PREFIX + e164, suffix)
+            e164 != null -> listOfNotNull(E164_PREFIX + e164, previous, suffix)
             exact -> emptyList()
             else -> listOfNotNull(suffix)
         }

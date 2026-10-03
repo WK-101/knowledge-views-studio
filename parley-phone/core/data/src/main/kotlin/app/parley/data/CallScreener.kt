@@ -17,7 +17,6 @@ import app.parley.common.Decision
 import app.parley.common.IncomingCallFacts
 import app.parley.common.OffHoursAllow
 import app.parley.common.PastCall
-import app.parley.common.PhoneNumbers
 import app.parley.common.PolicyClock
 import app.parley.common.RuleType
 import app.parley.common.ScreeningResult
@@ -252,7 +251,7 @@ class CallScreener(
         if (number == null || req.hidden) {
             return Gathered(IncomingCallFacts(number = null, hidden = true, isContact = false, verification = req.verification, countryIso = iso, simId = req.simId), null)
         }
-        val parts = PhoneNumbers.forwardedParts(number)
+        val parts = PhoneIdentity.forwardedParts(number)
         val primary = parts.first()
         // If contacts can't be checked (no permission, provider failing) fail open: never block a real contact.
         var lookupFailed = false
@@ -343,7 +342,7 @@ class CallScreener(
     private fun history(number: String, at: Long, replay: List<CallEntry>?, iso: String): List<PastCall> {
         if (replay != null) {
             return replay.asSequence()
-                .filter { it.date < at && !it.presentationHidden && PhoneNumbers.same(it.number, number, iso) }
+                .filter { it.date < at && !it.presentationHidden && PhoneIdentity.same(it.number, number, iso) }
                 .map { PastCall(it.date, it.type == CallType.OUTGOING, it.durationSec) }
                 .take(50).toList()
         }

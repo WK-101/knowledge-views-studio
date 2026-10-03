@@ -67,7 +67,7 @@ object MessengerLinks {
      * (short codes). [smsPackage] is the default SMS app.
      */
     fun sms(number: String, e164: String?, text: String?, smsPackage: String?): MessengerLink {
-        val to = e164 ?: PhoneNumbers.clean(number)
+        val to = e164 ?: PhoneIdentity.clean(number)
         val body = text?.trim()?.takeIf { it.isNotEmpty() }
         return MessengerLink(
             MessengerLink.ACTION_SENDTO,

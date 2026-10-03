@@ -3,7 +3,7 @@ package app.parley.common
 /**
  * The "last messaged" record (which numbers you opened a chat with through Parley, and when), as pure logic.
  * Entries are keyed by [PhoneIdentity.key]; records written before F7 were keyed by the last 9 digits and are
- * read through [PhoneNumbers.fallbackLineKey] until [rekeyLegacy] moves them.
+ * read through [PhoneIdentity.fallbackKey] until [rekeyLegacy] moves them.
  */
 data class MessagedEntry(
     val key: String,
@@ -19,26 +19,26 @@ object MessagedRecord {
 
     /** Adds or refreshes [number], newest last, capped at [MAX_ENTRIES]. */
     fun record(entries: List<MessagedEntry>, number: String, appPackage: String?, label: String, at: Long, countryIso: String?): List<MessagedEntry> {
-        val key = PhoneNumbers.lineKey(number, countryIso)
+        val key = PhoneIdentity.key(number, countryIso)
         if (key.isEmpty()) return entries
-        val legacy = PhoneNumbers.fallbackLineKey(number)
+        val legacy = PhoneIdentity.fallbackKey(number)
         val out = entries.filter { it.key != key && !(it.number == null && it.key == legacy) }.toMutableList()
         out += MessagedEntry(key, number, appPackage, label, at)
         return out.sortedBy { it.at }.takeLast(MAX_ENTRIES)
     }
 
     fun find(entries: List<MessagedEntry>, number: String, countryIso: String?): MessagedEntry? {
-        val key = PhoneNumbers.lineKey(number, countryIso)
+        val key = PhoneIdentity.key(number, countryIso)
         if (key.isEmpty()) return null
         entries.lastOrNull { it.key == key }?.let { return it }
-        val legacy = PhoneNumbers.fallbackLineKey(number)
+        val legacy = PhoneIdentity.fallbackKey(number)
         return entries.lastOrNull { it.number == null && it.key == legacy }
     }
 
     /** Removes [number] (and an old last-digits entry for it). */
     fun forget(entries: List<MessagedEntry>, number: String, countryIso: String?): List<MessagedEntry> {
-        val key = PhoneNumbers.lineKey(number, countryIso)
-        val legacy = PhoneNumbers.fallbackLineKey(number)
+        val key = PhoneIdentity.key(number, countryIso)
+        val legacy = PhoneIdentity.fallbackKey(number)
         return entries.filterNot { it.key == key || (it.number == null && it.key == legacy) }
     }
 
@@ -84,7 +84,7 @@ object MessagedRecord {
 
     /** Converts an entry of the old plain record (key = last 9 digits) to the current keying. */
     fun fromLegacy(oldKey: String, appPackage: String?, label: String, at: Long): MessagedEntry? {
-        val key = PhoneNumbers.fallbackLineKey(oldKey).ifEmpty { return null }
+        val key = PhoneIdentity.fallbackKey(oldKey).ifEmpty { return null }
         return MessagedEntry(key, null, appPackage, label, at)
     }
 }

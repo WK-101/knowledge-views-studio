@@ -5,7 +5,7 @@ import app.parley.common.CallEntry
 import app.parley.common.CallPolicy
 import app.parley.common.CallType
 import app.parley.common.LineType
-import app.parley.common.PhoneNumbers
+import app.parley.common.PhoneIdentity
 import app.parley.common.RuleKind
 import app.parley.common.blocking.WangiriGuard
 import app.parley.common.calls.EmergencyPolicy
@@ -42,7 +42,7 @@ class DialGuard(
     }
 
     private suspend fun checkInternal(number: String): List<DialWarning> {
-        if (number.isBlank() || PhoneNumbers.isServiceCode(number)) return emptyList()
+        if (number.isBlank() || PhoneIdentity.isServiceCode(number)) return emptyList()
         if (EmergencyPolicy.bypasses(Safeguard.DIAL_GUARD, EmergencyNumbers.facts(context, number))) return emptyList()
         val iso = PhoneEnv.countryIso(context)
         val out = ArrayList<DialWarning>()
@@ -73,7 +73,7 @@ class DialGuard(
 
     private suspend fun wangiri(number: String, iso: String, type: LineType, region: String?): DialWarning? {
         val history = calls() ?: recentCallsWith(number)
-        val lastIncoming = history.firstOrNull { it.type != CallType.OUTGOING && PhoneNumbers.same(it.number, number, iso) } ?: return null
+        val lastIncoming = history.firstOrNull { it.type != CallType.OUTGOING && PhoneIdentity.same(it.number, number, iso) } ?: return null
         if (System.currentTimeMillis() - lastIncoming.date > 14 * 86_400_000L) return null
         val ring = blocks.ringsFor(number).firstOrNull { abs(it.startedAt - lastIncoming.date) < 120_000 }
         if (!WangiriGuard.isSuspect(lastIncoming.type, ring?.ringMs, type, region, iso)) return null

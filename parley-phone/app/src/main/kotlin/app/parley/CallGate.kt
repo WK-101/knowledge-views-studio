@@ -2,7 +2,7 @@ package app.parley
 
 import app.parley.calls.AbroadCalls
 import app.parley.calltime.CallTimePlanner
-import app.parley.common.PhoneNumbers
+import app.parley.common.PhoneIdentity
 import app.parley.common.SimAccount
 import app.parley.common.calls.EmergencyPolicy
 import app.parley.data.DataContainer
@@ -33,7 +33,7 @@ class CallGate(private val c: DataContainer) {
         // A label's SIM counts like a remembered one (the number's own choice wins).
         val remembered = simId ?: c.placer.resolveSim(number)
         val default = withContext(Dispatchers.IO) { c.sims.defaultOutgoing() }
-        val chooseSim = simId == null && simCount >= 2 && remembered == null && default == null && !PhoneNumbers.isServiceCode(number)
+        val chooseSim = simId == null && simCount >= 2 && remembered == null && default == null && !PhoneIdentity.isServiceCode(number)
         val confirm = settings.confirmBeforeCall && !skipConfirm
         // Contacts never get the guard's warnings (they are checked inside).
         val warnings = c.dialGuard.check(number)

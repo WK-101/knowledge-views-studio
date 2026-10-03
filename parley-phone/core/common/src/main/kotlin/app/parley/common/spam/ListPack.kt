@@ -3,7 +3,7 @@ package app.parley.common.spam
 import java.util.Base64
 import java.util.Locale
 import app.parley.common.CountryCodes
-import app.parley.common.PhoneNumbers
+import app.parley.common.PhoneIdentity
 import java.util.TreeMap
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -210,7 +210,7 @@ class PackBuilder(private val base: PackManifest) {
 
     /** Adds a number (any format; national numbers use [countryIso]). Returns false when it isn't a usable number. */
     fun addNumber(number: String, category: Int, score: Int, countryIso: String? = null): Boolean {
-        val e = PhoneNumbers.toE164(number, countryIso) ?: return false
+        val e = PhoneIdentity.e164(number, countryIso) ?: return false
         val k = ListPack.key(e) ?: return false
         val old = numbers[k]
         // Keep the strongest evidence when a number appears twice.
@@ -314,15 +314,15 @@ class PackIndex(private val numbers: ByteBuffer, ranges: List<PackRange>) {
     companion object {
         fun forms(number: String, countryIso: String?): List<String> {
             val out = LinkedHashSet<String>()
-            for (part in PhoneNumbers.forwardedParts(number)) {
-                val e = PhoneNumbers.toE164(part, countryIso)
+            for (part in PhoneIdentity.forwardedParts(number)) {
+                val e = PhoneIdentity.e164(part, countryIso)
                 if (e != null) out += e
-                val clean = PhoneNumbers.clean(part)
+                val clean = PhoneIdentity.clean(part)
                 if (clean.startsWith("+")) {
-                    out += PhoneNumbers.canonicalE164(clean)
+                    out += PhoneIdentity.canonicalE164(clean)
                 } else if (e == null && clean.length in 8..15 && !clean.startsWith("0")) {
                     // Couldn't interpret it for the SIM country: try it as international digits without '+'.
-                    out += PhoneNumbers.canonicalE164("+$clean")
+                    out += PhoneIdentity.canonicalE164("+$clean")
                 }
             }
             return out.toList()

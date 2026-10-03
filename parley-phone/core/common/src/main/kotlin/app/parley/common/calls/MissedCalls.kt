@@ -2,7 +2,7 @@ package app.parley.common.calls
 
 import java.util.Locale
 
-/** One unseen missed call from the call log. [key] identifies the caller's line (see PhoneNumbers.lineKey). */
+/** One unseen missed call from the call log. [key] identifies the caller's line (see PhoneIdentity.key). */
 data class MissedCall(val number: String, val date: Long, val accountId: String?, val hidden: Boolean, val key: String)
 
 /** Unseen missed calls from one caller: one notification each, with a count. */

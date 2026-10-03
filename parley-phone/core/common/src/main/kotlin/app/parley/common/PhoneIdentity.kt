@@ -10,7 +10,7 @@ package app.parley.common
  *   read with [region], ideally the country of the SIM that handled the call), otherwise the digits with a `~`
  *   prefix, so numbers from different countries that share their last digits never collide.
  * - [same] / [LineSet] / [LineMap]: "same line" for matching a call to a contact. E.164 when both sides have one,
- *   otherwise the last [PhoneNumbers.MIN_MATCH] digits (all digits for short numbers).
+ *   otherwise the last [MIN_MATCH] digits (all digits for short numbers).
  * - [sameExact] / [exactKey]: for deletions and history grouping, which must never touch anyone else: E.164 when
  *   derivable, otherwise every digit.
  * - [portableKey]: a region-free fingerprint (the last digits) for data that travels between phones (backup files)
@@ -23,8 +23,37 @@ object PhoneIdentity {
     /** The stored key of a line (E.164, or `~` plus the digits). Empty for a blank or digit-less number. */
     fun key(raw: String?, region: String?): String = PhoneNumbers.lineKey(raw, region)
 
-    /** E.164 form ("+33612345678"), or null for short codes, service codes and numbers too ambiguous to convert. */
-    fun e164(raw: String?, region: String?): String? = PhoneNumbers.toE164(raw, region)
+    /**
+     * E.164 form ("+33612345678"), or null for short codes, service codes, emergency numbers, sender names and numbers
+     * too ambiguous to convert. libphonenumber reads it ([NumberText.toE164]); an offline heuristic covers the rest.
+     */
+    fun e164(raw: String?, region: String?): String? = NumberText.toE164(raw, region)
+
+    /**
+     * What [e164] answered before libphonenumber read every number, when that differs (an Argentine "15" mobile, a
+     * country missing from the old table). Keys stored by older versions may hold it, so lookups try it too.
+     */
+    internal fun previousE164(raw: String?, region: String?): String? =
+        PhoneNumbers.heuristicE164(raw, region)?.takeIf { it != e164(raw, region) }
+
+    /** Only the digits of a number (other scripts' digits become 0–9). For display rules and digit search. */
+    fun digits(raw: String?): String = PhoneNumbers.digits(raw)
+
+    /** The dialable form: digits, a leading '+', '*' and '#', with letters read from the keypad ("1-800-FLOWERS"). */
+    fun clean(raw: String?): String = PhoneNumbers.clean(raw)
+
+    /** True for USSD/MMI style codes such as *#06# or *100#: dialled, never matched, saved or messaged. */
+    fun isServiceCode(raw: String): Boolean = PhoneNumbers.isServiceCode(raw)
+
+    /** The parts of a forwarded caller ID ("A&B": the caller and the forwarding line); a plain number gives itself. */
+    fun forwardedParts(raw: String): List<String> = PhoneNumbers.forwardedParts(raw)
+
+    /** One E.164 form for legacy spellings of the same line (Mexico's old mobile "1" after +52). */
+    fun canonicalE164(e164: String): String = PhoneNumbers.canonicalE164(e164)
+
+    /** A caller whose number differs from one of [ownNumbers] only in the last [differingDigits] digits. */
+    fun looksLikeNeighbourSpoof(caller: String?, ownNumbers: List<String>, region: String?, differingDigits: Int = 4): Boolean =
+        PhoneNumbers.looksLikeNeighbourSpoof(caller, ownNumbers, region, differingDigits)
 
     /** Whether two numbers are the same line (see the class comment). */
     fun same(a: String?, b: String?, region: String?): Boolean = PhoneNumbers.same(a, b, region)
@@ -54,8 +83,18 @@ object PhoneIdentity {
     /** True for a stored key written by an older version ([legacyKey]: digits only), not by [key]. */
     fun isLegacyKey(stored: String): Boolean = stored.isNotEmpty() && stored.all { it in '0'..'9' }
 
-    /** Every key a row about [raw] may be stored under: [key] first, then [legacyKey]. */
-    fun lookupKeys(raw: String?, region: String?): List<String> = listOf(key(raw, region), legacyKey(raw)).filter { it.isNotEmpty() }.distinct()
+    /**
+     * The digits-only form of [key] ("~" plus the last digits), whether or not an E.164 form exists: for reading
+     * records keyed that way before E.164 keys.
+     */
+    fun fallbackKey(raw: String?): String = PhoneNumbers.fallbackLineKey(raw)
+
+    /**
+     * Every key a row about [raw] may be stored under: [key] first, then the key an older version derived when it
+     * differs ([previousE164]), then [legacyKey].
+     */
+    fun lookupKeys(raw: String?, region: String?): List<String> =
+        listOfNotNull(key(raw, region), previousE164(raw, region), legacyKey(raw)).filter { it.isNotEmpty() }.distinct()
 
     /** Whether a stored key (current or legacy) belongs to [raw]'s line, with [same]'s rules. */
     fun matchesStored(stored: String, raw: String?, region: String?): Boolean = raw in KeySet(listOf(stored), region)
@@ -112,7 +151,8 @@ object PhoneIdentity {
             val loose = looseOf(raw) ?: return false
             if (loose in fallback || legacyKey(raw) in legacy) return true
             val e = e164(raw, region)
-            return if (e != null) e in e164 else loose in looseOfE164
+            if (e == null) return loose in looseOfE164
+            return e in e164 || previousE164(raw, region)?.let { it in e164 } == true
         }
     }
 
@@ -151,4 +191,7 @@ object PhoneIdentity {
     }
 
     const val PORTABLE_MIN_DIGITS = 7
+
+    /** How many trailing digits [same] compares when a side has no E.164 form. */
+    const val MIN_MATCH = PhoneNumbers.MIN_MATCH
 }

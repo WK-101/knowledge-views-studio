@@ -30,11 +30,29 @@ object NumberText {
      */
     fun toE164(raw: String?, region: String?): String? {
         if (raw.isNullOrBlank()) return null
+        val cacheKey = region.orEmpty() + '|' + raw
+        e164Cache[cacheKey]?.let { return it.takeIf { it != NONE } }
+        val e164 = computeE164(raw, region)
+        // Matching and keys ask about the same few numbers over and over (a call list, a contact's phones); parsing
+        // is far slower than a lookup. Bounded crudely: a full cache simply starts again.
+        if (e164Cache.size >= CACHE_SIZE) e164Cache.clear()
+        e164Cache[cacheKey] = e164 ?: NONE
+        return e164
+    }
+
+    private fun computeE164(raw: String, region: String?): String? {
+        // A sender name ("BANK", "VODAFONE") is not a number, even though its letters would dial as one. Vanity
+        // numbers ("1-800-FLOWERS") have digits as well and still convert.
+        if (raw.none { T9.asciiDigit(it) != null }) return null
         val cleaned = PhoneNumbers.clean(raw)
         if (cleaned.isEmpty() || cleaned.contains('*') || cleaned.contains('#')) return null
         val parsed = parse(cleaned, region)
-        if (parsed != null && util.isPossibleNumber(parsed)) return util.format(parsed, PhoneNumberUtil.PhoneNumberFormat.E164)
-        return PhoneNumbers.toE164(cleaned, region)
+        // Only a number that is complete on its own: "possible only locally" (a US number without its area code)
+        // would make up an international form that no caller ID ever shows.
+        if (parsed != null && util.isPossibleNumberWithReason(parsed) == PhoneNumberUtil.ValidationResult.IS_POSSIBLE) {
+            return PhoneNumbers.canonicalE164(util.format(parsed, PhoneNumberUtil.PhoneNumberFormat.E164))
+        }
+        return PhoneNumbers.heuristicE164(cleaned, region)
     }
 
     /** International digits without "+" ("923001234567"), as messenger links want them. */
@@ -108,4 +126,7 @@ object NumberText {
     }
 
     private const val UNKNOWN = "ZZ"
+    private const val NONE = ""
+    private const val CACHE_SIZE = 4096
+    private val e164Cache = java.util.concurrent.ConcurrentHashMap<String, String>()
 }

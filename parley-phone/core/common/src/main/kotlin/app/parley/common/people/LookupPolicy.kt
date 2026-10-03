@@ -1,6 +1,6 @@
 package app.parley.common.people
 
-import app.parley.common.PhoneNumbers
+import app.parley.common.PhoneIdentity
 
 /** A per-app decision for the private-name lookup provider. */
 enum class LookupApproval { ALLOWED, DENIED, PENDING }
@@ -42,9 +42,9 @@ object LookupPolicy {
         val s = raw?.trim().orEmpty()
         if (s.isEmpty() || s.any { it == '%' || it == '*' || it == '_' || it == '?' || it == ',' || it == ';' }) return null
         if (s.any { it.isLetter() }) return null
-        val digits = PhoneNumbers.digits(s)
+        val digits = PhoneIdentity.digits(s)
         if (digits.length !in MIN_DIGITS..MAX_DIGITS) return null
-        return PhoneNumbers.clean(s)
+        return PhoneIdentity.clean(s)
     }
 
     fun decide(

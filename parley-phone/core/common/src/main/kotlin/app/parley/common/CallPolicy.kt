@@ -613,7 +613,7 @@ object CallPolicy {
                 step("Caller verification", "failed", TraceMark.MATCH)
                 return softBlock(s.defaultAction, BlockReason.VERIFICATION_FAILED, warn = warn)
             }
-            if (s.blockNeighbourSpoofing && active(s.neighbourSchedule) && PhoneNumbers.looksLikeNeighbourSpoof(number, f.ownNumbers, f.countryIso)) {
+            if (s.blockNeighbourSpoofing && active(s.neighbourSchedule) && PhoneIdentity.looksLikeNeighbourSpoof(number, f.ownNumbers, f.countryIso)) {
                 step("Neighbour spoofing", "looks like your own number", TraceMark.MATCH)
                 return softBlock(s.defaultAction, BlockReason.NEIGHBOUR_SPOOF, warn = warn)
             }
@@ -734,7 +734,7 @@ object CallPolicy {
     }
 
     fun ruleMatches(rule: BlockRule, number: String, countryIso: String?): Boolean {
-        val parts = PhoneNumbers.forwardedParts(number)
+        val parts = PhoneIdentity.forwardedParts(number)
         return parts.any { part -> matchesOne(rule, part, countryIso) }
     }
 
@@ -743,7 +743,7 @@ object CallPolicy {
         if (rule.pattern.any { it == '_' || it == '%' }) return false
         val candidates = candidatesFor(number, countryIso)
         return when (rule.type) {
-            RuleType.EXACT -> PhoneNumbers.same(rule.pattern, number, countryIso)
+            RuleType.EXACT -> PhoneIdentity.same(rule.pattern, number, countryIso)
             RuleType.PREFIX -> {
                 val p = RuleTools.canonicalPrefix(rule.pattern, countryIso)
                 p.isNotEmpty() && candidates.any { it.startsWith(p) }
@@ -758,8 +758,8 @@ object CallPolicy {
 
     /** Forms of a number a pattern may be written against: E.164, raw digits, and national form. */
     fun candidatesFor(number: String, countryIso: String?): Set<String> {
-        val out = linkedSetOf(PhoneNumbers.clean(number))
-        PhoneNumbers.toE164(number, countryIso)?.let { e ->
+        val out = linkedSetOf(PhoneIdentity.clean(number))
+        PhoneIdentity.e164(number, countryIso)?.let { e ->
             out += e
             val cc = countryIso?.let { CountryCodes.callingCode(it) }
             if (cc != null && e.startsWith("+$cc")) {

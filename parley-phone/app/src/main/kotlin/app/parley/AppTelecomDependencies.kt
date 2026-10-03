@@ -15,7 +15,6 @@ import app.parley.blocking.DialText as PlaceFailureText
 import app.parley.common.people.CallerCard
 import app.parley.common.people.NameOrder
 import app.parley.common.CallType
-import app.parley.common.PhoneNumbers
 import app.parley.data.db.CallNoteEntity
 import app.parley.data.db.CallUsageEntity
 import app.parley.common.Verification
@@ -603,7 +602,7 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
         val extras = c.settings.settings.value.screening.emergencyExtras
         if (extras.isEmpty()) return false
         val iso = PhoneEnv.countryIso(app)
-        return extras.any { PhoneNumbers.same(it, number, iso) }
+        return extras.any { PhoneIdentity.same(it, number, iso) }
     }
 
     override fun isEmergencyNumber(number: String): Boolean = EmergencyNumbers.isEmergency(app, number)

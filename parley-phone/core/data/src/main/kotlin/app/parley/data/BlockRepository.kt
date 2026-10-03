@@ -13,7 +13,6 @@ import android.provider.BlockedNumberContract.BlockedNumbers
 import app.parley.common.BlockAction
 import app.parley.common.BlockRule
 import app.parley.common.NotifyLevel
-import app.parley.common.PhoneNumbers
 import app.parley.common.RuleKind
 import app.parley.common.RuleType
 import app.parley.common.Schedule
@@ -154,7 +153,7 @@ class BlockRepository(private val context: Context, db: AppDatabase, scope: Coro
 
     /** Times Parley blocked this number recently (repeat-caller check), in every stored form. */
     suspend fun recentBlockedTimes(number: String, since: Long): List<Long> {
-        val forms = PhoneNumbers.forwardedParts(number).flatMap { listOf(it, PhoneNumbers.clean(it)) }.distinct()
+        val forms = PhoneIdentity.forwardedParts(number).flatMap { listOf(it, PhoneIdentity.clean(it)) }.distinct()
         return dao.blockedTimes(forms, since)
     }
 
