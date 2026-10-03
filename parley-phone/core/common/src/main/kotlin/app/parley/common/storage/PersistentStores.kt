@@ -165,6 +165,7 @@ object PersistentStores {
         PersistentStore("parley_roaming", StoreKind.PREFS, local("Assisted dialling switches and the trip the local-SIM hint was shown for")),
         PersistentStore("lists_updater", StoreKind.PREFS, local("Link with the companion app installed on this phone")),
         PersistentStore("dial_widgets", StoreKind.PREFS, local("Home-screen widgets of this launcher")),
+        PersistentStore("favorites_widgets", StoreKind.PREFS, local("Home-screen widgets of this launcher")),
         PersistentStore("parley_migrations", StoreKind.PREFS, local("Which one-time data migrations ran here")),
         PersistentStore("vault", StoreKind.PREFS, local("Private-contact fingerprint migration state")),
         PersistentStore("backup", StoreKind.PREFS, StorePolicy.Secret("The backup keys and the backup folder of this phone")),

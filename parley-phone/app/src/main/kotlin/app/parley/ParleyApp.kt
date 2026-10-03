@@ -15,6 +15,7 @@ import app.parley.security.AppLock
 import app.parley.data.security.LockTransitions
 import app.parley.security.VaultSession
 import app.parley.shortcuts.CircleWidget
+import app.parley.shortcuts.FavoritesWidget
 import app.parley.telecom.TelecomGraph
 import app.parley.ui.AppLocale
 import app.parley.ui.contact.CallerTunes
@@ -49,6 +50,7 @@ class ParleyApp : Application() {
         BlockingSetup.install(this, container)
         // Keeps the Circle widget current while Parley runs (from the full start on, and only while one is placed).
         CircleWidget.observe(this, container)
+        FavoritesWidget.observe(this, container)
         // Right after the user authenticates, the vault moves to an authentication-bound key if it isn't on one yet.
         VaultSession.onAuthenticated = {
             container.scope.launch(Dispatchers.IO) {

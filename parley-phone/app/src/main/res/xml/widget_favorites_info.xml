@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Resizable Favourites widget, refreshed by the app on changes (no updatePeriodMillis). Its settings (what a tap
+     does) can be skipped when it's placed and opened again from the launcher. -->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:configure="app.parley.shortcuts.FavoritesWidgetConfigActivity"
+    android:description="@string/fav_widget_description"
+    android:initialLayout="@layout/widget_favorites"
+    android:minWidth="180dp"
+    android:minHeight="110dp"
+    android:minResizeWidth="80dp"
+    android:minResizeHeight="80dp"
+    android:previewLayout="@layout/widget_favorites_preview"
+    android:resizeMode="horizontal|vertical"
+    android:targetCellWidth="4"
+    android:targetCellHeight="2"
+    android:updatePeriodMillis="0"
+    android:widgetCategory="home_screen"
+    android:widgetFeatures="reconfigurable|configuration_optional" />

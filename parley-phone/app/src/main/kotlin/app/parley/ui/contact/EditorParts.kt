@@ -16,7 +16,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.foundation.Image
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.material.icons.rounded.AddAPhoto
+import androidx.compose.material.icons.rounded.Crop
+import androidx.compose.material.icons.rounded.PhotoCamera
+import androidx.compose.material.icons.rounded.PhotoLibrary
 import androidx.compose.material.icons.rounded.ArrowDropDown
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Edit
@@ -250,17 +256,22 @@ internal fun TypedLine(pill: (@Composable () -> Unit)?, field: @Composable (trai
 /**
  * The contact's photo at the top of the form, compact and calm: without a photo a neutral tonal circle with a camera
  * (not a coloured monogram, which looked like a big placeholder face); with one, the photo with a small edit badge.
- * With no photo a tap opens the picker; with one, a menu offers "Change photo" and a red "Remove photo", and says that
- * Parley keeps the whole picture while other apps get Android's reduced copy ([inOtherApps]).
+ * A tap opens a menu: "Choose photo" and "Take photo" (the camera app, through [onTake]); with a photo also "Adjust
+ * framing" (the square that circles show, [onAdjust]) and a red "Remove photo", and a line saying that Parley keeps
+ * the whole picture while circles and other apps show the framed part ([inOtherApps]).
  */
 @Composable
 internal fun CompactPhoto(
     name: String,
     photo: String?,
     onPick: () -> Unit,
+    onTake: () -> Unit,
+    onAdjust: (() -> Unit)?,
     onRemove: () -> Unit,
     size: Dp = FormTokens.headerPhoto,
     inOtherApps: Boolean = true,
+    /** The framed square of the photo, shown instead of [photo] once it is known. */
+    framed: ImageBitmap? = null,
 ) {
     val has = photo != null
     var menu by remember { mutableStateOf(false) }
@@ -269,10 +280,14 @@ internal fun CompactPhoto(
     Box {
         Box(
             Modifier.semantics(mergeDescendants = true) { contentDescription = photoDesc }
-                .clip(CircleShape).clickable(onClickLabel = pickLabel) { if (has) menu = true else onPick() },
+                .clip(CircleShape).clickable(onClickLabel = pickLabel) { menu = true },
         ) {
             if (has) {
-                Avatar(name.ifBlank { "?" }, photo, size)
+                if (framed != null) {
+                    Image(framed, null, contentScale = ContentScale.Crop, modifier = Modifier.size(size).clip(CircleShape))
+                } else {
+                    Avatar(name.ifBlank { "?" }, photo, size)
+                }
                 Surface(
                     shape = CircleShape, color = MaterialTheme.colorScheme.secondaryContainer, contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
                     border = BorderStroke(2.dp, MaterialTheme.colorScheme.surface),
@@ -287,9 +302,20 @@ internal fun CompactPhoto(
         }
         DropdownMenu(menu, { menu = false }, shape = ParleyShapes.tile) {
             DropdownMenuItem(
-                text = { Text(stringResource(R.string.editor_edit_photo)) }, leadingIcon = { Icon(Icons.Rounded.Edit, null) },
+                text = { Text(stringResource(R.string.editor_choose_photo)) }, leadingIcon = { Icon(Icons.Rounded.PhotoLibrary, null) },
                 onClick = { menu = false; onPick() },
             )
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.editor_take_photo)) }, leadingIcon = { Icon(Icons.Rounded.PhotoCamera, null) },
+                onClick = { menu = false; onTake() },
+            )
+            if (!has) return@DropdownMenu
+            if (onAdjust != null) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.editor_adjust_framing)) }, leadingIcon = { Icon(Icons.Rounded.Crop, null) },
+                    onClick = { menu = false; onAdjust() },
+                )
+            }
             DropdownMenuItem(
                 text = { Text(stringResource(R.string.edit_remove_photo), color = MaterialTheme.colorScheme.error) },
                 leadingIcon = { Icon(Icons.Rounded.Delete, null, tint = MaterialTheme.colorScheme.error) },

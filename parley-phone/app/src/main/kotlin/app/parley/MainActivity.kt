@@ -31,6 +31,7 @@ import app.parley.data.EmergencyNumbers
 import app.parley.security.AppLock
 import app.parley.security.LockScreen
 import app.parley.shortcuts.CircleWidget
+import app.parley.shortcuts.FavoritesWidget
 import app.parley.ui.blocking.BlockingDialog
 import app.parley.ui.blocking.BlockingDialogs
 import app.parley.ui.extras.SimpleInbox
@@ -111,6 +112,7 @@ class MainActivity : LockedActivity() {
             val s = vm.c.settings.current()
             // The phone is unlocked now: a Circle widget drawn while it was locked shows names again.
             if (s.appLock) launch { runCatching { CircleWidget.refreshIfShownLocked(applicationContext) } }
+            if (s.appLock) launch { runCatching { FavoritesWidget.refreshIfShownLocked(applicationContext) } }
             // After a longer break, open on the preferred tab again; a quick app switch keeps your place.
             if (stoppedAt > 0 && SystemClock.elapsedRealtime() - stoppedAt > 5 * 60_000L && intent?.action == Intent.ACTION_MAIN) {
                 vm.navigate(NavEvent.Tab(HomeLayout(s.navTabs, s.surfaces).startRequest(s.startTab)))

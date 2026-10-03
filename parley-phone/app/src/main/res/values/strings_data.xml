@@ -926,6 +926,21 @@
     <string name="shortcut_call">Call</string>
     <string name="widget_call_name">Call %1$s</string>
     <string name="widget_pick_title">Direct-dial widget</string>
+    <string name="fav_widget_title">Favourites</string>
+    <string name="fav_widget_description">Your favourites in a grid: tap to call, or to open their page. With the app lock on, only a count shows while the phone is locked.</string>
+    <string name="fav_widget_empty">No favourites yet. Star people in Parley to see them here.</string>
+    <string name="fav_widget_open_name">Open %1$s</string>
+    <string name="fav_widget_tap">When you tap someone</string>
+    <string name="fav_widget_tap_call">Call</string>
+    <string name="fav_widget_tap_open">Open their page</string>
+    <string name="fav_widget_private_note">Private contacts never appear in widgets. With the app lock on, a locked phone shows only how many favourites you have.</string>
+    <string name="fav_widget_preview_name_2" translatable="false">Marco</string>
+    <string name="fav_widget_preview_name_3" translatable="false">Lena</string>
+    <!-- On the Favourites widget while the phone is locked (app lock on): no names. -->
+    <plurals name="fav_widget_count">
+        <item quantity="one">%d favourite</item>
+        <item quantity="other">%d favourites</item>
+    </plurals>
 
     <!-- Private names for other apps -->
     <string name="privnames_directory">Parley private contacts</string>

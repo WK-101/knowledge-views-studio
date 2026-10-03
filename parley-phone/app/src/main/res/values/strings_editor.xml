@@ -3,7 +3,7 @@
 <resources>
     <string name="editor_add_photo">Add photo</string>
     <string name="editor_edit_photo">Change photo</string>
-    <string name="editor_photo_desc">Contact photo. Tap to choose a new one</string>
+    <string name="editor_photo_desc">Contact photo. Tap to change, frame or remove it</string>
     <string name="editor_saving_to">Save to: %1$s</string>
     <string name="editor_change_account">Change where this contact is saved</string>
     <string name="editor_private_here">Private · only in Parley</string>
@@ -51,7 +51,7 @@
     <string name="rel_mirror_read_only">%1$s is in a read-only account, so the relation is saved only here</string>
     <string name="rel_mirror_changed_elsewhere">%1$s changed meanwhile, so the relation is saved only here</string>
     <!-- The photo menu: Parley keeps the picture whole; other apps get Android's reduced copy. -->
-    <string name="editor_photo_kept_whole">Parley keeps the whole photo. Other apps see Android\'s smaller copy.</string>
+    <string name="editor_photo_kept_whole">Parley keeps the whole photo for their page. Circles and other apps show the part you framed.</string>
     <string name="edit_pronouns">Pronouns</string>
     <!-- The name block's heading for TalkBack (the person icon in the form's gutter). -->
     <string name="editor_name_title">Name</string>
@@ -75,4 +75,25 @@
     <string name="edit_profile_format">This doesn\'t look like a %1$s user name</string>
     <string name="edit_profile_needs_server">Add the server too, like name@mastodon.social</string>
     <string name="me_profiles">Profiles</string>
+    <!-- The photo menu and "Frame photo": the square of the photo that shows in circles (the avatar). -->
+    <string name="editor_choose_photo">Choose photo</string>
+    <string name="editor_take_photo">Take photo</string>
+    <string name="editor_adjust_framing">Adjust framing</string>
+    <string name="editor_no_camera">No camera app on this phone can take a photo.</string>
+    <string name="frame_title">Frame photo</string>
+    <string name="frame_hint">Drag and pinch to choose what shows in the circle. Their page still shows the whole photo.</string>
+    <string name="frame_area">Photo framing. Use the buttons below to move or zoom</string>
+    <!-- %1$s: how far it is zoomed in, such as 1.5×. -->
+    <string name="frame_zoom_state">Zoom %1$s</string>
+    <string name="frame_zoom_in">Zoom in</string>
+    <string name="frame_zoom_out">Zoom out</string>
+    <string name="frame_move_left">Move photo left</string>
+    <string name="frame_move_right">Move photo right</string>
+    <string name="frame_move_up">Move photo up</string>
+    <string name="frame_move_down">Move photo down</string>
+    <string name="frame_face">Centre on face</string>
+    <string name="frame_reset">Reset</string>
+    <string name="frame_whole">Use whole photo</string>
+    <string name="frame_loading">Opening the photo</string>
+    <string name="frame_unreadable">This photo can\'t be framed here, so it will be used whole.</string>
 </resources>

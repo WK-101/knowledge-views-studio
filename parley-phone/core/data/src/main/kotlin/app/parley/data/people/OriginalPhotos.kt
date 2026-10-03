@@ -13,8 +13,11 @@ import android.util.Log
 import androidx.exifinterface.media.ExifInterface
 import app.parley.common.Hex
 import app.parley.common.people.ContactRef
+import app.parley.common.photo.FrameMath
 import app.parley.common.photo.OriginalPhoto
+import app.parley.common.photo.PhotoFrame
 import app.parley.common.photo.PhotoMath
+import app.parley.data.ContactPhotoProcessor
 import app.parley.data.vault.VaultCrypto
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -36,6 +39,9 @@ import java.security.MessageDigest
  * are sealed with the private-contacts caller key in `files/vault_photo_originals`, keyed by the private entry.
  * JPEG, PNG and WebP are kept byte for byte with their location tags removed; other formats (HEIC) and files over
  * [OriginalPhoto.MAX_BYTES] are written once as a high-quality JPEG.
+ *
+ * Beside each original its [PhotoFrame] is kept: the square the avatar was cut from ("Frame photo"), so it can be
+ * adjusted again from the whole picture.
  */
 class OriginalPhotos(context: Context) {
     private val app = context.applicationContext
@@ -57,6 +63,8 @@ class OriginalPhotos(context: Context) {
         private val sealed: Boolean,
         /** A sealed original's header-size copy ([PREVIEW_PX]), made the first time it is shown; null for a plain file. */
         internal val preview: File? = null,
+        /** The square the avatar was cut from; null: the whole picture (as before framing existed). */
+        val frame: PhotoFrame? = null,
     ) {
         /** [preview] when it exists and is newer than the original it was made from. */
         internal fun freshPreview(): File? = preview?.takeIf { it.isFile && it.lastModified() >= file.lastModified() }
@@ -153,6 +161,22 @@ class OriginalPhotos(context: Context) {
         }
     }
 
+    /**
+     * Records the square [lookupKey]'s avatar was cut from (null: the whole picture). [rewritten]: the Android photo
+     * URI before Parley wrote a new avatar from the kept original ("Adjust framing"), so the new photo is matched to
+     * it rather than taken for one another app wrote.
+     */
+    suspend fun setFrame(lookupKey: String, frame: PhotoFrame?, rewritten: String? = null) = withContext(Dispatchers.IO) {
+        if (lookupKey.isEmpty()) return@withContext
+        ContactRef.vaultIdOf(lookupKey)?.let { setPrivateFrameNow(it, frame); return@withContext }
+        val metaFile = metaFor(lookupKey)
+        val meta = runCatching { JSONObject(metaFile.readText()) }.getOrNull() ?: return@withContext
+        putFrame(meta, frame)
+        if (rewritten != null) meta.put("before", rewritten).put("bound", "")
+        runCatching { metaFile.writeText(meta.toString()) }
+        _version.value++
+    }
+
     /** Forgets [lookupKey]'s original. Off the main thread: callers include the editor's save, on the main thread. */
     suspend fun clear(lookupKey: String) = withContext(Dispatchers.IO) { clearNow(lookupKey) }
 
@@ -205,6 +229,8 @@ class OriginalPhotos(context: Context) {
     /** Puts [c] under [key]: sealed for a private contact; for a device contact matched to the next photo it gets. */
     fun put(key: String, c: Carried): Boolean = runCatching {
         val size = JSONObject().put("w", c.meta.optInt("w")).put("h", c.meta.optInt("h")).put("o", c.meta.optInt("o", ExifInterface.ORIENTATION_NORMAL))
+        // The avatar's square goes along (Make private, Make visible), so it can still be adjusted there.
+        c.meta.optString(FRAME).takeIf { it.isNotEmpty() }?.let { size.put(FRAME, it) }
         val id = ContactRef.vaultIdOf(key)
         if (id != null) {
             privateDir.mkdirs()
@@ -222,6 +248,10 @@ class OriginalPhotos(context: Context) {
         _version.value++
         true
     }.getOrDefault(false)
+
+    private fun putFrame(meta: JSONObject, frame: PhotoFrame?) {
+        if (frame == null) meta.remove(FRAME) else meta.put(FRAME, frame.encode())
+    }
 
     /** Lookup keys that have an original. */
     fun keys(): Set<String> = dir.listFiles { f -> f.name.endsWith(".json") }.orEmpty()
@@ -275,6 +305,17 @@ class OriginalPhotos(context: Context) {
         val meta = privateMeta(id)
         if (!image.isFile || !meta.isFile) return@withContext null
         runCatching { JSONObject(meta.readText()) }.getOrNull()?.let { original(it, image, sealed = true) }
+    }
+
+    /** Records the square private contact [id]'s avatar was cut from (null: the whole picture). */
+    suspend fun setPrivateFrame(id: Long, frame: PhotoFrame?) = withContext(Dispatchers.IO) { setPrivateFrameNow(id, frame) }
+
+    private fun setPrivateFrameNow(id: Long, frame: PhotoFrame?) {
+        val metaFile = privateMeta(id)
+        val meta = runCatching { JSONObject(metaFile.readText()) }.getOrNull() ?: return
+        putFrame(meta, frame)
+        runCatching { metaFile.writeText(meta.toString()) }
+        _version.value++
     }
 
     /** Forgets private contact [id]'s original, off the main thread (see [clear]). */
@@ -354,6 +395,16 @@ class OriginalPhotos(context: Context) {
     }
 
     /**
+     * The avatar for [o] cut to [frame]: a square JPEG at most [target] px a side, decoded from only that part of the
+     * original. Null when it can't be read.
+     */
+    suspend fun framed(o: Original, frame: PhotoFrame, target: Int = PhotoMath.TARGET): ByteArray? {
+        val crop = FrameMath.toCrop(frame, o.width, o.height)
+        val bmp = decodeRegion(o, crop, target, target) ?: return null
+        return withContext(Dispatchers.IO) { ContactPhotoProcessor.framed(bmp, PhotoFrame(0.0, 0.0, 1.0), target) }
+    }
+
+    /**
      * Part of [o] at full detail for the viewer: [region] of the upright picture, decoded with just enough pixels
      * for [viewWidth]×[viewHeight] screen pixels, turned upright. Null when it can't be read.
      */
@@ -399,7 +450,11 @@ class OriginalPhotos(context: Context) {
         if (w <= 0 || h <= 0) return null
         val o = meta.optInt("o", ExifInterface.ORIENTATION_NORMAL)
         val (uw, uh) = PhotoMath.exifTransform(o).uprightSize(w, h)
-        return Original(uw, uh, w, h, o, image, sealed, preview = if (sealed) File(image.parentFile, image.nameWithoutExtension + PREVIEW_SUFFIX) else null)
+        return Original(
+            uw, uh, w, h, o, image, sealed,
+            preview = if (sealed) File(image.parentFile, image.nameWithoutExtension + PREVIEW_SUFFIX) else null,
+            frame = PhotoFrame.decode(meta.optString(FRAME))?.let { FrameMath.clamp(it, uw, uh) },
+        )
     }
 
     private fun writeMeta(file: File, s: Staged, base: JSONObject) {
@@ -488,6 +543,9 @@ class OriginalPhotos(context: Context) {
 
     companion object {
         private const val TAG = "OriginalPhotos"
+
+        /** The avatar's square in an original's record ([PhotoFrame.encode]). */
+        private const val FRAME = "frame"
 
         /**
          * A sealed original's header copy: its longer side in px (the contact page's photo is at most 1.6 × 160 dp).

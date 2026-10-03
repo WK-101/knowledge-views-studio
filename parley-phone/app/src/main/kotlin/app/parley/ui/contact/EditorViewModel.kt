@@ -1,6 +1,7 @@
 package app.parley.ui.contact
 
 import android.net.Uri
+import app.parley.common.photo.PhotoFrame
 import android.os.Bundle
 import android.provider.ContactsContract.CommonDataKinds.Email
 import android.provider.ContactsContract.CommonDataKinds.Phone
@@ -116,6 +117,13 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
     var removePhoto by mutableStateOf(false)
         private set
 
+    /**
+     * The square the avatar is cut from ("Frame photo"): of [photo] when one was picked, otherwise a new framing of
+     * the photo Parley keeps ("Adjust framing"). Null: the whole picture.
+     */
+    var photoFrame by mutableStateOf<PhotoFrame?>(null)
+        private set
+
     /** New contacts go to the private vault when "Private by default" is on (the Save-to menu can change it). */
     var privateNew by mutableStateOf(false)
         private set
@@ -182,7 +190,7 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
         get() {
             val d = draft
             return d != null && (start == null || EditorDrafts.meaningful(d) != start?.let(EditorDrafts::meaningful)) ||
-                photo != null || removePhoto || background != BackgroundChange.None || expiryChange != null ||
+                photo != null || removePhoto || photoFrame != null || background != BackgroundChange.None || expiryChange != null ||
                 args.meCard && meParts != c.people.me.shareParts.value
         }
 
@@ -289,13 +297,21 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
         draft?.let { draft = f(it) }
     }
 
-    fun pickPhoto(uri: Uri) {
+    /** A photo picked or taken; [frame]: its square for the avatar, when framed already. */
+    fun pickPhoto(uri: Uri, frame: PhotoFrame? = null) {
         photo = uri
+        photoFrame = frame
         removePhoto = false
+    }
+
+    /** The square for the avatar of the picked photo, or of the kept one when none was picked (null: whole). */
+    fun frame(frame: PhotoFrame?) {
+        photoFrame = frame
     }
 
     fun clearPhoto() {
         photo = null
+        photoFrame = null
         removePhoto = true
     }
 
@@ -356,7 +372,7 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
         }
         saving = true
         val request = SaveContactUseCase.Request(
-            original = orig, draft = e, account = account, photo = photo, removePhoto = removePhoto,
+            original = orig, draft = e, account = account, photo = photo, removePhoto = removePhoto, photoFrame = photoFrame,
             toVault = isVault, vaultId = args.vaultId, background = background, pickedLinks = pickedLinks,
             temporary = temporary.takeIf { temporaryNew && isNew }, expiry = expiryChange,
             vaultLoaded = start.takeIf { (args.vaultId ?: 0L) > 0L },
@@ -478,6 +494,7 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
             K_HAS_ACCOUNT to (account != null),
             K_PHOTO to photo,
             K_REMOVE_PHOTO to removePhoto,
+            K_PHOTO_FRAME to photoFrame?.encode(),
             K_PRIVATE_NEW to privateNew,
             K_TEMPORARY to temporaryNew,
             K_TEMP_DAYS to temporary.days,
@@ -541,6 +558,7 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
             @Suppress("DEPRECATION")
             photo = b.getParcelable(K_PHOTO)
             removePhoto = b.getBoolean(K_REMOVE_PHOTO)
+            photoFrame = PhotoFrame.decode(b.getString(K_PHOTO_FRAME))
         }
         privateNew = b.getBoolean(K_PRIVATE_NEW)
         temporaryNew = b.getBoolean(K_TEMPORARY)
@@ -634,6 +652,7 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
         const val K_HAS_ACCOUNT = "hasAccount"
         const val K_PHOTO = "photo"
         const val K_REMOVE_PHOTO = "removePhoto"
+        const val K_PHOTO_FRAME = "photoFrame"
         const val K_PRIVATE_NEW = "privateNew"
         const val K_BACKGROUND = "background"
         const val K_LINKS = "links"
