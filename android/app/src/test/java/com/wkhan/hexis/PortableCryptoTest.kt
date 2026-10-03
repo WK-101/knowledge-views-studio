@@ -12,10 +12,13 @@ import org.junit.Test
 class PortableCryptoTest {
 
     @Test fun roundTrips() {
-        val plain = """{"notes":[{"t":"hi"}],"n":42}"""
+        // Use a distinctive marker so "plaintext not visible" can't fail by a chance base64 collision
+        // (a short token like "hi" appears in random base64 often enough to make the test flaky).
+        val marker = "zqxjPLAINTEXTmarkerVK7"
+        val plain = """{"notes":[{"t":"$marker"}],"n":42}"""
         val blob = PortableCrypto.encrypt(plain, "correct horse".toCharArray())
         assertNotEquals(plain, blob)                                  // it's actually encrypted
-        assertFalse(blob.contains("hi"))                              // plaintext not visible
+        assertFalse(blob.contains(marker))                           // plaintext not visible
         assertEquals(plain, PortableCrypto.decrypt(blob, "correct horse".toCharArray()))
     }
 
