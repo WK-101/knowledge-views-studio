@@ -72,7 +72,7 @@ data class BlockedCallEntity(
  * How long an incoming call rang before it was answered or given up (for the one-ring "wangiri" guard). [numberKey]
  * is [app.parley.common.PhoneIdentity.key]; rows from before the phone-key migration may still hold the last digits.
  */
-@Entity(tableName = "call_rings", indices = [Index(value = ["numberKey"])])
+@Entity(tableName = "call_rings", indices = [Index(value = ["numberKey"]), Index(value = ["startedAt"])])
 data class CallRingEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val numberKey: String,
@@ -99,7 +99,7 @@ data class NumberSimEntity(
 )
 
 /** Snapshot of a contact taken before Parley deleted, edited or merged it (30-day undo). */
-@Entity(tableName = "journal")
+@Entity(tableName = "journal", indices = [Index(value = ["time"]), Index(value = ["contactKey"])])
 data class JournalEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val contactKey: String,
@@ -222,7 +222,10 @@ data class VaultNumberEntity(val vaultId: Long, val hmac: String)
  * sweep that runs twice (the provider delete failed after the insert) or a restore run twice stores each call once;
  * rows from before v7 have none.
  */
-@Entity(tableName = "private_calls", indices = [Index(value = ["dedupeKey"], unique = true)])
+@Entity(
+    tableName = "private_calls",
+    indices = [Index(value = ["dedupeKey"], unique = true), Index(value = ["vaultId", "date", "type"]), Index(value = ["date"])],
+)
 data class PrivateCallEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val vaultId: Long,
@@ -576,6 +579,20 @@ interface VaultDao {
     @Query("DELETE FROM private_calls WHERE id = :id")
     suspend fun deletePrivateCall(id: Long)
 
+    @Query("SELECT * FROM private_calls WHERE vaultId = :vaultId ORDER BY date DESC")
+    suspend fun privateCallsOf(vaultId: Long): List<PrivateCallEntity>
+
+    @Query("SELECT COUNT(*) FROM private_calls WHERE vaultId = :vaultId")
+    suspend fun privateCallCount(vaultId: Long): Int
+
+    /** Replaces a call's sealed blob, unless the row changed meanwhile (then nothing is written). */
+    @Query("UPDATE private_calls SET blob = :sealed WHERE id = :id AND blob = :was")
+    suspend fun resealPrivateCall(id: Long, was: ByteArray, sealed: ByteArray): Int
+
+    /** Private calls older than [before] (the call history's retention). */
+    @Query("DELETE FROM private_calls WHERE date < :before")
+    suspend fun deletePrivateCallsBefore(before: Long): Int
+
     @Query("SELECT * FROM vault_contacts WHERE expiresAt IS NOT NULL AND expiresAt <= :now")
     suspend fun expired(now: Long): List<VaultContactEntity>
 }
@@ -713,7 +730,7 @@ interface PrefsDao {
         VaultContactEntity::class, VaultNumberEntity::class, PrivateCallEntity::class, CallNoteEntity::class,
         CallRingEntity::class, InteractionEntity::class, CallUsageEntity::class,
     ],
-    version = 8,
+    version = 9,
     exportSchema = true,
     // v3: allow rules, schedules, SIM, hit counters, decision traces, ring lengths (blocking roadmap).
     // v4: temporary contacts remember their raw contact ids; contact metadata remembers the contact id and relation
@@ -725,9 +742,12 @@ interface PrefsDao {
     //     Stored number keys move to PhoneIdentity.key afterwards, in the app (PhoneKeyMigrator): that needs the
     //     phone's contacts and calls, which a schema migration can't read.
     // v8: an index on vault_numbers.hmac (caller ID looks private numbers up by it while the phone rings). Additive.
+    // v9: indexes for the queries that scanned whole tables: private calls by entry and date (backups, the sweep's
+    //     duplicate check, retention), the journal by time and contact, call rings by time. Additive.
     autoMigrations = [
         AutoMigration(from = 1, to = 2), AutoMigration(from = 2, to = 3), AutoMigration(from = 3, to = 4), AutoMigration(from = 4, to = 5),
         AutoMigration(from = 5, to = 6), AutoMigration(from = 6, to = 7), AutoMigration(from = 7, to = 8),
+        AutoMigration(from = 8, to = 9),
     ],
 )
 abstract class AppDatabase : RoomDatabase() {

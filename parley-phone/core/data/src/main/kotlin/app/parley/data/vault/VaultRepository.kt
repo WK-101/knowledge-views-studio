@@ -12,6 +12,7 @@ import app.parley.common.people.PrivateCallerChoices
 import app.parley.common.people.PrivateLabels
 import app.parley.common.record.ContactRecord
 import app.parley.common.NotificationPrivacy
+import app.parley.common.PhoneIdentity
 import app.parley.common.VaultNumberKeys
 import androidx.room.withTransaction
 import app.parley.data.CallerInfo
@@ -20,6 +21,7 @@ import app.parley.data.ContactDetailsJson
 import app.parley.data.ContactPhotoProcessor
 import app.parley.data.PhoneEnv
 import app.parley.data.R
+import app.parley.data.StartGate
 import app.parley.data.db.AppDatabase
 import app.parley.data.db.PrivateCallEntity
 import app.parley.data.db.VaultCallerRow
@@ -114,12 +116,6 @@ data class PrivateCall(
     val video: Boolean = false,
 )
 
-/** The private call sealed in this row, or null when it can't be opened now. */
-private fun PrivateCallEntity.opened(): PrivateCall? = runCatching {
-    val o = JSONObject(String(VaultCrypto.openCallerId(blob)))
-    PrivateCall(id, vaultId, o.optString("n"), o.optString("name"), date, durationSec, type, o.optBoolean("v"))
-}.getOrNull()
-
 /** A call-log row's FEATURES say it was a video call. */
 private fun isVideo(features: Int): Boolean = (features and CallLog.Calls.FEATURES_VIDEO) != 0
 
@@ -155,8 +151,19 @@ class SealedCall(val blob: ByteArray, val date: Long, val durationSec: Long, val
  * Private contacts stored only inside Parley (encrypted), invisible to every other app.
  * Caller ID uses an HMAC index + the caller-ID key, so it works even while the phone is locked.
  */
-class VaultRepository(private val context: Context, private val db: AppDatabase, scope: CoroutineScope) {
+class VaultRepository(
+    private val context: Context,
+    private val db: AppDatabase,
+    private val scope: CoroutineScope,
+    /**
+     * Holds back the listings and the upkeep until the full app starts ([StartGate]): a process started for a call
+     * looks numbers up ([lookup]) and nothing else, so screening never waits behind the vault's Keystore work.
+     */
+    private val gate: StartGate? = null,
+) {
     private val dao = db.vaultDao()
+    private val callSeal = PrivateCallSeal(context)
+    private val started: SharingStarted = gate?.sharing ?: SharingStarted.Eagerly
 
     /**
      * The address book's labels (id, title), set by the container: a private contact's label membership is stored by
@@ -179,12 +186,41 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
     val contacts: StateFlow<List<VaultSummary>> = dao.callerRows()
         .map { list -> list.mapNotNull { summarize(it) }.sortedBy { it.name.lowercase() } }
         .flowOn(Dispatchers.IO)
-        .stateIn(scope, SharingStarted.Eagerly, emptyList())
+        .stateIn(scope, started, emptyList())
 
     val privateCalls: StateFlow<List<PrivateCall>> = dao.privateCalls()
-        .map { list -> list.mapNotNull { it.opened() } }
+        .map { list -> list.mapNotNull { opened(it) }.also { resealOlder(list) } }
         .flowOn(Dispatchers.IO)
-        .stateIn(scope, SharingStarted.Eagerly, emptyList())
+        .stateIn(scope, started, emptyList())
+
+    /** The private call sealed in [e], or null when it can't be opened now. */
+    private fun opened(e: PrivateCallEntity): PrivateCall? = runCatching {
+        val o = JSONObject(String(callSeal.open(e.blob)))
+        PrivateCall(e.id, e.vaultId, o.optString("n"), o.optString("name"), e.date, e.durationSec, e.type, o.optBoolean("v"))
+    }.getOrNull()
+
+    @Volatile private var resealing = false
+
+    /**
+     * Calls sealed with the caller-ID key before private calls had their own key move to it, once, in the background:
+     * each is opened and sealed again, and written only if the row is still as it was read.
+     */
+    private fun resealOlder(rows: List<PrivateCallEntity>) {
+        if (resealing || rows.all { callSeal.isCurrent(it.blob) }) return
+        resealing = true
+        scope.launch(Dispatchers.IO) {
+            try {
+                for (e in rows) {
+                    if (callSeal.isCurrent(e.blob)) continue
+                    val plain = runCatching { VaultCrypto.openCallerId(e.blob) }.getOrNull() ?: continue
+                    val sealed = callSeal.seal(plain)
+                    if (callSeal.isCurrent(sealed)) dao.resealPrivateCall(e.id, e.blob, sealed)
+                }
+            } finally {
+                resealing = false
+            }
+        }
+    }
 
     /**
      * Summaries already opened, by entry, with the caller-ID copy they came from: every change to the table lists the
@@ -428,7 +464,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
         keysLock.withLock {
             val e = dao.get(id) ?: return@withLock null
             val photo = photoFile(id).takeIf { it.isFile }?.readBytes()
-            val calls = dao.allPrivateCalls().filter { it.vaultId == id }.map { SealedCall(it.blob, it.date, it.durationSec, it.type) }
+            val calls = dao.privateCallsOf(id).map { SealedCall(it.blob, it.date, it.durationSec, it.type) }
             SealedEntry(e.callerIdBlob, e.detailBlob, e.expiresAt, e.createdAt, photo, calls)
         }
     }
@@ -788,12 +824,20 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
         scope.launch(Dispatchers.IO) {
             runCatching { if (context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(K_CALL_CHOICES, false)) hasCallChoices = true }
             VaultCallChoices.loaded = true
-            // Then the listing decides (a stale "yes" costs only a lookup per call; a "no" only once none has any).
+            // Then the listing decides (a stale "yes" costs only a lookup per call; a "no" only once none has any). It
+            // opens every caller-ID copy, so it waits for the full app; a call's process goes by the stored answer.
+            gate?.await()
             runCatching { dao.callerRows().collect { list -> rememberCallChoices(list.any { e -> summarize(e)?.hasCallChoices == true }) } }
         }
-        scope.launch { runCatching { migrateNumberKeys() } }
+        scope.launch {
+            gate?.await()
+            runCatching { migrateNumberKeys() }
+        }
         // Settles the key generation from the stored blobs before anything audits it (an interrupted upgrade).
-        scope.launch { runCatching { keysLock.withLock { VaultCrypto.reconcileGenerations(generationsInUse()) } } }
+        scope.launch {
+            gate?.await()
+            runCatching { keysLock.withLock { VaultCrypto.reconcileGenerations(generationsInUse()) } }
+        }
     }
 
     /**
@@ -925,6 +969,11 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
         val cr = context.contentResolver
         var moved = 0
         val ids = ArrayList<Long>()
+        // The last digits of every private number, read once: only calls that share them are looked up (a Keystore
+        // fingerprint per form), not every call of the month. Every stored number has a last-digits row, so a call
+        // the full lookup would match always passes.
+        val suffixes = dao.callerRowsNow().mapNotNull { summarize(it) }.flatMap { it.numbers }.map(PhoneIdentity::legacyKey).toHashSet()
+        if (suffixes.isEmpty()) return@withContext 0
         try {
             cr.query(
                 CallLog.Calls.CONTENT_URI,
@@ -933,6 +982,8 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
             )?.use { c ->
                 while (c.moveToNext()) {
                     val number = c.getString(1) ?: continue
+                    val suffix = PhoneIdentity.legacyKey(number)
+                    if (suffix.isNotEmpty() && suffix !in suffixes) continue
                     val hit = lookup(number) ?: continue
                     // A contact being made visible: its calls are going back to this log, never into its private history.
                     if (hit.first in leaving) continue
@@ -958,7 +1009,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
         withContext(Dispatchers.IO) {
             // Rows from before the dedupe key have none: count those by their columns.
             if (dao.countPrivateCall(vaultId, date, type) > 0) return@withContext true
-            val blob = VaultCrypto.sealCallerId(JSONObject().put("n", number).put("name", name).apply { if (video) put("v", true) }.toString().toByteArray())
+            val blob = callSeal.seal(JSONObject().put("n", number).put("name", name).apply { if (video) put("v", true) }.toString().toByteArray())
             dao.addPrivateCall(
                 PrivateCallEntity(
                     vaultId = vaultId,
@@ -973,6 +1024,14 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
         }
 
     suspend fun deletePrivateCall(id: Long) = withContext(Dispatchers.IO) { dao.deletePrivateCall(id) }
+
+    /** Private calls follow the call history's retention ([days] = 0 keeps everything). Returns how many went. */
+    suspend fun prunePrivateCalls(days: Int, now: Long = System.currentTimeMillis()): Int = withContext(Dispatchers.IO) {
+        if (days <= 0) 0 else dao.deletePrivateCallsBefore(now - days * 86_400_000L)
+    }
+
+    /** Every private call, read straight from the database (not the listing, which starts with the full app). */
+    suspend fun privateCallsNow(): List<PrivateCall> = withContext(Dispatchers.IO) { dao.allPrivateCalls().mapNotNull { opened(it) } }
 
     suspend fun expired(now: Long) = withContext(Dispatchers.IO) { dao.expired(now).map { it.id } }
 
@@ -1012,12 +1071,10 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
     suspend fun summariesNow(): List<VaultSummary> = withContext(Dispatchers.IO) { dao.callerRowsNow().mapNotNull { summarize(it) } }
 
     /** The private calls of entry [vaultId], read straight from the database (backup). */
-    suspend fun privateCallsOf(vaultId: Long): List<PrivateCall> = withContext(Dispatchers.IO) {
-        dao.allPrivateCalls().filter { it.vaultId == vaultId }.mapNotNull { it.opened() }
-    }
+    suspend fun privateCallsOf(vaultId: Long): List<PrivateCall> = withContext(Dispatchers.IO) { dao.privateCallsOf(vaultId).mapNotNull { opened(it) } }
 
     /** How many private calls entry [vaultId] holds, whether or not each can be opened now. */
-    suspend fun privateCallCount(vaultId: Long): Int = withContext(Dispatchers.IO) { dao.allPrivateCalls().count { it.vaultId == vaultId } }
+    suspend fun privateCallCount(vaultId: Long): Int = withContext(Dispatchers.IO) { dao.privateCallCount(vaultId) }
 
     /** Every private contact's numbers, read straight from the database (import duplicate checks, F17). */
     suspend fun allNumbers(): List<String> = withContext(Dispatchers.IO) { dao.callerRowsNow().mapNotNull { summarize(it) }.flatMap { it.numbers } }

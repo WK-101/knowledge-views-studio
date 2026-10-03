@@ -297,7 +297,8 @@ class CallHistory(
             // Key not usable right now: leave the archive alone and try on the next change.
             if (_archive.value == null) return@withLock 0
             val since = if (full) null else dao.newest()?.minus(TimeUnit.DAYS.toMillis(3))
-            val vk = vaultKeys.first()
+            // Read from the database, not the listing: in a worker's process the listing hasn't started.
+            val vk = PhoneIdentity.LineSet(vault.allNumbers(), countryIso)
             val known = keys()
             val iso = countryIso
             val now = System.currentTimeMillis()

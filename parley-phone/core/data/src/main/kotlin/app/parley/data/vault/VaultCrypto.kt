@@ -109,8 +109,11 @@ object VaultCrypto {
         val detailOpens = java.util.concurrent.atomic.AtomicInteger()
         val detailBytes = java.util.concurrent.atomic.AtomicLong()
 
+        /** Number fingerprints made with the Keystore HMAC key (each a Keystore operation). */
+        val hmacs = java.util.concurrent.atomic.AtomicInteger()
+
         fun reset() {
-            keyLookups.set(0); callerOpens.set(0); callerBytes.set(0); detailOpens.set(0); detailBytes.set(0)
+            keyLookups.set(0); callerOpens.set(0); callerBytes.set(0); detailOpens.set(0); detailBytes.set(0); hmacs.set(0)
         }
     }
 
@@ -547,6 +550,7 @@ object VaultCrypto {
     }
 
     fun hmac(value: String): String {
+        Meter.hmacs.incrementAndGet()
         return withKey(HMAC_KEY, {
             lookup(HMAC_KEY) ?: KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_HMAC_SHA256, STORE).run {
                 init(KeyGenParameterSpec.Builder(HMAC_KEY, KeyProperties.PURPOSE_SIGN).build())
