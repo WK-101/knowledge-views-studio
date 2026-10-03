@@ -136,20 +136,32 @@ object NumberMemory {
      * or the number removed from it): "Was saved as Plumber Mike until 12 March". One hint per line, the most recent.
      */
     fun snapshotHints(snapshots: List<SnapshotPeople>, region: String?): List<Entry> {
-        val sorted = snapshots.sortedBy { it.at }
-        val latest = sorted.lastOrNull() ?: return emptyList()
+        val latest = snapshots.maxByOrNull { it.at } ?: return emptyList()
+        val spans = snapshots.flatMap { snap -> snap.people.map { (key, p) -> PersonSpan(key, snap.at, p) } }
+        return snapshotHints(SnapshotSpans(spans, latest.at), region)
+    }
+
+    /** One version of a contact in the snapshots: who it was, and the last snapshot that still had it. */
+    data class PersonSpan(val key: String, val lastSeen: Long, val person: Person)
+
+    /** Every version the snapshots hold, and when the newest snapshot was taken. */
+    data class SnapshotSpans(val spans: List<PersonSpan>, val newest: Long)
+
+    /** [snapshotHints] from the versions alone, without a list of people per snapshot: a version seen in [SnapshotSpans.newest] is still there. */
+    fun snapshotHints(snapshots: SnapshotSpans, region: String?): List<Entry> {
+        if (snapshots.spans.isEmpty()) return emptyList()
         // (contact key, line) → when last seen, the name then and the number as written.
         val seen = HashMap<Pair<String, String>, Triple<Long, String, String>>()
-        for (snap in sorted) {
-            for ((key, person) in snap.people) {
-                for (n in person.numbers) {
-                    val line = PhoneIdentity.key(n, region).takeIf { it.isNotEmpty() } ?: continue
-                    seen[key to line] = Triple(snap.at, person.name, n)
-                }
+        val stillThere = HashSet<Pair<String, String>>()
+        for (span in snapshots.spans) {
+            for (n in span.person.numbers) {
+                val line = PhoneIdentity.key(n, region)
+                if (span.lastSeen == snapshots.newest) stillThere += span.key to line
+                if (line.isEmpty()) continue
+                val prev = seen[span.key to line]
+                if (prev == null || prev.first <= span.lastSeen) seen[span.key to line] = Triple(span.lastSeen, span.person.name, n)
             }
         }
-        val stillThere = HashSet<Pair<String, String>>()
-        latest.people.forEach { (key, p) -> p.numbers.forEach { n -> stillThere += key to PhoneIdentity.key(n, region) } }
         val byLine = HashMap<String, Entry>()
         for ((k, v) in seen) {
             if (k in stillThere) continue

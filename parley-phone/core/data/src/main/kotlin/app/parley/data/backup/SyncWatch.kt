@@ -1,5 +1,6 @@
 package app.parley.data.backup
 
+import app.parley.data.applyInBatches
 import android.Manifest
 import android.content.ContentProviderOperation
 import android.content.ContentUris
@@ -60,13 +61,13 @@ class SyncWatch(private val c: DataContainer) {
      */
     suspend fun run(now: Long = System.currentTimeMillis()): List<WatchEvent> = lock.withLock {
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED) return emptyList()
-        val snaps = withContext(Dispatchers.IO) { c.timeMachine.snapshots() }
+        val snaps = c.timeMachine.snapshotTimes()
         val newest = snaps.lastOrNull() ?: return emptyList()
         val m = _memory.value
         val accounts = accountsNow()
         // The snapshot the last run ended on (or, on the very first run, the one before the newest).
-        val old = if (m.baseline > 0) snaps.lastOrNull { it.timestamp <= m.baseline } else snaps.getOrNull(snaps.size - 2)
-        val diff = if (old != null && old.timestamp < newest.timestamp) {
+        val old = if (m.baseline > 0) snaps.lastOrNull { it <= m.baseline } else snaps.getOrNull(snaps.size - 2)
+        val diff = if (old != null && old < newest) {
             try {
                 c.timeMachine.diffBetween(old, newest)
             } catch (e: BackupIntegrityException) {
@@ -76,7 +77,7 @@ class SyncWatch(private val c: DataContainer) {
         } else {
             null
         }
-        val since = old?.timestamp ?: newest.timestamp
+        val since = old ?: newest
         // Parley's own deletes, edits and merges since then are the user's doing (with an hour's slack, so one made just
         // before the baseline snapshot, while it was being written, still counts).
         val userKeys = if (diff == null) {
@@ -91,7 +92,7 @@ class SyncWatch(private val c: DataContainer) {
                 before = m.accounts?.toWatch(), after = accounts,
             ),
         )
-        val (next, fresh) = m.afterRun(found, accounts, newest.timestamp, now)
+        val (next, fresh) = m.afterRun(found, accounts, newest, now)
         save(expireReturned(next))
         fresh
     }
@@ -210,8 +211,8 @@ class SyncWatch(private val c: DataContainer) {
 
     /** Undo of [restoreNumbers]: the numbers it added go again. */
     suspend fun undoNumbers(dataIds: List<Long>) = withContext(Dispatchers.IO) {
-        val ops = dataIds.map { ContentProviderOperation.newDelete(ContentUris.withAppendedId(Data.CONTENT_URI, it)).build() }
-        if (ops.isNotEmpty()) runCatching { context.contentResolver.applyBatch(ContactsContract.AUTHORITY, ArrayList(ops)) }
+        val ops = dataIds.map { ContentProviderOperation.newDelete(ContentUris.withAppendedId(Data.CONTENT_URI, it)) }
+        runCatching { context.contentResolver.applyInBatches(ops) }
         c.contacts.refresh()
     }
 

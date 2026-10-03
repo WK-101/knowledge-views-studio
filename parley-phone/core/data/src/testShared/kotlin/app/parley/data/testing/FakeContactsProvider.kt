@@ -1,6 +1,9 @@
 package app.parley.data.testing
 
 import android.content.ContentProvider
+import android.content.ContentProviderOperation
+import android.content.ContentProviderResult
+import android.content.OperationApplicationException
 import android.content.ContentUris
 import android.content.ContentValues
 import android.database.Cursor
@@ -24,12 +27,31 @@ import org.robolectric.Robolectric
  *   contact that now holds its raw contacts.
  * - Deleting a raw contact of a synced account only marks it `deleted = 1` until the sync adapter runs ([purgeDeleted]);
  *   such rows stay visible through the raw_contacts URI. Phone-only raw contacts (no account) go at once.
+ * - A batch with more than [MAX_OPS_BETWEEN_YIELDS] operations between yield points is refused, as AOSP's
+ *   ContactsProvider refuses it; every batch's size is kept in [batchSizes].
  */
 class FakeContactsProvider : ContentProvider() {
     /** One write the provider received: "insert", "update" or "delete", the path and the values. */
     data class Write(val kind: String, val path: String, val values: Map<String, Any?> = emptyMap(), val selection: String? = null)
 
     val writes = ArrayList<Write>()
+
+    /** The number of operations in each applyBatch the provider received, in order. */
+    val batchSizes = ArrayList<Int>()
+
+    /** PhoneLookup queries received (personal and work), to check the call path asks once. */
+    @Volatile var phoneLookups = 0
+
+    override fun applyBatch(operations: ArrayList<ContentProviderOperation>): Array<ContentProviderResult> {
+        synchronized(batchSizes) { batchSizes += operations.size }
+        // As AbstractContactsProvider.applyBatch counts them.
+        var sinceYield = 0
+        operations.forEachIndexed { i, op ->
+            if (++sinceYield >= MAX_OPS_BETWEEN_YIELDS) throw OperationApplicationException("Too many content provider operations between yield points")
+            if (i > 0 && op.isYieldAllowed) sinceYield = 0
+        }
+        return super.applyBatch(operations)
+    }
 
     /**
      * When set, a new raw contact (without aggregation disabled) joins this contact, as Android's aggregator joins a
@@ -129,8 +151,8 @@ class FakeContactsProvider : ContentProvider() {
                 else -> q("data_view", "_id = ${s[1].toLong()}")
             }
             "groups" -> if (s.size == 1) q("groups") else q("groups", "_id = ${s[1].toLong()}")
-            "phone_lookup" -> phoneLookup(s.getOrNull(1).orEmpty(), projection, work = false)
-            "phone_lookup_enterprise" -> phoneLookup(s.getOrNull(1).orEmpty(), projection, work = true)
+            "phone_lookup" -> phoneLookup(s.getOrNull(1).orEmpty(), projection, work = false).also { phoneLookups++ }
+            "phone_lookup_enterprise" -> phoneLookup(s.getOrNull(1).orEmpty(), projection, work = true).also { phoneLookups++ }
             else -> MatrixCursor(projection ?: emptyArray())
         }
     }
@@ -373,6 +395,9 @@ class FakeContactsProvider : ContentProvider() {
     fun exec(sql: String) = db.execSQL(sql)
 
     companion object {
+        /** AOSP's ContactsProvider limit (AbstractContactsProvider.MAX_OPERATIONS_PER_YIELD_POINT). */
+        const val MAX_OPS_BETWEEN_YIELDS = 500
+
         /** Creates the provider and registers it for the contacts authority in the Robolectric application. */
         fun install(): FakeContactsProvider =
             Robolectric.buildContentProvider(FakeContactsProvider::class.java).create(ContactsContract.AUTHORITY).get()

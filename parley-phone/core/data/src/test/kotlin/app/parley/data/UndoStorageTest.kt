@@ -74,9 +74,9 @@ class UndoStorageTest {
         assertEquals(3, c.undoStorage.usage().snapshots)
 
         assertEquals(1, c.undoStorage.clearSnapshots(SnapshotKeep.RECENT))
-        assertEquals(listOf(now - 10 * day, now - day), c.timeMachine.snapshots().map { it.timestamp })
+        assertEquals(listOf(now - 10 * day, now - day), c.timeMachine.snapshotTimes())
         assertEquals(1, c.undoStorage.clearSnapshots(SnapshotKeep.LATEST))
-        assertEquals(listOf(now - day), c.timeMachine.snapshots().map { it.timestamp })
+        assertEquals(listOf(now - day), c.timeMachine.snapshotTimes())
         assertEquals(1, c.undoStorage.clearSnapshots(SnapshotKeep.NONE))
         val after = c.undoStorage.usage()
         assertEquals(0, after.snapshots)

@@ -44,12 +44,21 @@ object ContactText {
     }
 }
 
-/** Keeps ContentProvider batches under the provider's operation limit (it rejects very large batches). */
+/**
+ * Keeps ContentProvider batches under the provider's operation limit: ContactsProvider rejects a batch with more than
+ * 500 operations between yield points, and one long transaction keeps every other reader of contacts waiting.
+ */
 object Batches {
-    /** Well under the provider's ~500 operations between yield points. */
-    const val MAX_OPS = 200
+    /** Operations per batch: under the provider's 500 even with no yield point at all. */
+    const val MAX_OPS = 400
+
+    /** A batch of independent operations lets the provider commit and let others in this often. */
+    const val YIELD_EVERY = 100
 
     fun <T> chunks(ops: List<T>, max: Int = MAX_OPS): List<List<T>> = if (ops.isEmpty()) emptyList() else ops.chunked(max)
+
+    /** Whether the operation at [index] of a batch may be a yield point (never the first: it has nothing to commit). */
+    fun yieldsAt(index: Int): Boolean = index > 0 && index % YIELD_EVERY == 0
 
     /** Every unordered pair of [ids], as AggregationExceptions need for linking or separating raw contacts. */
     fun pairs(ids: List<Long>): List<Pair<Long, Long>> {

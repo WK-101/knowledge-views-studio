@@ -1,13 +1,12 @@
 package app.parley.data.people
 
+import app.parley.data.applyInBatches
 import android.content.ContentProviderOperation
 import android.content.ContentUris
 import android.content.Context
-import android.provider.ContactsContract
 import android.provider.ContactsContract.CommonDataKinds.GroupMembership
 import android.provider.ContactsContract.Data
 import android.provider.ContactsContract.Groups
-import app.parley.common.people.Batches
 import app.parley.common.people.ContactRef
 import app.parley.data.AccountRef
 import app.parley.data.ContactsRepository
@@ -78,9 +77,9 @@ class LabelsRepository(
         if (existing != null) return@withContext merge(setOf(title), t)
         runCatching { privateLabels()?.renamed(mapOf(title to t)) }
         val ops = safe(source.groups).map {
-            ContentProviderOperation.newUpdate(ContentUris.withAppendedId(Groups.CONTENT_URI, it.id)).withValue(Groups.TITLE, t).build()
+            ContentProviderOperation.newUpdate(ContentUris.withAppendedId(Groups.CONTENT_URI, it.id)).withValue(Groups.TITLE, t)
         }
-        val n = cr.applyBatch(ContactsContract.AUTHORITY, ArrayList(ops)).size
+        val n = cr.applyInBatches(ops).size
         refs?.renamed(mapOf(title to t))
         n
     }
@@ -92,8 +91,7 @@ class LabelsRepository(
     suspend fun delete(title: String): String? = withContext(Dispatchers.IO) {
         val l = label(title) ?: return@withContext null
         runCatching { privateLabels()?.deleted(l.title) }
-        val ops = safe(l.groups).map { ContentProviderOperation.newDelete(ContentUris.withAppendedId(Groups.CONTENT_URI, it.id)).build() }
-        cr.applyBatch(ContactsContract.AUTHORITY, ArrayList(ops))
+        cr.applyInBatches(safe(l.groups).map { ContentProviderOperation.newDelete(ContentUris.withAppendedId(Groups.CONTENT_URI, it.id)) })
         refs?.deleted(setOf(l.title))
     }
 
@@ -107,7 +105,7 @@ class LabelsRepository(
         runCatching { privateLabels()?.renamed(sources.filter { it != target }.associateWith { target }) }
         val targetLabel = all.firstOrNull { it.title == target }
         var added = 0
-        val deletes = ArrayList<ContentProviderOperation>()
+        val deletes = ArrayList<ContentProviderOperation.Builder>()
         for (src in all.filter { it.title in sources && it.title != target }) {
             for (g in safe(src.groups)) {
                 val targetGroupId = targetLabel?.groups?.firstOrNull { it.account == g.account }?.id ?: contacts.createGroup(target, g.account) ?: continue
@@ -118,14 +116,13 @@ class LabelsRepository(
                         .withValue(Data.RAW_CONTACT_ID, raw)
                         .withValue(Data.MIMETYPE, GroupMembership.CONTENT_ITEM_TYPE)
                         .withValue(GroupMembership.GROUP_ROW_ID, targetGroupId)
-                        .build()
                 }
-                Batches.chunks(ops).forEach { cr.applyBatch(ContactsContract.AUTHORITY, ArrayList(it)) }
+                cr.applyInBatches(ops)
                 added += ops.size
-                deletes += ContentProviderOperation.newDelete(ContentUris.withAppendedId(Groups.CONTENT_URI, g.id)).build()
+                deletes += ContentProviderOperation.newDelete(ContentUris.withAppendedId(Groups.CONTENT_URI, g.id))
             }
         }
-        Batches.chunks(deletes).forEach { cr.applyBatch(ContactsContract.AUTHORITY, ArrayList(it)) }
+        cr.applyInBatches(deletes)
         refs?.renamed(sources.filter { it != target }.associateWith { target })
         added
     }

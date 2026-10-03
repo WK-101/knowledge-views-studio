@@ -4,7 +4,6 @@ import app.parley.common.PhoneIdentity
 import android.content.ContentProviderOperation
 import android.content.ContentUris
 import android.content.Context
-import android.provider.ContactsContract
 import android.provider.ContactsContract.CommonDataKinds.Organization
 import android.provider.ContactsContract.CommonDataKinds.Phone
 import android.provider.ContactsContract.Data
@@ -110,20 +109,20 @@ class HealthScanner(private val context: Context) {
 
     /** Applies automatic fixes (country codes, duplicated titles). Returns rows changed. */
     suspend fun fix(issues: List<HealthIssue>): Int = withContext(Dispatchers.IO) {
-        val ops = ArrayList<ContentProviderOperation>()
+        val ops = ArrayList<ContentProviderOperation.Builder>()
         issues.forEach { i ->
             val id = i.dataId ?: return@forEach
             when (i.kind) {
                 HealthKind.NO_COUNTRY_CODE -> ops += ContentProviderOperation.newUpdate(
                     ContentUris.withAppendedId(Data.CONTENT_URI, id),
-                ).withValue(Phone.NUMBER, i.suggested).build()
+                ).withValue(Phone.NUMBER, i.suggested)
                 HealthKind.TITLE_IS_COMPANY -> ops += ContentProviderOperation.newUpdate(
                     ContentUris.withAppendedId(Data.CONTENT_URI, id),
-                ).withValue(Organization.TITLE, null).build()
+                ).withValue(Organization.TITLE, null)
                 else -> Unit
             }
         }
-        ops.chunked(300).forEach { cr.applyBatch(ContactsContract.AUTHORITY, ArrayList(it)) }
+        cr.applyInBatches(ops)
         ops.size
     }
 }
