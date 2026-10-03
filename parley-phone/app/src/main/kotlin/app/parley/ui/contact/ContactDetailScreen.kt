@@ -676,7 +676,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
         val more = remember(d) { moreFacts(resources, d) }
         if (more.isNotEmpty()) {
             sections.addRows(ContactSection.MORE, sectionTitle(resources, ContactSection.MORE), resources.getQuantityString(R.plurals.contact_page_count_items, more.size, more.size)) {
-                more.forEachIndexed { i, f -> item { GroupDataRow(Icons.Rounded.Info, i == 0, f.value, f.label, onClick = {}) } }
+                more.forEachIndexed { i, f -> item { GroupDataRow(Icons.Rounded.Info, i == 0, f.value, f.label, onClick = null) } }
             }
         }
         val note = meta?.pinnedNote
@@ -712,7 +712,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
             resources.getQuantityString(R.plurals.contact_page_count_items, otherFields.size, otherFields.size),
             after = { GroupNote(stringResource(R.string.detail_other_fields_note)) },
         ) {
-            otherFields.forEachIndexed { i, f -> item { GroupDataRow(Icons.Rounded.Info, i == 0, f.value, f.label, onClick = {}) } }
+            otherFields.forEachIndexed { i, f -> item { GroupDataRow(Icons.Rounded.Info, i == 0, f.value, f.label, onClick = null) } }
         }
         // Everything that changes how Parley and the phone treat this person rather than describing them.
         sections.addRows(ContactSection.SETTINGS, sectionTitle(resources, ContactSection.SETTINGS), resources.getString(R.string.contact_page_settings_summary)) {
