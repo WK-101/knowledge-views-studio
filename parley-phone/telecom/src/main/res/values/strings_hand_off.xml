@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Send a ringing call on to another number (deflect, where the network supports it). -->
+    <string name="handoff_deflect">Send to another number</string>
+    <string name="handoff_deflect_title">Send this call to</string>
+    <string name="handoff_deflect_body">The call goes on to that number without being answered here.</string>
+    <string name="handoff_field">Name or number</string>
+    <string name="handoff_use_number">Use %1$s</string>
+    <string name="handoff_locked">Unlock Parley to pick from your contacts, or type the number.</string>
+    <string name="handoff_no_matches">No saved numbers match. Type the whole number to use it.</string>
+    <string name="handoff_not_a_number">Calls can\'t be sent to that number.</string>
+    <string name="handoff_ended_deflected">Sent to another number</string>
+    <string name="handoff_deflect_failed">The call couldn\'t be sent on. It\'s still ringing.</string>
+</resources>

@@ -13,6 +13,7 @@ import androidx.annotation.VisibleForTesting
 import app.parley.common.BlockReason
 import android.telecom.Connection
 import android.telecom.DisconnectCause
+import android.telecom.PhoneAccount
 import android.telecom.PhoneAccountHandle
 import android.telecom.TelecomManager
 import android.telecom.VideoProfile
@@ -34,6 +35,9 @@ import app.parley.common.calls.DropFacts
 import app.parley.common.calls.DropKind
 import app.parley.common.calls.HoldMode
 import app.parley.common.calls.CallFailure
+import app.parley.common.calls.CallHandOff
+import app.parley.common.calls.SpeakerDefault
+import app.parley.common.calls.SpeakerOnStart
 import app.parley.common.calls.DriveProfile
 import app.parley.common.calls.EmergencyPolicy
 import app.parley.common.calls.EmergencyPolicy.Safeguard
@@ -297,6 +301,8 @@ object CallManager {
             scope.launch {
                 var looked = false
                 val found = withTimeoutOrNull(LOOKUP_TIMEOUT_MS) { runCatching { deps.callerInfo(number, accountId) }.also { looked = it.isSuccess }.getOrNull() }
+                // Only a lookup that answered: after a timeout nobody knows whether the caller is saved.
+                if (looked) s.lookupDone = true
                 if (found != null) {
                     s.info = found
                     if (incoming) {
@@ -323,9 +329,13 @@ object CallManager {
                 }
                 publish()
             }
-        } else if (incoming) {
-            s.unknownCaller = true
-            scope.launch { if (!silenceInCar(call, s, null, accountId)) maybePlayUnknownRingtone(call, s) }
+        } else {
+            // Nothing to look up.
+            s.lookupDone = true
+            if (incoming) {
+                s.unknownCaller = true
+                scope.launch { if (!silenceInCar(call, s, null, accountId)) maybePlayUnknownRingtone(call, s) }
+            }
         }
         publish()
     }
@@ -605,6 +615,7 @@ object CallManager {
         _calls.value = top
         CallClock.onCallsChanged(top)
         notifier.send(top)
+        speakerOnStart()
     }
 
     private fun toUi(call: Call): CallUi {
@@ -645,7 +656,7 @@ object CallManager {
             canRespondViaText = can(Call.Details.CAPABILITY_RESPOND_VIA_TEXT),
             accountLabel = accountLabel(account),
             verification = verificationOf(call),
-            disconnectReason = if (s.endedByLimit) str(R.string.call_limit_reached) else d.disconnectCause?.let { disconnectText(it) },
+            disconnectReason = endedReason(s) ?: d.disconnectCause?.let { disconnectText(it) },
             postDialWait = s.postDial,
             silenced = s.silenced,
             silenceReason = silenceReasonOf(s),
@@ -679,7 +690,15 @@ object CallManager {
             // Only ever set for a number the lookup found no contact for.
             numberMemory = s.numberMemory,
             driving = drivingNow(state),
+            handOff = handOffFacts(call),
         ).withRangThrough(s)
+    }
+
+    /** Why the call ended, when Parley ended it on purpose (a limit, sent to another number). */
+    private fun endedReason(s: CallSession): String? = when {
+        s.endedByLimit -> str(R.string.call_limit_reached)
+        s.handedOff == HandOff.DEFLECTED -> str(R.string.handoff_ended_deflected)
+        else -> null
     }
 
     /** The caller is a contact or a private contact (found by the lookup, or named by Telecom from the contacts). */
@@ -1495,12 +1514,128 @@ object CallManager {
     internal fun updateAudio(audio: AudioUi) {
         _audio.value = audio
         notifier.send(_calls.value)
+        speakerOnStart()
+    }
+
+    // ---- Start calls on speaker ----
+
+    /**
+     * Settings › Calls › "Start calls on speaker" ([SpeakerOnStart]): decided once per call, as soon as it is answered
+     * or dialled and the audio routes are known; the Speaker button stays the user's after that.
+     */
+    private fun speakerOnStart() {
+        if (!::appContext.isInitialized) return
+        val top = calls.filter { it.parent == null }
+        if (top.isEmpty()) return
+        val choice = runCatching { deps.speakerDefault() }.getOrDefault(SpeakerDefault.OFF)
+        val audio = _audio.value
+        top.forEach { c ->
+            val s = sessions[idOf(c)]?.takeIf { !it.speakerDecided } ?: return@forEach
+            val facts = speakerFacts(c, s, choice, audio, otherCall = top.any { it != c && mapState(it.stateCompat()) !in ENDING_STATES })
+            when (if (facts == null) SpeakerOnStart.Step.LEAVE else SpeakerOnStart.step(facts)) {
+                SpeakerOnStart.Step.WAIT -> Unit
+                SpeakerOnStart.Step.LEAVE -> s.speakerDecided = true
+                SpeakerOnStart.Step.TURN_ON -> {
+                    s.speakerDecided = true
+                    audio.routes.firstOrNull { it.type == RouteType.SPEAKER }?.let { setRoute(it) }
+                }
+            }
+        }
+    }
+
+    /** What [SpeakerOnStart] decides on for [c]; null once the call is ending (nothing left to decide). */
+    private fun speakerFacts(c: Call, s: CallSession, choice: SpeakerDefault, audio: AudioUi, otherCall: Boolean): SpeakerOnStart.Facts? {
+        val st = mapState(c.stateCompat())
+        if (st in ENDING_STATES) return null
+        val d = c.details
+        val number = d.handle?.schemeSpecificPart
+        val hidden = d.handlePresentation != TelecomManager.PRESENTATION_ALLOWED || number.isNullOrBlank()
+        val incoming = d.callDirection == Call.Details.DIRECTION_INCOMING
+        return SpeakerOnStart.Facts(
+            choice = choice,
+            started = if (incoming) st == CallState.ACTIVE else st in SPEAKER_DIAL_STATES,
+            emergency = isEmergencyCall(c, number),
+            savedCaller = when {
+                s.info != null || d.contactDisplayNameCompat() != null -> true
+                hidden || s.lookupDone -> false
+                else -> null
+            },
+            otherCall = otherCall,
+            route = speakerRoute(audio.current?.type),
+            speakerAvailable = audio.routes.any { it.type == RouteType.SPEAKER },
+            holdMode = s.holdModeSince != 0L,
+        )
+    }
+
+    private fun speakerRoute(type: RouteType?): SpeakerOnStart.Route = when (type) {
+        null -> SpeakerOnStart.Route.UNKNOWN
+        RouteType.EARPIECE -> SpeakerOnStart.Route.EARPIECE
+        RouteType.SPEAKER -> SpeakerOnStart.Route.SPEAKER
+        else -> SpeakerOnStart.Route.HEADSET
+    }
+
+    // ---- Send to another number (deflect) ----
+
+    /** What the network lets this ringing call do ("Send to another number"). */
+    private fun handOffFacts(c: Call): CallHandOff.Facts {
+        val d = c.details
+        return CallHandOff.Facts(
+            ringing = mapState(c.stateCompat()) == CallState.RINGING,
+            emergency = isEmergencyCall(c, d.handle?.schemeSpecificPart),
+            conference = d.hasProperty(Call.Details.PROPERTY_CONFERENCE),
+            canDeflect = (d.callCapabilities and Call.Details.CAPABILITY_SUPPORT_DEFLECT) != 0,
+        )
+    }
+
+    /**
+     * "Send to another number": the ringing call [id] goes on to [number] unanswered (deflect). False when it can't be
+     * asked (not offered for this call, or not a number to send a call to, such as an emergency number); [onProblem]
+     * hears when the network didn't do it.
+     */
+    fun deflect(id: String, number: String, onProblem: (String) -> Unit = {}): Boolean {
+        val call = find(id) ?: return false
+        val target = CallHandOff.target(number)?.takeIf { !isEmergency(it) } ?: return false
+        if (!CallHandOff.deflectOffered(handOffFacts(call))) return false
+        handingOff(id, HandOff.DEFLECTED)
+        silenceRinger()
+        ringer.stop()
+        call.deflect(Uri.fromParts(PhoneAccount.SCHEME_TEL, target, null))
+        watchHandOff(id, onProblem)
+        return true
+    }
+
+    private fun handingOff(id: String, how: HandOff) {
+        val s = session(id)
+        // Ended on purpose: never "Call dropped" or a failure.
+        s.userEnded = true
+        s.handedOff = how
+        autoAnswer.cancel(s)
+        publish()
+    }
+
+    /**
+     * Telecom reports no outcome for a deflect: when the call is still there after [HAND_OFF_WAIT_MS], the network
+     * didn't send it on, so it is the user's again and [onProblem] says so.
+     */
+    private fun watchHandOff(id: String, onProblem: (String) -> Unit) {
+        scope.launch {
+            if (gone(id, HAND_OFF_WAIT_MS)) return@launch
+            val s = sessions[id] ?: return@launch
+            s.userEnded = false
+            s.handedOff = null
+            publish()
+            str(R.string.handoff_deflect_failed)?.let(onProblem)
+        }
     }
 
     private val DIALLING_STATES = setOf(CallState.NEW, CallState.DIALING, CallState.CONNECTING)
     private val FRONT_STATES = DIALLING_STATES + CallState.ACTIVE
     private val BUSY_STATES = FRONT_STATES + setOf(CallState.RINGING, CallState.SELECT_ACCOUNT)
     private val ANSWERED_STATES = setOf(CallState.ACTIVE, CallState.HOLDING)
+    private val ENDING_STATES = setOf(CallState.DISCONNECTING, CallState.DISCONNECTED)
+
+    /** An outgoing call starts on the speaker while it is dialled (the ringback is heard there too). */
+    private val SPEAKER_DIAL_STATES = setOf(CallState.DIALING, CallState.CONNECTING, CallState.ACTIVE)
     private const val RESUME_DELAY_MS = 600L
     private const val ROUTE_SETTLE_MS = 1500L
     private const val PENDING_OUTGOING_MS = 8000L
@@ -1512,6 +1647,9 @@ object CallManager {
     /** I11: how long silencing an unknown caller in the car waits for screening beyond its own timeout, and how often it looks. */
     private const val SCREEN_GRACE_MS = 500L
     private const val SCREEN_POLL_MS = 50L
+
+    /** How long sending a call on may take before it counts as still the user's. */
+    private const val HAND_OFF_WAIT_MS = 10_000L
 
     /** How long "Check it's really them" waits for the call to end before dialling. */
     private const val HANG_UP_WAIT_MS = 3000L

@@ -17,6 +17,7 @@ import app.parley.common.calls.MenuPath
 import app.parley.common.calls.MenuPress
 import app.parley.common.calls.MenuStep
 import app.parley.common.calls.RingFacts
+import app.parley.common.calls.SpeakerDefault
 import app.parley.common.calls.VerifyCallBack
 import app.parley.common.spam.RangeProposal
 import app.parley.common.ux.CallScreenBackground
@@ -99,6 +100,8 @@ data class InCallAppearance(
     val callBackground: CallScreenBackground = CallScreenBackground.CALLER_COLOUR,
     /** Settings › Privacy & security › "Caller on the lock screen": the notifications and the call screen while locked. */
     val lockScreenCaller: LockScreenCaller = LockScreenCaller.NAME,
+    /** "Text me your name": the reply offered first to numbers that aren't saved; blank: off. */
+    val nameReply: String = "",
 )
 
 /** Who is calling: the caller card and the post-call card's name suggestion. */
@@ -138,6 +141,12 @@ interface CallerInfoSource {
      * locked (the call screen then opens Parley instead of listing contacts).
      */
     suspend fun savedOrganisations(): List<VerifyCallBack.Saved>? = emptyList()
+
+    /**
+     * "Transfer…" and "Send to another number": every saved number to pick from (contacts and, unless discreet mode
+     * hides them, private contacts). Null while Parley's app lock is locked: only a typed number can be used then.
+     */
+    suspend fun handOffTargets(): List<VerifyCallBack.Saved>? = emptyList()
 }
 
 /** Blocking and screening as the call path uses them, and the emergency checks that override them. */
@@ -209,6 +218,12 @@ interface CallPolicyHooks {
 
     /** L3: Settings › Calls › "Answer with RTT": ask to switch an answered call to RTT where the SIM supports it. */
     fun answerWithRtt(): Boolean = false
+
+    /** Settings › Calls › "Start calls on speaker", read from memory on the call path (off by default). */
+    fun speakerDefault(): SpeakerDefault = SpeakerDefault.OFF
+
+    /** Settings › Calls › "Flip to silence", read from memory (off by default). */
+    fun flipToSilence(): Boolean = false
 }
 
 /** What the call path hands back once a call has rung or ended: history, the ledger, notes. Off the call path. */
@@ -268,6 +283,9 @@ interface UiHooks {
 
     /** Turn the screen off near the ear during earpiece calls (Settings › Calls). Read from memory. */
     fun proximityEnabled(): Boolean = true
+
+    /** …only once a call is answered, not while one is being dialled. Read from memory. */
+    fun proximityOnceAnswered(): Boolean = false
 
     /** Whether the one-time tip [id] ([app.parley.common.ux.Tips]) was already seen. Read from memory. */
     fun tipSeen(id: String): Boolean = true

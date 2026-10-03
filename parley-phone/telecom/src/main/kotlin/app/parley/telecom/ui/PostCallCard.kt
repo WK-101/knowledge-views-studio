@@ -11,9 +11,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Chat
+import androidx.compose.material.icons.rounded.Sms
 import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.Flag
 import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.VerifiedUser
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
@@ -56,6 +58,12 @@ sealed interface PostCallChoice {
 
     /** I3: call a saved number instead ("was that really the bank?"). */
     data class Verify(val number: String) : PostCallChoice
+
+    /** "Was it a scam?": the warning signs, handled on the call screen itself. */
+    data object ScamCheck : PostCallChoice
+
+    /** "Ask their name": the messaging app opens with the "Text me your name" reply for the user to send. */
+    data class NameReply(val number: String, val text: String) : PostCallChoice
 
     /** "Anything to remember?" was saved (note and/or a follow-up in [followUpDays]). */
     data class Remember(val number: String, val connectTimeMillis: Long, val note: String?, val followUpDays: Int?) : PostCallChoice
@@ -102,6 +110,11 @@ internal fun PostCallCard(call: CallUi, onChoice: (PostCallChoice) -> Unit) {
                 RemindMeAction(number, call.accountId) { onChoice(PostCallChoice.Done) }
                 Action(Icons.Rounded.Flag, stringResource(R.string.postcall_report)) { onChoice(PostCallChoice.Report(number)) }
                 Action(Icons.Rounded.VerifiedUser, stringResource(R.string.verify_postcall)) { onChoice(PostCallChoice.Verify(number)) }
+                // "Text me your name", for the user to send from the messaging app.
+                nameReplyFor(call)?.let { text ->
+                    Action(Icons.Rounded.Sms, stringResource(R.string.postcall_name_reply)) { onChoice(PostCallChoice.NameReply(number, text)) }
+                }
+                Action(Icons.Rounded.Shield, stringResource(R.string.scam_postcall)) { onChoice(PostCallChoice.ScamCheck) }
             }
             // I2: after a call that looked like a sales line, "Block this range?".
             BlockRangeOffer(call)

@@ -38,14 +38,15 @@ Calls is a short list: the default phone app, one row for each of its four pages
 ### Calls › Answering (`SettingPlace.CALLS_ANSWERING`)
 | Group | Settings |
 |---|---|
-| Incoming calls | Answer incoming calls by `answer_gesture` · Ringtone for unknown callers `unknown_ringtone` · Call screen background `call_background` · Show contact photo on the call screen `caller_photo` |
+| Incoming calls | Answer incoming calls by `answer_gesture` · Ringtone for unknown callers `unknown_ringtone` · Call screen background `call_background` · Show contact photo on the call screen `caller_photo` · Flip to silence `flip_to_silence` (off; turning the phone face down while it rings stops the sound, never declines) |
 | Know who's calling | Answer automatically `auto_answer` (off; with a headset or Bluetooth, in simple mode, for chosen people and labels; after 3–15 s with a countdown and Cancel) · Vibration for callers `caller_vibration` (set on a contact's or a label's page) |
 | Accessibility | Answer with RTT `answer_rtt` (off) · TTY and RTT settings ↗ (Android's call accessibility page; search finds it through `answer_rtt`'s words) |
 
 ### Calls › During calls (`SettingPlace.CALLS_DURING`)
 | Group | Settings |
 |---|---|
-| Vibration and screen | Vibrate on call events `call_haptics` · Vibrate when a call connects `connect_haptic` · Turn the screen off at your ear `proximity_sensor` · Power button ends call `power_button_ends_call` |
+| Speaker | Start calls on speaker `speaker_default` (Never, the default · Always · Numbers not in your contacts; only instead of the earpiece, never for emergency calls) |
+| Vibration and screen | Vibrate on call events `call_haptics` · Vibrate when a call connects `connect_haptic` · Turn the screen off at your ear `proximity_sensor` (Off · During calls, the default · Once answered) · Power button ends call `power_button_ends_call` |
 | Remember what matters | Anything to remember? after calls `memory_prompt` · Notes on the lock screen `memory_lock_screen` · Peek before calling `pre_call_peek` |
 
 ### Calls › SIMs & carrier (`SettingPlace.CALLS_SIMS`)
@@ -108,7 +109,7 @@ Screens of their own for particular calls; search opens each screen directly.
 ## Messaging
 | Group | Settings |
 |---|---|
-| — | Quick reply messages `quick_replies` · My card `my_details` |
+| — | Quick reply messages `quick_replies` (with the "Text me your name" reply for numbers not in your contacts, its own field; empty turns it off) · My card `my_details` |
 | Messaged numbers | Messaged numbers `messaged_numbers` · Forget messaged numbers after `messaged_expiry` |
 
 **On the road** (WP-15; see [CALL_SCREEN_DESIGN.md](CALL_SCREEN_DESIGN.md#47-on-the-road)):
@@ -178,7 +179,7 @@ Channel group **Reminders**: Birthdays, keep in touch & follow-ups (`reminders_v
 - **One Reminders page.** Remind me of missed calls (from Calls), Birthday reminders, Reminder time, Remind me before dates, Keep-in-touch nudges, How keep-in-touch reminders arrive and At most per week (from Contacts) and Remind me to back up (from Backup & sync) moved to **Reminders**, which also lists To call, the after-call prompt and Ask before deleting temporary contacts. Contacts, Recents & history, Calls and Backup & sync link to it. Nothing stored changed, and search finds each by its old words.
 - **Calls has pages of its own.** Its 31 entries were the most of any page. The Calls page now shows the default phone app, four pages (Answering, During calls, SIMs & carrier, Situations), missed calls and voicemail, and Before you call. Family safety's helpers, the drive profile, phone menus and call time are together on Situations. No stored setting changed; search finds every setting by its old words and opens the page it is on now.
 - **Sort by and Show names as are two settings**, as in Android's own Contacts. "Sort and show names by" did both: it is now **Sort by** (`sort_names`, the list order, letter headers and the A–Z index) and **Show names as** (`name_order`, how names read in lists, search, Recents and on the call screen). A phone that never chose Show names as keeps showing names the way it sorts them: the setting is stored only once it differs from what Sort by gives, and restoring a backup made before it existed (Sort by only) shows names the way that backup sorted them. Private contacts follow both settings too, by their family name (from the name's parts; for one saved before those were kept, the last word of the name). Search finds both by "sort and show names by".
-- **Settings budget.** `SettingsSearchTest` records a ceiling for the number of settings and a limit of 22 searchable rows per page. A new setting replaces one or folds into one; one moved onto a screen of its own still counts. Links to a page or list that hold no value of their own (Reminders `reminders`, To call `to_call`, marked `link` in `SettingsCatalog`) are searchable but not counted. 5.1 grew by one setting, from 161 to 162: **Show names as** (`name_order`), which the plan asked for by splitting "Sort and show names by" in two, as Android's Contacts does. Nothing else was added; the ceiling is 162.
+- **Settings budget.** `SettingsSearchTest` records a ceiling for the number of settings and a limit of 22 searchable rows per page. A new setting replaces one or folds into one; one moved onto a screen of its own still counts. Links to a page or list that hold no value of their own (Reminders `reminders`, To call `to_call`, marked `link` in `SettingsCatalog`) are searchable but not counted. 5.1 grew by one setting, from 161 to 162: **Show names as** (`name_order`), which the plan asked for by splitting "Sort and show names by" in two, as Android's Contacts does. Nothing else was added; the ceiling was 162. 5.3 grew by two, to 164, both approved by the owner with the plan (COMPETITIVE_ANALYSIS_7 §8.5 E1, E2): **Start calls on speaker** (`speaker_default`, one choice rather than separate switches for "always", "unknown numbers" and "no headset": a headset or car always wins, so "no headset" needs no choice of its own) and **Flip to silence** (`flip_to_silence`). "Proximity only after answering" folded into **Turn the screen off at your ear**, which became a choice (Off · During calls · Once answered) instead of a switch, and the "Text me your name" reply is a field of **Quick reply messages**, so neither counts.
 
 ## Changes in 4.1
 

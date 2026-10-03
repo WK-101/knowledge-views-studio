@@ -34,6 +34,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Message
+import androidx.compose.material.icons.automirrored.rounded.PhoneForwarded
 import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.CallEnd
@@ -115,6 +116,8 @@ import kotlin.math.sin
 fun IncomingControls(
     call: CallUi, gesture: AnswerGesture, hasActiveCall: Boolean, onMessage: () -> Unit, onBlockAndDecline: (() -> Unit)? = null,
     simple: Boolean = false, confirmDecline: Boolean = false,
+    /** "Send to another number" (deflect), where the network supports it. */
+    onDeflect: (() -> Unit)? = null,
 ) {
     // Simple mode asks before declining, so a stray tap never sends a call away.
     var askDecline by remember { mutableStateOf(false) }
@@ -128,7 +131,7 @@ fun IncomingControls(
         Modifier.widthIn(max = CallButtonSize.panelMaxWidth).fillMaxWidth().padding(bottom = Spacing.xl),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        IncomingSecondaryRow(call, onMessage, onBlockAndDecline)
+        IncomingSecondaryRow(call, onMessage, onBlockAndDecline, onDeflect)
         Spacer(Modifier.height(Spacing.xxl))
         // On dual-SIM phones, which SIM the call came in on, as a label above the control (never inside the track).
         val sim = call.simHint
@@ -153,7 +156,7 @@ fun IncomingControls(
  * "Silenced" once the ringer is off.
  */
 @Composable
-private fun IncomingSecondaryRow(call: CallUi, onMessage: () -> Unit, onBlockAndDecline: (() -> Unit)?) {
+private fun IncomingSecondaryRow(call: CallUi, onMessage: () -> Unit, onBlockAndDecline: (() -> Unit)?, onDeflect: (() -> Unit)?) {
     val canReply = !call.hidden && !call.number.isNullOrBlank()
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
         Slot {
@@ -175,7 +178,7 @@ private fun IncomingSecondaryRow(call: CallUi, onMessage: () -> Unit, onBlockAnd
         }
         // "Block & decline" sits behind More, two deliberate taps, so it can't happen by accident; so do the
         // follow-ups ("Decline & remind", "Decline & message or call on…").
-        Slot { if (onBlockAndDecline != null || offersDeclineFollowUp(call)) BlockAndDeclineMenu(call, onBlockAndDecline) }
+        Slot { if (onBlockAndDecline != null || onDeflect != null || offersDeclineFollowUp(call)) BlockAndDeclineMenu(call, onBlockAndDecline, onDeflect) }
     }
 }
 
@@ -233,14 +236,22 @@ private fun BigAction(icon: ImageVector, label: String, color: Color, onClick: (
     }
 }
 
-/** More on the incoming screen, with the follow-ups ([DeclineFollowUpItems]) and "Block & decline". */
+/** More on the incoming screen, with the follow-ups ([DeclineFollowUpItems]), "Send to another number" and "Block & decline". */
 @Composable
-private fun BlockAndDeclineMenu(call: CallUi, onBlockAndDecline: (() -> Unit)?) {
+private fun BlockAndDeclineMenu(call: CallUi, onBlockAndDecline: (() -> Unit)?, onDeflect: (() -> Unit)?) {
     var open by remember { mutableStateOf(false) }
     Box {
         QuietAction(Icons.Rounded.MoreVert, stringResource(R.string.incall_more), { open = true }, spoken = stringResource(R.string.incall_incoming_more))
         DropdownMenu(open, onDismissRequest = { open = false }) {
             DeclineFollowUpItems(call) { open = false }
+            if (onDeflect != null) DropdownMenuItem(
+                text = { Text(stringResource(R.string.handoff_deflect)) },
+                leadingIcon = { Icon(Icons.AutoMirrored.Rounded.PhoneForwarded, null) },
+                onClick = {
+                    open = false
+                    onDeflect()
+                },
+            )
             if (onBlockAndDecline != null) DropdownMenuItem(
                 text = { Text(stringResource(R.string.incall_block_decline)) },
                 leadingIcon = { Icon(Icons.Rounded.Block, null, tint = CallColors.Decline) },

@@ -22,6 +22,9 @@ internal class CallSession(val id: String) {
     /** "Where is this number from", once the geocoder answered. */
     var location: String? = null
 
+    /** The caller lookup has finished (found someone or not), or there was nothing to look up (a hidden number). */
+    var lookupDone = false
+
     /** I1: what Parley remembers about a number that isn't a contact, once looked up. */
     var numberMemory: NumberMemoryLine? = null
 
@@ -123,4 +126,15 @@ internal class CallSession(val id: String) {
 
     /** The audio route before hold mode turned the speaker on, restored when it ends. */
     var routeBeforeHold: AudioRoute? = null
+
+    // ---- Speaker on start, sending a call on ----
+
+    /** "Start calls on speaker" has decided for this call (once: after that the Speaker button is the user's). */
+    var speakerDecided = false
+
+    /** The call was handed on (sent to another number): how it ended. */
+    var handedOff: HandOff? = null
 }
+
+/** How a call was handed to someone else ([CallManager.deflect]). */
+internal enum class HandOff { DEFLECTED }

@@ -11,6 +11,7 @@ import android.telecom.CallEndpoint
 import android.telecom.CallEndpointException
 import android.telecom.InCallService
 import androidx.annotation.RequiresApi
+import app.parley.common.calls.ScreenAtEar
 import app.parley.telecom.ui.InCallActivity
 
 /**
@@ -23,6 +24,7 @@ class ParleyInCallService : InCallService() {
 
     private lateinit var notifier: CallNotifier
     private lateinit var proximity: ProximityController
+    private lateinit var flip: FlipSilencer
     private var endpoints: List<CallEndpoint> = emptyList()
     private var currentEndpoint: CallEndpoint? = null
     private var muted = false
@@ -32,13 +34,21 @@ class ParleyInCallService : InCallService() {
         super.onCreate()
         notifier = CallNotifier(this)
         proximity = ProximityController(this)
+        flip = FlipSilencer(this)
         CallManager.service = this
         CallClock.attach(this)
         CallManager.onChanged = { calls ->
             notifier.update(calls)
-            proximity.update(calls, CallManager.audio.value, CallManager.uiVisible, runCatching { TelecomGraph.dependencies.proximityEnabled() }.getOrDefault(true))
+            proximity.update(calls, CallManager.audio.value, CallManager.uiVisible, proximityMode())
+            flip.update(calls, runCatching { TelecomGraph.dependencies.flipToSilence() }.getOrDefault(false))
         }
     }
+
+    /** Settings › Calls › "Turn the screen off at your ear", read from memory. */
+    private fun proximityMode(): ScreenAtEar.Mode = runCatching {
+        val d = TelecomGraph.dependencies
+        ScreenAtEar.mode(d.proximityEnabled(), d.proximityOnceAnswered())
+    }.getOrDefault(ScreenAtEar.Mode.DURING_CALLS)
 
     override fun onCallAdded(call: Call) {
         super.onCallAdded(call)
@@ -76,6 +86,7 @@ class ParleyInCallService : InCallService() {
         CallManager.onChanged = null
         notifier.release()
         proximity.release()
+        flip.stop()
         super.onDestroy()
     }
 

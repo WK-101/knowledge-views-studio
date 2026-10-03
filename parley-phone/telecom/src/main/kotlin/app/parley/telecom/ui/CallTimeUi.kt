@@ -28,6 +28,7 @@ import androidx.compose.material.icons.rounded.GroupAdd
 import androidx.compose.material.icons.rounded.HourglassTop
 import androidx.compose.material.icons.rounded.Keyboard
 import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material.icons.rounded.TimerOff
 import androidx.compose.material.icons.rounded.VerifiedUser
@@ -49,6 +50,7 @@ import androidx.compose.ui.res.stringResource
 import android.content.res.Resources
 import app.parley.telecom.R
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.contentDescription
@@ -216,6 +218,8 @@ internal fun CallMoreSheet(
     /** L3: "Switch to RTT" (the SIM supports it), or "RTT conversation" once [rttActive]. */
     onRtt: (() -> Unit)? = null,
     rttActive: Boolean = false,
+    /** "Is this a scam?" for a number that isn't saved. */
+    onScamCheck: (() -> Unit)? = null,
 ) {
     ParleySheet(onDismissRequest = onDismiss, title = stringResource(R.string.incall_more_options)) {
         controls.forEach { c ->
@@ -237,15 +241,8 @@ internal fun CallMoreSheet(
                 modifier = Modifier.clickable { onDismiss(); onHoldMode() },
             )
         }
-        if (onVerify != null) {
-            ParleyListItem(
-                headlineContent = { Text(stringResource(R.string.verify_title)) },
-                supportingContent = { Text(stringResource(R.string.verify_explainer)) },
-                leadingContent = { Icon(Icons.Rounded.VerifiedUser, null) },
-                colors = rowColors(),
-                modifier = Modifier.clickable { onDismiss(); onVerify() },
-            )
-        }
+        if (onScamCheck != null) ExplainedRow(Icons.Rounded.Shield, R.string.scam_title, R.string.scam_more_explainer) { onDismiss(); onScamCheck() }
+        if (onVerify != null) ExplainedRow(Icons.Rounded.VerifiedUser, R.string.verify_title, R.string.verify_explainer) { onDismiss(); onVerify() }
         if (onAddHelper != null) {
             ParleyListItem(
                 headlineContent = { Text(stringResource(R.string.helper_add)) },
@@ -291,6 +288,18 @@ internal fun CallMoreSheet(
         CallTimeSection(call, timing, onDismiss)
         Spacer(Modifier.height(Spacing.xl))
     }
+}
+
+/** A More row that says in one line what it does. */
+@Composable
+private fun ExplainedRow(icon: ImageVector, title: Int, explainer: Int, onClick: () -> Unit) {
+    ParleyListItem(
+        headlineContent = { Text(stringResource(title)) },
+        supportingContent = { Text(stringResource(explainer)) },
+        leadingContent = { Icon(icon, null) },
+        colors = rowColors(),
+        modifier = Modifier.clickable(onClick = onClick),
+    )
 }
 
 /** The call's limit and the wrap-up chips, as one card at the bottom of the More sheet. */
