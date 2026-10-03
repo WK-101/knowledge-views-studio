@@ -4,6 +4,8 @@ import java.io.ByteArrayOutputStream
 import java.util.IdentityHashMap
 import java.util.Locale
 import app.parley.common.AltCalendar
+import app.parley.common.AltCalendars
+import app.parley.common.CalendarConverter
 import app.parley.common.people.AddressParts
 import app.parley.common.people.Profile
 import app.parley.common.people.ProfileService
@@ -17,7 +19,6 @@ import ezvcard.VCard
 import ezvcard.VCardVersion
 import ezvcard.io.scribe.ScribeIndex
 import ezvcard.parameter.ImageType
-import ezvcard.parameter.VCardParameters
 import ezvcard.property.Address
 import ezvcard.property.Anniversary
 import ezvcard.property.Birthday
@@ -78,7 +79,11 @@ import java.util.Base64
  * **RFC 9554**: N's secondary surname and generation ([Mime.NAME_PARTS]) and ADR's room … direction (the address
  * row's [AddressParts.COLUMN]) travel as those components ([Rfc9554]); languages as `LANG` (or `LANGUAGE`, for the card's
  * own); social profiles as `SOCIALPROFILE` with `SERVICE-TYPE` and `USERNAME` (the older `URL` + `X-ABLabel` and
- * `X-SOCIALPROFILE` are still read). A date kept by another calendar ([AltCalendar]) carries `CALSCALE`. Custom
+ * `X-SOCIALPROFILE` are still read). A date kept by another calendar ([AltCalendar]) is written as its Gregorian day
+ * with Parley's [X_CALENDAR] parameter naming the calendar it recurs by. RFC 6350's `CALSCALE` would say the value
+ * itself is written in that calendar, so Parley never writes it; on import such a value is converted to its
+ * Gregorian day where the calendar's numbering is unambiguous ([AltCalendars.fromWritten]), and otherwise kept as
+ * written in a custom field and named in the import report. Custom
  * fields ([Mime.CUSTOM_FIELD], and Google's, which become them) are `itemN.X-PARLEY-CUSTOM` with an `X-ABLabel`.
  *
  * **Starred** is written as `X-PARLEY-STARRED:1` (not `CATEGORIES:starred`, which would collide with a real
@@ -102,6 +107,9 @@ object VCardMapper {
     /** [Mime.LANGUAGE]'s DATA3 for a language read from [LANGUAGE] rather than LANG. */
     const val CARD_LANGUAGE = "card"
     private const val CALSCALE = "CALSCALE"
+
+    /** The calendar a date recurs by ([AltCalendar.key]), on the date's Gregorian value. */
+    const val X_CALENDAR = "X-PARLEY-CALENDAR"
     private const val GREGORIAN = "gregorian"
     private const val SERVICE_TYPE = "SERVICE-TYPE"
     private const val USERNAME = "USERNAME"
@@ -138,6 +146,7 @@ object VCardMapper {
     /** Kinds whose primary flags are meaningless once flattened to one raw contact. */
     private val NO_FLAGS = setOf(Mime.NAME, Mime.PHOTO, Mime.GROUP, Mime.PRONOUNS, Mime.NAME_PARTS, Mime.CUSTOM_FIELD)
 
+    private val URL_SCHEME = Regex("^[A-Za-z][A-Za-z0-9+.-]*://\\S")
     private val DATE_FULL = Regex("""^(\d{4})-(\d{2})-(\d{2})$""")
     private val DATE_BASIC = Regex("""^(\d{4})(\d{2})(\d{2})$""")
     private val DATE_TIME = Regex("""^(\d{4})-(\d{2})-(\d{2})T.*$""")
@@ -375,6 +384,13 @@ object VCardMapper {
         return raw
     }
 
+    /** A SOCIALPROFILE's value when it is an address (a URI, the default), not a user name; null otherwise. */
+    private fun profileUrl(p: RawProperty, value: String): String? {
+        if (p.getParameter("VALUE")?.equals("text", ignoreCase = true) == true) return null
+        val v = unescapeRaw(value).replace("\\:", ":").trim()
+        return v.takeIf { URL_SCHEME.containsMatchIn(it) }
+    }
+
     private fun stripSip(s: String) = if (s.startsWith("sip:", ignoreCase = true)) s.substring(4) else s
 
     // ------------------------------------------------------------------------------------------------
@@ -535,9 +551,10 @@ object VCardMapper {
                             if (label != null) { raw(X_LABEL, label, g); consumed += Col.D2; if (t == "0") consumed += Col.D3 }
                         }
                     }
-                    // A date kept by another calendar (AltCalendar): its name as CALSCALE.
+                    // A date kept by another calendar (AltCalendar): the value stays Gregorian, the calendar is Parley's
+                    // parameter. Any other DATA14 value rides along as a residual parameter, as it is.
                     v[AltCalendar.COLUMN]?.takeIf { AltCalendar.byKey(it)?.key == it }?.let {
-                        p.parameters.put(VCardParameters.CALSCALE, it)
+                        p.addParameter(X_CALENDAR, it)
                         consumed += AltCalendar.COLUMN
                     }
                     finish(p, r, consumed)
@@ -633,9 +650,10 @@ object VCardMapper {
 
     /**
      * Maps one parsed card to a record with a single account-less raw contact. Properties with no place in an
-     * Android contact are counted in [unmapped] (by property name) instead of being dropped silently.
+     * Android contact are counted in [unmapped] (by property name) instead of being dropped silently. [calendars]
+     * converts a date written in another calendar (`CALSCALE`); without it such a date is kept as written.
      */
-    fun fromVCard(card: VCard, unmapped: MutableMap<String, Int>? = null): ContactRecord {
+    fun fromVCard(card: VCard, unmapped: MutableMap<String, Int>? = null, calendars: CalendarConverter? = null): ContactRecord {
         fun skip(name: String) { unmapped?.let { it[name] = (it[name] ?: 0) + 1 } }
         val props = card.properties.toList()
         val labels = HashMap<String, String>()
@@ -678,11 +696,12 @@ object VCardMapper {
         }
 
         fun pref(p: VCardProperty): Int? {
-            // ez-vcard throws on a malformed PREF ("PREF=1E"); that must not cost the whole card.
+            // ez-vcard throws on a malformed PREF ("PREF=1E"); that must not cost the whole card, nor make the value
+            // preferred over one whose PREF is well formed: it counts as not stated.
             val stated = try {
                 p.parameters.pref
             } catch (_: IllegalStateException) {
-                1
+                null
             }
             return stated ?: if (p.parameters.types.any { it.equals("pref", true) }) 1 else null
         }
@@ -702,18 +721,36 @@ object VCardMapper {
             return row
         }
 
-        /** A date's CALSCALE other than Gregorian, for the event row's [AltCalendar.COLUMN]. */
-        fun calendar(p: VCardProperty, v: MutableMap<String, String>): MutableMap<String, String> {
-            p.parameters.get(CALSCALE).firstOrNull()?.trim()?.lowercase(Locale.ROOT)
-                ?.takeIf { it.isNotEmpty() && it != GREGORIAN }?.let { v[AltCalendar.COLUMN] = it }
-            return v
+        /**
+         * The event row [v] for the date property [p] (called [what] if it can't be a date), with the calendar it
+         * recurs by. Parley's [X_CALENDAR] marks a Gregorian value. A real `CALSCALE` other than Gregorian means the
+         * value is written in that calendar (RFC 6350 §5.8): it becomes its Gregorian day, recurring by that calendar,
+         * where the numbering is unambiguous; otherwise it is kept as written in a custom field, and the report says so.
+         */
+        fun event(p: VCardProperty, v: MutableMap<String, String>, what: String): DataRow? {
+            p.getParameter(X_CALENDAR)?.let(::decodeParam)?.trim()?.takeIf { it.isNotEmpty() }?.let { v[AltCalendar.COLUMN] = it }
+            val scale = p.parameters.get(CALSCALE).firstOrNull()?.trim()?.lowercase(Locale.ROOT)?.takeIf { it.isNotEmpty() && it != GREGORIAN }
+                ?: return emit(Mime.EVENT, v, p)
+            val written = v.getValue(Col.D1)
+            val day = DATE_FULL.matchEntire(written)?.destructured?.let { (y, m, d) ->
+                calendars?.let { AltCalendars.fromWritten(scale, y.toInt(), m.toInt(), d.toInt(), it) }
+            }
+            if (day != null) {
+                v[Col.D1] = day.toString()
+                v[AltCalendar.COLUMN] = scale
+                return emit(Mime.EVENT, v, p)
+            }
+            emit(Mime.CUSTOM_FIELD, mutableMapOf(Col.D1 to "$what ($scale calendar)", Col.D2 to written), null)
+            val name = (p as? RawProperty)?.propertyName?.uppercase() ?: if (p is Anniversary) "ANNIVERSARY" else "BDAY"
+            skip("$name;$CALSCALE=$scale (kept as a custom field)")
+            return null
         }
         fun birthday(date: String, p: VCardProperty) {
-            val r = emit(Mime.EVENT, calendar(p, mutableMapOf(Col.D1 to date, Col.D2 to "3")), p)
+            val r = event(p, mutableMapOf(Col.D1 to date, Col.D2 to "3"), "Birthday") ?: return
             if (!birthdaySlot) { birthdaySlot = true; slots[r] = SLOT_FIRST }
         }
         fun anniversary(date: String, p: VCardProperty) {
-            val r = emit(Mime.EVENT, calendar(p, mutableMapOf(Col.D1 to date, Col.D2 to "1")), p)
+            val r = event(p, mutableMapOf(Col.D1 to date, Col.D2 to "1"), "Anniversary") ?: return
             if (!anniversarySlot) { anniversarySlot = true; slots[r] = SLOT_SECOND }
         }
 
@@ -812,7 +849,7 @@ object VCardMapper {
                                 }
                                 val v = linkedMapOf(Col.D1 to date, Col.D2 to t)
                                 l?.let { v[Col.D3] = it }
-                                emit(Mime.EVENT, calendar(p, v), p)
+                                event(p, v, l ?: "Date")
                             }
                         }
                         // ez-vcard keeps dates it cannot parse (e.g. 3.0 "--04-13") as raw BDAY / ANNIVERSARY.
@@ -827,10 +864,11 @@ object VCardMapper {
                             ?.let { emit(Mime.IM, mutableMapOf(Col.D1 to it, Col.D5 to Types.LEGACY_IM.getValue(name).toString()), p, Types.IM) } ?: skip(name)
                         // Social profiles (iOS / vCard 3 X-SOCIALPROFILE, RFC 9554 SOCIALPROFILE): website rows labelled with
                         // the service, the form Android apps show and sync (SocialProfiles). Added after every URL is read.
-                        name == SOCIAL && ProfileService.byLabel(p.getParameter(SERVICE_TYPE)) != null && unescapeRaw(value).isNotBlank() ->
+                        // An RFC 9554 profile address is kept as written; a user name (VALUE=text) becomes the profile's address below.
+                        name == SOCIAL && ProfileService.byLabel(p.getParameter(SERVICE_TYPE)) != null && profileUrl(p, value) != null ->
                             social += SocialRow(
                                 mutableMapOf(
-                                    Col.D1 to unescapeRaw(value).trim(), Col.D2 to SocialProfiles.TYPE_CUSTOM.toString(),
+                                    Col.D1 to profileUrl(p, value).orEmpty(), Col.D2 to SocialProfiles.TYPE_CUSTOM.toString(),
                                     Col.D3 to p.getParameter(SERVICE_TYPE).orEmpty(),
                                 ),
                                 p,
@@ -1032,7 +1070,7 @@ object VCardMapper {
     private fun applyResidual(p: VCardProperty, values: MutableMap<String, String>) {
         for (name in p.parameters.keySet()) {
             val up = name.uppercase()
-            if (!up.startsWith(RESIDUAL_PREFIX) || up == X_BLOB || up == X_DERIVED) continue
+            if (!up.startsWith(RESIDUAL_PREFIX) || up == X_BLOB || up == X_DERIVED || up == X_CALENDAR) continue
             val key = up.removePrefix(RESIDUAL_PREFIX).lowercase().replace('-', '_')
             p.parameters.get(name).firstOrNull()?.let { values[key] = decodeParam(it) }
         }

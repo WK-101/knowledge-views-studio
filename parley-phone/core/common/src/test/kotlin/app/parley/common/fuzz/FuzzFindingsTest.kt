@@ -26,6 +26,12 @@ class FuzzFindingsTest {
         assertEquals("020 7946 0001", phone.values[Col.D1])
     }
 
+    @Test fun aMalformedPrefParameterNeverOutranksAWellFormedOne() {
+        val text = "BEGIN:VCARD\r\nVERSION:4.0\r\nFN:Ada\r\nTEL;PREF=1E:020 7946 0001\r\nTEL;PREF=2:020 7946 0002\r\nEND:VCARD\r\n"
+        val phones = VCardStream.readAll(text).first.single().raws.single().rows.filter { it.mimeType == Mime.PHONE }
+        assertEquals(listOf("020 7946 0002"), phones.filter { it.isPrimary }.map { it.values[Col.D1] })
+    }
+
     @Test fun anImpossibleDateWithoutAYearStillExports() {
         val record = ContactRecord(
             key = "k", displayName = "Grace",

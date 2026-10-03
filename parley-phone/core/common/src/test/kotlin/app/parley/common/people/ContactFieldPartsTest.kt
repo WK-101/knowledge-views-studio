@@ -10,12 +10,16 @@ import org.junit.Test
 /** The pure parts behind custom fields, languages, RFC 9554 address parts and the phone type menu. */
 class ContactFieldPartsTest {
     @Test fun custom_fields_take_googles_kind_only_in_a_google_account() {
-        assertEquals(Mime.GOOGLE_CUSTOM_FIELD, CustomFields.mimeFor("com.google"))
-        assertEquals(Mime.CUSTOM_FIELD, CustomFields.mimeFor(null))
-        assertEquals(Mime.CUSTOM_FIELD, CustomFields.mimeFor("at.bitfire.davdroid"))
-        assertEquals(Mime.CUSTOM_FIELD, CustomFields.mimeIn(Mime.GOOGLE_CUSTOM_FIELD, "vnd.sec.contact.phone"))
-        assertEquals(Mime.GOOGLE_CUSTOM_FIELD, CustomFields.mimeIn(Mime.CUSTOM_FIELD, "com.google"))
-        assertEquals(Mime.PHONE, CustomFields.mimeIn(Mime.PHONE, "com.google"))
+        assertEquals(Mime.GOOGLE_CUSTOM_FIELD, CustomFields.mimeFor("com.google", "Shoe size", "38"))
+        assertEquals(Mime.CUSTOM_FIELD, CustomFields.mimeFor(null, "Shoe size", "38"))
+        assertEquals(Mime.CUSTOM_FIELD, CustomFields.mimeFor("at.bitfire.davdroid", "Shoe size", "38"))
+        assertEquals(Mime.CUSTOM_FIELD, CustomFields.mimeIn(Mime.GOOGLE_CUSTOM_FIELD, "vnd.sec.contact.phone", "Shoe size", "38"))
+        assertEquals(Mime.GOOGLE_CUSTOM_FIELD, CustomFields.mimeIn(Mime.CUSTOM_FIELD, "com.google", "Shoe size", "38"))
+        assertEquals(Mime.PHONE, CustomFields.mimeIn(Mime.PHONE, "com.google", null, null))
+        // Google's field needs a label and a value: half a field stays Parley's, even in a Google account.
+        assertEquals(Mime.CUSTOM_FIELD, CustomFields.mimeFor("com.google", "", "38"))
+        assertEquals(Mime.CUSTOM_FIELD, CustomFields.mimeFor("com.google", "Locker", " "))
+        assertEquals(Mime.CUSTOM_FIELD, CustomFields.mimeIn(Mime.CUSTOM_FIELD, "com.google", null, "38"))
         assertEquals("Shoe size: 38", CustomFields.display(" Shoe size ", "38"))
         assertEquals("38", CustomFields.display("", "38"))
     }

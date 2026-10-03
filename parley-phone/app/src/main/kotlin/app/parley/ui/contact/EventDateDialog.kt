@@ -60,7 +60,9 @@ fun EventDateDialog(
     onPick: (String) -> Unit,
 ) {
     val parsed = EventDate.parse(initial)
-    var calendar by rememberSaveable { mutableStateOf(AltCalendar.byKey(initialCalendar)?.key) }
+    // The stored value as it is (another app's, or a vCard's "islamic-civil"): only the user's own pick replaces it.
+    var calendar by rememberSaveable { mutableStateOf(initialCalendar) }
+    var calendarPicked by rememberSaveable { mutableStateOf(false) }
     var month by rememberSaveable { mutableIntStateOf(parsed?.month ?: LocalDate.now().monthValue) }
     var day by rememberSaveable { mutableIntStateOf(parsed?.day ?: LocalDate.now().dayOfMonth) }
     var withYear by rememberSaveable { mutableStateOf(parsed?.year != null || parsed == null) }
@@ -80,7 +82,7 @@ fun EventDateDialog(
         confirmLabel = stringResource(R.string.main_ok),
         onConfirm = {
             val date = EventDate(if (withYear) yearValue else null, month, day).format()
-            if (onPickCalendar != null) onPickCalendar(date, calendar.takeIf { withYear }) else onPick(date)
+            if (onPickCalendar != null) onPickCalendar(date, if (calendarPicked) calendar.takeIf { withYear } else initialCalendar) else onPick(date)
         },
         onDismiss = onDismiss,
         dismissLabel = stringResource(R.string.main_cancel),
@@ -118,7 +120,10 @@ fun EventDateDialog(
                         Picker(
                             stringResource(R.string.edit_calendar), calendarName(res, AltCalendar.byKey(calendar)), choices.map { calendarName(res, it) },
                             Modifier.fillMaxWidth(),
-                        ) { calendar = choices[it]?.key }
+                        ) {
+                            calendar = choices[it]?.key
+                            calendarPicked = true
+                        }
                     } else if (calendar != null) {
                         Text(stringResource(R.string.edit_calendar_needs_year), style = MaterialTheme.typography.bodySmall)
                     }

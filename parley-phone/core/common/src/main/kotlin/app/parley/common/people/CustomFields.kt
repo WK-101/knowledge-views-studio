@@ -13,11 +13,17 @@ object CustomFields {
 
     fun isCustomField(mime: String): Boolean = mime == Mime.CUSTOM_FIELD || mime == Mime.GOOGLE_CUSTOM_FIELD
 
-    /** The kind a custom field is written as in an account of [accountType]. */
-    fun mimeFor(accountType: String?): String = if (accountType == GOOGLE_ACCOUNT) Mime.GOOGLE_CUSTOM_FIELD else Mime.CUSTOM_FIELD
+    /**
+     * The kind the custom field [label]: [value] is written as in an account of [accountType]: Google's in a Google
+     * account, so it syncs, but only with both halves (Google's user-defined field needs a key and a value, and sync
+     * would drop a half one); otherwise Parley's own.
+     */
+    fun mimeFor(accountType: String?, label: String?, value: String?): String =
+        if (accountType == GOOGLE_ACCOUNT && !label.isNullOrBlank() && !value.isNullOrBlank()) Mime.GOOGLE_CUSTOM_FIELD else Mime.CUSTOM_FIELD
 
-    /** [mime] as written to an account of [accountType]: custom fields take that account's kind, other kinds stay. */
-    fun mimeIn(mime: String, accountType: String?): String = if (isCustomField(mime)) mimeFor(accountType) else mime
+    /** [mime] as written to an account of [accountType]: custom fields take that account's kind ([mimeFor]), other kinds stay. */
+    fun mimeIn(mime: String, accountType: String?, label: String?, value: String?): String =
+        if (isCustomField(mime)) mimeFor(accountType, label, value) else mime
 
     /** One field as the contact page and search show it: "Shoe size: 38", or whichever half is there. */
     fun display(label: String, value: String): String = listOf(label.trim(), value.trim()).filter { it.isNotEmpty() }.joinToString(": ")

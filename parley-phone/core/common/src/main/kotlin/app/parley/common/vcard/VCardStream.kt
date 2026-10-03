@@ -1,5 +1,6 @@
 package app.parley.common.vcard
 
+import app.parley.common.CalendarConverter
 import app.parley.common.record.ContactRecord
 import app.parley.common.security.Bounded
 import app.parley.common.security.LimitExceededException
@@ -64,9 +65,10 @@ object VCardStream {
 
     /**
      * Reads every card in [input], calling [onCard] for each one that maps to a contact. Cards that cannot be
-     * parsed are recorded in [report] with their raw text; unmapped properties are counted there too.
+     * parsed are recorded in [report] with their raw text; unmapped properties are counted there too. [calendars]
+     * reads dates written in another calendar ([VCardMapper.fromVCard]).
      */
-    fun read(input: Reader, report: ImportReportBuilder, onCard: (ParsedCard) -> Unit) {
+    fun read(input: Reader, report: ImportReportBuilder, calendars: CalendarConverter? = null, onCard: (ParsedCard) -> Unit) {
         // Bounded lines and cards: a crafted file can't make one line or one card fill the memory.
         val lines = Bounded.LineReader(input)
         val chunk = StringBuilder()
@@ -93,7 +95,7 @@ object VCardStream {
             if (head.startsWith("END:VCARD") && --depth == 0) {
                 sawCard = true
                 if (index >= Bounded.Caps.IMPORT_ENTRIES) throw LimitExceededException("The file has more than ${Bounded.Caps.IMPORT_ENTRIES} cards")
-                parseChunk(++index, chunk.toString(), report, onCard)
+                parseChunk(++index, chunk.toString(), report, calendars, onCard)
             }
         }
         if (depth > 0) {
@@ -103,7 +105,7 @@ object VCardStream {
         if (!sawCard && stray) report.fail(0, "This file contains no vCards.", "")
     }
 
-    private fun parseChunk(index: Int, raw: String, report: ImportReportBuilder, onCard: (ParsedCard) -> Unit) {
+    private fun parseChunk(index: Int, raw: String, report: ImportReportBuilder, calendars: CalendarConverter?, onCard: (ParsedCard) -> Unit) {
         val record = try {
             val reader = VCardReader(raw)
             reader.defaultQuotedPrintableCharset = Charsets.UTF_8
@@ -114,7 +116,7 @@ object VCardStream {
                 return
             }
             val unmapped = LinkedHashMap<String, Int>()
-            val record = VCardMapper.fromVCard(card, unmapped)
+            val record = VCardMapper.fromVCard(card, unmapped, calendars)
             unmapped.forEach { (k, v) -> report.unmapped(k, v) }
             record
         } catch (e: Exception) {
@@ -150,10 +152,10 @@ object VCardStream {
     }
 
     /** Convenience for tests and small inputs: parses all cards in [text]. */
-    fun readAll(text: String): Pair<List<ContactRecord>, ImportReport> {
+    fun readAll(text: String, calendars: CalendarConverter? = null): Pair<List<ContactRecord>, ImportReport> {
         val report = ImportReportBuilder()
         val out = ArrayList<ContactRecord>()
-        read(text.reader(), report) { out += it.record }
+        read(text.reader(), report, calendars) { out += it.record }
         return out to report.build()
     }
 

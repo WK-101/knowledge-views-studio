@@ -1,5 +1,6 @@
 package app.parley.data.sync
 
+import app.parley.data.people.IcuCalendars
 import android.Manifest
 import android.content.ContentUris
 import android.content.Intent
@@ -484,7 +485,7 @@ class FolderSync(private val context: Context, private val contacts: ContactsRep
     }
 
     private fun parse(bytes: ByteArray): ContactRecord? = runCatching {
-        VCardStream.parseOne(String(bytes, Charsets.UTF_8))?.let { VCardMapper.fromVCard(it) }
+        VCardStream.parseOne(String(bytes, Charsets.UTF_8))?.let { VCardMapper.fromVCard(it, calendars = IcuCalendars) }
     }.getOrNull()
 
     /** Hashed, so names are short, filesystem-safe, never collide after sanitising and say nothing about the person. */

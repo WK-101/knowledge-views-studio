@@ -8,9 +8,10 @@ import java.time.temporal.ChronoUnit
  * or Hijri (Islamic, Umm al-Qura) calendar falls on a different Gregorian day each year.
  *
  * Storage: the event row keeps its Gregorian date (the day it happened, which every other app shows correctly) and
- * Parley marks the calendar it recurs by in the row's DATA14 ([COLUMN]) with [key], the calendar's CLDR / RFC 7529
- * name; vCard carries it as the date's `CALSCALE` parameter. A date without a year can't say which day of another
- * calendar it was, so the mark only counts with a year.
+ * Parley marks the calendar it recurs by in the row's DATA14 ([COLUMN]) with [key], the calendar's CLDR name (as
+ * RFC 7529's RSCALE names it for recurrences); vCard carries it as Parley's `X-PARLEY-CALENDAR` parameter on the
+ * Gregorian date (never `CALSCALE`, which says the value itself is written in that calendar). A date without a year
+ * can't say which day of another calendar it was, so the mark only counts with a year.
  */
 enum class AltCalendar(val key: String) {
     CHINESE("chinese"),
@@ -110,6 +111,20 @@ object AltCalendars {
         if (moved.next(today) != round.date) return null
         return Due(moved, "${calendar.key}-${round.year}", round.year - converter.toAlt(calendar, original).year)
     }
+
+    /**
+     * A day written in another calendar's own numbering (vCard's `CALSCALE`, named [scale]) as its Gregorian day, or
+     * null when that can't be read without guessing. Only Hijri by Umm al-Qura qualifies: its twelve months are
+     * numbered the same way everywhere. A Chinese date has no agreed way to write a leap month or its year, and Hebrew
+     * months are counted from Tishri or from Nisan, with or without Adar I, depending on who wrote them.
+     */
+    fun fromWritten(scale: String, year: Int, month: Int, day: Int, converter: CalendarConverter): LocalDate? {
+        if (scale.trim().lowercase() != AltCalendar.HIJRI.key || month !in 1..HIJRI_MONTHS || day !in 1..MAX_MONTH_DAYS) return null
+        return converter.toGregorian(AltCalendar.HIJRI, AltDay(year, month, day))
+    }
+
+    private const val HIJRI_MONTHS = 12
+    private const val MAX_MONTH_DAYS = 30
 
     private fun plain(date: EventDate, today: LocalDate) = Due(date, date.next(today).year.toString(), date.turning(today))
 

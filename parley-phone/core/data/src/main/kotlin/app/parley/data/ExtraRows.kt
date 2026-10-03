@@ -56,22 +56,36 @@ internal object ExtraRows {
         val old = before.filter { it.id != null }.associateBy { it.id }
         before.filter { it.id != null && it.id !in keep }.forEach { w.delete(it.id!!, it.mime ?: Mime.CUSTOM_FIELD) }
         now.forEach { f ->
-            val mime = f.mime ?: CustomFields.mimeFor(accountType)
+            val kind = f.mime ?: CustomFields.mimeFor(accountType, f.label, f.value)
+            // Google's field needs both halves: in a Google account a field takes Google's kind with both and Parley's
+            // with one, and a row whose kind changes is deleted and inserted again.
+            val mime = when {
+                accountType == CustomFields.GOOGLE_ACCOUNT -> CustomFields.mimeFor(accountType, f.label, f.value)
+                kind == Mime.GOOGLE_CUSTOM_FIELD && (t(f.label).isEmpty() || t(f.value).isEmpty()) -> Mime.CUSTOM_FIELD
+                else -> kind
+            }
             val v = ContentValues().apply {
                 put(Data.DATA1, t(f.label).ifEmpty { null })
                 put(Data.DATA2, t(f.value).ifEmpty { null })
             }
             val prev = f.id?.let { old[it] }
             when {
-                f.id != null && f.isBlank -> w.delete(f.id, mime)
+                f.id != null && f.isBlank -> w.delete(f.id, kind)
                 f.id != null && prev != null && t(prev.label) == t(f.label) && t(prev.value) == t(f.value) -> Unit
+                f.id != null && mime != kind -> {
+                    w.delete(f.id, kind)
+                    w.insert(mime, v)
+                }
                 f.id != null -> w.update(f.id, mime, v)
                 !f.isBlank -> w.insert(mime, v)
             }
         }
     }
 
-    /** Dates, with the calendar each recurs by in [AltCalendar.COLUMN] (cleared for a Gregorian one). */
+    /**
+     * Dates, with the calendar each recurs by in [AltCalendar.COLUMN] (cleared for a Gregorian one). The column is
+     * written only when the calendar changed, so a value another app keeps there survives an edit of the date.
+     */
     @Suppress("CyclomaticComplexMethod") // Delete, keep, update or insert, per row.
     fun events(before: List<EventItem>, now: List<EventItem>, w: Writer) {
         val keep = now.mapNotNull { it.id }.toSet()
@@ -86,8 +100,9 @@ internal object ExtraRows {
                 put(AltCalendar.COLUMN, e.calendar?.takeIf { it.isNotBlank() })
             }
             val prev = e.id?.let { old[it] }
-            val same = prev != null && t(prev.date) == t(e.date) && prev.type == e.type && label(prev) == label(e) &&
-                prev.calendar.orEmpty() == e.calendar.orEmpty()
+            val sameCalendar = prev != null && prev.calendar.orEmpty() == e.calendar.orEmpty()
+            if (sameCalendar) v.remove(AltCalendar.COLUMN)
+            val same = prev != null && t(prev.date) == t(e.date) && prev.type == e.type && label(prev) == label(e) && sameCalendar
             when {
                 e.id != null && e.date.isBlank() -> w.delete(e.id, Event.CONTENT_ITEM_TYPE)
                 e.id != null && same -> Unit

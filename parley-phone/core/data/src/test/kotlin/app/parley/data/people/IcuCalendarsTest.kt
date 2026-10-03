@@ -4,6 +4,9 @@ import app.parley.common.AltCalendar
 import app.parley.common.AltCalendars
 import app.parley.common.AltDay
 import app.parley.common.EventDate
+import app.parley.common.record.Col
+import app.parley.common.record.Mime
+import app.parley.common.vcard.VCardStream
 import java.time.LocalDate
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
@@ -106,6 +109,13 @@ class IcuCalendarsTest {
         // Near New Year itself (1 Tishri, 1 of month 1) nothing goes wrong either way.
         checkAges(AltCalendar.HEBREW, AltDay(5751, 1, 1), 40)
         checkAges(AltCalendar.CHINESE, AltDay(4627, 1, 1), 40)
+    }
+
+    @Test fun a_vcard_date_written_by_hijri_reads_as_its_gregorian_day() {
+        val card = "BEGIN:VCARD\r\nVERSION:4.0\r\nFN:Ana\r\nBDAY;CALSCALE=islamic-umalqura:14461001\r\nEND:VCARD\r\n"
+        val e = VCardStream.readAll(card, IcuCalendars).first.single().raws.single().rows.single { it.mimeType == Mime.EVENT }
+        assertEquals("2025-03-30", e.values[Col.D1])
+        assertEquals(AltCalendar.HIJRI.key, e.values[AltCalendar.COLUMN])
     }
 
     @Test fun reminders_see_the_moved_date() {

@@ -1,6 +1,9 @@
 package app.parley.common.vcard
 
 import app.parley.common.AltCalendar
+import app.parley.common.AltDay
+import app.parley.common.CalendarConverter
+import java.time.LocalDate
 import app.parley.common.people.AddressParts
 import app.parley.common.record.Col
 import app.parley.common.record.Mime
@@ -102,7 +105,7 @@ class ContactFieldsVCardTest {
         assertEquals(listOf("es", "pt-BR", "es-MX"), back.rows(Mime.LANGUAGE).map { it[Col.D1] })
     }
 
-    @Test fun a_date_kept_by_another_calendar_carries_calscale() {
+    @Test fun a_date_kept_by_another_calendar_stays_gregorian_with_parleys_calendar_mark() {
         val r = record(
             "Ana García", name,
             row(Mime.EVENT, Col.D1 to "1990-02-01", Col.D2 to "3", AltCalendar.COLUMN to AltCalendar.CHINESE.key),
@@ -111,10 +114,64 @@ class ContactFieldsVCardTest {
             row(Mime.EVENT, Col.D1 to "2012-01-01", Col.D2 to "2"),
         )
         val text = unfolded(r)
-        assertTrue(text, text.contains("BDAY;CALSCALE=chinese:19900201") || text.contains("BDAY;CALSCALE=chinese:1990-02-01"))
-        assertTrue(text, text.contains("CALSCALE=islamic-umalqura"))
+        assertTrue(text, text.contains("BDAY;X-PARLEY-CALENDAR=chinese:19900201") || text.contains("BDAY;X-PARLEY-CALENDAR=chinese:1990-02-01"))
+        assertTrue(text, text.contains("X-PARLEY-CALENDAR=islamic-umalqura"))
+        // CALSCALE would say the value itself is a Chinese or Hijri date.
+        assertFalse(text, text.contains("CALSCALE"))
         val back = assertLossless(r)
         assertEquals(listOf("chinese", "hebrew", "islamic-umalqura", null), back.rows(Mime.EVENT).map { it[AltCalendar.COLUMN] })
+    }
+
+    @Test fun another_apps_data14_on_a_date_travels_as_it_is() {
+        val r = record("Ana García", name, row(Mime.EVENT, Col.D1 to "1990-02-01", Col.D2 to "3", AltCalendar.COLUMN to "persian"))
+        assertFalse(unfolded(r).contains("X-PARLEY-CALENDAR"))
+        assertEquals("persian", assertLossless(r).rows(Mime.EVENT).single()[AltCalendar.COLUMN])
+    }
+
+    /** Knows one Hijri day: 1 Shawwal 1446 is 30 March 2025. */
+    private val hijri = object : CalendarConverter {
+        override fun toAlt(calendar: AltCalendar, date: LocalDate) = error("not needed")
+        override fun toGregorian(calendar: AltCalendar, day: AltDay) =
+            if (calendar == AltCalendar.HIJRI && day == AltDay(1446, 10, 1)) LocalDate.of(2025, 3, 30) else null
+    }
+
+    private fun card(vararg lines: String) = (listOf("BEGIN:VCARD", "VERSION:4.0", "FN:Ana") + lines + listOf("END:VCARD", "")).joinToString("\r\n")
+
+    @Test fun a_hijri_calscale_date_is_read_as_the_hijri_day_it_names() {
+        val (list, report) = VCardStream.readAll(card("BDAY;CALSCALE=islamic-umalqura:14461001"), hijri)
+        val e = list.single().rows(Mime.EVENT).single()
+        assertEquals("2025-03-30", e[Col.D1])
+        assertEquals(AltCalendar.HIJRI.key, e[AltCalendar.COLUMN])
+        assertEquals(emptyMap<String, Int>(), report.unmappedProperties)
+    }
+
+    @Test fun a_calscale_date_that_cant_be_read_unambiguously_is_kept_as_written_and_reported() {
+        // Hebrew month numbers depend on who wrote them; without a converter nothing can be read.
+        val (list, report) = VCardStream.readAll(card("BDAY;CALSCALE=hebrew:57500315", "ANNIVERSARY;CALSCALE=islamic-umalqura:14461001"))
+        val r = list.single()
+        assertTrue(r.rows(Mime.EVENT).isEmpty())
+        val kept = r.rows(Mime.CUSTOM_FIELD).map { it[Col.D1] to it[Col.D2] }
+        assertEquals(listOf("Birthday (hebrew calendar)" to "5750-03-15", "Anniversary (islamic-umalqura calendar)" to "1446-10-01"), kept)
+        assertEquals(
+            setOf("BDAY;CALSCALE=hebrew (kept as a custom field)", "ANNIVERSARY;CALSCALE=islamic-umalqura (kept as a custom field)"),
+            report.unmappedProperties.keys,
+        )
+    }
+
+    @Test fun calscale_gregorian_is_an_ordinary_date() {
+        val e = VCardStream.readAll(card("BDAY;CALSCALE=gregorian:19900201")).first.single().rows(Mime.EVENT).single()
+        assertEquals("1990-02-01", e[Col.D1])
+        assertEquals(null, e[AltCalendar.COLUMN])
+    }
+
+    @Test fun an_rfc_9554_profile_given_as_a_user_name_becomes_the_profile_address() {
+        val r = VCardStream.readAll(card("SOCIALPROFILE;SERVICE-TYPE=Instagram;VALUE=text:ana.lima")).first.single()
+        val site = r.rows(Mime.WEBSITE).single()
+        assertEquals("https://www.instagram.com/ana.lima/", site[Col.D1])
+        assertEquals("Instagram", site[Col.D3])
+        // An address with an escaped colon is read as the address.
+        val escaped = VCardStream.readAll(card("SOCIALPROFILE;SERVICE-TYPE=LinkedIn:https\\://www.linkedin.com/in/ana")).first.single()
+        assertEquals("https://www.linkedin.com/in/ana", escaped.rows(Mime.WEBSITE).single()[Col.D1])
     }
 
     @Test fun social_profiles_are_written_as_socialprofile() {
