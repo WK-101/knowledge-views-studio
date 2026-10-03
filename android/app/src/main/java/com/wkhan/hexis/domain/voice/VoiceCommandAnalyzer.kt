@@ -1,9 +1,5 @@
 package com.wkhan.hexis.domain.voice
 
-import com.wkhan.hexis.domain.nlp.ParsedQuickAdd
-import com.wkhan.hexis.domain.nlp.QuickAddParser
-import java.time.LocalDateTime
-
 /** What the user most likely wants from a spoken command (the router's default; every action is still
  *  offered in the review sheet so a wrong guess is one tap away). */
 enum class VoiceIntent { ADD_TASK, ADD_NOTE, START_TIMER, STOP_TIMER, SEARCH, QUERY, UNKNOWN }
@@ -22,11 +18,9 @@ sealed interface VoiceProposal {
     data class AddTask(
         override val transcript: String,
         val quickAddText: String,
-        val parsed: ParsedQuickAdd,
     ) : VoiceProposal {
         override val intent get() = VoiceIntent.ADD_TASK
         override val payloadText get() = quickAddText
-        val needsReview: Boolean get() = parsed.title.isBlank()
     }
 
     data class AddNote(override val transcript: String, val text: String) : VoiceProposal {
@@ -62,9 +56,11 @@ sealed interface VoiceProposal {
 }
 
 /**
- * Turns a raw transcript into a [VoiceProposal] entirely on-device, no LLM: classify by leading
- * trigger words, strip the trigger, then hand the remainder to [QuickAddParser] for dates / tags /
- * priority. The addon is a dumb ear; this is the brain, and it lives in the core next to the data.
+ * Turns a raw transcript into a [VoiceProposal] entirely on-device, no LLM: a pure router that
+ * classifies by leading trigger words and strips the trigger, leaving [VoiceProposal.payloadText] for
+ * the action to consume. Quick-add parsing (dates / tags / priority) is intentionally NOT done here —
+ * the review sheet runs [com.wkhan.hexis.domain.nlp.QuickAddParser] on the (editable) text so there is
+ * exactly one parse, reactive to the user's edits. The addon is a dumb ear; this is the router.
  */
 object VoiceCommandAnalyzer {
 
@@ -90,7 +86,7 @@ object VoiceCommandAnalyzer {
         "create a task", "create task", "new task", "add", "task",
     )
 
-    fun analyze(transcript: String, now: LocalDateTime = LocalDateTime.now()): VoiceProposal {
+    fun analyze(transcript: String): VoiceProposal {
         val text = transcript.trim()
         if (text.isEmpty()) return VoiceProposal.Unknown(transcript)
         val lower = text.lowercase()
@@ -100,10 +96,7 @@ object VoiceCommandAnalyzer {
             matches(lower, SEARCH_TRIGGERS) -> VoiceProposal.Search(transcript, stripLeading(text, SEARCH_TRIGGERS))
             matches(lower, QUERY_PREFIXES) -> VoiceProposal.Query(transcript, text)
             matches(lower, NOTE_TRIGGERS) -> VoiceProposal.AddNote(transcript, stripLeading(text, NOTE_TRIGGERS))
-            else -> {
-                val quickAddText = stripLeading(text, TASK_TRIGGERS)
-                VoiceProposal.AddTask(transcript, quickAddText, QuickAddParser.parse(quickAddText, now))
-            }
+            else -> VoiceProposal.AddTask(transcript, stripLeading(text, TASK_TRIGGERS))
         }
     }
 

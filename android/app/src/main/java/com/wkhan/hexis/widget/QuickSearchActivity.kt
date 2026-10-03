@@ -4,14 +4,9 @@ import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -20,16 +15,13 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -75,19 +67,9 @@ class QuickSearchActivity : ComponentActivity() {
                 val keyboard = LocalSoftwareKeyboardController.current
                 LaunchedEffect(Unit) { focus.requestFocus(); keyboard?.show() }
 
-                // Scrim: the top gap (above the sheet) taps away.
-                Box(
-                    Modifier.fillMaxSize().clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { finish() },
-                    contentAlignment = Alignment.BottomCenter,
-                ) {
-                    Surface(
-                        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-                        color = MaterialTheme.colorScheme.surface,
-                        tonalElevation = 3.dp,
-                        modifier = Modifier.fillMaxWidth().fillMaxHeight(0.9f).imePadding()
-                            .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {},
-                    ) {
-                        Column(Modifier.fillMaxSize().padding(12.dp)) {
+                // Shared popup chrome (scrim + bottom sheet); the top gap taps away. Fixed to 90% height.
+                QuickPopupScaffold(onDismiss = { finish() }, heightFraction = 0.9f) {
+                    Column(Modifier.fillMaxSize().padding(12.dp)) {
                             OutlinedTextField(
                                 value = query, onValueChange = { query = it },
                                 placeholder = { Text("Search everything") },
@@ -113,7 +95,6 @@ class QuickSearchActivity : ComponentActivity() {
                             )
                         }
                     }
-                }
             }
         }
     }

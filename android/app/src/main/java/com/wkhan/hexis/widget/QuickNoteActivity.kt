@@ -4,18 +4,13 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -25,7 +20,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Create
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
@@ -93,61 +87,53 @@ private fun QuickNotePanel(onSave: (String, String) -> Unit, onDismiss: () -> Un
     LaunchedEffect(Unit) { bodyFocus.requestFocus(); keyboard?.show() }
 
     // A dimmed scrim behind a bottom sheet — a proper modal popup, not a bare card floating on the
-    // launcher. Tap-away on the scrim dismisses; the sheet consumes its own taps.
-    Box(
-        Modifier.fillMaxSize()
-            .background(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.32f))
-            .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { onDismiss() },
-        contentAlignment = Alignment.BottomCenter,
+    // launcher; lifted above the keyboard and nav bar so the whole panel stays visible while typing.
+    QuickPopupScaffold(
+        onDismiss = onDismiss,
+        cornerRadius = 28.dp,
+        tonalElevation = 2.dp,
+        shadowElevation = 16.dp,
+        dimScrim = true,
+        navBarsPadding = true,
     ) {
-        Surface(
-            shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
-            color = MaterialTheme.colorScheme.surface,
-            tonalElevation = 2.dp,
-            shadowElevation = 16.dp,
-            // Lift above the keyboard and the nav bar so the whole panel is visible while typing.
-            modifier = Modifier.fillMaxWidth().imePadding().navigationBarsPadding()
-                .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {},
-        ) {
-            // Borderless title + body, matching the in-app Notes editor (no boxed fields).
-            val clear = TextFieldDefaults.colors(
-                focusedContainerColor = androidx.compose.ui.graphics.Color.Transparent,
-                unfocusedContainerColor = androidx.compose.ui.graphics.Color.Transparent,
-                focusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
-                unfocusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
-                disabledIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
+        // Borderless title + body, matching the in-app Notes editor (no boxed fields).
+        val clear = TextFieldDefaults.colors(
+            focusedContainerColor = androidx.compose.ui.graphics.Color.Transparent,
+            unfocusedContainerColor = androidx.compose.ui.graphics.Color.Transparent,
+            focusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
+            unfocusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
+            disabledIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
+        )
+        Column(Modifier.padding(horizontal = 10.dp, vertical = 10.dp)) {
+            // Grabber handle — the sheet affordance.
+            Box(Modifier.fillMaxWidth().padding(bottom = 6.dp), contentAlignment = Alignment.Center) {
+                Box(
+                    Modifier.width(36.dp).height(4.dp)
+                        .clip(RoundedCornerShape(2.dp))
+                        .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.30f)),
+                )
+            }
+            Row(Modifier.padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Filled.Create, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(end = 8.dp))
+                Text("New note", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            TextField(
+                value = title, onValueChange = { title = it },
+                placeholder = { Text("Title", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurfaceVariant) },
+                singleLine = true, colors = clear,
+                textStyle = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                modifier = Modifier.fillMaxWidth(),
             )
-            Column(Modifier.padding(horizontal = 10.dp, vertical = 10.dp)) {
-                // Grabber handle — the sheet affordance.
-                Box(Modifier.fillMaxWidth().padding(bottom = 6.dp), contentAlignment = Alignment.Center) {
-                    Box(
-                        Modifier.width(36.dp).height(4.dp)
-                            .clip(RoundedCornerShape(2.dp))
-                            .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.30f)),
-                    )
-                }
-                Row(Modifier.padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Filled.Create, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(end = 8.dp))
-                    Text("New note", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                TextField(
-                    value = title, onValueChange = { title = it },
-                    placeholder = { Text("Title", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurfaceVariant) },
-                    singleLine = true, colors = clear,
-                    textStyle = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                TextField(
-                    value = body, onValueChange = { body = it },
-                    placeholder = { Text("Start writing…", color = MaterialTheme.colorScheme.onSurfaceVariant) },
-                    colors = clear, textStyle = MaterialTheme.typography.bodyLarge,
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 120.dp, max = 320.dp).focusRequester(bodyFocus),
-                )
-                Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp), horizontalArrangement = Arrangement.End) {
-                    TextButton(onClick = onDismiss) { Text("Cancel") }
-                    TextButton(onClick = { onSave(title, body) }) { Text("Save", fontWeight = FontWeight.Bold) }
-                }
+            TextField(
+                value = body, onValueChange = { body = it },
+                placeholder = { Text("Start writing…", color = MaterialTheme.colorScheme.onSurfaceVariant) },
+                colors = clear, textStyle = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier.fillMaxWidth().heightIn(min = 120.dp, max = 320.dp).focusRequester(bodyFocus),
+            )
+            Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp), horizontalArrangement = Arrangement.End) {
+                TextButton(onClick = onDismiss) { Text("Cancel") }
+                TextButton(onClick = { onSave(title, body) }) { Text("Save", fontWeight = FontWeight.Bold) }
             }
         }
     }

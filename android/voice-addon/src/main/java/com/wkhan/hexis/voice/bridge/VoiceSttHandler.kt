@@ -23,8 +23,13 @@ import com.wkhan.hexis.voice.engine.SttListener
 
 /**
  * The `voice.stt` capability, engine-agnostic. It adapts the pure bridge contract to whatever
- * [SttEngine] is injected — the echo dev engine today, sherpa-onnx later — so swapping the engine
- * never touches the bridge or the core. Only text crosses the bridge; audio stays in the engine.
+ * [SttEngine] is injected — today the on-device whisper.cpp engine ([WhisperSttEngine]) — so swapping
+ * the engine never touches the bridge or the core. Only text crosses the bridge; audio stays in the
+ * engine.
+ *
+ * Note: the contract models streaming partials ([EventEnvelope] of kind [VoiceStt.EVENT_PARTIAL]), but
+ * the current record-then-transcribe engine emits none and ends with a single [onResult]; the partial
+ * path is kept wired for a future streaming/VAD engine.
  */
 class VoiceSttHandler(private val engine: SttEngine) : CapabilityHandler {
 

@@ -7,11 +7,14 @@ import com.wkhan.hexis.bridge.voice.SttFinal
 import com.wkhan.hexis.bridge.voice.SttPartial
 
 /**
- * The recognition engine behind the addon. The bridge handler talks only to this interface, so the
- * real sherpa-onnx engine drops in later with no change to the handler, the service, or the contract.
+ * The recognition engine behind the addon. The bridge handler talks only to this interface, so a
+ * different engine (e.g. a future streaming one) drops in with no change to the handler, the service,
+ * or the contract. The shipping implementation is [WhisperSttEngine] (whisper.cpp, record-then-
+ * transcribe); a canned echo stub lives in the test sources for exercising the pipeline offline.
  *
- * Implementations own the microphone and the model; they emit cumulative partials followed by exactly
- * one terminal ([SttListener.onFinal] XOR [SttListener.onError]).
+ * Implementations own the microphone and the model. They end with exactly one terminal
+ * ([SttListener.onFinal] XOR [SttListener.onError]); a streaming implementation may also emit zero or
+ * more [SttListener.onPartial] before it. The current batch engine emits no partials.
  */
 interface SttEngine {
     fun capabilities(): SttCapabilities

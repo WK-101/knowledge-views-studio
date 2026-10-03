@@ -38,6 +38,7 @@ class WhisperSttEngine(private val context: Context) : SttEngine {
 
     @Volatile private var whisper: WhisperContext? = null
     @Volatile private var captureThread: Thread? = null
+    @Volatile private var currentSession: String? = null
     private val recording = AtomicBoolean(false)
     @Volatile private var cancelled = false
 
@@ -86,6 +87,7 @@ class WhisperSttEngine(private val context: Context) : SttEngine {
         cancelled = false
         cancelEviction() // a new capture is starting — keep (or re-create) the warm model
         val id = "whisper-${System.nanoTime()}"
+        currentSession = id
         // Load the model while the user is already speaking → instant open, transcribe is ready at stop.
         Thread({ runCatching { ensureContext() } }, "whisper-warm").start()
         val prompt = buildPrompt(request)
@@ -170,11 +172,16 @@ class WhisperSttEngine(private val context: Context) : SttEngine {
         return ensureContext().transcribeBlocking(samples, prompt)
     }
 
+    // A blank id is an internal call (always acts); a non-blank id must match the live session so a
+    // late stop/cancel for a previous utterance can't cut a newer one short.
+    private fun targets(sessionId: String): Boolean = sessionId.isEmpty() || sessionId == currentSession
+
     override fun stop(sessionId: String) {
-        recording.set(false)
+        if (targets(sessionId)) recording.set(false)
     }
 
     override fun cancel(sessionId: String) {
+        if (!targets(sessionId)) return
         cancelled = true
         recording.set(false)
         captureThread?.let { runCatching { it.join(JOIN_TIMEOUT_MS) } }
@@ -202,12 +209,15 @@ class WhisperSttEngine(private val context: Context) : SttEngine {
     }
 
     private fun startCaptureForeground() {
+        // Let the notification's Stop action end this capture from the shade / lock screen.
+        VoiceCaptureService.stopRequest = { stop("") }
         runCatching {
             context.startForegroundService(Intent(context, VoiceCaptureService::class.java))
         }.onFailure { Log.w(TAG, "mic FGS start refused", it) }
     }
 
     private fun stopCaptureForeground() {
+        VoiceCaptureService.stopRequest = null
         runCatching { context.stopService(Intent(context, VoiceCaptureService::class.java)) }
     }
 

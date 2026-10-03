@@ -4,12 +4,9 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -89,35 +86,25 @@ class QuickHabitsActivity : ComponentActivity() {
 
 @Composable
 private fun QuickHabitsPanel(rows: List<HabitZeroData.Rem>?, onTap: (HabitZeroData.Rem) -> Unit, onDismiss: () -> Unit) {
-    Box(
-        Modifier.fillMaxSize().clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { onDismiss() },
-        contentAlignment = Alignment.BottomCenter,
-    ) {
-        Surface(
-            shape = RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp),
-            color = MaterialTheme.colorScheme.surface,
-            tonalElevation = 3.dp,
-            modifier = Modifier.fillMaxWidth().clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {},
-        ) {
-            Column(Modifier.padding(16.dp)) {
-                Text("Check a habit", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = MaterialTheme.colorScheme.onSurface)
-                when {
-                    rows == null -> Text("Loading…", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 16.dp))
-                    rows.isEmpty() -> Text("All done for today 🎉", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 20.dp))
-                    else -> LazyColumn(Modifier.fillMaxWidth().heightIn(max = 360.dp).padding(top = 8.dp)) {
-                        items(rows, key = { it.id }) { r ->
-                            Row(
-                                Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { onTap(r) }.padding(vertical = 10.dp, horizontal = 4.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Text(r.emoji.ifBlank { "•" }, fontSize = 20.sp, modifier = Modifier.padding(end = 12.dp))
-                                Column(Modifier.weight(1f)) {
-                                    Text(r.name, color = MaterialTheme.colorScheme.onSurface, fontSize = 15.sp, maxLines = 1)
-                                    if (r.meta.isNotBlank() && r.meta != "○")
-                                        Text(r.meta, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp, maxLines = 1)
-                                }
-                                Icon(Icons.Filled.CheckCircle, "Check in", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(26.dp))
+    QuickPopupScaffold(onDismiss = onDismiss, cornerRadius = 22.dp, imePadding = false) {
+        Column(Modifier.padding(16.dp)) {
+            Text("Check a habit", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = MaterialTheme.colorScheme.onSurface)
+            when {
+                rows == null -> Text("Loading…", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 16.dp))
+                rows.isEmpty() -> Text("All done for today 🎉", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 20.dp))
+                else -> LazyColumn(Modifier.fillMaxWidth().heightIn(max = 360.dp).padding(top = 8.dp)) {
+                    items(rows, key = { it.id }) { r ->
+                        Row(
+                            Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { onTap(r) }.padding(vertical = 10.dp, horizontal = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(r.emoji.ifBlank { "•" }, fontSize = 20.sp, modifier = Modifier.padding(end = 12.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(r.name, color = MaterialTheme.colorScheme.onSurface, fontSize = 15.sp, maxLines = 1)
+                                if (r.meta.isNotBlank() && r.meta != "○")
+                                    Text(r.meta, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp, maxLines = 1)
                             }
+                            Icon(Icons.Filled.CheckCircle, "Check in", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(26.dp))
                         }
                     }
                 }
