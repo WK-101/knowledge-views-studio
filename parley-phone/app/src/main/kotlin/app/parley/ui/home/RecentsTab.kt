@@ -65,7 +65,12 @@ import app.parley.common.SettingsCategory
 import app.parley.common.StartTab
 import app.parley.common.people.SwipeAction
 import app.parley.common.ux.CallHue
-import app.parley.common.ux.RecentsStyle
+import app.parley.common.ux.ListSections
+import app.parley.ui.segmentShape
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Shape
 import app.parley.common.ux.Tips
 import app.parley.messaging.ReachSheet
 import app.parley.messaging.ReachTarget
@@ -155,7 +160,10 @@ fun RecentsTab(vm: AppViewModel, open: (Destination) -> Unit, bottomPadding: Dp 
     val query by recents.query.collectAsStateWithLifecycle()
     // Missed calls not returned yet (tint, Call back pill, the Missed chip's count) and the legend.
     val unreturned by recents.unreturnedMissed.collectAsStateWithLifecycle()
-    val rich = settings.recentsStyle == RecentsStyle.RICH
+    val style = settings.recentsStyle
+    val rich = style.rich
+    // Cards: each day's calls in one segmented card; the four corner sets are made once, not per row.
+    val cardShapes = remember { ListSections.Place.entries.map { cardShape(it) } }
     val toReturn = unreturned.size
     RecentsLegendHost()
 
@@ -224,7 +232,7 @@ fun RecentsTab(vm: AppViewModel, open: (Destination) -> Unit, bottomPadding: Dp 
                             .clickable(onClickLabel = stringResource(R.string.recents_day_summary)) { daySummary = row.date to header },
                     )
                 }
-                is RecentsRow.Call -> {
+                is RecentsRow.Call -> RecentCard(if (style.cards) cardShapes[row.place.ordinal] else null, row.place) {
                     val g = row.group
               val hasNumber = !g.hidden && g.number.isNotBlank()
               SwipeActionRow(
@@ -282,7 +290,8 @@ fun RecentRow(
     val missed = e.type == CallType.MISSED || e.type == CallType.REJECTED
     // The rich look (shape-coded badge, accent bar, tint and Call back pill for unreturned missed calls,
     // count chip and sequence dots, duration bar); Simple keeps the U3 row.
-    val rich = richCalls()
+    val style = LocalRecentsStyle.current
+    val rich = style.rich
     val cls = CallClass.of(e)
     val hue = CallTypeColors.of(cls.hue)
     val sequence = if (rich) CallGlance.sequence(g.calls) else emptyList()
@@ -292,10 +301,12 @@ fun RecentRow(
             calls = g.calls.size, cls = cls, missed = missed, sequence = sequence.isNotEmpty(), unreturned = unreturned, hidden = g.hidden,
             video = e.video, private = g.vaultId != null, screening = badge != null, callButton = !tapCalls && !g.hidden && g.number.isNotBlank(),
         ),
-        rich,
+        style,
     )
     val attention = RecentsMark.NOT_RETURNED in marks
     val lock = if (RecentsMark.PRIVATE in marks) "$PRIVATE_MARK " else ""
+    // In the Cards style the row takes its day card's colour.
+    val base = if (style.cards) MaterialTheme.colorScheme.surfaceContainer else MaterialTheme.colorScheme.surface
     ParleyListItem(
         modifier = Modifier.combinedClickable(
             onClick = if (tapCalls) onCall else onOpen, onLongClick = onLongClick,
@@ -306,8 +317,8 @@ fun RecentRow(
             .semantics { this.selected = selected },
         colors = when {
             selected -> ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
-            attention -> ListItemDefaults.colors(containerColor = hue.copy(alpha = 0.08f).compositeOver(MaterialTheme.colorScheme.surface))
-            else -> ListItemDefaults.colors()
+            attention -> ListItemDefaults.colors(containerColor = hue.copy(alpha = 0.08f).compositeOver(base))
+            else -> ListItemDefaults.colors(containerColor = base)
         },
         leadingContent = {
             if (g.hidden) MonoAvatar(avatarSize()) else Avatar(g.title, g.contact?.photoUri, avatarSize())
@@ -394,6 +405,36 @@ fun RecentRow(
             }
         },
     )
+}
+
+/** The corners of a call row in a day card: large at the card's top and bottom, small between rows. */
+private fun cardShape(place: ListSections.Place): Shape = when (place) {
+    ListSections.Place.ONLY -> segmentShape(0, 1)
+    ListSections.Place.FIRST -> segmentShape(0, CARD_ROWS)
+    ListSections.Place.MIDDLE -> segmentShape(1, CARD_ROWS)
+    ListSections.Place.LAST -> segmentShape(CARD_ROWS - 1, CARD_ROWS)
+}
+
+private const val CARD_ROWS = 3
+
+/**
+ * A call row as one segment of its day's card ([shape]; null draws the row as it is): inset from the screen's edges,
+ * with the same 2 dp gap between rows as the Settings groups. The swipe and its coloured background stay inside the
+ * card's corners.
+ */
+@Composable
+private fun RecentCard(shape: Shape?, place: ListSections.Place, content: @Composable () -> Unit) {
+    if (shape == null) {
+        content()
+        return
+    }
+    Box(
+        Modifier
+            .padding(horizontal = Spacing.listInset)
+            .padding(top = if (place.first) 0.dp else Spacing.xxs, bottom = if (place.last) Spacing.xs else 0.dp)
+            .clip(shape)
+            .background(MaterialTheme.colorScheme.surfaceContainer),
+    ) { content() }
 }
 
 /** The row's title; a number (no name) stays left to right in right-to-left languages. */

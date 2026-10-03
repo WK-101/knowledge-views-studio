@@ -51,7 +51,8 @@ sealed interface RecentsRow {
     /** The header of the calls of one local day; [today] (a local day) changes at midnight, so the text is redone. */
     data class Day(override val key: String, val date: Long, val today: Long) : RecentsRow
 
-    data class Call(val group: RecentGroup) : RecentsRow {
+    /** A call row; [place] is where it sits in its day, for the Cards style's segmented corners. */
+    data class Call(val group: RecentGroup, val place: ListSections.Place = ListSections.Place.ONLY) : RecentsRow {
         override val key: String get() = group.key
     }
 
@@ -179,10 +180,12 @@ class RecentsViewModel(private val c: DataContainer) : ViewModel() {
 
     private fun rows(groups: List<RecentGroup>, today: Long): List<RecentsRow> {
         val tz = TimeZone.getDefault()
-        return ListSections.interleave(groups) { ListSections.localDay(it.latest.date, tz) }.map { r ->
+        val sections = ListSections.interleave(groups) { ListSections.localDay(it.latest.date, tz) }
+        val places = ListSections.places(sections)
+        return sections.mapIndexed { i, r ->
             when (r) {
                 is ListSections.Row.Header -> RecentsRow.Day("h" + r.first.key, r.first.latest.date, today)
-                is ListSections.Row.Item -> RecentsRow.Call(r.item)
+                is ListSections.Row.Item -> RecentsRow.Call(r.item, places[i] ?: ListSections.Place.ONLY)
             }
         }
     }

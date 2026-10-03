@@ -1,5 +1,6 @@
 package app.parley.common.ux
 
+import app.parley.common.ux.ListSections.Place
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import java.util.TimeZone
@@ -60,5 +61,29 @@ class ListSectionsTest {
         val rows = ListSections.interleave(times) { ListSections.localDay(it, utc) }
         assertEquals(3, rows.count { it is ListSections.Row.Header })
         assertEquals(7, rows.size)
+    }
+
+    @Test fun each_item_knows_its_place_in_its_section_card() {
+        val rows = ListSections.interleave(listOf("Ann", "Anton", "Al", "Bob", "Cy", "Cleo")) { ListSections.letterOf(it) }
+        // [A] Ann Anton Al [B] Bob [C] Cy Cleo
+        assertEquals(listOf(null, Place.FIRST, Place.MIDDLE, Place.LAST, null, Place.ONLY, null, Place.FIRST, Place.LAST), ListSections.places(rows))
+    }
+
+    @Test fun places_of_an_empty_list_are_empty() {
+        assertEquals(emptyList<Place?>(), ListSections.places(emptyList()))
+    }
+
+    @Test fun a_place_says_whether_it_opens_or_closes_its_card() {
+        assertEquals(Place.ONLY, Place.of(first = true, last = true))
+        assertEquals(Place.FIRST, Place.of(first = true, last = false))
+        assertEquals(Place.MIDDLE, Place.of(first = false, last = false))
+        assertEquals(Place.LAST, Place.of(first = false, last = true))
+        Place.entries.forEach { assertEquals(it, Place.of(it.first, it.last)) }
+    }
+
+    @Test fun cards_are_a_rich_style_and_the_stored_styles_keep_their_order() {
+        assertEquals(listOf("RICH", "SIMPLE", "CARDS"), RecentsStyle.entries.map { it.name })
+        assertEquals(listOf(true, false, true), RecentsStyle.entries.map { it.rich })
+        assertEquals(listOf(RecentsStyle.CARDS), RecentsStyle.entries.filter { it.cards })
     }
 }
