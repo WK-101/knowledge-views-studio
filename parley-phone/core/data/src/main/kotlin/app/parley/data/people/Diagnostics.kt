@@ -44,7 +44,7 @@ class Diagnostics(private val context: Context) {
         val pkg = runCatching { pm.getPackageInfo(context.packageName, PackageManager.GET_PERMISSIONS) }.getOrNull()
         appendLine("Parley diagnostics")
         appendLine("Created: ${fmt.format(Instant.now())}")
-        appendLine("Numbers and e-mail addresses masked: ${if (mask) "yes" else "no"}")
+        appendLine("Numbers and email addresses masked: ${if (mask) "yes" else "no"}")
         appendLine()
         appendLine("== App")
         appendLine("Version: ${pkg?.versionName} (${if (Build.VERSION.SDK_INT >= 28) pkg?.longVersionCode else ""})")

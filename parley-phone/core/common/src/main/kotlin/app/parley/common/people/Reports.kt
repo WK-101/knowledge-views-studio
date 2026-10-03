@@ -1,24 +1,83 @@
 package app.parley.common.people
 
 /**
- * Text Parley hands to other apps only when you ask: a crash report (numbers, e-mail addresses and
- * content URIs masked), a masked dump of the contacts tables for diagnostics, and selected contacts as plain text.
+ * Text Parley hands to other apps only when you ask: a crash report (no exception messages; numbers, email
+ * addresses and content URIs masked), a masked dump of the contacts tables for diagnostics, and selected contacts as plain text.
  */
 object Reports {
     /** One captured crash, as stored on the phone until you share or dismiss it. */
     data class Crash(val time: Long, val thread: String, val stack: String, val appVersion: String, val android: String)
 
-    /** The report text. [stack] is masked with [Masking] unless [mask] is false; the thread name is always kept. */
+    /**
+     * The report text. Exception messages are always left out ([withoutMessages], also for a report stored before
+     * they were); the rest of [stack] is masked with [Masking] unless [mask] is false. The thread name is kept.
+     */
     fun crashText(c: Crash, mask: Boolean = true, formattedTime: String = c.time.toString()): String = buildString {
         appendLine("Parley crash report")
         appendLine("Time: $formattedTime")
         appendLine("App: ${c.appVersion}")
         appendLine("Android: ${c.android}")
         appendLine("Thread: ${c.thread}")
-        appendLine("Numbers and e-mail addresses masked: ${if (mask) "yes" else "no"}")
+        appendLine("Exception messages left out: yes")
+        appendLine("Numbers and email addresses masked: ${if (mask) "yes" else "no"}")
         appendLine()
-        append(if (mask) Masking.mask(c.stack) else c.stack)
+        val stack = withoutMessages(c.stack)
+        append(if (mask) Masking.mask(stack) else stack)
     }
+
+    /**
+     * [error] as a stack trace with only class names and frames: the message of the exception, of each cause and of
+     * each suppressed exception is left out, since a message can hold whatever the code had in hand (a number, a
+     * name, a query). Laid out like [Throwable.printStackTrace], frames shared with the enclosing trace folded.
+     */
+    fun scrubbedStack(error: Throwable): String {
+        val out = StringBuilder()
+        val seen = java.util.Collections.newSetFromMap(java.util.IdentityHashMap<Throwable, Boolean>())
+
+        fun write(t: Throwable, prefix: String, caption: String, enclosing: Array<StackTraceElement>) {
+            if (!seen.add(t)) {
+                out.append(prefix).append(caption).append("[CIRCULAR REFERENCE: ").append(t.javaClass.name).append("]\n")
+                return
+            }
+            val frames = t.stackTrace
+            var shared = 0
+            while (shared < frames.size && shared < enclosing.size && frames[frames.size - 1 - shared] == enclosing[enclosing.size - 1 - shared]) shared++
+            out.append(prefix).append(caption).append(t.javaClass.name).append('\n')
+            for (i in 0 until frames.size - shared) out.append(prefix).append("\tat ").append(frames[i]).append('\n')
+            if (shared > 0) out.append(prefix).append("\t... ").append(shared).append(" more\n")
+            t.suppressed.forEach { write(it, prefix + "\t", "Suppressed: ", frames) }
+            t.cause?.let { write(it, prefix, "Caused by: ", frames) }
+        }
+        write(error, "", "", emptyArray())
+        return out.toString().trimEnd()
+    }
+
+    /**
+     * A stack trace in [Throwable.printStackTrace]'s text with the exception messages cut off each heading line
+     * ("java.lang.IllegalStateException: bad number …" → "java.lang.IllegalStateException"), and message lines that
+     * ran on below a heading dropped. Frames ("at …", "... 3 more") are kept as they are.
+     */
+    fun withoutMessages(stack: String): String {
+        val out = ArrayList<String>()
+        for (line in stack.lines()) {
+            val body = line.trimStart()
+            when {
+                body.startsWith("at ") || FOLDED.matches(body) -> out += line
+                else -> HEADING.matchEntire(line)?.let { m -> out += m.groupValues[1] + m.groupValues[2] }
+                // Anything else is the rest of a message that spanned several lines.
+            }
+        }
+        return out.joinToString("\n")
+    }
+
+    /** "... 12 more" (frames shared with the enclosing trace) and "… 40 more lines" ([trimStack]). */
+    private val FOLDED = Regex("""(\.\.\.|…) \d+ more( lines)?""")
+
+    /**
+     * A heading line: indentation, "Caused by: " or "Suppressed: ", then a qualified class name (its last part
+     * capitalised), then (dropped) its message.
+     */
+    private val HEADING = Regex("""(\s*(?:Caused by: |Suppressed: )?)((?:[\p{L}_$][\p{L}\p{N}_$]*\.)+\p{Lu}[\p{L}\p{N}_$]*)(?::.*)?""")
 
     /** Keeps crash reports small: the first [maxLines] lines of the stack (the cause chain is near the top). */
     fun trimStack(stack: String, maxLines: Int = 120): String {
