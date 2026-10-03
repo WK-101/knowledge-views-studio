@@ -116,39 +116,80 @@ Framing it as "capture on phone, organize on desktop" is the workflow win — an
 
 ## 5. The Hexis design
 
+> **Revised after a code pressure-test (see §11).** The original draft said the addon would "proxy to the
+> core over the existing bridge." Verified against the code, that quietly requires the **core to become a
+> bridge _provider_** — a role it has never had (today it is consumer-only: `BridgeRegistry` +
+> `BridgeConnection`, plus a `<queries>` entry to _discover_ addons, but no exported provider service). The
+> design below is corrected for that, and for three other verified gaps (handler scope access, no
+> `ParcelFileDescriptor` on the spine, persistent token authority location + consent direction).
+
+### 5.0 Role inversion — the core becomes a bridge provider (the key correction)
+
+For voice, the **addon is the provider** (holds the mic, serves `voice.stt`) and the **core is the
+consumer**. For the web bridge it is the **opposite**: the core holds the data, so the **core must be the
+provider** of a `data` capability, and the **web-bridge addon is the consumer** that calls it.
+
+The bridge was built symmetric, so this reuses the existing spine with no new protocol:
+
+- The core gains a `HexisDataProviderService : BridgeProviderService` — **exported**, gated by the
+  existing `signature BIND_BRIDGE` permission, and verifying the caller's keyset via `BridgeProviderService`
+  (same as the addon does today). It advertises capability `data` via the same `PROVIDER_ACTION`
+  meta-data mechanism.
+- Consent **direction reverses**: the **core grants the addon**. The core mints the scoped token (the user
+  picks scopes in a core consent screen) and the addon presents it on each `data` call; the core verifies
+  it. This is the mirror of voice's `ConsentActivity`, hosted in the core.
+- **Discovery self-filter**: the core already calls `queryIntentServices(PROVIDER_ACTION)` to find addons;
+  once the core _is_ a provider, it must skip its own package in that scan, and the web-bridge addon adds a
+  `<queries>` entry for the core.
+- **Trade-off (documented):** this adds exactly one exported, signature-gated, scope-limited, revocable
+  service to the core. [`SECURITY.md`](SECURITY.md)'s "exported components" line must be updated. The core
+  still holds **zero forbidden permissions** — `INTERNET` stays in the addon.
+
 ### 5.1 Modules & permission
 
-- New `:web-bridge` addon APK, `depends on :bridge` only (never on `:app`). Holds **`INTERNET`** (+ the
-  `dataSync`/`specialUse` FGS permission + `POST_NOTIFICATIONS`). No launcher beyond a small control
-  screen (start/stop, pairing QR, port, which scopes are granted, connected clients, stop-all).
-- Signed with the **same Hexis keyset** → the core's bridge trust + the signature `BIND_BRIDGE` permission
-  apply unchanged.
-- The core gains **no new permission**; it gains new *capabilities* it serves over the bridge.
+- New `:web-bridge` addon APK, `depends on :bridge` only (never on `:app`). Holds **`INTERNET`** (+ an FGS
+  type perm + `POST_NOTIFICATIONS`). A small control screen (start/stop, pairing QR, port, granted scopes,
+  connected clients, stop-all) — no launcher beyond it.
+- Signed with the **same Hexis keyset** → bridge trust + the `BIND_BRIDGE` signature permission apply in
+  both directions.
+- The core gains **no new permission**; it gains the provider **role** and a `data` capability.
+- **Persistent token authority** is hoisted from the voice addon into `:bridge` (verified: it lives in
+  `voice-addon` today, while the interface is already in `:bridge`). Both the addon (as provider for voice)
+  and the core (as provider for `data`) then share one persistent `TokenAuthority` implementation.
 
-### 5.2 The new core capability: `data` (the crux)
+### 5.2 The `data` capability (the crux)
 
-This is the first addon that reads/writes **core data** (voice only returned derived text), so the
-capability + scope design is the heart of the work.
+This is the first capability that reads/writes **core data** (voice only returned derived text), so its
+shape + scope enforcement is the heart of the work. It is defined once in `:bridge`; the handler lives in
+`:app` (it needs `AppRepository`).
 
-- Capability id `data` with methods `query` and `mutate`. The payload names a **domain + operation**
-  (e.g. `tasks.list`, `tasks.upsert`, `notes.get`, `time.report`), mapping to a curated allow-list of
-  repository operations — **not** the raw 294-method repository surface. A hand-picked, versioned facade.
-- **Scopes**, default-deny, per domain + mode: `data.tasks.read`, `data.tasks.write`, `data.notes.read`,
-  `data.notes.write`, `data.calendar.*`, `data.time.*`, `data.habits.*`, … The consent screen lets the
-  user grant exactly the domains they want the browser to see, read-only by default.
-- **Enforcement in the core.** The `data` handler checks the granted scope for each request's domain+mode
-  before touching the repository, and writes a `BridgeRegistry` audit row. This needs a **small bridge
-  extension**: today the dispatcher checks one `requiredScope(method)` at the gate; a multi-domain `data`
-  capability needs the handler to see the token's **scope set** and check per request. (Concretely: pass
-  the resolved `GrantToken.scopes` — or a `scopeCheck` lambda — into `CapabilityHandler`. Backward
-  compatible; voice ignores it.)
-- **Large payloads / the 1 MB Binder limit.** Lists are **paginated**; a large note body is fine as text;
-  **attachments/media stream via a `ParcelFileDescriptor`** the core hands back (the same FD pattern the
-  Open Transcribe path already uses), which also powers capability-URL media in the browser.
-- **One contract, two transports (elegant option).** The browser↔addon HTTP request can be a thin shell
-  the addon re-wraps as a bridge `RequestEnvelope` and forwards to the core, returning the
-  `ResponseEnvelope`. The `data` contract is then defined once in `:bridge` and reused for both hops — the
-  addon stays a dumb, data-less proxy + crypto edge.
+- **Generic, extensible contract** (so adding a domain is additive, never a spine change):
+  `DataQuery { domain, op, cursor?, limit?, params }` → `DataPage { items: JSON[], nextCursor? }`;
+  `DataMutation { domain, op, payload }` → `DataResult`. Each `op` maps to a **curated, versioned facade**
+  over the repository — a hand-picked allow-list, **not** the raw 294-method surface.
+- **Scopes**, default-deny, per domain + mode: `data.tasks.read/write`, `data.notes.read/write`,
+  `data.calendar.*`, `data.time.*`, `data.habits.*`, … The core consent screen grants exactly the chosen
+  domains, **read-only by default**.
+- **Verified gap → scope-set extension.** `CapabilityHandler.invoke(request, caller)` today receives only a
+  `VerifiedCaller` (packageName, uid, signatureTrusted) — **no token/scopes**. A multi-domain `data`
+  capability must check a per-request scope, so the dispatcher will resolve the caller's `GrantToken` and
+  pass its **scope set** (or a `scopeCheck` lambda) into the handler. Backward-compatible — the voice
+  handler ignores it. This is a real, small change to `:bridge`, scoped to W0.
+- **Verified gap → no FD on the spine.** `IHexisBridge` has only `handshake/invoke/openStream/
+  controlSession`, all `byte[]`/callback — **no `ParcelFileDescriptor`** (the Open Transcribe FD is a
+  _different_ AIDL, not ours). So: W0–W2 are **text-only** (paginate lists so each `ResponseEnvelope` <1 MB;
+  stream big result sets as chunked `openStream` events). **Attachments/media (W3)** need binary: **append**
+  a 5th method `ParcelFileDescriptor openBlob(in byte[] requestEnvelope)` to the AIDL — appending is
+  backward-compatible (older peers return `UNKNOWN_TRANSACTION`, which we catch), so the "spine never
+  reshapes" rule holds; it only _grows_ by one optional method, and only when attachments land.
+- **Threading.** Repository calls are `suspend`; the handler runs on a binder thread, so it offloads to an
+  IO dispatcher (and must not block the binder pool). Live updates (W2+) observe the repository's existing
+  `Flow`s (`observeTasksByWorkspace`, `observeNotes`, … — verified present) and emit `openStream`
+  `EventEnvelope`s the addon relays to the browser as SSE.
+- **One contract, two transports.** The browser↔addon HTTP request is a thin shell the addon re-wraps as a
+  bridge `RequestEnvelope`/`DataQuery` and forwards to the core, returning the `ResponseEnvelope`. The
+  `data` contract is defined once and reused for both hops — the addon stays a **dumb, data-less proxy +
+  crypto edge**.
 
 ### 5.3 Server & API
 
@@ -216,8 +257,8 @@ PlainApp's "one compromised process = everything."
 
 | Phase | Scope | Deliverable |
 | --- | --- | --- |
-| **W0 — Bridge `data` capability** | Define the `data` contract + per-domain scopes in `:bridge`; add the scope-set extension to `CapabilityHandler`; implement a **read-only** `tasks` + `notes` facade handler in the core + consent + audit. No server yet; unit-test over the dispatcher (like the voice loopback). | The core can serve scoped data over the bridge. |
-| **W1 — Minimal server + pairing** | `:web-bridge` addon: Ktor CIO server, FGS + notification, QR pairing, P‑256/HKDF/AES‑GCM E2E, Host/Origin guard, a bare SPA that lists tasks + notes read-only. | A browser can securely view tasks/notes over LAN. |
+| **W0 — Core becomes a provider; `data` capability** | Hoist a persistent `TokenAuthority` into `:bridge`; add the `CapabilityHandler` scope-set extension; stand up `HexisDataProviderService` (exported, signature-gated) + a core consent/mint screen (core grants the addon) + the discovery self-filter; implement a **read-only** `tasks`+`notes` facade handler with per-scope checks + audit; update `SECURITY.md`. No server/addon yet; unit-test over the dispatcher + a loopback (like the voice test). | The core can serve scoped, audited, revocable data over the bridge — verified headlessly. |
+| **W1 — Minimal server + pairing** | `:web-bridge` addon (consumer): binds the core provider; Ktor CIO server, FGS + notification, QR pairing, P‑256/HKDF/AES‑GCM E2E, Host/Origin guard, a bare SPA that lists tasks + notes read-only. | A browser can securely view tasks/notes over LAN. |
 | **W2 — Editing** | Write scopes + mutations (create/edit/complete/reschedule tasks; edit notes); the outliner + markdown editor; SSE live refresh. | A usable desktop editor. |
 | **W3 — Breadth** | Calendar, time reports, habits/goals/countdowns; bulk ops; capability-URL attachments. | Full companion. |
 | **W4 — Polish & trust UX** | Local-CA option, fingerprint pinning UX, per-client management, share-a-view read-only links. | Clean padlock, shareable views. |
@@ -234,20 +275,29 @@ this also de-risks the sync idea in [`ADDON_ROADMAP.md`](ADDON_ROADMAP.md).
   growing. Decide the framework up front (lean to Svelte for size).
 - **Bridge data-capability is a public-ish contract.** Version it (`/api/v1`, `contractVersion`); keep the
   facade curated, not the raw repository.
-- **Binder payload sizes.** Enforce pagination + FD streaming from W0; never return unbounded lists.
+- **Binder payload sizes.** Enforce **pagination from W0** (each `ResponseEnvelope` <1 MB) and chunk large
+  result sets over `openStream`; the binary **FD channel is a W3 addition** (appended AIDL method), not W0.
+  Never return unbounded lists.
+- **The core gains an exported service.** `HexisDataProviderService` is new attack surface on the
+  previously-minimal core. Mitigated: signature `BIND_BRIDGE` permission + in-code keyset verify + default-
+  deny scopes + audit + kill switch; **`SECURITY.md` must be updated** to reflect it (its "exported
+  components" line currently lists only launcher/widgets/receivers).
 - **Trust UX friction** (browser warnings) is the usability risk; the app-layer E2E makes it safe-by-default
   and the local-CA option makes it pretty. Needs careful onboarding copy.
 - **Battery/FGS limits** make this an on-demand session, not a 24/7 server — which is the right default
   anyway.
 - **Scope granularity vs. simplicity**: start coarse (per-domain read/write), refine only if asked.
 - **Keep verifying** the core's merged manifest stays at 0 forbidden permissions after wiring the new
-  capability.
+  capability (the provider role adds no permission; `INTERNET` stays in the addon).
 
 ## 9. Key decisions
 
 | Decision | Rationale |
 | --- | --- |
 | Network edge in a **separate addon**, data+key in the core | Bounded blast radius; core keeps 0 permissions — the thing PlainApp structurally can't do. |
+| **Core becomes a bridge provider** (`data` capability), reusing the symmetric spine; consent direction reverses (core grants addon) | The data+key must stay in the core, so whatever serves data must run in the core; a cross-app bind needs an exported, signature-gated service. One new surface, fully gated + revocable. |
+| **Hoist persistent `TokenAuthority` to `:bridge`** | Both providers (addon for voice, core for `data`) share one persistent, tested token store. |
+| **Generic `DataQuery`/`DataPage`/`DataMutation` contract over a curated facade** | Adding a domain is additive (no spine change); the raw 294-method repository is never exposed. |
 | **AES‑256‑GCM + P‑256 ECDH + HKDF**, app-layer, over (optional) self-signed TLS | All native in browser `SubtleCrypto` → no WASM/JS crypto; secure even over plain HTTP; MITM-resistant via QR-bootstrapped keys. |
 | **High-entropy QR pairing key**, never disclosed over the wire | Beats PlainApp's 6-char `/init`-disclosed password. |
 | **Host-header + Origin allow-listing**, token-in-header (no cookies) | DNS-rebinding + CSRF defense PlainApp lacks. |
@@ -256,3 +306,27 @@ this also de-risks the sync idea in [`ADDON_ROADMAP.md`](ADDON_ROADMAP.md).
 | **Curated `data` facade + per-domain scopes enforced in the core**, audited, revocable | Least privilege across the process boundary; reuses `BridgeRegistry`. |
 | **Pagination + FD streaming** | Respect the 1 MB Binder limit; power capability-URL media. |
 | Remote access **opt-in only** (WebRTC/Tailscale), LAN-only default | Keep the default fully local; no inbound ports. |
+
+---
+
+## 10. Pressure test — verified against the codebase
+
+Every load-bearing assumption of this plan was checked against the actual Hexis source before committing to
+it. Results and the corrections they forced:
+
+| # | Assumption under test | Verified in code | Verdict → correction |
+| --- | --- | --- | --- |
+| 1 | The addon can "proxy to the core over the existing bridge." | The core is **consumer-only** (`BridgeRegistry` + `BridgeConnection`; the `bridge.PROVIDER` at `app/.../AndroidManifest.xml:79` is a **`<queries>`** discovery entry, not an exported service). | **Partly false → biggest fix.** The core must become a **provider** (`HexisDataProviderService`). Added §5.0; W0 now stands this up. |
+| 2 | The `data` handler can enforce per-domain scopes. | `CapabilityHandler.invoke(request, caller: VerifiedCaller)` — `VerifiedCaller` has only `packageName/uid/signatureTrusted`, **no token/scopes**. | **False → fix.** Dispatcher must resolve the `GrantToken` and pass its scope set into the handler (backward-compatible). Scoped to W0. |
+| 3 | Attachments stream via a `ParcelFileDescriptor` "like Open Transcribe." | `IHexisBridge` has only `handshake/invoke/openStream/controlSession` (all `byte[]`/callback) — **no FD**. The Open Transcribe FD is a *different* AIDL. | **False → fix.** Text is paginated over `invoke`/`openStream` (W0–W2); binary needs an **appended** `openBlob` method (W3), backward-compatible via `UNKNOWN_TRANSACTION`. |
+| 4 | Reuse a persistent token store; consent as for voice. | `PersistentTokenAuthority` lives in **`voice-addon`**, not `:bridge`; consent is minted by the **provider** side. | **Fix.** Hoist it to `:bridge`; since the **core** is now the provider, the **core** mints the token and hosts consent (reverse of voice). |
+| 5 | Live updates are feasible from core data. | `AppRepository` exposes `observeNotes()`, `observeNotesByWorkspace()`, `observeTasksByWorkspace()`, `observeTask()` **`Flow`s**. | **Sound.** Provider observes these Flows → `openStream` events → addon → browser SSE (W2+). |
+| 6 | The new surface is captured in the threat model. | `SECURITY.md` states exported components are "limited to the launcher, widgets, and the notification/boot receivers." | **Fix.** W0 must update `SECURITY.md` to add the signature-gated, scope-limited, revocable `data` provider. |
+
+**Soundness verdict.** The thesis — _network edge isolated from data+key, core stays at zero forbidden
+permissions_ — holds and is actually reinforced by the review. The architecture is sound **once the core's
+new provider role is made explicit** (it was the one real omission). The remaining pieces (Ktor CIO,
+same-origin PWA, WebCrypto E2E, QR pairing, Host-header/CSRF defenses, pagination) checked out against both
+the code and the platform constraints. The plan is now internally consistent, modular (one generic `data`
+contract, curated facade, per-domain scopes), and professional-grade; W0 is a safe, headlessly-testable
+first step that adds **no new permission and no network surface**.
