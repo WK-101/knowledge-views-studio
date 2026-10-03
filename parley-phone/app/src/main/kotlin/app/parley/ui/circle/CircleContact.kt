@@ -113,7 +113,13 @@ fun StayInTouchCard(
             ListItem(
                 colors = rowColors,
                 leadingContent = { Icon(if (ev.type == Event.TYPE_BIRTHDAY) Icons.Rounded.Cake else Icons.Rounded.Event, null) },
-                headlineContent = { Text(if (days == 0L) stringResource(R.string.circle_next_date_today, label) else pluralStringResource(R.plurals.circle_next_date_days, days.toInt(), days.toInt(), label)) },
+                headlineContent = {
+                    Text(
+                        if (days == 0L) stringResource(R.string.circle_next_date_today, label) else pluralStringResource(
+                            R.plurals.circle_next_date_days, days.toInt(), days.toInt(), label,
+                        ),
+                    )
+                },
             )
         }
     }
@@ -157,7 +163,9 @@ fun RhythmDialog(vm: AppViewModel, d: ContactDetails, contactId: Long, meta: Con
                 HorizontalDivider()
                 listOf(
                     7 to stringResource(R.string.detail_every_week), 14 to stringResource(R.string.detail_every_2_weeks),
-                    30 to stringResource(R.string.detail_every_month), 90 to stringResource(R.string.detail_every_3_months), 180 to stringResource(R.string.detail_every_6_months),
+                    30 to stringResource(
+                        R.string.detail_every_month,
+                    ), 90 to stringResource(R.string.detail_every_3_months), 180 to stringResource(R.string.detail_every_6_months),
                 ).forEach { (days, label) ->
                     val chosen = current == days && rhythm.mode == RhythmMode.EVERY
                     ListItem(

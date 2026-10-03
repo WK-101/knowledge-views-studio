@@ -22,16 +22,21 @@ enum class RecentsStyle(val rich: Boolean, val cards: Boolean) {
 enum class CallClass(val hue: CallHue, val fill: Fill, val form: Form, val glyph: Glyph) {
     /** Solid, loud: the one to notice. */
     MISSED(CallHue.MISSED, Fill.SOLID, Form.ROUND, Glyph.ARROW_MISSED),
+
     /** You declined it: solid but square, with the hang-up handset. */
     DECLINED(CallHue.MISSED, Fill.SOLID, Form.SQUARE, Glyph.HANG_UP),
     INCOMING(CallHue.INCOMING, Fill.TONAL, Form.ROUND, Glyph.ARROW_IN),
+
     /** Answered on another device (a watch, a linked phone): dashed, it didn't happen here. */
     ANSWERED_ELSEWHERE(CallHue.INCOMING, Fill.DASHED, Form.ROUND, Glyph.OTHER_DEVICE),
     VOICEMAIL(CallHue.INCOMING, Fill.TONAL, Form.SQUARE, Glyph.VOICEMAIL),
+
     /** Outgoing calls are outlined: you started them, nothing to act on. */
     OUTGOING(CallHue.OUTGOING, Fill.OUTLINE, Form.ROUND, Glyph.ARROW_OUT),
+
     /** Outgoing, nobody answered: dashed outline ("No answer"). */
     NO_ANSWER(CallHue.OUTGOING, Fill.DASHED, Form.ROUND, Glyph.ARROW_OUT_UNANSWERED),
+
     /** Crossed out, square. */
     BLOCKED(CallHue.BLOCKED, Fill.OUTLINE, Form.SQUARE, Glyph.BLOCK),
     UNKNOWN(CallHue.NEUTRAL, Fill.TONAL, Form.ROUND, Glyph.PHONE);

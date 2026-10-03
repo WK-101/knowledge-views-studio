@@ -63,7 +63,9 @@ fun KeepFullHistoryRow(vm: AppViewModel, icon: ImageVector? = null) {
         headlineContent = { Text(settingTitle("archive")) },
         supportingContent = {
             Text(
-                if (prefs.archiveEnabled) stringResource(R.string.hist_archive_on_summary) + "\n" + pluralStringResource(R.plurals.hist_archive_count, count, count)
+                if (prefs.archiveEnabled) stringResource(
+                    R.string.hist_archive_on_summary,
+                ) + "\n" + pluralStringResource(R.plurals.hist_archive_count, count, count)
                 else stringResource(R.string.hist_archive_off_summary),
             )
         },
@@ -109,7 +111,11 @@ private fun KeptForever(vm: AppViewModel) {
                 colors = rowColors,
                 headlineContent = { Text(vm.contactFor(number)?.displayName ?: Format.number(number, vm.countryIso)) },
                 supportingContent = { Text(Format.number(number, vm.countryIso)) },
-                trailingContent = { IconButton({ scope.launch { vm.c.history.removeKeepForeverKeys(listOf(key)) } }) { Icon(Icons.Rounded.Close, stringResource(R.string.hist_stop_keeping)) } },
+                trailingContent = {
+                    IconButton({ scope.launch { vm.c.history.removeKeepForeverKeys(listOf(key)) } }) {
+                        Icon(Icons.Rounded.Close, stringResource(R.string.hist_stop_keeping))
+                    }
+                },
             )
         }
     }
@@ -130,7 +136,9 @@ fun CallHistoryNotes(vm: AppViewModel) {
     val settings by vm.settings.collectAsStateWithLifecycle()
     Text(
         stringResource(R.string.hist_archive_explain) + "\n\n" +
-            (if (settings.callLogRetentionDays > 0) pluralStringResource(R.plurals.hist_retention_days, settings.callLogRetentionDays, settings.callLogRetentionDays)
+            (if (settings.callLogRetentionDays > 0) pluralStringResource(
+                R.plurals.hist_retention_days, settings.callLogRetentionDays, settings.callLogRetentionDays,
+            )
             else stringResource(R.string.hist_retention_forever)) + "\n\n" + stringResource(R.string.hist_export_hint),
         Modifier.padding(horizontal = 32.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
     )

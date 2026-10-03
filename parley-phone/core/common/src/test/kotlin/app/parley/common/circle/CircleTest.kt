@@ -92,7 +92,11 @@ class CircleTest {
         val merged = KeepRhythm.decode(KeepRhythm.merge(KeepRhythm(RhythmMode.NATURAL, snoozedUntil = 50).encode(), KeepRhythm(snoozedUntil = 30).encode()))
         assertEquals(RhythmMode.NATURAL, merged.mode)
         assertEquals(30L, merged.snoozedUntil)
-        assertNull(KeepRhythm.decode(KeepRhythm.merge(KeepRhythm(RhythmMode.NATURAL, snoozedUntil = 50).encode(), KeepRhythm(RhythmMode.NATURAL).encode())).snoozedUntil)
+        assertNull(
+            KeepRhythm.decode(
+                KeepRhythm.merge(KeepRhythm(RhythmMode.NATURAL, snoozedUntil = 50).encode(), KeepRhythm(RhythmMode.NATURAL).encode()),
+            ).snoozedUntil,
+        )
     }
 
     @Test fun status_due_soon_fine_and_snoozed() {
@@ -135,7 +139,11 @@ class CircleTest {
             listOf(fine, quiet, due), listOf(CircleDigest.UpcomingDate("bday", 3), CircleDigest.UpcomingDate("due", 1)), now,
         )
         assertEquals(
-            listOf(CircleDigest.Pick("due", CircleDigest.Reason.DUE), CircleDigest.Pick("bday", CircleDigest.Reason.DATE), CircleDigest.Pick("quiet", CircleDigest.Reason.QUIET)),
+            listOf(
+                CircleDigest.Pick("due", CircleDigest.Reason.DUE),
+                CircleDigest.Pick("bday", CircleDigest.Reason.DATE),
+                CircleDigest.Pick("quiet", CircleDigest.Reason.QUIET),
+            ),
             picks,
         )
         // Never the same quiet person twice in a row; dates too far ahead are left out.
@@ -257,7 +265,12 @@ class CircleTest {
         assertEquals(2, dates.size)
         assertEquals(dates.size, dates.map { Triple(it.time, it.type, it.label) }.toSet().size)
         // A different type or label on the same day stays.
-        val more = Timeline.dates(events + Triple(1, null, EventDate(2000, 5, 1)) + Triple(0, "Name day", EventDate(null, 5, 1)), listOf(TimelineEntry.Note(1, t, "x")), LocalDate.of(2026, 9, 25), zone)
+        val more = Timeline.dates(
+            events + Triple(1, null, EventDate(2000, 5, 1)) + Triple(0, "Name day", EventDate(null, 5, 1)),
+            listOf(TimelineEntry.Note(1, t, "x")),
+            LocalDate.of(2026, 9, 25),
+            zone,
+        )
         assertEquals(6, more.size)
     }
 }

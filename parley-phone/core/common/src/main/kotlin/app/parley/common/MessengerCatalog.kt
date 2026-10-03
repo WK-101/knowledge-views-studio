@@ -51,8 +51,15 @@ enum class MessengerCatalog(
         ),
         Messenger.SIGNAL, QrApp.SIGNAL, listOf("sgnl"), listOf("signal.me", "signal.group"),
     ),
+
     /** A Signal fork: it writes Signal's mimetypes, so it is told apart by its account type only. */
-    MOLLY("Molly", listOf("im.molly.app", "im.molly.app.unifiedpush"), listOf("im.molly.app", "im.molly.app.unifiedpush"), chat = Messenger.SIGNAL, qr = QrApp.SIGNAL),
+    MOLLY(
+        "Molly",
+        listOf("im.molly.app", "im.molly.app.unifiedpush"),
+        listOf("im.molly.app", "im.molly.app.unifiedpush"),
+        chat = Messenger.SIGNAL,
+        qr = QrApp.SIGNAL,
+    ),
     TELEGRAM(
         "Telegram", listOf("org.telegram.messenger", "org.telegram.messenger.web", "org.telegram.messenger.beta", "org.telegram.plus"),
         listOf("org.telegram.messenger", "org.telegram.messenger.web", "org.telegram.messenger.beta", "org.telegram.plus"),
@@ -90,6 +97,7 @@ enum class MessengerCatalog(
     ),
     IMO("imo", listOf("com.imo.android.imoim"), listOf("com.imo.android.imoim"), listOf("vnd.com.imo.android.imoim.")),
     BOTIM("BOTIM", listOf("im.thebot.messenger"), listOf("im.thebot.messenger"), listOf("vnd.im.thebot.messenger.")),
+
     /** Google Meet (formerly Duo). */
     MEET(
         "Google Meet", listOf("com.google.android.apps.tachyon"), listOf("com.google.android.apps.tachyon"),
@@ -101,6 +109,7 @@ enum class MessengerCatalog(
         qr = QrApp.SKYPE, schemes = listOf("skype"),
     ),
     WIRE("Wire", listOf("com.wire"), listOf("com.wire"), listOf("vnd.com.wire."), qr = QrApp.WIRE, hosts = listOf("account.wire.com")),
+
     /** Matrix: Element writes contacts rows; Element X, SchildiChat and FluffyChat open the same links. */
     ELEMENT(
         "Element", listOf("im.vector.app", "io.element.android.x", "de.spiritcroc.riotx", "chat.fluffy.fluffychat"), listOf("im.vector.app"),
@@ -122,8 +131,10 @@ enum class MessengerCatalog(
     ZALO("Zalo", listOf("com.zing.zalo"), qr = QrApp.ZALO, hosts = listOf("zalo.me")),
     DISCORD("Discord", listOf("com.discord"), listOf("com.discord"), qr = QrApp.DISCORD, hosts = listOf("discord.gg", "discord.com", "discordapp.com")),
     SESSION("Session", listOf("network.loki.messenger"), qr = QrApp.SESSION),
+
     /** XMPP clients (handles only). */
     XMPP("XMPP", listOf("eu.siacs.conversations", "im.quicksy.client", "org.monocles.chat"), schemes = listOf("xmpp")),
+
     /** Closed service: its raw contacts can still sit on old phones, and stay read-only. */
     KIK("Kik", emptyList(), listOf("kik.android")),
     ;

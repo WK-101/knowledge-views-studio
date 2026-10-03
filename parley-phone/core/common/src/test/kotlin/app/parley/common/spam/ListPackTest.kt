@@ -153,7 +153,9 @@ class ListPackTest {
         val good = sample(signed = true)
         val numbersChanged = rewrite(good) { name, b -> if (name == ListPack.NUMBERS) b.copyOf().also { it[9] = 1 } else b }
         expectFailure(numbersChanged, "checksum")
-        val manifestChanged = rewrite(good) { name, b -> if (name == ListPack.MANIFEST) b.decodeToString().replace("Test list", "Evil list").encodeToByteArray() else b }
+        val manifestChanged = rewrite(good) { name, b ->
+            if (name == ListPack.MANIFEST) b.decodeToString().replace("Test list", "Evil list").encodeToByteArray() else b
+        }
         expectFailure(manifestChanged, "signature")
         val noManifest = rewrite(good) { name, b -> if (name == ListPack.MANIFEST) null else b }
         expectFailure(noManifest, "manifest")

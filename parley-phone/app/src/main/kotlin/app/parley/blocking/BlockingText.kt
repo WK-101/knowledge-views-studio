@@ -181,7 +181,9 @@ object BlockingText {
         listHit.matchEntire(result)?.let { m ->
             return context.getString(R.string.blk_res_list_hit, m.groupValues[1], listedOr(context, m.groupValues[2]), m.groupValues[3].toInt())
         }
-        repeatOverrides.matchEntire(result)?.let { m -> return context.getString(R.string.blk_res_repeat_overrides, reasonFromLabel(context, m.groupValues[1])) }
+        repeatOverrides.matchEntire(result)?.let { m ->
+            return context.getString(R.string.blk_res_repeat_overrides, reasonFromLabel(context, m.groupValues[1]))
+        }
         simPending.matchEntire(result)?.let { m -> return context.getString(R.string.blk_res_sim_pending, m.groupValues[1]) }
         calledAgain.matchEntire(result)?.let { m ->
             val n = m.groupValues[1].toInt()
@@ -204,7 +206,9 @@ object BlockingText {
 
     /** "Contact?: no → Allow rules: none → …" (with "!" on failed-open steps), like [app.parley.common.TraceCodec.oneLine]. */
     fun oneLine(context: Context, steps: List<TraceStep>): String = steps.joinToString(" → ") {
-        (if (it.mark == TraceMark.FAILED_OPEN) "! " else "") + context.getString(R.string.blk_trace_step, check(context, it.check), result(context, it.check, it.result))
+        (if (it.mark == TraceMark.FAILED_OPEN) "! " else "") + context.getString(
+            R.string.blk_trace_step, check(context, it.check), result(context, it.check, it.result),
+        )
     }
 
     /** [Schedule.describe]: "Every day 22:00–07:00", "Mon–Fri, all day"; day names from the locale. */
@@ -314,7 +318,7 @@ object BlockingText {
         return message
     }
 
-    private val differentKey =Regex("^This update is signed by a different key \\((.*)\\) than the installed list \\((.*)\\)$")
+    private val differentKey = Regex("^This update is signed by a different key \\((.*)\\) than the installed list \\((.*)\\)$")
 
     /** A [app.parley.data.SpamListStore.InstallResult.Failed] reason in the app's language; unknown reasons as they are. */
     fun installFailure(context: Context, reason: String): String {

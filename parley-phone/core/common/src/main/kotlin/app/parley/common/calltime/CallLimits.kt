@@ -174,8 +174,12 @@ object Quotas {
     ): List<QuotaStatus> {
         if (rule == null) return emptyList()
         val out = ArrayList<QuotaStatus>(2)
-        if (rule.dailyMinutes > 0) out += QuotaStatus(QuotaPeriod.DAY, rule.dailyMinutes * 60L, usedSec(entries, rule, now, zone, QuotaPeriod.DAY, firstDayOfWeek) + liveSec)
-        if (rule.weeklyMinutes > 0) out += QuotaStatus(QuotaPeriod.WEEK, rule.weeklyMinutes * 60L, usedSec(entries, rule, now, zone, QuotaPeriod.WEEK, firstDayOfWeek) + liveSec)
+        if (rule.dailyMinutes > 0) out += QuotaStatus(
+            QuotaPeriod.DAY, rule.dailyMinutes * 60L, usedSec(entries, rule, now, zone, QuotaPeriod.DAY, firstDayOfWeek) + liveSec,
+        )
+        if (rule.weeklyMinutes > 0) out += QuotaStatus(
+            QuotaPeriod.WEEK, rule.weeklyMinutes * 60L, usedSec(entries, rule, now, zone, QuotaPeriod.WEEK, firstDayOfWeek) + liveSec,
+        )
         return out
     }
 

@@ -89,7 +89,9 @@ class CallLimitsTest {
     }
 
     @Test fun plan_carries_limit_reminder_and_supervision() {
-        val config = CallingConfig(rules = listOf(ana), warnSeconds = 30, supervised = true, reminders = ReminderSettings(everyMinutes = 15, perContact = mapOf("ana" to 5)))
+        val config = CallingConfig(
+            rules = listOf(ana), warnSeconds = 30, supervised = true, reminders = ReminderSettings(everyMinutes = 15, perContact = mapOf("ana" to 5)),
+        )
         val p = CallLimits.plan(config, facts(), listOf(QuotaStatus(QuotaPeriod.DAY, 1800, 600)))
         assertEquals(600_000L, p.limitMs)
         assertEquals(30_000L, p.warnBeforeMs)

@@ -33,7 +33,9 @@ class BulkAddTest {
             privateName = { if (it == "+923017654321") "Bilal" else null },
         )
         assertEquals(
-            listOf(BulkAdd.Status.NEW, BulkAdd.Status.PRIVATE, BulkAdd.Status.DUPLICATE, BulkAdd.Status.INVALID, BulkAdd.Status.CONTACT, BulkAdd.Status.INVALID),
+            listOf(
+                BulkAdd.Status.NEW, BulkAdd.Status.PRIVATE, BulkAdd.Status.DUPLICATE, BulkAdd.Status.INVALID, BulkAdd.Status.CONTACT, BulkAdd.Status.INVALID,
+            ),
             list.map { it.status },
         )
         assertEquals("Sam", list[4].existingName)

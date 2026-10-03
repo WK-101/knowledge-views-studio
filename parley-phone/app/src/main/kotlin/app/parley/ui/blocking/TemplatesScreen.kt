@@ -140,7 +140,9 @@ fun TemplatesScreen(vm: AppViewModel, back: () -> Unit) {
             File(dir, t.id.replace('.', '-') + "." + RuleTemplates.EXTENSION).apply { writeText(signed) }
         }
         val uri = FileProvider.getUriForFile(context, context.packageName + ".files", file)
-        val send = Intent(Intent.ACTION_SEND).setType("application/octet-stream").putExtra(Intent.EXTRA_STREAM, uri).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        val send = Intent(Intent.ACTION_SEND).setType(
+            "application/octet-stream",
+        ).putExtra(Intent.EXTRA_STREAM, uri).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         context.startActivity(Intent.createChooser(send, res.getString(R.string.blk_tpl_share_chooser, TemplateText.name(context, t))))
     }
 
@@ -175,7 +177,9 @@ fun TemplatesScreen(vm: AppViewModel, back: () -> Unit) {
                 if (list.isNotEmpty()) {
                     item(key = "h$title") { Section(stringResource(title)) }
                     items(list, key = { "t" + it.template.id }) { e ->
-                        TemplateCard(vm, gallery, e, gs.installed.any { it.id == e.template.id }, onShare = { shareFile(e.template) }, onQr = { qrFor = e.template })
+                        TemplateCard(
+                            vm, gallery, e, gs.installed.any { it.id == e.template.id }, onShare = { shareFile(e.template) }, onQr = { qrFor = e.template },
+                        )
                     }
                 }
             }
@@ -197,12 +201,17 @@ fun TemplatesScreen(vm: AppViewModel, back: () -> Unit) {
             content = {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     val mine = op.fingerprint == remember { vm.c.lists.shareFingerprint() }
-                    Text(stringResource(if (mine) R.string.blk_tpl_signed_by_you else R.string.blk_tpl_signed_by, op.fingerprint), fontWeight = FontWeight.Medium)
+                    Text(
+                        stringResource(if (mine) R.string.blk_tpl_signed_by_you else R.string.blk_tpl_signed_by, op.fingerprint),
+                        fontWeight = FontWeight.Medium,
+                    )
                     Text(stringResource(R.string.blk_tpl_check_fingerprint), style = MaterialTheme.typography.bodySmall)
                     if (t.description.isNotBlank()) Text(t.description, style = MaterialTheme.typography.bodySmall)
                     val lines = TemplateText.describe(context, t)
                     lines.take(12).forEach { Text("• $it", style = MaterialTheme.typography.bodySmall) } // l10n-ok: no words
-                    if (lines.size > 12) Text(pluralStringResource(R.plurals.set_and_more, lines.size - 12, lines.size - 12), style = MaterialTheme.typography.bodySmall)
+                    if (lines.size > 12) Text(
+                        pluralStringResource(R.plurals.set_and_more, lines.size - 12, lines.size - 12), style = MaterialTheme.typography.bodySmall,
+                    )
                 }
             },
         )
@@ -216,7 +225,9 @@ fun TemplatesScreen(vm: AppViewModel, back: () -> Unit) {
         )
     }
     qrFor?.let { t -> TemplateQrDialog(vm, t) { qrFor = null } }
-    if (shareMine) ShareMyRulesDialog(vm, onDismiss = { shareMine = false }, onFile = { t -> shareMine = false; shareFile(t) }, onQr = { t -> shareMine = false; qrFor = t })
+    if (shareMine) ShareMyRulesDialog(
+        vm, onDismiss = { shareMine = false }, onFile = { t -> shareMine = false; shareFile(t) }, onQr = { t -> shareMine = false; qrFor = t },
+    )
 }
 
 private const val MAX_FILE = 1024 * 1024
@@ -314,7 +325,9 @@ private fun TemplateQrDialog(vm: AppViewModel, t: RuleTemplate, onDismiss: () ->
                 when {
                     r == null -> Text(stringResource(R.string.blk_preparing))
                     !r.second -> Text(stringResource(R.string.blk_tpl_qr_too_large))
-                    r.first != null -> Image(r.first!!.asImageBitmap(), stringResource(R.string.blk_tpl_qr_cd), Modifier.size(260.dp).background(Color.White).padding(8.dp))
+                    r.first != null -> Image(
+                        r.first!!.asImageBitmap(), stringResource(R.string.blk_tpl_qr_cd), Modifier.size(260.dp).background(Color.White).padding(8.dp),
+                    )
                 }
                 Text(
                     stringResource(R.string.blk_tpl_qr_help, remember { vm.c.lists.shareFingerprint() }),
@@ -332,7 +345,9 @@ private fun ShareMyRulesDialog(vm: AppViewModel, onDismiss: () -> Unit, onFile: 
     val defaultName = stringResource(R.string.blk_tpl_my_rules)
     var name by remember { mutableStateOf(defaultName) }
     val template = remember(rules, name) {
-        RuleTemplates.fromRules("shared.r" + (System.currentTimeMillis() / 1000), name.trim().ifBlank { defaultName }.take(120), "", rules, System.currentTimeMillis() / 1000)
+        RuleTemplates.fromRules(
+            "shared.r" + (System.currentTimeMillis() / 1000), name.trim().ifBlank { defaultName }.take(120), "", rules, System.currentTimeMillis() / 1000,
+        )
     }
     ParleyDialog(
         onDismissRequest = onDismiss,

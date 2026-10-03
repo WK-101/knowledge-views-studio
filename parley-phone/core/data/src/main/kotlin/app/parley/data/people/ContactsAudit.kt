@@ -69,7 +69,9 @@ class ContactsAudit(private val context: Context) {
     }
 
     companion object {
-        val GRAPHENE_PACKAGES = listOf("app.grapheneos.apps", "app.grapheneos.info", "app.grapheneos.camera", "app.grapheneos.pdfviewer", "app.grapheneos.gmscompat")
+        val GRAPHENE_PACKAGES = listOf(
+            "app.grapheneos.apps", "app.grapheneos.info", "app.grapheneos.camera", "app.grapheneos.pdfviewer", "app.grapheneos.gmscompat",
+        )
         private val MESSAGING = setOf(
             "com.google.android.apps.messaging", "com.samsung.android.messaging", "org.fossify.messages", "com.simplemobiletools.smsmessenger",
             "org.smssecure.smssecure", "com.android.messaging", "com.textra",

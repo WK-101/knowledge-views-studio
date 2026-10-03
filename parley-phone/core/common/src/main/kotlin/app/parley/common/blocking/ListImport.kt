@@ -97,7 +97,9 @@ object ListImport {
     /** Guesses the mapping from the first rows. */
     fun guessMapping(rows: List<List<String>>, preset: ImportPreset = ImportPreset.GENERIC): ColumnMapping {
         val first = rows.firstOrNull().orEmpty().map { it.trim().lowercase() }
-        val header = first.isNotEmpty() && first.none { looksLikeNumber(it) } && first.any { h -> NUMBER_HEADERS.any { h.contains(it) } || NOTE_HEADERS.any { h.contains(it) } }
+        val header = first.isNotEmpty() && first.none { looksLikeNumber(it) } && first.any { h ->
+            NUMBER_HEADERS.any { h.contains(it) } || NOTE_HEADERS.any { h.contains(it) }
+        }
         val numberCol = if (header) {
             first.indexOfFirst { h -> h == "pattern" }.takeIf { it >= 0 } ?: first.indexOfFirst { h -> NUMBER_HEADERS.any { h.contains(it) } }
         } else {
@@ -210,7 +212,7 @@ object ListImport {
      * Some versions separate the fields with '|'; both layouts are accepted.
      */
     fun decryptCbbk(file: ByteArray, password: CharArray): String {
-        if (file.size < 4 + 16 + 12 + 16 || file.decodeToString(0, 4) != "CBBK") throw IllegalArgumentException("Not a Call Blocker backup (.cbbk)")
+        require(file.size >= 4 + 16 + 12 + 16 && file.decodeToString(0, 4) == "CBBK") { "Not a Call Blocker backup (.cbbk)" }
         val bar = '|'.code.toByte()
         val separated = file.size > 4 + 1 + 16 + 1 + 12 + 1 + 16 && file[4] == bar && file[4 + 1 + 16] == bar && file[4 + 1 + 16 + 1 + 12] == bar
         val buf = ByteBuffer.wrap(file)

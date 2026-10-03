@@ -162,7 +162,9 @@ data class WebUrl(
                     continue
                 }
                 val cp = s.codePointAt(i)
-                String(Character.toChars(cp)).toByteArray(Charsets.UTF_8).forEach { append('%').append(HEX[(it.toInt() shr 4) and 0xF]).append(HEX[it.toInt() and 0xF]) }
+                String(
+                    Character.toChars(cp),
+                ).toByteArray(Charsets.UTF_8).forEach { append('%').append(HEX[(it.toInt() shr 4) and 0xF]).append(HEX[it.toInt() and 0xF]) }
                 i += Character.charCount(cp)
             }
         }

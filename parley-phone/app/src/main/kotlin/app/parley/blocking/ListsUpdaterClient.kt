@@ -87,7 +87,18 @@ object ListsUpdaterClient {
                 val out = ArrayList<RemotePack>()
                 while (c.moveToNext()) {
                     val id = s("id") ?: continue
-                    out += RemotePack(id, s("name") ?: id, l("version"), l("entries").toInt(), l("ranges").toInt(), l("size"), l("updated"), s("fingerprint"), s("source").orEmpty(), s("licence").orEmpty())
+                    out += RemotePack(
+                        id,
+                        s("name") ?: id,
+                        l("version"),
+                        l("entries").toInt(),
+                        l("ranges").toInt(),
+                        l("size"),
+                        l("updated"),
+                        s("fingerprint"),
+                        s("source").orEmpty(),
+                        s("licence").orEmpty(),
+                    )
                 }
                 out
             }
@@ -102,7 +113,9 @@ object ListsUpdaterClient {
 
     fun lastError(ctx: Context, id: String): String? = prefs(ctx).getString("error.$id", null)
 
-    private fun setError(ctx: Context, id: String, error: String?) = prefs(ctx).edit { if (error == null) remove("error.$id") else putString("error.$id", error) }
+    private fun setError(ctx: Context, id: String, error: String?) = prefs(ctx).edit {
+        if (error == null) remove("error.$id") else putString("error.$id", error)
+    }
 
     private fun setSubscribed(ctx: Context, id: String, on: Boolean) {
         val s = subscriptions(ctx).toMutableSet()

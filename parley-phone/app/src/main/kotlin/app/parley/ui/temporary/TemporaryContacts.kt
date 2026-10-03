@@ -223,7 +223,9 @@ fun rememberTemporaryItems(vm: AppViewModel): List<TemporaryItem> {
         val byKey = contacts.orEmpty().associateBy { it.lookupKey }
         val phone = temps.map { t ->
             val c = byKey[t.lookupKey] ?: byId[t.contactId]
-            TemporaryItem(c?.displayName ?: t.name ?: fallback, c?.phones?.firstOrNull()?.number, t.expiresAt, c?.id ?: t.contactId, t.lookupKey, null, t.purgeHistory)
+            TemporaryItem(
+                c?.displayName ?: t.name ?: fallback, c?.phones?.firstOrNull()?.number, t.expiresAt, c?.id ?: t.contactId, t.lookupKey, null, t.purgeHistory,
+            )
         }
         val private = vault.filter { it.expiresAt != null }.map { v ->
             TemporaryItem(v.name, v.numbers.firstOrNull(), v.expiresAt!!, null, null, v.id, v.purgeHistory)
@@ -293,7 +295,7 @@ fun TemporaryContactsScreen(vm: AppViewModel, back: () -> Unit, open: (Destinati
                     modifier = Modifier.padding(start = 4.dp, bottom = 12.dp),
                 )
             }
-            itemsIndexed(items, key = { _, it -> it.key }) { i, t ->
+            itemsIndexed(items, key = { _, item -> item.key }) { i, t ->
                 Surface(shape = segmentShape(i, items.size), color = MaterialTheme.colorScheme.surfaceContainer, modifier = Modifier.fillMaxWidth().padding(bottom = 2.dp)) {
                     TemporaryRow(
                         t, vm.countryIso,
@@ -338,21 +340,40 @@ private fun TemporaryRow(t: TemporaryItem, countryIso: String, onOpen: () -> Uni
         leadingContent = { Avatar(t.name, null, avatarSize()) },
         headlineContent = {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                if (t.vaultId != null) Icon(Icons.Rounded.Lock, stringResource(R.string.temp_private), Modifier.padding(end = 4.dp).padding(top = 1.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (t.vaultId != null) Icon(
+                    Icons.Rounded.Lock,
+                    stringResource(R.string.temp_private),
+                    Modifier.padding(end = 4.dp).padding(top = 1.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
                 Text(t.name)
             }
         },
         supportingContent = {
-            Text(listOfNotNull(timeLeft(LocalResources.current, t.expiresAt), t.number?.let { DataL10n.ltr(Format.number(it, countryIso)) }).joinToString(" · "))
+            Text(
+                listOfNotNull(timeLeft(LocalResources.current, t.expiresAt), t.number?.let { DataL10n.ltr(Format.number(it, countryIso)) }).joinToString(" · "),
+            )
         },
         trailingContent = {
             Row {
                 IconButton(onExtend) { Icon(Icons.Rounded.MoreTime, stringResource(R.string.temp_keep_longer, t.name)) }
                 IconButton({ menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.temp_more_actions, t.name)) }
                 DropdownMenu(menu, { menu = false }) {
-                    DropdownMenuItem({ Text(stringResource(R.string.temp_extend)) }, leadingIcon = { Icon(Icons.Rounded.MoreTime, null) }, onClick = { menu = false; onExtend() })
-                    DropdownMenuItem({ Text(stringResource(R.string.temp_keep_permanently)) }, leadingIcon = { Icon(Icons.Rounded.PushPin, null) }, onClick = { menu = false; onKeep() })
-                    DropdownMenuItem({ Text(stringResource(R.string.temp_delete_now)) }, leadingIcon = { Icon(Icons.Rounded.Delete, null) }, onClick = { menu = false; onDelete() })
+                    DropdownMenuItem(
+                        { Text(stringResource(R.string.temp_extend)) },
+                        leadingIcon = { Icon(Icons.Rounded.MoreTime, null) },
+                        onClick = { menu = false; onExtend() },
+                    )
+                    DropdownMenuItem(
+                        { Text(stringResource(R.string.temp_keep_permanently)) },
+                        leadingIcon = { Icon(Icons.Rounded.PushPin, null) },
+                        onClick = { menu = false; onKeep() },
+                    )
+                    DropdownMenuItem(
+                        { Text(stringResource(R.string.temp_delete_now)) },
+                        leadingIcon = { Icon(Icons.Rounded.Delete, null) },
+                        onClick = { menu = false; onDelete() },
+                    )
                 }
             }
         },
@@ -438,7 +459,9 @@ fun SaveTemporaryDialog(number: String, suggestedName: String, onDismiss: () -> 
                     else stringResource(R.string.temp_save_private_text, DataL10n.ltr(number)),
                     style = MaterialTheme.typography.bodyMedium,
                 )
-                OutlinedTextField(name, { name = it }, label = { Text(stringResource(R.string.temp_name)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(
+                    name, { name = it }, label = { Text(stringResource(R.string.temp_name)) }, singleLine = true, modifier = Modifier.fillMaxWidth(),
+                )
                 Text(stringResource(R.string.temp_delete_after), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 4.dp))
                 DurationPicker(days, custom, { days = it }, { custom = it; days = null })
                 Row(

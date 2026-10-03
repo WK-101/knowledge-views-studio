@@ -97,7 +97,9 @@ fun TripScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit) 
                     city, { city = it },
                     label = { Text(stringResource(R.string.trip_city)) },
                     leadingIcon = { Icon(Icons.Rounded.LocationCity, null) },
-                    trailingIcon = { if (city.isNotEmpty()) IconButton({ city = "" }) { Icon(Icons.Rounded.Close, stringResource(R.string.home_clear_search)) } },
+                    trailingIcon = {
+                        if (city.isNotEmpty()) IconButton({ city = "" }) { Icon(Icons.Rounded.Close, stringResource(R.string.home_clear_search)) }
+                    },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words, imeAction = ImeAction.Search),
                     keyboardActions = KeyboardActions(onSearch = { keyboard?.hide() }),
@@ -109,17 +111,32 @@ fun TripScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit) 
                 )
             }
             if (choices.isNotEmpty()) item(key = "choices") {
-                Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    choices.forEach { c -> FilterChip(TripMatch.normalize(c) == TripMatch.normalize(city), { city = c; keyboard?.hide() }, label = { Text(c) }) }
+                Row(
+                    Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    choices.forEach { c ->
+                        FilterChip(TripMatch.normalize(c) == TripMatch.normalize(city), { city = c; keyboard?.hide() }, label = { Text(c) })
+                    }
                 }
             }
             when {
                 data == null -> item(key = "loading") { LinearProgressIndicator(Modifier.fillMaxWidth().padding(16.dp)) }
                 city.isBlank() -> item(key = "empty") {
-                    EmptyState(Icons.Rounded.TravelExplore, stringResource(R.string.trip_empty_title), stringResource(R.string.trip_empty_body), Modifier.padding(top = 16.dp))
+                    EmptyState(
+                        Icons.Rounded.TravelExplore,
+                        stringResource(R.string.trip_empty_title),
+                        stringResource(R.string.trip_empty_body),
+                        Modifier.padding(top = 16.dp),
+                    )
                 }
                 hits.isEmpty() -> item(key = "none") {
-                    EmptyState(Icons.Rounded.TravelExplore, stringResource(R.string.trip_none, city.trim()), stringResource(R.string.trip_none_body), Modifier.padding(top = 16.dp))
+                    EmptyState(
+                        Icons.Rounded.TravelExplore,
+                        stringResource(R.string.trip_none, city.trim()),
+                        stringResource(R.string.trip_none_body),
+                        Modifier.padding(top = 16.dp),
+                    )
                 }
                 else -> {
                     item(key = "summary") {
@@ -144,7 +161,9 @@ fun TripScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit) 
                                     IconButton({ vm.requestCall(phone.number, c.displayName, source = CallSource.CONTACT) }) {
                                         Icon(Icons.Rounded.Call, stringResource(R.string.circle_call_who, c.displayName))
                                     }
-                                    IconButton({ quick.message(c) }) { Icon(Icons.AutoMirrored.Rounded.Message, stringResource(R.string.circle_message_who, c.displayName)) }
+                                    IconButton({ quick.message(c) }) {
+                                        Icon(Icons.AutoMirrored.Rounded.Message, stringResource(R.string.circle_message_who, c.displayName))
+                                    }
                                 }
                             },
                         )

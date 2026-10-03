@@ -169,7 +169,10 @@ fun ManageLabelsScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -
             }
             if (list.isEmpty()) item {
                 EmptyState(
-                    Icons.AutoMirrored.Rounded.Label, stringResource(R.string.lbl_empty_title), stringResource(R.string.lbl_empty_text), Modifier.padding(top = 32.dp),
+                    Icons.AutoMirrored.Rounded.Label,
+                    stringResource(R.string.lbl_empty_title),
+                    stringResource(R.string.lbl_empty_text),
+                    Modifier.padding(top = 32.dp),
                     action = stringResource(R.string.lbl_new), onAction = { creating = true },
                 )
             }
@@ -184,13 +187,25 @@ fun ManageLabelsScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -
                         else Icon(Icons.AutoMirrored.Rounded.Label, null)
                     },
                     headlineContent = { Text(l.title) },
-                    supportingContent = { (idx.labelCounts[l.title] ?: 0).let { n -> Text(pluralStringResource(R.plurals.lbl_count_accounts, n, n, l.accounts.joinToString { it.displayLabel })) } },
+                    supportingContent = {
+                        (idx.labelCounts[l.title] ?: 0).let { n ->
+                            Text(pluralStringResource(R.plurals.lbl_count_accounts, n, n, l.accounts.joinToString { it.displayLabel }))
+                        }
+                    },
                     trailingContent = if (merging) null else ({
                         Box {
                             IconButton({ rowMenu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.lbl_more_for, l.title)) }
                             DropdownMenu(rowMenu, { rowMenu = false }) {
-                                DropdownMenuItem({ Text(stringResource(R.string.lbl_rename)) }, leadingIcon = { Icon(Icons.Rounded.Edit, null) }, onClick = { rowMenu = false; renaming = l.title })
-                                DropdownMenuItem({ Text(stringResource(R.string.lbl_delete)) }, leadingIcon = { Icon(Icons.Rounded.Delete, null) }, onClick = { rowMenu = false; deleting = l.title })
+                                DropdownMenuItem(
+                                    { Text(stringResource(R.string.lbl_rename)) },
+                                    leadingIcon = { Icon(Icons.Rounded.Edit, null) },
+                                    onClick = { rowMenu = false; renaming = l.title },
+                                )
+                                DropdownMenuItem(
+                                    { Text(stringResource(R.string.lbl_delete)) },
+                                    leadingIcon = { Icon(Icons.Rounded.Delete, null) },
+                                    onClick = { rowMenu = false; deleting = l.title },
+                                )
                             }
                         }
                     }),
@@ -208,7 +223,10 @@ fun ManageLabelsScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -
             onConfirm = {
                 mergeTarget = false
                 scope.launch {
-                    val n = runCatching { vm.c.people.labels.merge(picked, target) }.getOrElse { vm.toast(res.getString(R.string.lbl_merge_failed, it.message.toString())); return@launch }
+                    val n = runCatching { vm.c.people.labels.merge(picked, target) }.getOrElse {
+                        vm.toast(res.getString(R.string.lbl_merge_failed, it.message.toString()))
+                        return@launch
+                    }
                     vm.toast(if (n > 0) res.getQuantityString(R.plurals.lbl_merged_added, n, n, target) else res.getString(R.string.lbl_merged, target))
                     merging = false
                     picked = emptySet()
@@ -277,7 +295,9 @@ private fun CreateLabelDialog(vm: AppViewModel, onDismiss: () -> Unit, onCreated
             val a = account ?: return@ConfirmDialog
             onDismiss()
             scope.launch {
-                if (vm.c.people.labels.create(name, a) != null) { vm.toast(res.getString(R.string.lbl_created, name.trim())); onCreated() } else vm.toast(res.getString(R.string.lbl_create_failed))
+                if (vm.c.people.labels.create(name, a) != null) { vm.toast(res.getString(R.string.lbl_created, name.trim())); onCreated() } else vm.toast(
+                    res.getString(R.string.lbl_create_failed),
+                )
             }
         },
         onDismiss = onDismiss,
@@ -399,7 +419,9 @@ fun LabelScreen(vm: AppViewModel, title: String, back: () -> Unit, open: (Destin
         if (res.resultCode == Activity.RESULT_OK) {
             @Suppress("DEPRECATION")
             val uri = res.data?.getParcelableExtra<Uri>(RingtoneManager.EXTRA_RINGTONE_PICKED_URI)
-            vm.people.update { st -> st.copy(labelRingtones = if (uri == null) st.labelRingtones - current else st.labelRingtones + (current to uri.toString())) }
+            vm.people.update { st ->
+                st.copy(labelRingtones = if (uri == null) st.labelRingtones - current else st.labelRingtones + (current to uri.toString()))
+            }
         }
     }
     fun pickTone() = tonePicker.launch(
@@ -418,7 +440,9 @@ fun LabelScreen(vm: AppViewModel, title: String, back: () -> Unit, open: (Destin
             onBack = back,
             actions = {
                 IconButton({
-                    val numbers = members.mapNotNull { c -> (c.phones.firstOrNull { it.isPrimary } ?: c.phones.firstOrNull { it.type == 2 } ?: c.phones.firstOrNull())?.number }
+                    val numbers = members.mapNotNull { c ->
+                        (c.phones.firstOrNull { it.isPrimary } ?: c.phones.firstOrNull { it.type == 2 } ?: c.phones.firstOrNull())?.number
+                    }
                     if (numbers.isEmpty()) vm.toast(res.getString(R.string.lbl_no_numbers))
                     else runCatching { context.startActivity(Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:" + numbers.joinToString(";") { Uri.encode(it) }))) }
                         .onFailure { vm.toast(res.getString(R.string.lbl_no_sms_app)) }
@@ -437,8 +461,16 @@ fun LabelScreen(vm: AppViewModel, title: String, back: () -> Unit, open: (Destin
                                 onClick = { menu = false; open(SharedLabelRoutes.Share(current)) },
                             )
                         }
-                        DropdownMenuItem({ Text(stringResource(R.string.lbl_rename)) }, leadingIcon = { Icon(Icons.Rounded.Edit, null) }, onClick = { menu = false; renaming = true })
-                        DropdownMenuItem({ Text(stringResource(R.string.lbl_delete)) }, leadingIcon = { Icon(Icons.Rounded.Delete, null) }, onClick = { menu = false; confirmDelete = true })
+                        DropdownMenuItem(
+                            { Text(stringResource(R.string.lbl_rename)) },
+                            leadingIcon = { Icon(Icons.Rounded.Edit, null) },
+                            onClick = { menu = false; renaming = true },
+                        )
+                        DropdownMenuItem(
+                            { Text(stringResource(R.string.lbl_delete)) },
+                            leadingIcon = { Icon(Icons.Rounded.Delete, null) },
+                            onClick = { menu = false; confirmDelete = true },
+                        )
                     }
                 }
             },
@@ -454,9 +486,15 @@ fun LabelScreen(vm: AppViewModel, title: String, back: () -> Unit, open: (Destin
                 ListItem(
                     modifier = Modifier.clickable(onClick = ::pickTone),
                     leadingContent = { Icon(Icons.Rounded.MusicNote, null) },
-                    headlineContent = { Text(name ?: if (tone != null) stringResource(R.string.lbl_custom_ringtone) else stringResource(R.string.lbl_default_ringtone)) },
+                    headlineContent = {
+                        Text(name ?: if (tone != null) stringResource(R.string.lbl_custom_ringtone) else stringResource(R.string.lbl_default_ringtone))
+                    },
                     supportingContent = { Text(stringResource(R.string.lbl_ringtone_summary)) },
-                    trailingContent = { if (tone != null) TextButton({ vm.people.update { it.copy(labelRingtones = it.labelRingtones - current) } }) { Text(stringResource(R.string.lbl_reset)) } },
+                    trailingContent = {
+                        if (tone != null) TextButton({ vm.people.update { it.copy(labelRingtones = it.labelRingtones - current) } }) {
+                            Text(stringResource(R.string.lbl_reset))
+                        }
+                    },
                 )
             }
             // Sonic caller ID for the label: Parley's ringer plays label ringtones, so the tune is read from its own files.

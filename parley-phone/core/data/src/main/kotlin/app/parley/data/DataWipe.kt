@@ -91,7 +91,9 @@ class DataWipe(private val context: Context, private val c: DataContainer) {
     private fun deletePhoneContacts() {
         val local = DeviceAccounts.localAccount(context)
         val ids = ArrayList<Long>()
-        context.contentResolver.safeQuery(RawContacts.CONTENT_URI, arrayOf(RawContacts._ID, RawContacts.ACCOUNT_TYPE, RawContacts.ACCOUNT_NAME), "${RawContacts.DELETED}=0")?.use { cur ->
+        context.contentResolver.safeQuery(
+            RawContacts.CONTENT_URI, arrayOf(RawContacts._ID, RawContacts.ACCOUNT_TYPE, RawContacts.ACCOUNT_NAME), "${RawContacts.DELETED}=0",
+        )?.use { cur ->
             while (cur.moveToNext()) {
                 if (DeviceAccounts.isLocal(AccountRef(cur.getString(1), cur.getString(2)), local)) ids += cur.getLong(0)
             }

@@ -181,7 +181,12 @@ object PersistentStores {
             "vault_photo_originals", StoreKind.FILES,
             local("Full-size originals of private contacts' photos, sealed; the backup carries each private contact's photo"), location = PersistentStore.FILES,
         ),
-        PersistentStore("blocking/templates.json", StoreKind.FILES, local("Installed rule templates record this phone's rule ids; the rules are backed up"), location = PersistentStore.FILES),
+        PersistentStore(
+            "blocking/templates.json",
+            StoreKind.FILES,
+            local("Installed rule templates record this phone's rule ids; the rules are backed up"),
+            location = PersistentStore.FILES,
+        ),
         PersistentStore("blocking/share.key", StoreKind.FILES, StorePolicy.Secret("Signing key for shared rule lists"), location = PersistentStore.FILES),
         PersistentStore("markdown_export_state.json", StoreKind.FILES, local("Export bookkeeping for a folder picked here"), location = PersistentStore.FILES),
         PersistentStore("folder_sync_state.json", StoreKind.FILES, local("Sync bookkeeping for a folder picked here"), location = PersistentStore.FILES),

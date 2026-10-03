@@ -98,13 +98,27 @@ fun AccountDiagnosticsSection(vm: AppViewModel) {
             ListItem(
                 leadingContent = { Icon(Icons.Rounded.CheckCircle, null, tint = CallColors.Accept) },
                 headlineContent = { Text(stringResource(R.string.ppl_accounts_fine)) },
-                supportingContent = { Text(if (r.syncKnown) stringResource(R.string.ppl_accounts_fine_text) else stringResource(R.string.ppl_accounts_unknown)) },
+                supportingContent = {
+                    Text(if (r.syncKnown) stringResource(R.string.ppl_accounts_fine_text) else stringResource(R.string.ppl_accounts_unknown))
+                },
             )
         }
         Text(
-            stringResource(R.string.ppl_signed_in, r.signedIn.joinToString { res.getString(R.string.ppl_account_count, it.first.displayLabel, it.second) }.ifEmpty { res.getString(R.string.ppl_signed_in_none) }) +
-                "\n" + stringResource(R.string.ppl_holding, r.owning.joinToString { res.getString(R.string.ppl_account_count, it.first.displayLabel, it.second) }.ifEmpty { res.getString(R.string.ppl_holding_none) }),
-            Modifier.padding(horizontal = 16.dp, vertical = 4.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            stringResource(
+                R.string.ppl_signed_in,
+                r.signedIn.joinToString { res.getString(R.string.ppl_account_count, it.first.displayLabel, it.second) }.ifEmpty {
+                    res.getString(R.string.ppl_signed_in_none)
+                },
+            ) +
+                "\n" + stringResource(
+                    R.string.ppl_holding,
+                    r.owning.joinToString { res.getString(R.string.ppl_account_count, it.first.displayLabel, it.second) }.ifEmpty {
+                        res.getString(R.string.ppl_holding_none)
+                    },
+                ),
+            Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }

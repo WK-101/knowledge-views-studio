@@ -542,7 +542,9 @@ class BackupArchiveReader private constructor(
         }
 
         fun sha256(): String = RecordJson.hex(md.digest())
-        override fun close() {}
+
+        // Closing one entry leaves the ZIP stream it reads from open for the next entry.
+        override fun close() = Unit
     }
 
     companion object {
@@ -569,7 +571,9 @@ class BackupArchiveReader private constructor(
                             throw BackupIntegrityException("Duplicate entry $name")
                         }
                         val isManifest = name == BackupArchive.MANIFEST
-                        val keep = isManifest || name in setOf(BackupArchive.BLOCKING, BackupArchive.SPEEDDIAL, BackupArchive.NUMBERSIM, BackupArchive.SETTINGS) ||
+                        val keep = isManifest || name in setOf(
+                            BackupArchive.BLOCKING, BackupArchive.SPEEDDIAL, BackupArchive.NUMBERSIM, BackupArchive.SETTINGS,
+                        ) ||
                             BackupArchive.PHOTO_NAME.matches(name) ||
                             (name.startsWith(BackupArchive.VAULT_PREFIX) && BackupArchive.isValidVaultName(name.removePrefix(BackupArchive.VAULT_PREFIX)))
                         if (!keep && name !in BackupArchive.FIXED && !BackupArchive.isOptional(name)) throw BackupIntegrityException("Unexpected entry $name")

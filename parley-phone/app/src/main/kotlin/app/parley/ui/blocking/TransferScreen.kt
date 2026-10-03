@@ -176,7 +176,9 @@ fun TransferScreen(vm: AppViewModel, back: () -> Unit) {
                 stringResource(R.string.blk_transfer_share_help, remember { vm.c.lists.shareFingerprint() }),
                 style = MaterialTheme.typography.bodySmall,
             )
-            OutlinedTextField(shareName, { shareName = it }, label = { Text(stringResource(R.string.blk_list_name)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(
+                shareName, { shareName = it }, label = { Text(stringResource(R.string.blk_list_name)) }, singleLine = true, modifier = Modifier.fillMaxWidth(),
+            )
             OutlinedButton({
                 scope.launch {
                     val ex = vm.c.lists.exportRules(rules, shareName.ifBlank { res.getString(R.string.blk_shared_list) }, vm.countryIso)
@@ -187,10 +189,14 @@ fun TransferScreen(vm: AppViewModel, back: () -> Unit) {
                     val file = withContext(Dispatchers.IO) {
                         val dir = File(context.cacheDir, "share").apply { mkdirs() }
                         dir.listFiles()?.filter { it.name.endsWith(".parleylist") }?.forEach { it.delete() }
-                        File(dir, shareName.filter { it.isLetterOrDigit() || it == ' ' }.trim().ifBlank { "list" }.replace(' ', '-') + ".parleylist").apply { writeBytes(ex.bytes) }
+                        File(
+                            dir, shareName.filter { it.isLetterOrDigit() || it == ' ' }.trim().ifBlank { "list" }.replace(' ', '-') + ".parleylist",
+                        ).apply { writeBytes(ex.bytes) }
                     }
                     val uri = FileProvider.getUriForFile(context, context.packageName + ".files", file)
-                    val send = Intent(Intent.ACTION_SEND).setType("application/octet-stream").putExtra(Intent.EXTRA_STREAM, uri).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    val send = Intent(Intent.ACTION_SEND).setType(
+                        "application/octet-stream",
+                    ).putExtra(Intent.EXTRA_STREAM, uri).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                     val what = res.getString(
                         R.string.blk_joined,
                         res.getQuantityString(R.plurals.blk_numbers_count, ex.numbers, ex.numbers.toString()),
@@ -254,7 +260,9 @@ private fun ImportPreviewDialog(vm: AppViewModel, d: ImportDraft, onDone: () -> 
     val checked = remember(parsed) {
         parsed.mapNotNull { r ->
             val c = RuleTools.check(r.pattern, r.type, vm.countryIso)
-            if (c.error != null) null else BlockRule(pattern = c.pattern, type = r.type, kind = r.kind, note = r.note ?: res.getString(R.string.blk_imported_from, d.source))
+            if (c.error != null) null else BlockRule(
+                pattern = c.pattern, type = r.type, kind = r.kind, note = r.note ?: res.getString(R.string.blk_imported_from, d.source),
+            )
         }
     }
     ConfirmDialog(
@@ -287,9 +295,13 @@ private fun ImportPreviewDialog(vm: AppViewModel, d: ImportDraft, onDone: () -> 
                 Text(
                     pluralStringResource(R.plurals.blk_rules_found, checked.size, checked.size) +
                         (if (allows > 0) " " + pluralStringResource(R.plurals.blk_allowed_numbers_paren, allows, allows) else "") +
-                        if (parsed.size > checked.size) " · " + (parsed.size - checked.size).let { n -> pluralStringResource(R.plurals.blk_skipped_n, n, n) } else "",
+                        if (parsed.size > checked.size) " · " + (parsed.size - checked.size).let { n ->
+                            pluralStringResource(R.plurals.blk_skipped_n, n, n)
+                        } else "",
                 )
-                checked.take(5).forEach { Text("• ${bidiLtrIfNumber(it.pattern)} (${typeLabel(it.type)})", style = MaterialTheme.typography.bodySmall) } // l10n-ok: no words
+                checked.take(5).forEach {
+                    Text("• ${bidiLtrIfNumber(it.pattern)} (${typeLabel(it.type)})", style = MaterialTheme.typography.bodySmall)
+                } // l10n-ok: no words
                 Text(stringResource(R.string.blk_not_duplicated), style = MaterialTheme.typography.bodySmall)
             }
         },
@@ -301,6 +313,8 @@ private fun ColumnPicker(label: String, header: List<String>, selected: Int, all
     Text(label, style = MaterialTheme.typography.labelLarge)
     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
         if (allowNone) FilterChip(selected < 0, { onPick(-1) }, label = { Text(stringResource(R.string.blk_notify_none)) })
-        header.forEachIndexed { i, h -> FilterChip(selected == i, { onPick(i) }, label = { Text(h.take(16).ifBlank { stringResource(R.string.blk_column_n, i + 1) }) }) }
+        header.forEachIndexed { i, h ->
+            FilterChip(selected == i, { onPick(i) }, label = { Text(h.take(16).ifBlank { stringResource(R.string.blk_column_n, i + 1) }) })
+        }
     }
 }

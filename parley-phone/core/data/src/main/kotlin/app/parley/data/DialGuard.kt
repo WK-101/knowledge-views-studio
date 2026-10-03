@@ -48,16 +48,24 @@ class DialGuard(
         val out = ArrayList<DialWarning>()
         val facts = NumberFacts.of(number, iso)
         when (facts.lineType) {
-            LineType.PREMIUM_RATE -> out += DialWarning("Premium-rate number", "Calls to this number can cost a lot per minute, on top of your plan.", severe = true)
+            LineType.PREMIUM_RATE -> out += DialWarning(
+                "Premium-rate number", "Calls to this number can cost a lot per minute, on top of your plan.", severe = true,
+            )
             LineType.SHARED_COST -> out += DialWarning("Shared-cost number", "This number is charged at a special rate that may not be in your plan.")
             else -> Unit
         }
         val isContact = contacts.isContact(number) == true
         if (!isContact) {
-            val rule = blocks.rules.value.firstOrNull { it.enabled && it.kind == RuleKind.BLOCK && it.type.isNumberRule && CallPolicy.ruleMatches(it, number, iso) }
+            val rule = blocks.rules.value.firstOrNull {
+                it.enabled && it.kind == RuleKind.BLOCK && it.type.isNumberRule && CallPolicy.ruleMatches(it, number, iso)
+            }
             if (rule != null) out += DialWarning("Matches your block rule", "'${rule.title}' blocks calls from this number.")
             val hit = lists.lookup(number, iso).hits.maxByOrNull { it.score }
-            if (hit != null) out += DialWarning("Listed as spam", "${hit.packName}" + (hit.category?.let { ": $it" } ?: "") + ". Scam lines often charge you for calling back.", severe = hit.score >= 70)
+            if (hit != null) out += DialWarning(
+                "Listed as spam",
+                "${hit.packName}" + (hit.category?.let { ": $it" } ?: "") + ". Scam lines often charge you for calling back.",
+                severe = hit.score >= 70,
+            )
             wangiri(number, iso, facts.lineType, facts.region)?.let { out += it }
         }
         return out

@@ -123,7 +123,9 @@ fun CsvMappingScreen(vm: AppViewModel, back: () -> Unit) {
         LazyColumn(Modifier.fillMaxSize().padding(pad)) {
             item {
                 val layout = if (hasHeader) CsvColumnMapping.layout(header) else CsvColumnMapping.Layout.OTHER
-                val sep = stringResource(when (p.delimiter) { ';' -> R.string.csv_sep_semicolons; '\t' -> R.string.csv_sep_tabs; else -> R.string.csv_sep_commas })
+                val sep = stringResource(
+                    when (p.delimiter) { ';' -> R.string.csv_sep_semicolons; '\t' -> R.string.csv_sep_tabs; else -> R.string.csv_sep_commas },
+                )
                 val layoutName = when (layout) {
                     CsvColumnMapping.Layout.PARLEY -> stringResource(R.string.csv_layout_parley)
                     CsvColumnMapping.Layout.GOOGLE -> stringResource(R.string.csv_layout_google)
@@ -159,7 +161,11 @@ fun CsvMappingScreen(vm: AppViewModel, back: () -> Unit) {
             sample.forEach { r ->
                 item {
                     Card(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
-                        Text(CsvColumnMapping.describe(r, stringResource(R.string.csv_no_name)) { res.getString(R.string.csv_labels, it) }, Modifier.padding(12.dp), style = MaterialTheme.typography.bodyMedium)
+                        Text(
+                            CsvColumnMapping.describe(r, stringResource(R.string.csv_no_name)) { res.getString(R.string.csv_labels, it) },
+                            Modifier.padding(12.dp),
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
                     }
                 }
             }
@@ -191,7 +197,9 @@ fun CsvMappingScreen(vm: AppViewModel, back: () -> Unit) {
                         enabled = usable && progress == null,
                         modifier = Modifier.padding(top = 8.dp).align(Alignment.End),
                     ) { Text(stringResource(R.string.csv_import)) }
-                    if (!usable) Text(stringResource(R.string.csv_need_column), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                    if (!usable) Text(
+                        stringResource(R.string.csv_need_column), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error,
+                    )
                 }
             }
         }

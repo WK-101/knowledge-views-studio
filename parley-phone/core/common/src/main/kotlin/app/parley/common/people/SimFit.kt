@@ -10,14 +10,19 @@ data class SimEntry(val name: String, val number: String)
 enum class SimIssue {
     /** There's no phone number to copy. */
     NO_NUMBER,
+
     /** The number can't be stored on a SIM. */
     NUMBER_INVALID,
+
     /** The number is longer than the SIM allows ([SimWarning.count] digits). */
     NUMBER_TOO_LONG,
+
     /** Only one number fits: [SimWarning.count] other numbers are left out. */
     OTHER_NUMBERS_LEFT_OUT,
+
     /** The name is shortened to [SimWarning.text]. */
     NAME_SHORTENED,
+
     /** E-mails, addresses, photos and other details stay on the phone only. */
     DETAILS_STAY,
 }

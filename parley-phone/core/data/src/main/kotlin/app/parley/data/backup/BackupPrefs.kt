@@ -41,7 +41,9 @@ data class BackupState(
      */
     val signedAsYours: Boolean = false,
 ) {
-    val policy: RetentionPolicy get() = if (keepLast > 0) RetentionPolicy.Simple(keepLast) else RetentionPolicy.Periodic(daily = 7, weekly = 5, monthly = 12, yearly = 3)
+    val policy: RetentionPolicy get() = if (keepLast > 0) RetentionPolicy.Simple(keepLast) else RetentionPolicy.Periodic(
+        daily = 7, weekly = 5, monthly = 12, yearly = 3,
+    )
 
     /** The last result in the current language (rendered now, not when it was stored). */
     fun resultText(res: Resources): String? {

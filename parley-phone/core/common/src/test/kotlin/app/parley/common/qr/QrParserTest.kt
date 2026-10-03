@@ -66,7 +66,9 @@ class QrParserTest {
     }
 
     @Test fun mecard_with_escapes() {
-        val c = parse<QrPayload.Contact>("MECARD:N:Owen,Sean;TEL:+12125551212;EMAIL:srowen@example.com;NOTE:Likes \\;semicolons\\, and commas;BDAY:19700310;URL:https\\://example.com;;")
+        val c = parse<QrPayload.Contact>(
+            "MECARD:N:Owen,Sean;TEL:+12125551212;EMAIL:srowen@example.com;NOTE:Likes \\;semicolons\\, and commas;BDAY:19700310;URL:https\\://example.com;;",
+        )
         assertEquals(ContactFormat.MECARD, c.format)
         val r = c.records[0]
         assertEquals("Sean", r.first(Mime.NAME, Col.D2))
@@ -88,7 +90,9 @@ class QrParserTest {
     }
 
     @Test fun bizcard() {
-        val c = parse<QrPayload.Contact>("BIZCARD:N:Sean;X:Owen;T:Software Engineer;C:Google;A:76 9th Avenue, New York, NY 10011;B:+12125551212;E:srowen@google.com;;")
+        val c = parse<QrPayload.Contact>(
+            "BIZCARD:N:Sean;X:Owen;T:Software Engineer;C:Google;A:76 9th Avenue, New York, NY 10011;B:+12125551212;E:srowen@google.com;;",
+        )
         assertEquals(ContactFormat.BIZCARD, c.format)
         val r = c.records[0]
         assertEquals("Sean Owen", r.displayName)
@@ -197,7 +201,9 @@ class QrParserTest {
     // ---------------------------------------------------------------- calendar
 
     @Test fun vevent_utc() {
-        val e = parse<QrPayload.Event>("BEGIN:VEVENT\nSUMMARY:Team lunch\nDTSTART:20180601T070000Z\nDTEND:20180601T080000Z\nLOCATION:Caf\u00e9\\, upstairs\nEND:VEVENT")
+        val e = parse<QrPayload.Event>(
+            "BEGIN:VEVENT\nSUMMARY:Team lunch\nDTSTART:20180601T070000Z\nDTEND:20180601T080000Z\nLOCATION:Caf\u00e9\\, upstairs\nEND:VEVENT",
+        )
         assertEquals("Team lunch", e.summary)
         assertEquals("Café, upstairs", e.location)
         assertEquals(1527836400000L, e.start!!.toEpochMillis(ZoneOffset.ofHours(5)))
@@ -205,7 +211,9 @@ class QrParserTest {
     }
 
     @Test fun vevent_all_day_in_calendar_wrapper_with_folding() {
-        val e = parse<QrPayload.Event>("BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nSUMMARY:Long\r\n  name\r\nDTSTART;VALUE=DATE:20250102\r\nDURATION:P1D\r\nEND:VEVENT\r\nEND:VCALENDAR")
+        val e = parse<QrPayload.Event>(
+            "BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nSUMMARY:Long\r\n  name\r\nDTSTART;VALUE=DATE:20250102\r\nDURATION:P1D\r\nEND:VEVENT\r\nEND:VCALENDAR",
+        )
         assertEquals("Long name", e.summary)
         assertTrue(e.start!!.allDay)
         assertEquals(IcsTime(2025, 1, 3), e.end)

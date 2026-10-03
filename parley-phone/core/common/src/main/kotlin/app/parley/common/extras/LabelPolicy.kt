@@ -94,7 +94,9 @@ object LabelPolicies {
 
     /** The rhythm to offer for someone with [labels]: the closest (shortest) gap any of their labels asks for. */
     fun rhythmFor(labels: Set<String>, policies: Map<String, LabelPolicy>): Pair<String, Int>? =
-        labels.mapNotNull { l -> policies[l]?.rhythmDays?.let { l to it } }.minWithOrNull(compareBy<Pair<String, Int>> { it.second }.thenBy { it.first.lowercase() })
+        labels.mapNotNull { l -> policies[l]?.rhythmDays?.let { l to it } }.minWithOrNull(
+            compareBy<Pair<String, Int>> { it.second }.thenBy { it.first.lowercase() },
+        )
 
     /** Labels were renamed or merged (old title → new title); a merge keeps the target's own policy. */
     fun renamed(map: Map<String, LabelPolicy>, renames: Map<String, String>): Map<String, LabelPolicy> {

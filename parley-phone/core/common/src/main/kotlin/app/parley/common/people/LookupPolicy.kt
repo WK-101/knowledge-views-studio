@@ -9,16 +9,22 @@ enum class LookupApproval { ALLOWED, DENIED, PENDING }
 enum class LookupOutcome {
     /** Showed a private name. */
     ANSWERED,
+
     /** Asked; no private contact has that number. */
     NOT_FOUND,
+
     /** Blocked: the user said no. */
     DENIED,
+
     /** Waiting for the user's answer. */
     ASKED,
+
     /** Blocked: sharing private names is off. */
     OFF,
+
     /** Rejected: not a single phone number. */
     REJECTED,
+
     /** Blocked: too many lookups. */
     RATE_LIMITED,
 }

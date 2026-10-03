@@ -76,7 +76,9 @@ object LabelRefs {
 
     /** Off hours after its "only this label" was deleted: everyone would be silenced, so it switches itself off. */
     fun labelGone(o: OffHours): OffHours =
-        if (o.allow == OffHoursAllow.LABEL) o.copy(enabled = false, allow = OffHoursAllow.CONTACTS, labelId = null, labelTitle = null) else o.copy(labelId = null)
+        if (o.allow == OffHoursAllow.LABEL) o.copy(
+            enabled = false, allow = OffHoursAllow.CONTACTS, labelId = null, labelTitle = null,
+        ) else o.copy(labelId = null)
 
     // ---- Rename, merge and delete (dependent references follow the label) ----
 

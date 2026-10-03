@@ -9,7 +9,6 @@ import android.content.Context
 import android.net.Uri
 import android.provider.DocumentsContract
 import app.parley.common.CallType
-import app.parley.common.PhoneNumbers
 import app.parley.common.circle.InteractionType
 import app.parley.common.circle.Promises
 import app.parley.common.extras.MarkdownNotes
@@ -140,7 +139,9 @@ class MarkdownExport(private val context: Context, private val c: DataContainer)
             val listed = try {
                 cr.query(
                     DocumentsContract.buildChildDocumentsUriUsingTree(folder, treeId),
-                    arrayOf(DocumentsContract.Document.COLUMN_DOCUMENT_ID, DocumentsContract.Document.COLUMN_DISPLAY_NAME, DocumentsContract.Document.COLUMN_SIZE),
+                    arrayOf(
+                        DocumentsContract.Document.COLUMN_DOCUMENT_ID, DocumentsContract.Document.COLUMN_DISPLAY_NAME, DocumentsContract.Document.COLUMN_SIZE,
+                    ),
                     null, null, null,
                 )?.use { cur ->
                     while (cur.moveToNext()) {

@@ -56,7 +56,9 @@ class UssdSession(private val c: DataContainer, private val scope: CoroutineScop
         timeout?.cancel()
         timeout = scope.launch {
             delay(TIMEOUT_MS)
-            if (_state.value is UssdState.Sending && _state.value?.code == code) finish(code, c.appContext.getString(R.string.ct_ussd_no_reply), false, simLabel, simId)
+            if (_state.value is UssdState.Sending && _state.value?.code == code) finish(
+                code, c.appContext.getString(R.string.ct_ussd_no_reply), false, simLabel, simId,
+            )
         }
         try {
             tm.sendUssdRequest(

@@ -256,7 +256,9 @@ private fun SimpleKeypad(digits: String, onDigits: (String) -> Unit, onClose: ()
                 Row(Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     row.forEach { k ->
                         // Hold 0 for +, like the regular keypad.
-                        Key(k.toString(), Modifier.weight(1f).fillMaxSize(), onLong = if (k == '0') ({ onDigits(digits + "+") }) else null) { onDigits(digits + k) }
+                        Key(
+                            k.toString(), Modifier.weight(1f).fillMaxSize(), onLong = if (k == '0') ({ onDigits(digits + "+") }) else null,
+                        ) { onDigits(digits + k) }
                     }
                 }
             }

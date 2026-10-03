@@ -142,7 +142,9 @@ object QrLabels {
     }
 
     fun kind(res: Resources, p: QrPayload): String = when (p) {
-        is QrPayload.Contact -> if (p.records.size > 1) res.getQuantityString(R.plurals.qs_kind_contacts, p.records.size, p.records.size) else res.getString(R.string.qs_kind_contact)
+        is QrPayload.Contact -> if (p.records.size > 1) res.getQuantityString(
+            R.plurals.qs_kind_contacts, p.records.size, p.records.size,
+        ) else res.getString(R.string.qs_kind_contact)
         is QrPayload.Parley -> res.getString(
             when (p.kind) {
                 ParleyKind.CONTACT -> R.string.qs_kind_parley_contact
@@ -327,7 +329,11 @@ private fun ColumnScope.ContactResult(vm: AppViewModel, p: QrPayload.Contact, on
 private fun CardAsks(asks: Set<ScannedCard.Flag>, labels: List<String>, allowed: Set<ScannedCard.Flag>, onChange: (Set<ScannedCard.Flag>) -> Unit) {
     Card(Modifier.fillMaxWidth().padding(top = 10.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)) {
         Column(Modifier.padding(vertical = 8.dp)) {
-            Text(stringResource(R.string.qs_card_asks), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp))
+            Text(
+                stringResource(R.string.qs_card_asks),
+                style = MaterialTheme.typography.titleSmall,
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+            )
             ScannedCard.Flag.entries.filter { it in asks }.forEach { f ->
                 val text = when (f) {
                     ScannedCard.Flag.STARRED -> stringResource(R.string.qs_card_ask_star)
@@ -366,7 +372,11 @@ private fun ColumnScope.ContactCard(vm: AppViewModel, record: ContactRecord, onD
     val name = nameOf(record, details)
     Card(Modifier.fillMaxWidth().padding(top = 12.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)) {
         Column(Modifier.padding(16.dp)) {
-            Text(QrText.shown(name, 120, false).ifBlank { stringResource(R.string.qs_no_name) }, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Medium)
+            Text(
+                QrText.shown(name, 120, false).ifBlank { stringResource(R.string.qs_no_name) },
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Medium,
+            )
             listOf(details.title, details.company).filter { it.isNotBlank() }.joinToString(" · ").takeIf { it.isNotEmpty() }?.let {
                 Text(QrText.shown(it, 200, false), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -533,7 +543,9 @@ private fun ColumnScope.EmailResult(vm: AppViewModel, p: QrPayload.Email, onDism
     p.to.firstOrNull()?.let { address ->
         Action(stringResource(R.string.qs_add_contact), Icons.Rounded.PersonAdd) {
             onDismiss()
-            vm.navigate(NavEvent.NewContact(ContactDetails(emails = listOf(DataItem(value = address, type = ContactsContract.CommonDataKinds.Email.TYPE_HOME)))))
+            vm.navigate(
+                NavEvent.NewContact(ContactDetails(emails = listOf(DataItem(value = address, type = ContactsContract.CommonDataKinds.Email.TYPE_HOME)))),
+            )
         }
     }
 }
@@ -574,7 +586,10 @@ private fun ColumnScope.WifiResult(p: QrPayload.Wifi) {
                 Field(stringResource(R.string.qs_field_password), if (reveal) pw else "•".repeat(pw.length.coerceAtMost(16)), mono = true)
             }
             IconButton({ reveal = !reveal }) {
-                Icon(if (reveal) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility, stringResource(if (reveal) R.string.qs_hide_password else R.string.qs_show_password))
+                Icon(
+                    if (reveal) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility,
+                    stringResource(if (reveal) R.string.qs_hide_password else R.string.qs_show_password),
+                )
             }
         }
     }
@@ -582,14 +597,18 @@ private fun ColumnScope.WifiResult(p: QrPayload.Wifi) {
     val canAdd = remember(p) { QrActions.canAddWifi(p) }
     Note(stringResource(if (canAdd) R.string.qs_wifi_note_add else R.string.qs_wifi_note_settings))
     if (canAdd) Action(stringResource(R.string.qs_wifi_add), Icons.Rounded.Wifi, primary = true) { QrActions.addWifi(context, p) }
-    p.password?.let { pw -> Action(stringResource(R.string.qs_copy_password), Icons.Rounded.ContentCopy, primary = !canAdd) { QrActions.copy(context, pw, sensitive = true) } }
+    p.password?.let { pw ->
+        Action(stringResource(R.string.qs_copy_password), Icons.Rounded.ContentCopy, primary = !canAdd) { QrActions.copy(context, pw, sensitive = true) }
+    }
     Action(stringResource(R.string.qs_wifi_settings), Icons.Rounded.Settings) { QrActions.wifiSettings(context) }
 }
 
 @Composable
 private fun ColumnScope.EventResult(p: QrPayload.Event) {
     val context = LocalContext.current
-    if (p.summary.isNotBlank()) Text(QrText.shown(p.summary, 200, false), style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(top = 12.dp))
+    if (p.summary.isNotBlank()) Text(
+        QrText.shown(p.summary, 200, false), style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(top = 12.dp),
+    )
     val zone = ZoneId.systemDefault()
     p.start?.let { s -> s.toEpochMillis(zone)?.let { s to it } }?.let { (s, start) ->
         // An all-day event ends at the start of the next day: show the last day it covers.
@@ -634,7 +653,9 @@ private fun ColumnScope.MessengerResult(vm: AppViewModel, p: QrPayload.Messenger
     p.phone?.let { number ->
         Action(stringResource(R.string.qs_save_contact), Icons.Rounded.PersonAdd) {
             onDismiss()
-            vm.navigate(NavEvent.NewContact(ContactDetails(phones = listOf(DataItem(value = number, type = ContactsContract.CommonDataKinds.Phone.TYPE_MOBILE)))))
+            vm.navigate(
+                NavEvent.NewContact(ContactDetails(phones = listOf(DataItem(value = number, type = ContactsContract.CommonDataKinds.Phone.TYPE_MOBILE)))),
+            )
         }
         if (app in setOf(QrApp.WHATSAPP, QrApp.SIGNAL, QrApp.TELEGRAM, QrApp.VIBER, QrApp.ZALO)) {
             Action(stringResource(R.string.qs_call), Icons.Rounded.Call) {
@@ -668,7 +689,12 @@ fun WebAddressSheet(url: String, onDismiss: () -> Unit) {
 private fun ColumnScope.UrlResult(p: QrPayload.Url) {
     val context = LocalContext.current
     val info = p.info
-    Text(stringResource(R.string.qs_domain_label), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 12.dp))
+    Text(
+        stringResource(R.string.qs_domain_label),
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(top = 12.dp),
+    )
     Text(Bidi.ltr(QrText.shown(info.domain, 120, false)), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.SemiBold)
     if (info.displayHost != info.domain) Text(Bidi.ltr(QrText.shown(info.displayHost, 200, false)), style = MaterialTheme.typography.bodyMedium)
     if (info.asciiHost != info.displayHost) {

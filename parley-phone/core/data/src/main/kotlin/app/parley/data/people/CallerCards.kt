@@ -14,7 +14,9 @@ object CallerCards {
         if (contact != null) {
             if (contact.work) return@runCatching null
             val org = c.contacts.organization(contact.contactId)
-            return@runCatching CallerCard.missedCallLine(isPrivate = false, hideVault = hideVault, subtitle = CallerCard.subtitle(org?.second, org?.first), context = null)
+            return@runCatching CallerCard.missedCallLine(
+                isPrivate = false, hideVault = hideVault, subtitle = CallerCard.subtitle(org?.second, org?.first), context = null,
+            )
         }
         if (hideVault) return@runCatching null
         val (id, _) = c.vault.lookup(number) ?: return@runCatching null

@@ -33,7 +33,9 @@ class ParleyWriteLog(context: Context) {
         val kept = arr.takeLast(MAX)
         val json = JSONArray()
         kept.forEach { e ->
-            json.put(JSONObject().put("r", e.rawId).put("k", e.lookupKey).put("t", e.write.time).put("v", e.write.versionAfter).put("f", JSONArray(e.write.fields)))
+            json.put(
+                JSONObject().put("r", e.rawId).put("k", e.lookupKey).put("t", e.write.time).put("v", e.write.versionAfter).put("f", JSONArray(e.write.fields)),
+            )
         }
         prefs.edit().putString(KEY, json.toString()).apply()
     }
@@ -46,7 +48,9 @@ class ParleyWriteLog(context: Context) {
             (0 until a.length()).mapTo(ArrayList()) { i ->
                 val o = a.getJSONObject(i)
                 val f = o.optJSONArray("f") ?: JSONArray()
-                Entry(o.getLong("r"), o.optString("k"), ParleyWrite(o.getLong("r"), o.getLong("t"), o.getLong("v"), (0 until f.length()).map { f.getString(it) }))
+                Entry(
+                    o.getLong("r"), o.optString("k"), ParleyWrite(o.getLong("r"), o.getLong("t"), o.getLong("v"), (0 until f.length()).map { f.getString(it) }),
+                )
             }
         }.getOrElse { ArrayList() }
     }
@@ -91,7 +95,9 @@ class ProvenanceReader(private val context: Context, private val log: ParleyWrit
                 while (c.moveToNext()) {
                     val type = c.getString(1)
                     if (Messengers.isMessengerAccount(type)) continue
-                    raws += RawState(c.getLong(0), AccountRef(type, c.getString(2)).displayLabel, type != null && type in synced, c.getLong(3), c.getInt(4) != 0)
+                    raws += RawState(
+                        c.getLong(0), AccountRef(type, c.getString(2)).displayLabel, type != null && type in synced, c.getLong(3), c.getInt(4) != 0,
+                    )
                 }
             }
         } catch (_: Exception) {

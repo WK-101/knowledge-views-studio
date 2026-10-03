@@ -3,7 +3,6 @@ package app.parley.common.history
 import app.parley.common.PhoneIdentity
 import app.parley.common.CallEntry
 import app.parley.common.CallType
-import app.parley.common.PhoneNumbers
 import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
@@ -413,7 +412,9 @@ class CallLogIndex private constructor(
             val (inside, outside) = outgoing.partition { AnswerWindow.of(Instant.ofEpochMilli(it.date).atZone(zone).hour) == w }
             Triple(w, inside, outside)
         }.filter { (_, inside, outside) -> inside.size >= 3 && outside.size >= 3 }
-            .map { (w, inside, outside) -> Triple(w, inside.count { it.durationSec > 0 }.toDouble() / inside.size, outside.count { it.durationSec > 0 }.toDouble() / outside.size) }
+            .map { (w, inside, outside) ->
+                Triple(w, inside.count { it.durationSec > 0 }.toDouble() / inside.size, outside.count { it.durationSec > 0 }.toDouble() / outside.size)
+            }
             .filter { (_, rin, rout) -> rin >= 0.6 && rin - rout >= 0.25 }
             .maxByOrNull { it.second }?.first
     }

@@ -77,7 +77,9 @@ fun UpdaterScreen(repo: ListsRepo) {
                         )
                         Text(
                             (state.lastRunError?.let { stringResource(R.string.lists_last_update_error, ago(state.lastRun), it) } ?: stringResource(R.string.lists_last_update, ago(state.lastRun))) +
-                                "\n" + pluralStringResource(R.plurals.lists_summary, state.packs.size, state.packs.size, size(repo.totalBytes()), size(repo.cacheBytes())),
+                                "\n" + pluralStringResource(
+                                    R.plurals.lists_summary, state.packs.size, state.packs.size, size(repo.totalBytes()), size(repo.cacheBytes()),
+                                ),
                             style = MaterialTheme.typography.bodyMedium,
                         )
                         if (state.running) LinearProgressIndicator(Modifier.fillMaxWidth())
@@ -90,7 +92,9 @@ fun UpdaterScreen(repo: ListsRepo) {
             }
 
             item { Header(stringResource(R.string.lists_ready)) }
-            if (state.packs.isEmpty()) item { Text(stringResource(R.string.lists_none), Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            if (state.packs.isEmpty()) item {
+                Text(stringResource(R.string.lists_none), Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
             items(state.packs.sortedBy { it.name.lowercase() }, key = { it.id }) { pk ->
                 ListItem(
                     headlineContent = { Text(pk.name) },
@@ -122,9 +126,17 @@ fun UpdaterScreen(repo: ListsRepo) {
                     trailingContent = { Switch(cfg.ftcEnabled, { v -> setConfig { it.copy(ftcEnabled = v) } }) },
                 )
                 if (cfg.ftcEnabled) {
-                    Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        Modifier.padding(horizontal = 16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
                         Text(stringResource(R.string.lists_keep_last), style = MaterialTheme.typography.bodySmall)
-                        listOf(7, 30, 90).forEach { d -> FilterChip(cfg.ftcDays == d, { setConfig { it.copy(ftcDays = d) } }, label = { Text(pluralStringResource(R.plurals.lists_days, d, d)) }) }
+                        listOf(7, 30, 90).forEach { d ->
+                            FilterChip(
+                                cfg.ftcDays == d, { setConfig { it.copy(ftcDays = d) } }, label = { Text(pluralStringResource(R.plurals.lists_days, d, d)) },
+                            )
+                        }
                     }
                 }
             }
@@ -137,14 +149,20 @@ fun UpdaterScreen(repo: ListsRepo) {
             }
             items(cfg.community, key = { "c" + it.url }) { src ->
                 ListItem(
-                    headlineContent = { Text(state.packs.firstOrNull { it.sourceUrl == src.url && it.origin == "community" }?.name ?: stringResource(R.string.lists_community)) },
+                    headlineContent = {
+                        Text(state.packs.firstOrNull { it.sourceUrl == src.url && it.origin == "community" }?.name ?: stringResource(R.string.lists_community))
+                    },
                     supportingContent = {
                         Column {
                             Text(src.url, style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace)
                             SourceLine(state.status[src.url], ::ago, ::size)
                         }
                     },
-                    trailingContent = { IconButton({ setConfig { c -> c.copy(community = c.community.filter { it.url != src.url }) } }) { Icon(Icons.Rounded.Delete, stringResource(R.string.lists_remove)) } },
+                    trailingContent = {
+                        IconButton({ setConfig { c -> c.copy(community = c.community.filter { it.url != src.url }) } }) {
+                            Icon(Icons.Rounded.Delete, stringResource(R.string.lists_remove))
+                        }
+                    },
                 )
             }
             item { AddCommunity(cfg) { url -> setConfig { c -> c.copy(community = c.community + CommunitySource(url, System.currentTimeMillis())) } } }
@@ -159,7 +177,9 @@ fun UpdaterScreen(repo: ListsRepo) {
                         }
                     }
                     ToggleItem(stringResource(R.string.lists_unmetered), null, cfg.unmeteredOnly) { v -> setConfig { it.copy(unmeteredOnly = v) } }
-                    ToggleItem(stringResource(R.string.lists_idle), stringResource(R.string.lists_idle_summary), cfg.idleOnly) { v -> setConfig { it.copy(idleOnly = v) } }
+                    ToggleItem(
+                        stringResource(R.string.lists_idle), stringResource(R.string.lists_idle_summary), cfg.idleOnly,
+                    ) { v -> setConfig { it.copy(idleOnly = v) } }
                     ToggleItem(stringResource(R.string.lists_charging), null, cfg.chargingOnly) { v -> setConfig { it.copy(chargingOnly = v) } }
                 }
             }
@@ -189,7 +209,9 @@ private fun Header(text: String) {
 private fun SourceLine(st: SourceStatus?, ago: (Long) -> String, size: (Long) -> String) {
     if (st == null) return
     Text(
-        if (st.downloaded > 0) stringResource(R.string.lists_checked_downloaded, ago(st.lastAttempt), size(st.downloaded)) else stringResource(R.string.lists_checked, ago(st.lastAttempt)),
+        if (st.downloaded > 0) stringResource(
+            R.string.lists_checked_downloaded, ago(st.lastAttempt), size(st.downloaded),
+        ) else stringResource(R.string.lists_checked, ago(st.lastAttempt)),
         style = MaterialTheme.typography.bodySmall,
     )
     st.error?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }

@@ -10,6 +10,7 @@ enum class SwipeAction {
     MESSAGE,
     MESSAGE_ON,
     BLOCK,
+
     /** Delete, with undo. */
     DELETE,
     ;

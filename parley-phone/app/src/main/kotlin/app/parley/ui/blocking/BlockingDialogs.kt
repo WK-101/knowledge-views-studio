@@ -69,6 +69,7 @@ sealed interface BlockingDialog {
     data class WebSearch(val number: String, val contactName: String?) : BlockingDialog
     data class Report(val number: String) : BlockingDialog
     data class PrefixAllow(val name: String?, val numbers: List<String>) : BlockingDialog
+
     /** Screening for a label, by title (the label in every account). */
     data class LabelRule(val title: String) : BlockingDialog
     data object Snooze : BlockingDialog
@@ -122,8 +123,14 @@ fun TraceList(steps: List<TraceStep>, modifier: Modifier = Modifier) {
                 }
                 Icon(icon, cd, tint = tint, modifier = Modifier.padding(end = 6.dp, top = 2.dp))
                 Column {
-                    Text((if (s.mark == TraceMark.FAILED_OPEN) "! " else "") + BlockingText.check(context, s.check), style = MaterialTheme.typography.labelLarge)
-                    Text(BlockingText.result(context, s.check, s.result), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        (if (s.mark == TraceMark.FAILED_OPEN) "! " else "") + BlockingText.check(context, s.check), style = MaterialTheme.typography.labelLarge,
+                    )
+                    Text(
+                        BlockingText.result(context, s.check, s.result),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
         }
@@ -155,10 +162,19 @@ private fun WhyDialog(vm: AppViewModel, number: String, live: Boolean, onDismiss
                     stored != null -> {
                         val e = stored!!
                         val v = BlockingText.verdict(context, e.verdict) ?: stringResource(if (e.allowed) R.string.blk_rang else R.string.blk_blocked)
-                        Text(stringResource(R.string.blk_joined, Format.fullDate(context, e.time), v), color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
+                        Text(
+                            stringResource(R.string.blk_joined, Format.fullDate(context, e.time), v),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(vertical = 8.dp),
+                        )
                         TraceList(TraceCodec.decode(e.trace))
                         RingFactsFor(vm, number, e.time, Modifier.padding(top = 8.dp))
-                        if (e.failedOpen) Text(stringResource(R.string.blk_failed_open_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 8.dp))
+                        if (e.failedOpen) Text(
+                            stringResource(R.string.blk_failed_open_note),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.padding(top = 8.dp),
+                        )
                     }
                     test != null -> {
                         val t = test!!
@@ -237,7 +253,9 @@ private fun ReportDialog(vm: AppViewModel, number: String, onDismiss: () -> Unit
         confirmButton = {
             Row {
                 if (regulator != null) TextButton({ confirmRegulator = true }) { Text(stringResource(R.string.blk_regulator)) }
-                TextButton({ onDismiss(); BlockingActions.reportToCarrier(context, number) }) { Text(stringResource(R.string.blk_text_code, bidiLtr(BlockingActions.CARRIER_SPAM_SHORT_CODE))) }
+                TextButton({ onDismiss(); BlockingActions.reportToCarrier(context, number) }) {
+                    Text(stringResource(R.string.blk_text_code, bidiLtr(BlockingActions.CARRIER_SPAM_SHORT_CODE)))
+                }
             }
         },
         dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.set_cancel)) } },
@@ -280,7 +298,11 @@ private fun PrefixAllowDialog(vm: AppViewModel, d: BlockingDialog.PrefixAllow, o
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     listOf(1, 2, 3, 4).forEach { n -> FilterChip(drop == n, { drop = n }, label = { Text("$n") }) }
                 }
-                Text(stringResource(R.string.blk_prefix_will_allow, bidiLtr(prefix + "X".repeat(drop))), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                Text(
+                    stringResource(R.string.blk_prefix_will_allow, bidiLtr(prefix + "X".repeat(drop))),
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium,
+                )
             }
         },
     )
@@ -311,7 +333,11 @@ private fun LabelRuleDialog(vm: AppViewModel, d: BlockingDialog.LabelRule, onDis
                 when (choice) {
                     0 -> vm.c.blocks.saveRule(BlockRule(pattern = d.title, type = RuleType.LABEL, label = d.title, kind = RuleKind.BLOCK))
                     1 -> vm.c.settings.update {
-                        it.copy(screening = it.screening.copy(offHours = it.screening.offHours.copy(enabled = true, allow = OffHoursAllow.LABEL, labelId = null, labelTitle = d.title)))
+                        it.copy(
+                            screening = it.screening.copy(
+                                offHours = it.screening.offHours.copy(enabled = true, allow = OffHoursAllow.LABEL, labelId = null, labelTitle = d.title),
+                            ),
+                        )
                     }
                     // Only the ringtone: no allow rule (which would also let the label ring through off hours).
                     2 -> pickedTone?.let { t -> vm.people.update { s -> s.copy(labelRingtones = s.labelRingtones + (d.title to t)) } }
@@ -334,7 +360,9 @@ private fun LabelRuleDialog(vm: AppViewModel, d: BlockingDialog.LabelRule, onDis
                         }
                     }
                 }
-                if (choice == 2) TextButton({ pickTone(tone) }) { Text(ringtoneTitle(LocalContext.current, tone) ?: stringResource(R.string.blk_choose_ringtone)) }
+                if (choice == 2) TextButton({ pickTone(tone) }) {
+                    Text(ringtoneTitle(LocalContext.current, tone) ?: stringResource(R.string.blk_choose_ringtone))
+                }
             }
         },
     )

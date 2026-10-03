@@ -139,7 +139,9 @@ fun HealthScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit
                             onClick = { scope.launch { val n = scanner.fix(group); vm.toast(res.getQuantityString(R.plurals.health_fixed, n, n)); round++ } },
                             modifier = Modifier.padding(horizontal = 16.dp),
                         ) { Text(stringResource(R.string.health_fix_all, group.size)) }
-                        HealthKind.SHARED_NUMBER -> TextButton({ open(Routes.Duplicates) }, Modifier.padding(horizontal = 8.dp)) { Text(stringResource(R.string.health_review_duplicates)) }
+                        HealthKind.SHARED_NUMBER -> TextButton(
+                            { open(Routes.Duplicates) }, Modifier.padding(horizontal = 8.dp),
+                        ) { Text(stringResource(R.string.health_review_duplicates)) }
                         HealthKind.STALE -> TextButton({
                             val phoneLabel = res.getString(R.string.health_phone)
                             // Never with one tap: list who and where first.
@@ -162,7 +164,9 @@ fun HealthScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit
                 group.take(200).forEach { i ->
                     item {
                         ListItem(
-                            modifier = Modifier.clickable { open(if (i.kind == HealthKind.NUMBER_AS_NAME) Routes.edit(id = i.contactId) else Routes.contact(i.contactId)) },
+                            modifier = Modifier.clickable {
+                                open(if (i.kind == HealthKind.NUMBER_AS_NAME) Routes.edit(id = i.contactId) else Routes.contact(i.contactId))
+                            },
                             headlineContent = { Text(i.name) },
                             supportingContent = { Text(i.detail, color = MaterialTheme.colorScheme.onSurfaceVariant) },
                         )

@@ -79,7 +79,16 @@ internal fun typeLabel(t: RuleType) = stringResource(
     },
 )
 
-private val LINE_TYPES = listOf(LineType.VOIP, LineType.PREMIUM_RATE, LineType.SHARED_COST, LineType.TOLL_FREE, LineType.UAN, LineType.PERSONAL_NUMBER, LineType.MOBILE, LineType.FIXED_LINE)
+private val LINE_TYPES = listOf(
+    LineType.VOIP,
+    LineType.PREMIUM_RATE,
+    LineType.SHARED_COST,
+    LineType.TOLL_FREE,
+    LineType.UAN,
+    LineType.PERSONAL_NUMBER,
+    LineType.MOBILE,
+    LineType.FIXED_LINE,
+)
 
 /**
  * Full rule editor: allow or block, what to match with a live preview,
@@ -106,7 +115,9 @@ fun RuleEditorScreen(vm: AppViewModel, ruleId: Long, initial: BlockRule, back: (
     var groups by remember { mutableStateOf<List<GroupInfo>>(emptyList()) }
     LaunchedEffect(r.type) { if (r.type == RuleType.LABEL && groups.isEmpty()) groups = withContext(Dispatchers.IO) { vm.c.contacts.groups() } }
     val checked = remember(r.pattern, r.type) { RuleTools.check(r.pattern, r.type, vm.countryIso) }
-    val preview = remember(checked.pattern, r.type) { if (checked.error == null && r.type.isNumberRule) RuleTools.preview(r.copy(pattern = checked.pattern), vm.countryIso) else emptyList() }
+    val preview = remember(
+        checked.pattern, r.type,
+    ) { if (checked.error == null && r.type.isNumberRule) RuleTools.preview(r.copy(pattern = checked.pattern), vm.countryIso) else emptyList() }
     var dry by remember { mutableStateOf<DryRun?>(null) }
     var dryRunning by remember { mutableStateOf(false) }
     var confirmDelete by rememberSaveable { mutableStateOf(false) }
@@ -130,9 +141,14 @@ fun RuleEditorScreen(vm: AppViewModel, ruleId: Long, initial: BlockRule, back: (
             },
         )
     }) { p ->
-        Column(Modifier.padding(p).imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(
+            Modifier.padding(p).imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
             SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                listOf(RuleKind.BLOCK to stringResource(R.string.blk_block), RuleKind.ALLOW to stringResource(R.string.blk_always_allow)).forEachIndexed { i, (k, label) ->
+                listOf(
+                    RuleKind.BLOCK to stringResource(R.string.blk_block), RuleKind.ALLOW to stringResource(R.string.blk_always_allow),
+                ).forEachIndexed { i, (k, label) ->
                     SegmentedButton(r.kind == k, { r = r.copy(kind = k) }, SegmentedButtonDefaults.itemShape(i, 2)) { Text(label) }
                 }
             }
@@ -143,7 +159,13 @@ fun RuleEditorScreen(vm: AppViewModel, ruleId: Long, initial: BlockRule, back: (
 
             Text(stringResource(R.string.blk_editor_match), style = MaterialTheme.typography.titleSmall)
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                RuleType.entries.forEach { t -> FilterChip(r.type == t, { r = r.copy(type = t, pattern = if (t.isNumberRule == r.type.isNumberRule) r.pattern else "") }, label = { Text(typeLabel(t)) }) }
+                RuleType.entries.forEach { t ->
+                    FilterChip(
+                        r.type == t,
+                        { r = r.copy(type = t, pattern = if (t.isNumberRule == r.type.isNumberRule) r.pattern else "") },
+                        label = { Text(typeLabel(t)) },
+                    )
+                }
             }
             when (r.type) {
                 RuleType.EXACT, RuleType.PREFIX, RuleType.WILDCARD, RuleType.CALLER_NAME, RuleType.REGION -> OutlinedTextField(
@@ -178,16 +200,26 @@ fun RuleEditorScreen(vm: AppViewModel, ruleId: Long, initial: BlockRule, back: (
                     },
                     isError = r.pattern.isNotBlank() && checked.error != null,
                 )
-                RuleType.NOT_MY_REGION -> Text(stringResource(R.string.blk_editor_not_my_region, vm.countryIso.orEmpty()), style = MaterialTheme.typography.bodyMedium)
+                RuleType.NOT_MY_REGION -> Text(
+                    stringResource(R.string.blk_editor_not_my_region, vm.countryIso.orEmpty()), style = MaterialTheme.typography.bodyMedium,
+                )
                 RuleType.LINE_TYPE -> {
                     val selected = r.pattern.split(',').filter { it.isNotBlank() }.toSet()
                     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         LINE_TYPES.forEach { lt ->
                             val on = lt.name in selected
-                            FilterChip(on, { r = r.copy(pattern = (if (on) selected - lt.name else selected + lt.name).joinToString(",")) }, label = { Text(BlockingText.lineType(context, lt.name)) })
+                            FilterChip(
+                                on,
+                                { r = r.copy(pattern = (if (on) selected - lt.name else selected + lt.name).joinToString(",")) },
+                                label = { Text(BlockingText.lineType(context, lt.name)) },
+                            )
                         }
                     }
-                    Text(stringResource(R.string.blk_editor_line_type_help), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        stringResource(R.string.blk_editor_line_type_help),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
                 RuleType.LABEL -> {
                     if (groups.isEmpty()) Text(stringResource(R.string.blk_editor_no_labels), color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -204,8 +236,14 @@ fun RuleEditorScreen(vm: AppViewModel, ruleId: Long, initial: BlockRule, back: (
                 }
             }
             if (checked.error == null && r.type.isNumberRule && r.pattern.isNotBlank()) {
-                if (checked.pattern != r.pattern.trim()) Text(stringResource(R.string.blk_editor_saved_as, bidiLtr(checked.pattern)), style = MaterialTheme.typography.bodySmall)
-                if (preview.isNotEmpty()) Text(stringResource(R.string.blk_editor_will_match, preview.joinToString(", ") { bidiLtr(it) }), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                if (checked.pattern != r.pattern.trim()) Text(
+                    stringResource(R.string.blk_editor_saved_as, bidiLtr(checked.pattern)), style = MaterialTheme.typography.bodySmall,
+                )
+                if (preview.isNotEmpty()) Text(
+                    stringResource(R.string.blk_editor_will_match, preview.joinToString(", ") { bidiLtr(it) }),
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium,
+                )
             }
             checked.warnings.forEach { w ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -217,7 +255,11 @@ fun RuleEditorScreen(vm: AppViewModel, ruleId: Long, initial: BlockRule, back: (
             if (!allow) {
                 Text(stringResource(R.string.blk_editor_what_happens), style = MaterialTheme.typography.titleSmall)
                 ActionChoice(r.action, { r = r.copy(action = it) })
-                Text(stringResource(R.string.blk_editor_action_help), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    stringResource(R.string.blk_editor_action_help),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
 
             if (sims.size >= 2) {
@@ -242,8 +284,16 @@ fun RuleEditorScreen(vm: AppViewModel, ruleId: Long, initial: BlockRule, back: (
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     val now = remember { System.currentTimeMillis() }
                     FilterChip(r.expiresAt == null, { r = r.copy(expiresAt = null) }, label = { Text(stringResource(R.string.blk_always)) })
-                    FilterChip(r.expiresAt != null && r.expiresAt!! - now <= 25 * 3_600_000L, { r = r.copy(expiresAt = now + 24 * 3_600_000L) }, label = { Text(stringResource(R.string.ct_hours_short, 24)) })
-                    FilterChip(r.expiresAt != null && r.expiresAt!! - now > 25 * 3_600_000L, { r = r.copy(expiresAt = now + 7 * 86_400_000L) }, label = { Text(pluralStringResource(R.plurals.set_days, 7, 7)) })
+                    FilterChip(
+                        r.expiresAt != null && r.expiresAt!! - now <= 25 * 3_600_000L,
+                        { r = r.copy(expiresAt = now + 24 * 3_600_000L) },
+                        label = { Text(stringResource(R.string.ct_hours_short, 24)) },
+                    )
+                    FilterChip(
+                        r.expiresAt != null && r.expiresAt!! - now > 25 * 3_600_000L,
+                        { r = r.copy(expiresAt = now + 7 * 86_400_000L) },
+                        label = { Text(pluralStringResource(R.plurals.set_days, 7, 7)) },
+                    )
                 }
                 r.expiresAt?.let { Text(stringResource(R.string.blk_editor_until, Format.fullDate(context, it)), style = MaterialTheme.typography.bodySmall) }
                 // A label's ringtone has one home: the label's page in Contacts.
@@ -284,12 +334,18 @@ fun RuleEditorScreen(vm: AppViewModel, ruleId: Long, initial: BlockRule, back: (
                         ),
                         style = MaterialTheme.typography.bodyMedium,
                     )
-                    Text(stringResource(R.string.blk_editor_dry_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        stringResource(R.string.blk_editor_dry_note),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
             if (existing != null && existing.hitCount > 0) {
                 Text(
-                    pluralStringResource(R.plurals.blk_calls, existing.hitCount, existing.hitCount) + (existing.lastHitAt?.let { ", " + stringResource(R.string.blk_last_ago, ago(it)) } ?: ""),
+                    pluralStringResource(
+                        R.plurals.blk_calls, existing.hitCount, existing.hitCount,
+                    ) + (existing.lastHitAt?.let { ", " + stringResource(R.string.blk_last_ago, ago(it)) } ?: ""),
                     style = MaterialTheme.typography.bodySmall,
                 )
             }

@@ -170,9 +170,7 @@ data class ImportPlan(
     val duplicates: Int,
     val problems: List<RowProblem>,
     val rowsRead: Int,
-) {
-
-}
+)
 
 /**
  * Call-history CSV import: Parley's own export, Logger's export (`name,duration,number,phone_account_id,
@@ -232,7 +230,9 @@ object CallCsvImport {
         dayFirst: Boolean = true,
     ): ImportPlan {
         val rows = Csv.parse(text)
-        if (rows.isEmpty()) return ImportPlan(ImportSource.GENERIC, emptyList(), ColumnMapping(), emptyList(), 0, listOf(RowProblem(1, RowProblemKind.EMPTY_FILE)), 0)
+        if (rows.isEmpty()) return ImportPlan(
+            ImportSource.GENERIC, emptyList(), ColumnMapping(), emptyList(), 0, listOf(RowProblem(1, RowProblemKind.EMPTY_FILE)), 0,
+        )
         val header = rows.first()
         val source = detect(header)
         val map = mapping ?: mappingFor(source, header)
@@ -302,8 +302,21 @@ object CallCsvImport {
     }
 
     private val dateTimePatterns = listOf("yyyy-MM-dd HH:mm:ss", "yyyy-MM-dd HH:mm", "yyyy/MM/dd HH:mm:ss", "yyyy/MM/dd HH:mm")
-    private val dayFirstPatterns = listOf("dd/MM/yyyy HH:mm:ss", "dd/MM/yyyy HH:mm", "dd.MM.yyyy HH:mm:ss", "dd.MM.yyyy HH:mm", "dd-MM-yyyy HH:mm:ss", "dd-MM-yyyy HH:mm", "d/M/yyyy H:mm:ss", "d/M/yyyy H:mm", "d.M.yyyy H:mm:ss", "d.M.yyyy H:mm")
-    private val monthFirstPatterns = listOf("MM/dd/yyyy HH:mm:ss", "MM/dd/yyyy HH:mm", "M/d/yyyy H:mm:ss", "M/d/yyyy H:mm", "M/d/yyyy h:mm:ss a", "M/d/yyyy h:mm a")
+    private val dayFirstPatterns = listOf(
+        "dd/MM/yyyy HH:mm:ss",
+        "dd/MM/yyyy HH:mm",
+        "dd.MM.yyyy HH:mm:ss",
+        "dd.MM.yyyy HH:mm",
+        "dd-MM-yyyy HH:mm:ss",
+        "dd-MM-yyyy HH:mm",
+        "d/M/yyyy H:mm:ss",
+        "d/M/yyyy H:mm",
+        "d.M.yyyy H:mm:ss",
+        "d.M.yyyy H:mm",
+    )
+    private val monthFirstPatterns = listOf(
+        "MM/dd/yyyy HH:mm:ss", "MM/dd/yyyy HH:mm", "M/d/yyyy H:mm:ss", "M/d/yyyy H:mm", "M/d/yyyy h:mm:ss a", "M/d/yyyy h:mm a",
+    )
 
     fun parseDate(date: String?, time: String?, zone: ZoneId, dayFirst: Boolean): Long? {
         val d = date?.trim() ?: return null

@@ -196,7 +196,9 @@ class ExtrasStore(private val c: DataContainer) {
         }
         val dnd = dndLabels()
         val ids = r.unstar.associateWith { k -> runCatching { c.contacts.currentOf(k, null)?.first }.getOrNull() }
-        val wants = ids.mapValues { (_, id) -> if (id == null || dnd.isEmpty()) emptySet() else runCatching { c.contacts.labelTitlesOf(id) }.getOrDefault(emptySet()).intersect(dnd) }
+        val wants = ids.mapValues { (_, id) ->
+            if (id == null || dnd.isEmpty()) emptySet() else runCatching { c.contacts.labelTitlesOf(id) }.getOrDefault(emptySet()).intersect(dnd)
+        }
         val settled = DndStars.settle(r.ledger, r.unstar, wants)
         var n = 0
         for (k in settled.unstar) {
@@ -299,7 +301,9 @@ class ExtrasStore(private val c: DataContainer) {
                         val list = places.getOrPut(id) { ArrayList(2) }
                         val city = cur.getString(3).orEmpty().trim()
                         if (city.isNotEmpty()) cities += city
-                        listOf(city, cur.getString(4).orEmpty(), cur.getString(5).orEmpty(), cur.getString(2).orEmpty()).filter { it.isNotBlank() }.forEach { list += it }
+                        listOf(
+                            city, cur.getString(4).orEmpty(), cur.getString(5).orEmpty(), cur.getString(2).orEmpty(),
+                        ).filter { it.isNotBlank() }.forEach { list += it }
                     } else {
                         cur.getString(2)?.takeIf { it.isNotBlank() }?.let { notes[id] = (notes[id]?.plus("\n") ?: "") + it }
                     }

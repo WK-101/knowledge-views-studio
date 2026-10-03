@@ -146,9 +146,17 @@ fun FavoritesTab(vm: AppViewModel, open: (Destination) -> Unit, query: String = 
             )
         }
         if (q.isEmpty()) item(span = { GridItemSpan(maxLineSpan) }) {
-            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 FavoriteSort.entries.forEach { s ->
-                    FilterChip(ps.favoriteSort == s, { vm.people.update { it.copy(favoriteSort = s) }; if (s != FavoriteSort.CUSTOM) reordering = false }, label = { Text(stringResource(s.labelRes)) })
+                    FilterChip(
+                        ps.favoriteSort == s,
+                        { vm.people.update { it.copy(favoriteSort = s) }; if (s != FavoriteSort.CUSTOM) reordering = false },
+                        label = { Text(stringResource(s.labelRes)) },
+                    )
                 }
                 if (favorites.size > 1) TextButton({
                     if (!reordering && ps.favoriteSort != FavoriteSort.CUSTOM) vm.people.setFavoriteOrder(favorites.map { it.lookupKey })
@@ -253,7 +261,14 @@ internal fun Tile(
 ) {
     Column(
         modifier.fillMaxWidth().clip(ParleyShapes.card)
-            .then(if (reorder) Modifier else Modifier.combinedClickable(onClick = onClick, onLongClick = onLong, onClickLabel = stringResource(R.string.main_call), onLongClickLabel = stringResource(R.string.main_open_contact)))
+            .then(
+                if (reorder) Modifier else Modifier.combinedClickable(
+                    onClick = onClick,
+                    onLongClick = onLong,
+                    onClickLabel = stringResource(R.string.main_call),
+                    onLongClickLabel = stringResource(R.string.main_open_contact),
+                ),
+            )
             .padding(vertical = 12.dp, horizontal = 4.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {

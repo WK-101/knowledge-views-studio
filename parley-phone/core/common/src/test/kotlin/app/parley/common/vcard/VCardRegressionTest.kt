@@ -4,7 +4,6 @@ import app.parley.common.record.Col
 import app.parley.common.record.Mime
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -256,7 +255,9 @@ class VCardRegressionTest {
             row(Mime.IDENTITY, Col.D1 to "ann", Col.D2 to "org.example"),
         )
         val text = unfolded(r)
-        assertTrue(text, text.contains("X-ANDROID-CUSTOM:vnd.android.cursor.item/vnd.com.whatsapp.profile;4915112345678@s.whatsapp.net;;Message +49 151 12345678;"))
+        assertTrue(
+            text, text.contains("X-ANDROID-CUSTOM:vnd.android.cursor.item/vnd.com.whatsapp.profile;4915112345678@s.whatsapp.net;;Message +49 151 12345678;"),
+        )
         val back = assertLossless(r)
         val pets = back.rows("vnd.android.cursor.item/vnd.example.pets").single()
         assertEquals("dog; good boy", pets[Col.D2])

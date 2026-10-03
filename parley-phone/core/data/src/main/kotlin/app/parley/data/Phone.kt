@@ -67,6 +67,7 @@ object PhoneEnv {
             } else {
                 null
             }
+
             @Suppress("DEPRECATION")
             val info = subs.firstOrNull { subId != null && it.subscriptionId == subId }
                 // Android 10 and some OEMs: the handle id is the ICCID or the subscription id itself.

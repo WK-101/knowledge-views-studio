@@ -56,7 +56,11 @@ fun ScheduleField(value: Schedule?, onChange: (Schedule?) -> Unit, alwaysLabel: 
             FilterChip(value == nights, { onChange(nights) }, label = { Text(stringResource(R.string.blk_sched_nights)) })
             FilterChip(value == work, { onChange(work) }, label = { Text(stringResource(R.string.blk_sched_work)) })
             FilterChip(value == weekend, { onChange(weekend) }, label = { Text(stringResource(R.string.blk_sched_weekends)) })
-            FilterChip(value != null && value != nights && value != work && value != weekend, { onChange(value ?: Schedule(Schedule.ALL_DAYS, 20 * 60, 8 * 60)) }, label = { Text(stringResource(R.string.blk_sched_custom)) })
+            FilterChip(
+                value != null && value != nights && value != work && value != weekend,
+                { onChange(value ?: Schedule(Schedule.ALL_DAYS, 20 * 60, 8 * 60)) },
+                label = { Text(stringResource(R.string.blk_sched_custom)) },
+            )
         }
         if (value != null) ScheduleDetails(value, onChange)
     }

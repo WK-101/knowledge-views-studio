@@ -2,7 +2,6 @@ package app.parley.common.backup
 
 import app.parley.common.PhoneIdentity
 import app.parley.common.Duplicates
-import app.parley.common.PhoneNumbers
 import app.parley.common.TextSearch
 import app.parley.common.record.ContactRecord
 import app.parley.common.record.DataRow
@@ -11,8 +10,10 @@ import app.parley.common.record.Mime
 enum class RestoreMode {
     /** Match backup contacts to existing ones; add what's missing; never delete or overwrite. */
     MERGE,
+
     /** Insert every backup contact as new, no matching. */
     ADD_ALL,
+
     /** Delete existing contacts (after an automatic safety backup) and insert the backup. */
     REPLACE,
 }

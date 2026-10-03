@@ -10,6 +10,7 @@ import android.os.UserManager
  */
 object WorkProfile {
     @Volatile private var cached: Boolean? = null
+
     @Volatile private var checkedAt = 0L
 
     fun exists(context: Context): Boolean {

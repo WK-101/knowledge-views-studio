@@ -148,7 +148,9 @@ class RecentsViewModel(private val c: DataContainer) : ViewModel() {
     // The call-list layout travels with the calls, so Recents regroups when it changes.
     private val callsAndLayout = combine(filteredCalls, settings.map { it.recentsLayout }.distinctUntilChanged()) { calls, layout -> calls to layout }
 
-    val groups: StateFlow<List<RecentGroup>?> = combine(callsAndLayout, directory.numberIndex, filter, query.debounce(80), vaultByKey) { (calls, layout), index, filter, q, vaults ->
+    val groups: StateFlow<List<RecentGroup>?> = combine(
+        callsAndLayout, directory.numberIndex, filter, query.debounce(80), vaultByKey,
+    ) { (calls, layout), index, filter, q, vaults ->
         calls?.let {
             group(it, index, filter, q, layout, vaults.keys).map { g ->
                 if (g.calls.first().id < 0) g.copy(vaultId = vaults[PhoneIdentity.key(g.number, countryIso)]) else g

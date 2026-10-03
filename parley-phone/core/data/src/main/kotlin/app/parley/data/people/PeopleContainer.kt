@@ -3,10 +3,7 @@ package app.parley.data.people
 import app.parley.common.LabelRefs
 import app.parley.common.storage.PersistentStores
 import app.parley.common.PhoneIdentity
-import android.provider.ContactsContract.CommonDataKinds.GroupMembership
-import android.provider.ContactsContract.Data
 import android.util.Base64
-import app.parley.common.Duplicates
 import app.parley.common.PhoneNumbers
 import app.parley.common.people.ContactRef
 import app.parley.data.DataContainer
@@ -71,6 +68,7 @@ class PeopleContainer(private val c: DataContainer) {
 
     /** Contacts linked to their signed cards, and updates waiting (I14). */
     val cardLinks by lazy { CardLinkStore(c.appContext) }
+
     /** Opt-in local crash capture. */
     val crashes by lazy { CrashStore(c.appContext) }
     val backupExtras: BackupExtras by lazy { PeopleBackupExtras(this, c) }

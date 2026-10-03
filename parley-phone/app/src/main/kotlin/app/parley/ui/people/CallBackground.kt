@@ -87,7 +87,9 @@ private fun Preview(uri: String?, version: Int, size: Modifier = Modifier.size(6
     val img by produceState<ImageBitmap?>(null, uri, version) { value = uri?.let { PhotoCache.load(context, it, 256)?.asImageBitmap() } }
     val m = size.clip(ParleyShapes.control)
     val b = img
-    if (b != null) Image(b, stringResource(R.string.ppl_bg_desc), m, contentScale = ContentScale.Crop) else Icon(Icons.Rounded.Wallpaper, null, Modifier.size(64.dp))
+    if (b != null) Image(
+        b, stringResource(R.string.ppl_bg_desc), m, contentScale = ContentScale.Crop,
+    ) else Icon(Icons.Rounded.Wallpaper, null, Modifier.size(64.dp))
 }
 
 /** The message for a picture that couldn't be used, by what went wrong. */

@@ -80,7 +80,9 @@ fun ImportVcfDialog(vm: AppViewModel, uri: Uri, onDone: () -> Unit) {
                                         running = true
                                         scope.launch {
                                             result = try {
-                                                val r = vm.c.vcards.importVCard(uri, a, { done, total -> progress = if (total > 0) done.toFloat() / total else 0f }, skipDuplicates = true)
+                                                val r = vm.c.vcards.importVCard(
+                                                    uri, a, { done, total -> progress = if (total > 0) done.toFloat() / total else 0f }, skipDuplicates = true,
+                                                )
                                                 importedInto(res, r, a)
                                             } catch (e: Exception) {
                                                 res.getString(R.string.import_failed, e.message.orEmpty())

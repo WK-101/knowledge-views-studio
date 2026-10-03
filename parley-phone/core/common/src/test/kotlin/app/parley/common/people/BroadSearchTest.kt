@@ -8,7 +8,13 @@ import org.junit.Test
 
 class BroadSearchTest {
     @Test fun broad_search_says_which_field_matched() {
-        val extra = BroadSearch.Extra(company = "Acme", addresses = listOf("12 Rue de la Paix, Paris"), note = "Met at the café", websites = listOf("anna.dev"), handles = listOf("@anna:matrix.org"))
+        val extra = BroadSearch.Extra(
+            company = "Acme",
+            addresses = listOf("12 Rue de la Paix, Paris"),
+            note = "Met at the café",
+            websites = listOf("anna.dev"),
+            handles = listOf("@anna:matrix.org"),
+        )
         fun m(q: String) = BroadSearch.match(q, "Anna Smith", listOf("+44 7700 900123"), listOf("anna@x.org"), extra)
         assertEquals(BroadSearch.Field.NAME, m("smith"))
         assertEquals(BroadSearch.Field.NUMBER, m("7700"))

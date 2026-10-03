@@ -132,7 +132,9 @@ class PrivateNameAccess(context: Context) {
         recent.getOrPut(pkg) { ArrayDeque() }.addLast(now)
         val list = (_state.value.log + LookupLogEntry(pkg, now, outcome, viaDirectory)).takeLast(MAX_LOG)
         val arr = JSONArray()
-        list.forEach { arr.put(JSONObject().put("p", it.packageName).put("t", it.time).put("o", it.outcome.name).apply { if (it.viaDirectory) put("d", true) }) }
+        list.forEach {
+            arr.put(JSONObject().put("p", it.packageName).put("t", it.time).put("o", it.outcome.name).apply { if (it.viaDirectory) put("d", true) })
+        }
         prefs.edit().putString(K_LOG, arr.toString()).apply()
         _state.value = _state.value.copy(log = list)
     }
@@ -153,7 +155,9 @@ class PrivateNameAccess(context: Context) {
             val a = JSONArray(prefs.getString(K_LOG, "[]")!!)
             (0 until a.length()).mapNotNull { i ->
                 val o = a.getJSONObject(i)
-                LookupOutcome.entries.firstOrNull { it.name == o.optString("o") }?.let { LookupLogEntry(o.getString("p"), o.getLong("t"), it, o.optBoolean("d")) }
+                LookupOutcome.entries.firstOrNull { it.name == o.optString("o") }?.let {
+                    LookupLogEntry(o.getString("p"), o.getLong("t"), it, o.optBoolean("d"))
+                }
             }
         }.getOrDefault(emptyList())
         return PrivateNameState(prefs.getBoolean(K_ENABLED, false), approvals, log, prefs.getBoolean(K_DIRECTORY, false), approvals(K_DIR_APPROVALS))

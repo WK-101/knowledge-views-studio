@@ -65,7 +65,16 @@ class ContactRecordStore(private val context: Context) {
         val out = ArrayList<GroupRef>()
         query(
             Groups.CONTENT_URI,
-            arrayOf(Groups._ID, Groups.TITLE, Groups.ACCOUNT_TYPE, Groups.ACCOUNT_NAME, Groups.SYSTEM_ID, Groups.AUTO_ADD, Groups.GROUP_IS_READ_ONLY, Groups.FAVORITES),
+            arrayOf(
+                Groups._ID,
+                Groups.TITLE,
+                Groups.ACCOUNT_TYPE,
+                Groups.ACCOUNT_NAME,
+                Groups.SYSTEM_ID,
+                Groups.AUTO_ADD,
+                Groups.GROUP_IS_READ_ONLY,
+                Groups.FAVORITES,
+            ),
             "${Groups.DELETED}=0",
         )?.use { c ->
             while (c.moveToNext()) {
@@ -404,8 +413,14 @@ class ContactRecordStore(private val context: Context) {
             for (raw in raws) for (row in raw.rows) {
                 if (!includeReadOnly && Messengers.isMessengerMime(row.mimeType)) continue
                 when (row.mimeType) {
-                    Mime.PHOTO -> { if (photos[gi] == null) photos[gi] = row.blob?.takeIf { it.isNotEmpty() }; continue }
-                    Mime.NAME -> { if (name) continue; name = true }
+                    Mime.PHOTO -> {
+                        if (photos[gi] == null) photos[gi] = row.blob?.takeIf { it.isNotEmpty() }
+                        continue
+                    }
+                    Mime.NAME -> {
+                        if (name) continue
+                        name = true
+                    }
                 }
                 if (!seen.add(row.canonicalKey + "|" + row[Col.GROUP_TITLE])) continue
                 out += row
@@ -453,7 +468,9 @@ class ContactRecordStore(private val context: Context) {
                 val base = ops.size
                 idx += base
                 ops += rawInsert(raw).build()
-                raw.rows.forEach { v -> ops += ContentProviderOperation.newInsert(Data.CONTENT_URI).withValues(v).withValueBackReference(Data.RAW_CONTACT_ID, base).build() }
+                raw.rows.forEach { v ->
+                    ops += ContentProviderOperation.newInsert(Data.CONTENT_URI).withValues(v).withValueBackReference(Data.RAW_CONTACT_ID, base).build()
+                }
             }
             rawOpIndex += idx
         }
@@ -501,7 +518,9 @@ class ContactRecordStore(private val context: Context) {
             }
         }
         if (rawIds.isEmpty()) return InsertResult(null, context.getString(R.string.data_write_failed))
-        return finish(plan, rawIds).let { if (failed > 0 && it.error == null) it.copy(error = context.resources.getQuantityString(R.plurals.data_write_fields_failed, failed, failed)) else it }
+        return finish(plan, rawIds).let {
+            if (failed > 0 && it.error == null) it.copy(error = context.resources.getQuantityString(R.plurals.data_write_fields_failed, failed, failed)) else it
+        }
     }
 
     /** Photos, aggregation and Contacts-level flags, once the raw contacts exist. */

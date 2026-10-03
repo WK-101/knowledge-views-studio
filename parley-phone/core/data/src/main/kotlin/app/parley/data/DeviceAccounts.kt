@@ -118,7 +118,9 @@ object DeviceAccounts {
             AccountManager.get(context).accounts.filter { it.type in uploading }.forEach { candidates += AccountRef(it.type, it.name) }
         } catch (_: Exception) {
         }
-        context.contentResolver.safeQuery(RawContacts.CONTENT_URI, arrayOf(RawContacts.ACCOUNT_TYPE, RawContacts.ACCOUNT_NAME), "${RawContacts.DELETED}=0")?.use { c ->
+        context.contentResolver.safeQuery(
+            RawContacts.CONTENT_URI, arrayOf(RawContacts.ACCOUNT_TYPE, RawContacts.ACCOUNT_NAME), "${RawContacts.DELETED}=0",
+        )?.use { c ->
             while (c.moveToNext()) {
                 val t = c.getString(0) ?: continue
                 candidates += AccountRef(t, c.getString(1))

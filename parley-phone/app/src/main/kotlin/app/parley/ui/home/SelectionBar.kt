@@ -120,7 +120,11 @@ fun SelectionBar(vm: AppViewModel) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             IconButton({ vm.selection.value = emptySet() }) { Icon(Icons.Rounded.Close, stringResource(R.string.sel_clear)) }
-            Text(pluralStringResource(R.plurals.sel_count, selection.size, selection.size), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+            Text(
+                pluralStringResource(R.plurals.sel_count, selection.size, selection.size),
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.weight(1f),
+            )
             IconButton({ vm.selection.value = all.orEmpty().map { it.id }.toSet() }) { Icon(Icons.Rounded.SelectAll, stringResource(R.string.home_select_all)) }
             val allStarred = chosen.isNotEmpty() && chosen.all { it.starred }
             IconButton({
@@ -188,7 +192,11 @@ fun SelectionBar(vm: AppViewModel) {
                         onClick = { menu = false; askExpiry = true },
                     )
                     if (hasDevice) {
-                        DropdownMenuItem({ Text(stringResource(R.string.sel_move_private)) }, leadingIcon = { Icon(Icons.Rounded.Lock, null) }, onClick = { menu = false; confirmPrivate = true })
+                        DropdownMenuItem(
+                            { Text(stringResource(R.string.sel_move_private)) },
+                            leadingIcon = { Icon(Icons.Rounded.Lock, null) },
+                            onClick = { menu = false; confirmPrivate = true },
+                        )
                     }
                     if (hasPrivate) {
                         DropdownMenuItem(
@@ -196,7 +204,11 @@ fun SelectionBar(vm: AppViewModel) {
                             onClick = { menu = false; confirmVisible = true },
                         )
                     }
-                    DropdownMenuItem({ Text(stringResource(R.string.main_delete)) }, leadingIcon = { Icon(Icons.Rounded.Delete, null) }, onClick = { menu = false; confirmDelete = true })
+                    DropdownMenuItem(
+                        { Text(stringResource(R.string.main_delete)) },
+                        leadingIcon = { Icon(Icons.Rounded.Delete, null) },
+                        onClick = { menu = false; confirmDelete = true },
+                    )
                 }
             }
         }

@@ -148,7 +148,6 @@ object PhoneIdentity {
         }
 
         operator fun contains(raw: String?): Boolean = get(raw) != null
-
     }
 
     const val PORTABLE_MIN_DIGITS = 7

@@ -12,7 +12,22 @@ import app.parley.common.record.Mime
  */
 object RecordDetails {
     /** Kinds the editor shows. */
-    private val EDITABLE = setOf(Mime.NAME, Mime.NICKNAME, Mime.PRONOUNS, Mime.ORG, Mime.NOTE, Mime.PHONE, Mime.EMAIL, Mime.IM, Mime.SIP, Mime.WEBSITE, Mime.RELATION, Mime.POSTAL, Mime.EVENT, Mime.GROUP)
+    private val EDITABLE = setOf(
+        Mime.NAME,
+        Mime.NICKNAME,
+        Mime.PRONOUNS,
+        Mime.ORG,
+        Mime.NOTE,
+        Mime.PHONE,
+        Mime.EMAIL,
+        Mime.IM,
+        Mime.SIP,
+        Mime.WEBSITE,
+        Mime.RELATION,
+        Mime.POSTAL,
+        Mime.EVENT,
+        Mime.GROUP,
+    )
 
     fun toDetails(record: ContactRecord): ContactDetails {
         val rows = record.raws.flatMap { it.rows }
@@ -39,7 +54,9 @@ object RecordDetails {
                 jobDescription = s(it[Col.D6]), officeLocation = s(it[Col.D9]),
             )
         }
-        rows.filter { it.mimeType == Mime.NOTE }.map { s(it[Col.D1]) }.filter { it.isNotBlank() }.takeIf { it.isNotEmpty() }?.let { d = d.copy(note = it.joinToString("\n\n")) }
+        rows.filter { it.mimeType == Mime.NOTE }.map { s(it[Col.D1]) }.filter { it.isNotBlank() }.takeIf { it.isNotEmpty() }?.let {
+            d = d.copy(note = it.joinToString("\n\n"))
+        }
         fun items(mime: String, default: Int) = rows.filter { it.mimeType == mime && !it[Col.D1].isNullOrBlank() }
             .map { DataItem(value = s(it[Col.D1]), type = type(it[Col.D2], default), label = it[Col.D3], isPrimary = it.isSuperPrimary) }
         d = d.copy(
@@ -55,7 +72,9 @@ object RecordDetails {
                 if (p.isBlank) p = p.copy(street = s(it[Col.D1]))
                 p
             }.filter { !it.isBlank },
-            events = rows.filter { it.mimeType == Mime.EVENT && !it[Col.D1].isNullOrBlank() }.map { EventItem(date = s(it[Col.D1]), type = type(it[Col.D2], 3), label = it[Col.D3]) },
+            events = rows.filter { it.mimeType == Mime.EVENT && !it[Col.D1].isNullOrBlank() }.map {
+                EventItem(date = s(it[Col.D1]), type = type(it[Col.D2], 3), label = it[Col.D3])
+            },
             handles = rows.filter { it.mimeType == Mime.IM || it.mimeType == Mime.SIP }
                 .mapNotNull { Handles.fromRow(it.mimeType, it[Col.D1], it[Col.D5], it[Col.D6]) }
                 .filter { it.value.isNotBlank() }

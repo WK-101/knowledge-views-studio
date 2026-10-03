@@ -181,7 +181,13 @@ fun HeatmapGrid(h: Heatmap, modifier: Modifier = Modifier) {
     val peak = h.peak()
     val locale = Locale.getDefault()
     val noCalls = stringResource(R.string.hist_no_calls)
-    val peakText = peak?.let { (d, hr) -> stringResource(R.string.hist_heatmap_peak, d.getDisplayName(TextStyle.FULL, locale), LocalTime.of(hr, 0).format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT).withLocale(locale))) }
+    val peakText = peak?.let { (d, hr) ->
+        stringResource(
+            R.string.hist_heatmap_peak,
+            d.getDisplayName(TextStyle.FULL, locale),
+            LocalTime.of(hr, 0).format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT).withLocale(locale)),
+        )
+    }
     Column(modifier) {
         Row {
             Column(Modifier.width(28.dp)) {

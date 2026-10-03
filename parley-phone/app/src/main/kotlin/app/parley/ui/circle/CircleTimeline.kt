@@ -221,7 +221,12 @@ fun ContactTimeline(
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (grouped.isEmpty()) {
             SegmentedGroup(if (showTitle) stringResource(R.string.circle_timeline) else null) {
-                item { ListItem(colors = clearRow, headlineContent = { Text(stringResource(R.string.circle_timeline_empty), color = MaterialTheme.colorScheme.onSurfaceVariant) }) }
+                item {
+                    ListItem(
+                        colors = clearRow,
+                        headlineContent = { Text(stringResource(R.string.circle_timeline_empty), color = MaterialTheme.colorScheme.onSurfaceVariant) },
+                    )
+                }
             }
         }
         if (limit != null) {
@@ -268,7 +273,11 @@ internal fun TimelineEntryRow(vm: AppViewModel, e: TimelineEntry, interactions: 
                 trailingContent = { CallLengthGlance(e.call) },
                 headlineContent = { Text(Format.fullDate(context, e.time)) },
                 supportingContent = {
-                    Text(listOf(Bidi.ltr(Format.number(e.call.number, vm.countryIso)), Format.duration(e.call.durationSec)).filter { it.isNotBlank() }.joinToString(stringResource(R.string.main_separator)))
+                    Text(
+                        listOf(
+                            Bidi.ltr(Format.number(e.call.number, vm.countryIso)), Format.duration(e.call.durationSec),
+                        ).filter { it.isNotBlank() }.joinToString(stringResource(R.string.main_separator)),
+                    )
                 },
             )
         }
@@ -292,7 +301,9 @@ internal fun TimelineEntryRow(vm: AppViewModel, e: TimelineEntry, interactions: 
             colors = clearRow,
             leadingContent = { Icon(Icons.AutoMirrored.Rounded.Notes, null) },
             headlineContent = { LinkifiedText(e.text) },
-            supportingContent = { Text(stringResource(R.string.circle_call_note) + stringResource(R.string.main_separator) + Format.fullDate(context, e.time)) },
+            supportingContent = {
+                Text(stringResource(R.string.circle_call_note) + stringResource(R.string.main_separator) + Format.fullDate(context, e.time))
+            },
         )
         is TimelineEntry.Date -> ListItem(
             colors = clearRow,
@@ -325,8 +336,16 @@ private fun LoggedRow(e: TimelineEntry.Logged, item: Interaction?, onEdit: (Inte
             Box {
                 IconButton({ menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.main_more)) }
                 DropdownMenu(menu, { menu = false }) {
-                    DropdownMenuItem({ Text(stringResource(R.string.main_edit)) }, leadingIcon = { Icon(Icons.Rounded.Edit, null) }, onClick = { menu = false; onEdit(item) })
-                    DropdownMenuItem({ Text(stringResource(R.string.main_delete)) }, leadingIcon = { Icon(Icons.Rounded.Delete, null) }, onClick = { menu = false; onDelete(item) })
+                    DropdownMenuItem(
+                        { Text(stringResource(R.string.main_edit)) },
+                        leadingIcon = { Icon(Icons.Rounded.Edit, null) },
+                        onClick = { menu = false; onEdit(item) },
+                    )
+                    DropdownMenuItem(
+                        { Text(stringResource(R.string.main_delete)) },
+                        leadingIcon = { Icon(Icons.Rounded.Delete, null) },
+                        onClick = { menu = false; onDelete(item) },
+                    )
                 }
             }
         }),

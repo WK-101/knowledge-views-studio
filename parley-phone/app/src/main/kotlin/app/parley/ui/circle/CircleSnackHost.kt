@@ -54,7 +54,9 @@ fun CircleSnackHost(vm: AppViewModel, snackbar: SnackbarHostState) {
         CircleSnacks.events.collect { s ->
             scope.launch {
                 val undo = s.undo
-                val r = snackbar.showSnackbar(s.text, actionLabel = if (undo != null) res.getString(R.string.dc_undo) else null, duration = SnackbarDuration.Long)
+                val r = snackbar.showSnackbar(
+                    s.text, actionLabel = if (undo != null) res.getString(R.string.dc_undo) else null, duration = SnackbarDuration.Long,
+                )
                 if (r == SnackbarResult.ActionPerformed && undo != null) undo()
             }
         }
@@ -81,7 +83,9 @@ fun CircleSnackHost(vm: AppViewModel, snackbar: SnackbarHostState) {
             if (r == SnackbarResult.ActionPerformed) {
                 // Undo only for an entry this tap added (a second "Log" in the same 10 minutes adds none), and only it.
                 val id = vm.c.circle.accept(p)
-                CircleSnacks.show(CircleSnack(res.getString(R.string.circle_logged, p.name), if (id != null) ({ vm.c.circle.interactions.delete(id) }) else null))
+                CircleSnacks.show(
+                    CircleSnack(res.getString(R.string.circle_logged, p.name), if (id != null) ({ vm.c.circle.interactions.delete(id) }) else null),
+                )
             } else {
                 vm.c.circle.clearPrompt(p)
             }

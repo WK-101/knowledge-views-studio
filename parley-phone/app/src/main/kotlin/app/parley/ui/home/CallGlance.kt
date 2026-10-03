@@ -92,7 +92,11 @@ fun CallCountChip(count: Int, latest: CallClass) {
         // The row's sequence dots say the count in words.
         modifier = Modifier.clearAndSetSemantics { },
     ) {
-        Text(stringResource(R.string.recents_count, count), style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp))
+        Text(
+            stringResource(R.string.recents_count, count),
+            style = MaterialTheme.typography.labelMedium,
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp),
+        )
     }
 }
 
@@ -131,6 +135,8 @@ fun CallLengthGlance(e: CallEntry) {
     val cls = CallClass.of(e)
     when {
         cls.answered -> CallDurationBar(CallGlance.durationFraction(e.durationSec), cls)
-        cls == CallClass.NO_ANSWER -> Text(stringResource(R.string.recents_class_no_answer), style = MaterialTheme.typography.labelMedium, color = CallTypeColors.of(cls.hue))
+        cls == CallClass.NO_ANSWER -> Text(
+            stringResource(R.string.recents_class_no_answer), style = MaterialTheme.typography.labelMedium, color = CallTypeColors.of(cls.hue),
+        )
     }
 }

@@ -101,7 +101,9 @@ fun FastScrollRail(letters: List<String>, current: Int, modifier: Modifier = Mod
                 .clearAndSetSemantics {
                     contentDescription = indexLabel
                     stateDescription = letters.getOrNull(selected.coerceAtLeast(0)).orEmpty()
-                    progressBarRangeInfo = ProgressBarRangeInfo(selected.coerceAtLeast(0).toFloat(), 0f..(n - 1).coerceAtLeast(1).toFloat(), steps = (n - 2).coerceAtLeast(0))
+                    progressBarRangeInfo = ProgressBarRangeInfo(
+                        selected.coerceAtLeast(0).toFloat(), 0f..(n - 1).coerceAtLeast(1).toFloat(), steps = (n - 2).coerceAtLeast(0),
+                    )
                     setProgress { v ->
                         val i = v.roundToInt().coerceIn(0, n - 1)
                         latestPick(i)
@@ -171,7 +173,9 @@ fun FastScrollRail(letters: List<String>, current: Int, modifier: Modifier = Mod
                 modifier = Modifier.size(bubble).clearAndSetSemantics { },
             ) {
                 Box(contentAlignment = Alignment.Center) {
-                    AnimatedContent(letters.getOrNull(touched).orEmpty(), transitionSpec = { fadeIn(letterFade) togetherWith fadeOut(letterFade) }, label = "letter") { l ->
+                    AnimatedContent(
+                        letters.getOrNull(touched).orEmpty(), transitionSpec = { fadeIn(letterFade) togetherWith fadeOut(letterFade) }, label = "letter",
+                    ) { l ->
                         Text(l, style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Medium, maxLines = 1)
                     }
                 }

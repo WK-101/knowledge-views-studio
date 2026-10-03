@@ -96,7 +96,10 @@ class CirclePart2Test {
             at(2.0, PeopleInsights.TouchKind.LOGGED), // no direction
         )
         assertEquals(PeopleInsights.FirstMover.BOTH, PeopleInsights.firstMover(them))
-        assertEquals(PeopleInsights.FirstMover.THEM, PeopleInsights.firstMover(them + at(1.0, PeopleInsights.TouchKind.CALL_IN) + at(0.5, PeopleInsights.TouchKind.CALL_IN)))
+        assertEquals(
+            PeopleInsights.FirstMover.THEM,
+            PeopleInsights.firstMover(them + at(1.0, PeopleInsights.TouchKind.CALL_IN) + at(0.5, PeopleInsights.TouchKind.CALL_IN)),
+        )
         val you = (1..5).map { at(it.toDouble(), PeopleInsights.TouchKind.UNANSWERED_OUT) }
         assertEquals(PeopleInsights.FirstMover.YOU, PeopleInsights.firstMover(you))
         assertNull(PeopleInsights.firstMover(you.take(3)))
@@ -182,7 +185,9 @@ class CirclePart2Test {
     // In the digest
 
     @Test fun serendipity_pick_is_someone_quiet_for_over_a_year_never_twice_in_a_row() {
-        val quiet = listOf(CircleDigest.Quiet("old1", now - 400 * day), CircleDigest.Quiet("old2", now - 500 * day), CircleDigest.Quiet("recent", now - 200 * day))
+        val quiet = listOf(
+            CircleDigest.Quiet("old1", now - 400 * day), CircleDigest.Quiet("old2", now - 500 * day), CircleDigest.Quiet("recent", now - 200 * day),
+        )
         val first = CircleDigest.pick(emptyList(), emptyList(), now, quiet = quiet, seed = 0)
         assertEquals(listOf(CircleDigest.Pick("old1", CircleDigest.Reason.QUIET)), first)
         // The seed varies the pick from week to week.

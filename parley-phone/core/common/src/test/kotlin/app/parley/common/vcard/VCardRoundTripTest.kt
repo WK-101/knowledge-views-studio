@@ -201,7 +201,12 @@ class VCardRoundTripTest {
 
     @Test fun many_contacts_in_one_file() {
         val records = (1..250).map { i ->
-            record("Person $i", row(Mime.NAME, Col.D1 to "Person $i", Col.D2 to "Person", Col.D3 to "$i"), row(Mime.PHONE, Col.D1 to "+1 555 ${1000 + i}", Col.D2 to "2"), key = "k$i")
+            record(
+                "Person $i",
+                row(Mime.NAME, Col.D1 to "Person $i", Col.D2 to "Person", Col.D3 to "$i"),
+                row(Mime.PHONE, Col.D1 to "+1 555 ${1000 + i}", Col.D2 to "2"),
+                key = "k$i",
+            )
         }
         val (back, report) = VCardStream.readAll(VCardStream.writeAll(records))
         assertEquals(250, report.cardsParsed)

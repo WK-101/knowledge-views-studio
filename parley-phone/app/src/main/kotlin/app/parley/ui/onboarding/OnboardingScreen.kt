@@ -127,7 +127,12 @@ fun OnboardingScreen(vm: AppViewModel, onDone: () -> Unit) {
 @Composable
 private fun ColumnScope.WelcomeStep(next: () -> Unit) {
     Spacer(Modifier.height(32.dp))
-    Text(stringResource(R.string.app_name), style = MaterialTheme.typography.displayMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
+    Text(
+        stringResource(R.string.app_name),
+        style = MaterialTheme.typography.displayMedium,
+        fontWeight = FontWeight.SemiBold,
+        color = MaterialTheme.colorScheme.primary,
+    )
     Text(stringResource(R.string.onb_tagline), style = MaterialTheme.typography.titleLarge)
     Spacer(Modifier.height(8.dp))
     Promise(Icons.Rounded.WifiOff, stringResource(R.string.onb_offline_title), stringResource(R.string.onb_offline_text))
@@ -149,7 +154,9 @@ private fun installerOf(context: Context): String? = runCatching {
 
 private fun appInfo(context: Context) {
     runCatching {
-        context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + context.packageName)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        context.startActivity(
+            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + context.packageName)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+        )
     }
 }
 
@@ -285,7 +292,9 @@ private fun ColumnScope.PermissionsStep(vm: AppViewModel, done: () -> Unit) {
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text(stringResource(r.reason))
                         Text(
-                            if (!on && i in refused) stringResource(R.string.ux_perm_in_app_info) else stringResource(R.string.ux_perm_without, stringResource(r.without)),
+                            if (!on && i in refused) stringResource(
+                                R.string.ux_perm_in_app_info,
+                            ) else stringResource(R.string.ux_perm_without, stringResource(r.without)),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )

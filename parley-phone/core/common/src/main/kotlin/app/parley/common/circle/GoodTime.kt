@@ -48,7 +48,9 @@ object GoodTime {
         val hours = IntArray(24)
         free.forEach { hours[Instant.ofEpochMilli(it.date).atZone(zone).hour]++ }
         // Circular: a window can run past midnight. Ties go to the earliest start, so the result is stable.
-        val (start, count) = (0 until 24).map { s -> s to (0 until WINDOW_HOURS).sumOf { hours[(s + it) % 24] } }.maxWith(compareBy<Pair<Int, Int>> { it.second }.thenByDescending { it.first })
+        val (start, count) = (0 until 24).map { s -> s to (0 until WINDOW_HOURS).sumOf { hours[(s + it) % 24] } }.maxWith(
+            compareBy<Pair<Int, Int>> { it.second }.thenByDescending { it.first },
+        )
         if (count < free.size * MIN_SHARE) return null
         return Window(start, start + WINDOW_HOURS)
     }

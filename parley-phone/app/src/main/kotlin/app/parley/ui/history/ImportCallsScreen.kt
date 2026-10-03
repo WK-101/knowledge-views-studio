@@ -106,7 +106,10 @@ fun ImportCallsScreen(vm: AppViewModel, back: () -> Unit) {
                 Text(stringResource(R.string.hist_import_need_default), Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.error)
             }
             item {
-                OutlinedButton({ picker.launch(arrayOf("text/csv", "text/comma-separated-values", "text/plain", "application/octet-stream", "*/*")) }, Modifier.padding(16.dp)) {
+                OutlinedButton(
+                    { picker.launch(arrayOf("text/csv", "text/comma-separated-values", "text/plain", "application/octet-stream", "*/*")) },
+                    Modifier.padding(16.dp),
+                ) {
                     Icon(Icons.Rounded.FileOpen, null)
                     Text("  " + if (uri == null) stringResource(R.string.hist_import_choose) else stringResource(R.string.hist_import_choose_another))
                 }
@@ -118,13 +121,18 @@ fun ImportCallsScreen(vm: AppViewModel, back: () -> Unit) {
                 item {
                     Card(Modifier.fillMaxWidth().padding(16.dp)) {
                         Column(Modifier.padding(16.dp)) {
-                            Text(stringResource(R.string.hist_import_dry_run, stringResource(HistoryText.source(pl.source))), style = MaterialTheme.typography.titleMedium)
+                            Text(
+                                stringResource(R.string.hist_import_dry_run, stringResource(HistoryText.source(pl.source))),
+                                style = MaterialTheme.typography.titleMedium,
+                            )
                             Text(pluralStringResource(R.plurals.hist_import_rows_read, pl.rowsRead, pl.rowsRead))
                             Text(
                                 buildList {
                                     add(pluralStringResource(R.plurals.hist_import_new_calls, pl.toInsert.size, pl.toInsert.size))
                                     if (pl.duplicates > 0) add(pluralStringResource(R.plurals.hist_import_already, pl.duplicates, pl.duplicates))
-                                    if (pl.problems.isNotEmpty()) add(pluralStringResource(R.plurals.hist_import_rows_skipped, pl.problems.size, pl.problems.size))
+                                    if (pl.problems.isNotEmpty()) add(
+                                        pluralStringResource(R.plurals.hist_import_rows_skipped, pl.problems.size, pl.problems.size),
+                                    )
                                 }.joinToString(" · "),
                                 style = MaterialTheme.typography.bodyLarge,
                             )
@@ -138,7 +146,9 @@ fun ImportCallsScreen(vm: AppViewModel, back: () -> Unit) {
                         ListItem(
                             modifier = Modifier.toggleable(dayFirst, role = Role.Switch, onValueChange = { dayFirst = it; replan(pl.mapping) }),
                             headlineContent = { Text(stringResource(R.string.hist_import_day_first)) },
-                            supportingContent = { Text(if (dayFirst) stringResource(R.string.hist_import_day_first_on) else stringResource(R.string.hist_import_day_first_off)) },
+                            supportingContent = {
+                                Text(if (dayFirst) stringResource(R.string.hist_import_day_first_on) else stringResource(R.string.hist_import_day_first_off))
+                            },
                             trailingContent = { Switch(dayFirst, onCheckedChange = null) },
                         )
                     }
@@ -148,8 +158,16 @@ fun ImportCallsScreen(vm: AppViewModel, back: () -> Unit) {
                     pl.toInsert.take(5).forEach { c ->
                         item {
                             ListItem(
-                                headlineContent = { Text(c.name ?: Format.number(c.number, vm.countryIso).ifBlank { stringResource(R.string.hist_private_number) }) },
-                                supportingContent = { Text(listOf(stringResource(typeName(c.type)), Format.fullDate(context, c.date), Format.duration(c.durationSec)).filter { it.isNotBlank() }.joinToString(" · ")) },
+                                headlineContent = {
+                                    Text(c.name ?: Format.number(c.number, vm.countryIso).ifBlank { stringResource(R.string.hist_private_number) })
+                                },
+                                supportingContent = {
+                                    Text(
+                                        listOf(
+                                            stringResource(typeName(c.type)), Format.fullDate(context, c.date), Format.duration(c.durationSec),
+                                        ).filter { it.isNotBlank() }.joinToString(" · "),
+                                    )
+                                },
                             )
                         }
                     }
@@ -165,7 +183,9 @@ fun ImportCallsScreen(vm: AppViewModel, back: () -> Unit) {
                                         else buildList {
                                             add(res.getQuantityString(R.plurals.hist_import_done, n, n))
                                             if (pl.duplicates > 0) add(res.getQuantityString(R.plurals.hist_import_done_dupes, pl.duplicates, pl.duplicates))
-                                            if (pl.problems.isNotEmpty()) add(res.getQuantityString(R.plurals.hist_import_done_problems, pl.problems.size, pl.problems.size))
+                                            if (pl.problems.isNotEmpty()) add(
+                                                res.getQuantityString(R.plurals.hist_import_done_problems, pl.problems.size, pl.problems.size),
+                                            )
                                         }.joinToString("\n")
                                         plan = null
                                     }
@@ -178,9 +198,21 @@ fun ImportCallsScreen(vm: AppViewModel, back: () -> Unit) {
                 if (pl.problems.isNotEmpty()) {
                     item { Section(stringResource(R.string.hist_import_problems)) }
                     pl.problems.take(50).forEach { pr ->
-                        item { Text(stringResource(R.string.hist_import_line, pr.line, HistoryText.problem(LocalResources.current, pr)), Modifier.padding(horizontal = 16.dp, vertical = 2.dp), style = MaterialTheme.typography.bodySmall) }
+                        item {
+                            Text(
+                                stringResource(R.string.hist_import_line, pr.line, HistoryText.problem(LocalResources.current, pr)),
+                                Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
                     }
-                    if (pl.problems.size > 50) item { Text(stringResource(R.string.hist_import_more, pl.problems.size - 50), Modifier.padding(16.dp), style = MaterialTheme.typography.bodySmall) }
+                    if (pl.problems.size > 50) item {
+                        Text(
+                            stringResource(R.string.hist_import_more, pl.problems.size - 50),
+                            Modifier.padding(16.dp),
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
                 }
             }
         }
@@ -230,7 +262,11 @@ private fun MappingEditor(header: List<String>, mapping: ColumnMapping, onChange
                     Row {
                         DropdownMenu(open, { open = false }) {
                             DropdownMenuItem({ Text(stringResource(R.string.hist_col_missing)) }, onClick = { open = false; onChange(set(null)) })
-                            header.forEachIndexed { i, h -> DropdownMenuItem({ Text(h.ifBlank { stringResource(R.string.hist_col_n, i + 1) }) }, onClick = { open = false; onChange(set(i)) }) }
+                            header.forEachIndexed { i, h ->
+                                DropdownMenuItem(
+                                    { Text(h.ifBlank { stringResource(R.string.hist_col_n, i + 1) }) }, onClick = { open = false; onChange(set(i)) },
+                                )
+                            }
                         }
                     }
                 },

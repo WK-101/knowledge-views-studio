@@ -41,7 +41,9 @@ class NotificationRegistryTest {
 
     @Test fun computed_ids_stay_inside_their_range() {
         listOf("", "0", "+15551234567", "a".repeat(40)).forEach {
-            assertTrue(NotificationIds.screenBusy(it) in NotificationIds.SCREEN_BUSY_BASE until NotificationIds.SCREEN_BUSY_BASE + NotificationIds.SCREEN_BUSY_COUNT)
+            assertTrue(
+                NotificationIds.screenBusy(it) in NotificationIds.SCREEN_BUSY_BASE until NotificationIds.SCREEN_BUSY_BASE + NotificationIds.SCREEN_BUSY_COUNT,
+            )
             assertTrue(NotificationIds.plan(it) in NotificationIds.PLAN_BASE until NotificationIds.PLAN_BASE + NotificationIds.PLAN_COUNT)
         }
     }

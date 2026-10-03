@@ -126,7 +126,9 @@ fun BackupScreen(vm: AppViewModel, back: () -> Unit) {
             val out = repo.backupNow(scheduled = false, target = uri)
             busy = null
             if (out.ok) {
-                val share = Intent(Intent.ACTION_SEND).setType("application/octet-stream").putExtra(Intent.EXTRA_STREAM, uri).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                val share = Intent(Intent.ACTION_SEND).setType(
+                    "application/octet-stream",
+                ).putExtra(Intent.EXTRA_STREAM, uri).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 runCatching { context.startActivity(Intent.createChooser(share, res.getString(R.string.bkp_send_chooser))) }
             } else {
                 vm.toast(out.message)
@@ -155,22 +157,41 @@ fun BackupScreen(vm: AppViewModel, back: () -> Unit) {
                 val ready = state.hasKeys && state.folderUri != null
                 Card(
                     Modifier.fillMaxWidth().padding(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = if (ready) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh),
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (ready) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
+                    ),
                 ) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Row { Icon(if (state.lastBackupAt > 0) Icons.Rounded.CheckCircle else Icons.Rounded.Backup, null); Text("  " + if (state.lastBackupAt > 0) stringResource(R.string.bkp_last_backup, Format.shortWhen(context, state.lastBackupAt)) else stringResource(R.string.bkp_no_backup), style = MaterialTheme.typography.titleMedium) }
+                        Row {
+                            Icon(if (state.lastBackupAt > 0) Icons.Rounded.CheckCircle else Icons.Rounded.Backup, null)
+                            Text(
+                                "  " + if (state.lastBackupAt > 0) stringResource(
+                                    R.string.bkp_last_backup, Format.shortWhen(context, state.lastBackupAt),
+                                ) else stringResource(R.string.bkp_no_backup),
+                                style = MaterialTheme.typography.titleMedium,
+                            )
+                        }
                         if (state.lastVerifiedAt > 0) Text(
                             state.keyId?.let { stringResource(R.string.bkp_verified_key, Format.fullDate(context, state.lastVerifiedAt), it) }
                                 ?: stringResource(R.string.bkp_verified, Format.fullDate(context, state.lastVerifiedAt)),
                             style = MaterialTheme.typography.bodySmall)
                         state.resultText(LocalResources.current)?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
-                        if (state.rotationPaused) Row { Icon(Icons.Rounded.Warning, null, tint = MaterialTheme.colorScheme.error); Text("  " + stringResource(R.string.bkp_rotation_paused), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+                        if (state.rotationPaused) Row {
+                            Icon(Icons.Rounded.Warning, null, tint = MaterialTheme.colorScheme.error)
+                            Text(
+                                "  " + stringResource(R.string.bkp_rotation_paused),
+                                color = MaterialTheme.colorScheme.error,
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
                         if (state.rotationPaused) TextButton({ repo.resumeRotation() }) { Text(stringResource(R.string.bkp_resume_rotation)) }
                         Text(
                             stringResource(R.string.bkp_explain),
                             style = MaterialTheme.typography.bodySmall,
                         )
-                        Button(::runBackup, enabled = ready && busy == null, modifier = Modifier.padding(top = 4.dp)) { Text(stringResource(R.string.bkp_back_up_now)) }
+                        Button(
+                            ::runBackup, enabled = ready && busy == null, modifier = Modifier.padding(top = 4.dp),
+                        ) { Text(stringResource(R.string.bkp_back_up_now)) }
                         busy?.let { Text(it); LinearProgressIndicator(Modifier.fillMaxWidth()) }
                     }
                 }
@@ -181,7 +202,9 @@ fun BackupScreen(vm: AppViewModel, back: () -> Unit) {
                     modifier = Modifier.clickable { if (state.hasKeys) changePass = true else setPass = true },
                     leadingContent = { Icon(Icons.Rounded.Key, null) },
                     headlineContent = { Text(if (state.hasKeys) stringResource(R.string.bkp_change_pass) else stringResource(R.string.bkp_set_pass)) },
-                    supportingContent = { Text(if (state.hasKeys) stringResource(R.string.bkp_change_pass_summary) else stringResource(R.string.bkp_set_pass_summary)) },
+                    supportingContent = {
+                        Text(if (state.hasKeys) stringResource(R.string.bkp_change_pass_summary) else stringResource(R.string.bkp_set_pass_summary))
+                    },
                 )
                 // Keys made before backups were signed: one passphrase entry lets the key vouch for this phone.
                 if (state.hasKeys && !state.signedAsYours) {
@@ -231,13 +254,19 @@ fun BackupScreen(vm: AppViewModel, back: () -> Unit) {
                         val opts = listOf(0 to stringResource(R.string.bkp_keep_smart), 5 to "%d".format(5), 10 to "%d".format(10), 30 to "%d".format(30))
                         SingleChoiceSegmentedButtonRow(Modifier.padding(top = 8.dp)) {
                             opts.forEachIndexed { i, (n, label) ->
-                                SegmentedButton(state.keepLast == n, { repo.prefs.update { it.putInt("keepLast", n) } }, SegmentedButtonDefaults.itemShape(i, opts.size)) { Text(label) }
+                                SegmentedButton(
+                                    state.keepLast == n, { repo.prefs.update { it.putInt("keepLast", n) } }, SegmentedButtonDefaults.itemShape(i, opts.size),
+                                ) { Text(label) }
                             }
                         }
                     },
                     trailingContent = null,
                 )
-                if (state.keepLast == 0) Text(stringResource(R.string.bkp_keep_smart_summary), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(horizontal = 16.dp))
+                if (state.keepLast == 0) Text(
+                    stringResource(R.string.bkp_keep_smart_summary),
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                )
                 // When to remind about an overdue backup (14 or 30 days; at most one notification a month).
                 ListItem(
                     headlineContent = { Text(stringResource(R.string.set_backup_reminder_title)) },
@@ -265,9 +294,13 @@ fun BackupScreen(vm: AppViewModel, back: () -> Unit) {
                 )
                 if (state.lastRestoreIds.isNotEmpty()) {
                     ListItem(
-                        modifier = Modifier.clickable { scope.launch { val n = repo.undoLastRestore(); vm.toast(res.getQuantityString(R.plurals.bkp_undo_done, n, n)) } },
+                        modifier = Modifier.clickable {
+                            scope.launch { val n = repo.undoLastRestore(); vm.toast(res.getQuantityString(R.plurals.bkp_undo_done, n, n)) }
+                        },
                         headlineContent = { Text(stringResource(R.string.bkp_undo_restore)) },
-                        supportingContent = { Text(pluralStringResource(R.plurals.bkp_undo_restore_summary, state.lastRestoreIds.size, state.lastRestoreIds.size)) },
+                        supportingContent = {
+                            Text(pluralStringResource(R.plurals.bkp_undo_restore_summary, state.lastRestoreIds.size, state.lastRestoreIds.size))
+                        },
                     )
                 }
             }

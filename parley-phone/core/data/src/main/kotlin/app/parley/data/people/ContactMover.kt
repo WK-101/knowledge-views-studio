@@ -38,8 +38,12 @@ class ContactMover(private val context: Context, private val contacts: ContactsR
         val record = records.read(contactId, fullPhoto = true) ?: return@withContext Result.Failed(context.getString(R.string.data_move_read_failed))
         // By id, not by position: the two reads may list the copies differently.
         val raw = record.raws.firstOrNull { it.rawId == rawId } ?: return@withContext Result.Failed(context.getString(R.string.data_move_copy_read_failed))
-        if (raw.accountType == target.type && raw.accountName == target.name) return@withContext Result.Failed(context.getString(R.string.data_move_already_there))
-        if (AccountRef(raw.accountType, raw.accountName).isLocal && target.isLocal) return@withContext Result.Failed(context.getString(R.string.data_move_already_phone))
+        if (raw.accountType == target.type && raw.accountName == target.name) return@withContext Result.Failed(
+            context.getString(R.string.data_move_already_there),
+        )
+        if (AccountRef(raw.accountType, raw.accountName).isLocal && target.isLocal) return@withContext Result.Failed(
+            context.getString(R.string.data_move_already_phone),
+        )
         // The original is deleted after copying, so the copy must land somewhere it can live.
         if (!contacts.isWritableAccount(target)) return@withContext Result.Failed(context.getString(R.string.data_move_not_writable))
         val oldKey = contacts.lookupKeyOf(contactId)

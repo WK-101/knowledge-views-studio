@@ -100,8 +100,12 @@ fun CallTimeScreen(vm: AppViewModel, back: () -> Unit) {
                 ) { i ->
                     set { it.copy(reminders = it.reminders.copy(everyMinutes = choices[i])) }
                 }
-                SwitchRow(stringResource(R.string.ct_beep), stringResource(R.string.ct_beep_body), config.reminders.beep) { v -> set { it.copy(reminders = it.reminders.copy(beep = v)) } }
-                SwitchRow(stringResource(R.string.ct_vibrate), stringResource(R.string.ct_vibrate_body), config.reminders.vibrate) { v -> set { it.copy(reminders = it.reminders.copy(vibrate = v)) } }
+                SwitchRow(
+                    stringResource(R.string.ct_beep), stringResource(R.string.ct_beep_body), config.reminders.beep,
+                ) { v -> set { it.copy(reminders = it.reminders.copy(beep = v)) } }
+                SwitchRow(
+                    stringResource(R.string.ct_vibrate), stringResource(R.string.ct_vibrate_body), config.reminders.vibrate,
+                ) { v -> set { it.copy(reminders = it.reminders.copy(vibrate = v)) } }
                 if (config.reminders.perContact.isNotEmpty()) {
                     Help(pluralStringResource(R.plurals.ct_contacts_own_reminder, config.reminders.perContact.size, config.reminders.perContact.size))
                 }
@@ -164,7 +168,9 @@ fun CallTimeScreen(vm: AppViewModel, back: () -> Unit) {
                                 noLock = true
                                 return@Switch
                             }
-                            AppLock.authenticate(act, res.getString(if (v) R.string.ct_supervised_turn_on else R.string.ct_supervised_turn_off)) { ok -> if (ok) set { it.copy(supervised = v) } }
+                            AppLock.authenticate(
+                                act, res.getString(if (v) R.string.ct_supervised_turn_on else R.string.ct_supervised_turn_off),
+                            ) { ok -> if (ok) set { it.copy(supervised = v) } }
                         })
                     },
                 )
@@ -233,7 +239,12 @@ private fun RuleRow(icon: ImageVector, title: String, rule: LimitRule, onClick: 
 
 @Composable
 private fun Help(text: String) {
-    Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
+    Text(
+        text,
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+    )
 }
 
 private fun warnText(context: Context, sec: Int): String =

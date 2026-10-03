@@ -243,7 +243,9 @@ class CallExportImportTest {
 
     @Test fun plan_counts_only_counted_categories_sim_and_cycle() {
         val cfg = PlanConfig("s1", allowanceMinutes = 300, cycleStartDay = 15, increment = BillingIncrement.PER_MINUTE)
-        val cat = { n: String -> if (n.startsWith("+800")) NumberCategory.TOLL_FREE else if (n.startsWith("+1")) NumberCategory.INTERNATIONAL else NumberCategory.MOBILE }
+        val cat = { n: String ->
+            if (n.startsWith("+800")) NumberCategory.TOLL_FREE else if (n.startsWith("+1")) NumberCategory.INTERNATIONAL else NumberCategory.MOBILE
+        }
         val calls = listOf(
             call("+33612345678", CallType.OUTGOING, at(2026, 3, 16), 600, sim = "s1"), // counted: 10 min
             call("+33612345678", CallType.OUTGOING, at(2026, 3, 14), 600, sim = "s1"), // previous cycle

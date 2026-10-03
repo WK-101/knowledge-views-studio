@@ -191,7 +191,9 @@ class BackupArchiveTest {
         assertRejected(rezip(zip, extra = mapOf("../../etc/passwd" to byteArrayOf(1))) { _, b -> b }, contains = "Unexpected")
         assertRejected(rezip(zip) { n, b -> if (n == BackupArchive.MANIFEST) null else b }, contains = "manifest")
         assertRejected(rezip(zip) { n, b -> if (n == BackupArchive.MANIFEST) "{".toByteArray() else b })
-        val newer = rezip(zip) { n, b -> if (n == BackupArchive.MANIFEST) b.decodeToString().replace("\"formatVersion\":1", "\"formatVersion\":2").toByteArray() else b }
+        val newer = rezip(zip) { n, b ->
+            if (n == BackupArchive.MANIFEST) b.decodeToString().replace("\"formatVersion\":1", "\"formatVersion\":2").toByteArray() else b
+        }
         assertRejected(newer, contains = "newer")
         assertRejected("not a zip at all".toByteArray())
     }
@@ -261,7 +263,9 @@ class BackupArchiveTest {
 
     @Test fun recordJsonIsCanonical() {
         val a = contacts[0]
-        val reordered = a.copy(raws = a.raws.map { r -> r.copy(rows = r.rows.map { it.copy(values = it.values.entries.reversed().associate { e -> e.key to e.value }) }) })
+        val reordered = a.copy(
+            raws = a.raws.map { r -> r.copy(rows = r.rows.map { it.copy(values = it.values.entries.reversed().associate { e -> e.key to e.value }) }) },
+        )
         assertEquals(RecordJson.encode(a), RecordJson.encode(reordered))
         val decoded = RecordJson.decode(RecordJson.encode(a)) { if (it == RecordJson.sha256Hex(sharedPhoto)) sharedPhoto else null }
         assertEquals(a, decoded)

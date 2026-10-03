@@ -190,7 +190,6 @@ class ExtrasTest {
         assertNull(slot.take("n2", 5_000))
     }
 
-
     @Test fun handshake_note_appends_once() {
         assertEquals("Met at Café on 25 Sep", Handshake.appendToNote("", "Met at Café on 25 Sep"))
         assertEquals("Likes jazz\nMet at X", Handshake.appendToNote("Likes jazz\n", "Met at X"))

@@ -333,7 +333,9 @@ internal fun MeQrDialog(
                     }
                 }
                 available.forEach { p ->
-                    Row(Modifier.fillMaxWidth().clickable { if (p in parts) parts.remove(p) else parts.add(p) }, verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        Modifier.fillMaxWidth().clickable { if (p in parts) parts.remove(p) else parts.add(p) }, verticalAlignment = Alignment.CenterVertically,
+                    ) {
                         Checkbox(p in parts, { if (it) parts.add(p) else parts.remove(p) })
                         Text(mePartLabel(p))
                     }

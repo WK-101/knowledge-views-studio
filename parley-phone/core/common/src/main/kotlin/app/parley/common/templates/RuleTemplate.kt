@@ -259,7 +259,9 @@ object RuleTemplates {
         validate(t)
         val body = encode(t)
         val sig = Ed25519.sign(secretKey, body.encodeToByteArray())
-        val env = SignedTemplate(template = body, publicKey = Base64.getEncoder().encodeToString(Ed25519.publicKey(secretKey)), signature = Base64.getEncoder().encodeToString(sig))
+        val env = SignedTemplate(
+            template = body, publicKey = Base64.getEncoder().encodeToString(Ed25519.publicKey(secretKey)), signature = Base64.getEncoder().encodeToString(sig),
+        )
         return json.encodeToString(SignedTemplate.serializer(), env)
     }
 
@@ -274,7 +276,9 @@ object RuleTemplates {
         val key = runCatching { Base64.getDecoder().decode(env.publicKey) }.getOrNull()
         val sig = runCatching { Base64.getDecoder().decode(env.signature) }.getOrNull()
         if (key == null || key.size != 32 || sig == null || sig.size != 64) throw TemplateException("The template's signature is missing")
-        if (!Ed25519.verify(key, env.template.encodeToByteArray(), sig)) throw TemplateException("The template's signature is not valid: it was changed after signing")
+        if (!Ed25519.verify(key, env.template.encodeToByteArray(), sig)) throw TemplateException(
+            "The template's signature is not valid: it was changed after signing",
+        )
         return OpenedTemplate(parse(env.template), Ed25519.fingerprint(key), env.template)
     }
 

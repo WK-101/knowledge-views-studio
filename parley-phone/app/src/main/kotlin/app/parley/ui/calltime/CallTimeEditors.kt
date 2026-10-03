@@ -93,13 +93,23 @@ fun LimitRuleDialog(
         },
         confirmButton = {
             TextButton({
-                onSave(rule.copy(perCallMinutes = minutes(perCall), dailyMinutes = minutes(daily), weeklyMinutes = minutes(weekly), incoming = incoming, outgoing = outgoing))
+                onSave(
+                    rule.copy(
+                        perCallMinutes = minutes(perCall),
+                        dailyMinutes = minutes(daily),
+                        weeklyMinutes = minutes(weekly),
+                        incoming = incoming,
+                        outgoing = outgoing,
+                    ),
+                )
                 onDismiss()
             }) { Text(stringResource(R.string.set_save)) }
         },
         dismissButton = {
             Row {
-                if (!rule.isEmpty) TextButton({ onSave(rule.copy(perCallMinutes = 0, dailyMinutes = 0, weeklyMinutes = 0)); onDismiss() }) { Text(stringResource(R.string.ct_remove)) }
+                if (!rule.isEmpty) TextButton({ onSave(rule.copy(perCallMinutes = 0, dailyMinutes = 0, weeklyMinutes = 0)); onDismiss() }) {
+                    Text(stringResource(R.string.ct_remove))
+                }
                 TextButton(onDismiss) { Text(stringResource(R.string.set_cancel)) }
             }
         },

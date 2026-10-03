@@ -127,8 +127,10 @@ object PhoneNumbers {
      */
     internal class LineSet(numbers: Iterable<String?>, private val countryIso: String?) {
         private val e164 = HashSet<String>()
+
         /** Fallback keys of the numbers without an E.164 form. */
         private val looseWithoutE164 = HashSet<String>()
+
         /** Fallback keys of every number (compared when the probe itself has no E.164 form). */
         private val looseAll = HashSet<String>()
 

@@ -82,7 +82,9 @@ class BlockingToolsTest {
         val salt = ByteArray(16).also { SecureRandom().nextBytes(it) }
         val iv = ByteArray(12).also { SecureRandom().nextBytes(it) }
         val key = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256").generateSecret(PBEKeySpec("hunter2".toCharArray(), salt, 100_000, 256)).encoded
-        val ct = Cipher.getInstance("AES/GCM/NoPadding").apply { init(Cipher.ENCRYPT_MODE, SecretKeySpec(key, "AES"), GCMParameterSpec(128, iv)) }.doFinal(plain.encodeToByteArray())
+        val ct = Cipher.getInstance("AES/GCM/NoPadding").apply { init(Cipher.ENCRYPT_MODE, SecretKeySpec(key, "AES"), GCMParameterSpec(128, iv)) }.doFinal(
+            plain.encodeToByteArray(),
+        )
         val file = "CBBK".encodeToByteArray() + salt + iv + ct
         assertEquals(plain, ListImport.decryptCbbk(file, "hunter2".toCharArray()))
         val bar = byteArrayOf('|'.code.toByte())

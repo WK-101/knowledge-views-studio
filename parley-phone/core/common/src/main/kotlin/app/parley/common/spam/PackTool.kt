@@ -83,8 +83,12 @@ object PackTool {
         val ftc = opts["ftc"]
         val builder = PackBuilder(
             PackManifest(
-                id = id, name = name, publisher = opts["publisher"].orEmpty(), source = opts["source"] ?: if (ftc != null) "https://www.ftc.gov/policy-notices/open-government/data-sets/do-not-call-data" else "",
-                licence = opts["licence"] ?: if (ftc != null) "US public data" else "", version = opts["version"]?.toLongOrNull() ?: (System.currentTimeMillis() / 86_400_000L),
+                id = id,
+                name = name,
+                publisher = opts["publisher"].orEmpty(),
+                source = opts["source"] ?: if (ftc != null) "https://www.ftc.gov/policy-notices/open-government/data-sets/do-not-call-data" else "",
+                licence = opts["licence"] ?: if (ftc != null) "US public data" else "",
+                version = opts["version"]?.toLongOrNull() ?: (System.currentTimeMillis() / 86_400_000L),
                 ttlDays = opts["ttl"]?.toIntOrNull() ?: 30, regions = opts["regions"]?.split(',')?.map { it.trim() } ?: emptyList(),
                 categories = if (ftc != null) FtcCsv.categories else mapOf("1" to "Spam"),
             ),
