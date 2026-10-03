@@ -6,6 +6,10 @@ privileged capability and returns only derived data over the bridge** (see
 [`BRIDGE_AND_ADDONS.md`](BRIDGE_AND_ADDONS.md)). Every idea below is filtered through that lens — "which
 forbidden permission does it isolate, and what minimal derived data crosses the bridge?"
 
+> **In planning:** a **Web Bridge** addon (browser access to Hexis over LAN, PlainApp-style but with the
+> network edge isolated from the data+key) has a full analysis + phased plan in
+> [`WEB_BRIDGE_PLAN.md`](WEB_BRIDGE_PLAN.md).
+
 ## The design test for any new addon
 
 1. It isolates a permission the core must never hold (network, location, calendar, storage/camera, a heavy

@@ -11,6 +11,7 @@ no network permission**, everything free, lossless JSON export/import.
 - **Accessibility & contrast audit:** [`docs/ACCESSIBILITY.md`](docs/ACCESSIBILITY.md)
 - **Bridge & addons architecture (voice, and how to build more):** [`docs/BRIDGE_AND_ADDONS.md`](docs/BRIDGE_AND_ADDONS.md)
 - **Addon roadmap (what to build next):** [`docs/ADDON_ROADMAP.md`](docs/ADDON_ROADMAP.md)
+- **Web Bridge addon — analysis & plan (browser access over LAN):** [`docs/WEB_BRIDGE_PLAN.md`](docs/WEB_BRIDGE_PLAN.md)
 
 ## Privacy by construction
 
