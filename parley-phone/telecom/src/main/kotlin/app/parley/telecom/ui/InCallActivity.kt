@@ -108,7 +108,6 @@ class InCallActivity : ComponentActivity() {
             // another call (Telecom doesn't ring then), and never once the ringer was silenced, here or with a key.
             val ringingCall = calls.firstOrNull { it.state == CallState.RINGING }
                 ?.takeIf { r -> !r.silenced && !r.systemSilenced && calls.none { it.id != r.id && it.isLive && it.state != CallState.RINGING } }
-            if (look.speakCallerName) SpeakCallerName(ringingCall?.id, ringingCall?.name?.takeIf { ringingCall.contactId != null })
             // Over the lock screen, the caller as Settings › Privacy & security › Caller on the lock screen allows.
             val locked = rememberKeyguardLocked()
             val incoming = stringResource(R.string.notif_incoming_call)
@@ -116,6 +115,12 @@ class InCallActivity : ComponentActivity() {
             fun shown(c: CallUi) = if (!locked) c else c.forLockScreen(look.lockScreenCaller, if (c.state == CallState.RINGING) incoming else ongoing)
             val shownCalls = remember(calls, locked, look.lockScreenCaller) { calls.map(::shown) }
             val shownEnded = remember(ended, locked, look.lockScreenCaller) { ended?.let(::shown) }
+            // Spoken only when the screen may show it: a call masked on the lock screen isn't announced by name either.
+            val spokenName = ringingCall?.takeIf { r -> shownCalls.none { it.id == r.id && it.lockMasked } }?.name?.takeIf { ringingCall.contactId != null }
+            if (look.speakCallerName) SpeakCallerName(ringingCall?.id, spokenName)
+            // "Blocked and declined" names the number only when its call isn't masked (unknown: masked to be safe).
+            val blockMasked = blockedHere != null && locked &&
+                look.lockScreenCaller.masks((calls + listOfNotNull(ended)).firstOrNull { it.id == blockedHere.callId }?.savedCaller ?: true)
             ParleyTheme(look.themeMode, look.amoled, look.dynamicColor, look.density) {
                 if (inPip) PipCallCard(shownCalls, audio, shownEnded, look.callBackground) else InCallScreen(
                     calls = shownCalls,
@@ -135,6 +140,7 @@ class InCallActivity : ComponentActivity() {
                         if (CallManager.state.value.none { it.isLive }) finishAndRemoveTask()
                     },
                     declineBlock = blockedHere,
+                    declineBlockMasked = blockMasked,
                     onUndoBlock = {
                         keepEnded = true
                         CallManager.undoDeclineBlock()

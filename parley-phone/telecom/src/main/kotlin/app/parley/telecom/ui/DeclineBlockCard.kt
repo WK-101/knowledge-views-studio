@@ -31,17 +31,23 @@ import app.parley.telecom.R
 import app.parley.ui.Bidi
 import app.parley.ui.ParleyShapes
 
-/** After "Block & decline": what happened, and Undo while the rule is Parley's own new one. */
+/**
+ * After "Block & decline": what happened, and Undo while the rule is Parley's own new one. [masked]: the call was
+ * masked on the lock screen, so the card says "this number" instead of showing it.
+ */
 @Composable
-internal fun DeclineBlockCard(block: DeclineBlock, onUndo: () -> Unit, onDone: () -> Unit) {
+internal fun DeclineBlockCard(block: DeclineBlock, onUndo: () -> Unit, onDone: () -> Unit, masked: Boolean = false) {
     val number = Bidi.ltr(block.number)
     val (title, body) = when {
         block.pending -> stringResource(R.string.decline_title) to stringResource(R.string.decline_block_pending)
-        block.undone -> stringResource(R.string.decline_title) to stringResource(R.string.decline_block_undone, number)
+        block.undone -> stringResource(R.string.decline_title) to
+            if (masked) stringResource(R.string.decline_block_undone_masked) else stringResource(R.string.decline_block_undone, number)
         block.ruleId == null -> stringResource(R.string.decline_title) to stringResource(R.string.decline_block_failed)
         block.ruleId == 0L -> stringResource(R.string.decline_title) to stringResource(R.string.decline_block_already)
-        block.answered -> stringResource(R.string.decline_blocked_title) to stringResource(R.string.decline_blocked_answered, number)
-        else -> stringResource(R.string.decline_blocked_title) to stringResource(R.string.decline_blocked_body, number)
+        block.answered -> stringResource(R.string.decline_blocked_title) to
+            if (masked) stringResource(R.string.decline_blocked_answered_masked) else stringResource(R.string.decline_blocked_answered, number)
+        else -> stringResource(R.string.decline_blocked_title) to
+            if (masked) stringResource(R.string.decline_blocked_body_masked) else stringResource(R.string.decline_blocked_body, number)
     }
     Surface(
         color = MaterialTheme.colorScheme.surfaceContainerHigh,

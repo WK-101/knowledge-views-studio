@@ -42,7 +42,14 @@ import kotlinx.coroutines.launch
  */
 // Telephony calls here are covered by the default-dialer role and each one handles SecurityException.
 @SuppressLint("MissingPermission")
-class CallNotifier(private val context: Context) {
+class CallNotifier internal constructor(
+    private val context: Context,
+    /** "Caller on the lock screen" and whether the phone is locked; tests pass their own. */
+    private val lockModeOf: () -> LockScreenCaller,
+    private val lockedOf: (() -> Boolean)?,
+) {
+    constructor(context: Context) : this(context, ::chosenLockMode, null)
+
     private val nm = context.getSystemService(NotificationManager::class.java)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val directlyLaunched = HashSet<String>()
@@ -89,9 +96,10 @@ class CallNotifier(private val context: Context) {
 
     private fun notificationsAllowed(): Boolean = NotificationManagerCompat.from(context).areNotificationsEnabled()
 
-    private fun lockMode(): LockScreenCaller = runCatching { TelecomGraph.dependencies.appearance.value.lockScreenCaller }.getOrDefault(LockScreenCaller.NAME)
+    private fun lockMode(): LockScreenCaller = lockModeOf()
 
-    private fun keyguardLocked(): Boolean = screenOff || (context.getSystemService(KeyguardManager::class.java)?.isKeyguardLocked ?: true)
+    private fun keyguardLocked(): Boolean =
+        lockedOf?.invoke() ?: (screenOff || (context.getSystemService(KeyguardManager::class.java)?.isKeyguardLocked ?: true))
 
     /** The call as a notification may show it now: with less about the caller while the phone is locked, if so chosen. */
     private fun shown(call: CallUi, mode: LockScreenCaller, locked: Boolean): CallUi =
@@ -134,7 +142,7 @@ class CallNotifier(private val context: Context) {
             cancel(ONGOING_ID)
         } else {
             val a = CallManager.audio.value
-            val timing = CallClock.timings.value[ongoing.id]
+            val timing = CallClock.timings.value[ongoing.id]?.shownFor(ongoing)
             // The chronometer counts by itself: the signature changes when the end time changes, not every second.
             val chrono = CallChronometer.display(ongoing.connectTimeMillis, timing?.countdown, SystemClock.elapsedRealtime(), System.currentTimeMillis())
             post(ONGOING_ID, ongoing, "o${a.muted}${a.current?.type}${chrono.signature}${timing?.canExtend}") { buildOngoing(ongoing, timing, chrono) }
@@ -308,10 +316,11 @@ class CallNotifier(private val context: Context) {
     /**
      * The vault's "Private" label never goes into a call notification: notifications can be shown on the lock
      * screen (and read by notification listeners), and the label would reveal that the caller is a private contact.
+     * A call masked for the lock screen shows no number either (it stays in the call only for Reply and Block).
      */
     private fun subtitle(call: CallUi): String = listOfNotNull(
         NotificationPrivacy.shownLabel(call.label),
-        call.number?.takeIf { call.name != null },
+        call.number?.takeIf { call.name != null && !call.lockMasked },
         call.accountLabel,
     ).joinToString(context.getString(R.string.tc_separator))
 
@@ -444,6 +453,9 @@ class CallNotifier(private val context: Context) {
     }
 
     companion object {
+        private fun chosenLockMode(): LockScreenCaller =
+            runCatching { TelecomGraph.dependencies.appearance.value.lockScreenCaller }.getOrDefault(LockScreenCaller.NAME)
+
         const val CH_INCOMING = NotificationChannels.INCOMING_CALLS
         const val CH_ONGOING = NotificationChannels.ONGOING_CALLS
         const val CH_SILENCED = NotificationChannels.SILENCED_CALLS

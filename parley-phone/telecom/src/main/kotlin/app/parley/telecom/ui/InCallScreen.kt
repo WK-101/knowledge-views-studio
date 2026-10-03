@@ -112,6 +112,7 @@ import app.parley.telecom.RouteType
 import app.parley.telecom.RttUi
 import app.parley.telecom.TelecomGraph
 import app.parley.telecom.live
+import app.parley.telecom.shownFor
 import app.parley.ui.Avatar
 import app.parley.ui.Bidi
 import app.parley.ui.CallColors
@@ -168,8 +169,9 @@ fun InCallScreen(
     failed: CallUi? = null,
     onRetry: (CallUi) -> Unit = {},
     onDismissFailure: (CallUi) -> Unit = {},
-    /** The call just declined with "Block & decline" (Undo). */
+    /** The call just declined with "Block & decline" (Undo), and whether its number stays out of sight (lock screen). */
     declineBlock: DeclineBlock? = null,
+    declineBlockMasked: Boolean = false,
     onUndoBlock: () -> Unit = {},
     /** Simple mode: large buttons and (optionally) a question before declining. */
     simple: Boolean = false,
@@ -194,7 +196,8 @@ fun InCallScreen(
     val sheets = remember { InCallSheets() }
     LoadFamilyCallState(primary, sheets.family)
     val screen = ScreenState(
-        live = live, primary = primary, shown = shown, ended = ended, failed = failed, declineBlock = declineBlock, audio = audio,
+        live = live, primary = primary, shown = shown, ended = ended, failed = failed, declineBlock = declineBlock,
+        declineBlockMasked = declineBlockMasked, audio = audio,
         keypadOpen = keypadOpen, incoming = IncomingPrefs(answerGesture, simple, confirmDecline),
     )
     BoxWithConstraints(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
@@ -261,6 +264,7 @@ private class ScreenState(
     val ended: CallUi?,
     val failed: CallUi?,
     val declineBlock: DeclineBlock?,
+    val declineBlockMasked: Boolean,
     val audio: AudioUi,
     val keypadOpen: Boolean,
     val incoming: IncomingPrefs,
@@ -324,7 +328,7 @@ private fun CallerSection(s: ScreenState, sheets: InCallSheets, a: ScreenActions
     // A call just declined with "Block & decline" while another call goes on: Undo stays at hand.
     if (primary != null && s.declineBlock != null) {
         Spacer(Modifier.height(Spacing.m))
-        DeclineBlockCard(s.declineBlock, onUndo = a.onUndoBlock, onDone = { CallManager.dismissDeclineBlock() })
+        DeclineBlockCard(s.declineBlock, onUndo = a.onUndoBlock, onDone = { CallManager.dismissDeclineBlock() }, masked = s.declineBlockMasked)
     }
     s.others.forEach { other ->
         if (other.state == CallState.HOLDING) OnHoldStrip(other, primary) else OtherCallBanner(other)
@@ -336,7 +340,7 @@ private fun CallerSection(s: ScreenState, sheets: InCallSheets, a: ScreenActions
         ended = primary == null,
         onOpenContact = a.onOpenContact,
         compact = s.keypadOpen && primary?.state != CallState.RINGING,
-        timing = timings[shown.id],
+        timing = timings[shown.id]?.shownFor(shown),
         avatarSize = avatar,
         onReply = { sheets.replyFor = shown.id },
     )
@@ -386,7 +390,7 @@ private fun EndedCards(s: ScreenState, a: ScreenActions) {
             ended != null && ended.drop != null ->
                 DropCard(ended, onCallAgain = { a.onDrop(ended, true) }, onDismiss = { a.onDrop(ended, false) }, Modifier.padding(bottom = Spacing.xl))
             // "Blocked and declined", with Undo.
-            s.declineBlock != null -> DeclineBlockCard(s.declineBlock, onUndo = a.onUndoBlock, onDone = { a.onPostCall(PostCallChoice.Done) })
+            s.declineBlock != null -> DeclineBlockCard(s.declineBlock, onUndo = a.onUndoBlock, onDone = { a.onPostCall(PostCallChoice.Done) }, masked = s.declineBlockMasked)
             // Block, save, message or report an unknown number right after the call.
             ended != null && ended.postCallCard -> PostCallCard(ended, onChoice = a.onPostCall)
             // "Anything to remember?" after a call with a contact (opt-in).
@@ -815,12 +819,15 @@ private fun MoreSheet(
     val rtt = rttOf(primary.id)
     CallMoreSheet(
         call = primary,
-        timing = timings[primary.id],
+        timing = timings[primary.id]?.shownFor(primary),
         controls = overflowRows(primary, s.others, s.audio, onAddCall = onAddCall, onManage = { sheets.manage = true }),
         onDismiss = { sheets.more = false },
         onNote = { sheets.noteFor = primary.id },
         onOpenContact = if (primary.hidden) null else ({ onOpenContact(primary) }),
-        onCopyNumber = primary.number?.takeIf { !primary.hidden && it.isNotBlank() }?.let { n -> { copyNumber(context, n) } },
+        // A call masked on the lock screen copies its number only once the phone is unlocked.
+        onCopyNumber = primary.number?.takeIf { !primary.hidden && it.isNotBlank() }?.let { n ->
+            { if (primary.lockMasked) onUnlock { copyNumber(context, n) } else copyNumber(context, n) }
+        },
         onHoldMode = if (primary.canHoldMode) ({ CallManager.startHoldMode(primary.id) }) else null,
         onVerify = if (primary.canVerify) ({ onUnlock { sheets.verifyFor = primary } }) else null,
         onClaimsFamily = claimsFamily(primary, sheets.family),

@@ -211,6 +211,9 @@
     <string name="decline_block_pending">Blocking this number…</string>
     <string name="decline_blocked_answered">Calls from %1$s will be declined from now on. This call was answered.</string>
     <string name="decline_block_undone">Unblocked. %1$s can call you again.</string>
+    <string name="decline_blocked_body_masked">Calls from this number will be declined from now on.</string>
+    <string name="decline_blocked_answered_masked">Calls from this number will be declined from now on. This call was answered.</string>
+    <string name="decline_block_undone_masked">Unblocked. This number can call you again.</string>
     <string name="tc_undo">Undo</string>
 
     <string name="postcall_message_or_call">Message or call on…</string>

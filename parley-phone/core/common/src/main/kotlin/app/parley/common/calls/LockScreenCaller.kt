@@ -30,12 +30,13 @@ enum class LockScreenCaller {
     }
 
     /**
-     * Whether a call with [name] (null: no contact) is shown with less on the lock screen. An unknown number keeps
-     * its number under Initials: there's no name to shorten, and the number is what the user needs to decide.
+     * Whether a call is shown with less on the lock screen; [saved] is true when the caller is one of your contacts
+     * or private contacts. An unknown number keeps its number under Initials, even when the network sends a name with
+     * it: there's no saved name to shorten, and the number is what the user needs to decide.
      */
-    fun masks(name: String?): Boolean = when (this) {
+    fun masks(saved: Boolean): Boolean = when (this) {
         NAME -> false
-        INITIALS -> name != null
+        INITIALS -> saved
         NONE -> true
     }
 }

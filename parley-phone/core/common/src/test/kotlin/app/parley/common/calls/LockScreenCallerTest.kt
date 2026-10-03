@@ -10,15 +10,15 @@ import java.util.Locale
 class LockScreenCallerTest {
     @Test fun name_is_shown_as_before() {
         assertEquals("Ada Lovelace", LockScreenCaller.NAME.shownName("Ada Lovelace"))
-        assertFalse(LockScreenCaller.NAME.masks("Ada Lovelace"))
-        assertFalse(LockScreenCaller.NAME.masks(null))
+        assertFalse(LockScreenCaller.NAME.masks(saved = true))
+        assertFalse(LockScreenCaller.NAME.masks(saved = false))
     }
 
     @Test fun initials_keep_only_the_first_letters() {
         assertEquals("AL", LockScreenCaller.INITIALS.shownName("Ada Lovelace", Locale.UK))
         assertEquals("A", LockScreenCaller.INITIALS.shownName("ada", Locale.UK))
         assertEquals("AK", LockScreenCaller.INITIALS.shownName("Ada King Lovelace-Byron Kent", Locale.UK))
-        assertTrue(LockScreenCaller.INITIALS.masks("Ada Lovelace"))
+        assertTrue(LockScreenCaller.INITIALS.masks(saved = true))
     }
 
     @Test fun a_name_without_letters_falls_back_to_the_plain_line() {
@@ -27,8 +27,8 @@ class LockScreenCallerTest {
     }
 
     @Test fun an_unknown_number_keeps_its_number_under_initials_but_not_under_incoming_call() {
-        assertFalse(LockScreenCaller.INITIALS.masks(null))
-        assertTrue(LockScreenCaller.NONE.masks(null))
+        assertFalse(LockScreenCaller.INITIALS.masks(saved = false))
+        assertTrue(LockScreenCaller.NONE.masks(saved = false))
         assertNull(LockScreenCaller.NONE.shownName("Ada Lovelace"))
     }
 }
