@@ -103,10 +103,10 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
     /** What "unchanged" means: the draft as first shown (null: a new contact from another app, always a change). */
     private var start by mutableStateOf<ContactDetails?>(null)
     var accounts by mutableStateOf<List<AccountRef>>(emptyList())
+        private set
 
     /** Android 16's cloud default while it takes new contacts instead of the phone (the Save-to menu says so). */
     var systemDefault by mutableStateOf<AccountRef?>(null)
-        private set
         private set
     var groups by mutableStateOf<List<GroupInfo>>(emptyList())
         private set
@@ -688,7 +688,7 @@ internal object EditorDrafts {
 
     /** Every text of the draft (a contact holding only an address, a note or a website is fine, F24). */
     fun texts(d: ContactDetails): List<String> = with(d) {
-        listOf(prefix, given, middle, family, suffix, nickname, pronouns, company, title, note, phoneticGiven, phoneticFamily, context, pinnedNote) +
+        listOf(prefix, given, middle, family, suffix, nickname, pronouns, company, title, department, note, phoneticGiven, phoneticFamily, context, pinnedNote) +
             (phones + emails + websites + relations).map { it.value } + events.map { it.date } + handles.map { it.value } +
             addresses.flatMap { listOf(it.street, it.poBox, it.neighborhood, it.city, it.region, it.postcode, it.country) }
     }

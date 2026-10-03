@@ -490,6 +490,7 @@
     <string name="edit_company">Company</string>
     <!-- Job title (not the title of a screen). -->
     <string name="edit_job_title">Title</string>
+    <string name="edit_department">Department</string>
     <string name="edit_add_phone">Add phone</string>
     <string name="edit_add_email">Add email</string>
     <string name="edit_add_website">Add website</string>

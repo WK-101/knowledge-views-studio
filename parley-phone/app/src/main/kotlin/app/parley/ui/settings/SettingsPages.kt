@@ -473,10 +473,10 @@ internal fun ContactsPage(vm: AppViewModel, open: (Destination) -> Unit) {
     SegmentedGroup(stringResource(R.string.set_group_contact_list)) {
         switchRow("row_actions", s.contactRowActions, Icons.Rounded.TouchApp) { v -> set { it.copy(contactRowActions = v) } }
     }
+    val systemNote = systemDefault?.let { stringResource(R.string.set_default_account_system, it.displayLabel) }
     SegmentedGroup(stringResource(R.string.set_group_organise)) {
         if (accounts.isNotEmpty()) {
             val current = accounts.indexOfFirst { it.type == s.defaultAccountType && it.name == s.defaultAccountName }.coerceAtLeast(0)
-            val systemNote = systemDefault?.let { stringResource(R.string.set_default_account_system, it.displayLabel) }
             menuRow("default_account", accounts.map { vm.accountLabel(it) }, current, Icons.Rounded.AccountCircle, sub = systemNote) { i ->
                 val a = accounts[i]
                 set { it.copy(defaultAccountType = a.type, defaultAccountName = a.name) }

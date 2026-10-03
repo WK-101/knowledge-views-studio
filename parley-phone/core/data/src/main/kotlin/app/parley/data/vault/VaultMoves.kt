@@ -192,7 +192,7 @@ class VaultMoves(
             return original.copy(
                 prefix = d.prefix, given = d.given, middle = d.middle, family = d.family, suffix = d.suffix,
                 phoneticGiven = d.phoneticGiven, phoneticFamily = d.phoneticFamily, nickname = d.nickname, pronouns = d.pronouns,
-                company = d.company, title = d.title, note = d.note,
+                company = d.company, title = d.title, department = d.department, note = d.note,
                 phones = items(original.phones, d.phones), emails = items(original.emails, d.emails),
                 websites = items(original.websites, d.websites), relations = items(original.relations, d.relations),
                 addresses = d.addresses.map { a ->

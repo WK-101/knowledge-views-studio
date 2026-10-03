@@ -47,6 +47,7 @@ import app.parley.common.record.ContentDiff
 import app.parley.common.record.Messengers
 import app.parley.common.record.Mime
 import app.parley.common.record.NewContactAccount
+import app.parley.common.record.WorkRow
 import app.parley.data.people.ParleyWriteLog
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -558,7 +559,9 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
                     )
                     Nickname.CONTENT_ITEM_TYPE -> if (base.nicknameId == null) base = base.copy(nicknameId = id, nickname = s(2))
                     Mime.PRONOUNS -> if (base.pronounsId == null) base = base.copy(pronounsId = id, pronouns = s(2))
-                    Organization.CONTENT_ITEM_TYPE -> if (base.orgId == null) base = base.copy(orgId = id, company = s(2), title = s(5))
+                    Organization.CONTENT_ITEM_TYPE -> if (base.orgId == null) {
+                        base = base.copy(orgId = id, company = s(2), title = s(5), department = s(6), jobDescription = s(7), officeLocation = s(10))
+                    }
                     Note.CONTENT_ITEM_TYPE -> if (base.noteId == null) base = base.copy(noteId = id, note = s(2))
                     Phone.CONTENT_ITEM_TYPE -> phones += DataItem(id, s(2), c.getInt(3), c.getString(4), c.getInt(12) != 0)
                     Email.CONTENT_ITEM_TYPE -> emails += DataItem(id, s(2), c.getInt(3), c.getString(4), c.getInt(12) != 0)
@@ -810,14 +813,33 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
                 original?.pronounsId, Mime.PRONOUNS, edited.pronouns.isBlank(), ContentValues().apply { put(Data.DATA1, edited.pronouns.trim()) },
                 o != null && t(o.pronouns) == t(edited.pronouns),
             )
-            single(
-                original?.orgId, Organization.CONTENT_ITEM_TYPE, edited.company.isBlank() && edited.title.isBlank(),
-                ContentValues().apply {
-                    put(Organization.COMPANY, edited.company.trim().ifEmpty { null })
-                    put(Organization.TITLE, edited.title.trim().ifEmpty { null })
-                },
-                o != null && t(o.company) == t(edited.company) && t(o.title) == t(edited.title),
+            // The work row: only company, title and department are written; a row that still holds an office, a job
+            // description or the like is kept with those cleared rather than deleted (see WorkRow).
+            val orgId = original?.orgId
+            val orgValues = ContentValues().apply {
+                put(Organization.COMPANY, edited.company.trim().ifEmpty { null })
+                put(Organization.TITLE, edited.title.trim().ifEmpty { null })
+                put(Organization.DEPARTMENT, edited.department.trim().ifEmpty { null })
+            }
+            val orgAction = WorkRow.action(
+                exists = orgId != null,
+                editedBlank = edited.company.isBlank() && edited.title.isBlank() && edited.department.isBlank(),
+                same = o != null && t(o.company) == t(edited.company) && t(o.title) == t(edited.title) && t(o.department) == t(edited.department),
+                holdsOthers = orgId != null && workRowHoldsOthers(orgId),
             )
+            when (orgAction) {
+                WorkRow.Action.NONE -> Unit
+                WorkRow.Action.INSERT -> insert(
+                    Organization.CONTENT_ITEM_TYPE,
+                    // A new row (a private contact made visible) carries the parts the editor only shows.
+                    orgValues.apply {
+                        edited.officeLocation.trim().ifEmpty { null }?.let { put(Organization.OFFICE_LOCATION, it) }
+                        edited.jobDescription.trim().ifEmpty { null }?.let { put(Organization.JOB_DESCRIPTION, it) }
+                    },
+                )
+                WorkRow.Action.UPDATE, WorkRow.Action.CLEAR -> update(orgId!!, Organization.CONTENT_ITEM_TYPE, orgValues)
+                WorkRow.Action.DELETE -> delete(orgId!!, Organization.CONTENT_ITEM_TYPE)
+            }
             single(original?.noteId, Note.CONTENT_ITEM_TYPE, edited.note.isBlank(), ContentValues().apply { put(Note.NOTE, edited.note.trim()) }, o != null && t(o.note) == t(edited.note))
 
             fun multi(orig: List<DataItem>, now: List<DataItem>, mime: String, valueCol: String, typeCol: String, labelCol: String) {
@@ -953,6 +975,12 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
     private fun fieldName(mime: String): String = FIELD_NAMES[mime] ?: "Other"
 
     private fun localAccount(): AccountRef = DeviceAccounts.localAccount(context)
+
+    /** Whether work row [dataId] holds content in a column the editor doesn't change ([WorkRow.KEPT]). */
+    private fun workRowHoldsOthers(dataId: Long): Boolean =
+        cr.safeQuery(ContentUris.withAppendedId(Data.CONTENT_URI, dataId), WorkRow.KEPT.toTypedArray())?.use { c ->
+            c.moveToFirst() && WorkRow.holdsOthers(WorkRow.KEPT.mapIndexed { i, col -> col to c.getString(i) }.toMap())
+        } ?: true
 
     /** A raw contact with no content left (group memberships don't count). */
     private fun isBlankRaw(rawId: Long): Boolean =

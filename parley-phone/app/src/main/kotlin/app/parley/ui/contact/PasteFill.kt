@@ -86,6 +86,7 @@ object PasteFill {
             suffix = if (noName) add.suffix else draft.suffix,
             company = draft.company.ifBlank { add.company },
             title = draft.title.ifBlank { add.title },
+            department = draft.department.ifBlank { add.department },
             phones = rows(draft.phones, add.phones, { it.value.isBlank() }) { a, b -> PhoneIdentity.same(a.value, b.value, null) },
             emails = rows(draft.emails, add.emails, { it.value.isBlank() }) { a, b -> a.value.equals(b.value, ignoreCase = true) },
             websites = rows(draft.websites, add.websites, { it.value.isBlank() }) { a, b -> siteKey(a.value) == siteKey(b.value) },

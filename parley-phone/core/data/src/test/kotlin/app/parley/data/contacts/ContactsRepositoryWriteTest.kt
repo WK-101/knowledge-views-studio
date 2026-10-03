@@ -5,6 +5,7 @@ import android.app.Application
 import android.os.UserManager
 import android.provider.ContactsContract.CommonDataKinds.Email
 import android.provider.ContactsContract.CommonDataKinds.Note
+import android.provider.ContactsContract.CommonDataKinds.Organization
 import android.provider.ContactsContract.CommonDataKinds.Phone
 import android.provider.ContactsContract.CommonDataKinds.StructuredName
 import androidx.test.core.app.ApplicationProvider
@@ -193,6 +194,64 @@ class ContactsRepositoryWriteTest {
         provider.workNumbers += "+1 555 0123"
         assertFalse(repo.lookup("+1 555 0123")!!.starred)
         resetWorkProfileCache()
+    }
+
+    /** Adds a work row to [contactId]'s raw contact straight in the provider, as Google Contacts or Outlook would. */
+    private fun addWorkRow(contactId: Long, vararg cols: Pair<String, String>) {
+        val raw = provider.rows("raw_contacts").first { it["contact_id"] == contactId.toString() }["_id"]
+        val names = cols.joinToString("") { ", " + it.first }
+        val values = cols.joinToString("") { ", '" + it.second + "'" }
+        provider.exec("INSERT INTO data (raw_contact_id, mimetype$names) VALUES ($raw, '${Organization.CONTENT_ITEM_TYPE}'$values)")
+    }
+
+    private fun workRows() = dataRows().filter { it["mimetype"] == Organization.CONTENT_ITEM_TYPE }
+
+    @Test fun aDepartmentOnlyWorkRowSurvivesASave() = runBlocking {
+        val id = create()
+        addWorkRow(id, Organization.DEPARTMENT to "Research", Organization.OFFICE_LOCATION to "Room 4")
+        val before = repo.editable(id)!!
+        assertEquals("Research", before.department)
+        assertEquals("Room 4", before.officeLocation)
+        repo.save(before, before.copy(nickname = "Countess"), null, null, false)
+        val row = workRows().single()
+        assertEquals("Research", row["data5"])
+        assertEquals("Room 4", row["data9"])
+    }
+
+    @Test fun editingTheDepartmentWritesOnlyTheColumnsParleyEdits() = runBlocking {
+        val id = create()
+        addWorkRow(id, Organization.COMPANY to "Acme", Organization.JOB_DESCRIPTION to "Builds rockets")
+        val before = repo.editable(id)!!
+        provider.writes.clear()
+        repo.save(before, before.copy(department = "Research"), null, null, false)
+        val write = provider.writes.single { it.path == "data/${before.orgId}" }
+        assertEquals(setOf(Organization.COMPANY, Organization.TITLE, Organization.DEPARTMENT), write.values.keys)
+        val row = workRows().single()
+        assertEquals(listOf("Acme", "Research", "Builds rockets"), listOf(row["data1"], row["data5"], row["data6"]))
+        assertEquals("Research", repo.details(id)!!.department)
+    }
+
+    @Test fun clearingCompanyAndTitleKeepsTheDepartment() = runBlocking {
+        val id = create(ada.copy(company = "Acme", title = "Engineer", department = "Research"))
+        val before = repo.editable(id)!!
+        repo.save(before, before.copy(company = "", title = ""), null, null, false)
+        val row = workRows().single()
+        assertEquals(listOf(null, null, "Research"), listOf(row["data1"], row["data4"], row["data5"]))
+    }
+
+    @Test fun clearingEverythingParleyEditsKeepsARowWithAnOffice() = runBlocking {
+        val id = create()
+        addWorkRow(id, Organization.COMPANY to "Acme", Organization.OFFICE_LOCATION to "Room 4")
+        val before = repo.editable(id)!!
+        repo.save(before, before.copy(company = ""), null, null, false)
+        assertEquals("Room 4", workRows().single()["data9"])
+    }
+
+    @Test fun clearingAWorkRowWithNothingElseRemovesIt() = runBlocking {
+        val id = create(ada.copy(company = "Acme"))
+        val before = repo.editable(id)!!
+        repo.save(before, before.copy(company = ""), null, null, false)
+        assertTrue(workRows().isEmpty())
     }
 
     private fun resetWorkProfileCache() {

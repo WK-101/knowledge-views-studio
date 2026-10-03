@@ -547,14 +547,19 @@ fun ContactEditScreen(
                     val workLocked = lockedRow(d.orgId)
                     FormRow(Icons.Rounded.Business, stringResource(R.string.editor_work), Modifier.animateItem().padding(bottom = FormTokens.groupGap)) {
                         EditorField(
-                            stringResource(R.string.edit_company), d.company, shape = formFieldShape(0, 2), cap = KeyboardCapitalization.Words,
+                            stringResource(R.string.edit_company), d.company, shape = formFieldShape(0, 3), cap = KeyboardCapitalization.Words,
                             locked = workLocked, focus = fr(KEY_COMPANY),
                         ) { v -> update { it.copy(company = v) } }
                         Spacer(Modifier.height(FormTokens.segmentGap))
                         EditorField(
-                            stringResource(R.string.edit_job_title), d.title, shape = formFieldShape(1, 2), cap = KeyboardCapitalization.Words,
+                            stringResource(R.string.edit_job_title), d.title, shape = formFieldShape(1, 3), cap = KeyboardCapitalization.Words,
                             locked = workLocked,
                         ) { v -> update { it.copy(title = v) } }
+                        Spacer(Modifier.height(FormTokens.segmentGap))
+                        EditorField(
+                            stringResource(R.string.edit_department), d.department, shape = formFieldShape(2, 3), cap = KeyboardCapitalization.Words,
+                            locked = workLocked,
+                        ) { v -> update { it.copy(department = v) } }
                     }
                 }
             }
@@ -776,7 +781,7 @@ private fun shownKinds(
         if (nameDetails) add(EditorForm.Kind.NAME_DETAILS)
         show(EditorForm.Kind.PHONE, d.phones.isNotEmpty())
         show(EditorForm.Kind.EMAIL, d.emails.isNotEmpty())
-        show(EditorForm.Kind.WORK, d.company.isNotBlank() || d.title.isNotBlank())
+        show(EditorForm.Kind.WORK, d.company.isNotBlank() || d.title.isNotBlank() || d.department.isNotBlank())
         show(EditorForm.Kind.DATE, d.events.isNotEmpty())
         show(EditorForm.Kind.ADDRESS, d.addresses.isNotEmpty())
         show(EditorForm.Kind.WEBSITE, profileRow.any { !it })

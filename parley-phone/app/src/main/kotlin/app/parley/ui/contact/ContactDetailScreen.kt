@@ -852,7 +852,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                         )
                     }
                     // Pronouns first, right under the name.
-                    val work = listOf(d.title, d.company).filter { it.isNotBlank() }.joinToString(", ")
+                    val work = listOf(d.title, d.department, d.company).filter { it.isNotBlank() }.joinToString(", ")
                     val sub = listOf(d.pronouns.trim(), d.nickname, work).filter { it.isNotBlank() }
                     if (sub.isNotEmpty()) Text(sub.joinToString(sep), color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
                     Text(

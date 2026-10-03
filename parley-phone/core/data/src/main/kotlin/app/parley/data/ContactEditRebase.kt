@@ -22,7 +22,7 @@ object ContactEditRebase {
     private fun content(d: ContactDetails, f: Field): Any = when (f) {
         Field.NAME -> listOf(d.prefix, d.given, d.middle, d.family, d.suffix, d.phoneticGiven, d.phoneticFamily).map(::t)
         Field.NICKNAME -> t(d.nickname)
-        Field.COMPANY -> t(d.company) to t(d.title)
+        Field.COMPANY -> listOf(d.company, d.title, d.department).map(::t)
         Field.NOTE -> t(d.note)
         Field.PHONES -> items(d.phones)
         Field.EMAILS -> items(d.emails)
@@ -39,7 +39,7 @@ object ContactEditRebase {
     fun text(d: ContactDetails, f: Field): String = when (f) {
         Field.NAME -> d.composedName
         Field.NICKNAME -> t(d.nickname)
-        Field.COMPANY -> listOf(d.company, d.title).map(::t).filter { it.isNotEmpty() }.joinToString(" · ")
+        Field.COMPANY -> listOf(d.company, d.department, d.title).map(::t).filter { it.isNotEmpty() }.joinToString(" · ")
         Field.NOTE -> t(d.note)
         Field.PHONES -> d.phones.map { t(it.value) }.filter { it.isNotEmpty() }.joinToString(", ")
         Field.EMAILS -> d.emails.map { t(it.value) }.filter { it.isNotEmpty() }.joinToString(", ")
@@ -84,7 +84,7 @@ object ContactEditRebase {
             )
         }
         if (mineFor(Field.NICKNAME)) out = out.copy(nickname = mine.nickname)
-        if (mineFor(Field.COMPANY)) out = out.copy(company = mine.company, title = mine.title)
+        if (mineFor(Field.COMPANY)) out = out.copy(company = mine.company, title = mine.title, department = mine.department)
         if (mineFor(Field.NOTE)) out = out.copy(note = mine.note)
         if (mineFor(Field.PHONES)) out = out.copy(phones = rows(mine.phones, theirs.phones))
         if (mineFor(Field.EMAILS)) out = out.copy(emails = rows(mine.emails, theirs.emails))

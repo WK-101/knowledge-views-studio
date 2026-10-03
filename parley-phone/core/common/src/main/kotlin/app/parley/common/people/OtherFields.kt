@@ -28,7 +28,10 @@ object OtherFields {
     fun describe(rows: List<DataRow>, fromMessenger: (DataRow) -> Boolean = { false }): List<Field> {
         val out = ArrayList<Field>()
         for (r in rows) {
-            if (r.mimeType in Mime.CORE || fromMessenger(r)) continue
+            if (fromMessenger(r)) continue
+            // The work row's parts the editor doesn't change (its company, title and department show under the name).
+            if (r.mimeType == Mime.ORG) out += workExtras(r)
+            if (r.mimeType in Mime.CORE) continue
             describe(r)?.let { out += it }
         }
         return out.distinctBy { Triple(it.label, it.value, it.mimeType) }
@@ -59,6 +62,12 @@ object OtherFields {
             else -> generic(r)
         }
     }
+
+    /** A work row's office location and job description (Organization.OFFICE_LOCATION, JOB_DESCRIPTION). */
+    fun workExtras(r: DataRow): List<Field> = listOfNotNull(
+        r["data9"]?.trim()?.takeIf { it.isNotEmpty() }?.let { Field("Office", it, r.mimeType) },
+        r["data6"]?.trim()?.takeIf { it.isNotEmpty() }?.let { Field("Job description", it, r.mimeType) },
+    )
 
     /** Any other kind: its first non-empty text column under a label made from the mimetype. */
     private fun generic(r: DataRow): Field? {
