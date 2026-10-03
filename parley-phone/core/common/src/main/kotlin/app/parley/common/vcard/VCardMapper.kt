@@ -1064,13 +1064,16 @@ object VCardMapper {
     // Escaping
     // ------------------------------------------------------------------------------------------------
 
+    /** Parley's own parameters that share the residual prefix but are no column. */
+    private val NOT_RESIDUAL = setOf(X_BLOB, X_DERIVED, X_CALENDAR)
+
     private fun residualParam(key: String) = RESIDUAL_PREFIX + key.uppercase().replace('_', '-')
 
     /** Overlays X-PARLEY-<COLUMN> parameters onto [values]; they are authoritative for their column. */
     private fun applyResidual(p: VCardProperty, values: MutableMap<String, String>) {
         for (name in p.parameters.keySet()) {
             val up = name.uppercase()
-            if (!up.startsWith(RESIDUAL_PREFIX) || up == X_BLOB || up == X_DERIVED || up == X_CALENDAR) continue
+            if (!up.startsWith(RESIDUAL_PREFIX) || up in NOT_RESIDUAL) continue
             val key = up.removePrefix(RESIDUAL_PREFIX).lowercase().replace('-', '_')
             p.parameters.get(name).firstOrNull()?.let { values[key] = decodeParam(it) }
         }

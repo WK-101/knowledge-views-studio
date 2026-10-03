@@ -249,7 +249,7 @@ object CallManager {
         _declineBlock.value?.let { b -> if (calls.none { idOf(it) == b.callId }) _declineBlock.value = null }
         // A call that joins others (a second call, or the conference a merge creates) keeps the audio where it is:
         // "Start calls on speaker" only decides for a call that starts on its own.
-        if (calls.isNotEmpty()) s.speakerDecided = true
+        if (calls.any { mapState(it.stateCompat()) !in ENDING_STATES }) s.speakerDecided = true
         calls += call
         call.registerCallback(callback)
         // Never answer a call on its own while another one exists.

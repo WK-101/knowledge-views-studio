@@ -89,8 +89,10 @@ class RemindersWorker(context: Context, params: WorkerParameters) : CoroutineWor
             if (DateReminders.has(fired, firedKey)) continue
             val title = when (fire) {
                 DateReminders.Fire.ON_DAY -> when (e.type) {
-                    Event.TYPE_BIRTHDAY -> due.turning?.let { ctx.getString(R.string.work_turns_today, e.name, it) } ?: ctx.getString(R.string.work_birthday_today, e.name)
-                    Event.TYPE_ANNIVERSARY -> due.turning?.let { ctx.getString(R.string.work_anniversary_years, e.name, it) } ?: ctx.getString(R.string.work_anniversary_today, e.name)
+                    Event.TYPE_BIRTHDAY -> due.turning?.let { ctx.getString(R.string.work_turns_today, e.name, it) }
+                        ?: ctx.getString(R.string.work_birthday_today, e.name)
+                    Event.TYPE_ANNIVERSARY -> due.turning?.let { ctx.getString(R.string.work_anniversary_years, e.name, it) }
+                        ?: ctx.getString(R.string.work_anniversary_today, e.name)
                     else -> ctx.getString(R.string.work_event_today, e.name, e.label ?: ctx.getString(R.string.work_special_date))
                 }
                 DateReminders.Fire.LEAD -> {
