@@ -41,6 +41,7 @@ fun VoiceCaptureSheet(vm: AppViewModel) {
         Column(Modifier.fillMaxWidth().padding(20.dp)) {
             when (ui.status) {
                 AppViewModel.VoiceStatus.LISTENING -> ListeningContent(vm, ui.partial)
+                AppViewModel.VoiceStatus.TRANSCRIBING -> TranscribingContent()
                 AppViewModel.VoiceStatus.REVIEW -> ReviewContent(vm, ui.partial, ui.draftText)
                 AppViewModel.VoiceStatus.ERROR -> ErrorContent(vm, ui.error)
                 AppViewModel.VoiceStatus.IDLE -> Unit
@@ -54,13 +55,27 @@ private fun ListeningContent(vm: AppViewModel, partial: String) {
     Text("Listening…", style = MaterialTheme.typography.titleMedium)
     Spacer(Modifier.height(12.dp))
     Text(
-        partial.ifBlank { "Speak a task — e.g. “buy milk tomorrow at 5pm”" },
+        // Record-then-transcribe: the words are not shown live; the accurate text appears after Stop.
+        partial.ifBlank { "Speak your task, then tap Stop — e.g. “buy milk tomorrow at 5pm”." },
         style = MaterialTheme.typography.bodyLarge,
     )
     Spacer(Modifier.height(20.dp))
-    Button(onClick = { vm.stopVoiceListening() }, modifier = Modifier.fillMaxWidth()) { Text("Stop") }
+    Button(onClick = { vm.stopVoiceListening() }, modifier = Modifier.fillMaxWidth()) { Text("Stop & transcribe") }
     Spacer(Modifier.height(8.dp))
     TextButton(onClick = { vm.cancelVoiceCapture() }, modifier = Modifier.fillMaxWidth()) { Text("Cancel") }
+}
+
+@Composable
+private fun TranscribingContent() {
+    Text("Transcribing…", style = MaterialTheme.typography.titleMedium)
+    Spacer(Modifier.height(12.dp))
+    Text(
+        "Turning your recording into text on-device — a moment…",
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    Spacer(Modifier.height(16.dp))
+    androidx.compose.material3.LinearProgressIndicator(Modifier.fillMaxWidth())
 }
 
 @Composable

@@ -192,8 +192,8 @@ class AppViewModel internal constructor(
         viewModelScope.launch { bridgeRegistry.clearAudit() }
     }
 
-    // ---- Voice capture (Phase 2): live listen -> analyze -> plan card -> commit ------------------
-    enum class VoiceStatus { IDLE, LISTENING, REVIEW, ERROR }
+    // ---- Voice capture (Phase 2): record -> transcribe on stop -> analyze -> plan card -> commit ----
+    enum class VoiceStatus { IDLE, LISTENING, TRANSCRIBING, REVIEW, ERROR }
 
     data class VoiceCaptureUi(
         val status: VoiceStatus = VoiceStatus.IDLE,
@@ -261,8 +261,14 @@ class AppViewModel internal constructor(
         }
     }
 
-    /** User released push-to-talk — ask the addon to finalize the current utterance. */
-    fun stopVoiceListening() = voiceController.stop()
+    /** User tapped Stop — the addon now transcribes the whole clip; show a transcribing state until the
+     *  final text arrives (record-then-transcribe takes a moment, unlike live streaming). */
+    fun stopVoiceListening() {
+        if (_voiceUi.value.status == VoiceStatus.LISTENING) {
+            _voiceUi.value = _voiceUi.value.copy(status = VoiceStatus.TRANSCRIBING)
+        }
+        voiceController.stop()
+    }
 
     /** Commit the (possibly edited) plan through the single quick-add funnel, so a voice task is
      *  identical to a typed one. */
