@@ -238,6 +238,7 @@ class NumberMemoryIndex(private val dir: File, private val keys: Keys) {
     companion object {
         private const val TAG = "NumberMemory"
         private const val FILE = "index.bin"
+
         /** "PNM2": a part also keeps its source's sealed state. A "PNM1" file is read as empty and rebuilt. */
         private const val MAGIC = 0x504E4D32
         private const val MAX_ROW = 64 * 1024

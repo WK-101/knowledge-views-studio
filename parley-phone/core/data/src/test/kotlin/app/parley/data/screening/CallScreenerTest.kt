@@ -134,6 +134,7 @@ class CallScreenerTest {
         delay(200)
         assertTrue(c.blocks.screenedSince(0).isEmpty())
     }
+
     @Test fun aContactsCallIsLookedUpOnce() {
         screening { it.copy(blockNonContacts = true, ringLoudFavourites = true) }
         addContact("+1 202 555 0100")

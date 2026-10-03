@@ -20,7 +20,7 @@ import java.security.KeyStore
  */
 class KeystoreMemoryKeys(context: Context) : NumberMemoryIndex.Keys {
     private val crypto = RecordCrypto.get(context)
-    private val hashing = HistoryCrypto(context, File(context.noBackupFilesDir, KEY_FILE), ALIAS)
+    private val hashing = HistoryCrypto(context, File(context.noBackupFilesDir, "memory.keys"), ALIAS)
 
     override fun key(input: String): String = hashing.mac(input)
 

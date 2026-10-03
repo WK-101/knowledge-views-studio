@@ -357,7 +357,7 @@ class CallScreener(
         val personal = ((contact ?: withContext(Dispatchers.IO) { contactLookup(primary) }) as? ContactAnswer.Found)?.bits
         if (personal != null) {
             // Titles in every account: label rules, off hours and ringtones name labels by title.
-            val labels = if (needLabels) withContext(Dispatchers.IO) { contacts.labelTitlesOrNull(personal.id) } ?: error("contacts unavailable") else emptySet()
+            val labels = if (needLabels) labelsOf(personal.id) else emptySet()
             Caller(personal.name, personal.starred, labels, ringtone = personal.ringtone)
         } else {
             privateCaller((private ?: vaultLookup(primary, iso))?.hit, needLabels)?.let { p ->
@@ -370,6 +370,9 @@ class CallScreener(
 
     private suspend fun blockedTimes(number: String, at: Long, s: ScreeningSettings): List<Long> =
         runCatching { blocks.recentBlockedTimes(number, at - s.repeatWindowMinutes * 60_000L - 1000) }.getOrDefault(emptyList())
+
+    private suspend fun labelsOf(contactId: Long): Set<String> =
+        withContext(Dispatchers.IO) { contacts.labelTitlesOrNull(contactId) } ?: error("contacts unavailable")
 
     /** One vault lookup; null when it failed (the caller fails open). */
     private suspend fun vaultLookup(number: String, iso: String): VaultAnswer? = runCatching { VaultAnswer(vault.lookup(number, iso)) }.getOrNull()

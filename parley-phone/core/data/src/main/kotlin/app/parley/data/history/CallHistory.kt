@@ -423,28 +423,39 @@ class CallHistory(
      */
     suspend fun tallyForMemory(previous: CallTally?, region: String?): CallTally? = withContext(Dispatchers.IO) {
         if (!prefs.current().archiveEnabled) return@withContext CallTally(mark = "off", region = region)
-        val count = dao.count()
+        val count = dao.count().toLong()
         val maxId = dao.maxId() ?: 0L
         val mark = "$count:$maxId"
-        val since = previous?.takeIf { it.region == region }?.mark?.split(':')?.mapNotNull { it.toLongOrNull() }?.takeIf { it.size == 2 }
         val added = ArrayList<NumberMemory.PastCall>()
-        fun take(a: ArchivedCall) {
-            a.record.number?.takeIf { it.isNotBlank() }?.let { added += NumberMemory.PastCall(it, a.record.date, a.record.name) }
+        val take = { a: ArchivedCall -> a.record.number?.takeIf { it.isNotBlank() }?.let { added += NumberMemory.PastCall(it, a.record.date, a.record.name) } }
+        val after = previous?.let { appendsAfter(it, region, count, maxId) }
+        when {
+            previous == null || after == null -> if (scanArchive { take(it) }) CallTally.empty(region).plus(added, mark) else null
+            after == maxId -> previous.copy(mark = mark)
+            guardKey { scanAfter(after) { take(it) } } -> previous.plus(added, mark)
+            else -> null
         }
-        if (previous != null && since != null && since[1] <= maxId && count - since[0] == dao.countAfter(since[1]).toLong()) {
-            if (since[1] == maxId) return@withContext previous.copy(mark = mark)
-            val complete = guardKey {
-                var after = since[1]
-                do {
-                    val page = dao.pageAfter(after, SCAN_PAGE)
-                    for (r in page) openRow(r)?.let { take(ArchivedCall(r.id, it)) }
-                    after = page.lastOrNull()?.id ?: after
-                } while (page.size == SCAN_PAGE)
-            }
-            return@withContext if (complete) previous.plus(added, mark) else null
-        }
-        if (!scanArchive(::take)) return@withContext null
-        CallTally.empty(region).plus(added, mark)
+    }
+
+    /**
+     * The last row [previous] read, when everything since was only added (no call left the archive, the same region):
+     * then only the rows after it are new. Null when the tally must be read again.
+     */
+    private suspend fun appendsAfter(previous: CallTally, region: String?, count: Long, maxId: Long): Long? {
+        if (previous.region != region) return null
+        val (seenCount, seenMax) = previous.mark.split(':').mapNotNull { it.toLongOrNull() }.takeIf { it.size == 2 } ?: return null
+        if (seenMax > maxId) return null
+        return seenMax.takeIf { count - seenCount == dao.countAfter(seenMax).toLong() }
+    }
+
+    /** Every archived call after row [after], oldest first, a page at a time. */
+    private suspend fun scanAfter(after: Long, visit: (ArchivedCall) -> Unit) {
+        var from = after
+        do {
+            val page = dao.pageAfter(from, SCAN_PAGE)
+            for (r in page) openRow(r)?.let { visit(ArchivedCall(r.id, it)) }
+            from = page.lastOrNull()?.id ?: from
+        } while (page.size == SCAN_PAGE)
     }
 
     /** Runs [block], false when the archive key can't be used now (as [scanArchive]). */

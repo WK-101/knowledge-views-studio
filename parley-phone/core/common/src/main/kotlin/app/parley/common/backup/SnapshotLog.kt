@@ -123,19 +123,26 @@ class SnapshotLog private constructor(
         val it = versions.entries.iterator()
         while (it.hasNext()) {
             val e = it.next()
-            val next = ArrayList<Version>(e.value.size)
-            for (v in e.value) {
-                // The first kept snapshot at or after it: the one that now shows this version (if it is still the newest).
-                val at = firstAtOrAfter(kept, v.at) ?: continue
-                if (next.lastOrNull()?.at == at) next.removeAt(next.lastIndex)
-                if (next.lastOrNull()?.hash == v.hash) continue
-                next += Version(at, v.hash)
-            }
-            while (next.firstOrNull()?.hash == null && next.isNotEmpty()) next.removeAt(0)
+            val next = remapped(e.value, kept)
             if (next.isEmpty()) it.remove() else e.setValue(next)
         }
         val live = versions.values.flatMapTo(HashSet()) { list -> list.mapNotNull { v -> v.hash } }
         photos.keys.retainAll(live)
+    }
+
+    /** [list] as the [kept] snapshots show it: no version shown by none, no repeat, no leading "gone". */
+    private fun remapped(list: List<Version>, kept: List<Long>): MutableList<Version> {
+        val next = ArrayList<Version>(list.size)
+        for (v in list) {
+            // The first kept snapshot at or after it: the one that now shows this version (if it is still the newest).
+            val at = firstAtOrAfter(kept, v.at)
+            if (at != null) {
+                if (next.lastOrNull()?.at == at) next.removeAt(next.lastIndex)
+                if (next.lastOrNull()?.hash != v.hash) next += Version(at, v.hash)
+            }
+        }
+        while (next.isNotEmpty() && next.first().hash == null) next.removeAt(0)
+        return next
     }
 
     /** Forgets every version of [key] (it moved into the private vault). True when there was any. */
@@ -148,14 +155,8 @@ class SnapshotLog private constructor(
 
     /** Every blob a kept snapshot needs: each distinct record, and the photos those records refer to. */
     fun referencedBlobs(): Set<String> {
-        val out = HashSet<String>()
-        for (list in versions.values) {
-            for (v in list) {
-                val h = v.hash ?: continue
-                if (out.add(h.hex())) photos[h]?.forEach { out += it.hex() }
-            }
-        }
-        return out
+        val records = versions.values.flatMapTo(HashSet()) { list -> list.mapNotNull { it.hash } }
+        return records.flatMapTo(HashSet()) { h -> listOf(h.hex()) + photos[h].orEmpty().map { it.hex() } }
     }
 
     /** Distinct records the snapshots hold. */
@@ -175,16 +176,7 @@ class SnapshotLog private constructor(
             out.writeInt(times.size)
             times.forEach(out::writeLong)
             out.writeInt(versions.size)
-            for (key in versions.keys.sorted()) {
-                val list = versions.getValue(key)
-                out.writeUTF(key)
-                out.writeInt(list.size)
-                for (v in list) {
-                    out.writeLong(v.at)
-                    out.writeBoolean(v.hash != null)
-                    v.hash?.let { writeDigest(out, it) }
-                }
-            }
+            for (key in versions.keys.sorted()) writeVersions(out, key, versions.getValue(key))
             out.writeInt(photos.size)
             for (record in photos.keys.sorted()) {
                 val blobs = photos.getValue(record)
@@ -219,6 +211,16 @@ class SnapshotLog private constructor(
             var found: Version? = null
             for (v in list) if (v.at <= t) found = v else break
             return found?.hash
+        }
+
+        private fun writeVersions(out: DataOutputStream, key: String, list: List<Version>) {
+            out.writeUTF(key)
+            out.writeInt(list.size)
+            for (v in list) {
+                out.writeLong(v.at)
+                out.writeBoolean(v.hash != null)
+                v.hash?.let { writeDigest(out, it) }
+            }
         }
 
         private fun writeDigest(out: DataOutputStream, d: Digest) {

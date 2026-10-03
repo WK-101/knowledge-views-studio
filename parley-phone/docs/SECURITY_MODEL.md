@@ -28,15 +28,26 @@ Parley whenever the phone is on, including while it is locked.
 | Data | Key | Authentication | Why |
 |---|---|---|---|
 | Private contacts: name, numbers, caller card | Vault caller-ID key (`VaultCrypto`) | None | Incoming calls must show who is calling on the lock screen |
+| Private call history (number, name, video) | Private-calls key (`PrivateCallSeal`): software AES key wrapped by a Keystore key, as the archive's | None | Listed after every change without a Keystore operation per call; calls sealed before with the caller-ID key are re-sealed once, when first listed, and stay readable until then |
 | Private contacts: every other detail | Vault detail key | Biometric or screen lock within 5 minutes, phone unlocked, StrongBox where available | Only shown to the person holding the unlocked phone |
 | Number fingerprints for private contacts | Vault HMAC key | None | Caller ID without decrypting |
 | Call-history archive, trashed calls | Archive key (`HistoryCrypto`): software AES key wrapped by a Keystore key | None | Kept current while locked |
 | Pinned notes, call notes, screened callers' names, the undo journal, time-machine snapshots | Small-records key (`RecordCrypto`): same envelope as the archive | None | Written by background work and the call screen |
 | Interaction notes (Circle) | Vault caller-ID key | None | Reminders run while locked |
-| Number memory index (what Parley remembers about numbers that aren't contacts) | Numbers: their own HMAC key (`KeystoreMemoryKeys`); hints: the small-records key, each sealed on its own | None | Read while a call rings on a locked phone; the call screen shows only "Parley knows this number" until the phone is unlocked |
+| Number memory index (what Parley remembers about numbers that aren't contacts) | Numbers: their own HMAC key (`KeystoreMemoryKeys`), a software key wrapped by a Keystore key; hints and the archive's per-number tally: the small-records key, each sealed on its own | None | Read while a call rings on a locked phone; the call screen shows only "Parley knows this number" until the phone is unlocked |
 | My card's signing key, "Shared with", contacts' card links | Small-records key (`RecordCrypto`), each store one sealed document | None | Signing a card you share; the list of who has it; updates arriving while locked |
 | The Parley PIN and the duress PIN | scrypt hashes (`PinRecord`), the file sealed with the small-records key | None | Checked on the lock screen; never in backups |
 | Settings, rules, speed dial | File-based encryption only | — | Not personal content |
+
+Wrapped software keys (archive, small records, private calls, number memory) sit in no-backup storage
+(`history.keys`, `records.keys`, `vault_calls.keys`, `memory.keys`), each wrapped by its own Keystore key, so a copy of
+the files alone still can't open anything. They exist because work that runs often would otherwise need one Keystore
+operation per row: a daily number-memory rebuild hashed about 25,000 numbers with a Keystore HMAC key, and listing the
+private call history opened every call through the Keystore after each change. The key is in Parley's memory while it
+is used; that adds nothing for someone who can run code as Parley, who could ask the Keystore anyway. Before 5.4 the
+number-memory index used an HMAC key inside the Keystore (`parley_number_memory_v1`): the index made with it is rebuilt
+once with the new key, and the old key is then deleted. The vault's own number fingerprints keep their Keystore HMAC
+key.
 
 ### The vault's detail key
 

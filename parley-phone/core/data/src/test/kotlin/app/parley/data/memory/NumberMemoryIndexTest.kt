@@ -177,6 +177,7 @@ class NumberMemoryIndexTest {
         index.rebuild(listOf(FakeSource("deleted", "1", listOf(NumberMemory.Entry("+447700900123", mike)))), gb)
         assertEquals(listOf(mike), index.lookup("07700 900123", gb))
     }
+
     /** A source that keeps a running list of numbers as its state, as the call archive keeps its tally. */
     private class Appending(override val id: String) : NumberMemoryIndex.Source {
         var fp = "1"

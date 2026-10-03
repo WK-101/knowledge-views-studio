@@ -31,9 +31,8 @@ data class CallTally(
     /** This tally with [calls] added; [mark] is where reading stopped now. */
     fun plus(calls: List<NumberMemory.PastCall>, mark: String): CallTally {
         val out = HashMap(lines)
-        for (c in calls) {
-            if (c.number.isBlank()) continue
-            val line = PhoneIdentity.key(c.number, region).takeIf { it.isNotEmpty() } ?: continue
+        val keyed = calls.filter { it.number.isNotBlank() }.mapNotNull { c -> PhoneIdentity.key(c.number, region).takeIf { it.isNotEmpty() }?.let { it to c } }
+        for ((line, c) in keyed) {
             val named = c.name?.trim()?.takeIf { it.isNotEmpty() }
             val prev = out[line]
             out[line] = if (prev == null) {

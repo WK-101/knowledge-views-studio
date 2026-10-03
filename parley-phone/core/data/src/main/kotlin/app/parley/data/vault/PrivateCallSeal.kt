@@ -2,7 +2,13 @@ package app.parley.data.vault
 
 import android.content.Context
 import android.util.Log
+import app.parley.common.PhoneIdentity
+import app.parley.data.db.PrivateCallEntity
 import app.parley.data.history.HistoryCrypto
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import org.json.JSONObject
 import java.io.File
 
 /**
@@ -16,7 +22,7 @@ import java.io.File
  * than lost.
  */
 internal class PrivateCallSeal(context: Context) {
-    private val crypto = HistoryCrypto(context, File(context.noBackupFilesDir, KEY_FILE), ALIAS)
+    private val crypto = HistoryCrypto(context, File(context.noBackupFilesDir, "vault_calls.keys"), ALIAS)
 
     /** Whether [blob] is sealed with this key (a caller-ID blob starts with its IV length, 12). */
     fun isCurrent(blob: ByteArray): Boolean = blob.size > 13 && blob[0] == CURRENT
@@ -31,8 +37,49 @@ internal class PrivateCallSeal(context: Context) {
 
     fun open(blob: ByteArray): ByteArray = if (isCurrent(blob)) crypto.open(blob) else VaultCrypto.openCallerId(blob)
 
+    /** The private call sealed in [e], or null when it can't be opened now. */
+    fun opened(e: PrivateCallEntity): PrivateCall? = runCatching {
+        val o = JSONObject(String(open(e.blob)))
+        PrivateCall(e.id, e.vaultId, o.optString("n"), o.optString("name"), e.date, e.durationSec, e.type, o.optBoolean("v"))
+    }.getOrNull()
+
+    @Volatile private var resealing = false
+
+    /**
+     * Calls sealed with the caller-ID key before private calls had their own key move to it, once, in the background:
+     * each is opened and sealed again, and [write] stores it only if the row is still as it was read.
+     */
+    fun resealOlder(rows: List<PrivateCallEntity>, scope: CoroutineScope, write: suspend (id: Long, was: ByteArray, sealed: ByteArray) -> Unit) {
+        if (resealing || rows.all { isCurrent(it.blob) }) return
+        resealing = true
+        scope.launch(Dispatchers.IO) {
+            try {
+                for (e in rows.filter { !isCurrent(it.blob) }) {
+                    val plain = runCatching { VaultCrypto.openCallerId(e.blob) }.getOrNull() ?: continue
+                    val sealed = seal(plain)
+                    if (isCurrent(sealed)) write(e.id, e.blob, sealed)
+                }
+            } finally {
+                resealing = false
+            }
+        }
+    }
+
     companion object {
+        /**
+         * Which call-log numbers may be private, from every private number's last digits (read once per sweep): only
+         * those are looked up (a Keystore fingerprint per form), not every call of the month. Every stored number has a
+         * last-digits row, so a call the full lookup would match always passes. Null when there are no private numbers.
+         */
+        fun prefilter(privateNumbers: List<String>): ((String) -> Boolean)? {
+            val suffixes = privateNumbers.map(PhoneIdentity::legacyKey).filter { it.isNotEmpty() }.toHashSet()
+            if (suffixes.isEmpty()) return null
+            return { n -> PhoneIdentity.legacyKey(n).let { it.isEmpty() || it in suffixes } }
+        }
+
         private const val TAG = "PrivateCallSeal"
+
+        /** The wrapped key's file (no-backup storage, registered in PersistentStores). */
         const val KEY_FILE = "vault_calls.keys"
         private const val ALIAS = "parley_vault_calls_wrap"
 

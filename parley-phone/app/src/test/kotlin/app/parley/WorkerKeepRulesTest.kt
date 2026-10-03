@@ -17,7 +17,8 @@ class WorkerKeepRulesTest {
     private val moduleDir = File(".").absoluteFile
 
     private val keepRule = Regex(
-        """-keep class \* extends androidx\.work\.ListenableWorker\s*\{\s*public <init>\(android\.content\.Context,\s*androidx\.work\.WorkerParameters\);\s*}""",
+        """-keep class \* extends androidx\.work\.ListenableWorker\s*\{\s*""" +
+            """public <init>\(android\.content\.Context,\s*androidx\.work\.WorkerParameters\);\s*}""",
     )
 
     @Test fun everyModuleWithWorkersKeepsThem() {
