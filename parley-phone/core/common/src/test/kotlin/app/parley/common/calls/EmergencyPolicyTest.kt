@@ -27,6 +27,9 @@ class EmergencyPolicyTest {
         assertTrue(EmergencyPolicy.bypasses(Safeguard.SCREENING, w))
         assertTrue(EmergencyPolicy.bypasses(Safeguard.CALL_LIMITS, w))
         assertTrue(EmergencyPolicy.bypasses(Safeguard.CALL_TIME_ALLOWANCE, w))
+        // An operator's call-back is never sent on or silenced by a flip.
+        assertTrue(EmergencyPolicy.bypasses(Safeguard.HAND_OFF, w))
+        assertTrue(EmergencyPolicy.bypasses(Safeguard.SILENCE, w))
         for (s in listOf(Safeguard.CONFIRM_BEFORE_CALL, Safeguard.SIM_CHOICE, Safeguard.DIAL_GUARD, Safeguard.POCKET_GUARD)) {
             assertFalse("$s", EmergencyPolicy.bypasses(s, w))
         }
@@ -37,6 +40,7 @@ class EmergencyPolicyTest {
         assertTrue(EmergencyPolicy.bypasses(Safeguard.CALL_LIMITS, gp))
         assertTrue(EmergencyPolicy.bypasses(Safeguard.CALL_TIME_ALLOWANCE, gp))
         assertFalse(EmergencyPolicy.bypasses(Safeguard.SCREENING, gp))
+        assertFalse(EmergencyPolicy.bypasses(Safeguard.HAND_OFF, gp))
         assertFalse(EmergencyPolicy.bypasses(Safeguard.CONFIRM_BEFORE_CALL, gp))
     }
 

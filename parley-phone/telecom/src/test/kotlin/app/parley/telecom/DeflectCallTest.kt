@@ -24,6 +24,15 @@ internal class DeflectCallTest : CallPathTest() {
         assertFalse(sent("deflectCall"))
     }
 
+    @Test fun neverDuringTheEmergencyCallBackWindow() {
+        // The operator's call-back often comes from an ordinary-looking number, without any emergency mark.
+        ScreeningGuard.noteEmergencyCall(context)
+        val c = ringingDeflectable()
+        assertFalse(ui(c).canDeflect)
+        assertFalse(CallManager.deflect(idOf(c), "+15550000123"))
+        assertFalse(sent("deflectCall"))
+    }
+
     @Test fun sendsTheCallOnAndSaysSoWhenItEnds() {
         val c = ringingDeflectable()
         assertTrue(CallManager.deflect(idOf(c), "+1 555 000 0123"))

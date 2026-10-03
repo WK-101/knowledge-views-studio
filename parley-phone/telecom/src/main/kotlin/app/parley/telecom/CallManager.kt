@@ -247,6 +247,9 @@ object CallManager {
         // A new call starts: an earlier call's failure banner (and its Retry) or "Blocked · Undo" card is stale.
         _lastEnded.value = null
         _declineBlock.value?.let { b -> if (calls.none { idOf(it) == b.callId }) _declineBlock.value = null }
+        // A call that joins others (a second call, or the conference a merge creates) keeps the audio where it is:
+        // "Start calls on speaker" only decides for a call that starts on its own.
+        if (calls.isNotEmpty()) s.speakerDecided = true
         calls += call
         call.registerCallback(callback)
         // Never answer a call on its own while another one exists.
@@ -551,7 +554,11 @@ object CallManager {
         notifier.endTrace(s)
         // Everything known about the call goes at once.
         sessions.remove(id)
-        if (calls.isEmpty()) emergencyNumbers.clear()
+        if (calls.isEmpty()) {
+            emergencyNumbers.clear()
+            // The routes belong to the call that ended: the next call waits for Telecom's own report.
+            _audio.value = AudioUi()
+        }
         val wasInFront = book.remove(id)
         publish()
         if (wasInFront) resumeHeldIfAlone()
@@ -595,6 +602,7 @@ object CallManager {
         book.clear()
         sessions.values.forEach { notifier.endTrace(it) }
         sessions.clear()
+        _audio.value = AudioUi()
         publish()
     }
 
@@ -1260,7 +1268,7 @@ object CallManager {
         val a = _audio.value
         if (a.current?.type != RouteType.SPEAKER) {
             s.routeBeforeHold = a.current
-            a.routes.firstOrNull { it.type == RouteType.SPEAKER }?.let { setRoute(it) }
+            a.routes.firstOrNull { it.type == RouteType.SPEAKER }?.let { routeRequests(it) }
         }
         stopHoldReminders(id)
         holdReminders[id] = scope.launch {
@@ -1284,7 +1292,7 @@ object CallManager {
         val back = s.routeBeforeHold
         s.routeBeforeHold = null
         val a = _audio.value
-        if (back != null && a.current?.type == RouteType.SPEAKER) a.routes.firstOrNull { it.key == back.key }?.let { setRoute(it) }
+        if (back != null && a.current?.type == RouteType.SPEAKER) a.routes.firstOrNull { it.key == back.key }?.let { routeRequests(it) }
         publish()
     }
 
@@ -1518,7 +1526,9 @@ object CallManager {
         routeRequests = serviceRoutes
     }
 
+    /** The user picked a route: from now on the audio is theirs, so "Start calls on speaker" never moves it. */
     fun setRoute(route: AudioRoute) {
+        sessions.values.forEach { it.speakerDecided = true }
         routeRequests(route)
     }
 
@@ -1528,6 +1538,8 @@ object CallManager {
 
     internal fun updateAudio(audio: AudioUi) {
         _audio.value = audio
+        // Telecom reported the routes while these calls exist: they are this call's routes, not an earlier call's.
+        sessions.values.forEach { it.routesReported = true }
         notifier.send(_calls.value)
         speakerOnStart()
     }
@@ -1536,7 +1548,7 @@ object CallManager {
 
     /**
      * Settings › Calls › "Start calls on speaker" ([SpeakerOnStart]): decided once per call, as soon as it is answered
-     * or dialled and the audio routes are known; the Speaker button stays the user's after that.
+     * or dialled and Telecom has reported the audio routes for it; the Speaker button stays the user's after that.
      */
     private fun speakerOnStart() {
         if (!::appContext.isInitialized) return
@@ -1552,7 +1564,7 @@ object CallManager {
                 SpeakerOnStart.Step.LEAVE -> s.speakerDecided = true
                 SpeakerOnStart.Step.TURN_ON -> {
                     s.speakerDecided = true
-                    audio.routes.firstOrNull { it.type == RouteType.SPEAKER }?.let { setRoute(it) }
+                    audio.routes.firstOrNull { it.type == RouteType.SPEAKER }?.let { routeRequests(it) }
                 }
             }
         }
@@ -1566,6 +1578,8 @@ object CallManager {
         val number = d.handle?.schemeSpecificPart
         val hidden = d.handlePresentation != TelecomManager.PRESENTATION_ALLOWED || number.isNullOrBlank()
         val incoming = d.callDirection == Call.Details.DIRECTION_INCOMING
+        // Routes known before this call existed (or only half reported: a current route, no list yet) can't decide.
+        val routesKnown = s.routesReported && audio.current != null && audio.routes.isNotEmpty()
         return SpeakerOnStart.Facts(
             choice = choice,
             started = if (incoming) st == CallState.ACTIVE else st in SPEAKER_DIAL_STATES,
@@ -1576,9 +1590,10 @@ object CallManager {
                 else -> null
             },
             otherCall = otherCall,
-            route = speakerRoute(audio.current?.type),
+            route = if (routesKnown) speakerRoute(audio.current?.type) else SpeakerOnStart.Route.UNKNOWN,
             speakerAvailable = audio.routes.any { it.type == RouteType.SPEAKER },
             holdMode = s.holdModeSince != 0L,
+            conference = d.hasProperty(Call.Details.PROPERTY_CONFERENCE) || c.children.isNotEmpty(),
         )
     }
 
@@ -1594,9 +1609,11 @@ object CallManager {
     /** What the network lets this ringing call do ("Send to another number"). */
     private fun handOffFacts(c: Call): CallHandOff.Facts {
         val d = c.details
+        val incoming = d.callDirection == Call.Details.DIRECTION_INCOMING
         return CallHandOff.Facts(
             ringing = mapState(c.stateCompat()) == CallState.RINGING,
-            emergency = isEmergencyCall(c, d.handle?.schemeSpecificPart),
+            // During the emergency window too: the operator's call-back often comes from a hidden or unknown number.
+            emergency = EmergencyPolicy.bypasses(Safeguard.HAND_OFF, emergencyFacts(c, d.handle?.schemeSpecificPart, incoming)),
             conference = d.hasProperty(Call.Details.PROPERTY_CONFERENCE),
             canDeflect = (d.callCapabilities and Call.Details.CAPABILITY_SUPPORT_DEFLECT) != 0,
         )
