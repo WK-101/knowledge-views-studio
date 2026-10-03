@@ -33,6 +33,8 @@ android {
         // follow a variable or an expression. Bump both for a release, then tag v<versionName> (docs/RELEASING.md).
         versionCode = 21
         versionName = "5.1.0"
+        // The instrumented smoke tests in src/androidTest (a device or emulator: docs/PERFORMANCE_BENCHMARKS.md).
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // Custom permission guarding the private-name lookup provider (differs in debug so both builds can be installed).
         manifestPlaceholders["lookupPermission"] = "app.parley.permission.LOOKUP_PRIVATE_NAME"
         // Optional "Parley Lists" companion (B4c, module :lists-updater): its package and signature permission.
@@ -158,6 +160,13 @@ dependencies {
     testImplementation(platform(libs.compose.bom))
     testImplementation(libs.compose.ui.test.junit4)
     testImplementation(libs.compose.ui.test.manifest)
+
+    // A small instrumented smoke suite (src/androidTest): needs a device or emulator, never runs in a plain build.
+    androidTestImplementation(libs.androidx.test.core)
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    // The runner's own monitor is older than core's; core's (already verified) is the one used.
+    androidTestImplementation(libs.androidx.test.runner) { exclude(group = "androidx.test", module = "monitor") }
+    androidTestImplementation(libs.androidx.test.uiautomator)
 }
 
 // Privacy guard, an allow-list: the merged manifest may ask for exactly these permissions (plus the app's own

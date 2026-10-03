@@ -27,7 +27,6 @@ import app.parley.common.history.NumberKeys
 import app.parley.common.history.PlanConfig
 import app.parley.common.history.PlanMeter
 import app.parley.common.history.PlanUsage
-import app.parley.common.history.ProviderColumns
 import app.parley.data.CallLogRepository
 import app.parley.data.ContactsRepository
 import app.parley.data.Permissions
@@ -61,7 +60,6 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
-import org.json.JSONObject
 import app.parley.common.memory.NumberMemory
 import java.time.ZoneId
 import java.util.concurrent.TimeUnit
@@ -90,6 +88,7 @@ class CallHistory(
     private val gate: StartGate,
 ) : CallHistoryBackup {
     val prefs = HistoryPrefs(context, scope)
+
     @Volatile private var dbRef: HistoryDatabase? = null
     private val db: HistoryDatabase get() = dbRef ?: synchronized(this) { dbRef ?: HistoryDatabase.create(context).also { dbRef = it } }
     private val dao: HistoryDao get() = db.dao()
@@ -141,7 +140,9 @@ class CallHistory(
         when {
             sys == null -> null
             !on || arch.isNullOrEmpty() -> sys
-            else -> HistoryMerge.merge(sys, arch.asSequence().take(ARCHIVE_UI_WINDOW).map { it.toEntry() }.filter { it.number !in vk || it.number.isBlank() }.toList())
+            else -> HistoryMerge.merge(
+                sys, arch.asSequence().take(ARCHIVE_UI_WINDOW).map { it.toEntry() }.filter { it.number !in vk || it.number.isBlank() }.toList(),
+            )
         }
     }.flowOn(Dispatchers.Default).stateIn(scope, gate.sharing, null)
 
@@ -789,54 +790,15 @@ class CallHistory(
 
     private fun ArchivedCall.toEntry(): CallEntry = record.toEntry(ARCHIVE_ID_BASE + rowId)
 
-    private fun CallLogRecord.toEntry(id: Long) = CallEntry(
-        id = id,
-        number = number.orEmpty(),
-        cachedName = name,
-        type = CallLogRepository.mapType(type),
-        date = date,
-        durationSec = duration,
-        accountId = accountId,
-        isNew = false,
-        presentationHidden = presentation != Calls.PRESENTATION_ALLOWED || number.isNullOrBlank(),
-        video = (features and Calls.FEATURES_VIDEO) != 0,
-    )
+    private fun CallLogRecord.toEntry(id: Long) = ArchivedCalls.entry(this, id)
 
-    private fun CallEntry.toRecord() = CallLogRecord(
-        number = number, date = date, duration = durationSec, type = ProviderColumns.typeOf(type),
-        presentation = if (presentationHidden) Calls.PRESENTATION_RESTRICTED else Calls.PRESENTATION_ALLOWED,
-        accountId = accountId, name = cachedName, isNew = false, isRead = true, features = if (video) Calls.FEATURES_VIDEO else 0,
-    )
+    private fun CallEntry.toRecord() = ArchivedCalls.record(this)
 
-    private fun CallLogRecord.toValues() = ContentValues().apply {
-        put(Calls.NUMBER, number)
-        put(Calls.DATE, date)
-        put(Calls.DURATION, duration)
-        put(Calls.TYPE, type)
-        put(Calls.NUMBER_PRESENTATION, presentation)
-        put(Calls.PHONE_ACCOUNT_ID, accountId)
-        put(Calls.PHONE_ACCOUNT_COMPONENT_NAME, accountComponent)
-        put(Calls.CACHED_NAME, name)
-        put(Calls.FEATURES, features)
-        // Restored history is not news: no badge, no notification.
-        put(Calls.NEW, 0)
-        put(Calls.IS_READ, 1)
-    }
+    private fun CallLogRecord.toValues() = ArchivedCalls.values(this)
 
-    private fun encode(r: CallLogRecord): String = JSONObject()
-        .put("n", r.number ?: JSONObject.NULL).put("d", r.date).put("s", r.duration).put("t", r.type).put("p", r.presentation)
-        .put("a", r.accountId ?: JSONObject.NULL).put("c", r.accountComponent ?: JSONObject.NULL).put("m", r.name ?: JSONObject.NULL)
-        .apply { if (r.features != 0) put("f", r.features) }
-        .toString()
+    private fun encode(r: CallLogRecord): String = ArchivedCalls.encode(r)
 
-    private fun decode(s: String): CallLogRecord {
-        val o = JSONObject(s)
-        fun str(k: String) = if (o.isNull(k)) null else o.optString(k)
-        return CallLogRecord(
-            str("n"), o.getLong("d"), o.optLong("s"), o.optInt("t"), o.optInt("p", 1), str("a"), str("c"), str("m"),
-            isNew = false, isRead = true, features = o.optInt("f"),
-        )
-    }
+    private fun decode(s: String): CallLogRecord = ArchivedCalls.decode(s)
 
     companion object {
         private const val TAG = "CallHistory"

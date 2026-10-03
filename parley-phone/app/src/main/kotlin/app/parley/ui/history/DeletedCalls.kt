@@ -25,7 +25,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import app.parley.AppViewModel
 import app.parley.R
 import app.parley.data.history.TrashBatch
@@ -63,7 +62,11 @@ fun DeletedCallsList(vm: AppViewModel, modifier: Modifier = Modifier, reload: In
                         TextButton({
                             scope.launch {
                                 val n = vm.c.history.undoDelete(b.batchId)
-                                vm.toast(if (n > 0) res.getQuantityString(R.plurals.hist_restored_calls, n, n) else res.getString(R.string.hist_restore_failed_default))
+                                vm.toast(
+                                    if (n > 0) res.getQuantityString(
+                                        R.plurals.hist_restored_calls, n, n,
+                                    ) else res.getString(R.string.hist_restore_failed_default),
+                                )
                                 trash = vm.c.history.trashBatches()
                             }
                         }) { Text(stringResource(R.string.dc_restore), color = MaterialTheme.colorScheme.primary) }

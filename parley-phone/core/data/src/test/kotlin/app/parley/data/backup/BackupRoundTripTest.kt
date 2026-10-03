@@ -183,7 +183,7 @@ class BackupRoundTripTest {
         c.backup.setupKeys(passphrase.toCharArray())
         val parts = c.backup.extras()
         val broken = object : BackupExtras by parts.first() {
-            override suspend fun export(): Map<String, String> = throw IllegalStateException("store unreadable")
+            override suspend fun export(): Map<String, String> = error("store unreadable")
         }
         c.backup.extras = { listOf(broken) + parts.drop(1) }
         val out = c.backup.backupNow(scheduled = false, target = Uri.fromFile(file))

@@ -29,7 +29,9 @@ class LabelRefsTest {
         val oh = OffHours(enabled = true, allow = OffHoursAllow.LABEL, labelId = 12, labelTitle = "Family")
         assertEquals(OffHours(enabled = true, allow = OffHoursAllow.LABEL, labelTitle = "Family & friends"), LabelRefs.migrateOffHours(oh, groups))
         val config = CallingConfig(rules = listOf(LimitRule(LimitScope.LABEL, "12", "Family", perCallMinutes = 5)))
-        assertEquals(LimitRule(LimitScope.LABEL, "Family & friends", "Family & friends", perCallMinutes = 5), LabelRefs.migrateConfig(config, groups).rules.single())
+        assertEquals(
+            LimitRule(LimitScope.LABEL, "Family & friends", "Family & friends", perCallMinutes = 5), LabelRefs.migrateConfig(config, groups).rules.single(),
+        )
     }
 
     @Test fun restore_remaps_by_title_and_drops_missing_labels() {
@@ -85,7 +87,9 @@ class LabelRefsTest {
     }
 
     @Test fun delete_removes_limits_and_switches_label_only_off_hours_off() {
-        val config = CallingConfig(rules = listOf(LimitRule(LimitScope.LABEL, "A", "A", perCallMinutes = 10), LimitRule(LimitScope.GLOBAL, perCallMinutes = 60)))
+        val config = CallingConfig(
+            rules = listOf(LimitRule(LimitScope.LABEL, "A", "A", perCallMinutes = 10), LimitRule(LimitScope.GLOBAL, perCallMinutes = 60)),
+        )
         assertEquals(LimitScope.GLOBAL, LabelRefs.deleteFromConfig(config, setOf("A")).rules.single().scope)
         val off = LabelRefs.labelGone(OffHours(enabled = true, allow = OffHoursAllow.LABEL, labelTitle = "A"))
         assertFalse(off.enabled)

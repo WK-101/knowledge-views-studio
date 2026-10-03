@@ -78,7 +78,9 @@ fun ListsUpdaterSection(vm: AppViewModel) {
 
     fun report(id: String, r: SpamListStore.InstallResult) {
         when (r) {
-            is SpamListStore.InstallResult.Installed -> vm.toast(res.getString(if (r.replaced) R.string.blk_list_updated else R.string.blk_list_added, r.pack.name))
+            is SpamListStore.InstallResult.Installed -> vm.toast(
+                res.getString(if (r.replaced) R.string.blk_list_updated else R.string.blk_list_added, r.pack.name),
+            )
             is SpamListStore.InstallResult.Older -> vm.toast(res.getString(R.string.blk_list_newer))
             is SpamListStore.InstallResult.Failed -> if ("different key" in r.reason) keyConflict = id to BlockingText.installFailure(context, r.reason) else vm.toast(BlockingText.installFailure(context, r.reason))
         }
@@ -97,7 +99,11 @@ fun ListsUpdaterSection(vm: AppViewModel) {
             )
             when {
                 !installed -> {
-                    Text(stringResource(R.string.blk_updater_not_installed, stringResource(R.string.blk_updater_where)), style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium)
+                    Text(
+                        stringResource(R.string.blk_updater_not_installed, stringResource(R.string.blk_updater_where)),
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.Medium,
+                    )
                     Text(stringResource(R.string.blk_updater_permissions), style = MaterialTheme.typography.bodySmall)
                 }
                 !readable -> Text(
@@ -105,7 +111,9 @@ fun ListsUpdaterSection(vm: AppViewModel) {
                     color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall,
                 )
                 else -> {
-                    OutlinedButton({ ListsUpdaterClient.launchIntent(context)?.let { context.startActivity(it) } }) { Text(stringResource(R.string.blk_updater_open)) }
+                    OutlinedButton({ ListsUpdaterClient.launchIntent(context)?.let { context.startActivity(it) } }) {
+                        Text(stringResource(R.string.blk_updater_open))
+                    }
                     val r = remote
                     if (r.isNullOrEmpty()) Text(stringResource(R.string.blk_updater_empty), style = MaterialTheme.typography.bodySmall)
                 }
@@ -136,14 +144,18 @@ fun ListsUpdaterSection(vm: AppViewModel) {
                             ).joinToString(" · "),
                         )
                         if (pk.licence.isNotBlank()) Text(pk.licence, style = MaterialTheme.typography.bodySmall)
-                        err?.let { Text(BlockingText.installFailure(context, it), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+                        err?.let {
+                            Text(BlockingText.installFailure(context, it), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                        }
                     }
                 },
                 trailingContent = {
                     Switch(on, modifier = Modifier.semantics { contentDescription = pk.name }, onCheckedChange = { v ->
                         scope.launch {
                             busy = pk.id
-                            if (v) report(pk.id, ListsUpdaterClient.subscribe(context, vm.c.lists, pk.id)) else ListsUpdaterClient.unsubscribe(context, vm.c.lists, pk.id)
+                            if (v) report(
+                                pk.id, ListsUpdaterClient.subscribe(context, vm.c.lists, pk.id),
+                            ) else ListsUpdaterClient.unsubscribe(context, vm.c.lists, pk.id)
                             subs = ListsUpdaterClient.subscriptions(context)
                             busy = null
                         }

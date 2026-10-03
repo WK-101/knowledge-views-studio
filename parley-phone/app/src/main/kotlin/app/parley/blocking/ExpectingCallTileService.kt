@@ -53,7 +53,9 @@ class ExpectingCallTileService : TileService() {
     companion object {
         fun formatLeft(context: Context, ms: Long): String {
             val min = ((ms + 59_999) / 60_000).toInt()
-            return if (min >= 60) context.getString(R.string.blk_tile_hours_minutes, min / 60, (min % 60).toString().padStart(2, '0')) else context.getString(R.string.ct_minutes_short, min)
+            return if (min >= 60) context.getString(
+                R.string.blk_tile_hours_minutes, min / 60, (min % 60).toString().padStart(2, '0'),
+            ) else context.getString(R.string.ct_minutes_short, min)
         }
 
         fun refresh(context: Context) {

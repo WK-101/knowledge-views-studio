@@ -2,7 +2,6 @@ package app.parley.ui.people
 
 import app.parley.common.PhoneIdentity
 import app.parley.common.ContactSummary
-import app.parley.common.PhoneNumbers
 import app.parley.common.people.FavoriteOrder
 import app.parley.common.people.FavoriteSort
 import app.parley.common.people.BroadSearch
@@ -74,7 +73,9 @@ class PeopleUi(
      * Contacts with nickname display applied, filtered by search, labels and account, with I8's "Matched: address"
      * hints for contacts found by a field other than the name or number.
      */
-    private val searched: StateFlow<Pair<List<ContactSummary>, Map<Long, String>>?> = combine(contacts.combine(privateOnly) { l, only -> if (only) l?.filter { it.id < 0 } else l }, query.debounce(80), filter, index, settings) { list, q, f, idx, s ->
+    private val searched: StateFlow<Pair<List<ContactSummary>, Map<Long, String>>?> = combine(
+        contacts.combine(privateOnly) { l, only -> if (only) l?.filter { it.id < 0 } else l }, query.debounce(80), filter, index, settings,
+    ) { list, q, f, idx, s ->
         list ?: return@combine null
         val f2 = f.copy(matchAll = s.labelMatchAll)
         val hints = HashMap<Long, String>()

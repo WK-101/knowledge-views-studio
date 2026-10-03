@@ -1,17 +1,13 @@
 package app.parley.common.backup
 
-import java.io.PushbackInputStream
-import java.util.Locale
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.DataInputStream
 import java.io.DataOutputStream
 import java.io.EOFException
-import java.io.FilterOutputStream
 import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
-import java.math.BigInteger
 import java.nio.ByteBuffer
 import java.security.GeneralSecurityException
 import java.security.KeyFactory
@@ -20,12 +16,9 @@ import java.security.MessageDigest
 import java.security.PrivateKey
 import java.security.PublicKey
 import java.security.SecureRandom
-import java.security.interfaces.RSAPublicKey
 import java.security.spec.MGF1ParameterSpec
 import java.security.spec.PKCS8EncodedKeySpec
 import java.security.spec.RSAKeyGenParameterSpec
-import java.security.spec.X509EncodedKeySpec
-import javax.crypto.AEADBadTagException
 import javax.crypto.Cipher
 import javax.crypto.Mac
 import javax.crypto.SecretKey
@@ -67,6 +60,11 @@ import javax.crypto.spec.SecretKeySpec
 /** Malformed, truncated or tampered backup data. */
 open class BackupIntegrityException(message: String, cause: Throwable? = null) : IOException(message, cause)
 
+/** Throws [BackupIntegrityException] with [message] unless [ok]: one line per check of untrusted input. */
+internal inline fun intact(ok: Boolean, message: () -> String) {
+    if (!ok) throw BackupIntegrityException(message())
+}
+
 /** None of the archive's key wraps opens with the supplied secret (wrong passphrase / key). */
 class WrongKeyException(message: String, cause: Throwable? = null) : IOException(message, cause)
 
@@ -75,6 +73,7 @@ sealed interface Recipient {
     /** DEK wrapped under KDF(passphrase). The caller may wipe the array after [BackupCrypto.encrypt]. */
     class Passphrase(val passphrase: CharArray) : Recipient
     class Recovery(val key: RecoveryKey) : Recipient
+
     /** Public-key wrap: needs no secret at backup time. */
     class PublicKey(val bundle: KeyBundle) : Recipient
 }
@@ -83,8 +82,10 @@ sealed interface Recipient {
 sealed interface Unlock {
     /** Opens PASSPHRASE wraps and, via the embedded key bundle, PUBLIC_KEY wraps. */
     class Passphrase(val passphrase: CharArray) : Unlock
+
     /** Opens RECOVERY wraps and, via the embedded key bundle, PUBLIC_KEY wraps. */
     class Recovery(val key: RecoveryKey) : Unlock
+
     /** Opens PUBLIC_KEY wraps directly with an already-unlocked private key. */
     class WithPrivateKey(val key: PrivateKey) : Unlock
 }
@@ -231,11 +232,11 @@ object BackupCrypto {
         val din = DataInputStream(input)
         try {
             val magic = ByteArray(MAGIC_BYTES.size).also(din::readFully)
-            if (!magic.contentEquals(MAGIC_BYTES)) throw BackupIntegrityException("Not a Parley backup")
+            intact(magic.contentEquals(MAGIC_BYTES)) { "Not a Parley backup" }
             val version = din.readUnsignedByte()
-            if (version != VERSION) throw BackupIntegrityException("Unsupported backup version $version")
+            intact(version == VERSION) { "Unsupported backup version $version" }
             val bodyLen = din.readInt()
-            if (bodyLen !in 1..MAX_HEADER_BODY) throw BackupIntegrityException("Bad header length")
+            intact(bodyLen in 1..MAX_HEADER_BODY) { "Bad header length" }
             val body = ByteArray(bodyLen).also(din::readFully)
             val headerBytes = ByteArrayOutputStream(9 + 4 + bodyLen).apply {
                 write(magic); write(version); write(ByteBuffer.allocate(4).putInt(bodyLen).array()); write(body)
@@ -251,22 +252,22 @@ object BackupCrypto {
         val d = DataInputStream(bin)
         try {
             val kdf = KdfParams.of(d.readUnsignedByte(), d.readInt())
-            if (!policy.accepts(kdf)) throw BackupIntegrityException("KDF parameters out of range")
+            intact(policy.accepts(kdf)) { "KDF parameters out of range" }
             val saltLen = d.readUnsignedByte()
-            if (saltLen != SALT_SIZE) throw BackupIntegrityException("Bad salt length")
+            intact(saltLen == SALT_SIZE) { "Bad salt length" }
             val salt = ByteArray(saltLen).also(d::readFully)
             val seg = d.readInt()
-            if (seg < 4096 || seg > 1 shl 20 || Integer.bitCount(seg) != 1) throw BackupIntegrityException("Bad segment size")
+            intact(seg in 4096..(1 shl 20) && Integer.bitCount(seg) == 1) { "Bad segment size" }
             val prefix = ByteArray(NONCE_PREFIX_SIZE).also(d::readFully)
             val count = d.readUnsignedByte()
-            if (count !in 1..MAX_WRAPS) throw BackupIntegrityException("Bad key wrap count")
+            intact(count in 1..MAX_WRAPS) { "Bad key wrap count" }
             val wraps = (0 until count).map {
                 val type = WrapType.of(d.readUnsignedByte())
                 val len = d.readInt()
-                if (len < 0 || len > bin.available()) throw BackupIntegrityException("Bad key wrap length")
+                intact(len in 0..bin.available()) { "Bad key wrap length" }
                 KeyWrap(type, ByteArray(len).also(d::readFully))
             }
-            if (bin.available() != 0) throw BackupIntegrityException("Trailing header bytes")
+            intact(bin.available() == 0) { "Trailing header bytes" }
             return EnvelopeHeader(version, kdf, salt, seg, prefix, wraps, headerBytes)
         } catch (e: EOFException) {
             throw BackupIntegrityException("Truncated header", e)
@@ -455,10 +456,10 @@ object BackupCrypto {
         val d = DataInputStream(ByteArrayInputStream(payload))
         try {
             val bl = d.readInt()
-            if (bl < 0 || bl > payload.size) throw BackupIntegrityException("Bad key bundle length")
+            intact(bl in 0..payload.size) { "Bad key bundle length" }
             val bundle = KeyBundle.fromBytes(ByteArray(bl).also(d::readFully))
             val cl = d.readInt()
-            if (cl < 0 || cl > 1024) throw BackupIntegrityException("Bad RSA wrap length")
+            intact(cl in 0..1024) { "Bad RSA wrap length" }
             return bundle to ByteArray(cl).also(d::readFully)
         } catch (e: EOFException) {
             throw BackupIntegrityException("Truncated key wrap", e)
@@ -515,324 +516,4 @@ object BackupCrypto {
         ByteBuffer.allocate(GCM_NONCE).put(prefix).putInt(counter.toInt()).put(if (last) 1 else 0).array()
 
     internal fun sha256(b: ByteArray): ByteArray = MessageDigest.getInstance("SHA-256").digest(b)
-}
-
-/**
- * Encrypts into 64 KiB STREAM segments with constant memory. The header has already been written
- * by the time the constructor returns. Not thread-safe.
- */
-class EncryptingOutputStream internal constructor(
-    out: OutputStream,
-    val header: EnvelopeHeader,
-    private val key: SecretKey,
-) : FilterOutputStream(out) {
-    private val seg = header.segmentSize
-    private val buf = ByteArray(seg)
-    private var len = 0
-    private var counter = 0L
-    private var finished = false
-    private val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-    private val prefix = header.noncePrefix
-
-    /** The archive's data key, so the writer can verify the file it just wrote (never persisted). */
-    val dataKey: SecretKey get() = key
-    private val aad = header.aad
-
-    init {
-        out.write(header.aad)
-    }
-
-    override fun write(b: Int) {
-        write(byteArrayOf(b.toByte()), 0, 1)
-    }
-
-    override fun write(b: ByteArray, off: Int, len: Int) {
-        check(!finished) { "Stream already finished" }
-        if (off < 0 || len < 0 || off + len > b.size) throw IndexOutOfBoundsException()
-        var o = off
-        var n = len
-        while (n > 0) {
-            // A full buffer is only flushed once more data arrives, so the final segment is always
-            // emitted by finish() with the last flag set (an exact multiple of 64 KiB ends in a full last segment).
-            if (this.len == seg) emit(last = false)
-            val k = minOf(n, seg - this.len)
-            System.arraycopy(b, o, buf, this.len, k)
-            this.len += k; o += k; n -= k
-        }
-    }
-
-    private fun emit(last: Boolean) {
-        if (counter > 0xFFFF_FFFFL) throw IOException("Backup too large")
-        cipher.init(Cipher.ENCRYPT_MODE, key, GCMParameterSpec(BackupCrypto.TAG_SIZE * 8, BackupCrypto.segmentNonce(prefix, counter, last)))
-        cipher.updateAAD(aad)
-        out.write(cipher.doFinal(buf, 0, len))
-        counter++
-        len = 0
-    }
-
-    override fun flush() {
-        // Segments are fixed-size; only flush what has already been sealed.
-        out.flush()
-    }
-
-    /** Seals the last segment without closing the underlying stream. Idempotent. */
-    fun finish() {
-        if (finished) return
-        emit(last = true)
-        finished = true
-        buf.fill(0)
-        out.flush()
-    }
-
-    override fun close() {
-        try {
-            finish()
-        } finally {
-            out.close()
-        }
-    }
-}
-
-/**
- * Decrypts STREAM segments, releasing plaintext only after each segment's tag verifies. Reaching EOF
- * (-1) guarantees the whole payload was authentic and complete; any truncation, reordering, extension
- * or bit flip raises [BackupIntegrityException]. Callers must not act on data before reading to EOF
- * unless the action is undoable.
- */
-class DecryptingInputStream internal constructor(
-    input: InputStream,
-    val header: EnvelopeHeader,
-    private val key: SecretKey,
-) : InputStream() {
-    private val src = PushbackInputStream(input, 1)
-    private val cipherLen = header.segmentSize + BackupCrypto.TAG_SIZE
-    private val cbuf = ByteArray(cipherLen)
-    private var plain = ByteArray(0)
-    private var pos = 0
-    private var counter = 0L
-    private var done = false
-    private val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-    private val prefix = header.noncePrefix
-
-    private fun fill(): Boolean {
-        while (pos >= plain.size) {
-            if (done) return false
-            var n = 0
-            while (n < cipherLen) {
-                val r = src.read(cbuf, n, cipherLen - n)
-                if (r < 0) break
-                n += r
-            }
-            val last = if (n < cipherLen) true else {
-                val peek = src.read()
-                if (peek < 0) true else { src.unread(peek); false }
-            }
-            if (n < BackupCrypto.TAG_SIZE) throw BackupIntegrityException("Truncated backup")
-            if (counter > 0xFFFF_FFFFL) throw BackupIntegrityException("Too many segments")
-            plain = try {
-                cipher.init(Cipher.DECRYPT_MODE, key, GCMParameterSpec(BackupCrypto.TAG_SIZE * 8, BackupCrypto.segmentNonce(prefix, counter, last)))
-                cipher.updateAAD(header.aad)
-                cipher.doFinal(cbuf, 0, n)
-            } catch (e: AEADBadTagException) {
-                throw BackupIntegrityException("Backup is corrupted, truncated or was modified (segment $counter)", e)
-            } catch (e: GeneralSecurityException) {
-                throw BackupIntegrityException("Backup decryption failed", e)
-            }
-            pos = 0
-            counter++
-            if (last) done = true
-        }
-        return true
-    }
-
-    override fun read(): Int = if (!fill()) -1 else plain[pos++].toInt() and 0xFF
-
-    override fun read(b: ByteArray, off: Int, len: Int): Int {
-        if (off < 0 || len < 0 || off + len > b.size) throw IndexOutOfBoundsException()
-        if (len == 0) return 0
-        if (!fill()) return -1
-        val k = minOf(len, plain.size - pos)
-        System.arraycopy(plain, pos, b, off, k)
-        pos += k
-        return k
-    }
-
-    override fun available(): Int = plain.size - pos
-
-    override fun close() = src.close()
-}
-
-/**
- * Persistent public-key material for scheduled backups. Holds the RSA public key in the clear and the
- * PKCS#8 private key twice: AES-GCM-sealed under [kdf](passphrase, [salt]) and under
- * HKDF(recovery key, [recoverySalt]). Safe to store unprotected and embedded in every archive.
- */
-class KeyBundle internal constructor(
-    publicKeyBytes: ByteArray,
-    val kdf: KdfParams,
-    salt: ByteArray,
-    passphraseWrap: ByteArray,
-    recoveryWrap: ByteArray,
-    recoverySalt: ByteArray,
-) {
-    private val pub = publicKeyBytes.copyOf()
-    private val s = salt.copyOf()
-    private val pw = passphraseWrap.copyOf()
-    private val rw = recoveryWrap.copyOf()
-    private val rs = recoverySalt.copyOf()
-    val publicKeyBytes: ByteArray get() = pub.copyOf()
-    val salt: ByteArray get() = s.copyOf()
-    val passphraseWrap: ByteArray get() = pw.copyOf()
-    val recoveryWrap: ByteArray get() = rw.copyOf()
-    val recoverySalt: ByteArray get() = rs.copyOf()
-
-    val publicKey: PublicKey by lazy {
-        try {
-            KeyFactory.getInstance("RSA").generatePublic(X509EncodedKeySpec(pub))
-        } catch (e: GeneralSecurityException) {
-            throw BackupIntegrityException("Corrupt public key", e)
-        }
-    }
-
-    /** Short fingerprint of the public key, e.g. to show which key a backup was made for. */
-    val keyId: String get() = BackupCrypto.sha256(pub).copyOf(8).joinToString("") { "%02x".format(Locale.ROOT, it) }
-
-    /** The KDF's stored parameter (PBKDF2 iterations, or packed scrypt settings). */
-    val iterations: Int get() = kdf.param
-
-    fun toBytes(): ByteArray {
-        val bo = ByteArrayOutputStream()
-        DataOutputStream(bo).apply {
-            // Version 1 (PBKDF2 only) stays byte-identical, so bundles made before scrypt keep their bytes.
-            write(MAGIC.toByteArray(Charsets.US_ASCII))
-            if (kdf is KdfParams.Pbkdf2) writeByte(1) else { writeByte(2); writeByte(kdf.alg) }
-            writeInt(kdf.param); writeByte(s.size); write(s); writeByte(rs.size); write(rs)
-            writeShort(pub.size); write(pub); writeShort(pw.size); write(pw); writeShort(rw.size); write(rw)
-        }
-        return bo.toByteArray()
-    }
-
-    override fun equals(other: Any?): Boolean = other is KeyBundle && toBytes().contentEquals(other.toBytes())
-    override fun hashCode(): Int = toBytes().contentHashCode()
-
-    companion object {
-        const val MAGIC = "PARLEYK1"
-        private const val MAX_FIELD = 8 * 1024
-
-        /** Parses with bounded sizes and iteration counts. */
-        fun fromBytes(bytes: ByteArray): KeyBundle {
-            if (bytes.size > 32 * 1024) throw BackupIntegrityException("Key bundle too large")
-            val bin = ByteArrayInputStream(bytes)
-            val d = DataInputStream(bin)
-            try {
-                val magic = ByteArray(8).also(d::readFully)
-                if (!magic.contentEquals(MAGIC.toByteArray(Charsets.US_ASCII))) throw BackupIntegrityException("Not a Parley key bundle")
-                val kdf = when (d.readUnsignedByte()) {
-                    1 -> KdfParams.Pbkdf2(d.readInt())
-                    2 -> KdfParams.of(d.readUnsignedByte(), d.readInt())
-                    else -> throw BackupIntegrityException("Unsupported key bundle version")
-                }
-                if (!KdfPolicy.BACKUP.accepts(kdf)) throw BackupIntegrityException("KDF parameters out of range")
-                fun field(maxLen: Int, lenReader: () -> Int): ByteArray {
-                    val l = lenReader()
-                    if (l < 0 || l > maxLen || l > bin.available()) throw BackupIntegrityException("Bad key bundle field")
-                    return ByteArray(l).also(d::readFully)
-                }
-                val salt = field(64) { d.readUnsignedByte() }
-                val recSalt = field(64) { d.readUnsignedByte() }
-                if (salt.size != BackupCrypto.SALT_SIZE || recSalt.size != BackupCrypto.SALT_SIZE) throw BackupIntegrityException("Bad salt")
-                val pub = field(MAX_FIELD) { d.readUnsignedShort() }
-                val pw = field(MAX_FIELD) { d.readUnsignedShort() }
-                val rw = field(MAX_FIELD) { d.readUnsignedShort() }
-                if (bin.available() != 0) throw BackupIntegrityException("Trailing key bundle bytes")
-                val b = KeyBundle(pub, kdf, salt, pw, rw, recSalt)
-                val pk = b.publicKey
-                if (pk !is RSAPublicKey || pk.modulus.bitLength() < 2048) throw BackupIntegrityException("Unsupported public key")
-                return b
-            } catch (e: EOFException) {
-                throw BackupIntegrityException("Truncated key bundle", e)
-            }
-        }
-    }
-}
-
-/**
- * 160-bit random recovery key, shown as Crockford base32 in groups of four plus a checksum group:
- * `XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-CCCC` (8 data groups = 160 bits, checksum = first 20 bits of
- * SHA-256 of the key). Parsing is forgiving: case, spaces/hyphens, O→0 and I/L→1 are accepted.
- */
-class RecoveryKey private constructor(private val key: ByteArray) {
-    internal fun bytes(): ByteArray = key.copyOf()
-
-    fun format(): String {
-        val data = encode(key)
-        val check = checksum(key)
-        return (data.chunked(4) + check).joinToString("-")
-    }
-
-    override fun equals(other: Any?): Boolean = other is RecoveryKey && MessageDigest.isEqual(key, other.key)
-    override fun hashCode(): Int = key.contentHashCode()
-    override fun toString(): String = "RecoveryKey(****)"
-
-    companion object {
-        const val BYTES = 20
-        const val ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
-
-        fun generate(random: SecureRandom = SecureRandom()): RecoveryKey = RecoveryKey(ByteArray(BYTES).also(random::nextBytes))
-
-        fun fromBytes(bytes: ByteArray): RecoveryKey {
-            require(bytes.size == BYTES) { "Recovery key must be $BYTES bytes" }
-            return RecoveryKey(bytes.copyOf())
-        }
-
-        /** Parses user input; throws [IllegalArgumentException] with a user-presentable reason. */
-        fun parse(text: String): RecoveryKey {
-            val chars = normalize(text)
-            require(chars.length == 36) { "A recovery key has 36 characters (9 groups of 4)" }
-            val bytes = decode(chars.substring(0, 32))
-            require(checksum(bytes) == chars.substring(32)) { "Recovery key checksum does not match – check for typos" }
-            return RecoveryKey(bytes)
-        }
-
-        fun isValid(text: String): Boolean = try { parse(text); true } catch (_: IllegalArgumentException) { false }
-
-        private fun normalize(text: String): String = buildString {
-            for (c in text.uppercase()) {
-                when {
-                    c == '-' || c.isWhitespace() -> {}
-                    c == 'O' -> append('0')
-                    c == 'I' || c == 'L' -> append('1')
-                    ALPHABET.indexOf(c) >= 0 -> append(c)
-                    else -> throw IllegalArgumentException("Invalid character '$c' in recovery key")
-                }
-            }
-        }
-
-        private fun encode(bytes: ByteArray): String {
-            val n = BigInteger(1, bytes)
-            val bits = bytes.size * 8
-            return buildString {
-                var shift = bits - 5
-                while (shift >= 0) {
-                    append(ALPHABET[n.shiftRight(shift).toInt() and 31]); shift -= 5
-                }
-            }
-        }
-
-        private fun decode(chars: String): ByteArray {
-            var n = BigInteger.ZERO
-            for (c in chars) n = n.shiftLeft(5).or(BigInteger.valueOf(ALPHABET.indexOf(c).toLong()))
-            val raw = n.toByteArray()
-            val out = ByteArray(BYTES)
-            val src = if (raw.size > BYTES) raw.copyOfRange(raw.size - BYTES, raw.size) else raw
-            System.arraycopy(src, 0, out, BYTES - src.size, src.size)
-            return out
-        }
-
-        private fun checksum(bytes: ByteArray): String {
-            val h = MessageDigest.getInstance("SHA-256").digest(bytes)
-            val v = ((h[0].toInt() and 0xFF) shl 12) or ((h[1].toInt() and 0xFF) shl 4) or ((h[2].toInt() and 0xFF) ushr 4)
-            return buildString { for (s in intArrayOf(15, 10, 5, 0)) append(ALPHABET[(v ushr s) and 31]) }
-        }
-    }
 }

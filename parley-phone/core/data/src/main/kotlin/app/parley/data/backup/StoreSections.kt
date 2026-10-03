@@ -119,16 +119,24 @@ class ContactNotesBackup(
                 val merged = links + RelationLinks.decode(have?.relationLinks)
                 val encoded = merged.takeIf { it.isNotEmpty() }?.let { RelationLinks.encode(it) }
                 if (have == null) {
-                    meta.setMeta(ContactMetaEntity(c.lookupKey, pinnedNote = note, preferredMessenger = msg, lastNudgedAt = nudged, contactId = c.id, relationLinks = encoded))
+                    meta.setMeta(
+                        ContactMetaEntity(
+                            c.lookupKey, pinnedNote = note, preferredMessenger = msg, lastNudgedAt = nudged, contactId = c.id, relationLinks = encoded,
+                        ),
+                    )
                 } else {
-                    meta.setPersonalMeta(c.lookupKey, have.pinnedNote ?: note, have.preferredMessenger ?: msg, encoded, nudged.takeIf { have.lastNudgedAt == null })
+                    meta.setPersonalMeta(
+                        c.lookupKey, have.pinnedNote ?: note, have.preferredMessenger ?: msg, encoded, nudged.takeIf { have.lastNudgedAt == null },
+                    )
                 }
             }
             for (o in notes) {
                 val key = o.optString("k").ifEmpty { continue }
                 val date = o.optLong("d")
                 val text = o.optString("t").ifEmpty { continue }
-                if (meta.countCallNote(key, date, text) == 0) meta.addCallNote(CallNoteEntity(numberKey = key, callDate = date, text = text, createdAt = o.optLong("c", date)))
+                if (meta.countCallNote(key, date, text) == 0) meta.addCallNote(
+                    CallNoteEntity(numberKey = key, callDate = date, text = text, createdAt = o.optLong("c", date)),
+                )
             }
             // A contact that is already temporary here keeps its own expiry.
             for (t in temps) if (meta.temporary(t.lookupKey) == null) meta.setTemporary(t)
@@ -269,6 +277,7 @@ class SpamListsBackup(private val lists: () -> SpamListStore) : BackupExtras {
 
     private companion object {
         const val PREFIX = "${BackupExtras.PREFIX}lists."
+
         /** User packs are small hand-made lists; a huge one stays out rather than bloat every backup. */
         const val MAX_BYTES = 4 shl 20
     }

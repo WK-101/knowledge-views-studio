@@ -17,6 +17,7 @@ object ImProtocol {
     const val ICQ_PROTOCOL = 6
     const val JABBER = 7
     const val NETMEETING_PROTOCOL = 8
+
     /** Not an Im protocol: SIP handles are SipAddress rows. */
     const val SIP_PROTOCOL = -100
 }

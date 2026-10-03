@@ -16,7 +16,6 @@ import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import app.parley.MainActivity
 import app.parley.R
-import app.parley.common.PhoneNumbers
 import app.parley.common.circle.Promises
 import app.parley.container
 import app.parley.shortcuts.Shortcuts
@@ -42,12 +41,16 @@ class FollowUpWorker(context: Context, params: WorkerParameters) : CoroutineWork
         val all = withTimeoutOrNull(30_000) { c.contacts.contacts.filterNotNull().first() } ?: return Result.success()
         // The lookup key may have changed since (linked, renamed): follow it from the stored id.
         val contact = all.firstOrNull { it.lookupKey == key }
-            ?: runCatching { c.contacts.currentOf(key, inputData.getLong(KEY_ID, -1).takeIf { it > 0 }) }.getOrNull()?.let { (_, now) -> all.firstOrNull { it.lookupKey == now } }
+            ?: runCatching { c.contacts.currentOf(key, inputData.getLong(KEY_ID, -1).takeIf { it > 0 }) }.getOrNull()?.let { (_, now) ->
+                all.firstOrNull { it.lookupKey == now }
+            }
             ?: return Result.success()
         ReminderChannels.ensure(ctx, RemindersWorker.CHANNEL)
         // The open promises give the reminder its context ("☐ send the photos").
         val promises = runCatching {
-            c.circle.notesFor(key, contact.phones.flatMap { PhoneIdentity.lookupKeys(it.number, PhoneEnv.countryIso(c.appContext)) }).flatMap { n -> Promises.open(n.text).map { it.text } }
+            c.circle.notesFor(
+                key, contact.phones.flatMap { PhoneIdentity.lookupKeys(it.number, PhoneEnv.countryIso(c.appContext)) },
+            ).flatMap { n -> Promises.open(n.text).map { it.text } }
         }.getOrDefault(emptyList())
         val tag = NotificationIds.followUp(contact.id)
         val code = tag.hashCode()
@@ -57,14 +60,22 @@ class FollowUpWorker(context: Context, params: WorkerParameters) : CoroutineWork
             .build()
         val open = PendingIntent.getActivity(
             ctx, code,
-            Intent(ctx, MainActivity::class.java).setAction(MainActivity.ACTION_SHOW_CALLER).putExtra(MainActivity.EXTRA_CONTACT_ID, contact.id).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            Intent(
+                ctx, MainActivity::class.java,
+            ).setAction(MainActivity.ACTION_SHOW_CALLER).putExtra(MainActivity.EXTRA_CONTACT_ID, contact.id).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
         val b = NotificationCompat.Builder(ctx, RemindersWorker.CHANNEL)
             .setSmallIcon(R.drawable.ic_stat_cake)
             .setContentTitle(ctx.getString(R.string.circle_followup_title, contact.displayName))
             .setContentText(promises.firstOrNull()?.let { ctx.getString(R.string.circle_promise_line, it) } ?: ctx.getString(R.string.circle_followup_body))
-            .setStyle(NotificationCompat.BigTextStyle().bigText(if (promises.isEmpty()) ctx.getString(R.string.circle_followup_body) else promises.take(5).joinToString("\n") { ctx.getString(R.string.circle_promise_line, it) }))
+            .setStyle(
+                NotificationCompat.BigTextStyle().bigText(
+                    if (promises.isEmpty()) ctx.getString(
+                        R.string.circle_followup_body,
+                    ) else promises.take(5).joinToString("\n") { ctx.getString(R.string.circle_promise_line, it) },
+                ),
+            )
             .setAutoCancel(true)
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
             .setPublicVersion(public)
@@ -72,7 +83,11 @@ class FollowUpWorker(context: Context, params: WorkerParameters) : CoroutineWork
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
             .setContentIntent(open)
         (contact.phones.firstOrNull { it.isPrimary } ?: contact.phones.firstOrNull())?.number?.let { phone ->
-            b.addAction(0, ctx.getString(R.string.work_action_call), PendingIntent.getActivity(ctx, code + 1, Shortcuts.intent(ctx, Shortcuts.Kind.CALL, phone, contact.id), PendingIntent.FLAG_IMMUTABLE))
+            b.addAction(
+                0,
+                ctx.getString(R.string.work_action_call),
+                PendingIntent.getActivity(ctx, code + 1, Shortcuts.intent(ctx, Shortcuts.Kind.CALL, phone, contact.id), PendingIntent.FLAG_IMMUTABLE),
+            )
         }
         try {
             NotificationManagerCompat.from(ctx).notify(tag, 0, b.build())
@@ -90,7 +105,9 @@ class FollowUpWorker(context: Context, params: WorkerParameters) : CoroutineWork
             if (lookupKey.isEmpty() || days <= 0) return
             WorkManager.getInstance(context).enqueueUniqueWork(
                 "followup:$lookupKey", ExistingWorkPolicy.REPLACE,
-                OneTimeWorkRequestBuilder<FollowUpWorker>().setInitialDelay(days.toLong(), TimeUnit.DAYS).setInputData(workDataOf(KEY_LOOKUP to lookupKey, KEY_ID to (contactId ?: -1L))).build(),
+                OneTimeWorkRequestBuilder<FollowUpWorker>().setInitialDelay(
+                    days.toLong(), TimeUnit.DAYS,
+                ).setInputData(workDataOf(KEY_LOOKUP to lookupKey, KEY_ID to (contactId ?: -1L))).build(),
             )
         }
     }

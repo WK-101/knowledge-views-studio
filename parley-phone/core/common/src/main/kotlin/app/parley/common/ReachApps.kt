@@ -4,12 +4,16 @@ package app.parley.common
 enum class ReachKind {
     /** Opens the chat. */
     MESSAGE,
+
     /** Starts a voice call in the app. */
     VOICE,
+
     /** Starts a video call in the app. */
     VIDEO,
+
     /** A call to the ordinary phone network that the app bills (Viber Out). Never offered as a free call. */
     PAID_CALL,
+
     /** Something else (a profile page, a "view in app" row). */
     OTHER,
 }

@@ -1,5 +1,11 @@
 package app.parley.common.sync
 
+import app.parley.common.Duplicates
+import app.parley.common.PhoneIdentity
+import app.parley.common.record.ContactRecord
+import app.parley.common.record.Mime
+import java.util.Locale
+
 /**
  * The decisions of the folder sync's three-way merge, one entry (a contact and its file) at a time, and the guard that
  * pauses a run which would delete a lot, or delete something recently edited, until the user confirms.
@@ -84,4 +90,18 @@ object FolderSyncRules {
         val n = size?.takeIf { it >= 0L } ?: return null
         return "$t:$n"
     }
+
+    /** A contact's phones and emails as match keys, for pairing a new file with a contact that has none yet. */
+    fun matchKeys(r: ContactRecord): Set<String> = r.raws.flatMap { it.rows }.mapNotNull { row ->
+        when (row.mimeType) {
+            Mime.PHONE -> row["data1"]?.let { PhoneIdentity.portableKey(it) }?.let { "p:$it" }
+            Mime.EMAIL -> row["data1"]?.let { Duplicates.emailKey(it) }?.let { "e:$it" }
+            else -> null
+        }
+    }.toSet()
+
+    /** The name a contact without phones and emails is paired by, when exactly one such contact has it. */
+    fun nameKey(r: ContactRecord): String? = r.displayName.trim().lowercase(Locale.ROOT).replace(WHITESPACE, " ").takeIf { it.isNotEmpty() }
+
+    private val WHITESPACE = Regex("\\s+")
 }

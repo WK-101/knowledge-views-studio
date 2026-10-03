@@ -59,6 +59,7 @@ private sealed interface Step {
     data class Working(val text: String) : Step
     data class Options(val opened: OpenedBackup) : Step
     data class Preview(val opened: OpenedBackup, val plan: MergePlan, val options: RestoreOptions) : Step
+
     /** [pending]: a part waits for confirmation (supervised call-time limits). */
     data class Done(val text: String, val pending: Boolean = false) : Step
 }
@@ -108,7 +109,9 @@ fun RestoreFlow(vm: AppViewModel, uri: Uri, onDone: () -> Unit) {
             confirmEnabled = secret.isNotBlank(),
             content = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    PassField(if (useRecovery) stringResource(R.string.rst_recovery_key) else stringResource(R.string.bkp_pass_title), secret) { secret = it; error = null }
+                    PassField(
+                        if (useRecovery) stringResource(R.string.rst_recovery_key) else stringResource(R.string.bkp_pass_title), secret,
+                    ) { secret = it; error = null }
                     error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                     Row(
                         Modifier.toggleable(useRecovery, role = Role.Switch) { useRecovery = it; secret = "" },
@@ -178,8 +181,12 @@ fun RestoreFlow(vm: AppViewModel, uri: Uri, onDone: () -> Unit) {
                     scope.launch {
                         val report = repo.restore(s.opened, s.plan, s.options.copy(applyConflicts = applyConflicts))
                         // Circle entries whose person isn't on this phone are skipped; say how many.
-                        val unmatched = if (report.unmatched > 0) res.getString(R.string.main_separator) + res.getQuantityString(R.plurals.circle_restore_unmatched, report.unmatched, report.unmatched) else ""
-                        val blockedLog = if (report.blockedLog > 0) res.getString(R.string.main_separator) + res.getQuantityString(R.plurals.rst_blocked_log, report.blockedLog, report.blockedLog) else ""
+                        val unmatched = if (report.unmatched > 0) res.getString(
+                            R.string.main_separator,
+                        ) + res.getQuantityString(R.plurals.circle_restore_unmatched, report.unmatched, report.unmatched) else ""
+                        val blockedLog = if (report.blockedLog > 0) res.getString(
+                            R.string.main_separator,
+                        ) + res.getQuantityString(R.plurals.rst_blocked_log, report.blockedLog, report.blockedLog) else ""
                         step = Step.Done(report.summary(res) + unmatched + blockedLog, report.needsConfirmation)
                     }
                 },
@@ -193,9 +200,13 @@ fun RestoreFlow(vm: AppViewModel, uri: Uri, onDone: () -> Unit) {
                             Text(pluralStringResource(R.plurals.rst_identical, sum.identical, sum.identical))
                             if (sum.conflict > 0) {
                                 Text(pluralStringResource(R.plurals.rst_conflict, sum.conflict, sum.conflict))
-                                Row(verticalAlignment = Alignment.CenterVertically) { Checkbox(applyConflicts, { applyConflicts = it }); Text(stringResource(R.string.rst_apply_conflicts)) }
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) { Checkbox(applyConflicts, { applyConflicts = it }); Text(stringResource(R.string.rst_apply_conflicts)) }
                             }
-                            if (sum.toDelete > 0) Text(pluralStringResource(R.plurals.rst_to_delete, sum.toDelete, sum.toDelete), color = MaterialTheme.colorScheme.error)
+                            if (sum.toDelete > 0) Text(
+                                pluralStringResource(R.plurals.rst_to_delete, sum.toDelete, sum.toDelete), color = MaterialTheme.colorScheme.error,
+                            )
                         }
                         Text(stringResource(R.string.rst_merge_note), style = MaterialTheme.typography.bodySmall)
                     }

@@ -38,7 +38,9 @@ class JournalRepository(private val dao: MetaDao, private val records: ContactRe
             val line = RecordJson.encode(record) { hash, bytes -> blobs.put(hash, Base64.encodeToString(bytes, Base64.NO_WRAP)) }
             val payload = JSONObject().put("record", line).put("blobs", blobs).toString().toByteArray()
             val zipped = ByteArrayOutputStream().also { o -> GZIPOutputStream(o).use { it.write(payload) } }.toByteArray()
-            dao.addJournal(JournalEntity(contactKey = record.key, displayName = record.displayName, action = action, time = System.currentTimeMillis(), payload = zipped))
+            dao.addJournal(
+                JournalEntity(contactKey = record.key, displayName = record.displayName, action = action, time = System.currentTimeMillis(), payload = zipped),
+            )
         }
     }
 
@@ -73,7 +75,9 @@ class JournalRepository(private val dao: MetaDao, private val records: ContactRe
         if (e.restored) return null
         val json = JSONObject(String(GZIPInputStream(e.payload.inputStream()).use { it.readBytes() }))
         val blobs = json.optJSONObject("blobs") ?: JSONObject()
-        val record = RecordJson.decode(json.getString("record")) { hash -> blobs.optString(hash).takeIf { it.isNotEmpty() }?.let { Base64.decode(it, Base64.NO_WRAP) } }
+        val record = RecordJson.decode(
+            json.getString("record"),
+        ) { hash -> blobs.optString(hash).takeIf { it.isNotEmpty() }?.let { Base64.decode(it, Base64.NO_WRAP) } }
         val id = records.insert(record, target = null)
         if (id != null) dao.markRestored(entryId)
         return id

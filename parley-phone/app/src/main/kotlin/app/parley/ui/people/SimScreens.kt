@@ -120,7 +120,11 @@ fun CopyToSimDialog(vm: AppViewModel, d: ContactDetails, onDismiss: () -> Unit) 
                             )
                         }
                         fit.entry?.let { e ->
-                            ListItem(headlineContent = { Text(e.name) }, supportingContent = { Text(DataL10n.ltr(Format.number(e.number, vm.countryIso))) }, leadingContent = { Icon(Icons.Rounded.SimCard, null) })
+                            ListItem(
+                                headlineContent = { Text(e.name) },
+                                supportingContent = { Text(DataL10n.ltr(Format.number(e.number, vm.countryIso))) },
+                                leadingContent = { Icon(Icons.Rounded.SimCard, null) },
+                            )
                         }
                         fit.warnings.forEach { Text("• " + simWarningText(it), style = MaterialTheme.typography.bodySmall) }
                         if (chosen?.free == 0) Text(stringResource(R.string.sim_full), color = MaterialTheme.colorScheme.error)
@@ -153,7 +157,9 @@ fun SimImportScreen(vm: AppViewModel, back: () -> Unit) {
     val existing = remember(contacts) { DuplicateIndex().apply { contacts.orEmpty().forEach { add(it) } } }
     fun recordOf(e: SimEntry) = ContactRecord(
         key = "", displayName = e.name,
-        raws = listOf(RawRecord(null, null, rows = listOf(DataRow(Mime.NAME, mapOf(Col.D1 to e.name)), DataRow(Mime.PHONE, mapOf(Col.D1 to e.number, Col.D2 to "2"))))),
+        raws = listOf(
+            RawRecord(null, null, rows = listOf(DataRow(Mime.NAME, mapOf(Col.D1 to e.name)), DataRow(Mime.PHONE, mapOf(Col.D1 to e.number, Col.D2 to "2")))),
+        ),
     )
     LaunchedEffect(card) {
         val c = card ?: return@LaunchedEffect
@@ -167,7 +173,11 @@ fun SimImportScreen(vm: AppViewModel, back: () -> Unit) {
         ParleyTopBar(
             stringResource(R.string.sim_import_title),
             onBack = back,
-            actions = { Button({ chooseAccount = true }, enabled = picked.isNotEmpty() && !busy, modifier = Modifier.padding(end = 8.dp)) { Text(stringResource(R.string.sim_import_n, picked.size)) } },
+            actions = {
+                Button(
+                    { chooseAccount = true }, enabled = picked.isNotEmpty() && !busy, modifier = Modifier.padding(end = 8.dp),
+                ) { Text(stringResource(R.string.sim_import_n, picked.size)) }
+            },
         )
     }) { p ->
         LazyColumn(Modifier.padding(p)) {
@@ -178,7 +188,13 @@ fun SimImportScreen(vm: AppViewModel, back: () -> Unit) {
             else if (cs.size > 1) {
                 item { Section(stringResource(R.string.sim_section)) }
                 cs.forEach { c ->
-                    item { ListItem(modifier = Modifier.clickable { card = c }, leadingContent = { RadioButton(card == c, { card = c }) }, headlineContent = { Text(c.label) }) }
+                    item {
+                        ListItem(
+                            modifier = Modifier.clickable { card = c },
+                            leadingContent = { RadioButton(card == c, { card = c }) },
+                            headlineContent = { Text(c.label) },
+                        )
+                    }
                 }
             }
             val list = entries

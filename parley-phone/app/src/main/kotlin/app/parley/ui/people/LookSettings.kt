@@ -43,7 +43,9 @@ fun SwipeSettings(vm: AppViewModel) {
     var tried by remember { mutableStateOf<String?>(null) }
     val res = LocalResources.current
     Column {
-        SwitchRow(settingTitle("swipe_actions"), settingSummary("swipe_actions"), s.swipe.enabled, Icons.Rounded.Swipe) { v -> vm.people.update { it.copy(swipe = it.swipe.copy(enabled = v)) } }
+        SwitchRow(
+            settingTitle("swipe_actions"), settingSummary("swipe_actions"), s.swipe.enabled, Icons.Rounded.Swipe,
+        ) { v -> vm.people.update { it.copy(swipe = it.swipe.copy(enabled = v)) } }
         if (s.swipe.enabled) {
             MenuRow(stringResource(R.string.swipe_right), choices.map { swipeLabel(res, it) }, choices.indexOf(s.swipe.right), Icons.Rounded.SwipeRight) { i ->
                 vm.people.update { it.copy(swipe = it.swipe.copy(right = choices[i])) }
@@ -53,7 +55,9 @@ fun SwipeSettings(vm: AppViewModel) {
             }
             Text(stringResource(R.string.swipe_try), style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(start = 16.dp, top = 8.dp))
             // A preview row: swiping it only says what would happen.
-            SwipeActionRow(s.swipe, hasNumber = true, canDelete = true, onAction = { a -> tried = res.getString(R.string.swipe_tried, swipeLabel(res, a, short = true)) }) {
+            SwipeActionRow(
+                s.swipe, hasNumber = true, canDelete = true, onAction = { a -> tried = res.getString(R.string.swipe_tried, swipeLabel(res, a, short = true)) },
+            ) {
                 OnGroupSurface {
                     val example = stringResource(R.string.swipe_example_name)
                     ListItem(
@@ -79,7 +83,13 @@ fun AvatarStyleSetting(vm: AppViewModel) {
     val styles = AvatarStyle.entries
     Column {
         val avatarLabels = styles.map { st -> stringResource(if (st == AvatarStyle.GREY) R.string.avatar_grey else R.string.avatar_colourful) }
-        MenuRow(settingTitle("avatar_style"), avatarLabels, styles.indexOf(s.avatarStyle), Icons.Rounded.AccountCircle, sub = stringResource(R.string.avatar_emoji_hint)) { i ->
+        MenuRow(
+            settingTitle("avatar_style"),
+            avatarLabels,
+            styles.indexOf(s.avatarStyle),
+            Icons.Rounded.AccountCircle,
+            sub = stringResource(R.string.avatar_emoji_hint),
+        ) { i ->
             vm.people.update { it.copy(avatarStyle = styles[i]) }
         }
         CompositionLocalProvider(LocalAvatarStyle provides s.avatarStyle) {

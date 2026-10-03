@@ -42,12 +42,20 @@ class CircleActionReceiver : BroadcastReceiver() {
         private const val EXTRA_OCCASION = "occasion"
 
         private fun pending(context: Context, code: Int, intent: Intent): PendingIntent =
-            PendingIntent.getBroadcast(context, code, intent.setClass(context, CircleActionReceiver::class.java), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+            PendingIntent.getBroadcast(
+                context, code, intent.setClass(context, CircleActionReceiver::class.java), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+            )
 
         fun notNow(context: Context, code: Int, tag: String, lookupKey: String): PendingIntent =
             pending(context, code, Intent(ACTION_NOT_NOW).putExtra(EXTRA_TAG, tag).putExtra(EXTRA_KEY, lookupKey))
 
         fun wished(context: Context, code: Int, tag: String, lookupKey: String, contactId: Long, occasion: String): PendingIntent =
-            pending(context, code, Intent(ACTION_WISHED).putExtra(EXTRA_TAG, tag).putExtra(EXTRA_KEY, lookupKey).putExtra(EXTRA_CONTACT_ID, contactId).putExtra(EXTRA_OCCASION, occasion))
+            pending(
+                context,
+                code,
+                Intent(ACTION_WISHED).putExtra(EXTRA_TAG, tag).putExtra(
+                    EXTRA_KEY, lookupKey,
+                ).putExtra(EXTRA_CONTACT_ID, contactId).putExtra(EXTRA_OCCASION, occasion),
+            )
     }
 }

@@ -61,7 +61,9 @@ class CallPolicyTest {
 
     @Test fun emergency_never_blocked() {
         val f = facts("112").copy(isEmergency = true)
-        assertEquals(Decision.Allow, CallPolicy.evaluate(f, listOf(BlockRule(pattern = "*", type = RuleType.WILDCARD)), ScreeningSettings(blockNonContacts = true)))
+        assertEquals(
+            Decision.Allow, CallPolicy.evaluate(f, listOf(BlockRule(pattern = "*", type = RuleType.WILDCARD)), ScreeningSettings(blockNonContacts = true)),
+        )
     }
 
     // H1: an automatic expected-call window comes after rules, lists and the sales-line silence, and only lets an

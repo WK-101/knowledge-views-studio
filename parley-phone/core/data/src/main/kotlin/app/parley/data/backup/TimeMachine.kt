@@ -153,7 +153,9 @@ class TimeMachine(context: Context, private val records: ContactRecordStore) {
         val live = keep.flatMap { it.contacts.values }.toHashSet()
         // Photos are separate blobs referenced from records; keep any blob still referenced by a kept record.
         val referenced = HashSet<String>(live)
-        keep.forEach { idx -> idx.contacts.values.forEach { h -> runCatching { Snapshots.load(store, h) }.getOrNull()?.let { r -> photoHashes(r).forEach { referenced += it } } } }
+        keep.forEach { idx ->
+            idx.contacts.values.forEach { h -> runCatching { Snapshots.load(store, h) }.getOrNull()?.let { r -> photoHashes(r).forEach { referenced += it } } }
+        }
         store.all().filter { it.name !in referenced }.forEach { it.delete() }
     }
 

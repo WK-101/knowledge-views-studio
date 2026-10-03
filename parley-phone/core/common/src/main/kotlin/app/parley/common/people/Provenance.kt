@@ -27,16 +27,22 @@ enum class ChangeSource { PARLEY, ANOTHER_APP, SYNC, UNKNOWN }
 enum class ProvenanceKind {
     /** Changed on this phone by another app after Parley's last save, not synced yet. */
     OTHER_APP_AFTER_PARLEY_UNSYNCED,
+
     /** Changed by [ProvenanceVerdict.account]'s sync after Parley's last save. */
     SYNC_AFTER_PARLEY,
+
     /** Changed by another app after Parley's last save. */
     OTHER_APP_AFTER_PARLEY,
+
     /** Changed by Parley ([ProvenanceVerdict.fields] written; [ProvenanceVerdict.otherAccount] is another copy, if any). */
     PARLEY,
+
     /** Last changed on this phone by another app, not synced yet. */
     LAST_OTHER_APP_UNSYNCED,
+
     /** Last changed, in step with [ProvenanceVerdict.account]'s sync. */
     LAST_SYNC,
+
     /** Last changed, not by Parley. */
     LAST_UNKNOWN,
 }

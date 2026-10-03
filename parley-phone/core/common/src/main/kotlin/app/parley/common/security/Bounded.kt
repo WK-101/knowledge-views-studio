@@ -126,6 +126,9 @@ object Bounded {
             ZipInputStream(guard.compressed).use { z -> entries(z, want, budget, what) }
         } catch (e: ZipException) {
             throw IOException("The $what is damaged", e)
+        } catch (e: IllegalArgumentException) {
+            // An entry name that isn't valid UTF-8: ZipInputStream throws this rather than a ZipException.
+            throw IOException("The $what is damaged", e)
         }
     }
 

@@ -53,6 +53,8 @@ import app.parley.ui.people.ContactsFilterChips
 import app.parley.ui.people.MeCardRow
 import app.parley.ui.people.SwipeActionRow
 import app.parley.ui.people.blockWithUndo
+import app.parley.ui.people.rememberWorkResults
+import app.parley.ui.people.workResultsSection
 import app.parley.ui.shared
 import app.parley.ui.EmptyState
 import app.parley.ui.Routes
@@ -89,6 +91,8 @@ fun ContactsTab(vm: AppViewModel, open: (Destination) -> Unit, onReorderFavorite
     val index by vm.people.index.collectAsStateWithLifecycle()
     // The row's message button and a "Message" swipe use each person's usual way to message.
     val (quick, quickHost) = rememberQuickMessenger(vm)
+    // The work profile's matches, read-only, under the search results (not while filtering the list).
+    val work = rememberWorkResults(if (filter.isEmpty && !privateOnly) query else "")
 
     val rows = listing
     if (rows == null) {
@@ -117,7 +121,7 @@ fun ContactsTab(vm: AppViewModel, open: (Destination) -> Unit, onReorderFavorite
             if (showMe) item(key = "me") { MeCardRow(vm, open) }
             if (showFavorites) item(key = "favorites") { ContactsFavorites(vm, open, onReorder = onReorderFavorites) }
             if (showCircle) item(key = "circle") { CircleFavoritesSection(vm, open, "") }
-            if (count == 0) {
+            if (count == 0 && work.isEmpty()) {
                 item(key = "empty") {
                     EmptyState(
                         Icons.Rounded.People,
@@ -190,6 +194,7 @@ fun ContactsTab(vm: AppViewModel, open: (Destination) -> Unit, onReorderFavorite
                     }
                 }
             }
+            workResultsSection(work) { n, name -> vm.requestCall(n, name) }
             // How many are shown, at the very end.
             ContactsFooter.line(count, query, filter, private = privateShown, privateList = privateOnly)
                 ?.let { line -> item(key = "count") { ContactsCountFooter(line) } }

@@ -91,7 +91,11 @@ fun AccountChips(vm: AppViewModel, d: ContactDetails, open: (Destination) -> Uni
                         DropdownMenuItem({ Text(stringResource(R.string.ppl_edit_copy)) }, leadingIcon = { Icon(Icons.Rounded.Edit, null) }, onClick = {
                             menu = false; open(PeopleRoutes.editRaw(d.id, raw.id))
                         })
-                        DropdownMenuItem({ Text(stringResource(R.string.ppl_move_to)) }, leadingIcon = { Icon(Icons.Rounded.DriveFileMove, null) }, onClick = { menu = false; moving = raw })
+                        DropdownMenuItem(
+                            { Text(stringResource(R.string.ppl_move_to)) },
+                            leadingIcon = { Icon(Icons.Rounded.DriveFileMove, null) },
+                            onClick = { menu = false; moving = raw },
+                        )
                     } else {
                         DropdownMenuItem({ Text(stringResource(R.string.ppl_read_only)) }, enabled = false, onClick = {})
                     }
@@ -230,7 +234,9 @@ fun describeLifeEvent(res: Resources, d: ContactDetails, ev: EventItem, today: L
             val birth = d.events.firstOrNull { it.type == Event.TYPE_BIRTHDAY }?.let { EventDate.parse(it.date) }
             listOfNotNull(shown(parsed), birth?.let { LifeEvents.ageAtDeath(it, parsed) }?.let { res.getString(R.string.life_aged, it) }).joinToString(" · ")
         }
-        ev.type == Event.TYPE_BIRTHDAY -> listOfNotNull(shown(parsed), LifeEvents.wouldHaveTurned(parsed, today)?.let { res.getString(R.string.life_would_have_turned, it) }, dayText(res, parsed, today)).joinToString(" · ")
+        ev.type == Event.TYPE_BIRTHDAY -> listOfNotNull(
+            shown(parsed), LifeEvents.wouldHaveTurned(parsed, today)?.let { res.getString(R.string.life_would_have_turned, it) }, dayText(res, parsed, today),
+        ).joinToString(" · ")
         else -> describeEvent(ev.date, false, today, res)
     }
 }

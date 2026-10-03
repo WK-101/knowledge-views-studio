@@ -1,0 +1,13 @@
+BEGIN:VCARD
+VERSION:3.0
+FN:Folded
+  name
+NOTE:a very long note that is folded over
+  several lines and has ;semicolons; and :colons:
+X-PARLEY-PRIVATE:1
+X-CUSTOM;TYPE=label:value
+BEGIN:VCARD
+VERSION:3.0
+FN:Nested
+END:VCARD
+END:VCARD

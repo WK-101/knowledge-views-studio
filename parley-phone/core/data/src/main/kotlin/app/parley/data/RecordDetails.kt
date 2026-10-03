@@ -51,7 +51,9 @@ object RecordDetails {
                 jobDescription = s(it[Col.D6]), officeLocation = s(it[Col.D9]),
             )
         }
-        rows.filter { it.mimeType == Mime.NOTE }.map { s(it[Col.D1]) }.filter { it.isNotBlank() }.takeIf { it.isNotEmpty() }?.let { d = d.copy(note = it.joinToString("\n\n")) }
+        rows.filter { it.mimeType == Mime.NOTE }.map { s(it[Col.D1]) }.filter { it.isNotBlank() }.takeIf { it.isNotEmpty() }?.let {
+            d = d.copy(note = it.joinToString("\n\n"))
+        }
         fun items(mime: String, default: Int) = rows.filter { it.mimeType == mime && !it[Col.D1].isNullOrBlank() }
             .map { DataItem(value = s(it[Col.D1]), type = type(it[Col.D2], default), label = it[Col.D3], isPrimary = it.isSuperPrimary) }
         d = d.copy(

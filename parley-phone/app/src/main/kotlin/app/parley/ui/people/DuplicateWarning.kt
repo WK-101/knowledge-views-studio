@@ -49,7 +49,9 @@ fun DuplicateWarning(vm: AppViewModel, draft: ContactDetails, onOpen: (Long) -> 
     val vault by vm.c.vault.contacts.collectAsStateWithLifecycle()
     val settings by vm.settings.collectAsStateWithLifecycle()
     val vaultLookup = remember(vault, settings.hideVault) {
-        if (settings.hideVault) null else DuplicateLookup(vault.map { v -> ContactSummary(-v.id, "", v.name, null, false, v.numbers.map { PhoneEntry(it, 2, null) }) })
+        if (settings.hideVault) null else DuplicateLookup(
+            vault.map { v -> ContactSummary(-v.id, "", v.name, null, false, v.numbers.map { PhoneEntry(it, 2, null) }) },
+        )
     }
     var hit by remember { mutableStateOf<DuplicateHit?>(null) }
     var dismissed by remember { mutableStateOf<Long?>(null) }

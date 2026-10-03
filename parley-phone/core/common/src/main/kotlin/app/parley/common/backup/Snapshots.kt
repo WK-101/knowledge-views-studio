@@ -115,6 +115,7 @@ object Snapshots {
             val acc = { c: ContactRecord -> c.raws.map { listOf(it.accountType, it.accountName, it.dataSet, it.sourceId) }.toSet() }
             if (acc(before) != acc(after)) add("accounts")
         }
+
         // Multiset diff over (canonicalKey, flags, blob hash) so reordering isn't a change.
         fun id(r: DataRow) = r.canonicalKey + "|" + r.isPrimary + r.isSuperPrimary + "|" + (r.blob?.let(RecordJson::sha256Hex) ?: "")
         val beforeRows = before.raws.flatMap { it.rows }

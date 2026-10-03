@@ -77,7 +77,9 @@ fun PickerScreen(
                 title = {
                     Text(
                         title ?: when (kind) {
-                            PickKind.CONTACT -> if (multiple) stringResource(R.string.picker_choose_contacts) else stringResource(R.string.picker_choose_contact)
+                            PickKind.CONTACT -> if (multiple) stringResource(
+                                R.string.picker_choose_contacts,
+                            ) else stringResource(R.string.picker_choose_contact)
                             PickKind.PHONE -> stringResource(R.string.picker_choose_phone)
                             PickKind.EMAIL -> stringResource(R.string.picker_choose_email)
                             PickKind.POSTAL -> stringResource(R.string.picker_choose_address)
@@ -146,7 +148,12 @@ private fun loadPicks(context: Context, kind: PickKind, res: Resources): List<Pi
         when (kind) {
             PickKind.CONTACT -> cr.query(
                 ContactsContract.Contacts.CONTENT_URI,
-                arrayOf(ContactsContract.Contacts._ID, ContactsContract.Contacts.LOOKUP_KEY, ContactsContract.Contacts.DISPLAY_NAME_PRIMARY, ContactsContract.Contacts.PHOTO_THUMBNAIL_URI),
+                arrayOf(
+                    ContactsContract.Contacts._ID,
+                    ContactsContract.Contacts.LOOKUP_KEY,
+                    ContactsContract.Contacts.DISPLAY_NAME_PRIMARY,
+                    ContactsContract.Contacts.PHOTO_THUMBNAIL_URI,
+                ),
                 null, null, ContactsContract.Contacts.SORT_KEY_PRIMARY,
             )?.use { c ->
                 while (c.moveToNext()) {
@@ -164,7 +171,15 @@ private fun loadPicks(context: Context, kind: PickKind, res: Resources): List<Pi
                 val base = Uri.parse(uri)
                 cr.query(
                     base,
-                    arrayOf(ContactsContract.Data._ID, ContactsContract.Data.CONTACT_ID, ContactsContract.Data.DISPLAY_NAME_PRIMARY, valueCol, typeCol, labelCol, ContactsContract.Data.PHOTO_THUMBNAIL_URI),
+                    arrayOf(
+                        ContactsContract.Data._ID,
+                        ContactsContract.Data.CONTACT_ID,
+                        ContactsContract.Data.DISPLAY_NAME_PRIMARY,
+                        valueCol,
+                        typeCol,
+                        labelCol,
+                        ContactsContract.Data.PHOTO_THUMBNAIL_URI,
+                    ),
                     null, null, ContactsContract.Data.DISPLAY_NAME_PRIMARY,
                 )?.use { c ->
                     while (c.moveToNext()) {

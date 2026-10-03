@@ -205,7 +205,11 @@ fun PreCallPeekSheet(vm: AppViewModel, lookupKey: String, name: String, memory: 
                     supportingContent = { Text(stringResource(R.string.circle_open_promise)) },
                 )
             }
-            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 TextButton({
                     vm.c.circle.updateConfig { it.copy(preCallPeek = false) }
                     vm.toast(res.getString(R.string.circle_peek_off))

@@ -80,7 +80,9 @@ class CallHistorySectionTest {
         val entries = LinkedHashMap<String, ByteArray>()
         ZipInputStream(ByteArrayInputStream(zip)).use { z -> generateSequence { z.nextEntry }.forEach { entries[it.name] = z.readBytes() } }
         val manifest = RecordJson.json.decodeFromString(Manifest.serializer(), entries.remove(BackupArchive.MANIFEST)!!.decodeToString())
-        val m = if (listInManifest) manifest.copy(entries = manifest.entries + ManifestEntry(name, body.size.toLong(), RecordJson.sha256Hex(body))) else manifest
+        val m = if (listInManifest) manifest.copy(
+            entries = manifest.entries + ManifestEntry(name, body.size.toLong(), RecordJson.sha256Hex(body)),
+        ) else manifest
         entries[name] = body
         entries[BackupArchive.MANIFEST] = RecordJson.json.encodeToString(Manifest.serializer(), m).toByteArray()
         val bo = ByteArrayOutputStream()

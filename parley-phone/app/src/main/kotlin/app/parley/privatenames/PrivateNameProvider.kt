@@ -101,6 +101,7 @@ class PrivateNameProvider : ContentProvider() {
             ctx.getSystemService(NotificationManager::class.java)
                 .createNotificationChannel(NotificationChannel(CHANNEL, ctx.getString(R.string.privnames_channel), NotificationManager.IMPORTANCE_DEFAULT))
             val id = notificationId(pkg, directory)
+
             // Granting lasting access to private names must not work from the lock screen: Android 12+ asks for the
             // unlock before sending the broadcast; before that, the action opens an invisible activity, which the lock
             // screen only starts after unlocking.
@@ -126,11 +127,17 @@ class PrivateNameProvider : ContentProvider() {
                 .setSmallIcon(R.drawable.ic_tile_private)
                 .setContentTitle(ctx.getString(R.string.privnames_channel))
                 .build()
-            val open = PendingIntent.getActivity(ctx, id, Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK), PendingIntent.FLAG_IMMUTABLE)
+            val open = PendingIntent.getActivity(
+                ctx, id, Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK), PendingIntent.FLAG_IMMUTABLE,
+            )
             val n = NotificationCompat.Builder(ctx, CHANNEL)
                 .setSmallIcon(R.drawable.ic_tile_private)
                 .setContentTitle(ctx.getString(if (directory) R.string.privnames_dir_request_title else R.string.privnames_request_title, label))
-                .setStyle(NotificationCompat.BigTextStyle().bigText(ctx.getString(if (directory) R.string.privnames_dir_request_text else R.string.privnames_request_text, label)))
+                .setStyle(
+                    NotificationCompat.BigTextStyle().bigText(
+                        ctx.getString(if (directory) R.string.privnames_dir_request_text else R.string.privnames_request_text, label),
+                    ),
+                )
                 .setContentIntent(open)
                 .setAutoCancel(true)
                 .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)

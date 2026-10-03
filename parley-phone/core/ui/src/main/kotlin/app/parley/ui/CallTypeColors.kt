@@ -120,7 +120,12 @@ fun CallClassBadge(cls: CallClass, modifier: Modifier = Modifier, size: Dp = 32.
         }
     }
     Box(box, contentAlignment = Alignment.Center) {
-        Icon(callClassVector(cls), contentDescription, tint = if (cls.fill == CallClass.Fill.SOLID) onSolid(dark) else color, modifier = Modifier.size(size * 0.58f))
+        Icon(
+            callClassVector(cls),
+            contentDescription,
+            tint = if (cls.fill == CallClass.Fill.SOLID) onSolid(dark) else color,
+            modifier = Modifier.size(size * 0.58f),
+        )
     }
 }
 

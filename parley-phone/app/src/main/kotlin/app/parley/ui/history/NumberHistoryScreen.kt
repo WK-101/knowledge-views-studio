@@ -106,7 +106,9 @@ fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open
     if (rangeDelete) {
         RangeDeleteDialog(vm, number, onDismiss = { rangeDelete = false }, onDeleted = { batch, n ->
             scope.launch {
-                val r = snackbar.showSnackbar(res.getQuantityString(R.plurals.hist_deleted_calls, n, n), actionLabel = res.getString(R.string.dc_undo), duration = SnackbarDuration.Long)
+                val r = snackbar.showSnackbar(
+                    res.getQuantityString(R.plurals.hist_deleted_calls, n, n), actionLabel = res.getString(R.string.dc_undo), duration = SnackbarDuration.Long,
+                )
                 if (r == SnackbarResult.ActionPerformed) vm.c.history.undoDelete(batch)
             }
         })
@@ -120,8 +122,18 @@ fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open
                 Box {
                     IconButton({ menu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.dc_more_options)) }
                     DropdownMenu(menu, { menu = false }) {
-                        DropdownMenuItem({ Text(stringResource(R.string.hist_export_menu)) }, leadingIcon = { Icon(Icons.Rounded.FileDownload, null) }, onClick = { menu = false; exporting = true }, enabled = history.isNotEmpty())
-                        DropdownMenuItem({ Text(stringResource(R.string.hist_delete_calls_menu)) }, leadingIcon = { Icon(Icons.Rounded.Delete, null) }, onClick = { menu = false; rangeDelete = true }, enabled = history.isNotEmpty())
+                        DropdownMenuItem(
+                            { Text(stringResource(R.string.hist_export_menu)) },
+                            leadingIcon = { Icon(Icons.Rounded.FileDownload, null) },
+                            onClick = { menu = false; exporting = true },
+                            enabled = history.isNotEmpty(),
+                        )
+                        DropdownMenuItem(
+                            { Text(stringResource(R.string.hist_delete_calls_menu)) },
+                            leadingIcon = { Icon(Icons.Rounded.Delete, null) },
+                            onClick = { menu = false; rangeDelete = true },
+                            enabled = history.isNotEmpty(),
+                        )
                     }
                 }
             },
@@ -140,17 +152,41 @@ fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open
                     // I1: what Parley remembers about a number that isn't a contact, with its action.
                     if (contact == null) app.parley.ui.memory.HistoryNumberMemory(vm, number, open)
                     Row(Modifier.padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        AssistChip({ vm.requestCall(number, contact?.displayName) }, { Text(stringResource(R.string.hist_action_call)) }, leadingIcon = { Icon(Icons.Rounded.Call, null) })
-                        AssistChip({ Intents.sms(context, number) }, { Text(stringResource(R.string.hist_action_message)) }, leadingIcon = { Icon(Icons.AutoMirrored.Rounded.Message, null) })
-                        AssistChip({ Intents.copy(context, number) }, { Text(stringResource(R.string.hist_action_copy)) }, leadingIcon = { Icon(Icons.Rounded.ContentCopy, null) })
+                        AssistChip(
+                            { vm.requestCall(number, contact?.displayName) },
+                            { Text(stringResource(R.string.hist_action_call)) },
+                            leadingIcon = { Icon(Icons.Rounded.Call, null) },
+                        )
+                        AssistChip(
+                            { Intents.sms(context, number) },
+                            { Text(stringResource(R.string.hist_action_message)) },
+                            leadingIcon = { Icon(Icons.AutoMirrored.Rounded.Message, null) },
+                        )
+                        AssistChip(
+                            { Intents.copy(context, number) },
+                            { Text(stringResource(R.string.hist_action_copy)) },
+                            leadingIcon = { Icon(Icons.Rounded.ContentCopy, null) },
+                        )
                     }
                     Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        AssistChip({ messageOn = true }, { Text(stringResource(R.string.reach_message_or_call_on)) }, leadingIcon = { Icon(Icons.AutoMirrored.Rounded.Chat, null) })
+                        AssistChip(
+                            { messageOn = true },
+                            { Text(stringResource(R.string.reach_message_or_call_on)) },
+                            leadingIcon = { Icon(Icons.AutoMirrored.Rounded.Chat, null) },
+                        )
                     }
                     Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         if (contact == null) {
-                            AssistChip({ open(Routes.edit(phone = number)) }, { Text(stringResource(R.string.hist_action_new_contact)) }, leadingIcon = { Icon(Icons.Rounded.PersonAdd, null) })
-                            AssistChip({ open(Routes.pick(number)) }, { Text(stringResource(R.string.hist_action_add_to_contact)) }, leadingIcon = { Icon(Icons.Rounded.PersonAdd, null) })
+                            AssistChip(
+                                { open(Routes.edit(phone = number)) },
+                                { Text(stringResource(R.string.hist_action_new_contact)) },
+                                leadingIcon = { Icon(Icons.Rounded.PersonAdd, null) },
+                            )
+                            AssistChip(
+                                { open(Routes.pick(number)) },
+                                { Text(stringResource(R.string.hist_action_add_to_contact)) },
+                                leadingIcon = { Icon(Icons.Rounded.PersonAdd, null) },
+                            )
                         } else {
                             AssistChip({ open(Routes.contact(contact.id)) }, { Text(stringResource(R.string.hist_action_view_contact)) })
                         }
@@ -162,7 +198,9 @@ fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open
                     }
                 }
             }
-            item { CallInsightsSection(vm, listOf(number) + contact?.phones?.map { it.number }.orEmpty(), title = stringResource(R.string.hist_insights_title)) }
+            item {
+                CallInsightsSection(vm, listOf(number) + contact?.phones?.map { it.number }.orEmpty(), title = stringResource(R.string.hist_insights_title))
+            }
             item { ReputationHistoryLine(vm, number, isContact = contact != null) }
             item { ScreeningHistorySection(vm, number, contact?.displayName) }
             item { RingFactsHistorySection(vm, number) }

@@ -22,11 +22,14 @@ enum class BillingIncrement(val seconds: Int) {
 enum class NumberCategory {
     MOBILE,
     LANDLINE,
+
     /** Numbering plans that don't tell mobile from fixed (e.g. North America). Counted if either is. */
     MOBILE_OR_LANDLINE,
     INTERNATIONAL,
+
     /** Free for the caller: never counted. */
     TOLL_FREE,
+
     /** Premium, shared cost, VoIP, short codes. */
     OTHER,
 }
@@ -82,7 +85,6 @@ data class PlanUsage(
     val fraction: Float get() = if (config.allowanceMinutes <= 0) 0f else usedMinutes.toFloat() / config.allowanceMinutes
     val isNear: Boolean get() = config.allowanceMinutes > 0 && usedMinutes * 100 >= config.allowanceMinutes.toLong() * config.warnAtPercent
     val isOver: Boolean get() = config.allowanceMinutes > 0 && usedMinutes > config.allowanceMinutes
-
 }
 
 object PlanMeter {

@@ -121,6 +121,7 @@ object QrImageDecoder {
      */
     internal fun textOf(r: Result): String {
         val text = r.text.orEmpty()
+
         @Suppress("UNCHECKED_CAST")
         val segments = r.resultMetadata?.get(ResultMetadataType.BYTE_SEGMENTS) as? List<ByteArray> ?: return text
         if (segments.size != 1) return text

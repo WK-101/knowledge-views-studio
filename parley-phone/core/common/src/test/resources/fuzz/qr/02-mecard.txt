@@ -1,0 +1,1 @@
+MECARD:N:Silva,Ana;TEL:+351912345678;EMAIL:ana@example.com;ADR:Rua 1\, Lisboa;BDAY:19900101;NOTE:hi\;there;;

@@ -19,7 +19,6 @@ import app.parley.common.Decision
 import app.parley.common.NotificationChannels
 import app.parley.common.NotificationIds
 import app.parley.common.NotifyLevel
-import app.parley.common.PhoneNumbers
 import app.parley.common.VerdictKind
 import app.parley.container
 import app.parley.data.PhoneEnv
@@ -51,8 +50,18 @@ object BlockingNotifier {
         nm.createNotificationChannels(
             listOf(
                 ch(CH_BLOCKED, context.getString(R.string.blk_ch_blocked), context.getString(R.string.blk_ch_blocked_desc), NotificationManager.IMPORTANCE_LOW),
-                ch(CH_REPORTED, context.getString(R.string.blk_notify_reported), context.getString(R.string.blk_ch_reported_desc), NotificationManager.IMPORTANCE_LOW),
-                ch(CH_LIKELY_SPAM, context.getString(R.string.blk_ch_likely), context.getString(R.string.blk_ch_likely_desc), NotificationManager.IMPORTANCE_DEFAULT),
+                ch(
+                    CH_REPORTED,
+                    context.getString(R.string.blk_notify_reported),
+                    context.getString(R.string.blk_ch_reported_desc),
+                    NotificationManager.IMPORTANCE_LOW,
+                ),
+                ch(
+                    CH_LIKELY_SPAM,
+                    context.getString(R.string.blk_ch_likely),
+                    context.getString(R.string.blk_ch_likely_desc),
+                    NotificationManager.IMPORTANCE_DEFAULT,
+                ),
                 ch(CH_BUSY, context.getString(R.string.blk_ch_busy), context.getString(R.string.blk_ch_busy_desc), NotificationManager.IMPORTANCE_DEFAULT),
             ),
         )
@@ -149,14 +158,18 @@ object BlockingNotifier {
         if (Build.VERSION.SDK_INT >= 31) {
             val pi = PendingIntent.getBroadcast(
                 context, req,
-                Intent(context, BlockingActionReceiver::class.java).setAction(action).putExtra(BlockingActionReceiver.EXTRA_NUMBER, number).putExtra(BlockingActionReceiver.EXTRA_PACK, packId),
+                Intent(
+                    context, BlockingActionReceiver::class.java,
+                ).setAction(action).putExtra(BlockingActionReceiver.EXTRA_NUMBER, number).putExtra(BlockingActionReceiver.EXTRA_PACK, packId),
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
             )
             return NotificationCompat.Action.Builder(0, title, pi).setAuthenticationRequired(true).build()
         }
         val pi = PendingIntent.getActivity(
             context, req,
-            Intent(context, BlockingActionActivity::class.java).setAction(action).putExtra(BlockingActionReceiver.EXTRA_NUMBER, number).putExtra(BlockingActionReceiver.EXTRA_PACK, packId)
+            Intent(
+                context, BlockingActionActivity::class.java,
+            ).setAction(action).putExtra(BlockingActionReceiver.EXTRA_NUMBER, number).putExtra(BlockingActionReceiver.EXTRA_PACK, packId)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_HISTORY),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )

@@ -40,7 +40,11 @@ class PersonRefsTest {
 
     @Test fun call_time_keys_move_to_this_phone() {
         val cfg = CallingConfig(
-            rules = listOf(LimitRule(LimitScope.CONTACT, "a1", dailyMinutes = 10), LimitRule(LimitScope.CONTACT, "zz", dailyMinutes = 5), LimitRule(LimitScope.SIM, "sim1", dailyMinutes = 60)),
+            rules = listOf(
+                LimitRule(LimitScope.CONTACT, "a1", dailyMinutes = 10),
+                LimitRule(LimitScope.CONTACT, "zz", dailyMinutes = 5),
+                LimitRule(LimitScope.SIM, "sim1", dailyMinutes = 60),
+            ),
             neverLimit = setOf("a1", "zz"),
             reminders = ReminderSettings(perContact = mapOf("a1" to 5)),
             supervised = true,

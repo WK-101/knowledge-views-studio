@@ -59,10 +59,13 @@ data class MessengerPrefs(
 sealed interface MessageRoute {
     /** Text message to [number]. */
     data class Sms(val number: String) : MessageRoute
+
     /** Open the messenger's own data row for this person (the app has linked them). */
     data class MessengerRow(val accountType: String) : MessageRoute
+
     /** Open a chat by number with an explicit package (works when the app hasn't linked the person). */
     data class MessengerLink(val app: MessengerApp, val number: String) : MessageRoute
+
     /** No usable preference: show the "Message on…" sheet. */
     data object Ask : MessageRoute
 }

@@ -192,7 +192,10 @@ fun WhoCanSeeScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> U
             item {
                 val pn by vm.c.people.privateNames.state.collectAsStateWithLifecycle()
                 val allowed = pn.approvals.count { it.value == LookupApproval.ALLOWED }
-                LinkRow(stringResource(R.string.privacy_private_names), if (pn.enabled) pluralStringResource(R.plurals.who_private_names_on, allowed, allowed) else stringResource(R.string.dc_off)) {
+                LinkRow(
+                    stringResource(R.string.privacy_private_names),
+                    if (pn.enabled) pluralStringResource(R.plurals.who_private_names_on, allowed, allowed) else stringResource(R.string.dc_off),
+                ) {
                     open(PeopleRoutes.PrivateNames)
                 }
             }
@@ -295,7 +298,9 @@ fun PrivateNamesScreen(vm: AppViewModel, back: () -> Unit) {
                     },
                 )
             }
-            if (st.log.isNotEmpty()) item { TextButton({ access.clearLog() }, Modifier.padding(horizontal = 8.dp)) { Text(stringResource(R.string.pn_clear_log)) } }
+            if (st.log.isNotEmpty()) item {
+                TextButton({ access.clearLog() }, Modifier.padding(horizontal = 8.dp)) { Text(stringResource(R.string.pn_clear_log)) }
+            }
             item {
                 Text(
                     stringResource(R.string.pn_developers, PrivateNameProvider.authority(context), PrivateNameProvider.permission(context)),

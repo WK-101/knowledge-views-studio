@@ -10,15 +10,11 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
-import app.parley.common.AnswerGesture
 import app.parley.common.AppSettings
 import app.parley.common.BlockAction
-import app.parley.common.ListDensity
 import app.parley.common.NavTabs
 import app.parley.common.ScreeningSettings
-import app.parley.common.StartTab
 import app.parley.common.SurfaceLayout
-import app.parley.common.ThemeMode
 import app.parley.common.people.NameOrder
 import app.parley.common.security.DuressPolicy
 import app.parley.common.security.SafetyOverlay
@@ -43,6 +39,7 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
     private val store = context.applicationContext.dataStore
 
     private val _loaded = MutableStateFlow(false)
+
     /** False until the stored settings have been read once (avoids flashing first-run UI). */
     val loaded: StateFlow<Boolean> = _loaded
 

@@ -22,6 +22,7 @@ class BackupCryptoTest {
         const val CSEG = SEG + BackupCrypto.TAG_SIZE
         val PASS = "correct horse battery staple".toCharArray()
         val RECOVERY: RecoveryKey = RecoveryKey.generate()
+
         // RSA-3072 generation is slow; share one bundle across tests.
         val BUNDLE: KeyBundle by lazy { BackupCrypto.createKeyBundle(PASS, RECOVERY, KdfParams.Pbkdf2(IT)) }
     }
@@ -43,7 +44,7 @@ class BackupCryptoTest {
             throw AssertionError("Expected ${T::class.simpleName} but got $t", t)
         }
         fail("Expected ${T::class.simpleName}")
-        throw IllegalStateException()
+        error("unreachable")
     }
 
     // ------------------------------------------------------------ round trips
@@ -72,7 +73,11 @@ class BackupCryptoTest {
         }
         val input = BackupCrypto.decrypt(ByteArrayInputStream(bo.toByteArray()), Unlock.Passphrase(PASS))
         val got = ByteArrayOutputStream()
-        while (true) { val b = input.read(); if (b < 0) break; got.write(b) }
+        while (true) {
+            val b = input.read()
+            if (b < 0) break
+            got.write(b)
+        }
         assertArrayEquals(p, got.toByteArray())
     }
 

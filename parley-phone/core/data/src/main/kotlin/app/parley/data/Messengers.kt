@@ -12,7 +12,6 @@ import android.provider.ContactsContract.PhoneLookup
 import android.provider.ContactsContract.RawContacts
 import app.parley.common.MessengerMimes
 import app.parley.common.MessengerRowMatch
-import app.parley.common.PhoneNumbers
 import app.parley.common.ReachApp
 import app.parley.common.ReachKind
 import app.parley.common.ReachRow
@@ -117,7 +116,9 @@ object Messengers {
         }
         val phonesByRaw = raws.filter { it.mime == Phone.CONTENT_ITEM_TYPE && !it.d1.isNullOrBlank() }.groupBy({ it.rawId }, { it.d1!! })
         // The person's own numbers: from their own raw contacts, not the apps' copies.
-        val ownPhones = raws.filter { it.mime == Phone.CONTENT_ITEM_TYPE && !it.d1.isNullOrBlank() && !app.parley.common.record.Messengers.isMessengerAccount(it.type) }
+        val ownPhones = raws.filter {
+            it.mime == Phone.CONTENT_ITEM_TYPE && !it.d1.isNullOrBlank() && !app.parley.common.record.Messengers.isMessengerAccount(it.type)
+        }
             .map { it.d1!! }
         val installed = HashMap<String, Boolean>()
         fun installedPkg(type: String): String? = type.takeIf { t ->
@@ -145,7 +146,12 @@ object Messengers {
     /** Whether every raw contact of [contactId] belongs to a messenger (a contact only an app made). */
     private fun onlyMessengerRaws(context: Context, contactId: Long): Boolean {
         var any = false
-        context.contentResolver.safeQuery(RawContacts.CONTENT_URI, arrayOf(RawContacts.ACCOUNT_TYPE), "${RawContacts.CONTACT_ID}=? AND ${RawContacts.DELETED}=0", arrayOf(contactId.toString()))?.use { c ->
+        context.contentResolver.safeQuery(
+            RawContacts.CONTENT_URI,
+            arrayOf(RawContacts.ACCOUNT_TYPE),
+            "${RawContacts.CONTACT_ID}=? AND ${RawContacts.DELETED}=0",
+            arrayOf(contactId.toString()),
+        )?.use { c ->
             while (c.moveToNext()) {
                 val t = c.getString(0)
                 if (!app.parley.common.record.Messengers.isMessengerAccount(t) && ReachApp.forAccountType(t) == null) return false

@@ -77,7 +77,9 @@ fun PeopleCard(vm: AppViewModel, idx: CallLogIndex, open: (Destination) -> Unit)
             val now = System.currentTimeMillis()
             val circle = vm.c.circle.members().map { it.lookupKey }.filter { it in contacts }.toSet()
             val touches = vm.c.circle.touches(now - 400 * CallLogIndex.DAY, idx).filter { it.key in contacts }
-            val firstMovers = touches.filter { it.key in circle }.groupBy { it.key }.mapNotNull { (k, list) -> PeopleInsights.firstMover(list)?.let { k to it } }
+            val firstMovers = touches.filter { it.key in circle }.groupBy { it.key }.mapNotNull { (k, list) ->
+                PeopleInsights.firstMover(list)?.let { k to it }
+            }
                 .sortedBy { contacts[it.first]?.displayName }
             val review = PeopleInsights.yearInReview(touches, circle, now)
             // First names from the structured name, never by splitting the display name.
@@ -110,7 +112,10 @@ fun PeopleCard(vm: AppViewModel, idx: CallLogIndex, open: (Destination) -> Unit)
                         { Text(stringResource(if (cfg.firstMover) R.string.circle_hide_first_mover else R.string.circle_show_first_mover)) },
                         onClick = { menu = false; vm.c.circle.updateConfig { it.copy(firstMover = !it.firstMover) } },
                     )
-                    DropdownMenuItem({ Text(stringResource(R.string.circle_hide_people_card)) }, onClick = { menu = false; vm.c.circle.updateConfig { it.copy(peopleCard = false) } })
+                    DropdownMenuItem(
+                        { Text(stringResource(R.string.circle_hide_people_card)) },
+                        onClick = { menu = false; vm.c.circle.updateConfig { it.copy(peopleCard = false) } },
+                    )
                 }
             }
         }
@@ -131,7 +136,9 @@ fun PeopleCard(vm: AppViewModel, idx: CallLogIndex, open: (Destination) -> Unit)
             d.loops.forEach { l ->
                 val ct = contacts[l.key] ?: return@forEach
                 val line = when (l.kind) {
-                    PeopleInsights.LoopKind.THEIR_CALL -> pluralStringResource(R.plurals.circle_loop_their_call, l.count, l.count, Format.shortWhen(context, l.time))
+                    PeopleInsights.LoopKind.THEIR_CALL -> pluralStringResource(
+                        R.plurals.circle_loop_their_call, l.count, l.count, Format.shortWhen(context, l.time),
+                    )
                     PeopleInsights.LoopKind.YOUR_TRY ->
                         pluralStringResource(R.plurals.circle_loop_your_try, l.count, l.count, Format.shortWhen(context, l.time))
                 }
@@ -153,12 +160,23 @@ fun PeopleCard(vm: AppViewModel, idx: CallLogIndex, open: (Destination) -> Unit)
                     open, call = false,
                 )
             }
-            Text(stringResource(R.string.circle_first_mover_private), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
+            Text(
+                stringResource(R.string.circle_first_mover_private),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+            )
         }
         d.review?.let { r ->
             SubHeader(stringResource(R.string.circle_year_review))
-            val most = r.most.mapNotNull { (k, n) -> contacts[k]?.let { stringResource(R.string.circle_review_person_count, PeopleInsights.shortName(d.given[k], it.displayName), Bidi.ltr(n.toString())) } }
-            if (most.isNotEmpty()) ListItem(headlineContent = { Text(stringResource(R.string.circle_review_most, most.joinToString(stringResource(R.string.dc_list_separator)))) })
+            val most = r.most.mapNotNull { (k, n) ->
+                contacts[k]?.let {
+                    stringResource(R.string.circle_review_person_count, PeopleInsights.shortName(d.given[k], it.displayName), Bidi.ltr(n.toString()))
+                }
+            }
+            if (most.isNotEmpty()) ListItem(
+                headlineContent = { Text(stringResource(R.string.circle_review_most, most.joinToString(stringResource(R.string.dc_list_separator)))) },
+            )
             r.longestGap?.let { (k, days) ->
                 contacts[k]?.let { ct -> ListItem(headlineContent = { Text(pluralStringResource(R.plurals.circle_review_gap, days, days, ct.displayName)) }) }
             }
@@ -182,7 +200,9 @@ private fun ContactLine(vm: AppViewModel, ct: ContactSummary, sub: String, open:
         headlineContent = { Text(ct.displayName, maxLines = 1, overflow = TextOverflow.Ellipsis) },
         supportingContent = { Text(sub) },
         trailingContent = if (call && phone != null) ({
-            IconButton({ vm.requestCall(phone, ct.displayName) }) { Icon(Icons.Rounded.Call, stringResource(R.string.hist_call_back), tint = MaterialTheme.colorScheme.primary) }
+            IconButton({ vm.requestCall(phone, ct.displayName) }) {
+                Icon(Icons.Rounded.Call, stringResource(R.string.hist_call_back), tint = MaterialTheme.colorScheme.primary)
+            }
         }) else null,
     )
 }

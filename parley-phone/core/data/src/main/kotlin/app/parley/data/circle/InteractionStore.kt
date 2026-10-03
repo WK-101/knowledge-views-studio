@@ -126,7 +126,17 @@ class InteractionStore(private val dao: InteractionDao) {
         dedupeKey: String,
         written: Boolean = true,
     ): Long? = withContext(Dispatchers.IO) {
-        val id = dao.insert(InteractionEntity(lookupKey = lookupKey, contactId = contactId, type = type.name, channel = channel?.name, time = time, noteBlob = seal(note), dedupeKey = dedupeKey))
+        val id = dao.insert(
+            InteractionEntity(
+                lookupKey = lookupKey,
+                contactId = contactId,
+                type = type.name,
+                channel = channel?.name,
+                time = time,
+                noteBlob = seal(note),
+                dedupeKey = dedupeKey,
+            ),
+        )
         // L1: a note written while hiding shows as written (not one put back by Undo: that one was hidden).
         if (id > 0 && written && !note.isNullOrBlank()) Concealment.markWritten(token(id))
         id.takeIf { it > 0 }

@@ -2,12 +2,10 @@ package app.parley.data.backup
 
 import android.content.ContentProviderOperation
 import android.content.ContentUris
-import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
-import android.provider.CallLog
 import android.provider.ContactsContract
 import android.provider.DocumentsContract
 import android.util.Base64
@@ -30,7 +28,6 @@ import app.parley.common.backup.BackupFile
 import app.parley.common.backup.BlockRuleRecord
 import app.parley.common.backup.BlockedCallRecord
 import app.parley.common.backup.BlockingSnapshot
-import app.parley.common.backup.CallLogRecord
 import app.parley.common.backup.MergeAction
 import app.parley.common.backup.MergePlan
 import app.parley.common.backup.MergePlanner
@@ -300,9 +297,13 @@ class BackupRepository(
         var callCount = 0
         var vaultIncluded = false
         val failedSections = ArrayList<String>()
+
         // A backup that is fine except for a feature section says so, instead of looking complete.
         fun gaps(o: BackupOutcome) = if (failedSections.isEmpty()) o
-        else o.copy(failedSections = failedSections.toList(), message = context.getString(R.string.data_bkp_sections_missing, o.message, failedSections.joinToString(", ")))
+        else o.copy(
+            failedSections = failedSections.toList(),
+            message = context.getString(R.string.data_bkp_sections_missing, o.message, failedSections.joinToString(", ")),
+        )
         val dataKey: SecretKey
         val manifest = try {
             cr.openOutputStream(doc, "wt")!!.use { raw ->
@@ -329,7 +330,9 @@ class BackupRepository(
             }
         } catch (e: Exception) {
             runCatching { DocumentsContract.deleteDocument(cr, doc) }
-            return@withContext fail(context.getString(R.string.data_bkp_failed, e.message.toString()), StoredStatus.of(BackupState.FAILED, e.message.toString()))
+            return@withContext fail(
+                context.getString(R.string.data_bkp_failed, e.message.toString()), StoredStatus.of(BackupState.FAILED, e.message.toString()),
+            )
         }
 
         // Verify: decrypt with this archive's key and check every entry's hash.
@@ -344,7 +347,17 @@ class BackupRepository(
             return@withContext fail(context.getString(R.string.data_bkp_not_verified), StoredStatus.of(BackupState.NOT_VERIFIED))
         }
         if (target != null) {
-            return@withContext gaps(BackupOutcome(true, null, contactCount, callCount, verified = true, vaultIncluded = vaultIncluded, message = context.resources.getQuantityString(R.plurals.data_bkp_ready, contactCount, contactCount)))
+            return@withContext gaps(
+                BackupOutcome(
+                    true,
+                    null,
+                    contactCount,
+                    callCount,
+                    verified = true,
+                    vaultIncluded = vaultIncluded,
+                    message = context.resources.getQuantityString(R.plurals.data_bkp_ready, contactCount, contactCount),
+                ),
+            )
         }
 
         val hash = manifest.contentHash()
@@ -356,9 +369,19 @@ class BackupRepository(
             val status = if (incomplete) StoredStatus.of(BackupState.INCOMPLETE, failedSections.joinToString(", "), contactCount, callCount)
             else StoredStatus.of(BackupState.UNCHANGED)
             prefs.update { it.putLong("verifiedAt", System.currentTimeMillis()).putString("lastResult", status.encode()) }
-            return@withContext gaps(BackupOutcome(true, state.lastBackupName, contactCount, callCount, unchanged = true, verified = true, message = context.getString(R.string.data_bkp_nothing_changed)))
+            return@withContext gaps(
+                BackupOutcome(
+                    true,
+                    state.lastBackupName,
+                    contactCount,
+                    callCount,
+                    unchanged = true,
+                    verified = true,
+                    message = context.getString(R.string.data_bkp_nothing_changed),
+                ),
+            )
         }
-        val renamed = runCatching { DocumentsContract.renameDocument(cr, doc, finalName) }.getOrNull() ?: doc
+        runCatching { DocumentsContract.renameDocument(cr, doc, finalName) }
 
         // Rotation, paused if many contacts disappeared (protects the last good backups). The reference count is
         // a high-water mark: it only moves while rotation runs, so the pause lasts until the user resumes it.
@@ -380,7 +403,18 @@ class BackupRepository(
             if (rotates) it.putInt("lastCount", contactCount)
             if (vaultIncluded && !incomplete) it.putString("vaultName", finalName)
         }
-        gaps(BackupOutcome(true, finalName, contactCount, callCount, verified = true, rotationPaused = paused, vaultIncluded = vaultIncluded, message = res.getQuantityString(if (paused) R.plurals.data_bkp_backed_up_paused else R.plurals.data_bkp_backed_up, contactCount, contactCount)))
+        gaps(
+            BackupOutcome(
+                true,
+                finalName,
+                contactCount,
+                callCount,
+                verified = true,
+                rotationPaused = paused,
+                vaultIncluded = vaultIncluded,
+                message = res.getQuantityString(if (paused) R.plurals.data_bkp_backed_up_paused else R.plurals.data_bkp_backed_up, contactCount, contactCount),
+            ),
+        )
     }
 
     /** Accepts the current contact count after a rotation pause, so old backups rotate again. */
@@ -398,7 +432,20 @@ class BackupRepository(
     /** Read from the database, never from the UI flows (they start empty in a worker process that just started). */
     private suspend fun blocking(): BlockingSnapshot {
         val rules = blocks.allRules().map {
-            BlockRuleRecord(it.pattern, it.type.name, it.action.name, it.enabled, it.note, it.kind.name, it.simId, it.schedule?.encode(), it.notify.name, it.ringtone, it.expiresAt, it.label)
+            BlockRuleRecord(
+                it.pattern,
+                it.type.name,
+                it.action.name,
+                it.enabled,
+                it.note,
+                it.kind.name,
+                it.simId,
+                it.schedule?.encode(),
+                it.notify.name,
+                it.ringtone,
+                it.expiresAt,
+                it.label,
+            )
         }
         val system = blocks.loadSystemNow().map { it.number }
         val log = db.blockDao().blockedCallsNow().map { BlockedCallRecord(it.number, it.reason, it.action, it.time) }
@@ -469,7 +516,18 @@ class BackupRepository(
         val out = ArrayList<BackupFileInfo>()
         try {
             val children = DocumentsContract.buildChildDocumentsUriUsingTree(folder, DocumentsContract.getTreeDocumentId(folder))
-            cr.query(children, arrayOf(DocumentsContract.Document.COLUMN_DOCUMENT_ID, DocumentsContract.Document.COLUMN_DISPLAY_NAME, DocumentsContract.Document.COLUMN_SIZE, DocumentsContract.Document.COLUMN_LAST_MODIFIED), null, null, null)?.use { c ->
+            cr.query(
+                children,
+                arrayOf(
+                    DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+                    DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+                    DocumentsContract.Document.COLUMN_SIZE,
+                    DocumentsContract.Document.COLUMN_LAST_MODIFIED,
+                ),
+                null,
+                null,
+                null,
+            )?.use { c ->
                 while (c.moveToNext()) {
                     val name = c.getString(1) ?: continue
                     val t = RetentionDecider.parseName(name, zone) ?: continue
@@ -485,7 +543,15 @@ class BackupRepository(
     private fun cleanupPartials(folder: Uri) = runCatching {
         val children = DocumentsContract.buildChildDocumentsUriUsingTree(folder, DocumentsContract.getTreeDocumentId(folder))
         val cutoff = System.currentTimeMillis() - 3_600_000L
-        cr.query(children, arrayOf(DocumentsContract.Document.COLUMN_DOCUMENT_ID, DocumentsContract.Document.COLUMN_DISPLAY_NAME, DocumentsContract.Document.COLUMN_LAST_MODIFIED), null, null, null)?.use { c ->
+        cr.query(
+            children,
+            arrayOf(
+                DocumentsContract.Document.COLUMN_DOCUMENT_ID, DocumentsContract.Document.COLUMN_DISPLAY_NAME, DocumentsContract.Document.COLUMN_LAST_MODIFIED,
+            ),
+            null,
+            null,
+            null,
+        )?.use { c ->
             while (c.moveToNext()) {
                 val name = c.getString(1) ?: continue
                 if (name.endsWith(".partial") && c.getLong(2) in 1 until cutoff) {
@@ -728,6 +794,7 @@ class BackupRepository(
         val arr = JSONObject(String(blob)).optJSONArray("contacts") ?: return 0
         val have = vault.summariesNow().associate { (it.name to it.numbers.toSet()) to it.id }
         var n = 0
+
         // Private calls of an entry, restored once (the dedupe key skips calls already there).
         suspend fun restoreCalls(id: Long, o: JSONObject) {
             val calls = o.optJSONArray("calls") ?: return

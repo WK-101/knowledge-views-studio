@@ -63,7 +63,9 @@ fun CrashReportHost(vm: AppViewModel) {
                 val mail = Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:"))
                     .putExtra(Intent.EXTRA_SUBJECT, res.getString(R.string.ppl_crash_subject))
                     .putExtra(Intent.EXTRA_TEXT, text)
-                val any = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_SUBJECT, res.getString(R.string.ppl_crash_subject)).putExtra(Intent.EXTRA_TEXT, text)
+                val any = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(
+                    Intent.EXTRA_SUBJECT, res.getString(R.string.ppl_crash_subject),
+                ).putExtra(Intent.EXTRA_TEXT, text)
                 val chooser = Intent.createChooser(any, res.getString(R.string.ppl_crash_send_chooser)).putExtra(Intent.EXTRA_INITIAL_INTENTS, arrayOf(mail))
                 runCatching { context.startActivity(chooser) }
                 done()

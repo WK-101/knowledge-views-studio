@@ -181,12 +181,18 @@ class ReachAppsTest {
         assertTrue(signal is CallRoute.Row)
         assertEquals(3L, (signal as CallRoute.Row).row.dataId)
         // No video row from Signal: the chat, never a pretend call link.
-        assertEquals(CallRoute.ViaChat(MessengerApp.of(MessengerCatalog.SIGNAL)), CallRoutes.forApp(MessengerApp.of(MessengerCatalog.SIGNAL), video = true, rows))
+        assertEquals(
+            CallRoute.ViaChat(MessengerApp.of(MessengerCatalog.SIGNAL)), CallRoutes.forApp(MessengerApp.of(MessengerCatalog.SIGNAL), video = true, rows),
+        )
         // Business's row doesn't start a call in WhatsApp.
-        assertEquals(CallRoute.ViaChat(MessengerApp.of(MessengerCatalog.WHATSAPP)), CallRoutes.forApp(MessengerApp.of(MessengerCatalog.WHATSAPP), video = true, rows))
+        assertEquals(
+            CallRoute.ViaChat(MessengerApp.of(MessengerCatalog.WHATSAPP)), CallRoutes.forApp(MessengerApp.of(MessengerCatalog.WHATSAPP), video = true, rows),
+        )
         assertTrue(CallRoutes.forApp(MessengerApp.of(MessengerCatalog.WHATSAPP_BUSINESS), video = true, rows) is CallRoute.Row)
         // Molly doesn't take Signal's row.
-        assertEquals(CallRoute.ViaChat(MessengerApp.of(MessengerCatalog.MOLLY)), CallRoutes.forApp(MessengerApp.of(MessengerCatalog.MOLLY), video = false, rows))
+        assertEquals(
+            CallRoute.ViaChat(MessengerApp.of(MessengerCatalog.MOLLY)), CallRoutes.forApp(MessengerApp.of(MessengerCatalog.MOLLY), video = false, rows),
+        )
         assertNotNull(ReachApp.forMessengerApp(MessengerApp.forPackage("org.telegram.messenger.web")!!))
     }
 

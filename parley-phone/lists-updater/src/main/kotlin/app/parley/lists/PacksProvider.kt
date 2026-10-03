@@ -31,7 +31,11 @@ class PacksProvider : ContentProvider() {
             .filter { repo.packFile(it.id)?.exists() == true }
             .sortedBy { it.name.lowercase() }
             .forEach { p ->
-                c.addRow(arrayOf<Any?>(p.id, p.name, p.version, p.entries, p.ranges, p.sizeBytes, p.updatedAt, p.fingerprint, p.source, p.licence, p.origin, publisher))
+                c.addRow(
+                    arrayOf<Any?>(
+                        p.id, p.name, p.version, p.entries, p.ranges, p.sizeBytes, p.updatedAt, p.fingerprint, p.source, p.licence, p.origin, publisher,
+                    ),
+                )
             }
         return c
     }

@@ -97,7 +97,11 @@ class TemplateGallery private constructor(context: Context) {
             snap
         }
         write { s ->
-            s.copy(installed = s.installed.filter { it.id != t.id } + InstalledTemplate(t.id, t.name, t.version, ruleIds, packId, before, System.currentTimeMillis()))
+            s.copy(
+                installed = s.installed.filter { it.id != t.id } + InstalledTemplate(
+                    t.id, t.name, t.version, ruleIds, packId, before, System.currentTimeMillis(),
+                ),
+            )
         }
         val name = TemplateText.name(app, t)
         if (skipped > 0) app.resources.getQuantityString(R.plurals.blk_tpl_installed_skipped, skipped, name, skipped)
@@ -119,7 +123,11 @@ class TemplateGallery private constructor(context: Context) {
         val t = opened.template
         if (builtIns.any { it.id == t.id }) return app.getString(R.string.blk_tpl_already_built_in, TemplateText.name(app, t))
         write { s ->
-            s.copy(imported = s.imported.filter { runCatching { RuleTemplates.parse(it.json).id }.getOrNull() != t.id } + ImportedTemplate(opened.json, opened.fingerprint, System.currentTimeMillis()))
+            s.copy(
+                imported = s.imported.filter { runCatching { RuleTemplates.parse(it.json).id }.getOrNull() != t.id } + ImportedTemplate(
+                    opened.json, opened.fingerprint, System.currentTimeMillis(),
+                ),
+            )
         }
         return app.getString(R.string.blk_tpl_added, t.name)
     }

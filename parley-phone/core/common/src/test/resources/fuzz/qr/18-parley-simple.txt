@@ -1,0 +1,1 @@
+parley://simple?v=1&d=AAAA

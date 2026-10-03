@@ -52,7 +52,14 @@ object BlockingActions {
         val iso = PhoneEnv.countryIso(c.appContext)
         val e = PhoneNumbers.toE164(number, iso) ?: PhoneNumbers.clean(number)
         val prefix = e.dropLast(dropDigits.coerceIn(1, 6))
-        c.blocks.saveRule(BlockRule(pattern = prefix, type = RuleType.PREFIX, kind = RuleKind.ALLOW, note = name?.let { c.appContext.getString(R.string.blk_note_other_lines, it) } ?: c.appContext.getString(R.string.blk_note_office_lines)))
+        c.blocks.saveRule(
+            BlockRule(
+                pattern = prefix,
+                type = RuleType.PREFIX,
+                kind = RuleKind.ALLOW,
+                note = name?.let { c.appContext.getString(R.string.blk_note_other_lines, it) } ?: c.appContext.getString(R.string.blk_note_office_lines),
+            ),
+        )
     }
 
     suspend fun blockNumberRule(c: DataContainer, number: String, note: String? = null) {

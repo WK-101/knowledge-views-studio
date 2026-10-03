@@ -287,7 +287,9 @@ object AppLock {
             return
         }
         var launcher: ActivityResultLauncher<Intent>? = null
-        launcher = activity.activityResultRegistry.register("confirm-credential-${SystemClock.elapsedRealtime()}", ActivityResultContracts.StartActivityForResult()) { r ->
+        launcher = activity.activityResultRegistry.register(
+            "confirm-credential-${SystemClock.elapsedRealtime()}", ActivityResultContracts.StartActivityForResult(),
+        ) { r ->
             launcher?.unregister()
             onResult(r.resultCode == Activity.RESULT_OK)
         }

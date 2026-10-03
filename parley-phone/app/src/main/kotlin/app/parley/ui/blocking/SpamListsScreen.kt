@@ -132,8 +132,12 @@ fun SpamListsScreen(vm: AppViewModel, back: () -> Unit) {
                             style = MaterialTheme.typography.bodySmall,
                         )
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlinedButton({ pickFile.launch(arrayOf("*/*")) }, enabled = !busy) { Icon(Icons.Rounded.Add, null); Text(" " + stringResource(R.string.blk_add_list_file)) }
-                            OutlinedButton({ pickFolder.launch(null) }, enabled = !busy) { Icon(Icons.Rounded.Folder, null); Text(" " + stringResource(R.string.blk_folder)) }
+                            OutlinedButton(
+                                { pickFile.launch(arrayOf("*/*")) }, enabled = !busy,
+                            ) { Icon(Icons.Rounded.Add, null); Text(" " + stringResource(R.string.blk_add_list_file)) }
+                            OutlinedButton(
+                                { pickFolder.launch(null) }, enabled = !busy,
+                            ) { Icon(Icons.Rounded.Folder, null); Text(" " + stringResource(R.string.blk_folder)) }
                         }
                     }
                 }
@@ -147,8 +151,13 @@ fun SpamListsScreen(vm: AppViewModel, back: () -> Unit) {
                         supportingContent = {
                             Text(
                                 (Uri.parse(folder).lastPathSegment ?: folder) + " · " +
-                                    stringResource(R.string.blk_checked_ago, if (state.folderCheckedAt > 0) ago(state.folderCheckedAt, now) else stringResource(R.string.blk_never)) +
-                                    (state.folderError?.let { "\n" + BlockingText.installFailure(context, it) } ?: "") + "\n" + stringResource(R.string.blk_folder_help),
+                                    stringResource(
+                                        R.string.blk_checked_ago,
+                                        if (state.folderCheckedAt > 0) ago(state.folderCheckedAt, now) else stringResource(R.string.blk_never),
+                                    ) +
+                                    (state.folderError?.let { "\n" + BlockingText.installFailure(context, it) } ?: "") + "\n" + stringResource(
+                                        R.string.blk_folder_help,
+                                    ),
                             )
                         },
                         trailingContent = {
@@ -178,7 +187,11 @@ fun SpamListsScreen(vm: AppViewModel, back: () -> Unit) {
                             Text(if (b.country.equals(vm.countryIso, true)) stringResource(R.string.blk_for_your_sim, n) else n)
                         },
                         supportingContent = { Text(BlockingText.packDescription(context, b.id, b.description)) },
-                        trailingContent = { TextButton({ scope.launch { vm.c.lists.installBuiltIn(b); vm.toast(res.getString(R.string.blk_added_toast)) } }) { Text(stringResource(R.string.blk_add)) } },
+                        trailingContent = {
+                            TextButton({ scope.launch { vm.c.lists.installBuiltIn(b); vm.toast(res.getString(R.string.blk_added_toast)) } }) {
+                                Text(stringResource(R.string.blk_add))
+                            }
+                        },
                     )
                 }
             }
@@ -197,7 +210,9 @@ fun SpamListsScreen(vm: AppViewModel, back: () -> Unit) {
             onConfirm = {
                 scope.launch {
                     when (val r = vm.c.lists.install(pk, PackOrigin.FILE)) {
-                        is SpamListStore.InstallResult.Installed -> vm.toast(res.getString(if (r.replaced) R.string.blk_updated_toast else R.string.blk_added_toast))
+                        is SpamListStore.InstallResult.Installed -> vm.toast(
+                            res.getString(if (r.replaced) R.string.blk_updated_toast else R.string.blk_added_toast),
+                        )
                         is SpamListStore.InstallResult.Older -> vm.toast(res.getString(R.string.blk_list_newer_version, r.installed.toString()))
                         is SpamListStore.InstallResult.Failed -> error = BlockingText.installFailure(context, r.reason)
                     }
@@ -217,9 +232,13 @@ fun SpamListsScreen(vm: AppViewModel, back: () -> Unit) {
                             stringResource(R.string.blk_version, m.version.toString()),
                         ).joinToString(" · "),
                     )
-                    if (m.publisher.isNotBlank()) Text(stringResource(R.string.blk_from, m.publisher) + (m.licence.takeIf { it.isNotBlank() }?.let { " · $it" } ?: ""))
+                    if (m.publisher.isNotBlank()) Text(
+                        stringResource(R.string.blk_from, m.publisher) + (m.licence.takeIf { it.isNotBlank() }?.let { " · $it" } ?: ""),
+                    )
                     if (pk.signature == SignatureStatus.SIGNED) {
-                        Row(verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Rounded.Verified, null); Text("  " + stringResource(R.string.blk_signed_key, pk.fingerprint.orEmpty())) }
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) { Icon(Icons.Rounded.Verified, null); Text("  " + stringResource(R.string.blk_signed_key, pk.fingerprint.orEmpty())) }
                     } else {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Rounded.Warning, null, tint = MaterialTheme.colorScheme.error)

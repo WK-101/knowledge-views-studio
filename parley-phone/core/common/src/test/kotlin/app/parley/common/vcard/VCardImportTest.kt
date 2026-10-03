@@ -77,7 +77,10 @@ class VCardImportTest {
         assertEquals(listOf(false, true, false, false), phones.map { it.isPrimary })
 
         val adr = r.rows(Mime.POSTAL).single()
-        assertEquals(listOf("1 Infinite Loop", "Cupertino", "CA", "95014", "United States", "1"), listOf(Col.D4, Col.D7, Col.D8, Col.D9, Col.D10, Col.D2).map { adr[it] })
+        assertEquals(
+            listOf("1 Infinite Loop", "Cupertino", "CA", "95014", "United States", "1"),
+            listOf(Col.D4, Col.D7, Col.D8, Col.D9, Col.D10, Col.D2).map { adr[it] },
+        )
 
         val org = r.rows(Mime.ORG).single()
         assertEquals("Apple Inc." to "Farmer", org[Col.D1] to org[Col.D4])

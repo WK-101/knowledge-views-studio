@@ -29,17 +29,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.app.NotificationManagerCompat
 import app.parley.AppViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.R
-import app.parley.blocking.BlockingText
 import app.parley.data.Permissions
-import app.parley.ui.settings.bidiLtr
-import app.parley.ui.settings.bidiLtrIfNumber
 
 /** One gap in what screening can see, with its fix. */
 private data class Gap(val text: String, val fix: String?, val action: (() -> Unit)?)
@@ -79,9 +75,27 @@ fun ScreeningStatusCard(vm: AppViewModel) {
             stringResource(if (screener) R.string.blk_status_screener_gap else R.string.blk_status_not_screened),
             stringResource(R.string.blk_status_make_phone_app), { requestRole(RoleManager.ROLE_DIALER) },
         ))
-        if (!dialer && !screener) add(Gap(stringResource(R.string.blk_status_or_screen), stringResource(R.string.blk_status_use_for_screening), { requestRole(RoleManager.ROLE_CALL_SCREENING) }))
-        if (dialer && !screener) add(Gap(stringResource(R.string.blk_status_may_ring), stringResource(R.string.blk_status_screen_first), { requestRole(RoleManager.ROLE_CALL_SCREENING) }))
-        if (!contacts) add(Gap(stringResource(R.string.blk_status_no_contacts), stringResource(R.string.blk_status_allow_contacts), { permission.launch(Manifest.permission.READ_CONTACTS) }))
+        if (!dialer && !screener) add(
+            Gap(
+                stringResource(R.string.blk_status_or_screen),
+                stringResource(R.string.blk_status_use_for_screening),
+                { requestRole(RoleManager.ROLE_CALL_SCREENING) },
+            ),
+        )
+        if (dialer && !screener) add(
+            Gap(
+                stringResource(R.string.blk_status_may_ring),
+                stringResource(R.string.blk_status_screen_first),
+                { requestRole(RoleManager.ROLE_CALL_SCREENING) },
+            ),
+        )
+        if (!contacts) add(
+            Gap(
+                stringResource(R.string.blk_status_no_contacts),
+                stringResource(R.string.blk_status_allow_contacts),
+                { permission.launch(Manifest.permission.READ_CONTACTS) },
+            ),
+        )
         if (!notifications) add(Gap(stringResource(R.string.blk_status_no_notifications), stringResource(R.string.blk_status_turn_on), {
             roles.launch(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName))
         }))
@@ -97,7 +111,9 @@ fun ScreeningStatusCard(vm: AppViewModel) {
     )
     Card(
         Modifier.fillMaxWidth().padding(16.dp),
-        colors = CardDefaults.cardColors(containerColor = if (ok) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.tertiaryContainer),
+        colors = CardDefaults.cardColors(
+            containerColor = if (ok) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.tertiaryContainer,
+        ),
     ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {

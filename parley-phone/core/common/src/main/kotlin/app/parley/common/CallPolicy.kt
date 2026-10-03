@@ -457,7 +457,9 @@ object CallPolicy {
 
         fun block(action: BlockAction, reason: BlockReason, rule: BlockRule? = null, hit: ListHit? = null, notify: NotifyLevel = NotifyLevel.DEFAULT): ScreeningResult {
             val verdict = when {
-                reason == BlockReason.LIST && hit != null -> Verdict(VerdictKind.REPORTED, "Reported by ${hit.packName}" + (hit.category?.let { " · $it" } ?: ""))
+                reason == BlockReason.LIST && hit != null -> Verdict(
+                    VerdictKind.REPORTED, "Reported by ${hit.packName}" + (hit.category?.let { " · $it" } ?: ""),
+                )
                 rule != null -> Verdict(VerdictKind.BLOCKED, "Blocked by rule '${rule.title}'" + if (rule.hitCount > 0) " · ${rule.hitCount + 1} calls" else "")
                 reason == BlockReason.PERSONAL_REPUTATION -> Verdict(VerdictKind.BLOCKED, SALES_LINE_SILENCED)
                 else -> Verdict(VerdictKind.BLOCKED, "Blocked: ${reasonLabel(reason)}")
@@ -665,7 +667,9 @@ object CallPolicy {
             expected(reason)?.let { return it }
             if (repeatCaller()) {
                 step("Decision", "ring (repeat caller overrides ${reasonLabel(reason)})", TraceMark.MATCH)
-                return allow(AllowReason.REPEAT, ringtone = s.repeatRingtone, loud = s.ringLoudRepeat || (s.ringLoudFavourites && f.contactStarred), verdict = warn)
+                return allow(
+                    AllowReason.REPEAT, ringtone = s.repeatRingtone, loud = s.ringLoudRepeat || (s.ringLoudFavourites && f.contactStarred), verdict = warn,
+                )
             }
             return block(action, reason, hit = hit, notify = hit?.notify ?: NotifyLevel.DEFAULT)
         }
@@ -695,7 +699,9 @@ object CallPolicy {
         fun factMatches(r: BlockRule, number: String): Boolean = when (r.type) {
             RuleType.EXACT, RuleType.PREFIX, RuleType.WILDCARD -> ruleMatches(r, number, f.countryIso)
             RuleType.CALLER_NAME -> r.pattern.isNotBlank() && f.callerName?.contains(r.pattern.trim(), ignoreCase = true) == true
-            RuleType.REGION -> f.region != null && r.pattern.split(',', ' ').map { it.trim().uppercase() }.filter { it.isNotEmpty() }.contains(f.region.uppercase())
+            RuleType.REGION -> f.region != null && r.pattern.split(',', ' ').map { it.trim().uppercase() }.filter { it.isNotEmpty() }.contains(
+                f.region.uppercase(),
+            )
             RuleType.NOT_MY_REGION -> f.region != null && f.countryIso != null && !f.region.equals(f.countryIso, ignoreCase = true)
             RuleType.LINE_TYPE -> f.lineType != LineType.UNKNOWN && r.pattern.split(',').map { it.trim() }.contains(f.lineType.name)
             RuleType.LABEL -> false

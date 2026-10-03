@@ -2,8 +2,6 @@ package app.parley.ui.blocking
 
 import app.parley.ui.Destination
 import android.Manifest
-import android.content.Intent
-import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
@@ -37,15 +35,12 @@ import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.InputChip
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Slider
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -70,22 +65,14 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.R
 import app.parley.blocking.BlockingActions
-import app.parley.blocking.BlockingNotifier
 import app.parley.blocking.BlockingText
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.ui.semantics.Role
 import androidx.compose.material3.Checkbox
 import app.parley.blocking.ExpectingCallTileService
 import app.parley.common.BlockAction
-import app.parley.common.BlockRule
 import app.parley.common.CallPolicy
-import app.parley.common.LabelRefs
-import app.parley.common.NotifyLevel
-import app.parley.common.OffHours
-import app.parley.common.OffHoursAllow
 import app.parley.common.RuleKind
-import app.parley.common.RuleTools
-import app.parley.common.RuleType
 import app.parley.common.Schedule
 import app.parley.common.ScreeningSettings
 import app.parley.common.TraceCodec
@@ -95,7 +82,6 @@ import app.parley.common.blocking.ScreeningWeek
 import app.parley.common.blocking.ScreeningWeekly
 import app.parley.common.blocking.StoppedCall
 import app.parley.common.spam.BuiltInPacks
-import app.parley.data.GroupInfo
 import app.parley.data.Permissions
 import app.parley.data.PhoneEnv
 import app.parley.data.db.BlockedCallEntity
@@ -111,9 +97,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import app.parley.ui.SwitchRow
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.heading
-import androidx.compose.ui.semantics.semantics
 import app.parley.ui.ParleyTopBar
 import app.parley.ui.ParleyScaffold
 import app.parley.ui.ConfirmDialog
@@ -121,7 +104,7 @@ import app.parley.ui.ListSectionHeader
 
 /** Situations, not mechanisms: each setup says what it's for; [ScreeningPreset] holds the few switches it changes. */
 @get:StringRes
-private val ScreeningPreset.title: Int
+internal val ScreeningPreset.title: Int
     get() = when (this) {
         ScreeningPreset.KNOWN -> R.string.blk_preset_known
         ScreeningPreset.TELEMARKETERS -> R.string.blk_preset_telemarketers
@@ -130,7 +113,7 @@ private val ScreeningPreset.title: Int
     }
 
 @get:StringRes
-private val ScreeningPreset.help: Int
+internal val ScreeningPreset.help: Int
     get() = when (this) {
         ScreeningPreset.KNOWN -> R.string.blk_preset_known_help
         ScreeningPreset.TELEMARKETERS -> R.string.blk_preset_telemarketers_help
@@ -176,7 +159,9 @@ fun BlockingScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
     val blockRules = rules.filter { it.kind == RuleKind.BLOCK }
     val dismissed = remember { mutableStateOf(setOf<String>()) }
     val suggestions = remember(calls, rules, s.reputationSuggestions, dismissed.value) {
-        if (!s.reputationSuggestions) emptyList() else PersonalReputation.suggestions(calls.orEmpty().take(1500), System.currentTimeMillis(), countryOf = { e -> PhoneEnv.countryIso(context, e.accountId) }) { n ->
+        if (!s.reputationSuggestions) emptyList() else PersonalReputation.suggestions(
+            calls.orEmpty().take(1500), System.currentTimeMillis(), countryOf = { e -> PhoneEnv.countryIso(context, e.accountId) },
+        ) { n ->
             n in dismissed.value || vm.contactFor(n) != null || rules.any { r -> r.type.isNumberRule && CallPolicy.ruleMatches(r, n, vm.countryIso) }
         }.take(5)
     }
@@ -205,7 +190,11 @@ fun BlockingScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
             // "Expecting a call" chip in the header.
             item(key = "snooze") {
                 val left = s.snoozeUntil - now
-                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
                     if (left > 0) {
                         InputChip(
                             selected = true, onClick = { scope.launch { BlockingActions.snooze(vm.c, 0); ExpectingCallTileService.refresh(context) } },
@@ -230,7 +219,9 @@ fun BlockingScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
                         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Rounded.Emergency, null)
                             Text("  " + stringResource(R.string.blk_emergency_window, leftText(context, ends - now)), Modifier.weight(1f))
-                            TextButton({ ScreeningGuard.clearEmergencyWindow(context); now = System.currentTimeMillis() }) { Text(stringResource(R.string.set_reset)) }
+                            TextButton({ ScreeningGuard.clearEmergencyWindow(context); now = System.currentTimeMillis() }) {
+                                Text(stringResource(R.string.set_reset))
+                            }
                         }
                     }
                 }
@@ -243,7 +234,12 @@ fun BlockingScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
                     s.blockHidden,
                     enabled = isDefault,
                 ) { v -> setScreening { it.copy(blockHidden = v) } }
-                if (!isDefault) Text(stringResource(R.string.blk_hidden_needs_default), Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                if (!isDefault) Text(
+                    stringResource(R.string.blk_hidden_needs_default),
+                    Modifier.padding(horizontal = 16.dp),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
                 SwitchRow(
                     stringResource(R.string.blk_non_contacts),
                     stringResource(R.string.blk_non_contacts_help) + (s.nonContactsSchedule?.let { " · ${BlockingText.schedule(context, it)}" } ?: ""),
@@ -251,14 +247,18 @@ fun BlockingScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
                 ) { v -> setScreening { it.copy(blockNonContacts = v) } }
                 ListItem(
                     headlineContent = { Text(stringResource(R.string.blk_when_stopped)) },
-                    supportingContent = { Column { ActionChoice(s.defaultAction, { a -> setScreening { it.copy(defaultAction = a) } }, Modifier.padding(top = 8.dp)) } },
+                    supportingContent = {
+                        Column { ActionChoice(s.defaultAction, { a -> setScreening { it.copy(defaultAction = a) } }, Modifier.padding(top = 8.dp)) }
+                    },
                 )
             } }
 
             // ---- Spam lists hero card ----
             item(key = "lists") {
                 val sum = vm.c.lists.summarize(lists, now)
-                val suggestion = BuiltInPacks.suggestedFor(vm.countryIso).firstOrNull { b -> lists.packs.none { it.id == b.id } && b.id !in lists.dismissedSuggestions }
+                val suggestion = BuiltInPacks.suggestedFor(vm.countryIso).firstOrNull { b ->
+                    lists.packs.none { it.id == b.id } && b.id !in lists.dismissedSuggestions
+                }
                 Card(Modifier.fillMaxWidth().padding(16.dp).clickable { open(BlockingRoutes.Lists) }) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -274,10 +274,18 @@ fun BlockingScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
                                 ).joinToString(" · "),
                             style = MaterialTheme.typography.bodyLarge,
                         )
-                        if (sum.stale > 0) Text(pluralStringResource(R.plurals.blk_out_of_date_count, sum.stale, sum.stale), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                        if (sum.stale > 0) Text(
+                            pluralStringResource(R.plurals.blk_out_of_date_count, sum.stale, sum.stale),
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
                         Text(stringResource(Help.LISTS), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         if (suggestion != null) {
-                            Text(stringResource(R.string.blk_suggested_for_sim, suggestion.name), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                            Text(
+                                stringResource(R.string.blk_suggested_for_sim, suggestion.name),
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Medium,
+                            )
                             Row {
                                 TextButton({ scope.launch { vm.c.lists.installBuiltIn(suggestion); vm.toast(res.getString(R.string.blk_added, suggestion.name)) } }) { Text(stringResource(R.string.blk_add)) }
                                 TextButton({ scope.launch { vm.c.lists.dismissSuggestion(suggestion.id) } }) { Text(stringResource(R.string.blk_no_thanks)) }
@@ -310,8 +318,12 @@ fun BlockingScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
                         scope.launch { vm.c.settings.update { it.copy(repeatCallerRingsThrough = v) } }
                     }
                     if (settings.repeatCallerRingsThrough) {
-                        LabeledSlider(stringResource(R.string.blk_repeat_window, s.repeatWindowMinutes), s.repeatWindowMinutes.toFloat(), 1f..15f, 13) { v -> setScreening { it.copy(repeatWindowMinutes = v.toInt()) } }
-                        LabeledSlider(stringResource(R.string.blk_repeat_min_interval, s.repeatMinIntervalSeconds), s.repeatMinIntervalSeconds.toFloat(), 0f..60f, 11) { v -> setScreening { it.copy(repeatMinIntervalSeconds = v.toInt()) } }
+                        LabeledSlider(
+                            stringResource(R.string.blk_repeat_window, s.repeatWindowMinutes), s.repeatWindowMinutes.toFloat(), 1f..15f, 13,
+                        ) { v -> setScreening { it.copy(repeatWindowMinutes = v.toInt()) } }
+                        LabeledSlider(
+                            stringResource(R.string.blk_repeat_min_interval, s.repeatMinIntervalSeconds), s.repeatMinIntervalSeconds.toFloat(), 0f..60f, 11,
+                        ) { v -> setScreening { it.copy(repeatMinIntervalSeconds = v.toInt()) } }
                     }
                     SwitchRow(
                         stringResource(R.string.blk_numbers_you_called),
@@ -323,7 +335,9 @@ fun BlockingScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
                         pluralStringResource(R.plurals.blk_people_you_talked_to_help, s.answeredDays, s.answeredMinSeconds, s.answeredDays),
                         s.allowAnswered,
                     ) { v -> setScreening { it.copy(allowAnswered = v) } }
-                    TextButton({ open(BlockingRoutes.rule(0, RuleKind.ALLOW)) }, Modifier.padding(horizontal = 8.dp)) { Icon(Icons.Rounded.Add, null); Text(" " + stringResource(R.string.blk_allow_number_or_range)) }
+                    TextButton(
+                        { open(BlockingRoutes.rule(0, RuleKind.ALLOW)) }, Modifier.padding(horizontal = 8.dp),
+                    ) { Icon(Icons.Rounded.Add, null); Text(" " + stringResource(R.string.blk_allow_number_or_range)) }
                     allowRules.forEach { r -> RuleRow(vm, r, now) { open(BlockingRoutes.rule(r.id)) } }
                 }
             }
@@ -334,15 +348,24 @@ fun BlockingScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
                     stringResource(R.string.blk_your_rules), stringResource(Help.BLOCK),
                     listOfNotNull(
                         stringResource(R.string.blk_sum_on, blockRules.count { it.enabled }).takeIf { blockRules.isNotEmpty() },
-                        blockRules.count { it.schedule != null }.let { n -> pluralStringResource(R.plurals.blk_sum_scheduled, n, n) }.takeIf { blockRules.any { it.schedule != null } },
-                        blockRules.sumOf { it.hitCount }.let { n -> pluralStringResource(R.plurals.blk_sum_calls_stopped, n, n) }.takeIf { blockRules.any { it.hitCount > 0 } },
+                        blockRules.count { it.schedule != null }.let { n -> pluralStringResource(R.plurals.blk_sum_scheduled, n, n) }.takeIf {
+                            blockRules.any { it.schedule != null }
+                        },
+                        blockRules.sumOf { it.hitCount }.let { n -> pluralStringResource(R.plurals.blk_sum_calls_stopped, n, n) }.takeIf {
+                            blockRules.any { it.hitCount > 0 }
+                        },
                     ),
                     "block" in expanded, { toggle("block") }, Icons.Rounded.Rule,
                 ) {
                     Row(Modifier.padding(horizontal = 8.dp)) {
-                        TextButton({ open(BlockingRoutes.rule(0, RuleKind.BLOCK)) }) { Icon(Icons.Rounded.Add, null); Text(" " + stringResource(R.string.blk_add_rule)) }
+                        TextButton({ open(BlockingRoutes.rule(0, RuleKind.BLOCK)) }) {
+                            Icon(Icons.Rounded.Add, null)
+                            Text(" " + stringResource(R.string.blk_add_rule))
+                        }
                     }
-                    if (blockRules.isEmpty()) Text(stringResource(R.string.blk_no_rules), Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (blockRules.isEmpty()) Text(
+                        stringResource(R.string.blk_no_rules), Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                     blockRules.forEach { r -> RuleRow(vm, r, now) { open(BlockingRoutes.rule(r.id)) } }
                 }
             }
@@ -368,9 +391,18 @@ fun BlockingScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
                         null,
                         oh.enabled,
                     ) { v -> setScreening { it.copy(offHours = it.offHours.copy(enabled = v)) } }
-                    ScheduleField(oh.schedule, { sc -> setScreening { it.copy(offHours = it.offHours.copy(schedule = sc ?: Schedule(Schedule.ALL_DAYS, 22 * 60, 7 * 60))) } }, alwaysLabel = stringResource(R.string.blk_all_day))
+                    ScheduleField(
+                        oh.schedule,
+                        { sc -> setScreening { it.copy(offHours = it.offHours.copy(schedule = sc ?: Schedule(Schedule.ALL_DAYS, 22 * 60, 7 * 60))) } },
+                        alwaysLabel = stringResource(R.string.blk_all_day),
+                    )
                     OffHoursWho(vm, oh) { o -> setScreening { it.copy(offHours = o) } }
-                    ListItem(headlineContent = { Text(stringResource(R.string.blk_everyone_else)) }, supportingContent = { ActionChoice(oh.action, { a -> setScreening { it.copy(offHours = it.offHours.copy(action = a)) } }, Modifier.padding(top = 8.dp)) })
+                    ListItem(
+                        headlineContent = { Text(stringResource(R.string.blk_everyone_else)) },
+                        supportingContent = {
+                            ActionChoice(oh.action, { a -> setScreening { it.copy(offHours = it.offHours.copy(action = a)) } }, Modifier.padding(top = 8.dp))
+                        },
+                    )
                     SwitchRow(
                         stringResource(R.string.blk_offer_reply),
                         stringResource(R.string.blk_offer_reply_help, s.busyReplyText),
@@ -396,7 +428,9 @@ fun BlockingScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
                     "more" in expanded, { toggle("more") }, Icons.Rounded.Security,
                 ) {
                     SwitchRow(stringResource(R.string.blk_neighbour), stringResource(R.string.blk_neighbour_help), s.blockNeighbourSpoofing) { v ->
-                        if (v && !Permissions.has(context, Manifest.permission.READ_PHONE_NUMBERS)) numbersPermission.launch(Manifest.permission.READ_PHONE_NUMBERS)
+                        if (v && !Permissions.has(context, Manifest.permission.READ_PHONE_NUMBERS)) numbersPermission.launch(
+                            Manifest.permission.READ_PHONE_NUMBERS,
+                        )
                         else setScreening { it.copy(blockNeighbourSpoofing = v) }
                     }
                     SwitchRow(
@@ -409,12 +443,25 @@ fun BlockingScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
                         stringResource(R.string.blk_cant_exist_help),
                         s.blockInvalid,
                     ) { v -> setScreening { it.copy(blockInvalid = v) } }
-                    if (s.blockInvalid) ListItem(headlineContent = { Text(stringResource(R.string.blk_invalid_are)) }, supportingContent = { ActionChoice(s.invalidAction, { a -> setScreening { it.copy(invalidAction = a) } }, Modifier.padding(top = 8.dp)) })
-                    Text(stringResource(R.string.blk_active), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(start = 16.dp, top = 8.dp))
+                    if (s.blockInvalid) ListItem(
+                        headlineContent = { Text(stringResource(R.string.blk_invalid_are)) },
+                        supportingContent = {
+                            ActionChoice(s.invalidAction, { a -> setScreening { it.copy(invalidAction = a) } }, Modifier.padding(top = 8.dp))
+                        },
+                    )
+                    Text(
+                        stringResource(R.string.blk_active),
+                        style = MaterialTheme.typography.titleSmall,
+                        modifier = Modifier.padding(start = 16.dp, top = 8.dp),
+                    )
                     ToggleScheduleRow(stringResource(R.string.blk_hidden_numbers), s.hiddenSchedule) { sc -> setScreening { it.copy(hiddenSchedule = sc) } }
-                    ToggleScheduleRow(stringResource(R.string.blk_preset_known), s.nonContactsSchedule) { sc -> setScreening { it.copy(nonContactsSchedule = sc) } }
+                    ToggleScheduleRow(
+                        stringResource(R.string.blk_preset_known), s.nonContactsSchedule,
+                    ) { sc -> setScreening { it.copy(nonContactsSchedule = sc) } }
                     ToggleScheduleRow(stringResource(R.string.blk_neighbour), s.neighbourSchedule) { sc -> setScreening { it.copy(neighbourSchedule = sc) } }
-                    ToggleScheduleRow(stringResource(R.string.blk_verification), s.verificationSchedule) { sc -> setScreening { it.copy(verificationSchedule = sc) } }
+                    ToggleScheduleRow(
+                        stringResource(R.string.blk_verification), s.verificationSchedule,
+                    ) { sc -> setScreening { it.copy(verificationSchedule = sc) } }
                     ToggleScheduleRow(stringResource(R.string.blk_invalid_numbers), s.invalidSchedule) { sc -> setScreening { it.copy(invalidSchedule = sc) } }
                 }
             }
@@ -430,7 +477,7 @@ fun BlockingScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
                     ),
                     "sounds" in expanded, { toggle("sounds") }, Icons.Rounded.MusicNote,
                 ) {
-                    SoundsSection(vm, s) { f -> setScreening(f) }
+                    SoundsSection(s) { f -> setScreening(f) }
                 }
             }
 
@@ -438,7 +485,11 @@ fun BlockingScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
             item(key = "emergency") {
                 CollapsibleSection(
                     stringResource(R.string.blk_emergency), stringResource(Help.EMERGENCY),
-                    listOfNotNull(pluralStringResource(R.plurals.blk_sum_extra_numbers, s.emergencyExtras.size, s.emergencyExtras.size).takeIf { s.emergencyExtras.isNotEmpty() }),
+                    listOfNotNull(
+                        pluralStringResource(
+                            R.plurals.blk_sum_extra_numbers, s.emergencyExtras.size, s.emergencyExtras.size,
+                        ).takeIf { s.emergencyExtras.isNotEmpty() },
+                    ),
                     "emergency" in expanded, { toggle("emergency") }, Icons.Rounded.Emergency,
                 ) {
                     EmergencySection(vm, s) { f -> setScreening(f) }
@@ -447,10 +498,21 @@ fun BlockingScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
 
             // ---- Tools ----
             item(key = "tools") {
-                CollapsibleSection(stringResource(R.string.blk_tools), stringResource(Help.TOOLS), emptyList(), "tools" in expanded, { toggle("tools") }, Icons.Rounded.Build) {
+                CollapsibleSection(
+                    stringResource(R.string.blk_tools), stringResource(Help.TOOLS), emptyList(), "tools" in expanded, { toggle("tools") }, Icons.Rounded.Build,
+                ) {
                     Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                        OutlinedTextField(testNumber, { testNumber = it }, label = { Text(stringResource(R.string.blk_test_a_number)) }, singleLine = true, textStyle = ltrTextStyle(), modifier = Modifier.weight(1f))
-                        TextButton({ BlockingDialogs.show(BlockingDialog.Test(testNumber.trim())) }, enabled = testNumber.isNotBlank()) { Text(stringResource(R.string.blk_test)) }
+                        OutlinedTextField(
+                            testNumber,
+                            { testNumber = it },
+                            label = { Text(stringResource(R.string.blk_test_a_number)) },
+                            singleLine = true,
+                            textStyle = ltrTextStyle(),
+                            modifier = Modifier.weight(1f),
+                        )
+                        TextButton(
+                            { BlockingDialogs.show(BlockingDialog.Test(testNumber.trim())) }, enabled = testNumber.isNotBlank(),
+                        ) { Text(stringResource(R.string.blk_test)) }
                     }
                     ListItem(
                         modifier = Modifier.clickable { open(BlockingRoutes.DryRun) },
@@ -477,15 +539,23 @@ fun BlockingScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
             item(key = "system") {
                 CollapsibleSection(
                     stringResource(R.string.blk_system_list), stringResource(R.string.blk_system_list_help),
-                    listOf(pluralStringResource(R.plurals.set_numbers_count, system.size, system.size)), "system" in expanded, { toggle("system") }, Icons.Rounded.Block,
+                    listOf(
+                        pluralStringResource(R.plurals.set_numbers_count, system.size, system.size),
+                    ), "system" in expanded, { toggle("system") }, Icons.Rounded.Block,
                 ) {
-                    TextButton({ addNumber = true }, Modifier.padding(horizontal = 8.dp)) { Icon(Icons.Rounded.Add, null); Text(" " + stringResource(R.string.blk_block_a_number)) }
-                    if (!vm.c.blocks.canUseSystemList()) Text(stringResource(R.string.blk_need_default), Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.error)
+                    TextButton(
+                        { addNumber = true }, Modifier.padding(horizontal = 8.dp),
+                    ) { Icon(Icons.Rounded.Add, null); Text(" " + stringResource(R.string.blk_block_a_number)) }
+                    if (!vm.c.blocks.canUseSystemList()) Text(
+                        stringResource(R.string.blk_need_default), Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.error,
+                    )
                     system.forEach { b ->
                         ListItem(
                             leadingContent = { Icon(Icons.Rounded.Block, null) },
                             headlineContent = { Text(bidiLtr(Format.number(b.number, vm.countryIso))) },
-                            trailingContent = { IconButton({ vm.unblockNumber(b.number) }) { Icon(Icons.Rounded.Delete, stringResource(R.string.blk_unblock)) } },
+                            trailingContent = {
+                                IconButton({ vm.unblockNumber(b.number) }) { Icon(Icons.Rounded.Delete, stringResource(R.string.blk_unblock)) }
+                            },
                         )
                     }
                 }
@@ -494,13 +564,24 @@ fun BlockingScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
             // ---- Blocked log ----
             item(key = "log-head") {
                 Section(stringResource(R.string.blk_recent))
-                Text(stringResource(Help.LOG), Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    stringResource(Help.LOG),
+                    Modifier.padding(horizontal = 16.dp),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
                 if (suggestions.isNotEmpty()) {
-                    Text(stringResource(R.string.blk_likely_spam_for_you), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(start = 16.dp, top = 12.dp))
+                    Text(
+                        stringResource(R.string.blk_likely_spam_for_you),
+                        style = MaterialTheme.typography.titleSmall,
+                        modifier = Modifier.padding(start = 16.dp, top = 12.dp),
+                    )
                     suggestions.forEach { sg ->
                         ListItem(
                             headlineContent = { Text(bidiLtr(Format.number(sg.number, vm.countryIso))) },
-                            supportingContent = { Text(stringResource(R.string.blk_sugg_line, BlockingText.suggestionReason(context, sg), ago(sg.lastAt, now))) },
+                            supportingContent = {
+                                Text(stringResource(R.string.blk_sugg_line, BlockingText.suggestionReason(context, sg), ago(sg.lastAt, now)))
+                            },
                             trailingContent = {
                                 Row {
                                     TextButton({ dismissed.value = dismissed.value + sg.number }) { Text(stringResource(R.string.blk_dismiss)) }
@@ -516,7 +597,9 @@ fun BlockingScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
                     }
                 }
                 if (log.isEmpty()) Text(stringResource(R.string.blk_nothing_yet), Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                else TextButton({ scope.launch { vm.c.blocks.clearBlockedLog() } }, Modifier.padding(horizontal = 8.dp)) { Text(stringResource(R.string.blk_clear_log)) }
+                else TextButton(
+                    { scope.launch { vm.c.blocks.clearBlockedLog() } }, Modifier.padding(horizontal = 8.dp),
+                ) { Text(stringResource(R.string.blk_clear_log)) }
             }
             val shown = log.take(100)
             itemsIndexed(shown, key = { _, e -> "l" + e.id }) { i, e ->
@@ -557,7 +640,10 @@ fun BlockingScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
             title = stringResource(R.string.blk_block_a_number),
             text = null,
             confirmLabel = stringResource(R.string.blk_block),
-            onConfirm = { if (n.isNotBlank()) vm.blockNumber(n.trim()); addNumber = false },
+            onConfirm = {
+                if (n.isNotBlank()) vm.blockNumber(n.trim())
+                addNumber = false
+            },
             onDismiss = { addNumber = false },
             dismissLabel = stringResource(R.string.set_cancel),
             content = { OutlinedTextField(
@@ -569,160 +655,6 @@ fun BlockingScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
             ) },
         )
     }
-}
-
-@Composable
-private fun offHoursWho(o: OffHours) = when (o.allow) {
-    OffHoursAllow.CONTACTS -> stringResource(R.string.blk_who_contacts)
-    OffHoursAllow.FAVOURITES -> stringResource(R.string.blk_who_favourites)
-    OffHoursAllow.LABEL -> "'${o.labelTitle ?: stringResource(R.string.blk_who_label)}'"
-}
-
-@Composable
-private fun LabeledSlider(label: String, value: Float, range: ClosedFloatingPointRange<Float>, steps: Int, onChange: (Float) -> Unit) {
-    var v by remember(value) { mutableStateOf(value) }
-    Column(Modifier.padding(horizontal = 16.dp)) {
-        Text(label, style = MaterialTheme.typography.bodyMedium)
-        Slider(v, { v = it }, valueRange = range, steps = steps, onValueChangeFinished = { onChange(v) })
-    }
-}
-
-@Composable
-private fun ToggleScheduleRow(title: String, schedule: Schedule?, onChange: (Schedule?) -> Unit) {
-    var open by remember { mutableStateOf(false) }
-    ListItem(
-        modifier = Modifier.clickable { open = !open },
-        headlineContent = { Text(title) },
-        supportingContent = { Text(schedule?.let { BlockingText.schedule(LocalContext.current, it) } ?: stringResource(R.string.blk_always)) },
-    )
-    if (open) ScheduleField(schedule, onChange)
-}
-
-@Composable
-private fun OffHoursWho(vm: AppViewModel, oh: OffHours, onChange: (OffHours) -> Unit) {
-    var groups by remember { mutableStateOf<List<GroupInfo>>(emptyList()) }
-    LaunchedEffect(Unit) { groups = withContext(Dispatchers.IO) { runCatching { vm.c.contacts.groups() }.getOrDefault(emptyList()) } }
-    Column(Modifier.padding(horizontal = 16.dp)) {
-        Text(stringResource(R.string.blk_who_may_ring), style = MaterialTheme.typography.titleSmall)
-        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            FilterChip(oh.allow == OffHoursAllow.CONTACTS, { onChange(oh.copy(allow = OffHoursAllow.CONTACTS)) }, label = { Text(stringResource(R.string.blk_all_contacts)) })
-            FilterChip(oh.allow == OffHoursAllow.FAVOURITES, { onChange(oh.copy(allow = OffHoursAllow.FAVOURITES)) }, label = { Text(stringResource(R.string.blk_favourites)) })
-            // By title: the label in every account.
-            groups.map { LabelRefs.key(it.title) }.distinct().forEach { t ->
-                val on = oh.allow == OffHoursAllow.LABEL && oh.labelTitle?.let { LabelRefs.key(it) } == t
-                FilterChip(on, { onChange(oh.copy(allow = OffHoursAllow.LABEL, labelId = null, labelTitle = t)) }, label = { Text(t) })
-            }
-        }
-        Text(stringResource(R.string.blk_off_hours_still_through), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
-}
-
-@Composable
-private fun SoundsSection(vm: AppViewModel, s: ScreeningSettings, set: ((ScreeningSettings) -> ScreeningSettings) -> Unit) {
-    val context = LocalContext.current
-    var target by rememberSaveable { mutableStateOf("") }
-    val pick = rememberRingtonePicker { uri -> if (target == "repeat") set { it.copy(repeatRingtone = uri) } else set { it.copy(likelySpamRingtone = uri) } }
-    SwitchRow(
-        stringResource(R.string.blk_loud_favourites),
-        stringResource(R.string.blk_loud_favourites_help),
-        s.ringLoudFavourites,
-    ) { v -> set { it.copy(ringLoudFavourites = v) } }
-    SwitchRow(
-        stringResource(R.string.blk_loud_repeat),
-        stringResource(R.string.blk_loud_repeat_help, s.repeatWindowMinutes),
-        s.ringLoudRepeat,
-    ) { v -> set { it.copy(ringLoudRepeat = v) } }
-    ListItem(
-        modifier = Modifier.clickable { target = "repeat"; pick(s.repeatRingtone) },
-        headlineContent = { Text(stringResource(R.string.blk_ringtone_repeat)) },
-        supportingContent = { Text(ringtoneTitle(context, s.repeatRingtone) ?: stringResource(R.string.set_same_as_usual)) },
-        trailingContent = { if (s.repeatRingtone != null) TextButton({ set { it.copy(repeatRingtone = null) } }) { Text(stringResource(R.string.set_reset)) } },
-    )
-    ListItem(
-        modifier = Modifier.clickable { target = "spam"; pick(s.likelySpamRingtone) },
-        headlineContent = { Text(stringResource(R.string.blk_ringtone_spam)) },
-        supportingContent = { Text(ringtoneTitle(context, s.likelySpamRingtone) ?: stringResource(R.string.set_same_as_usual)) },
-        trailingContent = { if (s.likelySpamRingtone != null) TextButton({ set { it.copy(likelySpamRingtone = null) } }) { Text(stringResource(R.string.set_reset)) } },
-    )
-    Text(stringResource(R.string.blk_label_ringtones_help), Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    Text(stringResource(R.string.blk_notifications), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(start = 16.dp, top = 12.dp))
-    listOf(
-        Triple(stringResource(R.string.blk_notify_blocked), s.notifyBlocked) { n: NotifyLevel -> set { it.copy(notifyBlocked = n) } },
-        Triple(stringResource(R.string.blk_notify_reported), s.notifyReported) { n: NotifyLevel -> set { it.copy(notifyReported = n) } },
-        Triple(stringResource(R.string.blk_notify_likely), s.notifyLikelySpam) { n: NotifyLevel -> set { it.copy(notifyLikelySpam = n) } },
-    ).forEach { (title, v, change) ->
-        ListItem(headlineContent = { Text(title) }, supportingContent = { NotifyChoice(v, allowDefault = false, change) })
-    }
-    if (s.notifyBlocked == NotifyLevel.NONE) {
-        Text(stringResource(R.string.blk_notify_off_warning), Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
-    }
-    TextButton({
-        BlockingNotifier.channels(context)
-        try {
-            context.startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName))
-        } catch (_: Exception) {
-        }
-    }, Modifier.padding(horizontal = 8.dp)) { Text(stringResource(R.string.blk_channel_settings)) }
-}
-
-@Composable
-private fun EmergencySection(vm: AppViewModel, s: ScreeningSettings, set: ((ScreeningSettings) -> ScreeningSettings) -> Unit) {
-    var n by rememberSaveable { mutableStateOf("") }
-    Text(
-        stringResource(R.string.blk_emergency_extras_help),
-        Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodySmall,
-    )
-    s.emergencyExtras.forEach { x ->
-        ListItem(
-            headlineContent = { Text(bidiLtr(Format.number(x, vm.countryIso))) },
-            trailingContent = { IconButton({ set { it.copy(emergencyExtras = it.emergencyExtras - x) } }) { Icon(Icons.Rounded.Delete, stringResource(R.string.ct_remove)) } },
-        )
-    }
-    Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-        OutlinedTextField(n, { n = it }, label = { Text(stringResource(R.string.blk_add_a_number)) }, singleLine = true, textStyle = ltrTextStyle(), modifier = Modifier.weight(1f))
-        TextButton({
-            val clean = RuleTools.check(n, RuleType.EXACT, vm.countryIso)
-            if (clean.error == null) set { it.copy(emergencyExtras = (it.emergencyExtras + clean.pattern).distinct()) }
-            n = ""
-        }, enabled = n.isNotBlank()) { Text(stringResource(R.string.blk_add)) }
-    }
-}
-
-/** A rule with its hit counter ("5 calls, last 2 days ago") and on/off switch. */
-@Composable
-private fun RuleRow(vm: AppViewModel, r: BlockRule, now: Long, onClick: () -> Unit) {
-    val scope = rememberCoroutineScope()
-    val expiresAt = r.expiresAt
-    val expired = expiresAt != null && expiresAt <= now
-    val context = LocalContext.current
-    val title = BlockingText.ruleTitle(context, r).let { if (r.note.isNullOrBlank() && r.type.isNumberRule) bidiLtr(it) else it }
-    ListItem(
-        modifier = Modifier.clickable(onClick = onClick),
-        leadingContent = { Icon(if (r.kind == RuleKind.ALLOW) Icons.Rounded.VerifiedUser else Icons.Rounded.Rule, null) },
-        headlineContent = { Text(title) },
-        supportingContent = {
-            Text(
-                listOfNotNull(
-                    BlockingText.ruleDescribe(context, r).takeIf { r.note != null || !r.type.isNumberRule },
-                    if (r.kind == RuleKind.BLOCK) stringResource(if (r.action == BlockAction.SILENCE) R.string.blk_action_silence_lower else R.string.blk_action_reject_lower) else null,
-                    r.schedule?.let { BlockingText.schedule(context, it) },
-                    r.simId?.let { id -> vm.sims.value.firstOrNull { it.id == id }?.label ?: stringResource(R.string.blk_one_sim) },
-                    expiresAt?.let { if (expired) stringResource(R.string.blk_expired) else stringResource(R.string.blk_for_duration, leftText(context, it - now)) },
-                    if (r.hitCount > 0) {
-                        pluralStringResource(R.plurals.blk_calls, r.hitCount, r.hitCount) + (r.lastHitAt?.let { ", " + stringResource(R.string.blk_last_ago, ago(it, now)) } ?: "")
-                    } else {
-                        null
-                    },
-                ).joinToString(" · "),
-            )
-        },
-        // The row opens the rule; the switch is its own control and says which rule it turns on or off.
-        trailingContent = { Switch(
-            r.enabled && !expired,
-            modifier = Modifier.semantics { contentDescription = title },
-            onCheckedChange = { v -> scope.launch { vm.c.blocks.saveRule(r.copy(enabled = v, expiresAt = if (expired && v) null else r.expiresAt)) } },
-        ) },
-    )
 }
 
 /** Expandable blocked-log row: the stored trace, plus "Not spam", allow for a day, report, delete. */
@@ -756,8 +688,14 @@ private fun BlockedLogRow(vm: AppViewModel, e: BlockedCallEntity) {
                 val n = e.number
                 if (n != null) {
                     Row(Modifier.horizontalScroll(rememberScrollState()).padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        AssistChip({ scope.launch { BlockingActions.notSpam(vm.c, n, e.packId); vm.toast(res.getString(R.string.blk_marked_not_spam)) } }, { Text(stringResource(R.string.blk_not_spam)) })
-                        AssistChip({ scope.launch { BlockingActions.allowNumber(vm.c, n, hours = 24); vm.toast(res.getString(R.string.blk_allowed_24h)) } }, { Text(stringResource(R.string.blk_allow_24h)) })
+                        AssistChip(
+                            { scope.launch { BlockingActions.notSpam(vm.c, n, e.packId); vm.toast(res.getString(R.string.blk_marked_not_spam)) } },
+                            { Text(stringResource(R.string.blk_not_spam)) },
+                        )
+                        AssistChip(
+                            { scope.launch { BlockingActions.allowNumber(vm.c, n, hours = 24); vm.toast(res.getString(R.string.blk_allowed_24h)) } },
+                            { Text(stringResource(R.string.blk_allow_24h)) },
+                        )
                         AssistChip({ BlockingDialogs.show(BlockingDialog.Test(n)) }, { Text(stringResource(R.string.blk_test_again)) })
                         AssistChip({ BlockingDialogs.show(BlockingDialog.Report(n)) }, { Text(stringResource(R.string.blk_report)) })
                         AssistChip({ scope.launch { vm.c.blocks.deleteScreened(e.id) } }, { Text(stringResource(R.string.blk_delete)) })
@@ -794,54 +732,3 @@ private fun weekOf(log: List<BlockedCallEntity>, now: Long, person: (String) -> 
     },
     now,
 )
-
-/**
- * P9: "You're on: Only people I know" and the setups to switch to, each opening what it changes before it's applied;
- * then the week in one quiet line ("12 calls silenced · no contacts affected").
- */
-@Composable
-private fun PresetHeader(current: List<ScreeningPreset>, week: ScreeningWeek, pick: (ScreeningPreset) -> Unit) {
-    val names = current.map { stringResource(it.title) }
-    val on = if (names.isEmpty()) stringResource(R.string.blk_own_mix) else names.joinToString(" · ")
-    Card(
-        Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 8.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
-    ) {
-        Column(Modifier.padding(vertical = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(
-                stringResource(R.string.blk_youre_on, on), style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.padding(horizontal = 16.dp).semantics { heading() },
-            )
-            Text(weekLine(week), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(horizontal = 16.dp))
-            Row(
-                Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                ScreeningPreset.entries.forEach { p ->
-                    FilterChip(p in current, { pick(p) }, label = { Text(stringResource(p.title)) })
-                }
-            }
-            Text(
-                stringResource(R.string.blk_setups_hint), style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSecondaryContainer, modifier = Modifier.padding(horizontal = 16.dp),
-            )
-        }
-    }
-}
-
-@Composable
-private fun weekLine(w: ScreeningWeek): String {
-    if (w.stopped == 0) return stringResource(R.string.blk_week_none)
-    val calls = when {
-        w.declined == 0 -> pluralStringResource(R.plurals.blk_week_silenced, w.silenced, w.silenced)
-        w.silenced == 0 -> pluralStringResource(R.plurals.blk_week_declined_only, w.declined, w.declined)
-        else -> stringResource(
-            R.string.blk_week_both,
-            pluralStringResource(R.plurals.blk_week_silenced, w.silenced, w.silenced),
-            pluralStringResource(R.plurals.blk_week_declined, w.declined, w.declined),
-        )
-    }
-    val contacts = if (w.contactsAffected == 0) stringResource(R.string.blk_week_no_contacts)
-    else pluralStringResource(R.plurals.blk_week_contacts, w.contactsAffected, w.contactsAffected)
-    return stringResource(R.string.blk_week_line, calls, contacts)
-}

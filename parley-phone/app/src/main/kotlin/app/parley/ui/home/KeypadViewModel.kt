@@ -103,7 +103,9 @@ class KeypadViewModel(private val c: DataContainer) : ViewModel() {
 
     private val contactIndex = directory.contacts.map { list -> TextSearchIndex(list.orEmpty(), { it.displayName }, { ct -> ct.phones.map { it.number } }) }
         .flowOn(Dispatchers.Default)
-    private val vaultIndex = combine(c.vault.contacts, hideVault) { list, hidden -> TextSearchIndex(if (hidden) emptyList() else list, { it.name }, { it.numbers }) }
+    private val vaultIndex = combine(
+        c.vault.contacts, hideVault,
+    ) { list, hidden -> TextSearchIndex(if (hidden) emptyList() else list, { it.name }, { it.numbers }) }
         .flowOn(Dispatchers.Default)
 
     /** Matches for [searchQuery]; null until the first search has run. */

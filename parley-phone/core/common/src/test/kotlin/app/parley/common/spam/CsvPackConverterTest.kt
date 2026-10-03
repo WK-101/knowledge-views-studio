@@ -52,7 +52,9 @@ class CsvPackConverterTest {
         // (The tool reads letters as a vanity number; the converter skips them, so compare on clean data.)
         val clean = ftc.lines().filterNot { "not-a-number" in it }.joinToString("\n")
         val viaTool = PackBuilder(PackManifest(id = "a", name = "a")).also { FtcCsv.addTo(it, clean) }
-        val viaConverter = PackBuilder(PackManifest(id = "a", name = "a")).also { CsvPackConverter.tally(clean, FtcDncSource.SPEC).addTo(it, FtcDncSource.SPEC) }
+        val viaConverter = PackBuilder(
+            PackManifest(id = "a", name = "a"),
+        ).also { CsvPackConverter.tally(clean, FtcDncSource.SPEC).addTo(it, FtcDncSource.SPEC) }
         assertTrue(viaTool.numbersBytes().contentEquals(viaConverter.numbersBytes()))
     }
 
@@ -71,7 +73,9 @@ class CsvPackConverterTest {
         val csv = "number;reports;type\n+33612345678;7;arnaque\n0612345679;1;démarchage\n"
         val spec = CsvSpec(
             numberColumns = listOf("number"), countryIso = "FR", countColumn = "reports", categoryColumn = "type",
-            categoryKeywords = listOf("arnaque" to 3, "démarchage" to 1), categoryPriority = listOf(3), categories = mapOf("1" to "Telemarketing", "3" to "Scam"),
+            categoryKeywords = listOf("arnaque" to 3, "démarchage" to 1),
+            categoryPriority = listOf(3),
+            categories = mapOf("1" to "Telemarketing", "3" to "Scam"),
         )
         val p = ListPack.parse(CsvPackConverter.convert(csv, spec, PackManifest(id = "fr.community", name = "FR"), now = 1L))
         val idx = PackIndex.of(p)

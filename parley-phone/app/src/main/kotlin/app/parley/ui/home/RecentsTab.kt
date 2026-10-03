@@ -209,12 +209,18 @@ fun RecentsTab(vm: AppViewModel, open: (Destination) -> Unit, bottomPadding: Dp 
                         action = stringResource(R.string.ux_empty_clear_search), onAction = { recents.query.value = "" },
                     )
                     filter != RecentFilter.ALL || !activeSaved.isEmpty -> EmptyState(
-                        Icons.Rounded.AccessTime, stringResource(R.string.recents_nothing_here), stringResource(R.string.ux_empty_calls_filter), Modifier.padding(top = 48.dp),
+                        Icons.Rounded.AccessTime,
+                        stringResource(R.string.recents_nothing_here),
+                        stringResource(R.string.ux_empty_calls_filter),
+                        Modifier.padding(top = 48.dp),
                         action = stringResource(R.string.ux_empty_show_all_calls),
                         onAction = recents::showAll,
                     )
                     else -> EmptyState(
-                        Icons.Rounded.AccessTime, stringResource(R.string.recents_empty), stringResource(R.string.ux_empty_calls_none), Modifier.padding(top = 48.dp),
+                        Icons.Rounded.AccessTime,
+                        stringResource(R.string.recents_empty),
+                        stringResource(R.string.ux_empty_calls_none),
+                        Modifier.padding(top = 48.dp),
                         action = stringResource(R.string.ux_empty_open_keypad), onAction = { vm.navigate(NavEvent.Tab(StartTab.KEYPAD)) },
                     )
                 }
@@ -244,7 +250,9 @@ fun RecentsTab(vm: AppViewModel, open: (Destination) -> Unit, bottomPadding: Dp 
                       when (a) {
                           SwipeAction.CALL -> vm.requestCall(g.number, g.contact?.displayName)
                           SwipeAction.MESSAGE -> g.contact?.let { quick.message(it, g.number) } ?: Intents.sms(context, g.number)
-                          SwipeAction.MESSAGE_ON -> g.contact?.let { quick.message(it, g.number, ask = true) } ?: run { messageFor = g.number to g.latest.accountId }
+                          SwipeAction.MESSAGE_ON -> g.contact?.let { quick.message(it, g.number, ask = true) } ?: run {
+                              messageFor = g.number to g.latest.accountId
+                          }
                           SwipeAction.BLOCK -> blockWithUndo(vm, listOf(g.number))
                           SwipeAction.DELETE -> vm.deleteCallsWithUndo(g.calls)
                           SwipeAction.NONE -> Unit
@@ -351,7 +359,9 @@ fun RecentRow(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (rich) {
                     // TalkBack reads the type in words (and that the call still waits for a call back).
-                    val words = stringResource(callClassLabel(cls)) + if (attention) stringResource(R.string.main_separator) + stringResource(R.string.recents_not_returned) else ""
+                    val words = stringResource(callClassLabel(cls)) + if (attention) stringResource(
+                        R.string.main_separator,
+                    ) + stringResource(R.string.recents_not_returned) else ""
                     CallClassBadge(cls, size = 20.dp, contentDescription = words)
                     if (RecentsMark.SEQUENCE in marks) {
                         Spacer(Modifier.width(6.dp))
@@ -371,13 +381,20 @@ fun RecentRow(
                 val parts = listOfNotNull(
                     location,
                     if (g.contact != null) g.contact.phones.firstOrNull { p -> PhoneIdentity.same(p.number, e.number, countryIso) }
-                        ?.let { p -> Format.phoneType(context.resources, p.type, p.label) } else if (!g.hidden && g.contact == null && g.cachedName != null) Bidi.ltr(Format.number(e.number, countryIso)) else null,
+                        ?.let { p ->
+                            Format.phoneType(context.resources, p.type, p.label)
+                        } else if (!g.hidden && g.contact == null && g.cachedName != null) Bidi.ltr(Format.number(e.number, countryIso)) else null,
                     e.accountId?.let { simLabels[it] },
                     // An outgoing call nobody answered says so.
                     if (rich && cls == CallClass.NO_ANSWER) stringResource(R.string.recents_class_no_answer) else null,
                     Format.shortWhen(context, e.date),
                 )
-                Text(parts.joinToString(stringResource(R.string.main_separator)), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                Text(
+                    parts.joinToString(stringResource(R.string.main_separator)),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false),
+                )
                 // How long you talked, as a small bar (the length in words for TalkBack).
                 if (RecentsMark.DURATION in marks) {
                     Spacer(Modifier.width(8.dp))
@@ -400,7 +417,9 @@ fun RecentRow(
                 if (RecentsMark.CALL_BACK in marks) {
                     CallBackPill(g.title, onCall)
                 } else {
-                    IconButton(onClick = onCall) { Icon(Icons.Rounded.Call, stringResource(R.string.main_call_who, g.title), tint = MaterialTheme.colorScheme.primary) }
+                    IconButton(onClick = onCall) {
+                        Icon(Icons.Rounded.Call, stringResource(R.string.main_call_who, g.title), tint = MaterialTheme.colorScheme.primary)
+                    }
                 }
             }
         },
@@ -473,7 +492,6 @@ fun CallTypeIcon(type: CallType, modifier: Modifier = Modifier, size: Dp = 32.dp
     )
 }
 
-
 /** Long-press actions for a Recents row. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -487,9 +505,12 @@ private fun RecentActionsSheet(vm: AppViewModel, recents: RecentsViewModel, g: R
             modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp).semantics { heading() },
         )
         val hasNumber = !g.hidden && g.number.isNotBlank()
+
         @Composable
         fun row(label: Int, icon: ImageVector, enabled: Boolean = true, onClick: () -> Unit) {
-            if (enabled) ListItem(headlineContent = { Text(stringResource(label)) }, leadingContent = { Icon(icon, null) }, modifier = Modifier.clickable(onClick = onClick))
+            if (enabled) ListItem(
+                headlineContent = { Text(stringResource(label)) }, leadingContent = { Icon(icon, null) }, modifier = Modifier.clickable(onClick = onClick),
+            )
         }
         row(R.string.main_call, Icons.Rounded.Call, hasNumber) { act { vm.requestCall(g.number, g.contact?.displayName) } }
         row(R.string.recents_send_message, Icons.AutoMirrored.Rounded.Message, hasNumber) { act { Intents.sms(context, g.number) } }
@@ -498,8 +519,12 @@ private fun RecentActionsSheet(vm: AppViewModel, recents: RecentsViewModel, g: R
             act { vm.navigate(NavEvent.Tab(StartTab.KEYPAD, dial = g.number)) }
         }
         row(R.string.recents_copy_number, Icons.Rounded.ContentCopy, hasNumber) { act { Intents.copy(context, g.number) } }
-        row(R.string.home_create_contact, Icons.Rounded.PersonAdd, hasNumber && g.contact == null && g.vaultId == null) { act { open(Routes.edit(phone = g.number)) } }
-        row(R.string.recents_add_to_contact, Icons.Rounded.PersonAdd, hasNumber && g.contact == null && g.vaultId == null) { act { open(Routes.pick(g.number)) } }
+        row(
+            R.string.home_create_contact, Icons.Rounded.PersonAdd, hasNumber && g.contact == null && g.vaultId == null,
+        ) { act { open(Routes.edit(phone = g.number)) } }
+        row(
+            R.string.recents_add_to_contact, Icons.Rounded.PersonAdd, hasNumber && g.contact == null && g.vaultId == null,
+        ) { act { open(Routes.pick(g.number)) } }
         row(R.string.recents_block_number, Icons.Rounded.Block, hasNumber) { act { vm.blockNumber(g.number) } }
         row(R.string.recents_select, Icons.Rounded.Block, true) { act { recents.selection.value = setOf(g.key) } }
         if (hasNumber) RecentBlockingActions(vm, g.number, g.contact?.displayName, g.latest.type == CallType.BLOCKED, onDismiss)

@@ -121,7 +121,9 @@ private fun SearchBarHeader(query: String, hint: String, onQuery: (String) -> Un
                 keyboardActions = KeyboardActions(onSearch = { keyboard?.hide() }),
                 trailingIcon = {
                     // Clearing an empty field closes the search, like the back arrow.
-                    IconButton({ if (query.isEmpty()) onClose() else onQuery("") }) { Icon(Icons.Rounded.Close, stringResource(if (query.isEmpty()) R.string.home_close_search else R.string.home_clear_search)) }
+                    IconButton({ if (query.isEmpty()) onClose() else onQuery("") }) {
+                        Icon(Icons.Rounded.Close, stringResource(if (query.isEmpty()) R.string.home_close_search else R.string.home_clear_search))
+                    }
                 },
                 shape = ParleyShapes.pill,
                 colors = TextFieldDefaults.colors(

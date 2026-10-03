@@ -88,7 +88,12 @@ fun CircleTab(vm: AppViewModel, open: (Destination) -> Unit, query: String) {
         }
         when {
             all.isEmpty() -> item(key = "empty") {
-                EmptyState(Icons.Rounded.Groups, stringResource(R.string.circle_empty_title), stringResource(R.string.circle_empty_body), modifier = Modifier.padding(top = 8.dp))
+                EmptyState(
+                    Icons.Rounded.Groups,
+                    stringResource(R.string.circle_empty_title),
+                    stringResource(R.string.circle_empty_body),
+                    modifier = Modifier.padding(top = 8.dp),
+                )
             }
             shown.isEmpty() -> item(key = "nomatch") {
                 EmptyState(Icons.Rounded.SearchOff, stringResource(R.string.circle_no_match, q), modifier = Modifier.padding(top = 32.dp))
@@ -130,7 +135,9 @@ fun CircleFavoritesSection(vm: AppViewModel, open: (Destination) -> Unit, query:
     val collapsed = config.favoritesSectionCollapsed && q.isEmpty()
     Column(Modifier.fillMaxWidth()) {
         Row(
-            Modifier.fillMaxWidth().clickable { vm.c.circle.updateConfig { it.copy(favoritesSectionCollapsed = !it.favoritesSectionCollapsed) } }.padding(start = 16.dp, end = 4.dp),
+            Modifier.fillMaxWidth().clickable { vm.c.circle.updateConfig { it.copy(favoritesSectionCollapsed = !it.favoritesSectionCollapsed) } }.padding(
+                start = 16.dp, end = 4.dp,
+            ),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
@@ -145,7 +152,9 @@ fun CircleFavoritesSection(vm: AppViewModel, open: (Destination) -> Unit, query:
         }
         AnimatedVisibility(!collapsed) {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                if (shown.isNotEmpty()) SegmentedGroup(modifier = Modifier.padding(horizontal = 0.dp)) { shown.forEach { r -> item(r.contact.lookupKey) { CircleRowItem(vm, r, quick, open) } } }
+                if (shown.isNotEmpty()) SegmentedGroup(
+                    modifier = Modifier.padding(horizontal = 0.dp),
+                ) { shown.forEach { r -> item(r.contact.lookupKey) { CircleRowItem(vm, r, quick, open) } } }
                 if (offerSuggestions) SuggestionsGroup(vm, suggestions, canDismiss = true)
             }
         }
@@ -178,7 +187,9 @@ private fun CircleRowItem(vm: AppViewModel, r: CircleRow, quick: QuickMessenger,
                 IconButton({ vm.requestCall(phone.number, r.contact.displayName, source = CallSource.CONTACT) }) {
                     Icon(Icons.Rounded.Call, stringResource(R.string.circle_call_who, r.contact.displayName))
                 }
-                IconButton({ quick.message(r.contact) }) { Icon(Icons.AutoMirrored.Rounded.Message, stringResource(R.string.circle_message_who, r.contact.displayName)) }
+                IconButton({ quick.message(r.contact) }) {
+                    Icon(Icons.AutoMirrored.Rounded.Message, stringResource(R.string.circle_message_who, r.contact.displayName))
+                }
             }
         },
     )
@@ -211,13 +222,21 @@ private fun SuggestionsGroup(vm: AppViewModel, suggestions: List<CircleSuggestio
                         leadingContent = { Avatar(s.contact.displayName, s.contact.photoUri, avatarSize()) },
                         headlineContent = { Text(s.contact.displayName, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                         supportingContent = {
-                            Text(pluralStringResource(R.plurals.circle_suggest_calls, s.calls, s.calls) + stringResource(R.string.main_separator) + pluralStringResource(R.plurals.circle_every_days, s.days, s.days))
+                            Text(
+                                pluralStringResource(
+                                    R.plurals.circle_suggest_calls, s.calls, s.calls,
+                                ) + stringResource(R.string.main_separator) + pluralStringResource(R.plurals.circle_every_days, s.days, s.days),
+                            )
                         },
                         trailingContent = {
                             FilledTonalButton({
                                 scope.launch {
                                     vm.c.circle.setRhythm(s.contact.lookupKey, s.contact.id, s.days)
-                                    CircleSnacks.show(CircleSnack(res.getString(R.string.circle_added, s.contact.displayName)) { vm.c.circle.setRhythm(s.contact.lookupKey, s.contact.id, null) })
+                                    CircleSnacks.show(
+                                        CircleSnack(
+                                            res.getString(R.string.circle_added, s.contact.displayName),
+                                        ) { vm.c.circle.setRhythm(s.contact.lookupKey, s.contact.id, null) },
+                                    )
                                 }
                             }) {
                                 Icon(Icons.Rounded.PersonAdd, null, modifier = Modifier.padding(end = 6.dp))

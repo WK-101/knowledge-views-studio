@@ -284,7 +284,17 @@ class SpamListStore(context: Context) {
         if (_state.value.packs.any { it.id == saved.id }) return false
         val parsed = runCatching { ListPack.parse(zip) }.getOrNull() ?: return false
         if (install(parsed, PackOrigin.FILE) !is InstallResult.Installed) return false
-        setPack(saved.id) { it.copy(enabled = saved.enabled, mode = saved.mode, threshold = saved.threshold, action = saved.action, useRanges = saved.useRanges, notify = saved.notify, suppressed = saved.suppressed) }
+        setPack(saved.id) {
+            it.copy(
+                enabled = saved.enabled,
+                mode = saved.mode,
+                threshold = saved.threshold,
+                action = saved.action,
+                useRanges = saved.useRanges,
+                notify = saved.notify,
+                suppressed = saved.suppressed,
+            )
+        }
         return true
     }
 
@@ -328,7 +338,11 @@ class SpamListStore(context: Context) {
             val files = ArrayList<Triple<String, String, Long>>()
             app.contentResolver.query(
                 children,
-                arrayOf(DocumentsContract.Document.COLUMN_DOCUMENT_ID, DocumentsContract.Document.COLUMN_DISPLAY_NAME, DocumentsContract.Document.COLUMN_LAST_MODIFIED),
+                arrayOf(
+                    DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+                    DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+                    DocumentsContract.Document.COLUMN_LAST_MODIFIED,
+                ),
                 null, null, null,
             )?.use { c ->
                 while (c.moveToNext()) {
@@ -395,7 +409,16 @@ class SpamListStore(context: Context) {
     /** Exact rules become numbers, international prefixes become ranges; other rule types can't travel in a pack. */
     suspend fun exportRules(rules: List<BlockRule>, name: String, countryIso: String): Export = withContext(Dispatchers.Default) {
         val id = "user." + shareFingerprint().replace(" ", "").lowercase()
-        val b = PackBuilder(PackManifest(id = id, name = name, publisher = "Shared from Parley", version = System.currentTimeMillis() / 1000, ttlDays = 0, categories = mapOf("1" to "Blocked by a friend")))
+        val b = PackBuilder(
+            PackManifest(
+                id = id,
+                name = name,
+                publisher = "Shared from Parley",
+                version = System.currentTimeMillis() / 1000,
+                ttlDays = 0,
+                categories = mapOf("1" to "Blocked by a friend"),
+            ),
+        )
         var numbers = 0
         var ranges = 0
         var skipped = 0

@@ -114,7 +114,9 @@ object ContactPhotoProcessor {
         } else {
             var sample = 1
             while (maxOf(bounds.outWidth, bounds.outHeight) / (sample * 2) >= maxLong) sample *= 2
-            val orientation = open()?.use { runCatching { ExifInterface(it).getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL) }.getOrNull() }
+            val orientation = open()?.use {
+                runCatching { ExifInterface(it).getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL) }.getOrNull()
+            }
                 ?: ExifInterface.ORIENTATION_NORMAL
             open()?.use { BitmapFactory.decodeStream(it, null, BitmapFactory.Options().apply { inSampleSize = sample }) }?.let { upright(it, orientation) }
         }
@@ -153,7 +155,9 @@ object ContactPhotoProcessor {
         if (bounds.outWidth <= 0 || bounds.outHeight <= 0) {
             null
         } else {
-            val orientation = open()?.use { runCatching { ExifInterface(it).getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL) }.getOrNull() }
+            val orientation = open()?.use {
+                runCatching { ExifInterface(it).getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL) }.getOrNull()
+            }
                 ?: ExifInterface.ORIENTATION_NORMAL
             var sample = 1
             while (maxOf(bounds.outWidth, bounds.outHeight) / (sample * 2) >= target) sample *= 2

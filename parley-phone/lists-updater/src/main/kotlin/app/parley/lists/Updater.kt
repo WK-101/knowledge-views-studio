@@ -184,7 +184,9 @@ object Updater {
                     val p = ListPack.parse(r.bytes)
                     when {
                         p.manifest.id in reserved -> repo.res.getString(R.string.lists_err_reserved, p.manifest.id)
-                        repo.state.value.packs.any { it.id == p.manifest.id && it.sourceUrl != src.url } -> repo.res.getString(R.string.lists_err_taken, p.manifest.id)
+                        repo.state.value.packs.any { it.id == p.manifest.id && it.sourceUrl != src.url } -> repo.res.getString(
+                            R.string.lists_err_taken, p.manifest.id,
+                        )
                         known?.fingerprint != null && p.fingerprint != known.fingerprint -> repo.res.getString(R.string.lists_err_new_key)
                         else -> {
                             if (known != null && known.id != p.manifest.id) {

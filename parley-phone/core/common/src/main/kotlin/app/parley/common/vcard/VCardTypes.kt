@@ -121,7 +121,9 @@ internal object Types {
                 else -> null
             }?.let { it to null }
         },
-        vocabulary = setOf("mobile", "cell", "work", "home", "other", "aol", "applelink", "attmail", "cis", "eworld", "ibmmail", "mcimail", "powershare", "prodigy", "tlx"),
+        vocabulary = setOf(
+            "mobile", "cell", "work", "home", "other", "aol", "applelink", "attmail", "cis", "eworld", "ibmmail", "mcimail", "powershare", "prodigy", "tlx",
+        ),
         apple = mapOf("home" to 1, "work" to 2, "other" to 3, "mobile" to 4),
     )
 

@@ -155,7 +155,9 @@ fun MarkdownExportSection(vm: AppViewModel) {
                 }
             },
         )
-        Button({ run() }, enabled = st.folderUri != null && !running, modifier = Modifier.padding(horizontal = 16.dp)) { Text(stringResource(R.string.md_export_now)) }
+        Button(
+            { run() }, enabled = st.folderUri != null && !running, modifier = Modifier.padding(horizontal = 16.dp),
+        ) { Text(stringResource(R.string.md_export_now)) }
         if (running) LinearProgressIndicator(Modifier.fillMaxWidth().padding(16.dp))
         if (st.folderUri != null) TextButton({ md.setFolder(null, null); FolderSyncWorker.reschedule(context) }, Modifier.padding(horizontal = 8.dp)) {
             Text(stringResource(R.string.md_export_stop))

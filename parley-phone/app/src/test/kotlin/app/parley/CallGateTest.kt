@@ -96,7 +96,10 @@ class CallGateTest {
         val tm = shadowOf(context.getSystemService(TelecomManager::class.java))
         val call = tm.allOutgoingCalls.single()
         assertEquals("112", call.address.schemeSpecificPart)
-        assertNull("no SIM forced: the platform picks a network that can carry it", call.extras.getParcelable<PhoneAccountHandle>(TelecomManager.EXTRA_PHONE_ACCOUNT_HANDLE))
+        assertNull(
+            "no SIM forced: the platform picks a network that can carry it",
+            call.extras.getParcelable<PhoneAccountHandle>(TelecomManager.EXTRA_PHONE_ACCOUNT_HANDLE),
+        )
         assertNull(CallManager.pendingOutgoing.value?.simLabel)
     }
 

@@ -9,7 +9,6 @@ import app.parley.common.storage.PersistentStores
 import app.parley.common.PhoneIdentity
 import android.content.Context
 import app.parley.common.CallType
-import app.parley.common.PhoneNumbers
 import app.parley.common.circle.CircleConfig
 import app.parley.common.circle.CirclePlanner
 import app.parley.common.circle.InteractionChannel
@@ -109,7 +108,9 @@ class CircleRepository(
             val old = KeepRhythm.decode(m.rhythm)
             val rhythm = when {
                 everyDays == null -> KeepRhythm()
-                natural -> NaturalRhythm.relearn(old.copy(mode = RhythmMode.NATURAL, learnedAt = null, snoozedUntil = null), times, System.currentTimeMillis(), ZoneId.systemDefault())
+                natural -> NaturalRhythm.relearn(
+                    old.copy(mode = RhythmMode.NATURAL, learnedAt = null, snoozedUntil = null), times, System.currentTimeMillis(), ZoneId.systemDefault(),
+                )
                 else -> KeepRhythm()
             }
             m.copy(contactId = contactId ?: m.contactId, reachOutDays = everyDays, lastNudgedAt = null, rhythm = rhythm.encode())
@@ -121,7 +122,9 @@ class CircleRepository(
      * is now, so a note edited meanwhile stays.
      */
     suspend fun restoreMembership(before: ContactMetaEntity) {
-        editMeta(before.lookupKey, create = true) { m -> m.copy(contactId = m.contactId ?: before.contactId, reachOutDays = before.reachOutDays, lastNudgedAt = before.lastNudgedAt, rhythm = before.rhythm) }
+        editMeta(before.lookupKey, create = true) { m ->
+            m.copy(contactId = m.contactId ?: before.contactId, reachOutDays = before.reachOutDays, lastNudgedAt = before.lastNudgedAt, rhythm = before.rhythm)
+        }
     }
 
     /** "Not now": the next reminder about [lookupKey] waits one more full gap. */
@@ -169,7 +172,9 @@ class CircleRepository(
     /** Days you were in touch (answered calls and interactions), for the natural rhythm. */
     suspend fun contactTimes(lookupKey: String): List<Long> {
         val idx = index().value ?: withTimeoutOrNull(10_000) { index().filterNotNull().first() }
-        val calls = idx?.calls(personKey = personKey(lookupKey))?.filter { it.durationSec > 0 && (it.type == CallType.INCOMING || it.type == CallType.OUTGOING) }?.map { it.date }.orEmpty()
+        val calls = idx?.calls(
+            personKey = personKey(lookupKey),
+        )?.filter { it.durationSec > 0 && (it.type == CallType.INCOMING || it.type == CallType.OUTGOING) }?.map { it.date }.orEmpty()
         return calls + interactions.timesFor(lookupKey)
     }
 
@@ -339,6 +344,7 @@ class CircleRepository(
             val out = LinkedHashMap<String, String>()
             out[X_CONFIG] = CircleConfig.encode(_config.value)
             val contacts = contactsNow().associateBy { it.lookupKey }
+
             // Entries whose key isn't a current contact (not re-keyed yet, or the list couldn't be read) still go in,
             // with the key alone: a restore matches what it can and reports the rest.
             fun person(key: String): JSONObject {
@@ -355,7 +361,11 @@ class CircleRepository(
             val items = JSONArray()
             for (i in interactions.all()) {
                 if (ContactRef.isPrivateKey(i.lookupKey)) continue
-                items.put(person(i.lookupKey).put("t", i.type.name).put("c", i.channel?.name ?: JSONObject.NULL).put("at", i.time).put("note", i.note ?: JSONObject.NULL).put("u", i.dedupeKey))
+                items.put(
+                    person(i.lookupKey).put("t", i.type.name).put(
+                        "c", i.channel?.name ?: JSONObject.NULL,
+                    ).put("at", i.time).put("note", i.note ?: JSONObject.NULL).put("u", i.dedupeKey),
+                )
             }
             out[X_INTERACTIONS] = items.toString()
             // Life events remembered yearly.
@@ -375,6 +385,7 @@ class CircleRepository(
             val contacts = contactsNow()
             val byKey = contacts.associateBy { it.lookupKey }
             var unmatched = 0
+
             // Lookup keys differ on another phone: fall back to a shared number, then to the same name.
             fun resolve(o: JSONObject): ContactSummary? {
                 byKey[o.optString("k")]?.let { return it }
@@ -393,7 +404,9 @@ class CircleRepository(
                         val o = a.optJSONObject(i) ?: continue
                         val c = resolve(o) ?: continue
                         editMeta(c.lookupKey, create = true) { m ->
-                            if (m.reachOutDays != null) null else m.copy(contactId = c.id, reachOutDays = o.optInt("d", 30), rhythm = o.optString("r").takeIf { o.has("r") && !o.isNull("r") })
+                            if (m.reachOutDays != null) null else m.copy(
+                                contactId = c.id, reachOutDays = o.optInt("d", 30), rhythm = o.optString("r").takeIf { o.has("r") && !o.isNull("r") },
+                            )
                         }
                     }
                 }
@@ -406,7 +419,17 @@ class CircleRepository(
                         val channel = if (o.isNull("c")) null else InteractionChannel.decode(o.optString("c"))
                         val note = if (o.isNull("note")) null else o.optString("note")
                         // The unique key makes a second restore of the same backup add nothing.
-                        runCatching { interactions.log(c.lookupKey, c.id, type, channel, o.optLong("at"), note, o.optString("u").ifEmpty { Interactions.manualKey(UUID.randomUUID().toString()) }) }
+                        runCatching {
+                            interactions.log(
+                                c.lookupKey,
+                                c.id,
+                                type,
+                                channel,
+                                o.optLong("at"),
+                                note,
+                                o.optString("u").ifEmpty { Interactions.manualKey(UUID.randomUUID().toString()) },
+                            )
+                        }
                     }
                 }
                 values[X_YEARLY]?.let { json ->
@@ -415,7 +438,9 @@ class CircleRepository(
                         val o = a.optJSONObject(i) ?: continue
                         val c = resolve(o) ?: continue
                         val flags = o.optJSONArray("y")?.let { f -> (0 until f.length()).map { f.getString(it) } }.orEmpty()
-                        editMeta(c.lookupKey, create = true) { m -> m.copy(contactId = c.id, yearlyEvents = YearlyEvents.merge(m.yearlyEvents, YearlyEvents.encode(flags.toSet()))) }
+                        editMeta(
+                            c.lookupKey, create = true,
+                        ) { m -> m.copy(contactId = c.id, yearlyEvents = YearlyEvents.merge(m.yearlyEvents, YearlyEvents.encode(flags.toSet()))) }
                     }
                 }
             }

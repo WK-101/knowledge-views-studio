@@ -1,0 +1,1 @@
+mailto:ana@example.com?subject=Hi&cc=bo@example.com&body=Hello

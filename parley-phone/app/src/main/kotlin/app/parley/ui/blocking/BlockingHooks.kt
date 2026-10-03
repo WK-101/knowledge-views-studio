@@ -83,10 +83,13 @@ fun RecentBlockingActions(vm: AppViewModel, number: String, contactName: String?
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val res = LocalResources.current
+
     @Composable
     fun row(label: String, icon: ImageVector, onClick: () -> Unit) =
         ListItem(headlineContent = { Text(label) }, leadingContent = { Icon(icon, null) }, modifier = Modifier.clickable { dismiss(); onClick() })
-    row(stringResource(if (blocked) R.string.blk_why_blocked else R.string.blk_why_rang), Icons.AutoMirrored.Rounded.HelpOutline) { BlockingDialogs.show(BlockingDialog.Why(number)) }
+    row(
+        stringResource(if (blocked) R.string.blk_why_blocked else R.string.blk_why_rang), Icons.AutoMirrored.Rounded.HelpOutline,
+    ) { BlockingDialogs.show(BlockingDialog.Why(number)) }
     row(stringResource(R.string.blk_why_test), Icons.Rounded.Science) { BlockingDialogs.show(BlockingDialog.Test(number)) }
     // I2: only when your calls say it looks like a sales line.
     val salesLine = rememberReputation(vm, number, isContact = contactName != null) != null
@@ -169,12 +172,18 @@ fun RecentsSelectionBar(vm: AppViewModel, groups: List<RecentGroup>) {
     var confirming by remember { mutableStateOf(false) }
     val chosen = groups.filter { it.key in selected }
     val people = chosen.filter { it.contact != null || it.vaultId != null }
-    val unknown = chosen.filter { it.contact == null && it.vaultId == null && !it.hidden && it.number.isNotBlank() }.distinctBy { PhoneIdentity.key(it.number, vm.countryIso) }
+    val unknown = chosen.filter { it.contact == null && it.vaultId == null && !it.hidden && it.number.isNotBlank() }.distinctBy {
+        PhoneIdentity.key(it.number, vm.countryIso)
+    }
     val numbers = unknown.map { it.number }
     Surface(color = MaterialTheme.colorScheme.secondaryContainer) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             IconButton({ recents.clearSelection() }) { Icon(Icons.Rounded.Close, stringResource(R.string.blk_clear_selection)) }
-            Text(pluralStringResource(R.plurals.blk_selected, selected.size, selected.size), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+            Text(
+                pluralStringResource(R.plurals.blk_selected, selected.size, selected.size),
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.weight(1f),
+            )
             TextButton({ confirming = true }, enabled = numbers.isNotEmpty()) {
                 Icon(Icons.Rounded.Block, null)
                 Text(" " + stringResource(R.string.blk_block_n, numbers.size))
@@ -225,9 +234,21 @@ fun ScreeningHistorySection(vm: AppViewModel, number: String, contactName: Strin
     val mine = remember(screened, number) { screened.filter { it.number != null && PhoneNumbers.same(it.number, number, vm.countryIso) }.take(10) }
     Column {
         Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            AssistChip({ BlockingDialogs.show(BlockingDialog.Test(number)) }, { Text(stringResource(R.string.blk_why_test)) }, leadingIcon = { Icon(Icons.Rounded.Science, null) })
-            AssistChip({ BlockingDialogs.show(BlockingDialog.WebSearch(number, contactName)) }, { Text(stringResource(R.string.blk_search_web)) }, leadingIcon = { Icon(Icons.Rounded.Search, null) })
-            if (contactName == null) AssistChip({ BlockingDialogs.show(BlockingDialog.Report(number)) }, { Text(stringResource(R.string.blk_report)) }, leadingIcon = { Icon(Icons.Rounded.Flag, null) })
+            AssistChip(
+                { BlockingDialogs.show(BlockingDialog.Test(number)) },
+                { Text(stringResource(R.string.blk_why_test)) },
+                leadingIcon = { Icon(Icons.Rounded.Science, null) },
+            )
+            AssistChip(
+                { BlockingDialogs.show(BlockingDialog.WebSearch(number, contactName)) },
+                { Text(stringResource(R.string.blk_search_web)) },
+                leadingIcon = { Icon(Icons.Rounded.Search, null) },
+            )
+            if (contactName == null) AssistChip(
+                { BlockingDialogs.show(BlockingDialog.Report(number)) },
+                { Text(stringResource(R.string.blk_report)) },
+                leadingIcon = { Icon(Icons.Rounded.Flag, null) },
+            )
         }
         if (mine.isNotEmpty()) {
             Section(stringResource(R.string.blk_screening))
@@ -236,7 +257,9 @@ fun ScreeningHistorySection(vm: AppViewModel, number: String, contactName: Strin
                     modifier = Modifier.clickable { BlockingDialogs.show(BlockingDialog.Why(number)) },
                     leadingContent = { Icon(if (e.allowed) Icons.Rounded.Shield else Icons.Rounded.Block, null) },
                     headlineContent = { Text((if (e.failedOpen) "! " else "") + (BlockingText.verdict(context, e.verdict) ?: stringResource(if (e.allowed) R.string.blk_rang else R.string.blk_blocked))) },
-                    supportingContent = { Text(Format.fullDate(context, e.time) + " · " + BlockingText.oneLine(context, TraceCodec.decode(e.trace)), maxLines = 2) },
+                    supportingContent = {
+                        Text(Format.fullDate(context, e.time) + " · " + BlockingText.oneLine(context, TraceCodec.decode(e.trace)), maxLines = 2)
+                    },
                 )
             }
         }

@@ -108,7 +108,9 @@ object HistoryText {
         val min = f.minDurationSec
         val max = f.maxDurationSec
         return buildList {
-            if (f.types.isNotEmpty()) add(f.types.sortedBy { it.ordinal }.joinToString(res.getString(R.string.dc_list_separator)) { res.getString(typeGroup(it)) })
+            if (f.types.isNotEmpty()) add(
+                f.types.sortedBy { it.ordinal }.joinToString(res.getString(R.string.dc_list_separator)) { res.getString(typeGroup(it)) },
+            )
             f.simId?.let { add(simLabel(it)) }
             if (f.period != FilterPeriod.ANY) add(res.getString(period(f.period)))
             when {

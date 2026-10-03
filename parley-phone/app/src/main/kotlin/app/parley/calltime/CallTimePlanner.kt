@@ -59,7 +59,9 @@ class CallTimePlanner(private val c: DataContainer) {
         val emergency = EmergencyPolicy.Facts(
             emergencyNumber = EmergencyNumbers.isEmergency(c.appContext, number),
             inWindow = runCatching { ScreeningGuard.inEmergencyWindow(c.appContext) }.getOrDefault(false),
-            userListed = !number.isNullOrBlank() && c.settings.current().screening.emergencyExtras.any { PhoneNumbers.same(it, number, PhoneEnv.countryIso(c.appContext)) },
+            userListed = !number.isNullOrBlank() && c.settings.current().screening.emergencyExtras.any {
+                PhoneNumbers.same(it, number, PhoneEnv.countryIso(c.appContext))
+            },
         )
         val exempt = EmergencyPolicy.bypasses(Safeguard.CALL_LIMITS, emergency)
         Subject(CallFacts(incoming, emergency.isEmergency, key, labels, accountId, inEmergencyWindow = exempt), numbers, info?.name ?: private?.name)
@@ -189,7 +191,9 @@ class CallTimePlanner(private val c: DataContainer) {
         /** [CallLimits.describe] in the app's language: "Limit for Ana", shown during the call. */
         fun describe(context: Context, rule: LimitRule): String = when (rule.scope) {
             LimitScope.CONTACT -> context.getString(R.string.ct_limit_for, rule.title.ifBlank { context.getString(R.string.ct_this_contact) })
-            LimitScope.LABEL -> if (rule.title.isBlank()) context.getString(R.string.ct_limit_for_a_label) else context.getString(R.string.ct_limit_for_label, rule.title)
+            LimitScope.LABEL -> if (rule.title.isBlank()) context.getString(
+                R.string.ct_limit_for_a_label,
+            ) else context.getString(R.string.ct_limit_for_label, rule.title)
             LimitScope.SIM -> context.getString(R.string.ct_limit_for, rule.title.ifBlank { context.getString(R.string.ct_this_sim) })
             LimitScope.GLOBAL -> context.getString(R.string.ct_limit_for_all)
         }

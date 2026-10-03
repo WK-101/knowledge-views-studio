@@ -182,7 +182,9 @@ fun LabelPolicySection(vm: AppViewModel, title: String, members: List<ContactSum
                     val label = d?.let { pluralStringResource(R.plurals.circle_every_days, it, it) } ?: stringResource(R.string.label_policy_rhythm_none)
                     ListItem(
                         modifier = Modifier.clickable { vm.c.extras.updatePolicy(title) { it.copy(rhythmDays = d) }; pickRhythm = false },
-                        leadingContent = { RadioButton(p.rhythmDays == d, { vm.c.extras.updatePolicy(title) { it.copy(rhythmDays = d) }; pickRhythm = false }) },
+                        leadingContent = {
+                            RadioButton(p.rhythmDays == d, { vm.c.extras.updatePolicy(title) { it.copy(rhythmDays = d) }; pickRhythm = false })
+                        },
                         headlineContent = { Text(label) },
                     )
                 }

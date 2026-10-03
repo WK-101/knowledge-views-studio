@@ -1,5 +1,7 @@
 package app.parley.ui.home
 
+import app.parley.ui.people.rememberWorkResults
+import app.parley.ui.people.workResultsSection
 import app.parley.ui.Destination
 import android.content.ClipDescription
 import android.content.ClipboardManager
@@ -208,6 +210,7 @@ fun KeypadTab(vm: AppViewModel, open: (Destination) -> Unit, searchQuery: String
     var saveTemporary by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
     val res = LocalResources.current
+
     /** Result row focused with the D-pad; Call/Enter calls it. */
     var focusedResult by remember { mutableStateOf<DialResult?>(null) }
 
@@ -222,6 +225,7 @@ fun KeypadTab(vm: AppViewModel, open: (Destination) -> Unit, searchQuery: String
     }
     DisposableEffect(Unit) { onDispose { tone?.release() } }
     val audioManager = remember { context.getSystemService(AudioManager::class.java) }
+
     /** The system "Dial pad tones" setting and the ringer mode, read on every press (they can change any time). */
     fun toneAllowed(): Boolean = KeypadFeedback.playTone(
         appSetting = settings.dialpadTones,
@@ -262,6 +266,7 @@ fun KeypadTab(vm: AppViewModel, open: (Destination) -> Unit, searchQuery: String
             if (token == toneToken.get()) tone?.stopTone()
         }
     }
+
     /**
      * A long-press replaces the digit its own touch typed ([typedThisTouch]); TalkBack's long click typed nothing,
      * so nothing is deleted then.
@@ -306,7 +311,9 @@ fun KeypadTab(vm: AppViewModel, open: (Destination) -> Unit, searchQuery: String
         }
         val target = DialTarget.pick(input, results.firstOrNull()?.number)
         // Same checks as any call (dial guard, allowance, confirm), just without the SIM question.
-        if (!target.isNullOrEmpty()) vm.requestCall(target, results.firstOrNull { it.contact != null && PhoneNumbers.same(it.number, target, vm.countryIso) }?.contact?.displayName, simId = simId)
+        if (!target.isNullOrEmpty()) vm.requestCall(
+            target, results.firstOrNull { it.contact != null && PhoneNumbers.same(it.number, target, vm.countryIso) }?.contact?.displayName, simId = simId,
+        )
     }
 
     /** I12: press and hold Call: "Call with a reason…" for what's typed (nothing typed: nothing to call). */
@@ -360,9 +367,18 @@ fun KeypadTab(vm: AppViewModel, open: (Destination) -> Unit, searchQuery: String
         val ch = native.getUnicodeChar(native.metaState).takeIf { it > 0 }?.toChar() ?: return false
         val digit = T9.asciiDigit(ch)
         return when {
-            digit != null || ch == '*' || ch == '#' || ch == '+' -> { if (down) press(digit ?: ch); true }
+            digit != null || ch == '*' || ch == '#' || ch == '+' -> {
+                if (down) press(digit ?: ch)
+                true
+            }
             // QWERTY: letters search names as text; space separates words.
-            qwerty && (ch.isLetter() || (ch == ' ' && isTextSearch())) -> { if (down) { unfold(); insert(ch.toString()) }; true }
+            qwerty && (ch.isLetter() || (ch == ' ' && isTextSearch())) -> {
+                if (down) {
+                    unfold()
+                    insert(ch.toString())
+                }
+                true
+            }
             else -> false
         }
     }
@@ -456,7 +472,9 @@ fun KeypadTab(vm: AppViewModel, open: (Destination) -> Unit, searchQuery: String
             // keys up under the user's finger. The panel's height never changes while typing (portrait, landscape,
             // hardware keys).
             if (showNumberActions) {
-                Surface(color = MaterialTheme.colorScheme.surface, modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(NUMBER_ACTIONS_HEIGHT)) {
+                Surface(
+                    color = MaterialTheme.colorScheme.surface, modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(NUMBER_ACTIONS_HEIGHT),
+                ) {
                     Box(contentAlignment = Alignment.Center) {
                         NumberActionChips(numberActions.chips, ::runNumberAction)
                     }
@@ -476,7 +494,9 @@ fun KeypadTab(vm: AppViewModel, open: (Destination) -> Unit, searchQuery: String
         Surface(
             color = MaterialTheme.colorScheme.surfaceContainer, shape = ParleyShapes.sheet.topOnly(),
             // TalkBack users fold the docked keypad with an action; the keypad button beside the Call pill folds it too.
-            modifier = if (dock != null) panelModifier.semantics { customActions = listOf(CustomAccessibilityAction(hideKeypadLabel) { dock.onExpandedChange(false); true }) } else panelModifier,
+            modifier = if (dock != null) panelModifier.semantics {
+                customActions = listOf(CustomAccessibilityAction(hideKeypadLabel) { dock.onExpandedChange(false); true })
+            } else panelModifier,
         ) {
             // One panel for the Keypad tab and the keypad docked in Recents: same padding, number field, keys and
             // Call row, so the number and keys sit at the same place in both. The docked one has no grab handle
@@ -747,7 +767,9 @@ private fun clipHint(cm: ClipboardManager?): ClipHint = try {
 private fun ImeiSheet(onDismiss: () -> Unit) {
     val context = LocalContext.current
     ParleySheet(onDismissRequest = onDismiss) {
-        Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 24.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(
+            Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 24.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
             Text(stringResource(R.string.keypad_imei_title), style = MaterialTheme.typography.titleLarge, modifier = Modifier.semantics { heading() })
             Text(
                 stringResource(R.string.keypad_imei_body),
@@ -849,7 +871,13 @@ private fun DialResultRow(r: DialResult, countryIso: String, modifier: Modifier 
             leadingContent = { Spacer(Modifier.width(40.dp)) },
             headlineContent = { Text(Bidi.ltr(Format.number(r.number, countryIso)), style = MaterialTheme.typography.bodyLarge) },
             supportingContent = type?.let { { Text(it) } },
-            trailingContent = { Icon(Icons.Rounded.Call, stringResource(R.string.main_call_who, listOfNotNull(c?.displayName, type).joinToString(" ")), tint = MaterialTheme.colorScheme.primary) },
+            trailingContent = {
+                Icon(
+                    Icons.Rounded.Call,
+                    stringResource(R.string.main_call_who, listOfNotNull(c?.displayName, type).joinToString(" ")),
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+            },
         )
         return
     }
@@ -862,7 +890,13 @@ private fun DialResultRow(r: DialResult, countryIso: String, modifier: Modifier 
         },
         supportingContent = {
             if (c != null) {
-                Text(listOfNotNull(type, if (r.primary) stringResource(R.string.keypad_primary) else null, Bidi.ltr(Format.number(r.number, countryIso))).joinToString(stringResource(R.string.main_separator)), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(
+                    listOfNotNull(
+                        type, if (r.primary) stringResource(R.string.keypad_primary) else null, Bidi.ltr(Format.number(r.number, countryIso)),
+                    ).joinToString(stringResource(R.string.main_separator)),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
             } else {
                 Text(stringResource(R.string.keypad_recent))
             }
@@ -929,8 +963,11 @@ private fun KeypadContactSearch(vm: AppViewModel, keypad: KeypadViewModel, query
     val r = result ?: return
     val found = r.contacts
     val foundVault = r.vault
+    // The work profile's matches, read-only, after everyone else.
+    val work = rememberWorkResults(q)
+    val nothing = found.isEmpty() && foundVault.isEmpty() && work.isEmpty()
     // The results of the query before this one stay up while the new search runs.
-    if (found.isEmpty() && foundVault.isEmpty() && r.query == q) {
+    if (nothing && r.query == q) {
         // No match: offer to save what was typed as a new contact.
         EmptyState(
             Icons.Rounded.Search, stringResource(R.string.keypad_no_match, q),
@@ -947,5 +984,6 @@ private fun KeypadContactSearch(vm: AppViewModel, keypad: KeypadViewModel, query
         items(found, key = { it.id }) { c ->
             ContactRow(c, actions = true, onCall = { n -> vm.requestCall(n, c.displayName) }) { open(Routes.contact(c.id)) }
         }
+        workResultsSection(work) { n, name -> vm.requestCall(n, name) }
     }
 }

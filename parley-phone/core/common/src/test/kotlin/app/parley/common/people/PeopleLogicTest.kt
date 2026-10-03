@@ -101,7 +101,10 @@ class PeopleLogicTest {
         val favs = listOf(c(1, "Zoe"), c(2, "Adam"), c(3, "Mia"))
         val sorted = FavoriteOrder.sort(favs, FavoriteSort.MOST_CALLED, emptyList(), mapOf(3L to 9, 1L to 2), Comparator { x, y -> x.compareTo(y) })
         assertEquals(listOf("Mia", "Zoe", "Adam"), sorted.map { it.displayName })
-        assertEquals(listOf("Adam", "Mia", "Zoe"), FavoriteOrder.sort(favs, FavoriteSort.NAME, emptyList(), collator = Comparator { x, y -> x.compareTo(y) }).map { it.displayName })
+        assertEquals(
+            listOf("Adam", "Mia", "Zoe"),
+            FavoriteOrder.sort(favs, FavoriteSort.NAME, emptyList(), collator = Comparator { x, y -> x.compareTo(y) }).map { it.displayName },
+        )
     }
 
     @Test fun favourites_drag_move_and_pinch() {
@@ -191,7 +194,6 @@ class PeopleLogicTest {
 
     // ---------------------------------------------------------------- Provenance
 
-
     @Test fun provenance_parley_when_version_unchanged() {
         val v = Provenance.verdict(
             listOf(RawState(1, "Google · a", true, 5, true)), listOf(ParleyWrite(1, 100, 5, listOf("Phone"))), 100,
@@ -229,7 +231,14 @@ class PeopleLogicTest {
         val old = AccountKey("com.google", "old@x")
         val dav = AccountKey("bitfire.at.davdroid", "me")
         val local = AccountKey(null, null)
-        val f = AccountCheck.check(setOf(g, dav), mapOf(g to 10, old to 4, local to 2), syncOff = setOf(dav), masterSyncOn = true, localAccountPresent = false, unsyncedTypes = setOf(null))
+        val f = AccountCheck.check(
+            setOf(g, dav),
+            mapOf(g to 10, old to 4, local to 2),
+            syncOff = setOf(dav),
+            masterSyncOn = true,
+            localAccountPresent = false,
+            unsyncedTypes = setOf(null),
+        )
         assertEquals(
             listOf(AccountFindingKind.ORPHANED to old, AccountFindingKind.SYNC_OFF to dav, AccountFindingKind.LOCAL_MISSING to local),
             f.map { it.kind to it.account },

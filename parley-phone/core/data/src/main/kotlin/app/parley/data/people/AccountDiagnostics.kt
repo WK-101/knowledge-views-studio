@@ -48,7 +48,13 @@ class AccountDiagnostics(private val context: Context) {
         }
         val owning = HashMap<AccountKey, MutableSet<Long>>()
         try {
-            cr.query(RawContacts.CONTENT_URI, arrayOf(RawContacts.ACCOUNT_TYPE, RawContacts.ACCOUNT_NAME, RawContacts.CONTACT_ID), "${RawContacts.DELETED}=0", null, null)?.use { c ->
+            cr.query(
+                RawContacts.CONTENT_URI,
+                arrayOf(RawContacts.ACCOUNT_TYPE, RawContacts.ACCOUNT_NAME, RawContacts.CONTACT_ID),
+                "${RawContacts.DELETED}=0",
+                null,
+                null,
+            )?.use { c ->
                 while (c.moveToNext()) {
                     val type = c.getString(0)
                     if (Messengers.isMessengerAccount(type)) continue

@@ -179,7 +179,11 @@ fun QrScanScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Unit
                 Text("  " + stringResource(R.string.qs_take_photo))
             }
             OutlinedButton(
-                { runCatching { picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }.onFailure { vm.toast(res.getString(R.string.qs_no_app)) } },
+                {
+                    runCatching { picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }.onFailure {
+                        vm.toast(res.getString(R.string.qs_no_app))
+                    }
+                },
                 Modifier.fillMaxWidth().padding(top = 8.dp), enabled = state != ScanState.Busy,
             ) {
                 Icon(Icons.Rounded.Image, null, Modifier.size(18.dp))

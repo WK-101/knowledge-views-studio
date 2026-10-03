@@ -273,7 +273,7 @@ class ContactsSafetyTest {
 
     @Test fun semicolon_and_tab_separated_files_import() {
         for (sep in listOf(";", "\t")) {
-            val (list, report) = readCsv("Given${sep}Family${sep}Phone 1 Type${sep}Phone 1 Value\r\nAnn${sep}Lee${sep}Mobile${sep}+1 555 0100\r\n")
+            val (list, report) = readCsv("Given${sep}Family${sep}Phone 1 Type${sep}Phone 1 Value\r\nAnn${sep}Lee${sep}Mobile$sep+1 555 0100\r\n")
             assertEquals("separator '$sep'", 1, list.size)
             assertTrue(report.failures.isEmpty())
             val rows = list.single().raws.single().rows

@@ -30,7 +30,9 @@ class AppDatabaseMigrationTest {
 
     @Test fun rowsFromVersionOneSurviveToTheLatest() {
         helper.createDatabase(NAME, 1).use { db ->
-            db.execSQL("INSERT INTO block_rules (id, pattern, type, action, enabled, note, createdAt) VALUES (1, '+1555*', 'PREFIX', 'REJECT', 1, 'spam', 1000)")
+            db.execSQL(
+                "INSERT INTO block_rules (id, pattern, type, action, enabled, note, createdAt) VALUES (1, '+1555*', 'PREFIX', 'REJECT', 1, 'spam', 1000)",
+            )
             db.execSQL("INSERT INTO blocked_calls (id, number, reason, action, time) VALUES (1, '+15551234567', 'rule', 'REJECT', 2000)")
             db.execSQL("INSERT INTO speed_dial (`key`, number, label) VALUES (2, '+15550000002', 'Mum')")
             db.execSQL("INSERT INTO number_sim (matchKey, phoneAccountId) VALUES ('5550000002', 'sim-1')")

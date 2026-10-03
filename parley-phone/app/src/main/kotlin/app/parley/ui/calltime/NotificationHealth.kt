@@ -85,7 +85,9 @@ object NotificationHealth {
         "notif" -> Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
         "channel" -> Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
             .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName).putExtra(Settings.EXTRA_CHANNEL_ID, CallNotifier.CH_INCOMING)
-        "fsi" -> if (Build.VERSION.SDK_INT >= 34) Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT, ("package:" + context.packageName).toUri()) else null
+        "fsi" -> if (Build.VERSION.SDK_INT >= 34) Intent(
+            Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT, ("package:" + context.packageName).toUri(),
+        ) else null
         "battery" -> Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
         "role" -> context.getSystemService(RoleManager::class.java)?.createRequestRoleIntent(RoleManager.ROLE_DIALER)
         else -> null
@@ -172,7 +174,11 @@ fun NotificationHealthBanner(vm: AppViewModel, modifier: Modifier = Modifier) {
         Row(Modifier.padding(start = 16.dp, end = 8.dp, top = 12.dp), verticalAlignment = Alignment.Top) {
             Icon(Icons.Rounded.NotificationImportant, null, Modifier.padding(end = 12.dp, top = 2.dp), tint = MaterialTheme.colorScheme.onErrorContainer)
             Column(Modifier.weight(1f)) {
-                Text(stringResource(R.string.ct_health_banner_title), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onErrorContainer)
+                Text(
+                    stringResource(R.string.ct_health_banner_title),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                )
                 Text(
                     first.whyOff + (checks.count { it.critical && !it.ok }.takeIf { it > 1 }?.let { " " + pluralStringResource(R.plurals.ct_health_more, it - 1, it - 1) } ?: ""),
                     style = MaterialTheme.typography.bodySmall,

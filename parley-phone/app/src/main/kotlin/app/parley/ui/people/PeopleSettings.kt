@@ -68,7 +68,9 @@ fun PreferNicknameRow(vm: AppViewModel, icon: ImageVector? = null) {
 @Composable
 fun LabelsRow(vm: AppViewModel, open: (Destination) -> Unit, icon: ImageVector? = null) {
     val idx by vm.people.index.collectAsStateWithLifecycle()
-    LinkRow(settingTitle("labels"), pluralStringResource(R.plurals.labels_row_summary, idx.labelCounts.size, idx.labelCounts.size), icon) { open(PeopleRoutes.Labels) }
+    LinkRow(
+        settingTitle("labels"), pluralStringResource(R.plurals.labels_row_summary, idx.labelCounts.size, idx.labelCounts.size), icon,
+    ) { open(PeopleRoutes.Labels) }
 }
 
 /** Whether "Export one account" applies (more than one account has contacts). */
@@ -92,7 +94,11 @@ fun ExportAccountRow(vm: AppViewModel, icon: ImageVector? = null) {
             vm.toast(if (r.failures.isEmpty()) done else res.getQuantityString(R.plurals.export_account_failed, r.failures.size, done, r.failures.size))
         }
     }
-    LinkRow(settingTitle("export_account"), idx.accountCounts.entries.joinToString(" · ") { res.getString(R.string.ppl_account_count, it.key.displayLabel, it.value) }, icon) { chooseAccount = true }
+    LinkRow(
+        settingTitle("export_account"),
+        idx.accountCounts.entries.joinToString(" · ") { res.getString(R.string.ppl_account_count, it.key.displayLabel, it.value) },
+        icon,
+    ) { chooseAccount = true }
     if (chooseAccount) {
         ParleyDialog(
             onDismissRequest = { chooseAccount = false },
@@ -122,7 +128,9 @@ fun PrivacyLinks(vm: AppViewModel) {
     LinkRow(stringResource(R.string.privacy_who_can_see), stringResource(R.string.privacy_who_can_see_summary)) {
         vm.navigate(NavEvent.Route(PeopleRoutes.WhoCanSee))
     }
-    LinkRow(stringResource(R.string.privacy_private_names), if (pn.enabled) stringResource(R.string.dc_on) else stringResource(R.string.dc_off)) { vm.navigate(NavEvent.Route(PeopleRoutes.PrivateNames)) }
+    LinkRow(
+        stringResource(R.string.privacy_private_names), if (pn.enabled) stringResource(R.string.dc_on) else stringResource(R.string.dc_off),
+    ) { vm.navigate(NavEvent.Route(PeopleRoutes.PrivateNames)) }
 }
 
 /** "Google · me@x (212)": account label with its number of contacts. */

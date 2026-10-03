@@ -45,7 +45,9 @@ class CircleUi(c: DataContainer, scope: CoroutineScope, contacts: StateFlow<List
             val every = m.reachOutDays ?: return@mapNotNull null
             val contact = byKey[m.lookupKey] ?: return@mapNotNull null
             val rhythm = KeepRhythm.decode(m.rhythm)
-            val call = idx?.calls(personKey = "c:${m.lookupKey}")?.firstOrNull { it.durationSec > 0 && (it.type == CallType.INCOMING || it.type == CallType.OUTGOING) }?.date
+            val call = idx?.calls(
+                personKey = "c:${m.lookupKey}",
+            )?.firstOrNull { it.durationSec > 0 && (it.type == CallType.INCOMING || it.type == CallType.OUTGOING) }?.date
             val last = Interactions.lastContact(call, latest[m.lookupKey])
             Triple(contact, rhythm, last) to CirclePlanner.Member(m.lookupKey, rhythm.days(every), last?.time, rhythm.snoozedUntil)
         }
@@ -64,6 +66,8 @@ class CircleUi(c: DataContainer, scope: CoroutineScope, contacts: StateFlow<List
             if (key !in byKey) return@mapNotNull null
             CircleSuggestions.Candidate(key, t.totals.answeredIn + t.totals.answeredOut, idx.rhythm(t.person.key)?.suggestedReminderDays)
         }
-        CircleSuggestions.pick(candidates, inCircle).mapNotNull { cand -> byKey[cand.lookupKey]?.let { CircleSuggestion(it, cand.calls, CircleSuggestions.daysFor(cand)) } }
+        CircleSuggestions.pick(
+            candidates, inCircle,
+        ).mapNotNull { cand -> byKey[cand.lookupKey]?.let { CircleSuggestion(it, cand.calls, CircleSuggestions.daysFor(cand)) } }
     }.flowOn(Dispatchers.Default).stateIn(scope, SharingStarted.WhileSubscribed(5_000), emptyList())
 }

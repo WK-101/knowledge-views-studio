@@ -75,7 +75,11 @@ import app.parley.ui.ParleyListItem
 import app.parley.ui.avatarSize
 
 private enum class InsightPeriod(@StringRes val label: Int) {
-    WEEK(R.string.hist_insight_week), MONTH(R.string.hist_insight_month), QUARTER(R.string.hist_insight_quarter), YEAR(R.string.hist_insight_year), ALL(R.string.hist_insight_all);
+    WEEK(R.string.hist_insight_week),
+    MONTH(R.string.hist_insight_month),
+    QUARTER(R.string.hist_insight_quarter),
+    YEAR(R.string.hist_insight_year),
+    ALL(R.string.hist_insight_all);
 
     fun period(now: Long, zone: ZoneId): Period = when (this) {
         WEEK -> Period.lastDays(7, now)
@@ -106,7 +110,9 @@ fun InsightsScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
         val period = choice.period(now, idx.zone)
         val totals = remember(idx, choice) { idx.totals(period) }
         val weeks = remember(idx, choice) {
-            val bounded = if (choice == InsightPeriod.ALL || choice == InsightPeriod.YEAR) Period(maxOf(period.from, now - 52 * 7 * CallLogIndex.DAY), period.until) else period
+            val bounded = if (choice == InsightPeriod.ALL || choice == InsightPeriod.YEAR) Period(
+                maxOf(period.from, now - 52 * 7 * CallLogIndex.DAY), period.until,
+            ) else period
             idx.weeklyTalk(bounded, now = now)
         }
         val byTime = remember(idx, choice) { idx.topByTalkTime(period) }
@@ -116,7 +122,10 @@ fun InsightsScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
 
         LazyColumn(Modifier.padding(p)) {
             item {
-                Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(
+                    Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
                     InsightPeriod.entries.forEach { c -> FilterChip(choice == c, { choice = c }, { Text(stringResource(c.label)) }) }
                 }
             }
@@ -131,8 +140,16 @@ fun InsightsScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
                     }
                     if (totals.outgoing > 0) {
                         Text(
-                            stringResource(R.string.hist_answered_rates, totals.answeredOut, totals.outgoing, totals.answeredIn, totals.incoming + totals.missed + totals.rejected),
-                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp),
+                            stringResource(
+                                R.string.hist_answered_rates,
+                                totals.answeredOut,
+                                totals.outgoing,
+                                totals.answeredIn,
+                                totals.incoming + totals.missed + totals.rejected,
+                            ),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 8.dp),
                         )
                     }
                 }
@@ -147,11 +164,31 @@ fun InsightsScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
             }
             if (byTime.isNotEmpty()) {
                 item { Section(stringResource(R.string.hist_most_talk)) }
-                byTime.forEach { pt -> item { PersonRow(vm, pt.person, pluralStringResource(R.plurals.hist_talk_and_calls, pt.totals.total, pt.totals.total, HistoryFormat.talk(pt.totals.talkSec)), open) } }
+                byTime.forEach { pt ->
+                    item {
+                        PersonRow(
+                            vm,
+                            pt.person,
+                            pluralStringResource(R.plurals.hist_talk_and_calls, pt.totals.total, pt.totals.total, HistoryFormat.talk(pt.totals.talkSec)),
+                            open,
+                        )
+                    }
+                }
             }
             if (byCount.isNotEmpty()) {
                 item { Section(stringResource(R.string.hist_most_calls)) }
-                byCount.forEach { pt -> item { PersonRow(vm, pt.person, (pt.totals.total - pt.totals.blocked).let { n -> pluralStringResource(R.plurals.hist_calls_and_talk, n, n, HistoryFormat.talk(pt.totals.talkSec)) }, open) } }
+                byCount.forEach { pt ->
+                    item {
+                        PersonRow(
+                            vm,
+                            pt.person,
+                            (pt.totals.total - pt.totals.blocked).let { n ->
+                                pluralStringResource(R.plurals.hist_calls_and_talk, n, n, HistoryFormat.talk(pt.totals.talkSec))
+                            },
+                            open,
+                        )
+                    }
+                }
             }
             if (perSim.size > 1) {
                 item { Section(stringResource(R.string.hist_by_sim)) }
@@ -162,7 +199,11 @@ fun InsightsScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
                             headlineContent = { Text(sims.firstOrNull { it.id == id }?.label ?: if (id == null) stringResource(R.string.hist_no_sim) else stringResource(R.string.hist_other_sim)) },
                             supportingContent = {
                                 Column {
-                                    Text(pluralStringResource(R.plurals.hist_sim_totals, t.total, t.total, t.outgoing, t.incoming, t.missed, HistoryFormat.talk(t.talkSec)))
+                                    Text(
+                                        pluralStringResource(
+                                            R.plurals.hist_sim_totals, t.total, t.total, t.outgoing, t.incoming, t.missed, HistoryFormat.talk(t.talkSec),
+                                        ),
+                                    )
                                     LinearProgressIndicator(progress = { t.total.toFloat() / max }, modifier = Modifier.fillMaxWidth().padding(top = 6.dp))
                                 }
                             },
@@ -172,7 +213,13 @@ fun InsightsScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
             }
             item { Section(stringResource(R.string.hist_unreturned)) }
             if (unreturned.isEmpty()) {
-                item { Text(stringResource(R.string.hist_unreturned_none), Modifier.padding(horizontal = 16.dp, vertical = 8.dp), color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                item {
+                    Text(
+                        stringResource(R.string.hist_unreturned_none),
+                        Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
             unreturned.take(20).forEach { u ->
                 item {
@@ -181,7 +228,11 @@ fun InsightsScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Un
                         vm, u.person,
                         pluralStringResource(R.plurals.hist_missed_last, u.count, u.count, Format.shortWhen(context, u.last.date)),
                         open,
-                        trailing = { IconButton({ vm.requestCall(u.person.number, u.person.name) }) { Icon(Icons.Rounded.Call, stringResource(R.string.hist_call_back), tint = MaterialTheme.colorScheme.primary) } },
+                        trailing = {
+                            IconButton({ vm.requestCall(u.person.number, u.person.name) }) {
+                                Icon(Icons.Rounded.Call, stringResource(R.string.hist_call_back), tint = MaterialTheme.colorScheme.primary)
+                            }
+                        },
                     )
                 }
             }
@@ -252,7 +303,11 @@ private fun WeeklyBars(weeks: List<WeekBucket>, modifier: Modifier = Modifier) {
         Row(Modifier.fillMaxWidth().padding(top = 4.dp)) {
             Text(fmt.format(weeks.first().weekStart), style = MaterialTheme.typography.labelSmall)
             Spacer(Modifier.weight(1f))
-            Text(stringResource(R.string.hist_weekly_scale, HistoryFormat.talk(max), HistoryFormat.talk(max / 2)), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                stringResource(R.string.hist_weekly_scale, HistoryFormat.talk(max), HistoryFormat.talk(max / 2)),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             Spacer(Modifier.weight(1f))
             Text(fmt.format(weeks.last().weekStart), style = MaterialTheme.typography.labelSmall)
         }

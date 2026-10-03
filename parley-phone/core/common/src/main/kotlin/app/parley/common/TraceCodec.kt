@@ -38,5 +38,7 @@ object TraceCodec {
     }
 
     /** "Contact? no → Allow rules: none → Rule 'Telemarketing' → Silence" (with "!" on failed-open steps). */
-    fun oneLine(steps: List<TraceStep>): String = steps.joinToString(" → ") { (if (it.mark == TraceMark.FAILED_OPEN) "! " else "") + "${it.check}: ${it.result}" }
+    fun oneLine(steps: List<TraceStep>): String = steps.joinToString(" → ") {
+        (if (it.mark == TraceMark.FAILED_OPEN) "! " else "") + "${it.check}: ${it.result}"
+    }
 }

@@ -157,19 +157,29 @@ fun SimpleSetupScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) ->
             }
         }
         SegmentedGroup(stringResource(R.string.simple_options)) {
-            item("keypad") { SwitchRow(stringResource(R.string.simple_keypad), stringResource(R.string.simple_keypad_body), cfg.showKeypad, Icons.Rounded.Dialpad) { v -> store.updateSimple { it.copy(showKeypad = v) } } }
+            item("keypad") {
+                SwitchRow(
+                    stringResource(R.string.simple_keypad), stringResource(R.string.simple_keypad_body), cfg.showKeypad, Icons.Rounded.Dialpad,
+                ) { v -> store.updateSimple { it.copy(showKeypad = v) } }
+            }
             item("decline") { SwitchRow(
                 stringResource(R.string.simple_confirm_decline),
                 stringResource(R.string.simple_confirm_decline_body),
                 cfg.confirmDecline,
                 Icons.AutoMirrored.Rounded.HelpOutline,
             ) { v -> store.updateSimple { it.copy(confirmDecline = v) } } }
-            item("speak") { SwitchRow(stringResource(R.string.simple_speak), stringResource(R.string.simple_speak_body), cfg.speakName, Icons.Rounded.RecordVoiceOver) { v -> store.updateSimple { it.copy(speakName = v) } } }
+            item("speak") {
+                SwitchRow(
+                    stringResource(R.string.simple_speak), stringResource(R.string.simple_speak_body), cfg.speakName, Icons.Rounded.RecordVoiceOver,
+                ) { v -> store.updateSimple { it.copy(speakName = v) } }
+            }
             // I5: the people a big "Add my helper" button calls into a call.
             item("helpers") { SimpleHelpersRow(vm) { open(FamilyRoutes.Helpers) } }
         }
         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button({ store.updateSimple { it.copy(enabled = true) } }, enabled = cfg.people.isNotEmpty() || cfg.showKeypad, modifier = Modifier.fillMaxWidth()) {
+            Button(
+                { store.updateSimple { it.copy(enabled = true) } }, enabled = cfg.people.isNotEmpty() || cfg.showKeypad, modifier = Modifier.fillMaxWidth(),
+            ) {
                 Text(stringResource(R.string.simple_turn_on))
             }
             Text(stringResource(R.string.simple_exit_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -241,7 +251,9 @@ private fun SimplePersonPicker(contacts: List<ContactSummary>, taken: Set<String
         title = { Text(stringResource(R.string.simple_add)) },
         text = {
             Column {
-                OutlinedTextField(q, { q = it }, singleLine = true, label = { Text(stringResource(R.string.home_search_contacts)) }, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(
+                    q, { q = it }, singleLine = true, label = { Text(stringResource(R.string.home_search_contacts)) }, modifier = Modifier.fillMaxWidth(),
+                )
                 LazyColumn(Modifier.heightIn(max = 360.dp).padding(top = 8.dp)) {
                     items(shown, key = { it.id }) { c ->
                         ParleyListItem(
@@ -399,11 +411,17 @@ fun SimpleImportScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -
                             supportingContent = {
                                 Column {
                                     Text(Bidi.ltr(r.person.number))
-                                    Text(r.contact?.let { stringResource(R.string.simple_matched, it.displayName) } ?: stringResource(R.string.simple_not_in_contacts))
+                                    Text(
+                                        r.contact?.let { stringResource(R.string.simple_matched, it.displayName) } ?: stringResource(
+                                            R.string.simple_not_in_contacts,
+                                        ),
+                                    )
                                 }
                             },
                             trailingContent = {
-                                if (r.contact == null) TextButton({ open(Routes.edit(name = r.person.name, phone = r.person.number)) }) { Text(stringResource(R.string.simple_create)) }
+                                if (r.contact == null) TextButton({ open(Routes.edit(name = r.person.name, phone = r.person.number)) }) {
+                                    Text(stringResource(R.string.simple_create))
+                                }
                                 else Icon(Icons.Rounded.CheckCircle, null, tint = MaterialTheme.colorScheme.primary)
                             },
                         )
@@ -411,7 +429,9 @@ fun SimpleImportScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -
                 }
             }
             Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(stringResource(R.string.simple_import_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    stringResource(R.string.simple_import_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
                 Button({
                     // Keys of the contacts found here, so the tiles follow renames on this phone.
                     val people = SimpleSetup.resolve(cfg.people, vm.contacts.value.orEmpty()).map { r -> r.person.copy(lookupKey = r.contact?.lookupKey) }

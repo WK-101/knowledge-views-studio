@@ -10,7 +10,6 @@ import app.parley.common.LabelRefs
 import app.parley.common.PhoneIdentity
 import android.content.Context
 import android.net.Uri
-import android.provider.CallLog.Calls
 import android.provider.ContactsContract
 import app.parley.common.BlockRule
 import app.parley.common.CallType
@@ -40,7 +39,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import java.time.ZoneId
 
 /** An incoming call to screen. [simId] is only known on the InCallService path (the screening service has none). */
 data class ScreenRequest(
@@ -203,7 +201,9 @@ class CallScreener(
                 val cs = candidateSettings?.invoke(s) ?: s
                 pipeline.dryRun(replay, rules + extra, cs) { c ->
                     val f = factsCache.getValue(c)
-                    val hit = if (candidatePack != null && lists != null) c.number.takeIf { !c.hidden }?.let { lists.lookupIn(candidatePack, it, iso) } else null
+                    val hit = if (candidatePack != null && lists != null) c.number.takeIf { !c.hidden }?.let {
+                        lists.lookupIn(candidatePack, it, iso)
+                    } else null
                     if (hit == null) f else f.copy(listHits = f.listHits + hit)
                 }
             }
@@ -279,7 +279,7 @@ class CallScreener(
                     contactName = d.name
                     contactRingtone = d.ringtone
                     // Titles in every account: label rules, off hours and ringtones name labels by title.
-                    if (needLabels) labels = contacts.labelTitlesOrNull(d.id) ?: throw IllegalStateException("contacts unavailable")
+                    if (needLabels) labels = contacts.labelTitlesOrNull(d.id) ?: error("contacts unavailable")
                 } ?: privateCaller(primary, iso, needLabels)?.let { p ->
                     contactName = p.name
                     starred = p.starred
@@ -377,7 +377,12 @@ class CallScreener(
         if (!Permissions.has(context, Manifest.permission.READ_CONTACTS)) return null
         val uri = Uri.withAppendedPath(ContactsContract.PhoneLookup.CONTENT_FILTER_URI, Uri.encode(number))
         return context.contentResolver.query(
-            uri, arrayOf(ContactsContract.PhoneLookup._ID, ContactsContract.PhoneLookup.DISPLAY_NAME, ContactsContract.PhoneLookup.STARRED, ContactsContract.PhoneLookup.CUSTOM_RINGTONE),
+            uri, arrayOf(
+                ContactsContract.PhoneLookup._ID,
+                ContactsContract.PhoneLookup.DISPLAY_NAME,
+                ContactsContract.PhoneLookup.STARRED,
+                ContactsContract.PhoneLookup.CUSTOM_RINGTONE,
+            ),
             null, null, null,
         )?.use { c -> if (c.moveToFirst()) ContactBits(c.getLong(0), c.getString(1), c.getInt(2) != 0, c.getString(3)) else null }
     }

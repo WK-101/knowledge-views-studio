@@ -65,7 +65,13 @@ fun DryRunScreen(vm: AppViewModel, back: () -> Unit) {
         LazyColumn(Modifier.padding(p)) {
             item {
                 Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf(1, 7, 30).forEach { d -> FilterChip(days == d, { days = d }, label = { Text(if (d == 1) stringResource(R.string.blk_dry_today) else pluralStringResource(R.plurals.set_days, d, d)) }) }
+                    listOf(1, 7, 30).forEach { d ->
+                        FilterChip(
+                            days == d,
+                            { days = d },
+                            label = { Text(if (d == 1) stringResource(R.string.blk_dry_today) else pluralStringResource(R.plurals.set_days, d, d)) },
+                        )
+                    }
                 }
                 Card(Modifier.fillMaxWidth().padding(16.dp)) {
                     Column(Modifier.padding(16.dp)) {
@@ -88,8 +94,15 @@ fun DryRunScreen(vm: AppViewModel, back: () -> Unit) {
                 Column {
                     ListItem(
                         modifier = Modifier.clickable { open = !open },
-                        leadingContent = { Icon(if (r.result.blocked) Icons.Rounded.Block else Icons.Rounded.Call, stringResource(if (r.result.blocked) R.string.blk_would_block else R.string.blk_would_ring)) },
-                        headlineContent = { Text(if (r.call.hidden) stringResource(R.string.blk_private_number) else bidiLtr(Format.number(r.call.number, vm.countryIso))) },
+                        leadingContent = {
+                            Icon(
+                                if (r.result.blocked) Icons.Rounded.Block else Icons.Rounded.Call,
+                                stringResource(if (r.result.blocked) R.string.blk_would_block else R.string.blk_would_ring),
+                            )
+                        },
+                        headlineContent = {
+                            Text(if (r.call.hidden) stringResource(R.string.blk_private_number) else bidiLtr(Format.number(r.call.number, vm.countryIso)))
+                        },
                         supportingContent = {
                             Text(
                                 Format.fullDate(context, r.call.time) + " · " +

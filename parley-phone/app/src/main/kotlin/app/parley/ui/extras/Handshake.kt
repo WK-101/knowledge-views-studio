@@ -89,7 +89,12 @@ fun HandshakeFields(vm: AppViewModel, place: String, onPlace: (String) -> Unit, 
             keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
             modifier = Modifier.fillMaxWidth(),
         )
-        Text(stringResource(R.string.handshake_place_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
+        Text(
+            stringResource(R.string.handshake_place_note),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 4.dp),
+        )
         CheckLine(stringResource(R.string.handshake_to_note), toNote, onToNote)
         CheckLine(stringResource(R.string.handshake_swap), swap) { vm.c.extras.setHandshakeSwap(it) }
     }

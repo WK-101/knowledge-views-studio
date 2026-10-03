@@ -85,6 +85,20 @@ Run each class twice and keep the better run of each test (the first run after i
 Then fill in the table below with the medians the JSON reports (`timeToInitialDisplayMs`, `frameDurationCpuMs` P50/P90,
 `frameOverrunMs` P90, the trace sections' medians), and the device, Android version and Parley version.
 
+### Instrumented smoke tests
+
+`app/src/androidTest` holds a few seconds of checks on a real phone or emulator: Parley starts and draws its window,
+survives being recreated, and opens from a dial intent without calling. They need the same kind of test device (one
+connected, unlocked, Android 10 or later) and change nothing on it:
+
+```sh
+cd parley-phone
+./gradlew :app:connectedDebugAndroidTest
+```
+
+A plain build only compiles them (`./gradlew :app:compileDebugAndroidTestKotlin`); nothing in CI runs them yet,
+because CI has no device or emulator.
+
 ### Results
 
 Not measured yet: no device run has been recorded for 4.4. Fill in one row per device and build.

@@ -98,7 +98,11 @@ fun JournalList(vm: AppViewModel, open: (Destination) -> Unit, onShowSnapshots: 
                             scope.launch {
                                 val id = vm.c.journal.restore(e.id)
                                 if (id != null) {
-                                    vm.toast(if (e.action == "DELETE") res.getString(R.string.jr_restored_name, e.displayName) else res.getString(R.string.jr_restored_copy))
+                                    vm.toast(
+                                        if (e.action == "DELETE") res.getString(
+                                            R.string.jr_restored_name, e.displayName,
+                                        ) else res.getString(R.string.jr_restored_copy),
+                                    )
                                     open(Routes.contact(id))
                                 } else {
                                     vm.toast(res.getString(R.string.jr_restore_failed))

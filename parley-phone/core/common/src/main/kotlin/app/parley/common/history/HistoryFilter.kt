@@ -86,7 +86,6 @@ data class HistoryFilter(
 
     fun matches(e: CallEntry, now: Long, zone: ZoneId): Boolean = matcher(now, zone)(e)
 
-
     companion object {
         private val json = Json { ignoreUnknownKeys = true; encodeDefaults = false }
         private val listSerializer = ListSerializer(serializer())

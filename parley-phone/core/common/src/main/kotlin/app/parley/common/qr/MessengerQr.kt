@@ -63,7 +63,9 @@ object MessengerQr {
             "threema" -> {
                 val q = QrText.query(rest.substringAfter('?', ""))
                 val id = q["id"]?.uppercase()
-                if (id != null && THREEMA_ID.matches(id)) m(t, QrApp.THREEMA, LinkKind.ID, id, uri = "https://threema.id/$id") else m(t, QrApp.THREEMA, LinkKind.LINK, null)
+                if (id != null && THREEMA_ID.matches(id)) m(
+                    t, QrApp.THREEMA, LinkKind.ID, id, uri = "https://threema.id/$id",
+                ) else m(t, QrApp.THREEMA, LinkKind.LINK, null)
             }
             "skype" -> m(t, QrApp.SKYPE, LinkKind.PROFILE, QrText.percentDecode(rest.removePrefix("//").substringBefore('?')).ifEmpty { null })
             "simplex" -> simplexKind(rest)?.let { m(t, QrApp.SIMPLEX, it, null) }

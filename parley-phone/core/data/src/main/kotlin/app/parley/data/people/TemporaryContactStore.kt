@@ -59,10 +59,11 @@ class TemporaryContactStore(private val c: DataContainer) {
         // The lookup key can briefly be unreadable right after the insert (aggregation runs asynchronously): retry,
         // and if it still isn't there, record the entry by its raw contact so it is never left without an expiry.
         var key: String? = null
-        for (attempt in 0 until KEY_TRIES) {
-            key = c.contacts.lookupKeyOf(saved.contactId)?.takeIf { it.isNotEmpty() }
-            if (key != null) break
-            delay(KEY_RETRY_MS)
+        repeat(KEY_TRIES) {
+            if (key == null) {
+                key = c.contacts.lookupKeyOf(saved.contactId)?.takeIf { it.isNotEmpty() }
+                if (key == null) delay(KEY_RETRY_MS)
+            }
         }
         val recordKey = key ?: raw?.let(TemporaryExpiry::pendingKey)
         if (recordKey != null) {
@@ -143,7 +144,9 @@ class TemporaryContactStore(private val c: DataContainer) {
             temps.forEach { (t, _) -> c.meta.clearTemporary(t.lookupKey) }
             if (keep != null && merged != null) {
                 val first = temps.first().first
-                c.meta.setTemporary(first.copy(lookupKey = merged.second, contactId = merged.first, expiresAt = keep.second, rawIds = TemporaryExpiry.encodeIds(keep.first)))
+                c.meta.setTemporary(
+                    first.copy(lookupKey = merged.second, contactId = merged.first, expiresAt = keep.second, rawIds = TemporaryExpiry.encodeIds(keep.first)),
+                )
                 false
             } else {
                 true

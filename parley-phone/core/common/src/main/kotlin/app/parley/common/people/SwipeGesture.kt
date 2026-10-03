@@ -7,8 +7,10 @@ import kotlin.math.sign
 enum class SwipeIntent {
     /** Not moved past the touch slop yet. */
     UNDECIDED,
+
     /** Clearly sideways: the row takes the gesture. */
     HORIZONTAL,
+
     /** Up, down or diagonal: the list scrolls and the row leaves the gesture alone. */
     VERTICAL,
 }

@@ -121,7 +121,9 @@ object SimpleSetup {
      * calling someone else's number.
      */
     fun resolve(people: List<SimplePerson>, contacts: List<ContactSummary>): List<Resolved> = people.map { p ->
-        val having = if (PhoneNumbers.digits(p.number).isEmpty()) emptyList() else contacts.filter { c -> c.phones.any { PhoneIdentity.same(it.number, p.number, null) } }
+        val having = if (PhoneNumbers.digits(p.number).isEmpty()) emptyList() else contacts.filter { c ->
+            c.phones.any { PhoneIdentity.same(it.number, p.number, null) }
+        }
         Resolved(p, having.firstOrNull { p.lookupKey != null && it.lookupKey == p.lookupKey } ?: having.firstOrNull())
     }
 
