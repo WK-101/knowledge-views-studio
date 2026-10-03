@@ -7,6 +7,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.os.Trace
 import androidx.core.content.ContextCompat
+import app.parley.calls.PrivateCallLogSweep
 import app.parley.blocking.BlockingSetup
 import app.parley.common.suspendRunCatching
 import app.parley.data.DataContainer
@@ -105,7 +106,9 @@ class ParleyApp : Application() {
             } finally {
                 Trace.endAsyncSection(TRACE_WARM, 0)
             }
-            // Plaintext call-history exports never outlive the next start.
+            // A private contact's call the last process couldn't take out of the system call log goes first.
+            suspendRunCatching { PrivateCallLogSweep.recheck(this@ParleyApp, container) }
+            // Plaintext call-history exports and shared files never outlive the next start.
             ExportFiles.cleanup(this@ParleyApp)
             // Camera shots and framed avatars that a closed editor or an unfinished save left in the cache.
             runCatching { ContactCamera.sweep(this@ParleyApp) }

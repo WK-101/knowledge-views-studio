@@ -1,16 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- No cloud backup or device transfer of app data: backups are the user's own encrypted exports. -->
+<!-- No cloud backup or device transfer of app data: backups are the user's own encrypted exports. The device_*
+     domains are the device-protected storage (spam lists, readable before the first unlock), which a phone-to-phone
+     transfer would otherwise copy on Android 12+ even with allowBackup off. -->
 <data-extraction-rules>
     <cloud-backup>
         <exclude domain="root" />
         <exclude domain="file" />
         <exclude domain="database" />
         <exclude domain="sharedpref" />
+        <exclude domain="device_root" />
+        <exclude domain="device_file" />
+        <exclude domain="device_database" />
+        <exclude domain="device_sharedpref" />
+        <exclude domain="external" />
     </cloud-backup>
     <device-transfer>
         <exclude domain="root" />
         <exclude domain="file" />
         <exclude domain="database" />
         <exclude domain="sharedpref" />
+        <exclude domain="device_root" />
+        <exclude domain="device_file" />
+        <exclude domain="device_database" />
+        <exclude domain="device_sharedpref" />
+        <exclude domain="external" />
     </device-transfer>
 </data-extraction-rules>

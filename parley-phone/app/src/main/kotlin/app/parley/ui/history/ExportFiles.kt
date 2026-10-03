@@ -101,11 +101,20 @@ object ExportFiles {
         pm.print(name, CallPrintAdapter(context.applicationContext, title(context, subject), rows), PrintAttributes.Builder().setMediaSize(PrintAttributes.MediaSize.ISO_A4).build())
     }
 
-    /** Deletes export files (all of them by default). Plaintext exports never outlive the next start. */
+    /**
+     * Deletes export files and what other screens handed to apps through the share cache (all of them by default):
+     * contact cards (a scanned Secure QR's decrypted card among them), voicemail audio, rule exports and transfer
+     * files. Plaintext files never outlive the next start, and the hourly upkeep takes those older than an hour.
+     */
     fun cleanup(context: Context, olderThanMillis: Long = 0) {
         val cutoff = System.currentTimeMillis() - olderThanMillis
-        dir(context).listFiles()?.forEach { f -> if (olderThanMillis == 0L || f.lastModified() < cutoff) f.delete() }
+        fun sweep(d: File) = d.listFiles()?.forEach { f -> if (f.isFile && (olderThanMillis == 0L || f.lastModified() < cutoff)) f.delete() }
+        sweep(dir(context))
+        SHARED_DIRS.forEach { sweep(File(context.cacheDir, it)) }
     }
+
+    /** Cache folders other screens share files from (FileProvider paths "share" and "transfer"). */
+    private val SHARED_DIRS = listOf("share", "transfer")
 
     private fun title(context: Context, subject: String?) =
         if (subject.isNullOrBlank()) context.getString(R.string.hist_export_title) else context.getString(R.string.hist_export_title_subject, subject)

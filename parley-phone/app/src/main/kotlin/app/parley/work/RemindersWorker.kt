@@ -15,6 +15,7 @@ import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
+import app.parley.IntentRoutes
 import app.parley.MainActivity
 import app.parley.R
 import app.parley.common.ContactSummary
@@ -190,7 +191,8 @@ class RemindersWorker(context: Context, params: WorkerParameters) : CoroutineWor
 
     private fun openContact(contactId: Long, code: Int): PendingIntent = PendingIntent.getActivity(
         applicationContext, code,
-        Intent(applicationContext, MainActivity::class.java).setAction(MainActivity.ACTION_SHOW_CALLER).putExtra(MainActivity.EXTRA_CONTACT_ID, contactId).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+        IntentRoutes.own(applicationContext).setAction(MainActivity.ACTION_SHOW_CALLER).putExtra(MainActivity.EXTRA_CONTACT_ID, contactId)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
         PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
     )
 
@@ -246,7 +248,7 @@ class RemindersWorker(context: Context, params: WorkerParameters) : CoroutineWor
         lines.forEach { style.addLine(it) }
         val open = PendingIntent.getActivity(
             ctx, DateReminders.DIGEST_TAG.hashCode(),
-            Intent(ctx, MainActivity::class.java).setAction(MainActivity.ACTION_SHOW_CIRCLE).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            IntentRoutes.own(ctx).setAction(MainActivity.ACTION_SHOW_CIRCLE).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
         val b = builder(ctx.getString(R.string.circle_digest_title))

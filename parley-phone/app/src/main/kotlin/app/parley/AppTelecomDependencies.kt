@@ -30,6 +30,7 @@ import app.parley.telecom.CallerDisplay
 import app.parley.telecom.CallerMemory
 import app.parley.common.circle.Promises
 import app.parley.data.circle.CircleRepository
+import app.parley.calls.PrivateCallLogSweep
 import app.parley.calls.ToCallReminders
 import app.parley.common.calls.ToCall
 import app.parley.common.calls.ToCallSource
@@ -292,15 +293,9 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
             }
         }
         if (number.isNullOrBlank()) return
-        c.scope.launch {
-            if (!c.settings.current().privateVaultHistory) return@launch
-            if (c.vault.lookup(number) == null) return@launch
-            // Telecom writes the call log shortly after the call ends; sweep a few times.
-            repeat(3) {
-                delay(2500)
-                c.vault.sweepCallLog(System.currentTimeMillis() - 6 * 60 * 60 * 1000L)
-            }
-        }
+        // A private contact's call leaves the system call log as soon as Telecom writes it (and at the next start, if
+        // this process ends first).
+        PrivateCallLogSweep.afterCall(app, c, number)
     }
 
     override fun onCallUsage(number: String?, accountId: String?, incoming: Boolean, connectTimeMillis: Long, durationSec: Long) {
@@ -569,7 +564,7 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
     }
 
     override fun postCallIntent(context: Context, action: PostCallAction, number: String): Intent =
-        Intent(context, MainActivity::class.java)
+        IntentRoutes.own(context)
             .setAction(MainActivity.ACTION_POST_CALL)
             .putExtra(MainActivity.EXTRA_POST_CALL_ACTION, action.name)
             .putExtra(MainActivity.EXTRA_NUMBER, number)
@@ -615,12 +610,12 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
     override suspend fun preferredAccountId(number: String): String? = withContext(Dispatchers.IO) { c.prefs.simFor(number) ?: c.extras.labelSimFor(number) }
 
     override fun mainIntent(context: Context, dialpad: Boolean): Intent =
-        Intent(context, MainActivity::class.java)
+        IntentRoutes.own(context)
             .setAction(if (dialpad) MainActivity.ACTION_ADD_CALL else Intent.ACTION_MAIN)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
 
     override fun contactIntent(context: Context, contactId: Long?, number: String?): Intent =
-        Intent(context, MainActivity::class.java)
+        IntentRoutes.own(context)
             .setAction(MainActivity.ACTION_SHOW_CALLER)
             .putExtra(MainActivity.EXTRA_CONTACT_ID, contactId ?: -1L)
             .putExtra(MainActivity.EXTRA_NUMBER, number)

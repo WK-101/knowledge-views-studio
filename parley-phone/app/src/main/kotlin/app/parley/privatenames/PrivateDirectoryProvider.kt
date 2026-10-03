@@ -15,7 +15,6 @@ import app.parley.ParleyApp
 import app.parley.R
 import app.parley.common.people.DirectoryPolicy
 import app.parley.data.DataContainer
-import app.parley.common.people.LookupApproval
 import app.parley.common.people.LookupOutcome
 import app.parley.common.people.LookupPolicy
 import kotlinx.coroutines.Dispatchers
@@ -86,10 +85,10 @@ class PrivateDirectoryProvider : ContentProvider() {
         val now = System.currentTimeMillis()
         // The Directory has its own approvals: allowing an app to use the lookup provider doesn't allow this.
         val approval = access.approval(caller, directory = true)
-        var outcome = LookupPolicy.decide(access.state.value.directory, approval, number != null, access.recentQueries(caller, now), now)
+        var outcome = LookupPolicy.decide(access.stored.directory, approval, number != null, access.recentQueries(caller, now), now)
         when (outcome) {
             LookupOutcome.ASKED -> if (access.takePrompt(caller, directory = true, now = now)) {
-                if (approval == null) access.setApproval(caller, LookupApproval.PENDING, directory = true)
+                if (approval == null) access.markPending(caller, directory = true)
                 PrivateNameProvider.askUser(ctx, caller, directory = true)
             }
             LookupOutcome.ANSWERED -> {
@@ -152,7 +151,8 @@ class PrivateDirectoryProvider : ContentProvider() {
          * at all), and a nudge so the Contacts Provider rescans Parley now rather than at the next reboot.
          */
         fun setEnabled(ctx: Context, c: DataContainer, on: Boolean) {
-            c.people.privateNames.setDirectoryEnabled(on)
+            // A duress session's change is only shown: the component stays as stored.
+            if (!c.people.privateNames.setDirectoryEnabled(on)) return
             runCatching {
                 ctx.packageManager.setComponentEnabledSetting(
                     ComponentName(ctx, PrivateDirectoryProvider::class.java),

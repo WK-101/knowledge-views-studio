@@ -29,6 +29,7 @@ import app.parley.ui.parleyGraph
 import app.parley.ui.people.PeopleRoutes
 import app.parley.ui.qr.QrRoutes
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -69,7 +70,7 @@ class NavigationRoutesTest {
             type != null -> i.type = type
         }
         i.extras()
-        return IntentRoutes.resolve(i) { null }
+        return IntentRoutes.resolve(i, fromParley = true) { null }
     }
 
     private fun routeOf(t: IntentTarget?): Destination = (t?.event as? NavEvent.Route)?.route ?: error("no route in $t")
@@ -248,5 +249,44 @@ class NavigationRoutesTest {
         all.forEach(::opens)
         nav.navigate(Routes.Home)
         assertTrue(nav.currentBackStackEntry!!.destination.hasRoute(Routes.Home::class))
+    }
+
+    @Test fun internal_actions_open_nothing_for_other_apps() {
+        for (action in IntentRoutes.INTERNAL_ACTIONS) {
+            val i = Intent(action).putExtra(IntentRoutes.EXTRA_CONTACT_ID, 42L).putExtra(IntentRoutes.EXTRA_NUMBER, "+15550100")
+                .putExtra(IntentRoutes.EXTRA_POST_CALL_ACTION, "BLOCK").putExtra(IntentRoutes.EXTRA_PASTE_ID, "id")
+                .putExtra(IntentRoutes.EXTRA_PACKAGE, "com.example")
+            assertNull(action, IntentRoutes.resolve(i, fromParley = false) { null })
+        }
+        // In particular, no other app can mark every missed call as seen.
+        assertNull(IntentRoutes.resolve(Intent(IntentRoutes.ACTION_SHOW_MISSED), fromParley = false) { null })
+        // Public actions still work from anywhere.
+        assertEquals(NavEvent.Tab(StartTab.RECENTS), IntentRoutes.resolve(Intent(Intent.ACTION_CALL_BUTTON), fromParley = false) { null }?.event)
+    }
+
+    @Test fun only_parleys_own_entry_counts_as_parley() {
+        val own = IntentRoutes.own(context).setAction(IntentRoutes.ACTION_SHOW_MISSED)
+        assertTrue(IntentRoutes.fromParley(own))
+        val outside = Intent(IntentRoutes.ACTION_SHOW_MISSED).setClassName(context, "app.parley.MainActivity")
+        assertFalse(IntentRoutes.fromParley(outside))
+        assertFalse(IntentRoutes.fromParley(Intent(IntentRoutes.ACTION_SHOW_MISSED)))
+    }
+
+    @Test fun contact_links_must_be_the_contacts_providers() {
+        val other = Uri.parse("content://app.evil.provider/contacts/7")
+        assertNull(resolve(IntentRoutes.QUICK_CONTACT, other))
+        assertNull(resolve(Intent.ACTION_VIEW, other))
+        assertNull(resolve(Intent.ACTION_EDIT, other, "vnd.android.cursor.item/contact"))
+        val legacy = Uri.parse("content://contacts/people/7")
+        assertEquals(legacy, resolve(IntentRoutes.QUICK_CONTACT, legacy)?.resolveContact)
+    }
+
+    @Test fun a_private_name_approval_names_its_app() {
+        val t = resolve(IntentRoutes.ACTION_APPROVE_PRIVATE_NAME) {
+            putExtra(IntentRoutes.EXTRA_PACKAGE, "com.example.callerid")
+            putExtra(IntentRoutes.EXTRA_DIRECTORY, true)
+        }
+        assertEquals("com.example.callerid" to true, t?.approvePrivateName)
+        assertNull(resolve(IntentRoutes.ACTION_APPROVE_PRIVATE_NAME))
     }
 }

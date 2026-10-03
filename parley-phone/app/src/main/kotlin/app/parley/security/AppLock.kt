@@ -127,8 +127,24 @@ object AppLock {
         if (s.appLock && s.lockAfterMinutes <= 0) engage()
     }
 
+    /** When Parley's screens last started (elapsed time): a stop after it means Parley is in the background. */
+    @Volatile private var startedAt = 0L
+
+    /**
+     * Whether Parley counts as locked now for what shows outside it (the home-screen widgets): the lock is on and
+     * engaged, or Parley has been in the background longer than its timeout (the lock engages only at the next start).
+     * True in a process where Parley's screens never ran: nothing has unlocked it there.
+     */
+    fun lockedFor(settings: AppSettings, now: Long = SystemClock.elapsedRealtime()): Boolean =
+        settings.appLock && (locked.value || awayPastTimeout(startedAt, backgroundAt, now, settings.lockAfterMinutes))
+
+    /** Pure part of [lockedFor]: stopped after the last start, for at least [lockAfterMinutes]. */
+    internal fun awayPastTimeout(startedAt: Long, stoppedAt: Long, now: Long, lockAfterMinutes: Int): Boolean =
+        stoppedAt > 0 && stoppedAt >= startedAt && now - stoppedAt >= lockAfterMinutes * 60_000L
+
     /** Call before the first frame of a returning activity (it only reads memory), so content never flashes. */
     fun onStart(settings: AppSettings) {
+        startedAt = SystemClock.elapsedRealtime()
         lastSettings = settings
         promptOnShow = true
         if (!settings.appLock) {
@@ -258,6 +274,18 @@ object AppLock {
                 override fun onAuthenticationError(errorCode: Int, errString: CharSequence) = onResult(false)
             },
         )
+    }
+
+    /**
+     * "Confirm it's you" for a sensitive change inside Parley: the Parley PIN when one is set ([PinConfirm]), else the
+     * fingerprint or screen lock ([authenticate]). Never the phone's credential while a Parley PIN guards Parley.
+     */
+    fun confirm(activity: FragmentActivity, title: String, onResult: (Boolean) -> Unit) {
+        val pins = activity.container.appPin
+        fun go() {
+            if (PinConfirm.asksPin(pins.shown.value, pins.summary.value)) PinConfirm.ask(title, onResult) else authenticate(activity, title, onResult)
+        }
+        if (pins.summary.value != null) go() else activity.lifecycleScope.launch { pins.load(); go() }
     }
 
     /**

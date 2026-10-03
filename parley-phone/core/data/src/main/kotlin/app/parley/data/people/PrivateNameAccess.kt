@@ -7,6 +7,7 @@ import java.security.MessageDigest
 import app.parley.common.people.LookupApproval
 import app.parley.common.people.LookupOutcome
 import app.parley.common.people.LookupPolicy
+import app.parley.data.security.Concealment
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import org.json.JSONArray
@@ -31,25 +32,70 @@ data class PrivateNameState(
  * An approval belongs to an app, not to a package name: the SHA-256 of the app's signing certificate is stored
  * with it and checked on every use, so another app installed under the same name (on this phone, or after a
  * restore on a new one) has to be approved again.
+ *
+ * While a duress unlock hides things ([Concealment.hiding]) the two switches and the approvals are safety switches like
+ * the app lock: what the screens change is shown ([state]) but kept in memory only and dropped at the next lock
+ * ([endSession]); nothing is stored, so nobody can leave an app lasting access to private names from a duress session.
+ * The providers read what is stored ([stored], [approval]), never the session's view.
  */
 class PrivateNameAccess(context: Context) {
     private val pm = context.applicationContext.packageManager
     private val prefs = context.applicationContext.getSharedPreferences("private_names", Context.MODE_PRIVATE)
     private val recent = HashMap<String, ArrayDeque<Long>>()
-    private val _state = MutableStateFlow(read())
+    private val _stored = MutableStateFlow(read())
+
+    /** What a duress session changed, shown instead of the stored values until [endSession] (null: nothing). */
+    private var session: PrivateNameState? = null
+    private val _state = MutableStateFlow(_stored.value)
+
+    /** What the screens show: as stored, or with a duress session's changes on top. */
     val state: StateFlow<PrivateNameState> = _state
+
+    /** As stored: what the providers answer by. */
+    val stored: PrivateNameState get() = _stored.value
+
+    private fun publish(s: PrivateNameState) {
+        _stored.value = s
+        _state.value = session?.copy(log = s.log) ?: s
+    }
+
+    /** True when a change must stay in memory now (see the class comment). */
+    private fun hidingNow(): Boolean = Concealment.hiding
+
+    /** A duress session's change: shown, never stored. */
+    private fun sessionChange(f: (PrivateNameState) -> PrivateNameState) {
+        val next = f(session ?: _stored.value)
+        session = next
+        _state.value = next.copy(log = _stored.value.log)
+    }
+
+    /** Parley locked or unlocked with a PIN: a duress session's changes are forgotten. */
+    @Synchronized
+    fun endSession() {
+        session = null
+        publish(_stored.value)
+    }
 
     @Synchronized
     fun setEnabled(on: Boolean) {
+        if (hidingNow()) return sessionChange { it.copy(enabled = on) }
         prefs.edit().putBoolean(K_ENABLED, on).apply()
-        _state.value = read()
+        publish(read())
     }
 
-    /** Turns the Directory on or off (the caller also enables or disables the provider component). */
+    /**
+     * Turns the Directory on or off. Returns whether the change was stored: only then may the caller enable or disable
+     * the provider component (a duress session's change is only shown).
+     */
     @Synchronized
-    fun setDirectoryEnabled(on: Boolean) {
+    fun setDirectoryEnabled(on: Boolean): Boolean {
+        if (hidingNow()) {
+            sessionChange { it.copy(directory = on) }
+            return false
+        }
         prefs.edit().putBoolean(K_DIRECTORY, on).apply()
-        _state.value = read()
+        publish(read())
+        return true
     }
 
     /**
@@ -64,13 +110,30 @@ class PrivateNameAccess(context: Context) {
         return if (signedWith(pkg, cert)) a else null
     }
 
-    /** [directory]: the Directory's approval, separate from the lookup provider's. */
+    /**
+     * The user's decision for [pkg] ([directory]: the Directory's approval, separate from the lookup provider's).
+     * While hiding it is only shown, never stored: an "Allow" given in a duress session grants nothing.
+     */
     @Synchronized
     fun setApproval(pkg: String, a: LookupApproval?, directory: Boolean = false) {
+        if (hidingNow()) {
+            return sessionChange { st ->
+                fun MutableMap<String, LookupApproval>.put(): Map<String, LookupApproval> = apply { if (a == null) remove(pkg) else this[pkg] = a }
+                if (directory) st.copy(directoryApprovals = st.directoryApprovals.toMutableMap().put())
+                else st.copy(approvals = st.approvals.toMutableMap().put())
+            }
+        }
         // Allowing needs the app's certificate: an app that can't be looked up now is asked again on its next query.
         val cert = if (a == LookupApproval.ALLOWED) currentCert(pkg) else null
         store(pkg, if (a == LookupApproval.ALLOWED && cert == null) null else a, cert, directory)
     }
+
+    /** A provider's first query from [pkg]: waiting for the user's answer (stored also while hiding: it grants nothing). */
+    @Synchronized
+    fun markPending(pkg: String, directory: Boolean) = store(pkg, LookupApproval.PENDING, null, directory)
+
+    /** Hex SHA-256 of [pkg]'s signing certificate as Android reports it now, for the approval sheet; null when not installed. */
+    fun certificateOf(pkg: String): String? = currentCert(pkg)
 
     /**
      * Whether to show [pkg] an approval prompt now; records the prompt when it returns true. At most one prompt per
@@ -86,7 +149,7 @@ class PrivateNameAccess(context: Context) {
         return true
     }
 
-    private fun approvalsOf(directory: Boolean) = if (directory) _state.value.directoryApprovals else _state.value.approvals
+    private fun approvalsOf(directory: Boolean) = if (directory) _stored.value.directoryApprovals else _stored.value.approvals
 
     private fun store(pkg: String, a: LookupApproval?, cert: String?, directory: Boolean = false) {
         val m = approvalsOf(directory).toMutableMap()
@@ -97,7 +160,7 @@ class PrivateNameAccess(context: Context) {
             .putString(if (directory) K_DIR_APPROVALS else K_APPROVALS, JSONObject(m.mapValues { it.value.name }).toString())
             .putString(if (directory) K_DIR_CERTS else K_CERTS, JSONObject(c.toMap()).toString())
             .apply()
-        _state.value = read()
+        publish(read())
     }
 
     private fun certs(directory: Boolean = false): Map<String, String> = runCatching {
@@ -130,19 +193,19 @@ class PrivateNameAccess(context: Context) {
     @Synchronized
     fun log(pkg: String, outcome: LookupOutcome, now: Long = System.currentTimeMillis(), viaDirectory: Boolean = false) {
         recent.getOrPut(pkg) { ArrayDeque() }.addLast(now)
-        val list = (_state.value.log + LookupLogEntry(pkg, now, outcome, viaDirectory)).takeLast(MAX_LOG)
+        val list = (_stored.value.log + LookupLogEntry(pkg, now, outcome, viaDirectory)).takeLast(MAX_LOG)
         val arr = JSONArray()
         list.forEach {
             arr.put(JSONObject().put("p", it.packageName).put("t", it.time).put("o", it.outcome.name).apply { if (it.viaDirectory) put("d", true) })
         }
         prefs.edit().putString(K_LOG, arr.toString()).apply()
-        _state.value = _state.value.copy(log = list)
+        publish(_stored.value.copy(log = list))
     }
 
     @Synchronized
     fun clearLog() {
         prefs.edit().remove(K_LOG).apply()
-        _state.value = read()
+        publish(read())
     }
 
     private fun read(): PrivateNameState {
@@ -182,6 +245,8 @@ class PrivateNameAccess(context: Context) {
      */
     @Synchronized
     fun importApprovals(json: String) {
+        // A restore while hiding never grants (or takes back) access; see the class comment.
+        if (hidingNow()) return
         runCatching {
             val o = JSONObject(json)
             for (key in o.keys()) {

@@ -247,6 +247,12 @@ fun PrivateNamesScreen(vm: AppViewModel, back: () -> Unit) {
     val st by access.state.collectAsStateWithLifecycle()
     val pm = context.packageManager
     fun label(pkg: String) = runCatching { pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString() }.getOrDefault(pkg)
+    // "Allow" shows the package and its signing certificate first; the other answers apply at once.
+    var approving by remember { mutableStateOf<Pair<String, Boolean>?>(null) }
+    approving?.let { (pkg, dir) -> PrivateNameApprovalDialog(access, pkg, dir) { approving = null } }
+    fun decide(pkg: String, a: LookupApproval?, directory: Boolean) {
+        if (a == LookupApproval.ALLOWED) approving = pkg to directory else access.setApproval(pkg, a, directory)
+    }
 
     // Scroll-linked top-bar tint.
     val barTint = TopAppBarDefaults.pinnedScrollBehavior()
@@ -278,13 +284,13 @@ fun PrivateNamesScreen(vm: AppViewModel, back: () -> Unit) {
                 item { Section(stringResource(R.string.pn_directory_apps)) }
                 if (st.directoryApprovals.isEmpty()) item { ListItem(headlineContent = { Text(stringResource(R.string.pn_no_app)) }) }
                 items(st.directoryApprovals.entries.sortedBy { label(it.key).lowercase() }, key = { "d:" + it.key }) { (pkg, a) ->
-                    ApprovalRow(pkg, label(pkg), a) { access.setApproval(pkg, it, directory = true) }
+                    ApprovalRow(pkg, label(pkg), a) { decide(pkg, it, directory = true) }
                 }
             }
             item { Section(stringResource(R.string.pn_apps)) }
             if (st.approvals.isEmpty()) item { ListItem(headlineContent = { Text(stringResource(R.string.pn_no_app)) }) }
             items(st.approvals.entries.sortedBy { label(it.key).lowercase() }, key = { it.key }) { (pkg, a) ->
-                ApprovalRow(pkg, label(pkg), a) { access.setApproval(pkg, it) }
+                ApprovalRow(pkg, label(pkg), a) { decide(pkg, it, directory = false) }
             }
             item { Section(stringResource(R.string.pn_log)) }
             if (st.log.isEmpty()) item { ListItem(headlineContent = { Text(stringResource(R.string.pn_no_requests)) }) }

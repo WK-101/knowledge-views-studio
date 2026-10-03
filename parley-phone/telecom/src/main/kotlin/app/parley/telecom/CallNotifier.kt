@@ -64,7 +64,7 @@ class CallNotifier internal constructor(
         override fun onReceive(c: Context, intent: Intent) {
             // The keyguard may lock a little after the screen goes off: counted as locked from then until unlocked.
             screenOff = intent.action == Intent.ACTION_SCREEN_OFF
-            if (lockMode() != LockScreenCaller.NAME && CallManager.state.value.any { it.isLive }) update(CallManager.state.value)
+            if (!lockMode().showsName && CallManager.state.value.any { it.isLive }) update(CallManager.state.value)
         }
     }
 
@@ -103,14 +103,14 @@ class CallNotifier internal constructor(
 
     /** The call as a notification may show it now: with less about the caller while the phone is locked, if so chosen. */
     private fun shown(call: CallUi, mode: LockScreenCaller, locked: Boolean): CallUi =
-        if (!locked || mode == LockScreenCaller.NAME) call else call.forLockScreen(mode, placeholder(call))
+        if (!locked || mode.showsName) call else call.forLockScreen(mode, placeholder(call))
 
     private fun placeholder(call: CallUi): String =
         context.getString(if (call.state == CallState.RINGING) R.string.notif_incoming_call else R.string.notif_ongoing_call)
 
     fun update(calls: List<CallUi>) {
         val mode = lockMode()
-        val locked = mode != LockScreenCaller.NAME && keyguardLocked()
+        val locked = !mode.showsName && keyguardLocked()
         val live = calls.filter { it.isLive }.map { shown(it, mode, locked) }
         if (live.isEmpty()) {
             cancelAll()
@@ -365,7 +365,7 @@ class CallNotifier internal constructor(
      * sensitive content shows [publicVersion] (and [update] already posts the masked call while the phone is locked).
      */
     private fun callVisibility(): Int =
-        if (lockMode() == LockScreenCaller.NAME) NotificationCompat.VISIBILITY_PUBLIC else NotificationCompat.VISIBILITY_PRIVATE
+        if (lockMode().showsName) NotificationCompat.VISIBILITY_PUBLIC else NotificationCompat.VISIBILITY_PRIVATE
 
     private fun buildIncoming(call: CallUi, autoAnswerLeft: Int = 0): Notification {
         val answer = answerIntent(call)

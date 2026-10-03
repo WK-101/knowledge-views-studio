@@ -229,7 +229,7 @@ private fun SnapshotClearDialog(times: List<Long>, onConfirm: (SnapshotKeep) -> 
 private fun authorize(context: Context, vm: AppViewModel, then: () -> Unit) {
     if (!vm.settings.value.appLock) return then()
     val act = context as? FragmentActivity ?: return
-    AppLock.authenticate(act, context.getString(R.string.jr_storage_title)) { ok -> if (ok) then() }
+    AppLock.confirm(act, context.getString(R.string.jr_storage_title)) { ok -> if (ok) then() }
 }
 
 private fun size(context: Context, bytes: Long): String = Formatter.formatShortFileSize(context, bytes)

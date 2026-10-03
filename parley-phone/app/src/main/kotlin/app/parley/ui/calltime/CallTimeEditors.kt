@@ -46,7 +46,7 @@ fun rememberSupervisedGate(config: CallingConfig): (String, () -> Unit) -> Unit 
         if (!config.supervised || VaultSession.recentlyAuthenticated(SUPERVISED_WINDOW_MS)) {
             action()
         } else if (activity != null) {
-            AppLock.authenticate(activity, why) { ok -> if (ok) action() }
+            AppLock.confirm(activity, why) { ok -> if (ok) action() }
         }
     }
 }

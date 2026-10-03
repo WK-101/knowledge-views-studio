@@ -84,8 +84,9 @@
     <!-- Settings › Privacy & security › Lock screen › Caller on the lock screen. -->
     <string name="set_group_lock_screen">Lock screen</string>
     <string name="set_lock_screen_caller_title">Caller on the lock screen</string>
-    <string name="set_lock_screen_caller_summary">The name, initials or just \"Incoming call\" while the phone is locked. Private contacts can hide more.</string>
-    <string name="set_lock_screen_caller_kw">lock screen, lockscreen, caller name, hide name, initials, notification, incoming call, privacy, locked</string>
+    <string name="set_lock_screen_caller_summary">The name, initials or just \"Incoming call\" while the phone is locked. Notes for calls show only after you unlock, unless you choose Name and notes. Private contacts can hide more.</string>
+    <string name="set_lock_screen_caller_kw">lock screen, lockscreen, caller name, hide name, initials, notification, incoming call, privacy, locked, note for calls, who is this, last call</string>
+    <string name="set_lock_screen_caller_name_notes">Name and notes</string>
     <string name="set_lock_screen_caller_name">Name</string>
     <string name="set_lock_screen_caller_initials">Initials</string>
     <string name="set_lock_screen_caller_none">Just \"Incoming call\"</string>
@@ -858,6 +859,7 @@
     <string name="wipe_backup_failed">The backup didn\'t work, so nothing was deleted. %1$s</string>
     <string name="wipe_deleting">Deleting…</string>
     <string name="wipe_in_call">Finish the call first, then try again.</string>
+    <string name="wipe_not_now">Parley couldn\'t delete its data just now, so nothing was deleted. Try again in a little while.</string>
     <string name="wipe_backup_incomplete">The backup is missing some parts, so nothing was deleted. %1$s</string>
     <string name="wipe_private_locked">Private contacts can only go into the backup while they\'re unlocked. Unlock them to include them, or delete without backing them up.</string>
     <string name="wipe_unlock_private">Unlock and back up</string>

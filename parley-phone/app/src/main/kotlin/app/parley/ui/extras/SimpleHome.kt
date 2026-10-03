@@ -181,7 +181,7 @@ fun SimpleHome(vm: AppViewModel) {
             askExit = false
             val act = context as? FragmentActivity
             if (settings.appLock && act != null) {
-                AppLock.authenticate(act, res.getString(R.string.simple_leave_q)) { ok -> if (ok) vm.c.extras.updateSimple { it.copy(enabled = false) } }
+                AppLock.confirm(act, res.getString(R.string.simple_leave_q)) { ok -> if (ok) vm.c.extras.updateSimple { it.copy(enabled = false) } }
             } else {
                 vm.c.extras.updateSimple { it.copy(enabled = false) }
             }

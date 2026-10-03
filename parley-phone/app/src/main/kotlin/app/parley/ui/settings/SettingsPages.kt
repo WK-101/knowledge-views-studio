@@ -633,7 +633,8 @@ internal fun PrivacyPage(vm: AppViewModel, open: (Destination) -> Unit) {
     SegmentedGroup(stringResource(R.string.set_group_app_lock)) {
         switchRow("app_lock", s.appLock, Icons.Rounded.Lock) { v ->
             val act = context as? FragmentActivity
-            if (act != null) AppLock.authenticate(act, res.getString(if (v) R.string.set_app_lock_turn_on else R.string.set_app_lock_turn_off)) { ok -> if (ok) set { it.copy(appLock = v) } }
+            val why = res.getString(if (v) R.string.set_app_lock_turn_on else R.string.set_app_lock_turn_off)
+            if (act != null) AppLock.confirm(act, why) { ok -> if (ok) set { it.copy(appLock = v) } }
         }
         if (s.appLock) {
             menuRow("lock_after", lockLabels, lockTimes.indexOf(s.lockAfterMinutes).coerceAtLeast(0), Icons.Rounded.LockClock) { i ->
@@ -644,8 +645,9 @@ internal fun PrivacyPage(vm: AppViewModel, open: (Destination) -> Unit) {
         }
         switchRow("secure_screen", s.secureScreen, Icons.Rounded.VisibilityOff) { v -> set { it.copy(secureScreen = v) } }
     }
-    // How much of a caller's name call notifications and the call screen show while the phone is locked.
+    // How much about a caller call notifications and the call screen show while the phone is locked (in enum order).
     val lockCallerLabels = listOf(
+        stringResource(R.string.set_lock_screen_caller_name_notes),
         stringResource(R.string.set_lock_screen_caller_name),
         stringResource(R.string.set_lock_screen_caller_initials),
         stringResource(R.string.set_lock_screen_caller_none),
