@@ -57,6 +57,7 @@ class WhisperSttEngine(private val context: Context) : SttEngine {
         streaming = false,
         biasing = true,
         modelReady = modelStore.isReady(),
+        modelName = modelStore.modelName,
     )
 
     @Synchronized
@@ -169,7 +170,15 @@ class WhisperSttEngine(private val context: Context) : SttEngine {
                 samples[o++] = s / PCM_FULL_SCALE
             }
         }
-        return ensureContext().transcribeBlocking(samples, prompt)
+        // VAD: skip a silent clip entirely (null), else transcribe only the speech span (trimmed silence
+        // = faster + fewer whisper hallucinations on the quiet head/tail).
+        val range = EnergyVad.speechRange(samples) ?: return ""
+        val speech = if (range.first == 0 && range.last == samples.lastIndex) {
+            samples
+        } else {
+            samples.copyOfRange(range.first, range.last + 1)
+        }
+        return ensureContext().transcribeBlocking(speech, prompt)
     }
 
     // A blank id is an internal call (always acts); a non-blank id must match the live session so a

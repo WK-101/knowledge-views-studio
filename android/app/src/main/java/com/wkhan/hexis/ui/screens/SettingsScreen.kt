@@ -391,6 +391,25 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                 }
             }
 
+            // Read the connected addon's active engine + on-device model once, and show it.
+            val connectedProvider = bridge.voiceProviders.firstOrNull { it.packageName == bridge.grantedVoicePackage }
+            if (connectedProvider != null) {
+                val caps by androidx.compose.runtime.produceState<com.wkhan.hexis.bridge.voice.SttCapabilities?>(
+                    initialValue = null, key1 = connectedProvider.packageName,
+                ) {
+                    value = runCatching { com.wkhan.hexis.addon.VoiceCapabilitiesClient.fetch(context, connectedProvider) }.getOrNull()
+                }
+                caps?.let { c ->
+                    Text(
+                        "Engine: ${c.engineId} ${c.engineVersion}" +
+                            (c.modelName?.let { "  ·  Model: $it" } ?: "  ·  no model installed"),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 4.dp),
+                    )
+                }
+            }
+
             // Install the on-device STT model into the addon (the addon holds no network permission,
             // so the core drives the import; the file is copied into the addon's private storage).
             if (bridge.voiceProviders.isNotEmpty()) {

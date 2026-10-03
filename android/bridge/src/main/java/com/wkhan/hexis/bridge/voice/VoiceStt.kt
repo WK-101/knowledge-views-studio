@@ -29,6 +29,8 @@ data class SttCapabilities(
     val streaming: Boolean = true,
     val biasing: Boolean = false,
     val modelReady: Boolean = false,
+    /** Name of the active on-device model (e.g. "ggml-base.en-q5_1.bin"), for the core to display. */
+    val modelName: String? = null,
 )
 
 @Serializable
