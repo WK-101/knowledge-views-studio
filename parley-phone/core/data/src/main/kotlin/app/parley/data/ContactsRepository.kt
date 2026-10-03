@@ -54,6 +54,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -1102,15 +1103,21 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
         details(contactId)?.let { it.editRawId to it.writableRawIds } ?: (null to emptyList())
 
     /** Deletes without a journal entry: moving a contact into the vault must leave no plaintext copy behind. */
-    suspend fun deleteUnjournaled(contactIds: Collection<Long>) = withContext(Dispatchers.IO) {
-        val ops = contactIds.map { ContentProviderOperation.newDelete(ContentUris.withAppendedId(Contacts.CONTENT_URI, it)).build() }
-        if (ops.isNotEmpty()) cr.applyBatch(ContactsContract.AUTHORITY, ArrayList(ops))
+    suspend fun deleteUnjournaled(contactIds: Collection<Long>) {
+        withContext(Dispatchers.IO + NonCancellable) {
+            cr.applyInBatches(contactIds.map { ContentProviderOperation.newDelete(ContentUris.withAppendedId(Contacts.CONTENT_URI, it)) })
+        }
     }
 
-    suspend fun delete(contactIds: Collection<Long>) = withContext(Dispatchers.IO) {
-        journal(contactIds.toList(), "DELETE")
-        val ops = contactIds.map { ContentProviderOperation.newDelete(ContentUris.withAppendedId(Contacts.CONTENT_URI, it)).build() }
-        if (ops.isNotEmpty()) cr.applyBatch(ContactsContract.AUTHORITY, ArrayList(ops))
+    /**
+     * Deletes contacts, any number of them, journaled first. Once the undo copies are kept the delete always runs to
+     * the end (leaving the screen doesn't stop it halfway), in batches the provider accepts.
+     */
+    suspend fun delete(contactIds: Collection<Long>) {
+        withContext(Dispatchers.IO + NonCancellable) {
+            journal(contactIds.toList(), "DELETE")
+            cr.applyInBatches(contactIds.map { ContentProviderOperation.newDelete(ContentUris.withAppendedId(Contacts.CONTENT_URI, it)) })
+        }
     }
 
     /** Live raw contact ids of [contactId], oldest first. */
@@ -1254,21 +1261,19 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
                 .withValue(AggregationExceptions.TYPE, type)
                 .withValue(AggregationExceptions.RAW_CONTACT_ID1, a)
                 .withValue(AggregationExceptions.RAW_CONTACT_ID2, b)
-                .build()
         }
-        Batches.chunks(ops).forEach { cr.applyBatch(ContactsContract.AUTHORITY, ArrayList(it)) }
+        cr.applyInBatches(ops)
     }
 
     /**
      * Deletes exactly these raw contacts (a temporary contact's own copies), journaling their contacts first. Other
      * raw contacts of the same person are never touched.
      */
-    suspend fun deleteRaws(rawIds: Collection<Long>) = withContext(Dispatchers.IO) {
+    suspend fun deleteRaws(rawIds: Collection<Long>): Unit = withContext(Dispatchers.IO) {
         val owners = contactsOfRaws(rawIds)
         if (owners.isEmpty()) return@withContext
         journal(owners.values.distinct(), "DELETE")
-        val ops = owners.keys.map { ContentProviderOperation.newDelete(ContentUris.withAppendedId(RawContacts.CONTENT_URI, it)).build() }
-        Batches.chunks(ops).forEach { cr.applyBatch(ContactsContract.AUTHORITY, ArrayList(it)) }
+        cr.applyInBatches(owners.keys.map { ContentProviderOperation.newDelete(ContentUris.withAppendedId(RawContacts.CONTENT_URI, it)) })
     }
 
     /**
@@ -1276,13 +1281,13 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
      * written, with no journal entry (nothing of the user's is lost) and no deletion waiting for a sync. Only these
      * raw contacts; others the provider joined them with are never touched.
      */
-    suspend fun discardInserted(rawIds: Collection<Long>) = withContext(Dispatchers.IO) {
+    suspend fun discardInserted(rawIds: Collection<Long>): Unit = withContext(Dispatchers.IO) {
         val ops = rawIds.distinct().map { id ->
             val uri = ContentUris.withAppendedId(RawContacts.CONTENT_URI, id).buildUpon()
                 .appendQueryParameter(ContactsContract.CALLER_IS_SYNCADAPTER, "true").build()
-            ContentProviderOperation.newDelete(uri).build()
+            ContentProviderOperation.newDelete(uri)
         }
-        Batches.chunks(ops).forEach { cr.applyBatch(ContactsContract.AUTHORITY, ArrayList(it)) }
+        cr.applyInBatches(ops)
     }
 
     /**
@@ -1302,7 +1307,7 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
         val local = localAccount()
         var synced = false
         var messengers = false
-        val ops = ArrayList<ContentProviderOperation>()
+        val ops = ArrayList<ContentProviderOperation.Builder>()
         cr.safeQuery(
             RawContacts.CONTENT_URI, arrayOf(RawContacts._ID, RawContacts.ACCOUNT_TYPE, RawContacts.ACCOUNT_NAME, RawContacts.SOURCE_ID),
             "${RawContacts.CONTACT_ID}=? AND ${RawContacts.DELETED}=0", arrayOf(contactId.toString()),
@@ -1313,14 +1318,14 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
                 val uri = ContentUris.withAppendedId(RawContacts.CONTENT_URI, c.getLong(0))
                 val unsynced = DeviceAccounts.isLocal(account, local) || c.isNull(3)
                 if (unsynced) {
-                    ops += ContentProviderOperation.newDelete(uri.buildUpon().appendQueryParameter(ContactsContract.CALLER_IS_SYNCADAPTER, "true").build()).build()
+                    ops += ContentProviderOperation.newDelete(uri.buildUpon().appendQueryParameter(ContactsContract.CALLER_IS_SYNCADAPTER, "true").build())
                 } else {
                     synced = true
-                    ops += ContentProviderOperation.newDelete(uri).build()
+                    ops += ContentProviderOperation.newDelete(uri)
                 }
             }
         }
-        Batches.chunks(ops).forEach { cr.applyBatch(ContactsContract.AUTHORITY, ArrayList(it)) }
+        cr.applyInBatches(ops)
         VaultPurge(synced, messengers)
     }
 
@@ -1336,7 +1341,7 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
      */
     suspend fun addToGroup(contactIds: Collection<Long>, group: GroupInfo): Int = withContext(Dispatchers.IO) {
         var skipped = 0
-        val ops = ArrayList<ContentProviderOperation>()
+        val ops = ArrayList<ContentProviderOperation.Builder>()
         for (id in contactIds) {
             val raw = cr.safeQuery(
                 RawContacts.CONTENT_URI, arrayOf(RawContacts._ID),
@@ -1358,10 +1363,9 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
                     .withValue(Data.RAW_CONTACT_ID, raw)
                     .withValue(Data.MIMETYPE, GroupMembership.CONTENT_ITEM_TYPE)
                     .withValue(GroupMembership.GROUP_ROW_ID, group.id)
-                    .build()
             }
         }
-        Batches.chunks(ops).forEach { cr.applyBatch(ContactsContract.AUTHORITY, ArrayList(it)) }
+        cr.applyInBatches(ops)
         skipped
     }
 

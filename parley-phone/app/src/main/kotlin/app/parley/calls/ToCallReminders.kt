@@ -23,6 +23,7 @@ import app.parley.common.calls.ToCall
 import app.parley.common.calls.ToCallItem
 import app.parley.common.calls.ToCallSource
 import app.parley.common.calls.ToCallState
+import app.parley.common.catching
 import app.parley.container
 import app.parley.data.DataContainer
 import app.parley.data.NumberInfo
@@ -140,7 +141,7 @@ object ToCallReminders {
         if (items.isEmpty()) return
         val loaded = c.history.calls.value
         // Calls with private contacts live in Parley's own history ("Private call history").
-        val private = runCatching { c.vault.privateCalls.value.map(CallHistory::privateEntry) }.getOrDefault(emptyList())
+        val private = catching { c.vault.privateCallsNow().map(CallHistory::privateEntry) }.getOrDefault(emptyList())
         val calls = items.flatMap { item ->
             val iso = PhoneEnv.countryIso(context, item.accountId)
             val system = loaded ?: runCatching { c.callLog.pastCalls(item.number, now, limit = 20) }.getOrDefault(emptyList())

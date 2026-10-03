@@ -2,6 +2,7 @@ package app.parley.data.memory
 
 import android.util.Log
 import app.parley.common.PhoneIdentity
+import app.parley.common.memory.CallTally
 import app.parley.common.memory.MemoryHint
 import app.parley.common.memory.MemorySource
 import app.parley.common.memory.NumberMemory
@@ -29,12 +30,16 @@ import java.io.File
  * lookup time, never on the main thread, and failing open (no line) when anything can't be read.
  */
 class NumberMemoryStore(private val c: DataContainer) {
-    val index = NumberMemoryIndex(File(c.appContext.noBackupFilesDir, "number_memory"), KeystoreMemoryKeys(c.appContext))
+    private val keys = KeystoreMemoryKeys(c.appContext)
+    val index = NumberMemoryIndex(File(c.appContext.noBackupFilesDir, "number_memory"), keys)
 
     private val region: String get() = PhoneEnv.countryIso(c.appContext)
 
     /** Brings the index up to date (the stores that changed since the last run are read again). */
-    suspend fun rebuild(): NumberMemoryIndex.Stats = index.rebuild(sources(), region)
+    suspend fun rebuild(): NumberMemoryIndex.Stats = index.rebuild(sources(), region).also {
+        // The index no longer needs the Keystore HMAC key of versions before 5.4.
+        if (index.matchesKey()) keys.retireOldKey()
+    }
 
     /**
      * What to show for [number] at [place], best first; empty for a number that is a private contact (named elsewhere,
@@ -77,7 +82,8 @@ class NumberMemoryStore(private val c: DataContainer) {
      */
     @OptIn(FlowPreview::class)
     suspend fun follow() {
-        if (System.currentTimeMillis() - index.builtAt() > STALE_MS) rebuildLogged()
+        // Also when the index was made with another key (the one before 5.4): until rebuilt it finds nothing.
+        if (System.currentTimeMillis() - index.builtAt() > STALE_MS || !index.matchesKey()) rebuildLogged()
         c.journal.recent().drop(1).debounce(FOLLOW_DEBOUNCE_MS).collect { rebuildLogged() }
     }
 
@@ -124,7 +130,13 @@ class NumberMemoryStore(private val c: DataContainer) {
     private val archive = object : NumberMemoryIndex.Source {
         override val id = "archive"
         override suspend fun fingerprint() = c.history.memoryStamp()
-        override suspend fun read() = c.history.pastCallsForMemory()?.let { NumberMemory.pastCalls(it, region) }
+        override suspend fun read() = update(null)?.entries
+
+        // Only the calls archived since the last rebuild are read; the summary of the others is kept, sealed.
+        override suspend fun update(previous: ByteArray?): NumberMemoryIndex.Update? {
+            val tally = c.history.tallyForMemory(previous?.let(CallTally::decode), region) ?: return null
+            return NumberMemoryIndex.Update(tally.entries(), tally.encode())
+        }
     }
 
     /**

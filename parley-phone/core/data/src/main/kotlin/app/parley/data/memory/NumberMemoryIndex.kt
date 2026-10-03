@@ -2,6 +2,7 @@ package app.parley.data.memory
 
 import android.util.Log
 import app.parley.common.VaultNumberKeys
+import app.parley.common.catching
 import app.parley.common.memory.MemoryHint
 import app.parley.common.memory.NumberMemory
 import kotlinx.coroutines.CancellationException
@@ -16,13 +17,14 @@ import java.io.IOException
 
 /**
  * The number-memory index (I1): keyed hash of a number → small sealed hints, so "who is this?" is answered from
- * memory while a call rings, and no list of plain numbers is kept anywhere. The numbers are hashed with a Keystore key
- * ([Keys.key], like the vault's number fingerprints) and each hint is sealed on its own ([Keys.seal]): only the hints
+ * memory while a call rings, and no list of plain numbers is kept anywhere. The numbers are hashed with a key of the
+ * index's own ([Keys.key], wrapped by the Keystore) and each hint is sealed on its own ([Keys.seal]): only the hints
  * of the number asked about are ever opened.
  *
- * Each [Source] is rebuilt only when its fingerprint changed (incremental); a source that can't be read now keeps its
- * previous hints. The file is device-local (`no_backup/number_memory`): it is rebuilt from the stores it indexes, so a
- * backup has nothing to carry, and "Delete all Parley data" removes it with the key.
+ * Each [Source] is rebuilt only when its fingerprint changed (incremental), and a source with a state ([Source.update])
+ * reads only what is new since; a source that can't be read now keeps its previous hints. The file is device-local
+ * (`no_backup/number_memory`): it is rebuilt from the stores it indexes, so a backup has nothing to carry, and
+ * "Delete all Parley data" removes it with the key.
  */
 class NumberMemoryIndex(private val dir: File, private val keys: Keys) {
     /** The keyed hash and the sealing; a fake in tests. */
@@ -46,9 +48,18 @@ class NumberMemoryIndex(private val dir: File, private val keys: Keys) {
 
         /** Every number with its hint, or null when the store can't be read now (its previous hints are kept). */
         suspend fun read(): List<NumberMemory.Entry>?
+
+        /**
+         * The hints, given the [previous] state this source returned last time (opened; null the first time, or when it
+         * can't be opened): a source that keeps a state adds only what is new since then. By default, [read].
+         */
+        suspend fun update(previous: ByteArray?): Update? = read()?.let { Update(it) }
     }
 
-    private class Part(val fingerprint: String, val rows: List<Pair<String, ByteArray>>)
+    /** A source's hints, and the state it wants back next time ([Source.update]); the state is sealed like the hints. */
+    class Update(val entries: List<NumberMemory.Entry>, val state: ByteArray? = null)
+
+    private class Part(val fingerprint: String, val rows: List<Pair<String, ByteArray>>, val state: ByteArray? = null)
 
     private val file = File(dir, FILE)
     private val mutex = Mutex()
@@ -91,13 +102,14 @@ class NumberMemoryIndex(private val dir: File, private val keys: Keys) {
     private suspend fun freshPart(s: Source, prev: Part?, region: String?, hashes: HashMap<String, String>): Part? {
         val fp = guard(s.id) { s.fingerprint() }
         if (fp != null && prev != null && prev.fingerprint == fp) return prev
-        val entries = guard(s.id) { s.read() } ?: return null
+        val previous = prev?.state?.let { sealed -> catching { keys.open(sealed) }.getOrNull() }
+        val update = guard(s.id) { s.update(previous) } ?: return null
         val rows = ArrayList<Pair<String, ByteArray>>()
-        for (e in entries) {
+        for (e in update.entries) {
             val sealed = keys.seal(NumberMemory.encode(e.hint).toByteArray(Charsets.UTF_8))
             VaultNumberKeys.stored(e.number, region).forEach { input -> rows += hashes.getOrPut(input) { keys.key(input) } to sealed }
         }
-        return Part(fp.orEmpty(), rows)
+        return Part(fp.orEmpty(), rows, update.state?.let(keys::seal))
     }
 
     /**
@@ -151,7 +163,9 @@ class NumberMemoryIndex(private val dir: File, private val keys: Keys) {
                         inp.readFully(bytes)
                         rows += k to bytes
                     }
-                    parts[id] = Part(fp, rows)
+                    val stateSize = inp.readInt()
+                    val state = if (stateSize < 0) null else ByteArray(stateSize.coerceAtMost(MAX_STATE)).also { inp.readFully(it) }
+                    parts[id] = Part(fp, rows, state)
                 }
                 probe to parts
             }
@@ -178,12 +192,27 @@ class NumberMemoryIndex(private val dir: File, private val keys: Keys) {
                     out.writeInt(v.size)
                     out.write(v)
                 }
+                out.writeInt(p.state?.size ?: -1)
+                p.state?.let(out::write)
             }
         }
         if (!tmp.renameTo(file)) {
             file.delete()
             tmp.renameTo(file)
         }
+    }
+
+    /**
+     * Whether the index on disk was made with the current key. False after the key changed (the Keystore HMAC key of
+     * versions before 5.4, or a reset): nothing in it can be found until it is rebuilt.
+     */
+    @Suppress("TooGenericExceptionCaught") // A key that can't be used now: the index can't be trusted either.
+    fun matchesKey(): Boolean = try {
+        val probe = readParts().first
+        probe.isNotEmpty() && probe == keys.key(PROBE)
+    } catch (e: Exception) {
+        Log.w(TAG, "Number memory key unavailable: ${e.javaClass.simpleName}")
+        false
     }
 
     /** When the index was last written (0: never). */
@@ -210,8 +239,11 @@ class NumberMemoryIndex(private val dir: File, private val keys: Keys) {
     companion object {
         private const val TAG = "NumberMemory"
         private const val FILE = "index.bin"
-        private const val MAGIC = 0x504E4D31 // "PNM1"
+
+        /** "PNM2": a part also keeps its source's sealed state. A "PNM1" file is read as empty and rebuilt. */
+        private const val MAGIC = 0x504E4D32
         private const val MAX_ROW = 64 * 1024
+        private const val MAX_STATE = 64 * 1024 * 1024
 
         /** Hashed with the key and stored in the file, so rows made with an older key are never trusted. */
         private const val PROBE = "parley-number-memory-probe"

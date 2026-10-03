@@ -41,7 +41,8 @@ data class SnapshotIndex(val timestamp: Long, val contacts: Map<String, String>)
     }
 }
 
-data class SnapshotResult(val index: SnapshotIndex, val newBlobs: Int, val reusedBlobs: Int)
+/** [photos]: the photo blobs each record of [index] refers to (by record hash; records without a photo are left out). */
+data class SnapshotResult(val index: SnapshotIndex, val newBlobs: Int, val reusedBlobs: Int, val photos: Map<String, List<String>> = emptyMap())
 
 /**
  * Writes incremental snapshots: each contact's canonical JSON (and each photo) is stored once under
@@ -50,18 +51,21 @@ data class SnapshotResult(val index: SnapshotIndex, val newBlobs: Int, val reuse
 class SnapshotWriter(private val store: BlobStore) {
     fun write(timestamp: Long, records: Sequence<ContactRecord>): SnapshotResult {
         val map = sortedMapOf<String, String>()
+        val photos = HashMap<String, List<String>>()
         var fresh = 0
         var reused = 0
         fun putBlob(hash: String, bytes: ByteArray) {
             if (store.has(hash)) reused++ else { store.put(hash, bytes); fresh++ }
         }
         for (r in records) {
-            val json = RecordJson.encode(r) { h, b -> putBlob(h, b) }.toByteArray(Charsets.UTF_8)
+            val own = ArrayList<String>(0)
+            val json = RecordJson.encode(r) { h, b -> putBlob(h, b); own += h }.toByteArray(Charsets.UTF_8)
             val h = RecordJson.sha256Hex(json)
             putBlob(h, json)
             require(map.put(r.key, h) == null) { "Duplicate contact key ${r.key}" }
+            if (own.isNotEmpty()) photos[h] = own.distinct()
         }
-        return SnapshotResult(SnapshotIndex(timestamp, map), fresh, reused)
+        return SnapshotResult(SnapshotIndex(timestamp, map), fresh, reused, photos)
     }
 
     fun write(timestamp: Long, records: Iterable<ContactRecord>) = write(timestamp, records.asSequence())

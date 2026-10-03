@@ -1,5 +1,8 @@
 package app.parley.data.backup
 
+import app.parley.common.catching
+import app.parley.common.people.Batches
+import app.parley.data.applyInBatches
 import android.content.ContentProviderOperation
 import android.content.ContentUris
 import android.content.Context
@@ -694,9 +697,10 @@ class BackupRepository(
     /** Removes the raw contacts the last restore added (existing contacts they joined keep their own entries). */
     suspend fun undoLastRestore(): Int = withContext(Dispatchers.IO + NonCancellable) {
         val ids = prefs.state.value.lastRestoreIds
-        ids.chunked(200).forEach { chunk ->
-            val ops = chunk.map { ContentProviderOperation.newDelete(ContentUris.withAppendedId(ContactsContract.RawContacts.CONTENT_URI, it)).build() }
-            runCatching { cr.applyBatch(ContactsContract.AUTHORITY, ArrayList(ops)) }
+        // Batch by batch, so one that fails (a contact gone meanwhile) doesn't keep the others.
+        Batches.chunks(ids).forEach { chunk ->
+            val ops = chunk.map { ContentProviderOperation.newDelete(ContentUris.withAppendedId(ContactsContract.RawContacts.CONTENT_URI, it)) }
+            catching { cr.applyInBatches(ops) }
         }
         prefs.update { it.putString("restoreRawIds", "") }
         contacts.refresh()

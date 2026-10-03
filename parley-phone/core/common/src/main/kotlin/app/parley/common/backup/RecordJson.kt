@@ -115,6 +115,16 @@ object RecordJson {
         },
     )
 
+    /** The photo blobs a line produced by [encode] refers to, read without loading them. */
+    fun blobHashes(line: String): List<String> = try {
+        val o = json.parseToJsonElement(line).jsonObject
+        (o["raws"] as? JsonArray).orEmpty().flatMap { raw ->
+            (raw.jsonObject["rows"] as? JsonArray).orEmpty().mapNotNull { it.jsonObject.str("blobSha256") }
+        }.distinct()
+    } catch (e: IllegalArgumentException) {
+        throw BackupIntegrityException("Malformed contact record", e)
+    }
+
     private fun rowFrom(o: JsonObject, blob: (String) -> ByteArray?): DataRow {
         val h = o.str("blobSha256")
         val bytes = h?.let { hash ->

@@ -195,6 +195,8 @@ object PersistentStores {
         PersistentStore("lists", StoreKind.FILES, backedUp, Sections.SPAM_LISTS, PersistentStore.DEVICE_PROTECTED_FILES),
         PersistentStore("history.keys", StoreKind.FILES, StorePolicy.Secret("Wrapped call-history key"), location = PersistentStore.NO_BACKUP_FILES),
         PersistentStore("records.keys", StoreKind.FILES, StorePolicy.Secret("Wrapped small-records key"), location = PersistentStore.NO_BACKUP_FILES),
+        PersistentStore("vault_calls.keys", StoreKind.FILES, StorePolicy.Secret("Wrapped private-calls key"), location = PersistentStore.NO_BACKUP_FILES),
+        PersistentStore("memory.keys", StoreKind.FILES, StorePolicy.Secret("Wrapped number-memory key"), location = PersistentStore.NO_BACKUP_FILES),
         PersistentStore("vault-unreadable", StoreKind.FILES, StorePolicy.Secret("Unreadable private details"), location = PersistentStore.NO_BACKUP_FILES),
         PersistentStore(
             "shared_labels", StoreKind.FILES,

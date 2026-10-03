@@ -33,6 +33,7 @@ import app.parley.data.Permissions
 import app.parley.data.PhoneEnv
 import app.parley.data.R
 import app.parley.data.StartGate
+import app.parley.common.memory.CallTally
 import app.parley.data.backup.CallHistoryBackup
 import app.parley.data.changes
 import app.parley.data.vault.PrivateCall
@@ -297,7 +298,8 @@ class CallHistory(
             // Key not usable right now: leave the archive alone and try on the next change.
             if (_archive.value == null) return@withLock 0
             val since = if (full) null else dao.newest()?.minus(TimeUnit.DAYS.toMillis(3))
-            val vk = vaultKeys.first()
+            // Read from the database, not the listing: in a worker's process the listing hasn't started.
+            val vk = PhoneIdentity.LineSet(vault.allNumbers(), countryIso)
             val known = keys()
             val iso = countryIso
             val now = System.currentTimeMillis()
@@ -415,14 +417,58 @@ class CallHistory(
     }
 
     /**
-     * Number memory: every archived call with the name it showed then, read a page at a time. Null when the archive
-     * key can't be used now (the previous memory is kept); empty with the archive off.
+     * Number memory's summary of the archive: [previous] with only the calls archived since it was made, when nothing
+     * left the archive meanwhile (the usual day); otherwise every call again. Null when the archive key can't be used
+     * now (the previous memory is kept).
      */
-    suspend fun pastCallsForMemory(): List<NumberMemory.PastCall>? = withContext(Dispatchers.IO) {
-        if (!prefs.current().archiveEnabled) return@withContext emptyList()
-        val out = ArrayList<NumberMemory.PastCall>()
-        val complete = scanArchive { a -> a.record.number?.takeIf { it.isNotBlank() }?.let { out += NumberMemory.PastCall(it, a.record.date, a.record.name) } }
-        out.takeIf { complete }
+    suspend fun tallyForMemory(previous: CallTally?, region: String?): CallTally? = withContext(Dispatchers.IO) {
+        if (!prefs.current().archiveEnabled) return@withContext CallTally(mark = "off", region = region)
+        val count = dao.count().toLong()
+        val maxId = dao.maxId() ?: 0L
+        val mark = "$count:$maxId"
+        val added = ArrayList<NumberMemory.PastCall>()
+        val take = { a: ArchivedCall -> a.record.number?.takeIf { it.isNotBlank() }?.let { added += NumberMemory.PastCall(it, a.record.date, a.record.name) } }
+        val after = previous?.let { appendsAfter(it, region, count, maxId) }
+        when {
+            previous == null || after == null -> if (scanArchive { take(it) }) CallTally.empty(region).plus(added, mark) else null
+            after == maxId -> previous.copy(mark = mark)
+            guardKey { scanAfter(after) { take(it) } } -> previous.plus(added, mark)
+            else -> null
+        }
+    }
+
+    /**
+     * The last row [previous] read, when everything since was only added (no call left the archive, the same region):
+     * then only the rows after it are new. Null when the tally must be read again.
+     */
+    private suspend fun appendsAfter(previous: CallTally, region: String?, count: Long, maxId: Long): Long? {
+        if (previous.region != region) return null
+        val (seenCount, seenMax) = previous.mark.split(':').mapNotNull { it.toLongOrNull() }.takeIf { it.size == 2 } ?: return null
+        if (seenMax > maxId) return null
+        return seenMax.takeIf { count - seenCount == dao.countAfter(seenMax).toLong() }
+    }
+
+    /** Every archived call after row [after], oldest first, a page at a time. */
+    private suspend fun scanAfter(after: Long, visit: (ArchivedCall) -> Unit) {
+        var from = after
+        do {
+            val page = dao.pageAfter(from, SCAN_PAGE)
+            for (r in page) openRow(r)?.let { visit(ArchivedCall(r.id, it)) }
+            from = page.lastOrNull()?.id ?: from
+        } while (page.size == SCAN_PAGE)
+    }
+
+    /** Runs [block], false when the archive key can't be used now (as [scanArchive]). */
+    private suspend fun guardKey(block: suspend () -> Unit): Boolean {
+        try {
+            block()
+            return true
+        } catch (e: HistoryCrypto.KeyUnavailableException) {
+            Log.w(TAG, "Archive key unavailable for now", e)
+        } catch (e: HistoryCrypto.KeyLostException) {
+            Log.w(TAG, "Archive key lost", e)
+        }
+        return false
     }
 
     /** Every number in the archive (all of it, not only the window), e.g. for a one-off key migration. */

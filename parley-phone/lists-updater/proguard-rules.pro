@@ -4,6 +4,11 @@
 -dontwarn freemarker.**
 -dontwarn org.jsoup.**
 
+# WorkManager instantiates workers by the class name stored in its database: keep every worker and its constructor.
+-keep class * extends androidx.work.ListenableWorker {
+    public <init>(android.content.Context, androidx.work.WorkerParameters);
+}
+
 -assumenosideeffects class android.util.Log {
     public static int v(...);
     public static int d(...);

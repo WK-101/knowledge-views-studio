@@ -499,7 +499,7 @@ class AppTelecomDependencies(private val app: Context, private val c: DataContai
             s.phones.map { p -> VerifyCallBack.Saved(s.displayName, p.number, Phone.getTypeLabel(res, p.type, p.label).toString()) }
         }
         if (c.settings.current().hideVault) return@withContext contacts
-        contacts + c.vault.contacts.value.flatMap { v -> v.numbers.map { VerifyCallBack.Saved(v.name, it) } }
+        contacts + c.vault.summariesNow().flatMap { v -> v.numbers.map { VerifyCallBack.Saved(v.name, it) } }
     }
 
     override suspend fun savedOrganisations(): List<VerifyCallBack.Saved>? = withContext(Dispatchers.IO) {

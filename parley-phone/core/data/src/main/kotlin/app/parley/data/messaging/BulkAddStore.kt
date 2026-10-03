@@ -1,5 +1,7 @@
 package app.parley.data.messaging
 
+import app.parley.common.catching
+import app.parley.data.applyInBatches
 import android.content.ContentProviderOperation
 import android.content.ContentUris
 import android.content.Context
@@ -143,8 +145,10 @@ class BulkAddStore(private val c: DataContainer) {
             if (journal) {
                 c.contacts.deleteRaws(batch.rawIds)
             } else {
-                val ops = batch.rawIds.map { ContentProviderOperation.newDelete(ContentUris.withAppendedId(ContactsContract.RawContacts.CONTENT_URI, it)).build() }
-                Batches.chunks(ops).forEach { runCatching { c.appContext.contentResolver.applyBatch(ContactsContract.AUTHORITY, ArrayList(it)) } }
+                Batches.chunks(batch.rawIds).forEach { chunk ->
+                    val ops = chunk.map { ContentProviderOperation.newDelete(ContentUris.withAppendedId(ContactsContract.RawContacts.CONTENT_URI, it)) }
+                    catching { c.appContext.contentResolver.applyInBatches(ops) }
+                }
             }
         }
         batch.vaultIds.forEach {
