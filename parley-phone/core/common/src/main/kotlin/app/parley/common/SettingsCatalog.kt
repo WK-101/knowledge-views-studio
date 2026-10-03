@@ -18,7 +18,7 @@ enum class SettingsCategory(val title: String, val summary: String) {
     PRIVACY("Privacy & security", "App lock, private contacts, permissions"),
     BACKUP("Backup & sync", "Encrypted backups, sync, undo"),
     NOTIFICATIONS("Notifications & device", "Full-screen calls, battery, system settings"),
-    ABOUT("About", "Version, licence, diagnostics"),
+    ABOUT("About", "Version and licence, diagnostics, crash reports"),
 }
 
 /**

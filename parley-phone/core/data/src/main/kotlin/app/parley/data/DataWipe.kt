@@ -4,7 +4,6 @@ import android.content.ContentProviderOperation
 import android.content.ContentUris
 import android.content.Context
 import android.provider.CallLog
-import android.provider.ContactsContract
 import android.provider.ContactsContract.RawContacts
 import android.util.Log
 import app.parley.common.storage.PersistentStore
@@ -98,10 +97,7 @@ class DataWipe(private val context: Context, private val c: DataContainer) {
                 if (DeviceAccounts.isLocal(AccountRef(cur.getString(1), cur.getString(2)), local)) ids += cur.getLong(0)
             }
         }
-        ids.chunked(200).forEach { chunk ->
-            val ops = chunk.map { ContentProviderOperation.newDelete(ContentUris.withAppendedId(RawContacts.CONTENT_URI, it)).build() }
-            context.contentResolver.applyBatch(ContactsContract.AUTHORITY, ArrayList(ops))
-        }
+        context.contentResolver.applyInBatches(ids.map { ContentProviderOperation.newDelete(ContentUris.withAppendedId(RawContacts.CONTENT_URI, it)) })
     }
 
     private companion object {

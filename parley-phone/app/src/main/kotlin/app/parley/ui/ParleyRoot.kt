@@ -57,6 +57,7 @@ import app.parley.ui.home.LocalRecentsStyle
 import app.parley.ui.onboarding.OnboardingScreen
 import app.parley.ui.people.CrashReportHost
 import app.parley.ui.common.ProvideAppKit
+import app.parley.ui.common.JobResultsHost
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
 
@@ -67,7 +68,10 @@ import androidx.compose.ui.unit.LayoutDirection
 @Composable
 fun ParleyRoot(vm: AppViewModel) {
     ProvideAppKit {
-        ProvideSnackbar { snackbar -> ParleyRootContent(vm, snackbar) }
+        ProvideSnackbar { snackbar ->
+            JobResultsHost(vm)
+            ParleyRootContent(vm, snackbar)
+        }
     }
 }
 

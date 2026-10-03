@@ -48,6 +48,10 @@ import kotlinx.coroutines.launch
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import app.parley.R
+import app.parley.jobs.UserErrorText
+import app.parley.jobs.UserJobs
+import app.parley.ui.common.JobProgress
+import kotlinx.coroutines.CancellationException
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.ui.semantics.Role
 import app.parley.ui.ParleyTopBar
@@ -68,6 +72,8 @@ fun ImportCallsScreen(vm: AppViewModel, back: () -> Unit) {
     var error by remember { mutableStateOf<String?>(null) }
     var dayFirst by remember { mutableStateOf(true) }
     var report by remember { mutableStateOf<String?>(null) }
+    val jobs by vm.jobs.running.collectAsStateWithLifecycle()
+    val importing = jobs.any { it.kind == UserJobs.Kind.IMPORT }
 
     fun replan(mapping: ColumnMapping? = null) {
         val u = uri ?: return
@@ -76,9 +82,11 @@ fun ImportCallsScreen(vm: AppViewModel, back: () -> Unit) {
         scope.launch {
             try {
                 plan = vm.c.history.planImport(u, mapping, dayFirst)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 plan = null
-                error = e.message ?: res.getString(R.string.hist_import_read_failed)
+                error = res.getString(R.string.hist_import_read_failed_because, UserErrorText.of(context, e))
             } finally {
                 busy = null
             }
@@ -114,6 +122,7 @@ fun ImportCallsScreen(vm: AppViewModel, back: () -> Unit) {
                     Text("  " + if (uri == null) stringResource(R.string.hist_import_choose) else stringResource(R.string.hist_import_choose_another))
                 }
             }
+            if (importing) item { JobProgress(vm, UserJobs.Kind.IMPORT) }
             busy?.let { b -> item { Column(Modifier.padding(16.dp)) { LinearProgressIndicator(Modifier.fillMaxWidth()); Text(b) } } }
             error?.let { e -> item { Text(e, Modifier.padding(16.dp), color = MaterialTheme.colorScheme.error) } }
             val pl = plan
@@ -175,11 +184,13 @@ fun ImportCallsScreen(vm: AppViewModel, back: () -> Unit) {
                         Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.CenterEnd) {
                             Button(
                                 onClick = {
-                                    busy = res.getString(R.string.hist_importing)
-                                    scope.launch {
+                                    // An app job: leaving this screen doesn't stop the import half way.
+                                    vm.jobs.start(
+                                        UserJobs.Kind.IMPORT, res.getString(R.string.hist_importing),
+                                        { e -> res.getString(R.string.set_import_failed_toast, UserErrorText.of(context, e)) },
+                                    ) {
                                         val n = vm.c.history.runImport(pl)
-                                        busy = null
-                                        report = if (n == 0) res.getString(R.string.hist_import_nothing)
+                                        val text = if (n == 0) res.getString(R.string.hist_import_nothing)
                                         else buildList {
                                             add(res.getQuantityString(R.plurals.hist_import_done, n, n))
                                             if (pl.duplicates > 0) add(res.getQuantityString(R.plurals.hist_import_done_dupes, pl.duplicates, pl.duplicates))
@@ -187,10 +198,13 @@ fun ImportCallsScreen(vm: AppViewModel, back: () -> Unit) {
                                                 res.getQuantityString(R.plurals.hist_import_done_problems, pl.problems.size, pl.problems.size),
                                             )
                                         }.joinToString("\n")
+                                        // The details here if the screen is still open; the summary is said either way.
+                                        report = text
                                         plan = null
+                                        text.lineSequence().first()
                                     }
                                 },
-                                enabled = busy == null && isDefault,
+                                enabled = busy == null && !importing && isDefault,
                             ) { Text(pluralStringResource(R.plurals.hist_import_button, pl.toInsert.size, pl.toInsert.size)) }
                         }
                     }

@@ -23,10 +23,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
@@ -36,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.R
+import app.parley.jobs.UserJobs
 import app.parley.common.CallType
 import app.parley.common.extras.MarkdownNotes
 import app.parley.data.extras.MarkdownExport
@@ -88,16 +85,17 @@ object MarkdownTexts {
 fun MarkdownExportSection(vm: AppViewModel) {
     val context = LocalContext.current
     val res = LocalResources.current
-    val scope = rememberCoroutineScope()
     val md = vm.c.markdown
     val st by md.status.collectAsStateWithLifecycle()
-    var running by remember { mutableStateOf(false) }
+    val jobs by vm.jobs.running.collectAsStateWithLifecycle()
+    val running = jobs.any { it.kind == UserJobs.Kind.EXPORT }
     fun run() {
-        running = true
-        scope.launch {
-            val n = runCatching { md.exportNow(MarkdownTexts.build(context)) }
-            running = false
-            vm.toast(n.getOrNull()?.let { res.getQuantityString(R.plurals.md_export_written, it, it) } ?: res.getString(R.string.md_export_failed))
+        if (running) return
+        val texts = MarkdownTexts.build(context)
+        // An app job: leaving Sync doesn't stop the export half way.
+        vm.jobs.start(UserJobs.Kind.EXPORT, res.getString(R.string.set_exporting), { res.getString(R.string.md_export_failed) }) {
+            val n = md.exportNow(texts)
+            res.getQuantityString(R.plurals.md_export_written, n, n)
         }
     }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->

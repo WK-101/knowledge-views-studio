@@ -1,6 +1,7 @@
 package app.parley.ui.home
 
 import android.app.Application
+import app.parley.jobs.UserErrorText
 import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -52,7 +53,7 @@ fun MoveToPrivateDialog(vm: AppViewModel, ids: List<Long>, names: Map<Long, Stri
                         r.removedAfterSync -> vm.toast(res.getString(R.string.vm_removed_after_sync))
                     }
                 },
-                onError = { e -> vm.toast(res.getString(R.string.vault_move_failed, e.message.orEmpty())) },
+                onError = { e -> vm.toast(res.getString(R.string.vault_move_failed, UserErrorText.of(vm.getApplication(), e))) },
             )
         },
         onDismiss = onDismiss,

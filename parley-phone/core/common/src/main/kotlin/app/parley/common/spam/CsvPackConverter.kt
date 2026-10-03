@@ -1,6 +1,6 @@
 package app.parley.common.spam
 
-import app.parley.common.PhoneNumbers
+import app.parley.common.PhoneIdentity
 import app.parley.common.blocking.Csv
 import java.time.LocalDate
 
@@ -143,7 +143,7 @@ object CsvPackConverter {
             val raw = row.getOrNull(nCol)?.trim().orEmpty()
             // Letters would be read as a vanity number ("CALL-NOW"): public data never means that.
             if (raw.isEmpty() || raw.any { it.isLetter() }) continue
-            val key = cache.getOrPut(raw) { PhoneNumbers.toE164(raw, spec.countryIso)?.let { ListPack.key(it) } } ?: continue
+            val key = cache.getOrPut(raw) { PhoneIdentity.e164(raw, spec.countryIso)?.let { ListPack.key(it) } } ?: continue
             val reports = if (countCol >= 0) row.getOrNull(countCol)?.trim()?.toIntOrNull()?.takeIf { it > 0 } ?: 1 else 1
             val votes = HashMap<Int, Int>()
             if (catCol >= 0) {

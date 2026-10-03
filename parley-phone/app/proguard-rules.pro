@@ -18,3 +18,10 @@
     public static int wtf(...);
     public static int println(...);
 }
+
+# WorkManager instantiates workers by the class name stored in its database, so a worker that nothing in the code
+# names any more (one kept only to run jobs an earlier version queued) must survive shrinking too. WorkManager's own
+# rule keeps only the names of workers that are kept anyway. Every worker keeps its class and constructor.
+-keep class * extends androidx.work.ListenableWorker {
+    public <init>(android.content.Context, androidx.work.WorkerParameters);
+}

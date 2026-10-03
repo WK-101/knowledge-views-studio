@@ -71,7 +71,7 @@ import app.parley.calls.MissedCallNotifier
 import app.parley.common.AppSettings
 import app.parley.common.MessengerLinks
 import app.parley.common.NumberText
-import app.parley.common.PhoneNumbers
+import app.parley.common.PhoneIdentity
 import app.parley.common.SimAccount
 import app.parley.common.calls.EmergencyPolicy
 import app.parley.common.people.MapLinks
@@ -461,7 +461,7 @@ class NumberActionActivity : LockedActivity() {
     private fun makeContact(text: String) {
         val id = PasteInbox.put(text)
         startActivity(
-            Intent(this, MainActivity::class.java).setAction(IntentRoutes.ACTION_PASTE_CONTACT).putExtra(IntentRoutes.EXTRA_PASTE_ID, id)
+            IntentRoutes.own(this).setAction(IntentRoutes.ACTION_PASTE_CONTACT).putExtra(IntentRoutes.EXTRA_PASTE_ID, id)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
         )
         finish()
@@ -471,7 +471,7 @@ class NumberActionActivity : LockedActivity() {
     private fun saveAll() {
         MessagingInbox.bulkText = sourceText
         startActivity(
-            Intent(this, MainActivity::class.java).setAction(MainActivity.ACTION_BULK_ADD).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            IntentRoutes.own(this).setAction(MainActivity.ACTION_BULK_ADD).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
         )
         finish()
     }
@@ -572,7 +572,7 @@ class NumberActionActivity : LockedActivity() {
         var regionOverride by rememberSaveable(raw) { mutableStateOf<String?>(null) }
         var pickCountry by remember { mutableStateOf(false) }
         val region = regionOverride ?: defaultRegion
-        val national = raw != null && !PhoneNumbers.clean(raw).startsWith("+")
+        val national = raw != null && !PhoneIdentity.clean(raw).startsWith("+")
         val number = if (national && regionOverride != null) NumberText.toE164(raw, region) ?: found else found
         val e164 = remember(number, region) { NumberText.toE164(number, region) }
         var contactName by remember { mutableStateOf<String?>(null) }

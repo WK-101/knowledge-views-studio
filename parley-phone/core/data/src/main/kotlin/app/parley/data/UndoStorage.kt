@@ -43,7 +43,7 @@ class UndoStorage(
             contactBytes = meta.journalBytes(),
             deletedCalls = calls,
             callBytes = callBytes,
-            snapshotTimes = timeMachine.snapshots().map { it.timestamp },
+            snapshotTimes = timeMachine.snapshotTimes(),
             snapshotBytes = timeMachine.storageBytes(),
         )
     }

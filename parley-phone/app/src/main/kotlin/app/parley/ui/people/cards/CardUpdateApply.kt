@@ -4,7 +4,7 @@ import android.provider.ContactsContract.CommonDataKinds.Email
 import android.provider.ContactsContract.CommonDataKinds.Phone
 import android.provider.ContactsContract.CommonDataKinds.StructuredPostal
 import android.provider.ContactsContract.CommonDataKinds.Website
-import app.parley.common.PhoneNumbers
+import app.parley.common.PhoneIdentity
 import app.parley.common.cards.CardChange
 import app.parley.common.cards.CardField
 import app.parley.common.cards.CardFields
@@ -50,7 +50,7 @@ object CardUpdateApply {
                     val (given, family) = MeCards.splitName(n)
                     out.copy(prefix = "", given = given, middle = "", family = family, suffix = "")
                 } ?: out
-                CardField.PHONE -> out.copy(phones = items(out.phones, ch, Phone.TYPE_MOBILE) { a, b -> PhoneNumbers.same(a, b, region) })
+                CardField.PHONE -> out.copy(phones = items(out.phones, ch, Phone.TYPE_MOBILE) { a, b -> PhoneIdentity.same(a, b, region) })
                 CardField.EMAIL -> out.copy(emails = items(out.emails, ch, Email.TYPE_HOME) { a, b -> a.equals(b, ignoreCase = true) })
                 CardField.WEBSITE -> {
                     val type = if (ch.label != null) SocialProfiles.TYPE_CUSTOM else Website.TYPE_HOMEPAGE

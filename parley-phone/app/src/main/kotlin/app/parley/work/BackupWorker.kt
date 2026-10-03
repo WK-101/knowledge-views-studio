@@ -13,6 +13,7 @@ import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
+import app.parley.IntentRoutes
 import app.parley.MainActivity
 import app.parley.R
 import app.parley.common.NotificationChannels
@@ -60,7 +61,7 @@ class BackupWorker(context: Context, params: WorkerParameters) : CoroutineWorker
                 NotificationChannel(NotificationChannels.BACKUPS, context.getString(R.string.work_channel_backups), NotificationManager.IMPORTANCE_DEFAULT),
             )
             val open = PendingIntent.getActivity(
-                context, 77, Intent(context, MainActivity::class.java).setAction(MainActivity.ACTION_OPEN_BACKUP).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                context, 77, IntentRoutes.own(context).setAction(MainActivity.ACTION_OPEN_BACKUP).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
                 PendingIntent.FLAG_IMMUTABLE,
             )
             val n = NotificationCompat.Builder(context, NotificationChannels.BACKUPS)

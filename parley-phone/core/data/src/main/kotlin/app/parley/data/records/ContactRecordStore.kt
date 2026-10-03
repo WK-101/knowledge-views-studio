@@ -1,5 +1,6 @@
 package app.parley.data.records
 
+import app.parley.data.applyInBatches
 import android.accounts.AccountManager
 import android.content.ContentProviderOperation
 import android.content.ContentProviderResult
@@ -694,10 +695,9 @@ class ContactRecordStore(private val context: Context) {
                 .withValue(AggregationExceptions.TYPE, AggregationExceptions.TYPE_KEEP_TOGETHER)
                 .withValue(AggregationExceptions.RAW_CONTACT_ID1, a)
                 .withValue(AggregationExceptions.RAW_CONTACT_ID2, b)
-                .build()
         }
         try {
-            Batches.chunks(ops).forEach { cr.applyBatch(ContactsContract.AUTHORITY, ArrayList(it)) }
+            cr.applyInBatches(ops)
         } catch (e: Exception) {
             Log.w(TAG, "Could not link raw contacts", e)
         }

@@ -13,7 +13,7 @@ import app.parley.R
 import app.parley.common.MessengerApp
 import app.parley.common.MessengerLinks
 import app.parley.common.NumberText
-import app.parley.common.PhoneNumbers
+import app.parley.common.PhoneIdentity
 import app.parley.common.ReachGroup
 import app.parley.common.ReachGroups
 import app.parley.common.ReachKind
@@ -54,7 +54,7 @@ data class Reach(
     val videoRows: List<MessengerAction> get() = messengers.filter { it.kind == ReachKind.VIDEO }
 
     /** The messenger rows per app and number, for "Reach via apps" and the sheet's "Call on". */
-    fun groups(region: String?): List<ReachGroup> = ReachGroups.group(messengers.map { it.row }) { a, b -> PhoneNumbers.same(a, b, region) }
+    fun groups(region: String?): List<ReachGroup> = ReachGroups.group(messengers.map { it.row }) { a, b -> PhoneIdentity.same(a, b, region) }
 
     /** The action behind [row] (a row of [groups]). */
     fun action(row: ReachRow): MessengerAction? = messengers.firstOrNull { it.dataId == row.dataId }

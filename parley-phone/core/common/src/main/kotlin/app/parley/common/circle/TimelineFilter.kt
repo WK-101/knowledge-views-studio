@@ -1,7 +1,7 @@
 package app.parley.common.circle
 
 import app.parley.common.CallType
-import app.parley.common.PhoneNumbers
+import app.parley.common.PhoneIdentity
 import app.parley.common.TextSearch
 
 /** The kinds of entries the full timeline filters by. */
@@ -25,12 +25,12 @@ data class TimelineFilter(val query: String = "", val kinds: Set<TimelineKind> =
      */
     fun apply(entries: List<TimelineEntry>, text: (TimelineEntry) -> String): List<TimelineEntry> {
         val words = TextSearch.normalize(query.trim()).split(' ').filter { it.isNotEmpty() }
-        val digits = PhoneNumbers.digits(query)
+        val digits = PhoneIdentity.digits(query)
         val numeric = digits.length >= 2 && digits.length * 2 >= query.count { !it.isWhitespace() }
         return entries.filter { e ->
             if (kinds.isNotEmpty() && kindOf(e) !in kinds) return@filter false
             if (words.isEmpty()) return@filter true
-            if (numeric && e is TimelineEntry.Call && PhoneNumbers.digits(e.call.number).contains(digits)) return@filter true
+            if (numeric && e is TimelineEntry.Call && PhoneIdentity.digits(e.call.number).contains(digits)) return@filter true
             val t = TextSearch.normalize(text(e) + " " + ownText(e))
             words.all { t.contains(it) }
         }

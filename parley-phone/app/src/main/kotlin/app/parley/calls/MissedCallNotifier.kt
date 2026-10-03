@@ -18,6 +18,7 @@ import android.os.Build
 import android.text.format.DateUtils
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import app.parley.IntentRoutes
 import app.parley.MainActivity
 import app.parley.MissedCallActionReceiver
 import app.parley.R
@@ -26,7 +27,6 @@ import app.parley.common.NotificationChannels
 import app.parley.common.NotificationIds
 import app.parley.common.NotificationPrivacy
 import app.parley.common.PhoneIdentity
-import app.parley.common.PhoneNumbers
 import app.parley.common.calls.DndState
 import app.parley.common.calls.MissedCall
 import app.parley.common.calls.MissedCaller
@@ -206,7 +206,7 @@ object MissedCallNotifier {
             val iso = PhoneEnv.countryIso(context, caller.accountId)
             screened.firstOrNull { e ->
                 !e.allowed && e.action == "SILENCE" && e.number != null && abs(e.time - caller.latest) < 5 * 60_000L &&
-                    PhoneNumbers.same(e.number, n, iso)
+                    PhoneIdentity.same(e.number, n, iso)
             }?.verdict?.let { v -> BlockingText.verdict(context, v) }
         }
         val facts = runCatching { c.ringFacts.near(number, caller.latest) }.getOrNull()
@@ -236,7 +236,7 @@ object MissedCallNotifier {
 
     private fun openRecents(context: Context) = PendingIntent.getActivity(
         context, 10,
-        Intent(context, MainActivity::class.java).setAction(MainActivity.ACTION_SHOW_MISSED).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+        IntentRoutes.own(context).setAction(MainActivity.ACTION_SHOW_MISSED).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
         PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
     )
 
@@ -257,7 +257,7 @@ object MissedCallNotifier {
         }
         val pi = PendingIntent.getActivity(
             context, req,
-            Intent(context, MainActivity::class.java).setAction(MainActivity.ACTION_POST_CALL)
+            IntentRoutes.own(context).setAction(MainActivity.ACTION_POST_CALL)
                 .putExtra(MainActivity.EXTRA_POST_CALL_ACTION, "BLOCK").putExtra(MainActivity.EXTRA_NUMBER, number)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,

@@ -7,7 +7,7 @@ import android.net.Uri
 import android.provider.CallLog.Calls
 import app.parley.common.CallEntry
 import app.parley.common.CallType
-import app.parley.common.PhoneNumbers
+import app.parley.common.PhoneIdentity
 import app.parley.common.backup.CallLogRecord
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -87,7 +87,7 @@ class CallLogRepository(private val context: Context, scope: CoroutineScope, sta
     /**
      * Every system call-log row for [number] since [since], read from the provider rather than the newest-3000
      * window [calls] shows, so destructive actions reach old calls too. The filter URI matches loosely (trailing
-     * digits); only rows that are exactly this line are returned ([PhoneNumbers.sameExact]): a delete built from this
+     * digits); only rows that are exactly this line are returned ([PhoneIdentity.sameExact]): a delete built from this
      * list must never reach another number that merely ends the same way.
      */
     fun queryForNumber(number: String, since: Long = Long.MIN_VALUE): List<CallEntry> {
@@ -96,7 +96,7 @@ class CallLogRepository(private val context: Context, scope: CoroutineScope, sta
         val uri = Uri.withAppendedPath(Calls.CONTENT_FILTER_URI, Uri.encode(number))
         val bounded = since != Long.MIN_VALUE
         return query(uri, if (bounded) "${Calls.DATE} >= ?" else null, if (bounded) arrayOf(since.toString()) else null)
-            .filter { !it.presentationHidden && PhoneNumbers.sameExact(it.number, number, iso) }
+            .filter { !it.presentationHidden && PhoneIdentity.sameExact(it.number, number, iso) }
     }
 
     /**
@@ -107,7 +107,7 @@ class CallLogRepository(private val context: Context, scope: CoroutineScope, sta
     fun pastCalls(number: String, before: Long, limit: Int = 50): List<CallEntry> {
         if (!Permissions.has(context, Manifest.permission.READ_CALL_LOG)) return emptyList()
         val out = ArrayList<CallEntry>()
-        for (part in PhoneNumbers.forwardedParts(number)) {
+        for (part in PhoneIdentity.forwardedParts(number)) {
             val uri = Uri.withAppendedPath(Calls.CONTENT_FILTER_URI, Uri.encode(part))
                 .buildUpon().appendQueryParameter(Calls.LIMIT_PARAM_KEY, limit.toString()).build()
             out += query(uri, "${Calls.DATE} < ?", arrayOf(before.toString()))
@@ -121,7 +121,7 @@ class CallLogRepository(private val context: Context, scope: CoroutineScope, sta
      */
     fun lastCallWith(number: String, region: String?): CallEntry? =
         pastCalls(number, System.currentTimeMillis(), limit = LAST_CALL_ROWS)
-            .firstOrNull { !it.presentationHidden && PhoneNumbers.same(it.number, number, region) }
+            .firstOrNull { !it.presentationHidden && PhoneIdentity.same(it.number, number, region) }
 
     /** Unseen missed calls, newest first (what Telecom counts: missed, new and not read). */
     fun unseenMissed(limit: Int = 50): List<CallEntry> {

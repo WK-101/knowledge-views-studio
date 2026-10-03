@@ -9,6 +9,7 @@ import app.parley.data.history.HistoryDatabase
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -58,6 +59,44 @@ class AppDatabaseMigrationTest {
         }
     }
 
+    /**
+     * The two latest steps in order: 8 → 9 adds contact_meta.parleyRelations (relations kept in Parley only), 9 → 10
+     * adds the indexes for private calls, the journal and call rings. Rows written at 8 survive both.
+     */
+    @Test fun eightToNineToTenKeepsRowsAndAddsBothChanges() {
+        helper.createDatabase(NAME, 8).use { db ->
+            db.execSQL("INSERT INTO contact_meta (lookupKey, pinnedNote) VALUES ('ana', 'note')")
+            db.execSQL("INSERT INTO private_calls (id, vaultId, blob, date, durationSec, type, dedupeKey) VALUES (1, 7, x'00', 3000, 12, 1, 'k1')")
+            db.execSQL("INSERT INTO journal (id, contactKey, displayName, action, time, payload, restored) VALUES (1, 'ana', 'Ana', 'EDIT', 4000, x'00', 0)")
+        }
+        helper.runMigrationsAndValidate(NAME, 9, true).use { db ->
+            db.query("SELECT pinnedNote, parleyRelations FROM contact_meta WHERE lookupKey = 'ana'").use { c ->
+                c.moveToFirst()
+                assertEquals("note", c.getString(0))
+                assertNull(c.getString(1))
+            }
+            db.execSQL("UPDATE contact_meta SET parleyRelations = '[]' WHERE lookupKey = 'ana'")
+        }
+        helper.runMigrationsAndValidate(NAME, 10, true).use { db ->
+            db.query("SELECT parleyRelations FROM contact_meta WHERE lookupKey = 'ana'").use { c -> c.moveToFirst(); assertEquals("[]", c.getString(0)) }
+            db.query("SELECT vaultId, date FROM private_calls WHERE id = 1").use { c ->
+                c.moveToFirst()
+                assertEquals(7L, c.getLong(0))
+                assertEquals(3000L, c.getLong(1))
+            }
+            db.query("SELECT COUNT(*) FROM journal").use { c -> c.moveToFirst(); assertEquals(1, c.getInt(0)) }
+            val indexes = buildSet {
+                db.query("SELECT name FROM sqlite_master WHERE type = 'index'").use { c -> while (c.moveToNext()) add(c.getString(0)) }
+            }
+            for (name in listOf(
+                "index_private_calls_vaultId_date_type", "index_private_calls_date", "index_journal_time", "index_journal_contactKey",
+                "index_call_rings_startedAt",
+            )) {
+                assertTrue("missing $name", name in indexes)
+            }
+        }
+    }
+
     /** The app opens the migrated file through Room itself (the generated auto-migrations, no fallback). */
     @Test fun roomOpensAVersionOneFileWithTheShippedMigrations() = runBlocking {
         helper.createDatabase(NAME, 1).use { db ->
@@ -75,7 +114,7 @@ class AppDatabaseMigrationTest {
 
     private companion object {
         const val NAME = "migration-test.db"
-        const val LATEST = 9
+        const val LATEST = 10
     }
 }
 

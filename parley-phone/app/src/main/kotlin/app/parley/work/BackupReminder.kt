@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import app.parley.IntentRoutes
 import app.parley.MainActivity
 import app.parley.R
 import app.parley.common.NotificationChannels
@@ -30,7 +31,7 @@ object BackupReminder {
         if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) return
         ReminderChannels.ensure(context, CHANNEL)
         val open = PendingIntent.getActivity(
-            context, 78, Intent(context, MainActivity::class.java).setAction(MainActivity.ACTION_OPEN_BACKUP).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            context, 78, IntentRoutes.own(context).setAction(MainActivity.ACTION_OPEN_BACKUP).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
             PendingIntent.FLAG_IMMUTABLE,
         )
         val title = context.getString(R.string.ux_backup_notify_title)

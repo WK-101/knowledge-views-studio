@@ -1,6 +1,6 @@
 package app.parley.common.cards
 
-import app.parley.common.PhoneNumbers
+import app.parley.common.PhoneIdentity
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
@@ -66,7 +66,7 @@ object ShareLedger {
     fun add(list: List<ShareReceipt>, r: ShareReceipt): List<ShareReceipt> = (listOf(r) + list.filterNot { it.id == r.id }).take(MAX)
 
     /**
-     * Receipts grouped by person, most recent first: the same number (as [PhoneNumbers.same] reads it) is one person;
+     * Receipts grouped by person, most recent first: the same number (as [PhoneIdentity.same] reads it) is one person;
      * receipts without a number are grouped by name.
      */
     fun people(list: List<ShareReceipt>, region: String? = null): List<SharedPerson> {
@@ -74,7 +74,7 @@ object ShareLedger {
         for (r in list.sortedByDescending { it.at }) {
             val g = groups.firstOrNull { g ->
                 val n = r.number
-                if (!n.isNullOrBlank()) g.any { !it.number.isNullOrBlank() && PhoneNumbers.same(it.number, n, region) }
+                if (!n.isNullOrBlank()) g.any { !it.number.isNullOrBlank() && PhoneIdentity.same(it.number, n, region) }
                 else g.all { it.number.isNullOrBlank() } && r.name.isNotBlank() && g.any { it.name.equals(r.name, ignoreCase = true) }
             }
             if (g != null) g += r else groups += mutableListOf(r)
@@ -89,7 +89,7 @@ object ShareLedger {
      */
     fun outdated(list: List<ShareReceipt>, current: List<String>, region: String? = null): List<SharedPerson> {
         val first = current.firstOrNull { it.isNotBlank() } ?: return emptyList()
-        fun has(xs: List<String>, n: String) = xs.any { PhoneNumbers.same(it, n, region) }
+        fun has(xs: List<String>, n: String) = xs.any { PhoneIdentity.same(it, n, region) }
         return people(list, region).filter { p ->
             val got = p.latest.phones
             p.number != null && got.isNotEmpty() && (got.any { !has(current, it) } || !has(got, first))
@@ -101,5 +101,5 @@ object ShareLedger {
      * dismissed for (it comes back when the numbers change again).
      */
     fun numbersKey(phones: List<String>): String =
-        phones.map { PhoneNumbers.matchKey(it) }.filter { it.isNotEmpty() }.sorted().joinToString(",")
+        phones.map { PhoneIdentity.legacyKey(it) }.filter { it.isNotEmpty() }.sorted().joinToString(",")
 }

@@ -4,13 +4,11 @@ import app.parley.common.PhoneIdentity
 import android.content.ContentProviderOperation
 import android.content.ContentUris
 import android.content.Context
-import android.provider.ContactsContract
 import android.provider.ContactsContract.CommonDataKinds.Organization
 import android.provider.ContactsContract.CommonDataKinds.Phone
 import android.provider.ContactsContract.Data
 import app.parley.common.CallEntry
 import app.parley.common.ContactSummary
-import app.parley.common.PhoneNumbers
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -68,9 +66,9 @@ class HealthScanner(private val context: Context) {
         cr.safeQuery(Phone.CONTENT_URI, arrayOf(Phone._ID, Phone.CONTACT_ID, Phone.NUMBER, Phone.DISPLAY_NAME_PRIMARY, Phone.LOOKUP_KEY))?.use { q ->
             while (q.moveToNext()) {
                 val n = q.getString(2) ?: continue
-                val clean = PhoneNumbers.clean(n)
-                if (clean.startsWith("+") || clean.startsWith("00") || clean.length < 7 || PhoneNumbers.isServiceCode(n)) continue
-                val e164 = PhoneNumbers.toE164(n, countryIso) ?: continue
+                val clean = PhoneIdentity.clean(n)
+                if (clean.startsWith("+") || clean.startsWith("00") || clean.length < 7 || PhoneIdentity.isServiceCode(n)) continue
+                val e164 = PhoneIdentity.e164(n, countryIso) ?: continue
                 out += HealthIssue(
                     HealthKind.NO_COUNTRY_CODE,
                     q.getLong(1),
@@ -110,20 +108,20 @@ class HealthScanner(private val context: Context) {
 
     /** Applies automatic fixes (country codes, duplicated titles). Returns rows changed. */
     suspend fun fix(issues: List<HealthIssue>): Int = withContext(Dispatchers.IO) {
-        val ops = ArrayList<ContentProviderOperation>()
+        val ops = ArrayList<ContentProviderOperation.Builder>()
         issues.forEach { i ->
             val id = i.dataId ?: return@forEach
             when (i.kind) {
                 HealthKind.NO_COUNTRY_CODE -> ops += ContentProviderOperation.newUpdate(
                     ContentUris.withAppendedId(Data.CONTENT_URI, id),
-                ).withValue(Phone.NUMBER, i.suggested).build()
+                ).withValue(Phone.NUMBER, i.suggested)
                 HealthKind.TITLE_IS_COMPANY -> ops += ContentProviderOperation.newUpdate(
                     ContentUris.withAppendedId(Data.CONTENT_URI, id),
-                ).withValue(Organization.TITLE, null).build()
+                ).withValue(Organization.TITLE, null)
                 else -> Unit
             }
         }
-        ops.chunked(300).forEach { cr.applyBatch(ContactsContract.AUTHORITY, ArrayList(it)) }
+        cr.applyInBatches(ops)
         ops.size
     }
 }

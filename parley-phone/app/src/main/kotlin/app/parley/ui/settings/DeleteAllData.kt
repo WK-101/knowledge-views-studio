@@ -45,6 +45,8 @@ import app.parley.telecom.CallManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.delay
+import app.parley.data.security.Concealment
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import app.parley.ui.ParleyDialog
@@ -166,7 +168,9 @@ private fun confirmWipe(
     val act = context as? FragmentActivity
     fun start() {
         if (inCall()) return show(WipeStep.Failed(context.getString(R.string.wipe_in_call)))
-        if (!backupFirst) return proceed(false)
+        // While a duress unlock hides things, private contacts don't exist as far as this screen can tell: no unlock is
+        // asked for and nothing says they were left out (the backup leaves them out silently, see WipeJob).
+        if (!backupFirst || Concealment.hiding) return proceed(false)
         scope.launch {
             val hasPrivate = runCatching { vm.c.vault.summariesNow().isNotEmpty() }.getOrDefault(true)
             when {
@@ -179,7 +183,7 @@ private fun confirmWipe(
     val needsAuth = vm.settings.value.appLock || vm.c.calling.config.value.supervised
     when {
         !needsAuth -> start()
-        act != null -> AppLock.authenticate(act, context.getString(R.string.wipe_title)) { ok -> if (ok) start() }
+        act != null -> AppLock.confirm(act, context.getString(R.string.wipe_title)) { ok -> if (ok) start() }
     }
 }
 
@@ -202,8 +206,18 @@ private class WipeJob(
         // A call may have started during the backup: closing the database or exiting would break it.
         if (inCall()) return show(WipeStep.Failed(res.getString(R.string.wipe_in_call)))
         show(WipeStep.Working(res.getString(R.string.wipe_deleting)))
+        // While a duress unlock hides things nothing is deleted: the wipe would destroy what is hidden (SECURITY_MODEL,
+        // "Everything here hides; nothing destroys"). It ends the way a wipe that can't start ends, after a while.
+        if (Concealment.hiding) {
+            delay(DECOY_MS)
+            return show(WipeStep.Failed(res.getString(R.string.wipe_not_now)))
+        }
+        val stopped = withContext(Dispatchers.IO + NonCancellable) {
+            // Background work must be stopped first, or it would write the old data back; if it can't be, nothing goes.
+            runCatching { WorkManager.getInstance(app).cancelAllWork().result.get() }.isSuccess
+        }
+        if (!stopped) return show(WipeStep.Failed(res.getString(R.string.wipe_not_now)))
         withContext(Dispatchers.IO + NonCancellable) {
-            runCatching { WorkManager.getInstance(app).cancelAllWork().result.get() }
             runCatching { app.getSystemService(NotificationManager::class.java).cancelAll() }
             runCatching { app.getSystemService(ShortcutManager::class.java).removeAllDynamicShortcuts() }
             c.wipe.wipe(options)
@@ -218,11 +232,16 @@ private class WipeJob(
         return when {
             !b.ok -> WipeStep.Failed(res.getString(R.string.wipe_backup_failed, b.message))
             b.failedSections.isNotEmpty() -> WipeStep.Failed(res.getString(R.string.wipe_backup_incomplete, b.message))
-            !b.vaultIncluded && !withoutPrivate && runCatching { c.vault.summariesNow().isNotEmpty() }.getOrDefault(true) -> WipeStep.VaultLocked
+            // While hiding, the backup leaves private contacts out without a word (as every backup made then does).
+            !b.vaultIncluded && !withoutPrivate && !Concealment.hiding && runCatching { c.vault.summariesNow().isNotEmpty() }.getOrDefault(true) ->
+                WipeStep.VaultLocked
             else -> null
         }
     }
 }
+
+/** How long the "Deleting…" step shows before a wipe refused while hiding says it couldn't be done. */
+private const val DECOY_MS = 1_500L
 
 @Composable
 private fun WipeCheck(label: String, value: Boolean, onChange: (Boolean) -> Unit) {

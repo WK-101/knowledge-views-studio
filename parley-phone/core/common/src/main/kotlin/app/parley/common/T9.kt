@@ -237,11 +237,11 @@ object T9 {
         }
         // 4. Number prefix / substring.
         for (n in numbers) {
-            val d = PhoneNumbers.clean(n).removePrefix("+")
+            val d = PhoneIdentity.clean(n).removePrefix("+")
             if (d.startsWith(query)) return Match(700, emptyList(), n)
         }
         for (n in numbers) {
-            val d = PhoneNumbers.digits(n)
+            val d = PhoneIdentity.digits(n)
             if (query.length >= 3 && d.contains(query)) return Match(600, emptyList(), n)
         }
         // 5. Substring inside a word ("stone" in "Kingstone").

@@ -91,3 +91,12 @@ parley:
   SystemToast:
     active: true
     excludes: ['**/core/ui/**', '**/tools/**']
+  # PhoneNumbers outside app.parley.common: PhoneIdentity is the one path for comparing and keying numbers.
+  PhoneNumbersOutsideIdentity:
+    active: true
+    # core/common's own tests may check the internals behind PhoneIdentity.
+    excludes: ['**/core/common/src/test/**']
+  # runCatching inside suspend functions and coroutine blocks (it swallows cancellation); use catching {}.
+  RunCatchingInSuspend:
+    active: true
+    excludes: ['**/test/**', '**/testShared/**', '**/tools/**']

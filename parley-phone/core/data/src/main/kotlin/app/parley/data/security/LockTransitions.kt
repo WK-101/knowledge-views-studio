@@ -23,6 +23,7 @@ object LockTransitions {
         val next = DuressMachine.pinEntered(Concealment.state.value, attempt.verdict, attempt.lockVaultOnDuress)
         withContext(Dispatchers.IO) { Concealment.move(next) }
         if (next.session) c.settings.beginDuressSession() else c.settings.endDuressSession()
+        c.people.privateNames.endSession()
         c.appPin.endSession()
         if (next.session) {
             c.appPin.beginSession()
@@ -38,6 +39,7 @@ object LockTransitions {
     /** Parley locked: a duress session ends (its in-memory settings changes go); the hiding stays. */
     fun locked(c: DataContainer) {
         c.settings.endDuressSession()
+        c.people.privateNames.endSession()
         c.appPin.endSession()
         Concealment.lock()
     }

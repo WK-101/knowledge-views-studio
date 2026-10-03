@@ -41,6 +41,9 @@ import androidx.core.content.FileProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.R
+import app.parley.common.ExplainedFailure
+import app.parley.jobs.UserErrorText
+import kotlinx.coroutines.CancellationException
 import app.parley.common.BlockRule
 import app.parley.common.RuleKind
 import app.parley.common.RuleTools
@@ -80,12 +83,12 @@ private fun ImportPreset.localHelp() = stringResource(
 )
 
 /** Errors from [ListImport] and file reading in the app's language. */
-private fun importError(context: Context, message: String?): String = when (message) {
-    null -> context.getString(R.string.blk_fail_read_file)
+private fun importError(context: Context, e: Throwable): String = when (e.message) {
     "This file isn't valid JSON" -> context.getString(R.string.blk_import_err_json)
     "Not a Call Blocker backup (.cbbk)" -> context.getString(R.string.blk_import_err_cbbk)
     "Wrong password, or the file is damaged" -> context.getString(R.string.blk_import_err_password)
-    else -> message
+    // Never the exception's own text: an explained failure's words, or the kind of problem.
+    else -> context.getString(R.string.blk_fail_read_file_because, UserErrorText.of(context, e))
 }
 
 /** What was read from a file, before the user confirms. */
@@ -118,11 +121,11 @@ fun TransferScreen(vm: AppViewModel, back: () -> Unit) {
                 val n = s.read(buf)
                 if (n < 0) break
                 total += n
-                require(total < 20 * 1024 * 1024) { res.getString(R.string.blk_tpl_err_file_large) }
+                if (total >= 20 * 1024 * 1024) throw ExplainedFailure(res.getString(R.string.blk_tpl_err_file_large))
                 out.write(buf, 0, n)
             }
             out.toByteArray()
-        } ?: throw IllegalArgumentException(res.getString(R.string.blk_tpl_err_open_file))
+        } ?: throw ExplainedFailure(res.getString(R.string.blk_tpl_err_open_file))
     }
 
     val pickList = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -137,8 +140,10 @@ fun TransferScreen(vm: AppViewModel, back: () -> Unit) {
                         ImportDraft(res.getString(presetTitleRes(preset)), rows, preset, ListImport.guessMapping(rows, preset), null)
                     }
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
-                error = importError(context, e.message)
+                error = importError(context, e)
             }
         }
     }
@@ -148,8 +153,10 @@ fun TransferScreen(vm: AppViewModel, back: () -> Unit) {
                 val bytes = read(uri)
                 if (bytes.size >= 4 && bytes.decodeToString(0, 4) == "CBBK") cbbk = bytes
                 else draft = ImportDraft("Call Blocker", null, preset, null, ListImport.callBlockerJson(bytes.decodeToString()))
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
-                error = importError(context, e.message)
+                error = importError(context, e)
             }
         }
     }
@@ -223,7 +230,7 @@ fun TransferScreen(vm: AppViewModel, back: () -> Unit) {
                         draft = ImportDraft("Call Blocker", null, preset, null, ListImport.callBlockerJson(json))
                         cbbk = null
                     } catch (e: IllegalArgumentException) {
-                        error = importError(context, e.message)
+                        error = importError(context, e)
                     }
                 }
             },

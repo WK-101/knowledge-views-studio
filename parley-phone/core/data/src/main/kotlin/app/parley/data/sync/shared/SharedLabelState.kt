@@ -211,7 +211,9 @@ data class SharedLabelState(
                 members = o.optJSONArray("members").items { x ->
                     val key = unb64(x.getString("key"))
                     LabelMember(
-                        app.parley.common.sync.shared.SharedLabelFiles.keyHex(key), key, x.optString("name"), x.optString("fp"),
+                        app.parley.common.sync.shared.SharedLabelFiles.keyHex(key), key, x.optString("name"),
+                        // Worked out from the key, not read back: stored fingerprints of older versions were shorter.
+                        app.parley.common.spam.Ed25519.fingerprint(key),
                         x.optString("by").ifEmpty { null }, x.optBoolean("anchor"), x.optBoolean("await"),
                     )
                 },

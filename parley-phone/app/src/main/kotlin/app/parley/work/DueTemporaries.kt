@@ -10,7 +10,6 @@ import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.edit
-import app.parley.MainActivity
 import app.parley.R
 import app.parley.common.NotificationChannels
 import app.parley.common.NotificationIds
@@ -109,7 +108,7 @@ object DueTemporaries {
         )
         val title = ctx.resources.getQuantityString(R.plurals.temp_due_title, count, count)
         val open = PendingIntent.getActivity(
-            ctx, 80, Intent(ctx, MainActivity::class.java).setAction(IntentRoutes.ACTION_OPEN_TEMPORARY).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            ctx, 80, IntentRoutes.own(ctx).setAction(IntentRoutes.ACTION_OPEN_TEMPORARY).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
             PendingIntent.FLAG_IMMUTABLE,
         )
         // No names anywhere in it: the same text on the lock screen and after unlocking.

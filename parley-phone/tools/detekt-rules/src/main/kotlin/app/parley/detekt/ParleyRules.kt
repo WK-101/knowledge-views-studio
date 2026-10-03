@@ -9,14 +9,26 @@ import io.gitlab.arturbosch.detekt.api.Rule
 import io.gitlab.arturbosch.detekt.api.RuleSet
 import io.gitlab.arturbosch.detekt.api.RuleSetProvider
 import io.gitlab.arturbosch.detekt.api.Severity
+import org.jetbrains.kotlin.lexer.KtTokens
 import org.jetbrains.kotlin.psi.KtCallExpression
 import org.jetbrains.kotlin.psi.KtDotQualifiedExpression
+import org.jetbrains.kotlin.psi.KtImportDirective
+import org.jetbrains.kotlin.psi.KtLambdaArgument
+import org.jetbrains.kotlin.psi.KtLambdaExpression
+import org.jetbrains.kotlin.psi.KtNameReferenceExpression
+import org.jetbrains.kotlin.psi.KtNamedFunction
+import org.jetbrains.kotlin.psi.KtReferenceExpression
+import org.jetbrains.kotlin.psi.KtValueArgument
+import org.jetbrains.kotlin.psi.psiUtil.getStrictParentOfType
 
 /** Parley's rules; configured under `parley:` in config/detekt/detekt.yml. */
 class ParleyRuleSetProvider : RuleSetProvider {
     override val ruleSetId: String = "parley"
 
-    override fun instance(config: Config): RuleSet = RuleSet(ruleSetId, listOf(DesignSystemComponent(config), SystemToast(config)))
+    override fun instance(config: Config): RuleSet = RuleSet(
+        ruleSetId,
+        listOf(DesignSystemComponent(config), SystemToast(config), PhoneNumbersOutsideIdentity(config), RunCatchingInSuspend(config)),
+    )
 }
 
 /**
@@ -77,5 +89,81 @@ class SystemToast(config: Config = Config.empty) : Rule(config) {
         if (parent.receiverExpression.text.endsWith("Toast")) {
             report(CodeSmell(issue, Entity.from(expression), "Toast.makeText outside core/ui: use rememberShowMessage() or systemMessage()."))
         }
+    }
+}
+
+/**
+ * Phone numbers have one identity path: `PhoneIdentity` (libphonenumber first, the old heuristic only as its
+ * fallback). `PhoneNumbers` is the machinery behind it, internal to core/common; code outside its package that reached
+ * for it directly could decide "same line" differently from every other feature.
+ */
+class PhoneNumbersOutsideIdentity(config: Config = Config.empty) : Rule(config) {
+    override val issue: Issue = Issue(
+        javaClass.simpleName,
+        Severity.Defect,
+        "Compare, key and convert phone numbers through PhoneIdentity, not PhoneNumbers.",
+        Debt.FIVE_MINS,
+    )
+
+    override fun visitReferenceExpression(expression: KtReferenceExpression) {
+        super.visitReferenceExpression(expression)
+        if (expression !is KtNameReferenceExpression || expression.getReferencedName() != "PhoneNumbers") return
+        if (expression.containingKtFile.packageFqName.asString() == HOME_PACKAGE) return
+        // The import alone is reported through its uses.
+        if (expression.getStrictParentOfType<KtImportDirective>() != null) return
+        report(CodeSmell(issue, Entity.from(expression), "PhoneNumbers outside $HOME_PACKAGE: use PhoneIdentity."))
+    }
+
+    private companion object {
+        const val HOME_PACKAGE = "app.parley.common"
+    }
+}
+
+/**
+ * `runCatching` catches everything, CancellationException included, so in coroutine code a cancelled job carries on
+ * as if the work had merely failed. Inside a suspend function or a coroutine builder's block, use core/common's
+ * `catching {}`, which rethrows cancellation. Found by position, without types: a `runCatching` lexically inside a
+ * `suspend fun`, or inside the block given to launch, async, withContext and the like.
+ */
+class RunCatchingInSuspend(config: Config = Config.empty) : Rule(config) {
+    override val issue: Issue = Issue(
+        javaClass.simpleName,
+        Severity.Defect,
+        "runCatching in suspend code swallows cancellation; use catching {} from core/common.",
+        Debt.FIVE_MINS,
+    )
+
+    override fun visitCallExpression(expression: KtCallExpression) {
+        super.visitCallExpression(expression)
+        if (expression.calleeExpression?.text != "runCatching") return
+        if (inSuspendCode(expression)) {
+            report(CodeSmell(issue, Entity.from(expression), "runCatching in suspend code: use catching {}, which rethrows cancellation."))
+        }
+    }
+
+    private fun inSuspendCode(start: KtCallExpression): Boolean {
+        var node = start.parent
+        while (node != null) {
+            when (node) {
+                is KtNamedFunction -> return node.hasModifier(KtTokens.SUSPEND_KEYWORD)
+                is KtLambdaExpression -> if (builderOf(node) in BUILDERS) return true
+            }
+            node = node.parent
+        }
+        return false
+    }
+
+    /** The name of the call [lambda] is passed to (as a trailing or a regular argument), or null. */
+    private fun builderOf(lambda: KtLambdaExpression): String? {
+        val argument = lambda.parent as? KtValueArgument ?: return null
+        val call = (if (argument is KtLambdaArgument) argument.parent else argument.parent?.parent) as? KtCallExpression ?: return null
+        return call.calleeExpression?.text
+    }
+
+    private companion object {
+        val BUILDERS = setOf(
+            "launch", "async", "withContext", "coroutineScope", "supervisorScope", "withTimeout", "withTimeoutOrNull",
+            "LaunchedEffect", "produceState", "flow", "channelFlow", "callbackFlow", "runInterruptible",
+        )
     }
 }

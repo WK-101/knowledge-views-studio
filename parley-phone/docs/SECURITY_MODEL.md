@@ -28,15 +28,26 @@ Parley whenever the phone is on, including while it is locked.
 | Data | Key | Authentication | Why |
 |---|---|---|---|
 | Private contacts: name, numbers, caller card | Vault caller-ID key (`VaultCrypto`) | None | Incoming calls must show who is calling on the lock screen |
+| Private call history (number, name, video) | Private-calls key (`PrivateCallSeal`): software AES key wrapped by a Keystore key, as the archive's | None | Listed after every change without a Keystore operation per call; calls sealed before with the caller-ID key are re-sealed once, when first listed, and stay readable until then |
 | Private contacts: every other detail | Vault detail key | Biometric or screen lock within 5 minutes, phone unlocked, StrongBox where available | Only shown to the person holding the unlocked phone |
 | Number fingerprints for private contacts | Vault HMAC key | None | Caller ID without decrypting |
 | Call-history archive, trashed calls | Archive key (`HistoryCrypto`): software AES key wrapped by a Keystore key | None | Kept current while locked |
 | Pinned notes, call notes, screened callers' names, the undo journal, time-machine snapshots | Small-records key (`RecordCrypto`): same envelope as the archive | None | Written by background work and the call screen |
 | Interaction notes (Circle) | Vault caller-ID key | None | Reminders run while locked |
-| Number memory index (what Parley remembers about numbers that aren't contacts) | Numbers: their own HMAC key (`KeystoreMemoryKeys`); hints: the small-records key, each sealed on its own | None | Read while a call rings on a locked phone; the call screen shows only "Parley knows this number" until the phone is unlocked |
+| Number memory index (what Parley remembers about numbers that aren't contacts) | Numbers: their own HMAC key (`KeystoreMemoryKeys`), a software key wrapped by a Keystore key; hints and the archive's per-number tally: the small-records key, each sealed on its own | None | Read while a call rings on a locked phone; the call screen shows only "Parley knows this number" until the phone is unlocked |
 | My card's signing key, "Shared with", contacts' card links | Small-records key (`RecordCrypto`), each store one sealed document | None | Signing a card you share; the list of who has it; updates arriving while locked |
 | The Parley PIN and the duress PIN | scrypt hashes (`PinRecord`), the file sealed with the small-records key | None | Checked on the lock screen; never in backups |
 | Settings, rules, speed dial | File-based encryption only | — | Not personal content |
+
+Wrapped software keys (archive, small records, private calls, number memory) sit in no-backup storage
+(`history.keys`, `records.keys`, `vault_calls.keys`, `memory.keys`), each wrapped by its own Keystore key, so a copy of
+the files alone still can't open anything. They exist because work that runs often would otherwise need one Keystore
+operation per row: a daily number-memory rebuild hashed about 25,000 numbers with a Keystore HMAC key, and listing the
+private call history opened every call through the Keystore after each change. The key is in Parley's memory while it
+is used; that adds nothing for someone who can run code as Parley, who could ask the Keystore anyway. Before 5.4 the
+number-memory index used an HMAC key inside the Keystore (`parley_number_memory_v1`): the index made with it is rebuilt
+once with the new key, and the old key is then deleted. The vault's own number fingerprints keep their Keystore HMAC
+key.
 
 ### The vault's detail key
 
@@ -76,8 +87,12 @@ until then they stay readable. Backups contain the decrypted text inside the alr
   only the passphrase or recovery key can unlock, vouches for that key. A restore shows "Made on this phone" or "Made
   on another phone of yours", and warns when the backup is unsigned, signed by an unknown phone, or altered. Without
   this, anyone who saw one backup could write a new one that "opens with your passphrase".
-- **Safety settings are never restored silently.** App lock, discreet mode, "Hide screen content", supervised call
-  time and the apps allowed to show private names wait until the user confirms with the app lock.
+- **Safety settings are never restored silently.** App lock and its delay, discreet mode, "Hide screen content",
+  private call history, "Caller on the lock screen", supervised call time and the apps allowed to show private names
+  wait until the user confirms it's them: with the Parley PIN when one is set, never the phone's fingerprint then. A
+  backup's settings are not ticked by default, whoever signed it. A restore while a duress unlock hides things goes
+  through the same rule as the settings screens: the safety switches change only what shows until the next lock, and
+  private-name approvals are not restored at all.
 
 ## Signed cards (My card)
 
@@ -250,6 +265,11 @@ the real PIN (or a restart), like the session's other changes.
 - **Changes made during a session don't stick.** Turning off the app lock, discreet mode or private call history only
   changes what the screens show until the next lock (`DuressPolicy.split`); other settings are stored as usual. "Private
   call history" stays as stored either way, so private calls never reach the system call log because of a session.
+- **"Delete all data" never destroys what a duress unlock hides.** During the hiding it sees only the concealed view: no
+  "Unlock private contacts" prompt, no "Delete without backing up private contacts" (a backup leaves them out
+  silently, as every backup made then does). After "Deleting…" it ends with "Parley couldn't delete its data just
+  now, so nothing was deleted", the same message a wipe that can't stop Parley's background work shows, and nothing is
+  deleted. Android's own "Clear storage" can still destroy everything; Parley can't prevent that.
 - **No "wipe on duress".** An option to delete private contacts on a duress PIN is deliberately not built: a mistyped
   PIN, a curious child or a stressed moment would destroy data for good, the person watching might notice a wipe (a
   longer pause, a changed count elsewhere) and punish it, and a deletion can be undone by nobody, while hiding can be
@@ -268,6 +288,64 @@ the real PIN. Someone who changes something, locks Parley and looks again can no
 Every activity another app or the system can start either shows the app lock and applies "Hide screen content"
 through `LockedActivity`, or is listed with its reason in `ExportedComponentsTest`, which parses the merged manifest.
 Sensitive screens hide non-system overlays (Android 12+) and ignore touches through overlays on older versions.
+
+- **Internal actions.** Parley's own notifications, widgets, shortcuts and tiles open the main screen through a
+  non-exported alias (`InternalEntry`). The actions they carry (missed calls seen, a caller's page, the post-call
+  Block and Report, Back up, the private-name approval…) count only when they come through it
+  (`IntentRoutes.INTERNAL_ACTIONS`); sent by any other app to the exported MainActivity, they open nothing. Missed
+  calls count as seen only once Recents shows unlocked.
+- **Contact links from other apps** (View, Edit, Quick Contact) are looked up only when they point at Android's
+  contacts provider and pass `SharedUris`.
+- **"Confirm it's you"** inside Parley (turning the app lock or supervised call time off, applying restored safety
+  settings, deleting everything, showing a safe word, leaving simple mode, emptying History & undo, PIN changes)
+  asks for the Parley PIN when one is set (`PinConfirm`), never the phone's fingerprint or screen lock: someone who
+  knows the phone's code, or a sleeping partner's finger, mustn't get past a confirmation the Parley PIN guards.
+  The duress PIN typed there starts a duress session, as on the lock screen.
+
+## Private names in other apps
+
+- **Approving an app.** The request notification's "Allow…" opens a sheet inside Parley, behind its lock, that names
+  the app by its package name and the SHA-256 of its signing certificate (as Android reports it), never by its
+  label, which the app chooses itself. "Allow" then asks for the Parley PIN (or, without one, the phone's unlock)
+  once more. "Don't allow" acts from the notification (after the phone's unlock): it grants nothing. Allowing from
+  Privacy › Private names goes through the same sheet. The approval stays bound to that certificate.
+- **During a duress session** the switch, the Directory switch and the approvals are safety switches: the screens
+  show a change, nothing is stored, and the next lock forgets it (`PrivateNameAccess.endSession`). The providers
+  read only what is stored, and answer "hidden" while hiding anyway.
+
+## Private calls and the system call log
+
+Telecom always writes a connected call into Android's call log; Parley can only take it out again. When a call with
+a private contact ends (and "Private call history" is on), the in-call service marks it in a small file, watches the
+call log for the insert and moves the row into the private history at once, with checks at 0, 0.3, 1, 2.5, 5, 10 and
+20 seconds in case the change notice is late (`PrivateCallLogSweep`, `PrivateCallSweepPlan`). If the process ends
+first, the next start sweeps before anything else; the daily upkeep catches anything older.
+
+**What remains:** the moment between Telecom's insert and Parley's delete. The delete runs on the change notice, so
+the expected window is well under a second (one call-log query and one delete; debug builds log the measured time
+under the `PrivateCallLog` tag, see TESTING.md §35.1), against 2.5–7.5 s before. An app holding `READ_CALL_LOG` that
+watches the call log itself can still see the row in that moment, and an OEM call-log backup that runs in it can copy
+it. If Parley's process is killed during the call and isn't started again, the row stays until Parley next runs.
+
+## Lock screen and home screen
+
+- **Call screen.** "Caller on the lock screen" is *Name* by default: the name shows while the phone is locked, but the
+  pinned note for calls, "Who is this?" and the last call wait until it is unlocked (anyone can ring a locked phone).
+  *Name and notes* shows them as before; *Initials* and *Just "Incoming call"* show less.
+- **Widgets.** With the app lock on, the Circle and Favourites widgets show counts instead of names while the phone
+  **or Parley** is locked (Parley locked, or away longer than its lock delay), not only while the phone is locked. A
+  tap then opens Parley to unlock it.
+- **Shared files.** Files handed to other apps from the cache (contact cards, a scanned Secure QR's card, voicemail
+  audio, rule exports, transfer files) are deleted at the next start and after an hour, like exports.
+- **Device transfer.** Cloud backup and device-to-device transfer exclude every app-data domain, the device-protected
+  ones (spam lists) included, in both apps.
+
+## Keys and signatures (details)
+
+- Key fingerprints shown for comparison (My card, shared-label members, rule packs) are the first 128 bits of the
+  key's SHA-256. Pins and links always compare the whole key.
+- The pure Ed25519 verifier (and the platform path, to agree with it) refuses small-order public keys and R values,
+  so no signature can pass for every message.
 
 ## Build and release
 

@@ -27,6 +27,8 @@ import app.parley.data.DataItem
 import app.parley.data.EmergencyNumbers
 import app.parley.security.AppLock
 import app.parley.security.LockScreen
+import app.parley.security.PinConfirmHost
+import app.parley.ui.people.PrivateNameApprovalDialog
 import app.parley.shortcuts.CircleWidget
 import app.parley.shortcuts.FavoritesWidget
 import app.parley.ui.blocking.BlockingDialog
@@ -65,6 +67,14 @@ class MainActivity : LockedActivity() {
             val locked by AppLock.locked.collectAsStateWithLifecycle()
             val settingsLoaded by vm.c.settings.loaded.collectAsStateWithLifecycle()
             LaunchedEffect(settings.secureScreen, settings.appLock, locked, settingsLoaded) { protectWindow() }
+            // Missed calls count as seen only once the list could actually be seen: never behind the lock.
+            val showsUnlocked = settingsLoaded && !(locked && settings.appLock)
+            LaunchedEffect(missedSeenPending, showsUnlocked) {
+                if (missedSeenPending && showsUnlocked) {
+                    missedSeenPending = false
+                    vm.markMissedSeen()
+                }
+            }
             ParleyTheme(settings.themeMode, settings.amoledBlack, settings.dynamicColor, settings.density) {
                 if (!settingsLoaded) {
                     // Behind the splash screen (kept until the settings load): nothing that could flash the contacts.
@@ -74,10 +84,21 @@ class MainActivity : LockedActivity() {
                     }
                 } else {
                     ParleyRoot(vm)
+                    PinConfirmHost()
+                    // A private-name request's "Allow…": only once Parley shows unlocked.
+                    approvePrivateName?.let { (pkg, dir) ->
+                        PrivateNameApprovalDialog(vm.c.people.privateNames, pkg, dir) { approvePrivateName = null }
+                    }
                 }
             }
         }
     }
+
+    /** Missed calls were opened from Parley's notification: marked seen once the screen shows unlocked. */
+    private var missedSeenPending by mutableStateOf(false)
+
+    /** A private-name request's "Allow…" waiting for the approval sheet: the package and whether it is the Directory. */
+    private var approvePrivateName by mutableStateOf<Pair<String, Boolean>?>(null)
 
     /** An emergency number handed over while Parley may be locked: the lock screen offers the call with it at once. */
     private var lockEmergencyNumber by mutableStateOf<String?>(null)
@@ -162,7 +183,9 @@ class MainActivity : LockedActivity() {
     private fun handleIntent(intent: Intent?) {
         intent ?: return
         checkEmergencyDial(intent)
-        val t = IntentRoutes.resolve(intent, readable = { SharedUris.acceptable(this, it) }) { contentResolver.getType(it) } ?: return
+        // Internal actions count only through Parley's own unexported entry; from any other app they open nothing.
+        val t = IntentRoutes.resolve(intent, IntentRoutes.fromParley(intent), readable = { SharedUris.acceptable(this, it) }) { contentResolver.getType(it) }
+            ?: return
         t.qrImage?.let { QrInbox.image.value = it }
         t.simpleSetup?.let { SimpleInbox.qr.value = it }
         t.template?.let { TemplateInbox.pending.value = it }
@@ -171,7 +194,8 @@ class MainActivity : LockedActivity() {
         t.showOrCreate?.let(::showOrCreate)
         t.report?.let { BlockingDialogs.show(BlockingDialog.Report(it)) }
         t.event?.let { vm.navigate(it) }
-        if (t.missedSeen) vm.markMissedSeen()
+        if (t.missedSeen) missedSeenPending = true
+        t.approvePrivateName?.let { approvePrivateName = it }
     }
 
     /** SHOW_OR_CREATE_CONTACT: open the matching contact, or offer to create one. */

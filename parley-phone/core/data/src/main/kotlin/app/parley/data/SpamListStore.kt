@@ -11,7 +11,7 @@ import app.parley.common.BlockRule
 import app.parley.common.ListHit
 import app.parley.common.ListMode
 import app.parley.common.RuleTools
-import app.parley.common.PhoneNumbers
+import app.parley.common.PhoneIdentity
 import app.parley.common.RuleKind
 import app.parley.common.RuleType
 import app.parley.common.security.Bounded
@@ -427,7 +427,7 @@ class SpamListStore(context: Context) {
                 RuleType.EXACT -> b.addNumber(r.pattern, 1, 90, countryIso).also { if (it) numbers++ }
                 RuleType.PREFIX -> {
                     val p = RuleTools.canonicalPrefix(r.pattern, countryIso)
-                    val intl = if (p.startsWith("+")) p else PhoneNumbers.toE164(p + "0000000", countryIso)?.dropLast(7)
+                    val intl = if (p.startsWith("+")) p else PhoneIdentity.e164(p + "0000000", countryIso)?.dropLast(7)
                     (intl != null && b.addRange(intl, 1, 90)).also { if (it) ranges++ }
                 }
                 else -> false

@@ -1,5 +1,7 @@
 package app.parley
 
+import android.content.ComponentName
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.provider.ContactsContract
@@ -36,12 +38,41 @@ data class IntentTarget(
     val showOrCreate: Uri? = null,
     /** The post-call card's "Report" for a number. */
     val report: String? = null,
-    /** Missed calls were opened: they count as seen. */
+    /** Missed calls were opened: they count as seen (once the screen shows unlocked). */
     val missedSeen: Boolean = false,
+    /** A private-name request's "Allow…": the app's package and whether it asked for the Directory. */
+    val approvePrivateName: Pair<String, Boolean>? = null,
 )
 
 /** The mapping from intents to [IntentTarget]s; pure, so every old link and shortcut is tested to still resolve. */
 object IntentRoutes {
+    /**
+     * The non-exported alias of MainActivity (manifest) that Parley's own notifications, widgets, shortcuts and tiles
+     * start. Only intents that arrive through it may carry Parley's internal actions: the exported MainActivity is
+     * reachable by any app, which must not be able to mark missed calls as seen or drive Parley's screens.
+     */
+    const val OWN_ENTRY = "app.parley.InternalEntry"
+
+    /** An intent for Parley's own entry point ([OWN_ENTRY]); set an internal action on it. */
+    fun own(context: Context): Intent = Intent().setComponent(ComponentName(context, OWN_ENTRY))
+
+    /** Whether [intent] came in through [OWN_ENTRY], so only Parley itself (or a PendingIntent it made) sent it. */
+    fun fromParley(intent: Intent): Boolean = intent.component?.className == OWN_ENTRY
+
+    /** The actions only Parley may send; from any other app they open nothing ([resolve]). */
+    val INTERNAL_ACTIONS: Set<String> by lazy {
+        setOf(
+            ACTION_ADD_CALL, ACTION_BULK_ADD, ACTION_PASTE_CONTACT, ACTION_OPEN_BACKUP, ACTION_SCAN_QR, ACTION_OPEN_BLOCKING,
+            ACTION_OPEN_SYNC, ACTION_OPEN_TEMPORARY, ACTION_OPEN_HEALTH, ACTION_SHOW_MISSED, ACTION_SHOW_CIRCLE,
+            ACTION_SHOW_TO_CALL, ACTION_SHOW_CALLER, ACTION_POST_CALL, ACTION_APPROVE_PRIVATE_NAME,
+        )
+    }
+
+    /** A private-name request's "Allow…": the approval sheet, behind the app lock (the extras name the app). */
+    const val ACTION_APPROVE_PRIVATE_NAME = "app.parley.APPROVE_PRIVATE_NAME"
+    const val EXTRA_PACKAGE = "package"
+    const val EXTRA_DIRECTORY = "directory"
+
     const val ACTION_ADD_CALL = "app.parley.ADD_CALL"
 
     /** "Save all…" from the number sheet; the text waits in [app.parley.messaging.MessagingInbox]. */
@@ -94,13 +125,26 @@ object IntentRoutes {
 
     private fun go(e: NavEvent) = IntentTarget(e)
 
+    /** A link Parley may look up as a contact: Android's contacts provider only, never any other app's (or Parley's own). */
+    private fun contactLink(uri: Uri, readable: (Uri) -> Boolean): Uri? =
+        uri.takeIf { it.scheme == "content" && it.authority in CONTACT_AUTHORITIES && readable(it) }
+
+    private val CONTACT_AUTHORITIES = setOf(ContactsContract.AUTHORITY, "contacts")
+
     /**
      * [typeOf] reads a content URI's type (only asked for `content:` links without one). [readable] says whether Parley
      * may read a URI another app handed over (see [app.parley.security.SharedUris]): other apps' `content:` URIs only.
+     * [fromParley]: the intent came through Parley's own entry ([OWN_ENTRY]); otherwise [INTERNAL_ACTIONS] open nothing.
      */
     @Suppress("CyclomaticComplexMethod")
-    fun resolve(intent: Intent, readable: (Uri) -> Boolean = { it.scheme == "content" }, typeOf: (Uri) -> String?): IntentTarget? {
+    fun resolve(
+        intent: Intent,
+        fromParley: Boolean,
+        readable: (Uri) -> Boolean = { it.scheme == "content" },
+        typeOf: (Uri) -> String?,
+    ): IntentTarget? {
         val data = intent.data
+        if (!fromParley && intent.action in INTERNAL_ACTIONS) return null
         return when (intent.action) {
             Intent.ACTION_SEND -> {
                 @Suppress("DEPRECATION")
@@ -112,7 +156,7 @@ object IntentRoutes {
                     else -> null
                 }
             }
-            QUICK_CONTACT, QUICK_CONTACT_LEGACY -> data?.let { IntentTarget(resolveContact = it) }
+            QUICK_CONTACT, QUICK_CONTACT_LEGACY -> data?.let { contactLink(it, readable) }?.let { IntentTarget(resolveContact = it) }
             SHOW_OR_CREATE -> data?.let { IntentTarget(showOrCreate = it) }
             Intent.ACTION_DIAL, Intent.ACTION_VIEW -> when {
                 data?.scheme == "parley" && data.host == "qr" -> go(NavEvent.SecureQr(data))
@@ -123,7 +167,7 @@ object IntentRoutes {
                 data?.scheme == "tel" -> go(NavEvent.Tab(StartTab.KEYPAD, dial = data.schemeSpecificPart.orEmpty()))
                 intent.type == "vnd.android.cursor.dir/calls" -> go(NavEvent.Tab(StartTab.RECENTS))
                 intent.action == Intent.ACTION_DIAL -> go(NavEvent.Tab(StartTab.KEYPAD, dial = ""))
-                data != null -> IntentTarget(resolveContact = data)
+                data != null -> contactLink(data, readable)?.let { IntentTarget(resolveContact = it) }
                 else -> null
             }
             Intent.ACTION_CALL_BUTTON -> go(NavEvent.Tab(StartTab.RECENTS))
@@ -160,7 +204,11 @@ object IntentRoutes {
                     else -> null
                 }
             }
-            Intent.ACTION_EDIT -> data?.takeIf { it.scheme == "content" }?.let { IntentTarget(editContact = it) }
+            Intent.ACTION_EDIT -> data?.let { contactLink(it, readable) }?.let { IntentTarget(editContact = it) }
+            // The sheet itself checks the app again and asks before anything is allowed.
+            ACTION_APPROVE_PRIVATE_NAME -> intent.getStringExtra(EXTRA_PACKAGE)?.takeIf { it.isNotBlank() }?.let {
+                IntentTarget(approvePrivateName = it to intent.getBooleanExtra(EXTRA_DIRECTORY, false))
+            }
             Intent.ACTION_INSERT -> go(NavEvent.NewContact(InsertPrefill.from(intent)))
             Intent.ACTION_INSERT_OR_EDIT -> go(NavEvent.InsertOrEdit(InsertPrefill.from(intent)))
             else -> null

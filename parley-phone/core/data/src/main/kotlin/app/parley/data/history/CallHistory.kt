@@ -1,5 +1,6 @@
 package app.parley.data.history
 
+import app.parley.common.ExplainedFailure
 import app.parley.common.security.Bounded
 import app.parley.data.compactDatabase
 import app.parley.common.security.LimitExceededException
@@ -12,7 +13,6 @@ import android.net.Uri
 import android.provider.CallLog.Calls
 import android.util.Log
 import app.parley.common.CallEntry
-import app.parley.common.PhoneNumbers
 import app.parley.common.backup.CallHistoryLine
 import app.parley.common.backup.CallLogRecord
 import app.parley.common.history.CallCsvImport
@@ -33,6 +33,7 @@ import app.parley.data.Permissions
 import app.parley.data.PhoneEnv
 import app.parley.data.R
 import app.parley.data.StartGate
+import app.parley.common.memory.CallTally
 import app.parley.data.backup.CallHistoryBackup
 import app.parley.data.changes
 import app.parley.data.vault.PrivateCall
@@ -160,7 +161,7 @@ class CallHistory(
 
     /** The newest call with [number]'s line in [calls], or null (the caller's "last call" line). */
     fun lastCallWith(number: String, region: String? = countryIso): CallEntry? =
-        calls.value?.firstOrNull { !it.presentationHidden && PhoneNumbers.same(it.number, number, region) }
+        calls.value?.firstOrNull { !it.presentationHidden && PhoneIdentity.same(it.number, number, region) }
 
     /** The shared index over [calls] and contacts, rebuilt off the main thread when either changes. */
     val index: StateFlow<CallLogIndex?> = combine(calls, contacts.contacts) { c, ct -> c to ct }
@@ -297,7 +298,8 @@ class CallHistory(
             // Key not usable right now: leave the archive alone and try on the next change.
             if (_archive.value == null) return@withLock 0
             val since = if (full) null else dao.newest()?.minus(TimeUnit.DAYS.toMillis(3))
-            val vk = vaultKeys.first()
+            // Read from the database, not the listing: in a worker's process the listing hasn't started.
+            val vk = PhoneIdentity.LineSet(vault.allNumbers(), countryIso)
             val known = keys()
             val iso = countryIso
             val now = System.currentTimeMillis()
@@ -415,14 +417,58 @@ class CallHistory(
     }
 
     /**
-     * Number memory: every archived call with the name it showed then, read a page at a time. Null when the archive
-     * key can't be used now (the previous memory is kept); empty with the archive off.
+     * Number memory's summary of the archive: [previous] with only the calls archived since it was made, when nothing
+     * left the archive meanwhile (the usual day); otherwise every call again. Null when the archive key can't be used
+     * now (the previous memory is kept).
      */
-    suspend fun pastCallsForMemory(): List<NumberMemory.PastCall>? = withContext(Dispatchers.IO) {
-        if (!prefs.current().archiveEnabled) return@withContext emptyList()
-        val out = ArrayList<NumberMemory.PastCall>()
-        val complete = scanArchive { a -> a.record.number?.takeIf { it.isNotBlank() }?.let { out += NumberMemory.PastCall(it, a.record.date, a.record.name) } }
-        out.takeIf { complete }
+    suspend fun tallyForMemory(previous: CallTally?, region: String?): CallTally? = withContext(Dispatchers.IO) {
+        if (!prefs.current().archiveEnabled) return@withContext CallTally(mark = "off", region = region)
+        val count = dao.count().toLong()
+        val maxId = dao.maxId() ?: 0L
+        val mark = "$count:$maxId"
+        val added = ArrayList<NumberMemory.PastCall>()
+        val take = { a: ArchivedCall -> a.record.number?.takeIf { it.isNotBlank() }?.let { added += NumberMemory.PastCall(it, a.record.date, a.record.name) } }
+        val after = previous?.let { appendsAfter(it, region, count, maxId) }
+        when {
+            previous == null || after == null -> if (scanArchive { take(it) }) CallTally.empty(region).plus(added, mark) else null
+            after == maxId -> previous.copy(mark = mark)
+            guardKey { scanAfter(after) { take(it) } } -> previous.plus(added, mark)
+            else -> null
+        }
+    }
+
+    /**
+     * The last row [previous] read, when everything since was only added (no call left the archive, the same region):
+     * then only the rows after it are new. Null when the tally must be read again.
+     */
+    private suspend fun appendsAfter(previous: CallTally, region: String?, count: Long, maxId: Long): Long? {
+        if (previous.region != region) return null
+        val (seenCount, seenMax) = previous.mark.split(':').mapNotNull { it.toLongOrNull() }.takeIf { it.size == 2 } ?: return null
+        if (seenMax > maxId) return null
+        return seenMax.takeIf { count - seenCount == dao.countAfter(seenMax).toLong() }
+    }
+
+    /** Every archived call after row [after], oldest first, a page at a time. */
+    private suspend fun scanAfter(after: Long, visit: (ArchivedCall) -> Unit) {
+        var from = after
+        do {
+            val page = dao.pageAfter(from, SCAN_PAGE)
+            for (r in page) openRow(r)?.let { visit(ArchivedCall(r.id, it)) }
+            from = page.lastOrNull()?.id ?: from
+        } while (page.size == SCAN_PAGE)
+    }
+
+    /** Runs [block], false when the archive key can't be used now (as [scanArchive]). */
+    private suspend fun guardKey(block: suspend () -> Unit): Boolean {
+        try {
+            block()
+            return true
+        } catch (e: HistoryCrypto.KeyUnavailableException) {
+            Log.w(TAG, "Archive key unavailable for now", e)
+        } catch (e: HistoryCrypto.KeyLostException) {
+            Log.w(TAG, "Archive key lost", e)
+        }
+        return false
     }
 
     /** Every number in the archive (all of it, not only the window), e.g. for a one-off key migration. */
@@ -551,7 +597,7 @@ class CallHistory(
     /**
      * Every call with [number] (any format), optionally only since [since]: all of its system call-log rows (read
      * from the provider, not the newest-3000 window Recents shows) plus every archived call, so a delete built from
-     * this list leaves nothing behind for the next sync to bring back. Matched exactly ([PhoneNumbers.sameExact]):
+     * this list leaves nothing behind for the next sync to bring back. Matched exactly ([PhoneIdentity.sameExact]):
      * the list is deleted from, and a loose match (last digits) would reach other people's calls.
      */
     suspend fun callsFor(number: String, since: Long = Long.MIN_VALUE): List<CallEntry> = withContext(Dispatchers.IO) {
@@ -562,7 +608,7 @@ class CallHistory(
         val archived = ArrayList<CallEntry>()
         scanArchive { a ->
             val e = a.toEntry()
-            val matches = e.date >= since && !e.presentationHidden && PhoneNumbers.sameExact(e.number, number, iso)
+            val matches = e.date >= since && !e.presentationHidden && PhoneIdentity.sameExact(e.number, number, iso)
             if (matches && seen.add(HistoryMerge.key(e))) archived += e
         }
         (system + archived).sortedByDescending { it.date }
@@ -581,7 +627,7 @@ class CallHistory(
         runCatching {
             // The filter URI matches loosely (the last digits); only rows that are exactly this line are deleted.
             cr.query(Uri.withAppendedPath(Calls.CONTENT_FILTER_URI, Uri.encode(number)), arrayOf(Calls._ID, Calls.NUMBER), null, null, null)
-                ?.use { c -> while (c.moveToNext()) if (PhoneNumbers.sameExact(c.getString(1), number, iso)) ids += c.getLong(0) }
+                ?.use { c -> while (c.moveToNext()) if (PhoneIdentity.sameExact(c.getString(1), number, iso)) ids += c.getLong(0) }
         }
         ids.chunked(500).forEach { chunk ->
             n += runCatching { cr.delete(Calls.CONTENT_URI, "${Calls._ID} IN (${chunk.joinToString(",")})", null) }.getOrDefault(0)
@@ -591,7 +637,7 @@ class CallHistory(
                 val person = personMac(number, iso)
                 // Also rows filed under another form of the number.
                 val other = ArrayList<Long>()
-                scanArchive { if (!it.record.number.isNullOrBlank() && PhoneNumbers.sameExact(it.record.number, number, iso)) other += it.rowId }
+                scanArchive { if (!it.record.number.isNullOrBlank() && PhoneIdentity.sameExact(it.record.number, number, iso)) other += it.rowId }
                 n += dao.deleteByPerson(person)
                 other.chunked(500).forEach { dao.deleteIds(it) }
                 dao.removeKeepForever(listOf(person))
@@ -678,10 +724,10 @@ class CallHistory(
             val bytes = try {
                 Bounded.readBytes(input, MAX_IMPORT_BYTES.toLong())
             } catch (_: LimitExceededException) {
-                throw IllegalArgumentException(context.getString(R.string.data_file_too_large))
+                throw ExplainedFailure(context.getString(R.string.data_file_too_large))
             }
             String(bytes, Charsets.UTF_8)
-        } ?: throw IllegalArgumentException(context.getString(R.string.data_file_open_failed))
+        } ?: throw ExplainedFailure(context.getString(R.string.data_file_open_failed))
         val existing = HashSet<String>()
         readProvider(null).forEach { existing += importKey(it) }
         scanArchive { existing += importKey(it.record) }

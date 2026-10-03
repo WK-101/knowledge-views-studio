@@ -1,6 +1,8 @@
 package app.parley.messaging
 
 import app.parley.ui.Destination
+import app.parley.common.catching
+import app.parley.jobs.UserErrorText
 import android.content.ClipboardManager
 import android.content.res.Resources
 import android.text.format.DateUtils
@@ -68,7 +70,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.R
 import app.parley.common.NumberText
-import app.parley.common.PhoneNumbers
+import app.parley.common.PhoneIdentity
 import app.parley.common.messaging.BulkAdd
 import app.parley.common.messaging.IntroQueue
 import app.parley.data.AccountRef
@@ -172,7 +174,7 @@ fun BulkAddScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Uni
                 val privates = HashMap<String, String?>()
                 withContext(Dispatchers.IO) {
                     found.take(BulkAdd.MAX_NUMBERS).forEach { f ->
-                        val n = f.e164 ?: PhoneNumbers.clean(f.raw)
+                        val n = f.e164 ?: PhoneIdentity.clean(f.raw)
                         if (n in contacts) return@forEach
                         contacts[n] = runCatching { c.contacts.lookup(n)?.name }.getOrNull()
                         privates[n] = if (contacts[n] == null) runCatching { c.vault.lookup(n)?.second?.name }.getOrNull() else null
@@ -216,9 +218,9 @@ fun BulkAddScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> Uni
         }
         progress = 0f
         scope.launch {
-            val r = runCatching { c.bulkAdd.save(items, dest, desc, progress = { done, total -> progress = done.toFloat() / total }) }
+            val r = catching { c.bulkAdd.save(items, dest, desc, progress = { done, total -> progress = done.toFloat() / total }) }
             progress = null
-            r.onFailure { snackbar.showSnackbar(rs.getString(R.string.edit_save_failed, it.message.orEmpty())) }
+            r.onFailure { snackbar.showSnackbar(rs.getString(R.string.edit_save_failed, UserErrorText.of(context, it))) }
             r.onSuccess { res ->
                 result = res to items
                 candidates = null

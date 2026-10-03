@@ -1,9 +1,9 @@
 package app.parley.data.people
 
+import app.parley.data.applyInBatches
 import android.content.ContentProviderOperation
 import android.content.ContentUris
 import android.content.Context
-import android.provider.ContactsContract
 import android.provider.ContactsContract.AggregationExceptions
 import android.provider.ContactsContract.RawContacts
 import app.parley.common.people.Batches
@@ -71,15 +71,13 @@ class ContactMover(private val context: Context, private val contacts: ContactsR
         if (rawId !in raws || raws.size < 2) return@withContext Result.Failed(context.getString(R.string.data_move_nothing_to_unlink))
         contacts.recordChange(listOf(contactId), "SEPARATE")
         val oldKey = contacts.lookupKeyOf(contactId)
-        val ops = ArrayList<ContentProviderOperation>()
-        raws.filter { it != rawId }.forEach { other ->
-            ops += ContentProviderOperation.newUpdate(AggregationExceptions.CONTENT_URI)
+        val ops = raws.filter { it != rawId }.map { other ->
+            ContentProviderOperation.newUpdate(AggregationExceptions.CONTENT_URI)
                 .withValue(AggregationExceptions.TYPE, AggregationExceptions.TYPE_KEEP_SEPARATE)
                 .withValue(AggregationExceptions.RAW_CONTACT_ID1, rawId)
                 .withValue(AggregationExceptions.RAW_CONTACT_ID2, other)
-                .build()
         }
-        Batches.chunks(ops).forEach { cr.applyBatch(ContactsContract.AUTHORITY, ArrayList(it)) }
+        cr.applyInBatches(ops)
         oldKey?.let { contacts.notifyRelinked(listOf(contactId to it), "SEPARATE") }
         contacts.refresh()
         Result.Done(contactIdForRaw(rawId))
@@ -102,9 +100,8 @@ class ContactMover(private val context: Context, private val contacts: ContactsR
                 .withValue(AggregationExceptions.TYPE, type)
                 .withValue(AggregationExceptions.RAW_CONTACT_ID1, a)
                 .withValue(AggregationExceptions.RAW_CONTACT_ID2, b)
-                .build()
         }
-        Batches.chunks(ops).forEach { cr.applyBatch(ContactsContract.AUTHORITY, ArrayList(it)) }
+        cr.applyInBatches(ops)
     }
 
     private fun contactIdForRaw(rawId: Long): Long? = try {

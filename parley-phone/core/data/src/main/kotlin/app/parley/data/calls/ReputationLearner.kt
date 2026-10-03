@@ -4,7 +4,6 @@ import app.parley.common.BlockRule
 import app.parley.common.CallEntry
 import app.parley.common.CallType
 import app.parley.common.PhoneIdentity
-import app.parley.common.PhoneNumbers
 import app.parley.common.RuleKind
 import app.parley.common.RuleType
 import app.parley.common.spam.CallReputation
@@ -48,7 +47,7 @@ object ReputationLearner {
 
     /** "Block this range?" after a call with [number] (on the SIM [accountId]): the narrowest prefix, or null. */
     suspend fun proposeRange(c: DataContainer, number: String, accountId: String?, now: Long = System.currentTimeMillis()): RangeProposal? {
-        val line = PhoneNumbers.toE164(number, PhoneEnv.countryIso(c.appContext, accountId)) ?: return null
+        val line = PhoneIdentity.e164(number, PhoneEnv.countryIso(c.appContext, accountId)) ?: return null
         val input = gather(c, now) ?: return null
         return withContext(Dispatchers.Default) { CallReputation.proposeRange(line, input.calls, now, input.knownLines, input.known) }
     }
@@ -66,7 +65,7 @@ object ReputationLearner {
         // Calls Parley's screening blocked or silenced: they say nothing about what you did.
         val screened = runCatching { c.blocks.screenedSince(since) }.getOrDefault(emptyList())
             .filter { !it.allowed && !it.number.isNullOrBlank() }
-            .mapNotNull { e -> PhoneNumbers.toE164(e.number, iso(e.simId))?.let { it to e.time } }
+            .mapNotNull { e -> PhoneIdentity.e164(e.number, iso(e.simId))?.let { it to e.time } }
             .groupBy({ it.first }, { it.second })
 
         // Older calls are passed too: the scorer only counts recent ones, but trusts a number you ever called or talked to.
@@ -74,10 +73,10 @@ object ReputationLearner {
 
         val numbers = knownNumbers(c)
         val knownSet = PhoneIdentity.KnownSet(numbers, home)
-        val knownLines = numbers.mapNotNullTo(HashSet()) { PhoneNumbers.toE164(it, home) }
+        val knownLines = numbers.mapNotNullTo(HashSet()) { PhoneIdentity.e164(it, home) }
         val extras = c.settings.current().screening.emergencyExtras
         val known: (String) -> Boolean = { line ->
-            line in knownSet || EmergencyNumbers.isEmergency(ctx, line) || extras.any { PhoneNumbers.same(it, line, home) }
+            line in knownSet || EmergencyNumbers.isEmergency(ctx, line) || extras.any { PhoneIdentity.same(it, line, home) }
         }
         Input(out, blockedLines(c, home), knownLines, known)
     }
@@ -92,7 +91,7 @@ object ReputationLearner {
     /** One call as the scorer sees it, or null for a hidden number, a short code or an unknown type. */
     private fun repCall(e: CallEntry, iso: String, home: String, rings: Map<String, List<CallRingEntity>>, screened: Map<String, List<Long>>): RepCall? {
         if (e.presentationHidden || e.number.isBlank()) return null
-        val line = PhoneNumbers.toE164(e.number, iso) ?: return null
+        val line = PhoneIdentity.e164(e.number, iso) ?: return null
         val type = kindOf(e) ?: return null
         val stopped = type != RepKind.OUTGOING && screened[line].orEmpty().any { abs(it - e.date) <= SCREEN_MATCH_MS }
         val kind = if (stopped) RepKind.SCREENED else type
@@ -109,7 +108,7 @@ object ReputationLearner {
         val rules: List<BlockRule> = runCatching { c.blocks.enabledRules() }.getOrDefault(emptyList())
         val fromRules = rules.filter { it.kind == RuleKind.BLOCK && it.type == RuleType.EXACT }.map { it.pattern }
         val system = runCatching { c.blocks.loadSystemNow().map { it.number } }.getOrDefault(emptyList())
-        return (fromRules + system).mapNotNullTo(HashSet()) { PhoneNumbers.toE164(it, iso) }
+        return (fromRules + system).mapNotNullTo(HashSet()) { PhoneIdentity.e164(it, iso) }
     }
 
     private fun kindOf(e: CallEntry): RepKind? = when (e.type) {

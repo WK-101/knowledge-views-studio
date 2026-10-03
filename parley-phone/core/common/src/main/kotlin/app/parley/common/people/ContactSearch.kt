@@ -2,7 +2,7 @@ package app.parley.common.people
 
 import app.parley.common.CountryCodes
 import app.parley.common.EventDate
-import app.parley.common.PhoneNumbers
+import app.parley.common.PhoneIdentity
 import app.parley.common.TextSearch
 import app.parley.common.record.Col
 import app.parley.common.record.Mime
@@ -78,9 +78,9 @@ object ContactSearch {
 
         /** Each word's digits when it is a number ("912", "+351"), else null: looked for in the numbers too. */
         internal val wordDigits: List<List<String>?> = words.map { w ->
-            if (w.length >= 2 && w.all { it in '0'..'9' || it == '+' }) listOf(PhoneNumbers.digits(w)) else null
+            if (w.length >= 2 && w.all { it in '0'..'9' || it == '+' }) listOf(PhoneIdentity.digits(w)) else null
         }
-        private val digits = PhoneNumbers.digits(folded)
+        private val digits = PhoneIdentity.digits(folded)
 
         /**
          * Mostly digits and no letters: the whole query ("+351 912 345") is also searched in the numbers. A query with
@@ -149,9 +149,9 @@ object ContactSearch {
 
     /** Digit forms of a stored number: as written, international without '+', national with its trunk prefix, and bare. */
     fun numberForms(raw: String, region: String?): List<String> {
-        val d = PhoneNumbers.digits(raw)
+        val d = PhoneIdentity.digits(raw)
         if (d.isEmpty()) return emptyList()
-        val e164 = PhoneNumbers.toE164(raw, region) ?: return listOf(d)
+        val e164 = PhoneIdentity.e164(raw, region) ?: return listOf(d)
         val cc = CountryCodes.callingCodeOf(e164) ?: return listOf(d, e164.substring(1)).distinct()
         val national = e164.substring(1 + cc.length)
         val trunk = (region?.takeIf { CountryCodes.callingCode(it) == cc } ?: CountryCodes.regionsFor(cc).firstOrNull())

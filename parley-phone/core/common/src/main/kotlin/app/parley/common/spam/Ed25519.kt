@@ -142,6 +142,9 @@ object Ed25519 {
 
     fun verify(publicKey: ByteArray, message: ByteArray, signature: ByteArray): Boolean {
         if (publicKey.size != 32 || signature.size != 64) return false
+        // A small-order key or R (the identity among them) lets one signature pass for every message: refused on both
+        // paths, so the platform and the pure verifier agree.
+        if (smallOrder(publicKey) || smallOrder(signature.copyOfRange(0, 32))) return false
         // The pure check stays authoritative for what it rejects (s ≥ L, non-canonical points), so both paths agree.
         if (!platformAvailable) return verifyPure(publicKey, message, signature)
         return try {
@@ -168,16 +171,28 @@ object Ed25519 {
         val a = decompress(publicKey) ?: return false
         val rs = signature.copyOfRange(0, 32)
         val r = decompress(rs) ?: return false
+        if (isSmallOrder(a) || isSmallOrder(r)) return false
         val s = fromLe(signature.copyOfRange(32, 64))
         if (s >= L) return false
         val h = fromLe(sha512(rs, publicKey, message)).mod(L)
         return equal(mul(s, G), add(r, mul(h, a)))
     }
 
+    private val EIGHT: BigInteger = BigInteger.valueOf(8)
+
+    /** Whether 8·P is the identity: P lies in the small subgroup (order 1, 2, 4 or 8). */
+    private fun isSmallOrder(p: Point): Boolean = equal(mul(EIGHT, p), IDENTITY)
+
+    /** [encoded] decodes to a small-order point; false for anything that isn't a point (other checks refuse those). */
+    internal fun smallOrder(encoded: ByteArray): Boolean = decompress(encoded)?.let(::isSmallOrder) ?: false
+
     /** A new random secret key (32 bytes). */
     fun newSecret(): ByteArray = ByteArray(32).also { SecureRandom().nextBytes(it) }
 
-    /** Short, readable key fingerprint for the UI: first 8 bytes of SHA-256, grouped. */
+    /**
+     * Readable key fingerprint for the UI: the first 16 bytes of SHA-256 (128 bits, so no second key can be made to
+     * match it), in groups of four. Shown only, never stored as an identity: pins compare the whole key.
+     */
     fun fingerprint(publicKey: ByteArray): String =
-        MessageDigest.getInstance("SHA-256").digest(publicKey).take(8).joinToString("") { "%02X".format(Locale.ROOT, it) }.chunked(4).joinToString(" ")
+        MessageDigest.getInstance("SHA-256").digest(publicKey).take(16).joinToString("") { "%02X".format(Locale.ROOT, it) }.chunked(4).joinToString(" ")
 }

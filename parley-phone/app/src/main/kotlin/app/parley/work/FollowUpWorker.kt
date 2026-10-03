@@ -14,6 +14,7 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
+import app.parley.IntentRoutes
 import app.parley.MainActivity
 import app.parley.R
 import app.parley.common.circle.Promises
@@ -60,9 +61,8 @@ class FollowUpWorker(context: Context, params: WorkerParameters) : CoroutineWork
             .build()
         val open = PendingIntent.getActivity(
             ctx, code,
-            Intent(
-                ctx, MainActivity::class.java,
-            ).setAction(MainActivity.ACTION_SHOW_CALLER).putExtra(MainActivity.EXTRA_CONTACT_ID, contact.id).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            IntentRoutes.own(ctx).setAction(MainActivity.ACTION_SHOW_CALLER).putExtra(MainActivity.EXTRA_CONTACT_ID, contact.id)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
         val b = NotificationCompat.Builder(ctx, RemindersWorker.CHANNEL)

@@ -1,6 +1,6 @@
 package app.parley.common.calls
 
-import app.parley.common.PhoneNumbers
+import app.parley.common.PhoneIdentity
 
 /**
  * "Send to another number": a ringing call goes on to another number without being answered (Telecom's
@@ -34,7 +34,7 @@ object CallHandOff {
         val cleaned = buildString {
             raw.forEachIndexed { i, c ->
                 when {
-                    c.isDigit() -> append(PhoneNumbers.digits(c.toString()))
+                    c.isDigit() -> append(PhoneIdentity.digits(c.toString()))
                     c == '+' && i == 0 -> append(c)
                     c == '*' || c == '#' -> append(c)
                 }
@@ -50,14 +50,14 @@ object CallHandOff {
      */
     fun matches(query: String, saved: List<VerifyCallBack.Saved>, limit: Int = LIST_LIMIT): List<VerifyCallBack.Saved> {
         val q = query.trim().lowercase()
-        val digits = PhoneNumbers.digits(q).takeIf { it.length >= 2 && q.none(Char::isLetter) }
+        val digits = PhoneIdentity.digits(q).takeIf { it.length >= 2 && q.none(Char::isLetter) }
         val seen = HashSet<String>()
         return saved.asSequence()
-            .filter { s -> PhoneNumbers.digits(s.number).isNotEmpty() && seen.add(s.name.lowercase() + "|" + PhoneNumbers.digits(s.number)) }
+            .filter { s -> PhoneIdentity.digits(s.number).isNotEmpty() && seen.add(s.name.lowercase() + "|" + PhoneIdentity.digits(s.number)) }
             .filter { s ->
                 when {
                     q.isEmpty() -> true
-                    digits != null -> PhoneNumbers.digits(s.number).contains(digits)
+                    digits != null -> PhoneIdentity.digits(s.number).contains(digits)
                     else -> s.name.lowercase().let { n -> n.startsWith(q) || n.split(' ', '-', '·').any { it.startsWith(q) } }
                 }
             }

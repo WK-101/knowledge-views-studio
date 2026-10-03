@@ -21,7 +21,7 @@
         android:shortcutShortLabel="@string/qs_shortcut_short">
         <intent
             android:action="app.parley.action.SCAN_QR"
-            android:targetClass="app.parley.MainActivity"
+            android:targetClass="app.parley.InternalEntry"
             android:targetPackage="app.parley.phone.debug" />
     </shortcut>
 </shortcuts>

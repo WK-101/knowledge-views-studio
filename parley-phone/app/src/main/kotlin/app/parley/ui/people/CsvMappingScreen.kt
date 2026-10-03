@@ -53,6 +53,10 @@ import android.provider.ContactsContract.CommonDataKinds.Email
 import android.provider.ContactsContract.CommonDataKinds.Phone
 import androidx.compose.ui.res.stringResource
 import app.parley.R
+import app.parley.jobs.UserErrorText
+import app.parley.jobs.UserJobs
+import app.parley.ui.settings.importSummaryText
+import kotlinx.coroutines.CancellationException
 import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.selection.toggleable
 import app.parley.ui.ParleyTopBar
@@ -68,6 +72,7 @@ import app.parley.ui.ParleyScaffold
 fun CsvMappingScreen(vm: AppViewModel, back: () -> Unit) {
     val request = remember { MessagingInbox.csvImport }
     val scope = rememberCoroutineScope()
+    val context = androidx.compose.ui.platform.LocalContext.current
     val res = LocalResources.current
     var preview by remember { mutableStateOf<VCardIO.CsvPreview?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -96,8 +101,10 @@ fun CsvMappingScreen(vm: AppViewModel, back: () -> Unit) {
                     remap(p, hasHeader)
                 }
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
-            error = e.message ?: res.getString(R.string.csv_read_failed)
+            error = res.getString(R.string.csv_read_failed_because, UserErrorText.of(context, e))
         }
     }
 
@@ -180,17 +187,26 @@ fun CsvMappingScreen(vm: AppViewModel, back: () -> Unit) {
                     Button(
                         onClick = {
                             progress = 0f
+                            val chosen = mapping
+                            // An app job: leaving this screen doesn't stop the import half way.
+                            val job = vm.jobs.start(
+                                UserJobs.Kind.IMPORT, res.getString(R.string.set_importing),
+                                { e -> res.getString(R.string.csv_import_failed, UserErrorText.of(context, e)) },
+                            ) { pr ->
+                                val r = vm.c.vcards.importMapped(
+                                    request.uri, request.account, p.delimiter, chosen, hasHeader,
+                                    progress = { done, total ->
+                                        pr.update(done, total)
+                                        progress = if (total > 0) done.toFloat() / total else 0f
+                                    },
+                                    skipDuplicates = request.skipDuplicates,
+                                )
+                                // The details here if the screen is still open; the summary is said either way.
+                                report = r
+                                importSummaryText(res, r)
+                            }
                             scope.launch {
-                                report = try {
-                                    vm.c.vcards.importMapped(
-                                        request.uri, request.account, p.delimiter, mapping, hasHeader,
-                                        progress = { done, total -> progress = if (total > 0) done.toFloat() / total else 0f },
-                                        skipDuplicates = request.skipDuplicates,
-                                    )
-                                } catch (e: Exception) {
-                                    vm.toast(res.getString(R.string.csv_import_failed, e.message.toString()))
-                                    null
-                                }
+                                job.join()
                                 progress = null
                             }
                         },

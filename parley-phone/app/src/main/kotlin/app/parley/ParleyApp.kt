@@ -7,12 +7,15 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.os.Trace
 import androidx.core.content.ContextCompat
+import app.parley.calls.PrivateCallLogSweep
 import app.parley.blocking.BlockingSetup
 import app.parley.common.suspendRunCatching
 import app.parley.data.DataContainer
 import app.parley.data.people.CrashStore
 import app.parley.security.AppLock
 import app.parley.data.security.LockTransitions
+import app.parley.jobs.JobNotices
+import app.parley.jobs.UserJobs
 import app.parley.security.VaultSession
 import app.parley.shortcuts.CircleWidget
 import app.parley.shortcuts.FavoritesWidget
@@ -39,6 +42,9 @@ class ParleyApp : Application() {
      * binder thread before onCreate has built it, and must answer at once (nothing) rather than wait.
      */
     val containerOrNull: DataContainer? get() = if (::container.isInitialized) container else null
+
+    /** Exports, imports and backups started from screens, in the app's scope (see [UserJobs]). */
+    val jobs: UserJobs by lazy { UserJobs(container.scope) { JobNotices.post(this, it) } }
 
     override fun onCreate() {
         super.onCreate()
@@ -100,7 +106,9 @@ class ParleyApp : Application() {
             } finally {
                 Trace.endAsyncSection(TRACE_WARM, 0)
             }
-            // Plaintext call-history exports never outlive the next start.
+            // A private contact's call the last process couldn't take out of the system call log goes first.
+            suspendRunCatching { PrivateCallLogSweep.recheck(this@ParleyApp, container) }
+            // Plaintext call-history exports and shared files never outlive the next start.
             ExportFiles.cleanup(this@ParleyApp)
             // Camera shots and framed avatars that a closed editor or an unfinished save left in the cache.
             runCatching { ContactCamera.sweep(this@ParleyApp) }

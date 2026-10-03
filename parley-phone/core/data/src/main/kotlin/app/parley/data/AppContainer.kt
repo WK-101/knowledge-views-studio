@@ -167,7 +167,7 @@ class DataContainer(context: Context) {
     /** Lossless moves into and out of the private vault. */
     val vaultMoves by lazy { VaultMoves(vault, contacts, records) { circle.interactions } }
     val vault: VaultRepository by lazy {
-        VaultRepository(appContext, db, scope).also { v ->
+        VaultRepository(appContext, db, scope, fullStart).also { v ->
             // A private contact's labels are the address book's groups; only who is in them is kept in the vault.
             v.labelGroups = { contacts.groups().map { app.parley.common.people.PrivateLabels.Group(it.id, it.title) } }
             // Deleted private contacts kept sealed for 30 days still need their detail key.
@@ -317,7 +317,8 @@ class DataContainer(context: Context) {
         runCatching { ux }
         runCatching { circle }
         runCatching { messaging }
-        runCatching { vault }
+        // Not the vault: it is built when first asked (a lookup on the call path, or the UI), and its listings and
+        // upkeep wait for the full app (fullStart), so a process started for a call never opens its rows.
         runCatching { history }
         runCatching { people }
         // My card: built here so the one-time fold-in of the old "My details" writes on IO, not on the first screen.

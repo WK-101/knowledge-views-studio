@@ -16,7 +16,7 @@ object TextSearch {
         val folded: String = normalize(query.trim())
         val isEmpty: Boolean get() = folded.isEmpty()
         private val words = folded.split(' ').filter { it.isNotEmpty() }
-        private val digits = PhoneNumbers.digits(folded)
+        private val digits = PhoneIdentity.digits(folded)
 
         /** Mostly digits and no letters: the whole query is also searched in the numbers. */
         private val byNumber = digits.length >= 2 && folded.none { it.isLetter() } &&
@@ -24,11 +24,11 @@ object TextSearch {
 
         /** Each word's digits when it is a number ("912", "+351"), else null: such a word may be found in a number. */
         private val wordDigits: List<String?> = words.map { w ->
-            if (w.length >= 2 && w.all { it in '0'..'9' || it == '+' }) PhoneNumbers.digits(w) else null
+            if (w.length >= 2 && w.all { it in '0'..'9' || it == '+' }) PhoneIdentity.digits(w) else null
         }
 
         /**
-         * [foldedName] is already [normalize]d; [numberDigits] are the numbers as [PhoneNumbers.digits]; [extra] fields
+         * [foldedName] is already [normalize]d; [numberDigits] are the numbers as [PhoneIdentity.digits]; [extra] fields
          * are raw text (normalised here, only when the name and numbers didn't match).
          */
         fun matchesPrepared(foldedName: String, numberDigits: List<String>, extra: List<String> = emptyList()): Boolean {
@@ -55,7 +55,7 @@ object TextSearch {
     /** The numbers' digits, worked out only if the query is searched by number. */
     private class LazyDigits(private val numbers: List<String>) : AbstractList<String>() {
         override val size: Int get() = numbers.size
-        override fun get(index: Int): String = PhoneNumbers.digits(numbers[index])
+        override fun get(index: Int): String = PhoneIdentity.digits(numbers[index])
     }
 }
 

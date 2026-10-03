@@ -13,7 +13,6 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import app.parley.IntentRoutes
-import app.parley.MainActivity
 import app.parley.R
 import app.parley.common.NotificationChannels
 import app.parley.common.NotificationIds
@@ -24,6 +23,7 @@ import app.parley.common.calls.ToCall
 import app.parley.common.calls.ToCallItem
 import app.parley.common.calls.ToCallSource
 import app.parley.common.calls.ToCallState
+import app.parley.common.catching
 import app.parley.container
 import app.parley.data.DataContainer
 import app.parley.data.NumberInfo
@@ -141,7 +141,7 @@ object ToCallReminders {
         if (items.isEmpty()) return
         val loaded = c.history.calls.value
         // Calls with private contacts live in Parley's own history ("Private call history").
-        val private = runCatching { c.vault.privateCalls.value.map(CallHistory::privateEntry) }.getOrDefault(emptyList())
+        val private = catching { c.vault.privateCallsNow().map(CallHistory::privateEntry) }.getOrDefault(emptyList())
         val calls = items.flatMap { item ->
             val iso = PhoneEnv.countryIso(context, item.accountId)
             val system = loaded ?: runCatching { c.callLog.pastCalls(item.number, now, limit = 20) }.getOrDefault(emptyList())
@@ -162,7 +162,7 @@ object ToCallReminders {
         val keys = due.map { it.key }.toTypedArray()
         val open = PendingIntent.getActivity(
             context, 70,
-            Intent(context, MainActivity::class.java).setAction(IntentRoutes.ACTION_SHOW_TO_CALL).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            IntentRoutes.own(context).setAction(IntentRoutes.ACTION_SHOW_TO_CALL).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
         val notNow = PendingIntent.getBroadcast(

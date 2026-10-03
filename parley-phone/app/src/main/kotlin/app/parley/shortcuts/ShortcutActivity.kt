@@ -12,6 +12,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import androidx.core.content.pm.ShortcutManagerCompat
+import app.parley.IntentRoutes
 import app.parley.MainActivity
 import app.parley.container
 import app.parley.CallGate
@@ -39,7 +40,7 @@ class ShortcutActivity : Activity() {
                 startActivity(Intent(Intent.ACTION_SENDTO, Uri.fromParts("smsto", number, null)))
             }
             Shortcuts.Kind.OPEN -> startActivity(
-                Intent(this, MainActivity::class.java).setAction(MainActivity.ACTION_SHOW_CALLER)
+                IntentRoutes.own(this).setAction(MainActivity.ACTION_SHOW_CALLER)
                     .putExtra(MainActivity.EXTRA_CONTACT_ID, contactId).putExtra(MainActivity.EXTRA_NUMBER, number),
             )
             null -> Unit

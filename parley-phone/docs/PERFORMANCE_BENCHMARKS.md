@@ -153,6 +153,43 @@ and look for the sections on Parley's process tracks.
 The release APK has a size budget of 12 MiB (the ≤ 12 MB target in docs/AUDIT.md §5): `./gradlew :app:checkReleaseApkSize`
 fails above it, and CI runs it.
 
+### 5.4: data at scale
+
+The 5.3 audit (docs/audit/round2/PERFORMANCE.md) estimated what grows with the address book and the years. What
+changed, and how it was measured (JVM and Robolectric unit tests on the build machine, not a phone; the timings are
+for comparison, a phone is several times slower):
+
+**Time-machine index** (`SnapshotLogTest.halfAYearOfSnapshotsStaysSmall`, core:common). 180 daily snapshots, 1% of
+contacts changing a day, a few added and deleted. The old format kept one full `lookup key → hash` map per day and
+read all of them for any question; the new index keeps each contact's changes only, read once and held in memory
+(up to 150,000 versions, a few MB).
+
+| Contacts | Versions kept | Index on disk | Old format on disk | Add a day | Read the index | Two whole snapshots | One contact's history | Drop a day and find unused blobs |
+|---|---|---|---|---|---|---|---|---|
+| 5,000 | 15,688 | 734 KiB | 76 MiB (433 KiB a day) | 16 ms | 18 ms | 15 ms | 5 µs | 45 ms |
+| 20,000 | 62,734 | 2.9 MiB | 307 MiB (1.7 MiB a day) | 36 ms | 53 ms | 208 ms | 7 µs | 257 ms |
+
+The old format also parsed every day's map for each question: about 250 bytes of heap per entry, so roughly 225 MB at
+5,000 contacts and 900 MB at 20,000 (an out-of-memory crash on any phone). Cleanup now finds unused blobs from the index
+(distinct hashes, and the photo hashes noted when each record was written) instead of opening every record of every
+day (0.9 million decodes a day at 5,000 contacts). The old files move over the first time the index is read: each
+day's file is read once, and each distinct record once for its photos (`TimeMachineIndexTest`, core:data).
+
+**Contacts provider batches** (`ProviderBatchesTest`, core:data). Every bulk write (deleting contacts, label changes,
+undoing a restore, health fixes, unlinking) goes in batches of at most 400 operations with a yield point every 100;
+the test's provider refuses more than 500 between yield points, as Android's does. Deleting 1,100 contacts takes three
+batches; before, it was one batch the provider refused.
+
+**Private calls and number memory** (`PrivateCallsTest`, `NumberMemoryIndexTest`, `MemoryTallyTest`, core:data).
+Listing private calls opens each with a software key: 0 Keystore operations for 50 calls (before: one per call, after
+every change, 2–6 s for 2,000 calls by the audit's estimate). Number memory hashes numbers in software (before: about
+25,000 Keystore operations a day with 100,000 archived calls) and reads only the calls archived since its last
+rebuild. In a process started for a call, the vault builds no listing at all.
+
+**Call screening** (`CallScreenerTest`, core:data). One PhoneLookup per call (before: two for a contact) and one
+vault lookup (before: two for a private contact); the contacts provider, the vault, the spam lists, the call log, the
+blocked-call log, Android's block list and the SIMs are asked at the same time, inside the 3 s budget.
+
 ### Contacts search over every field
 
 The Contacts search looks at every field (`ContactSearch`, core/common). Each contact is prepared once, off the main

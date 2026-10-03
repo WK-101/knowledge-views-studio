@@ -52,7 +52,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
-import app.parley.common.PhoneNumbers
 import app.parley.common.ux.CallClass
 import app.parley.data.NumberInfo
 import app.parley.messaging.LastMessagedNote
@@ -90,7 +89,7 @@ fun NumberHistoryScreen(vm: AppViewModel, number: String, back: () -> Unit, open
     val sims by vm.sims.collectAsStateWithLifecycle()
     val index by vm.numberIndex.collectAsStateWithLifecycle()
     val contact = index[number]
-    val history = calls.orEmpty().filter { PhoneNumbers.same(it.number, number, vm.countryIso) }
+    val history = calls.orEmpty().filter { PhoneIdentity.same(it.number, number, vm.countryIso) }
     var blocked by remember { mutableStateOf(false) }
     var messageOn by remember { mutableStateOf(false) }
     if (messageOn) ReachSheet(ReachTarget.Number(number), onDismiss = { messageOn = false }, onCall = { n -> vm.requestCall(n, contact?.displayName) })

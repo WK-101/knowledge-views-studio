@@ -43,6 +43,7 @@ fun NavGraphBuilder.settingsGraph(nav: NavController) {
     composable<Routes.Birthdays> { BirthdaysScreen(appVm(), back = back, open = open) }
     composable<Routes.Backup> { BackupScreen(appVm(), back = back) }
     composable<Routes.Sync> { FolderSyncScreen(appVm(), back = back, open = open) }
+    composable<Routes.SyncMarkdown> { FolderSyncScreen(appVm(), back = back, open = open, focusMarkdown = true) }
     composable<Routes.CallTime> { CallTimeScreen(appVm(), back = back) }
     composable<CallsRoutes.PhoneMenus> { PhoneMenusScreen(appVm(), back = back) }
     composable<CallsRoutes.Page> {

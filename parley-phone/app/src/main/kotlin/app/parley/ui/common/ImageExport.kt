@@ -10,6 +10,7 @@ import android.provider.ContactsContract
 import android.provider.DocumentsContract
 import android.util.Log
 import androidx.core.content.FileProvider
+import app.parley.common.catching
 import app.parley.common.photo.ImageFiles
 import app.parley.common.photo.OriginalPhoto
 import kotlinx.coroutines.CoroutineScope
@@ -113,7 +114,7 @@ object ImageExport {
 
     /** Deletes [target], a document "Save to" created that couldn't be written (never left there empty). */
     suspend fun discard(context: Context, target: Uri) = withContext(Dispatchers.IO) {
-        runCatching { DocumentsContract.deleteDocument(context.contentResolver, target) }.onFailure { Log.w(TAG, "Couldn't remove the empty file", it) }
+        catching { DocumentsContract.deleteDocument(context.contentResolver, target) }.onFailure { Log.w(TAG, "Couldn't remove the empty file", it) }
         Unit
     }
 
