@@ -23,6 +23,10 @@ object ContactDetailsJson {
         // A private contact's "send to voicemail" (read back only when present, like the lines above).
         if (d.sendToVoicemail) put("vm", true)
         if (d.pronouns.isNotBlank()) put("pn", d.pronouns)
+        // The work row's other parts, so a private contact keeps them too.
+        if (d.department.isNotBlank()) put("dept", d.department)
+        if (d.officeLocation.isNotBlank()) put("office", d.officeLocation)
+        if (d.jobDescription.isNotBlank()) put("jobd", d.jobDescription)
     }.toString()
 
     fun decode(s: String): ContactDetails {
@@ -43,7 +47,7 @@ object ContactDetailsJson {
                 }
             }.orEmpty(),
             context = str("ctx"), pinnedNote = str("pin"), messengerPrefs = str("mp"), sendToVoicemail = o.optBoolean("vm"),
-            pronouns = str("pn"),
+            pronouns = str("pn"), department = str("dept"), officeLocation = str("office"), jobDescription = str("jobd"),
         ).let { it.copy(displayName = it.composedName.ifBlank { it.company.ifBlank { it.phones.firstOrNull()?.value.orEmpty() } }) }
     }
 

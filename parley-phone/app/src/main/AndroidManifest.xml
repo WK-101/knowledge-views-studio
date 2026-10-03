@@ -243,6 +243,14 @@
                 <data android:mimeType="vnd.android.cursor.item/person" />
                 <data android:mimeType="vnd.android.cursor.item/raw_contact" />
             </intent-filter>
+            <!-- Another app's "Edit contact" (a contact, lookup or raw contact URI), as AOSP Contacts declares it. -->
+            <intent-filter>
+                <action android:name="android.intent.action.EDIT" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="vnd.android.cursor.item/contact" />
+                <data android:mimeType="vnd.android.cursor.item/person" />
+                <data android:mimeType="vnd.android.cursor.item/raw_contact" />
+            </intent-filter>
             <!-- "Scan QR code" for a picture shared to Parley (it is searched for codes on the phone). -->
             <intent-filter android:label="@string/qs_menu">
                 <action android:name="android.intent.action.SEND" />

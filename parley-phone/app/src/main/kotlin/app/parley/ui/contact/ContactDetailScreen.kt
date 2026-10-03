@@ -190,7 +190,9 @@ import app.parley.data.AccountRef
 import app.parley.security.AppLock
 import java.time.LocalDate
 import java.time.ZoneId
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.selection.toggleable
 import app.parley.ui.ParleyTopBar
@@ -850,7 +852,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                         )
                     }
                     // Pronouns first, right under the name.
-                    val work = listOf(d.title, d.company).filter { it.isNotBlank() }.joinToString(", ")
+                    val work = listOf(d.title, d.department, d.company).filter { it.isNotBlank() }.joinToString(", ")
                     val sub = listOf(d.pronouns.trim(), d.nickname, work).filter { it.isNotBlank() }
                     if (sub.isNotEmpty()) Text(sub.joinToString(sep), color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
                     Text(
@@ -1096,9 +1098,16 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                     scope.launchVault(context as? FragmentActivity, { e -> vm.toast(resources.getString(R.string.vault_move_failed, e.message.orEmpty())) }) {
                         val s = vm.settings.value
                         // Restores the original contact losslessly when the vault kept its record; else the default account.
-                        when (val made = page.makeVisible(AccountRef(s.defaultAccountType, s.defaultAccountName))) {
+                        val requested = AccountRef(s.defaultAccountType, s.defaultAccountName)
+                        when (val made = page.makeVisible(requested)) {
                             is ContactConversions.MadeVisible.Done -> {
-                                vm.toast(resources.getString(R.string.contact_made_visible))
+                                // Android 16 put it in the cloud default rather than on the phone: say where it went.
+                                val redirected = withContext(Dispatchers.IO) { vm.c.contacts.newContactTarget(requested) }
+                                    .takeIf { it.redirected }?.account
+                                vm.toast(
+                                    redirected?.let { resources.getString(R.string.contact_made_visible_in, it.displayLabel) }
+                                        ?: resources.getString(R.string.contact_made_visible),
+                                )
                                 back()
                                 open(Routes.contact(made.contactId))
                             }

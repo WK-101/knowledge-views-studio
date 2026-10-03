@@ -145,6 +145,21 @@ class MainActivity : LockedActivity() {
         }
     }
 
+    /**
+     * Another app's "Edit contact": resolves the URI off the main thread, then opens the editor. Like every link, it
+     * waits behind the app lock (the screens only take navigation once unlocked).
+     */
+    private fun editResolved(uri: Uri) {
+        lifecycleScope.launch {
+            val id = withContext(Dispatchers.IO) { vm.c.contacts.resolveContactId(uri) }
+            if (id == null) {
+                vm.toast(getString(R.string.main_edit_not_found))
+                return@launch
+            }
+            vm.navigate(NavEvent.Route(IntentRoutes.editorFor(id, IntentRoutes.rawContactId(uri))))
+        }
+    }
+
     private fun handleIntent(intent: Intent?) {
         intent ?: return
         checkEmergencyDial(intent)
@@ -153,6 +168,7 @@ class MainActivity : LockedActivity() {
         t.simpleSetup?.let { SimpleInbox.qr.value = it }
         t.template?.let { TemplateInbox.pending.value = it }
         t.resolveContact?.let(::openResolved)
+        t.editContact?.let(::editResolved)
         t.showOrCreate?.let(::showOrCreate)
         t.report?.let { BlockingDialogs.show(BlockingDialog.Report(it)) }
         t.event?.let { vm.navigate(it) }

@@ -57,6 +57,7 @@
     <string name="editor_name_title">Name</string>
     <!-- Save-to chip: the phone's own storage, without the account's contact count. -->
     <string name="editor_account_device">Device</string>
+    <string name="editor_account_system_default">Android puts new contacts in %1$s, your phone\'s default account, so Device isn\'t offered here</string>
     <string name="editor_save_private">Private</string>
     <!-- My card: what its QR code and shared vCard include. -->
     <string name="me_share_includes">Your QR code and shared card include</string>

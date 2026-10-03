@@ -23,4 +23,13 @@ class OtherFieldsTest {
             fields.map { it.label to it.value },
         )
     }
+
+    @Test fun a_work_rows_office_and_job_description_show_but_its_edited_parts_dont() {
+        val org = DataRow(Mime.ORG, mapOf("data1" to "Acme", "data4" to "Engineer", "data5" to "Research", "data6" to "Builds rockets", "data9" to "Room 4"))
+        assertEquals(
+            listOf("Office" to "Room 4", "Job description" to "Builds rockets"),
+            OtherFields.describe(listOf(org)).map { it.label to it.value },
+        )
+        assertEquals(emptyList<OtherFields.Field>(), OtherFields.describe(listOf(DataRow(Mime.ORG, mapOf("data1" to "Acme")))))
+    }
 }

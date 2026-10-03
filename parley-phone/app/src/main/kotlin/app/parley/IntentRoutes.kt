@@ -2,19 +2,22 @@ package app.parley
 
 import android.content.Intent
 import android.net.Uri
+import android.provider.ContactsContract
 import app.parley.common.RuleKind
 import app.parley.common.RuleType
 import app.parley.common.StartTab
 import app.parley.messaging.MessagingRoutes
+import app.parley.ui.Destination
 import app.parley.ui.Routes
 import app.parley.ui.blocking.BlockingRoutes
 import app.parley.ui.calls.ToCallRoutes
 import app.parley.ui.extras.ExtrasRoutes
+import app.parley.ui.people.PeopleRoutes
 import app.parley.ui.qr.QrRoutes
 
 /**
  * What an intent reaching the main screen asks for: a `parley://` link, a `tel:` link, a launcher shortcut, a Quick
- * Settings tile, a notification's action, another app's Insert or Quick Contact. [event] is where to go; the other
+ * Settings tile, a notification's action, another app's Insert, Edit or Quick Contact. [event] is where to go; the other
  * fields are what the activity must do first (hand a link or picture to its screen, look a contact up).
  */
 data class IntentTarget(
@@ -27,6 +30,8 @@ data class IntentTarget(
     val template: Uri? = null,
     /** A contacts URI to resolve to a contact (off the main thread) and open. */
     val resolveContact: Uri? = null,
+    /** Another app's "Edit contact": a contacts URI to resolve and open in the editor. */
+    val editContact: Uri? = null,
     /** SHOW_OR_CREATE_CONTACT: open the matching contact or offer to create one. */
     val showOrCreate: Uri? = null,
     /** The post-call card's "Report" for a number. */
@@ -74,6 +79,16 @@ object IntentRoutes {
     const val EXTRA_POST_CALL_ACTION = "post_call_action"
     const val EXTRA_CONTACT_ID = "contact_id"
     const val EXTRA_NUMBER = "number"
+
+    /** The raw contact an Edit link names (`content://com.android.contacts/raw_contacts/12`); null for a contact link. */
+    fun rawContactId(uri: Uri): Long? {
+        val seg = uri.pathSegments
+        return if (uri.authority == ContactsContract.AUTHORITY && seg.size == 2 && seg[0] == "raw_contacts") seg[1].toLongOrNull() else null
+    }
+
+    /** The editor another app's "Edit contact" opens: the copy the link names, else the whole contact. */
+    fun editorFor(contactId: Long, rawId: Long?): Destination =
+        if (rawId != null) PeopleRoutes.editRaw(contactId, rawId) else Routes.edit(id = contactId)
 
     private fun isVcard(type: String?) = type != null && (type.contains("vcard") || type == "text/directory")
 
@@ -145,6 +160,7 @@ object IntentRoutes {
                     else -> null
                 }
             }
+            Intent.ACTION_EDIT -> data?.takeIf { it.scheme == "content" }?.let { IntentTarget(editContact = it) }
             Intent.ACTION_INSERT -> go(NavEvent.NewContact(InsertPrefill.from(intent)))
             Intent.ACTION_INSERT_OR_EDIT -> go(NavEvent.InsertOrEdit(InsertPrefill.from(intent)))
             else -> null

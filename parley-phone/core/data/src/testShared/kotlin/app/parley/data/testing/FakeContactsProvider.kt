@@ -40,6 +40,12 @@ class FakeContactsProvider : ContentProvider() {
     /** While true, contacts are listed without a lookup key, as right after an insert before aggregation settles. */
     @Volatile var lookupKeysUnreadable = false
 
+    /**
+     * While true, a new raw contact in the phone-only account (no account type) is refused, as Android 16 does while
+     * the user's default account for new contacts is a cloud account.
+     */
+    @Volatile var refusePhoneOnlyInserts = false
+
     /** Numbers the work profile's contacts hold, answered by the enterprise phone lookup only (after personal ones). */
     val workNumbers = HashSet<String>()
 
@@ -222,6 +228,9 @@ class FakeContactsProvider : ContentProvider() {
         record("insert", uri, values)
         return when (segments(uri).firstOrNull()) {
             "raw_contacts" -> {
+                require(!refusePhoneOnlyInserts || values?.getAsString("account_type") != null) {
+                    "Cannot add contacts to local or SIM accounts when default account is set to cloud"
+                }
                 val id = db.insertOrThrow("raw_contacts", null, known("raw_contacts", values))
                 val join = joinNewRawsInto?.takeIf { values?.getAsInteger("aggregation_mode") != ContactsContract.RawContacts.AGGREGATION_MODE_DISABLED }
                 if (values?.containsKey("contact_id") != true) db.execSQL("UPDATE raw_contacts SET contact_id = ${join ?: id} WHERE _id = $id")

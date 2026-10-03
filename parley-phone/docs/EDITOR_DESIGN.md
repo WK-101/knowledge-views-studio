@@ -190,3 +190,24 @@ form. The clipboard is read only when the chip is tapped.
   empty rows (never replaces what was typed, never adds a value twice). When a ticked number or email already
   belongs to a contact (or a private contact, unless they are hidden), **Add to <name>** continues in that contact's
   editor instead. Nothing is saved until Save, so Private and Temporary work as for any new contact.
+
+## Work: department, office and job description
+
+- The Work group holds **Company, Title and Department** as one three-part card (Google's 2024 editor offers
+  department under "Add fields"; Parley keeps the three together because they are one Android row). The group shows
+  when any of the three has a value, or when Work is added.
+- **Office location and job description** come from Outlook, Exchange and vCard (`ROLE`) imports. The editor doesn't
+  change them; the contact page lists them under Other fields ("Office", "Job description").
+- Saving writes only company, title and department (`WorkRow.EDITED`). A work row that still holds anything else (a
+  label, job description, ticker symbol, phonetic company name or office, `WorkRow.KEPT`) is kept with those three
+  cleared instead of deleted, and an unchanged row is never touched. Earlier versions deleted a row with a department
+  but no company or title on any save.
+
+## Save to on Android 16
+
+Android 16 lets the user choose a default account for new contacts. While that default is a cloud account, Android
+refuses new contacts on the phone only, so the Save-to menu leaves out **Device**, lists the default account first and
+says why under the accounts. Settings › Contacts › "Save new contacts to" says the same. Every insert path (this
+editor, imports, restores, Make visible, temporary contacts, Add several numbers, shared labels) goes through
+`DeviceAccounts.newContacts` and `NewContactAccount`, so none of them fails there.
+

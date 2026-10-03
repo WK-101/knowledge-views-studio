@@ -182,6 +182,11 @@ From the page (**Settings for this contact** and ⋮) and, for the expiry, from 
 | Private → Device ("Make visible to other apps") | `ContactConversions.makeVisible`: the stored record goes back (accounts kept when still writable), edits made while private on top (`VaultMoves.moveOut`); the private call history goes back to the phone's call history **before** the entry (their only copy) is deleted, and if it can't (no permission, a call that can't be opened now) the inserted contact is taken back and nothing changes; the star, ringtone, "send to voicemail" and labels as they are now become the address book's; Parley's data is re-keyed to the new lookup key, read a few times while Android joins the contact, and when it still can't be read everything waits under the private key until the next key sweep (`ContactKeys.rekeyLater`), never forgotten (a call-time limit gets the name back); the date becomes the address book's temporary flag, recording only the raw contacts this move inserted (Android may join them with the user's own copy or a messenger's, which expiry must never delete) | Yes |
 | Permanent → Temporary, date changes, Temporary → Permanent | The vault entry's expiry, or `TemporaryContactStore` | Yes |
 
+On Android 16, when the user's default account for new contacts is a cloud account, Android refuses new phone-only
+contacts: Make visible then puts the contact in that account and says so ("Visible to other apps now, in …"), rather
+than failing (`NewContactAccount`). A private contact keeps its whole work row (company, title, department, office and
+job description) and carries it back.
+
 Both conversions ask first and say what other apps will or won't see; when Make visible changes nothing, the page says
 why. They run in the app's scope, so leaving the page
 never leaves half a conversion. Undo is the opposite conversion (History & undo can't hold a private contact, by

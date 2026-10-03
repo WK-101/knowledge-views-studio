@@ -94,6 +94,14 @@ data class ContactDetails(
     val orgId: Long? = null,
     val company: String = "",
     val title: String = "",
+    /** The work row's department (Organization.DEPARTMENT), edited with company and title. */
+    val department: String = "",
+    /**
+     * The work row's office location and job description: shown on the contact page (Other fields) but not edited,
+     * and kept by every save.
+     */
+    val officeLocation: String = "",
+    val jobDescription: String = "",
     val noteId: Long? = null,
     val note: String = "",
     val phones: List<DataItem> = emptyList(),

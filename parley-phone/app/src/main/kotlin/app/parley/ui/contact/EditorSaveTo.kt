@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountCircle
@@ -77,6 +78,8 @@ internal class EditorSaveTo(
     val accounts: List<AccountRef>,
     /** Null when an existing contact can't be made temporary here (or the contact is new). */
     val expiry: ExpiryState?,
+    /** Android 16's cloud default while it takes new contacts instead of the phone. */
+    val systemDefault: AccountRef? = null,
 ) {
     val editingPrivate: Boolean get() = (vaultId ?: 0L) > 0L
 
@@ -200,6 +203,14 @@ private fun DestinationChip(s: EditorSaveTo, label: (AccountRef) -> String, onAc
                 leadingIcon = { Icon(if (a.isLocal) Icons.Rounded.PhoneAndroid else Icons.Rounded.AccountCircle, null) },
                 trailingIcon = if (!s.privateNew && !s.temporaryNew && a == s.account) tick else null,
                 onClick = { close(); onAccount(a) },
+            )
+        }
+        // Why "Device" is missing: Android 16 refuses new phone-only contacts while the default is a cloud account.
+        s.systemDefault?.let { d ->
+            Text(
+                stringResource(R.string.editor_account_system_default, label(d)), style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.widthIn(max = 280.dp).padding(horizontal = 16.dp, vertical = 8.dp),
             )
         }
         DropdownMenuItem(

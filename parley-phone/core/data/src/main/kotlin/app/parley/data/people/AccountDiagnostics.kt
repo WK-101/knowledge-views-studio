@@ -78,7 +78,9 @@ class AccountDiagnostics(private val context: Context) {
         val counts = owning.mapValues { it.value.size }
         // Samsung/Xiaomi (before Android 15) and other OEMs keep phone-only contacts under their own type.
         val localPresent = fixed() || (counts[AccountKey(null, null)] ?: 0) > 0 || (local.type != null && (counts[AccountKey(local.type, local.name)] ?: 0) > 0) ||
-            counts.any { (k, n) -> n > 0 && AccountKinds.isLocalType(k.type) }
+            counts.any { (k, n) -> n > 0 && AccountKinds.isLocalType(k.type) } ||
+            // Android 16 with a cloud default: the phone takes no new contacts, so there is nothing to fix.
+            DeviceAccounts.newContacts(context).cloudInstead != null
         val signedInKeys = accounts.map { AccountKey(it.type, it.name) }.toSet()
         val findings = AccountCheck.check(
             signedIn = signedInKeys,

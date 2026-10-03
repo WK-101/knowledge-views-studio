@@ -18,6 +18,7 @@ object ContactDraftJson {
         putOpt("nicknameId", d.nicknameId); put("nickname", d.nickname)
         putOpt("pronounsId", d.pronounsId); put("pronouns", d.pronouns)
         putOpt("orgId", d.orgId); put("company", d.company); put("title", d.title)
+        put("department", d.department); put("office", d.officeLocation); put("jobDescription", d.jobDescription)
         putOpt("noteId", d.noteId); put("note", d.note)
         put("phones", items(d.phones)); put("emails", items(d.emails)); put("websites", items(d.websites)); put("relations", items(d.relations))
         put("addresses", JSONArray().apply {
@@ -48,6 +49,7 @@ object ContactDraftJson {
             nicknameId = o.long("nicknameId"), nickname = o.optString("nickname"),
             pronounsId = o.long("pronounsId"), pronouns = o.optString("pronouns"),
             orgId = o.long("orgId"), company = o.optString("company"), title = o.optString("title"),
+            department = o.optString("department"), officeLocation = o.optString("office"), jobDescription = o.optString("jobDescription"),
             noteId = o.long("noteId"), note = o.optString("note"),
             phones = readItems(o.optJSONArray("phones")), emails = readItems(o.optJSONArray("emails")),
             websites = readItems(o.optJSONArray("websites")), relations = readItems(o.optJSONArray("relations")),

@@ -88,7 +88,10 @@ object InsertPrefill {
                     prefix = cv.getAsString(StructuredName.PREFIX) ?: d.prefix,
                     suffix = cv.getAsString(StructuredName.SUFFIX) ?: d.suffix,
                 )
-                Organization.CONTENT_ITEM_TYPE -> d = d.copy(company = cv.getAsString(Organization.COMPANY) ?: d.company, title = cv.getAsString(Organization.TITLE) ?: d.title)
+                Organization.CONTENT_ITEM_TYPE -> d = d.copy(
+                    company = cv.getAsString(Organization.COMPANY) ?: d.company, title = cv.getAsString(Organization.TITLE) ?: d.title,
+                    department = cv.getAsString(Organization.DEPARTMENT) ?: d.department,
+                )
                 Nickname.CONTENT_ITEM_TYPE -> d = d.copy(nickname = cv.getAsString(Nickname.NAME) ?: d.nickname)
                 Note.CONTENT_ITEM_TYPE -> d = d.copy(note = listOf(d.note, cv.getAsString(Note.NOTE).orEmpty()).filter { it.isNotBlank() }.joinToString("\n"))
             }
@@ -124,6 +127,7 @@ object InsertPrefill {
             events = PasteFill.rows(existing.events, events, { it.date.isBlank() }) { a, b -> a.type == b.type && a.date == b.date },
             company = existing.company.ifBlank { add.company },
             title = existing.title.ifBlank { add.title },
+            department = existing.department.ifBlank { add.department },
             note = if (repeated) existing.note else listOf(existing.note, add.note).filter { it.isNotBlank() }.joinToString("\n"),
         )
     }
