@@ -21,13 +21,36 @@ interface StreamSink {
 interface CapabilityHandler {
     val capabilityId: String
 
-    /** The scope a given method requires, or null if it needs none. */
+    /**
+     * A single scope the dispatcher checks at the gate for a given method, or null if the method needs no
+     * single fixed scope. A capability whose authorization depends on the request *payload* (e.g. `data`,
+     * where the required scope is per domain + read/write) returns null here and instead checks
+     * [grantedScopes] itself inside [invoke] / [openStream].
+     */
     fun requiredScope(method: String): String? = null
 
-    fun invoke(request: RequestEnvelope, caller: VerifiedCaller): ResponseEnvelope
+    // A handler implements EXACTLY ONE of each pair below:
+    //  • the 2-arg form when a single [requiredScope] already covers authorization (e.g. voice.stt), or
+    //  • the 3-arg form when it must check the caller's granted scope set per request (e.g. data).
+    // The dispatcher always calls the 3-arg form; its default delegates to the 2-arg one, and the 2-arg
+    // default throws so a scope-checking handler isn't silently called without its scopes.
+
+    fun invoke(request: RequestEnvelope, caller: VerifiedCaller): ResponseEnvelope =
+        error("CapabilityHandler must implement invoke(request, caller) or invoke(request, caller, grantedScopes)")
+
+    fun invoke(request: RequestEnvelope, caller: VerifiedCaller, grantedScopes: Set<String>): ResponseEnvelope =
+        invoke(request, caller)
 
     /** Start a streaming session; emit via [sink]; return a handle used to control it. */
-    fun openStream(request: RequestEnvelope, caller: VerifiedCaller, sink: StreamSink): SessionHandle
+    fun openStream(request: RequestEnvelope, caller: VerifiedCaller, sink: StreamSink): SessionHandle =
+        error("CapabilityHandler must implement openStream(...) or openStream(..., grantedScopes)")
+
+    fun openStream(
+        request: RequestEnvelope,
+        caller: VerifiedCaller,
+        sink: StreamSink,
+        grantedScopes: Set<String>,
+    ): SessionHandle = openStream(request, caller, sink)
 
     /** Control a live session (STOP / CANCEL). Default: no-op. */
     fun control(control: SessionControl, caller: VerifiedCaller) {}

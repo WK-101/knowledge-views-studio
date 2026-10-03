@@ -40,6 +40,9 @@ interface TokenAuthority {
         requiredScope: String?,
         nowMs: Long = System.currentTimeMillis(),
     ): TokenVerdict
+
+    /** The live (non-expired) grant for [value], or null — so a handler can read its scope set. */
+    fun resolve(value: String?): GrantToken?
     fun revoke(value: String)
     fun revokeAll(subjectPackage: String)
     fun activeTokens(): List<GrantToken>
@@ -77,6 +80,16 @@ class InMemoryTokenAuthority(
         if (token.subjectPackage != subjectPackage) return TokenVerdict.WRONG_SUBJECT
         if (requiredScope != null && !token.hasScope(requiredScope)) return TokenVerdict.MISSING_SCOPE
         return TokenVerdict.OK
+    }
+
+    override fun resolve(value: String?): GrantToken? {
+        if (value.isNullOrEmpty()) return null
+        val token = tokens[value] ?: return null
+        if (token.isExpired(clock())) {
+            tokens.remove(value)
+            return null
+        }
+        return token
     }
 
     override fun revoke(value: String) {

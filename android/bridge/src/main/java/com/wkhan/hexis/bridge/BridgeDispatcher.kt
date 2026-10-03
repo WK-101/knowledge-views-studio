@@ -24,7 +24,7 @@ class BridgeDispatcher(
     fun dispatchInvoke(request: RequestEnvelope, caller: VerifiedCaller): ResponseEnvelope {
         gate(request.header, caller)?.let { return ResponseEnvelope(ok = false, error = it) }
         return try {
-            handlers.getValue(request.header.capabilityId).invoke(request, caller)
+            handlers.getValue(request.header.capabilityId).invoke(request, caller, scopesOf(request.header, caller))
         } catch (t: Throwable) {
             ResponseEnvelope(ok = false, error = BridgeError(BridgeErrorType.INTERNAL, t.message))
         }
@@ -36,11 +36,22 @@ class BridgeDispatcher(
             return SessionHandle("")
         }
         return try {
-            handlers.getValue(request.header.capabilityId).openStream(request, caller, sink)
+            handlers.getValue(request.header.capabilityId).openStream(request, caller, sink, scopesOf(request.header, caller))
         } catch (t: Throwable) {
             sink.onError(BridgeError(BridgeErrorType.INTERNAL, t.message))
             SessionHandle("")
         }
+    }
+
+    /**
+     * The scope set the caller's token carries — so a payload-authorized capability (e.g. `data`, whose
+     * methods declare no single [CapabilityHandler.requiredScope]) can check per request. Bound to the
+     * authenticated caller: scopes are returned only when the live token's subject is this caller's package,
+     * so one trusted peer can never present another's token value to borrow its scopes.
+     */
+    private fun scopesOf(header: EnvelopeHeader, caller: VerifiedCaller): Set<String> {
+        val token = tokens.resolve(header.token) ?: return emptySet()
+        return if (token.subjectPackage == caller.packageName) token.scopes else emptySet()
     }
 
     fun dispatchControl(control: SessionControl, caller: VerifiedCaller) {

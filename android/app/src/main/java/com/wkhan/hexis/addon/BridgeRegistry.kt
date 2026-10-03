@@ -43,7 +43,9 @@ class BridgeRegistry(
     /** Installed providers advertising [capabilityId]; in a debuggable build, untrusted ones included. */
     fun discover(capabilityId: String): List<DiscoveredProvider> =
         BridgeDiscovery.discover(context, pinnedKeyset)
-            .filter { it.supports(capabilityId) && (it.trusted || !requireTrust) }
+            // Exclude our own package — the core is now also a `data` provider, and must never discover or
+            // bind itself when looking for addon providers.
+            .filter { it.packageName != context.packageName && it.supports(capabilityId) && (it.trusted || !requireTrust) }
 
     fun discoverVoice(): List<DiscoveredProvider> = discover(Capabilities.VOICE_STT)
 

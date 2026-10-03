@@ -1,10 +1,6 @@
-package com.wkhan.hexis.voice
+package com.wkhan.hexis.bridge.security
 
 import android.content.Context
-
-import com.wkhan.hexis.bridge.security.GrantToken
-import com.wkhan.hexis.bridge.security.TokenAuthority
-import com.wkhan.hexis.bridge.security.TokenVerdict
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
@@ -14,21 +10,25 @@ import java.security.SecureRandom
 import java.util.Base64
 
 /**
- * A [TokenAuthority] whose grants survive process death by persisting to the addon's private
- * SharedPreferences.
+ * A [TokenAuthority] whose grants survive process death by persisting to the owning app's private
+ * SharedPreferences. Used by every bridge *provider* that mints grant tokens — the voice addon (for
+ * `voice.stt`) and the core (for the `data` capability) — each with its own [prefsName] so their stores
+ * never collide.
  *
- * The in-memory authority lost every minted token when the addon process was reclaimed after the
- * consent activity finished; a later call from the core then presented a token this fresh process
- * had never seen, which verified as UNKNOWN ("invalid or missing token"). Persisting the grants
- * fixes that: consent mints + stores, and the bridge service — even in a brand-new process — loads
- * and verifies against the same store.
+ * Why persistence: an in-memory authority loses every minted token when the provider process is reclaimed
+ * after consent finishes; a later call then presents a token the fresh process has never seen, verifying
+ * as UNKNOWN ("invalid or missing token"). Persisting fixes that — consent mints + stores, and the bridge
+ * service, even in a brand-new process, loads and verifies against the same store.
  *
- * The tokens live only in the addon's own private storage; a token value only ever leaves the addon
- * to reach the core, which the bridge has already verified by signing keyset.
+ * Tokens live only in the provider's own private storage; a value only ever leaves to reach the consumer,
+ * whose signing keyset the bridge has already verified.
  */
-class PersistentTokenAuthority(context: Context) : TokenAuthority {
+class PersistentTokenAuthority(
+    context: Context,
+    prefsName: String = DEFAULT_PREFS,
+) : TokenAuthority {
 
-    private val prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+    private val prefs = context.applicationContext.getSharedPreferences(prefsName, Context.MODE_PRIVATE)
     private val random = SecureRandom()
     private val json = Json { ignoreUnknownKeys = true }
     private val tokens = linkedMapOf<String, GrantToken>()
@@ -83,6 +83,18 @@ class PersistentTokenAuthority(context: Context) : TokenAuthority {
     }
 
     @Synchronized
+    override fun resolve(value: String?): GrantToken? {
+        if (value.isNullOrEmpty()) return null
+        val token = tokens[value] ?: return null
+        if (token.isExpired(System.currentTimeMillis())) {
+            tokens.remove(value)
+            save()
+            return null
+        }
+        return token
+    }
+
+    @Synchronized
     override fun revoke(value: String) {
         if (tokens.remove(value) != null) save()
     }
@@ -118,7 +130,7 @@ class PersistentTokenAuthority(context: Context) : TokenAuthority {
     }
 
     private companion object {
-        const val PREFS = "hexis_voice_grants"
+        const val DEFAULT_PREFS = "hexis_bridge_grants"
         const val KEY = "tokens"
         const val TOKEN_BYTES = 32 // 256-bit opaque, unguessable token value
     }

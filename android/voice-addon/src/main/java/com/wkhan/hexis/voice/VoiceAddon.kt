@@ -2,6 +2,7 @@ package com.wkhan.hexis.voice
 
 import android.content.Context
 
+import com.wkhan.hexis.bridge.security.PersistentTokenAuthority
 import com.wkhan.hexis.bridge.security.TokenAuthority
 
 /**
@@ -16,6 +17,8 @@ object VoiceAddon {
     /** The process-wide persistent token authority (created once, from the app context). */
     fun tokenAuthority(context: Context): TokenAuthority =
         authority ?: synchronized(this) {
-            authority ?: PersistentTokenAuthority(context.applicationContext).also { authority = it }
+            authority ?: PersistentTokenAuthority(context.applicationContext, PREFS).also { authority = it }
         }
+
+    private const val PREFS = "hexis_voice_grants" // unchanged name → existing grants still load
 }
