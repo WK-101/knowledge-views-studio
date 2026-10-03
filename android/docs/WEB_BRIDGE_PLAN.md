@@ -330,3 +330,35 @@ same-origin PWA, WebCrypto E2E, QR pairing, Host-header/CSRF defenses, paginatio
 the code and the platform constraints. The plan is now internally consistent, modular (one generic `data`
 contract, curated facade, per-domain scopes), and professional-grade; W0 is a safe, headlessly-testable
 first step that adds **no new permission and no network surface**.
+
+---
+
+## 11. Implementation status (what shipped)
+
+W0–W4 are built, tested (detekt + unit tests green), and the core's merged manifest was re-verified to hold
+**0 forbidden permissions** at each step. The AIDL spine is **unchanged** (see the two deviations below).
+
+| Phase | Status | Notes |
+| --- | --- | --- |
+| **W0 — Core as `data` provider** | ✅ Shipped | `HexisDataProviderService` (exported, signature-gated by `permission.BIND_DATA_BRIDGE`), core-hosted consent/mint, discovery self-filter, persistent `TokenAuthority` hoisted to `:bridge`, scope-set extension on `CapabilityHandler`/dispatcher. **Security fix:** the dispatcher binds a token's scopes to the caller package (`scopesOf`), so one trusted peer can't present another's token. |
+| **W1 — Server + pairing** | ✅ Shipped | Ktor CIO server, `dataSync` FGS + notification, QR pairing, HKDF-SHA256 + AES-256-GCM E2E (WebCrypto-native), Host/Origin allow-list, replay guard, vanilla-JS same-origin SPA (no build toolchain), read-only tasks/notes. |
+| **W2 — Editing + live refresh** | ✅ Shipped | Task create/edit/complete/delete (delete = reversible move-to-Trash; vaulted notes protected), note edit; the `changes` stream (repository Flows) fanned out to browsers via a **version-based long-poll over the same encrypted channel** (not a separate SSE socket). Provider base links consumer-callback death → `CANCEL` so a dead consumer can't leak a collector. |
+| **W3 — Breadth** | ✅ Shipped | Read companions for calendar / time / habits (projected DTOs, active-workspace scoped); bulk task ops (complete/star/delete); note attachments (metadata + inline small images). |
+| **W4 — Trust UX & sharing** | ✅ Shipped | Per-device keys (`WebClient`/`ClientStore`): add, revoke, last-seen; read-only **share links** (read-only + expiry); server matches each request against the live client set so revoke/expiry is instant; `hello` lets the browser render a read-only UI. |
+| **W5 — Remote (opt-in)** | ⏸ Deferred | WebRTC/Tailscale off-LAN access. Large, standalone, and explicitly opt-in; it also changes the threat model (signaling/relay). Left for an explicit go-ahead; LAN-only is the shipped default. |
+
+### Two deliberate deviations from the original plan (both tighten the architecture)
+
+1. **Attachments do not grow the AIDL spine (revises §5.2 / pressure-test row 3).** The plan proposed an
+   appended `ParcelFileDescriptor openBlob(...)` for binary. Building it would pull `android.os` types into
+   the deliberately Android-free `CapabilityHandler`/`BridgeDispatcher` (breaking their pure, headlessly
+   testable property) and risks oneway-buffer overflow if chunked over `openStream`. Instead, **small images
+   are inlined as Base64 over the existing `invoke` path under a 512 KB cap** (safely under the Binder limit);
+   larger/non-image attachments return metadata with an "open on phone" affordance. The fixed spine stays
+   fixed and the dispatcher stays pure. Full-size binary streaming via an FD side-channel remains a clean
+   future option if it's ever needed.
+2. **TLS / local-CA deferred (revises part of W4).** The per-device key carried out-of-band in the QR is the
+   trust anchor: a request only decrypts with a live client's key, so confidentiality + authentication +
+   MITM-resistance hold **even over plain HTTP**. A TLS/local-CA option would add only a browser padlock, no
+   security property the app-layer E2E doesn't already provide — so it's deferred rather than shipped. The
+   "per-client management" and "share-a-view read-only links" parts of W4 shipped in full.

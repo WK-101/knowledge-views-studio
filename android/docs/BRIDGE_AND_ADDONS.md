@@ -294,14 +294,19 @@ the chosen transcriber isn't signature-trusted.
 
 ## 5. Permission matrix
 
-| | Core (`:app`) | Voice addon |
-| --- | --- | --- |
-| `INTERNET` | ❌ never | ❌ never |
-| `RECORD_AUDIO` | ❌ | ✅ (the whole point) |
-| `FOREGROUND_SERVICE(_MICROPHONE)` | ❌ | ✅ |
-| Location / storage / media | ❌ | ❌ |
-| `POST_NOTIFICATIONS`, exact alarms, DND, boot, vibrate, biometric, full-screen-intent | ✅ (local reminders) | `POST_NOTIFICATIONS` only |
-| Custom `…voice.permission.BIND_BRIDGE` | declares `<uses-permission>` | defines it (signature) |
+| | Core (`:app`) | Voice addon | Web addon (`:web-bridge`) |
+| --- | --- | --- | --- |
+| `INTERNET` | ❌ never | ❌ never | ✅ (the whole point) |
+| `RECORD_AUDIO` | ❌ | ✅ (the whole point) | ❌ |
+| `FOREGROUND_SERVICE(_MICROPHONE)` | ❌ | ✅ (mic) | `FOREGROUND_SERVICE(_DATA_SYNC)` (serve) |
+| Location / storage / media | ❌ | ❌ | ❌ |
+| `POST_NOTIFICATIONS`, exact alarms, DND, boot, vibrate, biometric, full-screen-intent | ✅ (local reminders) | `POST_NOTIFICATIONS` only | `POST_NOTIFICATIONS` only |
+| Custom `…voice.permission.BIND_BRIDGE` | declares `<uses-permission>` | defines it (signature) | — |
+| Custom `…permission.BIND_DATA_BRIDGE` | **defines it** (signature) on its `data` provider | — | declares `<uses-permission>` |
+
+The role inverts between the two addons: for **voice** the addon is the provider and the core the consumer;
+for **web** the **core is the provider** (it owns the data) and the addon the consumer. Same fixed spine,
+opposite consent direction.
 
 Verify the core:
 ```bash
@@ -398,3 +403,51 @@ The dispatcher being pure Kotlin is deliberate: the entire authorization path is
 | **Two IPC paths (bridge vs Open Transcribe).** | The bridge is tightly pinned for live mic; file transcription stays vendor-neutral to interop with other transcribers (weaker, user-initiated trust — documented). |
 | **Self-owned capture surfaces (tile, shortcut, notification, IME).** | Google Assistant / App Actions are being wound down; self-owned surfaces are future-proof and keep the no-Google posture. |
 | **On-device rule-based intelligence now; LLM deferred.** | Covers the real use cases offline with a tiny footprint; a heavy LLM runtime warrants its own decision and its own addon. |
+
+---
+
+## 11. The web bridge addon (`:web-bridge`)
+
+A separate installable APK that holds `INTERNET` (which the core never does), runs a local web server on
+the LAN, and serves a web UI that reads/writes the core's data over the bridge. It holds **no core data and
+not the DB key** — only the scoped data the user granted, fetched on demand. See
+[`WEB_BRIDGE_PLAN.md`](WEB_BRIDGE_PLAN.md) for the full analysis, security model, and phase history.
+
+### 11.1 Role inversion — the core as `data` provider
+The core owns the data, so for this addon the **core is the bridge provider** and the addon the consumer —
+the reverse of voice. `HexisDataProviderService` (`:app`, exported, gated by the signature permission
+`com.wkhan.hexis.permission.BIND_DATA_BRIDGE`) hosts the dispatcher; the core mints the grant token and hosts
+consent (`DataConsentActivity`). `BridgeRegistry.discover()` self-excludes the core's own package so the core
+never lists itself as a satellite.
+
+### 11.2 The `data` capability (`bridge/.../data/`)
+One generic, versioned contract over a **curated facade** (never the raw repository): `DataQuery`→`DataPage`,
+`DataMutation`→`DataResult`, plus a `changes` stream. Domains: `tasks`, `notes` (read+write) and `calendar`,
+`time`, `habits` (read). Authorization is **per domain + read/write**, default-deny: because the required
+scope depends on the request payload, the handler implements the scope-aware 3-arg `CapabilityHandler` forms
+and the dispatcher passes the caller's granted scope set — bound to the caller package (`scopesOf`) so one
+peer can't borrow another's token. `RepositoryDataSource` (`:app`) is the only place that touches
+`AppRepository`; it projects entities to transport-stable DTOs and never exposes more than the DTO fields.
+
+### 11.3 Server & E2E crypto (`:web-bridge`)
+Ktor CIO `embeddedServer` on `0.0.0.0`, hosted by a `dataSync` foreground service. Every `/api` body is
+app-layer **AES-256-GCM over HKDF-SHA256** (`CryptoBox`, WebCrypto-native — no WASM/JS crypto lib): a request
+only decrypts under a live client's key, so a valid blob **is** proof of authorization and traffic is
+confidential + authenticated **even over plain HTTP**. Plus Host-header + Origin allow-listing
+(DNS-rebinding/CSRF) and a timestamp+nonce replay guard. The SPA is vanilla JS served **same-origin** from
+the addon's `resources/web/` (no CORS, no build toolchain). Live refresh is a **version-based long-poll**
+(`ChangeHub`) over the same encrypted channel — not a separate socket — fed by one core `changes` stream the
+addon fans out to all browsers.
+
+### 11.4 Per-device trust (`pairing/`)
+Each paired browser is a `WebClient` with its **own** 256-bit key (`ClientStore`); the control screen adds,
+shows a QR for, and revokes each independently. A **read-only share link** is just a client flagged
+`readOnly` with an expiry. The server matches each request against the *live* client set, so a revoke or
+expiry locks that browser out instantly. The key travels only in the URL fragment (`#k=…`), which browsers
+never send to the server — so the QR hands it over out-of-band and is the MITM-resistant trust anchor (no TLS
+required for the security property; TLS/local-CA is deferred as padlock-only polish).
+
+### 11.5 Binary stays off the spine
+Attachments do **not** grow the AIDL spine: small note images are inlined as Base64 over `invoke` under a
+512 KB cap; larger/non-image attachments return metadata with an "open on phone" affordance. This keeps the
+four-method spine fixed and the dispatcher Android-free (see `WEB_BRIDGE_PLAN.md` §11 for the rationale).
