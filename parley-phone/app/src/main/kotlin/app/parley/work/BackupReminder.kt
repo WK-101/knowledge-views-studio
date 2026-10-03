@@ -18,7 +18,7 @@ import app.parley.data.DataContainer
  * screen like Parley's other reminders.
  */
 object BackupReminder {
-    private const val CHANNEL = NotificationChannels.BACKUPS
+    private const val CHANNEL = NotificationChannels.BACKUP_REMINDER
     private const val TAG = NotificationIds.TAG_BACKUP_REMINDER
 
     fun maybeNotify(context: Context, c: DataContainer, now: Long = System.currentTimeMillis()) {

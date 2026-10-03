@@ -118,7 +118,12 @@ object NotificationChannels {
     const val PLAN = "plan_v1"
     const val REMINDERS = "reminders_v1"
     const val HOUSEKEEPING = "contacts_housekeeping_v1"
+
+    /** Backup results: a scheduled backup that failed, or rotation paused. Never in [REMINDERS_GROUP]. */
     const val BACKUPS = "backup_v1"
+
+    /** The monthly "time for a backup" reminder, split from [BACKUPS] so muting reminders never hides a failure. */
+    const val BACKUP_REMINDER = "backup_reminder_v1"
     const val PRIVATE_NAMES = "private_names_v1"
 
     /** "To call" reminders: never a badge. */
@@ -129,17 +134,19 @@ object NotificationChannels {
 
     /**
      * The channel group "Reminders" (Settings › Reminders lists the same kinds). Only the group is new: the channels
-     * keep their ids, so whatever someone set for them stays. Missed calls stay with calls, and temporary contacts
-     * with housekeeping (their channels also carry notices that aren't reminders).
+     * keep their ids, so whatever someone set for them stays. Missed calls stay with calls, temporary contacts with
+     * housekeeping, and backup results in [BACKUPS] (those channels also carry notices that aren't reminders: muting
+     * the group must never hide a missed call or a failed backup). Only the backup reminder has a channel of its own
+     * in the group.
      */
     const val REMINDERS_GROUP = "reminders"
 
-    /** The channels in [REMINDERS_GROUP]: birthdays, keep in touch and follow-ups; To call; backups. */
-    val reminderChannels: List<String> = listOf(REMINDERS, TO_CALL, BACKUPS)
+    /** The channels in [REMINDERS_GROUP]: birthdays, keep in touch and follow-ups; To call; the backup reminder. */
+    val reminderChannels: List<String> = listOf(REMINDERS, TO_CALL, BACKUP_REMINDER)
 
     val all: List<String> = listOf(
         INCOMING_CALLS, ONGOING_CALLS, SILENCED_CALLS, MISSED_CALLS, SCREEN_BLOCKED, SCREEN_REPORTED, SCREEN_LIKELY_SPAM,
         SCREEN_BUSY_REPLY, PLAN, REMINDERS, HOUSEKEEPING, BACKUPS, PRIVATE_NAMES, TO_CALL,
-        CONTACTS_SAFETY,
+        CONTACTS_SAFETY, BACKUP_REMINDER,
     )
 }

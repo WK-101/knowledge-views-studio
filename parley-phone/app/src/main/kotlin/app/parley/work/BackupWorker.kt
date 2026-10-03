@@ -1,5 +1,7 @@
 package app.parley.work
 
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
@@ -49,8 +51,14 @@ class BackupWorker(context: Context, params: WorkerParameters) : CoroutineWorker
             )
         }
 
+        /**
+         * A failed scheduled backup or paused rotation. Its channel stays outside the Reminders group, so muting
+         * reminders never hides it.
+         */
         fun notify(context: Context, text: String) {
-            ReminderChannels.ensure(context, NotificationChannels.BACKUPS)
+            context.getSystemService(NotificationManager::class.java)?.createNotificationChannel(
+                NotificationChannel(NotificationChannels.BACKUPS, context.getString(R.string.work_channel_backups), NotificationManager.IMPORTANCE_DEFAULT),
+            )
             val open = PendingIntent.getActivity(
                 context, 77, Intent(context, MainActivity::class.java).setAction(MainActivity.ACTION_OPEN_BACKUP).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
                 PendingIntent.FLAG_IMMUTABLE,
