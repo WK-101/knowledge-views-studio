@@ -297,11 +297,13 @@ class ContactRecordStore(private val context: Context) {
         processPhotos: Boolean = false,
     ): List<InsertResult> {
         val results = arrayOfNulls<InsertResult>(records.size)
-        // Never write into a SIM, messenger or read-only account, whatever the caller picked.
-        val safeTarget = target?.let { if (isWritableAccount(it)) it else localAccount() }
+        // Never write into a SIM, messenger or read-only account, whatever the caller picked; and on Android 16 not
+        // into the phone while the user's default is a cloud account (Android refuses it), but into that account.
+        val newContacts = DeviceAccounts.newContacts(context)
+        val safeTarget = target?.let { newContacts.target(if (isWritableAccount(it)) it else localAccount()) }
         val available = if (safeTarget == null) availableAccounts() else emptySet()
         val plans = records.mapIndexed { i, r ->
-            val plan = plan(r, safeTarget, available, groups, includeReadOnly, processPhotos)
+            val plan = plan(r, safeTarget, available, groups, includeReadOnly, processPhotos, newContacts)
             if (plan.raws.isEmpty()) results[i] = InsertResult(null, context.getString(R.string.data_write_only_messenger))
             plan
         }
@@ -331,7 +333,15 @@ class ContactRecordStore(private val context: Context) {
         val bytes = raws.sumOf { r -> OP_OVERHEAD + r.rows.sumOf { estimate(it) } }
     }
 
-    private fun plan(r: ContactRecord, target: AccountRef?, available: Set<AccountRef>, groups: GroupResolver, includeReadOnly: Boolean, processPhotos: Boolean = false): Plan {
+    private fun plan(
+        r: ContactRecord,
+        target: AccountRef?,
+        available: Set<AccountRef>,
+        groups: GroupResolver,
+        includeReadOnly: Boolean,
+        processPhotos: Boolean = false,
+        newContacts: DeviceAccounts.NewContacts,
+    ): Plan {
         val sources = r.raws.filter { includeReadOnly || !Messengers.isMessengerAccount(it.accountType) }
         val grouped: List<Pair<AccountRef, List<RawRecord>>> = if (target != null) {
             if (sources.isEmpty()) emptyList() else listOf(target to sources)
@@ -339,7 +349,8 @@ class ContactRecordStore(private val context: Context) {
             val local = localAccount()
             sources.map { raw ->
                 val a = AccountRef(raw.accountType, raw.accountName)
-                (if (a.type == null || a in available) a else local) to listOf(raw)
+                // A phone-only copy goes to the cloud default when Android 16 refuses the phone.
+                newContacts.target(if (a.type == null || a in available) a else local) to listOf(raw)
             }
         }
         // Rows each new raw contact gets, de-duplicated; photos are written separately.

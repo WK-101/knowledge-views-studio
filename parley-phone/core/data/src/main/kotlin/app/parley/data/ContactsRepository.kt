@@ -46,6 +46,7 @@ import app.parley.common.people.RowEdits
 import app.parley.common.record.ContentDiff
 import app.parley.common.record.Messengers
 import app.parley.common.record.Mime
+import app.parley.common.record.NewContactAccount
 import app.parley.data.people.ParleyWriteLog
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -593,6 +594,15 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
      */
     fun accounts(): List<AccountRef> = DeviceAccounts.targets(context)
 
+    /**
+     * Android 16's default account for new contacts while it is a cloud account, which then takes every new contact
+     * instead of the phone; null when the phone takes them (and always before Android 16).
+     */
+    fun systemDefaultAccount(): AccountRef? = DeviceAccounts.newContacts(context).cloudInstead
+
+    /** The account a new contact asked for [requested] really goes to, and whether Android redirected it. */
+    fun newContactTarget(requested: AccountRef?): NewContactAccount.Decision<AccountRef> = DeviceAccounts.newContacts(context).decide(requested)
+
     /** Whether new data can be written to raw contacts of [account]. */
     fun isWritableAccount(account: AccountRef): Boolean = isWritable(account, writableTypes(), localAccount())
 
@@ -701,7 +711,12 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
      * What [save] wrote: the aggregate [contactId] and the raw contact it created or edited ([rawId]; null when the
      * edited copy became empty and was removed). Returned per call, so concurrent saves never see each other's ids.
      */
-    data class SaveResult(val contactId: Long, val rawId: Long?)
+    data class SaveResult(
+        val contactId: Long,
+        val rawId: Long?,
+        /** Set when the account asked for refused new contacts (Android 16's cloud default) and this one took it. */
+        val redirectedTo: AccountRef? = null,
+    )
 
     /**
      * Saves [edited]. When [original] is null a new raw contact is created in [account].
@@ -726,8 +741,12 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
             val rawId: Long?
             val insertTarget: (ContentProviderOperation.Builder) -> ContentProviderOperation.Builder
             val linkTo: List<Long> = if (original != null && original.editRawId == null) original.rawContacts.map { it.id } else emptyList()
+            var redirectedTo: AccountRef? = null
             if (original == null || original.editRawId == null) {
-                val acc = if (original == null) account ?: localAccount() else localAccount()
+                // Android 16 refuses the phone while the user's default is a cloud account: that account takes it.
+                val decision = DeviceAccounts.newContacts(context).decide(if (original == null) account else null)
+                val acc = decision.account
+                if (decision.redirected) redirectedTo = acc
                 ops += ContentProviderOperation.newInsert(RawContacts.CONTENT_URI)
                     .withValue(RawContacts.ACCOUNT_TYPE, acc.type)
                     .withValue(RawContacts.ACCOUNT_NAME, acc.name)
@@ -925,7 +944,7 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
                 val key = contactId?.let { id -> cr.safeQuery(ContentUris.withAppendedId(Contacts.CONTENT_URI, id), arrayOf(Contacts.LOOKUP_KEY))?.use { c -> if (c.moveToFirst()) c.getString(0) else null } }
                 writeLog.version(cr, finalRawId)?.let { v -> writeLog.record(finalRawId, key ?: original?.lookupKey.orEmpty(), v, changed.toList()) }
             }
-            contactId?.let { SaveResult(it, finalRawId) }
+            contactId?.let { SaveResult(it, finalRawId, redirectedTo) }
         }
 
     /** Parley's own saves, per raw contact ("Why did this change?"). */

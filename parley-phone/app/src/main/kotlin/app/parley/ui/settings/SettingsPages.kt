@@ -426,7 +426,11 @@ internal fun ContactsPage(vm: AppViewModel, open: (Destination) -> Unit) {
     var importReport by remember { mutableStateOf<ImportReport?>(null) }
     var progress by remember { mutableStateOf<String?>(null) }
     val tempCount = rememberTemporaryItems(vm).size
-    LaunchedEffect(Unit) { accounts = withContext(Dispatchers.IO) { vm.c.contacts.accounts() } }
+    // Android 16's cloud default, when it takes new contacts instead of the phone: said under "Save new contacts to".
+    var systemDefault by remember { mutableStateOf<AccountRef?>(null) }
+    LaunchedEffect(Unit) {
+        withContext(Dispatchers.IO) { vm.c.contacts.accounts() to vm.c.contacts.systemDefaultAccount() }.let { (a, d) -> accounts = a; systemDefault = d }
+    }
     val exporting = stringResource(R.string.set_exporting)
     val importing = stringResource(R.string.set_importing)
 
@@ -472,7 +476,8 @@ internal fun ContactsPage(vm: AppViewModel, open: (Destination) -> Unit) {
     SegmentedGroup(stringResource(R.string.set_group_organise)) {
         if (accounts.isNotEmpty()) {
             val current = accounts.indexOfFirst { it.type == s.defaultAccountType && it.name == s.defaultAccountName }.coerceAtLeast(0)
-            menuRow("default_account", accounts.map { vm.accountLabel(it) }, current, Icons.Rounded.AccountCircle) { i ->
+            val systemNote = systemDefault?.let { stringResource(R.string.set_default_account_system, it.displayLabel) }
+            menuRow("default_account", accounts.map { vm.accountLabel(it) }, current, Icons.Rounded.AccountCircle, sub = systemNote) { i ->
                 val a = accounts[i]
                 set { it.copy(defaultAccountType = a.type, defaultAccountName = a.name) }
             }

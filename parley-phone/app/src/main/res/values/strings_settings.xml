@@ -164,6 +164,7 @@
     <string name="set_default_account_title">Save new contacts to</string>
     <string name="set_default_account_summary">The account new contacts go to</string>
     <string name="set_default_account_kw">account, google, phone, default account</string>
+    <string name="set_default_account_system">Android puts new contacts in %1$s, your phone\'s default account. To keep new contacts on this phone only, change the default in your phone\'s Contacts settings.</string>
     <string name="set_labels_title">Labels</string>
     <string name="set_labels_summary">Rename, merge, label ringtones</string>
     <string name="set_labels_kw">groups, tags, categories</string>

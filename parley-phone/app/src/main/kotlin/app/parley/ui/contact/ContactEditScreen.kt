@@ -466,6 +466,7 @@ fun ContactEditScreen(
                                 // An expiry belongs to the whole contact, so it isn't offered when editing one of its copies.
                                 expiry = ExpiryState(editor.expiresAt, editor.expiryPick)
                                     .takeIf { rawId == null && (original?.lookupKey?.isNotEmpty() == true || (vaultId ?: 0L) > 0L) },
+                                systemDefault = editor.systemDefault,
                             ),
                             label = { a -> accountName(a, deviceName) },
                             onAccount = editor::chooseAccount, onTemporary = editor::chooseTemporary,

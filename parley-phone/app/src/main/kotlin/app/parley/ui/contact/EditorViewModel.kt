@@ -103,6 +103,10 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
     /** What "unchanged" means: the draft as first shown (null: a new contact from another app, always a change). */
     private var start by mutableStateOf<ContactDetails?>(null)
     var accounts by mutableStateOf<List<AccountRef>>(emptyList())
+
+    /** Android 16's cloud default while it takes new contacts instead of the phone (the Save-to menu says so). */
+    var systemDefault by mutableStateOf<AccountRef?>(null)
+        private set
         private set
     var groups by mutableStateOf<List<GroupInfo>>(emptyList())
         private set
@@ -201,6 +205,7 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
         val restored = saved.get<Bundle>(STATE)
         viewModelScope.launch {
             accounts = withContext(Dispatchers.IO) { c.contacts.accounts() }
+            systemDefault = withContext(Dispatchers.IO) { c.contacts.systemDefaultAccount() }
             groups = withContext(Dispatchers.IO) { c.contacts.groups() }
             if (!load(a)) return@launch
             if (restored != null && restored.containsKey(K_HAS_ACCOUNT)) restore(restored)
