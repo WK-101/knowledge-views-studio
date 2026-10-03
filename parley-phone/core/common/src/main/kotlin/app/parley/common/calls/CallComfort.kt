@@ -19,8 +19,8 @@ enum class SpeakerDefault {
  * or dialled (outgoing); after that the Speaker button is the user's, so switching back always sticks.
  *
  * It only ever replaces the earpiece: a connected headset, earbuds or car keep the call. Never an emergency call (the
- * phone behaves exactly as Android would), never while another call goes on (the audio is already where the user
- * put it), and never in hold mode, which turns the speaker on and back off by itself.
+ * phone behaves exactly as Android would), never while another call goes on or for a conference (the audio is
+ * already where the user put it), and never in hold mode, which turns the speaker on and back off by itself.
  */
 object SpeakerOnStart {
     /** Where the call's audio is going now, as far as the speaker decision cares. */
@@ -50,10 +50,12 @@ object SpeakerOnStart {
         /** The phone offers a speaker route for this call. */
         val speakerAvailable: Boolean,
         val holdMode: Boolean = false,
+        /** A conference: calls merged into one, whose audio is already where the user had it. */
+        val conference: Boolean = false,
     )
 
     fun step(f: Facts): Step = when {
-        f.choice == SpeakerDefault.OFF || f.emergency || f.otherCall || f.holdMode -> Step.LEAVE
+        f.choice == SpeakerDefault.OFF || f.emergency || f.otherCall || f.holdMode || f.conference -> Step.LEAVE
         !f.started || f.route == Route.UNKNOWN -> Step.WAIT
         // A headset or car wins; on the speaker already, nothing to do.
         f.route != Route.EARPIECE -> Step.LEAVE

@@ -360,7 +360,7 @@ internal fun QuickRepliesDialog(
     onSave: (List<String>, String) -> Unit,
 ) {
     val items = remember { mutableStateListOf<String>().apply { addAll(current) } }
-    var name by remember { mutableStateOf(nameReply) }
+    var name by rememberSaveable { mutableStateOf(nameReply) }
     ParleyDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.set_quick_replies_dialog)) },

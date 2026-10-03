@@ -4,8 +4,9 @@ import app.parley.common.PhoneNumbers
 
 /**
  * "Send to another number": a ringing call goes on to another number without being answered (Telecom's
- * `Call.deflect`, where the network supports it: `Call.Details.CAPABILITY_SUPPORT_DEFLECT`). Never an emergency call or
- * a conference, and never to an emergency number: those stay with the phone.
+ * `Call.deflect`, where the network supports it: `Call.Details.CAPABILITY_SUPPORT_DEFLECT`). Never an emergency call, a
+ * call during the emergency call-back window ([EmergencyPolicy.Safeguard.HAND_OFF]) or a conference, and never to an
+ * emergency number: those stay with the phone.
  *
  * Transferring a connected call (`Call.transfer`, `Call.consultativeTransfer`) is hidden from apps in the public SDK
  * (system API only), so Parley doesn't offer it.
@@ -13,6 +14,7 @@ import app.parley.common.PhoneNumbers
 object CallHandOff {
     data class Facts(
         val ringing: Boolean,
+        /** An emergency call, or any call while the emergency call-back window runs ([EmergencyPolicy.bypasses]). */
         val emergency: Boolean,
         val conference: Boolean,
         val canDeflect: Boolean,

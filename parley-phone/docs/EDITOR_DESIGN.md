@@ -274,8 +274,14 @@ the rest from the one line of chips.
   **More types…** (a dialog with Android's other fourteen, the current one ticked) and Custom… (`PhoneTypes`).
 - **Other calendars**: the date picker has a **Calendar** choice (Gregorian, Chinese lunar, Hebrew, Hijri) while the
   date has a year. The row keeps the Gregorian day it happened in START_DATE (every other app shows that correctly) and
-  the calendar's CLDR name in DATA14 (`AltCalendar`); vCard puts it in the date's `CALSCALE` parameter
-  (`BDAY;CALSCALE=chinese:19900127`). Parley works out the next Gregorian day from Android's ICU calendars
+  the calendar's CLDR name in DATA14 (`AltCalendar`). vCard keeps the Gregorian value and names the calendar in
+  Parley's own parameter (`BDAY;X-PARLEY-CALENDAR=chinese:19900127`). It never writes `CALSCALE`: RFC 6350 §5.8 says
+  that parameter gives the calendar the *value* is written in, so a reader would take 19900127 as a Chinese date. On
+  import, a real `CALSCALE` other than Gregorian is read that way: a Hijri (`islamic-umalqura`) date becomes its
+  Gregorian day and recurs by Hijri; a Chinese or Hebrew one (no agreed way to write a leap month, Hebrew months
+  numbered from Tishri or Nisan) is kept as written in a custom field ("Birthday (hebrew calendar)") and named in the
+  import report. A DATA14 value Parley doesn't know is left as it is: the date picker only writes the column when the
+  user changes the Calendar choice. Parley works out the next Gregorian day from Android's ICU calendars
   (`IcuCalendars`, no library): the same month and day of that calendar, a missing leap month or Adar I falling to the
   ordinary month and a missing 30th to the 29th (`AltCalendars`). The page shows "Chinese lunar · next 17 Feb 2026",
   Birthdays sorts by it and the birthday reminder fires on it. Other apps see a yearly Gregorian date.

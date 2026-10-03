@@ -108,6 +108,30 @@ class ContactFieldsWriteTest {
         assertEquals(listOf("update", "insert"), provider.writes.filter { it.path.startsWith("data") }.map { it.kind })
     }
 
+    @Test fun halfACustomFieldIsNeverWrittenAsGooglesField() = runBlocking {
+        val half = ana.copy(customFields = listOf(CustomFieldItem(label = "Shoe size", value = "38"), CustomFieldItem(label = "", value = "Gate code 1234")))
+        val id = repo.save(null, half, google, null, false)!!.contactId
+        assertEquals(listOf("Shoe size"), rows(Mime.GOOGLE_CUSTOM_FIELD).map { it["data1"] })
+        assertEquals(listOf("Gate code 1234"), rows(Mime.CUSTOM_FIELD).map { it["data2"] })
+        // Clearing the label of Google's field moves it to Parley's kind; Google's never holds half a field.
+        val back = repo.editable(id)!!
+        val edited = back.copy(customFields = back.customFields.map { if (it.label == "Shoe size") it.copy(label = "") else it })
+        repo.save(back, edited, null, null, false)
+        assertTrue(rows(Mime.GOOGLE_CUSTOM_FIELD).isEmpty())
+        assertEquals(setOf("38", "Gate code 1234"), rows(Mime.CUSTOM_FIELD).map { it["data2"] }.toSet())
+    }
+
+    @Test fun anotherAppsCalendarValueSurvivesAnEditOfTheDate() = runBlocking {
+        val persian = ana.copy(events = listOf(EventItem(date = "1990-01-27", type = Event.TYPE_BIRTHDAY, calendar = "persian")))
+        val id = repo.save(null, persian, AccountRef(null, null), null, false)!!.contactId
+        val back = repo.editable(id)!!
+        assertEquals("persian", back.events.single().calendar)
+        repo.save(back, back.copy(events = back.events.map { it.copy(date = "1990-01-28") }), null, null, false)
+        val row = rows(Event.CONTENT_ITEM_TYPE).single()
+        assertEquals("1990-01-28", row["data1"])
+        assertEquals("persian", row[AltCalendar.COLUMN])
+    }
+
     @Test fun anUntouchedContactWritesNothingAndRemovalsDelete() = runBlocking {
         val id = repo.save(null, ana, AccountRef(null, null), null, false)!!.contactId
         val back = repo.editable(id)!!

@@ -143,7 +143,7 @@ interface CallerInfoSource {
     suspend fun savedOrganisations(): List<VerifyCallBack.Saved>? = emptyList()
 
     /**
-     * "Transfer…" and "Send to another number": every saved number to pick from (contacts and, unless discreet mode
+     * "Send to another number": every saved number to pick from (contacts and, unless discreet mode
      * hides them, private contacts). Null while Parley's app lock is locked: only a typed number can be used then.
      */
     suspend fun handOffTargets(): List<VerifyCallBack.Saved>? = emptyList()

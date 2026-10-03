@@ -8,9 +8,10 @@ import java.time.temporal.ChronoUnit
  * or Hijri (Islamic, Umm al-Qura) calendar falls on a different Gregorian day each year.
  *
  * Storage: the event row keeps its Gregorian date (the day it happened, which every other app shows correctly) and
- * Parley marks the calendar it recurs by in the row's DATA14 ([COLUMN]) with [key], the calendar's CLDR / RFC 7529
- * name; vCard carries it as the date's `CALSCALE` parameter. A date without a year can't say which day of another
- * calendar it was, so the mark only counts with a year.
+ * Parley marks the calendar it recurs by in the row's DATA14 ([COLUMN]) with [key], the calendar's CLDR name (as
+ * RFC 7529's RSCALE names it for recurrences); vCard carries it as Parley's `X-PARLEY-CALENDAR` parameter on the
+ * Gregorian date (never `CALSCALE`, which says the value itself is written in that calendar). A date without a year
+ * can't say which day of another calendar it was, so the mark only counts with a year.
  */
 enum class AltCalendar(val key: String) {
     CHINESE("chinese"),
@@ -69,30 +70,70 @@ object AltCalendars {
         return null
     }
 
+    /** One time a date comes round in its calendar: the Gregorian [date], in [year] as that calendar counts it. */
+    data class Round(val date: LocalDate, val year: Int)
+
     /** The first Gregorian day on or after [today] when [original] comes round in [calendar]. */
-    fun next(original: LocalDate, calendar: AltCalendar, today: LocalDate, converter: CalendarConverter): LocalDate? {
+    fun next(original: LocalDate, calendar: AltCalendar, today: LocalDate, converter: CalendarConverter): LocalDate? =
+        nextRound(original, calendar, today, converter)?.date
+
+    /** [next], with the year of [calendar] it falls in. */
+    fun nextRound(original: LocalDate, calendar: AltCalendar, today: LocalDate, converter: CalendarConverter): Round? {
         val born = converter.toAlt(calendar, original)
         val now = converter.toAlt(calendar, today).year
         return (now - 1..now + 2).asSequence()
-            .mapNotNull { y -> occurrence(born, y, calendar, converter) }
-            .filter { !it.isBefore(today) && !it.isBefore(original) }
-            .minOrNull()
+            .mapNotNull { y -> occurrence(born, y, calendar, converter)?.let { Round(it, y) } }
+            .filter { !it.date.isBefore(today) && !it.date.isBefore(original) }
+            .minByOrNull { it.date }
     }
 
     /**
-     * [date] as the rest of Parley handles dates (days until, the age turned, reminders): for one kept by another
-     * calendar, the same date moved to its next Gregorian day, so `next(today)` is that day. Null when that day is
-     * more than a year away (a long lunar year): nothing is due before then. Plain dates come back unchanged.
+     * The next time a date is due, as reminders and lists count it.
+     *
+     * @property date the date as the rest of Parley handles dates (days until, reminders): for one kept by another
+     *   calendar, the same date moved to its next Gregorian day, so `date.next(today)` is that day.
+     * @property round names this one occurrence: the Gregorian year it falls in, or for another calendar that
+     *   calendar's own year (a Hijri date can come round twice in one Gregorian year, a lunar New Year date in
+     *   January or February of either).
+     * @property turning the age or the years reached then, counted in the date's own calendar; null without a year.
      */
-    fun effective(date: EventDate, calendar: AltCalendar?, today: LocalDate, converter: CalendarConverter?): EventDate? {
+    data class Due(val date: EventDate, val round: String, val turning: Int?)
+
+    /** When [date], kept by [calendar] (null: Gregorian), is next due; null when that is more than a year away. */
+    fun due(date: EventDate, calendar: AltCalendar?, today: LocalDate, converter: CalendarConverter?): Due? {
         val y = date.year
-        if (calendar == null || converter == null || y == null) return date
-        val original = runCatching { LocalDate.of(y, date.month, date.day) }.getOrNull() ?: return date
-        val next = next(original, calendar, today, converter) ?: return date
-        if (ChronoUnit.DAYS.between(today, next) >= YEAR_DAYS) return null
-        val moved = EventDate(y, next.monthValue, next.dayOfMonth)
-        return if (moved.next(today) == next) moved else null
+        val original = y?.let { runCatching { LocalDate.of(it, date.month, date.day) }.getOrNull() }
+        if (calendar == null || converter == null || original == null) return plain(date, today)
+        val round = nextRound(original, calendar, today, converter) ?: return plain(date, today)
+        // A long lunar year: nothing is due before then.
+        if (ChronoUnit.DAYS.between(today, round.date) >= YEAR_DAYS) return null
+        val moved = EventDate(y, round.date.monthValue, round.date.dayOfMonth)
+        if (moved.next(today) != round.date) return null
+        return Due(moved, "${calendar.key}-${round.year}", round.year - converter.toAlt(calendar, original).year)
     }
+
+    /**
+     * A day written in another calendar's own numbering (vCard's `CALSCALE`, named [scale]) as its Gregorian day, or
+     * null when that can't be read without guessing. Only Hijri by Umm al-Qura qualifies: its twelve months are
+     * numbered the same way everywhere. A Chinese date has no agreed way to write a leap month or its year, and Hebrew
+     * months are counted from Tishri or from Nisan, with or without Adar I, depending on who wrote them.
+     */
+    fun fromWritten(scale: String, year: Int, month: Int, day: Int, converter: CalendarConverter): LocalDate? {
+        if (scale.trim().lowercase() != AltCalendar.HIJRI.key || month !in 1..HIJRI_MONTHS || day !in 1..MAX_MONTH_DAYS) return null
+        return converter.toGregorian(AltCalendar.HIJRI, AltDay(year, month, day))
+    }
+
+    private const val HIJRI_MONTHS = 12
+    private const val MAX_MONTH_DAYS = 30
+
+    private fun plain(date: EventDate, today: LocalDate) = Due(date, date.next(today).year.toString(), date.turning(today))
+
+    /**
+     * [date] as the rest of Parley handles dates ([Due.date]). Null when its next day is more than a year away.
+     * Plain dates come back unchanged.
+     */
+    fun effective(date: EventDate, calendar: AltCalendar?, today: LocalDate, converter: CalendarConverter?): EventDate? =
+        due(date, calendar, today, converter)?.date
 
     private const val YEAR_DAYS = 365L
 }

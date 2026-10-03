@@ -542,3 +542,18 @@ The working notes for this round have the full per-claim sources. The main ones,
 - **High** for competitor features with dated sources.
 - **Medium** for B1, which was confirmed in Parley's code but not reproduced on a device.
 - Items marked **(?)** are unconfirmed.
+
+---
+
+## 11. Build status (5.3.0, 3 Oct 2026)
+
+| Phase | Release | Status |
+|---|---|---|
+| A. Correctness | 5.0.1 | Done: Android 16 default account, department kept and editable, `ACTION_EDIT`, video calls answered as voice, logs and crash reports scrubbed, Caller on the lock screen, full Recents legend (owner correction) |
+| B. Trust and release | — | Deferred by the owner until the app is polished |
+| C. Simplify | 5.1.0 | Done: one Tools hub, one Reminders page, Calls settings split, Sort by / Show names as, Who's in… chip, people concepts, settings budget |
+| D. Polish | 5.2.0 | Done: ringing frame, emphasised type, Poster background, Frame photo + Take photo, Favourites widget, Recents Cards |
+| E. Features | 5.3.0 | Done except call transfer (not available to third-party apps in Android 16) and the two skipped items (NFC exchange, video calls) |
+| F. Quality | 5.1–5.3 | Done: telecom and app tests, Compose smoke tests, parser fuzzing, file splits, detekt baseline 1,781 → about 975, instrumented smoke tests (need a device) |
+
+Every phase had an independent review; all findings were fixed before release (5.0.1: 18, 5.1: 13, 5.2: 12, 5.3: 18). None of the device steps in TESTING.md §30–33 has been run on a real phone yet.

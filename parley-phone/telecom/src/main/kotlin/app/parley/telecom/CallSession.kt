@@ -135,6 +135,9 @@ internal class CallSession(val id: String) {
     /** "Start calls on speaker" has decided for this call (once: after that the Speaker button is the user's). */
     var speakerDecided = false
 
+    /** Telecom has reported the audio routes since this call was added (earlier routes may be a headset long gone). */
+    var routesReported = false
+
     /** The call was handed on (sent to another number): how it ended. */
     var handedOff: HandOff? = null
 }

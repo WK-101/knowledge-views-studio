@@ -237,10 +237,10 @@
     <ID>CyclomaticComplexMethod:UpdaterScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun UpdaterScreen(repo: ListsRepo)</ID>
     <ID>CyclomaticComplexMethod:UrlSafety.kt$UrlSafety$fun analyse(url: String): Info?</ID>
     <ID>CyclomaticComplexMethod:VCardMapper.kt$VCardMapper$fun canonical(record: ContactRecord, groupTitles: Map&lt;Long, String&gt; = emptyMap()): ContactRecord</ID>
-    <ID>CyclomaticComplexMethod:VCardMapper.kt$VCardMapper$fun fromVCard(card: VCard, unmapped: MutableMap&lt;String, Int&gt;? = null): ContactRecord</ID>
+    <ID>CyclomaticComplexMethod:VCardMapper.kt$VCardMapper$fun fromVCard(card: VCard, unmapped: MutableMap&lt;String, Int&gt;? = null, calendars: CalendarConverter? = null): ContactRecord</ID>
     <ID>CyclomaticComplexMethod:VCardMapper.kt$VCardMapper$fun toVCard(record: ContactRecord, groupTitles: Map&lt;Long, String&gt; = emptyMap()): VCard</ID>
     <ID>CyclomaticComplexMethod:VCardMapper.kt$VCardMapper$private fun normalizeRow(r: DataRow, groupTitles: Map&lt;Long, String&gt;): DataRow?</ID>
-    <ID>CyclomaticComplexMethod:VCardStream.kt$VCardStream$fun read(input: Reader, report: ImportReportBuilder, onCard: (ParsedCard) -&gt; Unit)</ID>
+    <ID>CyclomaticComplexMethod:VCardStream.kt$VCardStream$fun read(input: Reader, report: ImportReportBuilder, calendars: CalendarConverter? = null, onCard: (ParsedCard) -&gt; Unit)</ID>
     <ID>CyclomaticComplexMethod:VoicemailInbox.kt$@Composable fun VoicemailInbox(vm: AppViewModel, query: String)</ID>
     <ID>CyclomaticComplexMethod:VoicemailInbox.kt$@Composable private fun VoicemailRow( vm: AppViewModel, v: Voicemail, sim: String?, expanded: Boolean, playing: PlayerState?, speaker: Boolean, onToggle: () -&gt; Unit, onPlay: () -&gt; Unit, onSeek: (Long) -&gt; Unit, onSpeaker: (Boolean) -&gt; Unit, onHeard: () -&gt; Unit, onShare: () -&gt; Unit, onDelete: () -&gt; Unit, onDownload: () -&gt; Unit, )</ID>
     <ID>CyclomaticComplexMethod:WebUrl.kt$WebUrl.Companion$fun parse(input: String): WebUrl?</ID>
@@ -330,7 +330,7 @@
     <ID>LongMethod:TransferScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun TransferScreen(vm: AppViewModel, back: () -&gt; Unit)</ID>
     <ID>LongMethod:TripScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun TripScreen(vm: AppViewModel, back: () -&gt; Unit, open: (Destination) -&gt; Unit)</ID>
     <ID>LongMethod:UpdaterScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun UpdaterScreen(repo: ListsRepo)</ID>
-    <ID>LongMethod:VCardMapper.kt$VCardMapper$fun fromVCard(card: VCard, unmapped: MutableMap&lt;String, Int&gt;? = null): ContactRecord</ID>
+    <ID>LongMethod:VCardMapper.kt$VCardMapper$fun fromVCard(card: VCard, unmapped: MutableMap&lt;String, Int&gt;? = null, calendars: CalendarConverter? = null): ContactRecord</ID>
     <ID>LongMethod:VCardMapper.kt$VCardMapper$fun toVCard(record: ContactRecord, groupTitles: Map&lt;Long, String&gt; = emptyMap()): VCard</ID>
     <ID>LongMethod:VoicemailInbox.kt$@Composable private fun VoicemailRow( vm: AppViewModel, v: Voicemail, sim: String?, expanded: Boolean, playing: PlayerState?, speaker: Boolean, onToggle: () -&gt; Unit, onPlay: () -&gt; Unit, onSeek: (Long) -&gt; Unit, onSpeaker: (Boolean) -&gt; Unit, onHeard: () -&gt; Unit, onShare: () -&gt; Unit, onDelete: () -&gt; Unit, onDownload: () -&gt; Unit, )</ID>
     <ID>LongParameterList:BackupRepository.kt$BackupRepository$( private val context: Context, private val contacts: ContactsRepository, private val records: ContactRecordStore, private val blocks: BlockRepository, private val prefsRepo: PrefsRepository, private val db: AppDatabase, private val settings: SettingsRepository, private val vault: VaultRepository, val prefs: BackupPrefs, /** The system call log: the history layer's own reads and writes. */ private val callLog: CallLogRepository, )</ID>
@@ -694,8 +694,6 @@
     <ID>MaxLineLength:RecentsTab.kt$private</ID>
     <ID>MaxLineLength:RecentsViewModel.kt$RecentsViewModel$}</ID>
     <ID>MaxLineLength:RemindersWorker.kt$RemindersWorker$CircleDigest.Reason.YEARLY</ID>
-    <ID>MaxLineLength:RemindersWorker.kt$RemindersWorker$Event.TYPE_ANNIVERSARY -&gt; d.turning(today)?.let { ctx.getString(R.string.work_anniversary_years, e.name, it) } ?: ctx.getString(R.string.work_anniversary_today, e.name)</ID>
-    <ID>MaxLineLength:RemindersWorker.kt$RemindersWorker$Event.TYPE_BIRTHDAY -&gt; d.turning(today)?.let { ctx.getString(R.string.work_turns_today, e.name, it) } ?: ctx.getString(R.string.work_birthday_today, e.name)</ID>
     <ID>MaxLineLength:RemindersWorker.kt$RemindersWorker$Intent(applicationContext, MainActivity::class.java).setAction(MainActivity.ACTION_SHOW_CALLER).putExtra(MainActivity.EXTRA_CONTACT_ID, contactId).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)</ID>
     <ID>MaxLineLength:RemindersWorker.kt$RemindersWorker$YearlyEvents.upcoming(e.lookupKey, e.label?.takeIf { it.isNotBlank() } ?: applicationContext.getString(R.string.work_special_date), d, today, CircleDigest.DATE_WINDOW_DAYS)</ID>
     <ID>MaxLineLength:RemindersWorker.kt$RemindersWorker$b.addAction(0, applicationContext.getString(R.string.circle_mark_wished), CircleActionReceiver.wished(applicationContext, code + 3, tag, e.lookupKey, e.contactId, occasion))</ID>
@@ -861,7 +859,7 @@
     <ID>NestedBlockDepth:TimeMachine.kt$TimeMachine$private fun collectGarbage(keep: List&lt;SnapshotIndex&gt;)</ID>
     <ID>NestedBlockDepth:Updater.kt$Updater$private fun community(repo: ListsRepo, cfg: UpdaterConfig): Boolean</ID>
     <ID>NestedBlockDepth:VCardMapper.kt$VCardMapper$fun canonical(record: ContactRecord, groupTitles: Map&lt;Long, String&gt; = emptyMap()): ContactRecord</ID>
-    <ID>NestedBlockDepth:VCardMapper.kt$VCardMapper$fun fromVCard(card: VCard, unmapped: MutableMap&lt;String, Int&gt;? = null): ContactRecord</ID>
+    <ID>NestedBlockDepth:VCardMapper.kt$VCardMapper$fun fromVCard(card: VCard, unmapped: MutableMap&lt;String, Int&gt;? = null, calendars: CalendarConverter? = null): ContactRecord</ID>
     <ID>NestedBlockDepth:VCardMapper.kt$VCardMapper$fun toVCard(record: ContactRecord, groupTitles: Map&lt;Long, String&gt; = emptyMap()): VCard</ID>
     <ID>NestedBlockDepth:VCardMapper.kt$VCardMapper$private fun normalizeRow(r: DataRow, groupTitles: Map&lt;Long, String&gt;): DataRow?</ID>
     <ID>NoConsecutiveBlankLines:KeypadLettersSetting.kt$ </ID>

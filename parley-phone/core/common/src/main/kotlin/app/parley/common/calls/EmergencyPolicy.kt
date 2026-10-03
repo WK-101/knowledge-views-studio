@@ -8,7 +8,7 @@ package app.parley.common.calls
  *   safeguard: confirm-before-calling, the SIM question, the dial guard, call-time allowances, limits and
  *   supervision, the pocket guard, screening and blocking.
  * - For [WINDOW_MS] after an emergency call starts (and again after it ends), incoming calls are never screened and
- *   no call is limited or silenced: the operator's call-back often comes from a hidden or unknown number.
+ *   no call is limited, silenced or sent on to another number: the operator's call-back often comes from a hidden or unknown number.
  * - Numbers the user listed as starting that window (a GP, a school) are never limited and start the window, but
  *   are otherwise ordinary numbers: the user still gets the questions they asked for.
  *
@@ -27,6 +27,12 @@ object EmergencyPolicy {
         CALL_TIME_ALLOWANCE,
         CALL_LIMITS,
         SCREENING,
+
+        /** "Send to another number": an operator's call-back handed away can't be taken back. */
+        HAND_OFF,
+
+        /** Flip to silence: a call-back must be heard, so turning the phone over leaves it ringing. */
+        SILENCE,
     }
 
     data class Facts(
@@ -49,7 +55,7 @@ object EmergencyPolicy {
     fun bypasses(safeguard: Safeguard, facts: Facts): Boolean {
         if (facts.isEmergency) return true
         return when (safeguard) {
-            Safeguard.SCREENING -> facts.inWindow
+            Safeguard.SCREENING, Safeguard.HAND_OFF, Safeguard.SILENCE -> facts.inWindow
             Safeguard.CALL_LIMITS, Safeguard.CALL_TIME_ALLOWANCE -> facts.inWindow || facts.userListed
             Safeguard.CONFIRM_BEFORE_CALL, Safeguard.SIM_CHOICE, Safeguard.DIAL_GUARD, Safeguard.POCKET_GUARD -> false
         }

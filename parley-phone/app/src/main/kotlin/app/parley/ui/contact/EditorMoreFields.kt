@@ -12,12 +12,12 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.Color
@@ -38,6 +38,7 @@ import app.parley.data.CustomFieldItem
 import app.parley.ui.FormRow
 import app.parley.ui.FormTokens
 import app.parley.ui.ParleyDialog
+import app.parley.ui.ParleyListItem
 import app.parley.ui.formFieldShape
 
 // The editor's rarer fields (custom fields, the language, Android's other phone types, the calendar a date follows,
@@ -75,8 +76,9 @@ internal fun CustomFieldRow(
 /** The language to use with them: typed as a name or a tag; what will be stored is said under it. */
 @Composable
 internal fun LanguageRow(value: String, locked: Boolean, focus: FocusRequester, icon: ImageVector, modifier: Modifier, onChange: (String) -> Unit) {
-    val stored = Languages.toStored(value)
-    val shown = Languages.display(stored)
+    // Matching a name scans every ISO language: only again when the text changes, not on every recomposition.
+    val stored = remember(value) { Languages.toStored(value) }
+    val shown = remember(stored) { Languages.display(stored) }
     val support = if (value.isNotBlank() && shown != value.trim()) stringResource(R.string.edit_language_saved_as, shown)
     else stringResource(R.string.edit_language_hint)
     FormRow(icon, stringResource(R.string.edit_language), modifier.padding(bottom = FormTokens.groupGap)) {
@@ -98,7 +100,7 @@ internal fun PhoneMoreTypesDialog(current: Int, onDismiss: () -> Unit, onPick: (
             LazyColumn(Modifier.heightIn(max = 420.dp)) {
                 items(PhoneTypes.more, key = { it }) { t ->
                     val on = t == current
-                    ListItem(
+                    ParleyListItem(
                         headlineContent = { Text(Phone.getTypeLabel(res, t, null).toString()) },
                         trailingContent = if (on) { { Icon(Icons.Rounded.Check, null) } } else null,
                         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
@@ -124,7 +126,8 @@ internal fun AddressPartsLine(parts: String) {
 
 /** "Floor: 3 · Building: B", or null when [parts] holds none. */
 internal fun addressPartsText(res: Resources, parts: String): String? =
-    AddressParts.decode(parts).map { (p, v) -> res.getString(addressPartLabel(p)) + ": " + v }.joinToString(" · ").ifEmpty { null }
+    AddressParts.decode(parts).map { (p, v) -> res.getString(addressPartLabel(p)) + ": " + v }
+        .joinToString(res.getString(R.string.main_separator)).ifEmpty { null }
 
 private fun addressPartLabel(p: AddressParts.Part): Int = when (p) {
     AddressParts.Part.ROOM -> R.string.addr_part_room

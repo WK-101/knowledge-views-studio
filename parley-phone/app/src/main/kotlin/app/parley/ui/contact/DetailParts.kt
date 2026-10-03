@@ -84,6 +84,8 @@ fun groupRowColors() = ListItemDefaults.colors(containerColor = Color.Transparen
 /**
  * One row of a grouped section. U2: the section's icon only on the first row ([showIcon]); the others keep the
  * space so the text lines up. [menu] items appear on long-press (copy, set default…). Drawn as a compact [InfoRow].
+ * Without [onClick] (a fact with nothing to open) a tap copies the value, so the row never offers an action that does
+ * nothing.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -92,7 +94,7 @@ fun GroupDataRow(
     showIcon: Boolean,
     text: String,
     label: String?,
-    onClick: () -> Unit,
+    onClick: (() -> Unit)?,
     trailing: (@Composable () -> Unit)? = null,
     menu: (@Composable (close: () -> Unit) -> Unit)? = null,
     headline: (@Composable () -> Unit)? = null,
@@ -102,7 +104,8 @@ fun GroupDataRow(
     Box {
         InfoRow(
             modifier = Modifier.combinedClickable(
-                onClick = onClick,
+                onClickLabel = if (onClick == null) stringResource(R.string.main_copy) else null,
+                onClick = onClick ?: { Intents.copy(context, text) },
                 onLongClick = { if (menu != null) open = true else Intents.copy(context, text) },
                 onLongClickLabel = stringResource(if (menu != null) R.string.main_more_actions else R.string.main_copy),
             ),

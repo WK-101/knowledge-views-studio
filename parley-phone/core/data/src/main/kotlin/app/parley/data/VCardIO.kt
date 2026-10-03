@@ -1,5 +1,6 @@
 package app.parley.data
 
+import app.parley.data.people.IcuCalendars
 import android.content.Context
 import android.net.Uri
 import android.util.Log
@@ -111,7 +112,7 @@ class VCardIO(
             val total = countCards(source)
             runImport(account, total, progress, skipDuplicates) { report, sink ->
                 val input = cr.openInputStream(source) ?: throw FileNotFoundException(context.getString(R.string.data_file_read_failed))
-                VCardStream.reader(input).use { VCardStream.read(it, report, sink) }
+                VCardStream.reader(input).use { VCardStream.read(it, report, IcuCalendars, sink) }
             }
         }
 

@@ -90,7 +90,7 @@ private fun WorkContactRow(c: WorkContact, onCall: (number: String, name: String
         headlineContent = { Text(c.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
         supportingContent = {
             val line = if (number != null) {
-                listOfNotNull(c.numberLabel, Bidi.ltr(number)).joinToString(" · ")
+                listOfNotNull(c.numberLabel, Bidi.ltr(number)).joinToString(stringResource(R.string.main_separator))
             } else {
                 stringResource(R.string.work_search_from_profile)
             }

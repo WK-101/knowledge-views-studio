@@ -165,6 +165,9 @@ internal class FakeDependencies : TelecomDependencies {
     val ended = ArrayList<String>()
     val menuKeys = ArrayList<List<MenuPress>>()
 
+    /** How long the "is it saved?" lookup takes (the first lookup answers at once). */
+    var savedDelayMs = 0L
+
     override suspend fun callerInfo(number: String, accountId: String?): CallerDisplay? = contacts[number]
     override fun screeningActive() = screen != null
     override suspend fun screenCall(number: String?, hidden: Boolean, verification: Verification, accountId: String?, callerName: String?): ScreenOutcome {
@@ -184,7 +187,10 @@ internal class FakeDependencies : TelecomDependencies {
     override suspend fun preferredAccountId(number: String): String? = null
     override fun autoAnswer() = autoAnswerConfig
     override fun speakerDefault() = speaker
-    override suspend fun isSavedCaller(number: String, accountId: String?) = number in contacts || number in savedHidden
+    override suspend fun isSavedCaller(number: String, accountId: String?): Boolean {
+        if (savedDelayMs > 0) kotlinx.coroutines.delay(savedDelayMs)
+        return number in contacts || number in savedHidden
+    }
     override suspend fun silenceOverQuota(number: String, accountId: String?) = overQuota
     override fun onCallUsage(number: String?, accountId: String?, incoming: Boolean, connectTimeMillis: Long, durationSec: Long) {
         usage += number.orEmpty()

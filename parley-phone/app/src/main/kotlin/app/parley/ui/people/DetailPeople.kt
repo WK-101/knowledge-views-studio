@@ -38,7 +38,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.unit.dp
 import app.parley.AppViewModel
+import app.parley.common.AltCalendar
+import app.parley.common.AltCalendars
 import app.parley.common.EventDate
+import app.parley.data.people.IcuCalendars
 import app.parley.common.people.LifeEvents
 import app.parley.common.people.ProvenanceVerdict
 import app.parley.data.AccountRef
@@ -234,9 +237,13 @@ fun describeLifeEvent(res: Resources, d: ContactDetails, ev: EventItem, today: L
             val birth = d.events.firstOrNull { it.type == Event.TYPE_BIRTHDAY }?.let { EventDate.parse(it.date) }
             listOfNotNull(shown(parsed), birth?.let { LifeEvents.ageAtDeath(it, parsed) }?.let { res.getString(R.string.life_aged, it) }).joinToString(" · ")
         }
-        ev.type == Event.TYPE_BIRTHDAY -> listOfNotNull(
-            shown(parsed), LifeEvents.wouldHaveTurned(parsed, today)?.let { res.getString(R.string.life_would_have_turned, it) }, dayText(res, parsed, today),
-        ).joinToString(" · ")
+        ev.type == Event.TYPE_BIRTHDAY -> {
+            // A birthday kept by another calendar: its next day and the age, both in that calendar.
+            val due = AltCalendars.due(parsed, AltCalendar.byKey(ev.calendar), today, IcuCalendars)
+            listOfNotNull(
+                shown(parsed), due?.turning?.let { res.getString(R.string.life_would_have_turned, it) }, dayText(res, due?.date ?: parsed, today),
+            ).joinToString(" · ")
+        }
         else -> describeEvent(ev.date, false, today, res)
     }
 }

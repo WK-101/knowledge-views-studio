@@ -49,13 +49,14 @@ import app.parley.ui.ParleyScaffold
 import app.parley.ui.ParleyListItem
 import app.parley.ui.avatarSize
 
-data class UpcomingEvent(val event: ContactEvent, val days: Long, val parsed: EventDate)
+/** [turning]: the age or years reached next time, counted in the date's own calendar ([AltCalendars.Due.turning]). */
+data class UpcomingEvent(val event: ContactEvent, val days: Long, val parsed: EventDate, val turning: Int? = null)
 
-/** Dates soonest first; one kept by another calendar counts from its next Gregorian day ([AltCalendars.effective]). */
+/** Dates soonest first; one kept by another calendar counts from its next Gregorian day ([AltCalendars.due]). */
 fun upcoming(events: List<ContactEvent>, today: LocalDate = LocalDate.now()): List<UpcomingEvent> =
     events.mapNotNull { e ->
-        EventDate.parse(e.date)?.let { AltCalendars.effective(it, AltCalendar.byKey(e.calendar), today, IcuCalendars) }
-            ?.let { UpcomingEvent(e, it.daysUntil(today), it) }
+        EventDate.parse(e.date)?.let { AltCalendars.due(it, AltCalendar.byKey(e.calendar), today, IcuCalendars) }
+            ?.let { UpcomingEvent(e, it.date.daysUntil(today), it.date, it.turning) }
     }.sortedBy { it.days }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -106,7 +107,7 @@ fun BirthdaysScreen(vm: AppViewModel, back: () -> Unit, open: (Destination) -> U
                                     Text(
                                         "$kind · " + if (e.type == Event.TYPE_BIRTHDAY && e.contactId in deceased && birth != null) {
                                             describeEvent(e.date, false, res = resources).substringBefore(" ·") +
-                                                (LifeEvents.wouldHaveTurned(birth, LocalDate.now())?.let { " · " + resources.getString(R.string.bday_would_have_turned, it) } ?: "") +
+                                                (u.turning?.let { " · " + resources.getString(R.string.bday_would_have_turned, it) } ?: "") +
                                                 " · " + describeEvent(e.date, false, res = resources).substringAfterLast(" · ")
                                         } else {
                                             describeEvent(e.date, e.type == Event.TYPE_BIRTHDAY, res = resources)

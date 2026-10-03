@@ -10,5 +10,5 @@
     <string name="handoff_no_matches">No saved numbers match. Type the whole number to use it.</string>
     <string name="handoff_not_a_number">Calls can\'t be sent to that number.</string>
     <string name="handoff_ended_deflected">Sent to another number</string>
-    <string name="handoff_deflect_failed">The call couldn\'t be sent on. It\'s still ringing.</string>
+    <string name="handoff_deflect_failed">The call couldn\'t be sent on. It\'s still ringing silently: answer or decline it.</string>
 </resources>

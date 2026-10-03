@@ -909,4 +909,5 @@
     <string name="set_csv_format_google_summary">Google\'s own columns, ready to import into Google Contacts</string>
     <string name="set_csv_format_outlook">Outlook CSV</string>
     <string name="set_csv_format_outlook_summary">Outlook\'s own columns, ready to import into Outlook</string>
+    <string name="set_csv_format_formula_note">A value that starts with =, +, - or @ is saved with \' in front, so a spreadsheet can\'t run it as a formula. Google Contacts and Outlook keep it as part of the value.</string>
 </resources>

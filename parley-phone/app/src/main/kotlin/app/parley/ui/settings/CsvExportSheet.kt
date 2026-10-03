@@ -4,10 +4,12 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -17,6 +19,7 @@ import app.parley.R
 import app.parley.common.vcard.CsvFormat
 import app.parley.ui.ParleyListItem
 import app.parley.ui.ParleySheet
+import app.parley.ui.Spacing
 
 /** The suggested file name for an export in [format]. */
 internal fun csvFileName(format: CsvFormat): String = when (format) {
@@ -42,6 +45,13 @@ internal fun CsvExportSheet(onDismiss: () -> Unit, onPick: (CsvFormat) -> Unit) 
                 modifier = Modifier.clickable { onPick(format) },
             )
         }
+        // Formula escaping applies to every layout; Google Contacts and Outlook keep the apostrophe, so say so.
+        Text(
+            stringResource(R.string.set_csv_format_formula_note),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = Spacing.listInset, vertical = Spacing.s),
+        )
         Spacer(Modifier.navigationBarsPadding().height(16.dp))
     }
 }

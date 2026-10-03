@@ -437,7 +437,7 @@ class ContactRecordStore(private val context: Context) {
             for (row in flagged[gi]) {
                 val v = ContentValues()
                 // A custom field takes the account's kind: Google's in a Google account, so it syncs (CustomFields).
-                v.put(Data.MIMETYPE, CustomFields.mimeIn(row.mimeType, account.type))
+                v.put(Data.MIMETYPE, CustomFields.mimeIn(row.mimeType, account.type, row[Col.D1], row[Col.D2]))
                 if (row.mimeType == Mime.GROUP) {
                     val id = groups.resolve(row, account) ?: continue
                     v.put(Data.DATA1, id)
@@ -592,7 +592,7 @@ class ContactRecordStore(private val context: Context) {
                     val id = groups.resolve(row, account) ?: continue
                     DataRow(Mime.GROUP, mapOf(Col.D1 to id.toString()))
                 } else {
-                    row.copy(mimeType = CustomFields.mimeIn(row.mimeType, account.type))
+                    row.copy(mimeType = CustomFields.mimeIn(row.mimeType, account.type, row[Col.D1], row[Col.D2]))
                 }
             }
         }

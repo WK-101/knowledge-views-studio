@@ -18,7 +18,8 @@ class CallComfortTest {
         route: Route = Route.EARPIECE,
         speaker: Boolean = true,
         holdMode: Boolean = false,
-    ) = Facts(choice, started, emergency, saved, otherCall, route, speaker, holdMode)
+        conference: Boolean = false,
+    ) = Facts(choice, started, emergency, saved, otherCall, route, speaker, holdMode, conference)
 
     @Test fun off_never_touches_the_audio() {
         assertEquals(Step.LEAVE, SpeakerOnStart.step(facts(choice = SpeakerDefault.OFF)))
@@ -43,6 +44,8 @@ class CallComfortTest {
         assertEquals(Step.LEAVE, SpeakerOnStart.step(facts(emergency = true)))
         assertEquals(Step.LEAVE, SpeakerOnStart.step(facts(otherCall = true)))
         assertEquals(Step.LEAVE, SpeakerOnStart.step(facts(holdMode = true)))
+        // Merging calls keeps the audio where the merged calls had it.
+        assertEquals(Step.LEAVE, SpeakerOnStart.step(facts(conference = true)))
     }
 
     @Test fun unknown_numbers_waits_for_the_lookup() {
