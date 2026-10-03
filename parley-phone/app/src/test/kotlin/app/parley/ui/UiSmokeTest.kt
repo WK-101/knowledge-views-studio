@@ -1,0 +1,291 @@
+package app.parley.ui
+
+import android.Manifest
+import android.content.ContentValues
+import android.provider.CallLog
+import android.provider.ContactsContract.CommonDataKinds.Phone
+import androidx.activity.ComponentActivity
+import androidx.compose.material3.Surface
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
+import android.content.ComponentName
+import androidx.activity.compose.setContent
+import androidx.compose.ui.test.junit4.createEmptyComposeRule
+import androidx.test.core.app.ActivityScenario
+import androidx.test.core.app.ApplicationProvider
+import androidx.work.testing.WorkManagerTestInitHelper
+import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.lifecycle.ViewModelProvider
+import app.parley.AppViewModel
+import app.parley.ParleyApp
+import app.parley.common.AnswerGesture
+import app.parley.common.ThemeMode
+import app.parley.common.Verification
+import app.parley.common.ux.RecentsStyle
+import app.parley.data.ContactDetails
+import app.parley.data.DataItem
+import app.parley.data.testing.FakeAndroidKeyStore
+import app.parley.data.testing.FakeCallLogProvider
+import app.parley.data.testing.FakeContactsProvider
+import app.parley.telecom.AudioUi
+import app.parley.telecom.CallState
+import app.parley.telecom.CallUi
+import app.parley.telecom.ui.InCallScreen
+import app.parley.ui.circle.CircleTab
+import app.parley.ui.common.CoachMarks
+import app.parley.ui.common.LocalCoachMarks
+import app.parley.ui.home.ContactsTab
+import app.parley.ui.home.FavoritesTab
+import app.parley.ui.home.KeypadDock
+import app.parley.ui.home.KeypadTab
+import app.parley.ui.home.LocalRecentsStyle
+import app.parley.ui.home.RecentsTab
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.runBlocking
+import org.junit.After
+import org.junit.Before
+import org.junit.Rule
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.Shadows.shadowOf
+import org.robolectric.annotation.Config
+
+/**
+ * Each home tab and the call screen draw without crashing in light, dark (black for OLED) and with the largest
+ * font in a right-to-left layout, over a few contacts and calls, with the real app (fake providers).
+ */
+@RunWith(RobolectricTestRunner::class)
+@Config(application = ParleyApp::class)
+class UiSmokeTest {
+    @get:Rule val compose = createEmptyComposeRule()
+
+    private val app: ParleyApp = ApplicationProvider.getApplicationContext()
+    private lateinit var scenario: ActivityScenario<ComponentActivity>
+    private lateinit var activity: ComponentActivity
+
+    /** How a screen is drawn: theme, black surfaces, font scale and direction. */
+    private enum class Look(val mode: ThemeMode, val amoled: Boolean = false, val fontScale: Float = 1f, val rtl: Boolean = false) {
+        LIGHT(ThemeMode.LIGHT),
+        DARK(ThemeMode.DARK, amoled = true),
+        LARGE_FONT_RTL(ThemeMode.LIGHT, fontScale = 2f, rtl = true),
+    }
+
+    @Before fun setUp() {
+        // The empty activity the screens are drawn in isn't in the app's manifest: register it for this test.
+        shadowOf(app.packageManager).addActivityIfNotPresent(ComponentName(app, ComponentActivity::class.java))
+        // The app schedules its upkeep workers after start-up.
+        WorkManagerTestInitHelper.initializeTestWorkManager(app)
+        FakeAndroidKeyStore.install()
+        FakeContactsProvider.install()
+        FakeCallLogProvider.install()
+        shadowOf(app).grantPermissions(
+            Manifest.permission.READ_CONTACTS, Manifest.permission.WRITE_CONTACTS,
+            Manifest.permission.READ_CALL_LOG, Manifest.permission.WRITE_CALL_LOG,
+        )
+        val c = app.container
+        runBlocking {
+            val details = ContactDetails(given = "Ada", family = "Lovelace", phones = listOf(DataItem(null, "+44 20 7946 0000", Phone.TYPE_MOBILE)))
+            val ada = c.contacts.save(null, details, null, null, false)!!
+            c.contacts.setStarred(ada.contactId, true)
+            c.vault.save(null, ContactDetails(given = "Grace", phones = listOf(DataItem(null, "+1 202 555 0100", Phone.TYPE_MOBILE))))
+        }
+        val now = System.currentTimeMillis()
+        listOf(
+            Triple("+442079460000", CallLog.Calls.MISSED_TYPE, 0L),
+            Triple("+44 20 7946 0123", CallLog.Calls.INCOMING_TYPE, 95L),
+            Triple("+44 20 7946 0123", CallLog.Calls.OUTGOING_TYPE, 30L),
+        ).forEachIndexed { i, (n, type, length) ->
+            app.contentResolver.insert(
+                CallLog.Calls.CONTENT_URI,
+                ContentValues().apply {
+                    put(CallLog.Calls.NUMBER, n)
+                    put(CallLog.Calls.DATE, now - (i + 1) * 60_000L * 90)
+                    put(CallLog.Calls.TYPE, type)
+                    put(CallLog.Calls.DURATION, length)
+                },
+            )
+        }
+        c.startFull()
+        scenario = ActivityScenario.launch(ComponentActivity::class.java)
+        scenario.onActivity { activity = it }
+    }
+
+    @After fun tearDown() {
+        scenario.close()
+        app.container.scope.cancel()
+    }
+
+    /** Draws [content] as Parley's root does (theme, avatar, tips, Recents style, the app's view model) in [look]. */
+    private fun show(look: Look, style: RecentsStyle = RecentsStyle.RICH, content: @Composable (AppViewModel) -> Unit) {
+        val vm = ViewModelProvider(activity)[AppViewModel::class.java]
+        activity.setContent {
+            ParleyTheme(mode = look.mode, amoled = look.amoled, dynamicColor = false) {
+                val density = LocalDensity.current
+                CompositionLocalProvider(
+                    LocalDensity provides Density(density.density, look.fontScale),
+                    LocalLayoutDirection provides if (look.rtl) LayoutDirection.Rtl else LayoutDirection.Ltr,
+                    LocalCoachMarks provides remember { CoachMarks(vm.c.ux) },
+                    LocalRecentsStyle provides style,
+                    LocalAppViewModel provides vm,
+                ) {
+                    Surface { content(vm) }
+                }
+            }
+        }
+        compose.waitForIdle()
+        compose.onRoot().assertExists()
+    }
+
+    /** Waits until [text] is on screen (the lists load off the main thread). */
+    private fun shows(text: String) {
+        compose.waitUntil(10_000) { compose.onAllNodesWithText(text, substring = true).fetchSemanticsNodes().isNotEmpty() }
+        compose.onAllNodesWithText(text, substring = true)[0].assertExists()
+    }
+
+    private val noRoute: (Destination) -> Unit = {}
+
+    // ---------------------------------------------------------------- Recents
+
+    @Test fun recents_light() {
+        show(Look.LIGHT) { RecentsTab(it, noRoute) }
+        shows("Ada Lovelace")
+    }
+
+    @Test fun recents_dark() {
+        show(Look.DARK) { RecentsTab(it, noRoute) }
+        shows("Ada Lovelace")
+    }
+
+    @Test fun recents_large_font_rtl() {
+        show(Look.LARGE_FONT_RTL) { RecentsTab(it, noRoute) }
+        shows("Ada Lovelace")
+    }
+
+    @Test fun recents_simple_style() {
+        show(Look.LIGHT, RecentsStyle.SIMPLE) { RecentsTab(it, noRoute) }
+        shows("Ada Lovelace")
+    }
+
+    @Test fun recents_cards_light() {
+        show(Look.LIGHT, RecentsStyle.CARDS) { RecentsTab(it, noRoute) }
+        shows("Ada Lovelace")
+    }
+
+    @Test fun recents_cards_dark() {
+        show(Look.DARK, RecentsStyle.CARDS) { RecentsTab(it, noRoute) }
+        shows("Ada Lovelace")
+    }
+
+    @Test fun recents_cards_large_font_rtl() {
+        show(Look.LARGE_FONT_RTL, RecentsStyle.CARDS) { RecentsTab(it, noRoute) }
+        shows("Ada Lovelace")
+    }
+
+    // ---------------------------------------------------------------- Contacts
+
+    @Test fun contacts_light() {
+        show(Look.LIGHT) { ContactsTab(it, noRoute) }
+        shows("Ada Lovelace")
+    }
+
+    @Test fun contacts_dark() {
+        show(Look.DARK) { ContactsTab(it, noRoute) }
+        shows("Ada Lovelace")
+    }
+
+    @Test fun contacts_large_font_rtl() {
+        show(Look.LARGE_FONT_RTL) { ContactsTab(it, noRoute) }
+        shows("Ada Lovelace")
+    }
+
+    // ---------------------------------------------------------------- Favourites
+
+    @Test fun favourites_light() {
+        show(Look.LIGHT) { FavoritesTab(it, noRoute) }
+        shows("Ada")
+    }
+
+    @Test fun favourites_dark() {
+        show(Look.DARK) { FavoritesTab(it, noRoute) }
+        shows("Ada")
+    }
+
+    @Test fun favourites_large_font_rtl() {
+        show(Look.LARGE_FONT_RTL) { FavoritesTab(it, noRoute) }
+        shows("Ada")
+    }
+
+    // ---------------------------------------------------------------- Keypad
+
+    @Test fun keypad_light() {
+        show(Look.LIGHT) { KeypadTab(it, noRoute) }
+    }
+
+    @Test fun keypad_dark() {
+        show(Look.DARK) { KeypadTab(it, noRoute) }
+    }
+
+    @Test fun keypad_large_font_rtl() {
+        show(Look.LARGE_FONT_RTL) { KeypadTab(it, noRoute) }
+    }
+
+    @Test fun keypad_with_recents_docked() {
+        show(Look.LIGHT, RecentsStyle.CARDS) { vm ->
+            KeypadTab(vm, noRoute, dock = KeypadDock(expanded = false, onExpandedChange = {}) { RecentsTab(vm, noRoute) })
+        }
+        shows("Ada Lovelace")
+    }
+
+    // ---------------------------------------------------------------- Circle
+
+    @Test fun circle_light() {
+        show(Look.LIGHT) { CircleTab(it, noRoute, query = "") }
+    }
+
+    @Test fun circle_dark() {
+        show(Look.DARK) { CircleTab(it, noRoute, query = "") }
+    }
+
+    @Test fun circle_large_font_rtl() {
+        show(Look.LARGE_FONT_RTL) { CircleTab(it, noRoute, query = "") }
+    }
+
+    // ---------------------------------------------------------------- call screen
+
+    private fun call(state: CallState, incoming: Boolean) = CallUi(
+        id = "call-1", state = state, number = "+44 20 7946 0000", hidden = false, name = "Ada Lovelace", label = "Mobile", photoUri = null,
+        contactId = 1L, incoming = incoming, connectTimeMillis = if (state == CallState.ACTIVE) System.currentTimeMillis() - 65_000 else 0L,
+        isConference = false, children = emptyList(), canHold = true, canMerge = false, canSwap = false, canMute = true, canSeparate = false,
+        canDisconnectChild = false, canRespondViaText = incoming, accountLabel = null, verification = Verification.NOT_VERIFIED,
+        disconnectReason = null, postDialWait = null, silenced = false, isEmergency = false,
+    )
+
+    private fun callScreen(look: Look, state: CallState, incoming: Boolean) {
+        show(look) {
+            InCallScreen(
+                calls = listOf(call(state, incoming)), audio = AudioUi(), ended = null, answerGesture = AnswerGesture.SWIPE,
+                quickReplies = listOf("Can't talk now"), keypadOpen = false, onKeypad = {}, onAddCall = {}, onOpenContact = {},
+            )
+        }
+        shows("Ada Lovelace")
+    }
+
+    @Test fun call_screen_ringing_light() = callScreen(Look.LIGHT, CallState.RINGING, incoming = true)
+
+    @Test fun call_screen_ringing_dark() = callScreen(Look.DARK, CallState.RINGING, incoming = true)
+
+    @Test fun call_screen_ringing_large_font_rtl() = callScreen(Look.LARGE_FONT_RTL, CallState.RINGING, incoming = true)
+
+    @Test fun call_screen_in_call_light() = callScreen(Look.LIGHT, CallState.ACTIVE, incoming = false)
+
+    @Test fun call_screen_in_call_dark() = callScreen(Look.DARK, CallState.ACTIVE, incoming = false)
+
+    @Test fun call_screen_in_call_large_font_rtl() = callScreen(Look.LARGE_FONT_RTL, CallState.ACTIVE, incoming = false)
+}

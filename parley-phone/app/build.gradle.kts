@@ -153,6 +153,11 @@ dependencies {
     testImplementation(libs.kotlinx.coroutines.test)
     // WorkManager's test helpers (a synchronous WorkManager and its test driver) for the To call reminder's worker.
     testImplementation(libs.androidx.work.testing)
+    // Compose UI smoke tests under Robolectric (the five tabs and the call screen); the manifest library registers
+    // the empty activity they render in, for the unit-test manifest only.
+    testImplementation(platform(libs.compose.bom))
+    testImplementation(libs.compose.ui.test.junit4)
+    testImplementation(libs.compose.ui.test.manifest)
 }
 
 // Privacy guard, an allow-list: the merged manifest may ask for exactly these permissions (plus the app's own
