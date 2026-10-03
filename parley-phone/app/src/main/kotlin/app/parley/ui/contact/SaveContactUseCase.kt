@@ -6,6 +6,7 @@ import app.parley.common.people.ContactRef
 import app.parley.common.people.ExpiryChange
 import app.parley.common.people.RelationLinks
 import app.parley.common.people.TemporaryChoice
+import app.parley.common.photo.PhotoFrame
 import app.parley.common.suspendRunCatching
 import app.parley.data.AccountRef
 import app.parley.data.ContactChangedElsewhereException
@@ -15,12 +16,14 @@ import app.parley.data.DataContainer
 import app.parley.data.TemporaryContacts
 import app.parley.data.db.ContactMetaEntity
 import app.parley.data.people.CallBackgrounds
+import app.parley.data.people.OriginalPhotos
 import app.parley.data.people.RelationMirrors
 import app.parley.ui.people.BackgroundChange
 import app.parley.ui.people.CallBackgroundText
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.withContext
+import java.io.File
 
 /**
  * The editor's save: the contact (or private contact) itself, then its photo, call-screen background and relation
@@ -35,6 +38,11 @@ class SaveContactUseCase(private val c: DataContainer) {
         val account: AccountRef?,
         val photo: Uri?,
         val removePhoto: Boolean,
+        /**
+         * The square the avatar is cut from ("Frame photo"): of [photo] when one was picked, otherwise of the photo
+         * Parley keeps for the contact ("Adjust framing"). Null: the whole picture, as before.
+         */
+        val photoFrame: PhotoFrame? = null,
         /** Save into the private vault; [vaultId] > 0 edits that entry. */
         val toVault: Boolean,
         val vaultId: Long?,
@@ -88,6 +96,8 @@ class SaveContactUseCase(private val c: DataContainer) {
             if (e is ContactChangedElsewhereException) return Outcome.ChangedElsewhere(reload(r.original))
             return Outcome.Failed(e.message.orEmpty())
         } ?: return Outcome.NotSaved
+        // A photo the camera app took for this contact has been copied where it belongs.
+        ContactCamera.forget(c.appContext, r.photo)
         // The expiry picked in the editor; the vault's was written with the contact itself.
         val expiry = r.expiry
         if (expiry != null && !r.toVault && suspendRunCatching { applyExpiry(r, id, expiry) }.isFailure) notes += R.string.editor_expiry_failed
@@ -155,17 +165,56 @@ class SaveContactUseCase(private val c: DataContainer) {
      */
     private suspend fun vaultPhoto(id: Long, r: Request, notes: MutableList<Int>) {
         val picked = r.photo
+        val originals = c.people.originals
         if (picked != null) {
-            val bytes = withContext(Dispatchers.IO) { ContactPhotoProcessor.process(c.appContext.contentResolver, picked) }
+            // The framed square for the avatar (the call screen and lists show it); the whole picture otherwise.
+            val framed = framedAvatar(r) { null }
+            val bytes = framed ?: withContext(Dispatchers.IO) { ContactPhotoProcessor.process(c.appContext.contentResolver, picked) }
             if (bytes == null || !c.vault.setPhoto(id, bytes)) {
                 notes += R.string.edit_photo_failed
-                c.people.originals.clearPrivate(id)
-            } else if (!c.people.originals.keepPrivate(id, picked)) {
-                c.people.originals.clearPrivate(id)
+                originals.clearPrivate(id)
+            } else if (!originals.keepPrivate(id, picked)) {
+                originals.clearPrivate(id)
+            } else {
+                originals.setPrivateFrame(id, r.photoFrame.takeIf { framed != null })
             }
         } else if (r.removePhoto) {
             c.vault.removePhoto(id)
-            c.people.originals.clearPrivate(id)
+            originals.clearPrivate(id)
+        } else if (r.photoFrame != null) {
+            // "Adjust framing": a new avatar cut from the kept picture.
+            val bytes = framedAvatar(r) { originals.forPrivate(id) }
+            if (bytes == null || !c.vault.setPhoto(id, bytes)) notes += R.string.edit_photo_failed else originals.setPrivateFrame(id, r.photoFrame)
+        }
+    }
+
+    /**
+     * The avatar cut to [Request.photoFrame], as a square JPEG: from the picked photo, or from the kept original
+     * ([kept]) when only the framing changed. Null without a frame, or when the picture can't be read.
+     */
+    private suspend fun framedAvatar(r: Request, kept: suspend () -> OriginalPhotos.Original?): ByteArray? {
+        val frame = r.photoFrame ?: return null
+        val picked = r.photo
+        if (picked != null) return withContext(Dispatchers.IO) { ContactPhotoProcessor.processFramed(c.appContext.contentResolver, picked, frame) }
+        val o = kept() ?: return null
+        return try {
+            c.people.originals.framed(o, frame)
+        } finally {
+            c.people.originals.release(o)
+        }
+    }
+
+    /**
+     * The framed avatar as a file for Android's contacts provider (which takes a picture to read, not bytes), or
+     * null without a frame. Deleted by the caller once written.
+     */
+    private suspend fun avatarFile(r: Request, kept: suspend () -> OriginalPhotos.Original?): File? {
+        val bytes = framedAvatar(r, kept) ?: return null
+        return withContext(Dispatchers.IO) {
+            runCatching {
+                val dir = File(c.appContext.cacheDir, "framed").apply { mkdirs() }
+                File(dir, "avatar-${System.nanoTime()}.jpg").apply { writeBytes(bytes) }
+            }.getOrNull()
         }
     }
 
@@ -177,12 +226,19 @@ class SaveContactUseCase(private val c: DataContainer) {
         val key = withContext(Dispatchers.IO) { c.contacts.lookupKeyOf(id) }?.takeIf { it.isNotEmpty() } ?: return
         val old = r.original?.lookupKey?.takeIf { it.isNotEmpty() && it != key }
         val picked = r.photo
+        val originals = c.people.originals
         when {
-            picked != null -> if (!c.people.originals.keep(key, picked, before)) c.people.originals.clear(key)
-            r.removePhoto -> c.people.originals.clear(key)
+            picked != null -> if (!originals.keep(key, picked, before)) originals.clear(key) else originals.setFrame(key, r.photoFrame)
+            r.removePhoto -> originals.clear(key)
+            r.photoFrame != null -> {
+                // Only the framing changed: the same original, now matched to the avatar just written.
+                old?.let { originals.move(it, key) }
+                originals.setFrame(key, r.photoFrame, rewritten = before.orEmpty())
+                return
+            }
             else -> return
         }
-        old?.let { c.people.originals.clear(it) }
+        old?.let { originals.clear(it) }
     }
 
     /**
@@ -204,8 +260,12 @@ class SaveContactUseCase(private val c: DataContainer) {
     private suspend fun saveTemporary(r: Request, t: TemporaryChoice, notes: MutableList<Int>, mirrors: MutableList<RelationMirrors.Report>): Long? {
         val e = r.draft
         val details = if (t.private) e.copy(handles = e.handles.filter { it.value.isNotBlank() }) else e
-        val saved = TemporaryContacts.saveDetails(c, details, t.days, t.private, t.purgeHistory, photo = r.photo.takeUnless { t.private })
-            ?: return null
+        val avatar = if (t.private) null else avatarFile(r) { null }
+        val saved = try {
+            TemporaryContacts.saveDetails(c, details, t.days, t.private, t.purgeHistory, photo = avatar?.let(Uri::fromFile) ?: r.photo.takeUnless { t.private })
+        } finally {
+            avatar?.delete()
+        } ?: return null
         if (saved.private) {
             vaultPhoto(saved.id, r, notes)
             // Relation links picked in the editor and the call-screen picture, as for any private contact.
@@ -213,7 +273,7 @@ class SaveContactUseCase(private val c: DataContainer) {
             return -saved.id
         }
         rememberRelations(saved.id, e, r.pickedLinks)
-        originalPhoto(r, saved.id, null)
+        originalPhoto(if (avatar == null && r.photoFrame != null) r.copy(photoFrame = null) else r, saved.id, null)
         mirrorRelations(r, saved.id, mirrors)
         return saved.id
     }
@@ -240,12 +300,22 @@ class SaveContactUseCase(private val c: DataContainer) {
     private suspend fun saveContact(r: Request, notes: MutableList<Int>, mirrors: MutableList<RelationMirrors.Report>): Long? {
         // Android's photo before this save, so the kept original can tell Android's new copy from the old one.
         val photoBefore = r.original?.photoUri
-        val saved = c.contacts.save(r.original, r.draft, r.account, r.photo, r.removePhoto)?.contactId
+        // A framed photo goes to Android as its square; the picture as picked is kept whole below (originalPhoto).
+        val avatar = avatarFile(r) { c.people.originals.forContact(r.original?.lookupKey, photoBefore) }
+        // A frame that couldn't be cut isn't recorded (a new photo is then written whole, as before framing).
+        val frameFailed = avatar == null && r.photoFrame != null
+        if (frameFailed && r.photo == null) notes += R.string.edit_photo_failed
+        val photo = avatar?.let(Uri::fromFile) ?: r.photo
+        val saved = try {
+            c.contacts.save(r.original, r.draft, r.account, photo, r.removePhoto)?.contactId
+        } finally {
+            avatar?.delete()
+        }
         val before = r.original?.lookupKey?.takeIf { it.isNotEmpty() }
         if (before != null && r.background != BackgroundChange.None) saveBackground(r.background, before, saved, notes)
         if (saved != null) {
             rememberRelations(saved, r.draft, r.pickedLinks)
-            suspendRunCatching { originalPhoto(r, saved, photoBefore) }
+            suspendRunCatching { originalPhoto(if (frameFailed) r.copy(photoFrame = null) else r, saved, photoBefore) }
             mirrorRelations(r, saved, mirrors)
         }
         return saved

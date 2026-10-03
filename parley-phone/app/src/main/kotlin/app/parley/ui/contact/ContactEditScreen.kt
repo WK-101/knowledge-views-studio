@@ -10,10 +10,7 @@ import android.provider.ContactsContract.CommonDataKinds.Relation
 import android.provider.ContactsContract.CommonDataKinds.StructuredPostal
 import android.provider.ContactsContract.CommonDataKinds.Website
 import androidx.activity.compose.PredictiveBackHandler
-import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.activity.result.PickVisualMediaRequest
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
@@ -130,7 +127,6 @@ import app.parley.ui.people.HandleText
 import app.parley.ui.people.RelationText
 import app.parley.ui.people.eventLabel
 import app.parley.ui.screenViewModel
-import kotlinx.coroutines.launch
 import app.parley.ui.ParleyTopBar
 import app.parley.ui.ParleyScaffold
 import app.parley.ui.ParleyDialog
@@ -272,10 +268,6 @@ fun ContactEditScreen(
     // A new contact starts with the keyboard on First name, once (not again after rotation).
     var autoFocused by rememberSaveable { mutableStateOf(false) }
 
-    // The system photo picker needs no storage permission (also for private contacts' encrypted photos, I6).
-    val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        if (uri != null) editor.pickPhoto(uri)
-    }
     val d = editor.draft
     val changed = editor.changed
     val canSave = editor.canSave
@@ -449,11 +441,7 @@ fun ContactEditScreen(
                 // My card has no photo (it isn't shared); every contact has one here.
                 if (!meCard) {
                     Box(Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 8.dp), contentAlignment = Alignment.Center) {
-                        CompactPhoto(
-                            d.composedName.ifBlank { d.nickname.ifBlank { d.company } }, shownPhoto,
-                            onPick = { photoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
-                            onRemove = editor::clearPhoto, inOtherApps = !isVault,
-                        )
+                        EditorPhoto(vm, editor, d.composedName.ifBlank { d.nickname.ifBlank { d.company } }, shownPhoto)
                     }
                 }
                 Box(Modifier.padding(start = FormTokens.gutter, bottom = 4.dp)) {
