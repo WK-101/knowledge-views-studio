@@ -21,8 +21,8 @@
     <string name="home_fav_strip">Avatar strip</string>
     <string name="home_keep_fav_tab">Also keep a Favourites tab</string>
     <string name="home_keep_fav_tab_sub">The Favourites tab keeps its grid, sorting and reordering</string>
-    <string name="home_frequents_row">Show frequent contacts</string>
-    <string name="home_frequents_row_sub">A row of the people you called most lately, under the favourites</string>
+    <string name="home_frequents_row">Show Frequent</string>
+    <string name="home_frequents_row_sub">Under your favourites, the people you call most, picked from your calls. The Favourites tab always shows them.</string>
     <string name="home_circle_moves">While its tab is hidden, the Circle shows in Contacts, under the favourites.</string>
     <string name="home_back_to_separate">Back to separate tabs</string>
     <string name="home_back_to_separate_sub">Your navigation bar comes back exactly as it was</string>

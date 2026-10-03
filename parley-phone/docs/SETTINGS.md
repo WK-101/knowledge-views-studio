@@ -21,7 +21,7 @@ The Settings list starts with **Tools** (the same page as ⋮ › Tools; see the
 | Group | Settings |
 |---|---|
 | Navigation bar | Navigation bar `nav_tabs` · Open on `start_tab` |
-| Layout | Calls layout `calls_layout` (+ keep the Keypad tab) · Favourites in Contacts `favorites_in_contacts` (+ keep the tab, Frequent row) · Tapping a call in Recents `recent_tap` · Back to separate tabs |
+| Layout | Calls layout `calls_layout` (+ keep the Keypad tab) · Favourites in Contacts `favorites_in_contacts` (+ keep the tab, Show Frequent) · Tapping a call in Recents `recent_tap` · Back to separate tabs |
 | Taps and swipes | Swipe actions `swipe_actions` |
 | — | Simple mode `simple_mode` ↗ (in it: keypad button `simple_keypad`, ask before declining `simple_confirm_decline`, say who is calling `simple_speak`, helpers `simple_helpers`, set up another phone `simple_share`) |
 

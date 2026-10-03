@@ -11,7 +11,7 @@
     <string name="remind_decline_a11y">Decline and remind me to call back</string>
     <string name="remind_decline_message">Decline &amp; message or call on…</string>
     <!-- %1$s: when, "18:00" or "Wed 09:00" -->
-    <string name="remind_set">Parley will remind you at %1$s</string>
+    <string name="remind_set">Parley will remind you at %1$s. It\'s under To call in Recents.</string>
     <!-- %1$s: when, "18:00" or "Wed 09:00" -->
-    <string name="remind_declined_set">Declined. Parley will remind you at %1$s</string>
+    <string name="remind_declined_set">Declined. Parley will remind you at %1$s, under To call in Recents.</string>
 </resources>

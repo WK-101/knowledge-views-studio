@@ -9,12 +9,23 @@ See also [WRITING.md](WRITING.md) for voice and tone, and [SETTINGS.md](SETTINGS
 | Term | What it means | Not |
 |---|---|---|
 | **Favourites** | People you call often and want one tap away: the starred contacts. They're the Favourites tab (or the section at the top of Contacts), the widget, and the "loud favourites" option in blocking. Android stores this as the contact's star, so other apps see it too. | Not "Starred", not "Favorites". Starring someone and adding them to Favourites are the same action. |
-| **Frequent** | People Parley suggests from your call history. It's automatic, and you don't choose who appears. Shown under Favourites. | Not a list you edit. |
-| **Circle** | People you want to keep in touch with, each with a rhythm ("every 2 weeks") and gentle reminders. Always capitalised: "your Circle", "Add to your Circle". | Not a group and not Favourites: being in the Circle doesn't star anyone. |
-| **Labels** | Groups of contacts you make yourself ("Family", "Work"). Android calls them groups; Parley says labels everywhere. | Not "groups" or "tags". |
+| **Frequent** | A section of Favourites, not a separate list: the people you call most lately, picked by Parley from your call history. It's automatic, and you don't choose who appears. Always under the favourites (the Favourites tab, and Favourites in Contacts with "Show Frequent"). | Not a list you edit, and never a place of its own. |
+| **Circle** | People you want to keep in touch with, each with a rhythm ("every 2 weeks") and gentle reminders. The one opt-in layer: it stays empty, and adds nothing to other screens, until you add someone. Always capitalised: "your Circle", "Add to your Circle". | Not a group and not Favourites: being in the Circle doesn't star anyone. Its suggestions are "Suggested for your Circle", never "Frequent". |
+| **Labels** | Groups of contacts you make yourself ("Family", "Work"), for organising: filter by them, message a whole label, give one a ringtone. Android calls them groups; Parley says labels everywhere. | Not "groups" or "tags". |
+| **To call** | A section of Recents, not a separate place: the calls you said you'd make (Remind me, follow-ups) and missed calls you haven't returned, as a strip at the top of Recents that opens the full list. Its reminder and Remind me's confirmation lead there. | Not a tab or a menu item. Not "callbacks" or "Call later". |
 | **Private contacts** | Contacts kept only inside Parley, encrypted, invisible to other apps. Private is a variant of a contact, not another kind: the same page, editor and features, a lock on the photo in lists, the chip "Private" on the page (TalkBack: "Private · hidden from other apps"), and **Make private** / **Make visible to other apps** to convert ([CONTACT_MODEL.md](CONTACT_MODEL.md)). | Not "vault" in the interface. |
 | **Temporary contacts** | Contacts, private or not, that delete themselves after a time you choose. Also a variant: the chip "Temporary · 5 days left" (TalkBack: "deletes itself on …"), and **Keep permanently** to undo it. When the time is up Parley asks once before deleting ("Ask before deleting temporary contacts", on by default). | |
 | **My card** | Your own details (name, number), shared as a QR code or vCard and used for "Send my details". | Not "My details" or "My profile". |
+
+### Which one?
+
+Each has one job, so a person can be in several without it meaning the same thing twice:
+
+- **Favourites:** who you want one tap away (you choose; the star).
+- **Frequent:** who you actually call most (Parley notices; shown under Favourites).
+- **Circle:** who you want to keep in touch with (opt-in; a rhythm and reminders).
+- **Labels:** how you organise everyone (you name them; Family, Work).
+- **To call:** calls you owe right now (in Recents; done once you call).
 
 ### Favourites and Do Not Disturb
 
@@ -60,7 +71,7 @@ A label's **Allow through Do Not Disturb** works by starring its members, becaus
 | **What Parley can do** | The page that lists what Parley does by the job you want done ("Stop spam", "Never lose a contact"…), each row opening the feature; searchable. In Tools, under Tools in Settings, and linked from the What's new card. Its rows come from `CapabilityCatalog`. |
 | **Coming from another phone?** | Where to export contacts, call history and block lists on the old phone, each opening Parley's own importer. Onboarding's optional last step, and in Tools. |
 | **⋮ (More options)** | At most seven items, only the tab's own, then Tools and Settings. |
-| **Explainers** | One-line tips at a concept's first appearance (Private, Temporary, Circle, Labels, Favourites, History & undo, To call), in the words of this glossary; each shows once. |
+| **Explainers** | One-line tips at a concept's first appearance (Private, Temporary, Circle, Labels, Favourites with Frequent, History & undo, To call), in the words of this glossary; each shows once. Each says what sets its concept apart from its neighbours (Circle: "doesn't star anyone"; Favourites: Frequent is under them). |
 | **Contact health check** | The screen that finds numbers without a country code, and empty or stale contacts. Not "Tidy up". |
 
 ## Words to avoid

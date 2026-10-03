@@ -134,8 +134,8 @@
     <!-- One-line explainers where each concept first appears (shown once; Settings › Appearance › Reset tips brings them back). -->
     <string name="tip_concept_private">Private contacts are kept only in Parley, encrypted and hidden from other apps. Their name still shows when they call.</string>
     <string name="tip_concept_temporary">Temporary contacts delete themselves when their time is up. You can keep any of them permanently.</string>
-    <string name="tip_concept_circle">Your Circle is the people you want to keep in touch with, each with a gentle rhythm. It isn\'t a label and doesn\'t star anyone.</string>
+    <string name="tip_concept_circle">Your Circle is the people you want to keep in touch with, each with a gentle rhythm. Unlike Favourites, it doesn\'t star anyone, and it stays empty until you add someone.</string>
     <string name="tip_concept_labels">Labels are groups you make yourself, like Family or Work: filter by them, message everyone in one, or give one a ringtone.</string>
-    <string name="tip_concept_favourites">Favourites are your starred contacts, one tap away. Other apps see the star too.</string>
+    <string name="tip_concept_favourites">Favourites are your starred contacts, one tap away; other apps see the star too. Frequent, under them, is who you call most, picked from your calls.</string>
     <string name="tip_concept_history_undo">History &amp; undo is where to get things back: contacts and calls deleted or changed in Parley for 30 days, and daily snapshots.</string>
 </resources>

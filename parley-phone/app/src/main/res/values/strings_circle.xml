@@ -9,7 +9,7 @@
     <string name="circle_collapse">Fold your Circle away</string>
     <string name="circle_empty_title">Your Circle is empty</string>
     <string name="circle_empty_body">Add the people you want to stay close to. Parley reminds you gently, once a week at most.</string>
-    <string name="circle_how_to_add">To add someone, open their contact and choose Stay in touch.</string>
+    <string name="circle_how_to_add">To add someone, open their contact and choose Add to your Circle.</string>
     <string name="circle_no_match">No one in your Circle matches “%1$s”</string>
     <string name="circle_status_due">Due</string>
     <string name="circle_status_soon">Soon</string>
@@ -30,7 +30,7 @@
     <string name="circle_mode_never">Never</string>
     <string name="circle_never">Not in touch yet</string>
     <string name="circle_last_today">In touch today · %1$s</string>
-    <string name="circle_suggested">Suggested from your calls</string>
+    <string name="circle_suggested">Suggested for your Circle</string>
     <string name="circle_add">Add</string>
     <string name="circle_added">%1$s is in your Circle</string>
     <string name="circle_removed">%1$s is no longer in your Circle</string>

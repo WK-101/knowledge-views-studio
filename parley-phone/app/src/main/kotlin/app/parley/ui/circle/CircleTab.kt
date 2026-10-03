@@ -48,6 +48,7 @@ import app.parley.ui.common.CoachMark
 import app.parley.common.TextSearch
 import app.parley.common.calls.CallSource
 import app.parley.common.circle.CircleStatus
+import app.parley.common.circle.CircleSuggestions
 import app.parley.ui.Avatar
 import app.parley.ui.EmptyState
 import app.parley.ui.Routes
@@ -66,7 +67,7 @@ private fun showCircleTip(pending: Boolean, empty: Boolean, query: String) = pen
 
 /**
  * The Circle tab. People with keep-in-touch set, most urgent first, each with a status chip, when you were last
- * in touch and one-tap Call / Message. An empty Circle offers "Suggested from your calls"; a search with no match
+ * in touch and one-tap Call / Message. An empty Circle offers "Suggested for your Circle"; a search with no match
  * says so (it never claims the Circle is empty).
  */
 @Composable
@@ -110,8 +111,9 @@ fun CircleTab(vm: AppViewModel, open: (Destination) -> Unit, query: String) {
 }
 
 /**
- * The Circle as a folding section at the top of Favourites, used while the Circle tab is hidden. Shows nothing
- * for an empty Circle without suggestions, so Favourites stays as it was for people who don't use it.
+ * The Circle as a folding section at the top of Favourites, used while the Circle tab is hidden. The Circle is
+ * opt-in: until someone is in it the section shows nothing at all, suggestions included (they'd repeat Frequent,
+ * just below), so Favourites stays as it was for people who don't use it.
  */
 @Composable
 fun CircleFavoritesSection(vm: AppViewModel, open: (Destination) -> Unit, query: String) {
@@ -121,7 +123,7 @@ fun CircleFavoritesSection(vm: AppViewModel, open: (Destination) -> Unit, query:
     val all = rows ?: return
     val q = query.trim()
     val shown = if (q.isEmpty()) all else all.filter { TextSearch.matches(q, it.contact.displayName, it.contact.phones.map { p -> p.number }) }
-    val offerSuggestions = q.isEmpty() && suggestions.isNotEmpty() && !config.suggestionsDismissed
+    val offerSuggestions = CircleSuggestions.offerInSection(all.size, suggestions.size, config.suggestionsDismissed, searching = q.isNotEmpty())
     if (shown.isEmpty() && !offerSuggestions) return
     val (quick, quickHost) = rememberQuickMessenger(vm)
     quickHost()
