@@ -211,3 +211,32 @@ says why under the accounts. Settings › Contacts › "Save new contacts to" sa
 editor, imports, restores, Make visible, temporary contacts, Add several numbers, shared labels) goes through
 `DeviceAccounts.newContacts` and `NewContactAccount`, so none of them fails there.
 
+
+## Photo: camera and framing
+
+4.3 kept every photo whole and at full quality, which is still the rule for the picture itself. But Android, other
+apps and Parley's own lists show a contact photo in a circle or square cut from the middle, so an off-centre face lost
+its top or its side. Google Contacts, Samsung and iOS all let you crop and reposition after picking; none of them keeps
+the whole picture as well.
+
+- **Photo menu.** Tapping the header photo opens one menu: **Choose photo** (the system photo picker), **Take photo**
+  and, with a photo, **Adjust framing** and a red **Remove photo**, then the line saying what Parley keeps.
+- **Take photo** asks the phone's camera app for one picture (`ActivityResultContracts.TakePicture` into a file of
+  Parley's cache shared through its FileProvider, `ContactCamera`), as Scan QR does: no camera permission. The file is
+  deleted once the contact is saved, when its framing is cancelled, and in any case after a day.
+- **Frame photo** (`PhotoFramer`) follows every new picture: the whole picture behind a dimmed cover with a circle cut
+  out (the square around it, faintly, is Android's thumbnail). Drag to move, pinch to zoom (up to 8×, never smaller
+  than 48 px of picture); the point under the fingers stays under them. Every gesture has a 48 dp button (zoom out, zoom
+  in, move left/up/down/right, Centre on face, Reset) for TalkBack and switch access; the area reads its zoom. The
+  picture area and the move buttons are laid out left to right in every language, so "left" is the screen's left. A
+  face found by Android's own on-device detector (`android.media.FaceDetector`, no library, no network) places the
+  first circle and enables Centre on face. **Use whole photo** keeps the 4.3 behaviour; ✕ drops the new picture.
+- **Saving.** The framed square (`PhotoFrame`, fractions of the upright picture; math in `FrameMath`, core/common) is
+  cut from the picture decoded at just the size it needs (`ContactPhotoProcessor.processFramed`) and written as
+  Android's photo, or as a private contact's sealed caller photo. The picture as picked is kept whole beside it
+  (`OriginalPhotos`) with its frame, so the contact page, the photo viewer and **Adjust framing** start from the whole
+  picture; the frame travels with Make private / Make visible. Adjusting only the framing writes a new square from the
+  kept original and keeps the original matched to it. A photo another app set (no original) is framed from Android's
+  copy. The editor's header shows the framed circle as the lists will.
+- **Everywhere the editor is**: device, private and temporary contacts. My card has no photo (it isn't shared), so it
+  has no photo menu.
