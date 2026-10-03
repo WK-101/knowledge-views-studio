@@ -3,11 +3,16 @@ package app.parley.data
 import android.content.ContentResolver
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Canvas
 import android.graphics.ImageDecoder
 import android.graphics.Matrix
+import android.graphics.Paint
+import android.graphics.Rect
 import android.net.Uri
 import android.util.Log
 import androidx.exifinterface.media.ExifInterface
+import app.parley.common.photo.FrameMath
+import app.parley.common.photo.PhotoFrame
 import app.parley.common.photo.PhotoMath
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
@@ -21,11 +26,17 @@ import java.nio.ByteBuffer
  * Android's contacts provider keeps (it scales and re-encodes whatever it is given; see
  * [app.parley.common.photo.OriginalPhoto]). Parley keeps the picture as picked in [app.parley.data.people.OriginalPhotos].
  *
+ * With a [PhotoFrame] ("Frame photo"), [processFramed] writes only the chosen square instead, for the avatar and
+ * Android's thumbnail; the picture as picked is still kept whole by [app.parley.data.people.OriginalPhotos].
+ *
  * [ImageDecoder] (Android 9+, so always here) reads JPEG, PNG, WebP, GIF and HEIF/HEIC and applies EXIF orientation
  * itself. When it can't read a file, [BitmapFactory] with `inSampleSize` and [ExifInterface] do the same job.
  */
 object ContactPhotoProcessor {
     private const val TAG = "PhotoProcessor"
+
+    /** Longer side to decode at for a frame when the picture's size can't be read first. */
+    private const val FRAME_DECODE_FALLBACK = 2048
 
     /** The processed JPEG for the picture at [source], or null when it can't be read as an image. */
     fun process(cr: ContentResolver, source: Uri, target: Int = PhotoMath.TARGET): ByteArray? =
@@ -37,6 +48,28 @@ object ContactPhotoProcessor {
         if (bytes.isEmpty()) return null
         return decode(ImageDecoder.createSource(ByteBuffer.wrap(bytes)), target)
             ?: fallback(target) { ByteArrayInputStream(bytes) }
+    }
+
+    /**
+     * The square [frame] of the picture at [source], upright, as a JPEG at most [target] px a side, or null when it
+     * can't be read. Only as many pixels as the square needs are decoded.
+     */
+    fun processFramed(cr: ContentResolver, source: Uri, frame: PhotoFrame, target: Int = PhotoMath.TARGET): ByteArray? {
+        val maxLong = size(cr, source)?.let { (w, h) -> FrameMath.decodeLongSide(maxOf(w, h), minOf(w, h), frame.side, target) } ?: FRAME_DECODE_FALLBACK
+        val bitmap = decodeBounded(cr, source, maxLong) ?: return null
+        return framed(bitmap, frame, target)
+    }
+
+    /** The square [frame] of an upright [bitmap] as a JPEG at most [target] px a side. */
+    fun framed(bitmap: Bitmap, frame: PhotoFrame, target: Int = PhotoMath.TARGET): ByteArray? = try {
+        val crop = FrameMath.toCrop(frame, bitmap.width, bitmap.height)
+        val side = FrameMath.outputSide(crop.width, target)
+        val out = Bitmap.createBitmap(side, side, Bitmap.Config.ARGB_8888)
+        Canvas(out).drawBitmap(bitmap, Rect(crop.left, crop.top, crop.right, crop.bottom), Rect(0, 0, side, side), Paint(Paint.FILTER_BITMAP_FLAG))
+        ByteArrayOutputStream().also { out.compress(Bitmap.CompressFormat.JPEG, PhotoMath.QUALITY, it) }.toByteArray().also { out.recycle() }
+    } catch (e: OutOfMemoryError) {
+        Log.w(TAG, "Photo too large to frame", e)
+        null
     }
 
     /**
