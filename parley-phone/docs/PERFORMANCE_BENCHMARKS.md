@@ -153,6 +153,17 @@ and look for the sections on Parley's process tracks.
 The release APK has a size budget of 12 MiB (the ≤ 12 MB target in docs/AUDIT.md §5): `./gradlew :app:checkReleaseApkSize`
 fails above it, and CI runs it.
 
+### Contacts search over every field
+
+The Contacts search looks at every field (`ContactSearch`, core/common). Each contact is prepared once, off the main
+thread, whenever the address book changes (`PeopleIndex`, which follows Android's change notifications): its texts
+folded, its numbers in their national and international digit forms. A keystroke then folds only the query and scans
+prepared strings. Measured with `ContactSearchSpeedTest` (core:common, 5,000 contacts with names, numbers, emails,
+addresses, work, notes, dates, relations, websites, custom fields and labels) and `PeopleIndexSearchTest` (core:data,
+Robolectric, 5,000 address-book contacts read through the index): about 1 ms per query (median; number queries a few
+ms), with a bound of 50 ms that the tests enforce. Private contacts are searched over their opened details, held in
+memory only (`PrivateSearch`); nothing is indexed on disk.
+
 ### 4.5: opening a private contact
 
 Reported on a phone: "a private contact opens slowly and takes a few seconds, a non-private contact opens quickly".

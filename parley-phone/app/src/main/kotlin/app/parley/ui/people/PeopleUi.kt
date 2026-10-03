@@ -4,7 +4,12 @@ import app.parley.common.PhoneIdentity
 import app.parley.common.ContactSummary
 import app.parley.common.people.FavoriteOrder
 import app.parley.common.people.FavoriteSort
-import app.parley.common.people.BroadSearch
+import app.parley.common.people.ContactSearch
+import app.parley.common.people.Facet
+import app.parley.common.people.FacetChoice
+import app.parley.common.people.FacetChoices
+import app.parley.common.people.FieldFilter
+import app.parley.common.people.SearchDocs
 import app.parley.common.people.LabelFilter
 import app.parley.common.people.NameOrder
 import app.parley.common.people.ContactRef
@@ -16,6 +21,7 @@ import app.parley.data.DataContainer
 import app.parley.data.people.PeopleIndexData
 import app.parley.data.people.PeopleSettings
 import app.parley.ui.common.Format
+import app.parley.security.AppLock
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
@@ -69,25 +75,81 @@ class PeopleUi(
     private val filteredCollator = newCollator()
     private val favoritesCollator = newCollator()
 
+    /** The Contacts search is open: the Filters chip shows (set by the home screen). */
+    val searchOpen = MutableStateFlow(false)
+
+    /** Private contacts' details, opened in memory while a search or filter is in use ([PrivateSearch]). */
+    val privateSearch = PrivateSearch(
+        c, scope,
+        combine(searchOpen, query, filter, includePrivate) { open, q, f, include -> include && (open || q.isNotBlank() || !f.fields.isEmpty) }
+            .stateIn(scope, SharingStarted.Eagerly, false),
+    )
+
     /**
-     * Contacts with nickname display applied, filtered by search, labels and account, with I8's "Matched: address"
-     * hints for contacts found by a field other than the name or number.
+     * Every listed contact's search doc: the address book's from the index, a private contact's from its opened
+     * details while they may be searched ([SearchDocs]); the rest are found by what the list shows.
+     */
+    private val docs: StateFlow<Map<Long, ContactSearch.Doc>> = combine(
+        c.people.index.data, privateSearch.docs, includePrivate, AppLock.locked,
+    ) { idx, priv, include, appLocked ->
+        val searchable = SearchDocs.privateDetailsSearchable(vaultOpen = priv.isNotEmpty(), discreet = !include, appLocked = appLocked)
+        SearchDocs.combine(idx.search, priv, searchable, discreet = !include)
+    }.flowOn(Dispatchers.Default).stateIn(scope, SharingStarted.Eagerly, emptyMap())
+
+    /** List ids of temporary contacts (the "Temporary" filter). */
+    private val temporaryIds: StateFlow<Set<Long>> = combine(contacts, c.temporaries.all, c.vault.contacts) { list, temps, vault ->
+        val byKey = list.orEmpty().associateBy({ it.lookupKey }, { it.id })
+        temps.mapNotNull { t -> byKey[t.lookupKey] ?: t.contactId }.toSet() +
+            vault.filter { it.expiresAt != null }.map { ContactRef.Private(it.id).navId }
+    }.flowOn(Dispatchers.Default).stateIn(scope, SharingStarted.WhileSubscribed(5_000), emptySet())
+
+    /**
+     * The listed contacts each with its doc and its name folded once per list change, so a keystroke folds only the
+     * query. A contact without a doc (a private one whose details are closed, or before the index loaded) gets one
+     * from what the list shows.
+     */
+    private val prepared: StateFlow<List<Prepared>?> = combine(
+        contacts.combine(privateOnly) { l, only -> if (only) l?.filter { it.id < 0 } else l }, docs,
+    ) { list, d ->
+        list?.map { ct ->
+            val doc = d[ct.id] ?: ContactSearch.Builder(ct.id, countryIso).apply {
+                // A shown name that is really a number or an email isn't a name ("No name" filter).
+                if (ct.displayName.any { it.isLetter() } && '@' !in ct.displayName) name(ct.displayName) else shownName(ct.displayName)
+                ct.phones.forEach { number(it.number) }
+                ct.emails.forEach { email(it) }
+            }.build()
+            Prepared(ct, ContactSearch.fold(listOfNotNull(ct.displayName, ct.displayNameAlt, ct.phoneticName).joinToString(" ")), doc)
+        }
+    }.flowOn(Dispatchers.Default).stateIn(scope, SharingStarted.WhileSubscribed(5_000), null)
+
+    private class Prepared(val contact: ContactSummary, val name: String, val doc: ContactSearch.Doc)
+
+    /** What each filter offers, from the values the listed contacts actually have (countries in use…). */
+    val filterChoices: StateFlow<Map<Facet, List<FacetChoice>>> = prepared.map { list ->
+        FacetChoices.from(list.orEmpty().map { it.doc.facets })
+    }.flowOn(Dispatchers.Default).stateIn(scope, SharingStarted.WhileSubscribed(5_000), emptyMap())
+
+    /**
+     * Contacts with nickname display applied, filtered by search, labels, account and the field filters, with
+     * "Matched: address" hints for contacts found by a field other than the name or number.
      */
     private val searched: StateFlow<Pair<List<ContactSummary>, Map<Long, String>>?> = combine(
-        contacts.combine(privateOnly) { l, only -> if (only) l?.filter { it.id < 0 } else l }, query.debounce(80), filter, index, settings,
-    ) { list, q, f, idx, s ->
+        prepared, query.debounce(80), filter, combine(index, temporaryIds, ::Pair), settings,
+    ) { list, q, f, (idx, temporary), s ->
         list ?: return@combine null
         val f2 = f.copy(matchAll = s.labelMatchAll)
+        val labelsOn = !(f2.labels.isEmpty() && !f2.unlabelled && f2.account == null)
+        val parsed = ContactSearch.Query(q)
+        val res = c.appContext.resources
         val hints = HashMap<Long, String>()
-        var shown = list.filter { ct ->
-            val e = idx.extras[ct.id]
-            if (!(f2.isEmpty || f2.matches(e))) return@filter false
-            if (q.isBlank()) return@filter true
-            // Addresses, notes, company, websites and handles too (Contacts search only, never the keypad).
-            val extra = idx.search[ct.id] ?: e?.let { BroadSearch.Extra(nickname = it.nickname, company = it.company, title = it.title) }
-            val field = BroadSearch.match(q, ct.displayName, ct.phones.map { it.number }, ct.emails, extra) ?: return@filter false
-            if (BroadSearch.explains(field)) hints[ct.id] = matchHint(c.appContext.resources, field)
-            true
+        var shown = list.mapNotNull { p ->
+            val ct = p.contact
+            if (labelsOn && !f2.matches(idx.extras[ct.id])) return@mapNotNull null
+            if (!f2.fields.isEmpty && !f2.fields.matches(p.doc.facets, photo = ct.photoUri != null, temporary = ct.id in temporary)) return@mapNotNull null
+            // Every field: addresses, notes, dates, relations, custom fields… (Contacts search only, never the keypad's T9).
+            val field = ContactSearch.match(parsed, p.doc, p.name) ?: return@mapNotNull null
+            if (ContactSearch.explains(field)) hints[ct.id] = matchHint(res, field)
+            ct
         }
         if (s.preferNickname) {
             shown = shown.map { ct -> NameOrder.renamed(ct, SecondLines.displayName(ct, idx.extras[ct.id], true)) }
@@ -149,6 +211,15 @@ class PeopleUi(
 
     fun clearFilter() {
         filter.value = LabelFilter()
+    }
+
+    /** Adds or removes one field filter's value (a country, "Has an email"…). */
+    fun toggleField(facet: Facet, key: String) {
+        filter.value = filter.value.let { it.copy(fields = it.fields.toggle(facet, key)) }
+    }
+
+    fun clearFields() {
+        filter.value = filter.value.copy(fields = FieldFilter())
     }
 
     /** Stores a new custom favourites order (and switches the sort to Custom). */

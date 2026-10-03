@@ -127,6 +127,9 @@ fun HomeScreen(
         circleQuery = ""
     }
 
+    // The Contacts search's Filters chip shows while its search is open.
+    LaunchedEffect(searching, tab) { vm.people.searchOpen.value = searching && tab == StartTab.CONTACTS }
+
     LaunchedEffect(tabRequest) {
         val r = tabRequest ?: return@LaunchedEffect
         // A request for a tab that another surface hosts opens that surface (tel:, ACTION_DIAL, shortcuts

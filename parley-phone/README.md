@@ -64,7 +64,7 @@ This project is independent of the rest of this repository.
 |---|---|---|
 | Favourites | Search (filters favourites and frequent) | — (sort and "Reorder" stay above the grid) |
 | Recents | Search, Call insights | Export…, Call list layout, Clear call history, What do the colours mean?; Speed dial with the keypad docked (filter chips, including **Voicemail** with its badge, and saved filters stay above the list) |
-| Contacts | Search (also addresses, notes, companies, websites, handles), Scan QR code, Labels, Lock now (with the app lock) | Select all, Add several numbers…, Find & merge duplicates, Reorder favourites (with favourites in Contacts) (label/account/private filter chips, "Temporary (n)" and the city chip **Who's in…** stay above the list, then "My card"; while you search a word the chip reads "People in …"); multi-select ⋮ adds "Introduce myself…" and "Copy as text" |
+| Contacts | Search (every field: names, numbers in any form, emails, addresses, work, dates, relations, notes, profiles and handles, custom fields, labels…, with "Matched: …"; a **Filters** chip while searching: country, city, company, label, account, private or temporary, birthday month, relation, language, custom field, has an email/address/photo, missing info), Scan QR code, Labels, Lock now (with the app lock) | Select all, Add several numbers…, Find & merge duplicates, Reorder favourites (with favourites in Contacts) (label/account/private filter chips, "Temporary (n)" and the city chip **Who's in…** stay above the list, then "My card"; while you search a word the chip reads "People in …"); multi-select ⋮ adds "Introduce myself…" and "Copy as text" |
 | Keypad | Search (all contacts), Speed dial | — |
 | Circle | Search | Circle settings |
 

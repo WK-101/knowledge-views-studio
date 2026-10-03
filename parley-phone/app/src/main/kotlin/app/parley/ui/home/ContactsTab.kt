@@ -65,6 +65,11 @@ import app.parley.common.ux.ListSections
 import app.parley.ui.ListSectionHeader
 import app.parley.ui.Spacing
 import app.parley.ui.ParleyListItem
+import app.parley.ui.Banner
+import app.parley.security.AppLock
+import androidx.fragment.app.FragmentActivity
+import androidx.activity.compose.LocalActivity
+import androidx.compose.material.icons.rounded.Lock
 
 fun sectionOf(name: String): String = ListSections.letterOf(name)
 
@@ -88,6 +93,7 @@ fun ContactsTab(vm: AppViewModel, open: (Destination) -> Unit, onReorderFavorite
     val chips: @Composable () -> Unit = { ContactsFilterChips(vm, showVault, settings.hideVault, open) }
     val peopleSettings by vm.people.settings.collectAsStateWithLifecycle()
     val hints by vm.people.searchHints.collectAsStateWithLifecycle()
+    val privateLocked = vm.people.privateSearch.locked.collectAsStateWithLifecycle().value && !settings.hideVault
     val index by vm.people.index.collectAsStateWithLifecycle()
     // The row's message button and a "Message" swipe use each person's usual way to message.
     val (quick, quickHost) = rememberQuickMessenger(vm)
@@ -118,6 +124,8 @@ fun ContactsTab(vm: AppViewModel, open: (Destination) -> Unit, onReorderFavorite
     Box(Modifier.fillMaxSize()) {
         LazyColumn(state = state, modifier = Modifier.fillMaxSize()) {
             item(key = "groups") { chips() }
+            // Searching or filtering while private contacts' details are locked: say so, with the unlock.
+            if (privateLocked && (query.isNotBlank() || !filter.fields.isEmpty)) item(key = "private-locked") { PrivateSearchLocked(vm) }
             if (showMe) item(key = "me") { MeCardRow(vm, open) }
             if (showFavorites) item(key = "favorites") { ContactsFavorites(vm, open, onReorder = onReorderFavorites) }
             if (showCircle) item(key = "circle") { CircleFavoritesSection(vm, open, "") }
@@ -263,6 +271,18 @@ fun ContactRow(
                 }
             }
         }) else null,
+    )
+}
+
+/** Private contacts' details are locked, so the search finds them by name and number only: one tap unlocks. */
+@Composable
+private fun PrivateSearchLocked(vm: AppViewModel) {
+    val activity = LocalActivity.current as? FragmentActivity
+    Banner(
+        stringResource(R.string.cs_private_locked),
+        icon = Icons.Rounded.Lock,
+        action = stringResource(R.string.cs_private_unlock).takeIf { activity != null },
+        onAction = { activity?.let { a -> AppLock.authenticateForVault(a) { ok -> if (ok) vm.people.privateSearch.retry() } } },
     )
 }
 
