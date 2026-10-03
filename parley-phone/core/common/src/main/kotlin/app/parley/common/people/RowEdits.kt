@@ -12,16 +12,18 @@ object RowEdits {
 
     sealed interface Op {
         val mime: String
-        data class Insert(override val mime: String, val values: Map<String, String?>) : Op
+        /** [replaces]: the saved row this one is written again for (to keep the chosen order), whose other columns it keeps. */
+        data class Insert(override val mime: String, val values: Map<String, String?>, val replaces: Long? = null) : Op
         data class Update(val id: Long, override val mime: String, val values: Map<String, String?>) : Op
         data class Delete(val id: Long, override val mime: String) : Op
     }
 
     /**
      * [before]: the rows as loaded (any kinds); [after]: the edited rows of [kinds] (id = the row it came from, null
-     * for new ones). Returns inserts, updates and deletes for [kinds] only.
+     * for new ones). Returns inserts, updates and deletes for [kinds] only. Rows in [rewrite] are deleted and inserted
+     * again at their place, so the rows read back in the edited order ([RowOrder.rewrite]).
      */
-    fun plan(before: List<Row>, after: List<Row>, kinds: Set<String>, locked: Set<Long> = emptySet()): List<Op> {
+    fun plan(before: List<Row>, after: List<Row>, kinds: Set<String>, locked: Set<Long> = emptySet(), rewrite: Set<Long> = emptySet()): List<Op> {
         val mine = before.filter { it.mime in kinds && it.id != null }
         val byId = mine.associateBy { it.id!! }
         val kept = after.mapNotNull { it.id }.toSet()
@@ -35,6 +37,10 @@ object RowEdits {
                 id != null && prev == null -> Unit // not one of this contact's rows of these kinds: never touched
                 id != null && id in locked -> Unit
                 id != null && row.isBlank -> ops += Op.Delete(id, prev!!.mime)
+                id != null && id in rewrite -> {
+                    ops += Op.Delete(id, prev!!.mime)
+                    ops += Op.Insert(row.mime, trimmed(row.values), replaces = id.takeIf { prev.mime == row.mime })
+                }
                 id != null && prev!!.mime != row.mime -> {
                     // The kind changed (e.g. an XMPP handle became a SIP address): replace the row.
                     ops += Op.Delete(id, prev.mime)

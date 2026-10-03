@@ -557,6 +557,8 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
             ),
             if (forEdit) "${Data.RAW_CONTACT_ID}=?" else "${Data.CONTACT_ID}=?",
             arrayOf(if (forEdit) target!!.id.toString() else contactId.toString()),
+            // The order rows were written in: the order the editor gave them (ContactRowOrder), as other apps list them.
+            sort = Data._ID,
         )?.use { c ->
             while (c.moveToNext()) {
                 val id = c.getLong(0)
@@ -811,6 +813,13 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
                 ops += ContentProviderOperation.newDelete(ContentUris.withAppendedId(Data.CONTENT_URI, id)).build()
                 changed += fieldName(mime)
             }
+            // Rows moved in the editor that must be written again, so each kind reads back in the order chosen.
+            val rewrite = ContactRowOrder.rewrite(original, edited, locked)
+            val kept = ContactRowOrder.columns(cr, rewrite)
+            fun replace(id: Long, mime: String, values: ContentValues) {
+                delete(id, mime)
+                insert(mime, ContentValues(kept[id] ?: ContentValues()).apply { putAll(values) })
+            }
             fun single(id: Long?, mime: String, blank: Boolean, values: ContentValues, same: Boolean = false) {
                 when {
                     id != null && blank -> delete(id, mime)
@@ -848,7 +857,7 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
                 o != null && t(o.pronouns) == t(edited.pronouns),
             )
             // Name parts, language and custom fields: Parley's rows (custom fields as Google's in a Google account).
-            ExtraRows.write(original, edited, targetType, ExtraRows.Writer(::insert, ::update, ::delete))
+            ExtraRows.write(original, edited, targetType, ExtraRows.Writer(::insert, ::update, ::delete, rewrite, ::replace))
             // The work row: only company, title and department are written; a row that still holds an office, a job
             // description or the like is kept with those cleared rather than deleted (see WorkRow).
             val orgId = original?.orgId
@@ -896,6 +905,7 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
                         prev.label?.takeIf { prev.type == 0 } == item.label?.takeIf { item.type == 0 }
                     when {
                         item.id != null && item.value.isBlank() -> delete(item.id, mime)
+                        item.id != null && item.id in rewrite -> replace(item.id, mime, v)
                         item.id != null && same -> Unit
                         item.id != null -> update(item.id, mime, v)
                         item.value.isNotBlank() -> insert(mime, v)
@@ -906,21 +916,22 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
             multi(original?.emails.orEmpty(), edited.emails, Email.CONTENT_ITEM_TYPE, Email.ADDRESS, Email.TYPE, Email.LABEL)
             multi(original?.websites.orEmpty(), edited.websites, Website.CONTENT_ITEM_TYPE, Website.URL, Website.TYPE, Website.LABEL)
             multi(original?.relations.orEmpty(), edited.relations, Relation.CONTENT_ITEM_TYPE, Relation.NAME, Relation.TYPE, Relation.LABEL)
-            ExtraRows.events(original?.events.orEmpty(), edited.events, ExtraRows.Writer(::insert, ::update, ::delete))
+            ExtraRows.events(original?.events.orEmpty(), edited.events, ExtraRows.Writer(::insert, ::update, ::delete, rewrite, ::replace))
 
             // Messenger handles. Only Im and SIP rows are planned, so no other row can be touched (see RowEdits).
             fun handleRow(h: HandleItem) = Handles.toColumns(h.handle).let { (m, v) -> RowEdits.Row(h.id, m, v) }
             val handleOps = RowEdits.plan(
                 original?.handles.orEmpty().map(::handleRow), edited.handles.map(::handleRow),
-                setOf(Im.CONTENT_ITEM_TYPE, SipAddress.CONTENT_ITEM_TYPE), locked,
+                setOf(Im.CONTENT_ITEM_TYPE, SipAddress.CONTENT_ITEM_TYPE), locked, rewrite,
             )
             fun cv(m: Map<String, String?>) = ContentValues().apply { m.forEach { (k, v) -> put(k, v) } }
             handleOps.forEach { op ->
                 when (op) {
                     is RowEdits.Op.Delete -> delete(op.id, op.mime)
                     is RowEdits.Op.Update -> update(op.id, op.mime, cv(op.values))
-                    // TYPE_OTHER (3) for both kinds, like other contacts apps.
-                    is RowEdits.Op.Insert -> insert(op.mime, cv(op.values).apply { put(Data.DATA2, 3) })
+                    // A moved handle keeps its other columns; a new one is TYPE_OTHER (3) for both kinds, like other contacts apps.
+                    is RowEdits.Op.Insert -> op.replaces?.let { id -> kept[id] }?.let { k -> insert(op.mime, ContentValues(k).apply { putAll(cv(op.values)) }) }
+                        ?: insert(op.mime, cv(op.values).apply { put(Data.DATA2, 3) })
                 }
             }
 
@@ -948,6 +959,7 @@ class ContactsRepository(private val context: Context, scope: CoroutineScope, st
                     listOf(a.street, a.poBox, a.neighborhood, a.city, a.region, a.postcode, a.country).map(::t)
                 when {
                     a.id != null && a.isBlank -> delete(a.id, StructuredPostal.CONTENT_ITEM_TYPE)
+                    a.id != null && a.id in rewrite -> replace(a.id, StructuredPostal.CONTENT_ITEM_TYPE, v)
                     a.id != null && same -> Unit
                     a.id != null -> update(a.id, StructuredPostal.CONTENT_ITEM_TYPE, v)
                     !a.isBlank -> insert(StructuredPostal.CONTENT_ITEM_TYPE, v)

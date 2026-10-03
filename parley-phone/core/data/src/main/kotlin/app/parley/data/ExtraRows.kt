@@ -18,6 +18,10 @@ internal object ExtraRows {
         val insert: (String, ContentValues) -> Unit,
         val update: (Long, String, ContentValues) -> Unit,
         val delete: (Long, String) -> Unit,
+        /** Saved rows to write again in place, so the kind reads back in the edited order ([app.parley.common.people.RowOrder.rewrite]). */
+        val rewrite: Set<Long> = emptySet(),
+        /** Deletes a row of [rewrite] and inserts it again with these values over its other columns. */
+        val replace: (Long, String, ContentValues) -> Unit = { id, mime, v -> delete(id, mime); insert(mime, v) },
     )
 
     private fun t(s: String?) = s.orEmpty().trim()
@@ -71,11 +75,12 @@ internal object ExtraRows {
             val prev = f.id?.let { old[it] }
             when {
                 f.id != null && f.isBlank -> w.delete(f.id, kind)
-                f.id != null && prev != null && t(prev.label) == t(f.label) && t(prev.value) == t(f.value) -> Unit
+                f.id != null && f.id !in w.rewrite && prev != null && t(prev.label) == t(f.label) && t(prev.value) == t(f.value) -> Unit
                 f.id != null && mime != kind -> {
                     w.delete(f.id, kind)
                     w.insert(mime, v)
                 }
+                f.id != null && f.id in w.rewrite -> w.replace(f.id, mime, v)
                 f.id != null -> w.update(f.id, mime, v)
                 !f.isBlank -> w.insert(mime, v)
             }
@@ -105,6 +110,7 @@ internal object ExtraRows {
             val same = prev != null && t(prev.date) == t(e.date) && prev.type == e.type && label(prev) == label(e) && sameCalendar
             when {
                 e.id != null && e.date.isBlank() -> w.delete(e.id, Event.CONTENT_ITEM_TYPE)
+                e.id != null && e.id in w.rewrite -> w.replace(e.id, Event.CONTENT_ITEM_TYPE, v)
                 e.id != null && same -> Unit
                 e.id != null -> w.update(e.id, Event.CONTENT_ITEM_TYPE, v)
                 e.date.isNotBlank() -> w.insert(Event.CONTENT_ITEM_TYPE, v)
