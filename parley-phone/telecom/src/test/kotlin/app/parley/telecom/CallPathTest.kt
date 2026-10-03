@@ -18,9 +18,8 @@ internal abstract class CallPathTest {
 
     @Before fun installDependencies() {
         TelecomGraph.install(deps)
-        // The clock starts again in every test while CallManager lives on: an earlier test's own silence request
-        // would read as a fresh echo. With no call up, answering them here changes nothing else.
-        repeat(ECHOES_LEFT_BEHIND) { CallManager.onSystemSilence() }
+        // CallManager lives on between tests: no silence echo or route listener carries over.
+        CallManager.resetForTest()
     }
 
     @After fun clearCalls() {
@@ -28,7 +27,7 @@ internal abstract class CallPathTest {
         CallManager.dismissDeclineBlock()
         CallManager.stopMenuReplay()
         CallManager.updateAudio(AudioUi())
-        CallManager.routeRequests = { CallManager.service?.requestRoute(it) }
+        CallManager.resetForTest()
         ScreeningGuard.forgetDecisions()
     }
 
@@ -76,9 +75,4 @@ internal abstract class CallPathTest {
 
     /** The ended call the call-ended screen shows. */
     protected fun ended(): CallUi = CallManager.lastEnded.value ?: error("no ended call")
-
-    private companion object {
-        /** More than any one test asks Telecom to silence the ringer. */
-        const val ECHOES_LEFT_BEHIND = 8
-    }
 }

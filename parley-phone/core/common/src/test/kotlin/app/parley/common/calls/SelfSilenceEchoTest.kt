@@ -39,4 +39,12 @@ class SelfSilenceEchoTest {
         echo.noted(50_000)
         assertFalse(echo.consumed(40_000))
     }
+
+    @Test fun forgotten_requests_never_swallow_a_silence() {
+        val echo = SelfSilenceEcho()
+        echo.noted(1_000)
+        echo.noted(1_001)
+        echo.forget()
+        assertFalse(echo.consumed(1_002))
+    }
 }

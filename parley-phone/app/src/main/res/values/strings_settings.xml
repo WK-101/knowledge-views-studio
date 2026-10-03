@@ -384,8 +384,6 @@
     <string name="set_group_navigation_bar">Navigation bar</string>
     <string name="set_group_lists">Lists</string>
     <string name="set_group_names">Names</string>
-    <string name="set_group_answering">Answering and calling</string>
-    <string name="set_group_sims">SIMs and carrier</string>
     <string name="set_group_feedback">Feedback</string>
     <string name="set_group_keys">Keys</string>
     <string name="set_group_lists_rules">Lists and rules</string>
@@ -542,7 +540,6 @@
     <string name="set_call_time_no_limits">no limits</string>
     <string name="set_call_time_supervised">supervised</string>
     <string name="set_group_missed_voicemail">Missed calls and voicemail</string>
-    <string name="set_group_during_calls">During calls</string>
     <!-- Settings › Calls: its own pages, so the Calls page stays a short list. -->
     <string name="set_calls_answering_title">Answering</string>
     <string name="set_calls_answering_summary">How you answer, ringtones, auto-answer and RTT</string>
@@ -823,6 +820,8 @@
     <string name="set_advanced_show">Show advanced settings</string>
     <string name="set_advanced_hide">Hide advanced settings</string>
     <string name="set_group_circle">Circle: keeping in touch</string>
+    <string name="set_circle_reminders_title">Keep-in-touch reminders</string>
+    <string name="set_circle_reminders_summary">How and when they arrive, on Reminders</string>
     <string name="set_delete_all_data_title">Delete all Parley data</string>
     <string name="set_delete_all_data_summary">Everything Parley keeps on this phone, after an optional backup</string>
     <string name="set_delete_all_data_kw">erase, wipe, reset, clear data, forget, start over, remove everything</string>

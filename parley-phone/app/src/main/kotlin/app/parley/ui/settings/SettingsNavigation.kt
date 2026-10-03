@@ -27,12 +27,10 @@ fun NavGraphBuilder.settingsGraph(nav: NavController) {
     composable<Routes.Settings> { SettingsScreen(appVm(), back = back, open = open) }
     composable<Routes.SettingsPage> {
         val a = it.toRoute<Routes.SettingsPage>()
-        val category = SettingsCategory.entries.firstOrNull { c -> c.name == a.category } ?: SettingsCategory.APPEARANCE
-        // Old links to a reminder setting on its category page (Circle settings, birthday reminders) open Reminders.
-        if (a.focus != null && SettingsCatalog.entries.any { e -> e.key == a.focus && e.place == SettingPlace.REMINDERS }) {
-            RemindersScreen(appVm(), a.focus, back = back, open = open)
-        } else {
-            SettingsPageScreen(appVm(), category, a.focus, back = back, open = open)
+        when (val t = settingsPageTarget(a.category, a.focus)) {
+            is SettingsPageTarget.Category -> SettingsPageScreen(appVm(), t.category, t.focus, back = back, open = open)
+            is SettingsPageTarget.Reminders -> RemindersScreen(appVm(), t.focus, back = back, open = open)
+            is SettingsPageTarget.Calls -> CallsSubPageScreen(appVm(), t.page, t.focus, back = back, open = open)
         }
     }
     composable<RemindersRoutes.Page> { RemindersScreen(appVm(), it.toRoute<RemindersRoutes.Page>().focus, back = back, open = open) }
@@ -53,4 +51,28 @@ fun NavGraphBuilder.settingsGraph(nav: NavController) {
     }
     composable<AppLockRoutes.UnlockWith> { UnlockWithScreen(appVm(), back = back) }
     composable<Routes.Journal> { HistoryHubScreen(appVm(), HistoryTab.of(it.toRoute<Routes.Journal>().tab), back = back, open = open) }
+}
+
+/** What a [Routes.SettingsPage] link opens. */
+internal sealed interface SettingsPageTarget {
+    data class Category(val category: SettingsCategory, val focus: String?) : SettingsPageTarget
+
+    data class Reminders(val focus: String) : SettingsPageTarget
+
+    data class Calls(val page: CallsSubPage, val focus: String) : SettingsPageTarget
+}
+
+/**
+ * Where a link to [categoryName]'s page with [focus] lands. A setting that moved off its category page hands over to
+ * where it lives now, scrolled to and highlighting its row: a reminder to Reminders, and a Calls setting to the Calls
+ * page that holds it. Old links (a restored back stack, a menu, a notification) then still find the row. Another
+ * page that keeps a row with the same key (Call time's "SIMs & plan minutes") keeps it.
+ */
+internal fun settingsPageTarget(categoryName: String, focus: String?): SettingsPageTarget {
+    val category = SettingsCategory.entries.firstOrNull { it.name == categoryName } ?: SettingsCategory.APPEARANCE
+    val place = focus?.let { f -> SettingsCatalog.entries.firstOrNull { it.key == f }?.place }
+    if (focus == null || place == null) return SettingsPageTarget.Category(category, focus)
+    if (place == SettingPlace.REMINDERS) return SettingsPageTarget.Reminders(focus)
+    val calls = CallsSubPage.at(place)?.takeIf { category == SettingsCategory.CALLS }
+    return if (calls != null) SettingsPageTarget.Calls(calls, focus) else SettingsPageTarget.Category(category, focus)
 }

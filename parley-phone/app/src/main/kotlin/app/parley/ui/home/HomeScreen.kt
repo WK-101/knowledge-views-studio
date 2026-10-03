@@ -328,7 +328,8 @@ private fun ColumnScope.TabMenu(vm: AppViewModel, tab: StartTab, appLock: Boolea
         }
         StartTab.KEYPAD -> Unit
         StartTab.CIRCLE -> {
-            MenuItem(stringResource(R.string.circle_settings), Icons.Rounded.Tune) { go(Routes.settingsPage(SettingsCategory.CONTACTS, "circle_delivery")) }
+            // Contacts › Circle: its own setting, and a link to how keep-in-touch reminders arrive (on Reminders).
+            MenuItem(stringResource(R.string.circle_settings), Icons.Rounded.Tune) { go(Routes.settingsPage(SettingsCategory.CONTACTS, "log_prompts")) }
         }
         // "Who's in…" is the Contacts search's city chip now, not an item of these menus.
         StartTab.FAVORITES -> Unit
