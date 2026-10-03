@@ -16,6 +16,9 @@ import com.wkhan.hexis.voice.capture.VoiceCaptureService
 
 import com.whispercpp.whisper.WhisperContext
 
+import java.util.concurrent.Executors
+import java.util.concurrent.ScheduledFuture
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
@@ -37,6 +40,14 @@ class WhisperSttEngine(private val context: Context) : SttEngine {
     @Volatile private var captureThread: Thread? = null
     private val recording = AtomicBoolean(false)
     @Volatile private var cancelled = false
+
+    // Idle eviction: the model is kept warm only for a short window after the last use, then released so
+    // the addon process doesn't sit on ~100-300 MB of native memory for its whole life (which also made
+    // it a prime low-memory kill target). The service also releases on onTrimMemory / onDestroy.
+    private val evictor = Executors.newSingleThreadScheduledExecutor { r ->
+        Thread(r, "whisper-evictor").apply { isDaemon = true }
+    }
+    @Volatile private var evictFuture: ScheduledFuture<*>? = null
 
     override fun capabilities(): SttCapabilities = SttCapabilities(
         engineId = "whisper.cpp",
@@ -73,6 +84,7 @@ class WhisperSttEngine(private val context: Context) : SttEngine {
         }
         if (recording.get()) cancel("")
         cancelled = false
+        cancelEviction() // a new capture is starting — keep (or re-create) the warm model
         val id = "whisper-${System.nanoTime()}"
         // Load the model while the user is already speaking → instant open, transcribe is ready at stop.
         Thread({ runCatching { ensureContext() } }, "whisper-warm").start()
@@ -143,6 +155,7 @@ class WhisperSttEngine(private val context: Context) : SttEngine {
             recording.set(false)
             record?.let { runCatching { it.stop() }; runCatching { it.release() } }
             stopCaptureForeground()
+            scheduleEviction() // release the warm model if no further capture arrives soon
         }
     }
 
@@ -167,6 +180,27 @@ class WhisperSttEngine(private val context: Context) : SttEngine {
         captureThread?.let { runCatching { it.join(JOIN_TIMEOUT_MS) } }
     }
 
+    /** Free the native whisper context now (called on memory pressure / service teardown / idle). */
+    @Synchronized
+    override fun release() {
+        evictFuture?.cancel(false)
+        evictFuture = null
+        whisper?.let { ctx -> runCatching { ctx.releaseBlocking() } }
+        whisper = null
+    }
+
+    private fun cancelEviction() {
+        evictFuture?.cancel(false)
+        evictFuture = null
+    }
+
+    private fun scheduleEviction() {
+        evictFuture?.cancel(false)
+        evictFuture = runCatching {
+            evictor.schedule({ if (!recording.get()) release() }, IDLE_EVICT_MS, TimeUnit.MILLISECONDS)
+        }.getOrNull()
+    }
+
     private fun startCaptureForeground() {
         runCatching {
             context.startForegroundService(Intent(context, VoiceCaptureService::class.java))
@@ -187,5 +221,6 @@ class WhisperSttEngine(private val context: Context) : SttEngine {
         const val MAX_SAMPLES = SAMPLE_RATE * 60 // 60s safety cap on a single utterance
         const val MIN_SAMPLES = SAMPLE_RATE / 4 // ignore < 0.25s (accidental taps)
         const val MAX_PROMPT_CHARS = 600
+        const val IDLE_EVICT_MS = 45_000L // keep the model warm this long after a capture, then free it
     }
 }

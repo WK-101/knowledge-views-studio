@@ -20,6 +20,10 @@
     <!-- R59 (Wave 3): silence notifications (Do Not Disturb) during a Focus session. A local capability only
          (no network, no location); it takes effect only after the user grants DND access in system settings. -->
     <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
+    <!-- F9 — signature-level permission the Hexis Voice addon defines on its bridge service. Granted only
+         because the core and the addon share a signing key; harmless (ungranted, unused) when the addon
+         isn't installed. Lets the OS block a mismatched-signature binder before our in-code check runs. -->
+    <uses-permission android:name="com.wkhan.hexis.voice.permission.BIND_BRIDGE" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <!--
       NO storage or media permission is declared. Attaching files, restoring backups and importing all

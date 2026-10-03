@@ -1,11 +1,11 @@
 package com.wkhan.hexis.addon
 
 import android.content.Context
-import android.content.pm.ApplicationInfo
 
 import com.wkhan.hexis.bridge.Capabilities
 import com.wkhan.hexis.bridge.client.BridgeDiscovery
 import com.wkhan.hexis.bridge.client.DiscoveredProvider
+import com.wkhan.hexis.bridge.security.BridgeTrust
 import com.wkhan.hexis.data.AppDatabase
 import com.wkhan.hexis.data.entity.BridgeAuditEntity
 import com.wkhan.hexis.data.entity.SettingEntity
@@ -32,16 +32,11 @@ class BridgeRegistry(
     private val settings = db.settingDao()
     private val auditDao = db.bridgeAuditDao()
 
-    /** SHA-256 signing-certificate digests of addon builds the core trusts. */
-    private val pinnedKeyset: Set<String> = setOf(
-        // Hexis release signing certificate (first-party addons ship signed by the same keyset).
-        "24739ee4974cb6ac2a2a517f47c2876101ae0c6cdc9c4414ce9fabc2dd6e3f96",
-        // TODO(Phase 1): add the F-Droid reproducible-build certificate digest.
-    )
+    /** SHA-256 signing-certificate digests of addon builds the core trusts (shared, single source). */
+    private val pinnedKeyset: Set<String> = BridgeTrust.HEXIS_KEYSET
 
     /** Release enforces the keyset; a debuggable build relaxes it so a debug-signed addon can connect. */
-    private val requireTrust: Boolean =
-        (context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) == 0
+    private val requireTrust: Boolean = BridgeTrust.requireSignatureTrust(context)
 
     // ---- Discovery ------------------------------------------------------------------------------
 

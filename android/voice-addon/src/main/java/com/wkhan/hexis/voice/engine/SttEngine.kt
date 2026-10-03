@@ -22,6 +22,9 @@ interface SttEngine {
     fun stop(sessionId: String)
 
     fun cancel(sessionId: String)
+
+    /** Free any heavyweight native resources (e.g. the loaded model). Default: nothing to release. */
+    fun release() {}
 }
 
 interface SttListener {

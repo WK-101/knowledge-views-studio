@@ -50,6 +50,9 @@ class WhisperContext private constructor(private var ptr: Long) {
         }
     }
 
+    /** Blocking convenience for non-coroutine callers (keeps the coroutines dependency inside :whisper). */
+    fun releaseBlocking() = runBlocking { release() }
+
     protected fun finalize() {
         runBlocking { release() }
     }

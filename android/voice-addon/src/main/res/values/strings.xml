@@ -2,8 +2,12 @@
 <resources>
     <string name="app_name">Hexis Voice</string>
     <string name="consent_title">Hexis Voice</string>
+    <string name="consent_message">“%1$s” wants to use Hexis Voice for speech-to-text.\n\nThe microphone and recording stay inside this addon — only the recognized text is sent back. You can revoke this anytime in Hexis → Settings → Addon bridges.</string>
+    <string name="consent_allow">Allow</string>
+    <string name="consent_deny">Deny</string>
     <string name="capture_channel_name">Voice capture</string>
     <string name="capture_notification_title">Hexis Voice is listening</string>
+    <string name="capture_stop">Stop</string>
 
     <string name="import_title">Install voice model</string>
     <string name="import_intro">Pick the voice-model file — or select all its parts at once if it was split for transfer. It\'s copied into this addon\'s private storage; nothing is sent anywhere.</string>

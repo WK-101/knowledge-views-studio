@@ -10,6 +10,13 @@
 
     <uses-feature android:name="android.hardware.microphone" android:required="false" />
 
+    <!-- F9 — signature-level gate on the bridge provider: the OS itself only lets a same-signed caller
+         (the Hexis core) bind the service, before our in-code keyset check even runs. Defined here and
+         required on the service below; the core declares the matching <uses-permission>. -->
+    <permission
+        android:name="com.wkhan.hexis.voice.permission.BIND_BRIDGE"
+        android:protectionLevel="signature" />
+
     <!-- No launcher activity: the addon has no launchable surface. It is reached only via the bridge
          and the consent deep-link from the core. -->
     <application
@@ -21,7 +28,8 @@
              Verifies the caller itself (BridgeProviderService) before acting. -->
         <service
             android:name=".bridge.VoiceBridgeService"
-            android:exported="true">
+            android:exported="true"
+            android:permission="com.wkhan.hexis.voice.permission.BIND_BRIDGE">
             <intent-filter>
                 <action android:name="com.wkhan.hexis.bridge.PROVIDER" />
             </intent-filter>
@@ -60,6 +68,7 @@
             android:name=".consent.ConsentActivity"
             android:exported="true"
             android:excludeFromRecents="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"
             android:label="@string/consent_title">
             <intent-filter>
                 <action android:name="com.wkhan.hexis.bridge.CONSENT" />
