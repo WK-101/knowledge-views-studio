@@ -80,6 +80,8 @@ class App : Application() {
             // and task + note reminders were previously re-armed only from those receivers.
             runCatchingLogged("rescheduleAll") { com.wkhan.hexis.reminders.AlarmScheduler.rescheduleAll(this@App, repository) }
             runCatchingLogged("rescheduleNoteReminders") { com.wkhan.hexis.reminders.AlarmScheduler.rescheduleAllNoteReminders(this@App, repository) }
+            // Re-post the opt-in quick-capture notification on start (survives a force-stop / shade clear).
+            runCatchingLogged("quickReplyNotif") { com.wkhan.hexis.capture.QuickReplyNotification.repostIfEnabled(this@App) }
             // (Re)arm per-habit reminder alarms for this device's current day. Cheap; self-healing.
             runCatchingLogged("scheduleHabitReminders") { com.wkhan.hexis.reminders.AlarmScheduler.scheduleHabitReminders(this@App, repository) }
             // (Re)arm press-play routine daily nudges the same way.

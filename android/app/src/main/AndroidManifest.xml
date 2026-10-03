@@ -713,6 +713,18 @@
             </intent-filter>
         </service>
 
+        <!-- Quick Settings tile → voice capture popup (needs the voice addon). Offline. -->
+        <service
+            android:name=".tiles.VoiceTileService"
+            android:exported="true"
+            android:icon="@drawable/wic_voice"
+            android:label="@string/tile_voice_label"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
         <!-- Round 13: Quick Settings tile — stop the running timer, or jump into Time. Offline. -->
         <service
             android:name=".tiles.TrackTileService"
@@ -736,6 +748,12 @@
                 <action android:name="android.service.quicksettings.action.QS_TILE" />
             </intent-filter>
         </service>
+
+        <!-- Receives the quick-capture notification's inline reply (dictate/type a task). Not exported;
+             it is triggered only by our own PendingIntent. -->
+        <receiver
+            android:name=".capture.CaptureReplyReceiver"
+            android:exported="false" />
 
         <!-- Fires scheduled reminder / summary / habit notifications. Not exported. -->
         <receiver

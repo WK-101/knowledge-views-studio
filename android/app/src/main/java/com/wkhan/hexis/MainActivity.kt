@@ -258,6 +258,7 @@ class MainActivity : FragmentActivity() {
                 "note" -> return "new_note"
                 "daily" -> return "new_daily_note"
                 "journal" -> return "open_journal"
+                "voice" -> return "voice_capture"
             }
         }
         val shared = when (intent.action) {

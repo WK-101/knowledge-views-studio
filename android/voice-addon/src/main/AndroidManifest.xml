@@ -48,6 +48,21 @@
             android:exported="false"
             android:foregroundServiceType="microphone" />
 
+        <!-- Dictation keyboard (IME): on-device whisper transcription typed into any field in any app.
+             The user enables it in system keyboard settings. BIND_INPUT_METHOD is a system-only bind. -->
+        <service
+            android:name=".ime.VoiceImeService"
+            android:exported="true"
+            android:label="@string/ime_label"
+            android:permission="android.permission.BIND_INPUT_METHOD">
+            <intent-filter>
+                <action android:name="android.view.InputMethod" />
+            </intent-filter>
+            <meta-data
+                android:name="android.view.im"
+                android:resource="@xml/method" />
+        </service>
+
         <!-- Model-import surface (no launcher). Launched by the core; the user picks a model .zip via
              SAF and the addon copies it into its own private storage. No network — the addon never
              downloads a model, which is how it keeps zero network permissions. -->

@@ -19,4 +19,21 @@
     <string name="import_no_access">Android wouldn\'t let the addon read that file. It\'s on storage apps can\'t reach (a USB/MTP transfer or an SD card). Save both parts to this phone\'s internal Download folder — e.g. download them again directly on the phone, or in the Files app copy them to Internal storage › Download — then pick them from there.</string>
     <string name="import_retry">Try again</string>
     <string name="import_finish">Done</string>
+
+    <!-- Dictation keyboard (IME). -->
+    <string name="ime_label">Hexis Voice keyboard</string>
+    <string name="ime_subtype_en">English (voice)</string>
+    <string name="ime_hint">Tap the mic and speak — the text is typed into the field.</string>
+    <string name="ime_mic_start">🎙  Tap to speak</string>
+    <string name="ime_mic_stop">■  Stop</string>
+    <string name="ime_listening">Listening… tap Stop when done.</string>
+    <string name="ime_transcribing">Transcribing…</string>
+    <string name="ime_nothing">Didn\'t catch that — try again.</string>
+    <string name="ime_no_model">Install a voice model in Hexis → Settings → Addon bridges first.</string>
+    <string name="ime_no_mic">Microphone permission was denied.</string>
+    <string name="ime_error">Something went wrong. Try again.</string>
+    <string name="ime_switch">⌨</string>
+    <string name="ime_space">space</string>
+    <string name="ime_backspace">⌫</string>
+    <string name="ime_enter">↵</string>
 </resources>

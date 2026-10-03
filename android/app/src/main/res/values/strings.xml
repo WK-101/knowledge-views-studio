@@ -57,6 +57,17 @@
     <string name="widget_note_title">NOTES</string>
     <string name="tile_track_label">Track time</string>
     <string name="tile_habit_label">Check off habit</string>
+    <string name="tile_voice_label">Voice capture</string>
+    <!-- Quick-capture notification (dictate via the system keyboard; no mic permission in the core). -->
+    <string name="quick_reply_channel">Quick capture</string>
+    <string name="quick_reply_title">Hexis quick capture</string>
+    <string name="quick_reply_text">Tap to speak or type a task — it\'s added instantly.</string>
+    <string name="quick_reply_action">Add a task</string>
+    <string name="quick_reply_hint">Say or type a task…</string>
+    <string name="quick_reply_added">Task added</string>
+    <!-- Voice dictation launcher shortcut. -->
+    <string name="sc_voice_short">Dictate</string>
+    <string name="sc_voice_long">Voice capture</string>
     <!-- R17: launcher long-press shortcuts. -->
     <string name="sc_quick_add_short">Quick add</string>
     <string name="sc_quick_add_long">Add a task</string>

@@ -13,6 +13,18 @@
             android:data="hexis://add" />
     </shortcut>
     <shortcut
+        android:shortcutId="voice_capture"
+        android:enabled="true"
+        android:icon="@drawable/wic_voice"
+        android:shortcutShortLabel="@string/sc_voice_short"
+        android:shortcutLongLabel="@string/sc_voice_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.wkhan.hexis"
+            android:targetClass="com.wkhan.hexis.MainActivity"
+            android:data="hexis://voice" />
+    </shortcut>
+    <shortcut
         android:shortcutId="open_today"
         android:enabled="true"
         android:icon="@drawable/sc_today"

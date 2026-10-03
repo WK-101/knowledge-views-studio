@@ -433,6 +433,21 @@ fun SettingsScreen(vm: AppViewModel, modifier: Modifier = Modifier) {
                 Action("Transcribe an audio file") { transcribeFile.launch(arrayOf("audio/*")) }
             }
 
+            // A capture surface that needs no addon and no mic permission: the system keyboard's own
+            // dictation, reached from an ongoing notification. Independent of the voice addon above.
+            Spacer(Modifier.height(8.dp))
+            Sub("Quick-capture notification")
+            var replyOn by remember { mutableStateOf(com.wkhan.hexis.capture.QuickReplyNotification.isEnabled(context)) }
+            Toggle("Show a quick-capture notification", replyOn) { on ->
+                replyOn = on
+                com.wkhan.hexis.capture.QuickReplyNotification.setEnabled(context, on)
+            }
+            Text(
+                "Dictate or type a task straight from the notification shade using your keyboard — no addon, no microphone permission.",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
             if (bridge.grantedVoicePackage != null) {
                 Spacer(Modifier.height(8.dp))
                 Action("Revoke all (kill switch)") { confirmRevoke = true }

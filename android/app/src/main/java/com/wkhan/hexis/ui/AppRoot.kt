@@ -734,6 +734,12 @@ fun AppRoot(
                 a == "new_note" -> { vm.createNote { id -> editingNote = id }; launchAction.value = null }
                 a == "new_daily_note" -> { vm.openDailyNote(java.time.LocalDate.now().toEpochDay()) { id -> editingNote = id }; launchAction.value = null }
                 a == "open_journal" -> { argOverlay = OverlayArg.Journal(com.wkhan.hexis.domain.PeriodRange.DAY, java.time.LocalDate.now().toEpochDay()); launchAction.value = null }
+                // Voice launcher shortcut / deep link: start push-to-talk if the addon is connected, else
+                // send the user to Settings where they can install/connect it.
+                a == "voice_capture" -> {
+                    if (vm.voiceAvailable.value) vm.startVoiceCapture() else tab = Tab.SETTINGS
+                    launchAction.value = null
+                }
                 // Quick-bar voice popup routed a transcript to whole-app search / the command palette.
                 a != null && a.startsWith("voice_search:") -> { searchQuery = a.removePrefix("voice_search:"); tab = Tab.SEARCH; launchAction.value = null }
                 a != null && a.startsWith("voice_command:") -> { paletteInitial = a.removePrefix("voice_command:"); showPalette = true; launchAction.value = null }
