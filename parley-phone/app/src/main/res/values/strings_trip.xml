@@ -14,6 +14,8 @@
     <string name="trip_reason_number">Number from there</string>
     <string name="trip_reason_note">Mentioned in a note</string>
     <string name="trip_menu">Who\'s in…</string>
+    <!-- The Contacts search's city scope: the people tied to the typed city. -->
+    <string name="trip_chip_query">People in %1$s</string>
     <plurals name="trip_summary_more">
         <item quantity="one">You\'re in %1$s: %2$s and %3$d more</item>
         <item quantity="other">You\'re in %1$s: %2$s and %3$d more</item>

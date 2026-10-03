@@ -14,6 +14,7 @@ import androidx.compose.material.icons.automirrored.rounded.Label
 import androidx.compose.material.icons.automirrored.rounded.OpenInNew
 import androidx.compose.material.icons.rounded.AccountCircle
 import androidx.compose.material.icons.rounded.ArrowDropDown
+import androidx.compose.material.icons.rounded.LocationCity
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.DropdownMenu
@@ -34,11 +35,12 @@ import app.parley.AppViewModel
 import androidx.compose.ui.res.stringResource
 import app.parley.R
 import app.parley.ui.Routes
+import app.parley.ui.extras.ExtrasRoutes
 import app.parley.ui.temporary.rememberTemporaryItems
 
 /**
  * Contacts-tab filter row: All · Private · Unlabelled · labels (multi-select, AND/OR) · account, plus shortcuts
- * to the selected label's page and to label management.
+ * to the selected label's page, to label management and to the city scope ("Who's in…").
  */
 @Composable
 fun ContactsFilterChips(vm: AppViewModel, showVault: Boolean, vaultHidden: Boolean, open: (Destination) -> Unit) {
@@ -47,12 +49,16 @@ fun ContactsFilterChips(vm: AppViewModel, showVault: Boolean, vaultHidden: Boole
     val s by vm.people.settings.collectAsStateWithLifecycle()
     val accounts by vm.people.accountChoices.collectAsStateWithLifecycle()
     val labels = idx.labelCounts.keys.sortedBy { it.lowercase() }
+    val query by vm.contactQuery.collectAsStateWithLifecycle()
+    val cityQuery = query.trim().takeIf { q -> q.any { it.isLetter() } }
     Row(
         Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         FilterChip(filter.isEmpty && !showVault, { vm.showVault.value = false; vm.people.clearFilter() }, label = { Text(stringResource(R.string.ppl_chip_all)) })
+        // While a word is searched, the city scope comes first: the people tied to that city.
+        if (cityQuery != null) CityChip(vm, cityQuery, open)
         if (!vaultHidden) {
             FilterChip(
                 showVault, { vm.showVault.value = !showVault; vm.people.clearFilter() },
@@ -101,6 +107,7 @@ fun ContactsFilterChips(vm: AppViewModel, showVault: Boolean, vaultHidden: Boole
             )
         }
         AssistChip(onClick = { open(PeopleRoutes.Labels) }, label = { Text(stringResource(R.string.ppl_chip_labels)) }, leadingIcon = { Icon(Icons.AutoMirrored.Rounded.Label, null, Modifier.size(16.dp)) })
+        if (cityQuery == null) CityChip(vm, null, open)
         // Contacts that delete themselves: shown only when there are some.
         val temporary = rememberTemporaryItems(vm).size
         if (temporary > 0) {
@@ -111,4 +118,20 @@ fun ContactsFilterChips(vm: AppViewModel, showVault: Boolean, vaultHidden: Boole
             )
         }
     }
+}
+
+/**
+ * The search's city scope ("Who's in…"): the people whose address, notes or number tie them to a city. With [city]
+ * (the words searched) it opens on that city; without, on the last one.
+ */
+@Composable
+private fun CityChip(vm: AppViewModel, city: String?, open: (Destination) -> Unit) {
+    AssistChip(
+        onClick = {
+            if (city != null) vm.c.extras.lastTripCity = city
+            open(ExtrasRoutes.Trip)
+        },
+        label = { Text(if (city != null) stringResource(R.string.trip_chip_query, city) else stringResource(R.string.trip_menu)) },
+        leadingIcon = { Icon(Icons.Rounded.LocationCity, null, Modifier.size(16.dp)) },
+    )
 }
