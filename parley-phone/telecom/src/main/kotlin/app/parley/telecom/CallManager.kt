@@ -625,6 +625,7 @@ object CallManager {
             number = number,
             hidden = hidden,
             name = found?.name ?: d.contactDisplayNameCompat() ?: d.callerDisplayName?.takeIf { it.isNotBlank() },
+            savedCaller = savedCaller(found, d),
             label = found?.label,
             photoUri = found?.photoUri,
             backgroundUri = found?.backgroundUri,
@@ -680,6 +681,9 @@ object CallManager {
         ).withRangThrough(s)
     }
 
+    /** The caller is a contact or a private contact (found by the lookup, or named by Telecom from the contacts). */
+    private fun savedCaller(found: CallerDisplay?, d: Call.Details): Boolean = found != null || d.contactDisplayNameCompat() != null
+
     /** Why a call rings silently when it isn't a blocking rule: an allowance used up, or the drive profile (I11). */
     private fun silenceReasonOf(s: CallSession): String? = when {
         s.quotaSilenced -> str(R.string.call_silenced_quota)
@@ -702,13 +706,13 @@ object CallManager {
         return copy(rangThrough = text, rangThroughUnlocked = expectedNoteText(s.outcome?.rangThrough), verdict = verdict.takeIf { verdictWarn })
     }
 
+    /** An incoming call offered with video (answered audio-only all the same). */
+    private fun incomingVideo(d: Call.Details): Boolean = d.callDirection == Call.Details.DIRECTION_INCOMING && VideoProfile.isVideo(d.videoState)
+
     /**
      * What a call reports while it goes on, kept for its facts: Wi-Fi calling, HD voice and the SIM while connected
      * (Telecom clears them as the call ends), and the caller's subject and priority, which some networks send late.
      */
-    /** An incoming call offered with video (answered audio-only all the same). */
-    private fun incomingVideo(d: Call.Details): Boolean = d.callDirection == Call.Details.DIRECTION_INCOMING && VideoProfile.isVideo(d.videoState)
-
     private fun noteFacts(c: Call, s: CallSession, st: CallState) {
         val d = c.details
         // Kept once seen: answering audio-only turns the call's video state off.

@@ -112,6 +112,7 @@ import app.parley.telecom.RouteType
 import app.parley.telecom.RttUi
 import app.parley.telecom.TelecomGraph
 import app.parley.telecom.live
+import app.parley.telecom.shownFor
 import app.parley.ui.Avatar
 import app.parley.ui.Bidi
 import app.parley.ui.CallColors
@@ -336,7 +337,7 @@ private fun CallerSection(s: ScreenState, sheets: InCallSheets, a: ScreenActions
         ended = primary == null,
         onOpenContact = a.onOpenContact,
         compact = s.keypadOpen && primary?.state != CallState.RINGING,
-        timing = timings[shown.id],
+        timing = timings[shown.id]?.shownFor(shown),
         avatarSize = avatar,
         onReply = { sheets.replyFor = shown.id },
     )
@@ -815,12 +816,15 @@ private fun MoreSheet(
     val rtt = rttOf(primary.id)
     CallMoreSheet(
         call = primary,
-        timing = timings[primary.id],
+        timing = timings[primary.id]?.shownFor(primary),
         controls = overflowRows(primary, s.others, s.audio, onAddCall = onAddCall, onManage = { sheets.manage = true }),
         onDismiss = { sheets.more = false },
         onNote = { sheets.noteFor = primary.id },
         onOpenContact = if (primary.hidden) null else ({ onOpenContact(primary) }),
-        onCopyNumber = primary.number?.takeIf { !primary.hidden && it.isNotBlank() }?.let { n -> { copyNumber(context, n) } },
+        // A call masked on the lock screen copies its number only once the phone is unlocked.
+        onCopyNumber = primary.number?.takeIf { !primary.hidden && it.isNotBlank() }?.let { n ->
+            { if (primary.lockMasked) onUnlock { copyNumber(context, n) } else copyNumber(context, n) }
+        },
         onHoldMode = if (primary.canHoldMode) ({ CallManager.startHoldMode(primary.id) }) else null,
         onVerify = if (primary.canVerify) ({ onUnlock { sheets.verifyFor = primary } }) else null,
         onClaimsFamily = claimsFamily(primary, sheets.family),

@@ -69,9 +69,10 @@ class VaultMoves(
         /**
          * Back in the address book as contact [contactId]. [rawIds]: the raw contacts this move inserted, and only
          * those: Android may join them with other raw contacts of the same person (a copy in another account, the
-         * messenger copies "Make private" left behind), which were never Parley's to delete.
+         * messenger copies "Make private" left behind), which were never Parley's to delete. [redirectedTo]: Android 16
+         * refused the phone and put the contact in this cloud account instead (the caller says so).
          */
-        data class Done(val contactId: Long, val rawIds: List<Long>) : MovedOut
+        data class Done(val contactId: Long, val rawIds: List<Long>, val redirectedTo: AccountRef? = null) : MovedOut
 
         /** Nothing could be written: the entry stays as it was. */
         data object NotWritten : MovedOut
@@ -101,11 +102,14 @@ class VaultMoves(
         // may be older (changed in the vault since) and an entry made in the vault has none at all.
         var photoRaw: Long? = null
         val inserted = ArrayList<Long>()
+        var redirectedTo: AccountRef? = null
         val newId = if (stored == null) {
-            contacts.save(null, d, account, null, false)?.also { photoRaw = it.rawId; it.rawId?.let(inserted::add) }?.contactId
+            contacts.save(null, d, account, null, false, announceRedirect = false)
+                ?.also { photoRaw = it.rawId; it.rawId?.let(inserted::add); redirectedTo = it.redirectedTo }?.contactId
         } else {
-            val result = records.insertAll(listOf(stored.record), target = null).single()
+            val result = records.insertAll(listOf(stored.record), target = null, announceRedirect = false).single()
             inserted += result.rawIds
+            redirectedTo = result.redirectedTo
             val id = result.contactId
             photoRaw = result.rawIds.firstOrNull()
             when {
@@ -155,7 +159,7 @@ class VaultMoves(
             vault.leaving -= vaultId
         }
         contacts.refresh()
-        MovedOut.Done(newId, inserted.distinct())
+        MovedOut.Done(newId, inserted.distinct(), redirectedTo)
     }
 
     /** A full-resolution photo can be several MB; keep the vault row small by using the thumbnail then. */

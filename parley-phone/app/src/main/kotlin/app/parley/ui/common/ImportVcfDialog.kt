@@ -20,6 +20,8 @@ import androidx.compose.ui.res.stringResource
 import app.parley.AppViewModel
 import app.parley.R
 import app.parley.common.ux.BackupNudge
+import android.content.res.Resources
+import app.parley.common.vcard.ImportReport
 import app.parley.data.AccountRef
 import app.parley.ui.backup.rememberBackupFirst
 import app.parley.ui.people.accountLabel
@@ -79,7 +81,7 @@ fun ImportVcfDialog(vm: AppViewModel, uri: Uri, onDone: () -> Unit) {
                                         scope.launch {
                                             result = try {
                                                 val r = vm.c.vcards.importVCard(uri, a, { done, total -> progress = if (total > 0) done.toFloat() / total else 0f }, skipDuplicates = true)
-                                                res.getString(R.string.import_into_account, r.localizedSummary(res), a.displayLabel)
+                                                importedInto(res, r, a)
                                             } catch (e: Exception) {
                                                 res.getString(R.string.import_failed, e.message.orEmpty())
                                             }
@@ -96,3 +98,8 @@ fun ImportVcfDialog(vm: AppViewModel, uri: Uri, onDone: () -> Unit) {
         confirmButton = { if (!running) TextButton(onDone) { Text(stringResource(if (result != null) R.string.main_done else R.string.main_cancel)) } },
     )
 }
+
+/** "Imported 12 of 14 into …": the account chosen, or the one Android 16 put them in instead. */
+private fun importedInto(res: Resources, r: ImportReport, chosen: AccountRef): String =
+    r.savedInstead?.let { res.getString(R.string.import_into_account_instead, r.localizedSummary(res), it) }
+        ?: res.getString(R.string.import_into_account, r.localizedSummary(res), chosen.displayLabel)

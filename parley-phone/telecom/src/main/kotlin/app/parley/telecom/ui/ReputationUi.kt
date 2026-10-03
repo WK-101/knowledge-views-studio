@@ -135,7 +135,8 @@ private sealed interface RangeBlock {
 @Composable
 internal fun BlockRangeOffer(call: CallUi) {
     val number = call.number ?: return
-    if (call.reputation == null) return
+    // The range shows the start of the number: not on a call masked on the lock screen.
+    if (call.reputation == null || call.lockMasked) return
     val proposal by produceState<RangeProposal?>(null, number, call.accountId) {
         value = withContext(Dispatchers.IO) { runCatching { TelecomGraph.dependencies.rangeProposal(number, call.accountId) }.getOrNull() }
     }

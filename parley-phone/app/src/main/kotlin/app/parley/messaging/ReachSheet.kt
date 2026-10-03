@@ -85,7 +85,7 @@ import app.parley.data.MessengerAction
 import app.parley.data.Messengers
 import app.parley.data.PhoneEnv
 import app.parley.ui.Bidi
-import app.parley.ui.people.rememberMyCard
+import app.parley.ui.people.rememberCardForSending
 import app.parley.ui.contact.AppBadge
 import app.parley.ui.contact.ContactMessaging
 import app.parley.ui.contact.Reach
@@ -464,7 +464,7 @@ private fun NumberReach(number: String, accountId: String?, onCall: ((String) ->
     val chatApps = remember(installed) { ReachPlan.chatApps(installed, store.lastApp) }
     val callApps = remember(installed) { ReachPlan.chatApps(installed, store.lastCallApp) }
     // "Send my details" uses My card's name and first number.
-    val myCard = rememberMyCard(c.people)
+    val myCard = rememberCardForSending(c.people)
     var draft by rememberSaveable { mutableStateOf("") }
     var editDetails by remember { mutableStateOf(false) }
     var askSave by remember { mutableStateOf(false) }

@@ -26,6 +26,7 @@ import app.parley.common.record.ContentDiff
 import app.parley.common.record.DataRow
 import app.parley.common.record.Messengers
 import app.parley.common.record.Mime
+import app.parley.common.record.NewContactAccount
 import app.parley.common.record.PrimaryFlags
 import app.parley.common.record.RawRecord
 import app.parley.data.AccountRef
@@ -39,8 +40,11 @@ fun interface GroupResolver {
     fun resolve(row: DataRow, account: AccountRef): Long?
 }
 
-/** Outcome of inserting one record: the new aggregate contact id, or why nothing was written. */
-data class InsertResult(val contactId: Long?, val error: String? = null, val rawIds: List<Long> = emptyList())
+/**
+ * Outcome of inserting one record: the new aggregate contact id, or why nothing was written. [redirectedTo]: Android 16
+ * refused the phone (or the account asked for) and its cloud default took the contact instead.
+ */
+data class InsertResult(val contactId: Long?, val error: String? = null, val rawIds: List<Long> = emptyList(), val redirectedTo: AccountRef? = null)
 
 /**
  * Reads and writes [ContactRecord]s: the lossless image of a contact (Contact -> RawContacts -> every Data
@@ -295,13 +299,17 @@ class ContactRecordStore(private val context: Context) {
         includeReadOnly: Boolean = false,
         /** Photos from outside (vCard import) go through [ContactPhotoProcessor]; restores keep theirs as stored. */
         processPhotos: Boolean = false,
+        /** False when the caller tells the user itself where Android 16 put them (else [DeviceAccounts.redirects]). */
+        announceRedirect: Boolean = true,
     ): List<InsertResult> {
         val results = arrayOfNulls<InsertResult>(records.size)
         // Never write into a SIM, messenger or read-only account, whatever the caller picked; and on Android 16 not
         // into the phone while the user's default is a cloud account (Android refuses it), but into that account.
         val newContacts = DeviceAccounts.newContacts(context)
-        val safeTarget = target?.let { newContacts.target(if (isWritableAccount(it)) it else localAccount()) }
+        val decision = target?.let { newContacts.decide(if (isWritableAccount(it)) it else localAccount()) }
+        val safeTarget = decision?.account
         val (available, sources) = if (safeTarget == null) ownAccounts(records, newContacts) else emptySet<AccountRef>() to records
+        val redirects = redirects(records, sources, target, decision, newContacts.cloudInstead)
         val plans = sources.mapIndexed { i, r ->
             val plan = plan(r, safeTarget, available, groups, includeReadOnly, processPhotos)
             if (plan.raws.isEmpty()) results[i] = InsertResult(null, context.getString(R.string.data_write_only_messenger))
@@ -323,8 +331,31 @@ class ContactRecordStore(private val context: Context) {
             ops += p.ops
         }
         flush()
-        return results.map { it ?: InsertResult(null, context.getString(R.string.data_write_not_written)) }
+        val out = results.mapIndexed { i, r -> withRedirect(r ?: InsertResult(null, context.getString(R.string.data_write_not_written)), redirects[i]) }
+        if (announceRedirect) out.firstNotNullOfOrNull { it.redirectedTo }?.let(DeviceAccounts::noteRedirect)
+        return out
     }
+
+    /**
+     * Where Android 16 sent each record instead of where it was going: the import's [target] as a whole, or each
+     * record restored into its own accounts ([sources] are the records with its refusals applied).
+     */
+    private fun redirects(
+        records: List<ContactRecord>,
+        sources: List<ContactRecord>,
+        target: AccountRef?,
+        decision: NewContactAccount.Decision<AccountRef>?,
+        cloud: AccountRef?,
+    ): List<AccountRef?> =
+        if (decision != null) List(records.size) { decision.account.takeIf { decision.redirected && it != target } }
+        else records.indices.map { i -> cloud?.takeIf { movedAccount(records[i], sources[i]) } }
+
+    /** [r] with where Android 16 put it, when it was written at all. */
+    private fun withRedirect(r: InsertResult, to: AccountRef?): InsertResult = if (r.contactId != null && to != null) r.copy(redirectedTo = to) else r
+
+    /** Whether [after] puts any copy of [before] in another account ([toCloud] keeps the copies in order). */
+    private fun movedAccount(before: ContactRecord, after: ContactRecord): Boolean =
+        before.raws.zip(after.raws).any { (a, b) -> a.accountType != b.accountType || a.accountName != b.accountName }
 
     /** Accounts records can be restored into as they were, and the records with Android 16's refusals applied. */
     private fun ownAccounts(records: List<ContactRecord>, newContacts: DeviceAccounts.NewContacts): Pair<Set<AccountRef>, List<ContactRecord>> {

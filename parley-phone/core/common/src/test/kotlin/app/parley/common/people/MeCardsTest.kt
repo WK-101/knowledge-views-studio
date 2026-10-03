@@ -88,4 +88,15 @@ class MeCardsTest {
         assertEquals(card, MeCards.absorbMyDetails(card, "", ""))
         assertEquals(card, MeCards.absorbMyDetails(card, "Ana", "+447700900123").copy(phones = card.phones))
     }
+
+    @Test fun send_my_details_sends_parleys_name_and_number_as_typed() {
+        val profile = MeCard(name = "Ana Profile", phones = listOf("+44 20 7946 0000"))
+        // Nothing set in Parley: the profile's.
+        assertEquals("+44 20 7946 0000", MeCards.forSending(MeCard(), profile).firstNumber)
+        // The number cleared in the quick edit stays out; the profile doesn't bring it back.
+        val cleared = MeCards.withNameAndNumber(MeCard(name = "Ana", phones = listOf("+1 202 555 0100")), "Ana", "")
+        val sent = MeCards.forSending(cleared, profile)
+        assertEquals("Ana", sent.name)
+        assertEquals(null, sent.firstNumber)
+    }
 }

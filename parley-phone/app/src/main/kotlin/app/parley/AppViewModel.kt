@@ -9,6 +9,7 @@ import app.parley.common.DialHit
 import app.parley.common.suspendRunCatching
 import app.parley.common.StartTab
 import app.parley.data.ContactDetails
+import app.parley.data.DeviceAccounts
 import app.parley.ui.circle.CircleUi
 import android.annotation.SuppressLint
 import android.Manifest
@@ -463,5 +464,16 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch(Dispatchers.Default) {
             favorites.debounce(1000).distinctUntilChanged().collect { Shortcuts.updateDynamic(getApplication(), it) }
         }
+        // Android 16 put new contacts (a save, a restore, an undo) in its cloud default rather than where they were
+        // going: said once per burst, calmly, so nobody is surprised to find them synced.
+        viewModelScope.launch {
+            DeviceAccounts.redirects.debounce(REDIRECT_QUIET_MS).collect { a ->
+                toast(str(R.string.main_new_contacts_saved_instead, a.displayLabel))
+            }
+        }
+    }
+
+    private companion object {
+        const val REDIRECT_QUIET_MS = 800L
     }
 }

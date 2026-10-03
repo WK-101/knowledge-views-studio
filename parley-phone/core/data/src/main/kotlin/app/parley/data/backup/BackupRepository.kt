@@ -451,7 +451,9 @@ class BackupRepository(
             putPrivateExtras(o, v.id)
             // The private call history: removed from the system log, so this is its only copy.
             val calls = JSONArray()
-            vault.privateCallsOf(v.id).forEach { c -> calls.put(JSONObject().put("n", c.number).put("name", c.name).put("d", c.date).put("s", c.durationSec).put("t", c.type)) }
+            vault.privateCallsOf(v.id).forEach { c ->
+                calls.put(JSONObject().put("n", c.number).put("name", c.name).put("d", c.date).put("s", c.durationSec).put("t", c.type).put("v", c.video))
+            }
             if (calls.length() > 0) o.put("calls", calls)
             // The caller photo (kept encrypted apart from the details); inside the archive it is under the archive key.
             vault.photoBytes(v.id)?.let { o.put("photo", Base64.encodeToString(it, Base64.NO_WRAP)) }
@@ -731,7 +733,9 @@ class BackupRepository(
             val calls = o.optJSONArray("calls") ?: return
             for (i in 0 until calls.length()) {
                 val c = calls.optJSONObject(i) ?: continue
-                runCatching { vault.storePrivateCall(id, c.optString("n"), c.optString("name"), c.optLong("d"), c.optLong("s"), c.optInt("t")) }
+                runCatching {
+                    vault.storePrivateCall(id, c.optString("n"), c.optString("name"), c.optLong("d"), c.optLong("s"), c.optInt("t"), c.optBoolean("v"))
+                }
             }
         }
         for (i in 0 until arr.length()) {

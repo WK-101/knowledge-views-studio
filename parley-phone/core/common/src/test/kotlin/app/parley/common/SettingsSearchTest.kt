@@ -180,6 +180,6 @@ class SettingsSearchTest {
         const val PAGE_LIMIT = 22
 
         /** Every searchable setting, wherever it lives. */
-        const val SETTINGS_CEILING = 162
+        const val SETTINGS_CEILING = 164
     }
 }

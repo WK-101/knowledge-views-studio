@@ -190,9 +190,7 @@ import app.parley.data.AccountRef
 import app.parley.security.AppLock
 import java.time.LocalDate
 import java.time.ZoneId
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.selection.toggleable
 import app.parley.ui.ParleyTopBar
@@ -1090,7 +1088,7 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
         if (confirmVisible) {
             ConfirmDialog(
                 title = stringResource(R.string.contact_make_visible_title, d.given.ifBlank { d.displayName }),
-                text = stringResource(R.string.contact_make_visible_body),
+                text = makeVisibleBody(vm.c.contacts),
                 confirmLabel = stringResource(R.string.contact_make_visible_confirm),
                 icon = Icons.Rounded.LockOpen,
                 onConfirm = {
@@ -1101,13 +1099,8 @@ fun ContactDetailScreen(vm: AppViewModel, contactId: Long, back: () -> Unit, ope
                         val requested = AccountRef(s.defaultAccountType, s.defaultAccountName)
                         when (val made = page.makeVisible(requested)) {
                             is ContactConversions.MadeVisible.Done -> {
-                                // Android 16 put it in the cloud default rather than on the phone: say where it went.
-                                val redirected = withContext(Dispatchers.IO) { vm.c.contacts.newContactTarget(requested) }
-                                    .takeIf { it.redirected }?.account
-                                vm.toast(
-                                    redirected?.let { resources.getString(R.string.contact_made_visible_in, it.displayLabel) }
-                                        ?: resources.getString(R.string.contact_made_visible),
-                                )
+                                // Where Android 16 put it, when it refused the phone: the account actually written.
+                                vm.toast(madeVisibleText(resources, made.redirectedTo))
                                 back()
                                 open(Routes.contact(made.contactId))
                             }

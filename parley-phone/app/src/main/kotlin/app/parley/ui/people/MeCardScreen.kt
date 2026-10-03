@@ -90,14 +90,26 @@ import kotlinx.coroutines.Dispatchers
 import androidx.compose.material.icons.rounded.Key
 
 /**
- * My card as "Send my details" and Introduce myself use it: Parley's copy, completed with the phone's profile ("Me")
- * as My card shows it. The old "My details" was folded into it ([app.parley.data.people.PeopleContainer.me]).
+ * My card as My card shows it: Parley's copy, completed with the phone's profile ("Me"). The old "My details" was
+ * folded into it ([app.parley.data.people.PeopleContainer.me]).
  */
 @Composable
 fun rememberMyCard(people: PeopleContainer): MeCard {
     val own by people.me.card.collectAsStateWithLifecycle()
     val profile by produceState<MeCard?>(null) { value = people.me.profile() }
     return remember(own, profile) { MeCards.merge(own, profile) }
+}
+
+/**
+ * What "Send my details" and Introduce myself send, and what their name-and-number edit starts from
+ * ([MeCards.forSending]): Parley's own name and number, so clearing the number there really leaves it out; the phone's
+ * profile only while Parley's card has neither.
+ */
+@Composable
+fun rememberCardForSending(people: PeopleContainer): MeCard {
+    val own by people.me.card.collectAsStateWithLifecycle()
+    val profile by produceState<MeCard?>(null) { value = people.me.profile() }
+    return remember(own, profile) { MeCards.forSending(own, profile) }
 }
 
 /**

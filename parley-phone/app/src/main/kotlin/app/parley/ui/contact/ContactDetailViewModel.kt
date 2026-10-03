@@ -216,7 +216,9 @@ class ContactDetailViewModel(private val c: DataContainer) : ViewModel() {
                 if (o == null) {
                     Loaded(null, emptyList(), emptyList(), r)
                 } else {
-                    Loaded(forPage(o.details), emptyList(), emptyList(), r, if (o.lost) PrivateAccess.LOST else PrivateAccess.OPEN, expiry)
+                    // Office and job description, read-only as for a device contact (kept in the sealed details).
+                    val work = OtherFields.workExtras(o.details.officeLocation, o.details.jobDescription)
+                    Loaded(forPage(o.details), emptyList(), work, r, if (o.lost) PrivateAccess.LOST else PrivateAccess.OPEN, expiry)
                 }
             } catch (_: VaultCrypto.LockedException) {
                 Loaded(quick, emptyList(), emptyList(), r, PrivateAccess.LOCKED, expiry)

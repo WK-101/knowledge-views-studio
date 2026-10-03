@@ -269,11 +269,13 @@ private fun CallTags(call: CallUi, zone: ZoneId?) {
 
 /**
  * The caller's time zone, when it differs from yours right now (international callers, or across a country's zones),
- * worked out offline from the number after the screen is up, off the main thread (it reads libphonenumber's map). Null for a hidden number.
+ * worked out offline from the number after the screen is up, off the main thread (it reads libphonenumber's map). Null for a hidden
+ * number and for a call masked on the lock screen.
  */
 @Composable
 private fun rememberCallerZone(call: CallUi): ZoneId? {
-    val number = call.number?.takeIf { !call.hidden && it.isNotBlank() }
+    // The time there gives away where the caller is: not while the call is masked on the lock screen.
+    val number = call.number?.takeIf { !call.hidden && !call.lockMasked && it.isNotBlank() }
     val zone by produceState<ZoneId?>(null, number, call.accountId) {
         value = if (number == null) null else withContext(Dispatchers.IO) {
             runCatching { TelecomGraph.dependencies.callerZone(number, call.accountId)?.let(ZoneId::of) }.getOrNull()

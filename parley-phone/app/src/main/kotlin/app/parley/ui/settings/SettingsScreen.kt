@@ -394,6 +394,7 @@ internal fun ImportReportDialog(report: ImportReport, onDismiss: () -> Unit) {
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(importSummary(report), style = MaterialTheme.typography.bodyLarge)
+                report.savedInstead?.let { Text(stringResource(R.string.main_new_contacts_saved_instead, it), style = MaterialTheme.typography.bodyMedium) }
                 if (report.failures.isNotEmpty()) {
                     Text(stringResource(R.string.set_not_imported), style = MaterialTheme.typography.titleSmall)
                     report.failures.take(MAX_REPORT_ITEMS).forEach { f ->

@@ -285,15 +285,24 @@ fun RecentRow(
     val rich = richCalls()
     val cls = CallClass.of(e)
     val hue = CallTypeColors.of(cls.hue)
-    val attention = rich && unreturned && !g.hidden
     val sequence = if (rich) CallGlance.sequence(g.calls) else emptyList()
+    // Every mark the row draws comes from here, so "What do the colours mean?" explains each of them.
+    val marks = RecentsMark.onRow(
+        RecentRowFacts(
+            calls = g.calls.size, cls = cls, missed = missed, sequence = sequence.isNotEmpty(), unreturned = unreturned, hidden = g.hidden,
+            video = e.video, private = g.vaultId != null, screening = badge != null, callButton = !tapCalls && !g.hidden && g.number.isNotBlank(),
+        ),
+        rich,
+    )
+    val attention = RecentsMark.NOT_RETURNED in marks
+    val lock = if (RecentsMark.PRIVATE in marks) "$PRIVATE_MARK " else ""
     ParleyListItem(
         modifier = Modifier.combinedClickable(
             onClick = if (tapCalls) onCall else onOpen, onLongClick = onLongClick,
             onClickLabel = if (tapCalls) stringResource(R.string.main_call) else null,
             onLongClickLabel = stringResource(R.string.main_more_actions),
         )
-            .then(if (rich) Modifier.callAccent(hue) else Modifier)
+            .then(if (RecentsMark.ACCENT in marks) Modifier.callAccent(hue) else Modifier)
             .semantics { this.selected = selected },
         colors = when {
             selected -> ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
@@ -307,22 +316,22 @@ fun RecentRow(
             if (rich) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        (if (g.vaultId != null) "$PRIVATE_MARK " else "") + g.shownTitle,
+                        lock + g.shownTitle,
                         maxLines = 1, overflow = TextOverflow.Ellipsis,
                         fontWeight = if (attention) FontWeight.Bold else null,
                         modifier = Modifier.weight(1f, fill = false),
                     )
-                    if (g.calls.size > 1) {
+                    if (RecentsMark.COUNT in marks) {
                         Spacer(Modifier.width(6.dp))
                         CallCountChip(g.calls.size, cls)
                     }
                 }
             } else {
-                val counted = if (g.calls.size > 1) stringResource(R.string.missed_name_count, g.shownTitle, g.calls.size) else g.shownTitle
+                val counted = if (RecentsMark.COUNT_TEXT in marks) stringResource(R.string.missed_name_count, g.shownTitle, g.calls.size) else g.shownTitle
                 Text(
-                    (if (g.vaultId != null) "$PRIVATE_MARK " else "") + counted,
+                    lock + counted,
                     maxLines = 1, overflow = TextOverflow.Ellipsis,
-                    color = if (missed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+                    color = if (RecentsMark.MISSED_NAME in marks) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
                 )
             }
         },
@@ -333,7 +342,7 @@ fun RecentRow(
                     // TalkBack reads the type in words (and that the call still waits for a call back).
                     val words = stringResource(callClassLabel(cls)) + if (attention) stringResource(R.string.main_separator) + stringResource(R.string.recents_not_returned) else ""
                     CallClassBadge(cls, size = 20.dp, contentDescription = words)
-                    if (sequence.isNotEmpty()) {
+                    if (RecentsMark.SEQUENCE in marks) {
                         Spacer(Modifier.width(6.dp))
                         val spoken = sequenceDescription(g.calls.size, sequence)
                         CallSequenceDots(sequence, Modifier.semantics { contentDescription = spoken })
@@ -342,7 +351,7 @@ fun RecentRow(
                     CallTypeIcon(e.type, size = 20.dp)
                 }
                 // Android logged it as a video call (Parley answered it as voice).
-                if (e.video) {
+                if (RecentsMark.VIDEO in marks) {
                     Spacer(Modifier.width(4.dp))
                     VideoCallMark(contentDescription = stringResource(R.string.recents_video_call))
                 }
@@ -359,7 +368,7 @@ fun RecentRow(
                 )
                 Text(parts.joinToString(stringResource(R.string.main_separator)), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
                 // How long you talked, as a small bar (the length in words for TalkBack).
-                if (rich && cls.answered) {
+                if (RecentsMark.DURATION in marks) {
                     Spacer(Modifier.width(8.dp))
                     val length = Format.duration(e.durationSec)
                     CallDurationBar(CallGlance.durationFraction(e.durationSec), cls, Modifier.semantics { contentDescription = length })
@@ -377,7 +386,7 @@ fun RecentRow(
             if (tapCalls) {
                 IconButton(onClick = onOpen) { Icon(Icons.Rounded.Info, stringResource(R.string.home_recent_details, g.title)) }
             } else if (!g.hidden && g.number.isNotBlank()) {
-                if (attention) {
+                if (RecentsMark.CALL_BACK in marks) {
                     CallBackPill(g.title, onCall)
                 } else {
                     IconButton(onClick = onCall) { Icon(Icons.Rounded.Call, stringResource(R.string.main_call_who, g.title), tint = MaterialTheme.colorScheme.primary) }

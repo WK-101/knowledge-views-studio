@@ -231,6 +231,14 @@ class ContactsRepositoryWriteTest {
         assertEquals("Research", repo.details(id)!!.department)
     }
 
+    @Test fun aNewContactWithOnlyAnOfficeOrJobDescriptionKeepsThem() = runBlocking {
+        // A private contact made visible may carry only these (a vCard ROLE saved privately).
+        val id = create(ada.copy(officeLocation = "Room 4", jobDescription = "Builds rockets"))
+        val row = workRows().single()
+        assertEquals(listOf(null, null, "Builds rockets", "Room 4"), listOf(row["data1"], row["data4"], row["data6"], row["data9"]))
+        assertEquals("Builds rockets", repo.details(id)!!.jobDescription)
+    }
+
     @Test fun clearingCompanyAndTitleKeepsTheDepartment() = runBlocking {
         val id = create(ada.copy(company = "Acme", title = "Engineer", department = "Research"))
         val before = repo.editable(id)!!

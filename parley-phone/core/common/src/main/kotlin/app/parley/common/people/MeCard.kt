@@ -65,6 +65,15 @@ object MeCards {
     }
 
     /**
+     * The name and number "Send my details" and Introduce myself send, and their quick edit starts from: Parley's own
+     * once either is set there, exactly as typed (so a number cleared there stays out), else the phone profile's.
+     */
+    fun forSending(own: MeCard?, profile: MeCard?): MeCard {
+        val a = own?.cleaned() ?: MeCard()
+        return if (a.name.isNotBlank() || a.firstNumber != null) a else merge(a, profile)
+    }
+
+    /**
      * What "Me" shows: Parley's own card, completed with the phone's profile. Parley's fields win (they're what you
      * typed in Parley); lists are joined without duplicates (numbers compared by digits, e-mails ignoring case).
      */

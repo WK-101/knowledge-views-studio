@@ -20,20 +20,21 @@ import java.time.format.DateTimeFormatter
 
 /**
  * "Export diagnostics": a plain-text report the user can read before sharing. It has the app version, the
- * device, non-personal settings, permission states and recent errors. Numbers, e-mail addresses and content
- * URIs in error texts are masked unless the user turns masking off. No contacts, no call history.
+ * device, non-personal settings, permission states and recent errors: where and of what kind, never the error's
+ * message (it can hold a name or a SIM's reply), like the crash reports. Numbers, email addresses and content URIs in
+ * Android's exit notes are masked unless the user turns masking off. No contacts, no call history.
  */
 class Diagnostics(private val context: Context) {
     private val prefs = context.applicationContext.getSharedPreferences("diagnostics", Context.MODE_PRIVATE)
 
-    /** Remembers an error for the report (last [MAX] errors, on this phone only). */
+    /** Remembers an error for the report (last [MAX] errors, on this phone only): where, and its kind only. */
     @Synchronized
     fun record(where: String, error: Throwable) {
         val arr = runCatching { JSONArray(prefs.getString(KEY, "[]")) }.getOrDefault(JSONArray())
         val next = JSONArray()
         val start = maxOf(0, arr.length() - MAX + 1)
         for (i in start until arr.length()) next.put(arr.get(i))
-        next.put(JSONObject().put("t", System.currentTimeMillis()).put("w", where).put("e", error.javaClass.simpleName + ": " + (error.message ?: "")))
+        next.put(JSONObject().put("t", System.currentTimeMillis()).put("w", where).put("e", error.javaClass.simpleName))
         prefs.edit().putString(KEY, next.toString()).apply()
     }
 
@@ -86,7 +87,8 @@ class Diagnostics(private val context: Context) {
         if (arr.length() == 0) appendLine("None recorded")
         for (i in 0 until arr.length()) {
             val o = arr.getJSONObject(i)
-            appendLine("${fmt.format(Instant.ofEpochMilli(o.optLong("t")))} ${o.optString("w")}: ${m(o.optString("e"))}")
+            // Errors kept before messages were left out still hold one after the kind: it is dropped here too.
+            appendLine("${fmt.format(Instant.ofEpochMilli(o.optLong("t")))} ${o.optString("w")}: ${o.optString("e").substringBefore(':')}")
         }
         if (Build.VERSION.SDK_INT >= 30) {
             appendLine()

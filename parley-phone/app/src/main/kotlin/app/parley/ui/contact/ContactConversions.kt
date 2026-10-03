@@ -1,5 +1,6 @@
 package app.parley.ui.contact
 
+import android.provider.CallLog
 import app.parley.common.backup.CallLogRecord
 import app.parley.common.calltime.LimitScope
 import app.parley.common.extras.CallerChoice
@@ -77,8 +78,11 @@ class ContactConversions(private val c: DataContainer) {
 
     /** What [makeVisible] did. */
     sealed interface MadeVisible {
-        /** In the address book as contact [contactId]. */
-        data class Done(val contactId: Long) : MadeVisible
+        /**
+         * In the address book as contact [contactId]. [redirectedTo]: Android 16 refused the phone and put it in this
+         * cloud account instead.
+         */
+        data class Done(val contactId: Long, val redirectedTo: AccountRef? = null) : MadeVisible
 
         /** The contact couldn't be written: the private contact stays as it was. */
         data object NotWritten : MadeVisible
@@ -133,7 +137,7 @@ class ContactConversions(private val c: DataContainer) {
         }
         // Only the raw contacts this move inserted: Android may have joined them with someone else's copies.
         summary?.expiresAt?.let { at -> c.temporaries.markAt(newId, at, summary.purgeHistory, summary.name, rawIds = moved.rawIds.ifEmpty { null }) }
-        MadeVisible.Done(newId)
+        MadeVisible.Done(newId, moved.redirectedTo)
     }
 
     /**
@@ -200,7 +204,7 @@ class ContactConversions(private val c: DataContainer) {
         if (calls.isEmpty()) return@withContext true
         val have = c.callLog.rowSignatures()
         val records = calls.filter { CallLogRepository.signature(it.number, it.date, it.durationSec, it.type) !in have }
-            .map { CallLogRecord(it.number, it.date, it.durationSec, it.type, name = it.name) }
+            .map { CallLogRecord(it.number, it.date, it.durationSec, it.type, name = it.name, features = if (it.video) CallLog.Calls.FEATURES_VIDEO else 0) }
         val written = if (records.isEmpty()) 0 else c.callLog.insert(records)
         c.callLog.refresh()
         written == records.size

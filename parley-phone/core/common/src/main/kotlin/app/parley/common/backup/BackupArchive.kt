@@ -45,6 +45,8 @@ data class CallLogRecord(
     val name: String? = null,
     val isNew: Boolean = false,
     val isRead: Boolean = true,
+    /** CallLog.Calls.FEATURES (a video call, among others); 0 in backups from before it was kept. */
+    val features: Int = 0,
 )
 
 /**

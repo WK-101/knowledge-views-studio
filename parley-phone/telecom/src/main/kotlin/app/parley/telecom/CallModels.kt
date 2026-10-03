@@ -102,6 +102,8 @@ data class CallUi(
     val numberMemory: NumberMemoryLine? = null,
     /** I11: a car marked in Settings › Calls › Drive profile is connected ("Drive profile on", "Driving" replies). */
     val driving: Boolean = false,
+    /** The caller is one of your contacts or private contacts (not just a name the network sent with the call). */
+    val savedCaller: Boolean = false,
     /** Shown on the lock screen with less about the caller ([forLockScreen]): [name] stands in, the number stays out of sight. */
     val lockMasked: Boolean = false,
 ) {
@@ -140,12 +142,16 @@ data class CallUi(
 /**
  * This call as the lock screen shows it under [mode] (Settings › Privacy & security › Caller on the lock screen): the
  * name cut to its initials or replaced by [placeholder] ("Incoming call"), and nothing else that tells who it is: no
- * number, label, photo, pronouns, notes or subject. Only what is shown changes: the number stays for the actions
- * (reply, block). An emergency call is left as it is. Private contacts and discreet mode have already taken out
- * what they hide, so this never shows more than they allow.
+ * number, label, photo, pronouns, notes, subject, rule or label names ("Rang through: in Family", "Allowed by
+ * 'Plumber'") or why it rings quietly. A screening warning stays: it's about safety, not about who it is. Only what is
+ * shown changes: the number stays for the actions (reply, block). Conference participants are masked one by one, also
+ * when the conference itself has no name to mask. An emergency call is left as it is. Private contacts and discreet
+ * mode have already taken out what they hide, so this never shows more than they allow.
  */
 fun CallUi.forLockScreen(mode: LockScreenCaller, placeholder: String): CallUi {
-    if (lockMasked || isEmergency || !mode.masks(name)) return this
+    if (lockMasked || isEmergency || mode == LockScreenCaller.NAME) return this
+    val kids = children.map { it.forLockScreen(mode, placeholder) }
+    if (!mode.masks(savedCaller)) return if (kids == children) this else copy(children = kids)
     return copy(
         name = mode.shownName(name) ?: placeholder,
         label = null,
@@ -160,11 +166,17 @@ fun CallUi.forLockScreen(mode: LockScreenCaller, placeholder: String): CallUi {
         pronouns = null,
         subject = null,
         numberMemory = null,
+        rangThrough = null,
         rangThroughUnlocked = null,
-        children = children.map { it.forLockScreen(mode, placeholder) },
+        verdict = verdict.takeIf { verdictWarn },
+        silenceReason = null,
+        children = kids,
         lockMasked = true,
     )
 }
+
+/** The call's time as the screen and notification show it: a masked call doesn't name its limit ("Limit for Ana"). */
+fun CallTiming.shownFor(call: CallUi): CallTiming = if (call.lockMasked && source != null) copy(source = null) else this
 
 /** The state as the pure call-waiting logic in core:common sees it. */
 fun CallState.live(): LiveCallState = when (this) {
@@ -210,4 +222,6 @@ data class DeclineBlock(
     val pending: Boolean = false,
     /** The call was answered elsewhere (a headset) while the rule was written: blocked, but not declined. */
     val answered: Boolean = false,
+    /** Its call is masked on the lock screen: the card says "this number" rather than showing it. */
+    val masked: Boolean = false,
 )

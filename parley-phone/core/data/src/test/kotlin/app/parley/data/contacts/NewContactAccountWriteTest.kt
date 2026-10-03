@@ -18,6 +18,11 @@ import app.parley.data.DeviceAccounts
 import app.parley.data.records.ContactRecordStore
 import app.parley.data.testing.FakeContactsProvider
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.async
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
@@ -116,6 +121,27 @@ class NewContactAccountWriteTest {
         val imported = records.insertAll(listOf(record(AccountRef(null, null))), target = AccountRef(null, null)).single()
         assertNotNull(imported.error, imported.contactId)
         assertEquals(listOf(google, google), rawAccounts())
+    }
+
+    @Test fun importsAndRestoresSayWhereAndroidPutThem() {
+        android16(google)
+        val phone = AccountRef(null, null)
+        assertEquals(google, records.insertAll(listOf(record(phone)), target = null).single().redirectedTo)
+        assertEquals(google, records.insertAll(listOf(record(phone)), target = phone).single().redirectedTo)
+        // A copy that was in the cloud account already went where it belongs.
+        assertNull(records.insertAll(listOf(record(google)), target = null).single().redirectedTo)
+        assertNull(records.insertAll(listOf(record(phone)), target = google).single().redirectedTo)
+    }
+
+    @Test fun aRedirectIsAnnouncedUnlessTheCallerSaysSoItself() = runBlocking {
+        android16(google)
+        val heard = async(Dispatchers.Default, start = CoroutineStart.UNDISPATCHED) { DeviceAccounts.redirects.first() }
+        repo.save(null, ada, AccountRef(null, null), null, false)
+        assertEquals(google, withTimeout(5_000) { heard.await() })
+        val quiet = async(Dispatchers.Default, start = CoroutineStart.UNDISPATCHED) { withTimeoutOrNull(300) { DeviceAccounts.redirects.first() } }
+        records.insertAll(listOf(record(AccountRef(null, null))), target = null, announceRedirect = false)
+        repo.save(null, ada, AccountRef(null, null), null, false, announceRedirect = false)
+        assertNull(quiet.await())
     }
 
     @Test fun pickersOfferTheCloudDefaultFirstAndNoPhone() {

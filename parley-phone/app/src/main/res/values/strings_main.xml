@@ -105,6 +105,8 @@
     <string name="import_importing">Importing…</string>
     <!-- "Imported 12 of 14 · 1 duplicate skipped into Google (ana@example.com)." -->
     <string name="import_into_account">%1$s into %2$s.</string>
+    <string name="import_into_account_instead">%1$s into %2$s. On this phone, Android puts new contacts there.</string>
+    <string name="main_new_contacts_saved_instead">Saved in %1$s. On this phone, Android puts new contacts there.</string>
     <string name="import_failed">Import failed: %1$s</string>
     <string name="import_summary_imported">Imported %1$d of %2$d</string>
     <plurals name="import_summary_duplicates">
@@ -705,7 +707,7 @@
     <string name="msg_only_sms">Chat apps need a full number with its country code. Only SMS is available for this number.</string>
     <string name="msg_optional">Message (optional)</string>
     <string name="msg_send_details">Send my details</string>
-    <string name="msg_edit_details">Edit My card</string>
+    <string name="msg_edit_details">Edit name and number</string>
     <string name="msg_will_copy">Your message will be copied for pasting</string>
     <string name="msg_more_actions_for">More %1$s actions</string>
     <string name="msg_open_chat">Open chat</string>

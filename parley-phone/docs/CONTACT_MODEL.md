@@ -183,8 +183,11 @@ From the page (**Settings for this contact** and ⋮) and, for the expiry, from 
 | Permanent → Temporary, date changes, Temporary → Permanent | The vault entry's expiry, or `TemporaryContactStore` | Yes |
 
 On Android 16, when the user's default account for new contacts is a cloud account, Android refuses new phone-only
-contacts: Make visible then puts the contact in that account and says so ("Visible to other apps now, in …"), rather
-than failing (`NewContactAccount`). A private contact keeps its whole work row (company, title, department, office and
+contacts: Make visible then puts the contact in that account rather than failing (`NewContactAccount`). Its question
+says so before anything moves ("On this phone, Android puts new contacts in …"), and afterwards it names the account
+the contact was really written to (`MadeVisible.Done.redirectedTo`), which is the cloud account only for copies that
+were on the phone. Every other insert path reports a redirect the same way (`SaveResult.redirectedTo`,
+`InsertResult.redirectedTo`): the import report names the account, and saves, restores and undo show "Saved in …". A private contact keeps its whole work row (company, title, department, office and
 job description) and carries it back.
 
 Both conversions ask first and say what other apps will or won't see; when Make visible changes nothing, the page says

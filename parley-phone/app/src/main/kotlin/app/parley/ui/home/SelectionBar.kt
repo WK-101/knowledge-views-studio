@@ -64,6 +64,8 @@ import app.parley.common.ux.BackupNudge
 import app.parley.data.GroupInfo
 import app.parley.messaging.IntroduceStart
 import app.parley.ui.backup.rememberBackupFirst
+import app.parley.ui.contact.madeVisibleText
+import app.parley.ui.contact.makeVisibleBody
 import app.parley.ui.people.CopyAsTextMenuItem
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -209,16 +211,16 @@ fun SelectionBar(vm: AppViewModel) {
         val visible = BulkActions.targets(BulkAction.MAKE_VISIBLE, ids).ids
         ConfirmDialog(
             title = pluralStringResource(R.plurals.sel_make_visible_title, visible.size, visible.size),
-            text = stringResource(R.string.contact_make_visible_body),
+            text = makeVisibleBody(vm.c.contacts),
             confirmLabel = stringResource(R.string.contact_make_visible_confirm),
             onConfirm = {
                 confirmVisible = false
                 val s = vm.settings.value
                 // Asks for the vault's unlock first when needed; nothing changes before it succeeds.
                 scope.launchVault(context as? FragmentActivity, { vm.toast(res.getString(R.string.vault_move_failed, it.message.orEmpty())) }) {
-                    val n = bulk.makeVisible(visible, AccountRef(s.defaultAccountType, s.defaultAccountName))
+                    val made = bulk.makeVisible(visible, AccountRef(s.defaultAccountType, s.defaultAccountName))
                     vm.selection.value = emptySet()
-                    vm.toast(res.getQuantityString(R.plurals.sel_made_visible, n, n))
+                    vm.toast(madeVisibleText(res, made.made, made.redirectedTo))
                 }
             },
             onDismiss = { confirmVisible = false },

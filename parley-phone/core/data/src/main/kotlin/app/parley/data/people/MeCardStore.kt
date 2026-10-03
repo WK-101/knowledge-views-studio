@@ -60,9 +60,14 @@ class MeCardStore(context: Context) {
      */
     fun absorbMyDetails(name: String, number: String) {
         val card = _card.value
-        val next = if (!prefs.getBoolean(K_MIGRATED, false) && !card.isEmpty) card else MeCards.absorbMyDetails(card, name, number)
-        prefs.edit(commit = true) { putBoolean(K_MIGRATED, true) }
-        if (next != card) save(next)
+        val next = (if (!prefs.getBoolean(K_MIGRATED, false) && !card.isEmpty) card else MeCards.absorbMyDetails(card, name, number)).cleaned()
+        // The card and the "done" flag in one write, on disk before the caller forgets the old copy: a process killed
+        // in between can lose neither.
+        prefs.edit(commit = true) {
+            if (next != card) putString(K_CARD, encode(next))
+            putBoolean(K_MIGRATED, true)
+        }
+        if (next != card) _card.value = next
     }
 
     /** "Send my details" quick edit: the card's name and first number ([MeCards.withNameAndNumber]). */
