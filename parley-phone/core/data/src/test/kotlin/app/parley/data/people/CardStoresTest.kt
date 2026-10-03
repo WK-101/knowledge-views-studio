@@ -107,7 +107,12 @@ class CardStoresTest {
         assertTrue(store.record("Bo", "+447700900001", ShareMethod.QR_SWAP, listOf("+447700900123")))
         val raw = context.getSharedPreferences("card_sharing", Context.MODE_PRIVATE).getString("ledger", null)
         assertTrue(RecordCrypto.get(context).isSealed(raw))
-        assertFalse(raw!!.contains("Bo"))
+        // Not a bare `contains("Bo")`: two letters turn up by chance in the sealed text's Base64 in about one run in twenty.
+        // Quotes never occur in Base64, so the stored name and number would show as JSON if they were kept plain.
+        assertFalse(raw!!.contains("\"Bo\""))
+        assertFalse(raw.contains("+447700900001"))
+        val opened = RecordCrypto.get(context).openText(raw).orEmpty()
+        assertTrue(opened.contains("\"Bo\"") && opened.contains("+447700900001"))
         val again = ShareLedgerStore(context)
         assertTrue(again.load())
         assertEquals("Bo", again.receipts.value.single().name)
