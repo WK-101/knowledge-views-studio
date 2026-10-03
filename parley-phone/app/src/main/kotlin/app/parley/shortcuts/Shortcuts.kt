@@ -25,12 +25,14 @@ import androidx.compose.ui.graphics.toArgb
 object Shortcuts {
     enum class Kind { CALL, MESSAGE, OPEN }
 
-    fun intent(context: Context, kind: Kind, number: String?, contactId: Long?): Intent =
+    /** [name]: who is called, for "Confirm before calling" (looked up from [contactId] when missing). */
+    fun intent(context: Context, kind: Kind, number: String?, contactId: Long?, name: String? = null): Intent =
         Intent(context, ShortcutActivity::class.java)
             .setAction(ShortcutActivity.ACTION)
             .putExtra(ShortcutActivity.EXTRA_KIND, kind.name)
             .putExtra(ShortcutActivity.EXTRA_NUMBER, number)
             .putExtra(ShortcutActivity.EXTRA_CONTACT, contactId ?: -1L)
+            .apply { if (name != null) putExtra(ShortcutActivity.EXTRA_NAME, name) }
 
     fun icon(context: Context, name: String, photoUri: String?): IconCompat {
         val bmp = photoUri?.let { runCatching { context.contentResolver.openInputStream(Uri.parse(it))?.use { s -> BitmapFactory.decodeStream(s) } }.getOrNull() }
@@ -79,7 +81,7 @@ object Shortcuts {
                     Intent(context, MainActivity::class.java).setAction(Intent.ACTION_VIEW)
                         .setData(ContactsContract.Contacts.getLookupUri(contactId, lookupKey))
                 } else {
-                    intent(context, kind, number, contactId)
+                    intent(context, kind, number, contactId, name)
                 },
             )
             .build()
@@ -119,7 +121,7 @@ object Shortcuts {
         .setShortLabel(name.take(24))
         .setLongLabel(name)
         .setIcon(iconOf(context, iconName, photoUri))
-        .setIntent(intent(context, Kind.CALL, dialString, null))
+        .setIntent(intent(context, Kind.CALL, dialString, null, name))
         .build()
 
     /** Keeps launcher long-press shortcuts in sync with favourites. */
@@ -135,7 +137,7 @@ object Shortcuts {
                 list += ShortcutInfoCompat.Builder(context, "fav-${c.id}")
                     .setShortLabel(c.displayName.take(24))
                     .setIcon(icon(context, c.displayName, c.photoUri))
-                    .setIntent(intent(context, Kind.CALL, c.phones.first().number, c.id))
+                    .setIntent(intent(context, Kind.CALL, c.phones.first().number, c.id, c.displayName))
                     .setRank(i + 1)
                     .build()
             }

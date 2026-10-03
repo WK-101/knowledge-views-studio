@@ -177,10 +177,9 @@ class CircleWidget : AppWidgetProvider() {
 
         private fun views(ctx: Context, id: Int, manager: AppWidgetManager, content: Content, locked: Boolean): RemoteViews {
             val v = RemoteViews(ctx.packageName, R.layout.widget_circle)
-            val open = PendingIntent.getActivity(
-                ctx, 7100 + id,
+            val open = WidgetTaps.activity(
+                ctx, WidgetTaps.Kind.CIRCLE_APP, id, 0,
                 Intent(ctx, MainActivity::class.java).setAction(MainActivity.ACTION_SHOW_CIRCLE).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
             )
             v.setOnClickPendingIntent(R.id.circle_root, open)
             // Smaller widgets show fewer rows: about 44 dp per person, 20 dp per date, after the title.
@@ -200,11 +199,7 @@ class CircleWidget : AppWidgetProvider() {
                 v.setTextViewText(R.id.circle_message, text + "\n" + res.getString(R.string.circle_widget_tap_reveal))
                 v.setViewVisibility(R.id.circle_message, View.VISIBLE)
                 // A tap re-draws the widget (names return when the phone is unlocked); opening Parley does too.
-                val reveal = PendingIntent.getBroadcast(
-                    ctx, 7500 + id,
-                    Intent(ctx, CircleWidget::class.java).setAction(ACTION_REVEAL),
-                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
-                )
+                val reveal = WidgetTaps.broadcast(ctx, WidgetTaps.Kind.CIRCLE_REVEAL, id, Intent(ctx, CircleWidget::class.java).setAction(ACTION_REVEAL))
                 v.setOnClickPendingIntent(R.id.circle_root, reveal)
                 v.setOnClickPendingIntent(R.id.circle_message, reveal)
                 return v
@@ -221,11 +216,12 @@ class CircleWidget : AppWidgetProvider() {
                 v.setViewVisibility(row, View.VISIBLE)
                 v.setTextViewText(name, p.name)
                 v.setTextViewText(line, p.line)
-                v.setOnClickPendingIntent(row, contactIntent(ctx, p.contactId, 7200 + id * 8 + i))
+                v.setOnClickPendingIntent(row, contactIntent(ctx, p.contactId, WidgetTaps.Kind.CIRCLE_PERSON, id, i))
                 if (p.phone != null) {
                     v.setViewVisibility(call, View.VISIBLE)
                     v.setContentDescription(call, ctx.getString(R.string.widget_call_name, p.name))
-                    v.setOnClickPendingIntent(call, PendingIntent.getActivity(ctx, 7300 + id * 8 + i, Shortcuts.intent(ctx, Shortcuts.Kind.CALL, p.phone, p.contactId), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT))
+                    val callIntent = Shortcuts.intent(ctx, Shortcuts.Kind.CALL, p.phone, p.contactId, p.name)
+                    v.setOnClickPendingIntent(call, WidgetTaps.activity(ctx, WidgetTaps.Kind.CIRCLE_CALL, id, i, callIntent))
                 } else {
                     v.setViewVisibility(call, View.GONE)
                 }
@@ -239,16 +235,15 @@ class CircleWidget : AppWidgetProvider() {
                     room -= 20
                     v.setViewVisibility(dateIds[i], View.VISIBLE)
                     v.setTextViewText(dateIds[i], ctx.getString(R.string.circle_widget_date_row, d.name, d.line))
-                    v.setOnClickPendingIntent(dateIds[i], contactIntent(ctx, d.contactId, 7400 + id * 8 + i))
+                    v.setOnClickPendingIntent(dateIds[i], contactIntent(ctx, d.contactId, WidgetTaps.Kind.CIRCLE_DATE, id, i))
                 }
             }
             return v
         }
 
-        private fun contactIntent(ctx: Context, contactId: Long, code: Int): PendingIntent = PendingIntent.getActivity(
-            ctx, code,
+        private fun contactIntent(ctx: Context, contactId: Long, kind: WidgetTaps.Kind, id: Int, place: Int): PendingIntent = WidgetTaps.activity(
+            ctx, kind, id, place,
             Intent(ctx, MainActivity::class.java).setAction(MainActivity.ACTION_SHOW_CALLER).putExtra(MainActivity.EXTRA_CONTACT_ID, contactId).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
 
         /**

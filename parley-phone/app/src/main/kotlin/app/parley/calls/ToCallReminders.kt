@@ -189,7 +189,7 @@ object ToCallReminders {
                 .addAction(
                     0, context.getString(R.string.to_call_call),
                     PendingIntent.getActivity(
-                        context, 72, Shortcuts.intent(context, Shortcuts.Kind.CALL, one.number, null),
+                        context, 72, Shortcuts.intent(context, Shortcuts.Kind.CALL, one.number, null, names[0]),
                         PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
                     ),
                 )

@@ -36,6 +36,33 @@ object FavoritesWidgetPlan {
     const val MAX_COLUMNS = 6
     const val MAX_ROWS = 5
 
+    /** A size the widget is drawn at, in dp. */
+    data class Size(val widthDp: Int, val heightDp: Int)
+
+    /** The sizes to draw the widget for; the launcher shows the one that matches the screen at the moment. */
+    sealed interface Layouts {
+        /** Android 12 and later: the sizes the launcher listed (one per orientation, or per screen on a foldable). */
+        data class Listed(val sizes: List<Size>) : Layouts
+
+        /** Before: one drawing for portrait and one for landscape. */
+        data class ByOrientation(val portrait: Size, val landscape: Size) : Layouts
+    }
+
+    /** Android draws at most this many sizes of one widget. */
+    const val MAX_LISTED = 16
+
+    /**
+     * The sizes to draw for a widget whose options give [minWidth], [minHeight], [maxWidth] and [maxHeight] (dp) and,
+     * from Android 12, the [listed] sizes. The four numbers are never one size: by the widget contract, portrait is
+     * min width × max height and landscape is max width × min height, so taking both maximums would plan columns
+     * that only fit in landscape and rows that only fit in portrait.
+     */
+    fun layouts(minWidth: Int, minHeight: Int, maxWidth: Int, maxHeight: Int, listed: List<Size>?): Layouts {
+        val sizes = listed.orEmpty().filter { it.widthDp > 0 && it.heightDp > 0 }.distinct().take(MAX_LISTED)
+        if (sizes.isNotEmpty()) return Layouts.Listed(sizes)
+        return Layouts.ByOrientation(portrait = Size(minWidth, maxHeight), landscape = Size(maxWidth, minHeight))
+    }
+
     /** The grid for a widget [widthDp]×[heightDp] (unknown sizes, 0 or less, give a 4×2 grid). */
     fun grid(widthDp: Int, heightDp: Int): Grid {
         val columns = if (widthDp > 0) (widthDp / CELL_WIDTH_DP).coerceIn(1, MAX_COLUMNS) else 4
@@ -49,8 +76,11 @@ object FavoritesWidgetPlan {
      */
     fun select(favourites: List<ContactSummary>, capacity: Int): List<Tile> =
         eligible(favourites).take(capacity.coerceAtLeast(0)).map { c ->
-            Tile(c.id, c.displayName, (c.phones.firstOrNull { it.isPrimary } ?: c.phones.firstOrNull())?.number, c.photoUri)
+            Tile(c.id, c.displayName, numberOf(c), c.photoUri)
         }
+
+    /** The number a tap on [c] calls: the default one, else the first (null: none, the tap opens the page). */
+    fun numberOf(c: ContactSummary): String? = (c.phones.firstOrNull { it.isPrimary } ?: c.phones.firstOrNull())?.number
 
     /** What the widget shows for [favourites] in [grid]; [locked]: app lock on and the phone locked. */
     fun shown(favourites: List<ContactSummary>, grid: Grid, locked: Boolean): Shown {

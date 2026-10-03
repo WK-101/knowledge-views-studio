@@ -18,6 +18,12 @@ import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.work.testing.WorkManagerTestInitHelper
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onNodeWithTag
+import android.graphics.Bitmap
+import android.net.Uri
+import app.parley.common.ux.CallScreenBackground
+import java.io.File
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
@@ -288,4 +294,64 @@ class UiSmokeTest {
     @Test fun call_screen_in_call_dark() = callScreen(Look.DARK, CallState.ACTIVE, incoming = false)
 
     @Test fun call_screen_in_call_large_font_rtl() = callScreen(Look.LARGE_FONT_RTL, CallState.ACTIVE, incoming = false)
+
+    // ---------------------------------------------------------------- poster
+
+    /** The ringing screen in the Poster style, for a caller whose call-screen picture is [backgroundUri]. */
+    private fun poster(look: Look, backgroundUri: String) {
+        show(look) {
+            InCallScreen(
+                calls = listOf(call(CallState.RINGING, incoming = true).copy(backgroundUri = backgroundUri)), audio = AudioUi(), ended = null,
+                answerGesture = AnswerGesture.SWIPE, quickReplies = emptyList(), keypadOpen = false, onKeypad = {}, onAddCall = {},
+                onOpenContact = {}, background = CallScreenBackground.POSTER,
+            )
+        }
+        shows("Ada Lovelace")
+    }
+
+    private fun photoShown() = compose.onAllNodesWithTag(CALLER_PHOTO, useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
+
+    private fun pictureFile(): File {
+        val f = File(app.cacheDir, "poster.png")
+        val bmp = Bitmap.createBitmap(90, 160, Bitmap.Config.ARGB_8888).apply { eraseColor(android.graphics.Color.rgb(200, 90, 40)) }
+        f.outputStream().use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
+        return f
+    }
+
+    // A phone in portrait: the poster needs the one-column layout with room above the controls.
+    @Config(qualifiers = PHONE)
+    @Test
+    fun call_screen_poster_light() {
+        poster(Look.LIGHT, Uri.fromFile(pictureFile()).toString())
+        // The picture is the caller: once it has decoded, the photo gives way to the large name over it.
+        compose.waitUntil(10_000) { !photoShown() }
+    }
+
+    // A phone in portrait: the poster needs the one-column layout with room above the controls.
+    @Config(qualifiers = PHONE)
+    @Test
+    fun call_screen_poster_dark_large_font_rtl() {
+        poster(Look.LARGE_FONT_RTL, Uri.fromFile(pictureFile()).toString())
+        compose.waitUntil(10_000) { !photoShown() }
+    }
+
+    // A phone in portrait: the poster needs the one-column layout with room above the controls.
+    @Config(qualifiers = PHONE)
+    @Test
+    fun call_screen_poster_with_a_picture_that_cannot_be_read_keeps_the_classic_layout() {
+        poster(Look.DARK, Uri.fromFile(File(app.cacheDir, "deleted.png")).toString())
+        // Give the decode time to fail: the photo, its ringing frame and time ring stay.
+        repeat(20) {
+            compose.waitForIdle()
+            Thread.sleep(20)
+        }
+        compose.onNodeWithTag(CALLER_PHOTO, useUnmergedTree = true).assertExists()
+    }
+
+    private companion object {
+        /** The caller's photo on the call screen (CallerHeader's tag). */
+        const val CALLER_PHOTO = "caller-photo"
+
+        const val PHONE = "w411dp-h891dp-port"
+    }
 }

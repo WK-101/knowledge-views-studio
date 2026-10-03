@@ -12,7 +12,9 @@ import android.content.IntentFilter
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.util.SizeF
 import android.view.View
 import android.widget.RemoteViews
 import androidx.activity.compose.setContent
@@ -35,6 +37,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.core.os.BundleCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import app.parley.MainActivity
@@ -42,6 +45,7 @@ import app.parley.R
 import app.parley.common.ContactSummary
 import app.parley.common.PhoneIdentity
 import app.parley.common.people.FavoriteOrder
+import app.parley.common.people.FavoriteSort
 import app.parley.common.people.FavoritesWidgetPlan
 import app.parley.container
 import app.parley.data.DataContainer
@@ -64,6 +68,7 @@ import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -72,13 +77,15 @@ import kotlinx.coroutines.withTimeoutOrNull
 /**
  * The Favourites widget: a grid of favourites (photo or monogram, and name) in the Favourites tab's order. Plain
  * RemoteViews like the Circle and direct-dial widgets (no Glance). A tap calls through the shortcut trampoline, so
- * "Confirm before calling" and the pocket guard apply, or opens their page (chosen when the widget is placed, and
- * later from the launcher's widget settings).
+ * "Confirm before calling" and the pocket guard apply, or opens their page (chosen in the widget's settings,
+ * [FavoritesWidgetConfigActivity]).
  *
  * - The launcher draws it, so only phone contacts are in it: private contacts never are ([FavoritesWidgetPlan]).
  * - With the app lock on, a locked phone shows only how many favourites there are; names and photos come back once
  *   the phone is unlocked (as in the Circle widget: USER_PRESENT while Parley runs, opening Parley, or a tap).
- * - Resizable: the grid has as many columns and rows as fit. Light and dark follow the system. No network.
+ * - Resizable: the grid has as many columns and rows as fit, drawn for each size the widget takes (portrait and
+ *   landscape, or the sizes Android 12+ lists). Light and dark follow the system. No network.
+ * - Every tap has its own PendingIntent ([WidgetTaps]), so one widget's redraw never changes whom another one calls.
  * - The app refreshes it when contacts, the favourites order or the lock setting change.
  */
 class FavoritesWidget : AppWidgetProvider() {
@@ -179,16 +186,47 @@ class FavoritesWidget : AppWidgetProvider() {
             return FavoriteOrder.sort(favs, prefs.favoriteSort, prefs.favoriteOrder, counts)
         }
 
+        /**
+         * Widget [id] drawn for each size it can take ([FavoritesWidgetPlan.layouts]): the launcher picks the one for the
+         * screen as it is, so a rotation needs no redraw and the grid never plans for room it doesn't have.
+         */
         @Suppress("LongParameterList")
         private fun views(
             ctx: Context, id: Int, manager: AppWidgetManager, favourites: List<ContactSummary>, locked: Boolean, photos: HashMap<Long, Bitmap>,
         ): RemoteViews {
-            val v = RemoteViews(ctx.packageName, R.layout.widget_favorites)
             val options = manager.getAppWidgetOptions(id)
-            val grid = FavoritesWidgetPlan.grid(
-                options?.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_WIDTH, 0) ?: 0,
-                options?.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, 0) ?: 0,
+            fun dp(key: String) = options?.getInt(key, 0) ?: 0
+            val layouts = FavoritesWidgetPlan.layouts(
+                dp(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH), dp(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT),
+                dp(AppWidgetManager.OPTION_APPWIDGET_MAX_WIDTH), dp(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT),
+                listedSizes(options),
             )
+            fun at(size: FavoritesWidgetPlan.Size) = sized(ctx, id, FavoritesWidgetPlan.grid(size.widthDp, size.heightDp), favourites, locked, photos)
+            return when (layouts) {
+                is FavoritesWidgetPlan.Layouts.Listed -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    RemoteViews(layouts.sizes.associate { SizeF(it.widthDp.toFloat(), it.heightDp.toFloat()) to at(it) })
+                } else {
+                    at(layouts.sizes.first())
+                }
+                is FavoritesWidgetPlan.Layouts.ByOrientation -> RemoteViews(at(layouts.landscape), at(layouts.portrait))
+            }
+        }
+
+        /** The sizes Android 12 and later list for the widget (null before, or when the launcher gives none). */
+        private fun listedSizes(options: Bundle?): List<FavoritesWidgetPlan.Size>? {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || options == null) return null
+            val sizes = runCatching {
+                BundleCompat.getParcelableArrayList(options, AppWidgetManager.OPTION_APPWIDGET_SIZES, SizeF::class.java)
+            }.getOrNull() ?: return null
+            return sizes.map { FavoritesWidgetPlan.Size(it.width.toInt(), it.height.toInt()) }
+        }
+
+        /** One drawing of widget [id] with [grid]. */
+        @Suppress("LongParameterList")
+        private fun sized(
+            ctx: Context, id: Int, grid: FavoritesWidgetPlan.Grid, favourites: List<ContactSummary>, locked: Boolean, photos: HashMap<Long, Bitmap>,
+        ): RemoteViews {
+            val v = RemoteViews(ctx.packageName, R.layout.widget_favorites)
             v.removeAllViews(R.id.fav_grid)
             v.setViewVisibility(R.id.fav_message, View.GONE)
             v.setOnClickPendingIntent(R.id.fav_title, openApp(ctx, id))
@@ -201,9 +239,8 @@ class FavoritesWidget : AppWidgetProvider() {
                         res.getQuantityString(R.plurals.fav_widget_count, shown.count, shown.count) + "\n" + res.getString(R.string.circle_widget_tap_reveal),
                     )
                     v.setViewVisibility(R.id.fav_message, View.VISIBLE)
-                    val reveal = PendingIntent.getBroadcast(
-                        ctx, 8500 + id, Intent(ctx, FavoritesWidget::class.java).setAction(ACTION_REVEAL),
-                        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+                    val reveal = WidgetTaps.broadcast(
+                        ctx, WidgetTaps.Kind.FAVOURITES_REVEAL, id, Intent(ctx, FavoritesWidget::class.java).setAction(ACTION_REVEAL),
                     )
                     v.setOnClickPendingIntent(R.id.fav_root, reveal)
                     v.setOnClickPendingIntent(R.id.fav_message, reveal)
@@ -244,35 +281,30 @@ class FavoritesWidget : AppWidgetProvider() {
                 }?.let { DialWidget.circle(it, PHOTO_PX) } ?: DialWidget.circle(Shortcuts.monogram(t.name, PHOTO_PX), PHOTO_PX)
             }
             cell.setImageViewBitmap(R.id.fav_cell_photo, photo)
-            val code = 8000 + id * 64 + index
             val call = tap == FavoritesWidgetPlan.Tap.CALL && t.number != null
-            val intent = if (call) {
-                PendingIntent.getActivity(
-                    ctx, code, Shortcuts.intent(ctx, Shortcuts.Kind.CALL, t.number, t.contactId),
-                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
-                )
-            } else {
-                PendingIntent.getActivity(
-                    ctx, code,
-                    Intent(ctx, MainActivity::class.java).setAction(MainActivity.ACTION_SHOW_CALLER)
-                        .putExtra(MainActivity.EXTRA_CONTACT_ID, t.contactId).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
-                )
-            }
-            cell.setOnClickPendingIntent(R.id.fav_cell, intent)
+            cell.setOnClickPendingIntent(R.id.fav_cell, tapIntent(ctx, id, index, t, tap))
             cell.setContentDescription(R.id.fav_cell, ctx.getString(if (call) R.string.widget_call_name else R.string.fav_widget_open_name, t.name))
             return cell
         }
 
-        private fun openApp(ctx: Context, id: Int): PendingIntent = PendingIntent.getActivity(
-            ctx, 8400 + id, Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
-        )
+        /** What a tap on [t], the [index]th person of widget [id], starts: a call through the trampoline, or their page. */
+        internal fun tapIntent(ctx: Context, id: Int, index: Int, t: FavoritesWidgetPlan.Tile, tap: FavoritesWidgetPlan.Tap): PendingIntent {
+            val intent = if (tap == FavoritesWidgetPlan.Tap.CALL && t.number != null) {
+                Shortcuts.intent(ctx, Shortcuts.Kind.CALL, t.number, t.contactId, t.name)
+            } else {
+                Intent(ctx, MainActivity::class.java).setAction(MainActivity.ACTION_SHOW_CALLER)
+                    .putExtra(MainActivity.EXTRA_CONTACT_ID, t.contactId).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            return WidgetTaps.activity(ctx, WidgetTaps.Kind.FAVOURITE, id, index, intent)
+        }
+
+        private fun openApp(ctx: Context, id: Int): PendingIntent =
+            WidgetTaps.activity(ctx, WidgetTaps.Kind.FAVOURITES_APP, id, 0, Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
 
         /**
-         * Keeps the widgets current while Parley runs: after changes to the contacts (stars, names, photos), the
-         * favourites order or the app-lock setting, and when the screen turns off (names hide) or the phone is
-         * unlocked (names return). Called once from the Application.
+         * Keeps the widgets current while Parley runs: after changes to the contacts (stars, names, photos, the number
+         * a tap calls), the favourites order (and, sorted by most called, the calls) or the app-lock setting, and when
+         * the screen turns off (names hide) or the phone is unlocked (names return). Called once from the Application.
          */
         @OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
         fun observe(context: Context, c: DataContainer) {
@@ -285,8 +317,14 @@ class FavoritesWidget : AppWidgetProvider() {
                         emptyFlow()
                     } else {
                         combine(
-                            c.contacts.contacts.map { list -> list?.filter { it.starred }?.map { Triple(it.id, it.displayName, it.photoUri) } },
-                            c.people.prefs.settings.map { it.favoriteSort to it.favoriteOrder },
+                            c.contacts.contacts.map { list ->
+                                list?.filter { it.starred }?.map { listOf(it.id, it.displayName, it.photoUri, FavoritesWidgetPlan.numberOf(it)) }
+                            },
+                            c.people.prefs.settings.flatMapLatest { p ->
+                                // "Most called" moves people as calls come in: follow how many calls there are.
+                                val calls = if (p.favoriteSort == FavoriteSort.MOST_CALLED) c.history.calls.map { it?.size } else flowOf(null)
+                                calls.map { listOf(p.favoriteSort, p.favoriteOrder, it) }
+                            },
                             c.settings.settings.map { it.appLock },
                         ) { a, b, lock -> listOf(a, b, lock) }
                             .drop(1)
@@ -311,8 +349,9 @@ class FavoritesWidget : AppWidgetProvider() {
 }
 
 /**
- * The Favourites widget's settings: what a tap on a person does. Shown when the widget is placed (it can be skipped:
- * a tap calls) and from the launcher's widget settings afterwards.
+ * The Favourites widget's settings: what a tap on a person does. Android 10 and 11 show it when the widget is placed;
+ * from Android 12 the launcher places the widget without it, and it opens from the widget's settings (long-press).
+ * Leaving it with Back keeps the widget and its current choice (a new widget calls): only Done changes anything.
  */
 class FavoritesWidgetConfigActivity : LockedActivity() {
     @OptIn(ExperimentalMaterial3Api::class)
@@ -326,6 +365,9 @@ class FavoritesWidgetConfigActivity : LockedActivity() {
             finish()
             return
         }
+        // The settings can be skipped: a launcher that asks when placing (Android 10 and 11 always do) takes a
+        // cancelled result as "don't add the widget", so Back must still answer OK. The widget then calls.
+        setResult(RESULT_OK, Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, id))
         setContent {
             val s by container.settings.settings.collectAsStateWithLifecycle()
             val loaded by container.settings.loaded.collectAsStateWithLifecycle()

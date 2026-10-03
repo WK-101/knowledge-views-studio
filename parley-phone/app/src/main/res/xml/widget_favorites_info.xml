@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Resizable Favourites widget, refreshed by the app on changes (no updatePeriodMillis). Its settings (what a tap
-     does) can be skipped when it's placed and opened again from the launcher. -->
+<!-- Resizable Favourites widget, refreshed by the app on changes (no updatePeriodMillis). Home screen only, so the
+     locked drawing is what shows right after unlocking, until Parley redraws it. Its settings (what a tap does):
+     asked when it's placed on Android 10 and 11 (Back keeps the widget), skipped from Android 12
+     (configuration_optional), and opened again from the launcher (reconfigurable). -->
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
     android:configure="app.parley.shortcuts.FavoritesWidgetConfigActivity"
     android:description="@string/fav_widget_description"

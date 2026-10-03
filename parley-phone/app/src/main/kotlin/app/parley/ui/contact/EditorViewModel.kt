@@ -297,8 +297,20 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
         draft?.let { draft = f(it) }
     }
 
+    /**
+     * Photos the camera app took in this editor. Parley's cache isn't sealed, so they are deleted when the editor
+     * closes ([onCleared]); the one saved has been copied where it belongs by then.
+     */
+    private val shots = LinkedHashSet<Uri>()
+
+    /** "Take photo" gave [uri] (framed next, then perhaps picked). */
+    fun tookPhoto(uri: Uri) {
+        shots += uri
+    }
+
     /** A photo picked or taken; [frame]: its square for the avatar, when framed already. */
     fun pickPhoto(uri: Uri, frame: PhotoFrame? = null) {
+        if (photo != uri) ContactCamera.forget(c.appContext, photo)
         photo = uri
         photoFrame = frame
         removePhoto = false
@@ -310,6 +322,7 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
     }
 
     fun clearPhoto() {
+        ContactCamera.forget(c.appContext, photo)
         photo = null
         photoFrame = null
         removePhoto = true
@@ -481,6 +494,13 @@ class EditorViewModel(private val c: DataContainer, private val saved: SavedStat
 
     private fun message(res: Int) {
         eventChannel.trySend(EditorEvent.Message(c.appContext.getString(res)))
+    }
+
+    /** Leaving the editor: camera shots it no longer needs go, after a save still reading one has finished. */
+    override fun onCleared() {
+        val left = shots + listOfNotNull(photo)
+        if (left.isNotEmpty()) saveContact.whenIdle { left.forEach { ContactCamera.forget(c.appContext, it) } }
+        super.onCleared()
     }
 
     // ---------------------------------------------------------------- saved state

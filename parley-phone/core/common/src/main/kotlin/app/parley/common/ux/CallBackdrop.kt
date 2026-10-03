@@ -99,12 +99,14 @@ object CallBackdrop {
     }
 
     /**
-     * Whether the screen lays the caller out as a poster: only in the single-column layout with room for it. Two
-     * panes (landscape, tablets), a short window, the open keypad and a waiting second call keep the classic layout
-     * over the same picture.
+     * Whether the screen lays the caller out as a poster: only in the single-column layout with room for it, and only
+     * once the picture is there to see ([pictureShown]: decoded; a picture that was deleted or can't be read never
+     * is, and the caller keeps their photo, ringing frame and time ring). Two panes (landscape, tablets), a short
+     * window, the open keypad and a waiting second call keep the classic layout over the same picture.
      */
-    fun posterLayout(plan: Plan, twoPane: Boolean, short: Boolean, keypadOpen: Boolean, callWaiting: Boolean): Boolean =
-        plan.poster && !twoPane && !short && !keypadOpen && !callWaiting
+    @Suppress("LongParameterList")
+    fun posterLayout(plan: Plan, twoPane: Boolean, short: Boolean, keypadOpen: Boolean, callWaiting: Boolean, pictureShown: Boolean): Boolean =
+        plan.poster && pictureShown && !twoPane && !short && !keypadOpen && !callWaiting
 
     /** The scrim's opacity behind the controls at the bottom of a picture. */
     const val OPAQUE_BOTTOM = 0.96f

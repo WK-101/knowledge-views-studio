@@ -22,6 +22,9 @@ import app.parley.ui.people.BackgroundChange
 import app.parley.ui.people.CallBackgroundText
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.File
 
@@ -80,7 +83,15 @@ class SaveContactUseCase(private val c: DataContainer) {
         data class ChangedElsewhere(val theirs: ContactDetails?) : Outcome
     }
 
-    suspend operator fun invoke(r: Request): Outcome = c.scope.async { run(r) }.await()
+    /** Held while a save runs: [whenIdle] waits for it. */
+    private val running = Mutex()
+
+    suspend operator fun invoke(r: Request): Outcome = c.scope.async { running.withLock { run(r) } }.await()
+
+    /** Runs [block] in the app's scope once no save is running (one may still be reading the picked photo). */
+    fun whenIdle(block: suspend () -> Unit) {
+        c.scope.launch { running.withLock { block() } }
+    }
 
     private suspend fun run(r: Request): Outcome {
         val notes = ArrayList<Int>()
@@ -212,7 +223,7 @@ class SaveContactUseCase(private val c: DataContainer) {
         val bytes = framedAvatar(r, kept) ?: return null
         return withContext(Dispatchers.IO) {
             runCatching {
-                val dir = File(c.appContext.cacheDir, "framed").apply { mkdirs() }
+                val dir = File(c.appContext.cacheDir, ContactCamera.FRAMED_DIR).apply { mkdirs() }
                 File(dir, "avatar-${System.nanoTime()}.jpg").apply { writeBytes(bytes) }
             }.getOrNull()
         }

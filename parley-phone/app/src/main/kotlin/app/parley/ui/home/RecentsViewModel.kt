@@ -68,10 +68,11 @@ data class RecentsList(val groups: List<RecentGroup>, val rows: List<RecentsRow>
 /**
  * Recents: the merged call list (system log, Parley's archive and private calls), the filter chips, the search, the
  * selection, the grouping and day headers, and the missed calls still to return. Shared by the Recents tab, the
- * docked keypad's idle list and the Recents menus (activity scope).
+ * docked keypad's idle list and the Recents menus (activity scope). [clock] is the time now (tests fix it, so a day
+ * boundary never falls between their calls).
  */
 @OptIn(FlowPreview::class)
-class RecentsViewModel(private val c: DataContainer) : ViewModel() {
+class RecentsViewModel(private val c: DataContainer, private val clock: () -> Long = System::currentTimeMillis) : ViewModel() {
     private val directory = c.directory
     val countryIso: String = directory.countryIso
     private val settings = c.settings.settings
@@ -142,7 +143,7 @@ class RecentsViewModel(private val c: DataContainer) : ViewModel() {
 
     /** [allCalls] with the filter chips of the call history applied (SIM, type, period, duration). */
     private val filteredCalls = combine(allCalls, c.history.activeFilter) { calls, f ->
-        if (calls == null || f.isEmpty) calls else calls.filter(f.matcher(System.currentTimeMillis(), ZoneId.systemDefault()))
+        if (calls == null || f.isEmpty) calls else calls.filter(f.matcher(clock(), ZoneId.systemDefault()))
     }
 
     // The call-list layout travels with the calls, so Recents regroups when it changes.
@@ -174,7 +175,7 @@ class RecentsViewModel(private val c: DataContainer) : ViewModel() {
 
     /** The list with its day headers; redone at midnight so "Today" becomes "Yesterday". */
     val list: StateFlow<RecentsList?> = merge(
-        combine(groups, localDays()) { groups, today -> groups?.let { RecentsList(it, rows(it, today)) } },
+        combine(groups, localDays(clock)) { groups, today -> groups?.let { RecentsList(it, rows(it, today)) } },
         locationPrefetch,
     ).flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_AFTER_MS), null)
 
@@ -197,7 +198,7 @@ class RecentsViewModel(private val c: DataContainer) : ViewModel() {
      * Ids of missed calls not returned yet, over every call (whatever the filters show), for the Recents
      * tint, the Call back pill and the Missed chip's count.
      */
-    val unreturnedMissed: StateFlow<Set<Long>> = combine(allCalls, notWorthReturning(), hourly()) { calls, excluded, now ->
+    val unreturnedMissed: StateFlow<Set<Long>> = combine(allCalls, notWorthReturning(), hourly(clock)) { calls, excluded, now ->
         calls?.let { CallGlance.unreturnedMissed(it, { n -> PhoneIdentity.key(n, countryIso) }, now, excluded = excluded) } ?: emptySet()
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_AFTER_MS), emptySet())
 
@@ -265,9 +266,9 @@ class RecentsViewModel(private val c: DataContainer) : ViewModel() {
     }
 
     /** "3 unknown callers today", for the quiet line under the Unknown chip (counted over every call, whatever the filters). */
-    val unknownToday: StateFlow<Int> = combine(allCalls, directory.numberIndex, vaultByKey, localDays()) { calls, index, vaults, today ->
+    val unknownToday: StateFlow<Int> = combine(allCalls, directory.numberIndex, vaultByKey, localDays(clock)) { calls, index, vaults, today ->
         val tz = TimeZone.getDefault()
-        val since = today * DAY_MS - tz.getOffset(System.currentTimeMillis())
+        val since = today * DAY_MS - tz.getOffset(clock())
         calls?.let { list ->
             RecentsCallers.unknownCallersSince(list, since, { PhoneIdentity.key(it, countryIso) }) { e ->
                 e.id < 0 || index[e.number] != null || PhoneIdentity.key(e.number, countryIso) in vaults
@@ -285,18 +286,18 @@ class RecentsViewModel(private val c: DataContainer) : ViewModel() {
         const val LOCATIONS_AHEAD = 300
 
         /** The time the 7-day window of [unreturnedMissed] is measured from, moved on hourly. */
-        fun hourly(): Flow<Long> = flow {
+        fun hourly(clock: () -> Long): Flow<Long> = flow {
             while (true) {
-                emit(System.currentTimeMillis())
+                emit(clock())
                 delay(60 * 60 * 1000L)
             }
         }
 
         /** Today's local day, emitted again just after each midnight. */
-        fun localDays(): Flow<Long> = flow {
+        fun localDays(clock: () -> Long): Flow<Long> = flow {
             while (true) {
                 val tz = TimeZone.getDefault()
-                val now = System.currentTimeMillis()
+                val now = clock()
                 val today = ListSections.localDay(now, tz)
                 emit(today)
                 val nextMidnight = (today + 1) * DAY_MS - tz.getOffset(now)

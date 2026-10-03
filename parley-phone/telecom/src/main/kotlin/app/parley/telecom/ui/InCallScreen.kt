@@ -211,9 +211,14 @@ fun InCallScreen(
         val twoPane = maxWidth > maxHeight && maxWidth >= 560.dp
         val short = maxHeight < 480.dp
         val backdropCall = primary ?: shown
-        // Settings › Calls › Poster, for a caller with a call-screen picture, in the one-column layout.
-        val poster = posterLayout(backdropCall, background, slots, twoPane, short, keypadOpen)
-        CallBackground(backdropCall, background, poster = poster, textTop = { textTop(callerTop.floatValue, screenTop.floatValue) })
+        // The call-screen picture, decoded here: the layout follows whether it can be shown, not only whether it is set.
+        val picture = rememberCallPicture(backdropCall?.backgroundUri?.takeIf { callBackdropPlan(backdropCall, background).picture })
+        // Settings › Calls › Poster, for a caller with a call-screen picture that shows, in the one-column layout.
+        val poster = posterLayout(backdropCall, background, slots, twoPane, short, keypadOpen, pictureShown = picture != null)
+        CallBackground(
+            backdropCall, background, image = picture, poster = poster,
+            textTop = { textTop(callerTop.floatValue, screenTop.floatValue) },
+        )
         val insets = Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().displayCutoutPadding()
         val actions = ScreenActions(
             onKeypad = onKeypad, onAddCall = onAddCall, onOpenContact = onOpenContact,
@@ -250,6 +255,7 @@ fun InCallScreen(
 }
 
 /** Whether the caller is laid out as a poster (see [CallBackdrop.posterLayout]). */
+@Suppress("LongParameterList")
 private fun posterLayout(
     call: CallUi?,
     background: CallScreenBackground,
@@ -257,11 +263,13 @@ private fun posterLayout(
     twoPane: Boolean,
     short: Boolean,
     keypadOpen: Boolean,
+    pictureShown: Boolean,
 ): Boolean {
     val primary = slots.primary
     return CallBackdrop.posterLayout(
         callBackdropPlan(call, background), twoPane = twoPane, short = short,
         keypadOpen = keypadOpen && primary?.state != CallState.RINGING, callWaiting = slots.waiting && slots.current != null && primary != null,
+        pictureShown = pictureShown,
     )
 }
 

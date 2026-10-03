@@ -3,6 +3,7 @@ package app.parley.telecom.ui
 import android.graphics.BitmapFactory
 import android.net.Uri
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -12,11 +13,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -44,15 +46,18 @@ import kotlinx.coroutines.withContext
  * onSurfaceVariant text keep 4.5:1, in light, dark and black themes. The picture-in-picture window takes the tint
  * only ([picture] off).
  *
- * With [poster] (the Poster style laid out as one, see [CallBackdrop.posterLayout]), the picture stays clear above
- * the caller's text, whose top edge [textTop] gives in pixels from the top of this background (negative while not
- * yet measured); the readable scrim starts just above it.
+ * [image] is the picture as [rememberCallPicture] decoded it (null: none yet, or it can't be read; then only the
+ * tint shows). With [poster] (the Poster style laid out as one, see [CallBackdrop.posterLayout]), the picture stays
+ * clear above the caller's text, whose top edge [textTop] gives in pixels from the top of this background (negative
+ * while not yet measured); the readable scrim starts just above it.
  */
+@Suppress("LongParameterList")
 @Composable
 internal fun CallBackground(
     call: CallUi?,
     style: CallScreenBackground,
     picture: Boolean = true,
+    image: ImageBitmap? = null,
     poster: Boolean = false,
     textTop: () -> Float = { -1f },
 ) {
@@ -71,7 +76,7 @@ internal fun CallBackground(
     }
     val top by animateColorAsState(tint, ParleyMotion.slowEffects(), label = "tint")
     Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to top, 0.6f to surface, 1f to surface)))
-    if (plan.picture) CallPicture(call?.backgroundUri, surface, inks, poster && plan.poster, textTop)
+    if (plan.picture && image != null) CallPicture(image, surface, inks, poster && plan.poster, textTop)
 }
 
 /** What the call screen draws behind [call] with [style] (see [CallBackdrop.plan]). */
@@ -84,14 +89,18 @@ internal fun callBackdropPlan(call: CallUi?, style: CallScreenBackground, pictur
 )
 
 /**
- * The caller's call-screen picture, decoded off the main thread and scaled down to at most about a screen's size, so
- * the ring path never waits for it: the tinted background shows first and the picture fades in over it.
+ * The caller's call-screen picture at [uri], decoded off the main thread and scaled down to at most about a screen's
+ * size, so the ring path never waits for it: the tinted background shows first and the picture fades in over it.
+ * Null while it decodes, and for good when it can't be read (deleted, moved, a permission gone): the screen then
+ * lays out as if there were no picture.
  */
 @Composable
-private fun CallPicture(uri: String?, surface: Color, inks: IntArray, poster: Boolean, textTop: () -> Float) {
-    if (uri == null) return
+internal fun rememberCallPicture(uri: String?): ImageBitmap? {
     val context = LocalContext.current
     val image by produceState<ImageBitmap?>(null, uri) {
+        // Another caller's picture never stays up while this one decodes (or if it can't be read).
+        value = null
+        if (uri == null) return@produceState
         value = withContext(Dispatchers.IO) {
             runCatching {
                 val u = Uri.parse(uri)
@@ -105,13 +114,20 @@ private fun CallPicture(uri: String?, surface: Color, inks: IntArray, poster: Bo
             }.getOrNull()
         }
     }
-    val shown by animateFloatAsState(if (image != null) 1f else 0f, ParleyMotion.slowEffects(), label = "picture")
+    return image
+}
+
+/** [bmp] over the whole screen, faded in once, under the readable scrim (see [CallBackground]). */
+@Composable
+private fun CallPicture(bmp: ImageBitmap, surface: Color, inks: IntArray, poster: Boolean, textTop: () -> Float) {
+    val appeared = remember { Animatable(0f) }
+    val fadeIn = ParleyMotion.slowEffects<Float>()
+    LaunchedEffect(Unit) { appeared.animateTo(1f, fadeIn) }
     // How clear the poster's picture is above the text; it closes to the classic scrim when the keypad opens.
     val open = animateFloatAsState(if (poster) 1f else 0f, ParleyMotion.slowEffects(), label = "poster")
-    val bmp = image ?: return
     val scrim = remember(surface, inks) { CallBackdrop.scrimAlpha(surface.toArgb(), inks) }
     val statusBars = WindowInsets.statusBars
-    Box(Modifier.fillMaxSize().alpha(shown)) {
+    Box(Modifier.fillMaxSize().graphicsLayer { alpha = appeared.value }) {
         Image(bmp, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
         // The readable minimum over the picture (from the poster's text down), then fully opaque behind the controls.
         // The text's position and the opening are read while drawing, so a moving header never recomposes this.
