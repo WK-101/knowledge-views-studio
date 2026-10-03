@@ -32,6 +32,8 @@ import app.parley.data.db.ContactMetaEntity
 import app.parley.data.db.NumberSimEntity
 import app.parley.data.db.TemporaryContactEntity
 import app.parley.data.vault.VaultCrypto
+import app.parley.data.people.RelationFromOther
+import app.parley.data.people.RelationsFromOthers
 import java.time.ZoneId
 import app.parley.ui.circle.PersonMemory
 import java.util.UUID
@@ -288,6 +290,21 @@ class ContactDetailViewModel(private val c: DataContainer) : ViewModel() {
         }
     }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_AFTER_MS), ContactDetailUiState())
 
+    /** Relations other contacts give this one where one of the two is private ([RelationsFromOthers]). */
+    val relationsFromOthers: StateFlow<List<RelationFromOther>> =
+        combine(loaded, c.meta.allMeta(), c.settings.settings, c.vault.contacts) { l, metas, s, _ -> Triple(l, metas, s) }
+            .mapLatest { (l, metas, s) ->
+                val d = l?.details
+                if (d == null || l.access != PrivateAccess.OPEN) {
+                    emptyList()
+                } else {
+                    suspendRunCatching { RelationsFromOthers.load(c, d, l.ref is ContactRef.Private, metas, s) }.getOrDefault(emptyList())
+                }
+            }
+            .distinctUntilChanged()
+            .flowOn(Dispatchers.IO)
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_AFTER_MS), emptyList())
+
     val circleConfig = c.circle.config
 
     private val current: ContactDetails? get() = state.value.details
@@ -508,11 +525,16 @@ class ContactDetailViewModel(private val c: DataContainer) : ViewModel() {
         val link = RelationLinks.decode(state.value.meta?.relationLinks)[RelationLinks.nameKey(name)]
         // A link to a private contact follows its private key, never the address book.
         ContactRef.vaultIdOf(link?.lookupKey)?.let { v ->
-            if (c.vault.summariesNow().any { it.id == v }) return@launch onResult(RelationTarget.Contact(ContactRef.Private(v).navId))
+            // Discreet mode hides private contacts everywhere, a relation's link included.
+            val shown = !c.settings.current().hideVault && c.vault.summariesNow().any { it.id == v }
+            if (shown) return@launch onResult(RelationTarget.Contact(ContactRef.Private(v).navId))
         }
         val all = c.directory.contacts.value ?: c.contacts.snapshot()
+        // A private contact that is gone (or hidden) is never looked for in the address book by its key.
+        val deviceLink = link?.takeUnless { ContactRef.isPrivateKey(it.lookupKey) }
         val target = withContext(Dispatchers.IO) {
-            RelationLinks.resolve(name, link, { l -> c.contacts.currentOf(l.lookupKey, l.contactId)?.first }, all.map { it.id to it.displayName }, self = id)
+            val people = all.map { it.id to it.displayName }
+            RelationLinks.resolve(name, deviceLink, { l -> c.contacts.currentOf(l.lookupKey, l.contactId)?.first }, people, self = id)
         }
         onResult(
             when (target) {

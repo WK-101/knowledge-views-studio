@@ -12,6 +12,7 @@ object RowEdits {
 
     sealed interface Op {
         val mime: String
+
         /** [replaces]: the saved row this one is written again for (to keep the chosen order), whose other columns it keeps. */
         data class Insert(override val mime: String, val values: Map<String, String?>, val replaces: Long? = null) : Op
         data class Update(val id: Long, override val mime: String, val values: Map<String, String?>) : Op
@@ -23,6 +24,7 @@ object RowEdits {
      * for new ones). Returns inserts, updates and deletes for [kinds] only. Rows in [rewrite] are deleted and inserted
      * again at their place, so the rows read back in the edited order ([RowOrder.rewrite]).
      */
+    @Suppress("CyclomaticComplexMethod") // One decision table per row: kept, moved, retyped, changed, new or gone.
     fun plan(before: List<Row>, after: List<Row>, kinds: Set<String>, locked: Set<Long> = emptySet(), rewrite: Set<Long> = emptySet()): List<Op> {
         val mine = before.filter { it.mime in kinds && it.id != null }
         val byId = mine.associateBy { it.id!! }

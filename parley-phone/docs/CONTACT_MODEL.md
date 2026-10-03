@@ -123,6 +123,30 @@ is overwritten with the empty defaults (Make visible keeps what the record put b
 The call path runs screening whenever a private contact has one of these or a label (`VaultCallChoices`). This needs
 Parley as the phone app (or the call-screening role), like every screening feature.
 
+### Relations with private contacts
+
+A relation row ("Mother: Ana") holds only a name, as every app expects; Parley remembers which contact it means in its
+own data (`RelationLinks`, under the Parley key of the contact that has the relation). A private contact is linked by
+its Parley key and negative id, never looked up in the address book by that key, and the relation picker in the
+editor lists private contacts (with the lock badge) unless discreet mode hides them.
+
+Between two device contacts, "Add relations to both contacts" writes the opposite row on the other contact
+(`RelationMirrors`, recorded in `relation_mirrors` so only Parley's own rows are ever taken back). When one of the two
+is private nothing is written, either way:
+
+- a private contact's relation to a device contact would put the private contact's name on a contact every app with
+  the contacts permission reads (and its account syncs), which is what a private contact exists to avoid. Make private
+  takes such rows back for the same reason;
+- a device contact's relation to a private one would have to add rows to sealed details nobody is editing (with the
+  vault perhaps locked), and record the private contact's key and name in `relation_mirrors`, which keeps neither.
+
+Instead the other contact's page shows the opposite relation from those links (`RelationsFromOthers`,
+`RelationMirror.fromOthers`): "Ana" over "Child · From their contact", which opens Ana. It is computed when the page
+opens, so removing the relation removes it; it needs the setting on, is never shown in discreet mode (or after a
+duress unlock) and needs the private contact's details open. A name the user saves in a device contact's relation
+row is theirs, as with any relation; Parley adds nothing to it. The Contact notes section of a backup leaves out a
+device contact's link to a private one.
+
 ## Features by storage
 
 "Before" is 4.2 (a separate, reduced page for private contacts); "Now" is this change.
