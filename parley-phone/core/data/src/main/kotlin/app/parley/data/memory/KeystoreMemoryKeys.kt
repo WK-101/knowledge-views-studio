@@ -1,36 +1,28 @@
 package app.parley.data.memory
 
 import android.content.Context
-import android.security.keystore.KeyGenParameterSpec
-import android.security.keystore.KeyProperties
-import app.parley.common.Hex
+import android.util.Log
+import app.parley.data.history.HistoryCrypto
 import app.parley.data.security.RecordCrypto
+import java.io.File
 import java.security.KeyStore
-import javax.crypto.KeyGenerator
-import javax.crypto.Mac
-import javax.crypto.SecretKey
 
 /**
- * The number-memory index's keys: an HMAC-SHA256 key of its own in the Android Keystore for the numbers (like the
- * vault's number fingerprints, but a separate key, so the two indexes can't be joined), and the small-records key
+ * The number-memory index's keys: an HMAC key of its own for the numbers (separate from the vault's number
+ * fingerprints, so the two indexes can't be joined), a random software key wrapped by a Keystore key without
+ * authentication ([HistoryCrypto], as the call-history archive keeps its own), and the small-records key
  * ([RecordCrypto]) for the hints. No authentication: the index is read while a call rings on a locked phone.
+ *
+ * A rebuild hashes every remembered number. Versions before 5.4 did it with an HMAC key inside the Keystore, one
+ * Keystore operation per number (about 25,000 a day with a large call history); in software it is microseconds. The
+ * index made with that key no longer matches ([NumberMemoryIndex.matchesKey]) and is rebuilt once; the old Keystore
+ * key is deleted after that.
  */
 class KeystoreMemoryKeys(context: Context) : NumberMemoryIndex.Keys {
     private val crypto = RecordCrypto.get(context)
-    private val ks: KeyStore by lazy { KeyStore.getInstance(STORE).apply { load(null) } }
-    private var mac: Mac? = null
+    private val hashing = HistoryCrypto(context, File(context.noBackupFilesDir, KEY_FILE), ALIAS)
 
-    @Synchronized
-    override fun key(input: String): String {
-        val m = mac ?: Mac.getInstance("HmacSHA256").also { it.init(secret()); mac = it }
-        return Hex.encode(m.doFinal(input.toByteArray(Charsets.UTF_8)))
-    }
-
-    private fun secret(): SecretKey = (ks.getKey(ALIAS, null) as? SecretKey)
-        ?: KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_HMAC_SHA256, STORE).run {
-            init(KeyGenParameterSpec.Builder(ALIAS, KeyProperties.PURPOSE_SIGN).build())
-            generateKey()
-        }
+    override fun key(input: String): String = hashing.mac(input)
 
     override fun seal(plain: ByteArray): ByteArray {
         val sealed = crypto.sealBytes(plain)
@@ -44,8 +36,21 @@ class KeystoreMemoryKeys(context: Context) : NumberMemoryIndex.Keys {
         return crypto.openBytes(sealed)
     }
 
-    private companion object {
-        const val STORE = "AndroidKeyStore"
-        const val ALIAS = "parley_number_memory_v1"
+    /** Deletes the Keystore HMAC key of versions before 5.4, once the index no longer needs it (nothing if it's gone). */
+    fun retireOldKey() {
+        try {
+            val ks = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+            if (ks.containsAlias(OLD_ALIAS)) ks.deleteEntry(OLD_ALIAS)
+        } catch (ignored: Exception) {
+            // Tried again after the next rebuild.
+            Log.w("NumberMemory", "Old number-memory key kept for now: ${ignored.javaClass.simpleName}")
+        }
+    }
+
+    companion object {
+        /** The wrapped key (no-backup storage, registered in PersistentStores). */
+        const val KEY_FILE = "memory.keys"
+        private const val ALIAS = "parley_number_memory_wrap"
+        private const val OLD_ALIAS = "parley_number_memory_v1"
     }
 }

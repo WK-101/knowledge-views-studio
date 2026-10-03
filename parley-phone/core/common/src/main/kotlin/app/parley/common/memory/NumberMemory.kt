@@ -181,18 +181,7 @@ object NumberMemory {
      * Per line: how many calls and since when ([MemorySource.CALLS]), and the newest name the history showed for it
      * ([MemorySource.ARCHIVE_NAME]), "Showed as Plumber Mike in your calls in March 2024".
      */
-    fun pastCalls(calls: List<PastCall>, region: String?): List<Entry> {
-        val out = ArrayList<Entry>()
-        calls.filter { it.number.isNotBlank() }.groupBy { PhoneIdentity.key(it.number, region) }.forEach { (line, list) ->
-            if (line.isEmpty()) return@forEach
-            val newest = list.maxBy { it.date }
-            out += Entry(newest.number, MemoryHint(MemorySource.CALLS, count = list.size, since = list.minOf { it.date }, at = newest.date))
-            list.filter { !it.name.isNullOrBlank() }.maxByOrNull { it.date }?.let { named ->
-                out += Entry(named.number, MemoryHint(MemorySource.ARCHIVE_NAME, name = named.name!!.trim(), at = named.date))
-            }
-        }
-        return out
-    }
+    fun pastCalls(calls: List<PastCall>, region: String?): List<Entry> = CallTally.empty(region).plus(calls, mark = "").entries()
 
     /** A note (pinned note, logged moment or promise) on someone's page. [ownerKey] is their Parley key. */
     data class Note(val text: String, val ownerKey: String, val ownerName: String?, val at: Long, val private: Boolean)

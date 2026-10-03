@@ -83,6 +83,16 @@ interface HistoryDao {
     @Query("SELECT COUNT(*) FROM archived_calls")
     suspend fun count(): Int
 
+    @Query("SELECT MAX(id) FROM archived_calls")
+    suspend fun maxId(): Long?
+
+    @Query("SELECT COUNT(*) FROM archived_calls WHERE id > :after")
+    suspend fun countAfter(after: Long): Int
+
+    /** Rows archived after row [after], oldest first, a page at a time (number memory's incremental read). */
+    @Query("SELECT * FROM archived_calls WHERE id > :after ORDER BY id LIMIT :limit")
+    suspend fun pageAfter(after: Long, limit: Int): List<ArchivedCallEntity>
+
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insert(rows: List<ArchivedCallEntity>): List<Long>
 
