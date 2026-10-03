@@ -8,24 +8,17 @@ import android.provider.ContactsContract.CommonDataKinds.Event
 import android.provider.ContactsContract.CommonDataKinds.GroupMembership
 import android.provider.ContactsContract.CommonDataKinds.Nickname
 import android.provider.ContactsContract.CommonDataKinds.Organization
-import android.provider.ContactsContract.CommonDataKinds.Im
-import android.provider.ContactsContract.CommonDataKinds.Note
-import android.provider.ContactsContract.CommonDataKinds.SipAddress
-import android.provider.ContactsContract.CommonDataKinds.StructuredPostal
-import android.provider.ContactsContract.CommonDataKinds.Website
 import android.provider.ContactsContract.Data
 import android.provider.ContactsContract.Groups
 import android.provider.ContactsContract.RawContacts
-import app.parley.common.people.BroadSearch
-import app.parley.common.people.CustomFields
-import app.parley.common.record.Mime
+import app.parley.common.people.ContactSearch
 import app.parley.common.people.LifeEvents
 import app.parley.common.people.PersonExtra
-import app.parley.common.people.SocialProfiles
 import app.parley.common.record.Messengers
 import app.parley.data.AccountRef
 import app.parley.data.ContactsRepository
 import app.parley.data.Permissions
+import app.parley.data.PhoneEnv
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharingStarted
@@ -44,8 +37,11 @@ data class PeopleIndexData(
     /** Contacts per label title. */
     val labelCounts: Map<String, Int> = emptyMap(),
     val loaded: Boolean = false,
-    /** What the Contacts tab's search also looks at (addresses, notes, websites, handles…). */
-    val search: Map<Long, BroadSearch.Extra> = emptyMap(),
+    /**
+     * Every field of each contact, prepared for the Contacts search and its filters ([ContactSearch]). Memory only,
+     * rebuilt with the rest whenever the address book changes.
+     */
+    val search: Map<Long, ContactSearch.Doc> = emptyMap(),
 ) {
     fun countFor(a: AccountRef): Int = accountCounts[a] ?: 0
 
@@ -55,7 +51,8 @@ data class PeopleIndexData(
 
 /**
  * Per-contact fields the lists need beyond the contact summaries (company, title, nickname, accounts, labels,
- * date of death), recomputed off the main thread whenever the address book changes.
+ * date of death) and every field the Contacts search and filters look at, recomputed off the main thread whenever the
+ * address book changes (the contact list follows Android's change notifications).
  */
 class PeopleIndex(
     private val context: Context,
@@ -71,25 +68,21 @@ class PeopleIndex(
         .flowOn(Dispatchers.IO)
         .stateIn(scope, started, PeopleIndexData())
 
-    private class Acc {
+    private class Acc(id: Long, region: String?) {
         var company = ""
         var title = ""
         var nickname = ""
         val accounts = LinkedHashSet<String>()
         val labels = HashSet<String>()
         var deceased = false
-        val addresses = ArrayList<String>(0)
-        var note = ""
-        val websites = ArrayList<String>(0)
-        val handles = ArrayList<String>(0)
-        val profiles = ArrayList<String>(0)
-        val custom = ArrayList<String>(0)
+        val search = ContactSearch.Builder(id, region)
     }
 
     private fun load(): PeopleIndexData {
         if (!Permissions.has(context, Manifest.permission.READ_CONTACTS)) return PeopleIndexData(loaded = true)
+        val region = PhoneEnv.countryIso(context)
         val byId = HashMap<Long, Acc>()
-        fun acc(id: Long) = byId.getOrPut(id) { Acc() }
+        fun acc(id: Long) = byId.getOrPut(id) { Acc(id, region) }
 
         val titles = HashMap<Long, String>()
         query(Groups.CONTENT_URI, arrayOf(Groups._ID, Groups.TITLE, Groups.SYSTEM_ID, Groups.AUTO_ADD), "${Groups.DELETED}=0") { c ->
@@ -106,38 +99,28 @@ class PeopleIndex(
             acc(id).accounts += a.displayLabel
         }
 
+        // Every field the Contacts search looks at, plus what the lists need (company, nickname, labels, a death date).
+        val kinds = ContactSearch.ROW_KINDS + GroupMembership.CONTENT_ITEM_TYPE
         query(
             Data.CONTENT_URI,
-            arrayOf(Data.CONTACT_ID, Data.MIMETYPE, Data.DATA1, Data.DATA2, Data.DATA3, Data.DATA4),
-            "${Data.MIMETYPE} IN (?,?,?,?,?,?,?,?,?,?,?)",
-            arrayOf(
-                Organization.CONTENT_ITEM_TYPE, Nickname.CONTENT_ITEM_TYPE, GroupMembership.CONTENT_ITEM_TYPE, Event.CONTENT_ITEM_TYPE,
-                StructuredPostal.CONTENT_ITEM_TYPE, Note.CONTENT_ITEM_TYPE, Website.CONTENT_ITEM_TYPE, Im.CONTENT_ITEM_TYPE, SipAddress.CONTENT_ITEM_TYPE,
-                Mime.CUSTOM_FIELD, Mime.GOOGLE_CUSTOM_FIELD,
-            ),
+            arrayOf(Data.CONTACT_ID, Data.MIMETYPE) + COLUMNS,
+            "${Data.MIMETYPE} IN (${kinds.joinToString(",") { "?" }})",
+            kinds.toTypedArray(),
         ) { c ->
             val a = acc(c.getLong(0))
-            when (c.getString(1)) {
+            val mime = c.getString(1) ?: return@query
+            // Data columns from the third on: data1 is index 2.
+            val get: (String) -> String? = { col -> COLUMNS.indexOf(col).takeIf { it >= 0 }?.let { c.getString(it + 2) } }
+            when (mime) {
                 Organization.CONTENT_ITEM_TYPE -> if (a.company.isEmpty() && a.title.isEmpty()) {
-                    a.company = c.getString(2).orEmpty().trim()
-                    a.title = c.getString(5).orEmpty().trim() // Organization.TITLE = DATA4
+                    a.company = get(Data.DATA1).orEmpty().trim()
+                    a.title = get(Data.DATA4).orEmpty().trim() // Organization.TITLE = DATA4
                 }
-                Nickname.CONTENT_ITEM_TYPE -> if (a.nickname.isEmpty()) a.nickname = c.getString(2).orEmpty().trim()
-                GroupMembership.CONTENT_ITEM_TYPE -> c.getString(2)?.toLongOrNull()?.let { titles[it] }?.let { a.labels += it }
-                Event.CONTENT_ITEM_TYPE -> if (LifeEvents.isDeath(c.getInt(3), c.getString(4))) a.deceased = true
-                // Formatted address, note, website and handles are all DATA1.
-                StructuredPostal.CONTENT_ITEM_TYPE -> c.getString(2)?.takeIf { it.isNotBlank() }?.let { a.addresses += it }
-                Note.CONTENT_ITEM_TYPE -> if (a.note.isEmpty()) a.note = c.getString(2).orEmpty()
-                Website.CONTENT_ITEM_TYPE -> c.getString(2)?.takeIf { it.isNotBlank() }?.let { url ->
-                    a.websites += url
-                    // Website.TYPE and LABEL are DATA2 and DATA3: a profile's service is in its label.
-                    SocialProfiles.fromWebsite(url, c.getInt(3), c.getString(4))?.let { a.profiles += SocialProfiles.searchTerms(it) }
-                }
-                Im.CONTENT_ITEM_TYPE, SipAddress.CONTENT_ITEM_TYPE -> c.getString(2)?.takeIf { it.isNotBlank() }?.let { a.handles += it }
-                // A custom field's label is DATA1 and its value DATA2.
-                Mime.CUSTOM_FIELD, Mime.GOOGLE_CUSTOM_FIELD ->
-                    CustomFields.display(c.getString(2).orEmpty(), c.getString(3).orEmpty()).takeIf { it.isNotEmpty() }?.let { a.custom += it }
+                Nickname.CONTENT_ITEM_TYPE -> if (a.nickname.isEmpty()) a.nickname = get(Data.DATA1).orEmpty().trim()
+                GroupMembership.CONTENT_ITEM_TYPE -> get(Data.DATA1)?.toLongOrNull()?.let { titles[it] }?.let { a.labels += it }
+                Event.CONTENT_ITEM_TYPE -> if (LifeEvents.isDeath(get(Data.DATA2)?.toIntOrNull() ?: 0, get(Data.DATA3))) a.deceased = true
             }
+            a.search.row(mime, get)
         }
 
         val extras = byId.mapValues { (_, a) -> PersonExtra(a.company, a.title, a.nickname, a.accounts.toList(), a.labels, a.deceased) }
@@ -145,9 +128,18 @@ class PeopleIndex(
         extras.values.forEach { e -> e.labels.forEach { labelCounts[it] = (labelCounts[it] ?: 0) + 1 } }
         titles.values.forEach { labelCounts.putIfAbsent(it, 0) }
         val search = byId.mapValues { (_, a) ->
-            BroadSearch.Extra(a.nickname, a.company, a.title, a.addresses, a.note, a.websites, a.handles, a.profiles, a.custom)
+            a.labels.forEach { a.search.label(it) }
+            a.accounts.forEach { a.search.account(it) }
+            a.search.build()
         }
         return PeopleIndexData(extras, accountContacts.mapValues { it.value.size }, labelCounts, loaded = true, search = search)
+    }
+
+    private companion object {
+        /** DATA1 to DATA10, and DATA11 for an address's RFC 9554 parts ([app.parley.common.people.AddressParts.COLUMN]). */
+        val COLUMNS = arrayOf(
+            Data.DATA1, Data.DATA2, Data.DATA3, Data.DATA4, Data.DATA5, Data.DATA6, Data.DATA7, Data.DATA8, Data.DATA9, Data.DATA10, Data.DATA11,
+        )
     }
 
     private inline fun query(

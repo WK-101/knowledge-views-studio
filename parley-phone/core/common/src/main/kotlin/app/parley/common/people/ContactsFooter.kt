@@ -20,7 +20,7 @@ object ContactsFooter {
         /** "5 unlabelled contacts". */
         data class Unlabelled(override val count: Int) : Line
 
-        /** "7 contacts match the filter" (several labels, or labels with an account). */
+        /** "7 contacts match the filter" (several labels, labels with an account, or any other filter). */
         data class Filtered(override val count: Int) : Line
 
         /** "3 private contacts" (the Private list). */
@@ -38,6 +38,7 @@ object ContactsFooter {
             query.isNotBlank() -> Line.Results(count)
             privateList -> Line.Private(count)
             filter.isEmpty -> Line.All(count, private.coerceIn(0, count))
+            !filter.fields.isEmpty -> Line.Filtered(count)
             filter.labels.size == 1 && !filter.unlabelled && filter.account == null -> Line.In(count, filter.labels.single())
             filter.labels.isEmpty() && !filter.unlabelled && filter.account != null -> Line.In(count, filter.account)
             filter.labels.isEmpty() && filter.unlabelled && filter.account == null -> Line.Unlabelled(count)

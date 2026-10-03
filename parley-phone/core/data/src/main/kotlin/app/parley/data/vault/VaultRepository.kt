@@ -40,6 +40,7 @@ import app.parley.data.vault.CallerIdCopy.C_SEEDED
 import java.io.File
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flowOn
@@ -266,8 +267,18 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
 
     private val openedMain = java.util.concurrent.ConcurrentHashMap<Long, OpenedMain>()
 
+    /**
+     * Counts [forgetOpened] calls, so what was made from opened details elsewhere (the Contacts search's private docs)
+     * is forgotten at the same moments.
+     */
+    val forgets: StateFlow<Int> get() = forgetCount
+    private val forgetCount = MutableStateFlow(0)
+
     /** Forgets every opened detail (the app lock locked, or a test). */
-    fun forgetOpened() = openedMain.clear()
+    fun forgetOpened() {
+        openedMain.clear()
+        forgetCount.value++
+    }
 
     private fun deviceLocked(): Boolean = runCatching { context.getSystemService(KeyguardManager::class.java)?.isDeviceLocked == true }.getOrDefault(true)
 

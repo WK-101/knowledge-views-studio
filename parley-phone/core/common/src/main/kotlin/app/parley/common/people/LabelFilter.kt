@@ -2,7 +2,8 @@ package app.parley.common.people
 
 /**
  * Contacts-tab filter: labels (by title, so the same label in two accounts is one label), "Unlabelled",
- * AND/OR combination of several labels, and an optional account.
+ * AND/OR combination of several labels, an optional account, and the field filters ([fields]). [matches] checks the
+ * labels and account; the list checks [fields] against each contact's facets.
  */
 data class LabelFilter(
     val labels: Set<String> = emptySet(),
@@ -11,8 +12,10 @@ data class LabelFilter(
     val unlabelled: Boolean = false,
     /** Account label ("Google · me@…"), or null for every account. */
     val account: String? = null,
+    /** The other filters (country, company, has an email…), applied with these ([FieldFilter.matches]). */
+    val fields: FieldFilter = FieldFilter(),
 ) {
-    val isEmpty: Boolean get() = labels.isEmpty() && !unlabelled && account == null
+    val isEmpty: Boolean get() = labels.isEmpty() && !unlabelled && account == null && fields.isEmpty
 
     fun matches(extra: PersonExtra?): Boolean {
         val have = extra?.labels.orEmpty()

@@ -1,5 +1,6 @@
 package app.parley.common
 
+import app.parley.common.people.ContactSearch
 import java.text.Normalizer
 
 /** Accent- and case-insensitive substring search used by the contacts and history search boxes. */
@@ -50,20 +51,26 @@ object TextSearch {
 }
 
 /**
- * Items prepared once for [TextSearch] (names normalised, numbers reduced to digits), so a search per keystroke
- * normalises only the query. Build it again when the items change.
+ * Items prepared once for search by name and number with the Contacts search's engine ([ContactSearch]): names folded,
+ * numbers in their national and international digit forms, so a search per keystroke folds only the query. The
+ * keypad's header search uses it. Build it again when the items change; [region] is the phone's country.
  */
-class TextSearchIndex<T>(items: List<T>, name: (T) -> String, numbers: (T) -> List<String> = { emptyList() }) {
-    private class Row<T>(val item: T, val name: String, val digits: List<String>)
+class TextSearchIndex<T>(items: List<T>, name: (T) -> String, numbers: (T) -> List<String> = { emptyList() }, region: String? = null) {
+    private class Row<T>(val item: T, val doc: ContactSearch.Doc)
 
-    private val rows = items.map { Row(it, TextSearch.normalize(name(it)), numbers(it).map(PhoneNumbers::digits)) }
+    private val rows = items.mapIndexed { i, item ->
+        val b = ContactSearch.Builder(i.toLong(), region)
+        b.name(name(item))
+        numbers(item).forEach { b.number(it) }
+        Row(item, b.build())
+    }
 
     val size: Int get() = rows.size
 
-    /** The items matching [query] ([TextSearch.matches] rules), in their order; all of them for a blank query. */
+    /** The items whose name holds every word of [query], or whose numbers hold its digits; all of them for a blank query. */
     fun search(query: String): List<T> {
-        val q = TextSearch.Query(query)
+        val q = ContactSearch.Query(query)
         if (q.isEmpty) return rows.map { it.item }
-        return rows.filter { q.matchesPrepared(it.name, it.digits) }.map { it.item }
+        return rows.filter { ContactSearch.match(q, it.doc) != null }.map { it.item }
     }
 }

@@ -70,8 +70,12 @@ class ContactFieldPartsTest {
     }
 
     @Test fun custom_fields_are_found_by_search() {
-        val extra = BroadSearch.Extra(custom = listOf("Shoe size: 38", "Locker: A12"))
-        assertEquals(BroadSearch.Field.CUSTOM, BroadSearch.match("locker", "Ana", emptyList(), emptyList(), extra))
-        assertEquals(BroadSearch.Field.CUSTOM, BroadSearch.match("A12", "Ana", emptyList(), emptyList(), extra))
+        val doc = ContactSearch.Builder(1).apply {
+            name("Ana")
+            custom("Shoe size", "38")
+            custom("Locker", "A12")
+        }.build()
+        assertEquals(ContactSearch.Field.CUSTOM, ContactSearch.match("locker", doc))
+        assertEquals(ContactSearch.Field.CUSTOM, ContactSearch.match("A12", doc))
     }
 }
