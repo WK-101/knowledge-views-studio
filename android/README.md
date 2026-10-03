@@ -9,6 +9,8 @@ no network permission**, everything free, lossless JSON export/import.
   `R` class and `FileProvider` authorities are unchanged).
 - **Security & privacy threat model:** [`docs/SECURITY.md`](docs/SECURITY.md)
 - **Accessibility & contrast audit:** [`docs/ACCESSIBILITY.md`](docs/ACCESSIBILITY.md)
+- **Bridge & addons architecture (voice, and how to build more):** [`docs/BRIDGE_AND_ADDONS.md`](docs/BRIDGE_AND_ADDONS.md)
+- **Addon roadmap (what to build next):** [`docs/ADDON_ROADMAP.md`](docs/ADDON_ROADMAP.md)
 
 ## Privacy by construction
 
