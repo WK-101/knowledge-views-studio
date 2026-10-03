@@ -1,7 +1,9 @@
 package app.parley.ui.contact
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -80,7 +82,6 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.rounded.RemoveCircleOutline
 import androidx.compose.material.icons.rounded.ArrowDownward
 import androidx.compose.material.icons.rounded.ArrowUpward
-import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.platform.LocalDensity
@@ -128,10 +129,11 @@ internal fun Modifier.rowMoveActions(moves: RowMoves?, labels: Pair<String, Stri
 internal fun rowMoveLabels(): Pair<String, String> = stringResource(R.string.editor_move_up) to stringResource(R.string.editor_move_down)
 
 /**
- * The end column's control for one row (48 dp target): the quiet "⊖" that removes it while it is its group's only
- * row; in a group of several, "⋮" with Move up, Move down and Remove ([description]), so the order can be chosen
- * without giving every row two more buttons. The order is what other apps show too (see ContactRowOrder).
+ * The end column's control for one row (48 dp target): the quiet "⊖" that removes it in one tap. In a group whose
+ * rows can be put in another order, pressing and holding it offers Move up and Move down (the order other apps show
+ * too, see ContactRowOrder); TalkBack has them as actions on the button and on the row's fields.
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun RemoveButton(description: String, onClick: () -> Unit) {
     val moves = LocalRowMoves.current
@@ -141,9 +143,15 @@ internal fun RemoveButton(description: String, onClick: () -> Unit) {
         return
     }
     var open by remember { mutableStateOf(false) }
+    val options = stringResource(R.string.editor_row_options)
     Box {
-        IconButton({ open = true }, Modifier.rowMoveActions(moves, rowMoveLabels())) {
-            Icon(Icons.Rounded.MoreVert, stringResource(R.string.editor_row_options), tint = tint)
+        Box(
+            Modifier.size(48.dp).clip(CircleShape)
+                .combinedClickable(onClickLabel = description, onLongClickLabel = options, onLongClick = { open = true }, onClick = onClick)
+                .rowMoveActions(moves, rowMoveLabels()),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(Icons.Rounded.RemoveCircleOutline, description, tint = tint)
         }
         DropdownMenu(open, { open = false }, shape = ParleyShapes.tile) {
             DropdownMenuItem(
@@ -154,7 +162,6 @@ internal fun RemoveButton(description: String, onClick: () -> Unit) {
                 { Text(stringResource(R.string.editor_move_down)) }, leadingIcon = { Icon(Icons.Rounded.ArrowDownward, null) },
                 enabled = moves.down != null, onClick = { open = false; moves.down?.invoke() },
             )
-            DropdownMenuItem({ Text(description) }, leadingIcon = { Icon(Icons.Rounded.RemoveCircleOutline, null) }, onClick = { open = false; onClick() })
         }
     }
 }
@@ -225,7 +232,8 @@ internal fun EditorField(
     ParleyFormField(
         value, onChange, label, shape = shape,
         modifier = modifier.fillMaxWidth()
-            .then(if (focus != null) Modifier.focusRequester(focus).rowMoveActions(moves, moveLabels) else Modifier)
+            .then(if (focus != null) Modifier.focusRequester(focus) else Modifier)
+            .rowMoveActions(moves, moveLabels)
             .onFocusChanged { s ->
                 if (focused && !s.hasFocus) left = true
                 focused = s.hasFocus

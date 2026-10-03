@@ -105,6 +105,35 @@ class ContactSearchTest {
         assertEquals("a number word beside an explained one", Field.ADDRESS, m("augusta 912"))
     }
 
+    @Test fun a_name_word_with_digits_needs_both() {
+        // The digits match Ana's number, but "zed" is in none of her fields: no match.
+        assertNull(m("zed 912"))
+        assertNull(m("jo 12"))
+        assertNull("the digits must be in a number too", m("ana 777"))
+        assertEquals(Field.NUMBER, m("ana 912"))
+        assertEquals(Field.NUMBER, m("912 ana"))
+        assertEquals("no letters: the whole query is a number", Field.NUMBER, m("+351 912 345"))
+        val rui = ContactSearch.Builder(9, region = "PT").apply { name("Rui"); number("+351 21 000 0000") }.build()
+        assertEquals(Field.NUMBER, ContactSearch.match("rui 21", rui))
+        assertNull(ContactSearch.match("ana 21", rui))
+    }
+
+    @Test fun months_and_countries_in_the_phone_s_language() {
+        val pt = ContactSearch.Builder(10, languages = listOf(java.util.Locale.ENGLISH, java.util.Locale.forLanguageTag("pt"))).apply {
+            event("1990-05-14", ContactSearch.TYPE_BIRTHDAY, null)
+        }.build()
+        assertEquals(Field.DATE, ContactSearch.match("maio", pt))
+        assertEquals(Field.DATE, ContactSearch.match("14 maio", pt))
+        assertEquals("English always", Field.DATE, ContactSearch.match("may", pt))
+        val de = ContactSearch.Builder(11, languages = listOf(java.util.Locale.ENGLISH, java.util.Locale.GERMAN)).apply {
+            event("1990-05-14", ContactSearch.TYPE_BIRTHDAY, null)
+            address(null, null, null, "Berlin", null, null, "Deutschland")
+        }.build()
+        assertEquals(Field.DATE, ContactSearch.match("mai", de))
+        assertEquals("the country by its English name", Field.ADDRESS, ContactSearch.match("germany", de))
+        assertEquals(setOf("germany"), de.facets.values[Facet.COUNTRY]?.keys)
+    }
+
     @Test fun numbers_match_in_any_written_form() {
         assertEquals(Field.NUMBER, m("+351912345678"))
         assertEquals(Field.NUMBER, m("00351 912 345 678"))

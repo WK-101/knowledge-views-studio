@@ -2,7 +2,6 @@ package app.parley.common.people
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -32,16 +31,6 @@ class RowOrderTest {
         assertEquals(setOf(7L), RowOrder.rewrite(listOf(3L, 9L, 7L), locked = setOf(3L)))
         assertFalse(RowOrder.canReorder(listOf(3L, null), setOf(3L)))
         assertTrue(RowOrder.canReorder(listOf(3L, null), setOf(4L)))
-    }
-
-    @Test fun neighbours_stay_in_the_group_shown() {
-        // Profiles at 0 and 2, websites at 1 and 3 of one list.
-        val profiles = listOf(0, 2)
-        assertEquals(2, RowOrder.neighbour(profiles, 0, up = false))
-        assertEquals(0, RowOrder.neighbour(profiles, 2, up = true))
-        assertNull(RowOrder.neighbour(profiles, 0, up = true))
-        assertNull(RowOrder.neighbour(profiles, 2, up = false))
-        assertNull(RowOrder.neighbour(profiles, 1, up = true))
     }
 
     @Test fun swap_moves_two_rows_and_ignores_bad_indices() {

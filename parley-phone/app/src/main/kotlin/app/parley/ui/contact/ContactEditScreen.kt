@@ -1,6 +1,9 @@
 package app.parley.ui.contact
 
 import app.parley.common.people.ContactRef
+import androidx.compose.ui.platform.LocalContext
+import app.parley.common.photo.OriginalPhoto
+import android.text.format.Formatter
 import android.content.res.Resources
 import android.net.Uri
 import android.provider.ContactsContract.CommonDataKinds.Email
@@ -47,6 +50,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Label
 import androidx.compose.material.icons.automirrored.rounded.Notes
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Badge
 import androidx.compose.material.icons.rounded.Business
 import androidx.compose.material.icons.rounded.Cake
@@ -117,6 +121,7 @@ import app.parley.common.people.RelationLinks
 import app.parley.common.people.RelationTypes
 import app.parley.common.people.RowKeys
 import app.parley.common.people.RowOrder
+import app.parley.data.AccountRef
 import app.parley.data.ContactDetails
 import app.parley.data.DataItem
 import app.parley.data.EventItem
@@ -207,6 +212,7 @@ private const val G_ADDR = "addr"
 private const val G_DATE = "date"
 private const val G_HANDLE = "handle"
 private const val G_REL = "rel"
+private const val G_PARLEY_REL = "parleyRel"
 private const val G_CUSTOM = "custom"
 
 /** What a form line shows in the start gutter: the group's icon and title, on the group's first line only. */
@@ -552,7 +558,8 @@ fun ContactEditScreen(
                 val items = kind.get(d)
                 val rowKeys = keys.keys(kind.group, items.size)
                 val idx = items.indices.filter(only)
-                val swap = if (meCard || !movable(idx.map { items[it].id })) null else { a: Int, b: Int ->
+                // Every row of the kind counts: the save orders the whole list (profiles and websites share one).
+                val swap = if (meCard || !movable(items.map { it.id })) null else { a: Int, b: Int ->
                     swapRows(kind.group, idx[a], idx[b], kind.get, kind.set)
                 }
                 group(kind.icon, kind.title, idx.map { rowKeys[it] }, FormTokens.segmentGap, swap) { j, k, lead, shape ->
@@ -651,7 +658,8 @@ fun ContactEditScreen(
 
             // Profiles first (Instagram, LinkedIn…), then the other websites: one list of website rows underneath.
             val profileIdx = d.websites.indices.filter { profileRow.getOrElse(it) { false } }
-            val profileSwap = if (!movable(profileIdx.map { d.websites[it].id })) null else { a: Int, b: Int ->
+            // A read-only website anywhere in the list keeps the provider's order for profiles too (the save can't honour it).
+            val profileSwap = if (!movable(d.websites.map { it.id })) null else { a: Int, b: Int ->
                 swapRows(WEBSITES.group, profileIdx[a], profileIdx[b], WEBSITES.get, WEBSITES.set)
             }
             val profileKeys = profileIdx.map { webKeys[it] }
@@ -677,9 +685,31 @@ fun ContactEditScreen(
                     val item = d.relations.getOrNull(i) ?: return@group
                     RelationRow(
                         vm, item, fr(k), lead, shape,
+                        storedIn = if (meCard || editor.isVault) null else editor.account ?: AccountRef(null, null),
                         onChange = { n2 -> update { it.copy(relations = it.relations.toMutableList().also { l -> if (i in l.indices) l[i] = n2 }) } },
                         onPicked = editor::linkRelation,
+                        // The row becomes a relation kept in Parley only: nothing of it goes to the phone's contacts.
+                        onKeepInParley = { kept, link ->
+                            editor.linkRelation(kept.value, link)
+                            removeRow(G_REL, i) {
+                                it.copy(relations = it.relations.filterIndexed { j, _ -> j != i }, parleyRelations = it.parleyRelations + kept)
+                            }
+                        },
                         onRemove = { removeRow(G_REL, i) { it.copy(relations = it.relations.filterIndexed { j, _ -> j != i }) } },
+                    )
+                }
+            }
+
+            if (d.parleyRelations.isNotEmpty()) {
+                val parleyKeys = keys.keys(G_PARLEY_REL, d.parleyRelations.size)
+                group(Icons.Rounded.Lock, R.string.edit_parley_relations, parleyKeys, FormTokens.segmentGap) { i, _, lead, shape ->
+                    val item = d.parleyRelations.getOrNull(i) ?: return@group
+                    ParleyRelationRow(
+                        item, lead, shape,
+                        onChange = { n2 ->
+                            update { it.copy(parleyRelations = it.parleyRelations.toMutableList().also { l -> if (i in l.indices) l[i] = n2 }) }
+                        },
+                        onRemove = { removeRow(G_PARLEY_REL, i) { it.copy(parleyRelations = it.parleyRelations.filterIndexed { j, _ -> j != i }) } },
                     )
                 }
             }
@@ -799,6 +829,23 @@ fun ContactEditScreen(
         }
     }
 
+    // Keeping the picked photo whole: asked once per photo, only when it is very large or a HEIC with a location.
+    editor.photoQuestion?.let { q ->
+        val context = LocalContext.current
+        val large = q == OriginalPhoto.Question.LARGE
+        ConfirmDialog(
+            title = stringResource(if (large) R.string.img_keep_large_title else R.string.img_keep_location_title),
+            text = if (large) {
+                stringResource(R.string.img_keep_large_text, Formatter.formatShortFileSize(context, editor.photoBytes))
+            } else {
+                stringResource(R.string.img_keep_location_text)
+            },
+            confirmLabel = stringResource(if (large) R.string.img_keep_large_whole else R.string.img_keep_location_keep),
+            onConfirm = { editor.answerPhoto(true) },
+            onDismiss = { editor.answerPhoto(false) },
+            dismissLabel = stringResource(if (large) R.string.img_keep_large_jpeg else R.string.img_keep_location_jpeg),
+        )
+    }
     editor.conflict?.let { k ->
         ChangedElsewhereSheet(
             k, onTheirs = editor::useTheirs, onMine = editor::keepMine, onMerge = editor::merge, onDismiss = editor::dismissConflict,
@@ -1345,7 +1392,12 @@ private fun HandleRow(h: HandleItem, focus: FocusRequester, lead: Lead, index: I
     }
 }
 
-/** One relation: the name (or pick the contact), and its searchable vCard 4.0 type as a pill. */
+/**
+ * One relation: the name (or pick the contact), and its searchable vCard 4.0 type as a pill. [storedIn]: the account
+ * of the contact being edited when other apps can read it (null for a private contact or My card). Picking a private
+ * contact there first says that the name would be stored on this contact, and offers to keep the relation in Parley
+ * only ([onKeepInParley]) instead.
+ */
 @Composable
 private fun RelationRow(
     vm: AppViewModel,
@@ -1353,16 +1405,18 @@ private fun RelationRow(
     focus: FocusRequester,
     lead: Lead,
     shape: Shape,
+    storedIn: AccountRef?,
     onChange: (DataItem) -> Unit,
     onPicked: (String, RelationLinks.Link) -> Unit,
+    onKeepInParley: (DataItem, RelationLinks.Link) -> Unit,
     onRemove: () -> Unit,
 ) {
-    val res = LocalResources.current
     val locked = item.id != null && item.id in LocalLocked.current
     var typing by remember { mutableStateOf(false) }
-    var picking by remember { mutableStateOf(false) }
-    val label = RelationTypes.fromAndroid(item.type, item.label)?.let { RelationText.label(res, it) }
-        ?: if (item.type == 0) item.label ?: stringResource(R.string.edit_custom) else Relation.getTypeLabel(res, item.type, null).toString()
+    var picking by rememberSaveable { mutableStateOf(false) }
+    // The private contact picked, while asking where to keep the relation: its id, name and key.
+    var askPrivate by rememberSaveable { mutableStateOf<ArrayList<String>?>(null) }
+    val label = relationTypeLabel(item)
     FormRow(lead.icon, lead.title, end = if (!locked) { { RemoveButton(stringResource(R.string.edit_remove_relation), onRemove) } } else null) {
         // The relation types are many and searchable, so the pill opens the search dialog rather than a menu.
         TypedLine(pill = if (locked) null else { { TypePill(label, emptyList(), onOpen = { typing = true }) } }) { trailing ->
@@ -1378,20 +1432,99 @@ private fun RelationRow(
             ) { v -> onChange(item.copy(value = v)) }
         }
     }
-    if (typing) {
-        RelationTypeDialog(onDismiss = { typing = false }) { t ->
-            typing = false
-            if (t != null) {
-                val (type, lbl) = RelationTypes.toAndroid(t)
-                onChange(item.copy(type = type, label = lbl))
-            }
-        }
-    }
+    if (typing) RelationTypePicker(item, onDone = { typing = false }, onChange = onChange)
     if (picking) {
         ContactChooserDialog(vm, onDismiss = { picking = false }) { id, name, key ->
             picking = false
-            onChange(item.copy(value = name))
-            onPicked(name, RelationLinks.Link(key, id))
+            if (storedIn != null && ContactRef.isPrivateKey(key)) {
+                askPrivate = arrayListOf(id.toString(), name, key)
+            } else {
+                onChange(item.copy(value = name))
+                onPicked(name, RelationLinks.Link(key, id))
+            }
         }
     }
+    val asked = askPrivate
+    if (asked != null && storedIn != null && asked.size == 3) {
+        val (id, name, key) = asked
+        val link = RelationLinks.Link(key, id.toLongOrNull() ?: 0L)
+        PrivateRelationDialog(
+            name, storedIn,
+            onDismiss = { askPrivate = null },
+            onKeepInParley = {
+                askPrivate = null
+                onKeepInParley(item.copy(id = null, value = name), link)
+            },
+            onStoreHere = {
+                askPrivate = null
+                onChange(item.copy(value = name))
+                onPicked(name, link)
+            },
+        )
+    }
+}
+
+/**
+ * Picking private contact [name] as a relation of a contact other apps can read: says plainly that the name would be
+ * stored on this contact (and synced by [storedIn]), and offers to keep the relation in Parley only.
+ */
+@Composable
+private fun PrivateRelationDialog(name: String, storedIn: AccountRef, onDismiss: () -> Unit, onKeepInParley: () -> Unit, onStoreHere: () -> Unit) {
+    val text = if (storedIn.isLocal) {
+        stringResource(R.string.edit_private_relation_local, name)
+    } else {
+        stringResource(R.string.edit_private_relation_synced, name, storedIn.displayLabel)
+    }
+    ParleyDialog(
+        onDismissRequest = onDismiss,
+        icon = { Icon(Icons.Rounded.Lock, null) },
+        title = { Text(stringResource(R.string.edit_private_relation_title, name)) },
+        text = { Text(text) },
+        confirmButton = { TextButton(onKeepInParley) { Text(stringResource(R.string.edit_private_relation_keep)) } },
+        dismissButton = {
+            Row {
+                TextButton(onDismiss) { Text(stringResource(R.string.main_cancel)) }
+                TextButton(onStoreHere) { Text(stringResource(R.string.edit_private_relation_store)) }
+            }
+        },
+    )
+}
+
+/** How a relation's type reads on its pill ("Sister", a custom label). */
+@Composable
+private fun relationTypeLabel(item: DataItem): String {
+    val res = LocalResources.current
+    return RelationTypes.fromAndroid(item.type, item.label)?.let { RelationText.label(res, it) }
+        ?: if (item.type == 0) item.label ?: stringResource(R.string.edit_custom) else Relation.getTypeLabel(res, item.type, null).toString()
+}
+
+/** The searchable relation types, for [item]'s pill. */
+@Composable
+private fun RelationTypePicker(item: DataItem, onDone: () -> Unit, onChange: (DataItem) -> Unit) {
+    RelationTypeDialog(onDismiss = onDone) { t ->
+        onDone()
+        if (t != null) {
+            val (type, lbl) = RelationTypes.toAndroid(t)
+            onChange(item.copy(type = type, label = lbl))
+        }
+    }
+}
+
+/**
+ * A relation kept in Parley only ([app.parley.common.people.ParleyRelations]): its name as picked, read-only, its type
+ * as a pill, and remove. Never written to the phone's contacts.
+ */
+@Composable
+private fun ParleyRelationRow(item: DataItem, lead: Lead, shape: Shape, onChange: (DataItem) -> Unit, onRemove: () -> Unit) {
+    var typing by remember { mutableStateOf(false) }
+    val label = relationTypeLabel(item)
+    FormRow(lead.icon, lead.title, end = { RemoveButton(stringResource(R.string.edit_remove_relation), onRemove) }) {
+        TypedLine(pill = { TypePill(label, emptyList(), onOpen = { typing = true }) }) { trailing ->
+            ParleyFormField(
+                item.value, {}, stringResource(R.string.edit_relation), shape = shape, modifier = Modifier.fillMaxWidth(), readOnly = true,
+                trailing = trailing, supporting = stringResource(R.string.edit_parley_relation_support),
+            )
+        }
+    }
+    if (typing) RelationTypePicker(item, onDone = { typing = false }, onChange = onChange)
 }

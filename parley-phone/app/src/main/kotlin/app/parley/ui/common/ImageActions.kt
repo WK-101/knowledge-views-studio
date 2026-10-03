@@ -28,12 +28,15 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -51,8 +54,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.AppViewModel
 import app.parley.R
 import app.parley.common.photo.ImageFiles
+import app.parley.common.photo.OriginalPhoto
 import app.parley.security.AppLock
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 /** Save and Share for one picture, from [rememberImageActions]. [message] says how the last one went, in place. */
@@ -82,40 +87,57 @@ private tailrec fun Context.fragmentActivity(): FragmentActivity? = when (this) 
 /**
  * Save and Share for [image] (null: nothing to offer, as when [image] is still loading). Null when they aren't
  * offered: a private contact's picture while discreet mode hides private contacts. A private contact's picture asks
- * for the private contacts' unlock each time before it leaves Parley; its shared copy is deleted when the share
- * screen returns. Call it outside a Dialog's content, so its launchers belong to the screen.
+ * for the private contacts' unlock each time before it leaves Parley; its shared copy stays for the app it went to
+ * until Parley locks, [ImageExport.PRIVATE_STALE_MS] passes or Parley starts again. Call it outside a Dialog's content,
+ * so its launchers belong to the screen.
+ *
+ * The document "Save to" created survives a rotation or Parley being stopped meanwhile: it is remembered and written
+ * once the picture can be read again, and deleted rather than left empty when it can't.
  */
+@Suppress("CyclomaticComplexMethod") // Save, Share and the save that outlives a rotation, each a few short branches.
 @Composable
 fun rememberImageActions(vm: AppViewModel, image: ExportableImage?): ImageActions? {
     val context = LocalContext.current
+    val app = context.applicationContext
     val res = LocalResources.current
     val scope = rememberCoroutineScope()
     val settings by vm.settings.collectAsStateWithLifecycle()
     val current by rememberUpdatedState(image)
-    var message by remember { mutableStateOf<String?>(null) }
+    var message by rememberSaveable { mutableStateOf<String?>(null) }
     // What a save in progress will write, read once before "Save to" opens (read again if Parley was stopped meanwhile).
     var pending by remember { mutableStateOf<ByteArray?>(null) }
-    var shared by remember { mutableStateOf<Uri?>(null) }
+    // The document "Save to" created, until the picture is written into it.
+    var target by rememberSaveable { mutableStateOf<Uri?>(null) }
     val fallback = stringResource(R.string.img_file_fallback)
 
-    val saver = rememberLauncherForActivityResult(CreateImageDocument()) { target ->
-        val img = current
-        if (target == null || img == null) {
-            pending = null
-            return@rememberLauncherForActivityResult
-        }
-        scope.launch {
-            val bytes = pending ?: img.read(context)
-            pending = null
-            val ok = bytes != null && ImageExport.save(context, target, bytes)
-            message = res.getString(if (ok) R.string.img_saved else R.string.img_save_failed)
-        }
+    val saver = rememberLauncherForActivityResult(CreateImageDocument()) { created ->
+        if (created == null) pending = null else target = created
     }
-    val sharer = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
-        // A private contact's decrypted copy goes as soon as the share screen returns; others wait for the sweep, so
-        // an app still reading one isn't cut off.
-        if (current?.private == true) ImageExport.forget(context, shared)
-        shared = null
+    // A share is handed over and left alone: the app chosen may read it later (after its own screens, or from a
+    // background upload), so its copy isn't deleted when the share screen returns.
+    val sharer = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {}
+
+    // Writes the created document once the picture is there (at once, or after a rotation once it loaded again).
+    val ready = image != null
+    LaunchedEffect(target, ready) {
+        val doc = target ?: return@LaunchedEffect
+        val img = current ?: return@LaunchedEffect
+        val bytes = pending ?: img.read(context)
+        pending = null
+        val ok = bytes != null && ImageExport.save(app, doc, bytes)
+        if (!ok) ImageExport.discard(app, doc)
+        target = null
+        message = res.getString(if (ok) R.string.img_saved else R.string.img_save_failed)
+    }
+    // Leaving with a document still empty (the viewer closed before the picture loaded): it isn't left behind. A
+    // rotation keeps it: the viewer comes back and writes it.
+    DisposableEffect(Unit) {
+        onDispose {
+            val doc = target
+            if (doc != null && context.fragmentActivity()?.isChangingConfigurations != true) {
+                vm.c.scope.launch(Dispatchers.IO) { ImageExport.discard(app, doc) }
+            }
+        }
     }
 
     if (image == null || (image.private && settings.hideVault)) return null
@@ -139,11 +161,11 @@ fun rememberImageActions(vm: AppViewModel, image: ExportableImage?): ImageAction
         share = {
             withBytes { bytes, format ->
                 val img = current ?: return@withBytes
-                val uri = ImageExport.shareFile(context, bytes, ImageFiles.fileName(img.name, format, fallback), img.private)
-                shared = uri
+                val uri = ImageExport.shareFile(app, bytes, ImageFiles.fileName(img.name, format, fallback), img.private)
+                // A private contact's decrypted copy goes after its time even while Parley stays open and unlocked.
+                if (img.private) ImageExport.sweepPrivateLater(app, vm.c.scope)
                 runCatching { sharer.launch(ImageExport.shareIntent(uri, format.mime, res.getString(R.string.img_share_title))) }.onFailure {
-                    ImageExport.forget(context, uri)
-                    shared = null
+                    vm.c.scope.launch(Dispatchers.IO) { ImageExport.forget(app, uri) }
                     message = res.getString(R.string.main_no_app)
                 }
             }
@@ -177,10 +199,21 @@ private fun withPictureBytes(
     AppLock.authenticateForVault(activity) { ok -> if (ok && !vm.settings.value.hideVault) go() }
 }
 
-/** What a picture's [kind][ExportableImage.Kind] hands out, in one line for the viewer (null: nothing to say). */
+/**
+ * What a picture hands out, in one line for the viewer (null: nothing to say). A kept original says how it was kept:
+ * in its own format (with or without its location), or as a JPEG.
+ */
 @Composable
-private fun kindNote(kind: ExportableImage.Kind): String? = when (kind) {
-    ExportableImage.Kind.ORIGINAL -> stringResource(R.string.img_note_original)
+private fun kindNote(image: ExportableImage): String? = when (image.kind) {
+    ExportableImage.Kind.ORIGINAL -> stringResource(
+        when (image.kept) {
+            OriginalPhoto.Kept.AS_PICKED -> R.string.img_note_original
+            OriginalPhoto.Kept.LOCATION_REMOVED -> R.string.img_note_original_no_location
+            OriginalPhoto.Kept.LOCATION_KEPT -> R.string.img_note_original_location
+            OriginalPhoto.Kept.JPEG -> R.string.img_note_original_jpeg
+            null -> R.string.img_note_original_older
+        },
+    )
     ExportableImage.Kind.ANDROID_COPY -> stringResource(R.string.img_note_android_copy)
     ExportableImage.Kind.PRIVATE_COPY -> stringResource(R.string.img_note_private_copy)
     ExportableImage.Kind.CALL_PICTURE -> stringResource(R.string.img_note_call_picture)
@@ -194,13 +227,12 @@ private fun kindNote(kind: ExportableImage.Kind): String? = when (kind) {
 @Composable
 fun ImageViewerBar(actions: ImageActions?, image: ExportableImage?, modifier: Modifier = Modifier) {
     if (actions == null || image == null) return
-    val kind = image.kind
     Column(
         modifier.fillMaxWidth().background(Color.Black.copy(alpha = 0.6f)).navigationBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        val note = actions.message ?: kindNote(kind)
+        val note = actions.message ?: kindNote(image)
         note?.let {
             Text(
                 it, color = Color.White.copy(alpha = 0.87f), style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center,

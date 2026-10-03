@@ -79,11 +79,15 @@ class ParleyApp : Application() {
         AppLock.onEngaged = { LockTransitions.locked(container) }
         // The lock screen asks for a Parley PIN or the fingerprint: which one is read before it shows.
         container.scope.launch(Dispatchers.IO) { suspendRunCatching { container.appPin.load() } }
-        // With the app lock on, the screen going off forgets opened private details too (not only a lock).
+        // The screen going off forgets opened private details (and the Contacts search's docs made from them),
+        // whether or not the app lock is on: the vault never keeps them while the phone is locked.
         ContextCompat.registerReceiver(
             this,
             object : BroadcastReceiver() {
-                override fun onReceive(context: Context, intent: Intent) = AppLock.onScreenOff()
+                override fun onReceive(context: Context, intent: Intent) {
+                    AppLock.onScreenOff()
+                    container.vault.forgetOpened()
+                }
             },
             IntentFilter(Intent.ACTION_SCREEN_OFF), ContextCompat.RECEIVER_NOT_EXPORTED,
         )

@@ -7,7 +7,12 @@ import android.provider.ContactsContract.CommonDataKinds.Event
 import android.provider.ContactsContract.CommonDataKinds.Phone
 import android.provider.ContactsContract.CommonDataKinds.StructuredPostal
 import androidx.test.core.app.ApplicationProvider
+import android.content.ContentValues
+import app.parley.common.people.CustomFields
+import app.parley.common.record.Mime
 import app.parley.data.ContactDetails
+import app.parley.data.ContactRowOrder
+import app.parley.data.CustomFieldItem
 import app.parley.data.ContactDetailsJson
 import app.parley.data.ContactDraftJson
 import app.parley.data.ContactsRepository
@@ -112,6 +117,24 @@ class ContactRowOrderWriteTest {
         val exported = ContactRecordStore(app).read(id, fullPhoto = false)!!.raws.single().rows
             .filter { it.mimeType == Phone.CONTENT_ITEM_TYPE }.map { it.values["data1"] }
         assertEquals(after.phones.map { it.value }, exported)
+    }
+
+    /** A custom field whose kind changes (Google's to Parley's) is inserted again anyway: the rows after it follow it. */
+    @Test fun aCustomFieldThatChangesKindKeepsTheChosenOrder() {
+        val shoe = CustomFieldItem(5, "Shoe size", "38", Mime.GOOGLE_CUSTOM_FIELD)
+        val hat = CustomFieldItem(7, "Hat", "M", Mime.GOOGLE_CUSTOM_FIELD)
+        val original = ContactDetails(customFields = listOf(shoe, hat))
+        val edited = original.copy(customFields = listOf(shoe.copy(label = ""), hat))
+        assertEquals(setOf(7L), ContactRowOrder.rewrite(original, edited, emptySet(), CustomFields.GOOGLE_ACCOUNT))
+        assertEquals("the same kind: nothing moves", emptySet<Long>(), ContactRowOrder.rewrite(original, original, emptySet(), CustomFields.GOOGLE_ACCOUNT))
+    }
+
+    /** Rows are written again only when every column they keep could be read first. */
+    @Test fun noRowIsWrittenAgainWithoutItsColumns() {
+        val ids = setOf(3L, 4L)
+        assertEquals(emptySet<Long>(), ContactRowOrder.kept(ids, null))
+        assertEquals(emptySet<Long>(), ContactRowOrder.kept(ids, mapOf(3L to ContentValues())))
+        assertEquals(ids, ContactRowOrder.kept(ids, mapOf(3L to ContentValues(), 4L to ContentValues())))
     }
 
     @Test fun anUnchangedOrderWritesNothing() = runBlocking {

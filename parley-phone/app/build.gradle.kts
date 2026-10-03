@@ -31,8 +31,8 @@ android {
         targetSdk = 36
         // Keep these two plain literals. F-Droid's update check reads them line by line with a regex and can't
         // follow a variable or an expression. Bump both for a release, then tag v<versionName> (docs/RELEASING.md).
-        versionCode = 23
-        versionName = "5.3.0"
+        versionCode = 24
+        versionName = "5.3.1"
         // The instrumented smoke tests in src/androidTest (a device or emulator: docs/PERFORMANCE_BENCHMARKS.md).
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // Custom permission guarding the private-name lookup provider (differs in debug so both builds can be installed).
@@ -149,6 +149,7 @@ dependencies {
     baselineProfile(project(":baselineprofile"))
     debugImplementation(libs.compose.ui.tooling.preview)
 
+    testImplementation(libs.androidx.exifinterface)
     testImplementation(libs.junit)
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.test.core)

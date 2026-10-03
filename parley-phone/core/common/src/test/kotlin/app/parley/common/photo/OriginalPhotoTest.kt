@@ -4,18 +4,68 @@ import app.parley.common.photo.OriginalPhoto.Keep
 import app.parley.common.photo.OriginalPhoto.Match
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class OriginalPhotoTest {
-    @Test fun keeps_common_formats_as_they_are_within_the_size_limit() {
-        assertEquals(Keep.COPY, OriginalPhoto.keep("image/jpeg", 4_000_000))
-        assertEquals(Keep.COPY, OriginalPhoto.keep("IMAGE/PNG", 1))
-        assertEquals(Keep.COPY, OriginalPhoto.keep("image/webp", OriginalPhoto.MAX_BYTES))
-        assertEquals(Keep.REENCODE, OriginalPhoto.keep("image/jpeg", OriginalPhoto.MAX_BYTES + 1))
-        assertEquals(Keep.REENCODE, OriginalPhoto.keep("image/heic", 3_000_000))
-        assertEquals(Keep.REENCODE, OriginalPhoto.keep(null, 3_000_000))
-        assertEquals(Keep.REENCODE, OriginalPhoto.keep("image/jpeg", 0))
+    private fun probe(f: ImageFiles.Format?, bytes: Long = 3_000_000, location: Boolean? = false) = OriginalPhoto.Probe(f, bytes, location)
+    private val none = OriginalPhoto.Answers()
+
+    @Test fun every_format_is_kept_as_it_is_within_the_limit() {
+        for (f in ImageFiles.Format.entries) {
+            assertEquals("$f", Keep.COPY, OriginalPhoto.plan(probe(f), none).keep)
+            assertNull("$f asks nothing", OriginalPhoto.nextQuestion(probe(f), none))
+        }
+        assertEquals(Keep.COPY, OriginalPhoto.plan(probe(ImageFiles.Format.JPEG, OriginalPhoto.ASK_ABOVE_BYTES), none).keep)
+        assertEquals("not a format Parley names", Keep.REENCODE, OriginalPhoto.plan(probe(null), none).keep)
+        assertEquals("empty", Keep.REENCODE, OriginalPhoto.plan(probe(ImageFiles.Format.JPEG, 0), none).keep)
+    }
+
+    @Test fun location_is_removed_only_where_it_leaves_the_picture_untouched() {
+        assertTrue(OriginalPhoto.plan(probe(ImageFiles.Format.JPEG, location = true), none).stripLocation)
+        assertTrue(OriginalPhoto.plan(probe(ImageFiles.Format.PNG, location = true), none).stripLocation)
+        assertTrue(OriginalPhoto.plan(probe(ImageFiles.Format.WEBP, location = null), none).stripLocation)
+        assertFalse(OriginalPhoto.plan(probe(ImageFiles.Format.HEIC, location = false), none).stripLocation)
+    }
+
+    @Test fun a_heic_with_a_location_asks_once_and_dismissing_saves_a_jpeg_without_it() {
+        for (f in listOf(ImageFiles.Format.HEIC, ImageFiles.Format.HEIF, ImageFiles.Format.AVIF)) {
+            val p = probe(f, location = true)
+            assertEquals(OriginalPhoto.Question.LOCATION, OriginalPhoto.nextQuestion(p, none))
+            assertEquals("not answered: the safer choice", Keep.REENCODE, OriginalPhoto.plan(p, none).keep)
+            assertEquals(Keep.REENCODE, OriginalPhoto.plan(p, OriginalPhoto.Answers(keepLocation = false)).keep)
+            val kept = OriginalPhoto.Answers(keepLocation = true)
+            assertEquals(OriginalPhoto.Plan(Keep.COPY, false), OriginalPhoto.plan(p, kept))
+            assertNull("asked once", OriginalPhoto.nextQuestion(p, kept))
+        }
+        assertEquals("can't tell: asks", OriginalPhoto.Question.LOCATION, OriginalPhoto.nextQuestion(probe(ImageFiles.Format.HEIC, location = null), none))
+    }
+
+    @Test fun a_large_file_asks_whole_or_jpeg() {
+        val big = probe(ImageFiles.Format.JPEG, OriginalPhoto.ASK_ABOVE_BYTES + 1)
+        assertEquals(OriginalPhoto.Question.LARGE, OriginalPhoto.nextQuestion(big, none))
+        assertEquals(Keep.REENCODE, OriginalPhoto.plan(big, none).keep)
+        assertEquals(Keep.COPY, OriginalPhoto.plan(big, OriginalPhoto.Answers(keepWhole = true)).keep)
+        assertEquals(Keep.REENCODE, OriginalPhoto.plan(big, OriginalPhoto.Answers(keepWhole = false)).keep)
+        // A large HEIC with a location: whole, then the location question; a JPEG answers both.
+        val heic = probe(ImageFiles.Format.HEIC, OriginalPhoto.ASK_ABOVE_BYTES + 1, location = true)
+        assertEquals(OriginalPhoto.Question.LOCATION, OriginalPhoto.nextQuestion(heic, OriginalPhoto.Answers(keepWhole = true)))
+        assertNull(OriginalPhoto.nextQuestion(heic, OriginalPhoto.Answers(keepWhole = false)))
+        // Over the hard limit: always a JPEG, nothing asked.
+        val huge = probe(ImageFiles.Format.JPEG, OriginalPhoto.MAX_BYTES + 1)
+        assertNull(OriginalPhoto.nextQuestion(huge, none))
+        assertEquals(Keep.REENCODE, OriginalPhoto.plan(huge, OriginalPhoto.Answers(keepWhole = true)).keep)
+    }
+
+    @Test fun what_was_kept_is_recorded_truthfully() {
+        val copy = OriginalPhoto.Plan(Keep.COPY, true)
+        assertEquals(OriginalPhoto.Kept.LOCATION_REMOVED, OriginalPhoto.kept(copy, hadLocation = true, hasLocation = false))
+        assertEquals(OriginalPhoto.Kept.AS_PICKED, OriginalPhoto.kept(copy, hadLocation = false, hasLocation = false))
+        assertEquals(OriginalPhoto.Kept.LOCATION_KEPT, OriginalPhoto.kept(OriginalPhoto.Plan(Keep.COPY, false), hadLocation = true, hasLocation = true))
+        assertEquals(OriginalPhoto.Kept.JPEG, OriginalPhoto.kept(OriginalPhoto.Plan(Keep.REENCODE, false), hadLocation = true, hasLocation = false))
+        for (k in OriginalPhoto.Kept.entries) assertEquals(k, OriginalPhoto.Kept.of(k.key))
+        assertNull("kept before this was recorded", OriginalPhoto.Kept.of(null))
     }
 
     @Test fun reencoding_keeps_the_aspect_and_bounds_the_pixels() {

@@ -4,6 +4,7 @@ import app.parley.common.PhoneIdentity
 import app.parley.common.ContactSummary
 import app.parley.common.people.FavoriteOrder
 import app.parley.common.people.FavoriteSort
+import app.parley.common.people.ContactListSearch
 import app.parley.common.people.ContactSearch
 import app.parley.common.people.Facet
 import app.parley.common.people.FacetChoice
@@ -83,6 +84,7 @@ class PeopleUi(
         c, scope,
         combine(searchOpen, query, filter, includePrivate) { open, q, f, include -> include && (open || q.isNotBlank() || !f.fields.isEmpty) }
             .stateIn(scope, SharingStarted.Eagerly, false),
+        combine(query, filter, searchOpen) { q, f, open -> Triple(q, f, open) },
     )
 
     /**
@@ -108,7 +110,7 @@ class PeopleUi(
      * query. A contact without a doc (a private one whose details are closed, or before the index loaded) gets one
      * from what the list shows.
      */
-    private val prepared: StateFlow<List<Prepared>?> = combine(
+    private val prepared: StateFlow<List<ContactListSearch.Entry>?> = combine(
         contacts.combine(privateOnly) { l, only -> if (only) l?.filter { it.id < 0 } else l }, docs,
     ) { list, d ->
         list?.map { ct ->
@@ -118,11 +120,9 @@ class PeopleUi(
                 ct.phones.forEach { number(it.number) }
                 ct.emails.forEach { email(it) }
             }.build()
-            Prepared(ct, ContactSearch.fold(listOfNotNull(ct.displayName, ct.displayNameAlt, ct.phoneticName).joinToString(" ")), doc)
+            ContactListSearch.Entry(ct, ContactSearch.fold(listOfNotNull(ct.displayName, ct.displayNameAlt, ct.phoneticName).joinToString(" ")), doc)
         }
     }.flowOn(Dispatchers.Default).stateIn(scope, SharingStarted.WhileSubscribed(5_000), null)
-
-    private class Prepared(val contact: ContactSummary, val name: String, val doc: ContactSearch.Doc)
 
     /** What each filter offers, from the values the listed contacts actually have (countries in use…). */
     val filterChoices: StateFlow<Map<Facet, List<FacetChoice>>> = prepared.map { list ->
@@ -138,24 +138,12 @@ class PeopleUi(
     ) { list, q, f, (idx, temporary), s ->
         list ?: return@combine null
         val f2 = f.copy(matchAll = s.labelMatchAll)
-        val labelsOn = !(f2.labels.isEmpty() && !f2.unlabelled && f2.account == null)
-        val parsed = ContactSearch.Query(q)
+        val r = ContactListSearch.run(list, ContactSearch.Query(q), f2, idx.extras, temporary, s.preferNickname) { a, b -> filteredCollator.compare(a, b) }
         val res = c.appContext.resources
-        val hints = HashMap<Long, String>()
-        var shown = list.mapNotNull { p ->
-            val ct = p.contact
-            if (labelsOn && !f2.matches(idx.extras[ct.id])) return@mapNotNull null
-            if (!f2.fields.isEmpty && !f2.fields.matches(p.doc.facets, photo = ct.photoUri != null, temporary = ct.id in temporary)) return@mapNotNull null
-            // Every field: addresses, notes, dates, relations, custom fields… (Contacts search only, never the keypad's T9).
-            val field = ContactSearch.match(parsed, p.doc, p.name) ?: return@mapNotNull null
-            if (ContactSearch.explains(field)) hints[ct.id] = matchHint(res, field)
-            ct
-        }
-        if (s.preferNickname) {
-            shown = shown.map { ct -> NameOrder.renamed(ct, SecondLines.displayName(ct, idx.extras[ct.id], true)) }
-                .sortedWith { a, b -> filteredCollator.compare(a.sortName, b.sortName) }
-        }
-        shown to (hints as Map<Long, String>)
+        // Every field: addresses, notes, dates, relations, custom fields… (Contacts search only, never the keypad's T9).
+        val hints = r.explained.mapValues { (_, field) -> matchHint(res, field) }
+        val shown = r.shown
+        shown to hints
     }.flowOn(Dispatchers.Default).stateIn(scope, SharingStarted.WhileSubscribed(5_000), null)
 
     val filtered: StateFlow<List<ContactSummary>?> = searched.map { it?.first }.stateIn(scope, SharingStarted.WhileSubscribed(5_000), null)
@@ -214,8 +202,8 @@ class PeopleUi(
     }
 
     /** Adds or removes one field filter's value (a country, "Has an email"…). */
-    fun toggleField(facet: Facet, key: String) {
-        filter.value = filter.value.let { it.copy(fields = it.fields.toggle(facet, key)) }
+    fun toggleField(facet: Facet, key: String, display: String? = null) {
+        filter.value = filter.value.let { it.copy(fields = it.fields.toggle(facet, key, display)) }
     }
 
     fun clearFields() {

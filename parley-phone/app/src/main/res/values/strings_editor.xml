@@ -131,8 +131,17 @@
     <string name="addr_part_district">District</string>
     <string name="addr_part_landmark">Landmark</string>
     <string name="addr_part_direction">Direction</string>
-    <!-- Rows of a group with several entries: move one place up or down (the order other apps show too), or remove. -->
-    <string name="editor_row_options">Move or remove</string>
+    <!-- Rows of a group with several entries: press and hold the remove button to move one place up or down (the order other apps show too). -->
+    <string name="editor_row_options">Move up or down</string>
     <string name="editor_move_up">Move up</string>
     <string name="editor_move_down">Move down</string>
+    <!-- Picking a private contact as the relation of a contact other apps can read. -->
+    <string name="edit_private_relation_title">Keep %1$s private?</string>
+    <string name="edit_private_relation_synced">%1$s is a private contact. Saving the relation on this contact stores the name “%1$s” in your phone\'s contacts, where other apps can read it, and it syncs to %2$s.</string>
+    <string name="edit_private_relation_local">%1$s is a private contact. Saving the relation on this contact stores the name “%1$s” in your phone\'s contacts, where other apps can read it.</string>
+    <string name="edit_private_relation_keep">Keep it in Parley only</string>
+    <string name="edit_private_relation_store">Save on this contact</string>
+    <!-- Relations kept in Parley only: shown in the editor and on the page, never written to the phone's contacts. -->
+    <string name="edit_parley_relations">Kept in Parley only</string>
+    <string name="edit_parley_relation_support">Only Parley shows this relation</string>
 </resources>

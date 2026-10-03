@@ -74,9 +74,11 @@ class ContactFacets internal constructor(
 
 /**
  * The Contacts filters beyond labels and accounts: AND across facets, OR within one ("Portugal or Spain", and has an
- * email). [Facet.HAS] and [Facet.MISSING] values are each a filter of their own (has an email *and* a photo).
+ * email). [Facet.HAS] and [Facet.MISSING] values are each a filter of their own (has an email *and* a photo). [shown]
+ * keeps each chosen value as it read when chosen, so its chip stays readable when no listed contact offers it right
+ * now (private contacts' details closed, a country edited away): the chip still says what hides everyone.
  */
-data class FieldFilter(val chosen: Map<Facet, Set<String>> = emptyMap()) {
+data class FieldFilter(val chosen: Map<Facet, Set<String>> = emptyMap(), val shown: Map<String, String> = emptyMap()) {
     val isEmpty: Boolean get() = chosen.values.all { it.isEmpty() }
 
     /** How many values are chosen (the Filters chip's count). */
@@ -84,10 +86,19 @@ data class FieldFilter(val chosen: Map<Facet, Set<String>> = emptyMap()) {
 
     fun has(facet: Facet, key: String): Boolean = key in chosen[facet].orEmpty()
 
-    fun toggle(facet: Facet, key: String): FieldFilter {
-        val now = chosen[facet].orEmpty().let { if (key in it) it - key else it + key }
-        return FieldFilter(if (now.isEmpty()) chosen - facet else chosen + (facet to now))
+    /** Adds or removes [key] of [facet]; [display]: the value as the sheet showed it, for its chip. */
+    fun toggle(facet: Facet, key: String, display: String? = null): FieldFilter {
+        val adding = key !in chosen[facet].orEmpty()
+        val now = chosen[facet].orEmpty().let { if (adding) it + key else it - key }
+        val id = shownKey(facet, key)
+        val names = if (adding && display != null) shown + (id to display) else shown - id
+        return FieldFilter(if (now.isEmpty()) chosen - facet else chosen + (facet to now), names)
     }
+
+    /** [key] of [facet] as it read when chosen; null when not known. */
+    fun shownAs(facet: Facet, key: String): String? = shown[shownKey(facet, key)]
+
+    private fun shownKey(facet: Facet, key: String) = facet.name + ":" + key
 
     /**
      * Whether a contact with [facets] (null: nothing known beyond its listing) passes. [photo] and [temporary] come
@@ -109,15 +120,6 @@ data class FieldFilter(val chosen: Map<Facet, Set<String>> = emptyMap()) {
         ContactFacets.NO_NUMBER -> !f.has(ContactFacets.HAS_NUMBER)
         ContactFacets.NO_NAME -> !f.named
         else -> true
-    }
-
-    /** Drops values no contact offers any more (a country edited away), so no filter hides everyone silently. */
-    fun retain(choices: Map<Facet, List<FacetChoice>>): FieldFilter {
-        val kept = chosen.mapValues { (facet, keys) ->
-            if (facet == Facet.HAS || facet == Facet.MISSING || facet == Facet.KEPT) keys
-            else keys.filter { k -> choices[facet].orEmpty().any { it.key == k } }.toSet()
-        }.filterValues { it.isNotEmpty() }
-        return if (kept == chosen) this else FieldFilter(kept)
     }
 }
 
@@ -148,16 +150,34 @@ object FacetChoices {
     }
 }
 
-/** Country names as people write them, folded to one name each ("PT", "portugal" and "Portugal" are Portugal). */
+/**
+ * Country names as people write them, folded to one name each ("PT", "portugal" and "Portugal" are Portugal; so are
+ * "Deutschland", "DE" and "Germany" one country). A country is known by its ISO code, its English name, its name in
+ * the phone's language, and its name in each of its own languages (Locale's region display names).
+ */
 object Countries {
-    private val byKey: Map<String, String> by lazy {
+    private val byKey: Map<String, String> by lazy { build(Locale.getDefault()) }
+
+    /** The table for a phone set to [phone]'s language; [canonical] uses the phone's own. */
+    internal fun build(phone: Locale): Map<String, String> {
         val m = HashMap<String, String>()
+        // Each country's own languages: "Deutschland" for DE, "España" for ES, "Schweiz" and "Suisse" for CH.
+        val own = Locale.getAvailableLocales().filter { it.country.length == 2 }.groupBy { it.country }
         for (iso in Locale.getISOCountries()) {
-            val name = Locale.Builder().setRegion(iso).build().getDisplayCountry(Locale.ENGLISH)
+            val region = Locale.Builder().setRegion(iso).build()
+            val name = region.getDisplayCountry(Locale.ENGLISH)
             if (name.isBlank() || name == iso) continue
             m[ContactFacets.key(name)] = name
             m[iso.lowercase(Locale.ROOT)] = name
+            val local = (own[iso].orEmpty().map { region.getDisplayCountry(it) } + region.getDisplayCountry(phone))
+            local.filter { it.isNotBlank() && it != iso }.forEach { m.putIfAbsent(ContactFacets.key(it), name) }
         }
+        aliases(m)
+        return m
+    }
+
+    /** Names people use that aren't any locale's ("USA", "Holland"). */
+    private fun aliases(m: HashMap<String, String>) {
         fun alias(name: String, vararg aliases: String) = aliases.forEach { a -> m[ContactFacets.key(a)] = name }
         val us = m["us"] ?: "United States"
         val uk = m["gb"] ?: "United Kingdom"
@@ -169,13 +189,14 @@ object Countries {
         m["kr"]?.let { alias(it, "south korea", "korea") }
         m["tr"]?.let { alias(it, "turkey", "turkiye") }
         m["ru"]?.let { alias(it, "russia") }
-        m
     }
 
-    /** The country's English name for [raw] when it is one (a name or ISO code), else [raw] tidied. */
-    fun canonical(raw: String): String {
+    /** The country's English name for [raw] when it is one (a name in English or its own language, or an ISO code), else [raw] tidied. */
+    fun canonical(raw: String): String = canonical(raw, byKey)
+
+    internal fun canonical(raw: String, table: Map<String, String>): String {
         val t = raw.trim().trimEnd('.')
         if (t.isEmpty()) return ""
-        return byKey[ContactFacets.key(t)] ?: byKey[ContactFacets.key(raw.trim())] ?: t
+        return table[ContactFacets.key(t)] ?: table[ContactFacets.key(raw.trim())] ?: t
     }
 }

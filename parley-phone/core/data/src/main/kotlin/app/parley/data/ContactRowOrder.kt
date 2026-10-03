@@ -19,10 +19,11 @@ import app.parley.common.people.RowOrder
  */
 internal object ContactRowOrder {
     /** The saved rows of [edited] to write again so that every kind reads back in its edited order. */
-    fun rewrite(original: ContactDetails?, edited: ContactDetails, locked: Set<Long>): Set<Long> {
+    fun rewrite(original: ContactDetails?, edited: ContactDetails, locked: Set<Long>, accountType: String? = null): Set<Long> {
         if (original == null) return emptySet()
         fun order(ids: List<Long?>) = RowOrder.rewrite(ids, locked)
-        // A handle whose kind changed (XMPP to SIP) is replaced anyway, so it counts as a new row.
+        // A handle whose kind changed (XMPP to SIP) is replaced anyway, so it counts as a new row; so does a custom
+        // field whose kind changes (Google's and Parley's, see ExtraRows.customMime).
         val handleMime = original.handles.associate { it.id to Handles.toColumns(it.handle).first }
         return buildSet {
             addAll(order(edited.phones.filter { it.value.isNotBlank() }.map { it.id }))
@@ -32,12 +33,16 @@ internal object ContactRowOrder {
             addAll(order(edited.events.filter { it.date.isNotBlank() }.map { it.id }))
             addAll(order(edited.addresses.filter { !it.isBlank }.map { it.id }))
             addAll(order(edited.handles.filter { it.value.isNotBlank() }.map { h -> h.id?.takeIf { handleMime[it] == Handles.toColumns(h.handle).first } }))
-            addAll(order(edited.customFields.filter { !it.isBlank }.map { it.id }))
+            val customs = edited.customFields.filter { !it.isBlank }
+            addAll(order(customs.map { f -> f.id?.takeIf { f.mime == null || ExtraRows.customMime(f, accountType) == f.mime } }))
         }
     }
 
-    /** Every column a rewritten row keeps, by row id (rows that are gone are missing). */
-    fun columns(cr: ContentResolver, ids: Set<Long>): Map<Long, ContentValues> {
+    /**
+     * Every column a rewritten row keeps, by row id (rows that are gone are missing); null when they couldn't be read.
+     * The save then writes no row again ([kept]): a row inserted without them would lose its other columns.
+     */
+    fun columns(cr: ContentResolver, ids: Set<Long>): Map<Long, ContentValues>? {
         if (ids.isEmpty()) return emptyMap()
         val out = HashMap<Long, ContentValues>()
         val projection = arrayOf(Data._ID, Data.MIMETYPE) + KEPT
@@ -49,9 +54,16 @@ internal object ContactRowOrder {
                 if (c.getString(1) == Phone.CONTENT_ITEM_TYPE) v.remove(Phone.NORMALIZED_NUMBER)
                 out[c.getLong(0)] = v
             }
-        }
+        } ?: return null
         return out
     }
+
+    /**
+     * The rows to write again: [rewrite] when [columns] read every one of them; none otherwise (the read failed or a
+     * row is gone), so the save is a plain update in the old order rather than rows inserted without their columns.
+     */
+    fun kept(rewrite: Set<Long>, columns: Map<Long, ContentValues>?): Set<Long> =
+        if (columns != null && columns.keys.containsAll(rewrite)) rewrite else emptySet()
 
     private fun put(v: ContentValues, col: String, c: Cursor, i: Int) {
         when (c.getType(i)) {

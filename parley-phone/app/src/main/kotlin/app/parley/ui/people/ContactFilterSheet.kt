@@ -40,6 +40,7 @@ import app.parley.R
 import app.parley.common.people.ContactFacets
 import app.parley.common.people.Facet
 import app.parley.common.people.FacetChoice
+import app.parley.common.people.FieldFilter
 import app.parley.ui.ListSectionHeader
 import app.parley.ui.ParleySheet
 import app.parley.ui.Spacing
@@ -67,7 +68,7 @@ fun ContactFieldFilterChips(vm: AppViewModel, vaultHidden: Boolean) {
     }
     fields.chosen.forEach { (facet, keys) ->
         keys.forEach { key ->
-            val label = fieldValueLabel(facet, key, choices[facet])
+            val label = fieldValueLabel(facet, key, choices[facet], fields)
             InputChip(
                 selected = true,
                 onClick = { vm.people.toggleField(facet, key) },
@@ -81,8 +82,8 @@ fun ContactFieldFilterChips(vm: AppViewModel, vaultHidden: Boolean) {
 
 /** How one chosen value reads on its chip ("Portugal", "Birthday in May", "Has an email"). */
 @Composable
-private fun fieldValueLabel(facet: Facet, key: String, choices: List<FacetChoice>?): String {
-    val display = choices?.firstOrNull { it.key == key }?.display ?: key
+private fun fieldValueLabel(facet: Facet, key: String, choices: List<FacetChoice>?, fields: FieldFilter): String {
+    val display = choices?.firstOrNull { it.key == key }?.display ?: fields.shownAs(facet, key) ?: key
     return when (facet) {
         Facet.BIRTHDAY_MONTH -> stringResource(R.string.cs_birthday_in, monthName(key))
         Facet.CUSTOM_LABEL -> stringResource(R.string.cs_custom_value, display)
@@ -116,7 +117,9 @@ private fun ContactFilterSheet(vm: AppViewModel, vaultHidden: Boolean, onDismiss
     val showVault by vm.showVault.collectAsStateWithLifecycle()
     val shown by vm.people.filtered.collectAsStateWithLifecycle()
     val fields = filter.fields
-    fun toggle(facet: Facet, key: String) = vm.people.toggleField(facet, key)
+
+    // The value as it reads goes with it, for its chip when no listed contact offers it for a while.
+    fun toggle(facet: Facet, key: String) = vm.people.toggleField(facet, key, choices[facet]?.firstOrNull { it.key == key }?.display)
 
     ParleySheet(onDismissRequest = onDismiss, title = stringResource(R.string.cs_filter_title)) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = Spacing.xl).padding(bottom = Spacing.xl)) {

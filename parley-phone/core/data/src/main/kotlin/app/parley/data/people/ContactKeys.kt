@@ -444,7 +444,8 @@ private fun decodeCallTime(o: JSONObject): ContactCallTime = ContactCallTime(
     neverLimit = o.optBoolean("never"),
 )
 
-internal fun ContactMetaEntity.values() = MetaRekey.Values(pinnedNote, preferredMessenger, reachOutDays, lastNudgedAt, relationLinks, rhythm, yearlyEvents)
+internal fun ContactMetaEntity.values() =
+    MetaRekey.Values(pinnedNote, preferredMessenger, reachOutDays, lastNudgedAt, relationLinks, rhythm, yearlyEvents, parleyRelations)
 
 internal fun MetaRekey.Values.toEntity(key: String, contactId: Long?) =
-    ContactMetaEntity(key, pinnedNote, preferredMessenger, reachOutDays, lastNudgedAt, contactId, relationLinks, rhythm, yearlyEvents)
+    ContactMetaEntity(key, pinnedNote, preferredMessenger, reachOutDays, lastNudgedAt, contactId, relationLinks, rhythm, yearlyEvents, parleyRelations)

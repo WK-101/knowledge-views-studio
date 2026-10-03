@@ -7,16 +7,6 @@ package app.parley.common.people
  * read back sorted by `_ID`.
  */
 object RowOrder {
-    /**
-     * The index row [index] swaps with to move one place up ([up]) or down among [shown] (the indices of a list that
-     * one group of the editor shows: profiles and websites share one list), or null at the group's edge.
-     */
-    fun neighbour(shown: List<Int>, index: Int, up: Boolean): Int? {
-        val at = shown.indexOf(index)
-        if (at < 0) return null
-        return shown.getOrNull(if (up) at - 1 else at + 1)
-    }
-
     /** [list] with the rows at [a] and [b] swapped (unchanged when either is out of range). */
     fun <T> swap(list: List<T>, a: Int, b: Int): List<T> {
         if (a !in list.indices || b !in list.indices || a == b) return list

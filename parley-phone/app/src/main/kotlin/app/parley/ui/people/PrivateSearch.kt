@@ -1,5 +1,6 @@
 package app.parley.ui.people
 
+import android.os.SystemClock
 import app.parley.common.people.ContactRef
 import app.parley.common.people.ContactSearch
 import app.parley.data.DataContainer
@@ -12,6 +13,8 @@ import app.parley.security.AppLock
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
@@ -23,9 +26,12 @@ import kotlinx.coroutines.yield
 /**
  * Private contacts' details for the Contacts search and filters, while a search or filter is in use. Their sealed
  * details are opened (the vault's own unlock, as on their page) and turned into search docs held in memory only:
- * nothing is indexed on disk. The docs are dropped when the search and filters close, in discreet mode, while Parley's
- * app lock is engaged, and whenever opened details are forgotten (the lock, the screen going off); after that they
- * are opened again only when asked ([retry]). Until then private contacts are found by name and number, as listed.
+ * nothing is indexed on disk. They follow the vault's own rule for opened details: dropped when the search and
+ * filters close, in discreet mode, while Parley's app lock is engaged, whenever opened details are forgotten (Parley
+ * locks; the screen goes off, with or without the app lock), and once the search has been left alone for as long as the
+ * vault keeps opened details ([app.parley.data.vault.VaultRepository.openedForMs]). After being forgotten they are
+ * opened again only when asked ([retry]); after the idle time, at the next use of the search. Until then private
+ * contacts are found by name and number, as listed.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class PrivateSearch(
@@ -33,6 +39,8 @@ class PrivateSearch(
     scope: CoroutineScope,
     /** A search or a filter is in use, and private contacts are listed (discreet mode off). */
     wanted: StateFlow<Boolean>,
+    /** Changes whenever the search is used (the query or the filters change). */
+    activity: Flow<Any?>,
 ) {
     private val _docs = MutableStateFlow<Map<Long, ContactSearch.Doc>>(emptyMap())
 
@@ -51,7 +59,23 @@ class PrivateSearch(
         asks.value++
     }
 
+    /** The docs were dropped after the idle time: the next use of the search opens them again. */
+    @Volatile private var expired = false
+
     init {
+        scope.launch {
+            activity.collectLatest {
+                if (expired) {
+                    expired = false
+                    retry()
+                }
+                delay(c.vault.openedForMs)
+                if (_docs.value.isNotEmpty()) {
+                    _docs.value = emptyMap()
+                    expired = true
+                }
+            }
+        }
         scope.launch {
             var forgetsSeen = c.vault.forgets.value
             var asked = asks.value
@@ -88,14 +112,20 @@ class PrivateSearch(
         val ids = list.map { ContactRef.Private(it.id).navId }.toSet()
         val out = HashMap(_docs.value.filterKeys { it in ids })
         val labels = c.privateLabels.titles.value
+        var published = SystemClock.elapsedRealtime()
         val locked = try {
-            for ((i, v) in list.withIndex()) {
+            for (v in list) {
                 detailsOf(v.id)?.let { d ->
                     val id = ContactRef.Private(v.id).navId
                     out[id] = DetailsSearch.doc(id, d, labels[v.id] ?: v.labels.map { it.title }, region, v.name)
                 }
-                // Shown as they open, a few at a time (each opening may take a moment in secure hardware).
-                if (i % PUBLISH_EVERY == PUBLISH_EVERY - 1) _docs.value = HashMap(out)
+                // Shown as they open when that takes a while (each opening may take a moment in secure hardware), but
+                // at most every [PUBLISH_MS]: each publish rebuilds the whole list's search data.
+                val now = SystemClock.elapsedRealtime()
+                if (now - published >= PUBLISH_MS) {
+                    _docs.value = HashMap(out)
+                    published = now
+                }
                 yield()
             }
             false
@@ -119,6 +149,6 @@ class PrivateSearch(
     }
 
     private companion object {
-        const val PUBLISH_EVERY = 8
+        const val PUBLISH_MS = 750L
     }
 }

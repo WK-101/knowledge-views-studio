@@ -259,9 +259,14 @@ format. Not only in contact but every image place."
   nothing. One helper serves them all: `ImageExport` and `rememberImageActions` (`app/.../ui/common/`), with
   `ImageFiles` (core/common) reading the format from the bytes.
 - **What is handed out.** A kept original exactly as stored (`OriginalPhotos.exportBytes`): no decoding, no
-  re-encoding, the same format, MIME type and EXIF. Since 4.3 an original is kept byte for byte (JPEG, PNG, WebP) with
-  only its location tags removed, or once as a high-quality JPEG (HEIC, over 20 MB), so the file carries the camera and
-  date but no location; the viewer says so. Without an original (a photo another app set, or from before 4.3): the
+  re-encoding, the same format, MIME type and EXIF. Since 5.3.1 an original is kept byte for byte in every format
+  Parley names (JPEG, PNG, WebP, GIF, HEIC/HEIF, AVIF; `OriginalPhoto.plan`): JPEG, PNG and WebP with only their
+  location tags removed (checked afterwards; when they can't be removed, a JPEG without location instead). Two choices
+  are asked once, when the photo is picked: a file over 40 MB is kept whole or as a high-quality JPEG; a HEIC/HEIF/AVIF
+  that records a location (its location can't be removed without re-encoding) is kept with it or saved as a JPEG
+  without it. Dismissing either takes the JPEG. How each one was kept is recorded beside it, and the viewer says it
+  for that picture (its own format with or without location, or a JPEG); originals kept before 5.3.1 stay as they
+  are and say "as Parley kept it". Without an original (a photo another app set, or from before 4.3): the
   largest copy Android has (the display photo, `PHOTO_FILE_ID`, through `openContactPhotoInputStream`), and for a
   private contact the copy sealed for caller ID; the viewer says which. The call-screen picture is the JPEG Parley keeps
   for the call screen; QR codes are lossless PNGs. The type and the extension come from the bytes (JPEG, PNG, WebP,

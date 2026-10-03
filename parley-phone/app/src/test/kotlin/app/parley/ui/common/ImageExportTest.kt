@@ -8,7 +8,9 @@ import android.graphics.Bitmap
 import android.graphics.Color
 import android.net.Uri
 import android.os.ParcelFileDescriptor
+import androidx.exifinterface.media.ExifInterface
 import app.parley.common.photo.ImageFiles
+import app.parley.common.photo.OriginalPhoto
 import app.parley.testing.AppTestbed
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -16,6 +18,7 @@ import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -23,6 +26,7 @@ import org.junit.runner.RunWith
 import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import java.io.ByteArrayInputStream
 import java.io.File
 
 /**
@@ -75,6 +79,24 @@ class ImageExportTest {
         val out = originals.exportBytes(kept)!!
         assertArrayEquals("the bytes as picked, not decoded and encoded again", picked, out)
         assertEquals(ImageFiles.Format.PNG, ImageFiles.detect(out))
+        assertEquals("the viewer says it is as picked", OriginalPhoto.Kept.AS_PICKED, kept.kept)
+        originals.release(kept)
+    }
+
+    @Test fun a_jpeg_is_kept_in_its_own_format_without_its_location() = runBlocking {
+        Pictures.dir = t.context.cacheDir
+        val f = File(t.context.cacheDir, "gps.jpg")
+        val bmp = Bitmap.createBitmap(120, 80, Bitmap.Config.ARGB_8888).apply { eraseColor(Color.rgb(20, 90, 140)) }
+        f.outputStream().use { bmp.compress(Bitmap.CompressFormat.JPEG, 90, it) }
+        ExifInterface(f).apply { setLatLong(38.71, -9.14); saveAttributes() }
+        assertNotNull("the picture says where it was taken", ExifInterface(f).latLong)
+        val originals = t.c.people.originals
+        assertTrue(originals.keep("lk-gps", Uri.parse("content://${Pictures.AUTHORITY}/gps.jpg"), null))
+        val kept = originals.forContact("lk-gps", "content://com.android.contacts/photo/1")!!
+        assertEquals(OriginalPhoto.Kept.LOCATION_REMOVED, kept.kept)
+        val out = originals.exportBytes(kept)!!
+        assertEquals("still a JPEG, not converted", ImageFiles.Format.JPEG, ImageFiles.detect(out))
+        assertNull(ExifInterface(ByteArrayInputStream(out)).latLong)
         originals.release(kept)
     }
 

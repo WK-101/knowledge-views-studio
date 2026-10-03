@@ -14,6 +14,7 @@ import app.parley.common.calltime.CallingJson
 import app.parley.common.calltime.LimitScope
 import app.parley.common.history.HistoryFilter
 import app.parley.common.history.PlanConfig
+import app.parley.common.people.ParleyRelations
 import app.parley.common.people.RelationLinks
 import app.parley.common.people.TemporaryExpiry
 import app.parley.common.storage.PersistentStores.Sections
@@ -63,7 +64,7 @@ class ContactNotesBackup(
         for (m in meta.allMetaNow()) {
             // Private contacts' rows go only in the private-contacts section (BackupRepository.vaultBlob).
             if (ContactRef.isPrivateKey(m.lookupKey)) continue
-            if (m.pinnedNote == null && m.preferredMessenger == null && m.relationLinks == null && m.lastNudgedAt == null) continue
+            if (listOf(m.pinnedNote, m.preferredMessenger, m.relationLinks, m.lastNudgedAt, m.parleyRelations).all { it == null }) continue
             val o = refs.ref(m.lookupKey).toJson()
             m.pinnedNote?.let { o.put("note", it) }
             m.preferredMessenger?.let { o.put("msg", it) }
@@ -71,6 +72,8 @@ class ContactNotesBackup(
             // A device contact's relation to a private contact names it only by the relation's text here.
             val links = RelationLinks.decode(m.relationLinks).filterValues { !ContactRef.isPrivateKey(it.lookupKey) }
             if (links.isNotEmpty()) o.put("rel", JSONArray(links.map { (name, l) -> JSONObject().put("name", name).put("to", refs.ref(l.lookupKey).toJson()) }))
+            // Relations kept in Parley only travel here, inside the backup's encryption (never in the address book).
+            m.parleyRelations?.let { o.put("prel", it) }
             metas.put(o)
         }
         val notes = JSONArray()
@@ -119,16 +122,20 @@ class ContactNotesBackup(
                 // This phone's links win for a relation name both have.
                 val merged = links + RelationLinks.decode(have?.relationLinks)
                 val encoded = merged.takeIf { it.isNotEmpty() }?.let { RelationLinks.encode(it) }
+                // This phone's Parley-only relations first; the backup's are added beside them.
+                val parleyRelations = ParleyRelations.merge(have?.parleyRelations, o.optString("prel").ifEmpty { null })
                 if (have == null) {
                     meta.setMeta(
                         ContactMetaEntity(
                             c.lookupKey, pinnedNote = note, preferredMessenger = msg, lastNudgedAt = nudged, contactId = c.id, relationLinks = encoded,
+                            parleyRelations = parleyRelations,
                         ),
                     )
                 } else {
                     meta.setPersonalMeta(
                         c.lookupKey, have.pinnedNote ?: note, have.preferredMessenger ?: msg, encoded, nudged.takeIf { have.lastNudgedAt == null },
                     )
+                    if (parleyRelations != have.parleyRelations) meta.setParleyRelations(c.lookupKey, parleyRelations)
                 }
             }
             for (o in notes) {

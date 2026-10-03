@@ -47,6 +47,8 @@ object MetaRekey {
         val rhythm: String? = null,
         /** Life events remembered yearly ([app.parley.common.circle.YearlyEvents]). */
         val yearlyEvents: String? = null,
+        /** Relations kept in Parley only ([ParleyRelations]). */
+        val parleyRelations: String? = null,
     )
 
     /**
@@ -69,6 +71,7 @@ object MetaRekey {
             relationLinks = links,
             rhythm = KeepRhythm.merge(into.rhythm, from.rhythm),
             yearlyEvents = YearlyEvents.merge(into.yearlyEvents, from.yearlyEvents),
+            parleyRelations = ParleyRelations.merge(into.parleyRelations, from.parleyRelations),
         )
     }
 }

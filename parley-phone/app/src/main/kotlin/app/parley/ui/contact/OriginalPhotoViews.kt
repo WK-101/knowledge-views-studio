@@ -154,7 +154,7 @@ fun contactPhotoImage(
 ): ExportableImage {
     val originals = vm.c.people.originals
     return when {
-        original != null -> ExportableImage(name, ExportableImage.Kind.ORIGINAL, private) { originals.exportBytes(original) }
+        original != null -> ExportableImage(name, ExportableImage.Kind.ORIGINAL, private, original.kept) { originals.exportBytes(original) }
         private -> ExportableImage(name, ExportableImage.Kind.PRIVATE_COPY, true) { ctx -> ImageExport.readUri(ctx, photoUri) }
         else -> ExportableImage(name, ExportableImage.Kind.ANDROID_COPY, false) { ctx -> ImageExport.readAndroidPhoto(ctx, contactId, photoUri) }
     }

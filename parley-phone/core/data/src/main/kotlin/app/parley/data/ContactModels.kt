@@ -134,6 +134,11 @@ data class ContactDetails(
     val websites: List<DataItem> = emptyList(),
     /** Relations (spouse, manager, …): value = the related person's name. */
     val relations: List<DataItem> = emptyList(),
+    /**
+     * Device contacts only: relations kept in Parley only ([app.parley.common.people.ParleyRelations]), never written
+     * to the address book. Loaded by the editor and the contact page from Parley's contact metadata; id is always null.
+     */
+    val parleyRelations: List<DataItem> = emptyList(),
     val addresses: List<PostalItem> = emptyList(),
     val events: List<EventItem> = emptyList(),
     val groupIds: Set<Long> = emptySet(),

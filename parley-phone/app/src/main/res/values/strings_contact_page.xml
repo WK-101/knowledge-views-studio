@@ -173,4 +173,5 @@
     <string name="detail_formerly_married">Formerly married to</string>
     <string name="detail_open_person">Open</string>
     <string name="detail_relation_from_them">%1$s · From their contact</string>
+    <string name="detail_relation_parley_only">%1$s · Kept in Parley only</string>
 </resources>

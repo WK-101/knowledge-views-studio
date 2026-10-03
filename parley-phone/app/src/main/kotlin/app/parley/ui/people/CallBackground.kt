@@ -30,6 +30,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.ImageBitmap
@@ -129,7 +130,7 @@ fun CallBackgroundInfoRow(vm: AppViewModel, d: ContactDetails) {
     }
     val choose = stringResource(if (current == null) R.string.ppl_bg_choose else R.string.ppl_bg_change)
     // Tapping the picture opens it full screen, with Save and Share; the rest of the row changes it.
-    var viewing by remember { mutableStateOf(false) }
+    var viewing by rememberSaveable { mutableStateOf(false) }
     val description = stringResource(R.string.ppl_bg_desc)
     if (viewing && current != null) {
         val name = stringResource(R.string.img_name_call_picture, d.displayName)

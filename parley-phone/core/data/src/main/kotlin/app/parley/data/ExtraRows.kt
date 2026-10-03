@@ -54,6 +54,20 @@ internal object ExtraRows {
         }
     }
 
+    /**
+     * The kind custom field [f] is saved as. Google's field needs both halves: in a Google account a field takes
+     * Google's kind with both and Parley's with one, and a row whose kind changes is deleted and inserted again (so
+     * [ContactRowOrder] counts it as a new row).
+     */
+    fun customMime(f: CustomFieldItem, accountType: String?): String {
+        val kind = f.mime ?: CustomFields.mimeFor(accountType, f.label, f.value)
+        return when {
+            accountType == CustomFields.GOOGLE_ACCOUNT -> CustomFields.mimeFor(accountType, f.label, f.value)
+            kind == Mime.GOOGLE_CUSTOM_FIELD && (t(f.label).isEmpty() || t(f.value).isEmpty()) -> Mime.CUSTOM_FIELD
+            else -> kind
+        }
+    }
+
     @Suppress("CyclomaticComplexMethod") // Delete, keep, update or insert, per row.
     private fun customFields(before: List<CustomFieldItem>, now: List<CustomFieldItem>, accountType: String?, w: Writer) {
         val keep = now.mapNotNull { it.id }.toSet()
@@ -61,13 +75,7 @@ internal object ExtraRows {
         before.filter { it.id != null && it.id !in keep }.forEach { w.delete(it.id!!, it.mime ?: Mime.CUSTOM_FIELD) }
         now.forEach { f ->
             val kind = f.mime ?: CustomFields.mimeFor(accountType, f.label, f.value)
-            // Google's field needs both halves: in a Google account a field takes Google's kind with both and Parley's
-            // with one, and a row whose kind changes is deleted and inserted again.
-            val mime = when {
-                accountType == CustomFields.GOOGLE_ACCOUNT -> CustomFields.mimeFor(accountType, f.label, f.value)
-                kind == Mime.GOOGLE_CUSTOM_FIELD && (t(f.label).isEmpty() || t(f.value).isEmpty()) -> Mime.CUSTOM_FIELD
-                else -> kind
-            }
+            val mime = customMime(f, accountType)
             val v = ContentValues().apply {
                 put(Data.DATA1, t(f.label).ifEmpty { null })
                 put(Data.DATA2, t(f.value).ifEmpty { null })
