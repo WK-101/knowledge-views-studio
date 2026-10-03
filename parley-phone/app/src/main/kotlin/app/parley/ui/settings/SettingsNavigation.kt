@@ -37,6 +37,10 @@ fun NavGraphBuilder.settingsGraph(nav: NavController) {
     composable<Routes.Sync> { FolderSyncScreen(appVm(), back = back, open = open) }
     composable<Routes.CallTime> { CallTimeScreen(appVm(), back = back) }
     composable<CallsRoutes.PhoneMenus> { PhoneMenusScreen(appVm(), back = back) }
+    composable<CallsRoutes.Page> {
+        val a = it.toRoute<CallsRoutes.Page>()
+        CallsSubPageScreen(appVm(), CallsSubPage.of(a.page), a.focus, back = back, open = open)
+    }
     composable<AppLockRoutes.UnlockWith> { UnlockWithScreen(appVm(), back = back) }
     composable<Routes.Journal> { HistoryHubScreen(appVm(), HistoryTab.of(it.toRoute<Routes.Journal>().tab), back = back, open = open) }
 }

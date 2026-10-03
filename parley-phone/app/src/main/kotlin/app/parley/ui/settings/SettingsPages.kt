@@ -1,15 +1,12 @@
 package app.parley.ui.settings
 
 import app.parley.ui.Destination
-import android.app.Activity
 import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
-import android.media.RingtoneManager
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
-import android.telecom.TelecomManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
@@ -21,12 +18,12 @@ import androidx.compose.material.icons.automirrored.rounded.Label
 import androidx.compose.material.icons.automirrored.rounded.VolumeOff
 import androidx.compose.material.icons.rounded.Storefront
 import app.parley.data.calls.ReputationLearner
-import androidx.compose.material.icons.automirrored.rounded.PhoneForwarded
 import androidx.compose.material.icons.automirrored.rounded.ShortText
 import androidx.compose.material.icons.rounded.FilterList
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.ScreenLockPortrait
 import androidx.compose.material.icons.rounded.SyncAlt
+import androidx.compose.material.icons.rounded.SwapHoriz
 import androidx.compose.material.icons.rounded.AdminPanelSettings
 import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.AutoDelete
@@ -68,7 +65,6 @@ import androidx.compose.material.icons.rounded.Quickreply
 import androidx.compose.material.icons.rounded.Repeat
 import androidx.compose.material.icons.rounded.RestoreFromTrash
 import androidx.compose.material.icons.rounded.Science
-import androidx.compose.material.icons.rounded.SettingsPhone
 import androidx.compose.material.icons.rounded.SimCard
 import androidx.compose.material.icons.rounded.SimCardDownload
 import androidx.compose.material.icons.rounded.SortByAlpha
@@ -101,7 +97,6 @@ import androidx.compose.material.icons.automirrored.rounded.HelpOutline
 import androidx.compose.material.icons.automirrored.rounded.ViewList
 import androidx.compose.material.icons.rounded.DeleteSweep
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -117,7 +112,6 @@ import app.parley.AppViewModel
 import app.parley.R
 import app.parley.BuildConfigInfo
 import app.parley.blocking.BlockingActions
-import app.parley.common.AnswerGesture
 import app.parley.common.AppSettings
 import app.parley.common.HomeLayout
 import app.parley.common.ListDensity
@@ -125,7 +119,6 @@ import app.parley.common.MessagedRecord
 import app.parley.common.ThemeMode
 import app.parley.common.calls.RecentsLayout
 import app.parley.common.ux.BackupNudge
-import app.parley.common.ux.CallScreenBackground
 import app.parley.common.calls.LockScreenCaller
 import app.parley.common.ux.RecentsStyle
 import app.parley.common.vcard.ImportReport
@@ -183,12 +176,12 @@ import androidx.compose.material.icons.automirrored.rounded.MergeType
 
 /** Saves a settings change. */
 @Composable
-private fun rememberSettingsSetter(vm: AppViewModel): ((AppSettings) -> AppSettings) -> Unit {
+internal fun rememberSettingsSetter(vm: AppViewModel): ((AppSettings) -> AppSettings) -> Unit {
     val scope = rememberCoroutineScope()
     return remember(vm) { { f -> scope.launch { vm.c.settings.update(f) } } }
 }
 
-private fun Context.startSafely(intent: Intent) {
+internal fun Context.startSafely(intent: Intent) {
     runCatching { startActivity(intent) }
 }
 
@@ -201,6 +194,7 @@ internal fun AppearancePage(vm: AppViewModel, open: (Destination) -> Unit = {}) 
     val themes = listOf(stringResource(R.string.set_theme_system), stringResource(R.string.set_theme_light), stringResource(R.string.set_theme_dark))
     val densities = listOf(stringResource(R.string.set_density_comfortable), stringResource(R.string.set_density_compact))
     val sortOptions = listOf(stringResource(R.string.set_sort_first_name), stringResource(R.string.set_sort_last_name))
+    val nameOrders = listOf(stringResource(R.string.set_name_order_first), stringResource(R.string.set_name_order_last))
     SegmentedGroup(stringResource(R.string.set_group_theme)) {
         choiceRow("theme", themes, s.themeMode.ordinal, Icons.Rounded.DarkMode) { i -> set { it.copy(themeMode = ThemeMode.entries[i]) } }
         switchRow("amoled", s.amoledBlack, Icons.Rounded.Contrast) { v -> set { it.copy(amoledBlack = v) } }
@@ -212,6 +206,7 @@ internal fun AppearancePage(vm: AppViewModel, open: (Destination) -> Unit = {}) 
     }
     SegmentedGroup(stringResource(R.string.set_group_names)) {
         menuRow("sort_names", sortOptions, if (s.sortByFirstName) 0 else 1, Icons.Rounded.SortByAlpha) { i -> set { it.copy(sortByFirstName = i == 0) } }
+        menuRow("name_order", nameOrders, if (s.showNamesLastFirst) 1 else 0, Icons.Rounded.SwapHoriz) { i -> set { it.copy(showNamesLastFirst = i == 1) } }
         item("second_line") { SecondLineRow(vm, Icons.AutoMirrored.Rounded.ShortText) }
         item("prefer_nickname") { PreferNicknameRow(vm, Icons.Rounded.Badge) }
     }
@@ -265,32 +260,17 @@ internal fun LayoutPage(vm: AppViewModel, open: (Destination) -> Unit) {
 
 // ---------------------------------------------------------------- Calls
 
+/**
+ * Settings › Calls: the default phone app, the four pages the rest is on, and the rows used most. Each page keeps
+ * the setting keys it always had, so search and "What Parley can do" open it on the right row.
+ */
 @Composable
 internal fun CallsPage(vm: AppViewModel, open: (Destination) -> Unit) {
-    val context = LocalContext.current
     val s by vm.settings.collectAsStateWithLifecycle()
     val isDefault by vm.isDefaultDialer.collectAsStateWithLifecycle()
     val set = rememberSettingsSetter(vm)
     // The role request, with the by-hand guide when Android refuses without asking.
     val requestRole = rememberDialerRoleRequest { vm.refreshEnvironment() }
-    val unknownTonePicker = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { res ->
-        if (res.resultCode == Activity.RESULT_OK) {
-            @Suppress("DEPRECATION")
-            val uri = res.data?.getParcelableExtra<Uri>(RingtoneManager.EXTRA_RINGTONE_PICKED_URI)
-            set { it.copy(unknownRingtone = uri?.toString()) }
-        }
-    }
-    val gestures = listOf(stringResource(R.string.set_answer_swipe), stringResource(R.string.set_answer_tap))
-    val backgrounds = listOf(stringResource(R.string.set_call_background_caller), stringResource(R.string.set_call_background_plain))
-    val sameAsUsual = stringResource(R.string.set_same_as_usual)
-    // The ringtone's title comes from the media provider: read it off the main thread.
-    val toneName by produceState<String?>(null, s.unknownRingtone) {
-        value = s.unknownRingtone?.let { u ->
-            withContext(Dispatchers.IO) {
-                runCatching { RingtoneManager.getRingtone(context, Uri.parse(u))?.getTitle(context) }.getOrNull()
-            }
-        }
-    }
     SegmentedGroup {
         item("default_dialer") {
             InfoRow(
@@ -309,42 +289,12 @@ internal fun CallsPage(vm: AppViewModel, open: (Destination) -> Unit) {
             if (guide) DialerRoleGuide { guide = false }
         }
     }
-    SegmentedGroup(stringResource(R.string.set_group_answering)) {
-        choiceRow("answer_gesture", gestures, s.answerGesture.ordinal, Icons.Rounded.TouchApp) { i -> set { it.copy(answerGesture = AnswerGesture.entries[i]) } }
-        // The caller's colour at the top of the call screen, or none; a contact's own picture shows either way.
-        choiceRow("call_background", backgrounds, s.callBackground.ordinal, Icons.Rounded.Palette) { i ->
-            set { it.copy(callBackground = CallScreenBackground.entries[i]) }
-        }
-        switchRow("caller_photo", s.showCallerPhoto, Icons.Rounded.AccountCircle) { v -> set { it.copy(showCallerPhoto = v) } }
+    CallsSubPageLinks(open)
+    CallExtrasGroups(vm)
+    SegmentedGroup(stringResource(R.string.set_group_before_calling)) {
         switchRow("confirm_call", s.confirmBeforeCall, Icons.Rounded.CheckCircle) { v -> set { it.copy(confirmBeforeCall = v) } }
-        item("call_haptics") { CallHapticsRow(vm, Icons.Rounded.Vibration) }
-        linkRow("unknown_ringtone", Icons.Rounded.MusicNote, sub = toneName ?: sameAsUsual) {
-            unknownTonePicker.launch(
-                Intent(RingtoneManager.ACTION_RINGTONE_PICKER)
-                    .putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_RINGTONE)
-                    .putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_DEFAULT, true)
-                    .putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_SILENT, false)
-                    .putExtra(RingtoneManager.EXTRA_RINGTONE_EXISTING_URI, s.unknownRingtone?.let(Uri::parse)),
-            )
-        }
+        item("pocket_guard") { PocketGuardRow(vm) }
     }
-    CallExtrasGroups(vm, open)
-    // RTT (real-time text): Answer with RTT and Android's TTY and RTT settings.
-    RttSettingsGroup(vm)
-    // Auto-answer and the haptic caller ID.
-    CallerRingGroup(vm, open)
-    // The memory prompt, notes on the lock screen and the pre-call peek.
-    MemorySettingsGroup(vm)
-    // Helpers to bring into a call (WP-8).
-    FamilySafetyCallsGroup(vm, open)
-    // The drive profile and calling abroad (WP-15).
-    OnTheRoadGroup(vm, open)
-    SegmentedGroup(stringResource(R.string.set_group_sims)) {
-        linkRow("sims", Icons.Rounded.SimCard) { open(HistoryRoutes.Sims) }
-        linkRow("sim_accounts", Icons.Rounded.SettingsPhone, external = true) { context.startSafely(Intent(TelecomManager.ACTION_CHANGE_PHONE_ACCOUNTS)) }
-        linkRow("carrier_settings", Icons.AutoMirrored.Rounded.PhoneForwarded, external = true) { context.startSafely(Intent(TelecomManager.ACTION_SHOW_CALL_SETTINGS)) }
-    }
-    CallsAdvancedGroup(vm)
 }
 
 // ---------------------------------------------------------------- Keypad
@@ -370,7 +320,7 @@ internal fun KeypadPage(vm: AppViewModel, open: (Destination) -> Unit) {
 internal fun CallTimePage(vm: AppViewModel, open: (Destination) -> Unit) {
     SegmentedGroup {
         item("call_time") { CallTimeRow(vm, open, Icons.Rounded.Timer) }
-        // Plan minutes are set per SIM: one row, on the Calls page ("SIMs & plan minutes").
+        // Plan minutes are set per SIM: one row, also on Calls › SIMs & carrier ("SIMs & plan minutes").
         linkRow("sims", Icons.Rounded.SimCard) { open(HistoryRoutes.Sims) }
     }
 }

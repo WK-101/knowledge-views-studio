@@ -31,8 +31,48 @@ class SettingsSearchTest {
         listOf("nav_tabs", "start_tab", "calls_layout", "favorites_in_contacts", "recent_tap", "swipe_actions", "simple_mode")
             .forEach { assertEquals(it, SettingsCategory.LAYOUT, SettingsCatalog[it].category) }
         listOf("theme", "amoled", "density", "avatar_style", "sort_names").forEach { assertEquals(it, SettingsCategory.APPEARANCE, SettingsCatalog[it].category) }
-        // No page is overloaded any more (Calls holds 23 since its Accessibility group; more rows belong on a screen of their own).
-        SettingsCategory.entries.forEach { c -> assertTrue(c.name, SettingsCatalog.inCategory(c).count { it.place == null } <= 23) }
+        // No page is overloaded: more rows belong on a screen of their own (a SettingPlace).
+        SettingsCategory.entries.forEach { c -> assertTrue(c.name, SettingsCatalog.inCategory(c).count { it.place == null } <= PAGE_LIMIT) }
+    }
+
+    @Test fun calls_is_a_short_list_with_pages_of_its_own() {
+        val onCalls = SettingsCatalog.inCategory(SettingsCategory.CALLS).filter { it.place == null }.map { it.key }
+        assertTrue(onCalls.toString(), onCalls.size <= 8)
+        assertTrue("default_dialer" in onCalls)
+        mapOf(
+            "answer_gesture" to SettingPlace.CALLS_ANSWERING, "auto_answer" to SettingPlace.CALLS_ANSWERING, "answer_rtt" to SettingPlace.CALLS_ANSWERING,
+            "unknown_ringtone" to SettingPlace.CALLS_ANSWERING, "proximity_sensor" to SettingPlace.CALLS_DURING,
+            "power_button_ends_call" to SettingPlace.CALLS_DURING, "memory_prompt" to SettingPlace.CALLS_DURING,
+            "sims" to SettingPlace.CALLS_SIMS, "carrier_settings" to SettingPlace.CALLS_SIMS,
+            "call_helpers" to SettingPlace.HELPERS, "drive_profile" to SettingPlace.DRIVE_PROFILE, "phone_menus" to SettingPlace.PHONE_MENUS,
+        ).forEach { (key, place) -> assertEquals(key, place, SettingsCatalog[key].place) }
+        // Their old words still find them.
+        assertEquals("answer_gesture", keys("answer incoming calls").first())
+        assertTrue("power_button_ends_call" in keys("power button"))
+        assertTrue("sim_accounts" in keys("wifi calling"))
+    }
+
+    @Test fun sort_order_and_name_order_are_two_settings() {
+        assertEquals(SettingsCategory.APPEARANCE, SettingsCatalog["name_order"].category)
+        val old = keys("sort and show names by")
+        assertTrue(old.toString(), "sort_names" in old && "name_order" in old)
+        assertEquals("name_order", keys("show names as").first())
+        assertEquals("sort_names", keys("sort by").first())
+        assertTrue("name_order" in keys("last name first"))
+    }
+
+    /**
+     * Settings may not grow without anyone noticing: a new one replaces one, or folds into one, so the total stays at
+     * or below [SETTINGS_CEILING]. Lower the ceiling when settings go.
+     */
+    @Test fun settings_do_not_grow_silently() {
+        val n = SettingsCatalog.entries.size
+        assertTrue(
+            "Settings has $n entries, more than its ceiling of $SETTINGS_CEILING. Replace an existing setting or fold the new " +
+                "one into it rather than adding to the list; a setting moved onto a screen of its own (SettingPlace) still counts. " +
+                "Raise SETTINGS_CEILING only when the owner agrees.",
+            n <= SETTINGS_CEILING,
+        )
     }
 
     @Test fun contact_list_buttons_live_in_contacts_and_are_found() {
@@ -106,5 +146,13 @@ class SettingsSearchTest {
         val r = keys("privacy")
         assertTrue("privacy_dashboard" in r)
         assertTrue("secure_screen" in r)
+    }
+
+    private companion object {
+        /** Searchable rows a category page may hold itself. */
+        const val PAGE_LIMIT = 22
+
+        /** Every searchable setting, wherever it lives. */
+        const val SETTINGS_CEILING = 162
     }
 }

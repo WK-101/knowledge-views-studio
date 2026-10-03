@@ -14,7 +14,7 @@ The Settings list starts with **Tools** (the same page as ⋮ › Tools; see the
 | Theme | Theme `theme` · Pure black dark theme `amoled` · Wallpaper colours `dynamic_color` (Android 12+) |
 | Language | Language `language` |
 | Lists | List density `density` · Avatars `avatar_style` |
-| Names | Sort and show names by `sort_names` · Second line under names `second_line` · Prefer nicknames `prefer_nickname` |
+| Names | Sort by `sort_names` (First name) · Show names as `name_order` (First name first) · Second line under names `second_line` · Prefer nicknames `prefer_nickname` |
 | Tips | Reset tips `reset_tips` |
 
 ## Layout & gestures (new, split from Appearance)
@@ -26,19 +26,41 @@ The Settings list starts with **Tools** (the same page as ⋮ › Tools; see the
 | — | Simple mode `simple_mode` ↗ (in it: keypad button `simple_keypad`, ask before declining `simple_confirm_decline`, say who is calling `simple_speak`, helpers `simple_helpers`, set up another phone `simple_share`) |
 
 ## Calls
+Calls is a short list: the default phone app, one row for each of its four pages, and the rows used most. Search opens a page scrolled to the setting (`CallsRoutes.Page`).
+
 | Group | Settings |
 |---|---|
 | — | Default phone app `default_dialer` · Can't make Parley the default phone app? `default_dialer_help` |
-| Answering and calling | Answer incoming calls by `answer_gesture` · Call screen background `call_background` · Show contact photo on the call screen `caller_photo` · Confirm before calling `confirm_call` · Vibrate on call events `call_haptics` · Ringtone for unknown callers `unknown_ringtone` |
+| — | Answering ↗ · During calls ↗ · SIMs & carrier ↗ · Situations ↗ (the pages below) |
 | Missed calls and voicemail | Remind me of missed calls `missed_realert` · Voicemail `voicemail` |
-| During calls | Ask before pocket calls `pocket_guard` |
-| Accessibility | Answer with RTT `answer_rtt` (off) · TTY and RTT settings ↗ (Android's call accessibility page; search finds it through `answer_rtt`'s words) |
+| Before you call | Confirm before calling `confirm_call` · Ask before pocket calls `pocket_guard` |
+
+### Calls › Answering (`SettingPlace.CALLS_ANSWERING`)
+| Group | Settings |
+|---|---|
+| Incoming calls | Answer incoming calls by `answer_gesture` · Ringtone for unknown callers `unknown_ringtone` · Call screen background `call_background` · Show contact photo on the call screen `caller_photo` |
 | Know who's calling | Answer automatically `auto_answer` (off; with a headset or Bluetooth, in simple mode, for chosen people and labels; after 3–15 s with a countdown and Cancel) · Vibration for callers `caller_vibration` (set on a contact's or a label's page) |
+| Accessibility | Answer with RTT `answer_rtt` (off) · TTY and RTT settings ↗ (Android's call accessibility page; search finds it through `answer_rtt`'s words) |
+
+### Calls › During calls (`SettingPlace.CALLS_DURING`)
+| Group | Settings |
+|---|---|
+| Vibration and screen | Vibrate on call events `call_haptics` · Vibrate when a call connects `connect_haptic` · Turn the screen off at your ear `proximity_sensor` · Power button ends call `power_button_ends_call` |
 | Remember what matters | Anything to remember? after calls `memory_prompt` · Notes on the lock screen `memory_lock_screen` · Peek before calling `pre_call_peek` |
+
+### Calls › SIMs & carrier (`SettingPlace.CALLS_SIMS`)
+| Group | Settings |
+|---|---|
+| — | SIMs & plan minutes `sims` ↗ (search also finds it as Plan minutes per SIM `plan_minutes`; in it: Billing increments per SIM `sim_billing`, and under Abroad: Assisted dialling abroad `assisted_dialling` (on), Suggest a local SIM abroad `local_sim_hint` (on)) · SIM & calling accounts `sim_accounts` · Call forwarding, waiting & voicemail `carrier_settings` |
+
+### Calls › Situations
+Screens of their own for particular calls; search opens each screen directly.
+
+| Group | Settings |
+|---|---|
 | Family safety | Helpers `call_helpers` ↗ (up to 3 people; none by default) |
 | On the road | Drive profile `drive_profile` ↗ (off until a car is marked) |
-| SIMs and carrier | SIMs & plan minutes `sims` ↗ (search also finds it as Plan minutes per SIM `plan_minutes`; in it: Billing increments per SIM `sim_billing`, and under Abroad: Assisted dialling abroad `assisted_dialling` (on), Suggest a local SIM abroad `local_sim_hint` (on)) · SIM & calling accounts `sim_accounts` · Call forwarding, waiting & voicemail `carrier_settings` |
-| Advanced | Vibrate when a call connects `connect_haptic` · Turn the screen off at your ear `proximity_sensor` · Power button ends call `power_button_ends_call` |
+| — | Phone menus `phone_menus` ↗ (in it: Remember menu keys `menu_memory`) · Reminders & limits `call_time` ↗ (also on the Call time page) |
 
 **Show contact photo on the call screen** (`caller_photo`, on by default): off shows the caller's initial on their colour instead of the photo, and no call-screen picture, on the incoming and ongoing screen and in the picture-in-picture window. Each contact (private ones too) can override it in Settings for this contact › Photo on the call screen: *Default*, *Show* or *Hide*.
 
@@ -90,13 +112,13 @@ The Settings list starts with **Tools** (the same page as ⋮ › Tools; see the
 | Messaged numbers | Messaged numbers `messaged_numbers` · Forget messaged numbers after `messaged_expiry` |
 
 **On the road** (WP-15; see [CALL_SCREEN_DESIGN.md](CALL_SCREEN_DESIGN.md#47-on-the-road)):
-- **Drive profile** (`drive_profile`, Calls, a screen of its own): mark one or more Bluetooth devices as your car (paired devices on Android 12+ with "Nearby devices"; the devices connected now on any version). Only while one is connected: Say who's calling (on), Answer favourites automatically and Answer people chosen for auto-answer (off; after 3–15 s, 5 by default), Silence unknown callers (off), and driving replies first in the reply sheet. Kept on this phone only (`parley_drive_profile`; a new phone pairs again).
+- **Drive profile** (`drive_profile`, Calls › Situations, a screen of its own): mark one or more Bluetooth devices as your car (paired devices on Android 12+ with "Nearby devices"; the devices connected now on any version). Only while one is connected: Say who's calling (on), Answer favourites automatically and Answer people chosen for auto-answer (off; after 3–15 s, 5 by default), Silence unknown callers (off), and driving replies first in the reply sheet. Kept on this phone only (`parley_drive_profile`; a new phone pairs again).
 - **Assisted dialling abroad** (`assisted_dialling`, SIMs & plan minutes › Abroad, on): while the call's SIM is in another country, a number in the home format asks "Call +44 20 … ?" with Dial as typed. Never emergency numbers, short codes or service numbers.
 - **Suggest a local SIM abroad** (`local_sim_hint`, same place, on): once per trip, when the call's SIM is roaming and the other one is local there. Both are kept in `parley_roaming`.
 
 **Family safety** (WP-8, nothing on by default; see [CALL_SCREEN_DESIGN.md](CALL_SCREEN_DESIGN.md#45-family-safety)):
 - **Family safe word** (`family_safe_word`, Privacy & security): a question and answer per label, set on the label's page after the fingerprint or screen lock. The page lists the labels and whether each has one. Kept sealed on this phone only (`family_safety`, never in backups).
-- **Helpers** (`call_helpers`, Calls; also in simple mode's setup as `simple_helpers`): up to 3 contacts, private ones too, that More › Add my helper calls into a call.
+- **Helpers** (`call_helpers`, Calls › Situations; also in simple mode's setup as `simple_helpers`): up to 3 contacts, private ones too, that More › Add my helper calls into a call.
 - **Expecting a call from your notes** (`expected_hints`, Blocking & spam): one switch each for notes and promises with a day, To call items for numbers you haven't saved, and delivery QR codes. Each is off until the first hint asks once ("Expecting a call?") and you say yes; "No thanks" keeps it off. The windows coming up are listed and can be removed.
 
 ## Privacy & security
@@ -134,6 +156,12 @@ The Settings list starts with **Tools** (the same page as ⋮ › Tools; see the
 |---|---|
 | — | Parley version `version` · Export diagnostics `diagnostics` · Keep crash reports `crash_reports` |
 | In Tools ↗ | What Parley can do `what_parley_can_do` (also at the top of Settings and in the What's new card) |
+
+## Changes in 5.1
+
+- **Calls has pages of its own.** Its 31 entries were the most of any page. The Calls page now shows the default phone app, four pages (Answering, During calls, SIMs & carrier, Situations), missed calls and voicemail, and Before you call. Family safety's helpers, the drive profile, phone menus and call time are together on Situations. No stored setting changed; search finds every setting by its old words and opens the page it is on now.
+- **Sort by and Show names as are two settings**, as in Android's own Contacts. "Sort and show names by" did both: it is now **Sort by** (`sort_names`, the list order, letter headers and the A–Z index) and **Show names as** (`name_order`, how names read in lists, search, Recents and on the call screen). A phone that never saved Show names as keeps showing names the way it sorts them. Search finds both by "sort and show names by".
+- **No silent growth.** `SettingsSearchTest` records a ceiling for the number of settings and a limit of 22 searchable rows per page. A new setting replaces one or folds into one; one moved onto a screen of its own still counts.
 
 ## Changes in 4.1
 
