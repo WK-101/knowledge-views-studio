@@ -125,4 +125,31 @@ class TimeMachineIndexTest {
         assertEquals(1, times.size)
         assertTrue(times.single() > first)
     }
+
+    @Test fun aDamagedIndexIsSetAsideRebuiltFromTheStoredVersionsAndNothingIsDeleted() = runBlocking {
+        val now = System.currentTimeMillis()
+        val ana1 = person("ana", "Ana", "+44 7700 900001")
+        val ana2 = person("ana", "Ana Lee", "+44 7700 900002")
+        val bo = person("bo", "Bo", "+44 7700 900003")
+        val old = oldSnapshots(now - 3 * day to listOf(ana1, bo), now - day to listOf(ana2, bo))
+        TimeMachine(app, ContactRecordStore(app)).snapshotTimes()
+        // Each version's file is dated by when it was first stored.
+        fun blob(hash: String) = File(File(File(root, "blobs"), hash.take(2)), hash)
+        blob(old[0].contacts.getValue("ana")).setLastModified(now - 3 * day)
+        blob(old[0].contacts.getValue("bo")).setLastModified(now - 3 * day)
+        blob(old[1].contacts.getValue("ana")).setLastModified(now - day)
+        val blobs = { File(root, "blobs").walkTopDown().filter { it.isFile }.map { it.name }.toSet() }
+        val stored = blobs()
+
+        File(root, "versions.bin").writeBytes(byteArrayOf(1, 2, 3, 4, 5))
+        val tm = TimeMachine(app, ContactRecordStore(app))
+        assertEquals("both versions of Ana are still there, in order", listOf(ana1, ana2), tm.history("ana").map { it.record })
+        assertEquals(listOf(bo), tm.history("bo").map { it.record })
+        assertEquals(2, tm.snapshotTimes().size)
+        assertTrue("the damaged index is kept aside", root.listFiles().orEmpty().any { it.name.startsWith("versions.bin.damaged-") })
+        // A clean-up right after may drop snapshots from the index, never the stored versions.
+        tm.clear(SnapshotKeep.LATEST)
+        tm.purge("bo")
+        assertEquals(stored, blobs())
+    }
 }

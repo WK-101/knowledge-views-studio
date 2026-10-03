@@ -1,6 +1,7 @@
 package app.parley.data
 
 import android.Manifest
+import app.parley.common.catching
 import app.parley.common.AllowReason
 import app.parley.common.calls.ExpectedWindow
 import app.parley.common.BlockAction
@@ -38,6 +39,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.sync.Mutex
@@ -282,11 +284,14 @@ class CallScreener(
         val contactLookups = if (knownContact == null) parts.map { p -> async(io) { contactLookup(p) } } else emptyList()
         val vaultLookups = if (knownContact == null) parts.map { p -> async(io) { vaultLookup(p, iso) } } else emptyList()
         val maybeUnknown = knownContact != true
+        // Only an unknown caller needs these. They run beside this scope, not in it: a contact's call is answered
+        // without waiting for them (a pack index being parsed, a call-log query), and they are dropped then.
+        val unknownOnly = SideLookups(io, coroutineContext.job)
         // Kept as results: a failure counts (as before) only when the answer is used, never for a contact's call.
-        val listLookup = if (maybeUnknown) async(io) { runCatching { lists?.lookup(number, iso) } } else null
+        val listLookup = if (maybeUnknown) unknownOnly.start { catching { lists?.lookup(number, iso) } } else null
         val wantsHistory = s.allowDialled || s.allowAnswered || s.repeatCallers
-        val pastCalls = if (maybeUnknown && wantsHistory) async(io) { runCatching { history(number, at, replayHistory, iso) } } else null
-        val blockedLookup = if (maybeUnknown && s.repeatCallers && live) async(io) { blockedTimes(number, at, s) } else null
+        val pastCalls = if (maybeUnknown && wantsHistory) unknownOnly.start { catching { history(number, at, replayHistory, iso) } } else null
+        val blockedLookup = if (maybeUnknown && s.repeatCallers && live) unknownOnly.start { blockedTimes(number, at, s) } else null
         val systemBlocked = if (live) async(io) { blocks.isSystemBlocked(primary) } else null
         val ownNumbers = if (s.blockNeighbourSpoofing) async(io) { sims.ownNumbers() } else null
 
@@ -307,8 +312,8 @@ class CallScreener(
         val lookup = if (!isContact) listLookup?.await()?.getOrThrow() else null
         val history = if (!isContact) pastCalls?.await()?.getOrThrow().orEmpty() else emptyList()
         val blockedAttempts = if (!isContact) blockedLookup?.await().orEmpty() else emptyList()
-        // Not needed any more for a contact (they may still be running).
-        if (isContact) listOfNotNull(listLookup, pastCalls, blockedLookup).forEach { it.cancel() }
+        // Not needed for a contact: dropped, never waited for.
+        if (isContact) unknownOnly.drop()
         val facts = IncomingCallFacts(
             number = number,
             hidden = false,

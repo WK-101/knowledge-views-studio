@@ -103,7 +103,7 @@ Not settings of its own: two links, to the Call time screen and to the SIMs row.
 ## Recents & history
 | Group | Settings |
 |---|---|
-| Call history | Keep full call history `archive` (with the number of calls kept) · Keep call history `retention` · Numbers kept forever `kept_forever` (while the full history is kept) · Clear call history `clear_history` · Deleted calls `history_details` ↗ (History & undo › Calls) |
+| Call history | Keep full call history `archive` (with the number of calls kept) · Keep call history `retention` (the phone's call log and the archive; private calls are never pruned by it) · Numbers kept forever `kept_forever` (while the full history is kept) · Clear call history `clear_history` · Deleted calls `history_details` ↗ (History & undo › Calls) |
 | Recents | Call list layout `recents_layout` · Recents style `recents_style` (Rich; also Simple, or Cards: each day in a rounded card) · Remember the Recents filter `recents_remember_filter` (on; never Blocked or Voicemail) · Reminders `reminders` ↗ · Call insights `insights` · People card in Call insights `people_card` · Who usually reaches out first `first_mover` |
 | Export & import | Import call history from CSV `import_calls` · Excel-friendly CSV `csv_bom` |
 | Advanced | Show SIM in call history `sim_labels` |

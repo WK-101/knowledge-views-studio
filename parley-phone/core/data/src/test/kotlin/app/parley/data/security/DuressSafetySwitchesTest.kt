@@ -2,6 +2,7 @@ package app.parley.data.security
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
+import app.parley.common.calls.LockScreenCaller
 import app.parley.common.people.LookupApproval
 import app.parley.common.security.PinVerdict
 import app.parley.data.DataContainer
@@ -113,6 +114,21 @@ class DuressSafetySwitchesTest {
         assertFalse(c.settings.current().appLock)
         LockTransitions.locked(c)
         assertTrue(c.settings.current().appLock)
+    }
+
+    @Test fun caller_on_the_lock_screen_stays_as_stored_after_a_duress_session() = runBlocking<Unit> {
+        c.settings.update { it.copy(lockScreenCaller = LockScreenCaller.NAME) }
+        duressUnlock()
+        // Set on the page...
+        c.settings.update { it.copy(lockScreenCaller = LockScreenCaller.NAME_AND_NOTES) }
+        assertEquals(LockScreenCaller.NAME_AND_NOTES, c.settings.current().lockScreenCaller)
+        assertEquals("s:NAME", c.settings.exportMap()["lock_screen_caller"])
+        // ...or brought back by a restore whose safety settings were applied with the duress PIN.
+        c.settings.importMap(mapOf("lock_screen_caller" to "s:NAME_AND_NOTES"))
+        assertEquals("s:NAME", c.settings.exportMap()["lock_screen_caller"])
+        // The next lock (then the real PIN) finds the stored choice.
+        LockTransitions.locked(c)
+        assertEquals(LockScreenCaller.NAME, c.settings.current().lockScreenCaller)
     }
 
     @Test fun restored_privacy_settings_wait_for_confirmation() {

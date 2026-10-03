@@ -319,7 +319,12 @@ Telecom always writes a connected call into Android's call log; Parley can only 
 a private contact ends (and "Private call history" is on), the in-call service marks it in a small file, watches the
 call log for the insert and moves the row into the private history at once, with checks at 0, 0.3, 1, 2.5, 5, 10 and
 20 seconds in case the change notice is late (`PrivateCallLogSweep`, `PrivateCallSweepPlan`). If the process ends
-first, the next start sweeps before anything else; the daily upkeep catches anything older.
+first, the next start sweeps before anything else; the daily upkeep catches anything older. The sweep looks up only
+call-log numbers that may be private, decided on every form caller ID matches on (E.164, the form older versions
+stored, the last digits; `VaultNumberKeys.Prefilter`), so no call caller ID recognises is ever skipped.
+
+Private calls are never pruned automatically: "Keep call history" applies to the phone's call log and the archive,
+not to them. They go when deleted, with their contact, or when a temporary private contact expires.
 
 **What remains:** the moment between Telecom's insert and Parley's delete. The delete runs on the change notice, so
 the expected window is well under a second (one call-log query and one delete; debug builds log the measured time
@@ -333,10 +338,15 @@ it. If Parley's process is killed during the call and isn't started again, the r
   pinned note for calls, "Who is this?" and the last call wait until it is unlocked (anyone can ring a locked phone).
   *Name and notes* shows them as before; *Initials* and *Just "Incoming call"* show less.
 - **Widgets.** With the app lock on, the Circle and Favourites widgets show counts instead of names while the phone
-  **or Parley** is locked (Parley locked, or away longer than its lock delay), not only while the phone is locked. A
-  tap then opens Parley to unlock it.
+  **or Parley** is locked, not only while the phone is locked. They redraw when Parley locks, when the phone is
+  unlocked, and when Parley's lock delay runs out after you leave it: a one-time background job set for that moment
+  (no exact-alarm permission, so Android may run it up to a few minutes late, longer in battery saver or Doze). The
+  guarantee is therefore "counts within minutes of the delay passing, at the latest at the next screen-on", not to the
+  second. A tap then opens Parley to unlock it.
 - **Shared files.** Files handed to other apps from the cache (contact cards, a scanned Secure QR's card, voicemail
-  audio, rule exports, transfer files) are deleted at the next start and after an hour, like exports.
+  audio, rule exports, transfer files) are deleted once they are an hour old, at start and by the upkeep, like
+  exports: never younger, so an app that opens a shared file late (an e-mail draft) still finds it. A scanned
+  contact card is deleted as soon as its import has read it.
 - **Device transfer.** Cloud backup and device-to-device transfer exclude every app-data domain, the device-protected
   ones (spam lists) included, in both apps.
 

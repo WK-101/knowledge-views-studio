@@ -25,6 +25,9 @@ object NotificationIds {
     const val SCREEN_BUSY_BASE = 5200
     const val SCREEN_BUSY_COUNT = 0x1000
 
+    /** Untagged: the one "Exporting…" notification while jobs started from a screen run with Parley in the background. */
+    const val JOB_RUNNING = 4690
+
     fun screenBusy(numberKey: String): Int = SCREEN_BUSY_BASE + (numberKey.hashCode() and (SCREEN_BUSY_COUNT - 1))
 
     fun missedChild(index: Int): Int {
@@ -90,6 +93,7 @@ object NotificationIds {
         Range("screen.blocked", SCREEN_BLOCKED, 1),
         Range("screen.likely", SCREEN_LIKELY_SPAM, 1),
         Range("screen.busy", SCREEN_BUSY_BASE, SCREEN_BUSY_COUNT),
+        Range("jobs.running", JOB_RUNNING, 1),
     )
 
     /** Fixed tags, and prefixes of per-item tags (prefix ends with ':'). */

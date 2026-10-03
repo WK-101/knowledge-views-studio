@@ -24,6 +24,8 @@ class KeystoreMemoryKeys(context: Context) : NumberMemoryIndex.Keys {
 
     override fun key(input: String): String = hashing.mac(input)
 
+    override fun startOver() = hashing.reset("lost-" + System.currentTimeMillis())
+
     override fun seal(plain: ByteArray): ByteArray {
         val sealed = crypto.sealBytes(plain)
         // sealBytes keeps a value plain when it can't seal; the index would rather have no row than a plain one.

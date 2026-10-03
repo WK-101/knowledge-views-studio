@@ -27,6 +27,14 @@ class UserErrorTest {
         assertEquals(UserError.UNKNOWN, UserError.of(IOException("Broken pipe")))
     }
 
+    @Test fun only_parse_and_format_failures_blame_the_file() {
+        assertEquals(UserError.DAMAGED, UserError.of(app.parley.common.backup.BackupIntegrityException("Damaged snapshot index")))
+        // A failed require() or a Keystore failure is no reason to call the file damaged.
+        assertEquals(UserError.UNKNOWN, UserError.of(IllegalArgumentException("Failed requirement.")))
+        assertEquals(UserError.UNKNOWN, UserError.of(java.security.KeyStoreException("Keystore operation failed")))
+        assertEquals(UserError.UNKNOWN, UserError.of(java.security.InvalidKeyException("Key not usable")))
+    }
+
     @Test fun causes_are_looked_through() {
         val wrapped = RuntimeException("export", IllegalStateException("io", IOException("No space left on device")))
         assertEquals(UserError.NO_SPACE, UserError.of(wrapped))

@@ -1,5 +1,7 @@
 package app.parley.common.spam
 
+import app.parley.common.catching
+
 import java.util.Base64
 import java.util.Locale
 import app.parley.common.CountryCodes
@@ -114,7 +116,10 @@ object ListPack {
         if (existing?.fingerprint != null && origin != PackOrigin.BUILTIN) {
             val same = candidate.signature == SignatureStatus.SIGNED && sameKey(installedKey, candidate.manifest)
             val got = candidate.fingerprint ?: "unsigned"
-            if (!same) return "This update is signed by a different key ($got) than the installed list (${existing.fingerprint})"
+            // The installed fingerprint from its key, in the same (current) length as the candidate's: one stored by an
+            // older version is shorter and would read as a different key even when it isn't.
+            val installed = installedKey?.let { k -> catching { Ed25519.fingerprint(Base64.getDecoder().decode(k)) }.getOrNull() } ?: existing.fingerprint
+            if (!same) return "This update is signed by a different key ($got) than the installed list ($installed)"
         }
         if (origin == PackOrigin.UPDATER) {
             if (candidate.signature != SignatureStatus.SIGNED) return "Lists from Parley Lists must be signed"

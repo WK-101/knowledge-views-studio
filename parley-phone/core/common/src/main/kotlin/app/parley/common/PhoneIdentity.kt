@@ -96,6 +96,18 @@ object PhoneIdentity {
     fun lookupKeys(raw: String?, region: String?): List<String> =
         listOfNotNull(key(raw, region), previousE164(raw, region), legacyKey(raw)).filter { it.isNotEmpty() }.distinct()
 
+    /**
+     * [key], then the key an older version stored the line under when it differs ([previousE164]: an Argentine "15"
+     * mobile, a Slovak or Ivorian number). For stores keyed by [key] that were written before 5.4: read with every
+     * form, so their rows still attach.
+     */
+    fun keyForms(raw: String?, region: String?): List<String> =
+        listOfNotNull(key(raw, region).takeIf { it.isNotEmpty() }, previousE164(raw, region)).distinct()
+
+    /** [exactKey], then the older E.164 form when it differs ([previousE164]), as [keyForms] does for [key]. */
+    fun exactKeyForms(raw: String?, region: String?): List<String> =
+        listOfNotNull(exactKey(raw, region), previousE164(raw, region)).distinct()
+
     /** Whether a stored key (current or legacy) belongs to [raw]'s line, with [same]'s rules. */
     fun matchesStored(stored: String, raw: String?, region: String?): Boolean = raw in KeySet(listOf(stored), region)
 

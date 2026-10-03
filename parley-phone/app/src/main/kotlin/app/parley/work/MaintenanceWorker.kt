@@ -191,8 +191,8 @@ class MaintenanceWorker(context: Context, params: WorkerParameters) : CoroutineW
             //    setting, except numbers kept forever)
             step("archive catch-up") { c.history.sync(full = true) }
             step("archive retention") { c.history.applyRetention(settings.callLogRetentionDays) }
-            // Private calls keep as long as the rest of the history, no longer.
-            step("private call retention") { c.vault.prunePrivateCalls(settings.callLogRetentionDays) }
+            // Private calls are never pruned by "Keep call history": they go only when deleted, with their contact, or
+            // when a temporary contact expires (an older private history is often the reason a contact is private).
             if (settings.callLogRetentionDays > 0) {
                 val before = now - TimeUnit.DAYS.toMillis(settings.callLogRetentionDays.toLong())
                 runCatching {

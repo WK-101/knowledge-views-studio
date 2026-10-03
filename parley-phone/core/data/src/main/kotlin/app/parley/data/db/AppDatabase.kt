@@ -597,10 +597,6 @@ interface VaultDao {
     @Query("UPDATE private_calls SET blob = :sealed WHERE id = :id AND blob = :was")
     suspend fun resealPrivateCall(id: Long, was: ByteArray, sealed: ByteArray): Int
 
-    /** Private calls older than [before] (the call history's retention). */
-    @Query("DELETE FROM private_calls WHERE date < :before")
-    suspend fun deletePrivateCallsBefore(before: Long): Int
-
     @Query("SELECT * FROM vault_contacts WHERE expiresAt IS NOT NULL AND expiresAt <= :now")
     suspend fun expired(now: Long): List<VaultContactEntity>
 }

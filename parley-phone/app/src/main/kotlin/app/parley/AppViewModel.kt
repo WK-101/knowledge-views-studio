@@ -184,6 +184,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         events.trySend(UiEvent.Message(text))
     }
 
+    /** [text] with one action ([actionLabel]), which runs [action]. */
+    fun offer(text: String, actionLabel: String, action: suspend () -> Unit) {
+        events.trySend(UiEvent.Offer(text, actionLabel, action))
+    }
+
     /** [text] with Undo, which runs [undo]. */
     fun offerUndo(text: String, undo: suspend () -> Unit) {
         events.trySend(UiEvent.UndoAction(text, undo))

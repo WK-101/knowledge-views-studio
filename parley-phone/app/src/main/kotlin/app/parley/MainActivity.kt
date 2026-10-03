@@ -14,6 +14,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -28,6 +29,7 @@ import app.parley.data.EmergencyNumbers
 import app.parley.security.AppLock
 import app.parley.security.LockScreen
 import app.parley.security.PinConfirmHost
+import app.parley.ui.history.ExportFiles
 import app.parley.ui.people.PrivateNameApprovalDialog
 import app.parley.shortcuts.CircleWidget
 import app.parley.shortcuts.FavoritesWidget
@@ -75,6 +77,7 @@ class MainActivity : LockedActivity() {
                     vm.markMissedSeen()
                 }
             }
+            OpenExportWhenShown(showsUnlocked)
             ParleyTheme(settings.themeMode, settings.amoledBlack, settings.dynamicColor, settings.density) {
                 if (!settingsLoaded) {
                     // Behind the splash screen (kept until the settings load): nothing that could flash the contacts.
@@ -96,6 +99,20 @@ class MainActivity : LockedActivity() {
 
     /** Missed calls were opened from Parley's notification: marked seen once the screen shows unlocked. */
     private var missedSeenPending by mutableStateOf(false)
+
+    /** A prepared export to share or print once Parley shows unlocked ([IntentRoutes.ACTION_OPEN_EXPORT]). */
+    private var openExport by mutableStateOf<app.parley.jobs.UserJobs.Opener?>(null)
+
+    /** A prepared export is handed to the share sheet or the print dialog here, never behind the lock. */
+    @Composable
+    private fun OpenExportWhenShown(showsUnlocked: Boolean) {
+        LaunchedEffect(openExport, showsUnlocked) {
+            val o = openExport ?: return@LaunchedEffect
+            if (!showsUnlocked) return@LaunchedEffect
+            openExport = null
+            if (!ExportFiles.open(this@MainActivity, o)) vm.toast(getString(R.string.job_file_gone))
+        }
+    }
 
     /** A private-name request's "Allow…" waiting for the approval sheet: the package and whether it is the Directory. */
     private var approvePrivateName by mutableStateOf<Pair<String, Boolean>?>(null)
@@ -196,6 +213,7 @@ class MainActivity : LockedActivity() {
         t.event?.let { vm.navigate(it) }
         if (t.missedSeen) missedSeenPending = true
         t.approvePrivateName?.let { approvePrivateName = it }
+        t.openExport?.let { openExport = it }
     }
 
     /** SHOW_OR_CREATE_CONTACT: open the matching contact, or offer to create one. */

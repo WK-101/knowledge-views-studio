@@ -97,6 +97,8 @@ parley:
     # core/common's own tests may check the internals behind PhoneIdentity.
     excludes: ['**/core/common/src/test/**']
   # runCatching inside suspend functions and coroutine blocks (it swallows cancellation); use catching {}.
+  # It holds for new code only: the sites that predate it are listed in baseline.xml and are burned down over time,
+  # core/data and the call path first. It is not a ban on the code as it stands.
   RunCatchingInSuspend:
     active: true
     excludes: ['**/test/**', '**/testShared/**', '**/tools/**']

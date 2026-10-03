@@ -52,8 +52,6 @@ class PrivateCallsTest {
         db.close()
     }
 
-    private val day = 86_400_000L
-
     @Test fun newCallsOpenWithoutTheKeystore() = runBlocking {
         val now = System.currentTimeMillis()
         repeat(50) { i -> assertTrue(vault.storePrivateCall(7, "+44 7700 900${100 + i}", "Ana", now - i * 1000L, 30, CallLog.Calls.INCOMING_TYPE)) }
@@ -93,14 +91,5 @@ class PrivateCallsTest {
         assertTrue("nothing listed in a process started for a call", vault.privateCalls.value.isEmpty())
         gate.open()
         assertEquals(1, vault.privateCalls.first { it.isNotEmpty() }.size)
-    }
-
-    @Test fun oldCallsFollowTheHistoryRetention() = runBlocking {
-        val now = System.currentTimeMillis()
-        vault.storePrivateCall(1, "+44 7700 900001", "Ana", now - 400 * day, 5, CallLog.Calls.INCOMING_TYPE)
-        vault.storePrivateCall(1, "+44 7700 900001", "Ana", now - 10 * day, 5, CallLog.Calls.INCOMING_TYPE)
-        assertEquals(0, vault.prunePrivateCalls(0, now))
-        assertEquals(1, vault.prunePrivateCalls(365, now))
-        assertEquals(listOf(now - 10 * day), vault.privateCallsNow().map { it.date })
     }
 }

@@ -330,6 +330,13 @@ class CallHistory(
     private fun personMac(number: String, iso: String = countryIso) = crypto.mac(NumberKeys.of(number, iso))
 
     /**
+     * [personMac] and, when an older version filed the line under another E.164 form, that one too: archive rows and
+     * kept-forever numbers written before 5.4 are matched under either.
+     */
+    private fun personMacs(number: String, iso: String = countryIso): List<String> =
+        PhoneIdentity.exactKeyForms(number, iso).ifEmpty { listOf(NumberKeys.HIDDEN) }.map(crypto::mac).distinct()
+
+    /**
      * Called when calls with a number are deleted or purged: (number, call dates; null for every call), so stores
      * kept beside the archive (ring facts) forget them too. Set by the container.
      */
@@ -524,7 +531,10 @@ class CallHistory(
             val now = System.currentTimeMillis()
             dao.pruneTrash(now - TRASH_DAYS * DAY)
             if (days <= 0) return@withLock
-            val n = dao.deleteOlderThan(now - days * DAY, dao.keepForever().map { it.personKey })
+            // Each kept number's line under its stored key and every form it is filed under now (an archive row written
+            // after 5.4 may use another form than the kept-forever entry made before).
+            val kept = dao.keepForever().flatMap { k -> listOf(k.personKey) + openOrNull(k.blob)?.let { personMacs(it) }.orEmpty() }.distinct()
+            val n = dao.deleteOlderThan(now - days * DAY, kept)
             if (n > 0) {
                 knownKeys = null
                 reload()
@@ -536,7 +546,7 @@ class CallHistory(
 
     suspend fun isKeptForever(number: String): Boolean = withContext(Dispatchers.IO) {
         if (_archive.value == null) reload()
-        personMac(number) in _kept.value
+        personMacs(number).any { it in _kept.value }
     }
 
     /** Keeps (or stops keeping) every call with these numbers regardless of retention. */
@@ -546,7 +556,7 @@ class CallHistory(
         if (keep) {
             dao.addKeepForever(list.map { KeepForeverEntity(personMac(it, iso), crypto.seal(it.toByteArray()), System.currentTimeMillis()) })
         } else {
-            dao.removeKeepForever(list.map { personMac(it, iso) })
+            dao.removeKeepForever(list.flatMap { personMacs(it, iso) })
         }
         _kept.value = dao.keepForever().mapNotNull { k -> runCatching { k.personKey to String(crypto.open(k.blob)) }.getOrNull() }.toMap()
     }

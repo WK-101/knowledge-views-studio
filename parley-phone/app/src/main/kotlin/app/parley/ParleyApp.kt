@@ -15,6 +15,8 @@ import app.parley.data.people.CrashStore
 import app.parley.security.AppLock
 import app.parley.data.security.LockTransitions
 import app.parley.jobs.JobNotices
+import app.parley.jobs.UserJobWorker
+import app.parley.shortcuts.WidgetLockRefresh
 import app.parley.jobs.UserJobs
 import app.parley.security.VaultSession
 import app.parley.shortcuts.CircleWidget
@@ -43,8 +45,13 @@ class ParleyApp : Application() {
      */
     val containerOrNull: DataContainer? get() = if (::container.isInitialized) container else null
 
-    /** Exports, imports and backups started from screens, in the app's scope (see [UserJobs]). */
-    val jobs: UserJobs by lazy { UserJobs(container.scope) { JobNotices.post(this, it) } }
+    /**
+     * Exports, imports and backups started from screens, in the app's scope and kept running by WorkManager when Parley
+     * goes to the background (see [UserJobs]).
+     */
+    val jobs: UserJobs by lazy {
+        UserJobs(container.scope, UserJobWorker.AppHost(this)) { JobNotices.post(this, it) }.also { JobNotices.observe(this, it, container.scope) }
+    }
 
     override fun onCreate() {
         super.onCreate()
@@ -83,6 +90,9 @@ class ParleyApp : Application() {
         // I21: locking ends a duress session (its settings changes are forgotten); what it hides stays hidden until the
         // real Parley PIN.
         AppLock.onEngaged = { LockTransitions.locked(container) }
+        // Widgets hide names when Parley's lock delay runs out after leaving it, not only at the next screen-on.
+        AppLock.onAway = { delay -> WidgetLockRefresh.schedule(this, delay) }
+        AppLock.onBack = { WidgetLockRefresh.cancel(this) }
         // The lock screen asks for a Parley PIN or the fingerprint: which one is read before it shows.
         container.scope.launch(Dispatchers.IO) { suspendRunCatching { container.appPin.load() } }
         // The screen going off forgets opened private details (and the Contacts search's docs made from them),
@@ -108,7 +118,8 @@ class ParleyApp : Application() {
             }
             // A private contact's call the last process couldn't take out of the system call log goes first.
             suspendRunCatching { PrivateCallLogSweep.recheck(this@ParleyApp, container) }
-            // Plaintext call-history exports and shared files never outlive the next start.
+            // Plaintext call-history exports and shared files an hour old or more; never younger, as this process may
+            // have been started by another app opening one of them.
             ExportFiles.cleanup(this@ParleyApp)
             // Camera shots and framed avatars that a closed editor or an unfinished save left in the cache.
             runCatching { ContactCamera.sweep(this@ParleyApp) }

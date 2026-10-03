@@ -125,7 +125,15 @@ object AppLock {
         backgroundAt = SystemClock.elapsedRealtime()
         val s = settings ?: lastSettings ?: return
         if (s.appLock && s.lockAfterMinutes <= 0) engage()
+        // What shows outside Parley (the widgets) must follow the delay running out, though the lock waits for a start.
+        else if (s.appLock) onAway?.invoke(s.lockAfterMinutes * 60_000L)
     }
+
+    /** Parley went to the background with the app lock on and a delay (ms): the widgets redraw when it runs out. */
+    @Volatile var onAway: ((Long) -> Unit)? = null
+
+    /** Parley's screens started again: whatever [onAway] set up is no longer needed. */
+    @Volatile var onBack: (() -> Unit)? = null
 
     /** When Parley's screens last started (elapsed time): a stop after it means Parley is in the background. */
     @Volatile private var startedAt = 0L
@@ -145,6 +153,7 @@ object AppLock {
     /** Call before the first frame of a returning activity (it only reads memory), so content never flashes. */
     fun onStart(settings: AppSettings) {
         startedAt = SystemClock.elapsedRealtime()
+        onBack?.invoke()
         lastSettings = settings
         promptOnShow = true
         if (!settings.appLock) {

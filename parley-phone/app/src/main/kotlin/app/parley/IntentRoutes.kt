@@ -42,6 +42,8 @@ data class IntentTarget(
     val missedSeen: Boolean = false,
     /** A private-name request's "Allow…": the app's package and whether it asked for the Directory. */
     val approvePrivateName: Pair<String, Boolean>? = null,
+    /** A prepared export to share or print now. */
+    val openExport: app.parley.jobs.UserJobs.Opener? = null,
 )
 
 /** The mapping from intents to [IntentTarget]s; pure, so every old link and shortcut is tested to still resolve. */
@@ -64,7 +66,7 @@ object IntentRoutes {
         setOf(
             ACTION_ADD_CALL, ACTION_BULK_ADD, ACTION_PASTE_CONTACT, ACTION_OPEN_BACKUP, ACTION_SCAN_QR, ACTION_OPEN_BLOCKING,
             ACTION_OPEN_SYNC, ACTION_OPEN_TEMPORARY, ACTION_OPEN_HEALTH, ACTION_SHOW_MISSED, ACTION_SHOW_CIRCLE,
-            ACTION_SHOW_TO_CALL, ACTION_SHOW_CALLER, ACTION_POST_CALL, ACTION_APPROVE_PRIVATE_NAME,
+            ACTION_SHOW_TO_CALL, ACTION_SHOW_CALLER, ACTION_POST_CALL, ACTION_APPROVE_PRIVATE_NAME, ACTION_OPEN_EXPORT,
         )
     }
 
@@ -74,6 +76,15 @@ object IntentRoutes {
     const val EXTRA_DIRECTORY = "directory"
 
     const val ACTION_ADD_CALL = "app.parley.ADD_CALL"
+
+    /**
+     * A prepared export's notification or snackbar was tapped: share or print the file (its name in the export folder),
+     * from the activity.
+     */
+    const val ACTION_OPEN_EXPORT = "app.parley.OPEN_EXPORT"
+    const val EXTRA_FILE = "file"
+    const val EXTRA_MIME = "mime"
+    const val EXTRA_PRINT = "print"
 
     /** "Save all…" from the number sheet; the text waits in [app.parley.messaging.MessagingInbox]. */
     const val ACTION_BULK_ADD = "app.parley.BULK_ADD"
@@ -184,6 +195,10 @@ object IntentRoutes {
             // The keep-in-touch digest opens the Circle (as the bar's extra tab while it's hidden).
             ACTION_SHOW_CIRCLE -> go(NavEvent.Tab(StartTab.CIRCLE))
             ACTION_SHOW_TO_CALL -> go(NavEvent.Route(ToCallRoutes.List))
+            ACTION_OPEN_EXPORT -> intent.getStringExtra(EXTRA_FILE)?.takeIf { it.isNotEmpty() }?.let { f ->
+                val mime = intent.getStringExtra(EXTRA_MIME).orEmpty()
+                IntentTarget(openExport = app.parley.jobs.UserJobs.Opener(f, mime, intent.getBooleanExtra(EXTRA_PRINT, false)))
+            }
             ACTION_SHOW_MISSED -> IntentTarget(NavEvent.Tab(StartTab.RECENTS, missedOnly = true), missedSeen = true)
             ACTION_SHOW_CALLER -> {
                 val id = intent.getLongExtra(EXTRA_CONTACT_ID, -1)

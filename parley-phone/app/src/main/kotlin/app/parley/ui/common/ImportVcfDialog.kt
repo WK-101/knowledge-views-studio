@@ -9,6 +9,7 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -32,6 +33,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import app.parley.ui.ParleyDialog
+import app.parley.ui.qr.forgetScannedCard
 import app.parley.ui.people.cards.CardArrivalNotes
 import app.parley.ui.people.cards.rememberSignedCardText
 
@@ -40,10 +42,15 @@ import app.parley.ui.people.cards.rememberSignedCardText
 fun ImportVcfDialog(vm: AppViewModel, uri: Uri, onDone: () -> Unit) {
     val scope = rememberCoroutineScope()
     val context = androidx.compose.ui.platform.LocalContext.current
+    val app = context.applicationContext
     var accounts by remember { mutableStateOf<List<AccountRef>>(emptyList()) }
     var running by remember { mutableStateOf(false) }
     var progress by remember { mutableStateOf(0f) }
     var result by remember { mutableStateOf<String?>(null) }
+    // Closed without importing: a scanned card isn't kept for later either (an import still running deletes it).
+    DisposableEffect(uri) {
+        onDispose { if (!running) vm.c.scope.launch(Dispatchers.IO) { forgetScannedCard(app, uri) } }
+    }
     LaunchedEffect(uri) { accounts = withContext(Dispatchers.IO) { vm.c.contacts.accounts() } }
     val res = LocalResources.current
     // A large file offers "Back up first?" before the import starts.
@@ -92,6 +99,8 @@ fun ImportVcfDialog(vm: AppViewModel, uri: Uri, onDone: () -> Unit) {
                                                 },
                                                 skipDuplicates = true,
                                             )
+                                            // A scanned card goes as soon as it has been read.
+                                            withContext(Dispatchers.IO) { forgetScannedCard(app, uri) }
                                             importedInto(res, r, a).also { result = it }
                                         }
                                         scope.launch {

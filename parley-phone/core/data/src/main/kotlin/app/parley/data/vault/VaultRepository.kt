@@ -85,6 +85,8 @@ data class VaultSummary(
     val choicesKnown: Boolean = true,
     /** The "Family, Given" form of [name], for "Sort by" and "Show names as" last name first. */
     val nameAlt: String = name,
+    /** The region its national numbers were read with when saved; null for entries saved before it was kept. */
+    val region: String? = null,
 ) {
     /** Anything the call path must apply for this contact (Parley screens its calls then). */
     val hasCallChoices: Boolean get() = ringtone != null || sendToVoicemail || labels.isNotEmpty()
@@ -763,14 +765,18 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
      * E.164 fingerprints, plus the last-digits one as an extra fallback (so a number read with a different
      * region than at save time is still found by non-exact lookups; exact lookups never use it).
      */
-    private fun numberRows(id: Long, numbers: List<String>, region: String?): List<VaultNumberEntity> =
-        VaultNumberKeys.storedWithFallback(numbers, region).map { VaultNumberEntity(id, VaultCrypto.hmac(it)) }
+    private fun numberRows(id: Long, numbers: List<String>, region: String?, withPrevious: Boolean = false): List<VaultNumberEntity> =
+        (if (withPrevious) VaultNumberKeys.storedWithPrevious(numbers, region) else VaultNumberKeys.storedWithFallback(numbers, region))
+            .map { VaultNumberEntity(id, VaultCrypto.hmac(it)) }
 
     /**
      * Migration, once: entries saved before E.164 keys were fingerprinted by their last 9 digits only. The
      * numbers are in the caller-ID copy, which opens without unlocking, so every entry is re-fingerprinted in place
      * (no schema change: same table, new rows). An entry that can't be read keeps its old rows, so it still works
      * as before. Until this finishes, lookups still find the old rows through the last-digits fallback.
+     *
+     * It runs again whenever [KEYS_VERSION] rises, re-fingerprinting every entry with how numbers are read now (and
+     * the form an older version read, see [VaultNumberKeys.storedWithPrevious]).
      */
     private suspend fun migrateNumberKeys() = withContext(Dispatchers.IO) {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -786,7 +792,7 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
                     val o = runCatching { JSONObject(String(VaultCrypto.openCallerId(e.callerIdBlob))) }.getOrNull() ?: return@withTransaction false
                     val s = summarize(e) ?: return@withTransaction false
                     val region = o.optString(C_REGION).ifEmpty { fallbackRegion }
-                    val rows = runCatching { numberRows(e.id, s.numbers, region) }.getOrNull() ?: return@withTransaction false
+                    val rows = catching { numberRows(e.id, s.numbers, region, withPrevious = true) }.getOrNull() ?: return@withTransaction false
                     dao.clearNumbers(e.id)
                     dao.addNumbers(rows)
                     true
@@ -796,7 +802,8 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
         }
         // An unreadable entry (caller-ID key lost) can't get better by retrying; a Keystore hiccup might.
         if (!failed || prefs.getInt(K_KEYS_ATTEMPTS, 0) >= 2) {
-            prefs.edit().putInt(K_KEYS_VERSION, KEYS_VERSION).apply()
+            // The next re-keying starts with its own attempts.
+            prefs.edit().putInt(K_KEYS_VERSION, KEYS_VERSION).remove(K_KEYS_ATTEMPTS).apply()
         } else {
             prefs.edit().putInt(K_KEYS_ATTEMPTS, prefs.getInt(K_KEYS_ATTEMPTS, 0) + 1).apply()
         }
@@ -948,7 +955,8 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
         val cr = context.contentResolver
         val ids = ArrayList<Long>()
         // Only calls that may be private are looked up (see PrivateCallSeal.prefilter).
-        val maybePrivate = PrivateCallSeal.prefilter(dao.callerRowsNow().mapNotNull { summarize(it) }.flatMap { it.numbers }) ?: return@withContext 0
+        val maybePrivate = PrivateCallSeal.prefilter(dao.callerRowsNow().mapNotNull { summarize(it) }.map { it.numbers to it.region }, region())
+            ?: return@withContext 0
         try {
             cr.query(
                 CallLog.Calls.CONTENT_URI,
@@ -986,10 +994,6 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
         }
 
     suspend fun deletePrivateCall(id: Long) = withContext(Dispatchers.IO) { dao.deletePrivateCall(id) }
-
-    /** Private calls follow the call history's retention ([days] = 0 keeps everything). Returns how many went. */
-    suspend fun prunePrivateCalls(days: Int, now: Long = System.currentTimeMillis()): Int =
-        if (days <= 0) 0 else withContext(Dispatchers.IO) { dao.deletePrivateCallsBefore(now - days * 86_400_000L) }
 
     /** Every private call, read straight from the database (not the listing, which starts with the full app). */
     suspend fun privateCallsNow(): List<PrivateCall> = withContext(Dispatchers.IO) { dao.allPrivateCalls().mapNotNull { callSeal.opened(it) } }
@@ -1048,9 +1052,10 @@ class VaultRepository(private val context: Context, private val db: AppDatabase,
 
         /**
          * 1: last 9 digits (before F7); 2: E.164 with the last digits only as a fallback; 3: E.164 plus the last
-         * digits as an extra fallback for every number, with the region stored at save time.
+         * digits as an extra fallback for every number, with the region stored at save time; 4: the E.164 form
+         * libphonenumber reads (an Argentine "15" mobile, a country the older table missed), keeping the older form too.
          */
-        const val KEYS_VERSION = 3
+        const val KEYS_VERSION = 4
         const val REC = "parleyRecord"
         const val REC_BLOBS = "parleyRecordBlobs"
         const val REC_OF = "parleyRecordOf"

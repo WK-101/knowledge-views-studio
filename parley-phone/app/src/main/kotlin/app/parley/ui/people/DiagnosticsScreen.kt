@@ -70,7 +70,7 @@ fun DiagnosticsScreen(vm: AppViewModel, back: () -> Unit) {
         if (uri != null) {
             val text = report
             val app = context.applicationContext
-            vm.jobs.start(UserJobs.Kind.EXPORT, res.getString(R.string.set_exporting), { res.getString(R.string.diag_save_failed) }) {
+            vm.jobs.start(UserJobs.Kind.EXPORT, res.getString(R.string.set_exporting), { res.getString(R.string.diag_save_failed) }, output = uri.toString()) {
                 withContext(Dispatchers.IO) { app.contentResolver.openOutputStream(uri, "wt")!!.use { it.write(text.toByteArray()) } }
                 res.getString(R.string.diag_saved)
             }

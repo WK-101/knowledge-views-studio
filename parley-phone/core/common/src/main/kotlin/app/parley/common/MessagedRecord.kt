@@ -21,25 +21,27 @@ object MessagedRecord {
     fun record(entries: List<MessagedEntry>, number: String, appPackage: String?, label: String, at: Long, countryIso: String?): List<MessagedEntry> {
         val key = PhoneIdentity.key(number, countryIso)
         if (key.isEmpty()) return entries
+        val forms = PhoneIdentity.keyForms(number, countryIso)
         val legacy = PhoneIdentity.fallbackKey(number)
-        val out = entries.filter { it.key != key && !(it.number == null && it.key == legacy) }.toMutableList()
+        val out = entries.filter { it.key !in forms && !(it.number == null && it.key == legacy) }.toMutableList()
         out += MessagedEntry(key, number, appPackage, label, at)
         return out.sortedBy { it.at }.takeLast(MAX_ENTRIES)
     }
 
     fun find(entries: List<MessagedEntry>, number: String, countryIso: String?): MessagedEntry? {
-        val key = PhoneIdentity.key(number, countryIso)
-        if (key.isEmpty()) return null
-        entries.lastOrNull { it.key == key }?.let { return it }
+        val forms = PhoneIdentity.keyForms(number, countryIso)
+        if (forms.isEmpty()) return null
+        // An entry written before 5.4 may sit under the older E.164 form of the same line.
+        entries.lastOrNull { it.key in forms }?.let { return it }
         val legacy = PhoneIdentity.fallbackKey(number)
         return entries.lastOrNull { it.number == null && it.key == legacy }
     }
 
     /** Removes [number] (and an old last-digits entry for it). */
     fun forget(entries: List<MessagedEntry>, number: String, countryIso: String?): List<MessagedEntry> {
-        val key = PhoneIdentity.key(number, countryIso)
+        val forms = PhoneIdentity.keyForms(number, countryIso)
         val legacy = PhoneIdentity.fallbackKey(number)
-        return entries.filterNot { it.key == key || (it.number == null && it.key == legacy) }
+        return entries.filterNot { it.key in forms || (it.number == null && it.key == legacy) }
     }
 
     /** "Forget messaged numbers after" choices, in days (0 = never). */

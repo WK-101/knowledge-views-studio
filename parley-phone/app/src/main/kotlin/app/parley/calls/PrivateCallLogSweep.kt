@@ -28,25 +28,42 @@ import kotlinx.coroutines.withTimeoutOrNull
 object PrivateCallLogSweep {
     private const val TAG = "PrivateCallLog"
     private const val PREFS = "private_call_sweep"
-    private const val K_ENDED = "ended_at"
+    private const val K_ENDED = "ended"
+    private const val K_ENDED_ONE = "ended_at"
     private val mutex = Mutex()
 
     private fun prefs(context: Context) = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
-    /** When the newest call that may still be in the system call log ended; null when none waits. */
+    /**
+     * When each call that may still be in the system call log ended. One entry per call, so a call's sweep ending
+     * clears only its own: two private calls ending close together each keep theirs until their own sweep is done.
+     */
     @VisibleForTesting
-    internal fun markedAt(context: Context): Long? = prefs(context).getLong(K_ENDED, 0L).takeIf { it > 0 }
-
-    @VisibleForTesting
-    internal fun mark(context: Context, endedAt: Long) {
-        // The oldest waiting call decides how far back the next start looks.
-        val kept = markedAt(context)
-        prefs(context).edit().putLong(K_ENDED, if (kept != null) minOf(kept, endedAt) else endedAt).commit()
+    internal fun marks(context: Context): Set<Long> {
+        val p = prefs(context)
+        val set = p.getStringSet(K_ENDED, null).orEmpty().mapNotNullTo(HashSet()) { it.toLongOrNull() }
+        // The single mark an earlier version kept.
+        p.getLong(K_ENDED_ONE, 0L).takeIf { it > 0 }?.let { set += it }
+        return set
     }
 
+    /** When the oldest call that may still be in the system call log ended (how far back a start looks); null when none waits. */
     @VisibleForTesting
-    internal fun clear(context: Context, ifAt: Long? = null) {
-        if (ifAt == null || markedAt(context) == ifAt) prefs(context).edit().remove(K_ENDED).commit()
+    internal fun markedAt(context: Context): Long? = marks(context).minOrNull()
+
+    @VisibleForTesting
+    @Synchronized
+    internal fun mark(context: Context, endedAt: Long) {
+        prefs(context).edit().putStringSet(K_ENDED, (marks(context) + endedAt).mapTo(HashSet()) { it.toString() }).remove(K_ENDED_ONE).commit()
+    }
+
+    /** Removes the marks of the calls in [ended] (every mark when null); marks set meanwhile stay. */
+    @VisibleForTesting
+    @Synchronized
+    internal fun clear(context: Context, ended: Set<Long>? = null) {
+        val left = if (ended == null) emptySet() else marks(context) - ended
+        val e = prefs(context).edit().remove(K_ENDED_ONE)
+        if (left.isEmpty()) e.remove(K_ENDED).commit() else e.putStringSet(K_ENDED, left.mapTo(HashSet()) { it.toString() }).commit()
     }
 
     /** A call with [number] ended: when it is a private contact's and private call history is on, sweep it now. */
@@ -83,15 +100,17 @@ object PrivateCallLogSweep {
                 if (watching) catching { cr.unregisterContentObserver(observer) }
             }
             // A last look once the window is over; the mark goes only when that sweep could run.
-            if (sweep(c, since, endedElapsed) >= 0) clear(context, ifAt = endedAt)
+            if (sweep(c, since, endedElapsed) >= 0) clear(context, setOf(endedAt))
         }
     }
 
     /** At start: a call marked by a process that ended before its sweep finished is swept now. */
     suspend fun recheck(context: Context, c: DataContainer) {
-        val at = markedAt(context) ?: return
+        val waiting = marks(context)
+        val at = waiting.minOrNull() ?: return
         if (!c.settings.current().privateVaultHistory) return clear(context)
-        if (sweep(c, PrivateCallSweepPlan.sinceFor(at), null) >= 0) clear(context, ifAt = at)
+        // Swept from the oldest, so every call marked so far is covered; one marked meanwhile keeps its mark.
+        if (sweep(c, PrivateCallSweepPlan.sinceFor(at), null) >= 0) clear(context, waiting)
     }
 
     /** Rows moved, or -1 when the sweep failed (the mark stays). One at a time: overlapping sweeps would only repeat work. */

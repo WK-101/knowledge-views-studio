@@ -115,9 +115,9 @@ class TimeMachine(context: Context, private val records: ContactRecordStore) {
             try {
                 SnapshotLog.decode(logFile.readBytes())
             } catch (e: BackupIntegrityException) {
-                // Nothing can be told from a damaged index; the next snapshot starts a new one.
-                Log.w(TAG, "Snapshot index unreadable; starting again", e)
-                SnapshotLog()
+                Log.w(TAG, "Snapshot index unreadable; set aside and rebuilt from the stored versions", e)
+                setAside()
+                recover().also(::write)
             }
         } else {
             SnapshotLog()
@@ -234,8 +234,64 @@ class TimeMachine(context: Context, private val records: ContactRecordStore) {
     /** Bytes the snapshots take on disk. */
     suspend fun storageBytes(): Long = withContext(Dispatchers.IO) { root.walkTopDown().filter { it.isFile }.sumOf { it.length() } }
 
-    /** Deletes every blob no kept snapshot needs: from the index alone, by distinct hash, without opening any record. */
+    /**
+     * A damaged index is kept beside the new one (never overwritten): a later version or a support request may still
+     * read it. Its presence also stops clean-ups (see [collectGarbage]).
+     */
+    private fun setAside() {
+        val aside = File(root, DAMAGED_PREFIX + System.currentTimeMillis())
+        if (!logFile.renameTo(aside)) catching { logFile.copyTo(aside, overwrite = true) }
+    }
+
+    /**
+     * An index rebuilt from the stored versions after the old one couldn't be read: each contact's versions in the
+     * order they were first stored (a version's file is written when it first appears, so its time dates it), grouped
+     * into snapshots by when they were written. What can't be told any more is when a contact was deleted, so every
+     * contact stays present from its first version on. Versions that can't be read now are left out of the index, not
+     * deleted.
+     */
+    private fun recover(): SnapshotLog {
+        val found = store.all().mapNotNull { f ->
+            val bytes = catching { store.get(f.name) }.getOrNull() ?: return@mapNotNull null
+            if (RecordJson.sha256Hex(bytes) != f.name) return@mapNotNull null
+            // Photos are blobs too; only records decode.
+            val record = catching { RecordJson.decode(bytes.decodeToString()) { null } }.getOrNull() ?: return@mapNotNull null
+            Triple(record.key, f.name, f.lastModified())
+        }.sortedBy { it.third }.toList()
+        val log = SnapshotLog()
+        val present = sortedMapOf<String, String>()
+        var i = 0
+        while (i < found.size) {
+            val start = found[i].third
+            var j = i
+            while (j < found.size && found[j].third - start <= RECOVER_GROUP_MS) present[found[j].first] = found[j++].second
+            val at = found[j - 1].third
+            if (at > (log.timestamps.lastOrNull() ?: Long.MIN_VALUE)) catching { log.add(at, HashMap(present)) }
+            i = j
+        }
+        for (h in log.records()) photosOf(h)?.let { log.notePhotos(h, it) }
+        Log.i(TAG, "Snapshot index rebuilt: ${log.timestamps.size} snapshot(s), ${log.entryCount} version(s)")
+        return log
+    }
+
+    /**
+     * Whether a damaged index was set aside less than [KEEP_DAYS] ago. Until then nothing is deleted by an index that
+     * may not know every stored version; older set-aside files go (every version they knew has expired by then).
+     */
+    private fun recovering(now: Long = System.currentTimeMillis()): Boolean {
+        var recent = false
+        root.listFiles().orEmpty().filter { it.name.startsWith(DAMAGED_PREFIX) }.forEach { f ->
+            if (now - f.lastModified() < KEEP_DAYS * 86_400_000L) recent = true else f.delete()
+        }
+        return recent
+    }
+
+    /**
+     * Deletes every blob no kept snapshot needs: from the index alone, by distinct hash, without opening any record.
+     * Never while the index was rebuilt after damage ([recovering]): it may not know every version still stored.
+     */
     private fun collectGarbage(log: SnapshotLog) {
+        if (recovering()) return
         val referenced = log.referencedBlobs()
         store.all().filter { it.name !in referenced }.forEach { it.delete() }
     }
@@ -294,6 +350,12 @@ class TimeMachine(context: Context, private val records: ContactRecordStore) {
     companion object {
         private const val TAG = "TimeMachine"
         const val KEEP_DAYS = 180L
+
+        /** A damaged `versions.bin`, kept aside with the time it was found. */
+        private const val DAMAGED_PREFIX = "versions.bin.damaged-"
+
+        /** Versions written within this of each other belong to one rebuilt snapshot (a daily run takes seconds). */
+        private const val RECOVER_GROUP_MS = 10 * 60_000L
 
         /**
          * Versions held in memory between questions: about 60 bytes each, so a few MB. Typical address books stay well

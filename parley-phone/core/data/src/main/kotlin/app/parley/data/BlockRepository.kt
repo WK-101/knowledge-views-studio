@@ -177,9 +177,14 @@ class BlockRepository(private val context: Context, db: AppDatabase, scope: Coro
     /** Ring records are keyed by line (E.164 when it can be derived). */
     fun ringKey(number: String): String = PhoneIdentity.key(number, PhoneEnv.countryIso(context))
 
-    /** Whether a stored ring row belongs to [number] ([key] = [ringKey]; old rows by their last digits). */
+    /**
+     * Whether a stored ring row belongs to [number] ([key] = [ringKey]; rows from before 5.4 may hold the older E.164
+     * form, older ones the last digits).
+     */
     fun ringMatches(row: CallRingEntity, number: String, key: String = ringKey(number)): Boolean =
-        row.numberKey == key || (PhoneIdentity.isLegacyKey(row.numberKey) && row.numberKey == PhoneIdentity.legacyKey(number))
+        row.numberKey == key ||
+            (PhoneIdentity.isLegacyKey(row.numberKey) && row.numberKey == PhoneIdentity.legacyKey(number)) ||
+            row.numberKey in PhoneIdentity.keyForms(number, PhoneEnv.countryIso(context))
 
     fun canUseSystemList(): Boolean = try {
         BlockedNumberContract.canCurrentUserBlockNumbers(context)
