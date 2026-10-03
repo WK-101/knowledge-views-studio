@@ -67,6 +67,28 @@ data class TimeEntryDto(
     val running: Boolean = false,
 )
 
+/** An attachment's metadata (never its bytes). [noteId] is set for note attachments. */
+@Serializable
+data class AttachmentDto(
+    val id: String,
+    val fileName: String,
+    val mime: String,
+    val sizeBytes: Long,
+    val isImage: Boolean,
+    val noteId: String? = null,
+    val taskId: String = "",
+)
+
+/** One attachment's bytes, inlined only for small images. [dataB64] is standard Base64 for a data URL. */
+@Serializable
+data class AttachmentData(
+    val id: String,
+    val mime: String,
+    val isImage: Boolean = false,
+    val dataB64: String? = null,
+    val tooLarge: Boolean = false,
+)
+
 /** A habit, with today's progress folded in ([doneToday] / [todayCount] against [targetPerDay]). */
 @Serializable
 data class HabitDto(

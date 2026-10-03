@@ -55,7 +55,7 @@ class WebBridgeDataTest {
         override suspend fun query(query: DataQuery): DataPage = when {
             query.domain == DataApi.DOMAIN_TASKS && query.op == DataApi.OP_LIST ->
                 DataPage(payloadJson = BridgeCodec.encodeString(listOf(fakeTask)), total = 1)
-            query.domain == DataApi.DOMAIN_NOTES && query.op == DataApi.OP_LIST ->
+            query.domain == DataApi.DOMAIN_NOTES -> // list + attachment ops all route under notes.read
                 DataPage(payloadJson = "[]", total = 0)
             query.op == DataApi.OP_LIST &&
                 query.domain in setOf(DataApi.DOMAIN_CALENDAR, DataApi.DOMAIN_TIME, DataApi.DOMAIN_HABITS) ->
@@ -158,6 +158,26 @@ class WebBridgeDataTest {
         val resp = dispatcher(tokens).dispatchInvoke(req, caller)
         assertFalse(resp.ok)
         assertEquals(BridgeErrorType.UNAUTHORIZED, resp.error?.type)
+    }
+
+    @Test fun noteAttachments_useNotesReadScope() {
+        val tokens = InMemoryTokenAuthority()
+        val attReq = { token: String? ->
+            RequestEnvelope(
+                header = EnvelopeHeader(capabilityId = Capabilities.DATA, method = DataApi.METHOD_QUERY, token = token),
+                payloadJson = BridgeCodec.encodeString(
+                    DataQuery(domain = DataApi.DOMAIN_NOTES, op = DataApi.OP_ATTACHMENTS, paramsJson = """{"id":"n1"}"""),
+                ),
+            )
+        }
+        // with notes.read → allowed
+        val ok = tokens.mint(consumer, setOf(BridgeScopes.DATA_NOTES_READ))
+        assertTrue(dispatcher(tokens).dispatchInvoke(attReq(ok.value), caller).ok)
+        // with only tasks.read → denied
+        val no = tokens.mint(consumer, setOf(BridgeScopes.DATA_TASKS_READ))
+        val denied = dispatcher(tokens).dispatchInvoke(attReq(no.value), caller)
+        assertFalse(denied.ok)
+        assertEquals(BridgeErrorType.UNAUTHORIZED, denied.error?.type)
     }
 
     // ---- writes (W2) --------------------------------------------------------------------------------

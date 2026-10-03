@@ -1,6 +1,8 @@
 package com.wkhan.hexis.webbridge
 
 import com.wkhan.hexis.bridge.BridgeCodec
+import com.wkhan.hexis.bridge.data.AttachmentData
+import com.wkhan.hexis.bridge.data.AttachmentDto
 import com.wkhan.hexis.bridge.data.DataApi
 import com.wkhan.hexis.bridge.data.DataMutation
 import com.wkhan.hexis.bridge.data.DataPage
@@ -51,7 +53,48 @@ class RepositoryDataSource(private val repo: AppRepository) : DataSource {
     private suspend fun queryNotes(query: DataQuery): DataPage = when (query.op) {
         DataApi.OP_LIST -> listPage(allNotes(), query) { it.toDto() }
         DataApi.OP_GET -> onePage(idParam(query)?.let { repo.getNote(it)?.toDto() })
+        DataApi.OP_ATTACHMENTS -> listPage(noteAttachmentDtos(idParam(query)), query) { it }
+        DataApi.OP_ATTACHMENT_DATA -> onePage(attachmentData(query))
         else -> throw UnsupportedDomainException("notes.${query.op}")
+    }
+
+    /** A note's attachment metadata — only for a note in the active workspace (default-deny otherwise). */
+    @Suppress("ReturnCount")
+    private suspend fun noteAttachmentDtos(noteId: String?): List<AttachmentDto> {
+        val note = noteId?.let { repo.getNote(it) } ?: return emptyList()
+        if (note.workspaceId != repo.activeWs() || note.trashed) return emptyList()
+        return repo.noteAttachments(note.id).map {
+            AttachmentDto(
+                id = it.id,
+                fileName = it.fileName,
+                mime = it.mime,
+                sizeBytes = it.sizeBytes,
+                isImage = it.isImage,
+                noteId = it.noteId,
+                taskId = it.taskId,
+            )
+        }
+    }
+
+    /** One attachment's bytes, inlined only for a small image on a readable note. Binary stays off the spine. */
+    @Suppress("ReturnCount") // sequential default-deny guards read clearest as early returns
+    private suspend fun attachmentData(query: DataQuery): AttachmentData? {
+        val params = runCatching { BridgeCodec.decodeString<Map<String, String>>(query.paramsJson) }.getOrNull()
+        val attId = params?.get("id") ?: return null
+        val noteId = params["noteId"] ?: return null
+        val note = repo.getNote(noteId) ?: return null
+        if (note.workspaceId != repo.activeWs() || note.trashed) return null
+        val att = repo.noteAttachments(noteId).firstOrNull { it.id == attId } ?: return null
+        if (!att.isImage || att.sizeBytes > DataApi.INLINE_ATTACHMENT_MAX_BYTES) {
+            return AttachmentData(id = att.id, mime = att.mime, isImage = att.isImage, tooLarge = true)
+        }
+        val b64 = when {
+            !att.filePath.isNullOrEmpty() ->
+                runCatching { java.util.Base64.getEncoder().encodeToString(java.io.File(att.filePath!!).readBytes()) }.getOrNull()
+            att.contentBase64.isNotEmpty() -> att.contentBase64
+            else -> null
+        } ?: return AttachmentData(id = att.id, mime = att.mime, isImage = att.isImage, tooLarge = true)
+        return AttachmentData(id = att.id, mime = att.mime, isImage = true, dataB64 = b64)
     }
 
     /** The breadth domains (calendar/time/habits) are list-only; the DTOs are already projected. */

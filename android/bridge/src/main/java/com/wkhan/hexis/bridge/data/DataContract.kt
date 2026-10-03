@@ -37,6 +37,19 @@ object DataApi {
     // Ops (read)
     const val OP_LIST = "list"
     const val OP_GET = "get"
+
+    /** List a note's attachment metadata (params `{ "id": noteId }`) → [AttachmentDto][]. */
+    const val OP_ATTACHMENTS = "attachments"
+
+    /**
+     * Fetch one attachment's bytes inline (params `{ "id": attachmentId, "noteId": noteId }`) → [AttachmentData].
+     * Only small images are inlined (Base64); larger ones return `tooLarge = true` and are viewed on-device.
+     * Binary stays off the fixed spine by design — no `ParcelFileDescriptor`, no oneway-buffer blob streaming.
+     */
+    const val OP_ATTACHMENT_DATA = "attachmentData"
+
+    /** Max raw bytes inlined over the bridge for an image (keeps a response well under the Binder limit). */
+    const val INLINE_ATTACHMENT_MAX_BYTES = 512 * 1024
     // Ops (write — W2+)
     const val OP_UPSERT = "upsert"
     const val OP_DELETE = "delete"

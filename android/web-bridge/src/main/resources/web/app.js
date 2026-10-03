@@ -370,7 +370,8 @@
       "<h3>" + (isNew ? "New note" : "Edit note") + "</h3>" +
         '<label>Title<input id="mTitle" type="text" value="' + esc(n.title) + '" /></label>' +
         '<label>Body<textarea id="mBody" rows="8">' + esc(n.body) + "</textarea></label>" +
-        '<label class="check"><input id="mPin" type="checkbox"' + (n.pinned ? " checked" : "") + " /> Pin</label>",
+        '<label class="check"><input id="mPin" type="checkbox"' + (n.pinned ? " checked" : "") + " /> Pin</label>" +
+        (isNew ? "" : '<div class="attachments" id="mAttach"></div>'),
       async (root) => {
         await mutate("notes", "upsert", {
           id: n.id,
@@ -385,6 +386,44 @@
         await reload("notes");
       }
     );
+    if (!isNew) loadAttachments(n.id);
+  }
+
+  async function loadAttachments(noteId) {
+    const box = el("mAttach");
+    if (!box) return;
+    let list;
+    try {
+      list = await query("notes", "attachments", { paramsJson: JSON.stringify({ id: noteId }) });
+    } catch (_e) {
+      return;
+    }
+    if (!list || !list.length) return;
+    box.innerHTML = '<h4 class="att-h">Attachments</h4><div class="att-grid"></div>';
+    const grid = box.querySelector(".att-grid");
+    for (const a of list) {
+      const cell = document.createElement("div");
+      cell.className = "att";
+      cell.innerHTML = '<span class="att-name">' + esc(a.fileName || "file") + "</span>";
+      grid.appendChild(cell);
+      if (a.isImage) {
+        query("notes", "attachmentData", { paramsJson: JSON.stringify({ id: a.id, noteId }) })
+          .then((d) => {
+            if (d && d.dataB64) {
+              const img = document.createElement("img");
+              img.loading = "lazy";
+              img.alt = a.fileName || "";
+              img.src = "data:" + (d.mime || "image/*") + ";base64," + d.dataB64;
+              cell.insertBefore(img, cell.firstChild);
+            } else {
+              cell.insertAdjacentHTML("afterbegin", '<span class="att-ph">image · open on phone</span>');
+            }
+          })
+          .catch(() => {});
+      } else {
+        cell.insertAdjacentHTML("afterbegin", '<span class="att-ph">open on phone</span>');
+      }
+    }
   }
 
   // ---- events ------------------------------------------------------------------------------------
