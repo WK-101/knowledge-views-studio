@@ -2,6 +2,7 @@ package app.parley.common.security
 
 import app.parley.common.AppSettings
 import app.parley.common.DuressView
+import app.parley.common.calls.LockScreenCaller
 
 /*
  * Duress unlock (I21). The threat model and the choices behind these rules are in docs/SECURITY_MODEL.md, "Duress
@@ -79,6 +80,8 @@ data class SafetyOverlay(
     val secureScreen: Boolean? = null,
     val hideVault: Boolean? = null,
     val privateVaultHistory: Boolean? = null,
+    /** "Caller on the lock screen": a session must not leave notes showing to anyone ringing the locked phone. */
+    val lockScreenCaller: LockScreenCaller? = null,
 )
 
 object DuressPolicy {
@@ -104,6 +107,7 @@ object DuressPolicy {
             secureScreen = overlay.secureScreen ?: stored.secureScreen,
             hideVault = overlay.hideVault ?: stored.hideVault,
             privateVaultHistory = overlay.privateVaultHistory ?: stored.privateVaultHistory,
+            lockScreenCaller = overlay.lockScreenCaller ?: stored.lockScreenCaller,
         )
     }
 
@@ -131,7 +135,8 @@ object DuressPolicy {
     fun split(stored: AppSettings, next: AppSettings): Pair<AppSettings, SafetyOverlay?> {
         val toStore = next.copy(
             appLock = stored.appLock, lockAfterMinutes = stored.lockAfterMinutes, secureScreen = stored.secureScreen,
-            hideVault = stored.hideVault, privateVaultHistory = stored.privateVaultHistory, duress = null,
+            hideVault = stored.hideVault, privateVaultHistory = stored.privateVaultHistory, lockScreenCaller = stored.lockScreenCaller,
+            duress = null,
         )
         val overlay = SafetyOverlay(
             appLock = next.appLock.takeIf { it != stored.appLock },
@@ -139,6 +144,7 @@ object DuressPolicy {
             secureScreen = next.secureScreen.takeIf { it != stored.secureScreen },
             hideVault = next.hideVault.takeIf { it != stored.hideVault },
             privateVaultHistory = next.privateVaultHistory.takeIf { it != stored.privateVaultHistory },
+            lockScreenCaller = next.lockScreenCaller.takeIf { it != stored.lockScreenCaller },
         )
         return toStore to overlay.takeIf { it != SafetyOverlay() }
     }

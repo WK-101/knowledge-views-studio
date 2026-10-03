@@ -127,6 +127,11 @@ class ListPackTest {
         assertNull(ListPack.refusal(null, null, pack(sk, "other"), PackOrigin.UPDATER, null))
         assertNull(ListPack.refusal(null, null, pack(sk, "other"), PackOrigin.UPDATER, installedKey))
         assertNotNull(ListPack.refusal(null, null, pack(Ed25519.newSecret(), "other"), PackOrigin.UPDATER, installedKey))
+        // A list installed by an older version stored a shorter fingerprint: the message shows both in today's length.
+        val older = state(PackOrigin.FILE, signed.fingerprint!!.take(16))
+        val other = pack(Ed25519.newSecret())
+        val text = ListPack.refusal(older, installedKey, other, PackOrigin.FILE, null)!!
+        assertTrue(text, text.contains("(${other.fingerprint})") && text.contains("(${signed.fingerprint})"))
     }
 
     @Test fun unsigned_pack_is_accepted_and_marked() {

@@ -96,7 +96,7 @@ object ReputationLearner {
         val stopped = type != RepKind.OUTGOING && screened[line].orEmpty().any { abs(it - e.date) <= SCREEN_MATCH_MS }
         val kind = if (stopped) RepKind.SCREENED else type
         val ring = if (kind == RepKind.MISSED) {
-            rings[PhoneIdentity.key(e.number, home)].orEmpty().firstOrNull { abs(it.startedAt - e.date) <= RING_MATCH_MS }?.ringMs
+            PhoneIdentity.keyForms(e.number, home).flatMap { rings[it].orEmpty() }.firstOrNull { abs(it.startedAt - e.date) <= RING_MATCH_MS }?.ringMs
         } else {
             null
         }

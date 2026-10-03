@@ -38,6 +38,7 @@ internal object CallerIdCopy {
             vibration = o.optString(C_VIBRATION).ifEmpty { null }, autoAnswer = o.optBoolean(C_AUTO_ANSWER, false),
             choicesKnown = o.has(C_SEEDED),
             nameAlt = alternativeOf(o),
+            region = o.optString(C_REGION).ifEmpty { null },
         )
     }
 

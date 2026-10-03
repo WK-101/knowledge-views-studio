@@ -264,11 +264,22 @@ private fun Note(text: String, icon: ImageVector = Icons.Rounded.Info, warning: 
 
 // ---------------------------------------------------------------- contacts
 
+private const val SCANNED_CARD = "scanned-contacts.vcf"
+
+/**
+ * Deletes the scanned card [uri] names once its import has read it (or the import was closed): it may be a decrypted
+ * Secure QR card, so it never waits for the cache sweep. Anything else is left alone. Off the main thread.
+ */
+fun forgetScannedCard(context: Context, uri: Uri) {
+    if (uri.authority != context.packageName + ".files" || uri.lastPathSegment != SCANNED_CARD) return
+    File(File(context.cacheDir, "share"), SCANNED_CARD).delete()
+}
+
 /** Writes [vcard] to the share folder so the importer can read it (all cards, every field). */
 private fun importVcard(context: Context, vm: AppViewModel, vcard: String) {
     runCatching {
         val dir = File(context.cacheDir, "share").apply { mkdirs() }
-        val f = File(dir, "scanned-contacts.vcf")
+        val f = File(dir, SCANNED_CARD)
         f.writeText(vcard)
         vm.navigate(NavEvent.ImportVcf(FileProvider.getUriForFile(context, context.packageName + ".files", f)))
     }.onFailure { vm.toast(context.getString(R.string.qs_import_failed)) }

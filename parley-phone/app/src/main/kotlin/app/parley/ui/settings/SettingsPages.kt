@@ -390,7 +390,7 @@ internal fun ContactsPage(vm: AppViewModel, open: (Destination) -> Unit) {
 
     val exporter = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/x-vcard")) { uri ->
         if (uri != null) {
-            vm.jobs.start(UserJobs.Kind.EXPORT, exporting, exportFailed) { p ->
+            vm.jobs.start(UserJobs.Kind.EXPORT, exporting, exportFailed, output = uri.toString()) { p ->
                 exportMessage(context, vm.c.vcards.export(uri, vm.c.contacts.contacts.value.orEmpty()) { done, total -> p.update(done, total) })
             }
         }
@@ -401,7 +401,7 @@ internal fun ContactsPage(vm: AppViewModel, open: (Destination) -> Unit) {
     val csvExporter = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
         if (uri != null) {
             val format = csvFormat
-            vm.jobs.start(UserJobs.Kind.EXPORT, exporting, exportFailed) { p ->
+            vm.jobs.start(UserJobs.Kind.EXPORT, exporting, exportFailed, output = uri.toString()) { p ->
                 exportMessage(context, vm.c.vcards.exportCsv(uri, vm.c.contacts.contacts.value.orEmpty(), format) { done, total -> p.update(done, total) })
             }
         }

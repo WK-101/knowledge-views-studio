@@ -142,6 +142,7 @@ class SettingsRepository(context: Context, scope: CoroutineScope) {
             secureScreen = pick(K.secure, after.secureScreen, shown.secureScreen),
             hideVault = pick(K.hideVault, after.hideVault, shown.hideVault),
             privateVaultHistory = pick(K.privateHistory, after.privateVaultHistory, shown.privateVaultHistory),
+            lockScreenCaller = pick(K.lockScreenCaller, after.lockScreenCaller, shown.lockScreenCaller),
         )
         val (toStore, overlay) = DuressPolicy.split(before, next)
         if (duressSession) sessionOverlay.value = overlay

@@ -32,8 +32,17 @@ class NumberMemoryIndexTest {
     /** HMAC with a test key, and a reversible "seal" that marks its output (enough to see nothing is stored plain). */
     private class FakeKeys(var secret: ByteArray = ByteArray(32) { 7 }) : NumberMemoryIndex.Keys {
         var sealFails = false
+        var lost = false
+        var startedOver = 0
+        override fun startOver() {
+            startedOver++
+            lost = false
+            secret = ByteArray(32) { 3 }
+        }
         override fun key(input: String): String =
-            Mac.getInstance("HmacSHA256").run { init(SecretKeySpec(secret, "HmacSHA256")); doFinal(input.toByteArray()) }.joinToString("") { "%02x".format(it) }
+            if (lost) throw app.parley.data.history.HistoryCrypto.KeyLostException(null)
+            else Mac.getInstance("HmacSHA256").run { init(SecretKeySpec(secret, "HmacSHA256")); doFinal(input.toByteArray()) }
+                .joinToString("") { "%02x".format(it) }
         override fun seal(plain: ByteArray): ByteArray {
             check(!sealFails) { "no key" }
             return MARK + plain.map { (it.toInt() xor 0x5A).toByte() }.toByteArray()
@@ -133,6 +142,21 @@ class NumberMemoryIndexTest {
         src.entries = listOf(NumberMemory.Entry("+447700900123", ana))
         assertTrue(runCatching { index.rebuild(listOf(src), gb) }.isFailure)
         assertArrayEquals(before, File(dir, "index.bin").readBytes())
+        assertEquals(listOf(mike), index.lookup("+447700900123", gb))
+    }
+
+    @Test fun a_lost_hashing_key_is_replaced_and_the_index_rebuilt() = runBlocking {
+        val keys = FakeKeys()
+        val src = FakeSource("deleted", "1", listOf(NumberMemory.Entry("+447700900123", mike)))
+        NumberMemoryIndex(dir, keys).rebuild(listOf(src), gb)
+        // The Keystore wrapping key went (invalidated) while memory.keys stayed: every hash throws until replaced.
+        keys.lost = true
+        val index = NumberMemoryIndex(dir, keys)
+        assertFalse(index.matchesKey())
+        val stats = index.rebuild(listOf(src), gb)
+        assertEquals(1, keys.startedOver)
+        assertEquals(listOf("deleted"), stats.read)
+        assertTrue(index.matchesKey())
         assertEquals(listOf(mike), index.lookup("+447700900123", gb))
     }
 

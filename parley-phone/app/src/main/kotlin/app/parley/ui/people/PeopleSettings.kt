@@ -95,6 +95,7 @@ fun ExportAccountRow(vm: AppViewModel, icon: ImageVector? = null) {
             vm.jobs.start(
                 UserJobs.Kind.EXPORT, res.getString(R.string.set_exporting),
                 { e -> res.getString(R.string.hist_export_failed, UserErrorText.of(context, e)) },
+                output = uri.toString(),
             ) { p ->
                 val r = vm.c.vcards.exportIds(uri, ids) { done, total -> p.update(done, total) }
                 val done = res.getQuantityString(R.plurals.export_account_done, r.exported, r.exported, a.displayLabel)

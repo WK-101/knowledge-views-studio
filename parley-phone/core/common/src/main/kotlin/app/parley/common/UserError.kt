@@ -1,10 +1,13 @@
 package app.parley.common
 
+import app.parley.common.backup.BackupIntegrityException
+import app.parley.common.history.RowProblemException
 import java.io.EOFException
 import java.io.FileNotFoundException
 import java.io.IOException
-import java.security.GeneralSecurityException
 import java.util.zip.ZipException
+import javax.crypto.AEADBadTagException
+import javax.crypto.BadPaddingException
 
 /**
  * What went wrong, in terms a person can act on. Raw exception messages are for logs and crash reports; screens show
@@ -61,9 +64,15 @@ enum class UserError {
             }
         }
 
+        /**
+         * Parse and file-format failures only. A plain IllegalArgumentException (a failed `require`) or a Keystore
+         * failure says nothing about the file, so it stays UNKNOWN rather than blaming the file.
+         */
         private fun isDamaged(e: Throwable, name: String): Boolean =
-            e is EOFException || e is ZipException || e is GeneralSecurityException || e is IllegalArgumentException ||
-                name.endsWith("SerializationException") || name == "VCardParseException" || name == "CannotParseException"
+            e is EOFException || e is ZipException || e is AEADBadTagException || e is BadPaddingException ||
+                e is NumberFormatException || e is BackupIntegrityException || e is RowProblemException ||
+                name.endsWith("SerializationException") || name == "JSONException" || name == "VCardParseException" ||
+                name == "CannotParseException"
 
         private val LOCKED_NAMES = setOf("LockedException", "UserNotAuthenticatedException", "KeyPermanentlyInvalidatedException")
 

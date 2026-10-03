@@ -97,6 +97,14 @@ object MenuMemory {
     /** The line key menu memory keeps [number] under ("" when it has none). */
     fun key(number: String, region: String?): String = PhoneIdentity.key(dialled(number), region)
 
+    /** The remembered menu of [number]: under [key], or the older form a line was stored under before 5.4. */
+    fun pathFor(state: MenuState, number: String, region: String?): MenuPath? {
+        val forms = PhoneIdentity.keyForms(dialled(number), region)
+        // "Stop remembering" under any form wins over a path kept under another.
+        if (forms.any { it in state.optOut }) return null
+        return forms.firstNotNullOfOrNull { state.paths[it] }
+    }
+
     /**
      * The path to remember from the keys pressed in one call, or null when there's nothing to keep. Keys before the
      * call connected (negative times) are dropped; everything from the first secret-looking run on is dropped

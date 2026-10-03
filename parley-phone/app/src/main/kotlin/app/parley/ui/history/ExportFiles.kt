@@ -1,5 +1,6 @@
 package app.parley.ui.history
 
+import android.app.Activity
 import android.content.ClipData
 import android.content.Context
 import android.content.Intent
@@ -16,7 +17,6 @@ import android.print.PrintAttributes
 import android.print.PrintDocumentAdapter
 import android.print.PrintDocumentInfo
 import android.print.PrintManager
-import android.print.pdf.PrintedPdfDocument
 import android.text.TextPaint
 import android.text.TextUtils
 import androidx.core.content.FileProvider
@@ -26,6 +26,7 @@ import app.parley.common.history.ExportFormat
 import app.parley.common.history.ExportNote
 import app.parley.common.history.ExportRow
 import app.parley.container
+import app.parley.jobs.UserJobs
 import app.parley.data.PhoneEnv
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
@@ -55,7 +56,7 @@ object ExportFiles {
 
     /** Writes [rows] in [format] and returns the file (older exports are removed first). */
     suspend fun write(context: Context, rows: List<ExportRow>, subject: String?, format: ExportFormat): File = withContext(Dispatchers.IO) {
-        cleanup(context, olderThanMillis = 10 * 60_000L)
+        cleanup(context)
         val zone = ZoneId.systemDefault()
         val now = System.currentTimeMillis()
         val d = dir(context).apply { mkdirs() }
@@ -83,10 +84,12 @@ object ExportFiles {
         file
     }
 
-    fun share(context: Context, file: File, format: ExportFormat) {
+    fun share(context: Context, file: File, format: ExportFormat) = share(context, file, format.mime)
+
+    fun share(context: Context, file: File, mime: String) {
         val uri = FileProvider.getUriForFile(context, context.packageName + ".files", file)
         val send = Intent(Intent.ACTION_SEND)
-            .setType(format.mime)
+            .setType(mime)
             .putExtra(Intent.EXTRA_STREAM, uri)
             .putExtra(Intent.EXTRA_SUBJECT, file.nameWithoutExtension)
             .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
@@ -94,24 +97,44 @@ object ExportFiles {
         context.startActivity(Intent.createChooser(send, context.getString(R.string.hist_share_chooser)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
     }
 
-    /** Opens the system print dialog ("Save as PDF" included). */
-    fun print(context: Context, rows: List<ExportRow>, subject: String?) {
-        val pm = context.getSystemService(PrintManager::class.java) ?: return
-        val name = CallExport.fileName(subject, System.currentTimeMillis(), ZoneId.systemDefault(), ExportFormat.PDF).removeSuffix(".pdf")
-        pm.print(name, CallPrintAdapter(context.applicationContext, title(context, subject), rows), PrintAttributes.Builder().setMediaSize(PrintAttributes.MediaSize.ISO_A4).build())
+    /**
+     * Hands a prepared export ([UserJobs.Opener]) to the share sheet, or to the print dialog ("Save as PDF" included),
+     * from [activity]: only when the person tapped its notification or snackbar. False when the file is gone.
+     */
+    fun open(activity: Activity, o: UserJobs.Opener): Boolean {
+        // Only a plain name in the export folder, never a path from the intent.
+        if (o.file.isEmpty() || o.file.contains('/') || o.file.startsWith(".")) return false
+        val file = File(dir(activity), o.file)
+        if (!file.isFile) return false
+        if (o.print) {
+            val pm = activity.getSystemService(PrintManager::class.java) ?: return false
+            pm.print(file.nameWithoutExtension, PdfFileAdapter(file), PrintAttributes.Builder().setMediaSize(PrintAttributes.MediaSize.ISO_A4).build())
+        } else {
+            share(activity, file, o.mime.ifEmpty { "application/octet-stream" })
+        }
+        return true
     }
 
+    /** What a job hands back once [file] (written by [write]) is ready: share it, or with [print] print it. */
+    fun opener(file: File, format: ExportFormat, print: Boolean = false): UserJobs.Opener = UserJobs.Opener(file.name, format.mime, print)
+
     /**
-     * Deletes export files and what other screens handed to apps through the share cache (all of them by default):
-     * contact cards (a scanned Secure QR's decrypted card among them), voicemail audio, rule exports and transfer
-     * files. Plaintext files never outlive the next start, and the hourly upkeep takes those older than an hour.
+     * Deletes export files and what other screens handed to apps through the share cache once they are older than
+     * [olderThanMillis]: contact cards, voicemail audio, rule exports and transfer files. Run at every start and by the
+     * upkeep; a scanned card is deleted as soon as its import has read it.
      */
-    fun cleanup(context: Context, olderThanMillis: Long = 0) {
-        val cutoff = System.currentTimeMillis() - olderThanMillis
-        fun sweep(d: File) = d.listFiles()?.forEach { f -> if (f.isFile && (olderThanMillis == 0L || f.lastModified() < cutoff)) f.delete() }
+    fun cleanup(context: Context, olderThanMillis: Long = SAFE_AGE_MS, now: Long = System.currentTimeMillis()) {
+        val cutoff = now - olderThanMillis
+        fun sweep(d: File) = d.listFiles()?.forEach { f -> if (f.isFile && f.lastModified() < cutoff) f.delete() }
         sweep(dir(context))
         SHARED_DIRS.forEach { sweep(File(context.cacheDir, it)) }
     }
+
+    /**
+     * How old a shared file must be before a sweep deletes it. Never "all at start": a process started by another
+     * app opening a shared file (an e-mail draft attaching it late) must still find it.
+     */
+    const val SAFE_AGE_MS = 60 * 60_000L
 
     /** Cache folders other screens share files from (FileProvider paths "share" and "transfer"). */
     private val SHARED_DIRS = listOf("share", "transfer")
@@ -196,47 +219,23 @@ object ExportFiles {
         }
     }
 
-    private class CallPrintAdapter(private val context: Context, private val title: String, private val rows: List<ExportRow>) : PrintDocumentAdapter() {
-        private var attributes: PrintAttributes? = null
-        private var layout: PdfLayout? = null
-        private var pages: List<IntRange> = emptyList()
-
+    /** Prints a PDF Parley already wrote (an export prepared in the background), page for page. */
+    private class PdfFileAdapter(private val file: File) : PrintDocumentAdapter() {
         override fun onLayout(old: PrintAttributes?, new: PrintAttributes, cancel: CancellationSignal?, callback: LayoutResultCallback, extras: Bundle?) {
             if (cancel?.isCanceled == true) {
                 callback.onLayoutCancelled()
                 return
             }
-            attributes = new
-            val media = new.mediaSize ?: PrintAttributes.MediaSize.ISO_A4
-            val l = PdfLayout(context, media.widthMils * 72 / 1000, media.heightMils * 72 / 1000)
-            layout = l
-            pages = l.paginate(rows)
-            val info = PrintDocumentInfo.Builder("calls.pdf").setContentType(PrintDocumentInfo.CONTENT_TYPE_DOCUMENT).setPageCount(pages.size).build()
-            callback.onLayoutFinished(info, old != new)
+            callback.onLayoutFinished(PrintDocumentInfo.Builder(file.name).setContentType(PrintDocumentInfo.CONTENT_TYPE_DOCUMENT).build(), old != new)
         }
 
+        @Suppress("TooGenericExceptionCaught") // The print framework wants a failure, whatever the reason.
         override fun onWrite(ranges: Array<out PageRange>, destination: ParcelFileDescriptor, cancel: CancellationSignal?, callback: WriteResultCallback) {
-            val attrs = attributes ?: return callback.onWriteFailed("Not laid out")
-            val l = layout ?: return callback.onWriteFailed("Not laid out")
-            val doc = PrintedPdfDocument(context, attrs)
             try {
-                val zone = ZoneId.systemDefault()
-                pages.forEachIndexed { i, range ->
-                    if (cancel?.isCanceled == true) {
-                        callback.onWriteCancelled()
-                        return
-                    }
-                    if (ranges.none { i in it.start..it.end } && ranges.none { it == PageRange.ALL_PAGES }) return@forEachIndexed
-                    val page = doc.startPage(i)
-                    l.draw(page.canvas, title, rows, range, i, pages.size, zone)
-                    doc.finishPage(page)
-                }
-                FileOutputStream(destination.fileDescriptor).use { doc.writeTo(it) }
-                callback.onWriteFinished(arrayOf(PageRange.ALL_PAGES).takeIf { ranges.any { it == PageRange.ALL_PAGES } } ?: ranges.map { it }.toTypedArray())
+                file.inputStream().use { input -> FileOutputStream(destination.fileDescriptor).use { input.copyTo(it) } }
+                callback.onWriteFinished(arrayOf(PageRange.ALL_PAGES))
             } catch (e: Exception) {
-                callback.onWriteFailed(e.message)
-            } finally {
-                doc.close()
+                callback.onWriteFailed(e.javaClass.simpleName)
             }
         }
     }

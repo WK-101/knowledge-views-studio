@@ -124,6 +124,9 @@ class PhoneNumbersOutsideIdentity(config: Config = Config.empty) : Rule(config) 
  * as if the work had merely failed. Inside a suspend function or a coroutine builder's block, use core/common's
  * `catching {}`, which rethrows cancellation. Found by position, without types: a `runCatching` lexically inside a
  * `suspend fun`, or inside the block given to launch, async, withContext and the like.
+ *
+ * New code only: the sites written before the rule are in config/detekt/baseline.xml (several hundred, screening and
+ * upkeep among them) and are replaced over time, so this guards against new ones rather than vouching for the old.
  */
 class RunCatchingInSuspend(config: Config = Config.empty) : Rule(config) {
     override val issue: Issue = Issue(

@@ -2,7 +2,7 @@ package app.parley.data.vault
 
 import android.content.Context
 import android.util.Log
-import app.parley.common.PhoneIdentity
+import app.parley.common.VaultNumberKeys
 import app.parley.common.catching
 import app.parley.data.db.PrivateCallEntity
 import app.parley.data.history.HistoryCrypto
@@ -68,14 +68,16 @@ internal class PrivateCallSeal(context: Context) {
 
     companion object {
         /**
-         * Which call-log numbers may be private, from every private number's last digits (read once per sweep): only
-         * those are looked up (a Keystore fingerprint per form), not every call of the month. Every stored number has a
-         * last-digits row, so a call the full lookup would match always passes. Null when there are no private numbers.
+         * Which call-log numbers may be private (read once per sweep): only those are looked up (a Keystore fingerprint
+         * per form), not every call of the month. [entries] are each private contact's numbers with the region they were
+         * saved with; [region] is the one lookups read call-log numbers with. Matched on every form caller ID matches
+         * on ([VaultNumberKeys.Prefilter]), so a call the full lookup would match always passes. Null when there are no
+         * private numbers.
          */
-        fun prefilter(privateNumbers: List<String>): ((String) -> Boolean)? {
-            val suffixes = privateNumbers.map(PhoneIdentity::legacyKey).filter { it.isNotEmpty() }.toHashSet()
-            if (suffixes.isEmpty()) return null
-            return { n -> PhoneIdentity.legacyKey(n).let { it.isEmpty() || it in suffixes } }
+        fun prefilter(entries: List<Pair<List<String>, String?>>, region: String?): ((String) -> Boolean)? {
+            val p = VaultNumberKeys.Prefilter(entries, region)
+            if (p.isEmpty) return null
+            return p::mayMatch
         }
 
         private const val TAG = "PrivateCallSeal"

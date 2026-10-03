@@ -113,6 +113,7 @@ fun SelectionBar(vm: AppViewModel) {
             vm.jobs.start(
                 UserJobs.Kind.EXPORT, res.getString(R.string.set_exporting),
                 { e -> res.getString(R.string.hist_export_failed, UserErrorText.of(context, e)) },
+                output = uri.toString(),
             ) { p ->
                 val n = vm.c.vcards.export(uri, chosen) { done, total -> p.update(done, total) }.exported
                 res.getQuantityString(R.plurals.sel_exported, n, n)

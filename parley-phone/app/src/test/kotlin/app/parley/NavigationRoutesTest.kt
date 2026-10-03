@@ -258,6 +258,10 @@ class NavigationRoutesTest {
                 .putExtra(IntentRoutes.EXTRA_PACKAGE, "com.example")
             assertNull(action, IntentRoutes.resolve(i, fromParley = false) { null })
         }
+        // A prepared export opens only from Parley's own notification or snackbar.
+        val export = Intent(IntentRoutes.ACTION_OPEN_EXPORT).putExtra(IntentRoutes.EXTRA_FILE, "calls.csv").putExtra(IntentRoutes.EXTRA_MIME, "text/csv")
+        assertNull(IntentRoutes.resolve(export, fromParley = false) { null })
+        assertEquals(app.parley.jobs.UserJobs.Opener("calls.csv", "text/csv"), IntentRoutes.resolve(export, fromParley = true) { null }?.openExport)
         // In particular, no other app can mark every missed call as seen.
         assertNull(IntentRoutes.resolve(Intent(IntentRoutes.ACTION_SHOW_MISSED), fromParley = false) { null })
         // Public actions still work from anywhere.

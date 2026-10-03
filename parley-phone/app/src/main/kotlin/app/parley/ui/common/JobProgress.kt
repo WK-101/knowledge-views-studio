@@ -10,6 +10,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
@@ -21,6 +22,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import app.parley.AppViewModel
 import app.parley.R
+import app.parley.jobs.JobNotices
 import app.parley.jobs.UserJobs
 
 /**
@@ -30,9 +32,19 @@ import app.parley.jobs.UserJobs
 @Composable
 fun JobResultsHost(vm: AppViewModel) {
     val lifecycle = LocalLifecycleOwner.current.lifecycle
+    val app = LocalContext.current.applicationContext
     LaunchedEffect(lifecycle) {
         lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-            vm.jobs.finished.collect { vm.toast(it.message) }
+            vm.jobs.finished.collect { f ->
+                val o = f.opener
+                if (o == null) {
+                    vm.toast(f.message)
+                } else {
+                    // The share sheet or print dialog opens only on a tap, through the main screen (never from the job).
+                    val label = app.getString(if (o.print) R.string.job_print else R.string.job_share)
+                    vm.offer(app.getString(R.string.job_file_ready), label) { app.startActivity(JobNotices.openIntent(app, o)) }
+                }
+            }
         }
     }
 }

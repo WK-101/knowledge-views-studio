@@ -32,7 +32,7 @@ class MenuMemoryBridge(private val app: Context, private val c: DataContainer) :
         if (!remembering || !allowed(number)) return@withContext null
         val state = c.menus.load()
         if (!c.menus.available) return@withContext null
-        MenuMemory.pathFor(state, key(number, accountId))
+        MenuMemory.pathFor(state, number, PhoneEnv.countryIso(app, accountId))
     }
 
     override fun onMenuKeys(number: String, accountId: String?, presses: List<MenuPress>) {
