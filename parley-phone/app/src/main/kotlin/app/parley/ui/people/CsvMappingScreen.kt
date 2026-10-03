@@ -257,6 +257,7 @@ private fun targetLabel(res: Resources, t: ColumnTarget): String {
             CsvField.WEBSITE -> R.string.csv_field_website
             CsvField.BIRTHDAY -> R.string.csv_field_birthday
             CsvField.NOTES -> R.string.csv_field_notes
+            CsvField.DEPARTMENT -> R.string.csv_field_department
             CsvField.LABELS -> R.string.csv_field_labels
         },
     )

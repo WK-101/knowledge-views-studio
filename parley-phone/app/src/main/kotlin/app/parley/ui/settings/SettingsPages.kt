@@ -1,5 +1,6 @@
 package app.parley.ui.settings
 
+import app.parley.common.vcard.CsvFormat
 import app.parley.ui.Destination
 import android.app.NotificationManager
 import android.content.Context
@@ -98,6 +99,7 @@ import androidx.compose.material.icons.rounded.DeleteSweep
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -392,10 +394,17 @@ internal fun ContactsPage(vm: AppViewModel, open: (Destination) -> Unit) {
             vm.toast(exportMessage(context, r))
         }
     }
+    // Parley's own columns, or Google's or Outlook's, chosen in the sheet before the file is.
+    var csvFormat by rememberSaveable { mutableStateOf(CsvFormat.PARLEY) }
+    var chooseCsv by rememberSaveable { mutableStateOf(false) }
     val csvExporter = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
         if (uri != null) scope.launch {
             progress = exporting
-            val r = try { vm.c.vcards.exportCsv(uri, vm.c.contacts.contacts.value.orEmpty()) } catch (e: Exception) { VCardIO.ExportResult(0, listOf(e.message ?: "error")) }
+            val r = try {
+                vm.c.vcards.exportCsv(uri, vm.c.contacts.contacts.value.orEmpty(), csvFormat)
+            } catch (e: Exception) {
+                VCardIO.ExportResult(0, listOf(e.message ?: "error"))
+            }
             progress = null
             vm.toast(exportMessage(context, r))
         }
@@ -447,7 +456,14 @@ internal fun ContactsPage(vm: AppViewModel, open: (Destination) -> Unit) {
             importer.launch(arrayOf("text/x-vcard", "text/vcard", "text/directory", "text/csv", "text/comma-separated-values", "application/octet-stream", "*/*"))
         }
         linkRow("export_vcf", Icons.Rounded.FileDownload) { exporter.launch("contacts.vcf") }
-        linkRow("export_csv", Icons.Rounded.FileDownload) { csvExporter.launch("contacts.csv") }
+        linkRow("export_csv", Icons.Rounded.FileDownload) { chooseCsv = true }
+    }
+    if (chooseCsv) {
+        CsvExportSheet(onDismiss = { chooseCsv = false }) { f ->
+            chooseCsv = false
+            csvFormat = f
+            csvExporter.launch(csvFileName(f))
+        }
     }
     SegmentedGroup(stringResource(R.string.set_group_birthdays)) {
         linkRow("birthdays", Icons.Rounded.Cake) { open(Routes.Birthdays) }

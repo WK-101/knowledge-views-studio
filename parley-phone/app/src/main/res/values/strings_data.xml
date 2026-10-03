@@ -1730,4 +1730,6 @@
     <string name="bkp_fix_folder">Choose folder</string>
     <string name="bkp_fix_other_folder">Choose another folder</string>
     <string name="bkp_fix_now">Back up now</string>
+    <string name="csv_field_department">Department</string>
+    <string name="search_field_custom">custom field</string>
 </resources>

@@ -84,6 +84,7 @@ private fun Choice(icon: ImageVector, title: String, sub: String, onClick: () ->
     )
 }
 
+@Suppress("CyclomaticComplexMethod") // One label per field.
 @Composable
 private fun fieldLabel(f: Field): String = stringResource(
     when (f) {
@@ -100,6 +101,8 @@ private fun fieldLabel(f: Field): String = stringResource(
         Field.HANDLES -> R.string.edit_handles
         Field.LABELS -> R.string.edit_field_labels
         Field.PRONOUNS -> R.string.edit_pronouns
+        Field.LANGUAGE -> R.string.edit_language
+        Field.CUSTOM_FIELDS -> R.string.edit_custom_fields
     },
 )
 

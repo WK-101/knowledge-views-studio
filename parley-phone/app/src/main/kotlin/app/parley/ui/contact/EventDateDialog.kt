@@ -29,7 +29,10 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import app.parley.R
+import app.parley.common.AltCalendar
 import app.parley.common.EventDate
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.platform.LocalResources
 import java.text.DateFormat
 import java.text.SimpleDateFormat
 import java.time.LocalDate
@@ -43,11 +46,21 @@ import app.parley.ui.ConfirmDialog
 
 /**
  * Date entry that supports dates without a year (birthdays people only know the day of).
- * Fields follow the locale's usual order (day-month or month-day).
+ * Fields follow the locale's usual order (day-month or month-day). With [onPickCalendar] it also asks which calendar
+ * the date comes round by each year ([AltCalendar]); that needs the year, since the date is stored as the Gregorian
+ * day it happened.
  */
+@Suppress("CyclomaticComplexMethod") // Day, month, optional year and calendar, in the locale's order.
 @Composable
-fun EventDateDialog(initial: String, onDismiss: () -> Unit, onPick: (String) -> Unit) {
+fun EventDateDialog(
+    initial: String,
+    onDismiss: () -> Unit,
+    initialCalendar: String? = null,
+    onPickCalendar: ((String, String?) -> Unit)? = null,
+    onPick: (String) -> Unit,
+) {
     val parsed = EventDate.parse(initial)
+    var calendar by rememberSaveable { mutableStateOf(AltCalendar.byKey(initialCalendar)?.key) }
     var month by rememberSaveable { mutableIntStateOf(parsed?.month ?: LocalDate.now().monthValue) }
     var day by rememberSaveable { mutableIntStateOf(parsed?.day ?: LocalDate.now().dayOfMonth) }
     var withYear by rememberSaveable { mutableStateOf(parsed?.year != null || parsed == null) }
@@ -65,7 +78,10 @@ fun EventDateDialog(initial: String, onDismiss: () -> Unit, onPick: (String) -> 
         title = stringResource(R.string.date_choose),
         text = null,
         confirmLabel = stringResource(R.string.main_ok),
-        onConfirm = { onPick(EventDate(if (withYear) yearValue else null, month, day).format()) },
+        onConfirm = {
+            val date = EventDate(if (withYear) yearValue else null, month, day).format()
+            if (onPickCalendar != null) onPickCalendar(date, calendar.takeIf { withYear }) else onPick(date)
+        },
         onDismiss = onDismiss,
         dismissLabel = stringResource(R.string.main_cancel),
         confirmEnabled = valid,
@@ -94,6 +110,18 @@ fun EventDateDialog(initial: String, onDismiss: () -> Unit, onPick: (String) -> 
                         year, { year = it.filter(Char::isDigit).take(4) }, label = { Text(stringResource(R.string.date_year)) }, singleLine = true,
                         isError = yearValue == null, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(),
                     )
+                }
+                if (onPickCalendar != null) {
+                    val res = LocalResources.current
+                    val choices = listOf<AltCalendar?>(null) + AltCalendar.entries
+                    if (withYear) {
+                        Picker(
+                            stringResource(R.string.edit_calendar), calendarName(res, AltCalendar.byKey(calendar)), choices.map { calendarName(res, it) },
+                            Modifier.fillMaxWidth(),
+                        ) { calendar = choices[it]?.key }
+                    } else if (calendar != null) {
+                        Text(stringResource(R.string.edit_calendar_needs_year), style = MaterialTheme.typography.bodySmall)
+                    }
                 }
             }
         },

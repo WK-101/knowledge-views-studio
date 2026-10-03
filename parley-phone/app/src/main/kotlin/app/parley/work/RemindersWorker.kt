@@ -1,5 +1,8 @@
 package app.parley.work
 
+import app.parley.common.AltCalendar
+import app.parley.common.AltCalendars
+import app.parley.data.people.IcuCalendars
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
@@ -72,10 +75,12 @@ class RemindersWorker(context: Context, params: WorkerParameters) : CoroutineWor
         val deceased = events.filter { LifeEvents.isDeath(it.type, it.label) }.map { it.contactId }.toSet()
         val fired = DateReminders.prune(c.circle.stateSet(S_FIRED), now).toMutableSet()
         for (e in events) {
-            val d = EventDate.parse(e.date) ?: continue
+            val stored = EventDate.parse(e.date) ?: continue
+            // A date kept by another calendar (lunar, Hebrew, Hijri) fires on this year's Gregorian day of it.
+            val d = AltCalendars.effective(stored, AltCalendar.byKey(e.calendar), today, IcuCalendars) ?: continue
             if (!LifeEvents.remindBirthday(e.type, e.contactId in deceased)) continue
             val fire = DateReminders.fire(d, today, cfg.dateLeadDays) ?: continue
-            val key = DateReminders.eventKey(e.type, d, e.label)
+            val key = DateReminders.eventKey(e.type, stored, e.label)
             val occasion = DateReminders.occurrence(e.contactId, key, d, today)
             if (c.circle.isWished(occasion)) continue
             val firedKey = "$occasion:${fire.name}"
@@ -126,7 +131,10 @@ class RemindersWorker(context: Context, params: WorkerParameters) : CoroutineWor
                 val keys = byKey.keys
                 val upcoming = runCatching { c.contacts.events() }.getOrDefault(emptyList<ContactEvent>())
                     .filter { it.lookupKey in keys && !LifeEvents.isDeath(it.type, it.label) }
-                    .mapNotNull { e -> EventDate.parse(e.date)?.let { CircleDigest.UpcomingDate(e.lookupKey, it.daysUntil(today).toInt()) } }
+                    .mapNotNull { e ->
+                        EventDate.parse(e.date)?.let { AltCalendars.effective(it, AltCalendar.byKey(e.calendar), today, IcuCalendars) }
+                            ?.let { CircleDigest.UpcomingDate(e.lookupKey, it.daysUntil(today).toInt()) }
+                    }
                 // The serendipity pick can be anyone you were once in touch with, as long as they're a contact.
                 val quiet = c.circle.lastContactsAll(idx).filterKeys { it in contacts }.map { (k, t) -> CircleDigest.Quiet(k, t) }
                 // Life events remembered yearly, for anyone (not only the Circle).

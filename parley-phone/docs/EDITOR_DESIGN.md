@@ -165,8 +165,8 @@ important services (also in My card)."
   the service's ("Add the server too" for Mastodon). Which rows are profiles is decided once per row, so a website
   being typed never jumps between groups.
 - **vCard**: import reads iOS `X-SOCIALPROFILE` and RFC 9554 `SOCIALPROFILE` into labelled website rows (once, when
-  the card also has the URL); export writes the labelled URL, which every reader keeps, rather than `X-SOCIALPROFILE`,
-  which only iPhones read (writing both would show each profile twice there).
+  the card also has the URL). Since 5.3 export writes RFC 9554's `SOCIALPROFILE;SERVICE-TYPE=<label>;USERNAME=<handle>`
+  with the address as the value (see "More fields"); 4.5–5.2 wrote the labelled URL, which is still read.
 - **My card**: the same rows; the QR code and shared card include them when "Profiles" is chosen among the shared
   parts. **Private contacts**: the same rows, sealed with the details. **Search**: Contacts search finds a profile by
   its handle, with or without "@" ("Matched: profile").
@@ -240,3 +240,40 @@ the whole picture as well.
   copy. The editor's header shows the framed circle as the lists will.
 - **Everywhere the editor is**: device, private and temporary contacts. My card has no photo (it isn't shared), so it
   has no photo menu.
+
+## More fields (5.3)
+
+Google's 2024 "Create contact" put department, phonetic middle name and custom fields under **Add fields**; RFC 9554
+(2024) added a language, a second surname, a generation and eleven address parts to vCard. Parley 5.2 kept most of
+them when they arrived but couldn't show or edit them. The rule stays the editor's: show what the contact holds, add
+the rest from the one line of chips.
+
+- **Custom fields** (chip "Custom field", repeatable): each is a two-line block, Label ("Shoe size") then Value, with ⊖.
+  In a Google account they are Google's user-defined field (`contact_user_defined_field`, DATA1 label, DATA2 value), so
+  they sync and Google Contacts edits them; anywhere else, and in private contacts, Parley's own row with the same
+  columns (`CustomFields`). A row keeps its kind when edited; imports, restores and folder sync give each field the kind
+  of the account it lands in. vCard: `itemN.X-PARLEY-CUSTOM:<value>` with `itemN.X-ABLabel:<label>`, the grouped-item
+  form Apple and Parley already use for labels. The page lists them under **More**; Contacts search finds them
+  ("Matched: custom field").
+- **Language** (chip "Language", one): typed as a name or a tag ("Spanish", "pt-BR"); the line under the field says what
+  is kept ("Saved as Spanish") and the save stores the BCP 47 tag (`Languages`). Parley's row; vCard `LANG` (RFC 6350,
+  with TYPE and PREF), or `LANGUAGE` (RFC 9554, the card's own language) for one read from that property.
+- **Name block**: **Phonetic middle name** joins the phonetic first and last names (Android's own column). A contact
+  that has RFC 9554's **second surname** or **generation** shows them in the open block (after the last name and the
+  suffix); others never see these lines. They are Parley's row (`Mime.NAME_PARTS`) and N's sixth and seventh components.
+- **Address parts** (room, apartment, floor, street number and name, building, block, subdistrict, district, landmark,
+  direction): kept in the address row's DATA11 (`AddressParts`), so they stay with their address. Shown under the
+  address ("Also: Floor: 2 · Building: Torre B") and under More on the page; not edited, written only with a new row,
+  so an edit of the street keeps them. ADR's components 8–18 in vCard. ez-vcard 0.12 doesn't know N's and ADR's new
+  components, so `Rfc9554` scribes read and write them for every vCard Parley reads or writes.
+- **Phone types**: the type menu keeps the six common types first (Mobile, Home, Work, Main, Work fax, Other), then
+  **More types…** (a dialog with Android's other fourteen, the current one ticked) and Custom… (`PhoneTypes`).
+- **Other calendars**: the date picker has a **Calendar** choice (Gregorian, Chinese lunar, Hebrew, Hijri) while the
+  date has a year. The row keeps the Gregorian day it happened in START_DATE (every other app shows that correctly) and
+  the calendar's CLDR name in DATA14 (`AltCalendar`); vCard puts it in the date's `CALSCALE` parameter
+  (`BDAY;CALSCALE=chinese:19900127`). Parley works out the next Gregorian day from Android's ICU calendars
+  (`IcuCalendars`, no library): the same month and day of that calendar, a missing leap month or Adar I falling to the
+  ordinary month and a missing 30th to the 29th (`AltCalendars`). The page shows "Chinese lunar · next 17 Feb 2026",
+  Birthdays sorts by it and the birthday reminder fires on it. Other apps see a yearly Gregorian date.
+- **Private and temporary contacts**: every field above is sealed with the details (`ContactDetailsJson`), kept in
+  drafts (`ContactDraftJson`) and carried by Make private / Make visible.

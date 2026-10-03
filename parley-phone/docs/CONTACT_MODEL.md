@@ -43,7 +43,7 @@ ContactVariants(storage, expiresAt) (what it is)
 |---|---|---|
 | Name, numbers, number labels, job/company line, "who is this" line, note for calls, star | Vault caller-ID copy (`VaultRepository`, caller-ID key) | Yes: caller ID, lists and the lock screen need them (unchanged) |
 | Label membership (group id + title per label), own ringtone, "send to voicemail", vibration pattern and auto-answer (4.4) | The same caller-ID copy, the only place they are kept (`VaultRepository.updateCallerChoices`; read through `PrivateLabelStore`) | Yes: the call path applies them while the phone is locked, and they change without unlocking |
-| Every other field (emails, addresses, dates, relations, websites and profiles, notes, handles…), the usual app | Vault details, main part (auth-bound detail key) | No: the page asks to unlock, in place |
+| Every other field (emails, addresses with their RFC 9554 parts, dates with the calendar they follow, relations, websites and profiles, notes, handles, custom fields, the language, phonetic middle name, second surname and generation…), the usual app | Vault details, main part (auth-bound detail key) | No: the page asks to unlock, in place |
 | The original address-book record it was made private with (photo included) and its carried interactions | Vault details, extra part (same key; opened only by Make visible, backups and the first seeding) | No |
 | Photo | Vault photo file, sealed with the caller-ID key | Yes (the call screen shows it) |
 | Circle rhythm, relation links, yearly dates, logged moments, call-screen picture | Parley's own stores under `parley-private:<id>` (moments' notes sealed as for every contact) | Parley only; the page shows them after unlock |
@@ -142,6 +142,7 @@ Parley as the phone app (or the call-screening role), like every screening featu
 | Call-screen picture | Yes | No | Yes (page and editor) |
 | Labels: page, filters, editor chips, Add to label, label ringtone, SIM, rhythm, rules, limits | Yes | No | Yes, membership kept sealed by Parley (see "Labels of a private contact") |
 | Ringtone, Send to voicemail | Yes (Android) | No | Yes, applied by Parley's call screening and ringer |
+| Custom fields, language, second surname and generation, address parts, dates by another calendar (5.3) | Yes (custom fields as Google's own kind in a Google account, Parley's rows elsewhere; see EDITOR_DESIGN.md "More fields") | — | Yes (sealed in the details; carried both ways by the conversions) |
 | Vibration pattern (haptic caller ID), auto-answer, pronouns (4.4) | Yes (Parley, by lookup key; pronouns in a Parley data row) | No | Yes (caller-ID copy; pronouns sealed in the details and on the caller card), moved both ways by the conversions |
 | Call time limit, talk-time reminder | Yes | No | Yes (by its Parley key; the limit keeps no name outside the vault) |
 | Signed card updates ("Ana sent an updated card", 4.6) | Yes | No | Yes (the link by its Parley key; Apply edits the sealed details; never named in discreet mode) |
