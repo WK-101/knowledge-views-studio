@@ -53,4 +53,11 @@ class LockScreenCallerUiTest {
         val c = call(emergency = true)
         assertSame(c, c.forLockScreen(LockScreenCaller.NONE, "Incoming call"))
     }
+
+    @Test fun a_conferences_people_are_masked_too() {
+        val conf = call().copy(isConference = true, children = listOf(call(name = "Grace Hopper"), call(name = null)))
+        val c = conf.forLockScreen(LockScreenCaller.INITIALS, "Incoming call")
+        assertEquals(listOf("GH", "+442079460000"), c.children.map { it.title })
+        assertNull(c.children.first().photoUri)
+    }
 }
